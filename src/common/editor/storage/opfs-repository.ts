@@ -412,17 +412,18 @@ export class OpfsRepository {
 	async #sourceFile(source: StorageRecord, signal?: AbortSignal): Promise<BlobLike> {
 		const directory = await this.directory();
 		if (!directory) throw new Error('Origin-private audio storage is unavailable.');
+		if (!source.path) throw new Error('The requested local audio source is missing.');
 		try {
-			if (!source.path) throw new Error('Missing path.');
 			const readable = await this.#sync.readable(
 				directory, 'canonical-pcm-chunk-read', source.path, signal,
 			);
 			if (readable) return readable;
 			const handle = await directory.getFileHandle(source.path);
 			return await handle.getFile();
-		} catch {
+		} catch (error) {
 			throwIfAborted(signal);
-			throw new Error('The requested local audio source is missing.');
+			if (error instanceof Error && error.name === 'NotFoundError') throw new Error('The requested local audio source is missing.', { cause: error });
+			throw error;
 		}
 	}
 }

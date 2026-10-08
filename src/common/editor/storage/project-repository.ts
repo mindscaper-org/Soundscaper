@@ -269,7 +269,10 @@ export class ProjectRepository implements ProjectRepositoryPort {
 			? [...this.#port.memory.projects.values()]
 			: await transact(database, 'projects', 'readonly', ({ projects }) => request(projects.getAll()));
 		return projects
-			.map((project) => clone(compactProjectSourceMetadata(project) as ProjectDocument))
+			.flatMap((project) => {
+				try { return [clone(compactProjectSourceMetadata(project) as ProjectDocument)]; }
+				catch { return []; }
+			})
 			.sort(sortProjects);
 	}
 

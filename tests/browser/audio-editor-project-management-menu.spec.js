@@ -17,6 +17,8 @@ import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
 const projectManagementCommands = [
 	'Local projects',
+	'Recover a project',
+	'Recover Audacity project',
 	'Consolidate media',
 	'Trim media to what is used',
 	'Save archive checksums',

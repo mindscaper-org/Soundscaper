@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { resolveSoundscaperDesktopProjectRecoveryBridge } from './desktop-project-recovery-bridge.ts';
 import type { FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts';
 import { admitSoundscaperDesktopStorePublication } from './desktop-project-library-store-publication.ts';
 import {
@@ -40,6 +41,8 @@ export interface SoundscaperDesktopProjectStoreComposition {
 export interface SoundscaperDesktopProjectStoreLocal {
 	readonly backend: unknown;
 	readonly maximumProjectDocumentBytes?: number;
+	readProjectRecoveryCandidates?(projectId: string): PromiseLike<readonly import('../common/editor/storage/project-recovery-repository.ts').ProjectRecoveryCandidate[]>;
+	listProjectRecoverySummaries?(): PromiseLike<readonly import('../common/editor/storage/project-recovery-repository.ts').ProjectRecoverySummary[]>;
 	ready(): PromiseLike<unknown>;
 	estimateStorage(): PromiseLike<unknown>;
 	loadProject(projectId: string, options?: Readonly<{ revision?: number; signal?: AbortSignal }> | unknown):
@@ -126,6 +129,16 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 	const pendingDeleteCleanup = new Set<string>();
 	const overrides = Object.freeze({
 		listProjects: () => renderer.listProjects(),
+		readProjectRecoveryCandidates: async (projectId: string) => {
+			const local = await localStore.readProjectRecoveryCandidates?.(projectId) ?? [];
+			const native = await resolveSoundscaperDesktopProjectRecoveryBridge()?.readProjectRecoveryCandidates(projectId) ?? [];
+			return [...native, ...local].sort((left, right) => (right.revision ?? -1) - (left.revision ?? -1));
+		},
+		listProjectRecoverySummaries: async () => {
+			const local = await localStore.listProjectRecoverySummaries?.() ?? [];
+			const native = await resolveSoundscaperDesktopProjectRecoveryBridge()?.listProjectRecoverySummaries() ?? [];
+			return [...new Map([...local, ...native].map((row) => [row.id, row])).values()];
+		},
 		loadProject: async (projectId: string, optionsValue: unknown = {}) => {
 			const options = loadOptions(optionsValue);
 			if (options.revision !== undefined) return localStore.loadProject(projectId, options);

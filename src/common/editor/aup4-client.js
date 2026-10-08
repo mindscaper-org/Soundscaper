@@ -49,7 +49,8 @@ export class Aup4WorkerClient {
 	}
 	openFile(projectId, file, options = {}) {
 		const desktopRange = file instanceof Blob ? selectedRangeDescriptorForBlob(file) : null;
-		return this.call('open-file', { projectId, ...(desktopRange ? { desktopRange } : { file }), ...deviceOptions(options) }, options);
+		return this.call('open-file', { projectId, ...(desktopRange ? { desktopRange } : { file }),
+			...deviceOptions(options), ...(options.recover === true ? { recover: true } : {}) }, options);
 	}
 	planImport(projectId, options = {}) {
 		return this.call('plan-import', { projectId, title: options.title }, options);

@@ -2,8 +2,12 @@ import { AUDACITY_EFFECT_COPY_ENTRIES } from './canonical-extras-audacity-effect
 import { AUDACITY_EFFECT_PRESET_COPY_ENTRIES } from './canonical-extras-audacity-presets.js';
 import { STANDARD_EFFECT_COPY_ENTRIES } from './canonical-extras-standard-effects.js';
 import { localeLanguage } from './locale.js';
+import { PROJECT_RECOVERY_COPY_BY_LOCALE } from './editor-project-recovery-copy.ts';
+import { RECORDING_RECOVERY_COPY, RECORDING_RECOVERY_GERMAN_COPY } from './editor-recording-recovery-copy.ts';
 // Canonical effect/layout and Audacity parity copy. The exported catalogs are flat.
 const COPY_ENTRIES = Object.freeze([
+	...Object.keys(PROJECT_RECOVERY_COPY_BY_LOCALE.en).map((key) => [key, PROJECT_RECOVERY_COPY_BY_LOCALE.en[key], PROJECT_RECOVERY_COPY_BY_LOCALE.de[key]]),
+	...Object.keys(RECORDING_RECOVERY_COPY).map((key) => [key, RECORDING_RECOVERY_COPY[key], RECORDING_RECOVERY_GERMAN_COPY[key]]),
 	['effectAdvancedSettings', 'Advanced settings', 'Erweiterte Einstellungen'],
 	['effectAbout', 'About', 'Über'],
 	['effectAboutTitle', 'About {name}', 'Über {name}'],

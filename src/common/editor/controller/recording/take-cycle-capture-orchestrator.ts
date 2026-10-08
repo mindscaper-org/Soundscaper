@@ -70,7 +70,8 @@ export interface InspectTakeCycleOpenRecoveryRequest {
 }
 
 export interface TakeCyclePendingOpenRecovery {
-	readonly kind: 'take-cycle-pending-open-recovery';
+	readonly kind: 'take-cycle-pending-open-recovery' | 'recording-pending-open-recovery';
+	readonly checkpointCount?: number;
 	readonly projectId: string;
 	readonly publicationGeneration: number;
 	readonly recoveryToken: string;

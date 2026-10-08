@@ -11,7 +11,7 @@ import { resolveSoundscaperMasteringSequenceCopy } from '../soundscaper-workflow
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import WorkspaceEffectWindows from './WorkspaceEffectWindows.tsx';
-
+import { recoverySurfaceAfterClose } from '../recovery-surface-close.ts';
 const AudioEditorMacroManagerDialog = lazyEditorModule(() => import('../inspector/AudioEditorMacroManagerDialog.jsx'));
 const SOUNDSCAPER_BUILD = typeof __SCAPE_PRODUCT__ === 'undefined'
 	|| __SCAPE_PRODUCT__ === 'soundscaper';
@@ -48,6 +48,8 @@ const SpectralSelectionDialog = lazyEditorModule(() => import('../dialogs/Spectr
 const AudioWarpDialog = lazyEditorModule(() => import('../dialogs/AudioWarpDialog.tsx'));
 const TakeCompDialog = lazyEditorModule(() => import('../dialogs/TakeCompDialog.tsx'));
 const TakeCycleRecoveryDialog = lazyEditorModule(() => import('../dialogs/TakeCycleRecoveryDialog.tsx'));
+const ProjectRecoveryDialog = SOUNDSCAPER_BUILD ? lazyEditorModule(() => import('../dialogs/ProjectRecoveryDialog.tsx')) : null;
+const AudacityRecoveryDialog = SOUNDSCAPER_BUILD ? lazyEditorModule(() => import('../dialogs/AudacityRecoveryDialog.tsx')) : null;
 const WorkspacePreferencesDialog = lazyEditorModule(() => import('../dialogs/WorkspacePreferencesDialog.jsx'));
 const RawPcmImportDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RawPcmImportDialog })));
 const RegularIntervalAnnotationDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RegularIntervalAnnotationDialog })));
@@ -107,6 +109,13 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 	// layer; the workspace behind it stays.
 	return <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
 		<EditorSurfaceBoundary copy={copy} surface="dialogs" resetKey={snapshot.project}>
+			{productId === 'soundscaper' && activeSurface === 'project-recovery' && ProjectRecoveryDialog && controller.actions.project.recovery && (
+				<ProjectRecoveryDialog actions={controller.actions.project.recovery} copy={copy} run={run}
+					initialProjectId={snapshot.startupProjectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />
+			)}
+			{productId === 'soundscaper' && activeSurface === 'audacity-recovery' && AudacityRecoveryDialog && (
+				<AudacityRecoveryDialog open={controller.actions.project.openAudacityProject} copy={copy} run={run} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'audacity-recovery'))} />
+			)}
 			{(typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__)
 				&& productId === 'soundscaper' && fileService.isDesktop && activeSurface === 'desktop-mcp'
 				&& DesktopMcpDialog && typeof fileService.readMcpStatus === 'function'
@@ -373,7 +382,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 							controller={controller}
 							copy={copy}
 							run={run}
-							onClose={() => setActiveSurface(null)}
+							onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'take-cycle-recovery'))}
 						/>
 					</React.Suspense>
 				</div>

@@ -23,6 +23,7 @@ import { macroScriptLibrarySchemaIsAhead } from '../../../../macro-script-librar
 import type { OwnedStateWriteScope } from '../../../shared/owned-state.ts';
 import type { ControllerRecordingState } from '../../../recording/recording-state.ts';
 import type { ControllerTransportState } from '../../../transport/transport-state.ts';
+import { openStartupProject, type StartupProjectRecoveryNotice } from './project-startup-recovery.ts';
 
 export interface ProjectBootstrapState<Preferences> {
 	preferences: Preferences;
@@ -33,6 +34,7 @@ export interface ProjectBootstrapState<Preferences> {
 	readOnly: boolean;
 	takeCycleRecovery?: unknown;
 	takeCycleRecoveryInspecting?: boolean;
+	startupProjectRecovery?: StartupProjectRecoveryNotice | null;
 }
 
 export type ProjectBootstrapRecordingState = Pick<ControllerRecordingState,
@@ -120,7 +122,8 @@ export interface ProjectBootstrapServiceRuntime<
 	 */
 	readonly startupProjectId?: (lastProjectId: string | null) => string | null;
 	readonly openProject: (project: Project) => Promise<unknown>;
-	readonly newProject: () => Promise<unknown>;
+	readonly newProject: (options?: { skipFlush?: boolean }) => Promise<unknown>;
+	readonly onStartupProjectFailure?: (projectId: string, error: unknown) => Promise<boolean>;
 	readonly openRecovery?: Readonly<{
 		deferInitialSave(operation: () => PromiseLike<unknown> | unknown): PromiseLike<boolean>;
 		deferMaintenance(operation: () => PromiseLike<unknown> | unknown): PromiseLike<boolean>;
@@ -138,6 +141,7 @@ export interface ProjectBootstrapServiceRuntime<
 		token: EditorLifetimeToken,
 	) => Promise<Value>;
 	readonly copy: Readonly<{
+		projectStartupRecoveryNeeded?: string;
 		webAudioUnsupported: string;
 		missingSourcesBlocked: string;
 		ready: string;
@@ -303,20 +307,17 @@ export function createProjectBootstrapService<
 		const startupProjectId = runtime.startupProjectId
 			? runtime.startupProjectId(lastProjectId ?? null)
 			: lastProjectId;
-		const saved = startupProjectId
-			? await guard(runtime.store.loadProject(startupProjectId, { signal: runtime.lifetimeSignal }))
-			: null;
-		if (saved) await guard(runtime.openProject(saved));
-		else await guard(runtime.newProject());
+		const recovering = await openStartupProject(runtime, startupProjectId ?? null, guard);
 		runtime.publishProjectState();
-		if (!runtime.state.readOnly) {
+		if (!runtime.state.readOnly && !recovering) {
 			await guard(deferInitialSave(() => runtime.saveNow()));
 		}
-		await guard(deferMaintenance(
+		if (!recovering) await guard(deferMaintenance(
 			() => runtime.store.cleanupTemporaryAssets?.(),
 		));
 		await guard(runtime.refreshStorageUsage());
-		if (runtime.hasMissingTimelineSources()) setLocalizedStatus(runtime.setStatus, runtime.copy, "missingSourcesBlocked", undefined, 'error');
+		if (recovering) setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectStartupRecoveryNeeded', undefined, 'error');
+		else if (runtime.hasMissingTimelineSources()) setLocalizedStatus(runtime.setStatus, runtime.copy, "missingSourcesBlocked", undefined, 'error');
 		else if (!runtime.state.readOnly && !runtime.state.takeCycleRecovery
 			&& !runtime.state.takeCycleRecoveryInspecting) setLocalizedStatus(runtime.setStatus, runtime.copy, "ready", undefined, 'success');
 	}

@@ -261,7 +261,9 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 						sampleRate: captureSampleRate,
 						channelCount: route.channelCount,
 						chunkFrames: runtime.sourceChunkFrames,
-					});
+					}, { trackId: track.id, startFrame: session.recordingStartFrame,
+						sourceOffsetFrames: persistedSourceOffsetFrames, sampleRate: captureSampleRate,
+						selection: alignment.selection });
 					scope.assertCurrent();
 					const preview = runtime.createPreview({
 						trackId: track.id,

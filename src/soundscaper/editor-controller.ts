@@ -25,6 +25,7 @@ import {
 	type SoundscaperEditorProjectEnvironment,
 } from './editor-project-environment.ts';
 import { validateSoundscaperProject } from './editor-project-validation.ts';
+import { bindSoundscaperProjectRecovery, hasSoundscaperStartupRecovery } from './editor-project-recovery-binding.ts';
 import { createSoundscaperScapeNativeRuntime } from './editor-scape-native.ts';
 import {
 	createSoundscaperNativePluginActions,
@@ -59,6 +60,7 @@ type CommonAudioEditorController = ReturnType<typeof createAudioEditorController
 
 export type SoundscaperAudioEditorController = CommonAudioEditorController & Readonly<{
 	readonly actions: CommonAudioEditorController['actions'] & Readonly<{
+		readonly project: CommonAudioEditorController['actions']['project'] & Readonly<{ recovery: ReturnType<typeof bindSoundscaperProjectRecovery> }>;
 		readonly audioAutomation: Readonly<SoundscaperAutomationControllerActions>;
 		readonly audioFreeze: Readonly<SoundscaperAudioFreezeActions>;
 		readonly nativePlugins: Readonly<SoundscaperNativePluginActions>;
@@ -94,6 +96,7 @@ export function createSoundscaperAudioEditorController(
 		projectRuntime: environment.runtime,
 		playbackProjectService: environment.playback,
 		createProjectIfAbsent: (project, publicationOptions) => environment.createProjectIfAbsent(project, { ...publicationOptions, confirmFileSizeWarning: publicationOptions?.confirmFileSizeWarning ?? presentation.confirmFileSizeWarning }),
+		onStartupProjectFailure: (projectId, error) => hasSoundscaperStartupRecovery(environment.controllerStore, projectId, error),
 		adaptAudacityProject: async (value: unknown, context?: DawprojectImportRoutingContext) => recoverSoundscaperNativePluginStatesFromAup4(
 			importSoundscaperAudacityProject(value, context),
 			nativePluginStateStore,
@@ -136,6 +139,7 @@ export function createSoundscaperAudioEditorController(
 	});
 	productController = createControllerFacade(
 		delegate, automation, freeze, createSoundscaperNativePluginActions(delegate), persistentDelivery,
+		bindSoundscaperProjectRecovery(environment.controllerStore, (project) => delegate.actions.project.open(project)),
 	);
 	return productController;
 }
@@ -146,12 +150,13 @@ function createControllerFacade(
 	freeze: Readonly<SoundscaperAudioFreezeActionBinding>,
 	nativePlugins: Readonly<SoundscaperNativePluginActions>,
 	persistentDelivery: ReturnType<typeof createSoundscaperPersistentDeliveryControllerComposition>,
+	recovery: ReturnType<typeof bindSoundscaperProjectRecovery>,
 ): SoundscaperAudioEditorController {
 	let disposal: Promise<void> | null = null;
 	let shutdownStarted = false;
 	const assertActive = (): void => { if (shutdownStarted) throw new EditorDisposedError(); };
 	const beginDisposal = (): void => { shutdownStarted = true; delegate.beginDisposal(); };
-	const actions = decorateActions(delegate.actions, automation, freeze, nativePlugins, persistentDelivery, assertActive);
+	const actions = decorateActions(delegate.actions, automation, freeze, nativePlugins, persistentDelivery, recovery, assertActive);
 	const descriptors = Object.getOwnPropertyDescriptors(delegate);
 	const actionsDescriptor = descriptors.actions;
 	const beginDisposalDescriptor = descriptors.beginDisposal;
@@ -202,15 +207,16 @@ function decorateActions(
 	freeze: Readonly<SoundscaperAudioFreezeActionBinding>,
 	nativePlugins: Readonly<SoundscaperNativePluginActions>,
 	persistentDelivery: ReturnType<typeof createSoundscaperPersistentDeliveryControllerComposition>,
+	recovery: ReturnType<typeof bindSoundscaperProjectRecovery>,
 	assertActive: () => void,
 ): SoundscaperAudioEditorController['actions'] {
 	const actions = actionRecord(actionsValue, 'common editor actions');
 	const descriptors = Object.getOwnPropertyDescriptors(actions);
 	descriptors.project = replacementDescriptor(
 		descriptors.project,
-		lifecycleActions(actions.project, [
+		Object.freeze({ ...lifecycleActions(actions.project, [
 			'create', 'open', 'openRecent', 'openById', 'close',
-		], automation.actions.resetProject, assertActive),
+		], automation.actions.resetProject, assertActive), recovery: guardProductActions(recovery, assertActive) }),
 		'project actions',
 	);
 	descriptors.edit = replacementDescriptor(

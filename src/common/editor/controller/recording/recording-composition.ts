@@ -44,7 +44,8 @@ import type {
 	RecordingSelection,
 } from './recording-transaction-types.ts';
 import { createRoutedRecordingCaptureService } from './internal/routed-recording-capture-service.ts';
-import { SOURCE_CHUNK_FRAMES, createCoalescingSourceWriter } from '../source/source-audio.ts';
+import { SOURCE_CHUNK_FRAMES } from '../source/source-audio.ts';
+import { createOrdinaryRecordingRecoveryComposition } from './internal/ordinary-recording-recovery-composition.ts';
 import { createTakeCycleAppComposition } from './internal/take-cycle/take-cycle-app-composition.ts';
 import { createTakeCycleOpenRecoveryCoordinator } from './take-cycle-open-recovery-app-port.ts';
 import { createTakeCycleRecordingAppSession } from './internal/take-cycle/take-cycle-recording-app-session.ts';
@@ -134,6 +135,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		dependencies.publishDocumentSnapshot();
 	};
 
+	const ordinaryRecovery = createOrdinaryRecordingRecoveryComposition(dependencies);
 	const captureRuntime: RecordingCaptureCommonRuntime & Readonly<{ engine: RecordingCompositionEngine }> = {
 		state,
 		soundActivation,
@@ -158,19 +160,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		currentTimeMs: dependencies.currentTimeMs,
 		createStableId,
 		createRecordingName: () => `${publishedCopyFor(copy).recordingLabel} ${new Date().toLocaleTimeString(locale)}`,
-		openSourceWriter: async (sourceId, metadata) => {
-			const { createRecordingCheckpointWriter } = await import('./internal/recording-checkpoint-writer.ts');
-			return createRecordingCheckpointWriter({
-				firstSourceId: sourceId,
-				initialWriter: createCoalescingSourceWriter(await store.beginSourceWrite(sourceId, metadata)),
-				metadata,
-				checkpointFrames: Math.round(Number(metadata.sampleRate) * 10),
-				createSourceId: () => createStableId('recording'),
-				openWriter: async (nextSourceId) => createCoalescingSourceWriter(
-					await store.beginSourceWrite(nextSourceId, metadata),
-				),
-			});
-		},
+		openSourceWriter: ordinaryRecovery.openWriter,
 		createPreview: createRecordingPreview,
 		createPreviewResampler: createStreamingWindowedSincResampler,
 		appendPreview: appendRecordingPreview,
@@ -248,7 +238,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 			await dependencies.sourceChunkProviders.drain();
 			dependencies.sourcePeaks.delete(sourceId);
 		},
-		deleteStoredSource: (sourceId) => store.deleteSource(sourceId),
+		deleteStoredSource: ordinaryRecovery.deleteCapturedSource,
 	};
 	const routedFinalizationRuntime: RoutedRecordingFinalizationRuntime = {
 		...finalizationRuntime,
@@ -300,8 +290,9 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 	});
 	dependencies.openRecovery.bind(createTakeCycleOpenRecoveryCoordinator({
 		state,
-		inspect: takeCycle.inspectOpenRecovery,
-		recover: takeCycle.recoverOnOpen,
+		inspect: async (projectId) => await ordinaryRecovery.inspect(projectId) ?? await takeCycle.inspectOpenRecovery(projectId),
+		recover: (pending, decision) => pending.kind === 'recording-pending-open-recovery'
+			? ordinaryRecovery.resolve(pending, decision) : takeCycle.recoverOnOpen(pending, decision),
 		getCurrentProjectId: () => document.get()?.id ?? null,
 		isDisposed: () => state.disposed,
 		isCurrentProjectWritable: () => Boolean(
@@ -324,7 +315,9 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		addTrack: dependencies.addTrack,
 		stopProjectBinPreview: dependencies.stopProjectBinPreview,
 		cancelTimedRecording: () => timed.cancelTimedRecording(),
-		beginRecording: (options, scope) => {
+		beginRecording: async (options, scope) => {
+			await ordinaryRecovery.begin();
+			scope.assertCurrent();
 			const route = options.trackId ? state.recordingRouting.routes[options.trackId] : null;
 			const routed = route && (
 				route.kind === 'display'
@@ -332,19 +325,21 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 				|| route.channelStart > 0
 				|| route.channelCount !== 2
 			);
-			return options.trackId && !routed
-				? legacyCapture.capture(options, scope)
-				: routedCapture.capture(options, scope);
+			try {
+				await (options.trackId && !routed ? legacyCapture.capture(options, scope) : routedCapture.capture(options, scope));
+			} catch (error) { await ordinaryRecovery.abandon(); throw error; }
 		},
 		beginTakeCycleRecording: takeCycleSession.begin,
-		performLegacyFinalization: async (input) => (
-			(await import('./internal/legacy-recording-finalization.ts'))
-				.createLegacyRecordingFinalization(finalizationRuntime).finalize(input)
-		),
-		performRoutedFinalization: async (input) => (
-			(await import('./internal/routed-recording-finalization.ts'))
-				.createRoutedRecordingFinalization(routedFinalizationRuntime).finalize(input)
-		),
+		performLegacyFinalization: async (input) => {
+			if (input.discardRequested) await ordinaryRecovery.prepareDiscard();
+			try { await (await import('./internal/legacy-recording-finalization.ts')).createLegacyRecordingFinalization(finalizationRuntime).finalize(input); }
+			finally { await (input.discardRequested ? ordinaryRecovery.abandon() : ordinaryRecovery.complete()); }
+		},
+		performRoutedFinalization: async (input) => {
+			if (input.discardRequested) await ordinaryRecovery.prepareDiscard();
+			try { await (await import('./internal/routed-recording-finalization.ts')).createRoutedRecordingFinalization(routedFinalizationRuntime).finalize(input); }
+			finally { await (input.discardRequested ? ordinaryRecovery.abandon() : ordinaryRecovery.complete()); }
+		},
 		releaseUnretainedRecordingInputs,
 		retainInputs: () => state.preferences.recording.retainInputs,
 		playTransport: () => engine.play(),

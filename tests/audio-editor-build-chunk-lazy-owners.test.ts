@@ -46,7 +46,7 @@ test('recording checkpoints and finalization load after a recording gesture', ()
 		assert.equal(chunkGroupForModulePath(path), 'editor-recording-runtime', path);
 	}
 	const composition = readFileSync(new URL('../src/common/editor/controller/recording/recording-composition.ts', import.meta.url), 'utf8');
-	assert.match(composition, /import\('\.\/internal\/recording-checkpoint-writer\.ts'\)/u);
+	assert.match(readFileSync(new URL('../src/common/editor/controller/recording/internal/ordinary-recording-recovery-composition.ts', import.meta.url), 'utf8'), /async openWriter[\s\S]*import\('\.\/recording-checkpoint-writer\.ts'\)/u);
 	assert.match(composition, /import\('\.\/internal\/routed-recording-finalization\.ts'\)/u);
 	const group = chunkGroups.find((candidate) => candidate.name === 'editor-recording-runtime');
 	assert.ok(group);

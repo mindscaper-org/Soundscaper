@@ -145,6 +145,12 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
 	},
 	{
+		id: 'ordinary-recording-recovery-placement',
+		file: 'src/common/editor/controller/recording/internal/ordinary-recording-recovery-project.ts',
+		behavior: 'Interrupted recording checkpoints retain their capture alignment and point-conform absolute source boundaries to the current project sample rate; selected punch endpoints map back to source samples with the same nearest-point policy.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'recording-start-timing',
 		file: 'src/common/editor/controller/recording/internal/recording-start-timing.ts',
 		behavior: 'Both recording paths share the authoritative count-in calculation and enclose the recorder start after projecting its audio-context time.',

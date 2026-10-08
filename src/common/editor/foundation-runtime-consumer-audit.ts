@@ -203,6 +203,10 @@ export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRun
 /** Non-shield importers discovered beside the owned consumer and boundary files. */
 export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly FoundationRuntimeProjectionImporterExclusion[] = deepFreeze([
 	{
+		file: 'src/common/editor/controller/recording/internal/ordinary-recording-recovery-target.ts',
+		reason: 'Recording recovery builds one atomic command publication, comparing resolved command clip placement to avoid attaching a checkpoint twice; its authored result is reconciled by the owning product command runtime rather than consumed for playback.',
+	},
+	{
 		file: 'src/common/editor/controller/edit/internal/frozen-track-edit-command.ts',
 		reason: 'The edit reconciliation adapter previews a command in its resolved command projection only to determine surviving track membership before retiring an unusable freeze; it consumes no runtime media timing.',
 	},

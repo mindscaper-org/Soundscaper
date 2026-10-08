@@ -365,3 +365,23 @@ test('successive punch commands preserve the untouched right side of an existing
 		['original', 0, 10], ['source-1', 10, 4], ['source-2', 14, 3], ['original', 17, 83],
 	]);
 });
+
+test('checkpoint acknowledgement waits for the durable recovery journal', async () => {
+	const first = storedWriter('source-1');
+	let journaled = false;
+	let settle!: () => void;
+	const journal = new Promise<void>((resolve) => { settle = resolve; });
+	const writer = createRecordingCheckpointWriter({
+		firstSourceId: 'source-1', initialWriter: first.writer,
+		metadata: { sampleRate: 48_000, channelCount: 1 }, checkpointFrames: 4,
+		createSourceId: () => 'source-2', openWriter: async () => storedWriter('source-2').writer,
+		onCheckpoint: async (segment) => { assert.equal(segment.sourceId, 'source-1'); await journal; journaled = true; },
+	});
+	let acknowledged = false;
+	const write = Promise.resolve(writer.write([new Float32Array(4)])).then(() => { acknowledged = true; });
+	await new Promise<void>((resolve) => { setImmediate(resolve); });
+	assert.equal(first.committed(), true);
+	assert.equal(acknowledged, false);
+	settle(); await write;
+	assert.equal(journaled, true);
+});

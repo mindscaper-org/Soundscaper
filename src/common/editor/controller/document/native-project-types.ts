@@ -264,6 +264,7 @@ export interface Aup4Environment extends Readonly<Record<string, unknown>> {
 }
 
 export interface Aup4PortableOptions {
+	readonly recover?: boolean;
 	readonly maxBytes?: number;
 	readonly fileSizeWarningApproved?: boolean;
 	readonly signal?: AbortSignal;

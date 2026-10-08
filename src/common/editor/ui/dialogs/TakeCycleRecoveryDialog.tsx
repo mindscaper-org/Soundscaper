@@ -54,12 +54,14 @@ export default function TakeCycleRecoveryDialog({
 			})
 			.finally(() => setPendingAction(null));
 	};
+	const ordinary = pending.kind === 'recording-pending-open-recovery';
 	const descriptionId = 'take-cycle-recovery-description';
-	const summary = copy.takeCycleRecoverySummary
+	const summary = (ordinary ? copy.ordinaryRecoverySummary : copy.takeCycleRecoverySummary)
 		.replace('{generation}', String(pending.publicationGeneration))
-		.replace('{count}', String(pending.draftCount));
+		.replace('{count}', String(pending.draftCount))
+		.replace('{checkpoints}', String(pending.checkpointCount ?? 0));
 	return <AudioEditorDialogShell
-		title={copy.takeCycleRecoveryTitle}
+		title={ordinary ? copy.ordinaryRecoveryTitle : copy.takeCycleRecoveryTitle}
 		onClose={onClose}
 		initialFocus="[data-take-cycle-recover] button"
 		ariaDescribedBy={descriptionId}
@@ -72,7 +74,7 @@ export default function TakeCycleRecoveryDialog({
 					variant="secondary"
 					disabled={pendingAction !== null}
 					onClick={() => perform('discard')}
-				>{pendingAction === 'discard' ? copy.takeCycleDiscarding : copy.takeCycleDiscard}</Button>
+				>{pendingAction === 'discard' ? copy.takeCycleDiscarding : (ordinary ? copy.ordinaryRecoveryDiscard : copy.takeCycleDiscard)}</Button>
 				{/* The design-system Button forwards no data attributes, so the
 					recovery hook the dialog focuses on open lives on a wrapper. */}
 				<span data-take-cycle-recover="true">
@@ -80,17 +82,18 @@ export default function TakeCycleRecoveryDialog({
 						variant="primary"
 						disabled={pendingAction !== null}
 						onClick={() => perform('recover')}
-					>{pendingAction === 'recover' ? copy.takeCycleRecovering : copy.takeCycleRecover}</Button>
+					>{pendingAction === 'recover' ? copy.takeCycleRecovering : (ordinary ? copy.ordinaryRecoveryRecover : copy.takeCycleRecover)}</Button>
 				</span>
 			</>}
 		/>}
 	>
 		<div className="audio-editor-take-cycle-recovery">
-			<p id={descriptionId}>{copy.takeCycleRecoveryDescription}</p>
+			<p id={descriptionId}>{ordinary ? copy.ordinaryRecoveryDescription : copy.takeCycleRecoveryDescription}</p>
+			{ordinary && <p>{copy.ordinaryRecoveryLossHint}</p>}
 			<p className="audio-editor-take-cycle-recovery__summary">{summary}</p>
-			<p>{copy.takeCycleRecoveryCloseHint}</p>
+			<p>{ordinary ? copy.ordinaryRecoveryCloseHint : copy.takeCycleRecoveryCloseHint}</p>
 			<div role="status" aria-live="polite" aria-atomic="true">
-				{error || (pendingAction ? copy.takeCycleRecoveryWorking : '')}
+				{error || (pendingAction ? (ordinary ? copy.ordinaryRecoveryWorking : copy.takeCycleRecoveryWorking) : '')}
 			</div>
 		</div>
 	</AudioEditorDialogShell>;

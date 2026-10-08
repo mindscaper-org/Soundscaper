@@ -275,6 +275,10 @@ export default function createApplicationMenus({
 					label: copy.projectManagement,
 					items: [
 						{ id: 'local-projects', label: copy.projectsTitle, disabled: blocked, onClick: actions.openProjects },
+						...(productId === 'soundscaper' ? [
+							{ id: 'recover-project', label: copy.projectRecoveryMenu, preserveLabel: true, disabled: blocked, onClick: actions.openProjectRecovery },
+							{ id: 'recover-audacity-project', label: copy.recoverAudacityProjectMenu, preserveLabel: true, disabled: blocked, onClick: actions.openAudacityRecovery },
+						] : []),
 						{ id: 'consolidate-media', label: copy.consolidateMedia, disabled: editBlocked, onClick: actions.consolidateMedia },
 						{ id: 'trim-media', label: copy.trimMedia, disabled: editBlocked, onClick: actions.trimMedia },
 						{ id: 'save-archive-manifest', label: copy.saveArchiveManifest, disabled: !snapshot.archiveManifest?.manifest, onClick: actions.saveArchiveManifest },

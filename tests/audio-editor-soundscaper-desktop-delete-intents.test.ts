@@ -18,6 +18,7 @@ import { SOUNDSCAPER_PROJECT_RUNTIME_PROFILE } from
 	'../src/soundscaper/editor-project-runtime-profile.ts';
 import { createSoundscaperProject, type SoundscaperProject } from
 	'../src/soundscaper/editor-project.ts';
+import type { SoundscaperDesktopProjectRecoveryBridge } from '../src/soundscaper/desktop-project-recovery-bridge.ts';
 
 const PREFIX = 'soundscaper.desktop-v1.delete-intent.v1:';
 
@@ -158,6 +159,54 @@ test('desktop delete reconciliation accepts undefined as an absent shadow after 
 	assert.equal(deleteCalls, 0);
 	assert.equal(fixture.rows.size, 0);
 });
+
+test('desktop startup defers a damaged pending delete without changing its intent, shadow or aliases', async (context) => {
+	const fixture = deletionFixture();
+	await fixture.intents.create(fixture.witness);
+	const error = new Error('ENOENT: immutable project body is missing');
+	let cleanupCalls = 0;
+	installRecoveryBridge(context, {
+		listProjectRecoverySummaries: async () => [],
+		readProjectRecoveryCandidates: async () => [{ key: 'native-current', kind: 'current', revision: fixture.project.revision, project: fixture.project }],
+	});
+	await reconcileSoundscaperDesktopDeleteIntents({
+		profile: SOUNDSCAPER_PROJECT_RUNTIME_PROFILE,
+		bridge: { ...bridge({}), readProjectBundle: async () => { throw error; } },
+		shadow: shadowStore(() => fixture.project, () => { cleanupCalls += 1; return true; }),
+		intents: fixture.intents,
+	});
+	assert.equal(cleanupCalls, 0);
+	assert.deepEqual(await fixture.intents.list(), [fixture.intent]);
+});
+
+test('native damaged-delete deferral requires readable recovery evidence and keeps blocked failures fatal', async (context) => {
+	const fixture = deletionFixture();
+	await fixture.intents.create(fixture.witness);
+	let reads = 0;
+	installRecoveryBridge(context, {
+		listProjectRecoverySummaries: async () => [],
+		readProjectRecoveryCandidates: async () => { reads += 1; throw new Error('Recovery catalog unavailable'); },
+	});
+	const reconcile = (error: Error) => reconcileSoundscaperDesktopDeleteIntents({
+		profile: SOUNDSCAPER_PROJECT_RUNTIME_PROFILE,
+		bridge: { ...bridge({}), readProjectBundle: async () => { throw error; } },
+		shadow: absentShadow(null), intents: fixture.intents,
+	});
+	await assert.rejects(reconcile(new DOMException('Closing', 'AbortError')), /Closing/iu);
+	assert.equal(reads, 0);
+	await assert.rejects(reconcile(new Error('ENOENT: immutable body missing')), /catalog unavailable/iu);
+	assert.equal(reads, 1);
+	assert.deepEqual(await fixture.intents.list(), [fixture.intent]);
+});
+
+function installRecoveryBridge(context: test.TestContext, recovery: SoundscaperDesktopProjectRecoveryBridge): void {
+	const previous = Object.getOwnPropertyDescriptor(globalThis, 'soundscaperProjectRecoveryDesktop');
+	Object.defineProperty(globalThis, 'soundscaperProjectRecoveryDesktop', { configurable: true, value: Object.freeze(recovery) });
+	context.after(() => {
+		if (previous) Object.defineProperty(globalThis, 'soundscaperProjectRecoveryDesktop', previous);
+		else Reflect.deleteProperty(globalThis, 'soundscaperProjectRecoveryDesktop');
+	});
+}
 
 function deletionFixture(
 	listedRows?: readonly Readonly<{ key: string; projectId?: string; value: unknown }>[],

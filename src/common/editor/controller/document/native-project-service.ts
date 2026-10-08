@@ -32,6 +32,7 @@ import {
 import { createNativeAudacityProjectSave } from './internal/native-project/native-audacity-project-save.ts';
 import { confirmFileSizeWarning } from '../shared/file-size-warning.ts';
 import { withAudacityWorkerSizeAdmission } from './internal/native-project/audacity-worker-size-admission.ts';
+import { openAudacityWithRecovery } from './internal/native-project/audacity-recovery-open.ts';
 import type {
 	Aup4DecodedSource,
 	Aup4Environment,
@@ -223,7 +224,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		}
 	}
 
-	async function openAudacityProject(file: NativeProjectFile): Promise<Readonly<Record<string, unknown>> | undefined> {
+	async function openAudacityProject(file: NativeProjectFile, options: Readonly<{ recover?: boolean }> = {}): Promise<Readonly<Record<string, unknown>> | undefined> {
 		if (!file || !/\.aup[34]$/i.test(String(file.name || ''))) {
 			throw new TypeError('Choose an Audacity project file (.aup3 or .aup4).');
 		}
@@ -249,8 +250,8 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 			const fileOptions = { ...portableOptions(file.size, storage, (progress) => {
 				updateNativeProjectProgress(progress, runtime.copy.importing, operation.task,
 					operation.projectToken, { start: 0, end: 0.3 }, { key: 'importing' });
-			}), maxBytes, fileSizeWarningApproved: maxBytes > threshold, signal: operation.task.signal };
-			const opened = await withAudacityWorkerSizeAdmission((workerOptions) => activeClient.openFile(nativeId, file, workerOptions),
+			}), maxBytes, fileSizeWarningApproved: maxBytes > threshold, signal: operation.task.signal, recover: options.recover };
+			const opened = await withAudacityWorkerSizeAdmission((workerOptions) => openAudacityWithRecovery(activeClient, nativeId, file, workerOptions),
 				fileOptions, file.name, { confirmFileSizeWarning: runtime.confirmFileSizeWarning, signal: operation.task.signal,
 					assertCurrent: () => assertOwnership(operation.task, operation.projectToken) }, 'preflight');
 			assertOwnership(operation.task, operation.projectToken);

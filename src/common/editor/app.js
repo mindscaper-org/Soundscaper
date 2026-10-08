@@ -389,7 +389,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		setRemoveDeviceChangeListener: (remove) => { removeDeviceChangeListener = remove; },
 		loadRecentProjectState: (guard) => doc.session.loadRecentProjectState(guard), getStartupPreferences: () => state.preferences?.startup,
 		openProject: (savedProject) => projectSwitchService.openProject(savedProject),
-		newProject: () => projectSwitchService.newProject(), openRecovery: takeCycleOpenRecovery,
+		newProject: (newOptions) => projectSwitchService.newProject(newOptions), openRecovery: takeCycleOpenRecovery, onStartupProjectFailure: options.onStartupProjectFailure,
 		publishProjectState: bindings.publishProjectState,
 		saveNow: bindings.saveNow,
 		refreshStorageUsage: bindings.refreshStorageUsage,

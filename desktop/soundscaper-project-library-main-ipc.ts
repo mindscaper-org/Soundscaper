@@ -12,6 +12,8 @@ import type {
 
 export { SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS } from './soundscaper-project-library-main-channels.ts';
 
+import { SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS } from '../src/soundscaper/desktop-project-recovery-bridge.ts';
+
 const OPTION_FIELDS = ['handle', 'removeHandler', 'ownerFor', 'main'] as const;
 
 type Handler = (event: unknown, value?: unknown) => Promise<unknown> | unknown;
@@ -58,6 +60,8 @@ export function registerSoundscaperDesktopProjectLibraryMainIpc(
 	};
 
 	try {
+		register(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.read, (event, projectId) => { connection(event); return main.readProjectRecoveryCandidates(projectId as string); });
+		register(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.list, (event) => { connection(event); return main.listProjectRecoverySummaries(); });
 		register(SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS.handshake, (event, handshake) => {
 			const renderer = owner(event);
 			if (connections.has(renderer) || refused.has(renderer)) {

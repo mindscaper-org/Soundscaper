@@ -28,14 +28,26 @@ const COMMANDS = [
 	['clear-data', 'clearData', 'clearData'],
 ] as const;
 
-test('File groups all nine project commands under Project management in both products and locales', () => {
+const RECOVERY_COMMANDS = [
+	['recover-project', 'projectRecoveryMenu', 'openProjectRecovery'],
+	['recover-audacity-project', 'recoverAudacityProjectMenu', 'openAudacityRecovery'],
+] as const;
+
+function commandsFor(productId: string) {
+	return productId === 'soundscaper'
+		? [COMMANDS[0], ...RECOVERY_COMMANDS, ...COMMANDS.slice(1)]
+		: COMMANDS;
+}
+
+test('File groups eleven Soundscaper and nine Framescaper project commands in both locales', () => {
 	for (const productId of ['soundscaper', 'framescaper']) {
 		for (const locale of ['en', 'de'] as const) {
 			const { file, management, copy } = menuFixture({ productId, locale });
+			const commands = commandsFor(productId);
 			assert.equal(management.label, locale === 'en' ? 'Project management' : 'Projektverwaltung');
 			assert.deepEqual(management.items?.filter((item) => item.id).map((item) => item.id),
-				COMMANDS.map(([id]) => id));
-			for (const [id, copyKey] of COMMANDS) {
+				commands.map(([id]) => id));
+			for (const [id, copyKey] of commands) {
 				assert.equal(file.items?.some((item) => item.id === id), false, `${id} remains in File`);
 				const label = id === 'project-properties' && locale === 'en'
 					? 'Project properties' : copy[copyKey];
@@ -49,14 +61,17 @@ test('File groups all nine project commands under Project management in both pro
 });
 
 test('Project management preserves every command action', () => {
-	const { management, calls } = menuFixture({ manifest: true });
-	for (const [id] of COMMANDS) {
-		const item = management.items?.find((entry) => entry.id === id);
-		assert.equal(item?.disabled, false, id);
-		assert.equal(typeof item?.onClick, 'function', id);
-		item?.onClick?.();
+	for (const productId of ['soundscaper', 'framescaper']) {
+		const { management, calls } = menuFixture({ productId, manifest: true });
+		const commands = commandsFor(productId);
+		for (const [id] of commands) {
+			const item = management.items?.find((entry) => entry.id === id);
+			assert.equal(item?.disabled, false, id);
+			assert.equal(typeof item?.onClick, 'function', id);
+			item?.onClick?.();
+		}
+		assert.deepEqual(calls, commands.map(([, , action]) => action));
 	}
-	assert.deepEqual(calls, COMMANDS.map(([, , action]) => action));
 });
 
 test('nested commands preserve busy, read-only and archive availability rules', () => {
@@ -67,7 +82,7 @@ test('nested commands preserve busy, read-only and archive availability rules', 
 		{ blocked: true, editBlocked: true, manifest: true },
 	]) {
 		const { management } = menuFixture(state);
-		for (const [id] of COMMANDS) {
+		for (const [id] of commandsFor('soundscaper')) {
 			const expected = id === 'save-archive-manifest' ? !state.manifest
 				: editingCommands.has(id) ? state.editBlocked : state.blocked;
 			assert.equal(management.items?.find((item) => item.id === id)?.disabled, expected, id);

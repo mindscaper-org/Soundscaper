@@ -68,7 +68,8 @@ export function createTakeCycleRecordingMenuItems(input: TakeCycleRecordingMenuI
 		}),
 		...(input.snapshot.takeCycleRecovery ? [Object.freeze({
 			id: 'take-cycle-recovery',
-			label: input.copy.takeCycleRecoveryMenu,
+			label: dataRecord(input.snapshot.takeCycleRecovery)?.kind === 'recording-pending-open-recovery'
+					? input.copy.ordinaryRecoveryMenu : input.copy.takeCycleRecoveryMenu,
 			disabled: false,
 			onClick: input.openRecovery,
 		})] : []),

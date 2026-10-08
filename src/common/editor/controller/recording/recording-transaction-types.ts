@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { RecordingRecoveryDestination } from '../../storage/recording-recovery-journal-repository.ts';
 import type { RecordingRoute } from '../../recording-routing.js';
 import type {
 	RecordingCaptureControllerLike,
@@ -282,6 +283,7 @@ export interface RecordingCaptureCommonRuntime {
 	readonly openSourceWriter: (
 		sourceId: string,
 		metadata: Readonly<Record<string, unknown>>,
+		destination?: RecordingRecoveryDestination,
 	) => Promise<RecordingSourceWriter>;
 	readonly createPreview: (options: Readonly<{
 		readonly trackId: string;

@@ -43,6 +43,8 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['framescaper-import-image-sequence', 'Image sequence', 'File', FRAMESCAPER],
 	['framescaper-add-to-render-queue', 'Add to render queue', 'File > Export other', FRAMESCAPER],
 	['local-projects', 'Local projects', 'File > Project management', BOTH],
+	['recover-project', 'Recover a project', 'File > Project management', SOUNDSCAPER],
+	['recover-audacity-project', 'Recover Audacity project', 'File > Project management', SOUNDSCAPER],
 	['consolidate-media', 'Consolidate media', 'File > Project management', BOTH],
 	['trim-media', 'Trim media to what is used', 'File > Project management', BOTH],
 	['save-archive-manifest', 'Save archive checksums', 'File > Project management', BOTH],

@@ -214,6 +214,8 @@ export function createWorkspaceApplicationMenus({
 				openTakeComp: () => openSurface('take-comp'),
 				newProject: () => run(() => controller.actions.project.create()),
 				openProjects,
+				openProjectRecovery: () => openSurface('project-recovery'),
+				openAudacityRecovery: () => openSurface('audacity-recovery'),
 				openFile: () => fileService.isDesktop
 					? run(() => openDesktopFiles('project'))
 					: aup4InputRef.current?.click(),

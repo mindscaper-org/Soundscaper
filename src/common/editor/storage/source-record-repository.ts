@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { collectProjectStorageKeys } from '../retention.js';
+import { collectRecoverableProjectStorageKeys as collectProjectStorageKeys, assertSourceNotRecoveryRetained, assertStoredSourceNotRecoveryRetained } from './recovery-retention-roots.ts';
 import {
 	deleteByIndex,
 	readCursorPage,
@@ -117,8 +117,10 @@ export class SourceRecordRepository {
 			if (ifAbsent ? current !== undefined : !current || current.sourceToken !== expectedSourceToken) return false;
 			if (current && !ifAbsent) {
 				if (this.#sessionGuard?.hasOtherMemorySession()) return false;
+				assertSourceNotRecoveryRetained(sourceId, this.#port.memory.analysis.values());
 				if (sourceIsDurablyReferenced(
 					sourceId, [...this.#port.memory.projects.values()], [...this.#port.memory.revisions.values()],
+					this.#port.validateProjectForRetention,
 				)) return false;
 				if (findMemoryDependentSourceId(this.#port.memory.sources, sourceId) !== null) return false;
 			}
@@ -130,7 +132,7 @@ export class SourceRecordRepository {
 		if (!ifAbsent) await this.#sessionGuard?.reclaimStoppedSessions(database);
 		const storeNames = ifAbsent
 			? ['sources', MEDIA_ASSET_STAGING_STORE_NAME]
-			: ['projects', 'revisions', 'settings', 'sources', MEDIA_ASSET_STAGING_STORE_NAME];
+			: ['projects', 'revisions', 'settings', 'analysis', 'sources', MEDIA_ASSET_STAGING_STORE_NAME];
 		return transact(database, storeNames, 'readwrite', async (stores) => {
 			const sources = stores.sources;
 			const staging = stores[MEDIA_ASSET_STAGING_STORE_NAME];
@@ -142,7 +144,8 @@ export class SourceRecordRepository {
 				const [projects, revisions] = await Promise.all([
 					request(stores.projects.getAll()), request(stores.revisions.getAll()),
 				]);
-				if (sourceIsDurablyReferenced(sourceId, projects, revisions)) return false;
+				await assertStoredSourceNotRecoveryRetained(sourceId, stores.analysis);
+				if (sourceIsDurablyReferenced(sourceId, projects, revisions, this.#port.validateProjectForRetention)) return false;
 				if (await findStoredDependentSourceId(sources, sourceId) !== null) return false;
 			}
 			await request(sources.put(record));
@@ -248,7 +251,8 @@ export class SourceRecordRepository {
 			if (this.#sessionGuard?.hasOtherMemorySession()) {
 				throw new Error(`Source ${sourceId} is retained by another open editor session.`);
 			}
-			if (sourceIsDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()])) {
+			assertSourceNotRecoveryRetained(sourceId, memory.analysis.values());
+			if (sourceIsDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()], this.#port.validateProjectForRetention)) {
 				throw new Error(`Source ${sourceId} is retained by a saved project or revision.`);
 			}
 			const dependent = findMemoryDependentSourceId(memory.sources, sourceId);
@@ -257,7 +261,7 @@ export class SourceRecordRepository {
 			return true;
 		}
 		await this.#sessionGuard?.reclaimStoppedSessions(database);
-		return transact(database, ['projects', 'revisions', 'settings', 'sources'], 'readwrite', async (stores) => {
+		return transact(database, ['projects', 'revisions', 'settings', 'analysis', 'sources'], 'readwrite', async (stores) => {
 			const { sources } = stores;
 			const current = await request(sources.get(sourceId)) as StorageRecord | undefined;
 			if (!sameStoredSourceIdentity(current, expected)) return false;
@@ -268,7 +272,8 @@ export class SourceRecordRepository {
 				request(stores.projects.getAll()), request(stores.revisions.getAll()),
 				findStoredDependentSourceId(sources, sourceId),
 			]);
-			if (sourceIsDurablyReferenced(sourceId, projects, revisions)) {
+			await assertStoredSourceNotRecoveryRetained(sourceId, stores.analysis);
+			if (sourceIsDurablyReferenced(sourceId, projects, revisions, this.#port.validateProjectForRetention)) {
 				throw new Error(`Source ${sourceId} is retained by a saved project or revision.`);
 			}
 			if (dependent !== null) throw new Error(`Source ${sourceId} is retained by derived source ${dependent}.`);
@@ -435,7 +440,8 @@ export class SourceRecordRepository {
 				if (this.#sessionGuard?.hasOtherMemorySession()) {
 					throw new Error(`Source ${sourceId} is retained by another open editor session.`);
 				}
-				if (sourceIsDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()])) {
+				assertSourceNotRecoveryRetained(sourceId, memory.analysis.values());
+				if (sourceIsDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()], this.#port.validateProjectForRetention)) {
 					throw new Error(`Source ${sourceId} is retained by a saved project or revision.`);
 				}
 				const dependent = findMemoryDependentSourceId(memory.sources, sourceId);
@@ -445,7 +451,7 @@ export class SourceRecordRepository {
 			return true;
 		}
 		if (changesGeneration) await this.#sessionGuard?.reclaimStoppedSessions(database);
-		const stores = changesGeneration ? ['projects', 'revisions', 'settings', 'sources'] : ['sources'];
+		const stores = changesGeneration ? ['projects', 'revisions', 'settings', 'analysis', 'sources'] : ['sources'];
 		return transact(database, stores, 'readwrite', async (transactionStores) => {
 			const { sources } = transactionStores;
 			const current = await request(sources.get(sourceId)) as StorageRecord | undefined;
@@ -458,7 +464,8 @@ export class SourceRecordRepository {
 					request(transactionStores.projects.getAll()), request(transactionStores.revisions.getAll()),
 					findStoredDependentSourceId(sources, sourceId),
 				]);
-				if (sourceIsDurablyReferenced(sourceId, projects, revisions)) {
+				await assertStoredSourceNotRecoveryRetained(sourceId, transactionStores.analysis);
+				if (sourceIsDurablyReferenced(sourceId, projects, revisions, this.#port.validateProjectForRetention)) {
 					throw new Error(`Source ${sourceId} is retained by a saved project or revision.`);
 				}
 				if (dependent !== null) throw new Error(`Source ${sourceId} is retained by derived source ${dependent}.`);
@@ -469,13 +476,13 @@ export class SourceRecordRepository {
 	}
 }
 
-function sourceIsDurablyReferenced(sourceId: string, projects: unknown[], revisions: unknown[]): boolean {
+function sourceIsDurablyReferenced(sourceId: string, projects: unknown[], revisions: unknown[], validate?: (project: unknown) => boolean): boolean {
 	const retained = new Set<string>();
-	for (const project of projects) collectProjectStorageKeys(project, retained);
+	for (const project of projects) collectProjectStorageKeys(project, retained, validate);
 	for (const revision of revisions) {
 		const record = revision && typeof revision === 'object'
 			? revision as Readonly<{ project?: unknown }> : null;
-		collectProjectStorageKeys(record?.project, retained);
+		collectProjectStorageKeys(record?.project, retained, validate);
 	}
 	return retained.has(sourceId);
 }

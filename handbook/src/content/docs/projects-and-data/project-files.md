@@ -55,6 +55,27 @@ Both formats are audio-only. Video is omitted, and browser preferences, undo
 history, mixer routing, and the browser's project library are not transferred.
 Do not use either as the sole backup of a Soundscaper or Framescaper project.
 
+### Recover a damaged Audacity project
+
+When normal import detects damage, Soundscaper tries a recovery import. To
+request recovery explicitly, choose **File → Project management → Recover
+Audacity project** and select an `.aup3` or `.aup4` file. The original file
+stays unchanged and the recovered audio becomes a new editing project.
+
+Recovery can skip an unreadable autosave and use a saved project or retained
+project history. It can also read surviving database rows when a damaged
+SQLite page affects other tables. Missing or unreadable sample blocks become
+silence at their original positions; readable audio prefixes are preserved.
+Clips whose structure cannot be reconstructed are omitted. Check the import
+report for these losses before saving or exporting the recovered copy.
+
+If every project document is unreadable, Soundscaper cannot infer the original
+tracks or clip order from the sample blocks alone. It does not scan raw SQLite
+pages or merge external WAL sidecars during recovery. Keep the original file
+and any matching `-wal` and `-shm` files together. For deeper database damage,
+try [Audacity Project Tools](https://github.com/audacity/audacity-project-tools)
+on a copy of those files.
+
 ## Adobe Audition SESX
 
 In the desktop edition, use **File → Open** to import an Adobe Audition `.sesx`
