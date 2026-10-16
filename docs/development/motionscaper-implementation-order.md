@@ -74,11 +74,24 @@ package complete.
 ### Implementation status
 
 M01–M12 are **In progress**; named implementations do not close release gates.
-The latest integrated repairs (`fc38539a6`) include shared playback-start
+The latest application repairs (`fc38539a6`) include shared playback-start
 preparation, product handbook navigation, stable source identity in peak probes
 and native whole-minute timed-recording input normalization. Focused regressions
 pass, including 57 playback controls and nine browser cases across three engines.
-Fresh complete gates on the combined source remain required.
+Application source `52ae9c43c` subsequently passed the complete static gate and
+all five Node partitions: 27,459 passes, 17 declared skips and zero failures,
+including all 1,224 Motion cases. Its complete browser run has recorded failures;
+browser qualification remains open.
+
+Later test and harness corrections through `f7bde573c` cover spectral input
+actionability, Contrast replacement, native seek counting, EQ pixel sampling,
+terminal Linux process observations, translation-draft readiness and tempo input.
+The process correction passes 39 focused Motion controls; draft readiness and
+tempo each pass four WebKit checks. The EQ pixel control passes all three
+engines, while two Firefox tone cases failed their preceding signal check.
+That signal investigation and fresh complete gates on the combined source remain
+required. These focused results do not close milestones or establish the
+exclusive causes of earlier failures.
 
 Application source `70a02ba9e` passed the complete static gate and all five Node
 partitions: 27,451 passes, 17 declared skips and zero failures, including all

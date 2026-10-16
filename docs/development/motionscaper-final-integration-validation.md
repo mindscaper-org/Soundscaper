@@ -1,10 +1,18 @@
 # Motionscaper final integration status
 
-Status: **M01–M12 In progress**. Latest behavioral/test integration
+Status: **M01–M12 In progress**. Latest application integration
 `fc38539a6` includes the reviewed playback-start repair, product handbook
 sidebar repair and two browser test corrections. Their focused checks pass;
-fresh complete static, Node and browser gates remain required on the combined
-source. The affected native Frame successor link/delivery regression passed
+the subsequent source `52ae9c43c` passed complete static and Node gates with
+27,459 passes, 17 declared skips and zero failures, including all 1,224 Motion
+cases. Its full browser run has recorded failures and remains open.
+
+Test and harness repairs through `f7bde573c` have separate focused evidence below.
+Fresh complete gates on that combined source remain required. The Firefox EQ
+signal investigation is open; a corrected pixel probe does not resolve a failure
+before that probe is reached. No milestone is complete.
+
+The affected native Frame successor link/delivery regression passed
 on `48a90f028` with exact PCM/timestamps and the original picture/alpha limits.
 A later documentation-only correction retains the existing lowercase
 "installed After Effects" caveat expected by the capability-register test;
@@ -122,7 +130,39 @@ by this recovery.
 
 ## Latest integrated validation
 
-The combined repairs are committed as:
+Source `52ae9c43c` passed the complete maintained static gate, including all eight
+lint shards, strict types, architecture, audits, documentation and production
+build. The largest JavaScript chunk remains 486,512 bytes, within the unchanged
+500,000-byte ceiling. Startup tightening changed no budget. All five exhaustive
+Node partitions passed with 27,476 tests: 27,459 passes and 17 declared skips.
+All 1,224 Motion cases passed. These are source52 component results; they do not
+qualify later test and harness changes or accept their coverage.
+
+The following corrections are committed after source52. Their retained receipts
+identify the exact tested source or temporary overlay and application build;
+the table does not relabel them as complete combined-source qualification.
+
+| Commit | Correction | Focused evidence and remaining limit |
+| --- | --- | --- |
+| `5d7734894` | Wait for spectral brush actionability before the initial drag. | Six controlled browser cases pass with the original drag and history oracles. |
+| `c5fe82a72` | Reserve native select-all before replacing Contrast amplification. | Four controlled contexts pass; the original failed input chronology remains retained. |
+| `dc29f22da` | Count actual native seek assignments when checking retime cache reuse. | Four Firefox cases pass, including both frame requests and delegated seek behavior. |
+| `15391ed32` | Measure the first nontransparent EQ pixel. | The old probe fails a real-canvas control; the corrected control passes all engines. The nine-case run remains failed: seven passes and two Firefox signal failures before pixel sampling. |
+| `d89034020` | Admit the captured terminal process record with unavailable group/session IDs. | The real-record regression fails before the fix; all 39 Motion process and cleanup controls pass afterward. Live, malformed and mixed negative IDs remain refused. |
+| `9adc52dbb` | Wait for the selected translation draft before replacing and saving it. | Four WebKit import/save/release/export checks pass. |
+| `f7bde573c` | Replace tempo with native keyboard input and verify the draft before blur. | Three previously failing workflows and a podcast control pass in WebKit, including numerical results, persistence and reload. |
+
+The process correction changes no ownership, signalling, output, cleanup or
+deadline limits. None of these corrections changes application rendering code,
+assertion thresholds or declared test timeouts. Historical failures remain
+failed; passing focused cases do not prove an exclusive historical cause.
+Complete browser qualification, the accepted coverage union and final ratchets
+remain open. The next complete browser run will use the repository's CI engine
+limits: two Chromium workers and one each for Firefox and WebKit, with four
+workers total, zero retries and the complete three-engine selector. The existing
+four-worker run retains its original execution settings and outcome.
+
+The preceding application and browser probe repairs are committed as:
 
 - `db3d017fe`: prepare buffered/live sources before the shared playback start,
   then allow one rebase of an expired, wholly unstarted eligible window. The
@@ -196,6 +236,10 @@ Current receipts below are relative to the retained recovery root:
 
 | Evidence | Receipt |
 | --- | --- |
+| Source52 complete Node/static | `current-52ae9c43c-node/qualification.json`; `current-52ae9c43c-wt7-static/qualification.json` |
+| EQ pixel control and failed nine-case run | `eq-spectrum-raster-oracle-c5fe82a72-20261016/baseline-run/qualification.json`; `eq-spectrum-raster-oracle-c5fe82a72-20261016/candidate-v2/qualification.json` |
+| Terminal process correction | `terminal-process-state-repair-20261016/qualification.json` |
+| Translation draft and tempo corrections | `community-import-input-c5fe82a72-20261016/runner-h/qualification.json`; `tempo-native-input-c5fe82a72-20261016/runner-c/qualification.json` |
 | Complete Node/static | `current-70a02ba9e-node-final/qualification.json`; `current-70a02ba9e-static/qualification.json` |
 | Linux workflows | `current-70a02ba9e-native-qualification/aggregate-audit/qualified-after-reference-ctime-audit.json` |
 | Native duration/maxima | `current-70a02ba9e-sustained-native/qualification.json`; `current-70a02ba9e-native-maximum-preparation/final-native-handoff.json` |
