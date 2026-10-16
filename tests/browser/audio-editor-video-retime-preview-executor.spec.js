@@ -298,10 +298,10 @@ test.describe('3B-5f-b paused retime preview qualification', () => {
 			video.currentTime = 0.01;
 			await initialSeeked;
 
-			const nativeAdd = video.addEventListener.bind(video);
-			const nativeRemove = video.removeEventListener.bind(video);
-			let suppressedSeekedListeners = 0, seekingEvents = 0;
-			nativeAdd('seeking', () => { seekingEvents += 1; });
+			const nativeAdd = video.addEventListener.bind(video), nativeRemove = video.removeEventListener.bind(video);
+			let suppressedSeekedListeners = 0;
+			const seekAssignments = [], currentTime = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime');
+			Object.defineProperty(video, 'currentTime', { configurable: true, enumerable: currentTime.enumerable, get: currentTime.get, set(value) { Reflect.apply(currentTime.set, this, [value]); seekAssignments.push(value); } });
 			video.addEventListener = (type, listener, options) => {
 				if (type === 'seeked') {
 					suppressedSeekedListeners += 1;
@@ -342,14 +342,14 @@ test.describe('3B-5f-b paused retime preview qualification', () => {
 			const presented = await port.present(request);
 			const cached = await port.present(request);
 			video.remove();
-			return { presented, cached, frameCallbackId, seekingEvents, suppressedSeekedListeners };
+			return { presented, cached, frameCallbackId, seekAssignments, suppressedSeekedListeners };
 		}, { fixturePath: FIXTURE_PATH, root: HARNESS_ROOT });
 
 		expect(result).toEqual({
 			presented: { mediaTime: 0 },
 			cached: { mediaTime: 0 },
 			frameCallbackId: 1,
-			seekingEvents: 1,
+			seekAssignments: [0.02],
 			suppressedSeekedListeners: 1,
 		});
 	});
