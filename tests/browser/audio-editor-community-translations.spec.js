@@ -265,7 +265,11 @@ test('an asynchronous file import retains draft edits saved while the file is re
 	});
 	await page.waitForFunction(() => typeof globalThis.releaseTranslationImport === 'function');
 	await selectMessage(surface, 'stop');
-	await surface.getByRole('textbox', { name: en.translation, exact: true }).fill('Stop from my newer draft');
+	const translation = surface.getByRole('textbox', { name: en.translation, exact: true });
+	// The selected key renders before its editable baseline is applied.
+	await expect(translation).toHaveValue(manifest.entries.stop.baselineText);
+	await translation.fill('Stop from my newer draft');
+	await expect(translation).toHaveValue('Stop from my newer draft');
 	await surface.getByRole('button', { name: en.save, exact: true }).click();
 	await page.evaluate(async () => { await globalThis.releaseTranslationImport(); });
 	await expect(surface.getByRole('status').filter({ hasText: '2 changes; 0 need review.' })).toBeVisible();
