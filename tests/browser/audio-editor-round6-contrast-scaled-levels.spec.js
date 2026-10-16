@@ -55,7 +55,10 @@ test('ordinary equal attenuation preserves the foreground/background Contrast de
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Amplify']);
 		const effect = page.getByRole('dialog', { name: 'Apply effect', exact: true });
-		await commitInput(effect.locator('[data-effect-param="gainDb"] input[type="number"]'), '-50');
+		const gain = effect.locator('[data-effect-param="gainDb"] input[type="number"]');
+		await gain.press('ControlOrMeta+A');
+		await commitInput(gain, '-50');
+		await expect(gain).toHaveValue('-50');
 		await effect.getByRole('button', { name: 'Apply to selection', exact: true }).click();
 		await expect(effect).toBeHidden({ timeout: 20_000 });
 	}
