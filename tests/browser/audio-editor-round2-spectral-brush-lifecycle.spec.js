@@ -14,7 +14,7 @@ test('Escape cancels a spectral-brush gesture before its pointer release', async
 	await brush.focus();
 	const box = await brush.boundingBox();
 	expect(box).not.toBeNull();
-	await page.mouse.move(box.x + 200, box.y + box.height / 2);
+	await brush.hover({ position: { x: 200, y: box.height / 2 } });
 	await page.mouse.down();
 	await page.mouse.move(box.x + 215, box.y + box.height / 2 + 15, { steps: 4 });
 	await expect(brush.locator('.audio-editor-spectral-brush__preview')).toBeVisible();
