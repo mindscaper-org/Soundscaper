@@ -24,7 +24,11 @@ const running = (value: ProcessState) => value.state !== 'Z' && value.state !== 
 function parseState(text: string): ProcessState {
 	const fields = text.slice(text.lastIndexOf(')') + 2).trim().split(/\s+/u);
 	const identity = parseMotionProcessStat(text), group = Number(fields[2]), session = Number(fields[3]);
-	if (!Number.isSafeInteger(group) || !Number.isSafeInteger(session) || group < 0 || session < 0) throw new Error('Invalid command process group/session.');
+	// A dead task can remain readable after Linux has released both session IDs.
+	// Keep its PID/start identity for ownership checks; running() excludes it from signals.
+	const releasedDeadTask = fields[0] === 'X' && group === -1 && session === -1;
+	if (!Number.isSafeInteger(group) || !Number.isSafeInteger(session)
+		|| ((group < 0 || session < 0) && !releasedDeadTask)) throw new Error('Invalid command process group/session.');
 	return { ...identity, group, session, state: fields[0]! };
 }
 
