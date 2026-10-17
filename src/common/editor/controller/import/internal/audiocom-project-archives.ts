@@ -63,7 +63,7 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 			if (!snapshot.supported || !Number.isSafeInteger(page) || page < 1) return;
 			await operation('loading', signal => client.list(page, signal));
 		},
-		async upload(file) {
+		async upload(file, revision) {
 			if (!snapshot.supported) return;
 			await operation('uploading', async signal => {
 				const format = file.name.toLowerCase().split('.').at(-1);
@@ -71,10 +71,11 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 				if (file.size < 16 || file.size > snapshot.maximumBytes) throw new Error('The project archive exceeds the server size limit.');
 				if (new TextDecoder().decode(await file.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new Error('Choose a standalone SQLite AUP3 or AUP4 project file.');
 				signal.throwIfAborted();
-				const name = file.name.replace(/\.aup[34]$/iu, '').trim().slice(0, 256) || 'Project';
-				try { await client.upload(file, name, signal); }
+				if (revision && !revision.snapshotId) throw new Error('Refresh the archive list before saving a revision.');
+				const name = revision?.name ?? (file.name.replace(/\.aup[34]$/iu, '').trim().slice(0, 256) || 'Project');
+				try { await client.upload(file, name, signal, revision); }
 				catch (error) {
-					if (signal.aborted || error instanceof AudiocomApiError && error.status === 401) throw error;
+					if (signal.aborted || error instanceof AudiocomApiError && [401, 409].includes(error.status)) throw error;
 					throw new Error(`${error instanceof Error ? error.message : 'The project upload failed.'} The server may retain an unfinished project. Refresh the archive list before trying again.`, { cause: error });
 				}
 				return { ...await client.list(1, signal), completedFileName: file.name };

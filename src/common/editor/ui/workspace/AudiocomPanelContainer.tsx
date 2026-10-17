@@ -73,7 +73,7 @@ export default function AudiocomPanelContainer({
 		onConnect={() => { void session.connect(); }} onDisconnect={() => { void session.disconnect(); }}
 		onUploadFiles={(files) => { session.enqueueFiles(files); }} onPublish={session.publish}
 		onRetry={session.retry} onCancel={session.cancel} onRemove={session.remove}
-		archives={{ state: archiveState, onRefresh: page => { void archives.refresh(page); }, onUpload: file => { void archives.upload(file); },
+		archives={{ state: archiveState, onRefresh: page => { void archives.refresh(page); }, onUpload: (file, revision) => { void archives.upload(file, revision); },
 			onDownload: project => { void archives.download(project); }, onCancel: archives.cancel }} />;
 }
 

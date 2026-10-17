@@ -32,7 +32,9 @@ const ROUTES: readonly ProxyRoute[] = [
 	{ method: 'GET', path: '/preview', kind: 'empty', query: ['url'] },
 	{ method: 'POST', path: '/uploads', kind: 'upload', query: UPLOAD_PARAMETERS },
 	{ method: 'GET', path: '/projects', kind: 'empty', query: ['page'] },
-	{ method: 'POST', path: '/projects', kind: 'project', query: ['name', 'format'] },
+	{ method: 'POST', path: '/projects/prepare', kind: 'empty', query: ['name', 'format', 'size', 'id', 'head'] },
+	{ method: 'POST', path: '/projects', kind: 'project', query: ['name', 'format', 'id', 'head', 'project', 'snapshot'] },
+	{ method: 'DELETE', path: '/projects', kind: 'empty', query: ['id', 'snapshotId'] },
 	{ method: 'GET', path: '/projects/download', kind: 'empty', query: ['id', 'snapshotId'] },
 ];
 
@@ -215,7 +217,11 @@ async function requestOptions(request: Request, route: ProxyRoute, appOrigin: st
 			|| !/^[\x21-\x7e]{1,1024}$/u.test(filename) || !request.body) throw new TypeError();
 		if (route.kind === 'project') {
 			const decoded = decodeURIComponent(filename);
-			const format = new URL(request.url).searchParams.get('format');
+			const query = new URL(request.url).searchParams;
+			const format = query.get('format');
+			const id = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu;
+			if ((query.has('id') || query.has('head')) && (!id.test(query.get('id') ?? '') || !id.test(query.get('head') ?? ''))) throw new TypeError();
+			if ((query.has('project') || query.has('snapshot')) && (!id.test(query.get('project') ?? '') || !id.test(query.get('snapshot') ?? '') || query.has('id') || query.has('head'))) throw new TypeError();
 			if (length < 16 || !/\.(?:aup3|aup4)$/iu.test(decoded) || !decoded.toLowerCase().endsWith(`.${format ?? ''}`)
 				|| /[/\\]/u.test(decoded) || [...decoded].some(character => (character.codePointAt(0) ?? 0) < 32 || character.codePointAt(0) === 127)) throw new TypeError();
 		}

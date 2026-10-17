@@ -37,11 +37,33 @@ export function createAudiocomProjectArchiveClient(options: ClientOptions = {}):
 			if (!Array.isArray(data.results) || data.results.length > 20 || data.page !== page || typeof data.hasNext !== 'boolean') throw new Error('Invalid project archive list.');
 			return { results: data.results.map(normalizeProject), page, hasNext: data.hasNext };
 		},
-		async upload(file, name, signal) {
+		async upload(file, name, signal, revision) {
+			signal?.throwIfAborted();
 			const format = file.name.toLowerCase().split('.').at(-1) ?? '';
 			const params = new URLSearchParams({ name, format });
-			return normalizeProject(await dataResponse(await request(`projects?${params}`, { method: 'POST', signal, body: file,
-				headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Filename': encodeURIComponent(file.name), 'X-Audiocom-Content-Length': String(file.size) } })));
+			if (revision) {
+				if (!ID.test(revision.id) || !revision.snapshotId || !ID.test(revision.snapshotId)) throw new Error('The project archive has no completed revision. Refresh the archive list.');
+				params.set('id', revision.id); params.set('head', revision.snapshotId);
+			}
+			params.set('size', String(file.size));
+			// Complete the bounded preparation even if the caller cancels, so its new ID can be retired.
+			const prepared = record(await dataResponse(await request(`projects/prepare?${params}`, { method: 'POST', signal: AbortSignal.timeout(10_000) })));
+			const projectId = prepared.projectId; const snapshotId = prepared.snapshotId;
+			if (typeof projectId !== 'string' || !ID.test(projectId) || typeof snapshotId !== 'string' || !ID.test(snapshotId)
+				|| revision && projectId !== revision.id) throw new Error('Invalid prepared project revision.');
+			const upload = new URLSearchParams({ name, format, project: projectId, snapshot: snapshotId });
+			let cleanup: Promise<void> | undefined;
+			const cancel = (): Promise<void> => cleanup ??= request(`projects?${new URLSearchParams({ id: projectId, snapshotId })}`, {
+				method: 'DELETE', signal: AbortSignal.timeout(10_000),
+			}).then(async response => { await response.body?.cancel(); }).catch(() => undefined);
+			const aborted = (): void => { void cancel(); };
+			signal?.addEventListener('abort', aborted, { once: true });
+			try {
+				signal?.throwIfAborted();
+				return normalizeProject(await dataResponse(await request(`projects?${upload}`, { method: 'POST', signal, body: file,
+					headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Filename': encodeURIComponent(file.name), 'X-Audiocom-Content-Length': String(file.size) } })));
+			} catch (error) { await cancel(); throw error; }
+			finally { signal?.removeEventListener('abort', aborted); }
 		},
 		async download(project, signal) {
 			if (!ID.test(project.id) || !project.snapshotId || !ID.test(project.snapshotId)) throw new Error('The project archive has no completed revision.');

@@ -91,6 +91,92 @@ test('archive upload refuses excess size before publication', async () => {
 	assert.equal(oversized.status, 413);
 });
 
+test('saving an archive revision uses the same project and expected head with changed bytes', async () => {
+	const repository = await session(); const calls: string[] = [];
+	const previous = 'aaaaaaaa-1234-4234-8234-123456789abc';
+	const changed = new TextEncoder().encode('SQLite format 3\0changed project archive');
+	assert.notDeepEqual(changed, file);
+	const response = await handleAudiocomProjectsRequest(context(`projects?name=Session&format=aup3&id=${ID}&head=${previous}`, {
+		method: 'POST', headers: { 'X-Audiocom-Content-Length': String(changed.length) }, body: changed,
+	}), { repository, now: () => NOW, fetchImpl: async (input, init) => {
+		const url = new URL(String(input)); calls.push(`${init?.method ?? 'GET'} ${url.pathname}`);
+		if (url.pathname === '/.well-known/audiocity') return discovery();
+		if (url.pathname === `/project/${ID}/snapshot`) {
+			assert.deepEqual(JSON.parse(String(init?.body)), { name: 'Session', format: 'aup3', size: changed.length, head_snapshot_id: previous });
+			return json({ project, snapshot: { id: SNAPSHOT }, sync: { blocks: [], file: {
+				url: `${ORIGIN}/uploads/${ID}?token=${TOKEN}`, success: `${ORIGIN}/uploads/${ID}/success?token=${TOKEN}`, fail: `${ORIGIN}/uploads/${ID}/fail?token=${TOKEN}`,
+			} } }, 201);
+		}
+		if (init?.method === 'PUT') assert.deepEqual(new Uint8Array(await new Response(init.body).arrayBuffer()), changed);
+		if (url.pathname === `/project/${ID}`) return json({ ...project, size: changed.length });
+		return json({ id: SNAPSHOT });
+	} });
+	assert.equal(response.status, 201, await response.clone().text());
+	assert.equal((await response.json() as { data: { id: string } }).data.id, ID);
+	assert.ok(calls.includes(`POST /project/${ID}/snapshot`));
+	assert.equal(calls.includes('POST /project'), false, 'a revision must not silently create another project');
+});
+
+test('a stale archive head reports a conflict without transferring, forcing, or deleting anything', async () => {
+	const repository = await session(); const calls: string[] = [];
+	const response = await handleAudiocomProjectsRequest(context(`projects?name=Session&format=aup3&id=${ID}&head=${SNAPSHOT}`, {
+		method: 'POST', headers: { 'X-Audiocom-Content-Length': String(file.length) }, body: file,
+	}), { repository, now: () => NOW, fetchImpl: async (input, init) => {
+		const url = new URL(String(input));
+		if (url.pathname === '/.well-known/audiocity') return discovery();
+		calls.push(`${init?.method ?? 'GET'} ${url.pathname}`);
+		assert.equal(JSON.parse(String(init?.body)).force, undefined);
+		return json({ code: 'ProjectVersionConflict' }, 409);
+	} });
+	assert.equal(response.status, 409, await response.clone().text());
+	assert.match(await response.text(), /refresh/iu);
+	assert.deepEqual(calls, [`POST /project/${ID}/snapshot`]);
+});
+
+test('archive revision parameters require one exact project and head and never accept force', async () => {
+	for (const query of [`id=${ID}`, `head=${SNAPSHOT}`, `id=../escape&head=${SNAPSHOT}`,
+		`id=${ID}&head=not-a-snapshot`, `id=${ID}&head=${SNAPSHOT}&force=true`, `id=${ID}&id=${ID}&head=${SNAPSHOT}`]) {
+		let fetched = false;
+		const response = await handleAudiocomProjectsRequest(context(`projects?name=Session&format=aup3&${query}`, {
+			method: 'POST', headers: { 'X-Audiocom-Content-Length': String(file.length) }, body: file,
+		}), { fetchImpl: async () => { fetched = true; throw new Error('No provider request is allowed.'); } });
+		assert.equal(response.status, 400, query); assert.equal(fetched, false);
+	}
+});
+
+test('archive preparation returns only owned revision identifiers before any file bytes are sent', async () => {
+	const repository = await session(); const calls: string[] = [];
+	const response = await handleAudiocomProjectsRequest(context(`projects/prepare?name=Session&format=aup3&size=${file.length}&id=${ID}&head=${SNAPSHOT}`, { method: 'POST' }), {
+		repository, now: () => NOW, fetchImpl: async (input, init) => {
+			const url = new URL(String(input));
+			if (url.pathname === '/.well-known/audiocity') return discovery();
+			calls.push(`${init?.method ?? 'GET'} ${url.pathname}`);
+			assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer provider-secret');
+			return json({ project, snapshot: { id: SNAPSHOT }, sync: { blocks: [], file: {
+				url: `${ORIGIN}/uploads/${ID}?token=${TOKEN}`, success: `${ORIGIN}/uploads/${ID}/success?token=${TOKEN}`, fail: `${ORIGIN}/uploads/${ID}/fail?token=${TOKEN}`,
+			} } }, 201);
+		},
+	}, true);
+	assert.equal(response.status, 201, await response.clone().text());
+	assert.deepEqual(await response.json(), { data: { projectId: ID, snapshotId: SNAPSHOT } });
+	assert.deepEqual(calls, [`POST /project/${ID}/snapshot`]);
+});
+
+for (const status of [204, 404, 409]) test(`explicit archive cancellation preserves the provider's completed-revision guard (${status})`, async () => {
+	const repository = await session(); const calls: string[] = [];
+	const response = await handleAudiocomProjectsRequest(context(`projects?id=${ID}&snapshotId=${SNAPSHOT}`, { method: 'DELETE' }), {
+		repository, now: () => NOW, fetchImpl: async (input, init) => {
+			const url = new URL(String(input));
+			if (url.pathname === '/.well-known/audiocity') return discovery();
+			calls.push(`${init?.method ?? 'GET'} ${url.pathname}`);
+			assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer provider-secret');
+			return new Response(null, { status });
+		},
+	});
+	assert.equal(response.status, status === 409 ? 409 : 204);
+	assert.deepEqual(calls, [`DELETE /project/${ID}/snapshot/${SNAPSHOT}`]);
+});
+
 for (const failure of ['expired confirmation', 'failed completion', 'lost completed response']) test(`archive cleanup after ${failure} removes only an abandoned snapshot`, async () => {
 	const repository = await session(); const methods: string[] = [];
 	const cancellation = new AbortController();

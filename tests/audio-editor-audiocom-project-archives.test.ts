@@ -86,6 +86,7 @@ test('archive transport keeps raw files, validates download headers, and enforce
 	const api = createAudiocomProjectArchiveClient({ location: { origin: 'http://127.0.0.1:4321', protocol: 'http:' }, fetch: async (input, init) => {
 		const url = String(input); body = init?.body;
 		if (url.includes('/usage')) return Response.json({ data: { projectStorageSupported: true, projectFormats: ['aup3'], maximumUploadBytes: 100000000 } });
+		if (url.includes('/prepare')) return Response.json({ data: { projectId: ID, snapshotId: ID } });
 		if (url.includes('/download')) return new Response(file, { headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(file.size) } });
 		return Response.json({ data: item });
 	} });
@@ -103,6 +104,93 @@ test('archive authentication errors retain their status for incomplete or non-JS
 	}
 });
 
+test('successive revision saves carry the selected project and its newly completed head', async () => {
+	const changed = new File(['SQLite format 3\0changed audio'], 'different-export.aup3');
+	const third = new File(['SQLite format 3\0another edit'], 'third-export.aup3');
+	assert.notDeepEqual(await changed.arrayBuffer(), await third.arrayBuffer());
+	let current = item;
+	const targets: (Parameters<AudiocomProjectArchiveClient['upload']>[3])[] = [];
+	const session = createAudiocomProjectArchives({ client: client({
+		list: async () => ({ results: [current], page: 1, hasNext: false }),
+		upload: async (bytes, name, _signal, target) => {
+			assert.equal(name, item.name, 'a revision retains the selected cloud project name');
+			targets.push(target);
+			current = { ...item, size: bytes.size, snapshotId: targets.length === 1 ? 'aaaaaaaa-1234-4234-8234-123456789abc' : 'bbbbbbbb-1234-4234-8234-123456789abc' };
+			return current;
+		},
+	}) });
+	await session.setConnected(true); await session.refresh(1);
+	await session.upload(changed, item);
+	const second = session.getSnapshot().results[0]!;
+	await session.upload(third, second);
+	assert.deepEqual(targets, [item, second]);
+	assert.equal(session.getSnapshot().results.length, 1);
+	assert.equal(session.getSnapshot().results[0]?.id, item.id);
+	assert.notEqual(session.getSnapshot().results[0]?.snapshotId, second.snapshotId);
+	session.dispose();
+});
+
+test('revision conflicts retain the previous download and require an explicit refresh and retry', async () => {
+	let attempts = 0;
+	const session = createAudiocomProjectArchives({ client: client({ upload: async () => {
+		attempts++; throw new AudiocomApiError(409, 'The project changed. Refresh the archive list.');
+	} }) });
+	await session.setConnected(true); await session.refresh(1);
+	await session.upload(file, item);
+	assert.equal(attempts, 1);
+	assert.equal(session.getSnapshot().status, 'error');
+	assert.match(session.getSnapshot().errorMessage ?? '', /refresh/iu);
+	assert.doesNotMatch(session.getSnapshot().errorMessage ?? '', /unfinished/iu);
+	assert.deepEqual(session.getSnapshot().results, [item]);
+	session.dispose();
+});
+
+test('the archive client forwards revision identifiers and rejects an incomplete head before upload', async () => {
+	const calls: URL[] = [];
+	const api = createAudiocomProjectArchiveClient({ fetch: async input => {
+		const url = new URL(String(input)); calls.push(url);
+		return Response.json({ data: url.pathname.endsWith('/prepare') ? { projectId: ID, snapshotId: ID } : item });
+	} });
+	await api.upload(file, item.name, undefined, item);
+	assert.equal(calls[0]?.searchParams.get('id'), item.id);
+	assert.equal(calls[0]?.searchParams.get('head'), item.snapshotId);
+	await assert.rejects(api.upload(file, item.name, undefined, { ...item, snapshotId: null }), /completed revision/iu);
+	assert.equal(calls[1]?.searchParams.get('project'), item.id);
+	assert.equal(calls[1]?.searchParams.get('snapshot'), ID);
+	assert.equal(calls.length, 2);
+});
+
+for (const phase of ['prepare', 'upload']) test(`archive cancellation during ${phase} explicitly retires its pending revision even if the proxy keeps running`, async () => {
+	const abort = new AbortController();
+	let started!: () => void; let finish!: () => void;
+	const waiting = new Promise<void>(resolve => { started = resolve; });
+	const held = new Promise<void>(resolve => { finish = resolve; });
+	const calls: { method: string; url: URL; signal: AbortSignal | null | undefined }[] = [];
+	const api = createAudiocomProjectArchiveClient({ fetch: async (input, init) => {
+		const url = new URL(String(input)); calls.push({ method: init?.method ?? 'GET', url, signal: init?.signal });
+		if (url.pathname.endsWith('/prepare')) {
+			if (phase === 'prepare') { started(); await held; }
+			return Response.json({ data: { projectId: ID, snapshotId: ID } });
+		}
+		if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+		started(); await held;
+		throw new DOMException('Cancelled request.', 'AbortError');
+	} });
+	const pending = api.upload(file, item.name, abort.signal, item);
+	const failed = assert.rejects(pending, { name: 'AbortError' });
+	await waiting; abort.abort();
+	if (phase === 'upload') {
+		// Do not let the simulated proxy finish before checking the independent DELETE.
+		assert.equal(calls.at(-1)?.method, 'DELETE');
+	}
+	finish(); await failed;
+	const cleanup = calls.find(call => call.method === 'DELETE');
+	assert.ok(cleanup); assert.equal(cleanup.signal?.aborted, false); assert.notEqual(cleanup.signal, abort.signal);
+	assert.equal(cleanup.url.searchParams.get('id'), ID); assert.equal(cleanup.url.searchParams.get('snapshotId'), ID);
+	assert.equal(calls.filter(call => call.method === 'DELETE').length, 1);
+	if (phase === 'prepare') assert.equal(calls.length, 2, 'a cancelled preparation must never start the byte upload');
+});
+
 test('archive provider metadata applies the same editor-origin policy as OAuth', async () => {
 	const provider = { kind: 'audiocity', apiOrigin: 'http://127.0.0.1:8088', webOrigin: 'http://127.0.0.1:8088', scope: 'public projects' };
 	const metadata = () => Promise.resolve(Response.json({ data: { provider, projectStorageSupported: true, projectFormats: ['aup3'], maximumUploadBytes: 100000000 } }));
@@ -118,12 +206,13 @@ test('archive calls carry the selected API origin through the same-origin proxy 
 	const api = createAudiocomProjectArchiveClient({ apiOrigin: origin, location: { origin: 'https://soundscaper.org', protocol: 'https:' }, fetch: async (input, init) => {
 		const url = String(input); calls.push({ url, origin: new Headers(init?.headers).get('X-Audiocom-Api-Origin') });
 		if (url.includes('/usage')) return Response.json({ data: { provider: { kind: 'audiocity', apiOrigin: origin, webOrigin: origin, scope: 'public projects' }, projectStorageSupported: true, projectFormats: ['aup3'] } });
+		if (url.includes('/prepare')) return Response.json({ data: { projectId: ID, snapshotId: ID } });
 		if (url.includes('/download')) return new Response(file, { headers: { 'Content-Length': String(file.size) } });
 		if (url.includes('page=')) return Response.json({ data: { results: [item], page: 1, hasNext: false } });
 		return Response.json({ data: item });
 	} });
 	await api.capabilities(); await api.list(1); await api.upload(file, 'Session'); await api.download(item);
-	assert.equal(calls.length, 4);
+	assert.equal(calls.length, 5);
 	assert(calls.every(call => call.origin === origin && new URL(call.url).origin === 'https://soundscaper.org'));
 	const mismatch = createAudiocomProjectArchiveClient({ apiOrigin: origin, fetch: async () => Response.json({ data: { provider: { kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', scope: 'public' } } }) });
 	await assert.rejects(mismatch.capabilities(), /origin|server/iu);

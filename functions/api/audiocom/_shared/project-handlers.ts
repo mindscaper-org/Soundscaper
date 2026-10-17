@@ -9,12 +9,12 @@ import { checkResponse, providerFetch } from './provider-fetch.ts';
 import { archiveUploadInput, invalid, normalizeProject, projectId, sqliteArchiveStream } from './project-contracts.ts';
 import { exactUploadStream } from './streams.ts';
 
-export function handleAudiocomProjectsRequest(context: AudiocomOAuthFunctionContext, dependencies: OAuthHandlerDependencies = {}): Promise<Response> {
-	return handleOAuthEndpoint(context, ['GET', 'HEAD', 'POST'], async admission => {
+export function handleAudiocomProjectsRequest(context: AudiocomOAuthFunctionContext, dependencies: OAuthHandlerDependencies = {}, preparing = false): Promise<Response> {
+	return handleOAuthEndpoint(context, preparing ? ['POST'] : ['GET', 'HEAD', 'POST', 'DELETE'], async admission => {
 		context = selectedProviderContext(context);
 		const provider = providerConfiguration(context.env);
 		if (provider.kind !== 'audiocity') throw new OAuthHttpError(404, 'not_found', 'Project archive storage is unavailable.');
-		const input = context.request.method === 'POST' ? archiveUploadInput(context.request) : null;
+		const input = context.request.method === 'POST' ? archiveUploadInput(context.request, preparing) : null;
 		const { accessToken, authorized } = await accessTokenForSession(context, dependencies);
 		context = authorized.context;
 		const capabilities = await discoverAudiocityCapabilities(context, dependencies);
@@ -22,9 +22,27 @@ export function handleAudiocomProjectsRequest(context: AudiocomOAuthFunctionCont
 		const control = async (path: string, init: RequestInit = {}): Promise<unknown> => {
 			const response = await providerFetch(context, dependencies, new URL(path, provider.apiOrigin), { ...init,
 				headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}) } });
+			if (response.status === 409) {
+				await response.body?.cancel();
+				throw new OAuthHttpError(409, 'project_conflict', 'The project changed on the server. Refresh the archive list before saving another revision.');
+			}
 			await checkResponse(response, authorized, dependencies);
 			return readUpstreamJson(response, 1024 * 1024);
 		};
+		if (context.request.method === 'DELETE') {
+			const query = new URL(context.request.url).searchParams;
+			if (query.size !== 2 || query.getAll('id').length !== 1 || query.getAll('snapshotId').length !== 1) throw new OAuthHttpError(400, 'invalid_request', 'Invalid archive cancellation.');
+			let id: string; let snapshot: string;
+			try { id = projectId(query.get('id')); snapshot = projectId(query.get('snapshotId')); }
+			catch { throw new OAuthHttpError(400, 'invalid_request', 'Invalid archive cancellation identifiers.'); }
+			const response = await providerFetch(context, dependencies, new URL(`/project/${id}/snapshot/${snapshot}`, provider.apiOrigin), {
+				method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` },
+			});
+			if (response.status === 409) { await response.body?.cancel(); throw new OAuthHttpError(409, 'project_conflict', 'The completed revision cannot be cancelled. Refresh the archive list.'); }
+			if (response.status !== 404) await checkResponse(response, authorized, dependencies);
+			await response.body?.cancel();
+			return new Response(null, { status: 204, headers: oauthResponseHeaders(admission.corsOrigin) });
+		}
 		if (input === null) {
 			const query = new URL(context.request.url).searchParams;
 			if ([...query.keys()].some(key => key !== 'page') || query.getAll('page').length > 1 || !/^[1-9]\d{0,5}$/u.test(query.get('page') ?? '1')) throw new OAuthHttpError(400, 'invalid_request', 'Invalid archive page.');
@@ -35,8 +53,20 @@ export function handleAudiocomProjectsRequest(context: AudiocomOAuthFunctionCont
 			return oauthJson({ data: { results: data.items.map(normalizeProject), page, hasNext: page < Number(pagination.pages) } }, 200, admission);
 		}
 		if (input.size > capabilities.maximumUploadBytes) throw new OAuthHttpError(413, 'payload_too_large', 'The project archive exceeds the server upload limit.');
-		const created = record(await control('/project', { method: 'POST', body: JSON.stringify(input) }));
+		const { revision, prepared, ...fields } = input;
+		let created: Record<string, unknown>;
+		if (prepared) {
+			const project = record(await control(`/project/${prepared.id}`));
+			const snapshot = record(await control(`/project/${prepared.id}/snapshot/${prepared.snapshot}`));
+			if (record(project.head).id !== prepared.snapshot || snapshot.date_synced !== 0 || snapshot.format !== fields.format) {
+				throw new OAuthHttpError(409, 'project_conflict', 'The prepared revision changed. Refresh the archive list before saving.');
+			}
+			created = { project, snapshot, sync: await control(`/project/${prepared.id}/snapshot/${prepared.snapshot}/sync`) };
+		} else created = record(await control(revision ? `/project/${revision.id}/snapshot` : '/project', {
+			method: 'POST', body: JSON.stringify({ ...fields, ...(revision ? { head_snapshot_id: revision.head } : {}) }),
+		}));
 		const project = normalizeProject(created.project);
+		if (revision && project.id !== revision.id) throw invalid('The saved revision belongs to a different project.');
 		const snapshot = projectId(record(created.snapshot).id);
 		const sync = record(created.sync);
 		if (!Array.isArray(sync.blocks) || sync.blocks.length !== 0) throw invalid('Unexpected native project transport.');
@@ -44,6 +74,7 @@ export function handleAudiocomProjectsRequest(context: AudiocomOAuthFunctionCont
 		const destination = trustedProviderUploadUrl(descriptor.url, provider);
 		const success = trustedProviderHookUrl(descriptor.success, provider, 'success');
 		const failure = trustedProviderHookUrl(descriptor.fail, provider, 'fail');
+		if (preparing) return oauthJson({ data: { projectId: project.id, snapshotId: snapshot } }, 201, admission);
 		try {
 			const transfer = exactUploadStream(sqliteArchiveStream(context.request.body!), input.size);
 			const uploaded = await providerFetch(context, dependencies, destination, { method: 'PUT',

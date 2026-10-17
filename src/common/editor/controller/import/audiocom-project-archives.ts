@@ -21,7 +21,7 @@ export interface AudiocomArchiveCapabilities {
 export interface AudiocomProjectArchiveClient {
 	capabilities(signal?: AbortSignal): Promise<AudiocomArchiveCapabilities>;
 	list(page: number, signal?: AbortSignal): Promise<AudiocomArchivePage>;
-	upload(file: File, name: string, signal?: AbortSignal): Promise<AudiocomProjectArchive>;
+	upload(file: File, name: string, signal?: AbortSignal, revision?: AudiocomProjectArchive): Promise<AudiocomProjectArchive>;
 	download(project: AudiocomProjectArchive, signal?: AbortSignal): Promise<Blob>;
 }
 export interface AudiocomArchiveSaveRequest {
@@ -43,7 +43,7 @@ export interface AudiocomProjectArchives {
 	initialize(): Promise<void>;
 	setConnected(connected: boolean): Promise<void>;
 	refresh(page: number): Promise<void>;
-	upload(file: File): Promise<void>;
+	upload(file: File, revision?: AudiocomProjectArchive): Promise<void>;
 	download(project: AudiocomProjectArchive): Promise<void>;
 	cancel(): void;
 	dispose(): void;

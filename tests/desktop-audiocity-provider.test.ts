@@ -147,6 +147,31 @@ test('desktop project proxy streams archive uploads and downloads through fixed 
 	assert.equal(calls.length, 3);
 });
 
+test('desktop revision uploads retain their project and expected head and reject force or partial identifiers', async () => {
+	let calls = 0;
+	const proxy = createDesktopAudiocomProxy({ appOrigin: APP_ORIGIN, apiOrigin: BACKEND,
+		sessionStore: { get: () => null, set: async () => {}, clear: async () => {} },
+		fetchImpl: async (input, init) => {
+			calls++;
+			const url = new URL(String(input));
+			assert.equal(url.origin, BACKEND); assert.equal(url.pathname, '/api/audiocom/projects');
+			assert.equal(url.searchParams.get('id'), PROJECT_ID); assert.equal(url.searchParams.get('head'), SNAPSHOT_ID);
+			assert.equal(new TextDecoder().decode(await new Response(init?.body).arrayBuffer()), 'SQLite format 3\0');
+			return Response.json({ data: {} }, { status: 201 });
+		},
+	});
+	const query = `name=Project&format=aup3&id=${PROJECT_ID}&head=${SNAPSHOT_ID}`;
+	const request = (params: string) => new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects?${params}`, {
+		method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Filename': 'Project.aup3', 'X-Audiocom-Content-Length': '16' },
+		body: new TextEncoder().encode('SQLite format 3\0'),
+	});
+	assert.equal((await proxy(request(query))).status, 201);
+	for (const invalid of [`${query}&force=true`, `${query}&id=${PROJECT_ID}`, query.replace(`&head=${SNAPSHOT_ID}`, ''), query.replace(PROJECT_ID, '../escape')]) {
+		assert.equal((await proxy(request(invalid))).status, 400);
+	}
+	assert.equal(calls, 1);
+});
+
 
 test('desktop forwards validated provider selections only to its fixed backend and leaves preview selection to the pinned grant', async () => {
 	const calls: { url: string; origin: string | null }[] = [];
