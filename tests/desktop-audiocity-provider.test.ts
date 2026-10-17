@@ -154,8 +154,18 @@ test('desktop revision uploads retain their project and expected head and reject
 		fetchImpl: async (input, init) => {
 			calls++;
 			const url = new URL(String(input));
-			assert.equal(url.origin, BACKEND); assert.equal(url.pathname, '/api/audiocom/projects');
-			assert.equal(url.searchParams.get('id'), PROJECT_ID); assert.equal(url.searchParams.get('head'), SNAPSHOT_ID);
+			assert.equal(url.origin, BACKEND);
+			if (url.pathname === '/api/audiocom/projects/prepare') {
+				assert.equal(url.searchParams.get('size'), '16'); assert.equal(init?.body, undefined);
+				return Response.json({ data: { projectId: PROJECT_ID, snapshotId: SNAPSHOT_ID } }, { status: 201 });
+			}
+			assert.equal(url.pathname, '/api/audiocom/projects');
+			if (init?.method === 'DELETE') {
+				assert.equal(url.searchParams.get('id'), PROJECT_ID); assert.equal(url.searchParams.get('snapshotId'), SNAPSHOT_ID);
+				assert.equal(init.body, undefined); return new Response(null, { status: 204 });
+			}
+			assert.equal(url.searchParams.get(url.searchParams.has('project') ? 'project' : 'id'), PROJECT_ID);
+			assert.equal(url.searchParams.get(url.searchParams.has('snapshot') ? 'snapshot' : 'head'), SNAPSHOT_ID);
 			assert.equal(new TextDecoder().decode(await new Response(init?.body).arrayBuffer()), 'SQLite format 3\0');
 			return Response.json({ data: {} }, { status: 201 });
 		},
@@ -170,6 +180,11 @@ test('desktop revision uploads retain their project and expected head and reject
 		assert.equal((await proxy(request(invalid))).status, 400);
 	}
 	assert.equal(calls, 1);
+	const prepare = new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects/prepare?${query}&size=16`, { method: 'POST' });
+	assert.equal((await proxy(prepare)).status, 201);
+	assert.equal((await proxy(request(query.replace('&id=', '&project=').replace('&head=', '&snapshot=')))).status, 201);
+	assert.equal((await proxy(new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects?id=${PROJECT_ID}&snapshotId=${SNAPSHOT_ID}`, { method: 'DELETE' }))).status, 204);
+	assert.equal(calls, 4);
 });
 
 

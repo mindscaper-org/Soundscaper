@@ -5,9 +5,9 @@ import { readFile } from 'node:fs/promises';
 import { encodeDedicatedAudioPcm } from '../../../src/common/editor/browser-dedicated-audio-codec.ts';
 import { encodeAiff } from '../../../src/common/editor/aiff.js';
 import { aup4NativeRichFixture, createAup3Fixture, createWavFixture, expect, test } from '../audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseFileAction, chooseNestedCommandAction, disableNativeSavePicker } from '../audio-editor-test-helpers.js';
+import { chooseFileAction, disableNativeSavePicker } from '../audio-editor-test-helpers.js';
 
-const providerOrigin = `http://127.0.0.1:${process.env.SCAPE_AUDIOCITY_PORT || '8091'}`;
+import { connect, providerOrigin } from './audiocity-test-helpers.js';
 
 test('connects through real OAuth, uploads and searches audio, streams playback, restores and disconnects', async ({ page }) => {
 	const externalProviderRequests = [];
@@ -116,31 +116,5 @@ for (const format of ['aup3', 'aup4']) test(`stores and retrieves a real ${forma
 	await expect(editor).toHaveAttribute('data-clip-count', format === 'aup3' ? '1' : '5');
 });
 
-async function connect(page) {
-	const editor = await bootEditor(page, '/embed/en/');
-	const panel = editor.locator('[data-workspace-panel="audiocom"]');
-	await expect(panel).toHaveCount(0);
-	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
-	const server = preferences.getByRole('textbox', { name: 'Server URL', exact: true });
-	await expect(server).toHaveValue('https://api.audio.com');
-	await server.fill(providerOrigin);
-	await preferences.getByRole('button', { name: 'Save server', exact: true }).click();
-	await expect(preferences.getByRole('button', { name: 'Save server', exact: true })).toBeDisabled();
-	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
-	await expect(panel.getByRole('button', { name: 'Connect to Audiocity', exact: true })).toBeVisible();
-	await expect(panel).toContainText(providerOrigin);
-	const popupEvent = page.waitForEvent('popup');
-	await panel.getByRole('button', { name: 'Connect to Audiocity', exact: true }).click();
-	const authorization = await popupEvent;
-	await expect(authorization).toHaveURL(new RegExp(`^${providerOrigin}/auth/authorize\\?`, 'u'));
-	await authorization.getByLabel('Email', { exact: true }).fill('soundscaper-validation@example.test');
-	await authorization.getByLabel('Password', { exact: true }).fill('soundscaper-audiocity-test-only-password');
-	await authorization.getByRole('button', { name: 'Allow access', exact: true }).click();
-	await expect(panel.getByText('Connected to Audiocity', { exact: true })).toBeVisible();
-	return { editor, panel };
-}
 
 function hash(bytes) { return createHash('sha256').update(bytes).digest('hex'); }

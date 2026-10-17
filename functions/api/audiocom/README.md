@@ -18,6 +18,12 @@ of an Audiocity instance, and save to select it for this browser or desktop
 profile. **Use audio.com** restores `https://api.audio.com`. The panel remains an
 opt-in entry under **Window → audio.com**.
 
+For project archives, open **Upload AUP3 or AUP4** and choose **Upload new project**
+or **Save new revision: PROJECT**. Refresh the project list first when reconnecting
+or when another editor has saved changes. Revisions keep the selected project ID
+and retain earlier completed downloads. A stale head returns a conflict; refresh
+and explicitly retry instead of overwriting another save.
+
 The selected server must be a public HTTPS origin reachable by the Soundscaper
 service. A local HTTP Audiocity server works with a locally running Soundscaper
 Pages server that explicitly enables local development. Cloudflare cannot use
@@ -108,6 +114,11 @@ It uses editor port 4325 and Audiocity port 8091; `PLAYWRIGHT_PORT` and
 `SCAPE_AUDIOCITY_PORT` override them. The test performs real OAuth authorization,
 upload, search, range playback and project archive transfers against the local
 HTTP server, including WavPack and AIFF original previews and the HTML player link.
+Revision scenarios use valid AUP3/AUP4 files with different project contents and
+SHA-256 hashes for successive saves. They verify repeated OAuth login, retained
+history and exact downloads, competing saves, cancellation during transfer and
+after byte confirmation, failed completion, and a lost successful response. The
+disposable loopback harness injects those failures; production has no fault routes.
 It does not contact audio.com or use production credentials. To keep
 a disposable validation server running for manual inspection, run
 `node scripts/audiocity-validation-server.mjs`; open its printed editor URL and
@@ -204,6 +215,22 @@ in D1. Refresh-token rotation is serialized with a D1 lease.
   and exact length headers above, and the same 100 MB application ceiling.
   The proxy checks the SQLite signature, completes the signed transfer, then
   synchronizes the archive revision. Only advertised archive formats are admitted.
+  Adding both `id=PROJECT_ID` and `head=LATEST_COMPLETED_SNAPSHOT_ID` saves to that
+  existing project using optimistic concurrency. Missing, duplicate or malformed
+  revision IDs and `force` parameters are rejected. Conflicts return `409` and
+  require a fresh list before an explicit retry; pending revision cleanup preserves
+  the previous completed revision and any save whose success response was lost.
+- `POST /projects/prepare?name=...&format=aup3|aup4&size=...` prepares a new archive;
+  add `id` and `head` to prepare a revision of an existing one. Its response contains
+  only `projectId` and `snapshotId`. Soundscaper then streams the file through
+  `POST /projects?name=...&format=...&project=...&snapshot=...` after checking that
+  the prepared snapshot is still the unsynchronized head. No storage capability is
+  exposed to the browser. The earlier one-request upload contract remains accepted.
+- `DELETE /projects?id=...&snapshotId=...` explicitly cancels an owned pending
+  revision. The client sends it independently of an aborted byte request, since
+  disconnecting a browser does not reliably interrupt the proxy's provider upload.
+  Already absent revisions return `204`; completed or referenced revisions remain
+  protected by the provider's `409` guard.
 - `GET /projects/download?id=...&snapshotId=...` retrieves an owner's completed
   whole-file archive revision through a pinned signed media URL, as an attachment
   with the same size ceiling. Native block snapshots are excluded. The server
