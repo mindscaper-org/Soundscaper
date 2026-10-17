@@ -51,7 +51,7 @@ export function createMotionPreviewRenderSession(options: MotionPreviewSessionOp
 			}
 			return Promise.resolve(name);
 		},
-		async render(request, externalSignal) {
+		async render(request, externalSignal, onProgress) {
 			const signal = AbortSignal.any([externalSignal, disposal.signal]); assertActive(signal);
 			if (!project || !evaluator) throw new Error('Load a motion project before rendering preview.');
 			const retained = project; const compiled = evaluator;
@@ -62,7 +62,7 @@ export function createMotionPreviewRenderSession(options: MotionPreviewSessionOp
 			const rasterizer = createCanvasKitMotionRasterizer(runtime.kit, { fontProviders, assets: retained.assets, fallbackFonts: runtime.fallbackFonts, loadAsset: bytesFor,
 				...(decodeFootage ? { decodeFootage } : {}) });
 			const render = () => renderMotionTemporalSamples({ evaluator: compiled, plan, expressionAudio: expressionAudio ?? undefined, signal, maximumWorkingBytes: options.maximumWorkingBytes,
-				render: (frame, quality) => renderMotionCompositionFrame(frame, { rasterizer, compositor: gpu ?? motionCpuCompositor, signal, ...quality }) });
+				render: (frame, quality) => renderMotionCompositionFrame(frame, { rasterizer, compositor: gpu ?? motionCpuCompositor, signal, onProgress, ...quality }) });
 			let rendered;
 			try { rendered = await render(); }
 			catch (error) {

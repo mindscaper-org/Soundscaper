@@ -5,20 +5,30 @@ import { verifyMotionAssetBody } from '../../motion-asset.ts';
 import { validateMotionSurface } from '../../motion-surface.ts';
 import type { MotionPreviewWorkerPort, MotionPreviewWorkerRequest, MotionPreviewWorkerResponse } from '../../motion-preview-worker-protocol.ts';
 import type { MotionPreviewAssetLoader, MotionPreviewBackend, MotionPreviewFootageDecoder } from './motion-preview-types.ts';
+import { createMotionPreviewWorkerWatchdog } from './internal/motion-preview-worker-watchdog.ts';
+import { createMotionPreviewWorkerDrain, type MotionPreviewWorkerDrain } from './internal/motion-preview-worker-drain.ts';
 
 export class MotionPreviewWorkerUnavailableError extends Error { override name = 'MotionPreviewWorkerUnavailableError'; }
-interface Pending { readonly signal: AbortSignal; readonly cancellation: AbortController; resolve(message: MotionPreviewWorkerResponse): void; reject(error: Error): void; cleanup(): void }
+export class MotionPreviewRenderDeadlineError extends Error { override name = 'MotionPreviewRenderDeadlineError'; }
+interface Pending {
+	readonly signal: AbortSignal; readonly cancellation: AbortController; readonly drain: MotionPreviewWorkerDrain; cancelled: boolean;
+	resolve(message: MotionPreviewWorkerResponse): void; reject(error: Error): void; cleanup(): void; finish(): void;
+	progress(message: Extract<MotionPreviewWorkerResponse, { type: 'progress' }>): void;
+}
 
 /** The worker owns one persistent scene; only requested immutable assets or decoded frames cross this port. */
 export function createMotionPreviewWorkerBackend(port: MotionPreviewWorkerPort, limits: Readonly<{ maximumAssetBytes: number; maximumWorkingBytes: number }>): MotionPreviewBackend {
 	let disposed = false; let requestId = 0; let assets = new Map<string, MotionAsset>();
 	let loadAsset: MotionPreviewAssetLoader | null = null; let decodeFootage: MotionPreviewFootageDecoder | undefined;
 	const pending = new Map<number, Pending>();
+	let draining: MotionPreviewWorkerDrain | null = null;
 	const onMessage = (event: MessageEvent<MotionPreviewWorkerResponse>): void => {
 		const message = event.data;
 		if (message.type === 'asset' || message.type === 'footage') { void provide(message).catch((error: unknown) => failAll(asError(error))); return; }
 		const request = pending.get(message.requestId); if (!request) return;
-		pending.delete(message.requestId); request.cleanup();
+		if (message.type === 'progress') { if (!request.cancelled) request.progress(message); return; }
+		pending.delete(message.requestId); request.cleanup(); request.finish(); if (draining === request.drain) draining = null;
+		if (request.cancelled) return;
 		if (message.type === 'error') { const error = new Error(message.message); error.name = message.name; request.reject(error); }
 		else request.resolve(message);
 	};
@@ -39,14 +49,26 @@ export function createMotionPreviewWorkerBackend(port: MotionPreviewWorkerPort, 
 		dispose() { if (!disposed) { failAll(new DOMException('Motion preview was cancelled.', 'AbortError')); loadAsset = null; decodeFootage = undefined; assets.clear(); } },
 	};
 
-	function send(message: Extract<MotionPreviewWorkerRequest, { type: 'project' | 'render' }>, signal: AbortSignal): Promise<MotionPreviewWorkerResponse> {
+	async function send(message: Extract<MotionPreviewWorkerRequest, { type: 'project' | 'render' }>, signal: AbortSignal): Promise<MotionPreviewWorkerResponse> {
+		if (draining) await draining.wait(signal);
 		signal.throwIfAborted(); if (disposed) return Promise.reject(new MotionPreviewWorkerUnavailableError('The motion preview worker is disposed.'));
 		return new Promise((resolve, reject) => {
-			const cancel = (): void => { if (!disposed) port.postMessage({ type: 'cancel', requestId: message.requestId }); };
 			const cancellation = new AbortController(); const resourceSignal = AbortSignal.any([signal, cancellation.signal]);
-			const timeout = setTimeout(() => failAll(new MotionPreviewWorkerUnavailableError('The motion preview worker exceeded its 30-second response deadline.')), 30_000);
+			const drain = createMotionPreviewWorkerDrain();
+			const watchdog = createMotionPreviewWorkerWatchdog(message.type, reason => failAll(reason === 'absolute'
+				? new MotionPreviewRenderDeadlineError('The motion preview frame exceeded its 600-second rendering deadline.')
+				: reason === 'invalid-progress' ? new TypeError('Invalid motion preview progress.')
+					: new MotionPreviewWorkerUnavailableError('The motion preview worker exceeded its 30-second response deadline.')));
+			const request: Pending = { signal: resourceSignal, cancellation, drain, cancelled: false, resolve, reject, finish: drain.finish, progress: watchdog.progress,
+				cleanup() { watchdog.stop(); signal.removeEventListener('abort', cancel); } };
+			const cancel = (): void => {
+				if (disposed || request.cancelled) return;
+				request.cancelled = true; watchdog.cancel(); draining = drain; cancellation.abort(); request.reject(new DOMException('Motion preview was cancelled.', 'AbortError'));
+				try { port.postMessage({ type: 'cancel', requestId: message.requestId }); }
+				catch (error) { failAll(new MotionPreviewWorkerUnavailableError(asError(error).message)); }
+			};
 			signal.addEventListener('abort', cancel, { once: true });
-			pending.set(message.requestId, { signal: resourceSignal, cancellation, resolve, reject, cleanup() { clearTimeout(timeout); signal.removeEventListener('abort', cancel); } });
+			pending.set(message.requestId, request);
 			try { port.postMessage(message); } catch (error) { failAll(new MotionPreviewWorkerUnavailableError(asError(error).message)); }
 		});
 	}
@@ -71,7 +93,7 @@ export function createMotionPreviewWorkerBackend(port: MotionPreviewWorkerPort, 
 	}
 	function failAll(error: Error): void {
 		if (disposed) return; disposed = true;
-		for (const request of pending.values()) { request.cleanup(); request.cancellation.abort(); request.reject(error); } pending.clear();
+		for (const request of pending.values()) { request.cleanup(); request.cancellation.abort(); request.reject(error); request.finish(); } pending.clear(); draining = null;
 		port.removeEventListener('message', onMessage); port.removeEventListener('error', onFailure); port.removeEventListener('messageerror', onFailure); port.terminate();
 	}
 }

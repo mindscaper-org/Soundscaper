@@ -6,9 +6,10 @@ import type { MotionSurface } from './motion-surface.ts';
 import { validateMotionSurface } from './motion-surface.ts';
 import type { Rational } from './timeline-time.ts';
 import type { MotionPreviewWorkerRequest, MotionPreviewWorkerScope } from './motion-preview-worker-protocol.ts';
+import { MOTION_PREVIEW_PROGRESS_PERIOD_MS } from './motion-preview-worker-protocol.ts';
 
 /** Worker resources are bounded to one outstanding host request and one outstanding frame. */
-export function createMotionPreviewWorkerRuntime(scope: MotionPreviewWorkerScope, sessionFactory: (options: MotionPreviewSessionOptions) => MotionPreviewBackend = createMotionPreviewRenderSession) {
+export function createMotionPreviewWorkerRuntime(scope: MotionPreviewWorkerScope, sessionFactory: (options: MotionPreviewSessionOptions) => MotionPreviewBackend = createMotionPreviewRenderSession, clock: () => number = () => performance.now()) {
 	let session: MotionPreviewBackend | null = null; let disposed = false;
 	let active: { id: number; controller: AbortController } | null = null; let resourceId = 0;
 	const resources = new Map<number, { resolve(value: Uint8Array | MotionSurface): void; reject(error: Error): void }>();
@@ -45,8 +46,14 @@ export function createMotionPreviewWorkerRuntime(scope: MotionPreviewWorkerScope
 		}
 		if (message.type !== 'render' || !session) throw new Error('Motion worker requires a project before rendering.');
 		const controller = new AbortController(); active = { id: message.requestId, controller };
+		const owner = active; let completedWork = 0; let sequence = 0; let lastProgressAt = Number.NEGATIVE_INFINITY;
+		const progress = () => {
+			if (active !== owner || controller.signal.aborted) return;
+			completedWork++; const now = clock(); if (now - lastProgressAt < MOTION_PREVIEW_PROGRESS_PERIOD_MS) return;
+			lastProgressAt = now; scope.postMessage({ type: 'progress', requestId: message.requestId, sequence: ++sequence, completedWork });
+		};
 		try {
-			const frame = await session.render(message, controller.signal); controller.signal.throwIfAborted();
+			const frame = await session.render(message, controller.signal, progress); controller.signal.throwIfAborted();
 			if (!(frame.rgba.buffer instanceof ArrayBuffer)) throw new TypeError('Motion worker frame requires transferable storage.');
 			scope.postMessage({ type: 'frame', requestId: message.requestId, frame }, [frame.rgba.buffer]);
 		} finally { active = null; rejectResources(); }

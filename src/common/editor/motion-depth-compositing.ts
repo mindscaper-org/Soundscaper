@@ -19,7 +19,7 @@ export interface MotionDepthPlane extends MotionDepthPlanePlan {
 
 /** Independent planes intersect each pixel ray; far-to-near translucent fragments blend over the actual backdrop. */
 export async function compositeMotionDepthPlanes(backdrop: MotionSurface, camera: MotionCamera, planes: readonly MotionDepthPlane[], signal?: AbortSignal,
-	lighting: MotionLighting = { lights: [] }, lenses: readonly MotionVector2[] = MOTION_PINHOLE_LENS): Promise<MotionSurface> {
+	lighting: MotionLighting = { lights: [] }, lenses: readonly MotionVector2[] = MOTION_PINHOLE_LENS, onProgress?: () => void): Promise<MotionSurface> {
 	signal?.throwIfAborted(); validateMotionSurface(backdrop);
 	if (camera.width !== backdrop.width || camera.height !== backdrop.height || planes.length > MOTION_MAXIMUM_DEPTH_PLANES || !lenses.length || lenses.length > 64 || backdrop.width * backdrop.height * planes.length * lenses.length > MOTION_MAXIMUM_DEPTH_RAYS) throw new RangeError('Motion depth ray workload exceeds its dimensions/plane/ray budget.');
 	if (lenses.some((lens) => lens.length !== 2 || lens.some((value) => !Number.isFinite(value)))) throw new RangeError('Motion camera lens samples must be finite pairs.');
@@ -84,6 +84,7 @@ export async function compositeMotionDepthPlanes(backdrop: MotionSurface, camera
 			}
 			output.pixels[i] = sumR / lenses.length; output.pixels[i + 1] = sumG / lenses.length; output.pixels[i + 2] = sumB / lenses.length; output.pixels[i + 3] = Math.min(1, sumAlpha / lenses.length);
 		}
+		onProgress?.();
 	}
 	signal?.throwIfAborted(); validateMotionSurface(output); return output;
 }

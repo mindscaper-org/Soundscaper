@@ -95,3 +95,19 @@ test('depth compositing cooperatively cancels without returning a partial frame'
 	const controller = new AbortController(); const pending = renderMotionCompositionFrame(input, { rasterizer, signal: controller.signal });
 	setTimeout(() => controller.abort(), 0); await assert.rejects(pending, { name: 'AbortError' });
 });
+
+test('depth rendering reports completed chunks without changing picture or consumption results', async () => {
+	const input = { ...frame([plane(solid('red', [1, 0, 0, 0.5]))]), width: 256, height: 256 };
+	const expected = await renderMotionCompositionFrame(input, { rasterizer }); let checkpoints = 0;
+	const actual = await renderMotionCompositionFrame(input, { rasterizer, onProgress: () => { checkpoints++; } });
+	assert.ok(checkpoints > 2, 'The renderer must report work inside the depth loop, before a whole frame finishes.');
+	assert.deepEqual(actual.pixels, expected.pixels); assert.deepEqual(actual.consumedOperationIds, expected.consumedOperationIds);
+});
+
+test('depth cancellation at a completed-work checkpoint refuses partial publication', async () => {
+	const input = { ...frame([plane(solid('red', [1, 0, 0, 1]))]), width: 256, height: 256 };
+	const controller = new AbortController(); let checkpoints = 0;
+	await assert.rejects(renderMotionCompositionFrame(input, { rasterizer, signal: controller.signal,
+		onProgress() { if (++checkpoints === 2) controller.abort(); } }), { name: 'AbortError' });
+	assert.equal(checkpoints, 2);
+});

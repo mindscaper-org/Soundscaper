@@ -6,6 +6,8 @@ import type { MotionSurface } from './motion-surface.ts';
 import type { Rational } from './timeline-time.ts';
 import type { MotionPreviewBackendName, MotionPreviewFrame } from './controller/composition/motion-preview-types.ts';
 
+export const MOTION_PREVIEW_PROGRESS_PERIOD_MS = 250;
+
 export type MotionPreviewWorkerRequest =
 	| { readonly type: 'project'; readonly requestId: number; readonly project: MotionscaperProject; readonly maximumAssetBytes: number; readonly maximumWorkingBytes: number; readonly hasFootageDecoder: boolean }
 	| { readonly type: 'render'; readonly requestId: number; readonly compositionId: string; readonly time: Rational; readonly generation: number; readonly quality?: MotionPreviewQuality }
@@ -17,6 +19,7 @@ export type MotionPreviewWorkerRequest =
 export type MotionPreviewWorkerResponse =
 	| { readonly type: 'ready'; readonly requestId: number; readonly backend: MotionPreviewBackendName }
 	| { readonly type: 'frame'; readonly requestId: number; readonly frame: MotionPreviewFrame }
+	| { readonly type: 'progress'; readonly requestId: number; readonly sequence: number; readonly completedWork: number }
 	| { readonly type: 'error'; readonly requestId: number; readonly message: string; readonly name: string }
 	| { readonly type: 'asset'; readonly requestId: number; readonly resourceId: number; readonly assetId: string }
 	| { readonly type: 'footage'; readonly requestId: number; readonly resourceId: number; readonly assetId: string; readonly time: Rational };

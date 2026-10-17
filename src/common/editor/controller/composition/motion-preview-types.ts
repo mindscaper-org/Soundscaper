@@ -24,7 +24,8 @@ export interface MotionPreviewRequest { readonly compositionId: string; readonly
 export interface MotionPreviewPlayRequest { readonly compositionId: string; readonly startTime: RationalInput; readonly endTime: RationalInput; readonly quality?: MotionPreviewQuality }
 export interface MotionPreviewBackend {
 	setProject(project: MotionscaperProject, loadAsset: MotionPreviewAssetLoader, signal: AbortSignal, decodeFootage?: MotionPreviewFootageDecoder): Promise<MotionPreviewBackendName>;
-	render(request: Readonly<{ compositionId: string; time: Rational; generation: number; quality?: MotionPreviewQuality }>, signal: AbortSignal): Promise<MotionPreviewFrame>;
+	/** Only completed renderer work calls onProgress; elapsed time alone is not progress. */
+	render(request: Readonly<{ compositionId: string; time: Rational; generation: number; quality?: MotionPreviewQuality }>, signal: AbortSignal, onProgress?: () => void): Promise<MotionPreviewFrame>;
 	dispose(): void;
 }
 export interface MotionPreviewClient {

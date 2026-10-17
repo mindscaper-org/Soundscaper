@@ -45,6 +45,7 @@ export const motionCpuCompositor: MotionCompositor = Object.freeze({ retainedSur
 /** Identical evaluated input and rasterizer serve seeking, preview, thumbnails, delivery and linked sources. */
 export async function renderMotionCompositionFrame(frame: MotionCompositionFrame, options: Readonly<{
 	rasterizer: MotionRasterizer; compositor?: MotionCompositor; signal?: AbortSignal; maximumWorkingBytes?: number; depthOfFieldSamples?: number;
+	onProgress?: () => void;
 }>): Promise<MotionRenderResult> {
 	options.signal?.throwIfAborted();
 	admitFrame(frame, options.rasterizer, options.compositor ?? motionCpuCompositor, options.depthOfFieldSamples);
@@ -66,7 +67,7 @@ export async function renderMotionCompositionFrame(frame: MotionCompositionFrame
 			const cached = matteCache.get(layer.state.id); if (cached) return cached;
 			const plane = depthPlans.get(layer.state.id);
 			let source = plane ? await compositeMotionDepthPlanes(createMotionSurface(current.width, current.height), depth.camera,
-				[{ ...plane, local: await renderMotionLayerLocalSource(layer, current, { ...options, renderPrecomposition: render }), opacity: 1 }], options.signal, lighting, depth.lenses)
+				[{ ...plane, local: await renderMotionLayerLocalSource(layer, current, { ...options, renderPrecomposition: render }), opacity: 1 }], options.signal, lighting, depth.lenses, options.onProgress)
 				: await renderMotionLayerSource(layer, current, { ...options, renderPrecomposition: render });
 			if (layer.state.matte) {
 				const matte = layers.get(layer.state.matte.layerId);
@@ -79,7 +80,7 @@ export async function renderMotionCompositionFrame(frame: MotionCompositionFrame
 		let group: MotionDepthPlane[] = [];
 		const flushDepth = async () => {
 			if (!group.length) return;
-			const replacement = await compositeMotionDepthPlanes(target.finish(), depth.camera, group, options.signal, lighting, depth.lenses);
+			const replacement = await compositeMotionDepthPlanes(target.finish(), depth.camera, group, options.signal, lighting, depth.lenses, options.onProgress);
 			if (!target.replace) throw new Error('Motion compositor omitted its admitted 3D replacement method.'); target.replace(replacement); group = [];
 		};
 		try {
@@ -89,6 +90,7 @@ export async function renderMotionCompositionFrame(frame: MotionCompositionFrame
 				const plane = depthPlans.get(layer.state.id);
 				if (plane && !matteIds.has(layer.state.id)) {
 					const local = await renderMotionLayerLocalSource(layer, current, { ...options, renderPrecomposition: render });
+					options.onProgress?.();
 					const matte = layer.state.matte ? layers.get(layer.state.matte.layerId) : undefined;
 					group.push({ ...plane, local, ...(layer.state.matte ? { matte: { surface: matte ? await sourceFor(matte) : null, opacity: matte?.state.transform.opacity ?? 1, mode: layer.state.matte.mode } } : {}) }); mark(layer); continue;
 				}
@@ -105,6 +107,7 @@ export async function renderMotionCompositionFrame(frame: MotionCompositionFrame
 				}
 				const source = await sourceFor(layer);
 				if (!matteIds.has(layer.state.id)) target.composite(source, layer.state.blendMode, layer.state.transform.opacity);
+				options.onProgress?.();
 			}
 			await flushDepth(); return target.finish();
 		} finally { matteCache.clear(); target.dispose(); }
