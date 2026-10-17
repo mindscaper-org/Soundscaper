@@ -94,11 +94,17 @@ for (const format of ['wv', 'aiff']) test(`previews Audiocity's original ${forma
 
 for (const format of ['aup3', 'aup4']) test(`stores and retrieves a real ${format.toUpperCase()} archive and opens the downloaded project`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const { editor, panel } = await connect(page);
+	const { editor, panel } = await connect(page, { format });
 	const bytes = Buffer.from(format === 'aup3' ? await createAup3Fixture() : aup4NativeRichFixture());
+	const chooser = page.waitForEvent('filechooser');
+	await chooseFileAction(page, editor, 'Open');
+	await (await chooser).setFiles({ name: `validation-${format}.${format}`, mimeType: 'application/x-audacity-project', buffer: bytes });
+	await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 30_000 });
 	const archives = panel.locator('[data-audiocom-projects]');
 	await archives.locator('summary').click();
-	await archives.getByLabel('Upload AUP3 or AUP4', { exact: true }).setInputFiles({ name: `validation-${format}.${format}`, mimeType: 'application/octet-stream', buffer: bytes });
+	const upload = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/audiocom/projects');
+	await panel.getByRole('button', { name: 'Save project', exact: true }).click();
+	const uploaded = (await upload).postDataBuffer();
 	await expect(archives.getByText(`Stored validation-${format}.${format}.`, { exact: true })).toBeVisible();
 	const project = archives.locator('[data-audiocom-project-id]').filter({ hasText: `validation-${format}` });
 	await expect(project).toContainText(format.toUpperCase());
@@ -107,10 +113,10 @@ for (const format of ['aup3', 'aup4']) test(`stores and retrieves a real ${forma
 	const download = await downloadEvent;
 	expect(download.suggestedFilename()).toBe(`validation-${format}.${format}`);
 	const downloaded = await readFile(await download.path());
-	expect(hash(downloaded)).toBe(hash(bytes));
-	const chooser = page.waitForEvent('filechooser');
+	expect(hash(downloaded)).toBe(hash(uploaded));
+	const reopen = page.waitForEvent('filechooser');
 	await chooseFileAction(page, editor, 'Open');
-	await (await chooser).setFiles({ name: download.suggestedFilename(), mimeType: 'application/x-audacity-project', buffer: downloaded });
+	await (await reopen).setFiles({ name: download.suggestedFilename(), mimeType: 'application/x-audacity-project', buffer: downloaded });
 	await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 30_000 });
 	await expect(editor).toHaveAttribute('data-track-count', format === 'aup3' ? '1' : '2');
 	await expect(editor).toHaveAttribute('data-clip-count', format === 'aup3' ? '1' : '5');

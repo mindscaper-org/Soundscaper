@@ -30,19 +30,28 @@ export interface AudiocomPanelProps {
 	readonly onRetry: (id: string) => void;
 	readonly onCancel: (id: string) => void;
 	readonly onRemove: (id: string) => void;
+	readonly onUploadAudio?: () => void;
+	readonly onSaveProject?: () => void;
+	readonly projectActionsDisabled?: boolean;
+	readonly saveProjectDisabled?: boolean;
+	readonly projectActionError?: string;
+	readonly publishItemId?: string;
 	readonly archives?: Omit<AudiocomProjectArchivesProps, 'copy' | 'disabled'>;
 }
 
 export default function AudiocomPanel({
 	copy, state, disabled = false, linkError, onOpenLink, onSearch, onPreview, onStopPreview,
 	onConnect, onDisconnect, onUploadFiles, onPublish, onRetry, onCancel, onRemove, archives,
+	onUploadAudio, onSaveProject, projectActionsDisabled = false, saveProjectDisabled = false, projectActionError, publishItemId,
 }: AudiocomPanelProps) {
 	const [query, setQuery] = useState(state.search.query);
 	useEffect(() => setQuery(state.search.query), [state.search.query]);
 	const loading = state.search.status === 'loading';
 	const connected = state.auth.status === 'connected';
 	const searchDisabled = loading || !connected;
+	const projectError = connected ? archives?.state.errorMessage || projectActionError : undefined;
 	return <section className="kw-audio-editor__audiocom" data-audiocom-panel="true" aria-busy={loading}>
+		<div className="kw-audio-editor__audiocom-body">
 		<form className="kw-audio-editor__audiocom-search" role="search" onSubmit={(event) => {
 			event.preventDefault();
 			if (query.trim() && !searchDisabled) onSearch({ query: query.trim(), page: 1 });
@@ -60,6 +69,7 @@ export default function AudiocomPanel({
 			{state.auth.errorMessage ? <p role="alert">{state.auth.errorMessage}</p> : null}
 			{state.previewError ? <p role="alert">{state.previewError}</p> : null}
 			{linkError ? <p role="alert">{linkError}</p> : null}
+			{projectError ? <p role="alert">{projectError}</p> : null}
 		</div>
 		{state.search.status === 'idle' ? <p className="kw-audio-editor__panel-empty">{copy.searchPrompt}</p> : null}
 		{state.search.status === 'ready' && !state.search.results.length
@@ -90,8 +100,15 @@ export default function AudiocomPanel({
 		</p>
 		{archives?.state.provider?.kind === 'audiocity' ? <p className="kw-audio-editor__audiocom-note">{copy.providerServer}{' '}{archives.state.provider.webOrigin}</p> : null}
 		{connected ? <AudiocomUploadArea copy={copy} disabled={disabled} queue={state.uploadQueue}
-			onFiles={onUploadFiles} onPublish={onPublish} onRetry={onRetry} onCancel={onCancel} onRemove={onRemove} onOpenLink={onOpenLink} /> : null}
+			onFiles={onUploadFiles} onPublish={onPublish} onRetry={onRetry} onCancel={onCancel} onRemove={onRemove} onOpenLink={onOpenLink} publishItemId={publishItemId} /> : null}
 		{connected && archives?.state.supported ? <AudiocomProjectArchives {...archives} copy={copy} disabled={disabled} /> : null}
+		</div>
+		{connected ? <div className="kw-audio-editor__audiocom-project-actions">
+			<Button size="small" icon={<Icon name="export" size={16} />} disabled={disabled || projectActionsDisabled}
+				onClick={onUploadAudio}>{copy.uploadAudio}</Button>
+			<Button size="small" icon={<Icon name="save" size={16} />} disabled={disabled || projectActionsDisabled || saveProjectDisabled}
+				title={archives && !archives.state.supported ? copy.projectApiUnavailable : undefined} onClick={onSaveProject}>{copy.saveProject}</Button>
+		</div> : null}
 	</section>;
 }
 

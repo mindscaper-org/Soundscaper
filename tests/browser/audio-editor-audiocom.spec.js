@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, importFiles, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 
 const AUDIO = {
 	id: '123', title: 'Rain in the garden', authorName: 'Field recorder', username: 'field-recorder',
@@ -12,6 +12,49 @@ const AUDIO = {
 
 test.describe('audio.com panel', () => {
 	registerAudioEditorHooks();
+
+	for (const provider of ['audiocom', 'audiocity']) test(`${provider}: bottom actions publish the current mix and save successive project revisions`, async ({ page }) => {
+		test.setTimeout(120_000);
+		const requests = await mockAudiocom(page, { connected: true, projects: true, provider });
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Current take.wav', frequency: 440, duration: 0.25, channelCount: 1 })]);
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		const panel = editor.locator('[data-workspace-panel="audiocom"]');
+		const upload = panel.getByRole('button', { name: 'Upload audio', exact: true });
+		const save = panel.getByRole('button', { name: 'Save project', exact: true });
+		await expect(upload).toBeEnabled(); await expect(save).toBeEnabled();
+		await expect(panel.getByRole('button', { name: /Upload AUP|Save new revision/u })).toHaveCount(0);
+		const panelBox = await panel.boundingBox();
+		const uploadBox = await upload.boundingBox(); const saveBox = await save.boundingBox();
+		expect(Math.abs(uploadBox.y - saveBox.y)).toBeLessThan(1);
+		expect(panelBox.y + panelBox.height - uploadBox.y - uploadBox.height).toBeLessThan(20);
+		const downloads = [];
+		page.on('download', download => downloads.push(download));
+		await upload.click();
+		const dialog = page.locator('[data-audiocom-publish-dialog]');
+		await expect(dialog).toBeVisible();
+		expect(requests.uploads).toHaveLength(0);
+		await dialog.locator('[name="rightsConfirmed"]').check();
+		await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
+		await expect.poll(() => requests.uploads.length).toBe(1);
+		expect(requests.uploads[0].contentType).toBe('audio/wav');
+		expect(Number(requests.uploads[0].byteLength)).toBeGreaterThan(44);
+		await save.click();
+		await expect.poll(() => requests.projectUploads.length).toBe(1);
+		await expect(save).toBeEnabled();
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		await importFiles(editor, [createWavFixture({ name: 'New edit.wav', frequency: 880, duration: 0.25, channelCount: 1 })]);
+		await chooseNestedCommandAction(page, editor, 'Window', ['audio.com']);
+		await save.click();
+		await expect.poll(() => requests.projectUploads.length).toBe(2);
+		await expect(save).toBeEnabled();
+		expect(requests.preparations[0].id).toBeUndefined();
+		expect(requests.preparations[1].id).toBe(requests.projectUploads[0].project);
+		expect(requests.preparations[1].head).toBe(requests.projectUploads[0].snapshot);
+		expect(requests.projectUploads[0].bytes.subarray(0, 16).toString()).toBe('SQLite format 3\0');
+		expect(requests.projectUploads[1].bytes.equals(requests.projectUploads[0].bytes)).toBe(false);
+		expect(downloads).toHaveLength(0);
+	});
 
 	test('opens from Window, connects, searches and pages, releases previews, and publishes audio with consent', async ({ page }) => {
 		test.setTimeout(90_000);
@@ -160,7 +203,9 @@ async function installPreviewProbe(page) {
 async function mockAudiocom(page, options = {}) {
 	let connected = options.connected ?? false;
 	const preview = createWavFixture({ name: 'preview.wav', frequency: 440, duration: 0.25, channelCount: 1 });
-	const requests = { sessions: 0, starts: [], searches: [], uploads: [], disconnects: 0, expireSearch: false, failNextUpload: false };
+	const requests = { sessions: 0, starts: [], searches: [], uploads: [], projectUploads: [], preparations: [], disconnects: 0, expireSearch: false, failNextUpload: false };
+	let project;
+	const projectId = '12345678-1234-4234-8234-123456789abc';
 	await page.context().route('https://api.audio.com/auth/authorize**', route => route.fulfill({
 		contentType: 'text/html', body: '<!doctype html><title>audio.com authorization</title>',
 	}));
@@ -168,7 +213,23 @@ async function mockAudiocom(page, options = {}) {
 		const request = route.request();
 		const url = new URL(request.url());
 		const data = value => route.fulfill({ json: { data: value } });
-		if (url.pathname === '/api/audiocom/usage') return data({ maximumUploadBytes: 100_000_000, projectStorageSupported: false });
+		if (url.pathname === '/api/audiocom/usage') return data({ maximumUploadBytes: 100_000_000,
+			projectStorageSupported: Boolean(options.projects), projectFormats: options.projects ? ['aup3', 'aup4'] : [],
+			...(options.provider === 'audiocity' ? { provider: { kind: 'audiocity', apiOrigin: 'https://api.audio.com', webOrigin: 'https://api.audio.com', scope: 'public projects' } } : {}),
+		});
+		if (url.pathname === '/api/audiocom/projects/prepare') {
+			requests.preparations.push(Object.fromEntries(url.searchParams));
+			return data({ projectId, snapshotId: `aaaaaaaa-1234-4234-8234-${String(requests.preparations.length).padStart(12, '0')}` });
+		}
+		if (url.pathname === '/api/audiocom/projects') {
+			if (request.method() === 'POST') {
+				const bytes = request.postDataBuffer();
+				requests.projectUploads.push({ ...Object.fromEntries(url.searchParams), bytes });
+				project = { id: projectId, snapshotId: url.searchParams.get('snapshot'), name: url.searchParams.get('name'), format: url.searchParams.get('format'), size: bytes.length };
+				return data(project);
+			}
+			return data({ results: project ? [project] : [], page: 1, hasNext: false });
+		}
 		if (url.pathname === '/api/audiocom/oauth/session') {
 			requests.sessions += 1;
 			if (request.method() === 'DELETE') { connected = false; requests.disconnects += 1; }

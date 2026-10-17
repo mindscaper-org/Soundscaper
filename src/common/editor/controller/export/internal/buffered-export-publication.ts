@@ -19,6 +19,7 @@ export function publishBufferedExport<FileService extends BufferedExportFileServ
 	request: Readonly<Record<string, unknown>>,
 	saveToFile: unknown,
 ): ReturnType<FileService['saveFile']> | ReturnType<FileService['createDownload']> {
+	if (typeof saveToFile === 'function') return saveToFile(request) as ReturnType<FileService['saveFile']>;
 	return (saveToFile === true ? fileService.saveFile(request) : fileService.createDownload(request)) as
 		ReturnType<FileService['saveFile']> | ReturnType<FileService['createDownload']>;
 }

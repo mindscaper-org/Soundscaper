@@ -21,6 +21,7 @@ export function prepareDirectPcmExportDestination(
 	requestedSettings: Readonly<Record<string, unknown>> | null | undefined,
 	signal: AbortSignal,
 ): Promise<DirectPcmPreparation> {
+	if (typeof requestedSettings?.saveToFile === 'function') return Promise.resolve({ cancelled: null, destination: null });
 	if (plan.format === 'aiff') {
 		return prepareDirectAiffDestination(fileService, plan, requestedSettings, signal);
 	}

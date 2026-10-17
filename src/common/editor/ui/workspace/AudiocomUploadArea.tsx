@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useRef, useState, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@soundscaper/design-system/Button';
 
@@ -22,10 +22,11 @@ interface AudiocomUploadAreaProps {
 	readonly onCancel: (id: string) => void;
 	readonly onRemove: (id: string) => void;
 	readonly onOpenLink?: (url: string) => void;
+	readonly publishItemId?: string;
 }
 
 export default function AudiocomUploadArea({
-	copy, disabled, queue, onFiles, onPublish, onRetry, onCancel, onRemove, onOpenLink,
+	copy, disabled, queue, onFiles, onPublish, onRetry, onCancel, onRemove, onOpenLink, publishItemId,
 }: AudiocomUploadAreaProps) {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const detailsRef = useRef<HTMLDetailsElement | null>(null);
@@ -33,6 +34,15 @@ export default function AudiocomUploadArea({
 	const [dragging, setDragging] = useState(false);
 	const [error, setError] = useState('');
 	const [publishItem, setPublishItem] = useState<AudiocomUploadItem | null>(null);
+	const requestedItem = useRef<string | undefined>(undefined);
+	useEffect(() => {
+		if (!publishItemId || requestedItem.current === publishItemId) return;
+		const item = queue.items.find(entry => entry.id === publishItemId);
+		if (!item || item.status !== 'draft') return;
+		requestedItem.current = publishItemId;
+		if (detailsRef.current) detailsRef.current.open = true;
+		setPublishItem(item);
+	}, [publishItemId, queue.items]);
 	const files = (selected: readonly File[]) => {
 		if (disabled || !selected.length) return;
 		setError('');

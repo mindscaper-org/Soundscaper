@@ -500,6 +500,8 @@ export interface SaveAup4Options {
 	readonly fileHandle?: unknown;
 	readonly saveTarget?: unknown;
 	readonly useFileSystemAccess?: boolean;
+	/** Deliver an archive directly to a service without opening a local save picker. */
+	readonly saveFile?: (request: NativeFileSaveRequest) => Promise<NativeSavedFile>;
 }
 
 export type SaveAup3Options = SaveAup4Options;

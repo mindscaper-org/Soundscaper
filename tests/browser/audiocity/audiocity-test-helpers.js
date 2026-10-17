@@ -5,7 +5,13 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction } from '../a
 
 export const providerOrigin = `http://127.0.0.1:${process.env.SCAPE_AUDIOCITY_PORT || '8091'}`;
 
-export async function connect(page) {
+export async function connect(page, { format } = {}) {
+	if (format) await page.route('**/api/audiocom/usage', async route => {
+		const response = await route.fetch();
+		const body = await response.json();
+		body.data.projectFormats = [format];
+		await route.fulfill({ response, json: body });
+	});
 	const editor = await bootEditor(page, '/embed/en/');
 	const panel = editor.locator('[data-workspace-panel="audiocom"]');
 	await expect(panel).toHaveCount(0);
