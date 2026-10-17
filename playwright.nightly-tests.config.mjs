@@ -59,7 +59,8 @@ export function createNightlyTestsConfig(environment = process.env, platform = p
 
 	return defineConfig({
 		testDir: resolve(payloadRoot, 'tests/browser'),
-		testIgnore: ['handbook/**', 'dual-origin/**'],
+		// Audiocity has a dedicated validation server and OAuth provider fixture.
+		testIgnore: ['handbook/**', 'dual-origin/**', 'audiocity/**'],
 		timeout: 30000,
 		expect: { timeout: 5000 },
 		fullyParallel: true,
