@@ -96,13 +96,14 @@ test('Audiocity transfers signed raw audio and previews on one origin without fo
 	const uploaded = request('uploads?title=Rain&category=recording&license=arr&listed=1&downloadable=0', token, { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Audiocom-Filename': 'rain.wav', 'X-Audiocom-Content-Length': '4' }, body: new Uint8Array([1, 2, 3, 4]) });
 	const calls: string[] = [];
 	const media = `${ORIGIN}/media/${ID}?expires=1792080000&signature=${SIGNATURE}`;
+	const transferQuery = `token=${SIGNATURE}&X-Amz-Date=20261015T000000Z&X-Amz-Expires=86400`;
 	const response = await handleAudiocomUploadRequest(context(uploaded), { repository, now: () => NOW, fetchImpl: async (input, init) => {
 		const url = new URL(String(input));
 		assert.equal(url.origin, ORIGIN);
 		calls.push(`${init?.method ?? 'GET'} ${url.pathname}`);
 		if (url.pathname === '/v1/audio/create') {
 			assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer private-provider-access');
-			return json({ audio, url: `${ORIGIN}/uploads/${ID}?token=${SIGNATURE}`, success: `${ORIGIN}/uploads/${ID}/success?token=${SIGNATURE}`, fail: `${ORIGIN}/uploads/${ID}/fail?token=${SIGNATURE}` }, 201);
+			return json({ audio, url: `${ORIGIN}/uploads/${ID}?${transferQuery}`, success: `${ORIGIN}/uploads/${ID}/success?${transferQuery}`, fail: `${ORIGIN}/uploads/${ID}/fail?${transferQuery}` }, 201);
 		}
 		if (url.pathname === '/v1/audio/view') {
 			assert.equal(url.searchParams.get('id'), ID);
@@ -110,6 +111,7 @@ test('Audiocity transfers signed raw audio and previews on one origin without fo
 			return json({ ...audio, status: 'ready', play: { duration: 1500, url: media } });
 		}
 		assert.equal(new Headers(init?.headers).has('Authorization'), false);
+		assert.equal(url.search, `?${transferQuery}`);
 		if (init?.method === 'PUT') {
 			assert.equal(init.signal, uploaded.signal);
 			assert.ok(init.body instanceof ReadableStream);
