@@ -74,6 +74,27 @@ package complete.
 ### Implementation status
 
 M01–M12 are **In progress**; named implementations do not close release gates.
+As of 2026-10-17, source `baaeb3816` passed complete static checks and all five
+Node partitions: 27,462 passes, 17 declared skips and zero failures, including
+all 1,227 Motion cases. Linked39 and dual9 passed across all three browser
+engines. The original native 300/1,200-frame workload and independent picture,
+alpha, exact PCM, timestamp, memory and closure audits passed on the fixed
+Linux x64 profile. Current maximum-workload qualification remains open.
+
+Its complete ordinary browser run failed with 7,268 passes, 308 declared skips
+and eight failures. Final input verification also refused a canonical revision
+change; the original failure is retained and its coverage is not accepted.
+The newer `main` merges and pending Motion fixes are preserved in a separate
+integration worktree. One duplicate clip-locator defect is corrected there;
+browser verification and investigation of the other seven failures continue.
+Fresh applicable gates on that integrated source remain required.
+
+Accepted coverage, installed AE, other hardware/targets, signing, installation,
+update and publication remain open. Source-specific evidence and remaining
+work are in [final validation status](motionscaper-final-integration-validation.md).
+
+#### Earlier gate summaries
+
 The latest application repairs (`fc38539a6`) include shared playback-start
 preparation, product handbook navigation, stable source identity in peak probes
 and native whole-minute timed-recording input normalization. Focused regressions

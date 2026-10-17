@@ -1,16 +1,48 @@
 # Motionscaper final integration status
 
-Status: **M01–M12 In progress**. Latest application integration
-`fc38539a6` includes the reviewed playback-start repair, product handbook
-sidebar repair and two browser test corrections. Their focused checks pass;
-the subsequent source `52ae9c43c` passed complete static and Node gates with
-27,459 passes, 17 declared skips and zero failures, including all 1,224 Motion
-cases. Its full browser run has recorded failures and remains open.
+Status: **M01–M12 In progress**, updated 2026-10-17. Source `baaeb3816`
+passed the complete static gate and all five Node partitions: 27,462 passes,
+17 declared skips and zero failures, including all 1,227 Motion cases. Its
+linked-composition suite passed all 39 cases and its dual-origin suite passed
+all nine cases. The original 300/1,200-frame native duration workload and its
+independent picture, alpha, PCM, timestamp, memory and closure audits passed.
 
-Test and harness repairs through `f7bde573c` have separate focused evidence below.
-Fresh complete gates on that combined source remain required. The Firefox EQ
-signal investigation is open; a corrected pixel probe does not resolve a failure
-before that probe is reached. No milestone is complete.
+The same source's ordinary browser run finished with 7,268 passes, 308 declared
+skips and eight failures from 7,584 cases. Chromium had six failures, WebKit
+two and Firefox none; no retries or flaky results were recorded. The physical
+process, writer and port checks passed. Post-input qualification is incomplete:
+the final guard found that the canonical worktree had advanced from
+`52ae9c43c` to `23762c9e1` while the separate producer remained on source
+`baaeb3816`. Its original refusal and absent post-input receipt are preserved.
+The failed run's raw coverage is excluded from the accepted coverage union.
+
+The canonical advance contains two merges from `main`. Those changes are
+preserved in `feat/motionscaper-integration-20261017`, together with the nine
+pending commits through `baaeb3816`. The EQ import conflict retains both the
+newer native-input tone control and the reviewed raster probe. That integrated
+source still needs its applicable gates. The post-reload paste test now scopes
+clip IDs to timeline groups, correcting the recorded duplicate-element match;
+its browser verification is pending. The other seven browser failures remain
+under investigation. Accepted coverage, current maximum workloads and external
+release qualification remain open. No milestone is complete.
+
+Current retained receipts are relative to
+`~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
+
+| Evidence | Receipt |
+| --- | --- |
+| Full static | `current-final-source-static-baaeb3816-20261016/qualification.json` |
+| Full Node | `current-baaeb3816-node/qualification.json` |
+| Linked / dual-origin | `current-final-source-browser-baaeb3816-20261016/linked/qualification.json`; `dual-origin/qualification.json` in the same root |
+| Failed ordinary browser | `current-final-source-browser-baaeb3816-20261016/ordinary/failed-gate-handoff.json`; `final-failure-map.json` beside it |
+| Native duration | `current-baaeb3816-native-qualification/installed-preparation/duration/qualification.json` |
+
+These results retain their exact source attribution. They do not qualify the
+later integration, installed After Effects, other desktop targets, signing,
+installation, updating or publication. The Motion changes described here do
+not change the assistance runtime closure and require no manual **Update AI
+assets** run; the independently merged GPU runtime changes retain their own
+asset-update requirements.
 
 The affected native Frame successor link/delivery regression passed
 on `48a90f028` with exact PCM/timestamps and the original picture/alpha limits.
