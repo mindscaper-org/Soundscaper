@@ -162,6 +162,6 @@ test('a committed Audiocity upload remains successful when its optional metadata
 	const result = await response.json() as { data: { audio: { id: string; url: string }; processing: boolean } };
 	assert.equal(result.data.processing, false);
 	assert.equal(result.data.audio.id, ID);
-	assert.equal(result.data.audio.url, `${ORIGIN}/public/audio/${ID}`);
+	assert.equal(result.data.audio.url, `${ORIGIN}/audio/${ID}/play`);
 	assert.deepEqual(calls, ['POST /v1/audio/create', `PUT /uploads/${ID}`, `POST /uploads/${ID}/success`, 'GET /v1/audio/view']);
 });

@@ -37,12 +37,15 @@ test('desktop Audiocity authorization requires trusted provider origins, its exa
 
 test('desktop Audiocity links stay on configured provider pages and reject signed media and control endpoints', () => {
 	for (const url of [`${PROVIDER.webOrigin}/`, `${PROVIDER.webOrigin}/recorder`,
-		`${PROVIDER.webOrigin}/recorder/audio/field-take`, `${PROVIDER.webOrigin}/public/audio/${PROJECT_ID}`]) {
+		`${PROVIDER.webOrigin}/recorder/audio/field-take`, `${PROVIDER.webOrigin}/public/audio/${PROJECT_ID}`,
+		`${PROVIDER.webOrigin}/audio/${PROJECT_ID}/play`]) {
 		assert.equal(assertAudiocomLinkUrl(url, CONFIGURATION), url);
 		assert.throws(() => assertAudiocomLinkUrl(url));
 	}
 	for (const url of [`${PROVIDER.webOrigin}/media/${PROJECT_ID}?signature=secret`, `${PROVIDER.webOrigin}/auth/token`,
 		`${PROVIDER.webOrigin}/public/audio/${PROJECT_ID}?next=evil`, `${PROVIDER.webOrigin}/public/audio/%2e%2e`,
+		`${PROVIDER.webOrigin}/audio/${PROJECT_ID}/play?token=secret`, `${PROVIDER.webOrigin}/audio/${PROJECT_ID}/edit`,
+		`${PROVIDER.webOrigin}/audio/${PROJECT_ID}/play#fragment`, `${PROVIDER.webOrigin}/audio/not-an-id/play`,
 		'http://127.0.0.1:8089/public/audio/id', `${PROVIDER.webOrigin}/recorder/audio/%2fescape`]) {
 		assert.throws(() => assertAudiocomLinkUrl(url, CONFIGURATION));
 	}
@@ -73,8 +76,8 @@ test('desktop resolves Audiocity configuration only from the main backend before
 	const openAuthorization = handlers.get('authorize')!;
 	const openLink = handlers.get('link')!;
 	await openAuthorization(null, authorize());
-	await openLink(null, `${PROVIDER.webOrigin}/public/audio/${PROJECT_ID}`);
-	assert.deepEqual(opened, [authorize(), `${PROVIDER.webOrigin}/public/audio/${PROJECT_ID}`]);
+	await openLink(null, `${PROVIDER.webOrigin}/audio/${PROJECT_ID}/play`);
+	assert.deepEqual(opened, [authorize(), `${PROVIDER.webOrigin}/audio/${PROJECT_ID}/play`]);
 	assert.equal(calls.length, 1);
 	await assert.rejects(() => openLink(null, 'http://127.0.0.1:8089/public/audio/id'));
 	await assert.rejects(() => openAuthorization(null, { url: authorize(), provider: { ...PROVIDER, apiOrigin: 'https://evil.example' } }));

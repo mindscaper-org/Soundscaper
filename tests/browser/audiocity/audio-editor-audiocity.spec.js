@@ -26,7 +26,13 @@ test('connects through real OAuth, uploads and searches audio, streams playback,
 	await dialog.getByRole('button', { name: 'Publish', exact: true }).click();
 	expect((await uploadResponse).status()).toBe(201);
 	await expect(uploads.locator('[data-upload-status="complete"]')).toBeVisible();
-	await expect(uploads.getByRole('link', { name: 'Open on Audiocity', exact: true })).toHaveAttribute('href', new RegExp(`^${providerOrigin}/public/audio/`, 'u'));
+	const recordingLink = uploads.getByRole('link', { name: 'Open on Audiocity', exact: true });
+	await expect(recordingLink).toHaveAttribute('href', new RegExp(`^${providerOrigin}/audio/[a-f0-9-]+/play$`, 'u'));
+	const listener = await page.context().newPage();
+	try {
+		await listener.goto(await recordingLink.getAttribute('href'));
+		await expect(listener.getByRole('heading', { name: 'Audiocity validation tone', exact: true })).toBeVisible();
+	} finally { await listener.close(); }
 	await panel.getByRole('searchbox', { name: 'Search Audiocity', exact: true }).fill('Audiocity validation tone');
 	await panel.getByRole('button', { name: 'Search', exact: true }).click();
 	const result = panel.locator('[data-audiocom-audio-id]').filter({ hasText: 'Audiocity validation tone' });

@@ -43,7 +43,7 @@ export function normalizeAudio(value: unknown, provider = DEFAULT_AUDIOCOM_PROVI
 	const playback = text(play.url, 4096, true);
 	return {
 		id, title: text(source.title, 1024), authorName: text(source.author_name, 256, true), username,
-		url: provider.kind === 'audiocity' ? `${provider.webOrigin}/public/audio/${id}` : `https://audio.com/${encodeURIComponent(username)}/audio/${encodeURIComponent(slug)}`,
+		url: provider.kind === 'audiocity' ? `${provider.webOrigin}/audio/${id}/play` : `https://audio.com/${encodeURIComponent(username)}/audio/${encodeURIComponent(slug)}`,
 		description: text(source.description, 65_536, true), license, isDownloadable: source.is_downloadable,
 		durationSeconds: Number(play.duration) / 1000,
 		...(playback ? { previewUrl: `/api/audiocom/preview?url=${encodeURIComponent(trustedAssetUrl(playback, provider).href)}` } : {}),

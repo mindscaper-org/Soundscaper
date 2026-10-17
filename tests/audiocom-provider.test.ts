@@ -63,7 +63,7 @@ test('Audiocity audio normalization accepts UUID resources and pins share/playba
 	const audio = { id, title: 'Rain', username: 'recorder', author_name: 'Recorder', slug: 'rain', description: '', license: 'arr', is_downloadable: false, play: { duration: 1500, url: `${origin}/media/${id}?expires=1792080000&signature=${token}` } };
 	const result = normalizeAudio(audio, provider);
 	assert.equal(result.id, id);
-	assert.equal(result.url, `${origin}/public/audio/${id}`);
+	assert.equal(result.url, `${origin}/audio/${id}/play`);
 	assert.equal(result.durationSeconds, 1.5);
 	assert.match(result.previewUrl ?? '', /^\/api\/audiocom\/preview\?url=/u);
 	assert.throws(() => normalizeAudio(audio));

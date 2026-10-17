@@ -89,14 +89,14 @@ test('uses only the configured Audiocity issuer and accepts its UUID content lin
 			const path = new URL(String(input)).pathname;
 			if (path.endsWith('/usage')) return Response.json({ data: { provider: { kind: 'audiocity', apiOrigin: origin, webOrigin: origin, scope: 'public projects' } } });
 			if (path.endsWith('/start')) return Response.json({ data: { attemptId: 'attempt', handoffToken: 'handoff', authorizeUrl: authorize.href, expiresAt: new Date(Date.now() + 60_000).toISOString() } });
-			return Response.json({ data: { results: [{ ...result, id, url: `${origin}/public/audio/${id}` }], page: 1, hasNext: false } });
+			return Response.json({ data: { results: [{ ...result, id, url: `${origin}/audio/${id}/play` }], page: 1, hasNext: false } });
 		},
 	});
 	const attempt = await client.startOAuth();
 	await client.reserveAuthorization().open(attempt.authorizeUrl);
 	assert.deepEqual(opened, [authorize.href]);
 	assert.equal((await client.search({ query: 'forest', page: 1 })).results[0].id, id);
-	assert.equal((await client.search({ query: 'forest', page: 1 })).results[0].url, `${origin}/public/audio/${id}`);
+	assert.equal((await client.search({ query: 'forest', page: 1 })).results[0].url, `${origin}/audio/${id}/play`);
 });
 
 test('rejects a local authorization issuer that differs from server configuration', async () => {
