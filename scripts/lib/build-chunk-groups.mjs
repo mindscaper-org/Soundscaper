@@ -190,7 +190,9 @@ export const chunkGroups = [
 	},
 	{
 		name: 'vendor-design-system',
-		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|constants\.ts|assets[\\/]fonts))/,
+		// Keep the neutral context out of lazy routes when a small product's
+		// component group falls below the global minimum chunk size.
+		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|constants\.ts|assets[\\/]fonts|TimeCode[\\/]time-code-musical-context\.ts$))/,
 		priority: 95,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,

@@ -12,7 +12,7 @@ const owner = 'editor-dialog-foundations';
 const ui = fileURLToPath(new URL('../src/common/editor/ui/', import.meta.url));
 const neutralModules = ['AudioEditorDialogShell.tsx', 'AudioEditorResizableSurface.jsx', 'dialog-escape-ownership.ts',
 	'dialog-focus-ownership.ts', 'focus-restoration.ts', 'dialog-drag-bounds.ts', 'dialog-move-lifecycle.ts',
-	'resizable-surface-mouse-lifecycle.ts'];
+	'resizable-surface-mouse-lifecycle.ts', 'modal-native-range-keys.ts'];
 
 test('the shared dialog frame has a neutral complete ownership closure without the timeline shell', () => {
 	const visited = new Set<string>();
