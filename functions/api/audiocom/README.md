@@ -1,9 +1,13 @@
 # audio.com integration
 
-The menu-opened audio.com panel searches listed audio, previews playback, and uploads supported audio files. The backend also provides
-a route to list owned audio. The default provider uses the
+The menu-opened audio.com panel searches listed audio, previews playback, and
+uploads supported audio files. Audiocity serves original audio; Soundscaper decodes
+WavPack and AIFF previews locally using its existing codecs. These decoded previews
+are limited to 64 MiB of source audio and 128 MiB of PCM. Recording links open
+Audiocity's HTML player. The backend also provides a route to list owned audio.
+The default provider uses the
 [public v1 API](https://api.audio.com/v1/docs), checked on 2026-10-15.
-An administrator can select a self-hosted Audiocity server, which additionally
+A user can select a self-hosted Audiocity server, which additionally
 advertises whole-file AUP3/AUP4 archive storage.
 
 ## Server preferences
@@ -103,7 +107,8 @@ registered public OAuth client, local D1 database and Soundscaper Pages preview.
 It uses editor port 4325 and Audiocity port 8091; `PLAYWRIGHT_PORT` and
 `SCAPE_AUDIOCITY_PORT` override them. The test performs real OAuth authorization,
 upload, search, range playback and project archive transfers against the local
-HTTP server. It does not contact audio.com or use production credentials. To keep
+HTTP server, including WavPack and AIFF original previews and the HTML player link.
+It does not contact audio.com or use production credentials. To keep
 a disposable validation server running for manual inspection, run
 `node scripts/audiocity-validation-server.mjs`; open its printed editor URL and
 sign in as `soundscaper-validation@example.test` with the test-only password
@@ -134,7 +139,14 @@ Callbacks and refresh use this persisted binding. Authenticated requests must
 match the selected issuer; headerless audio-element previews use their grant's
 issuer. The default retains audio.com's exact API and CDN pins. API, OAuth,
 capability hooks and media for Audiocity use one origin with exact route and
-capability shapes. Changing origin requires reconnecting.
+capability shapes. Upload and hook URLs accept legacy token-only queries and the
+current token with `X-Amz-Date` and `X-Amz-Expires` hints. These URLs retain their
+complete validated query and never receive the provider OAuth bearer token.
+Failed audio transfers attempt owner-API deletion of their Audiocity recording;
+failed archive transfers attempt deletion of their abandoned revision, with
+synchronized revisions protected by the server. Cleanup survives caller cancellation
+and expired upload capabilities; provider outages or revoked owner access can still
+prevent it. Changing origin requires reconnecting.
 Audiocity authorization requests `public projects`, rather than the administrative
 `all` scope. Discovery at `/.well-known/audiocity` supplies archive formats and
 transfer limits; unadvertised project transports stay disabled.

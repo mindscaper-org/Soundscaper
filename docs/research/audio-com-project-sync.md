@@ -48,7 +48,8 @@ The live sequence was:
 
 1. `POST /project` with `{name, blocks: [hash, ...]}` creates a pending snapshot
    and returns `project`, `snapshot`, and `sync`. The real service returned HTTP
-   200, while Audiocity returns 201 for creation.
+   200. Audiocity also returns 200 for native block snapshots; its distinct
+   whole-file archive transport returns 201.
 2. PUT the metadata bytes to `sync.file.url`, then POST its `success` hook.
    Despite its `snapshot.xml` object name, the metadata is binary: an eight-byte
    little-endian dictionary length, the serialized dictionary, and the serialized
@@ -56,8 +57,8 @@ The live sequence was:
 3. PUT each missing WavPack block to its descriptor URL and POST its `success`
    hook. Audacity hashes the uncompressed block, replaces the first eight hex
    characters with its block ID, and embeds `FORMAT`, `BLOCK_ID` and `HASH` APE
-   tags in the WavPack data. The server normalizes descriptor hashes to lowercase;
-   Audacity maps them without case sensitivity.
+   tags in the WavPack data. Creation descriptors use lowercase hashes; resumed
+   `/sync` responses use uppercase to match Audacity's persisted block lookup.
 4. `POST /project/{projectId}/snapshot/{snapshotId}/sync` completes the snapshot
    after metadata and blocks are confirmed. The observed response was HTTP 204.
    A mixdown upload was unnecessary for these tests.
@@ -100,6 +101,14 @@ report project storage unavailable. Its project controls remain available only
 for an explicitly configured Audiocity server advertising whole-file archives.
 That transport preserves an entire AUP3/AUP4 SQLite file and cannot be substituted
 for audio.com's native metadata-and-block protocol.
+
+The Audiocity comparison on 2026-10-17 also covers upload URLs with
+`X-Amz-Date` and `X-Amz-Expires` hints alongside their capability token. Soundscaper
+preserves these fields without sending provider OAuth credentials to transfers or
+hooks. Failed archive transfers remove their abandoned revision, including after
+confirmation; the server protects synchronized revisions when a completion
+response is lost. Local browser validation uploads and downloads real AUP3/AUP4
+archives and opens their byte-identical downloads in the editor.
 
 Exposing native audio.com project sync in the application needs a separate
 opt-in authorization flow for project access, strict native route and signed
