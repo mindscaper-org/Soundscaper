@@ -54,7 +54,7 @@ test('joins a paste into the containing clip and preserves it through history', 
 	// that render is in flight deliberately aborts its revision-guarded commit.
 	await expect(clip).not.toHaveAccessibleName(/0\.8 seconds long$/u, { timeout: 20_000 });
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
-	clip = editor.locator(`[data-clip-id="${clipId}"]`);
+	clip = editor.locator(`[role="group"][data-clip-id="${clipId}"]`);
 	await expect(clip).toBeVisible();
 	let properties = await openClipProperties(page, editor, clip);
 	await expect.poll(async () => Number(await clipField(properties, 'durationFrame').inputValue()), {
@@ -64,11 +64,11 @@ test('joins a paste into the containing clip and preserves it through history', 
 	await closeClipProperties(properties);
 
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
-	properties = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${clipId}"]`));
+	properties = await openClipProperties(page, editor, editor.locator(`[role="group"][data-clip-id="${clipId}"]`));
 	await expect(clipField(properties, 'durationFrame')).toHaveValue('38400');
 	await closeClipProperties(properties);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
-	properties = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${clipId}"]`));
+	properties = await openClipProperties(page, editor, editor.locator(`[role="group"][data-clip-id="${clipId}"]`));
 	await expect(clipField(properties, 'durationFrame')).toHaveValue(joinedDuration);
 	await closeClipProperties(properties);
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
@@ -76,7 +76,7 @@ test('joins a paste into the containing clip and preserves it through history', 
 	await page.reload();
 	const restoredEditor = await waitForEditor(page);
 	await expect(restoredEditor).toHaveAttribute('data-clip-count', '1');
-	const restoredClip = restoredEditor.locator(`[data-clip-id="${clipId}"]`);
+	const restoredClip = restoredEditor.locator(`[role="group"][data-clip-id="${clipId}"]`);
 	await expect(restoredClip).toBeVisible();
 	properties = await openClipProperties(page, restoredEditor, restoredClip);
 	await expect(clipField(properties, 'durationFrame')).toHaveValue(joinedDuration);
