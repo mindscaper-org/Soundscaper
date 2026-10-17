@@ -94,7 +94,7 @@ jobs:
         run: npm run prepare:browser:products
       - name: Build the verified reciprocal browser product sites
         run: npm run pretest:browser:dual-origin
-      - name: Verify all four browser configurations and their source maps
+      - name: Verify all browser configurations and their source maps
         run: node scripts/verify-nightly-browser-sites.mjs
       - name: Upload the verified browser product sites
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
