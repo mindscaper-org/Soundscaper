@@ -1190,9 +1190,13 @@ to verify persistence, restore and reopening of the restored library. Native
 Open and OS file requests now feed the existing restore confirmation through
 scoped reads and temporary file staging; Linux command-line delivery is covered
 by that packaged qualification. Pending requests wait for active authoring to
-close, and restoration always requires an explicit confirmation. This does
-not close L8: file associations, native project-library integration,
-add-in-place access, native services, installers and the full
+close, and restoration always requires an explicit confirmation. The public
+`desktop:dir` and `desktop:dist` commands select the photo configuration and
+carry a private stage directory through every packaged resource. Linux x64
+AppImage and Debian artifacts have been built, extracted, resource-audited and
+run through the same three-process workflow. System installation and upgrades
+remain unqualified. This does not close L8: file associations, native
+project-library integration, add-in-place access, native services and the full
 release/nightly target matrix remain open. Windows managed qualification also
 awaits native process retirement support.
 

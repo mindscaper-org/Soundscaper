@@ -23,6 +23,10 @@ independent ownership, access or release governance requires it, with versioned
 shared dependencies and compatibility testing. Repository layout does not change
 browser-origin isolation.
 
+The managed desktop package uses the public desktop packaging commands with
+`SCAPE_PRODUCT=lightscaper`. See the [desktop build instructions](../development/lightscaper-desktop.md)
+for private stage directories, package verification and the native smoke.
+
 ## Catalog storage and history
 
 A photo catalog has a Lightscaper-owned, versioned root plus separately

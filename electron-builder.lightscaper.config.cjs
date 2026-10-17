@@ -2,6 +2,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 const productId = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
 const productName = 'Lightscaper';
+const buildRoot = process.env.SCAPE_DESKTOP_BUILD_ROOT;
+if (buildRoot !== undefined && (!buildRoot || buildRoot.includes('\0'))) {
+	throw new Error('SCAPE_DESKTOP_BUILD_ROOT must be a non-empty path when supplied.');
+}
 // Development builds use ad-hoc seals; credentialed release jobs explicitly
 // select a Developer ID identity and require notarization.
 const signing = require('./scripts/lib/desktop-signing-config.cjs').desktopSigningConfig();
@@ -25,8 +29,8 @@ module.exports = {
 	afterSign: './scripts/desktop-after-sign.mjs',
 	afterAllArtifactBuild: './scripts/desktop-verify-release-artifacts.mjs',
 	directories: {
-		app: '.desktop-build/app',
-		buildResources: '.desktop-build/icons',
+		app: stagePath('app'),
+		buildResources: stagePath('icons'),
 		output: 'release/desktop',
 	},
 	files: [
@@ -37,9 +41,9 @@ module.exports = {
 		'!desktop/**/*.test.*',
 	],
 	extraResources: [
-		{ from: '.desktop-build/renderer', to: 'renderer' },
-		{ from: '.desktop-build/runtime', to: 'runtime' },
-		{ from: '.desktop-build/licenses', to: 'licenses' },
+		{ from: stagePath('renderer'), to: 'renderer' },
+		{ from: stagePath('runtime'), to: 'runtime' },
+		{ from: stagePath('licenses'), to: 'licenses' },
 	],
 	win: {
 		...signing.win,
@@ -92,6 +96,11 @@ module.exports = {
 	},
 	publish: null,
 };
+
+/** @param {string} child */
+function stagePath(child) {
+	return buildRoot === undefined ? `.desktop-build/${child}` : require('node:path').resolve(__dirname, buildRoot, child);
+}
 
 /**
  * @param {string | undefined} value
