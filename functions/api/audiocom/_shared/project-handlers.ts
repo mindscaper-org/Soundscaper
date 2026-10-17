@@ -61,6 +61,14 @@ export function handleAudiocomProjectsRequest(context: AudiocomOAuthFunctionCont
 				const response = await (dependencies.fetchImpl ?? fetch)(failure, { method: 'DELETE', redirect: 'manual', signal: AbortSignal.timeout(10_000) });
 				await response.body?.cancel();
 			} catch { /* The server retains a pending revision if best-effort cleanup fails. */ }
+			try {
+				// A pending revision can release confirmed bytes that its upload fail hook cannot cancel.
+				// The provider protects synchronized snapshots if the successful completion response was lost.
+				const response = await (dependencies.fetchImpl ?? fetch)(new URL(`/project/${project.id}/snapshot/${snapshot}`, provider.apiOrigin), {
+					method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` }, redirect: 'manual', signal: AbortSignal.timeout(10_000),
+				});
+				await response.body?.cancel();
+			} catch { /* A refreshed archive list can still expose a revision retained by an unreachable provider. */ }
 			throw error;
 		}
 	});

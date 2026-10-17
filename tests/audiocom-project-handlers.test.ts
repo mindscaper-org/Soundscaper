@@ -54,8 +54,9 @@ test('archive listing requires a project-capable provider and filters to whole-f
 	assert.equal(unsupported.status, 404);
 });
 
-test('archive upload streams exact standalone bytes, confirms upload, then completes the snapshot', async () => {
+test('archive upload accepts current Audiocity expiry hints, streams exact bytes, and completes the snapshot', async () => {
 	const repository = await session(); const calls: string[] = [];
+	const capability = `token=${TOKEN}&X-Amz-Date=20261015T000000Z&X-Amz-Expires=86400`;
 	const response = await handleAudiocomProjectsRequest(context('projects?name=Session&format=aup3', { method: 'POST',
 		headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Filename': 'Session.aup3', 'X-Audiocom-Content-Length': String(file.length) }, body: file }), {
 		repository, now: () => NOW, fetchImpl: async (input, init) => {
@@ -64,11 +65,13 @@ test('archive upload streams exact standalone bytes, confirms upload, then compl
 			if (url.pathname === '/project' && init?.method === 'POST') {
 				assert.deepEqual(JSON.parse(String(init.body)), { name: 'Session', format: 'aup3', size: file.length });
 				return json({ project: { ...project, latest_synced_snapshot_id: '' }, snapshot: { id: SNAPSHOT }, sync: {
-					file: { url: `${ORIGIN}/uploads/${ID}?token=${TOKEN}`, success: `${ORIGIN}/uploads/${ID}/success?token=${TOKEN}`, fail: `${ORIGIN}/uploads/${ID}/fail?token=${TOKEN}` }, blocks: [],
+					file: { url: `${ORIGIN}/uploads/${ID}?${capability}`, success: `${ORIGIN}/uploads/${ID}/success?${capability}`, fail: `${ORIGIN}/uploads/${ID}/fail?${capability}` }, blocks: [],
 				} }, 201);
 			}
 			if (url.pathname.startsWith('/uploads/')) {
 				assert.equal(new Headers(init?.headers).has('Authorization'), false);
+				assert.equal(url.searchParams.get('X-Amz-Date'), '20261015T000000Z');
+				assert.equal(url.searchParams.get('X-Amz-Expires'), '86400');
 				if (init?.method === 'PUT') assert.deepEqual(new Uint8Array(await new Response(init.body).arrayBuffer()), file);
 				return json({ id: ID, size: file.length });
 			}
@@ -88,6 +91,58 @@ test('archive upload refuses excess size before publication', async () => {
 	assert.equal(oversized.status, 413);
 });
 
+for (const failure of ['expired confirmation', 'failed completion', 'lost completed response']) test(`archive cleanup after ${failure} removes only an abandoned snapshot`, async () => {
+	const repository = await session(); const methods: string[] = [];
+	const cancellation = new AbortController();
+	let synchronized = false; let removed = false;
+	let cleanupAuthorization: string | null = null; let cleanupAborted: boolean | undefined;
+	const capabilityAuthorization: (string | null)[] = [];
+	const response = await handleAudiocomProjectsRequest(context('projects?name=Session&format=aup3', { method: 'POST', signal: cancellation.signal,
+		headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Content-Length': String(file.length) }, body: file }), {
+		repository, now: () => NOW, fetchImpl: async (input, init) => {
+			const url = new URL(String(input));
+			if (url.pathname === '/.well-known/audiocity') return discovery();
+			methods.push(`${init?.method ?? 'GET'} ${url.pathname}`);
+			if (url.pathname === '/project' && init?.method === 'POST') return json({ project: { ...project, latest_synced_snapshot_id: '' }, snapshot: { id: SNAPSHOT }, sync: { blocks: [], file: {
+				url: `${ORIGIN}/uploads/${ID}?token=${TOKEN}`, success: `${ORIGIN}/uploads/${ID}/success?token=${TOKEN}`, fail: `${ORIGIN}/uploads/${ID}/fail?token=${TOKEN}`,
+			} } }, 201);
+			if (url.pathname === `/uploads/${ID}`) {
+				capabilityAuthorization.push(new Headers(init?.headers).get('Authorization'));
+				assert.deepEqual(new Uint8Array(await new Response(init?.body).arrayBuffer()), file);
+				return json({ id: ID });
+			}
+			if (url.pathname === `/uploads/${ID}/success`) return json({}, failure === 'expired confirmation' ? 403 : 200);
+			if (url.pathname.endsWith('/sync')) {
+				if (failure === 'lost completed response') {
+					synchronized = true; cancellation.abort();
+					throw new TypeError('The completion response was lost.');
+				}
+				return json({}, 503);
+			}
+			if (url.pathname === `/uploads/${ID}/fail`) {
+				capabilityAuthorization.push(new Headers(init?.headers).get('Authorization'));
+				return json({}, failure === 'expired confirmation' ? 403 : 409);
+			}
+			if (url.pathname === `/project/${ID}/snapshot/${SNAPSHOT}` && init?.method === 'DELETE') {
+				cleanupAuthorization = new Headers(init.headers).get('Authorization');
+				cleanupAborted = init.signal?.aborted;
+				if (synchronized) return json({}, 409);
+				removed = true; return new Response(null, { status: 204 });
+			}
+			throw new Error(`Unexpected request: ${url}`);
+		},
+	});
+	assert.equal(response.status, failure === 'expired confirmation' ? 403 : 502);
+	assert.ok(methods.includes(`DELETE /project/${ID}/snapshot/${SNAPSHOT}`), 'cancel the abandoned revision even when its upload hook can no longer remove bytes');
+	assert.equal(cleanupAuthorization, 'Bearer provider-secret');
+	assert.equal(cleanupAborted, false, 'cleanup must survive cancellation of the browser request');
+	assert.ok(capabilityAuthorization.every(value => value === null));
+	if (failure !== 'expired confirmation') assert.ok(methods.includes(`POST /project/${ID}/snapshot/${SNAPSHOT}/sync`));
+	assert.equal(removed, !synchronized);
+	assert.equal(synchronized, failure === 'lost completed response');
+	assert.equal(methods.includes(`DELETE /project/${ID}`), false, 'a lost successful response must not delete the synchronized project');
+});
+
 test('malformed SQLite archives abort the transfer and run cleanup without success or sync', async () => {
 	const repository = await session(); const methods: string[] = [];
 	const response = await handleAudiocomProjectsRequest(context('projects?name=Session&format=aup3', { method: 'POST',
@@ -104,7 +159,7 @@ test('malformed SQLite archives abort the transfer and run cleanup without succe
 		},
 	});
 	assert.equal(response.status, 422);
-	assert.deepEqual(methods, ['POST /project', `PUT /uploads/${ID}`, `DELETE /uploads/${ID}/fail`]);
+	assert.deepEqual(methods, ['POST /project', `PUT /uploads/${ID}`, `DELETE /uploads/${ID}/fail`, `DELETE /project/${ID}/snapshot/${SNAPSHOT}`]);
 });
 
 test('archive metadata uses the completed generation when a newer revision changes format', () => {
