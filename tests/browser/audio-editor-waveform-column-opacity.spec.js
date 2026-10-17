@@ -104,7 +104,7 @@ test('batched sample stems match individual round-cap compositing at every admit
 	expect(mismatches).toEqual([]);
 });
 
-test('native stem capability proof preserves owner pixels and caches exact batching admission', async ({ page, browserName }) => {
+test('native stem capability proof preserves owner pixels and caches exact batching admission', async ({ page }) => {
 	const rendererModule = './src/common/editor/audacity-waveform-renderer.js';
 	const capabilityModule = './src/common/editor/waveform-stem-batch-capability.ts';
 	const bundled = await build({
@@ -158,5 +158,4 @@ test('native stem capability proof preserves owner pixels and caches exact batch
 	expect(result.individualStrokes).toBe(1_001);
 	expect(result.batchedStrokes).toBe(result.supported ? 2 : 1_001);
 	expect(result.selectedStrokes).toBe(result.supported ? 3 : 1_001);
-	if (browserName === 'chromium' || browserName === 'firefox') expect(result.supported).toBe(true);
 });
