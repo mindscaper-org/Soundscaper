@@ -7,7 +7,16 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import type { OutputChunk } from 'rolldown';
 import { build } from 'vite';
-import { workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
+import { chunkGroupForModulePath, workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
+
+test('Motion preview request lifecycle helpers stay with the lazy preview protocol owner', () => {
+	const owner = chunkGroupForModulePath('src/common/editor/motion-preview-worker-protocol.ts');
+	assert.equal(owner, 'motion-domain');
+	for (const name of ['watchdog', 'drain']) {
+		const path = `src/common/editor/controller/composition/internal/motion-preview-worker-${name}.ts`;
+		for (const variant of [path, path.replaceAll('/', '\\')]) assert.equal(chunkGroupForModulePath(variant), owner, variant);
+	}
+});
 
 test('Motion lazy raster dependencies cannot import the preview worker registration entry', async () => {
 	const root = resolve(import.meta.dirname, '..');

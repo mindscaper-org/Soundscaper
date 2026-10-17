@@ -1,9 +1,17 @@
 # Motionscaper final integration status
 
-Status: **M01–M12 In progress**, updated 2026-10-17. The integrated worker fix
+Status: **M01–M12 In progress**, updated 2026-10-18. The integrated worker fix
 `d7f9f655f` passes 84 focused Motion cases, full strict types, changed-file lint,
 full repository lint, size and controller ownership checks. It still needs the
 current complete gates and native maximum workloads. No milestone is complete.
+
+During complete Node validation on `aeec86704665`, the eager-to-lazy chunk
+invariant found that the new preview watchdog had the general controller owner.
+The watchdog and drain now share `motion-domain` with their preview client and
+protocol. The new ownership regression failed before this correction; all 40
+focused chunk, worker and reachability checks pass afterward, including the
+original invariant. This changes build ownership only. The existing full runs
+remain attributed to their frozen source and do not qualify this correction.
 
 Earlier source `baaeb3816` passed the complete static gate and all five Node
 partitions: 27,462 passes, 17 declared skips and zero failures, including all

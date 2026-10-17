@@ -77,5 +77,6 @@ export const motionChunkGroups = [
 	{ name: 'motion-raster', priority: 101, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
 		test: /(?:src[\\/]common[\\/]editor[\\/](?:motion-canvaskit-[^\\/]+\.ts|controller[\\/]composition[\\/]motion-(?:raster-runtime|preview-(?:backend|render-session|worker-backend))\.ts)|config[\\/]motionscaper-raster-runtime\.json|node_modules[\\/](?:canvaskit-wasm|@fontsource[\\/]inter)[\\/])/ },
 	{ name: 'motion-domain', priority: 100, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
-		test: /src[\\/]common[\\/]editor[\\/](?:motion-(?!canvaskit-)[^\\/]+|storage[\\/]motion-asset-(?:repository|staging)|controller[\\/](?:composition[\\/]motion-preview-client|track-audio[\\/]motion-audio-preview|export[\\/](?:internal[\\/])?motion-[^\\/]+))\.ts$/ },
+		// The preview client's private request lifecycle helpers share its lazy protocol owner.
+		test: /src[\\/]common[\\/]editor[\\/](?:motion-(?!canvaskit-)[^\\/]+|storage[\\/]motion-asset-(?:repository|staging)|controller[\\/](?:composition[\\/](?:motion-preview-client|internal[\\/]motion-preview-worker-(?:watchdog|drain))|track-audio[\\/]motion-audio-preview|export[\\/](?:internal[\\/])?motion-[^\\/]+))\.ts$/ },
 ];
