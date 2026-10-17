@@ -12,6 +12,8 @@ import LightscaperPhotoDevelopSurfaceV1 from './LightscaperPhotoDevelopSurfaceV1
 import LightscaperRasterExportSurfaceV1 from './LightscaperRasterExportSurfaceV1.tsx';
 import { useLightscaperAppWorkflow as useWorkflowForProfile } from './use-lightscaper-app-workflow.ts';
 import { lightscaperMenuEvents } from './lightscaper-menu-events.ts';
+import { useLightscaperWorkspaceEvents } from './use-lightscaper-workspace-events.ts';
+import { useLightscaperDesktopLifecycle } from './use-lightscaper-desktop-lifecycle.ts';
 import { usePhotoRawPreviewSourceCurrentV1 } from './use-photo-raw-preview-source-current-v1.ts';
 import PhotoRawPreviewSourceMenuCurrentV1 from './PhotoRawPreviewSourceMenuCurrentV1.tsx';
 import { usePhotoRasterExportEntry } from './use-photo-raster-export-entry.ts';
@@ -75,8 +77,8 @@ export default function LightscaperAppKernelV1(props: Props) {
 	const createSession = useMemo(() => pinnedCreateSession ? (() => { void sessionEpoch; return pinnedCreateSession(); }) as typeof pinnedCreateSession : undefined, [pinnedCreateSession, sessionEpoch]);
 	const generation = useMemo(() => Object.freeze({ createSession, loadBackupSaveRuntime, loadDevelopProxyRuntime }), [createSession, loadBackupSaveRuntime, loadDevelopProxyRuntime]);
 	const currentGeneration = useRef(generation); currentGeneration.current = generation;
-	const live = useRef(true); useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
-	const isCurrent = useCallback(() => live.current && currentGeneration.current === generation, [generation]);
+	const desktopClosing = useRef(false), live = useRef(true); useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
+	const isCurrent = useCallback(() => !desktopClosing.current && live.current && currentGeneration.current === generation, [generation]);
 	const restoreGeneration = useMemo(() => ({ generation, loadRestoreRuntime }), [generation, loadRestoreRuntime]), queryGeneration = useMemo(() => ({ generation, loadMetadataQueryRuntime }), [generation, loadMetadataQueryRuntime]);
 	const latestPresentation = useRef({ restoreGeneration, queryGeneration }); latestPresentation.current = { restoreGeneration, queryGeneration };
 	const isRestoreCurrent = () => isCurrent() && latestPresentation.current.restoreGeneration === restoreGeneration, isQueryCurrent = () => isCurrent() && latestPresentation.current.queryGeneration === queryGeneration;
@@ -190,37 +192,7 @@ export default function LightscaperAppKernelV1(props: Props) {
 	useEffect(() => {
 		setOrganizerVisible(false); setMembershipsVisible(false); setMetadataVisible(false); setImportVisible(false); setBatchRenameVisible(false); setBackupVisible(false); setOriginalRecoveryVisible(false); setQueryVisible(false); setLibraryVisible(false); setPreviewActivated(false); setThumbnailsVisible(false); setFilmstripVisible(false); setLoupeVisible(false); setAutoAdvance(false); queryAdmission.current = false;
 	}, [generation]);
-	useEffect(() => {
-		const dismiss = (event: PointerEvent) => {
-			for (const menu of app.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) {
-				if (event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
-			}
-		};
-		document.addEventListener('pointerdown', dismiss);
-		return () => { document.removeEventListener('pointerdown', dismiss); };
-	}, []);
-	useEffect(() => {
-		const publish = () => window.dispatchEvent(new CustomEvent('scape:workspace-state', {
-			detail: {
-				productId: 'lightscaper', activeId: 'photo-library',
-				workspaces: [{ id: 'photo-library', name: copy.workspacePhoto }],
-			},
-		}));
-		const request = (event: Event) => {
-			if (!isCurrent()) return;
-			const detail: unknown = (event as CustomEvent<unknown>).detail;
-			if (!detail || typeof detail !== 'object') return;
-			if (Reflect.get(detail, 'productId') === 'lightscaper'
-				&& Reflect.get(detail, 'workspaceId') === 'photo-library') { setLibraryVisible(true); void readPage(); }
-		};
-		publish();
-		window.addEventListener('scape:workspace-ready', publish);
-		window.addEventListener('scape:workspace-request', request);
-		return () => {
-			window.removeEventListener('scape:workspace-ready', publish);
-			window.removeEventListener('scape:workspace-request', request);
-		};
-	}, [copy.workspacePhoto, readPage, isCurrent]);
+	useLightscaperWorkspaceEvents({ app, name: copy.workspacePhoto, isCurrent, readPage, show: () => { setLibraryVisible(true); } });
 
 	const toggleLibrary = (event: MouseEvent<HTMLButtonElement>) => {
 		if (!closeMenu(event)) return;
@@ -243,6 +215,19 @@ export default function LightscaperAppKernelV1(props: Props) {
 		selectedIds: photoSelection.snapshot.selectedIds, queryIdentity: library.queryIdentity, page: library.page, closeMenu: closeApplicationMenu, capture: library.captureHdrMerge,
 		beforeOpen: () => { const drain = joinPhotoLibraryRetirementV1([previewDrain.current, previewRetirement.current?.() ?? null]); previewDrain.current = drain; void drain.catch(() => undefined); return drain; },
 		registerRetirement: library.registerExportDestination, onAcknowledged: () => { if (isCurrent()) setLibraryVisible(true); } }); hdrAdmission.current = hdr.pending;
+	useLightscaperDesktopLifecycle({ app, locale, isCurrent,
+		hasPendingWork: () => restore.isPending() || library.isPending() || hdr.pending() || raster.hasPendingBatch(),
+		hasOpenSurface: () => developSurface.isAdmitted() || developSurface.closing || Boolean(raster.entry?.visible)
+			|| Boolean(handoff.surface || handoff.receiveSurface || handoff.collectionSurface) || importVisible || metadataVisible
+			|| organizerVisible || membershipsVisible || batchRenameVisible || backupVisible || restoreVisible || originalRecoveryVisible
+			|| queryVisible || savedVisible || stacks.visible || reviewing,
+		fence: () => { desktopClosing.current = true; },
+		retireAndJoin: () => {
+			const presentation = joinPhotoLibraryRetirementV1([previewDrain.current, previewRetirement.current?.() ?? null]);
+			const workspace = developSurface.retireAndJoin(presentation);
+			return joinPhotoLibraryRetirementV1([workspace, library.retireAndJoin(workspace)]);
+		} });
+
 	const openReview = (kind: 'compare' | 'survey', event: MouseEvent<HTMLButtonElement>) => {
 		const active = reviewMenu.current;
 		if (hdrAdmission.current() || active.generation !== compareGeneration || active.queryIdentity !== library.queryIdentity || !active.libraryVisible

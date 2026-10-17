@@ -30,7 +30,7 @@ export const editorUiChunkGroups = [
 		// Sharing the broad timeline controller owner makes those few imports pull
 		// video commands, storage and effect copy into an otherwise isolated shell.
 		name: 'editor-photo-library-scalars',
-		test: /src[\\/]common[\\/]editor[\\/]controller[\\/]shared[\\/]photo-library-(?:definition-reader|develop-command(?:-v2)?|develop-workflow-v[12]|develop-settings-intent(?:-v2)?|develop-settings-workflow-v[12]|selection-v1|culling-v1|cull-advance-v1|compare-v1|survey-v1|import-gesture-v1|backup-save-v1|original-recovery-v1|restore-v1|workflow-slot(?:-v2)?|query-navigation|saved-command)\.ts$/,
+		test: /src[\\/]common[\\/]editor[\\/]controller[\\/]shared[\\/]photo-library-(?:definition-reader|develop-command(?:-v2)?|develop-workflow-v[12]|develop-settings-intent(?:-v2)?|develop-settings-workflow-v[12]|selection-v1|culling-v1|cull-advance-v1|compare-v1|survey-v1|import-gesture-v1|backup-save-v1|original-recovery-v1|restore-v1|workflow-slot(?:-v2)?|query-navigation|saved-command)\.ts$|src[\\/]common[\\/]editor[\\/]controller[\\/]composition[\\/]lightscaper-desktop-lifecycle\.ts$/,
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,
@@ -76,7 +76,7 @@ export const editorUiChunkGroups = [
 	},
 	{
 		name: 'lightscaper-editor-copy',
-		test: /src[\\/]common[\\/](?:i18n[\\/]lightscaper-(?:editor|develop-menu|photo-(?:(?:png|jpeg)-export-menu|framescaper-handoff-menu|raw-preview)|metadata-query|saved-filter|restore)-copy\.ts|editor[\\/]ui[\\/]lightscaper[\\/]use-lightscaper-editor-copy\.ts)$/,
+		test: /src[\\/]common[\\/](?:i18n[\\/]lightscaper-(?:editor|desktop-close|develop-menu|photo-(?:(?:png|jpeg)-export-menu|framescaper-handoff-menu|raw-preview)|metadata-query|saved-filter|restore)-copy\.ts|editor[\\/]ui[\\/]lightscaper[\\/]use-lightscaper-editor-copy\.ts)$/,
 		priority: 98,
 		minSize: 0,
 		maxSize: 400_000,

@@ -47,7 +47,7 @@ export function usePhotoLibraryRestore(options: PhotoLibraryRestoreHookOptionsV1
 		if (!current?.isPending()) return Promise.resolve();
 		setCancelling(true); return current.cancelAndJoin();
 	}, []);
-	return { busy, cancelling, cancelled, receipt, error, ready: options.loadRuntime !== undefined, restore, cancel };
+	return { isPending: () => owner.current?.isPending() ?? false, busy, cancelling, cancelled, receipt, error, ready: options.loadRuntime !== undefined, restore, cancel };
 }
 
 function message(error: unknown): string {
