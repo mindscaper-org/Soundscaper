@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PhotoLibraryRestoreV1 } from '../../controller/shared/photo-library-restore-v1.ts';
+import { joinPhotoLibraryRetirementV1 } from '../../controller/shared/photo-library-workflow-slot.ts';
 import type { LoadPhotoLibraryRestoreRuntimeV1, PhotoLibraryRestoreReceiptV1 } from '../../photo-library-restore-port-v1.ts';
 
 export interface PhotoLibraryRestoreHookOptionsV1 {
@@ -14,11 +15,15 @@ export interface PhotoLibraryRestoreHookOptionsV1 {
 export function usePhotoLibraryRestore(options: PhotoLibraryRestoreHookOptionsV1) {
 	const latest = useRef(options); latest.current = options;
 	const owner = useRef<PhotoLibraryRestoreV1 | null>(null), alive = useRef(false);
+	const drain = useRef<Promise<void> | null>(null);
 	const [busy, setBusy] = useState(false), [cancelling, setCancelling] = useState(false), [cancelled, setCancelled] = useState(false);
 	const [receipt, setReceipt] = useState<Readonly<PhotoLibraryRestoreReceiptV1> | null>(null), [error, setError] = useState<string | null>(null);
 	useEffect(() => {
 		const current = new PhotoLibraryRestoreV1(); owner.current = current; alive.current = true;
-		return () => { alive.current = false; if (owner.current === current) owner.current = null; void current.close().catch(() => undefined); };
+		return () => {
+			alive.current = false; drain.current = joinPhotoLibraryRetirementV1([drain.current, current.close()]);
+			if (owner.current === current) owner.current = null; void drain.current.catch(() => undefined);
+		};
 	}, []);
 	const restore = useCallback(async (blob: Blob): Promise<Readonly<PhotoLibraryRestoreReceiptV1> | null> => {
 		const current = owner.current, source = latest.current;
@@ -47,7 +52,11 @@ export function usePhotoLibraryRestore(options: PhotoLibraryRestoreHookOptionsV1
 		if (!current?.isPending()) return Promise.resolve();
 		setCancelling(true); return current.cancelAndJoin();
 	}, []);
-	return { isPending: () => owner.current?.isPending() ?? false, busy, cancelling, cancelled, receipt, error, ready: options.loadRuntime !== undefined, restore, cancel };
+	const retireAndJoin = useCallback((): Promise<void> => {
+		drain.current = joinPhotoLibraryRetirementV1([drain.current, owner.current?.close() ?? null]);
+		void drain.current.catch(() => undefined); return drain.current;
+	}, []);
+	return { isPending: () => owner.current?.isPending() ?? false, retireAndJoin, busy, cancelling, cancelled, receipt, error, ready: options.loadRuntime !== undefined, restore, cancel };
 }
 
 function message(error: unknown): string {

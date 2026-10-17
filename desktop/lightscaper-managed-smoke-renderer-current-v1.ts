@@ -16,7 +16,7 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 	const environment = await desktop.v1.getEnvironment();
 	if (environment.productId !== 'lightscaper' || environment.locale !== plan.locale) throw new Error('Managed smoke requires its genuine English desktop route.');
 	const publicBridgeKeys = Object.keys(desktop.v1).sort();
-	if (publicBridgeKeys.join(',') !== 'getEnvironment,onCloseRequested,onMenuCommand,respondToClose,signalReady') throw new Error('Packaged Lightscaper bridge authority expanded.');
+	if (publicBridgeKeys.join(',') !== 'finishArchive,getEnvironment,onArchiveAvailable,onCloseRequested,onMenuCommand,respondToClose,signalReady,takeArchive') throw new Error('Packaged Lightscaper bridge authority expanded.');
 	const nodeExposed = typeof globals.require !== 'undefined' || typeof globals.process !== 'undefined';
 	if (nodeExposed) throw new Error('Node authority leaked into the Photo renderer.');
 	const app = await wait(() => document.querySelector<HTMLElement>('[data-lightscaper-bound="true"]'), 'actual Lightscaper app');
@@ -54,15 +54,17 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 		assertSavedExposure(saved);
 		await exportRaw(); await backup();
 	} else {
-		await library(); initial = await custody();
+		if (!plan.expectedPhotoIds) throw new Error('Fresh process requires the preceding Photo identities.');
+		initial = await readLightscaperManagedSmokeCustodyCurrentV1(plan.expectedPhotoIds, plan.fixtures);
 		if (initial.fingerprint !== plan.expectedFingerprint) throw new Error('Fresh process lost the previously saved catalog or Original custody.');
 		if (plan.expectedNamespace !== null && initial.namespace !== plan.expectedNamespace) throw new Error('Fresh process selected a different restored namespace.');
 		assertSavedExposure(initial);
 		if (plan.stage === 2) {
 			if (!plan.archive) throw new Error('Second process requires the actual externally authenticated first backup.');
-			await action(restore.title);
 			const restoring = await dialog(restore.title);
-			assignFiles(await wait(() => restoring.querySelector<HTMLInputElement>('[data-photo-restore-file]'), 'restore input'), [plan.archive]);
+			await wait(() => restoring.querySelector('[data-photo-restore-selected-file]')?.textContent === plan.archive!.name, 'OS-delivered backup preselection');
+			if (restoring.querySelector<HTMLInputElement>('[data-photo-restore-file]')?.files?.length
+				|| restoring.querySelector('[data-photo-restore-receipt]')) throw new Error('OS delivery bypassed explicit Restore confirmation or used an injected File input.');
 			await clickSelector(restoring, '[data-photo-restore-start]');
 			// Successful publication replaces the Session and its keyed dialog.
 			// Observe the new presentation's durable receipt, not the retired node.
@@ -70,6 +72,7 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 			await clickSelector(acknowledged, '[data-photo-restore-close]'); await wait(() => !acknowledged.isConnected, 'restore close');
 			await library();
 		} else {
+			await library();
 			await selectRaw(); await action(photoDevelopMenuLabel(plan.locale), true);
 			const author = await dialog(`${develop.title}: ${rawName()}`); await painted(author); preview = plane(author);
 			await clickButton(author, develop.close, true); await wait(() => !author.isConnected, 'restored Develop close');
@@ -84,7 +87,7 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 	// Worker requests belong to Electron's session witness; this page timeline
 	// remains diagnostic and cannot stand in for the worker's native fetches.
 	if (rawRuntimeRequests.some(value => !value.startsWith('lightscaper-app://bundle/runtime/libraw/'))) throw new Error('RAW escaped the packaged offline asset route.');
-	return { nonce: plan.nonce, stage: plan.stage, initial, final, preview, rawRuntimeRequests, publicBridgeKeys, nodeExposed };
+	return { nonce: plan.nonce, stage: plan.stage, initial, final, preview, rawRuntimeRequests, publicBridgeKeys, nodeExposed, externalArchiveOpen: plan.stage === 2 };
 
 	function rawName(): string { const file = plan.fixtures.find(value => value.name.endsWith('.dng')); if (!file) throw new Error('Owned DNG missing.'); return file.name; }
 	async function menu(name: string): Promise<void> {

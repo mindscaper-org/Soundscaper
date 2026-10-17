@@ -6,6 +6,9 @@ import {
 	readLightscaperEnvironmentCurrentV1, readLightscaperMenuCommandCurrentV1,
 	type LightscaperCloseRequestCurrentV1, type LightscaperShellEnvironmentCurrentV1,
 } from './lightscaper-shell-contract-current-v1.ts';
+import { readDesktopLightscaperArchiveOpenDescriptorCurrentV1, readDesktopLightscaperArchiveOpenFinishCurrentV1,
+	readDesktopLightscaperArchiveOpenAvailabilityCurrentV1, type DesktopLightscaperArchiveOpenBridgeCurrentV1,
+	type DesktopLightscaperArchiveOpenDescriptorCurrentV1 } from '../src/common/editor/desktop-lightscaper-archive-open-contract-current-v1.ts';
 
 type WireListener = (event: unknown, value: unknown) => void;
 export interface LightscaperPreloadIpcCurrentV1 {
@@ -13,7 +16,7 @@ export interface LightscaperPreloadIpcCurrentV1 {
 	on(channel: string, listener: WireListener): unknown;
 	removeListener(channel: string, listener: WireListener): unknown;
 }
-export interface LightscaperPreloadBridgeCurrentV1 {
+export interface LightscaperPreloadBridgeCurrentV1 extends DesktopLightscaperArchiveOpenBridgeCurrentV1 {
 	getEnvironment(): Promise<Readonly<LightscaperShellEnvironmentCurrentV1>>;
 	signalReady(): Promise<void>;
 	respondToClose(response: unknown): Promise<void>;
@@ -21,7 +24,7 @@ export interface LightscaperPreloadBridgeCurrentV1 {
 	onMenuCommand(listener: (request: Readonly<{ command: 'preferences' }>) => void): () => void;
 }
 
-/** A closed lifecycle bridge. Renderer code receives no IPC objects, native
+/** A closed shell bridge. Renderer code receives no IPC objects, native
  * file paths, native product-library services or local-model interfaces. */
 export function createLightscaperPreloadBridgeCurrentV1(ipc: LightscaperPreloadIpcCurrentV1): Readonly<LightscaperPreloadBridgeCurrentV1> {
 	function subscribe<Value>(channel: string, listener: (value: Value) => void, read: (value: unknown) => Value): () => void {
@@ -32,6 +35,18 @@ export function createLightscaperPreloadBridgeCurrentV1(ipc: LightscaperPreloadI
 		return () => { if (attached) { attached = false; ipc.removeListener(channel, wire); } };
 	}
 	return Object.freeze({
+		async takeArchive(): Promise<Readonly<DesktopLightscaperArchiveOpenDescriptorCurrentV1> | null> {
+			const result = await ipc.invoke(CHANNELS.archiveTake);
+			return result === null ? null : readDesktopLightscaperArchiveOpenDescriptorCurrentV1(result);
+		},
+		async finishArchive(request: unknown): Promise<void> {
+			const value = readDesktopLightscaperArchiveOpenFinishCurrentV1(request);
+			if (await ipc.invoke(CHANNELS.archiveFinish, value) !== true) throw new Error('Lightscaper archive retirement was not acknowledged.');
+		},
+		onArchiveAvailable(listener: () => void): () => void {
+			if (typeof listener !== 'function') throw new TypeError('Lightscaper archive subscription requires a listener.');
+			return subscribe(CHANNELS.archiveAvailable, value => { if (value.available) listener(); }, readDesktopLightscaperArchiveOpenAvailabilityCurrentV1);
+		},
 		async getEnvironment(): Promise<Readonly<LightscaperShellEnvironmentCurrentV1>> {
 			return readLightscaperEnvironmentCurrentV1(await ipc.invoke(CHANNELS.environment));
 		},

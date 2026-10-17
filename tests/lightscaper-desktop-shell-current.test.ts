@@ -91,7 +91,7 @@ test('preload exposes only closed Lightscaper lifecycle methods and removes subs
 		on: (channel, listener) => { listeners.set(channel, listener); },
 		removeListener: (channel, listener) => { assert.equal(listeners.get(channel), listener); listeners.delete(channel); removals++; },
 	});
-	assert.deepEqual(Object.keys(api).sort(), ['getEnvironment', 'onCloseRequested', 'onMenuCommand', 'respondToClose', 'signalReady']);
+	assert.deepEqual(Object.keys(api).sort(), ['finishArchive', 'getEnvironment', 'onArchiveAvailable', 'onCloseRequested', 'onMenuCommand', 'respondToClose', 'signalReady', 'takeArchive']);
 	assert.equal(Object.isFrozen(api), true);
 	assert.deepEqual(await api.getEnvironment(), ENVIRONMENT);
 	await api.signalReady(); await api.respondToClose({ requestId: FIRST, allow: false });
@@ -122,6 +122,39 @@ test('existing trusted IPC admits only the current Lightscaper main frame', () =
 	assert.throws(() => invoke({ sender, senderFrame: { url: mainFrame.url } }));
 	mainFrame.url = 'framescaper-app://bundle/';
 	assert.throws(() => invoke({ sender, senderFrame: mainFrame }));
+});
+
+test('Lightscaper preload grants only the OS-selected archive and requires a joined native release', async () => {
+	const id = 'a'.repeat(64), descriptor = { id, name: 'Owned.liscape', size: 3, lastModified: 0,
+		url: `lightscaper-app://bundle/_desktop/read/scape-range-v1/${id}/Owned.liscape`,
+		mimeType: 'application/vnd.soundscaper.scape+zip', readProfile: 'scape-range-v1' };
+	let answer: unknown = null, released = true;
+	const calls: [string, unknown[]][] = [];
+	const api = createLightscaperPreloadBridgeCurrentV1({
+		invoke: async (channel, ...args) => { calls.push([channel, args]); return channel === CHANNELS.archiveTake ? answer : released; },
+		on: () => undefined, removeListener: () => undefined,
+	});
+	assert.equal(await api.takeArchive(), null); answer = descriptor;
+	assert.deepEqual(await api.takeArchive(), descriptor);
+	answer = { ...descriptor, url: 'file:///private/Owned.liscape' };
+	await assert.rejects(api.takeArchive());
+	const before = calls.length;
+	await assert.rejects(api.finishArchive({ id, path: '/private/Owned.liscape' } as { id: string }));
+	assert.equal(calls.length, before);
+	await api.finishArchive({ id }); assert.deepEqual(calls.at(-1), [CHANNELS.archiveFinish, [{ id }]]);
+	released = false; await assert.rejects(api.finishArchive({ id }), /not acknowledged/u);
+});
+
+test('Lightscaper archive availability sends no native events, paths or descriptors through the preload', () => {
+	let listener: ((event: unknown, value: unknown) => void) | undefined, count = 0, removed = 0;
+	const api = createLightscaperPreloadBridgeCurrentV1({ invoke: async () => true,
+		on: (_channel, callback) => { listener = callback; }, removeListener: () => { removed++; } });
+	const off = api.onArchiveAvailable((...args: unknown[]) => { assert.deepEqual(args, []); count++; });
+	assert.ok(listener); listener({ sender: 'native authority' }, { available: false }); assert.equal(count, 0);
+	listener({}, { available: true }); assert.equal(count, 1);
+	assert.throws(() => { listener!({}, { available: true, path: '/private/Owned.liscape' }); });
+	assert.equal(count, 1); off(); off(); assert.equal(removed, 1);
+	listener({}, { available: true }); assert.equal(count, 1);
 });
 
 test('Lightscaper has native OS chrome and a sandboxed isolated renderer without Node', () => {

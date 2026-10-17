@@ -9,6 +9,7 @@ export interface LightscaperSmokeRendererPlanCurrentV1 {
 	readonly fixtures: readonly LightscaperSmokeFileCurrentV1[];
 	readonly archive: LightscaperSmokeFileCurrentV1 | null;
 	readonly expectedFingerprint: string | null; readonly expectedNamespace: string | null;
+	readonly expectedPhotoIds: readonly string[] | null;
 	readonly backupSuggestedName: string;
 }
 export interface LightscaperManagedSmokePlanCurrentV1 {
@@ -29,6 +30,7 @@ export interface LightscaperSmokeRendererReportCurrentV1 {
 	readonly rawRuntimeRequests: readonly string[];
 	readonly publicBridgeKeys: readonly string[];
 	readonly nodeExposed: boolean;
+	readonly externalArchiveOpen: boolean;
 }
 export function lightscaperSmokeStableJsonCurrentV1(value: unknown): string {
 	if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return JSON.stringify(value);

@@ -1186,9 +1186,13 @@ sandboxed preload, close-and-retire coordination, native output dialogs and
 offline pinned RAW assets with their complete corresponding source. A scripted
 Linux qualification imports raster and RAW Originals, saves Develop state,
 authenticates exported pixels and backup bytes, then uses two fresh processes
-to verify persistence, restore and reopening of the restored library. This does
-not close L8: associations and external-open delivery, native project-library
-integration, add-in-place access, native services, installers and the full
+to verify persistence, restore and reopening of the restored library. Native
+Open and OS file requests now feed the existing restore confirmation through
+scoped reads and temporary file staging; Linux command-line delivery is covered
+by that packaged qualification. Pending requests wait for active authoring to
+close, and restoration always requires an explicit confirmation. This does
+not close L8: file associations, native project-library integration,
+add-in-place access, native services, installers and the full
 release/nightly target matrix remain open. Windows managed qualification also
 awaits native process retirement support.
 

@@ -36,7 +36,7 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 	const root = await mkdtemp(join(outputRoot, 'lightscaper-managed-')), profile = join(root, 'profile');
 	let expectedPixelsForCleanup: Uint8Array<ArrayBuffer> | undefined;
 	const stages: unknown[] = []; let preceding: LightscaperSmokeCustodyCurrentV1 | null = null;
-	let archive: LightscaperSmokeFileCurrentV1 | null = null, allJoined = true, complete = false;
+	let archive: LightscaperSmokeFileCurrentV1 | null = null, archivePath: string | null = null, allJoined = true, complete = false;
 	const qualificationPath = join(root, 'qualification.json');
 	try {
 		await mkdir(profile, { mode: 0o700 });
@@ -51,11 +51,13 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 			const plan: LightscaperManagedSmokePlanCurrentV1 = { schemaVersion: 1, nonce, stage, profilePath: profile,
 				renderer: { nonce, stage, locale: 'en', fixtures, archive: stage === 2 ? archive : null,
 					expectedFingerprint: preceding?.fingerprint ?? null, expectedNamespace: stage === 3 ? preceding?.namespace ?? null : null,
+					expectedPhotoIds: preceding?.photos.map(photo => (photo.document as { id: string }).id) ?? null,
 					backupSuggestedName } };
 			const planPath = join(root, `${nonce}.stage-${stage}.json`);
 			await writeFile(planPath, `${JSON.stringify(plan)}\n`, { flag: 'wx', mode: 0o600 });
 			const launchArgs = [`--user-data-dir=${profile}`, '--lang=en', `--lightscaper-managed-smoke-plan=${planPath}`,
-				`--lightscaper-managed-smoke-nonce=${nonce}`, ...(options.allowNoSandbox ? ['--no-sandbox'] : [])];
+				`--lightscaper-managed-smoke-nonce=${nonce}`, ...(options.allowNoSandbox ? ['--no-sandbox'] : []),
+				...(stage === 2 && archivePath ? [archivePath] : [])];
 			allJoined = false;
 			const processReceipt = await launchLightscaperManagedSmokeProcessCurrentV1(executable, launchArgs);
 			allJoined = processReceipt.readersRetired;
@@ -64,6 +66,7 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 			const receipt = JSON.parse((await boundedRead(join(root, `${nonce}.stage-${stage}.result.json`), 1024 * 1024)).toString('utf8')) as StageReceipt;
 			if (receipt.schemaVersion !== 1 || receipt.nonce !== nonce || receipt.stage !== stage || receipt.processId !== processReceipt.processId
 				|| receipt.renderer.nonce !== nonce || receipt.renderer.stage !== stage || receipt.renderer.nodeExposed || receipt.blockedNetworkRequests.length) throw new Error('Actual stage receipt identity/security differs from its joined process.');
+			if (receipt.renderer.externalArchiveOpen !== (stage === 2)) throw new Error('Actual OS archive delivery witness differs from its stage.');
 			for (const key of ['sandbox', 'contextIsolation', 'webSecurity']) if (receipt.security[key] !== true) throw new Error(`Actual packaged ${key} is disabled.`);
 			for (const key of ['nodeIntegration', 'nodeIntegrationInWorker', 'nodeIntegrationInSubFrames']) if (receipt.security[key] !== false) throw new Error(`Actual packaged ${key} is enabled.`);
 			if (stage !== 2 && !receipt.rawRuntimeRequests.includes('lightscaper-app://bundle/runtime/libraw/0.22.2/libraw.wasm')) throw new Error('Main-process worker runtime witness is incomplete.');
@@ -84,6 +87,8 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 				else {
 					archiveReceipt = await verifyLightscaperSmokeArchiveCurrentV1(new Uint8Array(bytes), receipt.renderer.final);
 					archive = file(backupSuggestedName, 'application/vnd.soundscaper.scape+zip', bytes);
+					await mkdir(join(root, 'incoming'), { mode: 0o700 }); archivePath = join(root, 'incoming', backupSuggestedName);
+					await writeFile(archivePath, bytes, { flag: 'wx', mode: 0o600 });
 				}
 			}
 			if (stage !== 2 && (!receipt.renderer.preview || receipt.renderer.preview.width !== 32 || receipt.renderer.preview.height !== 32

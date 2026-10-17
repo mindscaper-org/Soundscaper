@@ -26,13 +26,15 @@ export function validateLightscaperManagedSmokePlanCurrentV1(value: unknown, aut
 	if (plan.schemaVersion !== 1 || plan.nonce !== authority.nonce || (stage !== 1 && stage !== 2 && stage !== 3)
 		|| authority.planPath !== join(dirname(authority.planPath), `${authority.nonce}.stage-${stage}.json`)
 		|| plan.profilePath !== join(dirname(authority.planPath), 'profile') || plan.profilePath !== resolve(authority.profilePath)) throw new TypeError('Managed smoke plan leaves its private profile or stage.');
-	const renderer = record(plan.renderer, ['nonce', 'stage', 'locale', 'fixtures', 'archive', 'expectedFingerprint', 'expectedNamespace', 'backupSuggestedName']);
+	const renderer = record(plan.renderer, ['nonce', 'stage', 'locale', 'fixtures', 'archive', 'expectedFingerprint', 'expectedNamespace', 'expectedPhotoIds', 'backupSuggestedName']);
 	if (renderer.nonce !== plan.nonce || renderer.stage !== stage || renderer.locale !== 'en'
 		|| !safeFilename(renderer.backupSuggestedName, '.liscape')
 		|| !Array.isArray(renderer.fixtures) || renderer.fixtures.length !== 2) throw new TypeError('Managed smoke renderer authority expanded.');
 	const fixtures = renderer.fixtures.map(file => validateFile(file, 65_536));
 	if (fixtures[0]?.mimeType !== 'image/png' || fixtures[1]?.mimeType !== 'image/x-adobe-dng' || !fixtures[0].name.endsWith('.png') || !fixtures[1].name.endsWith('.dng')) throw new TypeError('Managed smoke fixture inventory changed.');
 	if (stage === 1 ? renderer.expectedFingerprint !== null : !digest(renderer.expectedFingerprint)) throw new TypeError('Managed smoke requires its preceding durable fingerprint.');
+	if (stage === 1 ? renderer.expectedPhotoIds !== null : !Array.isArray(renderer.expectedPhotoIds) || renderer.expectedPhotoIds.length !== 2
+		|| new Set(renderer.expectedPhotoIds).size !== 2 || renderer.expectedPhotoIds.some(value => typeof value !== 'string' || !/^[a-f0-9-]{36}$/u.test(value))) throw new TypeError('Managed smoke requires its preceding two Photo identities.');
 	if (renderer.expectedNamespace !== null && !/^[a-f0-9]{32}$/u.test(String(renderer.expectedNamespace))) throw new TypeError('Invalid restored namespace.');
 	if (stage === 2) validateFile(renderer.archive, 1_048_576); else if (renderer.archive !== null) throw new TypeError('Only restore stage accepts an archive input.');
 	return value as LightscaperManagedSmokePlanCurrentV1;

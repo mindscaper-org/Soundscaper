@@ -18,6 +18,7 @@ function plan(stage: 1 | 2 | 3 = 1) {
 		], archive: stage === 2 ? { name: 'Photo library.liscape', mimeType: 'application/vnd.soundscaper.scape+zip',
 			base64: 'BwgJ', byteLength: 3, sha256: 'c'.repeat(64) } : null,
 			expectedFingerprint: stage === 1 ? null : 'd'.repeat(64), expectedNamespace: null,
+			expectedPhotoIds: stage === 1 ? null : ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'],
 			backupSuggestedName: 'Photo library.liscape' } };
 }
 
@@ -41,6 +42,7 @@ test('managed smoke plans cannot escape their nonce-stage profile or expand rend
 		for (const changed of [ { ...value, profilePath: join(ROOT, '..', 'other-profile') },
 			{ ...value, nonce: 'f'.repeat(32) }, { ...value, stage: 4 }, { ...value, outputPath: '/tmp/escape' },
 			{ ...value, renderer: { ...value.renderer, exportBaseName: '../escape' } },
+			{ ...value, renderer: { ...value.renderer, expectedPhotoIds: ['../escape'] } },
 			{ ...value, renderer: { ...value.renderer, fixtures: Array.from({ length: 3 }, () => value.renderer.fixtures[0]) } } ]) {
 			assert.throws(() => validateLightscaperManagedSmokePlanCurrentV1(changed, authority));
 		}

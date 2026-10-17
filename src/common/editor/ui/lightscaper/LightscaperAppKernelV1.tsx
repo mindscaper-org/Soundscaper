@@ -14,6 +14,7 @@ import { useLightscaperAppWorkflow as useWorkflowForProfile } from './use-lights
 import { lightscaperMenuEvents } from './lightscaper-menu-events.ts';
 import { useLightscaperWorkspaceEvents } from './use-lightscaper-workspace-events.ts';
 import { useLightscaperDesktopLifecycle } from './use-lightscaper-desktop-lifecycle.ts';
+import { useLightscaperDesktopArchiveOpenCurrentV1 } from './use-lightscaper-desktop-archive-open-current-v1.ts';
 import { usePhotoRawPreviewSourceCurrentV1 } from './use-photo-raw-preview-source-current-v1.ts';
 import PhotoRawPreviewSourceMenuCurrentV1 from './PhotoRawPreviewSourceMenuCurrentV1.tsx';
 import { usePhotoRasterExportEntry } from './use-photo-raster-export-entry.ts';
@@ -215,14 +216,18 @@ export default function LightscaperAppKernelV1(props: Props) {
 		selectedIds: photoSelection.snapshot.selectedIds, queryIdentity: library.queryIdentity, page: library.page, closeMenu: closeApplicationMenu, capture: library.captureHdrMerge,
 		beforeOpen: () => { const drain = joinPhotoLibraryRetirementV1([previewDrain.current, previewRetirement.current?.() ?? null]); previewDrain.current = drain; void drain.catch(() => undefined); return drain; },
 		registerRetirement: library.registerExportDestination, onAcknowledged: () => { if (isCurrent()) setLibraryVisible(true); } }); hdrAdmission.current = hdr.pending;
-	useLightscaperDesktopLifecycle({ app, locale, isCurrent,
-		hasPendingWork: () => restore.isPending() || library.isPending() || hdr.pending() || raster.hasPendingBatch(),
-		hasOpenSurface: () => developSurface.isAdmitted() || developSurface.closing || Boolean(raster.entry?.visible)
+	const workspacePending = () => restore.isPending() || library.isPending() || hdr.pending() || raster.hasPendingBatch();
+	const workspaceOpen = () => developSurface.isAdmitted() || developSurface.closing || Boolean(raster.entry?.visible)
 			|| Boolean(handoff.surface || handoff.receiveSurface || handoff.collectionSurface) || importVisible || metadataVisible
 			|| organizerVisible || membershipsVisible || batchRenameVisible || backupVisible || restoreVisible || originalRecoveryVisible
-			|| queryVisible || savedVisible || stacks.visible || reviewing,
+			|| queryVisible || savedVisible || stacks.visible || reviewing;
+	const externalArchive = useLightscaperDesktopArchiveOpenCurrentV1({ canPresent: () => isCurrent() && restore.ready && !workspacePending() && !workspaceOpen() && !document.querySelector('[role="dialog"]'),
+		onPresent: () => { setRestoreVisible(true); }, retireRestore: restore.retireAndJoin, reportError: () => { window.alert?.(restoreCopy.failed); } });
+	useLightscaperDesktopLifecycle({ app, locale, isCurrent,
+		hasPendingWork: () => workspacePending() || externalArchive.isPending(), hasOpenSurface: workspaceOpen,
 		fence: () => { desktopClosing.current = true; },
-		retireAndJoin: () => {
+		retireAndJoin: async () => {
+			await externalArchive.retireAndJoin();
 			const presentation = joinPhotoLibraryRetirementV1([previewDrain.current, previewRetirement.current?.() ?? null]);
 			const workspace = developSurface.retireAndJoin(presentation);
 			return joinPhotoLibraryRetirementV1([workspace, library.retireAndJoin(workspace)]);
@@ -462,8 +467,8 @@ export default function LightscaperAppKernelV1(props: Props) {
 		</Suspense>}
 		{restoreVisible && <Suspense fallback={<p role="status">{copy.photoWorking}</p>}>
 			<PhotoCatalogRestoreDialog key={presentation.key} locale={locale} copy={restoreCopy} ready={restore.ready} busy={restore.busy} cancelling={restore.cancelling}
-				cancelled={restore.cancelled} receipt={restore.receipt} error={restore.error} onRestore={file => isRestoreCurrent() ? restore.restore(file) : Promise.resolve(null)}
-				onCancel={() => isRestoreCurrent() ? restore.cancel() : Promise.resolve()} onClose={() => { if (isRestoreCurrent()) setRestoreVisible(false); }} />
+				selectedFile={externalArchive.file} cancelled={restore.cancelled} receipt={restore.receipt} error={restore.error} onRestore={file => isRestoreCurrent() ? externalArchive.withFileConsumer(file, () => restore.restore(file)) : Promise.resolve(null)}
+				onCancel={() => isRestoreCurrent() ? restore.cancel() : Promise.resolve()} onClose={() => { if (isRestoreCurrent()) { setRestoreVisible(false); void externalArchive.dismiss().catch(() => undefined); } }} />
 		</Suspense>}
 		{!restore.busy && queryVisible && <Suspense fallback={<p role="status">{copy.photoWorking}</p>}>
 			<PhotoQueryDialog key={queryPresentation.key} query={library.query ?? DEFAULT_PHOTO_LIBRARY_QUERY_V2} copy={copy} flags={flags} colorLabels={colorLabels}

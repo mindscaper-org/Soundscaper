@@ -8,6 +8,9 @@ export const LIGHTSCAPER_SHELL_CHANNELS_CURRENT_V1 = Object.freeze({
 	respond: 'lightscaper:v1:close:respond',
 	closeRequested: 'lightscaper:v1:event:close-requested',
 	menuCommand: 'lightscaper:v1:event:menu-command',
+	archiveTake: 'lightscaper:v1:archive:take',
+	archiveFinish: 'lightscaper:v1:archive:finish',
+	archiveAvailable: 'lightscaper:v1:event:archive-available',
 });
 export interface LightscaperShellEnvironmentCurrentV1 {
 	readonly productId: 'lightscaper';

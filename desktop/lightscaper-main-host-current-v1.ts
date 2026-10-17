@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, ipcMain, Menu, protocol, session, type DownloadItem } from 'electron/main';
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, type DownloadItem } from 'electron/main';
 import { APP_ID, APP_NAME, APP_ORIGIN, APP_SCHEME, DECLARED_APPLICATION_VERSION, PRODUCT_ID, SESSION_PARTITION, SUPPORTED_LOCALES } from './constants.js';
 import { configureDesktopStorage } from './desktop-storage-bootstrap.ts';
 import { createTrustedDesktopIpc } from './main-trusted-ipc.ts';
@@ -15,6 +15,11 @@ import { createLightscaperDownloadLifetimeCurrentV1 } from './lightscaper-downlo
 import { LIGHTSCAPER_SHELL_CHANNELS_CURRENT_V1 as CHANNELS, LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1,
 	LIGHTSCAPER_SHELL_PARTITION_CURRENT_V1, isLightscaperShellDocumentCurrentV1 } from './lightscaper-shell-contract-current-v1.ts';
 import { isLightscaperBlobDownloadCurrentV1, lightscaperBrowserWindowOptionsCurrentV1 } from './lightscaper-window-security-current-v1.ts';
+import { ReadCapabilityStore } from './file-capabilities.js';
+import { registerSelectedReadCapability } from './read-selection-service.js';
+import { createDesktopSaveSizeWarningConfirmation } from './save-size-warning-dialog.ts';
+import { createLightscaperArchiveOpenCoordinatorCurrentV1 } from './lightscaper-archive-open-coordinator-current-v1.ts';
+import { extractLightscaperArchiveOpenPathsCurrentV1 } from './lightscaper-archive-open-paths-current-v1.ts';
 
 /** Optional statically inventoried main-process smoke dispatch. These ports
  * never cross the context bridge; production composition passes no hooks. */
@@ -46,6 +51,14 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 	const storage = configureDesktopStorage({ app, appName: 'Lightscaper', platform: process.platform, environment: process.env, argv: process.argv });
 	let window: BrowserWindow | null = null;
 	let desktopSession: Electron.Session | undefined;
+	let archiveOwner: object | null = null, resourcesRetired = false, pickerPending = false;
+	let resourceRetirement: Promise<void> | null = null;
+	const readCapabilities = new ReadCapabilityStore({ confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation(options => dialog.showMessageBox(options), 'loading') });
+	const archiveOpen = createLightscaperArchiveOpenCoordinatorCurrentV1({
+		register: (path, owner) => registerSelectedReadCapability(readCapabilities, path, { owner, purpose: 'project' }),
+		release: (id, owner) => readCapabilities.release(id, { owner }), revokeOwner: owner => readCapabilities.revokeOwner(owner),
+		notify: (owner, event) => { if (owner === archiveOwner) currentWindow()?.webContents.send(CHANNELS.archiveAvailable, event); },
+	});
 	const downloads = createLightscaperDownloadLifetimeCurrentV1();
 	const currentWindow = (): BrowserWindow | null => window && !window.isDestroyed() ? window : null;
 	const close = createLightscaperCloseCoordinatorCurrentV1({
@@ -65,14 +78,27 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		app.exit(1);
 	}
 	app.on('before-quit', () => { close.beforeQuit(); });
-	app.on('will-quit', () => { desktopSession?.flushStorageData(); });
+	app.on('will-quit', event => {
+		if (resourcesRetired) return;
+		event.preventDefault();
+		resourceRetirement ??= (async () => {
+			await archiveOpen.close(); await readCapabilities.dispose(); desktopSession?.flushStorageData();
+			// will-quit was prevented while these barriers joined. Complete that
+			// shutdown directly; a nested quit can stay inside Electron's old quit.
+			resourcesRetired = true; app.exit(0);
+		})();
+		void resourceRetirement.catch(fail);
+	});
 	app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-	app.on('activate', () => { if (!currentWindow() && desktopSession) void createWindow().catch(fail); });
-	app.on('second-instance', () => {
+	app.on('activate', () => { if (!resourceRetirement && !resourcesRetired && !currentWindow() && desktopSession) void createWindow().catch(fail); });
+	app.on('open-file', (event, path) => { event.preventDefault(); enqueueArchive(path); });
+	app.on('second-instance', (_event, argv, workingDirectory) => {
+		for (const path of extractLightscaperArchiveOpenPathsCurrentV1(argv, workingDirectory)) enqueueArchive(path);
 		const existing = currentWindow();
 		if (existing) { if (existing.isMinimized()) existing.restore(); existing.show(); existing.focus(); }
 	});
 	if (!app.requestSingleInstanceLock()) { app.quit(); return; }
+	for (const path of extractLightscaperArchiveOpenPathsCurrentV1(process.argv, process.cwd())) enqueueArchive(path);
 	storage.prepareBeforeReady();
 	void start().catch(fail);
 
@@ -86,7 +112,7 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		desktopSession.setDisplayMediaRequestHandler((_request, callback) => { callback({}); });
 		await desktopSession.protocol.handle(String(APP_SCHEME), createProtocolHandler({
 			productId: 'lightscaper', rendererRoot: resources.renderer, runtimeRoot: resources.runtime,
-			readCapabilities: { get: () => null },
+			readCapabilities,
 		}));
 		desktopSession.on('will-download', (event, item, contents, frame) => {
 			const owner = currentWindow();
@@ -112,6 +138,9 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 			if (args.length) throw new TypeError('Lightscaper ready takes no arguments.');
 			const firstReady = close.signalReady();
 			const owner = currentWindow();
+			if (firstReady && owner) {
+				archiveOwner = Object.freeze({}); void archiveOpen.replaceOwner(archiveOwner).catch(fail);
+			}
 			// A smoke run must not hold this acknowledgement through renderer
 			// teardown: lifecycle disposal joins readiness delivery itself.
 			if (owner && firstReady) void Promise.resolve().then(() => hooks.onRendererReady?.(owner)).catch(fail);
@@ -121,11 +150,20 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 			if (args.length !== 1) throw new TypeError('Lightscaper close response requires one record.');
 			return close.respond(args[0]);
 		});
+		trusted.handle(CHANNELS.archiveTake, (_event, ...args) => {
+			if (args.length) throw new TypeError('Lightscaper archive take takes no arguments.');
+			return archiveOwner ? archiveOpen.takeArchive(archiveOwner) : null;
+		});
+		trusted.handle(CHANNELS.archiveFinish, (_event, ...args) => {
+			if (args.length !== 1 || !archiveOwner) throw new TypeError('Lightscaper archive finish requires a current owner and one record.');
+			return archiveOpen.finishArchive(archiveOwner, args[0]).then(() => true);
+		});
 		const template: Electron.MenuItemConstructorOptions[] = [
 			...(process.platform === 'darwin' ? [{ label: 'Lightscaper', submenu: [{ role: 'about' as const },
 				{ role: 'services' as const }, { type: 'separator' as const }, { role: 'hide' as const },
 				{ role: 'hideOthers' as const }, { role: 'unhide' as const }, { type: 'separator' as const }, { role: 'quit' as const }] }] : []),
-			{ label: 'File', submenu: [{ role: 'close' }, { role: 'quit' }] },
+			{ label: 'File', submenu: [{ label: 'Open catalog backup…', accelerator: 'CmdOrCtrl+O',
+				click: () => { void chooseArchive().catch(fail); } }, { type: 'separator' }, { role: 'close' }, { role: 'quit' }] },
 			{ role: 'editMenu' }, { role: 'windowMenu' },
 		];
 		Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -136,15 +174,15 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		const created = new BrowserWindow(lightscaperBrowserWindowOptionsCurrentV1({
 			preloadPath: resolve(entryDirectory, 'preload.cjs'), rendererRoot: resources.renderer, packaged: app.isPackaged,
 		}));
-		window = created; close.invalidateRenderer();
+		window = created; invalidateRenderer();
 		const contents = created.webContents;
 		contents.setWindowOpenHandler(() => ({ action: 'deny' }));
 		contents.on('will-navigate', event => { if (!isLightscaperShellDocumentCurrentV1(event.url)) event.preventDefault(); });
 		contents.on('will-frame-navigate', event => { if (!event.isMainFrame || !isLightscaperShellDocumentCurrentV1(event.url)) event.preventDefault(); });
 		contents.on('will-attach-webview', event => { event.preventDefault(); });
-		contents.on('did-start-navigation', details => { if (details.isMainFrame && !details.isSameDocument) close.invalidateRenderer(); });
+		contents.on('did-start-navigation', details => { if (details.isMainFrame && !details.isSameDocument) invalidateRenderer(); });
 		attachDesktopMainWindowRecovery({
-			cleanup: async () => { close.invalidateRenderer(); }, editorUrl: `${LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1}/`,
+			cleanup: async () => { close.invalidateRenderer(); archiveOwner = null; await archiveOpen.replaceOwner(null); }, editorUrl: `${LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1}/`,
 			exit: code => { app.exit(code); }, isIntentional: () => !currentWindow(),
 			reportError: fail, webContents: contents, windowFor: currentWindow,
 		});
@@ -152,8 +190,23 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		created.on('close', event => {
 			if (downloads.deferClose(() => { if (!created.isDestroyed()) created.close(); }) || !close.requestWindowClose()) event.preventDefault();
 		});
-		created.on('closed', () => { if (window === created) { window = null; close.invalidateRenderer(); } });
+		created.on('closed', () => { if (window === created) { window = null; invalidateRenderer(); } });
 		hooks.onWindowCreated?.(created);
 		await created.loadURL(`${LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1}/`);
+	}
+	function invalidateRenderer(): void {
+		close.invalidateRenderer(); archiveOwner = null; void archiveOpen.replaceOwner(null).catch(fail);
+	}
+	function enqueueArchive(path: string): void {
+		if (archiveOpen.enqueuePath(path) === 'full') dialog.showErrorBox('Lightscaper', 'Finish opening the pending catalog backups before opening another file.');
+	}
+	async function chooseArchive(): Promise<void> {
+		const owner = currentWindow(); if (!owner || pickerPending) return;
+		pickerPending = true;
+		try {
+			const result = await dialog.showOpenDialog(owner, { title: 'Open catalog backup', properties: ['openFile'],
+				filters: [{ name: 'Scape catalog backups', extensions: ['liscape', 'sscape', 'fscape', 'scape'] }] });
+			if (!result.canceled && currentWindow() === owner) for (const path of result.filePaths) enqueueArchive(path);
+		} finally { pickerPending = false; }
 	}
 }

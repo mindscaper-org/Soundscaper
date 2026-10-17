@@ -15,6 +15,7 @@ export interface PhotoCatalogRestoreDialogPropsV1 {
 	readonly cancelled: boolean;
 	readonly receipt: Readonly<PhotoLibraryRestoreReceiptV1> | null;
 	readonly error: string | null;
+	readonly selectedFile?: File | null;
 	readonly onRestore: (file: File) => Promise<Readonly<PhotoLibraryRestoreReceiptV1> | null>;
 	readonly onCancel: () => Promise<void>;
 	readonly onClose: () => void;
@@ -22,7 +23,13 @@ export interface PhotoCatalogRestoreDialogPropsV1 {
 
 /** Closing hides presentation only; explicit Cancel belongs to the stable restore owner. */
 export default function PhotoCatalogRestoreDialog(props: PhotoCatalogRestoreDialogPropsV1) {
-	const [file, setFile] = useState<File | null>(null), { copy: messages, receipt } = props;
+	const [file, setFile] = useState<File | null>(props.selectedFile ?? null), { copy: messages, receipt } = props;
+	const previousSelection = useRef(props.selectedFile ?? null);
+	useEffect(() => {
+		const previous = previousSelection.current, next = props.selectedFile ?? null;
+		previousSelection.current = next;
+		if (previous !== next) setFile(current => current === previous ? next : current);
+	}, [props.selectedFile]);
 	const live = useRef(true);
 	useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
 	const close = () => { if (!live.current) return; live.current = false; props.onClose(); };
@@ -33,8 +40,9 @@ export default function PhotoCatalogRestoreDialog(props: PhotoCatalogRestoreDial
 		className="lightscaper-dialog" overlayClassName="lightscaper-dialog-backdrop" closeOnOutside={false}>
 		<div data-photo-restore-dialog className="lightscaper-catalog-restore">
 			<p>{messages.description}</p>
-			<label>{messages.file}<input data-photo-restore-file type="file" accept=".liscape,.scape" disabled={props.busy}
+			<label>{messages.file}<input data-photo-restore-file type="file" accept=".liscape,.sscape,.fscape,.scape" disabled={props.busy}
 				onChange={event => { if (live.current && !props.busy) setFile(event.currentTarget.files?.[0] ?? null); }} /></label>
+			{file && <p data-photo-restore-selected-file>{file.name}</p>}
 			{props.busy && <p role="status">{messages.working}</p>}
 			{props.cancelled && !props.busy && <p role="status">{messages.cancelled}</p>}
 			{props.error && <p role="alert">{props.error}</p>}
