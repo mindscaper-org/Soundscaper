@@ -10,6 +10,8 @@ import {
 	classifyLintFile,
 	isLintableRepositoryPath,
 	parseLintSelection,
+	partitionLintExecutionBatches,
+	partitionLintFiles,
 	selectChangedLintFiles,
 } from '../scripts/lib/lint-shards.mjs';
 
@@ -47,6 +49,17 @@ test('lint shards preserve semantic ownership before subdividing large trees', (
 	assert.equal(classifyLintFile('desktop/main.ts'), 'desktop');
 	assert.equal(classifyLintFile('scripts/check-build.mjs'), 'tooling');
 	assert.equal(classifyLintFile('eslint.config.mjs'), 'tooling');
+});
+
+test('lint processes bound their file inventory while checking every shard member exactly once', () => {
+	for (const [shard, files] of partitionLintFiles(repositoryFiles())) {
+		const original = [...files];
+		const batches = partitionLintExecutionBatches(files);
+		assert.deepEqual(batches.flat(), original, `${shard} lost or repeated lint files`);
+		assert.deepEqual(files, original, `${shard} mutated the inventory`);
+		assert.ok(batches.every(batch => batch.length > 0 && batch.length <= 256), shard);
+	}
+	assert.deepEqual(partitionLintExecutionBatches([]), []);
 });
 
 test('lint file discovery follows the extensions and ignores in the ESLint config', () => {
