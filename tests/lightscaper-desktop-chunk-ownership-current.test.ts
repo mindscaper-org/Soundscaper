@@ -12,3 +12,13 @@ test('Lightscaper desktop close lifecycle stays with scalar photo ownership', ()
 	}
 	assert.equal(chunkGroupForModulePath('src/common/i18n/lightscaper-desktop-close-copy.ts'), 'lightscaper-editor-copy');
 });
+
+test('Lightscaper native archive admission remains in scalar photo ownership without timeline initialization', () => {
+	for (const path of ['src/common/editor/controller/composition/lightscaper-desktop-archive-open-current-v1.ts',
+		'src/common/editor/desktop-lightscaper-archive-open-contract-current-v1.ts']) for (const separator of ['/', '\\']) {
+		const normalized = path.replaceAll('/', separator);
+		assert.equal(chunkGroupForModulePath(normalized), 'editor-photo-library-scalars');
+		assert.notEqual(chunkGroupForModulePath(normalized + '.foreign'), 'editor-photo-library-scalars');
+	}
+	assert.equal(chunkGroupForModulePath('src/common/editor/desktop-read-profile.ts'), 'editor-neutral-foundations');
+});
