@@ -2,6 +2,8 @@
 
 import manifest from '../../../../config/lightscaper-libraw-recovery-runtime-manifest.json';
 
+import { resolveLibRawRuntimeAssetUrlCurrentV1 } from './libraw-runtime-asset-location-current-v1.ts';
+
 const PAGE = 65_536;
 const BYTE_LENGTH = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), 'byteLength')!.get!;
 let pending: Promise<WebAssembly.Module> | undefined;
@@ -38,7 +40,7 @@ async function fetchModule(): Promise<WebAssembly.Module> {
 	if (url.origin !== 'https://assets.soundscaper.org' || url.pathname !== '/runtime/libraw/0.22.2/recovery-abi2/libraw-recovery.wasm' || url.search || url.hash) {
 		throw new TypeError('LibRaw recovery runtime must use its versioned asset origin.');
 	}
-	const response = await fetch(url.href, { credentials: 'omit', redirect: 'error', mode: 'cors', cache: 'force-cache' });
+	const response = await fetch(resolveLibRawRuntimeAssetUrlCurrentV1(url.href), { credentials: 'omit', redirect: 'error', mode: 'cors', cache: 'force-cache' });
 	if (!response.ok || !response.body) throw new Error('LibRaw recovery runtime download failed.');
 	const reader = response.body.getReader(), parts: Uint8Array<ArrayBuffer>[] = [];
 	let length = 0;
