@@ -4,8 +4,10 @@ The Motion candidate route prepares reviewable artifacts without publishing a
 release. `.github/workflows/desktop-preview.yml` accepts `motionscaper-v` alpha,
 beta and release-candidate tags, validates the exact active version in
 `config/product-release-lines.json`, and calls
-`.github/workflows/motionscaper-desktop-preview.yml` after the existing quality,
-Node, coverage and browser gates. Untagged builds retain the Soundscaper and
+`.github/workflows/motionscaper-desktop-preview.yml` after the existing static
+quality and Node gates. Browser testing and combined coverage enforcement run
+separately in `quality.yml`; the stable release route waits for that whole
+workflow before publication. Untagged builds retain the Soundscaper and
 Framescaper default selection. Motion tags do not enter their native source,
 assistance runtime or project-library lease jobs.
 

@@ -4,12 +4,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { extractJob } from './helpers/workflow-jobs.js';
 
-test('Motion tags enter a separate quality-gated package route and never the inherited native or assistance publishers', async () => {
+test('Motion candidate tags use desktop quality and Node gates without entering inherited publishers', async () => {
 	const workflow = await readFile(new URL('../.github/workflows/desktop-preview.yml', import.meta.url), 'utf8');
 	for (const stage of ['alpha', 'beta', 'rc']) assert.ok(workflow.includes(`'motionscaper-v*-${stage}.*'`));
 	assert.ok(extractJob(workflow, 'quality').includes("release ? [release.productId] : ['soundscaper', 'framescaper']"));
 	const motion = extractJob(workflow, 'motionscaper-preview');
-	assert.match(motion, /needs: \[quality, tests, coverage, browser, firefox\]/u);
+	assert.match(motion, /needs: \[quality, tests\]/u);
 	assert.match(motion, /startsWith\(github.ref, 'refs\/tags\/motionscaper-v'\)/u);
 	assert.match(motion, /uses: \.\/\.github\/workflows\/motionscaper-desktop-preview.yml/u);
 	for (const job of ['publish-assistance-runtime-handoff', 'professional-native-source', 'soundscaper-project-library-lease-matrix']) {

@@ -27,10 +27,8 @@ test('Motion linked browser coverage names its actual built origins and checkout
 	}
 	const fixture = await readFile(new URL('./browser/helpers/browser-coverage-fixture.js', import.meta.url), 'utf8');
 	assert.match(fixture, /sites: browserCoverageSites \?\? browserProductSites\(\)/u);
-	for (const file of ['quality.yml', 'desktop-preview.yml']) {
-		const workflow = extractJob(await readFile(new URL(`../.github/workflows/${file}`, import.meta.url), 'utf8'), 'browser');
-		assert.match(workflow, /run: npm run test:browser:motion-links\n\s+env:\n\s+SCAPE_BROWSER_COVERAGE: '1'/u);
-	}
+	const workflow = extractJob(await readFile(new URL('../.github/workflows/quality.yml', import.meta.url), 'utf8'), 'browser');
+	assert.match(workflow, /run: npm run test:browser:motion-links\n\s+env:\n\s+SCAPE_BROWSER_COVERAGE: '1'/u);
 });
 
 test('Motion coverage authenticates retained WASM against its own product, revision and exact bytes', async () => {
