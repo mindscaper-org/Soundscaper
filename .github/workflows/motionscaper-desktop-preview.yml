@@ -24,11 +24,11 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - { id: linux-x64, platform: linux, arch: x64, runner: ubuntu-24.04 }
-          - { id: linux-arm64, platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
-          - { id: mac-arm64, platform: mac, arch: arm64, runner: macos-15 }
-          - { id: win-x64, platform: win, arch: x64, runner: windows-2025 }
-          - { id: win-arm64, platform: win, arch: arm64, runner: windows-11-vs2026-arm }
+          - { id: linux-x64, platform: linux, arch: x64, node_arch: x64, runner: ubuntu-24.04 }
+          - { id: linux-arm64, platform: linux, arch: arm64, node_arch: arm64, runner: ubuntu-24.04-arm }
+          - { id: mac-arm64, platform: mac, arch: arm64, node_arch: arm64, runner: macos-15 }
+          - { id: win-x64, platform: win, arch: x64, node_arch: x64, runner: windows-2025 }
+          - { id: win-arm64, platform: win, arch: arm64, node_arch: arm64, runner: windows-11-vs2026-arm }
     runs-on: ${{ matrix.target.runner }}
     env:
       SCAPE_PRODUCT: motionscaper
@@ -51,7 +51,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false, fetch-depth: 0 }
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
-        with: { node-version-file: .nvmrc, architecture: '${{ matrix.target.arch }}', cache: npm }
+        with: { node-version-file: .nvmrc, architecture: '${{ matrix.target.node_arch }}', cache: npm }
+      - name: Set up native tooling
+        uses: ./.github/actions/setup-native-tooling
       - run: npm install --global npm@12.0.1
       - run: npm ci
       - name: Validate the own active tag, source and selected channel
