@@ -1197,8 +1197,12 @@ AppImage and Debian artifacts have been built, extracted, resource-audited and
 run through the same three-process workflow. System installation and upgrades
 remain unqualified. This does not close L8: file associations, native
 project-library integration, add-in-place access, native services and the full
-release/nightly target matrix remain open. Windows managed qualification also
-awaits native process retirement support.
+release/nightly target matrix remain open. Windows x64 has also passed the
+managed workflow using a separately compiled test supervisor: atomic Job
+assignment precedes app execution, and a closed identity-bound receipt proves
+the entire Job retired before profile deletion. Actual Windows reader canaries
+cover clean/nonzero exit, closed streams, timeout, creation refusal and
+supervisor death. ARM64 still requires its own target-native qualification.
 
 ### Exit gate
 

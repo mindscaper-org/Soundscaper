@@ -3,7 +3,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { isAbsolute, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { rawDngFixtureV1 } from '../tests/helpers/lightscaper-raw-dng-current-fixture.ts';
@@ -17,6 +17,8 @@ import { expectedLightscaperSmokeRawPixelsCurrentV1, lightscaperSmokeHashCurrent
 	verifyLightscaperSmokeArchiveCurrentV1, verifyLightscaperSmokePngCurrentV1 } from './lib/lightscaper-desktop-managed-smoke-verification-current-v1.ts';
 
 import { launchLightscaperManagedSmokeProcessCurrentV1 } from './lib/lightscaper-desktop-managed-smoke-process-current-v1.ts';
+import { readLightscaperManagedSmokeOptionsCurrentV1 } from './lib/lightscaper-desktop-managed-smoke-options-current-v1.ts';
+import { admitLightscaperWindowsJobHelperCurrentV1, launchLightscaperWindowsJobProcessCurrentV1 } from './lib/lightscaper-windows-job-driver-current-v1.ts';
 
 interface NativeDownload { readonly path: string; readonly suggestedName: string; readonly byteLength: number; readonly sha256: string; readonly state: string }
 interface StageReceipt { readonly schemaVersion: number; readonly nonce: string; readonly stage: number; readonly processId: number;
@@ -28,8 +30,12 @@ interface StageReceipt { readonly schemaVersion: number; readonly nonce: string;
 /** Run under Xvfb on a Linux runner with no display. This command executes a
  * real packaged binary three times; it never starts a development web server. */
 export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly string[]): Promise<string> {
-	if (process.platform === 'win32') throw new Error('Lightscaper Windows managed qualification awaits native Job Object retirement proof.');
-	const options = argumentsFor(args), executable = await realpath(options.executable), runtimeRoot = await realpath(options.runtimeRoot);
+	const options = readLightscaperManagedSmokeOptionsCurrentV1(args);
+	// Authenticate the explicit current-host helper and app before any profile exists.
+	const windowsJob = process.platform === 'win32' ? await admitLightscaperWindowsJobHelperCurrentV1({
+		helperPath: options.windowsJobHelper ?? '', helperSha256: options.windowsJobHelperSha256 ?? '', executable: options.executable,
+	}) : null;
+	const executable = windowsJob?.executable ?? await realpath(options.executable), runtimeRoot = await realpath(options.runtimeRoot);
 	if (!(await lstat(executable)).isFile()) throw new Error('Managed smoke executable is not a real file.');
 	await mkdir(options.outputRoot, { recursive: true });
 	const outputRoot = await realpath(options.outputRoot), nonce = randomBytes(16).toString('hex');
@@ -59,7 +65,9 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 				`--lightscaper-managed-smoke-nonce=${nonce}`, ...(options.allowNoSandbox ? ['--no-sandbox'] : []),
 				...(stage === 2 && archivePath ? [archivePath] : [])];
 			allJoined = false;
-			const processReceipt = await launchLightscaperManagedSmokeProcessCurrentV1(executable, launchArgs);
+			const processReceipt = windowsJob ? await launchLightscaperWindowsJobProcessCurrentV1(windowsJob, launchArgs, {
+				nonce, stage, receiptPath: join(root, `${nonce}.stage-${stage}.windows-job.json`),
+			}) : await launchLightscaperManagedSmokeProcessCurrentV1(executable, launchArgs);
 			allJoined = processReceipt.readersRetired;
 			await writeFile(join(root, `stage-${stage}.process.json`), `${JSON.stringify(processReceipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 			if (!allJoined || processReceipt.expired || processReceipt.launchError || processReceipt.exitCode !== 0 || processReceipt.forcedGroupRetirement) throw new Error(`Managed desktop process failed after owned-group retirement: ${JSON.stringify(processReceipt)}`);
@@ -140,18 +148,6 @@ function ownedRaster(): Uint8Array<ArrayBuffer> {
 	return new Uint8Array(Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
 		pngChunk('IHDR', Buffer.from([0, 0, 0, 2, 0, 0, 0, 2, 8, 6, 0, 0, 0])), pngChunk('sRGB', Buffer.of(0)),
 		pngChunk('IDAT', deflateSync(Buffer.from([0, 32, 64, 128, 255, 64, 128, 192, 255, 0, 96, 160, 224, 255, 128, 192, 240, 255]))), pngChunk('IEND', Buffer.alloc(0))]));
-}
-function argumentsFor(args: readonly string[]) {
-	const values = new Map<string, string>(); let allowNoSandbox = false;
-	for (let at = 0; at < args.length; at++) {
-		const name = args[at]!;
-		if (name === '--allow-no-sandbox') { if (allowNoSandbox) throw new Error('Duplicate no-sandbox option.'); allowNoSandbox = true; continue; }
-		if (!['--executable', '--runtime-root', '--output-root'].includes(name) || values.has(name)) throw new Error(`Unknown or duplicate smoke option ${name}.`);
-		const value = args[++at]; if (!value || !isAbsolute(value) || value.includes('\0')) throw new Error('Smoke paths must be explicit absolute paths.'); values.set(name, resolve(value));
-	}
-	const executable = values.get('--executable'), runtimeRoot = values.get('--runtime-root'), outputRoot = values.get('--output-root');
-	if (!executable || !runtimeRoot || !outputRoot) throw new Error('Usage: node --import tsx scripts/lightscaper-desktop-managed-smoke-current-v1.ts --executable ABS_BINARY --runtime-root ABS_PACKAGED_RUNTIME --output-root ABS_EVIDENCE [--allow-no-sandbox]');
-	return { executable, runtimeRoot, outputRoot, allowNoSandbox };
 }
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
 	void runLightscaperDesktopManagedSmokeCurrentV1(process.argv.slice(2)).then(path => { console.log(`Lightscaper packaged managed smoke passed: ${path}`); }, (error: unknown) => { console.error(error); process.exitCode = 1; });
