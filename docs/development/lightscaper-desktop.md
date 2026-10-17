@@ -110,6 +110,14 @@ retirement before exclusive file reopening and deletion. The actual Windows
 x64 package has passed the three-process managed workflow with sandboxing
 enabled. ARM64 still requires its own target-native run.
 
+The `Lightscaper Windows managed qualification` workflow can be dispatched or
+called by another workflow. It independently requires native x64 and ARM64
+hosts, all reader cases, public packaging and the managed workflow. It keeps
+small receipts and removes its large work directory after proved retirement.
+The separate bootstrap compiler build is retained until runner teardown; its
+readers are outside the later Jobs' proof. Adding the workflow does not establish
+an ARM64 qualification before that target has actually passed.
+
 After packaging and all smoke readers exit, remove the private verification
 directory. Keep the small qualification receipts if needed. The complete L8
 requirements remain in the [roadmap](../../roadmap-lightscaper.md#l8-desktop-tier),

@@ -1,0 +1,349 @@
+name: Lightscaper Windows managed qualification
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lightscaper-windows-managed-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: Qualify ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: win-x64
+            arch: x64
+            runner: windows-2025
+          - target: win-arm64
+            arch: arm64
+            runner: windows-11-arm
+    env:
+      SCAPE_PRODUCT: lightscaper
+      SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: win
+      SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
+      SCAPE_MAC_SIGNING: 'false'
+      SCAPE_WIN_SIGNING: none
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      LIGHTSCAPER_CI_TARGET: ${{ matrix.target }}
+      LIGHTSCAPER_CI_ARCH: ${{ matrix.arch }}
+      LIGHTSCAPER_WINDOWS_JOB_NATIVE_REQUIRED: '1'
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out the exact source revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Set up target-native Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ matrix.arch }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up native tooling
+        uses: ./.github/actions/setup-native-tooling
+
+      - name: Activate native x64 MSVC
+        if: matrix.arch == 'x64'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $installation) { throw 'Native x64 Visual Studio C++ tools are unavailable.' }
+          $devCmd = Join-Path $installation 'Common7\Tools\VsDevCmd.bat'
+          $activation = Join-Path $env:RUNNER_TEMP 'lightscaper-native-x64-vs.cmd'
+          Set-Content -LiteralPath $activation -Encoding ascii -Value "@call `"$devCmd`" -no_logo -arch=amd64 -host_arch=amd64`r`n@if errorlevel 1 exit /b 1`r`n@set"
+          $lines = & cmd.exe /d /c $activation
+          if ($LASTEXITCODE -ne 0) { throw 'Native x64 compiler activation failed.' }
+          foreach ($key in @('INCLUDE', 'LIB', 'LIBPATH', 'PATH')) {
+            $line = $lines | Where-Object { $_ -like "$key=*" } | Select-Object -Last 1
+            if (-not $line) { throw "The native x64 compiler environment omitted $key." }
+            Add-Content -LiteralPath $env:GITHUB_ENV -Value $line
+          }
+
+      - name: Pin npm
+        run: |
+          npm install --global npm@12.0.1
+          if ($LASTEXITCODE -ne 0) { throw 'npm installation failed.' }
+          if ((npm --version).Trim() -ne '12.0.1') { throw 'npm 12.0.1 is required.' }
+
+      - name: Install locked dependencies
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'Locked dependency installation failed.' }
+
+      - name: Admit the native host and create private work paths
+        id: paths
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:LIGHTSCAPER_CI_CMAKE = (Get-Command cmake.exe -CommandType Application).Source
+          $env:LIGHTSCAPER_CI_NINJA = (Get-Command ninja.exe -CommandType Application).Source
+          $env:LIGHTSCAPER_CI_COMPILER = (Get-Command cl.exe -CommandType Application).Source
+          $npmCommand = (Get-Command npm.cmd -CommandType Application).Source
+          $env:LIGHTSCAPER_CI_NPM_COMMAND = $npmCommand
+          $env:LIGHTSCAPER_CI_NPM_CLI = Join-Path (Split-Path -Parent $npmCommand) 'node_modules\npm\bin\npm-cli.js'
+          $explicitNpmVersion = (& node $env:LIGHTSCAPER_CI_NPM_CLI --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or $explicitNpmVersion -ne '12.0.1') { throw 'The actual npm.cmd CLI must execute npm 12.0.1; bundled npm is not a fallback.' }
+          @'
+          import assert from 'node:assert/strict';
+          import { appendFile, lstat, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
+          import { dirname, join } from 'node:path';
+          import { inspectSoundscaperNativeBinaryFile } from './scripts/lib/soundscaper-native-binary-architecture.mjs';
+          assert.equal(process.platform, 'win32'); assert.equal(process.version, 'v26.5.0');
+          assert.equal(process.arch, process.env.LIGHTSCAPER_CI_ARCH);
+          assert.equal(process.env.RUNNER_ARCH?.toLowerCase(), process.arch);
+          const target = `win-${process.arch}`; assert.equal(target, process.env.LIGHTSCAPER_CI_TARGET);
+          const tools = {};
+          for (const [name, path] of Object.entries({ node: process.execPath, cmake: process.env.LIGHTSCAPER_CI_CMAKE,
+            ninja: process.env.LIGHTSCAPER_CI_NINJA, compiler: process.env.LIGHTSCAPER_CI_COMPILER })) {
+            tools[name] = await inspectSoundscaperNativeBinaryFile({ path: await realpath(path), target });
+          }
+          const npmCli = await realpath(process.env.LIGHTSCAPER_CI_NPM_CLI), npmStat = await lstat(npmCli);
+          assert.ok(npmStat.isFile() && !npmStat.isSymbolicLink());
+          const npmPackage = JSON.parse(await readFile(join(dirname(npmCli), '..', 'package.json'), 'utf8'));
+          assert.equal(npmPackage.version, '12.0.1');
+          const root = await mkdtemp(join(await realpath(process.env.RUNNER_TEMP), 'lightscaper-windows-ci-'));
+          const work = join(root, 'work'), receipts = join(root, 'receipts');
+          await mkdir(work); await mkdir(receipts);
+          const variables = { LIGHTSCAPER_CI_ROOT: root, LIGHTSCAPER_CI_WORK: work, LIGHTSCAPER_CI_RECEIPTS: receipts,
+            LIGHTSCAPER_CI_BOOTSTRAP: join(root, 'bootstrap-supervisor-build'),
+            LIGHTSCAPER_CI_SOURCE_ROOT: await realpath(process.env.GITHUB_WORKSPACE),
+            LIGHTSCAPER_CI_CMAKE: process.env.LIGHTSCAPER_CI_CMAKE, LIGHTSCAPER_CI_NPM_CLI: npmCli,
+            SCAPE_DESKTOP_BUILD_ROOT: join(work, 'stage'), LIGHTSCAPER_CI_PACKAGE_ROOT: join(work, 'package'),
+            LIGHTSCAPER_WINDOWS_JOB_CANARY_EVIDENCE: join(work, 'canary-evidence'), LIGHTSCAPER_CI_MANAGED_EVIDENCE: join(work, 'managed-evidence') };
+          for (const [name, value] of Object.entries(variables)) {
+            assert.ok(typeof value === 'string' && !/[\r\n]/u.test(value));
+            await appendFile(process.env.GITHUB_ENV, `${name}=${value}\n`);
+          }
+          await writeFile(join(receipts, 'host.json'), JSON.stringify({ schemaVersion: 1, target, node: process.version,
+            sourceRevision: process.env.GITHUB_SHA, npmVersion: npmPackage.version, npmCommand: await realpath(process.env.LIGHTSCAPER_CI_NPM_COMMAND), npmCli, tools }, null, 2) + '\n', { flag: 'wx' });
+          '@ | node --input-type=module
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows host/tool PE admission failed.' }
+
+      - name: Build the explicit target-native bootstrap supervisor
+        id: bootstrap
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $supervisorBuild = $env:LIGHTSCAPER_CI_BOOTSTRAP
+          $canaryBuild = Join-Path $env:LIGHTSCAPER_CI_WORK 'canary-build'
+          & $env:LIGHTSCAPER_CI_CMAKE -S native/lightscaper-desktop-managed-smoke-job-current-v1 -B $supervisorBuild -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl.exe "-DLIGHTSCAPER_SMOKE_NATIVE_TARGET=$env:LIGHTSCAPER_CI_TARGET"
+          if ($LASTEXITCODE -ne 0) { throw 'Supervisor native configuration failed.' }
+          & $env:LIGHTSCAPER_CI_CMAKE --build $supervisorBuild --config Release --target lightscaper-desktop-managed-smoke-job-current-v1 --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Supervisor native build failed.' }
+          $helper = Join-Path $supervisorBuild 'lightscaper-desktop-managed-smoke-job-current-v1.exe'
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_HELPER=$helper"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256=$((Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant())"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_CANARY=$(Join-Path $canaryBuild 'lightscaper-windows-job-canary-current-v1.exe')"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_READER_FIXTURE=$(Join-Path $canaryBuild 'lightscaper-windows-job-reader-fixture-current-v1.exe')"
+
+      - name: Run required native cases, public packaging and real three-process smoke
+        id: qualification
+        run: |
+          @'
+          import assert from 'node:assert/strict';
+          import { randomBytes } from 'node:crypto';
+          import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+          import { join } from 'node:path';
+          import { admitLightscaperWindowsJobHelperCurrentV1, launchLightscaperWindowsJobProcessCurrentV1 } from './scripts/lib/lightscaper-windows-job-driver-current-v1.ts';
+          const work = process.env.LIGHTSCAPER_CI_WORK, receipts = process.env.LIGHTSCAPER_CI_RECEIPTS;
+          const helperPath = process.env.LIGHTSCAPER_WINDOWS_JOB_HELPER, helperSha256 = process.env.LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256;
+          const sourceRoot = process.env.LIGHTSCAPER_CI_SOURCE_ROOT, tsxLoader = import.meta.resolve('tsx');
+          const temporary = join(work, 'tmp'); await mkdir(temporary);
+          process.env.TEMP = temporary; process.env.TMP = temporary;
+          const admission = await admitLightscaperWindowsJobHelperCurrentV1({ helperPath, helperSha256, executable: process.execPath });
+          const owned = join(work, 'owned'); await mkdir(owned);
+          async function runOwned(name, stage, args) {
+            const nonce = randomBytes(16).toString('hex');
+            // Intent precedes process creation, so a missing terminal receipt fences cleanup.
+            await writeFile(join(receipts, `${name}.intent.json`), JSON.stringify({ nonce, stage }) + '\n', { flag: 'wx' });
+            const value = await launchLightscaperWindowsJobProcessCurrentV1(admission, args,
+              { nonce, stage, receiptPath: join(owned, `${nonce}.stage-${stage}.windows-job.json`) });
+            await writeFile(join(receipts, `${name}.process.json`), JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
+            process.stdout.write(value.stdout); process.stderr.write(value.stderr);
+            assert.equal(value.readersRetired, true, `${name}: unproved readers`);
+            assert.equal(value.exitCode, 0, `${name}: nonzero actual Node/app exit`);
+            assert.equal(value.expired, false); assert.equal(value.forcedGroupRetirement, false);
+            assert.equal(value.launchError, null);
+          }
+          // The bootstrap build has its own retained scope. Every subsequent
+          // native compiler/build process belongs to an actual owned Job.
+          const nativeEntry = join(work, 'native-build-entry.cjs');
+          await writeFile(nativeEntry, [
+            "const { execFileSync } = require('node:child_process'); const { join } = require('node:path');",
+            "process.chdir(process.env.LIGHTSCAPER_CI_SOURCE_ROOT);",
+            "const build = join(process.env.LIGHTSCAPER_CI_WORK, 'canary-build');",
+            "const run = args => execFileSync(process.env.LIGHTSCAPER_CI_CMAKE, args, { stdio: 'inherit', windowsHide: true });",
+            "run(['-S', join(process.env.LIGHTSCAPER_CI_SOURCE_ROOT, 'tests/fixtures/lightscaper-desktop-windows-job-current-v1'), '-B', build, '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_CXX_COMPILER=cl.exe', '-DLIGHTSCAPER_SMOKE_NATIVE_TARGET=' + process.env.LIGHTSCAPER_CI_TARGET]);",
+            "run(['--build', build, '--config', 'Release', '--target', 'lightscaper-windows-job-canary-current-v1', 'lightscaper-windows-job-reader-fixture-current-v1', '--parallel', '2']);",
+          ].join('\n') + '\n', { flag: 'wx' });
+          await runOwned('native-build', 1, [nativeEntry]);
+          // The native helper starts Node in its executable directory. Resolve
+          // imports/files absolutely, and give the real npm CLI its source cwd.
+          await runOwned('native-tests', 1, ['--import', tsxLoader, '--test', '--test-concurrency=1',
+            ...['lightscaper-desktop-windows-job-contract-current.test.ts', 'lightscaper-desktop-windows-job-helper-current.test.ts',
+              'lightscaper-desktop-windows-job-options-current.test.ts', 'lightscaper-desktop-windows-job-native-current.test.ts'].map(name => join(sourceRoot, 'tests', name))]);
+          const npmEntry = join(work, 'public-package-entry.cjs');
+          await writeFile(npmEntry, 'process.chdir(process.env.LIGHTSCAPER_CI_SOURCE_ROOT);\nprocess.argv[1] = process.env.LIGHTSCAPER_CI_NPM_CLI;\nrequire(process.argv[1]);\n', { flag: 'wx' });
+          const packageRoot = process.env.LIGHTSCAPER_CI_PACKAGE_ROOT;
+          await runOwned('public-package', 2, [npmEntry, 'run', 'desktop:dir', '--',
+            '--win', `--${process.arch}`, '--publish', 'never', `--config.directories.output=${packageRoot}`]);
+          const apps = [];
+          for (const entry of await readdir(packageRoot, { withFileTypes: true })) {
+            if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+            const app = join(packageRoot, entry.name, 'Lightscaper.exe');
+            try { if ((await lstat(app)).isFile()) apps.push(app); }
+            catch (error) { if (error.code !== 'ENOENT') throw error; }
+          }
+          assert.equal(apps.length, 1, 'Exactly one public unpacked Lightscaper app is required.');
+          const app = apps[0], resources = join(app, '..', 'resources');
+          for (const [source, name] of [[join(process.env.SCAPE_DESKTOP_BUILD_ROOT, 'stage-manifest.json'), 'stage-manifest.json'],
+            [join(resources, 'lightscaper-package-content-v1.json'), 'package-content.json']]) {
+            const stat = await lstat(source); assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= 2 * 1024 * 1024);
+            const bytes = await readFile(source); assert.equal(bytes.length, stat.size);
+            await writeFile(join(receipts, name), bytes, { flag: 'wx' });
+          }
+          await runOwned('managed-smoke', 3, ['--import', tsxLoader, join(sourceRoot, 'scripts/lightscaper-desktop-managed-smoke-current-v1.ts'),
+            '--executable', app, '--runtime-root', join(resources, 'runtime'), '--output-root', process.env.LIGHTSCAPER_CI_MANAGED_EVIDENCE,
+            '--windows-job-helper', helperPath, '--windows-job-helper-sha256', helperSha256]);
+          '@ | node --input-type=module
+          if ($LASTEXITCODE -ne 0) { throw 'Lightscaper native/public-package/managed qualification failed.' }
+
+      - name: Collect bounded receipts and retire owned verification builds
+        if: always() && steps.paths.outcome == 'success'
+        env:
+          LIGHTSCAPER_CI_BOOTSTRAP_OUTCOME: ${{ steps.bootstrap.outcome }}
+          LIGHTSCAPER_CI_QUALIFICATION_OUTCOME: ${{ steps.qualification.outcome }}
+        run: |
+          @'
+          import assert from 'node:assert/strict';
+          import { lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+          import { join } from 'node:path';
+          import { readLightscaperWindowsJobReceiptCurrentV1 } from './scripts/lib/lightscaper-windows-job-contract-current-v1.ts';
+          const work = process.env.LIGHTSCAPER_CI_WORK, receipts = process.env.LIGHTSCAPER_CI_RECEIPTS;
+          let totalBytes = 0;
+          const artifactMaximum = 8 * 1024 * 1024 - 65536;
+          for (const entry of await readdir(receipts, { withFileTypes: true })) {
+            assert.ok(entry.isFile() && !entry.isSymbolicLink());
+            const stat = await lstat(join(receipts, entry.name)); assert.ok(stat.size <= 2 * 1024 * 1024); totalBytes += stat.size;
+            assert.ok(totalBytes <= artifactMaximum, 'Initial receipt artifact exceeds its 8 MiB budget.');
+          }
+          assert.ok(totalBytes <= artifactMaximum, 'Initial receipt artifact exceeds its 8 MiB budget.');
+          async function capture(path, maximum = 2 * 1024 * 1024) {
+            const stat = await lstat(path); assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size <= maximum);
+            const bytes = await readFile(path); assert.equal(bytes.length, stat.size); return { bytes, value: JSON.parse(bytes.toString('utf8')) };
+          }
+          async function json(path) { return (await capture(path)).value; }
+          async function copyBounded(source, destination) {
+            const { value, bytes } = await capture(source); totalBytes += bytes.length;
+            assert.ok(totalBytes <= artifactMaximum, 'Receipt artifact exceeds its reserved 8 MiB total.');
+            await writeFile(destination, bytes, { flag: 'wx' }); return value;
+          }
+          let readersJoined = true, canariesPassed = false, managedPassed = false, buildRemoved = false;
+          let error = null, evidenceError = null;
+          try {
+            // Missing intent means that phase never launched; every intent requires proof.
+            for (const name of ['native-build', 'native-tests', 'public-package', 'managed-smoke']) {
+              try { await lstat(join(receipts, `${name}.intent.json`)); }
+              catch (missing) { if (missing.code === 'ENOENT') continue; throw missing; }
+              const intent = await json(join(receipts, `${name}.intent.json`)), value = await json(join(receipts, `${name}.process.json`));
+              const native = readLightscaperWindowsJobReceiptCurrentV1(value.windowsJob.receipt, intent);
+              assert.equal(value.windowsJob.target, process.env.LIGHTSCAPER_CI_TARGET);
+              assert.equal(value.windowsJob.helperSha256, process.env.LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256);
+              assert.equal(value.readersRetired, true); assert.equal(value.windowsJob.helperClosed, true);
+              assert.equal(value.windowsJob.helperExitCode, 0); assert.equal(value.windowsJob.helperSignal, null);
+              assert.equal(value.windowsJob.outerExpired, false); assert.equal(native.readersRetired, true);
+              assert.equal(value.processId, native.processId);
+              assert.equal(native.activeProcesses, native.processId === 0 ? null : 0);
+            }
+          } catch (failure) { readersJoined = false; error = failure instanceof Error ? failure.message : String(failure); }
+          try {
+            const expected = new Set(['clean', 'nonzero', 'closed-stdio', 'timeout', 'assignment-failure', 'supervisor-death']);
+            const canaryRoot = process.env.LIGHTSCAPER_WINDOWS_JOB_CANARY_EVIDENCE;
+            let entries = []; try { entries = await readdir(canaryRoot, { withFileTypes: true }); }
+            catch (missing) { if (missing.code !== 'ENOENT') throw missing; }
+            for (const entry of entries) {
+              assert.ok(entry.isDirectory() && !entry.isSymbolicLink());
+              const source = join(canaryRoot, entry.name), destination = join(receipts, `canary-${entry.name}`); await mkdir(destination);
+              const canary = await copyBounded(join(source, 'canary.json'), join(destination, 'canary.json'));
+              const identity = await copyBounded(join(source, 'identity.json'), join(destination, 'identity.json'));
+              assert.equal(identity.target, process.env.LIGHTSCAPER_CI_TARGET);
+              assert.equal(identity.helper.sha256, process.env.LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256);
+              assert.equal(identity.nonce, canary.nonce);
+              assert.ok(expected.delete(canary.caseName), 'Unexpected/duplicate native canary evidence.');
+              assert.equal(canary.casePassed, true); assert.equal(canary.observedOuterEmptyBeforeCleanup, true);
+              assert.equal(canary.finalOuterActiveProcesses, 0); assert.equal(canary.cleanupForced, false);
+              assert.deepEqual(canary.failures, []); assert.deepEqual(canary.cleanupFailures, []);
+              if (canary.caseName !== 'supervisor-death') await copyBounded(join(source, 'native-receipt.json'), join(destination, 'native-receipt.json'));
+            }
+            canariesPassed = expected.size === 0;
+            const managedRoot = process.env.LIGHTSCAPER_CI_MANAGED_EVIDENCE;
+            let runs = []; try { runs = await readdir(managedRoot, { withFileTypes: true }); }
+            catch (missing) { if (missing.code !== 'ENOENT') throw missing; }
+            assert.ok(runs.length <= 1);
+            if (runs.length === 1) {
+              assert.ok(runs[0].isDirectory() && !runs[0].isSymbolicLink());
+              const run = join(managedRoot, runs[0].name);
+              for (const entry of await readdir(run, { withFileTypes: true })) {
+                if (!entry.isFile() || !/^(qualification|failure|stage-[123]\.process)\.json$/u.test(entry.name)) continue;
+                const value = await copyBounded(join(run, entry.name), join(receipts, `managed-${entry.name}`));
+                if (entry.name === 'qualification.json') {
+                  assert.equal(value.status, 'passed'); assert.equal(value.threeFreshProcesses, true);
+                  assert.equal(value.samePrivateProfile, true); assert.equal(value.profileRemoved, true);
+                  assert.equal(value.stages.length, 3); managedPassed = true;
+                }
+              }
+            }
+          } catch (failure) { evidenceError = failure instanceof Error ? failure.message : String(failure); }
+          // Bootstrap compiler descendants are outside this proof. Keep that
+          // separate small build until independent retirement/runner teardown;
+          // only remove the work owned by the four admitted phases here.
+          if (readersJoined) {
+            const stat = await lstat(work); assert.ok(stat.isDirectory() && !stat.isSymbolicLink()); assert.equal(await realpath(work), work);
+            await rm(work, { recursive: true, force: false }); buildRemoved = true;
+          }
+          await writeFile(join(receipts, 'cleanup.json'), JSON.stringify({ schemaVersion: 1, readersJoined,
+            buildRemoved, workRetained: !buildRemoved, bootstrapBuildRetained: true, bootstrapReadersQualified: false, bootstrapStatus: 'retained-until-runner-retirement',
+            bootstrapOutcome: process.env.LIGHTSCAPER_CI_BOOTSTRAP_OUTCOME, canariesPassed, managedPassed, error, evidenceError }, null, 2) + '\n', { flag: 'wx' });
+          assert.ok(readersJoined && buildRemoved && canariesPassed && managedPassed && evidenceError === null
+            && process.env.LIGHTSCAPER_CI_QUALIFICATION_OUTCOME === 'success', 'Incomplete qualification or retirement; inspect retained small receipts.');
+          '@ | node --input-type=module
+          if ($LASTEXITCODE -ne 0) { throw 'Receipt inventory, genuine qualification or joined cleanup failed.' }
+
+      - name: Enforce the final small-receipt artifact budget
+        if: always() && steps.paths.outcome == 'success'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(Get-ChildItem -LiteralPath $env:LIGHTSCAPER_CI_RECEIPTS -File -Recurse)
+          $total = ($files | Measure-Object -Property Length -Sum).Sum
+          if ($total -gt 8MB -or ($files | Where-Object Length -gt 2MB)) {
+            # Receipts are diagnostics; remove an over-budget upload scope only.
+            # This never deletes build/profile scopes or asserts reader retirement.
+            Remove-Item -LiteralPath $env:LIGHTSCAPER_CI_RECEIPTS -Recurse -Force
+            New-Item -ItemType Directory -Path $env:LIGHTSCAPER_CI_RECEIPTS | Out-Null
+            Set-Content -LiteralPath (Join-Path $env:LIGHTSCAPER_CI_RECEIPTS 'artifact-budget-failure.json') -Value '{"status":"failed","reason":"receipt artifact exceeded its bound"}'
+            throw 'Receipt upload exceeded its bound.'
+          }
+
+      - name: Upload only bounded qualification receipts
+        if: always() && steps.paths.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lightscaper-windows-managed-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.LIGHTSCAPER_CI_RECEIPTS }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 6
