@@ -1,11 +1,16 @@
 # Motionscaper final integration status
 
-Status: **M01–M12 In progress**, updated 2026-10-17. Source `baaeb3816`
-passed the complete static gate and all five Node partitions: 27,462 passes,
-17 declared skips and zero failures, including all 1,227 Motion cases. Its
-linked-composition suite passed all 39 cases and its dual-origin suite passed
-all nine cases. The original 300/1,200-frame native duration workload and its
-independent picture, alpha, PCM, timestamp, memory and closure audits passed.
+Status: **M01–M12 In progress**, updated 2026-10-17. The integrated worker fix
+`d7f9f655f` passes 84 focused Motion cases, full strict types, changed-file lint,
+full repository lint, size and controller ownership checks. It still needs the
+current complete gates and native maximum workloads. No milestone is complete.
+
+Earlier source `baaeb3816` passed the complete static gate and all five Node
+partitions: 27,462 passes, 17 declared skips and zero failures, including all
+1,227 Motion cases. Its linked-composition suite passed all 39 cases and its
+dual-origin suite passed all nine cases. The original 300/1,200-frame native
+duration workload and its independent picture, alpha, PCM, timestamp, memory
+and closure audits passed.
 
 The same source's ordinary browser run finished with 7,268 passes, 308 declared
 skips and eight failures from 7,584 cases. Chromium had six failures, WebKit
@@ -19,12 +24,29 @@ The failed run's raw coverage is excluded from the accepted coverage union.
 The canonical advance contains two merges from `main`. Those changes are
 preserved in `feat/motionscaper-integration-20261017`, together with the nine
 pending commits through `baaeb3816`. The EQ import conflict retains both the
-newer native-input tone control and the reviewed raster probe. That integrated
-source still needs its applicable gates. The post-reload paste test now scopes
-clip IDs to timeline groups, correcting the recorded duplicate-element match;
-its browser verification is pending. The other seven browser failures remain
-under investigation. Accepted coverage, current maximum workloads and external
-release qualification remain open. No milestone is complete.
+newer native-input tone control and the reviewed raster probe. Motion CI
+contracts now follow the maintained split between candidate static/Node checks
+and the complete Quality workflow.
+
+All eight focused browser diagnostics passed on integrated source `9323a1eda`
+with the original case bodies, limits and no retries. The paste selector fix is
+verified: clip IDs are scoped to timeline groups. The other seven failures did
+not reproduce, so their causes remain unknown. This focused pass does not
+replace the failed complete browser gate or qualify the later worker fix.
+
+The earlier source's native maximum-quality profile passed. Its maximum-plane
+profile failed after the preview worker disappeared near the original
+30-second request deadline; the other two profiles were not launched. The
+worker fix renews inactivity only after validated completed work, retains a
+600-second absolute frame limit, drains cancellation before reuse and leaves
+absolute exhaustion as a render error. It recreates the worker for a later
+request. The original planes, lights and index workloads remain to be run on
+the fixed source; the failed historical result remains failed.
+
+All five earlier Node coverage partitions were admitted and compacted with
+their original source attribution. They do not establish current coverage or
+satisfy the combined Node/browser floors. Accepted current coverage, maximum
+workloads and external release qualification remain open.
 
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
@@ -36,6 +58,10 @@ Current retained receipts are relative to
 | Linked / dual-origin | `current-final-source-browser-baaeb3816-20261016/linked/qualification.json`; `dual-origin/qualification.json` in the same root |
 | Failed ordinary browser | `current-final-source-browser-baaeb3816-20261016/ordinary/failed-gate-handoff.json`; `final-failure-map.json` beside it |
 | Native duration | `current-baaeb3816-native-qualification/installed-preparation/duration/qualification.json` |
+| Eight focused browser diagnostics | `integration-browser-diagnostic-20261017/rebound-9323a1eda081-inventory-v2/handoff.json` |
+| Worker progress fix | `preview-progress-final-validation-20261017/final-validation.json` |
+| Earlier Node coverage processing | `node-coverage-baaeb3816-admission-v3-preparation-20261017/qualification.json` |
+| Native maximum quality | `current-baaeb3816-native-qualification/installed-preparation/maximum-v2/qualification-quality.json` |
 
 These results retain their exact source attribution. They do not qualify the
 later integration, installed After Effects, other desktop targets, signing,
