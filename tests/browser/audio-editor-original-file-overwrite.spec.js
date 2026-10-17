@@ -144,6 +144,8 @@ for (const removeDuringPreparation of [false, true]) test(`native original overw
 		const editor = await bootEditor(page, '/embed/en/').catch((cause) => { throw new Error(`Native preload bootstrap: ${JSON.stringify(errors)}; ${JSON.stringify(native.operations)}`, { cause }); });
 		await chooseFileAction(page, editor, 'Import');
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		// Original-file metadata settles after the clip is first published.
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', /./u);
 		await chooseFileAction(page, editor, `Overwrite ${toneA.name}`);
 		await expect.poll(() => native.completed.length).toBe(1);
 		if (removeDuringPreparation) {
