@@ -11,7 +11,7 @@ export const DEFAULT_WAVEFORM_RULER_STATE = Object.freeze({
 	zoom: 0,
 });
 export { CLIP_HEADER_HEIGHT };
-export const MAXIMUM_WAVEFORM_VERTICAL_ZOOM = 8;
+export { MAXIMUM_WAVEFORM_VERTICAL_ZOOM } from '../../waveform-display-preferences.ts';
 export const MINIMUM_TRACK_HEIGHT = 40;
 export const DEFAULT_TRACK_HEIGHT = 114;
 export const RECORDING_INPUT_CONTROLS_HEIGHT = 24;

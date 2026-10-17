@@ -6,7 +6,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 
 test('retained summary selection layers preserve pixels and read only fractional edge columns', async ({ page }) => {
 	const bundled = await build({
-		entryPoints: [fileURLToPath(new URL('../../src/common/editor/ui/timeline/TimelineCanvasRenderer.jsx', import.meta.url))],
+		entryPoints: [fileURLToPath(new URL('./helpers/waveform-selection-harness.js', import.meta.url))],
 		bundle: true, write: false, format: 'iife', globalName: 'waveformCanvas', target: 'es2022', external: ['./pffft.js'],
 		loader: { '.css': 'empty' },
 	});
