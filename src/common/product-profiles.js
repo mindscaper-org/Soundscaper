@@ -153,4 +153,11 @@ export const LIGHTSCAPER_PROFILE = {
 		photoCatalog: true,
 		photoDevelop: true,
 	},
+	desktop: {
+		appId: 'org.lightscaper.desktop',
+		scheme: 'lightscaper-app',
+		sessionPartition: 'persist:lightscaper-production',
+		executableName: 'lightscaper',
+		category: 'Graphics;Photography',
+	},
 };

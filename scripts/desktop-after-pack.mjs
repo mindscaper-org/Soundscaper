@@ -5,9 +5,9 @@ import { verifySignedMacPackage } from './lib/desktop-mac-signing-stage.mjs';
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
-import { flipFuses as flipElectronFuses, FuseVersion, FuseV1Options } from '@electron/fuses';
+import { hardenDesktopElectronFusesCurrentV1 } from './lib/desktop-electron-fuses-current-v1.ts';
 import { extractFile, listPackage } from '@electron/asar';
 import { verifyDesktopAssistanceRuntimeFamilyPackage } from './lib/desktop-assistance-runtime-family-verification.mjs';
 import { verifyDesktopKokoroG2pRuntime } from './lib/desktop-kokoro-g2p-runtime.mjs';
@@ -86,35 +86,7 @@ export default async function hardenPackagedElectron(context, dependencies = {})
 			verifyOsAudioCodec(context, dependencies),
 		] : []),
 	]);
-	const extension = {
-		darwin: '.app',
-		mas: '.app',
-		win32: '.exe',
-		linux: '',
-	}[context.electronPlatformName];
-	if (extension === undefined) throw new Error(`Unsupported Electron fuse platform: ${context.electronPlatformName}`);
-	const executableName = context.electronPlatformName === 'linux'
-		? context.packager.executableName
-		: context.packager.appInfo.productFilename;
-	const electronPath = join(context.appOutDir, `${executableName}${extension}`);
-	const flipFuses = dependencies.flipFuses ?? flipElectronFuses;
-	if (typeof flipFuses !== 'function') throw new TypeError('Electron fuse implementation is unavailable.');
-	await flipFuses(electronPath, {
-		version: FuseVersion.V1,
-		strictlyRequireAllFuses: true,
-		[FuseV1Options.RunAsNode]: false,
-		[FuseV1Options.EnableCookieEncryption]: true,
-		[FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-		[FuseV1Options.EnableNodeCliInspectArguments]: false,
-		[FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-		[FuseV1Options.OnlyLoadAppFromAsar]: true,
-		// Electron's stock distribution ships one shared V8 snapshot. Enabling
-		// the browser-specific fuse without also supplying
-		// browser_v8_context_snapshot.bin prevents packaged startup.
-		[FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,
-		[FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
-		[FuseV1Options.WasmTrapHandlers]: true,
-	});
+	await hardenDesktopElectronFusesCurrentV1(context, dependencies.flipFuses);
 	const resourcesRoot = context.packager.getResourcesDir(context.appOutDir);
 	const repositoryRoot = resolve(dependencies.repositoryRoot ?? REPOSITORY_ROOT);
 	const stageManifestPath = resolve(dependencies.stageManifestPath

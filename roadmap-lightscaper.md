@@ -155,21 +155,21 @@ verified in Chromium and Firefox. Current raster export retains native output
 processing and offers PNG16 with saved presets and batch recovery. Opt-in RAW
 source processing now carries canonical, linear-headroom and highlight-recovery
 choices through the Current draft, saved recipe and native rendering; external
-decoder publication, wider product qualification and desktop capabilities remain
+decoder publication, wider product qualification and native desktop services remain
 pending. Current PNG8/16 now offers sRGB and Display P3 target profiles; an
 existing Settings-menu dialog enables temporary output-profile/depth proofing
 without changing saved Develop state.
 
 | Area | Current capability |
 | --- | --- |
-| Product seam | Three-product registry, separate-origin routes and independently built sites, per-product profiles/capabilities/PWA/i18n, registry-driven switching, and product-owned test shards. Lightscaper desktop wiring waits for L8. |
+| Product seam | Three-product registry, separate-origin routes and independently built sites, per-product profiles/capabilities/PWA/i18n, registry-driven switching, and product-owned test shards. Lightscaper also has an independently prepared, hardened managed Web Core desktop package; the remaining L8 native and release work stays open. |
 | Imaging engine | Shared parametric video effects, managed SDR color with linear-light grade math and `.cube` LUTs, mask graphs, visual presets, and keyframe curves. Wider primaries/transfers remain recognized by the schema and refused at render admission. |
 | Stills | Framescaper V30 still import and timeline-image modeling landed; Lightscaper reuses shared image admission, native decode, EXIF orientation, and immutable original bindings. |
 | Pixel interchange | The unchanged descriptor carries byte, word and float samples independently of primaries/transfer. Current RAW supplies linear sRGB16 to Float32 color, geometry, spatial, LUT, mask, repair and output stages, with final PNG8/16 or JPEG8 delivery. Editable Source4 handoff regenerates native words from the authenticated Original; wide-gamut work remains open. |
 | Library and storage | Separate catalog-root and photo rows, bounded summary/membership pages, per-photo commands and history, verified retained originals with digest dedupe and custody, managed-import recovery, and catalog Scape round trips. |
 | Library queries and previews | Global filename/capture/rating indexes, resumable explicit index preparation, scalar paged definition selectors, and cancellable demand previews with disposable paired cache entries and one shared presenter owner. Current RAW culling offers a menu-selected camera preview source with neutral Original as default. |
 | Metadata | Bounded shared EXIF/IPTC readers, immutable extracted facts, authored metadata overrides, and Lightscaper's import adapter. |
-| UI and platform | Shared design-system/dialog ownership, a product-owned photo shell, opt-in menu workflows, offline application shells, and the existing hardened Electron wrappers for Soundscaper and Framescaper. |
+| UI and platform | Shared design-system/dialog ownership, a product-owned photo shell, opt-in menu workflows, offline application shells, and hardened Electron shells. Lightscaper's managed shell retains its browser-owned catalog and Originals in its own persistent partition. |
 | Gates | Sharded Node suites including Lightscaper, browser workflows, coverage-union thresholds, architecture and file-size ceilings, licensing/notice/WASM audits, correctness checks, and existing packaged desktop smokes. Performance reports are diagnostics. |
 
 Architectural constraints that still drive the sequence:
@@ -196,7 +196,7 @@ Architectural constraints that still drive the sequence:
 | L5. Export and handoff | **In progress** | Close the import → develop → export loop and the cross-product paths. |
 | L6. Local adjustments and repair | **In progress** | Add masked adjustments and parametric healing. |
 | L7. Raw and deep color | **In progress** | Activate deep processing, raw decode, and wide-gamut output. |
-| L8. Desktop tier | **Planned** | Package the desktop product and add-in-place libraries. |
+| L8. Desktop tier | **In progress** | Package the desktop product and add-in-place libraries. |
 | L9. Owner QA and diagnostics | **Planned** | Exercise the coherent product, improve diagnostics, and record optional observations without a certification gate. |
 
 L3 and L4 may proceed in parallel once L2 and L3's catalog-and-ingest core
@@ -1168,7 +1168,7 @@ there.
 **Goal:** package the desktop product and add the library conveniences only
 the desktop can offer.
 
-- **Electron Enhanced — Planned:** the Lightscaper desktop package through the
+- **Electron Enhanced — In progress:** the Lightscaper desktop package through the
   existing hardened wrapper and per-product packaging seam: app identity,
   entitlements, associations, project-library integration, and release and
   nightly matrix rows.
@@ -1180,6 +1180,17 @@ the desktop can offer.
   render refuses visibly until relink.
 - **Electron Enhanced — Planned:** the L7 native raw and preview services
   packaged, audited, and fail-closed with the Web Core path as fallback.
+
+The managed Web Core package now has its own identity, persistent partition,
+sandboxed preload, close-and-retire coordination, native output dialogs and
+offline pinned RAW assets with their complete corresponding source. A scripted
+Linux qualification imports raster and RAW Originals, saves Develop state,
+authenticates exported pixels and backup bytes, then uses two fresh processes
+to verify persistence, restore and reopening of the restored library. This does
+not close L8: associations and external-open delivery, native project-library
+integration, add-in-place access, native services, installers and the full
+release/nightly target matrix remain open. Windows managed qualification also
+awaits native process retirement support.
 
 ### Exit gate
 

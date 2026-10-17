@@ -2,9 +2,9 @@ import productConfig from './product.json' with { type: 'json' };
 
 export function resolveDesktopProductId(value, defaultProductId = productConfig.id) {
 	const requested = value === undefined ? defaultProductId : value;
-	if (requested !== 'soundscaper' && requested !== 'framescaper') {
+	if (requested !== 'soundscaper' && requested !== 'framescaper' && requested !== 'lightscaper') {
 		throw new Error(
-			`SCAPE_PRODUCT must be soundscaper or framescaper; received ${JSON.stringify(value)}.`,
+			`SCAPE_PRODUCT must be soundscaper, framescaper, or lightscaper; received ${JSON.stringify(value)}.`,
 		);
 	}
 	return requested;
@@ -20,16 +20,15 @@ export const APPLICATION_VERSION_CHANNEL = PRODUCT_METADATA_MATCHES
 	: 'candidate';
 export const RELEASE_CHANNEL = PRODUCT_METADATA_MATCHES
 	? productConfig.releaseChannel
-	: PRODUCT_ID === 'framescaper' ? 'deferred' : 'candidate';
+	: PRODUCT_ID === 'soundscaper' ? 'candidate' : 'deferred';
 export const FRAMESCAPER_WEB_VCR_ENABLED = PRODUCT_ID === 'framescaper';
-export const APP_NAME = PRODUCT_ID === 'framescaper' ? 'Framescaper' : 'Soundscaper';
-export const APP_ID = PRODUCT_ID === 'framescaper' ? 'org.framescaper.desktop' : 'org.soundscaper.desktop';
-export const APP_SCHEME = PRODUCT_ID === 'framescaper' ? 'framescaper-app' : 'soundscaper-app';
+export const APP_NAME = PRODUCT_ID === 'lightscaper' ? 'Lightscaper'
+	: PRODUCT_ID === 'framescaper' ? 'Framescaper' : 'Soundscaper';
+export const APP_ID = `org.${PRODUCT_ID}.desktop`;
+export const APP_SCHEME = `${PRODUCT_ID}-app`;
 export const APP_HOST = 'bundle';
 export const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
-export const SESSION_PARTITION = PRODUCT_ID === 'framescaper'
-	? 'persist:framescaper-production'
-	: 'persist:soundscaper-production';
+export const SESSION_PARTITION = `persist:${PRODUCT_ID}-production`;
 export const UPDATE_TAG_PREFIX = PRODUCT_METADATA_MATCHES
 	? productConfig.updateTagPrefix
 	: `${PRODUCT_ID}-v`;
@@ -38,7 +37,7 @@ export const SETTINGS_SCHEMA_VERSION = 1;
 // Mirrors src/common/project-file-extensions.ts, which the Electron main
 // process cannot import: this file has to stay dependency-free for the packaged
 // runtime. tests/desktop-project-file-extensions.test.js fails on any drift.
-export const PROJECT_FILE_EXTENSION = PRODUCT_ID === 'framescaper' ? '.fscape' : '.sscape';
+export const PROJECT_FILE_EXTENSION = PRODUCT_ID === 'lightscaper' ? '.liscape' : PRODUCT_ID === 'framescaper' ? '.fscape' : '.sscape';
 export const LEGACY_PROJECT_FILE_EXTENSION = '.scape';
 export const ACCEPTED_PROJECT_FILE_EXTENSIONS = Object.freeze([
 	'.sscape',
@@ -316,9 +315,9 @@ const HANDBOOK_DESTINATIONS = Object.fromEntries(['', ...HANDBOOK_LANGUAGES].fla
 }));
 
 export const EXTERNAL_DESTINATIONS = Object.freeze({
-	homepage: PRODUCT_ID === 'framescaper' ? 'https://framescaper.org/' : 'https://soundscaper.org/',
-	'privacy-en': PRODUCT_ID === 'framescaper' ? 'https://framescaper.org/privacy/en/' : 'https://soundscaper.org/privacy/en/',
-	'privacy-de': PRODUCT_ID === 'framescaper' ? 'https://framescaper.org/privacy/de/' : 'https://soundscaper.org/privacy/de/',
+	homepage: `https://${PRODUCT_ID}.org/`,
+	'privacy-en': `https://${PRODUCT_ID}.org/privacy/en/`,
+	'privacy-de': `https://${PRODUCT_ID}.org/privacy/de/`,
 	help: 'https://github.com/LeoWattenberg/Soundscaper#readme',
 	...HANDBOOK_DESTINATIONS,
 	support: `mailto:team@mindscaper.org?subject=${APP_NAME}%20support`,
