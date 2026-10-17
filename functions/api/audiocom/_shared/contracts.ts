@@ -17,6 +17,7 @@ export interface AudiocomAudio {
 	readonly isDownloadable: boolean;
 	readonly durationSeconds: number;
 	readonly previewUrl?: string;
+	readonly previewMime?: string;
 }
 export interface UploadInput {
 	readonly title: string;
@@ -41,12 +42,14 @@ export function normalizeAudio(value: unknown, provider = DEFAULT_AUDIOCOM_PROVI
 	if (!Number.isSafeInteger(play.duration) || Number(play.duration) < 0 || Number(play.duration) > 604_800_000) invalid();
 	if (typeof source.is_downloadable !== 'boolean') invalid();
 	const playback = text(play.url, 4096, true);
+	const originalMime = provider.kind === 'audiocity' && source.source != null ? record(source.source).mime : undefined;
 	return {
 		id, title: text(source.title, 1024), authorName: text(source.author_name, 256, true), username,
 		url: provider.kind === 'audiocity' ? `${provider.webOrigin}/audio/${id}/play` : `https://audio.com/${encodeURIComponent(username)}/audio/${encodeURIComponent(slug)}`,
 		description: text(source.description, 65_536, true), license, isDownloadable: source.is_downloadable,
 		durationSeconds: Number(play.duration) / 1000,
 		...(playback ? { previewUrl: `/api/audiocom/preview?url=${encodeURIComponent(trustedAssetUrl(playback, provider).href)}` } : {}),
+		...(typeof originalMime === 'string' && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/iu.test(originalMime) ? { previewMime: originalMime.toLowerCase() } : {}),
 	};
 }
 export function trustedAssetUrl(value: unknown, provider = DEFAULT_AUDIOCOM_PROVIDER): URL {

@@ -16,6 +16,7 @@ test('audio.com presentation, controller and full copy load only with the option
 		'src/common/editor/controller/import/audiocom-panel-session.ts',
 		'src/common/editor/controller/import/internal/audiocom-panel-session.ts',
 		'src/common/editor/controller/import/internal/audiocom-api-client.ts',
+		'src/common/editor/controller/import/internal/audiocom-original-preview.ts',
 		'src/common/editor/controller/import/internal/audiocom-upload-queue.ts',
 		'src/common/editor/controller/import/internal/audiocom-provider.ts',
 		'src/common/editor/controller/import/audiocom-project-archives.ts',

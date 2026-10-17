@@ -6,6 +6,7 @@ import type {
 } from '../audiocom-panel-session.ts';
 import { AudiocomApiError, createAudiocomApiClient } from './audiocom-api-client.ts';
 import { createAudiocomUploadQueue } from './audiocom-upload-queue.ts';
+import { prepareAudiocomPreview } from './audiocom-original-preview.ts';
 
 const emptySearch = () => ({ query: '', page: 1, hasNext: false, results: [], status: 'idle' as const });
 
@@ -26,6 +27,8 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 	let searchAbort: AbortController | null = null;
 	let previewAudio: AudiocomPreviewAudio | null = null;
 	let previewCleanup: (() => void) | null = null;
+	let previewAbort: AbortController | null = null;
+	let previewSourceCleanup: (() => void) | null = null;
 	let snapshot: AudiocomPanelSnapshot = Object.freeze({
 		auth: { status: 'loading' as const }, search: emptySearch(), uploadQueue: { items: [], active: false }, previewingId: null,
 	});
@@ -37,10 +40,12 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 	const connected = (): boolean => snapshot.auth.status === 'connected' && !disposed;
 	const queue = createAudiocomUploadQueue(client, connected, () => emit({ uploadQueue: queue.snapshot() }), expire);
 	const stopPreview = (): void => {
+		previewAbort?.abort(); previewAbort = null;
 		const audio = previewAudio;
 		previewAudio = null;
 		previewCleanup?.(); previewCleanup = null;
 		if (audio) { audio.pause(); audio.src = ''; audio.load(); }
+		previewSourceCleanup?.(); previewSourceCleanup = null;
 		if (snapshot.previewingId !== null) emit({ previewingId: null });
 	};
 	function expire(error: unknown): void {
@@ -136,10 +141,18 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			stopPreview();
 			const result = snapshot.search.results.find(value => value.id === id);
 			if (!result?.previewUrl) return;
+			const abort = new AbortController(); previewAbort = abort;
+			emit({ previewingId: id, previewError: undefined });
 			let audio: AudiocomPreviewAudio | null = null;
 			try {
+				const prepared = await (options.preparePreview ?? prepareAudiocomPreview)(result, abort.signal);
+				if (previewAbort !== abort || abort.signal.aborted || disposed || !active) { prepared.dispose(); return; }
+				previewSourceCleanup = () => prepared.dispose();
+				if (prepared.durationSeconds !== undefined) {
+					emit({ search: { ...snapshot.search, results: snapshot.search.results.map(value => value.id === id ? { ...value, durationSeconds: prepared.durationSeconds! } : value) } });
+				}
 				audio = options.createAudio?.() ?? new Audio();
-				previewAudio = audio; audio.src = result.previewUrl; audio.volume = gain;
+				previewAudio = audio; audio.src = prepared.url; audio.volume = gain;
 				const ended = (): void => { if (previewAudio === audio) stopPreview(); };
 				const failed = (): void => {
 					if (previewAudio !== audio) return;
@@ -147,13 +160,12 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 				};
 				audio.addEventListener('ended', ended); audio.addEventListener('error', failed);
 				previewCleanup = () => { audio?.removeEventListener('ended', ended); audio?.removeEventListener('error', failed); };
-				emit({ previewingId: id, previewError: undefined });
 				if (audio.setSinkId) await audio.setSinkId(outputDeviceId);
 				if (previewAudio !== audio || disposed || !active) return;
 				await audio.play();
 				if (previewAudio !== audio) { audio.pause(); audio.src = ''; audio.load(); }
 			} catch (error) {
-				if (audio && previewAudio === audio) { stopPreview(); emit({ previewError: message(error) }); }
+				if (previewAbort === abort && !abort.signal.aborted) { stopPreview(); emit({ previewError: message(error) }); }
 			}
 		},
 		stopPreview,

@@ -156,6 +156,7 @@ function normalizeResult(value: unknown, requestUrl: (path: string) => string, p
 		id, url: url.href, title: requiredString(data.title), authorName: text(data.authorName), username: text(data.username),
 		description: text(data.description), license: text(data.license), isDownloadable: data.isDownloadable === true,
 		durationSeconds: duration, ...(preview ? { previewUrl: requestUrl(`${preview.pathname}${preview.search}`) } : {}),
+		...(typeof data.previewMime === 'string' && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/iu.test(data.previewMime) ? { previewMime: data.previewMime.toLowerCase() } : {}),
 	});
 }
 
