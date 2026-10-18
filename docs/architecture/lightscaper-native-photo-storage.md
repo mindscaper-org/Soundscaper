@@ -70,8 +70,8 @@ Scalar pages read at most 64 summaries, never aggregate Photo documents. A
 single SQLite read snapshot binds the root/index fence to its ordered page,
 including when another WAL connection commits during the read. Continuations
 bind catalog, filter scope and index revision. Smart definitions cannot be
-created or changed until their native companion storage is implemented. This
-schema does not implement collapsed stack queries or saved smart collections.
+created or changed until their native companion storage is implemented.
+Saved smart collections and complete native culling remain unimplemented.
 
 Ordinary Query2 search, metadata predicates and all four sort fields use the
 existing shared query contracts and matcher. Each SQLite read snapshot binds
@@ -112,6 +112,22 @@ to version 3 without rewriting their catalog, Photo or existing query rows;
 only the new grouping state starts empty. These bounded checks authenticate
 the selected closure rather than auditing every row of a catalog on each read.
 
+Collapsed Query2 pages preserve the shared cover and fallback rules: an eligible
+cover represents its stack; otherwise the first eligible member in global sort
+order does. Each page shares one 64-unit budget across initial stack-key count
+auditing, global candidates and metadata point probes. A representative's full
+metadata membership closure can span signed pending pages, including a maximum
+1,024-member stack. Empty pages with a continuation retain that bounded work.
+All four sort fields, both directions, UTF-16 filename ordering and unknown-date
+placement follow the ordinary query contracts without reading Photo aggregates.
+
+Collapsed continuations bind query, catalog/index/stack epochs, audit position
+and pending member progress to the actual issuing SQLite connection with HMAC.
+The owner captures them before queue waits and retires signing authority after
+accepted work joins, before closing the connection. Keys never persist; a new
+connection cannot resume a previous connection's cursor. Each page reads one
+SQLite snapshot, and stale revisions refuse before missing-index readiness.
+
 The composing main-private owner captures request metadata before waiting,
 serializes publication, joins verification and file work before close, and
 independently retires both databases. Body reads first load the selected stored
@@ -120,7 +136,7 @@ filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
 scalar-only paging, cancellation, and reentrant close. They do not qualify a
 packaged renderer adapter or another platform.
 
-The remaining adapter must add collapsed stack queries, culling and saved-collection companions,
+The remaining adapter must add complete culling and saved-collection companions,
 resource ownership, settings, journals and restore, then preserve all complete
 session/publication/recovery ports through selected-catalog renderer admission.
 Its media publication port must receive the whole validated Original; the

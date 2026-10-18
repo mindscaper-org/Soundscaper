@@ -20,21 +20,34 @@ export const LIGHTSCAPER_NATIVE_STACK_COLUMNS_CURRENT_V1 = 'stack_key,catalog_id
 export const LIGHTSCAPER_NATIVE_STACK_MEMBER_COLUMNS_CURRENT_V1 = 'photo_key,catalog_id,photo_id,stack_key,stack_id,member_position';
 const nativeThrowIfAborted = AbortSignal.prototype.throwIfAborted;
 
-/** Caller owns one read snapshot or immediate write transaction. Root/index,
- * derived-index scalar state and retained grouping state are captured once. */
+/** Existing grouping callers preserve their complete root/query/state
+ * preflight, including the query-before-state refusal order. */
 export function captureLightscaperNativeStackContextCurrentV1(database: DatabaseSync, catalogId: unknown): Readonly<LightscaperNativeStackContextCurrentV1> {
-	requireTransaction(database); const catalog = id(catalogId, 'stack catalog ID');
-	const raw = database.prepare('SELECT id,document,root_revision,photo_count,index_revision FROM native_photo_catalogs WHERE id=?').get(catalog);
-	if (raw === undefined) throw new ReferenceError('Photo catalog is missing.');
-	const { root, index } = readLightscaperNativeCatalogRowCurrentV1(raw, catalog);
+	requireTransaction(database); const catalog = id(catalogId, 'stack catalog ID'), { root, index } = readRoot(database, catalog);
 	const query = getLightscaperNativeQueryBuildCurrentV1(database, catalog);
 	if (!query || query.indexedCount > root.photoCount || (query.ready && query.indexedCount !== root.photoCount)) throw new TypeError('Stack catalog Query2 build count is missing or inconsistent.');
-	const rawState = database.prepare('SELECT catalog_id,revision,stack_count FROM native_photo_stack_states WHERE catalog_id=?').get(catalog);
-	if (rawState === undefined) throw new TypeError('Native stack state is missing.');
-	const state = readLightscaperNativeStackStateRowCurrentV1(rawState, catalog);
-	if (state.stackCount > Math.floor(root.photoCount / 2)) throw new TypeError('Stack state count exceeds its catalog source capacity.');
+	return Object.freeze({ root, index, state: readGroupingState(database, catalog, root.photoCount) });
+}
+
+/** Root/index and grouping are independent from Query2 readiness. Collapsed
+ * readers compare captured revisions before their later readiness check, as
+ * the browser protocol requires. Future plain navigation can reuse this leaf. */
+export function captureLightscaperNativeStackGroupingContextCurrentV1(database: DatabaseSync, catalogId: unknown): Readonly<LightscaperNativeStackContextCurrentV1> {
+	requireTransaction(database); const catalog = id(catalogId, 'stack catalog ID'), { root, index } = readRoot(database, catalog);
+	return Object.freeze({ root, index, state: readGroupingState(database, catalog, root.photoCount) });
+}
+function readRoot(database: DatabaseSync, catalog: string): ReturnType<typeof readLightscaperNativeCatalogRowCurrentV1> {
+	const raw = database.prepare('SELECT id,document,root_revision,photo_count,index_revision FROM native_photo_catalogs WHERE id=?').get(catalog);
+	if (raw === undefined) throw new ReferenceError('Photo catalog is missing.');
+	return readLightscaperNativeCatalogRowCurrentV1(raw, catalog);
+}
+function readGroupingState(database: DatabaseSync, catalog: string, photoCount: number): Readonly<PhotoStackStateV1> {
+	const raw = database.prepare('SELECT catalog_id,revision,stack_count FROM native_photo_stack_states WHERE catalog_id=?').get(catalog);
+	if (raw === undefined) throw new TypeError('Native stack state is missing.');
+	const state = readLightscaperNativeStackStateRowCurrentV1(raw, catalog);
+	if (state.stackCount > Math.floor(photoCount / 2)) throw new TypeError('Stack state count exceeds its catalog source capacity.');
 	if (state.stackCount === 0) assertLightscaperNativeEmptyStackStateCurrentV1(database, catalog);
-	return Object.freeze({ root, index, state });
+	return state;
 }
 
 /** Both admission and a transition to zero must prove physical absence through

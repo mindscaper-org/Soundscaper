@@ -34,6 +34,10 @@ import { admitLightscaperNativeStackPageCurrentV1, admitLightscaperNativeStackMe
 	readAdmittedLightscaperNativeStackPageCurrentV1, readAdmittedLightscaperNativeStackMembershipPageCurrentV1,
 	readAdmittedLightscaperNativeStackMemberPageCurrentV1 } from './lightscaper-native-stack-pages-current-v1.ts';
 
+import type { PhotoStackQueryPageRequestV2, PhotoStackQueryPageV2 } from '../src/lightscaper/catalog/photo-stack-query-types-v2.ts';
+import { admitLightscaperNativeStackQueryPageCurrentV1, readAdmittedLightscaperNativeStackQueryPageCurrentV1 } from './lightscaper-native-stack-query-current-v1.ts';
+import { retireLightscaperNativeStackQueryProgressCurrentV1 } from './lightscaper-native-stack-query-progress-current-v1.ts';
+
 type Options = Readonly<{ signal?: AbortSignal }>;
 type OpenOptions = Readonly<{ appDataPath: string; verifyResources?: LightscaperNativeCatalogVerificationCurrentV1['verifyResources'] }>;
 
@@ -118,6 +122,10 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 		return this.#request(() => admitLightscaperNativeQueryPageCurrentV1(catalogId, options),
 			value => readAdmittedLightscaperNativeQueryPageCurrentV1(this.#database, value));
 	}
+	readStackQueryPageV2(catalogId: string, options: PhotoStackQueryPageRequestV2 = {}): Promise<PhotoStackQueryPageV2> {
+		return this.#request(() => admitLightscaperNativeStackQueryPageCurrentV1(catalogId, options),
+			value => readAdmittedLightscaperNativeStackQueryPageCurrentV1(this.#database, value));
+	}
 	rebuildQueryIndexPageV2(catalogId: string, options: Options = {}): Promise<PhotoQueryBuildProgressV2> {
 		return this.#request(() => ({ catalogId: id(catalogId, 'query rebuild catalog ID'), signal: signal(options) }),
 			value => rebuildLightscaperNativeQueryIndexPageCurrentV1(this.#database, value.catalogId, { signal: value.signal }));
@@ -170,6 +178,7 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 	close(): Promise<void> {
 		this.#closing ??= this.#tail.then(async () => {
 			const failures: unknown[] = [];
+			try { retireLightscaperNativeStackQueryProgressCurrentV1(this.#database); } catch (error) { failures.push(error); }
 			try { this.#database.close(); } catch (error) { failures.push(error); }
 			try { await this.#originals.close(); } catch (error) { failures.push(error); }
 			if (failures.length) throw new AggregateError(failures, 'Native catalog owner retirement failed.');

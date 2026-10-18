@@ -1218,8 +1218,11 @@ ordering, including unpaired surrogates. Native ordered stacks now persist
 with independent forward/reverse membership, bounded summary/member pages,
 atomic revision checks and retained state after dissolution. Exact version 1
 and 2 schemas migrate to version 3 without rewriting existing Photo/query rows.
-These components are not yet selected by the application. Collapsed stack
-queries, native culling and saved-collection companions,
+Native collapsed Query2 now shares its 64-unit budget across stack-key auditing,
+ordered candidates and complete resumable member metadata checks. Connection-bound
+signed cursors retain pending work; eligible covers and filtered-cover fallbacks
+keep global query order without loading Photo aggregates. These components are
+not yet selected by the application. Complete native culling and saved-collection companions,
 resources, settings, journals/restore, renderer admission and
 menu-owned library selection remain required before activation; add-in-place
 access and native platform qualification remain open.
