@@ -22,9 +22,9 @@ const root = join(tmpdir(), 'motionscaper-libvpx-command-plan');
 const paths = framescaperMediaHostBuildPaths(join(root, 'work'));
 const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
 
-function commandPlan(target: typeof targets[number], planRoot = root): readonly NativeCommand[] {
+function commandPlan(target: typeof targets[number], planRoot = root, workRoot = join(planRoot, 'work')): readonly NativeCommand[] {
 	const windows = target.startsWith('win-');
-	const planPaths = framescaperMediaHostBuildPaths(join(planRoot, 'work'));
+	const planPaths = framescaperMediaHostBuildPaths(workRoot);
 	const executables = Object.fromEntries(roles.map(role => [role, {
 		path: windows && role === 'shell' ? String.raw`C:\Program Files\Git\bin\bash.exe`
 			: join(planRoot, 'authenticated-tools', windows && (role === 'c' || role === 'cxx') ? 'cl.exe' : `${role}${windows ? '.exe' : ''}`),
@@ -106,8 +106,9 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 	test(`Motion ${target} preserves native make paths through libvpx configuration`, () => {
 		const commands = commandPlan(target, String.raw`C:\motionscaper-libvpx-command-plan`);
 		const configure = phase(commands, 'libvpx-configure');
+		assert.equal(configure.args[0], '../libvpx-source/configure');
 		assert.deepEqual([configure.args[0], configure.args.find(argument => argument.startsWith('--prefix='))], [
-			'C:/motionscaper-libvpx-command-plan/sources/libvpx/configure',
+			'../libvpx-source/configure',
 			'--prefix=C:/motionscaper-libvpx-command-plan/work/libvpx-install',
 		], 'libvpx persists source and install paths in makefiles read by native Windows make');
 		for (const codec of ['x264', 'ffmpeg']) {
@@ -116,6 +117,15 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 				`/c/motionscaper-libvpx-command-plan/${codec === 'x264' ? 'sources/x264' : 'ffmpeg'}/configure`,
 				`--prefix=/c/motionscaper-libvpx-command-plan/work/${codec}-install`,
 			]);
+		}
+	});
+}
+
+for (const target of ['win-x64', 'win-arm64'] as const) {
+	test(`Motion ${target} keeps staged libvpx source arguments short across deep and foreign source drives`, () => {
+		for (const planRoot of [String.raw`D:\deep\source\tree`, ['C:', ...Array.from({ length: 60 }, () => 'nested'), 'source'].join('\\')]) {
+			const commands = commandPlan(target, planRoot, String.raw`C:\motionscaper-staged-work`);
+			assert.equal(phase(commands, 'libvpx-configure').args[0], '../libvpx-source/configure');
 		}
 	});
 }

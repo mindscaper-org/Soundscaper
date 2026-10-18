@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 16503,
-			"sha256": "51c8e56a007aa2635439f13bdb1625e695d36df71a26ca64d286b5fb40ee18cb"
+			"byteLength": 16512,
+			"sha256": "bc34f661744709276627538244f674e36d5dcf8d3f7665c7bdb7aaaff980254d"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -97,8 +97,8 @@
 		},
 		{
 			"path": "build/recipe-driver.mjs",
-			"byteLength": 22026,
-			"sha256": "a64506b1a5c20f57f2521a1a46dcfbd3fb9842a66c5eb8567b61b7e73a0008f1"
+			"byteLength": 22654,
+			"sha256": "16e3b9071eb66586132c1984f86cf1a0b8eb50e797864a4105254bdc1fe45628"
 		},
 		{
 			"path": "build/source-authentication.mjs",

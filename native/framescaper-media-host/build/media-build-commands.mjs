@@ -61,7 +61,7 @@ export const FRAMESCAPER_FFMPEG_REQUIRED_CONFIGURATION = Object.freeze([
 export function framescaperMediaHostBuildPaths(outputRoot) {
 	return Object.freeze(Object.fromEntries([
 		'x264-build', 'x264-install', 'x265-build', 'x265-install',
-		'libvpx-build', 'libvpx-install', 'libopus-build', 'libopus-install',
+		'libvpx-source', 'libvpx-build', 'libvpx-install', 'libopus-build', 'libopus-install',
 		'zlib-source', 'zlib-build', 'zlib-install', 'ffmpeg-build', 'ffmpeg-install',
 		'host-build', 'host-install',
 	].map((name) => [camel(name), join(outputRoot, name)])));
@@ -141,10 +141,10 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		'-DEXPORT_C_API=ON', '-DENABLE_PIC=ON',
 		...(windows ? ['-DSTATIC_LINK_CRT=ON'] : []),
 	];
-	// libvpx persists these paths in makefiles read by native Windows make.
+	// Keep repeated Windows source arguments short in generated make recipes.
 	const vpxConfigurePath = join(externalSourceRoots.libvpx, 'configure');
 	const vpxArgs = [
-		windows ? vpxConfigurePath.replaceAll('\\', '/') : vpxConfigurePath,
+		windows ? '../libvpx-source/configure' : vpxConfigurePath,
 		`--target=${vpxTarget(target.id)}`,
 		`--prefix=${windows ? paths.libvpxInstall.replaceAll('\\', '/') : paths.libvpxInstall}`,
 		'--disable-examples', '--disable-tools', '--disable-docs', '--disable-unit-tests',

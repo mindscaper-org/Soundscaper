@@ -134,6 +134,7 @@ export function createFramescaperMediaHostBuildRecipe(value) {
 		outputRoot,
 		paths,
 		zlibSourceRoot: externalSourceRoots.zlib,
+		libvpxSourceRoot: externalSourceRoots.libvpx,
 		externalManifest,
 		witnesses: Object.freeze(witnesses),
 	}));
@@ -177,6 +178,11 @@ export function executeFramescaperMediaHostBuildRecipe(
 	authenticateFramescaperMediaHostExternalSourceRoot(
 		state.externalManifest, 'zlib', state.paths.zlibSource,
 	);
+	if (recipe.target.id.startsWith('win-')) {
+		stageFramescaperMediaHostExternalSourceRoot(
+			state.externalManifest, 'libvpx', state.libvpxSourceRoot, state.paths.libvpxSource,
+		);
+	}
 	for (const command of recipe.commands) {
 		verifyWitnesses(state.witnesses);
 		const result = run(command.executable, [...command.args], {
@@ -187,6 +193,14 @@ export function executeFramescaperMediaHostBuildRecipe(
 		}
 		if (command.phase === 'ffmpeg-configure') verifyConfiguration(state.paths.ffmpegBuild);
 	}
+}
+
+export function stageFramescaperMediaHostExternalSourceRoot(manifest, id, sourceRoot, destinationRoot) {
+	authenticateFramescaperMediaHostExternalSourceRoot(manifest, id, sourceRoot);
+	cpSync(sourceRoot, destinationRoot, {
+		recursive: true, force: false, errorOnExist: true, preserveTimestamps: true,
+	});
+	authenticateFramescaperMediaHostExternalSourceRoot(manifest, id, destinationRoot);
 }
 
 function exactTarget(hostRoot, manifest, value, witnesses) {
