@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import assert from 'node:assert/strict';
-import test from 'node:test';
 
 import type { RecordingRoutingServiceRuntime } from '../src/common/editor/controller/recording/internal/recording-routing-service.ts';
 import type { SampleEditServiceRuntime } from '../src/common/editor/controller/clip-video/internal/sample-edit-service.ts';
@@ -67,7 +65,3 @@ export type SourceBufferKeyContainsNoAny = AssertFalse<IsAny<SourceBufferKey>>;
 export type SourceBufferValueContainsNoAny = AssertFalse<IsAny<SourceBufferValue>>;
 export type SourceBufferKeyIsString = AssertTrue<IsEqual<SourceBufferKey, string>>;
 export type SourceBufferValueIsAudioBuffer = AssertTrue<IsEqual<SourceBufferValue, AudioBuffer>>;
-
-test('controller service boundaries are checked by the TypeScript project', () => {
-	assert.ok(true);
-});

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import assert from 'node:assert/strict';
-import test from 'node:test';
 
 import type {
 	ClipTimePitchPreparationState,
@@ -42,7 +40,7 @@ type IsAssignable<Source, Target> = [Source] extends [Target] ? true : false;
 type AssertTrue<Value extends true> = Value;
 type AssertFalse<Value extends false> = Value;
 
-function checkMicrophoneMeterOwnerWrites(
+export function checkMicrophoneMeterOwnerWrites(
 	state: MicrophoneMeterDependencies['state'],
 ): void {
 	state.inputMeterDb = -12;
@@ -50,7 +48,7 @@ function checkMicrophoneMeterOwnerWrites(
 	state.transportState = 'playing';
 }
 
-function checkCompositionWritableProjections(
+export function checkCompositionWritableProjections(
 	transport: TransportCompositionDependencies['state'],
 	trackAudio: TrackAudioCompositionDependencies['state'],
 ): void {
@@ -73,7 +71,7 @@ function checkCompositionWritableProjections(
 	trackAudio.timelineViewportWidth = 960;
 }
 
-function checkRecordingReadInputs(
+export function checkRecordingReadInputs(
 	capture: RecordingCaptureMutableState,
 	session: RecordingSessionMutableState,
 	timed: TimedRecordingMutableState,
@@ -165,10 +163,3 @@ export type BootstrapTransportRejectsFlatState = AssertFalse<IsAssignable<
 	ProjectBootstrapTransportState,
 	ProjectBootstrapTransportWriteScope
 >>;
-
-test('owner-write composition contracts are checked by the TypeScript project', () => {
-	assert.equal(typeof checkMicrophoneMeterOwnerWrites, 'function');
-	assert.equal(typeof checkCompositionWritableProjections, 'function');
-	assert.equal(typeof checkRecordingReadInputs, 'function');
-	assert.ok(true);
-});
