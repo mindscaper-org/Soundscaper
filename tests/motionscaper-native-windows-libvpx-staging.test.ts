@@ -204,6 +204,7 @@ test('Motion Windows driver normalizes the installed x265 archive for its pkg-co
 	const install = join(input.outputRoot, 'x265-install');
 	const archive = join(install, 'lib', 'x265-static.lib');
 	const metadata = join(install, 'lib', 'pkgconfig', 'x265.pc');
+	const template = join(input.options.repositoryRoot, 'native/framescaper-media-host/build/windows-x265.pc');
 	const archiveBytes = Buffer.from('installed MSVC x265 static archive fixture\n');
 	let verified = false;
 	driver.executeFramescaperMediaHostBuildRecipe(recipe, {
@@ -211,13 +212,17 @@ test('Motion Windows driver normalizes the installed x265 archive for its pkg-co
 			if (args[0] === '--install' && args[1] === join(input.outputRoot, 'x265-build')) {
 				mkdirSync(dirname(metadata), { recursive: true });
 				writeFileSync(archive, archiveBytes);
-				writeFileSync(metadata, 'Libs: -L${libdir} -lx265\n');
+				writeFileSync(metadata, 'Version: 4.2\nLibs: -L${libdir} -lx265\nLibs.private:\n');
 			}
-			if (args[0] === '-E' && args[1] === 'copy' && args[2] === archive) {
+			if (args[0] === '-E' && args[1] === 'copy' && (args[2] === archive || args[2] === template)) {
 				assert.equal(executable, join(input.root, 'tools', 'cmake.tool'));
 				copyFileSync(args[2], args[3]);
 			}
 			if (args[0] === './src/configure') {
+				assert.ok(args.includes('--pkg-config-flags=--static'));
+				assert.ok(!args.some(argument => argument.startsWith('--extra-libs=')));
+				assert.match(readFileSync(metadata, 'utf8'), /^Libs\.private: -ladvapi32$/mu);
+				assert.deepEqual(readFileSync(metadata), readFileSync(template));
 				const name = / -l(\w+)/u.exec(readFileSync(metadata, 'utf8'))?.[1];
 				assert.equal(name, 'x265');
 				assert.deepEqual(readFileSync(join(install, 'lib', `${name}.lib`)), archiveBytes);

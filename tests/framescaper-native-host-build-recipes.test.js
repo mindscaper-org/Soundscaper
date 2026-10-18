@@ -42,7 +42,7 @@ const MEDIA_INPUTS = Object.freeze([
 	'CMakeLists.txt', 'CMakePresets.json', 'build/external-source-authentication.mjs',
 	'build/ffmpeg-9.0.1-configure.json', 'build/ffmpeg-9.0.1-external-sources.json',
 	'build/media-build-commands.mjs', 'build/recipe-cli.mjs', 'build/recipe-driver.mjs',
-	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-vpx.pc',
+	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-vpx.pc', 'build/windows-x265.pc',
 	...FRAMESCAPER_MEDIA_HOST_BUILD_TARGETS.map(({ toolchainFile }) => toolchainFile),
 ].sort());
 const OPENFX_INPUTS = Object.freeze([
@@ -114,7 +114,7 @@ test('all five media and OpenFX targets emit immutable closed dry-run recipes', 
 			'zlib-configure', 'zlib-build', 'zlib-install-metadata', 'zlib-install-library-directory',
 			'zlib-install-static-library',
 			'x264-configure', 'x264-build', 'x264-install',
-			'x265-configure', 'x265-build', 'x265-install', ...(target.id.startsWith('win-') ? ['x265-normalize-library'] : []),
+			'x265-configure', 'x265-build', 'x265-install', ...(target.id.startsWith('win-') ? ['x265-normalize-library', 'x265-normalize-pkg-config'] : []),
 			'libvpx-configure', 'libvpx-build', 'libvpx-install',
 			...(target.id.startsWith('win-') ? ['libvpx-normalize-library', 'libvpx-normalize-pkg-config'] : []),
 			'libopus-configure', 'libopus-build', 'libopus-install',
