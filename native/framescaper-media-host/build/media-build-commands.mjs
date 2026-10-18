@@ -189,7 +189,11 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		`-DCMAKE_PREFIX_PATH=${pkgConfigRoots.join(';')}`,
 	];
 	const vpxMake = windows
-		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`] : [];
+		? [
+			`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`,
+			`SHELL=${tools.executables.shell.path.replaceAll('\\', '/')}`,
+			'.SHELLFLAGS=--noprofile --norc -c',
+		] : [];
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([
