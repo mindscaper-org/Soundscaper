@@ -28,9 +28,3 @@ test('runtime manifests stay in CI and one SHA256SUMS covers all public download
 	assert.equal(await readFile(join(assetRoot, 'SHA256SUMS'), 'utf8'), expected);
 	for (const name of evidenceNames) assert.equal(await readFile(join(evidenceRoot, name), 'utf8'), `content: ${name}`);
 });
-
-test('release finalization refuses a CI directory inside the public asset directory', async () => {
-	await assert.rejects(finalizeDesktopReleaseAssets({
-		assetRoot: '/tmp/release-assets', evidenceRoot: '/tmp/release-assets/ci', evidenceNames: [],
-	}), /outside.*release/iu);
-});

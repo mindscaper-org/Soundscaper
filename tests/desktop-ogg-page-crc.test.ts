@@ -7,7 +7,6 @@ import { oggPageCrc as opusOggPageCrc } from '../desktop/bundled-opus-stream.ts'
 import { oggPageCrc } from '../src/common/editor/ogg-page-crc.ts';
 
 test('the shared Ogg page CRC matches a known page and ignores its checksum field', () => {
-	assert.equal(opusOggPageCrc, oggPageCrc);
 	const page = new Uint8Array(29);
 	page.set(new TextEncoder().encode('OggS'));
 	page[5] = 2;

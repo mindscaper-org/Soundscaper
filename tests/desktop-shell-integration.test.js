@@ -135,9 +135,6 @@ test('sandbox preload exposes only the versioned narrow bridge', async () => {
 	assert.deepEqual(Object.keys(bridge.v1).sort(), [...baseFields, 'blender', 'persistentDelivery', ...mcpFields, ...freesoundFields].sort());
 	const framescaperBridge = exposed.get('framescaperDesktop');
 	assert.deepEqual(Object.keys(framescaperBridge.v1).sort(), [...baseFields, 'projectLibrary'].sort());
-	for (const name of ['blender', ...mcpFields, ...freesoundFields]) assert.equal(Object.hasOwn(framescaperBridge.v1, name), false);
-	assert.equal(Object.hasOwn(framescaperBridge.v1, 'persistentDelivery'), false);
-	assert.equal(Object.hasOwn(framescaperBridge.v1, 'v12'), false);
 	assert.equal(Object.isFrozen(framescaperBridge.v1.projectLibrary), true);
 	assert.equal(Object.isFrozen(bridge.v1), true);
 	bridge.v1.signalReady();

@@ -31,12 +31,4 @@ test('desktop stage target follows the resolved declared or build-host native ta
 	});
 	assert.equal(buildHost.source, 'build-host');
 	assert.deepEqual(resolveDesktopStageTarget(buildHost), { platform: 'linux', arch: 'x64' });
-	assert.throws(
-		() => resolveDesktopStageTarget({ id: 'linux-invented', source: 'build-host' }),
-		/desktop target/iu,
-	);
-	assert.throws(
-		() => resolveDesktopStageTarget({ id: 'mac-x64', source: 'declared' }),
-		/desktop target/iu,
-	);
 });

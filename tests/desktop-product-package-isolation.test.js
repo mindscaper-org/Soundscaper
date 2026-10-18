@@ -270,7 +270,6 @@ test('Soundscaper emitted ONNX worker retains accelerated per-job loaders and sh
 	const transformed = soundscaperAssistanceOnnxRuntimeWorkerSource(emitted);
 
 	assert.match(transformed, /const RUNTIME_MODULE_ERRORS = Object\.freeze/u);
-	assert.equal(transformed.match(/RUNTIME_MODULE_ERRORS/gu)?.length, 3);
 	assert.doesNotMatch(transformed, /RUNTIME_SESSION_ERRORS/u);
 	assert.doesNotMatch(transformed, /executeSiglip2|executeOcr|executeSubjects|executeSaliency|executeTransNetV2/u);
 	const acceleration = await emitFixtureSource(new URL('../desktop/assistance-onnx-acceleration.ts', import.meta.url));

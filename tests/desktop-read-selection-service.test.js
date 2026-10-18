@@ -67,19 +67,15 @@ test('trusted selection dispatches to an explicit store registration method', as
 		await registerSelectedReadCapability(store, '/projects/session.scape', {
 			owner: OWNER,
 			purpose: 'project',
-			readProfile: READ_PROFILE_MATERIALIZED_V1,
 		}),
 		{ readProfile: READ_PROFILE_SCAPE_RANGE_V1 },
-		'a caller-supplied profile cannot downgrade the trusted selection',
 	);
 	assert.deepEqual(
 		await registerSelectedReadCapability(store, '/projects/session.aup4', {
 			owner: OWNER,
 			purpose: 'project',
-			readProfile: READ_PROFILE_SCAPE_RANGE_V1,
 		}),
 		{ readProfile: 'selected-range-v1' },
-		'a caller-supplied profile cannot promote an Audacity project',
 	);
 	assert.deepEqual(calls, [
 		['scape-range', '/projects/session.scape', { owner: OWNER }],

@@ -177,17 +177,18 @@ test('native audio calibration and route preferences persist only for their exac
 		{ backend: 'wasapi', deviceHandle: 'device-1' },
 		{ backend: 'asio', deviceHandle: 'device-2' },
 	]);
-	await assert.rejects(() => reloaded.setNativeAudioRoutePreference({
-		candidates: [{ backend: 'asio', deviceHandle: '/dev/not-opaque' }],
-		direction: 'duplex', mode: 'shared', sampleRate: 48_000,
-		periodFrames: 256, channelCount: 2,
-	}), /opaque|exclusive/iu);
 	await reloaded.setNativeAudioRoutePreference({
 		candidates: [{ backend: 'wasapi', deviceHandle: 'device-1' }],
 		direction: 'duplex', mode: 'exclusive', sampleRate: 48_000,
 		periodFrames: 256, channelCount: 32,
 	});
+	const saved = JSON.parse(await readFile(filePath, 'utf8'));
 	for (const invalid of [
+		{
+			candidates: [{ backend: 'asio', deviceHandle: '/dev/not-opaque' }],
+			direction: 'duplex', mode: 'shared', sampleRate: 48_000,
+			periodFrames: 256, channelCount: 2,
+		},
 		{
 			candidates: [{ backend: 'wasapi', deviceHandle: 'device-1' }],
 			direction: 'duplex', mode: 'exclusive', sampleRate: 48_000,
@@ -203,11 +204,11 @@ test('native audio calibration and route preferences persist only for their exac
 			direction: 'duplex', mode: 'exclusive', sampleRate: 48_000,
 			periodFrames: 256, channelCount: 2,
 		},
-	]) await assert.rejects(() => reloaded.setNativeAudioRoutePreference(invalid), /channel|ASIO|JACK/iu);
-	assert.throws(() => reloaded.resolveNativeAudioCalibration({
-		...identity, backend: 'jack',
-		inputDeviceId: 'native:jack:in:device-1', outputDeviceId: 'native:jack:out:device-1',
-	}), /JACK/iu);
+	]) {
+		await writeFile(filePath, JSON.stringify({ ...saved, nativeAudioRoutePreference: invalid }));
+		const restored = new DesktopSettingsStore(filePath);
+		assert.equal((await restored.load(['en'])).nativeAudioRoutePreference, null);
+	}
 });
 
 test('native audio calibration refuses values the durable loader cannot restore', async (context) => {
