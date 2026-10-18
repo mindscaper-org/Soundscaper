@@ -350,6 +350,59 @@ All 119 native source records retain their accepted bytes. All recorded check
 identities are absent, and no owned services or handles remain. No manual
 **Update AI assets** run is required by these harness and documentation changes.
 
+The next Windows x64 native build installed all five external codecs, then failed
+in FFmpeg's dependency scanner: the generated configuration retained the intended
+two backslashes, while the awk invocation received one and rejected its syntax.
+The build stayed below 1 GiB observed working set and did not reach its deadline.
+Its failed result and independently checked input/process closure remain separate
+from the WSL OOM investigation.
+
+A tiny comparative control reproduced the inline-filter error with both Git Bash
+executables. A file-backed filter produced the exact four expected dependency
+files; all three intentional-failure controls stopped before their later marker.
+The control owner reported a remaining authenticated descendant, terminated it
+through its retained handle, and closed with no cleanup error. An independent
+check found all ten observed process IDs absent. This is diagnostic evidence,
+not a passed native build. The receipt is
+`windows-x64-prerequisites-20261018/ffmpeg-dependency-canary-v13-20261018-v1/root-diagnostic-acceptance.v3.json`,
+SHA-256 `4abe3b69db94c19a0e5284643c06e63a166bc77f6962de89c1b029b0d29a4eeb`.
+
+The correction on `3883b077e` pins an awk source file, copies it into the Windows
+FFmpeg build directory and selects it for all four dependency macros during
+build and installation. The compiler flags, shell binding and POSIX commands
+remain unchanged. The regression first failed for the absent preparation/filter;
+the focused Linux selection then passed 36 cases with five declared Windows-only
+skips. Changed-file lint, focused strict types, both source manifests and the
+file-size gate pass. The maintained Windows x64 test then passed six cases with
+one expected skip, using a byte-identical twelve-file NTFS projection of the
+committed sources. Both native make phases exercised all four filters, the
+original two-line COMPILE grouping, exact dependency/compiler markers and
+confirmed failure propagation. The preceding UNC invocation failed before test
+discovery and remains failed.
+
+The Windows test's owner also remains failed: its authenticated pre-workload
+`conhost.exe` persisted after the test finished. Exact-handle cleanup retired it
+with no cleanup error, and an independent check found all ten recorded process
+IDs absent. The observed test result qualifies this transport component only;
+strict supervisor and complete native-build gates remain open. The receipt is
+`windows-x64-prerequisites-20261018/ffmpeg-maintained-transport-3883-20261018-v2/root-observed-test-and-failed-owner-closure.json`,
+SHA-256 `45f485a7ffe46fdfcbc1dfadebaf887c46313e78719c7f6959d7c1e94627f92f`.
+
+Coverage assembly on `847c07eac` writes each normalized profile into staging
+before reading the next profile or run, instead of retaining every parsed range
+graph. Browser and packaged rereads retain exact byte fingerprints; local-assistance reads keep
+their manifest digest checks. Per-run and per-family source-map placement and
+late-error rejection are preserved. The production regression failed against the
+original assembler when it opened the second run before writing the first.
+All five focused regressions, changed-file lint, focused strict types and the
+file-size gate pass. A frozen two-run synthetic comparison also preserves all
+128 input files and produces identical paths, lengths and SHA-256 hashes for all
+38 published capture files, including the complete index and family maps.
+Failed production coverage remains opaque and unadmitted.
+The largest individual profile, unique build metadata and later coverage-union
+processing still need resource monitoring. This repair does not identify PID
+8039's command or establish the cause of its OOM kill.
+
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
 

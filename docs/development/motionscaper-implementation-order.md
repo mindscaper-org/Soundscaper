@@ -208,6 +208,25 @@ controls, scoped TypeScript and changed-file lint pass. This does not establish
 the cause of the earlier OOM or qualify a new large workload. Existing completed results keep
 their original source identities.
 
+The Windows FFmpeg dependency-scanner correction (`3883b077e`) follows a tiny
+reproduction of the malformed inline awk filter. A pinned file-backed filter
+passes the four dependency-output checks; the maintained Linux selection passes
+36 cases with five Windows-only skips, plus focused types, changed-file lint,
+source-pin and size checks. The maintained Windows transport test subsequently
+passed six cases with one expected skip, including both make phases and all four
+filters. Its strict owner still failed on a retained pre-workload console process;
+exact-handle cleanup and independent recorded-process absence passed. Complete
+Windows supervision and native-build acceptance remain open. This separate build
+failure does not explain the WSL OOM.
+
+Coverage assembly (`847c07eac`) writes normalized profiles incrementally across
+runs, preserving source-map placement and rejecting changed bytes between passes.
+The original implementation fails the new early-write regression; all five
+focused cases, changed-file lint, strict types and size checks pass after repair.
+All 38 files in a frozen two-run synthetic capture also match the original bytes.
+Individual profiles and later coverage unions still require memory monitoring;
+the earlier OOM's owning command remains unknown.
+
 Fresh combined gates, accepted coverage, installed AE, other hardware/targets,
 signing, installation, update and publication remain open. No installed AE test
 environment is available. Source-specific evidence and remaining work are in
