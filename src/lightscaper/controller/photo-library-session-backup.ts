@@ -9,6 +9,7 @@ import { admitPhotoLibraryBackupRequestV1 } from './photo-library-backup-request
 import type { PhotoLibrarySessionPortsV2 } from './photo-library-session-ports-v2.ts';
 import { borrowPhotoDevelopPresetEntryReaderV2 } from '../storage/photo-develop-preset-read-v2.ts';
 import { capturePhotoCubeLutSource } from './photo-cube-lut-source-binding.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 
 interface Host {
 	readonly ports: PhotoLibrarySessionPortsV2;
@@ -24,12 +25,14 @@ export async function backupPhotoLibrarySession(host: Host, options: PhotoLibrar
 	if (!backup || !stacks || !presetSettings || !resources) throw new Error('Photo catalog backup is unavailable.');
 	const snapshot = backup.readSnapshot, capture = backup.captureSmartCollectionArchiveV1, loadOriginal = backup.loadOriginal,
 		summaries = catalog.readSummaryPage, photo = catalog.loadPhoto;
+	const originalSource = capturePhotoLibraryOriginalSourceCurrentV1(ports.originalSource, typeof loadOriginal === 'function'
+		? (original, signal) => Reflect.apply(loadOriginal, backup, [original, signal]) as Promise<unknown> : undefined);
 	const borrowed = borrowPhotoLibraryBackupInventoryPortsV2({ catalog: {
 		readSnapshot: (...args) => Reflect.apply(snapshot, backup, args),
 		captureSmartCollectionArchiveV1: (...args) => Reflect.apply(capture, backup, args),
 		readSummaryPage: (...args) => Reflect.apply(summaries, catalog, args),
 		loadPhoto: (...args) => Reflect.apply(photo, catalog, args),
-	}, stacks, loadOriginal: (...args) => Reflect.apply(loadOriginal, backup, args) });
+	}, stacks, originalSource });
 	const readEntry = borrowPhotoDevelopPresetEntryReaderV2(presetSettings);
 	let capturedMaskSource: Promise<Readonly<MaskRasterSourcePortV1>> | undefined;
 	const maskRasters: MaskRasterSourcePortV1 = { async withBytes<Result>(reference: Readonly<BrushMaskResourceReferenceV1>,

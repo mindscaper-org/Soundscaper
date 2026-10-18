@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { capturePhotoLibraryBackupOriginalSourceCurrentV1, yieldPhotoLibraryBackupOriginalCurrentV1 } from './photo-library-backup-original-source-current-v1.ts';
 import type { BrushMaskResourceReferenceV1 } from '../../common/editor/imaging/brush-mask-resource-v1.ts';
 import type { PhotoCatalogPackInputV2 } from '../archive/catalog-pack-v2.ts';
 import { id } from '../catalog/value-validation.ts';
@@ -18,8 +18,7 @@ function check(signal?: AbortSignal): void { if (signal !== undefined) Reflect.a
 export async function capturePhotoLibraryBackupSourceV3(catalogValue: unknown, ports: PhotoLibraryBackupSourcePortsV2,
 	signal?: AbortSignal): Promise<Readonly<PhotoLibraryBackupSourceV3>> {
 	const catalogId = id(catalogValue, 'backup catalog ID'); check(signal);
-	const catalog = ports.catalog, loadOriginal = ports.loadOriginal;
-	if (typeof loadOriginal !== 'function') throw new TypeError('Current backup original capability is required.');
+	const catalog = ports.catalog, originalSource = capturePhotoLibraryBackupOriginalSourceCurrentV1(ports);
 	const metadata = await capturePhotoLibraryBackupMetadataPreflightV2(catalogId, catalog, signal); check(signal);
 	return Object.freeze({ initial: metadata.initial, references: metadata.references,
 		originals: originals(), verifyCatalog: metadata.verifyCatalog });
@@ -27,11 +26,7 @@ export async function capturePhotoLibraryBackupSourceV3(catalogValue: unknown, p
 	async function* originals(): AsyncGenerator<PhotoCatalogPackInputV2> {
 		for await (const photo of metadata.photos()) {
 			check(signal);
-			const body = await Reflect.apply(loadOriginal, ports, [photo.original, signal]); check(signal);
-			if (body === null || body === undefined) throw new ReferenceError('The photo backup original is missing.');
-			const original = canonicalMediaContentBlob(body);
-			if (original.size !== photo.original.byteLength) throw new RangeError('The photo backup original byte length differs from its binding.');
-			yield Object.freeze({ photo, original });
+			yield* yieldPhotoLibraryBackupOriginalCurrentV1(photo, originalSource, signal);
 		}
 	}
 }

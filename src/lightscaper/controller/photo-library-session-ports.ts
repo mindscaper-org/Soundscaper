@@ -30,7 +30,7 @@ export interface PhotoLibrarySessionPortsV1 {
 	readonly backup?: Readonly<{
 		readSnapshot: PhotoCatalogRepositoryV1['readSnapshot'];
 		captureSmartCollectionArchiveV1: PhotoCatalogRepositoryV1['captureSmartCollectionArchiveV1'];
-		loadOriginal: (original: PhotoOriginalV1, signal?: AbortSignal) => Promise<unknown>;
+		loadOriginal?: (original: PhotoOriginalV1, signal?: AbortSignal) => Promise<unknown>;
 	}>;
 	readonly createPreviewScheduler?: (catalogId: string) => Promise<PhotoLibraryPreviewSchedulerPortV1>;
 	readonly catalog: Pick<PhotoCatalogRepositoryV1, 'loadCatalog' | 'loadPhoto' | 'publishPhotos' | 'savePhoto' | 'saveCatalog' | 'readSummaryPage' | 'readQueryPage' | 'rebuildQueryIndexPage'>

@@ -51,6 +51,7 @@ import { readPhotoStackSignalOptionsV1 } from '../catalog/photo-stack-repository
 import type { PhotoLibraryQueryV2, PhotoLibraryQueryBuildProgressV2 } from '../../common/editor/photo-library-query-port-v2.ts';
 import { createPhotoLibraryDevelopSessionV1 } from './photo-library-develop-session-v1.ts';
 import { capturePhotoLibraryDevelopOriginalSourceCurrentV1 } from './photo-library-develop-original-source-current-v1.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 
 /** Product session owns lifetime, bounded presentation pages and a single writer. */
 export class PhotoLibrarySessionV1 implements PhotoLibrarySessionPortV1, PhotoLibraryBatchRenamePortV1, PhotoLibraryBackupPortV1, PhotoLibraryOriginalRecoveryPortV1, PhotoLibraryStackPortV1 {
@@ -153,15 +154,17 @@ export class PhotoLibrarySessionV1 implements PhotoLibrarySessionPortV1, PhotoLi
 		const request = admitPhotoLibraryBackupRequestV1(options), backup = this.#ports.backup, stacks = this.#ports.stacks, catalog = this.#ports.catalog;
 		const presetSettings = this.#developPresetSettings;
 		if (!backup || !stacks || !presetSettings || typeof presetSettings.readEntry !== 'function' || typeof backup.captureSmartCollectionArchiveV1 !== 'function'
-			|| typeof backup.readSnapshot !== 'function' || typeof backup.loadOriginal !== 'function'
+			|| typeof backup.readSnapshot !== 'function' || (typeof backup.loadOriginal !== 'function' && this.#ports.originalSource === undefined)
 			|| typeof catalog.readSummaryPage !== 'function' || typeof catalog.loadPhoto !== 'function'
 			|| typeof stacks.readStackState !== 'function' || typeof stacks.readStackPage !== 'function'
 			|| typeof stacks.loadStack !== 'function') throw new Error('Photo catalog backup is unavailable.');
+		const loader = backup.loadOriginal, originalSource = capturePhotoLibraryOriginalSourceCurrentV1(this.#ports.originalSource, typeof loader === 'function'
+			? (original, signal) => Reflect.apply(loader, backup, [original, signal]) as Promise<unknown> : undefined);
 		const borrowed = {
 			stacks: { readStackState: stacks.readStackState.bind(stacks), readStackPage: stacks.readStackPage.bind(stacks), loadStack: stacks.loadStack.bind(stacks) },
 			catalog: { readSnapshot: backup.readSnapshot.bind(backup), captureSmartCollectionArchiveV1: backup.captureSmartCollectionArchiveV1.bind(backup),
 				readSummaryPage: catalog.readSummaryPage.bind(catalog), loadPhoto: catalog.loadPhoto.bind(catalog) },
-			loadOriginal: backup.loadOriginal.bind(backup),
+			originalSource,
 			developPresetSettings: { readEntry: presetSettings.readEntry.bind(presetSettings) },
 		};
 		const completed: { result: PhotoLibraryBackupResultV1 | null } = { result: null };

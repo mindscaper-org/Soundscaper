@@ -178,6 +178,7 @@ test('Session captures borrowed method identities and receivers before a held or
 		} });
 		restore.push(() => { if (descriptor) Object.defineProperty(owner, key, descriptor); else Reflect.deleteProperty(owner, key); });
 	}
+	assert.ok(backup.loadOriginal);
 	bindWitness(backup, 'readSnapshot', backup.readSnapshot); bindWitness(backup, 'loadOriginal', backup.loadOriginal);
 	bindWitness(catalog, 'readSummaryPage', catalog.readSummaryPage); bindWitness(catalog, 'loadPhoto', catalog.loadPhoto);
 	bindWitness(catalog, 'readStackState', catalog.readStackState); bindWitness(catalog, 'readStackPage', catalog.readStackPage);

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { capturePhotoLibraryBackupOriginalSourceCurrentV1 } from './photo-library-backup-original-source-current-v1.ts';
+
 import type { PhotoCatalogRepositoryV1 } from '../catalog/repository.ts';
 import { normalizePhotoSmartCollectionsStateV1 } from '../catalog/photo-smart-collection-state-v1.ts';
 import { normalizePhotoStackStateV1 } from '../catalog/photo-stack-v1.ts';
@@ -15,7 +17,7 @@ export interface PhotoLibraryBackupInventoryPorts extends PhotoLibraryBackupSour
 
 /** Pin all borrowed method identities and receivers before a held read can replace them. */
 export function borrowPhotoLibraryBackupInventoryPorts(ports: PhotoLibraryBackupInventoryPorts): PhotoLibraryBackupInventoryPorts {
-	const catalog = ports.catalog, stacks = ports.stacks;
+	const catalog = ports.catalog, stacks = ports.stacks, originalSource = capturePhotoLibraryBackupOriginalSourceCurrentV1(ports);
 	const capture = catalog.captureSmartCollectionArchiveV1, readStackState = stacks?.readStackState,
 		readStackPage = stacks?.readStackPage, loadStack = stacks?.loadStack;
 	if (typeof capture !== 'function' || typeof readStackState !== 'function'
@@ -25,7 +27,7 @@ export function borrowPhotoLibraryBackupInventoryPorts(ports: PhotoLibraryBackup
 	return { catalog: { readSnapshot: catalog.readSnapshot.bind(catalog), readSummaryPage: catalog.readSummaryPage.bind(catalog),
 		loadPhoto: catalog.loadPhoto.bind(catalog), captureSmartCollectionArchiveV1: capture.bind(catalog) },
 		stacks: { readStackState: readStackState.bind(stacks), readStackPage: readStackPage.bind(stacks), loadStack: loadStack.bind(stacks) },
-		loadOriginal: ports.loadOriginal.bind(ports) };
+		originalSource };
 }
 
 /** Shared V3 inventory audits stay under the caller's existing catalog writer, with no additional resource acquisition. */

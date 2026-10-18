@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { capturePhotoLibraryBackupOriginalSourceCurrentV1, yieldPhotoLibraryBackupOriginalCurrentV1 } from './photo-library-backup-original-source-current-v1.ts';
+import type { PhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 import type { PhotoCatalogPackInputV4 } from '../archive/catalog-pack-v4.ts';
 import type { PhotoCatalogPackInputCurrentV1 } from '../archive/catalog-pack-current-v1.ts';
 import type { PhotoCatalogPackInputV2 } from '../archive/catalog-pack-v2.ts';
@@ -15,7 +16,8 @@ import type { PhotoLibraryBackupMetadataCatalogCurrentV1 } from './photo-library
 
 export interface PhotoLibraryBackupSourcePortsCurrentV1 {
 	readonly catalog: PhotoLibraryBackupMetadataCatalogCurrentV1;
-	readonly loadOriginal: (original: PhotoOriginalV1, signal?: AbortSignal) => Promise<unknown>;
+	readonly loadOriginal?: (original: PhotoOriginalV1, signal?: AbortSignal) => Promise<unknown>;
+	readonly originalSource?: PhotoLibraryOriginalSourceCurrentV1;
 }
 interface Scalars {
 	readonly initial: PhotoCatalogSnapshotV1;
@@ -34,34 +36,27 @@ function check(signal?: AbortSignal): void { if (signal !== undefined) Reflect.a
  * cache is retained. Legacy fallback re-admits the genuine whole legacy value. */
 export async function capturePhotoLibraryBackupSourceCurrentV1(catalogValue: unknown, ports: PhotoLibraryBackupSourcePortsCurrentV1,
 	row: unknown | null, signal?: AbortSignal): Promise<Readonly<PhotoLibraryBackupSourceCurrentV1>> {
-	check(signal); const catalogId = id(catalogValue, 'backup catalog ID'), catalog = ports.catalog, loadOriginal = ports.loadOriginal;
-	if (typeof loadOriginal !== 'function') throw new TypeError('Current backup original capability is required.');
+	check(signal); const catalogId = id(catalogValue, 'backup catalog ID'), catalog = ports.catalog;
+	const originalSource = capturePhotoLibraryBackupOriginalSourceCurrentV1(ports);
 	const metadata = await capturePhotoLibraryBackupMetadataPreflightCurrentV1(catalogId, catalog, row, signal); check(signal);
 	const scalars = { initial: metadata.initial, references: metadata.references, verifyCatalog: metadata.verifyCatalog, photoPackCount: metadata.photoPackCount };
 	if (metadata.requiresRawDevelopment) return Object.freeze({ ...scalars, requiresCurrentFormat: true, requiresRawDevelopment: true, originals: rawOriginals() });
 	return metadata.requiresCurrentFormat ? Object.freeze({ ...scalars, requiresCurrentFormat: true, requiresRawDevelopment: false, originals: currentOriginals() })
 		: Object.freeze({ ...scalars, requiresCurrentFormat: false, requiresRawDevelopment: false, originals: legacyOriginals() });
 
-	async function original(photo: { readonly original: PhotoOriginalV1 }): Promise<Blob> {
-		check(signal); const body = await Reflect.apply(loadOriginal, ports, [photo.original, signal]); check(signal);
-		if (body === null || body === undefined) throw new ReferenceError('The photo backup original is missing.');
-		const blob = canonicalMediaContentBlob(body);
-		if (blob.size !== photo.original.byteLength) throw new RangeError('The photo backup original byte length differs from its binding.');
-		return blob;
-	}
 	async function* rawOriginals(): AsyncGenerator<PhotoCatalogPackInputCurrentV1> {
-		for await (const photo of metadata.photos()) yield Object.freeze({ photo, original: await original(photo) });
+		for await (const photo of metadata.photos()) yield* yieldPhotoLibraryBackupOriginalCurrentV1(photo, originalSource, signal);
 	}
 	async function* currentOriginals(): AsyncGenerator<PhotoCatalogPackInputV4> {
 		for await (const value of metadata.photos()) {
 			const photo = normalizePhotoDocumentThroughV3(value);
-			yield Object.freeze({ photo, original: await original(photo) });
+			yield* yieldPhotoLibraryBackupOriginalCurrentV1(photo, originalSource, signal);
 		}
 	}
 	async function* legacyOriginals(): AsyncGenerator<PhotoCatalogPackInputV2> {
 		for await (const value of metadata.photos()) {
 			const photo = normalizePhotoDocumentV1OrV2(value); check(signal);
-			yield Object.freeze({ photo, original: await original(photo) });
+			yield* yieldPhotoLibraryBackupOriginalCurrentV1(photo, originalSource, signal);
 		}
 	}
 }

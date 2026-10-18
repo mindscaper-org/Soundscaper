@@ -57,7 +57,7 @@ function capturePhotoLibrarySessionPortsForProfileV1<Ports extends PhotoLibraryS
 		...(restoration === undefined ? {} : { originalRestoration: { restoreCatalogOriginalBody: pin(restoration.restoreCatalogOriginalBody, restoration) } }),
 		...(originalSource === undefined ? {} : { originalSource: capturePhotoLibraryOriginalSourceCurrentV1(originalSource) }),
 		...(backup === undefined ? {} : { backup: Object.freeze({ readSnapshot: pin(backup.readSnapshot, backup),
-			captureSmartCollectionArchiveV1: pin(backup.captureSmartCollectionArchiveV1, backup), loadOriginal: pin(backup.loadOriginal, backup) }) }),
+			captureSmartCollectionArchiveV1: pin(backup.captureSmartCollectionArchiveV1, backup), ...optional(backup, 'loadOriginal') }) }),
 		...(cubeLutResources === undefined ? {} : { cubeLutResources: pin(cubeLutResources, ports) }),
 		...(maskRasterResources === undefined ? {} : { maskRasterResources: pin(maskRasterResources, ports) }),
 		...(createPreviewScheduler === undefined ? {} : { createPreviewScheduler: pin(createPreviewScheduler, ports) }),

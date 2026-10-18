@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { ZipWriter } from '@zip.js/zip.js/index-native.js';
+import { ownPhotoCatalogArchiveByteStreamCurrentV1 } from './catalog-archive-byte-stream-current-v1.ts';
 import { aggregateScapeErrors } from '../../common/editor/scape-abort.ts';
 import { SCAPE_ARCHIVE_LIMITS, SCAPE_FORMAT, SCAPE_FORMAT_VERSION } from '../../common/editor/scape-archive-limits.ts';
 import type { ScapeAssetDescriptor, ScapeManifest } from '../../common/editor/scape-archive-envelope.ts';
@@ -56,12 +57,21 @@ export async function writePhotoCatalogArchiveKernel<Document, Profile extends P
 	const writer = new ZipWriter(destination.target, { dataDescriptor: true, dataDescriptorSignature: true,
 		extendedTimestamp: true, zip64: true, level: 0, useWebWorkers: false, signal });
 	let sequence: PhotoCatalogPackSequence<Profile> | undefined, expandedBytes = 0;
-	const packs: PhotoCatalogArchivePackV1[] = [], assets: ScapeAssetDescriptor[] = [];
+	const packs: PhotoCatalogArchivePackV1[] = [], assets: ScapeAssetDescriptor[] = [], encoderCleanup: unknown[] = [];
 	const packWriter: PhotoCatalogArchivePackWriter = { async addPack(descriptor, bytes) {
 		if (assets.length >= LIMITS.maximumPacks) throw new RangeError('Photo catalog requires too many Scape asset packs.');
 		const digest = createScapeDigest(); let size = 0;
 		async function* hashed() { for await (const chunk of bytes) { consumeExpanded(chunk.byteLength); size += chunk.byteLength; digest.update(chunk); yield chunk; } }
-		await writer.add(descriptor.entry, iterableStream(hashed()), { level: 0, zip64: true, signal });
+		const source = ownPhotoCatalogArchiveByteStreamCurrentV1(hashed());
+		let failed = false, primary: unknown;
+		try { await writer.add(descriptor.entry, source.stream, { level: 0, zip64: true, signal }); }
+		catch (error) { failed = true; primary = error; }
+		try { await source.close(); }
+		catch (cleanup) {
+			if (!failed) throw cleanup;
+			if (!Object.is(primary, cleanup)) encoderCleanup.push(cleanup);
+		}
+		if (failed) throw primary;
 		assets.push({ ...descriptor, size, sha256: scapeHex(digest.digest()) });
 	} };
 	try {
@@ -89,7 +99,7 @@ export async function writePhotoCatalogArchiveKernel<Document, Profile extends P
 		await destination.finish(writer, signal, checkAbort);
 		return Object.freeze({ blob: streaming ? null : new Blob(parts, { type: SCAPE_MIME_TYPE }), byteLength: destination.byteLength, manifest, document: prepared.document });
 	} catch (error) {
-		const cleanup: unknown[] = []; try { await sequence?.close(); } catch (failure) { cleanup.push(failure); }
+		const cleanup: unknown[] = [...encoderCleanup]; try { await sequence?.close(); } catch (failure) { cleanup.push(failure); }
 		const observedAbort = signal !== undefined && Reflect.apply(nativeAborted, signal, []) === true
 			&& Object.is(error, Reflect.apply(nativeReason, signal, []));
 		const classification = { primaryIsAbort: observedAbort };
@@ -106,10 +116,4 @@ export async function writePhotoCatalogArchiveKernel<Document, Profile extends P
 		if (bytes > SCAPE_ARCHIVE_LIMITS.maximumExpandedBytes - expandedBytes) throw new RangeError('Photo archive exceeds its shared expanded byte maximum.');
 		expandedBytes += bytes;
 	}
-}
-function iterableStream(chunks: AsyncIterable<Uint8Array>): ReadableStream<Uint8Array> {
-	const iterator = chunks[Symbol.asyncIterator]();
-	return new ReadableStream<Uint8Array>({ async pull(controller) {
-		const next = await iterator.next(); if (next.done) controller.close(); else controller.enqueue(next.value);
-	}, async cancel() { await iterator.return?.(); } });
 }

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
+import { capturePhotoLibraryBackupOriginalSourceCurrentV1, yieldPhotoLibraryBackupOriginalCurrentV1 } from './photo-library-backup-original-source-current-v1.ts';
+import type { PhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 import { measurePhotoCatalogPackRecordV1, type PhotoCatalogPackInput } from '../archive/catalog-pack.ts';
 import { readValidatedPhotoCatalogRootV1 } from '../catalog/documents.ts';
 import { normalizePhotoDocumentV1 } from '../catalog/photo-document.ts';
@@ -13,7 +14,8 @@ import { array, field, id, integer, record } from '../catalog/value-validation.t
 
 export interface PhotoLibraryBackupSourcePortsV1 {
 	readonly catalog: Pick<PhotoCatalogRepositoryV1, 'readSnapshot' | 'readSummaryPage' | 'loadPhoto'>;
-	readonly loadOriginal: (original: PhotoOriginalV1, signal?: AbortSignal) => Promise<unknown>;
+	readonly loadOriginal?: (original: PhotoOriginalV1, signal?: AbortSignal) => Promise<unknown>;
+	readonly originalSource?: PhotoLibraryOriginalSourceCurrentV1;
 }
 export interface PhotoLibraryBackupSourceV1 {
 	readonly initial: PhotoCatalogSnapshotV1;
@@ -25,6 +27,7 @@ export interface PhotoLibraryBackupSourceV1 {
 export async function capturePhotoLibraryBackupSourceV1(catalogValue: unknown, ports: PhotoLibraryBackupSourcePortsV1,
 	signal?: AbortSignal): Promise<PhotoLibraryBackupSourceV1> {
 	const catalogId = id(catalogValue, 'backup catalog ID'); signal?.throwIfAborted();
+	const originalSource = capturePhotoLibraryBackupOriginalSourceCurrentV1(ports);
 	const initial = await snapshot();
 	return Object.freeze({ initial, originals: originals(), verifyCatalog });
 
@@ -64,11 +67,7 @@ export async function capturePhotoLibraryBackupSourceV1(catalogValue: unknown, p
 				const photo = normalizePhotoDocumentV1(value);
 				if (JSON.stringify(photoSummary(photo)) !== JSON.stringify(summary)) throw new PhotoCatalogRevisionConflictError('photo');
 				measurePhotoCatalogPackRecordV1(photo);
-				const body = await ports.loadOriginal(photo.original, signal); signal?.throwIfAborted();
-				if (body === null || body === undefined) throw new ReferenceError('The photo backup original is missing.');
-				const original = canonicalMediaContentBlob(body);
-				if (original.size !== photo.original.byteLength) throw new RangeError('The photo backup original byte length differs from its binding.');
-				yield Object.freeze({ photo, original });
+				yield* yieldPhotoLibraryBackupOriginalCurrentV1(photo, originalSource, signal);
 			}
 			const cursor = field(page, 'continuation');
 			if (cursor === null) { continuation = null; }

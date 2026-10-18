@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { capturePhotoLibraryBackupOriginalSourceCurrentV1 } from '../photo-library-backup-original-source-current-v1.ts';
+
 import type { PhotoCatalogRepositoryV2 } from '../../catalog/photo-catalog-repository-v2.ts';
 import { normalizePhotoSmartCollectionsStateV1 } from '../../catalog/photo-smart-collection-state-v1.ts';
 import { normalizePhotoStackStateV1 } from '../../catalog/photo-stack-v1.ts';
@@ -32,8 +34,9 @@ export function borrowPhotoLibraryBackupInventoryPortsForProfileV1<Mode extends 
 	const catalog = ports.catalog, stacks = ports.stacks;
 	const snapshot = catalog.readSnapshot, summaries = catalog.readSummaryPage, photo = catalog.loadPhoto,
 		capture = catalog.captureSmartCollectionArchiveV1, state = stacks.readStackState, page = stacks.readStackPage,
-		stack = stacks.loadStack, original = ports.loadOriginal;
-	if ([snapshot, summaries, photo, capture, state, page, stack, original].some(method => typeof method !== 'function')) {
+		stack = stacks.loadStack;
+	const originalSource = capturePhotoLibraryBackupOriginalSourceCurrentV1(ports);
+	if ([snapshot, summaries, photo, capture, state, page, stack].some(method => typeof method !== 'function')) {
 		throw new TypeError('Current backup requires complete catalog, stack, saved and original capabilities.');
 	}
 	return Object.freeze({ catalog: Object.freeze({
@@ -44,7 +47,7 @@ export function borrowPhotoLibraryBackupInventoryPortsForProfileV1<Mode extends 
 	}), stacks: Object.freeze({ readStackState: (...args: Parameters<typeof state>) => Reflect.apply(state, stacks, args),
 		readStackPage: (...args: Parameters<typeof page>) => Reflect.apply(page, stacks, args),
 		loadStack: (...args: Parameters<typeof stack>) => Reflect.apply(stack, stacks, args) }),
-		loadOriginal: (...args: Parameters<typeof original>) => Reflect.apply(original, ports, args) }) as PortsFor<Mode>;
+		originalSource }) as PortsFor<Mode>;
 }
 
 /** The metadata owner has already admitted its wire profile. Preserve the
