@@ -2,6 +2,7 @@
 
 import { readClosedDomainArray as array, readClosedDomainField as field, readClosedDomainRecord as record } from '../../closed-domain-value.ts';
 import type { PhotoLibraryPageV1 } from '../../photo-library-session-port-v1.ts';
+import { PHOTO_LIBRARY_SAVED_COLLECTION_LIMITS_V1 as CURSOR_LIMITS } from '../../photo-library-saved-collection-port-v1.ts';
 import { PhotoLibrarySelectionV1, readPhotoLibrarySelectionIdV1, readPhotoLibrarySelectionIdsV1 } from './photo-library-selection-v1.ts';
 import { createPhotoLibraryCullAdvanceV1, type PhotoLibraryCullAdvanceRequestV1 } from './photo-library-cull-advance-v1.ts';
 
@@ -121,7 +122,9 @@ function readPageIds(value: unknown): readonly string[] {
 	text(field(input, 'catalogName', 'culling page'), 256, 'catalog name');
 	const count = field(input, 'totalCount', 'culling page');
 	if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) throw new RangeError('Invalid culling catalog count.');
-	const cursor = field(input, 'cursor', 'culling page'); if (cursor !== null) text(cursor, 2048, 'page cursor');
+	const cursor = field(input, 'cursor', 'culling page');
+	if (cursor !== null && (typeof cursor !== 'string' || cursor.length > CURSOR_LIMITS.maximumCursorBytes
+		|| new TextEncoder().encode(cursor).byteLength > CURSOR_LIMITS.maximumCursorBytes)) throw new TypeError('Invalid bounded page cursor.');
 	const rows = array(field(input, 'rows', 'culling page'), 'culling rows', 0, 64);
 	if (rows.length > count) throw new RangeError('Culling page exceeds its catalog count.');
 	const ids = rows.map(value => {
