@@ -28,9 +28,11 @@ The three shared failures have focused corrections:
   All 12 focused checks pass. A fresh full Node gate remains required.
 
 The ordinary browser invocation on frozen source `aeec86704665` is still
-running. It has recorded five failures: Chromium Project Bin relinking,
-Firefox original-file overwrite readiness, WebKit initial navigation and two
-WebKit tempo-entry persistence cases. Each retains its original failed result.
+running and has recorded failures across all three engines and products.
+These include Project Bin relinking, original-file overwrite readiness,
+initial navigation, tempo entry, Motion preview and PNG delivery, and audio
+editor workflows. Each retains its original failed result; saved evidence
+has not established a common cause.
 The overwrite fixture now waits for the public import-ready state before
 opening the menu (`f4b64a747`); all six focused scenarios pass across Chromium,
 Firefox and WebKit. One unchanged relink diagnostic and one unchanged tempo
@@ -51,8 +53,56 @@ growth, cancellation/recovery, retained outputs and physical/process closure.
 Both applications exited with code zero. The aggregate's older launch/scene/
 successor scripts retain their original per-Electron exit-code observation
 limitation; the duration's strict application results do not broaden that claim.
-Current maximum-workload qualification remains open; planes, lights and index
-have not yet run on this source. No maximum qualification is claimed here.
+On the same source, the original maximum-quality, 64-plane and 32-light
+workloads passed their independent picture, alpha, timestamp, memory and
+closure checks. The 32,768-frame index workload failed its original retained
+PSS-growth limit: 70,405,632 bytes exceeded 67,108,864 bytes. It rendered all
+frames, but independent picture, alpha, exact PCM and timestamp qualification
+had not run. Its physical/source/artifact/process audit passed; the export
+remains unqualified. Original limits, measurement windows and failures remain
+unchanged. Temporary Linux sandbox helper custody was fully restored and
+independently checked.
+
+Source `0241c6e1c` passed the complete `npm run check:static` gate, including
+its input and process audit. Source `6463b7e69` subsequently fixes production
+export audio cache retention: each successful block releases unused historical
+windows, while the global 16 MiB budget and preview LRU behavior remain unchanged.
+The production-path regression failed before the correction; all 46 focused
+Motion cases, strict test and Motion production types, changed-file lint and
+the Motion browser build pass. Exact PCM joins, simultaneous source windows,
+cancellation and preview seeking remain covered. Full repository lint also
+passed on the final five working-file bodies; the commit occurred during lint
+without changing those bodies. The original index workload has not yet
+qualified this source. Focused checks do not establish the full retained-memory
+cause or acceptance. A new private-project package attempt on this source
+passed native verification and the staging producer, then failed dependency
+lookup during packaging; final stage/package verification did not run. Its
+independent input, artifact and process audit passed. The next package run uses
+the normal project directory and its existing dependency lookup.
+
+The first-paint readiness repair (`286fe818`) keeps preview controls disabled
+and the status working until the current project has published a painted frame.
+Its mounted-dialog regression fails on the unchanged UI for delayed first
+frames and project replacement; the immediate-frame control passes. All 43
+focused preview cases, changed-file lint, strict test types, the Motion build
+and the unchanged existing Chromium preview workflow pass. The initial static
+typecheck exhausted its default heap; the bounded 12 GiB static invocation
+passed. Application tests retain the default heap. This repairs the readiness
+contract without establishing the cause of historical browser timeouts.
+
+The original Windows x64 build on source `0241c6e1c` failed at libvpx because
+the assembler was unavailable. After the NASM installation/PATH corrections
+(`d41fbcd5`, `0e227882`), a new build found NASM but failed because libvpx was
+on the wrong compiler/linker path. Both failed builds retain their independent
+source, tool, artifact and process audits; neither reached the Motion host,
+self-tests or result verifier. The recipe correction (`fe40fc1b`) selects the
+pinned upstream MSVC project path only for Windows libvpx. Its five target-plan
+controls and 14 focused Motion checks, strict types, changed-file lint and both
+source audits pass. Actual native compilation on that source remains required.
+The refreshed shared native manifests also require a fresh Linux native build
+and receipt before new packaging. Earlier native results retain their original
+source identities; they are not retagged or reused against the changed closure.
+The assistance runtime closure is unchanged.
 
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
@@ -66,9 +116,22 @@ Current retained receipts are relative to
 | Nightly site correction | `nightly-motion-site-contract-fix-20261018/qualification.json` |
 | Overwrite readiness scenarios | `original-capacity-diagnostic-f4b64a747-20261018/run/closed.json` |
 | Tempo diagnostics plumbing | `tempo-input-recorder-plumbing-20261018/review.json` |
-| Current Linux package | `current-6ab2c71d-native-qualification/qualification.json` |
-| Current Linux aggregate | `current-6ab2c71d-native-qualification/installed-preparation/aggregate/qualification.json` |
-| Current native duration | `current-6ab2c71d-native-qualification/installed-preparation/duration/qualification.json` |
+| Linux package, `6ab2c71d4` | `current-6ab2c71d-native-qualification/qualification.json` |
+| Linux aggregate, `6ab2c71d4` | `current-6ab2c71d-native-qualification/installed-preparation/aggregate/qualification.json` |
+| Native duration, `6ab2c71d4` | `current-6ab2c71d-native-qualification/installed-preparation/duration/qualification.json` |
+| Maximum quality | `current-6ab2c71d-native-qualification/installed-preparation/maximum-v2/actuals/quality/qualification.json` |
+| Maximum planes | `current-6ab2c71d-native-qualification/installed-preparation/maximum-v2/actuals/planes/qualification.json` |
+| Maximum lights | `current-6ab2c71d-native-qualification/installed-preparation/maximum-v2/actuals/lights/qualification.json` |
+| Failed maximum index and passed physical closure | `current-6ab2c71d-native-qualification/installed-preparation/maximum-v2/actuals/index/qualification.json` |
+| Completed helper restoration | `current-6ab2c71d-native-qualification/sandbox-return/qualification.json` |
+| Complete static gate, `0241c6e1c` | `current-final-source-static-0241c6e1c-20261018/qualification.json` |
+| Export audio retention correction | `motion-audio-block-retention-6463b7e69-20261018/focused-validation.json` |
+| Full lint on the correction's final file bodies | `motion-audio-block-retention-6463b7e69-20261018/full-lint-validation.json` |
+| Failed private-project package and passed physical audit | `current-6463b7e69-native-preparation/owner-failed-qualification.json` |
+| First-paint readiness correction | `first-paint-readiness-20261018/final-validation.json` |
+| Merged first-paint auxiliary retirement | `first-paint-readiness-20261018/retired-auxiliary/retirement.json` |
+| Windows NASM installation/PATH corrections | `windows-x64-prerequisites-20261018/nasm-ci-path-fix-commit-receipt.json` |
+| Windows libvpx recipe correction | `windows-x64-prerequisites-20261018/libvpx-msvc-fix-commit-receipt.json` |
 
 These results retain their exact source attribution. The subsequent test and
 documentation commits do not retag frozen executions. Fresh complete static,
