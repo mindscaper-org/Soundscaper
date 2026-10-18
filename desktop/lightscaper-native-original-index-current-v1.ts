@@ -50,7 +50,9 @@ export class LightscaperNativePhotoOriginalIndexCurrentV1 {
 
 	get(storageKeyValue: unknown): Readonly<LightscaperNativeOriginalBindingCurrentV1> | null {
 		const storageKey = readLightscaperNativeOriginalStorageKeyCurrentV1(storageKeyValue);
-		const row = this.#database.prepare(`SELECT storage_key, content_sha256, byte_length FROM ${TABLE} WHERE storage_key = ?`).get(storageKey);
+		const row = this.#database.prepare(`SELECT storage_key,
+			CASE WHEN typeof(content_sha256)='text' AND length(CAST(content_sha256 AS BLOB))=64 THEN content_sha256 END AS content_sha256,
+			byte_length FROM ${TABLE} WHERE storage_key = ?`).get(storageKey);
 		if (row === undefined) return null;
 		const binding = readBinding(row.storage_key, row.byte_length, row.content_sha256);
 		if (binding.storageKey !== storageKey) throw new Error('Native Original stored key differs from the requested binding.');

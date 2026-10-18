@@ -7,9 +7,14 @@ import { dirname, join, resolve } from 'node:path';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK } from './lightscaper-native-original-contract-current-v1.ts';
 import { deriveLightscaperNativePhotoOriginalPathsCurrentV1, lightscaperNativePhotoOriginalBodyPathCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
 import type { LightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
+import type { LightscaperNativeOriginalBodyHeadCurrentV1 } from './lightscaper-native-original-body-head-current-v1.ts';
 import type { CatalogOriginalInspectionOutcomeV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
 
 type Paths = ReturnType<typeof deriveLightscaperNativePhotoOriginalPathsCurrentV1>;
+export type LightscaperNativeOriginalFileLocatorCurrentV1 = Pick<LightscaperNativeOriginalBodyHeadCurrentV1, 'contentSha256' | 'locatorId' | 'byteLength' | 'layout'>;
+type Locator = LightscaperNativeOriginalFileLocatorCurrentV1;
+const CHECK = AbortSignal.prototype.throwIfAborted;
+function check(signal?: AbortSignal): void { if (signal !== undefined) Reflect.apply(CHECK, signal, []); }
 type Stamp = Pick<BigIntStats, 'dev' | 'ino' | 'size' | 'mtimeNs' | 'ctimeNs'>;
 const MAXIMUM_CACHED_IDENTITIES = 32;
 const INSPECTION_RETIREMENT_FAILURES = new WeakSet<object>();
@@ -27,12 +32,23 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 	readonly #openFile: typeof open;
 	readonly #retirementFailures: unknown[] = [];
 	readonly #unretiredHandles = new Set<FileHandle>();
+	readonly #unretiredProducers = new Set<AsyncIterator<Uint8Array>>();
 	constructor(paths: Paths, openFile: typeof open = open) { this.#paths = paths; this.#openFile = openFile; }
 
-	async put(binding: LightscaperNativeOriginalBindingCurrentV1, chunks: AsyncIterable<Uint8Array>, signal?: AbortSignal): Promise<void> {
-		this.#assertRetired(); signal?.throwIfAborted();
+	async put(binding: LightscaperNativeOriginalBindingCurrentV1, chunks: AsyncIterable<Uint8Array>, signal?: AbortSignal, locator?: Locator, fresh = false): Promise<void> {
+		this.#assertRetired(); check(signal);
+		if (fresh) {
+			// Exact repair may replace a positively absent managed body tree.
+			// All parent/staging ownership remains required before creating it.
+			for (const path of layout(this.#paths).filter(value => value !== this.#paths.bodiesRoot)) await realDirectory(path, false);
+			try { await realDirectory(this.#paths.bodiesRoot, false); }
+			catch (error) {
+				if (!hasCode(error, 'ENOENT')) throw error;
+				await realDirectory(this.#paths.bodiesRoot, true, path => this.#syncDirectory(path));
+			}
+		}
 		await assertLayout(this.#paths);
-		const target = lightscaperNativePhotoOriginalBodyPathCurrentV1(this.#paths, binding.contentSha256);
+		const target = locatorPath(this.#paths, binding, locator);
 		await realDirectory(dirname(target), true, path => this.#syncDirectory(path));
 		const stage = join(this.#paths.stagingRoot, `${randomUUID()}.part`);
 		const output = await this.#openFile(stage, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
@@ -45,31 +61,31 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 				const item = await iterator.next();
 				if (item.done === true) { done = true; break; }
 				const borrowed = item.value;
-				signal?.throwIfAborted();
+				check(signal);
 				if (!(borrowed instanceof Uint8Array) || borrowed.byteLength < 1 || borrowed.byteLength > CHUNK
 					|| borrowed.byteLength > binding.byteLength - offset) throw new RangeError('Native Original stream chunk leaves its bounded body.');
 				// Snapshot before any await: an upload producer may reuse its buffers.
 				const bytes = Uint8Array.from(borrowed);
 				hash.update(bytes);
 				for (let written = 0; written < bytes.length;) {
-					signal?.throwIfAborted();
+					check(signal);
 					const result = await output.write(bytes, written, bytes.length - written, offset + written);
 					if (result.bytesWritten < 1) throw new Error('Native Original stage stopped accepting bytes.');
 					written += result.bytesWritten;
 				}
 				offset += bytes.length;
 			}
-			signal?.throwIfAborted();
+			check(signal);
 			if (offset !== binding.byteLength || hash.digest('hex') !== binding.contentSha256) throw new Error('Native Original stream length or SHA-256 differs from its binding.');
 			await output.sync();
 			await this.#closeHandle(output); outputClosed = true;
 			await assertLayout(this.#paths); await realDirectory(dirname(target), false);
-			signal?.throwIfAborted();
+			check(signal);
 			try { await link(stage, target); }
-			catch (error) { if (!hasCode(error, 'EEXIST')) throw error; }
+			catch (error) { if (!hasCode(error, 'EEXIST') || fresh) throw error; }
 			// Exclusive hard linking publishes one complete file. An existing
 			// winner must authenticate; no rename/copy fallback can replace it.
-			await this.verify(binding, signal, true);
+			await this.verify(binding, signal, true, locator);
 			await this.#syncDirectory(dirname(target));
 		} catch (error) { failed = true; primary = error; }
 		const cleanup: unknown[] = [];
@@ -85,30 +101,30 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 					}
 				}
 			}
-			catch (error) { producerRetired = false; cleanup.push(error); this.#retirementFailures.push(error); }
+			catch (error) { producerRetired = false; this.#unretiredProducers.add(iterator); cleanup.push(error); this.#retirementFailures.push(error); }
 		}
 		if (!outputClosed) {
 			try { await this.#closeHandle(output); outputClosed = true; }
 			catch (error) { cleanup.push(error); }
 		}
 		if (outputClosed && producerRetired) {
-			try { await unlink(stage); } catch (error) { if (!hasCode(error, 'ENOENT')) cleanup.push(error); }
+			try { await unlink(stage); } catch (error) { if (!hasCode(error, 'ENOENT')) { cleanup.push(error); this.#retirementFailures.push(error); } }
 		}
 		if (cleanup.length) throw new AggregateError([...(failed ? [primary] : []), ...cleanup], 'Native Original stage retirement failed.');
 		if (failed) throw primary;
 	}
 
-	async verify(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal, force = false): Promise<void> {
-		const opened = await this.#open(binding, signal, force);
+	async verify(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal, force = false, locator?: Locator): Promise<void> {
+		const opened = await this.#open(binding, signal, force, locator);
 		await this.#closeHandle(opened.handle);
 	}
 
 	/** Inspection always reads the full actual body, even after a cached verify.
 	 * Only positive native ENOENT and stable size/digest mismatches are outcomes;
 	 * layout, permission, changed-file and retirement failures remain errors. */
-	async inspect(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal): Promise<CatalogOriginalInspectionOutcomeV1> {
+	async inspect(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal, locator?: Locator): Promise<CatalogOriginalInspectionOutcomeV1> {
 		this.#assertRetired(); inspectionCheck(signal);
-		const path = lightscaperNativePhotoOriginalBodyPathCurrentV1(this.#paths, binding.contentSha256);
+		const path = locatorPath(this.#paths, binding, locator);
 		this.#verified.delete(path);
 		for (const required of layout(this.#paths).filter(value => value !== this.#paths.bodiesRoot)) await realDirectory(required, false);
 		if (!await inspectionDirectories([this.#paths.bodiesRoot, dirname(path)])) {
@@ -144,23 +160,24 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 		}, true);
 	}
 
-	async read(binding: LightscaperNativeOriginalBindingCurrentV1, offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
-		const { handle, stamp, path } = await this.#open(binding, signal);
+	async read(binding: LightscaperNativeOriginalBindingCurrentV1, offset: number, length: number, signal?: AbortSignal, locator?: Locator): Promise<Uint8Array> {
+		const { handle, stamp, path } = await this.#open(binding, signal, false, locator);
 		return this.#withHandle(handle, async () => {
 			try {
 				const bytes = new Uint8Array(length); let read = 0;
 				while (read < length) {
-					signal?.throwIfAborted();
+					check(signal);
 					const value = await handle.read(bytes, read, length - read, offset + read);
 					if (value.bytesRead < 1) throw new Error('Native Original ended during its bounded read.');
 					read += value.bytesRead;
 				}
-				signal?.throwIfAborted();
+				check(signal);
 				if (!same(stamp, await handle.stat({ bigint: true })) || !same(stamp, await regularFile(path))) throw new Error('Native Original changed during its bounded read.');
 				return bytes;
 			} catch (error) { this.#verified.delete(path); throw error; }
 		});
 	}
+	retirementUnproved(): boolean { return this.#retirementFailures.length > 0; }
 	async syncIndexDirectory(): Promise<void> { this.#assertRetired(); await this.#syncDirectory(this.#paths.libraryRoot); }
 
 	retire(): Promise<void> {
@@ -191,9 +208,9 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 		await this.#withHandle(directory, () => directory.sync());
 	}
 
-	async #open(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal, force = false): Promise<Readonly<{ handle: FileHandle; stamp: Stamp; path: string }>> {
-		this.#assertRetired(); signal?.throwIfAborted(); await assertLayout(this.#paths);
-		const path = lightscaperNativePhotoOriginalBodyPathCurrentV1(this.#paths, binding.contentSha256);
+	async #open(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal, force = false, locator?: Locator): Promise<Readonly<{ handle: FileHandle; stamp: Stamp; path: string }>> {
+		this.#assertRetired(); check(signal); await assertLayout(this.#paths);
+		const path = locatorPath(this.#paths, binding, locator);
 		await realDirectory(dirname(path), false);
 		const before = await regularFile(path);
 		if (before.size !== BigInt(binding.byteLength)) throw new Error('Native Original length differs from its binding.');
@@ -205,7 +222,7 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 			if (force || !cached || !same(cached, opened)) {
 				const hash = createHash('sha256'), bytes = new Uint8Array(CHUNK);
 				for (let offset = 0; offset < binding.byteLength;) {
-					signal?.throwIfAborted();
+					check(signal);
 					const length = Math.min(bytes.length, binding.byteLength - offset);
 					const result = await handle.read(bytes, 0, length, offset);
 					if (result.bytesRead < 1) throw new Error('Native Original ended while authenticating its bytes.');
@@ -213,7 +230,7 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 				}
 				if (hash.digest('hex') !== binding.contentSha256) throw new Error('Native Original SHA-256 differs from its binding.');
 			}
-			signal?.throwIfAborted();
+			check(signal);
 			const after = await handle.stat({ bigint: true });
 			if (!same(opened, after) || !same(after, await regularFile(path))) throw new Error('Native Original changed during authentication.');
 			this.#verified.delete(path); this.#verified.set(path, after);
@@ -279,4 +296,13 @@ async function inspectionDirectories(paths: readonly string[]): Promise<boolean>
 		catch (error) { if (hasCode(error, 'ENOENT')) return false; throw error; }
 	}
 	return true;
+}
+
+/** Fixed private derivation; no caller path or fallback after a chosen head. */
+function locatorPath(paths: Paths, binding: LightscaperNativeOriginalBindingCurrentV1, locator?: Locator): string {
+	if (!locator) return lightscaperNativePhotoOriginalBodyPathCurrentV1(paths, binding.contentSha256);
+	if (locator.contentSha256 !== binding.contentSha256 || locator.byteLength !== binding.byteLength) throw new Error('Native Original locator contradicts its physical binding.');
+	if (locator.layout === 'legacy-sha-v1' && locator.locatorId === 'legacy') return lightscaperNativePhotoOriginalBodyPathCurrentV1(paths, binding.contentSha256);
+	if (locator.layout !== 'generation-v1' || !/^[a-f0-9]{64}$/u.test(locator.locatorId)) throw new TypeError('Native Original locator is malformed.');
+	return join(paths.bodiesRoot, binding.contentSha256.slice(0, 2), `${binding.contentSha256}.${locator.locatorId}.body`);
 }
