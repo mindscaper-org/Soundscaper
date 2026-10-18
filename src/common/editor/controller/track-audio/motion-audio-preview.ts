@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from '../../abort-race.ts';
 import type { MotionAudioMixBlock, MotionAudioMixer } from '../../motion-audio-contract.ts';
 import { addRationals, compareRationals, divideRationals, multiplyRationals, normalizeRational, roundRational, subtractRationals, type Rational, type RationalInput } from '../../timeline-time.ts';
 import { motionInteger } from '../../motion-values.ts';
@@ -36,7 +37,7 @@ export function createMotionAudioPreview(options: MotionAudioPreviewOptions) {
 		schedule: (callback: () => void, delayMs: number): unknown => setTimeout(callback, delayMs), cancel: (token: unknown) => clearTimeout(token as ReturnType<typeof setTimeout>) };
 	return {
 		clock,
-		async play(request: Readonly<{ compositionId: string; startTime: RationalInput; endTime: RationalInput }>): Promise<void> {
+		async play(request: Readonly<{ compositionId: string; startTime: RationalInput; endTime: RationalInput }>, onStart?: () => void): Promise<void> {
 			if (disposed) throw new Error('Motion audio preview is disposed.');
 			const composition = options.mixer.revision.project.compositions.find((value) => value.id === request.compositionId);
 			if (!composition) throw new ReferenceError(`Motion composition ${request.compositionId} is missing.`);
@@ -50,7 +51,7 @@ export function createMotionAudioPreview(options: MotionAudioPreviewOptions) {
 				const length = multiplyRationals(subtractRationals(end, start), output.sampleRate);
 				const session: Playback = { generation: own, compositionId: request.compositionId, start: multiplyRationals(start, output.sampleRate), total: roundRational(length.num, length.den, 'enclosingEnd'), cursor: 0, cancellation: new AbortController(), output };
 				current = session;
-				task = prime(session); flight = task; await task;
+				task = prime(session, onStart); flight = task; await task;
 			} catch (error) { if (!disposed && own === generation) { fail(error); throw error; } }
 			finally { if (task && flight === task) flight = null; }
 		},
@@ -79,12 +80,14 @@ export function createMotionAudioPreview(options: MotionAudioPreviewOptions) {
 			|| block.interleaved.length !== sampleCount * channels || compareRationals(block.startSample, addRationals(session.start, session.cursor)) !== 0) throw new Error('Motion audio preview received a stale or malformed mix block.');
 		session.cursor += sampleCount; return block;
 	}
-	async function prime(session: Playback): Promise<void> {
+	async function prime(session: Playback, onStart?: () => void): Promise<void> {
 		const output = session.output;
-		await output.resume(); if (!valid(session)) return;
+		await raceAbortableRead(() => output.resume(), session.cancellation.signal, 'immediate'); if (!valid(session)) return;
 		const ready: MotionAudioMixBlock[] = [];
 		while (valid(session) && ready.length < maximumQueued && session.cursor < session.total) ready.push(await mixNext(session));
 		if (!valid(session)) return;
+		// Start visual playback against the still-zero sample clock before scheduling can advance it.
+		onStart?.(); if (!valid(session)) return;
 		scheduledUntil = output.currentTime + 0.05; let offset = 0;
 		for (const block of ready) { schedule(session, block, offset); offset += block.sampleCount; }
 		status = 'playing'; notify();

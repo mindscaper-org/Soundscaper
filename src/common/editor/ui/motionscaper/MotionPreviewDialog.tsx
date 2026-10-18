@@ -89,8 +89,10 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 				manualFrame.current = false;
 				const range = { compositionId: composition.id, startTime: divideRationals(compareRationals(frame, area.startFrame) < 0 || compareRationals(frame, area.endFrame) >= 0 ? area.startFrame : frame, composition.frameRate),
 					endTime: divideRationals(area.endFrame, composition.frameRate) };
-				setBuffering(true); setError(null); await audio.current?.play(range);
-				if (generation === playback.current) { client.current?.play(range); setBuffering(false); }
+				const start = () => { if (generation === playback.current) client.current?.play(range); };
+				setBuffering(true); setError(null);
+				if (audio.current) await audio.current.play(range, start); else start();
+				if (generation === playback.current) setBuffering(false);
 			}
 		} catch (failure) { if (generation === playback.current) { setBuffering(false); setError(failure instanceof Error ? failure.message : copy.motionscaperPreviewFailed!); } }
 	};
