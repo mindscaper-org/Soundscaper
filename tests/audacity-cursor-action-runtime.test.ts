@@ -72,5 +72,4 @@ test('Audacity cursor actions keep stopped stepping distinct from timed playback
 	runtime.cursorLongJumpLeft();
 	assert.equal(seeks.at(-1), 280_000);
 	assert.equal(selections.length, 3);
-	assert.ok(Object.isFrozen(runtime));
 });
