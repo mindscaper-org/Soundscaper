@@ -1,82 +1,101 @@
 # Motionscaper final integration status
 
-Status: **M01–M12 In progress**, updated 2026-10-18. The integrated worker fix
-`d7f9f655f` passes 84 focused Motion cases, full strict types, changed-file lint,
-full repository lint, size and controller ownership checks. It still needs the
-current complete gates and native maximum workloads. No milestone is complete.
+Status: **M01–M12 In progress**, updated 2026-10-18. No milestone is complete.
+The integration includes the preview progress/cancellation repair and the
+subsequent build, CI and test corrections described below. Complete current
+regression, coverage and release acceptance remain open.
 
-During complete Node validation on `aeec86704665`, the eager-to-lazy chunk
-invariant found that the new preview watchdog had the general controller owner.
-The watchdog and drain now share `motion-domain` with their preview client and
-protocol. The new ownership regression failed before this correction; all 40
-focused chunk, worker and reachability checks pass afterward, including the
-original invariant. This changes build ownership only. The existing full runs
-remain attributed to their frozen source and do not qualify this correction.
+The preview repair (`d7f9f655f`) passes 84 focused Motion cases, full strict
+types, full and changed-file lint, size and controller ownership checks.
+Validated completed work renews only the 30-second inactivity deadline; the
+600-second absolute frame deadline remains fixed. Cancellation drains before
+worker reuse. Absolute exhaustion remains an error, with worker recreation
+reserved for a later request.
 
-Earlier source `baaeb3816` passed the complete static gate and all five Node
-partitions: 27,462 passes, 17 declared skips and zero failures, including all
-1,227 Motion cases. Its linked-composition suite passed all 39 cases and its
-dual-origin suite passed all nine cases. The original 300/1,200-frame native
-duration workload and its independent picture, alpha, PCM, timestamp, memory
-and closure audits passed.
+The complete Node run on frozen source `aeec86704665` closed failed:
+27,940 tests, 27,923 passes, three failures and 14 declared skips. All 1,250
+Motion tests passed, including the pinned real native MOV alpha/PCM checks.
+The three shared failures have focused corrections:
 
-The same source's ordinary browser run finished with 7,268 passes, 308 declared
-skips and eight failures from 7,584 cases. Chromium had six failures, WebKit
-two and Firefox none; no retries or flaky results were recorded. The physical
-process, writer and port checks passed. Post-input qualification is incomplete:
-the final guard found that the canonical worktree had advanced from
-`52ae9c43c` to `23762c9e1` while the separate producer remained on source
-`baaeb3816`. Its original refusal and absent post-input receipt are preserved.
-The failed run's raw coverage is excluded from the accepted coverage union.
+- `6c601aea3`: preview watchdog/drain modules stay in the lazy `motion-domain`
+  chunk. The new regression failed before the correction; all 40 focused
+  chunk, worker and reachability checks pass afterward. The original startup
+  invariant and 500,000-byte chunk ceiling remain unchanged.
+- `6939c9572`: Motion CI selects native tooling and Node architecture for each
+  target, including Windows ARM64 without the unsupported Chocolatey path.
+  All 19 focused checks pass; this is not actual Windows or macOS execution.
+- `6ab2c71d4`: the nightly browser contract includes all four product sites.
+  All 12 focused checks pass. A fresh full Node gate remains required.
 
-The canonical advance contains two merges from `main`. Those changes are
-preserved in `feat/motionscaper-integration-20261017`, together with the nine
-pending commits through `baaeb3816`. The EQ import conflict retains both the
-newer native-input tone control and the reviewed raster probe. Motion CI
-contracts now follow the maintained split between candidate static/Node checks
-and the complete Quality workflow.
+The ordinary browser invocation on frozen source `aeec86704665` is still
+running. It has recorded five failures: Chromium Project Bin relinking,
+Firefox original-file overwrite readiness, WebKit initial navigation and two
+WebKit tempo-entry persistence cases. Each retains its original failed result.
+The overwrite fixture now waits for the public import-ready state before
+opening the menu (`f4b64a747`); all six focused scenarios pass across Chromium,
+Firefox and WebKit. One unchanged relink diagnostic and one unchanged tempo
+scenario also passed, which does not explain their original failures.
+`010e53c33` adds passive, bounded failure-only keyboard/input diagnostics to the
+two WebKit tempo cases. Strict browser types, changed-file lint and controlled
+blank-page plumbing checks pass; original keys, assertions and timers are
+unchanged. This adds evidence collection, not a product fix or a cause claim.
+The other browser failures remain unresolved. Failed raw coverage stays opaque
+and unadmitted; no current complete browser or coverage acceptance is claimed.
 
-All eight focused browser diagnostics passed on integrated source `9323a1eda`
-with the original case bodies, limits and no retries. The paste selector fix is
-verified: clip IDs are scoped to timeline groups. The other seven failures did
-not reproduce, so their causes remain unknown. This focused pass does not
-replace the failed complete browser gate or qualify the later worker fix.
-
-The earlier source's native maximum-quality profile passed. Its maximum-plane
-profile failed after the preview worker disappeared near the original
-30-second request deadline; the other two profiles were not launched. The
-worker fix renews inactivity only after validated completed work, retains a
-600-second absolute frame limit, drains cancellation before reuse and leaves
-absolute exhaustion as a render error. It recreates the worker for a later
-request. The original planes, lights and index workloads remain to be run on
-the fixed source; the failed historical result remains failed.
-
-All five earlier Node coverage partitions were admitted and compacted with
-their original source attribution. They do not establish current coverage or
-satisfy the combined Node/browser floors. Accepted current coverage, maximum
-workloads and external release qualification remain open.
+On source `6ab2c71d4801375b62ee48d1ea4a54b7954cebc3`, the packaged Linux x64
+five-workflow aggregate passed launch, scene, authored-title, successor delivery
+and saved-link workflows. The original 300/1,200-frame, 160×90, 30 fps native
+duration workload also passed. Its independent audit verifies selected picture
+and alpha bounds, all frame/audio timestamps, exact 48 kHz stereo PCM, memory
+growth, cancellation/recovery, retained outputs and physical/process closure.
+Both applications exited with code zero. The aggregate's older launch/scene/
+successor scripts retain their original per-Electron exit-code observation
+limitation; the duration's strict application results do not broaden that claim.
+Current maximum-workload qualification remains open; planes, lights and index
+have not yet run on this source. No maximum qualification is claimed here.
 
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
 
 | Evidence | Receipt |
 | --- | --- |
-| Full static | `current-final-source-static-baaeb3816-20261016/qualification.json` |
-| Full Node | `current-baaeb3816-node/qualification.json` |
-| Linked / dual-origin | `current-final-source-browser-baaeb3816-20261016/linked/qualification.json`; `dual-origin/qualification.json` in the same root |
-| Failed ordinary browser | `current-final-source-browser-baaeb3816-20261016/ordinary/failed-gate-handoff.json`; `final-failure-map.json` beside it |
-| Native duration | `current-baaeb3816-native-qualification/installed-preparation/duration/qualification.json` |
-| Eight focused browser diagnostics | `integration-browser-diagnostic-20261017/rebound-9323a1eda081-inventory-v2/handoff.json` |
-| Worker progress fix | `preview-progress-final-validation-20261017/final-validation.json` |
-| Earlier Node coverage processing | `node-coverage-baaeb3816-admission-v3-preparation-20261017/qualification.json` |
-| Native maximum quality | `current-baaeb3816-native-qualification/installed-preparation/maximum-v2/qualification-quality.json` |
+| Preview progress repair | `preview-progress-final-validation-20261017/final-validation.json` |
+| Failed complete Node run, `aeec86704665` | `current-aeec8670-node-final-20261017/qualification.json` |
+| Lazy chunk correction | `preview-watchdog-chunk-owner-fix-20261018/qualification.json` |
+| CI native tooling correction | `motion-native-ci-fix-20261018/qualification.json` |
+| Nightly site correction | `nightly-motion-site-contract-fix-20261018/qualification.json` |
+| Overwrite readiness scenarios | `original-capacity-diagnostic-f4b64a747-20261018/run/closed.json` |
+| Tempo diagnostics plumbing | `tempo-input-recorder-plumbing-20261018/review.json` |
+| Current Linux package | `current-6ab2c71d-native-qualification/qualification.json` |
+| Current Linux aggregate | `current-6ab2c71d-native-qualification/installed-preparation/aggregate/qualification.json` |
+| Current native duration | `current-6ab2c71d-native-qualification/installed-preparation/duration/qualification.json` |
 
-These results retain their exact source attribution. They do not qualify the
-later integration, installed After Effects, other desktop targets, signing,
-installation, updating or publication. The Motion changes described here do
-not change the assistance runtime closure and require no manual **Update AI
-assets** run; the independently merged GPU runtime changes retain their own
-asset-update requirements.
+These results retain their exact source attribution. The subsequent test and
+documentation commits do not retag frozen executions. Fresh complete static,
+Node, browser and accepted combined coverage gates remain required on the final
+integrated source. Installed After Effects, other desktop targets/hardware,
+signing, installation, updating and publication remain unqualified. No installed
+AE test environment is available. The Motion changes described here do not
+change the assistance runtime closure and require no manual **Update AI assets**
+run; independently merged GPU runtime changes retain their own obligations.
+
+### Previous integration baseline
+
+Source `baaeb3816` passed the complete static gate, all five Node partitions
+(27,462 passes, 17 declared skips, including all 1,227 Motion cases), linked39,
+dual9 and the original native duration workload. Its ordinary browser gate
+failed: 7,268 passes, 308 declared skips and eight failures. Final input
+verification also refused a canonical revision change from `52ae9c43c` to
+`23762c9e1`; the failure and missing post-input receipt remain preserved. Its
+raw browser coverage is excluded. The five admitted Node partitions retain
+their historical source and do not establish a current combined coverage union.
+
+All eight focused browser diagnostics subsequently passed on `9323a1eda` with
+unchanged limits. One duplicate clip-locator defect was corrected; the other
+seven original causes remained unknown. Historical maximum quality passed,
+planes failed near the 30-second worker deadline, and lights/index did not run.
+These results do not qualify the later worker repair. Earlier source-specific
+results and their limitations remain recorded below.
 
 The affected native Frame successor link/delivery regression passed
 on `48a90f028` with exact PCM/timestamps and the original picture/alpha limits.
