@@ -55,10 +55,14 @@ export async function closeWorkspacePanel(editor, panelId, copy = null) {
 export async function dockWorkspacePanel(editor, panelId, dock, copy = null) {
 	const label = DOCK_MENU_LABELS[dock];
 	if (!label) throw new Error(`Unknown workspace dock: ${dock}`);
+	const moved = editor.locator(`[data-panel-dock="${dock}"] [data-workspace-panel="${panelId}"]`);
+	if (await moved.count()) {
+		await expect(moved).toBeVisible();
+		return;
+	}
 	const menu = await openWorkspacePanelMenu(editor, panelId);
 	const localized = copy?.[`dock${dock.charAt(0).toUpperCase()}${dock.slice(1)}`];
 	await menu.getByRole('menuitem', localized ? { name: localized, exact: true } : { name: label }).click();
-	const moved = editor.locator(`[data-panel-dock="${dock}"] [data-workspace-panel="${panelId}"]`);
 	await expect(moved).toBeVisible();
 	await expect(workspacePanelMenuButton(moved)).toBeFocused();
 }

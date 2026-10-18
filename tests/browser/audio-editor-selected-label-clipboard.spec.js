@@ -6,7 +6,7 @@ import { expect, longTone, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor, chooseCommandAction, chooseExportProjectFileAction, chooseFileAction,
 	chooseNestedCommandAction, clipByName, collectClientErrors, disableNativeSavePicker,
-	downloadBytes, getMenuItem, importFiles,
+	downloadBytes, getMenuItem, importFiles, waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
@@ -119,5 +119,6 @@ async function reopenColoredLabelFixture(page, editor) {
 	await expect(collision).toBeVisible();
 	await collision.getByRole('button', { name: /^Open as (?:read-only )?copy$/u }).click();
 	await expect.poll(() => editor.getAttribute('data-project-id')).not.toBe(previousId);
+	await waitForProjectActivation(editor);
 	await expect(editor.getByRole('group', { name: 'Edit labels: Region cue', exact: true })).toBeVisible();
 }

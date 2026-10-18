@@ -368,7 +368,7 @@ test.describe('audio editor video composition workflow', () => {
 		await expect(keyColor).toHaveValue('#123456');
 		await keyColor.fill('#123');
 		await keyColor.blur();
-		await expect(dialog.getByRole('alert')).toContainText('#RRGGBB');
+		await expect(editor.locator('[data-editor-toast="workspace-error"]')).toContainText('#RRGGBB');
 		await expect(keyColor).toHaveValue('#123456');
 
 		await picker.getByRole('button').click();

@@ -57,7 +57,7 @@ test('clip properties opens beside the meters and its source strip opens the bot
 });
 
 test('Reverse has a contrasting dark-theme switch in both states', async ({ page }) => {
-	await page.emulateMedia({ colorScheme: 'dark' });
+	await page.addInitScript(() => localStorage.setItem('soundscaper_theme', 'dark'));
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [longTone]);
 	const panel = await openClipProperties(page, editor, clipByName(editor, longTone.name), { additional: false });

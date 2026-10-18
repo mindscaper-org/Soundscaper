@@ -44,7 +44,7 @@ test('changing the server sends its origin and clears the previous account searc
 		selectedOrigins.push({ path: url.pathname, origin });
 		const provider = origin === customOrigin
 			? { kind: 'audiocity', apiOrigin: customOrigin, webOrigin: customOrigin, scope: 'public' }
-			: { kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', scope: 'public' };
+			: { kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', scope: 'all' };
 		const data = value => route.fulfill({ json: { data: value } });
 		if (url.pathname === '/api/audiocom/usage') return data({ maximumUploadBytes: 100_000_000, projectStorageSupported: false, provider });
 		if (url.pathname === '/api/audiocom/oauth/session') return data({ connected: origin !== customOrigin && request.method() !== 'DELETE' });

@@ -203,6 +203,21 @@ async function installPreviewProbe(page) {
 
 async function mockAudiocom(page, options = {}) {
 	let connected = options.connected ?? false;
+	// WebKit omits binary fetch bodies from intercepted requests. Observe the
+	// submitted bytes in the page as well so every engine verifies the archive.
+	await page.addInitScript(() => {
+		const fetch = globalThis.fetch.bind(globalThis);
+		const bodies = new Map();
+		globalThis.__audiocomProjectUploadBodies = bodies;
+		globalThis.fetch = async (input, init) => {
+			const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+			if (url.pathname === '/api/audiocom/projects' && url.searchParams.get('phase') === 'part' && !url.searchParams.has('hash')) {
+				const request = new Request(input instanceof Request ? input.clone() : input, init);
+				bodies.set(url.href, Array.from(new Uint8Array(await request.arrayBuffer())));
+			}
+			return fetch(input, init);
+		};
+	});
 	const preview = createWavFixture({ name: 'preview.wav', frequency: 440, duration: 0.25, channelCount: 1 });
 	const requests = { sessions: 0, starts: [], searches: [], uploads: [], projectUploads: [], preparations: [], disconnects: 0, expireSearch: false, failNextUpload: false };
 	let project;
@@ -225,7 +240,10 @@ async function mockAudiocom(page, options = {}) {
 				return data({ projectId, snapshotId: `aaaaaaaa-1234-4234-8234-${String(requests.preparations.length).padStart(12, '0')}`, missing: manifest.blocks });
 			}
 			if (phase === 'part') {
-				if (!url.searchParams.has('hash')) requests.projectUploads.push({ ...Object.fromEntries(url.searchParams), bytes: request.postDataBuffer() });
+				if (!url.searchParams.has('hash')) {
+					const bytes = request.postDataBuffer() ?? Buffer.from(await page.evaluate(url => globalThis.__audiocomProjectUploadBodies.get(url), request.url()));
+					requests.projectUploads.push({ ...Object.fromEntries(url.searchParams), bytes });
+				}
 				return route.fulfill({ status: 204 });
 			}
 			if (phase === 'complete') {

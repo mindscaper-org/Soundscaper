@@ -120,6 +120,8 @@ test.describe('clip pointer edit workflows', () => {
 		const firstBeforeStretch = await firstClip.boundingBox();
 		const secondBeforeStretch = await secondClip.boundingBox();
 		const stretchHandle = secondClip.locator('.clip-display__handle--stretch-right');
+		await secondClip.hover();
+		await expect(stretchHandle).toHaveCSS('pointer-events', 'auto');
 		const stretchBox = await stretchHandle.boundingBox();
 		expect(firstBeforeStretch).not.toBeNull();
 		expect(secondBeforeStretch).not.toBeNull();
