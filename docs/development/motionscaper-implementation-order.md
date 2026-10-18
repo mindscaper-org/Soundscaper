@@ -114,8 +114,10 @@ The Windows x64 builds exposed assembler discovery, libvpx compiler selection,
 source-path persistence and generator-script launching defects. The NASM,
 MSVC project-mode, native-path and shell corrections pass their focused controls.
 The shell correction also passes a bounded generator, recursive Make and install
-control. A complete native build remains required; no Windows host or package is
-qualified.
+control. The subsequent full build fails launching a much longer project
+generator command. Verified local source staging passes its focused regressions;
+the real long generator and complete native build remain unqualified. No Windows
+host or package is qualified.
 The shared native source-pin refresh requires a fresh Linux native build and
 receipt before new packaging. Earlier native results keep their original
 source attribution; a new-source pass is not inferred from unchanged Linux flags.

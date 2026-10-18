@@ -120,6 +120,19 @@ changed-file lint and source audits pass afterward. A separate bounded native
 Make control passed generator output, recursive Make and installation with the
 same shell arguments. This does not establish complete native compilation or a
 new Linux native receipt.
+
+The fifth Windows attempt generates the short headers and export file, then
+fails launching the real `vpx.vcxproj` generator with Windows error 87. Its
+rendered diagnostic spans 41,759 UTF-16 code units; the actual process-creation
+buffer was not intercepted. No project file or libvpx compilation is produced.
+The verified source-staging correction (`28e84651`) uses a short relative source
+path independently of the original drive or directory depth. All 22 focused
+Motion checks pass on Windows, including 13 staging/target controls; strict
+types, changed-file lint and source audits pass. Linux passes 20 checks and
+declares two Windows execution skips. The real long generator and complete
+native build remain required. Source review also identifies a separate FFmpeg
+source-path handoff for correction and actual validation; it is not an observed
+FFmpeg build failure.
 The refreshed shared native manifests also require a fresh Linux native build
 and receipt before new packaging. Earlier native results retain their original
 source identities; they are not retagged or reused against the changed closure.
@@ -158,6 +171,8 @@ Current retained receipts are relative to
 | Fourth failed Windows build and physical closure | `windows-x64-prerequisites-20261018/native-build-native-path-v7-failed-closed-review.json` |
 | Bounded native Make shell control | `windows-x64-prerequisites-20261018/native-make-shell-canary-v1-closed-review.json` |
 | Windows libvpx shell correction | `windows-x64-prerequisites-20261018/libvpx-native-shell-fix-commit-receipt.json` |
+| Fifth failed Windows build and physical closure | `windows-x64-prerequisites-20261018/native-build-native-shell-v8-failed-closed-review.json` |
+| Verified Windows libvpx source staging | `windows-x64-prerequisites-20261018/libvpx-source-staging-fix-commit-receipt.json` |
 
 These results retain their exact source attribution. The subsequent test and
 documentation commits do not retag frozen executions. Fresh complete static,
