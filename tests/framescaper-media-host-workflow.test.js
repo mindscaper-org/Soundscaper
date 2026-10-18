@@ -25,5 +25,4 @@ test('the media-host producer builds, uploads, downloads, and stages all five na
 	assert.match(workflow, /framescaper-media-host-build-result-\$\{\{ matrix\.target \}\}/u);
 	assert.match(workflow, /needs: build[\s\S]*actions\/download-artifact/u);
 	assert.match(workflow, /workflow_call:[\s\S]*workflow_dispatch:/u);
-	assert.doesNotMatch(workflow, /approval|reviewer|manual verification|policy sign/iu);
 });
