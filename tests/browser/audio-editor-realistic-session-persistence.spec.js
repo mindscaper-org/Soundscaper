@@ -15,6 +15,7 @@ import {
 	waitForEditor,
 } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
+import { attachTempoInputDiagnostics, installTempoInputDiagnostics } from './helpers/tempo-input-diagnostics.ts';
 import {
 	addClipGainPoint,
 	addTrackAutomation,
@@ -45,8 +46,23 @@ const sessions = [
 	{ name: 'removed accent restored by undo survives as part of the session', action: 'accent-delete-undo', tempo: 108, split: 0.33 },
 ];
 
+const tempoDiagnosticTitles = new Set([
+	'podcast cutdown survives duplicate-clip history and reload',
+	'removed accent restored by undo survives as part of the session',
+]);
+
 test.describe('realistic mixed-state session persistence', () => {
 	registerAudioEditorHooks();
+	test.beforeEach(async ({ page, browserName }, testInfo) => {
+		if (browserName === 'webkit' && tempoDiagnosticTitles.has(testInfo.title)) {
+			await installTempoInputDiagnostics(page);
+		}
+	});
+	test.afterEach(async ({ page, browserName }, testInfo) => {
+		if (browserName === 'webkit' && tempoDiagnosticTitles.has(testInfo.title)) {
+			await attachTempoInputDiagnostics(page, testInfo);
+		}
+	});
 
 	for (const session of sessions) {
 		test(session.name, async ({ page }) => {
