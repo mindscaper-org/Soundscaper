@@ -103,7 +103,7 @@
 
 .kw-audio-editor__metadata-list label {
 	display: grid;
-	grid-template-columns: minmax(70px, auto) minmax(0, 1fr);
+	grid-template-columns: minmax(145px, .42fr) minmax(0, 1fr);
 	align-items: center;
 	gap: 10px;
 }
