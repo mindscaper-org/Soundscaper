@@ -315,12 +315,40 @@ distinct Node OOM event: PID 8039 had 46,568,652 KiB anonymous resident memory,
 and the 12 GiB swap was exhausted. Repeated journal copies describe the same
 source event. Neither its launch command nor a test leak is established; nearby
 task-table PIDs do not prove ancestry. WSL subsequently restarted. Current
-inspection finds about 4 GiB used and no surviving test workers. New
-resource-intensive validation remains held while per-run memory recording and
-an explicit abort guard are prepared. A final extra read-only Windows receipt
-wrapper was lost across the restart; its numerical exit is unknown. The commit,
+inspection finds about 4 GiB used and no surviving test workers. New large
+workloads require per-run memory recording and an explicit abort guard.
+A final extra read-only Windows receipt wrapper was lost across the restart; its numerical exit is unknown. The commit,
 41-case test selection, types, lint and bundles had already closed and retained
 their receipts before the restart.
+
+The Linux polling guard subsequently passes six synthetic controls covering
+normal termination, memory abort, exact process identity, unreadable accounting
+and invalid settings. It records aggregate PSS plus swap with a 24 GiB abort
+limit and an 8 GiB available-memory floor. The Windows guard shared functions
+pass seven synthetic controls covering native process handles, working sets, private commit and failed cleanup. The
+production guard polls every five seconds. At this preparation boundary it
+remains disabled pending dispatch review. Neither polling guard is a kernel-enforced hard cap. Large workloads
+are serialized; previous results are not retagged.
+
+The sustained and maximum-workload harness repair on `27c5764f5` caps cumulative
+process identity history at 4,096 plus the complete first admitted overflow batch of at
+most 64. A bounded shared queue serializes discovery across samplers. An
+admission failure retains cleanup identities and explicitly marks future births
+unknown. Shutdown keeps the original ten-second escalation and adds a further
+twenty-second bound for unresolved asynchronous cleanup, reporting unknown
+physical closure rather than inventing an exit event. CDP close has its own
+ten-second deadline and preserves failed-close outcomes, including after a late
+physical close. Transport ownership is handed to the launcher before connection
+setup can fail. Log and receipt filesystem finalization remains bounded by the
+outer watchdog. All 60 focused fake controls, scoped TypeScript and changed-file
+lint pass; these results establish neither an OOM cause nor a new native/browser gate.
+
+The focused repair receipt is
+`sustained-bounded-20261018-final-qualification.json`, SHA-256
+`ebb8c248a1697f382db4bcc4d9926c5a2ae9f80fd2b5b096367fa55464368cd4`.
+All 119 native source records retain their accepted bytes. All recorded check
+identities are absent, and no owned services or handles remain. No manual
+**Update AI assets** run is required by these harness and documentation changes.
 
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:

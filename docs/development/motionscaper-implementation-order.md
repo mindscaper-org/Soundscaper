@@ -193,8 +193,20 @@ records that loss and does not qualify native compilation.
 A WSL memory investigation confirms one prior Node OOM kill at about 44 GiB
 resident memory with exhausted swap. Its owning command is unknown; a test leak
 is not established. WSL restarted, and no surviving test workers were found.
-Further resource-intensive validation is held for per-run memory recording and
-an explicit memory-abort guard. Existing completed results keep their identities.
+The Linux polling guard passes six synthetic controls; subsequent large runs
+require per-run memory recording, a 24 GiB aggregate PSS plus swap abort limit,
+an 8 GiB available-memory floor and one resource-intensive workload at a time.
+Polling can overshoot and does not provide a kernel-enforced hard limit.
+
+The harness repair on `27c5764f5` addresses unbounded process identity history
+and shutdown paths that could wait indefinitely. It caps history, serializes bounded
+process sampling, retains terminal cleanup identities and bounds failed
+shutdown/CDP cleanup without changing workload limits or the original ten-second
+escalation. Connection failures retain transport ownership; late callbacks cannot
+resume shutdown signals or erase an earlier failed close. All 60 focused fake
+controls, scoped TypeScript and changed-file lint pass. This does not establish
+the cause of the earlier OOM or qualify a new large workload. Existing completed results keep
+their original source identities.
 
 Fresh combined gates, accepted coverage, installed AE, other hardware/targets,
 signing, installation, update and publication remain open. No installed AE test
