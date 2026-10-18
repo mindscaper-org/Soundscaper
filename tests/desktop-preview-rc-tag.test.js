@@ -5,11 +5,27 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import releaseLines from '../config/product-release-lines.json' with { type: 'json' };
+import {
+	resolveProductApplicationVersion,
+	resolveProductDesktopMetadata,
+} from '../scripts/lib/product-release-lines.mjs';
+
+test('checked-in packaging metadata agrees with the selected Soundscaper release line', async () => {
+	const json = async path => JSON.parse(await readFile(new URL(`../${path}`, import.meta.url), 'utf8'));
+	const [metadata, lock, desktop] = await Promise.all([
+		json('package.json'), json('package-lock.json'), json('desktop/product.json'),
+	]);
+	const version = resolveProductApplicationVersion('soundscaper', releaseLines);
+	assert.equal(metadata.version, version);
+	assert.equal(lock.version, version);
+	assert.equal(lock.packages[''].version, version);
+	assert.deepEqual(desktop, resolveProductDesktopMetadata('soundscaper', releaseLines));
+});
 
 test('product-owned previews exclude the Soundscaper stable tag and any release-admission step', async () => {
-	assert.equal(releaseLines.products.soundscaper.candidate.version, '1.0.0-rc.Oct.18.a');
-	assert.equal(releaseLines.products.framescaper.candidate.version, '1.0.0-rc.13');
-	assert.equal(releaseLines.products.framescaper.releaseChannel, 'candidate');
+	for (const product of Object.values(releaseLines.products)) {
+		assert.equal(product.candidate.tagPrefix, `${product.productId}-v`);
+	}
 	assert.equal(releaseLines.products.soundscaper.stable.tagPrefix, 'v');
 	const workflow = await readFile(new URL('../.github/workflows/desktop-preview.yml', import.meta.url), 'utf8');
 	assert.match(workflow, /'soundscaper-v\*-beta\.\*'/u);

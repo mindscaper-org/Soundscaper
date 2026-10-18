@@ -42,27 +42,15 @@ test('production capability inventory covers every product profile and platform 
 });
 
 test('product release metadata is descriptive and contains no admission state', async () => {
-	const [inventory, releaseLines] = await Promise.all([
-		readFile(inventoryUrl, 'utf8').then(JSON.parse),
-		readFile(new URL('../config/product-release-lines.json', import.meta.url), 'utf8').then(JSON.parse),
-	]);
-	const soundscaperLine = releaseLines.products.soundscaper;
-	assert.deepEqual(inventory.productVersions.previewTagPatterns, [
-		'soundscaper-v*-beta.*', 'soundscaper-v*-rc.*',
-	]);
+	const inventory = JSON.parse(await readFile(inventoryUrl, 'utf8'));
+	assert.equal(inventory.releaseLineAuthority, 'config/product-release-lines.json');
+	assert.equal(Object.hasOwn(inventory, 'productVersions'), false);
 	assert.deepEqual(inventory.products.soundscaper.release, {
 		softwareStatus: 'feature-complete',
-		channel: soundscaperLine.releaseChannel,
-		candidateVersion: soundscaperLine.candidate.version,
-		stableTarget: soundscaperLine.stable.version,
 	});
 	assert.deepEqual(inventory.products.framescaper.release, {
 		softwareStatus: 'pre-release',
-		channel: releaseLines.products.framescaper.releaseChannel,
-		candidateVersion: releaseLines.products.framescaper.candidate.version,
-		stableTarget: null,
 	});
-	assert.doesNotMatch(JSON.stringify(inventory.productVersions), /admission/iu);
 	assert.doesNotMatch(JSON.stringify(inventory.products), /admissionProfile|admissionStatus/iu);
 });
 

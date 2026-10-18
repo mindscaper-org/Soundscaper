@@ -73,8 +73,10 @@ test('capability and security registers carry the same RC identities without adm
 	}
 	assert.deepEqual(security.projectIdentityBaseline.identities, expected);
 	assert.equal(security.projectIdentityBaseline.archiveFormatVersion, 1);
-	assert.doesNotMatch(JSON.stringify(capabilities.productVersions), /admission/iu);
-	assert.doesNotMatch(JSON.stringify(security.productVersions), /admission/iu);
+	for (const register of [capabilities, security]) {
+		assert.equal(register.releaseLineAuthority, 'config/product-release-lines.json');
+		assert.equal(Object.hasOwn(register, 'productVersions'), false);
+	}
 });
 
 test('the decision and release guidance preserve the freeze and point to owner QA', async () => {

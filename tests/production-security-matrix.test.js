@@ -102,15 +102,10 @@ async function readMatrix() {
 	return JSON.parse(await readFile(matrixUrl, 'utf8'));
 }
 
-test('security metadata follows the configured Soundscaper versions without admission state', async () => {
-	const [matrix, releaseLines] = await Promise.all([
-		readMatrix(),
-		readFile(new URL('../config/product-release-lines.json', import.meta.url), 'utf8').then(JSON.parse),
-	]);
-	const soundscaper = releaseLines.products.soundscaper;
-	assert.equal(matrix.productVersions.version, soundscaper.candidate.version);
-	assert.equal(matrix.productVersions.stableTarget, soundscaper.stable.version);
-	assert.doesNotMatch(JSON.stringify(matrix.productVersions), /admission/iu);
+test('security metadata refers to the release authority without copying versions', async () => {
+	const matrix = await readMatrix();
+	assert.equal(matrix.releaseLineAuthority, 'config/product-release-lines.json');
+	assert.equal(Object.hasOwn(matrix, 'productVersions'), false);
 });
 
 test('security matrix covers the production threat-model surfaces without promoting gaps', async () => {

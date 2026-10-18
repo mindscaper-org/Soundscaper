@@ -20,32 +20,43 @@ const RELEASE_LINES = validateProductReleaseLines(JSON.parse(
 ));
 
 test('product release lines select versions without an admission state machine', () => {
-	const soundscaper = RELEASE_LINES.products.soundscaper;
-	assert.equal(resolveProductApplicationVersion('soundscaper', RELEASE_LINES),
-		soundscaper[soundscaper.applicationVersionChannel].version);
-	assert.equal(resolveProductApplicationVersion('framescaper', RELEASE_LINES), '1.0.0-rc.13');
-	assert.equal(expectedProductReleaseTag('soundscaper', RELEASE_LINES, 'candidate'),
-		`soundscaper-v${soundscaper.candidate.version}`);
-	assert.equal(expectedProductReleaseTag('soundscaper', RELEASE_LINES, 'stable'),
-		'v1.0.0');
-	assert.equal(RELEASE_LINES.products.framescaper.releaseChannel, 'candidate');
-	assert.deepEqual(resolveProductReleaseTag('framescaper-v1.0.0-rc.13', RELEASE_LINES), {
-		productId: 'framescaper',
-		channel: 'candidate',
-		version: '1.0.0-rc.13',
-	});
-	assert.throws(() => resolveProductReleaseTag('v1.0.0', RELEASE_LINES), /not active/iu);
+	for (const [productId, product] of Object.entries(RELEASE_LINES.products)) {
+		const channel = product.applicationVersionChannel;
+		assert.equal(resolveProductApplicationVersion(productId, RELEASE_LINES), product[channel].version);
+		assert.equal(product.candidate.tagPrefix, `${productId}-v`);
+		assert.equal(product.stable.tagPrefix, productId === 'soundscaper' ? 'v' : 'framescaper-v');
+		for (const releaseChannel of ['candidate', 'stable']) {
+			const tag = expectedProductReleaseTag(productId, RELEASE_LINES, releaseChannel);
+			assert.equal(tag, `${product[releaseChannel].tagPrefix}${product[releaseChannel].version}`);
+			if (product.releaseChannel !== releaseChannel) {
+				assert.throws(() => resolveProductReleaseTag(tag, RELEASE_LINES), /not active|deferred/iu);
+			} else {
+				assert.deepEqual(resolveProductReleaseTag(tag, RELEASE_LINES), {
+					productId, channel: releaseChannel, version: product[releaseChannel].version,
+				});
+			}
+		}
+	}
 	assert.doesNotMatch(JSON.stringify(RELEASE_LINES), /admission|status/iu);
 });
 
+function fixtureReleaseLines() {
+	const lines = structuredClone(RELEASE_LINES);
+	for (const product of Object.values(lines.products)) {
+		product.applicationVersionChannel = 'candidate';
+		product.releaseChannel = 'candidate';
+		product.candidate.version = '1.0.0-rc.1';
+		product.stable.version = '1.0.0';
+	}
+	return lines;
+}
+
 test('the resolver supports divergent product versions without package metadata', () => {
-	const divergent = structuredClone(RELEASE_LINES);
-	divergent.products.soundscaper.applicationVersionChannel = 'candidate';
-	divergent.products.soundscaper.releaseChannel = 'candidate';
+	const divergent = fixtureReleaseLines();
 	divergent.products.soundscaper.candidate.version = '1.0.0-rc.2';
 	const validated = validateProductReleaseLines(divergent);
 	assert.equal(resolveProductApplicationVersion('soundscaper', validated), '1.0.0-rc.2');
-	assert.equal(resolveProductApplicationVersion('framescaper', validated), '1.0.0-rc.13');
+	assert.equal(resolveProductApplicationVersion('framescaper', validated), '1.0.0-rc.1');
 	assert.deepEqual(resolveProductDesktopMetadata('soundscaper', validated), {
 		schemaVersion: 1,
 		id: 'soundscaper',
@@ -70,7 +81,7 @@ test('the resolver supports divergent product versions without package metadata'
 });
 
 test('date-named candidates retain their exact version in tags, packages, and updates', () => {
-	const dated = structuredClone(RELEASE_LINES);
+	const dated = fixtureReleaseLines();
 	dated.products.soundscaper.candidate.version = '1.0.0-rc.Oct.1';
 	const validated = validateProductReleaseLines(dated);
 	const version = resolveProductApplicationVersion('soundscaper', validated);
@@ -95,11 +106,11 @@ test('candidate identifiers follow semantic versioning and stable versions stay 
 		'1.0.0-rc.', '1.0.0-rc.Oct..1', '1.0.0-rc.Oct.01',
 		'1.0.0-rc.01', '1.0.0-rc.Oct_1', '1.0.0-preview.Oct.1',
 	]) {
-		const changed = structuredClone(RELEASE_LINES);
+		const changed = fixtureReleaseLines();
 		changed.products.soundscaper.candidate.version = version;
 		assert.throws(() => validateProductReleaseLines(changed), /release version is invalid/iu, version);
 	}
-	const changed = structuredClone(RELEASE_LINES);
+	const changed = fixtureReleaseLines();
 	changed.products.soundscaper.stable.version = '1.0.0-rc.Oct.1';
 	assert.throws(() => validateProductReleaseLines(changed), /stable release version is invalid/iu);
 });
@@ -113,7 +124,7 @@ test('release-line validation is strict and does not redefine project schema fam
 				value.products.soundscaper.applicationVersionChannel === 'stable' ? 'candidate' : 'stable';
 		},
 	]) {
-		const changed = structuredClone(RELEASE_LINES);
+		const changed = fixtureReleaseLines();
 		mutate(changed);
 		assert.throws(() => validateProductReleaseLines(changed), /release|exact|version/iu);
 	}
@@ -140,7 +151,7 @@ test('browser and desktop builds resolve the selected product version from relea
 	assert.match(main, /version:\s*app\.getVersion\(\)/u, 'diagnostics/environment reports the Electron version');
 	assert.match(main, /app\.getVersion\(\) !== DECLARED_APPLICATION_VERSION/u);
 
-	const divergent = structuredClone(RELEASE_LINES);
+	const divergent = fixtureReleaseLines();
 	divergent.products.soundscaper.candidate.version = '1.0.0-rc.7';
 	const metadata = resolveProductDesktopMetadata('soundscaper', divergent);
 	assert.equal(selectUpdate([

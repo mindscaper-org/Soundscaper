@@ -29,7 +29,27 @@ Do not release with a known data-loss, security, or primary-workflow failure.
 Everything else—including which conditional environments to try and whether a
 bounded issue is acceptable—is an explicit owner decision.
 
-## Release sequence
+## Version metadata
+
+`config/product-release-lines.json` is the version authority for both products.
+For Soundscaper, run `npm run release:soundscaper:prepare -- <version>` with a
+plain stable version or a full `-rc.*` or `-beta.*` version. The command selects
+the matching channel in the register and synchronizes `package.json`, both root
+version fields in `package-lock.json`, and `desktop/product.json`. It prints the
+matching tag and preserves Framescaper's independent release line.
+
+If you edit the register directly, run `npm run release:soundscaper:prepare`
+without a version to synchronize those packaging files. Use
+`npm run release:soundscaper:prepare -- --check` to check consistency without
+writing files. Policy inventories refer to the register; a version bump does
+not require policy, checksum, or test-fixture edits.
+
+Commit the register and synchronized packaging files together. For an RC or
+beta, push the printed `soundscaper-v<version>` tag to start the desktop preview
+workflow. It assembles packages and checksums in its `release-inventory`
+artifact; GitHub prerelease publication remains a separate step.
+
+## Stable release sequence
 
 1. Run the ordinary development and browser checks and use a local QA worksheet
    when human verification is useful.
