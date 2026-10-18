@@ -38,7 +38,7 @@ test('Lightscaper native Original index initializes only its exact SQLite identi
 	try {
 		const index = new LightscaperNativePhotoOriginalIndexCurrentV1(database);
 		assert.equal(scalar(database, 'PRAGMA application_id', 'application_id'), LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1);
-		assert.equal(scalar(database, 'PRAGMA user_version', 'user_version'), 1);
+		assert.equal(scalar(database, 'PRAGMA user_version', 'user_version'), 2);
 		assert.equal(index.get('asset-missing'), null);
 		assert.throws(() => index.get('../outside'));
 		assert.throws(() => index.get(''));
@@ -94,7 +94,7 @@ test('Lightscaper native Original index refuses an unowned nonempty SQLite datab
 });
 
 test('Lightscaper native Original index refuses foreign application, adjacent schema and forged own schema', () => {
-	for (const setup of ['PRAGMA application_id = 1179861840', `PRAGMA application_id = ${LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1}; PRAGMA user_version = 2`,
+	for (const setup of ['PRAGMA application_id = 1179861840', `PRAGMA application_id = ${LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1}; PRAGMA user_version = 3`,
 		`PRAGMA application_id = ${LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1}; PRAGMA user_version = 1; CREATE TABLE native_photo_original_bindings (storage_key TEXT PRIMARY KEY, content_sha256 TEXT, byte_length INTEGER)`]) {
 		const database = makeDatabase();
 		try { database.exec(setup); assert.throws(() => new LightscaperNativePhotoOriginalIndexCurrentV1(database)); }

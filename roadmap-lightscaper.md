@@ -1254,8 +1254,14 @@ anchor publishes pointer and permanent history atomically; selected generation
 bindings remain isolated. Accepted captures and queued SQL drain before close,
 and existing preset, journal and restore publication consumers use the genuine
 native port in focused component qualification.
-Managed-media custody and scoped Original/preview loading, selected settings and
-journal recovery/complete restore, complete native Session composition, renderer/IPC
+The [managed media owner](docs/architecture/lightscaper-native-photo-media.md)
+now publishes genuine Blob Originals and detached metadata, with all seven
+custody methods in the physical binding database. Exact LSCP1 migration preserves
+legacy bindings without manufacturing provenance. Current import and startup
+recovery compose with actual native catalog, media, settings and resource owners,
+including staged-root recovery after an acknowledged Photo publication.
+Scoped Original/preview loading, streaming writers, authenticated native library
+allocation, complete restore and native Session composition, renderer/IPC
 admission and menu-owned library selection remain required before activation.
 Add-in-place access and native platform qualification remain open.
 

@@ -2,25 +2,15 @@
 
 import { isAbsolute, join, resolve } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
-import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
+import { readClosedDomainField, readClosedDomainRecord } from '../src/common/editor/closed-domain-value.ts';
+import { initializeLightscaperNativePhotoMediaDatabaseCurrentV1 } from './lightscaper-native-photo-media-schema-current-v1.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_MAXIMUM_BYTES_CURRENT_V1,
 	readLightscaperNativeOriginalCurrentV1, readLightscaperNativeOriginalStorageKeyCurrentV1,
 } from './lightscaper-native-original-contract-current-v1.ts';
 
 export const LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1 = 0x4c534350;
-const SCHEMA_VERSION = 1;
 const TABLE = 'native_photo_original_bindings';
 const SHA256 = /^[a-f0-9]{64}$/u;
-const SCHEMA = `CREATE TABLE ${TABLE} (
-	storage_key TEXT PRIMARY KEY NOT NULL CHECK (
-		length(storage_key) BETWEEN 1 AND 128 AND storage_key GLOB '[A-Za-z0-9]*'
-		AND storage_key NOT GLOB '*[^A-Za-z0-9._:-]*'
-	),
-	content_sha256 TEXT NOT NULL CHECK (
-		length(content_sha256) = 64 AND content_sha256 NOT GLOB '*[^0-9a-f]*'
-	),
-	byte_length INTEGER NOT NULL CHECK (byte_length BETWEEN 1 AND ${LIGHTSCAPER_NATIVE_ORIGINAL_MAXIMUM_BYTES_CURRENT_V1})
-) STRICT`;
 
 export interface LightscaperNativePhotoOriginalPathsCurrentV1 {
 	readonly libraryRoot: string; readonly databasePath: string;
@@ -54,23 +44,7 @@ export class LightscaperNativePhotoOriginalIndexCurrentV1 {
 	readonly #database: DatabaseSync;
 	constructor(database: DatabaseSync) {
 		this.#database = database;
-		withProjectLibraryImmediateTransaction(database, () => {
-			const application = pragma(database, 'application_id'), version = pragma(database, 'user_version');
-			const objects = ownedObjects(database);
-			if (application === 0 && version === 0 && objects.length === 0) {
-				database.exec(SCHEMA);
-				database.exec(`PRAGMA application_id = ${LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1}`);
-				database.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
-			} else if (application !== LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1 || version !== SCHEMA_VERSION) {
-				throw new Error('Native Lightscaper Original database is unowned or has an unsupported identity.');
-			}
-			// A known application id alone cannot bless foreign tables, triggers,
-			// adjacent schema or weakened constraints in this single-purpose file.
-			const current = ownedObjects(database), first = current[0];
-			if (current.length !== 1 || !first || first.name !== TABLE || first.type !== 'table' || first.sql !== SCHEMA) {
-				throw new Error('Native Lightscaper Original database schema differs from its exact owned version.');
-			}
-		});
+		initializeLightscaperNativePhotoMediaDatabaseCurrentV1(database);
 		Object.freeze(this);
 	}
 
@@ -87,8 +61,14 @@ export class LightscaperNativePhotoOriginalIndexCurrentV1 {
 	 * SQLite binding itself never claims the declared bytes exist or hash-match. */
 	putIfAbsent(value: unknown): 'inserted' | 'same' {
 		const original = readLightscaperNativeOriginalCurrentV1(value);
-		const expected = readBinding(original.storageKey, original.byteLength, original.contentSha256);
-		return withProjectLibraryImmediateTransaction<'inserted' | 'same'>(this.#database, () => {
+		return this.putBindingIfAbsent({ storageKey: original.storageKey, byteLength: original.byteLength, contentSha256: original.contentSha256 });
+	}
+
+	/** Physical publication needs no invented Photo dimensions or MIME. The
+	 * composing file owner must authenticate the actual bytes before this call. */
+	putBindingIfAbsent(value: unknown): 'inserted' | 'same' {
+		const expected = readLightscaperNativeOriginalBindingCurrentV1(value);
+		return bindingTransaction<'inserted' | 'same'>(this.#database, () => {
 			const current = this.get(expected.storageKey);
 			if (current) {
 				if (!sameBinding(current, expected)) throw new Error('Native Original storage key already binds different bytes.');
@@ -103,6 +83,12 @@ export class LightscaperNativePhotoOriginalIndexCurrentV1 {
 	}
 }
 
+export function readLightscaperNativeOriginalBindingCurrentV1(value: unknown): Readonly<LightscaperNativeOriginalBindingCurrentV1> {
+	const input = readClosedDomainRecord(value, 'native Original binding', ['storageKey', 'byteLength', 'contentSha256']);
+	return readBinding(readClosedDomainField(input, 'storageKey', 'native Original binding'),
+		readClosedDomainField(input, 'byteLength', 'native Original binding'), readClosedDomainField(input, 'contentSha256', 'native Original binding'));
+}
+
 function readBinding(storageKey: unknown, byteLength: unknown, contentSha256: unknown): Readonly<LightscaperNativeOriginalBindingCurrentV1> {
 	const key = readLightscaperNativeOriginalStorageKeyCurrentV1(storageKey);
 	if (typeof byteLength !== 'number' || !Number.isSafeInteger(byteLength) || byteLength < 1
@@ -114,11 +100,14 @@ function readBinding(storageKey: unknown, byteLength: unknown, contentSha256: un
 function sameBinding(left: Readonly<LightscaperNativeOriginalBindingCurrentV1>, right: Readonly<LightscaperNativeOriginalBindingCurrentV1>): boolean {
 	return left.storageKey === right.storageKey && left.byteLength === right.byteLength && left.contentSha256 === right.contentSha256;
 }
-function pragma(database: DatabaseSync, name: 'application_id' | 'user_version'): number {
-	const value = database.prepare(`PRAGMA ${name}`).get()?.[name];
-	if (typeof value !== 'number' || !Number.isSafeInteger(value)) throw new TypeError('Native Original SQLite identity is invalid.');
-	return value;
-}
-function ownedObjects(database: DatabaseSync) {
-	return database.prepare("SELECT type, name, sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type, name").all();
+
+function bindingTransaction<Result>(database: DatabaseSync, run: () => Result): Result {
+	if (database.isTransaction) throw new Error('Native Original binding requires no active transaction.');
+	database.exec('BEGIN IMMEDIATE');
+	try { const result = run(); database.exec('COMMIT'); return result; }
+	catch (primary) {
+		try { if (database.isTransaction) database.exec('ROLLBACK'); }
+		catch (cleanup) { throw new AggregateError([primary, cleanup], 'Native Original binding publication and rollback failed.', { cause: cleanup }); }
+		throw primary;
+	}
 }

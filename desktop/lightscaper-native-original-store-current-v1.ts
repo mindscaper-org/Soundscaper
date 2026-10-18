@@ -1,16 +1,22 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { chmod, lstat, realpath } from 'node:fs/promises';
+import { lstat, realpath } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { isAbsolute, resolve } from 'node:path';
 import { readClosedDomainField, readClosedDomainRecord } from '../src/common/editor/closed-domain-value.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK, readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';
-import { LightscaperNativePhotoOriginalIndexCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
+import { deriveLightscaperNativePhotoOriginalPathsCurrentV1, LightscaperNativePhotoOriginalIndexCurrentV1, readLightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
 import type { LightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
 import { LightscaperNativeOriginalFilesCurrentV1, prepareLightscaperNativeOriginalStorageCurrentV1 } from './lightscaper-native-original-files-current-v1.ts';
+import { openLightscaperNativePhotoMediaDatabaseCurrentV1 } from './lightscaper-native-photo-media-files-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
+declare const PUBLICATION: unique symbol;
+export type LightscaperNativeOriginalPublicationCurrentV1 = Readonly<{ [PUBLICATION]: true }>;
+type PublicationAuthority = { retired: boolean };
+const PUBLICATIONS = new WeakMap<object, Readonly<{ authority: PublicationAuthority; path: string; binding: Readonly<LightscaperNativeOriginalBindingCurrentV1> }>>();
+const NATIVE_PREPARE = DatabaseSync.prototype.prepare;
 
 /** First main-private native Photo persistence component. Catalog authority and
  * renderer IPC are intentionally composed by their later owning adapter; a
@@ -19,27 +25,34 @@ export class LightscaperNativeOriginalStoreCurrentV1 {
 	readonly #database: DatabaseSync;
 	readonly #index: LightscaperNativePhotoOriginalIndexCurrentV1;
 	readonly #files: LightscaperNativeOriginalFilesCurrentV1;
+	readonly #databasePath: string;
+	readonly #publicationAuthority: PublicationAuthority = { retired: false };
 	#tail: Promise<void> = Promise.resolve();
 	#closing: Promise<void> | null = null;
-	private constructor(database: DatabaseSync, index: LightscaperNativePhotoOriginalIndexCurrentV1, files: LightscaperNativeOriginalFilesCurrentV1) {
-		this.#database = database; this.#index = index; this.#files = files;
+	private constructor(database: DatabaseSync, index: LightscaperNativePhotoOriginalIndexCurrentV1, files: LightscaperNativeOriginalFilesCurrentV1, databasePath: string) {
+		this.#database = database; this.#index = index; this.#files = files; this.#databasePath = databasePath;
 	}
 
 	static async open(options: Readonly<{ appDataPath: string }>): Promise<LightscaperNativeOriginalStoreCurrentV1> {
 		const input = readClosedDomainRecord(options, 'native Original store', ['appDataPath']);
 		const root = readClosedDomainField(input, 'appDataPath', 'native Original store');
 		if (typeof root !== 'string' || !isAbsolute(root) || resolve(root) !== root || root.includes('\0')) throw new TypeError('Native Original appData must be an explicit canonical absolute directory.');
-		const paths = await prepareLightscaperNativeOriginalStorageCurrentV1(root);
-		const database = new DatabaseSync(paths.databasePath, { allowExtension: false, enableDoubleQuotedStringLiterals: false, timeout: 50 });
+		// Inspect existing body locations without creating or changing them.
+		// Foreign SQLite must also be refused before any body preparation.
+		const derived = deriveLightscaperNativePhotoOriginalPathsCurrentV1(root);
+		for (const path of [derived.bodiesRoot, derived.stagingRoot]) {
+			try {
+				const entry = await lstat(path);
+				if (!entry.isDirectory() || entry.isSymbolicLink() || await realpath(path) !== path) throw new Error('Native Original storage requires canonical real directories.');
+			} catch (error) { if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) throw error; }
+		}
+		const database = await openLightscaperNativePhotoMediaDatabaseCurrentV1(root);
 		try {
+			const paths = await prepareLightscaperNativeOriginalStorageCurrentV1(root);
 			const index = new LightscaperNativePhotoOriginalIndexCurrentV1(database);
-			const entry = await lstat(paths.databasePath);
-			if (!entry.isFile() || entry.isSymbolicLink() || entry.nlink !== 1 || await realpath(paths.databasePath) !== paths.databasePath) throw new Error('Native Original database path changed while opening.');
-			await chmod(paths.databasePath, 0o600);
-			database.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
 			const files = new LightscaperNativeOriginalFilesCurrentV1(paths);
 			await files.syncIndexDirectory();
-			return new LightscaperNativeOriginalStoreCurrentV1(database, index, files);
+			return new LightscaperNativeOriginalStoreCurrentV1(database, index, files, paths.databasePath);
 		} catch (error) {
 			try { database.close(); }
 			catch (cleanup) { throw new AggregateError([error, cleanup], 'Native Original opening and database retirement failed.', { cause: cleanup }); }
@@ -48,39 +61,40 @@ export class LightscaperNativeOriginalStoreCurrentV1 {
 	}
 
 	store(value: unknown, chunks: AsyncIterable<Uint8Array>, options: Options = {}): Promise<Readonly<PhotoOriginalV1>> {
-		return this.#request(value, options, async (original, signal) => {
-			const expected = physical(original);
-			const existing = this.#index.get(original.storageKey);
-			if (existing) assertBinding(existing, expected);
-			await this.#files.put(expected, chunks, signal);
-			signal?.throwIfAborted();
-			// Files precede authority. A SQL failure leaves an unreferenced complete
-			// body for a safe retry; deleting it could destroy another live binding.
-			this.#index.putIfAbsent(original);
-			await this.#files.syncIndexDirectory();
+		return this.#request(() => readLightscaperNativeOriginalCurrentV1(value), options, async (original, signal) => {
+			await this.#store(physical(original), chunks, signal);
 			return original;
 		});
 	}
+	storeBinding(value: unknown, chunks: AsyncIterable<Uint8Array>, options: Options = {}): Promise<LightscaperNativeOriginalPublicationCurrentV1> {
+		return this.#request(() => readLightscaperNativeOriginalBindingCurrentV1(value), options,
+			(binding, signal) => this.#store(binding, chunks, signal));
+	}
 
 	verify(value: unknown, options: Options = {}): Promise<void> {
-		return this.#request(value, options, async (original, signal) => {
-			await this.#files.verify(this.#require(original), signal);
+		return this.#request(() => readLightscaperNativeOriginalCurrentV1(value), options, async (original, signal) => {
+			await this.#files.verify(this.#require(physical(original)), signal);
 		});
 	}
 
 	read(value: unknown, offset: number, length: number, options: Options = {}): Promise<Uint8Array> {
-		return this.#request(value, options, async (original, signal) => {
-			const binding = this.#require(original);
-			if (!Number.isSafeInteger(offset) || offset < 0 || Object.is(offset, -0) || !Number.isSafeInteger(length) || length < 1
-				|| length > CHUNK || offset > binding.byteLength - length) throw new RangeError('Native Original read leaves its bounded body.');
-			return this.#files.read(binding, offset, length, signal);
-		});
+		return this.#request(() => readLightscaperNativeOriginalCurrentV1(value), options,
+			(original, signal) => this.#read(physical(original), offset, length, signal));
+	}
+	verifyBinding(value: unknown, options: Options = {}): Promise<void> {
+		return this.#request(() => readLightscaperNativeOriginalBindingCurrentV1(value), options,
+			async (binding, signal) => { await this.#files.verify(this.#require(binding), signal); });
+	}
+	readBinding(value: unknown, offset: number, length: number, options: Options = {}): Promise<Uint8Array> {
+		return this.#request(() => readLightscaperNativeOriginalBindingCurrentV1(value), options,
+			(binding, signal) => this.#read(binding, offset, length, signal));
 	}
 
 	/** Fence synchronously and join admitted producer/FS work, including iterator
 	 * return/finally. Never abandon a held next() with an abort Promise.race. */
 	close(): Promise<void> {
 		this.#closing ??= this.#tail.then(async () => {
+			this.#publicationAuthority.retired = true;
 			const failures: unknown[] = [];
 			try { await this.#files.retire(); } catch (error) { failures.push(error); }
 			try { this.#database.close(); } catch (error) { failures.push(error); }
@@ -88,30 +102,66 @@ export class LightscaperNativeOriginalStoreCurrentV1 {
 		});
 		return this.#closing;
 	}
-	#require(original: Readonly<PhotoOriginalV1>): LightscaperNativeOriginalBindingCurrentV1 {
-		const expected = physical(original), stored = this.#index.get(expected.storageKey);
+	async #store(expected: Readonly<LightscaperNativeOriginalBindingCurrentV1>, chunks: AsyncIterable<Uint8Array>, signal?: AbortSignal): Promise<LightscaperNativeOriginalPublicationCurrentV1> {
+		const existing = this.#index.get(expected.storageKey);
+		if (existing) assertBinding(existing, expected);
+		await this.#files.put(expected, chunks, signal);
+		signal?.throwIfAborted();
+		// Files precede authority. A failed SQL publication leaves an orphan body
+		// for a safe retry; deleting it could destroy a different live binding.
+		this.#index.putBindingIfAbsent(expected);
+		await this.#files.syncIndexDirectory();
+		const proof = Object.freeze({}) as LightscaperNativeOriginalPublicationCurrentV1;
+		PUBLICATIONS.set(proof, { authority: this.#publicationAuthority, path: this.#databasePath, binding: expected });
+		return proof;
+	}
+	async #read(expected: Readonly<LightscaperNativeOriginalBindingCurrentV1>, offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
+		const binding = this.#require(expected);
+		if (!Number.isSafeInteger(offset) || offset < 0 || Object.is(offset, -0) || !Number.isSafeInteger(length) || length < 1
+			|| length > CHUNK || offset > binding.byteLength - length) throw new RangeError('Native Original read leaves its bounded body.');
+		return this.#files.read(binding, offset, length, signal);
+	}
+	#require(expected: Readonly<LightscaperNativeOriginalBindingCurrentV1>): LightscaperNativeOriginalBindingCurrentV1 {
+		const stored = this.#index.get(expected.storageKey);
 		if (!stored) throw new ReferenceError('Native Original has no committed physical binding.');
 		assertBinding(stored, expected); return stored;
 	}
-	#request<T>(value: unknown, options: Options, run: (original: Readonly<PhotoOriginalV1>, signal: AbortSignal | undefined) => Promise<T>): Promise<T> {
+	#request<Input, T>(capture: () => Input, options: Options, run: (input: Input, signal: AbortSignal | undefined) => Promise<T>): Promise<T> {
 		if (this.#closing) return Promise.reject(new Error('Native Original store is closing or closed.'));
-		let captured: Readonly<{ original: Readonly<PhotoOriginalV1>; signal: AbortSignal | undefined }> | null = null;
+		let captured: Readonly<{ input: Input; signal: AbortSignal | undefined }> | null = null;
 		let captureFailure: unknown;
 		// Register before touching borrowed records. Even a Proxy trap that
 		// requests close during validation must join this admitted operation.
 		const task = this.#tail.then(() => {
 			if (!captured) throw captureFailure;
-			captured.signal?.throwIfAborted(); return run(captured.original, captured.signal);
+			if (this.#database.isTransaction) throw new Error('Native Original store has an unsettled transaction.');
+			captured.signal?.throwIfAborted(); return run(captured.input, captured.signal);
 		});
 		this.#tail = task.then(() => undefined, () => undefined);
 		try {
 			// Pin inert metadata at admission, before waiting behind an upload.
 			// A caller cannot retarget queued work by later mutating its record.
-			const signal = readSignal(options), original = readLightscaperNativeOriginalCurrentV1(value);
-			captured = Object.freeze({ original, signal });
+			const signal = readSignal(options), input = capture();
+			captured = Object.freeze({ input, signal });
 		} catch (error) { captureFailure = error; }
 		return task;
 	}
+}
+
+/** Main-private one-use handoff from actual file/index publication. No caller
+ * descriptor, proxied token or matching filename can fabricate this proof. */
+export function consumeLightscaperNativeOriginalPublicationCurrentV1(value: unknown, database: DatabaseSync): Readonly<LightscaperNativeOriginalBindingCurrentV1> {
+	const proof = value !== null && typeof value === 'object' ? PUBLICATIONS.get(value) : undefined;
+	if (!proof || proof.authority.retired) throw new TypeError('Native Original publication proof is absent, used or retired.');
+	const location = Reflect.apply(NATIVE_PREPARE, database, ['PRAGMA database_list']).get();
+	// Node installs this native, nonconfigurable getter on each real instance.
+	// The intrinsic prepare above brands the receiver before any descriptor read.
+	const transaction = Object.getOwnPropertyDescriptor(database, 'isTransaction');
+	if (!transaction || transaction.configurable !== false || typeof transaction.get !== 'function'
+		|| Reflect.apply(transaction.get, database, []) !== true) throw new Error('Native Original publication requires the consuming transaction.');
+	if (location?.name !== 'main' || location.file !== proof.path) throw new Error('Native Original publication proof belongs to a different namespace.');
+	PUBLICATIONS.delete(value as object);
+	return proof.binding;
 }
 
 function physical(original: Readonly<PhotoOriginalV1>): LightscaperNativeOriginalBindingCurrentV1 {

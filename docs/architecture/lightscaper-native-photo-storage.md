@@ -16,8 +16,11 @@ verification. It does not select a native Session or replace Web Core storage.
 The host supplies one canonical appData directory. The fixed product scope is
 `Lightscaper/project-library/v1/`; filenames supplied by a photo or renderer
 never select a physical path. `native-photo-originals.sqlite3` admits only its
-exact `LSCP` application identity, version 1 and single STRICT binding table.
-An unowned nonempty database, adjacent version or altered schema is refused.
+exact `LSCP` application identity and version 2 schema, with immutable physical
+bindings, managed asset metadata and catalog Original roots. Exact historical
+version 1 migrates without rewriting bindings or inventing verified metadata.
+An unowned nonempty database, unsupported version or altered schema is refused
+through read-only preflight before writable recovery, chmod or WAL adoption.
 
 A physical binding contains only a storage key, SHA-256 and byte length.
 Existing managed import can deduplicate identical bytes while preserving each
@@ -225,12 +228,18 @@ captures and queued SQL drain before close, including failing paired captures,
 and durable COMMIT acknowledgments survive reentry. Existing preset, journal
 and restore publication owners can consume this genuine native port.
 
-The remaining adapter must add managed-media custody and scoped Original
-loading, selected settings/journal recovery and complete restore, then preserve all complete
-Session/publication/recovery ports through selected-catalog renderer and IPC
-admission.
-Its media publication port must receive the whole validated Original; the
-existing `(assetId, Blob)` port cannot infer one. Menu-owned library selection
+The [managed media owner](lightscaper-native-photo-media.md) now publishes real
+Blob bodies and detached metadata, provides all seven catalog Original custody
+methods and composes with Current import and startup recovery. Physical binding,
+asset metadata and roots share one database for atomic logical retirement.
+The existing `(assetId, Blob)` publication port supplies actual bytes and name/MIME
+metadata; the physical body owner requires only a key, digest and byte length.
+It never invents Photo dimensions or a full Original descriptor.
+
+The remaining adapter must add scoped Original/preview loading, streaming asset
+writers, authenticated native library allocation and complete restore, then
+preserve all complete Session/publication/recovery ports through selected-catalog
+renderer and IPC admission. Menu-owned library selection
 must join authoring, previews and storage before switching. Native qualification must also supply a private
 appData root explicitly: the existing Lightscaper smoke's `--user-data-dir`
 isolates Chromium storage but does not select a private native library root.
