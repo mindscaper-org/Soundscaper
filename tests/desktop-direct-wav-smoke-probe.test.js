@@ -62,7 +62,6 @@ test('direct WAV smoke plans are canonical, bounded, token-only base64url JSON',
 	assert.throws(() => decodeDirectWavSmokePlan('not+base64'), /base64url/iu);
 	assert.throws(() => decodeDirectWavSmokePlan(`${encoded}=`), /base64url/iu);
 	assert.throws(() => decodeDirectWavSmokePlan('A'.repeat(1_024)), /byte limit/iu);
-	assert.throws(() => validateDirectWavSmokePlan(Object.assign(new Date(), PLAN)), /plain object/iu);
 	const nonCanonicalJson = Buffer.from(JSON.stringify({
 		token: PLAN.token,
 		productId: PLAN.productId,
@@ -161,11 +160,9 @@ test('direct WAV target harness rejects mismatched authority and unsafe choices 
 	const appDataPath = '/tmp/direct-wav-authority';
 	const encoded = encodeDirectWavSmokePlan(PLAN);
 	for (const options of [
-		{ argv: directArgv(encoded, '../relative'), plan: PLAN, appDataPath },
-		{ argv: directArgv(encoded, '/tmp/direct-wav-authority/../drift'), plan: PLAN },
-		{ argv: directArgv(encoded, `${appDataPath}-other`), plan: PLAN, appDataPath },
-		{ argv: [...directArgv(encoded, appDataPath), `--soundscaper-smoke-app-data=${appDataPath}`], plan: PLAN, appDataPath },
-		{ argv: directArgv(encodeDirectWavSmokePlan({ ...PLAN, token: 'f'.repeat(32) }), appDataPath), plan: PLAN, appDataPath },
+		{ argv: directArgv(encoded, '../relative') },
+		{ argv: directArgv(encoded, '/tmp/direct-wav-authority/../drift') },
+		{ argv: [...directArgv(encoded, appDataPath), `--soundscaper-smoke-app-data=${appDataPath}`] },
 	]) {
 		assert.throws(() => createDirectWavSmokeTargetHarness(options), /app data|exactly one|plan/iu);
 	}

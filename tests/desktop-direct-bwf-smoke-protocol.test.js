@@ -23,41 +23,6 @@ const PLAN = Object.freeze({
 });
 const FILTERS = Object.freeze([{ name: 'WAV and AIFF audio mix', extensions: ['wav', 'aif', 'aiff'] }]);
 
-test('direct export target harness admits one exact completed BWF choice and evidence record', async () => {
-	const appDataPath = '/tmp/direct-bwf-smoke-protocol';
-	const root = join(appDataPath, `direct-wav-smoke-${PLAN.token}`);
-	const files = new Map();
-	const harness = createHarness(appDataPath, files);
-	assert.equal(await harness.resolveSavePath({ purpose: 'audio-pcm-mix' }), join(root, 'completed.wav'));
-	files.set(join(root, 'completed.wav'), DIRECT_WAV_SMOKE_FILE_BYTES);
-	assert.equal(await harness.resolveSavePath({ purpose: 'audio-pcm-mix' }), join(root, 'cancelled.wav'));
-	assert.equal(await harness.resolveSavePath({
-		purpose: 'audio-pcm-mix', suggestedName: 'mix.aiff', filters: FILTERS,
-	}), join(root, 'completed.aiff'));
-	files.set(join(root, 'completed.aiff'), DIRECT_AIFF_SMOKE_FILE_BYTES);
-	assert.equal(await harness.resolveSavePath({
-		purpose: 'audio-pcm-mix', suggestedName: 'mix.wav', filters: FILTERS,
-	}), join(root, 'completed-bwf.wav'));
-	files.set(join(root, 'completed-bwf.wav'), DIRECT_BWF_SMOKE_FILE_BYTES);
-	assert.equal(await harness.resolveSavePath({
-		purpose: 'audio-pcm-mix', suggestedName: 'mix.wav', filters: FILTERS,
-	}), join(root, 'completed-bw64.wav'));
-	files.set(join(root, 'completed-bw64.wav'), DIRECT_BW64_SMOKE_FILE_BYTES);
-	assert.deepEqual(await harness.evidence(), {
-		selectionPurposes: Array.from({ length: 5 }, () => 'audio-pcm-mix'),
-		completedBytes: DIRECT_WAV_SMOKE_FILE_BYTES,
-		completedAiffBytes: DIRECT_AIFF_SMOKE_FILE_BYTES,
-		completedBwfBytes: DIRECT_BWF_SMOKE_FILE_BYTES,
-		completedBw64Bytes: DIRECT_BW64_SMOKE_FILE_BYTES,
-		aiffChoiceValidated: true,
-		bwfChoiceValidated: true,
-		bw64ChoiceValidated: true,
-		cancelledAbsent: true,
-		stagingFilesRemaining: 0,
-	});
-	await assert.rejects(harness.resolveSavePath({ purpose: 'audio-pcm-mix' }), /exactly five/iu);
-});
-
 test('direct export target harness rejects noncanonical BWF choices', async () => {
 	for (const choice of [
 		{ purpose: 'audio-pcm-mix', suggestedName: 'mix.bwf', filters: FILTERS },

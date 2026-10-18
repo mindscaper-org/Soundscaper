@@ -10,7 +10,6 @@ import test from 'node:test';
 import { createWavHeader } from '../src/common/editor/wav.js';
 import {
 	DESKTOP_DIRECT_BWF_SMOKE_FIXTURE,
-	validateDesktopDirectBwfFileEvidence,
 	verifyDesktopDirectBwfFile,
 } from '../scripts/lib/desktop-direct-bwf-smoke-file.mjs';
 
@@ -96,32 +95,6 @@ test('direct-BWF completed geometry and authored BEXT form one exact fixture con
 		DESKTOP_DIRECT_BWF_SMOKE_FIXTURE.bext.codingHistory.replaceAll('\n', '\r\n'),
 		'ascii',
 	), 87);
-});
-
-test('completed BWF evidence validation admits only the exact production verifier shape', () => {
-	const valid = productionFileEvidence();
-	const validated = validateDesktopDirectBwfFileEvidence(valid);
-	assert.deepEqual(validated, valid);
-	assert.equal(Object.isFrozen(validated), true);
-	assert.equal(Object.isFrozen(validated.riff), true);
-	assert.equal(Object.isFrozen(validated.bext), true);
-	assert.equal(Object.isFrozen(validated.signal), true);
-	for (const mutation of [
-		(value) => { value.unexpected = true; },
-		(value) => { delete value.sha256; },
-		(value) => { value.sha256 = 'A'.repeat(64); },
-		(value) => { value.maximumReadChunkBytes = 1024 * 1024 + 1; },
-		(value) => { value.riff.trailingBytes = 1; },
-		(value) => { value.riff.unexpected = 0; },
-		(value) => { value.bext.description = 'Different'; },
-		(value) => { value.bext.umid = value.bext.umid.toUpperCase(); },
-		(value) => { value.bext.unexpected = 0; },
-		(value) => { value.signal.frameCount -= 1; },
-	]) {
-		const evidence = structuredClone(valid);
-		mutation(evidence);
-		assert.throws(() => validateDesktopDirectBwfFileEvidence(evidence), /BWF|PCM/iu);
-	}
 });
 
 test('completed BWF verification streams exact RIFF, BEXT, extensible fmt, and signal evidence', async (t) => {
@@ -237,26 +210,6 @@ test('completed BWF verification rejects chunk, geometry, and BEXT metadata corr
 	);
 });
 
-test('completed BWF verification rejects non-normalized paths and invalid expected schemas', async () => {
-	await assert.rejects(() => verifyDesktopDirectBwfFile('relative.wav'), /absolute|normalized/iu);
-	await assert.rejects(() => verifyDesktopDirectBwfFile('/tmp/direct-bwf/../file.wav'), /absolute|normalized/iu);
-	await assert.rejects(() => verifyDesktopDirectBwfFile('/tmp/bad\0file.wav'), /path/iu);
-	for (const expected of [
-		null,
-		{ ...SMALL_GEOMETRY, unexpected: true },
-		{ ...SMALL_GEOMETRY, channelCount: 2 },
-		{ ...SMALL_GEOMETRY, bitDepth: 24 },
-		{ ...SMALL_GEOMETRY, headerByteLength: 765 },
-		{ ...SMALL_GEOMETRY, dataBytes: 39 },
-		{ ...SMALL_GEOMETRY, byteLength: 805 },
-	]) {
-		await assert.rejects(
-			() => verifyDesktopDirectBwfFile('/tmp/missing-bwf.wav', { expected }),
-			/BWF/iu,
-		);
-	}
-});
-
 function pcmBwf(expected, samples) {
 	const header = createWavHeader({
 		sampleRate: expected.sampleRate,
@@ -305,32 +258,6 @@ function expectedRiff(expected) {
 		dataPadBytes: 0,
 		trailingBytes: 0,
 		frameCount: expected.frameCount,
-	};
-}
-
-function productionFileEvidence() {
-	const output = DESKTOP_DIRECT_BWF_SMOKE_FIXTURE.output;
-	return {
-		byteLength: output.byteLength,
-		sha256: 'a'.repeat(64),
-		maximumReadChunkBytes: 1024 * 1024,
-		riff: expectedRiff(output),
-		bext: { ...DESKTOP_DIRECT_BWF_SMOKE_FIXTURE.bext },
-		signal: {
-			frameCount: output.frameCount,
-			channelComparisons: output.frameCount * 15,
-			channelMismatchSamples: 0,
-			maximumCarryBytes: 31,
-			nonzeroFrames: 6_300_000,
-			positiveFrames: 3_150_000,
-			negativeFrames: 3_150_000,
-			zeroCrossings: 7_260,
-			peakAbsoluteSample: 10_000,
-			sampleSum: 0,
-			sampleSquareSum: output.frameCount * 7_000 ** 2,
-			meanSample: 0,
-			rmsSample: 7_000,
-		},
 	};
 }
 

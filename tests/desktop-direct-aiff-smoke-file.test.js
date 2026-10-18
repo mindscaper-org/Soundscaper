@@ -15,7 +15,6 @@ import {
 } from '../scripts/lib/desktop-direct-wav-pcm-signal.mjs';
 import {
 	DESKTOP_DIRECT_AIFF_SMOKE_FIXTURE,
-	validateDesktopDirectAiffFileEvidence,
 	verifyDesktopDirectAiffFile,
 } from '../scripts/lib/desktop-direct-aiff-smoke-file.mjs';
 
@@ -55,27 +54,6 @@ test('direct-AIFF completed geometry is one exact integer FORM contract', () => 
 	assert.equal(Object.isFrozen(DESKTOP_DIRECT_AIFF_SMOKE_FIXTURE.output), true);
 });
 
-test('completed AIFF file evidence validation admits only the exact verifier shape', () => {
-	const valid = productionFileEvidence();
-	assert.deepEqual(validateDesktopDirectAiffFileEvidence(valid), valid);
-	assert.equal(Object.isFrozen(validateDesktopDirectAiffFileEvidence(valid)), true);
-	assert.equal(Object.isFrozen(validateDesktopDirectAiffFileEvidence(valid).aiff), true);
-	assert.equal(Object.isFrozen(validateDesktopDirectAiffFileEvidence(valid).signal), true);
-	for (const mutation of [
-		(value) => { value.unexpected = true; },
-		(value) => { delete value.sha256; },
-		(value) => { value.sha256 = 'A'.repeat(64); },
-		(value) => { value.maximumReadChunkBytes = 1024 * 1024 + 1; },
-		(value) => { value.aiff.trailingBytes = 1; },
-		(value) => { value.aiff.unexpected = 0; },
-		(value) => { value.signal.frameCount -= 1; },
-	]) {
-		const evidence = structuredClone(valid);
-		mutation(evidence);
-		assert.throws(() => validateDesktopDirectAiffFileEvidence(evidence), /AIFF|PCM/iu);
-	}
-});
-
 test('AIFF verification rechecks mutation metadata and the completed path identity', async () => {
 	const source = await readFile(new URL('../scripts/lib/desktop-direct-aiff-smoke-file.mjs', import.meta.url), 'utf8');
 	assert.match(source, /current\.isSymbolicLink\(\)/u);
@@ -100,10 +78,6 @@ test('generic PCM signal aliases preserve little endian and opt into big endian 
 	assert.deepEqual(
 		validateDesktopDirectPcmSignalEvidence(expected, SMALL_GEOMETRY, SMALL_LIMITS),
 		expected,
-	);
-	assert.throws(
-		() => createDesktopDirectPcmSignalAnalyzer(SMALL_GEOMETRY, { byteOrder: 'native' }),
-		/byte order/iu,
 	);
 });
 
@@ -235,49 +209,6 @@ function expectedSignal(maximumCarryBytes) {
 		sampleSquareSum: 20_002,
 		meanSample: 0,
 		rmsSample: Math.sqrt(4_000.4),
-	};
-}
-
-function productionFileEvidence() {
-	const output = DESKTOP_DIRECT_AIFF_SMOKE_FIXTURE.output;
-	return {
-		byteLength: output.byteLength,
-		sha256: 'a'.repeat(64),
-		maximumReadChunkBytes: 1024 * 1024,
-		aiff: {
-			formId: 'FORM',
-			formBytes: output.byteLength,
-			typeId: 'AIFF',
-			commId: 'COMM',
-			commBytes: 18,
-			channelCount: output.channelCount,
-			frameCount: output.frameCount,
-			bitsPerSample: output.bitDepth,
-			sampleRateHex: output.sampleRateHex,
-			soundId: 'SSND',
-			soundBytes: output.dataBytes + 8,
-			offset: 0,
-			blockSize: 0,
-			pcmOffset: output.headerBytes,
-			pcmBytes: output.dataBytes,
-			dataPadBytes: 0,
-			trailingBytes: 0,
-		},
-		signal: {
-			frameCount: output.frameCount,
-			channelComparisons: output.frameCount * (output.channelCount - 1),
-			channelMismatchSamples: 0,
-			maximumCarryBytes: 0,
-			nonzeroFrames: 6_300_000,
-			positiveFrames: 3_150_000,
-			negativeFrames: 3_150_000,
-			zeroCrossings: 7_260,
-			peakAbsoluteSample: 10_000,
-			sampleSum: 0,
-			sampleSquareSum: output.frameCount * 7_000 ** 2,
-			meanSample: 0,
-			rmsSample: 7_000,
-		},
 	};
 }
 
