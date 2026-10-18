@@ -13,7 +13,7 @@ import { id, integer } from '../value-validation.ts';
 import { normalizePhotoStackV1, serializePhotoStackV1, type PhotoStackV1 } from '../photo-stack-v1.ts';
 import { normalizePhotoSmartCollectionV1, serializePhotoSmartCollectionV1, type PhotoSmartCollectionV1 } from '../photo-smart-collection-v1.ts';
 import { PHOTO_CATALOG_RESTORE_DELIVERY_MAXIMUM_BYTES_V1 as MAXIMUM_BYTES } from '../photo-catalog-restore-delivery-v1.ts';
-import { projectPhotoQueryRowV1, type PhotoQueryRowV1 } from '../photo-query-index-v1.ts';
+import { projectPhotoQueryRowV1, type PhotoQueryRowV1 } from '../photo-query-contract-v1.ts';
 import { projectPhotoQueryRowV2, type PhotoQueryRowV2 } from '../photo-query-index-v2.ts';
 
 export { photoCatalogRestoreRootRecordsV1, photoCatalogRestoreStackRecordsV1, photoCatalogRestoreSavedCollectionRecordsV1,

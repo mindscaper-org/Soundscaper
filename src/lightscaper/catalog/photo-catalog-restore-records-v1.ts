@@ -5,14 +5,14 @@ import { validatePhotoCatalogReferencesV1 } from './photo-document.ts';
 import { indexState, photoMemberships, photoStorageKey, photoSummary } from './repository-records.ts';
 import type { PhotoCatalogIndexStateV1, PhotoMembershipV1, PhotoSummaryV1 } from './repository-types.ts';
 import type { PhotoCatalogRootV1, PhotoDocumentV1 } from './types.ts';
-import { projectPhotoQueryRowV1, readPhotoQueryBuildStateV1, type PhotoQueryBuildStateV1, type PhotoQueryRowV1 } from './photo-query-index-v1.ts';
+import { projectPhotoQueryRowV1, readPhotoQueryBuildStateV1, type PhotoQueryBuildStateV1, type PhotoQueryRowV1 } from './photo-query-contract-v1.ts';
 import { projectPhotoQueryRowV2, type PhotoQueryRowV2 } from './photo-query-index-v2.ts';
-import { readPhotoQueryBuildStateV2, type PhotoQueryBuildStateV2 } from './photo-query-index-storage-v2.ts';
+import { readPhotoQueryBuildStateV2, type PhotoQueryBuildStateV2 } from './photo-query-build-contract-v2.ts';
 import { photoStackRecordV1, type PhotoStackRecordV1 } from './photo-stack-record-v1.ts';
 import { normalizePhotoStackStateV1, type PhotoStackStateV1 } from './photo-stack-v1.ts';
 import { photoSmartCollectionRecordV1, type PhotoSmartCollectionRecordV1 } from './photo-smart-collection-record-v1.ts';
-import { photoSmartCollectionSummaryRecordV1, type PhotoSmartCollectionSummaryRecordV1 } from './photo-smart-collection-storage-v1.ts';
-import { validatePhotoSmartCollectionReferencesV1 } from './photo-smart-collection-read-v1.ts';
+import { photoSmartCollectionSummaryRecordV1, type PhotoSmartCollectionSummaryRecordV1 } from './photo-smart-collection-contract-v1.ts';
+import { validatePhotoSmartCollectionReferencesV1 } from './photo-smart-collection-references-v1.ts';
 import { normalizePhotoSmartCollectionsStateV1, type PhotoSmartCollectionsStateV1 } from './photo-smart-collection-state-v1.ts';
 import { PHOTO_SMART_COLLECTION_LIMITS_V1 } from './photo-smart-collection-v1.ts';
 
