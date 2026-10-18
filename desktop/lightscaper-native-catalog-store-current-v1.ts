@@ -21,6 +21,10 @@ import { createLightscaperNativeCatalogCurrentV1 as create, loadLightscaperNativ
 	saveLightscaperNativePhotoCurrentV1 as savePhoto } from './lightscaper-native-catalog-transactions-current-v1.ts';
 import { readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';
 import { LightscaperNativeOriginalStoreCurrentV1 } from './lightscaper-native-original-store-current-v1.ts';
+import type { PhotoLibraryCullingNavigationContextV1, PhotoLibraryCullingNavigationRequestV1 } from '../src/common/editor/photo-library-culling-navigation-port-v1.ts';
+import type { PhotoLibraryPageV1 } from '../src/common/editor/photo-library-session-port-v1.ts';
+import { admitLightscaperNativeCullingNavigationCurrentV1 } from './lightscaper-native-culling-admission-current-v1.ts';
+import { readAdmittedLightscaperNativeCullingDestinationPageCurrentV1 } from './lightscaper-native-culling-current-v1.ts';
 import type { PhotoQueryPageRequestV2, PhotoQueryPageV2 } from '../src/lightscaper/catalog/photo-query-types-v2.ts';
 import type { PhotoQueryBuildProgressV2 } from '../src/lightscaper/catalog/photo-query-index-storage-v2.ts';
 import { admitLightscaperNativeQueryPageCurrentV1, readAdmittedLightscaperNativeQueryPageCurrentV1 } from './lightscaper-native-query-pages-current-v1.ts';
@@ -142,6 +146,14 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 	readSummaryPage(catalogId: string, options: LightscaperNativeCatalogSummaryPageRequestCurrentV1 = {}): Promise<PhotoSummaryPageV1> {
 		return this.#request(() => admitLightscaperNativeCatalogSummaryPageCurrentV1(catalogId, options),
 			value => readAdmittedLightscaperNativeCatalogSummaryPageCurrentV1(this.#database, value));
+	}
+	readCullingDestinationPage(catalogId: string, context: PhotoLibraryCullingNavigationContextV1,
+		request: PhotoLibraryCullingNavigationRequestV1): Promise<Readonly<PhotoLibraryPageV1> | null> {
+		return this.#request(() => admitLightscaperNativeCullingNavigationCurrentV1(catalogId, context, request, this.#savedLifetime.shutdownSignal),
+			captured => this.#savedLifetime.run(captured.signal, async privateSignal => {
+				const page = await readAdmittedLightscaperNativeCullingDestinationPageCurrentV1(this.#database, captured, privateSignal);
+				check(privateSignal); return page;
+			}));
 	}
 	readSnapshot(catalogId: string, options: Options = {}): Promise<LightscaperNativeCatalogSnapshotViewCurrentV1 | null> {
 		return this.#request(() => admitLightscaperNativeCatalogSnapshotCurrentV1(catalogId, options),

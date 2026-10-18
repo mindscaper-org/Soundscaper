@@ -21,6 +21,7 @@ export class LightscaperNativeSavedLifetimeCurrentV1 {
 	readonly #shutdown = new NativeController();
 	readonly #captures = new Set<Entry>();
 	readonly #retirements = new Map<Entry, Promise<void>>();
+	get shutdownSignal(): AbortSignal { return Reflect.apply(nativeSignal, this.#shutdown, []) as AbortSignal; }
 	stop(): void { nativeAbort.call(this.#shutdown, new PhotoCatalogClosedError()); }
 	async run<T>(signal: AbortSignal | undefined, run: (privateSignal: AbortSignal) => T | Promise<T>): Promise<T> {
 		const link = this.#link(signal);

@@ -5,6 +5,7 @@ import { lightscaperNativeQueryFileNameKeyCurrentV1, readLightscaperNativeQueryB
 	readLightscaperNativeQueryRowCurrentV1 } from './lightscaper-native-query-records-current-v1.ts';
 import { PhotoCatalogRevisionConflictError, type PhotoCatalogIndexStateV1 } from '../src/lightscaper/catalog/repository-types.ts';
 import type { PhotoCatalogRootV1 } from '../src/lightscaper/catalog/types.ts';
+import type { PhotoQueryInclusivePosition } from '../src/lightscaper/catalog/photo-query-position.ts';
 import { PhotoQueryIndexNotReadyError } from '../src/lightscaper/catalog/photo-query-errors.ts';
 import { photoQueryMatcherV2 } from '../src/lightscaper/catalog/photo-query-matcher-v2.ts';
 import { photoQueryRowKeyV2, photoQuerySummaryV2, type PhotoQueryRowV2 } from '../src/lightscaper/catalog/photo-query-index-v2.ts';
@@ -19,7 +20,7 @@ const BUILD_COLUMNS = 'catalog_id,ready,after_key,indexed_count';
  * actual SQLite snapshot; no public matcher, storage profile or inclusive flag. */
 export function readLightscaperNativeQueryInTransactionCurrentV1(database: DatabaseSync, root: Readonly<PhotoCatalogRootV1>,
 	index: Readonly<PhotoCatalogIndexStateV1>, query: PhotoCatalogQueryV2, continuation: PhotoQueryContinuationV2 | null,
-	signal?: AbortSignal): PhotoQueryPageV2 {
+	signal?: AbortSignal, position?: PhotoQueryInclusivePosition): PhotoQueryPageV2 {
 	if (!database.isTransaction) throw new Error('Native Query2 scanner requires one caller snapshot.');
 	check(signal); const catalogId = root.id;
 	if (index.id !== catalogId || index.rootRevision !== root.revision || index.photoCount !== root.photoCount) throw new TypeError('Native Query2 root and index disagree.');
@@ -31,8 +32,8 @@ export function readLightscaperNativeQueryInTransactionCurrentV1(database: Datab
 	const build = readLightscaperNativeQueryBuildCurrentV1(rawBuild, catalogId);
 	if (!build.ready) throw new PhotoQueryIndexNotReadyError();
 	if (build.indexedCount !== root.photoCount) throw new TypeError('Ready native query count disagrees with its catalog.');
-	const bucket = continuation?.captureBucket ?? 0;
-	const result = scan(database, catalogId, query, bucket, continuation?.afterKey ?? null, photoQueryMatcherV2(root, query), signal);
+	const bucket = continuation?.captureBucket ?? position?.captureBucket ?? 0;
+	const result = scan(database, catalogId, query, bucket, continuation?.afterKey ?? null, photoQueryMatcherV2(root, query), signal, continuation === null ? position : undefined);
 	const nextBucket = result.exhausted && query.sort.field === 'capture-time' && bucket === 0;
 	const next = !result.exhausted || nextBucket ? Object.freeze({ schemaVersion: 2 as const, kind: 'photo-query' as const,
 		catalogId, catalogRevision: root.revision, indexRevision: index.indexRevision, querySha256: photoQueryDigestV2(query),
@@ -48,8 +49,8 @@ interface Scan {
 	readonly exhausted: boolean;
 }
 function scan(database: DatabaseSync, catalogId: string, query: PhotoCatalogQueryV2, bucket: 0 | 1,
-	after: readonly (string | number)[] | null, matches: (row: PhotoQueryRowV2) => boolean, signal?: AbortSignal): Scan {
-	const { sql, parameters } = scanStatement(catalogId, query, bucket, after);
+	after: readonly (string | number)[] | null, matches: (row: PhotoQueryRowV2) => boolean, signal?: AbortSignal, position?: PhotoQueryInclusivePosition): Scan {
+	const { sql, parameters } = scanStatement(catalogId, query, bucket, after, position);
 	const iterator = database.prepare(sql).iterate(...parameters);
 	const items: Scan['items'] = []; let scanned = 0, exhausted = false, lastKey: Scan['lastKey'] = null;
 	let primary: unknown, failed = false;
@@ -77,16 +78,18 @@ function scan(database: DatabaseSync, catalogId: string, query: PhotoCatalogQuer
 	return { items, scanned, lastKey, exhausted };
 }
 
-function scanStatement(catalogId: string, query: PhotoCatalogQueryV2, bucket: 0 | 1, after: readonly (string | number)[] | null): Readonly<{ sql: string; parameters: SQLInputValue[] }> {
+function scanStatement(catalogId: string, query: PhotoCatalogQueryV2, bucket: 0 | 1, after: readonly (string | number)[] | null, position?: PhotoQueryInclusivePosition): Readonly<{ sql: string; parameters: SQLInputValue[] }> {
 	const field = query.sort.field, descending = query.sort.direction === 'descending';
-	const direction = descending ? 'DESC' : 'ASC', comparison = descending ? '<' : '>';
+	const direction = descending ? 'DESC' : 'ASC', inclusive = after === null && position !== undefined;
+	const comparison = descending ? inclusive ? '<=' : '<' : inclusive ? '>=' : '>';
+	const selected = after ?? position?.key ?? null;
 	const columns = field === 'file-name' ? ['file_name_key', 'photo_id'] : field === 'rating' ? ['rating_sort', 'photo_id']
 		: field === 'capture-time' ? ['capture_sort', 'photo_id'] : ['photo_id'];
 	const where = ['catalog_id=?'], parameters: SQLInputValue[] = [catalogId];
 	if (field === 'capture-time') { where.push('capture_bucket=?'); parameters.push(bucket); }
-	if (after !== null) {
-		const values = field === 'file-name' ? [lightscaperNativeQueryFileNameKeyCurrentV1(after[1] as string), after.at(-1)!]
-			: field === 'capture-time' ? after.slice(2) : after.slice(1);
+	if (selected !== null) {
+		const values = field === 'file-name' ? [lightscaperNativeQueryFileNameKeyCurrentV1(selected[1] as string), selected.at(-1)!]
+			: field === 'capture-time' ? selected.slice(2) : selected.slice(1);
 		where.push(columns.length === 1 ? `${columns[0]!} ${comparison} ?` : `(${columns.join(',')}) ${comparison} (?,?)`);
 		parameters.push(...values);
 	}

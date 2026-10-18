@@ -2,8 +2,9 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { normalizePhotoCatalogQueryV1, photoQueryDigestV1, readPhotoQueryContinuationV1 } from './photo-query-types-v1.ts';
+import { normalizePhotoCatalogQueryV1 } from './photo-query-types-v1.ts';
 import type { PhotoCatalogQueryV1 } from './photo-query-types-v1.ts';
+import { readPhotoQueryPosition } from './photo-query-position.ts';
 import { normalizePhotoSmartQueryV2 } from './photo-smart-query-v2.ts';
 import { assertPhotoStackQuerySignalV1 } from './photo-stack-query-signal-v1.ts';
 import type { PhotoPredicateV2 } from './photo-smart-query-types-v2.ts';
@@ -112,13 +113,12 @@ export function readPhotoQueryContinuationV2(value: unknown, catalogId: string, 
 	if (field(input, 'catalogId') !== catalog || field(input, 'querySha256') !== photoQueryDigestV2(query)) {
 		throw new TypeError('Query continuation belongs to another catalog or query.');
 	}
-	const base: PhotoCatalogQueryV1 = { text: query.text, filter: query.filter, sort: query.sort };
-	const key = readPhotoQueryContinuationV1({ schemaVersion: 1, catalogId: catalog,
-		indexRevision: field(input, 'indexRevision'), querySha256: photoQueryDigestV1(base),
-		captureBucket: field(input, 'captureBucket'), afterKey: field(input, 'afterKey') }, catalog, base);
+	const key = readPhotoQueryPosition({ captureBucket: field(input, 'captureBucket'),
+		afterKey: field(input, 'afterKey') }, catalog, query.sort.field);
 	const continuation = Object.freeze({ schemaVersion: 2 as const, kind: 'photo-query' as const, catalogId: catalog,
 		catalogRevision: integer(field(input, 'catalogRevision'), 0, Number.MAX_SAFE_INTEGER, 'query catalog revision'),
-		indexRevision: key.indexRevision, querySha256: photoQueryDigestV2(query), captureBucket: key.captureBucket, afterKey: key.afterKey });
+		indexRevision: integer(field(input, 'indexRevision'), 0, Number.MAX_SAFE_INTEGER, 'query index revision'),
+		querySha256: photoQueryDigestV2(query), captureBucket: key.captureBucket, afterKey: key.afterKey });
 	if (new TextEncoder().encode(JSON.stringify(continuation)).byteLength > PHOTO_QUERY_LIMITS_V2.maximumContinuationBytes) {
 		throw new RangeError('Photo query continuation V2 exceeds its byte budget.');
 	}

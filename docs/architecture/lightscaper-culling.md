@@ -50,6 +50,15 @@ cannot gain authority by having its revision replaced. Sparse matches and large
 stack audits yield between bounded phases and join cancellation; seeking does
 not collect a resident catalog or search again from page one.
 
+The main-private SQLite component implements this destination contract for
+plain navigation and ordinary/collapsed Query1, Query2 and saved queries. It
+repeats complete selected-Photo proof and each queried mode's derived-row proof
+in every fresh snapshot, preserves the shared bounded stack traversal and issues the corresponding
+native continuation. Its phases and event-loop yield join before close. This
+component does not select a native library backend for the application; the
+complete Web Core Session remains active until the remaining native media,
+settings, journal and restore ports are composed.
+
 The workflow pins its displayed page, query, selected saved definition and
 collapsed mode before awaiting. Saved-definition, root-smart-definition and
 grouping state fences are checked across the acknowledged edit. It publishes

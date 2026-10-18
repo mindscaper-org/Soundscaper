@@ -1234,8 +1234,13 @@ collapsed pages use an independent signed continuation domain; escaped archive
 readers remain owned until their work retires. A private fresh-candidate saved
 restore stage authenticates delivered count, references and digest without
 granting authority to an existing active connection. These components are
-not yet selected by the application. Complete native culling,
-resources, settings, journals/restore, renderer admission and
+not yet selected by the application. The native culling destination reader now
+covers plain and ordinary/collapsed Query1, Query2 and saved queries. It proves
+the selected whole Current Photo and complete index projection in each SQLite
+snapshot, derives an inclusive destination privately, and preserves bounded
+stack work and each reader's resumable cursor. Close joins its phases and actual
+yield before storage retirement; acknowledged attribute edits stay durable.
+Resources, settings, journals/complete restore, renderer admission and
 menu-owned library selection remain required before activation; add-in-place
 access and native platform qualification remain open.
 

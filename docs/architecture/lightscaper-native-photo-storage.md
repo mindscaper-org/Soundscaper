@@ -71,7 +71,8 @@ single SQLite read snapshot binds the root/index fence to its ordered page,
 including when another WAL connection commits during the read. Continuations
 bind catalog, filter scope and index revision. Legacy smart predicates remain
 part of the root. Saved Query2 recipes have independent definition, scalar
-summary and physical state tables. Complete native culling remains unimplemented.
+summary and physical state tables. Native destination navigation uses these
+same independent query and saved-definition owners.
 
 Ordinary Query2 search, metadata predicates and all four sort fields use the
 existing shared query contracts and matcher. Each SQLite read snapshot binds
@@ -106,6 +107,9 @@ rebuild cursor retire, preserving any prior Row1 and physical row count. A
 fitting edit followed by a genuine rebuild restores Query1 readiness. Other
 projection or SQL failures roll back the whole publication. Ordinary outgoing
 Query1 cursors must fit their existing 2-KiB contract before a page can escape.
+Ordinary Query2 continuations use the same validated position grammar directly
+under their own 4-KiB limit; a temporary Query1 envelope does not narrow that
+contract. Saved and collapsed cursors keep their independent owning limits.
 
 Native stack storage preserves ordered membership, cover selection and one
 stack per Photo. SQLite projects an independent forward relation from each
@@ -167,6 +171,20 @@ independent connection-bound HMAC domain for their bounded continuations. The
 ordinary and collapsed native kernels preserve their shared query semantics
 and work budgets without creating intermediate public signed tokens.
 
+The native culling destination reader covers plain, Query1, Query2 and saved
+queries, with ordinary and collapsed variants for each queried mode. Each
+readonly phase authenticates the whole selected Current Photo and its summary,
+plus the complete derived row for queried modes, in the same SQLite snapshot.
+It then derives its private
+inclusive sort position. Plain navigation needs no query or grouping readiness.
+Collapsed navigation retains only scalar proof and bounded pending positions
+between phases, sharing the existing 64-unit traversal budget through stack
+audits and up to 1,024 members. Only the selected Photo aggregate is loaded;
+Original bodies are unnecessary. Final cursors resume their corresponding
+native reader, and only escaping collapsed or saved continuations are signed.
+Closing aborts and joins every phase and its actual event-loop yield before
+retiring the connection; it cannot erase a prior durable attribute edit.
+
 An archive capture escapes the request queue while remaining owned until
 verification, explicit iterator return or owner shutdown. Initial and final
 bounded audits compare complete context and length-framed canonical recipe
@@ -192,8 +210,8 @@ filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
 scalar-only paging, cancellation, and reentrant close. They do not qualify a
 packaged renderer adapter or another platform.
 
-The remaining adapter must add complete culling,
-resource ownership, settings, journals and restore, then preserve all complete
+The remaining adapter must add resource ownership, settings, journals and
+complete restore, then preserve all complete
 session/publication/recovery ports through selected-catalog renderer admission.
 Its media publication port must receive the whole validated Original; the
 existing `(assetId, Blob)` port cannot infer one. Menu-owned library selection
