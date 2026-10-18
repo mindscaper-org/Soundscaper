@@ -10,7 +10,7 @@ import { LightscaperNativeOriginalStoreCurrentV1 } from './lightscaper-native-or
 import { openLightscaperNativePhotoMediaDatabaseCurrentV1 } from './lightscaper-native-photo-media-files-current-v1.ts';
 import { captureLightscaperNativePhotoMediaWriteCurrentV1, digestLightscaperNativePhotoMediaWriteCurrentV1,
 	lightscaperNativePhotoMediaWriteChunksCurrentV1 } from './lightscaper-native-photo-media-blob-current-v1.ts';
-import { deleteLightscaperNativePhotoMediaAssetCurrentV1, getLightscaperNativePhotoMediaAssetCurrentV1,
+import { deleteLightscaperNativePhotoMediaAssetCurrentV1, getLightscaperNativePhotoMediaAssetCurrentV1, getLightscaperNativePhotoSessionMediaMetadataCurrentV1,
 	installLightscaperNativePhotoMediaAssetCurrentV1 } from './lightscaper-native-photo-media-assets-current-v1.ts';
 import { captureLightscaperNativePhotoCustodyRequestCurrentV1, executeLightscaperNativePhotoCustodyRequestCurrentV1 } from './lightscaper-native-photo-media-custody-current-v1.ts';
 import { LightscaperNativePhotoMediaLifetimeCurrentV1, checkLightscaperNativePhotoMediaSignalCurrentV1 as check } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
@@ -28,8 +28,12 @@ import { captureLightscaperNativePhotoOriginalInspectionCurrentV1 as captureInsp
 	inspectLightscaperNativePhotoOriginalCurrentV1 as inspectOriginal } from './lightscaper-native-photo-original-inspection-current-v1.ts';
 import { captureLightscaperNativePhotoOriginalRepairCurrentV1 as captureRepair,
 	retireLightscaperNativePhotoOriginalRepairCaptureCurrentV1 as retireRepair,
+	captureLightscaperNativePhotoOriginalRepairFromSourceCurrentV1 as captureRepairSource,
+	retireLightscaperNativePhotoOriginalRepairSourceCaptureCurrentV1 as retireRepairSource,
 	restoreLightscaperNativePhotoOriginalCurrentV1 as restoreOriginal } from './lightscaper-native-photo-original-repair-current-v1.ts';
 import { assertLightscaperNativePhotoOriginalRepairRetiredCurrentV1 as assertRepairRetired } from './lightscaper-native-photo-original-repair-retirement-current-v1.ts';
+import { LightscaperNativePhotoUploadFileCurrentV1 as UploadFile, readLightscaperNativePhotoUploadFileRetirementCurrentV1 as uploadRetirement,
+	assertLightscaperNativePhotoUploadFilesCurrentV1 as assertUploads } from './lightscaper-native-photo-upload-file-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
 type Custody = Pick<MediaCatalogOriginalRepositoryV1, 'retain' | 'stage' | 'release' | 'releaseStaged' | 'promote' | 'readPage' | 'findDigestPage'>;
@@ -45,6 +49,7 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 	readonly #writers: LightscaperNativePhotoMediaWritersCurrentV1;
 	readonly #reads: LightscaperNativePhotoMediaOriginalReadsCurrentV1;
 	readonly #cache: LightscaperNativePhotoPreviewCacheCurrentV1;
+	readonly #uploads = new Set<UploadFile>();
 	#closing: Promise<void> | null = null;
 	#quiescing: Promise<void> | null = null;
 	private constructor(originals: LightscaperNativeOriginalStoreCurrentV1, database: DatabaseSync, cache: LightscaperNativePhotoPreviewCacheCurrentV1) {
@@ -137,6 +142,12 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 			const result = getLightscaperNativePhotoMediaAssetCurrentV1(this.#database, key); check(signal); return result;
 		});
 
+	/** Fixed Main transport frame reader; no renderer body/path authority. */
+	readonly readSessionAssetMetadataCurrentV1 = (sourceId: string): Promise<Record<string, unknown> | null> =>
+		this.#run({}, () => readKey(sourceId), (key, signal) => {
+			const result = getLightscaperNativePhotoSessionMediaMetadataCurrentV1(this.#database, key); check(signal); return result;
+		});
+
 	readonly deleteAsset = (sourceId: string, options: Options = {}): Promise<void> =>
 		this.#run(options, () => readKey(sourceId), (key, signal) => {
 			deleteLightscaperNativePhotoMediaAssetCurrentV1(this.#database, key, signal);
@@ -166,6 +177,30 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		});
 	};
 
+	/** Main-only completed file source; never a renderer path or proof DTO. */
+	readonly beginOriginalRepairUploadCurrentV1 = (options: Readonly<{ expectedBytes: number; expectedSha256: string }>): Promise<UploadFile> =>
+		this.#run({}, async () => {
+			const owner = UploadFile.create(this.#database, options); this.#uploads.add(owner);
+			void uploadRetirement(owner).then(() => { this.#uploads.delete(owner); }, () => { /* Keep the actual failed owner strongly retained. */ });
+			if (this.#closing || this.#quiescing) { await owner.close(); throw new Error('Native Photo media is closing.'); }
+			return owner;
+		}, owner => owner);
+	readonly restoreCatalogOriginalBodyFromSourceCurrentV1 = (binding: CatalogOriginalRepairBindingV1, proof: unknown,
+		options: CatalogOriginalRepairOptionsV1 = {}): Promise<Readonly<CatalogOriginalRepairReceiptV1>> => {
+		let admitted: Awaited<ReturnType<typeof captureRepairSource>> | undefined;
+		const work = this.#run(options, async signal => { admitted = await captureRepairSource(this.#database, binding, proof, signal); return admitted; },
+			(captured, signal) => restoreOriginal(this.#database, this.#originals, captured, signal));
+		return work.then(async result => { if (admitted) await retireRepairSource(admitted); return result; }, async (primary: unknown) => {
+			try { if (admitted) await retireRepairSource(admitted); }
+			catch (cleanup) { throw new AggregateError([primary, cleanup], 'Native repair source admission and retirement failed.', { cause: cleanup }); } throw primary;
+		});
+	};
+	async #closeUploads(): Promise<void> {
+		const results = await Promise.allSettled([...this.#uploads].map(async owner => { await owner.close(); }));
+		const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
+		if (failures.length) throw new AggregateError(failures, 'Native repair uploads did not retire.');
+	}
+
 	/** Fence all front doors and retire escaped producers before a parent
 	 * waits for Original reads queued behind their genuine physical stream. */
 	readonly quiesceEscapedWritersCurrentV1 = (): Promise<void> => this.#quiesce();
@@ -175,7 +210,7 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		let resolve!: () => void, reject!: (error: unknown) => void;
 		this.#quiescing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
 		try {
-			void Promise.allSettled([this.#writers.close(), this.#cache.close()]).then(results => {
+			void Promise.allSettled([this.#writers.close(), this.#cache.close(), this.#closeUploads()]).then(results => {
 				const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
 				if (failures.length) throw new AggregateError(failures, 'Native Photo producers did not retire.');
 			}).then(resolve, reject);
@@ -197,6 +232,9 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 			try { await readers; } catch (error) {
 				failures.push(error); throw new AggregateError(failures, 'Native Original consumers did not retire; media owners retained.', { cause: error });
 			}
+			// Captures reentered during quiescence are joined by the lifetime first.
+			try { await this.#closeUploads(); } catch (error) { failures.push(error); }
+			try { assertUploads(this.#database); } catch (error) { failures.push(error); }
 			const results = await Promise.allSettled([this.#originals.close(), Promise.resolve().then(() => { this.#database.close(); })]);
 			failures.push(...results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []));
 			try { assertRepairRetired(this.#database); } catch (error) { failures.push(error); }
@@ -218,10 +256,12 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 	}
 	#run<Input, Result>(options: unknown, capture: (signal: AbortSignal) => Input | Promise<Input>, operation: (input: Input, signal: AbortSignal) => Result | Promise<Result>): Promise<Result> {
 		if (this.#closing || this.#quiescing) return Promise.reject(new Error('Native Photo media is closed.'));
-		return this.#lifetime.run(options, capture, operation);
+		try { assertUploads(this.#database); } catch (error) { return Promise.reject(error); }
+		return this.#lifetime.run(options, capture, (input, signal) => { assertUploads(this.#database); return operation(input, signal); });
 	}
 	#cacheRequest<Result>(run: () => Promise<Result>): Promise<Result> {
 		if (this.#closing || this.#quiescing) return Promise.reject(new Error('Native Photo media is closed.'));
+		try { assertUploads(this.#database); } catch (error) { return Promise.reject(error); }
 		return run();
 	}
 }

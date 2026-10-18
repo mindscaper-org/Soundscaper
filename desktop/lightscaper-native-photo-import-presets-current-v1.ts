@@ -4,6 +4,7 @@ import { readClosedDomainField as field, readClosedDomainRecord as record } from
 import { id } from '../src/lightscaper/catalog/value-validation.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { photoImportPresetsKeyV1 } from '../src/lightscaper/storage/photo-import-presets-v1.ts';
+import type { KeyValueEntry } from '../src/common/editor/storage/key-value-repository.ts';
 import type { PhotoMediaSettingsRepositoryV1 } from '../src/lightscaper/storage/photo-media-store.ts';
 import type { LightscaperNativePhotoSettingsCurrentV1 as Settings } from './lightscaper-native-photo-settings-current-v1.ts';
 
@@ -23,6 +24,7 @@ export class LightscaperNativePhotoImportPresetsCurrentV1 {
 	readonly #signal: AbortSignal;
 	readonly #assert: () => void;
 	readonly #dispatch: Settings['executeImportPresetRequestCurrentV1'];
+	readonly #readBounded: () => Promise<KeyValueEntry>;
 	readonly #active = new Set<Promise<unknown>>();
 	#closed = false;
 	#closing: Promise<void> | null = null;
@@ -38,6 +40,9 @@ export class LightscaperNativePhotoImportPresetsCurrentV1 {
 		const dispatch = anchor.executeImportPresetRequestCurrentV1;
 		if (typeof dispatch !== 'function') throw new TypeError('Native import presets require the actual fixed-anchor request owner.');
 		this.#dispatch = dispatch.bind(anchor);
+		const bounded = anchor.readSessionDomainEntryCurrentV1;
+		if (typeof bounded !== 'function') throw new TypeError('Native import presets require their bounded physical domain owner.');
+		this.#readBounded = () => Reflect.apply(bounded, anchor, [this.#catalogId, 'import-presets']) as Promise<KeyValueEntry>;
 		this.#check();
 		this.settingsRepository = Object.freeze<Repository>({
 			get: (...args) => this.#request('get', args),
@@ -49,6 +54,17 @@ export class LightscaperNativePhotoImportPresetsCurrentV1 {
 
 	static create(anchor: Settings, catalogId: string, binding: Binding): LightscaperNativePhotoImportPresetsCurrentV1 {
 		return new LightscaperNativePhotoImportPresetsCurrentV1(anchor, catalogId, binding);
+	}
+
+	readEntryCurrentV1(): Promise<KeyValueEntry> {
+		if (this.#closed) return Promise.reject(new Error('Native import-preset facet is closed.'));
+		let resolve!: (value: KeyValueEntry) => void, reject!: (failure: unknown) => void;
+		const pending = new Promise<KeyValueEntry>((accept, refuse) => { resolve = accept; reject = refuse; }); this.#active.add(pending);
+		let work: Promise<KeyValueEntry>;
+		try { this.#check(); work = this.#readBounded(); } catch (failure) { work = Promise.reject(failure); }
+		void work.then(value => { try { this.#check(); this.#active.delete(pending); resolve(value); } catch (failure) { this.#active.delete(pending); reject(failure); } },
+			(failure: unknown) => { this.#active.delete(pending); reject(failure); });
+		return pending;
 	}
 
 	#request<Method extends keyof Repository>(method: Method, args: Parameters<Repository[Method]>): ReturnType<Repository[Method]> {

@@ -15,6 +15,7 @@ import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_RESERVED_METADATA_CURRENT_V1 as RESERVED
 import { readLightscaperNativeOriginalBindingCurrentV1, type LightscaperNativeOriginalBindingCurrentV1 as Binding } from './lightscaper-native-original-index-current-v1.ts';
 
 const COLUMNS = 'source_id,sha256,size,media_content_token,metadata,root_count,committed_at,pending_until';
+export const LIGHTSCAPER_NATIVE_PHOTO_SESSION_METADATA_FRAME_MAXIMUM_BYTES_CURRENT_V1 = 134_217_728;
 const CHECK = AbortSignal.prototype.throwIfAborted;
 const NativeDate = Date, PARSE = Date.parse, ISO = Date.prototype.toISOString, TIME = Date.prototype.getTime;
 type Row = Readonly<{ binding: Readonly<Binding>; token: string; payload: Uint8Array; count: number;
@@ -69,6 +70,13 @@ export function getLightscaperNativePhotoMediaAssetCurrentV1(database: DatabaseS
 	assertIdle(database); const row = read(database, readKey(assetId)); return row ? receipt(row) : null;
 }
 
+/** Main transport has one read lane and this fixed atomic frame ceiling.
+ * Existing generic metadata storage/grammar and reads remain unchanged. */
+export function getLightscaperNativePhotoSessionMediaMetadataCurrentV1(database: DatabaseSync, assetId: string): Record<string, unknown> | null {
+	assertIdle(database); const row = read(database, readKey(assetId), LIGHTSCAPER_NATIVE_PHOTO_SESSION_METADATA_FRAME_MAXIMUM_BYTES_CURRENT_V1);
+	return row ? receipt(row) : null;
+}
+
 /** Logical retirement is atomic with the real Original binding. Immutable SHA
  * files remain untouched: another binding or reader can still own that body. */
 export function deleteLightscaperNativePhotoMediaAssetCurrentV1(database: DatabaseSync, assetId: string, signal?: AbortSignal): void {
@@ -87,9 +95,22 @@ export function deleteLightscaperNativePhotoMediaAssetCurrentV1(database: Databa
 	});
 }
 
-function read(database: DatabaseSync, key: string): Row | null {
-	const row = database.prepare(`SELECT ${COLUMNS} FROM native_photo_media_assets WHERE source_id=?`).get(key);
+function read(database: DatabaseSync, key: string, maximumFrameBytes?: number): Row | null {
+	const row = maximumFrameBytes === undefined ? database.prepare(`SELECT ${COLUMNS} FROM native_photo_media_assets WHERE source_id=?`).get(key)
+		: database.prepare(`SELECT
+			CASE WHEN typeof(source_id)='text' AND length(CAST(source_id AS BLOB)) BETWEEN 1 AND 128 THEN source_id END AS source_id,
+			CASE WHEN typeof(sha256)='text' AND length(CAST(sha256 AS BLOB))=64 THEN sha256 END AS sha256,size,
+			CASE WHEN typeof(media_content_token)='text' AND length(CAST(media_content_token AS BLOB))<=142 THEN media_content_token END AS media_content_token,
+			typeof(metadata) AS metadata_type,length(metadata) AS metadata_bytes,
+			CASE WHEN typeof(metadata)='blob' AND length(metadata)<=? THEN metadata END AS metadata,root_count,
+			CASE WHEN typeof(committed_at)='text' AND length(CAST(committed_at AS BLOB))<=32 THEN committed_at END AS committed_at,
+			CASE WHEN typeof(pending_until)='text' AND length(CAST(pending_until AS BLOB))<=32 THEN pending_until END AS pending_until
+			FROM native_photo_media_assets WHERE source_id=?`).get(maximumFrameBytes, key);
 	if (!row) return null;
+	if (maximumFrameBytes !== undefined) {
+		if (row.metadata_type !== 'blob' || typeof row.metadata_bytes !== 'number' || !Number.isSafeInteger(row.metadata_bytes) || row.metadata_bytes < 0) throw new TypeError('Native Session metadata is not an owned BLOB.');
+		if (row.metadata_bytes > maximumFrameBytes) throw new RangeError('Native Session metadata exceeds its encoded frame bound.');
+	}
 	if (readKey(row.source_id) !== key || !isMediaContentSha256(row.sha256) || typeof row.size !== 'number'
 		|| !Number.isSafeInteger(row.size) || row.size < 1 || row.size > MAXIMUM || !isMediaContentToken(row.media_content_token)
 		|| !(row.metadata instanceof Uint8Array) || typeof row.root_count !== 'number' || !Number.isSafeInteger(row.root_count) || row.root_count < 0
@@ -103,7 +124,9 @@ function read(database: DatabaseSync, key: string): Row | null {
 }
 
 function assertBinding(database: DatabaseSync, binding: Readonly<Binding>): void {
-	const row = database.prepare('SELECT storage_key,content_sha256,byte_length FROM native_photo_original_bindings WHERE storage_key=?').get(binding.storageKey);
+	const row = database.prepare(`SELECT CASE WHEN typeof(storage_key)='text' AND length(CAST(storage_key AS BLOB)) BETWEEN 1 AND 128 THEN storage_key END AS storage_key,
+		CASE WHEN typeof(content_sha256)='text' AND length(CAST(content_sha256 AS BLOB))=64 THEN content_sha256 END AS content_sha256,byte_length
+		FROM native_photo_original_bindings WHERE storage_key=?`).get(binding.storageKey);
 	if (!row || row.storage_key !== binding.storageKey || row.content_sha256 !== binding.contentSha256 || row.byte_length !== binding.byteLength) {
 		throw new Error('Native Photo asset has no matching immutable Original binding.');
 	}

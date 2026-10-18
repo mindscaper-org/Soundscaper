@@ -11,6 +11,7 @@ import { switchLightscaperNativeOriginalBodyHeadCurrentV1 as switchHead,
 	readLightscaperNativeOriginalBodyHeadCurrentV1 as readHead, type LightscaperNativeOriginalBodyHeadCurrentV1 as Head } from './lightscaper-native-original-body-head-current-v1.ts';
 import { checkLightscaperNativePhotoMediaSignalCurrentV1 as check } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
 import { readLightscaperNativePhotoMediaWriteCurrentV1, type LightscaperNativePhotoMediaWriteCurrentV1 as Write } from './lightscaper-native-photo-media-blob-current-v1.ts';
+import { readLightscaperNativePhotoMediaMetadataCurrentV1 as readMetadata, type LightscaperNativePhotoMediaMetadataCurrentV1 as Metadata } from './lightscaper-native-photo-media-metadata-current-v1.ts';
 import { rollbackLightscaperNativePhotoOriginalRepairCurrentV1 as rollback } from './lightscaper-native-photo-original-repair-retirement-current-v1.ts';
 
 const NativeDate = Date, NOW = Date.now, ISO = Date.prototype.toISOString;
@@ -21,6 +22,15 @@ const NativeDate = Date, NOW = Date.now, ISO = Date.prototype.toISOString;
 export function publishLightscaperNativePhotoOriginalRepairCurrentV1(db: DatabaseSync,
 	binding: Readonly<CatalogOriginalRepairBindingV1>, before: Readonly<State>, captured: Write, proof: unknown,
 	signal?: AbortSignal): Readonly<CatalogOriginalRepairReceiptV1> {
+	return publishCaptured(db, binding, before, readLightscaperNativePhotoMediaWriteCurrentV1(captured).metadataPayload, proof, signal);
+}
+export function publishLightscaperNativePhotoOriginalRepairMetadataCurrentV1(db: DatabaseSync,
+	binding: Readonly<CatalogOriginalRepairBindingV1>, before: Readonly<State>, captured: Metadata, proof: unknown,
+	signal?: AbortSignal): Readonly<CatalogOriginalRepairReceiptV1> {
+	return publishCaptured(db, binding, before, readMetadata(captured).metadataPayload, proof, signal);
+}
+function publishCaptured(db: DatabaseSync, binding: Readonly<CatalogOriginalRepairBindingV1>, before: Readonly<State>,
+	payload: Uint8Array, proof: unknown, signal?: AbortSignal): Readonly<CatalogOriginalRepairReceiptV1> {
 	if (db.isTransaction) throw new Error('Native Original repair publication requires an idle database.');
 	check(signal); db.exec('BEGIN IMMEDIATE');
 	let candidate: Readonly<Head> | undefined, attemptedCommit = false;
@@ -35,7 +45,6 @@ export function publishLightscaperNativePhotoOriginalRepairCurrentV1(db: Databas
 			db.prepare('INSERT INTO native_photo_original_bindings(storage_key,content_sha256,byte_length) VALUES(?,?,?)').run(binding.assetId, binding.sha256, binding.size);
 		}
 		if (current.asset === null) {
-			const payload = readLightscaperNativePhotoMediaWriteCurrentV1(captured).metadataPayload;
 			const now = NOW(), committed = Reflect.apply(ISO, new NativeDate(now), []) as string;
 			const pending = Reflect.apply(ISO, new NativeDate(now + PENDING_SOURCE_RETENTION_MS), []) as string;
 			db.prepare(`INSERT INTO native_photo_media_assets(source_id,sha256,size,media_content_token,metadata,root_count,committed_at,pending_until)

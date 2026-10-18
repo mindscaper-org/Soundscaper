@@ -6,11 +6,12 @@ import { captureLightscaperNativePhotoSessionArchiveCurrentV1 as archive, captur
 
 type Catalog = Omit<Pick<Components['catalog'], keyof Components['catalog']>, 'close' | 'storeOriginal' | 'readOriginal'>;
 type Media = Pick<Components['media'], 'writeAsset' | 'beginAssetWrite' | 'getAssetMetadata' | 'deleteAsset'
-	| 'inspectCatalogOriginalBody' | 'restoreCatalogOriginalBody' | 'catalogOriginals' | 'createBinaryDerivativeCache'>;
+	| 'inspectCatalogOriginalBody' | 'restoreCatalogOriginalBody' | 'catalogOriginals' | 'createBinaryDerivativeCache'
+	| 'beginOriginalRepairUploadCurrentV1' | 'restoreCatalogOriginalBodyFromSourceCurrentV1' | 'readSessionAssetMetadataCurrentV1'>;
 export interface LightscaperNativePhotoSessionComponentsCurrentV1 {
 	readonly catalog: Readonly<Catalog>;
 	readonly media: Readonly<Media>;
-	readonly settings: Readonly<Pick<Components['settings'], 'settingsRepository' | 'readImportIntentCurrentV1'>>;
+	readonly settings: Readonly<Pick<Components['settings'], 'settingsRepository' | 'readImportIntentCurrentV1' | 'readSessionDomainEntryCurrentV1'>>;
 	readonly resources: Readonly<Pick<Components['resources'], 'cubeLutResources' | 'maskRasterResources'>>;
 	readonly originals: Readonly<Pick<Components['originals'], 'withOriginal' | 'withOriginalGroup'>>;
 	readonly originalTickets: Readonly<Pick<Components['originalTickets'], 'transport'>>;
@@ -34,14 +35,15 @@ export function createLightscaperNativePhotoSessionFacadesCurrentV1(actual: Read
 	return Object.freeze({
 		catalog: Object.freeze({ ...methods(actual.catalog, CATALOG, calls), captureSmartCollectionArchiveV1: (...args: Parameters<typeof captureArchive>) =>
 			calls.run(async () => archive(await Reflect.apply(captureArchive, actual.catalog, args), calls)) }),
-		media: Object.freeze({ ...methods(actual.media, ['writeAsset', 'getAssetMetadata', 'deleteAsset', 'inspectCatalogOriginalBody', 'restoreCatalogOriginalBody'], calls),
+		media: Object.freeze({ ...methods(actual.media, ['writeAsset', 'getAssetMetadata', 'deleteAsset', 'inspectCatalogOriginalBody', 'restoreCatalogOriginalBody',
+			'beginOriginalRepairUploadCurrentV1', 'restoreCatalogOriginalBodyFromSourceCurrentV1', 'readSessionAssetMetadataCurrentV1'], calls),
 			catalogOriginals: methods(actual.media.catalogOriginals, ['retain', 'stage', 'release', 'releaseStaged', 'promote', 'readPage', 'findDigestPage'], calls),
 			beginAssetWrite: (...args: Parameters<typeof begin>) => calls.run(async () => writer(await Reflect.apply(begin, actual.media, args), calls)),
 			createBinaryDerivativeCache: (...args: Parameters<typeof createCache>) => calls.sync(() => {
 				const cache = Reflect.apply(createCache, actual.media, args);
 				return methods(cache, ['load', 'store', 'trim'], calls);
 			}) }),
-		settings: Object.freeze({ ...methods(actual.settings, ['readImportIntentCurrentV1'], calls),
+		settings: Object.freeze({ ...methods(actual.settings, ['readImportIntentCurrentV1', 'readSessionDomainEntryCurrentV1'], calls),
 			settingsRepository: methods(actual.settings.settingsRepository, ['get', 'readEntry', 'put', 'delete', 'putIfAbsent', 'replaceIfCurrent',
 				'deleteIfCurrent', 'replaceIfCurrentAndPutIfAbsent'], calls) }),
 		resources: Object.freeze({ cubeLutResources: () => calls.run(async () => {

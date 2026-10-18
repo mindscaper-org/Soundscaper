@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { KeyValueEntry } from '../common/editor/storage/key-value-repository.ts';
 import type { BinaryDerivativeCacheProfileV1 } from '../common/editor/storage/binary-derivative-cache-records.ts';
 import type { BinaryDerivativeCachePortV1 } from '../common/editor/storage/binary-derivative-cache-repository.ts';
 import type { MediaAssetWriteOptions, MediaAssetWriter } from '../common/editor/storage/media-asset-write-contract.ts';
@@ -50,6 +51,7 @@ interface Components {
 	readonly media: Readonly<Media>;
 	readonly settings: Readonly<{
 		settingsRepository: PhotoMediaSettingsRepositoryV1;
+		readSessionDomainEntryCurrentV1(catalogId: string, domain: unknown): Promise<KeyValueEntry>;
 		readImportIntentCurrentV1(catalogId: string): Promise<Readonly<PhotoImportIntentV1> | null>;
 	}>;
 	readonly resources: Readonly<{

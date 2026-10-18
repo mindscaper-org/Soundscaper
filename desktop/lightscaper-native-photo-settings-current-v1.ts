@@ -11,6 +11,8 @@ import { captureLightscaperNativePhotoSettingsRequestCurrentV1, encodeLightscape
 import { decodeLightscaperNativePhotoSettingCurrentV1 } from './lightscaper-native-photo-settings-codec-current-v1.ts';
 import { normalizePhotoImportIntentV1, photoImportIntentKeyV1, type PhotoImportIntentV1 } from '../src/lightscaper/import/import-intent-v1.ts';
 import { id } from '../src/lightscaper/catalog/value-validation.ts';
+import { readLightscaperNativePhotoSessionSettingEntryCurrentV1 } from './lightscaper-native-photo-session-settings-current-v1.ts';
+import { readDesktopPhotoSessionSettingsDomainCurrentV1 } from '../src/lightscaper/desktop-photo-library-session-settings-current-v1.ts';
 import { photoImportPresetsKeyV1 } from '../src/lightscaper/storage/photo-import-presets-v1.ts';
 import { executeLightscaperNativePhotoSettingsRequestCurrentV1 } from './lightscaper-native-photo-settings-records-current-v1.ts';
 
@@ -77,6 +79,14 @@ export class LightscaperNativePhotoSettingsCurrentV1 {
 			if (!(row.payload instanceof Uint8Array) || row.payload.byteLength !== row.payload_bytes) throw new TypeError('Native Photo import intent payload is malformed.');
 			return normalizePhotoImportIntentV1(decodeLightscaperNativePhotoSettingCurrentV1(row.payload), catalog);
 		});
+	}
+
+	readSessionDomainEntryCurrentV1(catalogId: string, domainValue: unknown): Promise<KeyValueEntry> {
+		return this.#lifetime.run(() => {
+			const catalog = id(catalogId, 'native Session settings catalog'), domain = readDesktopPhotoSessionSettingsDomainCurrentV1(domainValue);
+			if ((domain === 'import-presets') !== (this.#scope === 'anchor')) throw new TypeError('Native Session setting domain differs from its physical scope.');
+			return { catalog, domain };
+		}, ({ catalog, domain }) => readLightscaperNativePhotoSessionSettingEntryCurrentV1(this.#database, this.#scope, catalog, domain));
 	}
 
 	/** Fixed-anchor single-key request for the genuine selected Session lease.

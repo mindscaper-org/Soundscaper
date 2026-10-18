@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { KeyValueEntry } from '../src/common/editor/storage/key-value-repository.ts';
 import type { PhotoCatalogImportExclusiveV1 } from '../src/lightscaper/import/catalog-write-lock-v1.ts';
 import { checkLightscaperNativePhotoMediaSignalCurrentV1 as check } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
 import { consumeLightscaperNativePhotoSessionClaimCurrentV1 as consume } from './lightscaper-native-photo-session-claim-current-v1.ts';
@@ -14,6 +15,7 @@ export interface LightscaperNativePhotoSessionLeaseCurrentV1 {
 	readonly signal: AbortSignal;
 	readonly components: Readonly<Components>;
 	readonly importPresets: PresetRepository;
+	readImportPresetEntryCurrentV1(): Promise<KeyValueEntry>;
 	readonly exclusive: PhotoCatalogImportExclusiveV1;
 	stop(): void;
 	close(): Promise<void>;
@@ -63,7 +65,7 @@ export async function createLightscaperNativePhotoSessionLeaseCurrentV1(value: u
 	try {
 		const components = facades(binding.components, calls, close); assertCurrent();
 		return Object.freeze({ catalogId: binding.catalogId, selectionToken: binding.selectionToken, signal: binding.signal,
-			components, importPresets: presets.settingsRepository, exclusive: exclusive.exclusive, stop, close });
+			components, importPresets: presets.settingsRepository, readImportPresetEntryCurrentV1: () => presets.readEntryCurrentV1(), exclusive: exclusive.exclusive, stop, close });
 	} catch (primary) {
 		try { await close(); } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Native Session construction and retirement failed.', { cause: cleanup }); }
 		throw primary;
