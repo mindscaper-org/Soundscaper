@@ -9,7 +9,10 @@ import type { LightscaperNativeCatalogStoreCurrentV1 as Catalog } from './lights
 import type { LightscaperNativePhotoMediaCurrentV1 as Media } from './lightscaper-native-photo-media-current-v1.ts';
 import type { LightscaperNativePhotoSettingsCurrentV1 as Settings } from './lightscaper-native-photo-settings-current-v1.ts';
 import type { LightscaperNativePhotoMediaOriginalReadCurrentV1 as Lease } from './lightscaper-native-photo-media-original-reads-current-v1.ts';
-import { activateLightscaperNativePhotoOriginalReadReservationCurrentV1 as activate } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
+import { readPhotoLibraryOriginalGroupCurrentV1 } from '../src/lightscaper/controller/photo-library-original-group-contract-current-v1.ts';
+import type { LightscaperNativePhotoOriginalGroupReservationCurrentV1 as GroupReservation } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
+import { activateLightscaperNativePhotoOriginalReadReservationCurrentV1 as activate,
+	activateLightscaperNativePhotoOriginalGroupReservationCurrentV1 as activateGroup } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
 import { checkLightscaperNativePhotoMediaSignalCurrentV1 as check,
 	linkLightscaperNativePhotoMediaSignalsCurrentV1 as link } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
 
@@ -26,21 +29,29 @@ type Scope = Readonly<{ signal: AbortSignal; assertCurrent(): void }>;
 export interface LightscaperNativePhotoOriginalViewCurrentV1 {
 	readonly original: Readonly<PhotoOriginalV1>; read(offset: number, length: number): Promise<Uint8Array>;
 }
+export interface LightscaperNativePhotoOriginalGroupViewCurrentV1 {
+	readonly originals: readonly Readonly<PhotoOriginalV1>[]; read(index: number, offset: number, length: number): Promise<Uint8Array>;
+}
+type GroupSlot = Readonly<{ group: Readonly<GroupReservation>; index: number }>;
 /** Main-private composition captures genuine owner methods before components
 	* escape. A consumer is owned independently of the Catalog and Media queues. */
 export class LightscaperNativePhotoOriginalsCurrentV1 {
 	readonly #load: Catalog['loadPhoto']; readonly #catalog: Catalog;
 	readonly #intent: Settings['readImportIntentCurrentV1']; readonly #settings: Settings;
 	readonly #acquire: Media['acquireOriginalRead']; readonly #reserve: Media['reserveOriginalRead'];
+	readonly #acquireGroup: Media['acquireOriginalGroupRead']; readonly #reserveGroup: Media['reserveOriginalGroup'];
 	readonly #scope: Scope; readonly #assert: Scope['assertCurrent'];
 	readonly #shutdown = new NativeController(); readonly #linked: ReturnType<typeof link>;
 	readonly #active = new Set<Promise<unknown>>(); readonly #cleanup: unknown[] = [];
+	readonly #quarantinedGroups = new Set<Readonly<GroupReservation>>();
 	#closing: Promise<void> | null = null;
 	private constructor(catalog: Catalog, media: Media, settings: Settings, scope: Scope) {
 		this.#catalog = catalog; this.#load = catalog.loadPhoto;
 		this.#settings = settings; this.#intent = settings.readImportIntentCurrentV1;
 		if (typeof this.#intent !== 'function') throw new TypeError('Native Original reader requires its genuine bounded selected import-intent reader.');
 		this.#acquire = media.acquireOriginalRead; this.#reserve = media.reserveOriginalRead;
+		this.#acquireGroup = media.acquireOriginalGroupRead; this.#reserveGroup = media.reserveOriginalGroup;
+		if (typeof this.#acquireGroup !== 'function' || typeof this.#reserveGroup !== 'function') throw new TypeError('Native Original reader requires complete physical group booking.');
 		this.#scope = scope; this.#assert = scope.assertCurrent; this.#linked = link(scope.signal, Reflect.apply(SIGNAL, this.#shutdown, []) as AbortSignal);
 	}
 	static create(value: Readonly<{ catalog: Catalog; media: Media; settings: Settings; scope: Scope }>): LightscaperNativePhotoOriginalsCurrentV1 {
@@ -54,6 +65,10 @@ export class LightscaperNativePhotoOriginalsCurrentV1 {
 			Object.freeze({ signal, assertCurrent: () => { Reflect.apply(current, scopeValue, []); } }));
 	}
 	withOriginal<Result>(value: unknown, consume: (view: Readonly<LightscaperNativePhotoOriginalViewCurrentV1>) => Result | PromiseLike<Result>, options: Options = {}): Promise<Result> {
+		return this.#withOriginal(value, consume, options);
+	}
+	#withOriginal<Result>(value: unknown, consume: (view: Readonly<LightscaperNativePhotoOriginalViewCurrentV1>) => Result | PromiseLike<Result>,
+		options: Options = {}, group?: GroupSlot): Promise<Result> {
 		if (this.#closing) return Promise.reject(new Error('Native Original reader is closed.'));
 		let resolve!: (value: Result | PromiseLike<Result>) => void, reject!: (error: unknown) => void;
 		const pending = new Promise<Result>((accept, refuse) => { resolve = accept; reject = refuse; }); this.#active.add(pending);
@@ -82,13 +97,85 @@ export class LightscaperNativePhotoOriginalsCurrentV1 {
 			this.#active.delete(pending); reject(primary); return pending;
 		}
 		const signal = selected!.signal, capturedController = controller!;
-		void this.#consume(captured, consume, signal, capturedController, reservation!).then(value => {
+		void this.#consume(captured, consume, signal, capturedController, reservation!, group).then(value => {
 			try { detach(); } catch (cleanup) { this.#cleanup.push(cleanup); throw cleanup; } return value;
 		}, (primary: unknown) => {
 			try { detach(); } catch (cleanup) { this.#cleanup.push(cleanup); throw new AggregateError([primary, cleanup], 'Native Original signal retirement failed.', { cause: cleanup }); } throw primary;
 		}).then(value => { this.#active.delete(pending); resolve(value); }, (error: unknown) => { this.#active.delete(pending); reject(error); });
 		return pending;
 	}
+	/** Book every authority synchronously before the first per-Photo lookup.
+	 * The booking remains occupied until all real alias callbacks/pulls join. */
+	withOriginalGroup<Result>(value: unknown, consume: (view: Readonly<LightscaperNativePhotoOriginalGroupViewCurrentV1>) => Result | PromiseLike<Result>, options: Options = {}): Promise<Result> {
+		if (this.#closing || this.#cleanup.length) return Promise.reject(new Error('Native Original reader is closed.'));
+		let resolve!: (value: Result | PromiseLike<Result>) => void, reject!: (error: unknown) => void;
+		const pending = new Promise<Result>((accept, refuse) => { resolve = accept; reject = refuse; }); this.#active.add(pending);
+		let selected: ReturnType<typeof link> | undefined, controller: AbortController | undefined, booking: Readonly<GroupReservation> | undefined;
+		let detach = (): void => undefined, requests: readonly Request[];
+		try {
+			const descriptor = options && typeof options === 'object' ? Object.getOwnPropertyDescriptor(options, 'signal') : undefined;
+			const caller: unknown = descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
+			if (caller !== undefined) assertPhotoStackQuerySignalV1(caller);
+			const callerLink = link(caller as AbortSignal | undefined, this.#linked.signal); detach = callerLink.detach; controller = new NativeController();
+			selected = link(callerLink.signal, Reflect.apply(SIGNAL, controller, []) as AbortSignal);
+			const owned = selected; detach = () => { detachLinks(owned.detach, callerLink.detach); }; this.#check(selected.signal);
+			const admitted = record(options, 'native Original group options', ['signal'], []);
+			if ((Object.hasOwn(admitted, 'signal') ? field(admitted, 'signal', 'native Original group options') : undefined) !== caller) throw new TypeError('Native Original group signal changed during capture.');
+			const plan = readPhotoLibraryOriginalGroupCurrentV1(value);
+			requests = Object.freeze(plan.requests.map(request => Object.freeze({ catalogId: request.catalogId, photoId: request.photoId,
+				original: readLightscaperNativeOriginalCurrentV1(request.original) })));
+			if (typeof consume !== 'function') throw new TypeError('Native Original group requires its owning consumer callback.');
+			this.#check(selected.signal); booking = this.#reserveGroup(requests.length); activateGroup(booking);
+		} catch (error) {
+			let primary = readFailure(error, selected?.signal ?? this.#linked.signal); booking?.release();
+			try { detach(); } catch (cleanup) { this.#cleanup.push(cleanup); primary = new AggregateError([primary, cleanup], 'Native Original group admission retirement failed.', { cause: cleanup }); }
+			this.#active.delete(pending); reject(primary); return pending;
+		}
+		const cleanupEpoch = this.#cleanup.length, ownedBooking = booking!;
+		const retire = (): void => {
+			try { detach(); } catch (cleanup) { this.#cleanup.push(cleanup); }
+			if (this.#cleanup.length !== cleanupEpoch) {
+				this.#quarantinedGroups.add(ownedBooking);
+				const failure = new AggregateError(this.#cleanup.slice(cleanupEpoch), 'Native Original group retirement is unproved.');
+				ownedBooking.quarantine(failure); throw failure;
+			}
+			ownedBooking.release();
+		};
+		void this.#consumeGroup(requests, consume, selected!.signal, controller!, ownedBooking).then(result => {
+			retire(); return result;
+		}, (primary: unknown) => {
+			try { retire(); } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Native Original group and retirement failed.', { cause: cleanup }); } throw primary;
+		}).then(result => { this.#active.delete(pending); resolve(result); }, (error: unknown) => { this.#active.delete(pending); reject(error); });
+		return pending;
+	}
+	async #consumeGroup<Result>(requests: readonly Request[], consume: (view: Readonly<LightscaperNativePhotoOriginalGroupViewCurrentV1>) => Result | PromiseLike<Result>,
+		signal: AbortSignal, controller: AbortController, booking: Readonly<GroupReservation>): Promise<Result> {
+		let release!: () => void; const retired = new Promise<void>(resolve => { release = resolve; });
+		const views: Readonly<LightscaperNativePhotoOriginalViewCurrentV1>[] = [], tasks: Promise<void>[] = [];
+		let live = true, failed = false, primary: unknown, result!: Result;
+		try {
+			for (let index = 0; index < requests.length; index++) {
+				this.#check(signal); let ready!: () => void, refuse!: (error: unknown) => void;
+				const entered = new Promise<void>((accept, reject) => { ready = accept; refuse = reject; });
+				const task = this.#withOriginal(requests[index], async view => { views.push(view); ready(); await retired; }, { signal }, { group: booking, index });
+				tasks.push(task); void task.then(() => { refuse(new Error('Native Original alias retired before publication.')); }, refuse); await entered;
+			}
+			this.#check(signal);
+			const view = Object.freeze({ originals: Object.freeze(views.map(value => value.original)), read: (index: number, offset: number, length: number): Promise<Uint8Array> => {
+				if (!live) return Promise.reject(new Error('Native Original group view has retired.'));
+				if (!Number.isSafeInteger(index) || Object.is(index, -0) || index < 0 || index >= views.length) return Promise.reject(new RangeError('Native Original group index is invalid.'));
+				return views[index]!.read(offset, length);
+			} });
+			result = await Reflect.apply(consume, undefined, [view]) as Result; this.#check(signal);
+		} catch (error) { failed = true; primary = readFailure(error, signal); Reflect.apply(ABORT, controller, [primary]); }
+		live = false; release();
+		const terminal = await Promise.allSettled(tasks);
+		for (const value of terminal) if (value.status === 'rejected' && (!failed || !Object.is(value.reason, primary))) {
+			primary = failed ? new AggregateError([primary, value.reason as unknown], 'Native Original group and alias retirement failed.', { cause: value.reason }) : value.reason as unknown; failed = true;
+		}
+		if (failed) throw primary; this.#check(signal); return result;
+	}
+
 	close(): Promise<void> {
 		if (this.#closing) return this.#closing;
 		let resolve!: () => void, reject!: (error: unknown) => void;
@@ -100,12 +187,13 @@ export class LightscaperNativePhotoOriginalsCurrentV1 {
 		}).then(resolve, reject); return this.#closing;
 	}
 	async #consume<Result>(request: Request, consume: (view: Readonly<LightscaperNativePhotoOriginalViewCurrentV1>) => Result | PromiseLike<Result>,
-		signal: AbortSignal, controller: AbortController, reservation: Readonly<{ release(): void }>): Promise<Result> {
+		signal: AbortSignal, controller: AbortController, reservation: Readonly<{ release(): void }>, group?: GroupSlot): Promise<Result> {
 		let lease: Readonly<Lease> | undefined, failed = false, primary: unknown, result!: Result;
 		let live = true, busy = false, pull: Promise<Uint8Array> | null = null;
 		try {
 			const imported = await this.#current(request, signal);
-			lease = await this.#acquire({ ...request, importId: imported }, { signal });
+			lease = group ? await this.#acquireGroup({ ...request, importId: imported }, group.group, group.index, { signal })
+				: await this.#acquire({ ...request, importId: imported }, { signal });
 			await lease.assertCurrent(await this.#current(request, signal)); this.#check(signal);
 		} catch (error) { failed = true; primary = readFailure(error, signal); }
 		finally { reservation.release(); }

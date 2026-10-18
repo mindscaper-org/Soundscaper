@@ -11,8 +11,11 @@ import { DESKTOP_PHOTO_ORIGINAL_LIMITS_CURRENT_V1 as LIMITS,
 import type { PhotoLibraryOriginalRequestCurrentV1 as Request } from '../src/lightscaper/controller/photo-library-original-source-current-v1.ts';
 import type { LightscaperNativePhotoOriginalsCurrentV1 as Originals, LightscaperNativePhotoOriginalViewCurrentV1 as View } from './lightscaper-native-photo-originals-current-v1.ts';
 
+import { LightscaperNativePhotoOriginalGroupTicketsCurrentV1 as Groups } from './lightscaper-native-photo-original-group-tickets-current-v1.ts';
+import { lightscaperNativePhotoOriginalTicketBudgetCurrentV1, type LightscaperNativePhotoOriginalTicketBudgetCurrentV1 } from './lightscaper-native-photo-original-ticket-budget-current-v1.ts';
+
 type Scope = Readonly<{ signal: AbortSignal; assertCurrent(): void }>;
-type Budget = { work: number; tickets: number; bytes: number };
+type Budget = LightscaperNativePhotoOriginalTicketBudgetCurrentV1;
 type Outcome = Readonly<{ okay: true }> | Readonly<{ okay: false; error: unknown }>;
 interface Deferred<Value> { readonly promise: Promise<Value>; resolve(value: Value | PromiseLike<Value>): void; reject(reason: unknown): void }
 interface Entry {
@@ -21,7 +24,7 @@ interface Entry {
 	id: string | null; request: Readonly<Request> | null; pull: View['read'] | null; started: boolean; bytes: number;
 	busy: boolean; closing: Promise<void> | null;
 }
-const budgets = new WeakMap<AbortSignal, Budget>();
+
 const NativeController = AbortController, ABORT = AbortController.prototype.abort;
 const SIGNAL = Object.getOwnPropertyDescriptor(AbortController.prototype, 'signal')!.get!;
 const CHECK = AbortSignal.prototype.throwIfAborted, REASON = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'reason')!.get!;
@@ -49,7 +52,7 @@ export class LightscaperNativePhotoOriginalTicketsCurrentV1 {
 	readonly transport: Readonly<Transport>;
 	readonly #originals: Originals; readonly #with: Originals['withOriginal'];
 	readonly #scope: Scope; readonly #assert: Scope['assertCurrent']; readonly #unretired: () => void;
-	readonly #budget: Budget; readonly #abort: () => void;
+	readonly #budget: Budget; readonly #groups: Groups; readonly #abort: () => void;
 	readonly #entries = new Set<Entry>(); readonly #tickets = new Map<string, Entry>(); readonly #active = new Set<Promise<unknown>>();
 	readonly #quarantined = new Set<Entry>(); readonly #failures: unknown[] = [];
 	#closed = false; #notified = false; #reason: unknown = new Error('Native Original tickets are closed.'); #closing: Promise<void> | null = null;
@@ -57,8 +60,10 @@ export class LightscaperNativePhotoOriginalTicketsCurrentV1 {
 		this.#originals = originals; this.#with = originals.withOriginal;
 		if (typeof this.#with !== 'function') throw new TypeError('Native Original tickets require the actual bounded reader.');
 		this.#scope = scope; this.#assert = scope.assertCurrent; this.#unretired = unretired;
-		this.#budget = budgets.get(scope.signal) ?? { work: 0, tickets: 0, bytes: 0 }; budgets.set(scope.signal, this.#budget);
-		this.transport = Object.freeze<Transport>({ open: value => this.#open(value), read: (value, offset, length) => this.#read(value, offset, length), close: value => this.#wireClose(value) });
+		this.#budget = lightscaperNativePhotoOriginalTicketBudgetCurrentV1(scope.signal);
+		this.#groups = new Groups(originals, this.#budget, () => { this.#assertCurrent(); }, error => { this.#latch(null, error); });
+		this.transport = Object.freeze<Transport>({ open: value => this.#open(value), read: (value, offset, length) => this.#read(value, offset, length), close: value => this.#wireClose(value),
+			openGroup: value => this.#groups.open(value), readGroup: (value, index, offset, length) => this.#groups.read(value, index, offset, length), closeGroup: value => this.#groups.closeTicket(value) });
 		this.#abort = () => { void this.#close(Reflect.apply(REASON, scope.signal, [])).catch(() => undefined); };
 		Reflect.apply(ADD, scope.signal, ['abort', this.#abort, { once: true }]);
 		if (Reflect.apply(ABORTED, scope.signal, []) === true) this.#abort();
@@ -179,8 +184,9 @@ export class LightscaperNativePhotoOriginalTicketsCurrentV1 {
 	#close(reason: unknown): Promise<void> {
 		if (this.#closing) return this.#closing;
 		const done = deferred<void>(); this.#closing = done.promise; this.#closed = true; this.#reason = reason;
-		const retiring = [...this.#entries].map(entry => this.#retire(entry, reason)), operations = [...this.#active];
-		void Promise.allSettled([...retiring, ...operations]).then(() => {
+		const grouped = this.#groups.close(reason), retiring = [...this.#entries].map(entry => this.#retire(entry, reason)), operations = [...this.#active];
+		void Promise.allSettled([grouped, ...retiring, ...operations]).then(results => {
+			if (results[0]?.status === 'rejected') remember(this.#failures, results[0].reason);
 			try { Reflect.apply(REMOVE, this.#scope.signal, ['abort', this.#abort]); } catch (error) { this.#latch(null, error); }
 			if (this.#failures.length) throw combine(this.#failures, 'Native Original ticket owner retirement is unproved.');
 		}).then(done.resolve, done.reject); return done.promise;

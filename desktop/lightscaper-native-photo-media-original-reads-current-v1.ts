@@ -5,6 +5,7 @@ import { types } from 'node:util';
 import type { LightscaperNativeOriginalStoreCurrentV1 } from './lightscaper-native-original-store-current-v1.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as MAXIMUM } from './lightscaper-native-original-contract-current-v1.ts';
 import { registerLightscaperNativePhotoOriginalPinsCurrentV1, holdLightscaperNativePhotoOriginalReadReservationCurrentV1,
+	type LightscaperNativePhotoOriginalGroupReservationCurrentV1 as GroupReservation,
 	type LightscaperNativePhotoOriginalReadReservationCurrentV1 as Reservation } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
 import { readLightscaperNativePhotoOriginalAuthorityCurrentV1 as authorize,
 	type LightscaperNativePhotoOriginalReadRequestCurrentV1 as Request } from './lightscaper-native-photo-original-read-authority-current-v1.ts';
@@ -39,9 +40,14 @@ export class LightscaperNativePhotoMediaOriginalReadsCurrentV1 {
 		this.#database = database; this.#originals = originals; this.#run = run; this.#pins = registerLightscaperNativePhotoOriginalPinsCurrentV1(database);
 	}
 	reserve(): Readonly<{ release(): void }> { if (this.#closed) throw new Error('Native Original reads are closed.'); return this.#pins.reserve(); }
-	acquire(request: Request, caller?: AbortSignal): Readonly<LightscaperNativePhotoMediaOriginalReadCurrentV1> {
+	reserveGroup(count: number): Readonly<GroupReservation> { if (this.#closed) throw new Error('Native Original reads are closed.'); return this.#pins.reserveGroup(count); }
+	acquireGroup(request: Request, group: Readonly<GroupReservation>, index: number, caller?: AbortSignal): Readonly<LightscaperNativePhotoMediaOriginalReadCurrentV1> {
+		this.#pins.assertGroup(group, index); return this.#acquire(request, caller, { group, index });
+	}
+	acquire(request: Request, caller?: AbortSignal): Readonly<LightscaperNativePhotoMediaOriginalReadCurrentV1> { return this.#acquire(request, caller); }
+	#acquire(request: Request, caller?: AbortSignal, reserved?: Readonly<{ group: Readonly<GroupReservation>; index: number }>): Readonly<LightscaperNativePhotoMediaOriginalReadCurrentV1> {
 		if (this.#closed) throw new Error('Native Original reads are closed.'); check(caller);
-		const authority = authorize(this.#database, request, request.importId), pin = this.#pins.pin(authority.storageKey, authority.token);
+		const authority = authorize(this.#database, request, request.importId), pin = reserved ? this.#pins.pinGroup(authority.storageKey, authority.token, reserved.group, reserved.index) : this.#pins.pin(authority.storageKey, authority.token);
 		const controller = new NativeController(), shutdown = Reflect.apply(SIGNAL, controller, []) as AbortSignal; let linked: ReturnType<typeof link>;
 		try { linked = link(caller, shutdown); } catch (error) { pin.release(); throw error; }
 		const signal = linked.signal, active = new Set<Promise<unknown>>(), failures: unknown[] = [];

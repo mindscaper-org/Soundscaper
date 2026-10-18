@@ -14,6 +14,7 @@ import { deleteLightscaperNativePhotoMediaAssetCurrentV1, getLightscaperNativePh
 	installLightscaperNativePhotoMediaAssetCurrentV1 } from './lightscaper-native-photo-media-assets-current-v1.ts';
 import { captureLightscaperNativePhotoCustodyRequestCurrentV1, executeLightscaperNativePhotoCustodyRequestCurrentV1 } from './lightscaper-native-photo-media-custody-current-v1.ts';
 import { LightscaperNativePhotoMediaLifetimeCurrentV1, checkLightscaperNativePhotoMediaSignalCurrentV1 as check } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
+import type { LightscaperNativePhotoOriginalGroupReservationCurrentV1 as GroupReservation } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
 import { LightscaperNativePhotoMediaOriginalReadsCurrentV1 } from './lightscaper-native-photo-media-original-reads-current-v1.ts';
 import { captureLightscaperNativePhotoOriginalReadRequestCurrentV1 } from './lightscaper-native-photo-original-read-authority-current-v1.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
@@ -71,6 +72,16 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 	readonly reserveOriginalRead = (): Readonly<{ release(): void }> => {
 		if (this.#closing || this.#quiescing) throw new Error('Native Photo media is closed.'); return this.#reads.reserve();
 	};
+	readonly reserveOriginalGroup = (count: number): Readonly<GroupReservation> => {
+		if (this.#closing || this.#quiescing) throw new Error('Native Photo media is closed.'); return this.#reads.reserveGroup(count);
+	};
+	readonly acquireOriginalGroupRead = (value: unknown, group: Readonly<GroupReservation>, index: number, options: Options = {}) => this.#run(options, () => {
+		const input = record(options, 'native Original group lease options', ['signal'], []);
+		const signal = Object.hasOwn(input, 'signal') ? field(input, 'signal', 'native Original group lease options') : undefined;
+		if (signal !== undefined) assertPhotoStackQuerySignalV1(signal);
+		return { request: captureLightscaperNativePhotoOriginalReadRequestCurrentV1(value), signal, group, index };
+	}, (input, signal) => { check(signal); return this.#reads.acquireGroup(input.request, input.group, input.index, input.signal); });
+
 	readonly acquireOriginalRead = (value: unknown, options: Options = {}) => this.#run(options, () => {
 		const input = record(options, 'native Original lease options', ['signal'], []);
 		const signal = Object.hasOwn(input, 'signal') ? field(input, 'signal', 'native Original lease options') : undefined;

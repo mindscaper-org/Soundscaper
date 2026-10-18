@@ -9,7 +9,7 @@ import { photoImportIntentKeyV1 } from '../src/lightscaper/import/import-intent-
 
 void test('Lightscaper native Original tickets expose exactly the fixed transport and actual bounded copied bytes', { timeout: 15_000 }, async () => {
 	await fixture(async f => { checkTest();
-		const transport = f.server.transport; assert.equal(Object.isFrozen(transport), true); assert.deepEqual(Object.keys(transport), ['open', 'read', 'close']);
+		const transport = f.server.transport; assert.equal(Object.isFrozen(transport), true); assert.deepEqual(Object.keys(transport), ['open', 'read', 'close', 'openGroup', 'readGroup', 'closeGroup']);
 		const ticket = readTicket(await transport.open(f.request), f.request);
 		try {
 			assert.deepEqual(Object.keys(ticket), ['id', 'original']); assert.match(ticket.id, /^[a-f0-9]{64}$/u); assert.deepEqual(ticket.original, f.entry.original);
