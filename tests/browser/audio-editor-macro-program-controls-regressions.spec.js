@@ -29,17 +29,7 @@ async function reimportProgram(page) {
 	return manager;
 }
 
-test('clicking the review checkbox enables an exported and reimported program', async ({ page }) => {
-	await page.setViewportSize({ width: 1280, height: 1000 });
-	const manager = await reimportProgram(page);
-	const review = manager.locator('[data-macro-script-review]');
-	await review.getByRole('checkbox').click();
-	await expect(review.getByRole('checkbox')).toBeChecked();
-	await manager.locator('.audio-editor-macro-script__actions').getByRole('button').click();
-	await expect(manager.getByRole('button', { name: 'Run program', exact: true })).toBeEnabled();
-});
-
-test('the program import message leaves its review checkbox reachable in a normal window', async ({ page }) => {
+test('an imported program remains reviewable and runnable in a normal window', async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 720 });
 	const manager = await reimportProgram(page);
 	const checkbox = manager.locator('[data-macro-script-review]').getByRole('checkbox');
@@ -51,6 +41,8 @@ test('the program import message leaves its review checkbox reachable in a norma
 	expect(reachable).toBe(true);
 	await checkbox.click();
 	await expect(checkbox).toBeChecked();
+	await manager.locator('.audio-editor-macro-script__actions').getByRole('button').click();
+	await expect(manager.getByRole('button', { name: 'Run program', exact: true })).toBeEnabled();
 });
 
 test('Escape then Tab leaves the program textarea without closing the palette', async ({ page }) => {

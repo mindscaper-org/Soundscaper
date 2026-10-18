@@ -38,6 +38,8 @@ test.describe('video container exporters', () => {
 				} finally { video.removeAttribute('src'); video.load(); URL.revokeObjectURL(url); }
 			}, { data: Array.from(source.buffer), type: source.mimeType });
 			await importFiles(editor, [source]);
+			await expect(editor).toHaveAttribute('data-clip-count', '1');
+			await expect(editor.locator('[data-status]')).not.toContainText('could not be decoded');
 			const dialog = await openExportDialog(page, editor, { label: 'Export video' });
 			await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), label);
 			await dialog.getByRole('button', { name: 'Export', exact: true }).click();

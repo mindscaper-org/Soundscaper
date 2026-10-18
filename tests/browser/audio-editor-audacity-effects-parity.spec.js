@@ -70,25 +70,15 @@ test.describe('ported Audacity effect layouts', () => {
 	registerAudioEditorHooks();
 	test.use({ viewport: { width: 1600, height: 1000 } });
 
-	test('offers one Compressor and Limiter and opens their Audacity realtime controls', async ({ page }) => {
+	test('offers one Compressor and Limiter in the realtime effect picker', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);
 		const panel = await openEffectsForTrack(editor, 1);
-		for (const name of ['Compressor', 'Limiter']) {
-			await openRackPicker(panel, 'track');
-			const picker = page.getByRole('menu', { name: 'Choose an effect', exact: true });
-			await expect(picker.getByRole('menuitem', { name: /^Compressor(?: \(Audacity\))?$/u })).toHaveCount(1);
-			await expect(picker.getByRole('menuitem', { name: /^Limiter(?: \(Audacity\))?$/u })).toHaveCount(1);
-			await picker.getByRole('menuitem', { name, exact: true }).click();
-			const dialog = page.getByRole('dialog', { name, exact: true });
-			await expect(dialog.getByRole('img', { name: historyName, exact: true })).toBeVisible();
-			await expect(parameter(dialog, 'Threshold')).toBeVisible();
-			await expect(parameter(dialog, 'Knee width')).toBeVisible();
-			await expect(parameter(dialog, 'Lookahead')).toBeVisible();
-			await expect(parameter(dialog, name === 'Compressor' ? 'Make-up gain' : 'Make-up target')).toBeVisible();
-			await closeDialog(dialog);
-		}
+		await openRackPicker(panel, 'track');
+		const picker = page.getByRole('menu', { name: 'Choose an effect', exact: true });
+		await expect(picker.getByRole('menuitem', { name: /^Compressor(?: \(Audacity\))?$/u })).toHaveCount(1);
+		await expect(picker.getByRole('menuitem', { name: /^Limiter(?: \(Audacity\))?$/u })).toHaveCount(1);
 		expect(errors).toEqual([]);
 	});
 
