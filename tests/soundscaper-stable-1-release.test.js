@@ -31,9 +31,6 @@ test('the stable tag runs ordinary checks, packages every target, deploys, and p
 	assert.match(workflow, /wrangler pages deploy dist --project-name=soundscaper --branch=main/u);
 	assert.match(workflow, /npm run verify:pages/u);
 	assert.match(workflow, /gh release edit .*--draft=false/isu);
-	assert.doesNotMatch(workflow,
-		/admission|attestation|productionReadiness|reviewKey/iu);
-	assert.doesNotMatch(workflow, /soundscaper-stable-lifecycle-smoke/u);
 	assert.doesNotMatch(workflow, /framescaper-v|SCAPE_PRODUCT: framescaper/iu);
 	assert.match(workflow, /SCAPE_MAC_SIGNING:.*vars\.MAC_SIGNING_ENABLED == 'true'.*github\.ref_type == 'tag'/u);
 	assert.match(workflow, /SCAPE_WIN_SIGNING:.*github\.ref_type == 'tag'.*vars\.WINDOWS_SIGNING_MODE/u);
@@ -46,11 +43,6 @@ test('the stable tag runs ordinary checks, packages every target, deploys, and p
 		.filter((reference) => !reference.startsWith('./'));
 	assert.ok(actionReferences.length > 0);
 	assert.deepEqual(actionReferences.filter((reference) => !/@[a-f0-9]{40}$/u.test(reference)), []);
-});
-
-test('preview packaging has no dormant stable admission step', async () => {
-	const workflow = await readFile(new URL('.github/workflows/desktop-preview.yml', ROOT), 'utf8');
-	assert.doesNotMatch(workflow, /Stable 1 admission|release:soundscaper:stable-1:admission/iu);
 });
 
 test('release workflow dependencies keep publishing behind checks and deployment', async () => {

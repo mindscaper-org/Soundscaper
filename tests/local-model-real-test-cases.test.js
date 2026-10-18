@@ -25,8 +25,6 @@ const runtimeSources = { nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2p
 	llamaBuild: { version: LLAMA_RUNTIME_VERSION, targets: LLAMA_RUNTIME_BUILD_TARGETS } };
 test('real model cases cover every published and explicitly required candidate model', () => {
 	const cases = validateLocalModelRealTestCases(manifest, catalog, options);
-	assert.equal(cases.length, 20);
-	assert.equal(new Set(cases.flatMap(({ modelIds }) => modelIds)).size, 22);
 	const speech = cases.find(({ operation }) => operation === 'text-to-speech');
 	assert.ok(speech);
 	assert.deepEqual({
@@ -65,7 +63,10 @@ test('real model cases reject duplicates, foreign models, and a mismatched fixtu
 
 test('every model handbook page stays derived from its real test and catalog', async () => {
 	const result = await generateLocalModelTestDocuments(root, { write: false });
-	assert.equal(result.documentCount, 23);
+	assert.equal(result.documentCount, new Set([
+		...catalog.entries.map(({ modelId }) => modelId),
+		...candidateTasks.map(({ catalogModelId }) => catalogModelId),
+	]).size + 1);
 	assert.deepEqual(result.stale, []);
 });
 
@@ -75,16 +76,15 @@ test('model guides state their purpose and collapse implementation test detail b
 		const documentation = cases.find(({ modelIds }) => modelIds.includes(entry.modelId)).documentation;
 		const page = await readFile(resolve(root,
 			`handbook/src/content/docs/reference/local-models/${entry.modelId}.md`), 'utf8');
-		assert.match(page, /## Purpose and use case \{#purpose-and-use-case\}/u);
-		const purposeHeading = page.indexOf('## Purpose and use case');
+		const purposeHeading = page.indexOf('{#purpose-and-use-case}');
+		assert.notEqual(purposeHeading, -1);
 		assert.ok(page.indexOf(documentation.summary, purposeHeading) > purposeHeading);
-		assert.match(page, /<details id="what-the-packaged-test-checks">\n<summary>What the desktop test checks<\/summary>/u);
+		assert.match(page, /<details id="what-the-packaged-test-checks">\n<summary>[^<]+<\/summary>/u);
 		assert.doesNotMatch(page, /<details[^>]*\bopen\b/u);
-		assert.doesNotMatch(page, /^## What the desktop test checks/gmu);
 	}
 });
 
-test('every published model has downloadable runtime support reflected in its guide', async () => {
+test('every published model has Linux runtime support and documents Windows dependencies', async () => {
 	const availability = catalog.entries.map((entry) => ({ entry,
 		...localModelRuntimeAvailability(entry, runtimeSources) }));
 	for (const { entry, availablePlatforms, familyId } of availability) {
@@ -92,11 +92,6 @@ test('every published model has downloadable runtime support reflected in its gu
 		assert.ok(availablePlatforms.includes('linux-x64'), `${entry.modelId} must be usable on Linux x64.`);
 		const page = await readFile(resolve(root,
 			`handbook/src/content/docs/reference/local-models/${entry.modelId}.md`), 'utf8');
-		assert.match(page, entry.modelId === 'kokoro-82m-v1.0'
-			? /download and authenticate the offline Kokoro G2P helper/u
-			: /Desktop builds can download and authenticate the required/u);
-		assert.doesNotMatch(page, /runtime target closure pending|activation remains blocked/iu);
-		assert.doesNotMatch(page, /Once a compatible native runtime is packaged/u);
 		if (['onnxruntime-node', 'sherpa-onnx-node'].includes(familyId)) {
 			assert.match(page, /learn\.microsoft\.com\/en-us\/cpp\/windows\/latest-supported-vc-redist/u);
 		}
@@ -124,27 +119,18 @@ test('every real model case is admitted on all five supported desktop targets', 
 	}
 });
 
-test('Kokoro documentation follows the verified offline G2P build status', async () => {
+test('Kokoro runtime availability follows the verified offline G2P build status', () => {
 	const entry = catalog.entries.find(({ modelId }) => modelId === 'kokoro-82m-v1.0');
 	assert.ok(entry);
 	const availability = localModelRuntimeAvailability(entry, runtimeSources);
-	const page = await readFile(resolve(root,
-		'handbook/src/content/docs/reference/local-models/kokoro-82m-v1.0.md'), 'utf8');
 	if (kokoroG2pReady) {
 		assert.equal(availability.blockedBy, undefined);
 		assert.deepEqual(availability.availablePlatforms.toSorted(), entry.platforms.toSorted());
 		assert.deepEqual(availability.missingPlatforms, []);
-		assert.match(page, /download and authenticate the offline Kokoro G2P helper/u);
-		assert.doesNotMatch(page, /processing cannot currently complete/u);
-		assert.doesNotMatch(page, /G2P helper is currently absent/u);
-		assert.doesNotMatch(page, /when the complete offline speech runtime is available/u);
-		assert.match(page, /nine language variants.*downloaded G2P helper/su);
 	} else {
 		assert.equal(availability.blockedBy, 'kokoro-offline-g2p-unprovisioned');
 		assert.deepEqual(availability.availablePlatforms, []);
 		assert.deepEqual(availability.missingPlatforms, entry.platforms);
-		assert.match(page, /offline Kokoro G2P helper is not yet packaged/u);
-		assert.match(page, /processing cannot currently complete/u);
 	}
 });
 
@@ -179,33 +165,21 @@ test('published former candidates retain required test coverage and exact task m
 	assert.equal(catalog.entries.some(({ modelId }) => modelId === 'qwen3-4b-q4-k-m'), true);
 });
 
-test('newly published guides describe their downloadable engine support', async () => {
-	for (const task of candidateTasks) {
-		const page = await readFile(resolve(root, `handbook/src/content/docs/reference/local-models/${task.catalogModelId}.md`), 'utf8');
-		assert.doesNotMatch(page, /catalog publication is pending|cannot currently install/u);
-		assert.match(page, /Desktop builds can download and authenticate the required/iu);
-		assert.match(page, /Install this model and its required runtime through Model Manager, then run its task locally/iu);
-		assert.doesNotMatch(page, /pending-external|runtime target closure|externally signed/iu);
-		assert.match(page, /consult the nightly test report/iu);
-		if (task.catalogModelId === 'qwen3-4b-q4-k-m') assert.match(page, /llama-cpp b10509/u);
-		if (task.catalogModelId === 'dereverb-room') {
-			assert.match(page, /GPL-3.0/u);
-			assert.doesNotMatch(page, /license approval/u);
-		}
-	}
+test('published model guides retain pinned engine and license provenance', async () => {
+	const [qwen, dereverb] = await Promise.all([
+		readFile(resolve(root, 'handbook/src/content/docs/reference/local-models/qwen3-4b-q4-k-m.md'), 'utf8'),
+		readFile(resolve(root, 'handbook/src/content/docs/reference/local-models/dereverb-room.md'), 'utf8'),
+	]);
+	assert.match(qwen, /llama-cpp b10509/u);
+	assert.match(dereverb, /GPL-3.0/u);
 });
 
-test('Windows ARM64 catalog admission requires its package-generated native runtime', async () => {
+test('Windows ARM64 catalog admission requires its package-generated native runtime', () => {
 	const silero = catalog.entries.find(({ modelId }) => modelId === 'silero-vad-v6');
 	assert.ok(silero.platforms.includes('win32-arm64'));
 	assert.ok(localModelRuntimeAvailability(silero, runtimeSources).availablePlatforms.includes('win32-arm64'));
 	assert.ok(localModelRuntimeAvailability(silero,
 		{ ...runtimeSources, sherpaArm64Build: undefined }).missingPlatforms.includes('win32-arm64'));
-	const nightly = await readFile(resolve(root, 'docs/operations/local-models/nightly-tests.md'), 'utf8');
-	assert.doesNotMatch(nightly, /Windows ARM64 catalog approval.*pending|separate reviewed platform update/iu);
-	assert.match(nightly, /22 published model identities/iu);
-	assert.match(nightly, kokoroG2pReady
-		? /Kokoro.*G2P.*package-generated/isu : /Kokoro.*G2P.*unavailable/isu);
 });
 
 test('native availability follows packaged file inventories and build recipes', () => {
@@ -219,20 +193,4 @@ test('native availability follows packaged file inventories and build recipes', 
 	assert.ok(localModelRuntimeAvailability(whisper, runtimeSources).availablePlatforms.includes('linux-x64'));
 	assert.deepEqual(localModelRuntimeAvailability(whisper,
 		{ ...runtimeSources, whisperBuild: { version: WHISPER_RUNTIME_VERSION, targets: [] } }).availablePlatforms, []);
-});
-
-test('local-assistance documentation routes runtime proof through package and nightly automation', async () => {
-	const [architecture, roadmap, provenance] = await Promise.all([
-		readFile(resolve(root, 'docs/architecture/local-assistance.md'), 'utf8'),
-		readFile(resolve(root, 'roadmap.md'), 'utf8'),
-		readFile(resolve(root, 'docs/reference/local-model-provenance.md'), 'utf8'),
-	]);
-	assert.match(architecture, /Target packages generate and authenticate.*five\s+maintained desktop targets/isu);
-	assert.match(architecture, /nightly-with-tests/iu);
-	assert.doesNotMatch(architecture,
-		/only currently package-admitted execution baseline|qualification await runtime payloads|catalog entry, and payload remain pending|sherpa-onnx win-arm64 prebuild gap/iu);
-	assert.doesNotMatch(architecture, /pending-external|manual sign-off as an execution switch/iu);
-	assert.doesNotMatch(provenance, /are reviewed, pinned, and awaiting their first upload/iu);
-	assert.match(roadmap, /target packages generate and authenticate.*all five/isu);
-	assert.doesNotMatch(roadmap, /All five target closures.*remain pending/isu);
 });

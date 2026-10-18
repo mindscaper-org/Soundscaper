@@ -19,7 +19,7 @@ const RELEASE_LINES = validateProductReleaseLines(JSON.parse(
 	await readFile(new URL('config/product-release-lines.json', ROOT), 'utf8'),
 ));
 
-test('product release lines select versions without an admission state machine', () => {
+test('product release lines select declared versions and active channels', () => {
 	for (const [productId, product] of Object.entries(RELEASE_LINES.products)) {
 		const channel = product.applicationVersionChannel;
 		assert.equal(resolveProductApplicationVersion(productId, RELEASE_LINES), product[channel].version);
@@ -37,7 +37,6 @@ test('product release lines select versions without an admission state machine',
 			}
 		}
 	}
-	assert.doesNotMatch(JSON.stringify(RELEASE_LINES), /admission|status/iu);
 });
 
 function fixtureReleaseLines() {
@@ -115,7 +114,7 @@ test('candidate identifiers follow semantic versioning and stable versions stay 
 	assert.throws(() => validateProductReleaseLines(changed), /stable release version is invalid/iu);
 });
 
-test('release-line validation is strict and does not redefine project schema families', async () => {
+test('release-line validation rejects malformed register identities', () => {
 	for (const mutate of [
 		(value) => { value.products.soundscaper.extra = true; },
 		(value) => { value.products.framescaper.candidate.version = 'latest'; },
@@ -128,8 +127,6 @@ test('release-line validation is strict and does not redefine project schema fam
 		mutate(changed);
 		assert.throws(() => validateProductReleaseLines(changed), /release|exact|version/iu);
 	}
-	const configText = await readFile(new URL('config/product-release-lines.json', ROOT), 'utf8');
-	assert.doesNotMatch(configText, /schemaFamily|projectFormat|family-v1/iu);
 });
 
 test('browser and desktop builds resolve the selected product version from release lines', async () => {

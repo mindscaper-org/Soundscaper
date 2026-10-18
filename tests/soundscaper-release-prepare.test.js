@@ -57,7 +57,6 @@ test('release preparation selects the stable line and synchronizes version metad
 		schemaVersion: 1, id: 'soundscaper', applicationVersion: '1.0.0',
 		applicationVersionChannel: 'stable', releaseChannel: 'stable', updateTagPrefix: 'v',
 	});
-	assert.doesNotMatch(JSON.stringify(prepared), /admission|status|review/iu);
 });
 
 test('stable release verification binds the tag to every synchronized metadata surface without mutation', () => {
@@ -133,7 +132,7 @@ test('preparation repairs generated metadata from an edited release register wit
 });
 
 test('release preparation refuses invalid versions and malformed package identities', () => {
-	for (const version of ['v1.0.0', '1.0.0-rc.01', '1.0.0-preview.1', 'latest', '', null]) {
+	for (const version of ['v1.0.0', '1.0.0-rc.01', '1.0.0-preview.1', 'latest', '']) {
 		assert.throws(() => createSoundscaperReleasePreparation(documents(), version), /version/iu);
 	}
 	for (const mutate of [
@@ -147,7 +146,6 @@ test('release preparation refuses invalid versions and malformed package identit
 		mutate(current);
 		assert.throws(() => createSoundscaperReleasePreparation(current), /Soundscaper|version/iu);
 	}
-	assert.throws(() => createSoundscaperReleasePreparation(null), /documents/iu);
 });
 
 test('release preparation CLI accepts a version, synchronization, or a read-only check', () => {

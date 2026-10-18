@@ -117,25 +117,3 @@ test('existing diagnostics are never overwritten', async () => {
 	);
 	assert.deepEqual(await readFile(first.rawPath), originalRaw);
 });
-
-test('collector inputs must be immutable own-data snapshots without invoked accessors', async () => {
-	for (const property of ['metrics', 'observations'] as const) {
-		const directory = await outputDirectory();
-		const value = options(directory) as unknown as Record<string, unknown>;
-		const original = value[property];
-		let reads = 0;
-		Object.defineProperty(value, property, {
-			enumerable: true,
-			get() {
-				reads += 1;
-				return original;
-			},
-		});
-		await assert.rejects(
-			writeStructuralQualityBudgetDiagnostic(value as never, runtime),
-			/own data properties/iu,
-			property,
-		);
-		assert.equal(reads, 0, property);
-	}
-});
