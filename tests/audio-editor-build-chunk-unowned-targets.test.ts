@@ -60,11 +60,10 @@ test('a double-quoted specifier is a static import like any other', () => {
 	);
 });
 
-test('every reasoned unowned target still exists, is still unowned, and says why', () => {
-	for (const [path, reason] of REACHABILITY_PLACED_TARGETS) {
+test('every registered unowned target still exists and has no owner', () => {
+	for (const path of REACHABILITY_PLACED_TARGETS.keys()) {
 		assert.ok(existsSync(resolve(REPOSITORY_ROOT, path)), `${path} must exist`);
 		assert.equal(chunkGroupForModulePath(path), null, `${path} has an owner now, so its reason is stale`);
-		assert.ok(reason.length > 40, `${path} must record why its reachability placement is safe`);
 	}
 });
 

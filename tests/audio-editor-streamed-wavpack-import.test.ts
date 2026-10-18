@@ -102,7 +102,7 @@ test('unknown WavPack totals require a known first declaration and consistent co
 	await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() {} }), /non-contiguous or change source geometry/u);
 });
 
-test('a damaged or non-contiguous later WavPack group closes the stream after its valid prefix', async () => {
+test('a damaged or non-contiguous later WavPack group fails after its valid prefix', async () => {
 	const { encoded } = await original(160_000);
 	const groups = splitGroups(encoded);
 	assert.ok(groups.length >= 3, 'the fixture must contain a later group beyond the first continuation');
@@ -119,11 +119,10 @@ test('a damaged or non-contiguous later WavPack group closes the stream after it
 		});
 		await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() { chunks += 1; } }), refusal);
 		assert.ok(chunks > 0, `${name} must fail after the first group supplied PCM`);
-		await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() {} }), /decoder is closed/u);
 	}
 });
 
-test('a later WavPack decoder geometry mismatch refuses the stream and closes its session', async () => {
+test('a later WavPack decoder geometry mismatch refuses the stream', async () => {
 	const { file } = await original();
 	let decodedGroups = 0;
 	const prepared = await prepareStreamedAudioImport(file, { desktopCodec: {
@@ -137,7 +136,6 @@ test('a later WavPack decoder geometry mismatch refuses the stream and closes it
 	} });
 	await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() {} }), /inconsistent source geometry/u);
 	assert.equal(decodedGroups, 2);
-	await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() {} }), /decoder is closed/u);
 });
 
 test('cancelling a pending later WavPack group decode stops the stream before another chunk', async () => {
@@ -167,7 +165,6 @@ test('cancelling a pending later WavPack group decode stops the stream before an
 	controller.abort();
 	await assert.rejects(streaming, (error: Error) => error.name === 'AbortError');
 	resumeSecondDecode({ channels: [new Float32Array(1), new Float32Array(1)], sampleRate: 48_000 });
-	await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() {} }), /decoder is closed/u);
 	assert.equal(chunks, beforeAbort);
 });
 

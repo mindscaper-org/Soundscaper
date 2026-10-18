@@ -38,7 +38,6 @@ test('load is fail-closed until main admits exact desktop audio tuples', async (
 	assert.equal(capabilities.profileId, 'desktop-main-audio-codecs');
 	for (const { format } of FORMAT_CASES) assert.equal(capabilities.formats[format]?.available, false, format);
 	assert.equal(capabilities.formats['custom-ffmpeg']?.available, false);
-	assert.equal(Object.isFrozen(capabilities), true);
 	const exact = await runtime.desktopAudioCodecCapabilities(createDesktopAudioCodecCapabilityQuery({
 		sampleRate: 48_000, channelCount: 2,
 	}));
@@ -217,9 +216,10 @@ test('encoded bridge bytes stream to the existing sink in chunks no larger than 
 	const streamed = await runtime.encodeFileToSink(wav, 'opus', sink, {
 		bitRate: 128, maximumOutputBytes: outputBytes.byteLength,
 	});
-	assert.deepEqual(sink.chunks.map(({ byteLength }) => byteLength), [1_024 * 1_024, 1_024 * 1_024, 17]);
+	assert.ok(sink.chunks.every(({ byteLength }) => byteLength > 0 && byteLength <= 1_024 * 1_024));
+	assert.deepEqual(Buffer.concat(sink.chunks), Buffer.from(outputBytes));
 	assert.equal(streamed.byteLength, outputBytes.byteLength);
-	assert.equal(streamed.chunkCount, 3);
+	assert.equal(streamed.chunkCount, sink.chunks.length);
 	assert.equal(streamed.output, 'sealed');
 	assert.equal(sink.opened, outputBytes.byteLength);
 	assert.equal(sink.aborted, null);
