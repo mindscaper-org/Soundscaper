@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import { createLatestFrameTask } from './animation-frame-coalescer.ts';
 
 interface PointerFrameEvent { readonly pointerId: number; preventDefault(): void; }
-interface PointerFrameSession { readonly kind: string; readonly pointerId?: number; }
+interface PointerFrameSession { readonly kind: string; readonly pointerId?: number; readonly captureTarget?: Element; }
 
 export function useTimelinePointerFrame<Event extends PointerFrameEvent>(
 	handle: (event: Event) => void,
@@ -26,7 +26,7 @@ export function useTimelinePointerFrame<Event extends PointerFrameEvent>(
 			if (flushRef) flushRef.current = null;
 		};
 	}, [flushRef, pointerSession]);
-	return useCallback((event: Event) => {
+	const onPointerMove = useCallback((event: Event) => {
 		const session = pointerSession.current;
 		if (session?.pointerId !== undefined && session.pointerId !== event.pointerId) return;
 		const immediate = touchPointers?.current.has(event.pointerId)
@@ -35,4 +35,19 @@ export function useTimelinePointerFrame<Event extends PointerFrameEvent>(
 		if (session) event.preventDefault();
 		taskRef.current.schedule({ event, session });
 	}, [pointerSession, touchPointers]);
+	useEffect(() => {
+		const owner = globalThis.window;
+		if (!owner) return;
+		const forwardOutsideDrag = (event: PointerEvent): void => {
+			const session = pointerSession.current;
+			const target = session?.captureTarget;
+			if (session?.kind !== 'move' || !target
+				|| event.target instanceof Node && target.contains(event.target)) return;
+			// Native outside events carry the same pointer fields consumed by the frame handler.
+			onPointerMove(event as unknown as Event);
+		};
+		owner.addEventListener('pointermove', forwardOutsideDrag, true);
+		return () => owner.removeEventListener('pointermove', forwardOutsideDrag, true);
+	}, [onPointerMove, pointerSession]);
+	return onPointerMove;
 }

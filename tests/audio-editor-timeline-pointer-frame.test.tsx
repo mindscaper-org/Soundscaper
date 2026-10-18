@@ -6,8 +6,11 @@ import React, { act, useRef } from 'react';
 import { useTimelinePointerFrame } from '../src/common/editor/ui/timeline/useTimelinePointerFrame.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-void test('pointer frames publish once, flush the final movement and discard cancelled ownership', async () => {
+void test('pointer frames retain outside drags, flush the final movement and discard cancelled ownership', async context => {
 	const dom = installReactTestDom();
+	const outside = new EventTarget();
+	context.mock.method(window, 'addEventListener', outside.addEventListener.bind(outside));
+	context.mock.method(window, 'removeEventListener', outside.removeEventListener.bind(outside));
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
 	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
@@ -18,7 +21,7 @@ void test('pointer frames publish once, flush the final movement and discard can
 	const values: number[] = [];
 	let finish: ((cancel?: boolean) => void) | null = null;
 	function Harness() {
-		const session = useRef({ kind: 'move' });
+		const session = useRef({ kind: 'move', pointerId: 1, captureTarget: dom.container as unknown as Element });
 		const touches = useRef(new Map<number, unknown>());
 		const flush = useRef<((cancel?: boolean) => void) | null>(null);
 		const move = useTimelinePointerFrame((event: React.PointerEvent) => values.push(event.clientX), session, touches, flush);
@@ -35,11 +38,16 @@ void test('pointer frames publish once, flush the final movement and discard can
 		assert.deepEqual(values, []);
 		await act(async () => { const entry = [...frames.entries()][0]!; frames.delete(entry[0]); entry[1](0); });
 		assert.deepEqual(values, [3]);
-		await act(async () => { move({ pointerId: 1, clientX: 4, preventDefault() {} }); (finish as ((cancel?: boolean) => void) | null)?.(); });
-		assert.deepEqual(values, [3, 4]);
+		await act(async () => {
+			move({ pointerId: 1, clientX: 4, preventDefault() {} });
+			outside.dispatchEvent(Object.assign(new Event('pointermove'), { pointerId: 1, clientX: 9 }));
+			outside.dispatchEvent(Object.assign(new Event('pointermove'), { pointerId: 2, clientX: 90 }));
+			(finish as ((cancel?: boolean) => void) | null)?.();
+		});
+		assert.deepEqual(values, [3, 9], 'leaving the timeline before its animation frame keeps the latest owning pointer');
 		assert.equal(frames.size, 0);
 		await act(async () => { move({ pointerId: 1, clientX: 5, preventDefault() {} }); (finish as ((cancel?: boolean) => void) | null)?.(true); });
-		assert.deepEqual(values, [3, 4]);
+		assert.deepEqual(values, [3, 9]);
 		assert.equal(frames.size, 0);
 	} finally {
 		await act(async () => root.unmount());
