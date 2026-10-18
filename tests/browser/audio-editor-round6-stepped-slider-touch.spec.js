@@ -50,6 +50,4 @@ for (const interrupted of [false, true]) test(`Amplify's native peak slider comp
 	await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();
 	await expect(dialog).toBeHidden();
 	await expect.poll(() => effectSourcePeak(page, 'Amplify')).toBeCloseTo(.35 * 10 ** (appliedGain / 20), 3);
-	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
-	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
 });

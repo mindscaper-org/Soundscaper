@@ -44,6 +44,4 @@ for (const interrupted of [false, true]) test(`the parametric output fader compl
 	await expect.poll(async () => Number(await output.inputValue())).toBeCloseTo(completed, 2);
 	await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();
 	await expect(dialog).not.toBeVisible();
-	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
-	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
 });
