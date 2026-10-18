@@ -32,7 +32,7 @@ async function createSolidMask(page) {
 	return { editor, dialog };
 }
 
-test('updating an attached mask saves its changed geometry', async ({ page }) => {
+test('an attached mask retains its shape and extents through update and Undo', async ({ page }) => {
 	const { editor, dialog } = await createSolidMask(page);
 	await dialog.getByRole('spinbutton', { name: 'Width', exact: true }).fill('0.6');
 	await dialog.getByRole('button', { name: 'Update attached mask', exact: true }).click();
@@ -43,13 +43,6 @@ test('updating an attached mask saves its changed geometry', async ({ page }) =>
 	await page.keyboard.press('Escape');
 	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 	reopened = await openMask(page, editor);
-	await expect(reopened.getByRole('spinbutton', { name: 'Width', exact: true })).toHaveValue('0.5');
-});
-
-test('reopening attached mask authoring shows its saved shape and extents', async ({ page }) => {
-	const { editor } = await createSolidMask(page);
-	await page.keyboard.press('Escape');
-	const reopened = await openMask(page, editor);
 	await expect(reopened.getByRole('combobox', { name: 'Shape', exact: true })).toHaveValue('ellipse');
 	await expect(reopened.getByRole('spinbutton', { name: 'Width', exact: true })).toHaveValue('0.5');
 	await expect(reopened.getByRole('spinbutton', { name: 'Height', exact: true })).toHaveValue('0.25');
