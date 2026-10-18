@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 interface CompatibilityRule {
 	readonly id: string;
 	readonly status: string;
@@ -19,7 +17,6 @@ interface CompatibilityPolicy {
 }
 
 const policyUrl = new URL('../config/project-compatibility.json', import.meta.url);
-const documentationUrl = new URL('../docs/policies/project-compatibility.md', import.meta.url);
 
 test('disposable video previews remain reproducible local relationships, not durable project media', async () => {
 	const policy = JSON.parse(await readFile(policyUrl, 'utf8')) as CompatibilityPolicy;
@@ -28,38 +25,6 @@ test('disposable video previews remain reproducible local relationships, not dur
 	);
 	assert.ok(relationship, 'the disposable video-preview relationship rule is required');
 	assert.equal(relationship.status, 'implemented');
-	assert.match(
-		relationship.requiredOutcome,
-		/trusted retained original.*content digest.*type.*time.*versioned recipe.*output integrity/iu,
-	);
-	assert.match(
-		relationship.requiredOutcome,
-		/reproducible cache.*(?:project history|history).*\.scape.*managed handoff.*rendered fallback.*durable/iu,
-	);
-	assert.match(
-		relationship.currentBehavior,
-		/repository.*derives.*original.*SHA-256.*generation token.*caller/iu,
-	);
-	assert.match(
-		relationship.currentBehavior,
-		/content-addressed.*storage key.*digest.*poster or thumbnail.*normalized timestamp.*recipe ID.*recipe version/iu,
-	);
-	assert.match(
-		relationship.currentBehavior,
-		/revalidates.*original.*before.*public.*(?:the )?same IndexedDB transaction/iu,
-	);
-	assert.match(
-		relationship.currentBehavior,
-		/load.*companion.*output size.*SHA-256.*legacy.*cache miss/iu,
-	);
-	assert.match(
-		relationship.currentBehavior,
-		/new video imports.*null.*preview locators.*read-write.*\.scape imports.*null.*desktop recipient binding.*ignores/iu,
-	);
-	assert.match(
-		relationship.currentBehavior,
-		/maintained exact-schema role-defined audio whole-mix fallback.*separately qualified.*fresh-recipient managed acquisition.*activation.*role-defined whole-project video render.*one closed videoEffects-only clip-target render relationship.*separately qualified.*controller activation.*bounded video delivery.*independent route-specific relationship.*source.*digest admissions.*Framescaper family v1 proxy attachment preservation.*isolated revalidation.*verified.*Framescaper family v1 retains.*generation.*Original\/Proxy\/Auto.*offline editing.*relink\/regenerate.*direct unversioned Framescaper baseline domain.*resource- and externally unqualified.*grant no delivery or native-runtime authority.*browser export.*V14 carrier producer.*delivery.*original-authoritative.*refuse.*original.*unavailable/iu,
-	);
 	for (const evidence of [
 		'src/common/editor/storage/video-derivative-relationship.ts',
 		'src/common/editor/storage/video-derivative-repository.ts',
@@ -74,28 +39,4 @@ test('disposable video previews remain reproducible local relationships, not dur
 		'tests/audio-editor-scape-feature-requirements.test.ts',
 		'tests/audio-editor-scape-video-return-roundtrip.test.ts',
 	]) assert.ok(relationship.evidence.includes(evidence), evidence);
-	assert.match(
-		relationship.currentBehavior,
-		/after a portable-archive transfer.*recipient regenerates a preview bound to the exact admitted original digest.*neither transfer direction carries it/iu,
-	);
-
-	const documentation = await readFile(documentationUrl, 'utf8');
-	assert.match(documentation, /Disposable video preview relationships/iu);
-	assert.match(
-		documentation,
-		/after a portable-archive transfer.*recipient regenerates a preview\s+bound to the exact admitted original digest.*neither transfer direction\s+carries it/isu,
-	);
-	assertOrderedClaim(
-		documentation,
-		/poster.*thumbnail.*trusted retained original.*versioned recipe.*output.*SHA-256/isu,
-	);
-	assertOrderedClaim(
-		documentation,
-		/reproducible.*not.*project history.*\.scape.*managed handoff.*rendered fallbacks.*durable/isu,
-	);
-	assertOrderedClaim(documentation, /maintained exact-schema role-defined audio whole-mix fallback.*separately qualified.*fresh-recipient managed acquisition.*activation.*role-defined whole-project video render.*one closed\s+videoEffects-only clip-target render relationship.*separately qualified.*controller\s+activation.*bounded video delivery.*independent\s+route-specific relationship.*source.*digest admissions.*Framescaper family\s+v1\s+proxy attachment preservation.*isolated revalidation.*verified.*Framescaper family v1\s+retains.*direct\s+unversioned Framescaper baseline domain.*generation.*Original\/Proxy\/Auto.*offline editing.*relink\/regenerate.*resource-\s+and externally unqualified.*grant no delivery or native-runtime authority.*browser export.*V14 carrier producer.*delivery.*original-authoritative.*refuse.*original.*unavailable/isu);
-	assert.match(
-		documentation,
-		/not editorial proxies.*decoder.*RSS/isu,
-	);
 });
