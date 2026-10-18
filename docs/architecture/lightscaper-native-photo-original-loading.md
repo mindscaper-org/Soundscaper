@@ -1,7 +1,7 @@
 # Native Photo Original loading
 
-Native Original loading has two private owners: an authenticated main-process
-range reader and a renderer staging source that returns a genuine File. These
+Native Original loading composes an authenticated main-process range reader,
+a main-owned ticket transport and a renderer staging source that returns a genuine File. These
 components do not activate a native Session. The application keeps its complete
 Web Core storage until native restore, selection publication, IPC and consumer
 integration are complete.
@@ -36,6 +36,17 @@ the Original store queue ahead of an accepted read. Quiescence fences media
 admission and cancels those producers while retaining physical owners and pins.
 Resources retire afterward; the global writer guard releases last.
 
+The main ticket server captures that reader and exposes the fixed `open`, `read`
+and ID-only `close` transport. Random native IDs retain actual reader callbacks;
+they grant no filesystem path authority. Four admission/read slots, 4094 live
+tickets and 384 MiB of encoded-byte reservations are shared by the persistent
+scope signal. Idle callbacks retain their pins and reservations without occupying
+an admission slot. The server caches close before cancellation, joins physical
+reads and callback retirement before releasing capacity, and keeps no retired-ID
+tombstones. Unknown cleanup retains the entry and immediately quarantines the
+owning scope. Parent close starts writer quiescence, ticket cancellation and reader
+retirement in that order, then joins all three before closing dependent owners.
+
 ## Renderer ownership
 
 The renderer source captures a closed transport with `open`, `read` and `close`.
@@ -63,12 +74,26 @@ cleanup. Existing Web Core loaders retain their durable Blob fallback. Consumer
 migrations must preserve archive yields, encoder lookahead and whole collection
 groups; the helper alone does not establish those barriers.
 
+The named Develop owners now accept a scoped source independently of the backup
+capability. Canonical Photo1, Photo1/2 and Current readers, plus both Current RAW
+derived profiles, hold the lease through decoder retirement, the actual consumer
+and the final revision check. Session construction captures the source receiver
+before initialization can yield. Existing Web Core callers retain their genuine
+durable Blob loader. Preview, export, archive and whole-collection migrations
+still require their own retirement and cancellation qualification.
+
 ## Qualification
 
 Focused Node tests use actual native files, SQLite and independent media owners
 for main-process authority and lifetime checks. Renderer port tests use genuine
-Files with instrumented storage and transport ports. They do not establish real
-Chromium OPFS, packaged IPC, image decoding or the desktop target matrix.
+Files with instrumented storage and transport ports. Additional Chromium tests
+connect actual native files, SQLite and the ticket server through a bounded
+Playwright binding to real OPFS Files and production raster/LibRaw decoders. A
+two-range PNG and an owned DNG retain the File, stage and native deletion pin
+through a held frame consumer; retirement wipes pixels and removes the stage.
+These component tests run in an isolated minimal document on the real Lightscaper
+preview origin. They do not qualify packaged preload IPC, application activation,
+a complete native Session, archive cancellation or the desktop target matrix.
 
 Verification runs only Lightscaper runtime tests, serially, in a Linux process
 group with a one-GiB kernel memory limit and no swap. The limit includes children;
@@ -76,6 +101,10 @@ the Node heap limit alone would not constrain large external byte allocations.
 Type-aware static gates run separately with their own bounded memory allowance.
 Failure diagnostics compare binary hashes and lengths instead of formatting
 large buffer differences. Cleanup follows actual process and reader retirement.
+New fixture deadline handlers cancel their actual lifetime and release owned
+consumer, decoder and native-read gates, allowing cleanup to join. A reported
+test deadline alone is not evidence of retirement. Browser checks use one worker
+and bounded CPU affinity; their process allowance includes Chromium threads.
 
 No AI runtime bytes or target inventories change. A manual **Update AI assets**
 run is not required.

@@ -1276,8 +1276,12 @@ now authenticate native reads against the actual stored Photo, scalar asset
 generation and custody, retain deletion pins through callback and I/O retirement,
 and compose under the manager's persistent shutdown lifetime. The renderer
 staging source returns a genuine File with bounded pulls and retained consumer
-leases. Focused port tests do not establish real browser OPFS, packaged transport,
-decoding, archive cancellation or complete existing consumer integration.
+leases. The main ticket server now joins real callbacks and physical reads;
+Chromium component tests qualify actual native tickets, OPFS Files and production
+raster/LibRaw decoders, including held-consumer deletion pins and stage cleanup.
+Named Develop readers and Session composition accept scoped sources while
+preserving the Web Core loader. Packaged transport, preview/export/archive and
+whole-collection consumer integration, and archive cancellation remain open.
 Complete scoped Original/preview loading, native restore and selection
 publication, native Session composition, renderer/IPC
 admission and menu-owned library selection remain required before activation.
