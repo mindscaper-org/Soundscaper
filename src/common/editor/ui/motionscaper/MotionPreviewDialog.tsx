@@ -25,7 +25,8 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 	const manualFrame = useRef(false); const canvas = useRef<HTMLCanvasElement>(null); const client = useRef<MotionPreviewClient | null>(null);
 	const audio = useRef<ReturnType<typeof createMotionAudioPreview> | null>(null); const playback = useRef(0);
 	const [buffering, setBuffering] = useState(false);
-	const [state, setState] = useState<MotionPreviewState | null>(null);
+	const [preview, setPreview] = useState<Readonly<{ project: MotionscaperProject; state: MotionPreviewState }> | null>(null);
+	const state = preview?.project === project ? preview.state : null;
 	const [frame, setFrame] = useState<Rational>(area.startFrame); const [frameText, setFrameText] = useState(format(area.startFrame)); const [error, setError] = useState<string | null>(null); const [attempt, setAttempt] = useState(0);
 	useEffect(() => {
 		const playbackGeneration = playback;
@@ -35,7 +36,7 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 		const hasAudio = motionCompositionHasAudio(project, composition.id);
 		let mixer: ReturnType<typeof createMotionAudioMixer> | null = null;
 		let sound: ReturnType<typeof createMotionAudioPreview> | null = null;
-		manualFrame.current = false; setError(null); setState(null); setFrame(area.startFrame); setFrameText(format(area.startFrame)); setBuffering(false);
+		manualFrame.current = false; setError(null); setPreview(null); setFrame(area.startFrame); setFrameText(format(area.startFrame)); setBuffering(false);
 		void (async () => {
 			try {
 				mixer = hasAudio ? createMotionAudioMixer({ project, provider }) : null;
@@ -45,7 +46,7 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 				audio.current = sound;
 				active = await createMotionPreviewClient({
 					...(sound ? { clock: sound.clock } : {}),
-					onState: (next) => { if (!disposed) { setState(next); if (next.status === 'error') sound?.pause(); } },
+					onState: (next) => { if (!disposed) { setPreview({ project, state: next }); if (next.status === 'error') sound?.pause(); } },
 					onError: (failure) => { if (!disposed) setError(failure.message); },
 					onFrame: (next) => {
 						if (disposed || !canvas.current) return;
@@ -67,7 +68,8 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 		})();
 		return () => { disposed = true; playbackGeneration.current++; active?.dispose(); sound?.dispose(); mixer?.dispose(); provider.dispose(); client.current = null; audio.current = null; };
 	}, [project, composition, area, copy, store, attempt]);
-	const ready = state && state.status !== 'idle' && state.status !== 'loading' && state.status !== 'error';
+	// The client publishes frame time only after onFrame has painted its pixels.
+	const ready = state?.time != null && state.compositionId === composition.id && state.status !== 'idle' && state.status !== 'loading' && state.status !== 'error';
 	const playing = state?.status === 'playing' || buffering;
 	let validFrame = false;
 	try { const value = exact(frameText); validFrame = value.num >= 0 && compareRationals(value, composition.durationFrames) < 0; } catch { /* Keep an incomplete fractional draft editable. */ }
@@ -105,6 +107,6 @@ export default function MotionPreviewDialog({ copy, project, store, onClose }: R
 		{!validFrame && <p role="alert">{copy.motionscaperPreviewFrameInvalid}</p>}
 		{error ? <><p role="alert">{copy.motionscaperPreviewFailed} {error}</p>
 			<Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>{copy.motionscaperRetry}</Button></>
-			: <p role="status">{state?.status === 'paused' ? copy.motionscaperPreviewReady : copy.motionscaperWorking}</p>}
+			: <p role="status">{ready && state?.status === 'paused' ? copy.motionscaperPreviewReady : copy.motionscaperWorking}</p>}
 	</AudioEditorDialogShell>;
 }
