@@ -1142,8 +1142,11 @@ there.
   archives and forward/reverse handoff; FramePack1 bytes remain presentation
   cache. Qualification passes 185 selected Lightscaper tests and eight
   English/German Chromium/Firefox creation and editable-handoff workflows.
-  Full Photo Develop GPU evaluation, native desktop services and the broader
-  L7/L8/L9 exit gates remain open.
+  A [focused combined RAW Develop corpus](docs/architecture/lightscaper-develop-full-stack-current.md)
+  passes nine software-Chromium cases, including an actual GPU delivery control
+  and exact whole-recipe fallback when nonlinear candidates exceed the existing
+  precision contract. Wider GPU evaluation, native desktop services and the
+  broader L7/L8/L9 exit gates remain open.
 - **Shared — Deferred:** panorama stitching.
 - **Shared — Optional:** DNG output.
 

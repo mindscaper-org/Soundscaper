@@ -21,6 +21,7 @@ export default defineConfig({
 		'lightscaper-native-gpu-mask-context-current.spec.js',
 		'lightscaper-native-gpu-mask-overlay-current.spec.js',
 		'lightscaper-native-gpu-masked-context-integration-current.spec.js',
+		'lightscaper-develop-full-stack-current.spec.ts',
 		'lightscaper-native-gpu-mask-numeric-refusal-current.spec.js',
 		'lightscaper-native-gpu-mask-large-current.spec.js',
 		'lightscaper-develop-gpu-mask-current.spec.js',
