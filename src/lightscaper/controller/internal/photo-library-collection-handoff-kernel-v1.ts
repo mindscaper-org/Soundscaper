@@ -3,7 +3,7 @@
 import type { PhotoLibraryCollectionHandoffRequestV1, PhotoLibraryCollectionHandoffPhotoV1, PhotoLibraryCollectionHandoffViewV1 } from '../../../common/editor/photo-library-collection-handoff-port-v1.ts';
 import type { PhotoLibraryCollectionHandoffViewV2 } from '../../../common/editor/photo-library-collection-handoff-port-v2.ts';
 import { IMAGE_IMPORT_LIMITS } from '../../../common/editor/image-import-admission.ts';
-import { canonicalMediaContentBlob, digestMediaContent } from '../../../common/editor/storage/media-content-digest.ts';
+import { digestMediaContent } from '../../../common/editor/storage/media-content-digest.ts';
 import { normalizePhotoCatalogRootV1 } from '../../catalog/catalog-root.ts';
 import { createPhotoCubeLutClosureV1 } from '../../catalog/photo-cube-lut-closure-v1.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../../catalog/photo-document-v2.ts';
@@ -21,6 +21,8 @@ import { array, field, id, integer, record } from '../../catalog/value-validatio
 import { readPhotoDevelopSignalOptionsV2 } from '../../storage/photo-develop-preset-read-v2.ts';
 import { readPhotoLibrarySavedContextV1 } from '../photo-library-saved-collection-admission-v1.ts';
 import { withPhotoLibraryImageHandoffResourcesForProfileV1 } from './photo-library-image-handoff-kernel-v1.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1, type PhotoLibraryOriginalGroupLeaseCurrentV1 } from '../photo-library-original-source-current-v1.ts';
+import { acquirePhotoLibraryOriginalGroupCurrentV1 } from '../photo-library-original-group-current-v1.ts';
 import type { PhotoLibrarySessionPortsV2 } from '../photo-library-session-ports-v2.ts';
 
 import { normalizePhotoDocumentCurrentV1 } from '../../catalog/photo-document-current-v1.ts';
@@ -62,16 +64,19 @@ export async function withPhotoLibraryCollectionHandoffForProfileV1<Result>(
 	check(signal);
 	if (catalogId !== request.catalogId) throw new Error('Collection handoff selected catalog changed.');
 	const backup = ports.backup, load = backup?.loadOriginal, catalog = ports.catalog, loadPhoto = catalog.loadPhoto,
-		loadCatalog = catalog.loadCatalog, readQuery = catalog.readQueryPageV2, saved = ports.smartCollections, verify = ports.verifyResources;
+		loadCatalog = catalog.loadCatalog, readQuery = catalog.readQueryPageV2, saved = ports.smartCollections, verify = ports.verifyResources, scoped = ports.originalSource;
 	const lutFactory = ports.cubeLutResources, maskFactory = ports.maskRasterResources;
 	const resources: Pick<Ports, 'cubeLutResources' | 'maskRasterResources'> = Object.freeze({
 		cubeLutResources: typeof lutFactory === 'function' ? () => Reflect.apply(lutFactory, ports, []) : undefined,
 		maskRasterResources: typeof maskFactory === 'function' ? () => Reflect.apply(maskFactory, ports, []) : undefined,
 	});
 	const readSaved = saved?.readSmartCollectionQueryPageV1, readSavedSnapshot = saved?.readSmartCollectionSnapshotV1;
-	if (!load || !readQuery || (request.scope === 'saved-query' && (!saved || !readSaved || !readSavedSnapshot))) {
+	if ((scoped === undefined && typeof load !== 'function') || !readQuery || (request.scope === 'saved-query' && (!saved || !readSaved || !readSavedSnapshot))) {
 		throw new Error('Collection handoff selected body or query source is unavailable.');
 	}
+	const source = capturePhotoLibraryOriginalSourceCurrentV1(scoped, load === undefined ? undefined
+		: (original, signal) => Reflect.apply(load, backup, [original, signal]) as Promise<unknown>);
+	if (typeof source.acquireGroup !== 'function') throw new TypeError('Collection handoff requires complete Original group acquisition.');
 	const initial = await snapshot(), captured: CapturedPhoto[] = [];
 	const collector = profile === 'legacy2' ? createPhotoCubeLutClosureV1() : null,
 		selected = profile === 'current3' ? createPhotoResourceReachabilityCurrentV1() : null,
@@ -133,62 +138,79 @@ export async function withPhotoLibraryCollectionHandoffForProfileV1<Result>(
 			await Reflect.apply(verify, ports, [photo, signal]); check(signal);
 		}
 	}
-	const blobs = new Map<string, Blob>(), byDigest = new Map<string, Blob>();
-	const result = await withPhotoLibraryImageHandoffResourcesForProfileV1(profile, resources, references, signal, async () => {
-		for (const [key, entry] of originals) {
-			check(signal); const blob = Object.freeze(canonicalMediaContentBlob(await Reflect.apply(load, backup, [entry.original, signal]))); check(signal);
-			if (blob.size !== entry.original.byteLength || await digestMediaContent(blob, { signal }) !== entry.original.contentSha256) {
-				throw new Error('Collection handoff original body identity changed.');
+	const blobs: Blob[] = [], byDigest = new Map<string, Blob>();
+	const group: { value?: Readonly<PhotoLibraryOriginalGroupLeaseCurrentV1> } = {};
+	let result!: Result, captureFailed = false, captureFailure: unknown;
+	try {
+		result = await withPhotoLibraryImageHandoffResourcesForProfileV1(profile, resources, references, signal, async () => {
+			// Every Photo remains an independent authority even when its locator or
+			// digest aliases another. Capacity/materialization belongs to one group.
+			check(signal); group.value = await acquirePhotoLibraryOriginalGroupCurrentV1(source, captured.map(photo => Object.freeze({
+				catalogId, photoId: photo.view.binding.photoId, original: photo.original })), signal);
+			const authenticated = new Map<Blob, string>();
+			for (const [index, entry] of captured.entries()) {
+				// The owning group helper already lends genuine canonical Blobs and
+				// preserves identity for a shared raw File. Distinct returned bodies
+				// must each authenticate, even when their Photo locators alias.
+				check(signal); const blob = Object.freeze(group.value.bodies[index]!);
+				let digest = authenticated.get(blob);
+				if (digest === undefined) { digest = await digestMediaContent(blob, { signal }); authenticated.set(blob, digest); }
+				if (blob.size !== entry.original.byteLength || digest !== entry.original.contentSha256) {
+					throw new Error('Collection handoff original body identity changed.');
+				}
+				check(signal); const same = byDigest.get(entry.original.contentSha256) ?? blob;
+				byDigest.set(entry.original.contentSha256, same); blobs.push(same);
 			}
-			check(signal); const same = byDigest.get(entry.original.contentSha256) ?? blob;
-			byDigest.set(entry.original.contentSha256, same); blobs.set(key, same);
-		}
-	}, async readers => {
-		await current();
-		let accepting = true, reading = false, resourceFailed = false, resourceFailure: unknown, joined: Promise<void> | null = null;
-		const withOriginal: PhotoLibraryCollectionHandoffViewV1['withOriginal'] = (value, borrower, options) => {
+		}, async readers => {
+			await current();
+			let accepting = true, reading = false, resourceFailed = false, resourceFailure: unknown, joined: Promise<void> | null = null;
+			const withOriginal: PhotoLibraryCollectionHandoffViewV1['withOriginal'] = (value, borrower, options) => {
+				try {
+					if (!accepting) throw new Error('Collection handoff original capability is closed.');
+					check(signal);
+					if (profile === 'current3' && reading) throw new Error('A collection original consumer is already pending.');
+					const photoId = id(value, 'captured collection photo ID');
+					const { signal: caller } = readPhotoDevelopSignalOptionsV2(options ?? {});
+					if (caller !== undefined && caller !== signal) throw new TypeError('Collection originals use their captured lifetime signal.');
+					const index = captured.findIndex(photo => photo.view.binding.photoId === photoId);
+					if (index < 0 || typeof borrower !== 'function') throw new TypeError('Collection handoff original requires its selected photo and callable consumer.');
+					if (reading) throw new Error('A collection original consumer is already pending.');
+					reading = true;
+					const work = (async () => { check(signal); const answer = await borrower(blobs[index]!); check(signal); return answer; })();
+					joined = work.then(() => { reading = false; }, error => { reading = false; if (!resourceFailed) { resourceFailed = true; resourceFailure = error; } });
+					return work;
+				} catch (error) { return Promise.reject(error); }
+			};
+			const scopedLut: PhotoLibraryCollectionHandoffViewV1['withLutBytes'] = (...args) => {
+				if (!accepting) return Promise.reject(new Error('Collection handoff resource capability is closed.'));
+				return readers.withLutBytes(...args);
+			};
+			const scopedMask: PhotoLibraryCollectionHandoffViewV2['withMaskRasterBytes'] = (...args) => {
+				if (!accepting) return Promise.reject(new Error('Collection handoff resource capability is closed.'));
+				return readers.withMaskRasterBytes(...args);
+			};
+			let answer!: Result, failed = false, primary: unknown;
 			try {
-				if (!accepting) throw new Error('Collection handoff original capability is closed.');
-				check(signal);
-				if (profile === 'current3' && reading) throw new Error('A collection original consumer is already pending.');
-				const photoId = id(value, 'captured collection photo ID');
-				const { signal: caller } = readPhotoDevelopSignalOptionsV2(options ?? {});
-				if (caller !== undefined && caller !== signal) throw new TypeError('Collection originals use their captured lifetime signal.');
-				const selected = captured.find(photo => photo.view.binding.photoId === photoId);
-				if (!selected || typeof borrower !== 'function') throw new TypeError('Collection handoff original requires its selected photo and callable consumer.');
-				if (reading) throw new Error('A collection original consumer is already pending.');
-				reading = true;
-				const work = (async () => { check(signal); const answer = await borrower(blobs.get(selected.storageKey)!); check(signal); return answer; })();
-				joined = work.then(() => { reading = false; }, error => { reading = false; if (!resourceFailed) { resourceFailed = true; resourceFailure = error; } });
-				return work;
-			} catch (error) { return Promise.reject(error); }
-		};
-		const scopedLut: PhotoLibraryCollectionHandoffViewV1['withLutBytes'] = (...args) => {
-			if (!accepting) return Promise.reject(new Error('Collection handoff resource capability is closed.'));
-			return readers.withLutBytes(...args);
-		};
-		const scopedMask: PhotoLibraryCollectionHandoffViewV2['withMaskRasterBytes'] = (...args) => {
-			if (!accepting) return Promise.reject(new Error('Collection handoff resource capability is closed.'));
-			return readers.withMaskRasterBytes(...args);
-		};
-		let answer!: Result, failed = false, primary: unknown;
-		try {
-			const common = { signal, collection: Object.freeze({ catalogId, id: request.collectionId,
-				scope: request.scope, name: initial.name, catalogRevision: initial.root.revision, indexRevision: initial.indexRevision,
-				definitionRevision: initial.definitionRevision, definitionJson: initial.definitionJson }),
-				photos: Object.freeze(captured.map(photo => photo.view)), lutReferences, withOriginal, withLutBytes: scopedLut };
-			answer = await consume(profile === 'legacy2' ? Object.freeze({ schemaVersion: 1, ...common })
-				: Object.freeze({ schemaVersion: 2, ...common, maskRasterReferences: references.brushes, withMaskRasterBytes: scopedMask }));
-		} catch (error) { failed = true; primary = error; }
-		accepting = false; await joined;
-		if (failed) {
-			if (resourceFailed && resourceFailure !== primary) throw new AggregateError([primary, resourceFailure], 'Collection consumer and original borrower failed.', { cause: primary });
-			throw primary;
-		}
-		if (resourceFailed) throw resourceFailure;
-		return answer;
-	});
-	check(signal); await current(); return result;
+				const common = { signal, collection: Object.freeze({ catalogId, id: request.collectionId,
+					scope: request.scope, name: initial.name, catalogRevision: initial.root.revision, indexRevision: initial.indexRevision,
+					definitionRevision: initial.definitionRevision, definitionJson: initial.definitionJson }),
+					photos: Object.freeze(captured.map(photo => photo.view)), lutReferences, withOriginal, withLutBytes: scopedLut };
+				answer = await consume(profile === 'legacy2' ? Object.freeze({ schemaVersion: 1, ...common })
+					: Object.freeze({ schemaVersion: 2, ...common, maskRasterReferences: references.brushes, withMaskRasterBytes: scopedMask }));
+			} catch (error) { failed = true; primary = error; }
+			accepting = false; await joined;
+			if (failed) {
+				if (resourceFailed && resourceFailure !== primary) throw new AggregateError([primary, resourceFailure], 'Collection consumer and original borrower failed.', { cause: primary });
+				throw primary;
+			}
+			if (resourceFailed) throw resourceFailure;
+			return answer;
+		});
+		check(signal); await current(); check(signal);
+	} catch (error) { captureFailed = true; captureFailure = error; }
+	try { await group.value?.close(); }
+	catch (cleanup) { if (captureFailed && !Object.is(captureFailure, cleanup)) throw new AggregateError([captureFailure, cleanup], 'Collection handoff consumer and Original group cleanup failed.', { cause: cleanup }); throw cleanup; }
+	if (captureFailed) throw captureFailure; return result;
 
 	async function snapshot() {
 		check(signal); const raw = await Reflect.apply(loadCatalog, catalog, [catalogId]); check(signal);

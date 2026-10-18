@@ -11,6 +11,8 @@ import { LightscaperNativePhotoLibraryScopesCurrentV1 as Scopes } from '../../..
 import { normalizePhotoDocumentCurrentV1 } from '../../../src/lightscaper/catalog/photo-document-current-v1.ts';
 import { readDesktopPhotoOriginalRequestCurrentV1, readDesktopPhotoOriginalTicketCurrentV1,
 	type DesktopPhotoOriginalTicketCurrentV1 } from '../../../src/lightscaper/desktop-photo-original-contract-current-v1.ts';
+import { readDesktopPhotoOriginalGroupTicketIdCurrentV1 } from '../../../src/lightscaper/desktop-photo-original-group-contract-current-v1.ts';
+import { readPhotoLibraryOriginalGroupCurrentV1 } from '../../../src/lightscaper/controller/photo-library-original-group-contract-current-v1.ts';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../src/common/editor/closed-domain-value.ts';
 import { photoArchiveFixture } from '../../helpers/lightscaper-photo-fixture.ts';
 import { rawDngFixtureV1 } from '../../helpers/lightscaper-raw-dng-current-fixture.ts';
@@ -37,7 +39,7 @@ function raster() {
 
 /** Genuine guarded native generation, FS, SQLite, catalog verification and
  * permanent Root1. The binding below forwards into its actual ticket server. */
-export async function openNativeOriginalBrowserFixtureCurrentV1(kind: NativeOriginalBrowserKindCurrentV1) {
+export async function openNativeOriginalBrowserFixtureCurrentV1(kind: NativeOriginalBrowserKindCurrentV1, options: Readonly<{ aliases?: boolean }> = {}) {
 	const directory = await realpath(await mkdtemp(join(tmpdir(), 'lightscaper-original-browser-')));
 	let scopes: Scopes | undefined, primary: unknown;
 	try {
@@ -48,17 +50,23 @@ export async function openNativeOriginalBrowserFixtureCurrentV1(kind: NativeOrig
 		const seed = photoArchiveFixture(901, source.bytes).photo;
 		const photo = normalizePhotoDocumentCurrentV1({ ...seed, original: { ...seed.original, name: source.name,
 			mimeType: source.mimeType, width: source.width, height: source.height }, metadata: { ...seed.metadata, fileName: source.name } });
+		const alias = photoArchiveFixture(902, source.bytes).photo;
+		const photos = [photo, ...(options.aliases ? [normalizePhotoDocumentCurrentV1({ ...alias,
+			original: { ...alias.original, name: source.name, mimeType: source.mimeType, width: source.width, height: source.height },
+			metadata: { ...alias.metadata, fileName: source.name } })] : [])];
 		await components.catalog.createCatalog(nativeResourceRootCurrentV1());
-		await components.media.writeAsset(photo.original.storageKey, new Blob([source.bytes], { type: source.mimeType }), { name: source.name, mimeType: source.mimeType });
-		await components.catalog.publishPhotos('catalog-1', 0, [photo]);
-		const reference = managedMediaIntegrationReferenceCurrentV1(photo.original, photo.id);
-		await components.media.catalogOriginals.retain('catalog-1', [reference]);
+		for (const selected of photos) await components.media.writeAsset(selected.original.storageKey, new Blob([source.bytes], { type: source.mimeType }), { name: source.name, mimeType: source.mimeType });
+		await components.catalog.publishPhotos('catalog-1', 0, photos);
+		const references = photos.map(selected => managedMediaIntegrationReferenceCurrentV1(selected.original, selected.id));
+		await components.media.catalogOriginals.retain('catalog-1', references);
 		const request = Object.freeze({ catalogId: 'catalog-1', photoId: photo.id, original: photo.original });
+		const requests = Object.freeze(photos.map(selected => Object.freeze({ catalogId: selected.catalogId, photoId: selected.id, original: selected.original })));
 		const transport = components.originalTickets.transport;
-		const observations = { opened: 0, closed: 0, ranges: [] as Array<readonly [number, number]> };
+		const observations = { opened: 0, closed: 0, ranges: [] as Array<readonly [number, number]>,
+			groupsOpened: 0, groupsClosed: 0, groupRanges: [] as Array<readonly [number, number, number]> };
 		let closing: Promise<void> | undefined, retiring: Promise<void> | undefined;
 		const retireNative = (): Promise<void> => { retiring ??= scopes!.close(); return retiring; };
-		return { request, kind, transport, byteLength: source.bytes.byteLength, sha256: digest(source.bytes), pixels: [...source.pixels], observations,
+		return { request, requests, kind, transport, byteLength: source.bytes.byteLength, sha256: digest(source.bytes), pixels: [...source.pixels], observations,
 			async install(page: Page): Promise<void> {
 				await page.exposeBinding('__lightscaperOriginalTransportCurrentV1', async (caller, value: unknown) => {
 					if (caller.page !== page || caller.frame !== page.mainFrame()) throw new Error('Native Original qualification binding belongs to its actual main page.');
@@ -83,24 +91,48 @@ export async function openNativeOriginalBrowserFixtureCurrentV1(kind: NativeOrig
 						await transport.close(field(input, 'ticket', 'Original qualification close') as Readonly<Pick<DesktopPhotoOriginalTicketCurrentV1, 'id'>>);
 						observations.closed++; return true;
 					}
+					if (operation === 'openGroup') {
+						const input = record(value, 'Original qualification group open', ['operation', 'requests']);
+						const selected = readPhotoLibraryOriginalGroupCurrentV1(field(input, 'requests', 'Original qualification group open')).requests;
+						assert.equal(JSON.stringify(selected), JSON.stringify(requests)); assert.equal(typeof transport.openGroup, 'function');
+						const result = await transport.openGroup!(selected); observations.groupsOpened++; return result;
+					}
+					if (operation === 'readGroup') {
+						const input = record(value, 'Original qualification group read', ['operation', 'group', 'index', 'offset', 'length']);
+						const id = readDesktopPhotoOriginalGroupTicketIdCurrentV1(field(input, 'group', 'Original qualification group read'));
+						const index: unknown = field(input, 'index', 'Original qualification group read'), offset: unknown = field(input, 'offset', 'Original qualification group read'), length: unknown = field(input, 'length', 'Original qualification group read');
+						assert.ok(typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < requests.length);
+						assert.ok(typeof offset === 'number' && typeof length === 'number' && Number.isSafeInteger(length) && length >= 1 && length <= RANGE);
+						assert.equal(typeof transport.readGroup, 'function'); const bytes = await transport.readGroup!({ id }, index, offset, length);
+						assert.ok(bytes instanceof Uint8Array); assert.equal(bytes.byteLength, length); observations.groupRanges.push([index, offset, length]);
+						try { return { index, offset, length, base64: Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64') }; }
+						finally { bytes.fill(0); }
+					}
+					if (operation === 'closeGroup') {
+						const input = record(value, 'Original qualification group close', ['operation', 'group']);
+						const id = readDesktopPhotoOriginalGroupTicketIdCurrentV1(field(input, 'group', 'Original qualification group close'));
+						assert.equal(typeof transport.closeGroup, 'function'); await transport.closeGroup!({ id }); observations.groupsClosed++; return true;
+					}
 					throw new TypeError('Unknown native Original qualification operation.');
 				});
 			},
 			async provePinned(): Promise<void> {
 				let failure: unknown, refused = false;
-				await components.media.catalogOriginals.release('catalog-1', [photo.id]);
-				try { await components.media.deleteAsset(photo.original.storageKey); }
-				catch { refused = true; }
+				await components.media.catalogOriginals.release('catalog-1', photos.map(selected => selected.id));
+				for (const selected of photos) {
+					let pinned = false; try { await components.media.deleteAsset(selected.original.storageKey); } catch { pinned = true; }
+					if (!pinned) { refused = false; break; } refused = true;
+				}
 				try { assert.equal(refused, true, 'Actual native reader pin must refuse deletion without a permanent custody root.'); }
 				catch (error) { failure = error; }
-				try { await components.media.catalogOriginals.retain('catalog-1', [reference]); }
+				try { await components.media.catalogOriginals.retain('catalog-1', references); }
 				catch (cleanup) { throw new AggregateError(failure === undefined ? [cleanup] : [failure, cleanup], 'Native pin probe/root restoration failed.', { cause: cleanup }); }
 				if (failure !== undefined) throw failure;
 			},
 			async proveReleased(): Promise<void> {
-				await components.media.catalogOriginals.release('catalog-1', [photo.id]);
-				await components.media.deleteAsset(photo.original.storageKey);
-				assert.equal(await components.media.getAssetMetadata(photo.original.storageKey), null);
+				await components.media.catalogOriginals.release('catalog-1', photos.map(selected => selected.id));
+				for (const selected of photos) { await components.media.deleteAsset(selected.original.storageKey);
+					assert.equal(await components.media.getAssetMetadata(selected.original.storageKey), null); }
 			},
 			retireNative,
 			close(): Promise<void> {

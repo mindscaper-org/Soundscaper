@@ -29,6 +29,7 @@ import { decodePhotoImageHandoffSourceForProfileV1 } from './photo-image-handoff
 import { createPhotoFramescaperCollectionHandoffProjectForProfileV1 } from './photo-framescaper-collection-handoff-project-kernel-v1.ts';
 import { PhotoLibrarySessionLifetime } from '../photo-library-session-lifetime.ts';
 import { prepareLinearDevelopCurrentV1 } from '../../../common/editor/imaging/image-develop-linear-plan-v1.ts';
+import { prepareImageDevelopAuthoringCurrentV1 } from '../../../common/editor/imaging/image-develop-authoring-current-v1.ts';
 import { PHOTO_DEVELOP_LINEAR_LIMITS_V1 } from '../../../common/editor/photo-library-develop-linear-port-v1.ts';
 import { admitPhotoHdrHandoffWorkCurrentV1, isPhotoHdrHandoffOriginalCurrentV1, PHOTO_HDR_HANDOFF_LIMITS_CURRENT_V1 as HDR_LIMITS } from './photo-hdr-handoff-policy-current-v1.ts';
 
@@ -230,8 +231,9 @@ const RAW_METADATA_ONLY = Object.freeze({ async withBytes<Result>(): Promise<Res
 	throw new TypeError('Collection RAW metadata preparation cannot read a resource body.');
 } });
 function admitRawCurrentWork(develop: Readonly<ImageDevelopStateThroughV4>, width: number, height: number, originalBytes: number, retainedBytes = MAXIMUM_BODIES): void {
+	// Scalar budget projection grants no pixel authority and never replaces saved Source4 facts.
 	const prepared = prepareLinearDevelopCurrentV1({ frame: { descriptor: { schemaVersion: 1, width, height,
-		sampleFormat: 'unorm16', primaries: 'srgb', transfer: 'linear' } }, develop }, PHOTO_DEVELOP_LINEAR_LIMITS_V1,
+		sampleFormat: 'unorm16', primaries: 'srgb', transfer: 'linear' } }, develop: prepareImageDevelopAuthoringCurrentV1(develop) }, PHOTO_DEVELOP_LINEAR_LIMITS_V1,
 	{ source: RAW_METADATA_ONLY, maskSource: RAW_METADATA_ONLY });
 	const original = BigInt(originalBytes), retained = BigInt(retainedBytes), reserve = 32n * 1024n * 1024n;
 	const decode = retained + original * 3n + (512n + 128n) * 1024n * 1024n + reserve;

@@ -1283,10 +1283,12 @@ Named Develop readers, preview schedulers, journal verification, single-image
 handoff and backup Session composition accept scoped sources while preserving
 the Web Core loader. Archive cancellation now joins accepted encoder reads before
 returning a yielded Original lease. Consumer tests retain real File/ticket pins
-through held work and final consistency checks. Packaged transport and
-whole-collection group admission and retirement remain open.
-Complete scoped Original/preview loading, native restore and selection
-publication, native Session composition, renderer/IPC
+through held work and final consistency checks. Whole-collection handoff now
+admits every Photo authority together, independently authenticates aliases while
+sharing staged bytes, and retains the group through escaped body/resource
+consumers and final collection checks. Native collection and Chromium component
+tests cover its physical pins, all-or-none delivery and joined cleanup.
+Native restore and selection publication, native Session composition, renderer/IPC
 admission and menu-owned library selection remain required before activation.
 Add-in-place access and native platform qualification remain open.
 

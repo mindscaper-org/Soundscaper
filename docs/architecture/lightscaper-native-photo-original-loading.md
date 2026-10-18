@@ -36,8 +36,9 @@ the Original store queue ahead of an accepted read. Quiescence fences media
 admission and cancels those producers while retaining physical owners and pins.
 Resources retire afterward; the global writer guard releases last.
 
-The main ticket server captures that reader and exposes the fixed `open`, `read`
-and ID-only `close` transport. Random native IDs retain actual reader callbacks;
+The main ticket server captures that reader and exposes the fixed `open`, `read`,
+ID-only `close`, `openGroup`, indexed `readGroup` and ID-only `closeGroup`
+transport. Random native IDs retain actual reader callbacks;
 they grant no filesystem path authority. Four admission/read slots, 4094 live
 tickets and 384 MiB of encoded-byte reservations are shared by the persistent
 scope signal. Idle callbacks retain their pins and reservations without occupying
@@ -47,9 +48,19 @@ tombstones. Unknown cleanup retains the entry and immediately quarantines the
 owning scope. Parent close starts writer quiescence, ticket cancellation and reader
 retirement in that order, then joins all three before closing dependent owners.
 
+A group admits the complete ordered vector of catalog, Photo and immutable
+Original bindings. It reserves every authority before the first per-Photo lookup;
+compatible digest aliases share encoded-byte accounting while retaining separate
+authentication and generation pins. Logical limits are shared with single-file
+tickets, and physical capacity is shared across canonical-database media owners.
+All reserved slots remain occupied until every alias callback and accepted pull
+retires. Never-activated bookings retire on owner close; failed cleanup rejects
+close and quarantines the full booking. Empty wire groups retain no entry.
+
 ## Renderer ownership
 
-The renderer source captures a closed transport with `open`, `read` and `close`.
+The renderer source captures a closed transport with `open`, `read` and `close`,
+plus the optional complete group triple.
 Tickets contain a random 64-character lowercase hexadecimal ID and the complete
 normalized Original. A closing request carries only the ID so a malformed issued
 descriptor can still be retired. Local AbortSignals are never serialized.
@@ -60,13 +71,19 @@ and hashes the persisted File in bounded slices before publication. It never
 assembles the whole Original in renderer memory. Descriptive filenames do not
 select staging paths.
 
-The source admits at most four simultaneous acquisitions, 4094 live stages and
+The source admits at most four simultaneous acquisitions, 4094 live authorities and
 384 MiB of reserved encoded bytes. Capacity refusal starts no native open or
 filesystem work. A published File and its native ticket remain leased until the
 actual decoder, exporter or archive consumer retires. Owner close cancels
 unpublished work and waits for published leases to close. Unknown cleanup retains
 the stage owner and its reservation and fences further admission. A file whose
 removal already succeeded need not remain when a separate ticket close fails.
+
+Group staging creates one OPFS File per compatible digest and independently
+streams and hashes every Photo alias, including aliases with different native
+locators. It publishes the aligned File vector only after all members pass.
+Groups share acquisition, authority and unique-byte limits with single-file
+leases; no sequence of partial admissions substitutes for a group.
 
 The product-owned Original source helper validates a genuine Blob/File and its
 exact size, detaches request identity, and joins the consumer before cached
@@ -98,10 +115,13 @@ sequence immediately after a ZIP rejection could otherwise delete a leased File
 while its accepted read was still running. All three Session profiles forward a
 scoped source without requiring a legacy backup loader.
 
-Whole-collection handoff still needs group admission and retirement across every
-member. Its shared digest budgets and independently authenticated Photo aliases
-require more than sequential acquisition of per-file leases. Packaged IPC and a
-complete native Session remain separate activation requirements.
+Whole-collection handoff captures group capability before metadata awaits and
+refuses a scoped per-file-only source before collection reads. It retains the
+complete group through escaped Original, LUT and brush consumers, final root,
+query, membership and Photo checks, and joined resource retirement. Distinct
+aligned bodies are each hashed before digest reuse. Durable Web Core loaders
+provide an explicit group fallback. Packaged IPC and a complete native Session
+remain separate activation requirements.
 
 ## Qualification
 
@@ -115,6 +135,15 @@ through a held frame consumer; retirement wipes pixels and removes the stage.
 These component tests run in an isolated minimal document on the real Lightscaper
 preview origin. They do not qualify packaged preload IPC, application activation,
 a complete native Session or the desktop target matrix.
+
+The Chromium group check authenticates two actual native locators, shares one
+real OPFS File, holds both deletion pins through two raster consumers and verifies
+joined retirement. Native collection tests cover six Photo authorities, ordered
+manual, smart and saved collections, missing later aliases, escaped resource
+consumers, cancellation and a real LibRaw editable collection export. Renderer
+port tests separately cover malformed receipts and shared capacity. Shutdown
+regressions distinguish unused bookings from accepted first-Photo lookups and
+verify that failed cleanup rejects instead of leaving close pending forever.
 
 Focused consumer tests additionally exercise real native files, SQLite, ticket
 pins and genuine Files through backup roundtrips, RAW decoding and PNG16 handoff.
