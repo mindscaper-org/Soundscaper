@@ -48,7 +48,7 @@ The independent audit passed input/site/map preservation, recorded-process
 retirement and port closure. The original audio service had already exited;
 its exit time and reason remain unknown, and its absence is a failed post.
 This does not establish a common cause of the browser failures.
-The other browser failures remain unresolved. Failed raw coverage stays opaque
+The other product browser failures remain unresolved. Failed raw coverage stays opaque
 and unadmitted; no current complete browser or coverage acceptance is claimed.
 
 On source `6ab2c71d4801375b62ee48d1ea4a54b7954cebc3`, the packaged Linux x64
@@ -130,6 +130,17 @@ production types, changed-file lint and size checks pass. On integrated source
 together. These source-predicted defects have controlled regressions; their
 role in the historical browser failures remains unproven.
 
+The fresh ordinary Motion browser component on `7b804853d` passes all 444
+discovered identities: Chromium 148 passes, Firefox 142 passes/six declared
+skips and WebKit 147 passes/one declared skip. There are no failures, flaky
+results or retries. Five skips declare unavailable Firefox WebGL2; two declare
+the Chromium-only OPFS duration profile. The original assertions, timeouts,
+worker topology and default application heap remain unchanged. Independent
+source/npm/control/site/map checks and physical closure pass, with all 932
+recorded identities retired and all three ports free. The private audio service
+is deliberately held for later suites. This is the ordinary Motion component;
+complete all-product, linked-editor and coverage acceptance remain open.
+
 The original Windows x64 build on source `0241c6e1c` failed at libvpx because
 the assembler was unavailable. After the NASM installation/PATH corrections
 (`d41fbcd5`, `0e227882`), a new build found NASM but failed because libvpx was
@@ -194,6 +205,34 @@ and receipt before new packaging. Earlier native results retain their original
 source identities; they are not retagged or reused against the changed closure.
 The assistance runtime closure is unchanged.
 
+The subsequent Windows x64 attempt on `9f24c039` compiles and installs zlib,
+x264, x265, libvpx and Opus, including the complete 245-reference libvpx project.
+It reaches its unchanged inherited deadline after 406.5 seconds. The owner
+reports a timeout-cleanup failure before retaining the builder's numerical exit;
+that exit remains unknown. Independent input/artifact/process checks pass and
+the recorded timeout descendants are absent. No FFmpeg configure, host,
+self-test or final-result pass is claimed. The failed attempt remains preserved;
+a separate fresh attempt uses the original 180-minute execution bound from its
+own launch, with fresh work/results and the same source, tools and recipe.
+
+The fresh Linux x64 build on `cb163a0ce` passes compilation, maintained result
+verification, reference-decoder generation and all five native checks. Its
+independent audit verifies unchanged source/npm/authenticated inputs and exact
+generated output, with all 1,990 recorded identities and 12 groups/sessions
+retired. The new receipt and 172-file reference prefix keep their actual
+compilation identity. No historical compiled prefix is reused or retagged.
+New packaging, installed workflows and the original maximum-index workload
+remain required.
+
+The complete `npm run check:static` gate also passes on `cb163a0ce` in 703.6
+seconds within its unchanged 1,200-second bound. Full lint, types, architecture,
+audits, documentation and the production build pass. The independent post
+verifies 52,070 unchanged inputs and retirement of 92 recorded identities;
+11,777 generated files retain their inventories. Startup tightening has no
+changes, and the largest JavaScript chunk is 488,189 bytes. The 12 GiB heap is
+confined to static compilation; application tests retain their default heap.
+This does not establish complete Node, all-product browser or coverage acceptance.
+
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
 
@@ -238,10 +277,14 @@ Current retained receipts are relative to
 | Nested Windows libvpx source paths | `windows-x64-prerequisites-20261018/libvpx-nested-src-fix-commit-receipt.json` |
 | Passed grouped long-generator and failure controls | `windows-x64-prerequisites-20261018/native-libvpx-long-generator-canary-nested-v3.passed-closed-review.json` |
 | Windows FFmpeg source/install/shell path correction | `windows-x64-prerequisites-20261018/ffmpeg-native-path-fix-commit-receipt.json` |
+| Ordinary Motion browser component, `7b804853d` | `combined-motion-browser-7b804853d-20261018/final-validation.json` |
+| Timed-out Windows codec build and physical closure | `windows-x64-prerequisites-20261018/native-build-native-codec-path-v9.timed-out-closed-review.json` |
+| Fresh Linux native build/verifier/reference, `cb163a0ce` | `current-next-native-preparation-20261018/bound-cb163a0ce/native-qualification.json` |
+| Complete static gate, `cb163a0ce` | `current-cb163a0ce-static-canon-20261018/qualification.json` |
 
 These results retain their exact source attribution. The subsequent test and
-documentation commits do not retag frozen executions. Fresh complete static,
-Node, browser and accepted combined coverage gates remain required on the final
+documentation commits do not retag frozen executions. Fresh complete Node,
+all-product browser and accepted combined coverage gates remain required on the final
 integrated source. Installed After Effects, other desktop targets/hardware,
 signing, installation, updating and publication remain unqualified. No installed
 AE test environment is available. The Motion changes described here do not

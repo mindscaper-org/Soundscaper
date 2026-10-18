@@ -121,7 +121,10 @@ controls and both existing Chromium preview/audio workflows pass. The raster
 runtime repair (`df8fffea7`) cancels an individual consumer promptly while
 preserving shared initialization and retries; all 30 focused controls pass.
 All 49 selected readiness, audio and raster controls pass together on the
-integrated source. Broader browser validation remains required.
+integrated source. The ordinary Motion browser component on `7b804853d` now
+passes all 444 discovered identities: 437 passes and seven declared skips,
+with no failures or retries. Its independent input/site/process audit passes.
+The all-product and separate linked-editor gates remain open.
 
 The Windows x64 builds exposed assembler discovery, libvpx compiler selection,
 source-path persistence and generator-script launching defects. The NASM,
@@ -142,9 +145,20 @@ The separate FFmpeg path correction (`9f24c039`) stages the same authenticated
 source under the build directory, retains native install paths and binds the
 authenticated shell for Windows Make. All 29 focused Windows controls pass;
 actual compilation and the complete native result verifier remain required.
-The shared native source-pin refresh requires a fresh Linux native build and
-receipt before new packaging. Earlier native results keep their original
-source attribution; a new-source pass is not inferred from unchanged Linux flags.
+The subsequent Windows attempt compiles and installs all five codec libraries,
+then reaches its inherited deadline after 406 seconds. The owner fails during
+timeout cleanup; the builder's numerical exit remains unknown. Independent
+preservation and process closure pass. FFmpeg, the host and final verification
+remain unqualified; a separate fresh attempt retains the full original
+180-minute execution window.
+
+On `cb163a0ce`, the fresh Linux native build, maintained result verifier,
+reference compilation and all five native checks pass, including the independent
+input/generated-output/process audit. Its new receipt retains the actual
+compilation revision; packaging and installed workloads remain required.
+The complete static gate also passes on that source in 703.6 seconds, with
+52,070 unchanged inputs, no startup-budget changes and a largest JavaScript
+chunk of 488,189 bytes. Earlier failed executions retain their original outcomes.
 
 Fresh combined gates, accepted coverage, installed AE, other hardware/targets,
 signing, installation, update and publication remain open. No installed AE test
