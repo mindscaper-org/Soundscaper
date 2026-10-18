@@ -33,8 +33,10 @@ rectangular orientations, independent pinned WASM comparisons, recovery and
 headroom, exact preview bytes, malformed inputs and the genuine pinned CC0 CRW.
 The final run explicitly used `TZ=Pacific/Auckland` and peaked at 184,492,032
 bytes with no cgroup OOM event. This establishes local primitive behavior;
-supervised service forwarding, target deployment and other maintained desktop
-targets still require their owning implementation and qualification.
+the supervised SRR1 process service now has an additional 15 focused Linux
+cases. Complete application forwarding, authenticated deployment and other
+maintained desktop targets still require their owning implementation and
+qualification. See the [service contract](../../docs/architecture/lightscaper-native-photo-raw-service.md).
 
 No **Update AI assets** run is required for this primitive/test addition. The
 existing assistance runtime and both existing WASM closures remain unchanged.

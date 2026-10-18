@@ -2,15 +2,19 @@
 
 import { basename, join } from 'node:path';
 import { lightscaperRawNativeTestRecipeCurrentV1 } from './lightscaper-raw-native-test-recipe-current-v1.ts';
+import { lightscaperGrantedNativeTestRecipeCurrentV1 } from './lightscaper-granted-native-test-recipe-current-v1.ts';
+import { lightscaperRawRoleNativeTestRecipeCurrentV1 } from './lightscaper-raw-role-native-test-recipe-current-v1.ts';
 
 type ExistingNativeTestFixtureKind = 'media-contract' | 'media-contract-exact' | 'media-validator' | 'delivery-filesystem';
-export type NativeTestFixtureKind = ExistingNativeTestFixtureKind | 'lightscaper-granted-file-reader' | 'lightscaper-raw-engine';
+export type NativeTestFixtureKind = ExistingNativeTestFixtureKind | 'lightscaper-granted-file-reader' | 'lightscaper-raw-engine'
+	| 'lightscaper-granted-filesystem' | 'lightscaper-granted-filesystem-close-fault' | 'lightscaper-raw-role';
 export interface NativeTestFixtureRecipe {
 	readonly kind: NativeTestFixtureKind;
 	readonly compiler: string;
 	readonly arguments: readonly string[];
 	readonly sources: readonly string[];
 	readonly headerRoots: readonly string[];
+	readonly cmake?: Readonly<{ sourceRoot: string; target: string; definitions: readonly string[] }>;
 }
 
 export function mediaContractFixtureKind(environment: NodeJS.ProcessEnv = process.env): NativeTestFixtureKind {
@@ -51,12 +55,8 @@ export function nativeTestFixtureRecipes(repositoryRoot: string, environment: No
 /** Select before constructing a recipe: unrelated tests need no RAW sources. */
 export function nativeTestFixtureRecipe(kind: NativeTestFixtureKind, repositoryRoot: string, environment: NodeJS.ProcessEnv): NativeTestFixtureRecipe {
 	if (kind === 'lightscaper-raw-engine') return lightscaperRawNativeTestRecipeCurrentV1(repositoryRoot, environment);
-	if (kind === 'lightscaper-granted-file-reader') {
-		const common = join(repositoryRoot, 'native/common');
-		return { kind, compiler: 'c++', arguments: ['-std=c++20', '-O2', '-Wall', '-Wextra', '-Wpedantic', '-Werror', '-pthread', '-I', common],
-			sources: [join(repositoryRoot, 'tests/native/lightscaper-granted-file-reader-current-v1/fixture.cpp'),
-				join(common, process.platform === 'win32' ? 'granted_file_reader_windows.cpp' : 'granted_file_reader_posix.cpp')], headerRoots: [common] };
-	}
+	if (kind === 'lightscaper-raw-role') return lightscaperRawRoleNativeTestRecipeCurrentV1(repositoryRoot, environment);
+	if (kind === 'lightscaper-granted-file-reader' || kind === 'lightscaper-granted-filesystem' || kind === 'lightscaper-granted-filesystem-close-fault') return lightscaperGrantedNativeTestRecipeCurrentV1(kind, repositoryRoot);
 	return nativeTestFixtureRecipes(repositoryRoot, environment)[kind];
 }
 
@@ -70,5 +70,11 @@ export function selectedNativeTestFixtures(testFiles: readonly string[], environ
 	if (process.platform === 'linux' && (names.has('soundscaper-delivery-fs-native.test.js') || names.has('desktop-soundscaper-delivery-filesystem-native-e2e.test.ts'))) kinds.add('delivery-filesystem');
 	if (names.has('lightscaper-native-granted-file-reader-current.test.ts')) kinds.add('lightscaper-granted-file-reader');
 	if (names.has('lightscaper-native-raw-engine-current.test.ts')) kinds.add('lightscaper-raw-engine');
+	if (names.has('lightscaper-native-raw-role-current.test.ts')) kinds.add('lightscaper-raw-role');
+	if (['lightscaper-native-granted-filesystem-current.test.ts', 'lightscaper-native-granted-filesystem-scan-current.test.ts', 'lightscaper-native-granted-filesystem-framing-current.test.ts'].some(name => names.has(name))) {
+		kinds.add('lightscaper-granted-filesystem');
+		if (process.platform === 'linux' && names.has('lightscaper-native-granted-filesystem-current.test.ts')) kinds.add('lightscaper-granted-filesystem-close-fault');
+	}
+	if (['lightscaper-native-linked-grants-current.test.ts', 'lightscaper-native-linked-grants-lifetime-current.test.ts', 'lightscaper-native-linked-grants-sqlite-current.test.ts', 'lightscaper-native-linked-grants-namespace-current.test.ts', 'lightscaper-native-linked-grants-shared-role-current.test.ts'].some(name => names.has(name))) kinds.add('lightscaper-granted-filesystem');
 	return [...kinds].sort();
 }

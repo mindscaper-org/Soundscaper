@@ -4,6 +4,7 @@
 
 // Read-only native filesystem authority. Paths retain platform-native storage;
 // a display string or a structural identity never becomes a renderer grant.
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -44,7 +45,33 @@ private:
 	std::vector<std::exception_ptr> causes_;
 };
 
+enum class directory_kind : unsigned char { file = 1, directory = 2, link = 3, other = 4, unknown = 5 };
+struct directory_entry final {
+	std::filesystem::path component;
+	directory_kind kind = directory_kind::unknown;
+	std::optional<std::uint64_t> byte_length;
+	std::optional<std::array<std::byte, 16>> observation;
+	std::optional<file_identity> identity;
+};
+struct directory_page final { std::vector<directory_entry> entries; bool done = false; };
+// Exact source-owned actual-close latch; never derived from an exception class.
+bool process_retirement_is_unproved() noexcept;
 class root_reader;
+class directory_reader final {
+public:
+	directory_reader(directory_reader&&) noexcept;
+	directory_reader& operator=(directory_reader&&);
+	directory_reader(const directory_reader&) = delete;
+	directory_reader& operator=(const directory_reader&) = delete;
+	~directory_reader();
+	directory_page next();
+	void close();
+private:
+	struct state;
+	explicit directory_reader(std::unique_ptr<state>) noexcept;
+	std::unique_ptr<state> state_;
+	friend class root_reader;
+};
 
 /** An actual fixed file handle; root retirement cannot redirect it. Reads and
  * close serialize on that handle. Only successful explicit close certifies
@@ -81,6 +108,7 @@ public:
 	~root_reader();
 	file_identity identity() const;
 	file_reader open_file(std::span<const std::filesystem::path> components);
+	directory_reader open_directory(std::span<const std::filesystem::path> components);
 	void close();
 private:
 	struct state;

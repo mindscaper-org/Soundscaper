@@ -7,6 +7,7 @@
 #include <cerrno>
 #include <charconv>
 #include <cstring>
+#include <dirent.h>
 #include <fcntl.h>
 #include <mutex>
 #include <sys/stat.h>
@@ -110,8 +111,8 @@ void validate_root(const std::filesystem::path& path) {
 	if (text.empty() || text.size() > 32768 || !path.is_absolute() || text.find('\0') != std::string::npos)
 		throw read_error(error_code::invalid_path, "Granted native root requires a bounded absolute native path.");
 }
-void validate_components(std::span<const std::filesystem::path> components) {
-	if (components.empty() || components.size() > maximum_components) throw read_error(error_code::invalid_path, "Granted native component count is invalid.");
+void validate_components(std::span<const std::filesystem::path> components, bool allow_empty = false) {
+	if ((!allow_empty && components.empty()) || components.size() > maximum_components) throw read_error(error_code::invalid_path, "Granted native component count is invalid.");
 	for (const auto& component : components) {
 		const auto& text = component.native();
 		if (text.empty() || text.size() > 4096 || text == "." || text == ".."
@@ -243,6 +244,113 @@ file_reader root_reader::open_file(std::span<const std::filesystem::path> compon
 void root_reader::close() {
 	if (!state_) return;
 	std::lock_guard lock(state_->mutex); close_once(state_->descriptor, state_->failure);
+}
+
+bool process_retirement_is_unproved() noexcept {
+	auto& owner = process_quarantine(); std::lock_guard lock(owner.mutex); return static_cast<bool>(owner.failure);
+}
+struct directory_reader::state {
+	DIR* iterator = nullptr;
+	std::exception_ptr failure;
+	std::optional<directory_entry> pending;
+	bool done = false;
+	std::mutex mutex;
+	void close() {
+		if (failure) std::rethrow_exception(failure);
+		if (!iterator) return;
+		auto* actual = std::exchange(iterator, nullptr); const auto descriptor = ::dirfd(actual);
+		// closedir owns this descriptor. A failure is never retried.
+		if (::closedir(actual) != 0) { failure = io_failure("directory close", errno); quarantine_close(descriptor, failure); std::rethrow_exception(failure); }
+	}
+	~state() { try { close(); } catch (...) {} }
+};
+directory_reader::directory_reader(std::unique_ptr<state> value) noexcept : state_(std::move(value)) {}
+directory_reader::directory_reader(directory_reader&&) noexcept = default;
+directory_reader& directory_reader::operator=(directory_reader&& other) { if (this != &other) { close(); state_ = std::move(other.state_); } return *this; }
+directory_reader::~directory_reader() = default;
+namespace {
+std::size_t entry_size(const directory_entry& value) {
+	return 1 + 1 + 4 + value.component.native().size() + 8 + 1 + (value.observation ? 16 : 0) + 1
+		+ (value.identity ? 4 + value.identity->volume.size() + value.identity->object.size() : 0);
+}
+void store_hint(std::array<std::byte, 16>& output, std::size_t start, std::uint64_t value) {
+	for (std::size_t index = 0; index < 8; ++index) output[start + index] = static_cast<std::byte>(value >> ((7 - index) * 8));
+}
+directory_entry observe(DIR* iterator, const char* name) {
+	directory_entry result; result.component = std::filesystem::path(name);
+	if (result.component.native().size() > 4096) throw read_error(error_code::invalid_path, "Granted native directory name is too long.");
+	struct stat details{};
+	if (::fstatat(::dirfd(iterator), name, &details, AT_SYMLINK_NOFOLLOW) != 0) {
+		if (errno == ENOENT) return result;
+		std::rethrow_exception(io_failure("directory observation", errno));
+	}
+	result.kind = S_ISREG(details.st_mode) ? directory_kind::file : S_ISDIR(details.st_mode) ? directory_kind::directory
+		: S_ISLNK(details.st_mode) ? directory_kind::link : directory_kind::other;
+	if (S_ISREG(details.st_mode) && details.st_size >= 0) result.byte_length = static_cast<std::uint64_t>(details.st_size);
+	result.identity = identity_of(details);
+#ifdef __APPLE__
+	const auto modified = details.st_mtimespec, changed = details.st_ctimespec;
+#else
+	const auto modified = details.st_mtim, changed = details.st_ctim;
+#endif
+	std::array<std::byte, 16> hint{};
+	// An opaque observation only; unsigned wrapping is defined and grants no authority.
+	store_hint(hint, 0, static_cast<std::uint64_t>(modified.tv_sec) * 1000000000ULL + static_cast<std::uint64_t>(modified.tv_nsec));
+	store_hint(hint, 8, static_cast<std::uint64_t>(changed.tv_sec) * 1000000000ULL + static_cast<std::uint64_t>(changed.tv_nsec));
+	result.observation = hint; return result;
+}
+}
+directory_page directory_reader::next() {
+	if (!state_) throw read_error(error_code::closed, "Granted native directory was moved.");
+	std::lock_guard lock(state_->mutex); assert_process();
+	if (state_->failure) std::rethrow_exception(state_->failure);
+	if (!state_->iterator) throw read_error(error_code::closed, "Granted native directory is closed.");
+	directory_page result; std::size_t bytes = 3;
+	while (!state_->done && result.entries.size() < 64) {
+		std::optional<directory_entry> entry = std::move(state_->pending); state_->pending.reset();
+		if (!entry) {
+			errno = 0; auto* native = ::readdir(state_->iterator);
+			if (!native) { if (errno) std::rethrow_exception(io_failure("directory enumeration", errno)); state_->done = true; break; }
+			if (std::strcmp(native->d_name, ".") == 0 || std::strcmp(native->d_name, "..") == 0) continue;
+			entry = observe(state_->iterator, native->d_name);
+		}
+		const auto length = entry_size(*entry);
+		if (length > 65536 - 3) throw read_error(error_code::invalid_path, "Granted native directory entry exceeds its page.");
+		if (length > 65536 - bytes) { state_->pending = std::move(entry); break; }
+		bytes += length; result.entries.push_back(std::move(*entry));
+	}
+	result.done = state_->done && !state_->pending; assert_process(); return result;
+}
+void directory_reader::close() { if (state_) { std::lock_guard lock(state_->mutex); state_->close(); } }
+directory_reader root_reader::open_directory(std::span<const std::filesystem::path> components) {
+	if (!state_) throw read_error(error_code::closed, "Granted native root was moved.");
+	std::lock_guard lock(state_->mutex); assert_process();
+	if (state_->failure) std::rethrow_exception(state_->failure);
+	if (state_->descriptor < 0) throw read_error(error_code::closed, "Granted native root is closed.");
+	validate_components(components, true); std::vector<held_descriptor> held; held.reserve(components.size() + 1);
+	try {
+		auto parent = state_->descriptor;
+		if (components.empty()) {
+			const auto descriptor = ::openat(parent, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+			if (descriptor < 0) std::rethrow_exception(io_failure("directory clone", errno));
+			held.emplace_back(descriptor);
+		}
+		for (const auto& component : components) {
+			const auto descriptor = ::openat(parent, component.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+			if (descriptor < 0) fail_open(parent, component.c_str(), errno, true);
+			held.emplace_back(descriptor);
+			struct stat details{}; if (::fstat(descriptor, &details) != 0) std::rethrow_exception(io_failure("directory stat", errno));
+			if (!S_ISDIR(details.st_mode) || identity_of(details).volume != state_->captured.volume)
+				throw read_error(error_code::unsupported_filesystem, "Granted native directory crosses its root volume.");
+			parent = descriptor;
+		}
+		auto result = std::make_unique<directory_reader::state>();
+		auto* iterator = ::fdopendir(held.back().value);
+		if (!iterator) std::rethrow_exception(io_failure("directory iterator", errno));
+		result->iterator = iterator; (void)held.back().release();
+		for (std::size_t index = held.size() - 1; index > 0; --index) held[index - 1].close();
+		return directory_reader(std::move(result));
+	} catch (...) { fail_after_cleanup(std::current_exception(), held); }
 }
 
 } // namespace scape::granted_files

@@ -137,8 +137,8 @@ std::wstring native_root_path(const std::filesystem::path& path) {
 	if (value.starts_with(L"\\\\")) return L"\\\\?\\UNC\\" + value.substr(2);
 	return L"\\\\?\\" + value;
 }
-void validate_components(std::span<const std::filesystem::path> components) {
-	if (components.empty() || components.size() > maximum_components) throw read_error(error_code::invalid_path, "Granted native component count is invalid.");
+void validate_components(std::span<const std::filesystem::path> components, bool allow_empty = false) {
+	if ((!allow_empty && components.empty()) || components.size() > maximum_components) throw read_error(error_code::invalid_path, "Granted native component count is invalid.");
 	for (const auto& component : components) {
 		const auto& text = component.native();
 		if (text.empty() || text.size() > 4096 || text == L"." || text == L".."
@@ -286,6 +286,113 @@ file_reader root_reader::open_file(std::span<const std::filesystem::path> compon
 void root_reader::close() {
 	if (!state_) return;
 	std::lock_guard lock(state_->mutex); close_once(state_->handle, state_->failure);
+}
+
+bool process_retirement_is_unproved() noexcept {
+	auto& owner = process_quarantine(); std::lock_guard lock(owner.mutex); return static_cast<bool>(owner.failure);
+}
+struct directory_reader::state {
+	HANDLE handle = INVALID_HANDLE_VALUE;
+	std::exception_ptr failure;
+	file_identity directory_identity;
+	alignas(FILE_ID_EXTD_DIR_INFO) std::array<std::byte, 65536> buffer{};
+	std::size_t offset = 0;
+	bool buffered = false, done = false;
+	std::optional<directory_entry> pending;
+	std::mutex mutex;
+	~state() { close_noexcept(handle, failure); }
+};
+directory_reader::directory_reader(std::unique_ptr<state> value) noexcept : state_(std::move(value)) {}
+directory_reader::directory_reader(directory_reader&&) noexcept = default;
+directory_reader& directory_reader::operator=(directory_reader&& other) { if (this != &other) { close(); state_ = std::move(other.state_); } return *this; }
+directory_reader::~directory_reader() = default;
+namespace {
+std::size_t entry_size(const directory_entry& value) {
+	return 1 + 1 + 4 + value.component.native().size() * sizeof(wchar_t) + 8 + 1 + (value.observation ? 16 : 0) + 1
+		+ (value.identity ? 4 + value.identity->volume.size() + value.identity->object.size() : 0);
+}
+void store_hint(std::array<std::byte, 16>& output, std::size_t start, std::uint64_t value) {
+	for (std::size_t index = 0; index < 8; ++index) output[start + index] = static_cast<std::byte>(value >> ((7 - index) * 8));
+}
+directory_entry observe(const FILE_ID_EXTD_DIR_INFO& value, const file_identity& directory) {
+	directory_entry result; result.component = std::filesystem::path(std::wstring(value.FileName, value.FileNameLength / sizeof(wchar_t)));
+	result.kind = (value.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ? directory_kind::link
+		: (value.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ? directory_kind::directory : directory_kind::file;
+	if (result.kind == directory_kind::file && value.EndOfFile.QuadPart >= 0) result.byte_length = static_cast<std::uint64_t>(value.EndOfFile.QuadPart);
+	std::array<std::byte, 16> hint{};
+	store_hint(hint, 0, static_cast<std::uint64_t>(value.LastWriteTime.QuadPart)); store_hint(hint, 8, static_cast<std::uint64_t>(value.ChangeTime.QuadPart));
+	result.observation = hint;
+	constexpr char digits[] = "0123456789abcdef"; std::string id; id.reserve(32);
+	for (const auto byte : value.FileId.Identifier) { id += digits[byte >> 4U]; id += digits[byte & 15U]; }
+	result.identity = file_identity{ directory.volume, "windows-fileid:" + id }; return result;
+}
+}
+directory_page directory_reader::next() {
+	if (!state_) throw read_error(error_code::closed, "Granted native directory was moved.");
+	std::lock_guard lock(state_->mutex); assert_process();
+	if (state_->failure) std::rethrow_exception(state_->failure);
+	if (state_->handle == INVALID_HANDLE_VALUE) throw read_error(error_code::closed, "Granted native directory is closed.");
+	directory_page result; std::size_t bytes = 3;
+	while (!state_->done && result.entries.size() < 64) {
+		std::optional<directory_entry> entry = std::move(state_->pending); state_->pending.reset();
+		if (!entry) {
+			if (!state_->buffered) {
+				state_->buffer.fill(std::byte{});
+				if (!GetFileInformationByHandleEx(state_->handle, FileIdExtdDirectoryInfo, state_->buffer.data(), static_cast<DWORD>(state_->buffer.size()))) {
+					const auto code = GetLastError(); if (code == ERROR_NO_MORE_FILES) { state_->done = true; break; }
+					if (code == ERROR_INVALID_PARAMETER || code == ERROR_NOT_SUPPORTED) throw read_error(error_code::unsupported_filesystem, "Granted native directory information is unavailable.");
+					std::rethrow_exception(io_failure("directory enumeration", code));
+				}
+				state_->buffered = true; state_->offset = 0;
+			}
+			constexpr auto header = offsetof(FILE_ID_EXTD_DIR_INFO, FileName);
+			if (state_->offset > state_->buffer.size() - header) throw read_error(error_code::io, "Granted native directory header is invalid.");
+			const auto* native = reinterpret_cast<const FILE_ID_EXTD_DIR_INFO*>(state_->buffer.data() + state_->offset);
+			if (native->FileNameLength % sizeof(wchar_t) != 0 || native->FileNameLength > 4096 * sizeof(wchar_t)
+				|| native->FileNameLength > state_->buffer.size() - state_->offset - header)
+				throw read_error(error_code::io, "Granted native directory name is invalid.");
+			entry = observe(*native, state_->directory_identity);
+			if (native->NextEntryOffset == 0) state_->buffered = false;
+			else {
+				if (native->NextEntryOffset < header + native->FileNameLength || native->NextEntryOffset % alignof(FILE_ID_EXTD_DIR_INFO) != 0
+					|| native->NextEntryOffset > state_->buffer.size() - state_->offset - header)
+					throw read_error(error_code::io, "Granted native directory cursor is invalid.");
+				state_->offset += native->NextEntryOffset;
+			}
+			const auto& name = entry->component.native(); if (name == L"." || name == L"..") continue;
+		}
+		const auto length = entry_size(*entry);
+		if (length > 65536 - 3) throw read_error(error_code::invalid_path, "Granted native directory entry exceeds its page.");
+		if (length > 65536 - bytes) { state_->pending = std::move(entry); break; }
+		bytes += length; result.entries.push_back(std::move(*entry));
+	}
+	result.done = state_->done && !state_->pending; assert_process(); return result;
+}
+void directory_reader::close() { if (state_) { std::lock_guard lock(state_->mutex); close_once(state_->handle, state_->failure); } }
+directory_reader root_reader::open_directory(std::span<const std::filesystem::path> components) {
+	if (!state_) throw read_error(error_code::closed, "Granted native root was moved.");
+	std::lock_guard lock(state_->mutex); assert_process();
+	if (state_->failure) std::rethrow_exception(state_->failure);
+	if (state_->handle == INVALID_HANDLE_VALUE) throw read_error(error_code::closed, "Granted native root is closed.");
+	validate_components(components, true); std::vector<held_handle> held; held.reserve(components.size() + 1);
+	try {
+		auto parent = state_->handle;
+		if (components.empty()) {
+			const auto handle = ReOpenFile(parent, FILE_GENERIC_READ | SYNCHRONIZE,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT);
+			if (handle == INVALID_HANDLE_VALUE) std::rethrow_exception(io_failure("directory clone", GetLastError()));
+			held.emplace_back(handle); require_directory(handle);
+			if (identity_of(handle) != state_->captured) throw read_error(error_code::identity_changed, "Granted native directory clone differs.");
+		}
+		for (const auto& component : components) {
+			const auto handle = open_relative(parent, component); held.emplace_back(handle); require_directory(handle);
+			if (identity_of(handle).volume != state_->captured.volume) throw read_error(error_code::unsupported_filesystem, "Granted native directory crosses its root volume.");
+			parent = handle;
+		}
+		auto result = std::make_unique<directory_reader::state>(); result->directory_identity = identity_of(held.back().value);
+		for (std::size_t index = held.size() - 1; index > 0; --index) held[index - 1].close();
+		result->handle = held.back().release(); return directory_reader(std::move(result));
+	} catch (...) { fail_after_cleanup(std::current_exception(), held); }
 }
 
 } // namespace scape::granted_files

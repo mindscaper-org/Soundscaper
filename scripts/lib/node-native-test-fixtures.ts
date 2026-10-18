@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 
 import { nativeTestFixtureRecipe, type NativeTestFixtureKind, type NativeTestFixtureRecipe } from './node-native-test-fixture-recipes.ts';
 import { lightscaperNativeTestEnvironmentCurrentV1, prepareLightscaperNativeTestSourceCurrentV1 } from './lightscaper-native-test-source-current-v1.ts';
+import { buildNativeTestCmakeFixture } from './node-native-test-cmake.ts';
 
 export const NATIVE_TEST_FIXTURE_ENV = 'SCAPE_NODE_TEST_NATIVE_FIXTURE';
 interface FixtureArtifact { readonly file: string; readonly inputSha256: string; readonly sha256: string; }
@@ -45,7 +46,7 @@ export function prepareNativeTestFixtures(options: FixtureOptions, build = build
 	try {
 		mkdirSync(options.fixtureRoot, { recursive: true });
 		const environment = options.environment ?? process.env;
-		if (options.kinds.includes('lightscaper-raw-engine') && !environment.LIGHTSCAPER_LIBRAW_SOURCE_ROOT) prepareLightscaperNativeTestSourceCurrentV1(options.repositoryRoot, options.fixtureRoot);
+		if (options.kinds.some(kind => kind === 'lightscaper-raw-engine' || kind === 'lightscaper-raw-role') && !environment.LIGHTSCAPER_LIBRAW_SOURCE_ROOT) prepareLightscaperNativeTestSourceCurrentV1(options.repositoryRoot, options.fixtureRoot);
 		const recipeEnvironment = lightscaperNativeTestEnvironmentCurrentV1(environment, options.fixtureRoot);
 		const artifacts: Partial<Record<NativeTestFixtureKind, FixtureArtifact>> = {};
 		for (const kind of new Set(options.kinds)) {
@@ -98,6 +99,7 @@ export function compileNativeTestFixture(options: CopyOptions): void {
 }
 
 function buildNativeRecipe(recipe: NativeTestFixtureRecipe, outputPath: string): void {
+	if (recipe.cmake) { buildNativeTestCmakeFixture(recipe, outputPath); return; }
 	const result = spawnSync(recipe.compiler, [...recipe.arguments, ...recipe.sources, '-o', outputPath], { encoding: 'utf8' });
 	if (result.status !== 0) throw new Error(`Native fixture ${recipe.kind} failed to compile:\n${result.stderr || result.stdout}`);
 }
@@ -128,7 +130,7 @@ function readManifest(bytes: Buffer): FixtureManifest {
 		|| !('architecture' in value) || typeof value.architecture !== 'string'
 		|| !('artifacts' in value) || typeof value.artifacts !== 'object' || value.artifacts === null) throw new Error('Invalid native fixture manifest.');
 	for (const [kind, artifact] of Object.entries(value.artifacts)) {
-		if (!['media-contract', 'media-contract-exact', 'media-validator', 'delivery-filesystem', 'lightscaper-granted-file-reader', 'lightscaper-raw-engine'].includes(kind)
+		if (!['media-contract', 'media-contract-exact', 'media-validator', 'delivery-filesystem', 'lightscaper-granted-file-reader', 'lightscaper-raw-engine', 'lightscaper-granted-filesystem', 'lightscaper-granted-filesystem-close-fault', 'lightscaper-raw-role'].includes(kind)
 			|| typeof artifact !== 'object' || artifact === null
 			|| !('file' in artifact) || artifact.file !== `${kind}${process.platform === 'win32' ? '.exe' : ''}`
 			|| !('inputSha256' in artifact) || typeof artifact.inputSha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(artifact.inputSha256)

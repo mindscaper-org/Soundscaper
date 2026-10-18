@@ -16,13 +16,9 @@ export function lightscaperRawNativeTestRecipeCurrentV1(repositoryRoot: string, 
  if (units.length < 50 || units.length > 128 || new Set(units).size !== units.length
   || units.some(value => !/^src\/(?:[a-z0-9_]+\/)*[a-z0-9_]+\.cpp$/u.test(value))) throw new Error('Native test LibRaw source inventory is invalid.');
  for (const unit of units) if (!statSync(join(source, unit)).isFile()) throw new Error('Native test LibRaw source unit is missing.');
- return Object.freeze({ kind: 'lightscaper-raw-engine', compiler: 'c++', arguments: Object.freeze([
-  '-std=c++20', '-O2', '-Wall', '-Wextra', '-ffp-contract=off', '-fno-fast-math', '-fno-finite-math-only', '-pthread',
-  '-DLIBRAW_NOTHREADS=1', '-DLIBRAW_NO_IOSTREAMS_DATASTREAM=', '-DLIBRAW_MAX_THUMBNAIL_MB=16',
-  '-UUSE_JPEG', '-UUSE_ZLIB', '-UUSE_LCMS', '-UUSE_LCMS2', '-UUSE_RAWSPEED', '-UUSE_RAWSPEED3', '-UUSE_DNGSDK', '-UUSE_X3FTOOLS', '-U_OPENMP',
-  '-I', source, '-I', join(engine, 'include'),
- ]), sources: Object.freeze([
-  join(engine, 'tests/engine_fixture.cpp'), join(engine, 'src/raw_engine.cpp'), join(engine, 'src/raw_recovery.cpp'), join(engine, 'src/raw_preview.cpp'),
+ return Object.freeze({ kind: 'lightscaper-raw-engine', compiler: 'cmake', cmake: Object.freeze({ sourceRoot: engine,
+  target: 'lightscaper_raw_engine_fixture', definitions: Object.freeze([`-DLIGHTSCAPER_LIBRAW_SOURCE_ROOT=${source}`]) }), arguments: Object.freeze([]), sources: Object.freeze([
+  join(engine, 'CMakeLists.txt'), join(engine, 'tests/engine_fixture.cpp'), join(engine, 'src/raw_engine.cpp'), join(engine, 'src/raw_recovery.cpp'), join(engine, 'src/raw_preview.cpp'),
   ...units.map(value => join(source, value)),
  ]), headerRoots: Object.freeze([join(engine, 'include'), source]) });
 }
