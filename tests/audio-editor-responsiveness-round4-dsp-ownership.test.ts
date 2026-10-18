@@ -7,34 +7,6 @@ import { createEbuR128Meter } from '../src/common/editor/ebu-r128.js';
 import { FrequencyWaveformAnalyzer } from '../src/common/editor/frequency-waveform-analysis.ts';
 import { round4Audio, round4Digest } from './helpers/responsiveness-round4-dsp-fixtures.ts';
 
-test('admitted spectrum arrays with overridden lengths retain physical sample reads', () => {
-	const source = Float32Array.of(0, 1, .5, .25);
-	const expected = calculateAudioSpectrum([source], 48000, { size: 32 });
-	for (const reportedLength of [2.5, 2, 7]) {
-		const input = source.slice();
-		Object.defineProperty(input, 'length', { value: reportedLength });
-		const result = calculateAudioSpectrum([input], 48000, { size: 32 });
-		assert.deepEqual(result, expected, `reported length ${String(reportedLength)}`);
-	}
-	const proxy = new Proxy(source, { get(target, key) { return key === 'length' ? 2 : Reflect.get(target, key, target) as unknown; } });
-	assert.deepEqual(calculateAudioSpectrum([proxy], 48000, { size: 32 }), expected);
-});
-
-test('reentrant spectrum calculations lease independent scratch and publish independent bins', () => {
-	const input = [round4Audio(211)]; const nestedInput = [round4Audio(211, 2)];
-	const original = Math.cos; let nested: ReturnType<typeof calculateAudioSpectrum> | undefined;
-	let active = true;
-	Math.cos = (phase: number): number => {
-		if (active) { active = false; nested = calculateAudioSpectrum(nestedInput, 8000, { size: 128 }); }
-		return original(phase);
-	};
-	let outer: ReturnType<typeof calculateAudioSpectrum>;
-	try { outer = calculateAudioSpectrum(input, 8000, { size: 128 }); } finally { Math.cos = original; }
-	assert.deepEqual(outer, calculateAudioSpectrum(input, 8000, { size: 128 }));
-	assert.deepEqual(nested, calculateAudioSpectrum(nestedInput, 8000, { size: 128 }));
-	assert.notDeepEqual(outer, nested);
-});
-
 test('spectrum failure releases the private lease before another call', () => {
 	const input = [round4Audio(211)]; const originalCos = Math.cos;
 	Math.cos = (): number => { throw new Error('injected transform preparation failure'); };

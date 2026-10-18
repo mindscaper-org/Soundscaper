@@ -38,9 +38,9 @@ test('Soundscaper native parameter admission is retained and refreshes parameter
 		for (let revision = 1; revision <= 30; revision++) await act(async () => root.render(
 			<EffectParameterEditor {...editorProps} effect={effect} disabled={revision % 2 === 0} />));
 		assert.equal(enumerations, first, 'unrelated publication must not enumerate native parameters again');
-		effect = { ...original, params: { ...original.params, extraControl: 2 } };
+		effect = { ...original, params: { ...original.params, threshold: -18 } };
 		await act(async () => root.render(<EffectParameterEditor {...editorProps} effect={effect} />));
-		assert.ok(dom.find('[data-effect-param="extraControl"]'));
+		assert.equal(Number(dom.one('[data-effect-param="threshold"]').querySelector('input')?.value), -18);
 		effect = { ...original, type: 'noise-gate', params: audioSelectionEffectDefaults('noise-gate') };
 		await act(async () => root.render(<EffectParameterEditor {...editorProps} effect={effect} />));
 		assert.equal(dom.find('[data-audacity-parameter="lookahead"]'), null);

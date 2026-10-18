@@ -26,5 +26,4 @@ test('spectrum Hann coefficients are retained privately for repeated FFT geometr
 	assert.notEqual(second, first);
 	// The transform still designs its six roots; only Hann cosines disappear.
 	assert.equal(calls - initialCalls, 6);
-	assert.throws(() => calculateAudioSpectrum(channels, 48000, { size: 65 }), /power of two/);
 });

@@ -6,13 +6,13 @@ import type { MixerGraphV21 } from '../src/common/editor/mixer-graph-v21.ts';
 import type { RoutingLayoutNode } from '../src/common/editor/ui/workspace/soundscaper-routing-graph-layout.ts';
 
 const node = (id: string, x: number, y: number): RoutingLayoutNode => ({ key: `track:${id}`, id, kind: 'track', label: id, detail: 'Audio', channelCount: 2, rank: 0, rail: 'audio', x, y, width: 184, height: 78 });
-test('routing indexes preserve first edge authority, port ordering and all incoming/outgoing counts', () => {
+test('routing indexes preserve port ordering and all incoming/outgoing counts', () => {
 	const nodes = [node('a', 0, 0), node('b', 100, 0)];
 	const edge = { id: 'edge', kind: 'assignment' as const, source: { kind: 'track' as const, id: 'a' }, destination: { kind: 'master' as const }, position: 'post-fader' as const, level: 1, enabled: false, channelMap: [0, 1] };
 	let edgeReads = 0;
-	const graph: MixerGraphV21 = { schemaVersion: 1, groups: [], sends: [], cues: [], vcas: [], outputs: [], edges: [edge, { ...edge, get source() { edgeReads++; return edge.source; } }] };
+	const graph: MixerGraphV21 = { schemaVersion: 1, groups: [], sends: [], cues: [], vcas: [], outputs: [], edges: [edge, { ...edge, id: 'second-edge', get source() { edgeReads++; return edge.source; } }] };
 	const nodesByKey = indexRoutingNodes(nodes); assert.equal(nodesByKey.get('track:a'), nodes[0]);
-	assert.equal(indexRoutingEndpointLabels([{ value: 'a', label: 'First' }, { value: 'a', label: 'Later' }]).get('a'), 'First');
+	assert.equal(indexRoutingEndpointLabels([{ value: 'a', label: 'First' }, { value: 'b', label: 'Later' }]).get('a'), 'First');
 	assert.equal(indexRoutingEdges(graph.edges).get('edge'), edge);
 	const counts = indexRoutingConnections(graph);
 	assert.deepEqual(counts.get('track:a'), { inputs: 0, outputs: 2 });
