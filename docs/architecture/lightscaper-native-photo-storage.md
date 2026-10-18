@@ -55,7 +55,7 @@ been qualified. Current component qualification uses actual Linux files and
 SQLite; it does not establish native Windows, ARM64 or macOS qualification.
 
 `native-photo-catalogs.sqlite3` admits its own exact `LSCC` application identity,
-version 4, STRICT tables, indexes and forward-membership triggers. One row atomically binds a validated
+version 5, STRICT tables, indexes and forward-membership triggers. One row atomically binds a validated
 catalog root to its root revision, photo count and independently advancing
 index revision. Whole Photo1/2/3 documents retain their declared versions;
 bounded summaries and memberships belong to the same publication transaction.
@@ -69,9 +69,9 @@ transaction. Catalog and Photo revision conflicts publish nothing.
 Scalar pages read at most 64 summaries, never aggregate Photo documents. A
 single SQLite read snapshot binds the root/index fence to its ordered page,
 including when another WAL connection commits during the read. Continuations
-bind catalog, filter scope and index revision. Smart definitions cannot be
-created or changed until their native companion storage is implemented.
-Saved smart collections and complete native culling remain unimplemented.
+bind catalog, filter scope and index revision. Legacy smart predicates remain
+part of the root. Saved Query2 recipes have independent definition, scalar
+summary and physical state tables. Complete native culling remains unimplemented.
 
 Ordinary Query2 search, metadata predicates and all four sort fields use the
 existing shared query contracts and matcher. Each SQLite read snapshot binds
@@ -96,7 +96,7 @@ Rebuilds need no Original bodies, decoders or resource verification services.
 
 The legacy Query1 ports retain their own rows, build state, matcher and public
 page/cursor contracts. They do not translate requests to Query2. Exact versions
-1, 2 and 3 migrate to version 4 without reading or rewriting stored aggregates;
+1, 2, 3 and 4 migrate to version 5 without reading or rewriting stored aggregates;
 existing catalogs receive an unready Query1 build even if Query2 is ready.
 Current rebuild steps report the combined source and Row1 bytes in the legacy
 three-field receipt. All imports, edits and derived publications maintain both
@@ -142,6 +142,48 @@ accepted work joins, before closing the connection. Keys never persist; a new
 connection cannot resume a previous connection's cursor. Each page reads one
 SQLite snapshot, and stale revisions refuse before missing-index readiness.
 
+Saved collections retain the complete normalized Query2 recipe and authenticate
+references even inside negative or inactive predicate branches. Canonical JSON
+tuple keys keep catalog and collection identities separate. Summary names use
+canonical JSON strings in SQLite TEXT, preserving legal unpaired UTF-16
+surrogates. Scalar pages return at most 64 summaries under a 256-KiB budget;
+they never read full recipes. Snapshot reads bind root, index, physical state
+and the selected definition to one SQLite snapshot. Reading a virtual empty
+state never creates a row; deleting the last definition retains its increasing
+state revision.
+
+Every saved write and queued root save first audits definitions, summaries and
+both scoped indexes in bounded snapshots. A page admits at most ten full
+definitions or 64 scalar keys under an eight-MiB retained-data budget, releases
+its transaction, then yields. The final IMMEDIATE transaction consumes a
+single-use connection, context and candidate bound proof. Root/index/state
+and definition revision checks publish the paired rows atomically. Saved CRUD
+does not depend on query readiness and leaves Photo, query and stack bytes
+unchanged. Root edits also retain the existing Photo membership removal guard.
+
+Saved ordinary and collapsed queries use the selected stored recipe. They bind
+its definition and state revisions before checking index readiness, and use an
+independent connection-bound HMAC domain for their bounded continuations. The
+ordinary and collapsed native kernels preserve their shared query semantics
+and work budgets without creating intermediate public signed tokens.
+
+An archive capture escapes the request queue while remaining owned until
+verification, explicit iterator return or owner shutdown. Initial and final
+bounded audits compare complete context and length-framed canonical recipe
+digests. Demand reads release their SQLite snapshot before delivering each
+definition. The source is one-shot and refuses overlapping operations. Shutdown
+aborts and joins initialization, reads and final audits before closing SQLite;
+successful terminal operations detach their signal listeners immediately.
+
+A separate main-private saved restore component owns an exclusive fresh
+candidate file and an opaque single-use permit. Existing active connections
+cannot grant that authority. It appends at most 64 records and eight MiB per
+transaction, preserves absent, empty and tombstone state exactly, then audits
+the delivered count, references and digest before returning its receipt.
+Closing joins stage work before removing only its owned directory. This is a
+saved-data staging component; complete Photo/media restoration and active
+library publication still require their own composition.
+
 The composing main-private owner captures request metadata before waiting,
 serializes publication, joins verification and file work before close, and
 independently retires both databases. Body reads first load the selected stored
@@ -150,7 +192,7 @@ filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
 scalar-only paging, cancellation, and reentrant close. They do not qualify a
 packaged renderer adapter or another platform.
 
-The remaining adapter must add complete culling and saved-collection companions,
+The remaining adapter must add complete culling,
 resource ownership, settings, journals and restore, then preserve all complete
 session/publication/recovery ports through selected-catalog renderer admission.
 Its media publication port must receive the whole validated Original; the

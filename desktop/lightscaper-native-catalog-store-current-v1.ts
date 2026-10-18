@@ -3,6 +3,7 @@
 import { isAbsolute, resolve } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { normalizePhotoCatalogRootV1 } from '../src/lightscaper/catalog/catalog-root.ts';
+import { readValidatedPhotoCatalogRootV1 } from '../src/lightscaper/catalog/documents.ts';
 import { normalizePhotoDocumentCurrentV1, type PhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/photo-document-current-v1.ts';
 import { capturePhotoDerivedPublicationGuardCurrentV1 } from '../src/lightscaper/catalog/photo-derived-publication-current-v1.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
@@ -43,6 +44,24 @@ import { admitLightscaperNativeLegacyQueryPageCurrentV1, readAdmittedLightscaper
 import { rebuildLightscaperNativeLegacyQueryIndexPageCurrentV1 } from './lightscaper-native-legacy-query-rebuild-current-v1.ts';
 import { admitLightscaperNativeLegacyStackQueryPageCurrentV1, readAdmittedLightscaperNativeLegacyStackQueryPageCurrentV1 } from './lightscaper-native-legacy-stack-query-current-v1.ts';
 import { retireLightscaperNativeLegacyStackQueryProgressCurrentV1 } from './lightscaper-native-legacy-stack-query-progress-current-v1.ts';
+import type { PhotoSmartCollectionV1 } from '../src/lightscaper/catalog/photo-smart-collection-v1.ts';
+import type { PhotoSmartCollectionsStateV1 } from '../src/lightscaper/catalog/photo-smart-collection-state-v1.ts';
+import { readPhotoSmartCollectionSignalOptionsV1, type PhotoSmartCollectionSignalOptionsV1, type PhotoSmartCollectionPageOptionsV1,
+	type PhotoSmartCollectionPageV1, type PhotoSmartCollectionWriteOptionsV1, type PhotoSmartCollectionWriteReceiptV1 } from '../src/lightscaper/catalog/photo-smart-collection-repository-types-v1.ts';
+import { admitPhotoSmartCollectionArchiveContextRequestV1, type PhotoSmartCollectionSnapshotV1,
+	type PhotoSmartCollectionArchiveContextV1, type PhotoSmartCollectionArchiveCaptureV1 } from '../src/lightscaper/catalog/photo-smart-collection-contract-v1.ts';
+import type { PhotoSavedQueryPageRequestV1, PhotoSavedQueryPageV1 } from '../src/lightscaper/catalog/photo-smart-collection-query-types-v1.ts';
+import { admitLightscaperNativeSmartCollectionPageCurrentV1, readAdmittedLightscaperNativeSmartCollectionPageCurrentV1,
+	admitLightscaperNativeSmartCollectionSnapshotCurrentV1, readAdmittedLightscaperNativeSmartCollectionSnapshotCurrentV1,
+	loadLightscaperNativeSmartCollectionCurrentV1, readLightscaperNativeSmartCollectionStateCurrentV1,
+	readLightscaperNativeSmartCollectionArchiveContextCurrentV1 } from './lightscaper-native-smart-collection-pages-current-v1.ts';
+import { admitLightscaperNativeSmartCollectionSaveCurrentV1, admitLightscaperNativeSmartCollectionDeleteCurrentV1,
+	saveAdmittedLightscaperNativeSmartCollectionCurrentV1, deleteAdmittedLightscaperNativeSmartCollectionCurrentV1 } from './lightscaper-native-smart-collection-transactions-current-v1.ts';
+import { prepareLightscaperNativeSmartCollectionRootGuardCurrentV1 } from './lightscaper-native-smart-collection-audit-current-v1.ts';
+import { admitLightscaperNativeSmartCollectionQueryCurrentV1, readAdmittedLightscaperNativeSmartCollectionQueryCurrentV1 } from './lightscaper-native-smart-collection-query-current-v1.ts';
+import { retireLightscaperNativeSavedQueryProgressCurrentV1 } from './lightscaper-native-smart-collection-query-progress-current-v1.ts';
+import { createLightscaperNativeSmartCollectionArchiveCurrentV1 } from './lightscaper-native-smart-collection-archive-current-v1.ts';
+import { LightscaperNativeSavedLifetimeCurrentV1 } from './lightscaper-native-saved-lifetime-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
 type OpenOptions = Readonly<{ appDataPath: string; verifyResources?: LightscaperNativeCatalogVerificationCurrentV1['verifyResources'] }>;
@@ -53,6 +72,7 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 	readonly #database: DatabaseSync;
 	readonly #originals: LightscaperNativeOriginalStoreCurrentV1;
 	readonly #verification: LightscaperNativeCatalogVerificationCurrentV1;
+	readonly #savedLifetime = new LightscaperNativeSavedLifetimeCurrentV1();
 	#tail: Promise<void> = Promise.resolve();
 	#closing: Promise<void> | null = null;
 	private constructor(database: DatabaseSync, originals: LightscaperNativeOriginalStoreCurrentV1,
@@ -112,8 +132,11 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 		});
 	}
 	saveCatalog(value: unknown, expectedRevision: number, options: Options = {}): Promise<PhotoCatalogRootV1> {
-		return this.#request(() => ({ root: normalizePhotoCatalogRootV1(value), expected: revision(expectedRevision), signal: signal(options) }), captured => {
-			check(captured.signal); return saveCatalog(this.#database, captured.root, captured.expected);
+		return this.#request(() => ({ root: readValidatedPhotoCatalogRootV1(value), expected: revision(expectedRevision), signal: signal(options) }), captured => {
+			return this.#savedLifetime.run(captured.signal, async privateSignal => {
+				const guard = await prepareLightscaperNativeSmartCollectionRootGuardCurrentV1(this.#database, captured.root, captured.expected, { signal: privateSignal });
+				check(privateSignal); return saveCatalog(this.#database, captured.root, captured.expected, guard, privateSignal);
+			});
 		});
 	}
 	readSummaryPage(catalogId: string, options: LightscaperNativeCatalogSummaryPageRequestCurrentV1 = {}): Promise<PhotoSummaryPageV1> {
@@ -179,6 +202,47 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 			expected: revision(expectedStackRevision), options: readPhotoStackWriteOptionsV1(options) }), value =>
 			dissolveLightscaperNativeStackCurrentV1(this.#database, value.catalogId, value.stackId, value.expected, value.options));
 	}
+	loadSmartCollection(catalogId: string, collectionId: string, options: PhotoSmartCollectionSignalOptionsV1 = {}): Promise<Readonly<PhotoSmartCollectionV1> | null> {
+		return this.#request(() => ({ catalogId: id(catalogId, 'saved catalog ID'), collectionId: id(collectionId, 'saved collection ID'),
+			options: readPhotoSmartCollectionSignalOptionsV1(options) }), value =>
+			loadLightscaperNativeSmartCollectionCurrentV1(this.#database, value.catalogId, value.collectionId, value.options));
+	}
+	readSmartCollectionState(catalogId: string, options: PhotoSmartCollectionSignalOptionsV1 = {}): Promise<Readonly<PhotoSmartCollectionsStateV1>> {
+		return this.#request(() => ({ catalogId: id(catalogId, 'saved catalog ID'), options: readPhotoSmartCollectionSignalOptionsV1(options) }), value =>
+			readLightscaperNativeSmartCollectionStateCurrentV1(this.#database, value.catalogId, value.options));
+	}
+	readSmartCollectionPage(catalogId: string, options: PhotoSmartCollectionPageOptionsV1 = {}): Promise<PhotoSmartCollectionPageV1> {
+		return this.#request(() => admitLightscaperNativeSmartCollectionPageCurrentV1(catalogId, options), value =>
+			readAdmittedLightscaperNativeSmartCollectionPageCurrentV1(this.#database, value));
+	}
+	readSmartCollectionSnapshotV1(catalogId: string, selectedId: string | null, options: PhotoSmartCollectionSignalOptionsV1 = {}): Promise<PhotoSmartCollectionSnapshotV1> {
+		return this.#request(() => admitLightscaperNativeSmartCollectionSnapshotCurrentV1(catalogId, selectedId, options), value =>
+			readAdmittedLightscaperNativeSmartCollectionSnapshotCurrentV1(this.#database, value));
+	}
+	saveSmartCollection(value: unknown, expectedRevision: number | null, options: PhotoSmartCollectionWriteOptionsV1): Promise<Readonly<PhotoSmartCollectionWriteReceiptV1>> {
+		return this.#request(() => admitLightscaperNativeSmartCollectionSaveCurrentV1(value, expectedRevision, options), captured =>
+			this.#savedLifetime.run(captured.options.signal, privateSignal => saveAdmittedLightscaperNativeSmartCollectionCurrentV1(this.#database, captured, privateSignal)));
+	}
+	deleteSmartCollection(catalogId: string, collectionId: string, expectedRevision: number, options: PhotoSmartCollectionWriteOptionsV1): Promise<Readonly<PhotoSmartCollectionWriteReceiptV1>> {
+		return this.#request(() => admitLightscaperNativeSmartCollectionDeleteCurrentV1(catalogId, collectionId, expectedRevision, options), captured =>
+			this.#savedLifetime.run(captured.options.signal, privateSignal => deleteAdmittedLightscaperNativeSmartCollectionCurrentV1(this.#database, captured, privateSignal)));
+	}
+	readSmartCollectionQueryPageV1(catalogId: string, collectionId: string, options: PhotoSavedQueryPageRequestV1 = {}): Promise<PhotoSavedQueryPageV1> {
+		return this.#request(() => admitLightscaperNativeSmartCollectionQueryCurrentV1(catalogId, collectionId, 'ordinary', options), value =>
+			readAdmittedLightscaperNativeSmartCollectionQueryCurrentV1(this.#database, value));
+	}
+	readSmartCollectionStackQueryPageV1(catalogId: string, collectionId: string, options: PhotoSavedQueryPageRequestV1 = {}): Promise<PhotoSavedQueryPageV1> {
+		return this.#request(() => admitLightscaperNativeSmartCollectionQueryCurrentV1(catalogId, collectionId, 'collapsed', options), value =>
+			readAdmittedLightscaperNativeSmartCollectionQueryCurrentV1(this.#database, value));
+	}
+	readSmartCollectionArchiveContextV1(catalogId: string, options: PhotoSmartCollectionSignalOptionsV1 = {}): Promise<PhotoSmartCollectionArchiveContextV1> {
+		return this.#request(() => admitPhotoSmartCollectionArchiveContextRequestV1(catalogId, options), value =>
+			readLightscaperNativeSmartCollectionArchiveContextCurrentV1(this.#database, value.catalogId, { signal: value.signal }));
+	}
+	captureSmartCollectionArchiveV1(catalogId: string, options: PhotoSmartCollectionSignalOptionsV1 = {}): Promise<PhotoSmartCollectionArchiveCaptureV1> {
+		return this.#request(() => admitPhotoSmartCollectionArchiveContextRequestV1(catalogId, options), value =>
+			this.#savedLifetime.capture(value.signal, privateSignal => createLightscaperNativeSmartCollectionArchiveCurrentV1(this.#database, value.catalogId, { signal: privateSignal })));
+	}
 	storeOriginal(value: unknown, chunks: AsyncIterable<Uint8Array>, options: Options = {}): Promise<Readonly<PhotoOriginalV1>> {
 		return this.#request(() => ({ original: readLightscaperNativeOriginalCurrentV1(value), signal: signal(options) }),
 			captured => this.#originals.store(captured.original, chunks, { signal: captured.signal }));
@@ -194,15 +258,24 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 		});
 	}
 	close(): Promise<void> {
-		this.#closing ??= this.#tail.then(async () => {
-			const failures: unknown[] = [];
+		if (this.#closing) return this.#closing;
+		let resolveClose!: () => void, rejectClose!: (error: unknown) => void;
+		const closing = new Promise<void>((resolve, reject) => { resolveClose = resolve; rejectClose = reject; });
+		// Cache the fence before synchronous abort listeners can reenter close.
+		this.#closing = closing;
+		const failures: unknown[] = [];
+		try { this.#savedLifetime.stop(); } catch (error) { failures.push(error); }
+		void this.#tail.then(async () => {
+			let readersRetired = false;
+			try { await this.#savedLifetime.retire(); readersRetired = true; } catch (error) { failures.push(error); }
+			try { retireLightscaperNativeSavedQueryProgressCurrentV1(this.#database); } catch (error) { failures.push(error); }
 			try { retireLightscaperNativeStackQueryProgressCurrentV1(this.#database); } catch (error) { failures.push(error); }
 			try { retireLightscaperNativeLegacyStackQueryProgressCurrentV1(this.#database); } catch (error) { failures.push(error); }
-			try { this.#database.close(); } catch (error) { failures.push(error); }
+			if (readersRetired) try { this.#database.close(); } catch (error) { failures.push(error); }
 			try { await this.#originals.close(); } catch (error) { failures.push(error); }
 			if (failures.length) throw new AggregateError(failures, 'Native catalog owner retirement failed.');
-		});
-		return this.#closing;
+		}).then(resolveClose, rejectClose);
+		return closing;
 	}
 	#request<C, T>(capture: () => C, run: (value: C) => T | Promise<T>): Promise<T> {
 		if (this.#closing) return Promise.reject(new PhotoCatalogClosedError());

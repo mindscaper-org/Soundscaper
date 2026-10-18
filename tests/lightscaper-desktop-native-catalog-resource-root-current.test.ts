@@ -9,7 +9,6 @@ import { createLightscaperNativeCatalogCurrentV1 as create, loadLightscaperNativ
 	publishLightscaperNativePhotosCurrentV1 as publish, saveLightscaperNativePhotoCurrentV1 as savePhoto,
 	saveLightscaperNativeCatalogCurrentV1 as saveRoot } from '../desktop/lightscaper-native-catalog-transactions-current-v1.ts';
 import { normalizePhotoCatalogRootV1 } from '../src/lightscaper/catalog/catalog-root.ts';
-import { serializeLightscaperDocumentV1 } from '../src/lightscaper/catalog/documents.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/photo-document-current-v1.ts';
 import type { PhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/photo-document-current-v1.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
@@ -45,38 +44,52 @@ test('Lightscaper native catalog provided resource verifier observes every whole
 	} finally { release.resolve(); await work.catch(() => undefined); db.close(); }
 });
 
-test('Lightscaper native catalog creation refuses unsupported smart companion definitions before writing', () => {
+test('Lightscaper native catalog creates genuine legacy root smart predicates without manufacturing saved companion state', () => {
 	const db = database();
 	try {
-		assert.throws(() => create(db, smart()), /smart|companion|unsupported/iu);
-		assert.equal(load(db, root().id), null);
-		assert.equal(db.prepare('SELECT COUNT(*) AS count FROM native_photo_catalogs').get()?.count, 0);
+		create(db, smart()); assert.deepEqual(load(db, root().id), smart());
+		assert.equal(db.prepare('SELECT COUNT(*) AS count FROM native_photo_smart_collection_states').get()?.count, 0);
+		assert.equal(db.prepare('SELECT COUNT(*) AS count FROM native_photo_smart_collections').get()?.count, 0);
 	} finally { db.close(); }
 });
 
-test('Lightscaper native catalog root edits refuse new smart companion definitions without changing state', () => {
+test('Lightscaper native catalog root edits admit legacy smart predicates with an authenticated empty saved inventory', () => {
 	const db = database();
 	try {
-		create(db, root()); const before = db.prepare('SELECT * FROM native_photo_catalogs').get();
-		assert.throws(() => saveRoot(db, smart(), 0), /smart|companion|unsupported/iu);
-		assert.deepEqual(db.prepare('SELECT * FROM native_photo_catalogs').get(), before);
+		create(db, root()); const next = saveRoot(db, smart(), 0);
+		assert.deepEqual(next.collections, smart().collections); assert.equal(next.revision, 1);
+		assert.equal(db.prepare('SELECT index_revision FROM native_photo_catalogs').get()?.index_revision, 1);
+		assert.equal(db.prepare('SELECT COUNT(*) AS count FROM native_photo_smart_collection_states').get()?.count, 0);
 	} finally { db.close(); }
 });
 
-test('Lightscaper native catalog refuses changing or removing existing unsupported smart definitions', () => {
-	const db = database();
+test('Lightscaper native catalog edits or removes unreferenced legacy smart predicates without changing saved state', () => {
+	const stored = smart();
+	for (const candidate of [root(), { ...stored, name: 'Renamed' }, { ...stored, collections: stored.collections.map(value => ({ ...value, name: 'Changed' })) }]) {
+		const db = database();
+		try {
+			create(db, stored); const next = saveRoot(db, candidate, 0);
+			assert.equal(next.revision, 1); assert.deepEqual(next.collections, candidate.collections);
+			assert.equal(db.prepare('SELECT COUNT(*) AS count FROM native_photo_smart_collection_states').get()?.count, 0);
+		} finally { db.close(); }
+	}
+});
+
+test('Lightscaper native catalog root save retains a real SQL refusal and an independent rollback failure', () => {
+	const db = database(), nativeExec = DatabaseSync.prototype.exec, cleanup = new Error('Root rollback cleanup failed.');
+	create(db, root()); db.exec("CREATE TRIGGER refuse_root BEFORE UPDATE ON native_photo_catalogs BEGIN SELECT RAISE(ABORT, 'Root publication refused.'); END");
+	DatabaseSync.prototype.exec = function (sql: string): void {
+		if (this === db && sql === 'ROLLBACK') throw cleanup;
+		nativeExec.call(this, sql);
+	};
 	try {
-		// An actual otherwise valid native row can arrive from an unsupported
-		// writer. This first schema cannot silently treat missing companions as empty.
-		const stored = smart();
-		db.prepare('INSERT INTO native_photo_catalogs (id, document, root_revision, photo_count, index_revision) VALUES (?, ?, 0, 0, 0)')
-			.run(stored.id, serializeLightscaperDocumentV1(stored));
-		db.prepare('INSERT INTO native_photo_query_builds_v2 VALUES (?,1,NULL,0)').run(stored.id);
-		db.prepare('INSERT INTO native_photo_query_builds_v1 VALUES (?,1,NULL,0)').run(stored.id);
-		const before = db.prepare('SELECT * FROM native_photo_catalogs').get();
-		for (const candidate of [root(), { ...stored, name: 'Renamed' }, { ...stored, collections: stored.collections.map(value => ({ ...value, name: 'Changed' })) }]) {
-			assert.throws(() => saveRoot(db, candidate, 0), /smart|companion|unsupported/iu);
-			assert.deepEqual(db.prepare('SELECT * FROM native_photo_catalogs').get(), before);
-		}
-	} finally { db.close(); }
+		assert.throws(() => saveRoot(db, { ...root(), name: 'Renamed' }, 0), (error: unknown) => {
+			assert.ok(error instanceof AggregateError); assert.equal(error.errors.length, 2);
+			assert.match(String(error.errors[0]), /Root publication refused/u); assert.equal(error.errors[1], cleanup); return true;
+		});
+	} finally {
+		DatabaseSync.prototype.exec = nativeExec;
+		if (db.isTransaction) db.exec('ROLLBACK');
+		assert.deepEqual(load(db, root().id), root()); db.close();
+	}
 });

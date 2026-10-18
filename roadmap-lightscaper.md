@@ -1217,7 +1217,8 @@ and edits keep their derived rows current. UTF-16 filename keys preserve browser
 ordering, including unpaired surrogates. Native ordered stacks now persist
 with independent forward/reverse membership, bounded summary/member pages,
 atomic revision checks and retained state after dissolution. Exact versions 1,
-2 and 3 migrate to version 4 without rewriting existing Photo/query/stack rows.
+2, 3 and 4 migrate to version 5 without rewriting existing Photo/query/stack rows
+or manufacturing saved-collection state.
 The mandatory legacy Query1 ordinary, rebuild and collapsed ports now retain
 their genuine independent rows, matcher and public contracts. Every Current
 import/edit/derived publication maintains both query formats atomically; legal
@@ -1225,8 +1226,15 @@ Row1 overflow retires only that index until a fitting edit and bounded rebuild.
 Native collapsed Query1 and Query2 share their 64-unit budget across stack-key auditing,
 ordered candidates and complete resumable member metadata checks. Connection-bound
 signed cursors with separate query-version domains retain pending work; eligible covers and filtered-cover fallbacks
-keep global query order without loading Photo aggregates. These components are
-not yet selected by the application. Complete native culling and saved-collection companions,
+keep global query order without loading Photo aggregates. Native saved
+collections now retain complete Query2 recipes, scalar summaries and physical
+state with bounded inventory audits and atomic revision checks. Root edits
+authenticate all saved references before publication. Saved ordinary and
+collapsed pages use an independent signed continuation domain; escaped archive
+readers remain owned until their work retires. A private fresh-candidate saved
+restore stage authenticates delivered count, references and digest without
+granting authority to an existing active connection. These components are
+not yet selected by the application. Complete native culling,
 resources, settings, journals/restore, renderer admission and
 menu-owned library selection remain required before activation; add-in-place
 access and native platform qualification remain open.

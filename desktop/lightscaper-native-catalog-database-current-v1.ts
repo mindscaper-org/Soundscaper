@@ -8,11 +8,12 @@ import { withProjectLibraryImmediateTransaction } from './project-library-immedi
 import { LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1 } from './lightscaper-native-query-schema-current-v1.ts';
 import { LIGHTSCAPER_NATIVE_STACK_SCHEMA_CURRENT_V1 } from './lightscaper-native-stack-schema-current-v1.ts';
 import { LIGHTSCAPER_NATIVE_LEGACY_QUERY_SCHEMA_CURRENT_V1 } from './lightscaper-native-legacy-query-schema-current-v1.ts';
+import { LIGHTSCAPER_NATIVE_SMART_COLLECTION_SCHEMA_CURRENT_V1 } from './lightscaper-native-smart-collection-schema-current-v1.ts';
 export { readLightscaperNativeCatalogRowCurrentV1, readLightscaperNativePhotoRowCurrentV1, readLightscaperNativeSummaryRowCurrentV1 } from './lightscaper-native-catalog-records-current-v1.ts';
 export type { LightscaperNativeCatalogSnapshotCurrentV1 } from './lightscaper-native-catalog-records-current-v1.ts';
 
 export const LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 = 0x4c534343;
-const VERSION = 4;
+const VERSION = 5;
 const SAFE = Number.MAX_SAFE_INTEGER;
 const DOCUMENT_BYTES = LIGHTSCAPER_CATALOG_LIMITS.maximumDocumentBytes;
 const SUMMARY_BYTES = PHOTO_CATALOG_REPOSITORY_LIMITS.maximumSummaryBytes;
@@ -66,13 +67,14 @@ export function initializeLightscaperNativeCatalogDatabaseCurrentV1(database: Da
 		const application = pragma(database, 'application_id'), version = pragma(database, 'user_version');
 		const querySchema = [...SCHEMA, ...LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1];
 		const stackSchema = [...querySchema, ...LIGHTSCAPER_NATIVE_STACK_SCHEMA_CURRENT_V1];
-		const currentSchema = [...stackSchema, ...LIGHTSCAPER_NATIVE_LEGACY_QUERY_SCHEMA_CURRENT_V1];
+		const legacySchema = [...stackSchema, ...LIGHTSCAPER_NATIVE_LEGACY_QUERY_SCHEMA_CURRENT_V1];
+		const currentSchema = [...legacySchema, ...LIGHTSCAPER_NATIVE_SMART_COLLECTION_SCHEMA_CURRENT_V1];
 		if (application === 0 && version === 0 && schema(database).length === 0) {
 			for (const entry of currentSchema) database.exec(entry.sql);
 			database.exec(`PRAGMA application_id = ${LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1}`);
 			database.exec(`PRAGMA user_version = ${VERSION}`);
-		} else if (application === LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 && (version === 1 || version === 2 || version === 3)) {
-			assertSchema(database, version === 1 ? SCHEMA : version === 2 ? querySchema : stackSchema);
+		} else if (application === LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 && (version === 1 || version === 2 || version === 3 || version === 4)) {
+			assertSchema(database, version === 1 ? SCHEMA : version === 2 ? querySchema : version === 3 ? stackSchema : legacySchema);
 			if (version === 1) {
 				for (const entry of LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1) database.exec(entry.sql);
 				// Project metadata later through the bounded Query2 rebuild owner.
@@ -83,10 +85,14 @@ export function initializeLightscaperNativeCatalogDatabaseCurrentV1(database: Da
 				// Preserve existing catalog/Photo/query bytes and initialize grouping only.
 				database.exec('INSERT INTO native_photo_stack_states(catalog_id,revision,stack_count) SELECT id,0,0 FROM native_photo_catalogs');
 			}
-			for (const entry of LIGHTSCAPER_NATIVE_LEGACY_QUERY_SCHEMA_CURRENT_V1) database.exec(entry.sql);
-			// Legacy Query1 readiness is independent of Query2. Its bounded rebuild
-			// owns projection; migration reads catalog identities, never aggregates.
-			database.exec('INSERT INTO native_photo_query_builds_v1(catalog_id,ready,after_key,indexed_count) SELECT id,0,NULL,0 FROM native_photo_catalogs');
+			if (version < 4) {
+				for (const entry of LIGHTSCAPER_NATIVE_LEGACY_QUERY_SCHEMA_CURRENT_V1) database.exec(entry.sql);
+				// Legacy projection remains independent bounded rebuild work.
+				database.exec('INSERT INTO native_photo_query_builds_v1(catalog_id,ready,after_key,indexed_count) SELECT id,0,NULL,0 FROM native_photo_catalogs');
+			}
+			for (const entry of LIGHTSCAPER_NATIVE_SMART_COLLECTION_SCHEMA_CURRENT_V1) database.exec(entry.sql);
+			// No saved-state backfill: absent, persisted empty and tombstone states
+			// remain distinct through migration, open and ordinary catalog creation.
 			database.exec(`PRAGMA user_version = ${VERSION}`);
 		} else if (application !== LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 || version !== VERSION) {
 			throw new Error('Native Photo catalog database is unowned or has an unsupported identity.');

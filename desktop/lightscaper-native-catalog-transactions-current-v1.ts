@@ -15,16 +15,20 @@ import { withProjectLibraryImmediateTransaction } from './project-library-immedi
 import { getLightscaperNativeQueryBuildCurrentV1, writeLightscaperNativeQueryBuildCurrentV1, writeLightscaperNativeQueryPhotoCurrentV1 } from './lightscaper-native-query-write-current-v1.ts';
 import { getLightscaperNativeLegacyQueryBuildCurrentV1, writeLightscaperNativeLegacyQueryBuildCurrentV1,
 	writeLightscaperNativeLegacyQueryPhotoCurrentV1 } from './lightscaper-native-legacy-query-write-current-v1.ts';
+import { captureLightscaperNativeSmartCollectionContextCurrentV1 } from './lightscaper-native-smart-collection-context-current-v1.ts';
+import { assertLightscaperNativeSmartCollectionRootGuardCurrentV1 } from './lightscaper-native-smart-collection-audit-current-v1.ts';
+import { withLightscaperNativeSmartCollectionTransactionCurrentV1 } from './lightscaper-native-smart-collection-transaction-current-v1.ts';
 
 type Catalog = ReturnType<typeof readLightscaperNativeCatalogRowCurrentV1>;
 const ROOT_COLUMNS = 'id, document, root_revision, photo_count, index_revision';
 const PHOTO_COLUMNS = 'photo_key, catalog_id, photo_id, revision, document, summary';
+const nativeThrowIfAborted = AbortSignal.prototype.throwIfAborted;
 
 /** Synchronous main-private transactions. The enclosing owner queues operations,
  * checks cancellation before calling, and preserves a committed return value
  * across later cancellation. These functions never await inside SQLite. */
 export function createLightscaperNativeCatalogCurrentV1(database: DatabaseSync, value: unknown): void {
-	const root = supportedRoot(value);
+	const root = readValidatedPhotoCatalogRootV1(value);
 	if (root.revision !== 0 || root.photoCount !== 0) throw new RangeError('A new catalog requires revision zero and no photos.');
 	withProjectLibraryImmediateTransaction(database, () => {
 		if (loadLightscaperNativeCatalogCurrentV1(database, root.id)) throw new RangeError('Photo catalog already exists.');
@@ -74,16 +78,18 @@ export function saveLightscaperNativePhotoCurrentV1(database: DatabaseSync, admi
 	});
 }
 
-export function saveLightscaperNativeCatalogCurrentV1(database: DatabaseSync, value: unknown, expectedRevision: unknown): PhotoCatalogRootV1 {
-	const candidate = supportedRoot(value), expected = revision(expectedRevision);
+export function saveLightscaperNativeCatalogCurrentV1(database: DatabaseSync, value: unknown, expectedRevision: unknown,
+	guard?: unknown, signal?: AbortSignal): PhotoCatalogRootV1 {
+	const candidate = readValidatedPhotoCatalogRootV1(value), expected = revision(expectedRevision);
 	if (candidate.revision !== expected) throw new RangeError('Catalog candidate revision disagrees with its expected revision.');
 	const next = readValidatedPhotoCatalogRootV1({ ...candidate, revision: expected + 1 });
-	return withProjectLibraryImmediateTransaction(database, () => {
-		const current = requiredCatalog(database, candidate.id), previous = current.root;
-		supportedRoot(previous);
+	return withLightscaperNativeSmartCollectionTransactionCurrentV1(database, 'write', signal, () => {
+		const context = captureLightscaperNativeSmartCollectionContextCurrentV1(database, candidate.id, null);
+		const current = requiredCatalog(database, candidate.id, context), previous = current.root;
 		if (previous.revision !== expected) throw new PhotoCatalogRevisionConflictError('catalog');
 		if (candidate.photoCount !== previous.photoCount) throw new RangeError('Only photo publication changes the catalog photo count.');
-		// Saved smart definitions still require their native companion owner.
+		if (guard !== undefined) assertLightscaperNativeSmartCollectionRootGuardCurrentV1(guard, database, context, candidate);
+		else if (context.state.collectionCount !== 0) throw new TypeError('Root edits with saved collections require their complete native audit.');
 		const folders = new Set(candidate.folders.map(node => node.id)), keywords = new Set(candidate.keywords.map(node => node.id));
 		const collections = new Set(candidate.collections.filter(node => node.kind === 'manual').map(node => node.id));
 		const removals = [
@@ -96,7 +102,9 @@ export function saveLightscaperNativeCatalogCurrentV1(database: DatabaseSync, va
 				throw new ReferenceError('Cannot remove a hierarchy or manual collection still referenced by photos.');
 			}
 		}
-		writeRoot(database, current, next); return next;
+		writeRoot(database, current, next);
+		if (signal !== undefined) Reflect.apply(nativeThrowIfAborted, signal, []);
+		return next;
 	});
 }
 
@@ -127,8 +135,8 @@ function catalog(database: DatabaseSync, catalogId: string): Catalog | null {
 	const row = database.prepare(`SELECT ${ROOT_COLUMNS} FROM native_photo_catalogs WHERE id = ?`).get(catalogId);
 	return row === undefined ? null : readLightscaperNativeCatalogRowCurrentV1(row, catalogId);
 }
-function requiredCatalog(database: DatabaseSync, catalogId: string): Catalog {
-	const current = catalog(database, catalogId); if (!current) throw new ReferenceError('Photo catalog is missing.');
+function requiredCatalog(database: DatabaseSync, catalogId: string, captured?: Catalog): Catalog {
+	const current = captured ?? catalog(database, catalogId); if (!current) throw new ReferenceError('Photo catalog is missing.');
 	const build = getLightscaperNativeQueryBuildCurrentV1(database, catalogId);
 	// Check once before a batch mutates rows. During insertion its derived count
 	// legitimately advances before the same transaction publishes the new root.
@@ -164,9 +172,3 @@ function writePhoto(database: DatabaseSync, photo: PhotoDocumentCurrentV1, expec
 	writeLightscaperNativeQueryPhotoCurrentV1(database, photo, mode);
 }
 function revision(value: unknown): number { return integer(value, 0, Number.MAX_SAFE_INTEGER, 'expected revision'); }
-
-function supportedRoot(value: unknown): PhotoCatalogRootV1 {
-	const root = readValidatedPhotoCatalogRootV1(value);
-	if (root.collections.some(collection => collection.kind === 'smart')) throw new TypeError('Native smart collections require an unsupported companion owner.');
-	return root;
-}
