@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { photoRawPreviewSourceCopy } from '../../src/common/i18n/lightscaper-photo-raw-preview-copy.ts';
 
 for (const [locale, copy] of [
 	['en', { view: 'View', file: 'File', show: 'Show photo library', hide: 'Hide photo library', library: 'Photo library', empty: 'Your photo library is empty.', menu: 'Application menu' }],
@@ -16,8 +17,11 @@ for (const [locale, copy] of [
 		const menu = page.getByRole('navigation', { name: copy.menu, exact: true });
 		const view = topLevelSummary(menu, copy.view);
 		const show = menu.getByRole('button', { name: copy.show, exact: true });
+		const raw = view.locator('..').getByText(photoRawPreviewSourceCopy(locale).menu, { exact: true });
 		await view.focus();
 		await page.keyboard.press('Enter');
+		await page.keyboard.press('Tab');
+		await expect(raw).toBeFocused();
 		await page.keyboard.press('Tab');
 		await expect(show).toBeFocused();
 		await page.keyboard.press('Enter');
@@ -26,6 +30,8 @@ for (const [locale, copy] of [
 		await expect(library.getByRole('status')).toHaveText(copy.empty);
 		await expect(view).toBeFocused();
 		await page.keyboard.press('Space');
+		await page.keyboard.press('Tab');
+		await expect(raw).toBeFocused();
 		await page.keyboard.press('Tab');
 		await expect(menu.getByRole('button', { name: copy.hide, exact: true })).toBeFocused();
 		await page.keyboard.press('Enter');

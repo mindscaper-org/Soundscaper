@@ -4,11 +4,36 @@ import { bundledLightscaperEditorCopyForLocale } from '../src/common/i18n/lights
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopMenuLabel } from '../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { lightscaperRestoreCopy } from '../src/common/i18n/lightscaper-restore-copy.ts';
+import { LightscaperManagedSmokeMailboxCurrentV1 } from './lightscaper-managed-smoke-mailbox-current-v1.ts';
 import { readLightscaperManagedSmokeCustodyCurrentV1 } from './lightscaper-managed-smoke-custody-current-v1.ts';
 import type { LightscaperSmokeFileCurrentV1, LightscaperSmokeRendererPlanCurrentV1, LightscaperSmokeRendererReportCurrentV1 } from './lightscaper-managed-smoke-contract-current-v1.ts';
 
 /** Statically inventoried main-only automation. Every write uses the actual
- * application's menus/controllers and native File input boundary. */
+	* application's menus/controllers and native File input boundary. */
+let mailbox: LightscaperManagedSmokeMailboxCurrentV1 | undefined;
+export function takeLightscaperManagedSmokeCustodyCurrentV1() { return mailbox?.take() ?? null; }
+export function deliverLightscaperManagedSmokeCustodyCurrentV1(id: number, value: LightscaperSmokeRendererReportCurrentV1['final']): void { if (!mailbox) throw new Error('Native smoke mailbox is absent.'); mailbox.deliver(id, value); }
+export function rejectLightscaperManagedSmokeCustodyCurrentV1(id: number): void { mailbox?.reject(id, 'Actual native smoke custody observation failed.'); }
+
+/** Main calls this only after genuine renderer-ready ACK and before OS archive
+	* admission, so an open Restore dialog cannot block the explicit File choice. */
+export async function prepareLightscaperManagedSmokeNativeCurrentV1(plan: Readonly<{ stage: 1 | 2 | 3; locale: string; backend: 'web' | 'native' }>): Promise<void> {
+	if (plan.backend !== 'native') return;
+	const root = await wait(() => document.querySelector<HTMLElement>('[data-lightscaper-bound="true"]'), 'actual Photo workspace before native opt-in');
+	if (root.querySelector('[data-photo-library]')) throw new Error('Native storage choice must precede the first Library open.');
+	const file = root.querySelector('[data-photo-restore-menu]')?.closest<HTMLDetailsElement>('details[name="lightscaper-application-menu"]');
+	if (!file || !file.querySelector('[data-photo-backup-menu]')) throw new Error('Native storage choice must belong to the actual File menu.');
+	file.open = true;
+	const submenu = await wait(() => file.querySelector<HTMLDetailsElement>('[data-photo-backend-menu]'), 'complete native backend File-menu choice'); submenu.open = true;
+	await clickSelector(submenu, '[data-photo-backend-choice="native"]');
+	const current = await wait(() => { const next = document.querySelector<HTMLElement>('[data-lightscaper-bound="true"]'); return next && next !== root && !next.inert && next.querySelector('[data-photo-backend-choice="native"]')?.getAttribute('aria-checked') === 'true' ? next : null; }, 'joined native backend workspace replacement');
+	if (plan.stage !== 1) {
+		const copy = bundledLightscaperEditorCopyForLocale(plan.locale), view = [...current.querySelectorAll('summary')].find(node => text(node) === copy.photoViewMenu)?.closest('details');
+		if (!view) throw new Error('Actual View menu is missing.'); view.open = true; await clickButton(current, copy.photoShowLibrary);
+		await wait(() => { const library = current.querySelector('[data-photo-library]'); return library?.getAttribute('aria-busy') === 'false' && library.querySelectorAll('[data-photo-id]').length === 2; }, 'actual reopened native Library before archive admission');
+	}
+}
+
 export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmokeRendererPlanCurrentV1): Promise<LightscaperSmokeRendererReportCurrentV1> {
 	const globals = globalThis as unknown as Record<string, unknown>;
 	const desktop = globals.lightscaperDesktop as { v1?: { getEnvironment(): Promise<{ locale: string; productId: string }> } } | undefined;
@@ -16,9 +41,11 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 	const environment = await desktop.v1.getEnvironment();
 	if (environment.productId !== 'lightscaper' || environment.locale !== plan.locale) throw new Error('Managed smoke requires its genuine English desktop route.');
 	const publicBridgeKeys = Object.keys(desktop.v1).sort();
-	if (publicBridgeKeys.join(',') !== 'finishArchive,getEnvironment,onArchiveAvailable,onCloseRequested,onMenuCommand,respondToClose,signalReady,takeArchive') throw new Error('Packaged Lightscaper bridge authority expanded.');
+	if (publicBridgeKeys.join(',') !== 'finishArchive,getEnvironment,onArchiveAvailable,onCloseRequested,onMenuCommand,photoRestore,photoSession,respondToClose,signalReady,takeArchive') throw new Error('Packaged Lightscaper bridge authority expanded.');
 	const nodeExposed = typeof globals.require !== 'undefined' || typeof globals.process !== 'undefined';
 	if (nodeExposed) throw new Error('Node authority leaked into the Photo renderer.');
+	const backend = plan.backend ?? 'web';
+	if (backend === 'native') mailbox = new LightscaperManagedSmokeMailboxCurrentV1(plan.nonce);
 	const app = await wait(() => document.querySelector<HTMLElement>('[data-lightscaper-bound="true"]'), 'actual Lightscaper app');
 	const copy = bundledLightscaperEditorCopyForLocale(plan.locale), develop = photoDevelopCopy(plan.locale), restore = lightscaperRestoreCopy(plan.locale);
 	let initial: LightscaperSmokeRendererReportCurrentV1['initial'] = null;
@@ -32,7 +59,7 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 		await wait(() => !importing.isConnected, 'genuine import completion');
 		await library();
 		const before = await custody();
-		if (!before.photos.every(photo => photo.storage === 'opfs')) throw new Error('First managed imports did not use actual OPFS custody.');
+		if (!before.photos.every(photo => photo.storage === (backend === 'native' ? 'native-photo-original' : 'opfs'))) throw new Error('First managed imports did not use the explicitly selected actual backend custody.');
 		await selectRaw(); await action(photoDevelopMenuLabel(plan.locale), true);
 		const author = await dialog(`${develop.title}: ${rawName()}`);
 		await painted(author);
@@ -55,7 +82,7 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 		await exportRaw(); await backup();
 	} else {
 		if (!plan.expectedPhotoIds) throw new Error('Fresh process requires the preceding Photo identities.');
-		initial = await readLightscaperManagedSmokeCustodyCurrentV1(plan.expectedPhotoIds, plan.fixtures);
+		initial = await observe(plan.expectedPhotoIds);
 		if (initial.fingerprint !== plan.expectedFingerprint) throw new Error('Fresh process lost the previously saved catalog or Original custody.');
 		if (plan.expectedNamespace !== null && initial.namespace !== plan.expectedNamespace) throw new Error('Fresh process selected a different restored namespace.');
 		assertSavedExposure(initial);
@@ -87,7 +114,8 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 	// Worker requests belong to Electron's session witness; this page timeline
 	// remains diagnostic and cannot stand in for the worker's native fetches.
 	if (rawRuntimeRequests.some(value => !value.startsWith('lightscaper-app://bundle/runtime/libraw/'))) throw new Error('RAW escaped the packaged offline asset route.');
-	return { nonce: plan.nonce, stage: plan.stage, initial, final, preview, rawRuntimeRequests, publicBridgeKeys, nodeExposed, externalArchiveOpen: plan.stage === 2 };
+	mailbox?.retire();
+	return { backend, nonce: plan.nonce, stage: plan.stage, initial, final, preview, rawRuntimeRequests, publicBridgeKeys, nodeExposed, externalArchiveOpen: plan.stage === 2 };
 
 	function rawName(): string { const file = plan.fixtures.find(value => value.name.endsWith('.dng')); if (!file) throw new Error('Owned DNG missing.'); return file.name; }
 	async function menu(name: string): Promise<void> {
@@ -101,7 +129,8 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 		await wait(() => { const node = app.querySelector('[data-photo-library]'); return node?.getAttribute('aria-busy') === 'false' && node.querySelectorAll('[data-photo-id]').length === 2; }, 'two actual resident Photo cards');
 	}
 	function ids(): string[] { return [...app.querySelectorAll<HTMLElement>('[data-photo-library] [data-photo-id]')].map(value => value.dataset.photoId!).filter(Boolean); }
-	async function custody() { return await readLightscaperManagedSmokeCustodyCurrentV1(ids(), plan.fixtures); }
+	async function custody() { return await observe(ids()); }
+	async function observe(photoIds: readonly string[]) { return backend === 'native' ? await mailbox!.request(photoIds) : await readLightscaperManagedSmokeCustodyCurrentV1(photoIds, plan.fixtures); }
 	async function selectRaw(): Promise<void> {
 		const card = await wait(() => [...app.querySelectorAll<HTMLButtonElement>('[data-photo-library] [data-photo-id]')].find(value => value.querySelector('strong')?.textContent === rawName()), 'owned DNG Photo card');
 		card.click(); await wait(() => card.getAttribute('aria-pressed') === 'true', 'actual DNG selection');

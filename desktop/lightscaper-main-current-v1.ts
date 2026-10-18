@@ -9,4 +9,7 @@ const hooks = createLightscaperManagedSmokeHooksCurrentV1({
 	argv: process.argv, profilePath: app.getPath('userData'), rendererScript: LIGHTSCAPER_MANAGED_SMOKE_RENDERER_SCRIPT_CURRENT_V1,
 	quit: () => { app.quit(); }, reportFailure: error => { console.error('Lightscaper managed smoke failed:', error); app.exit(1); },
 });
+// Only the authenticated private smoke plan may relocate the native library.
+// Electron's user-data-dir alone does not change its application-data root.
+if (hooks) app.setPath('appData', app.getPath('userData'));
 startLightscaperDesktopMainCurrentV1(hooks);

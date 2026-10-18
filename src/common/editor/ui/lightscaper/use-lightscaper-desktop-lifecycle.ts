@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from 'react';
 import { LightscaperDesktopLifecycle, type LightscaperDesktopLifecycleBridge } from '../../controller/composition/lightscaper-desktop-lifecycle.ts';
+import { useLightscaperPhotoBackendWorkspaceCurrentV1 } from './use-lightscaper-photo-backend-workspace-current-v1.ts';
 import { lightscaperDesktopCloseCopy } from '../../../i18n/lightscaper-desktop-close-copy.ts';
 
 export interface LightscaperDesktopLifecycleHookOptions {
@@ -18,8 +19,9 @@ interface LightscaperDesktopScope {
 }
 
 /** No feature is opened by mounting the desktop bridge. Existing menu/dialog
- * owners decide whether closing can preserve the current authoring state. */
+	* owners decide whether closing can preserve the current authoring state. */
 export function useLightscaperDesktopLifecycle(options: LightscaperDesktopLifecycleHookOptions): void {
+	useLightscaperPhotoBackendWorkspaceCurrentV1(options);
 	const latest = useRef(options); latest.current = options;
 	const ready = useRef(false);
 	useEffect(() => {

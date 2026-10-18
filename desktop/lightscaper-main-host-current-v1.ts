@@ -20,17 +20,18 @@ import { registerSelectedReadCapability } from './read-selection-service.js';
 import { createDesktopSaveSizeWarningConfirmation } from './save-size-warning-dialog.ts';
 import { createLightscaperArchiveOpenCoordinatorCurrentV1 } from './lightscaper-archive-open-coordinator-current-v1.ts';
 import { extractLightscaperArchiveOpenPathsCurrentV1 } from './lightscaper-archive-open-paths-current-v1.ts';
+import { installLightscaperMainPhotoSessionCurrentV1 } from './lightscaper-main-photo-session-current-v1.ts';
 
 /** Optional statically inventoried main-process smoke dispatch. These ports
  * never cross the context bridge; production composition passes no hooks. */
 export interface LightscaperMainHooksCurrentV1 {
 	readonly onWindowCreated?: (window: BrowserWindow) => void;
+	readonly beforeArchiveReady?: (window: BrowserWindow) => Promise<void>;
 	readonly onRendererReady?: (window: BrowserWindow) => void | Promise<void>;
 	readonly onDownload?: (item: DownloadItem) => boolean;
 }
 
-/** A browser-managed Photo Session host. No native sibling project library,
- * assistance service, codec tier or arbitrary filesystem API is registered. */
+/** Sandboxed Photo host with an opt-in native Photo library. */
 export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooksCurrentV1 = {}): void {
 	if (String(PRODUCT_ID) !== 'lightscaper' || String(APP_NAME) !== 'Lightscaper'
 		|| String(APP_SCHEME) !== 'lightscaper-app' || String(APP_ORIGIN) !== LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1
@@ -53,6 +54,7 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 	let desktopSession: Electron.Session | undefined;
 	let archiveOwner: object | null = null, resourcesRetired = false, pickerPending = false;
 	let resourceRetirement: Promise<void> | null = null;
+	let rendererGeneration = 0;
 	const readCapabilities = new ReadCapabilityStore({ confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation(options => dialog.showMessageBox(options), 'loading') });
 	const archiveOpen = createLightscaperArchiveOpenCoordinatorCurrentV1({
 		register: (path, owner) => registerSelectedReadCapability(readCapabilities, path, { owner, purpose: 'project' }),
@@ -73,6 +75,8 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 			assertEditorDocumentUrl(url);
 			if (!isLightscaperShellDocumentCurrentV1(url)) throw new Error('Untrusted Lightscaper document.');
 		} });
+	const photoLibrary = installLightscaperMainPhotoSessionCurrentV1({ appDataPath: storage.projectLibraryAppData,
+		handle: trusted.handle, reportError: fail });
 	function fail(error: unknown): void {
 		console.error('Lightscaper desktop failed:', error instanceof Error ? error.message : 'Unknown failure');
 		app.exit(1);
@@ -82,7 +86,7 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		if (resourcesRetired) return;
 		event.preventDefault();
 		resourceRetirement ??= (async () => {
-			await archiveOpen.close(); await readCapabilities.dispose(); desktopSession?.flushStorageData();
+			await photoLibrary.close(); await archiveOpen.close(); await readCapabilities.dispose(); desktopSession?.flushStorageData();
 			// will-quit was prevented while these barriers joined. Complete that
 			// shutdown directly; a nested quit can stay inside Electron's old quit.
 			resourcesRetired = true; app.exit(0);
@@ -134,16 +138,25 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 			return { productId: 'lightscaper', platform: process.platform, arch: process.arch,
 				version: app.getVersion(), development: !app.isPackaged, locale };
 		});
-		trusted.handle(CHANNELS.ready, (_event, ...args) => {
+		trusted.handle(CHANNELS.ready, (event, ...args) => {
 			if (args.length) throw new TypeError('Lightscaper ready takes no arguments.');
 			const firstReady = close.signalReady();
 			const owner = currentWindow();
 			if (firstReady && owner) {
-				archiveOwner = Object.freeze({}); void archiveOpen.replaceOwner(archiveOwner).catch(fail);
+				const actual = event as Electron.IpcMainInvokeEvent;
+				photoLibrary.activate(owner.webContents, actual.processId, actual.frameId);
+				const generation = rendererGeneration;
+				// The private packaged qualification may opt in through the actual
+				// menu before OS archive delivery. Readiness itself stays unheld.
+				void Promise.resolve().then(async () => {
+					await hooks.beforeArchiveReady?.(owner);
+					if (currentWindow() !== owner || generation !== rendererGeneration) return;
+					archiveOwner = Object.freeze({}); await archiveOpen.replaceOwner(archiveOwner);
+					if (currentWindow() === owner && generation === rendererGeneration) await hooks.onRendererReady?.(owner);
+				}).catch(fail);
 			}
 			// A smoke run must not hold this acknowledgement through renderer
 			// teardown: lifecycle disposal joins readiness delivery itself.
-			if (owner && firstReady) void Promise.resolve().then(() => hooks.onRendererReady?.(owner)).catch(fail);
 			return true;
 		});
 		trusted.handle(CHANNELS.respond, (_event, ...args) => {
@@ -174,15 +187,20 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		const created = new BrowserWindow(lightscaperBrowserWindowOptionsCurrentV1({
 			preloadPath: resolve(entryDirectory, 'preload.cjs'), rendererRoot: resources.renderer, packaged: app.isPackaged,
 		}));
-		window = created; invalidateRenderer();
+		window = created; invalidateRenderer(created.webContents);
 		const contents = created.webContents;
 		contents.setWindowOpenHandler(() => ({ action: 'deny' }));
 		contents.on('will-navigate', event => { if (!isLightscaperShellDocumentCurrentV1(event.url)) event.preventDefault(); });
 		contents.on('will-frame-navigate', event => { if (!event.isMainFrame || !isLightscaperShellDocumentCurrentV1(event.url)) event.preventDefault(); });
 		contents.on('will-attach-webview', event => { event.preventDefault(); });
-		contents.on('did-start-navigation', details => { if (details.isMainFrame && !details.isSameDocument) invalidateRenderer(); });
+		contents.on('did-start-navigation', details => { if (details.isMainFrame && !details.isSameDocument) invalidateRenderer(contents); });
 		attachDesktopMainWindowRecovery({
-			cleanup: async () => { close.invalidateRenderer(); archiveOwner = null; await archiveOpen.replaceOwner(null); }, editorUrl: `${LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1}/`,
+			cleanup: async () => {
+				rendererGeneration++; close.invalidateRenderer(); archiveOwner = null;
+				const results = await Promise.allSettled([photoLibrary.processGone(contents), archiveOpen.replaceOwner(null)]);
+				const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
+				if (failures.length) throw new AggregateError(failures, 'Lightscaper renderer retirement failed.');
+			}, editorUrl: `${LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1}/`,
 			exit: code => { app.exit(code); }, isIntentional: () => !currentWindow(),
 			reportError: fail, webContents: contents, windowFor: currentWindow,
 		});
@@ -190,11 +208,12 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		created.on('close', event => {
 			if (downloads.deferClose(() => { if (!created.isDestroyed()) created.close(); }) || !close.requestWindowClose()) event.preventDefault();
 		});
-		created.on('closed', () => { if (window === created) { window = null; invalidateRenderer(); } });
+		created.on('closed', () => { if (window === created) { window = null; invalidateRenderer(contents); } });
 		hooks.onWindowCreated?.(created);
 		await created.loadURL(`${LIGHTSCAPER_SHELL_ORIGIN_CURRENT_V1}/`);
 	}
-	function invalidateRenderer(): void {
+	function invalidateRenderer(contents: Electron.WebContents): void {
+		rendererGeneration++; photoLibrary.revoke(contents);
 		close.invalidateRenderer(); archiveOwner = null; void archiveOpen.replaceOwner(null).catch(fail);
 	}
 	function enqueueArchive(path: string): void {

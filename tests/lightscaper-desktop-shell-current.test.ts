@@ -91,7 +91,7 @@ test('preload exposes only closed Lightscaper lifecycle methods and removes subs
 		on: (channel, listener) => { listeners.set(channel, listener); },
 		removeListener: (channel, listener) => { assert.equal(listeners.get(channel), listener); listeners.delete(channel); removals++; },
 	});
-	assert.deepEqual(Object.keys(api).sort(), ['finishArchive', 'getEnvironment', 'onArchiveAvailable', 'onCloseRequested', 'onMenuCommand', 'respondToClose', 'signalReady', 'takeArchive']);
+	assert.deepEqual(Object.keys(api).sort(), ['finishArchive', 'getEnvironment', 'onArchiveAvailable', 'onCloseRequested', 'onMenuCommand', 'photoRestore', 'photoSession', 'respondToClose', 'signalReady', 'takeArchive']);
 	assert.equal(Object.isFrozen(api), true);
 	assert.deepEqual(await api.getEnvironment(), ENVIRONMENT);
 	await api.signalReady(); await api.respondToClose({ requestId: FIRST, allow: false });

@@ -2,6 +2,7 @@
 
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
 import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../src/common/i18n/freesound-attribution-copy.js';
+import { lightscaperPhotoBackendCopyCurrentV1 } from '../../src/common/i18n/lightscaper-photo-backend-copy-current-v1.ts';
 import { photoRawPreviewSourceCopy } from '../../src/common/i18n/lightscaper-photo-raw-preview-copy.ts';
 import { photoBatchExportMenuCopy } from '../../src/common/i18n/lightscaper-photo-batch-export-menu-copy.ts';
 import { photoBatchExportCopy } from '../../src/common/i18n/lightscaper-photo-batch-export-copy.ts';
@@ -51,6 +52,7 @@ export const EDITOR_COPY_AUDIT_INVENTORY = Object.freeze({
 	...imageExportText,
 	...Object.fromEntries(Object.entries(imageHdrMergeCopy('en')).map(([key, value]) => [`ui.imageHdrMerge.${key}`, value])),
 	...photoExportPresets,
+	...Object.fromEntries(Object.entries(lightscaperPhotoBackendCopyCurrentV1('en')).map(([key, value]) => [`ui.photoBackend.${key}`, value])),
 	...Object.fromEntries(Object.entries(photoRawPreviewSourceCopy('en')).map(([key, value]) => [`ui.photoRawPreviewSource.${key}`, value])),
 	...photoFramescaperHandoff,
 	...photoFramescaperReceive,

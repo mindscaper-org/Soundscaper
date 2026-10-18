@@ -4,8 +4,9 @@ The main-private `LightscaperNativePhotoLibraryScopesCurrentV1` allocates and
 reopens physical native library generations. Each generation composes the actual
 Current catalog, managed media, LUT/brush resources and selected settings owners.
 The main-private restore now installs and reopens a selected native generation.
-The application continues to use its complete Web Core Session until the native
-Session, IPC and menu-owned switching are complete.
+The [installed Session transport](lightscaper-native-photo-session-protocol.md)
+uses the same manager for native Session and restore. The File menu offers this
+complete pair while Web Core remains the default.
 
 ## Ownership and storage
 
@@ -133,7 +134,7 @@ no restore-ready, selected-pointer, permanent-history or deletion authority. Tes
 also cover real archive restore, exact preset absence/empty rows and saved-state
 tombstones, selected reopen
 after edits, held input and ZIP cleanup, ignored history insertion, lost COMMIT
-acknowledgment and manager shutdown during actual publication. Complete native
-Session/IPC/menu activation and the maintained desktop target matrix remain.
+acknowledgment and manager shutdown during actual publication. Packaged native
+Session qualification and the maintained desktop target matrix remain.
 No AI runtime closure or target inventory changes; a manual
 **Update AI assets** run is not required.

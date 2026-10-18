@@ -4,8 +4,9 @@ The Main-private selected Session lease composes the actual native Catalog,
 managed Originals, selected settings, resources, Original transports and binary
 derivative cache factories. It is an ownership prerequisite for the complete
 Current Session. The complete renderer factory now uses that lease through its
-local service contract. The managed Web Core Session remains active until
-authenticated IPC and menu-owned selection are composed.
+local service contract. The [installed transport](lightscaper-native-photo-session-protocol.md)
+now selects this complete factory and its matched restore runtime through the
+File menu; Web Core remains the default.
 
 ## Selected authority and captured ports
 

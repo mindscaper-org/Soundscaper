@@ -6,6 +6,7 @@ export interface LightscaperSmokeFileCurrentV1 {
 }
 export interface LightscaperSmokeRendererPlanCurrentV1 {
 	readonly nonce: string; readonly stage: 1 | 2 | 3; readonly locale: 'en';
+	readonly backend?: 'web' | 'native';
 	readonly fixtures: readonly LightscaperSmokeFileCurrentV1[];
 	readonly archive: LightscaperSmokeFileCurrentV1 | null;
 	readonly expectedFingerprint: string | null; readonly expectedNamespace: string | null;
@@ -23,6 +24,7 @@ export interface LightscaperSmokeCustodyCurrentV1 {
 	readonly photos: readonly Readonly<{ document: unknown; sha256: string; byteLength: number; storage: string }>[];
 }
 export interface LightscaperSmokeRendererReportCurrentV1 {
+	readonly backend: 'web' | 'native';
 	readonly nonce: string; readonly stage: 1 | 2 | 3;
 	readonly initial: LightscaperSmokeCustodyCurrentV1 | null;
 	readonly final: LightscaperSmokeCustodyCurrentV1;

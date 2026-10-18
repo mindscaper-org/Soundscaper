@@ -28,7 +28,7 @@ interface StageReceipt { readonly schemaVersion: number; readonly nonce: string;
 	readonly observedDownloads: readonly Readonly<{ currentContents: boolean; currentFrame: boolean; initiatorOrigin: string }>[] }
 
 /** Run under Xvfb on a Linux runner with no display. This command executes a
- * real packaged binary three times; it never starts a development web server. */
+	* real packaged binary three times; it never starts a development web server. */
 export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly string[]): Promise<string> {
 	const options = readLightscaperManagedSmokeOptionsCurrentV1(args);
 	// Authenticate the explicit current-host helper and app before any profile exists.
@@ -55,7 +55,7 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 			if (!metadata.isDirectory() || metadata.isSymbolicLink() || await realpath(profile) !== profile) throw new Error('Smoke profile is not its owned canonical private directory.');
 			const backupSuggestedName = withProjectFileExtension(bundledSiteCopyForLocale('en').workspacePhoto, '.liscape');
 			const plan: LightscaperManagedSmokePlanCurrentV1 = { schemaVersion: 1, nonce, stage, profilePath: profile,
-				renderer: { nonce, stage, locale: 'en', fixtures, archive: stage === 2 ? archive : null,
+				renderer: { nonce, stage, locale: 'en', backend: options.backend, fixtures, archive: stage === 2 ? archive : null,
 					expectedFingerprint: preceding?.fingerprint ?? null, expectedNamespace: stage === 3 ? preceding?.namespace ?? null : null,
 					expectedPhotoIds: preceding?.photos.map(photo => (photo.document as { id: string }).id) ?? null,
 					backupSuggestedName } };
@@ -73,7 +73,7 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 			if (!allJoined || processReceipt.expired || processReceipt.launchError || processReceipt.exitCode !== 0 || processReceipt.forcedGroupRetirement) throw new Error(`Managed desktop process failed after owned-group retirement: ${JSON.stringify(processReceipt)}`);
 			const receipt = JSON.parse((await boundedRead(join(root, `${nonce}.stage-${stage}.result.json`), 1024 * 1024)).toString('utf8')) as StageReceipt;
 			if (receipt.schemaVersion !== 1 || receipt.nonce !== nonce || receipt.stage !== stage || receipt.processId !== processReceipt.processId
-				|| receipt.renderer.nonce !== nonce || receipt.renderer.stage !== stage || receipt.renderer.nodeExposed || receipt.blockedNetworkRequests.length) throw new Error('Actual stage receipt identity/security differs from its joined process.');
+				|| receipt.renderer.backend !== options.backend || receipt.renderer.nonce !== nonce || receipt.renderer.stage !== stage || receipt.renderer.nodeExposed || receipt.blockedNetworkRequests.length) throw new Error('Actual stage receipt identity/security differs from its joined process.');
 			if (receipt.renderer.externalArchiveOpen !== (stage === 2)) throw new Error('Actual OS archive delivery witness differs from its stage.');
 			for (const key of ['sandbox', 'contextIsolation', 'webSecurity']) if (receipt.security[key] !== true) throw new Error(`Actual packaged ${key} is disabled.`);
 			for (const key of ['nodeIntegration', 'nodeIntegrationInWorker', 'nodeIntegrationInSubFrames']) if (receipt.security[key] !== false) throw new Error(`Actual packaged ${key} is enabled.`);
@@ -106,7 +106,7 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 		}
 		await rm(profile, { recursive: true, force: true });
 		await writeFile(qualificationPath, `${JSON.stringify({ schemaVersion: 1, status: 'passed', nonce, executable,
-			allowNoSandbox: options.allowNoSandbox, threeFreshProcesses: true, samePrivateProfile: true, profileRemoved: true,
+			backend: options.backend, allowNoSandbox: options.allowNoSandbox, threeFreshProcesses: true, samePrivateProfile: true, profileRemoved: true,
 			fixtures: fixtures.map(({ base64: _base64, ...value }) => value), stages }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 		complete = true;
 		return qualificationPath;

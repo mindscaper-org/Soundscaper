@@ -1195,9 +1195,10 @@ close, and restoration always requires an explicit confirmation. The public
 carry a private stage directory through every packaged resource. Linux x64
 AppImage and Debian artifacts have been built, extracted, resource-audited and
 run through the same three-process workflow. System installation and upgrades
-remain unqualified. This does not close L8: file associations, native
-project-library integration, add-in-place access, native services and the full
-release/nightly target matrix remain open. Windows x64 has also passed the
+remain unqualified. This does not close L8: system file-association
+qualification, add-in-place access, native services and the full release/nightly
+target matrix remain open. Native project-library selection is installed as
+the explicit opt-in described below. Windows x64 has also passed the
 managed workflow using a separately compiled test supervisor: atomic Job
 assignment precedes app execution, and a closed identity-bound receipt proves
 the entire Job retired before profile deletion. Actual Windows reader canaries
@@ -1233,8 +1234,8 @@ authenticate all saved references before publication. Saved ordinary and
 collapsed pages use an independent signed continuation domain; escaped archive
 readers remain owned until their work retires. A private fresh-candidate saved
 restore stage authenticates delivered count, references and digest without
-granting authority to an existing active connection. These components are
-not yet selected by the application. The native culling destination reader now
+granting authority to an existing active connection. The installed native
+Session now selects these components together. The native culling destination reader now
 covers plain and ordinary/collapsed Query1, Query2 and saved queries. It proves
 the selected whole Current Photo and complete index projection in each SQLite
 snapshot, derives an inclusive destination privately, and preserves bounded
@@ -1270,8 +1271,8 @@ pins. Native canonical, camera-culling and HDR preview caches share a bounded
 disposable inventory tied to the current Original generation. Exact retained-body
 repair now authenticates selected replacement bytes and publishes a fresh native
 body generation with atomic custody/head checks. Existing single/group readers
-retain their old file until actual retirement; native Session/IPC/menu composition
-remains required before activation.
+retain their old file until actual retirement. The complete selected Session
+and installed IPC now expose this repair through the existing recovery workflow.
 The [native scope owner](docs/architecture/lightscaper-native-photo-library-scopes.md)
 now durably reserves physical generation allocations and verifies exact manifests
 before composing their genuine catalog, media, resources and selected settings.
@@ -1300,8 +1301,8 @@ The manager now restores complete archives into fresh native generations,
 authenticates their catalog, Originals, resources and preset closure, joins the
 actual decoder and storage owners, and atomically publishes the selected pointer
 with permanent commit history. A selected restored library remains reopenable
-after ordinary edits. Native Session composition, renderer/IPC admission and
-menu-owned library selection remain required before activation.
+after ordinary edits. The installed transport now matches this restore runtime
+to the complete native Session selected from the File menu.
 The [selected native Session lease](docs/architecture/lightscaper-native-photo-session-lease.md)
 now binds one real selected epoch and captures the complete storage port
 families, fixed-anchor import presets and explicit native exclusivity. It joins
@@ -1313,8 +1314,21 @@ these ports with its actual constructor, all Current and strict legacy children,
 real Original source and all three native preview cache adapters. Focused
 integration covers editing, both query versions, stacks, saved queries, culling,
 group/resource backup, physical repair, actual HDR decoding and persistent reopen.
-Authenticated production IPC and menu-owned backend selection remain unfinished.
-Add-in-place access and native platform qualification remain open.
+The [installed Session transport](docs/architecture/lightscaper-native-photo-session-protocol.md)
+now authenticates the actual document and exposes the complete storage families
+through fixed channels, with bounded streaming and joined local/physical cleanup.
+File-menu backend selection retires the full workspace before replacing both
+Session and restore factories. Web Core remains the default and keeps its own
+library. Focused tests cover the installed host/preload, complete client, menu
+lifetime, cancellation, metadata bounds and matched archive restore. Linux x64
+packaged qualification now covers both backends through three fresh processes
+each, including import, Develop, export, backup, persistence, confirmed restore
+and restored reopen. Those WSL packaged runs explicitly allow `--no-sandbox`;
+OS sandbox qualification is not claimed. An independent actual renderer-exit
+check retains a genuine held File, physical pin and writer guard until Electron
+reports the real process loss, then joins native retirement and reopens storage.
+Add-in-place access, native RAW/preview services and native platform qualification
+remain open.
 
 ### Exit gate
 

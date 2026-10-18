@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { installLightscaperManagedSmokeNativeObserverCurrentV1 } from './lightscaper-managed-smoke-native-custody-current-v1.ts';
+import { prepareLightscaperManagedSmokeRendererCurrentV1, runLightscaperManagedSmokeRendererCurrentV1 } from './lightscaper-managed-smoke-session-driver-current-v1.ts';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { isAbsolute, dirname, join, resolve } from 'node:path';
 import type { BrowserWindow, DownloadItem } from 'electron';
 import type { LightscaperMainHooksCurrentV1 } from './lightscaper-main-host-current-v1.ts';
-import type { LightscaperManagedSmokePlanCurrentV1, LightscaperSmokeFileCurrentV1, LightscaperSmokeRendererReportCurrentV1 } from './lightscaper-managed-smoke-contract-current-v1.ts';
+import type { LightscaperManagedSmokePlanCurrentV1, LightscaperSmokeFileCurrentV1 } from './lightscaper-managed-smoke-contract-current-v1.ts';
 
 const PLAN_FLAG = '--lightscaper-managed-smoke-plan=';
 const NONCE_FLAG = '--lightscaper-managed-smoke-nonce=';
@@ -26,7 +28,8 @@ export function validateLightscaperManagedSmokePlanCurrentV1(value: unknown, aut
 	if (plan.schemaVersion !== 1 || plan.nonce !== authority.nonce || (stage !== 1 && stage !== 2 && stage !== 3)
 		|| authority.planPath !== join(dirname(authority.planPath), `${authority.nonce}.stage-${stage}.json`)
 		|| plan.profilePath !== join(dirname(authority.planPath), 'profile') || plan.profilePath !== resolve(authority.profilePath)) throw new TypeError('Managed smoke plan leaves its private profile or stage.');
-	const renderer = record(plan.renderer, ['nonce', 'stage', 'locale', 'fixtures', 'archive', 'expectedFingerprint', 'expectedNamespace', 'expectedPhotoIds', 'backupSuggestedName']);
+	const renderer = record(plan.renderer, ['nonce', 'stage', 'locale', 'fixtures', 'archive', 'expectedFingerprint', 'expectedNamespace', 'expectedPhotoIds', 'backupSuggestedName'], ['backend']);
+	if (renderer.backend !== undefined && renderer.backend !== 'web' && renderer.backend !== 'native') throw new TypeError('Unknown managed backend.');
 	if (renderer.nonce !== plan.nonce || renderer.stage !== stage || renderer.locale !== 'en'
 		|| !safeFilename(renderer.backupSuggestedName, '.liscape')
 		|| !Array.isArray(renderer.fixtures) || renderer.fixtures.length !== 2) throw new TypeError('Managed smoke renderer authority expanded.');
@@ -41,7 +44,7 @@ export function validateLightscaperManagedSmokePlanCurrentV1(value: unknown, aut
 }
 
 /** This factory activates only for the paired private CLI authority. The
- * production preload receives no smoke method and no filesystem path. */
+	* production preload receives no smoke method and no filesystem path. */
 export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 	argv: readonly string[]; profilePath: string; rendererScript: string;
 	quit: () => void; reportFailure: (error: unknown) => void;
@@ -60,6 +63,7 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 		const bytes = Buffer.from(file.base64, 'base64');
 		if (bytes.length !== file.byteLength || hash(bytes) !== file.sha256) throw new Error('Managed smoke fixture bytes differ from their private plan.');
 	}
+	const native = plan.renderer.backend === 'native' ? installLightscaperManagedSmokeNativeObserverCurrentV1() : undefined;
 	const pngSuggestedName = `${plan.renderer.fixtures[1]!.name.slice(0, -4)}.png`;
 	const expected = plan.stage === 1 ? [pngSuggestedName, plan.renderer.backupSuggestedName]
 		: plan.stage === 3 ? [pngSuggestedName] : [];
@@ -70,6 +74,10 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 	const resultPath = join(root, `${plan.nonce}.stage-${plan.stage}.result.json`);
 	const timeout = setTimeout(() => { options.reportFailure(new Error(`Managed desktop stage ${plan.stage} timed out; downloads ${JSON.stringify(observedDownloads)}`)); }, 180_000);
 	return Object.freeze({
+		beforeArchiveReady: async (window: BrowserWindow) => {
+			try { await prepareLightscaperManagedSmokeRendererCurrentV1(window, options.rendererScript, plan.renderer); }
+			catch (primary) { try { await native?.close(); } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Smoke native preparation and observer retirement failed.', { cause: cleanup }); } throw primary; }
+		},
 		onWindowCreated(window: BrowserWindow) {
 			window.webContents.on('console-message', details => {
 				if (details.level === 'error') console.error('Lightscaper smoke renderer:', details.message.slice(0, 2048));
@@ -111,9 +119,8 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 		async onRendererReady(window: BrowserWindow): Promise<void> {
 			if (executed) return; executed = true;
 			try {
-				const source = `(() => { ${options.rendererScript}\n; return LightscaperManagedSmokeCurrentV1.runLightscaperManagedSmokeCurrentV1(${JSON.stringify(plan.renderer)}); })()`;
-				const report = await window.webContents.executeJavaScript(source, true) as LightscaperSmokeRendererReportCurrentV1;
-				if (report.nonce !== plan.nonce || report.stage !== plan.stage || JSON.stringify(report).length > 512 * 1024) throw new Error('Managed renderer report escaped its stage authority.');
+				const report = await runLightscaperManagedSmokeRendererCurrentV1(window, plan.renderer, native);
+				if (report.backend !== (plan.renderer.backend ?? 'web') || report.nonce !== plan.nonce || report.stage !== plan.stage || JSON.stringify(report).length > 512 * 1024) throw new Error('Managed renderer report escaped its stage authority.');
 				const completed = await Promise.all(downloads.map(download => download.promise));
 				if (failed || next !== expected.length) throw failed ?? new Error('Managed smoke download inventory is incomplete.');
 				if (blockedNetworkRequests.length) throw new Error('Offline managed smoke attempted external networking.');
@@ -128,9 +135,12 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 					security: { sandbox: preferences.sandbox, contextIsolation: preferences.contextIsolation,
 						nodeIntegration: preferences.nodeIntegration, nodeIntegrationInWorker: preferences.nodeIntegrationInWorker,
 						nodeIntegrationInSubFrames: preferences.nodeIntegrationInSubFrames, webSecurity: preferences.webSecurity } };
+				await native?.close();
 				writeFileSync(resultPath, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 				clearTimeout(timeout); options.quit();
-			} catch (error) { clearTimeout(timeout); options.reportFailure(error); throw error; }
+			} catch (primary) { clearTimeout(timeout); let failure: unknown = primary;
+				try { await native?.close(); } catch (cleanup) { failure = new AggregateError([primary, cleanup], 'Smoke workflow and native observer retirement failed.', { cause: primary }); }
+				options.reportFailure(failure); throw failure; }
 		},
 	});
 }
@@ -146,11 +156,11 @@ function safeFilename(value: unknown, suffix = ''): value is string {
 		&& value !== '.' && value !== '..' && value.endsWith(suffix);
 }
 function digest(value: unknown): value is string { return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value); }
-function record(value: unknown, keys: readonly string[]): Record<string, unknown> {
+function record(value: unknown, keys: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
 	if (!value || typeof value !== 'object' || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype
-		|| Reflect.ownKeys(value).length !== keys.length) throw new TypeError('Managed smoke requires a closed record.');
+		|| Reflect.ownKeys(value).some(key => typeof key !== 'string' || !keys.includes(key) && !optional.includes(key)) || Reflect.ownKeys(value).length < keys.length) throw new TypeError('Managed smoke requires a closed record.');
 	const output: Record<string, unknown> = {};
-	for (const key of keys) {
+	for (const key of [...keys, ...optional.filter(key => Object.hasOwn(value, key))]) {
 		const field = Object.getOwnPropertyDescriptor(value, key);
 		if (!field || !field.enumerable || !Object.hasOwn(field, 'value')) throw new TypeError('Managed smoke requires own data fields.');
 		output[key] = field.value;
