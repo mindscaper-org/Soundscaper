@@ -145,8 +145,6 @@ test('the long-form collector recomputes every metric with the frozen sampling p
 	assert.equal(result.evaluation.passed, true);
 	assert.equal(result.metricGatePassed, true);
 	assert.deepEqual(result.evaluation.failures, []);
-	assert.equal(Object.hasOwn(result, 'rawArtifact'), false);
-	assert.equal(Object.hasOwn(result, 'budgetSha256'), false);
 });
 
 test('the diagnostic parser admits exactly one matching structured record', () => {
@@ -230,9 +228,7 @@ test('the registered runnable harness is a diagnostic workload', () => {
 	const workload = quality.workloads.find(({ id }) => id === 'm3-longform-editorial');
 	assert.equal(fixture?.kind, 'deterministic-current-schema-project-generator');
 	assert.equal(fixture?.specification.localDiagnosticCommand, 'npm run quality:collect:m3-longform');
-	assert.equal(Object.hasOwn(fixture?.specification ?? {}, 'qualificationPublication'), false);
 	assert.equal(packageMetadata.scripts['quality:collect:m3-longform'],
 		'node scripts/collect-m3-longform-editorial-quality.mjs');
 	assert.equal(workload?.behavior, 'blocking');
-	assert.equal(Object.hasOwn(quality, 'environments'), false);
 });

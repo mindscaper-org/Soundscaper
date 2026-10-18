@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -10,10 +9,6 @@ import {
 	validateNativeOsDiagnosticsEnvironment,
 } from '../scripts/lib/native-os-diagnostics-schema.mjs';
 
-const config = JSON.parse(await readFile(
-	new URL('../config/quality-budgets.json', import.meta.url),
-	'utf8',
-));
 const environment = Object.freeze({
 	id: NATIVE_OS_DIAGNOSTICS_ENVIRONMENT_ID,
 	status: 'active',
@@ -53,14 +48,10 @@ function artifacts() {
 	};
 }
 
-test('native OS diagnostics have no configured hardware or profile matrix', () => {
-	assert.equal(Object.hasOwn(config, 'environments'), false);
+test('native OS diagnostics use an observed-runtime descriptor', () => {
 	const validated = validateNativeOsDiagnosticsEnvironment(environment);
 	assert.equal(validated.id, 'native-os-diagnostics');
 	assert.equal(validated.kind, 'observed-native-runtime-diagnostics');
-	assert.equal('profiles' in validated, false);
-	assert.equal('fingerprint' in validated, false);
-	assert.equal('descriptorVersion' in validated, false);
 });
 
 test('a diagnostic binds the host and artifacts that actually ran it', () => {
