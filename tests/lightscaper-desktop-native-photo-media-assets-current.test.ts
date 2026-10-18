@@ -132,6 +132,10 @@ test('Lightscaper native asset reads refuse metadata corruption and scalar disag
 			token: "media_content_token='media-content-0000000000000000'", stamp: "pending_until=strftime('%Y-%m-%dT%H:%M:%fZ',committed_at,'+1 hour')" };
 		// A canonical but different token remains a valid generation. Other
 		// corruptions must never escape as authenticated asset metadata.
+		if (mode === 'sha' || mode === 'size') {
+			assert.throws(() => f.db.exec(`UPDATE native_photo_media_assets SET ${changes[mode]} WHERE source_id='asset'`), /FOREIGN KEY/iu);
+			assert.ok(get(f.db, 'asset')); return;
+		}
 		f.db.exec(`UPDATE native_photo_media_assets SET ${changes[mode]} WHERE source_id='asset'`);
 		if (mode === 'token') assert.ok(get(f.db, 'asset')); else assert.throws(() => get(f.db, 'asset'));
 	});

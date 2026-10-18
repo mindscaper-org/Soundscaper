@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { assertLightscaperNativePhotoOriginalUnpinnedCurrentV1 } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
+import { ensureLightscaperNativeManagedPhotoMediaIdentityCurrentV1 as ensureManagedIdentity,
+	assertLightscaperNativeManagedPhotoMediaIdentityCurrentV1 as assertManagedIdentity } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { isMediaContentSha256, isMediaContentToken } from '../src/common/editor/storage/media-content-provenance.ts';
@@ -54,6 +56,7 @@ function installCaptured(database: DatabaseSync, assetId: string, metadataPayloa
 		if (database.prepare('SELECT 1 FROM native_photo_media_assets WHERE source_id=?').get(binding.storageKey)) {
 			throw new Error('Immutable native Photo media asset cannot be overwritten.');
 		}
+		ensureManagedIdentity(database, binding);
 		const token = `media-content-${randomUUID()}`;
 		database.prepare(`INSERT INTO native_photo_media_assets(${COLUMNS}) VALUES(?,?,?,?,?,?,?,?)`)
 			.run(binding.storageKey, binding.contentSha256, binding.byteLength, token, metadataPayload, 0, committedAt, pendingUntil);
@@ -87,8 +90,10 @@ export function deleteLightscaperNativePhotoMediaAssetCurrentV1(database: Databa
 			throw new Error('Native Photo media is retained by a catalog Original root.');
 		}
 		database.prepare('DELETE FROM native_photo_media_assets WHERE source_id=?').run(key);
+		database.prepare('DELETE FROM native_photo_media_identities WHERE source_id=?').run(key);
 		database.prepare('DELETE FROM native_photo_original_bindings WHERE storage_key=?').run(key);
 		if (database.prepare('SELECT 1 FROM native_photo_media_assets WHERE source_id=?').get(key)
+			|| database.prepare('SELECT 1 FROM native_photo_media_identities WHERE source_id=?').get(key)
 			|| database.prepare('SELECT 1 FROM native_photo_original_bindings WHERE storage_key=?').get(key)) {
 			throw new Error('Native Photo media asset and Original binding retirement was not complete.');
 		}
@@ -118,7 +123,7 @@ function read(database: DatabaseSync, key: string, maximumFrameBytes?: number): 
 		|| PARSE(row.pending_until) - PARSE(row.committed_at) !== PENDING_SOURCE_RETENTION_MS) {
 		throw new TypeError('Native Photo media asset metadata is malformed.');
 	}
-	const binding = Object.freeze({ storageKey: key, byteLength: row.size, contentSha256: row.sha256 }); assertBinding(database, binding);
+	const binding = Object.freeze({ storageKey: key, byteLength: row.size, contentSha256: row.sha256 }); assertBinding(database, binding); assertManagedIdentity(database, binding);
 	return { binding, token: row.media_content_token, payload: row.metadata, count: row.root_count,
 		committedAt: row.committed_at, pendingUntil: row.pending_until, descriptive: readMetadata(row.metadata) };
 }

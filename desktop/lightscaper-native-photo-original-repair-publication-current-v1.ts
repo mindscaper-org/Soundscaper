@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
+import { ensureLightscaperNativeManagedPhotoMediaIdentityCurrentV1 as ensureManagedIdentity,
+	assertLightscaperNativeManagedPhotoMediaIdentityCurrentV1 as assertManagedIdentity } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import type { CatalogOriginalRepairBindingV1, CatalogOriginalRepairReceiptV1 } from '../src/common/editor/storage/media-catalog-original-repair-contract.ts';
 import { PENDING_SOURCE_RETENTION_MS } from '../src/common/editor/storage/source-write-common.ts';
 import { MediaPublicationReconciliationError } from '../src/common/editor/storage/media-asset-owned-publication.ts';
@@ -44,6 +46,7 @@ function publishCaptured(db: DatabaseSync, binding: Readonly<CatalogOriginalRepa
 		if (current.binding === null) {
 			db.prepare('INSERT INTO native_photo_original_bindings(storage_key,content_sha256,byte_length) VALUES(?,?,?)').run(binding.assetId, binding.sha256, binding.size);
 		}
+		ensureManagedIdentity(db, physical.binding);
 		if (current.asset === null) {
 			const now = NOW(), committed = Reflect.apply(ISO, new NativeDate(now), []) as string;
 			const pending = Reflect.apply(ISO, new NativeDate(now + PENDING_SOURCE_RETENTION_MS), []) as string;
@@ -52,6 +55,7 @@ function publishCaptured(db: DatabaseSync, binding: Readonly<CatalogOriginalRepa
 		} else db.prepare('UPDATE native_photo_media_assets SET root_count=? WHERE source_id=?').run(current.count, binding.assetId);
 		candidate = switchHead(db, physical.binding, before.head, physical.locatorId);
 		const published = state(db, binding, signal);
+		assertManagedIdentity(db, physical.binding);
 		if (JSON.stringify(published.root) !== JSON.stringify(before.root) || published.asset?.token !== before.root.mediaContentToken
 			|| !published.binding || JSON.stringify(published.head) !== JSON.stringify(candidate) || published.count !== current.count) {
 			throw new Error('Native Original repair publication changed before acknowledgment.');
@@ -67,6 +71,7 @@ function publishCaptured(db: DatabaseSync, binding: Readonly<CatalogOriginalRepa
 		try {
 			db.exec('BEGIN');
 			const actual = state(db, binding), head = readHead(db, { storageKey: binding.assetId, contentSha256: binding.sha256, byteLength: binding.size });
+			assertManagedIdentity(db, { storageKey: binding.assetId, contentSha256: binding.sha256, byteLength: binding.size });
 			const committed = JSON.stringify(head) === JSON.stringify(candidate) && JSON.stringify(actual.root) === JSON.stringify(before.root)
 				&& actual.asset?.token === before.root.mediaContentToken && actual.binding !== null;
 			db.exec('COMMIT');

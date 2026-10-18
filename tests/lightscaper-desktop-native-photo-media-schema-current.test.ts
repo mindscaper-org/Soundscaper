@@ -20,24 +20,26 @@ async function fixture(run: (path: string, directory: string) => Promise<void>):
 }
 function physicalAsset(db: DatabaseSync, id = 'original-a'): void {
 	db.prepare('INSERT INTO native_photo_original_bindings VALUES(?,?,?)').run(id, SHA, 3);
+	db.prepare("INSERT INTO native_photo_media_identities VALUES(?,'managed',?,?,?,NULL)").run(id, SHA, 3, id);
 	db.prepare('INSERT INTO native_photo_media_assets(source_id,sha256,size,media_content_token,metadata,root_count,committed_at,pending_until) VALUES(?,?,?,?,?,?,?,?)')
 		.run(id, SHA, 3, TOKEN, Uint8Array.of(1), 0, '2026-10-18T12:00:00.000Z', '2026-10-19T12:00:00.000Z');
 }
 
-test('Lightscaper managed media inspector leaves empty SQLite unchanged and initializer owns exact LSCP3 inventory', () => {
+test('Lightscaper managed media inspector leaves empty SQLite unchanged and initializer owns exact LSCP4 inventory', () => {
 	const db = new DatabaseSync(':memory:');
 	try {
 		assert.equal(inspect(db), 'empty'); assert.equal(pragma(db, 'application_id'), 0); assert.equal(objects(db).length, 0);
 		initialize(db); assert.equal(inspect(db), 'owned'); assert.equal(pragma(db, 'application_id'), APP);
-		assert.equal(pragma(db, 'user_version'), 3); assert.equal(pragma(db, 'foreign_keys'), 1);
+		assert.equal(pragma(db, 'user_version'), 4); assert.equal(pragma(db, 'foreign_keys'), 1);
 		assert.deepEqual(objects(db).map(row => [row.type, row.name]), [
 			['index', 'native_photo_media_assets_digest'], ['index', 'native_photo_media_roots_asset'], ['index', 'native_photo_media_roots_scope'],
-			['index', 'native_photo_original_bindings_digest'],
-			['table', 'native_photo_media_assets'], ['table', 'native_photo_media_roots'], ['table', 'native_photo_original_bindings'],
+			['index', 'native_photo_original_bindings_digest'], ['index', 'native_photo_original_bindings_identity'],
+			['table', 'native_photo_linked_original_bindings'], ['table', 'native_photo_media_assets'], ['table', 'native_photo_media_identities'],
+			['table', 'native_photo_media_roots'], ['table', 'native_photo_original_bindings'],
 			['table', 'native_photo_original_body_heads'], ['table', 'native_photo_original_body_locators'],
 		]);
 		assert.equal(db.prepare("SELECT sql FROM sqlite_schema WHERE name='native_photo_original_bindings'").get()?.sql, V1);
-		for (const name of ['native_photo_original_bindings', 'native_photo_media_assets', 'native_photo_media_roots', 'native_photo_original_body_heads', 'native_photo_original_body_locators']) {
+		for (const name of ['native_photo_original_bindings', 'native_photo_media_assets', 'native_photo_media_roots', 'native_photo_original_body_heads', 'native_photo_original_body_locators', 'native_photo_media_identities', 'native_photo_linked_original_bindings']) {
 			assert.equal(db.prepare('SELECT strict FROM pragma_table_list WHERE name=?').get(name)?.strict, 1);
 		}
 		assert.deepEqual(db.prepare('PRAGMA table_info(native_photo_media_assets)').all().map(row => row.name),
@@ -58,14 +60,14 @@ test('Lightscaper LSCP1 real-file migration preserves immutable binding and body
 			try { assert.equal(inspect(read), 'original-v1'); } finally { read.close(); }
 			assert.deepEqual(await readFile(path), bytes);
 			db = new DatabaseSync(path);
-			// Exact new index DDL must let SQLite index the old scalar columns;
-			// ordinary aggregate SELECTs remain forbidden before JS row delivery.
-			const execute = db.exec; let buildingDigestIndex = false;
+			// SQL-only index/backfill work may read old columns inside SQLite;
+			// prepared SELECTs must never return their scalar values to JS.
+			const execute = db.exec; let executingMigrationSql = false;
 			db.exec = function (sql: string): void {
-				buildingDigestIndex = sql === 'CREATE INDEX native_photo_original_bindings_digest ON native_photo_original_bindings(content_sha256,byte_length,storage_key)';
-				try { execute.call(this, sql); } finally { buildingDigestIndex = false; }
+				executingMigrationSql = true;
+				try { execute.call(this, sql); } finally { executingMigrationSql = false; }
 			};
-			db.setAuthorizer((action, table, column) => !buildingDigestIndex && action === constants.SQLITE_READ && table === 'native_photo_original_bindings'
+			db.setAuthorizer((action, table, column) => !executingMigrationSql && action === constants.SQLITE_READ && table === 'native_photo_original_bindings'
 				&& (column === 'content_sha256' || column === 'byte_length') ? constants.SQLITE_DENY : constants.SQLITE_OK);
 			try { initialize(db); } finally { db.setAuthorizer(null); db.exec = execute; }
 			assert.equal(inspect(db), 'owned'); assert.deepEqual(db.prepare('SELECT * FROM native_photo_original_bindings').all(), old);
@@ -94,7 +96,7 @@ for (const kind of ['foreign', 'wrong-app', 'future', 'extra-table', 'extra-trig
 				if (kind === 'foreign') db.exec('CREATE TABLE foreign_bytes(value BLOB); INSERT INTO foreign_bytes VALUES(zeroblob(17))');
 				else if (kind === 'weakened-v1') db.exec(`PRAGMA application_id=${APP}; PRAGMA user_version=1; CREATE TABLE native_photo_original_bindings(storage_key TEXT PRIMARY KEY,content_sha256 TEXT,byte_length INTEGER)`);
 				else { historical(db); if (kind === 'wrong-app') db.exec('PRAGMA application_id=1280528963');
-					else if (kind === 'future') db.exec('PRAGMA user_version=4');
+					else if (kind === 'future') db.exec('PRAGMA user_version=5');
 					else db.exec(kind === 'extra-table' ? 'CREATE TABLE sqliteXforeign(value TEXT)' : 'CREATE TRIGGER foreign_trigger AFTER INSERT ON native_photo_original_bindings BEGIN SELECT 1; END'); }
 				db.close(); const before = await readFile(path); db = new DatabaseSync(path);
 				assert.throws(() => inspect(db)); assert.throws(() => initialize(db)); assert.equal(db.isTransaction, false);

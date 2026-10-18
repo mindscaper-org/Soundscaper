@@ -3,9 +3,9 @@
 Lightscaper's L8 native catalog adapter is in progress. Internal components
 store managed Original bytes in main-owned files, their immutable physical
 bindings in SQLite, and Current Photo catalog documents in a separate SQLite
-database. The application still uses its complete Web Core catalog and media
-stores. These components register no renderer API, menu action, selected native
-catalog backend or add-in-place capability by themselves.
+database. Web Core remains the default; File → Photo storage can select the
+[complete native storage Session](lightscaper-native-photo-session-protocol.md).
+These components grant no add-in-place capability by themselves.
 
 A [separate native LUT and brush owner](lightscaper-native-photo-resources.md)
 now persists authentic immutable `.cube` and `SCMASK01` bodies in its own
@@ -16,10 +16,11 @@ verification. It does not select a native Session or replace Web Core storage.
 The host supplies one canonical appData directory. The fixed product scope is
 `Lightscaper/project-library/v1/`; filenames supplied by a photo or renderer
 never select a physical path. `native-photo-originals.sqlite3` admits only its
-exact `LSCP` application identity and version 3 schema, with immutable physical
-bindings, managed asset metadata, catalog Original roots and scalar body heads.
-Exact historical versions 1 and 2 migrate without rewriting their rows, reading
-bodies or inventing verified metadata.
+exact `LSCP` application identity and version 4 schema, with immutable physical
+bindings, typed media identities, managed asset metadata, catalog Original roots,
+scalar body heads and a private linked-locator leaf. Exact historical versions
+1–3 migrate with SQL-only copies preserving row bytes and no body reads or
+invented verified metadata. Linked scalars alone confer no file access.
 An unowned nonempty database, unsupported version or altered schema is refused
 through read-only preflight before writable recovery, chmod or WAL adoption.
 

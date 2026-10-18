@@ -63,13 +63,54 @@ const HEADS = `CREATE TABLE native_photo_original_body_heads (
 	FOREIGN KEY(content_sha256,locator_id,byte_length) REFERENCES native_photo_original_body_locators(content_sha256,locator_id,byte_length)
 ) STRICT`;
 const BINDINGS_INDEX = 'CREATE INDEX native_photo_original_bindings_digest ON native_photo_original_bindings(content_sha256,byte_length,storage_key)';
-const OWNED = [
+const MEDIA_V3 = [
 	...INDEXES.map(([name, sql]) => ({ type: 'index', name, sql })),
 	{ type: 'index', name: 'native_photo_original_bindings_digest', sql: BINDINGS_INDEX },
 	...MEDIA_V2.filter(row => row.type === 'table'),
 	{ type: 'table', name: 'native_photo_original_body_heads', sql: HEADS },
 	{ type: 'table', name: 'native_photo_original_body_locators', sql: LOCATORS },
 ];
+
+const LINKED = `CREATE TABLE native_photo_linked_original_bindings (
+	storage_key TEXT PRIMARY KEY NOT NULL CHECK (
+		length(storage_key) BETWEEN 1 AND 128 AND length(CAST(storage_key AS BLOB)) = length(storage_key)
+		AND storage_key GLOB '[A-Za-z0-9]*' AND storage_key NOT GLOB '*[^A-Za-z0-9._:-]*'
+	),
+	content_sha256 TEXT NOT NULL CHECK (length(content_sha256) = 64 AND length(CAST(content_sha256 AS BLOB)) = 64 AND content_sha256 NOT GLOB '*[^0-9a-f]*'),
+	byte_length INTEGER NOT NULL CHECK (byte_length BETWEEN 1 AND 205520896),
+	grant_id TEXT NOT NULL CHECK (length(grant_id) = 64 AND length(CAST(grant_id AS BLOB)) = 64 AND grant_id NOT GLOB '*[^0-9a-f]*'),
+	locator_id TEXT NOT NULL CHECK (length(locator_id) = 64 AND length(CAST(locator_id AS BLOB)) = 64 AND locator_id NOT GLOB '*[^0-9a-f]*'),
+	revision INTEGER NOT NULL CHECK (revision BETWEEN 0 AND 9007199254740991),
+	locator BLOB NOT NULL CHECK (length(locator) BETWEEN 1 AND 65536),
+	UNIQUE(storage_key,content_sha256,byte_length)
+) STRICT`;
+const IDENTITIES = `CREATE TABLE native_photo_media_identities (
+	source_id TEXT PRIMARY KEY NOT NULL CHECK (
+		length(source_id) BETWEEN 1 AND 128 AND length(CAST(source_id AS BLOB)) = length(source_id)
+		AND source_id GLOB '[A-Za-z0-9]*' AND source_id NOT GLOB '*[^A-Za-z0-9._:-]*'
+	),
+	kind TEXT NOT NULL CHECK (kind IN ('managed','linked')),
+	sha256 TEXT NOT NULL CHECK (length(sha256) = 64 AND length(CAST(sha256 AS BLOB)) = 64 AND sha256 NOT GLOB '*[^0-9a-f]*'),
+	size INTEGER NOT NULL CHECK (size BETWEEN 1 AND 205520896),
+	managed_key TEXT,
+	linked_key TEXT,
+	CHECK ((kind = 'managed' AND managed_key IS NOT NULL AND managed_key = source_id AND linked_key IS NULL)
+		OR (kind = 'linked' AND linked_key IS NOT NULL AND linked_key = source_id AND managed_key IS NULL)),
+	UNIQUE(source_id,sha256,size),
+	FOREIGN KEY(managed_key,sha256,size) REFERENCES native_photo_original_bindings(storage_key,content_sha256,byte_length),
+	FOREIGN KEY(linked_key,sha256,size) REFERENCES native_photo_linked_original_bindings(storage_key,content_sha256,byte_length)
+) STRICT`;
+const IDENTITY_INDEX = 'CREATE UNIQUE INDEX native_photo_original_bindings_identity ON native_photo_original_bindings(storage_key,content_sha256,byte_length)';
+const ASSETS_V4 = ASSETS.replace('source_id TEXT PRIMARY KEY NOT NULL REFERENCES native_photo_original_bindings(storage_key)',
+	'source_id TEXT PRIMARY KEY NOT NULL').replace('\n) STRICT',
+	',\n\tFOREIGN KEY(source_id,sha256,size) REFERENCES native_photo_media_identities(source_id,sha256,size)\n) STRICT');
+const OWNED = [
+	...MEDIA_V3.filter(row => row.name !== 'native_photo_media_assets'),
+	{ type: 'index', name: 'native_photo_original_bindings_identity', sql: IDENTITY_INDEX },
+	{ type: 'table', name: 'native_photo_linked_original_bindings', sql: LINKED },
+	{ type: 'table', name: 'native_photo_media_assets', sql: ASSETS_V4 },
+	{ type: 'table', name: 'native_photo_media_identities', sql: IDENTITIES },
+].sort((a, b) => a.type < b.type ? -1 : a.type > b.type ? 1 : a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
 /** No provenance is inferred from a historical binding. Only authenticated
  * physical publication may create the new asset and custody rows later. */
@@ -86,8 +127,9 @@ export function initializeLightscaperNativePhotoMediaDatabaseCurrentV1(database:
 				database.exec(ASSETS); database.exec(ROOTS);
 				for (const [, sql] of INDEXES) database.exec(sql);
 			}
-			database.exec(LOCATORS); database.exec(HEADS); database.exec(BINDINGS_INDEX);
-			database.exec(`PRAGMA application_id=${APPLICATION}`); database.exec('PRAGMA user_version=3');
+			if (current !== 'media-v3') { database.exec(LOCATORS); database.exec(HEADS); database.exec(BINDINGS_INDEX); }
+			migrateTypedMedia(database);
+			database.exec(`PRAGMA application_id=${APPLICATION}`); database.exec('PRAGMA user_version=4');
 		}
 		if (inspectLightscaperNativePhotoMediaDatabaseCurrentV1(database) !== 'owned') throw new Error('Native Photo media schema publication failed.');
 		database.exec('COMMIT');
@@ -98,23 +140,61 @@ export function initializeLightscaperNativePhotoMediaDatabaseCurrentV1(database:
 	}
 }
 
+/** SQL-only migration: no metadata/root value enters JS and no body IO is
+ * performed. Child-first reconstruction keeps FK enforcement on throughout. */
+function migrateTypedMedia(database: DatabaseSync): void {
+	database.exec(IDENTITY_INDEX); database.exec(LINKED); database.exec(IDENTITIES);
+	database.exec(`INSERT INTO native_photo_media_identities(source_id,kind,sha256,size,managed_key,linked_key)
+		SELECT a.source_id,'managed',b.content_sha256,b.byte_length,a.source_id,NULL
+		FROM native_photo_media_assets a JOIN native_photo_original_bindings b ON b.storage_key=a.source_id`);
+	if (database.prepare(`SELECT 1 AS invalid FROM native_photo_media_assets a
+		LEFT JOIN native_photo_media_identities i ON i.source_id=a.source_id AND i.sha256=a.sha256 AND i.size=a.size
+		WHERE i.source_id IS NULL OR i.kind<>'managed' OR i.managed_key<>a.source_id OR i.linked_key IS NOT NULL LIMIT 1`).get()) {
+		throw new Error('Historical native Photo media has no matching immutable managed identity.');
+	}
+	database.exec('CREATE TABLE _native_photo_media_assets_v3_copy AS SELECT source_id,sha256,size,media_content_token,metadata,root_count,committed_at,pending_until FROM native_photo_media_assets');
+	database.exec('CREATE TABLE _native_photo_media_roots_v3_copy AS SELECT root_key,scope_key,asset_id,root FROM native_photo_media_roots');
+	database.exec('DROP TABLE native_photo_media_roots'); database.exec('DROP TABLE native_photo_media_assets');
+	database.exec(ASSETS_V4);
+	database.exec(`INSERT INTO native_photo_media_assets(source_id,sha256,size,media_content_token,metadata,root_count,committed_at,pending_until)
+		SELECT source_id,sha256,size,media_content_token,metadata,root_count,committed_at,pending_until FROM _native_photo_media_assets_v3_copy`);
+	database.exec(ROOTS);
+	database.exec(`INSERT INTO native_photo_media_roots(root_key,scope_key,asset_id,root)
+		SELECT root_key,scope_key,asset_id,root FROM _native_photo_media_roots_v3_copy`);
+	database.exec('DROP TABLE _native_photo_media_roots_v3_copy'); database.exec('DROP TABLE _native_photo_media_assets_v3_copy');
+	for (const [, sql] of INDEXES) database.exec(sql);
+	if (database.prepare('PRAGMA foreign_key_check').get()) throw new Error('Native Photo media migration has inconsistent foreign keys.');
+	assertSchema(database, OWNED);
+}
+
 /** Bounded fixed identity preflight, valid on a read-only connection. No
  * original, metadata or custody values are loaded, repaired or authenticated. */
-export function inspectLightscaperNativePhotoMediaDatabaseCurrentV1(database: DatabaseSync): 'empty' | 'original-v1' | 'media-v2' | 'owned' {
+export function inspectLightscaperNativePhotoMediaDatabaseCurrentV1(database: DatabaseSync): 'empty' | 'original-v1' | 'media-v2' | 'media-v3' | 'owned' {
 	const application = pragma(database, 'application_id'), version = pragma(database, 'user_version');
-	const objects = database.prepare(`SELECT
+	const objects = schema(database);
+	if (application === 0 && version === 0 && objects.length === 0) return 'empty';
+	if (application !== APPLICATION || (version !== 1 && version !== 2 && version !== 3 && version !== 4)) throw new Error('Native Photo media database has an unowned or unsupported identity.');
+	const expected = version === 1 ? [{ type: 'table', name: 'native_photo_original_bindings', sql: ORIGINAL }]
+		: version === 2 ? MEDIA_V2 : version === 3 ? MEDIA_V3 : OWNED;
+	assertSchemaRows(objects, expected);
+	return version === 1 ? 'original-v1' : version === 2 ? 'media-v2' : version === 3 ? 'media-v3' : 'owned';
+}
+function schema(database: DatabaseSync) {
+	return database.prepare(`SELECT
 		CASE WHEN typeof(type)='text' AND length(CAST(type AS BLOB))<=16 THEN type END AS type,
 		CASE WHEN typeof(name)='text' AND length(CAST(name AS BLOB))<=128 THEN name END AS name,
 		CASE WHEN typeof(sql)='text' AND length(CAST(sql AS BLOB))<=8192 THEN sql END AS sql
 		FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name LIMIT ${OWNED.length + 1}`).all();
-	if (application === 0 && version === 0 && objects.length === 0) return 'empty';
-	if (application !== APPLICATION || (version !== 1 && version !== 2 && version !== 3)) throw new Error('Native Photo media database has an unowned or unsupported identity.');
-	const expected = version === 1 ? [{ type: 'table', name: 'native_photo_original_bindings', sql: ORIGINAL }] : version === 2 ? MEDIA_V2 : OWNED;
+}
+function assertSchema(database: DatabaseSync, expected: readonly Readonly<{ type: string; name: string; sql: string }>[]): void {
+	assertSchemaRows(schema(database), expected);
+}
+function assertSchemaRows(objects: ReturnType<typeof schema>, expected: readonly Readonly<{ type: string; name: string; sql: string }>[]): void {
 	if (objects.length !== expected.length || objects.some((row, index) => {
 		const match = expected[index]; return !match || row.type !== match.type || row.name !== match.name || row.sql !== match.sql;
 	})) throw new Error('Native Photo media schema differs from its exact owned version.');
-	return version === 1 ? 'original-v1' : version === 2 ? 'media-v2' : 'owned';
 }
+
 function pragma(database: DatabaseSync, name: 'application_id' | 'user_version' | 'foreign_keys'): number {
 	const value = database.prepare(`PRAGMA ${name}`).get()?.[name];
 	if (typeof value !== 'number' || !Number.isSafeInteger(value)) throw new TypeError('Native Photo media SQLite identity is invalid.');

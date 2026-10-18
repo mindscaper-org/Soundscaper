@@ -14,7 +14,7 @@ export function lightscaperNativePhotoUploadNamespaceCurrentV1(database: Databas
 		|| basename(row.file) !== 'native-photo-originals.sqlite3') throw new Error('Native upload requires its idle actual media namespace.');
 	const path = realpathSync.native(row.file);
 	if (path !== row.file || Reflect.apply(PREPARE, database, ['PRAGMA application_id']).get()?.application_id !== 0x4c534350
-		|| Reflect.apply(PREPARE, database, ['PRAGMA user_version']).get()?.user_version !== 3) throw new Error('Native upload namespace identity is unowned.');
+		|| Reflect.apply(PREPARE, database, ['PRAGMA user_version']).get()?.user_version !== 4) throw new Error('Native upload namespace identity is unowned.');
 	const key = process.platform === 'win32' ? path.toLowerCase() : path; known.set(database, key);
 	let state = namespaces.get(key);
 	const current = (): void => { const selected = namespaces.get(key); if (selected?.failed) throw selected.failure; };

@@ -1,9 +1,10 @@
 # Native managed Photo media
 
 `LightscaperNativePhotoMediaCurrentV1` is a main-private component for managed
-Original publication, asset metadata and catalog custody. The application still
-selects its complete Web Core Session. This owner registers no renderer API or
-menu entry and grants no linked-file or restored-library allocation authority.
+Original publication, asset metadata and catalog custody. Web Core remains the
+default; the File menu can select the complete native storage Session through
+the [owning transport](lightscaper-native-photo-session-protocol.md). This media
+component itself grants no linked-file or restored-library allocation authority.
 
 Publication accepts the existing asset ID, genuine Blob and descriptive metadata.
 Native Blob/File getters capture immutable body and filename facts before queue
@@ -37,11 +38,19 @@ metadata commit returns a cached promise and receipt; later abort or Close
 cannot revoke that acknowledgment. Optional owned-publication and video-claim
 methods are separate contracts and are not advertised by this Photo writer.
 
-`native-photo-originals.sqlite3` uses application identity LSCP and schema 3.
-The exact historical schema-1 binding and schema-2 media/root tables remain
-unchanged. Migration adds scalar body locators, digest heads and a binding digest
-index without reading bodies or rewriting metadata. Existing bindings gain no
-inferred content tokens or catalog roots. Read-only admission precedes
+`native-photo-originals.sqlite3` uses application identity LSCP and schema 4.
+Historical binding, locator and head tables retain their exact definitions.
+A typed media parent separates managed and linked scalar identities; composite
+foreign keys enforce matching SHA and length through the asset chain. The
+linked leaf stores bounded opaque native locators and revisions, which grant no
+filesystem authority by themselves. Add-in-place activation remains in progress.
+
+Exact historical versions 1–3 migrate in one transaction with foreign keys
+enabled. SQL-only copies preserve every metadata/root byte, token, count and
+timestamp; only published assets receive matching managed parents. Orphan
+bindings retain their original state. A contradictory historical tuple refuses
+the entire migration. Existing bindings gain no inferred content tokens or
+catalog roots. Read-only admission precedes
 writable SQLite recovery, permission changes, WAL adoption and body-directory
 preparation. Primary and sidecar paths must be canonical single-link regular
 files; orphan sidecars and linked product directories refuse.
@@ -61,8 +70,8 @@ Staged and permanent roots retain the same generation token. Promotion inserts
 the permanent root and retires the staged root in one transaction.
 
 Roots, counts, asset metadata and physical binding rows share one database.
-Logical deletion requires zero roots and atomically retires metadata and its
-binding. It leaves immutable SHA files in place because another binding or reader
+Logical deletion requires zero roots and atomically retires metadata, its typed
+managed parent and its binding. It leaves immutable SHA files in place because another binding or reader
 may still own those bytes. A later publication may reuse the retired asset ID
 with a fresh generation. Point readbacks verify inserts, count changes and
 deletions before COMMIT, including ignored or rewritten trigger effects. Failed
