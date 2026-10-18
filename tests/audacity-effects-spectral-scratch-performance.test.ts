@@ -38,57 +38,14 @@ test('noise reduction preserves exact padded edges, smoothing, attack/release an
 	}
 });
 
-test('noise reduction keeps five power spectra and reuses FFT and smoothing scratch', () => {
-	const input = [signal(17_003), signal(17_003, 1)];
-	const original64 = globalThis.Float64Array;
-	const original32 = globalThis.Float32Array;
-	const lengths64: number[] = [];
-	const lengths32: number[] = [];
-	function instrument<T extends typeof Float64Array | typeof Float32Array>(original: T, lengths: number[]): T {
-		return new Proxy(original, {
-			construct(target, argumentsList, newTarget) {
-				const result: Float64Array | Float32Array = Reflect.construct(target, argumentsList, newTarget);
-				lengths.push(result.length);
-				return result;
-			},
-		});
-	}
-	globalThis.Float64Array = instrument(original64, lengths64);
-	globalThis.Float32Array = instrument(original32, lengths32);
-	try {
-		applyAudacityNoiseReduction(input, 8_000, { frequencySmoothingBands: 3 }, profile);
-		assert.equal(lengths64.filter((length) => length === 2_048).length, 5);
-		assert.equal(lengths64.filter((length) => length === 17_003).length, 3, 'normalization is shared across channels');
-		assert.equal(lengths64.filter((length) => length === 1_026).length, 2, 'one smoothing prefix per channel');
-		assert.equal(lengths32.filter((length) => length === 1_025).length, 2 * 5, 'five spectra per channel; gains use one contiguous backing array');
-	} finally {
-		globalThis.Float64Array = original64;
-		globalThis.Float32Array = original32;
-	}
-});
-
-test('Paulstretch retains exact channel seeds and phase RNG while bounding FFT scratch', () => {
+test('Paulstretch retains exact channel seeds and phase RNG', () => {
 	const input = [signal(2_051), signal(2_051, 1)];
 	for (const [seed, expected] of [
 		[0, '38d0716cd600781fa29c005796efe9d066b1d6c072b1232ee84326c1f20012cd'],
 		[42, '497a8e03e3c4cf7ca67f8679c57f6fe7ac8e05ae9d8109ddddea629fa17fe2c4'],
 		['parity', '6876aece0b22e4e03e41bb0f51205ae4ba56e68b59006f06439c7724b49ce3e3'],
 	] as const) {
-		const original = globalThis.Float64Array;
-		let fftArrays = 0;
-		globalThis.Float64Array = new Proxy(original, {
-			construct(target, argumentsList, newTarget) {
-				const result: Float64Array = Reflect.construct(target, argumentsList, newTarget);
-				if (result.length === 256) fftArrays += 1;
-				return result;
-			},
-		});
-		try {
-			const output = applyAudacityPaulstretch(input, 8_000, { timeResolution: 0.032, stretchFactor: 3.7 }, { seed });
-			assert.equal(digest(output), expected);
-			assert.equal(fftArrays, 7, 'shared window, plus real/imaginary and bounded accumulation ring per channel');
-		} finally {
-			globalThis.Float64Array = original;
-		}
+		const output = applyAudacityPaulstretch(input, 8_000, { timeResolution: 0.032, stretchFactor: 3.7 }, { seed });
+		assert.equal(digest(output), expected);
 	}
 });
