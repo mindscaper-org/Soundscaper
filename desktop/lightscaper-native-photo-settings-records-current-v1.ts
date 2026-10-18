@@ -24,7 +24,7 @@ function present(database: DatabaseSync, scope: string, key: Uint8Array): boolea
 
 /** Every mutation owns a real immediate transaction. Parser/clone work is
  * already joined; a durable COMMIT acknowledgment has no later close check. */
-export function executeLightscaperNativePhotoSettingsRequestCurrentV1(database: DatabaseSync, scope: string, request: Request): unknown {
+export function executeLightscaperNativePhotoSettingsRequestCurrentV1(database: DatabaseSync, scope: string, request: Request, beforeCommit?: () => void): unknown {
 	// A failed ROLLBACK can leave uncommitted state on the private connection.
 	// Neither reads nor later mutations may publish that failed transaction.
 	if (database.isTransaction) throw new Error('Native Photo settings require ownership of their transaction.');
@@ -64,6 +64,7 @@ export function executeLightscaperNativePhotoSettingsRequestCurrentV1(database: 
 				}
 				break;
 		}
+		beforeCommit?.();
 		database.exec('COMMIT');
 		return result;
 	} catch (primary) {

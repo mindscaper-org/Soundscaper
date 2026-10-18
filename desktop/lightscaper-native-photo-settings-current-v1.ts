@@ -11,7 +11,10 @@ import { captureLightscaperNativePhotoSettingsRequestCurrentV1, encodeLightscape
 import { decodeLightscaperNativePhotoSettingCurrentV1 } from './lightscaper-native-photo-settings-codec-current-v1.ts';
 import { normalizePhotoImportIntentV1, photoImportIntentKeyV1, type PhotoImportIntentV1 } from '../src/lightscaper/import/import-intent-v1.ts';
 import { id } from '../src/lightscaper/catalog/value-validation.ts';
+import { photoImportPresetsKeyV1 } from '../src/lightscaper/storage/photo-import-presets-v1.ts';
 import { executeLightscaperNativePhotoSettingsRequestCurrentV1 } from './lightscaper-native-photo-settings-records-current-v1.ts';
+
+type ImportPresetMethod = 'get' | 'readEntry' | 'putIfAbsent' | 'replaceIfCurrent';
 
 /** Main-private settings custody. A scope is an immutable binding supplied by
  * the host, not proof of an allocation, selected library or deletion authority.
@@ -74,6 +77,24 @@ export class LightscaperNativePhotoSettingsCurrentV1 {
 			if (!(row.payload instanceof Uint8Array) || row.payload.byteLength !== row.payload_bytes) throw new TypeError('Native Photo import intent payload is malformed.');
 			return normalizePhotoImportIntentV1(decodeLightscaperNativePhotoSettingCurrentV1(row.payload), catalog);
 		});
+	}
+
+	/** Fixed-anchor single-key request for the genuine selected Session lease.
+	 * Native clone/canonical capture occurs before queue wait; epoch admission
+	 * is repeated inside the actual transaction before a durable CAS ACK. */
+	executeImportPresetRequestCurrentV1<Method extends ImportPresetMethod>(catalogId: string, method: Method,
+		args: Parameters<Settings[Method]>, assertCurrent: () => void): ReturnType<Settings[Method]> {
+		return this.#lifetime.run(() => {
+			this.#assertAnchor();
+			if (typeof assertCurrent !== 'function') throw new TypeError('Native import presets require selected epoch admission.');
+			assertCurrent(); const catalog = id(catalogId, 'native import-preset catalog ID');
+			if (method !== 'get' && method !== 'readEntry' && method !== 'putIfAbsent' && method !== 'replaceIfCurrent') throw new TypeError('Native import presets require a fixed settings method.');
+			if (args[0] !== photoImportPresetsKeyV1(catalog)) throw new TypeError('Native import presets require their exact selected catalog key.');
+			return captureLightscaperNativePhotoSettingsRequestCurrentV1(method, args, this.#scope);
+		}, request => {
+			assertCurrent();
+			return executeLightscaperNativePhotoSettingsRequestCurrentV1(this.#database, this.#scope, request, assertCurrent);
+		}) as ReturnType<Settings[Method]>;
 	}
 
 	readLibraryAnchorEntryCurrentV1(key: string): Promise<KeyValueEntry> {
