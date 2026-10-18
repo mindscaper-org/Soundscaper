@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, disableNativeSavePicker } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const inputMethod of ['ordinary arrows', 'modified arrow', 'composing arrow', 'composing Enter']) test(`Generate Tone releases ${inputMethod} in its shared frequency stepper`, async ({ page }) => {
+test('Generate Tone retains keyboard edits through modified and composing keys', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
@@ -17,14 +17,18 @@ for (const inputMethod of ['ordinary arrows', 'modified arrow', 'composing arrow
 	await frequency.click();
 	await frequency.press('ArrowUp');
 	await expect(frequency).toHaveValue('1001');
-	if (inputMethod === 'modified arrow') await frequency.press('Control+ArrowUp');
-	else if (inputMethod.startsWith('composing')) await frequency.evaluate((element, key) => {
-		element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
-		element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, isComposing: true }));
-		element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
-	}, inputMethod === 'composing arrow' ? 'ArrowUp' : 'Enter');
+	await frequency.press('Control+ArrowUp');
 	await expect(frequency).toHaveValue('1001');
 	await expect(dialog.locator('[data-generator-field="frequency"] .number-stepper')).toHaveClass(/number-stepper--editing/u);
+	for (const key of ['ArrowUp', 'Enter']) {
+		await frequency.evaluate((element, key) => {
+			element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+			element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, isComposing: true }));
+			element.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+		}, key);
+		await expect(frequency).toHaveValue('1001');
+		await expect(dialog.locator('[data-generator-field="frequency"] .number-stepper')).toHaveClass(/number-stepper--editing/u);
+	}
 	await frequency.press('ArrowDown');
 	await expect(frequency).toHaveValue('1000');
 	await dialog.getByRole('button', { name: 'Generate', exact: true }).click();

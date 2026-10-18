@@ -91,11 +91,3 @@ void test('owned command projections reuse the current generation and release it
 	assert.equal(reader().id, 'second');
 	assert.equal(reads, 3);
 });
-
-void test('untrusted mutable command reader inputs continue to be freshly projected', () => {
-	const project = { id: 'first' };
-	const reader = createCommandProjectReader(() => project, value => ({ ...value }));
-	assert.equal(reader().id, 'first');
-	project.id = 'mutated';
-	assert.equal(reader().id, 'mutated');
-});

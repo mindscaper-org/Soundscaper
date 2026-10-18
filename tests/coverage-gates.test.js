@@ -36,7 +36,9 @@ test('c8 discovers every maintained JavaScript and TypeScript production source'
 		// left every loader counted twice — once covered, once not.
 		'src/common/i18n/translations/**',
 	]);
-	for (const metric of ['lines', 'branches', 'functions']) assert.equal(config[metric], undefined);
+	for (const metric of ['lines', 'branches', 'functions', 'statements', 'check-coverage']) {
+		assert.equal(config[metric], undefined);
+	}
 });
 
 test('the local Node gate reports fresh coverage while CI checks the complete union', () => {
