@@ -71,6 +71,7 @@ test('Lightscaper native catalog refuses changing or removing existing unsupport
 		const stored = smart();
 		db.prepare('INSERT INTO native_photo_catalogs (id, document, root_revision, photo_count, index_revision) VALUES (?, ?, 0, 0, 0)')
 			.run(stored.id, serializeLightscaperDocumentV1(stored));
+		db.prepare('INSERT INTO native_photo_query_builds_v2 VALUES (?,1,NULL,0)').run(stored.id);
 		const before = db.prepare('SELECT * FROM native_photo_catalogs').get();
 		for (const candidate of [root(), { ...stored, name: 'Renamed' }, { ...stored, collections: stored.collections.map(value => ({ ...value, name: 'Changed' })) }]) {
 			assert.throws(() => saveRoot(db, candidate, 0), /smart|companion|unsupported/iu);

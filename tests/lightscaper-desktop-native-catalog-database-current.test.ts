@@ -49,10 +49,10 @@ test('Lightscaper native catalog initializes exactly its owned schema and enable
 	try {
 		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); initializeLightscaperNativeCatalogDatabaseCurrentV1(database);
 		assert.equal(scalar(database, 'PRAGMA application_id', 'application_id'), 0x4c534343);
-		assert.equal(scalar(database, 'PRAGMA user_version', 'user_version'), 1);
+		assert.equal(scalar(database, 'PRAGMA user_version', 'user_version'), 2);
 		assert.equal(scalar(database, 'PRAGMA foreign_keys', 'foreign_keys'), 1);
 		assert.deepEqual(database.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT GLOB 'sqlite_*' ORDER BY name").all().map(value => value.name),
-			['native_photo_catalogs', 'native_photo_memberships', 'native_photos']);
+			['native_photo_catalogs', 'native_photo_memberships', 'native_photo_query_builds_v2', 'native_photo_query_rows_v2', 'native_photos']);
 		assert.equal(database.isTransaction, false);
 	} finally { database.close(); }
 });
@@ -72,7 +72,7 @@ test('Lightscaper native catalog refuses unowned nonempty schemas including noni
 });
 
 test('Lightscaper native catalog refuses foreign application, Original-index identity and adjacent schema versions', () => {
-	for (const [application, version] of [[0x46534350, 1], [0x53534350, 1], [0x4c534350, 1], [0x4c534343, 2], [0, 1], [0x4c534343, 0]]) {
+	for (const [application, version] of [[0x46534350, 1], [0x53534350, 1], [0x4c534350, 1], [0x4c534343, 3], [0, 1], [0x4c534343, 0]]) {
 		const database = makeDatabase();
 		try {
 			database.exec(`PRAGMA application_id = ${application}; PRAGMA user_version = ${version}`);

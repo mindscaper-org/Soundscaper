@@ -5,11 +5,12 @@ import type { DatabaseSync } from 'node:sqlite';
 import { LIGHTSCAPER_CATALOG_LIMITS } from '../src/lightscaper/catalog/types.ts';
 import { PHOTO_CATALOG_REPOSITORY_LIMITS } from '../src/lightscaper/catalog/repository-types.ts';
 import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
+import { LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1 } from './lightscaper-native-query-schema-current-v1.ts';
 export { readLightscaperNativeCatalogRowCurrentV1, readLightscaperNativePhotoRowCurrentV1, readLightscaperNativeSummaryRowCurrentV1 } from './lightscaper-native-catalog-records-current-v1.ts';
 export type { LightscaperNativeCatalogSnapshotCurrentV1 } from './lightscaper-native-catalog-records-current-v1.ts';
 
 export const LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 = 0x4c534343;
-const VERSION = 1;
+const VERSION = 2;
 const SAFE = Number.MAX_SAFE_INTEGER;
 const DOCUMENT_BYTES = LIGHTSCAPER_CATALOG_LIMITS.maximumDocumentBytes;
 const SUMMARY_BYTES = PHOTO_CATALOG_REPOSITORY_LIMITS.maximumSummaryBytes;
@@ -62,19 +63,30 @@ export function initializeLightscaperNativeCatalogDatabaseCurrentV1(database: Da
 	withProjectLibraryImmediateTransaction(database, () => {
 		const application = pragma(database, 'application_id'), version = pragma(database, 'user_version');
 		if (application === 0 && version === 0 && schema(database).length === 0) {
-			for (const entry of SCHEMA) database.exec(entry.sql);
+			for (const entry of [...SCHEMA, ...LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1]) database.exec(entry.sql);
 			database.exec(`PRAGMA application_id = ${LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1}`);
+			database.exec(`PRAGMA user_version = ${VERSION}`);
+		} else if (application === LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 && version === 1) {
+			assertSchema(database, SCHEMA);
+			for (const entry of LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1) database.exec(entry.sql);
+			// Migrate identity only: metadata projection is bounded rebuild work, never
+			// an unbounded Photo/Develop aggregate load during database open.
+			database.exec('INSERT INTO native_photo_query_builds_v2(catalog_id,ready,after_key,indexed_count) SELECT id,0,NULL,0 FROM native_photo_catalogs');
 			database.exec(`PRAGMA user_version = ${VERSION}`);
 		} else if (application !== LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 || version !== VERSION) {
 			throw new Error('Native Photo catalog database is unowned or has an unsupported identity.');
 		}
-		const actual = schema(database);
-		if (actual.length !== SCHEMA.length || actual.some(row => !SCHEMA.some(entry =>
-			row.name === entry.name && row.type === entry.type && row.sql === entry.sql))) {
-			throw new Error('Native Photo catalog schema differs from its exact owned version.');
-		}
+		assertSchema(database, [...SCHEMA, ...LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1]);
 	});
 }
+function assertSchema(database: DatabaseSync, expected: readonly Readonly<{ type: string; name: string; sql: string }>[]): void {
+	const actual = schema(database);
+	if (actual.length !== expected.length || actual.some(row => !expected.some(entry =>
+		row.name === entry.name && row.type === entry.type && row.sql === entry.sql))) {
+		throw new Error('Native Photo catalog schema differs from its exact owned version.');
+	}
+}
+
 function schema(database: DatabaseSync) {
 	// GLOB keeps the underscore literal; sqliteXforeign is user-owned data.
 	return database.prepare("SELECT type,name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name").all();

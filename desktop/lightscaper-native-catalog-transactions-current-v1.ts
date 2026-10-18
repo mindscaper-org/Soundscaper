@@ -12,6 +12,7 @@ import { id, integer } from '../src/lightscaper/catalog/value-validation.ts';
 import { readLightscaperNativeCatalogRowCurrentV1, readLightscaperNativePhotoRowCurrentV1 } from './lightscaper-native-catalog-database-current-v1.ts';
 import { readLightscaperNativeCatalogPhotoAdmissionCurrentV1 } from './lightscaper-native-catalog-admission-current-v1.ts';
 import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
+import { getLightscaperNativeQueryBuildCurrentV1, writeLightscaperNativeQueryBuildCurrentV1, writeLightscaperNativeQueryPhotoCurrentV1 } from './lightscaper-native-query-write-current-v1.ts';
 
 type Catalog = ReturnType<typeof readLightscaperNativeCatalogRowCurrentV1>;
 const ROOT_COLUMNS = 'id, document, root_revision, photo_count, index_revision';
@@ -27,6 +28,7 @@ export function createLightscaperNativeCatalogCurrentV1(database: DatabaseSync, 
 		if (loadLightscaperNativeCatalogCurrentV1(database, root.id)) throw new RangeError('Photo catalog already exists.');
 		database.prepare('INSERT INTO native_photo_catalogs (id, document, root_revision, photo_count, index_revision) VALUES (?, ?, ?, ?, ?)')
 			.run(root.id, serializeLightscaperDocumentV1(root), root.revision, root.photoCount, 0);
+		writeLightscaperNativeQueryBuildCurrentV1(database, { id: root.id, schemaVersion: 2, ready: true, afterKey: null, indexedCount: 0 });
 	});
 }
 
@@ -124,7 +126,14 @@ function catalog(database: DatabaseSync, catalogId: string): Catalog | null {
 	return row === undefined ? null : readLightscaperNativeCatalogRowCurrentV1(row, catalogId);
 }
 function requiredCatalog(database: DatabaseSync, catalogId: string): Catalog {
-	const current = catalog(database, catalogId); if (!current) throw new ReferenceError('Photo catalog is missing.'); return current;
+	const current = catalog(database, catalogId); if (!current) throw new ReferenceError('Photo catalog is missing.');
+	const build = getLightscaperNativeQueryBuildCurrentV1(database, catalogId);
+	// Check once before a batch mutates rows. During insertion its derived count
+	// legitimately advances before the same transaction publishes the new root.
+	if (!build || build.indexedCount > current.root.photoCount || build.ready && build.indexedCount !== current.root.photoCount) {
+		throw new TypeError('Native query build count disagrees with its catalog.');
+	}
+	return current;
 }
 function writeRoot(database: DatabaseSync, previous: Catalog, root: PhotoCatalogRootV1): void {
 	const state = indexState(root, previous.index.indexRevision + 1);
@@ -144,6 +153,7 @@ function writePhoto(database: DatabaseSync, photo: PhotoDocumentCurrentV1, expec
 	}
 	for (const membership of photoMemberships(photo)) database.prepare('INSERT INTO native_photo_memberships (key, scope, photo_key, catalog_id) VALUES (?, ?, ?, ?)')
 		.run(membership.key, membership.scope, membership.photoKey, photo.catalogId);
+	writeLightscaperNativeQueryPhotoCurrentV1(database, photo, expectedRevision === undefined ? 'insert' : 'replace');
 }
 function revision(value: unknown): number { return integer(value, 0, Number.MAX_SAFE_INTEGER, 'expected revision'); }
 

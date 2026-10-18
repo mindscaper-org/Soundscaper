@@ -20,6 +20,10 @@ import { createLightscaperNativeCatalogCurrentV1 as create, loadLightscaperNativ
 	saveLightscaperNativePhotoCurrentV1 as savePhoto } from './lightscaper-native-catalog-transactions-current-v1.ts';
 import { readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';
 import { LightscaperNativeOriginalStoreCurrentV1 } from './lightscaper-native-original-store-current-v1.ts';
+import type { PhotoQueryPageRequestV2, PhotoQueryPageV2 } from '../src/lightscaper/catalog/photo-query-types-v2.ts';
+import type { PhotoQueryBuildProgressV2 } from '../src/lightscaper/catalog/photo-query-index-storage-v2.ts';
+import { admitLightscaperNativeQueryPageCurrentV1, readAdmittedLightscaperNativeQueryPageCurrentV1 } from './lightscaper-native-query-pages-current-v1.ts';
+import { rebuildLightscaperNativeQueryIndexPageCurrentV1 } from './lightscaper-native-query-rebuild-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
 type OpenOptions = Readonly<{ appDataPath: string; verifyResources?: LightscaperNativeCatalogVerificationCurrentV1['verifyResources'] }>;
@@ -100,6 +104,14 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 	readSnapshot(catalogId: string, options: Options = {}): Promise<LightscaperNativeCatalogSnapshotViewCurrentV1 | null> {
 		return this.#request(() => admitLightscaperNativeCatalogSnapshotCurrentV1(catalogId, options),
 			value => readLightscaperNativeCatalogSnapshotCurrentV1(this.#database, value.catalogId, { signal: value.signal }));
+	}
+	readQueryPageV2(catalogId: string, options: PhotoQueryPageRequestV2 = {}): Promise<PhotoQueryPageV2> {
+		return this.#request(() => admitLightscaperNativeQueryPageCurrentV1(catalogId, options),
+			value => readAdmittedLightscaperNativeQueryPageCurrentV1(this.#database, value));
+	}
+	rebuildQueryIndexPageV2(catalogId: string, options: Options = {}): Promise<PhotoQueryBuildProgressV2> {
+		return this.#request(() => ({ catalogId: id(catalogId, 'query rebuild catalog ID'), signal: signal(options) }),
+			value => rebuildLightscaperNativeQueryIndexPageCurrentV1(this.#database, value.catalogId, { signal: value.signal }));
 	}
 	storeOriginal(value: unknown, chunks: AsyncIterable<Uint8Array>, options: Options = {}): Promise<Readonly<PhotoOriginalV1>> {
 		return this.#request(() => ({ original: readLightscaperNativeOriginalCurrentV1(value), signal: signal(options) }),

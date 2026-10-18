@@ -8,6 +8,7 @@ import { LIGHTSCAPER_CATALOG_LIMITS } from './types.ts';
 import { field, id, integer, record, text, uniqueIds } from './value-validation.ts';
 import { PHOTO_QUERY_LIMITS_V1, type PhotoCatalogQueryV1 } from './photo-query-types-v1.ts';
 import { request } from '../../common/editor/storage/indexeddb-backend.ts';
+export { PhotoQueryIndexNotReadyError } from './photo-query-errors.ts';
 
 export interface PhotoQueryRowV1 {
 	readonly schemaVersion: 1;
@@ -90,11 +91,6 @@ export async function publishPhotoQueryRowV1(stores: Readonly<Record<string, IDB
 	await request(stores.photoQueryRows.put(row));
 	if (previous === undefined) await request(stores.photoQueryBuildStates.put(readPhotoQueryBuildStateV1({ ...build, indexedCount: build.indexedCount + 1 }, row.catalogId)));
 }
-export class PhotoQueryIndexNotReadyError extends Error {
-	readonly code = 'PHOTO_QUERY_INDEX_NOT_READY';
-	constructor() { super('The photo query index is not ready; resume its bounded rebuild.'); this.name = 'PhotoQueryIndexNotReadyError'; }
-}
-
 export function photoQueryBuildProgressV1(processed: number, bytes: number, ready: boolean) {
 	return Object.freeze({ processed: integer(processed, 0, PHOTO_QUERY_LIMITS_V1.rebuildPhotos, 'rebuilt photos'),
 		bytes: integer(bytes, 0, PHOTO_QUERY_LIMITS_V1.rebuildBytes, 'rebuilt bytes'), ready });

@@ -55,7 +55,7 @@ been qualified. Current component qualification uses actual Linux files and
 SQLite; it does not establish native Windows, ARM64 or macOS qualification.
 
 `native-photo-catalogs.sqlite3` admits its own exact `LSCC` application identity,
-version 1, STRICT tables and indexes. One row atomically binds a validated
+version 2, STRICT tables and indexes. One row atomically binds a validated
 catalog root to its root revision, photo count and independently advancing
 index revision. Whole Photo1/2/3 documents retain their declared versions;
 bounded summaries and memberships belong to the same publication transaction.
@@ -71,7 +71,28 @@ single SQLite read snapshot binds the root/index fence to its ordered page,
 including when another WAL connection commits during the read. Continuations
 bind catalog, filter scope and index revision. Smart definitions cannot be
 created or changed until their native companion storage is implemented. This
-schema does not implement live queries, stacks or saved smart collections.
+schema does not implement collapsed stack queries or saved smart collections.
+
+Ordinary Query2 search, metadata predicates and all four sort fields use the
+existing shared query contracts and matcher. Each SQLite read snapshot binds
+the root, index epoch, build readiness and at most 64 candidates; sparse matches
+may produce empty pages with a continuation. Paging streams one complete
+metadata projection at a time and returns bounded summaries, without loading
+Photo/Develop aggregates. Filename index keys encode JavaScript UTF-16 code
+units as big-endian BLOBs, preserving browser ordering for astral characters,
+unpaired surrogates and lowercase expansion. Capture-time queries visit dated
+Photos before the unknown bucket in both sort directions.
+
+An exact historical version 1 schema migrates transactionally without reading
+or rewriting Photo aggregates. Its catalogs start with an unready derived
+index. Explicit rebuild steps process at most 16 Photos and 8 MiB of combined
+canonical source and derived bytes, retaining a durable catalog-scoped cursor.
+Actual source exhaustion authenticates the physical derived-row count before
+readiness. Ordinary pages trust the count maintained by atomic writers; they
+do not scan the full index on every request. Imports, edits and derived Photo
+publication update query rows and counts in their existing transaction,
+including while a rebuild is partial. New catalogs start ready and empty.
+Rebuilds need no Original bodies, decoders or resource verification services.
 
 The composing main-private owner captures request metadata before waiting,
 serializes publication, joins verification and file work before close, and
@@ -81,7 +102,7 @@ filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
 scalar-only paging, cancellation, and reentrant close. They do not qualify a
 packaged renderer adapter or another platform.
 
-The remaining adapter must add native query/stack/saved-collection companions,
+The remaining adapter must add native stack/culling and saved-collection companions,
 resource ownership, settings, journals and restore, then preserve all complete
 session/publication/recovery ports through selected-catalog renderer admission.
 Its media publication port must receive the whole validated Original; the

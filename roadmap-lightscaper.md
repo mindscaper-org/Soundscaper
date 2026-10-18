@@ -1209,9 +1209,14 @@ now has a main-private immutable Original body owner, a dedicated SQLite
 physical-binding index and separate native Current catalog persistence.
 Atomic root/Photo/summary/membership publication, source-guarded derived saves,
 bounded scalar paging and joined owner retirement have actual Linux filesystem
-and SQLite coverage, including independent WAL connections. These components
-are not yet selected by the application. Native query/stack/saved-collection
-companions, resources, settings, journals/restore, renderer admission and
+and SQLite coverage, including independent WAL connections. Native ordinary
+Query2 search, metadata predicates and global sorting now stream bounded
+candidate pages. Exact version 1 catalogs migrate without loading Photo
+aggregates, then rebuild in resumable 16-Photo/8-MiB steps while atomic imports
+and edits keep their derived rows current. UTF-16 filename keys preserve browser
+ordering, including unpaired surrogates. These components are not yet selected
+by the application. Native stack/culling and saved-collection companions,
+resources, settings, journals/restore, renderer admission and
 menu-owned library selection remain required before activation; add-in-place
 access and native platform qualification remain open.
 
