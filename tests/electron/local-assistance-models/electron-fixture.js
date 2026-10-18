@@ -4,7 +4,7 @@
 
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { access, mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
@@ -22,6 +22,7 @@ import {
 	completeLocalAssistanceCoverage,
 	prepareLocalAssistanceRuntimeCoverage,
 } from './runtime-coverage.js';
+import { readModelGpuEvidence } from './model-gpu-evidence.ts';
 
 const STARTUP_TIMEOUT_MS = 90_000;
 const PUBLIC_DELIVERY_TIMEOUT_MS = 120_000;
@@ -48,6 +49,7 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 		target,
 	});
 	const profile = await mkdtemp(join(tmpdir(), 'scape-real-models-'));
+	const gpuEvidenceRoot = join(profile, 'gpu-execution-evidence');
 	let child;
 	let browser;
 	let page;
@@ -92,8 +94,11 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 		if (failure !== null) throw failure;
 	};
 	try {
+		await mkdir(gpuEvidenceRoot, { mode: 0o700 });
 		const port = await reserveLoopbackPort();
-		let environment = { ...process.env, SOUNDSCAPER_LOCAL_ASSISTANCE_PRODUCT_ID: productId };
+		let environment = { ...process.env, SOUNDSCAPER_LOCAL_ASSISTANCE_PRODUCT_ID: productId,
+			SOUNDSCAPER_ASSISTANCE_GPU_VALIDATION: '1',
+			SOUNDSCAPER_ASSISTANCE_GPU_EVIDENCE_ROOT: gpuEvidenceRoot };
 		delete environment.ELECTRON_RUN_AS_NODE;
 		delete environment.NODE_V8_COVERAGE;
 		let coverageLaunch = null;
@@ -152,6 +157,7 @@ export async function launchModelTestElectron({ testInfo, productId = 'framescap
 			undefined, { timeout: STARTUP_TIMEOUT_MS });
 		}
 		return Object.freeze({ page, processLog, close, packageIdentity,
+			readGpuEvidence: (jobId) => readModelGpuEvidence(gpuEvidenceRoot, jobId),
 			installModel: (model) => installModel(page, model, packageIdentity, testInfo),
 		});
 	} catch (cause) {

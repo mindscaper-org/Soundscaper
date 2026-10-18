@@ -7,6 +7,8 @@ import { createAssistanceVisualFramePackV2 } from '../../../src/common/editor/as
 import { createAssistanceEditorialGenerationPlanV1 } from '../../../src/common/editor/assistance/editorial-generation-v1.ts';
 import { reviewAssistanceFloat32MonoWaveV1 } from '../../../src/common/editor/assistance/float32-mono-wave-v1.ts';
 import { createAssistanceFramePackV1 } from '../../../src/common/editor/assistance/binary-formats-v1.ts';
+import { MODEL_OCR_FIXTURE, MODEL_OCR_TEXT_LINES, MODEL_SUBJECT_FIXTURE } from './model-fixture-semantics.ts';
+import { MODEL_BEAT_FIXTURE, MODEL_JFK_TEXT, MODEL_SHOT_FIXTURE, MODEL_TRANSCRIPT_FIXTURE } from './model-deterministic-fixture-semantics.ts';
 
 const HASHES = Object.freeze({
 	'jfk.wav': '59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e',
@@ -63,7 +65,8 @@ export async function loadSpeechFixture(noisy) {
 		const hiss = (seed / 0x1_0000_0000 * 2 - 1) * 0.035;
 		samples[i] = mono[left] * (1 - fraction) + mono[Math.min(left + 1, mono.length - 1)] * fraction + hiss;
 	}
-	return { bytes: encodeFloatWave(samples, sampleRate), role: 'audio', mediaType: 'audio/wav', sampleRate, frameCount: samples.length };
+	return { bytes: encodeFloatWave(samples, sampleRate), role: 'audio', mediaType: 'audio/wav', sampleRate, frameCount: samples.length,
+		expectedTranscript: MODEL_TRANSCRIPT_FIXTURE };
 }
 
 export async function prepareModelInput(fixtureId, page) {
@@ -76,7 +79,7 @@ export async function prepareModelInput(fixtureId, page) {
 	if (fixtureId === 'noisy-speech-48khz') return loadSpeechFixture(true);
 	if (fixtureId === 'aligned-speech-16khz') {
 		const input = await loadSpeechFixture(false);
-		const text = 'And so my fellow Americans ask not what your country can do for you ask what you can do for your country';
+		const text = MODEL_JFK_TEXT;
 		return { ...input, expectedWords: text.split(' '), additionalInputs: [{ role: 'transcript',
 			mediaType: 'application/vnd.soundscaper.transcript+json',
 			bytes: Buffer.from(JSON.stringify({ language: 'en', segments: [{ startSeconds: 1,
@@ -107,7 +110,7 @@ export async function prepareModelInput(fixtureId, page) {
 	const photos = fixtureId !== 'visual-text-frames'
 		? await Promise.all(['astronaut.png', 'chelsea.png'].map(async (name) => (await authenticatedFixture(name)).toString('base64')))
 		: [null];
-	const rasters = await page.evaluate(async ({ sources, width, height }) => {
+	const rasters = await page.evaluate(async ({ sources, width, height, textLines }) => {
 		const canvas = document.createElement('canvas');
 		canvas.width = width; canvas.height = height;
 		const context = canvas.getContext('2d');
@@ -123,21 +126,24 @@ export async function prepareModelInput(fixtureId, page) {
 				context.drawImage(image, (width - drawnWidth) / 2, (height - drawnHeight) / 2, drawnWidth, drawnHeight);
 			} else {
 				context.fillStyle = 'black'; context.font = 'bold 54px sans-serif';
-				context.fillText('LOCAL MODEL', 35, 200);
-				context.fillText('TEST', 175, 280);
+				context.fillText(textLines[0], 35, 200);
+				context.fillText(textLines[1], 175, 280);
 			}
 			frames.push(Array.from(context.getImageData(0, 0, width, height).data));
 		}
 		return frames;
-	}, { sources: photos, width, height });
-	const sequence = shots ? Array.from({ length: 120 }, (_, index) => rasters[index < 60 ? 0 : 1]) : rasters;
+	}, { sources: photos, width, height, textLines: MODEL_OCR_TEXT_LINES });
+	const sequence = shots ? Array.from({ length: 120 }, (_, index) => rasters[index < MODEL_SHOT_FIXTURE.sourceFrame ? 0 : 1]) : rasters;
 	const frames = sequence.map((pixels, index) => ({ sourceFrame: index, presentationTick: String(index), rgba: Uint8Array.from(pixels) }));
 	const authority = { width, height, timescale: 30,
 		frames: frames.map(({ sourceFrame, presentationTick }) => ({ sourceFrame, presentationTick })) };
 	const chunks = shots ? createAssistanceFramePackV1({ width, height, timescale: 30, frames })
 		: createAssistanceVisualFramePackV2({ sourceWidth: width, sourceHeight: height,
 			rasterWidth: width, rasterHeight: height, timescale: 30, frames });
-	return { bytes: Buffer.concat(chunks), role: 'frame-pack', mediaType: 'application/vnd.soundscaper.frame-pack', frameCount: frames.length, authority };
+	return { bytes: Buffer.concat(chunks), role: 'frame-pack', mediaType: 'application/vnd.soundscaper.frame-pack', frameCount: frames.length, authority,
+		...(fixtureId === 'visual-text-frames' ? { expectedOcr: MODEL_OCR_FIXTURE } : {}),
+		...(fixtureId === 'visual-subject-frames' ? { expectedSubjects: MODEL_SUBJECT_FIXTURE } : {}),
+		...(shots ? { expectedShotBoundaries: MODEL_SHOT_FIXTURE } : {}) };
 }
 
 async function additionalAudioInput(fixtureId) {
@@ -145,7 +151,8 @@ async function additionalAudioInput(fixtureId) {
 	const sampleRate = rhythmic ? 22_050 : fixtureId === 'speech-tags-32khz' ? 32_000 : 44_100;
 	const original = await loadSpeechFixture(false);
 	const speech = reviewAssistanceFloat32MonoWaveV1(original.bytes, original.sampleRate).samples;
-	const samples = new Float32Array(rhythmic ? sampleRate * 16 : Math.round(speech.length * sampleRate / original.sampleRate));
+	const samples = new Float32Array(rhythmic ? sampleRate * MODEL_BEAT_FIXTURE.count * MODEL_BEAT_FIXTURE.intervalSeconds
+		: Math.round(speech.length * sampleRate / original.sampleRate));
 	for (let index = 0; index < samples.length; index += 1) {
 		const time = index / sampleRate;
 		const position = index * original.sampleRate / sampleRate;
@@ -153,8 +160,8 @@ async function additionalAudioInput(fixtureId) {
 		const fraction = position - left;
 		let sample = rhythmic ? 0 : speech[left] * (1 - fraction) + speech[Math.min(left + 1, speech.length - 1)] * fraction;
 		if (rhythmic || fixtureId === 'mixed-speech-44100hz') {
-			const beatTime = time % 0.5;
-			const beat = Math.floor(time * 2);
+			const beatTime = time % MODEL_BEAT_FIXTURE.intervalSeconds;
+			const beat = Math.floor(time / MODEL_BEAT_FIXTURE.intervalSeconds);
 			const kick = 0.35 * Math.exp(-beatTime * 22) * Math.sin(2 * Math.PI * (55 * beatTime + 3 * (1 - Math.exp(-beatTime * 30))));
 			const hat = 0.08 * Math.exp(-(time % 0.25) * 100) * Math.sin(2 * Math.PI * 6_000 * time);
 			const chord = 0.035 * Math.sin(2 * Math.PI * [220, 261.6256, 329.6276, 293.6648][Math.floor(beat / 4) % 4] * time);
@@ -169,5 +176,6 @@ async function additionalAudioInput(fixtureId) {
 			for (let index = offset; index < samples.length; index += 1) samples[index] += dry[index - offset] * gain;
 		}
 	}
-	return { bytes: encodeFloatWave(samples, sampleRate), role: 'audio', mediaType: 'audio/wav', sampleRate, frameCount: samples.length };
+	return { bytes: encodeFloatWave(samples, sampleRate), role: 'audio', mediaType: 'audio/wav', sampleRate, frameCount: samples.length,
+		...(rhythmic ? { expectedBeatGrid: MODEL_BEAT_FIXTURE } : {}) };
 }

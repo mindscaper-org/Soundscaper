@@ -98,6 +98,26 @@ class KokoroG2PHelperTests(unittest.TestCase):
             }):
                 self.assertEqual(helper.phonemize("j", "jf_alpha", "こんにちは。"), ["koɲɲiʨiβa."])
 
+    def test_strict_gpu_mode_forwards_the_private_profile_before_model_load(self):
+        calls = []
+        native = types.SimpleNamespace(close=lambda: calls.append("close"))
+        class Pipeline:
+            def __init__(self, **_):
+                calls.append("model")
+            def __call__(self, *_args, **_kwargs):
+                yield types.SimpleNamespace(phonemes="hɛloʊ")
+        modules = {
+            "spacy": types.SimpleNamespace(util=types.SimpleNamespace(is_package=lambda _: True)),
+            "assistance_kokoro_g2p_gpu": types.SimpleNamespace(
+                install_gpu_ops=lambda **kwargs: (calls.append(kwargs), native)[1]),
+            "kokoro": types.SimpleNamespace(KPipeline=Pipeline),
+        }
+        profile = str(SOURCE.parent / "private-profile")
+        with patch.dict(sys.modules, modules), patch.dict(os.environ, {
+                "SCAPE_KOKORO_REQUIRE_GPU": "1", "SCAPE_KOKORO_GPU_PROFILE_PREFIX": profile}):
+            self.assertEqual(helper.phonemize("a", "af_heart", "Hello"), ["hɛloʊ"])
+        self.assertEqual(calls, [{"profile": profile, "require_gpu": True}, "model", "close"])
+
 
 if __name__ == "__main__":
     unittest.main()

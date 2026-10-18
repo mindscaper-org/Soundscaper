@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { encodeFloatWave } from './electron/local-assistance-models/model-inputs.js';
 import { validateModelOutput, validateModelOutputs } from './electron/local-assistance-models/model-output-validation.js';
+import { MODEL_BEAT_FIXTURE, MODEL_SHOT_FIXTURE } from './electron/local-assistance-models/model-deterministic-fixture-semantics.ts';
 
 const bytes = (value) => Buffer.from(JSON.stringify(value));
 const input = { bytes: Buffer.from('source'), frameCount: 64_000, sampleRate: 32_000 };
@@ -27,15 +28,18 @@ test('audio tag smoke check rejects missing windows and collapsed probabilities'
 		({ ...row, scores: { laughter: 0, applause: 0, cheering: 0 } })) }), input));
 });
 
-test('beat and shot smoke checks require predictions inside the input authority', () => {
-	const beat = { schemaVersion: 1, sampleRate: 22_050, points: [{ sample: 100, kind: 'beat', confidence: 0.8 }], tempoProposal: null };
-	assert.equal(validateModelOutput('beat-grid', bytes(beat), { ...input, sampleRate: 22_050 }).points, 1);
-	assert.throws(() => validateModelOutput('beat-grid', bytes({ ...beat, points: [] }), input));
-	assert.throws(() => validateModelOutput('beat-grid', bytes(beat), { ...input, frameCount: 99 }));
-	const source = { ...input, frameCount: 2, authority: { timescale: 30,
-		frames: [{ sourceFrame: 0, presentationTick: '0' }, { sourceFrame: 1, presentationTick: '1' }] } };
-	const shots = { schemaVersion: 1, detector: 'transnetv2', timescale: 30, sourceFrameCount: 2,
-		boundaries: [{ sourceFrame: 1, presentationTick: '1', score: 0.8 }] };
+test('beat and shot checks require known predictions inside the input authority', () => {
+	const rhythmic = { ...input, sampleRate: 22_050, frameCount: 352_800, expectedBeatGrid: MODEL_BEAT_FIXTURE };
+	const beat = { schemaVersion: 1, sampleRate: 22_050,
+		points: Array.from({ length: 32 }, (_, index) => ({ sample: index * 11_025, kind: 'beat', confidence: 0.8 })),
+		tempoProposal: { kind: 'constant', bpm: 120 } };
+	assert.equal(validateModelOutput('beat-grid', bytes(beat), rhythmic).points, 32);
+	assert.throws(() => validateModelOutput('beat-grid', bytes({ ...beat, points: [] }), rhythmic));
+	assert.throws(() => validateModelOutput('beat-grid', bytes(beat), { ...rhythmic, frameCount: 99 }));
+	const source = { ...input, frameCount: 120, expectedShotBoundaries: MODEL_SHOT_FIXTURE, authority: { timescale: 30,
+		frames: Array.from({ length: 120 }, (_, sourceFrame) => ({ sourceFrame, presentationTick: String(sourceFrame) })) } };
+	const shots = { schemaVersion: 1, detector: 'transnetv2', timescale: 30, sourceFrameCount: 120,
+		boundaries: [{ sourceFrame: 60, presentationTick: '60', score: 0.8 }] };
 	assert.equal(validateModelOutput('shot-boundaries', bytes(shots), source).boundaries, 1);
 	assert.throws(() => validateModelOutput('shot-boundaries', bytes({ ...shots, boundaries: [] }), source));
 	assert.throws(() => validateModelOutput('shot-boundaries', bytes({ ...shots,

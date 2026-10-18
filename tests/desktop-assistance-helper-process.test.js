@@ -11,7 +11,10 @@ test('the assistance utility process advertises only native speech', async () =>
 	const posted = [];
 	const worker = createAssistanceHelperWorker({
 		post: (message) => posted.push(message),
-		runJob: () => ({ completion: Promise.resolve({ available: false, reason: null, moduleId: 'sherpa-onnx-node' }), cancel: async () => {} }),
+		runJob: ({ jobId }) => {
+			assert.equal(jobId, JOB_ID, 'private inference evidence retains the admitted job correlation');
+			return { completion: Promise.resolve({ available: false, reason: null, moduleId: 'sherpa-onnx-node' }), cancel: async () => {} };
+		},
 		setIntervalImpl: () => ({ unref() {} }),
 		clearIntervalImpl: () => {},
 	});

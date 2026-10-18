@@ -7,6 +7,7 @@ import { extract, list } from 'tar';
 import { runDesktopAssistanceBuildCommand, withDesktopAssistanceBuildWork } from './desktop-assistance-build-process.mjs';
 import { desktopLlamaCppNotices } from './desktop-assistance-llama-notices.mjs';
 import { buildDesktopVulkanCompanion } from './desktop-assistance-vulkan-companion.mjs';
+import { patchDesktopAssistanceGgmlGpuReceipt } from './desktop-assistance-ggml-gpu-receipts.mjs';
 
 export const LLAMA_RUNTIME_VERSION = 'b10509';
 export const LLAMA_RUNTIME_BUILD_TARGETS = Object.freeze(['mac-arm64', 'linux-x64', 'linux-arm64', 'win-x64', 'win-arm64']);
@@ -100,6 +101,7 @@ export async function stageDesktopLlamaCppRuntime({
 		if (hash(completionSource) !== COMPLETION_SOURCE_SHA256) throw new Error('The llama.cpp completion patch source changed.');
 		const patchedCompletion = patchLlamaCppCompletion(completionSource);
 		await writeFile(completionPath, patchedCompletion);
+		const gpuReceiptPatch = await patchDesktopAssistanceGgmlGpuReceipt(source, 'llama-cpp');
 		const configureArgs = ['-S', source, '-B', build, ...plan.configureArgs];
 		if (platform !== 'win32') {
 			const flags = `-ffile-prefix-map=${work}=/usr/src/llama-build -fno-ident`;
@@ -126,7 +128,7 @@ export async function stageDesktopLlamaCppRuntime({
 			notices: notices.map(({ path, bytes, sources }) => ({ path, sources, byteLength: bytes.byteLength, sha256: hash(bytes) })),
 			patches: [{ id: 'completion-reasoning-and-json-stdout-v1', file: 'tools/completion/completion.cpp',
 				inputSha256: COMPLETION_SOURCE_SHA256, outputSha256: hash(patchedCompletion),
-				patchSha256: hash(JSON.stringify(COMPLETION_PATCHES)) }],
+				patchSha256: hash(JSON.stringify(COMPLETION_PATCHES)) }, gpuReceiptPatch],
 			reproducibleFlags: platform === 'win32' ? ['/Brepro'] : ['-ffile-prefix-map=<work>=/usr/src/llama-build', '-fno-ident'],
 		};
 		const targetRoot = join(runtimeRoot, 'assistance', 'llama-cpp', LLAMA_RUNTIME_VERSION, targetId);

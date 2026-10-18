@@ -18,6 +18,7 @@ import {
 import {
 	createAssistanceLlamaCppWorkerSpawnerV1,
 } from './assistance-llama-cpp-worker.ts';
+import { isAssistanceGpuValidationEnabled } from './assistance-gpu-validation.ts';
 
 export interface AssistanceRuntimeFamilyHelperProcessOptions {
 	readonly post: (message: unknown) => void;
@@ -91,7 +92,7 @@ const utilityParentPort = (globalThis.process as typeof process & {
 if (utilityParentPort && typeof utilityParentPort.postMessage === 'function'
 	&& typeof utilityParentPort.on === 'function') {
 	const helper = createAssistanceRuntimeFamilyHelperProcessV1({
-		residentOnnx: true,
+		residentOnnx: !isAssistanceGpuValidationEnabled(),
 		post: (message) => utilityParentPort.postMessage(message),
 		exit: (code) => process.exit(code),
 	});

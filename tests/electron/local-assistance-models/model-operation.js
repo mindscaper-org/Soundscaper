@@ -58,7 +58,7 @@ export async function executeModelOperation(page, request) {
 				...(value.operation === 'text-to-speech' ? { settings: value.settings } : {}),
 				models, inputs, outputs });
 			const elapsedMs = performance.now() - started;
-			if (outcome.outcome !== 'completed') return { outcome, elapsedMs, progress, models, outputs: [] };
+			if (outcome.outcome !== 'completed') return { jobId, outcome, elapsedMs, progress, models, outputs: [] };
 			if (outcome.result.outputs.length !== outputs.length) throw new Error('Model output count differs from its reservations.');
 			const results = [];
 			for (const reservation of outputs) {
@@ -69,7 +69,7 @@ export async function executeModelOperation(page, request) {
 				const blob = await bridge.readOutput({ jobId, claim: claims[0] });
 				results.push({ claim: claims[0], bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) });
 			}
-			return { outcome, elapsedMs, progress, models, outputs: results };
+			return { jobId, outcome, elapsedMs, progress, models, outputs: results };
 		} finally {
 			unsubscribe();
 			await bridge.release(jobId);

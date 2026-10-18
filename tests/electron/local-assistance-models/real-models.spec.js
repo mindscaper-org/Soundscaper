@@ -13,9 +13,11 @@ import { executeModelOperation, modelOutputReservations } from './model-operatio
 import { localAssistanceCaseRunsInProduct } from './product-case-policy.js';
 import { KOKORO_LANGUAGE_CANARIES } from './kokoro-language-canaries.js';
 import { modelTestCleanupDiagnostic, withModelTestElectron } from './model-test-lifecycle.js';
+import { assertModelGpuEvidence } from './model-gpu-evidence.ts';
+import { ModelFixtureMismatchError } from './model-fixture-semantics.ts';
 
 for (const modelCase of validateLocalModelRealTestCases(manifest, catalog, { candidateTasks: catalogTasks.tasks })) {
-	test(`${modelCase.id}: downloads and executes ${modelCase.modelIds.join(' + ')}`, async ({ browserName: _browserName }, testInfo) => {
+	test(`${modelCase.id}: downloads and executes ${modelCase.modelIds.join(' + ')} on GPU`, async ({ browserName: _browserName }, testInfo) => {
 		const productId = testInfo.project.metadata.productId;
 		test.skip(!localAssistanceCaseRunsInProduct(productId, modelCase.operation),
 			`${modelCase.operation} is not packaged for ${productId}.`);
@@ -55,11 +57,12 @@ for (const modelCase of validateLocalModelRealTestCases(manifest, catalog, { can
 					role: entry.role, mediaType: entry.mediaType, sha256: digest(entry.bytes) })),
 				outputs: modelOutputReservations(modelCase.operation),
 			}));
+			const gpuExecution = await electron.readGpuEvidence(run.jobId);
 			const { models: runtimeModels, ...execution } = run;
 			await testInfo.attach('inference-evidence.json', { body: JSON.stringify({ caseId: modelCase.id,
 				fixtureId: modelCase.fixtureId, sourceSha256, sourceRevision: electron.packageIdentity.sourceRevision,
 				package: electron.packageIdentity, models, target, modelDelivery,
-				runtimeReadback: { checks: ['full-sha256'], models: runtimeModels }, ...execution,
+				runtimeReadback: { checks: ['full-sha256'], models: runtimeModels }, ...execution, gpuExecution,
 				outputs: run.outputs.map(({ claim }) => claim) }, null, 2), contentType: 'application/json' });
 			expect(run.outcome.outcome, JSON.stringify(run.outcome)).toBe('completed');
 			const outputs = [];
@@ -71,8 +74,8 @@ for (const modelCase of validateLocalModelRealTestCases(manifest, catalog, { can
 					{ body: output, contentType: claim.mediaType });
 				outputs.push(output);
 			}
-			const summary = validateModelOutputs(modelCase.validation, outputs, input);
-			await testInfo.attach('validation.json', { body: JSON.stringify(summary, null, 2), contentType: 'application/json' });
+			await validateAndAttach(modelCase.validation, outputs, input, testInfo, 'validation.json');
+			assertModelGpuEvidence(gpuExecution, { jobId: run.jobId, models });
 		}, async (error) => testInfo.attach('local-model-coverage-cleanup-error.json', {
 			body: JSON.stringify(modelTestCleanupDiagnostic(error), null, 2),
 			contentType: 'application/json',
@@ -102,9 +105,10 @@ async function runKokoroLanguageCanaries({ electron, model, modelCase, modelDeli
 						sha256: sourceSha256 }],
 					outputs: modelOutputReservations(modelCase.operation),
 				}));
+			const gpuExecution = await electron.readGpuEvidence(run.jobId);
 			const { models: runtimeModels, outputs, ...execution } = run;
 			const runEvidence = { ...evidence, runtimeReadback: { checks: ['full-sha256'],
-				models: runtimeModels }, ...execution, outputs: outputs.map(({ claim }) => claim) };
+				models: runtimeModels }, ...execution, gpuExecution, outputs: outputs.map(({ claim }) => claim) };
 			await testInfo.attach(`kokoro-${canary.language}-evidence.json`, {
 				body: JSON.stringify(runEvidence, null, 2), contentType: 'application/json',
 			});
@@ -114,11 +118,13 @@ async function runKokoroLanguageCanaries({ electron, model, modelCase, modelDeli
 			const wave = Buffer.from(bytes);
 			expect(digest(wave)).toBe(claim.sha256);
 			expect(wave.byteLength).toBe(claim.byteLength);
-			const validation = validateModelOutputs(modelCase.validation, [wave], { bytes: input });
+			const validation = await validateAndAttach(modelCase.validation, [wave], { bytes: input },
+				testInfo, `kokoro-${canary.language}-validation.json`);
 			await testInfo.attach(`kokoro-${canary.language}.wav`, { body: wave,
 				contentType: 'audio/wav' });
+			assertModelGpuEvidence(gpuExecution, { jobId: run.jobId, models: [model], language: canary.language });
 			results.push({ language: canary.language, voice: canary.voice, sourceSha256,
-				outputSha256: claim.sha256, validation });
+				outputSha256: claim.sha256, validation, gpuExecution });
 		} catch (error) {
 			failures.push(`${canary.language}/${canary.voice}: ${error instanceof Error ? error.message : String(error)}`);
 			results.push({ language: canary.language, voice: canary.voice, sourceSha256,
@@ -132,5 +138,18 @@ async function runKokoroLanguageCanaries({ electron, model, modelCase, modelDeli
 	if (failures.length > 0) {
 		throw new AggregateError(failures.map((message) => new Error(message)),
 			`Kokoro failed ${failures.length} of ${KOKORO_LANGUAGE_CANARIES.length} offline language canaries.`);
+	}
+}
+
+async function validateAndAttach(validation, outputs, input, testInfo, name) {
+	try {
+		const summary = validateModelOutputs(validation, outputs, input);
+		await testInfo.attach(name, { body: JSON.stringify(summary, null, 2), contentType: 'application/json' });
+		return summary;
+	} catch (error) {
+		if (error instanceof ModelFixtureMismatchError) await testInfo.attach(name, {
+			body: JSON.stringify({ passed: false, ...error.summary }, null, 2), contentType: 'application/json',
+		});
+		throw error;
 	}
 }

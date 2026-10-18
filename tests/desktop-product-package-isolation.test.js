@@ -273,10 +273,7 @@ test('Soundscaper emitted ONNX worker retains accelerated per-job loaders and sh
 	assert.equal(transformed.match(/RUNTIME_MODULE_ERRORS/gu)?.length, 3);
 	assert.doesNotMatch(transformed, /RUNTIME_SESSION_ERRORS/u);
 	assert.doesNotMatch(transformed, /executeSiglip2|executeOcr|executeSubjects|executeSaliency|executeTransNetV2/u);
-	const acceleration = ts.transpileModule(await readFile(
-		new URL('../desktop/assistance-onnx-acceleration.ts', import.meta.url), 'utf8'), {
-		compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2024 },
-	}).outputText;
+	const acceleration = await emitFixtureSource(new URL('../desktop/assistance-onnx-acceleration.ts', import.meta.url));
 	const audioPorts = ['AudioRuntime', 'EnhancementSeparation', 'Dereverb', 'Kokoro', 'TextEmbedding', 'WordAlignment']
 		.map((name) => `function createAssistanceOnnx${name}WorkerAdapterV1(loadRuntime) {
 			return async (context) => {
@@ -303,6 +300,14 @@ test('Soundscaper emitted ONNX worker retains accelerated per-job loaders and sh
 		await session.release();
 	}
 	assert.deepEqual(attempted, [['webgpu', 'cpu'], ['cpu']]);
+	const strictAdapter = module.createAssistanceOnnxRuntimeWorkerAdapterV1({
+		loadRuntime: async () => ({ Tensor: class Tensor {}, InferenceSession: {
+			create: async () => { assert.fail('A CPU-only strict closure must fail before native creation.'); },
+		} }),
+		gpuValidation: () => ({ onExecution() { assert.fail('No GPU execution has occurred.'); } }),
+	});
+	await assert.rejects(strictAdapter({ grant: { task: 'audio-tagging' },
+		job: { descriptor: { entrypoint: '/authenticated/runtime.js' } } }), /authenticated WebGPU/u);
 });
 
 test('Stable Soundscaper excludes the legacy development native-addon fixture', () => {
@@ -394,4 +399,22 @@ test('Soundscaper package audit rejects callable bridge and native-service marke
 
 function importSource(source) {
 	return import(`data:text/javascript,${encodeURIComponent(source)}`);
+}
+
+// Execute the emitted selector and its real diagnostic dependencies without a
+// filesystem build; relative imports cannot resolve against an in-memory URL.
+async function emitFixtureSource(url) {
+	let emitted = ts.transpileModule(await readFile(url, 'utf8'), {
+		compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2024 },
+	}).outputText;
+	const parsed = ts.createSourceFile('fixture.js', emitted, ts.ScriptTarget.ES2024, true, ts.ScriptKind.JS);
+	for (const statement of [...parsed.statements].reverse()) {
+		if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)
+			|| !statement.moduleSpecifier.text.startsWith('.')) continue;
+		const dependency = await emitFixtureSource(new URL(statement.moduleSpecifier.text, url));
+		const specifier = JSON.stringify(`data:text/javascript,${encodeURIComponent(dependency)}`);
+		emitted = emitted.slice(0, statement.moduleSpecifier.getStart(parsed)) + specifier
+			+ emitted.slice(statement.moduleSpecifier.end);
+	}
+	return emitted;
 }

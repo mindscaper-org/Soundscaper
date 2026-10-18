@@ -7,6 +7,7 @@ import { extract, list } from 'tar';
 import { runDesktopAssistanceBuildCommand, withDesktopAssistanceBuildWork } from './desktop-assistance-build-process.mjs';
 import { desktopWhisperCppNotices } from './desktop-assistance-whisper-notices.mjs';
 import { buildDesktopVulkanCompanion } from './desktop-assistance-vulkan-companion.mjs';
+import { patchDesktopAssistanceGgmlGpuReceipt } from './desktop-assistance-ggml-gpu-receipts.mjs';
 
 export const WHISPER_RUNTIME_VERSION = 'v1.9.3';
 export const WHISPER_RUNTIME_BUILD_TARGETS = Object.freeze(['mac-arm64', 'linux-x64', 'linux-arm64', 'win-x64', 'win-arm64']);
@@ -80,6 +81,7 @@ export async function stageDesktopWhisperCppRuntime({
 		if (hash(cliSource) !== CLI_SOURCE_SHA256) throw new Error('Whisper CLI compatibility patch source changed.');
 		const patchedCli = patchWhisperCppPipedStdout(cliSource);
 		await writeFile(cliPath, patchedCli);
+		const gpuReceiptPatch = await patchDesktopAssistanceGgmlGpuReceipt(source, 'whisper-cpp');
 		const configureArgs = ['-S', source, '-B', build, ...plan.configureArgs];
 		if (platform !== 'win32') {
 			const reproducibleFlags = `-ffile-prefix-map=${work}=/usr/src/whisper-build -fno-ident`;
@@ -109,7 +111,7 @@ export async function stageDesktopWhisperCppRuntime({
 			patches: [{ id: 'piped-json-stdout-v1', file: 'examples/cli/cli.cpp',
 				inputSha256: CLI_SOURCE_SHA256, outputSha256: hash(patchedCli),
 				patchSha256: hash(JSON.stringify({ before: STDOUT_BEFORE, after: STDOUT_AFTER,
-					include: '#include <iostream>' })) }],
+					include: '#include <iostream>' })) }, gpuReceiptPatch],
 			reproducibleFlags: platform === 'win32' ? ['/Brepro'] : ['-ffile-prefix-map=<work>=/usr/src/whisper-build', '-fno-ident'],
 		};
 		const targetRoot = join(runtimeRoot, 'assistance', 'whisper-cpp', VERSION, targetId);

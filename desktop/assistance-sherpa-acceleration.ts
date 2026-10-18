@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Native-call retry boundaries shared by every authenticated Sherpa model. */
+import { isAssistanceGpuValidationEnabled } from './assistance-gpu-validation.ts';
 
 export type SherpaExecutionProvider = 'coreml' | 'webgpu' | 'cpu';
 
@@ -9,6 +10,7 @@ export interface SherpaAccelerationOptions {
 	readonly executionProviders?: readonly SherpaExecutionProvider[];
 	/** Legacy explicit factory override; must belong to a supplied closure. */
 	readonly provider?: string;
+	readonly providerForModel?: (modelId: string, provider: SherpaExecutionProvider) => string;
 }
 
 class SherpaNativeExecutionError extends Error {
@@ -67,8 +69,13 @@ function executionProviders(options: SherpaAccelerationOptions): readonly Sherpa
 		|| supplied !== undefined && !supplied.includes(options.provider))) {
 		throw new TypeError('The explicit Sherpa provider must belong to the authenticated runtime.');
 	}
-	if (options.provider !== undefined) return options.provider === 'cpu' ? ['cpu'] : [options.provider as SherpaExecutionProvider, 'cpu'];
-	return Object.freeze([...(supplied ?? []).filter((provider) => provider !== 'cpu'), 'cpu']);
+	const providers = options.provider !== undefined
+		? options.provider === 'cpu' ? ['cpu'] : [options.provider as SherpaExecutionProvider, 'cpu']
+		: [...(supplied ?? []).filter((provider) => provider !== 'cpu'), 'cpu'];
+	// CoreML may execute on CPU or ANE; strict GPU evidence requires WebGPU.
+	const selected = isAssistanceGpuValidationEnabled() ? providers.filter(provider => provider === 'webgpu') : providers;
+	if (selected.length === 0) throw new Error('GPU validation requires an authenticated Sherpa GPU provider.');
+	return Object.freeze(selected) as readonly SherpaExecutionProvider[];
 }
 
 function isProvider(value: unknown): value is SherpaExecutionProvider {
