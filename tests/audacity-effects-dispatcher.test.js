@@ -110,6 +110,13 @@ test('the dispatcher rejects non-finite DSP output before it can leave the worke
 		() => assertAudacityEffectOutput([Float32Array.of(0, Number.POSITIVE_INFINITY)]),
 		/non-finite sample at frame 1/,
 	);
+	assert.throws(
+		() => applyAudacityEffect('audacity-normalize', [Float32Array.of(0, Number.NaN)], SAMPLE_RATE, {
+			removeDc: true,
+			applyGain: false,
+		}),
+		/non-finite sample at frame 0/,
+	);
 });
 
 test('peak-memory estimates include pipeline copies, contexts, and effect-specific scratch', () => {
