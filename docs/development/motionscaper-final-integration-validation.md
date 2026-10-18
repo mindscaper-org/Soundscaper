@@ -138,8 +138,22 @@ the Chromium-only OPFS duration profile. The original assertions, timeouts,
 worker topology and default application heap remain unchanged. Independent
 source/npm/control/site/map checks and physical closure pass, with all 932
 recorded identities retired and all three ports free. The private audio service
-is deliberately held for later suites. This is the ordinary Motion component;
-complete all-product, linked-editor and coverage acceptance remain open.
+was deliberately held for later suites. This is the ordinary Motion component;
+complete all-product and coverage acceptance remain open.
+
+The separate maintained linked-editor component on the same `7b804853d` source
+passes all 13 Chromium cases across its six files, without skips, failures, flaky
+results or retries. The current configuration is Chromium-only with one worker;
+this is not a 39-case or three-engine result. Original assertions, case/action
+timeouts and the default heap remain unchanged. Independent source/npm/control/
+site/map preservation and final physical closure pass, with all 31 recorded
+identities retired and both ports free. The initial post observed a retained
+TCP TIME_WAIT entry and could not bind one port; that observation remains
+recorded. A later read-only post verifies closure after natural expiry, without
+replaying the tests. Qualified ordinary and linked sites remain preserved.
+The private audio service was alive at those closures. A later observation finds
+its original process absent; its exit time and cause are unknown. Another
+browser invocation requires fresh audio-service readiness.
 
 The original Windows x64 build on source `0241c6e1c` failed at libvpx because
 the assembler was unavailable. After the NASM installation/PATH corrections
@@ -215,6 +229,30 @@ self-test or final-result pass is claimed. The failed attempt remains preserved;
 a separate fresh attempt uses the original 180-minute execution bound from its
 own launch, with fresh work/results and the same source, tools and recipe.
 
+That fresh attempt on `9f24c039` again compiles and installs all five codec
+libraries, then exits with numerical status one during FFmpeg configure,
+before its original 180-minute deadline. The actual configure log finds the
+x265 package and compiles its header control, then fails linking `x265.lib`;
+the MSVC installation contains `x265-static.lib` and the package metadata requests
+`-lx265`. No host, self-test or final-result pass is claimed. Its initial post
+mistakenly inspected the previous attempt's work/result paths; that provisional
+review remains unaccepted. The corrected read-only post authenticates the actual
+12,718-file work tree, absent result root, unchanged earlier failures/canaries
+and final process closure. It does not replay or qualify the failed build.
+
+The normalization correction (`e6d808362`, integrated in `58b0e19c7`) adds a
+Windows-only authenticated CMake copy from `x265-static.lib` to `x265.lib`
+immediately after installation. It retains the original archive, package
+metadata, source pins, CRT and POSIX command sequences. The missing-phase and
+real recipe-driver controls fail before the change; all 35 focused Motion cases
+pass on Windows afterward. The integrated Linux run passes 31 controls and
+declares four Windows execution skips, with the default heap and no retries.
+Strict focused types, changed-file lint and source audits pass. The existing
+Framescaper phase-array assertion receives its required one-line expectation
+update without growing the frozen file; its rerun is deferred to the final full
+suite. The changed shared manifests require another fresh Linux and Windows
+native build; the earlier successful Linux receipt keeps its actual identity.
+
 The fresh Linux x64 build on `cb163a0ce` passes compilation, maintained result
 verification, reference-decoder generation and all five native checks. Its
 independent audit verifies unchanged source/npm/authenticated inputs and exact
@@ -278,7 +316,11 @@ Current retained receipts are relative to
 | Passed grouped long-generator and failure controls | `windows-x64-prerequisites-20261018/native-libvpx-long-generator-canary-nested-v3.passed-closed-review.json` |
 | Windows FFmpeg source/install/shell path correction | `windows-x64-prerequisites-20261018/ffmpeg-native-path-fix-commit-receipt.json` |
 | Ordinary Motion browser component, `7b804853d` | `combined-motion-browser-7b804853d-20261018/final-validation.json` |
+| Linked-editor Motion component, 13 Chromium cases, `7b804853d` | `combined-motion-links-7b804853d-20261018/final-validation.json` |
 | Timed-out Windows codec build and physical closure | `windows-x64-prerequisites-20261018/native-build-native-codec-path-v9.timed-out-closed-review.json` |
+| Failed Windows x265 link and corrected physical audit | `windows-x64-prerequisites-20261018/native-build-native-codec-path-v10.failed-closed-review-v3.json` |
+| Windows x265 library normalization | `windows-x64-prerequisites-20261018/x265-normalization-commit-receipt.json` |
+| Integrated Linux Motion-only normalization controls | `windows-x64-prerequisites-20261018/root-integrated-x265-linux-motion.receipt.json` |
 | Fresh Linux native build/verifier/reference, `cb163a0ce` | `current-next-native-preparation-20261018/bound-cb163a0ce/native-qualification.json` |
 | Complete static gate, `cb163a0ce` | `current-cb163a0ce-static-canon-20261018/qualification.json` |
 

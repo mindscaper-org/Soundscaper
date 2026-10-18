@@ -124,7 +124,10 @@ All 49 selected readiness, audio and raster controls pass together on the
 integrated source. The ordinary Motion browser component on `7b804853d` now
 passes all 444 discovered identities: 437 passes and seven declared skips,
 with no failures or retries. Its independent input/site/process audit passes.
-The all-product and separate linked-editor gates remain open.
+The separate linked-editor component on the same source passes all 13 maintained
+Chromium cases, with no skips, failures or retries; its independent preservation
+and physical closure checks pass. This is the current Chromium-only configuration,
+not a three-engine linked result. The all-product and coverage gates remain open.
 
 The Windows x64 builds exposed assembler discovery, libvpx compiler selection,
 source-path persistence and generator-script launching defects. The NASM,
@@ -151,6 +154,15 @@ timeout cleanup; the builder's numerical exit remains unknown. Independent
 preservation and process closure pass. FFmpeg, the host and final verification
 remain unqualified; a separate fresh attempt retains the full original
 180-minute execution window.
+That fresh attempt exits numerically with status one during FFmpeg configure,
+before its deadline. Its link log requests `x265.lib`, while the MSVC install
+contains `x265-static.lib`. The corrected independent audit verifies the actual
+attempt's work tree and process closure; the earlier post used the wrong work
+root and remains unaccepted. The Windows-only library normalization
+(`e6d808362`) passes all 35 focused Windows controls and 31 Linux controls with
+four declared Windows-only skips. The existing Framescaper phase-array expectation
+is corrected, with its execution deferred to the final full suite. A fresh native
+build, result verification and packaging remain required on the changed manifests.
 
 On `cb163a0ce`, the fresh Linux native build, maintained result verifier,
 reference compilation and all five native checks pass, including the independent
