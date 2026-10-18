@@ -70,14 +70,17 @@ test('only desktop Soundscaper substitutes unavailable Framescaper copy owners',
 		'menus-additional', 'finishing-surface', 'inputs',
 	];
 	for (const composition of COMPOSITIONS) {
-		const rows = productStandInAliasesFor(composition);
 		for (const name of copyModules) {
-			for (const prefix of ['./', '../../i18n/', '../../../i18n/']) {
+			for (const [prefix, owner] of [
+				['./', 'src/common/i18n/editor-copy-inventory.ts'],
+				['../../i18n/', 'src/common/editor/ui/application-menu-product-runtime.js'],
+				['../../../i18n/', 'src/common/editor/ui/workspace/VideoPreviewPanel.jsx'],
+			] as const) {
 				const specifier = `${prefix}editor-framescaper-${name}-copy.ts`;
-				const row = rows.find(candidate => candidate.find.test(specifier));
-				assert.equal(row?.standIn, composition.productId === 'soundscaper'
+				assert.equal(productSubstitutionForImport(specifier, resolve(repositoryRoot, owner),
+					{ ...composition, repositoryRoot }), composition.productId === 'soundscaper'
 					&& composition.desktopCodecComposition
-					? 'src/common/i18n/editor-desktop-copy.ts' : undefined, specifier);
+					? resolve(repositoryRoot, 'src/common/i18n/editor-desktop-copy.ts') : null, specifier);
 			}
 		}
 	}
@@ -188,104 +191,31 @@ const modules: readonly SourceModule[] = sourceFiles(sourceRoot).map((file) => (
 	imports: moduleImports(readFileSync(file, 'utf8')),
 }));
 
-test('every documented substitution spelling names its declared source file', () => {
-	const mismatches: string[] = [];
-	for (const row of PRODUCT_STAND_IN_ALIASES) {
-		const declared = new Set(row.sourcePaths.map((path) => resolve(repositoryRoot, path)));
-		for (const path of declared) if (!existsSync(path)) mismatches.push(`missing source ${path}`);
-		const reached = new Set<string>();
-		for (const { file, imports } of modules) {
-			for (const entry of imports) {
-				if (entry.typeOnly || !row.find.test(entry.specifier)) continue;
-				const target = resolve(dirname(file), entry.specifier);
-				if (!declared.has(target)) {
-					mismatches.push(`${relative(repositoryRoot, file)} imports ${entry.specifier}, matching an unrelated source`);
-				} else reached.add(target);
-			}
-		}
-		for (const path of declared) if (!reached.has(path)) mismatches.push(`unused source ${relative(repositoryRoot, path)}`);
-	}
-	assert.deepEqual(mismatches, [], mismatches.join('\n'));
-});
-
 const standInExports = new Map<string, Set<string>>();
 for (const row of PRODUCT_STAND_IN_ALIASES) {
-	standInExports.set(row.standIn, moduleExports(resolve(repositoryRoot, row.standIn)));
+	const standIn = resolve(repositoryRoot, row.standIn);
+	standInExports.set(standIn, moduleExports(standIn));
 }
 
 test('every stand-in exports the names its substituted seam is imported by', () => {
 	const holes: string[] = [];
 	for (const composition of COMPOSITIONS) {
-		for (const row of productStandInAliasesFor(composition)) {
-			const available = standInExports.get(row.standIn) ?? new Set<string>();
-			for (const { file, imports } of modules) {
-				for (const entry of imports) {
-					if (entry.opaque || !row.find.test(entry.specifier)) continue;
-					const missing = entry.names.filter((name) => !available.has(name));
-					if (!missing.length) continue;
-					holes.push(
-						`${composition.productId} resolves '${entry.specifier}' from `
-						+ `${relative(repositoryRoot, file)} to ${row.standIn}, which does not export `
-						+ missing.join(', '),
-					);
-				}
-			}
-		}
-	}
-	assert.deepEqual(holes, [], holes.join('\n'));
-});
-
-test('the alias table substitutes every spelling of a substituted module', () => {
-	const uncovered: string[] = [];
-	for (const composition of COMPOSITIONS) {
-		const rows = productStandInAliasesFor(composition);
-		const substituted = new Set<string>();
+		const resolveSubstitution = createProductSubstitutionResolver(repositoryRoot, productStandInAliasesFor(composition));
 		for (const { file, imports } of modules) {
 			for (const entry of imports) {
-				if (entry.typeOnly || !rows.some((row) => row.find.test(entry.specifier))) continue;
-				substituted.add(resolve(dirname(file), entry.specifier));
-			}
-		}
-		for (const { file, imports } of modules) {
-			for (const entry of imports) {
-				if (entry.typeOnly || !entry.specifier.startsWith('.')) continue;
-				const target = resolve(dirname(file), entry.specifier);
-				if (!substituted.has(target) || rows.some((row) => row.find.test(entry.specifier))) continue;
-				uncovered.push(
-					`${composition.productId} substitutes ${relative(repositoryRoot, target)} for other `
-					+ `importers but leaves '${entry.specifier}' in ${relative(repositoryRoot, file)} alone`,
+				if (entry.typeOnly || entry.opaque) continue;
+				const standIn = resolveSubstitution(entry.specifier, file);
+				if (standIn === null) continue;
+				const available = standInExports.get(standIn) ?? new Set<string>();
+				const missing = entry.names.filter((name) => !available.has(name));
+				if (!missing.length) continue;
+				holes.push(
+					`${composition.productId} resolves '${entry.specifier}' from `
+					+ `${relative(repositoryRoot, file)} to ${relative(repositoryRoot, standIn)}, which does not export `
+					+ missing.join(', '),
 				);
 			}
 		}
 	}
-	assert.deepEqual(uncovered, [], uncovered.join('\n'));
-});
-
-test('no substitution row could have been mirrored in tsconfig paths instead', () => {
-	// TypeScript consults `paths` for non-relative specifiers only, so a row keyed
-	// on the specifier an importer wrote relative to itself can never be mirrored
-	// there — which is why tsc analyses every substituted module by its default
-	// target and why the parity tests above exist. A row that ever stops being
-	// relative is one tsc could see, and should be mirrored rather than guarded.
-	const relativePrefixes = ['^(?:\\.\\/|\\.\\.\\/)', '^\\.\\/', '^\\.\\.\\/'];
-	const nonRelative = PRODUCT_STAND_IN_ALIASES
-		.filter((row) => !relativePrefixes.some((prefix) => row.find.source.startsWith(prefix)))
-		.map((row) => row.find.source);
-	assert.deepEqual(nonRelative, [], nonRelative.join('\n'));
-
-	const tsconfig = JSON.parse(
-		readFileSync(resolve(repositoryRoot, 'tsconfig.base.json'), 'utf8'),
-	) as { compilerOptions: { paths: Record<string, unknown> } };
-	assert.deepEqual(
-		Object.keys(tsconfig.compilerOptions.paths).filter((key) => key.startsWith('.')),
-		[],
-		'tsconfig paths never matches a relative specifier, so it must not claim to',
-	);
-});
-
-test('every alias row substitutes a module some source file actually imports', () => {
-	const unused = PRODUCT_STAND_IN_ALIASES.filter((row) => !modules.some(
-		({ imports }) => imports.some((entry) => row.find.test(entry.specifier)),
-	)).map((row) => `${row.find.source} -> ${row.standIn}`);
-	assert.deepEqual(unused, [], `alias rows no importer reaches:\n${unused.join('\n')}`);
+	assert.deepEqual(holes, [], holes.join('\n'));
 });

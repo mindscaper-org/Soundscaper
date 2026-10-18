@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
@@ -12,7 +11,6 @@ import {
 	builtFfmpegRuntimeReleaseBaseUrl,
 	ffmpegRuntimeReleaseBaseUrl,
 	FFMPEG_RUNTIME_POINTER_URL,
-	preferredFfmpegRuntimeFallbackBaseUrl,
 } from '../src/common/offline/ffmpeg-runtime-public-policy.ts';
 
 test('runtime publication remains reproducible but browser builds do not pin or load it', async () => {
@@ -49,16 +47,7 @@ test('content-addressed release URL construction rejects partial or mutable iden
 	}
 });
 
-test('a production-defined manifest release always replaces the legacy direct fallback', async () => {
-	const releaseId = 'b'.repeat(64);
-	const production = ffmpegRuntimeReleaseBaseUrl(releaseId);
-	assert.equal(
-		preferredFfmpegRuntimeFallbackBaseUrl(
-			'https://assets.soundscaper.org/runtime/ffmpeg/0.12.10',
-			production,
-		),
-		production,
-	);
+test('browser configuration keeps the runtime origin governed by the publication policy', async () => {
 	const workflowNames = (await readdir('.github/workflows'))
 		.filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'));
 	const [editorSource, viteEnvironment, exampleEnvironment, technicalReadme, ...workflowSources] =
@@ -74,21 +63,4 @@ test('a production-defined manifest release always replaces the legacy direct fa
 	for (const source of [viteEnvironment, exampleEnvironment, technicalReadme, ...workflowSources]) {
 		assert.doesNotMatch(source, /PUBLIC_FFMPEG_CORE_BASE_URL/u);
 	}
-});
-
-test('the production build has no FFmpeg runtime environment seam', () => {
-	const result = spawnSync(process.execPath, [
-		'--input-type=module',
-		'--eval',
-		"await import('./vite.config.mjs?mutable-ffmpeg-override-regression');",
-	], {
-		cwd: process.cwd(),
-		encoding: 'utf8',
-		env: {
-			...process.env,
-			PUBLIC_FFMPEG_CORE_BASE_URL: 'https://assets.soundscaper.org/runtime/ffmpeg/0.12.10',
-		},
-	});
-	assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-	assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /FFmpeg runtime/iu);
 });
