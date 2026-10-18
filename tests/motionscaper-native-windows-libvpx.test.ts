@@ -13,6 +13,7 @@ import {
 interface NativeCommand {
 	readonly phase: string;
 	readonly executable: string;
+	readonly cwd: string;
 	readonly args: readonly string[];
 	readonly environment: Readonly<Record<string, string>>;
 }
@@ -150,5 +151,26 @@ for (const target of targets) {
 				assert.ok(!('SHELL' in command.environment));
 			}
 		}
+	});
+}
+
+for (const target of targets) {
+	test(`Motion ${target} installs the x265 library name requested by pkg-config before FFmpeg`, () => {
+		const workRoot = target.startsWith('win-') ? String.raw`C:\motionscaper-x265-work` : join(root, 'x265-work');
+		const commands = commandPlan(target, root, workRoot);
+		if (!target.startsWith('win-')) {
+			assert.ok(!commands.some(command => command.phase === 'x265-normalize-library'));
+			return;
+		}
+		const installed = framescaperMediaHostBuildPaths(workRoot);
+		const normalize = phase(commands, 'x265-normalize-library');
+		assert.equal(normalize.executable, phase(commands, 'x265-install').executable);
+		assert.deepEqual(normalize.args, ['-E', 'copy',
+			join(installed.x265Install, 'lib', 'x265-static.lib'),
+			join(installed.x265Install, 'lib', 'x265.lib')]);
+		assert.equal(normalize.cwd, installed.x265Build);
+		assert.deepEqual(normalize.environment, phase(commands, 'x265-install').environment);
+		assert.equal(commands.indexOf(normalize), commands.indexOf(phase(commands, 'x265-install')) + 1);
+		assert.ok(commands.indexOf(normalize) < commands.indexOf(phase(commands, 'ffmpeg-configure')));
 	});
 }

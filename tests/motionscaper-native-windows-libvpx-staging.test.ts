@@ -196,3 +196,36 @@ test('Motion Windows refuses FFmpeg raw drift before copy or any runner command'
 	assert.equal(calls, 0);
 	assert.equal(existsSync(join(input.outputRoot, 'ffmpeg-build', 'src')), false);
 });
+
+test('Motion Windows driver normalizes the installed x265 archive for its pkg-config link name', context => {
+	if (process.platform !== 'win32' || process.arch !== 'x64') return context.skip('Windows x64 native execution fixture');
+	const input = fixture(context);
+	const recipe = driver.createFramescaperMediaHostBuildRecipe(input.options);
+	const install = join(input.outputRoot, 'x265-install');
+	const archive = join(install, 'lib', 'x265-static.lib');
+	const metadata = join(install, 'lib', 'pkgconfig', 'x265.pc');
+	const archiveBytes = Buffer.from('installed MSVC x265 static archive fixture\n');
+	let verified = false;
+	driver.executeFramescaperMediaHostBuildRecipe(recipe, {
+		run: (executable: string, args: string[]) => {
+			if (args[0] === '--install' && args[1] === join(input.outputRoot, 'x265-build')) {
+				mkdirSync(dirname(metadata), { recursive: true });
+				writeFileSync(archive, archiveBytes);
+				writeFileSync(metadata, 'Libs: -L${libdir} -lx265\n');
+			}
+			if (args[0] === '-E' && args[1] === 'copy' && args[2] === archive) {
+				assert.equal(executable, join(input.root, 'tools', 'cmake.tool'));
+				copyFileSync(args[2], args[3]);
+			}
+			if (args[0] === './src/configure') {
+				const name = / -l(\w+)/u.exec(readFileSync(metadata, 'utf8'))?.[1];
+				assert.equal(name, 'x265');
+				assert.deepEqual(readFileSync(join(install, 'lib', `${name}.lib`)), archiveBytes);
+				assert.deepEqual(readFileSync(archive), archiveBytes);
+				verified = true;
+			}
+			return { status: 0 };
+		}, verifyFfmpegConfiguration: () => ({}),
+	});
+	assert.equal(verified, true, 'FFmpeg must consume the installed pkg-config library name');
+});
