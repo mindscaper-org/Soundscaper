@@ -216,8 +216,13 @@ source-pin and size checks. The maintained Windows transport test subsequently
 passed six cases with one expected skip, including both make phases and all four
 filters. Its strict owner still failed on a retained pre-workload console process;
 exact-handle cleanup and independent recorded-process absence passed. Complete
-Windows supervision and native-build acceptance remain open. This separate build
-failure does not explain the WSL OOM.
+Windows native-build acceptance remains open. A separate supervisor repair seals
+exact startup process identities before launching the workload, requires later
+children to close, and explicitly retires sealed startup processes within the
+original deadline. All 21 focused controls and a tiny native integration pass;
+the worker exits with code zero and all recorded processes are absent afterward.
+The earlier failed owners remain failed. This separate build failure does not
+explain the WSL OOM.
 
 Coverage assembly (`847c07eac`) writes normalized profiles incrementally across
 runs, preserving source-map placement and rejecting changed bytes between passes.
@@ -226,6 +231,25 @@ focused cases, changed-file lint, strict types and size checks pass after repair
 All 38 files in a frozen two-run synthetic capture also match the original bytes.
 Individual profiles and later coverage unions still require memory monitoring;
 the earlier OOM's owning command remains unknown.
+
+Coverage materialization (`80d614fe3`) also stops retaining every parsed profile
+across surfaces. It stages rebased profiles immediately, validates original
+observations one script group at a time, and checks staged bytes and membership
+before publication. All 11 focused Motion regressions, strict types, changed-file
+lint and size checks pass. The largest profile or script group, final coverage
+union and c8 process still determine memory use.
+
+Nightly test-child cleanup (`27f1f6118`) retains the original error and waits for
+the child and log stream to close. An ignored TERM escalates through the original
+child handle after 250 milliseconds. All ten focused Motion fake-process tests,
+strict types, changed-file lint and size checks pass. Descendants that escape
+the child or retain its pipes still require the outer run supervisor.
+
+The fresh Linux native attempt on `83f68420c` stopped when the monitor could not
+read an owned compiler's memory and its retained pidfd did not signal termination
+within ten milliseconds. Sampled memory stayed below 900 MiB; no resource limit
+was crossed. Compilation, verification and reference acceptance remain open;
+the failed attempt and its partial outputs are preserved.
 
 Fresh combined gates, accepted coverage, installed AE, other hardware/targets,
 signing, installation, update and publication remain open. No installed AE test

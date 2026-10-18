@@ -388,6 +388,34 @@ strict supervisor and complete native-build gates remain open. The receipt is
 `windows-x64-prerequisites-20261018/ffmpeg-maintained-transport-3883-20261018-v2/root-observed-test-and-failed-owner-closure.json`,
 SHA-256 `45f485a7ffe46fdfcbc1dfadebaf887c46313e78719c7f6959d7c1e94627f92f`.
 
+A separate supervisor repair freezes exact PID and native creation-time pairs
+before its first workload launch. Every later identity remains subject to strict
+workload closure. After a zero worker exit, it explicitly retires remaining
+sealed startup identities through their retained handles within the original
+absolute deadline; failure cleanup and memory limits are unchanged. All 21
+focused policy controls pass. A tiny native integration then passed: the worker
+exited naturally with code zero, the sealed console received the recorded
+termination request and exited with code 137, and all three recorded identities
+were independently absent afterward. This qualifies the small supervision
+mechanism, not a complete Windows native build. Earlier failed owners remain
+failed. The independent retirement receipt is
+`windows-x64-prerequisites-20261018/owner-startup-closure-20261018-v1/integration-external-retirement.json`,
+SHA-256 `8345c759b9c0db7cbf0754bfbff1d8135ef6bb488c88ae3d66524a97aca99dd0`.
+
+The fresh Linux native attempt on `83f68420c` failed its polling observer during
+the host build. An authenticated compiler process had unreadable PSS and RSS
+accounting, remained in state R, and its retained pidfd did not signal termination
+within ten milliseconds. Its exact exit state at that boundary remains unknown.
+The guard stopped the owned workload; sampled peak memory was 892,185 KiB and
+available memory stayed above 35 GiB. No memory threshold or deadline was crossed.
+The original build phase did not complete, and verification and reference phases
+never started. The independent post retains three expected incomplete-closure
+errors; all other input, history and process guards passed. Its 2,143 partial
+files retain their own exact bytes, metadata and membership, and all 577 recorded
+process identities are absent. Native acceptance remains false. The receipt is
+`current-83f68420-native-after-watchdog-preparation-20261018/native-qualification.json`,
+SHA-256 `46d3234360e05de8451615a54744f084f1380692e0e44de79b9b333a58821bef`.
+
 Coverage assembly on `847c07eac` writes each normalized profile into staging
 before reading the next profile or run, instead of retaining every parsed range
 graph. Browser and packaged rereads retain exact byte fingerprints; local-assistance reads keep
@@ -402,6 +430,32 @@ Failed production coverage remains opaque and unadmitted.
 The largest individual profile, unique build metadata and later coverage-union
 processing still need resource monitoring. This repair does not identify PID
 8039's command or establish the cause of its OOM kill.
+
+Coverage materialization on `80d614fe3` removes the remaining all-surfaces parsed
+profile collection. It writes rebased profiles before parsing the next raw
+profile and spools original observations by script equivalence group. The same
+surface and topology validators retain observation order, map-only evidence,
+invalid-surface exclusion and diagnostic behavior; c8 arguments and configuration
+are unchanged. Every parsed raw buffer and staged observation is byte-bound;
+publication also checks exact rebased-file membership. Genuine regressions
+reproduce both the late first write and acceptance of an added staged JSON file.
+All 11 focused Motion tests, strict types, changed-file lint and the size gate
+pass. Earlier failed coverage remains opaque and unadmitted. The largest
+individual profile or equivalence group, metadata, final union and c8 still
+require memory monitoring; this is not a hard RSS bound or an OOM attribution.
+
+Nightly test-child cleanup on `27f1f6118` fixes early rejection on log or child
+errors and preserves the first failure through log finalization. A broken log
+is unpiped and drained; the original child receives TERM and, if still running,
+KILL after 250 milliseconds. The helper waits for child and writable closure
+before settling. All ten focused Motion fake-process regressions, strict types,
+changed-file lint and the size gate pass. The original early-rejection and
+error-masking failures remain recorded. The first type check also exposed a test
+annotation narrower than the existing signal result; its runtime-erased
+correction passes the fresh strict check. These tests exercise the actual helper
+with fake process and stream APIs. They do not qualify a real Playwright tree:
+escaped descendants or inherited pipes can still require the outer supervisor.
+No process-group or numeric PID tree-kill API was added.
 
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
