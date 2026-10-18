@@ -1962,7 +1962,7 @@
           },
           {
             "path": "tests/browser/audio-editor-round6-nyquist-number-composition.spec.js",
-            "reason": "Both retained variants begin with same0.5\u2192Escape restoration. Immediate dialog visibility/focus assertions from deleted baseline are retained explicitly before further field.fill; subsequent composition, completed cancellation and idle Escape close remain."
+            "reason": "Both retained variants begin with same0.5→Escape restoration. Immediate dialog visibility/focus assertions from deleted baseline are retained explicitly before further field.fill; subsequent composition, completed cancellation and idle Escape close remain."
           }
         ],
         "decision": "remove_duplicate",
@@ -4734,7 +4734,7 @@
   "handoff": {
     "manualUpdateAiAssetsRequired": false,
     "rationale": "Test-only cleanup and test configuration/size ratchets use the same runtime closure; no runtime source, build recipe, archive, signing, inventory or target support changed.",
-    "pendingInventoryStatus": "5,525 paths remain unaudited; no exhaustive necessity claim is made."
+    "pendingInventoryStatus": "Historical review snapshot is 6014 paths/489 reviews. Updated committed-tree tracking is 6031 logical identities/488 retained historical reviews/5543 pending, including one changed body awaiting re-review. No exhaustive necessity claim is made."
   },
   "repository": {
     "worktree": "/home/splowatt/git/Soundscaper-test-sweep",
@@ -5248,6 +5248,406 @@
       "command": "npm run check:startup-graph:tighten",
       "status": "passed; no byte ceiling had room to tighten",
       "exitCode": 0
+    }
+  },
+  "postIntegration": {
+    "reason": "Main advanced during validation; integrate its committed crash-recovery work before the requested merge. Uncommitted codec work in the main checkout is preserved separately and is outside this validation revision.",
+    "upstreamMainRevision": "bec086390832983da067f330580f3812965a54a3",
+    "validationRevision": "4008f516beb29ce68c7fb225b612dfa22c6b76a3",
+    "completedAtLocal": "2026-10-19T00:51:05+02:00",
+    "cleanupChangedFilesIntersectingNewMain": [],
+    "pruningAssumptionReview": "Independent review found no new producer for removed abort, product, deepFreeze, analyzer-ID, owned-state collection or desktop private-ticket/configuration inputs. New recovery object-keyed caches remain private; exposed recording owner collections are unchanged.",
+    "newNecessityReviewsCompleted": 0,
+    "auditScope": {
+      "historicalReport": {
+        "path": "/tmp/soundscaper-test-sweep/merge-review-record.json",
+        "inventoryBaseRevision": "6f15b46694ee7164b6392d6e712e5330fc928403",
+        "coverage": {
+          "identified": 6014,
+          "reviewed": 489,
+          "pending": 5525
+        },
+        "remainsHistorical": true,
+        "modified": false
+      },
+      "addedTestSources": [
+        {
+          "path": "tests/audio-editor-audacity-project-recovery.test.ts",
+          "owner": "editor",
+          "blob": "6933c61f22179c7c5fd22a9c4d61f08d9d4d8571",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "6933c61f22179c7c5fd22a9c4d61f08d9d4d8571",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-audacity-recovery-open.test.ts",
+          "owner": "editor",
+          "blob": "199c7a0d3cd0a6217d9c2d5766925fb1fd249e31",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "199c7a0d3cd0a6217d9c2d5766925fb1fd249e31",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-ordinary-recording-recovery-prefix.test.ts",
+          "owner": "editor",
+          "blob": "ee054b33934652309aa4167b1aa0d35800b82e16",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "ee054b33934652309aa4167b1aa0d35800b82e16",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-ordinary-recording-recovery-project.test.ts",
+          "owner": "editor",
+          "blob": "85c4f2dd831e108573e2d4c3522ae43f619da3de",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "85c4f2dd831e108573e2d4c3522ae43f619da3de",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-ordinary-recording-recovery-service.test.ts",
+          "owner": "editor",
+          "blob": "39217b27c1d11d1e5fc942de44397dc47eca3607",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "39217b27c1d11d1e5fc942de44397dc47eca3607",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-project-recovery-binding.test.ts",
+          "owner": "editor",
+          "blob": "d26bd692136ef8a1f3b6aa29ea57070c39893b69",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "d26bd692136ef8a1f3b6aa29ea57070c39893b69",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-project-recovery-dialog.test.tsx",
+          "owner": "editor",
+          "blob": "e00cd1ff7cd54da991669378e8e3d6c560231cec",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "e00cd1ff7cd54da991669378e8e3d6c560231cec",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-project-startup-recovery.test.ts",
+          "owner": "editor",
+          "blob": "ddc6717f18bdec4242849d91081c8b9dc8c0782f",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "ddc6717f18bdec4242849d91081c8b9dc8c0782f",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-recording-recovery-journal-copy.test.ts",
+          "owner": "editor",
+          "blob": "cb019f7dc1caf0114e9449fd69b016170b83e0ba",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "cb019f7dc1caf0114e9449fd69b016170b83e0ba",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-recording-recovery-journal.test.ts",
+          "owner": "editor",
+          "blob": "03471c9d7206cd6a2cbe0e32714ad62bab94a972",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "03471c9d7206cd6a2cbe0e32714ad62bab94a972",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-recording-recovery-retention.test.ts",
+          "owner": "editor",
+          "blob": "ed5a1f5855cb93828bf0ec301e4628a8debb11a5",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "ed5a1f5855cb93828bf0ec301e4628a8debb11a5",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/audio-editor-soundscaper-project-recovery.test.ts",
+          "owner": "editor",
+          "blob": "2401ccbd5e3224f760ffbbd066538603d8514c89",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "2401ccbd5e3224f760ffbbd066538603d8514c89",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/browser/audio-editor-audacity-recovery.spec.js",
+          "owner": "browser",
+          "blob": "d90880ad2a10c46314ef1be4fffa83b507fbf0aa",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "d90880ad2a10c46314ef1be4fffa83b507fbf0aa",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/browser/audio-editor-metadata-layout.spec.js",
+          "owner": "browser",
+          "blob": "e15b4beae891dfba2a15814f453b095852e457a2",
+          "addedAtRevision": "b1181a10fa99404858a1dd987b737cd686a29c68",
+          "mergedHeadBlob": "e15b4beae891dfba2a15814f453b095852e457a2",
+          "status": "pending",
+          "reason": "Earlier metadata-layout test added in prior main baseline was missing from the original6014 inventory; it has not received a completed necessity review.",
+          "classification": "earlier_upstream_addition_absent_from_original_inventory"
+        },
+        {
+          "path": "tests/browser/audio-editor-ordinary-recording-recovery.spec.js",
+          "owner": "browser",
+          "blob": "e36c1fe180b9b2c8e2591b37ae1b6d422e786c47",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "e36c1fe180b9b2c8e2591b37ae1b6d422e786c47",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/browser/audio-editor-project-recovery.spec.js",
+          "owner": "browser",
+          "blob": "37b27d51f078a92acab06084c83d2aae5739ae8c",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "37b27d51f078a92acab06084c83d2aae5739ae8c",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        },
+        {
+          "path": "tests/desktop-soundscaper-project-recovery.test.ts",
+          "owner": "desktop",
+          "blob": "c742494646c69da7dc00f27fcaa2bc3abc5949f8",
+          "addedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "mergedHeadBlob": "c742494646c69da7dc00f27fcaa2bc3abc5949f8",
+          "status": "pending",
+          "reason": "New committed test source has no completed necessity review.",
+          "classification": "new_main_delta_addition"
+        }
+      ],
+      "previouslyReviewedTestBodiesChanged": [
+        {
+          "path": "tests/desktop-project-runtime-inventory.test.js",
+          "owner": "desktop",
+          "auditBaseBlob": "f27e07eb0183332f76f8c7c1e59307fcc96c46e1",
+          "previousMainBlob": "f27e07eb0183332f76f8c7c1e59307fcc96c46e1",
+          "newMainBlob": "71f576d23620f972d93c0f72d83a9a530dfb03af",
+          "mergedHeadBlob": "71f576d23620f972d93c0f72d83a9a530dfb03af",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "previousReviewReferences": [
+            {
+              "owner": "desktop",
+              "review": 6,
+              "scope": ""
+            }
+          ],
+          "decision": "requires_re_review",
+          "reason": "Previously reviewed test body changed in committed new main. Added recovery-closure assertions have not received a necessity review; test invocation does not count as review."
+        }
+      ],
+      "modifiedTestsAlreadyPending": [
+        {
+          "path": "tests/audio-editor-build-chunk-lazy-owners.test.ts",
+          "previousMainBlob": "c85b14531dc2a9f214a8eb6f11c03585ed134194",
+          "newMainBlob": "0e8c444067d4a30324ee22fb7d6ac3618112f5fe",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/audio-editor-opfs-legacy-coalesced-read.test.ts",
+          "previousMainBlob": "e9ffdddcc8d8129ac4484d14c24a4997b33df815",
+          "newMainBlob": "ef515711f1df241515bd16303f3b8646f5bce151",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/audio-editor-project-management-menu.test.ts",
+          "previousMainBlob": "2a01d8642527c4cffc55cd57b36b3089176628be",
+          "newMainBlob": "a4c5cb53150d06cea300f1b7f303021c2b254ae5",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/audio-editor-recording-checkpoint-writer.test.ts",
+          "previousMainBlob": "53612bca98bc1c67dce91bfdc5a0ae3b0e926574",
+          "newMainBlob": "4543701e46218b886ebbf7183dd6a22939e2d6f9",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/audio-editor-soundscaper-desktop-delete-intents.test.ts",
+          "previousMainBlob": "f6d3bd120d20d7b0b9ed47670f55bac9e4bf1ef7",
+          "newMainBlob": "2d995c3dfcd685a4a2578c33a42f013e8e1e0e93",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/audio-editor-take-cycle-open-recovery-coordinator.test.ts",
+          "previousMainBlob": "bceb8f6f293e8a12ea33eb036f33fa405ccb7fe3",
+          "newMainBlob": "391d712b2fc31b683dc83f449267be214099a96a",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/browser/audio-editor-project-management-menu.spec.js",
+          "previousMainBlob": "336c0ec373a0ef9121a41223122d112cd7d25149",
+          "newMainBlob": "e45fb546be2f1cdb2e814bff6ae8dd06a0e967b0",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/desktop-nightly-tests-staging-closure.test.js",
+          "previousMainBlob": "4c57107e97967b2fadee19e03865fd3dbe846b27",
+          "newMainBlob": "21baae55e939174051ccb5007d2a23835904dc79",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        },
+        {
+          "path": "tests/desktop-nightly-tests-staging.test.js",
+          "previousMainBlob": "501b68e6ab164332d46a25ea72571a7c73dcd6ba",
+          "newMainBlob": "68207ee6091d585aa023ae16bbe003314439633f",
+          "changedAtRevision": "bec086390832983da067f330580f3812965a54a3",
+          "status": "pending",
+          "reason": "Already pending; upstream test changes do not complete a necessity review."
+        }
+      ],
+      "coverage": {
+        "historicalBaseline": {
+          "identified": 6014,
+          "reviewed": 489,
+          "pending": 5525
+        },
+        "conservativeLogicalTracking": {
+          "identified": 6031,
+          "reviewed": 488,
+          "pending": 5543
+        },
+        "currentNewMainPhysicalMatchingSources": 6031,
+        "currentMergedHeadPhysicalMatchingSources": 6025,
+        "retainedCompilerFixtureReplacements": 2,
+        "completedRemovedIdentities": 4,
+        "reconciliation": "6,014 historical identities +16 new-main test sources +1 earlier upstream metadata-layout test missing from the historical inventory =6,031 tracked identities; 489 previous review receipts -1 changed-body receipt =488 retained receipts; 5,525 previous pending +17 new identities +1 re-review =5,543 pending. Current merged tree has 6,025 matching test sources +2 preserved typecheck fixtures +4 completed removals =6,031 logical identities.",
+        "scopeOfRetainedReceipts": "Changed committed test bodies only. Unchanged historical receipts are retained without claiming a fresh review of new production behavior."
+      },
+      "inventoryReconciliation": {
+        "status": "resolved",
+        "discrepancy": "A full committed-tree check found tests/browser/audio-editor-metadata-layout.spec.js already added at b1181a10f but absent from the original6014 inventory.",
+        "addedAtRevision": "b1181a10fa99404858a1dd987b737cd686a29c68",
+        "action": "Added as pending; original historical report and review receipts remain unchanged.",
+        "unresolvedMissingCommittedMatchingPaths": []
+      },
+      "countsOfAddedSources": {
+        "newMainDelta": 16,
+        "earlierUpstreamAdditionMissingFromHistoricalInventory": 1,
+        "totalNewPendingIdentities": 17
+      }
+    },
+    "validation": {
+      "additionalLint": {
+        "status": "passed",
+        "fileCount": 104,
+        "note": "Every lintable path added or modified by the newer main. Combined with the preceding complete repository lint, covers the integrated tree.",
+        "integratedLintableFileCount": 11509,
+        "missingPaths": []
+      },
+      "commands": [
+        {
+          "command": "npm run typecheck:tests",
+          "status": "passed",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run check:architecture",
+          "status": "passed",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run pretest:browser",
+          "status": "passed",
+          "exitCode": 0
+        },
+        {
+          "command": "npx playwright test <four retained cleanup specs> --project=chromium",
+          "status": "passed",
+          "exitCode": 0
+        },
+        {
+          "command": "npm test",
+          "status": "passed",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run check:startup-graph:tighten",
+          "status": "passed",
+          "exitCode": 0
+        }
+      ],
+      "focusedChromium": {
+        "passed": 5,
+        "failed": 0
+      },
+      "nodeSuite": {
+        "batches": [
+          {
+            "tests": 1,
+            "pass": 1,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 1,
+            "pass": 1,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+          },
+          {
+            "tests": 26699,
+            "pass": 26666,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 33,
+            "todo": 0
+          }
+        ],
+        "totals": {
+          "tests": 26701,
+          "pass": 26668,
+          "fail": 0,
+          "skipped": 33,
+          "cancelled": 0,
+          "todo": 0
+        }
+      },
+      "startupGraph": "No byte ceiling had room to tighten."
     }
   }
 }
