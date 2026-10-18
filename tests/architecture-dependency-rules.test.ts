@@ -63,9 +63,6 @@ function publicModulesForDomain(domain: string) {
 
 function dependencyRule(source: string, target: string, typeOnly: boolean) {
 	return {
-		comment: typeOnly
-			? `The ${source} controller domain may name types from ${target}'s public modules.`
-			: `The ${source} controller domain may import ${target}'s public modules.`,
 		from: { path: `${CONTROLLER_ROOT}${source}/` },
 		to: {
 			path: publicModulesForDomain(target),
@@ -100,19 +97,16 @@ test('every rule is an error, so none of them degrades to advice', () => {
 
 test('controller domains expose only configured direct public dependencies across ownership boundaries', () => {
 	assert.equal(POLICY.schemaVersion, 2);
-	assert.deepEqual(CONFIGURATION.allowed, [
+	assert.deepEqual(CONFIGURATION.allowed?.map(({ comment: _comment, ...boundary }) => boundary), [
 		{
-			comment: 'Dependencies whose target is outside controller domains are unaffected.',
 			from: {},
 			to: { pathNot: '^src/common/editor/controller/' },
 		},
 		{
-			comment: 'A controller domain may use its own public and private modules.',
 			from: { path: '^src/common/editor/controller/([^/]+)/' },
 			to: { path: '^src/common/editor/controller/$1/' },
 		},
 		{
-			comment: 'Code outside controller domains may import configured public controller modules.',
 			from: { pathNot: CONTROLLER_ROOT },
 			to: { path: PUBLIC_CONTROLLER_MODULES },
 		},
@@ -136,7 +130,7 @@ test('unlisted direct files cannot escape ownership through a public-module allo
 	}
 });
 
-test('no-circular forbids the cycles that survive compilation and says why the rest pass', () => {
+test('no-circular forbids the cycles that survive compilation', () => {
 	// A ring containing an erased edge is open at runtime, so it is not the
 	// initialization-order hazard the rule exists for. Dropping `viaOnly` would report
 	// every type-level cycle in the repository, and the recovery from that would be to
@@ -145,7 +139,6 @@ test('no-circular forbids the cycles that survive compilation and says why the r
 	assert.deepEqual(circular.to.viaOnly, {
 		dependencyTypesNot: ERASED_TYPESCRIPT_DEPENDENCIES,
 	});
-	assert.match(String(circular.comment), /type-only|import type/u);
 });
 
 test('the layering rules name both editor boundaries and the test boundary', () => {

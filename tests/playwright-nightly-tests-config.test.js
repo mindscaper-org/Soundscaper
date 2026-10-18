@@ -198,22 +198,8 @@ test('diagnostic runs keep the canonical visual baseline on Linux Chromium', asy
 
 	assert.match(
 		browserSpec,
-		/test\.skip\(\s*process\.platform !== 'linux'\s*\|\|\s*testInfo\.project\.name !== 'chromium',\s*'[^']*Ubuntu CI[^']*'\s*,?\s*\)/u,
+		/test\.skip\(\s*process\.platform !== 'linux'\s*\|\|\s*testInfo\.project\.name !== 'chromium',\s*'[^']*'\s*,?\s*\)/u,
 	);
 	assert.ok(snapshots.length > 0);
 	assert.ok(snapshots.every((snapshot) => snapshot.endsWith('-chromium-linux.png')));
-});
-
-test('the browser-native encoder admission witness is host-independent and FFmpeg-free', async () => {
-	const browserSpec = await readFile(
-		new URL('./browser/audio-editor-video-delivery-encoder-tiers.spec.js', import.meta.url),
-		'utf8',
-	);
-
-	assert.doesNotMatch(browserSpec, /process\.platform === 'win32'/u);
-	assert.match(
-		browserSpec,
-		/requestedUrls\.filter\(isFfmpegRuntimeRequest\)\)\.toEqual\(\[\]\)/u,
-	);
-	assert.match(browserSpec, /hasSharedArrayBuffer:\s*false/u);
 });

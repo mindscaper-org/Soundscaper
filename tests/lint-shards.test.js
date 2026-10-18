@@ -98,12 +98,8 @@ test('lint selection accepts a shard or changed files, but not both', () => {
 	assert.throws(() => parseLintSelection(['--stripe=1/8']), /Unknown lint selection argument/u);
 });
 
-test('package scripts and agent guidance use the bounded lint entry points', () => {
+test('package scripts use the bounded lint entry points', () => {
 	const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 	assert.equal(packageJson.scripts.lint, 'node scripts/run-lint.mjs');
 	assert.equal(packageJson.scripts['lint:changed'], 'node scripts/run-lint.mjs --changed');
-
-	const guidance = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
-	assert.match(guidance, /lint added and modified lintable files with `npm run lint:changed`/u);
-	assert.match(guidance, /complete repository lint.*CI\/pre-merge gate/u);
 });

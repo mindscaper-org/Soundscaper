@@ -70,21 +70,6 @@ test('every maintained production tree has its own coverage scope', () => {
 	assert.equal(classifyProductionCoveragePath('src/unknown-product/model.ts'), null);
 });
 
-test('the floors the gate enforces are exactly the ones the configuration ratchets', () => {
-	// A literal table here would have to be rewritten after every ratchet; the
-	// contract is that the gate reads the configuration, whatever it says today.
-	const configuration = JSON.parse(readFileSync(COVERAGE_GATE_CONFIGURATION_URL, 'utf8'));
-	assert.deepEqual(
-		Object.fromEntries(COVERAGE_SCOPES.map(({ id, thresholds }) => [id, thresholds])),
-		Object.fromEntries(configuration.scopes.map(({ id, thresholds }) => [id, thresholds])),
-	);
-	for (const { id, thresholds } of COVERAGE_SCOPES) {
-		for (const [metric, floor] of Object.entries(thresholds)) {
-			assert.ok(Number.isInteger(floor) && floor >= 0 && floor <= 100, `${id}.${metric} floor ${floor}`);
-		}
-	}
-});
-
 test('the floors are read from the maintained coverage configuration with their reasons', () => {
 	const configuration = JSON.parse(readFileSync(COVERAGE_GATE_CONFIGURATION_URL, 'utf8'));
 	assert.equal(
@@ -95,9 +80,12 @@ test('the floors are read from the maintained coverage configuration with their 
 		configuration.scopes.map(({ id, label, thresholds }) => ({ id, label, thresholds })),
 		COVERAGE_SCOPES.map(({ id, label, thresholds }) => ({ id, label, thresholds })),
 	);
-	for (const { id, reason } of COVERAGE_SCOPES) {
+	for (const { id, reason, thresholds } of COVERAGE_SCOPES) {
 		assert.equal(typeof reason, 'string', id);
 		assert.ok(reason.trim().length > 40, id);
+		for (const [metric, floor] of Object.entries(thresholds)) {
+			assert.ok(Number.isInteger(floor) && floor >= 0 && floor <= 100, `${id}.${metric} floor ${floor}`);
+		}
 	}
 });
 

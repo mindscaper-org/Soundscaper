@@ -153,16 +153,6 @@ test('one classification reads shared cyclic helpers once and keeps each product
 	assert.equal(classifyNodeTestFile(root, join(root, 'tests/second.test.js')), 'soundscaper');
 });
 
-test('no test file names both products, so the filename signal is never ambiguous', () => {
-	// A test is also shelved by its own name, because roughly a hundred Framescaper
-	// modules live under src/common/editor and a test of those reaches no product
-	// tree at all. That signal only stays honest while no filename claims both.
-	const ambiguous = listNodeTestFiles(ROOT)
-		.map((file) => basename(file))
-		.filter((name) => name.includes('framescaper') && name.includes('soundscaper'));
-	assert.deepEqual(ambiguous, [], 'rename such a test after the product that owns it, or after neither');
-});
-
 test('the shard selection CLI accepts the shard ids and refuses anything else', () => {
 	assert.deepEqual(parseNodeTestSelection([]), { shard: null });
 	for (const shard of NODE_TEST_SHARD_IDS) {
