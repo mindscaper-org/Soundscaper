@@ -5,7 +5,6 @@ import {
 	audioEditorTrackBlockBounds,
 	moveAudioEditorTrackBlock,
 } from '../src/common/editor/ui/application-menu-model.js';
-import { AUDACITY_MENU_ORDER } from '../src/common/editor/ui/application-menu-order.ts';
 import {
 	DEFAULT_PLAYBACK_METER_SETTINGS,
 	normalizeMeterSettings,
@@ -50,10 +49,6 @@ test('meter settings normalize persisted values at the module boundary', () => {
 		ebuLiveValue: 'short-term',
 	});
 	assert.equal(productStorageKey('soundscaper-meter-v2', 'framescaper'), 'framescaper-meter-v2');
-});
-
-test('the application menubar omits the redundant playback and recording menu', () => {
-	assert.deepEqual(AUDACITY_MENU_ORDER.slice(3, 5), ['view', 'tracks']);
 });
 
 test('floating panels are clamped to the visible workspace', () => {

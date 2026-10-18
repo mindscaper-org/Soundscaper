@@ -15,7 +15,7 @@ test('dialog lookup, shared comp boundaries and sampled compressor paths retain 
 	const dom = installReactTestDom(); let analyzerReads = 0, outputReads = 0, boundaryReads = 0, thresholdReads = 0;
 	const output = { get id() { outputReads++; return 'o'; }, name: 'Output', description: '', unit: '', sampleType: 'variable-sample-rate' as const, sampleRate: null, hasDuration: false };
 	const first: VampAnalyzerDescriptor = { get analyzerId() { analyzerReads++; return 'a'; }, stableId: 's', binarySha256: '', name: 'First', maker: '', programs: [], parameters: [], outputs: [output] };
-	let analyzers = [first, { ...first, name: 'Duplicate' }];
+	let analyzers = [first, { ...first, analyzerId: 'b', name: 'Second' }];
 	let regions = [{ id: 'l', get endSample() { boundaryReads++; return 10; }, startSample: 0 }, { id: 'r', startSample: 10, endSample: 20 }, { id: 'gap', startSample: 30, endSample: 40 }];
 	let parameters: Readonly<Record<string, unknown>> = { get thresholdDb() { thresholdReads++; return -12; }, kneeWidthDb: 6, ratio: 4, makeupGainDb: 9 };
 	let result: readonly unknown[] = [];
