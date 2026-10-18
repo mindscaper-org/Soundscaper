@@ -7,6 +7,12 @@ database. The application still uses its complete Web Core catalog and media
 stores. These components register no renderer API, menu action, selected native
 catalog backend or add-in-place capability by themselves.
 
+A [separate native LUT and brush owner](lightscaper-native-photo-resources.md)
+now persists authentic immutable `.cube` and `SCMASK01` bodies in its own
+SQLite database. It provides both existing family capabilities, independent
+render/verification/installation slots and complete Current resource closure
+verification. It does not select a native Session or replace Web Core storage.
+
 The host supplies one canonical appData directory. The fixed product scope is
 `Lightscaper/project-library/v1/`; filenames supplied by a photo or renderer
 never select a physical path. `native-photo-originals.sqlite3` admits only its
@@ -210,9 +216,10 @@ filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
 scalar-only paging, cancellation, and reentrant close. They do not qualify a
 packaged renderer adapter or another platform.
 
-The remaining adapter must add resource ownership, settings, journals and
-complete restore, then preserve all complete
-session/publication/recovery ports through selected-catalog renderer admission.
+The remaining adapter must add managed-media custody and scoped Original
+loading, settings, journals and complete restore, then preserve all complete
+Session/publication/recovery ports through selected-catalog renderer and IPC
+admission.
 Its media publication port must receive the whole validated Original; the
 existing `(assetId, Blob)` port cannot infer one. Menu-owned library selection
 must join authoring, previews and storage before switching. Native qualification must also supply a private

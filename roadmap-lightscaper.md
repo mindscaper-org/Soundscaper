@@ -1240,9 +1240,17 @@ the selected whole Current Photo and complete index projection in each SQLite
 snapshot, derives an inclusive destination privately, and preserves bounded
 stack work and each reader's resumable cursor. Close joins its phases and actual
 yield before storage retirement; acknowledged attribute edits stay durable.
-Resources, settings, journals/complete restore, renderer admission and
-menu-owned library selection remain required before activation; add-in-place
-access and native platform qualification remain open.
+An independent [native LUT and brush owner](docs/architecture/lightscaper-native-photo-resources.md)
+now persists both authentic immutable body families and provides their complete
+Photo resource capabilities internally. Six independent render, verification
+and installation slots retain joined consumers, while native COMMIT owns each
+installed/reused receipt. Verification covers whole Current Photo aggregates
+1/2/3 with Develop processes 1–4 and selected preset schemas 1–4, including disabled,
+inactive, redo, snapshot and unused-resource declarations.
+Managed-media custody and scoped Original/preview loading, settings,
+journals/complete restore, complete native Session composition, renderer/IPC
+admission and menu-owned library selection remain required before activation.
+Add-in-place access and native platform qualification remain open.
 
 ### Exit gate
 
