@@ -325,7 +325,9 @@ export function AudacityLabelMarker({
 			tabIndex={0}
 			aria-label={`${copy.editLabels}: ${label.title || copy.newLabel}`}
 			onFocus={(event) => {
-				if (event.target === event.currentTarget && !selected) select();
+				if (event.target !== event.currentTarget) return;
+				if (!selected) select();
+				else if (controller.getSnapshot().selectedTrackId !== trackId) select({ shiftKey: true });
 			}}
 			onDoubleClick={(event) => {
 				event.stopPropagation();

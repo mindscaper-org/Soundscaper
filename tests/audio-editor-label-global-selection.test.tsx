@@ -21,11 +21,12 @@ test('label banners use native global selection and preserve Shift selections th
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
 	let selectedLabels: SelectedLabel[] = [];
+	let selectedTrackId = 'first';
 	const calls: unknown[] = [];
 	const tracks = ['first', 'second'].map((id, index) => ({ id, type: 'label', name: id,
 		labels: [{ id: `label-${id}`, title: id, startFrame: 9_600 + index * 9_600, endFrame: 19_200 + index * 9_600 }] }));
 	const controller = {
-		getSnapshot: () => ({ project: { schemaFamily: 'soundscaper', tracks }, selectedLabels }),
+		getSnapshot: () => ({ project: { schemaFamily: 'soundscaper', tracks }, selectedLabels, selectedTrackId }),
 		actions: { labels: { add: (trackId: string) => {
 			const track = tracks.find(candidate => candidate.id === trackId)!;
 			const label = { id: 'added-label', title: '', startFrame: 0, endFrame: 0 };
@@ -33,7 +34,10 @@ test('label banners use native global selection and preserve Shift selections th
 			return label.id;
 		}, select: (trackId: string, labelId: string | null, options: { additive?: boolean } = {}) => {
 			calls.push(['labels', trackId, labelId, options]);
-			selectedLabels = labelId === null ? [] : [...(options.additive ? selectedLabels : []), { trackId, labelId }];
+			selectedTrackId = trackId;
+			const previous = options.additive ? selectedLabels : [];
+			selectedLabels = labelId === null ? [] : previous.some(ref => ref.trackId === trackId && ref.labelId === labelId)
+				? previous : [...previous, { trackId, labelId }];
 		} }, edit: {}, timeline: {
 			selectTrack: (id: string) => { calls.push(['track', id]); },
 			setExactSelection: (...frames: number[]) => { calls.push(['range', ...frames]); },
@@ -64,7 +68,8 @@ test('label banners use native global selection and preserve Shift selections th
 		assert.equal(second.getAttribute('data-selected-label'), 'true');
 		await act(async () => { reactProps(first).onFocus({ target: first, currentTarget: first }); });
 		assert.equal(selectedLabels.length, 2, 'focus restoration onto a selected marker preserves the picked set');
-		assert.equal(calls.length, 2);
+		assert.equal(selectedTrackId, 'first', 'the focused label owns keyboard moves even after another track was selected');
+		assert.deepEqual(calls.at(-1), ['labels', 'first', 'label-first', { additive: true }]);
 		await act(async () => { reactProps(first).onContextMenu({ target: first, currentTarget: first,
 			clientX: 10, clientY: 10, preventDefault() {}, stopPropagation() {} }); });
 		assert.equal(selectedLabels.length, 2, 'opening the selected label context menu retains the whole picked set');
