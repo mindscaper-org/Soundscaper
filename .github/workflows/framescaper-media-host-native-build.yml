@@ -57,7 +57,15 @@ jobs:
       - name: Install Windows media build tools
         if: runner.os == 'Windows' && runner.arch != 'ARM64'
         shell: pwsh
-        run: choco install make pkgconfiglite --yes --no-progress
+        run: |
+          choco install make pkgconfiglite nasm --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nasmDirectory = Join-Path $env:ProgramFiles 'NASM'
+          $nasmExecutable = Join-Path $nasmDirectory 'nasm.exe'
+          if (-not (Test-Path -LiteralPath $nasmExecutable -PathType Leaf)) { throw 'NASM was not installed in its expected directory.' }
+          & $nasmExecutable -v
+          if ($LASTEXITCODE -ne 0) { throw 'The installed NASM executable is unavailable.' }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $nasmDirectory
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: .nvmrc

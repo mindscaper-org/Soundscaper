@@ -110,6 +110,9 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		RANLIB: shellTool(tools.executables.ranlib.path, windows),
 		...(windows ? { RC: shellTool(tools.executables.rc.path, true) } : {}),
 	});
+	// The VS target selects its generated MSBuild projects when CC is empty.
+	const vpxEnvironment = windows
+		? Object.freeze({ ...makeEnvironment, CC: '', CXX: '' }) : makeEnvironment;
 	const pkgConfigRoots = [
 		paths.ffmpegInstall, paths.x264Install, paths.x265Install,
 		paths.libvpxInstall, paths.libopusInstall, paths.zlibInstall,
@@ -199,9 +202,9 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('x265-configure', tools.executables.cmake.path, x265Args, paths.x265Build, nativeEnvironment),
 		command('x265-build', tools.executables.cmake.path, ['--build', paths.x265Build, '--config', 'Release', '--target', 'x265-static', '--parallel', '1'], paths.x265Build, nativeEnvironment),
 		command('x265-install', tools.executables.cmake.path, ['--install', paths.x265Build, '--config', 'Release', '--prefix', paths.x265Install], paths.x265Build, nativeEnvironment),
-		command('libvpx-configure', tools.executables.shell.path, vpxArgs, paths.libvpxBuild, makeEnvironment),
-		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, makeEnvironment),
-		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, makeEnvironment),
+		command('libvpx-configure', tools.executables.shell.path, vpxArgs, paths.libvpxBuild, vpxEnvironment),
+		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, vpxEnvironment),
+		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, vpxEnvironment),
 		...(windows ? [
 			command('libvpx-normalize-library', tools.executables.cmake.path, ['-E', 'copy',
 				join(paths.libvpxInstall, 'lib', target.id === 'win-arm64' ? 'ARM64' : 'x64', 'vpxmt.lib'),

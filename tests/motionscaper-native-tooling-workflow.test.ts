@@ -68,3 +68,19 @@ test('Motion Windows media builds keep native Ninja and select the target-native
 	assert.equal(record(compiler.env).FRAMESCAPER_VS_ARCH, '${{ matrix.vs_arch }}');
 	assert.match(String(compiler.run), /-arch=\$env:FRAMESCAPER_VS_ARCH -host_arch=\$env:FRAMESCAPER_VS_ARCH/u);
 });
+
+for (const file of ['motionscaper-media-host-native-build.yml', 'framescaper-media-host-native-build.yml']) {
+	test(`Motion codec prerequisite ${file} explicitly installs the Windows x64 assembler`, () => {
+		const job = workflowJob(file, 'build');
+		assert.ok(Array.isArray(job.steps));
+		const install = job.steps.map(record).find(step => step.name === 'Install Windows media build tools');
+		assert.ok(install);
+		assert.equal(install.if, "runner.os == 'Windows' && runner.arch != 'ARM64'");
+		const command = String(install.run).trim().split(/\s+/u);
+		assert.deepEqual(command.slice(0, 2), ['choco', 'install']);
+		assert.ok(command.includes('nasm'), 'libvpx Windows x64 configuration requires an explicitly installed assembler');
+		assert.match(String(install.run), /\$env:GITHUB_PATH/u, 'the NASM installer does not publish its directory to later steps');
+		assert.match(String(install.run), /Join-Path \$env:ProgramFiles 'NASM'/u);
+		assert.match(String(install.run), /nasm\.exe/u, 'verify the installed assembler before publishing its path');
+	});
+}
