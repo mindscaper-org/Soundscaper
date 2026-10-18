@@ -1308,8 +1308,12 @@ families, fixed-anchor import presets and explicit native exclusivity. It joins
 actual local consumers, accepted native work and escaped producers before
 physical ticket/database retirement and writer-guard release. Focused native
 tests cover held single/group Files, resources, Current ZIP cancellation and
-failed-retirement exclusion; the complete renderer Session and authenticated
-production IPC remain unfinished.
+failed-retirement exclusion. The complete renderer Current Session now composes
+these ports with its actual constructor, all Current and strict legacy children,
+real Original source and all three native preview cache adapters. Focused
+integration covers editing, both query versions, stacks, saved queries, culling,
+group/resource backup, physical repair, actual HDR decoding and persistent reopen.
+Authenticated production IPC and menu-owned backend selection remain unfinished.
 Add-in-place access and native platform qualification remain open.
 
 ### Exit gate

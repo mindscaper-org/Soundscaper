@@ -49,7 +49,7 @@ function unproved(error: unknown, signal: AbortSignal): boolean {
 	* through explicit consumer close; bytes, pins and callback retirement remain
 	* separate. No renderer API is installed by constructing this owner. */
 export class LightscaperNativePhotoOriginalTicketsCurrentV1 {
-	readonly transport: Readonly<Transport>;
+	readonly transport: Readonly<Required<Transport>>;
 	readonly #originals: Originals; readonly #with: Originals['withOriginal'];
 	readonly #scope: Scope; readonly #assert: Scope['assertCurrent']; readonly #unretired: () => void;
 	readonly #budget: Budget; readonly #groups: Groups; readonly #abort: () => void;
@@ -62,7 +62,7 @@ export class LightscaperNativePhotoOriginalTicketsCurrentV1 {
 		this.#scope = scope; this.#assert = scope.assertCurrent; this.#unretired = unretired;
 		this.#budget = lightscaperNativePhotoOriginalTicketBudgetCurrentV1(scope.signal);
 		this.#groups = new Groups(originals, this.#budget, () => { this.#assertCurrent(); }, error => { this.#latch(null, error); });
-		this.transport = Object.freeze<Transport>({ open: value => this.#open(value), read: (value, offset, length) => this.#read(value, offset, length), close: value => this.#wireClose(value),
+		this.transport = Object.freeze<Required<Transport>>({ open: value => this.#open(value), read: (value, offset, length) => this.#read(value, offset, length), close: value => this.#wireClose(value),
 			openGroup: value => this.#groups.open(value), readGroup: (value, index, offset, length) => this.#groups.read(value, index, offset, length), closeGroup: value => this.#groups.closeTicket(value) });
 		this.#abort = () => { void this.#close(Reflect.apply(REASON, scope.signal, [])).catch(() => undefined); };
 		Reflect.apply(ADD, scope.signal, ['abort', this.#abort, { once: true }]);

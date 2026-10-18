@@ -3,8 +3,9 @@
 The Main-private selected Session lease composes the actual native Catalog,
 managed Originals, selected settings, resources, Original transports and binary
 derivative cache factories. It is an ownership prerequisite for the complete
-Current Session. The managed Web Core Session remains active until the complete
-renderer factory, authenticated IPC and menu-owned selection are composed.
+Current Session. The complete renderer factory now uses that lease through its
+local service contract. The managed Web Core Session remains active until
+authenticated IPC and menu-owned selection are composed.
 
 ## Selected authority and captured ports
 
@@ -69,13 +70,24 @@ Failed local or physical retirement quarantines the real manager and guard and
 retains the owners; neither a timer nor a caller-shaped acknowledgment releases
 exclusion.
 
-The complete factory must capture actual inner Current Session close as local
-retirement. Its `closeResources` retires renderer-local consumers only; the
-public outer Session close delegates to the native lease. Awaiting the native
-lease from that inner close would create a cycle. Pending construction must be
-tracked before entering the actual constructor, and local stop must prohibit
-later constructor entry. Production transport must own that barrier and actual
-renderer-process loss; an arbitrary IPC reply cannot certify consumer retirement.
+`createDesktopPhotoLibrarySessionCurrentV1` constructs the actual complete
+Current Session, retaining its prototype, strict legacy children, Current
+Develop processes, handoff and backup capabilities. It supplies the genuine
+Original source, retained-body inspection and repair, native resource and
+settings ports, explicit exclusivity, and all three real preview cache adapters.
+Browser import preparation, RAW workers and preview decoding stay in the
+renderer. Startup reads import intent through its bounded native domain reader;
+occupied corrupt rows and insertion-order-sensitive recovery CAS remain intact.
+
+The factory captures actual inner Current Session close as local retirement.
+Its `closeResources` retires renderer-local consumers only; the public outer
+Session close delegates to the native lease. Pending construction is registered
+before entering the actual constructor. Public Close synchronously starts inner
+retirement before dispatching cancellation, fencing accepted work while held
+consumers drain. Construction failure joins the real inner Session and Original
+source without waiting on the remote admission that may itself await local
+close. Production transport must own that barrier and actual renderer-process
+loss; an arbitrary IPC reply cannot certify consumer retirement.
 
 ## Focused evidence
 
@@ -85,5 +97,8 @@ exclusive callbacks, held single/group Original Files and FileHandle reads,
 LUT/brush consumer retirement and wiping, idle writer cancellation, Current ZIP
 backup cancellation, terminal owner release and convergent user/manager close.
 A separate real process proves failed local cleanup retains exclusion until the
-owning process has actually exited. These component checks do not establish
-complete native Session, production IPC or menu activation.
+owning process has actually exited. Complete Session integration also covers
+both query versions, stacks, saved queries, all culling contexts, metadata and
+import-preset persistence, authenticated group/resource ZIP output, physical
+repair and reopen, actual HDR decoding and all three persistent preview cache
+adapters. These checks do not establish production IPC or menu activation.
