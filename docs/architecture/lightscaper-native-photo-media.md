@@ -37,10 +37,11 @@ metadata commit returns a cached promise and receipt; later abort or Close
 cannot revoke that acknowledgment. Optional owned-publication and video-claim
 methods are separate contracts and are not advertised by this Photo writer.
 
-`native-photo-originals.sqlite3` uses application identity LSCP and schema 2.
-The exact historical schema-1 binding table remains unchanged; migration adds
-empty asset and root tables with three bounded lookup indexes. Existing bindings
-gain no inferred content tokens or catalog roots. Read-only admission precedes
+`native-photo-originals.sqlite3` uses application identity LSCP and schema 3.
+The exact historical schema-1 binding and schema-2 media/root tables remain
+unchanged. Migration adds scalar body locators, digest heads and a binding digest
+index without reading bodies or rewriting metadata. Existing bindings gain no
+inferred content tokens or catalog roots. Read-only admission precedes
 writable SQLite recovery, permission changes, WAL adoption and body-directory
 preparation. Primary and sidecar paths must be canonical single-link regular
 files; orphan sidecars and linked product directories refuse.
@@ -90,6 +91,11 @@ file afresh and rechecks its captured generation and complete custody after I/O.
 It shares the native read reservations and retains the asset pin until the real
 file handle retires. Inspection does not repair bytes or change Photo revisions.
 
+`restoreCatalogOriginalBody` now implements [exact retained-body repair](lightscaper-native-original-repair.md).
+Actual replacement bytes precede the atomic head and missing-row publication.
+Existing consumers retain their old physical generation; logical content tokens,
+Photo descriptors, custody and fresh descriptive metadata remain unchanged.
+
 `createBinaryDerivativeCache` supplies genuine native `load`, `store` and `trim`
 ports for the existing canonical, camera-culling and HDR preview adapters. Their
 disposable sidecar database shares a 128-MiB and 1024-entry committed inventory
@@ -131,7 +137,7 @@ consumer and physical-read retirement. The separate renderer source stages a
 genuine File under fixed capacity limits; its port tests do not establish
 packaged transport or existing consumer integration.
 
-Exact retained-body repair, complete native Session composition, renderer/IPC
-admission and menu-owned Session selection remain required. No AI runtime source,
+Complete native Session composition, renderer/IPC admission and menu-owned Session
+selection remain required. No AI runtime source,
 archive closure or target inventory changes; this component does not require a
 manual **Update AI assets** run.

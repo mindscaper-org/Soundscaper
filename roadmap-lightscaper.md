@@ -1268,7 +1268,10 @@ Retained-Original inspection authenticates actual bytes and complete custody
 without decoding generic metadata, sharing the native read budget and deletion
 pins. Native canonical, camera-culling and HDR preview caches share a bounded
 disposable inventory tied to the current Original generation. Exact retained-body
-repair remains required for complete native Session composition.
+repair now authenticates selected replacement bytes and publishes a fresh native
+body generation with atomic custody/head checks. Existing single/group readers
+retain their old file until actual retirement; native Session/IPC/menu composition
+remains required before activation.
 The [native scope owner](docs/architecture/lightscaper-native-photo-library-scopes.md)
 now durably reserves physical generation allocations and verifies exact manifests
 before composing their genuine catalog, media, resources and selected settings.

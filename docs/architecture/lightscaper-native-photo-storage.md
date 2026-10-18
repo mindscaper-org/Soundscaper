@@ -16,9 +16,10 @@ verification. It does not select a native Session or replace Web Core storage.
 The host supplies one canonical appData directory. The fixed product scope is
 `Lightscaper/project-library/v1/`; filenames supplied by a photo or renderer
 never select a physical path. `native-photo-originals.sqlite3` admits only its
-exact `LSCP` application identity and version 2 schema, with immutable physical
-bindings, managed asset metadata and catalog Original roots. Exact historical
-version 1 migrates without rewriting bindings or inventing verified metadata.
+exact `LSCP` application identity and version 3 schema, with immutable physical
+bindings, managed asset metadata, catalog Original roots and scalar body heads.
+Exact historical versions 1 and 2 migrate without rewriting their rows, reading
+bodies or inventing verified metadata.
 An unowned nonempty database, unsupported version or altered schema is refused
 through read-only preflight before writable recovery, chmod or WAL adoption.
 
@@ -48,6 +49,13 @@ timestamps and no retained read handles. Every range rechecks the opened and
 path identities, and responses are capped at one MiB. Missing, changed or
 symlinked bodies refuse without rewriting the Original or repairing authority
 from an untrusted file.
+
+[Exact retained-body repair](lightscaper-native-original-repair.md) publishes a
+fresh immutable generation and switches its digest head after genuine file
+authentication. An absent head explicitly selects the historical SHA path;
+an occupied malformed or missing locator refuses. Whole-consumer leases retain
+their selected physical generation across every pull, while new consumers use
+the current head. Ordinary publication proofs also bind their actual head.
 
 Closing fences new admission and joins already admitted producers and file
 operations. A rejected `next()` still joins the producer's `return()` and requires

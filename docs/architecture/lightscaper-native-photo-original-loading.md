@@ -28,12 +28,17 @@ database. Deleting a pinned asset refuses immediately. The consumer holds its pi
 through the callback and every accepted physical read, including cancellation
 and failure. Range publication rechecks authority. Escaped views close when their
 callback retires; no catalog or media queue is held across the whole callback.
+Each consumer also synchronously pins its resolved physical body generation.
+An exact repair can publish a new head without redirecting an admitted ticket
+or group between pulls. Physical close joins accepted I/O before the logical
+deletion pin retires. One-shot inspection instead rejects a head changed during
+its actual file authentication.
 
 The manager supplies a persistent private shutdown signal, independent of the
 completed component-open request. Parent close fences reads immediately and waits
 for consumers and accepted I/O before closing catalog, media and selected
-settings. It first quiesces escaped stream writers: an idle producer can occupy
-the Original store queue ahead of an accepted read. Quiescence fences media
+settings. It first quiesces escaped stream writers and joins their real work.
+Physical lease pulls use an independent bounded lane. Quiescence fences media
 admission and cancels those producers while retaining physical owners and pins.
 Resources retire afterward; the global writer guard releases last.
 

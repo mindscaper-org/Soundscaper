@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createHash } from 'node:crypto';
+import { readLightscaperNativeOriginalBodyHeadCurrentV1 as readOriginalHead } from './lightscaper-native-original-body-head-current-v1.ts';
+import { auditLightscaperNativeOriginalRestoreInventoryCurrentV1 as inventoryOriginalLocators } from './lightscaper-native-original-restore-inventory-current-v1.ts';
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import { catalogOriginalKey, catalogOriginalScope, normalizeCatalogOriginalRoot } from '../src/common/editor/storage/media-catalog-original-schema.ts';
@@ -130,12 +132,14 @@ async function inventoryAssets(db: DatabaseSync, input: Input, hash: ReturnType<
 			const binding = db.prepare('SELECT CASE WHEN length(content_sha256)=64 THEN content_sha256 END AS content_sha256,byte_length FROM native_photo_original_bindings WHERE storage_key=?').get(row.source_id);
 			const roots = db.prepare('SELECT COUNT(*) AS n FROM native_photo_media_roots WHERE asset_id=?').get(row.source_id)?.n;
 			if (!binding || binding.content_sha256 !== row.sha256 || binding.byte_length !== row.size || roots !== row.root_count || row.root_count === 0) throw new Error('Native restore asset binding/count differs.');
+			frame(hash, ['original-body-head', readOriginalHead(db, { storageKey: row.source_id, contentSha256: binding.content_sha256, byteLength: binding.byte_length })]);
 			frame(hash, ['asset', { ...row, metadata: createHash('sha256').update(row.metadata).digest('hex') }]); total++; bytes += row.size;
 			if (!Number.isSafeInteger(bytes)) throw new RangeError('Native restore body total exceeds its scalar budget.'); after = row.source_id;
 		}
 		if (rows.length < 64) break; await nextTurn(); current();
 	}
 	if (total !== input.originalCount || bytes !== input.originalByteLength) throw new Error('Native restore Original totals differ.');
+	await inventoryOriginalLocators(db, row => { frame(hash, ['original-body-locator', row]); }, current);
 	const rows = db.prepare('SELECT 1 AS present FROM native_photo_media_roots WHERE scope_key<>? LIMIT 1').get(key(scope));
 	if (rows) throw new Error('Native restore contains foreign or mixed custody phases.');
 	let afterRoot: Uint8Array | null = null;

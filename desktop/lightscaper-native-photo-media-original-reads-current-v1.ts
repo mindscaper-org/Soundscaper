@@ -2,7 +2,7 @@
 
 import type { DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
-import type { LightscaperNativeOriginalStoreCurrentV1 } from './lightscaper-native-original-store-current-v1.ts';
+import type { LightscaperNativeOriginalStoreCurrentV1, LightscaperNativeOriginalBindingReadCurrentV1 as PhysicalRead } from './lightscaper-native-original-store-current-v1.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as MAXIMUM } from './lightscaper-native-original-contract-current-v1.ts';
 import { registerLightscaperNativePhotoOriginalPinsCurrentV1, holdLightscaperNativePhotoOriginalReadReservationCurrentV1,
 	type LightscaperNativePhotoOriginalGroupReservationCurrentV1 as GroupReservation,
@@ -20,7 +20,7 @@ export interface LightscaperNativePhotoMediaOriginalReadCurrentV1 {
 	assertCurrent(importId: string | null): Promise<void>;
 	close(): Promise<void>;
 }
-type Tracked = Readonly<{ stop(): void; done: Promise<void> }>;
+type Tracked = Readonly<{ stop(): void; done: Promise<void>; physical: Readonly<PhysicalRead> }>;
 const NativeController = AbortController, ABORT = AbortController.prototype.abort;
 const SIGNAL = Object.getOwnPropertyDescriptor(AbortController.prototype, 'signal')!.get!;
 const ABORTED = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')!.get!;
@@ -34,10 +34,13 @@ function cleanupFailure(error: unknown, signal: AbortSignal): boolean {
 	* it never treats cancellation or final-byte delivery as consumer completion. */
 export class LightscaperNativePhotoMediaOriginalReadsCurrentV1 {
 	readonly #database: DatabaseSync; readonly #originals: LightscaperNativeOriginalStoreCurrentV1; readonly #run: Run;
+	readonly #acquirePhysical: LightscaperNativeOriginalStoreCurrentV1['acquireBindingRead'];
 	readonly #pins: ReturnType<typeof registerLightscaperNativePhotoOriginalPinsCurrentV1>;
 	readonly #leases = new Set<Tracked>(); #closed = false; #closing: Promise<void> | null = null;
 	constructor(database: DatabaseSync, originals: LightscaperNativeOriginalStoreCurrentV1, run: Run) {
-		this.#database = database; this.#originals = originals; this.#run = run; this.#pins = registerLightscaperNativePhotoOriginalPinsCurrentV1(database);
+		this.#database = database; this.#originals = originals; this.#run = run; this.#acquirePhysical = originals.acquireBindingRead;
+		if (typeof this.#acquirePhysical !== 'function') throw new TypeError('Native Original reads require genuine physical locator leases.');
+		this.#pins = registerLightscaperNativePhotoOriginalPinsCurrentV1(database);
 	}
 	reserve(): Readonly<{ release(): void }> { if (this.#closed) throw new Error('Native Original reads are closed.'); return this.#pins.reserve(); }
 	reserveGroup(count: number): Readonly<GroupReservation> { if (this.#closed) throw new Error('Native Original reads are closed.'); return this.#pins.reserveGroup(count); }
@@ -50,11 +53,25 @@ export class LightscaperNativePhotoMediaOriginalReadsCurrentV1 {
 		const authority = authorize(this.#database, request, request.importId), pin = reserved ? this.#pins.pinGroup(authority.storageKey, authority.token, reserved.group, reserved.index) : this.#pins.pin(authority.storageKey, authority.token);
 		const controller = new NativeController(), shutdown = Reflect.apply(SIGNAL, controller, []) as AbortSignal; let linked: ReturnType<typeof link>;
 		try { linked = link(caller, shutdown); } catch (error) { pin.release(); throw error; }
+		let physical: Readonly<PhysicalRead>;
+		try {
+			// Resolve and pin without an await. Logical custody stays independent of
+			// this immutable locator, so repair cannot redirect an existing consumer.
+			physical = Reflect.apply(this.#acquirePhysical, this.#originals, [{ storageKey: authority.storageKey,
+				byteLength: authority.byteLength, contentSha256: authority.contentSha256 }]) as Readonly<PhysicalRead>;
+		} catch (primary) {
+			const cleanup: unknown[] = [];
+			try { linked.detach(); } catch (error) { cleanup.push(error); }
+			try { pin.release(); } catch (error) { cleanup.push(error); }
+			if (cleanup.length) throw new AggregateError([primary, ...cleanup], 'Native physical Original admission retirement failed.', { cause: primary });
+			throw primary;
+		}
+		const readPhysical = physical.read, closePhysical = physical.close;
 		const signal = linked.signal, active = new Set<Promise<unknown>>(), failures: unknown[] = [];
 		let closing: Promise<void> | null = null, busy = false, resolveDone!: () => void, rejectDone!: (reason: unknown) => void;
 		const done = new Promise<void>((resolve, reject) => { resolveDone = resolve; rejectDone = reject; }); void done.catch(() => undefined);
 		const stop = (): void => { if (Reflect.apply(ABORTED, shutdown, []) === false) Reflect.apply(ABORT, controller, [new Error('Native Original reader is closing.')]); };
-		const tracked: Tracked = Object.freeze({ stop, done }); this.#leases.add(tracked);
+		const tracked: Tracked = Object.freeze({ stop, done, physical }); this.#leases.add(tracked);
 		const run = <Input, Result>(capture: () => Input, operation: (input: Input, selected: AbortSignal) => Result | Promise<Result>): Promise<Result> => {
 			if (closing || this.#closed) return Promise.reject(new Error('Native Original reader is closed.'));
 			const work = this.#run({ signal }, capture, operation); active.add(work);
@@ -65,7 +82,10 @@ export class LightscaperNativePhotoMediaOriginalReadsCurrentV1 {
 			if (closing) return closing;
 			let resolve!: () => void, reject!: (reason: unknown) => void;
 			closing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; }); stop();
-			void Promise.allSettled([...active]).then(() => {
+			void Promise.allSettled([...active]).then(async () => {
+				// Actual pulls and their FileHandle retirement precede releasing the
+				// logical deletion pin. Failed physical close retains both owners.
+				try { await Reflect.apply(closePhysical, physical, []); } catch (error) { if (!failures.some(value => Object.is(value, error))) failures.push(error); }
 				try { linked.detach(); } catch (error) { failures.push(error); }
 				if (failures.length) throw new AggregateError(failures, 'Native Original read retirement is unproved.');
 				pin.release(); this.#leases.delete(tracked);
@@ -87,7 +107,7 @@ export class LightscaperNativePhotoMediaOriginalReadsCurrentV1 {
 					return { offset, length, imported: imported === null ? null : catalogOriginalId(imported) };
 				}, async (input, selected) => {
 					authorize(this.#database, request, input.imported, authority);
-					const bytes = await this.#originals.readBinding({ storageKey: authority.storageKey, byteLength: authority.byteLength, contentSha256: authority.contentSha256 }, input.offset, input.length, { signal: selected });
+					const bytes = await Reflect.apply(readPhysical, physical, [input.offset, input.length, { signal: selected }]) as Uint8Array;
 					try { check(selected); authorize(this.#database, request, input.imported, authority); return new Uint8Array(bytes); }
 					finally { bytes.fill(0); }
 				});

@@ -22,10 +22,14 @@ import { LightscaperNativePhotoMediaWritersCurrentV1 } from './lightscaper-nativ
 import { LightscaperNativePhotoPreviewCacheCurrentV1 } from './lightscaper-native-photo-preview-cache-current-v1.ts';
 import type { BinaryDerivativeCachePortV1 } from '../src/common/editor/storage/binary-derivative-cache-repository.ts';
 import type { BinaryDerivativeCacheProfileV1 } from '../src/common/editor/storage/binary-derivative-cache-records.ts';
-import type { CatalogOriginalRepairBindingV1, CatalogOriginalRepairOptionsV1 } from '../src/common/editor/storage/media-catalog-original-repair-contract.ts';
+import type { CatalogOriginalRepairBindingV1, CatalogOriginalRepairOptionsV1, CatalogOriginalRepairReceiptV1 } from '../src/common/editor/storage/media-catalog-original-repair-contract.ts';
 import type { CatalogOriginalInspectionOutcomeV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
 import { captureLightscaperNativePhotoOriginalInspectionCurrentV1 as captureInspection,
 	inspectLightscaperNativePhotoOriginalCurrentV1 as inspectOriginal } from './lightscaper-native-photo-original-inspection-current-v1.ts';
+import { captureLightscaperNativePhotoOriginalRepairCurrentV1 as captureRepair,
+	retireLightscaperNativePhotoOriginalRepairCaptureCurrentV1 as retireRepair,
+	restoreLightscaperNativePhotoOriginalCurrentV1 as restoreOriginal } from './lightscaper-native-photo-original-repair-current-v1.ts';
+import { assertLightscaperNativePhotoOriginalRepairRetiredCurrentV1 as assertRepairRetired } from './lightscaper-native-photo-original-repair-retirement-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
 type Custody = Pick<MediaCatalogOriginalRepositoryV1, 'retain' | 'stage' | 'release' | 'releaseStaged' | 'promote' | 'readPage' | 'findDigestPage'>;
@@ -151,6 +155,16 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 	readonly inspectCatalogOriginalBody = (binding: CatalogOriginalRepairBindingV1,
 		options: CatalogOriginalRepairOptionsV1 = {}): Promise<CatalogOriginalInspectionOutcomeV1> =>
 		this.#run(options, () => captureInspection(binding), (captured, signal) => inspectOriginal(this.#database, this.#originals, captured, signal));
+	readonly restoreCatalogOriginalBody = (binding: CatalogOriginalRepairBindingV1, selected: Blob,
+		options: CatalogOriginalRepairOptionsV1 = {}): Promise<Readonly<CatalogOriginalRepairReceiptV1>> => {
+		let admitted: Awaited<ReturnType<typeof captureRepair>> | undefined;
+		const work = this.#run(options, async () => {
+			admitted = await captureRepair(this.#database, binding, selected); return admitted;
+		}, (captured, signal) => restoreOriginal(this.#database, this.#originals, captured, signal));
+		return work.then(result => { if (admitted) retireRepair(admitted); return result; }, (error: unknown) => {
+			if (admitted) retireRepair(admitted); throw error;
+		});
+	};
 
 	/** Fence all front doors and retire escaped producers before a parent
 	 * waits for Original reads queued behind their genuine physical stream. */
@@ -185,6 +199,7 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 			}
 			const results = await Promise.allSettled([this.#originals.close(), Promise.resolve().then(() => { this.#database.close(); })]);
 			failures.push(...results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []));
+			try { assertRepairRetired(this.#database); } catch (error) { failures.push(error); }
 			if (failures.length) throw new AggregateError(failures, 'Native Photo media owners did not retire.');
 		}).then(resolve, reject);
 		return this.#closing;
