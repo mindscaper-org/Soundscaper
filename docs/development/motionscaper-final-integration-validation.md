@@ -181,9 +181,14 @@ returns Make status two, reports the fixed recipe's Error 7 and does not run
 the later recipe. Independent source/tool/artifact/process audits pass; all
 five failed native builds and earlier canaries remain unchanged. This validates
 the generator route, and the complete native build remains required.
-Source review also identifies a separate FFmpeg
-source-path handoff for correction and actual validation; it is not an observed
-FFmpeg build failure.
+The separate FFmpeg path correction (`9f24c039`) copies and authenticates the
+original FFmpeg tree against its existing manifest pin before any command. On
+Windows it uses the upstream `./src` configure branch, native install paths and
+the full authenticated shell arguments for Make. All 29 focused Windows
+controls, strict types, changed-file lint and source audits pass; Linux passes
+27 checks and declares three Windows execution skips. The raw source witnesses
+and receipt bytes retain their original identity. This repairs a source-predicted
+handoff defect; no actual FFmpeg configure or complete native pass is claimed.
 The refreshed shared native manifests also require a fresh Linux native build
 and receipt before new packaging. Earlier native results retain their original
 source identities; they are not retagged or reused against the changed closure.
@@ -232,6 +237,7 @@ Current retained receipts are relative to
 | Failed real long-generator control and physical closure | `windows-x64-prerequisites-20261018/native-libvpx-long-generator-canary-v1-failed-closed-review.json` |
 | Nested Windows libvpx source paths | `windows-x64-prerequisites-20261018/libvpx-nested-src-fix-commit-receipt.json` |
 | Passed grouped long-generator and failure controls | `windows-x64-prerequisites-20261018/native-libvpx-long-generator-canary-nested-v3.passed-closed-review.json` |
+| Windows FFmpeg source/install/shell path correction | `windows-x64-prerequisites-20261018/ffmpeg-native-path-fix-commit-receipt.json` |
 
 These results retain their exact source attribution. The subsequent test and
 documentation commits do not retag frozen executions. Fresh complete static,

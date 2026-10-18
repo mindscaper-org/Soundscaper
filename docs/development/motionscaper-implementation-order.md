@@ -138,6 +138,10 @@ The separate full-command-line failure control and independent input/process
 audits also pass. The complete native build remains
 unqualified. No Windows
 host or package is qualified.
+The separate FFmpeg path correction (`9f24c039`) stages the same authenticated
+source under the build directory, retains native install paths and binds the
+authenticated shell for Windows Make. All 29 focused Windows controls pass;
+actual compilation and the complete native result verifier remain required.
 The shared native source-pin refresh requires a fresh Linux native build and
 receipt before new packaging. Earlier native results keep their original
 source attribution; a new-source pass is not inferred from unchanged Linux flags.
