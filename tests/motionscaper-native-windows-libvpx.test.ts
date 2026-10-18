@@ -26,7 +26,8 @@ function commandPlan(target: typeof targets[number], planRoot = root): readonly 
 	const windows = target.startsWith('win-');
 	const planPaths = framescaperMediaHostBuildPaths(join(planRoot, 'work'));
 	const executables = Object.fromEntries(roles.map(role => [role, {
-		path: join(planRoot, 'authenticated-tools', windows && (role === 'c' || role === 'cxx') ? 'cl.exe' : `${role}${windows ? '.exe' : ''}`),
+		path: windows && role === 'shell' ? String.raw`C:\Program Files\Git\bin\bash.exe`
+			: join(planRoot, 'authenticated-tools', windows && (role === 'c' || role === 'cxx') ? 'cl.exe' : `${role}${windows ? '.exe' : ''}`),
 	}]));
 	return createFramescaperMediaHostBuildCommands({
 		target: { id: target, cmakePreset: target }, hostRoot: join(planRoot, 'host'),
@@ -61,6 +62,8 @@ for (const target of targets) {
 			const environment = phase(commands, name).environment;
 			assert.equal(environment.CC, codecEnvironment.CC, name);
 			assert.equal(environment.CXX, codecEnvironment.CXX, name);
+			assert.ok(!phase(commands, name).args.some(argument => /^(?:SHELL|\.SHELLFLAGS)=/u.test(argument)), name);
+			assert.ok(!('SHELL' in environment), name);
 		}
 		assert.equal(codecEnvironment.CC, windows ? 'cl.exe' : join(root, 'authenticated-tools', 'c'));
 		assert.equal(codecEnvironment.CXX, windows ? 'cl.exe' : join(root, 'authenticated-tools', 'cxx'));
@@ -74,8 +77,14 @@ for (const target of targets) {
 		if (windows) {
 			assert.ok(configure.args.includes(`--target=${target === 'win-x64' ? 'x86_64' : 'arm64'}-win64-vs17`));
 			assert.ok(configure.args.includes('--enable-static-msvcrt'));
+			assert.equal(configure.executable, String.raw`C:\Program Files\Git\bin\bash.exe`);
 			for (const name of ['libvpx-build', 'libvpx-install']) {
-				assert.ok(phase(commands, name).args.includes('MSBUILD_TOOL=msbuild.exe'), 'generated VS projects must compile with the authenticated MSBuild tool');
+				const command = phase(commands, name);
+				assert.ok(command.args.includes('MSBUILD_TOOL=msbuild.exe'), 'generated VS projects must compile with the authenticated MSBuild tool');
+				assert.deepEqual(command.args.filter(argument => /^(?:SHELL|\.SHELLFLAGS)=/u.test(argument)), [
+					'SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=--noprofile --norc -c',
+				], 'native make must run absolute scripts through the full authenticated shell and bypass direct script parsing');
+				assert.ok(!('SHELL' in command.environment), 'the shell binding must survive recursive make as command arguments');
 			}
 			assert.ok(phase(commands, 'libvpx-normalize-library').args.includes(
 				join(paths.libvpxInstall, 'lib', target === 'win-x64' ? 'x64' : 'ARM64', 'vpxmt.lib'),
@@ -86,7 +95,8 @@ for (const target of targets) {
 			]);
 			assert.ok(configure.args.includes('--target=generic-gnu'));
 			assert.ok(!configure.args.includes('--enable-static-msvcrt'));
-			assert.ok(!phase(commands, 'libvpx-build').args.some(argument => argument.startsWith('MSBUILD_TOOL=')));
+			assert.deepEqual(phase(commands, 'libvpx-build').args, ['-C', paths.libvpxBuild, '-j1']);
+			assert.deepEqual(phase(commands, 'libvpx-install').args, ['-C', paths.libvpxBuild, 'install']);
 			assert.ok(!commands.some(command => command.phase === 'libvpx-normalize-library'));
 		}
 	});
