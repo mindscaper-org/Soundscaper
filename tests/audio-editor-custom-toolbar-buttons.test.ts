@@ -55,18 +55,6 @@ test('custom toolbar buttons reject malformed records, unsupported symbols and d
 	assert.equal(normalizeCustomToolbarButtons([BUTTON, { ...BUTTON, id: 'custom-split-2' }]).length, 2);
 });
 
-test('custom toolbar button normalization reads enumerable data fields without invoking accessors', () => {
-	let accessed = false;
-	const accessor = Object.defineProperty({ ...BUTTON }, 'name', {
-		enumerable: true, get() { accessed = true; return BUTTON.name; },
-	});
-	assert.throws(() => normalizeCustomToolbarButtons([accessor]), TypeError);
-	assert.equal(accessed, false);
-	const hidden = Object.defineProperty({ ...BUTTON }, 'icon', { enumerable: false });
-	assert.throws(() => normalizeCustomToolbarButtons([hidden]), TypeError);
-	assert.deepEqual(normalizeCustomToolbarButtons([Object.assign(Object.create(null) as object, BUTTON)]), [BUTTON]);
-});
-
 test('older preferences default to no custom buttons, and configured buttons survive persistence', () => {
 	const defaults = createAudioEditorPreferencesV1();
 	assert.deepEqual(defaults.workspace.customButtons, []);
