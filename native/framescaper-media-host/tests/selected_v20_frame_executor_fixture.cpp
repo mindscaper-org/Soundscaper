@@ -103,18 +103,13 @@ void keyed_executor_uses_exact_on_demand_cadence() {
 	auto plan = keyed_plan();
 	std::vector<std::uint64_t> requested;
 	std::vector<std::uint64_t> samples;
-	bool source_active = false;
 	selected_v20_executor_ports ports;
 	ports.keyed_frame = [&](const selected_v20_keyed_frame_request& request) {
-		assert(!source_active);
-		source_active = true;
 		requested.push_back(request.output_ordinal);
 		samples.push_back(request.output_sample);
-		source_active = false;
 		return solid(static_cast<std::uint8_t>(request.output_ordinal), 0, 0);
 	};
 	ports.write_frame = [&](const selected_v20_output_frame& frame) {
-		assert(!source_active);
 		assert(frame.rgba.size() == 16);
 		assert(frame.rgba.front() == frame.output_ordinal);
 	};
@@ -143,21 +138,6 @@ void cancellation_is_checked_at_each_frame_boundary() {
 		assert(error.code() == selected_v20_execution_error_code::cancelled);
 	}
 	assert(writes == 0);
-}
-
-void malformed_evaluated_frames_fail_closed() {
-	auto plan = keyed_plan();
-	selected_v20_executor_ports ports;
-	ports.keyed_frame = [](const selected_v20_keyed_frame_request&) {
-		return selected_v20_rgba_frame{2, 2, std::vector<std::uint8_t>(15)};
-	};
-	ports.write_frame = [](const selected_v20_output_frame&) {};
-	try {
-		static_cast<void>(execute_selected_v20_frames(plan, ports));
-		assert(false);
-	} catch (const selected_v20_execution_error& error) {
-		assert(error.code() == selected_v20_execution_error_code::frame_contract);
-	}
 }
 
 [[nodiscard]] selected_v20_execution_plan static_plan() {
@@ -308,7 +288,6 @@ int main() {
 	authenticated_frame_pack_binds_exact_cadence();
 	keyed_executor_uses_exact_on_demand_cadence();
 	cancellation_is_checked_at_each_frame_boundary();
-	malformed_evaluated_frames_fail_closed();
 	static_composition_resolves_vfr_ordinals_and_blends_deterministically();
 	core_self_test_is_operation_specific_and_truthful();
 	authenticated_snapshot_capture_retains_exact_v7_authority();

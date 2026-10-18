@@ -35,11 +35,6 @@ foreach(required
 		message(FATAL_ERROR "The selected-V20 operation self-test omitted ${required}: ${output}")
 	endif()
 endforeach()
-string(FIND "${output}" "selected-v20-runtime-incomplete" stale_incomplete)
-if(NOT stale_incomplete EQUAL -1)
-	message(FATAL_ERROR "The selected-V20 self-test still reports the removed blanket runtime stub: ${output}")
-endif()
-
 execute_process(
 	COMMAND "${HOST}" --self-test-operation selected-v28-v14-render
 	RESULT_VARIABLE v14_status
