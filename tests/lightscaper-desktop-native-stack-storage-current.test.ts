@@ -39,6 +39,7 @@ function seeded(count = 6, path = ':memory:'): DatabaseSync {
 				.run(photoStorageKey(CATALOG, photo.id), CATALOG, photo.id, serializePhotoDocumentCurrentV1(photo), JSON.stringify(photoSummary(photo)));
 		}
 		db.prepare('INSERT INTO native_photo_query_builds_v2(catalog_id,ready,after_key,indexed_count) VALUES(?,0,NULL,0)').run(CATALOG);
+		db.prepare('INSERT INTO native_photo_query_builds_v1(catalog_id,ready,after_key,indexed_count) VALUES(?,0,NULL,0)').run(CATALOG);
 		db.prepare(`INSERT INTO ${STATES}(catalog_id,revision,stack_count) VALUES(?,0,0)`).run(CATALOG);
 		db.exec('COMMIT'); return db;
 	} catch (error) { if (db.isTransaction) db.exec('ROLLBACK'); db.close(); throw error; }

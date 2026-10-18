@@ -37,6 +37,12 @@ import { admitLightscaperNativeStackPageCurrentV1, admitLightscaperNativeStackMe
 import type { PhotoStackQueryPageRequestV2, PhotoStackQueryPageV2 } from '../src/lightscaper/catalog/photo-stack-query-types-v2.ts';
 import { admitLightscaperNativeStackQueryPageCurrentV1, readAdmittedLightscaperNativeStackQueryPageCurrentV1 } from './lightscaper-native-stack-query-current-v1.ts';
 import { retireLightscaperNativeStackQueryProgressCurrentV1 } from './lightscaper-native-stack-query-progress-current-v1.ts';
+import type { PhotoQueryPageRequestV1, PhotoQueryPageV1 } from '../src/lightscaper/catalog/photo-query-types-v1.ts';
+import type { PhotoStackQueryPageRequestV1, PhotoStackQueryPageV1 } from '../src/lightscaper/catalog/photo-stack-query-types-v1.ts';
+import { admitLightscaperNativeLegacyQueryPageCurrentV1, readAdmittedLightscaperNativeLegacyQueryPageCurrentV1 } from './lightscaper-native-legacy-query-pages-current-v1.ts';
+import { rebuildLightscaperNativeLegacyQueryIndexPageCurrentV1 } from './lightscaper-native-legacy-query-rebuild-current-v1.ts';
+import { admitLightscaperNativeLegacyStackQueryPageCurrentV1, readAdmittedLightscaperNativeLegacyStackQueryPageCurrentV1 } from './lightscaper-native-legacy-stack-query-current-v1.ts';
+import { retireLightscaperNativeLegacyStackQueryProgressCurrentV1 } from './lightscaper-native-legacy-stack-query-progress-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
 type OpenOptions = Readonly<{ appDataPath: string; verifyResources?: LightscaperNativeCatalogVerificationCurrentV1['verifyResources'] }>;
@@ -122,6 +128,18 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 		return this.#request(() => admitLightscaperNativeQueryPageCurrentV1(catalogId, options),
 			value => readAdmittedLightscaperNativeQueryPageCurrentV1(this.#database, value));
 	}
+	readQueryPage(catalogId: string, options: PhotoQueryPageRequestV1 = {}): Promise<PhotoQueryPageV1> {
+		return this.#request(() => admitLightscaperNativeLegacyQueryPageCurrentV1(catalogId, options),
+			value => readAdmittedLightscaperNativeLegacyQueryPageCurrentV1(this.#database, value));
+	}
+	readStackQueryPage(catalogId: string, options: PhotoStackQueryPageRequestV1 = {}): Promise<PhotoStackQueryPageV1> {
+		return this.#request(() => admitLightscaperNativeLegacyStackQueryPageCurrentV1(catalogId, options),
+			value => readAdmittedLightscaperNativeLegacyStackQueryPageCurrentV1(this.#database, value));
+	}
+	rebuildQueryIndexPage(catalogId: string, options: Options = {}): Promise<Readonly<{ processed: number; bytes: number; ready: boolean }>> {
+		return this.#request(() => ({ catalogId: id(catalogId, 'legacy query rebuild catalog ID'), signal: signal(options) }),
+			value => rebuildLightscaperNativeLegacyQueryIndexPageCurrentV1(this.#database, value.catalogId, { signal: value.signal }));
+	}
 	readStackQueryPageV2(catalogId: string, options: PhotoStackQueryPageRequestV2 = {}): Promise<PhotoStackQueryPageV2> {
 		return this.#request(() => admitLightscaperNativeStackQueryPageCurrentV1(catalogId, options),
 			value => readAdmittedLightscaperNativeStackQueryPageCurrentV1(this.#database, value));
@@ -179,6 +197,7 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 		this.#closing ??= this.#tail.then(async () => {
 			const failures: unknown[] = [];
 			try { retireLightscaperNativeStackQueryProgressCurrentV1(this.#database); } catch (error) { failures.push(error); }
+			try { retireLightscaperNativeLegacyStackQueryProgressCurrentV1(this.#database); } catch (error) { failures.push(error); }
 			try { this.#database.close(); } catch (error) { failures.push(error); }
 			try { await this.#originals.close(); } catch (error) { failures.push(error); }
 			if (failures.length) throw new AggregateError(failures, 'Native catalog owner retirement failed.');

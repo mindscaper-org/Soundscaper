@@ -56,23 +56,23 @@ test('Lightscaper native stacks migrate exact historical v2 on disk with all cat
 			return constants.SQLITE_OK;
 		});
 		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); database.setAuthorizer(null);
-		assert.equal(version(database), 3); assert.equal(aggregateReads, 0); assert.equal(database.isTransaction, false);
+		assert.equal(version(database), 4); assert.equal(aggregateReads, 0); assert.equal(database.isTransaction, false);
 		assert.deepEqual(rootRows(database), roots); assert.deepEqual(photoRows(database), photos);
 		assert.deepEqual(database.prepare('SELECT * FROM native_photo_query_rows_v2').all(), query);
 		assert.deepEqual(database.prepare('SELECT * FROM native_photo_query_builds_v2 ORDER BY catalog_id').all(), builds); assertZeroStates(database);
 		database.close(); database = new DatabaseSync(path); initializeLightscaperNativeCatalogDatabaseCurrentV1(database);
-		assert.equal(version(database), 3); assert.deepEqual(rootRows(database), roots); assertZeroStates(database);
+		assert.equal(version(database), 4); assert.deepEqual(rootRows(database), roots); assertZeroStates(database);
 	} finally { if (database?.isOpen) { database.setAuthorizer(null); database.close(); } await rm(directory, { recursive: true, force: false }); }
 });
 
-test('Lightscaper native stacks migrate exact historical v1 directly to v3 while retaining the unready Query2 migration', () => {
+test('Lightscaper native stacks migrate exact historical v1 directly to v4 while retaining the unready Query2 migration', () => {
 	const database = makeDatabase();
 	try {
 		initializeLightscaperNativeCatalogV1FixtureCurrent(database); seed(database, false); const roots = rootRows(database), photos = photoRows(database);
 		database.setAuthorizer((action, table, column) => action === constants.SQLITE_READ && column === 'document'
 			&& ['native_photos', 'native_photo_catalogs'].includes(table ?? '') ? constants.SQLITE_DENY : constants.SQLITE_OK);
 		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); database.setAuthorizer(null);
-		assert.equal(version(database), 3); assert.deepEqual(rootRows(database), roots); assert.deepEqual(photoRows(database), photos); assertZeroStates(database);
+		assert.equal(version(database), 4); assert.deepEqual(rootRows(database), roots); assert.deepEqual(photoRows(database), photos); assertZeroStates(database);
 		assert.deepEqual(database.prepare('SELECT * FROM native_photo_query_builds_v2 ORDER BY catalog_id').all().map(row => ({ ...row })), [
 			{ catalog_id: 'catalog', ready: 0, after_key: null, indexed_count: 0 }, { catalog_id: 'empty', ready: 0, after_key: null, indexed_count: 0 }]);
 		assert.equal(database.prepare('SELECT COUNT(*) AS count FROM native_photo_query_rows_v2').get()?.count, 0);
@@ -98,7 +98,7 @@ test('Lightscaper native stacks refuse every altered historical v2 schema before
 	} finally { database.close(); }
 });
 
-test('Lightscaper native stacks roll back the whole v2-to-v3 migration if the final forward trigger cannot be created', () => {
+test('Lightscaper native stacks roll back the whole v2-to-v4 migration if the final forward trigger cannot be created', () => {
 	const database = makeDatabase();
 	try {
 		initializeLightscaperNativeCatalogV2FixtureCurrent(database); seed(database, true); const before = objects(database), photos = photoRows(database); let denied = 0;
@@ -108,17 +108,17 @@ test('Lightscaper native stacks roll back the whole v2-to-v3 migration if the fi
 		});
 		assert.throws(() => initializeLightscaperNativeCatalogDatabaseCurrentV1(database)); database.setAuthorizer(null);
 		assert.equal(denied, 1); assert.equal(version(database), 2); assert.equal(database.isTransaction, false); assert.deepEqual(objects(database), before); assert.deepEqual(photoRows(database), photos);
-		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 3); assertZeroStates(database);
+		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 4); assertZeroStates(database);
 	} finally { database.setAuthorizer(null); database.close(); }
 });
 
-test('Lightscaper native stacks authenticate exact owned trigger bytes on every v3 reopen', () => {
+test('Lightscaper native stacks authenticate exact owned trigger bytes on every v4 reopen', () => {
 	const database = makeDatabase();
 	try {
-		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 3);
+		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 4);
 		assert.deepEqual(database.prepare("SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name").all().map(row => row.name),
 			['native_photo_stacks_forward_insert', 'native_photo_stacks_forward_update']);
 		database.exec('DROP TRIGGER native_photo_stacks_forward_update; CREATE TRIGGER native_photo_stacks_forward_update AFTER UPDATE ON native_photo_stacks BEGIN SELECT 1; END');
-		const before = objects(database); assert.throws(() => initializeLightscaperNativeCatalogDatabaseCurrentV1(database)); assert.deepEqual(objects(database), before); assert.equal(version(database), 3);
+		const before = objects(database); assert.throws(() => initializeLightscaperNativeCatalogDatabaseCurrentV1(database)); assert.deepEqual(objects(database), before); assert.equal(version(database), 4);
 	} finally { database.close(); }
 });

@@ -45,7 +45,7 @@ test('Lightscaper native Query2 migrates exact historical v1 on disk without rea
 			return constants.SQLITE_OK;
 		});
 		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); database.setAuthorizer(null);
-		assert.equal(aggregateReads, 0); assert.equal(version(database), 3); assert.equal(database.isTransaction, false);
+		assert.equal(aggregateReads, 0); assert.equal(version(database), 4); assert.equal(database.isTransaction, false);
 		assert.deepEqual(database.prepare('SELECT * FROM native_photo_catalogs ORDER BY id').all(), roots);
 		assert.deepEqual(database.prepare('SELECT * FROM native_photos ORDER BY photo_key').all(), photos);
 		for (const id of ['catalog', 'empty']) assert.deepEqual(getLightscaperNativeQueryBuildCurrentV1(database, id), {
@@ -89,18 +89,18 @@ test('Lightscaper native Query2 rolls back all new tables, indexes, build state 
 		assert.throws(() => initializeLightscaperNativeCatalogDatabaseCurrentV1(database)); database.setAuthorizer(null);
 		assert.equal(denied, 1); assert.equal(database.isTransaction, false); assert.equal(version(database), 1);
 		assert.deepEqual(objects(database), before); assert.deepEqual(database.prepare('SELECT * FROM native_photo_catalogs').all(), roots);
-		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 3);
+		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 4);
 	} finally { database.setAuthorizer(null); database.close(); }
 });
 
 test('Lightscaper native Query2 fresh schema authenticates every new index and refuses partial or extra v2 objects', () => {
 	const database = makeDatabase();
 	try {
-		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 3);
+		initializeLightscaperNativeCatalogDatabaseCurrentV1(database); assert.equal(version(database), 4);
 		assert.deepEqual(database.prepare("SELECT name FROM sqlite_schema WHERE type='index' AND name GLOB 'native_photo_query_v2_*' ORDER BY name").all().map(row => row.name),
 			['native_photo_query_v2_capture_time', 'native_photo_query_v2_file_name', 'native_photo_query_v2_photo_id', 'native_photo_query_v2_rating']);
 		for (const name of ['native_photo_query_rows_v2', 'native_photo_query_builds_v2']) assert.equal(database.prepare('SELECT strict FROM pragma_table_list WHERE name=?').get(name)?.strict, 1);
 		database.exec('DROP INDEX native_photo_query_v2_file_name'); const before = objects(database);
-		assert.throws(() => initializeLightscaperNativeCatalogDatabaseCurrentV1(database)); assert.deepEqual(objects(database), before); assert.equal(version(database), 3);
+		assert.throws(() => initializeLightscaperNativeCatalogDatabaseCurrentV1(database)); assert.deepEqual(objects(database), before); assert.equal(version(database), 4);
 	} finally { database.close(); }
 });

@@ -13,6 +13,8 @@ import { readLightscaperNativeCatalogRowCurrentV1, readLightscaperNativePhotoRow
 import { readLightscaperNativeCatalogPhotoAdmissionCurrentV1 } from './lightscaper-native-catalog-admission-current-v1.ts';
 import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
 import { getLightscaperNativeQueryBuildCurrentV1, writeLightscaperNativeQueryBuildCurrentV1, writeLightscaperNativeQueryPhotoCurrentV1 } from './lightscaper-native-query-write-current-v1.ts';
+import { getLightscaperNativeLegacyQueryBuildCurrentV1, writeLightscaperNativeLegacyQueryBuildCurrentV1,
+	writeLightscaperNativeLegacyQueryPhotoCurrentV1 } from './lightscaper-native-legacy-query-write-current-v1.ts';
 
 type Catalog = ReturnType<typeof readLightscaperNativeCatalogRowCurrentV1>;
 const ROOT_COLUMNS = 'id, document, root_revision, photo_count, index_revision';
@@ -29,6 +31,7 @@ export function createLightscaperNativeCatalogCurrentV1(database: DatabaseSync, 
 		database.prepare('INSERT INTO native_photo_catalogs (id, document, root_revision, photo_count, index_revision) VALUES (?, ?, ?, ?, ?)')
 			.run(root.id, serializeLightscaperDocumentV1(root), root.revision, root.photoCount, 0);
 		writeLightscaperNativeQueryBuildCurrentV1(database, { id: root.id, schemaVersion: 2, ready: true, afterKey: null, indexedCount: 0 });
+		writeLightscaperNativeLegacyQueryBuildCurrentV1(database, { id: root.id, schemaVersion: 1, ready: true, afterKey: null, indexedCount: 0 });
 		database.prepare('INSERT INTO native_photo_stack_states (catalog_id,revision,stack_count) VALUES (?,0,0)').run(root.id);
 	});
 }
@@ -80,9 +83,7 @@ export function saveLightscaperNativeCatalogCurrentV1(database: DatabaseSync, va
 		supportedRoot(previous);
 		if (previous.revision !== expected) throw new PhotoCatalogRevisionConflictError('catalog');
 		if (candidate.photoCount !== previous.photoCount) throw new RangeError('Only photo publication changes the catalog photo count.');
-		// This schema has no saved-query/stack companion owner. No hidden IDB
-		// rows are consulted or claimed; future companion publication must extend
-		// the native schema and its own audit before those ports are activated.
+		// Saved smart definitions still require their native companion owner.
 		const folders = new Set(candidate.folders.map(node => node.id)), keywords = new Set(candidate.keywords.map(node => node.id));
 		const collections = new Set(candidate.collections.filter(node => node.kind === 'manual').map(node => node.id));
 		const removals = [
@@ -134,6 +135,10 @@ function requiredCatalog(database: DatabaseSync, catalogId: string): Catalog {
 	if (!build || build.indexedCount > current.root.photoCount || build.ready && build.indexedCount !== current.root.photoCount) {
 		throw new TypeError('Native query build count disagrees with its catalog.');
 	}
+	const legacy = getLightscaperNativeLegacyQueryBuildCurrentV1(database, catalogId);
+	if (!legacy || legacy.indexedCount > current.root.photoCount || legacy.ready && legacy.indexedCount !== current.root.photoCount) {
+		throw new TypeError('Native legacy query build count disagrees with its catalog.');
+	}
 	return current;
 }
 function writeRoot(database: DatabaseSync, previous: Catalog, root: PhotoCatalogRootV1): void {
@@ -154,7 +159,9 @@ function writePhoto(database: DatabaseSync, photo: PhotoDocumentCurrentV1, expec
 	}
 	for (const membership of photoMemberships(photo)) database.prepare('INSERT INTO native_photo_memberships (key, scope, photo_key, catalog_id) VALUES (?, ?, ?, ?)')
 		.run(membership.key, membership.scope, membership.photoKey, photo.catalogId);
-	writeLightscaperNativeQueryPhotoCurrentV1(database, photo, expectedRevision === undefined ? 'insert' : 'replace');
+	const mode = expectedRevision === undefined ? 'insert' : 'replace';
+	writeLightscaperNativeLegacyQueryPhotoCurrentV1(database, photo, mode);
+	writeLightscaperNativeQueryPhotoCurrentV1(database, photo, mode);
 }
 function revision(value: unknown): number { return integer(value, 0, Number.MAX_SAFE_INTEGER, 'expected revision'); }
 

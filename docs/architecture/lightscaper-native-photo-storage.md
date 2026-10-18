@@ -55,7 +55,7 @@ been qualified. Current component qualification uses actual Linux files and
 SQLite; it does not establish native Windows, ARM64 or macOS qualification.
 
 `native-photo-catalogs.sqlite3` admits its own exact `LSCC` application identity,
-version 3, STRICT tables, indexes and forward-membership triggers. One row atomically binds a validated
+version 4, STRICT tables, indexes and forward-membership triggers. One row atomically binds a validated
 catalog root to its root revision, photo count and independently advancing
 index revision. Whole Photo1/2/3 documents retain their declared versions;
 bounded summaries and memberships belong to the same publication transaction.
@@ -94,6 +94,19 @@ publication update query rows and counts in their existing transaction,
 including while a rebuild is partial. New catalogs start ready and empty.
 Rebuilds need no Original bodies, decoders or resource verification services.
 
+The legacy Query1 ports retain their own rows, build state, matcher and public
+page/cursor contracts. They do not translate requests to Query2. Exact versions
+1, 2 and 3 migrate to version 4 without reading or rewriting stored aggregates;
+existing catalogs receive an unready Query1 build even if Query2 is ready.
+Current rebuild steps report the combined source and Row1 bytes in the legacy
+three-field receipt. All imports, edits and derived publications maintain both
+profiles in the same transaction. A valid Photo exceeding Row1's 512-KiB limit
+still publishes its complete Photo and Query2 row: only Query1 readiness and its
+rebuild cursor retire, preserving any prior Row1 and physical row count. A
+fitting edit followed by a genuine rebuild restores Query1 readiness. Other
+projection or SQL failures roll back the whole publication. Ordinary outgoing
+Query1 cursors must fit their existing 2-KiB contract before a page can escape.
+
 Native stack storage preserves ordered membership, cover selection and one
 stack per Photo. SQLite projects an independent forward relation from each
 stack document; the mutation owner publishes reverse membership in the same
@@ -107,12 +120,12 @@ loads Photo aggregates or Original bodies.
 Stack writes check the caller's catalog and stack-state revisions, then compare
 and advance the captured catalog, index and stack-state epochs atomically.
 Dissolving the last stack retains its state row and increasing revision.
-Continuations bind all three epochs. Exact historical versions 1 and 2 migrate
-to version 3 without rewriting their catalog, Photo or existing query rows;
+Continuations bind all three epochs. Exact historical versions 1 and 2 acquire
+grouping storage without rewriting their catalog, Photo or existing query rows;
 only the new grouping state starts empty. These bounded checks authenticate
 the selected closure rather than auditing every row of a catalog on each read.
 
-Collapsed Query2 pages preserve the shared cover and fallback rules: an eligible
+Collapsed Query1 and Query2 pages preserve the shared cover and fallback rules: an eligible
 cover represents its stack; otherwise the first eligible member in global sort
 order does. Each page shares one 64-unit budget across initial stack-key count
 auditing, global candidates and metadata point probes. A representative's full
@@ -123,7 +136,8 @@ placement follow the ordinary query contracts without reading Photo aggregates.
 
 Collapsed continuations bind query, catalog/index/stack epochs, audit position
 and pending member progress to the actual issuing SQLite connection with HMAC.
-The owner captures them before queue waits and retires signing authority after
+Each query version has an independent signing domain. The owner captures
+requests before queue waits and retires both signing authorities after
 accepted work joins, before closing the connection. Keys never persist; a new
 connection cannot resume a previous connection's cursor. Each page reads one
 SQLite snapshot, and stale revisions refuse before missing-index readiness.
