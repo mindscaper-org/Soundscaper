@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from '../../abort-race.ts';
 import type { MotionAudioMixBlock, MotionAudioMixer } from '../../motion-audio-contract.ts';
 import { addRationals, compareRationals, divideRationals, multiplyRationals, normalizeRational, roundRational, subtractRationals, type Rational, type RationalInput } from '../../timeline-time.ts';
 import { motionInteger } from '../../motion-values.ts';
@@ -81,7 +82,7 @@ export function createMotionAudioPreview(options: MotionAudioPreviewOptions) {
 	}
 	async function prime(session: Playback): Promise<void> {
 		const output = session.output;
-		await output.resume(); if (!valid(session)) return;
+		await raceAbortableRead(() => output.resume(), session.cancellation.signal, 'immediate'); if (!valid(session)) return;
 		const ready: MotionAudioMixBlock[] = [];
 		while (valid(session) && ready.length < maximumQueued && session.cursor < session.total) ready.push(await mixNext(session));
 		if (!valid(session)) return;

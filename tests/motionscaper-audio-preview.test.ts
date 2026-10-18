@@ -127,3 +127,38 @@ test('M05 replacing a priming playback waits for cancelled decoding and starts t
 	await preview.play({ ...range, startTime: { num: 1, den: 2 } }); await previous;
 	assert.equal(fixture.scheduled.length, 3); assert.deepEqual(fixture.scheduled[0]!.block.startSample, { num: 4000, den: 1 }); preview.dispose();
 });
+
+for (const late of ['resolve', 'reject'] as const) {
+	test(`M05 Pause releases suspended output resume and ignores its late ${late} after Play recovery`, async () => {
+		let resolve!: () => void; let reject!: (error: Error) => void; let resumes = 0;
+		const suspended = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+		const fixture = fixtures(); const failures: Error[] = [];
+		const output = { ...fixture.output, resume() { resumes++; return resumes === 1 ? suspended : Promise.resolve(); } };
+		const preview = createMotionAudioPreview({ mixer: fixture.mixer, output, onError: error => failures.push(error) });
+		const first = preview.play(range); let next: Promise<void> | null = null;
+		try {
+			assert.equal(resumes, 1); preview.pause();
+			next = preview.play({ ...range, startTime: { num: 1, den: 2 } }); await turn();
+			assert.equal(resumes, 2, 'A cancelled resume must not block the next Play.');
+			await next; assert.equal(preview.snapshot().status, 'playing'); assert.equal(fixture.scheduled.length, 1);
+			assert.deepEqual(fixture.scheduled[0]!.block.startSample, { num: 4000, den: 1 });
+			if (late === 'resolve') resolve(); else reject(new Error('Late old resume failure.'));
+			await first; await turn();
+			assert.equal(fixture.scheduled.length, 1); assert.equal(preview.snapshot().status, 'playing'); assert.deepEqual(failures, []);
+		} finally { resolve(); await Promise.allSettled([first, ...(next ? [next] : [])]); preview.dispose(); }
+	});
+}
+
+test('M05 Pause keeps a cancelled mixer flight drained before the next playback touches that mixer', async () => {
+	let release!: (value: MotionAudioMixBlock) => void; let pending: MotionAudioBlockRequest | undefined;
+	const fixture = fixtures(request => {
+		if (pending) return Promise.resolve(block(request)); pending = request;
+		return new Promise(resolve => { release = resolve; });
+	});
+	const preview = createMotionAudioPreview({ mixer: fixture.mixer, output: fixture.output });
+	const first = preview.play(range); await turn(); assert.ok(pending); preview.pause();
+	const next = preview.play({ ...range, startTime: { num: 1, den: 2 } }); await turn();
+	assert.equal(fixture.requests.length, 1, 'Resume cancellation must not detach an actual PCM mixer flight.');
+	release(block(pending)); await Promise.all([first, next]);
+	assert.equal(fixture.requests.length, 2); assert.deepEqual(fixture.scheduled[0]!.block.startSample, { num: 4000, den: 1 }); preview.dispose();
+});
