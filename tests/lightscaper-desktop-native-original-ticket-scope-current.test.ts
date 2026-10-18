@@ -2,9 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { LightscaperNativeOriginalStoreCurrentV1 as OriginalStore } from '../desktop/lightscaper-native-original-store-current-v1.ts';
 import { readDesktopPhotoOriginalTicketCurrentV1 as readTicket } from '../src/lightscaper/desktop-photo-original-contract-current-v1.ts';
-import { deferred, remainsPending } from './helpers/async-test-control.ts';
+import { remainsPending } from './helpers/async-test-control.ts';
 import { holdReaderFileReadCurrentV1 as holdRead } from './helpers/lightscaper-native-photo-original-reader-fixture-current.ts';
 import { nativeWriterInputCurrentV1 as writerInput } from './helpers/lightscaper-native-media-writer-integration-fixture-current.ts';
 import { nativeScopeIntegrationFixtureCurrentV1 as fixture, scopePhotoCurrentV1 as input, scopeAppDataCurrentV1 as appData,
@@ -38,29 +37,25 @@ test('Lightscaper Scope vends its actual ticket transport beyond the open reques
 	});
 });
 
-test('Lightscaper component retirement quiesces an idle real writer before joining its ticket range', { timeout: 15_000 }, async context => {
-	const descriptor = Object.getOwnPropertyDescriptor(OriginalStore.prototype, 'readBinding'); assert.ok(descriptor);
-	const native = OriginalStore.prototype.readBinding, entered = deferred<void>();
-	Object.defineProperty(OriginalStore.prototype, 'readBinding', { ...descriptor, value: function (this: OriginalStore, ...args: Parameters<OriginalStore['readBinding']>) {
-		const work = Reflect.apply(native, this, args) as ReturnType<OriginalStore['readBinding']>; entered.resolve(); return work;
-	} });
-	try {
-		await fixture(async f => {
-			const components = await f.scopes.openComponents(await f.scopes.allocate(CATALOG)), value = await publish(components);
-			assert.ok(components.originalTickets); const transport = components.originalTickets.transport, ticket = readTicket(await transport.open(value.request), value.request);
+test('Lightscaper component retirement quiesces an idle real writer while joining its independent ticket range', { timeout: 15_000 }, async context => {
+	await fixture(async f => {
+		const scope = await f.scopes.allocate(CATALOG), components = await f.scopes.openComponents(scope), value = await publish(components);
+		const allocation = f.scopes.describe(scope); assert.ok(allocation);
+		assert.ok(components.originalTickets); const transport = components.originalTickets.transport, ticket = readTicket(await transport.open(value.request), value.request);
+		await holdRead(appData(f.directory, allocation.namespaceToken), async gate => {
 			const incoming = writerInput(994, 1024), writer = await components.media.beginAssetWrite(incoming.original.storageKey, incoming.metadata, incoming.options);
-			const cancel = () => { void writer.abort().catch(() => undefined); void components.close().catch(() => undefined); };
+			const cancel = (): void => { gate.release(); void writer.abort().catch(() => undefined); void components.close().catch(() => undefined); };
 			context.signal.addEventListener('abort', cancel, { once: true });
-			let reading: Promise<unknown> | undefined, closing: Promise<void> | undefined, timer: ReturnType<typeof setTimeout> | undefined;
+			let reading: Promise<unknown> | undefined, closing: Promise<void> | undefined;
 			try {
 				await writer.write(incoming.bytes.subarray(0, 10)); reading = transport.read(ticket, 0, 5); void reading.catch(() => undefined);
-				await Promise.race([entered.promise, reading.then(() => { assert.fail('Expected a range queued behind the real idle writer.'); })]);
-				closing = components.close(); const retired = await Promise.race([closing.then(() => true), new Promise<false>(resolve => { timer = setTimeout(() => { resolve(false); }, 2000); })]);
-				assert.equal(retired, true, 'Ticket retirement must release the callback after quiescing its blocking writer.');
-				await assert.rejects(reading); await assert.rejects(writer.write(incoming.bytes.subarray(10))); await transport.close({ id: ticket.id });
-			} finally { clearTimeout(timer); context.signal.removeEventListener('abort', cancel); await writer.abort(); await Promise.allSettled([reading, closing]); }
+				await Promise.race([gate.entered, reading.then(() => { assert.fail('Expected the actual held independent ticket range.'); })]);
+				closing = components.close(); assert.equal(await remainsPending(closing), true);
+				await writer.abort(); await assert.rejects(writer.write(incoming.bytes.subarray(10)));
+				gate.release(); await assert.rejects(reading); await closing; await transport.close({ id: ticket.id });
+			} finally { gate.release(); context.signal.removeEventListener('abort', cancel); await writer.abort(); await Promise.allSettled([reading, closing]); }
 		});
-	} finally { Object.defineProperty(OriginalStore.prototype, 'readBinding', descriptor); }
+	});
 });
 
 test('Lightscaper parent Scope Close joins the real held ticket read before physical owners and exclusion retire', { timeout: 15_000 }, async context => {

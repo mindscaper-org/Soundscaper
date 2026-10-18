@@ -3,11 +3,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LightscaperNativePhotoOriginalsCurrentV1 as Originals } from '../desktop/lightscaper-native-photo-originals-current-v1.ts';
-import { LightscaperNativeOriginalStoreCurrentV1 as OriginalStore } from '../desktop/lightscaper-native-original-store-current-v1.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
+import { holdReaderFileReadCurrentV1 as holdRead } from './helpers/lightscaper-native-photo-original-reader-fixture-current.ts';
 import { nativeWriterInputCurrentV1 as writerInput } from './helpers/lightscaper-native-media-writer-integration-fixture-current.ts';
 import { nativeScopeIntegrationFixtureCurrentV1 as fixture, scopePhotoCurrentV1 as input,
-	scopeCatalogRootCurrentV1 as root, scopeOriginalReferenceCurrentV1 as reference,
+	scopeCatalogRootCurrentV1 as root, scopeOriginalReferenceCurrentV1 as reference, scopeAppDataCurrentV1 as appData,
 	SCOPE_CATALOG_CURRENT_V1 as CATALOG, type ComponentsCurrentV1 as Components } from './helpers/lightscaper-native-library-scope-integration-fixture-current.ts';
 
 async function publish(components: Components, orientation: 1 | 3 = 1) {
@@ -87,27 +87,23 @@ test('Lightscaper component Close caches its outer barrier before invoking captu
 	} finally { Object.defineProperty(Originals.prototype, 'close', descriptor); }
 });
 
-test('Lightscaper component Close quiesces an idle real stream before joining an Original read queued behind its producer', { timeout: 15_000 }, async () => {
-	const descriptor = Object.getOwnPropertyDescriptor(OriginalStore.prototype, 'readBinding'); assert.ok(descriptor);
-	const native = OriginalStore.prototype.readBinding, entered = deferred<void>();
-	Object.defineProperty(OriginalStore.prototype, 'readBinding', { ...descriptor, value: function (this: OriginalStore, ...args: Parameters<OriginalStore['readBinding']>) {
-		const work = Reflect.apply(native, this, args) as ReturnType<OriginalStore['readBinding']>; entered.resolve(); return work;
-	} });
-	try {
-		await fixture(async f => {
-			const components = await f.scopes.openComponents(await f.scopes.allocate(CATALOG)), value = await publish(components), incoming = writerInput(993, 1024);
-			const writer = await components.media.beginAssetWrite(incoming.original.storageKey, incoming.metadata, incoming.options);
-			await writer.write(incoming.bytes.subarray(0, 10)); assert.equal(writer.bytesWritten, 10);
-			const reading = components.originals.withOriginal(value.request, async view => { await view.read(0, 5); });
-			void reading.catch(() => undefined); let closing: Promise<void> | undefined, timer: ReturnType<typeof setTimeout> | undefined;
+test('Lightscaper component Close quiesces an idle real stream while joining an independent held Original read', { timeout: 15_000 }, async context => {
+	await fixture(async f => {
+		const scope = await f.scopes.allocate(CATALOG), components = await f.scopes.openComponents(scope), value = await publish(components);
+		const allocation = f.scopes.describe(scope); assert.ok(allocation);
+		await holdRead(appData(f.directory, allocation.namespaceToken), async gate => {
+			const incoming = writerInput(993, 1024), writer = await components.media.beginAssetWrite(incoming.original.storageKey, incoming.metadata, incoming.options);
+			const cancel = (): void => { gate.release(); void writer.abort().catch(() => undefined); void components.close().catch(() => undefined); };
+			context.signal.addEventListener('abort', cancel, { once: true });
+			let reading: Promise<void> | undefined, closing: Promise<void> | undefined;
 			try {
-				await Promise.race([entered.promise, reading.then(() => { throw Error('Expected a queued actual native read.'); })]);
-				closing = components.close();
-				const verdict = await Promise.race([closing.then(() => true), new Promise<false>(resolve => { timer = setTimeout(() => { resolve(false); }, 2000); })]);
-				assert.equal(verdict, true, 'Parent close must cancel its idle producer before waiting on the queued reader.');
-				await assert.rejects(reading); await assert.rejects(writer.write(incoming.bytes.subarray(10)));
-				await f.scopes.close(); await f.reopen();
-			} finally { clearTimeout(timer); await writer.abort(); await Promise.allSettled([reading, closing]); }
+				await writer.write(incoming.bytes.subarray(0, 10));
+				reading = components.originals.withOriginal(value.request, async view => { await view.read(0, 5); }); void reading.catch(() => undefined);
+				await Promise.race([gate.entered, reading.then(() => { assert.fail('Expected the actual held independent read.'); })]);
+				closing = components.close(); assert.equal(await remainsPending(closing), true);
+				await writer.abort(); await assert.rejects(writer.write(incoming.bytes.subarray(10)));
+				gate.release(); await assert.rejects(reading); await closing; await f.scopes.close(); await f.reopen();
+			} finally { gate.release(); context.signal.removeEventListener('abort', cancel); await writer.abort(); await Promise.allSettled([reading, closing]); }
 		});
-	} finally { Object.defineProperty(OriginalStore.prototype, 'readBinding', descriptor); }
+	});
 });

@@ -1302,6 +1302,14 @@ actual decoder and storage owners, and atomically publishes the selected pointer
 with permanent commit history. A selected restored library remains reopenable
 after ordinary edits. Native Session composition, renderer/IPC admission and
 menu-owned library selection remain required before activation.
+The [selected native Session lease](docs/architecture/lightscaper-native-photo-session-lease.md)
+now binds one real selected epoch and captures the complete storage port
+families, fixed-anchor import presets and explicit native exclusivity. It joins
+actual local consumers, accepted native work and escaped producers before
+physical ticket/database retirement and writer-guard release. Focused native
+tests cover held single/group Files, resources, Current ZIP cancellation and
+failed-retirement exclusion; the complete renderer Session and authenticated
+production IPC remain unfinished.
 Add-in-place access and native platform qualification remain open.
 
 ### Exit gate

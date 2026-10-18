@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
+import { createLightscaperNativePhotoSessionClaimCurrentV1 as sessionClaim } from './lightscaper-native-photo-session-claim-current-v1.ts';
+import { createLightscaperNativePhotoSessionLeaseCurrentV1 as sessionLease, type LightscaperNativePhotoSessionLeaseCurrentV1 as SessionLease } from './lightscaper-native-photo-session-lease-current-v1.ts';
 import { captureLightscaperNativePhotoLibraryArchiveReadersCurrentV1 as captureReaders } from './lightscaper-native-photo-library-archive-readers-current-v1.ts';
 import { registerLightscaperNativePhotoLibraryArchiveOwnerCurrentV1 as registerArchive } from './lightscaper-native-photo-library-archive-owner-current-v1.ts';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
@@ -23,7 +25,8 @@ export type LightscaperNativePhotoLibraryScopeCurrentV1 = Readonly<object>;
 type Scope = LightscaperNativePhotoLibraryScopeCurrentV1;
 type Options = Readonly<{ signal?: AbortSignal }>;
 type RestoreOptions = Readonly<{ signal?: AbortSignal; expectedSelectionToken?: string }>;
-type Epoch = { readonly token: string; readonly controller: AbortController; active: boolean };
+type Epoch = { readonly token: string; readonly catalogId: string; readonly controller: AbortController; readonly physical: AbortController; active: boolean };
+type SessionRole = { readonly epoch: Epoch; readonly controller: AbortController; stopped: boolean; lease?: Readonly<SessionLease> };
 type Binding = Readonly<{ allocation: Readonly<Allocation> | null; appDataPath: string; epoch?: Epoch }>;
 type Selected = Readonly<{ scope: Scope; catalogId: string; selectionToken: string }>;
 type ArchiveOptions = Readonly<{ name: string; signal?: AbortSignal; readerFactories?: ScapeProjectInputReaderFactories }>;
@@ -47,6 +50,10 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 	#restorePrevious: Readonly<SelectionSnapshot> | null = null;
 	readonly #lifetime = new Lifetime();
 	readonly #shutdown = new NativeController();
+	readonly #physicalShutdown = new NativeController();
+	readonly #sessionOpenings = new Set<Promise<unknown>>();
+	#sessionOpening = false;
+	#session: SessionRole | null = null;
 	readonly #scopes = new WeakMap<object, Binding>();
 	readonly #children = new Set<Readonly<Components>>();
 	readonly #restoreTokens = new Set<string>();
@@ -107,7 +114,7 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 		}, async input => {
 			this.#assertTransitionAvailable(); const current = await this.#selection.open(input.name, input.signal);
 			if (this.#epoch && this.#epoch.token !== current.pointer.selectionToken) await this.#retireSelected();
-			if (!this.#epoch) this.#epoch = { token: current.pointer.selectionToken, controller: new NativeController(), active: true };
+			if (!this.#epoch) this.#epoch = { token: current.pointer.selectionToken, catalogId: current.pointer.catalogId, controller: new NativeController(), physical: new NativeController(), active: true };
 			return Object.freeze({ scope: this.#mint({ ...current.binding, epoch: this.#epoch }), catalogId: current.pointer.catalogId, selectionToken: current.pointer.selectionToken });
 		}); return finishCapture(work, () => { captured?.detach(); });
 	}
@@ -189,35 +196,111 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 	}
 	describe(scope: Scope): Readonly<Allocation> | null { this.#assertAccepting(); return this.#binding(scope).allocation; }
 	openComponents(scope: Scope, options: Options = {}): Promise<Readonly<Components>> {
-		return this.#run(options, () => { this.#assertTransitionAvailable(); return this.#binding(scope); }, async (binding, signal) => {
-			this.#assertTransitionAvailable(); this.#assertBindingCurrent(binding);
-			this.#guard.assertCurrent(); check(signal);
-			if (binding.allocation) {
-				this.#assertOrdinaryScope(binding.allocation.namespaceToken);
-				const current = await this.#registry.resume(binding.allocation.namespaceToken, signal);
-				if (JSON.stringify(current.allocation) !== JSON.stringify(binding.allocation) || current.appDataPath !== binding.appDataPath) {
-					throw new Error('Native library scope no longer matches its actual durable reservation.');
-				}
+		return this.#run(options, () => {
+			this.#assertTransitionAvailable(); const binding = this.#binding(scope);
+			if (this.#session) throw new Error('The selected native Session owns component admission.');
+			return binding;
+		}, (binding, signal) => { this.#assertTransitionAvailable(); return this.#openComponents(binding, signal); });
+	}
+	async #openComponents(binding: Binding, signal: AbortSignal): Promise<Readonly<Components>> {
+		this.#assertBindingCurrent(binding);
+		this.#guard.assertCurrent(); check(signal);
+		if (binding.allocation) {
+			this.#assertOrdinaryScope(binding.allocation.namespaceToken);
+			const current = await this.#registry.resume(binding.allocation.namespaceToken, signal);
+			if (JSON.stringify(current.allocation) !== JSON.stringify(binding.allocation) || current.appDataPath !== binding.appDataPath) {
+				throw new Error('Native library scope no longer matches its actual durable reservation.');
 			}
-			this.#guard.assertCurrent(); check(signal);
-			const opened = await openComponents(binding.appDataPath, signal, () => { this.#quarantine(); },
-				Object.freeze({ signal: Reflect.apply(SIGNAL, binding.epoch?.controller ?? this.#shutdown, []) as AbortSignal, assertCurrent: () => { this.#assertBindingCurrent(binding); } }));
-			const actualClose = opened.close; let closing: Promise<void> | undefined;
-			const components: Readonly<Components> = Object.freeze({ ...opened, close: (): Promise<void> => {
-				if (closing) return closing;
-				let resolve!: () => void, reject!: (error: unknown) => void;
-				closing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
-				void (async () => { await Reflect.apply(actualClose, opened, []); this.#children.delete(components); })().then(resolve, (error: unknown) => { this.#quarantine(); reject(error); });
-				return closing;
-			} });
-			this.#children.add(components);
-			try { this.#guard.assertCurrent(); check(signal); return components; }
-			catch (primary) {
-				try { await components.close(); }
-				catch (cleanup) { throw new AggregateError([primary, cleanup], 'Native library component admission and retirement failed.', { cause: cleanup }); }
-				throw primary;
-			}
+		}
+		this.#guard.assertCurrent(); check(signal);
+		const opened = await openComponents(binding.appDataPath, signal, () => { this.#quarantine(); },
+			Object.freeze({ signal: Reflect.apply(SIGNAL, binding.epoch?.physical ?? this.#physicalShutdown, []) as AbortSignal, assertCurrent: () => { this.#assertBindingCurrent(binding); } }));
+		const actualClose = opened.close; let closing: Promise<void> | undefined;
+		const components: Readonly<Components> = Object.freeze({ ...opened, close: (): Promise<void> => {
+			if (closing) return closing;
+			let resolve!: () => void, reject!: (error: unknown) => void;
+			closing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
+			void (async () => { await Reflect.apply(actualClose, opened, []); this.#children.delete(components); })().then(resolve, (error: unknown) => { this.#quarantine(); reject(error); });
+			return closing;
+		} });
+		this.#children.add(components);
+		try { this.#guard.assertCurrent(); check(signal); return components; }
+		catch (primary) {
+			try { await components.close(); }
+			catch (cleanup) { throw new AggregateError([primary, cleanup], 'Native library component admission and retirement failed.', { cause: cleanup }); }
+			throw primary;
+		}
+	}
+	openSessionLease(scope: Scope, localOwner: Readonly<{ close(): Promise<void> }>, options: Options = {}): Promise<Readonly<SessionLease>> {
+		try {
+			this.#assertTransitionAvailable();
+			if (this.#session) throw new Error('A selected native Session already owns this epoch.');
+		} catch (error) { return Promise.reject(error); }
+		this.#sessionOpening = true;
+		let resolve!: (value: Readonly<SessionLease>) => void, reject!: (error: unknown) => void;
+		const pending = new Promise<Readonly<SessionLease>>((accept, refuse) => { resolve = accept; reject = refuse; });
+		this.#sessionOpenings.add(pending);
+		let captured: CapturedOptions | undefined, role: SessionRole | undefined, components: Readonly<Components> | undefined;
+		let closeLocal: (() => Promise<void>) | undefined, lease: Readonly<SessionLease> | undefined;
+		const stopRole = (): void => {
+			if (!role || role.stopped) return; role.stopped = true;
+			Reflect.apply(ABORT, role.controller, [new Error('Native selected Session is stopping.')]);
+		};
+		const work = this.#lifetime.run({}, () => {
+			this.#assertAccepting(); const binding = this.#binding(scope), epoch = binding.epoch;
+			if (!epoch || !epoch.active || epoch !== this.#epoch) throw new TypeError('Native Session requires its current selected scope.');
+			if (this.#session || this.#children.size) throw new Error('Native components already have an owner.');
+			role = { epoch, controller: new NativeController(), stopped: false }; this.#session = role;
+			captured = captureOptions(options, ['signal'], [], this.#shutdown, () => {
+				// Link native cancellation first, then capture the local retirement
+				// before options enumeration can reenter manager shutdown.
+				const actualClose: unknown = localOwner.close;
+				if (typeof actualClose !== 'function') throw new TypeError('Native Session requires its actual local retirement owner.');
+				let localClosing: Promise<void> | undefined;
+				closeLocal = () => localClosing ??= Promise.resolve().then(() => Reflect.apply(actualClose, localOwner, []) as Promise<void>);
+			});
+			check(captured.signal); return binding;
+		}, async binding => {
+			this.#assertAccepting(); check(captured!.signal);
+			// This is our own registered opening, so ordinary transition admission
+			// remains fenced while the private constructor opens its actual owners.
+			components = await this.#openComponents(binding, captured!.signal);
+			const currentRole = role!, actualComponents = components;
+			const assertCurrent = (): void => {
+				if (currentRole.stopped || this.#session !== currentRole) throw new Error('Native Session role has retired.');
+				this.#assertBindingCurrent(binding);
+			};
+			const claim = sessionClaim(Object.freeze({ catalogId: currentRole.epoch.catalogId, selectionToken: currentRole.epoch.token,
+				signal: Reflect.apply(SIGNAL, currentRole.controller, []) as AbortSignal, components: actualComponents, anchor: this.#anchor,
+				assertCurrent, stop: stopRole, quarantine: () => { this.#quarantine(); }, release: () => {
+					if (this.#children.has(actualComponents)) throw new Error('Native Session cannot release a live physical owner.');
+					if (this.#session === currentRole) this.#session = null;
+				} }));
+			lease = await sessionLease(claim, closeLocal!); currentRole.lease = lease;
+			this.#assertAccepting(); check(captured!.signal); return lease;
 		});
+		void work.then(value => value, async (primary: unknown) => {
+			let failure = primary;
+			try { check(captured?.signal); check(Reflect.apply(SIGNAL, this.#shutdown, []) as AbortSignal); } catch (reason) { failure = reason; }
+			const failures: unknown[] = [];
+			try { stopRole(); } catch (error) { failures.push(error); }
+			if (lease) { try { await lease.close(); } catch (error) { failures.push(error); } }
+			else {
+				try { await closeLocal?.(); } catch (error) { failures.push(error); }
+				if (!failures.length) { try { await components?.close(); } catch (error) { failures.push(error); } }
+				if (!failures.length && this.#session === role) this.#session = null;
+			}
+			if (failures.length) { this.#quarantine(); throw new AggregateError([failure, ...failures], 'Native Session admission retirement is unproved.', { cause: failures[0] }); }
+			throw failure;
+		}).then(value => { finish(true, value); }, (error: unknown) => { finish(false, error); });
+		const finish = (okay: boolean, result: unknown): void => {
+			this.#sessionOpening = false; this.#sessionOpenings.delete(pending);
+			try { captured?.detach(); } catch (cleanup) {
+				this.#quarantine(); reject(new AggregateError([...(okay ? [] : [result]), cleanup], 'Native Session admission signal retirement failed.', { cause: cleanup })); return;
+			}
+			if (okay) resolve(result as Readonly<SessionLease>); else reject(result);
+		};
+		return pending;
 	}
 	readAllocationPage(afterToken: string | null = null, options: Options = {}): Promise<Readonly<Page>> {
 		return this.#run(options, () => afterToken === null ? null : token(afterToken), (after, signal) => {
@@ -228,9 +311,17 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 		if (this.#closing) return this.#closing;
 		let resolve!: () => void, reject!: (error: unknown) => void;
 		this.#closing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
+		const stopFailures: unknown[] = [];
+		try { this.#session?.lease?.stop(); } catch (error) { stopFailures.push(error); this.#quarantine(); }
 		Reflect.apply(ABORT, this.#shutdown, [new Error('Native library scopes are closing.')]);
 		void this.#lifetime.close(async () => {
-			await Promise.allSettled([...this.#archives]);
+			await Promise.allSettled([...this.#sessionOpenings, ...this.#archives]);
+			// Keep physical ticket signals and the anchor alive through the actual
+			// local Session barrier. A failed barrier retains every physical owner.
+			await this.#session?.lease?.close();
+			if (stopFailures.length || this.#unretired) throw new AggregateError(stopFailures, 'Native Session retirement is unproved; physical owners retained.');
+			Reflect.apply(ABORT, this.#physicalShutdown, [new Error('Native library storage is closing.')]);
+			if (this.#epoch) Reflect.apply(ABORT, this.#epoch.physical, [new Error('Native selected storage is closing.')]);
 			const results = await Promise.allSettled([...[...this.#children].map(async child => { await child.close(); }),
 				...(this.#restore ? [(async () => { await this.#restore?.close(); })()] : [])]);
 			const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
@@ -258,12 +349,15 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 	async #retireSelected(): Promise<void> {
 		const epoch = this.#epoch; this.#epoch = null;
 		if (epoch) { epoch.active = false; Reflect.apply(ABORT, epoch.controller, [new Error('Native selected library is retiring.')]); }
+		await this.#session?.lease?.close();
+		if (epoch) Reflect.apply(ABORT, epoch.physical, [new Error('Native selected storage is retiring.')]);
 		const results = await Promise.allSettled([...this.#children].map(async child => { await child.close(); }));
 		const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
 		if (failures.length) { this.#quarantine(); throw new AggregateError(failures, 'Native selected component retirement is unproved.'); }
 	}
 	#assertTransitionAvailable(): void {
-		this.#assertAccepting(); if (this.#restoreOpening || this.#restore) throw new Error('A native restore already owns this manager.');
+		this.#assertAccepting(); if (this.#sessionOpening) throw new Error('A native Session opening owns transition admission.');
+		if (this.#restoreOpening || this.#restore) throw new Error('A native restore already owns this manager.');
 	}
 	#assertBindingCurrent(binding: Binding): void {
 		this.#assertAccepting(); if (binding.epoch && (!binding.epoch.active || binding.epoch !== this.#epoch)) throw new Error('Native selected scope has retired.');
@@ -290,7 +384,7 @@ function token(value: unknown): string {
 }
 
 interface CapturedOptions { readonly input: Readonly<Record<string, unknown>>; readonly signal: AbortSignal; detach(): void }
-function captureOptions(value: unknown, allowed: readonly string[], required: readonly string[], shutdown: AbortController): CapturedOptions {
+function captureOptions(value: unknown, allowed: readonly string[], required: readonly string[], shutdown: AbortController, beforeRecord?: () => void): CapturedOptions {
 	const manager = Reflect.apply(SIGNAL, shutdown, []) as AbortSignal; check(manager);
 	let linked: ReturnType<typeof link> | undefined, caller: AbortSignal | undefined;
 	try {
@@ -298,6 +392,7 @@ function captureOptions(value: unknown, allowed: readonly string[], required: re
 		const supplied: unknown = descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
 		if (supplied !== undefined) { assertPhotoStackQuerySignalV1(supplied); caller = supplied; }
 		linked = link(caller, manager); check(linked.signal);
+		beforeRecord?.(); check(linked.signal);
 		const input = record(value, 'native library options', allowed, required);
 		if ((Object.hasOwn(input, 'signal') ? field(input, 'signal', 'native library options') : undefined) !== caller) throw new TypeError('Native library signal changed during admission.');
 		const inert: Record<string, unknown> = {};
