@@ -13,8 +13,8 @@ import { array, field, id, oneOf, record } from './value-validation.ts';
 import { LIGHTSCAPER_CATALOG_LIMITS, type PhotoCatalogRootV1 } from './types.ts';
 import type { PhotoSmartCollectionV1 } from './photo-smart-collection-v1.ts';
 
-export const PHOTO_SMART_COLLECTION_AUDIT_LIMITS_V1 = Object.freeze({ maximumPageBytes: 8_388_608,
-	maximumDefinitions: 10, maximumKeys: 64, reservedScalarBytes: 524_288 });
+import { PHOTO_SMART_COLLECTION_AUDIT_LIMITS_V1 } from './photo-smart-collection-contract-v1.ts';
+export { PHOTO_SMART_COLLECTION_AUDIT_LIMITS_V1 } from './photo-smart-collection-contract-v1.ts';
 const phases = ['definitions', 'summaries', 'definition-index', 'summary-index'] as const;
 type Phase = typeof phases[number];
 type Stores = Readonly<Record<string, IDBObjectStore>>;

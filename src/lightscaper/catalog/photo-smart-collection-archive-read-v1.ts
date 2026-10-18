@@ -9,7 +9,8 @@ import { PHOTO_SMART_COLLECTION_CONTEXT_STORES_V1, readPhotoSmartCollectionStora
 import type { PhotoSmartCollectionArchiveContextV1 } from './photo-smart-collection-archive-context-v1.ts';
 import type { PhotoSmartCollectionV1 } from './photo-smart-collection-v1.ts';
 import { PhotoCatalogRevisionConflictError } from './repository-types.ts';
-import { field, record } from './value-validation.ts';
+import { assertPhotoSmartCollectionArchiveQueryV1 } from './photo-smart-collection-contract-v1.ts';
+export { assertPhotoSmartCollectionArchiveQueryV1 } from './photo-smart-collection-contract-v1.ts';
 
 type Stores = Readonly<Record<string, IDBObjectStore>>;
 /** Private scalar binding includes complete context digest and physical state presence. */
@@ -37,14 +38,6 @@ export function assertPhotoSmartCollectionArchiveBindingV1(current: PhotoSmartCo
 	if (current.digest !== captured.digest || (current.context.state === null) !== (captured.context.state === null)) {
 		throw new PhotoCatalogRevisionConflictError('catalog');
 	}
-}
-
-/** Query2 defaults are useful for transient callers, but cannot repair an incomplete archived recipe. */
-export function assertPhotoSmartCollectionArchiveQueryV1(_document: PhotoSmartCollectionV1, raw: unknown): void {
-	const input = record(raw, 'archive saved collection record', ['key', 'catalogId', 'referenceKeys', 'document']);
-	const definition = record(field(input, 'document'), 'archive saved collection definition',
-		['schemaVersion', 'kind', 'catalogId', 'id', 'name', 'revision', 'query']);
-	record(field(definition, 'query'), 'complete archive saved Query2', ['schemaVersion', 'kind', 'text', 'filter', 'sort', 'predicate']);
 }
 
 /** Each next demand point-authenticates one paired recipe, then joins readonly completion before yield. */

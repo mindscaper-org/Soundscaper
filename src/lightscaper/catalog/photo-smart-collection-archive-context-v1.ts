@@ -2,27 +2,12 @@
 
 import { request } from '../../common/editor/storage/indexeddb-backend.ts';
 import { assertNotAborted, catalogTransaction } from './catalog-transaction.ts';
-import { readPhotoSmartCollectionSignalOptionsV1, type PhotoSmartCollectionSignalOptionsV1 } from './photo-smart-collection-repository-types-v1.ts';
-import type { PhotoSmartCollectionsStateV1 } from './photo-smart-collection-state-v1.ts';
+import type { PhotoSmartCollectionSignalOptionsV1 } from './photo-smart-collection-repository-types-v1.ts';
 import { PHOTO_SMART_COLLECTION_CONTEXT_STORES_V1, readPhotoSmartCollectionStorageContextV1 } from './photo-smart-collection-storage-v1.ts';
 import { withPhotoStackQuerySignalV1 } from './photo-stack-query-signal-v1.ts';
-import { id } from './value-validation.ts';
-
-export interface PhotoSmartCollectionArchiveContextV1 {
-	readonly schemaVersion: 1;
-	readonly kind: 'photo-smart-collection-archive-context';
-	readonly catalogId: string;
-	readonly catalogRevision: number;
-	readonly indexRevision: number;
-	/** Physical absence differs from a persisted empty state, including revision zero. */
-	readonly state: Readonly<PhotoSmartCollectionsStateV1> | null;
-}
-
-/** Closed scalar admission completes before a repository opens its lazy database. */
-export function admitPhotoSmartCollectionArchiveContextRequestV1(catalogValue: unknown, options: unknown = {}) {
-	return Object.freeze({ catalogId: id(catalogValue, 'archive saved collection catalog ID'),
-		...readPhotoSmartCollectionSignalOptionsV1(options) });
-}
+import { admitPhotoSmartCollectionArchiveContextRequestV1, type PhotoSmartCollectionArchiveContextV1 } from './photo-smart-collection-contract-v1.ts';
+export { admitPhotoSmartCollectionArchiveContextRequestV1 } from './photo-smart-collection-contract-v1.ts';
+export type { PhotoSmartCollectionArchiveContextV1 } from './photo-smart-collection-contract-v1.ts';
 
 /** One readonly transaction authenticates the <=2MiB root, index, state and first paired keys.
  * One additional state key proves physical presence without retaining a second state payload.

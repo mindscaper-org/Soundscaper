@@ -3,7 +3,8 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { catalogTransaction } from './catalog-transaction.ts';
-import { admitPhotoSmartCollectionArchiveContextRequestV1, type PhotoSmartCollectionArchiveContextV1 } from './photo-smart-collection-archive-context-v1.ts';
+import { admitPhotoSmartCollectionArchiveContextRequestV1, type PhotoSmartCollectionArchiveCaptureV1 } from './photo-smart-collection-contract-v1.ts';
+export type { PhotoSmartCollectionArchiveCaptureV1 } from './photo-smart-collection-contract-v1.ts';
 import { scanPhotoSmartCollectionStorageV1 } from './photo-smart-collection-audit-kernel.ts';
 import { assertPhotoSmartCollectionArchiveBindingV1, assertPhotoSmartCollectionArchiveQueryV1,
 	readPhotoSmartCollectionArchiveBindingV1, readPhotoSmartCollectionArchiveNextV1,
@@ -14,12 +15,6 @@ import { PHOTO_SMART_COLLECTION_LIMITS_V1, type PhotoSmartCollectionV1 } from '.
 import { withPhotoStackQuerySignalV1 } from './photo-stack-query-signal-v1.ts';
 import type { PhotoSmartCollectionSignalOptionsV1 } from './photo-smart-collection-repository-types-v1.ts';
 
-export interface PhotoSmartCollectionArchiveCaptureV1 {
-	readonly context: PhotoSmartCollectionArchiveContextV1;
-	readonly definitions: AsyncIterable<PhotoSmartCollectionV1>;
-	/** Complete final inventory authentication must precede the destination's finish. */
-	readonly verify: () => Promise<void>;
-}
 const encoder = new TextEncoder();
 
 /** Initial and final audits use <=64 keys/8MiB per readonly page, one canonical

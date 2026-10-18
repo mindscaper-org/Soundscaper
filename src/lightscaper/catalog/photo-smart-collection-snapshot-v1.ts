@@ -3,33 +3,12 @@
 import { catalogTransaction } from './catalog-transaction.ts';
 import { photoSmartCollectionKeyV1 } from './photo-smart-collection-record-v1.ts';
 import { readPhotoSmartCollectionDefinitionV1, validatePhotoSmartCollectionReferencesV1 } from './photo-smart-collection-read-v1.ts';
-import { readPhotoSmartCollectionSignalOptionsV1, type PhotoSmartCollectionSignalOptionsV1 } from './photo-smart-collection-repository-types-v1.ts';
+import type { PhotoSmartCollectionSignalOptionsV1 } from './photo-smart-collection-repository-types-v1.ts';
 import { PHOTO_SMART_COLLECTION_CONTEXT_STORES_V1, readPhotoSmartCollectionStorageContextV1 } from './photo-smart-collection-storage-v1.ts';
-import type { PhotoSmartCollectionV1 } from './photo-smart-collection-v1.ts';
 import { withPhotoStackQuerySignalV1 } from './photo-stack-query-signal-v1.ts';
-import { id } from './value-validation.ts';
-
-export interface PhotoSmartCollectionSnapshotContextV1 {
-	readonly catalogId: string;
-	readonly catalogRevision: number;
-	readonly indexRevision: number;
-	readonly collectionStateRevision: number;
-	readonly collectionCount: number;
-}
-export interface PhotoSmartCollectionSnapshotV1 {
-	readonly schemaVersion: 1;
-	readonly kind: 'photo-smart-collection-snapshot';
-	readonly selectedId: string | null;
-	readonly context: PhotoSmartCollectionSnapshotContextV1;
-	readonly definition: Readonly<PhotoSmartCollectionV1> | null;
-}
-
-/** Closed scalar selection and intrinsic cancellation detach before lazy database acquisition. */
-export function admitPhotoSmartCollectionSnapshotRequestV1(catalogValue: unknown, selectedValue: unknown, value: unknown = {}) {
-	const catalogId = id(catalogValue, 'saved snapshot catalog ID');
-	const selectedId = selectedValue === null ? null : id(selectedValue, 'saved snapshot selection ID');
-	return Object.freeze({ catalogId, selectedId, ...readPhotoSmartCollectionSignalOptionsV1(value) });
-}
+import { admitPhotoSmartCollectionSnapshotRequestV1, type PhotoSmartCollectionSnapshotV1 } from './photo-smart-collection-contract-v1.ts';
+export { admitPhotoSmartCollectionSnapshotRequestV1 } from './photo-smart-collection-contract-v1.ts';
+export type { PhotoSmartCollectionSnapshotContextV1, PhotoSmartCollectionSnapshotV1 } from './photo-smart-collection-contract-v1.ts';
 
 /** One selected recipe and scalar CAS context share one owning readonly transaction.
  * Creation context loads no definitions; neither path scans photo bodies or all saved recipes.
