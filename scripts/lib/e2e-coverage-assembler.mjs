@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { spawnSync } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import {
 	cpSync,
 	mkdirSync,
 	readFileSync,
-	renameSync,
-	rmSync,
 	writeFileSync,
 } from 'node:fs';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -26,6 +24,7 @@ import {
 	validateE2EExecutableObservation,
 } from './e2e-coverage-integrity.mjs';
 import { assembleE2ERawProfiles } from './e2e-coverage-profile-assembly.mjs';
+import { withE2ECoverageProfileSpool } from './e2e-coverage-profile-spool.ts';
 
 export function assembleE2ECoverageCapture({
 	repositoryRoot,
@@ -38,49 +37,50 @@ export function assembleE2ECoverageCapture({
 	const roots = normalizedRunRoots(runRoot, runRoots);
 	const destination = resolve(outputRoot ?? join(roots[0], 'coverage/e2e-capture'));
 	assertOutputRoot(roots, resolve(repositoryRoot), destination);
-	const captures = roots.map((root) => loadRunCapture({
-		expectedRevision,
-		repositoryRoot: resolve(repositoryRoot),
-		runRoot: root,
-	}));
-	assertCompatibleCaptures(captures);
-	const profiles = mergeProfiles(captures.map(({ profiles }) => profiles));
-	const dynamicScripts = mergeDynamicScripts(captures.map(({ dynamicScripts }) => dynamicScripts));
-	if (dynamicScripts.length === 0) {
-		throw new Error('E2E coverage observed no authenticated macro dynamic module.');
-	}
-	assertRequiredSurfaceProfiles(profiles, configuration);
-
-	const staging = `${destination}.staging-${process.pid}-${randomUUID()}`;
-	rmSync(staging, { recursive: true, force: true });
-	try {
-		mkdirSync(staging, { recursive: true });
+	return withE2ECoverageProfileSpool(destination, (spool) => {
+		let first;
+		const buildEvidence = [];
+		const targetDigests = new Map();
+		const dynamicScripts = new Map();
+		for (const [index, root] of roots.entries()) {
+			const capture = loadRunCapture({
+				expectedRevision, repositoryRoot: resolve(repositoryRoot), runRoot: root,
+			});
+			first ??= capture;
+			assertCompatibleCapture(first, capture, targetDigests);
+			buildEvidence.push(buildEvidenceRecord(capture, index));
+			const assembled = assembleE2ERawProfiles({
+				evidence: capture.evidence,
+				repositoryRoot: resolve(repositoryRoot),
+				runRoot: root,
+				runtime: capture.runtime,
+				createGroup: () => spool.group(`${String(index + 1).padStart(3, '0')}-`),
+			});
+			mergeDynamicScripts(dynamicScripts, assembled.dynamicScripts);
+		}
+		if (dynamicScripts.size === 0) {
+			throw new Error('E2E coverage observed no authenticated macro dynamic module.');
+		}
+		assertRequiredSurfaceProfiles(spool, configuration);
 		const captureIndex = createCaptureIndex({
-			buildEvidence: captures.map(buildEvidenceRecord),
+			buildEvidence,
 			configuration,
-			dynamicScripts,
-			evidence: captures[0].evidence,
-			outputRoot: staging,
-			profiles,
-			sourceRevision: captures[0].sourceRevision,
+			dynamicScripts: [...dynamicScripts.values()].sort((left, right) => (
+				left.coverageUrl.localeCompare(right.coverageUrl)
+			)),
+			evidence: first.evidence,
+			outputRoot: spool.directory,
+			sourceRevision: first.sourceRevision,
 		});
 		validateCaptureIndex(captureIndex, configuration);
 		const observationFailures = validateE2EExecutableObservation(
-			[...profiles.values()].flatMap((values) => values.flatMap(({ profile }) => (
-				profile.result.map(({ url }) => url)
-			))),
+			[...spool.observedUrls],
 			captureIndex.scripts,
 		);
 		if (observationFailures.length > 0) throw new Error(observationFailures.join('\n'));
-		writeJson(join(staging, 'capture-index.json'), captureIndex);
-		rmSync(destination, { recursive: true, force: true });
-		mkdirSync(dirname(destination), { recursive: true });
-		renameSync(staging, destination);
+		writeJson(join(spool.directory, 'capture-index.json'), captureIndex);
 		return Object.freeze({ captureIndex, outputRoot: destination });
-	} catch (error) {
-		rmSync(staging, { recursive: true, force: true });
-		throw error;
-	}
+	});
 }
 
 function loadRunCapture({ expectedRevision, repositoryRoot, runRoot }) {
@@ -106,16 +106,8 @@ function loadRunCapture({ expectedRevision, repositoryRoot, runRoot }) {
 		repositoryRoot,
 		sourceRevision: envelope.sourceRevision,
 	});
-	const assembled = assembleE2ERawProfiles({
-		evidence,
-		repositoryRoot,
-		runRoot,
-		runtime: envelope.runtime,
-	});
 	return Object.freeze({
-		dynamicScripts: assembled.dynamicScripts,
 		evidence,
-		profiles: assembled.profiles,
 		runRoot,
 		runtime: Object.freeze({ ...envelope.runtime }),
 		sourceRevision: envelope.sourceRevision,
@@ -128,7 +120,6 @@ function createCaptureIndex({
 	dynamicScripts,
 	evidence,
 	outputRoot,
-	profiles,
 	sourceRevision,
 }) {
 	const descriptors = evidenceScripts(evidence, dynamicScripts);
@@ -175,7 +166,6 @@ function createCaptureIndex({
 	const surfaces = configuration.requiredSurfaces.map(({ id, coverageFormat }) => {
 		const inputPath = `profiles/${id}`;
 		const directory = join(outputRoot, inputPath);
-		writeProfiles(directory, profiles.get(id));
 		return {
 			id,
 			coverage: {
@@ -268,64 +258,39 @@ function surfaceForScript(script) {
 		: `nightly-electron-${script.productId}-${script.realm}`;
 }
 
-function mergeProfiles(profileMaps) {
-	const merged = new Map();
-	for (const [runIndex, profiles] of profileMaps.entries()) {
-		for (const [surface, values] of profiles) {
-			const target = merged.get(surface) ?? [];
-			for (const value of values) target.push({
-				name: `${String(runIndex + 1).padStart(3, '0')}-${value.name}`,
-				profile: value.profile,
-			});
-			merged.set(surface, target);
-		}
-	}
-	return merged;
-}
 
-function mergeDynamicScripts(scriptLists) {
-	const merged = new Map();
-	for (const scripts of scriptLists) {
-		for (const script of scripts) {
-			const previous = merged.get(script.coverageUrl);
-			if (previous !== undefined
-				&& stableSha256Digest(previous) !== stableSha256Digest(script)) {
-				throw new Error(`Nightly runs disagree about macro dynamic script ${script.coverageUrl}.`);
-			}
-			merged.set(script.coverageUrl, script);
+function mergeDynamicScripts(merged, scripts) {
+	for (const script of scripts) {
+		const previous = merged.get(script.coverageUrl);
+		if (previous !== undefined
+			&& stableSha256Digest(previous) !== stableSha256Digest(script)) {
+			throw new Error(`Nightly runs disagree about macro dynamic script ${script.coverageUrl}.`);
 		}
+		merged.set(script.coverageUrl, script);
 	}
-	return [...merged.values()].sort((left, right) => left.coverageUrl.localeCompare(right.coverageUrl));
 }
 
 function assertRequiredSurfaceProfiles(profiles, configuration) {
 	for (const { id } of configuration.requiredSurfaces) {
-		const values = profiles.get(id) ?? [];
-		if (values.length === 0 || !values.some(({ profile }) => profile.result.length > 0)) {
+		if (profiles.count(id) === 0 || !profiles.hasEntries(id)) {
 			throw new Error(`Required E2E surface ${id} supplied no executable coverage profile.`);
 		}
 	}
 }
 
-function assertCompatibleCaptures(captures) {
-	const first = captures[0];
-	const targetDigests = new Map();
-	for (const capture of captures.slice(1)) {
-		if (capture.sourceRevision !== first.sourceRevision) {
-			throw new Error('Nightly run roots name different source revisions.');
-		}
-		if (capture.evidence.executableDigest !== first.evidence.executableDigest) {
-			throw new Error('Nightly run roots contain different executable build-evidence hashes.');
-		}
+function assertCompatibleCapture(first, capture, targetDigests) {
+	if (capture.sourceRevision !== first.sourceRevision) {
+		throw new Error('Nightly run roots name different source revisions.');
 	}
-	for (const capture of captures) {
-		const target = `${capture.runtime.platform}-${capture.runtime.arch}`;
-		const previous = targetDigests.get(target);
-		if (previous !== undefined && previous !== capture.evidence.digest) {
-			throw new Error(`Nightly ${target} runs contain different full build-evidence hashes.`);
-		}
-		targetDigests.set(target, capture.evidence.digest);
+	if (capture.evidence.executableDigest !== first.evidence.executableDigest) {
+		throw new Error('Nightly run roots contain different executable build-evidence hashes.');
 	}
+	const target = `${capture.runtime.platform}-${capture.runtime.arch}`;
+	const previous = targetDigests.get(target);
+	if (previous !== undefined && previous !== capture.evidence.digest) {
+		throw new Error(`Nightly ${target} runs contain different full build-evidence hashes.`);
+	}
+	targetDigests.set(target, capture.evidence.digest);
 }
 
 function buildEvidenceRecord(capture, index) {
@@ -395,16 +360,6 @@ function assertOutputRoot(runRoots, repositoryRoot, outputRoot) {
 		throw new Error(
 			'The E2E capture output must be a dedicated directory below the repository or a run coverage root.',
 		);
-	}
-}
-
-function writeProfiles(directory, profiles) {
-	mkdirSync(directory, { recursive: true });
-	const names = new Set();
-	for (const { name, profile } of profiles) {
-		if (names.has(name)) throw new Error(`Two raw E2E profiles resolve to ${name}.`);
-		names.add(name);
-		writeJson(join(directory, name), profile);
 	}
 }
 
