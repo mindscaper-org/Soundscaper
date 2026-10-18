@@ -80,6 +80,30 @@ work waiting behind them. Retirement joins accepted writes and private commit
 work before releasing signals or storage, including held native writes. It does
 not wait on its own public cleanup-wrapped promise.
 
+`inspectCatalogOriginalBody` accepts the existing retained-body repair binding.
+It authenticates the exact permanent or import-scoped root and recounts every
+root for that asset in bounded pages, without decoding descriptive metadata.
+Only a genuinely absent media row, directory or file yields `missing`; stable
+length or SHA mismatches yield `corrupt`. Unsafe layouts, inconsistent custody,
+permission errors and backend failures refuse. Inspection hashes the actual
+file afresh and rechecks its captured generation and complete custody after I/O.
+It shares the native read reservations and retains the asset pin until the real
+file handle retires. Inspection does not repair bytes or change Photo revisions.
+
+`createBinaryDerivativeCache` supplies genuine native `load`, `store` and `trim`
+ports for the existing canonical, camera-culling and HDR preview adapters. Their
+disposable sidecar database shares a 128-MiB and 1024-entry committed inventory
+limit; one additional stage is bounded to 128 MiB. Payload pages contain at most
+one MiB and each eviction operation removes at most 16
+entries. Manifests, output hashes and the current Original token, SHA and size
+are independently checked. Slow Blob reads precede a short publication section
+that excludes source changes while committing the cache. Media quiescence closes
+the cache as well as stream writers, and joins accepted cache work before the
+native owners retire. Preview persistence changes no Original or custody row.
+Same-process cache owners share a four-operation admission queue; sibling opens
+cannot reclaim a live stage. The scope manager supplies cross-process writer
+exclusion. Standalone cache tests establish component behavior within one process.
+
 Focused Linux tests compose the unchanged Current importer and recovery owner
 with real native catalog, media, selected settings and resource repositories.
 They cover encoded raster, RAW and HDR body custody, exact reopen, whole Current
@@ -96,9 +120,9 @@ Session qualification remains open.
 
 The five-member streaming contract is qualified against actual native files and
 SQLite, including four-MiB emissions split into native one-MiB writes, immutable
-custody, reopen, cancellation and Close. The existing full restore candidate
-still owns browser namespaces and catalog transactions; a working native stream
-writer alone does not implement a complete native restore candidate.
+custody, reopen, cancellation and Close. The native scope owner separately
+composes the complete archive restore, including full resource and Original
+audits and atomic selected-pointer publication after candidate retirement.
 
 The [scoped Original reader](lightscaper-native-photo-original-loading.md)
 authenticates scalar asset generations and actual custody without decoding
@@ -107,6 +131,7 @@ consumer and physical-read retirement. The separate renderer source stages a
 genuine File under fixed capacity limits; its port tests do not establish
 packaged transport or existing consumer integration.
 
-App-facing scoped loading, renderer/IPC admission and menu-owned Session selection
-remain required. No AI runtime source, archive closure or target inventory
-changes; this component does not require a manual **Update AI assets** run.
+Exact retained-body repair, complete native Session composition, renderer/IPC
+admission and menu-owned Session selection remain required. No AI runtime source,
+archive closure or target inventory changes; this component does not require a
+manual **Update AI assets** run.

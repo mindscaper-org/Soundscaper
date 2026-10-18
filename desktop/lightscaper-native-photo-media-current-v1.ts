@@ -19,6 +19,13 @@ import { LightscaperNativePhotoMediaOriginalReadsCurrentV1 } from './lightscaper
 import { captureLightscaperNativePhotoOriginalReadRequestCurrentV1 } from './lightscaper-native-photo-original-read-authority-current-v1.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { LightscaperNativePhotoMediaWritersCurrentV1 } from './lightscaper-native-photo-media-writers-current-v1.ts';
+import { LightscaperNativePhotoPreviewCacheCurrentV1 } from './lightscaper-native-photo-preview-cache-current-v1.ts';
+import type { BinaryDerivativeCachePortV1 } from '../src/common/editor/storage/binary-derivative-cache-repository.ts';
+import type { BinaryDerivativeCacheProfileV1 } from '../src/common/editor/storage/binary-derivative-cache-records.ts';
+import type { CatalogOriginalRepairBindingV1, CatalogOriginalRepairOptionsV1 } from '../src/common/editor/storage/media-catalog-original-repair-contract.ts';
+import type { CatalogOriginalInspectionOutcomeV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
+import { captureLightscaperNativePhotoOriginalInspectionCurrentV1 as captureInspection,
+	inspectLightscaperNativePhotoOriginalCurrentV1 as inspectOriginal } from './lightscaper-native-photo-original-inspection-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
 type Custody = Pick<MediaCatalogOriginalRepositoryV1, 'retain' | 'stage' | 'release' | 'releaseStaged' | 'promote' | 'readPage' | 'findDigestPage'>;
@@ -33,10 +40,11 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 	readonly #lifetime = new LightscaperNativePhotoMediaLifetimeCurrentV1();
 	readonly #writers: LightscaperNativePhotoMediaWritersCurrentV1;
 	readonly #reads: LightscaperNativePhotoMediaOriginalReadsCurrentV1;
+	readonly #cache: LightscaperNativePhotoPreviewCacheCurrentV1;
 	#closing: Promise<void> | null = null;
 	#quiescing: Promise<void> | null = null;
-	private constructor(originals: LightscaperNativeOriginalStoreCurrentV1, database: DatabaseSync) {
-		this.#originals = originals; this.#database = database;
+	private constructor(originals: LightscaperNativeOriginalStoreCurrentV1, database: DatabaseSync, cache: LightscaperNativePhotoPreviewCacheCurrentV1) {
+		this.#originals = originals; this.#database = database; this.#cache = cache;
 		this.#reads = new LightscaperNativePhotoMediaOriginalReadsCurrentV1(database, originals, (options, capture, operation) => this.#run(options, capture, operation));
 		this.#writers = new LightscaperNativePhotoMediaWritersCurrentV1(originals, database);
 		this.catalogOriginals = Object.freeze<Custody>({
@@ -56,16 +64,31 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		if (typeof root !== 'string') throw new TypeError('Native Photo media requires its main-owned appData directory.');
 		const originals = await LightscaperNativeOriginalStoreCurrentV1.open({ appDataPath: root });
 		let database: DatabaseSync | undefined;
+		let cache: LightscaperNativePhotoPreviewCacheCurrentV1 | undefined;
 		try {
 			database = await openLightscaperNativePhotoMediaDatabaseCurrentV1(root);
-			return new LightscaperNativePhotoMediaCurrentV1(originals, database);
+			cache = await LightscaperNativePhotoPreviewCacheCurrentV1.open({ appDataPath: root });
+			return new LightscaperNativePhotoMediaCurrentV1(originals, database, cache);
 		} catch (primary) {
 			const failures: unknown[] = [primary];
+			try { await cache?.close(); } catch (error) { failures.push(error); }
 			try { database?.close(); } catch (error) { failures.push(error); }
 			try { await originals.close(); } catch (error) { failures.push(error); }
 			if (failures.length > 1) throw new AggregateError(failures, 'Native Photo media opening and retirement failed.', { cause: primary });
 			throw primary;
 		}
+	}
+
+	/** All preview recipes share one disposable native inventory. The cache
+	 * owns accepted Blob work independently and is joined by producer quiescence. */
+	createBinaryDerivativeCache(profile: BinaryDerivativeCacheProfileV1): Readonly<BinaryDerivativeCachePortV1> {
+		if (this.#closing || this.#quiescing) throw new Error('Native Photo media is closed.');
+		const cache = this.#cache.createBinaryDerivativeCache(profile);
+		return Object.freeze<BinaryDerivativeCachePortV1>({
+			load: (...args) => this.#cacheRequest(() => cache.load(...args)),
+			store: (...args) => this.#cacheRequest(() => cache.store(...args)),
+			trim: (...args) => this.#cacheRequest(() => cache.trim(...args)),
+		});
 	}
 
 	/** Main-private fixed reader composition; never a renderer filesystem API. */
@@ -125,6 +148,10 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 			this.#require(original); const bytes = await this.#originals.read(original, offset, length, { signal }); check(signal); return bytes;
 		});
 
+	readonly inspectCatalogOriginalBody = (binding: CatalogOriginalRepairBindingV1,
+		options: CatalogOriginalRepairOptionsV1 = {}): Promise<CatalogOriginalInspectionOutcomeV1> =>
+		this.#run(options, () => captureInspection(binding), (captured, signal) => inspectOriginal(this.#database, this.#originals, captured, signal));
+
 	/** Fence all front doors and retire escaped producers before a parent
 	 * waits for Original reads queued behind their genuine physical stream. */
 	readonly quiesceEscapedWritersCurrentV1 = (): Promise<void> => this.#quiesce();
@@ -133,7 +160,12 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		if (this.#quiescing) return this.#quiescing;
 		let resolve!: () => void, reject!: (error: unknown) => void;
 		this.#quiescing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
-		try { void this.#writers.close().then(resolve, reject); } catch (error) { reject(error); }
+		try {
+			void Promise.allSettled([this.#writers.close(), this.#cache.close()]).then(results => {
+				const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
+				if (failures.length) throw new AggregateError(failures, 'Native Photo producers did not retire.');
+			}).then(resolve, reject);
+		} catch (error) { reject(error); }
 		return this.#quiescing;
 	}
 
@@ -172,5 +204,9 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 	#run<Input, Result>(options: unknown, capture: (signal: AbortSignal) => Input | Promise<Input>, operation: (input: Input, signal: AbortSignal) => Result | Promise<Result>): Promise<Result> {
 		if (this.#closing || this.#quiescing) return Promise.reject(new Error('Native Photo media is closed.'));
 		return this.#lifetime.run(options, capture, operation);
+	}
+	#cacheRequest<Result>(run: () => Promise<Result>): Promise<Result> {
+		if (this.#closing || this.#quiescing) return Promise.reject(new Error('Native Photo media is closed.'));
+		return run();
 	}
 }

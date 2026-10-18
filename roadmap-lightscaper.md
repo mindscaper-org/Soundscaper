@@ -1263,7 +1263,12 @@ including staged-root recovery after an acknowledged Photo publication.
 The managed owner now also supplies the complete five-member streamed Photo
 writer, with copied four-MiB input, bounded one-MiB physical writes, independently
 authenticated file/hash/index publication, cached metadata commit and joined
-escaped-writer retirement. Full native restore composition is still required.
+escaped-writer retirement.
+Retained-Original inspection authenticates actual bytes and complete custody
+without decoding generic metadata, sharing the native read budget and deletion
+pins. Native canonical, camera-culling and HDR preview caches share a bounded
+disposable inventory tied to the current Original generation. Exact retained-body
+repair remains required for complete native Session composition.
 The [native scope owner](docs/architecture/lightscaper-native-photo-library-scopes.md)
 now durably reserves physical generation allocations and verifies exact manifests
 before composing their genuine catalog, media, resources and selected settings.
@@ -1288,8 +1293,12 @@ admits every Photo authority together, independently authenticates aliases while
 sharing staged bytes, and retains the group through escaped body/resource
 consumers and final collection checks. Native collection and Chromium component
 tests cover its physical pins, all-or-none delivery and joined cleanup.
-Native restore and selection publication, native Session composition, renderer/IPC
-admission and menu-owned library selection remain required before activation.
+The manager now restores complete archives into fresh native generations,
+authenticates their catalog, Originals, resources and preset closure, joins the
+actual decoder and storage owners, and atomically publishes the selected pointer
+with permanent commit history. A selected restored library remains reopenable
+after ordinary edits. Native Session composition, renderer/IPC admission and
+menu-owned library selection remain required before activation.
 Add-in-place access and native platform qualification remain open.
 
 ### Exit gate

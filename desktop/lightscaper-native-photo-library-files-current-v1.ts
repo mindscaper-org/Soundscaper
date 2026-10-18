@@ -7,11 +7,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
 
 export interface LightscaperNativePhotoLibraryDatabaseProfileCurrentV1 {
-	readonly fileName: 'native-photo-library-writer.sqlite3' | 'native-photo-library-scopes.sqlite3' | 'native-photo-catalogs.sqlite3';
+	readonly fileName: 'native-photo-library-writer.sqlite3' | 'native-photo-library-scopes.sqlite3' | 'native-photo-catalogs.sqlite3' | 'native-photo-preview-cache.sqlite3';
 	readonly inspect: (database: DatabaseSync) => 'empty' | 'owned' | 1 | 2 | 3 | 4 | 5;
 	readonly initialize: (database: DatabaseSync) => void;
 }
-const NAMES: readonly string[] = ['native-photo-library-writer.sqlite3', 'native-photo-library-scopes.sqlite3', 'native-photo-catalogs.sqlite3'];
+const NAMES: readonly string[] = ['native-photo-library-writer.sqlite3', 'native-photo-library-scopes.sqlite3', 'native-photo-catalogs.sqlite3', 'native-photo-preview-cache.sqlite3'];
 const SIDECARS = ['', '-wal', '-shm', '-journal'] as const;
 
 /** Trusted fixed main-private profiles share secure admission. This creates no
