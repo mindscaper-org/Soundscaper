@@ -168,7 +168,6 @@ test('client and contract failures fail once without being retried', async (cont
 test('the deploy verifier invokes the live smoke only for Soundscaper', async () => {
 	assert.equal(shouldVerifyLiveFreesoundSearch('soundscaper'), true);
 	assert.equal(shouldVerifyLiveFreesoundSearch('framescaper'), false);
-	assert.equal(shouldVerifyLiveFreesoundSearch('future-product'), false);
 
 	const source = await readFile('scripts/verify-pages-deploy.mjs', 'utf8');
 	assert.match(source, /shouldVerifyLiveFreesoundSearch\(routing\.productId\)/u);

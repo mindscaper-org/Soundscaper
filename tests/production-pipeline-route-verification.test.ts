@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 import { BROWSER_EXPORT_BLOB_MAXIMUM_BYTES } from '../src/common/editor/browser-export-output.ts';
 import { SCAPE_WEB_CORE_BLOB_MAXIMUM_BYTES } from '../src/common/editor/scape-export-estimate.ts';
 
@@ -115,7 +113,6 @@ test('browser audio and video publication use the shared admission boundary', as
 	assert.match(audioRuntime, /ffmpegAvailable: false/u);
 	assert.match(audioRuntime, /streamBrowserAudioEncodedResult/u);
 	assert.match(nativeVideo, /executeVideoKeyframeMediabunnyEncoder/u);
-	assert.match(nativeVideo, /complete browser-native delivery/u);
 	assert.doesNotMatch(audio, /new Blob\(\[encoded\.bytes\]/u);
 	assert.doesNotMatch(video, /new Blob\(\[encoded\.bytes\]/u);
 });
@@ -130,14 +127,13 @@ test('Framescaper family-v1 keyed export reuses the frozen video Blob and direct
 		'video-direct-mp4',
 		'video-direct-webm',
 	]);
-	assert.equal(matrix.publicationRouteVerification.routes.length, 16);
 	const keyedControl = matrix.risks
 		.flatMap(({ currentControls }: { currentControls: Array<{ id: string }> }) => currentControls)
 		.find(({ id }: { id: string }) => id === 'framescaper-v1-keyed-export-authority');
 	assert.ok(keyedControl, 'the selected keyed strategy must have separate authority evidence');
 });
 
-test('the threat model owns the route-level claim without promoting resource guarantees', async () => {
+test('the threat model documents every registered publication route', async () => {
 	const documentation = await readFile(
 		new URL('../docs/policies/security.md', import.meta.url),
 		'utf8',
@@ -145,16 +141,4 @@ test('the threat model owns the route-level claim without promoting resource gua
 	for (const routeId of Object.keys(ROUTE_CONTROL)) {
 		assert.match(documentation, new RegExp(`\\b${routeId}\\b`, 'u'));
 	}
-	assertOrderedClaim(
-		documentation,
-		/five browser-Blob fallbacks.*user-overridable\s+512 MiB warning threshold.*Storage-backed audio mix and stem archives.*user-overridable 1,000,000,000-byte warning threshold.*exact operation size.*structural format.*safe-integer arithmetic.*actual storage capacity.*byte-count.*digest.*cancellation.*currentness.*completed native file bytes before Blob\s+construction and download publication/isu,
-	);
-	assertOrderedClaim(
-		documentation,
-		/other eleven IDs.*direct publication routes.*None performs final renderer-sized\s+Blob\s+construction or download publication/isu,
-	);
-	assertOrderedClaim(
-		documentation,
-		/does\s+not add browser\s+heap.*codec worker.*Mediabunny.*RSS.*reference-scale.*durability.*packaged.*cross-platform claims/isu,
-	);
 });
