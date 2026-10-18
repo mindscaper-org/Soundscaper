@@ -10,6 +10,7 @@ import { motionCompositionHasAudio } from '../common/editor/motion-composition-a
 import { createMotionMediaProvider } from '../common/editor/motion-media-provider.ts';
 import { createMotionExpressionAudioPreparation, motionProjectUsesAudioAmplitude } from '../common/editor/motion-expression-audio-preparation.ts';
 import { createMotionAudioMixer } from '../common/editor/motion-audio-mixer.ts';
+import type { MotionAudioMixerOptions } from '../common/editor/motion-audio-contract.ts';
 import { aggregateScapeErrors } from '../common/editor/scape-abort.ts';
 import { MotionDeliveryCleanupFailure, pendingMotionDeliveryCleanup } from '../common/editor/motion-delivery-cleanup.ts';
 import type { MotionDesktopDeliveryReceipt } from './desktop-delivery-contract.ts';
@@ -70,7 +71,7 @@ export async function renderMotionscaperDelivery(options: MotionDeliveryOptions)
 				const loadAsset = (asset: Parameters<typeof loadMotionscaperAssetBytes>[0], readSignal?: AbortSignal) => loadMotionscaperAssetBytes(asset, options.store, readSignal);
 				const provider = createMotionMediaProvider({ loadAsset });
 				const expressionAudio = motionProjectUsesAudioAmplitude(revision.project) ? createMotionExpressionAudioPreparation({ project: revision.project, provider }) : undefined;
-				const audioMixer = hasAudio ? createMotionAudioMixer({ project: revision.project, provider, ...(expressionAudio ? { expressionAudio } : {}) }) : undefined;
+				const audioMixer = hasAudio ? createMotionscaperDeliveryAudioMixer({ project: revision.project, provider, ...(expressionAudio ? { expressionAudio } : {}) }) : undefined;
 				try {
 					const rasterizer = await createMotionBrowserRasterizer({ assets: revision.project.assets, loadAsset, decodeFootage: provider.decodeFootage }, signal);
 					return { rasterizer, audioMixer, expressionAudio, release: () => { rasterizer.dispose(); expressionAudio?.dispose(); audioMixer?.dispose(); provider.dispose(); return Promise.resolve(); } };
@@ -94,4 +95,9 @@ export async function renderMotionscaperDelivery(options: MotionDeliveryOptions)
 		}
 		throw aggregateScapeErrors(error, cleanup, 'Motion delivery and output cleanup both failed.');
 	} finally { if (!options.queue) await queue.close(); }
+}
+
+/** Use the same audio acquisition policy for browser and native delivery. */
+export function createMotionscaperDeliveryAudioMixer(options: Pick<MotionAudioMixerOptions, 'project' | 'provider' | 'expressionAudio'>) {
+	return createMotionAudioMixer({ ...options, cacheRetention: 'last-block' });
 }

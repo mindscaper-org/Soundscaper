@@ -30,6 +30,7 @@ export function createMotionAudioMixer(options: MotionAudioMixerOptions): Motion
 			const maximumOccurrences = Math.min(16384, Math.floor(maximumEvaluated / (request.sampleCount + 2)));
 			if (maximumOccurrences < 1) throw new RangeError('Motion audio block exceeds its evaluation work budget.');
 			const interleaved = new Float32Array(request.sampleCount * request.channels); rendering = true;
+			if (options.cacheRetention === 'last-block') cache.beginBlock();
 			const expressionBudget = createMotionExpressionBudget({ maximumOperations: 1_000_000, signal });
 			const nativeBudget = createMotionAmplitudeNativeBudget(4_194_304);
 			const at = async (index: number) => {
@@ -59,7 +60,7 @@ export function createMotionAudioMixer(options: MotionAudioMixerOptions): Motion
 				}
 				signal.throwIfAborted(); if (interleaved.some((value) => !Number.isFinite(value))) throw new RangeError('Motion audio mix exceeds finite float PCM headroom.');
 				return { ...request, interleaved, projectId: revision.projectId, revision: revision.revision, revisionDigest: revision.digest };
-			} finally { rendering = false; }
+			} finally { if (options.cacheRetention === 'last-block') cache.endBlock(); rendering = false; }
 		},
 		snapshot: () => ({ cacheBytes: cache.byteLength, cacheWindows: cache.size, rendering, disposed }),
 		dispose() { if (!disposed) { disposed = true; disposal.abort(); cache.clear(); if (!options.expressionAudio) expressionAudio?.dispose(); } },

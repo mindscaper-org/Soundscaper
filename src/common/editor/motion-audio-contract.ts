@@ -27,6 +27,8 @@ export interface MotionAudioMixerOptions {
 	/** A shared preparation lease remains owned by the caller; omitted leases are created/disposed by the mixer. */
 	readonly expressionAudio?: MotionExpressionAudioPreparation;
 	readonly maximumCacheBytes?: number; readonly maximumBlockSamples?: number;
+	/** Streaming delivery drops historical windows after each block; preview may keep its bounded LRU. */
+	readonly cacheRetention?: 'lru' | 'last-block';
 	readonly maximumEvaluatedOccurrences?: number;
 }
 export interface MotionAudioMixer {
