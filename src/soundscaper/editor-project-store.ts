@@ -64,7 +64,8 @@ function soundscaperRepositoryFactory(
 	recordAuthority: (authority: Readonly<SoundscaperProjectStoreAuthority>) => void,
 ): StorageRepositoryFactory {
 	return (port, options) => {
-		const repositories = delegateFactory(port, options)
+		const selectedPort = Object.freeze({ ...port, validateProjectForRetention: validateSoundscaperProject })
+		const repositories = delegateFactory(selectedPort, options)
 		recordAuthority(Object.freeze({ port, opfs: repositories.opfs ?? null }))
 		return Object.freeze({
 			...repositories,

@@ -47,7 +47,8 @@ export class RetentionSessionGuard {
 	}
 
 	port(): StorageRepositoryPort {
-		return { memory: this.#port.memory, database: () => this.database(), retentionSessionGuard: this };
+		return { memory: this.#port.memory, database: () => this.database(), retentionSessionGuard: this,
+			validateProjectForRetention: this.#port.validateProjectForRetention };
 	}
 
 	database(): Promise<IDBDatabase | null> {

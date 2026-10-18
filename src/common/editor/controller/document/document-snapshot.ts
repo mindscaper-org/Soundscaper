@@ -123,6 +123,7 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly recorder: unknown;
 	readonly recordingKind: 'ordinary' | 'sound-activated' | 'take-cycle' | null;
 	readonly takeCycleRecovery: TakeCyclePendingOpenRecovery | null;
+	readonly startupProjectRecovery?: Readonly<{ projectId: string; message: string }> | null;
 	readonly recordingPreview: unknown;
 	readonly recordingPreviews: readonly unknown[];
 	readonly recordingDevices: readonly unknown[];
@@ -305,6 +306,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		recording: Boolean(state.recorder && !state.timedRecording && !state.timedRecordingCancelling),
 		recordingKind: state.recordingKind,
 		takeCycleRecovery: state.takeCycleRecovery,
+		startupProjectRecovery: state.startupProjectRecovery ?? null,
 		recordingPreview: runtime.recordingPreviewSnapshot(state.recordingPreview),
 		recordingPreviews: Object.freeze(state.recordingPreviews
 			.map(runtime.recordingPreviewSnapshot)

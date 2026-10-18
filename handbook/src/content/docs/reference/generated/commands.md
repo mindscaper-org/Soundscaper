@@ -383,6 +383,8 @@ Product availability follows each product profile’s command filters and each l
 | Recording meter | `panel-recording-meter` | — | Window | Soundscaper | Soundscaper local |
 | Recording notes | `panel-recording-notes` | — | Window | Soundscaper, Framescaper | Soundscaper local |
 | Recording setup | `panel-recording-setup` | — | Window | Framescaper | Soundscaper local |
+| Recover Audacity project | `recover-audacity-project` | — | File > Project management | Soundscaper | Soundscaper local |
+| Recover a project | `recover-project` | — | File > Project management | Soundscaper | Soundscaper local |
 | Redo | `action://trackedit/redo` | Ctrl+Shift+Z | Edit | Soundscaper, Framescaper | Audacity |
 | Reduce Reverb | `assistance-task-reduce-reverb` | — | Effect > Noise removal and repair | Soundscaper, Framescaper | Soundscaper local |
 | Reframe | `assistance-task-reframe` | — | Effect > Video effects | Framescaper | Soundscaper local |
