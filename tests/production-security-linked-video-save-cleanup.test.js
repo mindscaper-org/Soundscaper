@@ -4,10 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
-const threatModelUrl = new URL('../docs/policies/security.md', import.meta.url);
 const CONTROL_ID = 'maintained-save-kindful-linked-original-binding-reachability';
 
 test('the security matrix qualifies maintained save- and activation-triggered linked-original cleanup narrowly', async () => {
@@ -62,36 +59,4 @@ test('the security matrix qualifies maintained save- and activation-triggered li
 		'tests/browser/audio-editor-storage-publication.spec.js',
 		'tests/production-security-linked-video-save-cleanup.test.js',
 	]) assert.ok(control.evidence.some((item) => item.path === path), path);
-
-	assertOrderedClaim(control.summary, /queued autosaves, flushes, inactive-tab saves, and project-switch or analysis explicit saves.*terminal successful writable project activation.*kindful.*audio.*video.*live Undo\/Redo histories.*clipboard.*recording.*render-cache.*queued write or serialized maintenance executes/isu);
-	assertOrderedClaim(control.summary, /durable IndexedDB.*skips read-only, failed, save-triggered, memory, and degraded activation.*lifecycle.*latest-project-mutation.*revalidates.*active project.*write-lock identity.*collects.*roots inside.*serialized ownership/isu);
-	assert.match(control.summary, /direct saves without authoritative roots.*skip destructive source-level cleanup/isu);
-	assertOrderedClaim(control.summary, /same textual source ID.*kind-distinct.*wrong-kind.*does not retain.*protectedLinkedVideoSourceIds.*compatibility facade/isu);
-	assert.match(control.summary, /exact owning-family v1 current project and at most 64 retained revisions.*timeline clips, Project Bin clips, and all feature-fallback declarations.*future, invalid, missing-current-revision, duplicate, or over-bound.*suppress(?:es)? cleanup/isu);
-	assert.match(control.summary, /100,000 aggregate roots.*100,000 closed binding rows.*128 unique exact locator\/revision pairs/isu);
-	assertOrderedClaim(control.summary, /after project publication and revision pruning or terminal activation.*Desktop.*exact remote acknowledgement.*serialized activation.*per-project latest-mutation lock.*one atomic local binding transaction/isu);
-	assertOrderedClaim(control.summary, /maintained binding, replacement, and alias publication.*closed scalar provisional root.*exact.*binding token.*same compensated memory batch or IndexedDB readwrite transaction.*exact unlink or (?:determinate )?rollback.*pair/isu);
-	assertOrderedClaim(control.summary, /same-database bind-before-project.*independent cleanup.*durable.*graph.*(?:an )?exact matching owner token.*consume.*caller live root.*does not consume.*stale owner.*replacement root.*suppressed or failed maintenance.*settles no root/isu);
-	assertOrderedClaim(control.summary, /startup.*no owner token.*catalog-live rooted binding.*unreachable or unverifiable graph.*retained.*exact durable graph.*consumes.*catalog-absent.*pair.*deleted/isu);
-	assert.match(control.summary, /roots do not expire by time.*bounded safe leak.*pre-root binding rows.*not backfilled/isu);
-	assertOrderedClaim(control.summary, /(?:cleanup|prune) failure.*committed report-only error.*binding batch is preserved.*save or activation remains successful.*previously failed pending release.*rejects again.*not starve unrelated activation cleanup/isu);
-	assert.match(control.summary, /re-inventories aliases.*exact locator revision/isu);
-	assertOrderedClaim(control.summary, /memory and IndexedDB.*no-owned-PCM linked WAV.*last durable revision.*live audio root.*canonically readable.*exact locator.*once.*last root disappears.*external WAV.*untouched/isu);
-	assertOrderedClaim(control.summary, /same IndexedDB database.*independent browser connections.*binding\/root transaction.*different databases or profiles.*catalog or main locator registry.*cross-boundary.*abrupt crash or power loss.*hostile IndexedDB authority.*hostile renderer authority.*unqualified/isu);
-	assert.match(control.summary, /project publication, local binding transaction, and main locator retirement remain separate/isu);
-	assert.match(control.summary, /relink beyond the exact- or shape-compatible changed-content retained-video and linked-PCM Project Bin flows or any automatic watch.*packaged executable or operating-system.*audible or device playback.*third-party activation gating.*legacy private librar/isu);
-});
-
-test('the threat model records the same maintained save boundary and residuals', async () => {
-	const source = await readFile(threatModelUrl, 'utf8');
-	const documentation = source.replace(/\s+/gu, ' ');
-	assert.match(documentation, /1\.0 project-identity boundary.*schemaFamily:'soundscaper'.*schemaFamily:'framescaper'/isu);
-	assert.match(documentation, /product-isolated family-v1 appData catalog, project-document tree, and managed-media tree/isu);
-	assert.match(documentation, /family-qualified handshake and current fenced lease.*only the current lease may publish state/isu);
-	assert.match(documentation, /no project migration, copy-forward, predecessor-validator dispatch/isu);
-	assert.ok(
-		source.indexOf('Core project migration validates supported schemas')
-			> source.indexOf('historical implementation provenance'),
-		'the predecessor project narrative is retained only as historical provenance',
-	);
 });

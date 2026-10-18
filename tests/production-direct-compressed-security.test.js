@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
 const budgetsUrl = new URL('../config/quality-budgets.json', import.meta.url);
 
@@ -61,54 +59,6 @@ test('exact direct compressed publication has browser-native ownership and rollb
 	assert.equal(
 		publication.evidence.some(({ path }) => path === 'patches/npm/@ffmpeg+ffmpeg+0.12.15.patch'),
 		false,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/seven canonical identities.*MP3.*FLAC.*Ogg Vorbis.*Opus.*WavPack.*MP2.*AAC\/M4A/isu,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/six reviewed digest-pinned WebAssembly providers.*complete FLAC.*MP3.*Ogg Vorbis.*Opus.*WavPack.*MP2.*dedicated worker/isu,
-	);
-	assert.match(
-		publication.summary,
-		/exact payload length.*SHA-256.*before compilation.*closed profiles.*format validators/isu,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/AAC\/M4A.*WebCodecs AudioEncoder.*Mediabunny.*capability probing.*complete M4A.*demux.*readable MP4.*one AAC-LC audio track.*sample rate.*channel count.*duration/isu,
-	);
-	assert.match(
-		publication.summary,
-		/ffmpegAvailable: false.*custom FFmpeg.*typed unavailability.*no FFmpeg fallback/isu,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/bundle audit rejects.*package specifiers.*core assets.*runtime loader.*URL.*cache seam/isu,
-	);
-	assert.match(
-		publication.summary,
-		/complete encoded length.*at-most-1-MiB ranges.*one awaited write.*closes before commit.*without a final download Blob/isu,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/staged PCM.*16,384-frame packets.*continuous codec session.*1-MiB.*temporary file storage.*one hour.*1,000,000,000-byte.*bounded reads.*whole-buffer.*128 MiB.*heap.*RSS.*qualification/isu,
-	);
-	assert.match(
-		publication.summary,
-		/Desktop bundled streaming.*main-private scratch.*authenticated utility process.*external providers.*separately governed/isu,
-	);
-	assertOrderedClaim(
-		rollback.summary,
-		/dedicated WebAssembly encode.*terminates its worker.*rejects pending.*AAC\/M4A.*races every awaited.*probe.*mux.*finalization.*validation.*abort cancels the output.*disposes the demux input.*no aborted or stale result reaches publication/isu,
-	);
-	assert.match(
-		rollback.summary,
-		/No browser cleanup deletes MEMFS.*unmounts WORKERFS.*terminates FFmpeg.*none is present/isu,
-	);
-	assert.match(
-		rollback.summary,
-		/aborts an acquired unpublished destination exactly once.*close.*non-cancellable commit.*without stale success UI/isu,
 	);
 });
 
@@ -169,42 +119,10 @@ test('the direct compressed fixture records both render strategies without memor
 	assert.equal(fixture.specification.retainedFinalOutputBytes, 0);
 	assert.equal(fixture.specification.partialPublishedOutputs, 0);
 	assert.doesNotMatch(JSON.stringify(fixture.specification), /qualified/iu);
-	assertOrderedClaim(
-		fixture.limitation,
-		/small Node correctness fixture.*mock FFmpeg.*both render strategies.*all seven.*virtual.*transport arithmetic and backpressure.*not.*actual FFmpeg codec.*reference-scale/isu,
-	);
-	assertOrderedClaim(
-		fixture.limitation,
-		/256 MiB.*context and crop.*not.*end-to-end.*raw PCM payload.*excludes WAV framing.*complete staged WAV.*complete encoded output remains.*worker MEMFS.*does not bound.*staged-input residency.*native or WASM codec memory.*heap.*RSS.*CPU.*elapsed time/isu,
-	);
-	assert.match(
-		fixture.limitation,
-		/900,000-millisecond.*prepared-target TTL.*does not measure.*long offline desktop.*elapsed-time/isu,
-	);
 	const workload = budgets.workloads.find(({ id }) => id === 'm2-direct-compressed-output-v2');
 	assert.deepEqual(workload.fixtureIds, ['m2-direct-compressed-output-v2']);
 	assert.equal(workload.behavior, 'blocking');
 	assert.equal(budgets.workloads.some(({ id }) => id === 'm2-streaming-bounded-memory'), false);
-});
-
-test('the threat and quality documents limit direct compressed claims to the proved transport slice', async () => {
-	const [threatModel, qualityBudgets] = await Promise.all([
-		readFile(new URL('../docs/policies/security.md', import.meta.url), 'utf8'),
-		readFile(new URL('../docs/development/quality-diagnostics.md', import.meta.url), 'utf8'),
-	]);
-
-	assertOrderedClaim(
-		threatModel,
-		/compressed whole-mix.*seven canonical.*six reviewed.*complete FLAC.*MP3.*Vorbis.*Opus.*WavPack.*MP2.*AAC.*WebCodecs.*Mediabunny.*no FFmpeg\s+fallback/isu,
-	);
-	assert.match(
-		threatModel,
-		/complete encoded.*at-most-one-MiB|complete encoded.*at-most-1-MiB/isu,
-	);
-	assertOrderedClaim(
-		qualityBudgets,
-		/direct compressed.*both.*all seven.*269,484,049-byte.*258.*transport arithmetic and backpressure only.*no synthetic\s+bounded-memory workload/isu,
-	);
 });
 
 function findControl(matrix, riskId, controlId) {

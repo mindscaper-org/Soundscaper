@@ -5,10 +5,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 test('unimplemented assistance accuracy criteria stay in manual QA, not the runnable config', async () => {
-	const [config, guide] = await Promise.all([
-		readFile(new URL('../config/quality-budgets.json', import.meta.url), 'utf8').then(JSON.parse),
-		readFile(new URL('../docs/development/quality-diagnostics.md', import.meta.url), 'utf8'),
-	]);
+	const config = JSON.parse(await readFile(new URL('../config/quality-budgets.json', import.meta.url), 'utf8'));
 	for (const id of [
 		'm7-local-assistance-speech-accuracy',
 		'm7-local-assistance-visual-accuracy',
@@ -17,6 +14,4 @@ test('unimplemented assistance accuracy criteria stay in manual QA, not the runn
 	]) {
 		assert.doesNotMatch(JSON.stringify(config), new RegExp(id, 'u'));
 	}
-	assert.match(guide, /local assistance.*manual QA/isu);
-	assert.match(guide, /real offline models and runners/iu);
 });

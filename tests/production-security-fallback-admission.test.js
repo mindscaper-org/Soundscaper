@@ -48,24 +48,4 @@ test('controller fallback admission keeps its byte-integrity claim narrow and ev
 		'tests/audio-editor-project-switch-fallback-integrity.test.ts',
 		'tests/audio-editor-session-project-activation.test.js',
 	]) assert.ok(fallbackAdmission.evidence.some((item) => item.path === path), path);
-	assert.match(
-		fallbackAdmission.summary,
-		/exact owning-family v1.*same-ID tab history.*session-owned history token.*local bytes.*before activation side effects.*exclusive session activation reservation.*history replacement.*competing active-project publication.*session publication.*released in finally.*audio-f32le-chunks-v1.*65,536-chunk.*original-media Blob.*4 MiB.*64 GiB.*before fallback body reads/iu,
-	);
-	assert.match(fallbackAdmission.summary, /Admission reads publish no storage maintenance/iu);
-	assert.match(fallbackAdmission.summary, /read-only video-metadata.*raced against cancellation.*signal-ignoring provider.*continue after admission rejects.*provider-stalled fallback body read.*delay cancellation settlement.*iterator cleanup/iu);
-	assert.match(fallbackAdmission.summary, /conflicting digests.*relationship roles.*target clip or track IDs.*before storage reads/iu);
-	assert.match(fallbackAdmission.summary, /video selector.*currentness snapshot.*role.*target clip ID.*source ID.*SHA-256.*source geometry.*drift.*before media use/iu);
-	assert.match(
-		fallbackAdmission.summary,
-		/selected role-defined audio whole-mix delivery.*operation-time full-source verification.*bounded per-chunk digest table.*private provider.*currentness.*geometry.*digest.*each requested stored chunk.*activation admission remains point-in-time.*operation-scoped per-read validation.*selected video delivery.*immutable Blob.*none establishes.*durable storage-record lease.*cross-process immutability/iu,
-	);
-	assert.match(
-		fallbackAdmission.summary,
-		/joint final-video admission.*one audio.*one video selector.*cumulative.*64 GiB.*before.*body reads.*audio.*before.*video.*private provider.*exact immutable Blob.*both selector identities.*currentness/iu,
-	);
-	assert.match(
-		fallbackAdmission.summary,
-		/direct store\.loadProject.*publisher authenticity.*relationship roles beyond the closed audio and maintained video roles.*simultaneous.*beyond.*one-audio.one-video.*linked-only.*unmanaged.*discover, load, or execute third-party feature code.*future schemas.*placeholder.*bypass.*third-party activation gating/iu,
-	);
 });

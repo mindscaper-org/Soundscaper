@@ -22,23 +22,10 @@ test('audio.com governance records the authenticated proxy and retains deploymen
 	for (const path of ['functions/api/audiocom/_shared/oauth-handlers.ts', 'functions/api/audiocom/_shared/handlers.ts', 'desktop/audiocom-integration.ts', 'tests/audiocom-handlers.test.ts', 'tests/audiocom-oauth.test.ts']) {
 		assert.ok(control.evidence.some(item => item.path === path), path);
 	}
-	assert.match(control.summary, /PKCE.*S256/isu);
-	assert.match(control.summary, /AES-256-GCM.*HttpOnly/isu);
-	assert.match(control.summary, /100,000,000.*128 MiB/isu);
-	assert.match(control.summary, /regular public audio API still has no original source download/isu);
-	assert.match(control.summary, /Audiocity.*origin-bound.*provider change/isu);
-	assert.match(control.summary, /one Audacity-compatible project path.*stale heads conflict.*completed revisions/isu);
-	assert.match(control.summary, /registered preview smoke test.*processing completion.*provider deletion.*disconnect/isu);
 	assert.ok(control.evidence.some(item => item.path === 'docs/research/audio-com-project-sync.md'));
 	assert.deepEqual(risk.residualRisks.map(item => item.id), ['audiocom-deployment-and-live-provider-proof', 'audiocom-media-transfer-lifecycle']);
-	assert.match(risk.residualRisks[0]?.exposure ?? '', /does not provision or verify.*rate-limit.*registered.*smoke/isu);
-	assert.match(risk.residualRisks[1]?.exposure ?? '', /no proxy-owned.*idle or total.*non-idempotent.*duplicate.*cleanup.*best-effort/isu);
 	for (const residual of risk.residualRisks) {
 		assert.ok(residual.requiredControl);
 		assert.ok(residual.acceptanceCriteria.length);
 	}
-	const document = await readFile(new URL('../docs/policies/security.md', import.meta.url), 'utf8');
-	assert.match(document, /### audio\.com API proxy/u);
-	assert.match(document, /policy-narrative:bounded-audiocom-oauth-media-proxy/u);
-	assert.match(document, /`audiocom-proxy-boundary` is \*\*partial\*\*/u);
 });

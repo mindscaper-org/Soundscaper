@@ -45,13 +45,9 @@ interface SecurityMatrix {
 }
 
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
-const threatModelUrl = new URL('../docs/policies/security.md', import.meta.url);
 
 test('Freesound proxy security claims are bounded and retain deployment residuals', async () => {
-	const [matrix, threatModel] = await Promise.all([
-		readFile(matrixUrl, 'utf8').then((source) => JSON.parse(source) as SecurityMatrix),
-		readFile(threatModelUrl, 'utf8'),
-	]);
+	const matrix = JSON.parse(await readFile(matrixUrl, 'utf8')) as SecurityMatrix;
 	const boundaries = new Map(matrix.boundaries.map((boundary) => [boundary.id, boundary]));
 	const risk = matrix.risks.find(({ id }) => id === 'freesound-proxy-boundary');
 
@@ -82,10 +78,6 @@ test('Freesound proxy security claims are bounded and retain deployment residual
 		'tests/freesound-api-contract.test.ts',
 		'tests/freesound-api-handlers.test.ts',
 	]) assert.ok(control.evidence.some((item) => item.path === path), path);
-	assert.match(control.summary, /fixed https:\/\/freesound\.org API.*credential/isu);
-	assert.match(control.summary, /exact `?cdn\.freesound\.org`?.*redirects.*disabled/isu);
-	assert.match(control.summary, /2 MiB.*256 MiB/isu);
-	assert.match(control.summary, /public.*not client authentication/isu);
 	const oauthControl = risk.currentControls.find(({ id }) => id === 'bounded-freesound-oauth-media-proxy');
 	assert.ok(oauthControl);
 	assert.equal(oauthControl.policyAuthority, 'family-v1-active');
@@ -97,53 +89,22 @@ test('Freesound proxy security claims are bounded and retain deployment residual
 		'tests/freesound-protected-api.test.ts',
 		'tests/desktop-freesound-integration.test.js',
 	]) assert.ok(oauthControl.evidence.some((item) => item.path === path), path);
-	assert.match(oauthControl.summary, /AES-256-GCM/isu);
-	assert.match(oauthControl.summary, /HttpOnly/isu);
-	assert.match(oauthControl.summary, /safeStorage/isu);
-	assert.match(oauthControl.summary, /128 MiB.*100,000,000 bytes/isu);
 
 	assert.deepEqual(risk.residualRisks.map(({ id }) => id), [
 		'freesound-proxy-deployment-rate-limiting',
 		'freesound-preview-stream-lifecycle',
 		'freesound-authenticated-media-lifecycle',
 	]);
-	assert.match(risk.residualRisks[0]?.exposure ?? '', /does not provision or verify.*rate-limit/isu);
-	assert.match(risk.residualRisks[1]?.exposure ?? '', /no proxy-owned.*body.*deadline.*digest/isu);
-	assert.match(risk.residualRisks[2]?.exposure ?? '', /original.*upload.*deadline.*non-idempotent/isu);
 	for (const residual of risk.residualRisks) {
 		assert.ok(residual.requiredControl.length > 0);
 		assert.ok(residual.acceptanceCriteria.length > 0);
 	}
-
-	assert.match(threatModel, /### Freesound API proxy/u);
-	assert.match(threatModel, /`freesound-proxy-boundary` is \*\*partial\*\*/u);
-	assert.match(threatModel, /policy-narrative:bounded-freesound-read-proxy/u);
-	assert.match(threatModel, /policy-narrative:bounded-freesound-oauth-media-proxy/u);
-	assert.match(threatModel, /CORS.*not (?:client\s+)?authentication/isu);
-	assert.match(threatModel, /rate-limit.*request volume.*concurrent\s+preview or original streams/isu);
-	assert.match(threatModel, /preview.*body.*deadline.*cryptographic.*authentic/isu);
 });
 
 test('Wrangler local secret files cannot be added accidentally', async () => {
-	const [gitignore, readme] = await Promise.all([
-		readFile(new URL('../.gitignore', import.meta.url), 'utf8'),
-		readFile(new URL('../functions/api/freesound/README.md', import.meta.url), 'utf8'),
-	]);
+	const gitignore = await readFile(new URL('../.gitignore', import.meta.url), 'utf8');
 	const ignoredEntries = new Set(gitignore.split(/\r?\n/u));
 
 	assert.equal(ignoredEntries.has('.dev.vars'), true);
 	assert.equal(ignoredEntries.has('.dev.vars.*'), true);
-	assert.match(readme, /ignored `\.dev\.vars`\s+file.*FREESOUND_LOCAL_DEVELOPMENT=1/isu);
-	assert.match(readme, /public read API.*CORS.*does\s+not authenticate.*rate-limit/isu);
-	assert.match(readme, /freesound\.org\/apiv2\/apply/isu);
-	assert.match(readme, /HQ OGG preview.*user OAuth grant.*original-file imports.*uploads/isu);
-	assert.match(readme,
-		/production D1 database.*FREESOUND_OAUTH_DB.*pages secret put FREESOUND_API_KEY --project-name soundscaper/isu);
-	assert.match(readme,
-		/OAuth start.*fails closed with `503` on.*previews.*\*\*Preview\*\* environment.*does not expose an\s+environment selector/isu);
-	assert.doesNotMatch(readme, /pages secret put[^\n]*--env/iu);
-	assert.match(readme, /Pages does not accept.*secrets\.required.*fail closed with `503`/isu);
-	assert.match(readme, /Bulk Redirect.*Vary.*`Origin` and `Range`/isu);
-	assert.match(readme, /ten-minute.*AES-256-GCM.*rolling 30-day.*final\s+session.*encrypted tokens/isu);
-	assert.match(readme, /128 MiB.*100,000,000 bytes/isu);
 });

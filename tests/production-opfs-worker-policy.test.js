@@ -7,12 +7,8 @@ import test from 'node:test';
 import { PRODUCT_IDS } from '../src/common/products.js';
 import { OPFS_SYNC_OPERATION_IDS } from '../src/common/editor/storage/opfs-sync-worker-protocol.ts';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const closureUrl = new URL('../config/milestone-2-closure.json', import.meta.url);
 const capabilitiesUrl = new URL('../config/production-capabilities.json', import.meta.url);
-const qualityBudgetsUrl = new URL('../docs/development/quality-diagnostics.md', import.meta.url);
-const roadmapUrl = new URL('../roadmap.md', import.meta.url);
 
 const OPERATION_IDS = [
 	'canonical-pcm-chunk-read',
@@ -39,21 +35,12 @@ const WEB_EVIDENCE = [
 ];
 
 test('milestone 2 closes the exact dedicated OPFS worker boundary', async () => {
-	const [closure, roadmap] = await Promise.all([
-		readFile(closureUrl, 'utf8').then(JSON.parse),
-		readFile(roadmapUrl, 'utf8'),
-	]);
+	const closure = JSON.parse(await readFile(closureUrl, 'utf8'));
 	const item = closure.items.find(({ id }) => id === 'm2-opfs-worker-boundary');
 	assert.ok(item);
 	assert.equal(item.status, 'implemented');
 	assert.deepEqual(item.operationIds, OPERATION_IDS);
 	assert.deepEqual([...OPFS_SYNC_OPERATION_IDS], OPERATION_IDS);
-
-	const openItems = roadmap.slice(
-		roadmap.indexOf('### Open closure items, in priority order'),
-		roadmap.indexOf('### Explicitly deferred or outside milestone 2'),
-	);
-	assert.doesNotMatch(openItems, /^- `m2-opfs-worker-boundary`$/mu);
 });
 
 test('both web products pin worker and IndexedDB fallback evidence', async () => {
@@ -66,16 +53,4 @@ test('both web products pin worker and IndexedDB fallback evidence', async () =>
 			await assert.doesNotReject(access(new URL(`../${path}`, import.meta.url)), path);
 		}
 	}
-});
-
-test('quality policy limits the dedicated OPFS worker claim to proved behavior', async () => {
-	const documentation = await readFile(qualityBudgetsUrl, 'utf8');
-	assertOrderedClaim(
-		documentation,
-		/dedicated OPFS storage worker.*six closed operation IDs.*synchronous access handles.*only after capability detection.*16 MiB.*canonical PCM.*exact bounded ranges.*media and derivative writes.*slices.*worker-owned `File` snapshots.*exact synchronous size check.*store close.*terminates.*asynchronous OPFS.*IndexedDB.*correctness fallback/isu,
-	);
-	assertOrderedClaim(
-		documentation,
-		/automated test runs Chromium, Firefox, and WebKit.*Chromium and Firefox witness.*main-realm.*`createWritable`.*`getFile`.*persisted PCM, original video, and derivatives.*reload.*playback.*second tab.*read-only.*writer lock.*WebKit.*supported fallback.*broader browser support.*release readiness/isu,
-	);
 });

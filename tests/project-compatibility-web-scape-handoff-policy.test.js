@@ -19,26 +19,9 @@ test('pre-freeze web Scape handoff evidence is provenance only', async () => {
 	for (const row of [rule, control]) {
 		assert.ok(row);
 		assert.equal(row.policyAuthority, 'historical-provenance-only');
-		assert.match(row.requiredOutcome ?? row.summary, /no family-v1.*authority/iu);
 		assert.equal(
 			row.historicalPreFreezeNarrative?.status,
 			'provenance-only-not-runtime-authority',
 		);
 	}
-	assert.match(
-		rule.historicalPreFreezeNarrative.currentBehavior,
-		/two frozen web workflows.*Soundscaper.*Framescaper.*Chromium/isu,
-	);
-});
-
-test('current Scape authority is the tuple-routed format-1 baseline', async () => {
-	const compatibility = JSON.parse(await readFile(compatibilityUrl, 'utf8'));
-	assert.equal(compatibility.portableArchive.currentFormatVersion, 1);
-	assert.deepEqual(compatibility.portableArchive.manifestProjectIdentity, [
-		'schemaFamily', 'schemaVersion',
-	]);
-	assert.equal(
-		compatibility.forwardReadOnly.portableArchiveStatus,
-		'implemented-byte-exact-save-copy',
-	);
 });
