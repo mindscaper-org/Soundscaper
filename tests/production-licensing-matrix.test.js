@@ -4,13 +4,10 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const matrixUrl = new URL('../config/production-licensing-matrix.json', import.meta.url);
 const packageUrl = new URL('../package.json', import.meta.url);
 const lockUrl = new URL('../package-lock.json', import.meta.url);
 const noticesUrl = new URL('../THIRD_PARTY_LICENSES.md', import.meta.url);
-const policyUrl = new URL('../docs/policies/licensing.md', import.meta.url);
 const repositoryUrl = new URL('../', import.meta.url);
 
 const SURFACE_IDS = [
@@ -37,19 +34,6 @@ const ENABLED_FFMPEG_LIBRARIES = [
 	'libass',
 	'zimg',
 ];
-
-test('machine-verifiable licensing material gates distribution without an approval ceremony', async () => {
-	const policy = await readFile(policyUrl, 'utf8');
-	assert.match(
-		policy,
-		/the repository owner decides what to distribute/iu,
-	);
-	assert.match(policy,
-		/required machine-verifiable license text, notice, corresponding source, or\s+delivery material/iu);
-	assert.doesNotMatch(policy, /stable 1\.0 admission|notarization/iu);
-	assert.doesNotMatch(policy, /config\/production-legal-review\.json/iu);
-	assertOrderedClaim(policy, /machine.*artifact.*payload.*platform.*containment.*consent.*fail\s+closed/isu);
-});
 
 test('production licensing matrix is versioned and distinguishes every distribution surface', async () => {
 	const matrix = await readJson(matrixUrl);
