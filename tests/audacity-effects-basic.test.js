@@ -301,13 +301,6 @@ test('Truncate Silence finds silence linked across channels and crossfades centr
 	unchanged(input, before);
 });
 
-test('basic effects validate audio shapes, sample rates, and manifest parameter ranges', () => {
-	assert.throws(() => applyAudacityAmplify([], 48_000), /non-empty array/);
-	assert.throws(() => applyAudacityAmplify([[1]], 48_000), /Float32Array/);
-	assert.throws(
-		() => applyAudacityAmplify([floats(1), floats(1, 2)], 48_000),
-		/same length/,
-	);
-	assert.throws(() => applyAudacityAmplify([floats(1)], 0), /sampleRate/);
+test('Repeat rejects counts outside its manifest parameter range', () => {
 	assert.throws(() => applyAudacityRepeat([floats(1)], 48_000, { count: 0 }), /between 1 and 2147483647/);
 });

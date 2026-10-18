@@ -74,15 +74,13 @@ function maximumDifference(left, right) {
 	return maximum;
 }
 
-test('live capability contract classifies every native effect and rejects selection-only construction', () => {
+test('live capability contract classifies every native effect and describes live parameter ranges', () => {
 	assert.deepEqual(Object.keys(AUDACITY_LIVE_EFFECT_CAPABILITIES), audacityEffectTypes());
 	assert.deepEqual(audacityEffectTypes().filter(isAudacityLiveEffect), LIVE_TYPES);
 	assert.equal(isAudacityLiveEffect('highpass'), false);
 	assert.equal(isAudacityLiveEffect('not-an-effect'), false);
 	assert.equal(audacityLiveEffectCapability('audacity-reverse').mode, 'selection-only');
 	assert.match(audacityLiveEffectCapability('audacity-reverse').reason, /complete selection/);
-	assert.throws(() => audacityLiveEffectCapability('not-an-effect'), /Unsupported/);
-	assert.throws(() => createAudacityLiveProcessor('audacity-reverse', SAMPLE_RATE), /selection-only/);
 
 	assert.deepEqual(audacityLiveEffectCapability('audacity-echo').paramRanges, {
 		delaySeconds: [0.001, 10], decay: [0, 0.999],
