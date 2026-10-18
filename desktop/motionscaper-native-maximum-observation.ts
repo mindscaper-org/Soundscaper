@@ -3,7 +3,6 @@ import { open } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { MOTION_SUSTAINED_PLAN as bounds } from '../scripts/performance/motionscaper-sustained-plan.ts';
 import type { MotionSustainedMemorySample } from '../scripts/performance/motionscaper-sustained-plan.ts';
-import { sampleMotionOwnedProcesses } from '../scripts/performance/motionscaper-sustained-observation.ts';
 import type { launchMotionSustainedApplication } from '../scripts/performance/motionscaper-sustained-launch.ts';
 
 /** The distinct 32,768-frame case has one continuous 1800s observation, retaining the existing
@@ -36,20 +35,20 @@ export function inspectMotionMaximumIndexRetention(warm: readonly MotionSustaine
 	return { rssGrowthBytes, pssGrowthBytes, heapGrowthBytes, wasmGrowthBytes };
 }
 
-export async function startMotionMaximumObservation(application: Awaited<ReturnType<typeof launchMotionSustainedApplication>>, options: Readonly<{
+type Application = Awaited<ReturnType<typeof launchMotionSustainedApplication>>;
+export async function startMotionMaximumObservation(application: Pick<Application, 'owner' | 'sampleProcesses'> & Readonly<{ cdp: Pick<Application['cdp'], 'sample'> }>, options: Readonly<{
 	logPath: string; frames: number; deadline: 600000 | 1800000; progress(): Promise<number>;
 }>) {
 	const output = await open(options.logPath, 'wx', 0o600), started = performance.now(), interrupt = new AbortController();
 	let stopping = false, failure: unknown, prior: MotionSustainedMemorySample | null = null, count = 0;
-	let previous: Parameters<typeof sampleMotionOwnedProcesses>[1] = [];
 	const warm: MotionSustainedMemorySample[] = [], tail: MotionSustainedMemorySample[] = [];
 	const targetFrames = new Map<string, number>();
 	let peakRssBytes = 0, peakPssBytes = 0;
 	let rejectFailure!: (error: unknown) => void;
 	const failed = new Promise<never>((_, reject) => { rejectFailure = reject; }); void failed.catch(() => undefined);
 	const sample = async () => {
-		const memory = await sampleMotionOwnedProcesses(application.owner, previous);
-		previous = memory.processes.map(value => value.identity); application.retainProcessIdentities(previous);
+		const memory = await application.sampleProcesses();
+		const previous = memory.processes.map(value => value.identity);
 		if (!previous.some(value => value.pid === application.owner.pid && value.startTicks === application.owner.startTicks)) throw new Error('Maximum-workload application owner disappeared.');
 		const [targets, completedFrames] = await Promise.all([application.cdp.sample(), options.progress()]);
 		if (!targets.some(value => value.type === 'page')) throw new Error('Maximum-workload page telemetry is missing.');

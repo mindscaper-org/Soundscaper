@@ -16,6 +16,7 @@ export async function renderMotionSustainedBrowser(application: Application, opt
 	await prepareMotionSustainedDestination(application.page, name);
 	const dialog = await openMotionSustainedRender(application.page, options.format, options.frames);
 	const sampler = await startMotionSustainedSampler({ phase: options.format, owner: application.owner, cdp: application.cdp,
+		sampleProcesses: application.sampleProcesses,
 		logPath: join(options.directory, `${options.format}-memory.jsonl`), progress: () => motionSustainedRenderProgress(dialog, options.frames),
 		retainProcesses: values => application.retainProcessIdentities(values) });
 	let stopped = false;

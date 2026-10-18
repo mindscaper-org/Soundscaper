@@ -26,12 +26,14 @@ export async function renderMotionSustainedNative(application: Application, opti
 }>) {
 	const dialog = await openMotionSustainedRender(application.page, 'prores', options.frames);
 	const sampler = await startMotionSustainedSampler({ phase: 'prores', owner: application.owner, cdp: application.cdp,
+		sampleProcesses: application.sampleProcesses,
 		retainProcesses: values => application.retainProcessIdentities(values),
 		logPath: join(options.directory, 'prores-memory.jsonl'), progress: () => motionSustainedRenderProgress(dialog, options.frames) });
 	let encoder: Awaited<ReturnType<typeof startMotionSustainedEncoderSampler>> | undefined;
 	let stopped = false;
 	const render = async () => {
 		encoder = await startMotionSustainedEncoderSampler({ owner: application.owner, helperPath: options.helperPath,
+			withProcessCustody: application.withProcessCustody,
 			retainProcesses: values => application.retainProcessIdentities(values), logPath: join(options.directory, 'encoder-memory.jsonl') });
 		const path = join(options.directory, 'output.mov');
 		await dialog.getByRole('button', { name: 'Render', exact: true }).click(); await options.choose(path);

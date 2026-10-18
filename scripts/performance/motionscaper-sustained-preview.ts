@@ -27,6 +27,7 @@ async function gone(application: Application, sessionId: string) {
 export async function qualifyMotionSustainedPreview(application: Application, directory: string, frames: 300 | 1200, revisionDigest: string) {
 	let progress = 0, expected: Readonly<{ targetId: string; sessionId: string; revision: number; backend: string }> | null = null;
 	const sampler = await startMotionSustainedSampler({ phase: 'preview', owner: application.owner, cdp: application.cdp,
+		sampleProcesses: application.sampleProcesses,
 		logPath: join(directory, 'preview-memory.jsonl'), progress: () => Promise.resolve(progress), expectedWorker: () => expected,
 		retainProcesses: values => application.retainProcessIdentities(values) });
 	let stopped = false;

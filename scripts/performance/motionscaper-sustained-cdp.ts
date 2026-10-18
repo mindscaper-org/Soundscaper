@@ -28,8 +28,11 @@ export class MotionSustainedCdp {
 	readonly #socket: WebSocket; readonly #pending = new Map<number, { resolve(value: Fields): void; reject(error: unknown): void; timer: NodeJS.Timeout; sessionId: string | undefined }>();
 	readonly #targets = new Map<string, MotionSustainedTarget>(); readonly #preparing = new Set<Promise<void>>();
 	readonly #errors: string[] = []; #next = 1; #closed = false;
+	readonly #physicalClose: Promise<void>; #resolvePhysicalClose!: () => void;
+	#closeTask: Promise<void> | undefined; #closeRequested = false; #closeTimedOut = false; #retired = false;
 	private constructor(socket: WebSocket) {
 		this.#socket = socket;
+		this.#physicalClose = new Promise(resolve => { this.#resolvePhysicalClose = resolve; });
 		socket.addEventListener('message', event => {
 			try {
 				if (typeof event.data !== 'string' || event.data.length > 1024 * 1024) throw new Error('CDP response exceeds bounded observation.');
@@ -45,24 +48,31 @@ export class MotionSustainedCdp {
 			} catch (error) { this.#invalid(error); }
 		});
 		socket.addEventListener('close', () => {
-			this.#closed = true;
-			for (const pending of this.#pending.values()) { clearTimeout(pending.timer); pending.reject(new Error('CDP observation channel closed.')); }
-			this.#pending.clear();
+			this.#closed = true; this.#retired = true;
+			this.#rejectPending(new Error('CDP observation channel closed.')); this.#resolvePhysicalClose();
 		});
 	}
-	static async connect(endpoint: string): Promise<MotionSustainedCdp> {
+	static async connect(endpoint: string, onOwned?: (observer: MotionSustainedCdp) => void): Promise<MotionSustainedCdp> {
 		if (!/^ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[\da-z-]+$/u.test(endpoint)) throw new Error('Qualification requires the owned loopback CDP endpoint.');
-		const socket = new WebSocket(endpoint);
-		await new Promise<void>((resolve, reject) => {
-			const timeout = setTimeout(() => { socket.close(); reject(new Error('CDP connection deadline exceeded.')); }, 10000);
-			socket.addEventListener('open', () => { clearTimeout(timeout); resolve(); }, { once: true });
-			socket.addEventListener('error', () => { clearTimeout(timeout); reject(new Error('CDP connection failed.')); }, { once: true });
-		});
-		const observer = new MotionSustainedCdp(socket);
-		try { await observer.#attach(); await observer.ready(); return observer; }
+		const socket = new WebSocket(endpoint), observer = new MotionSustainedCdp(socket);
+		try {
+			onOwned?.(observer); // Retain transport custody even if opening or cleanup fails.
+			await new Promise<void>((resolve, reject) => {
+				const settle = (error?: Error) => {
+					clearTimeout(timeout); socket.removeEventListener('open', opened);
+					socket.removeEventListener('error', failed); socket.removeEventListener('close', closed);
+					if (error) reject(error); else resolve();
+				};
+				const opened = () => settle(), failed = () => settle(new Error('CDP connection failed.'));
+				const closed = () => settle(new Error('CDP connection closed before opening.'));
+				const timeout = setTimeout(() => settle(new Error('CDP connection deadline exceeded.')), 10000);
+				socket.addEventListener('open', opened); socket.addEventListener('error', failed); socket.addEventListener('close', closed);
+			});
+			await observer.#attach(); await observer.ready(); return observer;
+		}
 		catch (error) {
 			try { await observer.close(); }
-			catch (cleanup) { throw new AggregateError([error, cleanup], 'CDP connection preparation and cleanup failed.', { cause: cleanup }); }
+			catch (cleanup) { throw new AggregateError([error, cleanup], `CDP connection preparation and cleanup failed: ${String(error)}; ${String(cleanup)}`, { cause: cleanup }); }
 			throw error;
 		}
 	}
@@ -73,6 +83,7 @@ export class MotionSustainedCdp {
 	#invalid(error: unknown): void { if (this.#errors.length < 16) this.#errors.push(String(error)); }
 	#event(message: Fields): void {
 		if (message.method === 'Target.attachedToTarget') {
+			if (this.#closeTask) return;
 			const params = fields(message.params), info = fields(params.targetInfo), sessionId = text(params.sessionId);
 			const target: MotionSustainedTarget = { sessionId, targetId: text(info.targetId), type: text(info.type), url: text(info.url), attachedAt: new Date().toISOString(), detachedAt: null, ready: false };
 			if (this.#targets.size >= plan.maximumTelemetryTargets) { this.#invalid('CDP target count exceeded.'); void this.#send('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(error => this.#invalid(error)); return; }
@@ -106,6 +117,7 @@ export class MotionSustainedCdp {
 	}
 	#send(method: string, params: Fields, sessionId?: string): Promise<Fields> {
 		if (this.#closed || this.#pending.size >= 64) return Promise.reject(new Error('CDP closed or observation concurrency exceeded.'));
+		if (this.#retired) return Promise.reject(new Error('CDP observation retired after its close deadline.'));
 		const id = this.#next++;
 		return new Promise((resolve, reject) => {
 			const timer = setTimeout(() => { this.#pending.delete(id); reject(new Error(`CDP observation timed out: ${method}`)); }, 10000);
@@ -113,6 +125,10 @@ export class MotionSustainedCdp {
 			try { this.#socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) })); }
 			catch (error) { clearTimeout(timer); this.#pending.delete(id); reject(error); }
 		});
+	}
+	#rejectPending(error: unknown): void {
+		for (const pending of this.#pending.values()) { clearTimeout(pending.timer); pending.reject(error); }
+		this.#pending.clear();
 	}
 	async ready(): Promise<void> {
 		while (this.#preparing.size) await Promise.all(this.#preparing);
@@ -137,12 +153,44 @@ export class MotionSustainedCdp {
 		}
 		return observations;
 	}
-	async close(): Promise<void> {
-		if (this.#closed) return;
-		try { await this.ready(); }
-		finally {
-			// Preparation may have failed because the socket already emitted its only close event.
-			if (!this.#closed) await new Promise<void>(resolve => { this.#socket.addEventListener('close', () => resolve(), { once: true }); this.#socket.close(); });
-		}
+	closure(): Readonly<{ state: 'open' | 'closing' | 'unknown' | 'closed'; physicallyClosed: boolean; closeRequested: boolean }> {
+		return { state: this.#closed ? 'closed' : this.#closeTimedOut ? 'unknown' : this.#closeTask ? 'closing' : 'open',
+			physicallyClosed: this.#closed, closeRequested: this.#closeRequested };
+	}
+	close(): Promise<void> {
+		if (this.#closeTask) return this.#closeTask;
+		if (this.#closed) return Promise.resolve();
+		this.#closeTask ??= this.#closeWithinDeadline(); return this.#closeTask;
+	}
+	async #closeWithinDeadline(): Promise<void> {
+		const errors: unknown[] = [];
+		const requestClose = () => {
+			if (this.#closed || this.#closeRequested) return;
+			this.#closeRequested = true;
+			try { this.#socket.close(); } catch (error) { errors.push(error); }
+		};
+		let rejectDeadline!: (error: unknown) => void;
+		const deadline = new Promise<never>((_resolve, reject) => { rejectDeadline = reject; });
+		const timer = setTimeout(() => {
+			const error = new Error('CDP close deadline exceeded; physical channel closure is unknown.');
+			this.#closeTimedOut = true; this.#retired = true;
+			this.#rejectPending(error); requestClose(); rejectDeadline(error);
+		}, 10000);
+		let preparationFailed = false, preparationError: unknown;
+		const preparation = this.ready().catch(error => { preparationFailed = true; preparationError = error; });
+		try {
+			try { await Promise.race([preparation, deadline]); } catch (error) { errors.push(error); }
+			requestClose();
+			if (!this.#closed && !this.#closeTimedOut) {
+				try { await Promise.race([this.#physicalClose, deadline]); } catch (error) { errors.push(error); }
+			}
+			// Timeout rejects every owned request and prohibits new sends. Drain their
+			// finite continuations before reporting retirement; the actual socket remains
+			// owned, with physical closure unknown until its close event is observed.
+			await Promise.allSettled(this.#preparing); await preparation;
+			if (preparationFailed) errors.unshift(preparationError);
+		} finally { clearTimeout(timer); }
+		if (errors.length === 1) throw errors[0];
+		if (errors.length) throw new AggregateError(errors, `CDP observation cleanup failed: ${errors.map(String).join('\n')}`);
 	}
 }

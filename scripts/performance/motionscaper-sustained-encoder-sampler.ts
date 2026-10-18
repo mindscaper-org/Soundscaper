@@ -8,6 +8,7 @@ import { parseMotionProcessMemory, parseMotionProcessStat, type MotionProcessIde
 interface EncoderOptions {
 	readonly owner: MotionProcessIdentity; readonly helperPath: string;
 	retainProcesses(values: readonly MotionProcessIdentity[]): void;
+	withProcessCustody?<T>(read: () => Promise<T>): Promise<T>;
 }
 export interface MotionSustainedEncoderMemory {
 	readonly identity: MotionProcessIdentity; readonly parentTaskIds: readonly number[];
@@ -43,6 +44,7 @@ async function requireOwner(owner: MotionProcessIdentity) {
 /** A fork belongs to a particular parent thread. Union every current thread's child list;
  * the process PPID/start checks still decide authority, never the directory entry alone. */
 export async function sampleMotionSustainedEncoder(options: EncoderOptions): Promise<readonly MotionSustainedEncoderMemory[]> {
+	if (options.withProcessCustody) return await options.withProcessCustody(() => sampleMotionSustainedEncoder({ ...options, withProcessCustody: undefined }));
 	await requireOwner(options.owner);
 	const tasks = ids((await readdir(`/proc/${options.owner.pid}/task`)).join(' '), 256);
 	if (!tasks.includes(options.owner.pid)) throw new Error('Encoder application main thread disappeared.');

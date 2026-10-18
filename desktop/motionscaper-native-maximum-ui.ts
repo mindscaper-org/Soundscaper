@@ -127,7 +127,7 @@ export async function renderMotionMaximum(application: Application, kind: Motion
 			}, profile.timeoutMs, interrupt.signal); pending.push(complete);
 			const observeEncoder = async () => {
 				await waitFor(async () => await progress(job, profile.frames) === profile.frames, profile.timeoutMs, interrupt.signal);
-				encoder = await startMotionSustainedEncoderSampler({ owner: application.owner, helperPath, logPath: join(directory, 'encoder-memory.jsonl'), retainProcesses: values => application.retainProcessIdentities(values) });
+				encoder = await startMotionSustainedEncoderSampler({ owner: application.owner, helperPath, logPath: join(directory, 'encoder-memory.jsonl'), retainProcesses: values => application.retainProcessIdentities(values), withProcessCustody: application.withProcessCustody });
 				await Promise.race([complete, encoder.failed]); return encoder.stop();
 			};
 			const observed = observeEncoder(); pending.push(observed);

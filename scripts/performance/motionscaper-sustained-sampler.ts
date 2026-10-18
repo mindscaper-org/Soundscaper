@@ -16,6 +16,7 @@ export async function startMotionSustainedSampler(options: Readonly<{
 	phase: string; owner: MotionProcessIdentity; cdp: Pick<MotionSustainedCdp, 'sample'>; logPath: string;
 	progress(): Promise<number>; expectedWorker?(): Readonly<{ targetId: string; sessionId: string; revision?: number; backend?: string }> | null;
 	retainProcesses?(values: readonly MotionProcessIdentity[]): void;
+	sampleProcesses?(): Promise<MotionOwnedMemorySample>;
 }>) {
 	const output = await open(options.logPath, 'wx', 0o600), started = performance.now();
 	let previous: readonly MotionProcessIdentity[] = [], stopping = false, failure: unknown, sequence = 0;
@@ -26,7 +27,7 @@ export async function startMotionSustainedSampler(options: Readonly<{
 	let rejectFailure!: (error: unknown) => void;
 	const failed = new Promise<never>((_, reject) => { rejectFailure = reject; }); void failed.catch(() => undefined);
 	const sample = async () => {
-		const memory = await sampleMotionOwnedProcesses(options.owner, previous);
+		const memory = await (options.sampleProcesses ? options.sampleProcesses() : sampleMotionOwnedProcesses(options.owner, previous));
 		previous = memory.processes.map(value => value.identity);
 		options.retainProcesses?.(previous);
 		if (!previous.some(value => value.pid === options.owner.pid && value.startTicks === options.owner.startTicks)) throw new Error('Active sustained owner disappeared or was replaced.');

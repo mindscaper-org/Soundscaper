@@ -8,6 +8,7 @@ import { MotionSustainedCdp } from './motionscaper-sustained-cdp.ts';
 import { readMotionProcessIdentity, sampleMotionOwnedProcesses } from './motionscaper-sustained-observation.ts';
 import type { MotionProcessIdentity } from './motionscaper-sustained-process.ts';
 import { shutdownMotionSustainedApplication } from './motionscaper-sustained-shutdown.ts';
+import { MotionSustainedProcessCustody } from './motionscaper-sustained-custody.ts';
 
 export async function motionSustainedIdentityAlive(identity: MotionProcessIdentity,
 	readIdentity: typeof readMotionProcessIdentity = readMotionProcessIdentity): Promise<boolean> {
@@ -58,26 +59,35 @@ export async function launchMotionSustainedApplication(options: Readonly<{
 	const timer = setTimeout(() => { rejectEndpoint(new Error('Application startup deadline exceeded.')); child.kill('SIGKILL'); }, 30000);
 	let cdp: MotionSustainedCdp | undefined, browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
 	let owner: MotionProcessIdentity | undefined;
-	let previous: readonly MotionProcessIdentity[] = [];
-	const retainProcessIdentities = (values: readonly MotionProcessIdentity[]) => {
-		const all = new Map([...previous, ...values].map(value => [`${value.pid}:${value.startTicks}`, value])); previous = [...all.values()];
+	const custody = new MotionSustainedProcessCustody();
+	const retainProcessIdentities = (values: readonly MotionProcessIdentity[]) => custody.retain(values);
+	const readProcesses = async () => {
+		if (!owner) throw new Error('Application process identity has not been admitted.');
+		const memory = await sampleMotionOwnedProcesses(owner, custody.identities());
+		retainProcessIdentities(memory.processes.map(value => value.identity)); return memory;
 	};
+	const sampleProcesses = () => custody.observe(readProcesses);
+	const withProcessCustody = <T>(read: () => Promise<T>) => custody.observe(read);
 	const cleanup = async () => {
 		const errors: unknown[] = [];
-		if (owner && !await motionSustainedIdentityAlive(owner)) errors.push(new Error('Application owner disappeared before requested cleanup.'));
-		const shutdown = await shutdownMotionSustainedApplication({ owner, retained: () => previous, closed,
-			prepare: async () => {
-				try { if (owner) retainProcessIdentities((await sampleMotionOwnedProcesses(owner, previous)).processes.map(value => value.identity)); } catch (error) { errors.push(error); }
-				try { await cdp?.close(); } catch (error) { errors.push(error); }
-				try { await browser?.close(); } catch (error) { errors.push(error); }
+		const shutdown = await shutdownMotionSustainedApplication({ owner, retained: () => custody.identities(), closed,
+			prepare: async signal => {
+				try { if (owner && !await motionSustainedIdentityAlive(owner)) errors.push(new Error('Application owner disappeared before requested cleanup.')); } catch (error) { errors.push(error); }
+				try { signal.throwIfAborted(); await custody.finish(async () => { if (owner) await readProcesses(); }); } catch (error) { errors.push(error); }
+				try { signal.throwIfAborted(); await cdp?.close(); } catch (error) { errors.push(error); }
+				try { signal.throwIfAborted(); await browser?.close(); } catch (error) { errors.push(error); }
+				if (errors.length) throw new AggregateError(errors, 'Application observation preparation failed.');
 			},
 			isAlive: motionSustainedIdentityAlive, send: (identity, signal) => { process.kill(identity.pid, signal); },
 			signalUnadmitted: signal => { child.kill(signal); }, waitGone: waitMotionSustainedGone,
 		});
 		const close = shutdown.exit; errors.push(...shutdown.errors); clearTimeout(timer);
+		if (shutdown.physicalClosure !== 'verified') errors.push(new Error('Application physical closure remains unknown; cleanup custody and live handles are retained.'));
 		await write; await log.close();
 		const receipt = { executable: options.executable, args, cwd: options.cwd, owner, startedAt, closedAt: new Date().toISOString(),
-			...close, descendants: previous, shutdownSignals: shutdown.signals, failure: failure ? String(failure) : null, cleanupErrors: errors.map(String) };
+			...(close ?? { code: null, signal: null }), exitObserved: close !== null, physicalClosure: shutdown.physicalClosure,
+			unresolved: shutdown.unresolved, processCustody: custody.state(), cdpClosure: cdp?.closure() ?? null,
+			descendants: custody.identities(), shutdownSignals: shutdown.signals, failure: failure ? String(failure) : null, cleanupErrors: errors.map(String) };
 		await writeFile(join(options.directory, 'application-closure.json'), `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx' });
 		if (errors.length || failure) throw new AggregateError([...(failure ? [failure] : []), ...errors], 'Application cleanup/observation failed.');
 		return receipt;
@@ -85,13 +95,13 @@ export async function launchMotionSustainedApplication(options: Readonly<{
 	try {
 		if (!child.pid) throw new Error('Missing owned application PID.'); owner = await readMotionProcessIdentity(child.pid);
 		const url = await endpoint; clearTimeout(timer);
-		cdp = await MotionSustainedCdp.connect(url); browser = await chromium.connectOverCDP(url);
+		cdp = await MotionSustainedCdp.connect(url, observer => { cdp = observer; }); browser = await chromium.connectOverCDP(url);
 		const context = browser.contexts()[0]; if (!context) throw new Error('Owned application context unavailable.');
 		const page = context.pages()[0] ?? await context.waitForEvent('page');
 		return { owner, browser, page, context, cdp, endpoint: url, cleanup,
-			retainProcessIdentities,
+			retainProcessIdentities, sampleProcesses, withProcessCustody,
 			async nativeHelpers() {
-				const memory = await sampleMotionOwnedProcesses(owner!, previous); retainProcessIdentities(memory.processes.map(value => value.identity));
+				const memory = await sampleProcesses();
 				const result = [];
 				for (const value of memory.processes) {
 					try { const command = await readFile(`/proc/${value.identity.pid}/cmdline`, 'utf8');
