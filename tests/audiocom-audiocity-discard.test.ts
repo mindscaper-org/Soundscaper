@@ -31,7 +31,7 @@ async function connected(official = false) {
 	const state = new URL(attempt.authorizeUrl).searchParams.get('state') ?? '';
 	const callback = await handleAudiocomOAuthCallbackRequest(context(new Request(`${EDITOR}/api/audiocom/oauth/callback?code=code&state=${state}`)), {
 		repository, now: () => NOW, fetchImpl: async () => Response.json({ token_type: 'Bearer', expires_in: 3600,
-			access_token: 'private-access', refresh_token: 'private-refresh', scope: official ? 'public' : 'public projects' }),
+			access_token: 'private-access', refresh_token: 'private-refresh', scope: 'all' }),
 	});
 	assert.equal(callback.status, 200);
 	const poll = await handleAudiocomOAuthPollRequest(context(post('oauth/poll', { attemptId: attempt.attemptId, handoffToken: attempt.handoffToken })), { repository, now: () => NOW });

@@ -13,7 +13,7 @@ const result = {
 };
 const authorization = (): URL => new URL(`https://api.audio.com/auth/authorize?${new URLSearchParams({
 	client_id: 'client', redirect_uri: 'https://soundscaper.org/api/audiocom/oauth/callback',
-	response_type: 'code', state: 'random', scope: 'public', code_challenge: 'a'.repeat(43), code_challenge_method: 'S256',
+	response_type: 'code', state: 'random', scope: 'all', code_challenge: 'a'.repeat(43), code_challenge_method: 'S256',
 })}`);
 
 test('accepts only the registered authorization target and callback with PKCE', () => {
@@ -81,13 +81,13 @@ test('uses only the configured Audiocity issuer and accepts its UUID content lin
 	const localLocation = { origin: 'http://127.0.0.1:4325', protocol: 'http:' };
 	const authorize = authorization(); authorize.host = '127.0.0.1:8088'; authorize.protocol = 'http:';
 	authorize.searchParams.set('redirect_uri', `${localLocation.origin}/api/audiocom/oauth/callback`);
-	authorize.searchParams.set('scope', 'public projects');
+	authorize.searchParams.set('scope', 'all');
 	const id = 'd621f281-7974-444e-b969-b84272cda0d3';
 	const opened: string[] = [];
 	const client = createAudiocomApiClient({ apiOrigin: origin, location: localLocation, reserveAuthorization: () => ({ open: url => { opened.push(url); }, close() {} }),
 		fetch: async input => {
 			const path = new URL(String(input)).pathname;
-			if (path.endsWith('/usage')) return Response.json({ data: { provider: { kind: 'audiocity', apiOrigin: origin, webOrigin: origin, scope: 'public projects' } } });
+			if (path.endsWith('/usage')) return Response.json({ data: { provider: { kind: 'audiocity', apiOrigin: origin, webOrigin: origin, scope: 'all' } } });
 			if (path.endsWith('/start')) return Response.json({ data: { attemptId: 'attempt', handoffToken: 'handoff', authorizeUrl: authorize.href, expiresAt: new Date(Date.now() + 60_000).toISOString() } });
 			return Response.json({ data: { results: [{ ...result, id, url: `${origin}/audio/${id}/play`, previewMime: 'audio/x-wavpack' }], page: 1, hasNext: false } });
 		},
@@ -104,9 +104,9 @@ test('rejects a local authorization issuer that differs from server configuratio
 	const localLocation = { origin: 'http://127.0.0.1:4325', protocol: 'http:' };
 	const authorize = authorization(); authorize.host = '127.0.0.1:9099'; authorize.protocol = 'http:';
 	authorize.searchParams.set('redirect_uri', `${localLocation.origin}/api/audiocom/oauth/callback`);
-	authorize.searchParams.set('scope', 'public projects');
+	authorize.searchParams.set('scope', 'all');
 	const client = createAudiocomApiClient({ apiOrigin: 'http://127.0.0.1:8088', location: localLocation, fetch: async input => Response.json({ data: String(input).endsWith('/usage')
-		? { provider: { kind: 'audiocity', apiOrigin: 'http://127.0.0.1:8088', webOrigin: 'http://127.0.0.1:8088', scope: 'public projects' } }
+		? { provider: { kind: 'audiocity', apiOrigin: 'http://127.0.0.1:8088', webOrigin: 'http://127.0.0.1:8088', scope: 'all' } }
 		: { attemptId: 'attempt', handoffToken: 'handoff', authorizeUrl: authorize.href, expiresAt: new Date().toISOString() } }) });
 	await assert.rejects(client.startOAuth(), /authorization/iu);
 });
@@ -150,7 +150,7 @@ test('rejects provider metadata for another preference before authorizing or upl
 	const paths: string[] = [];
 	const client = createAudiocomApiClient({ apiOrigin: 'https://audio.example.org', location, fetch: async input => {
 		paths.push(new URL(String(input)).pathname);
-		return Response.json({ data: { provider: { kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', scope: 'public' } } });
+		return Response.json({ data: { provider: { kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', scope: 'all' } } });
 	} });
 	await assert.rejects(client.startOAuth(), /origin|server/iu);
 	assert.deepEqual(paths, ['/api/audiocom/usage']);

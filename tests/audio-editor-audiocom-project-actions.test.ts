@@ -15,13 +15,13 @@ test('save project serializes the open project and automatically advances its ow
 		list: async () => ({ results: [head], page: 1, hasNext: false }),
 		upload: async (_file, _name, _signal, revision) => {
 			targets.push(revision); head = { ...head, snapshotId: `head-${targets.length + 1}` }; return head;
-		}, download: async () => new Blob(),
+		},
 	} });
 	const serialized: string[] = [];
 	const controller = { getSnapshot: () => ({ project }), actions: { project: {
-		saveAup4: async (options: SaveAup4Options) => {
+		saveAup3: async (options: SaveAup4Options) => {
 			serialized.push(project.id);
-			await options.saveFile!({ purpose: 'project', suggestedName: `${project.title}.aup4`, mimeType: 'application/octet-stream',
+			await options.saveFile!({ purpose: 'project', suggestedName: `${project.title}.aup3`, mimeType: 'application/octet-stream',
 				blob: new Blob(['SQLite format 3\0current edits']), signal: new AbortController().signal });
 		},
 	} } };
@@ -43,7 +43,7 @@ test('an account change during project serialization fences the upload', async (
 	const archives = createAudiocomProjectArchives({ client: {
 		capabilities: async () => ({ formats: ['aup3'], maximumBytes: 100000000 }),
 		list: async () => ({ results: [], page: 1, hasNext: false }),
-		upload: async () => { uploads++; throw new Error('Unexpected upload'); }, download: async () => new Blob(),
+		upload: async () => { uploads++; throw new Error('Unexpected upload'); },
 	} });
 	await archives.setConnected(true);
 	const pending = archives.saveProject('one', () => new Promise(resolve => { finish = resolve; }));
@@ -62,7 +62,6 @@ test('saved project bindings survive reopening and are verified against the sign
 		capabilities: async () => ({ formats: ['aup3'] as const, maximumBytes: 100000000 }),
 		list: async () => ({ results: owned ? [item] : [], page: 1, hasNext: false }),
 		upload: async (_file: File, _name: string, _signal?: AbortSignal, revision?: AudiocomProjectArchive) => { targets.push(revision); return item; },
-		download: async () => new Blob(),
 	} };
 	const file = async () => new File(['SQLite format 3\0current edits'], 'Session.aup3');
 	const first = createAudiocomProjectArchives(options);
@@ -85,7 +84,7 @@ test('a successful upload retains its new head even if refreshing the list fails
 		list: async () => { if (failList) throw new Error('List unavailable'); return { results: [head], page: 1, hasNext: false }; },
 		upload: async (_file, _name, _signal, revision) => {
 			targets.push(revision); head = { ...head, snapshotId: `head-${targets.length + 1}` }; return head;
-		}, download: async () => new Blob(),
+		},
 	} });
 	const file = async () => new File(['SQLite format 3\0current edits'], 'Session.aup3');
 	await archives.setConnected(true); await archives.saveProject('local', file);
@@ -104,7 +103,7 @@ test('owner archive sessions retain revision identity on remount and stop when t
 	const options = { client: {
 		capabilities: async () => ({ formats: ['aup3'] as const, maximumBytes: 100000000 }),
 		list: async () => ({ results: [], page: 1, hasNext: false }),
-		upload: async (): Promise<never> => { throw new Error('Unexpected upload'); }, download: async () => new Blob(),
+		upload: async (): Promise<never> => { throw new Error('Unexpected upload'); },
 	} };
 	const first = audiocomProjectArchives(owner, options);
 	assert.equal(audiocomProjectArchives(owner, options), first);

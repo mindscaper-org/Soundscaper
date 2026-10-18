@@ -12,7 +12,7 @@ import { assertAudiocomAuthorizationUrl } from '../desktop/audiocom-authorizatio
 
 const APP_ORIGIN = 'soundscaper-app://bundle';
 const API_ORIGIN = 'https://soundscaper.org';
-const AUTHORIZE = 'https://api.audio.com/auth/authorize?client_id=client&response_type=code&state=opaque&redirect_uri=https%3A%2F%2Fsoundscaper.org%2Fapi%2Faudiocom%2Foauth%2Fcallback&scope=public&code_challenge=' + 'a'.repeat(43) + '&code_challenge_method=S256';
+const AUTHORIZE = 'https://api.audio.com/auth/authorize?client_id=client&response_type=code&state=opaque&redirect_uri=https%3A%2F%2Fsoundscaper.org%2Fapi%2Faudiocom%2Foauth%2Fcallback&scope=all&code_challenge=' + 'a'.repeat(43) + '&code_challenge_method=S256';
 
 test('desktop audio.com authorization enforces issuer, callback and PKCE parameters', () => {
 	assert.equal(assertAudiocomAuthorizationUrl(AUTHORIZE), AUTHORIZE);
@@ -20,7 +20,7 @@ test('desktop audio.com authorization enforces issuer, callback and PKCE paramet
 		AUTHORIZE.replace('api.audio.com', 'audio.com'),
 		AUTHORIZE.replace('response_type=code', 'response_type=token'),
 		AUTHORIZE.replace('code_challenge_method=S256', 'code_challenge_method=plain'),
-		AUTHORIZE.replace('scope=public', 'scope=public&scope=other'),
+		AUTHORIZE.replace('scope=all', 'scope=all&scope=other'),
 		AUTHORIZE.replace('soundscaper.org%2Fapi', 'evil.example%2Fapi'),
 		`${AUTHORIZE}&next=https://evil.example`, `${AUTHORIZE}#fragment`,
 	]) assert.throws(() => assertAudiocomAuthorizationUrl(invalid), /authorization URL/u);

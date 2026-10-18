@@ -8,7 +8,6 @@ interface ProjectController {
 	readonly actions: {
 		readonly project?: {
 			readonly saveAup3?: (options: SaveAup4Options) => Promise<unknown>;
-			readonly saveAup4?: (options: SaveAup4Options) => Promise<unknown>;
 		};
 		readonly export?: { readonly start: (settings: Record<string, unknown>) => Promise<unknown> };
 	};
@@ -46,9 +45,9 @@ export async function saveAudiocomEditorProject(owner: object, archives: Audioco
 	const controller = projectController(owner);
 	const project = controller.getSnapshot().project;
 	if (!project) return;
-	await archives.saveProject(project.id, async (format, signal) => {
+	await archives.saveProject(project.id, async (_format, signal) => {
 		let file: File | undefined;
-		const save = format === 'aup4' ? controller.actions.project?.saveAup4 : controller.actions.project?.saveAup3;
+		const save = controller.actions.project?.saveAup3;
 		if (!save) throw new Error('Project saving is unavailable.');
 		await save({ saveCopy: true, useFileSystemAccess: false, fileName: project.title,
 			saveFile: async request => {

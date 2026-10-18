@@ -93,26 +93,33 @@ All projects created by these experiments were explicitly deleted. These checks
 do not establish native Audacity desktop interoperability, conflict resolution,
 resumption, quota handling, or compatibility with arbitrary projects.
 
-## Application boundary and remaining work
+## Shared application implementation
 
-The [regular public API](https://api.audio.com/v1/docs) does not expose these
-project routes. Soundscaper's shipped audio.com panel therefore continues to
-report project storage unavailable. Its project controls remain available only
-for an explicitly configured Audiocity server advertising whole-file archives.
-That transport preserves an entire AUP3/AUP4 SQLite file and cannot be substituted
-for audio.com's native metadata-and-block protocol.
+Soundscaper now uses this native protocol for both audio.com and Audiocity.
+The reference was checked again against the local Audacity checkout at commit
+`fd6aaecb54d7c8d625897b45fadecd20495cfb09`, including `OAuthService.cpp`,
+`CloudSyncDTO.cpp`, `LocalProjectSnapshot.cpp`, `BlockHasher.cpp`, and
+`WavPackCompressor.cpp`. Both connections request only `all`, as Audacity does,
+and include that scope in authorization-code exchange and refresh requests.
+Existing connections with narrower scopes must reconnect before saving projects.
+Soundscaper uses its own registered client and keeps provider credentials in D1.
 
-The Audiocity comparison on 2026-10-17 also covers upload URLs with
-`X-Amz-Date` and `X-Amz-Expires` hints alongside their capability token. Soundscaper
-preserves these fields without sending provider OAuth credentials to transfers or
-hooks. Failed archive transfers remove their abandoned revision, including after
-confirmation; the server protects synchronized revisions when a completion
-response is lost. Local browser validation uploads and downloads real AUP3/AUP4
-archives and opens their byte-identical downloads in the editor.
+The panel's bottom Save project action serializes the open document using the
+existing AUP3 writer, extracts its binary XML and float32 sample blocks in a
+bounded transient SQLite worker, hashes one block at a time, and uses the existing
+WavPack worker to encode only missing blocks. The same API client and handler
+serve either selected server URL. Signed storage destinations remain validated
+per issuer and never receive OAuth tokens.
 
-Exposing native audio.com project sync in the application needs a separate
-opt-in authorization flow for project access, strict native route and signed
-destination admission, and a bounded adapter between AUP3 databases and native
-metadata/WavPack blocks. It also needs revision, cancellation, cleanup, ownership,
-and conflict tests against the real protocol. Reusing the archive route to upload
-whole SQLite bytes as `snapshot.xml` would not implement that protocol.
+The Audiocity-only whole-file archive transport, discovery dependency, file
+upload/download routes, and dedicated revision controls have been removed.
+Local project IDs remain bound to cloud IDs by server origin; every subsequent
+save creates a snapshot of that same project. Revisions include the expected
+head and never force an overwrite. Pending snapshots are explicitly retired
+on cancellation; completed snapshots survive ambiguous completion failures.
+
+Shared handler tests exercise both service URLs. The disposable Audiocity browser
+harness verifies real OAuth, project saves from AUP3 and AUP4 input, tagged WavPack
+PCM hashes, block reuse, revisions, conflicts, cancellation, reconnects, and
+failure recovery. These local checks do not establish live audio.com account
+quotas, production abuse controls, or arbitrary Audacity desktop project fidelity.

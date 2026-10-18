@@ -11,7 +11,7 @@ const id = '34c792f3-f4bb-44e8-8b0a-314210b4d933';
 const token = 'a'.repeat(43);
 
 test('audio.com remains the fixed default; custom origins require explicit Audiocity configuration', () => {
-	assert.deepEqual(providerConfiguration({}), { kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', authorizationOrigin: 'https://api.audio.com', scope: 'public' });
+	assert.deepEqual(providerConfiguration({}), { kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', authorizationOrigin: 'https://api.audio.com', scope: 'all' });
 	for (const env of [{ AUDIOCOM_API_ORIGIN: origin }, { AUDIOCOM_PROVIDER: 'unknown' }, { AUDIOCOM_PROVIDER: 'audiocity' }, { AUDIOCOM_PROVIDER: 'audiocity', AUDIOCOM_API_ORIGIN: origin }]) {
 		assert.throws(() => providerConfiguration(env));
 	}

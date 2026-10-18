@@ -3,7 +3,7 @@ import type { AudiocomProjectArchiveOptions } from '../audiocom-project-archives
 
 /** Persist only identifiers; the server must confirm ownership after reconnecting. */
 export function projectBindings(options: AudiocomProjectArchiveOptions) {
-	const key = `soundscaper:audiocom-projects:${options.apiOrigin ?? 'https://api.audio.com'}`;
+	const key = `soundscaper:audiocom-native-projects:${options.apiOrigin ?? 'https://api.audio.com'}`;
 	let storage: AudiocomProjectArchiveOptions['revisionStorage'];
 	const bindings = new Map<string, string>();
 	try {

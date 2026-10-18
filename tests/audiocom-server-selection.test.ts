@@ -19,7 +19,7 @@ function context(path: string, server?: string, init: RequestInit = {}): Audioco
 	return { request: new Request(`${EDITOR}/api/audiocom/${path}`, { ...init, headers }), env, params: {} };
 }
 const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) });
-const grant = (): Response => Response.json({ token_type: 'Bearer', expires_in: 31_536_000, access_token: 'private-access', refresh_token: 'private-refresh', scope: 'public projects' });
+const grant = (): Response => Response.json({ token_type: 'Bearer', expires_in: 31_536_000, access_token: 'private-access', refresh_token: 'private-refresh', scope: 'all' });
 async function start(repository: MemoryAudiocomOAuthRepository): Promise<Attempt> {
 	const started = await handleAudiocomOAuthStartRequest(context('oauth/start', CUSTOM, post({ client: 'web' })), {
 		repository, now: () => NOW, fetchImpl: async (input, init) => {

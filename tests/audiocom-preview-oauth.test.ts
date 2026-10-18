@@ -33,7 +33,7 @@ test('Pages hash previews complete PKCE through a configured stable branch callb
 	const completed = await handleAudiocomOAuthCallbackRequest({ ...context, request: callbackRequest }, {
 		repository, fetchImpl: async (_url, init) => {
 			assert.equal(new URLSearchParams(String(init?.body)).get('redirect_uri'), callback);
-			return Response.json({ token_type: 'Bearer', access_token: 'access', refresh_token: 'refresh', expires_in: 3600, scope: 'public' });
+			return Response.json({ token_type: 'Bearer', access_token: 'access', refresh_token: 'refresh', expires_in: 3600, scope: 'all' });
 		},
 	});
 	assert.equal(completed.status, 200);
@@ -47,7 +47,7 @@ test('production and foreign editors cannot redirect authorization into preview 
 	const response = await handleAudiocomOAuthStartRequest({ request: request('https://soundscaper.org'), env, params: {} }, { repository: new MemoryAudiocomOAuthRepository() });
 	assert.equal(response.status, 503);
 	const authorization = new URL('https://api.audio.com/auth/authorize');
-	authorization.search = new URLSearchParams({ client_id: 'preview', response_type: 'code', scope: 'public', state: 'state', code_challenge_method: 'S256', code_challenge: 'a'.repeat(43), redirect_uri: callback }).toString();
+	authorization.search = new URLSearchParams({ client_id: 'preview', response_type: 'code', scope: 'all', state: 'state', code_challenge_method: 'S256', code_challenge: 'a'.repeat(43), redirect_uri: callback }).toString();
 	for (const origin of ['https://soundscaper.org', 'https://evil.pages.dev', 'https://31da7261.soundscaper-5ki.pages.dev.evil.test']) {
 		assert.throws(() => assertAudiocomAuthorizationUrl(authorization.href, { origin, protocol: 'https:' }), /callback/iu);
 	}
@@ -72,7 +72,7 @@ test('preview callbacks cannot target production, another Pages project, or a ma
 		const response = await handleAudiocomOAuthStartRequest({ request: request(hashOrigin), env: { ...env, AUDIOCOM_OAUTH_REDIRECT_URI: redirect }, params: {} }, { repository: new MemoryAudiocomOAuthRepository() });
 		assert.equal(response.status, 503, redirect);
 		const authorization = new URL('https://api.audio.com/auth/authorize');
-		authorization.search = new URLSearchParams({ client_id: 'preview', response_type: 'code', scope: 'public', state: 'state', code_challenge_method: 'S256', code_challenge: 'a'.repeat(43), redirect_uri: redirect }).toString();
+		authorization.search = new URLSearchParams({ client_id: 'preview', response_type: 'code', scope: 'all', state: 'state', code_challenge_method: 'S256', code_challenge: 'a'.repeat(43), redirect_uri: redirect }).toString();
 		assert.throws(() => assertAudiocomAuthorizationUrl(authorization.href, { origin: hashOrigin, protocol: 'https:' }), /callback/iu, redirect);
 	}
 });

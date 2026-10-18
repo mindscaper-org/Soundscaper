@@ -275,11 +275,11 @@ async function migrate(database: DatabaseSync): Promise<void> {
 
 const CUSTOM_PROVIDER: AudiocomOAuthProviderBinding = {
 	apiOrigin: 'https://audio.example.org', clientId: 'client_registered_here',
-	redirectUri: 'https://soundscaper.org/api/audiocom/oauth/callback', scope: 'public projects',
+	redirectUri: 'https://soundscaper.org/api/audiocom/oauth/callback', scope: 'all',
 };
 const DEFAULT_PROVIDER: AudiocomOAuthProviderBinding = {
 	apiOrigin: 'https://api.audio.com', clientId: '1879138787993593',
-	redirectUri: 'https://soundscaper.org/api/audiocom/oauth/callback', scope: 'public',
+	redirectUri: 'https://soundscaper.org/api/audiocom/oauth/callback', scope: 'all',
 };
 
 test('D1 pins each provider registration through attempts, grants, sessions, and refresh rotation', async () => {
@@ -351,7 +351,7 @@ test('stored provider bindings reject malformed URLs, extra fields, and control 
 		{ ...CUSTOM_PROVIDER, clientId: '' },
 		{ ...CUSTOM_PROVIDER, clientId: 'client\nheader' },
 		{ ...CUSTOM_PROVIDER, clientId: 'c'.repeat(257) },
-		{ ...CUSTOM_PROVIDER, scope: 'all' },
+		{ ...CUSTOM_PROVIDER, scope: 'admin' },
 		{ ...CUSTOM_PROVIDER, redirectUri: 'https://soundscaper.org/other' },
 		{ ...CUSTOM_PROVIDER, redirectUri: 'https://soundscaper.org/api/audiocom/oauth/callback?query=1' },
 		{ ...CUSTOM_PROVIDER, redirectUri: 'https://soundscaper.org/api/audiocom/oauth/callback#fragment' },

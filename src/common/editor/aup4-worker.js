@@ -18,6 +18,8 @@ import {
 	validateAudacityProjectDatabase,
 } from './aup4-database.js';
 import { decodeAudacityProjectTree } from './aup4-conversion.js';
+import { createAup4DatabaseAdapter } from './aup4-database-sql.js';
+import { nativeCloudManifest, nativeCloudPcm } from './audiocom-native-project-database.ts';
 import { Aup4WorkerRequestState } from './aup4-worker-request-state.ts';
 import { createAup4DesktopRangeFile } from './aup4-worker-desktop-range-file.ts';
 import { createAup4SnapshotWrites } from './aup4-worker-snapshot.js';
@@ -89,6 +91,8 @@ async function handle(type, args, context) {
 	if (type === 'abort-snapshot') return snapshots.abort(args);
 	if (type === 'commit') return commitProject(args.projectId, args.now);
 	if (type === 'export') return exportProject(args, context);
+	if (type === 'cloud-manifest') return nativeCloudManifest(createAup4DatabaseAdapter(requireProject(args.projectId).database));
+	if (type === 'cloud-block') return nativeCloudPcm(createAup4DatabaseAdapter(requireProject(args.projectId).database), args.blockId);
 	if (type === 'delete') return deleteProject(args.projectId);
 	throw operationError(`Unsupported Audacity-project worker operation: ${type}.`, 'UNKNOWN_OPERATION');
 }
@@ -173,7 +177,7 @@ async function openFile(args, context) {
 	context.checkCancelled();
 	assertAudacitySerializedDatabaseHeader(header);
 	const sqlite = await initializeSqlite();
-	const pool = await initializePool();
+	const pool = args.transient === true ? null : await initializePool();
 	const limit = portableLimit(args, Boolean(pool));
 	const availableQuota = storageAvailable(args);
 	if (availableQuota != null && file.size > availableQuota) throw operationError(
@@ -397,7 +401,7 @@ async function closeProject(projectId) {
 async function deleteProject(projectId) {
 	const id = normalizeProjectId(projectId);
 	const entry = projects.get(id);
-	const pool = entry?.pool || await initializePool();
+	const pool = entry ? entry.pool : await initializePool();
 	const path = entry?.path || projectPath(id);
 	await closeProject(id);
 	return pool ? pool.unlink(path) : true;

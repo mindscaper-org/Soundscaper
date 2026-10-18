@@ -5,7 +5,7 @@ export interface AudiocomOAuthProviderBinding {
 	readonly apiOrigin: string;
 	readonly clientId: string;
 	readonly redirectUri: string;
-	readonly scope: 'public' | 'public projects';
+	readonly scope: 'public' | 'public projects' | 'all';
 }
 
 const FIELDS = ['apiOrigin', 'clientId', 'redirectUri', 'scope'];
@@ -28,7 +28,7 @@ export function parseStoredProviderBinding(value: unknown): AudiocomOAuthProvide
 	const api = bindingUrl(apiOrigin);
 	const callback = bindingUrl(redirectUri);
 	if (apiOrigin !== api.origin || callback.pathname !== CALLBACK_PATH
-		|| redirectUri !== callback.href || (binding.scope !== 'public' && binding.scope !== 'public projects')) invalid();
+		|| redirectUri !== callback.href || (binding.scope !== 'public' && binding.scope !== 'public projects' && binding.scope !== 'all')) invalid();
 	return { apiOrigin, clientId, redirectUri, scope: binding.scope };
 }
 

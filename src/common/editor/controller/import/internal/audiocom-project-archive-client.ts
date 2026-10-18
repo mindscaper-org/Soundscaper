@@ -38,51 +38,15 @@ export function createAudiocomProjectArchiveClient(options: ClientOptions = {}):
 			return { results: data.results.map(normalizeProject), page, hasNext: data.hasNext };
 		},
 		async upload(file, name, signal, revision) {
-			signal?.throwIfAborted();
-			const format = file.name.toLowerCase().split('.').at(-1) ?? '';
-			const params = new URLSearchParams({ name, format });
-			if (revision) {
-				if (!ID.test(revision.id) || !revision.snapshotId || !ID.test(revision.snapshotId)) throw new Error('The project archive has no completed revision. Refresh the archive list.');
-				params.set('id', revision.id); params.set('head', revision.snapshotId);
-			}
-			params.set('size', String(file.size));
-			// Complete the bounded preparation even if the caller cancels, so its new ID can be retired.
-			const prepared = record(await dataResponse(await request(`projects/prepare?${params}`, { method: 'POST', signal: AbortSignal.timeout(10_000) })));
-			const projectId = prepared.projectId; const snapshotId = prepared.snapshotId;
-			if (typeof projectId !== 'string' || !ID.test(projectId) || typeof snapshotId !== 'string' || !ID.test(snapshotId)
-				|| revision && projectId !== revision.id) throw new Error('Invalid prepared project revision.');
-			const upload = new URLSearchParams({ name, format, project: projectId, snapshot: snapshotId });
-			let cleanup: Promise<void> | undefined;
-			const cancel = (): Promise<void> => cleanup ??= request(`projects?${new URLSearchParams({ id: projectId, snapshotId })}`, {
-				method: 'DELETE', signal: AbortSignal.timeout(10_000),
-			}).then(async response => { await response.body?.cancel(); }).catch(() => undefined);
-			const aborted = (): void => { void cancel(); };
-			signal?.addEventListener('abort', aborted, { once: true });
-			try {
-				signal?.throwIfAborted();
-				return normalizeProject(await dataResponse(await request(`projects?${upload}`, { method: 'POST', signal, body: file,
-					headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Filename': encodeURIComponent(file.name), 'X-Audiocom-Content-Length': String(file.size) } })));
-			} catch (error) { await cancel(); throw error; }
-			finally { signal?.removeEventListener('abort', aborted); }
-		},
-		async download(project, signal) {
-			if (!ID.test(project.id) || !project.snapshotId || !ID.test(project.snapshotId)) throw new Error('The project archive has no completed revision.');
-			const response = await request(`projects/download?${new URLSearchParams({ id: project.id, snapshotId: project.snapshotId })}`, { signal });
-			if (!response.ok) { await dataResponse(response); throw new Error('The project archive could not be downloaded.'); }
-			const length = response.headers.get('Content-Length');
-			if (!length || !/^\d+$/u.test(length) || Number(length) < 16 || Number(length) > MAXIMUM || !response.body) {
-				await response.body?.cancel(); throw new Error('The project archive size exceeds its limit.');
-			}
-			const blob = await boundedBlob(response, Number(length));
-			if (new TextDecoder().decode(await blob.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new Error('The downloaded project is not a standalone SQLite archive.');
-			return blob;
+			const { uploadNativeCloudProject } = await import('./audiocom-native-project-client.ts');
+			return normalizeProject(await uploadNativeCloudProject({ request, data: dataResponse }, file, name, signal, revision));
 		},
 	};
 }
 
 function normalizeProject(value: unknown): AudiocomProjectArchive {
 	const data = record(value);
-	if (typeof data.id !== 'string' || !ID.test(data.id) || typeof data.name !== 'string' || !data.name || data.name.length > 256
+	if (typeof data.id !== 'string' || (!ID.test(data.id) && !/^[1-9]\d{0,15}$/u.test(data.id)) || typeof data.name !== 'string' || !data.name || data.name.length > 256
 		|| (data.format !== 'aup3' && data.format !== 'aup4') || typeof data.size !== 'number' || !Number.isSafeInteger(data.size) || data.size < 0
 		|| (data.snapshotId !== null && (typeof data.snapshotId !== 'string' || !ID.test(data.snapshotId)))) throw new Error('Invalid project archive metadata.');
 	return { id: data.id, name: data.name, format: data.format, size: data.size, snapshotId: data.snapshotId };

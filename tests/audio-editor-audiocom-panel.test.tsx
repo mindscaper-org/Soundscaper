@@ -71,7 +71,7 @@ test('project archives are opt-in and visible only when the selected provider ad
 	const markup = renderToStaticMarkup(<AudiocomPanel {...props} />);
 	assert.match(markup, /<details[^>]*data-audiocom-projects="true"(?![^>]*\bopen)/u);
 	assert.doesNotMatch(markup, /Upload AUP3 or AUP4|Save new revision|type="file"[^>]*aup/u);
-	assert.match(markup, /Download project/u); assert.match(markup, /Storage server:/u);
+	assert.doesNotMatch(markup, /Download project/u); assert.match(markup, /Storage server:/u);
 	assert.match(markup, /href="http:\/\/127\.0\.0\.1:8088"/u);
 	assert.doesNotMatch(renderToStaticMarkup(<AudiocomPanel {...props} archives={{ ...archives, state: { ...state, supported: false } }} />), /data-audiocom-projects/u);
 	assert.doesNotMatch(renderToStaticMarkup(<AudiocomPanel {...props} state={BASE.state} />), /data-audiocom-projects/u);

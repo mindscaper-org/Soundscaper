@@ -6,11 +6,11 @@ export interface AudiocomProviderConfiguration {
 	readonly apiOrigin: string;
 	readonly webOrigin: string;
 	readonly authorizationOrigin: string;
-	readonly scope: 'public' | 'public projects';
+	readonly scope: 'public' | 'public projects' | 'all';
 }
 export const DEFAULT_AUDIOCOM_PROVIDER: AudiocomProviderConfiguration = Object.freeze({
 	kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com',
-	authorizationOrigin: 'https://api.audio.com', scope: 'public',
+	authorizationOrigin: 'https://api.audio.com', scope: 'all',
 });
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
@@ -24,7 +24,7 @@ export function providerConfiguration(env: AudiocomOAuthEnv): AudiocomProviderCo
 	const local = env.AUDIOCOM_LOCAL_DEVELOPMENT === '1' && url.protocol === 'http:'
 		&& ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 	if ((!local && url.protocol !== 'https:') || url.username || url.password || url.pathname !== '/' || url.search || url.hash) configurationError();
-	return { kind: 'audiocity', apiOrigin: url.origin, webOrigin: url.origin, authorizationOrigin: url.origin, scope: 'public projects' };
+	return { kind: 'audiocity', apiOrigin: url.origin, webOrigin: url.origin, authorizationOrigin: url.origin, scope: 'all' };
 }
 export function trustedProviderUploadUrl(value: unknown, provider: AudiocomProviderConfiguration): URL {
 	const url = providerUrl(value, provider);

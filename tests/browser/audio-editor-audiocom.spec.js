@@ -51,7 +51,8 @@ test.describe('audio.com panel', () => {
 		expect(requests.preparations[0].id).toBeUndefined();
 		expect(requests.preparations[1].id).toBe(requests.projectUploads[0].project);
 		expect(requests.preparations[1].head).toBe(requests.projectUploads[0].snapshot);
-		expect(requests.projectUploads[0].bytes.subarray(0, 16).toString()).toBe('SQLite format 3\0');
+		expect(requests.projectUploads[0].bytes.readBigUInt64LE(0)).toBeGreaterThan(0n);
+		expect(requests.preparations[0].blocks.length).toBeGreaterThan(0);
 		expect(requests.projectUploads[1].bytes.equals(requests.projectUploads[0].bytes)).toBe(false);
 		expect(downloads).toHaveLength(0);
 	});
@@ -214,18 +215,21 @@ async function mockAudiocom(page, options = {}) {
 		const url = new URL(request.url());
 		const data = value => route.fulfill({ json: { data: value } });
 		if (url.pathname === '/api/audiocom/usage') return data({ maximumUploadBytes: 100_000_000,
-			projectStorageSupported: Boolean(options.projects), projectFormats: options.projects ? ['aup3', 'aup4'] : [],
-			...(options.provider === 'audiocity' ? { provider: { kind: 'audiocity', apiOrigin: 'https://api.audio.com', webOrigin: 'https://api.audio.com', scope: 'public projects' } } : {}),
+			projectStorageSupported: Boolean(options.projects), projectFormats: options.projects ? ['aup3'] : [],
+			...(options.provider === 'audiocity' ? { provider: { kind: 'audiocity', apiOrigin: 'https://api.audio.com', webOrigin: 'https://api.audio.com', scope: 'all' } } : {}),
 		});
-		if (url.pathname === '/api/audiocom/projects/prepare') {
-			requests.preparations.push(Object.fromEntries(url.searchParams));
-			return data({ projectId, snapshotId: `aaaaaaaa-1234-4234-8234-${String(requests.preparations.length).padStart(12, '0')}` });
-		}
 		if (url.pathname === '/api/audiocom/projects') {
-			if (request.method() === 'POST') {
-				const bytes = request.postDataBuffer();
-				requests.projectUploads.push({ ...Object.fromEntries(url.searchParams), bytes });
-				project = { id: projectId, snapshotId: url.searchParams.get('snapshot'), name: url.searchParams.get('name'), format: url.searchParams.get('format'), size: bytes.length };
+			const phase = url.searchParams.get('phase');
+			if (phase === 'prepare') {
+				const manifest = request.postDataJSON(); requests.preparations.push(manifest);
+				return data({ projectId, snapshotId: `aaaaaaaa-1234-4234-8234-${String(requests.preparations.length).padStart(12, '0')}`, missing: manifest.blocks });
+			}
+			if (phase === 'part') {
+				if (!url.searchParams.has('hash')) requests.projectUploads.push({ ...Object.fromEntries(url.searchParams), bytes: request.postDataBuffer() });
+				return route.fulfill({ status: 204 });
+			}
+			if (phase === 'complete') {
+				project = { id: projectId, snapshotId: url.searchParams.get('snapshot'), name: requests.preparations.at(-1).name, format: 'aup3', size: 32 };
 				return data(project);
 			}
 			return data({ results: project ? [project] : [], page: 1, hasNext: false });
@@ -238,7 +242,7 @@ async function mockAudiocom(page, options = {}) {
 		if (url.pathname === '/api/audiocom/oauth/start') {
 			requests.starts.push(request.postDataJSON());
 			const params = new URLSearchParams({ client_id: 'browser-test', redirect_uri: 'https://soundscaper.org/api/audiocom/oauth/callback',
-				response_type: 'code', state: 'attempt', scope: 'public', code_challenge: 'a'.repeat(43), code_challenge_method: 'S256' });
+				response_type: 'code', state: 'attempt', scope: 'all', code_challenge: 'a'.repeat(43), code_challenge_method: 'S256' });
 			return data({ attemptId: 'attempt', handoffToken: 'handoff', authorizeUrl: `https://api.audio.com/auth/authorize?${params}`, expiresAt: new Date(Date.now() + 60_000).toISOString() });
 		}
 		if (url.pathname === '/api/audiocom/oauth/poll') { connected = true; return data({ status: 'connected' }); }

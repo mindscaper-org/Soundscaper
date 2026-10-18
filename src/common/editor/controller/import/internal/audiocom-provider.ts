@@ -4,11 +4,11 @@ export interface AudiocomProvider {
 	readonly kind: 'audiocom' | 'audiocity';
 	readonly apiOrigin: string;
 	readonly webOrigin: string;
-	readonly scope: 'public' | 'public projects';
+	readonly scope: 'public' | 'public projects' | 'all';
 }
 
 export const DEFAULT_AUDIOCOM_PROVIDER: AudiocomProvider = Object.freeze({
-	kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', scope: 'public',
+	kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com', scope: 'all',
 });
 
 /** Provider origins come only from the editor's own configured backend. */
@@ -17,9 +17,9 @@ export function audiocomProvider(value: unknown, location?: Pick<Location, 'orig
 	if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid audio provider configuration.');
 	const source = value as Record<string, unknown>;
 	if (source.kind === 'audiocom' && source.apiOrigin === DEFAULT_AUDIOCOM_PROVIDER.apiOrigin
-		&& source.webOrigin === DEFAULT_AUDIOCOM_PROVIDER.webOrigin && source.scope === 'public') return DEFAULT_AUDIOCOM_PROVIDER;
+		&& source.webOrigin === DEFAULT_AUDIOCOM_PROVIDER.webOrigin && source.scope === 'all') return DEFAULT_AUDIOCOM_PROVIDER;
 	if (source.kind !== 'audiocity' || source.apiOrigin !== source.webOrigin
-		|| (source.scope !== 'public' && source.scope !== 'public projects')) throw new Error('Invalid audio provider configuration.');
+		|| (source.scope !== 'public' && source.scope !== 'public projects' && source.scope !== 'all')) throw new Error('Invalid audio provider configuration.');
 	const origin = providerOrigin(source.apiOrigin, location);
 	return Object.freeze({ kind: 'audiocity', apiOrigin: origin, webOrigin: origin, scope: source.scope });
 }

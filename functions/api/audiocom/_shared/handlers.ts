@@ -5,7 +5,6 @@ import { handleOAuthEndpoint, oauthJson, oauthResponseHeaders, OAuthHttpError, r
 import { exactUploadStream, limitedPreviewStream } from './streams.ts';
 import { providerConfiguration } from './provider-config.ts';
 import { selectedProviderContext } from './provider-selection.ts';
-import { discoverAudiocityCapabilities } from './provider-discovery.ts';
 import { providerFetch, checkResponse } from './provider-fetch.ts';
 export { providerFetch, checkResponse } from './provider-fetch.ts';
 const MAX_PREVIEW_BYTES = 128 * 1024 * 1024;
@@ -115,14 +114,15 @@ export function handleAudiocomUploadRequest(context: AudiocomOAuthFunctionContex
 	});
 }
 export function handleAudiocomUsageRequest(context: AudiocomOAuthFunctionContext, dependencies: OAuthHandlerDependencies = {}): Promise<Response> {
+	void dependencies;
 	return handleOAuthEndpoint(context, ['GET', 'HEAD'], async admission => {
 		context = selectedProviderContext(context);
 		const provider = providerConfiguration(context.env);
-		const capabilities = await discoverAudiocityCapabilities(context, dependencies);
+
 		return oauthJson({ data: {
-			maximumUploadBytes: Math.min(MAX_UPLOAD_BYTES, capabilities.maximumUploadBytes),
-			providerMaximumUploadBytes: capabilities.maximumUploadBytes, provider,
-			projectStorageSupported: capabilities.projectFormats.length > 0, projectFormats: capabilities.projectFormats,
+			maximumUploadBytes: MAX_UPLOAD_BYTES,
+			providerMaximumUploadBytes: MAX_UPLOAD_BYTES, provider,
+			projectStorageSupported: true, projectFormats: ['aup3'],
 		} }, 200, admission);
 	});
 }

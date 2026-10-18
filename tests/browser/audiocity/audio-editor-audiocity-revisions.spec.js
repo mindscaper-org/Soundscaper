@@ -1,246 +1,150 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '../audio-editor-test-fixtures.js';
-import { chooseFileAction, disableNativeSavePicker, trackNameText } from '../audio-editor-test-helpers.js';
+import { chooseFileAction } from '../audio-editor-test-helpers.js';
+import { decodeDedicatedAudioFile } from '../../../src/common/editor/browser-dedicated-audio-codec.ts';
+import { nativeCloudHash } from '../../../src/common/editor/audiocom-native-project.ts';
+import { decodeAudacityBinaryXml } from '../../../src/common/editor/audacity-binary-xml.js';
 import { authorize, connect, providerOrigin } from './audiocity-test-helpers.js';
 import { changedArchive, hash } from './project-revision-fixtures.js';
 
 test.setTimeout(120_000);
 
-for (const format of ['aup3', 'aup4']) {
-	test(`${format}: successive changed saves retain one project, every revision, and reopenable bytes`, async ({ page, request }) => {
-		await disableNativeSavePicker(page);
-		const { editor, panel } = await connect(page, { format });
-		const api = await providerApi(request);
-		const files = await changedFiles(format);
-		let project;
-		const snapshots = [];
-		const uploaded = [];
-		for (let index = 0; index < files.length; index++) {
-			project = await save(page, panel, format, files[index], `success-${format}-${index + 1}`, project);
-			snapshots.push(project.snapshotId);
-			uploaded.push(project.uploadedBytes);
-			const bytes = await download(page, project);
-			expect(hash(bytes)).toBe(hash(project.uploadedBytes));
-		}
-		expect(new Set(snapshots).size).toBe(3);
-		const history = await api.history(project.id);
-		expect(history.items.map(item => item.id)).toEqual([...snapshots].reverse());
-		for (let index = 0; index < files.length; index++) {
-			const historical = await download(page, { ...project, snapshotId: snapshots[index] });
-			expect(hash(historical)).toBe(hash(uploaded[index]));
-			await openArchive(page, editor, format, historical, index + 1);
-		}
-		await page.reload();
-		await expect(panel.getByText('Connected to Audiocity', { exact: true })).toBeVisible();
-		await refresh(panel);
-		const row = panel.locator(`[data-audiocom-project-id="${project.id}"]`);
-		await expect(row).toHaveCount(1);
-		const event = page.waitForEvent('download');
-		await row.getByRole('button', { name: /^Download project/u }).click();
-		expect(hash(await readFile(await (await event).path()))).toBe(hash(uploaded[2]));
-	});
-
-	test(`${format}: a competing save rejects a stale head and refresh permits an explicit changed retry`, async ({ page, request }) => {
-		const { panel } = await connect(page, { format });
-		const api = await providerApi(request);
-		const files = await changedFiles(format);
-		const first = await save(page, panel, format, files[0], `conflict-${format}-1`);
-		const external = await api.saveRevision(first, format, files[1]);
-		await save(page, panel, format, files[2], `conflict-${format}-3`, first, 409);
-		await expect(panel.getByRole('alert')).toContainText('Refresh the archive list');
-		expect((await api.history(first.id)).items.map(item => item.id)).toEqual([external.snapshot.id, first.snapshotId]);
-		expect(hash(await download(page, { ...first, snapshotId: external.snapshot.id }))).toBe(hash(files[1]));
-		await refresh(panel);
-		const third = await save(page, panel, format, files[2], `conflict-${format}-3`, { ...first, snapshotId: external.snapshot.id });
-		expect(third.id).toBe(first.id);
-		expect((await api.history(first.id)).items).toHaveLength(3);
-		expect(hash(await download(page, third))).toBe(hash(third.uploadedBytes));
-	});
-
-	for (const mode of ['hold-put', 'hold-sync']) test(`${format}: cancelling ${mode} preserves the prior save and permits a changed retry`, async ({ page, request }) => {
-		const { panel } = await connect(page, { format });
-		const api = await providerApi(request);
-		const files = await changedFiles(format);
-		const first = await save(page, panel, format, files[0], `${mode}-${format}-1`);
-		const baseline = (await faultState(request)).archiveBytes;
-		await setFault(request, mode);
-		try {
-			const uploaded = await chooseArchive(page, panel, format, files[1], `${mode}-${format}-2`, first);
-			await expect.poll(async () => (await faultState(request)).fault?.mode).toBe(mode);
-			const fault = (await faultState(request)).fault;
-			expect(fault.projectId).toBe(first.id);
-			if (mode === 'hold-sync') expect((await faultState(request)).archiveBytes).toBe(baseline + uploaded.length);
-			await archives(panel).getByRole('button', { name: 'Cancel', exact: true }).click();
-			await expect.poll(async () => (await api.history(first.id)).items.map(item => item.id)).toEqual([first.snapshotId]);
-			await expect.poll(async () => (await faultState(request)).archiveBytes).toBe(baseline);
-		} finally { await setFault(request, null); }
-		expect(hash(await download(page, first))).toBe(hash(first.uploadedBytes));
-		await refresh(panel);
-		const retried = await save(page, panel, format, files[2], `${mode}-${format}-3`, first);
-		expect(retried.id).toBe(first.id);
-		expect((await api.history(first.id)).items).toHaveLength(2);
-		expect(hash(await download(page, retried))).toBe(hash(retried.uploadedBytes));
-	});
-
-	test(`${format}: late completion cannot replace a newer save made during its upload`, async ({ page, request }) => {
-		const { panel } = await connect(page, { format });
-		const api = await providerApi(request);
-		const files = await changedFiles(format);
-		const first = await save(page, panel, format, files[0], `late-${format}-1`);
-		await setFault(request, 'hold-sync');
-		const saving = save(page, panel, format, files[1], `late-${format}-2`, first, 409);
-		let newer;
-		try {
-			await expect.poll(async () => (await faultState(request)).fault?.mode).toBe('hold-sync');
-			const pending = (await faultState(request)).fault.snapshotId;
-			newer = await api.saveRevision({ ...first, snapshotId: pending }, format, files[2]);
-		} finally { await setFault(request, null); }
-		await saving;
-		expect((await api.get(`/project/${first.id}`)).latest_synced_snapshot_id).toBe(newer.snapshot.id);
-		expect(hash(await download(page, { ...first, snapshotId: newer.snapshot.id }))).toBe(hash(files[2]));
-		expect(hash(await download(page, first))).toBe(hash(first.uploadedBytes));
-		await refresh(panel);
-	});
-
-	for (const mode of ['fail-sync', 'drop-sync']) test(`${format}: ${mode} recovers after refresh without losing completed revisions`, async ({ page, request }) => {
-		const { panel } = await connect(page, { format });
-		const api = await providerApi(request);
-		const files = await changedFiles(format);
-		const first = await save(page, panel, format, files[0], `${mode}-${format}-1`);
-		await setFault(request, mode);
-		try {
-			const failed = await save(page, panel, format, files[1], `${mode}-${format}-2`, first, 502);
-			const history = await api.history(first.id);
-			expect(history.items).toHaveLength(mode === 'fail-sync' ? 1 : 2);
-			if (mode === 'drop-sync') expect(hash(await download(page, { ...first, snapshotId: history.items[0].id }))).toBe(hash(failed.uploadedBytes));
-		} finally { await setFault(request, null); }
-		await refresh(panel);
-		const current = (await api.get(`/project/${first.id}`)).latest_synced_snapshot_id;
-		const retried = await save(page, panel, format, files[2], `${mode}-${format}-3`, { ...first, snapshotId: current });
-		expect(retried.id).toBe(first.id);
-		expect((await api.history(first.id)).items).toHaveLength(mode === 'fail-sync' ? 2 : 3);
-		expect(hash(await download(page, retried))).toBe(hash(retried.uploadedBytes));
-		expect(hash(await download(page, first))).toBe(hash(first.uploadedBytes));
-	});
-}
-
-test('disconnect and repeated OAuth login preserve access to an existing project and its next changed save', async ({ page }) => {
-	const { panel } = await connect(page, { format: 'aup3' });
-	const files = await changedFiles('aup3');
-	let project = await save(page, panel, 'aup3', files[0], 'login-roundtrip-1');
-	for (let index = 1; index < 3; index++) {
-		await panel.getByRole('button', { name: 'Disconnect', exact: true }).click();
-		await authorize(page, panel, { wrongPassword: index === 1 });
-		await refresh(panel);
-		project = await save(page, panel, 'aup3', files[index], `login-roundtrip-${index + 1}`, project);
-		expect(hash(await download(page, project))).toBe(hash(project.uploadedBytes));
+for (const format of ['aup3', 'aup4']) test(`${format}: saves Audacity metadata and tagged WavPack, then reuses blocks for a new revision`, async ({ page, request }) => {
+	const { editor, panel } = await connect(page);
+	await open(page, editor, format);
+	const api = await providerApi(request);
+	const first = await save(page, panel);
+	const original = await api.snapshot(first.id, first.snapshotId);
+	const metadata = await request.get(original.file_url);
+	const bytes = await metadata.body();
+	expect(bytes.subarray(0, 16).toString()).not.toBe('SQLite format 3\0');
+	const dictionarySize = Number(bytes.readBigUInt64LE(0));
+	const document = decodeAudacityBinaryXml(new Uint8Array(bytes.subarray(8, 8 + dictionarySize)), new Uint8Array(bytes.subarray(8 + dictionarySize)));
+	expect(document.root.name).toBe('project');
+	expect(original.blocks.length).toBeGreaterThan(0);
+	for (const block of original.blocks) {
+		const response = await request.get(block.url); const encoded = await response.body();
+		expect(encoded.subarray(0, 4).toString()).toBe('wvpk');
+		expect(encoded.includes(Buffer.from('FORMAT\0' + '262159'))).toBe(true);
+		const id = Number(encoded.toString('latin1').split('BLOCK_ID\0')[1].match(/^\d+/u)[0]);
+		const decoded = await decodeDedicatedAudioFile({ format: 'wavpack', input: new Uint8Array(encoded.subarray(0, encoded.length - encoded.readUInt32LE(encoded.length - 20))), maximumOutputBytes: 32 * 1024 * 1024 }, {
+			loadPayload: async (_kind, url) => new Uint8Array(await readFile(url)),
+		});
+		expect(await nativeCloudHash(id, new Uint8Array(decoded.interleaved.buffer))).toBe(block.hash.toUpperCase());
 	}
+	await rename(editor, 'Cloud revision two');
+	const transferred = [];
+	page.on('request', request => { const query = new URL(request.url()).searchParams; if (query.get('phase') === 'part' && query.has('hash')) transferred.push(query.get('hash')); });
+	const second = await save(page, panel);
+	expect(transferred).toEqual([]);
+	expect(second.id).toBe(first.id); expect(second.snapshotId).not.toBe(first.snapshotId);
+	const updated = await api.snapshot(second.id, second.snapshotId);
+	expect(hash(await (await request.get(updated.file_url)).body())).not.toBe(hash(bytes));
+	expect((await api.history(first.id)).items.map(item => item.id)).toEqual([second.snapshotId, first.snapshotId]);
+	expect((await request.get(original.file_url)).status()).toBe(200);
 });
 
-function archives(panel) { return panel.locator('[data-audiocom-projects]'); }
-async function changedFiles(format) {
-	const files = await Promise.all([1, 2, 3].map(revision => changedArchive(format, revision)));
-	expect(new Set(files.map(hash)).size, 'successive saves must contain different valid project files').toBe(3);
-	return files;
+test('a competing native save reports a conflict and refresh permits the next revision', async ({ page, request }) => {
+	const { editor, panel } = await connect(page); await open(page, editor);
+	const api = await providerApi(request); const first = await save(page, panel);
+	const external = await api.revise(first);
+	await rename(editor, 'Local changed revision');
+	await save(page, panel, 409);
+	await expect(panel.getByRole('alert')).toContainText('Refresh');
+	expect((await api.history(first.id)).items).toHaveLength(2);
+	await refresh(panel);
+	const retried = await save(page, panel);
+	expect(retried.id).toBe(first.id);
+	expect((await api.history(first.id)).items.map(item => item.id)).toEqual([retried.snapshotId, external.snapshot.id, first.snapshotId]);
+});
+
+for (const mode of ['hold-put', 'hold-sync']) test(`cancelling native ${mode} retires only the pending snapshot`, async ({ page, request }) => {
+	const { editor, panel } = await connect(page); await open(page, editor);
+	const api = await providerApi(request); const first = await save(page, panel);
+	await rename(editor, 'Cancelled revision');
+	await fault(request, mode);
+	try {
+		await panel.getByRole('button', { name: 'Save project', exact: true }).click();
+		await expect.poll(async () => (await faultState(request)).fault?.mode).toBe(mode);
+		const section = panel.locator('[data-audiocom-projects]');
+		if (!await section.evaluate(element => element.open)) await section.locator('summary').click();
+		await section.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect.poll(async () => (await api.history(first.id)).items.map(item => item.id)).toEqual([first.snapshotId]);
+	} finally { await fault(request, null); }
+	await refresh(panel); const retried = await save(page, panel);
+	expect(retried.id).toBe(first.id); expect((await api.history(first.id)).items).toHaveLength(2);
+});
+
+for (const mode of ['fail-sync', 'drop-sync']) test(`native ${mode} preserves completed snapshots and recovers after refresh`, async ({ page, request }) => {
+	const { editor, panel } = await connect(page); await open(page, editor);
+	const api = await providerApi(request); const first = await save(page, panel);
+	await rename(editor, 'Changed revision'); await fault(request, mode);
+	try {
+		await save(page, panel, 502);
+		await expect.poll(async () => (await api.history(first.id)).items.length).toBe(mode === 'fail-sync' ? 1 : 2);
+	} finally { await fault(request, null); }
+	await refresh(panel); const retried = await save(page, panel);
+	expect(retried.id).toBe(first.id);
+	expect((await api.history(first.id)).items).toHaveLength(mode === 'fail-sync' ? 2 : 3);
+});
+
+test('disconnect and repeated OAuth login retain the same native project for the next save', async ({ page, request }) => {
+	const { editor, panel } = await connect(page); await open(page, editor);
+	const api = await providerApi(request); const first = await save(page, panel);
+	await panel.getByRole('button', { name: 'Disconnect', exact: true }).click();
+	await authorize(page, panel, { wrongPassword: true }); await rename(editor, 'After reconnect');
+	const second = await save(page, panel);
+	expect(second.id).toBe(first.id); expect((await api.history(first.id)).items).toHaveLength(2);
+});
+
+async function open(page, editor, format = 'aup3') {
+	const chooser = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
+	await (await chooser).setFiles({ name: `Native project.${format}`, mimeType: 'application/x-audacity-project', buffer: await changedArchive(format, 1) });
+	await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 30_000 });
 }
-async function chooseArchive(page, panel, format, bytes, name, revision, waitForUpload = true) {
-	const editor = page.locator('[data-audio-editor]');
-	if (!revision) {
-		const chooser = page.waitForEvent('filechooser');
-		await chooseFileAction(page, editor, 'Open');
-		await (await chooser).setFiles({ name: `${name}.${format}`, mimeType: 'application/x-audacity-project', buffer: bytes });
-		await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 30_000 });
-	} else {
-		await editor.getByRole('button', { name: /^Rename track:/u }).first().dblclick();
-		const input = editor.locator('[data-track-name] input');
-		await input.fill(`Revision ${name.match(/\d+$/u)[0]}`);
-		await input.press('Enter');
-	}
-	const section = archives(panel);
-	if (!await section.evaluate(element => element.open)) await section.locator('summary').click();
-	const upload = waitForUpload ? page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/audiocom/projects') : null;
+async function rename(editor, name) {
+	await editor.getByRole('button', { name: /^Rename track:/u }).first().dblclick();
+	const input = editor.locator('[data-track-name] input'); await input.fill(name); await input.press('Enter');
+}
+async function save(page, panel, status = 201) {
+	const response = page.waitForResponse(response => new URL(response.url()).pathname === '/api/audiocom/projects' && response.request().method() === 'POST'
+		&& (new URL(response.url()).searchParams.get('phase') === 'complete' || response.status() >= 400));
 	await panel.getByRole('button', { name: 'Save project', exact: true }).click();
-	return upload ? (await upload).postDataBuffer() : undefined;
-}
-async function save(page, panel, format, bytes, name, revision, status = 201) {
-	let uploadedBytes;
-	const capture = request => {
-		if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/audiocom/projects') uploadedBytes = request.postDataBuffer();
-	};
-	page.on('request', capture);
-	const [response, prepared] = await Promise.all([
-		page.waitForResponse(response => response.request().method() === 'POST' && (new URL(response.url()).pathname === '/api/audiocom/projects'
-			|| new URL(response.url()).pathname === '/api/audiocom/projects/prepare' && response.status() !== 201)),
-		page.waitForRequest(request => new URL(request.url()).pathname === '/api/audiocom/projects/prepare' && request.method() === 'POST'),
-		chooseArchive(page, panel, format, bytes, name, revision, false),
-	]);
-	page.off('request', capture);
-	expect(response.status()).toBe(status);
-	const query = new URL(prepared.url()).searchParams;
-	expect(query.get('id')).toBe(revision?.id ?? null);
-	expect(query.get('head')).toBe(revision?.snapshotId ?? null);
-	if (status !== 201) return { uploadedBytes };
-	await expect(archives(panel).getByRole('status')).toContainText('Stored');
-	const listed = await browserRequest(page, '/api/audiocom/projects?page=1');
-	expect(listed.status).toBe(200);
-	const project = listed.body.data.results.find(item => revision ? item.id === revision.id : item.name === name);
-	expect(project).toBeTruthy();
-	if (revision) { expect(project.id).toBe(revision.id); expect(project.snapshotId).not.toBe(revision.snapshotId); }
-	return { ...project, uploadedBytes };
+	const completed = await response; expect(completed.status()).toBe(status);
+	await expect(panel.getByRole('button', { name: 'Save project', exact: true })).toBeEnabled();
+	if (status !== 201) return undefined;
+	return page.evaluate(async ({ origin, snapshot }) => {
+		const listed = await fetch('/api/audiocom/projects?page=1', { headers: { 'X-Audiocom-Api-Origin': origin } });
+		return (await listed.json()).data.results.find(project => project.snapshotId === snapshot);
+	}, { origin: providerOrigin, snapshot: new URL(completed.url()).searchParams.get('snapshot') });
 }
 async function refresh(panel) {
-	const section = archives(panel);
+	const section = panel.locator('[data-audiocom-projects]');
 	if (!await section.evaluate(element => element.open)) await section.locator('summary').click();
 	await section.getByRole('button', { name: 'Refresh projects', exact: true }).click();
 	await expect(section.getByRole('button', { name: 'Refresh projects', exact: true })).toBeEnabled();
 }
-async function download(page, project) {
-	const response = await browserRequest(page, `/api/audiocom/projects/download?${new URLSearchParams({ id: project.id, snapshotId: project.snapshotId })}`, true);
-	expect(response.status).toBe(200);
-	return Buffer.from(response.body);
-}
-async function browserRequest(page, path, binary = false) {
-	return page.evaluate(async ({ path, origin, binary }) => {
-		const response = await fetch(path, { credentials: 'include', headers: { 'X-Audiocom-Api-Origin': origin } });
-		return { status: response.status, body: binary ? Array.from(new Uint8Array(await response.arrayBuffer())) : await response.json() };
-	}, { path, origin: providerOrigin, binary });
-}
-async function openArchive(page, editor, format, bytes, revision) {
-	const chooser = page.waitForEvent('filechooser');
-	await chooseFileAction(page, editor, 'Open');
-	await (await chooser).setFiles({ name: `revision-${revision}.${format}`, mimeType: 'application/x-audacity-project', buffer: bytes });
-	await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 30_000 });
-	await expect(editor).toHaveAttribute('data-track-count', format === 'aup3' ? '1' : '2');
-	await expect(editor).toHaveAttribute('data-clip-count', format === 'aup3' ? '1' : '5');
-	await expect(trackNameText(editor).filter({ hasText: `Revision ${revision}` })).toHaveCount(1);
-}
-async function setFault(request, mode) {
-	const response = await request.post(`${providerOrigin}/__test/archive-transfer`, { headers: { 'X-Audiocity-Test-Control': '1' }, data: { mode } });
-	expect(response.status()).toBe(200);
+async function fault(request, mode) {
+	expect((await request.post(`${providerOrigin}/__test/archive-transfer`, { headers: { 'X-Audiocity-Test-Control': '1' }, data: { mode } })).status()).toBe(200);
 }
 async function faultState(request) {
-	const response = await request.get(`${providerOrigin}/__test/archive-transfer`, { headers: { 'X-Audiocity-Test-Control': '1' } });
-	expect(response.status()).toBe(200);
-	return response.json();
+	return (await request.get(`${providerOrigin}/__test/archive-transfer`, { headers: { 'X-Audiocity-Test-Control': '1' } })).json();
 }
 async function providerApi(request) {
-	const login = await request.post(`${providerOrigin}/auth/token`, { data: {
-		grant_type: 'password', username: 'soundscaper-validation@example.test', password: 'soundscaper-audiocity-test-only-password', scope: 'projects',
-	} });
+	const login = await request.post(`${providerOrigin}/auth/token`, { data: { grant_type: 'password', username: 'soundscaper-validation@example.test', password: 'soundscaper-audiocity-test-only-password', scope: 'all' } });
 	expect(login.status()).toBe(200);
 	const headers = { Authorization: `Bearer ${(await login.json()).access_token}` };
-	const get = async path => {
-		const response = await request.get(`${providerOrigin}${path}`, { headers }); expect(response.status()).toBe(200); return response.json();
+	const get = async path => { const response = await request.get(`${providerOrigin}${path}`, { headers }); expect(response.status()).toBe(200); return response.json(); };
+	return { history: id => get(`/project/${id}/snapshot?per-page=100`), snapshot: (id, snapshot) => get(`/project/${id}/snapshot/${snapshot}?expand=blocks,file_url`),
+		async revise(project) {
+			const current = await get(`/project/${project.id}/snapshot/${project.snapshotId}?expand=blocks,file_url`);
+			const created = await request.post(`${providerOrigin}/project/${project.id}/snapshot`, { headers, data: { head_snapshot_id: project.snapshotId, blocks: current.blocks.map(block => block.hash) } });
+			expect(created.status()).toBe(200); const policy = await created.json();
+			expect((await request.put(policy.sync.file.url, { data: await (await request.get(current.file_url)).body() })).status()).toBe(200);
+			expect((await request.post(policy.sync.file.success)).status()).toBe(200);
+			expect((await request.post(`${providerOrigin}/project/${project.id}/snapshot/${policy.snapshot.id}/sync`, { headers })).status()).toBe(204);
+			return policy;
+		},
 	};
-	return { get, history: id => get(`/project/${id}/snapshot?per-page=100`), async saveRevision(project, format, bytes) {
-		const created = await request.post(`${providerOrigin}/project/${project.id}/snapshot`, { headers, data: { format, size: bytes.length, head_snapshot_id: project.snapshotId } });
-		expect(created.status()).toBe(201);
-		const policy = await created.json();
-		expect((await request.put(policy.sync.file.url, { data: bytes, headers: { 'Content-Type': 'application/octet-stream' } })).status()).toBe(200);
-		expect((await request.post(policy.sync.file.success)).status()).toBe(200);
-		expect((await request.post(`${providerOrigin}/project/${project.id}/snapshot/${policy.snapshot.id}/sync`, { headers })).status()).toBe(200);
-		return policy;
-	} };
 }

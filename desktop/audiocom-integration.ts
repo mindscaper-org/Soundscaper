@@ -32,10 +32,8 @@ const ROUTES: readonly ProxyRoute[] = [
 	{ method: 'GET', path: '/preview', kind: 'empty', query: ['url'] },
 	{ method: 'POST', path: '/uploads', kind: 'upload', query: UPLOAD_PARAMETERS },
 	{ method: 'GET', path: '/projects', kind: 'empty', query: ['page'] },
-	{ method: 'POST', path: '/projects/prepare', kind: 'empty', query: ['name', 'format', 'size', 'id', 'head'] },
-	{ method: 'POST', path: '/projects', kind: 'project', query: ['name', 'format', 'id', 'head', 'project', 'snapshot'] },
-	{ method: 'DELETE', path: '/projects', kind: 'empty', query: ['id', 'snapshotId'] },
-	{ method: 'GET', path: '/projects/download', kind: 'empty', query: ['id', 'snapshotId'] },
+	{ method: 'POST', path: '/projects', kind: 'project', query: ['phase', 'project', 'snapshot', 'hash'] },
+	{ method: 'DELETE', path: '/projects', kind: 'empty', query: ['project', 'snapshot'] },
 ];
 
 interface SafeStorage {
@@ -203,7 +201,9 @@ async function requestOptions(request: Request, route: ProxyRoute, appOrigin: st
 	if (route.kind === 'start') {
 		headers.set('Content-Type', 'application/json');
 		body = '{"client":"desktop"}';
-	} else if (route.kind === 'json') {
+	} else if (route.kind === 'project' && new URL(request.url).searchParams.get('phase') === 'complete') {
+		// Synchronization completes only after the provider has confirmed every part.
+	} else if (route.kind === 'json' || route.kind === 'project' && new URL(request.url).searchParams.get('phase') === 'prepare') {
 		if (!/^application\/json(?:\s*;|$)/iu.test(request.headers.get('content-type') ?? '')) throw new TypeError();
 		headers.set('Content-Type', 'application/json');
 		body = await boundedBody(request.body);
@@ -215,16 +215,6 @@ async function requestOptions(request: Request, route: ProxyRoute, appOrigin: st
 		if (!/^[1-9]\d{0,8}$/u.test(declaredLength) || length > MAX_UPLOAD_BYTES
 			|| !(route.kind === 'project' ? contentType === 'application/octet-stream' : AUDIO_TYPES.has(contentType))
 			|| !/^[\x21-\x7e]{1,1024}$/u.test(filename) || !request.body) throw new TypeError();
-		if (route.kind === 'project') {
-			const decoded = decodeURIComponent(filename);
-			const query = new URL(request.url).searchParams;
-			const format = query.get('format');
-			const id = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu;
-			if ((query.has('id') || query.has('head')) && (!id.test(query.get('id') ?? '') || !id.test(query.get('head') ?? ''))) throw new TypeError();
-			if ((query.has('project') || query.has('snapshot')) && (!id.test(query.get('project') ?? '') || !id.test(query.get('snapshot') ?? '') || query.has('id') || query.has('head'))) throw new TypeError();
-			if (length < 16 || !/\.(?:aup3|aup4)$/iu.test(decoded) || !decoded.toLowerCase().endsWith(`.${format ?? ''}`)
-				|| /[/\\]/u.test(decoded) || [...decoded].some(character => (character.codePointAt(0) ?? 0) < 32 || character.codePointAt(0) === 127)) throw new TypeError();
-		}
 		headers.set('Content-Type', contentType);
 		headers.set('Content-Length', String(length));
 		headers.set('X-Audiocom-Content-Length', String(length));
@@ -240,7 +230,7 @@ async function providerFromResponse(response: Response, selected: string, backen
 	const provider = payload.data.provider;
 	if (provider.apiOrigin !== selected) throw new TypeError('Audio provider origin mismatch');
 	if (selected === 'https://api.audio.com') {
-		if (provider.kind !== 'audiocom' || provider.webOrigin !== 'https://audio.com' || provider.scope !== 'public') throw new TypeError('Invalid audio.com configuration');
+		if (provider.kind !== 'audiocom' || provider.webOrigin !== 'https://audio.com' || provider.scope !== 'all') throw new TypeError('Invalid audio.com configuration');
 		return null;
 	}
 	return assertAudiocomExternalProvider(provider, backendOrigin);

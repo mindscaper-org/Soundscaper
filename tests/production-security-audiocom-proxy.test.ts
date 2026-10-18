@@ -25,9 +25,9 @@ test('audio.com governance records the authenticated proxy and retains deploymen
 	assert.match(control.summary, /PKCE.*S256/isu);
 	assert.match(control.summary, /AES-256-GCM.*HttpOnly/isu);
 	assert.match(control.summary, /100,000,000.*128 MiB/isu);
-	assert.match(control.summary, /public audio\.com API has no.*Audacity project.*original.*download/isu);
+	assert.match(control.summary, /regular public audio API still has no original source download/isu);
 	assert.match(control.summary, /Audiocity.*origin-bound.*provider change/isu);
-	assert.match(control.summary, /list only whole-file transport.*completed revision/isu);
+	assert.match(control.summary, /one Audacity-compatible project path.*stale heads conflict.*completed revisions/isu);
 	assert.match(control.summary, /registered preview smoke test.*processing completion.*provider deletion.*disconnect/isu);
 	assert.ok(control.evidence.some(item => item.path === 'docs/research/audio-com-project-sync.md'));
 	assert.deepEqual(risk.residualRisks.map(item => item.id), ['audiocom-deployment-and-live-provider-proof', 'audiocom-media-transfer-lifecycle']);

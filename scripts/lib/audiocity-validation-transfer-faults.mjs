@@ -30,14 +30,14 @@ export function installArchiveTransferFaults(app, ctx) {
 			} else if (request.method !== 'GET') { response.writeHead(405); response.end(); return; }
 			response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
 			response.end(JSON.stringify({ armed, fault,
-				archiveBytes: ctx.db.get("SELECT COALESCE(SUM(size),0) bytes FROM blobs WHERE kind='project-archive' AND state IN ('uploaded','ready')").bytes,
+				archiveBytes: ctx.db.get("SELECT COALESCE(SUM(size),0) bytes FROM blobs WHERE kind IN ('project-file','project-block') AND state IN ('uploaded','ready')").bytes,
 			}));
 			return;
 		}
 		const upload = /^\/uploads\/([a-f0-9-]{36})$/u.exec(path);
-		const sync = /^\/project\/([a-f0-9-]{36})\/snapshot\/([a-f0-9-]{36})\/sync$/u.exec(path);
+		const sync = /^\/project\/([a-f0-9-]{36}|[1-9]\d*)\/snapshot\/([a-f0-9-]{36})\/sync$/u.exec(path);
 		const blob = upload && request.method === 'PUT' ? ctx.blobs.get(upload[1]) : null;
-		if (armed && (armed === 'hold-put' ? blob?.kind === 'project-archive' : sync && request.method === 'POST')) {
+		if (armed && (armed === 'hold-put' ? blob?.kind === 'project-file' : sync && request.method === 'POST')) {
 			const mode = armed; armed = null;
 			const snapshotId = blob?.resource_id ?? sync[2];
 			const projectId = ctx.db.get('SELECT project_id FROM snapshots WHERE id=?', snapshotId)?.project_id;
@@ -47,7 +47,7 @@ export function installArchiveTransferFaults(app, ctx) {
 			if (mode === 'drop-sync') {
 				const end = response.end.bind(response);
 				response.end = (...args) => {
-					if (response.statusCode === 200) { fault = { ...fault, mode: 'dropped-sync' }; response.destroy(); return response; }
+					if ([200, 204].includes(response.statusCode)) { fault = { ...fault, mode: 'dropped-sync' }; response.destroy(); return response; }
 					return end(...args);
 				};
 			}

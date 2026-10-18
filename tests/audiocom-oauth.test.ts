@@ -22,7 +22,7 @@ async function connected(desktop = false): Promise<{ repository: MemoryAudiocomO
 	const { data: attempt } = await response.json() as { data: Attempt };
 	const authorize = new URL(attempt.authorizeUrl);
 	assert.equal(authorize.origin, 'https://api.audio.com');
-	assert.equal(authorize.searchParams.get('scope'), 'public');
+	assert.equal(authorize.searchParams.get('scope'), 'all');
 	assert.equal(authorize.searchParams.get('code_challenge_method'), 'S256');
 	assert.equal(authorize.searchParams.has('code_verifier'), false);
 	const callback = await handleAudiocomOAuthCallbackRequest(context(new Request(`https://soundscaper.org/api/audiocom/oauth/callback?code=code&state=${authorize.searchParams.get('state') ?? ''}`)), {
@@ -33,7 +33,7 @@ async function connected(desktop = false): Promise<{ repository: MemoryAudiocomO
 			assert.equal(fields.get('code'), 'code');
 			assert.equal(await hashCapability(fields.get('code_verifier') ?? ''), authorize.searchParams.get('code_challenge'));
 			assert.equal(fields.has('client_secret'), false);
-			return json({ token_type: 'Bearer', scope: 'public', access_token: 'secret-access', refresh_token: 'secret-refresh', expires_in: 3600 });
+			return json({ token_type: 'Bearer', scope: 'all', access_token: 'secret-access', refresh_token: 'secret-refresh', expires_in: 3600 });
 		},
 	});
 	assert.equal(callback.status, 200, await callback.text());

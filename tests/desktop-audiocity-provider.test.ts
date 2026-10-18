@@ -7,14 +7,14 @@ import { createDesktopAudiocomIntegration, createDesktopAudiocomProxy } from '..
 
 const APP_ORIGIN = 'soundscaper-app://bundle';
 const BACKEND = 'http://127.0.0.1:8788';
-const PROVIDER = { kind: 'audiocity', apiOrigin: 'http://127.0.0.1:8088', webOrigin: 'http://127.0.0.1:8088', scope: 'public projects' } as const;
+const PROVIDER = { kind: 'audiocity', apiOrigin: 'http://127.0.0.1:8088', webOrigin: 'http://127.0.0.1:8088', scope: 'all' } as const;
 const CONFIGURATION = { backendOrigin: BACKEND, provider: PROVIDER };
 const PROJECT_ID = '00000000-0000-4000-8000-000000000001';
 const SNAPSHOT_ID = '00000000-0000-4000-8000-000000000002';
 function authorize(origin: string = PROVIDER.apiOrigin, backend: string = BACKEND): string {
 	const url = new URL('/auth/authorize', origin);
 	for (const [key, value] of Object.entries({ client_id: 'client', response_type: 'code', state: 'opaque',
-		redirect_uri: `${backend}/api/audiocom/oauth/callback`, scope: 'public projects',
+		redirect_uri: `${backend}/api/audiocom/oauth/callback`, scope: 'all',
 		code_challenge: 'a'.repeat(43), code_challenge_method: 'S256' })) url.searchParams.set(key, value);
 	return url.href;
 }
@@ -25,7 +25,7 @@ test('desktop Audiocity authorization requires trusted provider origins, its exa
 	assert.throws(() => assertAudiocomAuthorizationUrl(url));
 	for (const invalid of [
 		authorize('http://127.0.0.1:8089'), authorize(PROVIDER.apiOrigin, 'http://127.0.0.1:8789'),
-		url.replace('scope=public+projects', 'scope=all'), `${url}&scope=public+projects`,
+		url.replace('scope=all', 'scope=public'), `${url}&scope=all+projects`,
 		url.replace('code_challenge_method=S256', 'code_challenge_method=plain'),
 	]) assert.throws(() => assertAudiocomAuthorizationUrl(invalid, CONFIGURATION));
 	assert.throws(() => assertAudiocomAuthorizationUrl(url, { ...CONFIGURATION, backendOrigin: 'https://soundscaper.org' }));
@@ -86,7 +86,7 @@ test('desktop resolves Audiocity configuration only from the main backend before
 
 test('desktop rejects invalid backend provider discovery and keeps official URL checks independent of discovery', async () => {
 	for (const provider of [
-		{ ...PROVIDER, scope: 'all' }, { ...PROVIDER, webOrigin: 'https://evil.example' },
+		{ ...PROVIDER, scope: 'admin' }, { ...PROVIDER, webOrigin: 'https://evil.example' },
 		{ ...PROVIDER, authorizationOrigin: 'https://evil.example' },
 		{ ...PROVIDER, apiOrigin: 'http://192.168.1.2:8088', webOrigin: 'http://192.168.1.2:8088' },
 	]) {
@@ -112,81 +112,27 @@ test('desktop rejects invalid backend provider discovery and keeps official URL 
 	}
 });
 
-test('desktop project proxy streams archive uploads and downloads through fixed backend routes', async () => {
-	const calls: { url: string; headers: Headers; bytes: Uint8Array | null }[] = [];
+test('desktop proxies Audacity manifests, native parts, completion and cancellation using one backend route', async () => {
+	const calls: { url: URL; headers: Headers; body: string }[] = [];
 	const proxy = createDesktopAudiocomProxy({ appOrigin: APP_ORIGIN, apiOrigin: BACKEND,
 		sessionStore: { get: () => 'a'.repeat(43), set: async () => {}, clear: async () => {} },
-		fetchImpl: async (url, init) => {
-			calls.push({ url: String(url), headers: new Headers(init?.headers), bytes: init?.body ? new Uint8Array(await new Response(init.body).arrayBuffer()) : null });
-			return new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment; filename="Project.aup3"', 'Set-Cookie': 'private=secret' } });
-		},
+		fetchImpl: async (input, init) => { calls.push({ url: new URL(String(input)), headers: new Headers(init?.headers), body: await new Response(init?.body).text() }); return Response.json({ data: {} }); },
 	});
-	const request = (path: string, init?: RequestInit) => new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom${path}`, init);
-	assert.equal((await proxy(request('/projects?page=2'))).status, 200);
-	const bytes = new TextEncoder().encode('SQLite format 3\0');
-	const headers = { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Filename': 'Project.aup3', 'X-Audiocom-Content-Length': String(bytes.byteLength) };
-	assert.equal((await proxy(request('/projects?name=Project&format=aup3', { method: 'POST', headers, body: bytes }))).status, 200);
-	assert.equal(calls[1]?.headers.get('x-audiocom-content-length'), '16');
-	assert.equal(calls[1]?.headers.get('content-length'), '16');
-	assert.equal(calls[1]?.headers.get('x-audiocom-filename'), 'Project.aup3');
-	assert.deepEqual(calls[1]?.bytes, bytes);
-	const downloaded = await proxy(request(`/projects/download?id=${PROJECT_ID}&snapshotId=${SNAPSHOT_ID}`));
-	assert.equal(downloaded.headers.get('content-disposition'), 'attachment; filename="Project.aup3"');
-	assert.equal(downloaded.headers.get('set-cookie'), null);
-	assert.deepEqual(new Uint8Array(await downloaded.arrayBuffer()), new Uint8Array([1, 2, 3]));
-	for (const invalid of [
-		request('/projects?name=Project&format=aup3', { method: 'POST', headers: { ...headers, 'X-Audiocom-Filename': 'Project.wav' }, body: bytes }),
-		request('/projects?name=Project&format=aup3', { method: 'POST', headers: { ...headers, 'X-Audiocom-Filename': 'Project.aup4' }, body: bytes }),
-		request('/projects?name=Project&format=aup3', { method: 'POST', headers: { ...headers, 'X-Audiocom-Filename': '..%2FProject.aup3' }, body: bytes }),
-		request('/projects?name=Project&format=aup3', { method: 'POST', headers: { ...headers, 'Content-Type': 'audio/wav' }, body: bytes }),
-		request('/projects?name=Project&format=aup3', { method: 'POST', headers: { ...headers, 'X-Audiocom-Content-Length': '100000001' }, body: bytes }),
-		request('/projects?name=Project&format=aup3', { method: 'POST', headers: { ...headers, 'X-Audiocom-Content-Length': '15' }, body: bytes }),
-		request('/projects?name=Project&format=aup3&page=1', { method: 'POST', headers, body: bytes }),
-		request(`/projects/download?id=${PROJECT_ID}&snapshotId=${SNAPSHOT_ID}&url=https://evil.example`),
-	]) assert.equal((await proxy(invalid)).status, 400);
-	assert.equal(calls.length, 3);
+	const request = (query: string, init: RequestInit) => new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects?${query}`, init);
+	const manifest = JSON.stringify({ name: 'Session', blocks: [], id: '123', head: SNAPSHOT_ID });
+	assert.equal((await proxy(request('phase=prepare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: manifest }))).status, 200);
+	const query = `project=123&snapshot=${SNAPSHOT_ID}`;
+	const bytes = new Uint8Array([1, 2, 3, 4]);
+	assert.equal((await proxy(request(`phase=part&${query}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Content-Length': '4', 'X-Audiocom-Filename': 'snapshot.xml' }, body: bytes }))).status, 200);
+	assert.equal((await proxy(request(`phase=complete&${query}`, { method: 'POST' }))).status, 200);
+	assert.equal((await proxy(request(query, { method: 'DELETE' }))).status, 200);
+	assert.equal(calls[0]?.body, manifest); assert.equal(calls[1]?.headers.get('Content-Length'), '4');
+	assert(calls.every(call => call.url.origin === BACKEND && call.url.pathname === '/api/audiocom/projects'));
+	assert.equal((await proxy(request(`phase=part&${query}&force=true`, { method: 'POST' }))).status, 400);
+	assert.equal((await proxy(new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects/prepare`, { method: 'POST' }))).status, 404);
+	assert.equal((await proxy(new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects/download`))).status, 404);
+	assert.equal(calls.length, 4);
 });
-
-test('desktop revision uploads retain their project and expected head and reject force or partial identifiers', async () => {
-	let calls = 0;
-	const proxy = createDesktopAudiocomProxy({ appOrigin: APP_ORIGIN, apiOrigin: BACKEND,
-		sessionStore: { get: () => null, set: async () => {}, clear: async () => {} },
-		fetchImpl: async (input, init) => {
-			calls++;
-			const url = new URL(String(input));
-			assert.equal(url.origin, BACKEND);
-			if (url.pathname === '/api/audiocom/projects/prepare') {
-				assert.equal(url.searchParams.get('size'), '16'); assert.equal(init?.body, undefined);
-				return Response.json({ data: { projectId: PROJECT_ID, snapshotId: SNAPSHOT_ID } }, { status: 201 });
-			}
-			assert.equal(url.pathname, '/api/audiocom/projects');
-			if (init?.method === 'DELETE') {
-				assert.equal(url.searchParams.get('id'), PROJECT_ID); assert.equal(url.searchParams.get('snapshotId'), SNAPSHOT_ID);
-				assert.equal(init.body, undefined); return new Response(null, { status: 204 });
-			}
-			assert.equal(url.searchParams.get(url.searchParams.has('project') ? 'project' : 'id'), PROJECT_ID);
-			assert.equal(url.searchParams.get(url.searchParams.has('snapshot') ? 'snapshot' : 'head'), SNAPSHOT_ID);
-			assert.equal(new TextDecoder().decode(await new Response(init?.body).arrayBuffer()), 'SQLite format 3\0');
-			return Response.json({ data: {} }, { status: 201 });
-		},
-	});
-	const query = `name=Project&format=aup3&id=${PROJECT_ID}&head=${SNAPSHOT_ID}`;
-	const request = (params: string) => new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects?${params}`, {
-		method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Audiocom-Filename': 'Project.aup3', 'X-Audiocom-Content-Length': '16' },
-		body: new TextEncoder().encode('SQLite format 3\0'),
-	});
-	assert.equal((await proxy(request(query))).status, 201);
-	for (const invalid of [`${query}&force=true`, `${query}&id=${PROJECT_ID}`, query.replace(`&head=${SNAPSHOT_ID}`, ''), query.replace(PROJECT_ID, '../escape')]) {
-		assert.equal((await proxy(request(invalid))).status, 400);
-	}
-	assert.equal(calls, 1);
-	const prepare = new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects/prepare?${query}&size=16`, { method: 'POST' });
-	assert.equal((await proxy(prepare)).status, 201);
-	assert.equal((await proxy(request(query.replace('&id=', '&project=').replace('&head=', '&snapshot=')))).status, 201);
-	assert.equal((await proxy(new Request(`${APP_ORIGIN}/_desktop/audiocom/api/audiocom/projects?id=${PROJECT_ID}&snapshotId=${SNAPSHOT_ID}`, { method: 'DELETE' }))).status, 204);
-	assert.equal(calls, 4);
-});
-
 
 test('desktop forwards validated provider selections only to its fixed backend and leaves preview selection to the pinned grant', async () => {
 	const calls: { url: string; origin: string | null }[] = [];

@@ -74,26 +74,8 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 				return listed;
 			});
 		},
-		async upload(file, revision) {
-			if (!snapshot.supported) return;
-			await operation('uploading', async signal => {
-				const format = file.name.toLowerCase().split('.').at(-1);
-				if (!snapshot.formats.some(value => value === format)) throw new Error('Choose an AUP3 or AUP4 project file.');
-				if (file.size < 16 || file.size > snapshot.maximumBytes) throw new Error('The project archive exceeds the server size limit.');
-				if (new TextDecoder().decode(await file.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new Error('Choose a standalone SQLite AUP3 or AUP4 project file.');
-				signal.throwIfAborted();
-				if (revision && !revision.snapshotId) throw new Error('Refresh the archive list before saving a revision.');
-				const name = revision?.name ?? (file.name.replace(/\.aup[34]$/iu, '').trim().slice(0, 256) || 'Project');
-				try { await client.upload(file, name, signal, revision); }
-				catch (error) {
-					if (signal.aborted || error instanceof AudiocomApiError && [401, 409].includes(error.status)) throw error;
-					throw new Error(`${error instanceof Error ? error.message : 'The project upload failed.'} The server may retain an unfinished project. Refresh the archive list before trying again.`, { cause: error });
-				}
-				return { ...await client.list(1, signal), completedFileName: file.name };
-			});
-		},
 		async saveProject(projectId, serialize) {
-			if (!snapshot.supported || ['loading', 'uploading', 'downloading'].includes(snapshot.status)) return;
+			if (!snapshot.supported || ['loading', 'uploading'].includes(snapshot.status)) return;
 			await operation('uploading', async signal => {
 				let revision = savedProjects.get(projectId);
 				const cloudId = bindings.get(projectId);
@@ -104,7 +86,7 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 						if (revision || !listed.hasNext) break;
 					}
 				}
-				const format = revision?.format ?? (snapshot.formats.includes('aup4') ? 'aup4' : 'aup3');
+				const format = 'aup3';
 				const file = await serialize(format, signal); signal.throwIfAborted();
 				if (file.size < 16 || file.size > snapshot.maximumBytes) throw new Error('The project archive exceeds the server size limit.');
 				if (new TextDecoder().decode(await file.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new Error('The project archive is invalid.');
@@ -114,16 +96,6 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 				savedProjects.set(projectId, uploaded);
 				bindings.set(projectId, uploaded.id);
 				return { ...await client.list(1, signal), completedFileName: file.name };
-			});
-		},
-		async download(project) {
-			if (!snapshot.supported) return;
-			await operation('downloading', async signal => {
-				if (!options.saveFile) throw new Error('Project file saving is unavailable.');
-				const blob = await client.download(project, signal); signal.throwIfAborted();
-				const name = [...project.name].map(character => character.charCodeAt(0) < 32 ? '-' : character).join('').replaceAll(/[\\/]+/gu, '-').slice(0, 160) || 'Project';
-				await options.saveFile({ purpose: project.format, suggestedName: `${name}.${project.format}`, mimeType: 'application/octet-stream', blob, signal });
-				return {};
 			});
 		},
 		cancel,

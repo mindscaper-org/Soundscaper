@@ -22,18 +22,10 @@ export interface AudiocomProjectArchiveClient {
 	capabilities(signal?: AbortSignal): Promise<AudiocomArchiveCapabilities>;
 	list(page: number, signal?: AbortSignal): Promise<AudiocomArchivePage>;
 	upload(file: File, name: string, signal?: AbortSignal, revision?: AudiocomProjectArchive): Promise<AudiocomProjectArchive>;
-	download(project: AudiocomProjectArchive, signal?: AbortSignal): Promise<Blob>;
-}
-export interface AudiocomArchiveSaveRequest {
-	readonly purpose: 'aup3' | 'aup4';
-	readonly suggestedName: string;
-	readonly mimeType: string;
-	readonly blob: Blob;
-	readonly signal: AbortSignal;
 }
 export interface AudiocomArchiveSnapshot extends AudiocomArchivePage, AudiocomArchiveCapabilities {
 	readonly supported: boolean;
-	readonly status: 'idle' | 'loading' | 'ready' | 'uploading' | 'downloading' | 'error';
+	readonly status: 'idle' | 'loading' | 'ready' | 'uploading' | 'error';
 	readonly errorMessage?: string;
 	readonly completedFileName?: string;
 }
@@ -43,21 +35,18 @@ export interface AudiocomProjectArchives {
 	initialize(): Promise<void>;
 	setConnected(connected: boolean): Promise<void>;
 	refresh(page: number): Promise<void>;
-	upload(file: File, revision?: AudiocomProjectArchive): Promise<void>;
 	saveProject(projectId: string, serialize: (format: 'aup3' | 'aup4', signal: AbortSignal) => Promise<File>): Promise<void>;
-	download(project: AudiocomProjectArchive): Promise<void>;
 	cancel(): void;
 	dispose(): void;
 }
 export interface AudiocomProjectArchiveOptions {
 	readonly apiOrigin?: string;
 	readonly client?: AudiocomProjectArchiveClient;
-	readonly saveFile?: (request: AudiocomArchiveSaveRequest) => Promise<unknown>;
 	readonly onAuthenticationExpired?: () => void;
 	readonly revisionStorage?: Pick<Storage, 'getItem' | 'setItem'> | null;
 }
 
-/** Optional whole-file archive storage for the selected provider. */
+/** Audacity-compatible project synchronization for the selected server. */
 export function createAudiocomProjectArchives(options: AudiocomProjectArchiveOptions = {}): AudiocomProjectArchives {
 	return createProjectArchives(options);
 }

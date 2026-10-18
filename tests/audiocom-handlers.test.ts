@@ -148,9 +148,9 @@ test('audio.com preview rejects redirects, non-audio and oversized content', asy
 		assert.equal((await handleAudiocomPreviewRequest(context(request('preview?url=https://s3.audio.com/audio/test.mp3')), { repository, now: () => NOW, fetchImpl: () => Promise.resolve(upstream) })).status, 502);
 	}
 });
-test('audio.com usage exposes the application limit and explicitly excludes project storage', async () => {
+test('audio.com usage exposes the application limit and enables native Audacity project storage', async () => {
 	const response = await handleAudiocomUsageRequest(context(request('usage')));
-	assert.deepEqual(await response.json(), { data: { maximumUploadBytes: 100000000, providerMaximumUploadBytes: 1073741824, projectStorageSupported: false, projectFormats: [], provider: DEFAULT_AUDIOCOM_PROVIDER } });
+	assert.deepEqual(await response.json(), { data: { maximumUploadBytes: 100000000, providerMaximumUploadBytes: 100000000, projectStorageSupported: true, projectFormats: ['aup3'], provider: DEFAULT_AUDIOCOM_PROVIDER } });
 });
 
 test('audio.com cancelled upload uses a fresh cleanup signal and does not invoke success', async () => {
