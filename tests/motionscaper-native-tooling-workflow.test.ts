@@ -79,5 +79,8 @@ for (const file of ['motionscaper-media-host-native-build.yml', 'framescaper-med
 		const command = String(install.run).trim().split(/\s+/u);
 		assert.deepEqual(command.slice(0, 2), ['choco', 'install']);
 		assert.ok(command.includes('nasm'), 'libvpx Windows x64 configuration requires an explicitly installed assembler');
+		assert.match(String(install.run), /\$env:GITHUB_PATH/u, 'the NASM installer does not publish its directory to later steps');
+		assert.match(String(install.run), /Join-Path \$env:ProgramFiles 'NASM'/u);
+		assert.match(String(install.run), /nasm\.exe/u, 'verify the installed assembler before publishing its path');
 	});
 }
