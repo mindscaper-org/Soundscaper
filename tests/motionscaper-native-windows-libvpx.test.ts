@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -174,3 +175,45 @@ for (const target of targets) {
 		assert.ok(commands.indexOf(normalize) < commands.indexOf(phase(commands, 'ffmpeg-configure')));
 	});
 }
+
+for (const target of targets) {
+	test(`Motion ${target} installs x265 static dependency metadata before FFmpeg`, () => {
+		const windows = target.startsWith('win-');
+		const sourceRoot = windows ? String.raw`D:\motionscaper-x265-source` : root;
+		const workRoot = windows ? String.raw`C:\motionscaper-x265-work` : join(root, 'x265-work');
+		const commands = commandPlan(target, sourceRoot, workRoot);
+		if (!windows) {
+			assert.ok(!commands.some(command => command.phase === 'x265-normalize-pkg-config'));
+			return;
+		}
+		const installed = framescaperMediaHostBuildPaths(workRoot);
+		const normalize = phase(commands, 'x265-normalize-pkg-config');
+		assert.equal(normalize.executable, phase(commands, 'x265-install').executable);
+		assert.deepEqual(normalize.args, ['-E', 'copy',
+			join(sourceRoot, 'host', 'build', 'windows-x265.pc'),
+			join(installed.x265Install, 'lib', 'pkgconfig', 'x265.pc')]);
+		assert.equal(normalize.cwd, installed.x265Build);
+		assert.deepEqual(normalize.environment, phase(commands, 'x265-install').environment);
+		assert.equal(commands.indexOf(normalize), commands.indexOf(phase(commands, 'x265-normalize-library')) + 1);
+		assert.ok(commands.indexOf(normalize) < commands.indexOf(phase(commands, 'ffmpeg-configure')));
+	});
+}
+
+test('Motion Windows x265 metadata declares its pinned version and complete static dependency', () => {
+	const hostRoot = resolve(import.meta.dirname, '../native/framescaper-media-host');
+	const manifest = JSON.parse(readFileSync(join(hostRoot, 'build/ffmpeg-9.0.1-external-sources.json'), 'utf8')) as {
+		readonly libraries: readonly { readonly id: string; readonly version: string }[];
+	};
+	const x265 = manifest.libraries.find(library => library.id === 'x265');
+	assert.ok(x265);
+	const source = readFileSync(join(hostRoot, 'build/windows-x265.pc'), 'utf8');
+	const fields = new Map(source.split(/\r?\n/u).filter(line => line.includes(':')).map(line => {
+		const colon = line.indexOf(':');
+		return [line.slice(0, colon).trim(), line.slice(colon + 1).trim()] as const;
+	}));
+	assert.equal(fields.get('Version'), x265.version);
+	assert.equal(fields.get('Libs'), '-L${libdir} -lx265');
+	assert.equal(fields.get('Libs.private'), '-ladvapi32');
+	assert.equal(fields.get('Cflags'), '-I${includedir}');
+	assert.match(source, /^prefix=\$\{pcfiledir\}\/\.\.\/\.\.$/mu);
+});
