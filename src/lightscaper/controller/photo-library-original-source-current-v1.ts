@@ -4,6 +4,7 @@ import { canonicalMediaContentBlob } from '../../common/editor/storage/media-con
 import { normalizePhotoOriginalV1 } from '../catalog/photo-document-envelope-v1.ts';
 import type { PhotoOriginalV1 } from '../catalog/types.ts';
 import { field, id, record } from '../catalog/value-validation.ts';
+import { readPhotoLibraryOriginalGroupCurrentV1 } from './photo-library-original-group-contract-current-v1.ts';
 
 export interface PhotoLibraryOriginalRequestCurrentV1 {
 	readonly catalogId: string;
@@ -14,8 +15,13 @@ export interface PhotoLibraryOriginalLeaseCurrentV1 {
 	readonly body: Blob;
 	close(): Promise<void>;
 }
+export interface PhotoLibraryOriginalGroupLeaseCurrentV1 {
+	readonly bodies: readonly Blob[];
+	close(): Promise<void>;
+}
 export interface PhotoLibraryOriginalSourceCurrentV1 {
 	acquire(request: Readonly<PhotoLibraryOriginalRequestCurrentV1>, options?: Readonly<{ signal?: AbortSignal }>): Promise<Readonly<PhotoLibraryOriginalLeaseCurrentV1>>;
+	acquireGroup?(requests: readonly Readonly<PhotoLibraryOriginalRequestCurrentV1>[], options?: Readonly<{ signal?: AbortSignal }>): Promise<Readonly<PhotoLibraryOriginalGroupLeaseCurrentV1>>;
 }
 type Fallback = (original: PhotoOriginalV1, signal?: AbortSignal) => Promise<unknown>;
 const CHECK = AbortSignal.prototype.throwIfAborted;
@@ -26,15 +32,26 @@ function check(signal?: AbortSignal): void { if (signal !== undefined) Reflect.a
 export function capturePhotoLibraryOriginalSourceCurrentV1(source: PhotoLibraryOriginalSourceCurrentV1 | undefined,
 	fallback?: Fallback): Readonly<PhotoLibraryOriginalSourceCurrentV1> {
 	if (source !== undefined) {
-		const acquire = source.acquire;
+		const acquire = source.acquire, acquireGroup = source.acquireGroup;
 		if (typeof acquire !== 'function') throw new TypeError('Original source requires an acquire capability.');
+		if (acquireGroup !== undefined && typeof acquireGroup !== 'function') throw new TypeError('Original source requires a callable group capability.');
 		return Object.freeze({ acquire: (request: Readonly<PhotoLibraryOriginalRequestCurrentV1>, options?: Readonly<{ signal?: AbortSignal }>) =>
-			Reflect.apply(acquire, source, [request, options]) as Promise<Readonly<PhotoLibraryOriginalLeaseCurrentV1>> });
+			Reflect.apply(acquire, source, [request, options]) as Promise<Readonly<PhotoLibraryOriginalLeaseCurrentV1>>,
+		...(acquireGroup === undefined ? {} : { acquireGroup: (requests: readonly Readonly<PhotoLibraryOriginalRequestCurrentV1>[], options?: Readonly<{ signal?: AbortSignal }>) =>
+			Reflect.apply(acquireGroup, source, [requests, options]) as Promise<Readonly<PhotoLibraryOriginalGroupLeaseCurrentV1>> }) });
 	}
 	if (typeof fallback !== 'function') throw new TypeError('A complete Original source is required.');
 	return Object.freeze({ async acquire(request: Readonly<PhotoLibraryOriginalRequestCurrentV1>, options: Readonly<{ signal?: AbortSignal }> = {}) {
 		const body = canonicalMediaContentBlob(await fallback(request.original, options.signal));
 		return Object.freeze({ body, close: async (): Promise<void> => undefined });
+	}, async acquireGroup(value: readonly Readonly<PhotoLibraryOriginalRequestCurrentV1>[], options: Readonly<{ signal?: AbortSignal }> = {}) {
+		check(options.signal); const { requests } = readPhotoLibraryOriginalGroupCurrentV1(value), byKey = new Map<string, Blob>(), bodies: Blob[] = [];
+		for (const request of requests) {
+			check(options.signal); let body = byKey.get(request.original.storageKey);
+			if (body === undefined) { body = canonicalMediaContentBlob(await fallback(request.original, options.signal)); byKey.set(request.original.storageKey, body); }
+			check(options.signal); bodies.push(body);
+		}
+		return Object.freeze({ bodies: Object.freeze(bodies), close: async (): Promise<void> => undefined });
 	} });
 }
 

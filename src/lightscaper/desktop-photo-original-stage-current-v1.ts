@@ -24,7 +24,7 @@ export class DesktopPhotoOriginalStageCurrentV1 {
 	#closing: Promise<void> | undefined;
 
 	async materialize(storage: DesktopPhotoOriginalStorageCurrentV1, createId: () => string,
-		transport: Readonly<DesktopPhotoOriginalTransportCurrentV1>, ticket: Readonly<DesktopPhotoOriginalTicketCurrentV1>, signal: AbortSignal): Promise<File> {
+		transport: Readonly<Pick<DesktopPhotoOriginalTransportCurrentV1, 'read'>>, ticket: Readonly<DesktopPhotoOriginalTicketCurrentV1>, signal: AbortSignal): Promise<File> {
 		check(signal); const root = await storage.getDirectory(); check(signal);
 		this.#parent = await root.getDirectoryHandle(STAGING_DIRECTORY, { create: true }); check(signal);
 		const token = createId();

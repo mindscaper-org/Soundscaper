@@ -15,6 +15,10 @@ export interface DesktopPhotoOriginalTransportCurrentV1 {
 	read(ticket: Readonly<DesktopPhotoOriginalTicketCurrentV1>, offset: number, length: number): Promise<unknown>;
 	/** Cancels admission and joins any actual native pull, including a held read. */
 	close(ticket: Readonly<{ id: string }>): Promise<void>;
+	/** Optional complete group transport; all three methods must be present together. */
+	openGroup?(requests: readonly Readonly<PhotoLibraryOriginalRequestCurrentV1>[]): Promise<unknown>;
+	readGroup?(ticket: Readonly<{ id: string }>, index: number, offset: number, length: number): Promise<unknown>;
+	closeGroup?(ticket: Readonly<{ id: string }>): Promise<void>;
 }
 export interface DesktopPhotoOriginalWritableCurrentV1 {
 	write(bytes: Uint8Array<ArrayBuffer>): PromiseLike<unknown>;
