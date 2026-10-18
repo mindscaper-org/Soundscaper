@@ -4,7 +4,7 @@ import type { PhotoLibraryCullingNavigationContextV1, PhotoLibraryCullingNavigat
 import type { PhotoLibraryPageV1 } from '../../common/editor/photo-library-session-port-v1.ts';
 import { readCursorPage, request } from '../../common/editor/storage/indexeddb-backend.ts';
 import { catalogTransaction } from './catalog-transaction.ts';
-import { field, id, record } from './value-validation.ts';
+import { id } from './value-validation.ts';
 import { photoStorageKey, photoSummary, readPhotoSummary } from './repository-records.ts';
 import { readStoredPhotoV1OrV2 } from './photo-catalog-records-v2.ts';
 import { readStoredPhotoCurrentV1 } from './photo-catalog-records-current-v1.ts';
@@ -13,8 +13,8 @@ import { PhotoCatalogRevisionConflictError, type PhotoSummaryV1 } from './reposi
 import { readPhotoQueryContextV2 } from './photo-query-pages-v2.ts';
 import { readPhotoQueryPageInTransactionV1 } from './photo-query-pages-v1.ts';
 import { readPhotoQueryPageInTransactionV2 } from './photo-query-page-kernel-v2.ts';
-import { normalizePhotoCatalogQueryV1, photoQueryDigestV1, type PhotoCatalogQueryV1 } from './photo-query-types-v1.ts';
-import { normalizePhotoCatalogQueryV2, photoQueryDigestV2, type PhotoCatalogQueryV2 } from './photo-query-types-v2.ts';
+import { photoQueryDigestV1, type PhotoCatalogQueryV1 } from './photo-query-types-v1.ts';
+import { photoQueryDigestV2, type PhotoCatalogQueryV2 } from './photo-query-types-v2.ts';
 import { photoQueryMatcherV1 } from './photo-query-matcher-v1.ts';
 import { photoQueryMatcherV2 } from './photo-query-matcher-v2.ts';
 import { photoQueryRowKeyV1, projectPhotoQueryRowV1, readPhotoQueryRowV1, readPhotoQueryBuildStateV1, PhotoQueryIndexNotReadyError } from './photo-query-index-v1.ts';
@@ -23,33 +23,14 @@ import { readPhotoQueryBuildStateV2 } from './photo-query-index-storage-v2.ts';
 import { readPhotoStackQueryInTransaction, type PhotoStackQueryDestinationStart, type PhotoStackQueryKernelProgress } from './photo-stack-query-kernel.ts';
 import { issuePhotoStackQueryProgressV1 } from './photo-stack-query-progress-v1.ts';
 import { issuePhotoStackQueryProgressV2 } from './photo-stack-query-progress-v2.ts';
-import { assertPhotoStackQuerySignalV1, withPhotoStackQuerySignalV1 } from './photo-stack-query-signal-v1.ts';
+import { withPhotoStackQuerySignalV1 } from './photo-stack-query-signal-v1.ts';
 import { PHOTO_SMART_COLLECTION_CONTEXT_STORES_V1, readPhotoSmartCollectionStorageContextV1 } from './photo-smart-collection-storage-v1.ts';
 import { photoSmartCollectionKeyV1 } from './photo-smart-collection-record-v1.ts';
 import { readPhotoSmartCollectionDefinitionV1, validatePhotoSmartCollectionReferencesV1 } from './photo-smart-collection-read-v1.ts';
 import { issuePhotoSavedQueryProgressV1, photoSavedDefinitionDigestV1 } from './photo-smart-collection-query-progress-v1.ts';
 
-/** No caller-owned cursor or inclusive switch crosses this admission boundary. */
-export function admitPhotoCullingNavigationV1(contextValue: unknown, value: unknown) {
-	const input = record(value, 'culling destination request', ['photoId', 'signal'], ['photoId']);
-	const signal = Object.hasOwn(input, 'signal') ? field(input, 'signal') : undefined;
-	if (signal !== undefined) assertPhotoStackQuerySignalV1(signal);
-	const selected = record(contextValue, 'culling destination context', ['kind', 'query', 'collectionId', 'collapsed'], ['kind']);
-	const kind = field(selected, 'kind'); let context: PhotoLibraryCullingNavigationContextV1;
-	if (kind === 'plain') { record(contextValue, 'plain culling context', ['kind']); context = Object.freeze({ kind }); }
-	else if (kind === 'query' || kind === 'saved') {
-		record(contextValue, 'queried culling context', kind === 'query' ? ['kind', 'query', 'collapsed'] : ['kind', 'collectionId', 'collapsed']);
-		const collapsed = field(selected, 'collapsed'); if (typeof collapsed !== 'boolean') throw new TypeError('Culling grouping mode must be explicit.');
-		if (kind === 'saved') context = Object.freeze({ kind, collectionId: id(field(selected, 'collectionId'), 'culling saved collection ID'), collapsed });
-		else {
-			const queryValue = field(selected, 'query');
-			const query = queryValue !== null && typeof queryValue === 'object' && Object.hasOwn(queryValue, 'schemaVersion')
-				? normalizePhotoCatalogQueryV2(queryValue) : normalizePhotoCatalogQueryV1(queryValue);
-			context = Object.freeze({ kind, query, collapsed });
-		}
-	} else throw new RangeError('Unknown culling destination context.');
-	return Object.freeze({ context, photoId: id(field(input, 'photoId'), 'culling destination photo ID'), ...(signal === undefined ? {} : { signal }) });
-}
+export { admitPhotoCullingNavigationV1 } from './photo-culling-navigation-contract-v1.ts';
+import { admitPhotoCullingNavigationV1 } from './photo-culling-navigation-contract-v1.ts';
 
 type Admitted = ReturnType<typeof admitPhotoCullingNavigationV1>;
 type Query = PhotoCatalogQueryV1 | PhotoCatalogQueryV2;
