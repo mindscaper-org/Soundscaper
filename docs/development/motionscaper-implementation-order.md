@@ -95,8 +95,9 @@ failed its original retained PSS-growth limit before independent output
 qualification; its passed physical audit does not qualify the export. These
 results do not qualify other platforms.
 
-The complete static gate passed on `0241c6e1c`. The subsequent export audio
-cache correction (`6463b7e69`) passes its red/green production-path regression,
+The complete static gate and independent input/process audit passed on
+`feabe1b3c`. The export audio cache correction (`6463b7e69`) passes its red/green
+production-path regression,
 46 focused Motion cases, strict test and Motion production types, changed-file
 lint and the Motion browser build. Full lint passed on the final file bodies.
 It preserves the global cache budget and preview LRU behavior. Its unchanged
@@ -109,9 +110,12 @@ cases, strict test types, changed-file lint, the Motion build and the existing
 Chromium preview workflow. It waits for a painted frame before enabling preview
 controls or reporting ready; historical timeout causes remain unproven.
 
-The Windows x64 builds first failed missing assembler discovery, then libvpx's
-compiler/linker selection. The NASM installation/PATH and MSVC project-mode
-corrections pass their focused controls; no Windows host or package is qualified.
+The Windows x64 builds exposed assembler discovery, libvpx compiler selection,
+source-path persistence and generator-script launching defects. The NASM,
+MSVC project-mode, native-path and shell corrections pass their focused controls.
+The shell correction also passes a bounded generator, recursive Make and install
+control. A complete native build remains required; no Windows host or package is
+qualified.
 The shared native source-pin refresh requires a fresh Linux native build and
 receipt before new packaging. Earlier native results keep their original
 source attribution; a new-source pass is not inferred from unchanged Linux flags.

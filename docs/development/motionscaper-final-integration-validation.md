@@ -64,7 +64,12 @@ unchanged. Temporary Linux sandbox helper custody was fully restored and
 independently checked.
 
 Source `0241c6e1c` passed the complete `npm run check:static` gate, including
-its input and process audit. Source `6463b7e69` subsequently fixes production
+its input and process audit. Source `feabe1b3c` also passed the complete static
+gate, independent input/process post and generated-artifact audit: 52,066
+unchanged input records, 11,777 generated files, no startup-budget changes and a
+largest JavaScript chunk of 488,189 bytes. The command completed in 717.9 seconds
+within its unchanged 1,200-second bound. This does not establish full Node,
+browser, native-interop or package acceptance. Source `6463b7e69` fixes production
 export audio cache retention: each successful block releases unused historical
 windows, while the global 16 MiB budget and preview LRU behavior remain unchanged.
 The production-path regression failed before the correction; all 46 focused
@@ -98,7 +103,23 @@ source, tool, artifact and process audits; neither reached the Motion host,
 self-tests or result verifier. The recipe correction (`fe40fc1b`) selects the
 pinned upstream MSVC project path only for Windows libvpx. Its five target-plan
 controls and 14 focused Motion checks, strict types, changed-file lint and both
-source audits pass. Actual native compilation on that source remains required.
+source audits pass. Its native build reached VS mode, then failed because
+native Make could not resolve the persisted shell-style source path.
+The path correction (`9c82c30a`) retains native forward-slash source and install
+paths. Its two drive-root regressions fail before the fix; all 16 focused Motion
+checks, strict types, changed-file lint and source audits pass afterward.
+The next native build resolves the includes and selects VS project mode, then
+fails launching `gen_msvs_def.sh`. It does not reach host compilation, CTest,
+self-tests or result verification. The four failed builds and their independent
+source, tool, artifact and process audits remain preserved.
+
+The shell correction (`8d20985b`) binds the full authenticated Bash path and
+normal shell flags only for Windows libvpx build/install. Its two Windows
+regressions fail before the fix; all 16 focused Motion checks, strict types,
+changed-file lint and source audits pass afterward. A separate bounded native
+Make control passed generator output, recursive Make and installation with the
+same shell arguments. This does not establish complete native compilation or a
+new Linux native receipt.
 The refreshed shared native manifests also require a fresh Linux native build
 and receipt before new packaging. Earlier native results retain their original
 source identities; they are not retagged or reused against the changed closure.
@@ -125,6 +146,7 @@ Current retained receipts are relative to
 | Failed maximum index and passed physical closure | `current-6ab2c71d-native-qualification/installed-preparation/maximum-v2/actuals/index/qualification.json` |
 | Completed helper restoration | `current-6ab2c71d-native-qualification/sandbox-return/qualification.json` |
 | Complete static gate, `0241c6e1c` | `current-final-source-static-0241c6e1c-20261018/qualification.json` |
+| Complete static gate, `feabe1b3c` | `current-final-source-static-canon-preparation-20261018/execution-summary.json` |
 | Export audio retention correction | `motion-audio-block-retention-6463b7e69-20261018/focused-validation.json` |
 | Full lint on the correction's final file bodies | `motion-audio-block-retention-6463b7e69-20261018/full-lint-validation.json` |
 | Failed private-project package and passed physical audit | `current-6463b7e69-native-preparation/owner-failed-qualification.json` |
@@ -132,6 +154,10 @@ Current retained receipts are relative to
 | Merged first-paint auxiliary retirement | `first-paint-readiness-20261018/retired-auxiliary/retirement.json` |
 | Windows NASM installation/PATH corrections | `windows-x64-prerequisites-20261018/nasm-ci-path-fix-commit-receipt.json` |
 | Windows libvpx recipe correction | `windows-x64-prerequisites-20261018/libvpx-msvc-fix-commit-receipt.json` |
+| Windows libvpx path correction | `windows-x64-prerequisites-20261018/libvpx-native-path-fix-commit-receipt.json` |
+| Fourth failed Windows build and physical closure | `windows-x64-prerequisites-20261018/native-build-native-path-v7-failed-closed-review.json` |
+| Bounded native Make shell control | `windows-x64-prerequisites-20261018/native-make-shell-canary-v1-closed-review.json` |
+| Windows libvpx shell correction | `windows-x64-prerequisites-20261018/libvpx-native-shell-fix-commit-receipt.json` |
 
 These results retain their exact source attribution. The subsequent test and
 documentation commits do not retag frozen executions. Fresh complete static,
