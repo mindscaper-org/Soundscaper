@@ -26,12 +26,13 @@ import { normalizePhotoDevelopWorkspaceCommandV2, PHOTO_DEVELOP_WORKSPACE_COMMAN
 import { normalizePhotoDevelopWorkspaceCommandCurrentV1 } from './photo-develop-workspace-commands-current-v1.ts';
 import { createPhotoLibraryDevelopSettingsSessionV2, type PhotoLibraryDevelopSettingsSessionHostV2 } from './photo-library-develop-settings-session-v2.ts';
 import { createPhotoLibraryDevelopPresetsSessionV2, type PhotoLibraryDevelopPresetStorageV2 } from './photo-library-develop-presets-session-v2.ts';
+import { capturePhotoLibraryDevelopOriginalSourceCurrentV1 } from './photo-library-develop-original-source-current-v1.ts';
 import { createPhotoLibraryDevelopOriginalSessionV2, type PhotoLibraryDevelopOriginalSessionHostV2 } from './photo-library-develop-original-session-v2.ts';
 import { createPhotoLibraryDevelopOriginalSessionCurrentV1, type PhotoLibraryDevelopOriginalSessionHostCurrentV1 } from './photo-library-develop-original-session-current-v1.ts';
 
 export interface PhotoLibraryDevelopSessionHostV2 extends PhotoLibraryDevelopSettingsSessionHostV2 {
 	readonly maskRasters?: Readonly<PhotoLibraryDevelopMaskRasterPortV1>;
-	readonly originalSource?: Pick<PhotoLibraryDevelopOriginalSessionHostV2, 'loadOriginal' | 'withFrame'>;
+	readonly originalSource?: Pick<PhotoLibraryDevelopOriginalSessionHostV2, 'loadOriginal' | 'withFrame' | 'originalSource'>;
 	readonly presetStorage?: PhotoLibraryDevelopPresetStorageV2;
 	readonly repository: Pick<PhotoCatalogRepositoryV2, 'loadPhoto'>;
 	readonly ready: () => Promise<string>;
@@ -45,7 +46,7 @@ export interface PhotoLibraryDevelopSessionHostV3 {
 	readonly ready: () => Promise<string>;
 	readonly operation: <Result>(run: (signal: AbortSignal) => Promise<Result>, signal?: AbortSignal) => Promise<Result>;
 	readonly edit: <Result>(photoId: string, run: (owner: PhotoCommandOwnerCurrentV1, signal: AbortSignal) => Promise<Result>, signal?: AbortSignal) => Promise<Result>;
-	readonly originalSource?: Pick<PhotoLibraryDevelopOriginalSessionHostCurrentV1, 'loadOriginal' | 'withFrame'>;
+	readonly originalSource?: Pick<PhotoLibraryDevelopOriginalSessionHostCurrentV1, 'loadOriginal' | 'withFrame' | 'originalSource'>;
 	readonly maskRasters?: Readonly<PhotoLibraryDevelopMaskRasterPortV1>;
 }
 export interface PhotoLibraryDevelopSessionHostCurrentV1 extends Omit<PhotoLibraryDevelopSessionHostV3, 'settingsCurrent' | 'presetsCurrent'> {
@@ -139,18 +140,13 @@ function legacyChildren(host: PhotoLibraryDevelopSessionHostV2, ready: () => Pro
 	originalSource: Host['originalSource'], presetStorage: PhotoLibraryDevelopPresetStorageV2 | undefined, borrowedMutate: PhotoLibraryDevelopSessionHostV2['mutate']) {
 	const mutate: PhotoLibraryDevelopSessionHostV2['mutate'] = (run, signal) => Reflect.apply(borrowedMutate, host, [run, signal]);
 	return { ...(originalSource ? { original: createPhotoLibraryDevelopOriginalSessionV2({ repository: { loadPhoto: loadPhoto as PhotoLibraryDevelopSessionHostV2['repository']['loadPhoto'] },
-		ready, operation, ...originalSource }) } : {}), settings: createPhotoLibraryDevelopSettingsSessionV2(host),
+		ready, operation, ...capturePhotoLibraryDevelopOriginalSourceCurrentV1(originalSource.originalSource, originalSource) }) } : {}), settings: createPhotoLibraryDevelopSettingsSessionV2(host),
 		...(presetStorage ? { presets: createPhotoLibraryDevelopPresetsSessionV2({ storage: presetStorage, ready, operation, mutate }) } : {}) };
 }
 function currentOriginal(source: NonNullable<Host['originalSource']>, ready: () => Promise<string>, operation: PhotoLibraryDevelopSessionHostV3['operation'],
 	loadPhoto: PhotoLibraryDevelopSessionHostV3['repository']['loadPhoto']) {
-	const reader = source.loadOriginal, decoder = source.withFrame;
-	if (typeof reader !== 'function' || (decoder !== undefined && typeof decoder !== 'function')) throw new TypeError('Complete original pixel capabilities are required.');
-	const withFrame: typeof decoder = decoder ? (value, consume, dependencies) => Reflect.apply(decoder, source, [value, consume, dependencies]) : undefined;
 	return createPhotoLibraryDevelopOriginalSessionCurrentV1({ repository: { loadPhoto }, ready, operation,
-		loadOriginal: (...args) => Reflect.apply(reader, source, args),
-		...(withFrame ? { withFrame } : {}),
-	});
+		...capturePhotoLibraryDevelopOriginalSourceCurrentV1(source.originalSource, source) });
 }
 
 export function readPhotoLibraryDevelopSnapshotForProfileV1(profile: 'legacy2', value: unknown, selected?: string): PhotoLibraryDevelopSnapshotV2;

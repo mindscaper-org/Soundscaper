@@ -12,6 +12,7 @@ import type { PhotoDevelopPresetSettingsPortV1 } from '../storage/photo-develop-
 import type { MediaRepository } from '../../common/editor/storage/media-repository.ts';
 import type { PhotoLibraryOriginalInspectionPortV1 } from './photo-library-original-inspection-v1.ts';
 import type { PhotoLibraryStackRepositoryV1 } from './photo-library-stacks-v1.ts';
+import type { PhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 
 type Prepared = Pick<PhotoImportPreparedV1, 'outcome' | 'index' | 'fileName' | 'photo' | 'original' | 'keywordNames' | 'notices'>;
 export type PhotoLibraryPreparationOutcomeV1 = Prepared | Extract<PhotoImportOutcomeV1, { outcome: 'failed' }>;
@@ -25,6 +26,7 @@ export interface PhotoLibrarySessionPortsV1 {
 		& Partial<Pick<PhotoCatalogRepositoryV1, 'readStackQueryPageV2'>>;
 	readonly originalInspection?: PhotoLibraryOriginalInspectionPortV1;
 	readonly originalRestoration?: Readonly<Pick<MediaRepository, 'restoreCatalogOriginalBody'>>;
+	readonly originalSource?: PhotoLibraryOriginalSourceCurrentV1;
 	readonly backup?: Readonly<{
 		readSnapshot: PhotoCatalogRepositoryV1['readSnapshot'];
 		captureSmartCollectionArchiveV1: PhotoCatalogRepositoryV1['captureSmartCollectionArchiveV1'];

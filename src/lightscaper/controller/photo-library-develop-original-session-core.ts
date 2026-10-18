@@ -6,6 +6,7 @@ import type { PhotoDocumentV1, PhotoOriginalV1 } from '../catalog/types.ts';
 import { PhotoCatalogRevisionConflictError } from '../catalog/repository-types.ts';
 import { readPhotoStackSignalOptionsV1 } from '../catalog/photo-stack-repository-v1.ts';
 import { field, id, integer, record } from '../catalog/value-validation.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1, withPhotoLibraryOriginalCurrentV1, type PhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 import { withPhotoOriginalFrameV1 } from '../preview/photo-original-frame-v1.ts';
 import { normalizePhotoPreviewOriginalBindingV1, PHOTO_PREVIEW_SOURCE_LIMITS_V1, type PhotoPreviewOriginalBindingV1 } from '../preview/photo-preview-plan-v1.ts';
 
@@ -13,7 +14,8 @@ export interface PhotoLibraryDevelopOriginalSessionHostCore {
 	readonly repository: Readonly<{ loadPhoto: (catalogId: string, photoId: string) => Promise<unknown | null> }>;
 	readonly ready: () => Promise<string>;
 	readonly operation: <Result>(run: (signal: AbortSignal) => Promise<Result>, signal?: AbortSignal) => Promise<Result>;
-	readonly loadOriginal: (original: PhotoOriginalV1, signal: AbortSignal) => Promise<unknown>;
+	readonly loadOriginal?: (original: PhotoOriginalV1, signal: AbortSignal) => Promise<unknown>;
+	readonly originalSource?: PhotoLibraryOriginalSourceCurrentV1;
 	readonly withFrame?: typeof withPhotoOriginalFrameV1;
 }
 
@@ -30,12 +32,13 @@ export function createPhotoLibraryDevelopOriginalSessionCore(host: PhotoLibraryD
 	normalizeBinding: (value: unknown, original: PhotoOriginalV1) => Readonly<PhotoPreviewOriginalBindingV1> = normalizePhotoPreviewOriginalBindingV1): Readonly<PhotoLibraryDevelopOriginalPortV1> {
 	const repository = host.repository, reader = repository.loadPhoto, initialize = host.ready;
 	const operation = host.operation, originalReader = host.loadOriginal, decode = host.withFrame ?? defaultDecoder;
-	for (const method of [reader, initialize, operation, originalReader, decode]) {
+	const originalSource = capturePhotoLibraryOriginalSourceCurrentV1(host.originalSource, typeof originalReader === 'function'
+		? (original, signal) => Reflect.apply(originalReader, host, [original, signal]) as Promise<unknown> : undefined);
+	for (const method of [reader, initialize, operation, decode]) {
 		if (typeof method !== 'function') throw new TypeError('Complete original pixel read capabilities are required.');
 	}
 	const loadPhoto = (catalogId: string, photoId: string) => Reflect.apply(reader, repository, [catalogId, photoId]);
 	const ready = () => Reflect.apply(initialize, host, []);
-	const loadOriginal = (original: PhotoOriginalV1, signal: AbortSignal) => Reflect.apply(originalReader, host, [original, signal]);
 	return Object.freeze({
 		async withFrame<Result>(value: PhotoLibraryDevelopOriginalReadV1,
 			consume: (view: Readonly<PhotoLibraryDevelopOriginalFrameV1>) => Result | Promise<Result>, options: Readonly<{ signal?: AbortSignal }> = {}): Promise<Result> {
@@ -62,16 +65,17 @@ export function createPhotoLibraryDevelopOriginalSessionCore(host: PhotoLibraryD
 				const current = async () => {
 					if (JSON.stringify((await read()).original) !== originalIdentity) throw new PhotoCatalogRevisionConflictError('photo');
 				};
-				const body = await loadOriginal(photo.original, admitted); check(admitted);
-				await current(); check(admitted);
-				const result = await (Reflect.apply(decode, host, [{ binding, body, signal: admitted }, async (frame: PhotoLibraryDevelopOriginalFrameV1['frame']) => {
+				return withPhotoLibraryOriginalCurrentV1(originalSource, { catalogId, photoId, original: photo.original }, async body => {
 					await current(); check(admitted);
-					const result = await consume(Object.freeze({ photoId, revision: expectedRevision, frame }));
+					const result = await (Reflect.apply(decode, host, [{ binding, body, signal: admitted }, async (frame: PhotoLibraryDevelopOriginalFrameV1['frame']) => {
+						await current(); check(admitted);
+						const result = await consume(Object.freeze({ photoId, revision: expectedRevision, frame }));
+						check(admitted); await current(); check(admitted); return result;
+					}]) as Promise<Result>);
+					// Decoder retirement may itself await native work. Publication still
+					// belongs to this revision after every frame has physically retired.
 					check(admitted); await current(); check(admitted); return result;
-				}]) as Promise<Result>);
-				// Decoder retirement may itself await native work. Publication still
-				// belongs to this revision after every frame has physically retired.
-				check(admitted); await current(); check(admitted); return result;
+				}, admitted);
 			}, signal]) as Promise<Result>;
 		},
 	} satisfies PhotoLibraryDevelopOriginalPortV1);

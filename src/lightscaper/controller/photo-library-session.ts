@@ -50,6 +50,7 @@ import { admitPhotoLibraryStackCommandV1, admitPhotoLibraryStackReadV1, admitPho
 import { readPhotoStackSignalOptionsV1 } from '../catalog/photo-stack-repository-v1.ts';
 import type { PhotoLibraryQueryV2, PhotoLibraryQueryBuildProgressV2 } from '../../common/editor/photo-library-query-port-v2.ts';
 import { createPhotoLibraryDevelopSessionV1 } from './photo-library-develop-session-v1.ts';
+import { capturePhotoLibraryDevelopOriginalSourceCurrentV1 } from './photo-library-develop-original-source-current-v1.ts';
 
 /** Product session owns lifetime, bounded presentation pages and a single writer. */
 export class PhotoLibrarySessionV1 implements PhotoLibrarySessionPortV1, PhotoLibraryBatchRenamePortV1, PhotoLibraryBackupPortV1, PhotoLibraryOriginalRecoveryPortV1, PhotoLibraryStackPortV1 {
@@ -76,7 +77,7 @@ export class PhotoLibrarySessionV1 implements PhotoLibrarySessionPortV1, PhotoLi
 		this.developImport = createPhotoLibraryDevelopImportSessionV1({ settings: presetSettings, ready: () => this.#ready(),
 			operation: (run, signal) => this.#operation(run, signal), importFiles: (files, request) => this.#importFiles(files, request) });
 		this.develop = createPhotoLibraryDevelopSessionV1({ repository: ports.catalog, ready: () => this.#ready(),
-			originalSource: ports.backup ? { loadOriginal: ports.backup.loadOriginal.bind(ports.backup) } : undefined,
+			originalSource: capturePhotoLibraryDevelopOriginalSourceCurrentV1(ports.originalSource, ports.backup),
 			presetStorage: presetSettings ? { settings: presetSettings, catalog: ports.catalog } : undefined,
 			operation: (run, signal) => this.#operation(run, signal), edit: (key, run, signal) => this.#editPhoto(key, run, signal),
 			mutate: (run, signal) => this.#mutation(run, signal), withPhoto: (catalogId, key, signal, run) => this.#withPhoto(catalogId, key, signal, run) });

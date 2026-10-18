@@ -7,6 +7,7 @@ import { readPhotoStackSignalOptionsV1 } from '../catalog/photo-stack-repository
 import { field, id, integer, record } from '../catalog/value-validation.ts';
 import { normalizePhotoPreviewOriginalBindingV1 } from '../preview/photo-preview-plan-v1.ts';
 import { admitPhotoOriginalDerivedBindingCurrentV1, withPhotoOriginalDerivedFrameCurrentV1 } from '../preview/photo-original-derived-frame-current-v1.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1, withPhotoLibraryOriginalCurrentV1 } from './photo-library-original-source-current-v1.ts';
 import { createPhotoLibraryDevelopOriginalSessionCurrentV1, type PhotoLibraryDevelopOriginalSessionHostCurrentV1 } from './photo-library-develop-original-session-current-v1.ts';
 
 export interface PhotoLibraryDevelopDerivedOriginalSessionHostCurrentV1 extends PhotoLibraryDevelopOriginalSessionHostCurrentV1 {
@@ -21,7 +22,9 @@ function check(signal?: AbortSignal): void { if (signal) Reflect.apply(CHECK, si
 export function createPhotoLibraryDevelopDerivedOriginalSessionCurrentV1(host: PhotoLibraryDevelopDerivedOriginalSessionHostCurrentV1): Readonly<PhotoLibraryDevelopOriginalPortCurrentV1> {
 	const repository = host.repository, reader = repository.loadPhoto, initialize = host.ready;
 	const operation = host.operation, originalReader = host.loadOriginal, decode = host.withDerivedFrame ?? withPhotoOriginalDerivedFrameCurrentV1;
-	for (const method of [reader, initialize, operation, originalReader, decode]) {
+	const originalSource = capturePhotoLibraryOriginalSourceCurrentV1(host.originalSource, typeof originalReader === 'function'
+		? (original, signal) => Reflect.apply(originalReader, host, [original, signal]) as Promise<unknown> : undefined);
+	for (const method of [reader, initialize, operation, decode]) {
 		if (typeof method !== 'function') throw new TypeError('Complete derived Original read capabilities are required.');
 	}
 	const canonical = createPhotoLibraryDevelopOriginalSessionCurrentV1(host);
@@ -56,17 +59,18 @@ export function createPhotoLibraryDevelopDerivedOriginalSessionCurrentV1(host: P
 					if (JSON.stringify((await read()).original) !== identity) throw new PhotoCatalogRevisionConflictError('photo');
 					check(admitted);
 				};
-				const body: unknown = await (Reflect.apply(originalReader, host, [photo.original, admitted]) as Promise<unknown>);
-				check(admitted); await current();
-				const result = await (Reflect.apply(decode, host, [{ binding, body, profile, signal: admitted },
-					async (view: Parameters<Parameters<typeof withPhotoOriginalDerivedFrameCurrentV1>[1]>[0]) => {
-						await current();
-						const result = await consume(Object.freeze({ ...view, photoId, revision: expectedRevision }));
-						check(admitted); await current(); return result;
-					}, { assertCurrent: current }]) as Promise<Result>);
-				// Rejections preserve their complete native/cleanup outcome. Success
-				// must still belong to this revision after both physical retirements.
-				check(admitted); await current(); return result;
+				return withPhotoLibraryOriginalCurrentV1(originalSource, { catalogId, photoId, original: photo.original }, async body => {
+					check(admitted); await current();
+					const result = await (Reflect.apply(decode, host, [{ binding, body, profile, signal: admitted },
+						async (view: Parameters<Parameters<typeof withPhotoOriginalDerivedFrameCurrentV1>[1]>[0]) => {
+							await current();
+							const result = await consume(Object.freeze({ ...view, photoId, revision: expectedRevision }));
+							check(admitted); await current(); return result;
+						}, { assertCurrent: current }]) as Promise<Result>);
+					// Rejections preserve their complete native/cleanup outcome. Success
+					// must still belong to this revision after both physical retirements.
+					check(admitted); await current(); return result;
+				}, admitted);
 			}, signal]) as Promise<Result>;
 		},
 	} satisfies PhotoLibraryDevelopOriginalPortCurrentV1);

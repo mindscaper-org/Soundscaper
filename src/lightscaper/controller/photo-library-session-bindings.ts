@@ -11,6 +11,7 @@ import type { PhotoLibrarySessionPortsCurrentV1 } from './photo-library-session-
 import { capturePhotoManagedImportPortsForProfileV1 } from '../import/managed-import-ports-v2.ts';
 import type { PhotoDevelopPresetSettingsPortV1 } from '../storage/photo-develop-presets-v1.ts';
 import type { PhotoLibrarySessionPortsV2 } from './photo-library-session-ports-v2.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 
 /** Fixed current composition pins receiver authority before initialization or recovery can yield. */
 export function capturePhotoLibrarySessionPorts(ports: PhotoLibrarySessionPortsV2): Readonly<PhotoLibrarySessionPortsV2> {
@@ -22,7 +23,7 @@ export function capturePhotoLibrarySessionPortsCurrentV1(ports: PhotoLibrarySess
 function capturePhotoLibrarySessionPortsForProfileV1<Ports extends PhotoLibrarySessionPortsV2 | PhotoLibrarySessionPortsCurrentV1>(ports: Ports, current = false): Readonly<Ports> {
 	const catalog = ports.catalog, media = ports.media, journal = ports.journal, stacks = ports.stacks, smart = ports.smartCollections;
 	const settings = ports.settings, presetSettings = ports.developPresetSettings, exportPresets = ports.exportPresetSettings, inspection = ports.originalInspection,
-		restoration = ports.originalRestoration, backup = ports.backup;
+		restoration = ports.originalRestoration, backup = ports.backup, originalSource = ports.originalSource;
 	const initialize = ports.initialize, closeResources = ports.closeResources, exclusive = ports.exclusive,
 		verifyResources = ports.verifyResources, cubeLutResources = ports.cubeLutResources, maskRasterResources = ports.maskRasterResources, createPreviewScheduler = ports.createPreviewScheduler,
 		prepare = ports.prepare, importPhotos = ports.importPhotos, createId = ports.createId, now = ports.now;
@@ -54,6 +55,7 @@ function capturePhotoLibrarySessionPortsForProfileV1<Ports extends PhotoLibraryS
 		}) }),
 		...(inspection === undefined ? {} : { originalInspection: { inspect: pin(inspection.inspect, inspection) } }),
 		...(restoration === undefined ? {} : { originalRestoration: { restoreCatalogOriginalBody: pin(restoration.restoreCatalogOriginalBody, restoration) } }),
+		...(originalSource === undefined ? {} : { originalSource: capturePhotoLibraryOriginalSourceCurrentV1(originalSource) }),
 		...(backup === undefined ? {} : { backup: Object.freeze({ readSnapshot: pin(backup.readSnapshot, backup),
 			captureSmartCollectionArchiveV1: pin(backup.captureSmartCollectionArchiveV1, backup), loadOriginal: pin(backup.loadOriginal, backup) }) }),
 		...(cubeLutResources === undefined ? {} : { cubeLutResources: pin(cubeLutResources, ports) }),

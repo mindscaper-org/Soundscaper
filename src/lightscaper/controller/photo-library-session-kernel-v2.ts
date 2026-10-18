@@ -11,6 +11,7 @@ import type { PhotoLibraryOriginalInspectionFailureV1, PhotoLibraryOriginalInspe
 import type { PhotoLibraryBatchRenameRequestV1, PhotoLibraryBatchRenamePlanV1,
 	PhotoLibraryBatchRenameUndoV1, PhotoLibraryBatchRenameReceiptV1, PhotoLibraryBatchRenameSnapshotV1 } from '../../common/editor/photo-library-batch-rename-port-v1.ts';
 import { createPhotoLibraryBatchRenameSessionCurrentV1 } from './photo-library-batch-rename-current-v1.ts';
+import { capturePhotoLibraryDevelopOriginalSourceCurrentV1 } from './photo-library-develop-original-source-current-v1.ts';
 import { createPhotoLibrarySessionExportPresetsV1 } from './internal/photo-library-session-export-presets-v1.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v1.ts';
 import { PhotoCommandOwnerCurrentV1 } from './photo-command-owner-current-v1.ts';
@@ -195,7 +196,7 @@ export class PhotoLibrarySessionKernelV2 {
 			resources: ports.maskRasterResources, mutate: (run, signal, admit) => this.#mutation(run, signal, false, admit) }) : undefined;
 		const legacyDevelop = createPhotoLibraryDevelopSessionV2({ repository: legacy.catalog, ready: () => this.#ready(),
 			...(maskRasters ? { maskRasters } : {}),
-			originalSource: ports.backup ? { loadOriginal: ports.backup.loadOriginal } : undefined,
+			originalSource: capturePhotoLibraryDevelopOriginalSourceCurrentV1(ports.originalSource, ports.backup),
 			presetStorage: presetSettings ? { settings: presetSettings, catalog: legacy.catalog,
 				verifyResources: async (preset, signal) => { if (!ports.cubeLutResources) throw new Error('Selected LUT resources are unavailable.');
 					await (await ports.cubeLutResources()).verifyPreset(preset, signal); } } : undefined,
@@ -207,7 +208,7 @@ export class PhotoLibrarySessionKernelV2 {
 			withPhoto: (catalogId, key, signal, run) => this.#withPhoto(catalogId, key, signal, (owner, admitted) => run(owner as PhotoCommandOwnerCurrentV1, admitted)) }) : undefined;
 		this.develop = this.#current ? createPhotoLibrarySessionDevelopCurrentV1({ repository: ports.catalog, ready: () => this.#ready(), maskRasters,
 			...currentChildren,
-			originalSource: ports.backup ? { loadOriginal: ports.backup.loadOriginal } : undefined,
+			originalSource: capturePhotoLibraryDevelopOriginalSourceCurrentV1(ports.originalSource, ports.backup),
 			operation: (run, signal) => this.#operation(run, signal), edit: (key, run, signal) => this.#editPhoto(key, (owner, admitted) => run(owner as PhotoCommandOwnerCurrentV1, admitted), signal) }) : legacyDevelop;
 		this.#imports = createPhotoLibrarySessionImport({ ports: legacy, managed: this.#legacyManagedPorts(), presetSettings,
 			mutate: (run, signal) => this.#mutation(run, signal), resetReady: () => { this.#catalog = null; } });

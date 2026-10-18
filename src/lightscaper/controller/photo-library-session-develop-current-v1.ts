@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createPhotoLibraryDevelopSessionCurrentV1, type PhotoLibraryDevelopSessionHostCurrentV1 } from './photo-library-develop-session-current-v1.ts';
+import { capturePhotoLibraryDevelopOriginalSourceCurrentV1 } from './photo-library-develop-original-source-current-v1.ts';
 import { createPhotoLibraryDevelopDerivedOriginalSessionCurrentV1 } from './photo-library-develop-derived-original-session-current-v1.ts';
 
 /** Compose the active Develop child from the selected Session's existing
@@ -21,11 +22,7 @@ export function createPhotoLibrarySessionDevelopCurrentV1(host: PhotoLibraryDeve
 	});
 	const source = host.originalSource;
 	if (!source) return createPhotoLibraryDevelopSessionCurrentV1(bound);
-	const reader = source.loadOriginal, decoder = source.withFrame;
-	if (typeof reader !== 'function' || (decoder !== undefined && typeof decoder !== 'function')) throw new TypeError('Current Develop requires complete Original capabilities.');
 	const original = createPhotoLibraryDevelopDerivedOriginalSessionCurrentV1({ repository: bound.repository, ready: bound.ready,
-		operation: bound.operation, loadOriginal: (...args) => Reflect.apply(reader, source, args) as ReturnType<typeof reader>,
-		...(decoder ? { withFrame: <Result>(...args: Parameters<typeof decoder<Result>>) => Reflect.apply(decoder<Result>, source, args) as Promise<Result> } : {}),
-	});
+		operation: bound.operation, ...capturePhotoLibraryDevelopOriginalSourceCurrentV1(source.originalSource, source) });
 	return createPhotoLibraryDevelopSessionCurrentV1({ ...bound, original });
 }

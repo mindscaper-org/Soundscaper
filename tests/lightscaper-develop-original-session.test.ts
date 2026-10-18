@@ -54,7 +54,7 @@ test('full-resolution original reader authenticates retained bytes and lends onl
 		assert.deepEqual(view.frame.descriptor, { schemaVersion: 1, width: 1, height: 1, sampleFormat: 'unorm8', primaries: 'srgb', transfer: 'srgb' });
 		assert.ok(Object.isFrozen(view)); observed = view.frame; assert.equal(f.calls.closes, 1); return 'consumed';
 	});
-	assert.equal(result, 'consumed'); assert.deepEqual(f.calls, { initialize: 1, documents: 4, bodies: 1, opens: 1, closes: 1 });
+	assert.equal(result, 'consumed'); assert.deepEqual(f.calls, { initialize: 1, documents: 5, bodies: 1, opens: 1, closes: 1 });
 	assert.ok(observed); assert.deepEqual(Array.from((observed as PixelFrameV1).pixels), [0, 0, 0, 0]);
 	assert.deepEqual(new Uint8Array(await body.arrayBuffer()), PNG); assert.deepEqual(document().original, original);
 });
@@ -72,6 +72,7 @@ test('a stale revision or another catalog/photo refuses before reading any origi
 test('late body completion with changed revision refuses before native decode or callback delivery', async () => {
 	const f = fixture(), entered = deferred<void>(), release = deferred<void>();
 	const load = f.host.loadOriginal;
+	assert.ok(load);
 	f.host.loadOriginal = async (...args) => { entered.resolve(); await release.promise; return load(...args); };
 	// Recreate after the owner captures trusted ports.
 	const port = createPhotoLibraryDevelopOriginalSessionV1(f.host); let consumed = 0;
@@ -153,7 +154,7 @@ test('the actual Photo Session exposes scoped original reading and Close joins i
 	let borrowed: AbortSignal | undefined, consumed = 0;
 	f.ports.backup = { readSnapshot: f.repository.readSnapshot.bind(f.repository),
 		captureSmartCollectionArchiveV1: f.repository.captureSmartCollectionArchiveV1.bind(f.repository),
-		loadOriginal: async (_original, signal) => { borrowed = signal; entered.resolve(); await release.promise; return body; } };
+		loadOriginal: async (original, signal) => { borrowed = signal; entered.resolve(); await release.promise; return new Blob([new Uint8Array(original.byteLength)]); } };
 	const session = new PhotoLibrarySessionV1(f.ports), before = await f.repository.loadPhoto('catalog', f.photos[0]!.id);
 	try {
 		assert.ok(session.develop.original);
