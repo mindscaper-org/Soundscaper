@@ -224,6 +224,13 @@ the worker exits with code zero and all recorded processes are absent afterward.
 The earlier failed owners remain failed. This separate build failure does not
 explain the WSL OOM.
 
+The prepared Windows qualification driver uses the original retained native
+handle and exact FILETIME identity, replacing numeric tree termination and
+unbounded waits with waits bounded by the original deadline. The outer owner removes two
+redundant unbounded waits. All 19 same-function fake controls pass in 705 ms;
+both fixture identities are independently absent. No memory peak was logged,
+and these controls do not qualify a complete native build.
+
 Coverage assembly (`847c07eac`) writes normalized profiles incrementally across
 runs, preserving source-map placement and rejecting changed bytes between passes.
 The original implementation fails the new early-write regression; all five
@@ -250,6 +257,20 @@ read an owned compiler's memory and its retained pidfd did not signal terminatio
 within ten milliseconds. Sampled memory stayed below 900 MiB; no resource limit
 was crossed. Compilation, verification and reference acceptance remain open;
 the failed attempt and its partial outputs are preserved.
+
+The G2 guardian now allows a 250 ms positive-exit wait on the retained pidfd
+after unreadable accounting. A real child delayed by 75 ms reproduces refusal
+with the original 10 ms wait; all 21 revised controls pass. Exact identity,
+refusal of live or unknown unreadable memory, thresholds and original deadlines
+remain unchanged. This qualifies observation policy only; the failed native
+attempt remains failed. No **Update AI assets** run was performed.
+
+A fresh Linux x64 native build on `ae0da5384` passes its five native tests,
+maintained verifier, reference build and independent preservation/process audit.
+Peak owned PSS plus swap was 907,241 KiB (about 886 MiB), with no swap use or
+resource abort. All 1,865 recorded process identities were absent. This qualifies
+the native build and reference artifacts; installed-app and complete Node/browser
+acceptance remain open. It does not establish the original Node OOM cause.
 
 Fresh combined gates, accepted coverage, installed AE, other hardware/targets,
 signing, installation, update and publication remain open. No installed AE test

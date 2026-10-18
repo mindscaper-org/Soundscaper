@@ -402,6 +402,18 @@ failed. The independent retirement receipt is
 `windows-x64-prerequisites-20261018/owner-startup-closure-20261018-v1/integration-external-retirement.json`,
 SHA-256 `8345c759b9c0db7cbf0754bfbff1d8135ef6bb488c88ae3d66524a97aca99dd0`.
 
+The prepared Windows qualification driver uses the original retained native
+handle and 100 ns FILETIME identity. It replaces numeric PID tree termination
+and unbounded waits with bounded waits within the original absolute deadline. Kernel
+termination is required before reading the numeric exit, and a timeout remains
+failed after forced exit 137. The outer owner also removes two redundant
+unbounded waits after kernel termination. All 19 same-function fake controls
+pass in 705 ms, and both fixture identities are independently absent. No memory
+peak was logged. These controls do not qualify a complete native build. The
+control receipt is
+`windows-x64-prerequisites-20261018/next-win-x64-v14-ae0da538-20261018/stage-deadline-controls.passed-closed-review.json`,
+SHA-256 `1c28aa54024eb5ca25de0018403b377c636a6487e7f6f714853976b94193205c`.
+
 The fresh Linux native attempt on `83f68420c` failed its polling observer during
 the host build. An authenticated compiler process had unreadable PSS and RSS
 accounting, remained in state R, and its retained pidfd did not signal termination
@@ -415,6 +427,32 @@ files retain their own exact bytes, metadata and membership, and all 577 recorde
 process identities are absent. Native acceptance remains false. The receipt is
 `current-83f68420-native-after-watchdog-preparation-20261018/native-qualification.json`,
 SHA-256 `46d3234360e05de8451615a54744f084f1380692e0e44de79b9b333a58821bef`.
+
+The G2 guardian permits a 250 ms positive-exit observation wait on an already
+retained pidfd only after unreadable owned-memory accounting and exact-identity
+reauthentication. A real child delayed by 75 ms fails the original 10 ms control;
+all 21 revised controls pass. Live or unknown unreadable memory still fails,
+and ownership, memory thresholds and inner deadlines are unchanged. This
+qualifies the observation policy only; it neither clears the failed native
+attempt nor identifies an OOM cause. No **Update AI assets** run was performed.
+The 16,933-byte qualification is
+`wsl-oom-20261018/proc-memory-pidfd-exit-20261018-v2/qualification.json`,
+SHA-256 `f103eb56b1e33f0117af798b5681afa79d811683f08d1883ef2094b3eed4e438`.
+
+A fresh Linux x64 native run on clean source `ae0da5384` passes all three original
+phases: native build with five native CTests, maintained result verification and
+reference-decoder build. Its independent post passes all available source, npm,
+tool, generated-artifact and historical-preservation checks within the explicit
+five-missing-originals scope above. All 172 prefix files retain their exact
+bytes and metadata; earlier failed builds remain failed. Peak owned PSS plus
+swap was 907,241 KiB (about 886 MiB), with no swap use, resource abort or cleanup
+signals. All 1,865 recorded identities, 79 groups and 15 sessions are absent;
+the qualification writer and its parent also closed. This qualifies the Linux
+native build and reference artifacts. Installed-app, complete Node/browser and
+other-platform gates remain open, and the original Node OOM cause is unproven.
+The qualification is
+`current-ae0da538-native-after-watchdog-v2-preparation-20261018/native-qualification.json`,
+SHA-256 `98a22c7bd193e73bbeb67e73ae698449c153ce1bf7d315b2ccce46c1408e6baf`.
 
 Coverage assembly on `847c07eac` writes each normalized profile into staging
 before reading the next profile or run, instead of retaining every parsed range
