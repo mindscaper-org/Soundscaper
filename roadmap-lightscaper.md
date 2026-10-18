@@ -1264,8 +1264,15 @@ The managed owner now also supplies the complete five-member streamed Photo
 writer, with copied four-MiB input, bounded one-MiB physical writes, independently
 authenticated file/hash/index publication, cached metadata commit and joined
 escaped-writer retirement. Full native restore composition is still required.
-Scoped Original/preview loading, authenticated native library
-allocation, complete restore and native Session composition, renderer/IPC
+The [native scope owner](docs/architecture/lightscaper-native-photo-library-scopes.md)
+now durably reserves physical generation allocations and verifies exact manifests
+before composing their genuine catalog, media, resources and selected settings.
+An independent SQLite writer transaction excludes other processes until every
+child retires; creation progress grants no restore-ready or selected publication
+authority. Default and separate generation storage have actual isolation/reopen
+coverage, including distinct genuine DNG bytes under the same Photo keys.
+Scoped Original/preview loading, complete native restore and selection
+publication, native Session composition, renderer/IPC
 admission and menu-owned library selection remain required before activation.
 Add-in-place access and native platform qualification remain open.
 

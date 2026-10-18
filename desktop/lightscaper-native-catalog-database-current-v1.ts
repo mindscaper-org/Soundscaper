@@ -57,6 +57,23 @@ export function deriveLightscaperNativeCatalogPathsCurrentV1(appDataRoot: string
 	return Object.freeze({ libraryRoot, databasePath: join(libraryRoot, 'native-photo-catalogs.sqlite3') });
 }
 
+/** Pure ownership preflight, including exact historical schemas. Opening a
+ * foreign hot journal writable would recover its bytes before admission. */
+export function inspectLightscaperNativeCatalogDatabaseCurrentV1(database: DatabaseSync): 'empty' | 1 | 2 | 3 | 4 | 5 {
+	const application = pragma(database, 'application_id'), version = pragma(database, 'user_version');
+	if (application === 0 && version === 0 && schema(database, 1).length === 0) return 'empty';
+	if (application !== LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1
+		|| (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5)) {
+		throw new Error('Native Photo catalog database is unowned or has an unsupported identity.');
+	}
+	const expected = [...SCHEMA];
+	if (version >= 2) expected.push(...LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1);
+	if (version >= 3) expected.push(...LIGHTSCAPER_NATIVE_STACK_SCHEMA_CURRENT_V1);
+	if (version >= 4) expected.push(...LIGHTSCAPER_NATIVE_LEGACY_QUERY_SCHEMA_CURRENT_V1);
+	if (version >= 5) expected.push(...LIGHTSCAPER_NATIVE_SMART_COLLECTION_SCHEMA_CURRENT_V1);
+	assertSchema(database, expected); return version;
+}
+
 /** Root owns secure file admission and connection close. This initializer only
  * adopts an empty database or verifies this exact independent native schema. */
 export function initializeLightscaperNativeCatalogDatabaseCurrentV1(database: DatabaseSync): void {
@@ -101,16 +118,16 @@ export function initializeLightscaperNativeCatalogDatabaseCurrentV1(database: Da
 	});
 }
 function assertSchema(database: DatabaseSync, expected: readonly Readonly<{ type: string; name: string; sql: string }>[]): void {
-	const actual = schema(database);
+	const actual = schema(database, expected.length + 1);
 	if (actual.length !== expected.length || actual.some(row => !expected.some(entry =>
 		row.name === entry.name && row.type === entry.type && row.sql === entry.sql))) {
 		throw new Error('Native Photo catalog schema differs from its exact owned version.');
 	}
 }
 
-function schema(database: DatabaseSync) {
+function schema(database: DatabaseSync, maximum = 1) {
 	// GLOB keeps the underscore literal; sqliteXforeign is user-owned data.
-	return database.prepare("SELECT type,name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name").all();
+	return database.prepare("SELECT type,name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name LIMIT ?").all(maximum);
 }
 function pragma(database: DatabaseSync, name: 'application_id' | 'user_version' | 'foreign_keys'): number {
 	const value = database.prepare(`PRAGMA ${name}`).get()?.[name];

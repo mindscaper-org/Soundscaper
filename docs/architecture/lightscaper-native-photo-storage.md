@@ -242,8 +242,17 @@ and the same verified asset publication transaction. Escaped writers retire
 before storage, including idle producers with ordinary requests queued behind
 them. Existing full restore namespace/catalog composition remains separate.
 
+The [native library scope owner](lightscaper-native-photo-library-scopes.md)
+now provides durable allocation reservations, exact generation manifests and
+opaque capabilities composing all four genuine component owners. An independent
+SQLite writer transaction excludes other processes until children, registry and
+anchor retire; unproved retirement retains the guard. Default storage remains
+available, while each allocated generation has separate physical storage and
+explicit selected settings. Creation progress grants no restore readiness or
+selected-pointer publication authority.
+
 The remaining adapter must add scoped Original/preview loading,
-authenticated native library allocation and complete restore, then
+complete native restore and selection publication, then
 preserve all complete Session/publication/recovery ports through selected-catalog
 renderer and IPC admission. Menu-owned library selection
 must join authoring, previews and storage before switching. Native qualification must also supply a private
