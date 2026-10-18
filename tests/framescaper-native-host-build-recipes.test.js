@@ -42,7 +42,7 @@ const MEDIA_INPUTS = Object.freeze([
 	'CMakeLists.txt', 'CMakePresets.json', 'build/external-source-authentication.mjs',
 	'build/ffmpeg-9.0.1-configure.json', 'build/ffmpeg-9.0.1-external-sources.json',
 	'build/media-build-commands.mjs', 'build/recipe-cli.mjs', 'build/recipe-driver.mjs',
-	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-vpx.pc', 'build/windows-x265.pc',
+	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-msvc-dependencies.awk', 'build/windows-vpx.pc', 'build/windows-x265.pc',
 	...FRAMESCAPER_MEDIA_HOST_BUILD_TARGETS.map(({ toolchainFile }) => toolchainFile),
 ].sort());
 const OPENFX_INPUTS = Object.freeze([
@@ -118,7 +118,7 @@ test('all five media and OpenFX targets emit immutable closed dry-run recipes', 
 			'libvpx-configure', 'libvpx-build', 'libvpx-install',
 			...(target.id.startsWith('win-') ? ['libvpx-normalize-library', 'libvpx-normalize-pkg-config'] : []),
 			'libopus-configure', 'libopus-build', 'libopus-install',
-			'ffmpeg-configure', 'ffmpeg-build', 'ffmpeg-install', 'host-configure', 'host-build',
+			'ffmpeg-configure', ...(target.id.startsWith('win-') ? ['ffmpeg-prepare-dependencies'] : []), 'ffmpeg-build', 'ffmpeg-install', 'host-configure', 'host-build',
 			'host-install',
 		], SOURCE_DATE_EPOCH);
 		const configure = recipe.commands.find(({ phase }) => phase === 'ffmpeg-configure');

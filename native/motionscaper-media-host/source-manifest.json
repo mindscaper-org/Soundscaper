@@ -14,8 +14,8 @@
 	],
 	"dependencySource": {
 		"path": "native/framescaper-media-host/source-manifest.json",
-		"byteLength": 16111,
-		"sha256": "4f33b718c940478930b48401ffe860f0c11fa1e3ccff381e9ac066471e593aad"
+		"byteLength": 16272,
+		"sha256": "ffbae87987c00fc7568ca7537a7ec5e6c0b449ae4c5f84757fa9c0b8a7b5bd83"
 	},
 	"sourceFiles": [
 		{

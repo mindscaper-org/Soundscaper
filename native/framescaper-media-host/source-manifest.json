@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 17154,
-			"sha256": "6d713b7e1548c3cd5bd7a71bfc2edf77393249d36a99c3a55c617772acaaf43e"
+			"byteLength": 17713,
+			"sha256": "52687cf2ae00b28096406d062858220c892dc8a7b6007c127887538a347cabf6"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -134,6 +134,11 @@
 			"path": "build/toolchains/win-x64.cmake",
 			"byteLength": 543,
 			"sha256": "9c4970be569da491d10dcc73d86c731e1c90bdd55ef517c7699fbb7fba2c7879"
+		},
+		{
+			"path": "build/windows-msvc-dependencies.awk",
+			"byteLength": 211,
+			"sha256": "027315c0cb4e2376e3ae3cc6f896ad672579c9b3a9adef7c3f8a005139af6d74"
 		},
 		{
 			"path": "build/windows-vpx.pc",

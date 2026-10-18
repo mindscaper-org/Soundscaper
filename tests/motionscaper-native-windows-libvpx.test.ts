@@ -148,7 +148,10 @@ for (const target of targets) {
 			for (const [name, operation] of [['ffmpeg-build', '-j1'], ['ffmpeg-install', 'install']] as const) {
 				const command = phase(commands, name);
 				assert.deepEqual(command.args, ['-C', framescaperMediaHostBuildPaths(workRoot).ffmpegBuild, operation,
-					...(windows ? ['SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=--noprofile --norc -c'] : [])]);
+					...(windows ? ['SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=--noprofile --norc -c',
+						...['CCDEP', 'CXXDEP', 'ASDEP', 'HOSTCCDEP'].map(macro => `${macro}=`
+							+ '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) $< 2>&1 | '
+							+ 'awk -v target="$@" -f windows-msvc-dependencies.awk > $(@:.o=.d)')] : [])]);
 				assert.ok(!('SHELL' in command.environment));
 			}
 		}

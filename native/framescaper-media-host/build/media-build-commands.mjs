@@ -197,6 +197,12 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	] : [];
 	const vpxMake = windows
 		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`, ...shellMake] : [];
+	const dependencyFilter = 'windows-msvc-dependencies.awk';
+	const ffmpegMake = windows ? [...shellMake,
+		...['CCDEP', 'CXXDEP', 'ASDEP', 'HOSTCCDEP'].map((name) => `${name}=`
+			+ '$(DEP$(1)) $(DEP$(1)FLAGS) $($(1)DEP_FLAGS) $< 2>&1 | '
+			+ `awk -v target="$@" -f ${dependencyFilter} > $(@:.o=.d)`),
+	] : [];
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([
@@ -234,8 +240,12 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('libopus-build', tools.executables.cmake.path, ['--build', paths.libopusBuild, '--config', 'Release', '--target', 'opus', '--parallel', '1'], paths.libopusBuild, nativeEnvironment),
 		command('libopus-install', tools.executables.cmake.path, ['--install', paths.libopusBuild, '--config', 'Release', '--prefix', paths.libopusInstall], paths.libopusBuild, nativeEnvironment),
 		command('ffmpeg-configure', tools.executables.shell.path, ffmpegArgs, paths.ffmpegBuild, dependencyEnvironment),
-		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1', ...shellMake], paths.ffmpegBuild, dependencyEnvironment),
-		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...shellMake], paths.ffmpegBuild, dependencyEnvironment),
+		...(windows ? [
+			command('ffmpeg-prepare-dependencies', tools.executables.cmake.path, ['-E', 'copy',
+				join(hostRoot, 'build', dependencyFilter), join(paths.ffmpegBuild, dependencyFilter)], paths.ffmpegBuild, nativeEnvironment),
+		] : []),
+		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1', ...ffmpegMake], paths.ffmpegBuild, dependencyEnvironment),
+		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake], paths.ffmpegBuild, dependencyEnvironment),
 		command('host-configure', tools.executables.cmake.path, hostArgs, hostRoot, hostEnvironment),
 		command('host-build', tools.executables.cmake.path, ['--build', paths.hostBuild, '--config', 'Release', '--parallel', '1'], hostRoot, hostEnvironment),
 		command('host-install', tools.executables.cmake.path, ['--install', paths.hostBuild, '--config', 'Release', '--prefix', paths.hostInstall], hostRoot, hostEnvironment),
