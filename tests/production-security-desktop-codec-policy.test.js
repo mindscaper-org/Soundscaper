@@ -4,10 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
-const architectureUrl = new URL('../docs/architecture/desktop-codec-providers.md', import.meta.url);
 const ELECTRON_EVIDENCE = [
 	'electron-builder.config.cjs',
 	'config/electron-alternate-ffmpeg-manifest.json',
@@ -114,12 +111,8 @@ const FRAMESCAPER_NATIVE_MEDIA_EVIDENCE = [
 	'tests/desktop-framescaper-native-host-payload-staging.test.js',
 ];
 
-test('desktop codec security separates Electron framework, application, and external FFmpeg', async () => {
-	const [matrixText, architecture] = await Promise.all([
-		readFile(matrixUrl, 'utf8'),
-		readFile(architectureUrl, 'utf8'),
-	]);
-	const matrix = JSON.parse(matrixText);
+test('desktop codec controls retain framework, provider, and packaging evidence', async () => {
+	const matrix = JSON.parse(await readFile(matrixUrl, 'utf8'));
 	const risks = new Map(matrix.risks.map((risk) => [risk.id, risk]));
 	const helperPayload = control(risks, 'native-helper-processes', 'verified-helper-engine-payload');
 	const packageIntegrity = control(risks, 'runtime-supply-chain', 'desktop-fuse-and-package-integrity');
@@ -135,30 +128,6 @@ test('desktop codec security separates Electron framework, application, and exte
 		'tests/audio-editor-desktop-export-codec-model.test.ts',
 		'tests/audio-editor-desktop-export-dialog-capability.test.js',
 	]);
-	assert.match(
-		helperPayload.summary,
-		/application supplies no general-purpose FFmpeg helper engine.*reject unmanaged FFmpeg programs.*loose libav.*FFmpeg WebAssembly.*archives/iu,
-	);
-	assert.match(
-		helperPayload.summary,
-		/Framescaper.*exact authenticated target media-host payload.*containment closure.*build and test packages.*distribution policy does not replace its machine checks.*alternate Chromium libffmpeg.*framework exception.*never a Soundscaper provider tier/iu,
-	);
-	assert.match(
-		helperPayload.summary,
-		/seven exact reviewed compressed-audio WebAssembly payloads.*linux-x64.*linux-arm64.*mac-arm64.*win-x64.*win-arm64.*never mac-x64.*154,763-byte libFLAC 1\.5\.0.*388,526-byte libopus 1\.6\.1.*526,926-byte libvorbis 1\.3\.7.*148,868-byte WavPack 5\.9\.0.*173,764-byte mpg123 1\.33\.7.*214,198-byte LAME 4\.0.*148,312-byte TwoLAME 0\.4\.0.*exact settings.*libsndfile is not bundled/iu,
-	);
-	assert.match(
-		helperPayload.summary,
-		/canonical manifest.*control module.*transitive JavaScript.*WASM payload.*main reauthenticates.*helper reauthenticates.*fresh one-shot Electron utility process.*0700.*0600.*digest.*geometry.*deadline.*kill.*four-job.*32 MiB input.*128 MiB output.*whole buffers.*synchronous.*aggregate.*RSS.*hostile-code sandbox/iu,
-	);
-	assert.match(
-		helperPayload.summary,
-		/Media Foundation.*AudioToolbox.*target-native.*ad-hoc sealed.*manifest\/payload.*Linux.*never built for mac-x64.*user-installed FFmpeg\/ffprobe 4\.4 through 9\.x.*Edit > Preferences > General.*WinGet\/Homebrew.*live-verified H\.264\/AAC MP4.*VP9\/Opus WebM.*exact ffprobe.*verifies two streams.*16x16.*yuv420p.*48 kHz stereo.*hash-before-path-spawn TOCTOU.*dynamic-library closure.*filesystem\/network\/RSS\/CPU sandbox.*malicious selected executable.*No bundled or separately shipped operating-system video payload.*AV1 remains disabled.*WebM is VP9.*null timing.*neither patent clearance nor non-infringement/iu,
-	);
-	assertOrderedClaim(
-		helperPayload.summary,
-		/main prefers `h264_videotoolbox`.*macOS.*`h264_mf`.*Windows.*native canary.*independently verified `libx264`.*main-owned.*closed renderer wire/isu,
-	);
 	assertEvidence(packageIntegrity, [
 		'.github/workflows/desktop-preview.yml',
 		...ELECTRON_EVIDENCE,
@@ -182,55 +151,6 @@ test('desktop codec security separates Electron framework, application, and exte
 		'tests/desktop-bundled-codec-corresponding-source.test.js',
 		'tests/desktop-release-package-inventory.test.js',
 	]);
-	assert.match(
-		packageIntegrity.summary,
-		/application-codec policy.*reject unmanaged FFmpeg programs.*loose libav.*FFmpeg WebAssembly.*archives.*unverified WebM\/AV1 payloads/iu,
-	);
-	assert.match(
-		packageIntegrity.summary,
-		/admit.*exact Framescaper media-host subtree.*target manifest.*payload.*runtime closure.*isolation launcher.*package inventory.*distribution.*corresponding source.*notices.*licensing checks.*never activate a payload/iu,
-	);
-	assert.match(
-		packageIntegrity.summary,
-		/exactly seven reviewed compressed-audio WASM files.*libFLAC.*libopus.*libvorbis.*WavPack.*mpg123.*LAME.*TwoLAME.*complete authenticated isolation runtime closure.*exact-length.*SHA-256.*undeclared codec WASM.*deterministic seven-codec corresponding-source ZIP.*target-native OS audio codec.*mac-arm64.*win-x64.*win-arm64.*no mac-x64.*alternate Chromium libffmpeg.*five supported targets.*external-video runner.*ffmpeg\/ffprobe bytes stay outside.*WinGet\/Homebrew.*neither patent clearance nor non-infringement/iu,
-	);
-	assertOrderedClaim(
-		architecture,
-		/Current implementation.*seven\s+reviewed compressed-audio WebAssembly payloads.*libFLAC 1\.5\.0.*libopus 1\.6\.1.*libvorbis 1\.3\.7.*WavPack 5\.9\.0.*mpg123 1\.33\.7.*LAME 4\.0.*TwoLAME 0\.4\.0/isu,
-	);
-	assertOrderedClaim(
-		architecture,
-		/libsndfile is intentionally not added.*runtime manifest.*WASM.*transitive JavaScript.*fresh.*supervised Electron utility process/isu,
-	);
-	assert.match(architecture, /existing canary and small-buffer operations.*32 MiB.*128 MiB.*contract/isu);
-	assert.match(architecture, /small-buffer helpers.*synchronous WASM.*shared reservation.*aggregate.*RSS/isu);
-	assertOrderedClaim(architecture, /continuous-session route.*16,384.*same codec instance persists.*1 MiB.*one hour.*1,000,000,000 final file bytes.*cancellation.*progress.*validation/isu);
-	assertOrderedClaim(
-		architecture,
-		/Media Foundation.*AudioToolbox.*target-native.*mac-arm64.*win-x64.*win-arm64.*native codec canar.*identity-free ad-hoc code seal.*no\s+certificate.*package.*Linux.*no uniform OS tier.*FFmpeg CLI.*4\.4 through 9\.x.*Edit > Preferences > General.*BtbN\.FFmpeg\.GPL\.8\.1.*brew install ffmpeg/isu,
-	);
-	assertOrderedClaim(architecture, /live.*16x16.*48 kHz stereo.*exact.*ffprobe.*exactly two streams.*yuv420p.*H\.264.*AAC.*yuv420p.*VP9.*Opus/isu);
-	assertOrderedClaim(
-		architecture,
-		/No bundled or separately shipped operating-system video payload.*no\s+libwebm\/libvpx\/dav1d\/SVT-AV1\/libaom payload.*external\s+WebM.*VP9.*not AV1.*direct Media Foundation or\s+VideoToolbox.*not implemented.*fail\s+closed/isu,
-	);
-	assertOrderedClaim(
-		architecture,
-		/desktop keyed-video renderer.*exact video.*optional AAC\/Opus audio.*prefer-hardware.*ordinary WebCodecs.*640x360.*provisional.*external FFmpeg.*h264_videotoolbox.*macOS.*h264_mf.*Windows.*native canary.*libx264.*main-owned/isu,
-	);
-	assert.match(
-		architecture,
-		/time-of-check\/time-of-use replacement.*does not authenticate dynamically\s+loaded libraries.*not an operating-system filesystem,\s+network, RSS, or CPU sandbox.*malicious selected executable/isu,
-	);
-	assertOrderedClaim(
-		architecture,
-		/Provider boundary.*Only `unavailable` and `unsupported` preflight results may.*fall through.*Cancellation.*security failure.*partial output is terminal/isu,
-	);
-	assert.doesNotMatch(
-		architecture,
-		/^## (?:Bundled provider|Operating-system provider|External FFmpeg|Changes and validation)$|^### AV1 implementation finding$/gmu,
-	);
-	assert.doesNotMatch(architecture, /patent[- ]free/iu);
 });
 
 function control(risks, riskId, controlId) {

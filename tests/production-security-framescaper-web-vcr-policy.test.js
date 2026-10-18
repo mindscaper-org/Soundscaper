@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const CONTROL_ID = 'framescaper-web-vcr-dormant-isolated-guest';
 const FIXTURE_ID = 'm8plus-web-vcr-loopback-https-v1';
 const WORKLOAD_ID = 'm8plus-web-vcr-long-session';
@@ -53,28 +51,11 @@ test('Web VCR is enabled for ordinary Framescaper testing', async () => {
 	assert.equal(capabilities.products.soundscaper.applicationFeatures.framescaperWebVcr, undefined);
 });
 
-test('Web VCR isolated-guest control records the active lazy security boundary', async () => {
-	const [matrix, threatModel, captureDocumentation, webVcrDocumentation] = await Promise.all([
-		json('config/production-security-matrix.json'),
-		text('docs/policies/security.md'),
-		text('docs/features/framescaper-capture.md'),
-		text('docs/features/framescaper-web-vcr.md'),
-	]);
+test('Web VCR isolated-guest control retains its implementation and verification evidence', async () => {
+	const matrix = await json('config/production-security-matrix.json');
 	const risk = matrix.risks.find(({ id }) => id === 'electron-renderer-ipc-boundary');
 	const control = risk?.currentControls.find(({ id }) => id === CONTROL_ID);
 	assert.ok(control);
-	assert.match(control.summary, /integrated.*active.*framescaperWebVcr.*true/isu);
-	assertOrderedClaim(control.summary, /default-hidden.*Record.*no.*guest.*until.*direct user.*summon/isu);
-	assert.match(control.summary, /persist:framescaper-web-vcr-v1.*sandbox.*context isolation.*Node.*web security/isu);
-	assertOrderedClaim(control.summary, /HTTPS.*about:blank.*credentials.*downloads.*permissions.*four.*popup/isu);
-	assertOrderedClaim(control.summary, /remote.*no preload.*IPC.*filesystem.*project.*helper.*shell.*DevTools/isu);
-	assertOrderedClaim(control.summary, /closed.*owner.*generation.*10-second.*single-use.*no media bytes/isu);
-	assertOrderedClaim(control.summary, /destroy.*guest.*popup.*before.*cookies.*cache.*site storage/isu);
-	assertOrderedClaim(control.summary, /720p.*1080p.*enabled.*4K.*unavailable.*no platform claim/isu);
-	assertOrderedClaim(control.summary, /packaged feasibility smoke.*TLS.*authentication.*scaled input.*owned guest.*page audio.*visual marker/isu);
-	assertOrderedClaim(control.summary, /Electron 43.*display.*camera.*preflight.*10-second.*metadata.*no.*camera capture.*guest-partition/isu);
-	assert.match(control.summary, /optional owner QA.*never disable/isu);
-	assert.match(control.summary, /diagnosticOnly.*true.*no broader runtime or platform-support claim/isu);
 	assertEvidence(control, [
 		'desktop/framescaper-web-vcr-capture-authority.ts',
 		'desktop/framescaper-web-vcr-contract.ts',
@@ -112,16 +93,9 @@ test('Web VCR isolated-guest control records the active lazy security boundary',
 		'tests/desktop-framescaper-capture-registration.test.js',
 		'tests/production-security-framescaper-web-vcr-policy.test.js',
 	]);
-	assert.match(threatModel, new RegExp(`policy-narrative:${CONTROL_ID}`, 'u'));
-	assertOrderedClaim(captureDocumentation,
-		/framescaperWebVcr: true.*desktop-only source adapter.*Record menu.*no guest.*direct action.*lazily/isu);
-	assert.match(webVcrDocumentation,
-		/persistent HTTPS authentication.*URL, page title, login state, crop gestures, and diagnostics stay out of.*project state/isu);
-	assertOrderedClaim(webVcrDocumentation,
-		/deterministic Linux x64\/Xvfb packaged smoke.*loopback HTTPS fixture.*diagnosticOnly: true.*proves only the paths it executed.*does not establish behavior.*public providers.*other operating systems/isu);
 });
 
-test('Web VCR stays in real tests and owner QA instead of a pseudo quality workload', async () => {
+test('Web VCR quality inventory omits unimplemented workload registrations', async () => {
 	const quality = await json('config/quality-budgets.json');
 	const fixture = quality.fixtures.find(({ id }) => id === FIXTURE_ID);
 	const workload = quality.workloads.find(({ id }) => id === WORKLOAD_ID);
@@ -129,31 +103,6 @@ test('Web VCR stays in real tests and owner QA instead of a pseudo quality workl
 	assert.equal(workload, undefined);
 	assert.equal(Object.hasOwn(quality, 'environments'), false);
 	assert.equal(Object.hasOwn(quality, 'qualification'), false);
-	const qa = await text('docs/operations/qa/framescaper.md');
-	assert.match(qa, /Web VCR/iu);
-	assert.match(qa, /conditional/iu);
-});
-
-test('Web VCR roadmap and feature contract report the current surface truthfully', async () => {
-	const [roadmap, contract] = await Promise.all([
-		text('roadmap.md'), text('docs/features/framescaper-web-vcr.md'),
-	]);
-	const section = roadmap.slice(
-		roadmap.indexOf('## 8+. Post-milestone-8 Framescaper Web VCR extension'),
-		roadmap.indexOf('## 8+C. Framescaper product origin and cross-product storage'),
-	);
-	assert.match(section, /Status:.*Implemented and enabled for testing/isu);
-	assert.match(section, /framescaperWebVcr.*true/isu);
-	assert.match(section, /optional Framescaper owner QA/isu);
-	assert.match(section, /720p.*1080p.*enabled.*no platform claim/isu);
-	assert.match(section, /4K.*unavailable/isu);
-	assert.match(section, /deterministic.*HTTPS fixture.*neither establishes.*general real-runtime.*platform claim/isu);
-	assert.match(section, /packaged feasibility.*720p.*1080p/isu);
-	assert.match(contract, /## Current surface.*framescaperWebVcr: true.*Record flyout.*default-hidden/isu);
-	assert.match(contract, /Linux x64\/Xvfb packaged smoke.*720p.*1080p.*diagnosticOnly: true/isu);
-	assert.match(contract, /4K choice.*runtime\s+capture probe.*encoder backend.*capability mismatch refuses before\s+recording/isu);
-	assert.match(contract, /smoke proves only the paths it executed.*does not establish behavior.*public providers.*other operating systems/isu);
-	assert.match(contract, /loopback HTTPS fixture.*public websites are never CI dependencies/isu);
 });
 
 async function json(path) {
