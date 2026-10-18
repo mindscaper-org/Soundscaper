@@ -1204,6 +1204,14 @@ the entire Job retired before profile deletion. Actual Windows reader canaries
 cover clean/nonzero exit, closed streams, timeout, creation refusal and
 supervisor death. ARM64 still requires its own target-native qualification.
 
+The [native Photo storage adapter](docs/architecture/lightscaper-native-photo-storage.md)
+has begun with a main-private immutable Original body owner and a dedicated
+SQLite physical-binding index. Streamed file publication, dedup aliases,
+bounded authenticated reads and joined cancellation/retirement have focused
+coverage. This internal component is not yet selected by the application;
+native catalog persistence, resource ownership, renderer admission and
+menu-owned library selection remain required before activation.
+
 ### Exit gate
 
 - Packaged smoke covers install, open, import-in-place, relink, develop,

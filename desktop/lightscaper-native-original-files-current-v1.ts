@@ -1,0 +1,220 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { createHash, randomUUID } from 'node:crypto';
+import { constants, type BigIntStats } from 'node:fs';
+import { chmod, link, lstat, mkdir, open, realpath, unlink, type FileHandle } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK } from './lightscaper-native-original-contract-current-v1.ts';
+import { deriveLightscaperNativePhotoOriginalPathsCurrentV1, lightscaperNativePhotoOriginalBodyPathCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
+import type { LightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
+
+type Paths = ReturnType<typeof deriveLightscaperNativePhotoOriginalPathsCurrentV1>;
+type Stamp = Pick<BigIntStats, 'dev' | 'ino' | 'size' | 'mtimeNs' | 'ctimeNs'>;
+const MAXIMUM_CACHED_IDENTITIES = 32;
+
+/** Main-private files only; no caller filename or storage key becomes a path.
+ * The owner serializes calls and joins them before closing its database. */
+export class LightscaperNativeOriginalFilesCurrentV1 {
+	readonly #paths: Paths;
+	readonly #verified = new Map<string, Stamp>();
+	readonly #openFile: typeof open;
+	readonly #retirementFailures: unknown[] = [];
+	readonly #unretiredHandles = new Set<FileHandle>();
+	constructor(paths: Paths, openFile: typeof open = open) { this.#paths = paths; this.#openFile = openFile; }
+
+	async put(binding: LightscaperNativeOriginalBindingCurrentV1, chunks: AsyncIterable<Uint8Array>, signal?: AbortSignal): Promise<void> {
+		this.#assertRetired(); signal?.throwIfAborted();
+		await assertLayout(this.#paths);
+		const target = lightscaperNativePhotoOriginalBodyPathCurrentV1(this.#paths, binding.contentSha256);
+		await realDirectory(dirname(target), true, path => this.#syncDirectory(path));
+		const stage = join(this.#paths.stagingRoot, `${randomUUID()}.part`);
+		const output = await this.#openFile(stage, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
+		let primary: unknown, failed = false, outputClosed = false, done = false, producerRetired = true;
+		let iterator: AsyncIterator<Uint8Array> | undefined;
+		try {
+			const hash = createHash('sha256'); let offset = 0;
+			iterator = chunks[Symbol.asyncIterator]();
+			for (;;) {
+				const item = await iterator.next();
+				if (item.done === true) { done = true; break; }
+				const borrowed = item.value;
+				signal?.throwIfAborted();
+				if (!(borrowed instanceof Uint8Array) || borrowed.byteLength < 1 || borrowed.byteLength > CHUNK
+					|| borrowed.byteLength > binding.byteLength - offset) throw new RangeError('Native Original stream chunk leaves its bounded body.');
+				// Snapshot before any await: an upload producer may reuse its buffers.
+				const bytes = Uint8Array.from(borrowed);
+				hash.update(bytes);
+				for (let written = 0; written < bytes.length;) {
+					signal?.throwIfAborted();
+					const result = await output.write(bytes, written, bytes.length - written, offset + written);
+					if (result.bytesWritten < 1) throw new Error('Native Original stage stopped accepting bytes.');
+					written += result.bytesWritten;
+				}
+				offset += bytes.length;
+			}
+			signal?.throwIfAborted();
+			if (offset !== binding.byteLength || hash.digest('hex') !== binding.contentSha256) throw new Error('Native Original stream length or SHA-256 differs from its binding.');
+			await output.sync();
+			await this.#closeHandle(output); outputClosed = true;
+			await assertLayout(this.#paths); await realDirectory(dirname(target), false);
+			signal?.throwIfAborted();
+			try { await link(stage, target); }
+			catch (error) { if (!hasCode(error, 'EEXIST')) throw error; }
+			// Exclusive hard linking publishes one complete file. An existing
+			// winner must authenticate; no rename/copy fallback can replace it.
+			await this.verify(binding, signal, true);
+			await this.#syncDirectory(dirname(target));
+		} catch (error) { failed = true; primary = error; }
+		const cleanup: unknown[] = [];
+		// Explicitly join return even when next() rejected. AsyncIteratorClose
+		// can mask a return rejection behind a primary throw from a for-await body.
+		if (iterator && !done) {
+			try {
+				const finish = iterator.return;
+				if (finish) {
+					const ended: unknown = await finish.call(iterator);
+					if (!ended || typeof ended !== 'object' || Object.getOwnPropertyDescriptor(ended, 'done')?.value !== true) {
+						throw new Error('Native Original producer return did not establish terminal retirement.');
+					}
+				}
+			}
+			catch (error) { producerRetired = false; cleanup.push(error); this.#retirementFailures.push(error); }
+		}
+		if (!outputClosed) {
+			try { await this.#closeHandle(output); outputClosed = true; }
+			catch (error) { cleanup.push(error); }
+		}
+		if (outputClosed && producerRetired) {
+			try { await unlink(stage); } catch (error) { if (!hasCode(error, 'ENOENT')) cleanup.push(error); }
+		}
+		if (cleanup.length) throw new AggregateError([...(failed ? [primary] : []), ...cleanup], 'Native Original stage retirement failed.');
+		if (failed) throw primary;
+	}
+
+	async verify(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal, force = false): Promise<void> {
+		const opened = await this.#open(binding, signal, force);
+		await this.#closeHandle(opened.handle);
+	}
+
+	async read(binding: LightscaperNativeOriginalBindingCurrentV1, offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
+		const { handle, stamp, path } = await this.#open(binding, signal);
+		return this.#withHandle(handle, async () => {
+			try {
+				const bytes = new Uint8Array(length); let read = 0;
+				while (read < length) {
+					signal?.throwIfAborted();
+					const value = await handle.read(bytes, read, length - read, offset + read);
+					if (value.bytesRead < 1) throw new Error('Native Original ended during its bounded read.');
+					read += value.bytesRead;
+				}
+				signal?.throwIfAborted();
+				if (!same(stamp, await handle.stat({ bigint: true })) || !same(stamp, await regularFile(path))) throw new Error('Native Original changed during its bounded read.');
+				return bytes;
+			} catch (error) { this.#verified.delete(path); throw error; }
+		});
+	}
+	async syncIndexDirectory(): Promise<void> { this.#assertRetired(); await this.#syncDirectory(this.#paths.libraryRoot); }
+
+	retire(): Promise<void> {
+		this.#verified.clear();
+		return this.#retirementFailures.length ? Promise.reject(new AggregateError([...this.#retirementFailures], 'Native Original file or producer retirement is unproved.')) : Promise.resolve();
+	}
+	#assertRetired(): void {
+		if (this.#retirementFailures.length) throw new Error('Native Original owner is fenced after unproved retirement.');
+	}
+	async #closeHandle(handle: FileHandle): Promise<void> {
+		try { await handle.close(); this.#unretiredHandles.delete(handle); }
+		catch (error) { this.#unretiredHandles.add(handle); this.#retirementFailures.push(error); throw error; }
+	}
+	async #withHandle<T>(handle: FileHandle, run: () => Promise<T>): Promise<T> {
+		const outcome = await Promise.resolve().then(run).then(value => ({ okay: true as const, value }), (error: unknown) => ({ okay: false as const, error }));
+		try { await this.#closeHandle(handle); }
+		catch (cleanup) { throw new AggregateError(outcome.okay ? [cleanup] : [outcome.error, cleanup], 'Native Original read and handle retirement failed.', { cause: cleanup }); }
+		if (!outcome.okay) throw outcome.error;
+		return outcome.value;
+	}
+	async #syncDirectory(path: string): Promise<void> {
+		if (process.platform === 'win32') return;
+		const directory = await this.#openFile(path, constants.O_RDONLY);
+		await this.#withHandle(directory, () => directory.sync());
+	}
+
+	async #open(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal, force = false): Promise<Readonly<{ handle: FileHandle; stamp: Stamp; path: string }>> {
+		this.#assertRetired(); signal?.throwIfAborted(); await assertLayout(this.#paths);
+		const path = lightscaperNativePhotoOriginalBodyPathCurrentV1(this.#paths, binding.contentSha256);
+		await realDirectory(dirname(path), false);
+		const before = await regularFile(path);
+		if (before.size !== BigInt(binding.byteLength)) throw new Error('Native Original length differs from its binding.');
+		const handle = await this.#openFile(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+		try {
+			const opened = await handle.stat({ bigint: true });
+			if (!opened.isFile() || !same(before, opened)) throw new Error('Native Original changed while opening.');
+			const cached = this.#verified.get(path);
+			if (force || !cached || !same(cached, opened)) {
+				const hash = createHash('sha256'), bytes = new Uint8Array(CHUNK);
+				for (let offset = 0; offset < binding.byteLength;) {
+					signal?.throwIfAborted();
+					const length = Math.min(bytes.length, binding.byteLength - offset);
+					const result = await handle.read(bytes, 0, length, offset);
+					if (result.bytesRead < 1) throw new Error('Native Original ended while authenticating its bytes.');
+					hash.update(bytes.subarray(0, result.bytesRead)); offset += result.bytesRead;
+				}
+				if (hash.digest('hex') !== binding.contentSha256) throw new Error('Native Original SHA-256 differs from its binding.');
+			}
+			signal?.throwIfAborted();
+			const after = await handle.stat({ bigint: true });
+			if (!same(opened, after) || !same(after, await regularFile(path))) throw new Error('Native Original changed during authentication.');
+			this.#verified.delete(path); this.#verified.set(path, after);
+			while (this.#verified.size > MAXIMUM_CACHED_IDENTITIES) this.#verified.delete(this.#verified.keys().next().value!);
+			return { handle, stamp: after, path };
+		} catch (error) {
+			this.#verified.delete(path);
+			try { await this.#closeHandle(handle); }
+			catch (cleanup) { throw new AggregateError([error, cleanup], 'Native Original authentication and handle retirement failed.', { cause: cleanup }); }
+			throw error;
+		}
+	}
+}
+
+export async function prepareLightscaperNativeOriginalStorageCurrentV1(appDataPath: string): Promise<Paths> {
+	// The host supplies a canonical private appData root, never a renderer path.
+	await realDirectory(appDataPath, false);
+	const paths = deriveLightscaperNativePhotoOriginalPathsCurrentV1(appDataPath);
+	for (const path of layout(paths)) await realDirectory(path, true);
+	for (const suffix of ['', '-wal', '-shm', '-journal']) {
+		try { const file = await regularFile(paths.databasePath + suffix); if (file.nlink !== 1n) throw new Error('Native Original database cannot use hard-link aliases.'); }
+		catch (error) { if (!hasCode(error, 'ENOENT')) throw error; }
+	}
+	return paths;
+}
+
+function layout(paths: Paths): readonly string[] {
+	return [resolve(paths.libraryRoot, '../..'), dirname(paths.libraryRoot), paths.libraryRoot, paths.bodiesRoot, paths.stagingRoot];
+}
+async function assertLayout(paths: Paths): Promise<void> { for (const path of layout(paths)) await realDirectory(path, false); }
+async function realDirectory(path: string, create: boolean, sync: (path: string) => Promise<void> = syncDirectory): Promise<void> {
+	if (create) { try { await mkdir(path, { mode: 0o700 }); } catch (error) { if (!hasCode(error, 'EEXIST')) throw error; } }
+	const metadata = await lstat(path);
+	if (!metadata.isDirectory() || metadata.isSymbolicLink() || await realpath(path) !== path) throw new Error('Native Original storage requires canonical real directories.');
+	if (create) await chmod(path, 0o700);
+	// EEXIST can follow an interrupted or failed prior parent sync. Admission
+	// must settle that durability debt before this attempt publishes authority.
+	if (create) await sync(dirname(path));
+}
+async function regularFile(path: string): Promise<BigIntStats> {
+	const metadata = await lstat(path, { bigint: true });
+	if (!metadata.isFile() || metadata.isSymbolicLink() || await realpath(path) !== path) throw new Error('Native Original storage requires canonical regular files.');
+	return metadata;
+}
+async function syncDirectory(path: string): Promise<void> {
+	// Node cannot portably FlushFileBuffers a Windows directory. Byte fsync and
+	// SQLite FULL remain required there; power-loss durability is not claimed.
+	if (process.platform === 'win32') return;
+	const directory = await open(path, constants.O_RDONLY);
+	try { await directory.sync(); } finally { await directory.close(); }
+}
+function same(left: Stamp, right: Stamp): boolean {
+	return left.dev === right.dev && left.ino === right.ino && left.size === right.size
+		&& left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs;
+}
+function hasCode(error: unknown, code: string): boolean { return !!error && typeof error === 'object' && 'code' in error && error.code === code; }
