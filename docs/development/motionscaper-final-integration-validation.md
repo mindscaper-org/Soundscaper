@@ -27,8 +27,11 @@ The three shared failures have focused corrections:
 - `6ab2c71d4`: the nightly browser contract includes all four product sites.
   All 12 focused checks pass. A fresh full Node gate remains required.
 
-The ordinary browser invocation on frozen source `aeec86704665` is still
-running and has recorded failures across all three engines and products.
+The ordinary browser invocation on frozen source `aeec86704665` closed failed:
+7,119 passes, 307 declared skips and 113 failures, with zero retries or flaky
+results. All 7,539 discovered identities are accounted for. The Motion portion
+has 418 passes, seven declared skips and 19 failures: Chromium 131/0/17,
+Firefox 140/6/2 and WebKit 147/1/0 (pass/skip/fail).
 These include Project Bin relinking, original-file overwrite readiness,
 initial navigation, tempo entry, Motion preview and PNG delivery, and audio
 editor workflows. Each retains its original failed result; saved evidence
@@ -41,6 +44,10 @@ scenario also passed, which does not explain their original failures.
 two WebKit tempo cases. Strict browser types, changed-file lint and controlled
 blank-page plumbing checks pass; original keys, assertions and timers are
 unchanged. This adds evidence collection, not a product fix or a cause claim.
+The independent audit passed input/site/map preservation, recorded-process
+retirement and port closure. The original audio service had already exited;
+its exit time and reason remain unknown, and its absence is a failed post.
+This does not establish a common cause of the browser failures.
 The other browser failures remain unresolved. Failed raw coverage stays opaque
 and unadmitted; no current complete browser or coverage acceptance is claimed.
 
@@ -95,6 +102,16 @@ typecheck exhausted its default heap; the bounded 12 GiB static invocation
 passed. Application tests retain the default heap. This repairs the readiness
 contract without establishing the cause of historical browser timeouts.
 
+The Canvas readiness repair (`92a5abdd`) authorizes new edits only after the
+current project, composition and exact frame have painted in the current asset
+store session. Draft paints replace the recorded pixels; cancelling a painted
+draft waits for the base frame to repaint. Replacing the project or store also
+cancels its gesture and releases pointer capture. All 28 focused controls,
+strict focused and Motion production types, changed-file lint, size, the Motion
+build and both unchanged Canvas Chromium workflows pass. The broad test
+typecheck exhausted its default heap and remains failed; the focused check
+does not replace it. No historical browser failure is attributed to this defect.
+
 The original Windows x64 build on source `0241c6e1c` failed at libvpx because
 the assembler was unavailable. After the NASM installation/PATH corrections
 (`d41fbcd5`, `0e227882`), a new build found NASM but failed because libvpx was
@@ -129,8 +146,13 @@ The verified source-staging correction (`28e84651`) uses a short relative source
 path independently of the original drive or directory depth. All 22 focused
 Motion checks pass on Windows, including 13 staging/target controls; strict
 types, changed-file lint and source audits pass. Linux passes 20 checks and
-declares two Windows execution skips. The real long generator and complete
-native build remain required. Source review also identifies a separate FFmpeg
+declares two Windows execution skips. The real long-generator control then
+returns Make success but fails its independent semantic check: the project
+contains only 157 of 245 required file references. Its exact missing-reference
+check rejects the output; the negative control is consequently not run.
+Independent input and process audits pass. The truncation boundary remains
+under investigation, and the complete native build remains required.
+Source review also identifies a separate FFmpeg
 source-path handoff for correction and actual validation; it is not an observed
 FFmpeg build failure.
 The refreshed shared native manifests also require a fresh Linux native build
@@ -148,6 +170,8 @@ Current retained receipts are relative to
 | Lazy chunk correction | `preview-watchdog-chunk-owner-fix-20261018/qualification.json` |
 | CI native tooling correction | `motion-native-ci-fix-20261018/qualification.json` |
 | Nightly site correction | `nightly-motion-site-contract-fix-20261018/qualification.json` |
+| Failed complete ordinary browser run and physical closure | `final-validation-aeec86704665-browser-20261017/ordinary-v2/actual/physical-closure.json` |
+| Complete Motion browser outcomes | `final-validation-aeec86704665-browser-20261017/ordinary-v2/actual/motion-failure-classification-final.json` |
 | Overwrite readiness scenarios | `original-capacity-diagnostic-f4b64a747-20261018/run/closed.json` |
 | Tempo diagnostics plumbing | `tempo-input-recorder-plumbing-20261018/review.json` |
 | Linux package, `6ab2c71d4` | `current-6ab2c71d-native-qualification/qualification.json` |
@@ -164,6 +188,7 @@ Current retained receipts are relative to
 | Full lint on the correction's final file bodies | `motion-audio-block-retention-6463b7e69-20261018/full-lint-validation.json` |
 | Failed private-project package and passed physical audit | `current-6463b7e69-native-preparation/owner-failed-qualification.json` |
 | First-paint readiness correction | `first-paint-readiness-20261018/final-validation.json` |
+| Canvas painted-frame readiness correction | `canvas-readiness-f751-20261018/qualification.json` |
 | Merged first-paint auxiliary retirement | `first-paint-readiness-20261018/retired-auxiliary/retirement.json` |
 | Windows NASM installation/PATH corrections | `windows-x64-prerequisites-20261018/nasm-ci-path-fix-commit-receipt.json` |
 | Windows libvpx recipe correction | `windows-x64-prerequisites-20261018/libvpx-msvc-fix-commit-receipt.json` |
@@ -173,6 +198,7 @@ Current retained receipts are relative to
 | Windows libvpx shell correction | `windows-x64-prerequisites-20261018/libvpx-native-shell-fix-commit-receipt.json` |
 | Fifth failed Windows build and physical closure | `windows-x64-prerequisites-20261018/native-build-native-shell-v8-failed-closed-review.json` |
 | Verified Windows libvpx source staging | `windows-x64-prerequisites-20261018/libvpx-source-staging-fix-commit-receipt.json` |
+| Failed real long-generator control and physical closure | `windows-x64-prerequisites-20261018/native-libvpx-long-generator-canary-v1-failed-closed-review.json` |
 
 These results retain their exact source attribution. The subsequent test and
 documentation commits do not retag frozen executions. Fresh complete static,

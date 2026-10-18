@@ -80,8 +80,10 @@ The complete Node run on `aeec86704665` passed all 1,250 Motion cases, but
 failed three shared checks. Focused regressions pass for the subsequent chunk,
 Windows tooling and nightly-site corrections; a fresh complete gate is required.
 
-The ordinary browser gate on that frozen source is still running and has
-recorded failures across all three engines and products. The original-file
+The ordinary browser gate on that frozen source closed failed: 7,119 passes,
+307 declared skips and 113 failures, including 19 Motion failures across
+Chromium and Firefox. Inputs and sites stayed unchanged, and the recorded
+processes retired. The original-file
 overwrite readiness correction passes its six focused scenarios across three
 engines. The other failures remain
 unexplained; passive failure diagnostics preserve their original interactions,
@@ -109,14 +111,20 @@ The first-paint readiness repair (`286fe818`) also passes 43 focused preview
 cases, strict test types, changed-file lint, the Motion build and the existing
 Chromium preview workflow. It waits for a painted frame before enabling preview
 controls or reporting ready; historical timeout causes remain unproven.
+The Canvas readiness repair (`92a5abdd`) binds new edits to the current painted
+base frame and cancels gestures when their project or asset store changes.
+All 28 focused controls and both existing Canvas Chromium workflows pass,
+along with strict focused and production types, lint and the Motion build.
 
 The Windows x64 builds exposed assembler discovery, libvpx compiler selection,
 source-path persistence and generator-script launching defects. The NASM,
 MSVC project-mode, native-path and shell corrections pass their focused controls.
 The shell correction also passes a bounded generator, recursive Make and install
 control. The subsequent full build fails launching a much longer project
-generator command. Verified local source staging passes its focused regressions;
-the real long generator and complete native build remain unqualified. No Windows
+generator command. Verified local source staging passes its focused regressions.
+The real long-generator control runs but fails its semantic check: its project
+contains 157 of 245 required file references. The complete native build remains
+unqualified. No Windows
 host or package is qualified.
 The shared native source-pin refresh requires a fresh Linux native build and
 receipt before new packaging. Earlier native results keep their original
