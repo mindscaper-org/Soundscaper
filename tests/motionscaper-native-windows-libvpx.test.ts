@@ -62,7 +62,7 @@ for (const target of targets) {
 			const environment = phase(commands, name).environment;
 			assert.equal(environment.CC, codecEnvironment.CC, name);
 			assert.equal(environment.CXX, codecEnvironment.CXX, name);
-			assert.ok(!phase(commands, name).args.some(argument => /^(?:SHELL|\.SHELLFLAGS)=/u.test(argument)), name);
+			if (!name.startsWith('ffmpeg-')) assert.ok(!phase(commands, name).args.some(argument => /^(?:SHELL|\.SHELLFLAGS)=/u.test(argument)), name);
 			assert.ok(!('SHELL' in environment), name);
 		}
 		assert.equal(codecEnvironment.CC, windows ? 'cl.exe' : join(root, 'authenticated-tools', 'c'));
@@ -113,7 +113,7 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 			'src/configure',
 			'--prefix=C:/motionscaper-libvpx-command-plan/work/libvpx-install',
 		], 'libvpx persists source and install paths in makefiles read by native Windows make');
-		for (const codec of ['x264', 'ffmpeg']) {
+		for (const codec of ['x264']) {
 			const command = phase(commands, `${codec}-configure`);
 			assert.deepEqual([command.args[0], command.args.find(argument => argument.startsWith('--prefix='))], [
 				`/c/motionscaper-libvpx-command-plan/${codec === 'x264' ? 'sources/x264' : 'ffmpeg'}/configure`,
@@ -128,6 +128,27 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 		for (const planRoot of [String.raw`D:\deep\source\tree`, ['C:', ...Array.from({ length: 60 }, () => 'nested'), 'source'].join('\\')]) {
 			const commands = commandPlan(target, planRoot, String.raw`C:\motionscaper-staged-work`);
 			assert.equal(phase(commands, 'libvpx-configure').args[0], 'src/configure');
+		}
+	});
+}
+
+for (const target of targets) {
+	test(`Motion ${target} preserves the FFmpeg source and native install path contract`, () => {
+		const windows = target.startsWith('win-');
+		const workRoot = windows ? String.raw`C:\motionscaper-ffmpeg-work` : join(root, 'ffmpeg-work');
+		for (const sourceRoot of windows ? [String.raw`D:\foreign\source`, ['C:', ...Array.from({ length: 60 }, () => 'nested'), 'source'].join('\\')] : [root]) {
+			const commands = commandPlan(target, sourceRoot, workRoot);
+			const configure = phase(commands, 'ffmpeg-configure');
+			const install = framescaperMediaHostBuildPaths(workRoot).ffmpegInstall;
+			assert.equal(configure.args[0], windows ? './src/configure' : join(sourceRoot, 'ffmpeg', 'configure'));
+			assert.ok(configure.args.includes(`--prefix=${windows ? install.replaceAll('\\', '/') : install}`));
+			assert.equal(configure.args.includes('--extra-cflags=-MT'), windows);
+			for (const [name, operation] of [['ffmpeg-build', '-j1'], ['ffmpeg-install', 'install']] as const) {
+				const command = phase(commands, name);
+				assert.deepEqual(command.args, ['-C', framescaperMediaHostBuildPaths(workRoot).ffmpegBuild, operation,
+					...(windows ? ['SHELL=C:/Program Files/Git/bin/bash.exe', '.SHELLFLAGS=--noprofile --norc -c'] : [])]);
+				assert.ok(!('SHELL' in command.environment));
+			}
 		}
 	});
 }

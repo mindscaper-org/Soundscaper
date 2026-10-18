@@ -20,7 +20,7 @@ interface HostManifest {
 	readonly boost: { readonly archiveSha256: string; headerClosure: TreePin };
 }
 interface ExternalManifest { readonly libraries: { readonly id: string; readonly version: string; readonly revision: string; readonly sha256: string; extractedTree: TreePin }[] }
-interface StagingDriver { stageFramescaperMediaHostExternalSourceRoot: (manifest: ExternalManifest, id: string, source: string, destination: string) => void }
+interface StagingDriver { stageFramescaperMediaHostFfmpegSourceRoot: (expected: TreePin, source: string, destination: string) => void; stageFramescaperMediaHostExternalSourceRoot: (manifest: ExternalManifest, id: string, source: string, destination: string) => void }
 const stage = (...args: Parameters<StagingDriver['stageFramescaperMediaHostExternalSourceRoot']>) => {
 	const production = driver as unknown as StagingDriver;
 	assert.equal(typeof production.stageFramescaperMediaHostExternalSourceRoot, 'function');
@@ -93,7 +93,7 @@ function fixture(context: TestContext) {
 	writeJson(toolchainReceipt, { ...body, identitySha256: identity });
 	const outputRoot = join(root, 'output');
 	mkdirSync(outputRoot);
-	return { root, external, original: join(externalSourceRoot, 'libvpx'), outputRoot, options: {
+	return { root, external, ffmpegOriginal: ffmpegSourceRoot, ffmpegTree: manifest.ffmpeg.extractedTree, original: join(externalSourceRoot, 'libvpx'), outputRoot, options: {
 		repositoryRoot, targetId: 'win-x64', hostRuntime: 'win32-x64', toolchainReceipt,
 		toolchainIdentity: identity, ffmpegSourceRoot, boostSourceRoot, externalSourceRoot, outputRoot,
 	} };
@@ -136,6 +136,7 @@ test('Motion Windows recipe owns and authenticates staged libvpx before its firs
 	driver.executeFramescaperMediaHostBuildRecipe(recipe, {
 		run: () => {
 			assert.deepEqual(treePin(collectExtractedSourceTree(join(input.outputRoot, 'libvpx-build', 'src'))), before);
+			assert.deepEqual(treePin(collectExtractedSourceTree(join(input.outputRoot, 'ffmpeg-build', 'src'))), input.ffmpegTree);
 			calls += 1;
 			return { status: 0 };
 		}, verifyFfmpegConfiguration: () => ({}),
@@ -155,4 +156,43 @@ test('Motion Windows refuses libvpx source drift before staging or any runner co
 	}), /pinned content closure/iu);
 	assert.equal(calls, 0);
 	assert.equal(existsSync(join(input.outputRoot, 'libvpx-build', 'src')), false);
+});
+
+const stageFfmpeg = (...args: Parameters<StagingDriver['stageFramescaperMediaHostFfmpegSourceRoot']>) => {
+	const production = driver as unknown as StagingDriver;
+	assert.equal(typeof production.stageFramescaperMediaHostFfmpegSourceRoot, 'function');
+	production.stageFramescaperMediaHostFfmpegSourceRoot(...args);
+};
+
+test('Motion FFmpeg copy authenticates its same pinned tree and preserves raw receipt bytes', context => {
+	const input = fixture(context);
+	const receipt = readFileSync(join(input.ffmpegOriginal, '.framescaper-source-identity.json'));
+	const destination = join(input.root, 'ffmpeg-copy');
+	stageFfmpeg(input.ffmpegTree, input.ffmpegOriginal, destination);
+	assert.deepEqual(treePin(collectExtractedSourceTree(destination)), input.ffmpegTree);
+	assert.deepEqual(treePin(collectExtractedSourceTree(input.ffmpegOriginal)), input.ffmpegTree);
+	assert.deepEqual(readFileSync(join(destination, '.framescaper-source-identity.json')), receipt);
+	assert.deepEqual(readFileSync(join(input.ffmpegOriginal, '.framescaper-source-identity.json')), receipt);
+	const contaminated = join(input.root, 'contaminated-ffmpeg');
+	mkdirSync(contaminated);
+	writeFileSync(join(contaminated, 'forged.c'), 'forged\n');
+	assert.throws(() => stageFfmpeg(input.ffmpegTree, input.ffmpegOriginal, contaminated));
+	assert.equal(readFileSync(join(contaminated, 'forged.c'), 'utf8'), 'forged\n');
+	writeFileSync(join(input.ffmpegOriginal, 'RELEASE'), 'tampered\n');
+	const refused = join(input.root, 'refused-ffmpeg');
+	assert.throws(() => stageFfmpeg(input.ffmpegTree, input.ffmpegOriginal, refused));
+	assert.equal(existsSync(refused), false);
+});
+
+test('Motion Windows refuses FFmpeg raw drift before copy or any runner command', context => {
+	if (process.platform !== 'win32' || process.arch !== 'x64') return context.skip('Windows x64 native execution fixture');
+	const input = fixture(context);
+	const recipe = driver.createFramescaperMediaHostBuildRecipe(input.options);
+	writeFileSync(join(input.ffmpegOriginal, 'RELEASE'), 'tampered after admission\n');
+	let calls = 0;
+	assert.throws(() => driver.executeFramescaperMediaHostBuildRecipe(recipe, {
+		run: () => { calls += 1; return { status: 0 }; }, verifyFfmpegConfiguration: () => ({}),
+	}));
+	assert.equal(calls, 0);
+	assert.equal(existsSync(join(input.outputRoot, 'ffmpeg-build', 'src')), false);
 });

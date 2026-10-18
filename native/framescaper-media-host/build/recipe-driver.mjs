@@ -135,6 +135,8 @@ export function createFramescaperMediaHostBuildRecipe(value) {
 		paths,
 		zlibSourceRoot: externalSourceRoots.zlib,
 		libvpxSourceRoot: externalSourceRoots.libvpx,
+		ffmpegSourceRoot,
+		ffmpegExtractedTree: manifest.ffmpeg.extractedTree,
 		externalManifest,
 		witnesses: Object.freeze(witnesses),
 	}));
@@ -179,6 +181,9 @@ export function executeFramescaperMediaHostBuildRecipe(
 		state.externalManifest, 'zlib', state.paths.zlibSource,
 	);
 	if (recipe.target.id.startsWith('win-')) {
+		stageFramescaperMediaHostFfmpegSourceRoot(
+			state.ffmpegExtractedTree, state.ffmpegSourceRoot, join(state.paths.ffmpegBuild, 'src'),
+		);
 		stageFramescaperMediaHostExternalSourceRoot(
 			state.externalManifest, 'libvpx', state.libvpxSourceRoot, state.paths.libvpxSource,
 		);
@@ -201,6 +206,14 @@ export function stageFramescaperMediaHostExternalSourceRoot(manifest, id, source
 		recursive: true, force: false, errorOnExist: true, preserveTimestamps: true,
 	});
 	authenticateFramescaperMediaHostExternalSourceRoot(manifest, id, destinationRoot);
+}
+
+export function stageFramescaperMediaHostFfmpegSourceRoot(expected, sourceRoot, destinationRoot) {
+	addSourceTreeWitness(sourceRoot, expected, [], 'FFmpeg staged source tree');
+	cpSync(sourceRoot, destinationRoot, {
+		recursive: true, force: false, errorOnExist: true, preserveTimestamps: true,
+	});
+	addSourceTreeWitness(destinationRoot, expected, [], 'FFmpeg staged source tree');
 }
 
 function exactTarget(hostRoot, manifest, value, witnesses) {
