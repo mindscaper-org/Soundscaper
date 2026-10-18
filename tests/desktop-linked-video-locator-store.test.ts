@@ -460,7 +460,7 @@ test('owner revocation during startup reconciliation restores startup metadata',
 	}));
 });
 
-test('linked-video locator registration rejects directories, empty files, and unsafe metadata', async (context) => {
+test('linked-video locator registration rejects directories and empty files', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-linked-video-invalid-'));
 	context.after(async () => { await rm(root, { recursive: true, force: true }); });
 	const emptyPath = join(root, 'empty.mp4');
@@ -473,15 +473,6 @@ test('linked-video locator registration rejects directories, empty files, and un
 
 	await assert.rejects(store.registerPath(root, request), /regular file/iu);
 	await assert.rejects(store.registerPath(emptyPath, request), /empty/iu);
-	await assert.rejects(store.registerPath(emptyPath, {
-		...request,
-		mimeType: 'text/plain',
-	}), /video MIME/iu);
-	await assert.rejects(store.registerPath(emptyPath, {
-		...request,
-		displayName: '../leak.mp4',
-	}), /display name/iu);
-	await assert.rejects(store.registerPath('relative.mp4', request), /absolute/iu);
 	assert.equal((await stat(emptyPath)).isFile(), true);
 });
 

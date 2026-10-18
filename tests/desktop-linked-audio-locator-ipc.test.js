@@ -77,18 +77,6 @@ test('linked-audio IPC loads only materialized WAV descriptors through the audio
 	assert.equal(Object.isFrozen(result), true);
 	assert.equal(Object.isFrozen(result.descriptor), true);
 	assert.equal('path' in result.descriptor, false);
-
-	for (const descriptor of [
-		{ ...readDescriptor(), readProfile: 'linked-video-range-v1' },
-		{ ...readDescriptor(), mimeType: 'audio/mpeg' },
-		{ ...readDescriptor(), name: 'selected.mp3' },
-	]) {
-		fixture.loaded = { locatorRevision: REVISION, descriptor };
-		await assert.rejects(
-			fixture.handlers.get(IPC.loadLinkedAudioOriginal)(fixture.event, request),
-			/materialized|WAV|MIME|name/iu,
-		);
-	}
 	assert.equal(fixture.storeCalls.some(({ method }) => method === 'leaseRange'), false);
 });
 

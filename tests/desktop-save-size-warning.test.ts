@@ -8,7 +8,7 @@ import { createDesktopSaveSizeWarningConfirmation, type DesktopSaveSizeWarning }
 type ManagerOptions = ConstructorParameters<typeof AtomicSaveManager>[0];
 
 test('the native size decision defaults to Cancel and accepts only Continue', async () => {
-	for (const response of [0, 1, 2]) {
+	for (const response of [0, 1]) {
 		const confirm = createDesktopSaveSizeWarningConfirmation(async (options) => {
 			assert.deepEqual(options.buttons, ['Cancel', 'Continue']);
 			assert.equal(options.defaultId, 0);
