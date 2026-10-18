@@ -1,10 +1,11 @@
 # Native Photo storage
 
-Lightscaper's L8 native catalog adapter is in progress. Its first internal
-component stores managed Original bytes in main-owned files and their immutable
-physical bindings in SQLite. The application still uses its complete Web Core
-catalog and media stores. This component registers no renderer API, menu action,
-native catalog backend or add-in-place capability by itself.
+Lightscaper's L8 native catalog adapter is in progress. Internal components
+store managed Original bytes in main-owned files, their immutable physical
+bindings in SQLite, and Current Photo catalog documents in a separate SQLite
+database. The application still uses its complete Web Core catalog and media
+stores. These components register no renderer API, menu action, selected native
+catalog backend or add-in-place capability by themselves.
 
 The host supplies one canonical appData directory. The fixed product scope is
 `Lightscaper/project-library/v1/`; filenames supplied by a photo or renderer
@@ -53,12 +54,39 @@ and SQLite FULL commits; this component does not flush directories there. Power-
 been qualified. Current component qualification uses actual Linux files and
 SQLite; it does not establish native Windows, ARM64 or macOS qualification.
 
-The remaining adapter must persist Current catalog documents, indexes and
-resources natively, preserve publication/recovery and custody transactions, and
-authorize body access from the selected catalog. Its media publication port must
-receive the whole validated Original; the existing `(assetId, Blob)` port cannot
-infer one. Menu-owned library selection must join authoring, previews and
-storage before switching. Native qualification must also supply a private
+`native-photo-catalogs.sqlite3` admits its own exact `LSCC` application identity,
+version 1, STRICT tables and indexes. One row atomically binds a validated
+catalog root to its root revision, photo count and independently advancing
+index revision. Whole Photo1/2/3 documents retain their declared versions;
+bounded summaries and memberships belong to the same publication transaction.
+Imports authenticate actual managed Original custody and the complete retained
+LUT/brush closure before opening a SQL transaction. Edits authenticate resources
+but do not reopen potentially unavailable Originals; the SQL transaction keeps
+Original descriptors and extracted metadata immutable. Source-guarded derived
+publication checks source revisions and exact Originals in its insertion
+transaction. Catalog and Photo revision conflicts publish nothing.
+
+Scalar pages read at most 64 summaries, never aggregate Photo documents. A
+single SQLite read snapshot binds the root/index fence to its ordered page,
+including when another WAL connection commits during the read. Continuations
+bind catalog, filter scope and index revision. Smart definitions cannot be
+created or changed until their native companion storage is implemented. This
+schema does not implement live queries, stacks or saved smart collections.
+
+The composing main-private owner captures request metadata before waiting,
+serializes publication, joins verification and file work before close, and
+independently retires both databases. Body reads first load the selected stored
+Photo; a supplied descriptor or digest cannot grant body access. Actual Linux
+filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
+scalar-only paging, cancellation, and reentrant close. They do not qualify a
+packaged renderer adapter or another platform.
+
+The remaining adapter must add native query/stack/saved-collection companions,
+resource ownership, settings, journals and restore, then preserve all complete
+session/publication/recovery ports through selected-catalog renderer admission.
+Its media publication port must receive the whole validated Original; the
+existing `(assetId, Blob)` port cannot infer one. Menu-owned library selection
+must join authoring, previews and storage before switching. Native qualification must also supply a private
 appData root explicitly: the existing Lightscaper smoke's `--user-data-dir`
 isolates Chromium storage but does not select a private native library root.
 Linked Originals remain refused until durable folder grants, watching, relink,

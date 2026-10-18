@@ -1205,12 +1205,15 @@ cover clean/nonzero exit, closed streams, timeout, creation refusal and
 supervisor death. ARM64 still requires its own target-native qualification.
 
 The [native Photo storage adapter](docs/architecture/lightscaper-native-photo-storage.md)
-has begun with a main-private immutable Original body owner and a dedicated
-SQLite physical-binding index. Streamed file publication, dedup aliases,
-bounded authenticated reads and joined cancellation/retirement have focused
-coverage. This internal component is not yet selected by the application;
-native catalog persistence, resource ownership, renderer admission and
-menu-owned library selection remain required before activation.
+now has a main-private immutable Original body owner, a dedicated SQLite
+physical-binding index and separate native Current catalog persistence.
+Atomic root/Photo/summary/membership publication, source-guarded derived saves,
+bounded scalar paging and joined owner retirement have actual Linux filesystem
+and SQLite coverage, including independent WAL connections. These components
+are not yet selected by the application. Native query/stack/saved-collection
+companions, resources, settings, journals/restore, renderer admission and
+menu-owned library selection remain required before activation; add-in-place
+access and native platform qualification remain open.
 
 ### Exit gate
 
