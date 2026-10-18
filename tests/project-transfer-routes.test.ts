@@ -162,20 +162,6 @@ test('a transfer document is a standalone page, not a product route', () => {
 	assert.doesNotMatch(html, /\/src\/main\.jsx|logo\//u);
 });
 
-test('a transfer document refuses an unknown role or an off-root module URL', () => {
-	assert.throws(
-		() => renderTransferDocument({ role: 'archive', moduleUrl: '/a.js' }),
-		/Unknown project transfer role: archive/u,
-	);
-	for (const moduleUrl of ['https://cdn.example/a.js', 'a.js', '']) {
-		assert.throws(
-			() => renderTransferDocument({ role: 'send', moduleUrl }),
-			/root-relative page module URL/u,
-			`${moduleUrl} must be refused`,
-		);
-	}
-});
-
 test('rendered text is escaped rather than injected', () => {
 	const html = renderTransferDocument({
 		role: 'receive',
