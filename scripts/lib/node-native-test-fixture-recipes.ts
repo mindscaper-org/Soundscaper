@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { basename, join } from 'node:path';
+import { lightscaperRawNativeTestRecipeCurrentV1 } from './lightscaper-raw-native-test-recipe-current-v1.ts';
 
-export type NativeTestFixtureKind = 'media-contract' | 'media-contract-exact' | 'media-validator' | 'delivery-filesystem';
+type ExistingNativeTestFixtureKind = 'media-contract' | 'media-contract-exact' | 'media-validator' | 'delivery-filesystem';
+export type NativeTestFixtureKind = ExistingNativeTestFixtureKind | 'lightscaper-granted-file-reader' | 'lightscaper-raw-engine';
 export interface NativeTestFixtureRecipe {
 	readonly kind: NativeTestFixtureKind;
 	readonly compiler: string;
@@ -15,7 +17,7 @@ export function mediaContractFixtureKind(environment: NodeJS.ProcessEnv = proces
 	return environment.FRAMESCAPER_BOOST_192_SOURCE_ROOT ? 'media-contract-exact' : 'media-contract';
 }
 
-export function nativeTestFixtureRecipes(repositoryRoot: string, environment: NodeJS.ProcessEnv = process.env): Readonly<Record<NativeTestFixtureKind, NativeTestFixtureRecipe>> {
+export function nativeTestFixtureRecipes(repositoryRoot: string, environment: NodeJS.ProcessEnv = process.env): Readonly<Record<ExistingNativeTestFixtureKind, NativeTestFixtureRecipe>> {
 	const media = join(repositoryRoot, 'native/framescaper-media-host/src');
 	const common = join(repositoryRoot, 'native/common');
 	const delivery = join(repositoryRoot, 'native/soundscaper-professional-host/src');
@@ -46,6 +48,18 @@ export function nativeTestFixtureRecipes(repositoryRoot: string, environment: No
 	};
 }
 
+/** Select before constructing a recipe: unrelated tests need no RAW sources. */
+export function nativeTestFixtureRecipe(kind: NativeTestFixtureKind, repositoryRoot: string, environment: NodeJS.ProcessEnv): NativeTestFixtureRecipe {
+	if (kind === 'lightscaper-raw-engine') return lightscaperRawNativeTestRecipeCurrentV1(repositoryRoot, environment);
+	if (kind === 'lightscaper-granted-file-reader') {
+		const common = join(repositoryRoot, 'native/common');
+		return { kind, compiler: 'c++', arguments: ['-std=c++20', '-O2', '-Wall', '-Wextra', '-Wpedantic', '-Werror', '-pthread', '-I', common],
+			sources: [join(repositoryRoot, 'tests/native/lightscaper-granted-file-reader-current-v1/fixture.cpp'),
+				join(common, process.platform === 'win32' ? 'granted_file_reader_windows.cpp' : 'granted_file_reader_posix.cpp')], headerRoots: [common] };
+	}
+	return nativeTestFixtureRecipes(repositoryRoot, environment)[kind];
+}
+
 /** Select only binaries the requested tests can execute in this host configuration. */
 export function selectedNativeTestFixtures(testFiles: readonly string[], environment: NodeJS.ProcessEnv = process.env, exactRetimeAvailable = false): readonly NativeTestFixtureKind[] {
 	const kinds = new Set<NativeTestFixtureKind>();
@@ -54,5 +68,7 @@ export function selectedNativeTestFixtures(testFiles: readonly string[], environ
 	if (names.has('framescaper-media-host-unified-vfr-parity.test.js') || exactRetimeAvailable && names.has('framescaper-media-host-native-adapters.test.js')) kinds.add(mediaContractFixtureKind(environment));
 	if (exactRetimeAvailable && (names.has('framescaper-media-host-unified-vfr-parity.test.js') || names.has('framescaper-media-host-unified-validator-parity.test.js'))) kinds.add('media-validator');
 	if (process.platform === 'linux' && (names.has('soundscaper-delivery-fs-native.test.js') || names.has('desktop-soundscaper-delivery-filesystem-native-e2e.test.ts'))) kinds.add('delivery-filesystem');
+	if (names.has('lightscaper-native-granted-file-reader-current.test.ts')) kinds.add('lightscaper-granted-file-reader');
+	if (names.has('lightscaper-native-raw-engine-current.test.ts')) kinds.add('lightscaper-raw-engine');
 	return [...kinds].sort();
 }

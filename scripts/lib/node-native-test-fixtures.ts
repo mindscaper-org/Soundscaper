@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import { constants, copyFileSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { nativeTestFixtureRecipes, type NativeTestFixtureKind, type NativeTestFixtureRecipe } from './node-native-test-fixture-recipes.ts';
+import { nativeTestFixtureRecipe, type NativeTestFixtureKind, type NativeTestFixtureRecipe } from './node-native-test-fixture-recipes.ts';
+import { lightscaperNativeTestEnvironmentCurrentV1, prepareLightscaperNativeTestSourceCurrentV1 } from './lightscaper-native-test-source-current-v1.ts';
 
 export const NATIVE_TEST_FIXTURE_ENV = 'SCAPE_NODE_TEST_NATIVE_FIXTURE';
 interface FixtureArtifact { readonly file: string; readonly inputSha256: string; readonly sha256: string; }
@@ -43,12 +44,14 @@ function compilerIdentity(compiler: string): string | null {
 export function prepareNativeTestFixtures(options: FixtureOptions, build = buildNativeRecipe, identify: CompilerIdentity = compilerIdentity): void {
 	try {
 		mkdirSync(options.fixtureRoot, { recursive: true });
-		const recipes = nativeTestFixtureRecipes(options.repositoryRoot, options.environment);
+		const environment = options.environment ?? process.env;
+		if (options.kinds.includes('lightscaper-raw-engine') && !environment.LIGHTSCAPER_LIBRAW_SOURCE_ROOT) prepareLightscaperNativeTestSourceCurrentV1(options.repositoryRoot, options.fixtureRoot);
+		const recipeEnvironment = lightscaperNativeTestEnvironmentCurrentV1(environment, options.fixtureRoot);
 		const artifacts: Partial<Record<NativeTestFixtureKind, FixtureArtifact>> = {};
 		for (const kind of new Set(options.kinds)) {
-			const recipe = recipes[kind];
+			const recipe = nativeTestFixtureRecipe(kind, options.repositoryRoot, recipeEnvironment);
 			const compiler = identify(recipe.compiler);
-			if (compiler === null && recipe.compiler === 'c++') continue;
+			if (compiler === null && recipe.compiler === 'c++' && !kind.startsWith('lightscaper-')) continue;
 			if (compiler === null) throw new Error(`Native fixture compiler ${recipe.compiler} is unavailable.`);
 			const file = `${kind}${process.platform === 'win32' ? '.exe' : ''}`;
 			const inputSha256 = recipeIdentity(recipe, compiler);
@@ -76,7 +79,7 @@ export function copyNativeTestFixture(options: CopyOptions, identify: CompilerId
 	}
 	const artifact = manifest.artifacts[options.kind];
 	if (!artifact) return false;
-	const recipe = nativeTestFixtureRecipes(options.repositoryRoot, environment)[options.kind];
+	const recipe = nativeTestFixtureRecipe(options.kind, options.repositoryRoot, lightscaperNativeTestEnvironmentCurrentV1(environment, fixtureRoot));
 	const compiler = identify(recipe.compiler);
 	if (compiler === null || recipeIdentity(recipe, compiler) !== artifact.inputSha256) throw new Error('Native fixture source or compilation identity changed.');
 	const source = join(fixtureRoot, artifact.file);
@@ -91,7 +94,7 @@ export function copyNativeTestFixture(options: CopyOptions, identify: CompilerId
 
 export function compileNativeTestFixture(options: CopyOptions): void {
 	if (copyNativeTestFixture(options)) return;
-	buildNativeRecipe(nativeTestFixtureRecipes(options.repositoryRoot, options.environment)[options.kind], options.outputPath);
+	buildNativeRecipe(nativeTestFixtureRecipe(options.kind, options.repositoryRoot, options.environment ?? process.env), options.outputPath);
 }
 
 function buildNativeRecipe(recipe: NativeTestFixtureRecipe, outputPath: string): void {
@@ -125,7 +128,7 @@ function readManifest(bytes: Buffer): FixtureManifest {
 		|| !('architecture' in value) || typeof value.architecture !== 'string'
 		|| !('artifacts' in value) || typeof value.artifacts !== 'object' || value.artifacts === null) throw new Error('Invalid native fixture manifest.');
 	for (const [kind, artifact] of Object.entries(value.artifacts)) {
-		if (!['media-contract', 'media-contract-exact', 'media-validator', 'delivery-filesystem'].includes(kind)
+		if (!['media-contract', 'media-contract-exact', 'media-validator', 'delivery-filesystem', 'lightscaper-granted-file-reader', 'lightscaper-raw-engine'].includes(kind)
 			|| typeof artifact !== 'object' || artifact === null
 			|| !('file' in artifact) || artifact.file !== `${kind}${process.platform === 'win32' ? '.exe' : ''}`
 			|| !('inputSha256' in artifact) || typeof artifact.inputSha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(artifact.inputSha256)
