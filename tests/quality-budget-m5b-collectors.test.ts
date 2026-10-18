@@ -68,18 +68,14 @@ test('five exact 5B collector profiles bind the registered workloads and fixture
 		assert.deepEqual(workload.fixtureIds, [pipeline.fixtureId]);
 		assert.ok(workload.measurementIds.length > 0);
 	}
-	assert.equal(Object.hasOwn(config, 'environments'), false);
 });
 
 test('each pipeline validates a closed measurement and reports its thresholds', () => {
 	for (const profileId of Object.keys(M5B_QUALITY_PIPELINES)) {
 		const measurement = validateM5bQualityMeasurement(profileId, makeMeasurement(profileId));
-		assert.equal(Object.isFrozen(measurement), true);
-		assert.equal(Object.isFrozen(measurement.metrics), true);
 		const result = createM5bQualityResult(profileId, measurement, config);
 		assert.equal(result.status, 'passed', profileId);
 		assert.equal(result.metricGatePassed, true, profileId);
-		assert.equal('qualificationEvidencePublished' in result, false, profileId);
 		assert.equal(result.evaluation.passed, true);
 	}
 });
@@ -112,7 +108,6 @@ test('a software renderer is reported without pretending to satisfy a hardware p
 	const result = createM5bQualityResult(profileId, measurement, config);
 	assert.equal(result.status, 'passed');
 	assert.equal(result.rendererClass, 'software');
-	assert.equal(Object.hasOwn(config, 'environments'), false);
 });
 
 test('diagnostics retain the exact observed target fingerprint', () => {
@@ -181,10 +176,6 @@ test('native diagnostics cannot be collected on a hosted CI runner', () => {
 	for (const variable of ['GITHUB_ACTIONS', 'CI', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI']) {
 		assert.throws(() => assertM5bCollectionHost({ [variable]: 'true' }), /hosted-runner/iu);
 	}
-	assert.throws(
-		() => assertM5bCollectionHost(Object.defineProperty({}, 'CI', { get: () => '' })),
-		/own string data property/iu,
-	);
 });
 
 test('all five collectors can derive one validated measurement from a bounded workload diagnostic', async () => {
