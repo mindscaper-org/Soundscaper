@@ -27,17 +27,28 @@ const nativeThrowIfAborted = AbortSignal.prototype.throwIfAborted;
 /** Synchronous main-private transactions. The enclosing owner queues operations,
  * checks cancellation before calling, and preserves a committed return value
  * across later cancellation. These functions never await inside SQLite. */
-export function createLightscaperNativeCatalogCurrentV1(database: DatabaseSync, value: unknown): void {
+export function createLightscaperNativeCatalogCurrentV1(database: DatabaseSync, value: unknown): void { createCatalog(database, value, false); }
+/** Default selection requires wholly pristine native inventory, not an orphaned
+ * existing root silently reinterpreted as a new library. */
+export function initializeLightscaperNativeDefaultCatalogCurrentV1(database: DatabaseSync, value: unknown): void { createCatalog(database, value, true); }
+function createCatalog(database: DatabaseSync, value: unknown, requirePristine: boolean): void {
 	const root = readValidatedPhotoCatalogRootV1(value);
 	if (root.revision !== 0 || root.photoCount !== 0) throw new RangeError('A new catalog requires revision zero and no photos.');
-	withProjectLibraryImmediateTransaction(database, () => {
+	const run = (): void => {
+		if (requirePristine) for (const table of ['native_photo_catalogs', 'native_photos', 'native_photo_memberships', 'native_photo_query_rows_v1', 'native_photo_query_builds_v1',
+			'native_photo_query_rows_v2', 'native_photo_query_builds_v2', 'native_photo_stacks', 'native_photo_stack_states', 'native_photo_stack_forward_members',
+			'native_photo_stack_memberships', 'native_photo_smart_collections', 'native_photo_smart_collection_summaries', 'native_photo_smart_collection_states']) {
+			if (database.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get()) throw new Error('Native default selection requires pristine physical Catalog inventory.');
+		}
 		if (loadLightscaperNativeCatalogCurrentV1(database, root.id)) throw new RangeError('Photo catalog already exists.');
 		database.prepare('INSERT INTO native_photo_catalogs (id, document, root_revision, photo_count, index_revision) VALUES (?, ?, ?, ?, ?)')
 			.run(root.id, serializeLightscaperDocumentV1(root), root.revision, root.photoCount, 0);
 		writeLightscaperNativeQueryBuildCurrentV1(database, { id: root.id, schemaVersion: 2, ready: true, afterKey: null, indexedCount: 0 });
 		writeLightscaperNativeLegacyQueryBuildCurrentV1(database, { id: root.id, schemaVersion: 1, ready: true, afterKey: null, indexedCount: 0 });
 		database.prepare('INSERT INTO native_photo_stack_states (catalog_id,revision,stack_count) VALUES (?,0,0)').run(root.id);
-	});
+	};
+	if (requirePristine) withLightscaperNativeSmartCollectionTransactionCurrentV1(database, 'write', undefined, run);
+	else withProjectLibraryImmediateTransaction(database, run);
 }
 
 export function loadLightscaperNativeCatalogCurrentV1(database: DatabaseSync, catalogId: unknown): PhotoCatalogRootV1 | null {

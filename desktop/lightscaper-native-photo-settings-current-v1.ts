@@ -2,6 +2,8 @@
 
 import type { DatabaseSync } from 'node:sqlite';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
+import type { KeyValueEntry, KeyValueWriteAdmission } from '../src/common/editor/storage/key-value-repository.ts';
+import { readLightscaperNativePhotoLibraryAnchorKeyCurrentV1 as anchorKey, readLightscaperNativePhotoLibraryAnchorEntryCurrentV1 as anchorRead, captureLightscaperNativePhotoLibraryAnchorPairCurrentV1 as anchorCapture, publishLightscaperNativePhotoLibraryAnchorPairCurrentV1 as anchorPublish } from './lightscaper-native-photo-library-anchor-current-v1.ts';
 import type { PhotoMediaSettingsRepositoryV1 as Settings } from '../src/lightscaper/storage/photo-media-store.ts';
 import { openLightscaperNativePhotoSettingsDatabaseCurrentV1 } from './lightscaper-native-photo-settings-files-current-v1.ts';
 import { LightscaperNativePhotoSettingsLifetimeCurrentV1 } from './lightscaper-native-photo-settings-lifetime-current-v1.ts';
@@ -73,6 +75,18 @@ export class LightscaperNativePhotoSettingsCurrentV1 {
 			return normalizePhotoImportIntentV1(decodeLightscaperNativePhotoSettingCurrentV1(row.payload), catalog);
 		});
 	}
+
+	readLibraryAnchorEntryCurrentV1(key: string): Promise<KeyValueEntry> {
+		return this.#lifetime.run(() => { this.#assertAnchor(); return anchorKey(key); }, captured => {
+			if (this.#database.isTransaction) throw new Error('Native library authority requires its own read.');
+			return anchorRead(this.#database, captured);
+		});
+	}
+	publishLibrarySelectionCurrentV1(expected: unknown, pointer: unknown, historyKey: string, history: unknown, admission?: KeyValueWriteAdmission): Promise<boolean> {
+		return this.#lifetime.run(() => { this.#assertAnchor(); return anchorCapture(expected, pointer, historyKey, history, admission); },
+			request => anchorPublish(this.#database, request));
+	}
+	#assertAnchor(): void { if (this.#scope !== 'anchor') throw new Error('Native library authority requires the fixed settings anchor.'); }
 
 	close(): Promise<void> { return this.#lifetime.close(() => { this.#database.close(); }); }
 

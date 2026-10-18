@@ -3,8 +3,9 @@
 Native Original loading composes an authenticated main-process range reader,
 a main-owned ticket transport and a renderer staging source that returns a genuine File. These
 components do not activate a native Session. The application keeps its complete
-Web Core storage until native restore, selection publication, IPC and consumer
-integration are complete.
+Web Core storage until the complete native Session and app-facing IPC/consumer
+integration are ready. Main-private native restore and selected publication are
+implemented by the [scope owner](lightscaper-native-photo-library-scopes.md).
 
 ## Main-process ownership
 

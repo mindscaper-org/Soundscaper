@@ -3,8 +3,9 @@
 The main-private `LightscaperNativePhotoLibraryScopesCurrentV1` allocates and
 reopens physical native library generations. Each generation composes the actual
 Current catalog, managed media, LUT/brush resources and selected settings owners.
-The application continues to use its complete Web Core Session until native
-restore, renderer loading and selected-library publication are complete.
+The main-private restore now installs and reopens a selected native generation.
+The application continues to use its complete Web Core Session until the native
+Session, IPC and menu-owned switching are complete.
 
 ## Ownership and storage
 
@@ -70,6 +71,8 @@ another scope owner must not enter while a child might still own native work.
 Combined native opening/retirement failures retain the guard even when no child
 owner was returned.
 Closing never deletes generation files or allocation records.
+Successfully closed components leave the manager's tracking set. Fresh restore
+roles release their generation tokens only after joined retirement.
 
 Component close first quiesces escaped media writers without retiring physical
 storage. This releases an idle stream producer that can precede a read in the
@@ -82,6 +85,39 @@ accept only their exact historical schemas and preserve existing migrations.
 Foreign hot-journal bytes remain untouched. Directory admission retries settle
 parent-entry fsync even when an earlier mkdir succeeded before sync failed.
 
+## Restore and selected installation
+
+`restoreArchive` registers the entire archive job before lazy loading or input
+IO. Its short queue registration permits ordinary manager calls during the job;
+shutdown cancels and joins the actual job before retiring children and the guard.
+The native input owner also joins real byte providers after the shared archive
+reader stops waiting on cancellation. ZIP cleanup precedes publication.
+
+`beginRestore` fences the previous selected epoch and joins its actual components
+before allocating a fresh generation. Separate one-use catalog and media claims
+cannot be copied, replayed or used as ordinary scope capabilities. The catalog
+stage preserves exact archived documents and revisions, complete Query2 rows,
+representable legacy Query1 rows, stack order and saved-state presence. Legal
+legacy projection overflow leaves that index unready. The media stage hashes every Original
+alias, installs the complete retained resource and preset closure, and audits
+actual native custody and bodies. Audits guard encoded payload sizes in SQL and
+refuse independent-connection changes.
+
+Only genuine sealed child receipts and successful candidate close can issue the
+manager-bound, one-use Ready capability. The fixed native anchor publishes the
+selected pointer and permanent installation history in one transaction, reading
+both exact values back before COMMIT. A true COMMIT acknowledgment survives late
+cancellation and manager shutdown; matching permanent history reconciles a lost
+acknowledgment. Native pointer/history records are independent of browser names.
+
+Initial selection requires an actually pristine default catalog and joined close
+before pointer creation. `openSelected` authenticates restored registry/manifest
+identity and permanent history before vending an epoch-bound scope. Historical
+Ready digests attest installation; legitimate later edits remain reopenable.
+Malformed occupied authority rows refuse. Valid abandoned journals may be
+replaced conditionally while their generation files and registry records remain
+retained; neither journal nor manifest grants deletion authority.
+
 ## Qualification and remaining work
 
 Linux tests use real independent SQLite connections and Node child processes.
@@ -92,9 +128,12 @@ durable reopen, bounded paging, foreign evidence and joined stream/resource
 consumers. Large binary preservation checks compare bounded hash/size diagnostics.
 Focused verification runs serially under a process-group memory limit.
 
-Registry creation states, manifests and opaque allocation capabilities grant no
-restore-ready, selected-pointer, permanent-history or deletion authority. Complete
-native restore readiness and selection publication remain required, as do scoped
-renderer Blob/File loading, IPC, menu-owned Session switching and the maintained
-desktop target matrix. No AI runtime closure or target inventory changes; a manual
+Registry creation states, manifests and opaque allocation capabilities alone grant
+no restore-ready, selected-pointer, permanent-history or deletion authority. Tests
+also cover real archive restore, exact preset absence/empty rows and saved-state
+tombstones, selected reopen
+after edits, held input and ZIP cleanup, ignored history insertion, lost COMMIT
+acknowledgment and manager shutdown during actual publication. Complete native
+Session/IPC/menu activation and the maintained desktop target matrix remain.
+No AI runtime closure or target inventory changes; a manual
 **Update AI assets** run is not required.

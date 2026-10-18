@@ -63,6 +63,16 @@ export class LightscaperNativePhotoLibraryScopeRegistryCurrentV1 {
 			return Object.freeze({ allocations: Object.freeze(allocations), afterToken: allocations.length === 64 ? allocations.at(-1)?.allocation.namespaceToken ?? null : null });
 		}));
 	}
+	/** Fixed main-private identity after actual allocated generation creation. */
+	readRestoreIdentityCurrentV1(value: unknown): Readonly<{ registryOwner: string; manifestSha256: string }> {
+		if (this.#closing) throw new Error('Native registry is closing.'); const allocation = normalizePhotoLibraryRestoreAllocationV1(value);
+		return this.#transaction(false, undefined, () => {
+			const row = this.#row(allocation.namespaceToken);
+			if (!row || row.state !== 'created' || JSON.stringify(row.allocation) !== JSON.stringify(allocation)) throw new Error('Native restore has no exact created reservation.');
+			return Object.freeze({ registryOwner: this.#owner, manifestSha256: row.sha256 });
+		});
+	}
+
 	close(): Promise<void> { this.#closing ??= this.#tail.then(() => { this.#database.close(); }); return this.#closing; }
 	#created(allocation: Readonly<Allocation>, manifestSha256: string, signal?: AbortSignal): void {
 		this.#transaction(true, signal, () => {

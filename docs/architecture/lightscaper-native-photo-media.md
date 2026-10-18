@@ -90,8 +90,9 @@ and packaged native Session qualification remain open. Body custody tests do not
 claim container decoding or platform coverage beyond their actual Linux run.
 The [native scope owner](lightscaper-native-photo-library-scopes.md) additionally
 composes these genuine components in distinct physical generations under an
-appData-wide cross-process SQLite guard. Selected-library publication and complete
-packaged native Session qualification remain open.
+appData-wide cross-process SQLite guard, and implements main-private archive
+restore, selected publication and authenticated reopen. Complete packaged native
+Session qualification remains open.
 
 The five-member streaming contract is qualified against actual native files and
 SQLite, including four-MiB emissions split into native one-MiB writes, immutable
@@ -106,7 +107,6 @@ consumer and physical-read retirement. The separate renderer source stages a
 genuine File under fixed capacity limits; its port tests do not establish
 packaged transport or existing consumer integration.
 
-Complete scoped loading integration, full native restore and selection
-publication, renderer/IPC admission and menu-owned Session selection
+App-facing scoped loading, renderer/IPC admission and menu-owned Session selection
 remain required. No AI runtime source, archive closure or target inventory
 changes; this component does not require a manual **Update AI assets** run.

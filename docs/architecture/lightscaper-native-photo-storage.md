@@ -256,9 +256,9 @@ now bind native reads to the actual stored Photo, asset generation and custody,
 and provide a separate bounded renderer File staging owner. Their integration
 with real transport, decoding and existing consumers remains required.
 
-The remaining adapter must complete scoped Original/preview loading,
-complete native restore and selection publication, then
-preserve all complete Session/publication/recovery ports through selected-catalog
+The scope owner also completes main-private native restore, selected publication
+and authenticated reopen. The remaining adapter must preserve all complete
+Session/publication/recovery and Original/preview loading ports through selected-catalog
 renderer and IPC admission. Menu-owned library selection
 must join authoring, previews and storage before switching. Native qualification must also supply a private
 appData root explicitly: the existing Lightscaper smoke's `--user-data-dir`
