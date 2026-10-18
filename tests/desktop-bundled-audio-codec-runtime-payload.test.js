@@ -93,6 +93,7 @@ test('staged manifest closes over control, helper, runner, seven modules, and se
 			'desktop/bundled-wavpack-stream.js',
 			'desktop/desktop-audio-codec-capability-contract.js',
 			'desktop/desktop-audio-codec-operation-contract.js',
+			'desktop/desktop-audio-decode-formats.js',
 			'desktop/desktop-audio-stream-contract.js',
 			'desktop/direct-bundled-audio-codec-wasm.js',
 			'desktop/finite-float32-pcm.js',

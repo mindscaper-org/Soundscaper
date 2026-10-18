@@ -120,6 +120,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		...['flac', 'mpeg-audio', 'opus', 'vorbis', 'wavpack'].map((format) => `desktop/bundled-${format}-stream.ts`),
 		'desktop/desktop-audio-codec-capability-contract.ts',
 		'desktop/desktop-audio-codec-operation-contract.ts',
+		'desktop/desktop-audio-decode-formats.ts',
 		'desktop/desktop-video-codec-operation-contract.ts',
 		'desktop/coverage-checkpoint-exit.mjs',
 		'desktop/nightly-tests-main.mjs',

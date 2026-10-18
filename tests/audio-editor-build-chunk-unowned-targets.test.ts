@@ -81,6 +81,7 @@ test('the shared leaves an eager importer reaches keep the owner that importer a
 		['src/common/editor/nyquist/plugins/catalog.js', 'editor-effect-contracts'],
 		['desktop/desktop-audio-codec-capability-contract.ts', 'editor-codec-foundations'],
 		['desktop/desktop-audio-codec-operation-contract.ts', 'editor-codec-foundations'],
+		['desktop/desktop-audio-decode-formats.ts', 'editor-codec-foundations'],
 		['src/common/editor/design-system-adapters/canvas.ts', 'editor-domain'],
 		['src/common/editor/design-system-adapters/control-values.ts', 'editor-domain'],
 		['src/common/editor/design-system-adapters/timeline.ts', 'editor-domain'],

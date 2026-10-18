@@ -54,6 +54,7 @@ const COMMON_DEPENDENCIES = Object.freeze([
 	'desktop/bundled-audio-codec-helper-configuration.js',
 	'desktop/desktop-audio-codec-capability-contract.js',
 	'desktop/desktop-audio-codec-operation-contract.js',
+	'desktop/desktop-audio-decode-formats.js',
 	'src/common/editor/desktop-codec-provider-catalog.js',
 	'desktop/audio-codec-stream-helper.js',
 	'desktop/desktop-audio-stream-contract.js',

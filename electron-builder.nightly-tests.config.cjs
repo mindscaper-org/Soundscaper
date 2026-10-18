@@ -72,6 +72,7 @@ module.exports = {
 				'desktop/bundled-*-stream.ts',
 				'desktop/desktop-audio-codec-capability-contract.ts',
 				'desktop/desktop-audio-codec-operation-contract.ts',
+				'desktop/desktop-audio-decode-formats.ts',
 				'desktop/desktop-video-codec-operation-contract.ts',
 				'desktop/desktop-video-h264-encoder.ts',
 				'desktop/constants.js',

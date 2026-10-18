@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { encodeDedicatedAudioPcm, decodeDedicatedAudioFile } from '../src/common/editor/browser-dedicated-audio-codec.ts';
 import { prepareStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
+import { createAudacityWavPackFixture, withWavPackTotalFrames } from './helpers/wavpack-import-fixture.ts';
 
 const loadPayload = async (_format: unknown, url: URL) => new Uint8Array(await readFile(url));
 
@@ -51,6 +52,54 @@ test('the original WavPack checksum is checked before header indexes are rewritt
 	const { encoded } = await original(48_000);
 	encoded[12] ^= 1;
 	await assert.rejects(prepareStreamedAudioImport(new File([encoded], 'corrupt.wv')), /checksum/u);
+});
+
+test('WavPack continuation groups may leave their total sample count unknown', async () => {
+	const continued = await createAudacityWavPackFixture();
+	const prepared = await prepareStreamedAudioImport(new File([continued], 'streamed.wv'), {
+		desktopCodec: geometryDecoder(),
+	});
+	let frames = 0;
+	await prepared.stream({ chunkFrames: 4_096, onChunk(channels) { frames += channels[0]!.length; } });
+	assert.equal(frames, 96_000);
+});
+
+test('integer WavPack groups reach the supplied decoder with source geometry intact', async () => {
+	const encoded = integerOriginal();
+	let calls = 0;
+	const prepared = await prepareStreamedAudioImport(new File([encoded], 'integer.wv'), {
+		desktopCodec: { async decode(group) {
+			calls += 1;
+			const bytes = new DataView(await group.arrayBuffer());
+			assert.equal(bytes.getUint32(24, true) & 0x83, 1, 'the decoder must receive integer16 WavPack');
+			assert.equal(bytes.getUint32(12, true), 48);
+			assert.equal(bytes.getUint32(16, true), 0);
+			return { channels: [new Float32Array(48)], sampleRate: 48_000 };
+		} },
+	});
+	assert.equal(prepared.descriptor.channelCount, 1);
+	assert.equal(prepared.descriptor.frameCount, 48);
+	await prepared.stream({ chunkFrames: 4_096, onChunk() {} });
+	assert.equal(calls, 1);
+});
+
+test('integer WavPack admission retains lossless-profile and original-checksum checks', async () => {
+	const hybrid = integerOriginal();
+	const hybridView = new DataView(hybrid.buffer);
+	hybridView.setUint32(24, hybridView.getUint32(24, true) | 0x8, true);
+	await assert.rejects(prepareStreamedAudioImport(new File([withWavPackTotalFrames(hybrid, 48)], 'hybrid.wv')), /unsupported/u);
+	const corrupt = integerOriginal();
+	corrupt[40] ^= 1;
+	await assert.rejects(prepareStreamedAudioImport(new File([corrupt], 'corrupt-integer.wv')), /checksum/u);
+});
+
+test('unknown WavPack totals require a known first declaration and consistent continuations', async () => {
+	const { encoded } = await original();
+	const groups = splitGroups(encoded);
+	await assert.rejects(prepareStreamedAudioImport(new File([withWavPackTotalFrames(groups[0]!, 0xffff_ffff)], 'unknown.wv')), /inconsistent block geometry/u);
+	const inconsistent = concat(groups[0]!, withWavPackTotalFrames(groups[1]!, 96_001));
+	const prepared = await prepareStreamedAudioImport(new File([inconsistent], 'inconsistent.wv'), { desktopCodec: geometryDecoder() });
+	await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() {} }), /non-contiguous or change source geometry/u);
 });
 
 test('a damaged or non-contiguous later WavPack group closes the stream after its valid prefix', async () => {
@@ -130,6 +179,12 @@ function geometryDecoder() {
 			return { channels: [new Float32Array(frames), new Float32Array(frames)], sampleRate: 48_000 };
 		},
 	};
+}
+
+function integerOriginal(): Uint8Array<ArrayBuffer> {
+	// FFmpeg 8.0: aevalsrc=0.5*sin(2*PI*1000*t):s=48000:d=0.001, wavpack s16p.
+	const source = Uint8Array.from(Buffer.from('d3Zwa6YAAAAQBAAAMAAAAAAAAAAwAAAABRg8Bb8RIOkCAVdWAwELDAQC7/RZ9AUDoAlCCx0PijoAANf6zPbHc/+Z2X+T839a9H+C8B/k+c/B/Ie6/vsBf3bsL9l8q8/nr32vyyc1HC7vqjdHqTs66w6hq1KOX8rmWdHXgp70fjnvF0s/w/pNkJ/l+B2C994/0/83HJ5T97S79969yf5Bc08Nvxv17PDLs+9D0mIA', 'base64'));
+	return withWavPackTotalFrames(source, 48);
 }
 
 function splitGroups(bytes: Uint8Array): Uint8Array[] {

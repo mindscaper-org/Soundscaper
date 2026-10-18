@@ -11,6 +11,7 @@ test('optional editor ownership is independent of path separator', () => {
 		['src/common/editor/assistance/local-model.ts', 'editor-optional-assistance'],
 		['src/common/editor/storage/assistance-derivative-repository.ts', 'editor-optional-assistance'],
 		['src/common/editor/ui/local-model-manager-store.ts', 'editor-assistance-model-preflight'],
+		['src/common/editor/wavpack-import-group-geometry.ts', 'editor-optional-execution'],
 	] as const) {
 		assert.equal(chunkGroupForModulePath(path), owner, path);
 		const windowsPath = path.replaceAll('/', '\\');

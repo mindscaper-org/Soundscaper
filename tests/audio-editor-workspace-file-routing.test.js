@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { partitionWorkspaceFiles } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
+import { isWorkspaceImportFile, partitionWorkspaceFiles, WORKSPACE_IMPORT_FILE_ACCEPT } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
+
+test('Audacity MKA and WMA exports are selectable and recognized without a platform MIME type', () => {
+	for (const extension of ['mka', 'wma']) {
+		assert.ok(WORKSPACE_IMPORT_FILE_ACCEPT.split(',').includes(`.${extension}`));
+		assert.equal(isWorkspaceImportFile({ name: `exportspike.${extension}`, type: '' }), true);
+	}
+});
 
 test('workspace drops route AUP3, AUP4 and DAWproject files as projects instead of media', () => {
 	const aup3 = { name: 'old.AUP3' };

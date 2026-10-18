@@ -38,6 +38,18 @@ function encodeRequest(format, sampleRate, channelCount, bitrateKbps) {
 	};
 }
 
+test('preload admits fixed Audacity decode formats and refuses them for encoding', async () => {
+	const fixture = await preload();
+	for (const format of ['matroska-mp3', 'wma', 'wav-mulaw', 'wav-alaw']) {
+		const request = { ...encodeRequest(format, 44_100, 2, 192), operation: 'audio-decode',
+			sampleRate: null, channelCount: null, settings: { sampleFormat: 'f32le' } };
+		await assert.rejects(() => fixture.bridge.runDesktopAudioCodecOperation(request),
+			(error) => error === fixture.mainFailure);
+		await assert.rejects(() => fixture.bridge.runDesktopAudioCodecOperation(encodeRequest(format, 44_100, 2, 192)), /codec/iu);
+	}
+	assert.equal(fixture.invocations.length, 4);
+});
+
 async function preload() {
 	let bridge;
 	const invocations = [];
