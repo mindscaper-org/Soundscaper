@@ -43,7 +43,9 @@ Historical binding, locator and head tables retain their exact definitions.
 A typed media parent separates managed and linked scalar identities; composite
 foreign keys enforce matching SHA and length through the asset chain. The
 linked leaf stores bounded opaque native locators and revisions, which grant no
-filesystem authority by themselves. Add-in-place activation remains in progress.
+filesystem authority by themselves. The [native filesystem and folder-grant owners](lightscaper-native-photo-filesystem.md)
+provide the actual read-only broker and durable local authorization. Linked
+Photo publication and add-in-place activation remain in progress.
 
 Exact historical versions 1–3 migrate in one transaction with foreign keys
 enabled. SQL-only copies preserve every metadata/root byte, token, count and
