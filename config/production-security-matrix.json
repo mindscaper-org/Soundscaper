@@ -3,7 +3,7 @@
 	"groundedAt": "2026-10-16",
 	"modelDocument": "docs/policies/security.md",
 	"productVersions": {
-		"version": "1.0.0-rc.Oct.13.a",
+		"version": "1.0.0-rc.Oct.18.a",
 		"stableTarget": "1.0.0"
 	},
 	"projectIdentityBaseline": {
