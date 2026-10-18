@@ -59,12 +59,15 @@ export const FRAMESCAPER_FFMPEG_REQUIRED_CONFIGURATION = Object.freeze([
 ]);
 
 export function framescaperMediaHostBuildPaths(outputRoot) {
-	return Object.freeze(Object.fromEntries([
-		'x264-build', 'x264-install', 'x265-build', 'x265-install',
-		'libvpx-source', 'libvpx-build', 'libvpx-install', 'libopus-build', 'libopus-install',
-		'zlib-source', 'zlib-build', 'zlib-install', 'ffmpeg-build', 'ffmpeg-install',
-		'host-build', 'host-install',
-	].map((name) => [camel(name), join(outputRoot, name)])));
+	return Object.freeze({
+		...Object.fromEntries([
+			'x264-build', 'x264-install', 'x265-build', 'x265-install',
+			'libvpx-build', 'libvpx-install', 'libopus-build', 'libopus-install',
+			'zlib-source', 'zlib-build', 'zlib-install', 'ffmpeg-build', 'ffmpeg-install',
+			'host-build', 'host-install',
+		].map((name) => [camel(name), join(outputRoot, name)])),
+		libvpxSource: join(outputRoot, 'libvpx-build', 'src'),
+	});
 }
 
 export function framescaperMediaHostLocalSourceInventory(root) {
@@ -144,7 +147,7 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	// Keep repeated Windows source arguments short in generated make recipes.
 	const vpxConfigurePath = join(externalSourceRoots.libvpx, 'configure');
 	const vpxArgs = [
-		windows ? '../libvpx-source/configure' : vpxConfigurePath,
+		windows ? 'src/configure' : vpxConfigurePath,
 		`--target=${vpxTarget(target.id)}`,
 		`--prefix=${windows ? paths.libvpxInstall.replaceAll('\\', '/') : paths.libvpxInstall}`,
 		'--disable-examples', '--disable-tools', '--disable-docs', '--disable-unit-tests',
