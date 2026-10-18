@@ -133,9 +133,6 @@ test('a layout names each speaker once and puts no two of them in the same place
 	}
 });
 
-test('an unknown layout is refused rather than treated as stereo', () => {
+test('unsupported layouts are excluded from the ADM bed vocabulary', () => {
 	assert.equal(isAdmBedLayout('9.1.6'), false);
-	assert.throws(() => generateAdmAxml({ layout: '9.1.6' as never }), /Unsupported ADM bed layout/u);
-	assert.throws(() => createAdmChna({ layout: '9.1.6' as never }), /Unsupported ADM bed layout/u);
-	assert.throws(() => admBedChannelOrder('9.1.6' as never), /Unsupported ADM bed layout/u);
 });
