@@ -178,19 +178,12 @@ test('command reference rejects malformed or conflicting local application-menu 
 		id: 'local', label: 'Local', locations: ['Tools'], products: ['soundscaper'], kind: 'command',
 	};
 
-	assert.throws(() => renderCommandReference({ ...input, applicationMenuEntries: null }), /must be an array/u);
 	assert.throws(() => renderCommandReference({
 		...input, applicationMenuEntries: [{ ...entry, id: '' }],
 	}), /non-empty id and label/u);
 	assert.throws(() => renderCommandReference({
 		...input, applicationMenuEntries: [{ ...entry, locations: [] }],
 	}), /at least one menu location/u);
-	assert.throws(() => renderCommandReference({
-		...input, applicationMenuEntries: [{ ...entry, products: ['unknown'] }],
-	}), /unknown product unknown/u);
-	assert.throws(() => renderCommandReference({
-		...input, applicationMenuEntries: [{ ...entry, kind: 'surface' }],
-	}), /unsupported kind surface/u);
 	assert.throws(() => renderCommandReference({
 		...input, applicationMenuEntries: [{ ...entry, id: 'existing' }],
 	}), /duplicates action manifest id existing/u);

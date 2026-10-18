@@ -6,6 +6,9 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { editorProjectStorageProfileNames } from '../src/common/editor/storage/project-storage-profile.ts';
+import { FRAMESCAPER_PROJECT_STORAGE_PROFILE } from '../src/framescaper/editor-project-storage-profile.ts';
+import { SOUNDSCAPER_PROJECT_STORAGE_PROFILE } from '../src/soundscaper/editor-project-storage-profile.ts';
 import { FRAMESCAPER_DATABASE_NAME, SOUNDSCAPER_DATABASE_NAME } from './browser/helpers/editor-databases.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,16 +28,11 @@ test('the browser workflows open the database the web Framescaper bootstrap moun
 	assert.match(app,
 		/lazyEditorModule\(\(\) => import\('\.\.\/\.\.\/framescaper\/ui\/FramescaperAudioEditorBootstrap\.tsx'\)\s*\.then\(/u);
 	assert.match(app, /__SCAPE_PRODUCT__ === 'framescaper'[\s\S]*FramescaperAudioEditorBootstrap/u);
-	const profile = await readFile(
-		resolve(ROOT, 'src/framescaper/editor-project-storage-profile.ts'),
-		'utf8',
-	);
-	const databaseName = /databaseName: '([^']+)'/u.exec(profile);
-	assert.ok(databaseName, 'The Framescaper baseline storage profile declares no database name literal.');
+	const { databaseName } = editorProjectStorageProfileNames(FRAMESCAPER_PROJECT_STORAGE_PROFILE);
 	assert.equal(
 		FRAMESCAPER_DATABASE_NAME,
-		databaseName[1],
-		`The web Framescaper baseline persists to ${databaseName[1]}, but the`
+		databaseName,
+		`The web Framescaper baseline persists to ${databaseName}, but the`
 		+ ` browser workflows open ${FRAMESCAPER_DATABASE_NAME}. Follow the mounted profile in`
 		+ ' tests/browser/helpers/editor-databases.js.',
 	);
@@ -43,13 +41,11 @@ test('the browser workflows open the database the web Framescaper bootstrap moun
 test('the browser workflows open the database the web Soundscaper bootstrap mounts', async () => {
 	const app = await readFile(resolve(ROOT, 'src/common/site/App.jsx'), 'utf8');
 	assert.match(app, /__SCAPE_PRODUCT__ === 'framescaper'[\s\S]*SoundscaperAudioEditorBootstrap/u);
-	const profile = await readFile(resolve(ROOT, 'src/soundscaper/editor-project-storage-profile.ts'), 'utf8');
-	const databaseName = /databaseName: '([^']+)'/u.exec(profile);
-	assert.ok(databaseName, 'The Soundscaper baseline storage profile declares no database name literal.');
+	const { databaseName } = editorProjectStorageProfileNames(SOUNDSCAPER_PROJECT_STORAGE_PROFILE);
 	assert.equal(
 		SOUNDSCAPER_DATABASE_NAME,
-		databaseName[1],
-		`The web Soundscaper baseline persists to ${databaseName[1]}, but the`
+		databaseName,
+		`The web Soundscaper baseline persists to ${databaseName}, but the`
 		+ ` browser workflows open ${SOUNDSCAPER_DATABASE_NAME}. Follow the mounted profile in`
 		+ ' tests/browser/helpers/editor-databases.js.',
 	);

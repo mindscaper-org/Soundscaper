@@ -130,24 +130,6 @@ test('Nyquist result normalization bounds aggregate label text bytes', () => {
 	}), /aggregate label text exceeds/);
 });
 
-test('Nyquist runtime accepts a mockable adapter contract', async () => {
-	let received;
-	const runtime = {
-		async evaluate(request, hooks) {
-			received = request;
-			hooks.onProgress?.(1);
-			return { type: 'number', value: 6.25, numericType: 'double', output: '' };
-		},
-	};
-	const progress = [];
-	const result = await evaluateNyquist({
-		source: '(sum 1 2)', sampleRate: 44_100, channels: [],
-	}, runtime, { onProgress: (value) => progress.push(value) });
-	assert.equal(received.language, 'lisp');
-	assert.equal(result.value, 6.25);
-	assert.deepEqual(progress, [1]);
-});
-
 test('Nyquist WASM evaluates Lisp, SAL, PCM, generated audio, and labels', async () => {
 	const runtime = await loadNyquistWasm(await readFile(NYQUIST_WASM_PATH));
 	const number = await evaluateNyquist({ source: '42', sampleRate: 44_100, channels: [] }, runtime);

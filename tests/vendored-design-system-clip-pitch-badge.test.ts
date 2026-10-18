@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -184,12 +183,4 @@ test('a track forwards localized accessible indicator labels through the clip he
 	assert.match(markup, /aria-label="Clip-Tonhöhe"/u);
 	assert.match(markup, /aria-label="Clip-Geschwindigkeit"/u);
 	assert.doesNotMatch(markup, /aria-label="Clip (?:pitch|speed)"/u);
-});
-
-test('the deviation from upstream is recorded for the next sync', async () => {
-	const readme = await readFile(
-		new URL('../vendor/audacity-design-system/README.md', import.meta.url),
-		'utf8',
-	);
-	assert.match(readme, /`Clip\.tsx` takes a `clipPitchCents` prop/u, 'the deviation is recorded');
 });

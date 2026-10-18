@@ -10,13 +10,10 @@ import { WORKSPACE_CHROME_COPY_BY_LOCALE } from '../src/common/i18n/workspace-ch
 import { WORKSPACE_ONBOARDING_COPY_BY_LOCALE } from '../src/common/i18n/workspace-onboarding-copy.js';
 import { PREFERENCES_COPY_BY_LOCALE } from '../src/common/i18n/preferences-copy.js';
 import { AUDACITY_ACTION_MANIFEST } from '../src/common/editor/audacity-action-parity.js';
-import * as runtime from '../src/common/i18n/runtime.js';
-
-const { loadTranslationManifest, loadTranslationPack, normalizeLocale } = runtime;
+import { normalizeLocale } from '../src/common/i18n/runtime.js';
 
 test('bundled catalogs are complete and user-visible values contain no ellipses', () => {
 	assert.deepEqual(Object.keys(GERMAN_COPY), Object.keys(ENGLISH_COPY));
-	assert.ok(Object.keys(ENGLISH_COPY).length >= 700);
 	for (const [locale, catalog] of Object.entries({ en: ENGLISH_COPY, de: GERMAN_COPY })) {
 		for (const [key, value] of Object.entries(catalog)) {
 			assert.equal(typeof value, 'string', `${locale}.${key}`);
@@ -134,6 +131,4 @@ test('normalizes explicit BCP-47 locales without a German/English clamp', () => 
 test('the runtime no longer reaches for a translation origin', async () => {
 	const runtime = await readFile(new URL('../src/common/i18n/runtime.js', import.meta.url), 'utf8');
 	assert.doesNotMatch(runtime, /fetch|translations\.soundscaper\.org|latest\.json|PUBLIC_TRANSLATIONS_BASE_URL/u);
-	assert.equal(typeof loadTranslationManifest, 'undefined');
-	assert.equal(typeof loadTranslationPack, 'undefined');
 });

@@ -3,11 +3,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
-const ICON_SOURCE = new URL(
-	'../vendor/audacity-design-system/components/src/Icon/Icon.tsx',
-	import.meta.url,
-);
+import { Icon } from '../vendor/audacity-design-system/components/src/Icon/Icon.tsx';
 const ICON_FONT = new URL(
 	'../vendor/audacity-design-system/components/src/assets/fonts/MusescoreIcon.ttf',
 	import.meta.url,
@@ -20,10 +19,10 @@ const IMPORT = 0xf357;
 const ERROR = 0xf3d0;
 
 test('the Icon map exposes MuseScore IMPORT under its own name beside SHARE_FILE', () => {
-	const source = readFileSync(ICON_SOURCE, 'utf8');
-	assert.match(source, /^ {2}\| 'import'$/mu, 'IconName must admit the import icon.');
-	assert.match(source, /^ {2}import: '\\uF357',$/mu);
-	assert.match(source, /^ {2}export: '\\uEF24',$/mu);
+	const imported = renderToStaticMarkup(React.createElement(Icon, { name: 'import' }));
+	const exported = renderToStaticMarkup(React.createElement(Icon, { name: 'export' }));
+	assert.ok(imported.includes(String.fromCodePoint(IMPORT)));
+	assert.ok(exported.includes(String.fromCodePoint(SHARE_FILE)));
 });
 
 test('the bundled icon font carries the import, share and error toast glyphs', () => {
