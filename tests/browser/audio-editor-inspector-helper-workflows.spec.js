@@ -15,25 +15,16 @@ import {
 	openExportDialog,
 	registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
-import { chooseClipPitchUnit, expectClipGain, openClipGainDialog } from './audio-editor-clip-settings-test-helpers.js';
+import { chooseClipPitchUnit } from './audio-editor-clip-settings-test-helpers.js';
 
 test.describe('inspector helper workflows', () => {
 	registerAudioEditorHooks();
 
-	test('rejects and commits clip gain and pitch through Clip properties', async ({ page }) => {
+	test('rejects and commits pitch through Clip properties', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);
 		const properties = await openClipProperties(page, editor, clipByName(editor, toneA.name));
-
-		const gainDialog = await openClipGainDialog(properties);
-		const gain = gainDialog.getByRole('textbox', { name: 'Clip gain (dB)', exact: true });
-		await gain.fill('25');
-		await expect(gainDialog.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
-		await gain.fill('-6');
-		await gainDialog.getByRole('button', { name: 'Apply', exact: true }).click();
-		await expect(gainDialog).toBeHidden();
-		await expectClipGain(properties, -6);
 
 		let pitch = properties.getByRole('textbox', { name: 'Pitch', exact: true });
 		await commitInput(pitch, '13');

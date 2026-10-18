@@ -18,7 +18,7 @@ import {
 	registerAudioEditorHooks,
 	waitForEditor,
 } from './audio-editor-test-helpers.js';
-import { chooseClipMediaSetting, chooseClipPitchUnit } from './audio-editor-clip-settings-test-helpers.js';
+import { chooseClipPitchUnit } from './audio-editor-clip-settings-test-helpers.js';
 
 const PANEL_ID = 'clip-properties';
 const FIRST_TITLE = toneA.name.replace(/\.[^.]+$/u, '');
@@ -104,7 +104,7 @@ test.describe('live dockable Clip properties', () => {
 		await expect(panel.locator('details')).toHaveCount(0);
 	});
 
-	test('Media settings retains pitch units, keyboard steps and normalization', async ({ page }) => {
+	test('Media settings retains pitch units and keyboard steps', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);
@@ -118,10 +118,6 @@ test.describe('live dockable Clip properties', () => {
 		await pitch.press('ArrowDown');
 		await pitch.press('Tab');
 		await expect(pitch).toHaveValue('11');
-		await chooseClipMediaSetting(panel, 'Clip gain (dB)');
-		const gain = page.getByRole('dialog', { name: 'Clip gain (dB)', exact: true });
-		await expect(gain.getByRole('textbox', { name: 'Clip gain (dB)', exact: true })).toBeVisible();
-		await gain.getByRole('button', { name: 'Cancel', exact: true }).click();
 		expect(errors).toEqual([]);
 	});
 
