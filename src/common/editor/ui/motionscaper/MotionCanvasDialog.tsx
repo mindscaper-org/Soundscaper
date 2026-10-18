@@ -23,10 +23,15 @@ export default function MotionCanvasDialog({ copy, project, store, busy, canUndo
 	const [selected, setSelected] = useState(''); const [draft, setDraft] = useState<MotionscaperProject | null>(null); const [error, setError] = useState<string | null>(null); const [writing, setWriting] = useState(false);
 	const canvas = useRef<HTMLCanvasElement>(null); const overlay = useRef<SVGSVGElement>(null); const drag = useRef<Drag | null>(null); const current = useRef(project); current.current = project;
 	const shown = draft ?? project; const request = useMemo(() => ({ project: shown, compositionId: composition.id, frame }), [shown, composition.id, frame]);
-	const preview = useMotionCanvasPreview(canvas, request, store);
+	const base = useMemo(() => ({ project, compositionId: composition.id, frame }), [project, composition.id, frame]);
+	const preview = useMotionCanvasPreview(canvas, request, store, base);
 	const model = useMemo(() => { try { return { scene: motionscaperCanvasScene(request), error: null }; } catch (failure) { return { scene: null, error: failure instanceof Error ? failure.message : String(failure) }; } }, [request]);
 	const geometry = model.scene?.layers.find(layer => layer.layerId === selected); const disabled = busy || writing;
-	useEffect(() => { drag.current = null; setDraft(null); }, [project]);
+	useEffect(() => {
+		const active = drag.current; drag.current = null;
+		if (active && overlay.current?.hasPointerCapture(active.pointer)) overlay.current.releasePointerCapture(active.pointer);
+		setDraft(null);
+	}, [project, store]);
 	useEffect(() => {
 		const element = overlay.current; if (!element) return;
 		const update = () => { const matrix = element.getScreenCTM(); if (matrix) setPixelUnit(1 / Math.hypot(matrix.a, matrix.b)); };
