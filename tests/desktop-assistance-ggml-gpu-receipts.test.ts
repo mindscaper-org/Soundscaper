@@ -8,10 +8,32 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { patchAssistanceGgmlGpuReceipt } from '../scripts/lib/desktop-assistance-ggml-gpu-receipts.mjs';
 
-const WHISPER = `static bool ggml_graph_compute_helper(ggml_backend_sched_t sched, ggml_cgraph * graph) {
+const WHISPER = `static bool ggml_graph_compute_helper(
+      ggml_backend_sched_t   sched,
+        struct ggml_cgraph * graph,
+                       int   n_threads,
+                      bool   sched_reset = true) {
     const bool t = (ggml_backend_sched_graph_compute(sched, graph) == GGML_STATUS_SUCCESS);
+    if (!t || sched_reset) {
+        ggml_backend_sched_reset(sched);
+    }
     return t;
 }`;
+
+test('Whisper receipts patch the scheduled overload before reset and preserve the CPU overload', () => {
+	const cpuOverload = `static bool ggml_graph_compute_helper(
+          struct ggml_cgraph * graph,
+                         int   n_threads,
+         ggml_abort_callback   abort_callback,
+                        void * abort_callback_data) {
+    return ggml_backend_graph_compute(backend.get(), graph) == GGML_STATUS_SUCCESS;
+}`;
+	const patched = patchAssistanceGgmlGpuReceipt(`${cpuOverload}\n\n${WHISPER}`, 'whisper-cpp');
+	assert.ok(patched.startsWith(cpuOverload));
+	assert.equal(patched.split('static void scape_gpu_compute_receipt(').length, 2);
+	assert.match(patched, /if \(t\) scape_gpu_compute_receipt\(sched, graph\);\n {4}if \(!t \|\| sched_reset\)/u);
+	assert.throws(() => patchAssistanceGgmlGpuReceipt(`${WHISPER}\n${WHISPER}`, 'whisper-cpp'));
+});
 
 test('GPU receipt patches reject changed anchors and attach only after successful graph submission', () => {
 	const patched = patchAssistanceGgmlGpuReceipt(WHISPER, 'whisper-cpp');
@@ -49,20 +71,21 @@ int ggml_backend_dev_backend_reg(ggml_backend_dev_t d) { return *d; }
 const char * ggml_backend_reg_name(int d) { return d == 0 ? "Vulkan" : "CPU"; }
 const char * ggml_backend_dev_description(ggml_backend_dev_t) { return "GPU"; }
 void ggml_backend_sched_synchronize(int) { synchronized = true; }
+void ggml_backend_sched_reset(int) {}
 int ggml_backend_sched_graph_compute(int result, ggml_cgraph *) { return result; }
 ${patchAssistanceGgmlGpuReceipt(WHISPER, 'whisper-cpp')}
 int main() {
   ggml_cgraph graph;
   graph.nodes[0].device = 1;
-  ggml_graph_compute_helper(0, &graph); // CPU success cannot produce a receipt.
+  ggml_graph_compute_helper(0, &graph, 1); // CPU success cannot produce a receipt.
   graph.nodes[0].device = 0;
   graph.nodes[0].op = GGML_OP_CPY;
-  ggml_graph_compute_helper(0, &graph); // Transfers cannot prove GPU model math.
+  ggml_graph_compute_helper(0, &graph, 1); // Transfers cannot prove GPU model math.
   graph.nodes[0].op = MATMUL;
-  ggml_graph_compute_helper(1, &graph); // Failed GPU graph cannot produce a receipt.
-  ggml_graph_compute_helper(0, &graph);
+  ggml_graph_compute_helper(1, &graph, 1); // Failed GPU graph cannot produce a receipt.
+  ggml_graph_compute_helper(0, &graph, 1);
   assert(synchronized);
-  ggml_graph_compute_helper(0, &graph); // At most one bounded receipt per process.
+  ggml_graph_compute_helper(0, &graph, 1); // At most one bounded receipt per process.
 }
 `);
 	// This small self-authored ABI fixture runs no model, native runtime, or GPU.

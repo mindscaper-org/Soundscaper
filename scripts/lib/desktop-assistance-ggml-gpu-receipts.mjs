@@ -52,7 +52,12 @@ const SOURCE_HASHES = {
 };
 
 export function patchAssistanceGgmlGpuReceipt(source, familyId) {
-	const declaration = familyId === 'whisper-cpp' ? 'static bool ggml_graph_compute_helper('
+	// Whisper also has a CPU-only overload; identify the scheduler signature exactly.
+	const declaration = familyId === 'whisper-cpp' ? `static bool ggml_graph_compute_helper(
+      ggml_backend_sched_t   sched,
+        struct ggml_cgraph * graph,
+                       int   n_threads,
+                      bool   sched_reset = true)`
 		: familyId === 'llama-cpp' ? 'ggml_status llama_context::graph_compute(' : null;
 	const before = familyId === 'whisper-cpp'
 		? '    const bool t = (ggml_backend_sched_graph_compute(sched, graph) == GGML_STATUS_SUCCESS);'
