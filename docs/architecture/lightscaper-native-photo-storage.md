@@ -216,8 +216,17 @@ filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
 scalar-only paging, cancellation, and reentrant close. They do not qualify a
 packaged renderer adapter or another platform.
 
+The independent [native settings owner](lightscaper-native-photo-settings.md)
+now provides all eight settings methods, detached native clone values, physical
+presence and exact existing CAS semantics. The fixed anchor publishes pointer
+and permanent history in one SQLite transaction; selected generation labels
+remain distinct bindings without granting allocation authority. Accepted
+captures and queued SQL drain before close, including failing paired captures,
+and durable COMMIT acknowledgments survive reentry. Existing preset, journal
+and restore publication owners can consume this genuine native port.
+
 The remaining adapter must add managed-media custody and scoped Original
-loading, settings, journals and complete restore, then preserve all complete
+loading, selected settings/journal recovery and complete restore, then preserve all complete
 Session/publication/recovery ports through selected-catalog renderer and IPC
 admission.
 Its media publication port must receive the whole validated Original; the

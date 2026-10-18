@@ -1247,8 +1247,15 @@ and installation slots retain joined consumers, while native COMMIT owns each
 installed/reused receipt. Verification covers whole Current Photo aggregates
 1/2/3 with Develop processes 1–4 and selected preset schemas 1–4, including disabled,
 inactive, redo, snapshot and unused-resource declarations.
-Managed-media custody and scoped Original/preview loading, settings,
-journals/complete restore, complete native Session composition, renderer/IPC
+The independent [native settings owner](docs/architecture/lightscaper-native-photo-settings.md)
+now provides all eight settings methods with physical presence, detached clone
+values and the existing insertion-order-sensitive CAS comparator. Its fixed
+anchor publishes pointer and permanent history atomically; selected generation
+bindings remain isolated. Accepted captures and queued SQL drain before close,
+and existing preset, journal and restore publication consumers use the genuine
+native port in focused component qualification.
+Managed-media custody and scoped Original/preview loading, selected settings and
+journal recovery/complete restore, complete native Session composition, renderer/IPC
 admission and menu-owned library selection remain required before activation.
 Add-in-place access and native platform qualification remain open.
 
