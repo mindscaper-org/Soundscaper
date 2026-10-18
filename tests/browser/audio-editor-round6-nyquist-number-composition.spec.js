@@ -12,6 +12,8 @@ for (const key of ['Enter', 'Escape']) test(`Nyquist numeric ${key} leaves a nat
 	await amplitude.fill('0.5');
 	await amplitude.press('Escape');
 	await expect(amplitude).toHaveValue(original);
+	await expect(dialog).toBeVisible();
+	await expect(amplitude).toBeFocused();
 	await amplitude.fill(key === 'Enter' ? '2' : '0.5');
 	await amplitude.evaluate((element, composingKey) => {
 		element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
