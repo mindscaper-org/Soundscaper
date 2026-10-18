@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 16512,
-			"sha256": "bc34f661744709276627538244f674e36d5dcf8d3f7665c7bdb7aaaff980254d"
+			"byteLength": 16555,
+			"sha256": "0439e68bcb1ca9083c6e42877a899263a337b53b097921c6d43573d72af71eb3"
 		},
 		{
 			"path": "build/recipe-cli.mjs",

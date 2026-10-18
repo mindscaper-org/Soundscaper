@@ -135,7 +135,7 @@ test('Motion Windows recipe owns and authenticates staged libvpx before its firs
 	let calls = 0;
 	driver.executeFramescaperMediaHostBuildRecipe(recipe, {
 		run: () => {
-			assert.deepEqual(treePin(collectExtractedSourceTree(join(input.outputRoot, 'libvpx-source'))), before);
+			assert.deepEqual(treePin(collectExtractedSourceTree(join(input.outputRoot, 'libvpx-build', 'src'))), before);
 			calls += 1;
 			return { status: 0 };
 		}, verifyFfmpegConfiguration: () => ({}),
@@ -154,5 +154,5 @@ test('Motion Windows refuses libvpx source drift before staging or any runner co
 		run: () => { calls += 1; return { status: 0 }; }, verifyFfmpegConfiguration: () => ({}),
 	}), /pinned content closure/iu);
 	assert.equal(calls, 0);
-	assert.equal(existsSync(join(input.outputRoot, 'libvpx-source')), false);
+	assert.equal(existsSync(join(input.outputRoot, 'libvpx-build', 'src')), false);
 });

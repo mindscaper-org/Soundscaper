@@ -106,9 +106,11 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 	test(`Motion ${target} preserves native make paths through libvpx configuration`, () => {
 		const commands = commandPlan(target, String.raw`C:\motionscaper-libvpx-command-plan`);
 		const configure = phase(commands, 'libvpx-configure');
-		assert.equal(configure.args[0], '../libvpx-source/configure');
+		assert.equal(framescaperMediaHostBuildPaths(String.raw`C:\motionscaper-staged-work`).libvpxSource,
+			join(String.raw`C:\motionscaper-staged-work`, 'libvpx-build', 'src'));
+		assert.equal(configure.args[0], 'src/configure');
 		assert.deepEqual([configure.args[0], configure.args.find(argument => argument.startsWith('--prefix='))], [
-			'../libvpx-source/configure',
+			'src/configure',
 			'--prefix=C:/motionscaper-libvpx-command-plan/work/libvpx-install',
 		], 'libvpx persists source and install paths in makefiles read by native Windows make');
 		for (const codec of ['x264', 'ffmpeg']) {
@@ -125,7 +127,7 @@ for (const target of ['win-x64', 'win-arm64'] as const) {
 	test(`Motion ${target} keeps staged libvpx source arguments short across deep and foreign source drives`, () => {
 		for (const planRoot of [String.raw`D:\deep\source\tree`, ['C:', ...Array.from({ length: 60 }, () => 'nested'), 'source'].join('\\')]) {
 			const commands = commandPlan(target, planRoot, String.raw`C:\motionscaper-staged-work`);
-			assert.equal(phase(commands, 'libvpx-configure').args[0], '../libvpx-source/configure');
+			assert.equal(phase(commands, 'libvpx-configure').args[0], 'src/configure');
 		}
 	});
 }
