@@ -22,19 +22,20 @@ const root = join(tmpdir(), 'motionscaper-libvpx-command-plan');
 const paths = framescaperMediaHostBuildPaths(join(root, 'work'));
 const roles = ['ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell'];
 
-function commandPlan(target: typeof targets[number]): readonly NativeCommand[] {
+function commandPlan(target: typeof targets[number], planRoot = root): readonly NativeCommand[] {
 	const windows = target.startsWith('win-');
+	const planPaths = framescaperMediaHostBuildPaths(join(planRoot, 'work'));
 	const executables = Object.fromEntries(roles.map(role => [role, {
-		path: join(root, 'authenticated-tools', windows && (role === 'c' || role === 'cxx') ? 'cl.exe' : `${role}${windows ? '.exe' : ''}`),
+		path: join(planRoot, 'authenticated-tools', windows && (role === 'c' || role === 'cxx') ? 'cl.exe' : `${role}${windows ? '.exe' : ''}`),
 	}]));
 	return createFramescaperMediaHostBuildCommands({
-		target: { id: target, cmakePreset: target }, hostRoot: join(root, 'host'),
-		ffmpegSourceRoot: join(root, 'ffmpeg'), boostSourceRoot: join(root, 'boost'), paths,
+		target: { id: target, cmakePreset: target }, hostRoot: join(planRoot, 'host'),
+		ffmpegSourceRoot: join(planRoot, 'ffmpeg'), boostSourceRoot: join(planRoot, 'boost'), paths: planPaths,
 		externalSourceRoots: Object.fromEntries(
-			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(id => [id, join(root, 'sources', id)]),
+			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(id => [id, join(planRoot, 'sources', id)]),
 		),
 		tools: { executables },
-		environment: { PATH: join(root, 'authenticated-tools'), CC: 'ambient-cc', CXX: 'ambient-cxx', SOURCE_DATE_EPOCH: '1786492800' },
+		environment: { PATH: join(planRoot, 'authenticated-tools'), CC: 'ambient-cc', CXX: 'ambient-cxx', SOURCE_DATE_EPOCH: '1786492800' },
 		configureFlags: [],
 	}) as unknown as readonly NativeCommand[];
 }
@@ -80,10 +81,31 @@ for (const target of targets) {
 				join(paths.libvpxInstall, 'lib', target === 'win-x64' ? 'x64' : 'ARM64', 'vpxmt.lib'),
 			));
 		} else {
+			assert.deepEqual([configure.args[0], configure.args.find(argument => argument.startsWith('--prefix='))], [
+				join(root, 'sources', 'libvpx', 'configure'), `--prefix=${paths.libvpxInstall}`,
+			]);
 			assert.ok(configure.args.includes('--target=generic-gnu'));
 			assert.ok(!configure.args.includes('--enable-static-msvcrt'));
 			assert.ok(!phase(commands, 'libvpx-build').args.some(argument => argument.startsWith('MSBUILD_TOOL=')));
 			assert.ok(!commands.some(command => command.phase === 'libvpx-normalize-library'));
+		}
+	});
+}
+
+for (const target of ['win-x64', 'win-arm64'] as const) {
+	test(`Motion ${target} preserves native make paths through libvpx configuration`, () => {
+		const commands = commandPlan(target, String.raw`C:\motionscaper-libvpx-command-plan`);
+		const configure = phase(commands, 'libvpx-configure');
+		assert.deepEqual([configure.args[0], configure.args.find(argument => argument.startsWith('--prefix='))], [
+			'C:/motionscaper-libvpx-command-plan/sources/libvpx/configure',
+			'--prefix=C:/motionscaper-libvpx-command-plan/work/libvpx-install',
+		], 'libvpx persists source and install paths in makefiles read by native Windows make');
+		for (const codec of ['x264', 'ffmpeg']) {
+			const command = phase(commands, `${codec}-configure`);
+			assert.deepEqual([command.args[0], command.args.find(argument => argument.startsWith('--prefix='))], [
+				`/c/motionscaper-libvpx-command-plan/${codec === 'x264' ? 'sources/x264' : 'ffmpeg'}/configure`,
+				`--prefix=/c/motionscaper-libvpx-command-plan/work/${codec}-install`,
+			]);
 		}
 	});
 }

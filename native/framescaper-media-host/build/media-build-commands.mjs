@@ -141,10 +141,12 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		'-DEXPORT_C_API=ON', '-DENABLE_PIC=ON',
 		...(windows ? ['-DSTATIC_LINK_CRT=ON'] : []),
 	];
+	// libvpx persists these paths in makefiles read by native Windows make.
+	const vpxConfigurePath = join(externalSourceRoots.libvpx, 'configure');
 	const vpxArgs = [
-		shellPath(join(externalSourceRoots.libvpx, 'configure'), windows),
+		windows ? vpxConfigurePath.replaceAll('\\', '/') : vpxConfigurePath,
 		`--target=${vpxTarget(target.id)}`,
-		`--prefix=${shellPath(paths.libvpxInstall, windows)}`,
+		`--prefix=${windows ? paths.libvpxInstall.replaceAll('\\', '/') : paths.libvpxInstall}`,
 		'--disable-examples', '--disable-tools', '--disable-docs', '--disable-unit-tests',
 		'--disable-shared', '--enable-static', '--enable-pic', '--disable-vp8', '--enable-vp9',
 		'--disable-webm-io', '--disable-libyuv', '--disable-runtime-cpu-detect',
