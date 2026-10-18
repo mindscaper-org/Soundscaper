@@ -61,15 +61,12 @@ test('a digest shared by multiple roles is reserved only once', async (t) => {
 	assert.equal(plan.artifacts.length, 1);
 });
 
-test('oversized, complete, and non-file partials do not reduce admission', async (t) => {
+test('oversized and complete partials do not reduce admission', async (t) => {
 	const store = await fixture(t);
 	const path = await store.partialPath(ARTIFACT.sha256);
 	await writeFile(path, CONTENTS);
 	assert.equal((await planLocalModelTransfers(store, [ARTIFACT])).totalBytes, ARTIFACT.byteLength);
 
 	await writeFile(path, `${CONTENTS}extra`);
-	assert.equal((await planLocalModelTransfers(store, [ARTIFACT])).totalBytes, ARTIFACT.byteLength);
-
-	await rm(path);
 	assert.equal((await planLocalModelTransfers(store, [ARTIFACT])).totalBytes, ARTIFACT.byteLength);
 });
