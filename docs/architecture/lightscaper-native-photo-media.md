@@ -20,6 +20,23 @@ publication to the live producer, exact database path and binding. Only an activ
 transaction in that database may consume it to install verified asset metadata.
 No invented Photo dimensions or MIME descriptor are needed by the physical store.
 
+`beginAssetWrite` now provides the complete five-member `MediaAssetWriter`
+contract used by Photo restoration: `maximumChunkBytes`, `bytesWritten`, `write`,
+`commit` and `abort`. Admission captures the expected size, lowercase digest and
+detached metadata before asynchronous work. Each write owns one copied emission
+of at most four MiB and supplies at most one MiB per native consumer pull. Its
+acknowledgment follows actual consumption by the file writer. Concurrent writes
+refuse while preserving the accepted write; commit joins that write before
+ending the producer and awaiting real hash, file and binding publication.
+
+Streaming uses the existing exclusive native stage directly, without an extra
+body spool or a synthetic Blob. Its actual one-use physical proof and metadata
+capture enter the same asset publication transaction used by Blob writes. Short
+bodies, overruns and wrong digests publish no managed asset receipt. Successful
+metadata commit returns a cached promise and receipt; later abort or Close
+cannot revoke that acknowledgment. Optional owned-publication and video-claim
+methods are separate contracts and are not advertised by this Photo writer.
+
 `native-photo-originals.sqlite3` uses application identity LSCP and schema 2.
 The exact historical schema-1 binding table remains unchanged; migration adds
 empty asset and root tables with three bounded lookup indexes. Existing bindings
@@ -57,6 +74,11 @@ native Blob reads, file writes, producer cleanup and queued SQL before retiring
 both connections independently. A held native write is joined even after abort.
 Actual metadata and custody COMMIT acknowledgments survive later cancellation
 or reentrant close. Read publication still checks cancellation after native work.
+Escaped stream writers retain their default caller signal after begin returns.
+Their registry cancels idle producers before the ordinary media queue joins any
+work waiting behind them. Retirement joins accepted writes and private commit
+work before releasing signals or storage, including held native writes. It does
+not wait on its own public cleanup-wrapped promise.
 
 Focused Linux tests compose the unchanged Current importer and recovery owner
 with real native catalog, media, selected settings and resource repositories.
@@ -67,7 +89,13 @@ exclusive import ownership in these tests; cross-process selected-library lease
 and packaged native Session qualification remain open. Body custody tests do not
 claim container decoding or platform coverage beyond their actual Linux run.
 
-Scoped Blob/File loading, complete streaming asset writers, authenticated library
-allocation, full restore, renderer/IPC admission and menu-owned Session selection
+The five-member streaming contract is qualified against actual native files and
+SQLite, including four-MiB emissions split into native one-MiB writes, immutable
+custody, reopen, cancellation and Close. The existing full restore candidate
+still owns browser namespaces and catalog transactions; a working native stream
+writer alone does not implement a complete native restore candidate.
+
+Scoped Blob/File loading, authenticated library allocation, full restore,
+renderer/IPC admission and menu-owned Session selection
 remain required. No AI runtime source, archive closure or target inventory
 changes; this component does not require a manual **Update AI assets** run.

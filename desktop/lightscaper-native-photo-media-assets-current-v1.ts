@@ -8,9 +8,10 @@ import { decodeLightscaperNativePhotoSettingCurrentV1 } from './lightscaper-nati
 import { LIGHTSCAPER_NATIVE_ORIGINAL_MAXIMUM_BYTES_CURRENT_V1 as MAXIMUM,
 	readLightscaperNativeOriginalStorageKeyCurrentV1 as readKey } from './lightscaper-native-original-contract-current-v1.ts';
 import { consumeLightscaperNativeOriginalPublicationCurrentV1 } from './lightscaper-native-original-store-current-v1.ts';
-import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_RESERVED_METADATA_CURRENT_V1 as RESERVED,
-	readLightscaperNativePhotoMediaWriteCurrentV1, type LightscaperNativePhotoMediaWriteCurrentV1 } from './lightscaper-native-photo-media-blob-current-v1.ts';
-import type { LightscaperNativeOriginalBindingCurrentV1 as Binding } from './lightscaper-native-original-index-current-v1.ts';
+import { readLightscaperNativePhotoMediaWriteCurrentV1, type LightscaperNativePhotoMediaWriteCurrentV1 } from './lightscaper-native-photo-media-blob-current-v1.ts';
+import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_RESERVED_METADATA_CURRENT_V1 as RESERVED, readLightscaperNativePhotoMediaMetadataCurrentV1,
+	type LightscaperNativePhotoMediaMetadataCurrentV1 } from './lightscaper-native-photo-media-metadata-current-v1.ts';
+import { readLightscaperNativeOriginalBindingCurrentV1, type LightscaperNativeOriginalBindingCurrentV1 as Binding } from './lightscaper-native-original-index-current-v1.ts';
 
 const COLUMNS = 'source_id,sha256,size,media_content_token,metadata,root_count,committed_at,pending_until';
 const CHECK = AbortSignal.prototype.throwIfAborted;
@@ -25,7 +26,23 @@ export function installLightscaperNativePhotoMediaAssetCurrentV1(database: Datab
 	assertIdle(database); check(signal);
 	const captured = readLightscaperNativePhotoMediaWriteCurrentV1(value), expected = captured.binding;
 	if (!expected) throw new TypeError('Native Photo asset publication requires its actual completed Blob digest.');
-	const descriptive = readMetadata(captured.metadataPayload);
+	return installCaptured(database, captured.assetId, captured.metadataPayload, expected, proof, signal);
+}
+
+/** A genuine completed stream uses the same publication transaction as Blob
+ * writes. Expected length/SHA originate with the owning writer admission; the
+ * actual physical proof and stored binding must independently match them. */
+export function installLightscaperNativePhotoMediaStreamAssetCurrentV1(database: DatabaseSync,
+	value: LightscaperNativePhotoMediaMetadataCurrentV1, expectedPhysicalBinding: unknown, proof: unknown, signal?: AbortSignal): Record<string, unknown> {
+	assertIdle(database); check(signal);
+	const captured = readLightscaperNativePhotoMediaMetadataCurrentV1(value), expected = readLightscaperNativeOriginalBindingCurrentV1(expectedPhysicalBinding);
+	return installCaptured(database, captured.assetId, captured.metadataPayload, expected, proof, signal);
+}
+
+function installCaptured(database: DatabaseSync, assetId: string, metadataPayload: Uint8Array,
+	expected: Readonly<Binding>, proof: unknown, signal?: AbortSignal): Record<string, unknown> {
+	if (expected.storageKey !== assetId) throw new Error('Native Photo metadata capture and physical asset identity disagree.');
+	const descriptive = readMetadata(metadataPayload);
 	const now = new NativeDate(), committedAt = Reflect.apply(ISO, now, []) as string;
 	const pendingUntil = Reflect.apply(ISO, new NativeDate(Number(Reflect.apply(TIME, now, [])) + PENDING_SOURCE_RETENTION_MS), []) as string;
 	return transaction(database, signal, () => {
@@ -37,10 +54,10 @@ export function installLightscaperNativePhotoMediaAssetCurrentV1(database: Datab
 		}
 		const token = `media-content-${randomUUID()}`;
 		database.prepare(`INSERT INTO native_photo_media_assets(${COLUMNS}) VALUES(?,?,?,?,?,?,?,?)`)
-			.run(binding.storageKey, binding.contentSha256, binding.byteLength, token, captured.metadataPayload, 0, committedAt, pendingUntil);
+			.run(binding.storageKey, binding.contentSha256, binding.byteLength, token, metadataPayload, 0, committedAt, pendingUntil);
 		const stored = read(database, binding.storageKey);
 		if (!stored || !same(stored.binding, binding) || stored.token !== token || stored.count !== 0
-			|| stored.committedAt !== committedAt || stored.pendingUntil !== pendingUntil || !equalBytes(stored.payload, captured.metadataPayload)) {
+			|| stored.committedAt !== committedAt || stored.pendingUntil !== pendingUntil || !equalBytes(stored.payload, metadataPayload)) {
 			throw new Error('Native Photo asset publication changed before acknowledgment.');
 		}
 		return receipt({ ...stored, descriptive });

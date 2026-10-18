@@ -236,8 +236,14 @@ The existing `(assetId, Blob)` publication port supplies actual bytes and name/M
 metadata; the physical body owner requires only a key, digest and byte length.
 It never invents Photo dimensions or a full Original descriptor.
 
-The remaining adapter must add scoped Original/preview loading, streaming asset
-writers, authenticated native library allocation and complete restore, then
+The managed owner also provides the complete five-member streamed Photo writer,
+joining copied four-MiB emissions through actual bounded one-MiB native writes
+and the same verified asset publication transaction. Escaped writers retire
+before storage, including idle producers with ordinary requests queued behind
+them. Existing full restore namespace/catalog composition remains separate.
+
+The remaining adapter must add scoped Original/preview loading,
+authenticated native library allocation and complete restore, then
 preserve all complete Session/publication/recovery ports through selected-catalog
 renderer and IPC admission. Menu-owned library selection
 must join authoring, previews and storage before switching. Native qualification must also supply a private

@@ -3,11 +3,13 @@
 import { Blob, File } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
-import { captureLightscaperNativePhotoSettingCurrentV1 } from './lightscaper-native-photo-settings-codec-current-v1.ts';
+import { captureLightscaperNativePhotoMediaMetadataCurrentV1, readLightscaperNativePhotoMediaMetadataCurrentV1 } from './lightscaper-native-photo-media-metadata-current-v1.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_MAXIMUM_BYTES_CURRENT_V1 as MAXIMUM,
 	LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK,
 	readLightscaperNativeOriginalStorageKeyCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';
 import type { LightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
+
+export { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_RESERVED_METADATA_CURRENT_V1 } from './lightscaper-native-photo-media-metadata-current-v1.ts';
 
 export type LightscaperNativePhotoMediaWriteCurrentV1 = Readonly<object>;
 type Captured = {
@@ -15,20 +17,12 @@ type Captured = {
 	binding: Readonly<LightscaperNativeOriginalBindingCurrentV1> | null;
 };
 const captures = new WeakMap<object, Captured>();
-const CLONE = globalThis.structuredClone, READ = Blob.prototype.arrayBuffer, SLICE = Blob.prototype.slice;
+const READ = Blob.prototype.arrayBuffer, SLICE = Blob.prototype.slice;
 const SIZE = Object.getOwnPropertyDescriptor(Blob.prototype, 'size')!.get!;
 const TYPE = Object.getOwnPropertyDescriptor(Blob.prototype, 'type')!.get!;
 const NAME = Object.getOwnPropertyDescriptor(File.prototype, 'name')!.get!;
 const MODIFIED = Object.getOwnPropertyDescriptor(File.prototype, 'lastModified')!.get!;
 const CHECK = AbortSignal.prototype.throwIfAborted;
-
-/** Reserved shared-media authority never enters caller descriptive metadata. */
-export const LIGHTSCAPER_NATIVE_PHOTO_MEDIA_RESERVED_METADATA_CURRENT_V1: readonly string[] = Object.freeze([
-	'key', 'sourceId', 'timestamp', 'type', 'storage', 'path', 'blob', 'size', 'mimeType', 'committedAt', 'pendingProjectUntil',
-	'cacheToken', 'sha256', 'derivativeBindingVersion', 'originalSha256', 'originalMediaContentToken', 'recipeId', 'recipeVersion',
-	'outputSha256', 'sourceToken', 'mediaChunkToken', 'mediaChunkBytes', 'mediaChunkCount', 'mediaContentDigestVersion',
-	'mediaContentToken', 'catalogRootCount',
-]);
 
 /** Called after the owner registers this request. Native Blob and metadata
  * snapshots precede the first await; metadata encoding owns no body hash. */
@@ -41,14 +35,9 @@ export async function captureLightscaperNativePhotoMediaWriteCurrentV1(
 		throw new RangeError('Native Photo media body leaves its managed Original byte profile.');
 	}
 	const blob = Reflect.apply(SLICE, input, [0, size, type]) as Blob;
-	const snapshot = (metadata !== null && typeof metadata === 'object' ? CLONE(metadata) : {}) as Record<string, unknown>;
-	const descriptive = { ...snapshot };
-	for (const key of LIGHTSCAPER_NATIVE_PHOTO_MEDIA_RESERVED_METADATA_CURRENT_V1) delete descriptive[key];
-	descriptive.name = String(snapshot.name || fileFact(input, NAME, '') || '');
-	descriptive.mimeType = String(snapshot.mimeType || type || '');
-	const modified = Number(snapshot.lastModified ?? fileFact(input, MODIFIED, 0));
-	descriptive.lastModified = Number.isFinite(modified) && modified >= 0 ? Math.floor(modified) : 0;
-	const metadataPayload = await captureLightscaperNativePhotoSettingCurrentV1(descriptive);
+	const captured = await captureLightscaperNativePhotoMediaMetadataCurrentV1(assetId, metadata,
+		{ name: String(fileFact(input, NAME, '') || ''), mimeType: type, lastModified: Number(fileFact(input, MODIFIED, 0)) });
+	const { metadataPayload } = readLightscaperNativePhotoMediaMetadataCurrentV1(captured);
 	const token = Object.freeze({}); captures.set(token, { assetId, blob, size, metadataPayload, binding: null }); return token;
 }
 

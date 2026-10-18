@@ -33,7 +33,7 @@ export class LightscaperNativePhotoMediaLifetimeCurrentV1 {
 			const descriptor = options && typeof options === 'object' ? Object.getOwnPropertyDescriptor(options, 'signal') : undefined;
 			const caller: unknown = descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
 			if (caller !== undefined) assertPhotoStackQuerySignalV1(caller);
-			const linked = join(caller as AbortSignal | undefined, signal); signal = linked.signal; detach = linked.detach;
+			const linked = linkLightscaperNativePhotoMediaSignalsCurrentV1(caller as AbortSignal | undefined, signal); signal = linked.signal; detach = linked.detach;
 			const closed = record(options, 'native Photo media options', ['signal'], []);
 			const admitted = Object.hasOwn(closed, 'signal') ? field(closed, 'signal', 'native Photo media options') : undefined;
 			if (admitted !== caller) throw new TypeError('Native Photo media signal changed during admission.');
@@ -76,7 +76,7 @@ export function checkLightscaperNativePhotoMediaSignalCurrentV1(signal?: AbortSi
 	if (signal !== undefined) Reflect.apply(CHECK, signal, []);
 }
 
-function join(caller: AbortSignal | undefined, shutdown: AbortSignal): Readonly<{ signal: AbortSignal; detach(): void }> {
+export function linkLightscaperNativePhotoMediaSignalsCurrentV1(caller: AbortSignal | undefined, shutdown: AbortSignal): Readonly<{ signal: AbortSignal; detach(): void }> {
 	const controller = new NativeController(), signal = Reflect.apply(SIGNAL, controller, []) as AbortSignal;
 	const listeners: Array<Readonly<{ source: AbortSignal; forward: () => void }>> = [];
 	const detach = (): void => { for (const { source, forward } of listeners) Reflect.apply(REMOVE, source, ['abort', forward]); };

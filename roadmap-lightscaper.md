@@ -1260,7 +1260,11 @@ custody methods in the physical binding database. Exact LSCP1 migration preserve
 legacy bindings without manufacturing provenance. Current import and startup
 recovery compose with actual native catalog, media, settings and resource owners,
 including staged-root recovery after an acknowledged Photo publication.
-Scoped Original/preview loading, streaming writers, authenticated native library
+The managed owner now also supplies the complete five-member streamed Photo
+writer, with copied four-MiB input, bounded one-MiB physical writes, independently
+authenticated file/hash/index publication, cached metadata commit and joined
+escaped-writer retirement. Full native restore composition is still required.
+Scoped Original/preview loading, authenticated native library
 allocation, complete restore and native Session composition, renderer/IPC
 admission and menu-owned library selection remain required before activation.
 Add-in-place access and native platform qualification remain open.
