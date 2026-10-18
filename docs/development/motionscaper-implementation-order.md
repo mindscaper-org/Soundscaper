@@ -115,6 +115,13 @@ The Canvas readiness repair (`92a5abdd`) binds new edits to the current painted
 base frame and cancels gestures when their project or asset store changes.
 All 28 focused controls and both existing Canvas Chromium workflows pass,
 along with strict focused and production types, lint and the Motion build.
+The audio repairs (`26de1c9b`, `1d586e7b`) release cancelled resume waits and
+start video before PCM scheduling can advance its shared clock. All 24 focused
+controls and both existing Chromium preview/audio workflows pass. The raster
+runtime repair (`df8fffea7`) cancels an individual consumer promptly while
+preserving shared initialization and retries; all 30 focused controls pass.
+All 49 selected readiness, audio and raster controls pass together on the
+integrated source. Broader browser validation remains required.
 
 The Windows x64 builds exposed assembler discovery, libvpx compiler selection,
 source-path persistence and generator-script launching defects. The NASM,
@@ -123,7 +130,12 @@ The shell correction also passes a bounded generator, recursive Make and install
 control. The subsequent full build fails launching a much longer project
 generator command. Verified local source staging passes its focused regressions.
 The real long-generator control runs but fails its semantic check: its project
-contains 157 of 245 required file references. The complete native build remains
+contains 157 of 245 required file references. The subsequent nested-source
+correction (`a2623b2d`) passes all 22 focused Windows controls. Its actual
+generator check retains the upstream command grouping and produces all 245
+references, with the required target, static CRT and unique object names.
+The separate full-command-line failure control and independent input/process
+audits also pass. The complete native build remains
 unqualified. No Windows
 host or package is qualified.
 The shared native source-pin refresh requires a fresh Linux native build and

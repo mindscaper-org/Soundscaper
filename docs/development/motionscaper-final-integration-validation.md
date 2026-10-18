@@ -112,6 +112,24 @@ build and both unchanged Canvas Chromium workflows pass. The broad test
 typecheck exhausted its default heap and remains failed; the focused check
 does not replace it. No historical browser failure is attributed to this defect.
 
+The audio repairs (`26de1c9b`, `1d586e7b`) let Pause release a suspended audio
+resume without detaching an actual mixer flight. Late old resume results cannot
+start playback or report stale errors. Video starts synchronously after PCM
+priming, before scheduling can advance the shared sample clock. The mounted
+regression reproduces both the delayed frame and playback remaining active at
+the final sample before the fix. All 24 focused controls, strict focused and
+Motion production types, lint, size, the Motion build and both unchanged
+Chromium preview/audio workflows pass.
+
+The raster runtime repair (`df8fffea7`) makes consumer cancellation settle while
+shared initialization remains pending. It preserves other consumers and retry
+after initialization failure, and observes late rejection even when setup
+aborts synchronously. All 30 focused controls, strict focused and Motion
+production types, changed-file lint and size checks pass. On integrated source
+`7b804853d`, all 49 selected Canvas, audio, preview and raster controls pass
+together. These source-predicted defects have controlled regressions; their
+role in the historical browser failures remains unproven.
+
 The original Windows x64 build on source `0241c6e1c` failed at libvpx because
 the assembler was unavailable. After the NASM installation/PATH corrections
 (`d41fbcd5`, `0e227882`), a new build found NASM but failed because libvpx was
@@ -151,7 +169,18 @@ returns Make success but fails its independent semantic check: the project
 contains only 157 of 245 required file references. Its exact missing-reference
 check rejects the output; the negative control is consequently not run.
 Independent input and process audits pass. The truncation boundary remains
-under investigation, and the complete native build remains required.
+unproven.
+
+The nested-source correction (`a2623b2d`) stages the same verified tree under
+`libvpx-build/src` and retains `src/configure`. All 22 focused Windows controls
+pass. Its actual generator control preserves the upstream command grouping and
+produces exactly 245 references: 104 compile, 129 header, one assembly and 11
+other files, with both x64 configurations, the v143 toolset, static CRT and 104
+unique compile object names. The separate full-command-line failure control
+returns Make status two, reports the fixed recipe's Error 7 and does not run
+the later recipe. Independent source/tool/artifact/process audits pass; all
+five failed native builds and earlier canaries remain unchanged. This validates
+the generator route, and the complete native build remains required.
 Source review also identifies a separate FFmpeg
 source-path handoff for correction and actual validation; it is not an observed
 FFmpeg build failure.
@@ -189,6 +218,8 @@ Current retained receipts are relative to
 | Failed private-project package and passed physical audit | `current-6463b7e69-native-preparation/owner-failed-qualification.json` |
 | First-paint readiness correction | `first-paint-readiness-20261018/final-validation.json` |
 | Canvas painted-frame readiness correction | `canvas-readiness-f751-20261018/qualification.json` |
+| Audio resume recovery and synchronized start | `motion-audio-recovery-ac8499d-20261018/qualification.json` |
+| Prompt raster runtime consumer cancellation | `raster-runtime-cancel-20261018/final-validation.json` |
 | Merged first-paint auxiliary retirement | `first-paint-readiness-20261018/retired-auxiliary/retirement.json` |
 | Windows NASM installation/PATH corrections | `windows-x64-prerequisites-20261018/nasm-ci-path-fix-commit-receipt.json` |
 | Windows libvpx recipe correction | `windows-x64-prerequisites-20261018/libvpx-msvc-fix-commit-receipt.json` |
@@ -199,6 +230,8 @@ Current retained receipts are relative to
 | Fifth failed Windows build and physical closure | `windows-x64-prerequisites-20261018/native-build-native-shell-v8-failed-closed-review.json` |
 | Verified Windows libvpx source staging | `windows-x64-prerequisites-20261018/libvpx-source-staging-fix-commit-receipt.json` |
 | Failed real long-generator control and physical closure | `windows-x64-prerequisites-20261018/native-libvpx-long-generator-canary-v1-failed-closed-review.json` |
+| Nested Windows libvpx source paths | `windows-x64-prerequisites-20261018/libvpx-nested-src-fix-commit-receipt.json` |
+| Passed grouped long-generator and failure controls | `windows-x64-prerequisites-20261018/native-libvpx-long-generator-canary-nested-v3.passed-closed-review.json` |
 
 These results retain their exact source attribution. The subsequent test and
 documentation commits do not retag frozen executions. Fresh complete static,
