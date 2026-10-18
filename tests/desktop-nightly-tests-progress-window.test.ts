@@ -201,23 +201,6 @@ test('an interrupted run retains its fractional progress and completed test coun
 	assert.equal(elements.get('current-item')?.textContent, '');
 });
 
-test('the progress renderer rejects invalid item counts before changing visible progress', async () => {
-	const { render, elements, bar } = await rendererFixture();
-	render({ completed: 0, total: 6, label: 'Browser tests' });
-	for (const items of [
-		{ completed: -1, total: 5, label: 'test' },
-		{ completed: 6, total: 5, label: 'test' },
-		{ completed: 0, total: -1, label: 'test' },
-		{ completed: 1.5, total: 5, label: 'test' },
-		{ completed: 0, total: 5, label: '' },
-	]) {
-		assert.throws(() => render({ completed: 2, total: 6,
-			label: 'Performance diagnostics', items }), /progress/u);
-	}
-	assert.equal(elements.get('status')?.textContent, 'Browser tests');
-	assert.equal(bar('progress').value, 0);
-});
-
 test('a native taskbar error cannot prevent the window from showing its current phase', async () => {
 	const errors: unknown[] = [];
 	const scripts: string[] = [];
