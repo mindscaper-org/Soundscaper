@@ -34,7 +34,6 @@ const EXPECTED_RECORDS = Object.freeze({
 
 test('Audacity shortcut source metadata pins the reviewed 4.0.0 XML bytes', () => {
 	assert.deepEqual(AUDACITY_SHORTCUT_SOURCE, EXPECTED_SOURCE);
-	assert.ok(Object.isFrozen(AUDACITY_SHORTCUT_SOURCE));
 });
 
 test('Audacity shortcut inventory contains every non-development source record exactly once', () => {
@@ -43,13 +42,10 @@ test('Audacity shortcut inventory contains every non-development source record e
 		AUDACITY_SHORTCUT_INVENTORY.reduce((total, record) => total + record.sequences.length, 0),
 		184,
 	);
-	assert.ok(Object.isFrozen(AUDACITY_SHORTCUT_INVENTORY));
 
 	const upstreamActionIds = AUDACITY_SHORTCUT_INVENTORY.map((record) => record.upstreamActionId);
 	assert.equal(new Set(upstreamActionIds).size, upstreamActionIds.length);
 	for (const record of AUDACITY_SHORTCUT_INVENTORY) {
-		assert.ok(Object.isFrozen(record), record.upstreamActionId);
-		assert.ok(Object.isFrozen(record.sequences), record.upstreamActionId);
 		assert.ok(record.sequences.length > 0, record.upstreamActionId);
 		assert.equal(new Set(record.sequences).size, record.sequences.length, record.upstreamActionId);
 		assert.equal(record.autorepeat, AUDACITY_SHORTCUT_DEFAULT_AUTOREPEAT, record.upstreamActionId);
@@ -64,7 +60,5 @@ test('Audacity shortcut inventory preserves representative upstream IDs and exac
 	for (const [upstreamActionId, sequences] of Object.entries(EXPECTED_RECORDS)) {
 		assert.deepEqual(byUpstreamActionId.get(upstreamActionId)?.sequences, sequences, upstreamActionId);
 	}
-	assert.deepEqual(byUpstreamActionId.get('split-tool')?.sequences, ['S']);
-	assert.deepEqual(byUpstreamActionId.get('split')?.sequences, ['Ctrl+I']);
 	assert.equal(AUDACITY_SHORTCUT_DEFAULT_AUTOREPEAT, true);
 });

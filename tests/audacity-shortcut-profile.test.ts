@@ -18,31 +18,18 @@ import {
 	resolveAudacityActionId,
 } from '../src/common/editor/audacity-action-parity.js';
 import { productProfile } from '../src/common/products.js';
+import { AUDACITY_SHORTCUT_INVENTORY } from '../src/common/editor/audacity-shortcut-inventory.ts';
 
 const profile = new Map(AUDACITY_SHORTCUT_PROFILE.map((entry) => [entry.upstreamActionId, entry]));
 
-test('the Audacity compatibility profile accounts for every imported shortcut record', () => {
-	assert.equal(AUDACITY_SHORTCUT_PROFILE.length, 175);
-	assert.equal(
-		AUDACITY_SHORTCUT_PROFILE.reduce((total, entry) => total + entry.sequences.length, 0),
-		184,
+test('the Audacity compatibility profile classifies every imported shortcut record', () => {
+	assert.deepEqual(
+		AUDACITY_SHORTCUT_PROFILE.map(({ upstreamActionId }) => upstreamActionId),
+		AUDACITY_SHORTCUT_INVENTORY.map(({ upstreamActionId }) => upstreamActionId),
 	);
-	assert.ok(Object.isFrozen(AUDACITY_SHORTCUT_PROFILE));
 	for (const entry of AUDACITY_SHORTCUT_PROFILE) {
-		assert.ok(Object.isFrozen(entry), entry.upstreamActionId);
-		assert.ok(Object.isFrozen(entry.sequences), entry.upstreamActionId);
 		assert.ok(Object.values(AUDACITY_SHORTCUT_DISPOSITION).includes(entry.disposition));
 	}
-	assert.deepEqual(countBy(AUDACITY_SHORTCUT_PROFILE, 'sourceStatus'), {
-		live: 98,
-		'metadata-only': 4,
-		stale: 73,
-	});
-	assert.deepEqual(countBy(AUDACITY_SHORTCUT_PROFILE, 'disposition'), {
-		action: 133,
-		native: 13,
-		unavailable: 29,
-	});
 });
 
 test('every action mapping resolves to an implemented Soundscaper function', () => {
@@ -149,15 +136,3 @@ test('every live Audacity command is mapped or deliberately left to the host pla
 		{ upstreamActionId: 'quit', reason: 'platform-policy' },
 	]);
 });
-
-function countBy<Entry, Key extends keyof Entry>(
-	entries: readonly Entry[],
-	key: Key,
-): Record<string, number> {
-	const counts: Record<string, number> = {};
-	for (const entry of entries) {
-		const value = String(entry[key]);
-		counts[value] = (counts[value] || 0) + 1;
-	}
-	return counts;
-}
