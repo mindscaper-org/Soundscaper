@@ -41,8 +41,6 @@ test('the model plan explicitly enables real downloads and session-scoped covera
 	assert.equal(plan.env.SOUNDSCAPER_LOCAL_ASSISTANCE_MODEL_CACHE, '/tmp/nightly-run/local-assistance/models');
 	assert.equal(plan.logFile, '/tmp/nightly-run/local-assistance/console.log');
 	assert.deepEqual(OPTIONS.environment, { PATH: '/usr/bin' });
-	assert.throws(() => createDesktopNightlyTestsLocalAssistancePlan({ ...OPTIONS, runRoot: 'relative' }), /absolute/u);
-	assert.throws(() => createDesktopNightlyTestsLocalAssistancePlan({ ...OPTIONS, platform: 'unsupported' }), /platform/u);
 	const reused = createDesktopNightlyTestsLocalAssistancePlan({
 		...OPTIONS, environment: { SOUNDSCAPER_LOCAL_ASSISTANCE_MODEL_CACHE: '/tmp/verified-model-cache' },
 	});

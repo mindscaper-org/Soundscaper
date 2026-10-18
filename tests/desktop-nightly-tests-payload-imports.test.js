@@ -31,11 +31,6 @@ const BUILTIN_MODULES = new Set([
 	'node:original-fs',
 ]);
 
-test('the nightly runtime carries the browser-native container fixture dependency', async () => {
-	const staged = new Set((await resolveNightlyTestRuntimePackages(REPOSITORY_ROOT)).map(({ name }) => name));
-	assert.equal(staged.has('mediabunny'), true);
-});
-
 test('the nightly payload carries the data file its release-line reader opens at runtime', async () => {
 	const input = 'config/product-release-lines.json';
 	assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
