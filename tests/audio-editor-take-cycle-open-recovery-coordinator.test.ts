@@ -7,6 +7,7 @@ import type { TakeCyclePendingOpenRecovery } from '../src/common/editor/controll
 import {
 	createTakeCycleOpenRecoveryCoordinator,
 } from '../src/common/editor/controller/recording/internal/take-cycle/take-cycle-open-recovery-coordinator.ts';
+import { recoverySurfaceAfterClose } from '../src/common/editor/ui/recovery-surface-close.ts';
 
 test('pending open freezes exact authority and defers every post-open mutation', async () => {
 	const fixture = coordinatorFixture(pending('project-a', 'token-a'));
@@ -179,6 +180,43 @@ test('switching away clears only in-memory authority and never resumes or settle
 	assert.equal(fixture.coordinator.blocked, false);
 	assert.equal(fixture.recoveries, 0);
 	assert.deepEqual(fixture.events, ['inspect:project-a', 'publish', 'publish']);
+});
+
+test('late recovery completion preserves a comp opened while deferred maintenance drains', async () => {
+	const authority = pending('project-a', 'token-a');
+	const fixture = coordinatorFixture(authority);
+	await fixture.coordinator.inspectOpenedProject('project-a');
+	const started = deferred<void>();
+	const finish = deferred<void>();
+	await fixture.coordinator.deferMaintenance(async () => {
+		started.resolve();
+		await finish.promise;
+	});
+	let surface: string | null = 'take-cycle-recovery';
+	const closing = fixture.coordinator.resolve(authority, 'discard').then(() => {
+		surface = recoverySurfaceAfterClose(surface, 'take-cycle-recovery');
+	});
+	await started.promise;
+	assert.equal(fixture.state.takeCycleRecovery, null, 'dialog unmounts before maintenance completes');
+	surface = 'take-comp';
+	finish.resolve();
+	await closing;
+	assert.equal(surface, 'take-comp');
+});
+
+test('project and Audacity recovery completion preserves newly offered recording recovery', async () => {
+	for (const owner of ['project-recovery', 'audacity-recovery'] as const) {
+		const finish = deferred<void>();
+		let surface: string | null = owner;
+		const closing = finish.promise.then(() => {
+			surface = recoverySurfaceAfterClose(surface, owner);
+		});
+		surface = 'take-cycle-recovery';
+		finish.resolve();
+		await closing;
+		assert.equal(surface, 'take-cycle-recovery');
+		assert.equal(recoverySurfaceAfterClose(owner, owner), null);
+	}
 });
 
 function coordinatorFixture(authority: TakeCyclePendingOpenRecovery | null) {

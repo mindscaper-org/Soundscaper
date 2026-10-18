@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import {
-	collectProjectStorageKeys,
-	compactProjectSourceMetadata,
-} from '../retention.js';
+import { collectProjectStorageKeys } from '../retention.js';
+import { collectRecoverableProjectStorageKeys, compactRecoverableProjectMetadata, collectRecordingRecoveryRoots } from './recovery-retention-roots.ts';
 import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	VIDEO_DERIVATIVE_STORE_NAME,
@@ -347,17 +345,18 @@ export class RetentionRepository {
 	}
 
 	#collectMemoryRoots(protectedIds: Set<string>): void {
+		collectRecordingRecoveryRoots(this.#options.port.memory.analysis.values(), protectedIds);
 		for (const [id, project] of this.#options.port.memory.projects) {
-			const compacted = compactProjectSourceMetadata(project);
+			const compacted = compactRecoverableProjectMetadata(project, this.#options.port.validateProjectForRetention);
 			if (compacted !== project) this.#options.port.memory.projects.set(id, compacted);
-			collectProjectStorageKeys(compacted, protectedIds);
+			collectRecoverableProjectStorageKeys(compacted, protectedIds, this.#options.port.validateProjectForRetention);
 		}
 		for (const [key, value] of this.#options.port.memory.revisions) {
 			const record = asRecord(value);
 			if (!record) continue;
-			const compacted = compactProjectSourceMetadata(record.project);
+			const compacted = compactRecoverableProjectMetadata(record.project, this.#options.port.validateProjectForRetention);
 			if (compacted !== record.project) this.#options.port.memory.revisions.set(key, { ...record, project: compacted });
-			collectProjectStorageKeys(compacted, protectedIds);
+			collectRecoverableProjectStorageKeys(compacted, protectedIds, this.#options.port.validateProjectForRetention);
 		}
 	}
 
@@ -402,17 +401,18 @@ export class RetentionRepository {
 			const projectUpdates: unknown[] = [];
 			const revisionUpdates: Record<string, unknown>[] = [];
 			for (const saved of await request(projects.getAll())) {
-				const compacted = compactProjectSourceMetadata(saved);
+				const compacted = compactRecoverableProjectMetadata(saved, this.#options.port.validateProjectForRetention);
 				if (compacted !== saved) projectUpdates.push(compacted);
-				collectProjectStorageKeys(compacted, state.protectedIds);
+				collectRecoverableProjectStorageKeys(compacted, state.protectedIds, this.#options.port.validateProjectForRetention);
 			}
 			for (const value of await request(revisions.getAll())) {
 				const record = asRecord(value);
 				if (!record) continue;
-				const compacted = compactProjectSourceMetadata(record.project);
+				const compacted = compactRecoverableProjectMetadata(record.project, this.#options.port.validateProjectForRetention);
 				if (compacted !== record.project) revisionUpdates.push({ ...record, project: compacted });
-				collectProjectStorageKeys(compacted, state.protectedIds);
+				collectRecoverableProjectStorageKeys(compacted, state.protectedIds, this.#options.port.validateProjectForRetention);
 			}
+			collectRecordingRecoveryRoots(await request(analysis.getAll()), state.protectedIds);
 			const storedSources = (await request(sources.getAll())) as StorageRecord[];
 			const storedMediaAssets = (await request(mediaAssets.getAll())) as StorageRecord[];
 			const storedVideoDerivatives = (await request(derivativeCacheEntries.getAll())) as StorageRecord[];

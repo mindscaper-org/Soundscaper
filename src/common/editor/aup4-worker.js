@@ -232,12 +232,18 @@ async function openFile(args, context) {
 	try {
 		entry.sourceGeneration = sourceGeneration;
 		entry.targetGeneration = 'aup4';
-		const migration = upgradeAudacityProjectDatabase(entry.database, WORKER_VALIDATION_OPTIONS);
-		const discardedCloudMetadata = discardExcludedAup4Metadata(entry.database);
+		const recovered = args.recover === true
+			? (await import('./audacity-project-recovery.ts')).recoverAudacityProjectDatabase(entry.database) : null;
+		const migration = recovered ? { upgraded: false, validation: recovered }
+			: upgradeAudacityProjectDatabase(entry.database, WORKER_VALIDATION_OPTIONS);
+		const discardedCloudMetadata = recovered ? recovered.compatibilityReport.discardedCloudMetadata
+			: discardExcludedAup4Metadata(entry.database);
 		entry.discardedCloudMetadata = discardedCloudMetadata;
-		const validation = discardedCloudMetadata.discardedEntries
+		const validation = !recovered && discardedCloudMetadata.discardedEntries
 			? validateAudacityProjectDatabase(entry.database, WORKER_VALIDATION_OPTIONS)
 			: migration.validation;
+		entry.recoveredImportValidation = recovered ? validation : null;
+		entry.recoveryAudio = recovered?.audio ?? null;
 		entry.portableLimit = limit;
 		entry.openedSize = file.size;
 		entry.readOnly = Boolean(validation.readOnly);
@@ -303,7 +309,7 @@ async function planImport(args, context) {
 		import('./aup4-worker-import-session.ts'), import('./aup4-import-sample-reader.ts'), import('./aup4-import-block-storage.ts'),
 	]);
 	const entry = requireProject(args.projectId);
-	const validation = validateAudacityProjectDatabase(entry.database, WORKER_VALIDATION_OPTIONS);
+	const validation = entry.recoveredImportValidation ?? validateAudacityProjectDatabase(entry.database, WORKER_VALIDATION_OPTIONS);
 	context.checkCancelled();
 	await entry.importSession?.close();
 	const decoded = await decodeAudacityProjectTree(validation.document.root, () => {
@@ -312,8 +318,11 @@ async function planImport(args, context) {
 	context.checkCancelled();
 	const sampleBlockStorage = args.preserveSampleBlocks === true
 		? planAudacitySampleBlockStorage(decoded.sources, `${entry.projectId}-sample-blocks`) : null;
-	entry.importSession = new Aup4WorkerImportSession(sampleBlockStorage?.backingSources ?? decoded.sources,
-		(block, offset, frames) => readAup4ImportSamples(entry.database, block, offset, frames));
+	const recoveryRead = entry.recoveryAudio
+		? (await import('./audacity-project-recovery-audio.ts')).readRecoveredAudacitySamples : null;
+	entry.importSession = new Aup4WorkerImportSession(sampleBlockStorage?.backingSources ?? decoded.sources, (block, offset, frames) => recoveryRead
+		? recoveryRead(entry.database, entry.recoveryAudio, block, offset, frames)
+		: readAup4ImportSamples(entry.database, block, offset, frames));
 	const portable = portableValidation(validation, entry);
 	return { ...decoded, sources: [], ...(sampleBlockStorage ? { sampleBlockStorage } : {}), validation: portable,
 		compatibilityReport: mergeCompatibilityReports(portable.compatibilityReport, decoded.compatibilityReport) };

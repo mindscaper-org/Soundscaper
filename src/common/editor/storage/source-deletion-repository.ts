@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { collectProjectStorageKeys } from '../retention.js';
+import { collectRecoverableProjectStorageKeys as collectProjectStorageKeys, assertSourceNotRecoveryRetained, assertStoredSourceNotRecoveryRetained } from './recovery-retention-roots.ts';
 import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	VIDEO_DERIVATIVE_STORE_NAME,
@@ -57,7 +57,8 @@ export class SourceDeletionRepository {
 				this.#sessionGuard?.hasOtherOrLostSession(stores.settings) ?? false,
 			]);
 			if (otherSession) throw new Error(`Source ${sourceId} is retained by another open editor session.`);
-			assertNotDurablyReferenced(sourceId, projects, revisions);
+			await assertStoredSourceNotRecoveryRetained(sourceId, stores.analysis);
+			assertNotDurablyReferenced(sourceId, projects, revisions, this.#port.validateProjectForRetention);
 			const sources = stores.sources;
 			const source = asStorageRecord(await request(sources.get(sourceId)));
 			if (source) {
@@ -104,7 +105,8 @@ export class SourceDeletionRepository {
 			if (this.#sessionGuard?.hasOtherMemorySession()) {
 				throw new Error(`Source ${sourceId} is retained by another open editor session.`);
 			}
-			assertNotDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()]);
+			assertSourceNotRecoveryRetained(sourceId, memory.analysis.values());
+			assertNotDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()], this.#port.validateProjectForRetention);
 			const dependentSourceId = findMemoryDependentSourceId(memory.sources, sourceId);
 			if (dependentSourceId !== null) {
 				throw new Error(`Source ${sourceId} is retained by derived source ${dependentSourceId}.`);
@@ -113,7 +115,7 @@ export class SourceDeletionRepository {
 			return true;
 		}
 		await this.#sessionGuard?.reclaimStoppedSessions(database);
-		return transact(database, ['projects', 'revisions', 'settings', 'sources'], 'readwrite', async (stores) => {
+		return transact(database, ['projects', 'revisions', 'settings', 'analysis', 'sources'], 'readwrite', async (stores) => {
 			const sources = stores.sources;
 			const current = asStorageRecord(await request(sources.get(sourceId)));
 			if (!sameStoredSourceIdentity(current, expected)) return false;
@@ -123,7 +125,8 @@ export class SourceDeletionRepository {
 				this.#sessionGuard?.hasOtherOrLostSession(stores.settings) ?? false,
 			]);
 			if (otherSession) throw new Error(`Source ${sourceId} is retained by another open editor session.`);
-			assertNotDurablyReferenced(sourceId, projects, revisions);
+			await assertStoredSourceNotRecoveryRetained(sourceId, stores.analysis);
+			assertNotDurablyReferenced(sourceId, projects, revisions, this.#port.validateProjectForRetention);
 			const dependentSourceId = await findStoredDependentSourceId(sources, sourceId);
 			if (dependentSourceId !== null) {
 				throw new Error(`Source ${sourceId} is retained by derived source ${dependentSourceId}.`);
@@ -138,7 +141,8 @@ export class SourceDeletionRepository {
 		if (this.#sessionGuard?.hasOtherMemorySession()) {
 			throw new Error(`Source ${sourceId} is retained by another open editor session.`);
 		}
-		assertNotDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()]);
+		assertSourceNotRecoveryRetained(sourceId, memory.analysis.values());
+		assertNotDurablyReferenced(sourceId, [...memory.projects.values()], [...memory.revisions.values()], this.#port.validateProjectForRetention);
 		const source = asStorageRecord(memory.sources.get(sourceId));
 		if (source) {
 			const dependentSourceId = findMemoryDependentSourceId(memory.sources, sourceId);
@@ -174,10 +178,10 @@ export class SourceDeletionRepository {
 	}
 }
 
-function assertNotDurablyReferenced(sourceId: string, projects: unknown[], revisions: unknown[]): void {
+function assertNotDurablyReferenced(sourceId: string, projects: unknown[], revisions: unknown[], validate?: (project: unknown) => boolean): void {
 	const retained = new Set<string>();
-	for (const project of projects) collectProjectStorageKeys(project, retained);
-	for (const revision of revisions) collectProjectStorageKeys(asStorageRecord(revision)?.project, retained);
+	for (const project of projects) collectProjectStorageKeys(project, retained, validate);
+	for (const revision of revisions) collectProjectStorageKeys(asStorageRecord(revision)?.project, retained, validate);
 	if (retained.has(sourceId)) throw new Error(`Source ${sourceId} is retained by a saved project or revision.`);
 }
 

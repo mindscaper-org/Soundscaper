@@ -9,6 +9,8 @@ import {
 	type SoundscaperDesktopRendererBridge,
 } from './desktop-project-library-renderer-contract.ts';
 import type { SoundscaperDesktopCurrentWitness } from './desktop-project-library-renderer-lifecycle.ts';
+import { resolveSoundscaperDesktopProjectRecoveryBridge } from './desktop-project-recovery-bridge.ts';
+import { hasSoundscaperProjectRecoveryEvidence, isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 
 const PREFIX = 'soundscaper.desktop-v1.delete-intent.v1:';
 const FIELDS = [
@@ -50,9 +52,19 @@ export async function reconcileSoundscaperDesktopDeleteIntents(options: Readonly
 	intents: SoundscaperDesktopDeleteIntents;
 }>): Promise<void> {
 	for (const intent of await options.intents.list()) {
-		const raw = await options.bridge.readProjectBundle(intent.projectId);
+		let raw: unknown;
+		try {
+			raw = await options.bridge.readProjectBundle(intent.projectId);
+			if (raw !== null) validateSoundscaperDesktopBundle(options.profile, raw, intent.projectId);
+		} catch (error) {
+			if (isSoundscaperRecoveryBlockedFailure(error)) throw error;
+			const recovery = resolveSoundscaperDesktopProjectRecoveryBridge();
+			if (!recovery || !hasSoundscaperProjectRecoveryEvidence(await recovery.readProjectRecoveryCandidates(intent.projectId), error)) throw error;
+			// Defer only proven damaged data. Preserve the exact intent, shadow and aliases
+			// so the renderer can offer repair without completing a destructive cleanup.
+			continue;
+		}
 		if (raw !== null) {
-			validateSoundscaperDesktopBundle(options.profile, raw, intent.projectId);
 			await options.intents.remove(intent);
 			continue;
 		}

@@ -31,6 +31,7 @@ import type {
 	TakeCycleRoutedCaptureEngine,
 	TakeCycleRoutedCaptureProject,
 } from './take-cycle/take-cycle-routed-capture-types.ts';
+import type { TakeCycleRecoveryEnvelopeKeyValuePort } from '../../../storage/take-cycle-recovery-envelope-repository.ts';
 import type { TimedRecordingInputProject } from './timed-recording-input-service.ts';
 
 export type TakeCycleProject = NonNullable<ReturnType<TakeCycleAppCompositionDependencies['getProject']>>;
@@ -64,6 +65,7 @@ type RecordingCompositionWritableState = ControllerRecordingState & Pick<
 >;
 
 export type RecordingCompositionStore = TakeCycleAppCompositionDependencies['store'] & Readonly<{
+	readonly analysisRepository?: TakeCycleRecoveryEnvelopeKeyValuePort;
 	beginSourceWrite(
 		sourceId: string,
 		metadata: Readonly<Record<string, unknown>>,
@@ -84,6 +86,7 @@ export type RecordingCompositionEngine = RecordingEnginePort & TakeCycleRoutedCa
 }>;
 
 export interface RecordingCompositionCopy {
+	readonly ordinaryRecoveryTrack?: string;
 	readonly labels: string;
 	readonly armTrackForRecording: string;
 	readonly recordingPreparedInputClosed: string;
