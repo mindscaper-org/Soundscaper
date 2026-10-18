@@ -248,7 +248,8 @@ async function exerciseEditableCopy(context, options) {
 			await closeWorkspacePanel(destinationEditor, 'project-bin');
 		}
 		await startPlayback(destinationEditor);
-		await destinationEditor.getByRole('button', { name: 'Stop', exact: true }).click();
+		await destinationEditor.locator('[data-transport="stop"]')
+			.getByRole('button', { name: 'Stop', exact: true }).click();
 		await copiedClip.locator('.clip-header__name').dblclick();
 		const nameInput = copiedClip.getByRole('textbox', { name: 'Clip name', exact: true });
 		await expect(nameInput).toBeFocused();
@@ -275,7 +276,8 @@ async function exerciseEditableCopy(context, options) {
 		await expect(clipByName(reopenedSource, options.renamedClip)).toHaveCount(0);
 		await expect(clipByName(reopenedSource, options.destinationMedia.name)).toHaveCount(0);
 		await startPlayback(reopenedSource);
-		await reopenedSource.getByRole('button', { name: 'Stop', exact: true }).click();
+		await reopenedSource.locator('[data-transport="stop"]')
+			.getByRole('button', { name: 'Stop', exact: true }).click();
 		expect(JSON.stringify(await persistedProject(sourceVerifier, options.sourceDatabase, sourceProjectId)))
 			.toBe(sourceBytesBefore);
 	} finally {
@@ -291,8 +293,9 @@ async function exerciseEditableCopy(context, options) {
 }
 
 async function startPlayback(editor) {
-	const play = editor.getByRole('button', { name: 'Play', exact: true });
-	const pause = editor.getByRole('button', { name: 'Pause', exact: true });
+	const transport = editor.locator('[data-transport="play"]');
+	const play = transport.getByRole('button', { name: 'Play', exact: true });
+	const pause = transport.getByRole('button', { name: 'Pause', exact: true });
 	for (let attempt = 0; attempt < 2; attempt += 1) {
 		await play.click();
 		try {
