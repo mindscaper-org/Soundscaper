@@ -164,6 +164,16 @@ four declared Windows-only skips. The existing Framescaper phase-array expectati
 is corrected, with its execution deferred to the final full suite. A fresh native
 build, result verification and packaging remain required on the changed manifests.
 
+The next Windows attempt confirms that the library alias works, then fails on
+three Registry API symbols omitted from upstream x265 package metadata. Its
+failed result and independent input/process audit are preserved. The correction
+(`5df0bd496`, integrated in `8530d6c08`) installs a pinned, relocatable Windows
+x265 4.2 package-metadata adapter with the required private `advapi32`
+dependency. It preserves the alias, raw source, CRT and POSIX recipes. Four
+regressions fail before the change; all 41 focused Motion cases pass on Windows,
+with strict types, changed-file lint and source audits. Fresh Linux controls,
+native builds and packaging remain required.
+
 On `cb163a0ce`, the fresh Linux native build, maintained result verifier,
 reference compilation and all five native checks pass, including the independent
 input/generated-output/process audit. Its new receipt retains the actual
@@ -171,6 +181,20 @@ compilation revision; packaging and installed workloads remain required.
 The complete static gate also passes on that source in 703.6 seconds, with
 52,070 unchanged inputs, no startup-budget changes and a largest JavaScript
 chunk of 488,189 bytes. Earlier failed executions retain their original outcomes.
+
+The complete static gate also passes on `3b2ae0f32` in 693.8 seconds, with the
+same 52,070-input closure and 488,189-byte largest chunk. Its three browser sites
+and source maps are built and preserved; a complete browser execution remains
+required. Five historical original `/tmp` workload directories are unavailable.
+All 590 cached copies match their recorded bytes and metadata; this does not
+restore or qualify the missing originals. A new input baseline explicitly
+records that loss and does not qualify native compilation.
+
+A WSL memory investigation confirms one prior Node OOM kill at about 44 GiB
+resident memory with exhausted swap. Its owning command is unknown; a test leak
+is not established. WSL restarted, and no surviving test workers were found.
+Further resource-intensive validation is held for per-run memory recording and
+an explicit memory-abort guard. Existing completed results keep their identities.
 
 Fresh combined gates, accepted coverage, installed AE, other hardware/targets,
 signing, installation, update and publication remain open. No installed AE test

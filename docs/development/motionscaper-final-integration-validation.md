@@ -253,6 +253,27 @@ update without growing the frozen file; its rerun is deferred to the final full
 suite. The changed shared manifests require another fresh Linux and Windows
 native build; the earlier successful Linux receipt keeps its actual identity.
 
+The subsequent Windows attempt on `e6d808362` compiles and installs all five
+codec libraries and confirms that the original and aliased x265 archives have
+identical bytes. FFmpeg now opens the requested library, then fails on
+`RegCloseKey`, `RegOpenKeyExA` and `RegQueryValueExA`. The pinned upstream x265
+CMake logic omits `advapi32` from its package metadata. The attempt exits
+numerically with status one before its deadline; its actual work tree and
+independent preservation/process audits close without claiming a native pass.
+
+The correction (`5df0bd496`, integrated in `8530d6c08`) adds a committed,
+relocatable Windows x265 4.2 package-metadata adapter. An authenticated CMake copy
+installs it after the retained library alias. Its private `advapi32` dependency
+reaches FFmpeg's static probe, static `libavcodec.pc` and both downstream native
+hosts through their existing package-metadata consumers. Raw sources, archive
+pins, CRT, other codecs and POSIX recipes are unchanged. Four regressions fail
+before the change; the initial 32 and committed 41 focused Motion cases pass on
+Windows. Strict types, changed-file lint and maintained source audits pass.
+The Framescaper test's input and phase expectations change inline without
+growing its 598 lines; execution remains deferred to the full suite. The Frame
+source inventory now has 84 files, and Motion's dependency pin is refreshed.
+Fresh Linux controls, native builds, verification and packaging remain required.
+
 The fresh Linux x64 build on `cb163a0ce` passes compilation, maintained result
 verification, reference-decoder generation and all five native checks. Its
 independent audit verifies unchanged source/npm/authenticated inputs and exact
@@ -270,6 +291,36 @@ verifies 52,070 unchanged inputs and retirement of 92 recorded identities;
 changes, and the largest JavaScript chunk is 488,189 bytes. The 12 GiB heap is
 confined to static compilation; application tests retain their default heap.
 This does not establish complete Node, all-product browser or coverage acceptance.
+
+The complete static gate subsequently passes on `3b2ae0f32` in 693.8 seconds.
+Its independent audit verifies 52,070 unchanged inputs and retirement of 86
+recorded identities. The generated inventory has 11,777 files, no startup-budget
+changes and a largest JavaScript chunk of 488,189 bytes. A separate maintained
+build creates all three browser sites and source maps on that source; its build,
+preservation and process audits pass. No complete browser run on those sites is
+claimed. These results are not retagged to the later native-recipe correction.
+
+Five original historical `/tmp` workload directories are now absent, covering
+590 files and 604,001,238 bytes. The five cached copies retain their own exact
+body, metadata and membership witnesses and equivalent original-relative file
+paths, lengths and hashes. The unavailable originals remain explicitly
+unaccepted; their loss time and cause are unknown. The original strict baseline
+capture remains failed. A separate loss-aware input baseline passes on
+`3b2ae0f32`, admitting only those five specifically recorded absences and
+retaining all available input and cached-copy checks. It qualifies inputs only,
+not compilation, packaging or a release gate. New source requires a fresh baseline.
+
+After the user's memory report, the previous kernel journal confirms one
+distinct Node OOM event: PID 8039 had 46,568,652 KiB anonymous resident memory,
+and the 12 GiB swap was exhausted. Repeated journal copies describe the same
+source event. Neither its launch command nor a test leak is established; nearby
+task-table PIDs do not prove ancestry. WSL subsequently restarted. Current
+inspection finds about 4 GiB used and no surviving test workers. New
+resource-intensive validation remains held while per-run memory recording and
+an explicit abort guard are prepared. A final extra read-only Windows receipt
+wrapper was lost across the restart; its numerical exit is unknown. The commit,
+41-case test selection, types, lint and bundles had already closed and retained
+their receipts before the restart.
 
 Current retained receipts are relative to
 `~/.cache/soundscaper/motionscaper-recovery-328cae02f-20261013/`:
@@ -323,6 +374,12 @@ Current retained receipts are relative to
 | Integrated Linux Motion-only normalization controls | `windows-x64-prerequisites-20261018/root-integrated-x265-linux-motion.receipt.json` |
 | Fresh Linux native build/verifier/reference, `cb163a0ce` | `current-next-native-preparation-20261018/bound-cb163a0ce/native-qualification.json` |
 | Complete static gate, `cb163a0ce` | `current-cb163a0ce-static-canon-20261018/qualification.json` |
+| Failed Windows Registry dependency link and physical closure | `windows-x64-prerequisites-20261018/native-build-native-codec-path-v11.failed-closed-review.json` |
+| Windows x265 static package-metadata correction | `windows-x64-prerequisites-20261018/x265-pkg-config-commit-receipt.json` |
+| Complete static gate, `3b2ae0f32` | `current-3b2ae0f32-static-canon-20261018/qualification.json` |
+| Three-product browser build and preservation only, `3b2ae0f32` | `final-full-browser-3b2ae0f32-20261018/build-qualification.json` |
+| Historical original-file loss and retained cached copies | `current-x265-native-preparation-20261018/bound-3b2ae0f3/historical-loss-qualification.json` |
+| Loss-aware input baseline only, `3b2ae0f32` | `current-x265-native-preparation-20261018/loss-aware-3b2ae0f3/baseline-qualification.json` |
 
 These results retain their exact source attribution. The subsequent test and
 documentation commits do not retag frozen executions. Fresh complete Node,
