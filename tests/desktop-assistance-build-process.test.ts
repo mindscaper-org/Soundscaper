@@ -184,7 +184,7 @@ setInterval(() => {}, 1000);`;
 			const stat = await readFile(`/proc/${pid}/stat`, 'utf8');
 			assert.match(stat, /\) Z /u, 'A terminated descendant may remain only as a reaped-process record.');
 		} catch (error) {
-			if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+			if (!(error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'ESRCH'))) throw error;
 		}
 	}
 	await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

@@ -55,16 +55,18 @@ void scape_fixture_export() {}
 		await write(join(upstream, 'harmony-os/SherpaOnnxHar/sherpa_onnx/src/main/cpp', name), '');
 	}
 	const plan = desktopSherpaGpuBuildPlan({ targetId: `${process.platform === 'win32' ? 'win' : 'linux'}-${process.arch}` });
+	// Native ARM64 MSVC compiler and thread probes can exceed thirty seconds on hosted runners.
+	const timeout = process.platform === 'win32' && process.arch === 'arm64' ? 120_000 : 30_000;
 	await runFile('cmake', ['-S', native, '-B', build, ...plan.generatorArgs,
 		`-DSHERPA_SOURCE=${upstream}`, `-DORT_INCLUDE=${root}`, `-DORT_LIBRARY=${join(upstream, 'empty.cc')}`,
 		`-DNODE_HEADERS=${root}`, `-DNODE_ADDON_API=${root}`, `-DSCAPE_WORK_ROOT=${root}`,
 		...(process.platform === 'win32' ? [`-DNODE_LIBRARY=${join(build, 'onnxruntime.lib')}`,
 			`-DNODE_DELAY_HOOK=${join(upstream, 'empty.cc')}`] : []),
-	], { timeout: 30_000 });
+	], { timeout });
 	const targetStart = plan.buildArgs.indexOf('--target') + 1;
 	const targetEnd = plan.buildArgs.indexOf('--parallel');
 	assert.deepEqual(plan.buildArgs.slice(targetStart, targetEnd), ['scape-sherpa-gpu']);
-	const built = await runFile('cmake', ['--build', build, ...plan.buildArgs], { timeout: 30_000 });
+	const built = await runFile('cmake', ['--build', build, ...plan.buildArgs], { timeout });
 	assert.doesNotMatch(`${built.stdout}\n${built.stderr}`, /D900[27]/u, 'MSVC must honor every reproducibility flag');
 	const files: string[] = [];
 	const collect = async (directory: string): Promise<void> => {
