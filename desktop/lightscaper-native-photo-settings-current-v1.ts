@@ -5,7 +5,10 @@ import { readClosedDomainField as field, readClosedDomainRecord as record } from
 import type { PhotoMediaSettingsRepositoryV1 as Settings } from '../src/lightscaper/storage/photo-media-store.ts';
 import { openLightscaperNativePhotoSettingsDatabaseCurrentV1 } from './lightscaper-native-photo-settings-files-current-v1.ts';
 import { LightscaperNativePhotoSettingsLifetimeCurrentV1 } from './lightscaper-native-photo-settings-lifetime-current-v1.ts';
-import { captureLightscaperNativePhotoSettingsRequestCurrentV1 } from './lightscaper-native-photo-settings-request-current-v1.ts';
+import { captureLightscaperNativePhotoSettingsRequestCurrentV1, encodeLightscaperNativePhotoSettingKeyCurrentV1 } from './lightscaper-native-photo-settings-request-current-v1.ts';
+import { decodeLightscaperNativePhotoSettingCurrentV1 } from './lightscaper-native-photo-settings-codec-current-v1.ts';
+import { normalizePhotoImportIntentV1, photoImportIntentKeyV1, type PhotoImportIntentV1 } from '../src/lightscaper/import/import-intent-v1.ts';
+import { id } from '../src/lightscaper/catalog/value-validation.ts';
 import { executeLightscaperNativePhotoSettingsRequestCurrentV1 } from './lightscaper-native-photo-settings-records-current-v1.ts';
 
 /** Main-private settings custody. A scope is an immutable binding supplied by
@@ -45,6 +48,30 @@ export class LightscaperNativePhotoSettingsCurrentV1 {
 			try { database.close(); } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Native Photo settings opening and retirement failed.', { cause: cleanup }); }
 			throw primary;
 		}
+	}
+
+	/** Fixed main-private custody read. Generic settings deliberately support
+	 * large structured-clone values; an import intent cannot decode those before
+	 * its owning scalar admission. Presence is distinct from invalid occupancy. */
+	readImportIntentCurrentV1(catalogId: string): Promise<Readonly<PhotoImportIntentV1> | null> {
+		return this.#lifetime.run(() => {
+			const catalog = id(catalogId, 'native import intent catalog ID');
+			return { catalog, key: encodeLightscaperNativePhotoSettingKeyCurrentV1(photoImportIntentKeyV1(catalog)) };
+		}, ({ catalog, key }) => {
+			if (this.#database.isTransaction) throw new Error('Native Photo intent requires ownership of its read.');
+			// Every legal four-field ASCII-ID intent fits this codec envelope. The
+			// generic settings repository's value domain and payload sizes stay intact.
+			const row = this.#database.prepare(`SELECT length(payload) AS payload_bytes,
+				CASE WHEN typeof(payload)='blob' AND length(payload)<=4096 THEN payload END AS payload
+				FROM native_photo_settings WHERE scope=? AND key=?`).get(this.#scope, key);
+			if (!row) return null;
+			if (typeof row.payload_bytes !== 'number' || !Number.isSafeInteger(row.payload_bytes) || row.payload_bytes < 0) {
+				throw new TypeError('Native Photo import intent payload is not an owned BLOB.');
+			}
+			if (row.payload_bytes > 4096) throw new RangeError('Native Photo import intent exceeds its encoded byte bound.');
+			if (!(row.payload instanceof Uint8Array) || row.payload.byteLength !== row.payload_bytes) throw new TypeError('Native Photo import intent payload is malformed.');
+			return normalizePhotoImportIntentV1(decodeLightscaperNativePhotoSettingCurrentV1(row.payload), catalog);
+		});
 	}
 
 	close(): Promise<void> { return this.#lifetime.close(() => { this.#database.close(); }); }

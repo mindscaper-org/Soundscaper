@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { assertLightscaperNativePhotoOriginalUnpinnedCurrentV1 } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { isMediaContentSha256, isMediaContentToken } from '../src/common/editor/storage/media-content-provenance.ts';
@@ -71,7 +72,7 @@ export function getLightscaperNativePhotoMediaAssetCurrentV1(database: DatabaseS
 /** Logical retirement is atomic with the real Original binding. Immutable SHA
  * files remain untouched: another binding or reader can still own that body. */
 export function deleteLightscaperNativePhotoMediaAssetCurrentV1(database: DatabaseSync, assetId: string, signal?: AbortSignal): void {
-	assertIdle(database); const key = readKey(assetId);
+	assertIdle(database); const key = readKey(assetId); assertLightscaperNativePhotoOriginalUnpinnedCurrentV1(database, key);
 	transaction(database, signal, () => {
 		const row = read(database, key); if (!row) return;
 		if (row.count !== 0 || database.prepare('SELECT 1 FROM native_photo_media_roots WHERE asset_id=? LIMIT 1').get(key)) {

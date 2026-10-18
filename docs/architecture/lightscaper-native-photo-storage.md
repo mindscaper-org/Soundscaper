@@ -251,7 +251,12 @@ available, while each allocated generation has separate physical storage and
 explicit selected settings. Creation progress grants no restore readiness or
 selected-pointer publication authority.
 
-The remaining adapter must add scoped Original/preview loading,
+The [Original loading components](lightscaper-native-photo-original-loading.md)
+now bind native reads to the actual stored Photo, asset generation and custody,
+and provide a separate bounded renderer File staging owner. Their integration
+with real transport, decoding and existing consumers remains required.
+
+The remaining adapter must complete scoped Original/preview loading,
 complete native restore and selection publication, then
 preserve all complete Session/publication/recovery ports through selected-catalog
 renderer and IPC admission. Menu-owned library selection

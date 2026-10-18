@@ -1271,7 +1271,14 @@ An independent SQLite writer transaction excludes other processes until every
 child retires; creation progress grants no restore-ready or selected publication
 authority. Default and separate generation storage have actual isolation/reopen
 coverage, including distinct genuine DNG bytes under the same Photo keys.
-Scoped Original/preview loading, complete native restore and selection
+The [Original loading components](docs/architecture/lightscaper-native-photo-original-loading.md)
+now authenticate native reads against the actual stored Photo, scalar asset
+generation and custody, retain deletion pins through callback and I/O retirement,
+and compose under the manager's persistent shutdown lifetime. The renderer
+staging source returns a genuine File with bounded pulls and retained consumer
+leases. Focused port tests do not establish real browser OPFS, packaged transport,
+decoding, archive cancellation or complete existing consumer integration.
+Complete scoped Original/preview loading, native restore and selection
 publication, native Session composition, renderer/IPC
 admission and menu-owned library selection remain required before activation.
 Add-in-place access and native platform qualification remain open.

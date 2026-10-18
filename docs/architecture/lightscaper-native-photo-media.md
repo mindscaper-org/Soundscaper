@@ -99,7 +99,14 @@ custody, reopen, cancellation and Close. The existing full restore candidate
 still owns browser namespaces and catalog transactions; a working native stream
 writer alone does not implement a complete native restore candidate.
 
-Scoped Blob/File loading, full native restore and selection publication,
-renderer/IPC admission and menu-owned Session selection
+The [scoped Original reader](lightscaper-native-photo-original-loading.md)
+authenticates scalar asset generations and actual custody without decoding
+generic metadata. Same-process media owners share deletion pins through actual
+consumer and physical-read retirement. The separate renderer source stages a
+genuine File under fixed capacity limits; its port tests do not establish
+packaged transport or existing consumer integration.
+
+Complete scoped loading integration, full native restore and selection
+publication, renderer/IPC admission and menu-owned Session selection
 remain required. No AI runtime source, archive closure or target inventory
 changes; this component does not require a manual **Update AI assets** run.

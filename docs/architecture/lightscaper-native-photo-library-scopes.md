@@ -59,14 +59,22 @@ unfinished reservations, without interpreting creation progress as readiness.
 
 Accepted requests register before borrowed options are reflected. Closing fences
 admission, cancels pending work and joins actual component opening and cleanup.
-Each child close method is captured before vending. Catalog, media and selected
-settings retire before resources, and all children retire before registry and
+Each child close method is captured before vending. The
+[Original reader](lightscaper-native-photo-original-loading.md) uses a persistent
+manager shutdown signal, independent of its completed opening request. Its
+consumers and physical reads retire before catalog, media and selected settings;
+those owners retire before resources, and all children retire before registry and
 anchor. The global writer guard releases last. Unproved retirement quarantines
 the manager and retains a strong reference to its guard until process exit;
 another scope owner must not enter while a child might still own native work.
 Combined native opening/retirement failures retain the guard even when no child
 owner was returned.
 Closing never deletes generation files or allocation records.
+
+Component close first quiesces escaped media writers without retiring physical
+storage. This releases an idle stream producer that can precede a read in the
+Original store queue, allowing reader retirement to join before ordinary owner
+close. Every component close barrier is cached before synchronous cancellation.
 
 The shared fixed-profile database opener admits existing SQLite ownership
 read-only before writable recovery, permissions or WAL changes. Catalog profiles

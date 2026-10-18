@@ -14,6 +14,9 @@ import { deleteLightscaperNativePhotoMediaAssetCurrentV1, getLightscaperNativePh
 	installLightscaperNativePhotoMediaAssetCurrentV1 } from './lightscaper-native-photo-media-assets-current-v1.ts';
 import { captureLightscaperNativePhotoCustodyRequestCurrentV1, executeLightscaperNativePhotoCustodyRequestCurrentV1 } from './lightscaper-native-photo-media-custody-current-v1.ts';
 import { LightscaperNativePhotoMediaLifetimeCurrentV1, checkLightscaperNativePhotoMediaSignalCurrentV1 as check } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
+import { LightscaperNativePhotoMediaOriginalReadsCurrentV1 } from './lightscaper-native-photo-media-original-reads-current-v1.ts';
+import { captureLightscaperNativePhotoOriginalReadRequestCurrentV1 } from './lightscaper-native-photo-original-read-authority-current-v1.ts';
+import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import { LightscaperNativePhotoMediaWritersCurrentV1 } from './lightscaper-native-photo-media-writers-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
@@ -28,9 +31,12 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 	readonly #database: DatabaseSync;
 	readonly #lifetime = new LightscaperNativePhotoMediaLifetimeCurrentV1();
 	readonly #writers: LightscaperNativePhotoMediaWritersCurrentV1;
+	readonly #reads: LightscaperNativePhotoMediaOriginalReadsCurrentV1;
 	#closing: Promise<void> | null = null;
+	#quiescing: Promise<void> | null = null;
 	private constructor(originals: LightscaperNativeOriginalStoreCurrentV1, database: DatabaseSync) {
 		this.#originals = originals; this.#database = database;
+		this.#reads = new LightscaperNativePhotoMediaOriginalReadsCurrentV1(database, originals, (options, capture, operation) => this.#run(options, capture, operation));
 		this.#writers = new LightscaperNativePhotoMediaWritersCurrentV1(originals, database);
 		this.catalogOriginals = Object.freeze<Custody>({
 			retain: (catalog, references, options) => this.#custody('retain', [catalog, references], options),
@@ -61,8 +67,19 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		}
 	}
 
+	/** Main-private fixed reader composition; never a renderer filesystem API. */
+	readonly reserveOriginalRead = (): Readonly<{ release(): void }> => {
+		if (this.#closing || this.#quiescing) throw new Error('Native Photo media is closed.'); return this.#reads.reserve();
+	};
+	readonly acquireOriginalRead = (value: unknown, options: Options = {}) => this.#run(options, () => {
+		const input = record(options, 'native Original lease options', ['signal'], []);
+		const signal = Object.hasOwn(input, 'signal') ? field(input, 'signal', 'native Original lease options') : undefined;
+		if (signal !== undefined) assertPhotoStackQuerySignalV1(signal);
+		return { request: captureLightscaperNativePhotoOriginalReadRequestCurrentV1(value), signal };
+	}, (input, signal) => { check(signal); return this.#reads.acquire(input.request, input.signal); });
+
 	readonly beginAssetWrite = (sourceId: string, metadata: Readonly<Record<string, unknown>>, options: MediaAssetWriteOptions): Promise<MediaAssetWriter> => {
-		if (this.#closing) return Promise.reject(new Error('Native Photo media is closed.'));
+		if (this.#closing || this.#quiescing) return Promise.reject(new Error('Native Photo media is closed.'));
 		return this.#writers.begin(sourceId, metadata, options);
 	};
 
@@ -97,17 +114,32 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 			this.#require(original); const bytes = await this.#originals.read(original, offset, length, { signal }); check(signal); return bytes;
 		});
 
+	/** Fence all front doors and retire escaped producers before a parent
+	 * waits for Original reads queued behind their genuine physical stream. */
+	readonly quiesceEscapedWritersCurrentV1 = (): Promise<void> => this.#quiesce();
+
+	#quiesce(): Promise<void> {
+		if (this.#quiescing) return this.#quiescing;
+		let resolve!: () => void, reject!: (error: unknown) => void;
+		this.#quiescing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
+		try { void this.#writers.close().then(resolve, reject); } catch (error) { reject(error); }
+		return this.#quiescing;
+	}
+
 	close(): Promise<void> {
 		if (this.#closing) return this.#closing;
 		let resolve!: () => void, reject!: (error: unknown) => void;
 		this.#closing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
 		// Idle escaped writers must be canceled before the ordinary queue can
 		// join a request waiting behind their real Original producer.
-		const writers = this.#writers.close();
-		void writers.catch(() => undefined);
+		const writers = this.#quiesce(), readers = this.#reads.close();
+		void writers.catch(() => undefined); void readers.catch(() => undefined);
 		void this.#lifetime.close(async () => {
 			const failures: unknown[] = [];
 			try { await writers; } catch (error) { failures.push(error); }
+			try { await readers; } catch (error) {
+				failures.push(error); throw new AggregateError(failures, 'Native Original consumers did not retire; media owners retained.', { cause: error });
+			}
 			const results = await Promise.allSettled([this.#originals.close(), Promise.resolve().then(() => { this.#database.close(); })]);
 			failures.push(...results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []));
 			if (failures.length) throw new AggregateError(failures, 'Native Photo media owners did not retire.');
@@ -127,7 +159,7 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 			(packet, signal) => executeLightscaperNativePhotoCustodyRequestCurrentV1(this.#database, packet, signal)) as ReturnType<Custody[Method]>;
 	}
 	#run<Input, Result>(options: unknown, capture: (signal: AbortSignal) => Input | Promise<Input>, operation: (input: Input, signal: AbortSignal) => Result | Promise<Result>): Promise<Result> {
-		if (this.#closing) return Promise.reject(new Error('Native Photo media is closed.'));
+		if (this.#closing || this.#quiescing) return Promise.reject(new Error('Native Photo media is closed.'));
 		return this.#lifetime.run(options, capture, operation);
 	}
 }

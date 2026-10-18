@@ -18,6 +18,8 @@ type Binding = Readonly<{ allocation: Readonly<Allocation> | null; appDataPath: 
 // Unknown retirement must never let GC release exclusion while a child may
 // still own a native handle. Recovery of this exceptional state needs a restart.
 const QUARANTINED = new Set<Writer>();
+const NativeController = AbortController, SIGNAL = Object.getOwnPropertyDescriptor(AbortController.prototype, 'signal')!.get!;
+const ABORT = AbortController.prototype.abort;
 
 /** Main-private physical allocation and composition. Registry states describe
  * creation only; no selected pointer, restore-ready proof, deletion authority,
@@ -28,6 +30,7 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 	readonly #registry: Registry;
 	readonly #anchor: Settings;
 	readonly #lifetime = new Lifetime();
+	readonly #shutdown = new NativeController();
 	readonly #scopes = new WeakMap<object, Binding>();
 	readonly #children = new Set<Readonly<Components>>();
 	#unretired = false;
@@ -86,7 +89,8 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 				}
 			}
 			this.#guard.assertCurrent(); check(signal);
-			const components = await openComponents(binding.appDataPath, signal, () => { this.#quarantine(); });
+			const components = await openComponents(binding.appDataPath, signal, () => { this.#quarantine(); },
+				Object.freeze({ signal: Reflect.apply(SIGNAL, this.#shutdown, []) as AbortSignal, assertCurrent: () => { this.#assertAccepting(); } }));
 			this.#children.add(components);
 			try { this.#guard.assertCurrent(); check(signal); return components; }
 			catch (primary) {
@@ -105,6 +109,7 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 		if (this.#closing) return this.#closing;
 		let resolve!: () => void, reject!: (error: unknown) => void;
 		this.#closing = new Promise<void>((accept, refuse) => { resolve = accept; reject = refuse; });
+		Reflect.apply(ABORT, this.#shutdown, [new Error('Native library scopes are closing.')]);
 		void this.#lifetime.close(async () => {
 			const results = await Promise.allSettled([...this.#children].map(child => child.close()));
 			const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
@@ -133,7 +138,10 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 		if (this.#closing || this.#unretired) throw new Error('Native library scopes are closing, closed or quarantined.');
 		this.#guard.assertCurrent();
 	}
-	#quarantine(): void { this.#unretired = true; QUARANTINED.add(this.#guard); }
+	#quarantine(): void {
+		this.#unretired = true; QUARANTINED.add(this.#guard);
+		Reflect.apply(ABORT, this.#shutdown, [new Error('Native library scope retirement is unproved.')]);
+	}
 }
 function token(value: unknown): string {
 	if (typeof value !== 'string' || !/^[a-f0-9]{32}$/u.test(value)) throw new TypeError('Native library namespace requires 32 lowercase hexadecimal characters.');
