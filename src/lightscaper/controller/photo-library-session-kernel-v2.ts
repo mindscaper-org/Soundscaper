@@ -184,7 +184,7 @@ export class PhotoLibrarySessionKernelV2 {
 			this.exportPresets = presets.legacy; this.exportPresetsCurrent = presets.current;
 		}
 		if (ports.exportJournalSettings) {
-			const host = { settings: ports.exportJournalSettings, ready: () => this.#ready(), loadOriginal: ports.backup?.loadOriginal,
+			const host = { settings: ports.exportJournalSettings, ready: () => this.#ready(), loadOriginal: ports.backup?.loadOriginal, originalSource: ports.originalSource,
 				operation: <Result>(run: (signal: AbortSignal) => Promise<Result>, caller?: AbortSignal, admit?: () => void) => this.#operation(run, caller, admit) };
 			this.exportJournal = createPhotoLibrarySessionExportJournalPortV1('legacy2', { ...host, catalog: legacy.catalog, verifyResources: legacy.verifyResources });
 			if (this.#current) this.exportJournalCurrent = createPhotoLibrarySessionExportJournalPortV1('current3', { ...host, catalog: ports.catalog, verifyResources: ports.verifyResources });

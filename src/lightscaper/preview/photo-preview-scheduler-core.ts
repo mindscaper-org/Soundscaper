@@ -2,6 +2,8 @@
 
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
 import type { PhotoDocumentV1 } from '../catalog/types.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1, withPhotoLibraryOriginalCurrentV1,
+	type PhotoLibraryOriginalSourceCurrentV1 } from '../controller/photo-library-original-source-current-v1.ts';
 import { id } from '../catalog/value-validation.ts';
 import { withPhotoOriginalFrameV1 } from './photo-original-frame-v1.ts';
 import type { PhotoPreviewCachePortV1 } from './photo-preview-cache-v1.ts';
@@ -27,7 +29,8 @@ export interface PhotoPreviewProtocolCore<Prepared extends PhotoPreviewPreparedC
 export interface PhotoPreviewSchedulerOptionsCore<Prepared extends PhotoPreviewPreparedCore = PreparedPhotoPreviewV1> {
 	readonly catalogId: string;
 	readonly loadPhoto: (photoId: string) => Promise<unknown | null>;
-	readonly loadOriginal: (storageKey: string, signal: AbortSignal) => Promise<unknown>;
+	readonly loadOriginal?: (storageKey: string, signal: AbortSignal) => Promise<unknown>;
+	readonly originalSource?: PhotoLibraryOriginalSourceCurrentV1;
 	readonly cache: PhotoPreviewCachePortCore<Prepared>;
 	readonly regenerate?: typeof withPhotoOriginalFrameV1;
 }
@@ -68,7 +71,11 @@ export class PhotoPreviewSchedulerCore<Prepared extends PhotoPreviewPreparedCore
 	readonly #catalogId: string;
 	readonly #protocol: PhotoPreviewProtocolCore<Prepared, Plan>;
 	readonly #normalizePhoto: (value: unknown) => PhotoPreviewSchedulerAdmittedPhoto;
-	readonly #ports: Readonly<Required<Omit<PhotoPreviewSchedulerOptionsCore<Prepared>, 'catalogId'>>>;
+	readonly #ports: Readonly<{
+		loadPhoto: PhotoPreviewSchedulerOptionsCore<Prepared>['loadPhoto'];
+		originalSource: Readonly<PhotoLibraryOriginalSourceCurrentV1>;
+		cache: PhotoPreviewCachePortCore<Prepared>; regenerate: typeof withPhotoOriginalFrameV1;
+	}>;
 	readonly #jobs = new Map<string, Job<Prepared>>();
 	readonly #queue: Job<Prepared>[] = [];
 	#active: Job<Prepared> | null = null;
@@ -80,12 +87,10 @@ export class PhotoPreviewSchedulerCore<Prepared extends PhotoPreviewPreparedCore
 	constructor(options: PhotoPreviewSchedulerOptionsCore<Prepared>, normalizePhoto: (value: unknown) => PhotoPreviewSchedulerAdmittedPhoto,
 		protocol: PhotoPreviewProtocolCore<Prepared, Plan>) {
 		this.#normalizePhoto = normalizePhoto; this.#protocol = protocol;
-		const input = record(options, 'photo preview scheduler ports', ['catalogId', 'loadPhoto', 'loadOriginal', 'cache', 'regenerate'],
-			['catalogId', 'loadPhoto', 'loadOriginal', 'cache']);
+		const input = record(options, 'photo preview scheduler ports', ['catalogId', 'loadPhoto', 'loadOriginal', 'originalSource', 'cache', 'regenerate'],
+			['catalogId', 'loadPhoto', 'cache']);
 		this.#catalogId = id(field(input, 'catalogId', 'photo preview scheduler ports'), 'preview catalog ID');
-		for (const key of ['loadPhoto', 'loadOriginal']) {
-			if (typeof field(input, key, 'photo preview scheduler ports') !== 'function') throw new TypeError('Complete preview read ports are required.');
-		}
+		if (typeof field(input, 'loadPhoto', 'photo preview scheduler ports') !== 'function') throw new TypeError('Complete preview read ports are required.');
 		const cache = record(field(input, 'cache', 'photo preview scheduler ports'), 'photo preview cache port', ['load', 'store', 'trim']);
 		for (const key of ['load', 'store', 'trim']) {
 			if (typeof field(cache, key, 'photo preview cache port') !== 'function') throw new TypeError('Complete preview cache ports are required.');
@@ -94,12 +99,17 @@ export class PhotoPreviewSchedulerCore<Prepared extends PhotoPreviewPreparedCore
 		const regenerate = (configuredRegenerate ?? withPhotoOriginalFrameV1) as typeof withPhotoOriginalFrameV1;
 		if (typeof regenerate !== 'function') throw new TypeError('Photo preview requires an original frame factory.');
 		const loadPhoto = field(input, 'loadPhoto', 'photo preview scheduler ports') as PhotoPreviewSchedulerOptionsCore<Prepared>['loadPhoto'];
-		const loadOriginal = field(input, 'loadOriginal', 'photo preview scheduler ports') as PhotoPreviewSchedulerOptionsCore<Prepared>['loadOriginal'];
+		const original = Object.hasOwn(input, 'loadOriginal') ? field(input, 'loadOriginal', 'photo preview scheduler ports') : undefined;
+		if (original !== undefined && typeof original !== 'function') throw new TypeError('Photo preview requires an inert Original loader.');
+		const loadOriginal = original as PhotoPreviewSchedulerOptionsCore<Prepared>['loadOriginal'];
+		const configuredSource = Object.hasOwn(input, 'originalSource') ? field(input, 'originalSource', 'photo preview scheduler ports') : undefined;
+		const originalSource = capturePhotoLibraryOriginalSourceCurrentV1(configuredSource as PhotoLibraryOriginalSourceCurrentV1 | undefined, loadOriginal
+			? (binding, signal) => Reflect.apply(loadOriginal, options, [binding.storageKey, signal]) as Promise<unknown> : undefined);
 		const load = field(cache, 'load', 'photo preview cache port') as PhotoPreviewCachePortCore<Prepared>['load'];
 		const store = field(cache, 'store', 'photo preview cache port') as PhotoPreviewCachePortV1['store'];
 		const trim = field(cache, 'trim', 'photo preview cache port') as PhotoPreviewCachePortV1['trim'];
 		this.#ports = Object.freeze({ loadPhoto: photoId => Reflect.apply(loadPhoto, options, [photoId]),
-			loadOriginal: (storageKey, signal) => Reflect.apply(loadOriginal, options, [storageKey, signal]),
+			originalSource,
 			cache: Object.freeze({ load: (plan, signal) => Reflect.apply(load, cache, [plan, signal]),
 				store: (value, signal) => Reflect.apply(store, cache, [value, signal]), trim: signal => Reflect.apply(trim, cache, [signal]) } satisfies PhotoPreviewCachePortCore<Prepared>), regenerate });
 	}
@@ -169,7 +179,12 @@ export class PhotoPreviewSchedulerCore<Prepared extends PhotoPreviewPreparedCore
 			if (!await this.#matches(job.photoId, binding, signal)) return Object.freeze({ outcome: 'superseded' });
 			return Object.freeze({ outcome: 'ready', preview: cached, cache: 'hit' });
 		}
-		const body = await this.#ports.loadOriginal(binding.storageKey, signal); check(signal);
+		return withPhotoLibraryOriginalCurrentV1(this.#ports.originalSource, { catalogId: this.#catalogId, photoId: photo.id, original: photo.original },
+			body => this.#prepareMiss(job, binding, plan, body), signal);
+	}
+
+	async #prepareMiss(job: Job<Prepared>, binding: PhotoPreviewOriginalBindingV1, plan: Plan, body: Blob): Promise<PhotoPreviewJobOutcomeV1<Prepared>> {
+		const signal = job.controller.signal; check(signal);
 		const preview = await this.#protocol.render({ plan, binding, body, signal, variant: job.variant }, this.#ports.regenerate);
 		check(signal);
 		if (!await this.#matches(job.photoId, binding, signal)) return Object.freeze({ outcome: 'superseded' });

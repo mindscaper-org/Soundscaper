@@ -12,6 +12,7 @@ import type { PhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v
 import { normalizePhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v1.ts';
 import { publishManagedHdrPhotoCurrentV1 } from '../import/managed-hdr-publication-current-v1.ts';
 import { createPhotoLibraryDevelopOriginalSessionCurrentV1 } from './photo-library-develop-original-session-current-v1.ts';
+import { capturePhotoLibraryDevelopOriginalSourceCurrentV1 } from './photo-library-develop-original-source-current-v1.ts';
 import type { PhotoLibrarySessionPortsCurrentV1 } from './photo-library-session-ports-current-v1.ts';
 import { captureHdrPhotoIdsCurrentV1, captureHdrPhotoMergeCurrentV1, hdrPhotoSelectionCurrentV1, readHdrPhotoSourcesCurrentV1,
 	prepareHdrPhotoEngineCurrentV1, hdrPhotoGuardsCurrentV1 } from './internal/photo-library-hdr-merge-capture-current-v1.ts';
@@ -30,11 +31,11 @@ export interface PhotoLibraryHdrMergeSessionHostCurrentV1 {
 export function createPhotoLibraryHdrMergeSessionCurrentV1(host: PhotoLibraryHdrMergeSessionHostCurrentV1): Readonly<PhotoLibraryHdrMergePortCurrentV1> | undefined {
 	const ports = host.ports, catalog = ports.catalog, read = catalog.loadPhoto, publish = catalog.publishDerivedPhotoCurrentV1;
 	const backup = ports.backup, loadOriginal = backup?.loadOriginal;
-	if (publish === undefined || loadOriginal === undefined) return undefined;
-	const originalReader = loadOriginal;
+	if (publish === undefined || (loadOriginal === undefined && ports.originalSource === undefined)) return undefined;
+	const original = capturePhotoLibraryDevelopOriginalSourceCurrentV1(ports.originalSource, backup);
 	const operation = host.operation, mutate = host.mutate, ready = host.ready, reset = host.resetReady;
 	const allocate = ports.createId ?? (() => crypto.randomUUID()), now = ports.now ?? (() => new Date().toISOString());
-	for (const method of [read, publish, loadOriginal, operation, mutate, ready, reset, allocate, now]) if (typeof method !== 'function') throw new TypeError('HDR Session requires complete captured ownership capabilities.');
+	for (const method of [read, publish, operation, mutate, ready, reset, allocate, now]) if (typeof method !== 'function') throw new TypeError('HDR Session requires complete captured ownership capabilities.');
 	const load = (catalogId: string, photoId: string) => Reflect.apply(read, catalog, [catalogId, photoId]) as ReturnType<typeof read>;
 	const snapshot = async (catalogId: string, request: Readonly<PhotoLibraryHdrMergeRequestCurrentV1>, signal: AbortSignal) => {
 		const photos = await readHdrPhotoSourcesCurrentV1(catalogId, request.inputs.map(input => input.photoId), load,
@@ -58,7 +59,7 @@ export function createPhotoLibraryHdrMergeSessionCurrentV1(host: PhotoLibraryHdr
 			return current;
 		} }, ready: async () => catalogId,
 			operation: <Result>(run: (signal: AbortSignal) => Promise<Result>) => run(signal),
-			loadOriginal: (original, admitted) => Reflect.apply(originalReader, backup, [original, admitted]) as Promise<unknown> });
+			...original });
 		return Object.freeze({ withCanonicalFrame: <Result>(index: number, consume: (frame: Readonly<PixelFrameV1>) => Result | Promise<Result>, admitted?: AbortSignal) => {
 			const photo = photos[index]; if (!photo) return Promise.reject(new RangeError('HDR source index exceeds its captured selection.'));
 			return canonical.withFrame({ schemaVersion: 1, photoId: photo.id, expectedRevision: photo.revision }, view => consume(view.frame), { signal: admitted ?? signal }) as Promise<Result>;

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { PhotoLibraryExportJournalSettings, PhotoLibraryExportJournalAccess, PhotoLibraryExportSidecarRequest } from '../../../common/editor/photo-library-session-port-v2.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1, withPhotoLibraryOriginalCurrentV1, type PhotoLibraryOriginalSourceCurrentV1 } from '../photo-library-original-source-current-v1.ts';
 import type { PhotoLibrarySessionPortsV2 } from '../photo-library-session-ports-v2.ts';
 import { createPhotoExportSidecarV1, serializePhotoExportSidecarV1 } from '../../catalog/photo-export-sidecar-v1.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../../catalog/photo-document-v2.ts';
@@ -15,6 +16,7 @@ export interface PhotoLibraryExportJournalHostV1 {
 	readonly settings: Readonly<PhotoLibraryExportJournalSettings>;
 	readonly ready: () => Promise<string>;
 	readonly catalog: Pick<PhotoLibrarySessionPortsV2['catalog'], 'loadPhoto'>;
+	readonly originalSource?: PhotoLibraryOriginalSourceCurrentV1;
 	readonly loadOriginal?: NonNullable<PhotoLibrarySessionPortsV2['backup']>['loadOriginal'];
 	readonly verifyResources?: PhotoLibrarySessionPortsV2['verifyResources'];
 	readonly operation: <Result>(run: (signal: AbortSignal) => Promise<Result>, signal?: AbortSignal, admit?: () => void) => Promise<Result>;
@@ -38,7 +40,9 @@ export function openPhotoLibraryExportJournalForProfileV1(profile: 'legacy2' | '
 	const { signal } = profile === 'current3' ? readPhotoLibraryExportSignalOptionsV1(options) : readPhotoDevelopSignalOptionsV2(options), store = host.settings;
 	const get = store.get, insert = store.putIfAbsent, replace = store.replaceIfCurrent, run = host.operation, initialize = host.ready;
 	const remove = store.deleteIfCurrent;
-	const catalog = host.catalog, loadPhoto = catalog.loadPhoto, loadOriginal = host.loadOriginal, verifyResources = host.verifyResources;
+	const catalog = host.catalog, loadPhoto = catalog.loadPhoto, loadOriginal = host.loadOriginal, verifyResources = host.verifyResources, scoped = host.originalSource;
+	const source = scoped === undefined && loadOriginal === undefined ? undefined : capturePhotoLibraryOriginalSourceCurrentV1(scoped,
+		loadOriginal === undefined ? undefined : (original, signal) => Reflect.apply(loadOriginal, host, [original, signal]) as Promise<unknown>);
 	if ([get, insert, replace, run, initialize].some(method => typeof method !== 'function')) throw new TypeError('Photo export journal Session requires selected CAS capabilities.');
 	const ready = () => Reflect.apply(initialize, host, []) as Promise<string>;
 	const operation: Host['operation'] = (...args) => Reflect.apply(run, host, args);
@@ -62,19 +66,24 @@ export function openPhotoLibraryExportJournalForProfileV1(profile: 'legacy2' | '
 						const before = profile === 'current3' ? serializePhotoExportSidecarCurrentV1(createPhotoExportSidecarCurrentV1(photo, bound))
 							: serializePhotoExportSidecarV1(createPhotoExportSidecarV1(photo, bound));
 						const complete = profile === 'current3' ? serializePhotoDocumentCurrentV1(photo) : null;
-						if (!loadOriginal) throw new Error('Photo export journal original verification is unavailable.');
-						const body = await Reflect.apply(loadOriginal, host, [photo.original, current]) as Blob; check(current);
-						if (Reflect.apply(BLOB_SIZE, body, []) !== photo.original.byteLength) throw new Error('Photo export journal original length changed.');
-						const bytes = new Uint8Array(await Reflect.apply(BLOB_BYTES, body, []) as ArrayBuffer);
-						try {
-							check(current); const digest = await Reflect.apply(DIGEST, crypto.subtle, ['SHA-256', bytes]) as ArrayBuffer; check(current);
-							if ([...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('') !== photo.original.contentSha256) throw new Error('Photo export journal original hash changed.');
-						} finally { Reflect.apply(FILL, bytes, [0]); }
-						if (profile === 'current3' || photo.schemaVersion === 2) { if (!verifyResources) throw new Error('Photo export journal LUT verification is unavailable.'); await Reflect.apply(verifyResources, host, [photo, current]); check(current); }
-						const after = await Reflect.apply(loadPhoto, catalog, [catalogId, bound.photoId]) as unknown; check(current);
-						const afterText = profile === 'current3' ? serializePhotoExportSidecarCurrentV1(createPhotoExportSidecarCurrentV1(after, bound))
-							: serializePhotoExportSidecarV1(createPhotoExportSidecarV1(after, bound));
-						if (afterText !== before || (complete !== null && serializePhotoDocumentCurrentV1(after) !== complete)) throw new Error('Photo export journal resources changed during verification.');
+						if (!source) throw new Error('Photo export journal original verification is unavailable.');
+						// Returning this owning promise keeps cleanup errors outside the
+						// admission catch; cancellation cannot erase failed retirement.
+						return withPhotoLibraryOriginalCurrentV1(source, { catalogId, photoId: photo.id, original: photo.original }, async body => {
+							try {
+								if (Reflect.apply(BLOB_SIZE, body, []) !== photo.original.byteLength) throw new Error('Photo export journal original length changed.');
+								const bytes = new Uint8Array(await Reflect.apply(BLOB_BYTES, body, []) as ArrayBuffer);
+								try {
+									check(current); const digest = await Reflect.apply(DIGEST, crypto.subtle, ['SHA-256', bytes]) as ArrayBuffer; check(current);
+									if ([...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('') !== photo.original.contentSha256) throw new Error('Photo export journal original hash changed.');
+								} finally { Reflect.apply(FILL, bytes, [0]); }
+								if (profile === 'current3' || photo.schemaVersion === 2) { if (!verifyResources) throw new Error('Photo export journal LUT verification is unavailable.'); await Reflect.apply(verifyResources, host, [photo, current]); check(current); }
+								const after = await Reflect.apply(loadPhoto, catalog, [catalogId, bound.photoId]) as unknown; check(current);
+								const afterText = profile === 'current3' ? serializePhotoExportSidecarCurrentV1(createPhotoExportSidecarCurrentV1(after, bound))
+									: serializePhotoExportSidecarV1(createPhotoExportSidecarV1(after, bound));
+								if (afterText !== before || (complete !== null && serializePhotoDocumentCurrentV1(after) !== complete)) throw new Error('Photo export journal resources changed during verification.');
+							} catch (error) { if (profile === 'current3') check(current); throw error; }
+						}, current);
 					} catch (error) { if (profile === 'current3') check(current); throw error; }
 				}, caller ? AbortSignal.any([...(signal ? [signal] : []), caller]) : signal, () => {
 					bound = admitPhotoLibraryExportSidecarBindingV1(request);

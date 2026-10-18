@@ -79,8 +79,29 @@ capability. Canonical Photo1, Photo1/2 and Current readers, plus both Current RA
 derived profiles, hold the lease through decoder retirement, the actual consumer
 and the final revision check. Session construction captures the source receiver
 before initialization can yield. Existing Web Core callers retain their genuine
-durable Blob loader. Preview, export, archive and whole-collection migrations
-still require their own retirement and cancellation qualification.
+durable Blob loader.
+
+Preview cache misses retain the selected source through actual decoding, frame
+retirement, cache publication, pressure retry and the final Original binding
+check. Cache hits do not acquire an Original. Camera culling and HDR keep their
+separate recipes. Journal verification and single-image handoff retain the lease
+through byte authentication, resource child retirement and the final whole Photo
+check; settings-only journal access does not require an Original source. The HDR
+Session child forwards the same captured source to canonical sampling.
+
+Backup sources capture the source receiver before metadata awaits and acquire
+each lease lazily when its Photo is demanded. The lease spans the generator's
+yield. Both archive writer families separately own accepted encoder pulls: ZIP
+cancellation or destination failure first joins the actual pending read, then
+retires the encoder and only afterward returns the Photo sequence. Returning the
+sequence immediately after a ZIP rejection could otherwise delete a leased File
+while its accepted read was still running. All three Session profiles forward a
+scoped source without requiring a legacy backup loader.
+
+Whole-collection handoff still needs group admission and retirement across every
+member. Its shared digest budgets and independently authenticated Photo aliases
+require more than sequential acquisition of per-file leases. Packaged IPC and a
+complete native Session remain separate activation requirements.
 
 ## Qualification
 
@@ -93,7 +114,17 @@ two-range PNG and an owned DNG retain the File, stage and native deletion pin
 through a held frame consumer; retirement wipes pixels and removes the stage.
 These component tests run in an isolated minimal document on the real Lightscaper
 preview origin. They do not qualify packaged preload IPC, application activation,
-a complete native Session, archive cancellation or the desktop target matrix.
+a complete native Session or the desktop target matrix.
+
+Focused consumer tests additionally exercise real native files, SQLite, ticket
+pins and genuine Files through backup roundtrips, RAW decoding and PNG16 handoff.
+Held reads, acquisition, decoder and resource retirement, cache publication and
+final Photo checks verify that the source stays leased. Archive cancellation
+tests cover both writer families, destination failure and distinct opaque primary
+and cleanup failures. The held-stream opaque case uses a Symbol: Node's Web
+Streams abort implementation inspects a Proxy reason before this writer receives
+it, so this case does not qualify hostile Proxy cancellation inside that engine
+boundary. Pre-output opaque-reason tests retain their existing coverage.
 
 Verification runs only Lightscaper runtime tests, serially, in a Linux process
 group with a one-GiB kernel memory limit and no swap. The limit includes children;

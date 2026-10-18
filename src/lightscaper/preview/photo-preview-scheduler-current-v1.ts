@@ -21,11 +21,13 @@ export interface PhotoPreviewSchedulerOptionsCurrentV1 extends PhotoPreviewSched
 /** Current source variants share one queue and joined native lifetime, with distinct cache recipes. */
 export class PhotoPreviewSchedulerCurrentV1 extends PhotoPreviewSchedulerCore<PreparedPhotoPreviewCurrentV1, PhotoPreviewPlanCurrentV1> {
 	constructor(options: PhotoPreviewSchedulerOptionsCurrentV1) {
-		const input = record(options, 'Current preview scheduler ports', ['catalogId', 'loadPhoto', 'loadOriginal', 'cache', 'regenerate', 'cullingCache', 'regenerateCulling', 'hdrCache', 'regenerateHdr'],
-			['catalogId', 'loadPhoto', 'loadOriginal', 'cache']);
-		const photo = field(input, 'loadPhoto', 'Current preview scheduler ports'), original = field(input, 'loadOriginal', 'Current preview scheduler ports');
+		const input = record(options, 'Current preview scheduler ports', ['catalogId', 'loadPhoto', 'loadOriginal', 'originalSource', 'cache', 'regenerate', 'cullingCache', 'regenerateCulling', 'hdrCache', 'regenerateHdr'],
+			['catalogId', 'loadPhoto', 'cache']);
+		const photo = field(input, 'loadPhoto', 'Current preview scheduler ports');
+		const original = Object.hasOwn(input, 'loadOriginal') ? field(input, 'loadOriginal', 'Current preview scheduler ports') : undefined;
+		const originalSource = Object.hasOwn(input, 'originalSource') ? field(input, 'originalSource', 'Current preview scheduler ports') : undefined;
 		const regenerate = Object.hasOwn(input, 'regenerate') ? field(input, 'regenerate', 'Current preview scheduler ports') : undefined;
-		if (typeof photo !== 'function' || typeof original !== 'function' || (regenerate !== undefined && typeof regenerate !== 'function')) {
+		if (typeof photo !== 'function' || (original !== undefined && typeof original !== 'function') || (regenerate !== undefined && typeof regenerate !== 'function')) {
 			throw new TypeError('Current preview requires inert read capabilities.');
 		}
 		const cullingCache = Object.hasOwn(input, 'cullingCache') ? field(input, 'cullingCache', 'Current preview scheduler ports') as PhotoCullingPreviewCachePortCurrentV1 | undefined : undefined;
@@ -37,7 +39,8 @@ export class PhotoPreviewSchedulerCurrentV1 extends PhotoPreviewSchedulerCore<Pr
 		const cache = createPhotoPreviewCacheRouteCurrentV1(field(input, 'cache', 'Current preview scheduler ports') as PhotoPreviewSchedulerOptionsCore['cache'], cullingCache, hdrCache);
 		super({ catalogId: field(input, 'catalogId', 'Current preview scheduler ports') as string,
 			loadPhoto: (...args) => Reflect.apply(photo, options, args) as ReturnType<PhotoPreviewSchedulerOptionsCore['loadPhoto']>,
-			loadOriginal: (...args) => Reflect.apply(original, options, args) as ReturnType<PhotoPreviewSchedulerOptionsCore['loadOriginal']>,
+			...(typeof original === 'function' ? { loadOriginal: (storageKey: string, signal: AbortSignal) => Reflect.apply(original, options, [storageKey, signal]) as Promise<unknown> } : {}),
+			...(originalSource === undefined ? {} : { originalSource: originalSource as PhotoPreviewSchedulerOptionsCore['originalSource'] }),
 			cache,
 				regenerate: regenerate ? <Result>(value: unknown, consume: (frame: PixelFrameV1, provenance: Readonly<PhotoOriginalFrameProvenanceV1>) => Promise<Result>) =>
 					Reflect.apply(regenerate, options, [value, consume]) as Promise<Result>

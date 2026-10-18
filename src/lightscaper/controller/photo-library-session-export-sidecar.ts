@@ -5,6 +5,7 @@ import type { PhotoLibrarySessionPortsCurrentV1 } from './photo-library-session-
 import type { PhotoLibraryExportJournalHostV1, PhotoLibraryExportJournalHostCurrentV1 } from './internal/photo-library-export-journal-kernel-v1.ts';
 import { createPhotoExportSidecarV1, serializePhotoExportSidecarV1 } from '../catalog/photo-export-sidecar-v1.ts';
 import { createPhotoExportSidecarCurrentV1, serializePhotoExportSidecarCurrentV1 } from '../catalog/photo-export-sidecar-current-v1.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1 } from './photo-library-original-source-current-v1.ts';
 import { readPhotoDevelopSignalOptionsV2 } from '../storage/photo-develop-preset-read-v2.ts';
 import { admitPhotoLibraryExportSidecarBindingV1, readPhotoLibraryExportSignalOptionsV1 } from './internal/photo-library-export-request-v1.ts';
 
@@ -38,8 +39,10 @@ export function createPhotoLibrarySessionExportJournalPortV1(profile: 'legacy2',
 export function createPhotoLibrarySessionExportJournalPortV1(profile: 'current3', host: PhotoLibraryExportJournalHostCurrentV1): Readonly<PhotoLibraryExportJournalPort>;
 export function createPhotoLibrarySessionExportJournalPortV1(profile: 'legacy2' | 'current3', host: PhotoLibraryExportJournalHostV1 | PhotoLibraryExportJournalHostCurrentV1): Readonly<PhotoLibraryExportJournalPort> {
 	if (profile !== 'legacy2' && profile !== 'current3') throw new TypeError('Unsupported fixed Session journal profile.');
-	const initialize = host.ready, run = host.operation, original = host.loadOriginal, verify = host.verifyResources;
+	const initialize = host.ready, run = host.operation, original = host.loadOriginal, verify = host.verifyResources, scoped = host.originalSource;
+	const originalSource = scoped === undefined ? undefined : capturePhotoLibraryOriginalSourceCurrentV1(scoped);
 	const packet = Object.freeze({ settings: host.settings, catalog: host.catalog,
+		...(originalSource === undefined ? {} : { originalSource }),
 		ready: () => Reflect.apply(initialize, host, []) as Promise<string>,
 		operation: <Result>(work: (signal: AbortSignal) => Promise<Result>, caller?: AbortSignal, admit?: () => void) =>
 			Reflect.apply(run<Result>, host, [work, caller, admit]) as Promise<Result>,

@@ -21,6 +21,7 @@ import { assertPhotoMaskRasterPortableV1 } from '../../catalog/photo-mask-raster
 import { createPhotoExportSidecarV1, serializePhotoExportSidecarV1 } from '../../catalog/photo-export-sidecar-v1.ts';
 import { createPhotoExportSidecarCurrentV1, serializePhotoExportSidecarCurrentV1 } from '../../catalog/photo-export-sidecar-current-v1.ts';
 import { readPhotoDevelopSignalOptionsV2 } from '../../storage/photo-develop-preset-read-v2.ts';
+import { capturePhotoLibraryOriginalSourceCurrentV1, acquirePhotoLibraryOriginalCurrentV1, type PhotoLibraryOriginalLeaseCurrentV1 } from '../photo-library-original-source-current-v1.ts';
 import type { PhotoLibrarySessionPortsV2 } from '../photo-library-session-ports-v2.ts';
 import type { PhotoLibrarySessionPortsCurrentV1 } from '../photo-library-session-ports-current-v1.ts';
 import { assertPhotoDevelopHandoffMasksForProfileV1 } from './photo-image-handoff-model-kernel-v1.ts';
@@ -50,8 +51,10 @@ export async function withPhotoLibraryImageHandoffForProfileV1<Result>(profile: 
 	request: Readonly<PhotoLibraryImageHandoffRequestV1>, consume: (view: Readonly<View>) => Result | Promise<Result>, signal: AbortSignal): Promise<Result> {
 	assertProfile(profile); check(signal);
 	if (catalogId !== request.catalogId) throw new Error('Image handoff selected catalog changed.');
-	const backup = ports.backup, load = backup?.loadOriginal, catalog = ports.catalog, loadPhoto = catalog.loadPhoto, verify = ports.verifyResources;
-	if (typeof load !== 'function' || typeof loadPhoto !== 'function') throw new Error('Image handoff original source is unavailable.');
+	const backup = ports.backup, load = backup?.loadOriginal, catalog = ports.catalog, loadPhoto = catalog.loadPhoto, verify = ports.verifyResources, scoped = ports.originalSource;
+	if ((scoped === undefined && typeof load !== 'function') || typeof loadPhoto !== 'function') throw new Error('Image handoff original source is unavailable.');
+	const source = capturePhotoLibraryOriginalSourceCurrentV1(scoped, load === undefined ? undefined
+		: (original, signal) => Reflect.apply(load, backup, [original, signal]) as Promise<unknown>);
 	const initial = await read();
 	let references: References;
 	if (profile === 'legacy2') {
@@ -85,19 +88,29 @@ export async function withPhotoLibraryImageHandoffForProfileV1<Result>(profile: 
 	const factsJson = profile === 'legacy2' ? serializePhotoExportSidecarV1(createPhotoExportSidecarV1(initial, request))
 		: serializePhotoExportSidecarCurrentV1(createPhotoExportSidecarCurrentV1(initial, request));
 	const fullJson = profile === 'legacy2' ? canonicalPhotoDocumentJsonV1(initial) : serializePhotoDocumentCurrentV1(initial);
-	let originalBlob!: Blob;
-	const result = await withPhotoLibraryImageHandoffResourcesForProfileV1(profile, ports, references, signal, async () => {
-		check(signal); originalBlob = Object.freeze(canonicalMediaContentBlob(await Reflect.apply(load, backup, [original, signal]))); check(signal);
-		if (originalBlob.size !== original.byteLength || await digestMediaContent(originalBlob, { signal }) !== original.contentSha256) throw new Error('Image handoff original body identity changed.');
-	}, async readers => {
-		await current();
-		const common = { signal, factsJson, originalBlob, lutReferences: references.luts, withLutBytes: readers.withLutBytes,
-			original: Object.freeze({ exactName: original.name, contentSha256: original.contentSha256, byteLength: original.byteLength,
-				mimeType: original.mimeType, width: original.width, height: original.height, hasAlpha: original.hasAlpha }) };
-		return consume(profile === 'legacy2' ? Object.freeze({ schemaVersion: 1, ...common })
-			: Object.freeze({ schemaVersion: 2, ...common, maskRasterReferences: references.brushes, withMaskRasterBytes: readers.withMaskRasterBytes }));
-	});
-	check(signal); await current(); return result;
+	// Resource capabilities are captured/admitted before Original IO, exactly
+	// as in the permanent profile order. The acquired lease then outlives the
+	// whole resource helper, its accepted child reads and the final Photo fence.
+	const originalLease: { value?: Readonly<PhotoLibraryOriginalLeaseCurrentV1> } = {};
+	let originalBlob!: Blob, result!: Result, failed = false, primary: unknown;
+	try {
+		result = await withPhotoLibraryImageHandoffResourcesForProfileV1(profile, ports, references, signal, async () => {
+			check(signal); originalLease.value = await acquirePhotoLibraryOriginalCurrentV1(source, { catalogId, photoId: initial.id, original }, signal);
+			originalBlob = Object.freeze(canonicalMediaContentBlob(originalLease.value.body)); check(signal);
+			if (originalBlob.size !== original.byteLength || await digestMediaContent(originalBlob, { signal }) !== original.contentSha256) throw new Error('Image handoff original body identity changed.');
+		}, async readers => {
+			await current();
+			const common = { signal, factsJson, originalBlob, lutReferences: references.luts, withLutBytes: readers.withLutBytes,
+				original: Object.freeze({ exactName: original.name, contentSha256: original.contentSha256, byteLength: original.byteLength,
+					mimeType: original.mimeType, width: original.width, height: original.height, hasAlpha: original.hasAlpha }) };
+			return consume(profile === 'legacy2' ? Object.freeze({ schemaVersion: 1, ...common })
+				: Object.freeze({ schemaVersion: 2, ...common, maskRasterReferences: references.brushes, withMaskRasterBytes: readers.withMaskRasterBytes }));
+		});
+		check(signal); await current(); check(signal);
+	} catch (error) { failed = true; primary = error; }
+	try { await originalLease.value?.close(); }
+	catch (cleanup) { if (failed && !Object.is(primary, cleanup)) throw new AggregateError([primary, cleanup], 'Image handoff consumer and Original cleanup failed.', { cause: cleanup }); throw cleanup; }
+	if (failed) throw primary; return result;
 
 	async function read() {
 		const value = await Reflect.apply(loadPhoto, catalog, [catalogId, request.photoId]); check(signal);
