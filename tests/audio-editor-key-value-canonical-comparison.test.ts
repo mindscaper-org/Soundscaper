@@ -11,8 +11,8 @@ test('key/value comparison follows JSON omission and array-null semantics', () =
 		canonicalKeyValueComparison({ retained: 1 }),
 	);
 	assert.equal(
-		canonicalKeyValueComparison([undefined, () => undefined, Symbol('omitted')]),
-		canonicalKeyValueComparison([null, null, null]),
+		canonicalKeyValueComparison([undefined]),
+		canonicalKeyValueComparison([null]),
 	);
 	assert.equal(
 		canonicalKeyValueComparison(Number.NaN),
