@@ -55,7 +55,7 @@ been qualified. Current component qualification uses actual Linux files and
 SQLite; it does not establish native Windows, ARM64 or macOS qualification.
 
 `native-photo-catalogs.sqlite3` admits its own exact `LSCC` application identity,
-version 2, STRICT tables and indexes. One row atomically binds a validated
+version 3, STRICT tables, indexes and forward-membership triggers. One row atomically binds a validated
 catalog root to its root revision, photo count and independently advancing
 index revision. Whole Photo1/2/3 documents retain their declared versions;
 bounded summaries and memberships belong to the same publication transaction.
@@ -94,6 +94,24 @@ publication update query rows and counts in their existing transaction,
 including while a rebuild is partial. New catalogs start ready and empty.
 Rebuilds need no Original bodies, decoders or resource verification services.
 
+Native stack storage preserves ordered membership, cover selection and one
+stack per Photo. SQLite projects an independent forward relation from each
+stack document; the mutation owner publishes reverse membership in the same
+transaction. Loading a stack authenticates both relations and actual source
+Photo identities, bounded by 1,024 members. Membership point lookups detect a
+missing reverse row through the forward relation. Stack pages stream at most
+64 documents into scalar summaries; selected member pages authenticate the
+whole selected stack before reading at most 64 Photo summaries. Neither path
+loads Photo aggregates or Original bodies.
+
+Stack writes check the caller's catalog and stack-state revisions, then compare
+and advance the captured catalog, index and stack-state epochs atomically.
+Dissolving the last stack retains its state row and increasing revision.
+Continuations bind all three epochs. Exact historical versions 1 and 2 migrate
+to version 3 without rewriting their catalog, Photo or existing query rows;
+only the new grouping state starts empty. These bounded checks authenticate
+the selected closure rather than auditing every row of a catalog on each read.
+
 The composing main-private owner captures request metadata before waiting,
 serializes publication, joins verification and file work before close, and
 independently retires both databases. Body reads first load the selected stored
@@ -102,7 +120,7 @@ filesystem/SQLite tests cover reopen, independent-owner conflicts, rollback,
 scalar-only paging, cancellation, and reentrant close. They do not qualify a
 packaged renderer adapter or another platform.
 
-The remaining adapter must add native stack/culling and saved-collection companions,
+The remaining adapter must add collapsed stack queries, culling and saved-collection companions,
 resource ownership, settings, journals and restore, then preserve all complete
 session/publication/recovery ports through selected-catalog renderer admission.
 Its media publication port must receive the whole validated Original; the

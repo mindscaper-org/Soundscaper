@@ -8,89 +8,21 @@ import { PhotoCatalogRevisionConflictError, type PhotoCatalogIndexStateV1 } from
 import { normalizePhotoStackV1, normalizePhotoStackStateV1, PHOTO_STACK_LIMITS_V1 as LIMITS, type PhotoStackV1, type PhotoStackStateV1 } from './photo-stack-v1.ts';
 import { photoStackRecordV1, readPhotoStackRecordV1 } from './photo-stack-record-v1.ts';
 import type { PhotoCatalogRootV1 } from './types.ts';
-import { array, field, id, integer, record, unique } from './value-validation.ts';
+import { field, id, integer, record } from './value-validation.ts';
+import { PhotoStackRevisionConflictError, readPhotoStackWriteOptionsV1, readPhotoStackPageOptionsV1, readPhotoStackSignalOptionsV1, admitPhotoStackSaveV1, admitPhotoStackMemberIdsV1,
+	type PhotoStackWriteOptionsV1, type PhotoStackContinuationV1, type PhotoStackPageOptionsV1, type PhotoStackMembershipPageOptionsV1, type PhotoStackSummaryV1, type PhotoStackMembershipV1, type PhotoStackMemberSummaryV1, type PhotoStackPageV1 } from './photo-stack-repository-contract-v1.ts';
+export { PhotoStackRevisionConflictError, readPhotoStackWriteOptionsV1, readPhotoStackPageOptionsV1, readPhotoStackSignalOptionsV1, admitPhotoStackSaveV1, admitPhotoStackMemberIdsV1 } from './photo-stack-repository-contract-v1.ts';
+export type { PhotoStackWriteOptionsV1, PhotoStackContinuationV1, PhotoStackPageOptionsV1, PhotoStackMembershipPageOptionsV1, PhotoStackSummaryV1, PhotoStackMembershipV1, PhotoStackMemberSummaryV1, PhotoStackPageV1 } from './photo-stack-repository-contract-v1.ts';
 
 const STORES = ['catalogs', 'catalogStates', 'photos', 'photoStacks', 'photoStackMemberships', 'photoStackStates'] as const;
-const throwIfAborted = AbortSignal.prototype.throwIfAborted;
 const nativeAborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')!.get!;
 const nativeReason = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'reason')!.get!;
 const nativeAddListener = EventTarget.prototype.addEventListener;
 const nativeRemoveListener = EventTarget.prototype.removeEventListener;
 type Stores = Readonly<Record<string, IDBObjectStore>>;
 
-export interface PhotoStackWriteOptionsV1 {
-	readonly expectedCatalogRevision: number;
-	readonly expectedStateRevision: number;
-	readonly signal?: AbortSignal;
-}
-export interface PhotoStackContinuationV1 {
-	readonly catalogId: string;
-	readonly scope: 'stacks' | 'memberships';
-	readonly catalogRevision: number;
-	readonly indexRevision: number;
-	readonly stateRevision: number;
-	readonly afterKey: string;
-}
-export interface PhotoStackPageOptionsV1 {
-	readonly continuation?: PhotoStackContinuationV1 | null;
-	readonly signal?: AbortSignal;
-}
-export interface PhotoStackMembershipPageOptionsV1 extends PhotoStackPageOptionsV1 {
-	readonly photoIds?: readonly string[];
-}
-export interface PhotoStackSummaryV1 {
-	readonly catalogId: string;
-	readonly id: string;
-	readonly revision: number;
-	readonly photoCount: number;
-	readonly coverPhotoId: string;
-}
-export interface PhotoStackMembershipV1 {
-	readonly catalogId: string;
-	readonly photoId: string;
-	readonly stackId: string;
-}
-export interface PhotoStackMemberSummaryV1 { readonly photoId: string; readonly fileName: string; readonly photoRevision: number }
-export interface PhotoStackPageV1<Item> {
-	readonly items: readonly Item[];
-	readonly continuation: Readonly<PhotoStackContinuationV1> | null;
-}
 interface Capture { readonly root: PhotoCatalogRootV1; readonly index: PhotoCatalogIndexStateV1; readonly state: PhotoStackStateV1 }
 interface Reverse extends PhotoStackMembershipV1 { readonly key: string; readonly scope: string }
-
-export class PhotoStackRevisionConflictError extends Error {
-	readonly code = 'STACK_REVISION_CONFLICT';
-	constructor() { super('The stack or stack state revision changed; reload before publishing.'); this.name = 'PhotoStackRevisionConflictError'; }
-}
-
-/** Admission is exported so the repository can refuse hostile data before opening IndexedDB. */
-export function readPhotoStackWriteOptionsV1(value: unknown): Readonly<PhotoStackWriteOptionsV1> {
-	const input = record(value, 'stack write options', ['expectedCatalogRevision', 'expectedStateRevision', 'signal'], ['expectedCatalogRevision', 'expectedStateRevision']);
-	return Object.freeze({ expectedCatalogRevision: revision(field(input, 'expectedCatalogRevision')),
-		expectedStateRevision: revision(field(input, 'expectedStateRevision')), ...readSignal(input) });
-}
-export function readPhotoStackPageOptionsV1(value: unknown, catalogId: string, scope: 'stacks' | 'memberships'): Readonly<PhotoStackMembershipPageOptionsV1> {
-	const input = record(value, 'stack page options', scope === 'stacks' ? ['continuation', 'signal'] : ['continuation', 'signal', 'photoIds'], []);
-	const raw = Object.hasOwn(input, 'continuation') ? field(input, 'continuation') : null;
-	const continuation = raw === null ? null : readContinuation(raw, catalogId, scope);
-	const photoIds = Object.hasOwn(input, 'photoIds') ? array(field(input, 'photoIds'), 'stack annotation photos', 0, LIMITS.pageSize).map((entry) => id(entry, 'annotation photo ID')) : undefined;
-	if (photoIds) unique(photoIds, 'annotation photos');
-	if (photoIds && continuation) throw new TypeError('Point annotations cannot carry a cursor.');
-	return Object.freeze({ continuation, ...(photoIds ? { photoIds: Object.freeze(photoIds) } : {}), ...readSignal(input) });
-}
-export function readPhotoStackSignalOptionsV1(value: unknown): Readonly<{ signal?: AbortSignal }> {
-	return Object.freeze(readSignal(record(value, 'stack read options', ['signal'], [])));
-}
-export function admitPhotoStackSaveV1(value: unknown, expectedRevision: unknown): PhotoStackV1 {
-	const stack = normalizePhotoStackV1(value);
-	const expected = expectedRevision === null ? null : revision(expectedRevision);
-	if (stack.revision !== (expected ?? 0)) throw new RangeError('Stack candidate revision disagrees with expected revision.');
-	return stack;
-}
-export function admitPhotoStackMemberIdsV1(value: unknown): readonly string[] {
-	const ids = array(value, 'stack member page IDs', 1, LIMITS.pageSize).map(entry => id(entry, 'stack member photo ID'));
-	unique(ids, 'stack member page IDs'); return Object.freeze(ids);
-}
 
 export async function loadPhotoStackV1(database: IDBDatabase, catalogId: string, stackId: string, options: Readonly<{ signal?: AbortSignal }> = {}): Promise<PhotoStackV1 | null> {
 	const catalog = id(catalogId, 'catalog ID'); const key = photoStorageKey(catalog, stackId);
@@ -313,25 +245,9 @@ function page<Item>(items: readonly Item[], captured: Capture, scope: 'stacks' |
 		catalogId: captured.root.id, scope, catalogRevision: captured.root.revision, indexRevision: captured.index.indexRevision,
 		stateRevision: captured.state.revision, afterKey: photoStorageKey(captured.root.id, lastId) }) : null });
 }
-function readContinuation(value: unknown, catalogId: string, scope: 'stacks' | 'memberships'): PhotoStackContinuationV1 {
-	const input = record(value, 'stack continuation', ['catalogId', 'scope', 'catalogRevision', 'indexRevision', 'stateRevision', 'afterKey']);
-	const key = field(input, 'afterKey');
-	if (field(input, 'catalogId') !== catalogId || field(input, 'scope') !== scope || typeof key !== 'string'
-		|| !key.startsWith(`${catalogId}|`) || key !== photoStorageKey(catalogId, key.slice(catalogId.length + 1))) throw new TypeError('Stack continuation belongs to another catalog or scope.');
-	return Object.freeze({ catalogId, scope, afterKey: key, catalogRevision: revision(field(input, 'catalogRevision')),
-		indexRevision: revision(field(input, 'indexRevision')), stateRevision: revision(field(input, 'stateRevision')) });
-}
 function checkContinuation(continuation: PhotoStackContinuationV1 | null | undefined, captured: Capture): void {
 	if (continuation && (continuation.catalogRevision !== captured.root.revision || continuation.indexRevision !== captured.index.indexRevision
 		|| continuation.stateRevision !== captured.state.revision)) throw new PhotoStackRevisionConflictError();
-}
-function readSignal(input: Readonly<Record<string, unknown>>): Readonly<{ signal?: AbortSignal }> {
-	if (!Object.hasOwn(input, 'signal')) return {};
-	const signal = field(input, 'signal'); if (signal === undefined) return {};
-	if (!signal || typeof signal !== 'object' || Object.getPrototypeOf(signal) !== AbortSignal.prototype
-		|| ['aborted', 'reason', 'throwIfAborted', 'addEventListener', 'removeEventListener'].some(key => Object.hasOwn(signal, key))) throw new TypeError('Stack operation requires a native AbortSignal.');
-	Reflect.apply(throwIfAborted, signal, []);
-	return { signal: signal as AbortSignal };
 }
 function revision(value: unknown): number { return integer(value, 0, Number.MAX_SAFE_INTEGER, 'stack expected revision'); }
 function increment(value: number): number { return integer(value + 1, 0, Number.MAX_SAFE_INTEGER, 'next revision'); }

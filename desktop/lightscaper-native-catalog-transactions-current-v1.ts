@@ -29,6 +29,7 @@ export function createLightscaperNativeCatalogCurrentV1(database: DatabaseSync, 
 		database.prepare('INSERT INTO native_photo_catalogs (id, document, root_revision, photo_count, index_revision) VALUES (?, ?, ?, ?, ?)')
 			.run(root.id, serializeLightscaperDocumentV1(root), root.revision, root.photoCount, 0);
 		writeLightscaperNativeQueryBuildCurrentV1(database, { id: root.id, schemaVersion: 2, ready: true, afterKey: null, indexedCount: 0 });
+		database.prepare('INSERT INTO native_photo_stack_states (catalog_id,revision,stack_count) VALUES (?,0,0)').run(root.id);
 	});
 }
 

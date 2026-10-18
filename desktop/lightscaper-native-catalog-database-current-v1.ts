@@ -6,11 +6,12 @@ import { LIGHTSCAPER_CATALOG_LIMITS } from '../src/lightscaper/catalog/types.ts'
 import { PHOTO_CATALOG_REPOSITORY_LIMITS } from '../src/lightscaper/catalog/repository-types.ts';
 import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
 import { LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1 } from './lightscaper-native-query-schema-current-v1.ts';
+import { LIGHTSCAPER_NATIVE_STACK_SCHEMA_CURRENT_V1 } from './lightscaper-native-stack-schema-current-v1.ts';
 export { readLightscaperNativeCatalogRowCurrentV1, readLightscaperNativePhotoRowCurrentV1, readLightscaperNativeSummaryRowCurrentV1 } from './lightscaper-native-catalog-records-current-v1.ts';
 export type { LightscaperNativeCatalogSnapshotCurrentV1 } from './lightscaper-native-catalog-records-current-v1.ts';
 
 export const LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 = 0x4c534343;
-const VERSION = 2;
+const VERSION = 3;
 const SAFE = Number.MAX_SAFE_INTEGER;
 const DOCUMENT_BYTES = LIGHTSCAPER_CATALOG_LIMITS.maximumDocumentBytes;
 const SUMMARY_BYTES = PHOTO_CATALOG_REPOSITORY_LIMITS.maximumSummaryBytes;
@@ -62,21 +63,28 @@ export function initializeLightscaperNativeCatalogDatabaseCurrentV1(database: Da
 	if (pragma(database, 'foreign_keys') !== 1) throw new Error('Native Photo catalog foreign keys must be enforced.');
 	withProjectLibraryImmediateTransaction(database, () => {
 		const application = pragma(database, 'application_id'), version = pragma(database, 'user_version');
+		const querySchema = [...SCHEMA, ...LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1];
+		const currentSchema = [...querySchema, ...LIGHTSCAPER_NATIVE_STACK_SCHEMA_CURRENT_V1];
 		if (application === 0 && version === 0 && schema(database).length === 0) {
-			for (const entry of [...SCHEMA, ...LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1]) database.exec(entry.sql);
+			for (const entry of currentSchema) database.exec(entry.sql);
 			database.exec(`PRAGMA application_id = ${LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1}`);
 			database.exec(`PRAGMA user_version = ${VERSION}`);
-		} else if (application === LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 && version === 1) {
-			assertSchema(database, SCHEMA);
-			for (const entry of LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1) database.exec(entry.sql);
-			// Migrate identity only: metadata projection is bounded rebuild work, never
-			// an unbounded Photo/Develop aggregate load during database open.
-			database.exec('INSERT INTO native_photo_query_builds_v2(catalog_id,ready,after_key,indexed_count) SELECT id,0,NULL,0 FROM native_photo_catalogs');
+		} else if (application === LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 && (version === 1 || version === 2)) {
+			assertSchema(database, version === 1 ? SCHEMA : querySchema);
+			if (version === 1) {
+				for (const entry of LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1) database.exec(entry.sql);
+				// Project metadata later through the bounded Query2 rebuild owner.
+				database.exec('INSERT INTO native_photo_query_builds_v2(catalog_id,ready,after_key,indexed_count) SELECT id,0,NULL,0 FROM native_photo_catalogs');
+			}
+			for (const entry of LIGHTSCAPER_NATIVE_STACK_SCHEMA_CURRENT_V1) database.exec(entry.sql);
+			// Grouping did not exist in either prior schema. Preserve every existing
+			// catalog/Photo/query byte and initialize only independently owned state.
+			database.exec('INSERT INTO native_photo_stack_states(catalog_id,revision,stack_count) SELECT id,0,0 FROM native_photo_catalogs');
 			database.exec(`PRAGMA user_version = ${VERSION}`);
 		} else if (application !== LIGHTSCAPER_NATIVE_CATALOG_APPLICATION_ID_CURRENT_V1 || version !== VERSION) {
 			throw new Error('Native Photo catalog database is unowned or has an unsupported identity.');
 		}
-		assertSchema(database, [...SCHEMA, ...LIGHTSCAPER_NATIVE_QUERY_SCHEMA_CURRENT_V1]);
+		assertSchema(database, currentSchema);
 	});
 }
 function assertSchema(database: DatabaseSync, expected: readonly Readonly<{ type: string; name: string; sql: string }>[]): void {

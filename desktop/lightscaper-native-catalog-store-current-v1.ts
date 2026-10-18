@@ -24,6 +24,15 @@ import type { PhotoQueryPageRequestV2, PhotoQueryPageV2 } from '../src/lightscap
 import type { PhotoQueryBuildProgressV2 } from '../src/lightscaper/catalog/photo-query-index-storage-v2.ts';
 import { admitLightscaperNativeQueryPageCurrentV1, readAdmittedLightscaperNativeQueryPageCurrentV1 } from './lightscaper-native-query-pages-current-v1.ts';
 import { rebuildLightscaperNativeQueryIndexPageCurrentV1 } from './lightscaper-native-query-rebuild-current-v1.ts';
+import { admitPhotoStackSaveV1, readPhotoStackSignalOptionsV1, readPhotoStackWriteOptionsV1,
+	type PhotoStackWriteOptionsV1, type PhotoStackPageOptionsV1, type PhotoStackMembershipPageOptionsV1,
+	type PhotoStackSummaryV1, type PhotoStackMembershipV1, type PhotoStackMemberSummaryV1, type PhotoStackPageV1 } from '../src/lightscaper/catalog/photo-stack-repository-contract-v1.ts';
+import type { PhotoStackV1, PhotoStackStateV1 } from '../src/lightscaper/catalog/photo-stack-v1.ts';
+import { loadLightscaperNativeStackCurrentV1, readLightscaperNativeStackStateCurrentV1,
+	saveLightscaperNativeStackCurrentV1, dissolveLightscaperNativeStackCurrentV1 } from './lightscaper-native-stack-transactions-current-v1.ts';
+import { admitLightscaperNativeStackPageCurrentV1, admitLightscaperNativeStackMemberPageCurrentV1,
+	readAdmittedLightscaperNativeStackPageCurrentV1, readAdmittedLightscaperNativeStackMembershipPageCurrentV1,
+	readAdmittedLightscaperNativeStackMemberPageCurrentV1 } from './lightscaper-native-stack-pages-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
 type OpenOptions = Readonly<{ appDataPath: string; verifyResources?: LightscaperNativeCatalogVerificationCurrentV1['verifyResources'] }>;
@@ -112,6 +121,37 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 	rebuildQueryIndexPageV2(catalogId: string, options: Options = {}): Promise<PhotoQueryBuildProgressV2> {
 		return this.#request(() => ({ catalogId: id(catalogId, 'query rebuild catalog ID'), signal: signal(options) }),
 			value => rebuildLightscaperNativeQueryIndexPageCurrentV1(this.#database, value.catalogId, { signal: value.signal }));
+	}
+	loadStack(catalogId: string, stackId: string, options: Options = {}): Promise<PhotoStackV1 | null> {
+		return this.#request(() => ({ catalogId: id(catalogId, 'stack catalog ID'), stackId: id(stackId, 'stack ID'),
+			options: readPhotoStackSignalOptionsV1(options) }), value =>
+			loadLightscaperNativeStackCurrentV1(this.#database, value.catalogId, value.stackId, value.options));
+	}
+	readStackState(catalogId: string, options: Options = {}): Promise<PhotoStackStateV1> {
+		return this.#request(() => ({ catalogId: id(catalogId, 'stack catalog ID'), options: readPhotoStackSignalOptionsV1(options) }),
+			value => readLightscaperNativeStackStateCurrentV1(this.#database, value.catalogId, value.options));
+	}
+	readStackPage(catalogId: string, options: PhotoStackPageOptionsV1 = {}): Promise<PhotoStackPageV1<PhotoStackSummaryV1>> {
+		return this.#request(() => admitLightscaperNativeStackPageCurrentV1(catalogId, options),
+			value => readAdmittedLightscaperNativeStackPageCurrentV1(this.#database, value));
+	}
+	readStackMembershipPage(catalogId: string, options: PhotoStackMembershipPageOptionsV1 = {}): Promise<PhotoStackPageV1<PhotoStackMembershipV1>> {
+		return this.#request(() => admitLightscaperNativeStackPageCurrentV1(catalogId, options, 'memberships'),
+			value => readAdmittedLightscaperNativeStackMembershipPageCurrentV1(this.#database, value));
+	}
+	readStackMemberPage(catalogId: string, stackId: string, expectedStackRevision: number, photoIds: readonly string[], options: Options = {}): Promise<readonly PhotoStackMemberSummaryV1[]> {
+		return this.#request(() => admitLightscaperNativeStackMemberPageCurrentV1(catalogId, stackId, expectedStackRevision, photoIds, options),
+			value => readAdmittedLightscaperNativeStackMemberPageCurrentV1(this.#database, value));
+	}
+	saveStack(value: unknown, expectedStackRevision: number | null, options: PhotoStackWriteOptionsV1): Promise<PhotoStackV1> {
+		return this.#request(() => ({ stack: admitPhotoStackSaveV1(value, expectedStackRevision), expected: expectedStackRevision,
+			options: readPhotoStackWriteOptionsV1(options) }), captured =>
+			saveLightscaperNativeStackCurrentV1(this.#database, captured.stack, captured.expected, captured.options));
+	}
+	dissolveStack(catalogId: string, stackId: string, expectedStackRevision: number, options: PhotoStackWriteOptionsV1): Promise<PhotoStackStateV1> {
+		return this.#request(() => ({ catalogId: id(catalogId, 'stack catalog ID'), stackId: id(stackId, 'stack ID'),
+			expected: revision(expectedStackRevision), options: readPhotoStackWriteOptionsV1(options) }), value =>
+			dissolveLightscaperNativeStackCurrentV1(this.#database, value.catalogId, value.stackId, value.expected, value.options));
 	}
 	storeOriginal(value: unknown, chunks: AsyncIterable<Uint8Array>, options: Options = {}): Promise<Readonly<PhotoOriginalV1>> {
 		return this.#request(() => ({ original: readLightscaperNativeOriginalCurrentV1(value), signal: signal(options) }),

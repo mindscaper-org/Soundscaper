@@ -1214,8 +1214,12 @@ Query2 search, metadata predicates and global sorting now stream bounded
 candidate pages. Exact version 1 catalogs migrate without loading Photo
 aggregates, then rebuild in resumable 16-Photo/8-MiB steps while atomic imports
 and edits keep their derived rows current. UTF-16 filename keys preserve browser
-ordering, including unpaired surrogates. These components are not yet selected
-by the application. Native stack/culling and saved-collection companions,
+ordering, including unpaired surrogates. Native ordered stacks now persist
+with independent forward/reverse membership, bounded summary/member pages,
+atomic revision checks and retained state after dissolution. Exact version 1
+and 2 schemas migrate to version 3 without rewriting existing Photo/query rows.
+These components are not yet selected by the application. Collapsed stack
+queries, native culling and saved-collection companions,
 resources, settings, journals/restore, renderer admission and
 menu-owned library selection remain required before activation; add-in-place
 access and native platform qualification remain open.
