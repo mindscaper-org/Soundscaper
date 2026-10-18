@@ -9,6 +9,7 @@ import {
 	type DesktopAudioEncodeRequest,
 	type DesktopAudioMp3EncodeSettings,
 } from './desktop-audio-codec-operation-contract.ts';
+import type { DesktopAudioDecodeFormat } from './desktop-audio-decode-formats.ts';
 
 export const DESKTOP_AUDIO_FFMPEG_INPUT_NAME = 'soundscaper-codec-input.media';
 export const DESKTOP_AUDIO_FFMPEG_OUTPUT_BASENAME = 'soundscaper-codec-output';
@@ -49,7 +50,7 @@ interface EncodeFormatPlan {
 	readonly muxer: string;
 }
 
-const DECODE_FORMATS: Readonly<Record<DesktopAudioCodecFormat, Readonly<DecodeFormatPlan>>> = Object.freeze({
+const DECODE_FORMATS: Readonly<Record<DesktopAudioDecodeFormat, Readonly<DecodeFormatPlan>>> = Object.freeze({
 	flac: decodeFormat(['flac'], ['flac']),
 	mp3: decodeFormat(['mp3'], ['mp3float']),
 	'ogg-vorbis': decodeFormat(['ogg'], ['vorbis']),
@@ -57,6 +58,10 @@ const DECODE_FORMATS: Readonly<Record<DesktopAudioCodecFormat, Readonly<DecodeFo
 	wavpack: decodeFormat(['wv'], ['wavpack']),
 	mp2: decodeFormat(['mp3'], ['mp2float']),
 	'aac-m4a': decodeFormat(['mov', 'm4a', 'mp4'], ['aac']),
+	'matroska-mp3': decodeFormat(['matroska'], ['mp3float']),
+	wma: decodeFormat(['asf'], ['wmav2']),
+	'wav-mulaw': decodeFormat(['wav'], ['pcm_mulaw']),
+	'wav-alaw': decodeFormat(['wav'], ['pcm_alaw']),
 });
 
 const ENCODE_FORMATS: Readonly<Record<DesktopAudioCodecFormat, Readonly<EncodeFormatPlan>>> = Object.freeze({

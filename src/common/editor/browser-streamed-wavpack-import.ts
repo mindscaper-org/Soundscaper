@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { materializeBundledWavPackDecodeGroup, parseBundledWavPackStream } from '../../../desktop/bundled-wavpack-stream.ts';
+import { materializeBundledWavPackDecodeGroup } from '../../../desktop/bundled-wavpack-stream.ts';
 import type { StreamedAudioImportSession } from './browser-streamed-audio-import.ts';
 import type { BrowserContainerAudioSample } from './browser-container-audio-decode.ts';
 import { wavPackAudioBlob } from './ape-metadata-reader.ts';
+import { inspectWavPackImportGroup } from './wavpack-import-group-geometry.ts';
 
 export interface WavPackImportGroupDecoder {
 	decode(file: Blob, options: Readonly<Record<string, unknown>>): PromiseLike<Readonly<{
@@ -57,7 +58,7 @@ export async function openStreamedWavPackImportSession(
 			let frames = 0;
 			while (offset < file.size) {
 				assertCurrent();
-				const group = offset === 0 ? first : await readGroup(file, offset, signal);
+				const group = offset === 0 ? first : await readGroup(file, offset, signal, first.totalFrames);
 				assertCurrent();
 				if (group.totalFrames !== first.totalFrames || group.blockIndex !== frames
 					|| group.sampleRate !== first.sampleRate || group.channelCount !== first.channelCount) {
@@ -90,7 +91,7 @@ export async function openStreamedWavPackImportSession(
 	});
 }
 
-async function readGroup(file: Blob, offset: number, signal?: AbortSignal): Promise<Group> {
+async function readGroup(file: Blob, offset: number, signal?: AbortSignal, sourceTotalFrames?: number): Promise<Group> {
 	const parts: Uint8Array<ArrayBuffer>[] = [];
 	let length = 0;
 	let frameCount = 0;
@@ -106,7 +107,8 @@ async function readGroup(file: Blob, offset: number, signal?: AbortSignal): Prom
 		const final = Boolean(flags & 0x1000);
 		if ((block === 0) !== initial || header[10] || header[11]
 			|| bytes < HEADER_BYTES || bytes > MAXIMUM_GROUP_BYTES - length) throw new Error('The WavPack block group exceeds its bounded layout.');
-		const declaredFrames = view.getUint32(12, true);
+		const declared = view.getUint32(12, true);
+		const declaredFrames = declared === 0xffff_ffff ? sourceTotalFrames ?? totalFrames : declared;
 		const declaredIndex = view.getUint32(16, true);
 		const declaredBlockFrames = view.getUint32(20, true);
 		if (!block) { totalFrames = declaredFrames; blockIndex = declaredIndex; frameCount = declaredBlockFrames; }
@@ -124,7 +126,7 @@ async function readGroup(file: Blob, offset: number, signal?: AbortSignal): Prom
 			const encoded = Uint8Array.from(materializeBundledWavPackDecodeGroup(original, {
 				offset: 0, byteLength: length, frameCount, blockIndex, blocks: [],
 			}));
-			const geometry = parseBundledWavPackStream(encoded);
+			const geometry = inspectWavPackImportGroup(encoded);
 			return Object.freeze({ encoded, offset, byteLength: length, frameCount, blockIndex, totalFrames,
 				sampleRate: geometry.sampleRate, channelCount: geometry.channelCount });
 		}

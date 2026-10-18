@@ -4,7 +4,7 @@
 
 import { createHash } from 'node:crypto';
 import { posix, win32 } from 'node:path';
-
+import { maximumDesktopAudioChannelCount } from './desktop-audio-decode-formats.ts';
 import {
 	DESKTOP_AUDIO_CODEC_CAPABILITY_SCHEMA_VERSION,
 	normalizeDesktopAudioCodecCapabilityQuery,
@@ -15,7 +15,6 @@ import {
 	type DesktopAudioCodecCapabilityTuple,
 } from './desktop-audio-codec-capability-contract.ts';
 import {
-	DESKTOP_AUDIO_CODEC_MAXIMUM_CHANNEL_COUNT,
 	DESKTOP_AUDIO_CODEC_MAXIMUM_SAMPLE_RATE,
 	DESKTOP_AUDIO_CODEC_MINIMUM_SAMPLE_RATE,
 	normalizeDesktopAudioCodecRequest,
@@ -385,8 +384,7 @@ function externalCapability(
 		}),
 		channelCount: Object.freeze({
 			minimum: 1,
-			maximum: request.format === 'mp3' || request.format === 'mp2'
-				? 2 : DESKTOP_AUDIO_CODEC_MAXIMUM_CHANNEL_COUNT,
+			maximum: maximumDesktopAudioChannelCount(request.format),
 			multipleOf: 1,
 		}),
 	});

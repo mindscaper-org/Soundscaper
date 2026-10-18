@@ -15,6 +15,7 @@ import {
 	type DesktopAudioCodecRequest,
 } from '../desktop/desktop-audio-codec-operation-contract.ts';
 import type { FfmpegOutputSink } from '../src/common/editor/ffmpeg-output-stream.ts';
+import type { DesktopAudioDecodeFormat } from '../desktop/desktop-audio-decode-formats.ts';
 
 const FORMAT_CASES = Object.freeze([
 	Object.freeze({ format: 'flac', settings: Object.freeze({ compressionLevel: 5 }), expected: Object.freeze({ compressionLevel: 5, bitDepth: 24 }) }),
@@ -169,7 +170,7 @@ test('main-reported source geometry supplies decode geometry instead of project 
 });
 
 test('decode infers all seven file formats and converts exact interleaved results to planar channels', async () => {
-	const formats: DesktopAudioCodecFormat[] = [];
+	const formats: DesktopAudioDecodeFormat[] = [];
 	const runtime = createDesktopAudioCodecRuntime(successBridge((request) => {
 		formats.push(request.format);
 		return interleavedBytes([1, 10, 2, 20]);
@@ -194,7 +195,7 @@ test('decode infers all seven file formats and converts exact interleaved result
 });
 
 test('decode recognizes Opus content in a generically named Ogg container', async () => {
-	const formats: DesktopAudioCodecFormat[] = [];
+	const formats: DesktopAudioDecodeFormat[] = [];
 	const runtime = createDesktopAudioCodecRuntime(successBridge((request) => {
 		formats.push(request.format);
 		return interleavedBytes([0, 0]);

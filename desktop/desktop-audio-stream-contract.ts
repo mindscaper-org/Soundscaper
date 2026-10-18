@@ -9,7 +9,7 @@ export const DESKTOP_AUDIO_STREAM_MAXIMUM_PACKET_BYTES = 1024 * 1024;
 export const DESKTOP_AUDIO_STREAM_MAXIMUM_PACKET_FRAMES = LARGE_AUDIO_PCM_CHUNK_FRAMES;
 export interface DesktopAudioStreamPlan {
 	readonly schemaVersion: 1;
-	readonly tuple: DesktopAudioCodecCapabilityTuple;
+	readonly tuple: Extract<DesktopAudioCodecCapabilityTuple, { operation: 'audio-encode' }>;
 	readonly frameCount: number;
 	readonly maximumOutputBytes: number;
 }
