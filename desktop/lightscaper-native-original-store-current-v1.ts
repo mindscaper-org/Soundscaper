@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { isAbsolute, resolve } from 'node:path';
 import { readClosedDomainField, readClosedDomainRecord } from '../src/common/editor/closed-domain-value.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
+import type { CatalogOriginalInspectionOutcomeV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK, readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';
 import { deriveLightscaperNativePhotoOriginalPathsCurrentV1, LightscaperNativePhotoOriginalIndexCurrentV1, readLightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
 import type { LightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
@@ -84,6 +85,17 @@ export class LightscaperNativeOriginalStoreCurrentV1 {
 	verifyBinding(value: unknown, options: Options = {}): Promise<void> {
 		return this.#request(() => readLightscaperNativeOriginalBindingCurrentV1(value), options,
 			async (binding, signal) => { await this.#files.verify(this.#require(binding), signal); });
+	}
+	inspectBinding(value: unknown, options: Options = {}): Promise<CatalogOriginalInspectionOutcomeV1> {
+		return this.#request(() => readLightscaperNativeOriginalBindingCurrentV1(value), options,
+			(binding, signal) => {
+				const row = this.#database.prepare(`SELECT storage_key,
+					CASE WHEN typeof(content_sha256)='text' AND length(CAST(content_sha256 AS BLOB))=64 THEN content_sha256 END AS content_sha256,
+					byte_length FROM native_photo_original_bindings WHERE storage_key=?`).get(binding.storageKey);
+				if (!row) throw new ReferenceError('Native Original has no committed physical binding.');
+				const stored = readLightscaperNativeOriginalBindingCurrentV1({ storageKey: row.storage_key, byteLength: row.byte_length, contentSha256: row.content_sha256 });
+				assertBinding(stored, binding); return this.#files.inspect(stored, signal);
+			});
 	}
 	readBinding(value: unknown, offset: number, length: number, options: Options = {}): Promise<Uint8Array> {
 		return this.#request(() => readLightscaperNativeOriginalBindingCurrentV1(value), options,

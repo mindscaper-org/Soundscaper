@@ -7,10 +7,17 @@ import { dirname, join, resolve } from 'node:path';
 import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as CHUNK } from './lightscaper-native-original-contract-current-v1.ts';
 import { deriveLightscaperNativePhotoOriginalPathsCurrentV1, lightscaperNativePhotoOriginalBodyPathCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
 import type { LightscaperNativeOriginalBindingCurrentV1 } from './lightscaper-native-original-index-current-v1.ts';
+import type { CatalogOriginalInspectionOutcomeV1 } from '../src/common/editor/storage/media-catalog-original-inspection-repository.ts';
 
 type Paths = ReturnType<typeof deriveLightscaperNativePhotoOriginalPathsCurrentV1>;
 type Stamp = Pick<BigIntStats, 'dev' | 'ino' | 'size' | 'mtimeNs' | 'ctimeNs'>;
 const MAXIMUM_CACHED_IDENTITIES = 32;
+const INSPECTION_RETIREMENT_FAILURES = new WeakSet<object>();
+
+/** Exact source-owned witness; opaque borrower errors never acquire this mark. */
+export function isLightscaperNativeOriginalInspectionRetirementFailureCurrentV1(value: unknown): boolean {
+	return value !== null && typeof value === 'object' && INSPECTION_RETIREMENT_FAILURES.has(value);
+}
 
 /** Main-private files only; no caller filename or storage key becomes a path.
  * The owner serializes calls and joins them before closing its database. */
@@ -96,6 +103,47 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 		await this.#closeHandle(opened.handle);
 	}
 
+	/** Inspection always reads the full actual body, even after a cached verify.
+	 * Only positive native ENOENT and stable size/digest mismatches are outcomes;
+	 * layout, permission, changed-file and retirement failures remain errors. */
+	async inspect(binding: LightscaperNativeOriginalBindingCurrentV1, signal?: AbortSignal): Promise<CatalogOriginalInspectionOutcomeV1> {
+		this.#assertRetired(); inspectionCheck(signal);
+		const path = lightscaperNativePhotoOriginalBodyPathCurrentV1(this.#paths, binding.contentSha256);
+		this.#verified.delete(path);
+		for (const required of layout(this.#paths).filter(value => value !== this.#paths.bodiesRoot)) await realDirectory(required, false);
+		if (!await inspectionDirectories([this.#paths.bodiesRoot, dirname(path)])) {
+			inspectionCheck(signal); return Object.freeze({ status: 'missing', reason: 'directory' });
+		}
+		let before: BigIntStats;
+		try { before = await regularFile(path); }
+		catch (error) {
+			if (!hasCode(error, 'ENOENT')) throw error;
+			inspectionCheck(signal); return Object.freeze({ status: 'missing', reason: 'file' });
+		}
+		const handle = await this.#openFile(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+		return this.#withHandle(handle, async () => {
+			const opened = await handle.stat({ bigint: true });
+			if (!opened.isFile() || !same(before, opened)) throw new Error('Native Original changed while opening for inspection.');
+			let result: CatalogOriginalInspectionOutcomeV1;
+			if (opened.size !== BigInt(binding.byteLength)) result = Object.freeze({ status: 'corrupt', reason: 'size' });
+			else {
+				const hash = createHash('sha256'), bytes = new Uint8Array(CHUNK);
+				try {
+					for (let offset = 0; offset < binding.byteLength;) {
+						inspectionCheck(signal);
+						const receipt = await handle.read(bytes, 0, Math.min(bytes.byteLength, binding.byteLength - offset), offset);
+						if (receipt.bytesRead < 1) throw new Error('Native Original ended during inspection.');
+						hash.update(bytes.subarray(0, receipt.bytesRead)); offset += receipt.bytesRead;
+					}
+					result = Object.freeze(hash.digest('hex') === binding.contentSha256 ? { status: 'present' } : { status: 'corrupt', reason: 'digest' });
+				} finally { bytes.fill(0); }
+			}
+			inspectionCheck(signal); await assertLayout(this.#paths); await realDirectory(dirname(path), false);
+			if (!same(opened, await handle.stat({ bigint: true })) || !same(opened, await regularFile(path))) throw new Error('Native Original changed during inspection.');
+			inspectionCheck(signal); return result;
+		}, true);
+	}
+
 	async read(binding: LightscaperNativeOriginalBindingCurrentV1, offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
 		const { handle, stamp, path } = await this.#open(binding, signal);
 		return this.#withHandle(handle, async () => {
@@ -126,10 +174,14 @@ export class LightscaperNativeOriginalFilesCurrentV1 {
 		try { await handle.close(); this.#unretiredHandles.delete(handle); }
 		catch (error) { this.#unretiredHandles.add(handle); this.#retirementFailures.push(error); throw error; }
 	}
-	async #withHandle<T>(handle: FileHandle, run: () => Promise<T>): Promise<T> {
+	async #withHandle<T>(handle: FileHandle, run: () => Promise<T>, inspection = false): Promise<T> {
 		const outcome = await Promise.resolve().then(run).then(value => ({ okay: true as const, value }), (error: unknown) => ({ okay: false as const, error }));
 		try { await this.#closeHandle(handle); }
-		catch (cleanup) { throw new AggregateError(outcome.okay ? [cleanup] : [outcome.error, cleanup], 'Native Original read and handle retirement failed.', { cause: cleanup }); }
+		catch (cleanup) {
+			const failure = new AggregateError(outcome.okay ? [cleanup] : [outcome.error, cleanup], 'Native Original read and handle retirement failed.', { cause: cleanup });
+			if (inspection) INSPECTION_RETIREMENT_FAILURES.add(failure);
+			throw failure;
+		}
 		if (!outcome.okay) throw outcome.error;
 		return outcome.value;
 	}
@@ -218,3 +270,13 @@ function same(left: Stamp, right: Stamp): boolean {
 		&& left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs;
 }
 function hasCode(error: unknown, code: string): boolean { return !!error && typeof error === 'object' && 'code' in error && error.code === code; }
+
+const INSPECTION_CHECK = AbortSignal.prototype.throwIfAborted;
+function inspectionCheck(signal?: AbortSignal): void { if (signal !== undefined) Reflect.apply(INSPECTION_CHECK, signal, []); }
+async function inspectionDirectories(paths: readonly string[]): Promise<boolean> {
+	for (const path of paths) {
+		try { await realDirectory(path, false); }
+		catch (error) { if (hasCode(error, 'ENOENT')) return false; throw error; }
+	}
+	return true;
+}
