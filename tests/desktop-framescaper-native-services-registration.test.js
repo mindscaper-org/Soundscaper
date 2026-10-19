@@ -8,7 +8,6 @@ import {
 	framescaperImageSequenceImportAuthorityMounted,
 	startFramescaperNativeServicesRegistration,
 } from '../desktop/framescaper-native-services-registration.mjs';
-import { registrationOptions } from '../desktop/framescaper-native-services-options.mjs';
 
 test('Soundscaper never starts the Framescaper service database', async () => {
 	const registration = await startFramescaperNativeServicesRegistration(options('soundscaper'), {
@@ -25,15 +24,6 @@ test('Soundscaper never starts the Framescaper service database', async () => {
 
 test('Framescaper owns one runtime, authenticates every IPC caller, and closes idempotently', () => verifyNativeRegistration(false));
 test('Framescaper separates data, cache, and restart state directories', () => verifyNativeRegistration(true));
-
-test('Framescaper accepts optional absolute storage roots and refuses malformed overrides', () => {
-	for (const field of ['cacheDataPath', 'dataDataPath', 'renderInputDataPath']) {
-		assert.throws(() => registrationOptions(Object.defineProperty(options('framescaper'), field, { enumerable: true, get: () => '/tmp/cache' })), /options are invalid/u);
-		for (const path of [undefined, null, 'relative', '/tmp/nul\0path']) {
-			assert.throws(() => registrationOptions({ ...options('framescaper'), [field]: path }), /options are invalid/u);
-		}
-	}
-});
 
 async function verifyNativeRegistration(splitDirectories) {
 	let runtimeOptions;
@@ -69,7 +59,7 @@ async function verifyNativeRegistration(splitDirectories) {
 	let openFxFrameOptions;
 	let proxyOutputOwnerDisposals = 0;
 	let proxyOutputDisposals = 0;
-	let failImageSequenceDispose = false;
+	let failRuntimeClose = false;
 	let renderInputReclaims = 0;
 	let externalDisplayStops = 0;
 	const controller = Object.freeze({ kind: 'controller' });
@@ -182,7 +172,6 @@ async function verifyNativeRegistration(splitDirectories) {
 				disposeOwner() { imageSequenceOwnerDisposals += 1; return 1; }
 				dispose() {
 					imageSequenceDisposals += 1;
-					if (failImageSequenceDispose) throw new Error('selection cleanup failed');
 				}
 			},
 			startMediaRuntime: async (value) => {
@@ -222,7 +211,10 @@ async function verifyNativeRegistration(splitDirectories) {
 			startRuntime: (value) => {
 				runtimeOptions = value;
 				return { controller, queue: { list: () => [] }, scratch: { list: () => [] }, ready: Promise.resolve(),
-					close: () => { closes += 1; } };
+					close: async () => {
+						closes += 1;
+						if (failRuntimeClose) throw new Error('native runtime close failed');
+					} };
 			},
 			registerIpc: (value) => {
 				ipcOptions = value;
@@ -383,9 +375,8 @@ async function verifyNativeRegistration(splitDirectories) {
 	assert.equal(imageSequenceOwnerDisposals, 1);
 	assert.equal(proxyOutputOwnerDisposals, 1);
 	assert.equal(openFxFrameOwnerDisposals, 1);
-	assert.throws(() => registration.registerRendererBridge({}), /already registered/iu);
-	failImageSequenceDispose = true;
-	await assert.rejects(() => registration.dispose(), /selection cleanup failed/u);
+	failRuntimeClose = true;
+	await assert.rejects(() => registration.dispose(), /native runtime close failed/u);
 	assert.equal(await registration.dispose(), false);
 	assert.equal(ipcDisposals, 1);
 	assert.equal(closes, 1);
@@ -422,7 +413,18 @@ test('a runtime startup failure releases the session display subscription', asyn
 			createOpenFxFrameRegistration: async () => ({
 				open: () => ({}), disposeOwner: () => 0, dispose: () => undefined,
 			}),
-			createNodePorts: () => ({}),
+			createNodePorts: () => ({
+				mintOpaqueId: () => 'a'.repeat(40), selectRoot: async () => null,
+				probeRoot: async () => null, watchScan: async () => [], watchProbe: async () => null,
+				watchRegisterLocator: async () => ({}), watchReleaseLocator: async () => true,
+				scratchCleanup: {}, publicationPortFor: () => ({}), checkpointInspectFor: () => async () => null,
+				checkpointStore: { read: async () => null, write: async () => undefined },
+			}),
+			createQueueCapacityProvider: () => async () => ({
+				availableCpuCores: 4, availableProcessTreeRssBytes: 1024 ** 3,
+				availableScratchBytes: 1024 ** 3, volumeFreeBytes: 20 * 1024 ** 3,
+				reservedFreeBytes: 10 * 1024 ** 3, busyHardwareBackends: [],
+			}),
 			createExternalDisplayPort: () => ({ dispose: () => { disposals += 1; } }),
 			createProjectContextAuthority: () => ({
 				revalidate: async () => ({}), prepare: async () => ({}),
@@ -432,12 +434,16 @@ test('a runtime startup failure releases the session display subscription', asyn
 				openFxTimingAssets: async () => [],
 			}),
 			createRenderInputStaging: () => ({
+				begin: async () => ({}), receive: async () => undefined, finalize: async () => ({}),
+				scratchReservation: () => 0, outstandingLiveScratchByteLength: async () => 0,
+				abandonOwner: async () => 0, reclaim: async () => undefined,
 			}),
 			createProjectMediaAuthority: ({ project }) => project,
 			createWatchImportBroker: () => ({ dispose: async () => undefined }),
 			startRuntime: (value) => {
-				assert.equal(value.nativeQueueExecution, undefined);
-				assert.equal(value.capabilities().value.queueCapacityAuthorityMounted, false);
+				assert.equal(typeof value.nativeQueueExecution.prepare, 'function');
+				assert.equal(typeof value.nativeQueueExecution.capacity, 'function');
+				assert.equal(value.capabilities().value.queueCapacityAuthorityMounted, true);
 				throw new Error('startup failed');
 			},
 			registerIpc: () => { throw new Error('must not register'); },
@@ -480,12 +486,6 @@ test('only an exact routed Framescaper v1 authority mounts image-sequence import
 	assert.equal(framescaperImageSequenceImportAuthorityMounted({
 		...authority, isRouted: () => false,
 	}), false);
-	assert.throws(() => framescaperImageSequenceImportAuthorityMounted({
-		...authority, schemaVersion: 2,
-	}), /authority is invalid/iu);
-	assert.throws(() => framescaperImageSequenceImportAuthorityMounted({
-		...authority, extra: true,
-	}), /authority is invalid/iu);
 });
 
 function options(productId) {

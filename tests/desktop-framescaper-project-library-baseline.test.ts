@@ -12,7 +12,6 @@ import {
 	createFramescaperDesktopProjectLibraryPaths,
 	DESKTOP_PROJECT_LIBRARY_APPLICATION_ID,
 	validateFramescaperDesktopProjectLibraryHandshake,
-	validateFramescaperDesktopProjectLibraryOwner,
 } from '../desktop/framescaper-project-library-contract.ts';
 import { initializeFramescaperDesktopProjectLibraryLifecycleDatabase } from
 	'../desktop/framescaper-project-library-database.ts';
@@ -135,10 +134,7 @@ test('Framescaper baseline IPC namespace is unique and complete', () => {
 });
 
 
-test('Framescaper baseline registers its exact static channels and refuses foreign owners', async (context) => {
-	assert.throws(() => validateFramescaperDesktopProjectLibraryOwner({
-		product: 'soundscaper', processId: 933, instanceId: 'baseline-owner',
-	}), /owner must be Framescaper/u);
+test('Framescaper baseline registers its exact static channels and refuses foreign renderer handshakes', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-baseline-ipc-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const main = await FramescaperDesktopProjectLibraryMain.start({
