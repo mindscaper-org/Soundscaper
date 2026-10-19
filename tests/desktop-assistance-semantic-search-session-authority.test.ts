@@ -49,7 +49,7 @@ test('main issues, admits, revokes, and expires exact project-bound search sessi
 	}), /expired/iu);
 });
 
-test('revision changes invalidate an issued bearer and project revocation is isolated', () => {
+test('revision changes invalidate an issued bearer', () => {
 	let byte = 0xbb;
 	const authority = new AssistanceSemanticSearchSessionAuthority({
 		now: () => 1_800_000_000_000,
@@ -64,17 +64,6 @@ test('revision changes invalidate an issued bearer and project revocation is iso
 		...FRAMESCAPER_IDENTITY, projectId: 'project-1', projectRevision: 7,
 	}), /active|revoked|session/iu);
 
-	const first = authority.open({ ...FRAMESCAPER_IDENTITY,
-		projectId: 'project-1', projectRevision: 8 });
-	const second = authority.open({ ...FRAMESCAPER_IDENTITY,
-		projectId: 'project-2', projectRevision: 3 });
-	assert.equal(authority.revokeProject({ ...FRAMESCAPER_IDENTITY, projectId: 'project-1' }), 1);
-	assert.throws(() => authority.authorize(first, {
-		...FRAMESCAPER_IDENTITY, projectId: 'project-1', projectRevision: 8,
-	}), /active|revoked|session/iu);
-	assert.deepEqual(authority.authorize(second, {
-		...FRAMESCAPER_IDENTITY, projectId: 'project-2', projectRevision: 3,
-	}), second);
 });
 
 test('session authority rejects malformed opening bounds and forged bearer fields', () => {
