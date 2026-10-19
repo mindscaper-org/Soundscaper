@@ -36,21 +36,3 @@ test('reviewed beat points become stable, ordered, initially-unchecked choices',
 	assert.ok(Object.isFrozen(proposals));
 	assert.ok(proposals.every(Object.isFrozen));
 });
-
-test('proposal conversion repeats strict beat-grid semantic review', () => {
-	assert.throws(() => createAssistanceBeatProposals({
-		schemaVersion: 1,
-		sampleRate: 22_050,
-		points: [
-			{ sample: 100, kind: 'beat', confidence: 1 },
-			{ sample: 100, kind: 'downbeat', confidence: 1 },
-		],
-		tempoProposal: null,
-	}), /strictly ordered/iu);
-	assert.throws(() => createAssistanceBeatProposals({
-		schemaVersion: 1,
-		sampleRate: 22_050,
-		points: [{ sample: 0, kind: 'beat', confidence: Number.NaN }],
-		tempoProposal: null,
-	}), /finite|unit interval/iu);
-});

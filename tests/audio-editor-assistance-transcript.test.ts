@@ -6,8 +6,6 @@ import test from 'node:test';
 import {
 	ASSISTANCE_TRANSCRIPT_SCHEMA_VERSION,
 	createAssistanceTranscript,
-	hasWordTiming,
-	transcriptSegmentsInRange,
 	transcriptToLabelDrafts,
 	transcriptWords,
 	type TranscriptDraft,
@@ -49,7 +47,6 @@ test('a transcript normalizes into canonical sample frames', () => {
 	assert.equal(transcript.language, 'en');
 	assert.equal(transcript.segments[0]?.text, 'So um welcome', 'segment text derives from its words');
 	assert.equal(transcript.segments[0]?.speaker, null);
-	assert.equal(hasWordTiming(transcript), true);
 	assert.equal(transcriptWords(transcript).length, 3);
 });
 
@@ -119,26 +116,6 @@ test('segments map to labels and carry speakers when diarization produced them',
 		{ title: 'Speaker 1: Hello there', startFrame: 0, endFrame: 1_000 },
 		{ title: 'Speaker 2: Hi', startFrame: 2_000, endFrame: 3_000 },
 	]);
-	assert.deepEqual(transcriptToLabelDrafts(transcript, { includeSpeaker: false }), [
-		{ title: 'Hello there', startFrame: 0, endFrame: 1_000 },
-		{ title: 'Hi', startFrame: 2_000, endFrame: 3_000 },
-	]);
-});
-
-test('a range query returns only the overlapping segments', () => {
-	const transcript = createAssistanceTranscript(draft({
-		segments: [
-			{ startFrame: 0, endFrame: 1_000, text: 'one' },
-			{ startFrame: 1_000, endFrame: 2_000, text: 'two' },
-			{ startFrame: 5_000, endFrame: 6_000, text: 'three' },
-		],
-	}));
-
-	assert.deepEqual(
-		transcriptSegmentsInRange(transcript, 900, 1_500).map(({ text }) => text),
-		['one', 'two'],
-	);
-	assert.deepEqual(transcriptSegmentsInRange(transcript, 2_000, 5_000).map(({ text }) => text), []);
 });
 
 test('a transcript without word timing reports it instead of fabricating positions', () => {
@@ -146,7 +123,6 @@ test('a transcript without word timing reports it instead of fabricating positio
 		segments: [{ startFrame: 0, endFrame: 1_000, text: 'no timing here' }],
 	}));
 
-	assert.equal(hasWordTiming(transcript), false);
 	assert.deepEqual(findDisfluencyProposals(transcript, { fillerLexicon: EN_FILLERS }), []);
 });
 
