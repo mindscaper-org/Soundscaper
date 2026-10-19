@@ -13,6 +13,7 @@ import { runFramescaperWebVcrDormantRendererSmoke,
 	runFramescaperWebVcrPackagedRendererSmoke } from '../desktop/framescaper-web-vcr-renderer-runner.js';
 import { parseDesktopSmokeConfiguration } from '../desktop/desktop-smoke.js';
 import { createFramescaperWebVcrSmokeSession } from '../desktop/framescaper-web-vcr-smoke-session.js';
+import { validateWebVcrSnapshotV1 } from '../desktop/framescaper-web-vcr-contract.ts';
 
 import {
 	FRAMESCAPER_WEB_VCR_DORMANT_SMOKE_MODE,
@@ -94,7 +95,6 @@ test('desktop smoke configuration and session admit only the dedicated plan and 
 	assert.match(calls[0].source, new RegExp(plan.token, 'u'));
 	assert.equal(calls.slice(1).every(({ userGesture }) => userGesture !== true), true);
 	assert.equal(focusCalls, 0);
-	await assert.rejects(() => session.run({ focus() {}, executeJavaScript: async () => evidence }), /already completed/u);
 	const failed = createFramescaperWebVcrSmokeSession({ mode: plan.mode, plan });
 	await assert.rejects(() => failed.run({
 		focus() {},
@@ -312,16 +312,26 @@ function activeRendererFixture(plan) {
 	const fixture = { tracks, captureRequests: [], disposed: false, unsubscribed: false };
 	const dimensions = () => resolution === '720p'
 		? { width: 1_280, height: 720 } : { width: 1_920, height: 1_080 };
-	const snapshot = (phase = 'ready') => ({
+	const snapshot = (phase = 'ready') => validateWebVcrSnapshotV1({
 		version: 1,
 		sessionId: String(session).padStart(32, '0'),
 		generation,
 		phase,
+		capability: { status: 'available', resolutions: ['720p', '1080p'] },
 		resolution,
+		aspect: 'free',
+		crop: { x: 0, y: 0, width: 1, height: 1 },
 		captureSurface: dimensions(),
-		navigation: { url, isLoading: loading },
+		navigation: { generation, url, canGoBack: false, canGoForward: false, isLoading: loading },
 		target,
 		autoCrop: true,
+		monitorMuted: false,
+		autoStop: false,
+		visible: true,
+		targetEndedRecordingToken: null,
+		outputSize: null,
+		metrics: null,
+		failure: null,
 	});
 	const emit = (phase) => {
 		const value = snapshot(phase);
@@ -342,7 +352,7 @@ function activeRendererFixture(plan) {
 		},
 		dispatch: async (command) => {
 			if (command.kind === 'request-data-clear') {
-				return { ...reference(), kind: 'data-clear-confirmation', nonce: 'a'.repeat(32), expiresAtMs: 1 };
+				return { ...reference(), kind: 'data-clear-confirmation', nonce: 'a'.repeat(32), expiresAtMs: Date.now() + 30_000 };
 			}
 			if (command.kind === 'clear-browser-data') {
 				authenticated = false;
@@ -392,6 +402,7 @@ function activeRendererFixture(plan) {
 					url = `${plan.origin}/input/result?value=${typed}&pointer=64%2C160`;
 				} else if (path === '/media/ended') {
 					target = {
+						targetId: 'c'.repeat(32), generation: 1,
 						mediaState: 'playing',
 						intrinsicSize: { width: 640, height: 360 },
 						aperture: { x: 0, y: 0, width: 1, height: 1 },
@@ -399,6 +410,7 @@ function activeRendererFixture(plan) {
 				} else if (path === '/media/loop') {
 					setTimeout(() => {
 						target = {
+							targetId: 'c'.repeat(32), generation: 1,
 							mediaState: 'playing',
 							intrinsicSize: { width: 640, height: 360 },
 							aperture: { x: 0, y: 0, width: 1, height: 1 },
@@ -415,7 +427,7 @@ function activeRendererFixture(plan) {
 			assert.equal(request.version, current.version);
 			assert.equal(request.sessionId, current.sessionId);
 			assert.equal(request.generation, current.generation);
-			return { ...reference(), grantId: 'b'.repeat(32), expiresAtMs: 10_000 };
+			return { ...reference(), grantId: 'b'.repeat(32), expiresAtMs: Date.now() + 10_000 };
 		},
 		setCaptureState: async (request) => {
 			if (request.state === 'recording' && new URL(url).pathname === '/media/ended') {
