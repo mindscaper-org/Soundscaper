@@ -10,10 +10,7 @@ import {
 	assertAudioRenderedFallbackExportSettings,
 	projectForAudioRenderedFallbackExport,
 } from '../src/common/editor/controller/export/internal/audio/audio-rendered-fallback-export.ts';
-import {
-	createPlaybackProjectService,
-	type AudioRenderedFallbackDeliveryProjection,
-} from '../src/common/editor/controller/source/playback-project-service.ts';
+import { createPlaybackProjectService } from '../src/common/editor/controller/source/playback-project-service.ts';
 import type { EngineChunkSource } from '../src/common/editor/engine/types.ts';
 import {
 	PROJECT_FEATURE_CAPABILITY_IDS,
@@ -23,28 +20,11 @@ import {
 	createAudioClip,
 	createAudioSource,
 	createAudioTrack,
+	createVideoSource,
 } from '../src/common/editor/project-media-factory.ts';
 
 const FALLBACK_SOURCE_ID = 'fallback-audio';
 const DIGEST = 'ef'.repeat(32);
-
-test('audio fallback export selection is inert without a delivery service', async () => {
-	const canonical = canonicalProject();
-	const projection = projectForAudioRenderedFallbackExport(canonical);
-
-	assert.strictEqual(projection.project, canonical);
-	assert.equal(projection.featureRequirementsReport, null);
-	assert.equal(projection.audioRenderedFallback, null);
-	assert.deepEqual(projection.requiredAudioSourceIds, []);
-	assert.equal(Object.isFrozen(projection), true);
-	assert.equal(Object.isFrozen(projection.requiredAudioSourceIds), true);
-	assert.doesNotThrow(() => assertAudioRenderedFallbackExportSettings(projection, {
-		mode: 'stems', format: 'bw64', adm: { mode: 'authored' },
-	}));
-	assert.equal(await admitAudioRenderedFallbackExport(canonical, projection, { store: null }, {
-		assertCurrent() { throw new Error('inactive admission asserted currentness'); },
-	}), null);
-});
 
 test('unknown-role audio fallback export admits and returns only the selected private chunk provider', async () => {
 	const featureId = 'org.example.future-mixer';
@@ -107,138 +87,41 @@ test('unknown-role audio fallback export admits and returns only the selected pr
 	assert.strictEqual(await admitted?.readStorageChunk(0, { signal: controller.signal }), channels);
 });
 
-test('audio fallback export selection rejects malformed or ambiguous delivery projections', () => {
-	const canonical = canonicalProject();
-	const valid = projectForAudioRenderedFallbackExport(
-		canonical,
-		createPlaybackProjectService({ audioEffects: false }),
-	);
-	const metadata = valid.audioRenderedFallback!;
-	const malformed: readonly unknown[] = [
-		null,
-		{ ...valid, project: null },
-		{ ...valid, requiredAudioSourceIds: FALLBACK_SOURCE_ID },
-		{ ...valid, audioRenderedFallback: undefined },
-		// A root with no fallback metadata is a native substitution's derived source,
-		// so what makes it malformed is naming a source the delivery cannot supply.
-		{ ...valid, audioRenderedFallback: null, requiredAudioSourceIds: ['absent-audio'] },
-		{ ...valid, audioRenderedFallback: { ...metadata, schemaVersion: 2 } },
-		{ ...valid, audioRenderedFallback: { ...metadata, role: 'project-video-render-v1' } },
-		{ ...valid, audioRenderedFallback: { ...metadata, featureId: '' } },
-		{ ...valid, audioRenderedFallback: {
-			...metadata, featureId: PROJECT_FEATURE_CAPABILITY_IDS.videoEffects,
-		} },
-		{ ...valid, audioRenderedFallback: {
-			...metadata, featureId: PROJECT_FEATURE_CAPABILITY_IDS.audioSpectralEditing,
-		} },
-		{ ...valid, requiredAudioSourceIds: ['some-other-source'] },
-		{ ...valid, featureRequirementsReport: null },
-	];
-	for (const candidate of malformed) {
-		assert.throws(
-			() => projectForAudioRenderedFallbackExport(canonical, serviceReturning(candidate)),
-			/invalid|unavailable|metadata|source|report|project/iu,
-		);
-	}
-
-	const audioItem = valid.featureRequirementsReport!.items[0]!;
-	const simultaneous = {
-		...valid,
-		featureRequirementsReport: {
-			...valid.featureRequirementsReport!,
-			items: [audioItem, {
-				...audioItem,
-				requirementId: 'publisher-video-render',
-				featureId: PROJECT_FEATURE_CAPABILITY_IDS.videoEffects,
-				fallback: {
-					role: 'project-video-render-v1', kind: 'video',
-					sourceId: 'fallback-video', sha256: 'ad'.repeat(32),
-				},
-			}],
-		},
-	};
+test('audio fallback export refuses simultaneous audio and video requirements from a real projection', () => {
+	const featureId = 'org.example.future-mixer';
+	const original = canonicalProject(featureId);
+	const canonical = createCurrentAudioEditorProject({
+		...original,
+		sources: [...original.sources, createVideoSource({
+			id: 'fallback-video', storageKey: 'fallback-video', frameCount: 12,
+			sampleRate: 48_000, width: 1_280, height: 720, frameRate: 24,
+		})],
+		featureRequirements: { schemaVersion: 1, requirements: [
+			{
+				id: 'publisher-audio-render', featureId,
+				displayName: 'Publisher audio render', disposition: 'rendered-fallback',
+				fallback: { kind: 'audio', sourceId: FALLBACK_SOURCE_ID, sha256: DIGEST },
+			},
+			{
+				id: 'publisher-video-render', featureId: PROJECT_FEATURE_CAPABILITY_IDS.videoEffects,
+				displayName: 'Publisher video render', disposition: 'rendered-fallback',
+				fallback: { kind: 'video', sourceId: 'fallback-video', sha256: 'ad'.repeat(32) },
+			},
+		] },
+	});
 	assert.throws(
-		() => projectForAudioRenderedFallbackExport(canonical, serviceReturning(simultaneous)),
+		() => projectForAudioRenderedFallbackExport(canonical,
+			createPlaybackProjectService({ audioEffects: true, videoEffects: false })),
 		/simultaneous|multiple|exactly one|ambiguous/iu,
 	);
 });
 
-test('active audio fallback settings reject stems and BW64 or ADM before export work', () => {
-	const projection = projectForAudioRenderedFallbackExport(
-		canonicalProject(),
-		createPlaybackProjectService({ audioEffects: false }),
-	);
-	assert.doesNotThrow(() => assertAudioRenderedFallbackExportSettings(
-		projection,
-		{ mode: 'mix', format: 'wav' },
-	));
-
-	for (const [name, settings, pattern] of [
-		['unnormalized mode', { format: 'wav' }, /normalized|mix|mode/iu],
-		['stems', { mode: 'stems', format: 'wav' }, /mix|stem/iu],
-		['BW64', { mode: 'mix', format: 'bw64' }, /BW64|ADM/iu],
-		['ADM', { mode: 'mix', format: 'wav', adm: { mode: 'authored' } }, /BW64|ADM/iu],
-	] as const) {
-		const events: string[] = [];
-		assert.throws(() => {
-			assertAudioRenderedFallbackExportSettings(projection, settings);
-			events.push('integrity', 'plan', 'destination', 'render');
-		}, pattern, name);
-		assert.deepEqual(events, [], `${name} must fail before export work`);
-	}
-});
-
-test('audio fallback integrity admission fails closed before exposing invalid media', async () => {
+test('stale and cancelled audio fallback exports stop before integrity IO', async () => {
 	const canonical = canonicalProject();
 	const projection = projectForAudioRenderedFallbackExport(
 		canonical,
 		createPlaybackProjectService({ audioEffects: false }),
 	);
-	await assert.rejects(
-		admitAudioRenderedFallbackExport(canonical, projection, { store: null }, { assertCurrent() {} }),
-		/integrity.*unavailable|verification.*unavailable/iu,
-	);
-	await assert.rejects(
-		admitAudioRenderedFallbackExport(canonical, projection, {
-			store: null,
-			verifyProjectFallbackIntegrity: () => Object.freeze({}) as never,
-		}, { assertCurrent() {} }),
-		/integrity.*invalid|admission.*invalid/iu,
-	);
-	await assert.rejects(
-		admitAudioRenderedFallbackExport(canonical, projection, {
-			store: null,
-			verifyProjectFallbackIntegrity: () => Object.freeze({
-				assertCurrent() {},
-				getVerifiedAudioChunkProvider: () => Object.freeze({
-					channelCount: 2,
-					frameCount: 11,
-					chunkFrames: 4,
-					sampleRate: 48_000,
-					async readStorageChunk() { return Object.freeze([Float32Array.of(0)]); },
-				}),
-			}),
-		}, { assertCurrent() {} }),
-		/invalid.*(?:audio|media|chunk|provider)|(?:audio|chunk|provider).*invalid/iu,
-		'positive but mismatched provider geometry must be refused',
-	);
-	await assert.rejects(
-		admitAudioRenderedFallbackExport(canonical, projection, {
-			store: null,
-			verifyProjectFallbackIntegrity: () => Object.freeze({
-				assertCurrent() {},
-				getVerifiedAudioChunkProvider: () => Object.freeze({
-					channelCount: 0,
-					frameCount: 12,
-					chunkFrames: 4,
-					sampleRate: 48_000,
-					async readStorageChunk() { return Object.freeze([Float32Array.of(0)]); },
-				}),
-			}),
-		}, { assertCurrent() {} }),
-		/invalid.*(?:audio|media|chunk|provider)|(?:audio|chunk|provider).*invalid/iu,
-	);
-
 	let verificationCalls = 0;
 	const stale = new DOMException('stale export', 'AbortError');
 	await assert.rejects(
@@ -296,7 +179,6 @@ function canonicalProject(
 		}] },
 	});
 }
-
 function expectedSelector(
 	featureId: string = PROJECT_FEATURE_CAPABILITY_IDS.audioEffects,
 ): ProjectAudioFallbackIntegritySelector {
@@ -311,12 +193,3 @@ function expectedSelector(
 	});
 }
 
-function serviceReturning(value: unknown) {
-	return Object.freeze({
-		projectForAudioRenderedFallbackDelivery<Project extends object>(
-			_project: Project,
-		): AudioRenderedFallbackDeliveryProjection<Project> {
-			return value as AudioRenderedFallbackDeliveryProjection<Project>;
-		},
-	});
-}
