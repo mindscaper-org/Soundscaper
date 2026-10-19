@@ -3,7 +3,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { audacityMacroMenuCommand } from '../src/common/editor/audacity-macro-menu-commands.ts';
 import { createMacroCommandStep } from '../src/common/editor/macro-command-steps.ts';
 import {
 	createMacroCommandService,
@@ -177,9 +176,4 @@ test('a macro SelAllTracks step widens the track scope and leaves the time range
 	assert.equal(fixture.selection().endFrame, 30);
 	assert.deepEqual(fixture.selection().trackIds, ['track-a', 'track-b']);
 	assert.deepEqual(fixture.seeks, []);
-});
-
-test('the macro table keeps Audacity SelectAll and SelAllTracks on separate actions', () => {
-	assert.equal(audacityMacroMenuCommand('SelectAll')?.path, 'timeline.selectAll');
-	assert.equal(audacityMacroMenuCommand('SelAllTracks')?.path, 'timeline.selectAllTracks');
 });

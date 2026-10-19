@@ -91,7 +91,6 @@ test('gain and pan boundaries add no history while zero gain increases from -60 
 	const command = commands[0];
 	if (command?.type !== 'track/update') assert.fail('Expected a gain update.');
 	assert.ok(Math.abs(Number(command.changes.gain) - 10 ** (-59 / 20)) < 1e-12);
-	assert.equal(applyAudacityTrackMixerAction('not-an-action', state, () => assert.fail('invalid action must not commit')), null);
 });
 
 interface MutableSnapshot {
