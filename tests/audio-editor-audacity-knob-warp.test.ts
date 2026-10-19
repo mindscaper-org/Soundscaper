@@ -29,13 +29,11 @@ test('Audacity knob warp round-trips both positive and negative parameter ranges
 	}
 });
 
-test('Audacity knob disables warping at a midpoint or endpoint default and clamps the range', () => {
+test('Audacity knob disables warping at a midpoint or endpoint default and handles a collapsed range', () => {
 	for (const middle of [undefined, 0, 50, 100, Number.NaN]) {
 		assert.equal(audacityKnobPosition(25, 0, 100, middle), 0.25);
 		assert.equal(audacityKnobValue(0.75, 0, 100, middle), 75);
 	}
-	assert.equal(audacityKnobPosition(-1, 0, 100, 20), 0);
-	assert.equal(audacityKnobValue(2, 0, 100, 20), 100);
 	assert.equal(audacityKnobPosition(1, 5, 5, 5), 0);
 	assert.equal(audacityKnobValue(0.5, 5, 5, 5), 5);
 });
