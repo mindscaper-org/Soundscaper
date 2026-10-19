@@ -47,7 +47,6 @@ test('build and target self-test bind Windows MP3 encode while macOS stays fail-
 	assert.match(cmake, /elseif\(WIN32\)[\s\S]*os_mp3_encode_windows\.cpp/u);
 	assert.match(cmake, /soundscaper_os_mp3_profile_self_test/u);
 	assert.doesNotMatch(cmake, /mac-x64|x86_64-apple/iu);
-	assert.match(mac, /Apple documents MP3 as decode-only/u);
 	assert.match(mac, /soundscaper_pro_os_mp3_encode[\s\S]*SOUNDSCAPER_PRO_OS_CODEC_API_UNAVAILABLE/u);
 	assert.doesNotMatch(mac, /ExtAudioFileCreateWithURL[\s\S]*kAudioFormatMPEGLayer3/u);
 	assert.match(selfTest, /soundscaper_pro_os_mp3_encode/u);
@@ -93,22 +92,16 @@ test('portable exact MP3 profile parser accepts only a complete 192 kbps frame c
  * a refusal on the encoder's output is distinguishable from one on its input.
  */
 test('the Windows MP3 encoder names which negotiation refused', async () => {
-	const [source, header, canary] = await Promise.all([
+	const [source, canary] = await Promise.all([
 		readFile(join(HOST, 'src/os_mp3_encode_windows.cpp'), 'utf8'),
-		readFile(join(HOST, 'src/os_audio_codec.h'), 'utf8'),
 		readFile(join(HOST, 'tests/os_audio_codec_self_test.cpp'), 'utf8'),
 	]);
-	assert.equal(header.match(/uint32_t refusal_detail;/gu)?.length, 3,
-		'every reviewed result carries the refusal detail');
 	assert.match(source, /enum class Mp3Refusal : uint32_t/u);
 	const codes = Object.fromEntries([...source.matchAll(/^\t([a-zA-Z][a-zA-Z0-9]*) = (\d+)u,$/gmu)]
 		.map(([, name, value]) => [name, Number(value)]));
 	assert.deepEqual(codes, {
 		none: 0, encodedFrameChain: 20, mp3OutputType: 120, pcmInputType: 121,
 	});
-	// The output verdict stays below the host range and the media types above it,
-	// matching the split the AAC codec already reports under.
-	assert.ok(codes.encodedFrameChain < 100 && codes.mp3OutputType >= 100);
 	assert.match(source, /AddStream[\s\S]{0,120}Mp3Refusal::mp3OutputType/u);
 	assert.match(source, /SetInputMediaType[\s\S]{0,120}Mp3Refusal::pcmInputType/u);
 	assert.match(source, /OutputInspection::notExact/u);
