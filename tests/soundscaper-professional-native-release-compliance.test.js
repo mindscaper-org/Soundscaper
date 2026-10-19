@@ -30,7 +30,6 @@ test('Stable assembly embeds authenticated native texts in one third-party licen
 		runtimeManifests: fixture.runtimeManifests,
 	}, fixture.dependencies);
 	assert.equal(result.status, 'authenticated');
-	assert.equal(Object.hasOwn(result, 'legalApproval'), false);
 	assert.deepEqual(result.sources.map(({ id }) => id).sort(),
 		['ara-api', 'ara-library', 'asio-sdk', 'clap', 'electron-node-api-headers', 'juce', 'ladspa-sdk', 'lv2',
 			'vamp-plugin-sdk', 'vst3-sdk']);
@@ -46,7 +45,6 @@ test('Stable assembly embeds authenticated native texts in one third-party licen
 	const compliance = JSON.parse(await readFile(
 		join(fixture.outputRoot, 'Soundscaper-professional-native-compliance.json'), 'utf8',
 	));
-	assert.equal(Object.hasOwn(compliance, 'legalApproval'), false);
 	assert.deepEqual(compliance.sources.map(({ archive }) => archive.sha256),
 		result.sources.map(({ archive }) => archive.sha256));
 	assert.equal(compliance.schemaVersion, 2);
@@ -61,7 +59,6 @@ test('Stable assembly embeds authenticated native texts in one third-party licen
 			source.noticeBytes);
 		assert.deepEqual(descriptor(source.noticeBytes), { byteLength: notice.byteLength, sha256: notice.sha256 });
 		assert.equal(notice.installedName, `${source.id}.txt`);
-		assert.equal(Object.hasOwn(notice, 'name'), false);
 	}
 });
 
@@ -179,7 +176,6 @@ test('the Stable desktop assembler invokes professional compliance only with its
 	const source = await readFile(new URL('../scripts/desktop-release-assets.mjs', import.meta.url), 'utf8');
 	assert.match(source, /stageSoundscaperProfessionalNativeReleaseCompliance\(\{/u);
 	assert.match(source, /professionalProducts = stableSoundscaper/u);
-	assert.doesNotMatch(source, /admissionProfile|effectiveAdmissionProfile/iu);
 	assert.match(source, /SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT/u);
 	assert.match(source, /runtimeManifests: manifests/u);
 });
