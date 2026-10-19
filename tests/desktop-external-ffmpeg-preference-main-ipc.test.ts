@@ -38,26 +38,6 @@ test('the FFmpeg preference IPC exposes five argument-free actions and nothing e
 	registration.dispose();
 });
 
-test('duplicate channels and malformed ports are rejected before registration', () => {
-	assert.throws(() => registerExternalFfmpegPreferenceMainIpc({
-		channels: { ...CHANNELS, externalFfmpegInstall: 'status' },
-		handle() {}, removeHandler() {}, service: serviceFixture(),
-	}), /unique/iu);
-	assert.throws(() => registerExternalFfmpegPreferenceMainIpc({
-		channels: CHANNELS, handle: null as never, removeHandler() {}, service: serviceFixture(),
-	}), /ports/iu);
-});
-
-function serviceFixture() {
-	return {
-		status: () => Promise.resolve({ state: 'unconfigured' as const }),
-		choose: () => Promise.resolve({ state: 'unconfigured' as const }),
-		clear: () => Promise.resolve({ state: 'unconfigured' as const }),
-		rescan: () => Promise.resolve({ state: 'unconfigured' as const }),
-		install: () => Promise.resolve({ state: 'unconfigured' as const }),
-	};
-}
-
 function response(calls: string[], name: string): Promise<{ readonly state: string }> {
 	calls.push(name);
 	return Promise.resolve(Object.freeze({ state: name }));

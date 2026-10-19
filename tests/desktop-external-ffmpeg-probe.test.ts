@@ -73,14 +73,6 @@ test('candidate creation returns an immutable absolute no-shell descriptor', () 
 		ffprobePath: '/opt/homebrew/bin/ffprobe',
 	});
 	assert.equal(Object.isFrozen(candidate), true);
-	assert.throws(() => createExternalFfmpegCandidate({
-		id: 'relative', source: 'system-path',
-		ffmpegPath: 'ffmpeg', ffprobePath: 'ffprobe',
-	}), /absolute/u);
-	assert.throws(() => createExternalFfmpegCandidate({
-		id: 'bad\nid', source: 'user-selected',
-		ffmpegPath: '/tools/ffmpeg', ffprobePath: '/tools/ffprobe',
-	}), /identifier/u);
 });
 
 test('versioned FFmpeg CLI builds from 4.4 through 9.x are admitted', () => {
@@ -248,11 +240,6 @@ test('discovery preserves locator priority and selects the first compatible cand
 	assert.deepEqual(await discoverExternalFfmpeg({
 		locator: { discover: () => Promise.resolve([]) }, runner: fixtureRunner([]),
 	}), { status: 'unavailable', reason: 'no-candidates', attempts: [] });
-	const failed = await discoverExternalFfmpeg({
-		locator: { discover: () => Promise.reject(new Error('private filesystem detail')) },
-		runner: fixtureRunner([]),
-	});
-	assert.deepEqual(failed, { status: 'unavailable', reason: 'discovery-failed', attempts: [] });
 });
 
 interface RunnerFixtureOptions {

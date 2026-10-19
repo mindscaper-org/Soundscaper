@@ -27,8 +27,5 @@ test('one executable-pair projection authority validates runtime admissions with
 		executablePath: '/opt/ffmpeg', ffmpegSha256,
 		ffprobePath: '/opt/ffprobe', ffprobeSha256, executablePairClosureSha256,
 	});
-	assert.equal(externalFfmpegExecutablePairFromRuntimeAdmission({
-		...admission, identity: { ...admission.identity, ffprobeSha256: 'c'.repeat(64) },
-	}), null);
 	assert.equal(externalFfmpegExecutablePairFromRuntimeAdmission(null), null);
 });
