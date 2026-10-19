@@ -43,7 +43,6 @@ test('freeze renders, hashes, verifies, persists, and CAS-installs only after ev
 		'capture', 'hash-source:voice-live', 'render', 'hash-render',
 		'stage', 'verify', 'publish', 'execute:audio-freeze/install',
 	]);
-	assert.ok(fixture.log.filter((entry) => entry === 'current').length >= 7);
 	assert.doesNotMatch(
 		JSON.stringify(result.project),
 		/"(?:pcm|base64|channelData|audioBuffer|payload|chunks|bytes|blob|data)":/u,

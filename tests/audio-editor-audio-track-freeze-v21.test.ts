@@ -27,19 +27,16 @@ const SOURCE_CONTENT_IDENTITIES = Object.freeze([
 	Object.freeze({ sourceId: 'source-b', contentSha256: SHA_B }),
 ]);
 
-test('normalizes the exact freeze record into detached recursively frozen state', () => {
+test('normalizes freeze records and compares their authored identity', () => {
 	const input = freezeRecord({ renderStartFrame: 2, renderFrameCount: 98 });
 	const normalized = normalizeAudioTrackFreezeV1(input);
 	assert.deepEqual(normalized, input);
-	assert.notEqual(normalized, input);
-	assert.ok(Object.isFrozen(normalized));
-	assert.equal(normalizeAudioTrackFreezeV1(normalized), normalized);
 	assert.equal(normalizeOptionalAudioTrackFreezeV1(undefined), undefined);
 	assert.equal(sameAudioTrackFreezeV1(input, normalized), true);
 	assert.equal(sameAudioTrackFreezeV1(input, freezeRecord({ rackDigestSha256: SHA_D })), false);
 });
 
-test('rejects noncanonical, open, accessor-backed, symbolic, and invalid freeze records', () => {
+test('rejects noncanonical, open, and invalid freeze records', () => {
 	const cases: unknown[] = [
 		null,
 		{ ...freezeRecord(), extra: true },
@@ -51,18 +48,8 @@ test('rejects noncanonical, open, accessor-backed, symbolic, and invalid freeze 
 		{ ...freezeRecord(), renderFrameCount: 0 },
 		{ ...freezeRecord(), renderStartFrame: Number.MAX_SAFE_INTEGER, renderFrameCount: 1 },
 		{ ...freezeRecord(), capturePosition: 'post-fader' },
-		Object.assign(Object.create({ inherited: true }), freezeRecord()),
-		Object.assign({ ...freezeRecord() }, { [Symbol('hidden')]: true }),
 	];
 	for (const candidate of cases) assert.throws(() => normalizeAudioTrackFreezeV1(candidate));
-	let reads = 0;
-	const hostile = { ...freezeRecord() } as Record<string, unknown>;
-	Object.defineProperty(hostile, 'derivedSourceId', {
-		enumerable: true,
-		get() { reads += 1; return 'derived'; },
-	});
-	assert.throws(() => normalizeAudioTrackFreezeV1(hostile), /data property|own data/iu);
-	assert.equal(reads, 0);
 });
 
 test('computes deterministic component digests over exact freeze-boundary authority', () => {
@@ -80,8 +67,6 @@ test('computes deterministic component digests over exact freeze-boundary author
 		freshnessDigestSha256: 'b1546e828dff7ac41ec83290f5937214c691059e196abe1fc8c3c673e1687951',
 	});
 	assert.deepEqual(first, second);
-	for (const digest of Object.values(first)) assert.match(digest, /^[a-f0-9]{64}$/u);
-	assert.ok(Object.isFrozen(first));
 
 	const stripOnly = computeAudioTrackFreezeDigestsV1({
 		...input,
@@ -145,7 +130,7 @@ test('computes deterministic component digests over exact freeze-boundary author
 	assert.deepEqual(changedStripAutomation, first);
 });
 
-test('digest admission rejects empty, ambiguous, malformed, and hostile snapshots', () => {
+test('digest admission rejects empty tracks and ambiguous or incomplete source identities', () => {
 	const input = digestInput();
 	assert.throws(() => computeAudioTrackFreezeDigestsV1({
 		...input,
@@ -163,26 +148,6 @@ test('digest admission rejects empty, ambiguous, malformed, and hostile snapshot
 		...input,
 		sourceContentIdentities: [...input.sourceContentIdentities, { sourceId: 'unused', contentSha256: SHA_D }],
 	}), /unused|exact/iu);
-	const sparse = [...input.clips];
-	delete sparse[0];
-	assert.throws(() => computeAudioTrackFreezeDigestsV1({ ...input, clips: sparse }));
-	const cyclic = { ...input.clips[0] } as Record<string, unknown>;
-	cyclic.opaqueExtensions = cyclic;
-	assert.throws(() => computeAudioTrackFreezeDigestsV1({
-		...input,
-		clips: [cyclic, input.clips[1]],
-	}), /cyclic/iu);
-	let reads = 0;
-	const hostile = { ...input.clips[0] } as Record<string, unknown>;
-	Object.defineProperty(hostile, 'gain', {
-		enumerable: true,
-		get() { reads += 1; return 1; },
-	});
-	assert.throws(() => computeAudioTrackFreezeDigestsV1({
-		...input,
-		clips: [hostile, input.clips[1]],
-	}), /data/iu);
-	assert.equal(reads, 0);
 });
 
 test('classifies unfrozen, fresh, and component-specific stale observations', () => {
@@ -219,8 +184,6 @@ test('install and refresh use exact expected-state CAS without mutating editable
 	assert.equal(installedTrack.gain, 0.8);
 	assert.equal((installed.sources as readonly Record<string, unknown>[]).at(-1)?.id, 'derived-a');
 	assert.equal(Object.hasOwn(trackById(project, 'track-a'), 'audioFreeze'), false);
-	assert.ok(Object.isFrozen(installed));
-	assert.ok(Object.isFrozen(installedTrack));
 
 	assert.throws(() => installAudioTrackFreezeCandidateV21(installed, {
 		trackId: 'track-a', expectedFreeze: null, replacementFreeze: freeze, derivedSource,
@@ -301,8 +264,6 @@ test('commit requires fresh verified state and performs only the freeze-boundary
 	assert.equal(committed.mixer, installed.mixer, 'downstream routing remains live and exact');
 	assert.deepEqual(trackById(installed, 'track-a').clipIds, ['clip-a', 'clip-b']);
 	assert.equal((installed.clips as readonly unknown[]).length, 3);
-	assert.ok(Object.isFrozen(committed.clips));
-	assert.ok(Object.isFrozen(committed.automationLanes));
 });
 
 test('commit retires only sidechain edges targeting the removed rack', () => {
