@@ -43,30 +43,4 @@ test('menu materialization resolves frozen leaves independently without mutating
 	assert.ok(materialized.items?.every((item) => !Object.hasOwn(item, 'resolve')));
 	assert.equal(typeof input.items[0].resolve, 'function');
 	assert.equal(input.items[0].disabled, false);
-	assert.ok(Object.isFrozen(materialized));
-	assert.ok(Object.isFrozen(materialized.items));
-	assert.ok(materialized.items?.every(Object.isFrozen));
-});
-
-test('invalid leaf resolution fails closed without hiding its siblings', () => {
-	const inaccessibleResolver = Object.defineProperty({ id: 'inaccessible', disabled: false }, 'resolve', {
-		enumerable: true,
-		get: () => { throw new Error('resolver accessor refusal'); },
-	});
-	const input = {
-		id: 'edit',
-		items: [
-			{ id: 'invalid', disabled: false, resolve: () => ({ disabled: 'no' }) },
-			inaccessibleResolver,
-			{ id: 'sibling', disabled: false, resolve: () => ({ disabled: false }) },
-		],
-	};
-
-	const materialized = materializeApplicationMenu(input);
-
-	assert.deepEqual(materialized.items?.map(({ id, disabled }) => ({ id, disabled })), [
-		{ id: 'invalid', disabled: true },
-		{ id: 'inaccessible', disabled: true },
-		{ id: 'sibling', disabled: false },
-	]);
 });

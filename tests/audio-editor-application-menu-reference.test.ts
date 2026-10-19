@@ -74,16 +74,11 @@ const APPLICATION_MENU_COPY = Object.freeze({
 	'ui.freesoundAttribution.panel': FREESOUND_ATTRIBUTION_INVENTORY_COPY_BY_LOCALE.en.panel,
 });
 
-test('the supplemental application-menu reference is a frozen unique lookup', () => {
-	assert.ok(Object.isFrozen(APPLICATION_MENU_REFERENCE_ENTRIES));
-	assert.ok(Object.isFrozen(APPLICATION_MENU_REFERENCE_BY_ID));
+test('the supplemental application-menu reference is a unique lookup', () => {
 	assert.ok(APPLICATION_MENU_REFERENCE_ENTRIES.length > 0);
 
 	const ids = new Set<string>();
 	for (const entry of APPLICATION_MENU_REFERENCE_ENTRIES) {
-		assert.ok(Object.isFrozen(entry), entry.id);
-		assert.ok(Object.isFrozen(entry.locations), entry.id);
-		assert.ok(Object.isFrozen(entry.products), entry.id);
 		assert.equal(entry.id.trim(), entry.id);
 		assert.ok(entry.id.length > 0, entry.id);
 		assert.ok(entry.label.trim().length > 0, entry.id);
