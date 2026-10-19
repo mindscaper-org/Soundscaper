@@ -29,6 +29,9 @@ test('retained summary selection layers preserve pixels and read only fractional
 				const rendering = { mode: 'summary', pixelWidth: width, channels };
 				const clip = { id: 'clip', sourceId: 'source', start: 0, duration: width, audacityWaveform: rendering };
 				const canvases = [document.createElement('canvas'), document.createElement('canvas')];
+				// Repeated readback must not switch only the direct canvas to CPU rasterization:
+				// GPU and CPU alpha rounding differ on Windows, obscuring layer-copy equivalence.
+				for (const canvas of canvases) canvas.getContext('2d', { willReadFrequently: false });
 				const options = { displayMode: 'waveform', pixelsPerSecond: 1, style, bounds: { width, height: 80 },
 					showRms, halfWave, waveformRulerFormat, verticalZoom: 0, channelHeightRatio: 0.7 };
 				for (const [startTime, endTime] of [[0, width], [0, 0], [1.3, 87.4], [3, 19], [0.25, 0.5], [0, width], [119.25, width], [75, 75]]) {
