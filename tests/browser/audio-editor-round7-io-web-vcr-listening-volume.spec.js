@@ -6,7 +6,7 @@ import { installWebVcrHost } from './helpers/web-vcr-host.js';
 
 test.use({ browserCoverage: false });
 
-for (const mute of [false, true]) test(`Web VCR page-audio preview ${mute ? 'follows Playback volume' : 'retains its independent local mute'}`, async ({ page, browserName }) => {
+test('Web VCR page-audio preview follows Playback volume and retains its independent local mute', async ({ page, browserName }) => {
 	test.skip(browserName !== 'chromium', 'The packaged Web VCR capture adapter requires Chromium MediaStreamTrackProcessor support.');
 	await page.addInitScript(() => {
 		globalThis.__webVcrSpeakerOutputs = [];
@@ -49,15 +49,13 @@ for (const mute of [false, true]) test(`Web VCR page-audio preview ${mute ? 'fol
 	await localMute.uncheck();
 	await expect.poll(peak).toBeGreaterThan(.1);
 	const volume = editor.getByRole('slider', { name: 'Playback volume', exact: true });
-	if (mute) {
-		await volume.fill('0');
-		await expect(volume).toHaveAttribute('aria-valuetext', '−∞ dB');
-		await expect.poll(peak).toBeLessThan(.001);
-		await volume.fill('0.8');
-		await expect(volume).toHaveAttribute('aria-valuetext', '−12 dB');
-		await expect.poll(peak).toBeGreaterThan(.24);
-		await expect.poll(peak).toBeLessThan(.26);
-	}
+	await volume.fill('0');
+	await expect(volume).toHaveAttribute('aria-valuetext', '−∞ dB');
+	await expect.poll(peak).toBeLessThan(.001);
+	await volume.fill('0.8');
+	await expect(volume).toHaveAttribute('aria-valuetext', '−12 dB');
+	await expect.poll(peak).toBeGreaterThan(.24);
+	await expect.poll(peak).toBeLessThan(.26);
 	await volume.fill('1');
 	await expect.poll(peak).toBeGreaterThan(.1);
 	await localMute.check();
