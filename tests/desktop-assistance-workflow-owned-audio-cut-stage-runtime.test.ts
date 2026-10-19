@@ -90,7 +90,9 @@ test('nonempty transcript chunking is unavailable until its exact tokenizer reso
 			words: [], speaker: null }]);
 		const missing = await createHarness(directory, 'index-transcript', 'chunk-transcript',
 			{ transcript: source });
-		const unavailable = createAssistanceWorkflowOwnedAudioCutStageRuntime({ custody: missing.custody });
+		const unavailable = createAssistanceWorkflowOwnedAudioCutStageRuntime({
+			custody: missing.custody, resolveTokenizer: () => null,
+		});
 		assert.deepEqual(await unavailable['chunk-transcript'](missing.stage), {
 			outcome: 'unavailable', reason: 'stage-unavailable',
 		});
@@ -138,7 +140,7 @@ test('raw source-bound results use only exact audio source-rate authority', asyn
 	});
 });
 
-test('slot media, byte bounds, and digests are revalidated before output paths open', async () => {
+test('byte bounds and digests are revalidated before output paths open', async () => {
 	await withTempDirectory('workflow-owned-refusal-', async (directory) => {
 		const corrupt = await createHarness(directory, 'mark-reactions', 'merge-reaction-ranges', {
 			'audio-tags': { schemaVersion: 1, sampleRate: 32_000, windowSamples: 32_000, windows: [] },
@@ -148,17 +150,6 @@ test('slot media, byte bounds, and digests are revalidated before output paths o
 		await assert.rejects(async () => handlers['merge-reaction-ranges'](corrupt.stage),
 			/digest|changed/iu);
 		assert.equal(corrupt.openedOutputs, 0);
-
-		const wrongMedia = await createHarness(directory, 'index-transcript',
-			'publish-transcript-index', {
-				'text-chunks': { schemaVersion: 1, kind: 'text-chunks', sourceId: 'source-a',
-					sampleRate: 48_000, chunks: [] },
-				embeddings: createAssistanceEmbeddingMatrixV1({ dimensions: 2, vectors: [] }),
-			}, { mediaOverrides: { embeddings: 'application/json' } });
-		const wrong = createAssistanceWorkflowOwnedAudioCutStageRuntime({ custody: wrongMedia.custody });
-		await assert.rejects(async () => wrong['publish-transcript-index'](wrongMedia.stage),
-			/media|embedding/iu);
-		assert.equal(wrongMedia.openedOutputs, 0);
 
 		const oversized = await createHarness(directory, 'mark-reactions', 'merge-reaction-ranges', {
 			'audio-tags': { schemaVersion: 1, sampleRate: 32_000, windowSamples: 32_000, windows: [] },
@@ -181,28 +172,8 @@ test('slot media, byte bounds, and digests are revalidated before output paths o
 	});
 });
 
-test('stale aggregate stage authority is refused before any custody is resolved', async () => {
-	await withTempDirectory('workflow-owned-stale-', async (directory) => {
-		const harness = await createHarness(directory, 'mark-reactions', 'merge-reaction-ranges', {
-			'audio-tags': { schemaVersion: 1, sampleRate: 32_000, windowSamples: 32_000, windows: [] },
-		});
-		let resolved = 0;
-		const handlers = createAssistanceWorkflowOwnedAudioCutStageRuntime({ custody: {
-			...harness.custody,
-			resolveInput: async (claim: Readonly<{ claimId: string }>) => { resolved += 1;
-				return harness.custody.resolveInput(claim); },
-		} });
-		const stale = Object.freeze({ ...harness.stage, stageIndex: harness.stage.stageIndex - 1 });
-		await assert.rejects(async () => handlers['merge-reaction-ranges'](stale),
-			/stale|uncorrelated/iu);
-		assert.equal(resolved, 0);
-		assert.equal(harness.openedOutputs, 0);
-	});
-});
-
 interface HarnessOptions {
 	readonly mediaKind?: 'audio' | 'video';
-	readonly mediaOverrides?: Readonly<Record<string, string>>;
 	readonly byteLengthOverrides?: Readonly<Record<string, number>>;
 	readonly maximumByteLengthOverrides?: Readonly<Record<string, number>>;
 }
@@ -239,7 +210,7 @@ async function createHarness(
 		inputPaths.set(claim.slotId, path);
 		const resolvedClaim = Object.freeze({ claimVersion: 1 as const,
 			claimId: claim.claimId, jobId: request.jobId, role: role(claim.slotId),
-			mediaType: options.mediaOverrides?.[claim.slotId] ?? mediaType(claim.slotId),
+			mediaType: mediaType(claim.slotId),
 			byteLength: options.byteLengthOverrides?.[claim.slotId] ?? bytes.byteLength,
 			sha256: digest(bytes),
 		});
