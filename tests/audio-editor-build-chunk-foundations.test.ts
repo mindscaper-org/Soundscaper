@@ -72,6 +72,8 @@ test('workers give effect definitions and the complete canonical copy registry a
 		'src/common/i18n/canonical-extras-audacity-presets.js',
 		'src/common/i18n/canonical-extras-standard-effects.js',
 		'src/common/i18n/locale.js',
+		'src/common/i18n/editor-project-recovery-copy.ts',
+		'src/common/i18n/editor-recording-recovery-copy.ts',
 	]) {
 		assert.equal(group.test.test(path), true, path);
 		const windowsPath = path.replaceAll('/', '\\');
