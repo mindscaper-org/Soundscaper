@@ -246,6 +246,11 @@ test('a saved disabled desktop startup setting starts no scan or toast', async (
 async function installNativeServicesFixture(page, withPlugins = false, withNativeAudio = false, withPluginFolders = false, startupOptions = {}) {
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled }) => {
+		// The desktop grants microphone access automatically. This host-picker
+		// fixture never records; avoid waiting for a browser permission prompt.
+		if (includeNativeAudio) Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+			configurable: true, value: async () => new MediaStream(),
+		});
 		const runtimeCalls = [];
 		globalThis.__nativeHostOpenRequests = [];
 		let probeCount = 0;
