@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudacityLiveProcessor } from '../src/common/editor/audacity-effects/live.js';
 
+// These cases select non-reverb processors from the JavaScript factory union.
+type Processor = Exclude<ReturnType<typeof createAudacityLiveProcessor>, { readonly type: 'audacity-reverb' }>;
+
 const RATE = 48_000;
 const WARM_FRAMES = 13_333;
 const TYPE = 'audacity-click-removal';
@@ -13,7 +16,7 @@ function recording(frames: number, offset = 0): Float32Array {
 }
 
 test('a live Click Removal threshold edit retains its audible analysis clock', () => {
-	const processor = createAudacityLiveProcessor(TYPE, RATE);
+	const processor = createAudacityLiveProcessor(TYPE, RATE) as Processor;
 	const warm = new Float32Array(WARM_FRAMES);
 	processor.process([recording(WARM_FRAMES)], [warm]);
 	assert.ok(warm.subarray(-128).some(sample => Math.abs(sample) > .5));
@@ -25,8 +28,8 @@ test('a live Click Removal threshold edit retains its audible analysis clock', (
 
 for (const warmFrames of [8192, WARM_FRAMES]) {
 	test(`Click Removal retains processed overlap and exact queued PCM after ${warmFrames} input frames`, () => {
-		const changed = createAudacityLiveProcessor(TYPE, RATE);
-		const control = createAudacityLiveProcessor(TYPE, RATE);
+		const changed = createAudacityLiveProcessor(TYPE, RATE) as Processor;
+		const control = createAudacityLiveProcessor(TYPE, RATE) as Processor;
 		const input = recording(warmFrames).map(sample => sample * .05); input[5000] = 1;
 		for (const processor of [changed, control]) processor.process([input], [new Float32Array(warmFrames)]);
 		changed.updateParams({});
@@ -41,7 +44,7 @@ for (const warmFrames of [8192, WARM_FRAMES]) {
 
 for (const zero of [{ threshold: 0 }, { maximumWidth: 0 }]) {
 	test(`Click Removal retains immediate bypass and fresh geometry when ${JSON.stringify(zero)}`, () => {
-		const processor = createAudacityLiveProcessor(TYPE, RATE);
+		const processor = createAudacityLiveProcessor(TYPE, RATE) as Processor;
 		processor.process([recording(WARM_FRAMES)], [new Float32Array(WARM_FRAMES)]);
 		processor.updateParams(zero);
 		assert.equal(processor.latencyFrames, 0);
@@ -56,7 +59,7 @@ for (const zero of [{ threshold: 0 }, { maximumWidth: 0 }]) {
 }
 
 test('explicit Click Removal reset still discards the analysis window', () => {
-	const processor = createAudacityLiveProcessor(TYPE, RATE);
+	const processor = createAudacityLiveProcessor(TYPE, RATE) as Processor;
 	processor.process([recording(WARM_FRAMES)], [new Float32Array(WARM_FRAMES)]);
 	processor.reset();
 	const output = new Float32Array(128);

@@ -5,6 +5,9 @@ import test from 'node:test';
 
 import { createAudacityLiveProcessor } from '../src/common/editor/audacity-effects/live.js';
 
+// These cases select non-reverb processors from the JavaScript factory union.
+type Processor = Exclude<ReturnType<typeof createAudacityLiveProcessor>, { readonly type: 'audacity-reverb' }>;
+
 const RATE = 48_000;
 const WARM_FRAMES = 12_288;
 const TYPES = ['audacity-compressor', 'audacity-limiter'] as const;
@@ -20,7 +23,7 @@ function rms(samples: Float32Array): number {
 for (const type of TYPES) {
 	const neutral = { thresholdDb: 0, makeupGainDb: 0, makeupTargetDb: 0, kneeWidthDb: 0, ratio: 1, lookaheadMs: 40 };
 	test(`${type} keeps pending audible lookahead PCM across an ordinary release edit`, () => {
-		const processor = createAudacityLiveProcessor(type, RATE, neutral);
+		const processor = createAudacityLiveProcessor(type, RATE, neutral) as Processor;
 		const warm = new Float32Array(WARM_FRAMES);
 		processor.process([tone(WARM_FRAMES)], [warm]);
 		assert.ok(rms(warm.subarray(-128)) > .4);
@@ -33,8 +36,8 @@ for (const type of TYPES) {
 	});
 
 	test(`${type} preserves every queued Float32 word when publishing unchanged parameters`, () => {
-		const changed = createAudacityLiveProcessor(type, RATE, neutral);
-		const control = createAudacityLiveProcessor(type, RATE, neutral);
+		const changed = createAudacityLiveProcessor(type, RATE, neutral) as Processor;
+		const control = createAudacityLiveProcessor(type, RATE, neutral) as Processor;
 		for (const processor of [changed, control]) processor.process([tone(WARM_FRAMES)], [new Float32Array(WARM_FRAMES)]);
 		changed.updateParams({});
 		const actual = new Float32Array(1024); const expected = new Float32Array(1024);
@@ -46,8 +49,8 @@ for (const type of TYPES) {
 
 	test(`${type} retains gain reduction instead of restarting release at full volume`, () => {
 		const params = { thresholdDb: -12, makeupGainDb: 0, makeupTargetDb: -12, kneeWidthDb: 0, ratio: 4, lookaheadMs: 0, releaseMs: 100 };
-		const changed = createAudacityLiveProcessor(type, RATE, params);
-		const control = createAudacityLiveProcessor(type, RATE, params);
+		const changed = createAudacityLiveProcessor(type, RATE, params) as Processor;
+		const control = createAudacityLiveProcessor(type, RATE, params) as Processor;
 		for (const processor of [changed, control]) processor.process([new Float32Array(WARM_FRAMES).fill(.6)], [new Float32Array(WARM_FRAMES)]);
 		changed.updateParams({ releaseMs: 101 });
 		const actual = new Float32Array(128); const expected = new Float32Array(128);
@@ -58,7 +61,7 @@ for (const type of TYPES) {
 	});
 
 	test(`${type} resets delay geometry when lookahead changes or reset is explicit`, () => {
-		const processor = createAudacityLiveProcessor(type, RATE, neutral);
+		const processor = createAudacityLiveProcessor(type, RATE, neutral) as Processor;
 		processor.process([tone(WARM_FRAMES)], [new Float32Array(WARM_FRAMES)]);
 		processor.updateParams({ lookaheadMs: 50 });
 		const output = new Float32Array(128);
