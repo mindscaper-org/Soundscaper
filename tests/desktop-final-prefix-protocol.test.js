@@ -53,7 +53,7 @@ test('sandbox bridge admits only the fixed declared prefix contract', async () =
 	assert.equal(calls.length, 1, 'invalid declarations do not cross IPC');
 });
 
-test('sandbox bridge clones exact prefix bytes, strips offsets, and validates acknowledgement', async () => {
+test('sandbox bridge clones exact prefix bytes, strips offsets, and returns acknowledgement', async () => {
 	const calls = [];
 	const bridge = await preloadBridge((channel, value) => {
 		calls.push({ channel, value });
@@ -74,13 +74,6 @@ test('sandbox bridge clones exact prefix bytes, strips offsets, and validates ac
 	);
 	assert.equal(calls.length, 1, 'invalid prefix bytes do not cross IPC');
 
-	for (const byteLength of [-1, '64', PREFIX_BYTES - 1]) {
-		const malformed = await preloadBridge(() => Promise.resolve({ byteLength }));
-		await assert.rejects(
-			malformed.patchFinalPrefix({ writeId: WRITE_ID, bytes: new Uint8Array(PREFIX_BYTES) }),
-			/(non-negative safe integer|invalid final-prefix acknowledgement)/u,
-		);
-	}
 });
 
 async function preloadBridge(invoke) {

@@ -204,6 +204,7 @@ function fakeManager({ write }) {
 		targets,
 		openImpl: async () => ({
 			write,
+			async chmod() {},
 			async sync() {},
 			async close() { events.push('close'); },
 		}),
