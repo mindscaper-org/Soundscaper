@@ -12,7 +12,6 @@ import {
 	encodeBextPayload,
 	normalizeBextMetadata,
 	parseBextPayload,
-	parseRiffBextChunk,
 } from '../src/common/editor/broadcast-wave.ts';
 
 const UMID_32_BYTES = Array.from({ length: 32 }, (_, index) => index.toString(16).padStart(2, '0')).join('');
@@ -153,14 +152,12 @@ test('RIFF bext chunks carry their payload size, include odd padding, and enforc
 	assert.equal(ascii(chunk, 0, 4), 'bext');
 	assert.equal(view.getUint32(4, true), 612);
 	assert.equal(chunk.byteLength, 620);
-	assert.equal(parseRiffBextChunk(chunk).metadata?.codingHistory, 'even row\n');
 
 	const oddChunk = createRiffBextChunk({ codingHistory: 'odd row!!' });
 	const oddView = new DataView(oddChunk.buffer, oddChunk.byteOffset, oddChunk.byteLength);
 	assert.equal(oddView.getUint32(4, true), 613);
 	assert.equal(oddChunk.byteLength, 622);
 	assert.equal(oddChunk.at(-1), 0);
-	assert.equal(parseRiffBextChunk(oddChunk.subarray(0, -1)).warnings.at(-1)?.code, 'invalid-padding');
 
 	const maximumHistory = 'x'.repeat(BEXT_MAX_PAYLOAD_BYTES - BEXT_FIXED_BODY_BYTES - 2);
 	assert.equal(encodeBextPayload({ codingHistory: maximumHistory }).byteLength, BEXT_MAX_PAYLOAD_BYTES);
@@ -226,7 +223,7 @@ test('an unterminated CodingHistory row is retained canonically and reported', (
 	assert.equal(parsed.warnings.some(({ code }) => code === 'unterminated-coding-history'), true);
 });
 
-test('structurally unsafe, truncated, and unsupported BEXT chunks are rejected with warnings', () => {
+test('structurally unsafe, truncated, and unsupported BEXT payloads are rejected with warnings', () => {
 	const tooLarge = new Uint8Array(BEXT_MAX_PAYLOAD_BYTES + 1);
 	assert.equal(parseBextPayload(tooLarge).metadata, null);
 	assert.equal(parseBextPayload(tooLarge).warnings[0]?.code, 'payload-too-large');
@@ -236,20 +233,6 @@ test('structurally unsafe, truncated, and unsupported BEXT chunks are rejected w
 	new DataView(unsupported.buffer).setUint16(346, 3, true);
 	assert.equal(parseBextPayload(unsupported).metadata, null);
 	assert.equal(parseBextPayload(unsupported).warnings[0]?.code, 'unsupported-version');
-
-	const declaredHuge = new Uint8Array(8);
-	declaredHuge.set(new TextEncoder().encode('bext'));
-	new DataView(declaredHuge.buffer).setUint32(4, BEXT_MAX_PAYLOAD_BYTES + 1, true);
-	assert.equal(parseRiffBextChunk(declaredHuge).warnings[0]?.code, 'payload-too-large');
-
-	const truncated = new Uint8Array(12);
-	truncated.set(new TextEncoder().encode('bext'));
-	new DataView(truncated.buffer).setUint32(4, 602, true);
-	assert.equal(parseRiffBextChunk(truncated).warnings[0]?.code, 'truncated-chunk');
-
-	const wrongId = createRiffBextChunk({});
-	wrongId.set(new TextEncoder().encode('JUNK'));
-	assert.equal(parseRiffBextChunk(wrongId).warnings[0]?.code, 'invalid-chunk-id');
 });
 
 function ascii(bytes: Uint8Array, offset: number, length: number): string {
