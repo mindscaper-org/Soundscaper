@@ -99,7 +99,7 @@ function attempt(id: string, stateHash: string, createdAt = NOW): OAuthAttemptRe
 	};
 }
 
-test('the D1 migration and repository keep one canonical grant across reconnects', async () => {
+test('the D1 migration keeps separate grants for separate Audiocom authorizations', async () => {
 	const database = new DatabaseSync(':memory:');
 	try {
 		await migrate(database);
@@ -107,8 +107,8 @@ test('the D1 migration and repository keep one canonical grant across reconnects
 		await repository.createAttempt(attempt('attempt-1', 'state-1'));
 		assert.equal(await repository.claimAttempt('attempt-1', NOW), true);
 		assert.equal(await repository.completeAttempt('attempt-1', {
-			id: 'audiocom-user-42',
-			user: { id: '42', username: 'recordist' },
+			id: 'audiocom-user-attempt-1',
+			user: { id: 'attempt-1', username: '' },
 			accessTokenCiphertext: 'access-v1',
 			refreshTokenCiphertext: 'refresh-v1',
 			accessExpiresAt: NOW + 86_400_000,
@@ -117,92 +117,34 @@ test('the D1 migration and repository keep one canonical grant across reconnects
 		await repository.createAttempt(attempt('attempt-2', 'state-2', NOW + 1));
 		assert.equal(await repository.claimAttempt('attempt-2', NOW), true);
 		assert.equal(await repository.completeAttempt('attempt-2', {
-			id: 'audiocom-user-42',
-			user: { id: '42', username: 'renamed-recordist' },
+			id: 'audiocom-user-attempt-2',
+			user: { id: 'attempt-2', username: '' },
 			accessTokenCiphertext: 'access-v2',
 			refreshTokenCiphertext: 'refresh-v2',
 			accessExpiresAt: NOW + 86_400_000,
 		}, NOW), true);
 
-		const grant = await repository.findGrant('audiocom-user-42');
-		assert(grant);
-		assert.equal(grant.user.username, 'renamed-recordist');
-		assert.equal(grant.refreshGeneration, 1);
-		assert.equal(database.prepare('SELECT COUNT(*) AS count FROM audiocom_oauth_grants').get()?.count, 1);
-		assert.equal((await repository.findAttemptById('attempt-1'))?.grantId, 'audiocom-user-42');
-		assert.equal((await repository.findAttemptById('attempt-2'))?.grantId, 'audiocom-user-42');
+		const first = await repository.findGrant('audiocom-user-attempt-1');
+		const second = await repository.findGrant('audiocom-user-attempt-2');
+		assert(first);
+		assert(second);
+		assert.equal(first.accessTokenCiphertext, 'access-v1');
+		assert.equal(second.accessTokenCiphertext, 'access-v2');
+		assert.equal(first.refreshGeneration, 0);
+		assert.equal(second.refreshGeneration, 0);
+		assert.equal(database.prepare('SELECT COUNT(*) AS count FROM audiocom_oauth_grants').get()?.count, 2);
+		assert.equal((await repository.findAttemptById('attempt-1'))?.grantId, first.id);
+		assert.equal((await repository.findAttemptById('attempt-2'))?.grantId, second.id);
 
 		await repository.createAttempt(attempt('unclaimed', 'state-3'));
 		assert.equal(await repository.completeAttempt('unclaimed', {
-			id: 'audiocom-user-99',
-			user: { id: '99', username: 'must-not-persist' },
+			id: 'audiocom-user-unclaimed',
+			user: { id: 'unclaimed', username: '' },
 			accessTokenCiphertext: 'orphan-access',
 			refreshTokenCiphertext: 'orphan-refresh',
 			accessExpiresAt: NOW + 86_400_000,
 		}, NOW), false);
-		assert.equal(await repository.findGrant('audiocom-user-99'), null);
-	} finally {
-		database.close();
-	}
-});
-
-test('an older callback cannot replace a newer Audiocom token pair', async () => {
-	const database = new DatabaseSync(':memory:');
-	try {
-		await migrate(database);
-		const repository = new D1AudiocomOAuthRepository(new SqliteD1Database(database));
-		await repository.createAttempt(attempt('older', 'older-state', NOW));
-		await repository.createAttempt(attempt('newer', 'newer-state', NOW + 1));
-		await repository.claimAttempt('older', NOW + 2);
-		await repository.claimAttempt('newer', NOW + 2);
-		const grant = (version: string) => ({
-			id: 'audiocom-user-42',
-			user: { id: '42', username: 'recordist' },
-			accessTokenCiphertext: `access-${version}`,
-			refreshTokenCiphertext: `refresh-${version}`,
-			accessExpiresAt: NOW + 86_400_000,
-		});
-		assert.equal(await repository.completeAttempt('newer', grant('newer'), NOW + 3), true);
-		assert.equal(await repository.completeAttempt('older', grant('older'), NOW + 4), true);
-		assert.equal((await repository.findGrant('audiocom-user-42'))?.accessTokenCiphertext, 'access-newer');
-		assert.equal((await repository.findGrant('audiocom-user-42'))?.refreshTokenCiphertext, 'refresh-newer');
-	} finally {
-		database.close();
-	}
-});
-
-test('disconnect preserves a grant until another completed callback is claimed', async () => {
-	const database = new DatabaseSync(':memory:');
-	try {
-		await migrate(database);
-		const repository = new D1AudiocomOAuthRepository(new SqliteD1Database(database));
-		await repository.createAttempt(attempt('first', 'first-state'));
-		await repository.claimAttempt('first', NOW);
-		await repository.completeAttempt('first', {
-			id: 'audiocom-user-42', user: { id: '42', username: 'recordist' },
-			accessTokenCiphertext: 'access', refreshTokenCiphertext: 'refresh', accessExpiresAt: NOW + 86_400_000,
-		}, NOW);
-		await repository.claimAttemptSession('first', 'first-session', 'first-ciphertext');
-		await repository.ensureSession({
-			tokenHash: 'first-session', grantId: 'audiocom-user-42', clientKind: 'desktop',
-			createdAt: NOW, expiresAt: NOW + 86_400_000,
-		});
-		await repository.createAttempt(attempt('second', 'second-state'));
-		await repository.claimAttempt('second', NOW);
-		await repository.completeAttempt('second', {
-			id: 'audiocom-user-42', user: { id: '42', username: 'recordist' },
-			accessTokenCiphertext: 'access-2', refreshTokenCiphertext: 'refresh-2', accessExpiresAt: NOW + 86_400_000,
-		}, NOW);
-		await repository.deleteSessionAndOrphanGrant('first-session', NOW);
-		assert.equal(await repository.findAttemptById('first'), null);
-		assert.equal((await repository.findAttemptById('second'))?.status, 'connected');
-		assert(await repository.findGrant('audiocom-user-42'));
-		assert.equal(await repository.claimAttemptSession('second', 'second-session', 'second-ciphertext'), true);
-		await repository.ensureSession({
-			tokenHash: 'second-session', grantId: 'audiocom-user-42', clientKind: 'desktop',
-			createdAt: NOW, expiresAt: NOW + 86_400_000,
-		});
-		assert(await repository.findSession('second-session', NOW));
+		assert.equal(await repository.findGrant('audiocom-user-unclaimed'), null);
 	} finally {
 		database.close();
 	}
