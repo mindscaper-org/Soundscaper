@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import postcss from 'postcss';
 
 import layerAudacityDesignSystemCss, {
-	getLayeredDesignSystemFileCount,
 	getLayeredDesignSystemFiles,
 	isDesignSystemCssFile,
 	resetLayeredDesignSystemFileCount,
@@ -41,7 +40,7 @@ test('the layer transform leaves non-package CSS untouched', async () => {
 	assert.equal(result.css, input);
 });
 
-test('the layered-file counter tracks only design-system stylesheets', async () => {
+test('the layered-file inventory tracks only design-system stylesheets', async () => {
 	resetLayeredDesignSystemFileCount();
 	const plugin = layerAudacityDesignSystemCss();
 	await postcss([plugin]).process('.a { color: red; }', { from: PACKAGE_CSS });
@@ -52,7 +51,6 @@ test('the layered-file counter tracks only design-system stylesheets', async () 
 		from: '/workspace/src/styles/global.css',
 	});
 
-	assert.equal(getLayeredDesignSystemFileCount(), 2);
 	assert.deepEqual(getLayeredDesignSystemFiles(), [
 		'/workspace/vendor/audacity-design-system/components/src/Dropdown/Dropdown.css',
 		'/workspace/vendor/audacity-design-system/tokens/src/anything.css',
@@ -61,6 +59,5 @@ test('the layered-file counter tracks only design-system stylesheets', async () 
 	assert.equal(isDesignSystemCssFile(PACKAGE_CSS.replace(/\.css$/u, '.tsx')), false);
 	assert.equal(isDesignSystemCssFile('/workspace/src/styles/global.css'), false);
 	resetLayeredDesignSystemFileCount();
-	assert.equal(getLayeredDesignSystemFileCount(), 0);
 	assert.deepEqual(getLayeredDesignSystemFiles(), []);
 });
