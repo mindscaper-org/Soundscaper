@@ -31,7 +31,8 @@ import {
 	createNativePluginStateCaptureProvider,
 	registerNativePluginStateQuiescence,
 } from '../native-plugin-state-quiescence.ts';
-import { adaptNativeAudioInventory, type NativeAudioInventory } from '../controller/recording/native-audio-inventory.ts';
+import type { NativeAudioInventory } from '../controller/recording/native-audio-inventory.ts';
+import { createSoundscaperNativeRendererAudioInventory } from './soundscaper-native-renderer-audio-inventory.ts';
 import { soundscaperNativeAudioCaptureHasActiveLease } from '../soundscaper-native-audio-capture.ts';
 import { createSoundscaperNativeRendererOperationBarrier } from './soundscaper-native-renderer-operation-barrier.ts';
 import {
@@ -63,9 +64,10 @@ export function createSoundscaperNativeRendererBridge(options: Readonly<{
 	engine: EnginePublicApi;
 	controller?: NativeAudioControllerPort | null;
 	windowValue?: Pick<Window, 'addEventListener' | 'removeEventListener'> | null;
+	publishAudioInventories?: boolean;
+	onAudioDeviceLoss?: (sessionId: string, reason: string) => void;
 }>) {
 	const audioReportTails = new Map<string, Promise<void>>();
-	const nativeInventories = new Map<string, NativeAudioInventory>();
 	const enqueueAudioReport = (sessionId: string, operation: () => Promise<unknown>): Promise<void> => {
 		const pending = (audioReportTails.get(sessionId) ?? Promise.resolve())
 			.then(operation, operation).then(() => undefined, () => undefined);
@@ -83,8 +85,11 @@ export function createSoundscaperNativeRendererBridge(options: Readonly<{
 				sessionId, ...value,
 			}));
 		},
-		onDeviceLoss: (sessionId, reason) => enqueueAudioReport(sessionId,
-			() => options.bridge.reportNativeAudioSessionLoss({ sessionId, reason })),
+		onDeviceLoss: (sessionId, reason) => {
+			if (options.onAudioDeviceLoss) options.engine.pause();
+			options.onAudioDeviceLoss?.(sessionId, reason);
+			return enqueueAudioReport(sessionId, () => options.bridge.reportNativeAudioSessionLoss({ sessionId, reason }));
+		},
 	});
 	const project = options.controller
 		? createSoundscaperNativePluginProjectBinding(options.controller, options.engine)
@@ -171,22 +176,12 @@ export function createSoundscaperNativeRendererBridge(options: Readonly<{
 	}));
 	const bridge = Object.freeze({
 		...options.bridge,
-		async describeNativeAudioBackend(request: Readonly<{ backend: string }>) {
-			const outcome = await options.bridge.describeNativeAudioBackend(request);
-			if (outcome.status === 'described') {
-				const nativeInventory = adaptNativeAudioInventory(outcome.inventory);
-				nativeInventories.set(nativeInventory.backend, nativeInventory);
-			} else nativeInventories.delete(request.backend);
-			await publishNativeInventories();
-			return outcome;
-		},
-		async setNativeAudioHelperEnabled(enabled: boolean) {
-			try { return await options.bridge.setNativeAudioHelperEnabled(enabled); }
-			finally { if (!enabled) {
-				nativeInventories.clear();
-				await Promise.all([closeOwnedAudioSessions(), publishNativeInventories()]);
-			} }
-		},
+		...createSoundscaperNativeRendererAudioInventory({
+			bridge: options.bridge, closeSessions: closeOwnedAudioSessions,
+			publish: options.publishAudioInventories === false ? undefined : (nativeInventory) => (
+				options.controller?.actions.audioDevices?.refresh({ probe: false, nativeInventory }) ?? Promise.resolve()
+			),
+		}),
 		openNativeAudioSession: ownershipOperations.wrap(async (request: NativeAudioSessionOpenRequestV1) => {
 			assertRuntimeOpen();
 			const outcome = await options.bridge.openNativeAudioSession(request);
@@ -212,6 +207,12 @@ export function createSoundscaperNativeRendererBridge(options: Readonly<{
 		}),
 		async nativeAudioSessionStatus(request: Readonly<{ sessionId: string }>) {
 			return withRendererCalibrationAvailability(await options.bridge.nativeAudioSessionStatus(request));
+		},
+		async bindNativeAudioSession(request: Readonly<{ sessionId: string; queueCapacity: number }>) {
+			audio.expectPort(request.sessionId);
+			const outcome = await options.bridge.bindNativeAudioSession(request);
+			await audio.waitForPort(request.sessionId);
+			return outcome;
 		},
 		async calibrateNativeAudioSession(request: Readonly<{ sessionId: string }>) {
 			assertCalibrationIdle();
@@ -396,21 +397,6 @@ export function createSoundscaperNativeRendererBridge(options: Readonly<{
 		generations.delete(instanceId);
 		activeStateKeys.delete(instanceId);
 		return true;
-	}
-
-	async function publishNativeInventories(): Promise<void> {
-		if (!options.controller?.actions.audioDevices?.refresh) return;
-		const inventories = [...nativeInventories.values()]
-			.sort((left, right) => left.backend < right.backend ? -1 : left.backend > right.backend ? 1 : 0);
-		await options.controller.actions.audioDevices.refresh({
-			probe: false,
-			nativeInventory: Object.freeze({
-				backend: 'native', status: 'ready', detail: '',
-				inputs: Object.freeze(inventories.flatMap((inventory) => inventory.inputs)),
-				outputs: Object.freeze(inventories.flatMap((inventory) => inventory.outputs)),
-				rejected: Object.freeze(inventories.flatMap((inventory) => inventory.rejected)),
-			}),
-		});
 	}
 
 	async function disposeRenderer(): Promise<void> {

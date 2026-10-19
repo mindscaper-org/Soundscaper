@@ -61,7 +61,7 @@ test('telemetry snapshots normalize playback defaults and isolate meter maps', (
 
 test('audio-device snapshots distinguish availability, support, and active output', () => {
 	const snapshot = createAudioDeviceSnapshot({
-		preferredInputDeviceId: 'display',
+		audioHost: 'browser', preferredRecordingSampleRate: 48_000, preferredInputDeviceId: 'display',
 		preferredInputChannelCount: 2,
 		preferredOutputDeviceId: 'speaker-1',
 		activeOutputDeviceId: '',
@@ -85,7 +85,7 @@ test('audio-device snapshots distinguish availability, support, and active outpu
 
 test('audio-device snapshots copy arrays exposed by an owner compatibility view', () => {
 	const owner = {
-		preferredInputDeviceId: 'default', preferredInputChannelCount: 1,
+		audioHost: 'browser', preferredRecordingSampleRate: 48_000, preferredInputDeviceId: 'default', preferredInputChannelCount: 1,
 		preferredOutputDeviceId: '', activeOutputDeviceId: '', audioInputAccess: false,
 		audioInputDevices: [{ deviceId: 'microphone-1' }],
 		audioOutputDevices: [{ deviceId: 'speaker-1' }],

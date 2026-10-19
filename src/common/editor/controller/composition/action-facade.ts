@@ -60,7 +60,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	selection, sessionTab,
 	setAllTracksView, setAudacityControlTrack, setAudacityEffectParamsFromController,
 	setAudioOutputDevice, setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
-	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount,
+	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory,
 	setPreferredInputDevice, setSampleEditMode, setSelectionToLoopRegion,
 	effectPreviewState, effectSelectionService, setTimelineView, setTimelineViewportWidth,
 	setTrackChannelHeightRatio, setTrackDisplayMode,
@@ -239,6 +239,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			refresh: (options: Parameters<typeof refreshAudioDevices>[0] = { probe: true }) => refreshAudioDevices(options),
 			setPreferredInput: setPreferredInputDevice,
 			setPreferredInputChannelCount,
+			setRecordingSampleRate,
+			setHostInventory,
 			configureDisplayInput,
 			setOutput: async (...args: Parameters<typeof setAudioOutputDevice>) => {
 				const deviceId = await setAudioOutputDevice(...args);

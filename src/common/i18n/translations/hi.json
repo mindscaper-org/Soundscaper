@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "hi",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:5e1261f6825a8dc2553a6fd9f04e7f86d9ef74fc6b5e3a15ad1be3ebda6265c4","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:b934a8e665a4c3e555cefe60caee57955e73b0814b11584a96aa3e9814cf884c","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","माइक्रोफ़ोन सक्षम करें"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","कोई भिन्न डिस्प्ले स्रोत चुनें"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","डिस्प्ले स्रोत चुनें"],
+		"audioDeviceHost": ["machine","Host","ऑडियो होस्ट"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","डिवाइस के नाम दिखाने के लिए माइक्रोफ़ोन सक्षम करें।"],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","ब्राउज़र ने उस ऑडियो आउटपुट तक पहुंच अस्वीकार कर दी।"],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","पसंदीदा आउटपुट उपलब्ध नहीं है। सिस्टम डिफ़ॉल्ट का उपयोग किया जा रहा है।"],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","यह ब्राउज़र ऑडियो आउटपुट चुनने का समर्थन नहीं करता।"],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","पसंदीदा, वर्तमान में अनुपलब्ध"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","रिकॉर्डिंग चैनल"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","यह मेल खाने वाले सक्रिय ट्रैक और नए ट्रैक के लिए उपयोग होता है। अन्य प्रति-ट्रैक रूटिंग अपरिवर्तित रहती है।"],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","अपनी अगली रिकॉर्डिंग के लिए चैनलों की संख्या चुनें।"],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","रिकॉर्डिंग सैंपल दर"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","चुने गए ऑडियो होस्ट से नई रिकॉर्डिंग के लिए सैंपल दर चुनें।"],
 		"audioDeviceRefresh": ["machine","Refresh devices","डिवाइस ताज़ा करें"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","सिस्टम डिफ़ॉल्ट"],
 		"audioDevices": ["machine","Audio setup","ऑडियो सेटअप"],
 		"audioEditorLink": ["machine","Audio editor","ऑडियो एडिटर"],

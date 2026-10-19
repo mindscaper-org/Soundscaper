@@ -111,7 +111,8 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		persistSetting: dependencies.persistSetting,
 		productSettingKey: dependencies.productSettingKey,
 		getProject: document.get,
-		projectSampleRate: dependencies.projectSampleRate,
+		projectSampleRate: () => state.audioHost === 'browser' || state.audioHost === 'electron'
+			? dependencies.projectSampleRate() : state.preferredRecordingSampleRate,
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		recordingCapturePool: capturePool,
 		recordingRouteSourceKey,
@@ -156,6 +157,8 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		getProject: requireProject,
 		findTrack: (project, trackId) => findTrack(project, trackId) || null,
 		projectSampleRate: projectSampleRateOf,
+		recordingInputSampleRate: () => state.audioHost === 'browser' || state.audioHost === 'electron'
+			? dependencies.projectSampleRate() : state.preferredRecordingSampleRate,
 		activeSelection: activeSelectionOf,
 		beginPlaybackCachePreparation: dependencies.beginPlaybackCachePreparation,
 		currentTimeMs: dependencies.currentTimeMs,
@@ -317,6 +320,10 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		stopProjectBinPreview: dependencies.stopProjectBinPreview,
 		cancelTimedRecording: () => timed.cancelTimedRecording(),
 		beginRecording: async (options, scope) => {
+			if (state.audioHost !== 'browser' && state.audioHost !== 'electron'
+				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
+				throw new Error('The selected native audio input is unavailable.');
+			}
 			await ordinaryRecovery.begin();
 			scope.assertCurrent();
 			const route = options.trackId ? state.recordingRouting.routes[options.trackId] : null;
@@ -364,6 +371,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		getProject: requireProject,
 		findTrack: (project, trackId) => findTrack(project, trackId) || null,
 		projectSampleRate: projectSampleRateOf,
+		recordingInputSampleRate: captureRuntime.recordingInputSampleRate,
 		getPreferredInputChannelCount: () => state.preferredInputChannelCount,
 		getRecordingRoutes: () => state.recordingRouting.routes,
 		setRecordingRouteHealth: (trackId, health) => { state.recordingRouteHealth[trackId] = health; },
@@ -444,7 +452,8 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		},
 		cancelTimedRecording: timed.cancelTimedRecording,
 		getTrack: (trackId) => findTrack(document.get(), trackId) || null,
-		projectSampleRate: dependencies.projectSampleRate,
+		projectSampleRate: () => state.audioHost === 'browser' || state.audioHost === 'electron'
+			? dependencies.projectSampleRate() : state.preferredRecordingSampleRate,
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		recordingRouteSourceKey,
 		setRecordingTrackRoute,

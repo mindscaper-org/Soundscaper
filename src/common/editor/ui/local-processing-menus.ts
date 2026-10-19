@@ -2,11 +2,12 @@
 import { LOCAL_ASSISTANCE_MENU_ICON, mergeAssistanceTaskMenus, type AssistanceDialogRequest, type AssistanceMenuEntry } from './assistance-task-catalog.ts';
 
 export interface NativePreferenceEntry extends AssistanceMenuEntry {
-	readonly section: 'audio' | 'media' | 'effects';
+	readonly section: 'audio' | 'media' | 'effects' | 'advanced';
 }
 export function organizeNativePreferences(menus: readonly AssistanceMenuEntry[]): AssistanceMenuEntry[] {
 	const preferences: NativePreferenceEntry[] = [];
 	const sectionFor = (id: string): NativePreferenceEntry['section'] | null => {
+		if (id === 'parallel-stack-processing') return 'advanced';
 		if (id === 'native-audio' || id.includes('audio-helper')) return 'audio';
 		if (id === 'framescaper-native-media-preferences' || id.includes('probe-helper')) return 'media';
 		if (id === 'desktop-discover-native-effects') return 'effects';

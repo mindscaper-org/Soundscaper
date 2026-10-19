@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
 import WorkspacePreferencesDialog from '../src/common/editor/ui/dialogs/WorkspacePreferencesDialog.jsx';
 import RecordingInputSelectors from '../src/common/editor/ui/RecordingInputSelectors.jsx';
-import { AudioDevicesFlyout } from '../src/common/editor/ui/toolbar/AudioEditorMeterControls.jsx';
+import { AudioDevicesFlyout } from '../src/common/editor/ui/toolbar/AudioDevicesFlyout.jsx';
 import { EditorActionBar } from '../src/common/editor/ui/toolbar/AudioEditorTransportControls.jsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';

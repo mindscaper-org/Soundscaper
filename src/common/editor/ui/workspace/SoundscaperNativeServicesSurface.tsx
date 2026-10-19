@@ -32,6 +32,7 @@ import type {
 	SoundscaperNativeServicesSnapshot,
 } from '../soundscaper-native-services-menu.ts';
 import { createSoundscaperNativeRendererBridge } from '../soundscaper-native-renderer-bridge.ts';
+import { createSoundscaperAudioHostRuntime, isSoundscaperAudioHostController, type SoundscaperAudioHostRuntime } from '../soundscaper-audio-host-runtime.ts';
 import {
 	createSoundscaperNativeServicesDialogRuntime,
 	type SoundscaperNativeServicesDialogRuntime,
@@ -118,12 +119,18 @@ export function createSoundscaperNativeServicesSurfaceHost(
 	let processingBlocked = false;
 	let vampAnalyzerInput: Readonly<SoundscaperVampAnalyzerSurfaceInput> | null = null;
 	let openSurface: SoundscaperNativeServiceSurface | null = null;
+	let audioHost: SoundscaperAudioHostRuntime | null = null;
 	const renderer = options.engine
 		? (options.createRendererBridge ?? createSoundscaperNativeRendererBridge)({
 			bridge: options.bridge, engine: options.engine, controller: options.controller,
+			publishAudioInventories: !isSoundscaperAudioHostController(options.controller),
+			onAudioDeviceLoss: (sessionId, reason) => audioHost?.reportDeviceLoss(sessionId, reason),
 		})
 		: null;
 	const bridge = renderer?.bridge ?? options.bridge;
+	audioHost = options.engine && isSoundscaperAudioHostController(options.controller)
+		? createSoundscaperAudioHostRuntime({ controller: options.controller, bridge, engine: options.engine }) : null;
+	void audioHost?.refresh();
 	const dialogRuntime = createSoundscaperNativeServicesDialogRuntime(bridge);
 	let restoredProject: unknown = Symbol('unrestored');
 	let restoredStateKey = '';
@@ -212,6 +219,7 @@ export function createSoundscaperNativeServicesSurfaceHost(
 				container = null;
 				restoration = null;
 				restorationResult = null;
+				await audioHost?.dispose();
 				await renderer?.dispose();
 			})();
 			disposal = operation;

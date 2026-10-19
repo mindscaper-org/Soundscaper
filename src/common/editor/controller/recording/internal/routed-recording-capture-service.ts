@@ -141,7 +141,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				else {
 					promise = runtime.capturePool.acquireHardware(firstRoute.deviceId, {
 						channelCount: requiredChannels,
-						sampleRate,
+						sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
 					});
 				}
 				return { sourceKey, routes, promise };

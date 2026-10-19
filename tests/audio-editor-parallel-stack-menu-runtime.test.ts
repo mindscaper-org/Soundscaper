@@ -28,13 +28,13 @@ test('parallel processing menu guards the live transport after a stopped menu wa
 	const original = readParallelStackPreferences();
 	try {
 		playing = true;
-		assert.equal(materializeApplicationMenu(menu).items?.[0]?.items?.[0]?.disabled, true);
+		assert.equal(materializeApplicationMenu(menu).items?.[0]?.disabled, true);
 		assert.throws(() => runtime.change({ enabled: true }), /Stop playback and recording/);
 		playing = false;
 		recording = true;
 		assert.throws(() => runtime.change({ workerLimit: 8 }), /Stop playback and recording/);
 		recording = false;
-		assert.equal(materializeApplicationMenu(menu).items?.[0]?.items?.[0]?.disabled, false);
+		assert.equal(materializeApplicationMenu(menu).items?.[0]?.disabled, false);
 		runtime.change({ enabled: true });
 		runtime.change({ workerLimit: 2 });
 		assert.equal(readParallelStackPreferences().enabled, true);
@@ -67,7 +67,7 @@ test('settings cannot change while Play is preparing and the engine still report
 	const before = readParallelStackPreferences();
 	const menu = appendParallelStackProcessingMenu([], runtime, runtime.change)[0]!;
 	pendingPlayRequest = 1;
-	assert.equal(materializeApplicationMenu(menu).items?.[0]?.items?.[0]?.disabled, true);
+	assert.equal(materializeApplicationMenu(menu).items?.[0]?.disabled, true);
 	assert.throws(() => runtime.change({ enabled: !before.enabled }), /Stop playback and recording/);
 	assert.deepEqual(readParallelStackPreferences(), before);
 });
@@ -103,7 +103,7 @@ test('settings cannot change while an asynchronous recording start is pending', 
 	const before = readParallelStackPreferences();
 	const menu = appendParallelStackProcessingMenu([], runtime, runtime.change)[0]!;
 	recordingStarting = true;
-	assert.equal(materializeApplicationMenu(menu).items?.[0]?.items?.[0]?.disabled, true);
+	assert.equal(materializeApplicationMenu(menu).items?.[0]?.disabled, true);
 	assert.throws(() => runtime.change({ enabled: !before.enabled }), /Stop playback and recording/);
 	assert.deepEqual(readParallelStackPreferences(), before);
 });

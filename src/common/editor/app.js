@@ -245,7 +245,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		getAudioContext: () => engine.getAudioContext({ resume: true }),
 		createLoudnessMeterNode: createEbuR128MeterNode,
 		streamAudioChannelCount,
-		projectSampleRate: () => projectSampleRate(),
+		projectSampleRate: () => state.audioHost === 'browser' || state.audioHost === 'electron' ? projectSampleRate() : state.preferredRecordingSampleRate,
 		persistSetting,
 		publishDocumentSnapshot,
 		publishTelemetrySnapshot,
@@ -382,7 +382,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	});
 	const projectBootstrapService = createProjectBootstrapComposition({
 		state, effectsState: effectsStatePorts.bootstrap, recordingState: recordingAccess, transportState: transportAccess, lifetime, store, engine, mediaDevices, productSettingKey,
-		automaticAudioDeviceEnumeration: capabilities.audioRecording === true, effectMacroDefaults: product.id === 'soundscaper', persistEffectMacroLibrary: (key, value) => persistSetting(key, value, { policy: 'required' }),
+		automaticAudioDeviceEnumeration: capabilities.audioRecording === true, desktopAudio: fileService.isDesktop, requestInputAccess: bindings.requestInputAccess, effectMacroDefaults: product.id === 'soundscaper', persistEffectMacroLibrary: (key, value) => persistSetting(key, value, { policy: 'required' }),
 		loadPreferences: bindings.loadPreferences,
 		createEffectPresets: createAudioEditorEffectPresets,
 		refreshAudioDevices: bindings.refreshAudioDevices,

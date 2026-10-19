@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "vi",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:5ec60eca09a21d17787c5d979332dccb2341e32241998de002aa771e4ad6c50b","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:89f3302dd883ed6423e85bd48a76e4df7bfa4c71531b0643a28e98e38a75ddee","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","Bật micro"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","Chọn nguồn hiển thị khác"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","Chọn nguồn hiển thị"],
+		"audioDeviceHost": ["machine","Host","Hệ thống âm thanh"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","Bật micro để hiển thị tên thiết bị."],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","Trình duyệt đã từ chối quyền truy cập vào thiết bị xuất audio đó."],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","Thiết bị xuất ưu tiên không khả dụng. Đang sử dụng thiết bị mặc định của hệ thống."],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","Trình duyệt này không hỗ trợ chọn thiết bị xuất audio."],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","Ưu tiên, hiện không khả dụng"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","Kênh ghi âm"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","Được dùng cho track đang hoạt động tương ứng và cho các track mới. Định tuyến riêng của các track khác vẫn giữ nguyên."],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","Chọn số kênh cho lần ghi âm tiếp theo."],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","Tần số lấy mẫu ghi âm"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","Chọn tần số lấy mẫu cho các bản ghi mới với hệ thống âm thanh đã chọn."],
 		"audioDeviceRefresh": ["machine","Refresh devices","Làm mới thiết bị"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","Mặc định hệ thống"],
 		"audioDevices": ["machine","Audio setup","Thiết lập audio"],
 		"audioEditorLink": ["machine","Audio editor","Trình chỉnh sửa audio"],

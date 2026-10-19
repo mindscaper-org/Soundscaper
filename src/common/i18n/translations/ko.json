@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ko",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:ecb5958cb7ffd110a5a6627c80002d3f037a8804f3d2394ea9aef9af58bf73f1","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:98d1aaa08887d793a40f58496fb388d5072f00bb1e2ee104b7a6a5002f438c37","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","마이크 사용 허용"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","다른 디스플레이 소스 선택"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","디스플레이 소스 선택"],
+		"audioDeviceHost": ["machine","Host","오디오 호스트"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","장치 이름을 표시하려면 마이크를 사용하도록 설정하세요."],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","브라우저가 해당 오디오 출력 접근을 거부했습니다."],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","선호하는 출력이 사용 불가능합니다. 시스템 기본값을 사용합니다."],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","이 브라우저는 오디오 출력 장치를 선택할 수 없습니다."],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","선호, 현재 사용 불가"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","녹음 채널"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","활성화된 해당 트랙과 새로운 트랙에 사용됩니다. 다른 트랙별 라우팅은 변경되지 않습니다."],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","다음 녹음에 사용할 채널 수를 선택합니다."],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","녹음 샘플레이트"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","선택한 오디오 호스트로 새로 녹음할 때 사용할 샘플레이트를 선택합니다."],
 		"audioDeviceRefresh": ["machine","Refresh devices","장치 새로 고침"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","시스템 기본값"],
 		"audioDevices": ["machine","Audio setup","오디오 설정"],
 		"audioEditorLink": ["machine","Audio editor","오디오 편집기"],

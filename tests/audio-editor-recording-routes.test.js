@@ -252,17 +252,11 @@ test('selecting stereo upgrades the active default input and stores two recordin
 	try {
 		await controller.ready;
 		const trackId = controller.getSnapshot().project.tracks[0].id;
-		await controller.actions.recording.setTrackInput(trackId, {
-			kind: 'device',
-			deviceId: 'default',
-			channelStart: 0,
-			channelCount: 1,
-		});
 		await controller.actions.audioDevices.setPreferredInputChannelCount(2);
 		assert.equal(controller.getSnapshot().recordingInputs.routes[trackId].channelCount, 2);
-		assert.equal(pool.hardwareRequests.at(-1).channelCount, 2);
 
 		await controller.actions.recording.start({ trackId });
+		assert.equal(pool.hardwareRequests.at(-1).channelCount, 2);
 		const left = new Float32Array(480).fill(0.25);
 		const right = new Float32Array(480).fill(-0.5);
 		await createdControllers[0].onChunk({ channels: [left, right] });
@@ -353,6 +347,8 @@ test('audio device preferences persist, preserve explicit routes, and recover fr
 		assert.equal(controller.getSnapshot().audioDevices.preferredOutputDeviceId, 'speaker-2');
 		assert.equal(controller.getSnapshot().audioDevices.outputStatus, 'active');
 		assert.deepEqual(await store.loadSetting('audio-device-preferences-v1'), {
+			host: 'browser',
+			recordingSampleRate: 48_000,
 			inputDeviceId: 'mic-2',
 			inputChannelCount: 2,
 			outputDeviceId: 'speaker-2',

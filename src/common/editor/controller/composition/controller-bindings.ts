@@ -77,7 +77,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { listProjects, clearRecentProjects, renameProject, duplicateProject, garbageCollectSources } = deferAsyncControllerMethods(() => services.projectAdminService(), ['listProjects', 'clearRecentProjects', 'renameProject', 'duplicateProject', 'garbageCollectSources']);
 	const { disjoinSelectedClip } = deferAsyncControllerMethods(() => services.edits().clipboard, ['disjoinSelectedClip']);
 	const { generateSelectionSilence, generateSignal, repeatLastGenerator } = deferAsyncControllerMethods(() => services.edits(), ['generateSelectionSilence', 'generateSignal', 'repeatLastGenerator']);
-	const { requestInputAccess, setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setAudioOutputDevice, setRecordingSourceLatency, setRetainInputs } = deferAsyncControllerMethods(() => services.recording().routing, ['requestInputAccess', 'setPreferredInputDevice', 'configureDisplayInput', 'setPreferredInputChannelCount', 'setAudioOutputDevice', 'setRecordingSourceLatency', 'setRetainInputs']);
+	const { requestInputAccess, setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory, setAudioOutputDevice, setRecordingSourceLatency, setRetainInputs } = deferAsyncControllerMethods(() => services.recording().routing, ['requestInputAccess', 'setPreferredInputDevice', 'configureDisplayInput', 'setPreferredInputChannelCount', 'setRecordingSampleRate', 'setHostInventory', 'setAudioOutputDevice', 'setRecordingSourceLatency', 'setRetainInputs']);
 	const { setRecordingTrackInput } = deferAsyncControllerMethods(() => services.recording().inputs, ['setRecordingTrackInput']);
 	const { setMicrophoneMetering } = deferAsyncControllerMethods(() => services.microphoneMeterService(), ['setMicrophoneMetering']);
 	const { apply: applyProjectToPlaybackEngine } = deferAsyncControllerMethods(() => services.sources().playbackApply, ['apply']);
@@ -148,7 +148,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		loadProjectSources, listProjects, clearRecentProjects, renameProject,
 		duplicateProject, garbageCollectSources, disjoinSelectedClip,
 		generateSelectionSilence, generateSignal, repeatLastGenerator, requestInputAccess,
-		setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setAudioOutputDevice,
+		setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory, setAudioOutputDevice,
 		setRecordingSourceLatency, setRetainInputs, setRecordingTrackInput, setMicrophoneMetering,
 		applyProjectToPlaybackEngine, stopRecording, getSnapshot, getTelemetrySnapshot,
 		getClipVisualData, revokeVideoVisuals, revokeVideoVisual,

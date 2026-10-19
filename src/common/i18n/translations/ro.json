@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ro",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:3cf84c7b8245856246b931fd55356687f9b91889a075953c1ad445703f4de185","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:2666f4f64f528ded5bf395a589464c4996f63a4482f751dfd5fded6a2c61de93","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","Activați microfoanele"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","Alegeți o sursă de afișare diferită"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","Alegeți sursa de afișare"],
+		"audioDeviceHost": ["machine","Host","Gazdă audio"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","Activați microfoanele pentru a afișa numele dispozitivelor."],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","Browser-ul a refuzat accesul la acea ieșire audio."],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","Ieșirea preferată nu este disponibilă. Se folosește implicit sistemul."],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","Acest browser nu suportă alegerea unui dispozitiv de ieșire audio."],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","Preferat, momentan indisponibil"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","Canale de înregistrare"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","Este utilizat pentru pista activă corespunzătoare și pentru pistele noi. Alte rutări specifice fiecărei piste rămân neschimbate."],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","Alegeți numărul de canale pentru următoarea înregistrare."],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","Rata de eșantionare a înregistrării"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","Alegeți rata de eșantionare pentru înregistrările noi cu gazda audio selectată."],
 		"audioDeviceRefresh": ["machine","Refresh devices","Actualizează dispozitivele"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","Setare implicită a sistemului"],
 		"audioDevices": ["machine","Audio setup","Configurare audio"],
 		"audioEditorLink": ["machine","Audio editor","Editor audio"],

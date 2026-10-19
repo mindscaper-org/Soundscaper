@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "fa",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:cfccec1d1e4a45d87bea4e5704e631e81cc50e1f0385f219195d512ba46881f8","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:e1dc95374808b2c071b5398041a9465c979efe7560944fe0562b9545ce028454","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","فعال کردن میکروفون‌ها"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","انتخاب یک منبع نمایش دیگر"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","انتخاب منبع نمایش"],
+		"audioDeviceHost": ["machine","Host","میزبان صدا"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","برای نمایش نام دستگاه‌ها، میکروفون‌ها را فعال کنید."],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","مرورگر دسترسی به آن خروجی صدا را رد کرد."],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","خروجی ترجیحی در دسترس نیست. از پیش‌فرض سیستم استفاده می‌شود."],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","این مرورگر امکان انتخاب خروجی صدا را پشتیبانی نمی‌کند."],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","ترجیحی، در حال حاضر در دسترس نیست"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","کانال‌های ضبط"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","برای ترک فعال منطبق و ترک‌های جدید استفاده می‌شود. مسیریابی دیگر ترک‌ها بدون تغییر باقی می‌ماند."],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","تعداد کانال‌ها را برای ضبط بعدی خود انتخاب کنید."],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","نرخ نمونه‌برداری ضبط"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","نرخ نمونه‌برداری را برای ضبط‌های جدید با میزبان صدای انتخاب‌شده تعیین کنید."],
 		"audioDeviceRefresh": ["machine","Refresh devices","به‌روزرسانی دستگاه‌ها"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","پیش‌فرض سیستم"],
 		"audioDevices": ["machine","Audio setup","تنظیمات صدا"],
 		"audioEditorLink": ["machine","Audio editor","ویرایشگر صدا"],

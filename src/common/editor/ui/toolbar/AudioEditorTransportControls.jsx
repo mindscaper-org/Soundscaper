@@ -16,7 +16,7 @@ import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { formatOptionsLabel } from '../localization-template.ts';
 import { formatPlaybackSpeed } from '../meter-settings.ts';
 export { default as RecordFlyout } from './RecordFlyout.jsx';
-import { AudioDevicesFlyout } from './AudioEditorMeterControls.jsx';
+import { AudioDevicesFlyout } from './AudioDevicesFlyout.jsx';
 import EditorTaskProgressBar from './EditorTaskProgressBar.tsx';
 import WorkspaceSwitcherControl from './WorkspaceSwitcherControl.jsx';
 import TransportAuditionMenu from './TransportAuditionMenu.tsx';
@@ -223,7 +223,8 @@ function ActionBarAudioDevicesButton({ copy, snapshot, controller, run, displayA
 			close();
 			return;
 		}
-		if (!framescaper && !snapshot.audioDevices?.inputAccess
+		if (!framescaper && ['browser', 'electron'].includes(snapshot.audioDevices?.host ?? 'browser')
+			&& !snapshot.audioDevices?.inputAccess
 			&& typeof controller.actions.recording.requestInputAccess === 'function') {
 			run(() => controller.actions.recording.requestInputAccess());
 		}

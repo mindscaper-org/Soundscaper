@@ -1,23 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/**
- * Every milestone-5A native surface, reached through an existing menu family
- * and opened lazily.
- *
- * Nothing here adds always-visible chrome: no toolbar control, no panel, no
- * side rail, no badge. Framescaper receives none of it, because a native audio
- * device and effect tier is not part of that product.
- *
- * Two entries stay reachable even while the native tier is switched off or
- * unavailable — the preferences pane and the effect manage surface. They are
- * how a user turns the tier on and how they clear a quarantine, so gating them
- * on the capability they exist to change would be a trap the user cannot escape
- * from inside the application. Everything else is disabled with the capability
- * it needs, and every disabled entry says WHY rather than simply going grey:
- * "no native effect format is enabled yet" is a different problem from
- * "the helper is quarantined", and the user can only act on the difference if
- * we tell them which one it is.
- */
+/** Menu entry points for native effects and analyzers. Audio hosts live in Audio settings. */
 
 import {
 	resolveSoundscaperNativeServicesCopy,
@@ -25,8 +8,6 @@ import {
 } from './soundscaper-native-services-copy.ts';
 
 export const SOUNDSCAPER_NATIVE_SERVICE_SURFACES = Object.freeze([
-	'native-audio-device',
-	'native-audio-preferences',
 	'native-effect-manage',
 	'native-effect-use',
 	'native-analyzer-use',
@@ -35,9 +16,9 @@ export const SOUNDSCAPER_NATIVE_SERVICE_SURFACES = Object.freeze([
 export type SoundscaperNativeServiceSurface =
 	(typeof SOUNDSCAPER_NATIVE_SERVICE_SURFACES)[number];
 
-/** Surfaces that must stay reachable so the user can enable or repair the tier. */
+/** Plugin management stays reachable so the user can enable or repair effects. */
 export const SOUNDSCAPER_ALWAYS_REACHABLE_SURFACES: readonly SoundscaperNativeServiceSurface[] =
-	Object.freeze(['native-audio-preferences', 'native-effect-manage']);
+	Object.freeze(['native-effect-manage']);
 
 export interface SoundscaperNativeServicesMenuItem {
 	readonly id: string;
@@ -105,25 +86,8 @@ export function createSoundscaperNativeServicesMenuItems(
 	if (input.productId !== 'soundscaper' || !input.runtimeAvailable || input.snapshot === null) return EMPTY;
 	const copy = resolveSoundscaperNativeServicesCopy(input.copy);
 	const snapshot = input.snapshot;
-	const audioReason = audioUnavailableReason(copy, snapshot);
 	const pluginReason = pluginUnavailableReason(copy, snapshot);
 
-	const audioDevice = entry({
-		id: 'native-audio-device',
-		label: copy.audioDeviceSettings,
-		// A tier that is on and healthy but has no usable backend is a different
-		// problem again, and naming it is the only way a user can tell that
-		// enabling the tier is not what is missing.
-		disabledReason: audioReason
-			?? (snapshot.usableAudioBackends.length === 0 ? copy.audioBackendUnavailable : null),
-		open: actions.open,
-	});
-	const audioPreferences = entry({
-		id: 'native-audio-preferences',
-		label: copy.nativeAudioPreferences,
-		disabledReason: null,
-		open: actions.open,
-	});
 	const use = entry({
 		id: 'native-effect-use', label: copy.audioPluginEffects,
 		disabledReason: pluginReason
@@ -152,24 +116,12 @@ export function createSoundscaperNativeServicesMenuItems(
 	});
 
 	return Object.freeze({
-		tools: Object.freeze([
-			group('native-audio', copy.audioDevices, [audioDevice, audioPreferences]),
-		]),
+		tools: Object.freeze([]),
 		effect: Object.freeze([
 			manage, use,
 		]),
 		analyze: Object.freeze([analyzer]),
 	});
-}
-
-function audioUnavailableReason(
-	copy: SoundscaperNativeServicesCopy,
-	snapshot: SoundscaperNativeServicesSnapshot,
-): string | null {
-	if (snapshot.quarantined) return copy.audioHelperQuarantined;
-	if (!snapshot.payloadAvailable) return snapshot.payloadDetail || copy.audioBackendUnavailable;
-	if (!snapshot.enabled) return copy.nativeAudioDisabled;
-	return null;
 }
 
 function pluginUnavailableReason(
@@ -195,21 +147,5 @@ function entry({ id, label, disabledReason, open }: Readonly<{
 		disabled,
 		disabledReason: disabled ? disabledReason : '',
 		...(disabled ? {} : { onClick: () => open(id) }),
-	});
-}
-
-function group(
-	id: string,
-	label: string,
-	items: readonly SoundscaperNativeServicesMenuItem[],
-): SoundscaperNativeServicesMenuItem {
-	return Object.freeze({
-		id,
-		label,
-		// A group whose every child is disabled is itself disabled, so the user
-		// is not invited into a submenu with nothing actionable in it.
-		disabled: items.every((item) => item.disabled),
-		disabledReason: '',
-		items: Object.freeze([...items]),
 	});
 }

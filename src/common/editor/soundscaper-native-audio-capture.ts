@@ -88,9 +88,19 @@ export function soundscaperNativeAudioCaptureSource(
 	context: BaseAudioContext,
 ): AudioNode | null {
 	const current = leases.get(stream);
-	return current && current.active && !current.revoked && current.context === context
-		? current.node
-		: null;
+	if (!current) return null;
+	if (!current.active || current.revoked) {
+		throw new Error('The native audio input is no longer connected. Refresh audio devices and try again.');
+	}
+	if (current.context !== context) {
+		throw new Error('The native audio input belongs to a different audio context. Wait for the audio host to finish changing and try again.');
+	}
+	if (current.context.state === 'closed') throw new Error('The native audio input context has closed. Refresh audio devices and try again.');
+	const tracks = stream.getAudioTracks?.() ?? [];
+	if (tracks.length > 0 && tracks.every((track) => track.readyState === 'ended')) {
+		throw new Error('The native audio input lease has ended. Refresh audio devices and try again.');
+	}
+	return current.node;
 }
 
 export function soundscaperNativeAudioCaptureChannelCount(stream: MediaStream): number | null {
@@ -105,7 +115,6 @@ export function soundscaperNativeAudioCaptureHasActiveLease(): boolean {
 		const tracks = stream.getTracks?.() ?? [];
 		if (tracks.length > 0 && tracks.every((track) => track.readyState === 'ended')) {
 			current.leases.delete(stream);
-			leases.delete(stream);
 		}
 	}
 	return current.leases.size > 0;

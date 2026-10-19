@@ -160,14 +160,14 @@ ARA in addition to VST3; Adobe's documented
 [plug-in workflow](https://helpx.adobe.com/audition/desktop/applying-effects/adding-third-party-plug-ins.html)
 describes ordinary effects hosting.
 
-In Web and Desktop, **Edit → Preferences → Audio settings → Processing** offers
+In Web and Desktop, **Edit → Preferences → Advanced → Processing** offers
 optional parallel effect stacks with worker and buffering controls. The setting
 defaults off and requires a supported, cross-origin-isolated environment. It
 adds pipeline latency and admits only supported built-in effects and mixer
 graphs; projects with timeline automation, authored warp maps, or ADM routing
 use conventional playback instead.
 
-Both editions offer **Edit → Preferences → General → Optimize for**. Web
+Both editions offer **Edit → Preferences → Advanced → Optimize for**. Web
 defaults to **Memory**; Desktop defaults to **Speed**. Speed favors faster audio
 chunk storage at the cost of more storage space. Desktop also loads editor
 tools ahead of time in Speed mode. Restart the desktop editor or reload the

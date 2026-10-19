@@ -69,7 +69,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			}
 			if (!options.reusePreparedInputsOnly || !stream) stream = await runtime.capturePool.acquireHardware(runtime.defaultDeviceId, {
 				channelCount: 2,
-				sampleRate,
+				sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
 			});
 			scope.assertCurrent();
 			runtime.syncRecordingPoolSnapshot();

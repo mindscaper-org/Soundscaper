@@ -77,6 +77,8 @@ export interface ControllerRecordingState<Routing = ControllerRecordingRouting> 
 	audioInputDevices: readonly ControllerAudioDevice[];
 	audioOutputDevices: readonly ControllerAudioDevice[];
 	audioInputAccess: boolean;
+	audioHost: string;
+	preferredRecordingSampleRate: number;
 	preferredInputDeviceId: string;
 	preferredInputChannelCount: number;
 	preferredOutputDeviceId: string;
@@ -145,6 +147,8 @@ export function createControllerRecordingState<Routing = ControllerRecordingRout
 		audioInputDevices: [],
 		audioOutputDevices: [],
 		audioInputAccess: false,
+		audioHost: 'browser',
+		preferredRecordingSampleRate: 48_000,
 		preferredInputDeviceId,
 		preferredInputChannelCount: 1,
 		preferredOutputDeviceId: '',

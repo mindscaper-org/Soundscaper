@@ -124,8 +124,9 @@ test('every runnable application-menu leaf has one truthful handbook reference',
 				// but remain menu-derived actions rendered by NativePreferencesPanel.
 				for (const preference of materialized.nativePreferences ?? []) {
 					const sectionLabel = preference.section === 'audio' ? 'Audio settings'
-						: preference.section === 'media' ? 'Media' : 'Effects';
-					for (const control of preference.items ?? [preference]) {
+						: preference.section === 'media' ? 'Media' : preference.section === 'advanced' ? 'Advanced' : 'Effects';
+					const controls = preference.id === 'parallel-stack-processing' ? [preference] : preference.items ?? [preference];
+					for (const control of controls) {
 						collectRunnableLeaves(control, ['Edit', 'Preferences', sectionLabel], product,
 							sightings, manifestAliases, unresolved, invalidManifestRows);
 					}

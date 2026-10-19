@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "zh-CN",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:cf9678a8b768dba7996c2b629ec3e5afe5e269cc54221b8e7c551604c85ac68c","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:2c128ca29d94b4ec33be950a9f4327783f7ad922afd364123b2edda7bb8c1ab7","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","启用麦克风"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","选择其他显示源"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","选择显示源"],
+		"audioDeviceHost": ["machine","Host","音频主机"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","启用麦克风以显示设备名称。"],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","浏览器拒绝访问该音频输出设备。"],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","首选输出设备不可用，将使用系统默认设备。"],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","此浏览器不支持选择音频输出设备。"],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","首选，当前不可用"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","录音声道"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","用于匹配的活动音轨和新建音轨。其他按音轨的路由设置保持不变。"],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","选择下一次录音的声道数。"],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","录音采样率"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","选择使用所选音频主机进行新录音时的采样率。"],
 		"audioDeviceRefresh": ["machine","Refresh devices","刷新设备"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","系统默认"],
 		"audioDevices": ["machine","Audio setup","音频设置"],
 		"audioEditorLink": ["machine","Audio editor","音频编辑器"],

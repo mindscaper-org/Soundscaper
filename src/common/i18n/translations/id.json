@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "id",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:c0b73fd5c0ef27aa5ce22c753ee2d425fe1112fc01cd20903c288978f022bd81","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:846173a6680479486b2a6d8d99b058a58fe75d99d9963089cf7095b32c7052f2","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","Aktifkan mikrofon"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","Pilih sumber tampilan lain"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","Pilih sumber tampilan"],
+		"audioDeviceHost": ["machine","Host","Host audio"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","Aktifkan mikrofon untuk menampilkan nama perangkat."],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","Peramban menolak akses ke keluaran audio tersebut."],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","Keluaran pilihan tidak tersedia. Menggunakan default sistem."],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","Peramban ini tidak mendukung pemilihan keluaran audio."],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","Pilihan, saat ini tidak tersedia"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","Kanal perekaman"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","Digunakan untuk trek aktif yang cocok dan untuk trek baru. Perutean per-trek lainnya tetap tidak berubah."],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","Pilih jumlah kanal untuk rekaman berikutnya."],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","Laju sampel perekaman"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","Pilih laju sampel untuk rekaman baru dengan host audio yang dipilih."],
 		"audioDeviceRefresh": ["machine","Refresh devices","Segarkan perangkat"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","Default sistem"],
 		"audioDevices": ["machine","Audio setup","Pengaturan audio"],
 		"audioEditorLink": ["machine","Audio editor","Editor audio"],

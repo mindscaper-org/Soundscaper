@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ja",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:da87cfe696d545b5a1595e0e0c7826e662a2ba5e8f6fdf64aed8918cba01314f","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:2b188e1e0a6642637b011c9da0b9bef125e37364bdb0b73a2d3012c91ed7bd12","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","マイクを有効にする"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","別のディスプレイソースを選択する"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","ディスプレイソースを選択する"],
+		"audioDeviceHost": ["machine","Host","オーディオホスト"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","デバイス名を表示するには、マイクを有効にしてください。"],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","ブラウザがそのオーディオ出力へのアクセスを拒否しました。"],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","優先出力が利用できません。システムデフォルトを使用します。"],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","このブラウザはオーディオ出力の選択をサポートしていません。"],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","優先、現在利用不可"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","録音チャンネル"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","アクティブな対応するトラックと新しいトラックに使用されます。他のトラックごとのルーティングは変更されません。"],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","次の録音に使用するチャンネル数を選択します。"],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","録音サンプルレート"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","選択したオーディオホストで新しく録音する際のサンプルレートを選択します。"],
 		"audioDeviceRefresh": ["machine","Refresh devices","デバイスを更新"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","システムデフォルト"],
 		"audioDevices": ["machine","Audio setup","オーディオ設定"],
 		"audioEditorLink": ["machine","Audio editor","オーディオエディタ"],

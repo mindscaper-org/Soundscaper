@@ -189,6 +189,8 @@ export interface EditorActionFunctions {
 	readonly setMicrophoneMetering: ReturnType<typeof createMicrophoneMeterService>['setMicrophoneMetering'];
 	readonly setMonitoring: ReturnType<typeof createRecordingComposition>['setMonitoring'];
 	readonly setPlayAtSpeedRate: ReturnType<typeof createTransportComposition>['transport']['setPlayAtSpeedRate'];
+	readonly setRecordingSampleRate: ReturnType<typeof createRecordingComposition>['routing']['setRecordingSampleRate'];
+	readonly setHostInventory: ReturnType<typeof createRecordingComposition>['routing']['setHostInventory'];
 	readonly setPreferredInputChannelCount: ReturnType<typeof createRecordingComposition>['routing']['setPreferredInputChannelCount'];
 	readonly setPreferredInputDevice: ReturnType<typeof createRecordingComposition>['routing']['setPreferredInputDevice'];
 	readonly setRecordingInputGain: ReturnType<typeof createRecordingComposition>['setRecordingInputGain'];

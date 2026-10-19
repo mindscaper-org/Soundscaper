@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
-import { openNativePreferences } from './helpers/assistance-task-menu.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
@@ -9,95 +8,71 @@ import {
 	chooseNestedCommandAction,
 	getMenuItem,
 	openNestedCommandMenu,
+	waitForEditor,
 } from './audio-editor-test-helpers.js';
 
-test('native audio preference tabs preserve modified navigation without changing the visible page', async ({ page }) => {
-	await installNativeServicesFixture(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await openNativePreferences(page, editor, 'Audio settings', 'Native audio and latency');
-	const dialog = page.getByRole('dialog', { name: 'Audio devices', exact: true });
-	const nativeAudio = dialog.getByRole('tab', { name: 'Native audio', exact: true });
-	await expect(nativeAudio).toBeFocused();
-	await nativeAudio.press('Control+Home');
-	await expect(nativeAudio).toHaveAttribute('aria-selected', 'true');
-	await expect(nativeAudio).toBeFocused();
-	await nativeAudio.press('Home');
-	await expect(dialog.getByRole('tab', { name: 'Devices', exact: true })).toBeFocused();
-	await expect(dialog.getByRole('tab', { name: 'Devices', exact: true })).toHaveAttribute('aria-selected', 'true');
-});
-
-test('native audio Channels retains an unfinished replacement before accepting a valid channel count', async ({ page }) => {
+test('Audio settings and Audio setup share host selection without native-helper dialogs', async ({ page }) => {
 	await installNativeServicesFixture(page, false, true);
 	const editor = await bootEditor(page, '/embed/en/');
-	await openNativePreferences(page, editor, 'Audio settings', 'Native audio and latency');
-	const dialog = page.getByRole('dialog', { name: 'Audio devices', exact: true });
-	await dialog.getByRole('tab', { name: 'Devices', exact: true }).click();
-	await dialog.locator('[data-native-audio-describe="alsa"]').click();
-	const channels = dialog.getByRole('spinbutton', { name: 'Channels', exact: true });
-	await expect(channels).toHaveValue('2');
-	await channels.focus();
-	await channels.press('ControlOrMeta+A');
-	await channels.press('Backspace');
-	await expect(channels).toHaveValue('');
-	await channels.pressSequentially('5');
-	await channels.press('Tab');
-	await expect(channels).toHaveValue('5');
-});
-
-test('selected Soundscaper exposes the default-off native tier only through menus', async ({ page }) => {
-	await installNativeServicesFixture(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeProbeCount)).toBeGreaterThan(0);
-	await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-
-	await expect(page.locator('[data-soundscaper-native-services-dialog="true"]')).toHaveCount(0);
-	await expect(page.getByText('Native audio and effects', { exact: true })).toHaveCount(0);
-	await openNativePreferences(page, editor, 'Audio settings', 'Native audio and latency');
-
-	const dialog = page.getByRole('dialog', { name: 'Audio devices', exact: true });
-	await expect(dialog).toBeVisible();
-	const nativeAudio = dialog.getByRole('tab', { name: 'Native audio', exact: true });
-	await expect(nativeAudio).toBeFocused();
-	await expect(nativeAudio).toHaveAttribute('aria-selected', 'true');
-	await expect(dialog.getByText('Native audio is off.', { exact: true })).toBeVisible();
-	await expect(dialog.getByText('Fixture professional payload is unavailable', { exact: true })).toBeVisible();
-
-	await expect(dialog.getByRole('tab', { name: 'Scanning & Settings', exact: true })).toHaveCount(0);
-	await nativeAudio.press('ArrowRight');
-	await expect(dialog.getByRole('tab', { name: 'Devices', exact: true })).toBeFocused();
-	await page.keyboard.press('Escape');
-	await expect(dialog).toHaveCount(0);
-
-	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls)).toEqual([]);
-	await expect(page.locator('[data-soundscaper-native-services-dialog="true"]')).toHaveCount(0);
-});
-
-test('described native audio devices survive an ordinary Audio setup refresh', async ({ page }) => {
-	await installNativeServicesFixture(page, false, true);
-	const editor = await bootEditor(page, '/embed/en/');
-	await openNativePreferences(page, editor, 'Audio settings', 'Native audio and latency');
-	const nativeDialog = page.getByRole('dialog', { name: 'Audio devices', exact: true });
-	await nativeDialog.getByRole('tab', { name: 'Devices', exact: true }).click();
-	await nativeDialog.locator('[data-native-audio-describe="alsa"]').click();
-	await expect(nativeDialog.getByText('Studio interface', { exact: true })).toBeVisible();
-	await nativeDialog.getByRole('button', { name: 'Close', exact: true })
-		.filter({ hasText: /^Close$/u }).click();
-
-	await editor.locator('[data-action-bar]')
-		.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Audio settings$/u }).click();
+	const host = preferences.getByRole('combobox', { name: 'Host', exact: true });
+	await expect(host).toHaveValue('electron');
+	await expect(host).toContainText('Electron');
+	await expect(host).toContainText('ALSA');
+	await expect(host).toContainText('WASAPI');
+	await expect(preferences.getByRole('button', { name: 'Enable microphones', exact: true })).toHaveCount(0);
+	await expect(preferences.getByRole('button', { name: 'Native audio device', exact: true })).toHaveCount(0);
+	await expect(preferences.getByRole('button', { name: 'Native audio and latency', exact: true })).toHaveCount(0);
+	await expect(preferences.getByRole('checkbox', { name: 'Use Native Audio Helper', exact: true })).toHaveCount(0);
+	await host.selectOption('alsa');
+	await expect(preferences.getByRole('combobox', { name: 'Microphone', exact: true })).toContainText('Studio interface');
+	await expect(preferences.getByRole('combobox', { name: 'Speakers', exact: true })).toContainText('Studio interface');
+	const sampleRate = preferences.getByRole('combobox', { name: 'Recording sample rate', exact: true });
+	await sampleRate.selectOption('96000');
+	await expect(sampleRate).toHaveValue('96000');
+	await expect.poll(() => page.evaluate(() => globalThis.__nativeHostOpenRequests.some((request) => request.sampleRate === 96000))).toBe(true);
+	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	await editor.locator('[data-action-bar]').getByRole('button', { name: 'Audio setup', exact: true }).click();
 	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await expect(setup.getByRole('combobox', { name: 'Host', exact: true })).toHaveValue('alsa');
+	await expect(setup.getByRole('combobox', { name: 'Recording sample rate', exact: true })).toHaveValue('96000');
+	await expect(setup.getByRole('radiogroup', { name: 'Recording channels', exact: true })).toBeVisible();
+	await expect(setup).toContainText('Choose the number of channels for your next recording.');
+	await page.reload();
+	const reloaded = await waitForEditor(page);
+	await reloaded.locator('[data-action-bar]').getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const restored = reloaded.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await expect(restored.getByRole('combobox', { name: 'Host', exact: true })).toHaveValue('alsa');
+	await expect(restored.getByRole('combobox', { name: 'Recording sample rate', exact: true })).toHaveValue('96000');
+	await expect(restored.getByRole('combobox', { name: 'Microphone', exact: true })).toContainText('Studio interface');
+});
+
+test('switching audio hosts replaces devices and refresh preserves the chosen inventory', async ({ page }) => {
+	await installNativeServicesFixture(page, false, true);
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.locator('[data-action-bar]').getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	const host = setup.getByRole('combobox', { name: 'Host', exact: true });
 	const microphone = setup.getByRole('combobox', { name: 'Microphone', exact: true });
 	const speakers = setup.getByRole('combobox', { name: 'Speakers', exact: true });
+	await host.selectOption('alsa');
 	await expect(microphone).toContainText('Studio interface');
-	await expect(speakers).toContainText('Studio interface');
-
+	await host.selectOption('wasapi');
+	await expect(microphone).toContainText('Windows interface');
+	await expect(microphone).not.toContainText('Studio interface');
+	await expect(speakers).toContainText('Windows interface');
 	await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
-	await expect(microphone).toContainText('Studio interface');
-	await expect(speakers).toContainText('Studio interface');
-	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls))
-		.toContain('describeNativeAudioBackend:alsa');
+	await expect(microphone).toContainText('Windows interface');
+	await expect(setup.getByRole('alert')).toContainText('Fixture audio device is unavailable');
+	await host.selectOption('electron');
+	await expect(microphone).not.toContainText('Windows interface');
+	await expect(speakers).not.toContainText('Windows interface');
+	await expect(setup.getByRole('button', { name: 'Enable microphones', exact: true })).toHaveCount(0);
+	await expect(setup.getByRole('combobox', { name: 'Recording sample rate', exact: true })).toHaveCount(0);
+	await expect(page.locator('[data-soundscaper-native-services-dialog="true"]')).toHaveCount(0);
 });
-
 
 test('Plugin Manager stays available with processing off and supports keyboard and narrow themes', async ({ page }) => {
 	await installNativeServicesFixture(page);
@@ -272,6 +247,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled }) => {
 		const runtimeCalls = [];
+		globalThis.__nativeHostOpenRequests = [];
 		let probeCount = 0;
 		const unavailablePayload = Object.freeze({
 			status: 'unavailable', reason: 'not-built', detail: 'Fixture professional payload is unavailable',
@@ -280,7 +256,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			enabled: includeNativeAudio, quarantined: false,
 			payload: includeNativeAudio
 				? Object.freeze({ status: 'available', reason: null, detail: '' }) : unavailablePayload,
-			backends: Object.freeze(includeNativeAudio ? ['alsa'] : []),
+			backends: Object.freeze(includeNativeAudio ? ['alsa', 'wasapi'] : []),
 		});
 		const quarantine = Object.freeze({
 			loaded: true, degraded: false, records: Object.freeze([]), pendingFaults: 0,
@@ -352,7 +328,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 					inventory: Object.freeze({
 						backend, status: 'ready', detail: '',
 						devices: Object.freeze([Object.freeze({
-							handle: 'studio-interface', label: 'Studio interface',
+							handle: 'studio-interface', label: backend === 'wasapi' ? 'Windows interface' : 'Studio interface',
 							direction: 'duplex', channelCount: 8, isDefault: false,
 						})]),
 					}),
@@ -386,7 +362,10 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			},
 			listNativePlugins: async () => registry,
 			nativePluginScanProgress: async () => ({ enabled: plugins.enabled, scanProgress: plugins.scanProgress }),
-			openNativeAudioSession: () => refused('openNativeAudioSession'),
+			openNativeAudioSession: async (request) => {
+				globalThis.__nativeHostOpenRequests.push(request);
+				return { status: 'refused', message: 'Fixture audio device is unavailable' };
+			},
 			bindNativeAudioSession: () => refused('bindNativeAudioSession'),
 			nativeAudioSessionStatus: () => refused('nativeAudioSessionStatus'),
 			calibrateNativeAudioSession: () => refused('calibrateNativeAudioSession'),

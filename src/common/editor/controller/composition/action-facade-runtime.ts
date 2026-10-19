@@ -185,6 +185,8 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'setMonitoring',
 	'setPlayAtSpeedRate',
 	'setPreferredInputChannelCount',
+	'setRecordingSampleRate',
+	'setHostInventory',
 	'setPreferredInputDevice',
 	'setRecordingInputGain',
 	'setRecordingSourceLatency',

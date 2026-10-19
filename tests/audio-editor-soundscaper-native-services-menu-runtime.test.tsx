@@ -288,7 +288,6 @@ test('both desktop products gain the shared host controls without mounting the S
 		assert.deepEqual(flatten([...menus, ...menus.flatMap((menu) => menu.nativePreferences ?? [])]).filter(({ id }) => id?.startsWith('desktop-')).map(({ id }) => id).sort(), [
 			'desktop-use-native-probe-helper',
 			'desktop-clear-probe-helper-quarantine',
-			'desktop-use-native-audio-helper',
 			'desktop-clear-audio-helper-quarantine',
 			'desktop-discover-native-effects',
 			'desktop-product-help',

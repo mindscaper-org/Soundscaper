@@ -40,6 +40,7 @@ export interface ProjectBootstrapState<Preferences> {
 export type ProjectBootstrapRecordingState = Pick<ControllerRecordingState,
 	| 'latencyOffsetMs' | 'leadInRecording' | 'microphoneMetering' | 'monitoring'
 	| 'preferredInputChannelCount' | 'preferredInputDeviceId' | 'preferredOutputDeviceId'
+	| 'audioHost' | 'preferredRecordingSampleRate'
 	| 'recordingInputGain'
 >;
 
@@ -95,6 +96,8 @@ export interface ProjectBootstrapServiceRuntime<
 	}> | null;
 	readonly mediaDevices?: ProjectBootstrapMediaDevices | null;
 	readonly automaticAudioDeviceEnumeration?: boolean;
+	readonly desktopAudio?: boolean;
+	readonly requestInputAccess?: () => PromiseLike<unknown> | unknown;
 	readonly effectMacroDefaults?: boolean;
 	readonly persistEffectMacroLibrary?: (key: string, value: EffectMacroLibraryState) => Promise<unknown>;
 	readonly productSettingKey: (key: string) => string;
@@ -105,6 +108,8 @@ export interface ProjectBootstrapServiceRuntime<
 	readonly normalizeRecordingInputGain: (value: unknown) => number;
 	readonly normalizeLatencyOffset: (value: unknown) => number;
 	readonly normalizeAudioDevicePreferences: (value: unknown) => Readonly<{
+		host?: string;
+		recordingSampleRate?: number;
 		inputDeviceId: string;
 		inputChannelCount: number;
 		outputDeviceId: string;
@@ -295,6 +300,9 @@ export function createProjectBootstrapService<
 			runtime.productSettingKey(runtime.audioDevicePreferencesSettingKey),
 			null,
 		)));
+		runtime.recordingState.audioHost = runtime.desktopAudio && (!savedAudioDevices.host || savedAudioDevices.host === 'browser')
+			? 'electron' : savedAudioDevices.host ?? 'browser';
+		runtime.recordingState.preferredRecordingSampleRate = savedAudioDevices.recordingSampleRate ?? 48_000;
 		runtime.recordingState.preferredInputDeviceId = savedAudioDevices.inputDeviceId;
 		runtime.recordingState.preferredInputChannelCount = savedAudioDevices.inputChannelCount;
 		runtime.recordingState.preferredOutputDeviceId = savedAudioDevices.outputDeviceId;
@@ -303,7 +311,10 @@ export function createProjectBootstrapService<
 			registerDeviceChangeListener();
 			// Device discovery describes optional hardware; opening a project must
 			// not wait for the browser's device service to answer.
-			void guard(Promise.resolve()).then(() => runtime.refreshAudioDevices({ probe: false }))
+			void guard(Promise.resolve()).then(async () => {
+				await runtime.refreshAudioDevices({ probe: false });
+				if (runtime.desktopAudio && runtime.recordingState.audioHost === 'electron') await runtime.requestInputAccess?.();
+			})
 				.catch((error: unknown) => {
 					if (!runtime.isDisposedError(error) && !runtime.isDisposed()) runtime.handleError(error);
 				});

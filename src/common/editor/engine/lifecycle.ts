@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createRealtimeContext, prepareRealtimeSampleRate, realtimeSampleRate } from './realtime-sample-rate.ts';
+export { createRealtimeContext } from './realtime-sample-rate.ts';
 import { ChunkStreamClient } from '../chunk-stream-client.js';
 import { createChunkStreamAudioNode } from '../chunk-stream-worklet-node.js';
 import { createAudioWarpRenderPathStatus } from '../audio-warp-runtime.ts';
@@ -235,16 +237,6 @@ function getOfflineAudioContextConstructor(): EngineOfflineContextFactory | null
 		|| browser.window?.OfflineAudioContext || browser.window?.webkitOfflineAudioContext || null;
 }
 
-export function createRealtimeContext(factory: EngineRealtimeContextFactory, sampleRate?: number): EngineAudioContext {
-	const Constructor = factory as new(options?: AudioContextOptions) => EngineAudioContext;
-	const create = factory as (options?: AudioContextOptions) => EngineAudioContext;
-	if (sampleRate == null) {
-		try { return new Constructor(); } catch { return create(); }
-	}
-	try { return new Constructor({ sampleRate }); } catch {
-		return create({ sampleRate });
-	}
-}
 
 export function createOfflineContext(
 	factory: EngineOfflineContextFactory,
@@ -402,9 +394,11 @@ async decodeAudioData(data, { sampleRate = null } = {}) {
 		return context.decodeAudioData(arrayBuffer);
 	},
 
-async getAudioContext({ resume = true } = {}) {
+async getAudioContext({ resume = true, sampleRate } = {}) {
 		this[ENGINE_ASSERT_ACTIVE]();
+		if (sampleRate !== undefined) await prepareRealtimeSampleRate(this, sampleRate);
 		const context = await this[ENGINE_GET_CONTEXT]();
+		if (sampleRate !== undefined && context.sampleRate !== sampleRate) throw new RangeError(`Audio context cannot capture at ${sampleRate} Hz.`);
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (resume) await context.resume?.();
 		this[ENGINE_ASSERT_ACTIVE]();
@@ -511,7 +505,7 @@ async [ENGINE_GET_CONTEXT]() {
 		if (this.context) return this.context;
 		if (!this.audioContextFactory) throw new Error('Web Audio is not supported in this browser.');
 		const generation = this.lifecycleGeneration;
-		const context = createRealtimeContext(this.audioContextFactory);
+		const context = createRealtimeContext(this.audioContextFactory, realtimeSampleRate(this));
 		if (this.disposed || generation !== this.lifecycleGeneration) {
 			if (context?.state !== 'closed') await context?.close?.();
 			throw new AudioEditorEngineDisposedError();

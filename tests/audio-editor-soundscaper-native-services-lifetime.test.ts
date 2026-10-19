@@ -20,7 +20,7 @@ test('menu close preserves bound audio and an authored effect until explicit lif
 		createHostRoot: () => fixture.root,
 		createRendererBridge: () => fixture.renderer,
 	});
-	host.open('native-audio-device');
+	host.open('native-effect-manage');
 	await host.dialogRuntime.perform({ type: 'open-audio-session', request: audioRequest() });
 	await host.dialogRuntime.perform({ type: 'bind-audio-session', sessionId: 'audio-session-1' });
 	await host.dialogRuntime.perform({ type: 'instantiate-plugin', installationId: 'installation-1' });

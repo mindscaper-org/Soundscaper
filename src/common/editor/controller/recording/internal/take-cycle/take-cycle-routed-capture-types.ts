@@ -34,6 +34,7 @@ export interface TakeCycleRoutedCaptureRuntime {
 	readonly capturePool: RecordingCapturePool;
 	readonly engine: TakeCycleRoutedCaptureEngine;
 	readonly sourceChunkFrames: number;
+	readonly recordingInputSampleRate?: () => number;
 	getProject(): TakeCycleRoutedCaptureProject;
 	getRoutes(): Readonly<Record<string, RecordingRoute>>;
 	activeSelection(project: TakeCycleRoutedCaptureProject): RecordingSelection | null;

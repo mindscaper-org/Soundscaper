@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "tr",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:89c545fa1086ff5eb2068bc891d26c9e85e1e3893a5fe51de20ffb6e3d207f00","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:bcca85705204eb279cad1b82d8978bd60e6500fd145440656c4c8c700e533959","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","Mikrofonları etkinleştir"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","Farklı bir görüntü kaynağı seç"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","Görüntü kaynağı seç"],
+		"audioDeviceHost": ["machine","Host","Ses sistemi"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","Aygıt adlarını görüntülemek için mikrofonları etkinleştirin."],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","Tarayıcı bu ses çıkışına erişimi reddetti."],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","Tercih edilen çıkış kullanılamıyor. Sistem varsayılanı kullanılıyor."],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","Bu tarayıcı ses çıkışı seçimini desteklemiyor."],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","Tercih edilen, şu anda kullanılamıyor"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","Kayıt kanalları"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","Eşleşen etkin iz ve yeni izler için kullanılır. İz başına diğer yönlendirmeler değişmeden kalır."],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","Bir sonraki kaydınız için kanal sayısını seçin."],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","Kayıt örnekleme hızı"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","Seçili ses sistemiyle yapılacak yeni kayıtlar için örnekleme hızını seçin."],
 		"audioDeviceRefresh": ["machine","Refresh devices","Aygıtları yenile"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","Sistem varsayılanı"],
 		"audioDevices": ["machine","Audio setup","Ses kurulumu"],
 		"audioEditorLink": ["machine","Audio editor","Ses düzenleyici"],

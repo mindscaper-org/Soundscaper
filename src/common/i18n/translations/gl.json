@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "gl",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:d012fbc66e164d9eb0acbcc2f1dd21948d85878bc8e091aaadbe7390ddfe1012","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:25c3c125335f0f20456c956998da5afd7f0b6110a42956ae172b691d3c6467bb","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -258,14 +258,18 @@
 		"audioDeviceAllowAccess": ["machine","Enable microphones","Activar micrófonos"],
 		"audioDeviceChangeDisplaySource": ["machine","Choose a different display source","Escoller outra orixe de pantalla"],
 		"audioDeviceChooseDisplaySource": ["machine","Choose display source","Escoller orixe de pantalla"],
+		"audioDeviceHost": ["machine","Host","Servidor de son"],
 		"audioDeviceInputAccessRequired": ["machine","Enable microphones to show device names.","Activa os micrófonos para mostrar os nomes dos dispositivos."],
 		"audioDeviceOutputDenied": ["machine","The browser denied access to that audio output.","O navegador denegou o acceso a esa saída de audio."],
 		"audioDeviceOutputUnavailable": ["machine","The preferred output is unavailable. Using the system default.","A saída preferida non está dispoñible. Usarase a predeterminada do sistema."],
 		"audioDeviceOutputUnsupported": ["machine","This browser does not support choosing an audio output.","Este navegador non permite escoller unha saída de audio."],
 		"audioDevicePreferredUnavailable": ["machine","Preferred, currently unavailable","Preferida, non dispoñible actualmente"],
 		"audioDeviceRecordingChannels": ["machine","Recording channels","Canles de gravación"],
-		"audioDeviceRecordingChannelsNote": ["machine","Used for the matching active track and for new tracks. Other per-track routing remains unchanged.","Úsase para a pista activa correspondente e para as novas pistas. O resto do enrutamento por pista non se ve afectado."],
+		"audioDeviceRecordingChannelsNote": ["machine","Choose the number of channels for your next recording.","Escolle o número de canles para a túa seguinte gravación."],
+		"audioDeviceRecordingSampleRate": ["machine","Recording sample rate","Frecuencia de mostraxe da gravación"],
+		"audioDeviceRecordingSampleRateNote": ["machine","Choose the sample rate for new recordings with the selected audio host.","Escolle a frecuencia de mostraxe das novas gravacións co servidor de son seleccionado."],
 		"audioDeviceRefresh": ["machine","Refresh devices","Actualizar dispositivos"],
+		"audioDeviceSampleRateValue": ["machine","{sampleRate} Hz","{sampleRate} Hz"],
 		"audioDeviceSystemDefault": ["machine","System default","Predeterminado do sistema"],
 		"audioDevices": ["machine","Audio setup","Configuración de audio"],
 		"audioEditorLink": ["machine","Audio editor","Editor de audio"],
