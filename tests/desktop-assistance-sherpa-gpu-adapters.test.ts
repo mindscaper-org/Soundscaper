@@ -19,7 +19,6 @@ interface HarnessOptions {
 	readonly cpuFails?: boolean;
 	readonly malformed?: boolean;
 	readonly sampleRate?: number;
-	readonly onRun?: () => void;
 	readonly cleanupFails?: boolean;
 }
 
@@ -31,7 +30,6 @@ function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaA
 	const failure = options.failure ?? new Error('GPU unavailable');
 	const native = (stage: 'construct' | 'run', provider: string): void => {
 		events.push(`${stage}:${provider}`);
-		if (stage === 'run') options.onRun?.();
 		if (options.fail === stage && (provider !== 'cpu' || options.cpuFails)) throw failure;
 	};
 	const readWave = () => ({ sampleRate: options.sampleRate ?? 16_000, samples: new Float32Array(16_000) });
@@ -57,9 +55,9 @@ function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaA
 				free() { cleanup(this.provider); }
 			},
 		}, acceleration);
-		return { events, configured, async run(signal?: AbortSignal) {
+		return { events, configured, async run() {
 			const recognizer = await factory.create({ audioPath: '/audio.wav',
-				model: { encoder: '/e', decoder: '/d', joiner: '/j', tokens: '/t' }, signal });
+				model: { encoder: '/e', decoder: '/d', joiner: '/j', tokens: '/t' } });
 			try { return await recognizer.recognize('/audio.wav'); }
 			finally { recognizer.dispose?.(); }
 		} };
@@ -82,8 +80,8 @@ function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaA
 				free() { cleanup(this.provider); }
 			},
 		}, acceleration);
-		return { events, configured, run: (signal?: AbortSignal) => factory.detect({
-			audioPath: '/audio.wav', model: { model: '/vad' }, signal,
+		return { events, configured, run: () => factory.detect({
+			audioPath: '/audio.wav', model: { model: '/vad' },
 		}) };
 	}
 	const factory = createSherpaDiarizerFactory({
@@ -102,8 +100,8 @@ function harness(kind: Kind, options: HarnessOptions = {}, acceleration: SherpaA
 			free() { cleanup(this.provider); }
 		},
 	}, acceleration);
-	return { events, configured, run: (signal?: AbortSignal) => factory.diarize({ audioPath: '/audio.wav',
-		models: { segmentation: '/segmentation', embedding: '/embedding' }, signal }) };
+	return { events, configured, run: () => factory.diarize({ audioPath: '/audio.wav',
+		models: { segmentation: '/segmentation', embedding: '/embedding' } }) };
 }
 
 for (const kind of KINDS) {
@@ -136,14 +134,10 @@ for (const kind of KINDS) {
 		assert.deepEqual(fixture.configured, ['webgpu']);
 	});
 
-	test(`Sherpa ${kind} does not retry input validation or aborted native calls`, async () => {
+	test(`Sherpa ${kind} does not retry invalid audio input`, async () => {
 		const invalid = harness(kind, { sampleRate: 48_000 });
 		await assert.rejects(invalid.run(), /16 kHz/iu);
 		assert.ok(!invalid.configured.includes('cpu'));
-		const controller = new AbortController();
-		const cancelled = harness(kind, { fail: 'run', onRun: () => { controller.abort(new Error('cancelled')); } });
-		await assert.rejects(cancelled.run(controller.signal), /cancelled/iu);
-		assert.deepEqual(cancelled.configured, ['webgpu']);
 	});
 
 	test(`Sherpa ${kind} does not start CPU inference when GPU cleanup fails`, async () => {

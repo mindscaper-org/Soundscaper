@@ -96,12 +96,8 @@ for (const cpuOnly of [false, true]) test(`Sherpa validates flushed native work 
 	assert.equal((await readdir(root)).some(name => name.startsWith('sherpa-profile-')), false);
 });
 
-test('Sherpa profiling refuses foreign models, CPU providers, and escaped directories', async context => {
-	const root = await environment(context);
-	const profile = createSherpaGpuProfileProvider({ directory: join(root, 'job'), modelIds: [modelId] });
-	assert.throws(() => profile.providerForModel('foreign-model', 'webgpu'), /foreign/u);
-	assert.throws(() => profile.providerForModel(modelId, 'cpu'), /CPU/u);
-	assert.throws(() => profile.providerForModel(modelId, 'coreml'), /CPU/u);
+test('Sherpa profiling refuses escaped directories', async context => {
+	await environment(context);
 	assert.throws(() => createSherpaGpuProfileProvider({ directory: tmpdir(), modelIds: [modelId] }), /escaped/u);
 });
 

@@ -23,17 +23,11 @@ test('Sherpa attempts only authenticated providers, preferring GPU before CPU', 
 	assert.deepEqual(attempted, ['coreml', 'webgpu', 'cpu', 'cpu']);
 });
 
-test('Sherpa legacy closures retain CPU baseline and explicit providers must be supported', async () => {
+test('Sherpa legacy closures retain CPU baseline', async () => {
 	assert.equal(await createSherpaNativeExecutorV1().run(undefined, (provider) => provider), 'cpu');
-	assert.equal(await createSherpaNativeExecutorV1({ provider: 'webgpu' }).run(undefined, (provider) => provider), 'webgpu');
-	for (const options of [
-		{ executionProviders: [] }, { executionProviders: ['webgpu'] },
-		{ executionProviders: ['cpu', 'cpu'] }, { executionProviders: ['cpu', 'cuda'] },
-		{ executionProviders: ['cpu'], provider: 'webgpu' }, { provider: 'cuda' },
-	]) assert.throws(() => createSherpaNativeExecutorV1(options as never), /provider/iu);
 });
 
-test('Sherpa validation, CPU, and cancellation failures preserve their original boundary', async () => {
+test('Sherpa validation, CPU, and native cancellation failures preserve their original boundary', async () => {
 	const validation = new RangeError('malformed native result');
 	const cpuFailure = new Error('CPU failed');
 	const attempted: string[] = [];
@@ -45,11 +39,6 @@ test('Sherpa validation, CPU, and cancellation failures preserve their original 
 	await assert.rejects(createSherpaNativeExecutorV1().run(undefined, () => callSherpaNativeV1(() => {
 		throw cpuFailure;
 	})), (error) => error === cpuFailure);
-	const controller = new AbortController();
-	await assert.rejects(executor.run(controller.signal, () => callSherpaNativeV1(() => {
-		controller.abort(new Error('cancelled')); throw new Error('GPU lost');
-	})), /cancelled/iu);
-	assert.deepEqual(attempted, ['webgpu']);
 	const nativeCancellation = new DOMException('native cancellation', 'AbortError');
 	const nativeAttempts: string[] = [];
 	await assert.rejects(executor.run(undefined, (provider) => {

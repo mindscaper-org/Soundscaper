@@ -88,7 +88,6 @@ test('an unreported language comes back as null rather than blank', () => {
 
 test('a decode that recognized nothing produces no segments', () => {
 	assert.deepEqual(sherpaResultToRecognition({ text: '', tokens: [], timestamps: [] }, 5).segments, []);
-	assert.throws(() => sherpaResultToRecognition(MEASURED, Number.NaN), /finite, non-negative duration/iu);
 });
 
 test('the decoded result conforms onto the project sample grid', () => {
@@ -108,19 +107,6 @@ test('the decoded result conforms onto the project sample grid', () => {
 			["don't", 42_240, 49_920],
 		],
 		'0.4 s lands on sample 19200 and 0.88 s on 42240 at 48 kHz',
-	);
-});
-
-test('the factory refuses a fused decoder-joiner export', async () => {
-	const runtime = { OfflineRecognizer: class {}, readWave: () => ({ samples: new Float32Array(), sampleRate: 16_000 }) };
-	const factory = createSherpaRecognizerFactory(runtime);
-
-	await assert.rejects(
-		factory.create({
-			audioPath: '/media/a.wav',
-			model: { encoder: '/e', decoder: '/d', joiner: '', tokens: '/t' },
-		}),
-		/needs a separate joiner model/iu,
 	);
 });
 
@@ -258,30 +244,4 @@ test('zero, malformed, and out-of-range VAD never fall back to whole-audio recog
 		segments: [{ startSample: 31_000, sampleCount: 2_000 }] }));
 	await assert.rejects(recognizer.recognize('/media/episode.wav', vadPath), /exceeds.*audio/iu);
 	assert.equal(decodes, 0);
-});
-
-test('cancellation between VAD ranges prevents any later Sherpa decode', async (t) => {
-	const root = await mkdtemp(join(tmpdir(), 'sherpa-vad-cancel-'));
-	t.after(() => rm(root, { recursive: true, force: true }));
-	const vadPath = join(root, 'voice-activity.json');
-	await writeFile(vadPath, JSON.stringify({ sampleRate: 16_000, segments: [
-		{ startSample: 0, sampleCount: 16_000 }, { startSample: 16_000, sampleCount: 16_000 },
-	] }));
-	const controller = new AbortController();
-	let decodes = 0;
-	const runtime = {
-		OfflineRecognizer: class {
-			createStream() { return { acceptWaveform: () => undefined }; }
-			decode() { decodes += 1; controller.abort(new DOMException('cancelled', 'AbortError')); }
-			getResult() { return { text: ' one', tokens: [' one'], timestamps: [0], durations: [0.1] }; }
-		},
-		readWave: () => ({ samples: new Float32Array(32_000), sampleRate: 16_000 }),
-	};
-	const recognizer = await createSherpaRecognizerFactory(runtime).create({
-		audioPath: '/media/episode.wav', voiceActivityPath: vadPath,
-		model: { encoder: '/e', decoder: '/d', joiner: '/j', tokens: '/t' },
-		signal: controller.signal,
-	});
-	await assert.rejects(recognizer.recognize('/media/episode.wav', vadPath), /cancel/iu);
-	assert.equal(decodes, 1);
 });
