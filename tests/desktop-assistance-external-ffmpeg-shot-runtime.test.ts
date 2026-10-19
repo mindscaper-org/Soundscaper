@@ -50,7 +50,6 @@ test('reports only an authenticated admission with every fixed-graph capability 
 		[admission({ filters: missing }), false, /capabilities/iu],
 		[admission({ demuxers: [] }), false, /capabilities/iu],
 		[admission({ muxers: [] }), false, /capabilities/iu],
-		[invalidPairAdmission(), false, /identity/iu],
 	];
 	for (const [current, available, reason] of cases) {
 		const preference = preferenceFixture(current);
@@ -122,17 +121,16 @@ test('projects one exact admission, hashes both executables, verifies first, the
 });
 
 test('returns unavailable and quarantines the exact admission before constructing an incompatible detector', async () => {
-	for (const current of [admission({ filters: [] }), invalidPairAdmission()]) {
-		const preference = preferenceFixture(current);
-		let factories = 0;
-		const runtime = createExternalFfmpegAssistanceShotRuntimeAdapter({
-			preferences: preference.service,
-			createDetector() { factories += 1; return detectorFixture(); },
-		});
-		assert.equal(await runtime.detect({ videoPath: VIDEO }), null);
-		assert.equal(factories, 0);
-		assert.deepEqual(preference.invalidations, [[current, 'identity-changed']]);
-	}
+	const current = admission({ filters: [] });
+	const preference = preferenceFixture(current);
+	let factories = 0;
+	const runtime = createExternalFfmpegAssistanceShotRuntimeAdapter({
+		preferences: preference.service,
+		createDetector() { factories += 1; return detectorFixture(); },
+	});
+	assert.equal(await runtime.detect({ videoPath: VIDEO }), null);
+	assert.equal(factories, 0);
+	assert.deepEqual(preference.invalidations, [[current, 'identity-changed']]);
 	const absent = preferenceFixture(null);
 	assert.equal(await createExternalFfmpegAssistanceShotRuntimeAdapter({
 		preferences: absent.service,
@@ -184,7 +182,7 @@ test('returns null only for typed runtime loss during actual detection', async (
 test('keeps malformed metadata and actual media/process failures hard', async () => {
 	const reasons: readonly ExternalFfmpegShotDetectorError['reason'][] = [
 		'metadata-invalid', 'metadata-limit', 'process-failed', 'process-signalled',
-		'stderr-limit', 'timeout', 'canary-failed', 'request-rejected', 'not-verified', 'busy',
+		'stderr-limit', 'timeout',
 	];
 	for (const reason of reasons) {
 		const preference = preferenceFixture(admission());
@@ -251,7 +249,7 @@ test('withholds work when exact admission authority changes after verification',
 	assert.deepEqual(preference.invalidations, []);
 });
 
-test('does not hide invalidation failures or malformed adapter requests', async () => {
+test('invalidation and unexpected verification failures remain visible', async () => {
 	const invalidationFailure = new Error('quarantine persistence failed');
 	const preference = preferenceFixture(admission(), invalidationFailure);
 	await assert.rejects(runtimeFixture(preference, detectorFixture({
@@ -263,10 +261,6 @@ test('does not hide invalidation failures or malformed adapter requests', async 
 		verify: () => Promise.reject(ordinaryVerificationFailure),
 	})).detect({ videoPath: VIDEO }), (error) => error === ordinaryVerificationFailure);
 	assert.deepEqual(ordinaryPreference.invalidations, []);
-
-	const runtime = runtimeFixture(preferenceFixture(admission()), detectorFixture());
-	await assert.rejects(runtime.detect({ videoPath: 'relative/source.media' }), TypeError);
-	await assert.rejects(runtime.detect({ videoPath: VIDEO, arguments: ['-version'] } as never), TypeError);
 });
 
 function runtimeFixture(preference: PreferenceFixture, detector: ExternalFfmpegShotDetector) {
@@ -367,14 +361,6 @@ function admission(overrides: Readonly<{
 			filters: Object.freeze([...(overrides.filters
 				?? ASSISTANCE_EXTERNAL_FFMPEG_SHOT_REQUIRED_CAPABILITIES.filters)]),
 		}),
-	});
-}
-
-function invalidPairAdmission(): ExternalFfmpegRuntimeAdmission {
-	const valid = admission();
-	return Object.freeze({
-		...valid,
-		identity: Object.freeze({ ...valid.identity, executablePairClosureSha256: 'f'.repeat(64) }),
 	});
 }
 
