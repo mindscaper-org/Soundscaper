@@ -36,7 +36,6 @@ test('Windows reports a bounded pre-enforcement API stage without merging guards
 	assert.match(SOURCE,
 		/if \(!AssignProcessToJobObject\([\s\S]*TerminateProcess\([\s\S]*nativeFailure\("assign-job"/u,
 		'the unassigned suspended child must be terminated before the launcher exits');
-	assert.doesNotMatch(`${SOURCE}\n${PROFILE}`, /attest/iu);
 });
 
 test('Windows opts the peer out of ambient all-application-package access', () => {

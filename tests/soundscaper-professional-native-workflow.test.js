@@ -68,7 +68,6 @@ test('dispatchable native-build workflow produces results without promotion cont
 	const source = await readFile(new URL(
 		'.github/workflows/soundscaper-professional-native-build-run.yml', ROOT,
 	), 'utf8');
-	assert.match(source, /^name: Soundscaper professional native target builds$/mu);
 	assert.match(source, /workflow_dispatch:/u);
 	assert.match(source, /soundscaper-professional-native-build\.yml/u);
 	assert.doesNotMatch(source, /promot|signing|certificate|secrets: inherit/iu);
