@@ -245,7 +245,7 @@ test('packaged-runtime tests reuse one Electron process per product worker', asy
 	assert.match(source, /auto: true/u);
 });
 
-test('packaged-runtime teardown escalates a process that ignores its grace signal', async () => {
+test('POSIX packaged-runtime teardown escalates a process that ignores its grace signal', async () => {
 	const signals: NodeJS.Signals[] = [];
 	const child = Object.assign(new EventEmitter(), {
 		exitCode: null as number | null,
@@ -257,11 +257,11 @@ test('packaged-runtime teardown escalates a process that ignores its grace signa
 		},
 	});
 
-	await terminatePackagedRuntime(child, 0);
+	await terminatePackagedRuntime(child, 0, 5_000, { platform: 'linux' });
 	assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
 });
 
-test('packaged-runtime teardown rejects when forced containment is never observed', async () => {
+test('POSIX packaged-runtime teardown rejects when forced containment is never observed', async () => {
 	const signals: NodeJS.Signals[] = [];
 	const child = Object.assign(new EventEmitter(), {
 		exitCode: null as number | null,
@@ -273,13 +273,13 @@ test('packaged-runtime teardown rejects when forced containment is never observe
 	});
 
 	await assert.rejects(
-		terminatePackagedRuntime(child, 0, 5),
+		terminatePackagedRuntime(child, 0, 5, { platform: 'linux' }),
 		/forced termination was not observed/u,
 	);
 	assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
 });
 
-test('packaged-runtime teardown rejects a refused forced signal', async () => {
+test('POSIX packaged-runtime teardown rejects a refused forced signal', async () => {
 	const signals: NodeJS.Signals[] = [];
 	const child = Object.assign(new EventEmitter(), {
 		exitCode: null as number | null,
@@ -291,7 +291,7 @@ test('packaged-runtime teardown rejects a refused forced signal', async () => {
 	});
 
 	await assert.rejects(
-		terminatePackagedRuntime(child, 0, 5),
+		terminatePackagedRuntime(child, 0, 5, { platform: 'linux' }),
 		/forced termination signal was refused/u,
 	);
 	assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
