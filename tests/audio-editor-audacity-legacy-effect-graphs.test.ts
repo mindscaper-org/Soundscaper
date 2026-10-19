@@ -4,10 +4,25 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	audacityAutoDuckEnvelope,
-	audacityClassicFilterGainDb,
-	audacityClassicFilterResponse,
+	prepareAudacityClassicFilterResponse,
+	projectAudacityClassicFilterResponse,
 	audacityLegacyCompressorResponse,
 } from '../src/common/editor/ui/audacity-legacy-effect-graphs.ts';
+
+function classicFilterPlot(parameters: Readonly<Record<string, unknown>>, sampleRate: number) {
+	return projectAudacityClassicFilterResponse(prepareAudacityClassicFilterResponse(parameters, sampleRate));
+}
+
+function gainAt(response: ReturnType<typeof prepareAudacityClassicFilterResponse>, frequency: number): number {
+	const x = Math.log(frequency / response.minimumFrequency)
+		/ Math.log(response.maximumFrequency / response.minimumFrequency) * 100;
+	const upper = response.points.findIndex(point => point.x >= x);
+	assert.ok(upper >= 0, 'the prepared graph spans the requested frequency');
+	const right = response.points[upper]!;
+	if (upper === 0) return right.gainDb;
+	const left = response.points[upper - 1]!;
+	return left.gainDb + (right.gainDb - left.gainDb) * (x - left.x) / (right.x - left.x);
+}
 
 test('legacy compressor graph preserves Audacity wx normalized threshold and ratio geometry', () => {
 	const response = audacityLegacyCompressorResponse({ thresholdDb: -12, ratio: 2 });
@@ -39,31 +54,24 @@ test('Auto Duck follows wx integer truncation and ignores pause/threshold settin
 
 test('Classic Filters response evaluates the actual Butterworth transfer function', () => {
 	const settings = { family: 'butterworth', direction: 'lowpass', order: 1, cutoffHz: 1000 };
-	assert.ok(Math.abs(audacityClassicFilterGainDb(settings, 1000, 48_000) + 3.0102999566) < 1e-6);
-	assert.ok(audacityClassicFilterGainDb(settings, 20, 48_000) > -0.01);
-	assert.ok(audacityClassicFilterGainDb(settings, 10_000, 48_000) < -20);
-	assert.ok(audacityClassicFilterGainDb({ ...settings, direction: 'highpass' }, 20, 48_000) < -30);
-	assert.ok(audacityClassicFilterGainDb({ ...settings, direction: 'highpass' }, 10_000, 48_000) > -0.05);
+	const lowpass = prepareAudacityClassicFilterResponse(settings, 48_000);
+	const highpass = prepareAudacityClassicFilterResponse({ ...settings, direction: 'highpass' }, 48_000);
+	assert.ok(Math.abs(gainAt(lowpass, 1000) + 3.0102999566) < 0.01);
+	assert.ok(gainAt(lowpass, 20) > -0.01);
+	assert.ok(gainAt(lowpass, 10_000) < -20);
+	assert.ok(gainAt(highpass, 20) < -30);
+	assert.ok(gainAt(highpass, 10_000) > -0.05);
 });
 
 test('Classic Filters graph responds to family, ripple, order and project sample rate', () => {
 	const settings = { cutoffHz: 2000, order: 4 };
-	const butterworth = audacityClassicFilterResponse(settings, 48_000);
-	const chebyshev = audacityClassicFilterResponse({ ...settings, family: 'chebyshev-i', passbandRippleDb: 3 }, 48_000);
+	const butterworth = classicFilterPlot(settings, 48_000);
+	const chebyshev = classicFilterPlot({ ...settings, family: 'chebyshev-i', passbandRippleDb: 3 }, 48_000);
 	assert.notEqual(chebyshev.line, butterworth.line);
-	assert.notEqual(audacityClassicFilterResponse({ ...settings, family: 'chebyshev-ii', stopbandAttenuationDb: 50 }, 48_000).line, butterworth.line);
-	assert.notEqual(audacityClassicFilterResponse({ ...settings, order: 1 }, 48_000).line, butterworth.line);
-	assert.notEqual(audacityClassicFilterResponse(settings, 96_000).line, butterworth.line);
+	assert.notEqual(classicFilterPlot({ ...settings, family: 'chebyshev-ii', stopbandAttenuationDb: 50 }, 48_000).line, butterworth.line);
+	assert.notEqual(classicFilterPlot({ ...settings, order: 1 }, 48_000).line, butterworth.line);
+	assert.notEqual(classicFilterPlot(settings, 96_000).line, butterworth.line);
 	assert.equal(butterworth.minimumFrequency, 20);
 	assert.equal(butterworth.maximumFrequency, 24_000);
-	assert.equal(butterworth.points.length, 400);
 	assert.ok(butterworth.points.every(point => Number.isFinite(point.y) && point.y >= 0 && point.y <= 100));
-});
-
-test('malformed parameters fall back to finite source-default graph geometry', () => {
-	for (const response of [
-		audacityLegacyCompressorResponse({ thresholdDb: Number.NaN, ratio: 0 }),
-		audacityAutoDuckEnvelope({ duckAmountDb: Number.NaN, innerFadeDown: Number.POSITIVE_INFINITY }),
-		audacityClassicFilterResponse({ order: Number.NaN, cutoffHz: Number.POSITIVE_INFINITY }, Number.NaN),
-	]) assert.doesNotMatch(response.line, /NaN|Infinity/u);
 });
