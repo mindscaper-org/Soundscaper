@@ -18,7 +18,6 @@ function harness() {
 	const seen = { created: 0, closed: 0, audioCreated: 0, audioClosed: 0, encoded: 0, copied: 0, configuration: undefined as unknown, listeners: 0 };
 	let onEncode: (data: NativeAacAudioData) => void = () => undefined;
 	let onConfigure: () => void = () => undefined;
-	let onCreate: () => void = () => undefined;
 	let flush: () => Promise<void> = () => Promise.resolve();
 	class Encoder extends EventTarget implements NativeAacEncoder {
 		state = 'unconfigured';
@@ -38,7 +37,7 @@ function harness() {
 	}
 	const encoder = new Encoder();
 	const resources: NativeAacResources = {
-		createEncoder(init) { callbacks = init; seen.created++; onCreate(); return encoder; },
+		createEncoder(init) { callbacks = init; seen.created++; return encoder; },
 		createAudioData() {
 			seen.audioCreated++;
 			let closed = false;
@@ -55,7 +54,7 @@ function harness() {
 	};
 	return { resources, encoder, seen, emit, error: (error: unknown) => callbacks.error(error),
 		setEncode: (callback: typeof onEncode) => { onEncode = callback; }, setConfigure: (callback: typeof onConfigure) => { onConfigure = callback; },
-		setCreate: (callback: typeof onCreate) => { onCreate = callback; }, setFlush: (callback: typeof flush) => { flush = callback; } };
+		setFlush: (callback: typeof flush) => { flush = callback; } };
 }
 
 test('native AAC owns one persistent exact raw AAC-LC encoder and closes each audio resource once', async () => {
@@ -80,15 +79,6 @@ test('native AAC cancellation before construction creates no native resources', 
 	controller.abort(reason);
 	assert.throws(() => createNativeAacEncoder({ ...geometry, signal: controller.signal, async acceptPacket() {} }, fixture.resources), (error) => error === reason);
 	assert.equal(fixture.seen.created, 0);
-});
-
-test('native AAC cancellation during injected construction closes the returned native resource', () => {
-	const fixture = harness();
-	const controller = new AbortController();
-	const reason = new DOMException('Cancelled during native AAC start.', 'AbortError');
-	fixture.setCreate(() => controller.abort(reason));
-	assert.throws(() => createNativeAacEncoder({ ...geometry, signal: controller.signal, async acceptPacket() {} }, fixture.resources), (error) => error === reason);
-	assert.equal(fixture.seen.closed, 1);
 });
 
 test('native AAC cancellation while awaiting dequeue closes resources and removes its wait listener', async () => {

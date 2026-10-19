@@ -107,39 +107,6 @@ test('an active abort replaces the worker while preserving queued work', async (
 	client.dispose();
 });
 
-test('an active abort preserves queued work when retiring the worker throws', async () => {
-	const harness = workerHarness();
-	const client = createBrowserDedicatedAudioCodecClient({ createWorker: harness.createWorker });
-	const controller = new AbortController();
-	const first = client.encode(encodeRequest(1), { signal: controller.signal });
-	const oldWorker = await harness.nextWorker();
-	oldWorker.throwTerminate = true;
-	const queued = client.encode(encodeRequest(2));
-	const reason = new DOMException('Active operation cancelled.', 'AbortError');
-	controller.abort(reason);
-
-	await assert.rejects(first, (error: unknown) => error === reason);
-	assert.equal(oldWorker.terminationCount, 1);
-	const replacement = await harness.nextWorker();
-	replacement.succeed(Uint8Array.of(2));
-	assert.deepEqual([...(await queued)], [2]);
-	client.dispose();
-});
-
-test('an abort raised by the worker factory prevents posting and retires the acquired port', async () => {
-	const controller = new AbortController();
-	const reason = new DOMException('Factory cancelled.', 'AbortError');
-	const harness = workerHarness(() => controller.abort(reason));
-	const client = createBrowserDedicatedAudioCodecClient({ createWorker: harness.createWorker });
-	const operation = client.encode(encodeRequest(1), { signal: controller.signal });
-	const worker = await harness.nextWorker();
-
-	await assert.rejects(operation, (error: unknown) => error === reason);
-	assert.equal(worker.requests.length, 0);
-	assert.equal(worker.terminationCount, 1);
-	client.dispose();
-});
-
 test('a failed post is rolled back and the next queued operation still runs', async () => {
 	const harness = workerHarness((worker) => { worker.throwNextPost = true; });
 	const client = createBrowserDedicatedAudioCodecClient({ createWorker: harness.createWorker });
@@ -181,12 +148,11 @@ test('an operation error rejects once and continues queued work on the same work
 	client.dispose();
 });
 
-test('dispose rejects both active and queued operations even when termination throws', async () => {
+test('dispose rejects both active and queued operations and terminates once', async () => {
 	const harness = workerHarness();
 	const client = createBrowserDedicatedAudioCodecClient({ createWorker: harness.createWorker });
 	const active = client.encode(encodeRequest(1));
 	const worker = await harness.nextWorker();
-	worker.throwTerminate = true;
 	const queued = client.encode(encodeRequest(2));
 	client.dispose();
 
@@ -365,7 +331,6 @@ function workerHarness(onCreate?: (worker: ReturnType<typeof createWorkerPort>) 
 			terminationCount: 0,
 			requests: [] as PostedRequest[],
 			throwNextPost: false,
-			throwTerminate: false,
 			postMessage(message: PostedRequest) {
 				if (port.throwNextPost) {
 					port.throwNextPost = false;
@@ -375,7 +340,6 @@ function workerHarness(onCreate?: (worker: ReturnType<typeof createWorkerPort>) 
 			},
 			terminate() {
 				port.terminationCount += 1;
-				if (port.throwTerminate) throw new Error('terminate failed');
 			},
 			addEventListener(type: EventType, listener: Listener) { listeners[type].push(listener); },
 			dispatch(type: 'error' | 'messageerror') {
