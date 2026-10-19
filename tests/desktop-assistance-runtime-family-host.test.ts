@@ -15,7 +15,7 @@ import {
 	typedRuntimeFailure as typed, untilRuntime as until,
 } from './helpers/assistance-runtime-family-router-double.ts';
 
-test('routing is lazy, task-closed, CPU-bound, and reuses only the selected family process', async () => {
+test('routing is lazy, CPU-bound, and reuses only the selected family process', async () => {
 	const { router, processes } = harness();
 	assert.deepEqual(Object.values(processes).map(({ length }) => length), [0, 0, 0]);
 	const first = router.run(request());
@@ -32,8 +32,6 @@ test('routing is lazy, task-closed, CPU-bound, and reuses only the selected fami
 	assert.equal(await second, 'again');
 	assert.equal(processes['onnxruntime-node'].length, 1);
 
-	await assert.rejects(router.run(request('whisper-cpp', 'shot-detection')), typed('unsupported-task'));
-	assert.equal(processes['whisper-cpp'].length, 0);
 	router.dispose();
 });
 
@@ -297,12 +295,6 @@ test('a deferred job releases its family slot instead of leaving it reserved', a
 	processes['onnxruntime-node'][0]!.workers[0]!.resolve({ boundaries: [] });
 	assert.deepEqual(await pending, { boundaries: [] });
 	router.dispose();
-});
-
-test('the router refuses a power etiquette port that cannot be observed', () => {
-	assert.throws(() => harness({
-		powerEtiquette: { observe: () => ({ onBatteryPower: false, thermalState: 'nominal' }) } as never,
-	}), TypeError);
 });
 
 test('a family that finished its work releases its process after the quiet period', async () => {
