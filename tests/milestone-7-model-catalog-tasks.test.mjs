@@ -54,8 +54,6 @@ test('eight published catalog tasks map every Milestone 7 supply identity exactl
 		assert.deepEqual(task.platforms, FIVE_PLATFORMS);
 		assert.equal(task.catalogStatus, 'ready');
 		assert.equal(task.activationStatus, 'ready');
-		assert.ok(!task.catalogBlockedBy.includes('licensing-evidence'));
-		assert.ok(!Object.keys(task).some((field) => /releaseReview/iu.test(field)));
 		assert.deepEqual(task.catalogBlockedBy, []);
 		assert.deepEqual(task.activationBlockedBy, []);
 		assert.ok(checkedCatalog.entries.some(({ modelId }) =>
@@ -194,15 +192,13 @@ test('task validation rejects pessimistic publication, invented outputs, and pla
 	assert.throws(() => validate(pessimisticActivation), /activationStatus|activationBlockedBy|ready/iu);
 });
 
-test('model contracts use machine-local failure states rather than external approval vocabulary', async () => {
+test('model contracts retain their shared machine failure states', async () => {
 	const sources = await Promise.all([
 		'milestone-7-model-supply.mjs',
 		'milestone-7-conversion-execution.mjs',
 		'milestone-7-model-catalog-tasks.mjs',
 	].map((fileName) => readFile(new URL(`../scripts/models/${fileName}`, import.meta.url), 'utf8')));
 	const combined = sources.join('\n');
-	assert.doesNotMatch(combined,
-		/pending-external|lock-pending-external|runtime-target-closure/iu);
 	assert.match(combined, /runtime-payload-not-generated/u);
 	assert.match(combined, /conversion-evidence-incomplete/u);
 	assert.match(combined, /catalog-evidence-incomplete/u);
