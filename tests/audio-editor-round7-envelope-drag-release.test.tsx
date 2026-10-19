@@ -35,6 +35,13 @@ for (const existingPoint of [false, true]) for (const button of [1, 2]) {
 			(surface as unknown as { getBoundingClientRect(): object }).getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 });
 			await act(async () => reactProps(surface).onMouseDown?.({ button: 0, clientX: 50, clientY: 97 * (1 - (5 / 6) ** 3),
 				stopPropagation() { claims.push('stop'); } }));
+			const auxiliaryDown = new Event('mousedown', { cancelable: true });
+			Object.defineProperties(auxiliaryDown, { button: { value: button }, buttons: { value: button === 1 ? 5 : 3 } });
+			for (const listener of listeners.get('mousedown') ?? []) {
+				if (typeof listener === 'function') listener(auxiliaryDown); else listener.handleEvent(auxiliaryDown);
+			}
+			assert.equal(auxiliaryDown.defaultPrevented, button === 1,
+				'Windows middle-button autoscroll must not consume the next menu key after an owned drag');
 			await act(async () => {
 				const event = { type: 'mouseup', button } as MouseEvent;
 				for (const listener of listeners.get('mouseup') ?? []) {
@@ -54,9 +61,16 @@ for (const existingPoint of [false, true]) for (const button of [1, 2]) {
 			assert.deepEqual(claims, ['stop']);
 			assert.equal(updates[0]?.length, existingPoint ? 0 : 1);
 			assert.deepEqual(original, existingPoint ? [{ time: .5, db: 0 }] : []);
+			const idleMiddleDown = new Event('mousedown', { cancelable: true });
+			Object.defineProperties(idleMiddleDown, { button: { value: 1 }, buttons: { value: 5 } });
+			for (const listener of listeners.get('mousedown') ?? []) {
+				if (typeof listener === 'function') listener(idleMiddleDown); else listener.handleEvent(idleMiddleDown);
+			}
+			assert.equal(idleMiddleDown.defaultPrevented, false, 'completed drags must not claim other mouse gestures');
 		} finally {
 			await act(async () => root.unmount());
 			assert.equal(listeners.get('mouseup')?.size ?? 0, 0);
+			assert.equal(listeners.get('mousedown')?.size ?? 0, 0);
 			globals.IS_REACT_ACT_ENVIRONMENT = priorAct;
 			dom.restore();
 		}

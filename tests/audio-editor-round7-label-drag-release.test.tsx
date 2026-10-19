@@ -29,6 +29,17 @@ for (const control of ['label-box', 'left-ear', 'right-ear']) for (const button 
 		document.removeEventListener = (type: string, listener: EventListenerOrEventListenerObject | null) => {
 			if (listener) listeners.get(type)?.delete(listener);
 		};
+		const windowListeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
+		const owner = document.defaultView;
+		assert.ok(owner);
+		owner.addEventListener = (type: string, listener: EventListenerOrEventListenerObject | null) => {
+			if (!listener) return;
+			const entries = windowListeners.get(type) ?? new Set<EventListenerOrEventListenerObject>();
+			entries.add(listener); windowListeners.set(type, entries);
+		};
+		owner.removeEventListener = (type: string, listener: EventListenerOrEventListenerObject | null) => {
+			if (listener) windowListeners.get(type)?.delete(listener);
+		};
 		const label = { id: 'intro', title: 'Intro', startFrame: 12_000, endFrame: 36_000 };
 		const initial = createSoundscaperProject({ id: `label-release-${control}-${String(button)}`, sampleRate: 48_000,
 			tracks: [createLabelTrack({ id: 'labels', labels: [label] })],
@@ -57,20 +68,33 @@ for (const control of ['label-box', 'left-ear', 'right-ear']) for (const button 
 				reactProps(surface).onMouseDown?.(mouse);
 			});
 			await act(async () => dispatch(listeners.get('mousemove'), { clientX: 52 } as MouseEvent));
+			const auxiliaryDown = new Event('mousedown', { cancelable: true });
+			Object.defineProperties(auxiliaryDown, { button: { value: button }, buttons: { value: button === 1 ? 5 : 3 } });
+			dispatch(windowListeners.get('mousedown'), auxiliaryDown);
+			assert.equal(auxiliaryDown.defaultPrevented, button === 1,
+				'Windows middle-button autoscroll must not consume the next menu key after an owned drag');
 			await act(async () => dispatch(listeners.get('mouseup'), { button } as MouseEvent));
 			assert.equal(updates.length, 0);
 			assert.equal(history.undoStack.length, 0);
 			assert.deepEqual(history.present, initial);
 			await act(async () => reactProps(marker).onFocus?.({ target: marker, currentTarget: marker }));
 			await act(async () => dispatch(listeners.get('mousemove'), { clientX: 80 } as MouseEvent));
-			await act(async () => dispatch(listeners.get('mouseup'), { button: 0 } as MouseEvent));
+			await act(async () => {
+				dispatch(windowListeners.get('mouseup'), { button: 0 } as MouseEvent);
+				dispatch(listeners.get('mouseup'), { button: 0 } as MouseEvent);
+			});
 			assert.equal(updates.length, 1);
 			assert.equal(history.undoStack.length, 1);
 			if (control === 'label-box') assert.deepEqual(updates[0], { type: 'label/update', trackId: 'labels',
 				labelId: 'intro', changes: { startFrame: 31_200, endFrame: 55_200 } });
+			const idleMiddleDown = new Event('mousedown', { cancelable: true });
+			Object.defineProperties(idleMiddleDown, { button: { value: 1 }, buttons: { value: 5 } });
+			dispatch(windowListeners.get('mousedown'), idleMiddleDown);
+			assert.equal(idleMiddleDown.defaultPrevented, false, 'completed drags must not claim other mouse gestures');
 		} finally {
 			await act(async () => root.unmount());
 			assert.equal(listeners.get('mouseup')?.size ?? 0, 0);
+			assert.equal(windowListeners.get('mousedown')?.size ?? 0, 0);
 			globals.React = priorReact;
 			globals.IS_REACT_ACT_ENVIRONMENT = priorAct;
 			dom.restore();
