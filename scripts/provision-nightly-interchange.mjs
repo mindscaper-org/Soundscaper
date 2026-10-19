@@ -3,13 +3,14 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { zstdDecompressSync } from 'node:zlib';
 
 import { fetchWithTransientRetry } from './provision-interchange-conformance.mjs';
 import { assertSafeTree } from './lib/desktop-nightly-tests-staging-filesystem.mjs';
+import { relocateNightlyPython, withNightlyInterchangeWork } from './lib/nightly-interchange-work.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -38,7 +39,7 @@ export async function provisionNightlyInterchange({
 	await mkdir(buildRoot, { recursive: true });
 	const temporaryRoot = await mkdtemp(join(buildRoot, 'interchange-python-'));
 	const referenceRoot = join(repositoryRoot, 'vendor/interchange-conformance');
-	try {
+	await withNightlyInterchangeWork(temporaryRoot, async () => {
 		const bytes = await verifiedNightlyPythonArchive({ url: baseUrl + encodeURIComponent(archive.filename), sha256: archive.sha256 });
 		const tar = join(temporaryRoot, 'python.tar');
 		await writeFile(tar, zstdDecompressSync(bytes));
@@ -63,7 +64,7 @@ export async function provisionNightlyInterchange({
 		});
 		// Preserve the full installation and upstream dependency notices. Build
 		// objects stay outside the payload, and no host Python paths are copied.
-		await rename(pythonRoot, join(referenceRoot, 'python'));
+		await relocateNightlyPython(pythonRoot, join(referenceRoot, 'python'));
 		await cp(join(repositoryRoot, 'config/nightly-interchange-python.json'), join(referenceRoot, 'nightly-python-source.json'));
 		const relocated = join(referenceRoot, 'python/install', platform === 'win' ? 'python.exe' : 'bin/python3.12');
 		execFileSync(relocated, ['-c', 'import opentimelineio as otio; assert {"cmx_3600", "fcpx_xml", "otio_json"} <= {a.name for a in otio.plugins.ActiveManifest().adapters}'], {
@@ -71,9 +72,7 @@ export async function provisionNightlyInterchange({
 			stdio: 'inherit',
 		});
 		console.log(`Nightly interchange readers and relocatable Python ${config.version} ready for ${target} (${triple}).`);
-	} finally {
-		await rm(temporaryRoot, { recursive: true, force: true });
-	}
+	});
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
