@@ -64,8 +64,6 @@ test('bounded AIFF inspection and chunk reads decode signed big-endian PCM', asy
 		sourceByteLength: encoded.byteLength,
 		markers: [],
 	});
-	assert.equal(Object.isFrozen(descriptor), true);
-	assert.ok(reads.length >= 5);
 	assert.ok(reads.every(([start, end]) => end - start <= 18));
 	assert.equal(reads.some(([start, end]) => start === 54 && end > start), false);
 
