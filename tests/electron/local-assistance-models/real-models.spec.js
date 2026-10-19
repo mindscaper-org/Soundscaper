@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import catalog from '../../../config/local-model-catalog.json' with { type: 'json' };
 import manifest from '../../../config/local-model-real-test-cases.json' with { type: 'json' };
 import catalogTasks from '../../../config/milestone-7-model-catalog-tasks.json' with { type: 'json' };
@@ -13,11 +13,18 @@ import { executeModelOperation, modelOutputReservations } from './model-operatio
 import { localAssistanceCaseRunsInProduct } from './product-case-policy.js';
 import { KOKORO_LANGUAGE_CANARIES } from './kokoro-language-canaries.js';
 import { modelTestCleanupDiagnostic, withModelTestElectron } from './model-test-lifecycle.js';
+import { createModelTestElectronFixture } from './model-test-fixture.ts';
 import { assertModelGpuEvidence } from './model-gpu-evidence.ts';
 import { ModelFixtureMismatchError } from './model-fixture-semantics.ts';
 
+const test = base.extend({
+	launchModelHost: [createModelTestElectronFixture((testInfo) => launchModelTestElectron({
+		testInfo, productId: testInfo.project.metadata.productId,
+	})), { timeout: 120_000 }],
+});
+
 for (const modelCase of validateLocalModelRealTestCases(manifest, catalog, { candidateTasks: catalogTasks.tasks })) {
-	test(`${modelCase.id}: downloads and executes ${modelCase.modelIds.join(' + ')} on GPU`, async ({ browserName: _browserName }, testInfo) => {
+	test(`${modelCase.id}: downloads and executes ${modelCase.modelIds.join(' + ')} on GPU`, async ({ browserName: _browserName, launchModelHost }, testInfo) => {
 		const productId = testInfo.project.metadata.productId;
 		test.skip(!localAssistanceCaseRunsInProduct(productId, modelCase.operation),
 			`${modelCase.operation} is not packaged for ${productId}.`);
@@ -27,7 +34,7 @@ for (const modelCase of validateLocalModelRealTestCases(manifest, catalog, { can
 			`${modelCase.modelIds[index]} needs a published catalog entry before its real installation test can run.`).toBeDefined();
 		const unsupported = models.filter((entry) => !entry.platforms.includes(target));
 		test.skip(unsupported.length > 0, `Catalog does not publish ${unsupported.map((entry) => entry.modelId).join(', ')} on ${target}.`);
-		const electron = await launchModelTestElectron({ testInfo, productId });
+		const electron = await launchModelHost();
 		await withModelTestElectron(electron, async () => {
 			const modelDelivery = [];
 			for (const model of models) await test.step(`Download and authenticate ${model.modelId}`, async () => {
