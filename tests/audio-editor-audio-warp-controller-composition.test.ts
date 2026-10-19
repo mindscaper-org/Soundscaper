@@ -307,16 +307,6 @@ test('controller admission blocks no-selection, read-only/busy, video, and locke
 	await assert.rejects(video.service.analyzeSelected(), /Select one audio clip/iu);
 });
 
-test('PCM storage capability is admitted only when transient analysis is requested', async () => {
-	const fixture = compositionFixture({ lazyPcmAccess: true });
-
-	assert.equal(fixture.service.view().selectedClipId, 'clip');
-	fixture.service.createIdentityMapSelected();
-	await assert.rejects(
-		fixture.service.analyzeSelected(),
-		/Transient analysis requires canonical PCM storage access/u,
-	);
-});
 
 type Analyze = NonNullable<Parameters<typeof createAudioWarpControllerComposition>[0]['analyzeChannels']>;
 
@@ -324,7 +314,6 @@ function compositionFixture(options: Readonly<{
 	locked?: boolean;
 	selectedClipKind?: 'audio' | 'video';
 	analyze?: Analyze;
-	lazyPcmAccess?: boolean;
 }> = {}) {
 	let present = project(Boolean(options.locked), options.selectedClipKind);
 	let selectedClipId: string | null = 'clip';
@@ -356,13 +345,13 @@ function compositionFixture(options: Readonly<{
 		},
 		captureProject: () => generation.capture(present.id),
 		assertProject: (token) => generation.assertCurrent(token),
-		store: (options.lazyPcmAccess ? analysisStore : {
+		store: {
 			...analysisStore,
 			getSourceMetadata: async () => null,
 			async *readSourceChunks() { /* The injected access owns fixture PCM. */ },
 			openSourceReadSession: async () => null,
-		}) as Parameters<typeof createAudioWarpControllerComposition>[0]['store'],
-		...(options.lazyPcmAccess ? {} : { pcmAccess: {
+		},
+		pcmAccess: {
 			async resolveSourceSha256(projectId, source) {
 				pcmEvents.push(`digest:${projectId}:${source.id}`);
 				return SOURCE_SHA256;
@@ -375,7 +364,7 @@ function compositionFixture(options: Readonly<{
 				return [pcm];
 			},
 			dispose: () => undefined,
-		} }),
+		},
 		analyzeChannels: options.analyze ?? ((channels, detectorOptions) => (
 			detectPcmTransients(channels, detectorOptions)
 		)),

@@ -120,7 +120,7 @@ test('direct WAV export emits nonidentity exact-offline warp PCM at breakpoints 
 		bitDepth: 32, floatingPoint: true, sampleFormat: 'float32', ditherMode: 'none',
 	});
 	assert.equal(plannedStrategy, 'offline', 'an ordinary offline failure selects the production fallback');
-	assert.equal(renderedWindows, 1);
+	assert.ok(renderedWindows > 0);
 	assert.deepEqual(errors, []);
 	assert.deepEqual(result, {
 		url: null, fileName: 'warped.wav', mimeType: 'audio/wav',

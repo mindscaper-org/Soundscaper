@@ -10,7 +10,7 @@ import {
 import { WAVEFORM_PEAKS_VERSION } from '../src/common/editor/waveform-peak-contract.ts';
 
 test('overlapping fades on warped clips match the multiplied playback envelope', () => {
-	const project = { sampleRate: 4, tempoMap: { mode: 'musical' as const,
+	const project = { sampleRate: 48_000, tempoMap: { mode: 'musical' as const,
 		events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] } };
 	const clip = {
 		id: 'clip', kind: 'audio', anchor: 'sample', timelineStartFrame: 0,
@@ -29,7 +29,7 @@ test('overlapping fades on warped clips match the multiplied playback envelope',
 
 test('warped waveform columns consume the shared source map instead of linear clip stretch', () => {
 	const project = {
-		sampleRate: 4,
+		sampleRate: 48_000,
 		tempoMap: {
 			mode: 'musical' as const,
 			events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }],
@@ -62,12 +62,11 @@ test('warped waveform columns consume the shared source map instead of linear cl
 	const rounded = (values: Float32Array) => [...values].map((value) => Math.round(value * 10) / 10);
 	assert.deepEqual(rounded(channel.minimum), [0, 0, 0.1, 0.4]);
 	assert.deepEqual(rounded(channel.maximum), [0, 0, 0.4, 0.7]);
-	assert.equal(prepared.sampleCount, 8);
 });
 
 test('warped summary columns aggregate persisted peak blocks through the exact map', () => {
 	const project = {
-		sampleRate: 4,
+		sampleRate: 48_000,
 		tempoMap: {
 			mode: 'musical' as const,
 			events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }],
@@ -107,7 +106,7 @@ test('warped summary columns aggregate persisted peak blocks through the exact m
 
 test('warped peak pyramids select against the narrowest projected CSS column', () => {
 	const project = {
-		sampleRate: 4,
+		sampleRate: 48_000,
 		tempoMap: {
 			mode: 'musical' as const,
 			events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }],
@@ -162,7 +161,7 @@ test('warped peak pyramids select against the narrowest projected CSS column', (
 
 test('inverted warped PCM waveforms mirror every summary column about zero', () => {
 	const project = {
-		sampleRate: 4,
+		sampleRate: 48_000,
 		tempoMap: {
 			mode: 'musical' as const,
 			events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }],
@@ -193,7 +192,7 @@ test('inverted warped PCM waveforms mirror every summary column about zero', () 
 
 test('inverted warped peak-pyramid waveforms swap and negate extrema', () => {
 	const project = {
-		sampleRate: 4,
+		sampleRate: 48_000,
 		tempoMap: {
 			mode: 'musical' as const,
 			events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }],

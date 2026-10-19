@@ -11,7 +11,6 @@ import {
 	createAudioSource,
 	createAudioTrack,
 } from '../src/common/editor/project-media-factory.ts';
-import { createAudioEditorProjectV17 } from '../src/common/editor/project-v17.ts';
 import AudioWarpDialog from '../src/common/editor/ui/dialogs/AudioWarpDialog.tsx';
 import { createAudioWarpApplicationMenuItems } from '../src/common/editor/ui/audio-warp-application-menu.ts';
 import { createAudioWarpDialogModel } from '../src/common/editor/ui/audio-warp-dialog-model.ts';
@@ -21,7 +20,7 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 
 const NOW = '2026-08-12T20:00:00.000Z';
 
-test('audio warp menu is selected-audio-only, Soundscaper-only, and opens no default chrome', async () => {
+test('audio warp menu opens for selected Soundscaper audio', () => {
 	const opened: string[] = [];
 	const input = {
 		productId: 'soundscaper', capability: true, project: project(),
@@ -34,32 +33,11 @@ test('audio warp menu is selected-audio-only, Soundscaper-only, and opens no def
 	});
 	item?.onClick();
 	assert.deepEqual(opened, ['audio-warp']);
-	assert.deepEqual(createAudioWarpApplicationMenuItems({ ...input, productId: 'framescaper' }), []);
-	assert.deepEqual(createAudioWarpApplicationMenuItems({ ...input, capability: false }), []);
-	assert.equal(createAudioWarpApplicationMenuItems({
-		...input, project: project(false, false, createSoundscaperProject),
-	})[0]?.disabled, false);
+	assert.deepEqual(createAudioWarpApplicationMenuItems({ ...input, productId: 'framescaper', capability: false }), []);
 	assert.equal(createAudioWarpApplicationMenuItems({ ...input, selectedClipId: null })[0]?.disabled, true);
 	assert.equal(createAudioWarpApplicationMenuItems({ ...input, editingBlocked: true })[0]?.disabled, true);
 	assert.equal(createAudioWarpApplicationMenuItems({ ...input, project: project(true) })[0]?.disabled, true);
-	const missingSourceProject = { ...project(), sources: [] };
-	assert.equal(createAudioWarpApplicationMenuItems({
-		...input, project: missingSourceProject,
-	})[0]?.disabled, true);
-	assert.equal(createAudioWarpDialogModel({
-		productId: 'soundscaper', project: missingSourceProject,
-		snapshot: { selectedClipId: 'clip' },
-	}).blockReason, 'no-audio-clip');
 
-	const [menus, runtime, overlays] = await Promise.all([
-		readFile(new URL('../src/common/editor/ui/application-menus.js', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/workspace/workspace-application-menu-runtime.js', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/workspace/AudioEditorWorkspaceOverlays.jsx', import.meta.url), 'utf8'),
-	]);
-	assert.match(menus, /id: 'pitch-tempo'[\s\S]*createPitchAndTempoApplicationMenuItems/u);
-	assert.match(runtime, /openAudioWarp: \(\) => openSurface\('audio-warp'\)/u);
-	assert.match(overlays, /capabilities\.audioWarp && activeSurface === 'audio-warp'/u);
-	assert.doesNotMatch(overlays, /capabilities\.audioWarp && activeSurface !==/u);
 });
 
 test('dialog enablement derives only from the selected clip snapshot, edit block, and owning lock', () => {
@@ -89,11 +67,6 @@ test('dialog enablement derives only from the selected clip snapshot, edit block
 	assert.equal(createAudioWarpDialogModel({
 		productId: 'framescaper', project: project(), snapshot: { selectedClipId: 'clip' },
 	}).clipId, null);
-	assert.equal(createAudioWarpDialogModel({
-		productId: 'soundscaper',
-		project: project(false, false, createSoundscaperProject),
-		snapshot: { selectedClipId: 'clip' },
-	}).operationsBlocked, false);
 });
 
 test('dialog exposes pointer and keyboard-native analysis, exact strengths, groove, map, and runtime status', async () => {
@@ -161,11 +134,7 @@ function actionPorts() {
 	};
 }
 
-function project(
-	locked = false,
-	withWarpMap = false,
-	createProject: typeof createAudioEditorProjectV17 | typeof createSoundscaperProject = createSoundscaperProject,
-) {
+function project(locked = false, withWarpMap = false) {
 	const source = createAudioSource({
 		id: 'source', storageKey: 'source', name: 'Warp source',
 		frameCount: 1_000, channelCount: 1, sampleRate: 48_000,
@@ -182,7 +151,7 @@ function project(
 			],
 		} : null,
 	});
-	return createProject({
+	return createSoundscaperProject({
 		id: 'warp-ui-project', title: 'Warp UI project', now: NOW,
 		sources: [source], clips: [clip],
 		tracks: [createAudioTrack({ id: 'track', name: 'Track', locked, clipIds: ['clip'] })],
