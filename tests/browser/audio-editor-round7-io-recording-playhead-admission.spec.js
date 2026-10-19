@@ -6,7 +6,7 @@ import { installOscillatorMicrophone, persistedProject, recordPass } from './hel
 
 test.use({ browserCoverage: false });
 
-for (const seekWhileArmed of [false, true]) test(`scheduled recording preserves its armed playhead with keyboard seek=${seekWhileArmed}`, async ({ page }) => {
+test('scheduled recording preserves its armed playhead through keyboard seek', async ({ page }) => {
 	await installOscillatorMicrophone(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [monoTone]);
@@ -29,11 +29,9 @@ for (const seekWhileArmed of [false, true]) test(`scheduled recording preserves 
 		await expect(scheduled).toBeVisible();
 		await expect(dialog).toBeHidden();
 		await expect(playhead).toHaveAttribute('aria-valuenow', '0');
-		if (seekWhileArmed) {
-			await playhead.focus();
-			await playhead.press('End');
-			await expect(playhead).toHaveAttribute('aria-valuenow', '0');
-		}
+		await playhead.focus();
+		await playhead.press('End');
+		await expect(playhead).toHaveAttribute('aria-valuenow', '0');
 	} finally {
 		if (await scheduled.isVisible()) {
 			await scheduled.getByRole('button', { name: 'Cancel scheduled recording', exact: true }).click();
