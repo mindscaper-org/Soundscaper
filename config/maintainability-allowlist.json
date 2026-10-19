@@ -200,7 +200,6 @@
 		"tests/desktop-assistance-enhancement-separation-ort-worker.test.ts": 600,
 		"tests/desktop-assistance-operation-service.test.ts": 558,
 		"tests/desktop-audio-codec-runtime-composition.test.ts": 560,
-		"tests/desktop-direct-wav-smoke.test.js": 551,
 		"tests/desktop-framescaper-web-vcr-smoke.test.js": 587,
 		"tests/desktop-helper-media-contract.test.ts": 590,
 		"tests/desktop-linked-video-locator-store.test.ts": 577,
