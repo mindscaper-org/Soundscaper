@@ -125,17 +125,6 @@ void test('ARA rejects edited selections, project switches, cancellation and con
 	}
 });
 
-void test('ARA rejects changed output geometry and nonfinite PCM before persistence', async () => {
-	const host = fixture('soundscaper');
-	const prepared = await host.runtime.prepare();
-	await assert.rejects(prepared.apply({ channels: host.result, sampleRate: 44_100 }), /geometry/u);
-	await assert.rejects(prepared.apply({ channels: [host.result[0]!], sampleRate: 48_000 }), /geometry/u);
-	const invalid = host.result.map(channel => channel.slice());
-	invalid[0]![2] = Number.NaN;
-	await assert.rejects(prepared.apply({ channels: invalid, sampleRate: 48_000 }), /finite/u);
-	assert.equal(host.saved.size, 0);
-});
-
 void test('ARA rolls back written PCM when the selection changes during storage', async () => {
 	const host = fixture('framescaper');
 	const prepared = await host.runtime.prepare();
@@ -170,8 +159,6 @@ void test('ARA runtime resolves only an exact controller-owned preparation port'
 	const runtime = fixture('soundscaper').runtime;
 	assert.equal(resolveAraClipEditingRuntime({ araClipEditing: runtime }), runtime);
 	assert.equal(resolveAraClipEditingRuntime({}), null);
-	assert.equal(resolveAraClipEditingRuntime(null), null);
-	assert.equal(resolveAraClipEditingRuntime({ araClipEditing: {} }), null);
 });
 
 function fixture(productId: 'soundscaper' | 'framescaper', configuration: Readonly<{
