@@ -38,6 +38,8 @@ test('packaged coverage records renderer, preload, and a final worker delta bank
 		coverageEntry('13', sandboxPreloadUrl, 70),
 		coverageEntry('15', 'chrome-error://chromewebdata/', 40),
 	], [coverageEntry('21', workerUrl, 50)]);
+	let releaseReloadReadiness!: () => void;
+	page.reloadReadiness = new Promise<void>((resolve) => { releaseReloadReadiness = resolve; });
 	const diagnosticPage = new FakePage(
 		'http://127.0.0.1:4567/',
 		[coverageEntry('31', diagnosticUrl, 60)],
@@ -55,7 +57,19 @@ test('packaged coverage records renderer, preload, and a final worker delta bank
 		productId: 'soundscaper',
 	});
 
-	await collector.start();
+	const starting = collector.start();
+	try {
+		await new Promise((resolve) => setImmediate(resolve));
+		assert.equal(page.calls.includes('Profiler.startPreciseCoverage'), false,
+			'recorder instrumentation must wait while product reload readiness is pending');
+	} finally {
+		releaseReloadReadiness();
+	}
+	await starting;
+	const readiness = page.calls.indexOf('product:reloadReady');
+	assert.ok(readiness >= 0, 'collector startup must wait for product reload readiness');
+	assert.ok(readiness < page.calls.indexOf('Profiler.startPreciseCoverage'),
+		'recorder instrumentation must follow the unload-guard probe');
 	assert.equal(page.reloadCount, 1, 'the loaded app is reloaded after precise coverage starts');
 	assert.equal(diagnosticPage.reloadCount, 1, 'the existing diagnostic window is measured from a reload too');
 	assert.equal(
@@ -382,7 +396,11 @@ class FakePage {
 	}
 
 	async waitForLoadState(): Promise<void> {}
-	async waitForFunction(): Promise<void> {}
+	reloadReadiness: Promise<void> = Promise.resolve();
+	async waitForFunction(): Promise<void> {
+		await this.reloadReadiness;
+		this.calls.push('product:reloadReady');
+	}
 
 	url(): string { return this.#url; }
 
