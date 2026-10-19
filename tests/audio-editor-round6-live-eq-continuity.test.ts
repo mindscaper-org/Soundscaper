@@ -9,7 +9,12 @@ import { initializePffft } from '../src/common/editor/pffft.js';
 await initializePffft();
 
 // These cases select non-reverb processors from the JavaScript factory union.
-type Processor = Exclude<ReturnType<typeof createAudacityLiveProcessor>, { readonly type: 'audacity-reverb' }>;
+interface Processor {
+	readonly latencyFrames: number;
+	process(input: Float32Array[], output: Float32Array[]): boolean;
+	updateParams(params: Readonly<Record<string, unknown>>): void;
+	reset(): void;
+}
 
 const RATE = 48_000;
 const WARM_FRAMES = 12_288;
