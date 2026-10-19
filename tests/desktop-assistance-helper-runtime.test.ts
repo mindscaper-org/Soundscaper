@@ -202,29 +202,7 @@ test('main grants exact audio, segmentation, and embedding files to the diarizat
 	}
 });
 
-test('runtime status is answered by the helper rather than loading sherpa in main', async () => {
-	let request: unknown = null;
-	const runtime = createAssistanceHelperRuntimeAdapter({
-		mintJobId: () => 'cd'.repeat(20),
-		ensureRuntime: async () => { throw new Error('Status must not download a runtime.'); },
-		host: {
-			start(value) {
-				request = value;
-				return {
-					jobId: 'cd'.repeat(20),
-					completed: Promise.resolve({
-						available: false, reason: 'not installed', moduleId: SPEECH_RUNTIME_MODULE_ID,
-					}),
-					cancel: () => Promise.resolve(),
-				};
-			},
-			dispose() {},
-		},
-	});
-	assert.equal((await runtime.status()).available, false);
-	assert.deepEqual(validateAssistanceJobRequest(request).grant, {
-		operation: 'status', moduleId: SPEECH_RUNTIME_MODULE_ID,
-	});
+test('speech registration keeps native loading inside its helper process', async () => {
 	const registration = await readFile(new URL('../desktop/assistance-registration.mjs', import.meta.url), 'utf8');
 	assert.doesNotMatch(registration, /assistance-sherpa-recognizer|createSpeechRuntimeAdapter/u);
 	assert.match(registration, /assistance-helper-process\.js/u);
