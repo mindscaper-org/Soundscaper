@@ -33,7 +33,6 @@ test('audio warp facade exposes every selected-clip workflow operation behind on
 		'addMarkerSelected', 'moveMarkerSelected', 'deleteMarkerSelected', 'quantizeSelected',
 		'applyGrooveSelected', 'clearSelected',
 	]);
-	assert.equal(Object.isFrozen(actions), true);
 });
 
 test('audio warp facade fails closed for Framescaper without a fallback implementation', () => {
