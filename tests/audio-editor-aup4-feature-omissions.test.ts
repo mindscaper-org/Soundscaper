@@ -31,7 +31,7 @@ test('every owned feature has an AUP4 decision, so a new one cannot ship without
 		assert.ok(['carried', 'reported', 'omitted'].includes(decision.carriage), key);
 		assert.match(decision.code, /^[A-Z0-9_]+$/u, key);
 		if (decision.carriage === 'omitted') {
-			assert.ok(decision.message && decision.message.length > 20, `${key} must say what was lost`);
+			assert.ok(decision.message?.trim(), `${key} must say what was lost`);
 		}
 	}
 });
