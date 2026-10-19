@@ -31,16 +31,17 @@ test('packaged Framescaper capture smoke grants no-device authority and retires 
 	));
 });
 
-test('packaged Framescaper capture smoke tears down a grant when evidence validation fails', async () => {
-	const fixture = captureFixture({ malformedGrant: true });
+test('packaged Framescaper capture smoke retries teardown after a native IPC failure', async () => {
+	const fixture = captureFixture({ failFirstTeardown: true });
 
 	await assert.rejects(
 		() => runFramescaperCaptureArtifactRendererSmoke(fixture.scope),
-		/invalid capture grant/iu,
+		/capture owner is stale/iu,
 	);
 	assert.deepEqual(fixture.calls, [
 		'status',
 		'grant:1:camera+microphone:null',
+		'teardown:1',
 		'teardown:1',
 	]);
 });
@@ -61,9 +62,10 @@ test('packaged Framescaper capture smoke evidence is a closed, retired control-p
 	);
 });
 
-function captureFixture({ malformedGrant = false } = {}) {
+function captureFixture({ failFirstTeardown = false } = {}) {
 	const calls = [];
 	let authority = false;
+	let teardownCalls = 0;
 	const bridge = {
 		grant: async (request) => {
 			calls.push(`grant:${String(request.generation)}:${request.roles.join('+')}:${String(request.sourceToken)}`);
@@ -71,7 +73,7 @@ function captureFixture({ malformedGrant = false } = {}) {
 			return {
 				grantId: 'a'.repeat(32),
 				generation: request.generation,
-				expiresAtMs: malformedGrant ? -1 : 1_015_000,
+				expiresAtMs: 1_015_000,
 				roles: [...request.roles],
 			};
 		},
@@ -91,6 +93,8 @@ function captureFixture({ malformedGrant = false } = {}) {
 		},
 		teardown: async (generation) => {
 			calls.push(`teardown:${String(generation)}`);
+			teardownCalls += 1;
+			if (failFirstTeardown && teardownCalls === 1) throw new Error('capture owner is stale');
 			if (!authority) return false;
 			authority = false;
 			return true;
