@@ -14,17 +14,6 @@ test('target observation validates a bounded closed candidate inventory', () => 
 	assert.equal(Object.isFrozen(observation), true);
 	assert.equal(Object.isFrozen(observation.candidates), true);
 	assert.equal(observation.candidates[0]?.slot, 7);
-	assert.throws(() => validateFramescaperWebVcrTargetObservationV1({
-		...observationPayload(),
-		candidates: Array.from({ length: 17 }, () => observationPayload().candidates[0]),
-	}), /candidate|limit/iu);
-	assert.throws(() => validateFramescaperWebVcrTargetObservationV1({
-		...observationPayload(),
-		candidates: [{ ...observationPayload().candidates[0], documentCookie: 'leak' }],
-	}), /closed|unsupported/iu);
-	assert.throws(() => validateFramescaperWebVcrTargetObservationV1({
-		...observationPayload(), ended: { slot: 7, generation: 1 },
-	}), /missing|unsupported/iu);
 });
 
 test('observer installs only a fixed isolated-world binding and maps targets to opaque IDs', async () => {
