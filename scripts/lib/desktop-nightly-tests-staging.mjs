@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import nativeFixtureSources from './desktop-nightly-tests-native-fixture-inputs.cjs';
 import { NIGHTLY_BROWSER_CODEC_INPUTS } from './desktop-nightly-tests-browser-codec-inputs.mjs';
 import { NIGHTLY_BROWSER_MEDIA_INPUTS } from './desktop-nightly-tests-browser-media-inputs.mjs';
+import { NIGHTLY_INTERCHANGE_INPUTS, validateNightlyInterchange } from './desktop-nightly-tests-interchange-inputs.mjs';
 import {
 	assertDirectory,
 	assertRegularFile,
@@ -173,7 +174,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	...['desktop-preload-source.mjs', 'ordinary-cover-mp3-fixture.ts', 'native-original-import-fixture.ts', 'ordinary-ogg-opus-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts', 'scape-archive-rewrite.js', 'wavpack-import-fixture.ts'].map(file => ({
 		source: `tests/helpers/${file}`, destination: `tests/helpers/${file}`, kind: 'file', label: 'ordinary browser workflow fixture support',
 	})),
-	{ source: 'tests/helpers/interchange-reference.ts', destination: 'tests/helpers/interchange-reference.ts', kind: 'file', label: 'external interchange reader browser support helper' },
+	...NIGHTLY_INTERCHANGE_INPUTS,
 	{ source: 'tests/helpers/framescaper-native-sidecar-fixture.ts', destination: 'tests/helpers/framescaper-native-sidecar-fixture.ts', kind: 'file', label: 'native sidecar chooser/read/save browser support fixture' },
 	{ source: 'tests/helpers/libsndfile-rifx-fixture.ts', destination: 'tests/helpers/libsndfile-rifx-fixture.ts', kind: 'file', label: 'normal RIFX browser import fixture' },
 	{ source: 'tests/fixtures/aup4-native-rich.js', destination: 'tests/fixtures/aup4-native-rich.js', kind: 'file', label: 'AUP4 browser support fixture' },
@@ -219,6 +220,7 @@ export async function stageDesktopNightlyTests({
 	}
 
 	await validateRequiredInputs(root);
+	await validateNightlyInterchange(root);
 	const runtimePackages = await resolveNightlyTestRuntimePackages(root);
 	await validateRuntimePackages(root, runtimePackages);
 	const browserRevisions = await validateBrowserCache(root, browsers);
@@ -287,7 +289,7 @@ async function validateRequiredInputs(root) {
 		const path = join(root, input.source);
 		if (input.kind === 'directory') await assertDirectory(path, `required ${input.label}`);
 		else await assertRegularFile(path, `required ${input.label}`);
-		await assertSafeTree(path, input.label);
+		await assertSafeTree(path, input.label, { allowContainedSymlinks: input.allowContainedSymlinks });
 	}
 	for (const path of ['LICENSE', 'THIRD_PARTY_LICENSES.md']) {
 		await assertRegularFile(join(root, path), `required ${path}`);
@@ -299,7 +301,6 @@ async function validateRequiredInputs(root) {
 	await assertDirectory(join(root, 'LICENSES'), 'required license directory');
 	await assertSafeTree(join(root, 'LICENSES'), 'license directory');
 }
-
 async function copyRequiredInputs(root, output) {
 	for (const input of NIGHTLY_TEST_PAYLOAD_INPUTS) {
 		await copyTree(join(root, input.source), join(output, input.destination), {
@@ -307,7 +308,6 @@ async function copyRequiredInputs(root, output) {
 		});
 	}
 }
-
 export async function resolveNightlyTestRuntimePackages(root) {
 	const packages = new Map();
 	const pending = [...NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS];

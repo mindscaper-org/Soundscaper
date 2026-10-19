@@ -1,0 +1,43 @@
+{
+	"$comment": [
+		"Hermetic Python for the diagnostic nightly only; normal product bundles do not contain it.",
+		"Stripped install-only runtimes retain PYTHON.json and dependency notices from the matching full archives.",
+		"Windows ARM64 runs the x64 reference interpreter under Windows emulation because pinned",
+		"OpenTimelineIO 0.18.1 has no Windows ARM64 wheel. Product runtimes remain target-native."
+	],
+	"version": "3.12.15",
+	"release": "20261013",
+	"targets": {
+		"win-x64": "x86_64-pc-windows-msvc",
+		"win-arm64": "x86_64-pc-windows-msvc",
+		"mac-arm64": "aarch64-apple-darwin",
+		"linux-x64": "x86_64-unknown-linux-gnu",
+		"linux-arm64": "aarch64-unknown-linux-gnu"
+	},
+	"archives": {
+		"x86_64-pc-windows-msvc": {
+			"runtimeFilename": "cpython-3.12.15+20261013-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+			"runtimeSha256": "7a2aef48e5ee569e310b29b32681debbc5d888e92790d85331a47736c6b06aad",
+			"filename": "cpython-3.12.15+20261013-x86_64-pc-windows-msvc-pgo-full.tar.zst",
+			"sha256": "7780bf6a29f93e6d0e3b5bdbe8cf799b3e2a0638bdec921be5b0c3ca81e67313"
+		},
+		"aarch64-apple-darwin": {
+			"runtimeFilename": "cpython-3.12.15+20261013-aarch64-apple-darwin-install_only_stripped.tar.gz",
+			"runtimeSha256": "9866e11cf2ae9caa1e671383786f248859a52dd8bfb702fb4c0dc2c65f1d36de",
+			"filename": "cpython-3.12.15+20261013-aarch64-apple-darwin-pgo+lto-full.tar.zst",
+			"sha256": "8c7ac5f091c64111247e595c9fc8fecc38453e94a60323a3b66dbfca3c01414a"
+		},
+		"x86_64-unknown-linux-gnu": {
+			"runtimeFilename": "cpython-3.12.15+20261013-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+			"runtimeSha256": "178d3d83b6e8e99285a65d3fce9c16b87952cc5efdb4d1a0e3ff3be18ff0fc9c",
+			"filename": "cpython-3.12.15+20261013-x86_64-unknown-linux-gnu-pgo+lto-full.tar.zst",
+			"sha256": "dfb784f8d467e0c64c16d67a151c9145e64a0a11caa0ff699bc92899898cbb52"
+		},
+		"aarch64-unknown-linux-gnu": {
+			"runtimeFilename": "cpython-3.12.15+20261013-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+			"runtimeSha256": "9467a99bacc7d90b64b02de7fa9ecfc99b72905e64e74f7ff6b460ad95cfed5a",
+			"filename": "cpython-3.12.15+20261013-aarch64-unknown-linux-gnu-pgo+lto-full.tar.zst",
+			"sha256": "61f2cf59139a23d20ec7f529fabe570efa888b61ab411e04287eaec66ad79644"
+		}
+	}
+}

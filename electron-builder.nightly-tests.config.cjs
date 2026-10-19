@@ -113,6 +113,7 @@ module.exports = {
 				'src/**/*',
 				'vendor/audacity-design-system/tokens/**/*',
 				'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts',
+				'vendor/interchange-conformance/**/*',
 				'stage-manifest.json',
 				'tests/**/*',
 			],
