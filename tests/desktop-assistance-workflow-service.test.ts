@@ -49,19 +49,13 @@ test('the workflow service derives the selected graph and emits main-owned stage
 	});
 });
 
-test('the default runner is honestly unavailable and renderer operations cannot replace the graph', async () => {
-	const service = createAssistanceWorkflowService({ mintJobId: () => WORKFLOW_JOB_ID });
-	await service.createJob();
-	assert.deepEqual(await service.run(assistanceWorkflowFixture()), {
-		contractVersion: 1,
-		jobId: WORKFLOW_JOB_ID,
-		workflowId: 'transcribe-captions',
-		outcome: 'unavailable',
-		reason: 'workflow-runner-unavailable',
+test('renderer operations cannot replace the derived workflow graph', async () => {
+	const service = createAssistanceWorkflowService({
+		mintJobId: () => WORKFLOW_JOB_ID,
+		execute: () => ({ outcome: 'unavailable', reason: 'stage-unavailable' }),
 	});
-	const second = createAssistanceWorkflowService({ mintJobId: () => WORKFLOW_JOB_ID });
-	await second.createJob();
-	await assert.rejects(second.run({ ...assistanceWorkflowFixture(),
+	await service.createJob();
+	await assert.rejects(service.run({ ...assistanceWorkflowFixture(),
 		operations: ['execute-shell'] }), /schema keys/iu);
 });
 

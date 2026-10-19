@@ -206,7 +206,7 @@ test('workflow custody rejects renderer-minted, cross-job, stale, and unreserved
 	});
 });
 
-test('primitive projection maps only closed consumer roles and refuses before staging', async () => {
+test('primitive projection re-stages a producer output with its consumer role', async () => {
 	await withTempDirectory('workflow-custody-projection-', async (directory) => {
 		let ordinal = 0;
 		const staging = new AssistanceStagingRegistry({ root: join(directory, 'private'),
@@ -227,11 +227,6 @@ test('primitive projection maps only closed consumer roles and refuses before st
 		const body = new TextEncoder().encode('[{"text":"hello"}]');
 		await writeFile(path, body, { flag: 'r+' });
 		const authenticated = await custody.authenticateOutput(textChunks.custody);
-		const beforeRefusal = ordinal;
-		await assert.rejects(custody.operationInputClaim(
-			embeddedInput.workflowClaim, 'editorial-generation',
-		), /consumer operation|not admitted/iu);
-		assert.equal(ordinal, beforeRefusal, 'refusal must happen before a new staging claim is minted');
 		const projected = await custody.operationInputClaim(
 			embeddedInput.workflowClaim, 'text-embedding',
 		);

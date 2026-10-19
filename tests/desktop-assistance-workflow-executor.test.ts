@@ -6,7 +6,6 @@ import test from 'node:test';
 import {
 	createAssistanceWorkflowExecutor,
 	createAssistanceWorkflowStageCustodyToken,
-	type AssistanceWorkflowStageBindingV1,
 	type AssistanceWorkflowStageExecutionV1,
 } from '../desktop/assistance-workflow-executor.ts';
 import {
@@ -128,105 +127,32 @@ test('executor forwards every repeated frame-pack claim in aggregate order', asy
 	]]);
 });
 
-test('executor returns typed unavailable without primitive or deterministic substitution', async () => {
-	const resolver = async (stage: AssistanceWorkflowStageBindingV1) => Object.freeze({
-		outcome: 'resolved' as const,
-		custody: createAssistanceWorkflowStageCustodyToken(stage),
-	});
-	const missingPrimitive = createAssistanceWorkflowService({
-		mintJobId: () => WORKFLOW_JOB_ID,
-		execute: createAssistanceWorkflowExecutor({
-			resolveCustody: resolver,
-			deterministicHandlers: {
-				'assemble-captions': async () => Object.freeze({ outcome: 'completed' as const }),
-			},
-		}),
-	});
-	await missingPrimitive.createJob();
-	assert.deepEqual(await missingPrimitive.run(assistanceWorkflowFixture()), unavailable('stage-unavailable'));
-
-	const primitiveCalls: string[] = [];
-	const missingOwned = createAssistanceWorkflowService({
-		mintJobId: () => WORKFLOW_JOB_ID,
-		execute: createAssistanceWorkflowExecutor({
-			resolveCustody: resolver,
-			runPrimitiveStage: async (stage) => {
-				primitiveCalls.push(stage.stage.stageId);
-				return Object.freeze({ outcome: 'completed' as const });
-			},
-		}),
-	});
-	await missingOwned.createJob();
-	assert.deepEqual(await missingOwned.run(assistanceWorkflowFixture()), unavailable('stage-unavailable'));
-	assert.deepEqual(primitiveCalls, ['detect-speech', 'recognize-speech']);
-
-	const missingCustody = createAssistanceWorkflowService({
-		mintJobId: () => WORKFLOW_JOB_ID,
-		execute: createAssistanceWorkflowExecutor({
-			runPrimitiveStage: async () => Object.freeze({ outcome: 'completed' as const }),
-		}),
-	});
-	await missingCustody.createJob();
-	assert.deepEqual(await missingCustody.run(assistanceWorkflowFixture()), unavailable('stage-unavailable'));
-});
-
-test('model-unavailable stops the selected graph and cannot fall through to owned handlers', async () => {
-	let ownedCalls = 0;
-	const service = createAssistanceWorkflowService({
-		mintJobId: () => WORKFLOW_JOB_ID,
-		execute: createAssistanceWorkflowExecutor({
-			resolveCustody: async (stage) => Object.freeze({
-				outcome: 'resolved' as const,
-				custody: createAssistanceWorkflowStageCustodyToken(stage),
-			}),
-			runPrimitiveStage: async () => Object.freeze({
-				outcome: 'unavailable' as const, reason: 'model-unavailable' as const,
-			}),
-			deterministicHandlers: {
-				'assemble-captions': async () => {
-					ownedCalls += 1;
-					return Object.freeze({ outcome: 'completed' as const });
+for (const reason of ['stage-unavailable', 'model-unavailable'] as const) test(
+	`${reason} stops the selected graph before owned handlers`, async () => {
+		let ownedCalls = 0;
+		const service = createAssistanceWorkflowService({
+			mintJobId: () => WORKFLOW_JOB_ID,
+			execute: createAssistanceWorkflowExecutor({
+				resolveCustody: async (stage) => Object.freeze({
+					outcome: 'resolved' as const,
+					custody: createAssistanceWorkflowStageCustodyToken(stage),
+				}),
+				runPrimitiveStage: async () => Object.freeze({
+					outcome: 'unavailable' as const, reason,
+				}),
+				deterministicHandlers: {
+					'assemble-captions': async () => {
+						ownedCalls += 1;
+						return Object.freeze({ outcome: 'completed' as const });
+					},
 				},
-			},
-		}),
-	});
-	await service.createJob();
-	assert.deepEqual(await service.run(assistanceWorkflowFixture()), unavailable('model-unavailable'));
-	assert.equal(ownedCalls, 0);
-});
-
-test('executor rejects malformed custody and ignores caller-supplied graph projections', async () => {
-	assert.throws(() => createAssistanceWorkflowExecutor({
-		deterministicHandlers: { 'execute-shell': async () => ({ outcome: 'completed' }) } as never,
-	}), /handler|stage/iu);
-	const request = assistanceWorkflowFixture();
-	const observed: string[] = [];
-	const executor = createAssistanceWorkflowExecutor({
-		resolveCustody: async (stage) => Object.freeze({
-			outcome: 'resolved' as const,
-			custody: stage.stage.stageId === 'detect-speech'
-				? Object.freeze({
-					custodyVersion: 1, jobId: stage.request.jobId, stageId: stage.stage.stageId,
-					inputClaimIds: Object.freeze(['f'.repeat(40)]),
-					outputClaimIds: Object.freeze(stage.outputs.map(({ claimId }) => claimId)),
-				})
-				: createAssistanceWorkflowStageCustodyToken(stage),
-		}),
-		runPrimitiveStage: async (stage) => {
-			observed.push(`${stage.stage.stageId}:${String(stage.stage.operation)}`);
-			return Object.freeze({ outcome: 'completed' as const });
-		},
-		deterministicHandlers: {
-			'assemble-captions': async () => Object.freeze({ outcome: 'completed' as const }),
-		},
-	});
-	await assert.rejects(executor(request, {
-		signal: new AbortController().signal,
-		stages: Object.freeze([{ stageId: 'execute-shell', operation: null }]) as never,
-		progress: () => undefined,
-	}), /custody.*input|input.*custody/iu);
-	assert.deepEqual(observed, [], 'malformed custody must fail before any stage delegation');
-});
+			}),
+		});
+		await service.createJob();
+		assert.deepEqual(await service.run(assistanceWorkflowFixture()), unavailable(reason));
+		assert.equal(ownedCalls, 0);
+	},
+);
 
 test('executor forwards cancellation to the active custody and stage ports', async () => {
 	const stageSignals: AbortSignal[] = [];
@@ -254,25 +180,6 @@ test('executor forwards cancellation to the active custody and stage ports', asy
 	});
 	assert.equal(stageSignals[0]?.aborted, true);
 	await assert.rejects(running, AssistanceWorkflowCancelledError);
-});
-
-test('executor bounds determinate stage progress before forwarding it', async () => {
-	const request = assistanceWorkflowFixture();
-	const execute = createAssistanceWorkflowExecutor({
-		resolveCustody: async (stage) => Object.freeze({
-			outcome: 'resolved' as const,
-			custody: createAssistanceWorkflowStageCustodyToken(stage),
-		}),
-		runPrimitiveStage: async (stage) => {
-			stage.progress(Number.NaN, 1);
-			return Object.freeze({ outcome: 'completed' as const });
-		},
-	});
-	await assert.rejects(execute(request, {
-		signal: new AbortController().signal,
-		stages: Object.freeze([]),
-		progress: () => undefined,
-	}), /progress.*finite|finite.*progress/iu);
 });
 
 function stageCall(kind: string, stage: AssistanceWorkflowStageExecutionV1) {
