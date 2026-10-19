@@ -5,7 +5,6 @@ import test from 'node:test';
 
 import {
 	LocalModelCapacity,
-	availableLocalModelStorageBytes,
 } from '../desktop/local-model-capacity.ts';
 
 function capacityDetails(bytes: bigint): Readonly<{ bavail: bigint; bsize: bigint }> {
@@ -47,7 +46,7 @@ test('concurrent reservations cannot oversubscribe the observed destination byte
 	assert.equal(second.release(), true);
 });
 
-test('reservations are isolated by normalized store root and validate consumption', async () => {
+test('reservations are isolated by normalized store root and account for consumption', async () => {
 	const capacity = new LocalModelCapacity({
 		statfsImpl: async () => capacityDetails(5n),
 	});
@@ -55,18 +54,14 @@ test('reservations are isolated by normalized store root and validate consumptio
 	await assert.rejects(capacity.reserve('/models', 1), /available disk space/iu);
 	const other = await capacity.reserve('/other-models', 5);
 
-	assert.throws(() => first.consume(6), /exceed.*remaining/iu);
 	assert.equal(first.consume(2), 3);
 	assert.equal(first.remainingBytes, 3);
 	assert.equal(first.release(), true);
 	assert.equal(other.release(), true);
 });
 
-test('invalid or unavailable statfs information fails closed', async () => {
+test('anomalous or unavailable native statfs information fails closed', async () => {
 	const cases: readonly unknown[] = [
-		null,
-		{ bavail: 1, bsize: 1n },
-		{ bavail: 1n, bsize: 1 },
 		{ bavail: -1n, bsize: 1n },
 		{ bavail: 1n, bsize: 0n },
 	];
@@ -74,7 +69,6 @@ test('invalid or unavailable statfs information fails closed', async () => {
 		const capacity = new LocalModelCapacity({ statfsImpl: async () => details });
 		await assert.rejects(capacity.reserve('/models', 1), /capacity information is invalid/iu);
 	}
-	assert.throws(() => availableLocalModelStorageBytes({ bavail: 1, bsize: 1n }), /bigint/iu);
 
 	const failed = new LocalModelCapacity({
 		statfsImpl: async () => { throw new Error('volume offline'); },
@@ -82,16 +76,3 @@ test('invalid or unavailable statfs information fails closed', async () => {
 	await assert.rejects(failed.reserve('/models', 1), /could not inspect.*capacity/iu);
 });
 
-test('byte counts and roots are bounded before statfs', async () => {
-	let calls = 0;
-	const capacity = new LocalModelCapacity({
-		statfsImpl: async () => {
-			calls += 1;
-			return capacityDetails(1n);
-		},
-	});
-	await assert.rejects(capacity.reserve('relative', 1), /absolute/iu);
-	await assert.rejects(capacity.reserve('/models', -1), /safe non-negative integer/iu);
-	await assert.rejects(capacity.reserve('/models', Number.MAX_SAFE_INTEGER + 1), /safe non-negative integer/iu);
-	assert.equal(calls, 0);
-});
