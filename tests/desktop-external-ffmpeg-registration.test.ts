@@ -8,6 +8,8 @@ import { createExternalFfmpegInstallerBroker, planExternalFfmpegInstall } from '
 import { registerExternalFfmpegPreferenceMainIpc } from '../desktop/external-ffmpeg-preference-main-ipc.ts';
 import { createExternalFfmpegPreferenceService } from '../desktop/external-ffmpeg-preference-service.ts';
 
+import { externalFfmpegExecutablePairClosureSha256 } from '../desktop/external-ffmpeg-node-runtime.ts';
+
 const CHANNELS = Object.freeze({
 	externalFfmpegStatus: 'status', externalFfmpegChoose: 'choose', externalFfmpegClear: 'clear',
 	externalFfmpegRescan: 'rescan', externalFfmpegInstall: 'install',
@@ -77,9 +79,7 @@ for (const detected of [true, false]) {
 		const settings = settingsFixture();
 		const probes: Array<string | null> = [];
 		const handlers = new Map<string, (...arguments_: unknown[]) => unknown>();
-		const evidence = available();
-		evidence.evidence.executablePath = '/usr/bin/ffmpeg';
-		evidence.evidence.identity.ffprobePath = '/usr/bin/ffprobe';
+		const evidence = available('/usr/bin/ffmpeg', '/usr/bin/ffprobe');
 		const registration = await registerExternalFfmpegPreferences({
 			channels: CHANNELS, settings,
 			handle: (channel: string, listener: (...arguments_: unknown[]) => unknown) => {
@@ -309,15 +309,17 @@ function settingsFixture(initial: Selection | null = null) {
 	};
 }
 
-function available() {
+function available(ffmpegPath = PATH, ffprobePath = '/opt/homebrew/bin/ffprobe') {
 	return {
 		status: 'available' as const,
 		evidence: {
-			executablePath: PATH,
+			executablePath: ffmpegPath,
 			identity: {
 				version: '9.0.1', ffmpegSha256: '1'.repeat(64),
-				ffprobePath: '/opt/homebrew/bin/ffprobe', ffprobeSha256: '2'.repeat(64),
-				executablePairClosureSha256: '3'.repeat(64),
+				ffprobePath, ffprobeSha256: '2'.repeat(64),
+				executablePairClosureSha256: externalFfmpegExecutablePairClosureSha256({
+					ffmpegPath, ffmpegSha256: '1'.repeat(64), ffprobePath, ffprobeSha256: '2'.repeat(64),
+				}),
 			},
 			capabilities: { digest: '4'.repeat(64), probedAtEpochMs: 1 },
 		},
