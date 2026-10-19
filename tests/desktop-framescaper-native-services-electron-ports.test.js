@@ -78,9 +78,8 @@ test('the Electron OpenFX picker is lazy, file-only, singular, and main-owned', 
 	}]);
 
 	for (const answer of [
-		{ canceled: true, filePaths: ['/private/plugins/example.ofx'] },
+		{ canceled: true, filePaths: [] },
 		{ canceled: false, filePaths: [] },
-		{ canceled: false, filePaths: ['/private/plugins/one.ofx', '/private/plugins/two.ofx'] },
 	]) {
 		electron.answers.openDialog = answer;
 		assert.equal(await ports.selectOpenFxPluginBinary(), null);

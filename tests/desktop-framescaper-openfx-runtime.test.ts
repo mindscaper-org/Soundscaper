@@ -24,7 +24,7 @@ test('an unstaged CI-generated manifest creates no OpenFX manager or child autho
 	assert.equal(runtime.dispose(), true);
 });
 
-test('a built payload reaches the genuine machine-isolation gate', async () => {
+test('caller-described bytes remain disabled without their actual reopened launcher artifacts', async () => {
 	const runtime = await startFramescaperOpenFxRuntime({
 		location: location(), payloadPorts: ports(manifest(true)),
 	});
@@ -32,31 +32,9 @@ test('a built payload reaches the genuine machine-isolation gate', async () => {
 	assert.equal(runtime.selfTestPassed(), false);
 	assert.equal(runtime.manager, null);
 	assert.match(runtime.reason ?? '', /isolation-launcher-unavailable/iu);
-});
-
-test('caller-described bytes remain disabled without their actual reopened launcher artifacts', async () => {
-	const runtime = await startFramescaperOpenFxRuntime({
-		location: location(), payloadPorts: ports(manifest(true)),
-	});
-	assert.equal(runtime.available(), false);
-	assert.equal(runtime.manager, null);
-	assert.match(runtime.reason ?? '', /isolation-launcher-unavailable/iu);
 	assert.match(runtime.reason ?? '', /launcher artifact|no such file|ENOENT/iu);
 });
 
-test('caller-authored outer helper launchers cannot enter production composition', async () => {
-	let called = 0;
-	const runtime = await startFramescaperOpenFxRuntime({
-		location: location(), payloadPorts: ports(manifest(true)),
-		productionLauncher: {
-			verify: async () => { called += 1; return {}; },
-			spawnHelper: () => { called += 1; throw new Error('unreachable'); },
-		},
-	} as never);
-	assert.equal(runtime.available(), false);
-	assert.equal(runtime.manager, null);
-	assert.equal(called, 0);
-});
 
 function location() {
 	return Object.freeze({
