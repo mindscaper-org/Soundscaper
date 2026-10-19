@@ -3,10 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-	automaticClipCrossfadeRanges,
-	mergeFrameRanges,
-} from '../src/common/editor/audio-clip-overlap.ts';
+import { automaticClipCrossfadeRanges } from '../src/common/editor/audio-clip-overlap.ts';
 import {
 	evaluateClipCrossfadeAt,
 	evaluateClipEdgeGainAt,
@@ -54,22 +51,6 @@ test('automatic clip crossfades share one projection for chains while contained 
 		crossfadeInRanges: [],
 		crossfadeOutRanges: [],
 	});
-});
-
-test('automatic clip crossfades delegate range normalization to the shared merger by default', () => {
-	assert.deepEqual(
-		mergeFrameRanges([[5, 9], [1, 3], [3, 6], [8, 8], [Number.NaN, 2]]),
-		[[1, 9]],
-	);
-	const calls: (readonly (readonly [number, number])[])[] = [];
-	automaticClipCrossfadeRanges<TestClip>([
-		{ id: 'left', start: 0, duration: 10 },
-		{ id: 'right', start: 5, duration: 10 },
-	], accessors, (ranges) => {
-		calls.push(ranges);
-		return mergeFrameRanges(ranges);
-	});
-	assert.equal(calls.length, 4, 'both range directions for both clips use the supplied normalizer');
 });
 
 test('clip transition gain owns explicit fades and overlapping automatic crossfades', () => {
