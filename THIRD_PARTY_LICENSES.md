@@ -41,6 +41,14 @@ Copyright (C) 2021 MuseScore BVBA and others (theme illustration), and the Audac
 contributors (clip assets). [Source paths, modifications and original hashes](src/common/editor/ui/skins/previews/NOTICE.md)
 are retained with the assets; [GPLv3 terms](LICENSES/GPL-3.0.txt) are bundled.
 
+## Audacity selection cursors
+
+The selection-edge PNG cursors are unmodified copies from Audacity commit
+`16f2713979809abe7308b4e1e0d487afeece84f2`, copyright the Audacity contributors,
+under GPL-3.0-only (the GPLv3 option of the default GPL-2.0-or-later terms).
+[Source paths and original hashes](src/common/editor/ui/timeline/cursors/NOTICE.md)
+are retained with the assets; [GPLv3 terms](LICENSES/GPL-3.0.txt) are bundled.
+
 ## Audacity-derived native audio effects
 
 Parts of `src/common/editor/audacity-effects/` are JavaScript and TypeScript translations and adaptations of native effect implementations from Audacity 3.7.7, exact commit `5ef610ed23260d6d648175735bb16b32536eb30b`:
