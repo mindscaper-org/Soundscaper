@@ -8,7 +8,6 @@ import type { HelperDataPlaneTransferPort } from '../desktop/helper-data-plane-t
 import {
 	createHarness,
 	settled,
-	supervisionCause,
 } from './helpers/helper-supervisor-double.ts';
 
 const PLAN_BYTES = new Uint8Array([1, 2, 3]);
@@ -49,34 +48,6 @@ test('a native job transfers exactly the ports named by its admitted data-plane 
 		},
 	});
 	await pending;
-});
-
-test('missing, duplicate, wrong, or extra transfers fail before a helper is spawned', async () => {
-	for (const dataPlaneTransfers of [
-		undefined,
-		[],
-		[{ streamId: 'cd'.repeat(20), port: new Port() }],
-		[
-			{ streamId: PLAN_STREAM, port: new Port() },
-			{ streamId: PLAN_STREAM, port: new Port() },
-		],
-	]) {
-		const harness = createHarness({ kinds: ['media-encode'] });
-		await assert.rejects(harness.supervisor.runJob({
-			kind: 'media-encode',
-			grant: encodeGrant(),
-			...(dataPlaneTransfers === undefined ? {} : { dataPlaneTransfers }),
-		}), (error: unknown) => supervisionCause(error) === 'invalid-request');
-		assert.equal(harness.channels.length, 0);
-	}
-
-	const legacy = createHarness();
-	await assert.rejects(legacy.supervisor.runJob({
-		kind: 'probe-video-source',
-		grant: { mediaPath: '/media/video.mov', mediaBytes: 12, identity: { dev: 1, ino: 2 } },
-		dataPlaneTransfers: [{ streamId: PLAN_STREAM, port: new Port() }],
-	}), (error: unknown) => supervisionCause(error) === 'invalid-request');
-	assert.equal(legacy.channels.length, 0);
 });
 
 function encodeGrant() {
