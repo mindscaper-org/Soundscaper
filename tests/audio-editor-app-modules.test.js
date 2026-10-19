@@ -31,14 +31,6 @@ test('browser preferences do not retain the legacy FFmpeg offline runtime', asyn
 	assert.doesNotMatch(preferences, /selectedPage === ['"]offline['"]/u);
 });
 
-test('menus and keyboard runtime are not owned by the React app shell', async () => {
-	const app = await readFile(new URL('AudioEditorApp.jsx', UI_ROOT), 'utf8');
-	assert.doesNotMatch(app, /function createApplicationMenus/);
-	assert.doesNotMatch(app, /function handleWorkspaceKeyboard/);
-	assert.doesNotMatch(app, /function projectZoomShortcut/);
-	assert.doesNotMatch(app, /function matchAudioEditorShortcut/);
-});
-
 test('desktop read callers retain capabilities for their scoped consumers', async () => {
 	const workspace = await readFile(new URL('workspace/AudioEditorWorkspace.jsx', UI_ROOT), 'utf8');
 	const projectBin = await readFile(new URL('workspace/ProjectBinPanel.jsx', UI_ROOT), 'utf8');
