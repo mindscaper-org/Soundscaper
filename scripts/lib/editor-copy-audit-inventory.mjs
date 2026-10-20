@@ -39,7 +39,9 @@ const photoFramescaperHandoff = Object.fromEntries(Object.entries(photoFramescap
 const photoFramescaperReceive = Object.fromEntries(Object.entries(photoFramescaperReceiveCopy('en')).map(([key, value]) => [`ui.photoFramescaperReceive.${key}`, value]));
 const photoFramescaperCollectionHandoff = Object.fromEntries(Object.entries(photoFramescaperCollectionHandoffCopy('en')).map(([key, value]) => [`ui.photoFramescaperCollectionHandoff.${key}`, value]));
 
-/** Build-time inventory includes copy owned by lazy surfaces without bundling it eagerly. */
+/** Build-time inventory includes copy owned by lazy surfaces without bundling it eagerly.
+ * @type {Readonly<Record<string, string>>}
+ */
 export const EDITOR_COPY_AUDIT_INVENTORY = Object.freeze({
 	...EDITOR_ENGLISH_COPY,
 	...freesoundAttribution,

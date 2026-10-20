@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { mountedExportDialog } from './helpers/audio-editor-export-dialog-fixture.ts';
+import { reactProps } from './helpers/react-test-dom.ts';
+import type { ImageExportTextV1 } from '../src/common/editor/image-export-text-v1.ts';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { captureImageExportTextSelection, restoreImageExportTextSelection } from '../src/common/editor/ui/PhotoTextWatermarkFields.tsx';
 import { validateDeliveryPreset } from '../src/common/editor/delivery-preset.ts';
@@ -121,7 +123,7 @@ test('common Frame retirement joins the complete codec before text wipe and dest
 });
 
 test('common Frame captures text scalars and reader receiver before its first borrowed await', async () => {
-	const f = await fixture('generator'), input = { ...TEXT };
+	const f = await fixture('generator'); const input: { -readonly [Key in keyof ImageExportTextV1]: ImageExportTextV1[Key] } = { ...TEXT };
 	const work = f.exportVideo({ format: 'video-mp4', textWatermark: input });
 	input.widthFraction = 1; input.opacity = 0;
 	f.runtime.options.withImageExportTextFrame = async () => assert.fail('Uncaptured replacement reader');

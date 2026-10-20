@@ -17,7 +17,7 @@ export const INCOMPLETE_DERIVED_ATTRIBUTION_WARNING =
 	'This derived source also contains one or more inputs whose attribution is unavailable because they predate provenance tracking.';
 
 export interface SourceProvenanceCarrier {
-	readonly provenance?: SourceProvenanceV1;
+	readonly provenance?: unknown;
 }
 
 interface IdentifiedSourceProvenanceCarrier extends SourceProvenanceCarrier {
