@@ -168,7 +168,7 @@ without changing saved Develop state.
 
 | Area | Current capability |
 | --- | --- |
-| Product seam | Three-product registry, separate-origin routes and independently built sites, per-product profiles/capabilities/PWA/i18n, registry-driven switching, and product-owned test shards. Lightscaper also has independently prepared hardened Web Core and opt-in complete native Session compositions, with an authenticated optional Photo filesystem/RAW bundle. Linked workflow and target qualification remain L8 work; public release stays deferred. |
+| Product seam | Three-product registry, separate-origin routes and independently built sites, per-product profiles/capabilities/PWA/i18n, registry-driven switching, and product-owned test shards. Lightscaper also has independently prepared hardened Web Core and opt-in complete native Session compositions, with an authenticated optional Photo filesystem/RAW bundle. The linked workflow is implemented; complete target qualification remains L8 work. Public release stays deferred. |
 | Imaging engine | Shared parametric video effects, managed SDR color with linear-light grade math and `.cube` LUTs, mask graphs, visual presets, and keyframe curves. Wider primaries/transfers remain recognized by the schema and refused at render admission. |
 | Stills | Framescaper V30 still import and timeline-image modeling landed; Lightscaper reuses shared image admission, native decode, EXIF orientation, and immutable original bindings. |
 | Pixel interchange | The unchanged descriptor carries byte, word and float samples independently of primaries/transfer. Current RAW supplies linear sRGB16 to Float32 color, geometry, spatial, LUT, mask, repair and output stages, with final PNG8/16 or JPEG8 delivery. Editable Source4 handoff regenerates native words from the authenticated Original; wide-gamut work remains open. |
@@ -203,7 +203,7 @@ Architectural constraints that still drive the sequence:
 | L6. Local adjustments and repair | **In progress** | Add masked adjustments and parametric healing. |
 | L7. Raw and deep color | **In progress** | Activate deep processing, raw decode, and wide-gamut output. |
 | L8. Desktop tier | **In progress** | Package the desktop product and add-in-place libraries. |
-| L9. Owner QA and diagnostics | **Planned** | Exercise the coherent product, improve diagnostics, and record optional observations without a certification gate. |
+| L9. Owner QA and diagnostics | **In progress** | Exercise the coherent product, improve diagnostics, and record optional observations without a certification gate. |
 
 L3 and L4 may proceed in parallel once L2 and L3's catalog-and-ingest core
 land. Earlier milestones may ship independently. L9 rounds out owner QA and
@@ -346,9 +346,11 @@ L3 exit gates remain in progress.
 ### Exit gate
 
 - Node and browser workflows cover the full loop keyboard-complete in every
-  engine whose storage workflow is supported — Chromium and Firefox today;
-  WebKit joins when a pinned Playwright build exposes the required
-  OPFS/IndexedDB storage, per the milestone-2 scope-revision-2 deferral.
+  engine whose storage workflow is supported. Full native-OPFS library workflows
+  cover Chromium and Firefox. WebKit has a separate managed IndexedDB fallback
+  workflow through import, Develop, Save and reload; workflows requiring OPFS
+  remain deferred until a pinned Playwright build supplies that primitive,
+  under milestone-2 scope revision 2.
 - The large-library fixture meets its recorded budgets in CI.
 - Original immutability is proven by digest checks across the import, edit,
   relink, and eviction suites.
@@ -1027,8 +1029,10 @@ there.
   native preview path with complete phase admission and verified whole-CPU
   fallback. Original-space Clone and screened-Poisson Heal now share that
   native preview path and pass the recorded local software-GPU and Firefox corpus.
-  Remaining work includes full-stack conformance, native desktop services,
-  final inter-slice QA and the L7/L8/L9 exit gates. The configured digest-pinned Chromium
+  A focused combined RAW Develop corpus and the installed native desktop
+  services are implemented below. Remaining qualification includes the
+  detected-environment GPU/CPU matrix, final inter-slice checks and the
+  L7/L8/L9 exit gates. The configured digest-pinned Chromium
   software-GPU baseline retains its Quality/Desktop Preview coverage
   dependencies. The E64 baseline configuration named ten exact specs. Recorded
   E64 local qualification passed all 86 software-Chromium cases and all 86 Firefox
@@ -1153,8 +1157,8 @@ there.
   A [focused combined RAW Develop corpus](docs/architecture/lightscaper-develop-full-stack-current.md)
   passes nine software-Chromium cases, including an actual GPU delivery control
   and exact whole-recipe fallback when nonlinear candidates exceed the existing
-  precision contract. Wider GPU evaluation, native desktop services and the
-  broader L7/L8/L9 exit gates remain open.
+  precision contract. Wider GPU evaluation, complete target-native execution of
+  the implemented desktop services and the broader L7/L8/L9 exit gates remain open.
 - **Shared — Deferred:** panorama stitching.
 - **Shared — Optional:** DNG output.
 
