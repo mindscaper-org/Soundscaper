@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { test as base } from '@playwright/test';
+import { test as base } from './browser-context-fixture.ts';
 import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
