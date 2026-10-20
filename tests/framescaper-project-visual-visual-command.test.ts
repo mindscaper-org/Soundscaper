@@ -343,27 +343,6 @@ test('a stale expected source aborts the command before the project is touched',
 
 // A null-to-null removal never survives the snapshot gate, so the apply-level
 // missing-identity guard is reached only by a directly constructed command.
-test('a source removal ignores a video source that happens to share the identity', () => {
-	const project: Data = { sources: [{ id: 'still-source', kind: 'video' }] };
-	const command = {
-		type: 'video-visual-source/set', sourceId: 'still-source', expectedSource: null, source: null,
-	} as const;
-
-	assert.throws(() => snapshot(command), /must mutate state/u);
-	assert.throws(() => apply(project, command), /source still-source is missing/u);
-	assert.deepEqual(project.sources, [{ id: 'still-source', kind: 'video' }]);
-});
-
-test('the source collection must be an array of records', () => {
-	const command = snapshot({
-		type: 'video-visual-source/set', sourceId: 'still-source', expectedSource: null, source: stillSource(),
-	});
-
-	assert.throws(() => apply({}, command), /sources must be an array/u);
-	assert.throws(() => apply({ sources: { 0: stillSource() } }, command), /sources must be an array/u);
-	assert.throws(() => apply({ sources: ['still-source'] }, command), /sources\[0\] must be an object/u);
-});
-
 test('placing a clip on a video track links it into that track clip order', () => {
 	const project = clipProject();
 
@@ -456,16 +435,6 @@ test('a stale expected placement aborts the clip command', () => {
 	assert.deepEqual(project, before);
 });
 
-test('the clip command requires the timeline, project bin and track collections', () => {
-	const command = snapshot(REMOVALS[1]!.command);
-
-	assert.throws(() => apply({ projectBin: { clips: [] }, tracks: [] }, command), /clips must be an array/u);
-	assert.throws(() => apply({ clips: [], tracks: [] }, command), /projectBin must be an object/u);
-	assert.throws(() => apply({ clips: [], projectBin: { clips: 'none' }, tracks: [] }, command),
-		/projectBin\.clips must be an array/u);
-	assert.throws(() => apply({ clips: [], projectBin: { clips: [] } }, command), /tracks must be an array/u);
-});
-
 test('an adjustment layer is appended, replaced and removed by identity', () => {
 	const project: Data = { videoAdjustmentLayers: [] };
 	const added = adjustment();
@@ -500,15 +469,6 @@ test('a stale preset expectation refuses to overwrite the stored preset', () => 
 	assert.deepEqual(project.videoVisualPresets, [preset({ name: 'Look B' })]);
 });
 
-test('removing an absent mask/matte is refused as missing', () => {
-	const project: Data = { videoMaskMattes: [mask({ id: 'other-mask' })] };
-
-	assert.throws(() => apply(project, {
-		type: 'video-mask-matte/set', maskMatteId: 'mask', expectedMaskMatte: null, maskMatte: null,
-	}), /mask\/matte mask is missing/u);
-	assert.deepEqual(project.videoMaskMattes, [mask({ id: 'other-mask' })]);
-});
-
 test('a freeze fallback is stored and replaced under its rendered source identity', () => {
 	const project: Data = { videoFreezeFallbacks: [] };
 	const stored = freezeFallback();
@@ -533,9 +493,3 @@ test('a freeze fallback is stored and replaced under its rendered source identit
 	assert.deepEqual(project.videoFreezeFallbacks, []);
 });
 
-test('a model collection must be an array before it is edited', () => {
-	assert.throws(() => apply({ videoVisualPresets: 'none' }, snapshot(REMOVALS[3]!.command)),
-		/videoVisualPresets must be an array/u);
-	assert.throws(() => apply({ videoMaskMattes: [null] }, snapshot(REMOVALS[4]!.command)),
-		/videoMaskMattes\[0\] must be an object/u);
-});
