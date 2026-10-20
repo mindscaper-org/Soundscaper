@@ -5,7 +5,7 @@ import type { DesktopPhotoOriginalStorageCurrentV1 as Storage, DesktopPhotoOrigi
 import { createBrowserFileSaveService } from '../../common/editor/browser-file-save-service.ts';
 import { PhotoRasterExportCurrentV1 } from '../controller/photo-raster-export-current-v1.ts';
 import { createPhotoDevelopRenderRuntimeCurrentV1 } from '../photo-develop-render-runtime-current-v1.ts';
-import { encodePhotoPngCurrentV1 } from '../../common/editor/ui/lightscaper/photo-png-export-encoder-current-v1.ts';
+import { encodePhotoPngCurrentV1 } from '../controller/photo-png-export-encoder-current-v1.ts';
 import { debugCheckCurrentV1 as check, debugCleanupFailureCurrentV1 as cleanupFailure, bindDebugMethodCurrentV1 as bind,
 	type DebugOutputCurrentV1, type DebugOwnersCurrentV1 } from './photo-library-debug-soak-contract-current-v1.ts';
 import { debugHashCurrentV1 as hash } from './photo-library-debug-bytes-current-v1.ts';
