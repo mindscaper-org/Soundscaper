@@ -1,37 +1,69 @@
 # Motionscaper final integration status
 
 Status: **M01–M12 In progress**, updated 2026-10-20. **No milestone is accepted**.
-Overall completion is estimated at **about 85%**; release acceptance remains open.
+Engineering completion is estimated at **about 90%**; release acceptance remains
+open.
 
-The complete Node run on frozen source `657fe1f500` closed with **28,133 passes,
-10 failures and 20 declared skips**. Integration `f9e7d27b6` corrects the four
-failure groups: native dependency pins, nightly payload closure, product
-release-tag expectations and translation chunking. All **34 combined focused
-tests pass**, including the payload pair with normal integration dependencies.
-Test-only follow-up `9ad5751d0` adds an explicit fragment identifier type; scoped
-strict TypeScript, changed-file lint, the four translation tests and the
-production build pass. The largest locale chunk is 462,271 bytes, below the
-unchanged 490,000-byte regression budget and 500,000-byte production ceiling.
-These results do not qualify a fresh complete Node run.
+The current test and browser-build checkpoint is `bc586f975`, a two-file,
+six-line fixture correction after application checkpoint `0282106d9`. The
+production application, native inputs, package inputs and dependencies are
+unchanged. Completed results retain their actual source revisions below.
 
-The current native implementation checkpoint is `66b58a391`. Windows build
-corrections handle numeric zlib feature macros and installed FFmpeg link
-metadata while preserving the dependency closure. The subsequent build compiled
-and linked both native hosts, then failed three Motion tests when they deleted
-MOV files with their demuxers still open. The committed fixture correction
-closes those inputs after all original media assertions. Focused native checks
-pass **5/5 on Windows and Linux**, and **13 source/inventory checks pass** without
-skips. These focused builds use read-only prior codec libraries and do not
-qualify fresh full native artifacts, packaged applications or the full suite.
+The fresh complete Node gate passes on `bc586f975`: the desktop-runtime fixture
+and all five unfiltered maintained shards close successfully, with **28,168
+passes, 22 reviewed declared skips and zero failures** across 28,190 tests.
+The corrected total includes two isolated passed batches omitted from the first
+summary. Foreign-target and optional/manual fixture skips retain their explicit
+scope; they are not additional executed host qualification. The failed `0282106d9`
+Node cohort and its raw coverage remain unadmitted.
 
-The latest complete ordinary browser run, on `fba35da53`, closed with **7,212
-passes, 19 failures and 308 declared skips**. The later three-scenario Motion
-run passed all nine engine/case combinations on `4d6a3bdc2`. Focused passes do
-not qualify the complete browser gate or establish earlier failure causes.
+The complete static gate passes on `0282106d9`, including full lint, strict
+types, architecture, audits, documentation and the production build. Fresh Linux
+x64 staging, both unpacked packages and resource verification pass on that
+application revision. The qualified Linux native build, five Motion CTests and
+independent reference retain compilation revision `f0191caeb`. Maintained native
+source-equivalence checks permit reuse; no receipt is retagged.
 
-Windows qualification, fresh Linux native qualification and the final complete
-Node, browser, coverage and release gates remain pending. No installed After
-Effects test environment is available, so actual AE interchange remains unqualified.
+All four original Linux maximum workloads pass on `0282106d9`: maximum quality,
+64 planes, 32 lights and 32,768 frames. Index timestamps, selected picture/alpha
+checks and exact 52,428,800-sample stereo 48 kHz PCM pass. Retained PSS growth is
+63,619,584 bytes against the unchanged 67,108,864-byte limit. Resource/process
+closure, output preservation, sandbox-custody return and private audio shutdown
+pass. The failed `f03463912` index result remains failed; this pass establishes
+neither a leak cause nor broader hardware/platform acceptance.
+
+Windows D6 passes the maintained restore, stage, unsigned unpacked-package and
+`--require-native-prores` smoke phases on application `0282106d9`, with owned
+process closure. Its native binary retains the qualified `4c614e0b46` compilation
+revision and its original receipt. This local Windows x64 software-GPU scope
+covers the original two-frame ProRes case with stereo 48 kHz PCM; it does not
+qualify hardware GPUs, installers, signing, updating or other targets.
+
+The fresh hidden-source-map browser build passes on `bc586f975`. Discovery finds
+**7,614 ordinary identities**, 2,538 per engine. Their complete unfiltered
+Chromium/Firefox/WebKit execution is **running at this checkpoint**, with
+four workers (2/1/1), zero retries and the default application heap. Discovery
+and progress are not browser acceptance.
+
+At 2026-10-20 18:27 UTC, the provisional log contained **883 passes,
+9 skips and one failure**. The WebKit damaged-autosave recovery test
+exhausted its unchanged 30-second completed-open assertion; the saved UI still
+showed import progress. Its report and PCM assertions were not reached. Saved
+evidence does not identify the pending worker/storage/activation stage or
+establish a cause. All eleven other engine/recovery combinations passed. The
+original run continues without retries or source changes in the tested checkout.
+
+Separate linked, dual-origin and handbook suites also remain pending. The latest
+historical failed browser
+results retain their failures and do not contribute accepted coverage.
+
+Complete browser acceptance, the fresh Node/Chromium coverage union and its
+floors/ratchets, remaining target, installation, signing and update qualification,
+and real installed After Effects export/re-import, reference comparison and
+host-version qualification remain open. No installed AE environment is
+available; M11 and M12 therefore remain incomplete. Publication remains a
+separate owner action. No manual **Update AI assets** run is required: the
+assistance-runtime closure is unchanged.
 
 ## Historical validation evidence
 
@@ -702,14 +734,14 @@ The original completion gates remain unchanged.
 | M02 | Typed family-v1 `.mscape`, validation/history/leases, durable asset closure, foreign/future custody; explicit Frame 1.1 family-v2 migration with exact originals. | Current malformed/archive/retention/interruption/ownership workflows across admitted hosts. |
 | M03 | Shared rational evaluator, parenting/precomp/audio/remap, typed curves and consumption ledger used by preview/export/linked sources. | Current nested/mixed-rate/seek/cycle/timing/history equality across consumers. |
 | M04 | Pinned lazy CanvasKit, retained fonts, paragraph/vector rendering, linear SDR CPU/WebGL compositing. | Current multilingual/geometry/color/alpha/offline and equal-quality reference results. |
-| M05 | Persistent preview worker/host adapter, bounded queues, MP4/WebM/PNG, native ProRes/PCM, retained cleanup and duration harnesses. | Current physical destination/cancellation/reference and duration evidence; broader maximum/host matrix. |
+| M05 | Persistent preview worker/host adapter, bounded queues, MP4/WebM/PNG, native ProRes/PCM, retained cleanup and duration harnesses. | Four original Linux x64 maxima pass on `0282106d9`; complete current browser and remaining duration/host qualification stay separate. |
 | M06 | Opt-in timeline, canvas, property/value/speed/path/operator/text-animation controls, parenting/nesting/work areas/clipboard. | Complete title/shape authoring, Save/reopen/export, Undo, focus/keyboard/accessibility and shaping workflows. |
 | M07 | Masks/feather/mattes/blends/adjustments/effects, point/planar/stabilization/corner pin/chroma key and manual corrections. | Current tracked/keyed/masked pixels and history, stale-analysis/cycle/unavailable-effect behavior. |
 | M08 | Closed deterministic expression AST, stable references, procedural/audio queries, diagnostics and baking. | Current seek/order/cycle/budget/cancellation/audio/bake evidence. |
-| M09 | Perspective/orthographic scene authoring, lights/materials/shadows, translucent depth planes, deterministic lens/shutter sampling. | Current equal-quality browser/native references and other hardware/platform/maximum cases. |
+| M09 | Perspective/orthographic scene authoring, lights/materials/shadows, translucent depth planes, deterministic lens/shutter sampling. | Linux maximum-quality, 64-plane, 32-light and index references pass on `0282106d9`; complete browser and other hardware/platform qualification remain open. |
 | M10 | Explicit saved-revision transfer, Frame successor connection/conform/Undo/Resume, native watcher, retained offline preview/finish/export. | Current full link/dual-origin/offline/atomic/concurrent export and actual platform-isolation evidence. |
 | M11 | Readable installed-host scripts, reviewed editable subset, sampled/rendered alternatives, immutable original/report/media custody. | Actual installed AE export/reimport, reference frames/subframes and tested host-version matrix; environment unavailable. |
-| M12 | Own candidate/stable packaging, source-bound web build/deployment, signing/updater configuration, associations, handbook/copy and capability register. | Complete current canonical gates/coverage/ratchets, credentialed target/install/update and publication acceptance. |
+| M12 | Own candidate/stable packaging, source-bound web build/deployment, signing/updater configuration, associations, handbook/copy and capability register. | Complete Node/browser build pass on `bc586f975`; static, Linux unpacked packages/maxima and Windows unsigned software-GPU smoke pass on `0282106d9`. Complete browser/union coverage, remaining target/install/sign/update and real-AE gates remain open. Publication is a separate owner action. |
 
 File provides New Composition, Open/Save/Save Copy, media import, compositions,
 After Effects Bridge, Send Composition to Framescaper, Render and Render Queue.
@@ -727,7 +759,7 @@ checks are implemented. The register remains on the candidate channel. No tag,
 register activation, hosted deployment, dispatch or publication was performed
 by this recovery.
 
-## Latest integrated validation
+## Earlier integrated validation (source52/source70)
 
 Source `52ae9c43c` passed the complete maintained static gate, including all eight
 lint shards, strict types, architecture, audits, documentation and production

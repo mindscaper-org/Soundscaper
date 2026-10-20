@@ -74,34 +74,69 @@ package complete.
 ### Implementation status
 
 As of 2026-10-20, M01–M12 remain **In progress**; **no milestone is accepted**.
-Overall completion is estimated at **about 85%**. The current implementation
-checkpoint is `66b58a391`.
+Engineering completion is estimated at **about 90%**; this estimate does not
+accept a package or public release.
 
-The complete Node run on frozen source `657fe1f500` closed with **28,133 passes,
-10 failures and 20 declared skips**. Four failure groups—native dependency pins,
-nightly payload closure, product release-tag expectations and translation
-chunking—have committed corrections, with all **34 combined focused tests
-passing** on `f9e7d27b6`. A subsequent test type annotation passes scoped strict
-TypeScript, changed-file lint and all four translation tests. The production
-build passes the unchanged chunk limits. A complete rerun remains required.
+The current test and browser-build checkpoint is `bc586f975`, a two-file,
+six-line fixture correction after application checkpoint `0282106d9`. The
+production application, native inputs, package inputs and dependencies are
+unchanged. Completed results retain their actual source revisions below.
 
-Windows native-build corrections now handle numeric zlib feature macros and
-normalize installed FFmpeg link metadata without changing dependency versions.
-The next build compiled both native hosts, then exposed three test fixtures
-deleting MOV files before closing their demuxers. That correction is committed
-in `66b58a391`; focused native checks pass **5/5 on Windows and Linux**, and
-**13 source/inventory checks pass**. These focused builds use read-only prior
-codec libraries; fresh complete native builds and packaged-app checks remain
-required.
+The fresh complete Node gate passes on `bc586f975`: the desktop-runtime fixture
+and all five unfiltered maintained shards close successfully, with **28,168
+passes, 22 reviewed declared skips and zero failures** across 28,190 tests.
+The corrected total includes two isolated passed batches omitted from the first
+summary. Foreign-target and optional/manual fixture skips retain their explicit
+scope; they are not additional executed host qualification. The failed `0282106d9`
+Node cohort and its raw coverage remain unadmitted.
 
-The latest complete ordinary browser run, on `fba35da53`, had **7,212 passes,
-19 failures and 308 declared skips**. A later focused run of the three Motion
-scenarios passed all nine engine/case combinations on `4d6a3bdc2`; it does not
-qualify a complete browser rerun or establish the cause of earlier failures.
+The complete static gate passes on `0282106d9`, including full lint, strict
+types, architecture, audits, documentation and the production build. Fresh Linux
+x64 staging, both unpacked packages and resource verification pass on that
+application revision. The qualified Linux native build, five Motion CTests and
+independent reference retain compilation revision `f0191caeb`. Maintained native
+source-equivalence checks permit reuse; no receipt is retagged.
 
-Windows qualification, fresh Linux native qualification and the final complete
-Node, browser, coverage and release gates remain pending. No installed After
-Effects test environment is available, so actual AE interchange remains unqualified.
+All four original Linux maximum workloads pass on `0282106d9`: maximum quality,
+64 planes, 32 lights and 32,768 frames. Index timestamps, selected picture/alpha
+checks and exact 52,428,800-sample stereo 48 kHz PCM pass. Retained PSS growth is
+63,619,584 bytes against the unchanged 67,108,864-byte limit. Resource/process
+closure, output preservation, sandbox-custody return and private audio shutdown
+pass. The failed `f03463912` index result remains failed; this pass establishes
+neither a leak cause nor broader hardware/platform acceptance.
+
+Windows D6 passes the maintained restore, stage, unsigned unpacked-package and
+`--require-native-prores` smoke phases on application `0282106d9`, with owned
+process closure. Its native binary retains the qualified `4c614e0b46` compilation
+revision and its original receipt. This local Windows x64 software-GPU scope
+covers the original two-frame ProRes case with stereo 48 kHz PCM; it does not
+qualify hardware GPUs, installers, signing, updating or other targets.
+
+The fresh hidden-source-map browser build passes on `bc586f975`. Discovery finds
+**7,614 ordinary identities**, 2,538 per engine. Their complete unfiltered
+Chromium/Firefox/WebKit execution is **running at this checkpoint**, with
+four workers (2/1/1), zero retries and the default application heap. Discovery
+and progress are not browser acceptance.
+
+At 2026-10-20 18:27 UTC, the provisional log contained **883 passes,
+9 skips and one failure**. The WebKit damaged-autosave recovery test
+exhausted its unchanged 30-second completed-open assertion; the saved UI still
+showed import progress. Its report and PCM assertions were not reached. Saved
+evidence does not identify the pending worker/storage/activation stage or
+establish a cause. All eleven other engine/recovery combinations passed. The
+original run continues without retries or source changes in the tested checkout.
+
+Separate linked, dual-origin and handbook suites also remain pending. The latest
+historical failed browser
+results retain their failures and do not contribute accepted coverage.
+
+Complete browser acceptance, the fresh Node/Chromium coverage union and its
+floors/ratchets, remaining target, installation, signing and update qualification,
+and real installed After Effects export/re-import, reference comparison and
+host-version qualification remain open. No installed AE environment is
+available; M11 and M12 therefore remain incomplete. Publication remains a
+separate owner action. No manual **Update AI assets** run is required: the
+assistance-runtime closure is unchanged.
 
 #### Historical validation evidence
 
