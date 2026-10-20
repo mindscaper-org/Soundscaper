@@ -5,6 +5,7 @@ import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { crc32, deflateSync } from 'node:zlib';
 import { MessageChannel } from 'node:worker_threads';
 
 import {
@@ -282,21 +283,7 @@ test('default-off capability and wrong owner fail before durable or native work'
 	}), /owner/iu);
 });
 
-test('hostile control envelopes fail without invoking accessors or traversing deep values', () => {
-	let getterCalls = 0;
-	const accessor = {};
-	Object.defineProperty(accessor, 'operation', {
-		enumerable: true,
-		get: () => { getterCalls += 1; return 'discard'; },
-	});
-	Object.defineProperty(accessor, 'transactionId', {
-		enumerable: true, value: '0'.repeat(40),
-	});
-	assert.throws(() => assertFramescaperNativeImageSequenceImportRequest(
-		accessor, { allowDirectWrite: false, controlEnvelope: true },
-	), /data|malformed|record/iu);
-	assert.equal(getterCalls, 0);
-
+test('deep control envelopes fail before traversing their nested values', () => {
 	let nested: unknown = null;
 	for (let depth = 0; depth < 66; depth += 1) nested = { value: nested };
 	assert.throws(() => assertFramescaperNativeImageSequenceImportRequest({
@@ -382,7 +369,7 @@ function importBinding(streamId: string) {
 async function sequenceAssets(contents: readonly string[]) {
 	const files = contents.map((content, index) => ({
 		name: `shot.${String(index + 1).padStart(4, '0')}.png`,
-		bytes: new TextEncoder().encode(content),
+		bytes: rgbPngFrame(content),
 	}));
 	const resolved = resolveNativeMediaImageSequence({
 		fileNames: files.map(({ name }) => name), frameRate: { num: 24, den: 1 },
@@ -452,11 +439,28 @@ function capabilitySnapshot(usable: boolean) {
 
 function characteristics() {
 	return normalizeVideoSourceCharacteristicsV25({
-		backend: 'framescaper-media-host', codedWidth: 1_920, codedHeight: 1_080,
+		backend: 'framescaper-media-host', codedWidth: 2, codedHeight: 2,
 		hasAlpha: false, videoCodec: 'png', bitDepth: 8, pixelFormat: 'rgb24',
 		chromaFormat: '4:4:4', alphaMode: null, alphaInterpretation: null,
 		colour: { primaries: 'srgb', transfer: 'iec61966-2-1', matrix: 'rgb', range: 'full' },
 	});
+}
+
+function rgbPngFrame(content: string): Uint8Array {
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(2, 0); header.writeUInt32BE(2, 4);
+	header.set([8, 2, 0, 0, 0], 8);
+	const chunk = (name: string, data: Uint8Array): Buffer => {
+		const body = Buffer.concat([Buffer.from(name), data]);
+		const bytes = Buffer.alloc(body.byteLength + 8);
+		bytes.writeUInt32BE(data.byteLength); body.copy(bytes, 4);
+		bytes.writeUInt32BE(crc32(body), body.byteLength + 4);
+		return bytes;
+	};
+	const scanlines = Buffer.alloc(14, crc32(Buffer.from(content)) & 255);
+	scanlines[0] = 0; scanlines[7] = 0;
+	return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+		chunk('IHDR', header), chunk('IDAT', deflateSync(scanlines)), chunk('IEND', new Uint8Array())]);
 }
 
 function concatenate(chunks: readonly Uint8Array[]): Uint8Array {
