@@ -12,7 +12,6 @@ import {
 import {
 	encodeVideoKeyframeVideo,
 	VIDEO_KEYFRAME_VIDEO_MAXIMUM_OUTPUT_BYTES,
-	type VideoKeyframeEncoderOperationLease,
 	type VideoKeyframeVideoEditorFfmpeg,
 } from '../src/common/editor/video-keyframe-video-encoder.ts';
 import type { VideoKeyframeRgbaFrameProducer } from '../src/common/editor/video-keyframe-encoder-stream.ts';
