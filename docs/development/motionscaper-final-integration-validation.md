@@ -1,9 +1,29 @@
 # Motionscaper final integration status
 
-Status: **M01–M12 In progress**, updated 2026-10-18. No milestone is complete.
-The integration includes the preview progress/cancellation repair and the
-subsequent build, CI and test corrections described below. Complete current
-regression, coverage and release acceptance remain open.
+Status: **M01–M12 In progress**, updated 2026-10-20. **No milestone is accepted**.
+Overall completion is estimated at **about 85%**; release acceptance remains open.
+
+The complete Node run on frozen source `657fe1f500` closed with **28,133 passes,
+10 failures and 20 declared skips**. Integration `f9e7d27b6` corrects the four
+failure groups: native dependency pins, nightly payload closure, product
+release-tag expectations and translation chunking. All **34 combined focused
+tests pass**, including the payload pair with normal integration dependencies.
+Test-only follow-up `9ad5751d0` adds an explicit fragment identifier type; scoped
+strict TypeScript, changed-file lint, the four translation tests and the
+production build pass. The largest locale chunk is 462,271 bytes, below the
+unchanged 490,000-byte regression budget and 500,000-byte production ceiling.
+These results do not qualify a fresh complete Node run.
+
+The latest complete ordinary browser run, on `fba35da53`, closed with **7,212
+passes, 19 failures and 308 declared skips**. The later three-scenario Motion
+run passed all nine engine/case combinations on `4d6a3bdc2`. Focused passes do
+not qualify the complete browser gate or establish earlier failure causes.
+
+Windows qualification, fresh Linux native qualification and the final complete
+Node, browser, coverage and release gates remain pending. No installed After
+Effects test environment is available, so actual AE interchange remains unqualified.
+
+## Historical validation evidence
 
 The preview repair (`d7f9f655f`) passes 84 focused Motion cases, full strict
 types, full and changed-file lint, size and controller ownership checks.

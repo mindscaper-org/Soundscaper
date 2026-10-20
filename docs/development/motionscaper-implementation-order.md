@@ -1,9 +1,9 @@
 # Motionscaper implementation order
 
-Status: **In progress** on `feat/motionscaper`. This document owns the agreed
-Motionscaper scope, implementation order, dependencies, and completion gates.
-It describes the release target, not capabilities already shipped. All packages below are required for the
-first public release; internal milestones do not reduce that release scope.
+Status: **In progress** on `feat/motionscaper-integration-20261017`. This document
+owns the agreed Motionscaper scope, implementation order, dependencies and
+completion gates. It describes the release target; all packages below remain
+required for the first public release.
 
 Motionscaper is a new local-first motion-graphics and compositing program for
 the browser and Electron. It shares the editor platform with Soundscaper and
@@ -72,6 +72,29 @@ minimum dependency closure; a later package does not make an unfinished earlier
 package complete.
 
 ### Implementation status
+
+As of 2026-10-20, M01–M12 remain **In progress**; **no milestone is accepted**.
+Overall completion is estimated at **about 85%**. The current implementation
+checkpoint is `9ad5751d0`.
+
+The complete Node run on frozen source `657fe1f500` closed with **28,133 passes,
+10 failures and 20 declared skips**. Four failure groups—native dependency pins,
+nightly payload closure, product release-tag expectations and translation
+chunking—have committed corrections, with all **34 combined focused tests
+passing** on `f9e7d27b6`. A subsequent test type annotation passes scoped strict
+TypeScript, changed-file lint and all four translation tests. The production
+build passes the unchanged chunk limits. A complete rerun remains required.
+
+The latest complete ordinary browser run, on `fba35da53`, had **7,212 passes,
+19 failures and 308 declared skips**. A later focused run of the three Motion
+scenarios passed all nine engine/case combinations on `4d6a3bdc2`; it does not
+qualify a complete browser rerun or establish the cause of earlier failures.
+
+Windows qualification, fresh Linux native qualification and the final complete
+Node, browser, coverage and release gates remain pending. No installed After
+Effects test environment is available, so actual AE interchange remains unqualified.
+
+#### Historical validation evidence
 
 M01–M12 are **In progress**; named implementations do not close release gates.
 As of 2026-10-18, the integration includes the preview progress/cancellation
