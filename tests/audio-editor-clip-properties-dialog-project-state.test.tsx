@@ -29,7 +29,7 @@ test('clip property async failures belong only to the project and clip that star
 
 		await fixture.render(project('project-b'));
 		await reject(fixture.normalizeCalls[0]!.completion, new Error('Project A normalization failed'));
-		assert.deepEqual(fixture.failures, [], 'a stale project failure must not reach the workspace runner');
+		assert.equal(fixture.failures.length, 0, 'a stale project failure must not reach the workspace runner');
 
 		await fixture.startNormalizePeak();
 		await reject(fixture.normalizeCalls[1]!.completion, new Error('Project B normalization failed'));
