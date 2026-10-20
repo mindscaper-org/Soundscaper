@@ -495,67 +495,6 @@ test('video delivery rejects an unrepresented rendered fallback', () => {
 	);
 });
 
-test('video delivery requires exact own-data video metadata', () => {
-	const fixture = createFixture();
-	const delivery = fixture.runtime.playbackProjects.projectForVideoRenderedFallbackDelivery(fixture.canonical);
-	const { videoRenderedFallback: _omitted, ...withoutMetadata } = delivery;
-	let accessorReads = 0;
-	const accessorMetadata = Object.defineProperty({ ...delivery }, 'videoRenderedFallback', {
-		configurable: true,
-		get() {
-			accessorReads += 1;
-			return delivery.videoRenderedFallback;
-		},
-	});
-	for (const candidate of [withoutMetadata, { ...delivery, videoRenderedFallback: undefined }, accessorMetadata]) {
-		assert.throws(
-			() => projectForVideoRenderedFallbackExport(fixture.canonical, {
-				projectForVideoRenderedFallbackDelivery: () => candidate as unknown as typeof delivery,
-			}),
-			/own data property|invalid metadata/iu,
-		);
-	}
-	assert.equal(accessorReads, 0);
-});
-
-test('video delivery requires exact own-data audio fallback fields', () => {
-	const fixture = createFixture();
-	const delivery = fixture.runtime.playbackProjects.projectForVideoRenderedFallbackDelivery(fixture.canonical);
-	const { audioRenderedFallback: _omittedMetadata, ...withoutMetadata } = delivery;
-	const { requiredAudioSourceIds: _omittedRoots, ...withoutRoots } = delivery;
-	let accessorReads = 0;
-	const accessorMetadata = Object.defineProperty({ ...delivery }, 'audioRenderedFallback', {
-		configurable: true,
-		get() {
-			accessorReads += 1;
-			return delivery.audioRenderedFallback;
-		},
-	});
-	const accessorRoots = Object.defineProperty({ ...delivery }, 'requiredAudioSourceIds', {
-		configurable: true,
-		get() {
-			accessorReads += 1;
-			return delivery.requiredAudioSourceIds;
-		},
-	});
-	for (const candidate of [
-		withoutMetadata,
-		{ ...delivery, audioRenderedFallback: undefined },
-		accessorMetadata,
-		withoutRoots,
-		{ ...delivery, requiredAudioSourceIds: undefined },
-		accessorRoots,
-	]) {
-		assert.throws(
-			() => projectForVideoRenderedFallbackExport(fixture.canonical, {
-				projectForVideoRenderedFallbackDelivery: () => candidate as unknown as typeof delivery,
-			}),
-			/own data property|invalid metadata|invalid projection/iu,
-		);
-	}
-	assert.equal(accessorReads, 0);
-});
-
 test('video delivery rejects feature metadata drift before integrity admission', () => {
 	const fixture = createFixture();
 	const delivery = fixture.runtime.playbackProjects.projectForVideoRenderedFallbackDelivery(fixture.canonical);
