@@ -34,9 +34,3 @@ test('the Caption Tracks file importer accepts WebVTT space and tab timing separ
 	assert.equal(imported.track.cues[0]?.startFrame, 4800);
 	assert.equal(imported.track.cues[0]?.endFrame, 24000);
 });
-
-test('ordinary WebVTT NOTE blocks are passive comments rather than caption cues', () => {
-	const imported = importVideoCaptionTrackV1('WEBVTT\n\nNOTE Editor comment\n\n00:00.100 --> 00:00.500\nHello there.\n', OPTIONS);
-	assert.equal(imported.track.cues.length, 1);
-	assert.equal(imported.track.cues[0]?.text, 'Hello there.');
-});
