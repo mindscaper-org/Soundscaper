@@ -101,7 +101,6 @@ test('Framescaper actions for an absent domain stay callable and refuse', async 
 			() => controller.actions.macros.cancel(),
 		];
 		for (const call of refusals) {
-			assert.equal(typeof call, 'function');
 			await assert.rejects(async () => call(), /Framescaper does not support/u);
 		}
 	} finally {
