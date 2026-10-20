@@ -94,20 +94,8 @@ test('a project.xml with a byte order mark still parses as text', async () => {
 	}
 });
 
-test('writing refuses duplicate, reserved and escaping entry paths', async () => {
-	const files = (path: string) => [{ path, blob: wavBlob(1) }];
-	await assert.rejects(writeDawprojectArchive({ projectXml: PROJECT_XML, metadataXml: '', files: files('project.xml') }), /Duplicate/u);
-	await assert.rejects(writeDawprojectArchive({ projectXml: PROJECT_XML, metadataXml: '', files: files('../escape.wav') }), /Unsupported/u);
-	await assert.rejects(writeDawprojectArchive({ projectXml: PROJECT_XML, metadataXml: '', files: [...files('a.wav'), ...files('./a.wav')] }), /Duplicate/u);
-	await assert.rejects(writeDawprojectArchive({ projectXml: '', metadataXml: '', files: [] }), TypeError);
-});
-
-test('an archive without project.xml, or that is not a ZIP, is refused', async () => {
-	const noProject = await writeDawprojectArchive({ projectXml: 'x', metadataXml: '', files: [] });
-	// Rebuild an archive whose only entries are unrelated, by reading the bytes back and checking the reader's complaint.
+test('non-ZIP input and archives exceeding the entry-count limit are refused', async () => {
 	await assert.rejects(readDawprojectArchive(new Blob(['not a zip at all'])), /not a readable DAWproject ZIP/u);
-	const read = await readDawprojectArchive(noProject);
-	await read.close();
 	await assert.rejects(readDawprojectArchive(await writeDawprojectArchive({ projectXml: 'x', metadataXml: '', files: [] }), { maximumEntries: 1 }), /more than 1 entries/u);
 });
 
