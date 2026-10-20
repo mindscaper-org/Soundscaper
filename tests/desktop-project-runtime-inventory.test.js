@@ -13,3 +13,8 @@ test('the shared desktop project inventory is sorted, unique and fully staged', 
 		assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(member), true, member);
 	}
 });
+
+test('the complete desktop runtime inventory is sorted and unique', () => {
+	assert.deepEqual(DESKTOP_EXPECTED_RUNTIME_FILES, [...DESKTOP_EXPECTED_RUNTIME_FILES].sort());
+	assert.equal(new Set(DESKTOP_EXPECTED_RUNTIME_FILES).size, DESKTOP_EXPECTED_RUNTIME_FILES.length);
+});
