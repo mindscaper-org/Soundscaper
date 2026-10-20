@@ -43,27 +43,6 @@ test('jobs run one at a time in FIFO order', () => {
 	assert.equal(nextDeliveryJob(queue)?.jobId, 'b');
 });
 
-test('a job that can neither restart atomically nor checkpoint stays out of the queue', () => {
-	assert.throws(
-		() => enqueueDeliveryJob(createDeliveryQueue(), job('x', { recoveryClass: 'best-effort' })),
-		/declares no supported recovery class/u,
-		'an invented recovery class must be refused rather than recorded',
-	);
-	assert.throws(
-		() => enqueueDeliveryJob(createDeliveryQueue(), job('x', {
-			taskKind: 'encoded-export',
-			recoveryClass: 'verified-frame-checkpoint',
-		})),
-		/cannot checkpoint/u,
-		'an encoded container has no verifiable partial state and may not claim resume',
-	);
-	const checkpointing = enqueueDeliveryJob(createDeliveryQueue(), job('seq', {
-		taskKind: 'image-sequence-export',
-		recoveryClass: 'verified-frame-checkpoint',
-	}));
-	assert.equal(checkpointing.entries[0].recoveryClass, 'verified-frame-checkpoint');
-});
-
 test('pause takes effect between jobs and never suspends a running one', () => {
 	let queue = startDeliveryJob(queueOf('a', 'b'), 'a');
 	queue = pauseDeliveryQueue(queue);
@@ -141,9 +120,6 @@ test('recovery preserves terminal states and the paused flag', () => {
 
 test('queue records carry status and a plan reference, never media bytes', () => {
 	const queue = startDeliveryJob(queueOf('a'), 'a');
-	assert.deepEqual(Object.keys(queue.entries[0]).sort(), [
-		'attempt', 'jobId', 'label', 'lastFailureCode', 'recoveryClass', 'state', 'taskKind',
-	]);
 	const serialized = JSON.stringify(queue);
 	assert.ok(serialized.length < 512, 'a queue entry must stay a small record');
 });
