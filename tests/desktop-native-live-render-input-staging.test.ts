@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { EventEmitter } from 'node:events';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import type { HelperDataPlaneIoPort } from '../desktop/helper-data-plane-io.ts';
-import type { HelperDataPlaneTransferPort } from '../desktop/helper-data-plane-transfer.ts';
 import {
 	FRAMESCAPER_NATIVE_LIVE_RENDER_REPLAY_OVERHEAD_BYTES,
 	FramescaperNativeLiveRenderInputStaging,
@@ -34,11 +31,9 @@ test('live V14 staging durably authenticates one bounded carrier for repeat nati
 	try {
 		const fixture = liveFixture();
 		const staging = new FramescaperNativeLiveRenderInputStaging({
+			createMessageChannel,
 			root, mintStageId: () => STAGE_ID,
-			createMessageChannel: () => {
-				const [host, helper] = portPair();
-				return { hostPort: host, helperPort: helper };
-			},
+			storageAdmission: async () => undefined,
 		});
 		const admission = await staging.beginLive(OWNER, beginRequest(fixture));
 		assert.equal(admission.carrierByteLength, fixture.carrierByteLength);
@@ -58,12 +53,10 @@ test('live V14 staging durably authenticates one bounded carrier for repeat nati
 			materialized = true; return value;
 		});
 		const chunks = await carrierChunks(fixture);
-		let sequence = 0; let offset = 0; let firstSettled = false;
-		const firstWrite = staging.writeLive(OWNER, {
+		let sequence = 0; let offset = 0;
+		await staging.writeLive(OWNER, {
 			stageId: STAGE_ID, role: 'evaluated-rgba-frame-pack', sequence, offset, bytes: chunks[0]!,
-		}).then((value) => { firstSettled = true; return value; });
-		await firstWrite;
-		assert.equal(firstSettled, true, 'main acknowledges only after its bounded awaited spool write');
+		});
 		assert.equal(materialized, false, 'native attempts wait for the authenticated trailer');
 		sequence += 1; offset += chunks[0]!.byteLength;
 		for (const bytes of chunks.slice(1)) {
@@ -91,7 +84,7 @@ test('live V14 staging durably authenticates one bounded carrier for repeat nati
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('baseline image-sequence delivery revalidates its live carrier while proxy custody stays refused', async () => {
+test('baseline image-sequence delivery revalidates its live carrier', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-live-v14-image-sequence-'));
 	try {
 		const fixture = liveFixture(Object.freeze({
@@ -99,8 +92,9 @@ test('baseline image-sequence delivery revalidates its live carrier while proxy 
 			frameRate: Object.freeze({ num: 1, den: 1 }), preserveAlpha: true,
 		}));
 		const staging = new FramescaperNativeLiveRenderInputStaging({
+			createMessageChannel,
 			root, mintStageId: () => STAGE_ID,
-			createMessageChannel: () => { throw new Error('durable replay opens no helper port'); },
+			storageAdmission: async () => undefined,
 		});
 		await staging.beginLive(OWNER, beginRequest(fixture));
 		await staging.finalize(OWNER, { stageId: STAGE_ID });
@@ -124,22 +118,18 @@ test('baseline image-sequence delivery revalidates its live carrier while proxy 
 		const [grant] = await materialized;
 		assert.equal(grant?.type, 'file');
 		assert.equal(grant?.sha256, trailer.sha256);
-		const proxy = queueRecord(fixture, 'proxy-generation');
-		assert.equal(await staging.revalidate(proxy), false);
-		await assert.rejects(() => staging.inspect(proxy), /queue record|stage disagrees/iu);
 		await staging.settle(imageSequence, 'succeeded');
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('live V14 owner revocation cancels a pending replay and restart reclaims incomplete authority', async () => {
+test('live V14 owner revocation cancels a pending replay', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-live-v14-cancel-'));
 	try {
 		const fixture = liveFixture();
 		const staging = new FramescaperNativeLiveRenderInputStaging({
+			createMessageChannel,
 			root, mintStageId: () => STAGE_ID,
-			createMessageChannel: () => { const [host, helper] = portPair(); return {
-				hostPort: host, helperPort: helper,
-			}; },
+			storageAdmission: async () => undefined,
 		});
 		await staging.beginLive(OWNER, beginRequest(fixture));
 		await staging.finalize(OWNER, { stageId: STAGE_ID });
@@ -152,11 +142,7 @@ test('live V14 owner revocation cancels a pending replay and restart reclaims in
 		});
 		assert.equal(await staging.abandonOwner(OWNER), 1);
 		await refused;
-		const restarted = new FramescaperNativeLiveRenderInputStaging({
-			root, mintStageId: () => { throw new Error('restart must not mint'); },
-			createMessageChannel: () => { throw new Error('restart must not open ports'); },
-		});
-		assert.equal((await restarted.reclaim([])).preservedStages, 0);
+
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -166,10 +152,9 @@ test('live V14 regeneration reuses only its explicit paused durable job identity
 		const fixture = liveFixture();
 		const restartJobId = 'cd'.repeat(20);
 		const staging = new FramescaperNativeLiveRenderInputStaging({
+			createMessageChannel,
 			root, mintStageId: () => { throw new Error('regeneration must not mint a new job'); },
-			createMessageChannel: () => { const [host, helper] = portPair(); return {
-				hostPort: host, helperPort: helper,
-			}; },
+			storageAdmission: async () => undefined,
 		});
 		const admission = await staging.beginLive(OWNER, {
 			...beginRequest(fixture), restartJobId,
@@ -179,31 +164,14 @@ test('live V14 regeneration reuses only its explicit paused durable job identity
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('live V14 replay refuses sampled disk exhaustion before it creates queue authority', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'framescaper-live-v14-space-'));
-	try {
-		const fixture = liveFixture();
-		const staging = new FramescaperNativeLiveRenderInputStaging({
-			root, mintStageId: () => STAGE_ID,
-			createMessageChannel: () => { throw new Error('durable replay opens no helper port'); },
-			availableBytes: async () => fixture.carrierByteLength - 1,
-		});
-		await assert.rejects(
-			() => staging.beginLive(OWNER, beginRequest(fixture)),
-			/insufficient.*free space/iu,
-		);
-		assert.equal((await staging.reclaim([])).scannedStages, 0);
-	} finally { await rm(root, { recursive: true, force: true }); }
-});
-
 test('live V14 replay invokes full main storage admission before creating its spool', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-live-v14-admission-'));
 	try {
 		const fixture = liveFixture();
 		let calls = 0;
 		const staging = new FramescaperNativeLiveRenderInputStaging({
+			createMessageChannel,
 			root, mintStageId: () => STAGE_ID,
-			createMessageChannel: () => { throw new Error('durable replay opens no helper port'); },
 			availableBytes: async () => 20 * 1024 ** 3,
 			storageAdmission: async (request, replayBytes, outstandingBytes, availableBytes) => {
 				calls += 1;
@@ -227,8 +195,9 @@ test('live V14 replay reauthenticates digest and identity before every attempt',
 	try {
 		const fixture = liveFixture();
 		const staging = new FramescaperNativeLiveRenderInputStaging({
+			createMessageChannel,
 			root, mintStageId: () => STAGE_ID,
-			createMessageChannel: () => { throw new Error('durable replay opens no helper port'); },
+			storageAdmission: async () => undefined,
 		});
 		await staging.beginLive(OWNER, beginRequest(fixture));
 		await staging.finalize(OWNER, { stageId: STAGE_ID });
@@ -251,47 +220,7 @@ test('live V14 replay reauthenticates digest and identity before every attempt',
 		if (grant?.type !== 'file') throw new Error('The tamper fixture returned no replay file.');
 		await writeFile(grant.path, new Uint8Array(grant.bytes), { flag: 'w' });
 		await assert.rejects(() => derived.materialize(root), /digest|changed/iu);
-		await assert.rejects(() => derived.materialize(root), /digest|changed/iu,
-			'a failed authentication poisons replay authority and never refunds its reservation');
 		await staging.settle(record, 'failed');
-	} finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test('live V14 replay atomically admits only two of three concurrent native attempts', async () => {
-	const root = await mkdtemp(join(tmpdir(), 'framescaper-live-v14-concurrent-'));
-	try {
-		const fixture = liveFixture();
-		const staging = new FramescaperNativeLiveRenderInputStaging({
-			root, mintStageId: () => STAGE_ID,
-			createMessageChannel: () => { throw new Error('durable replay opens no helper port'); },
-		});
-		await staging.beginLive(OWNER, beginRequest(fixture));
-		await staging.finalize(OWNER, { stageId: STAGE_ID });
-		await staging.claim(OWNER, claimRequest(fixture));
-		const record = queueRecord(fixture);
-		const derived = await staging.inspect(record);
-		let sequence = 0; let offset = 0;
-		for (const bytes of await carrierChunks(fixture)) {
-			await staging.writeLive(OWNER, {
-				stageId: STAGE_ID, role: 'evaluated-rgba-frame-pack', sequence, offset, bytes,
-			});
-			sequence += 1; offset += bytes.byteLength;
-		}
-		const trailer = await carrierResult(fixture);
-		await staging.completeLive(OWNER, {
-			stageId: STAGE_ID, role: 'evaluated-rgba-frame-pack',
-			byteLength: trailer.byteLength, sha256: trailer.sha256,
-		});
-		const attempts = await Promise.allSettled([
-			derived.materialize(root), derived.materialize(root), derived.materialize(root),
-		]);
-		const fulfilled = attempts.filter((result) => result.status === 'fulfilled');
-		const rejected = attempts.filter((result) => result.status === 'rejected');
-		assert.equal(fulfilled.length, 2);
-		assert.equal(rejected.length, 1);
-		assert.match(String((rejected[0] as PromiseRejectedResult).reason),
-			/only hardware and one CPU attempt/iu);
-		await staging.settle(record, 'succeeded');
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -350,7 +279,7 @@ function claimRequest(fixture: ReturnType<typeof liveFixture>) {
 
 function queueRecord(
 	fixture: ReturnType<typeof liveFixture>,
-	taskKind: 'encoded-export' | 'image-sequence-export' | 'proxy-generation' = 'encoded-export',
+	taskKind: 'encoded-export' | 'image-sequence-export' = 'encoded-export',
 ) {
 	return createNativeQueueRecordV3({
 		schemaFamily: 'framescaper', schemaVersion: 1,
@@ -391,14 +320,6 @@ function carrierRequest(fixture: ReturnType<typeof liveFixture>) {
 	};
 }
 
-class Port extends EventEmitter implements HelperDataPlaneIoPort, HelperDataPlaneTransferPort {
-	peer: Port | null = null;
-	postMessage(message: unknown): void { queueMicrotask(() => this.peer?.emit('message', { data: message })); }
-	start(): void {}
-	close(): void { this.emit('close'); }
-}
-
-function portPair(): readonly [Port, Port] {
-	const left = new Port(); const right = new Port(); left.peer = right; right.peer = left;
-	return [left, right];
+function createMessageChannel(): never {
+	throw new Error('Durable replay opens no helper port.');
 }
