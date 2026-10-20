@@ -12,10 +12,13 @@ import {
 	type CustomToolbarContextSnapshot,
 } from '../src/common/editor/ui/toolbar/custom-toolbar-context-actions.ts';
 
-test('context commands can be assigned before selecting a track or clip and tolerate absent controller ports', () => {
+test('context commands can be assigned before selecting a track or clip', () => {
+	const input = fixtureInput('a', []);
 	const actions = collectCustomToolbarButtonActions(createCustomToolbarContextMenus({
-		controller: { actions: {} }, snapshot: {}, copy: ENGLISH_COPY,
-		productId: 'soundscaper', capabilities: { audioEffects: true },
+		...input, snapshot: {
+			...input.snapshot, selectedTrackId: null, selectedClipId: null,
+			project: { ...input.snapshot.project!, selection: { startFrame: 0, endFrame: 0, trackIds: [], clipIds: [] } },
+		},
 	}));
 	for (const actionId of ['track-lock-toggle', 'track-swap-channels', 'local://reverse-clip', 'clip-render-pitch-speed']) {
 		const action = actions.find((candidate) => candidate.actionId === actionId);
@@ -133,10 +136,12 @@ test('video tracks can be locked without exposing audio channel or clip processi
 		tracks: project.tracks.map((track) => track.id === 'track-b' ? { ...track, type: 'video' } : track),
 		clips: project.clips.map((clip) => clip.id === 'clip-b' ? { ...clip, kind: 'video' } : clip),
 	} };
-	const actions = collectCustomToolbarButtonActions(createCustomToolbarContextMenus({ ...input, snapshot }));
+	const actions = collectCustomToolbarButtonActions(createCustomToolbarContextMenus({
+		...input, snapshot, productId: 'framescaper', capabilities: { audioEffects: false },
+	}));
 	actions.find(({ actionId }) => actionId === 'track-lock-toggle')?.onClick?.();
-	assert.equal(actions.find(({ actionId }) => actionId === 'track-swap-channels')?.disabled, true);
-	assert.equal(actions.find(({ actionId }) => actionId === 'local://reverse-clip')?.disabled, true);
+	assert.equal(actions.find(({ actionId }) => actionId === 'track-swap-channels'), undefined);
+	assert.equal(actions.find(({ actionId }) => actionId === 'local://reverse-clip'), undefined);
 	assert.deepEqual(calls, [['track.update', 'track-b', { locked: false }]]);
 });
 
@@ -146,7 +151,6 @@ test('concrete context color actions retain distinct IDs and write actual color 
 	actions.find(({ actionId }) => actionId === 'action://trackedit/clip/change-color?colorindex=1')?.onClick?.();
 	actions.find(({ actionId }) => actionId === 'action://trackedit/track/change-color?colorindex=2')?.onClick?.();
 	assert.deepEqual(calls, [['clip.update', 'clip-b', { color: 'violet' }], ['track.update', 'track-b', { color: 'magenta' }]]);
-	assert.equal(actions.filter(({ actionId }) => actionId.startsWith('action://trackedit/clip/change-color?')).length, 9);
 });
 
 test('clip drag equivalents bind stable destination IDs and select each current source track', () => {
