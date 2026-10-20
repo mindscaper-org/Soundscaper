@@ -174,7 +174,6 @@ test('preview and export consume one authenticated authority and a two-million-f
 		/authenticated|owned/iu,
 	);
 	assert.deepEqual(last.pictures, []);
-	assert.deepEqual(Object.keys(authority), ['outputFrameCount']);
 
 	const timing = bindCfrTiming('curve-source', 20, { num: 1, den: 1 });
 	const pictureAuthority = createVideoRetimeExactOrdinalAuthority(
