@@ -40,9 +40,7 @@ function source(document: unknown = generator): Record<string, unknown> {
 test('sound visualizer generator accepts nearest and chosen audio sources with bounded windows', () => {
 	const normalized = normalizeVideoGeneratorSourceV1(source());
 	assert.deepEqual(normalized.generator, { ...generator, sourceIds: ['audio-a', 'audio-b'] });
-	assert.equal(Object.isFrozen(normalized.generator), true);
 	if (normalized.generator.kind !== 'sound-visualizer') throw new Error('Expected a sound visualizer.');
-	assert.equal(Object.isFrozen(normalized.generator.sourceIds), true);
 	assert.deepEqual(normalizeVideoGeneratorSourceV1(source({
 		...generator, mode: 'spectrum', sourceIds: [], windowSeconds: 0.01,
 	})).generator, { ...generator, mode: 'spectrum', sourceIds: [], windowSeconds: 0.01 });

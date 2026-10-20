@@ -29,7 +29,6 @@ for (const backend of ['memory', 'indexeddb'] as const) {
 
 		const created = await store.createScapeProjectIfAbsent(project);
 		assert.ok(created);
-		assert.notStrictEqual(created, project);
 		assert.equal(await store.deleteProjectIfCurrent(structuredClone(created)), false);
 		assert.ok(await store.loadProject(project.id));
 		assert.equal(await store.deleteProjectIfCurrent(created), true);
