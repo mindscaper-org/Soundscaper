@@ -63,7 +63,6 @@ test('V4 copy/paste remaps sequences, item and batch IDs while scaling only samp
 	}, sequentialIds()) as PasteCommand;
 	assert.deepEqual(command.sequenceMap, { 'source-sequence': 'target-sequence' });
 	assert.notEqual(command.annotationIds?.sample, 'sample');
-	assert.equal(command.annotationBatchIds?.['mixed-batch'], command.annotationBatchIds?.['mixed-batch']);
 
 	const pasted = applyEditorCommand(target, command, { now: NOW });
 	assert.deepEqual(annotationCoordinates(pasted.timelineAnnotations), [

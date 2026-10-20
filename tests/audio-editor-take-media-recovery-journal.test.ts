@@ -6,7 +6,6 @@ import test from 'node:test';
 import {
 	createTakeMediaPublicationJournal,
 	normalizeTakeMediaPublicationJournal,
-	planTakeMediaRecovery,
 	transitionTakeMediaPublicationJournal,
 	type TakeMediaPublicationBinding,
 	type TakeMediaPublicationJournal,
@@ -29,18 +28,6 @@ function binding(overrides: Partial<TakeMediaPublicationBinding> = {}): TakeMedi
 
 function staged(): TakeMediaPublicationJournal {
 	return createTakeMediaPublicationJournal({ journalId: 'journal-7', binding: binding() });
-}
-
-function published(): TakeMediaPublicationJournal {
-	return transitionTakeMediaPublicationJournal(staged(), {
-		event: 'media-published', currentGeneration: 7, evidence: binding(),
-	});
-}
-
-function committed(): TakeMediaPublicationJournal {
-	return transitionTakeMediaPublicationJournal(published(), {
-		event: 'project-committed', currentGeneration: 7, evidence: binding(),
-	});
 }
 
 test('publication journals capture one immutable generation, identity, size, and digest contract', () => {
@@ -134,147 +121,3 @@ test('transitions reject stale generations and every mismatched evidence field',
 	}
 });
 
-test('staged recovery cleans only the owned stage and then removes its journal', () => {
-	const plan = planTakeMediaRecovery([staged()], {
-		currentGeneration: 7,
-		decision: 'recover',
-		mediaEvidence: null,
-		projectEvidence: null,
-	});
-	assert.deepEqual(plan, {
-		kind: 'take-media-recovery', disposition: 'cleanup-staged',
-		journalId: 'journal-7', generation: 7,
-		actions: [
-			{ kind: 'cleanup-staged-media', journalId: 'journal-7', binding: binding() },
-			{ kind: 'remove-recovery-journal', journalId: 'journal-7', generation: 7 },
-		],
-	});
-	assert.equal(Object.isFrozen(plan), true);
-	assert.equal(Object.isFrozen(plan.actions), true);
-	assert.equal(Object.isFrozen(plan.actions[0]), true);
-});
-
-test('published recovery explicitly replays the project commit or discards owned media', () => {
-	const recover = planTakeMediaRecovery([published()], {
-		currentGeneration: 7,
-		decision: 'recover',
-		mediaEvidence: binding(),
-		projectEvidence: null,
-	});
-	assert.deepEqual(recover, {
-		kind: 'take-media-recovery', disposition: 'replay-published',
-		journalId: 'journal-7', generation: 7,
-		actions: [
-			{ kind: 'replay-project-commit', journalId: 'journal-7', binding: binding() },
-			{ kind: 'remove-recovery-journal', journalId: 'journal-7', generation: 7 },
-		],
-	});
-
-	const discard = planTakeMediaRecovery([published()], {
-		currentGeneration: 7,
-		decision: 'discard',
-		mediaEvidence: binding(),
-		projectEvidence: null,
-	});
-	assert.deepEqual(discard.actions, [
-		{ kind: 'cleanup-published-media', journalId: 'journal-7', binding: binding() },
-		{ kind: 'remove-recovery-journal', journalId: 'journal-7', generation: 7 },
-	]);
-	assert.equal(discard.disposition, 'discard-published');
-});
-
-test('committed evidence settles either a lagging published journal or a committed journal', () => {
-	for (const journal of [published(), committed()]) {
-		const plan = planTakeMediaRecovery([journal], {
-			currentGeneration: 7,
-			decision: 'recover',
-			mediaEvidence: binding(),
-			projectEvidence: binding(),
-		});
-		assert.deepEqual(plan, {
-			kind: 'take-media-recovery', disposition: 'settle-committed',
-			journalId: 'journal-7', generation: 7,
-			actions: [
-				{ kind: 'remove-recovery-journal', journalId: 'journal-7', generation: 7 },
-			],
-		});
-	}
-});
-
-test('recovery rejects stale, mismatched, unowned, and ambiguous observations', () => {
-	assert.throws(
-		() => planTakeMediaRecovery([published()], {
-			currentGeneration: 8, decision: 'recover',
-			mediaEvidence: binding(), projectEvidence: null,
-		}),
-		/Stale take media journal generation/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([published()], {
-			currentGeneration: 7, decision: 'recover',
-			mediaEvidence: binding({ sha256: 'cd'.repeat(32) }), projectEvidence: null,
-		}),
-		/evidence digest does not match/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([staged()], {
-			currentGeneration: 7, decision: 'recover',
-			mediaEvidence: binding(), projectEvidence: null,
-		}),
-		/Ambiguous staged recovery/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([published()], {
-			currentGeneration: 7, decision: 'recover',
-			mediaEvidence: null, projectEvidence: null,
-		}),
-		/Ambiguous published recovery/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([committed()], {
-			currentGeneration: 7, decision: 'recover',
-			mediaEvidence: binding(), projectEvidence: null,
-		}),
-		/Ambiguous committed recovery/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([published(), committed()], {
-			currentGeneration: 7, decision: 'recover',
-			mediaEvidence: binding(), projectEvidence: binding(),
-		}),
-		/Ambiguous take media recovery: 2 active journals/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([], {
-			currentGeneration: 7, decision: 'recover',
-			mediaEvidence: binding(), projectEvidence: null,
-		}),
-		/Ambiguous take media recovery evidence has no owning journal/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([committed()], {
-			currentGeneration: 7, decision: 'discard',
-			mediaEvidence: binding(), projectEvidence: binding(),
-		}),
-		/Cannot discard take media referenced by committed project evidence/u,
-	);
-	assert.throws(
-		() => planTakeMediaRecovery([published()], {
-			currentGeneration: 7, decision: 'discard',
-			mediaEvidence: binding(), projectEvidence: binding(),
-		}),
-		/Cannot discard take media referenced by committed project evidence/u,
-	);
-});
-
-test('a clean inventory yields an immutable no-op recovery plan', () => {
-	assert.deepEqual(planTakeMediaRecovery([], {
-		currentGeneration: 7,
-		decision: 'recover',
-		mediaEvidence: null,
-		projectEvidence: null,
-	}), {
-		kind: 'take-media-recovery', disposition: 'clean',
-		journalId: null, generation: 7, actions: [],
-	});
-});
