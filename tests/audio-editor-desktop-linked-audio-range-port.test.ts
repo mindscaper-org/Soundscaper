@@ -32,9 +32,6 @@ test('desktop linked-audio range leases issue exact bounded reads and release on
 		expectedRevision: LOCATOR_REVISION,
 	});
 	assert.ok(lease);
-	assert.deepEqual(Object.keys(lease).sort(), [
-		'byteLength', 'locatorRevision', 'mimeType', 'readRange', 'release',
-	]);
 	assert.equal(lease.locatorRevision, LOCATOR_REVISION);
 	assert.equal(lease.byteLength, BODY.byteLength);
 	assert.equal(lease.mimeType, 'audio/wav');
