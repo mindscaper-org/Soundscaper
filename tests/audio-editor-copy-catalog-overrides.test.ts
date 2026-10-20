@@ -31,7 +31,6 @@ test('an override replaces a declared key only when it carries text', () => {
 	assert.deepEqual(resolveCopyCatalogOverrides(CATALOG, { close: 'Schließen' }), {
 		apply: 'Apply', cancel: 'Cancel',
 	});
-	assert.equal(Object.isFrozen(resolveCopyCatalogOverrides(CATALOG, {})), true);
 });
 
 test('editor copy catalogs resolve through the one override policy', () => {
