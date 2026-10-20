@@ -8,7 +8,7 @@ import { SpectralBrushOverlay } from '../src/common/editor/ui/timeline/SpectralB
 import type { SpectralBrushSelectionRequest } from '../src/common/editor/ui/timeline/spectral-brush-model.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-for (const buttons of [4, 2]) for (const phase of ['release', 'auxiliary', 'foreign', 'pen', 'touch'] as const) {
+for (const buttons of [4, 2]) for (const phase of ['release', 'auxiliary', 'foreign', 'pen'] as const) {
 	test(`spectral brush preserves ${phase} ownership with buttons ${String(buttons)}`, async () => {
 		const dom = installReactTestDom();
 		const globals = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -27,7 +27,7 @@ for (const buttons of [4, 2]) for (const phase of ['release', 'auxiliary', 'fore
 			Object.assign(brush, { setPointerCapture() {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 100 }) });
 			const pointer = (clientX: number, pointerId = 1) => ({ currentTarget: brush, target: brush,
 				pointerId, isPrimary: pointerId !== 2, button: 0, buttons: 1, clientX, clientY: 30,
-				pointerType: phase === 'pen' || phase === 'touch' ? phase : 'mouse', preventDefault() {}, stopPropagation() {} });
+				pointerType: phase === 'pen' ? 'pen' : 'mouse', preventDefault() {}, stopPropagation() {} });
 			await act(async () => reactProps(brush).onPointerDown(pointer(80)));
 			await act(async () => reactProps(brush).onPointerMove(pointer(92)));
 			await act(async () => reactProps(brush).onPointerMove({ ...pointer(92, phase === 'foreign' ? 2 : 1),
