@@ -11,9 +11,6 @@ import {
 	type TimelineRulerScale,
 } from '../src/common/editor/ui/timeline/timeline-grid-model.ts';
 
-	'../vendor/audacity-design-system/components/src/TimelineRuler/TimelineRuler.tsx',
-	import.meta.url,
-);
 const SAMPLE_RATE = 48_000;
 const MINUTES_SECONDS: TimelineRulerScale = Object.freeze({ kind: 'minutes-seconds' as const });
 
