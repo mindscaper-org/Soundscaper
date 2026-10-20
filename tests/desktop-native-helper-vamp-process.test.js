@@ -11,7 +11,7 @@ test('the scanner helper preserves the closed isolated Vamp child-crash code', a
 	const posted = [];
 	const worker = createNativeHelperWorker({
 		role: 'plugin-scanner', post: (message) => posted.push(message),
-		runScanJob: () => ({
+		runJob: () => ({
 			completion: Promise.reject(Object.assign(new Error('isolated child exited'), {
 				code: 'vamp-peer-crash',
 			})),

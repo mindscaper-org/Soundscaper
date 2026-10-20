@@ -50,12 +50,12 @@ function jobMessage(jobId = JOB_ID, grant = GRANT, kind = 'audio-device') {
 	return { contractVersion: 1, type: 'job', jobId, kind, jobContractVersion: 1, grant, resourcePolicy: POLICY };
 }
 
-function createWorker(runDeviceJob) {
+function createWorker(runJob) {
 	const posted = [];
 	const exits = [];
 	const worker = createNativeHelperWorker({
 		post: (message) => posted.push(message),
-		runDeviceJob,
+		runJob,
 		heartbeatIntervalMs: 1_000_000,
 		exit: (code) => exits.push(code),
 	});
