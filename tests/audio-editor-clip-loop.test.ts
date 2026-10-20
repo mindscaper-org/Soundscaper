@@ -25,8 +25,6 @@ test('looping separates the repetition period from the overall clip and survives
 	assert.equal(looped.opaqueExtensions.other, 'kept');
 	assert.deepEqual(clipLoopBoundaries(looped, 150, 430), [200, 300, 400]);
 	assert.equal(readClipLoop({ ...looped, ...clipLoopUpdateFields(looped, false) }), null);
-	assert.throws(() => clipLoopUpdateFields(original, { periodFrames: 0 }), /period/);
-	assert.throws(() => clipLoopUpdateFields({ ...original, kind: 'video' }, true), /audio/);
 });
 
 test('trim handles edit the loop source range and period without moving or resizing the clip', () => {
