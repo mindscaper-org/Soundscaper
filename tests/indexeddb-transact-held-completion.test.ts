@@ -30,7 +30,7 @@ async function heldOperation(nativeFailure?: Error, callbackFailure?: unknown) {
 		release.resolve(); await joined;
 		assert.equal(failed, true, 'native failure must not become a successful callback result');
 		if (callbackFailure !== undefined) assert.equal(result, callbackFailure);
-		else if (nativeFailure) assert.equal((result as Error).message, 'The IndexedDB transaction failed.');
+		else if (nativeFailure) assert.equal(result, nativeFailure);
 		else assert.match((result as Error).message, /transaction was aborted/u);
 		assert.deepEqual(raw.records('held-completion', 'settings'), []);
 		await settle(); assert.deepEqual(unhandled, []);

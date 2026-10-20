@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import type { PhotoLibraryImportItemV1 } from '../src/common/editor/photo-library-session-port-v1.ts';
-import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
+import { PhotoCatalogRepositoryKernelV2 } from '../src/lightscaper/catalog/photo-catalog-repository-kernel-v2.ts';
 import { readStoredPhotoV1OrV2 } from '../src/lightscaper/catalog/photo-catalog-records-v2.ts';
 import { PhotoLibrarySessionLifetime } from '../src/lightscaper/controller/photo-library-session-lifetime.ts';
 import { createPhotoLibrarySessionV3 } from '../src/lightscaper/photo-library-session-runtime-v3.ts';
@@ -195,7 +195,7 @@ test('fresh default runtime3 public import Close drains actual repository worker
 		const priorRoots = native.raw(MEDIA.databaseName).records(MEDIA.databaseName, 'catalogOriginalRoots') as unknown[];
 		let mediaCloses = 0, catalogCloses = 0;
 		for (const [owner, key, increment] of [[PhotoMediaStoreV1.prototype, 'close', () => { mediaCloses++; }],
-			[PhotoCatalogRepositoryV2.prototype, 'close', () => { catalogCloses++; }]] as const) {
+			[PhotoCatalogRepositoryKernelV2.prototype, 'close', () => { catalogCloses++; }]] as const) {
 			const descriptor = Object.getOwnPropertyDescriptor(owner, key); assert.ok(descriptor); const method = descriptor.value as () => Promise<void>;
 			descriptors.push([owner, key, descriptor]); Object.defineProperty(owner, key, { ...descriptor, value: function(this: object) { increment(); return Reflect.apply(method, this, []) as Promise<void>; } });
 		}

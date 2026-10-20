@@ -3,6 +3,9 @@
 import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-site-plan.mjs';
 import { expect, installNativeImageHandoffRuntime, qualifyNativePhotoDefaultImportSessionClose, test } from './helpers/lightscaper-image-handoff-native-fixture.js';
 
+// The actual native workflows execute esbuild test programs, outside production coverage.
+test.use({ browserCoverage: false });
+
 const PHASES = ['intent', 'original', 'stage', 'publish', 'promote', 'retire'];
 const BOUNDARIES = ['mutation-success', 'completed-ack'];
 const CUTS = ['writer-open-ack', 'writer-write-ack', 'writer-close-ack', ...PHASES.flatMap(phase => BOUNDARIES.map(boundary => `${phase}-${boundary}`))];

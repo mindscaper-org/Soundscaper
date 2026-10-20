@@ -31,18 +31,50 @@ export async function createRepairFixture(context: TestContext, layout: Original
 	const storage = new OpfsRepository({ preferOpfs: layout === 'opfs', opfsRoot: opfs.directory as unknown as FileSystemDirectoryHandle, syncWorkerClient: null });
 	const port = { memory: getMemoryDatabase(databaseName), database: async () => database };
 	const media = new MediaRepository(port, storage);
-	context.after(async () => { await media.beginAssetMaintenance({ permanent: true }).abortActive(); storage.close(); database.close(); });
+	let closing: Promise<void> | undefined, forcedFailure: unknown;
+	const terminals = new Set<() => void>();
+	const ownTerminal = (retire: () => void): (() => void) => {
+		if (closing) { retire(); return () => undefined; }
+		terminals.add(retire); return () => { terminals.delete(retire); };
+	};
+	const close = (): Promise<void> => {
+		if (closing) return closing;
+		let resolve!: () => void, reject!: (reason: unknown) => void;
+		closing = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+		clearTimeout(timer); context.signal.removeEventListener('abort', stop);
+		opfs.releaseAll();
+		void (async () => {
+			const errors: unknown[] = [];
+			for (const retire of [...terminals]) try { retire(); } catch (error) { errors.push(error); }
+			try { await media.beginAssetMaintenance({ permanent: true }).abortActive(); } catch (error) { errors.push(error); }
+			try { storage.close(); } catch (error) { errors.push(error); }
+			try { database.close(); } catch (error) { errors.push(error); }
+			if (forcedFailure !== undefined) errors.unshift(forcedFailure);
+			if (errors.length) throw new AggregateError(errors, 'Repair fixture owners did not retire cleanly.');
+		})().then(resolve, reject);
+		return closing;
+	};
+	const stop = (): void => {
+		forcedFailure ??= context.signal.reason ?? new Error('Repair fixture exceeded its 13-second active deadline.');
+		opfs.releaseAll(forcedFailure); void close().catch(() => undefined);
+	};
+	context.after(close);
+	const timer = setTimeout(stop, 13_000); context.signal.addEventListener('abort', stop, { once: true });
+	if (context.signal.aborted) stop();
 	const binding: CatalogOriginalRepairBindingV1 = { catalogId: 'catalog', importId: provisional ? 'import' : null,
 		photoId: 'photo', assetId: 'original-asset', sourceId: 'logical-original', sha256: REPAIR_DIGEST,
 		size: REPAIR_BYTES.length, name: 'Immutable camera name.png', mimeType: 'image/png' };
-	if (layout === 'chunks') {
+	if (layout !== 'inline') {
 		const writer = await media.beginAssetWrite(binding.assetId, { name: binding.name, mimeType: binding.mimeType, note: 'keep metadata' },
 			{ expectedBytes: binding.size, expectedSha256: binding.sha256 });
 		await writer.write(REPAIR_BYTES); await writer.commit();
 	} else await media.writeAsset(binding.assetId, new Blob([REPAIR_BYTES]), { name: binding.name, mimeType: binding.mimeType, note: 'keep metadata' });
+	const seeded = indexedDB.records(databaseName, 'mediaAssets')[0] as Record<string, unknown>;
+	assert.equal(seeded.storage, layout === 'opfs' ? 'opfs' : layout === 'chunks' ? 'indexeddb-media-chunks-v1' : 'indexeddb-blob');
+	if (layout === 'opfs') assert.ok(typeof seeded.path === 'string' && opfs.files.has(seeded.path), 'the initial modeled retained path must actually exist');
 	if (provisional) await media.catalogOriginals.stage(binding.catalogId, 'import', [reference(binding)]);
 	else await media.catalogOriginals.retain(binding.catalogId, [reference(binding)]);
-	return { indexedDB, databaseName, database, media, storage, opfs, port, binding, transactions,
+	return { indexedDB, databaseName, database, media, storage, opfs, port, binding, transactions, close, ownTerminal,
 		observe: (next: typeof observe) => { observe = next; },
 		row: () => indexedDB.records(databaseName, 'mediaAssets')[0] as Record<string, unknown> | undefined,
 		roots: () => indexedDB.records(databaseName, 'catalogOriginalRoots') as Array<Record<string, unknown>>,
@@ -62,9 +94,9 @@ export function assertNoRepairLease(fixture: RepairFixture): void {
 }
 
 export function deferred() {
-	let resolve!: () => void;
-	const promise = new Promise<void>(done => { resolve = done; });
-	return { promise, resolve };
+	let resolve!: () => void, reject!: (reason: unknown) => void;
+	const promise = new Promise<void>((done, refuse) => { resolve = done; reject = refuse; });
+	return { promise, resolve, reject };
 }
 
 function fakeRepairOpfs() {
@@ -72,6 +104,7 @@ function fakeRepairOpfs() {
 	let writeGate: ReturnType<typeof deferred> | null = null, closeGate: ReturnType<typeof deferred> | null = null;
 	let abortGate: ReturnType<typeof deferred> | null = null;
 	let entered = deferred(), failRemoval = false;
+	const held = new Set<{ gate: ReturnType<typeof deferred>; observed: ReturnType<typeof deferred> }>();
 	const directory = {
 		async getDirectoryHandle() { return directory; },
 		async getFileHandle(path: string, options: Readonly<{ create?: boolean }> = {}) {
@@ -95,10 +128,15 @@ function fakeRepairOpfs() {
 		},
 	};
 	return { files, directory,
+		releaseAll: (reason?: unknown): void => {
+			for (const owner of held) { owner.gate.resolve(); if (reason !== undefined) owner.observed.reject(reason); }
+			held.clear();
+		},
 		hold: (kind: 'write' | 'close' | 'abort') => {
-			entered = deferred(); const gate = deferred();
+			entered = deferred(); const gate = deferred(), owner = { gate, observed: entered }; held.add(owner);
+			void entered.promise.catch(() => undefined);
 			if (kind === 'write') writeGate = gate; else if (kind === 'close') closeGate = gate; else abortGate = gate;
-			return { entered: entered.promise, release: () => { gate.resolve(); } };
+			return { entered: entered.promise, release: () => { gate.resolve(); held.delete(owner); } };
 		},
 		failRemoval: () => { failRemoval = true; },
 	};

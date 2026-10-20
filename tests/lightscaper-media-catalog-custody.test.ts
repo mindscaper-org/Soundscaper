@@ -342,21 +342,40 @@ test('OPFS original custody survives indexed temporary cleanup without a media i
 	};
 	const create = () => createProjectStore({ indexedDB, databaseName, memoryFallback: false,
 		preferOpfs: true, opfsRoot: directory as unknown as FileSystemDirectoryHandle });
-	const first = create();
-	const reference = await original(first);
-	await first.mediaRepository.catalogOriginals.stage('catalog', 'recoverable', [reference]);
-	await first.close();
+	const first = create(), bytes = new TextEncoder().encode('original camera file bytes');
+	const digest = createHash('sha256').update(bytes).digest('hex');
+	let reference: Awaited<ReturnType<typeof original>>, originalPath: string;
+	try {
+		// Model file storage through the actual ordinary streamed publisher. A
+		// structural directory cannot certify native whole-Blob path custody.
+		const writer = await first.beginMediaAssetWrite('original-file', {}, { expectedBytes: bytes.byteLength, expectedSha256: digest });
+		try {
+			await writer.write(bytes); const metadata = await writer.commit(), path = metadata.path;
+			assert.equal(metadata.storage, 'opfs'); assert.ok(typeof path === 'string'); originalPath = path;
+			assert.equal(metadata.sha256, digest); assert.equal(metadata.size, bytes.byteLength);
+			reference = { photoId: 'photo', assetId: 'original-file', sourceId: 'logical-camera-source', sha256: digest, size: bytes.byteLength };
+		} finally { await writer.abort(); }
+		assert.equal(files.size, 1); assert.ok(files.has(originalPath));
+		assert.deepEqual(new Uint8Array(await files.get(originalPath)!.arrayBuffer()), bytes);
+		await first.mediaRepository.catalogOriginals.stage('catalog', 'recoverable', [reference]);
+	} finally { await first.close(); }
+	const before = indexedDB.records(databaseName, 'mediaAssets');
 	const reopened = create();
 	try {
 		files.set('unrelated-expired-file', new Blob(['orphan']));
 		indexedDB.stats.getAllRequests.length = 0;
 		await reopened.cleanupTemporaryAssets({ maximumAgeMs: 0 });
 		assert.equal(files.size, 1);
-		assert.equal(files.has('unrelated-expired-file'), false);
+		assert.equal(files.has('unrelated-expired-file'), false); assert.equal(files.has(originalPath), true);
+		assert.deepEqual(indexedDB.records(databaseName, 'mediaAssets'), before);
 		assert.equal(indexedDB.stats.getAllRequests.some(({ store }: { store: string }) => store === 'mediaAssets'), false);
 		const body = await reopened.loadMediaAsset(reference.assetId);
 		assert.ok(body);
-		assert.equal(new TextDecoder().decode(await body.arrayBuffer()), 'original camera file bytes');
+		const loaded = new Uint8Array(await body.arrayBuffer()); assert.deepEqual(loaded, bytes);
+		assert.equal(createHash('sha256').update(loaded).digest('hex'), digest);
+		const roots = await reopened.mediaRepository.catalogOriginals.readPage({ catalogId: 'catalog', importId: 'recoverable' });
+		assert.equal(roots.afterKey, null); assert.equal(roots.roots.length, 1);
+		assert.equal(roots.roots[0]?.assetId, reference.assetId); assert.equal(roots.roots[0]?.sha256, digest);
 		await assert.rejects(reopened.deleteMediaAsset(reference.assetId), /catalog original/u);
 	} finally { await reopened.close(); }
 });

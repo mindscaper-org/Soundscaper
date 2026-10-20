@@ -252,9 +252,17 @@ function loseRepairAcknowledgement(f: RepairFixture, completed: () => void, reco
 			injected = true;
 			Object.defineProperty(transaction, 'oncomplete', { configurable: true, set() {}, get() {
 				return () => {
-					const fail = () => { completed(); Object.defineProperty(transaction, 'error', { configurable: true, value: new Error('repair acknowledgement lost') });
-						transaction.onerror?.(new Event('error')); };
-					if (held) { held.entered.resolve(); void held.resume.promise.then(fail); } else fail();
+					let delivered = false; let forget: () => void = () => undefined;
+					const fail = () => {
+						if (delivered) return; delivered = true; forget();
+						try { completed(); } finally {
+							Object.defineProperty(transaction, 'error', { configurable: true, value: new Error('repair acknowledgement lost') });
+							transaction.onabort?.(new Event('abort'));
+						}
+					};
+					// Only an actual completed COMMIT can register this lost-ACK debt.
+					forget = f.ownTerminal(() => { held?.resume.resolve(); fail(); });
+					if (held) { held.entered.resolve(); if (!delivered) void held.resume.promise.then(fail); } else fail();
 				};
 			} });
 		}

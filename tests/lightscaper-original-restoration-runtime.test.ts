@@ -10,16 +10,20 @@ import { createPhotoLibrarySessionV1 } from '../src/lightscaper/photo-library-se
 import { PHOTO_MEDIA_NAMESPACES_V1, PhotoMediaStoreV1 } from '../src/lightscaper/storage/photo-media-store.ts';
 import { PHOTO_LIBRARY_CATALOG_POINTER_KEY_V1 } from '../src/lightscaper/storage/photo-library-catalog-pointer.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { InstrumentedKeyRange } from './helpers/instrumented-indexeddb-keys.ts';
 import { MemoryLockManager } from './helpers/offline-browser-runtime-store-fixture.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
 
 test('default runtime uses bound strict inspection and exact restoration adapters while preserving the original identity', async context => {
 	const backing = createInstrumentedIndexedDB(), indexedDB = backing as unknown as IDBFactory;
 	const priorDb = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB'), priorNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+	const priorKeyRange = Object.getOwnPropertyDescriptor(globalThis, 'IDBKeyRange');
 	Object.defineProperty(globalThis, 'indexedDB', { value: indexedDB, configurable: true });
+	Object.defineProperty(globalThis, 'IDBKeyRange', { value: InstrumentedKeyRange, configurable: true });
 	Object.defineProperty(globalThis, 'navigator', { value: { locks: new MemoryLockManager() }, configurable: true });
 	context.after(() => {
 		if (priorDb) Object.defineProperty(globalThis, 'indexedDB', priorDb); else Reflect.deleteProperty(globalThis, 'indexedDB');
+		if (priorKeyRange) Object.defineProperty(globalThis, 'IDBKeyRange', priorKeyRange); else Reflect.deleteProperty(globalThis, 'IDBKeyRange');
 		if (priorNavigator) Object.defineProperty(globalThis, 'navigator', priorNavigator); else Reflect.deleteProperty(globalThis, 'navigator');
 	});
 	const source = photoArchiveFixture(), media = new PhotoMediaStoreV1(), catalog = new PhotoCatalogRepositoryV1({ indexedDB, verifyOriginal: media.verifyOriginal });

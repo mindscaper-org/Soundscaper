@@ -10,6 +10,7 @@ import { MediaRepository } from '../src/common/editor/storage/media-repository.t
 import { MediaCatalogOriginalRepositoryV1 } from '../src/common/editor/storage/media-catalog-original-repository.ts';
 import { catalogOriginalReferences, normalizeCatalogOriginalRoot } from '../src/common/editor/storage/media-catalog-original-schema.ts';
 import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
+import { PhotoCatalogRepositoryKernelV2 } from '../src/lightscaper/catalog/photo-catalog-repository-kernel-v2.ts';
 import { readStoredPhotoV1OrV2 } from '../src/lightscaper/catalog/photo-catalog-records-v2.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../src/lightscaper/catalog/photo-document-v2.ts';
 import { normalizePhotoImportIntentV1, photoImportIntentKeyV1 } from '../src/lightscaper/import/import-intent-v1.ts';
@@ -179,8 +180,8 @@ async function heldImport(mode: Mode) {
 				if (args[0] === f.catalogId) { const references = catalogOriginalReferences(args[2]); assert.equal(references.length, 1);
 					assert.equal(references[0]?.assetId, currentKey); candidateId = references[0]!.photoId; await hold('stage'); } return value;
 			});
-			const publish = PhotoCatalogRepositoryV2.prototype.publishPhotos;
-			replace(PhotoCatalogRepositoryV2.prototype, 'publishPhotos', async function(this: PhotoCatalogRepositoryV2, ...args: Parameters<typeof publish>) {
+			const publish = PhotoCatalogRepositoryKernelV2.prototype.publishPhotos;
+			replace(PhotoCatalogRepositoryKernelV2.prototype, 'publishPhotos', async function(this: PhotoCatalogRepositoryKernelV2, ...args: Parameters<typeof publish>) {
 				const value = await Reflect.apply(publish, this, args) as Awaited<ReturnType<typeof publish>>;
 				if (args[0] === f.catalogId) { assert.equal(args[2].length, 1); const photo = normalizePhotoDocumentV1OrV2(args[2][0]);
 					assert.equal(photo.id, candidateId); await hold('publish'); } return value;
@@ -190,9 +191,9 @@ async function heldImport(mode: Mode) {
 				const value = await Reflect.apply(retire, this, args) as Awaited<ReturnType<typeof retire>>;
 				if (args[0] === f.intentKey) { assert.equal(value, true); await hold('retire'); } return value;
 			});
-			const closeMedia = PhotoMediaStoreV1.prototype.close, closeCatalog = PhotoCatalogRepositoryV2.prototype.close;
+			const closeMedia = PhotoMediaStoreV1.prototype.close, closeCatalog = PhotoCatalogRepositoryKernelV2.prototype.close;
 			replace(PhotoMediaStoreV1.prototype, 'close', function(this: PhotoMediaStoreV1) { mediaCloses++; return Reflect.apply(closeMedia, this, []) as Promise<void>; });
-			replace(PhotoCatalogRepositoryV2.prototype, 'close', function(this: PhotoCatalogRepositoryV2) { catalogCloses++; return Reflect.apply(closeCatalog, this, []) as Promise<void>; });
+			replace(PhotoCatalogRepositoryKernelV2.prototype, 'close', function(this: PhotoCatalogRepositoryKernelV2) { catalogCloses++; return Reflect.apply(closeCatalog, this, []) as Promise<void>; });
 			session = await createPhotoLibrarySessionV3(f.options);
 			const choices = await session.developImport.listPresets(), settings = await session.readImportPresets(); assert.equal(choices.presets[0]?.id, 'preset');
 			assert.deepEqual(settings.presets[0]?.settings, SETTINGS); mediaCloses = 0; catalogCloses = 0;

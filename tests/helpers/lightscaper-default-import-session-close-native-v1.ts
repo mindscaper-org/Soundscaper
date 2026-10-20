@@ -9,7 +9,7 @@ import { MediaRepository } from '../../src/common/editor/storage/media-repositor
 import { OpfsSyncWorkerClient } from '../../src/common/editor/storage/opfs-sync-worker-client.ts';
 import { WorkerRequestBroker } from '../../src/common/editor/worker-request-broker.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../../src/lightscaper/catalog/photo-document-v2.ts';
-import { PhotoCatalogRepositoryV2 } from '../../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
+import { PhotoCatalogRepositoryKernelV2 } from '../../src/lightscaper/catalog/photo-catalog-repository-kernel-v2.ts';
 import { photoImportIntentKeyV1 } from '../../src/lightscaper/import/import-intent-v1.ts';
 import { PhotoLibrarySessionLifetime } from '../../src/lightscaper/controller/photo-library-session-lifetime.ts';
 import { createPhotoLibrarySessionV3 } from '../../src/lightscaper/photo-library-session-runtime-v3.ts';
@@ -215,8 +215,8 @@ export async function qualifyPhotoDefaultImportSessionCloseNativeV1(cutValue: un
 			if (isCatalog(args[0])) { const references = catalogOriginalReferences(args[2]); check(references.length === 1 && references[0] !== undefined, 'Actual current stage must carry one complete original reference.'); currentReference = references[0]; }
 			return isCatalog(args[0]) ? intercept('stage', () => Reflect.apply(stage, this, args) as ReturnType<typeof stage>, args[3]?.signal) : Reflect.apply(stage, this, args) as ReturnType<typeof stage>;
 		});
-		const publish = PhotoCatalogRepositoryV2.prototype.publishPhotos;
-		replace(PhotoCatalogRepositoryV2.prototype, 'publishPhotos', function(this: PhotoCatalogRepositoryV2, ...args: Parameters<typeof publish>) {
+		const publish = PhotoCatalogRepositoryKernelV2.prototype.publishPhotos;
+		replace(PhotoCatalogRepositoryKernelV2.prototype, 'publishPhotos', function(this: PhotoCatalogRepositoryKernelV2, ...args: Parameters<typeof publish>) {
 			if (isCatalog(args[0])) { check(args[2].length === 1, 'Current publication must contain one actual prepared Photo.'); publishedCandidate = normalizePhotoDocumentV1OrV2(args[2][0]);
 				return intercept('publish', () => Reflect.apply(publish, this, args) as ReturnType<typeof publish>, args[3]?.signal); }
 			return Reflect.apply(publish, this, args) as ReturnType<typeof publish>;
