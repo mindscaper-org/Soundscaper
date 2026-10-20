@@ -2,8 +2,18 @@
 
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
+import { installAmplifyNumberDiagnostics, attachAmplifyNumberDiagnostics } from './helpers/amplify-number-diagnostics.ts';
 
 registerAudioEditorHooks();
+const effectNumberDiagnosticTitle = 'clearing an effect number refuses the empty value instead of changing it to zero';
+test.beforeEach(async ({ page, browserName }, testInfo) => {
+	if (browserName !== 'firefox' || testInfo.title !== effectNumberDiagnosticTitle) return;
+	await installAmplifyNumberDiagnostics(page);
+});
+test.afterEach(async ({ page, browserName }, testInfo) => {
+	if (browserName !== 'firefox' || testInfo.title !== effectNumberDiagnosticTitle) return;
+	await attachAmplifyNumberDiagnostics(page, testInfo);
+});
 
 async function openTone(page) {
 	const editor = await bootEditor(page, '/embed/en/');

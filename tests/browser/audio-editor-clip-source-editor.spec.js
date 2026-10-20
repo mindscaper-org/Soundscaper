@@ -1,10 +1,20 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, longTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, clipField, collectClientErrors, importFiles, openClipProperties, registerAudioEditorHooks, chooseNestedCommandAction, chooseCommandAction, projectTimelineSourceNames } from './audio-editor-test-helpers.js';
+import { installClipSourceHandoffDiagnostics, attachClipSourceHandoffDiagnostics } from './helpers/clip-source-handoff-diagnostics.ts';
 
 test.describe('clip source editor', () => {
 	registerAudioEditorHooks();
 	test.use({ viewport: { width: 1440, height: 1000 } });
+	const handoffDiagnosticTitle = 'offers ruler modes and gives focused source playback its own transport';
+	test.beforeEach(async ({ page, browserName }, testInfo) => {
+		if (browserName !== 'chromium' || testInfo.title !== handoffDiagnosticTitle) return;
+		await installClipSourceHandoffDiagnostics(page);
+	});
+	test.afterEach(async ({ page, browserName }, testInfo) => {
+		if (browserName !== 'chromium' || testInfo.title !== handoffDiagnosticTitle) return;
+		await attachClipSourceHandoffDiagnostics(page, testInfo);
+	});
 
 	test('shows all media, trims without moving the project anchor, and keeps moved markers attached to samples', async ({ page }) => {
 		const errors = collectClientErrors(page);

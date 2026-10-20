@@ -46,20 +46,15 @@ const sessions = [
 	{ name: 'removed accent restored by undo survives as part of the session', action: 'accent-delete-undo', tempo: 108, split: 0.33 },
 ];
 
-const tempoDiagnosticTitles = new Set([
-	'podcast cutdown survives duplicate-clip history and reload',
-	'removed accent restored by undo survives as part of the session',
-]);
-
 test.describe('realistic mixed-state session persistence', () => {
 	registerAudioEditorHooks();
-	test.beforeEach(async ({ page, browserName }, testInfo) => {
-		if (browserName === 'webkit' && tempoDiagnosticTitles.has(testInfo.title)) {
+	test.beforeEach(async ({ page, browserName }) => {
+		if (browserName === 'webkit') {
 			await installTempoInputDiagnostics(page);
 		}
 	});
 	test.afterEach(async ({ page, browserName }, testInfo) => {
-		if (browserName === 'webkit' && tempoDiagnosticTitles.has(testInfo.title)) {
+		if (browserName === 'webkit') {
 			await attachTempoInputDiagnostics(page, testInfo);
 		}
 	});
