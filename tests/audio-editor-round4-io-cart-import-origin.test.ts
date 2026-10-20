@@ -8,7 +8,7 @@ import { normalizeProjectBextMetadata } from '../src/common/editor/project-bext-
 import { prepareImportedWavMetadata } from '../src/common/editor/controller/import/internal/wav-import-metadata.ts';
 import { freezeProjectImportOptions } from '../src/common/editor/controller/import/internal/project-import-options.ts';
 
-function importedMetadata(options: Readonly<{ sourceRate?: number; start?: number; spotted?: boolean; destination?: 'timeline' | 'bin' }> = {}) {
+function importedMetadata(options: Readonly<{ sourceRate?: number; start?: number; spotted?: boolean; destination?: 'timeline' | 'project-bin' }> = {}) {
 	const sourceRate = options.sourceRate ?? 48_000;
 	const sourceCart = normalizeCartMetadata({ title: 'Radio take', postTimers: [{ usage: 'SEC1', value: sourceRate / 2 }] });
 	const descriptor = {
@@ -53,7 +53,7 @@ test('automatically spotted broadcast recordings promote CART at the resolved ti
 
 test('zero-origin timeline and unplaced bin imports retain their source-relative CART timers', () => {
 	assert.deepEqual(importedMetadata({ start: 0 }).projectCart!.postTimers, [{ usage: 'SEC1', value: 24_000 }]);
-	assert.deepEqual(importedMetadata({ destination: 'bin' }).projectCart!.postTimers, [{ usage: 'SEC1', value: 24_000 }]);
+	assert.deepEqual(importedMetadata({ destination: 'project-bin' }).projectCart!.postTimers, [{ usage: 'SEC1', value: 24_000 }]);
 });
 
 test('an unrepresentable placed CART cue warns and retains source metadata rather than inventing a value', () => {

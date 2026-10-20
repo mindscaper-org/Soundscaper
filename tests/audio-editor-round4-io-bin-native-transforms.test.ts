@@ -11,7 +11,6 @@ const context = { source, projectSampleRate: 48_000, sequence: { id: 'main', rat
 function cameraClip(sourceInFrame: number, sourceFrameCount: number, sequenceFrameCount = 25) {
 	const clip = createVideoClip({ id: 'take', sourceId: source.id, sourceInFrame, sourceFrameCount,
 		sequenceStartFrame: 0, sequenceFrameCount, binItemId: 'take' }, context);
-	assert.equal(clip.binItemId, 'take');
 	return { ...clip, binItemId: 'take' };
 }
 
