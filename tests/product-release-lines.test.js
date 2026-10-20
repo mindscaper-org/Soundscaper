@@ -24,7 +24,7 @@ test('product release lines select declared versions and active channels', () =>
 		const channel = product.applicationVersionChannel;
 		assert.equal(resolveProductApplicationVersion(productId, RELEASE_LINES), product[channel].version);
 		assert.equal(product.candidate.tagPrefix, `${productId}-v`);
-		assert.equal(product.stable.tagPrefix, productId === 'soundscaper' ? 'v' : 'framescaper-v');
+		assert.equal(product.stable.tagPrefix, productId === 'soundscaper' ? 'v' : `${productId}-v`);
 		for (const releaseChannel of ['candidate', 'stable']) {
 			const tag = expectedProductReleaseTag(productId, RELEASE_LINES, releaseChannel);
 			assert.equal(tag, `${product[releaseChannel].tagPrefix}${product[releaseChannel].version}`);
