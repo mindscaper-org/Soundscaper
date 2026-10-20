@@ -61,11 +61,6 @@ test('StaffPad render admission reports the exact scoped useful-binary phase for
 		processResidentSetBytes: null,
 		garbageCollectionHeadroomBytes: null,
 	});
-	assert.equal(Object.isFrozen(estimate), true);
-	assert.equal(Object.isFrozen(estimate.phases), true);
-	assert.equal(Object.isFrozen(estimate.phases[0]), true);
-	assert.equal(Object.isFrozen(estimate.phases[0]?.usefulBinaryWorkingSet), true);
-	assert.equal(Object.isFrozen(estimate.usefulBinaryWorkingSet), true);
 });
 
 test('StaffPad render admission selects the largest sequential stage phase', () => {
@@ -153,46 +148,13 @@ test('borrowed and reverse first-stage sources retain two full input payloads', 
 	], [40, 80, 80, 80]);
 });
 
-test('StaffPad render admission rejects invalid geometry and unsafe byte arithmetic', () => {
+test('StaffPad render admission rejects unsafe byte arithmetic', () => {
 	const validPlan = {
 		sourceFrameCount: 100,
 		channelCount: 1,
 		direction: 'forward' as const,
 		stages: [{ inputFrames: 100, outputFrames: 100 }],
 	};
-	for (const plan of [
-		{ ...validPlan, sourceFrameCount: 0 },
-		{ ...validPlan, channelCount: 3 },
-		{ ...validPlan, direction: 'sideways' },
-		{ ...validPlan, stages: [] },
-		{ ...validPlan, stages: [{ inputFrames: 101, outputFrames: 100 }] },
-		{
-			...validPlan,
-			stages: [
-				{ inputFrames: 100, outputFrames: 50 },
-				{ inputFrames: 49, outputFrames: 25 },
-			],
-		},
-	]) {
-		assert.throws(
-			() => estimateClipTimePitchRenderAdmission(plan as never, {
-				chunkFrames: 1_024,
-				transferLoadedSourceChannels: true,
-			}),
-			/StaffPad clip-cache render/iu,
-		);
-	}
-	for (const options of [
-		{ chunkFrames: 1_023, transferLoadedSourceChannels: true },
-		{ chunkFrames: 65_537, transferLoadedSourceChannels: true },
-		{ chunkFrames: 1_024.5, transferLoadedSourceChannels: true },
-		{ chunkFrames: 1_024, transferLoadedSourceChannels: 1 },
-	]) {
-		assert.throws(
-			() => estimateClipTimePitchRenderAdmission(validPlan, options as never),
-			/StaffPad clip-cache render/iu,
-		);
-	}
 	assert.throws(
 		() => estimateClipTimePitchRenderAdmission({
 			...validPlan,

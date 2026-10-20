@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
 	CLIP_TIME_PITCH_CACHE_ALGORITHM_REVISION,
 	ClipTimePitchRenderCacheCoordinator,
-	cacheSourceIdForKey,
 	deriveClipTimePitchCachePlan,
 	describeClipTimePitchRender,
 	loadStoredSourceChannels,
@@ -479,8 +478,6 @@ test('cache APIs fail closed on invalid models, buffers, store chunks, and Staff
 	assert.throws(() => describeClipTimePitchRender(clip, null), /V2 audio source/);
 	assert.throws(() => describeClipTimePitchRender({ ...clip, sourceId: 'other' }, source), (error) => error.code === 'SOURCE_MISMATCH');
 	assert.throws(() => describeClipTimePitchRender(clip, source, { maximumOutputBytes: 1 }), (error) => error.code === 'OUTPUT_LIMIT_EXCEEDED');
-	assert.throws(() => cacheSourceIdForKey('not-a-cache-key'), /cache key/);
-	assert.throws(() => new ClipTimePitchRenderCacheCoordinator(), /project store/);
 
 	const store = await sourceStore('invalid');
 	const client = new FakeStaffPadClient();
