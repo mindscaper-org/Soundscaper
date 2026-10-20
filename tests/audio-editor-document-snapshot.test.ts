@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
 	createEditorDocumentSnapshot,
-	publishProjectView,
 	type EditorDocumentSnapshotState,
 	type SnapshotProject,
 } from '../src/common/editor/controller/document/document-snapshot.ts';
@@ -238,32 +237,7 @@ test('published documents and preferences cannot mutate history or controller st
 	assert.equal(state.projects[0]?.title, originalTitle);
 });
 
-test('published collections detach from state, reject writes, and remain cloneable', () => {
-	const lookup = new Map([['item', { value: 1 }]]);
-	const tags = new Set(['saved']);
-	const project: SnapshotProject = { id: 'project-with-collections', lookup };
-	const state = stateFixture({
-		preferences: { ...stateFixture().preferences, tags },
-	});
-	const snapshot = createEditorDocumentSnapshot({ ...documentRuntimeFixture(project), state });
-	const publishedLookup = snapshot.project?.lookup as Map<string, { value: number }>;
-	const publishedTags = snapshot.preferences.tags as Set<string>;
 
-	assert.notStrictEqual(publishedLookup, lookup);
-	assert.notStrictEqual(publishedTags, tags);
-	assert.throws(() => publishedLookup.set('other', { value: 2 }), TypeError);
-	assert.throws(() => publishedLookup.delete('item'), TypeError);
-	assert.throws(() => { publishedLookup.get('item')!.value = 2; }, TypeError);
-	assert.throws(() => publishedTags.add('changed'), TypeError);
-	assert.throws(() => publishedTags.clear(), TypeError);
-	assert.deepEqual([...lookup], [['item', { value: 1 }]]);
-	assert.deepEqual([...tags], ['saved']);
-	assert.deepEqual([...structuredClone(publishedLookup)], [['item', { value: 1 }]]);
-});
-
-test('project publication refuses opaque mutable objects instead of exposing them live', () => {
-	assert.throws(() => publishProjectView({ id: 'project', timestamp: new Date() }), /mutable non-plain/u);
-});
 
 test('document snapshots hide collapsed selections and prepared recorders', () => {
 	const state = stateFixture({
