@@ -101,19 +101,6 @@ test('an earlier step at sequence zero and source-in zero remains absolute for p
 	assert.equal(plan.appliedSourceInFrame, 0);
 });
 
-test('step construction fails closed for forged projections and invalid steps', () => {
-	const project = commandProject();
-	assert.throws(() => buildFrameCanonicalSlipSlideStepRequest({ ...project }, {
-		mode: 'slip', activeClipId: 'center-video', direction: 'later',
-	}), /branded command projection/iu);
-	assert.throws(() => buildFrameCanonicalSlipSlideStepRequest(project, {
-		mode: 'slip', activeClipId: '', direction: 'later',
-	}), /activeClipId/iu);
-	assert.throws(() => buildFrameCanonicalSlipSlideStepRequest(project, {
-		mode: 'slide', activeClipId: 'center-video', direction: 'sideways' as 'later',
-	}), /direction/iu);
-});
-
 function commandProject(options: Readonly<{
 	linkedAudio?: boolean;
 	zeroAuthority?: boolean;

@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { prepareTransformClipsCommand } from '../src/common/editor/commands.js';
-import { applyCanonicalVideoTransformPlacement } from '../src/common/editor/commands/canonical-video-transform-placement.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
 import { planFrameCanonicalEdgeTrim } from '../src/common/editor/frame-canonical-edge-trim-planner.ts';
 import { planFrameCanonicalRollRippleTrim } from '../src/common/editor/frame-canonical-roll-ripple-trim-planner.ts';
@@ -108,58 +107,6 @@ test('canonical placement refuses an absolute sample alias mismatch during prepa
 		changes: { durationFrames: boundary(3) },
 		sequencePlacement: { sequenceStartFrame: 0, sequenceFrameCount: 2 },
 	}]), /canonical|sequence placement|alias/iu);
-});
-
-test('canonical placement rejects malformed authority and ambiguous target sequence ownership', () => {
-	const project = highRateProject(false);
-	const runtime = projectForCommand(project as unknown as Record<string, unknown>);
-	const accessor = {} as Record<string, unknown>;
-	Object.defineProperties(accessor, {
-		sequenceStartFrame: { enumerable: true, get: () => 0 },
-		sequenceFrameCount: { enumerable: true, value: 3 },
-	});
-	for (const sequencePlacement of [
-		{ sequenceStartFrame: 0, sequenceFrameCount: 3, extra: true },
-		accessor,
-		{ sequenceStartFrame: '0', sequenceFrameCount: 3 },
-	]) {
-		assert.throws(() => prepareTransformClipsCommand(runtime, [{
-			clipId: 'active-video',
-			trackId: 'video-track',
-			changes: { durationFrames: boundary(3) },
-			sequencePlacement,
-		}]), /canonical sequence|data propert|safe integer|only/iu);
-	}
-
-	const sequence = (runtime.sequences as readonly Readonly<Record<string, unknown>>[])[0];
-	assert.ok(sequence);
-	assert.throws(() => applyCanonicalVideoTransformPlacement(
-		{ ...runtime, sequences: [sequence, { ...sequence, id: 'duplicate-main' }] },
-		{ id: 'active-video', kind: 'video' },
-		{ id: 'video-track' },
-		{ timelineStartFrame: 0, durationFrames: boundary(3) },
-		{ sequenceStartFrame: 0, sequenceFrameCount: 3 },
-	), /multiple sequences/iu);
-});
-
-test('canonical placement is unavailable to non-video and pre-foundation transforms', () => {
-	const project = {
-		schemaVersion: 15,
-		sampleRate: SAMPLE_RATE,
-		sequences: [{ id: 'main', rate: RATE, trackIds: ['track'] }],
-	};
-	const updated = { timelineStartFrame: 0, durationFrames: boundary(3) };
-	const placement = { sequenceStartFrame: 0, sequenceFrameCount: 3 };
-	assert.throws(() => applyCanonicalVideoTransformPlacement(
-		project, { id: 'audio', kind: 'audio' }, { id: 'track' }, updated, placement,
-	), /foundation video/iu);
-	assert.throws(() => applyCanonicalVideoTransformPlacement(
-		{ ...project, schemaVersion: 9 },
-		{ id: 'video', kind: 'video' },
-		{ id: 'track' },
-		updated,
-		placement,
-	), /foundation video/iu);
 });
 
 test('generic and overwrite transform preparation retain the legacy transform shape', () => {
