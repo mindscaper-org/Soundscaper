@@ -8,7 +8,7 @@ import LightscaperAppV2 from '../src/common/editor/ui/lightscaper/LightscaperApp
 import { bundledLightscaperEditorCopyForLocale } from '../src/common/i18n/lightscaper-editor-copy.ts';
 import { mountPhotoImportUi } from './helpers/photo-import-options-react-fixture.tsx';
 
-const LABELS = { en: 'Merge HDR…', de: 'HDR zusammenfügen…' } as const;
+const LABELS = { en: 'Merge HDR', de: 'HDR zusammenfügen' } as const;
 
 for (const locale of ['en', 'de'] as const) test(`${locale}: Current HDR is an opt-in Photo menu action, disabled before a bracket selection and inert on startup`, async () => {
 	const copy = bundledLightscaperEditorCopyForLocale(locale);

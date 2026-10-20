@@ -51,7 +51,7 @@ test('Frame image Develop menus offer localized opt-in entries for timeline and 
 		const calls: string[] = [], entries = createFramescaperImageDevelopMenuItemsV1({ productId: 'framescaper', project: f.project(bin),
 			selectedClipId: f.clip.id, editingBlocked: false, locale: 'de-DE' }, kind => calls.push(kind));
 		assert.deepEqual(entries.map(item => [item.id, item.label, item.disabled]), [
-			['image-develop-repairs', 'Reparaturpunkte…', false], ['image-develop-masks', 'Bildmasken verwalten…', false], ['image-develop-brush', 'Pinselmaske…', false],
+			['image-develop-repairs', 'Reparaturpunkte', false], ['image-develop-masks', 'Bildmasken verwalten', false], ['image-develop-brush', 'Pinselmaske', false],
 		]); for (const entry of entries) entry.onClick(); assert.deepEqual(calls, ['repairs', 'masks', 'brush']);
 	}
 });

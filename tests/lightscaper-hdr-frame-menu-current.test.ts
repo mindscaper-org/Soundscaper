@@ -28,7 +28,7 @@ function bracket() {
 	return cloneFramescaperProject(PROFILE, { ...added, selection: { ...added.selection, clipIds: [f.clip.id, clip.id] } });
 }
 
-for (const [locale, label] of [['en', 'Merge HDR…'], ['de', 'HDR zusammenfügen…']] as const) test(`${locale}: the actual Frame Effect menu retains opted-in HDR creation for a selected bracket`, () => {
+for (const [locale, label] of [['en', 'Merge HDR'], ['de', 'HDR zusammenfügen']] as const) test(`${locale}: the actual Frame Effect menu retains opted-in HDR creation for a selected bracket`, () => {
 	const project = bracket(), calls: string[] = [];
 	const items = createApplicationMenuProductItems({ productId: 'framescaper', capabilities: {}, project, snapshot: { readOnly: false }, editBlocked: false,
 		copy: EDITOR_ENGLISH_COPY, locale, actions: { openFramescaperImageHdrMerge: () => { calls.push('opened'); } } });

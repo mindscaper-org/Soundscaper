@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 const EN = Object.freeze({
-	menu: 'Merge HDR…', title: 'Merge HDR', reference: 'Reference exposure', exposure: 'Exposure difference (EV)',
+	menu: 'Merge HDR', title: 'Merge HDR', reference: 'Reference exposure', exposure: 'Exposure difference (EV)',
 	alignment: 'Alignment', noAlignment: 'None', ward: 'Align translations (Ward MTB)', deghost: 'Deghost',
 	deghostOff: 'Off', deghostReference: 'Use reference for moving regions', threshold: 'Deghost threshold', fileName: 'HDR Original filename',
 	preview: 'Preview', merge: 'Create HDR Original', close: 'Close', working: 'Reading and merging Originals…',
@@ -15,7 +15,7 @@ const EN = Object.freeze({
 	diagnostics: 'Result diagnostics', motionPixels: 'Motion pixels', unresolvedPixels: 'Unresolved pixels',
 });
 const DE: Readonly<Record<keyof typeof EN, string>> = Object.freeze({
-	menu: 'HDR zusammenfügen…', title: 'HDR zusammenfügen', reference: 'Referenzbelichtung', exposure: 'Belichtungsunterschied (EV)',
+	menu: 'HDR zusammenfügen', title: 'HDR zusammenfügen', reference: 'Referenzbelichtung', exposure: 'Belichtungsunterschied (EV)',
 	alignment: 'Ausrichtung', noAlignment: 'Keine', ward: 'Verschiebungen ausrichten (Ward MTB)', deghost: 'Geisterbilder entfernen',
 	deghostOff: 'Aus', deghostReference: 'Referenz für bewegte Bereiche verwenden', threshold: 'Schwellenwert für Geisterbilder', fileName: 'Dateiname des HDR-Originals',
 	preview: 'Vorschau', merge: 'HDR-Original erstellen', close: 'Schließen', working: 'Originale werden gelesen und zusammengefügt…',
