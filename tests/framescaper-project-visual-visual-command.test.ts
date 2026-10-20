@@ -492,4 +492,3 @@ test('a freeze fallback is stored and replaced under its rendered source identit
 	}));
 	assert.deepEqual(project.videoFreezeFallbacks, []);
 });
-

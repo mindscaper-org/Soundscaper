@@ -126,4 +126,3 @@ test('the optional sink renderer is forwarded only when the operation offers one
 	} as never).begin();
 	assert.equal(withSink.renderAudioToSink!({} as never, {} as never, 'sink' as never), 'sink');
 });
-

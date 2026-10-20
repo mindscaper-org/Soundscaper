@@ -159,4 +159,3 @@ test('a published revision the editor failed to adopt is reported as stale', asy
 		isStale(/was not adopted by the active editor/u),
 	);
 });
-

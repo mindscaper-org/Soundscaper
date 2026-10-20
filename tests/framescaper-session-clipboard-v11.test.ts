@@ -226,4 +226,3 @@ test('a paste refuses a carrier whose descriptor drifted from the command', () =
 		/paste descriptors must match exactly/u,
 	);
 });
-

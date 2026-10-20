@@ -436,4 +436,3 @@ test('the inherited finishing runtimes read the controller project through its d
 	assert.deepEqual(framescaperMotionAnalysisActionsFinishingFor(controller)?.targets(), []);
 	assert.deepEqual(framescaperCubeLutActionsFinishingFor(controller)?.targets(), []);
 });
-
