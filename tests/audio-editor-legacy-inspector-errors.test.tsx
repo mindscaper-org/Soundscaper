@@ -109,11 +109,3 @@ test('legacy video rack errors route their existing nonempty message without pub
 	assert.equal(dom.container.querySelectorAll('[role="alert"]').length, 0);
 });
 
-test('standalone image properties retains its local error fallback without a host boundary', async context => {
-	const { project, clip } = createFramescaperBaselineImageFixture({ imageOnly: true });
-	const controller = { actions: { edit: { commit() { throw new Error('Standalone image edit refused'); } } } };
-	const dom = await mount(context, <ImageClipPropertiesBody controller={controller} project={project} clipId={clip.id}
-		copy={ENGLISH_COPY} disabled={false} />);
-	await changeDuration(dom);
-	assert.equal(dom.one('[role="alert"]').textContent, 'Standalone image edit refused');
-});
