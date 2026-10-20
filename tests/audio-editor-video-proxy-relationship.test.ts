@@ -38,10 +38,6 @@ import {
 	videoProxyProject,
 } from './helpers/video-proxy-relationship-fixtures.ts';
 
-const CANDIDATE_SOURCE_URL = new URL(
-	'../src/common/editor/video-proxy-candidate-observation.ts',
-	import.meta.url,
-);
 const RELATIONSHIP_SOURCE_URL = new URL(
 	'../src/common/editor/video-proxy-relationship.ts',
 	import.meta.url,
