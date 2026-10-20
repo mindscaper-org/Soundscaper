@@ -54,7 +54,8 @@ test('M01 native cold launch retains an accepted project while file release is r
 	const review = page.getByRole('dialog', { name: 'Open', exact: true }); await expect(review).toBeVisible(); await expect(review).toContainText('already open');
 	await launch(page, { token: 'next', name: 'next.mscape', bytes: await bytes('native-next', 'Next project') }); expect((await state(page)).acks).toEqual([]);
 	await review.getByRole('button', { name: 'Retry Completion', exact: true }).click(); await expect(page.locator('[data-motion-project-title]')).toHaveText('Next project');
-	expect((await state(page)).binds).toEqual(['native-retry', 'native-next']); await expect.poll(async () => (await state(page)).acks).toEqual(['retry', 'next']);
+	await expect.poll(async () => (await state(page)).acks).toEqual(['retry', 'next']);
+	expect((await state(page)).binds).toEqual(['native-retry', 'native-next']);
 });
 
 test('M01 invalid native launch retains failed cleanup and advances only after an explicit retry', async ({ page }) => {
