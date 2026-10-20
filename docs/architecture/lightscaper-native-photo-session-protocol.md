@@ -99,7 +99,7 @@ Linux x64 packaged qualification separately passes raster/RAW import, Develop,
 PNG and full archive backup, persistent reopen, confirmed restore and restored
 reopen in three fresh processes for each backend. Every process exits cleanly
 and retires its readers before its private profile is removed. These WSL
-packaged runs explicitly allow `--no-sandbox`; they do not qualify OS sandboxing.
+earlier packaged runs explicitly allow `--no-sandbox`; they do not qualify OS sandboxing.
 
 An independent actual Electron process-loss check holds a genuine staged OPFS
 File in a noncooperative collection consumer. Physical deletion and another
@@ -109,11 +109,15 @@ then joins and a fresh Scopes manager reopens the selected library. An unresolve
 Electron evaluation result supplies no retirement authority. The check records
 actual window isolation preferences, without claiming an OS sandbox audit.
 
-The read-only grant, linked storage/input and native RAW service owners are
-implemented; full linked menu management/watch/relink and its packaged workflow
-remain separate completion work. The internal all-five workflow defines fresh
-native-linked and native-absent Web packages, but each maintained target still
-requires actual successful execution. Linux results do not qualify macOS or
-Windows, and public release remains deferred. These changes do not require a
+Read-only grant, linked storage/input, native RAW service and linked menu
+management/watch/relink paths are implemented. A subsequent Linux x64 public
+`desktop:dir` run passes native-linked and native-absent Web packages through
+three fresh processes each without `--no-sandbox`. Its linked scenario covers
+native RAW import/Develop, durable cached-preview Develop after a physical move,
+full Original refusal, exact relink, export and reopen, with actual reader and
+native child retirement. The internal all-five workflow still requires the other
+four targets' actual successful execution; final full-suite gates are pending.
+Linux results do not qualify macOS or Windows, and public release remains
+deferred. These changes do not require a
 manual **Update AI assets** run; separate native Photo artifact production still
 tracks its own source and inventory changes.

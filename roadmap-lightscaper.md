@@ -1192,8 +1192,8 @@ the desktop can offer.
   authenticated cached-preview Develop; full-resolution render refuses until
   genuine regrant/relink makes the Original available. Corrupt, unsafe and stale
   sources remain failures, and headroom/recovery cannot substitute a cached
-  preview. Final packaged and target qualification remains required; no read or
-  write outside granted scopes is authorized.
+  preview. Linux x64 packaged qualification is recorded below; the other four
+  target runs remain required. No read or write outside granted scopes is authorized.
 - **Electron Enhanced — In progress:** actual L7 native RAW and preview services
   now forward through the complete installed Current Session, with distinct
   native identities and whole Web fallback only for classified pre-consumer
@@ -1215,8 +1215,8 @@ carry a private stage directory through every packaged resource. Linux x64
 AppImage and Debian artifacts have been built, extracted, resource-audited and
 run through the same three-process workflow. System installation and upgrades
 remain unqualified. This does not close L8: system file-association
-qualification, the complete add-in-place packaged workflow qualification and the
-full internal nightly target matrix remain open. Native storage and RAW services now exist as the
+qualification and the remaining internal nightly target execution remain open.
+Native storage and RAW services now exist as the
 separately qualified compositions below; public release remains deferred.
 Native project-library selection is installed as
 the explicit opt-in described below. Windows x64 has also passed the
@@ -1344,7 +1344,7 @@ library. Focused tests cover the installed host/preload, complete client, menu
 lifetime, cancellation, metadata bounds and matched archive restore. Linux x64
 packaged qualification now covers both backends through three fresh processes
 each, including import, Develop, export, backup, persistence, confirmed restore
-and restored reopen. Those WSL packaged runs explicitly allow `--no-sandbox`;
+and restored reopen. Those earlier WSL packaged runs explicitly allow `--no-sandbox`;
 OS sandbox qualification is not claimed. An independent actual renderer-exit
 check retains a genuine held File, physical pin and writer guard until Electron
 reports the real process loss, then joins native retirement and reopens storage.
@@ -1370,10 +1370,16 @@ role. A missing bundle preserves the complete Web product; a present invalid
 bundle refuses. Grant, linked Original and prepublication input owners have real
 filesystem/SQLite coverage. Menu management, bounded displayed-page watching,
 revocation/relink and disconnected-volume workflows now have owning implementations.
-The packaged linked scenario uses actual File-menu import, offline preview/full
-refusal, relink, native RAW Develop, export and reopening through three fresh
-processes. Its actual execution and all-target qualification remain required;
-source definitions and component capabilities alone do not close the add-in-place row.
+Linux x64 now passes the public `desktop:dir` qualification with same-revision
+native-linked and native-absent Web packages, each using three fresh processes
+without `--no-sandbox`. The linked run imports granted PNG and DNG Originals,
+saves native RAW Develop, warms the durable fit preview, and authenticates PNG
+pixels and backup bytes. After the physical RAW is renamed, cached-preview
+Develop remains available and full Original output refuses; explicit exact-byte
+relink then restores Original Develop and fresh-process export. Actual native
+plane wiping, child/stdio retirement and profile removal are verified. The other
+four desktop targets and the final full-suite gates remain pending; this Linux
+result does not close L8 or establish the complete target matrix.
 
 The internal Photo desktop workflow now defines all five native hosts, consumes
 the exact same-revision target result through public `desktop:dir`, and separately
