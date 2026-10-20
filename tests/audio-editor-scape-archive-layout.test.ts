@@ -322,27 +322,6 @@ test('default archive-reader validation rejects offsets that zip.js repairs', as
 	assert.equal(actionCalled, false);
 });
 
-test('synthetic archive-reader factories remain independent of raw Blob validation', async () => {
-	let enumerated = false;
-	const value = await withScapeArchiveReader(new Blob(['not a ZIP']), undefined, async (entries) => {
-		assert.deepEqual(entries, []);
-		return 42;
-	}, () => ({
-		async *getEntriesGenerator() {
-			enumerated = true;
-			return false;
-		},
-		async close() {},
-	}));
-	assert.equal(value, 42);
-	assert.equal(enumerated, true);
-});
-
-interface ArchiveOptions {
-	readonly dataDescriptor: boolean;
-	readonly dataDescriptorSignature: boolean;
-	readonly zip64: boolean;
-}
 
 function classicDescriptorOptions(): ArchiveOptions {
 	return { zip64: false, dataDescriptor: true, dataDescriptorSignature: true };

@@ -1110,11 +1110,6 @@
       "count": 1
     }
   },
-  "tests/audio-editor-scape-archive-layout.test.ts": {
-    "require-yield": {
-      "count": 1
-    }
-  },
   "tests/audio-editor-scape-cancellation.test.ts": {
     "require-yield": {
       "count": 1

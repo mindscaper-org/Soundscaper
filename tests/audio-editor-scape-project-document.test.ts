@@ -7,42 +7,8 @@ import {
 	PROJECT_SCHEMA_VERSION,
 	SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
 } from '../src/common/editor/project-schema-identity.ts';
+import * as codecModule from '../src/common/editor/scape-project-document.ts';
 import { preflightScapeProjectJsonStructure } from '../src/common/editor/scape-project-json-preflight.ts';
-
-interface ScapeProjectBinaryLimits {
-	readonly maximumPayloadCount: number;
-	readonly maximumPayloadBytes: number;
-	readonly maximumTotalPayloadBytes: number;
-	readonly maximumTraversalNodes: number;
-	readonly maximumTraversalDepth: number;
-}
-
-interface ScapeProjectDocumentOptions {
-	readonly limits?: Partial<ScapeProjectBinaryLimits>;
-}
-
-type SerializeScapeProjectDocument = (
-	value: unknown,
-	options?: ScapeProjectDocumentOptions,
-) => string;
-
-type ParseScapeProjectDocument = (
-	text: string,
-	options?: ScapeProjectDocumentOptions,
-) => unknown;
-
-interface ScapeProjectDocumentModule {
-	readonly SCAPE_PROJECT_BINARY_HARD_LIMITS?: Readonly<ScapeProjectBinaryLimits>;
-	readonly SCAPE_PROJECT_JSON_STRUCTURE_HARD_LIMITS?: Readonly<{
-		readonly maximumTraversalNodes: number;
-		readonly maximumTraversalDepth: number;
-	}>;
-	readonly resolveScapeProjectBinaryLimits?: (
-		overrides?: unknown,
-	) => Readonly<ScapeProjectBinaryLimits>;
-	readonly serializeScapeProjectDocument?: SerializeScapeProjectDocument;
-	readonly parseScapeProjectDocument?: ParseScapeProjectDocument;
-}
 
 interface BinaryDescriptor extends Record<string, unknown> {
 	schemaVersion: number;
@@ -52,7 +18,6 @@ interface BinaryDescriptor extends Record<string, unknown> {
 	base64: string;
 }
 
-const CODEC_MODULE_PATH = '../src/common/editor/scape-project-document.ts';
 const BINARY_TAG = '$soundscaperOpaqueBinary';
 const MIB = 1024 * 1024;
 const EXPECTED_HARD_LIMITS = Object.freeze({
@@ -63,8 +28,6 @@ const EXPECTED_HARD_LIMITS = Object.freeze({
 	maximumTraversalDepth: 128,
 });
 
-const codecModule = await loadCodecModule();
-
 test('the Scape project binary codec exposes frozen lower-only production limits', () => {
 	assert.deepEqual(codecModule.SCAPE_PROJECT_BINARY_HARD_LIMITS, EXPECTED_HARD_LIMITS);
 	assert.equal(Object.isFrozen(codecModule.SCAPE_PROJECT_BINARY_HARD_LIMITS), true);
@@ -73,12 +36,8 @@ test('the Scape project binary codec exposes frozen lower-only production limits
 		maximumTraversalDepth: 130,
 	});
 	assert.equal(Object.isFrozen(codecModule.SCAPE_PROJECT_JSON_STRUCTURE_HARD_LIMITS), true);
-	assert.equal(typeof codecModule.serializeScapeProjectDocument, 'function');
-	assert.equal(typeof codecModule.parseScapeProjectDocument, 'function');
 
 	const resolveLimits = codecModule.resolveScapeProjectBinaryLimits;
-	assert.equal(typeof resolveLimits, 'function');
-	if (!resolveLimits) return;
 	const defaults = resolveLimits();
 	assert.deepEqual(defaults, EXPECTED_HARD_LIMITS);
 	assert.equal(Object.isFrozen(defaults), true);
@@ -123,7 +82,6 @@ test('the Scape project binary codec exposes frozen lower-only production limits
 
 test('the exact current schema serializes canonical tags and restores explicit binary types byte-exactly', () => {
 	const { parse, serialize } = codecFunctions();
-	if (!parse || !serialize) return;
 	const storage = Uint8Array.from([99, 0, 1, 2, 253, 254, 255, 88]);
 	const view = storage.subarray(1, 7);
 	const buffer = new ArrayBuffer(2);
@@ -172,7 +130,6 @@ test('the exact current schema serializes canonical tags and restores explicit b
 
 test('only the exact current schema receives binary tag traversal', () => {
 	const { parse, serialize } = codecFunctions();
-	if (!parse || !serialize) return;
 	for (const schemaVersion of [8, 14, 15, 18, '17']) {
 		const value = {
 			schemaVersion,
@@ -190,7 +147,6 @@ test('only the exact current schema receives binary tag traversal', () => {
 
 test('non-current schemas retain ordinary values but receive structural JSON admission', () => {
 	const { parse } = codecFunctions();
-	if (!parse) return;
 	const future = {
 		schemaVersion: 18,
 		opaqueExtensions: { candidate: binaryTag() },
@@ -209,7 +165,6 @@ test('non-current schemas retain ordinary values but receive structural JSON adm
 
 test('serialization enforces payload count, per-payload, and aggregate byte limits', () => {
 	const { serialize } = codecFunctions();
-	if (!serialize) return;
 	const limits = {
 		maximumPayloadCount: 2,
 		maximumPayloadBytes: 3,
@@ -235,7 +190,6 @@ test('serialization enforces payload count, per-payload, and aggregate byte limi
 
 test('parsing independently enforces payload limits and rejects duplicate IDs', () => {
 	const { parse, serialize } = codecFunctions();
-	if (!parse || !serialize) return;
 	const countText = serialize(currentProject({
 		first: new Uint8Array(0),
 		second: new Uint8Array(0),
@@ -265,7 +219,6 @@ test('parsing independently enforces payload limits and rejects duplicate IDs', 
 
 test('parsing rejects malformed, noncanonical, truncated, unknown, and ambiguous tags', () => {
 	const { parse } = codecFunctions();
-	if (!parse) return;
 	const malformedTags: unknown[] = [
 		{ [BINARY_TAG]: null },
 		{ [BINARY_TAG]: {} },
@@ -301,7 +254,6 @@ test('parsing rejects malformed, noncanonical, truncated, unknown, and ambiguous
 
 test('current-schema serialization rejects reserved collisions without activating project code', () => {
 	const { parse, serialize } = codecFunctions();
-	if (!parse || !serialize) return;
 	assert.throws(() => serialize(currentProject({
 		collision: { [BINARY_TAG]: 'ordinary project data' },
 	})), /reserved|collision|binary|tag/iu);
@@ -365,7 +317,6 @@ test('current-schema serialization rejects reserved collisions without activatin
 
 test('the exact current schema preserves non-callable toJSON data while rejecting hooks and accessors', () => {
 	const { parse, serialize } = codecFunctions();
-	if (!parse || !serialize) return;
 	const text = serialize(currentProject({ toJSON: 'ordinary opaque data' }));
 	assert.deepEqual(parse(text), currentProject({ toJSON: 'ordinary opaque data' }));
 	let activations = 0;
@@ -399,7 +350,6 @@ test('the exact current schema preserves non-callable toJSON data while rejectin
 
 test('both codec directions enforce traversal node and depth limits', () => {
 	const { parse, serialize } = codecFunctions();
-	if (!parse || !serialize) return;
 	const wideProject = currentProject(Array.from({ length: 12 }, (_, index) => ({ index })));
 	assert.throws(() => serialize(wideProject, {
 		limits: { maximumTraversalNodes: 4 },
@@ -423,7 +373,6 @@ test('both codec directions enforce traversal node and depth limits', () => {
 
 test('lowered traversal limits remain round-trip closed for encoded binary descriptors', () => {
 	const { parse, serialize } = codecFunctions();
-	if (!parse || !serialize) return;
 	const limits = {
 		maximumPayloadCount: 1,
 		maximumTraversalNodes: 4,
@@ -443,7 +392,6 @@ test('lowered traversal limits remain round-trip closed for encoded binary descr
 
 test('parsing rejects over-budget JSON structure before incomplete input reaches JSON.parse', () => {
 	const { parse } = codecFunctions();
-	if (!parse) return;
 	const overNodeLimit = `{"schemaVersion":9,"items":[${'0,'.repeat(12)}`;
 	assert.throws(
 		() => parse(overNodeLimit, { limits: {
@@ -462,7 +410,6 @@ test('parsing rejects over-budget JSON structure before incomplete input reaches
 
 test('production JSON admission rejects beyond the binary-expanded node and depth ceilings', () => {
 	const { parse } = codecFunctions();
-	if (!parse) return;
 	const overNodeLimit = `{"schemaVersion":9,"items":[${'0,'.repeat(101_534)}`;
 	assert.throws(() => parse(overNodeLimit), /JSON.*structural traversal node limit/iu);
 	const overDepthLimit = `{"schemaVersion":9,"nested":${'['.repeat(132)}`;
@@ -493,7 +440,6 @@ test('JSON structural preflight counts valid lexical forms and duplicate members
 
 test('exact-current serialization rejects cycles before JSON serialization', () => {
 	const { serialize } = codecFunctions();
-	if (!serialize) return;
 	const opaqueExtensions: Record<string, unknown> = {};
 	opaqueExtensions.self = opaqueExtensions;
 	assert.throws(() => serialize(currentProject(opaqueExtensions)), /cyclic/iu);
@@ -501,7 +447,6 @@ test('exact-current serialization rejects cycles before JSON serialization', () 
 
 test('sparse array holes consume traversal nodes before output allocation', () => {
 	const { serialize } = codecFunctions();
-	if (!serialize) return;
 	assert.throws(
 		() => serialize(currentProject(new Array(1_000)), {
 			limits: { maximumTraversalNodes: 4 },
@@ -510,24 +455,7 @@ test('sparse array holes consume traversal nodes before output allocation', () =
 	);
 });
 
-async function loadCodecModule(): Promise<ScapeProjectDocumentModule> {
-	try {
-		return await import(CODEC_MODULE_PATH) as unknown as ScapeProjectDocumentModule;
-	} catch (error) {
-		const candidate = error as { code?: unknown; message?: unknown };
-		if (candidate.code === 'ERR_MODULE_NOT_FOUND'
-			&& typeof candidate.message === 'string'
-			&& candidate.message.includes('scape-project-document')) {
-			return {};
-		}
-		throw error;
-	}
-}
-
-function codecFunctions(): Readonly<{
-	parse?: ParseScapeProjectDocument;
-	serialize?: SerializeScapeProjectDocument;
-}> {
+function codecFunctions() {
 	return {
 		parse: codecModule.parseScapeProjectDocument,
 		serialize: codecModule.serializeScapeProjectDocument,

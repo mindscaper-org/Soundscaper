@@ -57,12 +57,8 @@ const EXPECTED_HARD_LIMITS = Object.freeze({
 test('Scape inspection quiescence exposes frozen lower-only production limits', () => {
 	assert.deepEqual(boundedModule.SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS, EXPECTED_HARD_LIMITS);
 	assert.equal(Object.isFrozen(boundedModule.SCAPE_INSPECTION_QUIESCENCE_HARD_LIMITS), true);
-	assert.equal(typeof boundedModule.ScapeInspectionCapacityError, 'function');
-	assert.equal(typeof boundedModule.ScapeInspectionSettlementTimeoutError, 'function');
 
 	const resolveLimits = boundedModule.resolveScapeInspectionQuiescenceLimits;
-	assert.equal(typeof resolveLimits, 'function');
-	if (!resolveLimits) return;
 	assert.deepEqual(resolveLimits(), EXPECTED_HARD_LIMITS);
 	const lowered = resolveLimits({ maximumActiveInspections: 2, settlementTimeoutMs: 25 });
 	assert.deepEqual(lowered, { maximumActiveInspections: 2, settlementTimeoutMs: 25 });
@@ -400,7 +396,6 @@ function assertCapacityError(
 	expected: Readonly<{ limit: number; activeInspections: number }>,
 ): asserts error is ScapeInspectionCapacityErrorShape {
 	const ErrorType = boundedModule.ScapeInspectionCapacityError;
-	if (!ErrorType) assert.fail('Expected ScapeInspectionCapacityError to be exported.');
 	assert.equal(error instanceof ErrorType, true);
 	const typed = error as ScapeInspectionCapacityErrorShape;
 	assert.deepEqual(
@@ -419,7 +414,6 @@ function assertSettlementTimeoutError(
 	expected: Readonly<{ timeoutMs: number; pendingInspections: number }>,
 ): asserts error is ScapeInspectionSettlementTimeoutErrorShape {
 	const ErrorType = boundedModule.ScapeInspectionSettlementTimeoutError;
-	if (!ErrorType) assert.fail('Expected ScapeInspectionSettlementTimeoutError to be exported.');
 	assert.equal(error instanceof ErrorType, true);
 	const typed = error as ScapeInspectionSettlementTimeoutErrorShape;
 	assert.deepEqual(
