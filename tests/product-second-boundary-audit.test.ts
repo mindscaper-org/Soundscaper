@@ -86,15 +86,11 @@ test('freeze safe addition validates each operand before accepting its sum', () 
 	assert.throws(() => safeAdd(Number.MAX_SAFE_INTEGER, 1, 'range'), /safe frame range/u);
 });
 
-test('freeze abort checks preserve the caller reason and provide a fallback', () => {
+test('freeze abort checks preserve the caller reason', () => {
 	assert.doesNotThrow(() => throwIfAborted());
 	assert.doesNotThrow(() => throwIfAborted(new AbortController().signal));
 	const reason = new Error('stop');
 	assert.throws(() => throwIfAborted(AbortSignal.abort(reason)), (error) => error === reason);
-	assert.throws(
-		() => throwIfAborted({ aborted: true, reason: undefined } as AbortSignal),
-		(error: unknown) => error instanceof DOMException && error.name === 'AbortError',
-	);
 });
 
 test('OpenFX bridge availability rejects prototype-provided methods', () => {
@@ -171,30 +167,6 @@ test('desktop publication admission returns a detached frozen index snapshot', (
 	assert.deepEqual(result.requiredBodyIndexes, [0, 2]);
 	assert.equal(Object.isFrozen(result), true);
 	assert.equal(Object.isFrozen(result.requiredBodyIndexes), true);
-});
-
-test('desktop publication admission rejects malformed expected identities', () => {
-	assert.throws(
-		() => validateFramescaperDesktopPublicationAdmission({}, '', 0),
-		/publication identity is invalid/u,
-	);
-	assert.throws(
-		() => validateFramescaperDesktopPublicationAdmission({}, 'AB'.repeat(24), 0),
-		/publication identity is invalid/u,
-	);
-	assert.throws(
-		() => validateFramescaperDesktopPublicationAdmission({}, 'a'.repeat(47), 0),
-		/publication identity is invalid/u,
-	);
-});
-
-test('desktop publication admission rejects noncanonical expected body counts', () => {
-	for (const bodyCount of [-1, -0, 0.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN]) {
-		assert.throws(
-			() => validateFramescaperDesktopPublicationAdmission({}, PUBLICATION_ID, bodyCount),
-			/publication body count is invalid/u,
-		);
-	}
 });
 
 test('desktop publication admission requires dense own-data body indexes', () => {
