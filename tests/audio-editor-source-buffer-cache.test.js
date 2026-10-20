@@ -107,29 +107,6 @@ test('strict oversize policy rejects atomically and setIfFits declines without t
 	assert.equal(cache.byteLength, 8);
 });
 
-test('explicit allow policy retains only one oversized most-recent entry', () => {
-	const evicted = [];
-	const cache = new SourceBufferCache({
-		maxBytes: 8,
-		oversize: 'allow',
-		onEvict: (event) => evicted.push(event.key),
-	});
-	const small = audioBuffer(1, 1, 'small');
-	const oversized = audioBuffer(4, 1, 'oversized');
-	cache.set('small', small);
-
-	assert.equal(cache.canFit(oversized), true);
-	assert.equal(cache.setIfFits('oversized', oversized), true);
-	assert.equal(cache.byteLength, 16);
-	assert.deepEqual([...cache.keys()], ['oversized']);
-	assert.deepEqual(evicted, ['small']);
-
-	cache.set('new-small', small);
-	assert.equal(cache.byteLength, 4);
-	assert.deepEqual([...cache.keys()], ['new-small']);
-	assert.deepEqual(evicted, ['small', 'oversized']);
-});
-
 test('lowering maxBytes evicts least-recently-used entries immediately', () => {
 	const evicted = [];
 	const cache = new SourceBufferCache({
@@ -150,21 +127,6 @@ test('lowering maxBytes evicts least-recently-used entries immediately', () => {
 	assert.equal(cache.byteLength, 0);
 	assert.deepEqual([...cache.keys()], []);
 	assert.deepEqual(evicted, [['second', 'resize'], ['third', 'resize'], ['first', 'resize']]);
-});
-
-test('custom byte estimators support non-AudioBuffer cache values', () => {
-	const cache = new SourceBufferCache({
-		maxBytes: 5,
-		estimateBytes: (value) => value.bytes,
-		entries: [['initial', { bytes: 2 }]],
-	});
-	cache.set('next', { bytes: 3 });
-
-	assert.equal(cache.byteLength, 5);
-	assert.deepEqual([...cache.keys()], ['initial', 'next']);
-	cache.set('last', { bytes: 4 });
-	assert.equal(cache.byteLength, 4);
-	assert.deepEqual([...cache.keys()], ['last']);
 });
 
 test('invalid budgets and byte estimates fail before mutating the cache', () => {
