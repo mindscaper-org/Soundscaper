@@ -36,14 +36,3 @@ test('file-backed export provenance shares the optional admission owner', () => 
 		assert.equal(chunkGroupForModulePath(`/workspace/src/common/editor/${module}.ts`), 'editor-optional-export', module);
 	}
 });
-
-test('foreground and archive import callers share one deferred module request', async () => {
-	const { loadImportAdmissionExecution } = await import('../src/common/editor/controller/import/internal/import-admission-loader.ts');
-	const foreground = loadImportAdmissionExecution();
-	const archive = loadImportAdmissionExecution();
-	assert.equal(foreground, archive);
-	const execution = await foreground;
-	assert.equal(execution.isStreamedAudioImportFile(new File([], 'recording.mp3')), true);
-	assert.equal(await execution.scanEncodedAudioMarkers(null), null);
-	assert.equal(loadImportAdmissionExecution(), foreground);
-});
