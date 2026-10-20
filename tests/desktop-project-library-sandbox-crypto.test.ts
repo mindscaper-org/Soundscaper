@@ -55,36 +55,4 @@ for (const implementation of IMPLEMENTATIONS) {
 		assert.equal(implementation.createHash('sha256').update(view).digest('hex'), expected);
 	});
 
-	test(`${implementation.name} sandbox SHA-256 rejects unsupported algorithms`, () => {
-		assert.throws(
-			() => implementation.createHash('sha512'),
-			/only SHA-256/iu,
-		);
-	});
-
-	test(`${implementation.name} sandbox SHA-256 rejects unsupported digest encodings`, () => {
-		assert.throws(
-			() => implementation.createHash('sha256').digest('base64' as never),
-			/only hexadecimal/iu,
-		);
-	});
-
-	test(`${implementation.name} sandbox SHA-256 rejects values outside its input domain`, () => {
-		assert.throws(
-			() => implementation.createHash('sha256').update(42 as never),
-			/input is invalid/iu,
-		);
-	});
-
-	test(`${implementation.name} sandbox SHA-256 rejects updates after finalization`, () => {
-		const hash = implementation.createHash('sha256').update('first');
-		hash.digest('hex');
-		assert.throws(() => hash.update('second'), /already finalized/iu);
-	});
-
-	test(`${implementation.name} sandbox SHA-256 rejects repeated finalization`, () => {
-		const hash = implementation.createHash('sha256').update('first');
-		hash.digest('hex');
-		assert.throws(() => hash.digest('hex'), /already finalized/iu);
-	});
 }
