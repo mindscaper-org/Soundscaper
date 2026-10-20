@@ -12,6 +12,7 @@ const ROOT = new URL('../', import.meta.url);
 const CONFIG = 'playwright.lightscaper-gpu.config.mjs';
 const PROJECT = 'lightscaper-software-gpu';
 const JOB = 'browser-lightscaper-gpu';
+const FULL_STACK = 'lightscaper-develop-full-stack-current.spec.ts';
 const SPECS = ['lightscaper-native-gpu-current.spec.js', 'lightscaper-develop-gpu-preview-current.spec.js',
 	'lightscaper-native-gpu-colors-current.spec.js', 'lightscaper-develop-gpu-colors-current.spec.js',
 	'lightscaper-native-gpu-lut-current.spec.js', 'lightscaper-develop-gpu-lut-current.spec.js',
@@ -22,6 +23,7 @@ const SPECS = ['lightscaper-native-gpu-current.spec.js', 'lightscaper-develop-gp
 	'lightscaper-native-gpu-mask-context-current.spec.js',
 	'lightscaper-native-gpu-mask-overlay-current.spec.js',
 	'lightscaper-native-gpu-masked-context-integration-current.spec.js',
+	FULL_STACK,
 	'lightscaper-native-gpu-mask-numeric-refusal-current.spec.js',
 	'lightscaper-native-gpu-mask-large-current.spec.js',
 	'lightscaper-develop-gpu-mask-current.spec.js',
@@ -77,7 +79,7 @@ test('Lightscaper software GPU project owns exactly color, LUT, geometry, optics
 	}
 });
 
-for (const [workflowName, buildJob] of [['quality.yml', 'build'], ['desktop-preview.yml', 'quality']] as const) {
+for (const [workflowName, buildJob] of [['quality.yml', 'build']] as const) {
 	test(`${workflowName} requires the pinned Lightscaper software GPU proof before its aggregate gate`, async () => {
 		const workflow = await text(`.github/workflows/${workflowName}`);
 		const job: string = extractJob(workflow, JOB);
@@ -143,6 +145,20 @@ for (const [workflowName, buildJob] of [['quality.yml', 'build'], ['desktop-prev
 	});
 }
 
+test('desktop preview delegates browser GPU and combined coverage qualification to quality.yml', async () => {
+	const workflow = await text('.github/workflows/desktop-preview.yml');
+	const quality = extractJob(workflow, 'quality'), tests = extractJob(workflow, 'tests');
+	assert.match(quality, /# The Node suite runs in the per-product `tests` shards below\. Browser\n\s+# testing and combined coverage enforcement belong to quality\.yml\./u);
+	assert.match(quality, /^ {8}run: npm run check:static$/mu);
+	assert.match(tests, /^ {4}needs: quality$/mu);
+	assert.match(tests, /run: xvfb-run --auto-servernum npm run test -- --shard=\$\{\{ matrix\.shard \}\}/u);
+	assert.doesNotMatch(workflow, /^ {2}(?:browser(?:-[a-z-]+)?|firefox|coverage):$/mu,
+		'the deliberate desktop nightly policy does not duplicate browser or combined coverage jobs');
+	assert.doesNotMatch(workflow, /^ +run:.*(?:npx playwright test|npm run test:browser|npm run coverage:check)/mu);
+	assert.match(extractJob(workflow, 'package'), /^ {4}needs: \[quality, tests,/mu,
+		'desktop packaging still depends on its canonical static and actual Node gates');
+});
+
 for (const spec of SPECS) test(`${spec} admits pinned software Chromium and real Firefox without requiring a host GPU`, async () => {
 	const source = await text(`tests/browser/${spec}`);
 	const ast = createSourceFile(spec, source, ScriptTarget.ESNext, true);
@@ -172,10 +188,18 @@ for (const spec of SPECS) test(`${spec} admits pinned software Chromium and real
 		assert.equal(infoReads, 1);
 	}
 	assert.ok(source.includes("toContain('SwiftShader')"), 'actual native software renderer identity remains asserted');
-	assert.ok(source.includes("browserName === 'chromium'") || /if \(positive\b[\s\S]{0,180}?expect\(value\.backend(?:,\s*(?:deliveryDiagnostic\(value\)|value\.reason))?\)\.toBe\('webgl2'\)/u.test(source),
+	if (spec === FULL_STACK) {
+		assert.match(source, /test\('Current4 genuine RAW, Clone, color, LUT, masks and geometry deliver actual GPU pixels',[\s\S]*?const result = await run\(page, 'canonical', 'none', true\);\s*expect\(result\.rejected\)\.toBe\(false\); expect\(result\.callbacks\)\.toBe\(1\); gpu\(result, page\);/u,
+			'the combined positive control unconditionally requires accepted GPU delivery after real RAW decoding');
+		assert.match(source, /function gpu\(result: Result, page: Page\)[\s\S]*?expect\(result\.delivery\?\.backend\)\.toBe\('webgl2'\); expect\(result\.delivery\?\.reason\)\.toBeNull\(\); expect\(result\.delivery\?\.actualReadback\)\.toBe\(true\);/u);
+		assert.match(source, /expect\(result\.delivery\?\.comparison\.mismatches, JSON\.stringify\(result\.delivery\?\.comparison\)\)\.toBe\(0\)/u,
+			'accepted combined GPU pixels still require the independent exact CPU comparison');
+		assert.match(source, /page\.context\(\)\.browser\(\)\?\.browserType\(\)\.name\(\) === 'chromium'/u,
+			'the combined corpus checks its actual browser renderer rather than a synthetic browser flag');
+	} else assert.ok(source.includes("browserName === 'chromium'") || /if \(positive\b[\s\S]{0,180}?expect\(value\.backend(?:,\s*(?:deliveryDiagnostic\(value\)|value\.reason))?\)\.toBe\('webgl2'\)/u.test(source),
 		'the qualified Chromium path must demand actual GPU execution for its positive corpus');
-	if (spec.startsWith('lightscaper-native-gpu')) {
-		assert.ok(source.includes('browserCoverage: false'), 'the lower native cancellation corpus retains its timing-sensitive opt-out');
+	if (spec.startsWith('lightscaper-native-gpu') || spec === FULL_STACK) {
+		assert.ok(source.includes('browserCoverage: false'), 'the lower component cancellation corpus retains its timing-sensitive opt-out');
 	} else assert.doesNotMatch(source, /browserCoverage\s*:/u, 'the interactive UI workflow uses default Chromium coverage');
 });
 
