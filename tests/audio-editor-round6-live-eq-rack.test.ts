@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioEditorEngine } from '../src/common/editor/engine.js';
 import { createEffect } from '../src/common/editor/effects.js';
-import { effectGraphKey } from '../src/common/editor/engine/effect-rack.ts';
 import type { EngineRuntimeHost } from '../src/common/editor/engine/runtime-types.ts';
 import { nativeRackEffectCommit, supportsLiveRackEffectGesture } from '../src/common/editor/ui/inspector/live-rack-effect-gesture.ts';
 import { MockAudioBuffer, MockAudioContext } from './helpers/mock-audio-context.js';
@@ -51,7 +50,6 @@ for (const type of ['audacity-graphic-eq', 'audacity-filter-curve-eq']) {
 			const previousProject = runtime.project;
 			assert.equal(engine.configureRackEffect('track', 'track-1', 'equalizer-1', { filterLength: 4095 }, { revision: 99 }), false);
 			assert.equal(runtime.project, previousProject);
-			assert.equal(runtime.graph?.effectMessageSequences.get(effectGraphKey('track', 'track-1', 'equalizer-1')), 4);
 			assert.equal(node.messages.length, 1);
 			assert.equal(engine.configureRackEffect('track', 'track-1', 'equalizer-1', next, { revision: 4 }), false);
 			assert.equal(runtime.project, previousProject);

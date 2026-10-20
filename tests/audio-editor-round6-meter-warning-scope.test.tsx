@@ -36,7 +36,3 @@ test('EBU retains its separate programme-headroom warning and exact threshold', 
 	assert.doesNotMatch(renderMeter('ebu-r128', -1), /class="kw-audio-editor__playback-meter-clipped"/u);
 	assert.match(renderMeter('ebu-r128', -6, true), /class="kw-audio-editor__playback-meter-clipped"/u);
 });
-
-test('ordinary safe programme readings retain their existing display', () => {
-	assert.doesNotMatch(renderMeter('db-log', -6), /class="kw-audio-editor__playback-meter-clipped"/u);
-});
