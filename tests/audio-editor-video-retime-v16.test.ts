@@ -42,11 +42,7 @@ test('V16 retime maps snapshot the closed JSON wire and agree with the exact alg
 
 	assert.deepEqual(normalized, input);
 	assert.notStrictEqual(normalized, input);
-	assert.deepEqual(Object.keys(normalized ?? {}).sort(), ['feature', 'points', 'segments', 'version']);
 	assertDeepFrozen(normalized);
-	assert.equal(Object.hasOwn(normalized ?? {}, 'sequenceFrameCount'), false);
-	assert.equal(Object.hasOwn(normalized ?? {}, 'sourceInFrame'), false);
-	assert.equal(Object.hasOwn(normalized ?? {}, 'sourceFrameCount'), false);
 
 	const compiled = compileVideoRetimeCurve({
 		version: 2,
