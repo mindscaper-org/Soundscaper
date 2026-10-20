@@ -2,9 +2,11 @@
 
 Lightscaper has a main-private resource owner for immutable `.cube` LUT and
 `SCMASK01` brush bodies. It provides the existing Photo LUT and mask-raster
-capabilities to native storage callers. The application still selects its
-complete Web Core Photo Session; this component adds no renderer API, menu
-entry, selected native library or add-in-place access.
+capabilities to native storage callers. The complete
+[selected native Session](lightscaper-native-photo-session-lease.md) and
+[installed transport](lightscaper-native-photo-session-protocol.md) now compose
+both families with the Current renderer. Web Core remains the default. This
+resource owner grants no folder or add-in-place authority.
 
 The main host supplies a canonical appData directory. Storage uses the fixed
 `Lightscaper/project-library/v1/native-photo-resources.sqlite3` path, separate
@@ -76,8 +78,11 @@ also syncs admitted directory entries. Windows directory flushing and power-loss
 durability are not established by this component, and a host-Node component
 run does not qualify its packaged Electron runtime or other desktop targets.
 
-The [native Photo storage adapter](lightscaper-native-photo-storage.md) still
-needs managed-media custody and scoped Original/preview loading, settings,
-journals, full restore publication and complete Session composition. Renderer
-and IPC admission plus menu-owned library selection follow that composition.
-The complete Web Core remains the active fallback throughout that work.
+The [native Photo storage adapter](lightscaper-native-photo-storage.md) now
+composes managed-media custody, scoped Original and preview loading, settings,
+journals and complete fresh-generation restore. Its installed Current Session
+retains resource callbacks through actual consumers and local retirement before
+physical shutdown. Main-owned resource handles use the same document and selected
+Session authority as the other storage families. Component results remain
+separate from packaged, target-specific qualification. The complete Web Core
+remains available through the File-menu backend choice.

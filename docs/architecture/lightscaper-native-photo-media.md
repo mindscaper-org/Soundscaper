@@ -126,14 +126,17 @@ with real native catalog, media, selected settings and resource repositories.
 They cover encoded raster, RAW and HDR body custody, exact reopen, whole Current
 Photo documents and retained resources, dedup aliases, interrupted staging and
 post-publication recovery. A genuine Node LockManager provides process-local
-exclusive import ownership in these tests; cross-process selected-library lease
-and packaged native Session qualification remain open. Body custody tests do not
-claim container decoding or platform coverage beyond their actual Linux run.
+exclusive import ownership in those component tests. The complete selected
+native Session instead uses the actual Main-private exclusive owner bound to its
+cross-process Scopes guard. Body custody tests do not claim container decoding
+or platform coverage beyond their actual Linux run.
 The [native scope owner](lightscaper-native-photo-library-scopes.md) additionally
 composes these genuine components in distinct physical generations under an
 appData-wide cross-process SQLite guard, and implements main-private archive
-restore, selected publication and authenticated reopen. Complete packaged native
-Session qualification remains open.
+restore, selected publication and authenticated reopen. Complete installed
+Session and Linux packaged evidence are recorded separately in the
+[transport document](lightscaper-native-photo-session-protocol.md); the full
+maintained target matrix remains a distinct qualification requirement.
 
 The five-member streaming contract is qualified against actual native files and
 SQLite, including four-MiB emissions split into native one-MiB writes, immutable
@@ -145,8 +148,9 @@ The [scoped Original reader](lightscaper-native-photo-original-loading.md)
 authenticates scalar asset generations and actual custody without decoding
 generic metadata. Same-process media owners share deletion pins through actual
 consumer and physical-read retirement. The separate renderer source stages a
-genuine File under fixed capacity limits; its port tests do not establish
-packaged transport or existing consumer integration.
+genuine File under fixed capacity limits. The installed Current factory now
+forwards that source to real consumers; the source's isolated port tests remain
+component evidence rather than proof of every packaged target.
 
 Complete native Session composition, renderer/IPC admission and menu-owned Session
 selection remain required. No AI runtime source,

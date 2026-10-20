@@ -5,8 +5,10 @@ broker. Its fixed SGR1 protocol opens granted roots, relative files and lazy
 paged directory cursors. It contains no image decoder, plugin execution or
 write operation. It is a trusted broker for changing chooser-authorized roots;
 it does not claim the fixed filesystem sandbox used by untrusted decoders.
-The authenticated shared Photo payload producer and application activation are
-still separate implementation work.
+The authenticated shared Photo payload producer now supplies this broker and
+the separately isolated RAW role from one target-bound artifact closure. Optional
+selected components capture its trusted start capability; absence of the whole
+bundle preserves Web Core, while a present invalid bundle refuses.
 
 A genuine Main owner captures the actual media database namespace before
 reflecting borrowed capabilities. Its hard-bound facet can open roots and check
@@ -53,5 +55,8 @@ Focused Linux qualification covers 23 actual SGR1 process/filesystem cases and
 non-UTF8 names, namespace copying, held native receipts, process crashes,
 COMMIT denial and independent cancellation. The injected native close-EINTR case
 proves no retry of a reused descriptor and retains the source quarantine. These
-are component results; linked Photo publication, menu activation, native payload
-packaging and other desktop targets are not claimed by this qualification.
+are component results. Separate linked Original owners now authenticate retained
+files, prepublication inputs and linked Photo publication. Menu management,
+watch/relink/revocation recovery and packaged linked-scenario qualification remain
+separate work. The component cases do not establish another desktop target's
+execution or whole application behavior.

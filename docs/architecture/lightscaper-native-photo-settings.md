@@ -3,9 +3,11 @@
 Lightscaper has a main-private SQLite settings owner implementing the complete
 eight-method `PhotoMediaSettingsRepositoryV1` port. It supplies actual durable
 values, physical presence reads, conditional mutation and the fixed anchor's
-atomic pointer/history publication. The application still selects the complete
-Web Core Photo Session. This component does not activate a native library or
-expose renderer paths, settings keys or new IPC.
+atomic pointer/history publication. The [complete installed native
+Session](lightscaper-native-photo-session-protocol.md) now consumes it through
+selected-generation facades and fixed settings domains. Web Core remains the
+default. The SQLite owner stays Main-private; no renderer path or arbitrary
+settings scope selects a database.
 
 The host supplies canonical appData. The independent database is fixed at
 `Lightscaper/project-library/v1/native-photo-settings.sqlite3`, with `LSST`
@@ -20,9 +22,10 @@ Windows power-loss durability or any packaged runtime.
 Each connection binds one immutable scope: `anchor` or a bounded
 `selected:<generation>` label supplied by the host. Identical logical keys in
 different scopes occupy different physical rows. Scope labels do not prove
-namespace allocation, selection or deletion ownership. The later native library
-owner must bind selected settings to the actual authenticated generation; a
-catalog ID alone cannot establish that identity after restore.
+namespace allocation, selection or deletion ownership. The
+[native library owner](lightscaper-native-photo-library-scopes.md) binds selected
+settings to the actual authenticated generation; a catalog ID alone cannot
+establish that identity after restore.
 
 Keys retain every JavaScript UTF-16 code unit as big-endian BLOB bytes, including
 empty keys, embedded NUL and lone surrogates. Values use an independently
@@ -64,10 +67,20 @@ all accepted captures and SQL, then retires the connection. It does not abort
 settings work. A genuine COMMIT acknowledgment survives close reentry without
 a later cancellation check; operation failures remain owned by their promises.
 
-Existing restore publication, restore journals, import presets, Current Develop
-presets and export journals can consume the native port. Their reconciliation
-policies stay in those owning domains. Complete startup binding must recover
-the anchor restore journal before selecting media, then reconcile selected
-import intent/custody before admitting Session work. Full native allocation,
-managed Original custody, complete restore stages, native Session construction
-and menu/IPC selection remain pending. This owner does not certify that work.
+Restore publication and journals, import presets, Current Develop presets and
+export journals now consume the native port in the complete Current composition.
+Their reconciliation policies stay in those owning domains. Scopes recovers the
+anchor restore journal before selected opening; the selected Session reconciles
+import intent and custody before admitting work. A fixed SQL-bounded import-intent
+reader refuses corrupt occupied rows before generic decoding. The selected
+Session's four-method import-preset facet binds the fixed anchor and catalog,
+while its ordinary settings facade retains the five selected domain keys and
+raw comparison semantics. Renderer-supplied admission callbacks cannot cross IPC;
+Main's actual anchor publication retains its private atomic admission barrier.
+
+Allocation, complete restore, selected reopen and File-menu backend selection
+are implemented by the scope, Session and installed transport owners. The
+settings component's focused tests do not by themselves qualify that complete
+application or another desktop target; the
+[transport evidence](lightscaper-native-photo-session-protocol.md) records those
+separate boundaries.

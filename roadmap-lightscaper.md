@@ -155,21 +155,27 @@ verified in Chromium and Firefox. Current raster export retains native output
 processing and offers PNG16 with saved presets and batch recovery. Opt-in RAW
 source processing now carries canonical, linear-headroom and highlight-recovery
 choices through the Current draft, saved recipe and native rendering; external
-decoder publication, wider product qualification and native desktop services remain
-pending. Current PNG8/16 now offers sRGB and Display P3 target profiles; an
+decoder publication and wider product qualification remain separate work.
+The optional Electron tier now supplies the complete selected native Current
+Session, matched restore and isolated native RAW/preview forwarding. Exact
+portable interchange deliberately retains its pinned WASM profiles; native
+profiles and preview cache identities remain distinct. Linked application
+management is implemented through the File menu; its final workflow and complete
+target qualification remain in L8. Current PNG8/16 now
+offers sRGB and Display P3 target profiles; an
 existing Settings-menu dialog enables temporary output-profile/depth proofing
 without changing saved Develop state.
 
 | Area | Current capability |
 | --- | --- |
-| Product seam | Three-product registry, separate-origin routes and independently built sites, per-product profiles/capabilities/PWA/i18n, registry-driven switching, and product-owned test shards. Lightscaper also has an independently prepared, hardened managed Web Core desktop package; the remaining L8 native and release work stays open. |
+| Product seam | Three-product registry, separate-origin routes and independently built sites, per-product profiles/capabilities/PWA/i18n, registry-driven switching, and product-owned test shards. Lightscaper also has independently prepared hardened Web Core and opt-in complete native Session compositions, with an authenticated optional Photo filesystem/RAW bundle. Linked workflow and target qualification remain L8 work; public release stays deferred. |
 | Imaging engine | Shared parametric video effects, managed SDR color with linear-light grade math and `.cube` LUTs, mask graphs, visual presets, and keyframe curves. Wider primaries/transfers remain recognized by the schema and refused at render admission. |
 | Stills | Framescaper V30 still import and timeline-image modeling landed; Lightscaper reuses shared image admission, native decode, EXIF orientation, and immutable original bindings. |
 | Pixel interchange | The unchanged descriptor carries byte, word and float samples independently of primaries/transfer. Current RAW supplies linear sRGB16 to Float32 color, geometry, spatial, LUT, mask, repair and output stages, with final PNG8/16 or JPEG8 delivery. Editable Source4 handoff regenerates native words from the authenticated Original; wide-gamut work remains open. |
 | Library and storage | Separate catalog-root and photo rows, bounded summary/membership pages, per-photo commands and history, verified retained originals with digest dedupe and custody, managed-import recovery, and catalog Scape round trips. |
 | Library queries and previews | Global filename/capture/rating indexes, resumable explicit index preparation, scalar paged definition selectors, and cancellable demand previews with disposable paired cache entries and one shared presenter owner. Current RAW culling offers a menu-selected camera preview source with neutral Original as default. |
 | Metadata | Bounded shared EXIF/IPTC readers, immutable extracted facts, authored metadata overrides, and Lightscaper's import adapter. |
-| UI and platform | Shared design-system/dialog ownership, a product-owned photo shell, opt-in menu workflows, offline application shells, and hardened Electron shells. Lightscaper's managed shell retains its browser-owned catalog and Originals in its own persistent partition. |
+| UI and platform | Shared design-system/dialog ownership, a product-owned photo shell, opt-in menu workflows, offline application shells, and hardened Electron shells. Lightscaper defaults to its browser-owned library in a separate persistent partition. File-menu native selection retires that workspace before opening the separate complete native library and matched restore runtime. |
 | Gates | Sharded Node suites including Lightscaper, browser workflows, coverage-union thresholds, architecture and file-size ceilings, licensing/notice/WASM audits, correctness checks, and existing packaged desktop smokes. Performance reports are diagnostics. |
 
 Architectural constraints that still drive the sequence:
@@ -180,8 +186,8 @@ Architectural constraints that still drive the sequence:
 - original custody and catalog persistence have separate owners and must
   reconcile interrupted publication before a library is exposed;
 - catalog-scale browsing uses bounded indexed pages rather than whole-project
-  history snapshots; remaining library view/filter/organization workflows and
-  hosted validation of the measured synthetic budgets remain L3 work; and
+  history snapshots; final library-loop and scale qualification remains
+  separate from the implemented view/filter/organization workflows; and
 - origins have separate storage: cross-product editing transfers an
   authenticated editable copy under the handoff contract.
 
@@ -1074,9 +1080,11 @@ there.
   containing-script evidence, not per-line GLSL coverage or a full-union coverage
   floor pass; no floor tightening is claimed. E64 counts above remain predecessor
   evidence. Hosted CI success remains pending.
-- **Electron Enhanced — Planned:** native raw decode and preview services
-  through the milestone-5 helper architecture, fail-closed, with the WASM
-  path as fallback.
+- **Electron Enhanced — In progress:** native RAW decode and preview services
+  now use the authenticated Photo/milestone-5 producer and complete installed
+  Current Session. The isolated zero-path native role retains its own identity;
+  classified pre-consumer unavailability can use the genuine whole WASM fallback.
+  The actual service and target qualification boundaries are detailed in L8.
 - **Shared — Done:** manual lens corrections (distortion, chromatic
   aberration, defringe, vignette) as shared effects. The first
   [manual distortion family](docs/architecture/lightscaper-lens-distortion.md)
@@ -1173,16 +1181,24 @@ the desktop can offer.
 
 - **Electron Enhanced — In progress:** the Lightscaper desktop package through the
   existing hardened wrapper and per-product packaging seam: app identity,
-  entitlements, associations, project-library integration, and release and
-  nightly matrix rows.
-- **Electron Only — Planned:** add-in-place libraries over capability-scoped
-  folder access: originals stay in the user's folders, are watched for
-  external rename and move with relink assistance, and are never read or
-  written outside the granted scopes. When a granted volume is disconnected,
-  develop continues on the preview-resolution derivatives and full-resolution
-  render refuses visibly until relink.
-- **Electron Enhanced — Planned:** the L7 native raw and preview services
-  packaged, audited, and fail-closed with the Web Core path as fallback.
+  entitlements, associations, project-library integration, and internal
+  package/nightly qualification rows. Public release remains deferred.
+- **Electron Only — In progress:** native read-only folder grants, linked
+  Original storage/input and the File-menu add-in-place workflow are implemented.
+  The menu owns trusted folder selection, bounded lossless scans, ordinary and
+  Develop-preset import, serial opt-in watching of the displayed Original page,
+  external rename/move inspection, exact-byte explicit relink, and revocation
+  after full workspace retirement. Classified disconnected Originals select
+  authenticated cached-preview Develop; full-resolution render refuses until
+  genuine regrant/relink makes the Original available. Corrupt, unsafe and stale
+  sources remain failures, and headroom/recovery cannot substitute a cached
+  preview. Final packaged and target qualification remains required; no read or
+  write outside granted scopes is authorized.
+- **Electron Enhanced — In progress:** actual L7 native RAW and preview services
+  now forward through the complete installed Current Session, with distinct
+  native identities and whole Web fallback only for classified pre-consumer
+  unavailability. The authenticated shared producer/stage covers all maintained
+  target definitions; successful execution on each target remains required.
 
 The managed Web Core package now has its own identity, persistent partition,
 sandboxed preload, close-and-retire coordination, native output dialogs and
@@ -1199,8 +1215,10 @@ carry a private stage directory through every packaged resource. Linux x64
 AppImage and Debian artifacts have been built, extracted, resource-audited and
 run through the same three-process workflow. System installation and upgrades
 remain unqualified. This does not close L8: system file-association
-qualification, add-in-place access, native services and the full release/nightly
-target matrix remain open. Native project-library selection is installed as
+qualification, the complete add-in-place packaged workflow qualification and the
+full internal nightly target matrix remain open. Native storage and RAW services now exist as the
+separately qualified compositions below; public release remains deferred.
+Native project-library selection is installed as
 the explicit opt-in described below. Windows x64 has also passed the
 managed workflow using a separately compiled test supervisor: atomic Job
 assignment precedes app execution, and a closed identity-bound receipt proves
@@ -1330,8 +1348,40 @@ and restored reopen. Those WSL packaged runs explicitly allow `--no-sandbox`;
 OS sandbox qualification is not claimed. An independent actual renderer-exit
 check retains a genuine held File, physical pin and writer guard until Electron
 reports the real process loss, then joins native retirement and reopens storage.
-Add-in-place access, native RAW/preview services and native platform qualification
-remain open.
+
+The [native RAW service](docs/architecture/lightscaper-native-photo-raw-service.md)
+now supplies actual LibRaw neutral and both fixed derived profiles, plus a
+separately identified nearest preview route. Stored decoding authenticates the
+actual full Original and requested revision through the genuine scoped reader.
+Prepublication decoding instead borrows a completed Main upload or genuine linked
+input; it does not manufacture stored Photo authority. Installed output tickets
+retain the source, native plane and global job through the renderer consumer.
+Actual child/stdio retirement, output SHA, geometry and opacity checks precede
+publication. Current import, canonical/derived Develop and the preview scheduler
+forward these ports. Native preview cache keys remain separate from Web keys;
+permanent portable interchange deliberately continues to use pinned WASM.
+Classified unavailable/unsupported outcomes can select the whole Web path only
+before consumer entry and after genuine native cleanup. Corruption, cancellation,
+stale authority and unproved cleanup remain failures.
+
+The optional Photo bundle now uses one authenticated all-target producer for the
+trusted read-only filesystem broker and independently isolated zero-path RAW
+role. A missing bundle preserves the complete Web product; a present invalid
+bundle refuses. Grant, linked Original and prepublication input owners have real
+filesystem/SQLite coverage. Menu management, bounded displayed-page watching,
+revocation/relink and disconnected-volume workflows now have owning implementations.
+The packaged linked scenario uses actual File-menu import, offline preview/full
+refusal, relink, native RAW Develop, export and reopening through three fresh
+processes. Its actual execution and all-target qualification remain required;
+source definitions and component capabilities alone do not close the add-in-place row.
+
+The internal Photo desktop workflow now defines all five native hosts, consumes
+the exact same-revision target result through public `desktop:dir`, and separately
+packages native-linked and native-absent managed-Web scenarios. It is a separate
+preview/nightly job, preserving the existing two-product release/M5 policy.
+Every platform requires its own actual successful package/scenario run; a source
+definition or local Linux pass does not establish the full matrix. Lightscaper's
+release channel remains deferred, with no new tag or public publication policy.
 
 ### Exit gate
 
@@ -1358,19 +1408,30 @@ acceptance evidence, and this milestone adds no product capability.
 - **Shared — Planned:** accessibility review with assistive technology across
   library culling and develop, at supported zoom, contrast, locale, and
   direction.
-- **Shared — Planned:** add a real-library debug soak over import, browse,
-  search, develop, and export, with truthful memory/timing diagnostics and
-  explicit unavailable measurements.
+- **Shared — In progress:** the menu-only
+  [real-library debug soak](docs/architecture/lightscaper-library-debug-soak.md)
+  now implements actual import, browse/search, saved reversible Develop edits,
+  lossless PNG export/readback, and complete Session close/reopen in the selected
+  native or Web library. The menu runs three rounds with 1–32 genuine Files,
+  64 MiB total encoded input and a one-megapixel rendered-image limit. Reports
+  contain per-phase elapsed time, actual owner counts and browser heap readings
+  or explicit unavailable reasons. Focused native/browser qualification and the
+  final considered-revision gates remain separate; no camera/device breadth,
+  RSS estimate or release performance threshold is implied.
 - **Electron Enhanced — Planned:** optionally exercise packaged install,
   upgrade, rollback, uninstall, and catalog preservation on environments the
   owner has available.
 - **Web Enhanced — Planned:** GPU/CPU render-parity breadth on real GPUs
   across vendors and the real-device browser matrix, beyond the CI-detected
   environments L7 pinned.
-- **Shared — Planned:** automated licensing, provenance, notice, and
-  corresponding-source checks for the raw decoder, any lens-profile data, and
-  every new runtime asset, recording an explicit license selection for every
-  dual-licensed input per the licensing policy.
+- **Shared — In progress:** pinned WASM licensing/provenance/notice/source
+  audits and the authenticated native producer's delivered-source/license
+  checks are implemented. Retain those automated checks on the final considered
+  revision and every new runtime asset, with an explicit license selection for
+  each dual-licensed input. No licensed lens-profile data is silently admitted;
+  its named review remains blocked. The bounded debug soak is implemented as
+  described above; its focused/final-revision qualification and the optional
+  physical-device observations remain separate work.
 
 ### Exit gate
 

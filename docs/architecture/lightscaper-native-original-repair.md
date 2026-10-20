@@ -2,8 +2,9 @@
 
 The main-private managed media owner implements the existing
 `restoreCatalogOriginalBody(binding, selectedBlob, options)` port. The complete
-Web Core Session remains active while native Session, IPC and menu selection are
-unfinished. This component adds no renderer filesystem capability.
+[installed native Session](lightscaper-native-photo-session-protocol.md) now
+exposes it through the existing retained-Original recovery workflow; Web Core
+remains the default backend. No renderer filesystem capability is added.
 
 Repair authenticates the exact selected permanent or import-scoped retained
 root, its immutable asset token, SHA and byte length, and every same-asset root
@@ -13,6 +14,16 @@ is hashed before any generation reservation, then independently hashed during
 bounded file staging. Both passes use at most one MiB per emission. One accepted
 repair per canonical library is booked before borrowed argument capture and
 retained until actual capture, publication and retirement settle.
+
+The installed repair path streams a selected genuine Blob/File into a Main-owned
+upload file in at most one-MiB chunks. Full length, SHA, fsync and actual file
+retirement produce a genuine one-use proof bound to the exact media namespace.
+The source alternative borrows that completed file and reuses this same repair
+kernel and independent OriginalStore hash; it neither aggregates the whole Blob
+nor relies on `openAsBlob` garbage collection for close. Accepted upload reads
+and consumers join before publication, while unproved cleanup retains the real
+owner and selected guard. The existing Blob API and root/head/COMMIT contract
+remain unchanged.
 
 LSCP schema 3 preserves the exact schema-1 and schema-2 DDL. A missing digest head
 explicitly selects the legacy `<sha>.body` file. An occupied head must resolve

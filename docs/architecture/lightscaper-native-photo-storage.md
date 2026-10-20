@@ -1,9 +1,10 @@
 # Native Photo storage
 
-Lightscaper's L8 native catalog adapter is in progress. Internal components
-store managed Original bytes in main-owned files, their immutable physical
-bindings in SQLite, and Current Photo catalog documents in a separate SQLite
-database. Web Core remains the default; File → Photo storage can select the
+Lightscaper's native catalog and media adapters store managed Original bytes
+in main-owned files, their immutable physical bindings in SQLite, and Current
+Photo catalog documents in a separate SQLite database. These owners now compose
+under the actual selected Session lease and installed authenticated transport.
+Web Core remains the default; File → Photo storage can select the
 [complete native storage Session](lightscaper-native-photo-session-protocol.md).
 These components grant no add-in-place capability by themselves.
 
@@ -11,7 +12,8 @@ A [separate native LUT and brush owner](lightscaper-native-photo-resources.md)
 now persists authentic immutable `.cube` and `SCMASK01` bodies in its own
 SQLite database. It provides both existing family capabilities, independent
 render/verification/installation slots and complete Current resource closure
-verification. It does not select a native Session or replace Web Core storage.
+verification. The complete native factory captures these genuine resource
+capabilities; the resource component does not independently select a backend.
 
 The host supplies one canonical appData directory. The fixed product scope is
 `Lightscaper/project-library/v1/`; filenames supplied by a photo or renderer
@@ -262,15 +264,27 @@ selected-pointer publication authority.
 
 The [Original loading components](lightscaper-native-photo-original-loading.md)
 now bind native reads to the actual stored Photo, asset generation and custody,
-and provide a separate bounded renderer File staging owner. Their integration
-with real transport, decoding and existing consumers remains required.
+and provide a bounded renderer File staging owner. The installed transport now
+connects its single/group tickets to actual Current decoding, previews, backup,
+export and whole-collection consumers. Published Files retain native pins until
+the real local consumer retires.
 
-The scope owner also completes main-private native restore, selected publication
-and authenticated reopen. The remaining adapter must preserve all complete
-Session/publication/recovery and Original/preview loading ports through selected-catalog
-renderer and IPC admission. Menu-owned library selection
-must join authoring, previews and storage before switching. Native qualification must also supply a private
-appData root explicitly: the existing Lightscaper smoke's `--user-data-dir`
-isolates Chromium storage but does not select a private native library root.
-Linked Originals remain refused until durable folder grants, watching, relink,
-revocation and disconnected-volume behavior are implemented together.
+The scope owner completes native restore, selected publication and authenticated
+reopen. The complete Current Session captures all publication/recovery,
+Original/preview, settings and resource ports. File-menu backend selection joins
+authoring, previews and storage before replacing both Session and restore
+factories. Native qualification must supply a private appData root explicitly:
+`--user-data-dir` alone isolates Chromium storage, not the native library. The
+private managed smoke sets that native root only after its plan is admitted.
+
+The optional [native RAW service](lightscaper-native-photo-raw-service.md) now
+forwards authenticated stored Originals and separately owned prepublication
+inputs through the installed client. Its distinct native profiles and cache
+identity preserve exact permanent WASM interchange. A missing optional native
+bundle leaves the complete Web Core route; a present corrupt bundle refuses.
+
+Separate read-only filesystem grants and linked Original storage/input owners
+are implemented. Those capabilities alone do not complete menu management,
+watching, revocation/relink recovery or disconnected-volume workflows. Their
+application integration and packaged qualification remain explicit L8 work; no
+caller-supplied path or linked scalar row grants file access.

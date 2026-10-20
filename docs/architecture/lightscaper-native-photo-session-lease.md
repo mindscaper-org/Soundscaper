@@ -76,8 +76,11 @@ Current Session, retaining its prototype, strict legacy children, Current
 Develop processes, handoff and backup capabilities. It supplies the genuine
 Original source, retained-body inspection and repair, native resource and
 settings ports, explicit exclusivity, and all three real preview cache adapters.
-Browser import preparation, RAW workers and preview decoding stay in the
-renderer. Startup reads import intent through its bounded native domain reader;
+Browser import preparation and the complete Web decoder remain available.
+When the authenticated native payload is installed, the captured RAW and
+prepublication-input capabilities forward actual native frames and separately
+identified previews; renderer consumers still own their full frame lifetimes.
+Startup reads import intent through its bounded native domain reader;
 occupied corrupt rows and insertion-order-sensitive recovery CAS remain intact.
 
 The factory captures actual inner Current Session close as local retirement.
@@ -102,4 +105,7 @@ owning process has actually exited. Complete Session integration also covers
 both query versions, stacks, saved queries, all culling contexts, metadata and
 import-preset persistence, authenticated group/resource ZIP output, physical
 repair and reopen, actual HDR decoding and all three persistent preview cache
-adapters. These checks do not establish production IPC or menu activation.
+adapters. The [installed Session transport](lightscaper-native-photo-session-protocol.md)
+separately implements document authentication, actual local-retirement control,
+process-loss handling and File-menu selection. These component checks alone do
+not establish another platform's packaged qualification.

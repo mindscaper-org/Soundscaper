@@ -1,11 +1,12 @@
 # Native Photo Original loading
 
 Native Original loading composes an authenticated main-process range reader,
-a main-owned ticket transport and a renderer staging source that returns a genuine File. These
-components do not activate a native Session. The application keeps its complete
-Web Core storage until the complete native Session and app-facing IPC/consumer
-integration are ready. Main-private native restore and selected publication are
-implemented by the [scope owner](lightscaper-native-photo-library-scopes.md).
+a main-owned ticket transport and a renderer staging source that returns a
+genuine File. The [installed native Session](lightscaper-native-photo-session-protocol.md)
+now composes this source with the complete Current consumers and its matched
+restore runtime. Web Core remains the default with a separate library. Native
+restore and selected publication use the same
+[scope owner](lightscaper-native-photo-library-scopes.md).
 
 ## Main-process ownership
 
@@ -126,8 +127,9 @@ refuses a scoped per-file-only source before collection reads. It retains the
 complete group through escaped Original, LUT and brush consumers, final root,
 query, membership and Photo checks, and joined resource retirement. Distinct
 aligned bodies are each hashed before digest reuse. Durable Web Core loaders
-provide an explicit group fallback. Packaged IPC and a complete native Session
-remain separate activation requirements.
+provide an explicit group fallback. The installed complete Current factory
+forwards this group source through authenticated preload IPC; its local retirement
+barrier keeps published groups pinned before physical native shutdown.
 
 ## Qualification
 
@@ -139,8 +141,10 @@ Playwright binding to real OPFS Files and production raster/LibRaw decoders. A
 two-range PNG and an owned DNG retain the File, stage and native deletion pin
 through a held frame consumer; retirement wipes pixels and removes the stage.
 These component tests run in an isolated minimal document on the real Lightscaper
-preview origin. They do not qualify packaged preload IPC, application activation,
-a complete native Session or the desktop target matrix.
+preview origin. These component cases do not by themselves qualify packaged
+preload IPC or the desktop target matrix. Complete Session, installed transport,
+actual process-loss and Linux packaged results are separately recorded in the
+[Session transport document](lightscaper-native-photo-session-protocol.md).
 
 The Chromium group check authenticates two actual native locators, shares one
 real OPFS File, holds both deletion pins through two raster consumers and verifies

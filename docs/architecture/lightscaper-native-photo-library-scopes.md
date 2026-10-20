@@ -134,7 +134,9 @@ no restore-ready, selected-pointer, permanent-history or deletion authority. Tes
 also cover real archive restore, exact preset absence/empty rows and saved-state
 tombstones, selected reopen
 after edits, held input and ZIP cleanup, ignored history insertion, lost COMMIT
-acknowledgment and manager shutdown during actual publication. Packaged native
-Session qualification and the maintained desktop target matrix remain.
+acknowledgment and manager shutdown during actual publication. The installed
+Session and Linux packaged checks are recorded in the
+[transport document](lightscaper-native-photo-session-protocol.md). The complete
+maintained desktop target matrix remains separate qualification work.
 No AI runtime closure or target inventory changes; a manual
 **Update AI assets** run is not required.

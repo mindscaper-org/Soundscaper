@@ -25,8 +25,9 @@ choose that location.
 Fixed channels cover catalog, both query versions, stacks, saved collections,
 selected settings, custody, all six Original operations, resources, caches,
 uploads, archive iteration and explicit exclusivity. The renderer retains real
-Current and strict legacy children, import preparation, decoding and preview
-workers. These storage services do not constitute native RAW decoding.
+Current and strict legacy children and the complete Web decoder. Optional native
+RAW and linked-input families now compose separately through the same selected
+Session and document authority; storage RPC alone is not decode authority.
 
 Main issues connection and handle IDs. A monotonic request watermark is consumed
 synchronously at authenticated send admission, before domain capture. Sixteen
@@ -49,6 +50,27 @@ facet cross this boundary. Physical absence, occupied undefined and the owning
 order-sensitive CAS comparator remain distinct. Genuine mutation acknowledgments
 survive later cancellation; reads and false CAS results retain their stop fence.
 Opaque caller cancellation reasons remain local. Errors cross as bounded facts.
+
+## Native RAW and optional filesystem services
+
+The installed native RAW gateway captures actual component-owned stored-Original
+and prepublication-input facets. Stored requests require the full actual Photo
+Original and revision; raw-input IDs resolve only completed Main upload owners
+or issued linked-input capabilities. They never authorize a renderer path or a
+digest-only source. The RAW output ticket keeps the actual Main plane and source
+borrow through the real renderer consumer, with bounded one-MiB transfer and
+complete output SHA verification. Its 256-MiB typed-output profile is separate
+from the generic 128-MiB resource/download capacity. Native preview recipes have
+a distinct cache identity, and permanent portable interchange retains WASM.
+
+The host installs the shared target-authenticated Photo payloads only when their
+protected manifest and exact runtime inventory are present. It supplies one
+trusted read-only filesystem broker and an independently OS-isolated zero-path
+RAW decoder, with genuine child and stdio retirement. Missing optional payloads
+preserve the complete Web fallback; invalid present payloads refuse. Main folder
+choosers and private grant/input owners remain the only external-file authority.
+The broader linked management/watch/relink workflow and its packaged scenario
+are separate L8 completion work.
 
 ## Retirement and restore
 
@@ -87,5 +109,11 @@ then joins and a fresh Scopes manager reopens the selected library. An unresolve
 Electron evaluation result supplies no retirement authority. The check records
 actual window isolation preferences, without claiming an OS sandbox audit.
 
-Linked/add-in-place access and the maintained native target matrix remain
-unfinished. These changes do not require a manual **Update AI assets** run.
+The read-only grant, linked storage/input and native RAW service owners are
+implemented; full linked menu management/watch/relink and its packaged workflow
+remain separate completion work. The internal all-five workflow defines fresh
+native-linked and native-absent Web packages, but each maintained target still
+requires actual successful execution. Linux results do not qualify macOS or
+Windows, and public release remains deferred. These changes do not require a
+manual **Update AI assets** run; separate native Photo artifact production still
+tracks its own source and inventory changes.

@@ -45,6 +45,38 @@ Artifact names use `Lightscaper`, the photo release version and `x64` or
 `arm64`. Producing or extracting an installer does not establish that system
 installation, desktop integration or upgrades have been exercised.
 
+When `LIGHTSCAPER_PHOTO_NATIVE_BUILD_RESULT` is absent, preparation produces the
+complete Web Core package with its pinned WASM runtime and no optional Photo
+native manifest or helpers. To include native filesystem/RAW services, supply
+the absolute `result` directory from the same target and exact source revision
+of the authenticated Photo native producer. Preparation and final package hooks
+verify its source, roles, enforcement profiles, source/licenses and runtime
+bytes; an invalid supplied result does not silently become Web-only.
+
+The native File-menu workflow now owns trusted folder choice, bounded lossless
+scans, add-in-place import, serial opt-in checks of the displayed Original page,
+exact-byte relink after an external rename/move, and full-workspace retirement
+before revocation. Disconnected sources can use authenticated cached previews
+in Develop; Original/full-resolution output refuses until genuine regrant/relink.
+This bounded watch is not a recursive automatic import service. A separate
+linked qualification invocation requires the authenticated native package:
+
+```sh
+xvfb-run -a node --import tsx \
+  scripts/lightscaper-desktop-managed-smoke-current-v1.ts \
+  --scenario linked --backend native \
+  --executable "$verification_root/packages/linux-unpacked/lightscaper" \
+  --runtime-root "$verification_root/packages/linux-unpacked/resources/runtime" \
+  --output-root "$verification_root/linked-smoke"
+```
+
+This scenario drives the actual File menu and three fresh processes through
+in-place raster/RAW import, disconnected preview and full-output refusal, exact
+relink, native RAW Develop, PNG/backup verification and reopen. Real Main plane
+hash/wipe and child/stdio retirement observations accompany the renderer report.
+The implementation exists; actual successful execution must still be recorded
+for each considered package and target. No source definition certifies a run.
+
 The managed smoke imports raster and RAW Originals, saves Develop state,
 authenticates exported pixels and backup bytes, and verifies persistence,
 explicit restore confirmation and reopening in three fresh native processes.
@@ -118,7 +150,34 @@ The separate bootstrap compiler build is retained until runner teardown; its
 readers are outside the later Jobs' proof. Adding the workflow does not establish
 an ARM64 qualification before that target has actually passed.
 
+## Internal all-target Photo qualification
+
+The reusable `Lightscaper internal native desktop qualification` workflow calls
+the same-revision all-five Photo producer, then uses public `desktop:dir` on
+Linux x64/ARM64, macOS ARM64 and Windows x64/ARM64. It builds two fresh packages
+per target. The native package must contain the exact authenticated Photo result
+and runs `--scenario linked --backend native`; the independent fallback package
+omits that result, must retain only the exact Web runtime, and runs
+`--scenario managed --backend web`. The linked scenario must prove actual menu import
+in place, relink, Develop, export, reopen and Main-observed native RAW retirement.
+The scenario implementation is present, with actual full-process retirement
+before profile/source cleanup. Each target's real execution remains qualification
+work; a workflow definition or compiler result alone is not a passed packaged
+scenario.
+
+Preview/nightly use a separate internal Photo job. Existing Soundscaper and
+Framescaper release/M5 jobs and product counts are unchanged. The Photo workflow
+uploads bounded receipts, never publishes a release, and requires real process
+group or Windows Job retirement before deleting its private work. It passes no
+no-sandbox override. A missing retirement receipt retains work for diagnosis or
+hosted-runner teardown. Each maintained target requires its own actual run;
+existing Linux/Windows observations must not be generalized to the full matrix.
+
 After packaging and all smoke readers exit, remove the private verification
-directory. Keep the small qualification receipts if needed. The complete L8
+directory. Keep small qualification receipts if needed. The complete L8
 requirements remain in the [roadmap](../../roadmap-lightscaper.md#l8-desktop-tier),
-including native libraries, add-in-place access and the release/nightly matrix.
+including final linked management/watch/relink and packaged-scenario qualification.
+The implemented bounded workflows do not establish successful all-five target
+runs. Lightscaper's public release channel stays deferred. None of these instructions
+requires a manual **Update AI assets** run; Photo native source/inventory changes
+require their separate authenticated artifact rebuild.

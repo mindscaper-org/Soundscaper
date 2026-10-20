@@ -6,10 +6,17 @@ Original before evaluating adjustments. It does not render every full-resolution
 stage and then shrink the canvas. Full inspection, export and editable handoff
 retain the full-resolution render of record.
 
-The selected Original reader still lends the complete, oriented native frame
-under its Photo revision and retained byte/hash binding. Camera embedded previews
-and disposable culling caches never supply Develop. RAW decoding itself remains
-full resolution; this change bounds subsequent adjustment work.
+In the default Original-input mode, the selected reader lends the complete,
+oriented native frame under its Photo revision and retained byte/hash binding.
+RAW decoding remains full resolution; proxy sampling bounds subsequent adjustment
+work. The optional Electron RAW service can supply that complete frame through
+its [distinct native profile](lightscaper-native-photo-raw-service.md).
+
+Current Develop also offers an explicit Settings-menu preview-derivative input
+for unavailable Originals. It declares the 8-bit preview resolution visibly and
+refuses full-resolution output and noncanonical RAW headroom/recovery. That
+presentation choice does not turn a camera/culling cache body into an Original,
+change the full render of record, or silently alter this default proxy route.
 
 ## Sampling and evaluation
 
