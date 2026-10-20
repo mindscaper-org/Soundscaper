@@ -26,6 +26,37 @@ test('one private packet exactly matches actual serial DSP and channel matching 
 	}
 });
 
+test('actual reverse and repeat DSP retain signed zero, subnormal PCM and owned inter-step channels', async () => {
+	const preservingSteps: SelectionEffectChainStep[] = [
+		{ effectType: 'audacity-reverse', params: {} },
+		{ effectType: 'audacity-repeat', params: { count: 2 } },
+	];
+	for (const original of [input.slice(0, 1), input]) {
+		const channels = original.map(channel => channel.slice());
+		const reversed = original.map(channel => channel.slice().reverse());
+		let calls = 0;
+		let lastRendered: Float32Array[] = [];
+		const actual = await runSelectionEffectChain(preservingSteps, channels, 48000, async (...args) => {
+			if (calls === 1) for (const [index, channel] of args[1].entries()) {
+				assert.deepEqual(new Uint8Array(channel.buffer, channel.byteOffset, channel.byteLength), new Uint8Array(reversed[index]!.buffer));
+				assert.notEqual(channel, lastRendered[index], 'the next effect owns its matched PCM');
+			}
+			calls += 1;
+			lastRendered = await applyAudioSelectionEffectAsync(...args);
+			return lastRendered;
+		});
+		assert.equal(calls, 2);
+		assert.equal(actual.length, original.length);
+		for (const [index, channel] of actual.entries()) {
+			const expected = Float32Array.from({ length: reversed[index]!.length * 3 },
+				(_, frame) => reversed[index]![frame % reversed[index]!.length]!);
+			assert.deepEqual(new Uint8Array(channel.buffer, channel.byteOffset, channel.byteLength), new Uint8Array(expected.buffer));
+			assert.notEqual(channel, lastRendered[index]);
+			assert.deepEqual(channels[index], original[index], 'the borrowed input remains unchanged');
+		}
+	}
+});
+
 test('closed packets reject context, realtime and reviewed effects before any DSP and cap step count', async () => {
 	for (const effectType of ['audacity-repair', 'audacity-change-pitch', 'audacity-auto-duck', 'audacity-compressor', 'eq', 'reviewed-utility-gain', 'unknown']) {
 		assert.equal(isBatchableSelectionEffectStep({ effectType, params: {} }), false);
