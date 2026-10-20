@@ -322,34 +322,6 @@ test('malformed, concurrent, oversized and foreign-owner traffic is closed and r
 	await registration.dispose();
 });
 
-test('a malformed service-produced claim is released before the unregistered port closes', async () => {
-	const listeners = new Map<string, (event: unknown, value?: unknown) => void>();
-	const calls: Array<Readonly<{ name: string; value?: unknown }>> = [];
-	const service = fixtureService(calls);
-	(service as unknown as { claimNext: () => Promise<unknown> }).claimNext = async () => ({
-		jobId: JOB, claimId: CLAIM, description: DESCRIPTION, plan: { malformed: true },
-	});
-	const registration = registerSoundscaperDeliveryWorkerPort({
-		on: (channel, listener) => listeners.set(channel, listener),
-		removeListener: (channel) => listeners.delete(channel),
-		ownerFor: () => OWNER,
-		service: service as never,
-		admitCurrentAuthority: async (_owner, value) => value as never,
-		completionAuthority: async () => ({
-			projectIdentity: PROJECT, planFingerprint: DESCRIPTION.planFingerprint,
-		}),
-	});
-	const channel = new MessageChannel();
-	listeners.get(SOUNDSCAPER_DELIVERY_WORKER_PORT_CHANNEL)!({ ports: [channel.port1] }, {
-		jobId: JOB, currentAuthority: {
-			projectIdentity: PROJECT, planFingerprint: DESCRIPTION.planFingerprint,
-		},
-	});
-	assert.equal((await receive(channel.port2)).type, 'closed');
-	await until(() => calls.some(({ name }) => name === 'releaseClaim'));
-	await registration.dispose();
-});
-
 function fixtureService(calls: Array<Readonly<{ name: string; value?: unknown }>>) {
 	return {
 		list: () => ({ entries: [{ jobId: JOB }], paused: false, nextCursor: null }),

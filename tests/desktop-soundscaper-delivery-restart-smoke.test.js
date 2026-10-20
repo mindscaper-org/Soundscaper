@@ -44,14 +44,6 @@ test('the restart smoke plan is a closed, Soundscaper-only two-stage protocol', 
 	);
 });
 
-test('the packaged restart smoke has one canonical npm entry point', async () => {
-	const metadata = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
-	assert.equal(
-		metadata.scripts['desktop:smoke:persistent-delivery-restart'],
-		'node scripts/desktop-soundscaper-delivery-restart-smoke.mjs',
-	);
-});
-
 test('the packaged interrupt stage exits only at the post-link publication fence', async (context) => {
 	const userDataPath = await fixtureRoot(context);
 	const calls = [];

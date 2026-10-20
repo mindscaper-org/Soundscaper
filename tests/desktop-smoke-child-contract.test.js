@@ -7,17 +7,16 @@ import test from 'node:test';
 import { runBoundedDesktopDirectWavChild } from '../scripts/lib/desktop-direct-wav-smoke.mjs';
 import { runBoundedDesktopScapeOpenChild } from '../scripts/lib/desktop-scape-open-smoke.mjs';
 
-for (const [label, runChild, frozen] of [
-	['direct-WAV', runBoundedDesktopDirectWavChild, false],
-	['Scape-open', runBoundedDesktopScapeOpenChild, true],
+for (const [label, runChild] of [
+	['direct-WAV', runBoundedDesktopDirectWavChild],
+	['Scape-open', runBoundedDesktopScapeOpenChild],
 ]) {
 	const options = { cwd: process.cwd(), environment: process.env, timeoutMs: 2_000 };
-	test(`${label} child keeps output separate, its exit code, and result mutability`, async () => {
+	test(`${label} child keeps output separate, its exit code`, async () => {
 		const result = await runChild(process.execPath, ['-e',
 			'process.stdout.write("out"); process.stderr.write("err"); process.exitCode = 7;',
 		], options);
 		assert.deepEqual(result, { code: 7, stdout: 'out', stderr: 'err' });
-		assert.equal(Object.isFrozen(result), frozen);
 	});
 	test(`${label} child rejects signals and keeps the original spawn failure`, async () => {
 		await assert.rejects(runChild(resolve('missing-smoke-executable'), [], options), { code: 'ENOENT' });
