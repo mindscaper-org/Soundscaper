@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 17983,
-			"sha256": "b789a1d4853cc8aa4f12ebbd1a82a5112f67cfa7ee2e1773471df9885b88f7e9"
+			"byteLength": 18260,
+			"sha256": "72c5b126a9f45881ae88652f9b5662b26afd998a5ada7ac5cc28a84f77ea3361"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -134,6 +134,11 @@
 			"path": "build/toolchains/win-x64.cmake",
 			"byteLength": 543,
 			"sha256": "9c4970be569da491d10dcc73d86c731e1c90bdd55ef517c7699fbb7fba2c7879"
+		},
+		{
+			"path": "build/windows-ffmpeg-pkg-config.cmake",
+			"byteLength": 3140,
+			"sha256": "e65b5d786a6ae90fa7f19f32756cc6cdaf9a4d3ef70116566c55eaa9d833f27e"
 		},
 		{
 			"path": "build/windows-msvc-dependencies.awk",

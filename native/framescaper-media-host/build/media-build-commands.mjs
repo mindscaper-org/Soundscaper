@@ -250,6 +250,10 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		] : []),
 		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1', ...ffmpegMake], paths.ffmpegBuild, dependencyEnvironment),
 		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake], paths.ffmpegBuild, dependencyEnvironment),
+		...(windows ? [command('ffmpeg-normalize-pkg-config', tools.executables.cmake.path, [
+			`-DFFMPEG_PKG_CONFIG_ROOT=${join(paths.ffmpegInstall, 'lib', 'pkgconfig')}`,
+			'-P', join(hostRoot, 'build', 'windows-ffmpeg-pkg-config.cmake'),
+		], hostRoot, hostEnvironment)] : []),
 		command('host-configure', tools.executables.cmake.path, hostArgs, hostRoot, hostEnvironment),
 		command('host-build', tools.executables.cmake.path, ['--build', paths.hostBuild, '--config', 'Release', '--parallel', '1'], hostRoot, hostEnvironment),
 		command('host-install', tools.executables.cmake.path, ['--install', paths.hostBuild, '--config', 'Release', '--prefix', paths.hostInstall], hostRoot, hostEnvironment),
