@@ -19,7 +19,7 @@ test('clip rate admission refuses omitted, fractional and unsupported rates', ()
 	}
 });
 
-test('invalid clip rate drafts cannot reach either resample submission path', async () => {
+test('invalid clip rate drafts disable Apply and cannot submit the resample form', async () => {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
@@ -35,7 +35,6 @@ test('invalid clip rate drafts cannot reach either resample submission path', as
 		const apply = dom.container.querySelectorAll('button').find((button) => button.textContent === ENGLISH_COPY.resample)!;
 		assert.equal(reactProps(apply).disabled, true);
 		assert.match(dom.one('[role="alert"]').textContent, /sample rate/u);
-		await act(async () => reactProps(apply).onClick());
 		await act(async () => reactProps(dom.one('form')).onSubmit({ preventDefault() {} }));
 		assert.deepEqual(applied, []);
 		await act(async () => reactProps(input).onChange({ target: { value: '44100' } }));

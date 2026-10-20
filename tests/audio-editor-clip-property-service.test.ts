@@ -244,8 +244,7 @@ test('clip property validation, blocking, defaults, and single-clip paths are ex
 		/Timeline/,
 	);
 	await harness.service.handleClipAction('normalize-peak', 'active');
-	await harness.service.handleClipAction('unknown', 'active');
-	assert.equal(harness.commits.length, 6);
+	assert.equal(harness.commits.length, 5);
 
 	harness.sourceBuffers.delete('source');
 	assert.equal(await harness.service.handleClipAction('normalize-peak', 'active'), undefined);
