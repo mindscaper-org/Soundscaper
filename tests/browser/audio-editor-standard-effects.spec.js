@@ -142,7 +142,6 @@ test.describe('regular effects converted from Nyquist', () => {
 		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success');
 		const expectedFrames = Math.round(duration * sampleRate * 2 ** (2 / 12)) + Math.round(.05 * sampleRate);
 		await expect.poll(async () => (await effectSourceMetadata(page)).find(source => source.name.includes('Delay'))?.frameCount).toBe(expectedFrames);
-		expect(expectedFrames).toBeGreaterThan(duration * sampleRate);
 		expect(nyquistRequests).toEqual([]);
 		expect(errors).toEqual([]);
 	});
