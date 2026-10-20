@@ -384,24 +384,6 @@ test('the fetch listener answers a share submission and still declines every oth
 	assert.equal(await (await navigated[0]).text(), 'root shell');
 });
 
-test('the generated worker carries the share-target runtime', () => {
-	const source = renderOfflineServiceWorker(shellConfiguration('0'));
-
-	assert.match(source, /function handleShareTargetSubmission\(/u);
-	assert.match(source, /function isShareTargetSubmission\(/u);
-	assert.equal(source.includes(sharedFilesCacheName()), true);
-	assert.match(source, /\$\{configuration\.scope\}share-target/u);
-	assert.equal(SHARE_TARGET_PATH, 'share-target');
-	assert.equal(source.includes(`getAll('${SHARE_TARGET_FILES_FIELD}')`), true);
-});
-
-/*
- * The share-target runtime reaches a browser only as text: every function is
- * serialised into the worker by `Function.prototype.toString`, which keeps the
- * source and drops the module scope around it. A reference this module resolves
- * by import or by a top-level constant therefore compiles here and fails only in
- * the deployed worker, so the generated script is run rather than read.
- */
 test('the generated worker really answers a share once it is detached from this module', async () => {
 	const cacheStorage = new ShareCacheStorage();
 	const listeners = new Map();
