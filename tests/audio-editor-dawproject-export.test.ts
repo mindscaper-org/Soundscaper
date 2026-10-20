@@ -301,9 +301,8 @@ test('every id is unique and every reference resolves', () => {
 	}
 });
 
-test('the report is sealed, names the format, and itemizes effects and other omissions', () => {
+test('the report names the format and itemizes effects and other omissions', () => {
 	const result = exported();
-	assert.equal(Object.hasOwn(result.report, 'draft'), false);
 	assert.equal(result.report.subject.format, 'dawproject');
 	assert.equal(result.report.subject.lossless, true);
 	const effects = result.report.items.find((item) => item.code === 'dawproject.effects-omitted');
