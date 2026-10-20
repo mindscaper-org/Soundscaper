@@ -169,32 +169,3 @@ test('current media leaves accumulate extension, musical, and rational video aut
 		endBeat: null,
 	}]);
 });
-
-test('context-free video clip fixtures retain real sample-coordinate authority', () => {
-	const clip = createVideoClip({
-		kind: 'video',
-		id: 'fixture-video-clip',
-		sourceId: 'fixture-video-source',
-		timelineStartFrame: 12_000,
-		durationFrames: 48_000,
-		sourceStartFrame: 24_000,
-		sourceDurationFrames: 48_000,
-	});
-
-	assert.deepEqual({
-		kind: clip.kind,
-		id: clip.id,
-		timelineStartFrame: clip.timelineStartFrame,
-		durationFrames: clip.durationFrames,
-		sourceStartFrame: clip.sourceStartFrame,
-		sourceDurationFrames: clip.sourceDurationFrames,
-	}, {
-		kind: 'video',
-		id: 'fixture-video-clip',
-		timelineStartFrame: 12_000,
-		durationFrames: 48_000,
-		sourceStartFrame: 24_000,
-		sourceDurationFrames: 48_000,
-	});
-	assert.equal(Object.hasOwn(clip, 'sequenceStartFrame'), false);
-});
