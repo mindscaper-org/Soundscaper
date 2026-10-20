@@ -18,7 +18,7 @@ test('native Scape replace flushes before publication and adopts the committed s
 		importScapeProject: async (_file, _store, options) => {
 			events.push('import');
 			assert.equal(options.collision, 'replace');
-			assert.equal(options.acquireReplaceProjectWriteAuthority, acquireReplaceProjectWriteAuthority);
+			assert.equal((await options.acquireReplaceProjectWriteAuthority!('project-a')).writeFence, 'controller-token');
 			return { project: replacement, readOnly: false, manifest: {}, collision: 'replace' };
 		},
 		switchProject: async (value, options) => {
