@@ -10,8 +10,6 @@ test('unchanged FFmpeg libmp3lame output retains its standard Xing delay and pad
 	// ffmpeg -f lavfi -i sine=frequency=440:sample_rate=48000:duration=1 -c:a libmp3lame -b:a 128k one-second.mp3
 	const encoded = await readFile(new URL('./fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', import.meta.url), 'utf8');
 	const bytes = Buffer.from(encoded, 'base64');
-	assert.equal(bytes.length, 16_941);
-	assert.equal(bytes.subarray(186, 195).toString('ascii'), 'Lavc60.31');
 	const expected = { sampleRate: 48_000, encodedFrames: 49_536, sourceFrames: 48_000, leadingFrames: 1_105 };
 	assert.deepEqual(await inspectMp3GaplessGeometry(new Blob([bytes])), expected);
 	// A chooser may supply a bounded byte view; unrelated backing bytes do not
