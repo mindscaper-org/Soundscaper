@@ -62,4 +62,3 @@ test('spectral brush clicks at the lane edge retain a usable minimum radius', ()
 		radiusFrequency: 480,
 	});
 });
-
