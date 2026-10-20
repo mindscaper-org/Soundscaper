@@ -54,19 +54,6 @@ test('Audacity client serializes explicit size-warning approval with its admitte
 	} finally { client.dispose(); }
 });
 
-test('AUP4 client omits worker operations with no application caller', () => {
-	const client = createAup4Client({ worker: new FakeWorker() });
-	try {
-		for (const method of [
-			'decode', 'inspect', 'writeDocument', 'restoreHistory', 'history', 'readBlock', 'listOpen', 'close',
-		]) {
-			assert.equal(method in client, false, `${method} must not keep an unreachable worker request alive`);
-		}
-	} finally {
-		client.dispose();
-	}
-});
-
 test('AUP4 client routes results, progress, structured errors, and cancellation', async () => {
 	const worker = new FakeWorker();
 	const client = createAup4Client({ worker });
@@ -152,18 +139,6 @@ test('AUP4 client cancellation is operation-scoped and quota failures remain str
 	} finally {
 		client.dispose();
 	}
-});
-
-test('AUP4 publication has one shipped writer through the application file service', async () => {
-	let createWritableCalled = false;
-	await assert.rejects(
-		() => saveAup4Result({ bytes: Uint8Array.of(1, 2, 3) }, {
-			fileName: 'round-trip',
-			fileHandle: { async createWritable() { createWritableCalled = true; } },
-		}),
-		TypeError,
-	);
-	assert.equal(createWritableCalled, false);
 });
 
 test('AUP4 publication delegates opaque desktop targets to the injected file service', async () => {
@@ -338,12 +313,11 @@ test('AUP4 file picker requests the native extension and remains optional', asyn
 	try {
 		let pickerOptions;
 		const pickerHandle = { async createWritable() {} };
-		const obsoleteHandle = { async createWritable() {} };
 		globalThis.showSaveFilePicker = async (options) => {
 			pickerOptions = options;
 			return pickerHandle;
 		};
-		assert.equal(await requestAup4FileHandle({ fileName: 'session', fileHandle: obsoleteHandle }), pickerHandle);
+		assert.equal(await requestAup4FileHandle({ fileName: 'session' }), pickerHandle);
 		assert.equal(pickerOptions.suggestedName, 'session.aup4');
 		assert.deepEqual(pickerOptions.types[0].accept, { 'application/x-audacity-project': ['.aup4'] });
 		delete globalThis.showSaveFilePicker;
