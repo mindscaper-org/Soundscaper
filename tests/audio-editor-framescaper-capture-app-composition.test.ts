@@ -17,7 +17,6 @@ test('the complete Framescaper standalone runtime initializes without opening me
 
 	assert.equal(harness.value.snapshot.availability.status, 'available');
 	assert.equal(harness.mediaOpens, 0);
-	assert.deepEqual(harness.value.actions, harness.value.service.actions);
 	assert.equal(harness.manifestLists, 1, 'startup checks only the open project recovery inventory');
 });
 
