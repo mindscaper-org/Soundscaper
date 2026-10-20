@@ -7,15 +7,27 @@ test('a spectral band handle keeps its first native touch adjustment', async ({ 
 	test.skip(browserName !== 'chromium', 'Native multi-touch uses the Chromium input protocol.');
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
-	await clipByName(editor, toneA.name).locator('.clip-header').click();
+	const clip = clipByName(editor, toneA.name);
+	await clip.locator('.clip-header').click();
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral brush']);
 	const brush = editor.getByRole('button', { name: 'Spectral brush', exact: true });
 	const surface = await brush.boundingBox();
 	expect(surface).not.toBeNull();
-	await page.mouse.move(surface.x + 100, surface.y + surface.height / 2);
+	const clipBounds = await clip.boundingBox();
+	expect(clipBounds).not.toBeNull();
+	// Start inside the real clip and a channel, independently of timeline zoom.
+	const start = { x: clipBounds.x + clipBounds.width / 2, y: surface.y + surface.height / 3 };
+	await expect(brush).toBeEnabled();
+	await brush.hover({ position: { x: start.x - surface.x, y: start.y - surface.y } });
+	expect(await brush.evaluate((element, point) => (
+		element.ownerDocument.elementFromPoint(point.x, point.y) === element
+	), start)).toBe(true);
 	await page.mouse.down();
-	await page.mouse.move(surface.x + 125, surface.y + surface.height / 2 + 25);
+	const draft = brush.locator('.audio-editor-spectral-brush__preview');
+	await expect(draft).toBeVisible();
+	await page.mouse.move(clipBounds.x + clipBounds.width * 3 / 4, start.y + 25);
+	await expect(draft).toBeVisible();
 	await page.mouse.up();
 	const maximum = editor.getByRole('slider', { name: 'Spectral selection maximum-frequency handle', exact: true });
 	await expect(maximum).toBeVisible();
