@@ -57,12 +57,13 @@ void test('payload stop refuses before borrowed preparation options and joined c
 }));
 
 void test('changed protected manifest refuses before any native spawn and does not substitute another role', options, async context => fixture(context, async f => {
-	await f.stage(); const file = join(f.applicationRoot, manifest), original = await readFile(file);
+	await f.stage(); const preparedChildren = f.children.length; assert.equal(f.activeChildren(), 0);
+	const file = join(f.applicationRoot, manifest), original = await readFile(file);
 	await writeFile(file, '{"schemaVersion":1,"roles":{}}\n');
 	await assert.rejects(Payloads.open({ applicationRoot: f.applicationRoot, resourcesPath: join(f.directory, 'resources'), packaged: false }));
-	assert.equal(f.children.length, 0); await writeFile(file, original); const owner = await f.openPayload();
+	assert.equal(f.children.length, preparedChildren); await writeFile(file, original); const owner = await f.openPayload();
 	let reflected = 0; const poison = new Proxy({}, { get() { reflected++; throw Symbol('role'); }, ownKeys() { reflected++; throw Symbol('role keys'); } });
-	const rejected: unknown = Reflect.apply(owner.prepare, owner, [poison]); assert.ok(rejected instanceof Promise); await assert.rejects(rejected); assert.equal(reflected, 0); assert.equal(f.children.length, 0);
+	const rejected: unknown = Reflect.apply(owner.prepare, owner, [poison]); assert.ok(rejected instanceof Promise); await assert.rejects(rejected); assert.equal(reflected, 0); assert.equal(f.children.length, preparedChildren);
 }));
 
 void test('actual held FS INIT receipt cannot leave opening self-wait during producer close', options, async context => fixture(context, async f => {
