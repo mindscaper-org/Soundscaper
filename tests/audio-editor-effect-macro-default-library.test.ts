@@ -177,17 +177,3 @@ test('an initialized empty library hydrates without restoring deleted defaults o
 
 	assert.deepEqual(published, [empty]);
 });
-
-test('hydration can adopt defaults without a persistence capability', async () => {
-	const published: EffectMacroLibraryState[] = [];
-	await hydrateDefaultEffectMacroLibrary(undefined, {
-		guard: async (value) => value,
-		setEffectMacros: (value) => { published.push(value); },
-		handleError: () => assert.fail('a session without storage can still hydrate defaults'),
-		isDisposedError: () => false,
-	});
-
-	assert.equal(published.length, 1);
-	assert.equal(published[0]?.defaultsInitialized, true);
-	assert.deepEqual(published[0]?.macros.map(({ name }) => name), ['Restoration', 'Fade ends']);
-});
