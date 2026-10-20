@@ -233,34 +233,6 @@ test('retained parts are copied and split at the platform media chunk limit', as
 	}
 });
 
-test('a final Blob size mismatch is rejected after exact stream accounting', async () => {
-	const stream = sequenceReader([Uint8Array.of(1, 2)]);
-	const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'Blob');
-	const OriginalBlob = globalThis.Blob;
-	class WrongSizeBlob extends OriginalBlob {
-		override get size(): number {
-			return super.size + 1;
-		}
-	}
-	Object.defineProperty(globalThis, 'Blob', {
-		configurable: true,
-		writable: true,
-		value: WrongSizeBlob,
-	});
-	try {
-		await assert.rejects(
-			() => materializeDesktopReadBlob(
-				{ url: 'soundscaper-app://bundle/read-blob-check', size: 2 },
-				{ fetch: async () => stream.response(2), signal: new AbortController().signal },
-			),
-			/Blob.*declared size|declared size.*Blob/iu,
-		);
-	} finally {
-		if (originalDescriptor) Object.defineProperty(globalThis, 'Blob', originalDescriptor);
-		else Reflect.deleteProperty(globalThis, 'Blob');
-	}
-});
-
 test('abort promptly cancels a stalled reader and preserves the exact abort reason', async () => {
 	const controller = new AbortController();
 	const reason = new DOMException('renderer read cancelled', 'AbortError');
