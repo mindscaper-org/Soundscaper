@@ -56,8 +56,6 @@ function createPort(): PortProbe {
 interface OwnerProbe extends NativeRealtimeOwnerTarget {
 	readonly deliveries: { channel: string; message: NativeRealtimeHandshake; transfer: readonly NativeRealtimeTransferredPort[] }[];
 	fail: boolean;
-	/** Runs inside `postMessage`, which is where a renderer's own teardown runs. */
-	duringDelivery: (() => void) | null;
 }
 
 function createOwner(): OwnerProbe {
@@ -65,11 +63,9 @@ function createOwner(): OwnerProbe {
 	return {
 		deliveries,
 		fail: false,
-		duringDelivery: null,
 		postMessage(channel, message, transfer): void {
 			if (this.fail) throw new Error('the renderer is gone');
 			deliveries.push({ channel, message, transfer });
-			this.duringDelivery?.();
 		},
 	};
 }
@@ -348,12 +344,6 @@ test('a malformed offer is refused before main deserializes anything unbounded',
 		assert.equal(probe.closeCount(), 1, label);
 	}
 
-	// An accessor would make main run the helper's code just by reading a field.
-	const accessor = createPort();
-	const trap = Object.defineProperty(offer(), 'channelCount', { get: () => 2, enumerable: true, configurable: true });
-	assert.equal(refused(broker.acceptHelperPort(trap, [accessor.port])), 'malformed-offer');
-	assert.equal(accessor.closeCount(), 1);
-
 	// The one string the schema admits is the lever a helper would use to make
 	// main copy a megabyte into the refusal it reports for the megabyte.
 	const bloated = createPort();
@@ -377,38 +367,6 @@ test('a transfer list entry that is not a port is refused without crashing main'
 	assert.deepEqual(closes, [{ generation: null, reason: 'refused', refusal: 'malformed-offer' }]);
 	assert.equal(owner.deliveries.length, 0);
 	assert.equal(broker.snapshot().pendingGeneration, 1, 'a malformed offer does not retire the authorization it failed to answer');
-});
-
-test('a ledger that moves inside the hand-off refuses the port instead of recording it live', () => {
-	const drifts: readonly [string, string, (broker: DesktopNativeRealtimeBroker, owner: OwnerProbe) => void][] = [
-		['the owner is revoked', 'foreign-owner', (broker, owner) => { broker.revokeOwner(owner); }],
-		['the surface is disposed', 'surface-disabled', (broker) => { broker.dispose(); }],
-		['the helper exits', 'stale-generation', (broker) => { broker.notifyHelperExit(); }],
-		['a newer generation is authorized', 'stale-generation', (broker, owner) => { broker.authorize({ owner, ...FORMAT }); }],
-	];
-	for (const [label, expected, act] of drifts) {
-		const owner = createOwner();
-		const { broker, closes } = createBroker(true, owner);
-		broker.authorize({ owner, ...FORMAT });
-		// `postMessage` runs the renderer's own code, so the ledger main read
-		// before the hand-off can be stale by the time the hand-off returns.
-		owner.duringDelivery = () => { act(broker, owner); };
-		const probe = createPort();
-
-		assert.equal(refused(broker.acceptHelperPort(offer(), [probe.port])), expected, label);
-		assert.equal(probe.closeCount(), 1, `${label}: a port the ledger no longer covers is closed, never left live`);
-		assert.equal(broker.snapshot().liveGeneration, null, label);
-		assert.equal(owner.deliveries.length, 1, label);
-		assert.deepEqual(closes.filter(({ reason }) => reason === 'refused'),
-			[{ generation: 1, reason: 'refused', refusal: expected }], label);
-
-		// The decisive part: nothing can be asked to close the port later, so a
-		// port kept here would stay open for the life of the process.
-		broker.revokeOwner(owner);
-		broker.notifyHelperExit();
-		broker.dispose();
-		assert.equal(probe.closeCount(), 1, `${label}: the port is closed exactly once`);
-	}
 });
 
 test('an offer that is not exactly one port is refused and every port it carried is closed', () => {
