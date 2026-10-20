@@ -117,7 +117,7 @@ export function createMotionscaperDeliveryAuthority(options: {
 				job.signal.signal.throwIfAborted();
 				const verified = await hashMotionscaperNativeOutput(job.output, job.signal.signal);
 				if (verified.byteLength !== encoded.byteLength || verified.sha256 !== encoded.sha256 || encoded.frameCount !== job.plan.frameCount || encoded.audioSamples !== (job.audio?.plan.sampleCount ?? 0)) throw new Error('Motionscaper native encoder returned a mismatched output receipt.');
-				await chmod(job.output, 0o600); const output = await open(job.output, 'r');
+				await chmod(job.output, 0o600); const output = await open(job.output, 'r+');
 				try { await output.sync(); } finally { await output.close(); }
 				if (JSON.stringify(await optionalFile(job.destination)) !== JSON.stringify(job.fingerprint)) throw new Error('Motionscaper native destination changed during rendering.');
 				job.signal.signal.throwIfAborted(); await rename(job.output, job.destination);
