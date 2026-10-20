@@ -17,6 +17,11 @@ import { expect, test, compileNativeImageHandoffScript, installNativeImageHandof
 import { repairSettingsUiFixtureV1, active, named, keyboard, uncheck } from './helpers/lightscaper-repair-settings-ui-fixture.js';
 import { inflateSync } from 'node:zlib';
 
+// Preserve the native OPFS proof; managed/fallback WebKit runs in the ordinary suite.
+test.beforeEach(({ browserName }) => {
+	test.skip(browserName === 'webkit', 'These native OPFS workflows require getDirectory and worker createSyncAccessHandle, absent in maintained Linux WebKit; real managed/fallback WebKit coverage runs separately.');
+});
+
 const PROGRAM = '/__repair_frame_current_native.js', PIXELS = [255, 255, 255, 255, 137, 137, 137, 255];
 const CUBE = Buffer.from(`LUT_3D_SIZE 2\n${Array.from({ length: 8 }, () => '0.25 0.25 0.25\n').join('')}`);
 

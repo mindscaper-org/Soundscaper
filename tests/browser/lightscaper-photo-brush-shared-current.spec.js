@@ -6,6 +6,11 @@ import { photoDevelopBrushMaskCopy } from '../../src/common/i18n/lightscaper-dev
 import { expect, test, compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { repairSettingsUiFixtureV1, active, named, keyboard } from './helpers/lightscaper-repair-settings-ui-fixture.js';
 
+// Preserve the native OPFS proof; managed/fallback WebKit runs in the ordinary suite.
+test.beforeEach(({ browserName }) => {
+	test.skip(browserName === 'webkit', 'These native OPFS workflows require getDirectory and worker createSyncAccessHandle, absent in maintained Linux WebKit; real managed/fallback WebKit coverage runs separately.');
+});
+
 const PROGRAM = '/__photo_brush_shared_current_native.js';
 const BOTH = [255, 255, 255, 255, 188, 188, 188, 255], SECOND = [225, 225, 225, 255, 188, 188, 188, 255];
 const ALL_BODY = body([255, 255]), SECOND_BODY = body([0, 255]);

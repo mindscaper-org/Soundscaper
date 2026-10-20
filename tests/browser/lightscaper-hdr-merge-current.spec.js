@@ -16,6 +16,11 @@ import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 
+// Preserve the native OPFS proof; managed/fallback WebKit runs in the ordinary suite.
+test.beforeEach(({ browserName }) => {
+	test.skip(browserName === 'webkit', 'These native OPFS workflows require getDirectory and worker createSyncAccessHandle, absent in maintained Linux WebKit; real managed/fallback WebKit coverage runs separately.');
+});
+
 test.use({ browserCoverage: false });
 const PROGRAM = '/__hdr_merge_current_reference.js', COLLECTION = 'HDR source brackets', PHOTO_RESULT = 'Photo HDR result.lshdr', FRAME_RESULT = 'Frame HDR result.lshdr';
 let fixture, program;
