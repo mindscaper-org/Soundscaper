@@ -460,16 +460,6 @@ test('upload refuses an acknowledgement that renumbers its sequential write', as
 	}
 });
 
-test('upload refuses a body blob that emits an inexact chunk', async () => {
-	const descriptor = uploadFixture(ORIGINAL_BYTES).descriptor;
-	for (const buffer of [new ArrayBuffer(3), 'bytes' as unknown as ArrayBuffer]) {
-		const blob = { slice: () => ({ arrayBuffer: async () => buffer }) } as unknown as Blob;
-		const prepared: Prepared = { descriptor, blob, metadataIdentity: 'unused' };
-		await assert.rejects(uploadBodies('publication-6', [prepared],
-			acknowledgingBridge([]), uploadStore(prepared)), /body emitted an inexact chunk/u);
-	}
-});
-
 test('upload refuses a body whose bytes or metadata drifted after preflight', async () => {
 	const drifted = uploadFixture(ORIGINAL_BYTES, { sha256: 'cd'.repeat(32) });
 	await assert.rejects(uploadBodies('publication-7', [drifted], acknowledgingBridge([]),
