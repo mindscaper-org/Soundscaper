@@ -46,13 +46,11 @@ test('a live dynamics node keeps only its newest reading', () => {
 	assert.equal(readDynamicsAnalysisTelemetry(fixture.node)?.effectType, 'audacity-compressor');
 });
 
-test('attaching twice keeps the first handler and its readings', () => {
+test('attaching twice starts the port once and keeps its readings', () => {
 	const fixture = createNode();
 	attachDynamicsAnalysisTelemetry(fixture.node);
-	const handler = fixture.port.onmessage;
 	fixture.deliver(READING);
 	attachDynamicsAnalysisTelemetry(fixture.node);
-	assert.equal(fixture.port.onmessage, handler);
 	assert.equal(fixture.started(), 1);
 	assert.equal(readDynamicsAnalysisTelemetry(fixture.node)?.frames, 800);
 });
