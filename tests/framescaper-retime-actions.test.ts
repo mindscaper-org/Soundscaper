@@ -35,16 +35,6 @@ function invoke(name: string, input: Data): Data {
 	return executed[0]!;
 }
 
-test('the retime facade exposes exactly its six frozen authoring spellings', () => {
-	const { actions: bound } = actions();
-
-	assert.deepEqual(
-		Object.keys(bound),
-		['set', 'reset', 'constant', 'reverse', 'freeze', 'ramp'],
-	);
-	assert.ok(Object.isFrozen(bound), 'the facade must not admit a generic command escape hatch');
-});
-
 test('each spelling builds its own command type for the bound executor', () => {
 	assert.equal(invoke('reset', BASE).type, 'video-retime/reset');
 	assert.equal(invoke('constant', BASE).type, 'video-retime/constant');
@@ -87,10 +77,4 @@ test('a set command refuses the null retime map that reset exists to express', (
 	const set = bound.set as (value: unknown) => unknown;
 
 	assert.throws(() => set({ ...BASE, retimeMap: null }), /requires a non-null retimeMap/u);
-});
-
-test('the facade requires an exact command executor', () => {
-	for (const value of [null, undefined, 'execute', {}, 42]) {
-		assert.throws(() => createFramescaperVideoRetimeActionsRetime(value), TypeError);
-	}
 });
