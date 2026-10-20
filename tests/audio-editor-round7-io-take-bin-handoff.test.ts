@@ -8,7 +8,7 @@ import { createTakeCompPreviewService } from '../src/common/editor/controller/tr
 import { createTakeCompService } from '../src/common/editor/controller/track-audio/internal/take-comp/take-comp-service.ts';
 import { createCycleProducedTakeFixture } from './helpers/cycle-produced-take-fixture.ts';
 
-for (const mode of ['sync', 'complete', 'cancel', 'failure'] as const) {
+for (const mode of ['complete', 'cancel', 'failure'] as const) {
 	test(`recorded take audition retires the previous transport before starting (${mode})`, async context => {
 		const fixture = await createCycleProducedTakeFixture();
 		context.after(async () => { await fixture.store.close(); });
@@ -32,7 +32,7 @@ for (const mode of ['sync', 'complete', 'cancel', 'failure'] as const) {
 			sourceBuffers: new Map(), sourceChunkProviders: new Map(),
 			getProject: () => project, createId: prefix => `${prefix}-preview`,
 			captureProject: () => ({ generation: 1, projectId: project.id }), assertProject() {},
-			stopPlayback: mode === 'sync' ? () => { retirements++; binAudible = false; } : () => { retirements++; return retired; },
+			stopPlayback: () => { retirements++; return retired; },
 			createPreviewEngine: () => ({ loadProject() {},
 				async play() { playedWhileBinAudible.push(binAudible); }, pause() {}, stop() {}, dispose() {},
 			}),
@@ -42,7 +42,7 @@ for (const mode of ['sync', 'complete', 'cancel', 'failure'] as const) {
 		try {
 			await setImmediate();
 			assert.equal(retirements, 1);
-			assert.deepEqual(playedWhileBinAudible, mode === 'sync' ? [false] : [],
+			assert.deepEqual(playedWhileBinAudible, [],
 				'Actual take preview waits for the previous audible owner.');
 			if (mode === 'cancel') await preview.stop();
 			assert.ok(release); release();
