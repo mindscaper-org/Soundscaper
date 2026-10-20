@@ -42,7 +42,7 @@ const MEDIA_INPUTS = Object.freeze([
 	'CMakeLists.txt', 'CMakePresets.json', 'build/external-source-authentication.mjs',
 	'build/ffmpeg-9.0.1-configure.json', 'build/ffmpeg-9.0.1-external-sources.json',
 	'build/media-build-commands.mjs', 'build/recipe-cli.mjs', 'build/recipe-driver.mjs',
-	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-msvc-dependencies.awk', 'build/windows-vpx.pc', 'build/windows-x265.pc',
+	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-msvc-dependencies.awk', 'build/windows-vpx.pc', 'build/windows-x265.pc', 'build/windows-zlib-config.cmake',
 	...FRAMESCAPER_MEDIA_HOST_BUILD_TARGETS.map(({ toolchainFile }) => toolchainFile),
 ].sort());
 const OPENFX_INPUTS = Object.freeze([
@@ -111,7 +111,7 @@ test('all five media and OpenFX targets emit immutable closed dry-run recipes', 
 		const fixture = buildFixture(context, 'media', target.id);
 		const recipe = createFramescaperMediaHostBuildRecipe(fixture.options);
 		assertNativeHostBuildRecipe(recipe, target, [
-			'zlib-configure', 'zlib-build', 'zlib-install-metadata', 'zlib-install-library-directory',
+			'zlib-configure', 'zlib-build', 'zlib-install-metadata', ...(target.id.startsWith('win-') ? ['zlib-normalize-config'] : []), 'zlib-install-library-directory',
 			'zlib-install-static-library',
 			'x264-configure', 'x264-build', 'x264-install',
 			'x265-configure', 'x265-build', 'x265-install', ...(target.id.startsWith('win-') ? ['x265-normalize-library', 'x265-normalize-pkg-config'] : []),

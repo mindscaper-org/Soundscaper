@@ -209,6 +209,10 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('zlib-configure', tools.executables.cmake.path, zlibArgs, paths.zlibSource, nativeEnvironment),
 		command('zlib-build', tools.executables.cmake.path, ['--build', paths.zlibBuild, '--config', 'Release', '--target', 'zlibstatic', '--parallel', '1'], paths.zlibBuild, nativeEnvironment),
 		command('zlib-install-metadata', tools.executables.cmake.path, ['--install', paths.zlibBuild, '--config', 'Release', '--prefix', paths.zlibInstall], paths.zlibBuild, nativeEnvironment),
+		...(windows ? [command('zlib-normalize-config', tools.executables.cmake.path, [
+			`-DZLIB_CONFIG_HEADER=${join(paths.zlibInstall, 'include', 'zconf.h')}`,
+			'-P', join(hostRoot, 'build', 'windows-zlib-config.cmake'),
+		], paths.zlibBuild, nativeEnvironment)] : []),
 		command('zlib-install-library-directory', tools.executables.cmake.path, ['-E', 'make_directory', join(paths.zlibInstall, 'lib')], paths.zlibBuild, nativeEnvironment),
 		command('zlib-install-static-library', tools.executables.cmake.path, ['-E', 'copy', join(paths.zlibBuild, zlibLibrary), join(paths.zlibInstall, 'lib', installedZlibLibrary)], paths.zlibBuild, nativeEnvironment),
 		command('x264-configure', tools.executables.shell.path, x264Args, paths.x264Build, makeEnvironment),
