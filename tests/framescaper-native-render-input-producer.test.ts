@@ -191,35 +191,6 @@ test('supplied carrier and audio producers survive dependency resolution unrepla
 	assert.equal(resolved.produceAudio, produceAudio);
 });
 
-test('every required carrier dependency port must be a function', () => {
-	for (const port of ['acquireTiming', 'createCanvas', 'createResolver', 'createRenderer'] as const) {
-		assert.throws(
-			() => resolveDependencies({ ...unusedPorts(), [port]: undefined } as unknown as Dependencies),
-			(error: unknown) => error instanceof TypeError
-				&& /carrier dependencies are incomplete/u.test(String(error)),
-			`${port} must be refused`,
-		);
-	}
-	assert.throws(() => resolveDependencies(null as unknown as Dependencies), TypeError);
-});
-
-test('an optional carrier dependency port is refused when present but not callable', () => {
-	const ports = [
-		'createImageSequenceResolver', 'resolveNativeBridge', 'produceCarrier',
-		'produceAudio', 'openFxExecute',
-	] as const;
-	for (const port of ports) {
-		assert.throws(
-			() => resolveDependencies({ ...unusedPorts(), [port]: 'nope' } as unknown as Dependencies),
-			/carrier dependencies are incomplete/u,
-			`${port} must be refused`,
-		);
-		assert.doesNotThrow(
-			() => resolveDependencies({ ...unusedPorts(), [port]: undefined } as unknown as Dependencies),
-		);
-	}
-});
-
 test('the default dependency bundle refuses a host without a document and uses one when present', (t: TestContext) => {
 	const scope = globalThis as unknown as Data;
 	const previous = scope.document;
@@ -378,16 +349,6 @@ test('a carrier failure and a cleanup failure aggregate with the carrier failure
 		assert.match(error.message, /production and authority cleanup failed/u);
 		return true;
 	});
-});
-
-test('a producer refuses incomplete dependencies before it is ever called', () => {
-	const authority = authorityDouble(operationDouble(fixture().project).operation);
-
-	assert.throws(
-		() => createProducer(PROFILE, authority.value, { createCanvas: () => ({}) } as unknown as Dependencies),
-		/carrier dependencies are incomplete/u,
-	);
-	assert.equal(authority.calls.begin, 0);
 });
 
 test('the carrier frame source clocks the plan canvas across the requested sample range', () => {

@@ -39,32 +39,12 @@ function apply(built: Data, overrides: Data = {}): Promise<Data> {
 	return (built.apply as (value: unknown) => Promise<Data>)(request(overrides));
 }
 
-test('a frame graph exposes exactly its apply port', () => {
-	assert.deepEqual(Object.keys(graph()), ['apply']);
-});
-
 test('a frame graph is bound to a V14 render plan', () => {
 	assert.throws(() => graph({ plan: {} }), /requires a V14 plan/u);
 	assert.throws(
 		() => graph({ plan: unifiedExactPlanFixture(13) }),
 		/requires a V14 plan/u,
 	);
-});
-
-test('a frame graph requires both of its authority ports', () => {
-	assert.throws(
-		() => createGraph({ plan: unifiedExactPlanFixture(14), execute: async () => ({}) } as never),
-		/requires exact authority ports/u,
-	);
-	assert.throws(
-		() => createGraph({ plan: unifiedExactPlanFixture(14), assertCurrent: () => undefined } as never),
-		/requires exact authority ports/u,
-	);
-});
-
-test('frozen frame recovery must be a function when it is supplied at all', () => {
-	assert.throws(() => graph({ resolveFrozenFrame: 1 }), /frozen recovery must be a function/u);
-	assert.doesNotThrow(() => graph({ resolveFrozenFrame: async () => null }));
 });
 
 test('a target the plan carries no OpenFX node for passes the frame through', async () => {

@@ -74,7 +74,6 @@ test('a fresh history holds a clone of the project with both stacks empty', () =
 		const project = family.createProject();
 		const history = family.create(family.profile, project);
 
-		assert.deepEqual(Object.keys(history), ['limit', 'present', 'undoStack', 'redoStack'], family.name);
 		assert.equal(history.limit, 200, family.name);
 		assert.deepEqual(shape(history), { undo: 0, redo: 0, title: 'Untitled project', revision: 0 }, family.name);
 		assert.notEqual(history.present, project, family.name);

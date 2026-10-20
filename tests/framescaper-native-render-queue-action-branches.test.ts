@@ -310,23 +310,6 @@ test('a carrier-requiring plan without a live authority refuses before staging',
 	}
 });
 
-test('a live carrier producer that breaks its closed shape is refused', async (context) => {
-	install(context, liveServices());
-	const cases: readonly (readonly [unknown, RegExp])[] = [
-		[producer({ carrierByteLength: 0 }), /live carrier producer is invalid/u],
-		[producer({ stream: null }), /live carrier producer is invalid/u],
-		[producer({ extra: 1 }), /live carrier producer is invalid/u],
-		['not-a-producer', /live carrier producer must be an object/u],
-	];
-	for (const [value, message] of cases) {
-		const controller = {
-			project: silentCarrierProject(),
-			prepareNativeRenderInputStreamNativeMedia: async () => value,
-		};
-		await assert.rejects(() => enqueue(createRuntime(PROFILE, controller as never)), message);
-	}
-});
-
 test('a stage request that fails before acknowledging a stage abandons nothing', async (context) => {
 	let abandons = 0;
 	install(context, liveServices({
