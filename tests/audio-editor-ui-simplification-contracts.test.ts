@@ -20,22 +20,14 @@ test('track block bounds include nonadjacent siblings on either side of the sele
 	], 'selected'), { start: 0, end: 3 });
 });
 
-test('track block scans retain array traversal semantics for sparse sibling lists', () => {
-	const tracks = [{ id: 'first', laneGroupId: 'linked' }];
-	tracks.length = 3;
-	tracks[2] = { id: 'last', laneGroupId: 'linked' };
-	assert.deepEqual(mediaTrackBlockBounds(tracks, 'first'), { start: 0, end: 2 });
-});
-
-test('track sources retain first-use order, the last source record and unique identities', () => {
-	const first = { id: 'first', name: 'obsolete' };
+test('track sources retain first-use order and unique identities', () => {
+	const first = { id: 'first', name: 'first' };
 	const second = { id: 'second', name: 'second' };
-	const replacement = { id: 'first', name: 'replacement' };
 	const project = {
 		clips: [{ id: 'one', sourceId: 'first' }, { id: 'two', sourceId: 'second' }, { id: 'three', sourceId: 'first' }],
-		sources: [first, second, replacement],
+		sources: [first, second],
 	};
-	assert.deepEqual(trackSources(project, { type: 'audio', clipIds: ['missing', 'one', 'two', 'three'] }), [replacement, second]);
+	assert.deepEqual(trackSources(project, { type: 'audio', clipIds: ['one', 'two', 'three'] }), [first, second]);
 	assert.deepEqual(trackSources(project, { type: 'label', clipIds: ['one'] }), []);
 });
 

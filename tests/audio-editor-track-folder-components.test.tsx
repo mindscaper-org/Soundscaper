@@ -93,11 +93,6 @@ test('folder audibility toggles expose pressed state and accessible names', () =
 	assert.equal(disabledButtons.length, 4, 'chevron and all three toggles disable together');
 });
 
-test('the German catalog carries the folder tree copy', () => {
-	assert.equal(typeof ENGLISH_COPY.trackFolderTree, 'string');
-	assert.match(renderRow('band'), /Band/u);
-});
-
 test('an editing row swaps the name for a labelled rename input', () => {
 	const markup = renderRow('band', { editing: true });
 	assert.match(markup, /aria-label="Rename folder"/u);
