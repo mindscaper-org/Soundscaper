@@ -21,7 +21,7 @@ test('Audio settings and Audio setup share host selection without native-helper 
 	await expect(host).toHaveValue('electron');
 	await expect(host).toContainText('Electron');
 	await expect(host).toContainText('ALSA');
-	await expect(host).toContainText('WASAPI');
+	await expect(host).toContainText('PipeWire');
 	await expect(preferences.getByRole('button', { name: 'Enable microphones', exact: true })).toHaveCount(0);
 	await expect(preferences.getByRole('button', { name: 'Native audio device', exact: true })).toHaveCount(0);
 	await expect(preferences.getByRole('button', { name: 'Native audio and latency', exact: true })).toHaveCount(0);
@@ -59,16 +59,16 @@ test('switching audio hosts replaces devices and refresh preserves the chosen in
 	const speakers = setup.getByRole('combobox', { name: 'Speakers', exact: true });
 	await host.selectOption('alsa');
 	await expect(microphone).toContainText('Studio interface');
-	await host.selectOption('wasapi');
-	await expect(microphone).toContainText('Windows interface');
+	await host.selectOption('pipewire');
+	await expect(microphone).toContainText('PipeWire interface');
 	await expect(microphone).not.toContainText('Studio interface');
-	await expect(speakers).toContainText('Windows interface');
+	await expect(speakers).toContainText('PipeWire interface');
 	await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
-	await expect(microphone).toContainText('Windows interface');
+	await expect(microphone).toContainText('PipeWire interface');
 	await expect(setup.getByRole('alert')).toContainText('Fixture audio device is unavailable');
 	await host.selectOption('electron');
-	await expect(microphone).not.toContainText('Windows interface');
-	await expect(speakers).not.toContainText('Windows interface');
+	await expect(microphone).not.toContainText('PipeWire interface');
+	await expect(speakers).not.toContainText('PipeWire interface');
 	await expect(setup.getByRole('button', { name: 'Enable microphones', exact: true })).toHaveCount(0);
 	await expect(setup.getByRole('combobox', { name: 'Recording sample rate', exact: true })).toHaveCount(0);
 	await expect(page.locator('[data-soundscaper-native-services-dialog="true"]')).toHaveCount(0);
@@ -261,7 +261,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			enabled: includeNativeAudio, quarantined: false,
 			payload: includeNativeAudio
 				? Object.freeze({ status: 'available', reason: null, detail: '' }) : unavailablePayload,
-			backends: Object.freeze(includeNativeAudio ? ['alsa', 'wasapi'] : []),
+			backends: Object.freeze(includeNativeAudio ? ['alsa', 'pipewire'] : []),
 		});
 		const quarantine = Object.freeze({
 			loaded: true, degraded: false, records: Object.freeze([]), pendingFaults: 0,
@@ -333,7 +333,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 					inventory: Object.freeze({
 						backend, status: 'ready', detail: '',
 						devices: Object.freeze([Object.freeze({
-							handle: 'studio-interface', label: backend === 'wasapi' ? 'Windows interface' : 'Studio interface',
+							handle: 'studio-interface', label: backend === 'pipewire' ? 'PipeWire interface' : 'Studio interface',
 							direction: 'duplex', channelCount: 8, isDefault: false,
 						})]),
 					}),
