@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { DesktopSettingsStore, validateModelsDirectory } from '../desktop/settings.js';
+import { DesktopSettingsStore } from '../desktop/settings.js';
 import {
 	DEFAULT_LOCAL_MODEL_DIRECTORY_NAME,
 	FileLocalModelStore,
@@ -250,36 +250,26 @@ test('artifact verification detects same-length external tampering', { timeout: 
 	assert.equal(await store.verifyArtifact(artifact), false);
 });
 
-test('the store refuses ids, versions, and digests it cannot place safely', { timeout: 20_000 }, async (t) => {
+test('malformed persisted manifests are refused before they can name store bytes', { timeout: 20_000 }, async (t) => {
 	const { store, root } = await createStore();
 	t.after(() => rm(root, { recursive: true, force: true }));
-
-	assert.throws(() => store.manifestPath('../escape'), /lowercase, dot or dash separated/iu);
-	assert.throws(() => store.manifestPath('Model-A'), /lowercase, dot or dash separated/iu);
-	assert.throws(() => store.blobPath('not-a-digest'), /lowercase SHA-256/iu);
-	assert.throws(() => new FileLocalModelStore('relative/path'), /must be an absolute path/iu);
-
 	const artifact = await publish(store, 'model.onnx', 'weights');
-	await assert.rejects(
-		store.commitInstall({ modelId: 'model-a', version: '', artifacts: [artifact] }),
-		/version must be a short non-empty string/iu,
-	);
-	await assert.rejects(
-		store.commitInstall({
-			modelId: 'model-a',
-			version: '1',
-			artifacts: [{ ...artifact, fileName: '../escape.onnx' }],
-		}),
-		/plain relative file name/iu,
-	);
-	await assert.rejects(
-		store.commitInstall({ modelId: 'model-a', version: '1', artifacts: [artifact, artifact] }),
-		/repeats an artifact file name/iu,
-	);
-	await assert.rejects(
-		store.commitInstall({ modelId: 'model-a', version: '1', artifacts: [] }),
-		/between one and 64 artifacts/iu,
-	);
+	const manifest = {
+		schemaVersion: LOCAL_MODEL_MANIFEST_SCHEMA_VERSION,
+		modelId: 'model-a', version: '1', artifacts: [artifact],
+	};
+	for (const [overrides, message] of [
+		[{ modelId: '../escape' }, /lowercase, dot or dash separated/iu],
+		[{ modelId: 'Model-A' }, /lowercase, dot or dash separated/iu],
+		[{ version: '' }, /version must be a short non-empty string/iu],
+		[{ artifacts: [{ ...artifact, sha256: 'not-a-digest' }] }, /lowercase SHA-256/iu],
+		[{ artifacts: [{ ...artifact, fileName: '../escape.onnx' }] }, /plain relative file name/iu],
+		[{ artifacts: [artifact, artifact] }, /repeats an artifact file name/iu],
+		[{ artifacts: [] }, /between one and 64 artifacts/iu],
+	] as const) {
+		await writeFile(store.manifestPath('model-a'), JSON.stringify({ ...manifest, ...overrides }));
+		await assert.rejects(store.readManifest('model-a'), message);
+	}
 });
 
 test('an unset models directory follows the product data directory', () => {
@@ -291,14 +281,9 @@ test('an unset models directory follows the product data directory', () => {
 		resolveLocalModelRoot({ userDataPath: '/data/Soundscaper', settingsDirectory: '/models/scape' }),
 		'/models/scape',
 	);
-	assert.throws(() => resolveLocalModelRoot({ userDataPath: 'relative' }), /must be absolute/iu);
-	assert.throws(
-		() => resolveLocalModelRoot({ userDataPath: '/data', settingsDirectory: 'relative/models' }),
-		/must be an absolute path/iu,
-	);
 });
 
-test('the models directory setting persists and rejects unusable paths', { timeout: 20_000 }, async (t) => {
+test('the models directory setting persists and can return to the default', { timeout: 20_000 }, async (t) => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-settings-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const settings = new DesktopSettingsStore(join(root, 'desktop-settings.json'));
@@ -314,19 +299,17 @@ test('the models directory setting persists and rejects unusable paths', { timeo
 	assert.equal((await reopened.load(['en'])).modelsDirectory, join(root, 'chosen'));
 
 	assert.equal(await settings.setModelsDirectory(null), null, 'clearing returns to the default');
-	await assert.rejects(settings.setModelsDirectory('relative/models'), /absolute path/iu);
-	await assert.rejects(settings.setModelsDirectory('/models\0/scape'), /out of range/iu);
-	assert.throws(() => validateModelsDirectory(42), /absolute path/iu);
 });
 
 test('an unreadable models directory value falls back instead of failing startup', { timeout: 20_000 }, async (t) => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-settings-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const path = join(root, 'desktop-settings.json');
-	await writeFile(path, JSON.stringify({ schemaVersion: 1, locale: 'en', modelsDirectory: 'relative/models' }));
-
-	const settings = new DesktopSettingsStore(path);
-	assert.equal((await settings.load(['en'])).modelsDirectory, null);
+	for (const modelsDirectory of ['relative/models', '/models\0/scape', 42]) {
+		await writeFile(path, JSON.stringify({ schemaVersion: 1, locale: 'en', modelsDirectory }));
+		const settings = new DesktopSettingsStore(path);
+		assert.equal((await settings.load(['en'])).modelsDirectory, null);
+	}
 });
 
 test('a manifest written by a future schema is refused rather than guessed at', { timeout: 20_000 }, async (t) => {

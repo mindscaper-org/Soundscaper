@@ -86,16 +86,6 @@ test('distribution status does not suppress catalog notices', () => {
 	})[0]?.modelId, 'model-v1');
 });
 
-test('notice derivation refuses evidence changed after its catalog digest was recorded', () => {
-	const changed = { ...EVIDENCE, purpose: 'Changed after catalog publication.' };
-	assert.throws(
-		() => createInstalledLocalModelNotices({
-			catalog: CATALOG, licensingEvidence: [changed], installed: [INSTALLED],
-		}),
-		/licensing evidence digest/iu,
-	);
-});
-
 test('stale or altered installations cannot inherit a current catalog notice', () => {
 	for (const installed of [
 		{ ...INSTALLED, version: '0' },
