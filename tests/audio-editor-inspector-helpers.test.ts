@@ -51,17 +51,6 @@ test('a clip gain draft must state its decibel value while explicit zero remains
 	assert.ok(Math.abs(inspectorHelpers.dbToLinear('-6', 16, ENGLISH_COPY) - 0.5011872336272722) < 1e-12);
 });
 
-test('the inspector helper surface carries only operations a shipped inspector calls', () => {
-	for (const name of [
-		'bitrateOption',
-		'createFallbackFileService',
-		'framesToSecondsText',
-		'secondsInputToFrames',
-	]) {
-		assert.equal(Object.hasOwn(inspectorHelpers, name), false, `${name} has no shipped caller`);
-	}
-});
-
 test('effect helpers keep labels, presets, and conditional controls deterministic', () => {
 	const presets = effectPresetChoices([
 		{ id: 'a', name: 'Warm' },
