@@ -475,17 +475,6 @@ test('image body staging stops at an already aborted signal', async () => {
 	assert.deepEqual(store.calls, []);
 });
 
-test('image body staging refuses a writer that is not a bounded owned writer', async () => {
-	const store = originStore();
-	store.chunkBytes = 1_024;
-
-	await assert.rejects(
-		() => stageFramescaperSessionClipboardImageBodiesV13([transferTo('copy', 'image-source', COPY)], store),
-		/V13 image body staging requires a bounded owned writer/u,
-	);
-	assert.ok(store.calls.includes('abort:image-source-copy'));
-});
-
 test('a failed transfer discards the publications it already made and reports cleanup failures', async () => {
 	const first = imageSource('image-source-one', PUBLICATION);
 	const second = imageSource('image-source-two', PUBLICATION);

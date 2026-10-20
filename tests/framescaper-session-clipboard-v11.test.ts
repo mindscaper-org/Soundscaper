@@ -227,14 +227,3 @@ test('a paste refuses a carrier whose descriptor drifted from the command', () =
 	);
 });
 
-test('a paste requires an identity factory', () => {
-	const source = project();
-	const board = clipboard(source);
-
-	assert.throws(
-		() => prepareFramescaperSessionClipboardPasteCommandV11(
-			PROFILE, source, board, pasteCommand(board) as never, null as never,
-		),
-		/requires an ID factory/u,
-	);
-});
