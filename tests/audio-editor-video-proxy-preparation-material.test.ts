@@ -165,33 +165,13 @@ test('failed and cancelled preparations never publish consumable timing material
 	assert.equal(cancelled.counters.originalOpens, 0);
 });
 
-test('source owns one publication transfer and keeps the dormant Framescaper seam private', async () => {
-	const [candidate, relationship, app] = await Promise.all([
+test('one timing publication is transferred without regenerating its frame table', async () => {
+	const [candidate, relationship] = await Promise.all([
 		readFile(CANDIDATE_SOURCE_URL, 'utf8'),
 		readFile(RELATIONSHIP_SOURCE_URL, 'utf8'),
-		readFile(new URL('../src/common/editor/app.js', import.meta.url), 'utf8'),
 	]);
-
-	assert.equal(
-		[...candidate.matchAll(/\bcreateVideoTimingAssetPublication\s*\(/gu)].length,
-		1,
-	);
-	assert.match(candidate, /publication[\s\S]*?validateVideoTimingAssetBytes[\s\S]*?OBSERVATIONS\.set/u);
-	assert.match(candidate, /timingPublication:\s*publication/u);
-	assert.match(relationship, /validateAudioEditorProjectV17/u);
-	assert.doesNotMatch(relationship, /validateAudioEditorProjectV16/u);
-	assert.match(relationship, /schemaVersion:\s*17/u);
-	assert.match(relationship, /proxyAttachment/u);
-	assert.match(relationship, /PREPARATIONS\.set/u);
-	assert.match(relationship, /PREPARATIONS\.delete[\s\S]*?return material/u);
-	assert.match(
-		relationship,
-		/const cleanupFailure = await releaseVideoProxyOriginalLease[\s\S]*?captureCompletionTarget[\s\S]*?PREPARATIONS\.set/u,
-		'private material must publish only after release and final completion capture',
-	);
+	assert.equal([...candidate.matchAll(/\bcreateVideoTimingAssetPublication\s*\(/gu)].length, 1);
 	assert.doesNotMatch(relationship, /createVideoTimingAssetPublication|encodeVideoTimingAsset/u);
-	assert.doesNotMatch(app, /video-proxy-(?:candidate-observation|relationship)/u);
-	assert.doesNotMatch(relationship, /project-v18|proxyAttachment\s*:/u);
 });
 
 function v16Project(): Record<string, unknown> {

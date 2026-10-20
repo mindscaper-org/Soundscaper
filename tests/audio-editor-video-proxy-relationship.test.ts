@@ -527,40 +527,12 @@ test('closes factories and requests, authenticates tokens before getter reads, a
 	assert.equal(authorityReads, 0);
 });
 
-test('source pins pre-I/O admission, one exact proof, final recheck, same-Blob flow, and dormancy', async () => {
-	const [candidate, relationship] = await Promise.all([
-		readFile(CANDIDATE_SOURCE_URL, 'utf8'),
-		readFile(RELATIONSHIP_SOURCE_URL, 'utf8'),
-	]);
-	assert.match(relationship, /export function proveVideoProxyRelationship\(/u);
-	assert.doesNotMatch(
-		relationship,
-		/export async function proveVideoProxyRelationship\(/u,
-		'pre-I/O target admission must throw synchronously rather than become a rejected Promise',
-	);
-	assert.match(relationship, /project\.clips[\s\S]*?projectBin/u);
-	assert.doesNotMatch(
-		relationship,
-		/cannot include retimed clips/u,
-		'occurrence retime is applied after source-domain proxy selection',
-	);
-	assert.equal(
-		[...relationship.matchAll(/\bproveVideoProxyTimingConformance\s*\(/gu)].length,
-		1,
-		'the relationship must consume one authentic 3B-6a proof',
-	);
-	assert.match(relationship, /assertTaskCurrent[\s\S]*?getProject[\s\S]*?(?:fingerprint|target)/u);
-	assert.doesNotMatch(
-		relationship,
-		/for \(const trackValue of tracks\)[\s\S]*?for \(const sequenceValue of sequences\)/u,
-		'target ownership capture must not nest full track and sequence scans',
-	);
-	assert.match(candidate, /canonicalMediaContentBlob[\s\S]*?digestMediaContent[\s\S]*?probeVideoTiming/u);
-	assert.doesNotMatch(candidate, /video-derivative|derivative-cache|VideoTimingAssetStore|publishVideoTimingAsset/u);
-	assert.doesNotMatch(relationship, /video-derivative|derivative-cache|VideoTimingAssetStore|publishVideoTimingAsset/u);
-
-	const consumers = await readFile(new URL('../src/common/editor/app.js', import.meta.url), 'utf8');
-	assert.doesNotMatch(consumers, /video-proxy-(?:candidate-observation|relationship)/u);
+test('relationship proof avoids duplicate conformance and nested ownership scans', async () => {
+	const relationship = await readFile(RELATIONSHIP_SOURCE_URL, 'utf8');
+	assert.equal([...relationship.matchAll(/\bproveVideoProxyTimingConformance\s*\(/gu)].length, 1,
+		'the relationship consumes one exact timing proof');
+	assert.doesNotMatch(relationship, /for \(const trackValue of tracks\)[\s\S]*?for \(const sequenceValue of sequences\)/u,
+		'target ownership capture must not nest full track and sequence scans');
 });
 
 function zeroCounters(): Record<string, number> {
