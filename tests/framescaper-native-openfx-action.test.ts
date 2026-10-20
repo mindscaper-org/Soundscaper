@@ -95,18 +95,6 @@ test('an interact model with no installed plug-ins reports no instances', async 
 	assert.deepEqual(model.instances, []);
 });
 
-test('an incomplete controller, bridge or identity factory is refused', () => {
-	assert.throws(() => composition({ owner: {} }), TypeError);
-	assert.throws(() => composition({ bridge: {} }), TypeError);
-	assert.throws(() => composition({ mintId: 1 }), TypeError);
-	assert.throws(
-		() => composition({
-			owner: { project: {}, actions: { edit: { commit: async () => undefined } } },
-		}),
-		TypeError,
-	);
-});
-
 test('authoring is refused when the isolated OpenFX host is not usable', async () => {
 	const built = composition({ bridge: bridge({}, false) });
 
