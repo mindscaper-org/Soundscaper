@@ -7,6 +7,7 @@ import { runInNewContext } from 'node:vm';
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { createSourceFile, isArrowFunction, isCallExpression, isExpressionStatement, isPropertyAccessExpression, ScriptTarget } from 'typescript';
 import { extractJob } from './helpers/workflow-jobs.js';
+import { assertBrowserCoverageObserverSpec } from '../scripts/lib/browser-coverage-observer-policy.mjs';
 
 const ROOT = new URL('../', import.meta.url);
 const CONFIG = 'playwright.lightscaper-gpu.config.mjs';
@@ -200,7 +201,10 @@ for (const spec of SPECS) test(`${spec} admits pinned software Chromium and real
 		'the qualified Chromium path must demand actual GPU execution for its positive corpus');
 	if (spec.startsWith('lightscaper-native-gpu') || spec === FULL_STACK) {
 		assert.ok(source.includes('browserCoverage: false'), 'the lower component cancellation corpus retains its timing-sensitive opt-out');
-	} else assert.doesNotMatch(source, /browserCoverage\s*:/u, 'the interactive UI workflow uses default Chromium coverage');
+	} else {
+		assert.doesNotMatch(source, /browserCoverage\s*:/u, 'the interactive UI workflow uses default Chromium coverage');
+		assert.equal(assertBrowserCoverageObserverSpec(spec, source), true, 'only exact source-attested test programs are excluded');
+	}
 });
 
 async function text(path: string): Promise<string> { return readFile(new URL(path, ROOT), 'utf8'); }

@@ -26,7 +26,7 @@ test('native browser crash after original flush recovers the same persistent Lig
 		context = await type.launchPersistentContext(profilePath, { executablePath, headless: true, serviceWorkers: 'block' });
 		const page = await openQualificationPage(context, origin);
 		processIdentity = await captureOwnedBrowserProcessV1({ browserName, executablePath, profilePath });
-		prepared = await page.evaluate(async () => (await import('/__original_process_crash_native.js')).prepareOriginalProcessCrashNativeV1());
+		prepared = await page.evaluate(async () => (await import(new URL('/__original_process_crash_native.js', location.href).href)).prepareOriginalProcessCrashNativeV1());
 		expect(prepared.schemaVersion).toBe(1);
 		expect(prepared.native).toEqual({ writeBlobReturnedTrue: true, operationId: 'media-asset-chunk-write', path: prepared.identity.currentPath,
 			writeBytes: 85, writerOpens: 1, writeAcks: 1, closeAcks: 1, companionJoined: true, importPending: true, signalAborted: false, closeCallsBeforeKill: 0 });
@@ -51,11 +51,11 @@ test('native browser crash after original flush recovers the same persistent Lig
 
 		context = await type.launchPersistentContext(profilePath, { executablePath, headless: true, serviceWorkers: 'block' });
 		const reopened = await openQualificationPage(context, origin);
-		const retained = await reopened.evaluate(async expected => (await import('/__original_process_crash_native.js'))
+		const retained = await reopened.evaluate(async expected => (await import(new URL('/__original_process_crash_native.js', location.href).href))
 			.readOriginalProcessCrashPrefixNativeV1(expected), prepared);
 		// Read-only native inspection runs before any PhotoMedia.ready call.
 		expect(retained).toEqual(prepared.prefix);
-		recovered = await reopened.evaluate(async expected => (await import('/__original_process_crash_native.js'))
+		recovered = await reopened.evaluate(async expected => (await import(new URL('/__original_process_crash_native.js', location.href).href))
 			.recoverOriginalProcessCrashNativeV1(expected), prepared);
 		expect(recovered).toMatchObject({ schemaVersion: 1, orphanGone: true, leaseConsumed: true, bindingConsumed: true,
 			intentRetired: true, donorExact: true, unrootedExact: true, catalogExact: true, idempotent: true, pagePhotoCount: 1 });
@@ -69,10 +69,10 @@ test('native browser crash after original flush recovers the same persistent Lig
 
 		context = await type.launchPersistentContext(profilePath, { executablePath, headless: true, serviceWorkers: 'block' });
 		const second = await openQualificationPage(context, origin);
-		const secondPrefix = await second.evaluate(async expected => (await import('/__original_process_crash_native.js'))
+		const secondPrefix = await second.evaluate(async expected => (await import(new URL('/__original_process_crash_native.js', location.href).href))
 			.readOriginalProcessCrashPrefixNativeV1(expected), prepared);
 		expect(secondPrefix).toEqual(recovered.after);
-		const secondRecovery = await second.evaluate(async expected => (await import('/__original_process_crash_native.js'))
+		const secondRecovery = await second.evaluate(async expected => (await import(new URL('/__original_process_crash_native.js', location.href).href))
 			.recoverOriginalProcessCrashNativeV1(expected), prepared);
 		expect(secondRecovery.before).toEqual(recovered.after);
 		expect(secondRecovery.after).toEqual(recovered.after);

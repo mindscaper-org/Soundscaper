@@ -237,7 +237,7 @@ test('pull-request quality compiles every supported Windows and macOS native tar
 		/-DSOUNDSCAPER_NATIVE_TARGET=\$\{\{ matrix\.target\.native_target \}\}/u);
 
 	const coverageJob = jobSource(workflow, 'coverage', 'browser');
-	assert.match(coverageJob, /needs: \[tests, native-platform-compile, browser, lint, typecheck, audits\]/u);
+	assert.match(coverageJob, /needs: \[tests, native-platform-compile, browser, browser-lightscaper-gpu, lint, typecheck, audits\]/u);
 	const deployJob = jobSource(workflow, 'deploy', null);
 	assert.match(deployJob, /needs: \[[^\]]*native-platform-compile[^\]]*\]/u);
 });

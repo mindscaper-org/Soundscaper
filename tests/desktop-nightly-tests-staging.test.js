@@ -23,12 +23,17 @@ const EXPECTED_RUNTIME_PACKAGES = [
 	'@ffmpeg/ffmpeg',
 	'@ffmpeg/types',
 	'@fontsource/inter',
+	'@jridgewell/resolve-uri',
+	'@jridgewell/sourcemap-codec',
+	'@jridgewell/trace-mapping',
 	'@noble/hashes',
 	'@playwright/test',
 	'@types/dom-mediacapture-transform',
 	'@types/dom-webcodecs',
+	'@types/istanbul-lib-coverage',
 	'@zip.js/zip.js',
 	'axe-core',
+	'convert-source-map',
 	'esbuild',
 	'fflate',
 	'mediabunny',
@@ -37,6 +42,7 @@ const EXPECTED_RUNTIME_PACKAGES = [
 	'saxes',
 	'sql.js',
 	'typescript',
+	'v8-to-istanbul',
 	'xmlchars',
 ];
 
@@ -96,6 +102,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'saxes',
 		'sql.js',
 		'typescript',
+		'v8-to-istanbul',
 	]);
 
 	const packageMetadata = await readJson(join(fixture.outputRoot, 'package.json'));

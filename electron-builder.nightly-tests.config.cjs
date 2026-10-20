@@ -68,6 +68,7 @@ module.exports = {
 			to: 'nightly-tests',
 			filter: [
 				...require('./scripts/lib/desktop-nightly-tests-external-display-inputs.cjs'),
+				...require('./scripts/lib/desktop-nightly-tests-lightscaper-inputs.cjs'),
 				'.local-browsers/**/*',
 				'config/**/*',
 				'desktop/bundled-*-stream.ts',

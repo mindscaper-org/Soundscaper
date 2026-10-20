@@ -30,6 +30,8 @@ import {
 	retainCapturedBrowserSource,
 } from './browser-dynamic-coverage-sources.mjs';
 import { portableE2ESourceMap } from './e2e-coverage-source-maps.mjs';
+import { captureBrowserCoverageObserverRoutes } from './browser-coverage-observer-routes.mjs';
+import { assertBuiltLightscaperGpuCoverage } from './browser-gpu-production-coverage.mjs';
 import {
 	installNavigationCoverageCheckpoints,
 	installPageOperationCoverageCheckpoints,
@@ -222,6 +224,7 @@ export function withoutRepeatedSourceMaps(profile, alreadyWritten) {
  *   repositoryRoot?: string,
  *   coverageDirectory?: string,
  *   scripts?: Map<string, { path: string, coverageUrl?: string, sourceMap?: object, source?: string } | null>,
+ *   observerOwner?: object | null,
  * }} options
  */
 export function createBrowserCoverageCollector({
@@ -230,9 +233,10 @@ export function createBrowserCoverageCollector({
 	sites,
 	repositoryRoot = REPOSITORY_ROOT,
 	coverageDirectory = resolve(repositoryRoot, BROWSER_COVERAGE_DIRECTORY),
-	scripts = new Map(),
+	scripts = new Map(), observerOwner = null,
 }) {
 	if (!collectsBrowserCoverage(browserName, environment)) return null;
+	const observer = captureBrowserCoverageObserverRoutes(observerOwner);
 	const ffmpegCoverage = browserFfmpegCoverageContract(repositoryRoot);
 	const configuredDirectory = environment.SCAPE_BROWSER_COVERAGE_DIRECTORY;
 	if (configuredDirectory !== undefined) {
@@ -249,6 +253,8 @@ export function createBrowserCoverageCollector({
 	const portableProductsByOrigin = new Map(
 		(configuredSites?.map((site) => [site.origin, site.productId]) ?? []),
 	);
+	const observerOutput = observer ? directoriesByOrigin.get(observer.origin) : null;
+	if (observer && !(configuredSites ?? sites ?? []).some(site => site.productId === 'lightscaper' && site.origin === observer.origin)) throw new Error('GPU observer requires its actual Light build origin.');
 	const started = new Set();
 	const recorders = new Map();
 	const pending = [];
@@ -293,7 +299,7 @@ export function createBrowserCoverageCollector({
 				excludeCdpJavaScriptCoverage(recorder.cdpState, scriptId);
 				return;
 			}
-			if (!needsCapturedBrowserSource(url, directoriesByOrigin)) return;
+			if (!observer?.captures(url) && !needsCapturedBrowserSource(url, directoriesByOrigin)) return;
 			const work = readCdpScriptSourceUntilTeardown({
 				isActive: () => !page.isClosed(), scriptId, session,
 			}).then((response) => {
@@ -332,6 +338,7 @@ export function createBrowserCoverageCollector({
 	}
 
 	async function resolveScript(url, source) {
+		if (observer?.attest(url, source)) return null;
 		if (excludedBrowserCoverageInstrumentation(url, source)) return null;
 		const dynamic = macroDynamicCoverageScript({ repositoryRoot, source, url });
 		if (dynamic !== null) return { ...dynamic, retainSource: true };
@@ -365,7 +372,7 @@ export function createBrowserCoverageCollector({
 			workerCollectorStart = createPlaywrightBrowserServiceWorkerCoverageCollector({
 				authenticateWebAssembly,
 				browser: context.browser?.(),
-				captureSource: (url) => needsCapturedBrowserSource(url, directoriesByOrigin),
+				captureSource: (url) => observer?.captures(url) || needsCapturedBrowserSource(url, directoriesByOrigin),
 				keepUrl: (url) => typeof url === 'string' && url !== '',
 				targetTypes: BROWSER_WORKER_TARGET_TYPES,
 			}).then(async (collector) => {
@@ -432,17 +439,22 @@ export function createBrowserCoverageCollector({
 				}
 			}
 			const profile = browserCoverageProfile(entries, (url, source) => {
+				if (observer?.attest(url, source)) return null;
 				if (excludedBrowserCoverageInstrumentation(url, source)) return null;
 				const dynamic = macroDynamicCoverageScript({ repositoryRoot, source, url });
 				if (dynamic !== null) return { ...dynamic, retainSource: true };
 				return retainedBrowserFfmpegCoverageScript(url, source, ffmpegCoverage)
 					?? retainedBrowserDynamicCoverageScript(url, source) ?? scripts.get(url) ?? null;
 			});
+			const observerEvidence = observer ? { exclusions: observer.complete(),
+				production: await assertBuiltLightscaperGpuCoverage(profile, { repositoryRoot, outputDirectory: observerOutput }) } : null;
 			if (profile.result.length === 0) return null;
 
 			const file = resolve(coverageDirectory, `${profileFileStem(label)}-${randomUUID()}.json`);
 			await mkdir(coverageDirectory, { recursive: true });
-			await writeFile(file, JSON.stringify(withoutRepeatedSourceMaps(profile, alreadyWritten)));
+			const retained = withoutRepeatedSourceMaps(profile, alreadyWritten);
+			if (observerEvidence) Object.assign(retained, { 'test-only-observer-exclusions': observerEvidence.exclusions, 'built-gpu-execution': observerEvidence.production });
+			await writeFile(file, JSON.stringify(retained));
 			return file;
 		},
 	};

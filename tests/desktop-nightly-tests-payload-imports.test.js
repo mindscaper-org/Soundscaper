@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { physicalEsbuildInputPaths } from './helpers/esbuild-metafile-inputs.ts';
 import { execFile } from 'node:child_process';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
@@ -40,6 +41,14 @@ test('the nightly runtime carries the browser-native container fixture dependenc
 	assert.equal(staged.has('mediabunny'), true);
 });
 
+test('the nightly runtime carries the built GPU coverage remapper and its own runtime dependencies', async () => {
+	const staged = new Set((await resolveNightlyTestRuntimePackages(REPOSITORY_ROOT)).map(({ name }) => name));
+	for (const name of ['v8-to-istanbul', '@jridgewell/trace-mapping', '@jridgewell/resolve-uri',
+		'@jridgewell/sourcemap-codec', '@types/istanbul-lib-coverage', 'convert-source-map']) {
+		assert.equal(staged.has(name), true, `the real runtime closure must carry ${name}`);
+	}
+});
+
 test('the nightly payload carries the data file its release-line reader opens at runtime', async () => {
 	const input = 'config/product-release-lines.json';
 	assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
@@ -56,7 +65,7 @@ test('the packaged spectrogram painter harness resolves its vendored colormap', 
 		bundle: true, write: false, format: 'esm', target: 'es2022', metafile: true,
 	});
 	const filter = await readPackagedPayloadFilter();
-	for (const entry of Object.keys(result.metafile.inputs)) {
+	for (const entry of physicalEsbuildInputPaths(result.metafile)) {
 		const input = relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, entry));
 		assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
 		const packaged = packagedPathOf(input);
@@ -146,7 +155,7 @@ test('the nightly test payload satisfies every import its browser specs reach', 
 
 	const staged = new Set((await resolveNightlyTestRuntimePackages(REPOSITORY_ROOT)).map(({ name }) => name));
 	const packagedFilter = await readPackagedPayloadFilter();
-	const reached = Object.keys(result.metafile.inputs)
+	const reached = physicalEsbuildInputPaths(result.metafile)
 		.map((input) => relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, input)));
 	const failures = [
 		...reached
@@ -198,7 +207,7 @@ test('the staged photo diagnostic loads through the packaged Playwright TypeScri
 	const graph = await build({ entryPoints: [join(REPOSITORY_ROOT, PHOTO_DIAGNOSTIC)],
 		bundle: true, write: false, metafile: true, platform: 'node', format: 'esm' });
 	const filter = await readPackagedPayloadFilter();
-	for (const entry of Object.keys(graph.metafile.inputs)) {
+	for (const entry of physicalEsbuildInputPaths(graph.metafile)) {
 		const input = relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, entry));
 		assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
 		const packaged = packagedPathOf(input);
@@ -257,7 +266,7 @@ test('the nightly launcher ASAR satisfies every local import it reaches', async 
 	});
 	const { default: config } = await import('../electron-builder.nightly-tests.config.cjs');
 	const included = config.files.filter((pattern) => !pattern.startsWith('!'));
-	const failures = Object.keys(result.metafile.inputs)
+	const failures = physicalEsbuildInputPaths(result.metafile)
 		.map((input) => relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, input)))
 		.flatMap((input) => {
 			const packaged = packagedPathOf(input);

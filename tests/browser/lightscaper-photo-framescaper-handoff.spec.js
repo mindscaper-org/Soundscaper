@@ -17,6 +17,9 @@ import { pngChunk } from '../helpers/image-metadata-fixtures.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 import { installNativeOpfsWorkerCompanion, assertNativeOpfsWorkerExecution } from './helpers/native-opfs-worker-companion.ts';
 
+// The routed catalog observer is test-only executable code, excluded from portable coverage.
+test.use({ browserCoverage: false });
+
 const NAME = 'Editable original.png', PIXELS = Array(4).fill([255, 255, 255, 255]).flat();
 const PNG = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
 	pngChunk('IHDR', Buffer.from([0, 0, 0, 2, 0, 0, 0, 2, 8, 6, 0, 0, 0])), pngChunk('sRGB', Buffer.from([0])),

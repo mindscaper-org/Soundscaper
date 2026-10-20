@@ -15,10 +15,9 @@ import { hdrMergeBrowserFixtureCurrentV1 } from './helpers/lightscaper-hdr-merge
 import { editLightscaperDevelopNumberCurrentV1 } from './helpers/lightscaper-develop-numeric-keyboard-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
-import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { expect, test, installLightscaperGpuObserverRoute } from './helpers/browser-coverage-fixture.js';
 
-// Product workflows retain ordinary browser coverage. Native component specs
-// separately own timing-sensitive capability/fault/cancellation qualification.
+// Built UI execution retains coverage; only exact source-attested observer routes are excluded.
 test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
 	'Masked GPU preview requires pinned software Chromium or the actual Firefox GPU project.');
 const PROGRAM = '/__lightscaper_develop_gpu_mask_current.js';
@@ -40,7 +39,7 @@ for (const locale of ['en', 'de']) test(`${locale}: installed brush and selected
 	await page.route(manifest.runtime.url, route => route.fulfill({ status: 200, headers: {
 		'content-type': 'application/wasm', 'access-control-allow-origin': '*', 'cross-origin-resource-policy': 'cross-origin',
 	}, body: Buffer.from(fixture.wasm) }));
-	await page.route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: program.source }));
+	await installLightscaperGpuObserverRoute(page, PROGRAM, program.source);
 	await page.goto(resolveBrowserProductTestUrl(`/lightscaper/${locale}/`));
 	const app = named(page, 'region', 'Lightscaper'); await expect(app).toBeVisible(); await photoAction(copy.photoImportPhotos);
 	const importer = named(page, 'dialog', copy.photoImportPhotos);

@@ -3,6 +3,9 @@
 // Browser media fixtures are opened as data, so the import closure cannot admit
 // them. Keep the original encodings at the paths their module-relative URLs use.
 export const NIGHTLY_BROWSER_MEDIA_INPUTS = Object.freeze([
+	...['video-storage-native-publication-fixture.ts', 'video-storage-opfs-model-fixture.ts'].map(file => ({
+		source: `tests/helpers/${file}`, destination: `tests/helpers/${file}`, kind: 'file', label: 'actual native OPFS direct media browser qualification support',
+	})),
 	{ source: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', kind: 'file', label: 'ordinary animated image browser support fixture' },
 	{ source: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', kind: 'file', label: 'ordinary high-precision PNG browser support fixture' },
 	...['desktop-preload-source.mjs', 'ordinary-cover-mp3-fixture.ts', 'native-original-import-fixture.ts', 'ordinary-ogg-opus-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts'].map(file => ({

@@ -43,6 +43,7 @@ export const NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS = Object.freeze([
 	'saxes',
 	'sql.js',
 	'typescript',
+	'v8-to-istanbul',
 ]);
 
 // esbuild publishes its compiled binary as one optional dependency per platform

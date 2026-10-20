@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { physicalEsbuildInputPaths } from './helpers/esbuild-metafile-inputs.ts';
 import { readFile } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
 import { isAbsolute, matchesGlob, relative, resolve, sep } from 'node:path';
@@ -93,7 +94,7 @@ function visitSource(path: string, contents: string, callback: (node: Node) => v
 }
 
 function closureOf(metafile: Metafile): Closure {
-	const inputs = Object.keys(metafile.inputs).filter(input => input !== 'metadata-storage-native.js')
+	const inputs = physicalEsbuildInputPaths(metafile).filter(input => input !== 'metadata-storage-native.js')
 		.map(input => relative(ROOT, resolve(ROOT, input)).split(sep).join('/'));
 	const externalPackages = new Set<string>();
 	// Only emitted externals need runtime packages. Input metadata also records

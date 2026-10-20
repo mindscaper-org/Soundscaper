@@ -169,6 +169,9 @@ export async function createFixture(context) {
 		['tests/browser/handbook/handbook.spec.js', 'export const handbook = true;\n'],
 		['tests/aup3-fixture.js', 'export const fixture = true;\n'],
 		['tests/helpers/png-fixture.mjs', await readFile(new URL('./png-fixture.mjs', import.meta.url), 'utf8')],
+		...await Promise.all(['video-storage-native-publication-fixture.ts', 'video-storage-opfs-model-fixture.ts'].map(async (file) => [
+			`tests/helpers/${file}`, await readFile(new URL(`./${file}`, import.meta.url), 'utf8'),
+		])),
 		['tests/helpers/lightscaper-current-catalog-companions-fixture.ts', await readFile(new URL('./lightscaper-current-catalog-companions-fixture.ts', import.meta.url), 'utf8')],
 		['tests/helpers/lightscaper-current-library-loop-fixture.ts', await readFile(new URL('./lightscaper-current-library-loop-fixture.ts', import.meta.url), 'utf8')],
 		...await Promise.all(['desktop-preload-source.mjs', 'framescaper-ordinary-animation-fixture.ts', 'framescaper-ordinary-high-precision-image-fixture.ts', 'interchange-reference.ts', 'ordinary-cover-mp3-fixture.ts', 'native-original-import-fixture.ts', 'ordinary-ogg-opus-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts'].map(async (file) => [`tests/helpers/${file}`, await readFile(new URL(`./${file}`, import.meta.url), 'utf8')])),
@@ -221,6 +224,16 @@ export async function createFixture(context) {
 		['@types/dom-webcodecs', { licenses: ['LICENSE'] }],
 		['playwright', { dependencies: { 'playwright-core': '1.61.1' }, licenses: ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt'] }],
 		['playwright-core', { licenses: ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt'] }],
+		['@jridgewell/resolve-uri', { licenses: ['LICENSE'] }],
+		['@jridgewell/sourcemap-codec', { licenses: ['LICENSE'] }],
+		['@jridgewell/trace-mapping', { dependencies: {
+			'@jridgewell/resolve-uri': '3.1.2', '@jridgewell/sourcemap-codec': '1.5.5',
+		}, licenses: ['LICENSE'] }],
+		['@types/istanbul-lib-coverage', { licenses: ['LICENSE'] }],
+		['convert-source-map', { licenses: ['LICENSE'] }],
+		['v8-to-istanbul', { dependencies: {
+			'@jridgewell/trace-mapping': '0.3.31', '@types/istanbul-lib-coverage': '2.0.6', 'convert-source-map': '2.0.0',
+		}, licenses: ['LICENSE.txt'] }],
 		['@zip.js/zip.js', { licenses: ['LICENSE'] }],
 		// esbuild resolves its compiled binary from an optional per-platform
 		// dependency, which the closure walk ignores; staging admits the one the

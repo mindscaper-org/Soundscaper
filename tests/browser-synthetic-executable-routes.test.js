@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
+import { assertBrowserCoverageObserverSpec } from '../scripts/lib/browser-coverage-observer-policy.mjs';
 
 const BROWSER_SPECS = new URL('browser/', import.meta.url);
 const COVERAGE_FIXTURE = /from\s+['"]\.\/(?:audio-editor-test-fixtures|helpers\/browser-coverage-fixture)\.js['"]/u;
@@ -23,6 +24,7 @@ test('coverage-bearing browser specs opt out when they serve test-only executabl
 		const url = new URL(name, BROWSER_SPECS);
 		const source = await readSource(url);
 		if (!COVERAGE_FIXTURE.test(source)) continue;
+		if (assertBrowserCoverageObserverSpec(name, source)) continue;
 		assertDirectSyntheticTestsAreExcluded(name, source);
 		assertStrictHarnessCallsAreExcluded(name, source);
 		const executableSources = await sourceWithLocalBrowserHelpers(url, source, readSource);

@@ -67,6 +67,10 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('scripts/lib/browser-target-coverage-state.mjs'));
 	assert.ok(result.visited.has('scripts/lib/lightscaper-large-library-diagnostics-v1.ts'));
 	assert.ok(result.visited.has('scripts/lib/quality-budget-config.mjs'));
+	assert.ok(result.visited.has('scripts/vite-pffft-browser-shim.mjs'));
+	assert.ok(result.visited.has('desktop/lightscaper-native-photo-library-scopes-current-v1.ts'));
+	assert.ok(result.visited.has('desktop/lightscaper-native-photo-media-current-v1.ts'));
+	assert.ok(result.visited.has('tests/helpers/lightscaper-hdr-frame-current-fixture.ts'));
 	assert.ok(result.visited.has('scripts/quality-budget-evaluator.mjs'));
 	assert.ok(result.visited.has('src/common/editor/closed-domain-value.ts'));
 	assert.ok(result.visited.has('src/lightscaper/quality/large-library-workload-v1.ts'));
@@ -83,6 +87,17 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('desktop/blender-preload.ts'));
 	assert.ok(result.queryImports.some(({ specifier }) => specifier.endsWith('?worker&url')));
 });
+
+for (const [source, pattern] of [
+	['config/lightscaper-libraw-runtime-manifest.json', /Unstaged local import .*lightscaper-libraw-runtime-manifest\.json/u],
+	['scripts/vite-pffft-browser-shim.mjs', /Unstaged local import .*lightscaper-image-handoff-native-fixture\.js.*vite-pffft-browser-shim\.mjs/u],
+	['desktop/lightscaper-native-photo-library-scopes-current-v1.ts', /Unstaged local import .*lightscaper-native-photo-library-scopes-current-v1\.ts/u],
+]) {
+	test(`nightly payload audit rejects omitted current browser support ${source}`, () => {
+		const withoutSupport = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(input => input.source !== source);
+		assert.throws(() => inspectLocalImportClosure(withoutSupport), pattern);
+	});
+}
 
 test('nightly payload audit rejects an omitted photo-library diagnostic helper', () => {
 	const withoutPhotoDiagnostic = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
@@ -139,7 +154,7 @@ test('nightly payload production-module audit rejects an unstaged local dependen
 
 	assert.throws(
 		() => inspectLocalImportClosure(withoutCoveragePrefixes),
-		/Unstaged local import .*e2e-coverage-source-maps\.mjs.*e2e-coverage-prefixes\.mjs/u,
+		/Unstaged local import .*browser-gpu-production-coverage\.mjs.*e2e-coverage-prefixes\.mjs/u,
 	);
 });
 

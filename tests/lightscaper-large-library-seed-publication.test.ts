@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { physicalEsbuildInputPaths } from './helpers/esbuild-metafile-inputs.ts';
 import test from 'node:test';
 import { matchesGlob } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -182,7 +183,7 @@ test('the actual seed helper closure has exact nightly staging and package admis
 	const payload = resources.find(resource => typeof resource === 'object' && resource.to === 'nightly-tests');
 	assert.ok(payload && typeof payload === 'object'); assert.ok(Array.isArray(payload.filter)); const filter = payload.filter;
 	function check(inputs: typeof NIGHTLY_TEST_PAYLOAD_INPUTS) {
-		for (const input of Object.keys(result.metafile.inputs)) {
+		for (const input of physicalEsbuildInputPaths(result.metafile)) {
 			if (input.startsWith('node_modules/')) continue;
 			const owner = inputs.find(item => item.kind === 'file' ? item.source === input : input.startsWith(item.source + '/'));
 			assert.ok(owner, 'Nightly staging omits ' + input);
