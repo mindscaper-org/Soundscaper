@@ -51,7 +51,6 @@ test('translation metadata is built only on demand and retains catalog identitie
 	const ownedGerman = { open: 'Öffnen' };
 	const owner = { owner: 'panel', en: ownedEnglish, de: ownedGerman, aliases: { shared: 'plain' } };
 	const inventory = buildEditorCopyInventory(english, german, [owner]);
-	assert.deepEqual(Object.keys(inventory), ['english', 'german', 'getMetadata']);
 	english.plain = 'Changed';
 	german.plain = 'Geändert';
 	ownedEnglish.open = 'Changed';

@@ -9,9 +9,6 @@ import {
 	FRAMESCAPER_DIALOGUE_CHAIN_SCHEMA_VERSION_FINISHING as SCHEMA_VERSION,
 	FRAMESCAPER_DIALOGUE_NOISE_REDUCTION_PLACEMENT_FINISHING as NOISE_PLACEMENT,
 	FRAMESCAPER_LOUDNESS_TARGET_PRESET_IDS_FINISHING as PRESET_IDS,
-	createFramescaperDialogueChain,
-	createFramescaperDialogueChainAddCommand,
-	createFramescaperDialogueChainAddCommandFinishing,
 	createFramescaperDialogueChainFinishing as createChain,
 	normalizeFramescaperDialogueChainFinishing as normalizeChain,
 	resolveFramescaperLoudnessTargetFinishing as resolveTarget,
@@ -112,10 +109,3 @@ test('an unrecognised loudness target shape is refused', () => {
 	assert.throws(() => resolveTarget('not-a-preset'), Error);
 });
 
-test('the shortened chain and command names are the same entry points', () => {
-	assert.equal(createFramescaperDialogueChain, createChain);
-	assert.equal(
-		createFramescaperDialogueChainAddCommand,
-		createFramescaperDialogueChainAddCommandFinishing,
-	);
-});

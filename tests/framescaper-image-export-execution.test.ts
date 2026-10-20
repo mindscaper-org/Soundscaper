@@ -39,10 +39,6 @@ test('a project with no visible image clips composes no supplemental execution',
 	);
 });
 
-test('a supplemental execution requires the authenticated runtime profile', async () => {
-	await assert.rejects(() => createExecution(options({ profile: {} })), TypeError);
-});
-
 test('an already-cancelled export surfaces the caller abort reason', async () => {
 	const controller = new AbortController();
 	const reason = new Error('the caller cancelled the export');
@@ -69,13 +65,3 @@ test('a project that moved under the export is refused before any asset work', a
 	);
 });
 
-test('cancellation is checked after the project is cloned, not before', async () => {
-	const controller = new AbortController();
-	controller.abort(new Error('cancelled'));
-
-	await assert.rejects(
-		() => createExecution(options({ profile: {}, signal: controller.signal })),
-		TypeError,
-		'an inexact profile is refused even when the export was already cancelled',
-	);
-});

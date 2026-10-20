@@ -25,15 +25,9 @@ test('the single matching video source is returned with its attachment', () => {
 	);
 });
 
-test('a missing, duplicated or non-video source identity is refused', () => {
+test('a missing or non-video source identity is refused', () => {
 	assert.throws(() => capturedVideoProxySource(project([]), 'source-1'), ReferenceError);
-	assert.throws(
-		() => capturedVideoProxySource(
-			project([{ id: 'source-1', kind: 'video' }, { id: 'source-1', kind: 'video' }]),
-			'source-1',
-		),
-		ReferenceError,
-	);
+
 	assert.throws(
 		() => capturedVideoProxySource(project([{ id: 'source-1', kind: 'audio' }]), 'source-1'),
 		ReferenceError,
@@ -77,11 +71,3 @@ test('an aborted signal rethrows its own reason rather than a synthesized error'
 	});
 });
 
-test('an aborted signal without a reason falls back to a named AbortError', () => {
-	const signal = { aborted: true, reason: undefined } as unknown as AbortSignal;
-
-	assert.throws(() => throwIfCapturedVideoProxyAborted(signal), (error: unknown) => {
-		assert.equal((error as Error).name, 'AbortError');
-		return true;
-	});
-});

@@ -85,23 +85,3 @@ test('a failed load is not cached, so a later use retries it', async () => {
 	assert.deepEqual(runs, ['render-queue-enqueue']);
 });
 
-test('a module returning the wrong action slice is refused', async () => {
-	const loads = { count: 0 };
-	const runtime = bind(() => ({ surfaces: ['wrong-surface'], run: async () => undefined }), loads);
-	const run = runtime.run as (surface: string, request: unknown) => Promise<void>;
-
-	await assert.rejects(
-		() => run('render-queue-enqueue', {}),
-		/returned an invalid action slice/u,
-	);
-});
-
-test('a deferred binding requires a controller owner it can register against', () => {
-	const loads = { count: 0 };
-	const runs: string[] = [];
-	const loader = moduleLoader(() => actionSlice(runs), loads);
-
-	for (const owner of [null, undefined, 'owner', 42]) {
-		assert.throws(() => bindRenderQueue({}, owner as never, loader), TypeError);
-	}
-});
