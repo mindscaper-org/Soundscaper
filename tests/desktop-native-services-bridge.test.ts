@@ -341,18 +341,6 @@ test('direct queue reorder requires a writable owning project after capability a
 });
 
 test('the preload boundary rejects a hostile native capability response', async () => {
-	const database = new DatabaseSync(':memory:');
-	initializeFramescaperNativeServicesDatabase(database);
-	initializeFramescaperNativeServicesDatabaseV3(database);
-	const lease = acquireFramescaperNativeServicesWriterLease(database, {
-		leaseId: 'lease-b', instanceId: 'instance-b', processId: 2, nowMs: 0,
-	});
-	const controller = new FramescaperNativeServicesControllerV3({
-		queue: new FramescaperNativeQueueRepository(database),
-		roots: new FramescaperNativeRootRepository(database),
-		watch: new FramescaperNativeWatchRepository(database),
-		lease: () => lease,
-	});
 	const bridge = createFramescaperNativeServicesMainPreloadBridge({
 		invoke: async () => ({
 			snapshotVersion: 1, masterEnabled: false, buildFingerprint: null,
@@ -361,9 +349,7 @@ test('the preload boundary rejects a hostile native capability response', async 
 				secretPath: '/tmp/payload' }],
 		}),
 	});
-	void controller;
 	await assert.rejects(() => bridge.capabilities(), /unsupported fields|exact|keys/iu);
-	database.close();
 });
 
 test('the OpenFX preload rejects path-bearing scanner output', async () => {

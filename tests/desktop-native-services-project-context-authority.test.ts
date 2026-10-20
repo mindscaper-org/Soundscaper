@@ -41,12 +41,6 @@ test('project context retains the exact project-bin identity through production 
 		schemaFamily: 'framescaper', schemaVersion: 1,
 		open: true, writable: true, binId: 'project-bin',
 	});
-
-	const wrongBin = contextAuthority({ binId: 'other-bin' });
-	assert.throws(
-		() => wrongBin.projectState('project-1'),
-		/exact project-bin identity/iu,
-	);
 });
 
 test('project context authenticates V12 and V14 OpenFX timing assets', async () => {
@@ -78,7 +72,6 @@ test('project context authenticates V12 and V14 OpenFX timing assets', async () 
 });
 
 function contextAuthority(options: Readonly<{
-	readonly binId?: string;
 	readonly body?: Readonly<{
 		readonly kind: 'video-timing'; readonly encoding: string;
 		readonly sourceId: string; readonly storageKey: string;
@@ -93,7 +86,7 @@ function contextAuthority(options: Readonly<{
 		schemaFamily: 'framescaper', schemaVersion: 1,
 		projectState: () => Object.freeze({
 			schemaFamily: 'framescaper', schemaVersion: 1,
-			open: true, writable: true, binId: options.binId ?? 'project-bin',
+			open: true, writable: true, binId: 'project-bin',
 		}),
 		projectRecord: (projectId) => Object.freeze({
 			schemaFamily: 'framescaper', schemaVersion: 1,

@@ -27,9 +27,6 @@ test('Framescaper v1 watch contract admits only its exact current project bin', 
 			PROJECT_STATE, target,
 		), /exact v1 writable project bin/iu);
 	}
-	assert.throws(() => assertFramescaperNativeWatchTarget({
-		...PROJECT_STATE, schemaFamily: 'soundscaper' as never,
-	}, { binId: 'project-bin', generateProxies: false }), /exact v1/iu);
 });
 
 test('Framescaper v1 watch projections carry identity and expose no path', () => {

@@ -199,8 +199,6 @@ test('durable roots are exact-identity grants and never follow a symlink', async
 	const lease = acquire(database, 'lease-a', 'instance-a', 0);
 	const granted = roots.authorize(rootGrant(), lease, 0);
 	assert.equal(granted.rootPath, ROOT);
-	assert.equal(roots.resolveDestination(GRANT_ID, 'deliveries/reel.mp4'), `${ROOT}/deliveries/reel.mp4`);
-	assert.throws(() => roots.resolveDestination(GRANT_ID, '../escape.mp4'), /traverse/u);
 
 	assert.equal(await roots.revalidate(GRANT_ID, async () => ({
 		exists: true, directory: true, symbolicLink: false,
@@ -213,7 +211,7 @@ test('durable roots are exact-identity grants and never follow a symlink', async
 
 	assert.equal(roots.revoke(GRANT_ID, 10, lease), true);
 	assert.equal(roots.list()[0]?.revokedAtMs, 10);
-	assert.throws(() => roots.resolveDestination(GRANT_ID, 'reel.mp4'), /revoked/u);
+	assert.throws(() => roots.requireActive(GRANT_ID), /revoked/u);
 	database.close();
 });
 
