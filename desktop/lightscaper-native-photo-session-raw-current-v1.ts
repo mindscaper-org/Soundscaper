@@ -11,6 +11,7 @@ import { LightscaperNativePhotoRawTicketsCurrentV1 as Tickets } from './lightsca
 import { LightscaperNativePhotoSessionHandlesCurrentV1 as Handles } from './lightscaper-native-photo-session-handles-current-v1.ts';
 import { checkLightscaperNativePhotoMediaSignalCurrentV1 as check, linkLightscaperNativePhotoMediaSignalsCurrentV1 as link } from './lightscaper-native-photo-media-lifetime-current-v1.ts';
 import type { LightscaperNativePhotoLinkedSessionCurrentV1 as Linked } from './lightscaper-native-photo-linked-session-current-v1.ts';
+import type { LightscaperNativePhotoLinkedInputViewCurrentV1 as LinkedView } from './lightscaper-native-photo-linked-input-current-v1.ts';
 type Scope = Readonly<{ signal: AbortSignal; assertCurrent(): void }>;
 type Options = Readonly<{ signal?: AbortSignal }>;
 type Booking = ReturnType<Handles['reserve']>;
@@ -54,7 +55,14 @@ export class LightscaperNativePhotoSessionRawCurrentV1 {
    owner.#scope = Object.freeze<Scope>({ signal: selected.signal, assertCurrent: () => { owner.#current(); } });
    const registry = Registry.create({ media: Reflect.get(components, 'media'), handles, scope: owner.#scope,
     unretired: () => { owner.#quarantine(new Error('Main RAW input registry retirement is unproved.')); },
-    ...(typeof borrow === 'function' ? { withLinkedInput: (id: string, consume: Parameters<Linked['withInput']>[1], options?: Options) => Reflect.apply(borrow, linked, [Object.freeze({ kind: 'linked-input', id }), consume, options]) as Promise<unknown> } : {}) });
+    ...(typeof borrow === 'function' ? { withLinkedInput: (id: string, consume: Parameters<Registry['withInput']>[1], options?: Options) => Reflect.apply(borrow, linked,
+     [Object.freeze({ kind: 'linked-input', id }), (source: Readonly<LinkedView>) => {
+      // Project only the genuine borrowed byte capability. Its outer owner
+      // still joins this consumer and every actual read before retirement.
+      const read = source.read;
+      return consume(Object.freeze({ byteLength: source.byteLength, contentSha256: source.contentSha256,
+       read: (offset: number, length: number) => Reflect.apply(read, source, [offset, length]) as Promise<Uint8Array> }));
+     }, options]) as Promise<unknown> } : {}) });
    owner.#registry = registry; const close = registry.close; owner.#registryClose = () => Reflect.apply(close, registry, []) as Promise<void>;
    return owner;
   } catch (caught) {
