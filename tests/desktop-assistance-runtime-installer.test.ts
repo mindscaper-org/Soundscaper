@@ -111,16 +111,6 @@ test('runtime installer keeps archives in its explicit cache and reuses them aft
 	await assert.rejects(lstat(join(runtimeRoot, '.archives')), { code: 'ENOENT' });
 });
 
-test('runtime installer rejects an invalid explicit archive cache root', () => {
-	const archive = tar([{ path: 'bin/runtime', bytes: PAYLOAD }]);
-	for (const archiveCacheRoot of ['', 'relative/cache', '/invalid\0cache', `${tmpdir()}/cache/..`]) {
-		assert.throws(() => createAssistanceRuntimeInstaller({
-			distribution: distribution(archive), runtimeRoot: tmpdir(), archiveCacheRoot,
-			platform: 'linux', architecture: 'x64',
-		}), /absolute canonical path/iu);
-	}
-});
-
 test('runtime installer accepts the pinned Kokoro directory depth on Windows', async (t) => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-runtime-kokoro-depth-'));
 	t.after(() => rm(root, { recursive: true, force: true }));

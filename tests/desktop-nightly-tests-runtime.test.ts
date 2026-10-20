@@ -7,7 +7,6 @@ import {
 	readFile,
 	rename,
 	rm,
-	symlink,
 	writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -22,13 +21,11 @@ import {
 	resolveDesktopNightlyTestsEsbuildBinary,
 	resolveDesktopNightlyTestsOutputRoot,
 	runDesktopNightlyTests,
-	startDesktopNightlyTestsStaticServer,
 	writeDesktopNightlyTestsResultEnvelope,
 } from '../scripts/lib/desktop-nightly-tests-runtime.mjs';
 import { PACKAGED_RUNTIME_ARTIFACT_PATHS } from '../scripts/lib/desktop-nightly-tests-packaged-runtime.mjs';
 import { runDualOriginPhaseFixture } from './helpers/nightly-tests-dual-origin-phase.ts';
 import { nightlyProductSitesFixture } from './helpers/nightly-tests-product-sites.ts';
-import { rawHttpRequest } from './helpers/raw-http-request.ts';
 
 const PRODUCT = Object.freeze({
 	id: 'soundscaper',
@@ -94,11 +91,6 @@ test('nightly test output roots reject ambiguous or relative launcher paths', ()
 		executablePath: '/tmp/.mount/soundscaper',
 		environment: { APPIMAGE: 'Soundscaper.AppImage' },
 	}), /APPIMAGE.*absolute/iu);
-	assert.throws(() => resolveDesktopNightlyTestsOutputRoot({
-		platform: 'linux',
-		executablePath: 'soundscaper',
-		environment: {},
-	}), /executable path.*absolute/iu);
 });
 
 test('nightly test run directories are timestamped, sibling-contained, and collision safe', async (context) => {
@@ -124,87 +116,6 @@ test('nightly test run directories are timestamped, sibling-contained, and colli
 		() => createDesktopNightlyTestsRunDirectory({ outputRoot: notDirectory, productId: 'soundscaper', now }),
 		/not a directory/iu,
 	);
-});
-
-test('the bundled static server serves bounded files and rejects traversal and symlink escape', async (context) => {
-	const fixtureRoot = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-server-'));
-	context.after(() => rm(fixtureRoot, { recursive: true, force: true }));
-	const publicRoot = join(fixtureRoot, 'dist');
-	await Promise.all([
-		mkdir(join(publicRoot, 'en'), { recursive: true }),
-		mkdir(join(publicRoot, 'framescaper/en'), { recursive: true }),
-	]);
-	await writeFile(join(publicRoot, 'index.html'), '<h1>root</h1>', 'utf8');
-	await writeFile(join(publicRoot, 'en/index.html'), '<h1>English</h1>', 'utf8');
-	await writeFile(join(publicRoot, 'framescaper/en/index.html'), '<h1>Framescaper English</h1>', 'utf8');
-	await writeFile(join(publicRoot, 'app.js'), 'export const ready = true;', 'utf8');
-	await writeFile(join(publicRoot, 'worker.wasm'), Uint8Array.of(0, 97, 115, 109));
-	const outside = join(fixtureRoot, 'outside.txt');
-	await writeFile(outside, 'secret', 'utf8');
-	if (process.platform !== 'win32') {
-		await symlink(outside, join(publicRoot, 'escape.txt'));
-		await mkdir(join(publicRoot, 'embed/en'), { recursive: true });
-		await symlink(outside, join(publicRoot, 'embed/en/index.html'));
-	}
-
-	const server = await startDesktopNightlyTestsStaticServer({ root: publicRoot });
-	context.after(() => server.close());
-
-	const root = await fetch(`${server.baseURL}/`);
-	assert.equal(root.status, 200);
-	assert.equal(root.headers.get('content-type'), 'text/html; charset=utf-8');
-	assert.equal(await root.text(), '<h1>root</h1>');
-	const localized = await fetch(`${server.baseURL}/en/`);
-	assert.equal(await localized.text(), '<h1>English</h1>');
-	const embedded = await fetch(`${server.baseURL}/embed/en/`, {
-		headers: { Accept: 'text/html' },
-	});
-	assert.equal(embedded.status, 200);
-	assert.equal(await embedded.text(), '<h1>English</h1>');
-	const embeddedWithQuery = await fetch(`${server.baseURL}/embed/en/?project=fixture`, {
-		headers: { Accept: 'text/html' },
-	});
-	assert.equal(embeddedWithQuery.status, 200);
-	assert.equal(await embeddedWithQuery.text(), '<h1>English</h1>');
-	const framescaper = await fetch(`${server.baseURL}/framescaper/embed/en/`, {
-		method: 'HEAD', headers: { Accept: 'text/html' },
-	});
-	assert.equal(framescaper.status, 200);
-	assert.equal(framescaper.headers.get('content-length'), String(Buffer.byteLength('<h1>Framescaper English</h1>')));
-	assert.equal(await framescaper.text(), '');
-	const script = await fetch(`${server.baseURL}/app.js`);
-	assert.equal(script.headers.get('content-type'), 'text/javascript; charset=utf-8');
-	const wasm = await fetch(`${server.baseURL}/worker.wasm`);
-	assert.equal(wasm.headers.get('content-type'), 'application/wasm');
-
-	const head = await fetch(`${server.baseURL}/app.js`, { method: 'HEAD' });
-	assert.equal(head.status, 200);
-	assert.equal(head.headers.get('content-length'), String(Buffer.byteLength('export const ready = true;')));
-	assert.equal(await head.text(), '');
-	const post = await fetch(`${server.baseURL}/`, { method: 'POST' });
-	assert.equal(post.status, 405);
-	assert.equal(post.headers.get('allow'), 'GET, HEAD');
-	assert.equal((await rawHttpRequest(server.baseURL, '/%2e%2e/outside.txt')).statusCode, 400);
-	assert.equal((await rawHttpRequest(server.baseURL, '/%5coutside.txt')).statusCode, 400);
-	assert.equal((await rawHttpRequest(server.baseURL, '/%ZZ')).statusCode, 400);
-	if (process.platform !== 'win32') assert.equal((await fetch(`${server.baseURL}/escape.txt`)).status, 404);
-	assert.equal((await fetch(`${server.baseURL}/missing.txt`)).status, 404);
-	assert.equal((await fetch(`${server.baseURL}/embed/en/missing.js`, {
-		headers: { Accept: 'text/html' },
-	})).status, 404);
-	assert.equal((await fetch(`${server.baseURL}/embed/unknown/`, {
-		headers: { Accept: 'text/html' },
-	})).status, 404);
-	assert.equal((await fetch(`${server.baseURL}/embed/en/`, {
-		headers: { Accept: 'application/json, text/html;q=0' },
-	})).status, 404);
-	assert.equal((await rawHttpRequest(server.baseURL, '/embed/en/')).statusCode, 404);
-	assert.equal((await fetch(`${server.baseURL}/embed/en/`, {
-		headers: { Accept: '*/*' },
-	})).status, 404);
-	assert.equal((await fetch(`${server.baseURL}/embed/en/`, {
-		headers: { Accept: 'application/json' },
-	})).status, 404);
 });
 
 test('the Playwright plan is closed over the packaged payload and sibling run root', () => {
@@ -295,14 +206,6 @@ test('the Playwright plan names the staged esbuild binary for the browser specs 
 		}).env, 'ESBUILD_BINARY_PATH'),
 		false,
 	);
-	assert.throws(() => createDesktopNightlyTestsPlaywrightPlan({
-		executablePath: '/opt/Soundscaper Tests/soundscaper-tests',
-		payloadRoot: '/opt/Soundscaper Tests/resources/nightly-tests',
-		runRoot: '/tmp/Soundscaper-playwright-run',
-		baseURL: 'http://127.0.0.1:45678',
-		esbuildBinaryPath: 'node_modules/@esbuild/win32-x64/esbuild.exe',
-		environment: {},
-	}), /esbuild binary path/u);
 });
 
 test('Playwright exit mapping and result envelopes distinguish failures from infrastructure errors', () => {

@@ -27,7 +27,6 @@ test('professional-native notice summaries are exact, target-specific, and recei
 		});
 		assert.equal(summary.status, 'authenticated');
 		assert.equal(summary.target, target);
-		assert.equal(Object.hasOwn(summary, 'legalApproval'), false);
 		assert.deepEqual(summary.sources.map(({ id }) => id),
 			soundscaperProfessionalNativeSourceIdsForTarget(target));
 		assert.equal(summary.sources.some(({ id }) => ['x264', 'x265', 'libvpx', 'libopus'].includes(id)), false);
@@ -46,7 +45,7 @@ test('professional-native notice summaries are exact, target-specific, and recei
 	}), /source authentication|archive/iu);
 });
 
-test('preview notice state stays explicitly unavailable and cannot claim legal approval', () => {
+test('preview notice state stays explicitly unavailable', () => {
 	assert.deepEqual(typedUnavailableSoundscaperProfessionalNativeNotices('mac-arm64'), {
 		schemaVersion: 1,
 		status: 'typed-unavailable',

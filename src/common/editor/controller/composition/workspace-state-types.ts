@@ -20,10 +20,11 @@ import type { VideoEffectServiceRuntime } from '../clip-video/video-effect-servi
 import type { AudioEditorClipboard } from '../../commands/protocol.ts';
 import type { ExportActionState } from '../export/export-action-group.ts';
 import type { DeepReadonly } from '../shared/owned-state.ts';
+import type { SelectedLabelState } from '../../label-clipboard-selection.ts';
 
 /** Mutable workspace slots retain their owners' contracts after initialization. */
 export type ControllerWorkspaceState<Preferences, EffectPresets, History = ControllerRuntimeHistory> =
-	& ExportActionState
+	& ExportActionState & SelectedLabelState
 	& DeepReadonly<ControllerEffectsState<EffectPresets>>
 	& {
 	localDiagnostics: ReturnType<typeof createLocalDiagnosticsErrorJournal>;
@@ -36,6 +37,7 @@ export type ControllerWorkspaceState<Preferences, EffectPresets, History = Contr
 	visibleTrackHeights: Record<string, number>;
 	timelineView: ProjectViewState['timelineView'];
 	takeCycleRecovery: TakeCyclePendingOpenRecovery | null;
+	startupProjectRecovery: Readonly<{ projectId: string; message: string }> | null;
 	projectLock: ProjectLifecycleLock | null;
 	projectBinPreview: ProjectBinPreview | null;
 	exportAbort: EditorCancellableHandle | null;

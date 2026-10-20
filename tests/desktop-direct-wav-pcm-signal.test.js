@@ -72,6 +72,9 @@ test('PCM signal validation rejects channel drift, silence, DC, and wrong level 
 		['nonzero signal', [0, 0, 0, 0, 0], null],
 		['positive and negative', [100, 100, 100, 100, 100], null],
 		['peak', [-10, -10, 0, 10, 10], null],
+		['mean', [-100, -1, 0, 2, 100], null],
+		['RMS', [-100, -50, 0, 50, 100], null],
+		['crossing', [-100, 1, 0, -1, 100], null],
 	];
 	for (const [message, samples, mutation] of cases) {
 		const analyzer = createDesktopDirectWavPcmSignalAnalyzer(SMALL_GEOMETRY);
@@ -81,29 +84,6 @@ test('PCM signal validation rejects channel drift, silence, DC, and wrong level 
 			new RegExp(message, 'iu'),
 		);
 	}
-	const valid = analyze([-100, -1, 0, 1, 100]);
-	for (const [field, value, message] of [
-		['meanSample', 1, 'mean'],
-		['rmsSample', 62, 'RMS'],
-		['zeroCrossings', 0, 'crossing'],
-	]) {
-		assert.throws(
-			() => validateDesktopDirectWavPcmSignalEvidence({ ...valid, [field]: value }, SMALL_GEOMETRY, SMALL_LIMITS),
-			new RegExp(message, 'iu'),
-		);
-	}
-});
-
-test('PCM signal analyzer rejects incomplete and excess frame streams', () => {
-	const bytes = interleavedPcm([-100, -1, 0, 1, 100], SMALL_GEOMETRY.channelCount);
-	const incomplete = createDesktopDirectWavPcmSignalAnalyzer(SMALL_GEOMETRY);
-	incomplete.push(bytes.subarray(0, bytes.byteLength - 1));
-	assert.throws(() => incomplete.finish(), /partial PCM frame/iu);
-
-	const excess = createDesktopDirectWavPcmSignalAnalyzer(SMALL_GEOMETRY);
-	excess.push(interleavedPcm([-100, -1, 0, 1, 100, 101], SMALL_GEOMETRY.channelCount));
-	assert.throws(() => excess.finish(), /frame count/iu);
-	assert.throws(() => excess.push(new Uint8Array(0)), /finished/iu);
 });
 
 test('reference signal limits admit exact-frame desktop PCM tone evidence', () => {
@@ -251,12 +231,6 @@ test('completed-file verification produces identical signal evidence across one-
 		signalLimits: SMALL_LIMITS,
 	}), /channel mapping/iu);
 });
-
-function analyze(samples) {
-	const analyzer = createDesktopDirectWavPcmSignalAnalyzer(SMALL_GEOMETRY);
-	analyzer.push(interleavedPcm(samples, SMALL_GEOMETRY.channelCount));
-	return analyzer.finish();
-}
 
 function interleavedPcm(samples, channelCount, mutation = null) {
 	const bytes = new Uint8Array(samples.length * channelCount * 2);

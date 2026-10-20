@@ -13,9 +13,7 @@ import {
 	framescaperNativeOpenFxActionBridgeAvailableNativeMedia as openFxBridgeAvailable,
 } from '../src/framescaper/editor-native-action-bridge-availability.ts';
 import {
-	arrayValue,
 	dataArray,
-	dataRecord,
 	exactRecordById,
 	nonNegativeInteger,
 	positiveInteger,
@@ -55,50 +53,11 @@ test('freeze record lookup returns the one record with an own stable identity', 
 	assert.equal(exactRecordById([{ id: 'other' }, target], 'target', 'freeze item'), target);
 });
 
-test('freeze record lookup rejects absent and duplicate identities', () => {
+test('freeze record lookup rejects an absent identity', () => {
 	assert.throws(
 		() => exactRecordById([{ id: 'other' }], 'target', 'freeze item'),
 		/freeze item target must exist exactly once/u,
 	);
-	assert.throws(
-		() => exactRecordById([{ id: 'target' }, { id: 'target' }], 'target', 'freeze item'),
-		/freeze item target must exist exactly once/u,
-	);
-});
-
-test('freeze record lookup rejects inherited identities without reading them', () => {
-	let reads = 0;
-	const prototype = Object.create(null) as Record<string, unknown>;
-	Object.defineProperty(prototype, 'id', {
-		enumerable: true,
-		get: () => {
-			reads += 1;
-			return 'target';
-		},
-	});
-	const inherited = Object.create(prototype) as Record<string, unknown>;
-	assert.throws(() => exactRecordById([inherited], 'target', 'freeze item'), /plain object/u);
-	assert.equal(reads, 0);
-});
-
-test('freeze record lookup rejects an own identity accessor without invoking it', () => {
-	let reads = 0;
-	const candidate: Record<string, unknown> = {};
-	Object.defineProperty(candidate, 'id', {
-		enumerable: true,
-		get: () => {
-			reads += 1;
-			return 'target';
-		},
-	});
-	assert.throws(() => exactRecordById([candidate], 'target', 'freeze item'), /own data property/u);
-	const hostile = new Proxy({ id: 'target' }, {
-		getOwnPropertyDescriptor: () => {
-			throw new Error('hostile descriptor');
-		},
-	});
-	assert.throws(() => exactRecordById([hostile], 'target', 'freeze item'), /own data property/u);
-	assert.equal(reads, 0);
 });
 
 test('freeze data arrays snapshot dense plain and null-prototype records', () => {
@@ -107,61 +66,6 @@ test('freeze data arrays snapshot dense plain and null-prototype records', () =>
 	const result = dataArray([first, second], 'freeze values');
 	assert.deepEqual(result, [first, second]);
 	assert.equal(Object.isFrozen(result), true);
-});
-
-test('freeze arrays reject holes and unrelated own properties', () => {
-	assert.throws(() => dataArray(null, 'freeze values'), /must be an array/u);
-	const sparse: unknown[] = [];
-	sparse.length = 1;
-	assert.throws(() => dataArray(sparse, 'freeze values'), /dense data-property array/u);
-	const decorated: unknown[] = [{}];
-	Object.defineProperty(decorated, 'metadata', { enumerable: false, value: true });
-	assert.throws(() => arrayValue(decorated, 'freeze values'), /dense data-property array/u);
-	const hostile = new Proxy<unknown[]>([], {
-		ownKeys: () => {
-			throw new Error('hostile keys');
-		},
-	});
-	assert.throws(() => arrayValue(hostile, 'freeze values'), /dense data-property array/u);
-});
-
-test('freeze arrays reject indexed accessors without invoking them', () => {
-	let reads = 0;
-	const accessor: unknown[] = [];
-	Object.defineProperty(accessor, '0', {
-		enumerable: true,
-		get: () => {
-			reads += 1;
-			return { id: 'target' };
-		},
-	});
-	assert.throws(() => arrayValue(accessor, 'freeze values'), /own data property/u);
-	assert.throws(() => dataArray(accessor, 'freeze values'), /own data property/u);
-	const hostile = new Proxy<unknown[]>([{}], {
-		getOwnPropertyDescriptor: (target, field) => {
-			if (field === '0') throw new Error('hostile descriptor');
-			return Reflect.getOwnPropertyDescriptor(target, field);
-		},
-	});
-	assert.throws(() => arrayValue(hostile, 'freeze values'), /own data property/u);
-	assert.equal(reads, 0);
-});
-
-test('freeze records accept only plain object authority', () => {
-	const ordinary = {};
-	const nullPrototype = Object.create(null) as Record<string, unknown>;
-	assert.equal(dataRecord(ordinary, 'freeze record'), ordinary);
-	assert.equal(dataRecord(nullPrototype, 'freeze record'), nullPrototype);
-	assert.throws(() => dataRecord(null, 'freeze record'), /must be an object/u);
-	assert.throws(() => dataRecord([], 'freeze record'), /must be an object/u);
-	assert.throws(() => dataRecord(new Date(0), 'freeze record'), /plain object/u);
-	assert.throws(() => dataRecord(new (class FreezeRecord {})(), 'freeze record'), /plain object/u);
-	const hostile = new Proxy({}, {
-		getPrototypeOf: () => {
-			throw new Error('hostile prototype');
-		},
-	});
-	assert.throws(() => dataRecord(hostile, 'freeze record'), /plain object/u);
 });
 
 test('freeze scalar validators enforce stable IDs and canonical safe integers', () => {

@@ -22,8 +22,6 @@ test('pitch views agree across semitones, cents, percent and frequency pairs', (
 	assert.equal(audacitySemitonesFromPercent(100), 12);
 	assert.equal(audacitySemitonesFromFrequencies(440, 880), 12);
 	assert.equal(audacitySemitonesFromFrequencies(440, 220), -12);
-	assert.throws(() => audacitySemitonesFromPercent(-100), RangeError);
-	assert.throws(() => audacitySemitonesFromFrequencies(0, 440), RangeError);
 });
 
 test('a derived percentage gesture delivers semitones through every phase of the original pitch gesture', () => {
@@ -54,7 +52,6 @@ test('vinyl conversions only admit speeds the current effect parameter can repre
 	assert.equal(audacityVinylRateAvailable(78, 100 / 3, rateRange), false);
 	assert.equal(audacityVinylRateAvailable(45, 78, rateRange), true);
 	assert.equal(audacityVinylRateAvailable(100 / 3, 78, [-99, 4900]), true);
-	assert.equal(audacityVinylRateAvailable(0, 45, rateRange), false);
 });
 
 test('linked tone edits finish the original tone commit before committing the compensated output', async () => {

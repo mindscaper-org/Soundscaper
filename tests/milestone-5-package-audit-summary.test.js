@@ -15,6 +15,9 @@ import {
 
 const REVISION = 'a'.repeat(40);
 const DIGEST = 'b'.repeat(64);
+const APPLICATION_VERSIONS = Object.freeze({
+	soundscaper: '2.0.0-rc.3', framescaper: '3.0.0-beta.2',
+});
 
 test('the package-audit summary covers every product target without release semantics', () => {
 	const summary = summarizeMilestone5PackageAudits(
@@ -23,10 +26,7 @@ test('the package-audit summary covers every product target without release sema
 
 	assert.equal(summary.schemaVersion, 2);
 	assert.equal(summary.kind, 'milestone-5-package-audit-summary');
-	assert.deepEqual(summary.applicationVersions, {
-		soundscaper: '1.0.0-rc.Oct.13.a',
-		framescaper: '1.0.0-rc.13',
-	});
+	assert.deepEqual(summary.applicationVersions, APPLICATION_VERSIONS);
 	assert.equal(Object.hasOwn(summary, 'applicationVersion'), false);
 	assert.equal(summary.auditCount, 10);
 	assert.equal(summary.packageFilesRevalidated, false);
@@ -125,9 +125,7 @@ function audit(identity) {
 			status: 'installed-application-closure-audited',
 			productId: identity.productId,
 			targetId: identity.targetId,
-			applicationVersion: identity.productId === 'soundscaper'
-				? '1.0.0-rc.Oct.13.a'
-				: '1.0.0-rc.13',
+			applicationVersion: APPLICATION_VERSIONS[identity.productId],
 			sourceRevision: REVISION,
 			runtimeManifest: {
 				name: `runtime-manifest-${identity.productId}-${identity.targetId}.json`,

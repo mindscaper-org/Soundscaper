@@ -79,6 +79,7 @@ export interface NativeRealtimeBrokerPort {
 		channelCount: number
 		frameCount: number
 		queueCapacity: number
+		sessionId?: string
 	}>): Readonly<{
 		status: 'authorized' | 'refused'
 		generation?: number
@@ -87,6 +88,7 @@ export interface NativeRealtimeBrokerPort {
 		message?: string
 	}>
 	revokeOwner(owner: NativeRealtimeOwnerTarget): void
+	revokeGeneration?(generation: number): void
 }
 
 export interface NativeAudioRealtimeBinder {
@@ -173,6 +175,7 @@ interface SessionEntry {
 	transport: 'native' | 'web-core' | 'unavailable'
 	fallback: NativeAudioSessionProjection['fallback']
 	realtimeOwner: NativeRealtimeOwnerTarget | null
+	realtimeGeneration: number | null
 	adapterClose: Promise<void> | null
 	binding: boolean
 	closed: boolean
@@ -261,6 +264,7 @@ export class DesktopNativeAudioSessionService {
 				transport: 'native',
 				fallback: null,
 				realtimeOwner: null,
+				realtimeGeneration: null,
 				adapterClose: null,
 				binding: false,
 				closed: false,
@@ -303,18 +307,19 @@ export class DesktopNativeAudioSessionService {
 		try {
 			const authorization = this.#broker.authorize({ owner: target,
 				sampleRate: session.format.sampleRate, channelCount: session.format.channelCount,
-				frameCount: session.format.periodFrames, queueCapacity })
+				frameCount: session.format.periodFrames, queueCapacity, sessionId: session.sessionId })
 			if (authorization.status !== 'authorized' || authorization.generation === undefined || !authorization.format) {
 				throw new Error(authorization.message ?? 'The native real-time port was refused.')
 			}
 			session.realtimeOwner = target
+			session.realtimeGeneration = authorization.generation
 			await this.#realtime.bind({ session: session.adapter,
 				generation: authorization.generation, format: authorization.format })
 			if (session.closed || session.state !== 'open') throw new Error('The native audio session ended while binding.')
 			session.state = 'bound'
 			return Object.freeze({ status: 'bound' as const, generation: authorization.generation })
 		} catch (error) {
-			if (session.realtimeOwner === target) { this.#broker.revokeOwner(target); session.realtimeOwner = null }
+			if (session.realtimeOwner === target) this.#revokeRealtime(session)
 			throw error
 		} finally { session.binding = false }
 	}
@@ -367,10 +372,7 @@ export class DesktopNativeAudioSessionService {
 			return lossDisposition(session)
 		}
 		session.state = 'device-lost'
-		if (session.realtimeOwner) {
-			this.#broker.revokeOwner(session.realtimeOwner)
-			session.realtimeOwner = null
-		}
+		this.#revokeRealtime(session)
 		const eligible = session.format.direction !== 'input'
 		session.transport = eligible ? 'web-core' : 'unavailable'
 		session.fallback = Object.freeze({ active: eligible, eligible, reason })
@@ -456,11 +458,16 @@ export class DesktopNativeAudioSessionService {
 		if (session.closed) return
 		session.closed = true
 		this.#sessions.delete(session.sessionId)
-		if (session.realtimeOwner) {
-			this.#broker.revokeOwner(session.realtimeOwner)
-			session.realtimeOwner = null
-		}
+		this.#revokeRealtime(session)
 		await this.#closeAdapter(session)
+	}
+
+	#revokeRealtime(session: SessionEntry): void {
+		if (!session.realtimeOwner) return
+		if (session.realtimeGeneration !== null && this.#broker.revokeGeneration) this.#broker.revokeGeneration(session.realtimeGeneration)
+		else this.#broker.revokeOwner(session.realtimeOwner)
+		session.realtimeOwner = null
+		session.realtimeGeneration = null
 	}
 
 	#closeAdapter(session: SessionEntry): Promise<void> {

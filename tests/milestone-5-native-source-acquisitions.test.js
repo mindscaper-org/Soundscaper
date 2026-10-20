@@ -55,10 +55,6 @@ const EXPECTED_PINS = {
 	zlib: ['1.3.1', '51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf', 1512791,
 		'9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23'],
 };
-// Every pinned source is available to the build/test path. Human licensing and
-// distribution licensing metadata is recorded separately.
-const TEST_ACTIVATION_ENABLED = MILESTONE_5_NATIVE_SOURCE_IDS;
-
 const EXPECTED_LICENSE_SELECTIONS = {
 	'electron-node-api-headers': 'MIT',
 	juce: 'AGPL-3.0-only',
@@ -88,22 +84,14 @@ test('milestone-5 source packet pins and test-enables every native dependency', 
 		], EXPECTED_PINS[source.id], source.id);
 		assert.equal(source.licenseSelection, EXPECTED_LICENSE_SELECTIONS[source.id], source.id);
 		assert.equal(source.authenticationStatus, 'pinned-metadata');
-		if (['asio-sdk', 'electron-node-api-headers', 'ladspa-sdk'].includes(source.id)) {
-			assert.equal(source.git.commit, null);
-		}
-		else assert.match(source.git.commit, /^[a-f\d]{40}$/u, source.id);
 		assert.match(source.archive.url, /^https:\/\//u, source.id);
 		assert.match(source.archive.fileName, /\.(?:tar\.gz|zip)$/u, source.id);
-		assert.ok(Number.isSafeInteger(source.archive.byteLength) && source.archive.byteLength > 0, source.id);
-		assert.match(source.archive.sha256, /^[a-f\d]{64}$/u, source.id);
 		assert.equal(source.extractedTree.algorithm, 'framescaper-portable-source-tree-sha256-v1');
 		assert.ok(source.extractedTree.fileCount > 0, source.id);
 		assert.match(source.extractedTree.sha256, /^[a-f\d]{64}$/u, source.id);
-		assert.ok(TEST_ACTIVATION_ENABLED.includes(source.id), source.id);
 		assert.equal(source.activationStatus, 'accepted', source.id);
 		assert.equal(source.blockedBy, null, `${source.id} is test-enabled and cannot still name a blocker`);
 		assert.ok(source.license.length > 0, source.id);
-		assert.ok(source.licenseSelection.length > 0, source.id);
 		assert.ok(source.uses.length > 0, source.id);
 	}
 

@@ -74,16 +74,11 @@ const APPLICATION_MENU_COPY = Object.freeze({
 	'ui.freesoundAttribution.panel': FREESOUND_ATTRIBUTION_INVENTORY_COPY_BY_LOCALE.en.panel,
 });
 
-test('the supplemental application-menu reference is a frozen unique lookup', () => {
-	assert.ok(Object.isFrozen(APPLICATION_MENU_REFERENCE_ENTRIES));
-	assert.ok(Object.isFrozen(APPLICATION_MENU_REFERENCE_BY_ID));
+test('the supplemental application-menu reference is a unique lookup', () => {
 	assert.ok(APPLICATION_MENU_REFERENCE_ENTRIES.length > 0);
 
 	const ids = new Set<string>();
 	for (const entry of APPLICATION_MENU_REFERENCE_ENTRIES) {
-		assert.ok(Object.isFrozen(entry), entry.id);
-		assert.ok(Object.isFrozen(entry.locations), entry.id);
-		assert.ok(Object.isFrozen(entry.products), entry.id);
 		assert.equal(entry.id.trim(), entry.id);
 		assert.ok(entry.id.length > 0, entry.id);
 		assert.ok(entry.label.trim().length > 0, entry.id);
@@ -129,8 +124,9 @@ test('every runnable application-menu leaf has one truthful handbook reference',
 				// but remain menu-derived actions rendered by NativePreferencesPanel.
 				for (const preference of materialized.nativePreferences ?? []) {
 					const sectionLabel = preference.section === 'audio' ? 'Audio settings'
-						: preference.section === 'media' ? 'Media' : 'Effects';
-					for (const control of preference.items ?? [preference]) {
+						: preference.section === 'media' ? 'Media' : preference.section === 'advanced' ? 'Advanced' : 'Effects';
+					const controls = preference.id === 'parallel-stack-processing' ? [preference] : preference.items ?? [preference];
+					for (const control of controls) {
 						collectRunnableLeaves(control, ['Edit', 'Preferences', sectionLabel], product,
 							sightings, manifestAliases, unresolved, invalidManifestRows);
 					}

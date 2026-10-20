@@ -27,7 +27,7 @@ test('bundled Playwright config uses only absolute launcher-provided paths', asy
 		);
 
 		assert.equal(config.testDir, resolve(payloadRoot, 'tests/browser'));
-		assert.deepEqual(config.testIgnore, ['handbook/**', 'dual-origin/**', '**/motionscaper-linked-editors.spec.ts', '**/motionscaper-linked-native-menu.spec.ts', '**/motionscaper-linked-mixed-preview.spec.ts', '**/motionscaper-successor-native-cleanup.spec.ts', '**/motionscaper-successor-shell.spec.ts', '**/motionscaper-successor-opaque-archive.spec.ts']);
+		assert.deepEqual(config.testIgnore, ['handbook/**', 'dual-origin/**', 'audiocity/**', '**/motionscaper-linked-editors.spec.ts', '**/motionscaper-linked-native-menu.spec.ts', '**/motionscaper-linked-mixed-preview.spec.ts', '**/motionscaper-successor-native-cleanup.spec.ts', '**/motionscaper-successor-shell.spec.ts', '**/motionscaper-successor-opaque-archive.spec.ts']);
 		assert.equal(config.outputDir, resolve(runRoot, 'test-results'));
 		assert.equal(config.use.baseURL, 'http://127.0.0.1:41000');
 		assert.equal(config.webServer, undefined);
@@ -198,22 +198,8 @@ test('diagnostic runs keep the canonical visual baseline on Linux Chromium', asy
 
 	assert.match(
 		browserSpec,
-		/test\.skip\(\s*process\.platform !== 'linux'\s*\|\|\s*testInfo\.project\.name !== 'chromium',\s*'[^']*Ubuntu CI[^']*'\s*,?\s*\)/u,
+		/test\.skip\(\s*process\.platform !== 'linux'\s*\|\|\s*testInfo\.project\.name !== 'chromium',\s*'[^']*'\s*,?\s*\)/u,
 	);
 	assert.ok(snapshots.length > 0);
 	assert.ok(snapshots.every((snapshot) => snapshot.endsWith('-chromium-linux.png')));
-});
-
-test('the browser-native encoder admission witness is host-independent and FFmpeg-free', async () => {
-	const browserSpec = await readFile(
-		new URL('./browser/audio-editor-video-delivery-encoder-tiers.spec.js', import.meta.url),
-		'utf8',
-	);
-
-	assert.doesNotMatch(browserSpec, /process\.platform === 'win32'/u);
-	assert.match(
-		browserSpec,
-		/requestedUrls\.filter\(isFfmpegRuntimeRequest\)\)\.toEqual\(\[\]\)/u,
-	);
-	assert.match(browserSpec, /hasSharedArrayBuffer:\s*false/u);
 });

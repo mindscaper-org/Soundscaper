@@ -8,7 +8,7 @@ import React, { act } from 'react';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
 import GeneralPreferencesPage from '../src/common/editor/ui/dialogs/GeneralPreferencesPage.jsx';
-import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { installReactTestDom } from './helpers/react-test-dom.ts';
 
 test('general preferences persists the live project shown for a stale startup id', async () => {
 	const dom = installReactTestDom();
@@ -60,7 +60,7 @@ test('general preferences persists the live project shown for a stale startup id
 	}
 });
 
-test('browser and desktop General preferences offer Optimize for without changing Memory until chosen', async () => {
+test('browser and desktop General preferences keep performance controls in Advanced', async () => {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
@@ -94,29 +94,9 @@ test('browser and desktop General preferences offer Optimize for without changin
 			await render(isDesktop);
 			const group = dom.container.querySelectorAll('[role="group"]')
 				.find((candidate) => candidate.getAttribute('aria-label') === ENGLISH_COPY.optimizeFor);
-			assert.ok(group, 'both editor hosts show the Optimize for control');
-			const trigger = group.querySelector('.dropdown__trigger');
-			assert.ok(trigger);
-			assert.equal(trigger.getAttribute('aria-label'), ENGLISH_COPY.optimizeFor);
-			assert.ok(trigger.textContent.includes(ENGLISH_COPY.optimizeForMemory));
-			await act(async () => {
-				reactProps(trigger).onClick({});
-				await Promise.resolve();
-				await Promise.resolve();
-			});
-			const option = (globalThis.document as unknown as { body: typeof dom.container }).body
-				.querySelectorAll('[role="option"]')
-				.find((candidate) => candidate.textContent === ENGLISH_COPY.optimizeForSpeed);
-			assert.ok(option, 'Speed is offered');
-			await act(async () => {
-				reactProps(option).onClick({});
-				await Promise.resolve();
-			});
+			assert.equal(group, undefined);
 		}
-		assert.deepEqual(updates, [
-			{ performance: { optimizeFor: 'speed' } },
-			{ performance: { optimizeFor: 'speed' } },
-		]);
+		assert.deepEqual(updates, []);
 	} finally {
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;

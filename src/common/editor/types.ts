@@ -137,6 +137,7 @@ export interface EditorLabel {
 
 export interface EditorLabelTrack extends EditorTrackBase {
 	readonly type: 'label';
+	readonly color?: string;
 	readonly labels: readonly EditorLabel[];
 }
 
@@ -201,6 +202,7 @@ export interface EditorSnapshot {
 	readonly recordingInputs: EditorRecordingInputSnapshot;
 	readonly recordingKind: 'ordinary' | 'sound-activated' | 'take-cycle' | null;
 	readonly takeCycleRecovery: TakeCyclePendingOpenRecovery | null;
+	readonly startupProjectRecovery: Readonly<{ projectId: string; message: string }> | null;
 	readonly capture: Readonly<FramescaperCaptureSessionSnapshot> | null;
 	readonly webVcr: Readonly<FramescaperWebVcrUiSnapshot> | null;
 	readonly readOnly: boolean;

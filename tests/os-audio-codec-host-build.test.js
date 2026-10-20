@@ -25,7 +25,6 @@ import { collectExtractedSourceTree } from '../native/framescaper-media-host/bui
 
 const ROOT = resolve(import.meta.dirname, '..');
 const NATIVE_ROOT = join(ROOT, 'native/os-audio-codec-host');
-const PROFESSIONAL_ROOT = join(ROOT, 'native/soundscaper-professional-host');
 
 test('the codec-only CMake and Node-API surfaces have no device or plug-in authority', async () => {
 	const [cmake, bridge, buildScript, packageJson] = await Promise.all([
@@ -57,7 +56,6 @@ test('the codec-only CMake and Node-API surfaces have no device or plug-in autho
 	assert.match(bridge, /GetProcAddress/u,
 		'Windows resolves Electron Node-API exports without an unpinned node.lib.');
 	assert.match(buildScript, /'result'/u);
-	assert.doesNotMatch(buildScript, /signing-identity/u);
 	assert.match(buildScript, /O_EXCL/u);
 	assert.match(buildScript, /Build result output is not one new regular file/u);
 	assert.match(buildScript, /JSON\.stringify\(value, null, 2\)/u,
@@ -292,26 +290,6 @@ test('macOS ad-hoc seals and checks the installed addon before hashing it', asyn
 		verificationStatus: 'passed',
 	});
 	assert.equal(Object.hasOwn(result, 'signing'), false);
-});
-
-test('the portable exact MP3 profile canary remains buildable without a target OS SDK', (context) => {
-	if (spawnSync('c++', ['--version'], { encoding: 'utf8' }).status !== 0) {
-		context.skip('A C++20 compiler is unavailable.');
-		return;
-	}
-	const temporary = mkdtempSync(join(tmpdir(), 'soundscaper-codec-host-portable-'));
-	context.after(() => rmSync(temporary, { recursive: true, force: true }));
-	const executable = join(temporary, 'mp3-profile-self-test');
-	const built = spawnSync('c++', [
-		'-std=c++20', '-Wall', '-Wextra', '-Werror',
-		'-I', join(PROFESSIONAL_ROOT, 'src'),
-		join(PROFESSIONAL_ROOT, 'src/os_mp3_profile.cpp'),
-		join(PROFESSIONAL_ROOT, 'tests/os_mp3_profile_self_test.cpp'),
-		'-o', executable,
-	], { encoding: 'utf8' });
-	assert.equal(built.status, 0, built.stderr || built.stdout);
-	const executed = spawnSync(executable, [], { encoding: 'utf8' });
-	assert.equal(executed.status, 0, executed.stderr || executed.stdout);
 });
 
 test('Media Foundation is shut down only by the guard every interface outlives', async () => {

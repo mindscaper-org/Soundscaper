@@ -27,7 +27,7 @@ endif()
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 if(MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
-  add_compile_options(/Brepro "/pathmap:${SCAPE_WORK_ROOT}=/usr/src/sherpa-gpu" /EHsc)
+  add_compile_options(/Brepro /experimental:deterministic "/pathmap:${SCAPE_WORK_ROOT}=/usr/src/sherpa-gpu" /EHsc)
   add_link_options(/Brepro)
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/onnxruntime.def" "LIBRARY onnxruntime.dll\nEXPORTS\nOrtGetApiBase\n")
   if(CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
@@ -93,3 +93,8 @@ if(WIN32)
 elseif(APPLE)
   target_link_options(sherpa-onnx-node PRIVATE "-undefined" "dynamic_lookup")
 endif()
+
+# Visual Studio omits unrelated projects from EXCLUDE_FROM_ALL subdirectories.
+# Bind the shipped C++ library into a root target so MSBuild can resolve it.
+add_custom_target(scape-sherpa-gpu
+  DEPENDS sherpa-onnx-node sherpa-onnx-cxx-api onnx-webgpu-device-probe)

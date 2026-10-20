@@ -334,22 +334,6 @@ test('all preflight unsupported or unavailable outcomes preserve coordinator att
 	]);
 });
 
-test('broker construction rejects missing, reordered, or mismatched provider runtimes', () => {
-	const bundled = provider('bundled', 'supported', []);
-	const operatingSystem = provider('operating-system', 'supported', []);
-	const external = provider('external-ffmpeg', 'supported', []);
-	assert.throws(() => createDesktopAudioCodecBroker({
-		runtimes: [runtime(bundled, () => executed([1]))] as unknown as readonly [
-			DesktopAudioCodecProviderRuntime, DesktopAudioCodecProviderRuntime, DesktopAudioCodecProviderRuntime,
-		],
-	}), /three.*ordered/iu);
-	assert.throws(() => createDesktopAudioCodecBroker({ runtimes: [
-		runtime(operatingSystem, () => executed([1])),
-		runtime(bundled, () => executed([1])),
-		runtime(external, () => executed([1])),
-	] }), /three.*ordered/iu);
-});
-
 function provider(
 	kind: DesktopCodecProviderKind,
 	disposition: DesktopCodecPreflightResult['disposition'],

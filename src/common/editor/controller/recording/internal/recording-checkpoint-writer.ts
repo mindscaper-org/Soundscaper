@@ -13,6 +13,7 @@ interface CheckpointWriterOptions {
 	readonly checkpointFrames: number;
 	readonly createSourceId: () => string;
 	readonly openWriter: (sourceId: string) => Promise<RecordingSourceWriter>;
+	readonly onCheckpoint?: (segment: RecordingSourceSegment) => Promise<void>;
 }
 
 /** Commit short immutable source segments while capture is still running. */
@@ -34,14 +35,16 @@ export function createRecordingCheckpointWriter(options: CheckpointWriterOptions
 		if (!writer || writer.framesWritten <= 0) return;
 		const frameCount = writer.framesWritten;
 		const storedMetadata = await writer.commit(metadata);
-		committed.push(Object.freeze({
+		const segment = Object.freeze({
 			sourceId: activeSourceId,
 			frameStart: committedFrames,
 			frameCount,
 			metadata: storedMetadata,
-		}));
+		});
+		committed.push(segment);
 		committedFrames += frameCount;
 		active = null;
+		await options.onCheckpoint?.(segment);
 	};
 	const failActive = async (error: unknown): Promise<void> => {
 		failure = error;

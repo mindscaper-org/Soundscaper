@@ -33,6 +33,18 @@ test('legacy OPFS coalesced payloads reject truncation and cancellation before p
 	await assert.rejects(truncated.repository.readLegacyChunk(truncated.source, 1), /truncated/iu);
 });
 
+test('OPFS audio reads preserve permission, cancellation and backend errors while identifying missing files', async () => {
+	for (const failure of [new DOMException('Permission denied', 'SecurityError'), new DOMException('Quota exhausted', 'QuotaExceededError'),
+		new DOMException('Cancelled', 'AbortError'), new Error('Audio backend unavailable'), new DOMException('Missing file', 'NotFoundError')]) {
+		const repository = new OpfsRepository({ preferOpfs: true, opfsRoot: {
+			async getDirectoryHandle() { return { async getFileHandle() { throw failure; } }; },
+		} as unknown as FileSystemDirectoryHandle });
+		const read = repository.readLegacyChunk({ path: 'lost.pcm', storage: 'opfs', chunkFrames: 4, channelCount: 1 }, 0);
+		if (failure.name === 'NotFoundError') await assert.rejects(read, /requested local audio source is missing/iu);
+		else await assert.rejects(read, (error) => error === failure);
+	}
+});
+
 function legacyFixture(afterRead?: (start: number) => void, truncatePayload = false) {
 	const chunks = [
 		[Float32Array.of(0.25, 0.5), Float32Array.of(-0.25, -0.5), Float32Array.of(0, 1)],

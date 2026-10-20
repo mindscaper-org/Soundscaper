@@ -96,6 +96,8 @@ test('desktop defaults to Speed, preserves Memory, and leaves AI code on demand'
 
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await expect(preferences.getByRole('group', { name: 'Optimize for', exact: true })).toHaveCount(0);
+	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
 	const optimization = preferences.getByRole('group', { name: 'Optimize for', exact: true });
 	await expect(optimization.getByRole('button')).toContainText('Speed');
 	await chooseDropdown(page, optimization, 'Memory');
@@ -107,6 +109,7 @@ test('desktop defaults to Speed, preserves Memory, and leaves AI code on demand'
 	await expect(page.locator('[data-desktop-speed-warmup]')).toHaveCount(0);
 	await chooseCommandAction(page, memoryEditor, 'Edit', 'Preferences');
 	const memoryPreferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await memoryPreferences.getByRole('tab', { name: /Advanced$/u }).click();
 	const memoryOptimization = memoryPreferences.getByRole('group', { name: 'Optimize for', exact: true });
 	await expect(memoryOptimization.getByRole('button')).toContainText('Memory');
 	await chooseDropdown(page, memoryOptimization, 'Speed');
@@ -117,6 +120,7 @@ test('desktop defaults to Speed, preserves Memory, and leaves AI code on demand'
 	await expect(warmup).toHaveAttribute('data-desktop-speed-warmup-failed', '0');
 	const reopenedEditor = page.locator('[data-audio-editor-bound="true"]');
 	await chooseCommandAction(page, reopenedEditor, 'Edit', 'Preferences');
+	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
 	await expect(page.getByRole('dialog', { name: 'Editor preferences', exact: true })
 		.getByRole('group', { name: 'Optimize for', exact: true }).getByRole('button')).toContainText('Speed');
 });
@@ -130,6 +134,8 @@ test('browser Preferences opens General without the desktop-only FFmpeg location
 	await expect(preferences.getByRole('tab').first()).toHaveText(/General$/u);
 	await expect(preferences.getByRole('tab', { name: /General$/u })).toHaveAttribute('aria-selected', 'true');
 	await expect(preferences.getByRole('group', { name: 'Language', exact: true })).toBeVisible();
+	await expect(preferences.getByRole('group', { name: 'Optimize for', exact: true })).toHaveCount(0);
+	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
 	const optimization = preferences.getByRole('group', { name: 'Optimize for', exact: true });
 	await expect(optimization.getByRole('button')).toContainText('Memory');
 	await expect(preferences.locator('[data-external-ffmpeg-preference="true"]')).toHaveCount(0);
@@ -140,6 +146,7 @@ test('browser Preferences opens General without the desktop-only FFmpeg location
 	const reopenedEditor = await waitForEditor(page);
 	await expect(page.locator('[data-desktop-speed-warmup]')).toHaveCount(0);
 	await chooseCommandAction(page, reopenedEditor, 'Edit', 'Preferences');
+	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
 	await expect(preferences.getByRole('group', { name: 'Optimize for', exact: true })
 		.getByRole('button')).toContainText('Speed');
 });

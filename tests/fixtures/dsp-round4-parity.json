@@ -161,8 +161,5 @@
   "spectrogram-paint-erb-17": "a43283e35a48518c86f279aa986b9cafa5f195138241d604abac21d07287ff93",
   "spectrogram-paint-erb-127.5": "df208b071c4bd26314e52aa8559ec9a74d1689017b698134a755292ab7d35c4a",
   "spectrogram-paint-period-17": "38eb3fce4d790384c70d74596b4b627e2701d91b9d3247a5f9cc59943936ab65",
-  "spectrogram-paint-period-127.5": "2100874213041ff6abb4fd0d24805a3e50db2612993d82bdb3cd5c289a93c2ce",
-  "spectrum-reported-length-2.5": "e5722fc281ecc40eecd847d07cf2c61910495bbbc732ceebc80381a867476fe6",
-  "spectrum-reported-length-2": "e5722fc281ecc40eecd847d07cf2c61910495bbbc732ceebc80381a867476fe6",
-  "spectrum-reported-length-7": "e5722fc281ecc40eecd847d07cf2c61910495bbbc732ceebc80381a867476fe6"
+  "spectrogram-paint-period-127.5": "2100874213041ff6abb4fd0d24805a3e50db2612993d82bdb3cd5c289a93c2ce"
 }

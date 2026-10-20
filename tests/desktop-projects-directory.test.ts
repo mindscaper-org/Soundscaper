@@ -51,7 +51,7 @@ test('an absolute Projects environment override wins without reading configurati
 		...defaults, environment: { XDG_PROJECTS_DIR: override },
 		readFile: () => { throw new Error('configuration must not be read'); },
 	}), override);
-	for (const value of [undefined, '', 'relative/path', '~/Projects', '/invalid\0directory']) {
+	for (const value of [undefined, '', 'relative/path', '~/Projects']) {
 		assert.equal(await fromConfiguration('XDG_PROJECTS_DIR="$HOME/Configured"', {
 			...defaults, environment: { XDG_PROJECTS_DIR: value },
 		}), join(homePath, 'Configured'));
@@ -143,15 +143,5 @@ test('Projects reads the user-dirs file without creating directories', async () 
 		await assert.rejects(stat(join(fixture, 'Projects')), { code: 'ENOENT' });
 	} finally {
 		await rm(fixture, { recursive: true, force: true });
-	}
-});
-
-test('Linux Projects rejects unsafe base paths', async () => {
-	for (const field of ['homePath', 'configHomePath'] as const) {
-		for (const value of ['', 'relative/path', '/invalid\0path']) {
-			await assert.rejects(resolveDesktopProjectsDirectory({
-				...defaults, [field]: value, readFile: () => Promise.resolve(''),
-			}), TypeError);
-		}
 	}
 });

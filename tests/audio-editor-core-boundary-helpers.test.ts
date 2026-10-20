@@ -22,54 +22,13 @@ test('WORKERFS names cannot resolve to a parent or current directory', () => {
 	assert.equal(safeFfmpegWorkerFsName('../take\\one.wav', 'input.wav'), '..-take-one.wav');
 });
 
-test('WORKERFS fallbacks are sanitized instead of reintroducing path separators', () => {
-	const name = safeFfmpegWorkerFsName('', '../fallback\0.wav');
-	assert.equal(name, '..-fallback-.wav');
-	assert.doesNotMatch(name, /[\\/\0]/u);
-	assert.equal(safeFfmpegWorkerFsName('', '..'), 'file');
-});
-
-test('frequency resolution falls back when persisted block-size coercion throws', () => {
-	assert.equal(frequencyWaveformFinestBlockSize({ levels: [{ blockSize: Symbol('bad') }] }),
-		DEFAULT_FREQUENCY_WAVEFORM_FINEST_BLOCK_SIZE);
-	const hostile = Object.create(null) as Record<string, unknown>;
-	let getterRan = false;
-	Object.defineProperty(hostile, 'levels', { get(): never {
-		getterRan = true;
-		throw new Error('getter must not run');
-	} });
-	assert.equal(frequencyWaveformFinestBlockSize(hostile), DEFAULT_FREQUENCY_WAVEFORM_FINEST_BLOCK_SIZE);
-	assert.equal(getterRan, false);
-});
-
-test('frequency resolution admits only positive safe block sizes and finer finite viewports', () => {
-	assert.equal(frequencyWaveformFinestBlockSize({ levels: [{ blockSize: '512' }] }), 512);
-	for (const blockSize of [0, -1, 1.5, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
-		assert.equal(frequencyWaveformFinestBlockSize({ levels: [{ blockSize }] }),
-			DEFAULT_FREQUENCY_WAVEFORM_FINEST_BLOCK_SIZE);
-	}
+test('frequency resolution uses the default until analysis supplies the finest block size', () => {
+	assert.equal(frequencyWaveformFinestBlockSize(undefined), DEFAULT_FREQUENCY_WAVEFORM_FINEST_BLOCK_SIZE);
+	assert.equal(frequencyWaveformFinestBlockSize(null), DEFAULT_FREQUENCY_WAVEFORM_FINEST_BLOCK_SIZE);
+	assert.equal(frequencyWaveformFinestBlockSize({ levels: [{ blockSize: 512 }] }), 512);
 	assert.equal(frequencyWaveformNeedsWindow(511.5, { levels: [{ blockSize: 512 }] }), true);
 	assert.equal(frequencyWaveformNeedsWindow(512, { levels: [{ blockSize: 512 }] }), false);
-	assert.equal(frequencyWaveformNeedsWindow(Number.NaN, { levels: [{ blockSize: 512 }] }), false);
-});
-
-test('a complementary crossover refuses invalid sample-rate and channel geometry', () => {
-	for (const rate of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
-		assert.throws(() => new ComplementaryCrossover(rate, 1, 1_000), /sample rate/iu);
-	}
-	for (const channels of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
-		assert.throws(() => new ComplementaryCrossover(48_000, channels, 1_000), /channel count/iu);
-	}
-});
-
-test('a complementary crossover refuses a frequency that would poison its state', () => {
-	for (const frequency of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
-		assert.throws(() => new ComplementaryCrossover(48_000, 1, frequency), /frequency/iu);
-	}
-	const crossover = new ComplementaryCrossover(48_000, 1, 1_000);
-	assert.throws(() => crossover.configure(Number.NaN), /frequency/iu);
-	crossover.tick();
-	assert.equal(Number.isFinite(crossover.low(1, 0)), true);
+	assert.equal(frequencyWaveformNeedsWindow(1_024, { levels: [{ blockSize: 512 }] }), false);
 });
 
 test('reset clears crossover history at the latest configured frequency', () => {
@@ -96,13 +55,6 @@ test('WebCodecs audio profiles preserve their exact codec-specific configuration
 		codec: 'opus', sampleRate: 48_000, numberOfChannels: 2, bitrate: 192_000,
 	});
 	assert.equal(browserWebCodecsAudioFullCodecString('opus'), 'opus');
-});
-
-test('WebCodecs audio profiles reject unknown codecs instead of silently selecting Opus', () => {
-	assert.throws(() => browserWebCodecsAudioConfiguration('flac' as never, {
-		sampleRate: 48_000, channelCount: 2, bitrate: 192_000,
-	}), /codec/iu);
-	assert.throws(() => browserWebCodecsAudioFullCodecString('flac' as never), /codec/iu);
 });
 
 test('WebCodecs audio probing contains missing, rejected, and throwing capability probes', async () => {

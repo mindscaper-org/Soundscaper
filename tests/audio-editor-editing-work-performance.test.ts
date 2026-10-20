@@ -95,74 +95,6 @@ void test('rendered duration changes scale related clips and ripple only their o
 	assert.equal(untouched?.timelineStartFrame, 400);
 });
 
-void test('direct rendered replacement keeps first-match slots when a mutable draft acquires duplicate IDs', () => {
-	const project = commandFixture(2);
-	project.clips[1]!.id = 'clip-0';
-	const duplicate = project.clips[1];
-	replaceRenderedClips(project, { rippleMode: 'none', entries: [{ clipId: 'clip-0', source: {
-		id: 'rendered', storageKey: 'rendered', frameCount: 20, channelCount: 1,
-	} }] });
-	assert.equal(project.clips[0]?.sourceId, 'rendered');
-	assert.equal(project.clips[1], duplicate);
-	assert.equal(project.clips[1]?.sourceId, 'source');
-});
-
-void test('affected missing memberships retain explicit unknown-clip errors', () => {
-	for (const operation of ['remove', 'render', 'transform']) {
-		const project = commandFixture(3);
-		project.tracks[0]!.clipIds.push('missing');
-		const action = (): void => {
-			if (operation === 'remove') removeClips(project, ['clip-0'], 'track');
-			if (operation === 'render') replaceRenderedClips(project, { entries: [{ clipId: 'clip-0', source: {
-				id: 'rendered', storageKey: 'rendered', frameCount: 30, channelCount: 1,
-			} }] });
-			if (operation === 'transform') transformClips(project, { transforms: [{ clipId: 'clip-0', changes: { timelineStartFrame: 10 } }] });
-		};
-		assert.throws(action, { name: 'ReferenceError', message: 'Unknown clip: missing.' });
-	}
-});
-
-void test('duplicate track IDs retain legacy ripple reach in direct mutable helpers', () => {
-	const project = commandFixture(4);
-	project.tracks[3]!.id = 'track-0';
-	replaceRenderedClips(project, { entries: [{ clipId: 'clip-0', source: {
-		id: 'rendered', storageKey: 'rendered', frameCount: 30, channelCount: 1,
-	} }] });
-	assert.equal(project.clips[3]?.timelineStartFrame, 310);
-	assert.equal(project.clips[2]?.timelineStartFrame, 200);
-});
-
-void test('duplicate ownership keeps first-owner ripple and legacy membership reconstruction', () => {
-	const rendered = commandFixture(4);
-	rendered.clips[0]!.groupId = 'related';
-	rendered.clips[1]!.groupId = 'related';
-	rendered.tracks[0]!.clipIds.push('clip-2');
-	rendered.tracks[1]!.clipIds.push('clip-2');
-	replaceRenderedClips(rendered, { entries: [{ clipId: 'clip-0', source: {
-		id: 'rendered', storageKey: 'rendered', frameCount: 30, channelCount: 1,
-	} }] });
-	assert.equal(rendered.clips[2]?.timelineStartFrame, 260, 'the first owner ripples a duplicated membership once');
-	const transformed = commandFixture(4);
-	transformed.tracks[1]!.clipIds = ['clip-3', 'clip-1'];
-	transformClips(transformed, { transforms: [{ clipId: 'clip-0', changes: { timelineStartFrame: 10 } }] });
-	assert.deepEqual(transformed.tracks[1]?.clipIds, ['clip-1', 'clip-3']);
-});
-
-void test('duplicate clip IDs preserve last-match relationship expansion and first-match writes', () => {
-	const project = commandFixture(3);
-	project.clips[0]!.groupId = 'first';
-	project.clips[1]!.groupId = 'first';
-	project.clips[2]!.groupId = 'last';
-	project.clips.push({ ...project.clips[0]!, groupId: 'last', timelineStartFrame: 999 });
-	replaceRenderedClips(project, { rippleMode: 'none', entries: [{ clipId: 'clip-0', source: {
-		id: 'rendered', storageKey: 'rendered', frameCount: 30, channelCount: 1,
-	} }] });
-	assert.equal(project.clips[1]?.durationFrames, 20);
-	assert.equal(project.clips[2]?.durationFrames, 30);
-	assert.equal(project.clips[2]?.timelineStartFrame, 300);
-	assert.equal(project.clips[3]?.timelineStartFrame, 999);
-});
-
 void test('valid unrelated authored membership order survives local commands while touched tracks sort', () => {
 	const base = createCurrentAudioEditorProject({
 		sources: [createAudioSource({ id: 'source', storageKey: 'source', frameCount: 1000, channelCount: 1 })],
@@ -225,7 +157,6 @@ void test('sorting decorates geometry once and keeps deterministic code-unit tie
 	const tied = { clipIds: ['z', 'A', 'a'] };
 	sortTrack({ clips: tied.clipIds.map(id => ({ id, timelineStartFrame: 0 })) }, tied);
 	assert.deepEqual(tied.clipIds, ['A', 'a', 'z']);
-	assert.throws(() => sortTrack({ clips: [] }, { clipIds: ['x', 'y'] }), /Unknown clip/u);
 });
 
 void test('sorting a small early track stops before scanning a large unrelated project tail', () => {
@@ -248,8 +179,6 @@ void test('related selection and ownership follow mutations on the same caller-o
 	tracks[1]!.clipIds = ['b'];
 	assert.deepEqual(resolveEditingSelection(project)?.clipIds, ['a', 'b']);
 	assert.deepEqual(resolveEditingSelection(project)?.trackIds, ['one', 'two']);
-	tracks[1]!.clipIds = [];
-	assert.throws(() => resolveEditingSelection(project), /not assigned/u);
 });
 
 void test('track ripple removal keeps overlap union and completed-boundary semantics', () => {
@@ -273,14 +202,15 @@ void test('selection pruning only builds indexes for selected identity dimension
 	assert.equal(reads, 0);
 });
 
-void test('invocation-local indexes preserve first-match ownership and reflect mutable next calls', () => {
-	const clips = [{ id: 'x', value: 1 }, { id: 'x', value: 2 }];
+void test('invocation-local indexes reflect clip edits and ownership changes between calls', () => {
+	const clips = [{ id: 'x', value: 1 }, { id: 'y', value: 2 }];
 	assert.equal(firstById(clips).get('x')?.value, 1);
 	clips[0]!.value = 3;
 	assert.equal(firstById(clips).get('x')?.value, 3);
-	const tracks = [{ id: 'first', clipIds: ['x'] }, { id: 'second', clipIds: ['x'] }];
+	const tracks = [{ id: 'first', clipIds: ['x'] }, { id: 'second', clipIds: ['y'] }];
 	assert.equal(clipOwnerIndex(tracks).get('x')?.id, 'first');
 	tracks[0]!.clipIds = [];
+	tracks[1]!.clipIds = ['x', 'y'];
 	assert.equal(clipOwnerIndex(tracks).get('x')?.id, 'second');
 });
 

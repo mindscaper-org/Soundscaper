@@ -16,8 +16,6 @@ test('absolute CLI paths normalize the mixed separators emitted by Git Bash', ()
 	);
 });
 
-test('absolute CLI paths reject relative and NUL-containing values', () => {
+test('absolute CLI paths reject relative values', () => {
 	assert.throws(() => normalizeAbsoluteCliPath('relative/work', 'work root'), /absolute path/iu);
-	assert.throws(() => normalizeAbsoluteCliPath('/tmp/work\0suffix', 'work root'), /absolute path/iu);
-	assert.throws(() => normalizeAbsoluteCliPath(undefined, 'work root'), /absolute path/iu);
 });

@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { createAssistanceOnnxAcceleratedRuntimeV1 } from '../desktop/assistance-onnx-acceleration.ts';
+import { withAssistanceGpuValidationJob } from '../desktop/assistance-gpu-validation.ts';
 import type {
 	AssistanceOnnxInferenceSessionV1, AssistanceOnnxRuntimeModuleV1,
 } from '../desktop/assistance-onnx-runtime-worker.ts';
@@ -141,4 +145,33 @@ test('CPU retry rejects a changed graph surface and releases both native session
 		error instanceof TypeError && error.cause === gpuError && /model surface/u.test(error.message));
 	await result.release?.();
 	assert.deepEqual(released, ['webgpu', 'cpu']);
+});
+
+test('strict ONNX receipts preserve native GPU compute process IDs for hardware attribution', async t => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-onnx-gpu-evidence-'));
+	for (const [key, value] of Object.entries({ SOUNDSCAPER_LOCAL_ASSISTANCE_REAL_MODELS: '1',
+		SOUNDSCAPER_ASSISTANCE_GPU_VALIDATION: '1', SOUNDSCAPER_ASSISTANCE_GPU_EVIDENCE_ROOT: root })) {
+		const old = process.env[key];
+		process.env[key] = value;
+		t.after(() => { if (old === undefined) delete process.env[key]; else process.env[key] = old; });
+	}
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const accelerated = createAssistanceOnnxAcceleratedRuntimeV1(runtime(async (_path, options) => ({
+		...session(), endProfiling: async () => {
+			await writeFile(`${options.profileFilePrefix!}_trace.json`, JSON.stringify([
+				{ cat: 'Node', ph: 'X', name: 'MatMul_kernel_time', dur: 50, pid: 12345,
+					args: { provider: 'WebGpuExecutionProvider' } },
+			]));
+		},
+	})), { executionProviders: ['webgpu', 'cpu'] });
+	await withAssistanceGpuValidationJob({ jobId: 'a'.repeat(40), familyId: 'onnxruntime-node', modelIds: ['test-model'] }, async () => {
+		const result = await accelerated.InferenceSession.create('/model.onnx', CPU);
+		await result.run({});
+		await result.release?.();
+	});
+	const names = await readdir(root);
+	assert.equal(names.length, 1);
+	const receipt = JSON.parse(await readFile(join(root, names[0]!), 'utf8')) as Record<string, unknown>;
+	assert.deepEqual(receipt.processIds, [12345]);
+	assert.equal(receipt.gpuWorkCount, 1);
 });

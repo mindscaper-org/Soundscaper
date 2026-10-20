@@ -59,8 +59,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	resizeTrackHeight, runNyquistEvaluation, saveAup3, saveAup4, saveNow, saveScape,
 	selection, sessionTab,
 	setAllTracksView, setAudacityControlTrack, setAudacityEffectParamsFromController,
-	setAudioOutputDevice, setAutoFitTrackHeight, setClipTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
-	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount,
+	setAudioOutputDevice, setAutoFitTrackHeight, setClipTimePitch, setClipsTimePitch, setLoopRegion, setLoopRegionInOut, setStatus,
+	setLoopRegionToSelection, setPlayAtSpeedRate, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory,
 	setPreferredInputDevice, setSampleEditMode, setSelectionToLoopRegion,
 	effectPreviewState, effectSelectionService, setTimelineView, setTimelineViewportWidth,
 	setTrackChannelHeightRatio, setTrackDisplayMode,
@@ -239,6 +239,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			refresh: (options: Parameters<typeof refreshAudioDevices>[0] = { probe: true }) => refreshAudioDevices(options),
 			setPreferredInput: setPreferredInputDevice,
 			setPreferredInputChannelCount,
+			setRecordingSampleRate,
+			setHostInventory,
 			configureDisplayInput,
 			setOutput: async (...args: Parameters<typeof setAudioOutputDevice>) => {
 				const deviceId = await setAudioOutputDevice(...args);
@@ -396,6 +398,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			pasteSpreadsheet: restricted('audioEffects', pasteClipSpreadsheet),
 			update: (clipId: string, changes: Readonly<Record<string, unknown>>) => commit({ type: 'clip/update', clipId, changes }, { selectClipId: clipId }),
 			setTimePitch: restricted('audioEffects', setClipTimePitch),
+			setTimePitchMany: restricted('audioEffects', setClipsTimePitch),
 			stretch: restricted('audioEffects', stretchClip),
 			toggleStretchToTempo: restricted('audioEffects', toggleStretchToTempo),
 			resetPitchSpeed: restricted('audioEffects', resetClipPitchSpeed),

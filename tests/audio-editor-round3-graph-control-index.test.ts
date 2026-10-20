@@ -20,6 +20,7 @@ test('graph edge geometry avoids repeat track, mixer, output and group scans and
 	let groupWidth = 6;
 	const tracks = Array.from({ length: 100 }, (_, index) => ({
 		get id() { trackReads += 1; return `track-${String(index)}`; },
+		effects: [{ id: 'effect', type: 'limiter' }],
 	}));
 	const graph = createDefaultMixerGraphV21([{ id: 'track-99' }]);
 	const group = { ...strip('group'), get id() { groupReads += 1; return 'group'; },
@@ -27,12 +28,12 @@ test('graph edge geometry avoids repeat track, mixer, output and group scans and
 	const mixer = { ...graph, groups: [group], sends: [strip('send', 4)], outputs: [{
 		...graph.outputs[0]!, get channelCount() { outputReads += 1; return 8; },
 	}] };
-	const widths = new Map([['track-99', 4], ['', 3], ['orphan', 12]]);
+	const widths = new Map([['track-99', 4]]);
 	const prepared = prepareProjectEdgeGeometryV21(mixer, tracks, widths, 2);
 	const initial = [trackReads, mixerReads, outputReads, groupReads];
 	const template = graph.edges[0]!;
 	for (let iteration = 0; iteration < 100; iteration += 1) {
-		assert.equal(prepared.destinationWidth({ ...template, destination: { kind: 'effect-sidechain',
+		assert.equal(prepared.destinationWidth({ ...template, kind: 'sidechain', source: { kind: 'track', id: 'track-0' }, destination: { kind: 'effect-sidechain',
 			strip: { kind: 'track', id: 'track-99' }, effectId: 'effect' } }), 4);
 		assert.equal(prepared.destinationWidth({ ...template, destination: { kind: 'mixer-node', id: 'group' } }), 6);
 		assert.equal(prepared.destinationWidth(graph.edges.at(-1)!), 8);
@@ -43,8 +44,6 @@ test('graph edge geometry avoids repeat track, mixer, output and group scans and
 	assert.equal(trackReads, 100);
 	assert.equal(mixerReads, 1);
 	assert.equal(outputReads, 1);
-	assert.equal(prepared.destinationWidth({ ...template, destination: { kind: 'effect-sidechain',
-		strip: { kind: 'track', id: 'orphan' }, effectId: 'effect' } }), 3);
 	groupWidth = 7;
 	widths.set('track-99', 5);
 	assert.equal(prepared.destinationWidth({ ...template, destination: { kind: 'mixer-node', id: 'group' } }), 6);
@@ -52,45 +51,40 @@ test('graph edge geometry avoids repeat track, mixer, output and group scans and
 	assert.equal(next.destinationWidth({ ...template, destination: { kind: 'mixer-node', id: 'group' } }), 7);
 });
 
-test('prepared edge geometry matches direct lookup semantics for every destination and first duplicate', () => {
-	const tracks = [{ id: 'one' }, { id: 'two' }];
-	const graph = { ...createDefaultMixerGraphV21(tracks), groups: [strip('same', 6)],
-		sends: [strip('same', 8), strip('send', 4)], cues: [strip('cue', 3)] };
+test('prepared edge geometry matches direct lookup semantics for every destination', () => {
+	const effects = [{ id: 'fx', type: 'limiter' }];
+	const tracks = [{ id: 'one', effects }, { id: 'two' }];
+	const graph = { ...createDefaultMixerGraphV21(tracks), groups: [{ ...strip('group', 6), effects }],
+		sends: [strip('send', 4)], cues: [strip('cue', 3)] };
+	const project = { tracks, mixer: graph, master: { effects }, masterChannels: 6 };
 	const widths = new Map([['one', 1], ['two', 2]]);
-	const prepared = prepareProjectEdgeGeometryV21(graph, tracks, widths, 6);
+	const prepared = prepareProjectEdgeGeometryV21(project.mixer, project.tracks, widths, project.masterChannels);
 	const destinations: MixerEdgeV21['destination'][] = [
 		{ kind: 'master' }, { kind: 'output', id: 'main' },
-		...['same', 'send', 'cue'].map(id => ({ kind: 'mixer-node' as const, id })),
+		...['group', 'send', 'cue'].map(id => ({ kind: 'mixer-node' as const, id })),
 		{ kind: 'effect-sidechain', strip: { kind: 'master' }, effectId: 'fx' },
 		{ kind: 'effect-sidechain', strip: { kind: 'track', id: 'one' }, effectId: 'fx' },
-		{ kind: 'effect-sidechain', strip: { kind: 'track', id: 'missing' }, effectId: 'fx' },
-		{ kind: 'effect-sidechain', strip: { kind: 'mixer-node', id: 'same' }, effectId: 'fx' },
+		{ kind: 'effect-sidechain', strip: { kind: 'mixer-node', id: 'group' }, effectId: 'fx' },
 	];
 	for (const destination of destinations) {
-		const edge = { ...graph.edges[0]!, destination };
-		assert.equal(prepared.destinationWidth(edge), edgeDestinationWidth(edge, graph, tracks, widths, 6));
+		const edge: MixerEdgeV21 = { ...graph.edges[0]!, destination,
+			...(destination.kind === 'effect-sidechain' ? {
+				kind: 'sidechain', source: { kind: 'track', id: 'two' },
+			} : {}),
+		};
+		assert.equal(prepared.destinationWidth(edge), edgeDestinationWidth(edge, project.mixer, project.tracks, widths, project.masterChannels));
 	}
 	for (const source of [graph.edges[0]!.source, { kind: 'master' as const },
-		{ kind: 'mixer-node' as const, id: 'same' }, { kind: 'mixer-node' as const, id: 'send' }]) {
+		{ kind: 'mixer-node' as const, id: 'group' }, { kind: 'mixer-node' as const, id: 'send' }]) {
 		assert.deepEqual(prepared.admTerminal(source), admTerminalStrip(graph, source));
 	}
-	assert.throws(() => prepared.destinationWidth({ ...graph.edges[0]!, destination: { kind: 'mixer-node', id: 'absent' } }), /Unknown V21 mixer node: absent/u);
-	assert.throws(() => prepared.destinationWidth({ ...graph.edges[0]!, destination: { kind: 'output', id: 'absent' } }), TypeError);
-});
-
-test('prepared geometry retains direct malformed mixer width authority', () => {
-	const graph = createDefaultMixerGraphV21([]);
-	const malformed = { ...graph, groups: [{ ...strip('existing'), channelCount: undefined } as unknown as MixerStripV21] };
-	const edge = { ...graph.edges[0]!, destination: { kind: 'mixer-node' as const, id: 'existing' } };
-	const prepared = prepareProjectEdgeGeometryV21(malformed, [], new Map(), 2);
-	assert.equal(prepared.destinationWidth(edge), edgeDestinationWidth(edge, malformed, [], new Map(), 2));
 });
 
 test('VCA gain preparation retains authored multiplication order and visits membership once', () => {
 	let reads = 0;
 	const member = { kind: 'track' as const, get id() { reads += 1; return 'one'; } };
 	const vcas: MixerVcaV21[] = [
-		{ id: 'first', name: '', gain: 0.7, mute: false, members: [member, member, { kind: 'master' }] },
+		{ id: 'first', name: '', gain: 0.7, mute: false, members: [member, { kind: 'master' }] },
 		{ id: 'second', name: '', gain: 0.3, mute: false, members: [member, { kind: 'master' }] },
 		{ id: 'third', name: '', gain: 0.9, mute: false, members: [member] },
 	];
@@ -127,5 +121,5 @@ test('solo audibility retains a bounded graph result instead of retraversing rou
 	}
 	assert.equal(visits, firstVisits);
 	assert.equal(createProjectSoloGainResolverV21(graph, tracks, false)('track:two'), true);
-	assert.equal(createProjectSoloGainResolverV21(graph, [{ id: 'one', solo: false }], true)('track:two'), true);
+	assert.equal(createProjectSoloGainResolverV21(graph, tracks.map(track => ({ ...track, solo: false })), true)('track:two'), true);
 });

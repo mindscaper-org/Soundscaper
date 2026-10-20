@@ -29,7 +29,7 @@ function fixture() {
 			historyEntrySummary: entry => entry, getSelectionEffectParams: () => ({}),
 			getStorageStatus: () => ({ state: 'indexeddb', backend: 'indexeddb', persistent: true, ephemeral: false, degradedReason: null }),
 		},
-		telemetry, audioDevices: { preferredInputDeviceId: 'default', preferredInputChannelCount: 1,
+		telemetry, audioDevices: { audioHost: 'browser', preferredRecordingSampleRate: 48_000, preferredInputDeviceId: 'default', preferredInputChannelCount: 1,
 			preferredOutputDeviceId: 'default', activeOutputDeviceId: 'default', audioInputAccess: false,
 			audioInputDevices: [], audioOutputDevices: [], recordingPoolSources: [], audioOutputStatus: '' },
 		engine: {}, mediaDevices: undefined, copy, presentationRevision: () => presentationRevision, videoEffectGestures: gestures,

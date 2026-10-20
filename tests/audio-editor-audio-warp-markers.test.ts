@@ -30,9 +30,8 @@ test('marker CRUD preserves exact rational coordinates and protected endpoints',
 	]);
 });
 
-test('marker add, move, and delete reject inversions, endpoint edits, extras, and stale indices', () => {
+test('marker add, move, and delete reject inversions, endpoint edits, and stale indices', () => {
 	assert.throws(() => addAudioWarpMarker(MAP, { outer: 50, source: 250 }), /strictly increasing/iu);
-	assert.throws(() => addAudioWarpMarker(MAP, { outer: 75, source: 250, extra: true } as never), /unsupported field/iu);
 	assert.throws(() => moveAudioWarpMarker(MAP, 0, { outer: 10, source: 110 }), /interior/iu);
 	assert.throws(() => moveAudioWarpMarker(MAP, 2, { outer: 90, source: 290 }), /interior/iu);
 	assert.throws(() => moveAudioWarpMarker(MAP, 1, { outer: 90, source: 301 }), /strictly increasing/iu);

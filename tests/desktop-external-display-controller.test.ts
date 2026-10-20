@@ -21,7 +21,7 @@ test('Linux native Wayland placement fails closed while X11 and XWayland are exp
 	assert.equal(externalDisplayPlacementSupport('win32', undefined).supported, true);
 });
 
-test('the session window is sandboxed, shares evaluated frames, and falls back explicitly to SDR', async () => {
+test('the session window is sandboxed, shares evaluated frames, and presents them as SDR', async () => {
 	const sent: Array<{ channel: string; payload: unknown }> = [];
 	const created: unknown[] = [];
 	const losses: string[] = [];
@@ -38,12 +38,12 @@ test('the session window is sandboxed, shares evaluated frames, and falls back e
 		bounds: { x: 1920, y: 0, width: 1920, height: 1080 },
 		width: 1920,
 		height: 1080,
-		hdrCapable: true,
+		hdrCapable: false,
 		colorManaged: false,
 	};
 
-	const opened = await controller.open(display, 'hdr');
-	assert.equal(opened.dynamicRange, 'sdr-fallback');
+	const opened = await controller.open(display, 'sdr');
+	assert.equal(opened.dynamicRange, 'sdr');
 	assert.deepEqual(created, [{
 		bounds: display.bounds,
 		show: false,
@@ -99,7 +99,7 @@ test('external display is session-only and remains off when its capability is no
 	await assert.rejects(() => controller.open({
 		displayId: 'display-2', label: 'Client', primary: false,
 		bounds: { x: 0, y: 0, width: 100, height: 100 },
-		width: 100, height: 100, hdrCapable: true, colorManaged: true,
+		width: 100, height: 100, hdrCapable: false, colorManaged: false,
 	}, 'sdr'), /disabled/u);
 	assert.equal(windows, 0);
 	assert.deepEqual(controller.snapshot(), {
@@ -113,7 +113,7 @@ test('the native-services display port reconciles screen changes and disposes it
 	let inventory = [{
 		displayId: 'display-2', label: 'Client', primary: false,
 		bounds: { x: 100, y: 0, width: 100, height: 100 },
-		width: 100, height: 100, hdrCapable: false, colorManaged: true,
+		width: 100, height: 100, hdrCapable: false, colorManaged: false,
 	}];
 	const changes: Array<() => void> = [];
 	let unsubscribed = 0;

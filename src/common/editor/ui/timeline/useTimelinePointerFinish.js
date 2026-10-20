@@ -1,11 +1,14 @@
+import { clipFadeSessionCommand } from './clip-fade-actions.ts';
+import { markClipPointerDrag } from './clip-pointer-selection.ts';
+import { previewClipFadePointer } from './clip-fade-pointer-edit.ts';
 import { useCallback, useEffect } from 'react';
 import { loopPointerPreview, sameLoopPointerClip } from './clip-loop-pointer.ts';
 
 import { secondsToFrames } from '../../design-system-adapters.js';
 import { createBoundarySnapIndex, resolveBoundarySnap } from './boundary-snap.ts';
-import { fadeDurationAtPointer, fadeField, fadeShapeAtPointer, fadeShapeField } from './clip-fade-geometry.ts';
+import { fadeField, fadeShapeAtPointer, fadeShapeField } from './clip-fade-geometry.ts';
 import { planCrossfadeRoll } from './crossfade-roll-planner.ts';
-import { crossfadeShapeDragResult } from './crossfade-visual-geometry.ts';
+import { crossfadeDepthDragResult } from './crossfade-visual-geometry.ts';
 import {
 	commitTimelineRateStretchPointer,
 	usesFrameCanonicalTimelineRateStretch,
@@ -69,6 +72,7 @@ export function useTimelinePointerFinish({
 			&& event.pointerId !== session.pointerId) return;
 		pointerMoveFlushRef?.current?.(cancelled);
 		pointerSession.current = null;
+		releaseOwnedPointerCapture(session);
 		setDraggingClipIds(null);
 		setProjectBinDropActive(false);
 		const dragPreview = session?.preview;
@@ -120,9 +124,9 @@ export function useTimelinePointerFinish({
 			if (!clip || mutationsBlocked || clip.durationFrames !== session.original.durationFrames
 				|| clip.timelineStartFrame !== session.original.timelineStartFrame
 				|| (clip[field] ?? 0) !== session.initial) return;
-			const value = fadeDurationAtPointer(session.edge, session.initial, session.startX, event.clientX,
-				session.pixelsPerSecond, sampleRate, clip.durationFrames);
-			if (value !== session.initial) run(() => controller.actions.clip.update(clip.id, { [field]: value }));
+			const changes = previewClipFadePointer(session, event.clientX, event.shiftKey, project, sampleRate, controller.getTelemetrySnapshot?.().positionFrame ?? 0);
+			const command = changes[field] !== session.initial && clipFadeSessionCommand(session, project, sampleRate, { kind: 'length', edge: session.edge, frames: changes[field] });
+			if (command) run(() => controller.actions.edit.commit(command));
 			return;
 		}
 		if (session.kind === 'fade-shape') {
@@ -133,7 +137,8 @@ export function useTimelinePointerFinish({
 				|| (clip[field] ?? 2) !== session.initial) return;
 			const value = fadeShapeAtPointer(session.initial, session.startY, event.clientY,
 				session.gainHeight, session.baseGain, session.startGain);
-			if (value !== session.initial) run(() => controller.actions.clip.update(clip.id, { [field]: value }));
+			const command = value !== session.initial && clipFadeSessionCommand(session, project, sampleRate, { kind: 'shape', edge: session.edge, shape: value });
+			if (command) run(() => controller.actions.edit.commit(command));
 			return;
 		}
 		if (session.kind === 'crossfade-shape') {
@@ -161,7 +166,7 @@ export function useTimelinePointerFinish({
 				if (plan) run(() => controller.actions.edit.commit(plan.command));
 				return;
 			}
-			const shapes = crossfadeShapeDragResult({
+			const shapes = crossfadeDepthDragResult({
 				initialPosition: session.initialPosition,
 				initialGain: session.initialGain,
 				initialOutShape: session.initialOutShape,
@@ -212,6 +217,7 @@ export function useTimelinePointerFinish({
 			});
 			return;
 		}
+		if (session.dragStarted) markClipPointerDrag(event.currentTarget?.ownerDocument ?? session.lane?.ownerDocument ?? document);
 		if (session.kind === 'move' && isOverOutputDock(event.clientX, event.clientY)) return;
 		if (session.kind === 'sample-pencil') {
 			if (session.points.length && project.clips.some(clip => clip.id === session.clipId)) run(() => controller.actions.sampleEdit.pencil({
@@ -274,8 +280,8 @@ export function useTimelinePointerFinish({
 		) * Math.sign(event.clientX - session.startX);
 		// Every session that reaches here began on a clip — its header, its trim or
 		// stretch handles, or a whole-clip modifier gesture. A press that never
-		// moved is a click that selects the clip, which pointer-down has already
-		// done, so there is nothing left to commit and the playhead stays where it
+		// moved is a click selected by the clip header's click handler. There is
+		// nothing left to commit and the playhead stays where it
 		// is: picking a clip is not a request to move the transport.
 		if (Math.hypot(event.clientX - session.startX, event.clientY - session.startY) < 3) return;
 		const clip = project.clips.find((item) => item.id === session.clipId);
@@ -290,22 +296,30 @@ export function useTimelinePointerFinish({
 			return;
 		}
 		if (session.kind === 'move') {
+			const completeMove = (operation) => run(() => {
+				const complete = (result) => {
+					if (!session.moveOptions?.duplicate) controller.actions.timeline.selectClip(null);
+					return result;
+				};
+				const result = operation();
+				return result && typeof result.then === 'function' ? Promise.resolve(result).then(complete) : complete(result);
+			});
 			const moveOptions = session.boundarySnapped
 				? { ...session.moveOptions, exactFrame: true } : session.moveOptions;
 			if (session.projectBinDrop) {
-				run(() => controller.actions.projectBin.moveFromTimeline(clip.id));
+				run(() => controller.actions.projectBin.moveFromTimeline(session.clipIds ?? [clip.id]));
 				onRevealProjectBin?.();
 				return;
 			}
 			if (dragPreview?.createTrack) {
-				run(() => controller.actions.clip.moveToNewTrack(clip.id, dragPreview.timelineStartFrame, moveOptions));
+				completeMove(() => controller.actions.clip.moveToNewTrack(clip.id, dragPreview.timelineStartFrame, moveOptions));
 				return;
 			}
 			const trackId = dragPreview?.trackId || trackAtClientY(event.clientY, session.trackId);
 			const timelineStartFrame = session.moveOptions?.preserveTime
 				? session.original.timelineStartFrame
 				: dragPreview?.timelineStartFrame ?? Math.max(0, session.original.timelineStartFrame + deltaFrames);
-			run(() => controller.actions.clip.move(clip.id, trackId, timelineStartFrame, moveOptions));
+			completeMove(() => controller.actions.clip.move(clip.id, trackId, timelineStartFrame, moveOptions));
 		} else if (session.kind === 'stretch-left') {
 			const change = Math.max(
 				-session.original.timelineStartFrame,
@@ -345,9 +359,11 @@ export function useTimelinePointerFinish({
 	}, []);
 
 	const cancelPointerSession = useCallback(() => {
-		if (!pointerSession.current) return false;
+		const session = pointerSession.current;
+		if (!session) return false;
 		pointerMoveFlushRef?.current?.(true);
 		pointerSession.current = null;
+		releaseOwnedPointerCapture(session);
 		setDraggingClipIds(null);
 		setClipDragPreview(null);
 		setSelectionPreview(null);
@@ -437,5 +453,18 @@ export function useTimelinePointerFinish({
 		}
 	}, [cancelPointerSession, pointerSession, project]);
 
+	useEffect(() => () => {
+		const session = pointerSession.current;
+		pointerSession.current = null;
+		releaseOwnedPointerCapture(session);
+	}, [pointerSession]);
+
 	return { finishPointerSession, finishTouch, cancelPointerSession };
+}
+
+function releaseOwnedPointerCapture(session) {
+	const target = session?.captureTarget;
+	if (session?.pointerId !== undefined && target?.hasPointerCapture?.(session.pointerId)) {
+		target.releasePointerCapture?.(session.pointerId);
+	}
 }

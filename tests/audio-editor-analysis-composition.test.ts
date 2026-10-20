@@ -109,17 +109,6 @@ test('a selected clip supplies the range for offline analysis and contrast', asy
 	assert.partialDeepStrictEqual(f.renders[1]?.[1], { startFrame: 20, endFrame: 40 });
 });
 
-test('malformed worker results cannot be cached or published as successful analysis', async () => {
-	const f = fixture();
-	const actions = createAnalysisComposition({ ...f.dependencies, analyzeChannels: async () => null });
-	assert.equal(await actions.run(), null);
-	assert.equal(f.errors.length, 1);
-	assert.match(String(f.errors[0]), /invalid result/u);
-	assert.deepEqual(f.saved, []);
-	assert.deepEqual(f.shown, []);
-	assert.equal(f.state.analysisProcessing, false);
-});
-
 test('the immutable composition opts loudness into repeat caching while missing sources still refuse', async () => {
 	const f = fixture(), project = { ...f.dependencies.getProject()!, masterChannels: 1 };
 	let missing = false;

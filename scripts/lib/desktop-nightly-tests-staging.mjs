@@ -7,6 +7,7 @@ import nativeFixtureSources from './desktop-nightly-tests-native-fixture-inputs.
 import { NIGHTLY_BROWSER_CODEC_INPUTS } from './desktop-nightly-tests-browser-codec-inputs.mjs';
 import { NIGHTLY_MOTION_FIXTURE_INPUTS } from './desktop-nightly-tests-motion-fixture-inputs.mjs';
 import { NIGHTLY_BROWSER_MEDIA_INPUTS } from './desktop-nightly-tests-browser-media-inputs.mjs';
+import { NIGHTLY_INTERCHANGE_INPUTS, validateNightlyInterchange } from './desktop-nightly-tests-interchange-inputs.mjs';
 import {
 	assertDirectory,
 	assertRegularFile,
@@ -38,7 +39,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 		kind: 'file', label: `${format} browser import fixture support`,
 	})),
 	...[
-		'audiocom-authorization.ts', 'audiocom-links.ts', 'constants.js', 'file-associations.js', 'file-capabilities.js', 'freesound-integration.js',
+		'constants.js', 'file-associations.js', 'file-capabilities.js', 'freesound-integration.js',
 		'main-file-capability-ipc.mjs', 'product.json', 'protocol.js', 'read-capability-admission.js',
 		'read-capability-range-stream.js', 'read-capability-request-lease.js', 'read-capability-support.js',
 		'read-selection-service.js', 'save-publication-mode.js', 'save-space.js', 'save-targets.js', 'validation.js',
@@ -148,13 +149,14 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'tests/browser', destination: 'tests/browser', kind: 'directory', label: 'browser test tree', exclude: new Set(['AGENTS.md', 'handbook']) },
 	{ source: 'tests/electron/local-assistance-models', destination: 'tests/electron/local-assistance-models', kind: 'directory', label: 'real local assistance model tests', exclude: new Set(['AGENTS.md']) },
 	{ source: 'tests/aup3-fixture.js', destination: 'tests/aup3-fixture.js', kind: 'file', label: 'AUP3 browser support fixture' },
+	{ source: 'tests/helpers/aup4-database-harness.js', destination: 'tests/helpers/aup4-database-harness.js', kind: 'file', label: 'Audacity recovery browser SQLite fixture' },
 	{ source: 'tests/helpers/png-fixture.mjs', destination: 'tests/helpers/png-fixture.mjs', kind: 'file', label: 'timeline image browser support fixture' },
 	{ source: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', kind: 'file', label: 'ordinary animated image browser support fixture' },
 	{ source: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', kind: 'file', label: 'ordinary high-precision PNG browser support fixture' },
-	...['desktop-preload-source.mjs', 'ordinary-cover-mp3-fixture.ts', 'native-original-import-fixture.ts', 'ordinary-ogg-opus-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts'].map(file => ({
+	...['desktop-preload-source.mjs', 'ordinary-cover-mp3-fixture.ts', 'native-original-import-fixture.ts', 'ordinary-ogg-opus-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts', 'scape-archive-rewrite.js', 'wavpack-import-fixture.ts'].map(file => ({
 		source: `tests/helpers/${file}`, destination: `tests/helpers/${file}`, kind: 'file', label: 'ordinary browser workflow fixture support',
 	})),
-	{ source: 'tests/helpers/interchange-reference.ts', destination: 'tests/helpers/interchange-reference.ts', kind: 'file', label: 'external interchange reader browser support helper' },
+	...NIGHTLY_INTERCHANGE_INPUTS,
 	{ source: 'tests/helpers/framescaper-native-sidecar-fixture.ts', destination: 'tests/helpers/framescaper-native-sidecar-fixture.ts', kind: 'file', label: 'native sidecar chooser/read/save browser support fixture' },
 	{ source: 'tests/helpers/libsndfile-rifx-fixture.ts', destination: 'tests/helpers/libsndfile-rifx-fixture.ts', kind: 'file', label: 'normal RIFX browser import fixture' },
 	{ source: 'tests/fixtures/aup4-native-rich.js', destination: 'tests/fixtures/aup4-native-rich.js', kind: 'file', label: 'AUP4 browser support fixture' },
@@ -202,6 +204,7 @@ export async function stageDesktopNightlyTests({
 	}
 
 	await validateRequiredInputs(root);
+	await validateNightlyInterchange(root);
 	const runtimePackages = await resolveNightlyTestRuntimePackages(root);
 	await validateRuntimePackages(root, runtimePackages);
 	const browserRevisions = await validateBrowserCache(root, browsers);
@@ -270,7 +273,7 @@ async function validateRequiredInputs(root) {
 		const path = join(root, input.source);
 		if (input.kind === 'directory') await assertDirectory(path, `required ${input.label}`);
 		else await assertRegularFile(path, `required ${input.label}`);
-		await assertSafeTree(path, input.label);
+		await assertSafeTree(path, input.label, { allowContainedSymlinks: input.allowContainedSymlinks });
 	}
 	for (const path of ['LICENSE', 'THIRD_PARTY_LICENSES.md']) {
 		await assertRegularFile(join(root, path), `required ${path}`);
@@ -282,7 +285,6 @@ async function validateRequiredInputs(root) {
 	await assertDirectory(join(root, 'LICENSES'), 'required license directory');
 	await assertSafeTree(join(root, 'LICENSES'), 'license directory');
 }
-
 async function copyRequiredInputs(root, output) {
 	for (const input of NIGHTLY_TEST_PAYLOAD_INPUTS) {
 		await copyTree(join(root, input.source), join(output, input.destination), {

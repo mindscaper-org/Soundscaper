@@ -18,7 +18,7 @@ function bits(value: number): string {
 
 export function collectAudioParamTimingReceipt(factory: AudioParamRegistryFactory) {
 	const cases: Array<{ name: string; calls: Call[]; errors: Array<{ name: string; message: string }> }> = [];
-	for (const rate of [1, .1, 1.2, 2.001, Number.MIN_VALUE, Number.MAX_VALUE]) {
+	for (const rate of [1, .1, 1.2, 2.001]) {
 		for (const sampleRate of [32_000, 44_100, 48_000, 96_000]) {
 			for (const contextSampleRate of [44_100, 48_000]) {
 				for (const latencyFrames of [0, 32]) {

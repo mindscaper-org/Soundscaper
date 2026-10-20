@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import type { AudiocomArchiveSnapshot, AudiocomProjectArchiveOptions, AudiocomProjectArchives } from '../audiocom-project-archives.ts';
+import type { AudiocomArchiveSnapshot, AudiocomProjectArchive, AudiocomProjectArchiveOptions, AudiocomProjectArchives } from '../audiocom-project-archives.ts';
 import { createAudiocomProjectArchiveClient } from './audiocom-project-archive-client.ts';
 import { AudiocomApiError } from './audiocom-api-client.ts';
+import { projectBindings } from './audiocom-project-bindings.ts';
 
 const empty = (): AudiocomArchiveSnapshot => ({ supported: false, formats: [], maximumBytes: 100000000,
 	results: [], page: 1, hasNext: false, status: 'idle' });
@@ -12,6 +13,8 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 	let snapshot = empty(); let connected = false; let disposed = false;
 	let generation = 0; let abort: AbortController | null = null;
 	let initialized = false;
+	const savedProjects = new Map<string, AudiocomProjectArchive>();
+	const bindings = projectBindings(options);
 	const emit = (patch: Partial<AudiocomArchiveSnapshot>): void => {
 		if (disposed) return; snapshot = Object.freeze({ ...snapshot, ...patch });
 		for (const listener of listeners) listener();
@@ -32,6 +35,7 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 			if (!disposed && connected && current === generation && !selected.signal.aborted) {
 				if (error instanceof AudiocomApiError && error.status === 401) {
 					connected = false; ++generation;
+					savedProjects.clear();
 					emit({ ...empty(), provider: snapshot.provider, errorMessage: error.message, status: 'error' });
 					options.onAuthenticationExpired?.();
 				} else emit({ status: 'error', errorMessage: error instanceof Error ? error.message : 'The project archive request failed.' });
@@ -53,7 +57,7 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 		async setConnected(value) {
 			if (disposed || connected === value) return;
 			connected = value; cancel();
-			if (!value) { emit({ ...empty(), provider: snapshot.provider, formats: snapshot.formats, maximumBytes: snapshot.maximumBytes }); return; }
+			if (!value) { savedProjects.clear(); emit({ ...empty(), provider: snapshot.provider, formats: snapshot.formats, maximumBytes: snapshot.maximumBytes }); return; }
 			await operation('loading', async signal => {
 				const capabilities = await client.capabilities(signal);
 				return { ...capabilities, supported: capabilities.formats.length > 0 };
@@ -61,33 +65,37 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 		},
 		async refresh(page) {
 			if (!snapshot.supported || !Number.isSafeInteger(page) || page < 1) return;
-			await operation('loading', signal => client.list(page, signal));
-		},
-		async upload(file) {
-			if (!snapshot.supported) return;
-			await operation('uploading', async signal => {
-				const format = file.name.toLowerCase().split('.').at(-1);
-				if (!snapshot.formats.some(value => value === format)) throw new Error('Choose an AUP3 or AUP4 project file.');
-				if (file.size < 16 || file.size > snapshot.maximumBytes) throw new Error('The project archive exceeds the server size limit.');
-				if (new TextDecoder().decode(await file.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new Error('Choose a standalone SQLite AUP3 or AUP4 project file.');
-				signal.throwIfAborted();
-				const name = file.name.replace(/\.aup[34]$/iu, '').trim().slice(0, 256) || 'Project';
-				try { await client.upload(file, name, signal); }
-				catch (error) {
-					if (signal.aborted || error instanceof AudiocomApiError && error.status === 401) throw error;
-					throw new Error(`${error instanceof Error ? error.message : 'The project upload failed.'} The server may retain an unfinished project. Refresh the archive list before trying again.`, { cause: error });
+			await operation('loading', async signal => {
+				const listed = await client.list(page, signal); signal.throwIfAborted();
+				for (const [localId, saved] of savedProjects) {
+					const current = listed.results.find(project => project.id === saved.id);
+					if (current) savedProjects.set(localId, current);
 				}
-				return { ...await client.list(1, signal), completedFileName: file.name };
+				return listed;
 			});
 		},
-		async download(project) {
-			if (!snapshot.supported) return;
-			await operation('downloading', async signal => {
-				if (!options.saveFile) throw new Error('Project file saving is unavailable.');
-				const blob = await client.download(project, signal); signal.throwIfAborted();
-				const name = [...project.name].map(character => character.charCodeAt(0) < 32 ? '-' : character).join('').replaceAll(/[\\/]+/gu, '-').slice(0, 160) || 'Project';
-				await options.saveFile({ purpose: project.format, suggestedName: `${name}.${project.format}`, mimeType: 'application/octet-stream', blob, signal });
-				return {};
+		async saveProject(projectId, serialize) {
+			if (!snapshot.supported || ['loading', 'uploading'].includes(snapshot.status)) return;
+			await operation('uploading', async signal => {
+				let revision = savedProjects.get(projectId);
+				const cloudId = bindings.get(projectId);
+				if (!revision && cloudId) {
+					for (let page = 1; ; page++) {
+						const listed = await client.list(page, signal); signal.throwIfAborted();
+						revision = listed.results.find(project => project.id === cloudId);
+						if (revision || !listed.hasNext) break;
+					}
+				}
+				const format = 'aup3';
+				const file = await serialize(format, signal); signal.throwIfAborted();
+				if (file.size < 16 || file.size > snapshot.maximumBytes) throw new Error('The project archive exceeds the server size limit.');
+				if (new TextDecoder().decode(await file.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new Error('The project archive is invalid.');
+				signal.throwIfAborted();
+				const name = revision?.name ?? (file.name.replace(/\.aup[34]$/iu, '').trim().slice(0, 256) || 'Project');
+				const uploaded = await client.upload(file, name, signal, revision); signal.throwIfAborted();
+				savedProjects.set(projectId, uploaded);
+				bindings.set(projectId, uploaded.id);
+				return { ...await client.list(1, signal), completedFileName: file.name };
 			});
 		},
 		cancel,

@@ -67,7 +67,13 @@ def phonemize(language: str, voice: str, text: str) -> list[str]:
         if not spacy.util.is_package("en_core_web_sm"):
             raise RuntimeError("The frozen English spaCy model is unavailable.")
         from assistance_kokoro_g2p_gpu import install_gpu_ops
-        gpu = install_gpu_ops()
+        if os.environ.get("SCAPE_KOKORO_REQUIRE_GPU") == "1":
+            profile = os.environ.get("SCAPE_KOKORO_GPU_PROFILE_PREFIX", "")
+            if not profile or not os.path.isabs(profile):
+                raise RuntimeError("GPU validation requires a private absolute G2P profile prefix.")
+            gpu = install_gpu_ops(profile=profile, require_gpu=True)
+        else:
+            gpu = install_gpu_ops()
 
     if language == "j":
         import unidic

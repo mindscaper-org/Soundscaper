@@ -7,6 +7,7 @@ async function selectClip(clip) {
 }
 
 async function beginDrag(page, handle, delta) {
+	await handle.locator('xpath=ancestor::*[@data-clip-id][1]').hover();
 	const bounds = await handle.boundingBox();
 	expect(bounds).not.toBeNull();
 	const x = bounds.x + bounds.width / 2;
@@ -60,6 +61,8 @@ test.describe('clip looping', () => {
 		await selectClip(clip);
 		const loop = clip.getByRole('slider', { name: 'Looped clip length', exact: true });
 		await expect(loop).toBeVisible();
+		await expect(loop).toHaveCSS('opacity', '1');
+		await expect(loop).toHaveCSS('pointer-events', 'auto');
 		await expect(loop).toContainText('\uEF1F');
 		const clock = await clip.getByRole('button', { name: 'Stretch right edge', exact: true }).boundingBox();
 		expect((await loop.boundingBox()).y).toBeGreaterThan(clock.y + clock.height);
@@ -131,6 +134,7 @@ test.describe('clip looping', () => {
 		const initialX = (await clip.boundingBox()).x;
 		await drag(page, clip.locator('.clip-header'), width);
 		await expect.poll(async () => (await clip.boundingBox()).x).toBeGreaterThan(initialX + width / 2);
+		await selectClip(clip);
 		await drag(page, loop, width * 3 + 1);
 		await expect(loop).toHaveAttribute('aria-valuenow', String(initial * 4));
 		await expect(clip.locator('[data-loop-boundary-frame]')).toHaveCount(3);
@@ -226,9 +230,9 @@ test.describe('clip looping', () => {
 		for (let repeat = 1; repeat < 4; repeat++) await loop.press('ArrowRight');
 		const initialLength = Number(await loop.getAttribute('aria-valuenow'));
 		const properties = await openClipProperties(page, editor, clip);
-		await properties.getByText('Pitch and tempo', { exact: true }).click();
+
 		await commitInput(clipField(properties, 'pitchCents'), '2');
-		await commitInput(clipField(properties, 'speedRatio'), '2');
+		await commitInput(clipField(properties, 'speedRatio'), '200');
 		await closeClipProperties(properties);
 		await expect(loop).toHaveAttribute('aria-valuenow', String(initialLength / 2));
 		await expect(clip.locator('[data-loop-boundary-frame]')).toHaveCount(3);

@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { DUAL_ORIGIN_BROWSER_SITES } from '../scripts/build-dual-origin-browser-sites.mjs';
 import { extractJob } from './helpers/workflow-jobs.js';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -59,10 +60,9 @@ test('ordinary Playwright previews separately built Soundscaper, Framescaper and
 	process.env.PLAYWRIGHT_FRAMESCAPER_PORT = '4379';
 	process.env.PLAYWRIGHT_MOTIONSCAPER_PORT = '4383';
 	try {
-		const [{ default: config }, packageText, prepareScript] = await Promise.all([
+		const [{ default: config }, packageText] = await Promise.all([
 			import('../playwright.config.mjs?product-sites'),
 			readFile(new URL('../package.json', import.meta.url), 'utf8'),
-			readFile(new URL('../scripts/prepare-browser-product-sites.mjs', import.meta.url), 'utf8'),
 		]);
 		const scripts = JSON.parse(packageText).scripts;
 
@@ -99,10 +99,6 @@ test('ordinary Playwright previews separately built Soundscaper, Framescaper and
 		assert.equal(scripts['pretest:browser'],
 			'npm run build && npm run build:browser:framescaper && npm run build:browser:motionscaper && npm run prepare:browser:products');
 		assert.equal(scripts['pretest:browser:built'], 'npm run prepare:browser:products');
-		assert.match(prepareScript, /verifyBrowserProductSite/u,
-			'the prebuilt product artifacts must be authenticated before Playwright starts');
-		assert.doesNotMatch(prepareScript, /localizeRetiredFramescaperRedirects/u,
-			'the disposable fixture must preserve the production redirect artifact');
 	} finally {
 		delete process.env.PLAYWRIGHT_PORT;
 		delete process.env.PLAYWRIGHT_FRAMESCAPER_PORT;
@@ -113,10 +109,9 @@ test('ordinary Playwright previews separately built Soundscaper, Framescaper and
 test('the dual-origin Playwright harness serves two reciprocal built Pages sites', async () => {
 	delete process.env.CI;
 	delete process.env.PLAYWRIGHT_DUAL_ORIGIN_OUTPUT_DIR;
-	const [{ default: config }, packageText, buildScript] = await Promise.all([
+	const [{ default: config }, packageText] = await Promise.all([
 		import('../playwright.dual-origin.config.mjs?dual-origin-sites'),
 		readFile(new URL('../package.json', import.meta.url), 'utf8'),
-		readFile(new URL('../scripts/build-dual-origin-browser-sites.mjs', import.meta.url), 'utf8'),
 	]);
 	const packageDocument = JSON.parse(packageText);
 	const scripts = packageDocument.scripts;
@@ -163,12 +158,16 @@ test('the dual-origin Playwright harness serves two reciprocal built Pages sites
 	assert.equal(scripts['pretest:browser:dual-origin'], 'node scripts/build-dual-origin-browser-sites.mjs');
 	assert.equal(scripts['test:browser:dual-origin'],
 		'playwright test --config playwright.dual-origin.config.mjs');
-	assert.equal(packageDocument.devDependencies.wrangler, '4.145.0');
-	assert.match(buildScript, /buildBrowserProductSite/u);
-	assert.match(buildScript, /productId: 'soundscaper'[\s\S]*?origin: 'http:\/\/127\.0\.0\.1:4332'[\s\S]*?peerOrigin: 'http:\/\/127\.0\.0\.1:4333'/u);
-	assert.match(buildScript, /productId: 'framescaper'[\s\S]*?origin: 'http:\/\/127\.0\.0\.1:4333'[\s\S]*?peerOrigin: 'http:\/\/127\.0\.0\.1:4332'/u);
-	assert.match(buildScript, /outputDirectory: '\.wrangler\/dual-origin-browser\/soundscaper'/u);
-	assert.match(buildScript, /outputDirectory: '\.wrangler\/dual-origin-browser\/framescaper'/u);
+	assert.deepEqual(DUAL_ORIGIN_BROWSER_SITES, [
+		{
+			productId: 'soundscaper', origin: 'http://127.0.0.1:4332',
+			peerOrigin: 'http://127.0.0.1:4333', outputDirectory: '.wrangler/dual-origin-browser/soundscaper',
+		},
+		{
+			productId: 'framescaper', origin: 'http://127.0.0.1:4333',
+			peerOrigin: 'http://127.0.0.1:4332', outputDirectory: '.wrangler/dual-origin-browser/framescaper',
+		},
+	]);
 });
 
 test('each site-verifying workflow runs the dual-origin proof exactly once', async () => {

@@ -206,6 +206,12 @@ jobs:
           sudo chown root:root -- "${sandboxes[@]}"
           sudo chmod 4755 -- "${sandboxes[@]}"
 
+      - name: Provision the hermetic independent interchange readers
+        run: node scripts/provision-nightly-interchange.mjs
+        env:
+          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
+
       - name: Qualify the packaged Motionscaper launch on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/motionscaper-desktop-smoke.mjs --require-native-prores

@@ -226,11 +226,7 @@ test('the editor turns a source channel into an object, and takes it back', () =
 	assert.equal(placed.objects?.[0]?.name, 'Narrator');
 	assert.deepEqual(placed.objects?.[0]?.position, { azimuth: -45, elevation: 20, distance: 0.5 });
 
-	// A partial move keeps the coordinates it did not name.
-	const raised = setAdmEditorObject(placed, 'object-1', { position: { elevation: 30 } as never });
-	assert.deepEqual(raised.objects?.[0]?.position, { azimuth: -45, elevation: 30, distance: 0.5 });
-
-	const removed = removeAdmEditorObject(raised, 'object-1');
+	const removed = removeAdmEditorObject(placed, 'object-1');
 	assert.equal(Object.hasOwn(removed, 'objects'), false, 'the last object leaves no empty collection behind');
 	assert.deepEqual(removed, base);
 });

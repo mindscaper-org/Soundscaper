@@ -157,7 +157,6 @@ test('an unreadable map is a build failure, not a silently skipped one', async (
 test('the build plugin only ever runs on a build, and after everything that writes', () => {
 	const plugin = relocateBuildSourceMaps();
 
-	assert.equal(plugin.name, 'kw-relocate-build-source-maps');
 	assert.equal(plugin.apply, 'build');
 	assert.equal(plugin.enforce, 'post');
 	assert.equal(typeof plugin.writeBundle, 'function');

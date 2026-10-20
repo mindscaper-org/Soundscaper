@@ -81,8 +81,6 @@ test('the preview benchmark leaves observational performance thresholds to the c
 		'utf8',
 	);
 
-	assert.doesNotMatch(source, /retained JS heap growth p95 across five reset-document trials/u);
-	assert.doesNotMatch(source, /complete 1280x720 effect stack frame-interval p95/u);
 	assert.doesNotMatch(source, /nearestRankP95/u);
 });
 
@@ -97,5 +95,4 @@ test('the quality-budget fixture registration pins the shipped benchmark media',
 	assert.equal(fixture.specification.sourceSha256, videoPreviewBenchmarkMedia.sourceSha256);
 	assert.equal(fixture.specification.sourceFrameRate, videoPreviewBenchmarkMedia.frameRate);
 	assert.equal(fixture.specification.sourceFrameCount, videoPreviewBenchmarkMedia.frameCount);
-	assert.doesNotMatch(fixture.limitation, /MediaRecorder|not digest-pinned/iu);
 });

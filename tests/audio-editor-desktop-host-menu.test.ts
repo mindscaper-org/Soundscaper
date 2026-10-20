@@ -59,7 +59,6 @@ test('desktop host menus migrate every native-only row for either desktop produc
 	assert.deepEqual(menus.tools[0]?.items?.map(({ id, checked }) => [id, checked]), [
 		['desktop-use-native-probe-helper', true],
 		['desktop-clear-probe-helper-quarantine', undefined],
-		['desktop-use-native-audio-helper', false],
 		['desktop-clear-audio-helper-quarantine', undefined],
 		['desktop-discover-native-effects', true],
 	]);
@@ -74,7 +73,6 @@ test('desktop host menus migrate every native-only row for either desktop produc
 	menus.tools[0]?.items?.[1]?.onClick?.();
 	menus.tools[0]?.items?.[2]?.onClick?.();
 	menus.tools[0]?.items?.[3]?.onClick?.();
-	menus.tools[0]?.items?.[4]?.onClick?.();
 	menus.view[0]?.onClick?.();
 	menus.view[1]?.onClick?.();
 	menus.help[0]?.onClick?.();
@@ -84,7 +82,6 @@ test('desktop host menus migrate every native-only row for either desktop produc
 	assert.deepEqual(controls, [
 		['set-probe-helper-enabled', false],
 		['clear-probe-helper-quarantine', undefined],
-		['set-audio-helper-enabled', true],
 		['clear-audio-helper-quarantine', undefined],
 		['set-native-effect-discovery-enabled', false],
 	]);

@@ -51,7 +51,7 @@ interface TakeCycleAppSource {
 type TakeCycleAppProject = TakeCycleProjectDocument;
 
 type RoutedRuntimePorts = Pick<TakeCycleRoutedCaptureRuntime,
-	'capturePool' | 'engine' | 'sourceChunkFrames' | 'streamAudioChannelCount'
+	'capturePool' | 'engine' | 'sourceChunkFrames' | 'streamAudioChannelCount' | 'recordingInputSampleRate'
 	| 'recordingStreamIsLive' | 'createRecorder' | 'beginPlaybackCachePreparation'
 	| 'handleError' | 'stopRecording'
 >;

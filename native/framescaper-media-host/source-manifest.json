@@ -462,13 +462,13 @@
 		},
 		{
 			"path": "tests/selected_v20_frame_executor_fixture.cpp",
-			"byteLength": 12952,
-			"sha256": "6a5217f653c4c71135f82b5dac3f5c974c83c90192515e2e0ed0956774fc3ea0"
+			"byteLength": 12239,
+			"sha256": "a8eca8d2a36b00e41f8ded2edf964682aa6655cd8491e9568f5380160a32b38d"
 		},
 		{
 			"path": "tests/selected_v20_operation_self_test.cmake",
-			"byteLength": 2253,
-			"sha256": "f31f6479a2c5600a79f2b8cd2afa1aa1609e82bba6c9197c58bab4237ac3a1e6"
+			"byteLength": 2025,
+			"sha256": "2f8abb7ad850b0f03051b5dabf18755a963769ba7d9bfa8f13949715eb0511e5"
 		},
 		{
 			"path": "tests/selected_v20_v8_visual_semantics_fixture.cpp",

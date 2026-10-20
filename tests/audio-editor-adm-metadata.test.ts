@@ -24,7 +24,7 @@ import {
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
-test('authored ADM beds normalize names, language, layout, and immutable defaults', () => {
+test('authored ADM beds normalize names, language, layout, and defaults', () => {
 	assert.deepEqual(normalizeAdmBedMetadata(), {
 		programmeName: 'Programme',
 		contentName: 'Main',
@@ -43,7 +43,6 @@ test('authored ADM beds normalize names, language, layout, and immutable default
 		bedName: 'Studio',
 		layout: '5.1',
 	});
-	assert.ok(Object.isFrozen(normalized));
 	assert.equal(normalized.layout, '5.1');
 	assert.equal(normalized.language, 'eng');
 	assert.equal(normalized.programmeLanguage, 'eng');
@@ -247,7 +246,6 @@ test('CHNA payload uses the exact four-byte header and forty-byte AudioID record
 	assert.equal(decoder.decode(payload.subarray(32, 43)), 'AP_00010002');
 	assert.equal(payload[43], 0);
 	assert.deepEqual(parseChnaPayload(payload), chna);
-	assert.ok(Object.isFrozen(chna.entries));
 });
 
 test('CHNA parser supports zeroed allocation slots and rejects malformed records', () => {
@@ -282,29 +280,34 @@ test('CHNA parser supports zeroed allocation slots and rejects malformed records
 	assert.throws(() => parseChnaPayload(invalidCount), /numUIDs|allocation/u);
 });
 
-test('CHNA encoder validates identifiers, track coverage, and duplicate UIDs', () => {
-	const entry = {
-		trackIndex: 1,
-		uid: 'ATU_00000001',
-		trackRef: 'AC_00010003',
-		packRef: 'AP_00010001',
-	};
-	assert.throws(() => encodeChnaPayload({ numTracks: 2, entries: [entry] }), /every track/u);
-	assert.throws(() => encodeChnaPayload({ numTracks: 1, entries: [{ ...entry, uid: 'bad' }] }), /UID/u);
-	assert.throws(() => encodeChnaPayload({ numTracks: 1, entries: [{ ...entry, trackRef: 'AS_00010001' }] }), /track reference/u);
-	assert.throws(() => encodeChnaPayload({ numTracks: 1, entries: [{ ...entry, packRef: 'bad' }] }), /pack reference/u);
-	assert.throws(() => encodeChnaPayload({ numTracks: 1, entries: [{ ...entry, uid: 'ATU_00000000' }] }), /zero|reserved/u);
-	assert.throws(() => encodeChnaPayload({ numTracks: 1, entries: [entry, entry] }), /duplicate CHNA UID/u);
+test('CHNA parser validates identifiers, track coverage, and duplicate UIDs', () => {
+	const source = encodeChnaPayload(createAdmChna({ layout: 'stereo' }));
+	const missingTrack = source.slice();
+	new DataView(missingTrack.buffer).setUint16(0, 3, true);
+	assert.throws(() => parseChnaPayload(missingTrack), /every track/u);
+	for (const [offset, field, message] of [
+		[6, 'bad\0\0\0\0\0\0\0\0\0', /UID/u],
+		[18, 'AS_00010001_00', /track reference/u],
+		[32, 'bad\0\0\0\0\0\0\0\0', /pack reference/u],
+		[6, 'ATU_00000000', /zero|reserved/u],
+	] as const) {
+		const malformed = source.slice();
+		malformed.set(encoder.encode(field), offset);
+		assert.throws(() => parseChnaPayload(malformed), message);
+	}
+	const duplicateUid = source.slice();
+	duplicateUid.set(source.subarray(6, 18), 46);
+	assert.throws(() => parseChnaPayload(duplicateUid), /duplicate CHNA UID/u);
 });
 
-test('CHNA permits an omitted pack reference while retaining UID and track linkage', () => {
+test('CHNA parser accepts an omitted pack reference while retaining UID and track linkage', () => {
 	const metadata = createAdmChna({ layout: 'mono' });
 	const withoutPack = {
 		...metadata,
 		entries: metadata.entries.map((entry) => ({ ...entry, packRef: '' })),
 	};
-	const payload = encodeChnaPayload(withoutPack);
-	assert.ok(payload.subarray(4 + 28, 4 + 39).every((byte) => byte === 0));
+	const payload = encodeChnaPayload(metadata);
+	payload.fill(0, 4 + 28, 4 + 39);
 	const parsed = parseChnaPayload(payload);
 	assert.deepEqual(parsed, withoutPack);
 });

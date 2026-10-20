@@ -180,8 +180,6 @@ test('workflow OCR canonicalizes only two byte-identical detector and recognizer
 	assert.throws(() => canonicalizeAssistanceWorkflowOperationModelBindingsV1(
 		'optical-character-recognition', [binding, { ...binding,
 			artifactSha256s: ['01'.repeat(32), '03'.repeat(32)] }]), /exactly identical|PP-OCR/iu);
-	assert.equal(canonicalizeAssistanceWorkflowOperationModelBindingsV1(
-		'image-text-embedding', [binding, { ...binding }]).length, 2);
 });
 
 function enhancementWorkflow() {

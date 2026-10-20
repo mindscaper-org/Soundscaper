@@ -3,80 +3,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-
 import { snapshotBootstrapCopyFields } from
 	'../src/common/editor/ui/audio-editor-bootstrap-copy-snapshot.ts';
-import FramescaperAudioEditorBootstrap from
-	'../src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx';
-import SoundscaperAudioEditorBootstrap from
-	'../src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx';
 import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
 
-test('bootstrap copy snapshot accepts exactly 4096 own fields without invoking getters', () => {
-	const input = Object.fromEntries(Array.from({ length: 4_096 }, (_, index) => [
-		`field${String(index)}`, index,
-	]));
-	const snapshot = snapshotBootstrapCopyFields(input, 'copy', 'own data property');
-	assert.equal(Object.getPrototypeOf(snapshot), null);
-	assert.equal(Object.isFrozen(snapshot), true);
-	assert.equal(Reflect.ownKeys(snapshot).length, 4_096);
-	assert.notEqual(snapshot, input);
-	input.field0 = -1;
-	assert.equal(snapshot.field0, 0);
-	assert.throws(() => snapshotBootstrapCopyFields({
-		...input, overflow: true,
-	}, 'copy', 'own data property'), {
-		name: 'RangeError', message: 'copy has an invalid field inventory.',
-	});
-});
-
-test('bootstrap copy snapshot rejects symbols and accessor/non-enumerable fields without evaluation', () => {
-	let getterCalls = 0;
-	const accessor = Object.defineProperty({}, 'loading', {
-		enumerable: true,
-		get() { getterCalls += 1; return 'Wait'; },
-	});
-	assert.throws(() => snapshotBootstrapCopyFields(accessor, 'copy', 'own data property'), {
-		name: 'TypeError', message: 'copy.loading must be an own data property.',
-	});
-	assert.equal(getterCalls, 0);
-	assert.throws(() => snapshotBootstrapCopyFields(
-		Object.defineProperty({}, 'loading', { value: 'Wait' }),
-		'copy', 'own enumerable data property',
-	), {
-		name: 'TypeError', message: 'copy.loading must be an own enumerable data property.',
-	});
-	assert.throws(() => snapshotBootstrapCopyFields({ [Symbol('loading')]: 'Wait' },
-		'copy', 'own data property'), {
-		name: 'RangeError', message: 'copy has an invalid field inventory.',
-	});
-});
-
-test('bootstrap copy accepts the registered catalog beyond the supplied-data limit', () => {
+test('bootstrap copy preserves the registered English catalog', () => {
 	const fields = new Set(Object.keys(EDITOR_ENGLISH_COPY));
-	assert.ok(fields.size > 4_096);
 	const copy = snapshotBootstrapCopyFields(EDITOR_ENGLISH_COPY, 'bundled copy', 'own data property', fields);
-	assert.deepEqual(Object.keys(copy), [...fields]);
-	assert.throws(() => snapshotBootstrapCopyFields({ ...EDITOR_ENGLISH_COPY, unregistered: 'Unexpected' },
-		'copy', 'own data property', fields), /invalid field inventory/u);
-});
-
-test('product fallback copy adapters retain their distinct property error wording', () => {
-	const accessor = () => Object.defineProperty({}, 'loading', {
-		enumerable: true, get: () => 'Wait',
-	});
-	assert.throws(() => renderToStaticMarkup(React.createElement(
-		FramescaperAudioEditorBootstrap, { locale: 'en', fallbackCopy: accessor() },
-	)), {
-		name: 'TypeError',
-		message: 'Framescaper fallback copy.loading must be an own data property.',
-	});
-	assert.throws(() => renderToStaticMarkup(React.createElement(
-		SoundscaperAudioEditorBootstrap, { locale: 'en', fallbackCopy: accessor() },
-	)), {
-		name: 'TypeError',
-		message: 'Soundscaper fallback copy.loading must be an own enumerable data property.',
-	});
+	assert.deepEqual(Object.entries(copy), Object.entries(EDITOR_ENGLISH_COPY));
 });

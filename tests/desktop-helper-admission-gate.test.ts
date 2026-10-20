@@ -26,9 +26,8 @@ test('helper admission gate is bounded, abort-aware, FIFO, and reusable', async 
 		return release;
 	});
 	releaseActive();
-	releaseActive();
 	const releaseFirstWaiter = await observed[0];
-	assert.deepEqual(admitted, [0], 'double release cannot advance a second waiter');
+	assert.deepEqual(admitted, [0], 'the first waiter holds admission until release');
 	releaseFirstWaiter();
 	for (const entry of observed.slice(1)) (await entry)();
 	const recovered = await acquire(gate);

@@ -50,20 +50,15 @@ test('shared row routing preserves boundaries, successful short-circuiting and v
 	assert.deepEqual(shortCircuit.calls, ['ruler:1:first']);
 });
 
-test('shared clip routing owns selection and horizontal roving focus', () => {
+test('shared clip routing owns selection and leaves horizontal arrows with the playhead', () => {
 	const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
 	const document = { activeElement: null as ClipElement | null };
 	Object.defineProperty(globalThis, 'document', { configurable: true, value: document });
 	const first = clip('first', document);
-	const second = clip('second', document);
-	const root = { querySelectorAll: () => [first, second] };
 	const selections: unknown[] = [];
 	try {
 		const enter = keyboardEvent('Enter', first, { shiftKey: true });
 		routeTrackRowClipKeyDown(enter, {
-			root,
-			isFlatNavigation: false,
-			tabIndex: 14,
 			onSelectClip: (...values: unknown[]) => selections.push(values),
 		});
 		assert.deepEqual(selections, [['first', { additive: true, toggle: false }]]);
@@ -72,15 +67,11 @@ test('shared clip routing owns selection and horizontal roving focus', () => {
 
 		const right = keyboardEvent('ArrowRight', first);
 		routeTrackRowClipKeyDown(right, {
-			root,
-			isFlatNavigation: false,
-			tabIndex: 14,
 			onSelectClip: () => undefined,
 		});
-		assert.equal(first.tabIndex, -1);
-		assert.equal(second.tabIndex, 14);
-		assert.equal(document.activeElement, second);
-		assert.equal(second.revealed, true);
+		assert.equal(right.prevented, false);
+		assert.equal(right.stopped, false);
+		assert.equal(document.activeElement, null);
 	} finally {
 		if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
 		else Reflect.deleteProperty(globalThis, 'document');

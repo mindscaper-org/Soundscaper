@@ -25,7 +25,7 @@ export interface ParallelStackMenuInput {
 	readonly isBlocked?: () => boolean;
 }
 
-/** Audio setup preferences own these menu-derived controls. */
+/** Advanced preferences own these menu-derived controls. */
 export function appendParallelStackProcessingMenu(
 	items: readonly ParallelStackMenuItem[],
 	input: ParallelStackMenuInput | null,
@@ -67,9 +67,5 @@ export function appendParallelStackProcessingMenu(
 		{ id: 'parallel-stack-latency', label: latency, disabled: true },
 		{ id: 'parallel-stack-status', label: statusText, disabled: true },
 	] };
-	if (items.some((item) => item.id === 'native-audio')) {
-		return items.map((item) => item.id === 'native-audio'
-			? { ...item, label: copy.audioSetup, disabled: false, items: [...(item.items ?? []), processing] } : item);
-	}
-	return [...items, { id: 'native-audio', label: copy.audioSetup, items: [processing] }];
+	return [...items, processing];
 }

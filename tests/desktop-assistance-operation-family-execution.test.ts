@@ -282,7 +282,7 @@ test('Whisper speech dispatch never substitutes the existing Sherpa recognizer',
 	assert.equal(seen[1]?.settings.language, 'auto');
 });
 
-test('wrong additional model task roles fail before a worker receives file grants', async (t) => {
+test('enhancement model substitution fails before a worker receives file grants', async (t) => {
 	const seen: AssistanceRuntimeFamilyOperationRequest[] = [];
 	const modelId = 'wrong-role';
 	const version = '1.0.0';
@@ -294,7 +294,7 @@ test('wrong additional model task roles fail before a worker receives file grant
 		operation: 'speech-enhancement', modelId, version, digest,
 		outputs: [{ role: 'enhanced-audio', mediaType: 'audio/wav' }],
 	});
-	await assert.rejects(service.run(operation), /wrong model task role|exact DeepFilterNet3/iu);
+	await assert.rejects(service.run(operation), /exact DeepFilterNet3/iu);
 	assert.equal(seen.length, 0);
 });
 

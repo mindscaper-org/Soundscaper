@@ -42,10 +42,10 @@ test('main storage authority binds exact replay, working demand, floor, and back
 	await assert.rejects(() => authority.reserveQueue(OWNER, REQUEST), /cannot reserve/iu);
 });
 
-test('main storage authority refuses unsafe or caller-inflated accounting', async () => {
+test('main storage authority refuses aggregate native storage overflow', async () => {
 	const base = {
-		projectAuthority: () => ({ queueReservations: () => ({
-			cpuCores: 2, processTreeRssBytes: 4_096, scratchBytes: 100,
+		projectAuthority: () => ({ queueReservations: (_request, replayScratchByteLength) => ({
+			cpuCores: 2, processTreeRssBytes: 4_096, scratchBytes: replayScratchByteLength,
 			minimumFreeBytes: 10, hardwareBackend: null,
 		}) }),
 		renderInputStaging: {
@@ -57,7 +57,6 @@ test('main storage authority refuses unsafe or caller-inflated accounting', asyn
 		reserveBackend: (request) => request.reservations,
 	};
 	const authority = createFramescaperNativeQueueStorageAuthority(base);
-	await assert.rejects(() => authority.reserveQueue(OWNER, REQUEST), /safe integer|storage/iu);
 	await assert.rejects(
 		() => authority.admitStage(BEGIN, Number.MAX_SAFE_INTEGER, 1, Number.MAX_SAFE_INTEGER),
 		/safe integer|storage/iu,

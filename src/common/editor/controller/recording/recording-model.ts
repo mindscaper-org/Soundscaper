@@ -20,6 +20,8 @@ export interface MediaStreamLike {
 }
 
 export interface AudioDevicePreferences {
+	readonly host: string;
+	readonly recordingSampleRate: number;
 	readonly inputDeviceId: string;
 	readonly inputChannelCount: 1 | 2;
 	readonly outputDeviceId: string;
@@ -101,10 +103,17 @@ export function normalizeAudioDevicePreferences(value: unknown): Readonly<AudioD
 		? value as Readonly<Record<string, unknown>>
 		: {};
 	return Object.freeze({
+		host: typeof source.host === 'string' && source.host.trim() ? source.host.trim() : 'browser',
+		recordingSampleRate: normalizeRecordingSampleRate(source.recordingSampleRate),
 		inputDeviceId: normalizePreferredInputDeviceId(source.inputDeviceId),
 		inputChannelCount: Number(source.inputChannelCount) === 2 ? 2 : 1,
 		outputDeviceId: normalizePreferredOutputDeviceId(source.outputDeviceId),
 	});
+}
+
+export function normalizeRecordingSampleRate(value: unknown): number {
+	return Number.isSafeInteger(value) && Number(value) >= 8_000 && Number(value) <= 768_000
+		? Number(value) : AUDIO_EDITOR_SAMPLE_RATE;
 }
 
 export function normalizePreferredInputDeviceId(deviceId: unknown): string {

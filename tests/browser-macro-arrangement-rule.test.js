@@ -52,7 +52,4 @@ test('the macro surface keeps its hand-clicked golden paths', async () => {
 		assert.match(source, /chooseCommandAction\(page, editor, 'Tools', 'Macros palette'\)/u,
 			`${name} must reach the Macros palette from Tools the way a user does`);
 	}
-	// The helper states the rule where somebody about to use it will read it.
-	const helper = await readFile(new URL('./helpers/macro-arrange.js', SPEC_DIRECTORY), 'utf8');
-	assert.match(helper, /never to be the state under test/u);
 });

@@ -129,7 +129,6 @@ test('stable packaging consumes neutral inputs from an exact matching build resu
 		payloadSha256: stableRelease.payload.sha256,
 		buildResultSha256: stableRelease.buildResult.sha256,
 	});
-	assert.doesNotMatch(JSON.stringify(inputs), /ready|blocked|qualification|admission/iu);
 	const resourcesPath = join(stable.root, 'stable-resources');
 	await stageVerifiedSoundscaperProfessionalNativePayload({
 		release: stableRelease,
@@ -164,7 +163,6 @@ test('runtime resolution selects only the authenticated professional payload', a
 	assert.match(available.descriptor.isolation.launcher.path, /milestone5-native-isolation-launcher$/u);
 	assert.equal(available.descriptor.isolation.entrypoint.path, available.descriptor.pluginPeer.path);
 	assert.equal(available.descriptor.sourceAudit.status, 'authenticated');
-	assert.equal(Object.hasOwn(available.descriptor, 'm9ReleaseReview'), false);
 	const pending = await describeSoundscaperProfessionalNativePayload({
 		applicationRoot: ROOT, packaged: false, resourcesPath: '',
 		platform: 'darwin', arch: 'arm64',

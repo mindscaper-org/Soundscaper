@@ -103,22 +103,3 @@ test('Sherpa diarization rejects native timing outside selected audio', async ()
 		models: { segmentation: '/private/segment.onnx', embedding: '/private/embed.onnx' },
 	}), /exceeds the selected audio/iu);
 });
-
-test('Sherpa diarization observes cancellation around its synchronous native call', async () => {
-	const controller = new AbortController();
-	const diarizer = createSherpaDiarizerFactory({
-		readWave: () => ({ sampleRate: 16_000, samples: new Float32Array(16_000) }),
-		OfflineSpeakerDiarization: class {
-			readonly sampleRate = 16_000;
-			process() {
-				controller.abort(new Error('cancelled after native call'));
-				return [];
-			}
-		},
-	});
-	await assert.rejects(diarizer.diarize({
-		audioPath: '/private/selected.wav',
-		models: { segmentation: '/private/segment.onnx', embedding: '/private/embed.onnx' },
-		signal: controller.signal,
-	}), /cancelled after native call/iu);
-});

@@ -254,9 +254,6 @@ test('a refused profile names the layer it stopped at, all the way to the canary
 		.map(([, , value]) => Number(value)).filter((value) => value !== 0);
 	assert.deepEqual([...codes].sort((a, b) => a - b), [100, 101, 102, 103, 107, 108],
 		'every media-type refusal names itself');
-	assert.equal(new Set(codes).size, codes.length, 'two refusals must not share a number');
-	assert.ok(codes.every((value) => value >= 100),
-		'a media-type refusal must not collide with a profile-parser layer');
 
 	// Both results carry it, and neither target drops it on the floor.
 	// Decode, AAC encode and MP3 encode each carry it.

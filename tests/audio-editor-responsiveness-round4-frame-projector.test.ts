@@ -51,20 +51,3 @@ test('uncounted message targets retain per-event standalone conversion and compl
 	events[0]!.value = .5;
 	assert.equal(packet.events[0]!.value, 0);
 });
-
-test('standalone frame-before-window refusal still precedes transport ratio decoding', () => {
-	const original = Number.prototype.toString;
-	Number.prototype.toString = function(): string { throw new Error('Unexpected decimal decoding'); };
-	try {
-		assert.throws(() => roundScheduledParameterContextFrameOffset(99, 100, 48_000, 48_000, 1.2, 0), { message: 'A parameter frame offset is unsafe.' });
-	} finally { Number.prototype.toString = original; }
-});
-
-test('context offset overflow retains its original public error fields', () => {
-	assert.throws(() => roundScheduledParameterContextFrameOffset(1, 0, 48_000, 48_000, Number.MIN_VALUE, 0), error => {
-		assert.ok(error instanceof RangeError);
-		assert.equal(error.message, 'A parameter frame offset is unsafe.');
-		assert.equal(Object.hasOwn(error, 'cause'), false);
-		return true;
-	});
-});

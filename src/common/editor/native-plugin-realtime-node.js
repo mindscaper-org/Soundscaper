@@ -35,6 +35,13 @@ export function registerNativePluginOfflineRuntimeProvider(provider) {
 	return () => offlineProviders.delete(provider);
 }
 
+/** Whether replacing this context would orphan an attached native effect instance.
+ * @param {unknown} context
+ */
+export function hasNativePluginRealtimeContext(context) {
+	return [...activeContexts.values()].some((active) => active === context);
+}
+
 export function nativePluginOfflineRuntimeProviderAvailable() { return offlineProviders.size > 0; }
 
 /** Acquire fresh helper instances for a realtime PCM export/freeze graph. */

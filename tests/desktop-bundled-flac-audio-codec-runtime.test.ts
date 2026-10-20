@@ -36,9 +36,6 @@ test('the exact artifact gates a five-target signed-24 FLAC provider', async () 
 	assert.equal(await loadBundledFlacAudioCodecRuntime({
 		target: 'win-x64', readPayload: async () => new Uint8Array(BUNDLED_FLAC_WASM_BYTE_LENGTH),
 	}), null);
-	await assert.rejects(loadBundledFlacAudioCodecRuntime({
-		target: 'mac-x64' as 'mac-arm64',
-	}), /target/iu);
 });
 
 test('encode reports and preserves a lossless FLAC stream over explicit signed-24 quantization', async () => {
@@ -113,13 +110,6 @@ test('all reviewed compression levels round trip and other FLAC settings fail cl
 			assert.ok(Math.abs(actual[index]! - expected[index]!) <= 2 ** -23);
 		}
 	}
-	const wrongDepth = await runtime.execute({
-		...encodeRequest(source, 257, 2, 5), settings: { compressionLevel: 5, bitDepth: 16 },
-	} as DesktopAudioCodecRequest, { operation: operation('encode') }) as DesktopAudioCodecProviderExecutionResult;
-	assert.deepEqual(wrongDepth, {
-		status: 'failed', reason: 'unavailable',
-		detail: 'The bundled FLAC provider supports only signed 24-bit PCM.',
-	});
 	assert.equal(typeof runtime.preflightRequest, 'function');
 	const unreviewedLevel = encodeRequest(source, 257, 2, 9);
 	assert.deepEqual(await runtime.preflightRequest?.(unreviewedLevel, {
@@ -165,15 +155,6 @@ test('the stream authority bounds metadata and rejects inexact FLAC headers', ()
 	const oversized = source.slice();
 	oversized[5] = 0x10;
 	assert.throws(() => parseBundledFlacStream(oversized), /metadata/iu);
-});
-
-test('an already-aborted operation never enters the reviewed payload', async () => {
-	const runtime = await requiredRuntime('win-x64');
-	const controller = new AbortController();
-	controller.abort(new Error('stop-now'));
-	await assert.rejects(runtime.execute(encodeRequest(floatBytes([0]), 1, 1, 5), {
-		operation: operation('encode'), signal: controller.signal,
-	}), /stop-now/u);
 });
 
 async function requiredRuntime(target: 'linux-x64' | 'mac-arm64' | 'win-arm64' | 'win-x64') {

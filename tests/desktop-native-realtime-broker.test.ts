@@ -103,6 +103,25 @@ function createBroker(enabled = true, owner = createOwner()): Harness {
 
 const FORMAT = Object.freeze({ sampleRate: 48_000, channelCount: 2, frameCount: 1_024, queueCapacity: 8 });
 
+test('audio hosts can retain independent input and output ports and revoke only one session', () => {
+	const owner = createOwner();
+	const broker = new DesktopNativeRealtimeBroker({ isEnabled: () => true, concurrentSessions: true });
+	const input = createPort();
+	const output = createPort();
+	const first = authorized(broker.authorize({ owner, ...FORMAT, sessionId: 'input-session' }));
+	assert.equal(broker.acceptHelperPort(offer({ generation: first }), [input.port]).status, 'delivered');
+	const second = authorized(broker.authorize({ owner, ...FORMAT, sessionId: 'output-session' }));
+	assert.equal(broker.acceptHelperPort(offer({ generation: second }), [output.port]).status, 'delivered');
+	assert.equal(input.closeCount(), 0);
+	assert.equal(output.closeCount(), 0);
+	assert.equal((owner.deliveries[0]?.message as NativeRealtimeHandshake & { sessionId?: string }).sessionId, 'input-session');
+	broker.revokeGeneration(first);
+	assert.equal(input.closeCount(), 1);
+	assert.equal(output.closeCount(), 0);
+	broker.revokeOwner(owner);
+	assert.equal(output.closeCount(), 1);
+});
+
 function offer(overrides: Record<string, unknown> = {}): Record<string, unknown> {
 	return {
 		protocolVersion: 1,

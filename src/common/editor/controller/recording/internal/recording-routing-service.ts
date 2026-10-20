@@ -7,7 +7,9 @@ import type {
 	RecordingRoutingRefreshOptions,
 	RecordingRoutingServiceRuntime,
 } from './recording-routing-service-types.d.ts';
-import { setRecordingTrackRoute } from '../../../recording-routing.js';
+import { adaptNativeAudioInventory, type NativeAudioInventoryReport } from '../native-audio-inventory.ts';
+import { normalizeRecordingSampleRate } from '../recording-model.ts';
+import { preferredRecordingRoutes } from './preferred-recording-routes.ts';
 import { supportsDisplayAudioCapture } from '../../../recording-display-input.ts';
 import { raceAbortableRead } from '../../../abort-race.ts';
 
@@ -32,11 +34,11 @@ export function createRecordingRoutingService<
 >(runtime: RecordingRoutingServiceRuntime<Project, Stream>) {
 	const {
 		AUDIO_DEVICE_PREFERENCES_SETTING_KEY, RECORDING_CHANNEL_COUNT_MAXIMUM, RECORDING_DEFAULT_DEVICE_ID, RECORDING_DISPLAY_SOURCE_KEY,
-		assignPreferredInputToTrack, engine, lifetime, mediaDevices, microphoneMeterDeviceId,
+		engine, lifetime, mediaDevices, microphoneMeterDeviceId,
 		getMicrophoneMeterSession, invalidateMicrophoneMeter, normalizePreferredInputDeviceId, normalizePreferredOutputDeviceId,
 		normalizeRecordingRouting, persistSetting, productSettingKey, getProject,
 		projectSampleRate, publishDocumentSnapshot, recordingCapturePool, recordingRouteSourceKey,
-		recordingRoutingSettingKey, setRecordingSourceOffset, setRecordingTrackInput, state,
+		recordingRoutingSettingKey, setRecordingSourceOffset, state,
 		stopMicrophoneMetering, store, updatePreferences,
 	} = runtime;
 	let outputDeviceSelectionGeneration = 0;
@@ -73,7 +75,7 @@ export function createRecordingRoutingService<
 
 	async function requestInputAccess() {
 		if (!mediaDevices?.getUserMedia) throw new Error('Hardware audio recording is not supported in this browser.');
-		const sampleRate = projectSampleRate();
+		const sampleRate = recordingInputSampleRate();
 		const opened: string[] = [];
 		const failures: unknown[] = [];
 		try {
@@ -118,7 +120,8 @@ export function createRecordingRoutingService<
 		if (nativeInventory !== undefined) retainedNativeInventory = nativeInventory;
 		const webInputs: RecordingRoutingDeviceRow[] = [];
 		const webOutputs: RecordingRoutingDeviceRow[] = [];
-		const enumerateDevices = mediaDevices?.enumerateDevices;
+		const webHost = state.audioHost === 'browser' || state.audioHost === 'electron';
+		const enumerateDevices = webHost ? mediaDevices?.enumerateDevices : null;
 		if (enumerateDevices) {
 			const devices = await raceAbortableRead(() => enumerateDevices.call(mediaDevices), lifetime.signal);
 			for (const device of devices || []) {
@@ -134,14 +137,15 @@ export function createRecordingRoutingService<
 		}
 		lifetime.signal.throwIfAborted();
 		if (!isCurrentInventory(generation) && !probe) return state.recordingDevices;
-		const discoveredInputs = uniqueDeviceRows([...webInputs, ...(retainedNativeInventory?.inputs || [])]);
-		const discoveredOutputs = uniqueDeviceRows([...webOutputs, ...(retainedNativeInventory?.outputs || [])]);
+		const discoveredInputs = uniqueDeviceRows(webHost ? webInputs : [...(retainedNativeInventory?.inputs || [])]);
+		const discoveredOutputs = uniqueDeviceRows(webHost ? webOutputs : [...(retainedNativeInventory?.outputs || [])]);
 		if (isCurrentInventory(generation)) {
 			state.recordingEnumeratedDeviceIds = new Set(discoveredInputs.map((device) => device.deviceId));
 			if (discoveredInputs.some((device) => device.label)) state.audioInputAccess = true;
 			updateRecordingDeviceRows(discoveredInputs);
-			state.audioInputDevices = Object.freeze(state.recordingDevices.map((device, index) => Object.freeze({
+			state.audioInputDevices = Object.freeze(state.recordingDevices.filter((device) => state.recordingEnumeratedDeviceIds.has(device.deviceId)).map((device, index) => Object.freeze({
 				deviceId: device.deviceId,
+				isDefault: device.isDefault === true, groupId: device.groupId ?? '',
 				label: device.label || `Audio input ${index + 1}`,
 				channelCount: device.channelCount,
 				status: device.status,
@@ -157,7 +161,7 @@ export function createRecordingRoutingService<
 			// A newer passive inventory must not cancel an explicit input probe.
 			await Promise.allSettled(webInputs.map((device) => recordingCapturePool.acquireHardware(device.deviceId, {
 				channelCount: RECORDING_CHANNEL_COUNT_MAXIMUM,
-				sampleRate: projectSampleRate(),
+				sampleRate: recordingInputSampleRate(),
 			})));
 			lifetime.signal.throwIfAborted();
 			syncRecordingPoolSnapshot();
@@ -165,8 +169,9 @@ export function createRecordingRoutingService<
 			syncRecordingPoolSnapshot();
 			if (!isCurrentInventory(generation)) return state.recordingDevices;
 			updateRecordingDeviceRows(discoveredInputs);
-			state.audioInputDevices = Object.freeze(state.recordingDevices.map((device) => Object.freeze({
+			state.audioInputDevices = Object.freeze(state.recordingDevices.filter((device) => state.recordingEnumeratedDeviceIds.has(device.deviceId)).map((device) => Object.freeze({
 				deviceId: device.deviceId,
+				isDefault: device.isDefault === true, groupId: device.groupId ?? '',
 				label: device.label,
 				channelCount: device.channelCount,
 				status: device.status,
@@ -193,35 +198,13 @@ export function createRecordingRoutingService<
 			throw new Error('Display audio capture is not supported in this browser.');
 		}
 		await keepSelectedRecordingInputsOpen();
-		const selectedTrackId = state.selectedTrackId;
-		const selectedRoute = selectedTrackId ? state.recordingRouting.routes[selectedTrackId] : null;
-		const previousSourceKey = state.preferredInputDeviceId === RECORDING_DISPLAY_SOURCE_KEY
-			? RECORDING_DISPLAY_SOURCE_KEY : `device:${state.preferredInputDeviceId}`;
-		const selectedTrack = getProject()?.tracks.find((track) => track.id === selectedTrackId);
-		const previousRouting = state.recordingRouting;
-		if (!state.recorder && !state.recordingStarting && !state.timedRecordingPreparing && !state.timedRecording
-			&& selectedTrack && selectedRoute?.channelStart === 0
-			&& recordingRouteSourceKey(selectedRoute) === previousSourceKey) {
-			// Selecting the default must also move the matching active route. Keep
-			// display acquisition on the separate chooser action (or Record).
-			state.recordingRouting = setRecordingTrackRoute(state.recordingRouting, selectedTrack, {
-				...(normalized === RECORDING_DISPLAY_SOURCE_KEY
-					? { kind: 'display' }
-					: { kind: 'device', deviceId: normalized,
-						deviceLabel: state.audioInputDevices.find((device) => device.deviceId === normalized)?.label || '' }),
-				channelStart: 0,
-				channelCount: state.preferredInputChannelCount,
-			});
-		}
+		const previousDeviceId = state.preferredInputDeviceId;
 		state.preferredInputDeviceId = normalized;
-		await Promise.all([
-			persistAudioDevicePreferences(),
-			state.recordingRouting === previousRouting ? Promise.resolve() : persistRecordingRouting(),
-		]);
-		if (normalized !== RECORDING_DISPLAY_SOURCE_KEY) {
+		await Promise.all([persistAudioDevicePreferences(), updatePreferredRecordingRoutes(previousDeviceId)]);
+		if (normalized !== RECORDING_DISPLAY_SOURCE_KEY && (state.audioHost === 'browser' || state.audioHost === 'electron')) {
 			await recordingCapturePool.acquireHardware(normalized, {
 				channelCount: state.preferredInputChannelCount,
-				sampleRate: projectSampleRate(),
+				sampleRate: recordingInputSampleRate(),
 			});
 		}
 		syncRecordingPoolSnapshot();
@@ -252,28 +235,77 @@ export function createRecordingRoutingService<
 	async function setPreferredInputChannelCount(channelCount: number) {
 		const normalized = Number(channelCount) === 2 ? 2 : 1;
 		state.preferredInputChannelCount = normalized;
-		const selectedTrackId = state.selectedTrackId;
-		if (selectedTrackId && !state.recordingRouting.routes[selectedTrackId]) {
-			assignPreferredInputToTrack(selectedTrackId);
-		}
-		const selectedRoute = selectedTrackId ? state.recordingRouting.routes[selectedTrackId] : null;
-		if (selectedTrackId && selectedRoute
-			&& (selectedRoute.kind === 'display'
-				? state.preferredInputDeviceId === RECORDING_DISPLAY_SOURCE_KEY
-				: selectedRoute.deviceId === state.preferredInputDeviceId)
-			&& selectedRoute.channelStart === 0
-			&& selectedRoute.channelCount !== normalized) {
-			try {
-				await setRecordingTrackInput(selectedTrackId, {
-					...selectedRoute,
-					channelCount: normalized,
-				});
-			} catch {
-				// Keep the preference for new tracks when the selected route cannot use it.
-			}
-		}
+		await updatePreferredRecordingRoutes();
 		publishDocumentSnapshot();
 		await persistAudioDevicePreferences();
+		return normalized;
+	}
+
+	function updatePreferredRecordingRoutes(previousDeviceId = state.preferredInputDeviceId) {
+		const previous = state.recordingRouting;
+		const armed = getProject()?.tracks.filter(track => track.armed) ?? [];
+		const trackId = state.selectedTrackId ?? (armed.length === 1 ? armed[0].id : undefined);
+		const route = trackId ? previous.routes[trackId] : null;
+		const followsPrevious = route?.kind === 'display' ? previousDeviceId === RECORDING_DISPLAY_SOURCE_KEY
+			: route?.deviceId === previousDeviceId;
+		const followTrackId = !state.recorder && armed.length <= 1 && route?.channelStart === 0 && followsPrevious ? trackId : undefined;
+		state.recordingRouting = preferredRecordingRoutes(previous, {
+			deviceId: state.preferredInputDeviceId, channelCount: state.preferredInputChannelCount,
+			deviceLabel: state.audioInputDevices.find(device => device.deviceId === state.preferredInputDeviceId)?.label ?? '',
+		}, followTrackId);
+		return previous === state.recordingRouting ? Promise.resolve() : persistRecordingRouting();
+	}
+
+	function recordingInputSampleRate() {
+		return state.audioHost === 'browser' || state.audioHost === 'electron'
+			? projectSampleRate() : state.preferredRecordingSampleRate;
+	}
+
+	async function setRecordingSampleRate(sampleRate: number) {
+		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+			throw new Error('The recording sample rate cannot be changed while recording is active.');
+		}
+		const normalized = normalizeRecordingSampleRate(sampleRate);
+		if (normalized !== sampleRate) throw new RangeError('Recording sample rate must be an integer between 8000 and 768000 Hz.');
+		if (state.audioHost !== 'browser' && state.audioHost !== 'electron') {
+			await engine.getAudioContext?.({ resume: false, sampleRate: normalized });
+		}
+		state.preferredRecordingSampleRate = normalized;
+		await persistAudioDevicePreferences();
+		publishDocumentSnapshot();
+		return normalized;
+	}
+
+	async function setHostInventory(host: string, report: NativeAudioInventoryReport | null) {
+		if (state.recorder || state.recordingStarting || state.timedRecordingPreparing || state.timedRecording) {
+			throw new Error('The audio host cannot be changed while recording is active.');
+		}
+		const normalized = host.trim();
+		if (!normalized) throw new TypeError('An audio host is required.');
+		const inventory = report ? adaptNativeAudioInventory(report) : null;
+		if (inventory && inventory.backend !== normalized) throw new TypeError('The inventory must belong to the selected audio host.');
+		const changed = state.audioHost !== normalized;
+		const previousDeviceId = state.preferredInputDeviceId;
+		if (changed) {
+			recordingCapturePool.releaseAll();
+			await Promise.resolve(engine.setOutputDevice?.('')).catch(() => undefined);
+		}
+		state.audioHost = normalized;
+		await refreshAudioDevices({ probe: false, publish: false, nativeInventory: inventory });
+		if (state.audioHost !== normalized) return state.audioHost;
+		const webHost = normalized === 'browser' || normalized === 'electron';
+		if (!state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
+			state.preferredInputDeviceId = webHost ? RECORDING_DEFAULT_DEVICE_ID
+				: (state.audioInputDevices.find(device => device.isDefault) ?? state.audioInputDevices[0])?.deviceId ?? RECORDING_DEFAULT_DEVICE_ID;
+		}
+		if (!state.audioOutputDevices.some(device => device.deviceId === state.preferredOutputDeviceId)) {
+			state.preferredOutputDeviceId = webHost ? ''
+				: (state.audioOutputDevices.find(device => device.isDefault) ?? state.audioOutputDevices[0])?.deviceId ?? '';
+		}
+		await Promise.all([persistAudioDevicePreferences(), updatePreferredRecordingRoutes(previousDeviceId)]);
+		await reconcilePreferredOutputDevice();
+		syncRecordingPoolSnapshot();
+		publishDocumentSnapshot();
 		return normalized;
 	}
 
@@ -359,6 +391,8 @@ export function createRecordingRoutingService<
 
 	function persistAudioDevicePreferences() {
 		return persistSetting(productSettingKey(AUDIO_DEVICE_PREFERENCES_SETTING_KEY), {
+			host: state.audioHost,
+			recordingSampleRate: state.preferredRecordingSampleRate,
 			inputDeviceId: state.preferredInputDeviceId,
 			inputChannelCount: state.preferredInputChannelCount,
 			outputDeviceId: state.preferredOutputDeviceId,
@@ -479,6 +513,8 @@ export function createRecordingRoutingService<
 		configureDisplayInput,
 		keepSelectedRecordingInputsOpen,
 		setPreferredInputChannelCount,
+		setRecordingSampleRate,
+		setHostInventory,
 		setAudioOutputDevice,
 		reconcilePreferredOutputDevice,
 		persistAudioDevicePreferences,

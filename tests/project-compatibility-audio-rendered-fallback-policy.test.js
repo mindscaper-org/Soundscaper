@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const policyUrl = new URL('../config/project-compatibility.json', import.meta.url);
 
 test('compatibility policy qualifies role-defined audio whole-mix fallback playback and delivery', async () => {
@@ -13,88 +11,6 @@ test('compatibility policy qualifies role-defined audio whole-mix fallback playb
 	const rule = policy.rules.find(({ id }) => id === 'current-audio-whole-mix-rendered-fallback');
 	assert.ok(rule);
 	assert.equal(rule.status, 'implemented');
-	assert.match(
-		rule.requiredOutcome,
-		/exact owning-family v1.*canonical namespaced feature identity.*unavailable or unknown.*closed project-audio-mix-v1.*whole-mix.*editor playback.*final-mix audio export.*selector-bound operation-time.*private chunk provider.*canonical state/iu,
-	);
-	assert.match(rule.requiredOutcome, /final-video delivery.*one.*maintained video fallback.*joint.*operation-time admission/iu);
-	assert.match(
-		rule.requiredOutcome,
-		/explicit managed desktop handoff.*fallback source.*only by that requirement.*fresh-recipient acquisition.*controller digest verification.*activation/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/authoritative.*exact owning-family v1.*exactly one.*canonical namespaced feature ID.*unavailable or unknown.*declared and effective rendered-fallback.*closed project-audio-mix-v1.*canonical manifest/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/closed role supplies.*media semantics.*feature ID.*opaque identity.*does not discover, load, or execute.*feature code/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/one.*mono or stereo.*full.*frame zero.*sample rate.*master channel.*ADM.*surround.*reject.*ambiguous.*reserved.*reject/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/removes canonical audio clips and tracks.*neutral.*mixer and master.*retains video and label.*initial activation and later engine reapplies.*stored metadata.*rechecked.*short sources.*buffer geometry.*oversized sources.*streamable chunk provider.*does not prefetch or revalidate.*later provider failure/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/initial activation.*required fallback source.*decoded buffer or stream-provider candidate.*privately.*before.*session activation reservation.*without mutating.*shared source-buffer or provider.*engine chunk sources.*currentness or reservation.*discarded.*prior buffer and provider identities.*active project, tab, and lock.*unchanged/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/ordinary-source loading.*excludes.*required fallback.*private source-buffer and chunk-source snapshots.*staged required representation.*wins.*engine.*engine callback succeeds.*lifetime signal.*active.*synchronous project-identity or activation-admission assertion.*immediately before shared publication.*no intervening await.*shared source maps/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/standalone audio delivery projection.*audio rendered fallback.*reapplies the audio effect bypass.*does not compose the video.*rendered fallback.*simultaneous rendered fallback.*reject/iu,
-	);
-	assert.match(rule.currentBehavior, /final-video delivery.*compose.*one.*audio whole-mix.*one.*maintained video fallback.*single.*integrity admission/iu);
-	assert.match(
-		rule.currentBehavior,
-		/final-mix.*only.*stems.*BW64.*ADM.*reject.*before.*verification.*plan.*(?:picker|destination selection).*render/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/operation-time.*selector.*requirement ID.*feature ID.*audio kind.*source ID.*SHA-256.*full canonical.*chunk scan.*private.*chunk provider.*sole.*render source.*global.*buffer.*provider.*cache.*unchanged/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/provider.*read.*rereads.*stored chunk.*geometry.*digest.*currentness.*chang.*integrity.*offline.*does not retry.*realtime/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/canonical project.*history.*persistence.*save.*unchanged.*persistent localized.*active during editor playback.*without exposing.*source/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/point-in-time.*not.*durable byte lease/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/each canonical playback reapply.*one replaceable controller-lifetime task.*newer reapply.*successful project switch.*abort.*metadata.*audio-context.*decoded-body.*exact reason.*late settlement.*buffers.*chunk providers.*engine chunk sources.*missing-source state.*status.*only the newest source-ready projection.*engine/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/maintained org\.example\.future-mixer unknown-feature desktop handoff witness.*feature-requirement-only intrinsic read-only.*current writable project lock.*without flushing.*roots.*fallback-only source.*manifest.*canonical managed PCM.*editable original.*fresh recipient.*both bodies.*canonical shadow.*transfer acquisition.*managed descriptor and body SHA-256.*controller separately verifies.*manifest fallback digest.*after shadow publication.*before.*transient whole-mix projection.*exact fallback samples.*engine.*corrupt.*after activation.*reject.*before.*render.*output.*repair.*exact PCM.*final-mix.*canonical.*unchanged/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/Soundscaper family-v1 same-family fallback witness.*manifest.*metadata.*localized.*UI.*exact feature ID.*requirement ID/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/operation-time.*selector.*exact requirement ID.*feature ID.*audio kind.*source ID.*SHA-256.*tamper.*refus.*repair.*canonical project.*shadow.*unchanged/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/source-level and portable-open evidence.*source\/component binding.*packaged runtime or UI activation, transport playback, and final-delivery workflows.*unqualified/iu,
-	);
-	assert.match(
-		rule.currentBehavior,
-		/engine.*already entered.*not abortable.*transactional.*engine-side effects.*later activation failure.*successful commit.*not roll back.*ordinary-source loading.*outside.*cache-fit policy.*streamed chunks.*not prefetched or revalidated.*more than one.*feature identities.*non-audio roles.*future schemas.*earlier Soundscaper.*linked-only.*unmanaged.*authoring.*freeze.*proxy.*publisher authenticity.*third-party code activation.*packaged.*UI.*browser.*reference-scale.*durable byte lease/iu,
-	);
 
 	for (const reference of rule.evidence) {
 		await assert.doesNotReject(access(new URL(`../${reference}`, import.meta.url)), reference);
@@ -133,25 +49,4 @@ test('compatibility policy qualifies role-defined audio whole-mix fallback playb
 		'tests/audio-editor-soundscaper-baseline.test.ts',
 		'tests/browser/audio-editor-scape-open-compatibility.spec.js',
 	]) assert.ok(rule.evidence.includes(reference), reference);
-
-	const documentation = await readFile(new URL('../docs/policies/project-compatibility.md', import.meta.url), 'utf8');
-	const normalizedDocumentation = documentation.replace(/\s+/gu, ' ');
-	assertOrderedClaim(normalizedDocumentation, /exact owning-family v1.*canonical namespaced feature ID.*unavailable or unknown.*closed `project-audio-mix-v1` role.*whole-mix.*frame zero.*editor playback/isu);
-	assertOrderedClaim(normalizedDocumentation, /closed role supplies.*media semantics.*feature ID.*opaque identity.*does not discover, load, or execute.*feature code/isu);
-	assertOrderedClaim(documentation, /initial activation.*required fallback source.*decoded buffer or stream-provider candidate.*privately.*before.*activation reservation.*without changing.*shared buffer.*provider.*engine.*chunk-source state.*currentness.*reservation.*fails.*discarded.*prior buffer.*provider.*identities.*active project.*tab.*lock.*unchanged/isu);
-	assertOrderedClaim(documentation, /ordinary-source loading.*excludes.*required fallback.*private source-buffer.*chunk-source snapshots.*staged required representation.*wins.*engine.*engine callback.*succeeds.*lifetime signal.*active.*synchronous project-identity or.*activation-admission assertion.*immediately\s+before shared publication.*no.*intervening await.*shared\s+source maps/isu);
-	assertOrderedClaim(documentation, /each canonical playback reapply.*replaceable controller-lifetime task.*newer reapply.*successful project switch.*abort.*metadata.*audio-context.*decoded-body.*exact signal reason.*late settlement.*buffer.*provider.*engine-source.*missing-source.*status.*only the newest source-ready projection.*engine/isu);
-	assertOrderedClaim(documentation, /engine.*already entered.*not abortable.*transactional.*engine-side effects.*later activation.*failure.*successful commit.*does not roll back.*ordinary-source loading.*outside.*cache-fit policy.*does not.*prefetch or revalidate/isu);
-	assertOrderedClaim(documentation, /Managed-media, linked-original, and rendered-fallback\s+witnesses.*only between stores owned by the same\s+family/isu);
-	assertOrderedClaim(documentation, /standalone audio-delivery projection.*audio rendered fallback.*reapplies the audio effect bypass.*does not compose the video.*rendered fallback.*simultaneous rendered fallback.*reject/isu);
-	assertOrderedClaim(documentation, /final-video delivery.*compose.*one.*audio whole-mix.*one.*maintained video fallback.*single.*integrity admission/isu);
-	assertOrderedClaim(documentation, /final-mix.*only.*stems.*BW64.*ADM.*reject.*before.*verification.*planning.*destination.*render/isu);
-	assertOrderedClaim(documentation, /operation-time.*selector.*requirement ID.*feature ID.*audio kind.*source ID.*SHA-256.*full canonical.*chunk scan.*private.*chunk provider.*sole.*render source.*global.*cache.*unchanged/isu);
-	assertOrderedClaim(documentation, /provider.*read.*rereads.*stored chunk.*geometry.*digest.*currentness.*chang.*integrity.*offline.*does not retry.*realtime/isu);
-	assertOrderedClaim(normalizedDocumentation, /Corrupt same-shaped recipient-local PCM after activation.*rejects delivery before rendering or output.*exact repair restores the exact PCM.*final-mix.*canonical project.*shadow.*unchanged/isu);
-	assertOrderedClaim(normalizedDocumentation, /foreign-family archive never enters those domain controls.*byte-exact Save Copy/isu);
-	assertOrderedClaim(normalizedDocumentation, /operation-time.*selector.*exact requirement ID.*feature ID.*audio kind.*source ID.*SHA-256.*tamper.*refus.*repair.*canonical project.*shadow.*unchanged/isu);
-	assertOrderedClaim(normalizedDocumentation, /Source-level and portable-open evidence.*four frozen rendered-fallback relationships.*packaged activation, transport playback, and final delivery remain unqualified/isu);
-	assertOrderedClaim(documentation, /exact point-in-time provider.*immutable.*Blob.*not durable leases.*role-defined.*audio whole-mix.*role-defined whole-project video.*videoEffects-only\s+clip-target.*narrow editor-playback\s+and\s+delivery/isu);
-	assertOrderedClaim(normalizedDocumentation, /more than one.*feature identities.*non-audio roles.*future schemas.*earlier Soundscaper schemas.*linked-only.*unmanaged.*authoring.*freeze.*proxy.*publisher authenticity.*third-party code activation.*packaged.*UI.*browser.*reference-scale/isu);
 });

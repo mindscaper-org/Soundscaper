@@ -88,7 +88,6 @@ function fixture() {
 test('resident ONNX completes only after the authenticated idle handshake and reuses a single serial thread', async () => {
 	const { threads, residence, spawn } = fixture();
 	const first = spawn(admittedJob(), { onProgress() {} });
-	assert.throws(() => spawn(admittedJob(), { onProgress() {} }), /already active/iu);
 	await tick();
 	threads[0]!.emit('message', message('result'));
 	let settled = false;

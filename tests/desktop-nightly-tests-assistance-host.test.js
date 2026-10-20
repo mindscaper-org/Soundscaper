@@ -78,6 +78,20 @@ test('the nightly error summary keeps causes while redacting private paths', () 
 	assert.deepEqual(summary, [{ name: 'Error' }, { name: 'Error', code: 'ENOENT' }]);
 });
 
+test('the nightly error summary retains reviewed speech helper failure causes', () => {
+	for (const cause of ['helper-error', 'helper-exit', 'heartbeat', 'malformed-message',
+		'job-mismatch', 'cancelled', 'cancellation-timeout', 'disposed']) {
+		const error = Object.assign(new Error('A private native runtime message.'), {
+			name: 'AssistanceJobError', cause,
+		});
+		assert.deepEqual(summarizeNightlyAssistanceError(error), [{ name: 'AssistanceJobError', cause }]);
+	}
+	for (const cause of ['C:\\Users\\private\\model.onnx', 'private selected transcript', 'other-code']) {
+		const error = Object.assign(new Error('Private runtime data.'), { name: 'AssistanceJobError', cause });
+		assert.deepEqual(summarizeNightlyAssistanceError(error), [{ name: 'AssistanceJobError' }]);
+	}
+});
+
 test('the isolated host uses production registration and preload with guarded real IPC', async (context) => {
 	let window;
 	let registration;

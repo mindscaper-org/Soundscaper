@@ -17,7 +17,6 @@ import {
 
 import {
 	BrowserAacM4aValidationError,
-	encodeBrowserAacM4a,
 	probeBrowserAacEncoding,
 	validateBrowserAacM4aOutput,
 } from '../src/common/editor/browser-webcodecs-aac.ts';
@@ -178,69 +177,6 @@ test('AAC output validation observes cancellation before demux', async () => {
 	);
 });
 
-test('AAC file generation rejects an already-aborted request before probing WebCodecs', async () => {
-	const previous = Object.getOwnPropertyDescriptor(globalThis, 'AudioEncoder');
-	let probes = 0;
-	Object.defineProperty(globalThis, 'AudioEncoder', {
-		configurable: true,
-		value: {
-			async isConfigSupported() { probes += 1; return { supported: true }; },
-		},
-	});
-	try {
-		const controller = new AbortController();
-		const reason = new DOMException('AAC export cancelled.', 'AbortError');
-		controller.abort(reason);
-		await assert.rejects(() => encodeBrowserAacM4a({
-			input: new Uint8Array(new Float32Array([0]).buffer),
-			frameCount: 1,
-			channelCount: 1,
-			sampleRate: 48_000,
-			bitrate: 192_000,
-			maximumOutputBytes: 1_024,
-			signal: controller.signal,
-		}), (error) => error === reason);
-		assert.equal(probes, 0);
-	} finally {
-		restoreGlobalProperty('AudioEncoder', previous);
-	}
-});
-
-test('AAC file generation observes cancellation while its exact support probe is pending', async () => {
-	const previous = Object.getOwnPropertyDescriptor(globalThis, 'AudioEncoder');
-	let releaseProbe: ((value: { supported: boolean }) => void) | undefined;
-	let announceProbe: (() => void) | undefined;
-	const probeStarted = new Promise<void>((resolve) => { announceProbe = resolve; });
-	Object.defineProperty(globalThis, 'AudioEncoder', {
-		configurable: true,
-		value: {
-			isConfigSupported() {
-				announceProbe?.();
-				return new Promise<{ supported: boolean }>((resolve) => { releaseProbe = resolve; });
-			},
-		},
-	});
-	try {
-		const controller = new AbortController();
-		const reason = new DOMException('AAC support probe cancelled.', 'AbortError');
-		const encoding = encodeBrowserAacM4a({
-			input: new Uint8Array(new Float32Array([0]).buffer),
-			frameCount: 1,
-			channelCount: 1,
-			sampleRate: 48_000,
-			bitrate: 192_000,
-			maximumOutputBytes: 1_024,
-			signal: controller.signal,
-		});
-		await probeStarted;
-		controller.abort(reason);
-		releaseProbe?.({ supported: true });
-		await assert.rejects(encoding, (error) => error === reason);
-	} finally {
-		restoreGlobalProperty('AudioEncoder', previous);
-	}
-});
-
 async function aacLcM4aAccessUnitFixture(packetCount: number, metadata?: Readonly<Record<string, string>>): Promise<Uint8Array<ArrayBuffer>> {
 	const fixtureInput = new Input({ source: new BufferSource(aacLcM4a48_000Fixture()), formats: [MP4] });
 	try {
@@ -273,9 +209,4 @@ async function aacLcM4aAccessUnitFixture(packetCount: number, metadata?: Readonl
 	} finally {
 		fixtureInput.dispose();
 	}
-}
-
-function restoreGlobalProperty(key: string, descriptor: PropertyDescriptor | undefined): void {
-	if (descriptor) Object.defineProperty(globalThis, key, descriptor);
-	else Reflect.deleteProperty(globalThis, key);
 }

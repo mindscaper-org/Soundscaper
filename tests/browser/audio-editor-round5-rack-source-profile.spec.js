@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
-import { addRackEffect, bootEditor, chooseCommandAction, importFiles,
-	openClipProperties, openEffectsForTrack } from './audio-editor-test-helpers.js';
+import { addRackEffect, bootEditor, chooseCommandAction, dockWorkspacePanel, importFiles,
+	openSourceMonitor, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 test('an open Source editor does not prevent the selected track rack from capturing its timeline profile', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -12,7 +12,8 @@ test('an open Source editor does not prevent the selected track rack from captur
 	await addRackEffect(page, panel, 'track', 'Noise Reduction');
 	const rack = page.getByRole('dialog', { name: 'Noise Reduction', exact: true });
 	await rack.getByRole('button', { name: 'Close', exact: true }).click();
-	const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id]').first());
+	const properties = await openSourceMonitor(page, editor, editor.locator('[data-clip-id]').first());
+	await dockWorkspacePanel(editor, 'source-monitor', 'bottom');
 	const source = properties.getByRole('region', { name: 'Source waveform', exact: true });
 	await source.focus();
 	await source.press('Control+a');

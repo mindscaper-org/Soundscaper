@@ -12,7 +12,8 @@ export function assertAudiocomLinkUrl(value: unknown, configuration?: AudiocomEx
 		if (!match) throw new TypeError();
 		const rawPath = match[1] || '/';
 		const archivePage = configured && /^\/public\/audio\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(rawPath);
-		const provider = url.origin === (configured?.webOrigin ?? 'https://audio.com') && (providerPage(rawPath) || archivePage);
+		const playbackPage = configured && /^\/audio\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\/play$/iu.test(rawPath);
+		const provider = url.origin === (configured?.webOrigin ?? 'https://audio.com') && (providerPage(rawPath) || archivePage || playbackPage);
 		const license = url.origin === 'https://creativecommons.org'
 			&& /^(?:\/publicdomain\/zero\/1\.0\/|\/licenses\/by(?:-nc)?(?:-sa|-nd)?\/4\.0\/)$/u.test(rawPath);
 		if (!provider && !license) throw new TypeError();

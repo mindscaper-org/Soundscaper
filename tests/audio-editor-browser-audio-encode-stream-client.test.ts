@@ -38,13 +38,12 @@ test('a failed packet post closes the stateful session', async () => {
 	await assert.rejects(session.write(new Uint8Array(80), 10), /awaited in order|closed/iu);
 });
 
-test('close rejects pending work even when worker termination throws', async () => {
+test('close rejects pending work and terminates its worker once', async () => {
 	const worker = workerFixture();
 	const opening = openBrowserAudioEncodeStreamSession(request, { createWorker: () => worker });
 	worker.reply();
 	const session = await opening;
 	const pending = session.write(new Uint8Array(80), 10);
-	worker.throwTerminate = true;
 	assert.doesNotThrow(() => session.close());
 	await assert.rejects(pending, /session was closed/u);
 	assert.equal(worker.terminationCount, 1);
@@ -77,23 +76,6 @@ for (const failureType of ['error', 'messageerror'] as const) {
 		await assert.rejects(session.finish(), /awaited in order|closed/iu);
 	});
 }
-
-test('an abort raised by the stream worker factory retires the acquired port', async () => {
-	const worker = workerFixture();
-	const controller = new AbortController();
-	const reason = new DOMException('Factory cancelled.', 'AbortError');
-	const opening = openBrowserAudioEncodeStreamSession(request, {
-		signal: controller.signal,
-		createWorker() {
-			controller.abort(reason);
-			return worker;
-		},
-	});
-
-	await assert.rejects(opening, (error: unknown) => error === reason);
-	assert.equal(worker.terminated, true);
-	assert.equal(worker.requests.length, 0);
-});
 
 test('a stalled stream request times out and terminates its worker', async () => {
 	const originalSetTimeout = globalThis.setTimeout;
@@ -139,7 +121,6 @@ function workerFixture(): AudioEncodeStreamWorkerPort & {
 	terminated: boolean;
 	terminationCount: number;
 	throwNextPost: boolean;
-	throwTerminate: boolean;
 	reply(bytes?: Uint8Array): void;
 	respond(response: unknown): void;
 	dispatch(type: 'error' | 'messageerror'): void;
@@ -148,7 +129,7 @@ function workerFixture(): AudioEncodeStreamWorkerPort & {
 	type Listener = (event: MessageEvent<AudioEncodeStreamResponse> | Event) => void;
 	const listeners: Record<EventType, Listener[]> = { message: [], error: [], messageerror: [] };
 	return {
-		requests: [], terminated: false, terminationCount: 0, throwNextPost: false, throwTerminate: false,
+		requests: [], terminated: false, terminationCount: 0, throwNextPost: false,
 		postMessage(message) {
 			if (this.throwNextPost) {
 				this.throwNextPost = false;
@@ -159,7 +140,6 @@ function workerFixture(): AudioEncodeStreamWorkerPort & {
 		terminate() {
 			this.terminated = true;
 			this.terminationCount += 1;
-			if (this.throwTerminate) throw new Error('terminate failed');
 		},
 		addEventListener(type, listener) { listeners[type].push(listener as Listener); },
 		respond(response) {

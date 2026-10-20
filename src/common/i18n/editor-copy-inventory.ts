@@ -44,6 +44,8 @@ import { CLIP_SPREADSHEET_COPY_BY_LOCALE } from './editor-clip-spreadsheet-copy.
 import { ABOUT_DIALOG_COPY_BY_LOCALE } from './editor-about-dialog-copy.ts';
 import { ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE } from './editor-original-file-overwrite-copy.ts';
 import { BLENDER_COPY_BY_LOCALE } from './editor-blender-copy.ts';
+import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from './editor-clip-interactions-copy.ts';
+import { KEYBOARD_MAP_COPY_BY_LOCALE } from './editor-keyboard-map-copy.ts';
 import { ID3_METADATA_COPY_BY_LOCALE } from './editor-id3-metadata-copy.ts';
 import { MOTIONSCAPER_COPY_BY_LOCALE } from './editor-motionscaper-copy.ts';
 import { MOTION_LINK_BRIDGE_COPY_BY_LOCALE } from './editor-motion-link-bridge-copy.ts';
@@ -175,6 +177,8 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, GERMAN_COPY, [
 	{ owner: 'sourceStatus', ...SOURCE_STATUS_COPY_BY_LOCALE },
 	{ owner: 'freesoundAttribution', ...FREESOUND_ATTRIBUTION_INVENTORY_COPY_BY_LOCALE },
 	{ owner: 'audiocom', ...AUDIOCOM_INVENTORY_COPY_BY_LOCALE },
+	{ owner: 'clipInteractions', ...CLIP_INTERACTIONS_COPY_BY_LOCALE },
+	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'motionscaper', ...MOTIONSCAPER_COPY_BY_LOCALE },
 	{ owner: 'motion-link-bridge', ...MOTION_LINK_BRIDGE_COPY_BY_LOCALE },

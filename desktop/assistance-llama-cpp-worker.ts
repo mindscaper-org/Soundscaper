@@ -30,6 +30,8 @@ import {
 	assistanceNativeGpuEntrypointV1,
 	createAssistanceNativeGpuExecutorV1,
 } from './assistance-native-gpu-execution.ts';
+import { isAssistanceGpuValidationEnabled } from './assistance-gpu-validation.ts';
+import { recordAssistanceNativeGpuReceipt } from './assistance-native-gpu-receipt.ts';
 
 interface AssistanceLlamaCppReadable {
 	on(event: 'data', listener: (chunk: unknown) => void): this;
@@ -149,6 +151,7 @@ async function executeLlamaCppEditorial(
 				'--log-verbosity', '1',
 			]),
 			maximumStdoutBytes: Math.min(output.maximumByteLength, plan.runtime.maximumOutputBytes),
+			provider,
 			signal: context.signal,
 			env: restrictedEnvironment(files.root),
 	})));
@@ -233,6 +236,7 @@ async function runCli(options: Readonly<{
 	executable: string;
 	args: readonly string[];
 	maximumStdoutBytes: number;
+	provider: string;
 	signal?: AbortSignal;
 	env: Readonly<Record<string, string | undefined>>;
 }>): Promise<Uint8Array> {
@@ -252,6 +256,7 @@ async function runCli(options: Readonly<{
 		const stdout: Uint8Array[] = [];
 		let stdoutBytes = 0;
 		let stderrBytes = 0;
+		const stderr: Uint8Array[] = [];
 		let settled = false;
 		let pendingFailure: Error | null = null;
 		let escalation: ReturnType<typeof setTimeout> | null = null;
@@ -289,7 +294,11 @@ async function runCli(options: Readonly<{
 		});
 		child.stderr.on('data', (value) => {
 			if (settled || pendingFailure) return;
-			try { stderrBytes += bytesFrom(value).byteLength; }
+			try {
+				const bytes = bytesFrom(value);
+				stderrBytes += bytes.byteLength;
+				if (isAssistanceGpuValidationEnabled() && stderrBytes <= MAXIMUM_STDERR_BYTES) stderr.push(bytes);
+			}
 			catch (error) {
 				stop(new TypeError('The llama.cpp diagnostic stream is invalid.', { cause: error }));
 				return;
@@ -317,7 +326,9 @@ async function runCli(options: Readonly<{
 			const result = new Uint8Array(stdoutBytes);
 			let offset = 0;
 			for (const chunk of stdout) { result.set(chunk, offset); offset += chunk.byteLength; }
-			resolve(result);
+			if (isAssistanceGpuValidationEnabled()) {
+				void recordAssistanceNativeGpuReceipt(Buffer.concat(stderr).toString('utf8'), options.provider).then(() => resolve(result), reject);
+			} else resolve(result);
 		});
 		if (options.signal?.aborted) abort();
 	});
@@ -344,6 +355,7 @@ function restrictedEnvironment(root: string): Readonly<Record<string, string | u
 		const value = process.env[name];
 		if (value) result[name] = value;
 	}
+	if (isAssistanceGpuValidationEnabled()) result.SOUNDSCAPER_ASSISTANCE_GPU_VALIDATION = '1';
 	return Object.freeze(result);
 }
 

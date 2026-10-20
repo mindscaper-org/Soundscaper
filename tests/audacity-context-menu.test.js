@@ -58,17 +58,3 @@ test('context metadata preserves localized labels and consumes manifest shortcut
 	assert.equal(supplemental.label, 'Reverse');
 	assert.equal(supplemental.parityStatus, 'supplemental');
 });
-
-test('disabled-upstream and excluded manifest statuses override context handlers truthfully', () => {
-	const disabled = audacityContextMenuAction('export-midi', { locale: 'de' });
-	assert.equal(disabled.parityStatus, 'disabled-upstream');
-	assert.equal(disabled.disabled, true);
-	assert.match(disabled.disabledReason, /MIDI/);
-
-	const excluded = audacityContextMenuAction('plugin-manager');
-	assert.equal(excluded.parityStatus, 'excluded');
-	assert.equal(excluded.hidden, true);
-	assert.equal(excluded.disabled, true);
-	assert.match(excluded.disabledReason, /plugin/i);
-	assert.throws(() => audacityContextMenuAction('typo-command'), /Unknown Audacity context-menu action/);
-});

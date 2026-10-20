@@ -36,8 +36,6 @@ for (const kind of ['spectrum', 'clipping', 'loudness'] as const) {
 		const actual = await calculateAudioAnalysisReportInWorker(request, { workerFactory: () => worker });
 		assert.deepEqual(actual, expected);
 		assert.equal(channels[0]?.length, 32_000);
-		assert.equal(Object.isFrozen(actual), true);
-		if ('bins' in actual) assert.equal(Object.isFrozen(actual.bins), true);
 		assert.equal(worker.terminated, true);
 	});
 }

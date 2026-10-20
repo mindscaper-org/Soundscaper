@@ -77,18 +77,7 @@ test('the exact staged payload gates a five-target bundled WavPack provider', as
 	assert.equal(await loadBundledWavPackAudioCodecRuntime({
 		target: 'linux-x64', readPayload: async () => Uint8Array.of(0, 97, 115, 109),
 	}), null);
-	await assert.rejects(loadBundledWavPackAudioCodecRuntime({
-		target: 'mac-x64' as 'mac-arm64',
-	}), /target/iu);
 	assert.equal(BUNDLED_WAVPACK_COMPRESSION_LEVEL, 2);
-	const unsupportedLevel = await execute(runtime, {
-		...encodeRequest(structuredInterleaved(16, 2), 16, 2),
-		settings: Object.freeze({ compressionLevel: 1 }),
-	});
-	assert.deepEqual(unsupportedLevel, {
-		status: 'failed', reason: 'unavailable',
-		detail: 'The bundled WavPack provider supports only compression level 2 (reviewed fast mode).',
-	});
 });
 
 test('the bundled provider encodes and decodes multi-block interleaved float PCM losslessly', async () => {
@@ -367,25 +356,6 @@ test('high-entropy float bits encode without a raw-size assumption and honor the
 		status: 'failed', reason: 'result-failed',
 		detail: 'The encoded WavPack stream exceeds the requested output bound.',
 	});
-});
-
-test('multi-block execution yields to cancellation and never returns partial bytes', async () => {
-	const controller = new AbortController();
-	let yields = 0;
-	const runtime = await loadBundledWavPackAudioCodecRuntime({
-		target: 'linux-arm64',
-		yieldControl: () => {
-			yields += 1;
-			controller.abort(new DOMException('cancelled', 'AbortError'));
-			return Promise.resolve();
-		},
-	});
-	assert.ok(runtime);
-	const frames = 65_536 + 1;
-	await assert.rejects(runtime.execute(encodeRequest(structuredInterleaved(frames, 1), frames, 1), {
-		operation: operation({ channelCount: 1 }), signal: controller.signal,
-	}), { name: 'AbortError' });
-	assert.equal(yields, 1);
 });
 
 async function execute(

@@ -87,8 +87,6 @@ test('the packet is closed: English messages, the German reference, the glossary
 		messages: { stop: 'Stop' },
 	});
 	assert.equal(targetLanguageName('zh-CN'), 'Chinese (China)');
-	assert.match(MACHINE_TRANSLATION_SYSTEM_PROMPT, /\{name\}/u);
-	assert.match(MACHINE_TRANSLATION_SYSTEM_PROMPT, /ellipsis/u);
 });
 
 test('an answer must carry exactly the requested keys with acceptable strings', () => {

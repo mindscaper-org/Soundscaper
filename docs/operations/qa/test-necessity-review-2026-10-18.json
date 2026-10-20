@@ -1,0 +1,2017 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-18",
+  "branch": "chore/prune-unreachable-tests",
+  "baseRevision": "7f660447e",
+  "purpose": "Fifty additional evidence-based test-necessity review passes. Retain tests for reachable behavior, actual external boundaries and real work/ownership regressions; remove invented internal API contracts and redundant checks.",
+  "reviewPassCount": 50,
+  "distinctReviewedTestPaths": 154,
+  "manualAiRuntimeAssetUpdateRequired": false,
+  "independentReview": {
+    "result": "No unjustified deletions found in the reviewed root changes.",
+    "scope": [
+      "project snapshot equality",
+      "recursive preservation snapshots",
+      "freeze helpers versus native admission",
+      "runtime presentation",
+      "workspace couriers",
+      "numeric worker correlation"
+    ]
+  },
+  "validation": {
+    "status": "passed for scoped checks; full canonical gate not completed",
+    "passed": [
+      "116 focused root-reviewed Node tests",
+      "test TypeScript checking",
+      "both product browser builds",
+      "affected native recording Chromium workflow",
+      "runtime evidence pin check (9 pinned files)",
+      "maintainability size gate",
+      "retained frozen DSP and AudioParam golden values unchanged",
+      "npm run lint:changed (before commits; final surviving files also checked by scoped ESLint)",
+      "startup graph tightening check (no budget change)",
+      "npm test: 26679 tests across all batches; 26646 passed, 33 platform skips, 0 failures",
+      "npm run typecheck:tests rerun after final helper edits"
+    ],
+    "pending": [],
+    "canonicalGate": {
+      "command": "npm run check",
+      "status": "stopped during lint of unchanged source files; no result claimed",
+      "reason": "Changes are limited to tests and the review record. Required changed-file lint, test typecheck, complete Node suite, both product builds and the affected browser workflow are run directly."
+    },
+    "nodeSuite": {
+      "command": "npm test",
+      "batches": [
+        {
+          "tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 26677,
+          "passed": 26644,
+          "failed": 0,
+          "skipped": 33
+        }
+      ]
+    },
+    "browser": {
+      "command": "npx playwright test tests/browser/audio-editor-round7-io-native-capture-listening-volume.spec.js --project=chromium",
+      "passed": 1,
+      "failed": 0
+    },
+    "frozenReceipts": "Independent comparison against baseRevision proves every retained DSP and AudioParam receipt value is unchanged."
+  },
+  "passes": [
+    {
+      "pass": 1,
+      "scope": "DSP spectrum workspace and streamed analyzer ownership",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-dsp-ownership.test.ts",
+        "tests/audio-editor-responsiveness-round4-dsp-parity.test.ts",
+        "tests/audio-editor-responsiveness-round4-dsp-work.test.ts",
+        "tests/helpers/responsiveness-round4-dsp-fixtures.ts",
+        "tests/fixtures/dsp-round4-parity.json"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/audio-spectrum.ts",
+          "reason": "Synchronous native FFT/Hann computation accepts owned Float32 PCM; no application callback can reenter it or replace channel length."
+        },
+        {
+          "path": "src/common/editor/specialized-audio-analysis.ts",
+          "reason": "Spectrum report normalizes FFT size before native spectrum call."
+        },
+        {
+          "path": "src/common/editor/ui/timeline/spectral-center-gesture.ts",
+          "reason": "Selection peaks supply ordinary PCM and fixed FFT geometry."
+        }
+      ],
+      "decision": "Remove fabricated overridden-length/proxy and synchronous Math.cos reentry contracts, including their three frozen spectrum parity signatures.",
+      "removedTests": [
+        "admitted spectrum arrays with overridden lengths retain physical sample reads",
+        "reentrant spectrum calculations lease independent scratch and publish independent bins"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-responsiveness-round4-dsp-ownership.test.ts",
+        "tests/helpers/responsiveness-round4-dsp-fixtures.ts",
+        "tests/fixtures/dsp-round4-parity.json"
+      ],
+      "retainedReason": "Retain real PCM buffer ownership, rejection atomicity, work/allocation measurements and 163 unchanged baseline DSP parity digests. Failure injection still covers release after abrupt allocation/preparation failure.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/audio-editor-responsiveness-round4-dsp-ownership.test.ts tests/audio-editor-responsiveness-round4-dsp-work.test.ts",
+          "status": "passed"
+        },
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/audio-editor-responsiveness-round4-dsp-parity.test.ts tests/audio-editor-responsiveness-round4-dsp-ownership.test.ts tests/audio-editor-responsiveness-round4-audio-param-time.test.ts tests/audio-editor-responsiveness-round4-frame-projector.test.ts tests/audio-editor-scheduled-parameter-registry.test.ts",
+          "status": "passed: 18 tests"
+        },
+        {
+          "command": "Compare edited golden fixture with HEAD after deleting only three spectrum-reported-length keys",
+          "status": "passed: all 163 retained values identical"
+        },
+        {
+          "command": "npx eslint on all 12 changed TypeScript/TSX test/helper files; git diff --check on all 14 changed paths",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 2,
+      "scope": "Signal-generator arithmetic reuse and spectrum-window caching",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-generator-work.test.ts",
+        "tests/audio-editor-round2-generator-spectrum-performance.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/signal-generator-renderer.ts",
+          "reason": "User-created Chirp, DTMF and Morse jobs retain phase/keying and constant-endpoint optimizations across actual bounded output blocks."
+        },
+        {
+          "path": "src/common/editor/signal-generator-stream-runtime.ts",
+          "reason": "Worker stream drives ordinary independent renderer chunks."
+        },
+        {
+          "path": "src/common/editor/specialized-audio-analysis.ts",
+          "reason": "Plot Spectrum normalizes requested geometry before dispatch."
+        },
+        {
+          "path": "tests/audio-editor-audio-spectrum.test.ts",
+          "reason": "Dedicated spectrum boundary suite already rejects invalid/non-power-of-two FFT sizes."
+        }
+      ],
+      "decision": "Prune redundant invalid-size assertion from performance test; retain real work counters and output ownership.",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/audio-editor-round2-generator-spectrum-performance.test.ts"
+      ],
+      "retainedReason": "Constant logarithmic interpolation, DTMF keying geometry, Morse ramps and Hann reuse occur on real generation/analysis paths. Native Math and source instrumentation measure actual repeated work.",
+      "verification": [
+        {
+          "command": "focused generator, spectrum performance and audio-spectrum boundary suites",
+          "status": "passed"
+        },
+        {
+          "command": "npx eslint on all 12 changed TypeScript/TSX test/helper files; git diff --check on all 14 changed paths",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 3,
+      "scope": "Audacity one-shot DSP and realtime coefficient/table reuse",
+      "reviewedTests": [
+        "tests/audio-editor-round2-audacity-dsp-performance.test.ts",
+        "tests/audio-editor-round2-realtime-dsp-performance.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/audacity-effects/basic.js",
+          "reason": "Actual dispatcher applies Normalize, Legacy Compressor and Repeat using owned output and normalized controls."
+        },
+        {
+          "path": "src/common/editor/audacity-effects/live.js",
+          "reason": "Actual AudioWorklet processor factory dispatches Phaser, Distortion and Reverb."
+        },
+        {
+          "path": "src/common/editor/first-party-effects/standard/filters-dsp.ts",
+          "reason": "Live normalized unchanged parameter updates preserve histories and avoid redesign."
+        },
+        {
+          "path": "src/common/editor/audacity-effects/live-worklet.js",
+          "reason": "Runtime forwards changing rack controls into live processors."
+        }
+      ],
+      "decision": "Retain; no newly confirmed fictional direct-call contract.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "All retained rows exercise valid effect settings and count real per-frame math, copies or allocations. Prior NaN-payload and invalid-crossover assertions are already absent. Normalized equality is relevant to live updates even when test uses a coercible scalar.",
+      "verification": [
+        {
+          "command": "focused Audacity and realtime DSP performance suites",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 4,
+      "scope": "Windowed-sinc streaming ownership and delay ring-buffer math",
+      "reviewedTests": [
+        "tests/audio-editor-round2-resample-delay-performance.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/resample.js",
+          "reason": "Streaming sinc consumes borrowed chunks and snapshots its retained history before returning; finish state and transferable independent outputs occur in workers/export."
+        },
+        {
+          "path": "src/common/editor/engine/offline-chunk-resample.ts",
+          "reason": "Actual render streaming uses resampler push/finish across borrowed PCM chunks."
+        },
+        {
+          "path": "src/common/editor/first-party-effects/standard/delay-dsp.ts",
+          "reason": "Integer taps avoid interpolation work; native StaffPad pitch streams can overflow finite Float32 input."
+        },
+        {
+          "path": "src/common/editor/first-party-effects/standard/dsp.ts",
+          "reason": "Actual standard effect factory dispatches live and selection delay processing."
+        }
+      ],
+      "decision": "Retain all five cases; no confirmed unreachable contract.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Allocation/read counters represent real streaming costs. Input overwrite/output transfer protects real borrowed-buffer ownership. Maximum finite Float32 PCM remains accepted by processing and can overflow the native pitched stage; do not equate extreme amplitude with impossible input.",
+      "verification": [
+        {
+          "command": "focused sinc/delay performance suite",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 5,
+      "scope": "PFFFT WebAssembly plan and heap-view lifetime",
+      "reviewedTests": [
+        "tests/audio-editor-round2-pffft-performance.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/pffft.js",
+          "reason": "Plans retain typed heap views but refresh them when later WASM allocation replaces the heap buffer."
+        },
+        {
+          "path": "src/common/editor/pffft-spectrogram.js",
+          "reason": "Editor spectrogram work shares cached FFT plans across selectable windows."
+        },
+        {
+          "path": "src/common/editor/audacity-effects/spectral.js",
+          "reason": "Selection effects share the same FFT runtime and can create differently sized plans."
+        }
+      ],
+      "decision": "Retain entire plan-lifetime regression.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Creating a larger subsequent FFT can grow the actual WebAssembly heap, invalidating older views; allocation instrumentation plus post-growth finite output protects a reachable mixed-window sequence.",
+      "verification": [
+        {
+          "command": "focused PFFFT plan reuse suite",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 6,
+      "scope": "Parallel graph compilation, scheduling, VCA and sidechain indexes",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-parallel-work.test.ts",
+        "tests/audio-editor-responsiveness-round4-parallel-parity.test.ts",
+        "tests/audio-editor-responsiveness-round4-root-plan-review.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/engine/parallel-stack-plan.ts",
+          "reason": "Sole internal planner invokes compileProjectPathPdcPlanV21 before constructing connected tasks and indexing controls; generated task dependencies originate from validated edge endpoints."
+        },
+        {
+          "path": "src/common/editor/engine/project-path-pdc-plan-v21.ts",
+          "reason": "Mandatory PDC compilation validates mixer routing before helper scheduling."
+        },
+        {
+          "path": "src/common/editor/mixer-graph-v21.ts",
+          "reason": "Routing validation rejects cycles, duplicate mixer IDs, duplicate VCA members and dangling endpoints before helper calls."
+        },
+        {
+          "path": "src/common/editor/engine/parallel-stack-planning-index.ts",
+          "reason": "Private helper task/effect arrays belong to one synchronous validated plan; no app supplies arbitrary dependency lists or duplicate effects."
+        }
+      ],
+      "decision": "Remove impossible helper cycle/missing-dependency refusal test, prune duplicate VCA/node/effect and missing-node fixtures, and restrict exhaustive helper comparison to actual DAG inputs.",
+      "removedTests": [
+        "cycles and missing dependencies retain their original refusal"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-responsiveness-round4-parallel-work.test.ts",
+        "tests/audio-editor-responsiveness-round4-root-plan-review.test.ts"
+      ],
+      "retainedReason": "Keep all 543 four-node DAGs across three workers (1629 comparisons), generated larger DAGs, reverse-chain read counters, VCA arithmetic, lazy sidechains, and compiler-level frozen plans/refusals. Mixer admission suite retains external invalid-routing rejection.",
+      "verification": [
+        {
+          "command": "focused parallel work/parity/exhaustive review plus mixer boundary suite",
+          "status": "passed"
+        },
+        {
+          "command": "npx eslint on all 12 changed TypeScript/TSX test/helper files; git diff --check on all 14 changed paths",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 7,
+      "scope": "Routing graph UI indexes, spatial navigation and hover frames",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-routing.test.ts",
+        "tests/audio-editor-responsiveness-round4-routing-frames.test.tsx"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/workspace/SoundscaperRoutingGraphView.tsx",
+          "reason": "Real view memoizes graph edge, endpoint and connection indexes; hover geometry is coalesced to animation frames."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/soundscaper-routing-graph-candidates.ts",
+          "reason": "Routing candidate validation rejects duplicate edge identities; endpoint options derive unique typed endpoint values."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/routing-graph-presentation.ts",
+          "reason": "Index helpers consume validated graph and generated endpoint lists; stale focus keys and geometric ties remain possible during UI updates."
+        }
+      ],
+      "decision": "Prune fabricated duplicate-ID/endpoint first-match fixtures by using distinct valid identities; retain test cases.",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/audio-editor-responsiveness-round4-routing.test.ts"
+      ],
+      "retainedReason": "Keep edge-read counters, disabled-connection counts, ordered ports, 3000 navigation comparisons, stale focus behavior, static-wire memoization and hover cancellation. Getter instrumentation counts real repeated reads.",
+      "verification": [
+        {
+          "command": "focused routing indexes/navigation and routing frame suites",
+          "status": "passed"
+        },
+        {
+          "command": "npx eslint on all 12 changed TypeScript/TSX test/helper files; git diff --check on all 14 changed paths",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 8,
+      "scope": "Scheduled AudioParam timing and message frame projection",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-audio-param-time.test.ts",
+        "tests/audio-editor-responsiveness-round4-frame-projector.test.ts",
+        "tests/helpers/responsiveness-round4-audio-param-parity.ts",
+        "tests/fixtures/responsiveness-round4-audio-param-parity.json"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/engine/scheduled-parameter-registry.ts",
+          "reason": "Registry normalizes window options and rejects events before fromFrame before invoking standalone frame conversion; actual AudioParam inputs belong to one immutable window."
+        },
+        {
+          "path": "src/common/editor/engine/scheduled-parameter-audio-param-time-projector.ts",
+          "reason": "Scalar internal preparation only reads normalized timing data; no standalone public timing API."
+        },
+        {
+          "path": "src/common/editor/engine/buffer-math.ts",
+          "reason": "Actual playback rate admission is 0.01 through 3, excluding Number.MIN_VALUE/MAX_VALUE."
+        },
+        {
+          "path": "src/common/editor/engine/clip-scheduler.ts",
+          "reason": "Context start derives from real audio clock and fixed scheduling window; no application path supplies Number.MAX_VALUE clock."
+        }
+      ],
+      "decision": "Remove three duplicate/fictional standalone contract tests for extreme timing and lower-helper errors, plus 32 frozen timing records for transport rates outside playback admission; retain registry boundary validation.",
+      "removedTests": [
+        "AudioParam scalar timing preserves original parentheses, signed zero and extreme finite rates",
+        "standalone frame-before-window refusal still precedes transport ratio decoding",
+        "context offset overflow retains its original public error fields"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-responsiveness-round4-audio-param-time.test.ts",
+        "tests/audio-editor-responsiveness-round4-frame-projector.test.ts",
+        "tests/helpers/responsiveness-round4-audio-param-parity.ts",
+        "tests/fixtures/responsiveness-round4-audio-param-parity.json"
+      ],
+      "retainedReason": "Preserve real thousand-event fixed-input read counts, sample/tie conversion, immutable packets and cancellation/frontier parity. Preserve 68 unchanged AudioParam records with admissible rates and meaningful transform/AudioParam/cancel failures, plus 157 lower-level frame conversion/refusal receipts.",
+      "verification": [
+        {
+          "command": "focused AudioParam timing/frame projection and scheduled parameter registry boundary suites",
+          "status": "passed"
+        },
+        {
+          "command": "affected DSP/AudioParam/frame/registry suites after shared fixture cleanup",
+          "status": "passed: 18 tests"
+        },
+        {
+          "command": "Compare edited AudioParam golden array with HEAD after filtering only MIN_VALUE/MAX_VALUE names",
+          "status": "passed: all 68 retained records identical"
+        },
+        {
+          "command": "npx eslint on all 12 changed TypeScript/TSX test/helper files; git diff --check on all 14 changed paths",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 9,
+      "scope": "Effect graph, parameter, preset and About presentation memoization",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-effect-presentation.test.tsx",
+        "tests/audio-editor-responsiveness-round4-effect-graphs.test.tsx",
+        "tests/audio-editor-responsiveness-round4-parameter-presentation.test.tsx",
+        "tests/audio-editor-responsiveness-round4-layouts.test.tsx"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/inspector/SelectionEffectsDialog.jsx",
+          "reason": "About receives selected registered effect type, initialized by nonempty fallback; empty identifier is never supplied."
+        },
+        {
+          "path": "src/common/editor/ui/inspector/AudioEditorEffectsOverlay.jsx",
+          "reason": "Rack About receives an admitted effect object rather than an empty string."
+        },
+        {
+          "path": "src/common/editor/effects.js",
+          "reason": "createEffect normalizes known parameter ranges/choices and discards invented extraControl; types must belong to registered definitions."
+        },
+        {
+          "path": "src/common/editor/ui/inspector/EffectParameterEditor.jsx",
+          "reason": "Editor consumes actual effect parameter snapshot and selected definition; supported parameter changes and effect switches refresh memoized presentation."
+        },
+        {
+          "path": "src/common/editor/ui/AudacityLegacyEffectGraph.tsx",
+          "reason": "Real graph components consume memoized gain/duck/compressor analysis across unrelated renders."
+        }
+      ],
+      "decision": "Remove two empty-About-identifier contract tests; replace invented extra parameter and runtime definition extension fixtures with actual threshold edit and selected effect-type switch.",
+      "removedTests": [
+        "About retains the original non-null subject boundary including an empty identifier",
+        "a disabled preset bar still admits the existing About menu for an empty non-null identifier"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-responsiveness-round4-effect-presentation.test.tsx",
+        "tests/audio-editor-responsiveness-round4-parameter-presentation.test.tsx",
+        "tests/audio-editor-responsiveness-round4-layouts.test.tsx"
+      ],
+      "retainedReason": "Preserve read/enumeration/localization counters, lazy menu construction, actual parameter edits, effect switching, advanced-control visibility and plot projection across viewport/sample-rate updates.",
+      "verification": [
+        {
+          "command": "four focused effect presentation/graphs/parameters/layout suites",
+          "status": "passed"
+        },
+        {
+          "command": "npx eslint on all 12 changed TypeScript/TSX test/helper files; git diff --check on all 14 changed paths",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 10,
+      "scope": "Frequency-waveform band/centroid work and spectrogram projected sampling",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-waveform-work.test.ts",
+        "tests/audio-editor-responsiveness-round4-spectrogram-work.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/frequency-waveform-analysis.ts",
+          "reason": "Actual streamed analyzer computes band peaks with private circular centroid history; counters catch repeated PCM allocation/copy work."
+        },
+        {
+          "path": "src/common/editor/pffft-spectrogram.js",
+          "reason": "Spectrogram renderer prepares common FFT/band/window geometry and supports projected sampleAt views."
+        },
+        {
+          "path": "src/common/editor/spectrogram-sample-view.ts",
+          "reason": "Production clip/loop/warp projections intentionally supply sampleAt and need negative/trailing context reads, unlike fabricated data-record getters."
+        }
+      ],
+      "decision": "Retain all six cases.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "These are concrete rendering work/ownership tests; projected accessors are a real production API and boundary context samples affect visible FFT detail. Math/copy instrumentation counts legitimate efficiency regressions.",
+      "verification": [
+        {
+          "command": "focused frequency-waveform and spectrogram work suites",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 11,
+      "scope": "Take/comp and audio-warp compatibility policy prose",
+      "reviewedTests": [
+        "tests/project-compatibility-take-comp-v17-policy.test.js",
+        "tests/project-compatibility-audio-warp-policy.test.js",
+        "tests/project-compatibility-policy.test.js",
+        "tests/policy-narrative-sync.test.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "scripts/lib/policy-narratives.mjs",
+          "reason": "Bindings derive both feature narratives from their policy register fields; generic sync verifies all bindings."
+        },
+        {
+          "path": "src/common/editor/audio-warp-runtime.ts",
+          "reason": "Runtime tests independently exercise exact map projection and fingerprint behavior."
+        },
+        {
+          "path": "tests/audio-editor-take-comp-composition.test.ts",
+          "reason": "Exercises preview, promotion, publication and stale/locked rejection behavior."
+        }
+      ],
+      "decision": "Removed repeated prose patterns while retaining feature status, authority, historical status and every required evidence mapping.",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/project-compatibility-take-comp-v17-policy.test.js",
+        "tests/project-compatibility-audio-warp-policy.test.js"
+      ],
+      "retainedReason": "Structured metadata/evidence mappings are distinct from generic existence validation.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/project-compatibility-take-comp-v17-policy.test.js tests/project-compatibility-audio-warp-policy.test.js tests/project-compatibility-policy.test.js tests/policy-narrative-sync.test.js tests/audio-editor-audio-warp-runtime.test.ts tests/audio-editor-take-comp-composition.test.ts",
+          "status": "passed 28 tests"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 12,
+      "scope": "Baseline editorial and independent retime policy narratives",
+      "reviewedTests": [
+        "tests/project-compatibility-v14-policy.test.js",
+        "tests/project-compatibility-video-retime-v16-policy.test.js",
+        "tests/audio-editor-track-lock-admission.test.ts",
+        "tests/audio-editor-video-retime-web-core-ordinal-authority.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/commands/track-lock-admission.ts",
+          "reason": "Locked changes and unchanged allowed controls are exercised at actual command admission."
+        },
+        {
+          "path": "src/common/editor/video-retime-web-core-ordinal-authority.ts",
+          "reason": "Retained behavior tests verify CFR, NTSC, VFR and preview ordinal authority."
+        },
+        {
+          "path": "scripts/lib/policy-narratives.mjs",
+          "reason": "Retime, timeline annotation and source-characteristic bound policy text remains synchronized generically."
+        }
+      ],
+      "decision": "Removed copied descriptive prose; retained all metadata and exact required implementation/test inventories.",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/project-compatibility-v14-policy.test.js",
+        "tests/project-compatibility-video-retime-v16-policy.test.js"
+      ],
+      "retainedReason": "Tests still bind active register entries to exact baseline and historical identities and their evidence.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/project-compatibility-v14-policy.test.js tests/project-compatibility-video-retime-v16-policy.test.js tests/project-compatibility-policy.test.js tests/policy-narrative-sync.test.js tests/audio-editor-track-lock-admission.test.ts tests/audio-editor-video-retime-web-core-ordinal-authority.test.ts",
+          "status": "passed 24 tests"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 13,
+      "scope": "Version identities, project suffixes and local-assistance custody",
+      "reviewedTests": [
+        "tests/project-compatibility-version-policy.test.js",
+        "tests/project-compatibility-project-file-suffix-policy.test.js",
+        "tests/project-compatibility-local-assistance-policy.test.js",
+        "tests/project-file-extensions.test.ts",
+        "tests/audio-editor-native-project-suffixes.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/project-file-extensions.ts",
+          "reason": "Runtime registry tests verify native suffix selection, acceptance and filename conversion independently of prose."
+        },
+        {
+          "path": "scripts/lib/policy-narratives.mjs",
+          "reason": "Current local-assistance custody text is generated from its register and checked by generic sync."
+        },
+        {
+          "path": "tests/project-compatibility-version-policy.test.js",
+          "reason": "Exact schema/storage/IPC identity and migration metadata remain meaningful; retained unchanged."
+        }
+      ],
+      "decision": "Removed copied custody prose and the duplicate suffix-document narration test; retained suffix coverage against actual registry entries, structured version metadata and assistance evidence.",
+      "removedTests": [
+        "the compatibility document repeats that truth for readers"
+      ],
+      "changedFiles": [
+        "tests/project-compatibility-project-file-suffix-policy.test.js",
+        "tests/project-compatibility-local-assistance-policy.test.js"
+      ],
+      "retainedReason": "Exact version/storage identities and policy-to-runtime suffix coverage should survive prose rewrites.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/project-compatibility-version-policy.test.js tests/project-compatibility-local-assistance-policy.test.js tests/project-compatibility-project-file-suffix-policy.test.js tests/project-file-extensions.test.ts tests/audio-editor-native-project-suffixes.test.ts tests/project-compatibility-policy.test.js tests/policy-narrative-sync.test.js",
+          "status": "passed"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 14,
+      "scope": "Retained linked-video lifecycle and same-store duplication policy narration",
+      "reviewedTests": [
+        "tests/project-compatibility-linked-video-policy.test.js",
+        "tests/project-compatibility-linked-video-duplication-policy.test.js",
+        "tests/audio-editor-linked-video-project-duplication.test.ts",
+        "tests/audio-editor-linked-video-original-binding.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/storage/linked-video-original-project-alias-repository.ts",
+          "reason": "Actual duplication tests create independent memory/IndexedDB aliases, roll back save failures and preserve the source binding."
+        },
+        {
+          "path": "tests/project-compatibility-policy.test.js",
+          "reason": "Generic active-rule validation retains status, authority and evidence checks."
+        },
+        {
+          "path": "tests/project-compatibility-linked-video-policy.test.js",
+          "reason": "Retains named rule presence and exact implementation/test evidence mapping after prose pruning."
+        }
+      ],
+      "decision": "Removed repeated lifecycle prose and the standalone duplication prose-only test file; no register or evidence inventory references that file.",
+      "removedTests": [
+        "linked-video compatibility policy qualifies only binding-safe same-store duplication"
+      ],
+      "changedFiles": [
+        "tests/project-compatibility-linked-video-policy.test.js",
+        "tests/project-compatibility-linked-video-duplication-policy.test.js"
+      ],
+      "retainedReason": "Real alias publication, rollback, quota, concurrency and content identity tests remain intact.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/project-compatibility-linked-video-policy.test.js tests/project-compatibility-policy.test.js tests/audio-editor-linked-video-project-duplication.test.ts tests/audio-editor-linked-video-original-binding.test.ts",
+          "status": "passed"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 15,
+      "scope": "Linked-original save roots and disposable video-preview relationship policy",
+      "reviewedTests": [
+        "tests/project-compatibility-linked-video-source-reachability-policy.test.js",
+        "tests/project-compatibility-video-preview-relationship-policy.test.ts",
+        "tests/audio-editor-linked-original-project-save.test.ts",
+        "tests/audio-editor-video-derivative-binding.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/storage/linked-original-project-save.ts",
+          "reason": "Real save tests retain kind-distinct transient roots and exact token separation."
+        },
+        {
+          "path": "src/common/editor/storage/video-derivative-repository.ts",
+          "reason": "Real memory and IndexedDB tests enforce digest/recipe binding, output integrity and replacement-generation misses."
+        }
+      ],
+      "decision": "Removed repeated descriptions of pruning and preview behavior while preserving exact rule evidence inventories and implementation status.",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/project-compatibility-linked-video-source-reachability-policy.test.js",
+        "tests/project-compatibility-video-preview-relationship-policy.test.ts"
+      ],
+      "retainedReason": "Evidence mappings remain meaningful documentation integrity; actual retention and cache behavior tests are unchanged.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/project-compatibility-linked-video-source-reachability-policy.test.js tests/project-compatibility-video-preview-relationship-policy.test.ts tests/project-compatibility-policy.test.js tests/audio-editor-video-derivative-binding.test.ts tests/audio-editor-linked-original-project-save.test.ts",
+          "status": "passed 21 tests"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 16,
+      "scope": "Whole-mix and target-track audio rendered-fallback policy contracts",
+      "reviewedTests": [
+        "tests/project-compatibility-audio-rendered-fallback-policy.test.js",
+        "tests/project-compatibility-audio-track-rendered-fallback-policy.test.ts",
+        "tests/audio-editor-project-feature-audio-track-render-v1.test.ts",
+        "tests/audio-editor-audio-track-render-fallback-delivery.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/project-feature-audio-track-render-v1.ts",
+          "reason": "Actual tests verify lane-only replacement, source geometry, currentness and rejection of inert or ambiguous claims."
+        },
+        {
+          "path": "tests/audio-editor-audio-track-render-fallback-delivery.test.ts",
+          "reason": "Operation-time selector verification and private render-source composition are exercised independently."
+        }
+      ],
+      "decision": "Removed prose-regex arrays and one document-only narration case. Preserved every named schema/security control lookup and all evidence mappings.",
+      "removedTests": [
+        "compatibility and security documents state the track slice and its narrow non-goals"
+      ],
+      "changedFiles": [
+        "tests/project-compatibility-audio-rendered-fallback-policy.test.js",
+        "tests/project-compatibility-audio-track-rendered-fallback-policy.test.ts"
+      ],
+      "retainedReason": "Structured role evidence and runtime integrity checks still protect actual fallback playback and delivery.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/project-compatibility-audio-rendered-fallback-policy.test.js tests/project-compatibility-audio-track-rendered-fallback-policy.test.ts tests/project-compatibility-policy.test.js tests/production-security-evidence.test.js tests/audio-editor-project-feature-audio-track-render-v1.test.ts tests/audio-editor-audio-track-render-fallback-delivery.test.ts",
+          "status": "passed 24 tests"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 17,
+      "scope": "Whole-project and clip-target video rendered-fallback policy contracts",
+      "reviewedTests": [
+        "tests/project-compatibility-video-rendered-fallback-policy.test.js",
+        "tests/project-compatibility-video-clip-rendered-fallback-policy.test.ts",
+        "tests/audio-editor-project-feature-video-clip-render-v1.test.ts",
+        "tests/audio-editor-video-rendered-fallback-delivery-projection.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/project-feature-video-clip-render-v1.ts",
+          "reason": "Actual tests verify target-only neutral projection, exact geometry and invalid role/target refusals."
+        },
+        {
+          "path": "tests/audio-editor-video-rendered-fallback-delivery-projection.test.ts",
+          "reason": "Delivery uses and verifies the actual relationship selector rather than policy prose."
+        }
+      ],
+      "decision": "Removed duplicated prose patterns and the document-only slice narration case, preserving all schema/control existence and exact evidence mappings.",
+      "removedTests": [
+        "compatibility and security documents state the slice and its narrow non-goals"
+      ],
+      "changedFiles": [
+        "tests/project-compatibility-video-rendered-fallback-policy.test.js",
+        "tests/project-compatibility-video-clip-rendered-fallback-policy.test.ts"
+      ],
+      "retainedReason": "Actual relationship projection, delivery composition and malformed authority controls remain tested.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/project-compatibility-video-rendered-fallback-policy.test.js tests/project-compatibility-video-clip-rendered-fallback-policy.test.ts tests/project-compatibility-policy.test.js tests/production-security-evidence.test.js tests/audio-editor-project-feature-video-clip-render-v1.test.ts tests/audio-editor-video-rendered-fallback-delivery-projection.test.ts",
+          "status": "passed"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 18,
+      "scope": "Linked PCM/WAV/AIFF managed handoff and portability policy",
+      "reviewedTests": [
+        "tests/linked-wav-managed-handoff-policy.test.js",
+        "tests/audio-editor-aiff-pcm-chunk-reader.test.ts",
+        "tests/audio-editor-linked-audio-scape-roundtrip.test.ts",
+        "tests/audio-editor-linked-wav-import.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/aiff-pcm-chunk-reader.ts",
+          "reason": "Actual reader tests validate integer AIFF and admitted AIFF-C geometry, chunk bounds and malformed wire rejection."
+        },
+        {
+          "path": "tests/audio-editor-linked-audio-scape-roundtrip.test.ts",
+          "reason": "Real portable save/import tests verify canonical owned PCM without source locator identity."
+        },
+        {
+          "path": "tests/audio-editor-linked-wav-import.test.ts",
+          "reason": "Real binding/activation and failure rollback paths are verified rather than described by prose."
+        }
+      ],
+      "decision": "Removed repeated format/profile prose and the document-only duplicated limits case; preserved exact rule/control IDs, statuses and all mapped evidence.",
+      "removedTests": [
+        "linked PCM compatibility and threat documentation own the detailed limits"
+      ],
+      "changedFiles": [
+        "tests/linked-wav-managed-handoff-policy.test.js"
+      ],
+      "retainedReason": "Native byte/format/lease validation tests and security evidence inventories remain unchanged.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/linked-wav-managed-handoff-policy.test.js tests/project-compatibility-policy.test.js tests/production-security-evidence.test.js tests/audio-editor-aiff-pcm-chunk-reader.test.ts tests/audio-editor-linked-audio-scape-roundtrip.test.ts tests/audio-editor-linked-wav-import.test.ts",
+          "status": "passed"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 19,
+      "scope": "Roadmap agent guidance and release-owner prose",
+      "reviewedTests": [
+        "tests/roadmap-guidance.test.js",
+        "tests/release-owner-policy.test.js",
+        "tests/qa-run-templates.test.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "scripts/create-qa-run.mjs",
+          "reason": "QA template generation remains exercised by actual tooling tests."
+        },
+        {
+          "path": "tests/roadmap-guidance.test.js",
+          "reason": "Retains roadmap size boundary and actual machine-readable anchor resolution."
+        },
+        {
+          "path": "tests/release-owner-policy.test.js",
+          "reason": "Retains exact executable commands, removed-harness absence, manifest exclusion and third-party notices checks."
+        }
+      ],
+      "decision": "Removed release/QA prose restatements and copied roadmap narratives. Preserved actual commands, supply-chain notice contents, policy-anchor integrity and bounded roadmap size.",
+      "removedTests": [
+        "roadmap treats hosted performance results as diagnostics",
+        "the owner decides a release from real CI and optional manual QA",
+        "both QA templates hold releases for the three non-negotiable bug classes",
+        "legacy FFmpeg diagnostics require concrete checks, not human approval",
+        "fixed-host workflows report what was exercised without issuing qualification verdicts"
+      ],
+      "changedFiles": [
+        "tests/roadmap-guidance.test.js",
+        "tests/release-owner-policy.test.js"
+      ],
+      "retainedReason": "Documentation language can change without invalidating real commands, links, notice provenance or resource bounds.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/roadmap-guidance.test.js tests/release-owner-policy.test.js tests/qa-run-templates.test.js tests/project-compatibility-policy.test.js",
+          "status": "passed"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 20,
+      "scope": "Toolbar labels, ContextMenu implementation characterization and label-origin wiring",
+      "reviewedTests": [
+        "tests/audio-editor-toolbar-customize-labels.test.ts",
+        "tests/audio-editor-context-menu-dismissal.test.ts",
+        "tests/audio-editor-label-lane-render-origin.test.ts",
+        "tests/audio-editor-transport-toolbar-group.test.tsx",
+        "tests/audio-editor-snap-toolbar-control.test.tsx",
+        "tests/audio-editor-menu-trigger-dismissal.test.tsx",
+        "tests/browser/audio-editor-menus-tools.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/toolbar/TelemetryTimeCode.tsx",
+          "reason": "Retained transport-toolbar markup test renders and checks the localized playhead-format accessible label."
+        },
+        {
+          "path": "tests/audio-editor-snap-toolbar-control.test.tsx",
+          "reason": "Already asserts the same time-display copy.timecode customization entry."
+        },
+        {
+          "path": "tests/browser/audio-editor-menus-tools.spec.js",
+          "reason": "Actual application-menu outside click dismissal is covered independently of timer/effect implementation spelling."
+        },
+        {
+          "path": "tests/audio-editor-label-lane-render-origin.test.ts",
+          "reason": "Retained caller propagation checks cover wiring omitted by the standalone pointer-mapping behavior tests."
+        }
+      ],
+      "decision": "Deleted two duplicated toolbar source/label tests and one vendored ContextMenu timer/dependency characterization; retained stable callback and label-origin wiring guards.",
+      "removedTests": [
+        "the customize-toolbar flyout calls the time display \"Timecode\" in both locales",
+        "the playhead label keeps naming the timeline cursor and timecode aria-labels",
+        "ContextMenu still re-arms its outside-pointer listener when onClose changes"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-toolbar-customize-labels.test.ts",
+        "tests/audio-editor-context-menu-dismissal.test.ts"
+      ],
+      "retainedReason": "Source scans that establish untested caller propagation remain; rendered labels and actual dismissal behavior have existing checks.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/audio-editor-context-menu-dismissal.test.ts tests/audio-editor-menu-trigger-dismissal.test.tsx tests/audio-editor-transport-toolbar-group.test.tsx tests/audio-editor-snap-toolbar-control.test.tsx tests/audio-editor-label-lane-render-origin.test.ts",
+          "status": "passed; browser suite not run for test-only pruning"
+        },
+        {
+          "command": "npm exec -- eslint <17 surviving files listed by changedFiles across this ledger>",
+          "status": "passed; no unused reads/imports/variables or empty loops remain"
+        }
+      ]
+    },
+    {
+      "pass": 21,
+      "scope": "Application Window/fullscreen menu workflows across both products",
+      "reviewedTests": [
+        "tests/browser/audio-editor-menu-action-coverage.spec.js",
+        "tests/browser/audio-editor-project-tabs.spec.js",
+        "tests/browser/audio-editor-tracks-layout.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/application-window-menu.js",
+          "reason": "Fullscreen is a flat Window entry; project/panel groups have independent menu composition."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/AudioEditorWorkspace.jsx",
+          "reason": "Web fullscreen changes editor state; desktop dispatches a native window action, so menu activation and header geometry assertions cover different integration paths."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Menu placement/F11 routing, project grouping, and fullscreen layout each assert distinct observable behavior. Product-specific compositions are maintained entry points.",
+      "verification": [
+        {
+          "command": "Read specs; compare fullscreen references and production menu/runtime implementations",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 22,
+      "scope": "Native project filenames, UTF-8 byte budgets, broadcast suffix import/Open",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-io-native-save-name.spec.js",
+        "tests/browser/audio-editor-round6-io-native-save-suffix.spec.js",
+        "tests/browser/audio-editor-round6-io-export-name-bytes.spec.js",
+        "tests/browser/audio-editor-round4-io-broadcast-suffix.spec.js",
+        "tests/browser/audio-editor-round6-io-native-broadcast-suffix.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/export-name-byte-budget.ts",
+          "reason": "fitExportFileName reserves suffix bytes and truncates on code-point boundaries under 255 bytes."
+        },
+        {
+          "path": "src/common/editor/file-service.js",
+          "reason": "Native save chooses/sanitizes suggested names; browser and bridge paths dispatch distinct import/save operations."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Short valid Unicode names, over-budget names preserving suffix, filesystem-extractable stem ZIP members, File Open and native/browser Import all reach different actual boundaries; consolidation would lose those oracles.",
+      "verification": [
+        {
+          "command": "Read five filename/suffix specs and byte-budget/file-service implementation",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 23,
+      "scope": "Context-menu navigation, completion focus and popup shortcut propagation",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-context-menu-completion.spec.js",
+        "tests/browser/audio-editor-round6-context-menu-modified-navigation.spec.js",
+        "tests/browser/audio-editor-round6-disabled-menu-first-focus.spec.js",
+        "tests/browser/audio-editor-round6-ruler-menu-shortcut.spec.js",
+        "tests/browser/audio-editor-round6-portal-menu-shortcuts.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "vendor/audacity-design-system/components/src/ContextMenu/ContextMenu.tsx",
+          "reason": "Separate selection-completion, Escape, disabled-item focus and modified-navigation paths; shared menu skips Ctrl/Meta/Alt while restored focus is conditional."
+        },
+        {
+          "path": "src/common/editor/ui/timeline/context-menu-keyboard.ts",
+          "reason": "Opening the menu from Shift+F10 is separately owned by each control."
+        },
+        {
+          "path": "src/common/editor/ui/timeline/LabelContextMenu.tsx",
+          "reason": "Portal owner selectively stops unmodified key propagation while modified shortcuts must reach the workspace."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Similar setup masks different event ownership: modified chord on trigger, project shortcut inside an open portal, accepted menu action closing focus, and disabled-first-item navigation. All have real state/focus assertions.",
+      "verification": [
+        {
+          "command": "Read five specs, shared ContextMenu and owner opening/portal event code",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 24,
+      "scope": "IME Enter handling in track, clip, output, folder and bin rename editors",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-output-name-composition.spec.js",
+        "tests/browser/audio-editor-round6-folder-name-composition.spec.js",
+        "tests/browser/audio-editor-round6-track-name-composition.spec.js",
+        "tests/browser/audio-editor-round6-bin-name-composition.spec.js",
+        "tests/browser/audio-editor-round6-clip-name-composition.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/timeline/OutputTrackNameEditor.tsx",
+          "reason": "Output names use separate label-key handling with completed-ref and blur publication."
+        },
+        {
+          "path": "src/common/editor/ui/timeline/track-name-keyboard-focus.ts",
+          "reason": "Track rename has its own native composition guard and focus-return helper."
+        },
+        {
+          "path": "src/common/editor/ui/timeline/track-folder-rename-keyboard.ts",
+          "reason": "Folder rename independently guards composition and queues focus after input removal."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/ProjectBinNameEditor.tsx",
+          "reason": "Bin names commit on blur using a draft guard and update accessible names."
+        },
+        {
+          "path": "vendor/audacity-design-system/components/src/ClipHeader/ClipHeader.tsx",
+          "reason": "Clip header owns a separate composition guard and completed-name callback."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "These are distinct maintained editors, not one shared guard tested five times. Synthetic composing events are limited to unavailable native IME automation; committed names/history/focus are verified through real UI.",
+      "verification": [
+        {
+          "command": "Read five rename composition specs and each owning keyboard implementation",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 25,
+      "scope": "Selection-effect Preview versus Apply for complete-selection and input-prefix algorithms",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-sliding-preview-duration.spec.js",
+        "tests/browser/audio-editor-round6-speed-delay-preview-duration.spec.js",
+        "tests/browser/audio-editor-round6-paulstretch-preview-window.spec.js",
+        "tests/browser/audio-editor-round5-normalize-preview-gain.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/controller/effects/internal/effect-preview-service.ts",
+          "reason": "Normalize and varying Sliding Stretch process whole selections; Speed Delay and Paulstretch compute different source prefixes before cropping six-second playback."
+        },
+        {
+          "path": "src/common/editor/controller/effects/internal/paulstretch-preview-prefix.ts",
+          "reason": "FFT-window support and endpoint-fade geometry are distinct from delay/resampler source support."
+        },
+        {
+          "path": "src/common/editor/controller/effects/internal/speed-delay-preview-prefix.ts",
+          "reason": "Pitch/tempo echoes need later source samples computed backwards through each echo stage."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "The AudioBufferSourceNode hook only observes actual browser audio. Each case exercises a distinct processing path; spectral/gain/output-duration comparisons fail for the specific audible preview mismatch. Shared boot/export setup is not duplicate behavior.",
+      "verification": [
+        {
+          "command": "Read four preview specs and preview service plus both prefix planners",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 26,
+      "scope": "Noise generation randomness, mixed-layer independence and colored spectra",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-noise-independent-jobs.spec.js",
+        "tests/browser/audio-editor-round6-brown-noise-spectrum.spec.js",
+        "tests/browser/audio-editor-round2-pink-noise.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/signal-generator-renderer.ts",
+          "reason": "Each noise renderer chooses a fresh crypto seed and a white/pink/brown path."
+        },
+        {
+          "path": "src/common/editor/signal-generator-noise.ts",
+          "reason": "Brown retention and per-channel random/pink filter state have separate numerical semantics."
+        },
+        {
+          "path": "src/common/editor/controller/edit/generator-service.ts",
+          "reason": "Generation groups and streamed publications occur independently per requested job and target group."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Regeneration after Undo can expose repeat seeds/cache reuse; simultaneous mixed layers exercise group publication. Pink and Brown require different octave-energy ratios. Combining these would chain history/target setup and reduce independent seed-path coverage.",
+      "verification": [
+        {
+          "command": "Read three noise specs and renderer, noise block algorithm and generator group publication",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 27,
+      "scope": "Native-width destructive effects, macro capture and rack noise-profile browser smoke coverage",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round7-wide-timeline-captures.spec.js",
+        "tests/browser/audio-editor-round7-wide-timeline-effects.spec.js",
+        "tests/browser/audio-editor-round5-source-multichannel-effects.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/audacity-selection.js",
+          "reason": "Native selected channel width and omission rejection differ between mono/stereo and wider sources."
+        },
+        {
+          "path": "src/common/editor/controller/effects/internal/effect-audio-service.ts",
+          "reason": "Track noise profiles resolve native track width before render; source/timeline and macro application remain distinct UI routes."
+        },
+        {
+          "path": "src/common/editor/mixer-graph-v21.ts",
+          "reason": "Default destination-indexed master mapping truncates wider sources; master output cannot prove every original channel."
+        },
+        {
+          "path": "tests/browser/helpers/round2-audio-export.js",
+          "reason": "Existing helper returns only decoded channel zero, exposing a weak multichannel oracle rather than unnecessary user workflows."
+        }
+      ],
+      "decision": "retain_and_record_oracle_limit",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "No safe pruning justified. Wider audio admission and entry routes are real. Every-channel claims and finite-only profile assertions warrant stronger oracles separately; parent expressly excludes multichannel strengthening from pruning scope.",
+      "verification": [
+        {
+          "command": "Read three multichannel specs, helper, selection width and noise-profile service",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 28,
+      "scope": "Project Bin waveform transform presentation versus audible/video transport previews",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round3-io-bin-loop-waveform.spec.js",
+        "tests/browser/audio-editor-round3-io-bin-waveform-order.spec.js",
+        "tests/browser/audio-editor-round5-io-bin-warp-waveform.spec.js",
+        "tests/browser/audio-editor-round6-io-bin-warp-preview.spec.js",
+        "tests/browser/audio-editor-round7-io-bin-video-retime.spec.js",
+        "tests/browser/audio-editor-round2-io-bin-preview.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/workspace/useProjectBinPresentation.ts",
+          "reason": "Waveform paths and video timing models have separate memoized document inputs."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/ProjectBinCard.jsx",
+          "reason": "Frozen retime playback uses a dedicated executor; ordinary trimmed/rate video uses native element currentTime/playbackRate."
+        },
+        {
+          "path": "src/common/editor/controller/import/internal/project-bin/project-bin-preview-service.ts",
+          "reason": "Audio auditions construct an owned preview graph with clip warp and tempo; silent video preview publishes a distinct media-element state."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Loop, reverse and nonlinear warp SVG checks verify different time mappings. Waveform drawing cannot substitute for captured audible playback. Frozen, trimmed and rate-stretched native video exercise different playback clocks; their similar setup does not duplicate the outcome.",
+      "verification": [
+        {
+          "command": "Read six bin transform/preview specs and presentation, card and controller preview implementations",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 29,
+      "scope": "Held pointer drafts invalidated by actual keyboard deletion or Undo",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round7-deleted-pencil-draft.spec.js",
+        "tests/browser/audio-editor-round7-deleted-envelope-draft.spec.js",
+        "tests/browser/audio-editor-round7-deleted-track-resize.spec.js",
+        "tests/browser/audio-editor-round7-annotation-removed-drag.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/timeline/useTimelinePointerFinish.js",
+          "reason": "Sample-pencil and track-resize sessions independently cancel when their live clip/track disappears; completion checks clip membership."
+        },
+        {
+          "path": "src/common/editor/ui/timeline/useAudioTrackEnvelope.js",
+          "reason": "Envelope preview publication runs after native mouseup and checks the current clip plus expected envelope."
+        },
+        {
+          "path": "src/common/editor/ui/timeline/useTimelineAnnotationDragCancellation.ts",
+          "reason": "Annotation drags cancel when authored identities or initial ranges change before release."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "All use real held mouse input plus normal Delete/Undo keyboard actions. Each draft has a separate lifecycle and positive control drag; error-free release, restored state or next gesture is observable. These are not fabricated project mutations.",
+      "verification": [
+        {
+          "command": "Read four held-draft specs and pointer, envelope and annotation cancellation owners",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 30,
+      "scope": "Project-session selection persistence, RTL tab movement and item navigation entry state",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-no-track-session.spec.js",
+        "tests/browser/audio-editor-round6-project-tab-direction.spec.js",
+        "tests/browser/audio-editor-project-tabs.spec.js",
+        "tests/browser/audio-editor-round7-native-item-order.spec.js",
+        "tests/browser/audio-editor-round7-item-navigation-entry.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/controller/document/project-switch-service.ts",
+          "reason": "Activation restores project selection from per-tab metadata; explicit empty track selection and focused-track selection remain different stored states."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/ProjectTabs.jsx",
+          "reason": "Arrow direction derives from computed RTL/LTR layout and selection/focus transfer is asynchronous after activation."
+        },
+        {
+          "path": "src/common/editor/controller/track-audio/internal/clip-selection-navigation-service.ts",
+          "reason": "Select No tracks explicitly clears focused track while preserving the timeline range."
+        },
+        {
+          "path": "src/common/editor/audacity-action-runtime.js",
+          "reason": "Next/Previous item use relative clip navigation separately from vertical Item below entry semantics."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Ordinary selection restore and explicit No tracks expose different authority bugs, not interchangeable baselines. RTL physical order, temporal rather than ID order, and entering navigation after Select none have distinct final selection/focus assertions.",
+      "verification": [
+        {
+          "command": "Read five navigation/session specs and project activation, tab keyboard and navigation action owners",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "scope": "Project snapshot equality after storage cloning",
+      "reviewedTests": [
+        "tests/audio-editor-project-snapshot-equality.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/storage/storage-clone.ts",
+          "reason": "Repository publication and load use structuredClone (or JSON fallback), which cannot retain symbol keys, nonenumerable fields, or accessor descriptors."
+        },
+        {
+          "path": "src/common/editor/storage/project-repository.ts",
+          "reason": "projectPublication clones before publishing; exact-current comparisons operate on stored snapshots."
+        },
+        {
+          "path": "src/common/editor/runtime-clip-projection.ts",
+          "reason": "Runtime projection branding is a WeakSet entry, not an own symbol or hidden descriptor."
+        },
+        {
+          "path": "src/framescaper/video-export-strategy-native-media.ts",
+          "reason": "Export authority also compares independently prepared validated runtime/project projections, not just storage rows; those contain inert admitted project fields rather than executable or symbol-keyed extension APIs."
+        }
+      ],
+      "decision": "prune assertions",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/audio-editor-project-snapshot-equality.test.ts"
+      ],
+      "retainedReason": "Retained sparse array ordering, Date/binary/cyclic structured-cloneable values, sharing-insensitive equality and the 5000-entry complexity regression; removed handcrafted hidden/symbol/accessor contracts.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 31
+    },
+    {
+      "scope": "Key/value canonical comparison and binary compare-and-swap",
+      "reviewedTests": [
+        "tests/audio-editor-key-value-canonical-comparison.test.ts",
+        "tests/audio-editor-key-value-binary-cas.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/storage/key-value-repository.ts",
+          "reason": "put and replacement publication clone values before storage; CAS compares persisted values and internally prepared expected fence records."
+        },
+        {
+          "path": "src/common/editor/storage/storage-clone.ts",
+          "reason": "Function and symbol array entries cannot be stored with structuredClone; the legacy JSON fallback turns them into null before comparison."
+        }
+      ],
+      "decision": "prune assertions",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/audio-editor-key-value-canonical-comparison.test.ts"
+      ],
+      "retainedReason": "Retained undefined omission/null semantics, finite/nonfinite number distinctions, binary kinds/order, cycle/BigInt refusal, and repository-level atomic inventory retirement; removed function/symbol array compatibility.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 32
+    },
+    {
+      "scope": "Recursive preservation snapshots and history command ownership",
+      "reviewedTests": [
+        "tests/audio-editor-recursive-binary-snapshot.test.ts",
+        "tests/audio-editor-history-command-snapshots.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/commands/recursive-binary-snapshot.ts",
+          "reason": "The authority callback has two fixed internal clients, rather than a user extension registry."
+        },
+        {
+          "path": "src/common/editor/commands/track-lock-admission.ts",
+          "reason": "Snapshots compare admitted project content around a command transaction using the module-local own-data reader."
+        },
+        {
+          "path": "src/common/editor/commands/video-retime-preservation-admission.ts",
+          "reason": "The second fixed reader snapshots protected persisted/runtime clip state after project admission."
+        },
+        {
+          "path": "src/common/editor/history.js",
+          "reason": "Production history snapshots inert commands when ownership moves across undo/redo stacks."
+        }
+      ],
+      "decision": "prune",
+      "removedTests": [
+        "recursive snapshots use the caller data-property authority"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-recursive-binary-snapshot.test.ts"
+      ],
+      "retainedReason": "Retained real binary-copy/container-kind and omitted-field equality behavior, plus all three product/common history stack ownership cases.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 33
+    },
+    {
+      "scope": "Snapshot channels, presentation batches and composition ownership",
+      "reviewedTests": [
+        "tests/audio-editor-snapshot-channel.test.ts",
+        "tests/audio-editor-snapshot-model.test.ts",
+        "tests/audio-editor-snapshot-composition.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/controller/composition/internal/snapshot-channel.ts",
+          "reason": "React external-store subscriptions need stable cached generations, listener isolation and batch finalization."
+        },
+        {
+          "path": "src/common/editor/controller/composition/snapshot-composition.ts",
+          "reason": "Document and telemetry channels are separate; catalogs/presets cache by actual presentation and CRUD changes."
+        },
+        {
+          "path": "src/common/editor/app.js",
+          "reason": "Passes documentChannel.batch as batchPresentation to edit, preference and task composition owners."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "These internal unit tests exercise real nested callbacks, exception cleanup, device ownership compatibility views, realtime publication isolation and immutable effect gesture previews.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 34
+    },
+    {
+      "scope": "Freeze helper inputs versus native publication/bridge admission",
+      "reviewedTests": [
+        "tests/product-second-boundary-audit.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/soundscaper/editor-audio-track-freeze-actions.ts",
+          "reason": "All project/track helper callers use exactCurrentProject validation and controller-owned admitted projects."
+        },
+        {
+          "path": "src/soundscaper/editor-audio-track-freeze-render.ts",
+          "reason": "The other helper client resolves runtime projection from that validated project; it does not admit a JavaScript plugin object."
+        },
+        {
+          "path": "src/framescaper/editor-native-action-bridge-availability.ts",
+          "reason": "Bridge availability actually inspects an external preload method surface, so reflection/accessor checks remain."
+        },
+        {
+          "path": "src/framescaper/desktop-project-library-publication-admission.ts",
+          "reason": "Desktop publication responses remain an independent external admission boundary."
+        }
+      ],
+      "decision": "prune",
+      "removedTests": [
+        "freeze record lookup rejects inherited identities without reading them",
+        "freeze record lookup rejects an own identity accessor without invoking it",
+        "freeze arrays reject holes and unrelated own properties",
+        "freeze arrays reject indexed accessors without invoking them",
+        "freeze records accept only plain object authority"
+      ],
+      "changedFiles": [
+        "tests/product-second-boundary-audit.test.ts"
+      ],
+      "retainedReason": "Removed executable/custom-prototype/sparse internal project-helper fixtures and duplicate-ID lookup assertion already excluded by project admission. Kept stale missing-ID lookup, numeric/overflow/abort behavior and every native bridge/publication boundary case.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 35
+    },
+    {
+      "scope": "Failure diagnostic aggregation at UI error boundaries",
+      "reviewedTests": [
+        "tests/audio-editor-error-diagnostic-message.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/error-diagnostic-message.ts",
+          "reason": "Traverses unknown errors with breadth/depth/cycle bounds and a native DOMException message reader."
+        },
+        {
+          "path": "src/common/editor/controller/composition/presentation-state.ts",
+          "reason": "handleError receives caught operation failures without a project-like data admission step."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/workspace-error-presentation.ts",
+          "reason": "Displays diagnostic failures from arbitrary asynchronous browser/native operations."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Error values are uncontrolled unlike project data. Native getters, hostile aggregate reflection, cycles and many cleanup failures can otherwise hide the original fault or break error reporting; the defensive cases are useful.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 36
+    },
+    {
+      "scope": "Framescaper runtime presentation and site bootstrap",
+      "reviewedTests": [
+        "tests/framescaper-web-editor-runtime-bootstrap.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/site/App.jsx",
+          "reason": "Supplies locale and fallbackCopy from resolved route/site catalog to the product bootstrap."
+        },
+        {
+          "path": "src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx",
+          "reason": "Only production runtime presentation construction is the shared bootstrap with fixed locale/copy keys and bundled/resolved catalogs; exported createFramescaperWebEditorRuntime has no production caller."
+        },
+        {
+          "path": "src/common/editor/ui/audio-editor-web-bootstrap.tsx",
+          "reason": "Constructs the presentation record internally and manages resource cleanup across startup/unmount."
+        }
+      ],
+      "decision": "prune",
+      "removedTests": [
+        "a presentation that is not a plain closed record is refused before storage is opened",
+        "the presentation locale must be a bounded, non-blank string",
+        "the presentation copy must be a record of own enumerable data fields",
+        "fallback copy that is not a record of own data fields fails the bootstrap render"
+      ],
+      "changedFiles": [
+        "tests/framescaper-web-editor-runtime-bootstrap.test.ts"
+      ],
+      "retainedReason": "Removed arbitrary public-JavaScript-factory contracts (class/symbol/getter/oversize copy and malformed locale). Retained durability, desktop bridge, startup progress, failure alert, exact-once disposal, construction cleanup and late/unmounted locale lifecycle tests.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 37
+    },
+    {
+      "scope": "Native capability snapshot schema and enablement decisions",
+      "reviewedTests": [
+        "tests/audio-editor-native-media-capability-snapshot.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/native-media-capability-snapshot.ts",
+          "reason": "Capability snapshot is a versioned native contract with health/quarantine and user opt-in semantics."
+        },
+        {
+          "path": "src/common/editor/ui/framescaper-native-services-bridge.ts",
+          "reason": "Native service responses are independently cloned and asserted before use."
+        },
+        {
+          "path": "src/framescaper/editor-native-openfx-action.ts",
+          "reason": "Asserts capability reports before native plugin action execution."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Independent parsed reports really cross the bridge. Bad schema, duplicate IDs, contradictory master switch, fingerprint changes and health/opt-in gating can disable or expose actual capabilities; exact inventories are justified.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 38
+    },
+    {
+      "scope": "Numeric worker correlation adapter and client coverage",
+      "reviewedTests": [
+        "tests/audio-editor-numeric-worker-request-broker-boundary.test.ts",
+        "tests/audio-editor-browser-dedicated-audio-worker-client.test.ts",
+        "tests/audio-editor-browser-audio-encode-stream-client.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/numeric-worker-request-broker-boundary.ts",
+          "reason": "Adapter only applies String(id) between its two fixed worker clients and the broker."
+        },
+        {
+          "path": "src/common/editor/browser-dedicated-audio-worker-client.ts",
+          "reason": "Externally posted numeric IDs are resolved through this adapter; retained tests cover queued/current/late/wrong-ID response settlement."
+        },
+        {
+          "path": "src/common/editor/browser-audio-encode-stream-client.ts",
+          "reason": "Retained open/write/finish tests require response correlation and cover malformed/wrong-ID and cancellation failures."
+        }
+      ],
+      "decision": "prune",
+      "removedTests": [
+        "numeric worker request state is stringified only inside the broker boundary"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-numeric-worker-request-broker-boundary.test.ts"
+      ],
+      "retainedReason": "Deleted implementation-shape assertion on broker string keys. Both actual worker protocol clients retain successful correlation, errors, queue recovery and deadline coverage.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 39
+    },
+    {
+      "scope": "Workspace courier inventories and clip-properties focus ownership",
+      "reviewedTests": [
+        "tests/audio-editor-workspace-model-boundaries.test.ts",
+        "tests/audio-editor-clip-properties-panel-focus.test.tsx"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/workspace/workspace-model-boundaries.ts",
+          "reason": "Both courier factories simply Object.freeze the supplied object; exported key lists also build the tested fixtures."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/AudioEditorWorkspaceView.jsx",
+          "reason": "The retained source check verifies shared runtime wiring across the real dock instances."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/useWorkspaceClipPropertiesPanel.ts",
+          "reason": "Retained hook tests exercise request identity, replacement, project switching and panel close through React rendering."
+        }
+      ],
+      "decision": "prune",
+      "removedTests": [
+        "workspace overlay model has one exact frozen courier inventory",
+        "workspace panel docks share one exact frozen non-dock runtime inventory"
+      ],
+      "changedFiles": [
+        "tests/audio-editor-workspace-model-boundaries.test.ts"
+      ],
+      "retainedReason": "Removed tests comparing fixture keys against the same constants that built them and retesting Object.freeze. Retained actual producer wiring plus observable focus-request lifecycle tests.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 40
+    },
+    {
+      "pass": 41,
+      "scope": "EBU R128 true-peak silence work and histogram summary caches",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-loudness-work.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ebu-r128.js",
+          "reason": "Production meter feeds private true-peak FIR and histogram helpers on every PCM/programme window; silence drain, sparse bins and repeated summaries are real."
+        },
+        {
+          "path": "src/common/editor/production-audio/loudness-history-session.ts",
+          "reason": "Live production loudness session repeatedly snapshots shared meter state."
+        },
+        {
+          "path": "src/common/editor/engine/transport-scheduler.ts",
+          "reason": "Actual engine creates loudness meter processing during playback."
+        }
+      ],
+      "decision": "Retain all three work/cache tests.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Counters cover real FIR and histogram costs. Zero-energy gating and reset/current-summary invalidation are observable; do not prune nonfinite-energy suppression without excluding internal arithmetic overflow on every accepted meter input.",
+      "verification": [
+        {
+          "command": "focused loudness work suite",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 42,
+      "scope": "Audio-track freeze installation, refresh, removal and commit work",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-freeze.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/audio-track-freeze-lifecycle-v21.ts",
+          "reason": "Lifecycle operations consume one exact track/source/clip proof snapshot and return detached frozen project candidates."
+        },
+        {
+          "path": "src/common/editor/audio-track-freeze-coordinator-v21.ts",
+          "reason": "Actual menu-invoked coordinator uses install/remove/commit candidates and source content identities."
+        },
+        {
+          "path": "src/common/editor/commands/audio-production.ts",
+          "reason": "Undoable production commands dispatch the same lifecycle candidates."
+        }
+      ],
+      "decision": "Retain all eight tests.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Descriptor-read and selected-record counters measure real project-size scaling; 120 clips/sources are supported, candidates must not mutate input and refresh/commit must reuse proven records.",
+      "verification": [
+        {
+          "command": "focused freeze work suite",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 43,
+      "scope": "Spreadsheet memoized rows, direct cell focus and current controller dispatch",
+      "reviewedTests": [
+        "tests/audio-editor-responsiveness-round4-spreadsheet.test.tsx"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/clip-spreadsheet/row-presentation.ts",
+          "reason": "Actual panel memoizes row identities/editability separately from localized labels and registers mounted cell references for direct focus."
+        },
+        {
+          "path": "src/common/editor/ui/clip-spreadsheet/SpreadsheetRow.tsx",
+          "reason": "Memoized rows keep live draft, checkbox, selection and ref lifecycle callbacks."
+        },
+        {
+          "path": "src/common/editor/ui/clip-spreadsheet/ClipSpreadsheetPanel.tsx",
+          "reason": "Production panel owns row index and mutable live callback authority, so rerender/controller replacement is reachable."
+        }
+      ],
+      "decision": "Retain all three workflow/performance tests.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Tests exercise real same-row rerenders, locale/selection changes, keyboard focus, unmount cleanup and controller replacement. Getter/selector fault instrumentation observes repeated work rather than inventing a supported input contract.",
+      "verification": [
+        {
+          "command": "focused spreadsheet memoization and workflow suite",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "pass": 44,
+      "scope": "Startup graph and site/editor source-boundary contracts",
+      "reviewedTests": [
+        "tests/site-startup-boundary.test.ts",
+        "tests/startup-graph-budget.test.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "scripts/lib/startup-graph-budget.mjs",
+          "reason": "Build plugin enforces actual emitted static closure, product ownership, request/byte ceilings and chunk cycles."
+        },
+        {
+          "path": "src/common/site/App.jsx",
+          "reason": "Site source checks guard initial loading behavior before the lazy product editor mounts."
+        },
+        {
+          "path": "src/common/site/application-ready-scheduler.js",
+          "reason": "Scheduling tests exercise readiness, idle behavior and fallback timers directly."
+        }
+      ],
+      "decision": "Retained unchanged after reviewing source scans against emitted-graph and runtime checks; these enforce complementary ownership and loading boundaries.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Source ownership and emitted graph boundaries are meaningful architecture protections; no safely redundant whole test identified.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/site-startup-boundary.test.ts tests/startup-graph-budget.test.js",
+          "status": "passed 29 tests"
+        }
+      ]
+    },
+    {
+      "pass": 45,
+      "scope": "Pinned Audacity UI inventory and third-party notice provenance",
+      "reviewedTests": [
+        "tests/audacity-pinned-ui-inventory.test.js",
+        "tests/third-party-notice-version.test.js",
+        "scripts/check-third-party-notices.mjs"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/audacity-pinned-ui-inventory.js",
+          "reason": "Immutable pinned inventory carries upstream revision, source hashes, dynamic registrations and exact classifications."
+        },
+        {
+          "path": "scripts/check-third-party-notices.mjs",
+          "reason": "Canonical notice gate compares lockfile package versions/integrity and vendored revision with committed notices."
+        },
+        {
+          "path": "src/common/editor/audacity-action-parity.js",
+          "reason": "Behavior tests verify excluded and disabled registrations remain absent or inert."
+        }
+      ],
+      "decision": "Retained unchanged: exact upstream counts and hashes bind a fixed reviewed source inventory rather than an incidental live implementation size.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "No canonical equivalent replaces the inventory coverage/classification or notice version-boundary checks; deleting them would weaken provenance verification.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/audacity-pinned-ui-inventory.test.js tests/third-party-notice-version.test.js",
+          "status": "passed 5 tests"
+        },
+        {
+          "command": "node scripts/check-third-party-notices.mjs",
+          "status": "passed 40 dependency notice records"
+        }
+      ]
+    },
+    {
+      "pass": 46,
+      "scope": "Browser FFmpeg closure audit and offline application-shell contract",
+      "reviewedTests": [
+        "tests/browser-bundle-codec-audit.test.js",
+        "tests/production-security-offline-application-shell.test.ts",
+        "tests/offline-service-worker-runtime-fetch.test.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "scripts/lib/browser-bundle-codec-audit.mjs",
+          "reason": "Final-output audit actively rejects forbidden FFmpeg seams and permits only the isolated dynamic trim-media closure."
+        },
+        {
+          "path": "scripts/check-build-chunks.mjs",
+          "reason": "Audit integration test verifies the actual production build gate runs the audit."
+        },
+        {
+          "path": "scripts/lib/offline-service-worker.mjs",
+          "reason": "Runtime fetch tests verify legacy runtime bypass and product-specific navigation behavior."
+        }
+      ],
+      "decision": "Retained unchanged after reviewing effective byte-composition enforcement and its policy evidence inventory; no deletion forced in this security/supply-chain family.",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Tests protect the real browser bundle/runtime boundary and independent evidence requirements; prose pruning here would offer little benefit without a separate targeted schema/evidence refactor.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test tests/production-security-offline-application-shell.test.ts tests/browser-bundle-codec-audit.test.js tests/offline-service-worker-runtime-fetch.test.js",
+          "status": "passed 8 tests"
+        }
+      ]
+    },
+    {
+      "pass": 47,
+      "scope": "Selected Visual Inspector canonical text/color, native numeric draft entry and source isolation",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-visual-color-canonical-input.spec.js",
+        "tests/browser/audio-editor-round5-visual-text-canonical-input.spec.js",
+        "tests/browser/audio-editor-round7-visual-inspector-number-drafts.spec.js",
+        "tests/browser/audio-editor-round5-visual-source-isolation.spec.js",
+        "tests/browser/audio-editor-round6-visual-inspector-track-lock.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/dialogs/FramescaperVisualInspectorDialog.tsx",
+          "reason": "Apply completes NFC/lowercase text and separate numeric drafts; sourceBlocked differs from presentation opacity blocked state."
+        },
+        {
+          "path": "src/common/editor/ui/dialogs/visual-inspector-number-draft.ts",
+          "reason": "Native scientific numeric text is parsed only at Apply/Enter completion."
+        },
+        {
+          "path": "src/common/editor/ui/framescaper-visual-inspector-model.ts",
+          "reason": "Source generator commands and clip visual presentation commands differ, including isolated source changes for selected occurrences."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Reopening verifies persisted canonical data rather than only local field text. Text normalization, uppercase RGBA, scientific opacity, shared split-source isolation/preset application and locked source versus allowed opacity changes exercise different real commands.",
+      "verification": [
+        {
+          "command": "Read five visual inspector specs, draft completion, command construction and lock admission",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 48,
+      "scope": "Playback/input meter stereo silence, sample versus true peak, warning scope and quota retry",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-playback-meter-channels.spec.js",
+        "tests/browser/audio-editor-round6-recording-meter-channels.spec.js",
+        "tests/browser/audio-editor-round6-input-sample-peak.spec.js",
+        "tests/browser/audio-editor-round6-meter-warning-scope.spec.js",
+        "tests/browser/audio-editor-round7-meter-persistence-loop.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/meter-channel-readings.ts",
+          "reason": "Channel zero is a real signal value and clipping is distinct from bar height; stereo entries are presented separately."
+        },
+        {
+          "path": "src/common/editor/ui/playback-meter-channel-presentation.ts",
+          "reason": "Master channel fields are merged with loudness programme fields; EBU and sample meter styles differ."
+        },
+        {
+          "path": "src/common/editor/ebu-r128.js",
+          "reason": "Snapshot returns separate sample peak/dbfs and true-peak loudness measurements, whose difference depends on phase."
+        },
+        {
+          "path": "src/common/editor/ui/workspace/useWorkspaceMeterPanels.ts",
+          "reason": "A failed persisted panel visibility write must roll back independent meter position without a retry loop."
+        }
+      ],
+      "decision": "retain",
+      "removedTests": [],
+      "changedFiles": [],
+      "retainedReason": "Playback and microphone signals take separate paths; recording test verifies both exported stereo PCM and meter bars. Phase cases distinguish sample/true-peak behavior, EBU warning is intentionally distinct from clip flags, and QuotaExceededError/retry is a real storage failure.",
+      "verification": [
+        {
+          "command": "Read five meter specs, per-channel UI mapping, meter snapshot and position settlement owner",
+          "status": "reviewed"
+        }
+      ]
+    },
+    {
+      "pass": 49,
+      "scope": "Native capture microphone sample-grid admission and listening-volume monitoring",
+      "reviewedTests": [
+        "tests/browser/audio-editor-round6-io-capture-source-rate.spec.js",
+        "tests/browser/audio-editor-round6-io-capture-optional-rate.spec.js",
+        "tests/browser/audio-editor-round7-io-native-capture-listening-volume.spec.js"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/controller/capture/internal/browser/framescaper-browser-audio-recorder.ts",
+          "reason": "actualTrackFormat distinguishes optional native settings from context fallback; worklet capture and monitoring setup are shared for both former volume parameterizations."
+        },
+        {
+          "path": "src/common/editor/controller/capture/internal/browser/framescaper-capture-audio-context.ts",
+          "reason": "Nonmatching native microphone rate needs a separately owned matching context, preserving sink selection."
+        },
+        {
+          "path": "src/common/editor/controller/capture/internal/browser/framescaper-capture-listening-output.ts",
+          "reason": "Monitoring owns one GainNode subscribed to listening level; capture PCM is delivered independently from this speaker gain."
+        },
+        {
+          "path": "src/common/editor/recording.js",
+          "reason": "Recorder connects to the supplied monitoring destination while onChunk captures PCM before listening gain."
+        }
+      ],
+      "decision": "consolidate_redundant_baseline",
+      "removedTests": [
+        "Recording setup microphone monitoring preserves full-level monitoring without muting captured PCM"
+      ],
+      "changedFiles": [
+        "tests/browser/audio-editor-round7-io-native-capture-listening-volume.spec.js"
+      ],
+      "retainedReason": "Keep optional-rate and44.1/48k grids as distinct real browser/source formats. One mute/unmute workflow already asserts initial full-level [1], live nonzero PCM, muted [0] with continuing capture, restored [1], saved state and imported item; the separate unmuted registration only skipped the mute block.",
+      "verification": [
+        {
+          "command": "node --check tests/browser/audio-editor-round7-io-native-capture-listening-volume.spec.js",
+          "status": "passed"
+        },
+        {
+          "command": "npx eslint tests/browser/audio-editor-round7-io-native-capture-listening-volume.spec.js",
+          "status": "passed"
+        },
+        {
+          "command": "npx playwright test tests/browser/audio-editor-round7-io-native-capture-listening-volume.spec.js --project=chromium --list",
+          "status": "passed: one Chromium test"
+        },
+        {
+          "command": "git diff --check -- tests/browser/audio-editor-round7-io-native-capture-listening-volume.spec.js",
+          "status": "passed"
+        },
+        {
+          "command": "Focused Chromium execution",
+          "status": "deferred to root; no builds or heavy browser runs in this audit"
+        }
+      ]
+    },
+    {
+      "scope": "Shared web runtime metadata ownership and asynchronous teardown",
+      "reviewedTests": [
+        "tests/audio-editor-web-bootstrap-lifecycle.test.ts",
+        "tests/audio-editor-bootstrap-runtime-disposal.test.ts"
+      ],
+      "productionEvidence": [
+        {
+          "path": "src/common/editor/ui/audio-editor-web-bootstrap.tsx",
+          "reason": "Runtime metadata uses a private WeakMap; all bootstrap accessor calls receive the runtime from the same lifecycle creation promise."
+        },
+        {
+          "path": "src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx",
+          "reason": "Passes its owned runtime to metadata accessors during editor render."
+        },
+        {
+          "path": "src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx",
+          "reason": "Uses the same owned runtime path; catalog/environment preparation and teardown are real asynchronous failure points."
+        }
+      ],
+      "decision": "prune assertion",
+      "removedTests": [],
+      "changedFiles": [
+        "tests/audio-editor-web-bootstrap-lifecycle.test.ts"
+      ],
+      "retainedReason": "Removed a forged empty runtime cast to never used solely to exercise private metadata rejection. Kept resource attachment/disposal, reader fences, extension draining, concurrent catalog/environment startup, cleanup aggregation and unmount reporting.",
+      "verification": [
+        {
+          "command": "node --import tsx --import ./scripts/node-style-asset-loader.mjs --test <17 root-reviewed suites>",
+          "status": "passed; 116 tests across 17 root-reviewed suites"
+        }
+      ],
+      "pass": 50
+    }
+  ],
+  "removedRegistrations": {
+    "node": 34,
+    "browser": 1
+  },
+  "removedFrozenReceiptEntries": 35,
+  "implementationCommits": [
+    {
+      "revision": "3f4b64092",
+      "subject": "test: limit responsiveness contracts to production inputs"
+    },
+    {
+      "revision": "180cd592c",
+      "subject": "test: remove invented internal snapshot and bootstrap APIs"
+    },
+    {
+      "revision": "8f34bf963",
+      "subject": "test: remove redundant policy prose and source characterizations"
+    },
+    {
+      "revision": "7c1f57cab",
+      "subject": "test: consolidate native capture monitoring coverage"
+    }
+  ],
+  "passesWithChanges": 25,
+  "passesRetainedUnchanged": 25
+}

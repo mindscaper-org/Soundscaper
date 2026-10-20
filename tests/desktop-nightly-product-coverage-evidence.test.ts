@@ -12,7 +12,7 @@ import {
 	preserveDesktopNightlyProductCoverageEvidence,
 } from '../scripts/lib/desktop-nightly-product-coverage-evidence.mjs';
 import {
-	createCoverageFixture, KOKORO_RUNTIME_SCRIPT, RENDERER_WASM, REVISION, RUNTIME_SCRIPT,
+	createCoverageFixture, RENDERER_WASM, REVISION,
 	RUNTIME_WASM, STARTUP_JSON_DOCUMENT, WASM,
 } from './helpers/desktop-nightly-product-coverage-fixture.ts';
 
@@ -34,23 +34,16 @@ test('nightly product coverage evidence preserves every executable and renderer 
 	assert.equal(manifest.productId, 'soundscaper');
 	assert.equal(manifest.sourceRevision, REVISION);
 	assert.match(manifest.packageArchive.sha256, /^[0-9a-f]{64}$/u);
-	assert.equal(manifest.executableResources.fileCount, 6);
+	assert.equal(manifest.executableResources.fileCount, 5);
 	assert.equal(
 		manifest.executableResources.totalBytes,
 		[...files]
 			.filter(([name]) => /(?:\.(?:c|m)?js|\.html?|\.wasm)$/u.test(name)
-				&& (name.startsWith('renderer/') || name === `runtime/${RUNTIME_SCRIPT}`
-					|| name === RUNTIME_WASM))
+				&& (name.startsWith('renderer/') || name === RUNTIME_WASM))
 			.reduce((total, [, contents]) => total + Buffer.byteLength(contents), 0),
 	);
 	assert.match(manifest.executableResources.sha256, /^[0-9a-f]{64}$/u);
-	assert.deepEqual(manifest.excludedRuntimeScripts, [{
-		path: `runtime/${RUNTIME_SCRIPT}`,
-		byteLength: Buffer.byteLength(files.get(`runtime/${RUNTIME_SCRIPT}`) ?? ''),
-		sha256: createHash('sha256')
-			.update(files.get(`runtime/${RUNTIME_SCRIPT}`) ?? '')
-			.digest('hex'),
-	}]);
+	assert.deepEqual(manifest.excludedRuntimeScripts, []);
 	assert.deepEqual(manifest.webAssemblyResources.map(({
 		packagedPath, artifactPath, byteLength,
 	}) => ({ packagedPath, artifactPath, byteLength })), [
@@ -185,95 +178,7 @@ test('nightly product coverage evidence refuses an uninventoried app.asar docume
 	);
 });
 
-test('nightly product coverage evidence admits the same pinned runtime closure for Framescaper', async (context) => {
-	const workspace = await mkdtemp(join(tmpdir(), 'framescaper-nightly-coverage-runtime-'));
-	context.after(() => rm(workspace, { recursive: true, force: true }));
-	const fixture = await createCoverageFixture(workspace, { productId: 'framescaper' });
-	const manifest = await preserveDesktopNightlyProductCoverageEvidence({
-		buildRoot: fixture.buildRoot,
-		productId: 'framescaper',
-		productOutput: fixture.productOutput,
-		sourceRevision: REVISION,
-	});
-	assert.deepEqual(manifest.excludedRuntimeScripts.map(({ path }) => path), [
-		`runtime/${RUNTIME_SCRIPT}`,
-	]);
-});
-
-test('nightly product coverage evidence admits authenticated Kokoro G2P scripts', async (context) => {
-	const workspace = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-coverage-kokoro-'));
-	context.after(() => rm(workspace, { recursive: true, force: true }));
-	const fixture = await createCoverageFixture(workspace, { kokoroRuntimeAuthority: true });
-	const manifest = await preserveDesktopNightlyProductCoverageEvidence({
-		buildRoot: fixture.buildRoot,
-		productId: 'soundscaper',
-		productOutput: fixture.productOutput,
-		sourceRevision: REVISION,
-	});
-	const expectedContents = fixture.files.get(`runtime/${KOKORO_RUNTIME_SCRIPT}`) ?? '';
-	assert.deepEqual(
-		manifest.excludedRuntimeScripts.find(({ path }) => path === `runtime/${KOKORO_RUNTIME_SCRIPT}`),
-		{
-			path: `runtime/${KOKORO_RUNTIME_SCRIPT}`,
-			byteLength: Buffer.byteLength(expectedContents),
-			sha256: createHash('sha256').update(expectedContents).digest('hex'),
-		},
-	);
-});
-
-test('nightly product coverage evidence binds Kokoro G2P scripts to the staged authority',
-	async (context) => {
-		await context.test('stage receipt mismatch', async (childContext) => {
-			const workspace = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-coverage-kokoro-receipt-'));
-			childContext.after(() => rm(workspace, { recursive: true, force: true }));
-			const fixture = await createCoverageFixture(workspace, { kokoroRuntimeAuthority: true });
-			const stagePath = join(fixture.buildRoot, 'stage-manifest.json');
-			const stage = JSON.parse(await readFile(stagePath, 'utf8'));
-			stage.kokoroG2pRuntime.manifest.sha256 = '0'.repeat(64);
-			await writeFile(stagePath, `${JSON.stringify(stage, null, 2)}\n`);
-			await assert.rejects(preserveDesktopNightlyProductCoverageEvidence({
-				buildRoot: fixture.buildRoot,
-				productId: 'soundscaper',
-				productOutput: fixture.productOutput,
-				sourceRevision: REVISION,
-			}), /Kokoro G2P runtime differs from its stage authority/u);
-		});
-
-		await context.test('runtime script substitution', async (childContext) => {
-			const workspace = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-coverage-kokoro-script-'));
-			childContext.after(() => rm(workspace, { recursive: true, force: true }));
-			const fixture = await createCoverageFixture(workspace, { kokoroRuntimeAuthority: true });
-			const substituted = 'globalThis.substituted = true;\n';
-			await writeFile(join(fixture.buildRoot, 'runtime', KOKORO_RUNTIME_SCRIPT), substituted);
-			await writeFile(join(
-				fixture.productOutput,
-				'linux-unpacked/resources/runtime',
-				KOKORO_RUNTIME_SCRIPT,
-			), substituted);
-			await assert.rejects(preserveDesktopNightlyProductCoverageEvidence({
-				buildRoot: fixture.buildRoot,
-				productId: 'soundscaper',
-				productOutput: fixture.productOutput,
-				sourceRevision: REVISION,
-			}), /runtime script differs from its approved authority/u);
-		});
-	});
-
-test('nightly product coverage evidence admits an absent optional runtime without exclusions', async (context) => {
-	const workspace = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-coverage-no-runtime-'));
-	context.after(() => rm(workspace, { recursive: true, force: true }));
-	const fixture = await createCoverageFixture(workspace, { runtimeAuthority: false });
-	const manifest = await preserveDesktopNightlyProductCoverageEvidence({
-		buildRoot: fixture.buildRoot,
-		productId: 'soundscaper',
-		productOutput: fixture.productOutput,
-		sourceRevision: REVISION,
-	});
-	assert.deepEqual(manifest.excludedRuntimeScripts, []);
-	assert.equal(manifest.executableResources.fileCount, 5);
-});
-
-test('nightly product coverage evidence refuses uninventoried and unapproved resource scripts', async (context) => {
+test('nightly product coverage evidence refuses uninventoried executable resources', async (context) => {
 	for (const [label, options, expected] of [
 		[
 			'uninventoried renderer',
@@ -289,16 +194,6 @@ test('nightly product coverage evidence refuses uninventoried and unapproved res
 			'uninventoried WebAssembly',
 			{ packagedResourceExtras: new Map([['renderer/injected.wasm', WASM]]) },
 			/executable resources differ from the staged renderer and runtime/u,
-		],
-		[
-			'unapproved runtime package',
-			{
-				runtimeScripts: new Map([
-					[RUNTIME_SCRIPT, 'module.exports = true;\n'],
-					['assistance/onnxruntime-node/1.29.0/linux-x64/node_modules/not-reviewed/index.js', 'void 0;\n'],
-				]),
-			},
-			/runtime script is not an approved third-party exclusion/u,
 		],
 	] as const) {
 		await context.test(label, async (childContext) => {

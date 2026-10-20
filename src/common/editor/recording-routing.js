@@ -4,8 +4,8 @@
  *
  * The labels are what normalisation adds for display; routes built elsewhere may omit them.
  *
- * @typedef {Readonly<{ kind: 'display', channelStart: number, channelCount: number, label?: string }>} DisplayRecordingRoute
- * @typedef {Readonly<{ kind: 'device', deviceId: string, deviceLabel?: string, channelStart: number, channelCount: number }>} DeviceRecordingRoute
+ * @typedef {Readonly<{ kind: 'display', channelStart: number, channelCount: number, followsPreferences?: true, label?: string }>} DisplayRecordingRoute
+ * @typedef {Readonly<{ kind: 'device', deviceId: string, deviceLabel?: string, channelStart: number, channelCount: number, followsPreferences?: true }>} DeviceRecordingRoute
  * @typedef {DisplayRecordingRoute | DeviceRecordingRoute} RecordingRoute
  * @typedef {Readonly<{ routes: Readonly<Record<string, RecordingRoute>>, offsets: Readonly<Record<string, number>> }>} RecordingRouting
  */
@@ -38,6 +38,7 @@ export function normalizeRecordingRoute(route, track = null) {
 	if (route.kind === 'display') {
 		return Object.freeze({
 			kind: 'display',
+			...(route.followsPreferences === true ? { followsPreferences: true } : {}),
 			channelStart: 0,
 			channelCount,
 			label: String(route.label || RECORDING_DISPLAY_ROUTE_LABEL),
@@ -52,6 +53,7 @@ export function normalizeRecordingRoute(route, track = null) {
 	}
 	return Object.freeze({
 		kind: 'device',
+		...(route.followsPreferences === true ? { followsPreferences: true } : {}),
 		deviceId,
 		deviceLabel: String(route.deviceLabel || ''),
 		channelStart,

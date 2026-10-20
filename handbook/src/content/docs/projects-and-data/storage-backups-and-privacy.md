@@ -26,6 +26,37 @@ but the browser decides whether to grant it.
 Uninstalling a packaged desktop build is designed to preserve its library, but
 that is not a backup strategy.
 
+## Recover after a crash
+
+The editor reopens its last completed local save. Edits schedule an autosave
+after a short pause; changes that have not finished saving can be lost.
+
+Soundscaper's ordinary audio recordings save checkpoints about every ten seconds.
+After an interruption, **Interrupted recording** offers **Recover recording**
+or **Discard recording**. Recovery puts the saved checkpoints back on their
+tracks. The last unfinished checkpoint and audio waiting to be saved may be
+missing. Closing the dialog keeps the saved audio; use **Record options →
+Resolve interrupted recording** to reopen it. Editing remains blocked until
+you choose. If storage damage makes the final saved checkpoint unreadable,
+recovery keeps the intact prefix and reports the missing checkpoint. A gap
+earlier in the recording requires further repair rather than silently shifting
+the later audio. Loop recordings have the equivalent **Interrupted take recording**
+choice for their persisted takes.
+
+If a saved Soundscaper project cannot open, the editor offers **Project recovery**. You can
+also choose **File → Project management → Recover a project**. Select a saved
+version and review its proposed repairs. Recovery creates a new project copy;
+it preserves the damaged original. A repair can remove unreadable media,
+invalid clips or effects, and references to items that no longer exist. A
+retained older version may preserve more work than repairing the latest one.
+On desktop, recovery can also use up to 32 retained SQLite document snapshots
+when a project body file is missing or damaged. The library catalog and startup
+publication journal must still be readable.
+
+These workflows recover data that remains readable in local storage. They do
+not recover cleared storage or a failed device, and do not guarantee that a
+save acknowledged immediately before a power failure reached the disk.
+
 ## Backup routine
 
 At useful milestones and before clearing or migrating storage:

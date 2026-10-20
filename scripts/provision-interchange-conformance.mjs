@@ -22,9 +22,9 @@ import { cachedInterchangeWheel, interchangeCacheIdentity } from './lib/intercha
  * sha256 digests for every wheel whose bytes are platform-independent.
  *
  * The provisioned tree is deliberately outside the product's dependency graph.
- * Nothing here is bundled or linked; it is executed at conformance time and
- * never distributed, which is why it creates no obligation against the
- * AGPL-3.0-only license the product ships under.
+ * Normal products do not bundle or link these tools. The diagnostic nightly
+ * distributes them with a relocatable Python and their upstream notices so
+ * its external-reader assertions work without a host Python installation.
  *
  * Usage:
  *   node scripts/provision-interchange-conformance.mjs           provision

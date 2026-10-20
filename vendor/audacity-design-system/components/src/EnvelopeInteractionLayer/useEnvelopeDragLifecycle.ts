@@ -24,6 +24,10 @@ export function useEnvelopeDragLifecycle<Point extends object, Drag>(
 		originalPoints.current = null;
 	}, [dragRef, publishHidden, publishHovered, setDragging, setHidden, setTooltip]);
 	useEffect(() => {
+		const preventAutoscroll = (event: MouseEvent) => {
+			// Windows Chromium otherwise enters native autoscroll and consumes the next menu key.
+			if (dragRef.current && event.button === 1 && (event.buttons & 1) !== 0) event.preventDefault();
+		};
 		const cancelOnEscape = (event: KeyboardEvent) => {
 			if (event.key !== 'Escape' || !dragRef.current) return;
 			event.preventDefault();
@@ -32,8 +36,12 @@ export function useEnvelopeDragLifecycle<Point extends object, Drag>(
 			finishDrag();
 			if (original) publishPoints(original);
 		};
+		document.addEventListener('mousedown', preventAutoscroll, true);
 		document.addEventListener('keydown', cancelOnEscape);
-		return () => document.removeEventListener('keydown', cancelOnEscape);
+		return () => {
+			document.removeEventListener('mousedown', preventAutoscroll, true);
+			document.removeEventListener('keydown', cancelOnEscape);
+		};
 	}, [dragRef, finishDrag, publishPoints]);
 	return { rememberBeforeDrag, finishDrag };
 }

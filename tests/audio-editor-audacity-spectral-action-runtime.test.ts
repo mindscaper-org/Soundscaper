@@ -3,12 +3,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createAudacitySpectralActionRuntime } from '../src/common/editor/controller/effects/internal/audacity-spectral-action-runtime.ts';
+import { createAudacityToolActionRuntime } from '../src/common/editor/controller/effects/audacity-tool-action-runtime.ts';
 
 test('spectral selection restores its prior frequency band after a time-only toggle', () => {
 	let project: Record<string, unknown> = { id: 'project-a', selection: null };
 	const calls: unknown[] = [];
-	const actions = createAudacitySpectralActionRuntime({
+	const actions = createAudacityToolActionRuntime({
+		getSnapshot: () => ({ sampleEdit: { available: false, mode: null } }),
+		setSampleEditMode: () => null,
 		getProject: () => project,
 		setSelection: (startFrame, endFrame, details) => {
 			calls.push([startFrame, endFrame, details]);
@@ -43,7 +45,9 @@ test('spectral selection restores its prior frequency band after a time-only tog
 test('spectral brush activation is session-only and excludes the split tool', () => {
 	let flags = { spectralBrush: false, splitTool: true };
 	const changes: Array<readonly [string, boolean]> = [];
-	const actions = createAudacitySpectralActionRuntime({
+	const actions = createAudacityToolActionRuntime({
+		getSnapshot: () => ({ sampleEdit: { available: false, mode: null } }),
+		setSampleEditMode: () => null,
 		getProject: () => null,
 		setSelection: () => null,
 		spectralActions: { boxSelect: () => null },
@@ -84,7 +88,9 @@ test('remembered spectral bands remain scoped to each open project', () => {
 		}],
 	]);
 	let activeId = 'project-a';
-	const actions = createAudacitySpectralActionRuntime({
+	const actions = createAudacityToolActionRuntime({
+		getSnapshot: () => ({ sampleEdit: { available: false, mode: null } }),
+		setSampleEditMode: () => null,
 		getProject: () => projects.get(activeId),
 		setSelection: (startFrame, endFrame, details) => {
 			projects.set(activeId, { id: activeId, selection: { startFrame, endFrame, ...details } });

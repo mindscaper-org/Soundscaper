@@ -10,7 +10,7 @@ import type { AssistanceMenuEntry } from '../src/common/editor/ui/assistance-tas
 import { organizeNativePreferences } from '../src/common/editor/ui/local-processing-menus.ts';
 import { appendParallelStackProcessingMenu, type ParallelStackMenuItem } from '../src/common/editor/ui/parallel-stack-menu.ts';
 
-function render(blocked: boolean, section = 'audio', liveBlocked = blocked): string {
+function render(blocked: boolean, section = 'advanced', liveBlocked = blocked): string {
 	const items = appendParallelStackProcessingMenu([], {
 		productId: 'soundscaper', blocked, isBlocked: () => liveBlocked,
 		preferences: { enabled: true, workerLimit: 2, pipelineFrames: 1536 },
@@ -23,7 +23,7 @@ function render(blocked: boolean, section = 'audio', liveBlocked = blocked): str
 	/>);
 }
 
-test('Audio preferences renders processing settings and fallback status without a navigation button', () => {
+test('Advanced renders processing settings and fallback status without a navigation button', () => {
 	const markup = render(false);
 	assert.match(markup, /<legend>Processing<\/legend>/u);
 	assert.match(markup, /role="checkbox"[^>]*aria-checked="true"[^>]*aria-label="Parallel effect stacks"/u);
@@ -34,9 +34,10 @@ test('Audio preferences renders processing settings and fallback status without 
 	assert.match(markup, /Using standard processing: Unsupported rack/u);
 	assert.doesNotMatch(markup, /<button/u);
 	assert.equal(render(false, 'effects'), '');
+	assert.equal(render(false, 'audio'), '');
 });
 
-test('Audio preferences disables processing changes during playback and explains why', () => {
+test('Advanced disables processing changes during playback and explains why', () => {
 	const markup = render(true);
 	assert.match(markup, /role="checkbox"[^>]*aria-disabled="true"/u);
 	assert.equal([...markup.matchAll(/<select\b[^>]*disabled=""/gu)].length, 2);
@@ -45,6 +46,6 @@ test('Audio preferences disables processing changes during playback and explains
 });
 
 test('processing preferences resolves playback restrictions when the preferences opens', () => {
-	assert.match(render(false, 'audio', true), /role="checkbox"[^>]*aria-disabled="true"/u);
-	assert.doesNotMatch(render(true, 'audio', false), /aria-disabled="true"|<select disabled/u);
+	assert.match(render(false, 'advanced', true), /role="checkbox"[^>]*aria-disabled="true"/u);
+	assert.doesNotMatch(render(true, 'advanced', false), /aria-disabled="true"|<select disabled/u);
 });

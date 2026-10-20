@@ -8,6 +8,14 @@ import { initializePffft } from '../src/common/editor/pffft.js';
 
 await initializePffft();
 
+// These cases select non-reverb processors from the JavaScript factory union.
+interface Processor {
+	readonly latencyFrames: number;
+	process(input: Float32Array[], output: Float32Array[]): boolean;
+	updateParams(params: Readonly<Record<string, unknown>>): void;
+	reset(): void;
+}
+
 const RATE = 48_000;
 const WARM_FRAMES = 12_288;
 const TYPES = ['audacity-graphic-eq', 'audacity-filter-curve-eq'] as const;
@@ -22,7 +30,7 @@ function rms(samples: Float32Array): number {
 
 for (const type of TYPES) {
 	test(`${type} keeps its healthy convolution output across a same-geometry gain edit`, () => {
-		const processor = createAudacityLiveProcessor(type, RATE);
+		const processor = createAudacityLiveProcessor(type, RATE) as Processor;
 		const warm = new Float32Array(WARM_FRAMES);
 		processor.process([tone(WARM_FRAMES)], [warm]);
 		assert.ok(rms(warm.subarray(-128)) > .4);
@@ -37,8 +45,8 @@ for (const type of TYPES) {
 	});
 
 	test(`${type} preserves exact queued PCM when publishing unchanged parameters`, () => {
-		const changed = createAudacityLiveProcessor(type, RATE);
-		const control = createAudacityLiveProcessor(type, RATE);
+		const changed = createAudacityLiveProcessor(type, RATE) as Processor;
+		const control = createAudacityLiveProcessor(type, RATE) as Processor;
 		for (const processor of [changed, control]) {
 			const warm = new Float32Array(WARM_FRAMES);
 			processor.process([tone(WARM_FRAMES)], [warm]);
@@ -53,7 +61,7 @@ for (const type of TYPES) {
 	});
 
 	test(`${type} resets queued geometry when the FIR length changes or reset is explicit`, () => {
-		const processor = createAudacityLiveProcessor(type, RATE);
+		const processor = createAudacityLiveProcessor(type, RATE) as Processor;
 		processor.process([tone(WARM_FRAMES)], [new Float32Array(WARM_FRAMES)]);
 		processor.updateParams({ filterLength: 4095 });
 		const output = new Float32Array(128);

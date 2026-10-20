@@ -22,13 +22,3 @@ test('library transaction commits one operation and rolls back every failing ope
 		assert.equal(database.isTransaction, false);
 	} finally { database.close(); }
 });
-
-test('library transaction leaves caller-specific preconditions outside its authority', () => {
-	const database = new DatabaseSync(':memory:');
-	try {
-		assert.throws(() => withProjectLibraryImmediateTransaction(database, () => {
-			throw new Error('caller identity check');
-		}), /caller identity check/u);
-		assert.equal(database.isTransaction, false);
-	} finally { database.close(); }
-});

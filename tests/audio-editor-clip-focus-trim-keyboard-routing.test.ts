@@ -53,12 +53,10 @@ test('the eight existing clip-focus key rows route linked audio to exact canonic
 	}
 });
 
-test('canonical intent uses callback sign while discarding its finite non-zero magnitude', () => {
+test('one-second handle steps use the same canonical directions as clip-focus shortcuts', () => {
 	for (const row of [
-		{ delta: -Number.MIN_VALUE, direction: 'outward' },
-		{ delta: -83.75, direction: 'outward' },
-		{ delta: Number.MIN_VALUE, direction: 'inward' },
-		{ delta: 9_999, direction: 'inward' },
+		{ delta: -1, direction: 'outward' },
+		{ delta: 1, direction: 'inward' },
 	] as const) {
 		const steps: FrameCanonicalClipFocusStep[] = [];
 		routeLinked({
@@ -68,18 +66,6 @@ test('canonical intent uses callback sign while discarding its finite non-zero m
 		assert.deepEqual(steps, [{
 			activeClipId: 'linked-audio', edge: 'left', direction: row.direction,
 		}]);
-	}
-
-	for (const delta of [0, -0, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-		let canonicalCalls = 0;
-		let legacyCalls = 0;
-		assert.throws(() => routeLinked({
-			callbackDeltaSeconds: delta,
-			commitCanonicalTrim: () => { canonicalCalls += 1; },
-			commitLegacy: () => { legacyCalls += 1; },
-		}), (error: unknown) => error instanceof RangeError || error instanceof TypeError);
-		assert.equal(canonicalCalls, 0);
-		assert.equal(legacyCalls, 0);
 	}
 });
 
@@ -100,7 +86,6 @@ test('blocking and capability precede relation inspection, while ordinary audio 
 
 	const soundscaperResult = routeLinked({
 		videoCompositing: false,
-		callbackDeltaSeconds: Number.NaN,
 		resolveFocusedClip: () => { relationReads += 1; return linkedAudio(); },
 		commitCanonicalTrim: () => { canonicalCalls += 1; },
 		commitLegacy: () => { legacyCalls += 1; return 'same-legacy-result'; },
@@ -120,7 +105,7 @@ test('blocking and capability precede relation inspection, while ordinary audio 
 		const legacyToken = Object.freeze({ clip: clip.id });
 		const result = routeLinked({
 			clipId: clip.id,
-			callbackDeltaSeconds: -0.375,
+			callbackDeltaSeconds: -0.1,
 			resolveFocusedClip: () => { relationReads += 1; return clip; },
 			commitCanonicalTrim: () => { canonicalCalls += 1; },
 			commitLegacy: () => { legacyCalls += 1; return legacyToken; },

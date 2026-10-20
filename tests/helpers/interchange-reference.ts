@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { interchangePythonExecutable } from '../../scripts/lib/interchange-python.mjs';
 
 /**
  * Read our interchange output with someone else's implementation.
@@ -93,7 +94,7 @@ function ensureProvisioned(): void {
 	try {
 		execFileSync(pythonExecutable(), ['-c', 'import opentimelineio'], {
 			stdio: 'ignore',
-			env: { ...process.env, PYTHONPATH: REFERENCE_ROOT },
+			env: { ...process.env, PYTHONPATH: REFERENCE_ROOT, PYTHONDONTWRITEBYTECODE: '1' },
 		});
 	} catch {
 		throw new Error(
@@ -107,7 +108,7 @@ function ensureProvisioned(): void {
 }
 
 function pythonExecutable(): string {
-	return process.env.SOUNDSCAPER_PYTHON || 'python3';
+	return interchangePythonExecutable({ referenceRoot: REFERENCE_ROOT });
 }
 
 /** Hand `text` to the reference reader and get back what it made of it. */
@@ -125,7 +126,7 @@ export function readWithReference(
 		const stdout = execFileSync(
 			pythonExecutable(),
 			['-c', READER, file, adapter, JSON.stringify(options)],
-			{ encoding: 'utf8', env: { ...process.env, PYTHONPATH: REFERENCE_ROOT }, stdio: ['ignore', 'pipe', 'pipe'] },
+			{ encoding: 'utf8', env: { ...process.env, PYTHONPATH: REFERENCE_ROOT, PYTHONDONTWRITEBYTECODE: '1' }, stdio: ['ignore', 'pipe', 'pipe'] },
 		);
 		return Object.freeze(JSON.parse(stdout) as ReferenceTimeline[]);
 	} catch (error) {

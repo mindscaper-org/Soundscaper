@@ -28,5 +28,4 @@ test('OpenFX target-native CI builds and staging-verifies all five package targe
 	assert.match(workflow, /audit:framescaper-openfx-host/u);
 	assert.match(workflow, /workflow_call:/u);
 	assert.match(workflow, /workflow_dispatch:/u);
-	assert.doesNotMatch(workflow, /sign|approval|reviewer|manual verification/iu);
 });

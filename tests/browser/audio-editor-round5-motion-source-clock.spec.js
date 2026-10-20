@@ -4,11 +4,12 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
-test('motion analysis source frame time uses the source clock', async ({ page }) => {
+test('a newly authored motion analysis range uses its full native source clock', async ({ page }) => {
 	const dialog = await authorTrackingStack(page);
 	const end = dialog.getByRole('group', { name: 'End frame', exact: true });
 	await showFilmFrames(page, end);
 	const digits = end.locator('.timecode-digit');
+	await expect.poll(async () => (await digits.allTextContents()).join('')).toBe('000000000032');
 	await end.focus();
 	await page.keyboard.press('Enter');
 	await page.keyboard.press('ArrowLeft');
@@ -22,14 +23,6 @@ test('motion analysis source frame time uses the source clock', async ({ page })
 	await page.getByRole('menuitem', { name: 'seconds + milliseconds', exact: true }).click();
 	await expect(page.getByRole('menuitem', { name: 'seconds + milliseconds', exact: true })).toHaveCount(0);
 	await expect(end.locator('.timecode__display')).toHaveText('000,001.008s');
-});
-
-test('a newly authored tracking stack initializes its full native analysis range', async ({ page }) => {
-	const dialog = await authorTrackingStack(page);
-	const end = dialog.getByRole('group', { name: 'End frame', exact: true });
-	await showFilmFrames(page, end);
-	await expect.poll(async () => (await end.locator('.timecode-digit').allTextContents()).join(''))
-		.toBe('000000000032');
 });
 
 async function authorTrackingStack(page) {

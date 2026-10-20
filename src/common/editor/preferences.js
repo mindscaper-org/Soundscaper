@@ -44,6 +44,7 @@ import { normalizeWaveformVisualizationPreferences } from './waveform-visualizat
 import { normalizeWaveformDisplayPreferences } from './waveform-display-preferences.ts';
 import { normalizeVideoPreviewResolution } from './video-preview-preferences.ts';
 import { migrateVideoWorkspacePanels } from './video-workspace-layout.ts';
+import { migrateInspectorWorkspacePanelDefaults, WORKSPACE_PANEL_DEFAULTS_VERSION } from './clip-inspector-workspace-migration.ts';
 import { normalizeAudioEditorTimeDisplayFormat } from './time-display-preferences.ts';
 import {
 	BUILT_IN_WORKSPACE_SET,
@@ -112,6 +113,9 @@ const AUDIO_EDITOR_LOCAL_DEFAULT_SHORTCUTS_BY_ACTION = Object.freeze({
 export const AUDIO_EDITOR_DEFAULT_SHORTCUTS = Object.freeze({
 	...AUDACITY_SHORTCUT_BINDINGS_BY_ACTION,
 	...AUDIO_EDITOR_LOCAL_DEFAULT_SHORTCUTS_BY_ACTION,
+	// The design system's focused-clip F/T/S handles reserve S for stretch.
+	'split-tool': Object.freeze(['C']),
+	'play-cut-preview': Object.freeze([]),
 });
 
 // `shortcut` metadata is the immutable pre-Audacity-profile default snapshot;
@@ -175,7 +179,7 @@ const FORBIDDEN_TOP_LEVEL_KEYS = new Set([
  * @property {Record<string, string[]>} shortcuts
  * @property {import('./appearance-preferences.ts').AppearancePreferences} appearance
  * @property {{showMasterTrack: boolean, showMarkers: boolean, showFadeShapeHandles: boolean, fadeShapeHandlesPreferenceVersion: 1, videoPreviewResolution: import('./video-preview-preferences.ts').VideoPreviewResolution}} view
- * @property {{activeId: string, custom: Object[], customButtons: import('./custom-toolbar-buttons.ts').CustomToolbarButton[], timeDisplayFormat: import('./time-display-preferences.ts').AudioEditorTimeDisplayFormat | null, toolbars: Record<string, {visible: boolean, order: number}>, toolbarButtons: Record<string, boolean>, panels: Record<string, AudioEditorPanelStateV1>}} workspace
+ * @property {{activeId: string, panelDefaultsVersion: number, custom: Object[], customButtons: import('./custom-toolbar-buttons.ts').CustomToolbarButton[], timeDisplayFormat: import('./time-display-preferences.ts').AudioEditorTimeDisplayFormat | null, toolbars: Record<string, {visible: boolean, order: number}>, toolbarButtons: Record<string, boolean>, panels: Record<string, AudioEditorPanelStateV1>}} workspace
  * @property {Object} spectrogram
  * @property {import('./waveform-visualization-preferences.ts').WaveformVisualizationPreferences} waveformVisualization
  * @property {import('./waveform-display-preferences.ts').WaveformDisplayPreferences} waveformDisplay
@@ -255,6 +259,7 @@ export function createAudioEditorPreferencesV1(options = {}) {
 		view: { showMasterTrack, showMarkers, showFadeShapeHandles, fadeShapeHandlesPreferenceVersion: 1, videoPreviewResolution: normalizeVideoPreviewResolution(options.view?.videoPreviewResolution) },
 		workspace: {
 			activeId,
+			panelDefaultsVersion: Math.max(WORKSPACE_PANEL_DEFAULTS_VERSION, integer(options.workspace?.panelDefaultsVersion ?? WORKSPACE_PANEL_DEFAULTS_VERSION, 0, 'workspace.panelDefaultsVersion')),
 			custom,
 			customButtons: normalizeCustomToolbarButtons(options.workspace?.customButtons),
 			timeDisplayFormat: normalizeAudioEditorTimeDisplayFormat(options.workspace?.timeDisplayFormat),
@@ -503,13 +508,14 @@ export function loadAudioEditorPreferencesV1(value) {
 			view: normalized.view,
 			workspace: {
 				...clone(value.workspace),
+				panelDefaultsVersion: normalized.workspace.panelDefaultsVersion,
 				customButtons: normalized.workspace.customButtons,
 				// Buttons added after a document was saved must resolve to their
 				// defaults rather than to "visible" (the toolbar treats an absent
 				// entry as shown); stored choices win over the defaults.
 				toolbarButtons: normalized.workspace.toolbarButtons,
 				panels: {
-					...migrateVideoWorkspacePanels(normalized.workspace.activeId, normalized.workspace.panels),
+					...migrateInspectorWorkspacePanelDefaults(normalized.workspace.activeId, migrateVideoWorkspacePanels(normalized.workspace.activeId, normalized.workspace.panels), value.workspace?.panelDefaultsVersion ?? 0),
 					'web-vcr': { ...normalized.workspace.panels['web-vcr'], visible: false },
 				},
 			},

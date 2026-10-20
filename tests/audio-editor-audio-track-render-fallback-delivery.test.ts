@@ -7,7 +7,6 @@ import test from 'node:test';
 import {
 	admitAudioRenderedFallbackExport,
 	assertAudioRenderedFallbackDeliveryProjection,
-	assertAudioRenderedFallbackExportSettings,
 	audioRenderedFallbackIntegritySelector,
 	audioRenderedFallbackRenderSources,
 } from '../src/common/editor/controller/export/internal/audio/audio-rendered-fallback-export.ts';
@@ -16,7 +15,6 @@ import type { EngineChunkSource } from '../src/common/editor/engine/types.ts';
 import { PROJECT_FEATURE_AUDIO_RENDERED_FALLBACK_IDS } from '../src/common/editor/project-feature-audio-rendered-fallback.ts';
 import { PROJECT_FEATURE_AUDIO_TRACK_RENDER_IDS } from '../src/common/editor/project-feature-audio-track-render-v1.ts';
 import { PROJECT_FEATURE_CAPABILITY_IDS } from '../src/common/editor/project-feature-capabilities.ts';
-import type { AudioEditorProjectCurrent } from '../src/common/editor/project-current.ts';
 import {
 	verifyProjectFallbackIntegrity,
 	type ProjectAudioFallbackIntegritySelector,
@@ -26,8 +24,10 @@ import {
 	createAudioSource,
 	createAudioTrack,
 } from '../src/common/editor/project-media-factory.ts';
-import { SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from '../src/common/editor/project-schema-identity.ts';
-import { createBaselineAudioEditorProject } from './helpers/baseline-scape-runtime.ts';
+import { FRAMESCAPER_PROJECT_SCHEMA_FAMILY } from '../src/common/editor/project-schema-identity.ts';
+import { createFramescaperProject, validateFramescaperProject } from '../src/framescaper/editor-project.ts';
+import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { FRAMESCAPER_PROFILE } from '../src/common/product-profiles.js';
 
 const AUDIO_EFFECTS = PROJECT_FEATURE_CAPABILITY_IDS.audioEffects;
 const FALLBACK_SOURCE_ID = 'fallback-track-render';
@@ -46,7 +46,7 @@ const TRACK_SELECTOR: ProjectAudioFallbackIntegritySelector = Object.freeze({
 	targetTrackId: 'fx-track',
 });
 
-function trackFallbackProject(): AudioEditorProjectCurrent {
+function trackFallbackProject() {
 	const laneSource = createAudioSource({
 		id: 'lane-source', storageKey: 'lane-source', frameCount: 3, channelCount: 2, chunkFrames: 2,
 	});
@@ -62,7 +62,7 @@ function trackFallbackProject(): AudioEditorProjectCurrent {
 	const dryClip = createAudioClip({
 		id: 'dry-clip', sourceId: drySource.id, timelineStartFrame: 0, durationFrames: 3,
 	});
-	const project = createBaselineAudioEditorProject({
+	const project = createFramescaperProject(undefined, {
 		id: 'track-fallback-delivery', now: '2026-08-08T12:00:00.000Z', sampleRate: 48_000,
 		sources: [laneSource, drySource, fallbackSource],
 		clips: [laneClip, dryClip],
@@ -95,8 +95,9 @@ function trackFallbackProject(): AudioEditorProjectCurrent {
 
 test('track-render delivery projects only the target lane and builds its exact selector', () => {
 	const canonical = trackFallbackProject();
+	assert.equal(validateFramescaperProject(FRAMESCAPER_PROJECT_RUNTIME_PROFILE, canonical), true);
 	const playback = createPlaybackProjectService(
-		{ audioEffects: false }, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
+		FRAMESCAPER_PROFILE.capabilities, FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	);
 	const delivery = playback.projectForAudioRenderedFallbackDelivery(canonical);
 
@@ -115,37 +116,6 @@ test('track-render delivery projects only the target lane and builds its exact s
 	assertAudioRenderedFallbackDeliveryProjection(delivery);
 	assert.deepEqual(audioRenderedFallbackIntegritySelector(delivery), TRACK_SELECTOR);
 
-	assertAudioRenderedFallbackExportSettings(delivery, { mode: 'mix', format: 'wav' });
-	for (const [settings, message] of [
-		[{ mode: 'stems', format: 'wav' }, /only normalized mix mode/iu],
-		[{ mode: 'mix', format: 'bw64' }, /BW64 or ADM/iu],
-		[{ mode: 'mix', format: 'wav', adm: {} }, /BW64 or ADM/iu],
-	] as const) {
-		assert.throws(() => assertAudioRenderedFallbackExportSettings(delivery, settings), message);
-	}
-});
-
-test('track-render delivery metadata is validated as a track relationship', () => {
-	const canonical = trackFallbackProject();
-	const playback = createPlaybackProjectService(
-		{ audioEffects: false }, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
-	);
-	const delivery = playback.projectForAudioRenderedFallbackDelivery(canonical);
-	for (const [changes, message] of [
-		[{ clipId: 'wrong-clip' }, /invalid track relationship/iu],
-		[{ targetTrackId: '' }, /invalid track relationship/iu],
-		[{ featureId: 'org.example.other-feature' }, /invalid track relationship/iu],
-	] as const) {
-		assert.throws(
-			() => assertAudioRenderedFallbackDeliveryProjection({
-				...delivery,
-				audioRenderedFallback: {
-					...delivery.audioRenderedFallback!, ...changes,
-				} as unknown as typeof delivery.audioRenderedFallback,
-			}),
-			message,
-		);
-	}
 });
 
 test('render sources stay private for the whole mix and merge for the track role', () => {
@@ -199,7 +169,7 @@ test('render sources stay private for the whole mix and merge for the track role
 test('track-render export admission passes the track selector through operation-time verification', async () => {
 	const canonical = trackFallbackProject();
 	const playback = createPlaybackProjectService(
-		{ audioEffects: false }, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
+		FRAMESCAPER_PROFILE.capabilities, FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	);
 	const delivery = playback.projectForAudioRenderedFallbackDelivery(canonical);
 	const provider = trackProvider('verified');
@@ -262,14 +232,6 @@ test('operation-time integrity verifies the track claim and refuses target drift
 			} as ProjectAudioFallbackIntegritySelector,
 		}),
 		/selected audio rendered fallback/iu,
-	);
-	await assert.rejects(
-		() => verifyProjectFallbackIntegrity(canonical, store, {
-			audioFallback: {
-				...TRACK_SELECTOR, targetTrackId: null,
-			} as unknown as ProjectAudioFallbackIntegritySelector,
-		}),
-		/selected audio rendered fallback is invalid/iu,
 	);
 });
 

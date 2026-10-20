@@ -70,7 +70,13 @@ test('Windows media and OpenFX activate native compiler hosts without replacing 
 	}
 	const media = readFileSync(resolve(root, '.github/workflows/framescaper-media-host-native-build.yml'), 'utf8');
 	assert.match(media, /windows-media-tools: 'true'/u);
-	assert.match(media, /Install Windows media build tools\n\s+if: runner\.os == 'Windows' && runner\.arch != 'ARM64'/u);
+	const workflow = record(load(media));
+	const steps = Object.values(record(workflow.jobs))
+		.flatMap(job => record(job).steps as Record<string, unknown>[]);
+	const mediaTools = steps.find(step => typeof step.run === 'string'
+		&& /^choco install make pkgconfiglite\b/u.test(step.run));
+	assert.ok(mediaTools, 'the x64 Windows media build tools are installed');
+	assert.equal(mediaTools.if, "runner.os == 'Windows' && runner.arch != 'ARM64'");
 	const action = readFileSync(resolve(root, '.github/actions/setup-native-tooling/action.yml'), 'utf8');
 	assert.match(action, /-arch=arm64 -host_arch=arm64/u);
 	assert.match(action, /assertNativeWindowsExecutable\(readFileSync\(process\.argv\[1\]\), "MSVC compiler"\)/u);

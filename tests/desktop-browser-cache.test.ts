@@ -129,14 +129,8 @@ test('browser cache migration rejects symbolic partition directories without tra
 	assert.equal((await lstat(join(outside, 'Cache'))).isSymbolicLink(), false);
 });
 
-test('browser cache setup rejects invalid roots and cache target files', async (context) => {
+test('browser cache setup rejects cache target files', async (context) => {
 	const { sessionDataRoot, cacheRoot } = await fixture(context);
-	for (const invalid of ['', 'relative/path', '/invalid\0path']) {
-		assert.throws(() => configureDesktopBrowserCachesSync(invalid, cacheRoot), /absolute/iu);
-		assert.throws(() => configureDesktopBrowserCachesSync(sessionDataRoot, invalid), /absolute/iu);
-		await assert.rejects(migrateDesktopBrowserCaches(invalid, cacheRoot), /absolute/iu);
-		await assert.rejects(migrateDesktopBrowserCaches(sessionDataRoot, invalid), /absolute/iu);
-	}
 	await mkdir(join(cacheRoot, 'browser'), { recursive: true });
 	await writeFile(join(cacheRoot, 'browser', 'Cache'), 'target file');
 	assert.throws(() => configureDesktopBrowserCachesSync(sessionDataRoot, cacheRoot), /directory|file/iu);

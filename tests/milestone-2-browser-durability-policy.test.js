@@ -15,10 +15,8 @@ const workflowIds = [
 ];
 
 test('milestone 2 runs configured browsers without a qualification matrix', async () => {
-	const [inventory, qualityBudgets, threatModel, browserEvidence] = await Promise.all([
+	const [inventory, browserEvidence] = await Promise.all([
 		readFile(new URL('config/milestone-2-closure.json', root), 'utf8').then(JSON.parse),
-		readFile(new URL('docs/development/quality-diagnostics.md', root), 'utf8'),
-		readFile(new URL('docs/policies/security.md', root), 'utf8'),
 		Promise.all([
 			'tests/browser/milestone-2-browser-storage-durability.spec.js',
 			'tests/browser/audio-editor-export-session.spec.js',
@@ -39,11 +37,6 @@ test('milestone 2 runs configured browsers without a qualification matrix', asyn
 	]);
 	assert.equal(Object.hasOwn(inventory.testActivation, 'humanReviewMilestone'), false);
 	for (const id of workflowIds) assert.match(browserEvidence, new RegExp(`\\b${id}\\b`, 'u'), id);
-	for (const document of [qualityBudgets, threatModel]) {
-		assert.match(document, /indexeddb-quota-refusal.*opfs-quota-refusal.*indexeddb-multitab-writer.*opfs-multitab-writer.*offline-shell-upgrade.*storage-eviction-recovery/isu);
-		assert.match(document, /automated test.*(?:runs?|run).*Chromium.*Firefox.*WebKit|Chromium.*Firefox.*WebKit.*automated test/isu);
-		assert.doesNotMatch(document, /WebKit release qualification/iu);
-	}
 });
 
 test('less-capable return exercises browsers and packaged products without a qualification status', async () => {
@@ -55,5 +48,4 @@ test('less-capable return exercises browsers and packaged products without a qua
 	assert.equal(Object.hasOwn(item, 'deferredBrowserProjects'), false);
 	assert.deepEqual(inventory.testActivation.browserProjects, ['chromium', 'firefox', 'webkit']);
 	assert.equal(Object.hasOwn(item, 'packagedProductPairQualified'), false);
-	assert.doesNotMatch(JSON.stringify(item), /qualification|qualified/iu);
 });

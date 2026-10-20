@@ -33,19 +33,6 @@ test('durable asset core preserves base and finishing error identities', async (
 	}
 });
 
-test('base collector retains legacy string-key matching for processor stack identifiers', () => {
-	const motion = {
-		id: 'movement', sha256: SHA256, storageKey: 'motion-body', byteLength: 1,
-		sourceId: 'source', processorStackId: '12',
-	};
-	const references = collectFramescaperDurableScapeAssetReferences({
-		sources: [], freezeRenderedSourceIds: new Set(), luts: () => [],
-		processorStacks: () => [{ id: 12 }] as never,
-		motionAnalyses: () => [motion] as never,
-	}, 'Framescaper');
-	assert.equal(references[0]?.processorStack?.id, 12);
-});
-
 test('base and finishing planners share the durable core while timeline images retain their container', () => {
 	const directory = new URL('../src/framescaper/', import.meta.url);
 	for (const file of ['editor-scape-asset-plan.ts', 'editor-scape-asset-plan-finishing.ts']) {

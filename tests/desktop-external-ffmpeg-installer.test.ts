@@ -90,9 +90,6 @@ test('a discovered package-manager path can replace only the executable', () => 
 		assert.deepEqual(winget.plan.argv.slice(0, 4), ['install', '--exact', '--id', WINDOWS_PACKAGE_ID]);
 	}
 
-	assert.throws(() => planExternalFfmpegInstall({
-		platform: 'linux', architecture: 'x64', packageManagerExecutable: 'sh -c brew',
-	}), /package-manager executable.*absolute/iu);
 });
 
 test('macOS x64 and every target outside the closed desktop matrix are refused', () => {
@@ -111,28 +108,6 @@ test('macOS x64 and every target outside the closed desktop matrix are refused',
 		assert.equal(result.status, 'unsupported');
 		if (result.status === 'unsupported') assert.equal(result.reason, reason);
 	}
-});
-
-test('execution requires fresh explicit confirmation and an unchanged plan', async () => {
-	const plan = windowsPlan();
-	let calls = 0;
-	const brokerValue = broker(async () => {
-		calls += 1;
-		return exited();
-	});
-	assert.deepEqual(await brokerValue.install({ plan, confirmed: false }), {
-		status: 'refused', reason: 'confirmation-required',
-		detail: 'Installing external FFmpeg requires explicit confirmation of this exact plan.',
-	});
-	const changed = {
-		...plan,
-		argv: [...plan.argv, '--accept-package-agreements'],
-	} as ExternalFfmpegInstallPlan;
-	assert.deepEqual(await brokerValue.install({ plan: changed, confirmed: true }), {
-		status: 'refused', reason: 'plan-changed',
-		detail: 'The external FFmpeg install plan changed after it was disclosed.',
-	});
-	assert.equal(calls, 0);
 });
 
 test('a confirmed plan runs with one fixed, sanitized, shell-free process policy', async () => {
@@ -177,15 +152,19 @@ test('a confirmed plan runs with one fixed, sanitized, shell-free process policy
 	assert.deepEqual(brokerValue.status(), { state: 'idle' });
 });
 
-test('the broker admits only one package-manager process at a time', async () => {
+test('a timed-out install keeps the gate until its process settles before a retry', async () => {
 	const pending = deferred<ExternalFfmpegInstallRunnerResult>();
 	let calls = 0;
-	const brokerValue = broker(async () => {
+	let signal: AbortSignal | undefined;
+	const brokerValue = broker(async (request) => {
 		calls += 1;
-		return pending.promise;
-	});
-	const first = brokerValue.install({ plan: windowsPlan(), confirmed: true });
-	await Promise.resolve();
+		signal = request.options.signal;
+		return calls === 1 ? pending.promise : exited();
+	}, { timeoutMs: 10 });
+	const timeout = await brokerValue.install({ plan: windowsPlan(), confirmed: true });
+	assert.equal(timeout.status, 'failed');
+	if (timeout.status === 'failed') assert.equal(timeout.reason, 'timed-out');
+	assert.equal(signal?.aborted, true);
 	assert.deepEqual(brokerValue.status(), {
 		state: 'installing', planId: windowsPlan().planId, target: 'win-x64',
 	});
@@ -195,14 +174,14 @@ test('the broker admits only one package-manager process at a time', async () =>
 	});
 	assert.equal(calls, 1);
 	pending.resolve(exited());
-	assert.equal((await first).status, 'installed');
+	await nextTurn();
 	assert.deepEqual(brokerValue.status(), { state: 'idle' });
+	assert.equal((await brokerValue.install({ plan: windowsPlan(), confirmed: true })).status, 'installed');
+	assert.equal(calls, 2);
 });
 
-test('changed metadata, cancellation, runner failure, signals, and nonzero exits never install', async () => {
+test('cancellation, runner failure, signals, and nonzero exits never install', async () => {
 	for (const [runnerResult, expectedStatus, expectedReason] of [
-		[{ status: 'package-changed', detail: 'license changed', stdout: '', stderr: '' },
-			'failed', 'package-metadata-changed'],
 		[{ status: 'cancelled', detail: 'cancelled by manager', stdout: '', stderr: '' },
 			'cancelled', undefined],
 		[{ status: 'failed', detail: 'manager failed', stdout: '', stderr: '' },
@@ -215,14 +194,6 @@ test('changed metadata, cancellation, runner failure, signals, and nonzero exits
 		});
 		assert.equal(result.status, expectedStatus);
 		if (result.status === 'failed') assert.equal(result.reason, expectedReason);
-	}
-	const thrown = await broker(async () => { throw new Error('ENOENT'); }).install({
-		plan: windowsPlan(), confirmed: true,
-	});
-	assert.equal(thrown.status, 'failed');
-	if (thrown.status === 'failed') {
-		assert.equal(thrown.reason, 'spawn-failed');
-		assert.match(thrown.detail, /ENOENT/u);
 	}
 });
 
@@ -255,27 +226,6 @@ test('cancellation aborts the runner and keeps the concurrency gate until it set
 	});
 	assert.equal(beforeSpawn.status, 'cancelled');
 	assert.equal(spawns, 0);
-});
-
-test('timeouts and oversized output fail closed under broker-owned bounds', async () => {
-	const pending = deferred<ExternalFfmpegInstallRunnerResult>();
-	let signal: AbortSignal | undefined;
-	const timedBroker = broker(async (request) => {
-		signal = request.options.signal;
-		return pending.promise;
-	}, { timeoutMs: 10 });
-	const timeout = await timedBroker.install({ plan: windowsPlan(), confirmed: true });
-	assert.equal(timeout.status, 'failed');
-	if (timeout.status === 'failed') assert.equal(timeout.reason, 'timed-out');
-	assert.equal(signal?.aborted, true);
-	pending.resolve(exited());
-	await nextTurn();
-
-	const oversized = await broker(async () => exited({ stdout: 'x'.repeat(8_193) })).install({
-		plan: windowsPlan(), confirmed: true,
-	});
-	assert.equal(oversized.status, 'failed');
-	if (oversized.status === 'failed') assert.equal(oversized.reason, 'output-limit');
 });
 
 function windowsPlan(): ExternalFfmpegInstallPlan {

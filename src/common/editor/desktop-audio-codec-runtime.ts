@@ -5,6 +5,7 @@ import {
 	normalizeDesktopAudioCodecRequest, normalizeDesktopAudioCodecResult,
 	type DesktopAudioCodecFormat, type DesktopAudioCodecRequest, type DesktopAudioCodecResult,
 } from '../../../desktop/desktop-audio-codec-operation-contract.ts';
+import { desktopAudioDecodeFormat, inspectDesktopCompandedWaveFormat, type DesktopAudioDecodeFormat } from '../../../desktop/desktop-audio-decode-formats.ts';
 import {
 	normalizeDesktopAudioCodecCapabilityQuery, normalizeDesktopAudioCodecCapabilityResult, type DesktopAudioCodecCapabilityQuery,
 	type DesktopAudioCodecCapabilityResult, type DesktopAudioCodecCapabilityTuple,
@@ -107,14 +108,16 @@ const ENCODE_SETTING_FIELDS = new Set<string>([
 const DECODE_SETTING_FIELDS = new Set<string>([
 	'format', 'sampleRate', 'channelCount', 'maximumOutputBytes', 'signal',
 ]);
-const MIME_FORMATS: Readonly<Record<string, DesktopAudioCodecFormat>> = Object.freeze({
+const MIME_FORMATS: Readonly<Record<string, DesktopAudioDecodeFormat>> = Object.freeze({
 	'audio/flac': 'flac', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg-vorbis',
 	'audio/opus': 'opus', 'audio/wavpack': 'wavpack', 'audio/x-wavpack': 'wavpack',
 	'audio/mp4': 'aac-m4a',
+	'audio/x-ms-wma': 'wma', 'audio/x-matroska': 'matroska-mp3',
 });
-const EXTENSION_FORMATS: Readonly<Record<string, DesktopAudioCodecFormat>> = Object.freeze({
+const EXTENSION_FORMATS: Readonly<Record<string, DesktopAudioDecodeFormat>> = Object.freeze({
 	flac: 'flac', mp3: 'mp3', ogg: 'ogg-vorbis', oga: 'ogg-vorbis', opus: 'opus',
 	wv: 'wavpack', wavpack: 'wavpack', mp2: 'mp2', m4a: 'aac-m4a', mp4: 'aac-m4a',
+	mka: 'matroska-mp3', wma: 'wma',
 });
 const DEFAULT_CAPABILITY_QUERY = createDesktopAudioCodecCapabilityQuery({ sampleRate: 48_000, channelCount: 2 });
 const CAPABILITIES = desktopAudioCodecMediaExportCapabilities(null, DEFAULT_CAPABILITY_QUERY);
@@ -375,9 +378,9 @@ function ownedBytes(value: ArrayBuffer | ArrayBufferView): Uint8Array<ArrayBuffe
 
 function decodeFormat(file: Blob | ArrayBuffer | ArrayBufferView, bytes: Uint8Array,
 	explicit: unknown,
-): DesktopAudioCodecFormat {
-	if (explicit !== undefined) return desktopFormat(explicit);
-	const fileName = typeof File === 'function' && file instanceof File ? file.name : '';
+): DesktopAudioDecodeFormat {
+	if (explicit !== undefined) return desktopAudioDecodeFormat(canonicalMediaExportFormat(explicit));
+	const fileName = file instanceof Blob && 'name' in file && typeof file.name === 'string' ? file.name : '';
 	const extension = /\.([A-Za-z0-9]+)$/u.exec(fileName)?.[1]?.toLowerCase();
 	const signature = signatureFormat(bytes);
 	if ((extension === 'ogg' || extension === 'oga') && signature === 'opus') return signature;
@@ -388,7 +391,9 @@ function decodeFormat(file: Blob | ArrayBuffer | ArrayBufferView, bytes: Uint8Ar
 	throw new TypeError('The desktop audio runtime cannot determine the compressed input format.');
 }
 
-function signatureFormat(bytes: Uint8Array): DesktopAudioCodecFormat | null {
+function signatureFormat(bytes: Uint8Array): DesktopAudioDecodeFormat | null {
+	const wave = inspectDesktopCompandedWaveFormat(bytes);
+	if (wave) return wave;
 	if (ascii(bytes, 0, 4) === 'fLaC') return 'flac';
 	if (ascii(bytes, 0, 4) === 'wvpk') return 'wavpack';
 	if (ascii(bytes, 0, 4) === 'OggS') {

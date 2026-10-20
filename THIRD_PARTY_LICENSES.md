@@ -41,6 +41,14 @@ Copyright (C) 2021 MuseScore BVBA and others (theme illustration), and the Audac
 contributors (clip assets). [Source paths, modifications and original hashes](src/common/editor/ui/skins/previews/NOTICE.md)
 are retained with the assets; [GPLv3 terms](LICENSES/GPL-3.0.txt) are bundled.
 
+## Audacity selection cursors
+
+The selection-edge PNG cursors are unmodified copies from Audacity commit
+`16f2713979809abe7308b4e1e0d487afeece84f2`, copyright the Audacity contributors,
+under GPL-3.0-only (the GPLv3 option of the default GPL-2.0-or-later terms).
+[Source paths and original hashes](src/common/editor/ui/timeline/cursors/NOTICE.md)
+are retained with the assets; [GPLv3 terms](LICENSES/GPL-3.0.txt) are bundled.
+
 ## Audacity-derived native audio effects
 
 Parts of `src/common/editor/audacity-effects/` are JavaScript and TypeScript translations and adaptations of native effect implementations from Audacity 3.7.7, exact commit `5ef610ed23260d6d648175735bb16b32536eb30b`:
@@ -698,8 +706,9 @@ or Framescaper desktop executables.
 ## Interchange conformance reference implementations
 
 The opt-in interchange reference tests execute these pinned Python packages as
-independent readers. They are not bundled, linked, shipped, or redistributed
-with Soundscaper or Framescaper:
+independent readers. The diagnostic nightly-with-tests artifact includes them
+with their upstream notices; normal Soundscaper and Framescaper bundles exclude
+them:
 
 - `opentimelineio 0.18.1` — Apache-2.0; source: <https://github.com/AcademySoftwareFoundation/OpenTimelineIO/tree/v0.18.1>
 - `otio-cmx3600-adapter 1.0.0` — Apache-2.0; source: <https://github.com/OpenTimelineIO/otio-cmx3600-adapter/tree/v1.0.0>
@@ -709,6 +718,16 @@ with Soundscaper or Framescaper:
 
 Exact package versions and wheel SHA-256 verification rules are recorded in
 [`config/interchange-conformance-tools.json`](config/interchange-conformance-tools.json).
+
+The diagnostic artifact also carries CPython 3.12.15 from the
+[Python Build Standalone 20261013 release](https://github.com/astral-sh/python-build-standalone/releases/tag/20261013),
+under the Python Software Foundation license and the dependency terms retained
+in `vendor/interchange-conformance/python/licenses/` and the installation's
+package notice files. Its source archives and SHA-256 digests are recorded in
+[`config/nightly-interchange-python.json`](config/nightly-interchange-python.json).
+The complete upstream `PYTHON.json` records the interpreter's bundled libraries
+and license paths. Windows ARM64 uses its x64 interpreter under Windows
+emulation because the pinned OpenTimelineIO has no Windows ARM64 wheel.
 
 The DAWproject conformance test validates against the format's published XML
 schemas, which are committed as test fixtures and are not part of any shipped

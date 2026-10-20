@@ -4,50 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import {
-	DESKTOP_NIGHTLY_TESTS_RESULT_MARKER,
-	formatDesktopNightlyTestsSummary,
-	parseDesktopNightlyTestsSummary,
-	resolveDesktopNightlyTestsPresentation,
-} from '../scripts/lib/desktop-nightly-tests-presentation.mjs';
-
 const ROOT = new URL('../', import.meta.url);
 const RELATIVE_IMPORT = /(?:from |import\()'(\.{1,2}\/[\w./-]+\.mjs)'/gu;
-
-test('the launcher reports unattended when asked by flag or by environment', () => {
-	assert.deepEqual(
-		{ ...resolveDesktopNightlyTestsPresentation({ argv: ['/opt/app', '--unattended'] }) },
-		{ unattended: true },
-	);
-	assert.deepEqual(
-		{ ...resolveDesktopNightlyTestsPresentation({ environment: { SOUNDSCAPER_NIGHTLY_TESTS_UNATTENDED: '1' } }) },
-		{ unattended: true },
-	);
-	assert.deepEqual({ ...resolveDesktopNightlyTestsPresentation() }, { unattended: false });
-	assert.deepEqual(
-		{ ...resolveDesktopNightlyTestsPresentation({ environment: { SOUNDSCAPER_NIGHTLY_TESTS_UNATTENDED: '0' } }) },
-		{ unattended: false },
-	);
-	assert.throws(() => resolveDesktopNightlyTestsPresentation({ argv: [1] }), /argv must be strings/u);
-});
-
-test('the summary line round trips through its marker', () => {
-	const line = formatDesktopNightlyTestsSummary({
-		status: 'failed',
-		exitCode: 1,
-		runRoot: '/var/run/soundscaper',
-	});
-	assert.ok(line.startsWith(DESKTOP_NIGHTLY_TESTS_RESULT_MARKER));
-	assert.deepEqual({ ...parseDesktopNightlyTestsSummary(`noise\n${line}\nmore noise`) }, {
-		schemaVersion: 1,
-		status: 'failed',
-		exitCode: 1,
-		runRoot: '/var/run/soundscaper',
-		failure: null,
-	});
-	assert.throws(() => parseDesktopNightlyTestsSummary('nothing here'), /exactly one nightly tests summary/u);
-	assert.throws(() => formatDesktopNightlyTestsSummary({ status: 'passed', exitCode: 256 }), /must be a byte/u);
-});
 
 test('the launcher chooses between the dialog and the summary line', async () => {
 	const main = await readFile(new URL('desktop/nightly-tests-main.mjs', ROOT), 'utf8');

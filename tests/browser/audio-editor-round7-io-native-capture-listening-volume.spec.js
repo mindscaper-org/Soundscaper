@@ -6,7 +6,7 @@ import { expectCapturePhase, openRecordingSetup, selectSourceRoles } from './hel
 
 test.use({ browserCoverage: false });
 
-for (const mute of [false, true]) test(`Recording setup microphone monitoring ${mute ? 'follows listening mute' : 'preserves full-level monitoring'} without muting captured PCM`, async ({ page, browserName }) => {
+test('Recording setup microphone monitoring follows listening mute and restores full volume without muting captured PCM', async ({ page, browserName }) => {
 	await page.addInitScript(() => {
 		Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
 			configurable: true,
@@ -107,11 +107,9 @@ for (const mute of [false, true]) test(`Recording setup microphone monitoring ${
 	expect(await page.evaluate(() => globalThis.__capturePeak)).toBeGreaterThan(0.05);
 	await expect.poll(() => page.evaluate(() => globalThis.__captureMonitorGains())).toEqual([1]);
 	const volume = editor.getByRole('slider', { name: 'Playback volume', exact: true });
-	if (mute) {
-		await volume.fill('0');
-		await expect(volume).toHaveAttribute('aria-valuetext', '−∞ dB');
-		await expect.poll(() => page.evaluate(() => globalThis.__captureMonitorGains())).toEqual([0]);
-	}
+	await volume.fill('0');
+	await expect(volume).toHaveAttribute('aria-valuetext', '−∞ dB');
+	await expect.poll(() => page.evaluate(() => globalThis.__captureMonitorGains())).toEqual([0]);
 	const before = await page.evaluate(() => globalThis.__captureFrames);
 	await expect.poll(() => page.evaluate(() => globalThis.__captureFrames)).toBeGreaterThan(before + 4_096);
 	await volume.fill('1');

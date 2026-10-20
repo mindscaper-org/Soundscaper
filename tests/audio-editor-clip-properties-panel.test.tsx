@@ -1,168 +1,285 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act, type ComponentProps } from 'react';
 import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
-import { deferred } from './helpers/async-test-control.ts';
+import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('the live panel follows single selection without showing redundant tabs', async () => {
+test('the upstream properties surface follows selection and keeps the source viewer separate', async () => {
 	const f = await fixture();
 	try {
 		await f.render(['one']);
-		assert.equal(f.dom.find('[role="tablist"]'), null);
 		assert.equal(f.input('name').value, 'First clip');
+		assert.ok(f.dom.find('[data-clip-properties-field="strip"]'));
+		assert.equal(f.dom.find('[data-audio-source-monitor-panel]'), null);
+		assert.equal(f.dom.find('[data-clip-properties-drawer]'), null);
+		assert.equal(f.dom.find('summary'), null, 'the audio inspector has no duplicated Additional properties surface');
 		await f.render(['two']);
 		assert.equal(f.input('name').value, 'Second source');
 		await f.render([]);
-		assert.ok(f.dom.find('[data-no-clip]'));
-		assert.equal(f.dom.find('[data-clip-fields]'), null);
+		assert.ok(f.dom.find('[data-clip-properties-empty]'));
 	} finally { await f.cleanup(); }
 });
 
-test('selected clips have accessible local tabs and every commit targets the active tab', async () => {
+test('clip color uses the shared swatch palette and can return to the owning track color', async () => {
 	const f = await fixture();
 	try {
-		await f.render(['one', 'two']);
-		assert.deepEqual(f.tabs().map((tab) => tab.textContent), ['First clip', 'Second source']);
-		await f.clickTab('two');
-		assert.equal(f.dom.one('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip'), 'two');
-		assert.equal(f.tab('two').getAttribute('aria-selected'), 'true');
-		assert.equal(f.tab('one').getAttribute('tabindex'), '-1');
-		await f.type('name', 'Renamed second clip');
-		await f.blur('name');
-		assert.deepEqual(f.updates, [{ clipId: 'two', changes: { title: 'Renamed second clip' } }]);
-		await f.type('speedRatio', '1.5');
-		await f.blur('speedRatio');
-		assert.deepEqual(f.timePitchCalls, [{ clipId: 'two', changes: { speedRatio: 1.5 } }]);
-		await f.clickAction('normalize-peak');
-		assert.deepEqual(f.normalizeCalls, ['two'], 'async transforms receive the explicit active clip id');
-		assert.deepEqual(f.project().selection.clipIds, ['one', 'two'], 'local tabs preserve multi-selection');
-		await f.render(['two', 'one'], { primary: 'one' });
-		assert.equal(f.tab('two').getAttribute('aria-selected'), 'true', 'selection reorder preserves the active tab');
-		await act(async () => reactProps(f.tab('two')).onKeyDown({ key: 'End', preventDefault() {} }));
-		assert.equal(f.tab('one').getAttribute('aria-selected'), 'true');
-		assert.equal(f.dom.container.ownerDocument.activeElement, f.tab('one'));
-		const body = f.dom.one('[data-clip-properties-active-clip]');
-		assert.equal(body.getAttribute('aria-labelledby'), f.tab('one').getAttribute('id'));
-		assert.equal(f.tab('one').getAttribute('aria-controls'), body.getAttribute('id'));
+		await f.render(['one']);
+		const trigger = f.dom.one('[data-open-clip-color]');
+		await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
+		const swatch = f.dom.one('[data-color="blue"]');
+		await act(async () => reactProps(swatch).onClick());
+		assert.deepEqual(f.updates.pop(), { id: 'one', changes: { color: 'blue' } });
+		await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
+		await act(async () => reactProps(f.dom.one('[data-follow-track-color]')).onClick());
+		assert.deepEqual(f.updates.pop(), { id: 'one', changes: { color: 'auto' } });
 	} finally { await f.cleanup(); }
 });
 
-test('local clip tabs leave modified navigation to commands while preserving plain activation', async () => {
+test('the source visual opens Source monitor for its clip without mutating the selection', async () => {
 	const f = await fixture();
 	try {
-		await f.render(['one', 'two']);
-		for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
-			for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'defaultPrevented']) {
-				f.tab('one').focus(); let prevented = false;
-				await act(async () => reactProps(f.tab('one')).onKeyDown({ key,
-					ctrlKey: modifier === 'ctrlKey', metaKey: modifier === 'metaKey', altKey: modifier === 'altKey',
-					defaultPrevented: modifier === 'defaultPrevented', preventDefault() { prevented = true; } }));
-				assert.equal(prevented, false, `${modifier} ${key}`);
-				assert.equal(f.tab('one').getAttribute('aria-selected'), 'true');
-				assert.equal(document.activeElement, f.tab('one'));
-			}
+		await f.render(['one']);
+		await act(async () => reactProps(f.dom.one('[data-clip-properties-action="open-source"]')).onClick());
+		assert.deepEqual(f.opened, ['source-monitor', 'one']);
+		assert.deepEqual(f.project().selection.clipIds, ['one']);
+	} finally { await f.cleanup(); }
+});
+
+test('unique audio operations remain in the Media settings menu and mutation errors reach the workspace runner', async () => {
+	const f = await fixture();
+	try {
+		await f.render(['one']);
+		const trigger = f.dom.one('[data-clip-audio-settings]');
+		await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
+		for (const name of [ENGLISH_COPY.clipLinkPitchAndTempo, ENGLISH_COPY.preserveFormants, ENGLISH_COPY.stretchToTempo,
+			ENGLISH_COPY.normalizePeak, ENGLISH_COPY.normalizeLufs, ENGLISH_COPY.invert, ENGLISH_COPY.resample]) {
+			assert.ok(f.dom.container.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"]').some(item => item.textContent.includes(name)), name);
 		}
-		await act(async () => reactProps(f.tab('one')).onKeyDown({ key: 'End', preventDefault() {} }));
-		assert.equal(f.tab('two').getAttribute('aria-selected'), 'true');
-		assert.equal(document.activeElement, f.tab('two'));
+		f.rejectUpdates();
+		await f.type('name', 'Rejected');
+		await act(async () => reactProps(f.input('name')).onBlur());
+		assert.equal(f.failures.length, 1);
+		assert.equal((f.failures[0] as Error).message, 'Cannot update clip');
+		assert.equal(f.dom.find('[role="alert"]'), null);
+	} finally { await f.cleanup(); }
+});
+
+test('Media settings preserves formants, normalization and exact custom fade coefficients', async () => {
+	const f = await fixture();
+	try {
+		await f.render(['one']);
+		await f.settingsItem(ENGLISH_COPY.preserveFormants);
+		assert.deepEqual(f.timePitch.pop(), { ids: ['one'], changes: { preserveFormants: true } });
+		await f.settingsItem(ENGLISH_COPY.normalizePeak);
+		assert.deepEqual(f.operations.pop(), { action: 'normalizePeak', id: 'one' });
+		await f.settingsItem(ENGLISH_COPY.fadeOutShape);
+		await act(async () => reactProps(f.dom.one('form')).onSubmit({ preventDefault() {} }));
+		assert.deepEqual(f.updates, [], 'opening and accepting an unchanged legacy shape preserves its representation');
+		await f.settingsItem(ENGLISH_COPY.fadeInShape);
+		const field = f.dom.one('[data-clip-field="fadeInShape"]');
+		const input = field.querySelector('input');
+		assert.ok(input);
+		await act(async () => reactProps(input).onChange({ target: { value: '1.73' } }));
+		assert.deepEqual(f.updates, [], 'typing a coefficient must remain a draft');
+		await act(async () => reactProps(f.dom.one('form')).onSubmit({ preventDefault() {} }));
+		assert.deepEqual(f.updates, [{ id: 'one', changes: { fadeInShape: 1.73 } }]);
+		assert.equal(f.dom.find('[role="dialog"]'), null);
+	} finally { await f.cleanup(); }
+});
+
+test('native time display replaces the glyph fields and commits an exact project sample duration', async () => {
+	const f = await fixture();
+	try {
+		await f.render(['one']);
+		await f.settingsItem(ENGLISH_COPY.clipTimecodeFields);
+		assert.equal(f.dom.container.querySelectorAll('[data-clip-properties-field="length"]').length, 1);
+		const field = f.dom.one('[data-clip-field="durationFrame"]');
+		const input = field.querySelector('input'), wrapper = field.querySelector('[data-timecode-input]');
+		assert.ok(input && wrapper);
+		await act(async () => reactProps(input).onChange({ currentTarget: { valueAsNumber: 12_345 } }));
+		assert.equal(f.trims.length, 0);
+		await act(async () => reactProps(wrapper).onBlur({ currentTarget: wrapper, relatedTarget: null }));
+		assert.equal(f.trims[0]?.id, 'one');
+		assert.equal(f.trims[0]?.changes.durationFrames, 12_345);
+		assert.equal(f.trims[0]?.changes.sourceDurationFrames, 12_345);
+		assert.deepEqual(f.failures, []);
+	} finally { await f.cleanup(); }
+});
+
+test('native time fields roll back refused moves and trims while reporting each failure once', async () => {
+	for (const mode of ['sync', 'async'] as const) {
+		const f = await fixture();
+		try {
+			await f.render(['one']);
+			await f.settingsItem(ENGLISH_COPY.clipTimecodeFields);
+			f.rejectNativeEdits(mode);
+			for (const [field, draft, original] of [['start', 12345, '0'], ['length', 12000, '24000']] as const) {
+				const input = f.input(field);
+				await act(async () => reactProps(input).onChange({ currentTarget: { valueAsNumber: draft } }));
+				const wrapper = f.dom.one(`[data-clip-properties-field="${field}"]`).querySelector('.audio-editor-timecode-input');
+				assert.ok(wrapper);
+				await act(async () => reactProps(wrapper).onBlur({ currentTarget: wrapper, relatedTarget: null }));
+				assert.equal(input.value, original, `${mode} ${field}: a refused draft must show the unchanged native value`);
+				assert.equal(f.failures.splice(0).length, 1, `${mode} ${field}: report one error through the workspace runner`);
+				assert.equal(f.dom.find('[role="alert"]'), null);
+			}
+			assert.deepEqual(f.trims, []);
+		} finally { await f.cleanup(); }
+	}
+});
+
+test('merged clip properties edit all selected clips in one native batch without changing selection', async () => {
+	const f = await fixture();
+	try {
+		await f.render(['one', 'two']);
+		assert.equal(f.dom.find('[role="tablist"]'), null);
+		assert.equal(f.dom.one('[data-clip-properties-panel]').getAttribute('data-selection'), '2');
+		assert.equal(f.input('pitch').getAttribute('placeholder'), ENGLISH_COPY.clipMixed);
+		await f.typeAndCommit('pitch', '2');
+		assert.deepEqual(f.timePitch, [{ ids: ['one', 'two'], changes: { pitchCents: 200 } }]);
+		const reverse = f.dom.one('[data-clip-properties-field="reverse"]');
+		await act(async () => reactProps(reverse).onClick());
+		assert.deepEqual(f.commits, [{ type: 'batch', commands: [
+			{ type: 'clip/update', clipId: 'one', changes: { reversed: true } },
+			{ type: 'clip/update', clipId: 'two', changes: { reversed: true } },
+		] }]);
 		assert.deepEqual(f.project().selection.clipIds, ['one', 'two']);
 	} finally { await f.cleanup(); }
 });
 
-test('half-typed drafts and stale callbacks never cross clips or projects, including repeated ids', async () => {
+test('linked neutral playback can reset retained independent pitch and formants once', async () => {
+	for (const stored of [{ pitchCents: 600, preserveFormants: false }, { pitchCents: 0, preserveFormants: true }]) {
+		const f = await fixture();
+		try {
+			await f.render(['one'], { timePitch: { ...stored, linkPitchAndTempo: true, speedRatio: 1 } });
+			assert.equal(f.input('pitch').value, '0', 'linked playback displays its audible pitch');
+			assert.equal(f.input('speed').value, '100');
+			const reset = f.dom.one('[data-clip-properties-action="reset-pitch-speed"]');
+			assert.equal(reset.getAttribute('disabled'), null, 'Reset includes retained native values');
+			await act(async () => reactProps(reset).onClick());
+			assert.deepEqual(f.timePitch, [{ ids: ['one'], changes: { pitchCents: 0, speedRatio: 1, preserveFormants: false } }]);
+			await f.render(['one'], { timePitch: { pitchCents: 0, preserveFormants: false, linkPitchAndTempo: true, speedRatio: 1 } });
+			assert.equal(f.dom.one('[data-clip-properties-action="reset-pitch-speed"]').getAttribute('disabled'), '');
+		} finally { await f.cleanup(); }
+	}
+});
+
+test('retained pitch does not enable Reset when native editing or audio effects are blocked', async () => {
 	const f = await fixture();
 	try {
-		await f.render(['one', 'two']);
-		await f.type('gain', '7');
-		const staleBlur = reactProps(f.input('gain')).onBlur;
-		await f.clickTab('two');
-		assert.equal(f.input('gain').value, '0.00', 'equal saved values still discard the other clip draft');
-		await act(async () => staleBlur());
-		assert.deepEqual(f.updates, [], 'an unmounted target cannot commit a late blur');
-		await f.type('name', 'Uncommitted name');
-		await f.render(['one', 'two'], { projectId: 'project-b' });
-		assert.equal(f.tab('one').getAttribute('aria-selected'), 'true');
-		assert.equal(f.input('name').value, 'First clip');
-		await f.render([]);
-		await f.render(['one', 'two']);
-		assert.equal(f.tab('one').getAttribute('aria-selected'), 'true', 'deselection resets the tab choice');
+		for (const guards of [{ locked: true }, { audioEffects: false }]) {
+			await f.render(['one'], { ...guards, timePitch: { pitchCents: 600, linkPitchAndTempo: true, speedRatio: 1 } });
+			assert.equal(f.dom.one('[data-clip-properties-action="reset-pitch-speed"]').getAttribute('disabled'), '');
+		}
+		assert.deepEqual(f.timePitch, []);
 	} finally { await f.cleanup(); }
 });
 
-test('removed clips and async failures cannot leave a stale target or paint another tab', async () => {
+test('merged linked clips reset their retained independent pitch in one native operation', async () => {
 	const f = await fixture();
 	try {
-		await f.render(['one', 'two']);
-		await f.clickAction('normalize-peak');
-		await f.clickTab('two');
-		await act(async () => {
-			f.normalization.reject(new Error('First clip failed'));
-			await f.normalization.promise.catch(() => undefined);
-		});
-		assert.equal(f.dom.find('[role="alert"]'), null);
-		await f.render(['one', 'two'], { removeClip: 'two' });
-		assert.equal(f.dom.find('[role="tablist"]'), null);
-		assert.equal(f.input('name').value, 'First clip');
+		await f.render(['one', 'two'], { timePitch: { pitchCents: 600, linkPitchAndTempo: true, speedRatio: 1 } });
+		assert.equal(f.input('pitch').value, '0');
+		const reset = f.dom.one('[data-clip-properties-action="reset-pitch-speed"]');
+		assert.equal(reset.getAttribute('disabled'), null);
+		await act(async () => reactProps(reset).onClick());
+		assert.deepEqual(f.timePitch, [{ ids: ['one', 'two'], changes: { pitchCents: 0, speedRatio: 1, preserveFormants: false } }]);
 	} finally { await f.cleanup(); }
 });
 
-test('opening requests activate and focus the requested clip once, after its dock tab becomes active', async () => {
+for (const speedRatio of [0.9999999, 1.0000001]) test(`native tiny speed ${speedRatio} remains exact through the host and resets only after explicit entry`, async () => {
 	const f = await fixture();
 	try {
-		const request = { clipId: 'two', field: 'speedRatio' } as const;
-		await f.render(['one', 'two'], { focusRequest: request, panelActive: false });
-		assert.notEqual(f.dom.container.ownerDocument.activeElement, f.input('speedRatio'));
-		await f.render(['one', 'two'], { focusRequest: request, panelActive: true });
-		assert.equal(f.tab('two').getAttribute('aria-selected'), 'true');
-		assert.equal(f.dom.container.ownerDocument.activeElement, f.input('speedRatio'));
-		assert.equal((f.dom.one('[data-clip-properties-drawer="pitch"]') as unknown as { open: boolean }).open, true);
-		await f.clickTab('one');
-		f.tab('one').focus();
-		await f.render(['one', 'two'], { focusRequest: request });
-		assert.equal(f.tab('one').getAttribute('aria-selected'), 'true');
-		assert.equal(f.dom.container.ownerDocument.activeElement, f.tab('one'), 'live snapshots do not replay opening focus');
-		await f.render(['one', 'two'], { focusRequest: { clipId: 'two', field: null } });
-		assert.equal(f.dom.container.ownerDocument.activeElement, f.dom.one('[data-clip-properties-active-clip]'));
-		assert.equal(f.dom.one('[data-clip-properties-drawer="media"]').getAttribute('open'), null);
+		await f.render(['one'], { timePitch: { speedRatio } });
+		const field = f.dom.one('[data-clip-properties-field="speed"]');
+		const input = f.input('speed');
+		assert.equal(input.value, '100');
+		input.focus();
+		await act(async () => reactProps(field).onFocusCapture({ target: input }));
+		assert.equal(Number(input.value), speedRatio * 100, 'the full host must retain the native tiny ratio before formatting');
+		await act(async () => reactProps(field).onBlur({ target: input }));
+		assert.deepEqual(f.timePitch, [], 'viewing the native ratio must not normalize it');
+		await act(async () => reactProps(field).onFocusCapture({ target: input }));
+		await act(async () => reactProps(input).onChange({ target: { value: '100' } }));
+		await act(async () => reactProps(field).onBlur({ target: input }));
+		assert.deepEqual(f.timePitch, [{ ids: ['one'], changes: { speedRatio: 1 } }]);
 	} finally { await f.cleanup(); }
 });
 
-test('project-scoped opening requests discard stale targets without activating or focusing another project', async () => {
+for (const percent of [0.1, 0.1256789, 0.5, 0.9999999, 100_000]) test(`explicit clip speed ${percent}% retains its native supported value`, async () => {
+	const f = await fixture();
+	try {
+		await f.render(['one']);
+		await f.typeAndCommit('speed', String(percent));
+		assert.deepEqual(f.timePitch, [{ ids: ['one'], changes: { speedRatio: percent / 100 } }]);
+	} finally { await f.cleanup(); }
+});
+
+test('opening requests focus pitch and speed once when their dock becomes active', async () => {
 	const f = await fixture();
 	try {
 		let handled = 0;
-		const request = { projectId: 'project-b', clipId: 'two', field: 'speedRatio', onHandled: () => { handled += 1; } } as const;
-		await f.render(['one', 'two'], { focusRequest: request });
-		assert.equal(f.tab('one').getAttribute('aria-selected'), 'true');
-		assert.notEqual(f.dom.container.ownerDocument.activeElement, f.input('speedRatio'));
+		const request = { projectId: 'project-a', clipId: 'two', field: 'speedRatio', onHandled: () => { handled++; } } as const;
+		await f.render(['one', 'two'], { focusRequest: request, panelActive: false });
+		assert.notEqual(document.activeElement, f.input('speed'));
+		await f.render(['one', 'two'], { focusRequest: request, panelActive: true });
+		assert.equal(document.activeElement, f.input('speed') as unknown as Element);
 		assert.equal(handled, 1);
+		f.input('pitch').focus();
 		await f.render(['one', 'two'], { focusRequest: request });
-		assert.equal(handled, 1, 'a discarded request is acknowledged only once');
-		await f.render(['one'], { focusRequest: { projectId: 'project-a', clipId: 'two', field: null, onHandled: () => { handled += 1; } } });
-		assert.equal(handled, 2, 'a removed requested clip is discarded');
-		assert.notEqual(f.dom.container.ownerDocument.activeElement, f.input('name'));
+		assert.equal(document.activeElement, f.input('pitch') as unknown as Element);
+		assert.equal(handled, 1);
 	} finally { await f.cleanup(); }
 });
 
-test('acknowledging opening focus lets dock remounts preserve the current menu focus', async () => {
+test('drafts and stale callbacks cannot target a different selection or project', async () => {
 	const f = await fixture();
 	try {
-		let pending: ComponentProps<typeof ClipPropertiesPanel>['focusRequest'] = {
-			projectId: 'project-a', clipId: 'two', field: null, onHandled: () => { pending = null; },
-		};
-		await f.render(['one', 'two'], { focusRequest: pending });
-		assert.equal(pending, null, 'the owner can retire consumed focus before remounting the panel');
-		const menuItem = f.dom.container.ownerDocument.createElement('button');
-		f.dom.container.ownerDocument.body.appendChild(menuItem);
-		menuItem.focus();
-		await f.render(['one', 'two'], { focusRequest: pending, mountKey: 'new-dock' });
-		assert.equal(f.dom.container.ownerDocument.activeElement, menuItem);
+		await f.render(['one']);
+		await f.type('name', 'Uncommitted');
+		const stale = reactProps(f.input('name')).onBlur;
+		await f.render(['two']);
+		assert.equal(f.input('name').value, 'Second source');
+		await act(async () => stale());
+		assert.deepEqual(f.updates, []);
+		await f.type('name', 'Old project');
+		const otherStale = reactProps(f.input('name')).onBlur;
+		await f.render(['two'], { projectId: 'project-b' });
+		await act(async () => otherStale());
+		assert.deepEqual(f.updates, []);
+	} finally { await f.cleanup(); }
+});
+
+test('Escape discards a rename before synchronous blur and Enter commits only once', async () => {
+	const f = await fixture();
+	try {
+		await f.render(['one']);
+		const name = f.input('name');
+		Object.defineProperty(name, 'blur', { configurable: true, value: () => reactProps(name).onBlur() });
+		await f.type('name', 'Discard me');
+		await act(async () => reactProps(f.dom.one('[data-clip-properties-field="name"]')).onKeyDown({ key: 'Escape', target: name, stopPropagation() {} }));
+		assert.deepEqual(f.updates, []);
+		assert.equal(name.value, 'First clip');
+		await f.type('name', 'New name');
+		await act(async () => reactProps(f.dom.one('[data-clip-properties-field="name"]')).onKeyDown({ key: 'Enter', target: name }));
+		assert.deepEqual(f.updates, [{ id: 'one', changes: { title: 'New name' } }]);
+	} finally { await f.cleanup(); }
+});
+
+test('native blocked state disables every property mutation while German fields keep accessible names', async () => {
+	const f = await fixture();
+	try {
+		await f.render(['one'], { locked: true, copy: GERMAN_COPY });
+		assert.notEqual(f.input('name').getAttribute('disabled'), null);
+		assert.notEqual(f.input('pitch').getAttribute('disabled'), null);
+		assert.equal(f.input('name').getAttribute('aria-label'), GERMAN_COPY.clipName);
+		assert.equal(f.input('pitch').getAttribute('aria-label'), GERMAN_COPY.clipPitchField);
+		await f.render(['one']);
+		assert.equal(f.input('name').getAttribute('disabled'), null);
 	} finally { await f.cleanup(); }
 });
 
@@ -175,71 +292,75 @@ async function fixture() {
 	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	let currentProject = project();
-	const updates: Array<{ clipId: string; changes: unknown }> = [];
-	const normalization = deferred<void>();
-	const normalizeCalls: string[] = [];
-	const timePitchCalls: Array<{ clipId: string; changes: unknown }> = [];
-	const controller = {
-		get project() { return currentProject; },
-		actions: { clip: {
-			update: (clipId: string, changes: unknown) => { updates.push({ clipId, changes }); },
-			move: () => undefined, trim: () => undefined,
-			setTimePitch: (clipId: string, changes: unknown) => { timePitchCalls.push({ clipId, changes }); },
-			toggleStretchToTempo: () => undefined, reverse: () => undefined, invert: () => undefined,
-			normalizePeak: (clipId: string) => { normalizeCalls.push(clipId); return normalization.promise; }, normalizeLoudness: () => undefined,
-			renderPitchSpeed: () => undefined, resetPitchSpeed: () => undefined,
+	let current = project();
+	const updates: unknown[] = [], commits: unknown[] = [], timePitch: unknown[] = [];
+	const operations: unknown[] = [];
+	const trims: { id: string; changes: Readonly<Record<string, number>> }[] = [];
+	const opened: string[] = [], failures: unknown[] = [];
+	let reject = false;
+	let nativeRejection: 'sync' | 'async' | null = null;
+	const rejectNative = () => {
+		const failure = new Error('Native edit refused');
+		if (nativeRejection === 'sync') throw failure;
+		return Promise.reject(failure);
+	};
+	const controller = { get project() { return current; }, actions: {
+		preferences: { setPanelVisibility: (id: string) => { opened.push(id); } },
+		clipSourcePreview: { focus: (id: string) => { opened.push(id); }, trim: (id: string, changes: Readonly<Record<string, number>>) => {
+			if (nativeRejection) return rejectNative();
+			trims.push({ id, changes });
 		} },
+		edit: { commit: (command: unknown) => { commits.push(command); } },
+		clip: { update: (id: string, changes: unknown) => { if (reject) throw new Error('Cannot update clip'); updates.push({ id, changes }); },
+			move: () => nativeRejection ? rejectNative() : undefined,
+			normalizePeak: (id: string) => { operations.push({ action: 'normalizePeak', id }); },
+			setTimePitch: (id: string, changes: unknown) => { timePitch.push({ ids: [id], changes }); },
+			setTimePitchMany: (ids: readonly string[], changes: unknown) => { timePitch.push({ ids, changes }); } },
+	} };
+	const field = (name: string) => dom.one(`[data-clip-properties-field="${name}"]`);
+	const input = (name: string) => { const value = field(name).querySelector('input'); assert.ok(value); return value; };
+	const type = async (name: string, value: string) => {
+		input(name).focus();
+		await act(async () => reactProps(input(name)).onChange({ target: { value } }));
 	};
-	const input = (field: string) => {
-		const element = dom.one(`[data-clip-field="${field}"]`).querySelector('input');
-		assert.ok(element);
-		return element;
+	const run = (operation: () => unknown) => {
+		try {
+			const value = operation();
+			void Promise.resolve(value).catch(cause => { failures.push(cause); });
+			return value;
+		} catch (cause) { failures.push(cause); return undefined; }
 	};
-	const tab = (clipId: string) => dom.one(`[data-clip-properties-tab="${clipId}"]`);
-	return {
-		dom, updates, normalization, normalizeCalls, timePitchCalls, input, tab,
-		project: () => currentProject,
-		tabs: () => dom.container.querySelectorAll('[data-clip-properties-tab]'),
-		render: async (ids: string[], options: {
-			projectId?: string; primary?: string; removeClip?: string; mountKey?: string;
-			focusRequest?: ComponentProps<typeof ClipPropertiesPanel>['focusRequest']; panelActive?: boolean;
-		} = {}) => {
-			currentProject = project(options.projectId, ids, options.removeClip);
-			await act(async () => root.render(<ClipPropertiesPanel key={options.mountKey ?? "initial-dock"} controller={controller} copy={ENGLISH_COPY}
-				snapshot={{ project: currentProject, selectedClipIds: ids, selectedClipId: options.primary ?? ids[0] ?? null,
-					capabilities: { audioEffects: true, videoEffects: false } }}
+	return { dom, input, updates, commits, timePitch, type, opened, failures, operations, trims, rejectUpdates: () => { reject = true; }, project: () => current,
+		rejectNativeEdits: (mode: 'sync' | 'async') => { nativeRejection = mode; },
+		settingsItem: async (label: string) => {
+			const trigger = dom.one('[data-clip-audio-settings]');
+			await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
+			const item = dom.container.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"]').find(node => node.querySelector('.context-menu-item-label')?.textContent === label);
+			assert.ok(item, label);
+			await act(async () => reactProps(item).onClick({ stopPropagation() {} }));
+		},
+		typeAndCommit: async (name: string, value: string) => { await type(name, value); await act(async () => reactProps(field(name)).onBlur({ target: input(name) })); },
+		render: async (ids: string[], options: { projectId?: string; locked?: boolean; copy?: typeof ENGLISH_COPY; audioEffects?: boolean;
+			timePitch?: Partial<Pick<ReturnType<typeof createAudioClip>, 'pitchCents' | 'speedRatio' | 'linkPitchAndTempo' | 'preserveFormants'>>;
+			focusRequest?: ComponentProps<typeof ClipPropertiesPanel>['focusRequest']; panelActive?: boolean } = {}) => {
+			current = project(options.projectId, ids, options.locked);
+			if (options.timePitch) current = { ...current, clips: current.clips.map(clip => ({ ...clip, ...options.timePitch })) };
+			await act(async () => root.render(<ClipPropertiesPanel controller={controller} copy={options.copy ?? ENGLISH_COPY}
+				run={run}
+				snapshot={{ project: current, selectedClipIds: ids, selectedClipId: ids[0] ?? null, capabilities: { audioEffects: options.audioEffects ?? true } }}
 				focusRequest={options.focusRequest} panelActive={options.panelActive} />));
 		},
-		clickTab: async (clipId: string) => { await act(async () => reactProps(tab(clipId)).onClick()); },
-		type: async (field: string, value: string) => { await act(async () => reactProps(input(field)).onChange({ target: { value } })); },
-		blur: async (field: string) => { await act(async () => reactProps(input(field)).onBlur()); },
-		clickAction: async (hook: string) => {
-			const button = dom.one(`[data-clip-action="${hook}"]`).querySelector('button');
-			assert.ok(button);
-			await act(async () => { reactProps(button).onClick(); await Promise.resolve(); });
-		},
-		cleanup: async () => {
-			normalization.resolve();
-			await act(async () => root.unmount());
-			actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
-			if (priorReact) Object.defineProperty(globalThis, 'React', priorReact);
-			else Reflect.deleteProperty(globalThis, 'React');
-			dom.restore();
-		},
+		cleanup: async () => { await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+			if (priorReact) Object.defineProperty(globalThis, 'React', priorReact); else Reflect.deleteProperty(globalThis, 'React'); dom.restore(); },
 	};
 }
-
-function project(id = 'project-a', selectedIds: string[] = [], removeClip?: string) {
-	const sources = ['one', 'two'].map((key) => createAudioSource({ id: `source-${key}`, name: key === 'one' ? 'First source' : 'Second source',
-		storageKey: `${id}-${key}`, frameCount: 1_000, channelCount: 1, sampleRate: 48_000 }));
-	const clips = ['one', 'two'].filter((key) => key !== removeClip).map((key) => createAudioClip({
-		id: key, sourceId: `source-${key}`, title: key === 'one' ? 'First clip' : '',
-		timelineStartFrame: 0, durationFrames: 200, sourceStartFrame: 0, sourceDurationFrames: 200,
-	}));
+function project(id = 'project-a', selectedIds: string[] = [], locked = false) {
+	const sources = ['one', 'two'].map(key => createAudioSource({ id: `source-${key}`, name: key === 'one' ? 'First source' : 'Second source',
+		storageKey: `${id}-${key}`, frameCount: 48_000, channelCount: 1, sampleRate: 48_000 }));
+	const clips = ['one', 'two'].map(key => createAudioClip({ id: key, sourceId: `source-${key}`, title: key === 'one' ? 'First clip' : '',
+		timelineStartFrame: 0, durationFrames: 24_000, sourceStartFrame: 0, sourceDurationFrames: 24_000, pitchCents: key === 'one' ? 0 : 100 }));
 	const created = createSoundscaperProject({ id, title: id, now: '2026-10-02T00:00:00.000Z', sources, clips,
-		tracks: [createAudioTrack({ id: 'track', name: 'Track', clipIds: clips.map(({ id }) => id) })],
-		selection: { clipIds: selectedIds.filter((clipId) => clipId !== removeClip), trackIds: ['track'], startFrame: 0, endFrame: 0 },
-	});
-	return { ...created, clips: created.clips.map((clip) => clip.id === 'two' ? { ...clip, title: '' } : clip) };
+		tracks: [createAudioTrack({ id: 'track', name: 'Track', clipIds: clips.map(clip => clip.id), locked })],
+		selection: { clipIds: selectedIds, trackIds: ['track'], startFrame: 0, endFrame: 0 } });
+	return { ...created, clips: created.clips.map(clip => clip.id === 'two' ? { ...clip, title: '' } : clip) };
 }

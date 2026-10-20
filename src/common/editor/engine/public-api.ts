@@ -215,7 +215,7 @@ export interface EnginePublicApi {
 		data: ArrayBuffer | Blob,
 		options?: Readonly<{ sampleRate?: number | null }>,
 	): Promise<AudioBuffer>;
-	getAudioContext(options?: Readonly<{ resume?: boolean }>): Promise<EngineAudioContext>;
+	getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number }>): Promise<EngineAudioContext>;
 	setOutputDevice(deviceId?: string): Promise<EngineOutputDeviceState>;
 	getOutputDeviceState(): EngineOutputDeviceState;
 	setPlaybackGain(gain: number): number;

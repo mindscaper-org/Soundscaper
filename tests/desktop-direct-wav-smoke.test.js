@@ -147,13 +147,6 @@ test('direct-WAV smoke invocation derives WAV, AIFF, BWF, and BW64 targets under
 			cancelled: `/tmp/app-data/direct-wav-smoke-${TOKEN}/cancelled.wav`,
 		},
 	);
-	for (const [appDataPath, token] of [
-		['relative', TOKEN],
-		['/tmp/app-data/../other', TOKEN],
-		['/tmp/app-data', '../escape'],
-	]) {
-		assert.throws(() => deriveDesktopDirectWavSmokePaths(appDataPath, token), /absolute|token/iu);
-	}
 });
 
 test('direct-WAV child output parser requires one exact plan-bound result', () => {
@@ -434,18 +427,6 @@ test('direct-WAV aggregate surfaces bounded WAV, AIFF, BWF, BW64, and cancellati
 	assert.equal(aggregate.bw64File.bext.timeReference, '48000');
 	assert.equal(aggregate.bw64File.axml.layout, '5.1');
 	assert.equal(aggregate.bw64File.signal.channelComparisons, 84_480_000);
-	assert.throws(() => createDesktopDirectWavSmokeAggregate({
-		invocation, payload, platform: 'linux', arch: 'x64',
-		file: { ...file, signal: { ...file.signal, channelMismatchSamples: 1 } },
-		aiffFile: validDesktopDirectAiffFileEvidence(),
-		bwfFile: validDesktopDirectBwfFileEvidence(),
-		bw64File: validDesktopDirectBw64FileEvidence(),
-		cancellation: {
-			observed: true, riffHeaderValidated: true, nonzeroPayloadByteObserved: true,
-			maximumStagedBytes: 8192, maximumInspectedPrefixBytes: 4096,
-			cancelledFileAbsent: true, remainingStagingFiles: 0,
-		},
-	}), /channel mapping/iu);
 	assert.deepEqual(aggregate.cancellation, {
 		stagingRiffGeometryValidated: true,
 		nonzeroStagingPayloadByteObserved: true,

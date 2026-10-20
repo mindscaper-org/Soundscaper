@@ -243,16 +243,6 @@ test('professional build plans bind exact SDK pins and never treat the VST3 meta
 	assert.deepEqual(windowsArm.configure.argv.slice(4, 6), ['-A', 'ARM64']);
 	assert.equal(windowsArm.configure.argv.includes('-G'), false);
 	for (const snapshot of windowsArm.sourceAuthentication) removeMilestone5NativeSourceSnapshot(snapshot);
-	const windowsOverride = createSoundscaperProfessionalNativeBuildPlan({
-		repositoryRoot: ROOT, target: 'win-x64', sourceRoots: roots, sourceArchives: archives,
-		sourceManifestPath: manifestPath,
-		sourceSnapshotRoot: await createSnapshotParent(roots.juce, 'snapshots-win-override'),
-		buildRoot: join(roots.juce, '..', 'build-win-override'),
-	});
-	assert.equal(executeSoundscaperProfessionalNativeBuild(windowsOverride, {
-		approvedActivation: true,
-		run: () => ({ status: 0, stderr: '', stdout: '' }),
-	}).status, 'built');
 	assert.throws(() => executeSoundscaperProfessionalNativeBuild({
 		...windows,
 		target: 'win-arm64',

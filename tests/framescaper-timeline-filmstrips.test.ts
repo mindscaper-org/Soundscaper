@@ -67,53 +67,11 @@ function image(overrides: Data = {}): Promise<unknown> {
 	} as never);
 }
 
-test('an empty filmstrip request resolves to no frames in either product', async () => {
-	assert.deepEqual(await finishing(), []);
-	assert.deepEqual(await image(), []);
-});
-
-test('a filmstrip frame list must be a bounded array', async () => {
-	await assert.rejects(() => finishing({ frames: 'nope' }), /frames must be an array/u);
+test('a filmstrip frame list stays within its frame budget', async () => {
 	await assert.rejects(
 		() => finishing({ frames: Array.from({ length: 257 }, (_, index) => frame({ key: `frame-${index}` })) }),
 		/limited to 256 frames/u,
 	);
-	await assert.rejects(() => image({ frames: 'nope' }), /must be a bounded array/u);
-});
-
-test('filmstrip frame keys must be present and unique', async () => {
-	await assert.rejects(() => finishing({ frames: [frame({ key: '' })] }), /key must be non-empty/u);
-	await assert.rejects(
-		() => finishing({ frames: [frame(), frame()] }),
-		/frame key frame-1 is duplicated/u,
-	);
-});
-
-test('a filmstrip frame sample must be non-negative', async () => {
-	await assert.rejects(
-		() => finishing({ frames: [frame({ timelineSample: -1 })] }),
-		/sample must be non-negative/u,
-	);
-});
-
-test('filmstrip canvas dimensions must be positive', async () => {
-	await assert.rejects(
-		() => finishing({ frames: [frame()], width: 0 }),
-		/filmstrip width must be positive/u,
-	);
-	await assert.rejects(
-		() => finishing({ frames: [frame()], height: 0 }),
-		/filmstrip height must be positive/u,
-	);
-});
-
-test('an empty request is answered before its dimensions are validated', async () => {
-	assert.deepEqual(
-		await finishing({ width: 0 }),
-		[],
-		'no frames means no canvas is needed, so none is demanded',
-	);
-	assert.deepEqual(await image({ width: 0 }), []);
 });
 
 test('a cancelled filmstrip surfaces the caller abort reason in either product', async () => {
@@ -122,7 +80,7 @@ test('a cancelled filmstrip surfaces the caller abort reason in either product',
 	controller.abort(reason);
 
 	for (const build of [finishing, image]) {
-		await assert.rejects(() => build({ signal: controller.signal }), (error: unknown) => {
+		await assert.rejects(() => build({ signal: controller.signal, frames: [frame()] }), (error: unknown) => {
 			assert.equal(error, reason);
 			return true;
 		});

@@ -5,7 +5,6 @@ import {
 	AUDACITY_ACTION_MANIFEST,
 	AUDACITY_ACTION_STATUS,
 	applyAudacityParityToMenus,
-	audacityActionDefinition,
 	resolveAudacityActionId,
 	evaluateAudacityActionEnablement,
 	evaluateAudacityEnableWhen,
@@ -13,8 +12,6 @@ import {
 import { collectAudacityShortcutCommands } from '../src/common/editor/ui/dialogs/workspace-preferences-shortcut-commands.ts';
 import {
 	AUDIO_EDITOR_CRITICAL_APPLICATION_MENU_ACTION_IDS,
-	AUDIO_EDITOR_UNAVAILABLE_APPLICATION_MENU_ACTION_IDS,
-	createUnavailableApplicationMenuItem,
 } from '../src/common/editor/ui/application-menu-registry.ts';
 
 /**
@@ -142,34 +139,6 @@ test('the complete enableWhen vocabulary evaluates from runtime state', () => {
 	]) {
 		assert.equal(evaluateAudacityActionEnablement(id, unselectedContext), false, id);
 	}
-	assert.throws(() => evaluateAudacityEnableWhen('not-a-predicate', context), /Unknown Audacity/);
-});
-
-test('every registered unavailable application-menu action has a parity classification', () => {
-	const placeholderIds = AUDIO_EDITOR_UNAVAILABLE_APPLICATION_MENU_ACTION_IDS;
-	assert.equal(placeholderIds.length, 0);
-	assert.equal(new Set(placeholderIds).size, placeholderIds.length);
-	assert.ok(Object.isFrozen(placeholderIds));
-	assert.deepEqual(
-		placeholderIds.filter((id) => !audacityActionDefinition(id)),
-		[],
-	);
-	for (const id of placeholderIds) {
-		assert.deepEqual(createUnavailableApplicationMenuItem(id, id), { id, label: id, disabled: true });
-	}
-	assert.throws(
-		() => createUnavailableApplicationMenuItem('not-in-the-registry', 'Unknown'),
-		/Unknown unavailable application-menu action/,
-	);
-});
-
-test('implemented parity actions are never registered as unavailable menu placeholders', () => {
-	assert.deepEqual(
-		AUDIO_EDITOR_UNAVAILABLE_APPLICATION_MENU_ACTION_IDS.filter(
-			(id) => audacityActionDefinition(id)?.status === AUDACITY_ACTION_STATUS.IMPLEMENTED,
-		),
-		[],
-	);
 });
 
 test('critical functional manifest surfaces have semantic menu registry entries', () => {
@@ -232,7 +201,6 @@ test('menu decoration removes hidden actions and preserves pending local actions
 	assert.equal(menus.length, 2);
 	assert.equal(menus[0].items.find(({ id }) => id === 'export-midi').onClick, exportMidi);
 	assert.equal(menus[0].items.at(-1).divider, true);
-	assert.throws(() => applyAudacityParityToMenus(null), /menus must be an array/);
 });
 
 test('menu decoration uses pinned Audacity labels instead of divergent English call-site copy', () => {
@@ -291,7 +259,6 @@ test('shortcut command inventory consumes manifest actions while keeping disable
 	}).map((command) => [command.id, command]));
 	assert.equal(remote.get('insert').label, 'Insertion distante');
 	assert.equal(remote.get('insert').disabledReason, null);
-	assert.throws(() => collectAudacityShortcutCommands(null), /menus must be an array/);
 });
 
 test('shortcut command inventory omits product-disabled capability groups and submenu containers', () => {

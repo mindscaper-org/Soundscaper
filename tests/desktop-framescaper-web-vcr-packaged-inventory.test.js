@@ -6,6 +6,8 @@ import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { DESKTOP_EXPECTED_RUNTIME_FILES } from '../scripts/lib/desktop-project-library-runtime.mjs';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('packaged Web VCR smoke has an explicit script and no insecure Chromium switches', async () => {
@@ -25,15 +27,15 @@ test('packaged Web VCR smoke has an explicit script and no insecure Chromium swi
 test('desktop assembly inventories the Web VCR runtime and separate sandbox preload', async () => {
 	const assembly = await readFile(resolve(ROOT, 'scripts/lib/desktop-project-library-runtime.mjs'), 'utf8');
 	for (const member of [
-		'framescaper-web-vcr-capture-authority.js',
-		'framescaper-web-vcr-registration.js',
-		'framescaper-web-vcr-runtime-capture-state.js',
-		'framescaper-web-vcr-runtime.js',
-		'framescaper-web-vcr-target-observer.js',
-		'framescaper-web-vcr-target-tracker.js',
-		'web-vcr-domain.js',
-		'web-vcr-geometry.js',
-	]) assert.match(assembly, new RegExp(member.replaceAll('.', '\\.'), 'u'));
+		'desktop/framescaper-web-vcr-capture-authority.js',
+		'desktop/framescaper-web-vcr-registration.js',
+		'desktop/framescaper-web-vcr-runtime-capture-state.js',
+		'desktop/framescaper-web-vcr-runtime.js',
+		'desktop/framescaper-web-vcr-target-observer.js',
+		'desktop/framescaper-web-vcr-target-tracker.js',
+		'src/common/editor/web-vcr-domain.js',
+		'src/common/editor/web-vcr-geometry.js',
+	]) assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(member), true, member);
 	assert.match(assembly, /FRAMESCAPER_WEB_VCR_PRELOAD_BUNDLE/u);
 	assert.match(assembly, /framescaper-web-vcr-sandbox-preload\.ts/u);
 

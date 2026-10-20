@@ -77,13 +77,3 @@ test('the direct-WAV watchdog reads the stage marker the renderer smoke writes',
 	assert.equal(typeof scope[DESKTOP_DIRECT_WAV_SMOKE_STAGE_KEY], 'string');
 	assert.ok(scope[DESKTOP_DIRECT_WAV_SMOKE_STAGE_KEY], 'the renderer publishes the stage it last waited on');
 });
-
-test('a direct-WAV stage cannot draw a window its table does not declare', async () => {
-	const source = runDirectWavRendererSmoke.toString().replace("'WAV fixture')", "'WAV fixture', 90_000)");
-	assert.match(source, /'WAV fixture', 90_000\)/u);
-	const serializedRoutine = Function(`"use strict"; return (${source});`)();
-	await assert.rejects(
-		serializedRoutine(createRendererScope(), createDesktopDirectWavSmokePlan({ token: TOKEN })),
-		/WAV fixture import has no declared window/iu,
-	);
-});

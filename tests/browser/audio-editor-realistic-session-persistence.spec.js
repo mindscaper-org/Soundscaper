@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, longTone, test, toneA } from './audio-editor-test-fixtures.js';
-import {
+import { showClipTimingFields,
 	bootEditor,
 	chooseCommandAction,
 	chooseNestedCommandAction,
@@ -14,6 +14,7 @@ import {
 	registerAudioEditorHooks,
 	waitForEditor,
 } from './audio-editor-test-helpers.js';
+import { chooseClipMediaSetting, expectClipMediaSettingChecked } from './audio-editor-clip-settings-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { attachTempoInputDiagnostics, installTempoInputDiagnostics } from './helpers/tempo-input-diagnostics.ts';
 import {
@@ -27,6 +28,7 @@ import {
 	expectContiguousSourceClips,
 	persistedProject,
 	revealTimelineClip,
+	selectClipHeader,
 	setProjectTempo,
 	splitClip,
 } from './helpers/complex-editing-workflows.js';
@@ -101,6 +103,9 @@ test.describe('realistic mixed-state session persistence', () => {
 			}
 			const clipCount = await editor.getAttribute('data-clip-count');
 			const trackCount = await editor.getAttribute('data-track-count');
+			// Duplicate keeps a valid multi-selection; reading one clip's native
+			// duration requires picking that header rather than seeking with Enter.
+			await selectClipHeader(clipByName(editor, longTone.name).first());
 			const editedDuration = await clipDurationFrames(
 				page,
 				editor,
@@ -209,9 +214,9 @@ async function applyEditorialRevision(page, editor, row, clips, action, projectI
 		case 'reverse-invert': {
 			const clipId = await clips.last().getAttribute('data-clip-id');
 			const dialog = await openClipProperties(page, editor, clips.last());
-			await dialog.getByText('Media settings', { exact: true }).click();
-			await dialog.getByRole('checkbox', { name: 'Reverse', exact: true }).click();
-			await dialog.getByRole('checkbox', { name: 'Invert', exact: true }).click();
+			await showClipTimingFields(dialog);
+			await dialog.getByRole('switch', { name: 'Reverse', exact: true }).click();
+			await chooseClipMediaSetting(dialog, 'Invert');
 			await closeClipProperties(dialog);
 			evidence.clipId = clipId;
 			break;
@@ -250,9 +255,9 @@ async function assertRestoredRevision(page, editor, row, action, evidence) {
 		const dialog = await openClipProperties(
 			page, editor, editor.locator(`[data-clip-id="${evidence.clipId}"]`),
 		);
-		await dialog.getByText('Media settings', { exact: true }).click();
-		await expect(dialog.getByRole('checkbox', { name: 'Reverse', exact: true })).toBeChecked();
-		await expect(dialog.getByRole('checkbox', { name: 'Invert', exact: true })).toBeChecked();
+		await showClipTimingFields(dialog);
+		await expect(dialog.getByRole('switch', { name: 'Reverse', exact: true })).toHaveAttribute('aria-checked', 'true');
+		await expectClipMediaSettingChecked(dialog, 'Invert', true);
 		await closeClipProperties(dialog);
 	}
 	if (action === 'accent-delete-undo') {

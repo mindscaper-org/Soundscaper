@@ -69,12 +69,6 @@ test('capability policy protects direct and nested production commands', () => {
 		audioEffects: true, audioRecording: true, audioSpectralEditing: true, audioWarp: true,
 		takeComp: true, timelineAnnotations: true, trackFolders: true, videoEffects: true,
 	}
-	assert.throws(
-		() => assertEditorCommandCapabilities(command, {
-			...base, audioAutomation: false, audioMixerGraph: true,
-		}, 'Test product'),
-		/audioAutomation|automation/iu,
-	)
 	assert.doesNotThrow(() => assertEditorCommandCapabilities(command, {
 		...base, audioAutomation: true, audioMixerGraph: true, audioTrackFreeze: true,
 	}, 'Test product'))

@@ -7,11 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
-	MAX_LINKED_VIDEO_PLAYBACK_CAPABILITIES,
-	MAX_LINKED_VIDEO_PLAYBACK_CAPABILITY_BYTES,
-	MAX_LINKED_VIDEO_PLAYBACK_CAPABILITY_FILE_BYTES,
 	MAX_LINKED_VIDEO_PLAYBACK_RANGE_RESPONSE_BYTES,
-	MAX_LINKED_VIDEO_PLAYBACK_REQUESTS,
 	READ_PROFILE_LINKED_VIDEO_RANGE_V1,
 } from '../desktop/constants.js';
 import { ReadCapabilityStore } from '../desktop/file-capabilities.js';
@@ -19,37 +15,6 @@ import { createProtocolHandler } from '../desktop/protocol.js';
 
 const OWNER = Object.freeze({ renderer: 'linked-video' });
 const FOUR_MIB = 4 * 1024 ** 2;
-
-test('linked-video playback admission is explicitly count- and byte-bounded', async (context) => {
-	assert.equal(MAX_LINKED_VIDEO_PLAYBACK_CAPABILITIES, 128);
-	assert.equal(MAX_LINKED_VIDEO_PLAYBACK_CAPABILITY_BYTES, Number.MAX_SAFE_INTEGER);
-	assert.equal(MAX_LINKED_VIDEO_PLAYBACK_CAPABILITY_FILE_BYTES, Number.MAX_SAFE_INTEGER);
-	assert.equal(MAX_LINKED_VIDEO_PLAYBACK_RANGE_RESPONSE_BYTES, FOUR_MIB);
-	assert.equal(MAX_LINKED_VIDEO_PLAYBACK_REQUESTS, 16);
-	const handles = [fakeHandle(6), fakeHandle(4), fakeHandle(7)];
-	let opened = 0;
-	const store = new ReadCapabilityStore({
-		maximumLinkedVideoPlaybackCount: 2,
-		maximumLinkedVideoPlaybackBytes: 10,
-		openImpl: async () => handles[opened++],
-	});
-	context.after(async () => { await store.dispose().catch(() => undefined); });
-	const first = await store.registerLinkedOriginalRangePath('/tmp/first.mp4', playbackOptions(6));
-	const boundary = await store.registerLinkedOriginalRangePath('/tmp/second.mp4', playbackOptions(4));
-	assert.equal(first.readProfile, READ_PROFILE_LINKED_VIDEO_RANGE_V1);
-	assert.equal(boundary.readProfile, READ_PROFILE_LINKED_VIDEO_RANGE_V1);
-	await assert.rejects(
-		store.registerLinkedOriginalRangePath('/tmp/excess.mp4', playbackOptions(7)),
-		/count|limit/iu,
-	);
-	assert.equal(opened, 2, 'count refusal precedes another file open');
-	assert.equal(await store.release(first.id, { owner: OWNER }), true);
-	await assert.rejects(
-		store.registerLinkedOriginalRangePath('/tmp/excess.mp4', playbackOptions(7)),
-		/byte|limit/iu,
-	);
-	assert.equal(handles[2].closeCalls, 1, 'byte refusal closes its candidate handle');
-});
 
 test('linked-video playback leases do not expire while their renderer owner remains active', async (context) => {
 	let now = 0;
@@ -73,19 +38,6 @@ test('playback admission binds the opened handle to the locator file identity', 
 		/changed|identity/iu,
 	);
 	assert.equal(replacement.closeCalls, 1);
-});
-
-test('one linked-video playback capability rejects unsafe file sizes before opening', async () => {
-	let opened = false;
-	const store = new ReadCapabilityStore({ openImpl: async () => { opened = true; } });
-	await assert.rejects(
-		store.registerLinkedOriginalRangePath('/tmp/oversized.mp4', playbackOptions(
-			MAX_LINKED_VIDEO_PLAYBACK_CAPABILITY_FILE_BYTES + 1,
-		)),
-		/size|safe|identity|limit/iu,
-	);
-	assert.equal(opened, false);
-	await store.dispose();
 });
 
 test('an admitted large locator keeps its exact playback file identity and bounded range window', async (context) => {

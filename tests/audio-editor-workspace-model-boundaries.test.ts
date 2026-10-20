@@ -4,31 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
-import {
-	WORKSPACE_OVERLAY_MODEL_KEYS,
-	WORKSPACE_PANEL_DOCK_RUNTIME_KEYS,
-	createWorkspaceOverlayModel,
-	createWorkspacePanelDockRuntime,
-} from '../src/common/editor/ui/workspace/workspace-model-boundaries.ts';
-
-test('workspace overlay model has one exact frozen courier inventory', () => {
-	const model = createWorkspaceOverlayModel(Object.fromEntries(
-		WORKSPACE_OVERLAY_MODEL_KEYS.map((key) => [key, key]),
-	) as Record<typeof WORKSPACE_OVERLAY_MODEL_KEYS[number], unknown>);
-	assert.deepEqual(Object.keys(model), WORKSPACE_OVERLAY_MODEL_KEYS);
-	assert.equal(Object.isFrozen(model), true);
-});
-
-test('workspace panel docks share one exact frozen non-dock runtime inventory', () => {
-	const focusRequest = Object.freeze({ clipId: 'selected-clip', field: 'speedRatio' });
-	const runtime = createWorkspacePanelDockRuntime(Object.fromEntries(
-		WORKSPACE_PANEL_DOCK_RUNTIME_KEYS.map((key) => [key, key === 'clipPropertiesFocusRequest' ? focusRequest : key]),
-	) as Record<typeof WORKSPACE_PANEL_DOCK_RUNTIME_KEYS[number], unknown>);
-	assert.deepEqual(Object.keys(runtime), WORKSPACE_PANEL_DOCK_RUNTIME_KEYS);
-	assert.equal(Object.isFrozen(runtime), true);
-	assert.equal(runtime.clipPropertiesFocusRequest, focusRequest, 'preserve the request identity that triggers panel focus');
-});
-
 test('the workspace producer passes one overlay model and View reuses one dock runtime', async () => {
 	const [workspace, view] = await Promise.all([
 		readFile(new URL('../src/common/editor/ui/workspace/AudioEditorWorkspace.jsx', import.meta.url), 'utf8'),

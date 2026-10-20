@@ -41,14 +41,6 @@ test('linked-audio range IPC stays pathless and renderer-owner scoped', async ()
 	assert.ok(linkedRange);
 	assert.ok(portability);
 	assert.ok(handoff);
-	assert.match(
-		boundary.data,
-		/bounded linked-video and maintained linked PCM container locators.*materialized and kind-specific linked-original ranged-read descriptors/iu,
-	);
-	assert.match(
-		filesystemBoundary.data,
-		/main-private linked-video and maintained linked PCM container paths.*point-in-time stat identities/iu,
-	);
 	for (const path of [
 		'tests/desktop-linked-audio-locator-ipc.test.js',
 		'tests/desktop-preload-linked-audio-original.test.js',
@@ -56,31 +48,9 @@ test('linked-audio range IPC stays pathless and renderer-owner scoped', async ()
 		assert.ok(boundary.evidence.some((item) => item.path === path), path);
 		assert.ok(preload.evidence.some((item) => item.path === path), path);
 	}
-	assert.match(
-		preload.summary,
-		/linked-original lifecycle methods.*closed kind-specific pathless DTOs.*closed exact kind, locator ID, and revision.*audio and video load requests.*Boolean range and playback modes.*whole-Blob materialization requires false.*ranged access requires true.*non-null exact locator revision.*profile-bound descriptor.*kind-specific MIME\/name contract.*linked-original reads remain owner-bound/iu,
-	);
-	assert.match(
-		revocation.summary,
-		/linked-original handlers.*active document owner.*drains its materialized and ranged audio\/video read capabilities.*without deleting persistent locator metadata/iu,
-	);
 	assert.ok(revocation.evidence.some(
 		({ path }) => path === 'tests/desktop-linked-audio-range-capability.test.js',
 	));
-	for (const control of [linkedRange, portability, handoff]) {
-		assert.match(
-			control.summary,
-			/exact `?\.aif`? or `?\.aiff`?.*`?audio\/aiff`?.*FORM\/AIFF.*COMM.*SSND.*signed big-endian.*8.*16.*24.*32.*FORM\/AIFC.*FVER v1.*0xA2805140.*44-byte\s+COMM.*32-bit `?fl32`?.*Pascal compression name `?32-bit\s+floating point`?.*first-party label.*maintained fixture.*not authenticated provenance.*producer-neutral.*any producer.*exact tuple.*broader.*compressed.*other AIFC profiles.*reject.*broader third-party interoperability.*producer provenance.*unqualified.*`?\.aifc`?/iu,
-		);
-		for (const exclusion of [
-			/\bnot\b/iu,
-			/packaged/iu,
-			/operating-system/iu,
-			/metadata preservation/iu,
-			/content-frozen/iu,
-			/reference-scale/iu,
-		]) assert.match(control.summary, exclusion);
-	}
 	for (const path of [
 		'src/common/editor/aiff-pcm-chunk-reader.ts',
 		'src/common/editor/controller/import/internal/linked-media/linked-audio-import-admission.ts',

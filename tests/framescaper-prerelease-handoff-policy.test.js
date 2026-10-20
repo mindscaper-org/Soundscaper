@@ -14,25 +14,10 @@ test('pre-freeze handoff evidence is provenance and cannot authorize family-v1 s
 	const handoff = closure.items.find(({ id }) => id === 'm2-handoff-packaged-roundtrip');
 	assert.equal(handoff.compatibilityBoundary.classification, 'legacy-shared-schema-17-pre-framescaper-v18');
 	assert.equal(handoff.compatibilityBoundary.authorizesFramescaperV17Activation, false);
-
-	assert.match(compatibility.historicalPreReleaseLineage.status, /provenance-only.*not-readable.*not-migrated/iu);
 	assert.deepEqual(compatibility.historicalPreReleaseLineage.retainedMigrationSources, []);
 	const isolation = compatibility.rules.find(({ id }) => id === 'family-v1-product-isolation');
-	assert.match(isolation.currentBehavior, /fresh v1 stores.*no migration or copy-forward path.*never open, enumerate, mutate, or delete pre-release stores/iu);
 	assert.equal(isolation.historicalPreFreezeNarrative.formerId, 'framescaper-v18-product-isolation');
 	assert.equal(isolation.historicalPreFreezeNarrative.status, 'provenance-only-not-runtime-authority');
-});
-
-test('current cross-product handoff is tuple-routed opaque custody', async () => {
-	const [compatibility, browserEvidence] = await Promise.all([
-		json('config/project-compatibility.json'),
-		text('tests/browser/audio-editor-scape-product-roundtrip.spec.js'),
-	]);
-	const custody = compatibility.rules.find(({ id }) => id === 'family-v1-foreign-future-custody');
-	assert.match(custody.currentBehavior, /\(schemaFamily, schemaVersion\) tuple/iu);
-	assert.match(custody.currentBehavior, /known foreign-family and future-version archives.*Save Copy/iu);
-	assert.match(custody.currentBehavior, /pre-release.*provenance only.*never validated, migrated, opened/iu);
-	assert.doesNotMatch(browserEvidence, /LEGACY_SHARED_PROJECT_SCHEMA_VERSION = 17/u);
 });
 
 async function json(path) {

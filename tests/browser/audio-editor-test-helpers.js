@@ -154,7 +154,8 @@ export function trackNameText(editor) {
 export { clipByName, clipNameAccessiblePattern } from './audio-editor-clip-locators.js';
 
 export function clipField(editor, name) {
-	return editor.locator(`[data-clip-field="${name}"] input`);
+	const upstream = { pitchCents: 'pitch', speedRatio: 'speed', name: 'name' }[name];
+	return editor.locator(`[data-clip-field="${name}"] input${upstream ? `, [data-clip-properties-field="${upstream}"] input` : ''}`).first();
 }
 
 export async function commitInput(input, value) {
@@ -204,17 +205,7 @@ export async function clickClipInterior(page, clip, position = 0.5) {
 	);
 }
 
-export async function openClipProperties(page, editor, clip) {
-	if (clip) {
-		await clip.focus();
-		await clip.press('Enter');
-	}
-	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Clip properties']);
-	const panel = editor.locator('[data-workspace-panel="clip-properties"]');
-	await expect(panel).toBeVisible();
-	await expect(panel.locator('[data-clip-properties-panel]')).toBeVisible();
-	return panel;
-}
+export { openClipProperties, openSourceMonitor, showClipTimingFields } from './audio-editor-inspector-test-helpers.js';
 
 export async function openEffectsForTrack(editor, trackIndex) {
 	if (await editor.locator('[data-workspace-panel="project-bin"]').isVisible()) {
@@ -277,7 +268,7 @@ export async function openExportDialog(page, editor, { label = 'Export audio', .
 }
 
 export async function closeClipProperties(panel) {
-	await closeWorkspacePanel(panel.page().locator('[data-audio-editor]'), 'clip-properties');
+	await closeWorkspacePanel(panel.page().locator('[data-audio-editor]'), await panel.getAttribute('data-workspace-panel') || 'clip-properties');
 }
 
 export async function closeDialog(dialog) {

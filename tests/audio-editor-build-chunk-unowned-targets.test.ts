@@ -60,11 +60,10 @@ test('a double-quoted specifier is a static import like any other', () => {
 	);
 });
 
-test('every reasoned unowned target still exists, is still unowned, and says why', () => {
-	for (const [path, reason] of REACHABILITY_PLACED_TARGETS) {
+test('every registered unowned target still exists and has no owner', () => {
+	for (const path of REACHABILITY_PLACED_TARGETS.keys()) {
 		assert.ok(existsSync(resolve(REPOSITORY_ROOT, path)), `${path} must exist`);
 		assert.equal(chunkGroupForModulePath(path), null, `${path} has an owner now, so its reason is stale`);
-		assert.ok(reason.length > 40, `${path} must record why its reachability placement is safe`);
 	}
 });
 
@@ -81,6 +80,7 @@ test('the shared leaves an eager importer reaches keep the owner that importer a
 		['src/common/editor/nyquist/plugins/catalog.js', 'editor-effect-contracts'],
 		['desktop/desktop-audio-codec-capability-contract.ts', 'editor-codec-foundations'],
 		['desktop/desktop-audio-codec-operation-contract.ts', 'editor-codec-foundations'],
+		['desktop/desktop-audio-decode-formats.ts', 'editor-codec-foundations'],
 		['src/common/editor/design-system-adapters/canvas.ts', 'editor-domain'],
 		['src/common/editor/design-system-adapters/control-values.ts', 'editor-domain'],
 		['src/common/editor/design-system-adapters/timeline.ts', 'editor-domain'],

@@ -57,9 +57,6 @@ test('the multiband worklet emits bounded analysis windows without adding de-ess
 				continue;
 			}
 			assert.equal(messages.length, 1);
-			assert.deepEqual(Object.keys(messages[0] as object).sort(), [
-				'effectType', 'frames', 'inputPeak', 'outputPeak', 'reductionDb', 'seconds', 'sequence', 'type',
-			].sort());
 			assert.deepEqual(messages[0], {
 				type: 'analysis',
 				sequence: 1,

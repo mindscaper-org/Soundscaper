@@ -26,15 +26,21 @@ export function useLabelMarkerDragCancellation(
 		const owner = markerRef.current?.ownerDocument.defaultView;
 		if (!owner) return;
 		const finish = (event: globalThis.MouseEvent) => { if (event.button === 0) activeRef.current = false; };
+		const preventAutoscroll = (event: globalThis.MouseEvent) => {
+			// Keep Windows Chromium's native autoscroll from consuming the next menu key.
+			if (activeRef.current && event.button === 1 && (event.buttons & 1) !== 0) event.preventDefault();
+		};
 		const cancel = (event: KeyboardEvent) => {
 			if (event.key !== 'Escape' || !activeRef.current) return;
 			cancelDrag();
 			event.preventDefault();
 			event.stopPropagation();
 		};
+		owner.addEventListener('mousedown', preventAutoscroll, true);
 		owner.addEventListener('keydown', cancel, true);
 		owner.addEventListener('mouseup', finish, true);
 		return () => {
+			owner.removeEventListener('mousedown', preventAutoscroll, true);
 			owner.removeEventListener('keydown', cancel, true);
 			owner.removeEventListener('mouseup', finish, true);
 		};

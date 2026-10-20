@@ -35,10 +35,16 @@ what came back.
 Run `npm run provision:interchange-conformance` once, then
 `npm run test:reference:interchange`.
 
-These are **conformance-time tools**. Nothing is bundled, linked, or shipped, so
-no obligation flows into the AGPL-3.0-only distribution. Apache-2.0 and MIT are
-one-way compatible with GPLv3-family licensing and would remain acceptable even
-if any of it were ever linked rather than merely executed.
+These are **conformance-time tools**. Normal product bundles exclude them.
+The diagnostic nightly-with-tests includes the readers, their notices, and a
+relocatable Python so it can run the same assertions without installing Python
+on the user's machine. `node scripts/provision-nightly-interchange.mjs` prepares
+this tree before nightly staging. `config/nightly-interchange-python.json` pins
+the Python Build Standalone archives and digests for every maintained desktop
+test target; the full installation, upstream library notices, and `PYTHON.json`
+are retained. Windows ARM64 uses x64 Python under Windows emulation because
+OpenTimelineIO 0.18.1 has no Windows ARM64 wheel. Apache-2.0 and MIT are compatible
+with the product's GPLv3-family licensing.
 
 ### DAWproject: the published schema rather than a reference reader
 
@@ -76,9 +82,8 @@ that the reference reader gives us honestly instead.
 
 ## Third-party notices
 
-`THIRD_PARTY_LICENSES.md` already records the three pinned reference packages,
-their versions and Apache-2.0 terms, and the fact that they are executed only by
-the opt-in conformance tests rather than bundled or distributed. The FFmpeg
+`THIRD_PARTY_LICENSES.md` records the pinned reference packages, their terms,
+and the Python installation distributed with the diagnostic nightly. The FFmpeg
 runtime manifest binds the notice bytes with ordinary byte-length and SHA-256
 integrity metadata; `node scripts/repin-runtime-evidence.mjs` refreshes those
 descriptors after a deliberate notice edit, with no human approval record.

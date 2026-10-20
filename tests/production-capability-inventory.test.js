@@ -20,7 +20,6 @@ test('production capability inventory covers every product profile and platform 
 	const inventory = JSON.parse(await readFile(inventoryUrl, 'utf8'));
 
 	assert.equal(inventory.schemaVersion, 1);
-	assert.equal(inventory.groundedAt, '2026-08-30');
 	assert.equal(inventory.releaseLineAuthority, 'config/product-release-lines.json');
 	assert.deepEqual(inventory.platformTiers, PLATFORM_TIERS);
 	assert.deepEqual(Object.keys(inventory.products).sort(), [...PRODUCT_IDS].sort());
@@ -41,29 +40,15 @@ test('production capability inventory covers every product profile and platform 
 	}
 });
 
-test('product release metadata is descriptive and contains no admission state', async () => {
-	const [inventory, releaseLines] = await Promise.all([
-		readFile(inventoryUrl, 'utf8').then(JSON.parse),
-		readFile(new URL('../config/product-release-lines.json', import.meta.url), 'utf8').then(JSON.parse),
-	]);
-	const soundscaperLine = releaseLines.products.soundscaper;
-	assert.deepEqual(inventory.productVersions.previewTagPatterns, [
-		'soundscaper-v*-beta.*', 'soundscaper-v*-rc.*',
-	]);
+test('product release metadata records each product software status', async () => {
+	const inventory = JSON.parse(await readFile(inventoryUrl, 'utf8'));
+	assert.equal(Object.hasOwn(inventory, 'productVersions'), false);
 	assert.deepEqual(inventory.products.soundscaper.release, {
 		softwareStatus: 'feature-complete',
-		channel: soundscaperLine.releaseChannel,
-		candidateVersion: soundscaperLine.candidate.version,
-		stableTarget: soundscaperLine.stable.version,
 	});
 	assert.deepEqual(inventory.products.framescaper.release, {
 		softwareStatus: 'pre-release',
-		channel: releaseLines.products.framescaper.releaseChannel,
-		candidateVersion: releaseLines.products.framescaper.candidate.version,
-		stableTarget: null,
 	});
-	assert.doesNotMatch(JSON.stringify(inventory.productVersions), /admission/iu);
-	assert.doesNotMatch(JSON.stringify(inventory.products), /admissionProfile|admissionStatus/iu);
 });
 
 test('production capability inventory records browser and desktop QA targets', async () => {
@@ -187,7 +172,6 @@ test('Electron Enhanced inventory records product-owned current desktop boundari
 		'tests/desktop-framescaper-baseline-artifact-smoke.test.js',
 		'.github/workflows/desktop-preview.yml',
 	]) assert.ok(framescaper.evidence.includes(path), `framescaper is missing ${path}`);
-	assert.doesNotMatch(JSON.stringify(framescaper.evidence), /project-library-handoff-smoke/iu);
 });
 
 test('Electron Only inventory records the default-off native service surfaces', async () => {
@@ -228,7 +212,6 @@ test('Linux x64 inventory pins the current product-aware artifact smoke', async 
 		'tests/desktop-smoke.test.js',
 		'.github/workflows/desktop-preview.yml',
 	]) assert.ok(target.evidence.includes(path), `linux/x64 is missing ${path}`);
-	assert.doesNotMatch(JSON.stringify(target.evidence), /project-library-handoff-smoke/iu);
 	assert.equal(
 		target.evidence.includes('tests/desktop-soundscaper-project-library-baseline.test.ts'),
 		false,

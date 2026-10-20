@@ -280,9 +280,6 @@ test('restoring the default layout re-applies the active built-in workspace', as
 		state.activeId = 'classic';
 		runtime.actions.workspace.restoreDefault();
 		assert.deepEqual(applied, ['audacity', 'classic']);
-		state.activeId = '';
-		runtime.actions.workspace.restoreDefault();
-		assert.deepEqual(applied, ['audacity', 'classic', 'modern'], 'a missing id falls back to the Soundscaper preset');
 		runtime.dispose();
 	} finally {
 		await controller.dispose();

@@ -23,6 +23,7 @@ import { macroScriptLibrarySchemaIsAhead } from '../../../../macro-script-librar
 import type { OwnedStateWriteScope } from '../../../shared/owned-state.ts';
 import type { ControllerRecordingState } from '../../../recording/recording-state.ts';
 import type { ControllerTransportState } from '../../../transport/transport-state.ts';
+import { openStartupProject, type StartupProjectRecoveryNotice } from './project-startup-recovery.ts';
 
 export interface ProjectBootstrapState<Preferences> {
 	preferences: Preferences;
@@ -33,11 +34,13 @@ export interface ProjectBootstrapState<Preferences> {
 	readOnly: boolean;
 	takeCycleRecovery?: unknown;
 	takeCycleRecoveryInspecting?: boolean;
+	startupProjectRecovery?: StartupProjectRecoveryNotice | null;
 }
 
 export type ProjectBootstrapRecordingState = Pick<ControllerRecordingState,
 	| 'latencyOffsetMs' | 'leadInRecording' | 'microphoneMetering' | 'monitoring'
 	| 'preferredInputChannelCount' | 'preferredInputDeviceId' | 'preferredOutputDeviceId'
+	| 'audioHost' | 'preferredRecordingSampleRate'
 	| 'recordingInputGain'
 >;
 
@@ -93,6 +96,8 @@ export interface ProjectBootstrapServiceRuntime<
 	}> | null;
 	readonly mediaDevices?: ProjectBootstrapMediaDevices | null;
 	readonly automaticAudioDeviceEnumeration?: boolean;
+	readonly desktopAudio?: boolean;
+	readonly requestInputAccess?: () => PromiseLike<unknown> | unknown;
 	readonly effectMacroDefaults?: boolean;
 	readonly persistEffectMacroLibrary?: (key: string, value: EffectMacroLibraryState) => Promise<unknown>;
 	readonly productSettingKey: (key: string) => string;
@@ -103,6 +108,8 @@ export interface ProjectBootstrapServiceRuntime<
 	readonly normalizeRecordingInputGain: (value: unknown) => number;
 	readonly normalizeLatencyOffset: (value: unknown) => number;
 	readonly normalizeAudioDevicePreferences: (value: unknown) => Readonly<{
+		host?: string;
+		recordingSampleRate?: number;
 		inputDeviceId: string;
 		inputChannelCount: number;
 		outputDeviceId: string;
@@ -120,7 +127,8 @@ export interface ProjectBootstrapServiceRuntime<
 	 */
 	readonly startupProjectId?: (lastProjectId: string | null) => string | null;
 	readonly openProject: (project: Project) => Promise<unknown>;
-	readonly newProject: () => Promise<unknown>;
+	readonly newProject: (options?: { skipFlush?: boolean }) => Promise<unknown>;
+	readonly onStartupProjectFailure?: (projectId: string, error: unknown) => Promise<boolean>;
 	readonly openRecovery?: Readonly<{
 		deferInitialSave(operation: () => PromiseLike<unknown> | unknown): PromiseLike<boolean>;
 		deferMaintenance(operation: () => PromiseLike<unknown> | unknown): PromiseLike<boolean>;
@@ -138,6 +146,7 @@ export interface ProjectBootstrapServiceRuntime<
 		token: EditorLifetimeToken,
 	) => Promise<Value>;
 	readonly copy: Readonly<{
+		projectStartupRecoveryNeeded?: string;
 		webAudioUnsupported: string;
 		missingSourcesBlocked: string;
 		ready: string;
@@ -291,6 +300,9 @@ export function createProjectBootstrapService<
 			runtime.productSettingKey(runtime.audioDevicePreferencesSettingKey),
 			null,
 		)));
+		runtime.recordingState.audioHost = runtime.desktopAudio && (!savedAudioDevices.host || savedAudioDevices.host === 'browser')
+			? 'electron' : savedAudioDevices.host ?? 'browser';
+		runtime.recordingState.preferredRecordingSampleRate = savedAudioDevices.recordingSampleRate ?? 48_000;
 		runtime.recordingState.preferredInputDeviceId = savedAudioDevices.inputDeviceId;
 		runtime.recordingState.preferredInputChannelCount = savedAudioDevices.inputChannelCount;
 		runtime.recordingState.preferredOutputDeviceId = savedAudioDevices.outputDeviceId;
@@ -299,7 +311,10 @@ export function createProjectBootstrapService<
 			registerDeviceChangeListener();
 			// Device discovery describes optional hardware; opening a project must
 			// not wait for the browser's device service to answer.
-			void guard(Promise.resolve()).then(() => runtime.refreshAudioDevices({ probe: false }))
+			void guard(Promise.resolve()).then(async () => {
+				await runtime.refreshAudioDevices({ probe: false });
+				if (runtime.desktopAudio && runtime.recordingState.audioHost === 'electron') await runtime.requestInputAccess?.();
+			})
 				.catch((error: unknown) => {
 					if (!runtime.isDisposedError(error) && !runtime.isDisposed()) runtime.handleError(error);
 				});
@@ -308,20 +323,17 @@ export function createProjectBootstrapService<
 		const startupProjectId = runtime.startupProjectId
 			? runtime.startupProjectId(lastProjectId ?? null)
 			: lastProjectId;
-		const saved = startupProjectId
-			? await guard(runtime.store.loadProject(startupProjectId, { signal: runtime.lifetimeSignal }))
-			: null;
-		if (saved) await guard(runtime.openProject(saved));
-		else await guard(runtime.newProject());
+		const recovering = await openStartupProject(runtime, startupProjectId ?? null, guard);
 		runtime.publishProjectState();
-		if (!runtime.state.readOnly) {
+		if (!runtime.state.readOnly && !recovering) {
 			await guard(deferInitialSave(() => runtime.saveNow()));
 		}
-		await guard(deferMaintenance(
+		if (!recovering) await guard(deferMaintenance(
 			() => runtime.store.cleanupTemporaryAssets?.(),
 		));
 		await guard(runtime.refreshStorageUsage());
-		if (runtime.hasMissingTimelineSources()) setLocalizedStatus(runtime.setStatus, runtime.copy, "missingSourcesBlocked", undefined, 'error');
+		if (recovering) setLocalizedStatus(runtime.setStatus, runtime.copy, 'projectStartupRecoveryNeeded', undefined, 'error');
+		else if (runtime.hasMissingTimelineSources()) setLocalizedStatus(runtime.setStatus, runtime.copy, "missingSourcesBlocked", undefined, 'error');
 		else if (!runtime.state.readOnly && !runtime.state.takeCycleRecovery
 			&& !runtime.state.takeCycleRecoveryInspecting) setLocalizedStatus(runtime.setStatus, runtime.copy, "ready", undefined, 'success');
 	}

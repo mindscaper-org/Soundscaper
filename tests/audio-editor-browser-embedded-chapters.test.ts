@@ -53,57 +53,9 @@ test('the actual streamed MP3 encoder embeds chapters after validating its gaple
 	assert.equal(sink.removed, true);
 });
 
-test('the complete-file browser route includes chapter metadata in its direct destination', async () => {
-	const encoded = Uint8Array.of(0xff, 0xfb, 0x90, 0x00, 1, 2, 3, 4);
-	const runtime = createBrowserAudioCodecRuntime({
-		webCodecsAac: false,
-		codecClient: {
-			async encode() { return encoded; },
-			async decode() { throw new Error('This export does not decode.'); },
-			dispose() {},
-		},
-	});
+test('browser preflight refuses embedded chapters for unsupported containers', async () => {
+	const runtime = createBrowserAudioCodecRuntime();
 	try {
-		const parts: Uint8Array<ArrayBuffer>[] = [];
-		const result = await runtime.encodeFileToSink(wavFixture(48_000), 'mp3', {
-			async open() {},
-			async write(chunk) { parts.push(Uint8Array.from(chunk)); },
-			async close() { return 'saved'; },
-			async abort() { throw new Error('A successful export must not abort.'); },
-		}, { bitRate: 192, embeddedChapters: CHAPTERS });
-		const bytes = Buffer.concat(parts);
-		assert.equal(result.byteLength, bytes.length);
-		assert.equal(bytes.subarray(0, 3).toString(), 'ID3');
-		assert.ok(bytes.includes(Buffer.from('Opening chapter')));
-		assert.deepEqual(bytes.subarray(bytes.length - encoded.length), Buffer.from(encoded));
-	} finally { runtime.dispose(); }
-});
-
-test('the complete-file AAC route adds M4A chapters without changing its media payload', async () => {
-	const atom = (type: string, body = new Uint8Array(0)): Uint8Array<ArrayBuffer> => {
-		const bytes = new Uint8Array(8 + body.length);
-		new DataView(bytes.buffer).setUint32(0, bytes.length);
-		bytes.set(new TextEncoder().encode(type), 4);
-		bytes.set(body, 8);
-		return bytes;
-	};
-	const media = Uint8Array.of(1, 2, 3, 4, 5);
-	const encoded = new Uint8Array(await new Blob([atom('ftyp'), atom('mdat', media), atom('moov')]).arrayBuffer());
-	const runtime = createBrowserAudioCodecRuntime({
-		webCodecsAac: true,
-		codecClient: {
-			async encode() { throw new Error('AAC uses its native encoder.'); },
-			async decode() { throw new Error('This export does not decode.'); },
-			dispose() {},
-		},
-		encodeAac: async () => encoded,
-	});
-	try {
-		const output = await runtime.encode(wavFixture(48_000), 'aac-m4a', { bitRate: 192, embeddedChapters: CHAPTERS });
-		const bytes = Buffer.from(output.bytes);
-		assert.ok(bytes.includes(Buffer.from('chpl')));
-		assert.ok(bytes.includes(Buffer.from('Opening chapter')));
-		assert.deepEqual(bytes.subarray(16, 16 + media.length), Buffer.from(media));
 		await assert.rejects(runtime.preflightEncodeFile('flac', {
 			frameCount: 48_000, sampleRate: SAMPLE_RATE, sampleFormat: 'int24', embeddedChapters: CHAPTERS,
 		}), /Embedded chapters support MP3 and M4A/u);

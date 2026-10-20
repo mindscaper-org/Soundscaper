@@ -2,6 +2,7 @@
 
 /** Shared project authorities shipped in the compiled desktop runtime. */
 export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
+	'src/common/editor/commands/label-clipboard-codec.js',
 	'src/common/editor/project-audio-warp-validation.js',
 	'src/common/editor/project-bext-metadata.js',
 	'src/common/editor/project-command-projection.js',
@@ -29,6 +30,7 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/project-v17-validation.js',
 	'src/common/editor/project-validation-budget.js',
 	'src/common/editor/project-validation-primitives.js',
+	'src/common/editor/storage/project-recovery-repository.js',
 	'src/common/editor/track-display-mode.js',
 	'src/common/editor/video-export-project-snapshot.js',
 ]);

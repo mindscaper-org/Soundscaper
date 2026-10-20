@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import {
 	LINT_SHARD_IDS,
 	parseLintSelection,
+	partitionLintExecutionBatches,
 	partitionLintFiles,
 	selectChangedLintFiles,
 } from './lib/lint-shards.mjs';
@@ -19,26 +20,29 @@ const selectedShards = selection.shard === null ? LINT_SHARD_IDS : [selection.sh
 const eslintExecutable = resolve(root, 'node_modules/eslint/bin/eslint.js');
 
 let lintedFileCount = 0;
-for (const shard of selectedShards) {
+lintShards: for (const shard of selectedShards) {
 	const shardFiles = shards.get(shard);
 	if (shardFiles.length === 0) continue;
 	lintedFileCount += shardFiles.length;
-	process.stdout.write(`Linting ${shard} (${shardFiles.length} files)...\n`);
-	const result = spawnSync(process.execPath, [
-		eslintExecutable,
-		'--max-warnings', '0',
-		'--no-warn-ignored',
-		'--',
-		...shardFiles,
-	], {
-		cwd: root,
-		stdio: 'inherit',
-	});
-	if (result.error) throw result.error;
-	if (result.signal) throw new Error(`ESLint shard ${shard} terminated with ${result.signal}.`);
-	if (result.status !== 0) {
-		process.exitCode = result.status ?? 1;
-		break;
+	const batches = partitionLintExecutionBatches(shardFiles);
+	for (const [index, batch] of batches.entries()) {
+		process.stdout.write(`Linting ${shard} ${index + 1}/${batches.length} (${batch.length} files)...\n`);
+		const result = spawnSync(process.execPath, [
+			eslintExecutable,
+			'--max-warnings', '0',
+			'--no-warn-ignored',
+			'--',
+			...batch,
+		], {
+			cwd: root,
+			stdio: 'inherit',
+		});
+		if (result.error) throw result.error;
+		if (result.signal) throw new Error(`ESLint shard ${shard} terminated with ${result.signal}.`);
+		if (result.status !== 0) {
+			process.exitCode = result.status ?? 1;
+			break lintShards;
+		}
 	}
 }
 

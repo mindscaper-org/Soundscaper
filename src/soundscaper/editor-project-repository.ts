@@ -134,7 +134,12 @@ export class SoundscaperProjectRepository implements ProjectRepositoryPort {
 	}
 
 	async list(): Promise<ProjectDocument[]> {
-		return (await this.#delegate.list()).map((project) => this.#custody(project))
+		const result: ProjectDocument[] = []
+		for (const project of await this.#delegate.list()) {
+			try { result.push(this.#custody(project)) }
+			catch { /* Recovery reads retain the damaged row without blocking healthy projects. */ }
+		}
+		return result
 	}
 
 	async listRevisions(projectId: string): Promise<ProjectRevision[]> {

@@ -178,6 +178,7 @@
 		"export/video-export-original-loader.ts",
 		"export/video-export-timing.ts",
 		"import/audiocom-panel-session.ts",
+		"import/audiocom-project-actions.ts",
 		"import/audiocom-project-archives.ts",
 		"import/dawproject-audio-decode.ts",
 		"import/deferred-dawproject-service.ts",

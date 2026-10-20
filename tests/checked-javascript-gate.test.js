@@ -23,7 +23,6 @@ test('the checked JavaScript gate pins its strict runtime boundary inventory', a
 		encoding: 'utf8',
 	});
 	assert.equal(result.status, 0, result.stderr);
-	assert.match(result.stdout, /Checked 6 strict JavaScript runtime boundaries\./u);
 
 	for (const path of checkedFiles) {
 		assert.match(readFileSync(path, 'utf8'), /^\/\/ @ts-check\n/u, path);

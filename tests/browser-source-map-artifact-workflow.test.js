@@ -1,24 +1,24 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const SOURCE_MAP_DOWNLOAD_STEPS = Object.freeze([
-	'Download the website build\'s source maps',
-	'Download the Framescaper website build\'s source maps',
+import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
+
+const SOURCE_MAP_ARTIFACTS = Object.freeze([
+	['verified-site-source-maps', '.wrangler/browser-products/soundscaper-source-maps'],
+	['verified-framescaper-site-source-maps', '.wrangler/browser-products/framescaper-source-maps'],
 ]);
 
 test('every browser engine receives the source maps required to verify both product sites', async () => {
-	for (const workflowName of ['quality.yml']) {
-		const workflow = await readFile(new URL(`../.github/workflows/${workflowName}`, import.meta.url), 'utf8');
-		for (const stepName of SOURCE_MAP_DOWNLOAD_STEPS) {
-			const escapedName = stepName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-			const directDownloads = workflow.match(
-				new RegExp(`- name: ${escapedName}\\n\\s+uses: actions/download-artifact@`, 'gu'),
-			);
-			assert.equal(directDownloads?.length, 2,
-				`${workflowName} must download ${stepName.toLowerCase()} for both browser job families`);
+	const workflow = await readWorkflow('quality.yml');
+	for (const jobName of ['browser', 'firefox']) {
+		const downloads = extractJob(workflow, jobName).split(/\n {6}- /u)
+			.filter((step) => /uses: actions\/download-artifact@/u.test(step));
+		for (const [name, path] of SOURCE_MAP_ARTIFACTS) {
+			const matching = downloads.filter((step) => step.includes(`name: ${name}\n`));
+			assert.equal(matching.length, 1, `${jobName} must download ${name} exactly once`);
+			assert.ok(matching[0].includes(`path: ${path}\n`), `${jobName} must place ${name} at its consumed path`);
 		}
 	}
 });

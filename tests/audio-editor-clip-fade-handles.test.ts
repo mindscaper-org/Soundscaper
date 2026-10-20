@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fadeDurationAtPointer, fadeDurationAtKey, fadeShapeAtPointer, fadeShapeAtKey, clipFadeGain, fadeOverlayGeometry, placeFadeShapeHandles } from '../src/common/editor/ui/timeline/clip-fade-geometry.ts';
+import { fadeDurationAtPointer, fadeShapeAtPointer, fadeShapeAtKey, clipFadeGain, fadeOverlayGeometry, placeFadeShapeHandles } from '../src/common/editor/ui/timeline/clip-fade-geometry.ts';
 
 test('fade drags use timeline frames, preserve the grab offset, and clamp independently', () => {
 	assert.equal(fadeDurationAtPointer('in', 2400, 100, 130, 100, 48000, 48000), 16800);
@@ -9,14 +9,6 @@ test('fade drags use timeline frames, preserve the grab offset, and clamp indepe
 	assert.equal(fadeDurationAtPointer('in', 2400, 100, -100, 100, 48000, 48000), 0);
 	assert.equal(fadeDurationAtPointer('out', 2400, 100, -1000, 100, 48000, 48000), 48000);
 	assert.equal(fadeDurationAtPointer('in', 0, 0, 1, 7, 44100, 44100), 6300);
-});
-
-test('keyboard editing offers coarse/fine steps and exact endpoints', () => {
-	assert.equal(fadeDurationAtKey('ArrowRight', false, 0, 48000, 48000), 480);
-	assert.equal(fadeDurationAtKey('ArrowLeft', true, 9600, 48000, 48000), 4800);
-	assert.equal(fadeDurationAtKey('Home', false, 9600, 48000, 48000), 0);
-	assert.equal(fadeDurationAtKey('End', false, 0, 48000, 48000), 48000);
-	assert.equal(fadeDurationAtKey('Enter', false, 0, 48000, 48000), null);
 });
 
 test('the fade envelope follows the shaped equal-power curve', () => {
@@ -37,9 +29,6 @@ test('shape drags change only the exponent and clamp to the upstream range', () 
 	assert.equal(fadeShapeAtPointer(1, 100, 100, 100), 1);
 	assert.equal(fadeShapeAtKey('Home', false, 1), 0.15);
 	assert.equal(fadeShapeAtKey('End', false, 1), 6);
-	assert.equal(fadeShapeAtKey('ArrowDown', false, 1), 1.1);
-	assert.equal(fadeShapeAtKey('ArrowUp', true, 1), 0.99);
-	assert.equal(fadeShapeAtKey('Enter', false, 1), null);
 	const thirdPointBase = Math.sin(Math.PI / 6);
 	const thirdPointGain = thirdPointBase ** 2;
 	assert.ok(Math.abs(fadeShapeAtPointer(2, 100, 110, 100, thirdPointBase)

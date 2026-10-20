@@ -133,7 +133,7 @@ const MISSING_TRANSFER_DOCUMENTS = BUILT_TRANSFER_DOCUMENTS
  *
  * A guard that decides for itself whether to run is not a guard. The Node test
  * shards check the repository out and never build, so on a skip-if-absent rule
- * alone these three tests have never once executed in CI - they reported as
+ * alone these tests have never once executed in CI - they reported as
  * skipped, the pipeline went green, and the regression they exist to catch
  * (react-dom reaching the standalone page through `vite/preload-helper`) would
  * have landed unremarked. `.github/workflows/quality.yml` now runs this file in
@@ -193,9 +193,6 @@ const ADMITTED_PRELOAD_GROUPS = [
  */
 const PRELOAD_BYTE_CEILING = 360_000;
 
-/** Strings only the React runtime or its DOM renderer leaves in a built chunk. */
-const REACT_RUNTIME_MARK = /Minified React error|react\.transitional\.element|react-dom/u;
-
 test('the built transfer documents preload no editor chunk', { skip: NO_BUILD_OUTPUT }, () => {
 	requireBuiltTransferDocuments();
 	for (const document of BUILT_TRANSFER_DOCUMENTS) {
@@ -221,24 +218,6 @@ test('the built transfer preload set stays under its byte ceiling', { skip: NO_B
 	}
 });
 
-test('React reaches the built pages through the site-entry group', { skip: NO_BUILD_OUTPUT }, () => {
-	// Recorded, not endorsed. `transfer-page-entry.ts` imports its archive
-	// runtime dynamically, rolldown answers that with `vite/preload-helper`, and
-	// the `$initial`-tagged site-entry group owns the helper and react-dom alike -
-	// so the standalone page preloads the React renderer it never calls. The
-	// docblock in `scripts/generate-static-routes.mjs` says so too, and this is
-	// what keeps the two honest: when the helper gets an owner of its own, this
-	// expectation goes empty and that docblock has to be rewritten with it.
-	requireBuiltTransferDocuments();
-	for (const document of BUILT_TRANSFER_DOCUMENTS) {
-		const carrying = preloadedChunks(document)
-			.filter((chunk) => REACT_RUNTIME_MARK.test(chunk.text))
-			.map((chunk) => chunk.group)
-			.sort();
-		assert.deepEqual(carrying, ['site-entry', 'site-entry'], document);
-	}
-});
-
 /**
  * Every chunk one built transfer document preloads, with its group and weight.
  *
@@ -251,15 +230,13 @@ function preloadedChunks(document: string): readonly {
 	href: string;
 	group: string;
 	byteLength: number;
-	text: string;
 }[] {
 	const html = readFileSync(resolve(REPOSITORY_ROOT, document), 'utf8');
 	const root = resolve(REPOSITORY_ROOT, dirname(document), '../..');
 	const chunks = [...html.matchAll(/<link rel="modulepreload" href="([^"]+)"/gu)].map(([, href]) => {
 		assert.match(href, /^\/assets\/[^/]+\.js$/u, `${document} preloads ${href}, which is not a built chunk`);
 		const file = resolve(root, `.${href}`);
-		const text = readFileSync(file, 'utf8');
-		return { href, group: chunkGroupName(href), byteLength: statSync(file).size, text };
+		return { href, group: chunkGroupName(href), byteLength: statSync(file).size };
 	});
 	assert.ok(chunks.length > 0, `${document} preloads nothing, so this file is measuring the wrong document`);
 	return chunks;

@@ -1,6 +1,8 @@
+import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
+import { KEYBOARD_MAP_COPY_BY_LOCALE } from '../../../i18n/editor-keyboard-map-copy.ts';
 import NativePreferencesPanel from './NativePreferencesPanel.tsx';
 import './ProcessingDialogs.css';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogSideNav } from '@soundscaper/design-system/DialogSideNav/DialogSideNav';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -39,6 +41,8 @@ import {
 	workspacePanelLabel,
 } from '../workspace/workspace-panel-model.ts';
 
+const KeyboardMapDialog = lazy(() => import('./KeyboardMapDialog.tsx'));
+
 export default function WorkspacePreferencesDialog({
 	controller,
 	snapshot,
@@ -57,6 +61,8 @@ export default function WorkspacePreferencesDialog({
 	const sideNavRef = useRef(null);
 	const workspacePresetRef = useRef(null);
 	const [selectedPage, setSelectedPage] = useState(workspacePreferencesPage(initialPage));
+	const [keyboardVisible, setKeyboardVisible] = useState(false);
+	const keyboardCopy = resolveEditorCopyScope('keyboardMap', KEYBOARD_MAP_COPY_BY_LOCALE.en, copy);
 	const [shortcutSearch, setShortcutSearch] = useState('');
 	const [shortcutSort, setShortcutSort] = useState(DEFAULT_SHORTCUT_SORT_MODE);
 	const [workspaceName, setWorkspaceName] = useState('');
@@ -85,7 +91,7 @@ export default function WorkspacePreferencesDialog({
 		{ id: 'effects', label: copy.preferencesEffects, icon: iconNameToChar('WAVEFORM') },
 		{ id: 'shortcuts', label: copy.shortcuts, icon: iconNameToChar('SHORTCUTS') },
 		{ id: 'workspace', label: copy.workspace, icon: iconNameToChar('WORKSPACE') },
-		...(productId === 'soundscaper' ? [{ id: 'advanced', label: copy.preferencesAdvanced, icon: iconNameToChar('SETTINGS_COG') }] : []),
+		{ id: 'advanced', label: copy.preferencesAdvanced, icon: iconNameToChar('SETTINGS_COG') },
 	];
 	const selectedPageLabel = pages.find((page) => page.id === selectedPage)?.label || copy.preferencesTitle;
 	useEffect(() => setSelectedPage(workspacePreferencesPage(initialPage)), [initialPage]);
@@ -178,8 +184,8 @@ export default function WorkspacePreferencesDialog({
 							<AppearancePreferencesPage controller={controller} preferences={preferences} copy={copy} run={run} />
 						)}
 
-						{selectedPage === 'advanced' && productId === 'soundscaper' && (
-							<AdvancedPreferencesPage controller={controller} preferences={preferences} copy={copy} run={run} />
+						{selectedPage === 'advanced' && (
+							<AdvancedPreferencesPage controller={controller} preferences={preferences} copy={copy} run={run} productId={productId} />
 						)}
 
 						{selectedPage === 'workspace' && (
@@ -273,6 +279,8 @@ export default function WorkspacePreferencesDialog({
 						{selectedPage === 'shortcuts' && (
 							<PreferencePanel title={copy.shortcuts} className="kw-audio-editor-preferences__shortcuts">
 								<p>{copy.shortcutMouseHelp}</p>
+								<Button variant="secondary" onClick={() => setKeyboardVisible(true)}>{keyboardCopy.showKeyboard}</Button>
+								{keyboardVisible && <Suspense fallback={null}><KeyboardMapDialog commands={commands} shortcuts={preferences.shortcuts} copy={copy} onClose={() => setKeyboardVisible(false)} /></Suspense>}
 								<div className="kw-audio-editor-preferences__shortcut-controls">
 									<label className="kw-audio-editor-preferences__search">
 										<span className="kw-audio-editor-sr-only">{copy.shortcutSearch}</span>

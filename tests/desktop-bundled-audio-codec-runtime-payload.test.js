@@ -93,6 +93,7 @@ test('staged manifest closes over control, helper, runner, seven modules, and se
 			'desktop/bundled-wavpack-stream.js',
 			'desktop/desktop-audio-codec-capability-contract.js',
 			'desktop/desktop-audio-codec-operation-contract.js',
+			'desktop/desktop-audio-decode-formats.js',
 			'desktop/desktop-audio-stream-contract.js',
 			'desktop/direct-bundled-audio-codec-wasm.js',
 			'desktop/finite-float32-pcm.js',
@@ -159,7 +160,7 @@ test('main rejects a changed transitive dependency before forking and rejects an
 	await assert.rejects(() => verifyInexact('lame'), /manifest.*inexact shape/iu);
 });
 
-test('runtime verifier refuses symbolic staged members and macOS x64 aliases', async (context) => {
+test('runtime verifier refuses symbolic staged members', async (context) => {
 	const fixture = await stagedFixture(context);
 	const helper = join(
 		fixture.desktopRoot,
@@ -173,9 +174,6 @@ test('runtime verifier refuses symbolic staged members and macOS x64 aliases', a
 		desktopRoot: fixture.desktopRoot, target: 'win-arm64',
 	});
 	await assert.rejects(() => verify('wavpack'), /control file.*identity/iu);
-	assert.throws(() => createBundledAudioCodecRuntimeVerifier({
-		desktopRoot: fixture.desktopRoot, target: 'mac-x64',
-	}), /target.*unsupported/iu);
 });
 
 test('build audit rejects any transitive module outside the authenticated per-codec closure', async (context) => {

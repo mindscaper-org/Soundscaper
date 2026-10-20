@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { RecordingRecoveryDestination } from '../../storage/recording-recovery-journal-repository.ts';
 import type { RecordingRoute } from '../../recording-routing.js';
 import type {
 	RecordingCaptureControllerLike,
@@ -153,7 +154,7 @@ export interface RecordingCapturePool {
 }
 
 export interface RecordingEnginePort {
-	getAudioContext(): Promise<RecordingAudioContext>;
+	getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number }>): Promise<RecordingAudioContext>;
 	getPlaybackGraphLatencyFrames?(): number;
 	getPositionFrames(): number;
 	setLoop(enabled: boolean): void;
@@ -273,6 +274,7 @@ export interface RecordingCaptureCommonRuntime {
 	readonly soundActivation?: RecordingSoundActivationPort;
 	readonly getProject: () => RecordingProject;
 	readonly findTrack: (project: RecordingProject, trackId: string) => RecordingTrack | null;
+	readonly recordingInputSampleRate?: () => number;
 	readonly projectSampleRate: (project: RecordingProject) => number;
 	readonly activeSelection: (project: RecordingProject) => RecordingSelection | null;
 	readonly beginPlaybackCachePreparation: (project: RecordingProject) => Promise<unknown>;
@@ -282,6 +284,7 @@ export interface RecordingCaptureCommonRuntime {
 	readonly openSourceWriter: (
 		sourceId: string,
 		metadata: Readonly<Record<string, unknown>>,
+		destination?: RecordingRecoveryDestination,
 	) => Promise<RecordingSourceWriter>;
 	readonly createPreview: (options: Readonly<{
 		readonly trackId: string;

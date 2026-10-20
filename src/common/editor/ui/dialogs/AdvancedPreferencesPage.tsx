@@ -3,6 +3,9 @@
 import { useEffect, useId, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
+import { Separator } from '@soundscaper/design-system/Separator';
+import type { AudioEditorPerformancePreferences } from '../../performance-preferences.ts';
+import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 import {
 	AUDIO_COM_DEFAULT_SERVER_URL, normalizeAudioComServerUrl,
 	type AudioEditorAdvancedPreferences,
@@ -15,18 +18,29 @@ interface AdvancedPreferencesCopy {
 	readonly advancedAudioServerSave: string;
 	readonly advancedAudioServerUrl: string;
 	readonly advancedAudioServerUseDefault: string;
+	readonly optimizeFor: string;
+	readonly optimizeForMemory: string;
+	readonly optimizeForSpeed: string;
+	readonly optimizeForDescription: string;
 }
 
 interface AdvancedPreferencesPageProps {
 	readonly controller: { readonly actions: { readonly preferences: {
-		readonly update: (changes: { readonly advanced: AudioEditorAdvancedPreferences }) => unknown;
+		readonly update: (changes: {
+			readonly advanced?: AudioEditorAdvancedPreferences;
+			readonly performance?: AudioEditorPerformancePreferences;
+		}) => unknown;
 	} } };
-	readonly preferences: { readonly advanced: AudioEditorAdvancedPreferences };
+	readonly preferences: {
+		readonly advanced: AudioEditorAdvancedPreferences;
+		readonly performance?: AudioEditorPerformancePreferences;
+	};
+	readonly productId?: string;
 	readonly copy: AdvancedPreferencesCopy;
 	readonly run: (operation: () => unknown) => unknown;
 }
 
-export default function AdvancedPreferencesPage({ controller, preferences, copy, run }: AdvancedPreferencesPageProps) {
+export default function AdvancedPreferencesPage({ controller, preferences, copy, run, productId = 'soundscaper' }: AdvancedPreferencesPageProps) {
 	const serverUrl = preferences.advanced.audioComServerUrl;
 	const [draft, setDraft] = useState(serverUrl);
 	const [invalid, setInvalid] = useState(false);
@@ -40,23 +54,40 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 		setDraft(audioComServerUrl);
 		if (audioComServerUrl !== serverUrl) run(() => controller.actions.preferences.update({ advanced: { audioComServerUrl } }));
 	};
-	return <PreferencePanel title={copy.advancedAudioServer}>
-		<label className="kw-audio-editor-preferences__field" htmlFor={fieldId}>
-			<span>{copy.advancedAudioServerUrl}</span>
-			<input id={fieldId} type="url" value={draft} autoComplete="off" spellCheck={false}
-				aria-invalid={invalid || undefined} aria-describedby={`${fieldId}-note${invalid ? ` ${fieldId}-error` : ''}`}
-				onChange={(event) => { setDraft(event.currentTarget.value); setInvalid(false); }}
-				onKeyDown={(event) => {
-					if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
-					event.preventDefault(); save(draft);
-				}} />
-		</label>
-		<p className="kw-audio-editor-preferences__note" id={`${fieldId}-note`}>{copy.advancedAudioServerDescription}</p>
-		{invalid && <p role="alert" id={`${fieldId}-error`}>{copy.advancedAudioServerInvalid}</p>}
-		<div className="kw-audio-editor__custom-workspace-actions">
-			<Button variant="primary" disabled={draft.trim() === serverUrl} onClick={() => save(draft)}>{copy.advancedAudioServerSave}</Button>
-			<Button variant="secondary" disabled={draft === AUDIO_COM_DEFAULT_SERVER_URL && serverUrl === AUDIO_COM_DEFAULT_SERVER_URL}
-				onClick={() => save(AUDIO_COM_DEFAULT_SERVER_URL)}>{copy.advancedAudioServerUseDefault}</Button>
-		</div>
-	</PreferencePanel>;
+	return <>
+		<PreferencePanel title={copy.optimizeFor}>
+			<div className="kw-audio-editor-preferences__grid">
+				<PreferenceDropdownField label={copy.optimizeFor} value={preferences.performance?.optimizeFor ?? 'memory'}
+					onChange={(value: AudioEditorPerformancePreferences['optimizeFor']) => run(() => controller.actions.preferences.update({
+						performance: { optimizeFor: value },
+					}))} options={[
+						{ value: 'memory', label: copy.optimizeForMemory },
+						{ value: 'speed', label: copy.optimizeForSpeed },
+					]} />
+			</div>
+			<p className="kw-audio-editor-preferences__note">{copy.optimizeForDescription}</p>
+		</PreferencePanel>
+		{productId === 'soundscaper' && <>
+			<Separator />
+			<PreferencePanel title={copy.advancedAudioServer}>
+				<label className="kw-audio-editor-preferences__field" htmlFor={fieldId}>
+					<span>{copy.advancedAudioServerUrl}</span>
+					<input id={fieldId} type="url" value={draft} autoComplete="off" spellCheck={false}
+						aria-invalid={invalid || undefined} aria-describedby={`${fieldId}-note${invalid ? ` ${fieldId}-error` : ''}`}
+						onChange={(event) => { setDraft(event.currentTarget.value); setInvalid(false); }}
+						onKeyDown={(event) => {
+							if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+							event.preventDefault(); save(draft);
+						}} />
+				</label>
+				<p className="kw-audio-editor-preferences__note" id={`${fieldId}-note`}>{copy.advancedAudioServerDescription}</p>
+				{invalid && <p role="alert" id={`${fieldId}-error`}>{copy.advancedAudioServerInvalid}</p>}
+				<div className="kw-audio-editor__custom-workspace-actions">
+					<Button variant="primary" disabled={draft.trim() === serverUrl} onClick={() => save(draft)}>{copy.advancedAudioServerSave}</Button>
+					<Button variant="secondary" disabled={draft === AUDIO_COM_DEFAULT_SERVER_URL && serverUrl === AUDIO_COM_DEFAULT_SERVER_URL}
+						onClick={() => save(AUDIO_COM_DEFAULT_SERVER_URL)}>{copy.advancedAudioServerUseDefault}</Button>
+				</div>
+			</PreferencePanel>
+		</>}
+	</>;
 }

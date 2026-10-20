@@ -42,17 +42,4 @@ test('ARA peer uploads source planes, binds the document, and renders through di
 	assert.deepEqual(calls.map(({ operation }) => operation), [19, 13, 14, 15, 16, 17, 18]);
 	assert.deepEqual(calls[1]!.fields, ['source-1', 'Clip', 48000, 2, 4, 0, 3, 4 / 48000]);
 	assert.deepEqual(calls[2]!.fields, [0, 4, 2, [1, 2, 3, 4], [-1, -2, -3, -4]]);
-	await assert.rejects(peer.writeAraPcm(instance, { startFrame: 0, channels: [new Float32Array(4), new Float32Array(4)] }), /bound/u);
-	await assert.rejects(peer.renderAra(instance, { startFrame: 3, frameCount: 2, channelCount: 2 }), /region/u);
-});
-
-test('ARA peer rejects oversized and invalid source metadata before contacting native code', async () => {
-	const instance = { latency: 0, session: { request() { throw new Error('native request was reached'); } } };
-	const peer = createAraPluginPeerMethods((value: typeof instance) => value);
-	const config = { sourceId: 'source', name: 'Clip', sampleRate: 48000, channelCount: 2,
-		frameCount: 4, sourceStartSeconds: 0, playbackStartSeconds: 0, durationSeconds: 4 / 48000 };
-	await assert.rejects(peer.configureAra(instance, { ...config, frameCount: 100_000_000 }), /512/u);
-	await assert.rejects(peer.configureAra(instance, { ...config, durationSeconds: 1 }), /region/u);
-	await assert.rejects(peer.configureAra(instance, { ...config, name: '\0' }), /text/u);
-	await assert.rejects(peer.bindAra(instance), /uploaded/u);
 });

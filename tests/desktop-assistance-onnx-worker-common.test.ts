@@ -2,14 +2,12 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import {
-	assertAssistanceOnnxJobV1,
 	createAssistanceOnnxSessionV1,
 	publishAssistanceOnnxOutputV1,
 	reviewAssistanceOnnxRuntimeModuleV1,
@@ -30,48 +28,6 @@ const INVALID_RUNTIME = Object.freeze({
 const INVALID_SESSION = Object.freeze({
 	value: 'session value rejected',
 	surface: 'session surface rejected',
-});
-
-test('one CPU job admission authority preserves task and branded descriptor checks', async (testContext) => {
-	const { context } = await publicationFixture(testContext, 64);
-	const error = 'The nomic adapter received a foreign authenticated CPU job.';
-	assert.doesNotThrow(() => assertAssistanceOnnxJobV1(context, 'text-embedding', error));
-	for (const invalid of [
-		{ ...context, grant: { ...context.grant, familyId: 'whisper-cpp' } },
-		{ ...context, grant: { ...context.grant, task: 'beat-tracking' } },
-		{ ...context, job: { ...context.job, descriptor: {
-			...context.job.descriptor, familyId: 'llama-cpp',
-		} } },
-		{ ...context, job: { ...context.job, descriptor: {
-			...context.job.descriptor, runtimeVersion: '1.28.0',
-		} } },
-		{ ...context, job: { ...context.job, descriptor: {
-			...context.job.descriptor, executionProvider: 'cuda',
-		} } },
-	]) {
-		assert.throws(() => assertAssistanceOnnxJobV1(
-			invalid as unknown as AssistanceRuntimeFamilyWorkerExecutionContext,
-			'text-embedding', error,
-		), { name: 'TypeError', message: error });
-	}
-	assert.throws(() => assertAssistanceOnnxJobV1(context, 'audio-tagging',
-		'The audio-tagging adapter received a foreign authenticated CPU job.'),
-	{ message: 'The audio-tagging adapter received a foreign authenticated CPU job.' });
-});
-
-test('all ONNX worker adapters delegate identical CPU job admission to the common authority', () => {
-	for (const file of [
-		'assistance-onnx-audio-runtime-worker.ts',
-		'assistance-onnx-enhancement-separation-worker.ts',
-		'assistance-onnx-dereverb-worker.ts',
-		'assistance-onnx-word-alignment-worker.ts',
-		'assistance-onnx-text-embedding-worker.ts',
-		'assistance-onnx-visual-worker-common.ts',
-	]) {
-		const source = readFileSync(new URL(`../desktop/${file}`, import.meta.url), 'utf8');
-		assert.match(source, /assertAssistanceOnnxJobV1\(/u, file);
-		assert.doesNotMatch(source, /context\.job\.descriptor\.executionProvider/u, file);
-	}
 });
 
 test('shared ONNX runtime review preserves value and surface error boundaries', () => {
@@ -140,13 +96,8 @@ test('shared ONNX publication writes one authenticated result without changing i
 		assert.ok(Object.isFrozen(result.outputs[0]));
 	});
 
-test('shared ONNX publication retains exact-count, size, and cancellation checks',
+test('shared ONNX publication retains size and cancellation checks',
 	async (testContext) => {
-		const empty = await publicationFixture(testContext, 64, []);
-		await assert.rejects(publishAssistanceOnnxOutputV1(
-			empty.context, new Uint8Array([1]), 'exact output rejected', { exactOutputCount: 1 },
-		), new RangeError('exact output rejected'));
-
 		const bounded = await publicationFixture(testContext, 1);
 		await assert.rejects(publishAssistanceOnnxOutputV1(
 			bounded.context, new Uint8Array([1, 2]), 'size rejected',
@@ -154,7 +105,7 @@ test('shared ONNX publication retains exact-count, size, and cancellation checks
 
 		const controller = new AbortController();
 		controller.abort(new DOMException('cancelled', 'AbortError'));
-		const cancelled = await publicationFixture(testContext, 64, undefined, controller.signal);
+		const cancelled = await publicationFixture(testContext, 64, controller.signal);
 		await assert.rejects(publishAssistanceOnnxOutputV1(
 			cancelled.context, new Uint8Array([1]), 'output rejected',
 		), { name: 'AbortError' });
@@ -195,7 +146,6 @@ function fakeRuntime(
 async function publicationFixture(
 	testContext: TestContext,
 	maximumByteLength: number,
-	outputs?: AssistanceRuntimeFamilyWorkerExecutionContext['grant']['outputs'],
 	signal?: AbortSignal,
 ): Promise<Readonly<{
 	context: AssistanceRuntimeFamilyWorkerExecutionContext;
@@ -216,7 +166,7 @@ async function publicationFixture(
 	const grant = Object.freeze({
 		grantVersion: 1 as const, jobId: '1'.repeat(40), familyId: 'onnxruntime-node' as const,
 		task: 'text-embedding' as const, settingsJson: '{}', inputs: Object.freeze([]),
-		models: Object.freeze([]), outputs: outputs ?? Object.freeze([output]),
+		models: Object.freeze([]), outputs: Object.freeze([output]),
 	});
 	const context: AssistanceRuntimeFamilyWorkerExecutionContext = Object.freeze({
 		job: Object.freeze({

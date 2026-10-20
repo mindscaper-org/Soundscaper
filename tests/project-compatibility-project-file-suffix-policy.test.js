@@ -4,46 +4,16 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import {
-	ACCEPTED_PROJECT_FILE_EXTENSIONS,
-	LEGACY_PROJECT_FILE_EXTENSION,
-	PROJECT_FILE_EXTENSION_BY_PRODUCT,
-} from '../src/common/project-file-extensions.ts';
+import { ACCEPTED_PROJECT_FILE_EXTENSIONS } from '../src/common/project-file-extensions.ts';
 
 const policyUrl = new URL('../config/project-compatibility.json', import.meta.url);
-const documentationUrl = new URL('../docs/policies/project-compatibility.md', import.meta.url);
 
-test('the compatibility register states the suffix each product writes and accepts', async () => {
+test('the compatibility register names every accepted project suffix', async () => {
 	const policy = JSON.parse(await readFile(policyUrl, 'utf8'));
 	const rule = policy.rules.find(({ id }) => id === 'current-product-native-project-file-suffix');
 	assert.ok(rule, 'the product-native suffix rule must exist');
 	assert.equal(rule.status, 'implemented');
-	assert.match(
-		rule.currentBehavior,
-		/Soundscaper writes \.sscape, Framescaper writes \.fscape, Motionscaper writes \.mscape, and the roadmap-only Lightscaper reserves \.liscape/u,
-	);
 	for (const extension of ACCEPTED_PROJECT_FILE_EXTENSIONS) {
 		assert.ok(rule.currentBehavior.includes(extension), extension);
 	}
-	assert.match(rule.currentBehavior, /routing hint only/u);
-	assert.match(rule.currentBehavior, /Motionscaper uses its independent pathless file authority with bounded 4 MiB chunks/u);
-	assert.match(rule.currentBehavior, /Motionscaper saves through its \.mscape-only picker/u);
-	assert.match(rule.currentBehavior, /Soundscaper and Framescaper retain the 65 GiB scape-range-v1 desktop read profile/u);
-	assert.match(rule.currentBehavior, /no shipping product claims \.liscape/u);
-	assert.match(rule.currentBehavior, /manifest\/root schema-family tuple.*archive format.*remain authoritative/u);
-	assert.match(rule.currentBehavior, /application\/vnd\.soundscaper\.scape\+zip/u);
-	assert.match(rule.currentBehavior, /\.scapefx/u);
-});
-
-test('the compatibility document repeats that truth for readers', async () => {
-	const documentation = await readFile(documentationUrl, 'utf8');
-	assert.match(documentation, /## Product-native project file suffixes/u);
-	assert.match(documentation, /<!-- policy-narrative:current-product-native-project-file-suffix -->/u);
-	for (const [product, extension] of Object.entries(PROJECT_FILE_EXTENSION_BY_PRODUCT)) {
-		const productName = `${product[0].toUpperCase()}${product.slice(1)}`;
-		assert.match(documentation, new RegExp(`${productName}[^.]*\\${extension}`, 'u'), product);
-	}
-	assert.match(documentation, new RegExp(`legacy \`\\${LEGACY_PROJECT_FILE_EXTENSION}\``, 'u'));
-	assert.match(documentation.replaceAll('\n', ' '), /Mix\.sscape` saved from Framescaper\s+becomes `Mix\.fscape/u);
-	assert.match(documentation, /copied byte for byte/u);
 });

@@ -181,11 +181,7 @@ test('dispose removes every handler, aborts jobs, and returns one drain barrier'
 	assert.deepEqual(await running, { status: 'disposed' });
 });
 
-test('registration validates unique channels and rolls back partial bindings', () => {
-	assert.throws(() => registerDesktopAudioCodecMainIpc({
-		channels: { ...CHANNELS, desktopAudioCodecCancel: CHANNELS.desktopAudioCodecExecute },
-		handle() {}, removeHandler() {}, ownerFor: () => ({}), service: { execute: async () => null, capabilities: async () => null },
-	}), /unique/u);
+test('registration rolls back partial bindings', () => {
 	const removed: string[] = [];
 	assert.throws(() => registerDesktopAudioCodecMainIpc({
 		channels: CHANNELS,

@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
 const budgetsUrl = new URL('../config/quality-budgets.json', import.meta.url);
 const offlineStagingFormula = 'max(outputFrames × inputChannels × offlineBytesPerSample, outputBytesPerRender)';
@@ -45,43 +43,6 @@ test('direct stem archives use browser-native complete-file codecs and exact rol
 		'tests/audio-editor-browser-dedicated-codec.test.ts',
 		'tests/audio-editor-export-direct-compressed-stem-service.test.ts',
 	]) assert.ok(rollback.evidence.some((item) => item.path === path), path);
-
-	assertOrderedClaim(
-		publication.summary,
-		/exact ZIP32 and 7z Copy.*WAV, AIFF, or BWF.*exact names.*sizes.*order.*recomputed layouts.*fixed 32-byte/isu,
-	);
-	assert.match(
-		publication.summary,
-		/Compressed stems remain ZIP32-only.*seven canonical.*realtime.*offline.*per-entry refusal/isu,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/WebAssembly providers.*complete FLAC.*MP3.*Ogg Vorbis.*Opus.*WavPack.*MP2.*WebCodecs.*Mediabunny.*AAC\/M4A/isu,
-	);
-	assert.match(
-		publication.summary,
-		/Unsupported profiles.*custom FFmpeg.*fail closed.*without a browser FFmpeg fallback/isu,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/sequential.*current complete result.*at-most-64-KiB.*backpressure.*recomputes actual.*closes before commit.*byte-count agreement/isu,
-	);
-	assertOrderedClaim(
-		publication.summary,
-		/no final archive Blob.*continuous codec.*temporary file storage.*does not retain the whole staged PCM or encoded file.*whole-buffer.*separately bounded.*Prepared Blob mode.*1,000,000,000 bytes.*512 MiB/isu,
-	);
-	assert.match(
-		rollback.summary,
-		/retry only the current stem.*before entry bytes.*cancellation.*never retries/isu,
-	);
-	assert.match(
-		rollback.summary,
-		/aborting a dedicated codec terminates its worker.*unavailable AAC.*fails closed without FFmpeg/isu,
-	);
-	assert.match(
-		rollback.summary,
-		/abort the unpublished destination exactly once.*no commit.*final archive Blob.*download/isu,
-	);
 	assert.equal(publication.evidence.some(({ path }) => path === 'src/common/editor/ffmpeg.js'), false);
 });
 
@@ -206,14 +167,6 @@ test('the direct stem-archive fixture records native ZIP32/7z and compressed ZIP
 	assert.deepEqual(fixture.specification.compressedFixtureActualEntryBytes, [3, 5]);
 	assert.equal(fixture.specification.compressedFixtureActualZip32Bytes, 262);
 	assert.doesNotMatch(JSON.stringify(fixture.specification), /qualified/iu);
-	assertOrderedClaim(
-		fixture.limitation,
-		/Node.*provider-injected.*prepared streaming destination.*not.*File System Access.*Electron filesystem.*native picker/isu,
-	);
-	assertOrderedClaim(
-		fixture.limitation,
-		/small Node correctness fixture.*151-byte 7z.*small injected golden correctness fixture.*not.*reference-scale.*actual FFmpeg codec execution.*codec conformance.*codec expansion.*MEMFS.*garbage collection.*CPU.*elapsed time.*not a reference-scale.*renderer-heap.*process-RSS.*filesystem-durability.*crash.*power-loss/isu,
-	);
 	const workload = budgets.workloads.find(({ id }) => id === 'm2-direct-stem-archives-v3');
 	assert.deepEqual(workload.fixtureIds, ['m2-direct-stem-archives-v3']);
 	assert.equal(workload.behavior, 'blocking');
@@ -234,34 +187,6 @@ test('the direct stem-archive fixture records native ZIP32/7z and compressed ZIP
 		'tests/audio-editor-sequential-seven-zip-copy.test.ts',
 		'tests/fixtures/seven-zip-copy-golden.ts',
 	]) await access(new URL(`../${path}`, import.meta.url));
-});
-
-test('the threat and quality documents separate current codecs from historical fixtures', async () => {
-	const [threatModel, qualityBudgets] = await Promise.all([
-		readFile(new URL('../docs/policies/security.md', import.meta.url), 'utf8'),
-		readFile(new URL('../docs/development/quality-diagnostics.md', import.meta.url), 'utf8'),
-	]);
-
-	assertOrderedClaim(
-		threatModel.replace(/\s+/gu, ' '),
-		/direct stem-archive.*ZIP32.*7z Copy.*Compressed stems.*ZIP32-only.*complete FLAC.*MP3.*Vorbis.*Opus.*WavPack.*MP2.*WebCodecs.*Mediabunny.*AAC\/M4A/isu,
-	);
-	assert.match(
-		threatModel.replace(/\s+/gu, ' '),
-		/unsupported profiles.*custom FFmpeg.*fail closed.*without a browser FFmpeg fallback.*no final archive Blob/isu,
-	);
-	assert.match(
-		threatModel.replace(/\s+/gu, ' '),
-		/at-most-64-KiB.*backpressure.*continuous codec.*temporary file storage.*does not retain the whole staged PCM or encoded file/isu,
-	);
-	assert.match(
-		qualityBudgets,
-		/direct stem-archive publication.*small focused Node correctness/isu,
-	);
-	assertOrderedClaim(
-		qualityBudgets,
-		/provider-injected FFmpeg\/MEMFS fixtures.*retained historical.*do not describe the production\s+browser codec runtime.*dedicated reviewed audio WASMs.*WebCodecs\/Mediabunny.*no FFmpeg fallback/isu,
-	);
 });
 
 function findControl(matrix, riskId, controlId) {

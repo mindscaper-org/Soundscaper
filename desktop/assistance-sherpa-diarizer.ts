@@ -69,11 +69,13 @@ export function createSherpaDiarizerFactory(runtime: unknown, options: SherpaAcc
 				const diarizer = callSherpaNativeV1(() => new module.OfflineSpeakerDiarization({
 					segmentation: {
 						pyannote: { model: request.models.segmentation },
-						numThreads: 2, debug: 0, provider,
+						numThreads: 2, debug: 0,
+						provider: options.providerForModel?.(request.modelIds?.segmentation ?? 'segmentation-model', provider) ?? provider,
 					},
 					embedding: {
 						model: request.models.embedding,
-						numThreads: 2, debug: 0, provider,
+						numThreads: 2, debug: 0,
+						provider: options.providerForModel?.(request.modelIds?.embedding ?? 'embedding-model', provider) ?? provider,
 					},
 					clustering: { numClusters: 0, threshold: 0.5 },
 					minDurationOn: 0.3,

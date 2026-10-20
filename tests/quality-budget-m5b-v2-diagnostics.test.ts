@@ -87,13 +87,10 @@ test('all five 5B pipelines accept one observed-host diagnostic without a lab ma
 		const candidate = measurement(profileId);
 		const validated = validateM5bQualityMeasurementV2(profileId, candidate, config);
 		assert.equal(validated.diagnosticBinding.platformId, 'linuxX64');
-		assert.equal('profile' in validated.diagnosticBinding, false);
 		assert.equal(validated.diagnosticBinding.artifacts.mediaHostSha256, '3'.repeat(64));
 		const result = createM5bQualityResultV2(profileId, candidate, config);
 		assert.equal(result.status, 'passed');
 		assert.equal(result.metricGatePassed, true);
-		assert.equal('qualificationEvidencePublished' in result, false);
-		assert.equal('qualificationBlockers' in result, false);
 	}
 });
 

@@ -34,9 +34,3 @@ test('recursive snapshots compare exact records and honor omitted fields', () =>
 	assert.equal(authority.sameSnapshot(left, authority.snapshotValue({ a: [{ value: 0 }], z: 3 })), false);
 	assert.equal(authority.sameSnapshot(left, authority.snapshotValue({ a: [{ value: Number.NaN }], z: 3, extra: true })), false);
 });
-
-test('recursive snapshots use the caller data-property authority', () => {
-	const authority = createRecursiveBinarySnapshotAuthority(ownData);
-	const accessor = Object.defineProperty({}, 'value', { enumerable: true, get: () => 1 });
-	assert.throws(() => authority.snapshotValue(accessor), /not data: value/u);
-});

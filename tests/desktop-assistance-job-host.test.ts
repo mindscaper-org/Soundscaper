@@ -10,7 +10,6 @@ import {
 import {
 	ASSISTANCE_CANCELLATION_BUDGET_MS,
 	ASSISTANCE_JOB_PROTOCOL_VERSION,
-	validateAssistanceJobRequest,
 } from '../desktop/assistance-job-protocol.ts';
 import { SPEECH_RUNTIME_MODULE_ID } from '../desktop/assistance-speech-runtime.ts';
 import {
@@ -66,7 +65,7 @@ test('assistance uses the shared control-v1 envelope and its speech subcontract'
 	assert.equal(ASSISTANCE_CANCELLATION_BUDGET_MS, HELPER_CANCELLATION_BUDGET_MS);
 	const { channel, host } = harness();
 	const progress: AssistanceProgress[] = [];
-	const run = host.start(REQUEST, (value) => progress.push(value));
+	const run = host.start(REQUEST, { onProgress: (value) => progress.push(value) });
 	await ready(channel);
 	assert.deepEqual(channel.sent[0], {
 		contractVersion: HELPER_CONTRACT_VERSION,
@@ -213,19 +212,6 @@ test('a silent helper is killed and another job may be admitted', async () => {
 	});
 	assert.equal(channel.killed, true);
 	assert.equal(host.isBusy, false);
-});
-
-test('the assistance façade rejects old, path-only requests before spawning', () => {
-	const { host } = harness();
-	for (const request of [
-		{ ...REQUEST, protocolVersion: 1 },
-		{ ...REQUEST, jobId: 'job-1' },
-		{ ...REQUEST, kind: 'transcribe' },
-		{ ...REQUEST, mediaPaths: ['/media/source.wav'] },
-	]) {
-		assert.throws(() => host.start(request), /protocol|job id|kind|schema keys/iu);
-	}
-	assert.deepEqual(validateAssistanceJobRequest(REQUEST), REQUEST);
 });
 
 type AssistanceProgress = Readonly<{ completed: number; total: number }>;

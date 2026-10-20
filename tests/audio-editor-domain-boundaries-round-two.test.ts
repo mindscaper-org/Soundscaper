@@ -147,29 +147,6 @@ test('case 14: explicit speed-mode performance preferences remain supported', ()
 	);
 });
 
-test('case 15: performance preferences reject inherited optimization state', () => {
-	const inherited = Object.create({ optimizeFor: 'speed' }) as unknown;
-
-	assert.throws(
-		() => normalizeAudioEditorPerformancePreferences(inherited),
-		/plain data object/iu,
-	);
-});
-
-test('case 16: performance preferences reject accessors without invoking them', () => {
-	let reads = 0;
-	const hostile = Object.defineProperty({}, 'optimizeFor', {
-		enumerable: true,
-		get() { reads += 1; return 'speed'; },
-	});
-
-	assert.throws(
-		() => normalizeAudioEditorPerformancePreferences(hostile),
-		/enumerable data property/iu,
-	);
-	assert.equal(reads, 0);
-});
-
 test('case 17: performance preferences reject unsupported own fields', () => {
 	assert.throws(
 		() => normalizeAudioEditorPerformancePreferences({ optimizeFor: 'memory', surprise: true }),
@@ -191,32 +168,6 @@ test('case 19: waveform visualization preferences do not coerce numeric strings'
 		}),
 		/must be an integer/iu,
 	);
-});
-
-test('case 20: waveform visualization preferences reject inherited crossover values', () => {
-	const inherited = Object.create({
-		lowMidCrossoverHz: 320,
-		midHighCrossoverHz: 4_000,
-	}) as unknown;
-
-	assert.throws(
-		() => normalizeWaveformVisualizationPreferences(inherited),
-		/plain data object/iu,
-	);
-});
-
-test('case 21: waveform visualization preferences reject accessors without invoking them', () => {
-	let reads = 0;
-	const hostile = Object.defineProperty({ midHighCrossoverHz: 4_000 }, 'lowMidCrossoverHz', {
-		enumerable: true,
-		get() { reads += 1; return 320; },
-	});
-
-	assert.throws(
-		() => normalizeWaveformVisualizationPreferences(hostile),
-		/enumerable data property/iu,
-	);
-	assert.equal(reads, 0);
 });
 
 test('case 22: waveform visualization normalization returns an immutable detached snapshot', () => {

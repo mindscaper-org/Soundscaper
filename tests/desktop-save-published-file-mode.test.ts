@@ -79,25 +79,6 @@ test('the staging file stays owner-only while the save is in flight', POSIX_ONLY
 	await manager.finish(writeId, { owner: OWNER });
 });
 
-test('a save handle without chmod still finishes', POSIX_ONLY, async (context) => {
-	const root = await temporaryRoot(context);
-	const targets = new SaveTargetStore();
-	const manager = createManager({
-		targets,
-		openImpl: async () => ({ async sync() {}, async close() {} }),
-		renameImpl: async () => undefined,
-		unlinkImpl: async () => undefined,
-	});
-	context.after(() => manager.dispose());
-	const target = targets.registerPath(join(root, 'handle-without-chmod.scape'), {
-		owner: OWNER,
-		purpose: 'project',
-	});
-	const { writeId } = await manager.begin({ owner: OWNER, targetId: target.id, maximumSize: 4 });
-
-	assert.deepEqual(await manager.finish(writeId, { owner: OWNER }), { byteLength: 0 });
-});
-
 async function publish(destination: string, bytes: Uint8Array): Promise<void> {
 	const targets = new SaveTargetStore();
 	const manager = createManager({ targets });

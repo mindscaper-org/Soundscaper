@@ -39,7 +39,7 @@ test('simple Qt effects use flat fields and Normalize keeps its checkbox and tar
 	assert.match(normalize, /data-audacity-port-section="target"[\s\S]*data-audacity-parameter="applyGain"[\s\S]*data-audacity-parameter="peakDb"/u);
 });
 
-test('every port parameter is rendered once even when the definition adds a setting', () => {
+test('every current port parameter is rendered once', () => {
 	const definitions = Object.entries(AUDACITY_EFFECT_DEFINITIONS) as Array<[
 		string, Readonly<{ params: Readonly<Record<string, unknown>> }>,
 	]>;
@@ -48,11 +48,11 @@ test('every port parameter is rendered once even when the definition adds a sett
 		const names: string[] = [];
 		renderToStaticMarkup(<AudacityEffectLayout
 			effectType={effectType}
-			definition={{ params: { ...definition.params, additionalSetting: {} } }}
+			definition={definition}
 			renderParameter={(name: string) => { names.push(name); return null; }}
 			copy={{}}
 		/>);
-		assert.deepEqual([...names].sort(), [...Object.keys(definition.params), 'additionalSetting'].sort(), effectType);
+		assert.deepEqual([...names].sort(), Object.keys(definition.params).sort(), effectType);
 	}
 });
 

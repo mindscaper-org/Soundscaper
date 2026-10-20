@@ -6,11 +6,11 @@ export interface AudiocomProviderConfiguration {
 	readonly apiOrigin: string;
 	readonly webOrigin: string;
 	readonly authorizationOrigin: string;
-	readonly scope: 'public' | 'public projects';
+	readonly scope: 'public' | 'public projects' | 'all';
 }
 export const DEFAULT_AUDIOCOM_PROVIDER: AudiocomProviderConfiguration = Object.freeze({
 	kind: 'audiocom', apiOrigin: 'https://api.audio.com', webOrigin: 'https://audio.com',
-	authorizationOrigin: 'https://api.audio.com', scope: 'public',
+	authorizationOrigin: 'https://api.audio.com', scope: 'all',
 });
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
@@ -24,7 +24,7 @@ export function providerConfiguration(env: AudiocomOAuthEnv): AudiocomProviderCo
 	const local = env.AUDIOCOM_LOCAL_DEVELOPMENT === '1' && url.protocol === 'http:'
 		&& ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 	if ((!local && url.protocol !== 'https:') || url.username || url.password || url.pathname !== '/' || url.search || url.hash) configurationError();
-	return { kind: 'audiocity', apiOrigin: url.origin, webOrigin: url.origin, authorizationOrigin: url.origin, scope: 'public projects' };
+	return { kind: 'audiocity', apiOrigin: url.origin, webOrigin: url.origin, authorizationOrigin: url.origin, scope: 'all' };
 }
 export function trustedProviderUploadUrl(value: unknown, provider: AudiocomProviderConfiguration): URL {
 	const url = providerUrl(value, provider);
@@ -51,7 +51,17 @@ function providerUrl(value: unknown, provider: AudiocomProviderConfiguration): U
 	return url;
 }
 function tokenQuery(url: URL): boolean {
-	return url.searchParams.size === 1 && /^[A-Za-z0-9_-]{43}$/u.test(url.searchParams.get('token') ?? '');
+	const query = url.searchParams;
+	if (query.getAll('token').length !== 1 || !/^[A-Za-z0-9_-]{43}$/u.test(query.get('token') ?? '')) return false;
+	if (query.size === 1) return true;
+	// Current Audiocity descriptors add expiry hints for resumable native uploads.
+	if (query.size !== 3 || query.getAll('X-Amz-Date').length !== 1 || query.getAll('X-Amz-Expires').length !== 1) return false;
+	const issued = query.get('X-Amz-Date') ?? '';
+	const expiry = query.get('X-Amz-Expires') ?? '';
+	if (!/^\d{8}T\d{6}Z$/u.test(issued) || !/^[1-9]\d{0,15}$/u.test(expiry) || !Number.isSafeInteger(Number(expiry))) return false;
+	const isoDate = `${issued.slice(0, 4)}-${issued.slice(4, 6)}-${issued.slice(6, 8)}T${issued.slice(9, 11)}:${issued.slice(11, 13)}:${issued.slice(13, 15)}Z`;
+	const parsed = new Date(isoDate);
+	return Number.isFinite(parsed.getTime()) && parsed.toISOString().replace(/[:-]|\.\d{3}/gu, '') === issued;
 }
 function configurationError(): never {
 	throw new OAuthHttpError(503, 'service_unavailable', 'The audio provider origin is not configured correctly.');

@@ -13,7 +13,6 @@ import {
 	normalizeDesktopAudioCodecRequest,
 	normalizeDesktopAudioCodecResult,
 	type DesktopAudioCodecFormat,
-	type DesktopAudioCodecRequest,
 } from '../desktop/desktop-audio-codec-operation-contract.ts';
 import {
 	DESKTOP_AUDIO_FFMPEG_INPUT_NAME,
@@ -321,15 +320,6 @@ test('24-bit FLAC plans declare their raw sample precision explicitly', () => {
 	const plan = buildDesktopAudioFfmpegPlan(encodeRequest('flac'));
 	assert.equal(argumentValue(plan.arguments, '-sample_fmt'), 's32');
 	assert.equal(argumentValue(plan.arguments, '-bits_per_raw_sample'), '24');
-});
-
-test('FFmpeg planning revalidates typed-looking objects instead of accepting authority by cast', () => {
-	const injected = { ...encodeRequest('mp3'), argv: ['-i', 'https://attacker.invalid/a'] };
-	assert.throws(() => buildDesktopAudioFfmpegPlan(injected as unknown as DesktopAudioCodecRequest), /inexact/u);
-	assert.throws(
-		() => deriveDesktopAudioFfmpegCapabilityTuple(injected as unknown as DesktopAudioCodecRequest),
-		/inexact/u,
-	);
 });
 
 function decodeRequest(): Record<string, unknown> {

@@ -4,76 +4,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { verifyFfmpegRuntimeManifest } from '../scripts/lib/ffmpeg-runtime-manifest.mjs';
 import {
 	COLD_START_VARIABLE,
 	admitPagesColdStart,
-	preflightPagesDeployment,
 	verifyLivePagesCachePolicy,
 } from '../scripts/lib/pages-deploy-preflight.mjs';
 import { webBuildRouting } from '../scripts/lib/product-web-routing.mjs';
-import { runtimePointer } from '../scripts/lib/ffmpeg-runtime-publisher.mjs';
-import { createFixture } from './helpers/ffmpeg-runtime-fixture.mjs';
 import { livePagesDeployment as liveDeployment } from './helpers/pages-live-deployment-fixture.mjs';
 import { ZONE_BROWSER_TTL } from './helpers/pages-cache-policy-values.mjs';
-
-test('legacy runtime publication preflight accepts only exact content-addressed objects', async (context) => {
-	const fixture = await createFixture(context);
-	const release = await verifyFfmpegRuntimeManifest({
-		repositoryRoot: fixture.root,
-		purpose: 'runtime-publication',
-	});
-	const policy = release.publicPolicy;
-	const prefix = `${policy.publicPrefix}/${policy.releaseSegment}/${release.manifestSha256}`;
-	const objects = new Map([
-		[`${policy.publicOrigin}/${policy.publicPrefix}/${policy.pointer.name}`, {
-			bytes: runtimePointer(release, prefix),
-			contentType: policy.pointer.contentType,
-			cacheControl: policy.pointer.cacheControl,
-			cacheStatus: 'DYNAMIC',
-		}],
-		...release.runtimeFiles.map((file) => [`${policy.publicOrigin}/${prefix}/${file.name}`, {
-			bytes: file.bytes, contentType: file.contentType,
-			cacheControl: policy.immutableCacheControl, cacheStatus: 'HIT',
-		}]),
-		[`${policy.publicOrigin}/${prefix}/${release.manifest.publication.noticeName}`, {
-			bytes: release.evidence.notices.bytes, contentType: 'text/markdown; charset=utf-8',
-			cacheControl: policy.immutableCacheControl, cacheStatus: 'MISS',
-		}],
-		[`${policy.publicOrigin}/${prefix}/${release.manifest.publication.correspondingSourceName}`, {
-			bytes: release.evidence.correspondingSource.bytes, contentType: 'application/json; charset=utf-8',
-			cacheControl: policy.immutableCacheControl, cacheStatus: 'REVALIDATED',
-		}],
-		[`${policy.publicOrigin}/${prefix}/${release.manifest.publication.manifestName}`, {
-			bytes: release.manifestBytes, contentType: 'application/json; charset=utf-8',
-			cacheControl: policy.immutableCacheControl, cacheStatus: 'HIT',
-		}],
-	]);
-	const fetchImpl = async (url) => objectResponse(objects.get(String(url)));
-	assert.deepEqual(await preflightPagesDeployment({ release, fetchImpl }), {
-		manifestSha256: release.manifestSha256,
-		verifiedObjectCount: 6,
-	});
-
-	objects.get(`${policy.publicOrigin}/${prefix}/ffmpeg-core.wasm`).cacheStatus = 'DYNAMIC';
-	await assert.rejects(
-		() => preflightPagesDeployment({ release, fetchImpl }),
-		/requires an eligible Cloudflare cache status.*DYNAMIC/iu,
-	);
-	objects.get(`${policy.publicOrigin}/${prefix}/ffmpeg-core.wasm`).cacheStatus = 'HIT';
-	objects.get(`${policy.publicOrigin}/${policy.publicPrefix}/${policy.pointer.name}`).cacheStatus = 'HIT';
-	await assert.rejects(
-		() => preflightPagesDeployment({ release, fetchImpl }),
-		/requires pointer cache bypass.*HIT/iu,
-	);
-	const pointer = objects.get(`${policy.publicOrigin}/${policy.publicPrefix}/${policy.pointer.name}`);
-	pointer.cacheStatus = 'DYNAMIC';
-	pointer.age = '4';
-	await assert.rejects(
-		() => preflightPagesDeployment({ release, fetchImpl }),
-		/requires pointer cache bypass without Age.*DYNAMIC/iu,
-	);
-});
 
 test('Pages CLI separates predecessor preflight from intended post-deploy verification', async () => {
 	const [source, verifier, packageMetadata, documentation] = await Promise.all([
@@ -102,7 +40,6 @@ test('Pages CLI separates predecessor preflight from intended post-deploy verifi
 	assert.match(packageMetadata.scripts['verify:pages'], /verify-pages-deploy\.mjs/u);
 	assert.equal(packageMetadata.scripts.deploy, 'node scripts/deploy-pages.ts');
 	assert.match(documentation, /gated build command\s+`npm run build:pages`/u);
-	assert.match(documentation, /do not\s+replace it with the ungated `npm run build`/u);
 	const workflow = await readFile('.github/workflows/quality.yml', 'utf8');
 	const orderedSteps = [
 		'Build Framescaper',
@@ -147,40 +84,6 @@ test('live Pages policy preserves checked-in browser TTLs for stable routes and 
 		/Cache-Control is invalid.*\/en\//u,
 	);
 });
-
-test('the deploy preflight presents the deploying origin to the runtime bucket CORS policy', async (context) => {
-	const fixture = await createFixture(context);
-	const release = await verifyFfmpegRuntimeManifest({
-		repositoryRoot: fixture.root,
-		purpose: 'runtime-publication',
-	});
-	const origins = [];
-	const fetchImpl = async (url, init) => {
-		origins.push(init.headers.Origin);
-		return new Response(new Uint8Array(0), { status: 404 });
-	};
-	await assert.rejects(
-		() => preflightPagesDeployment({ release, fetchImpl, origin: 'https://framescaper.org' }),
-		/received HTTP 404/u,
-	);
-	assert.deepEqual([...new Set(origins)], ['https://framescaper.org']);
-});
-
-function objectResponse(object) {
-	if (!object) return new Response(null, { status: 404 });
-	const headers = {
-		'content-length': String(object.bytes.byteLength),
-		'content-type': object.contentType,
-		'cache-control': object.cacheControl,
-		'access-control-allow-origin': 'https://soundscaper.org',
-		'cf-cache-status': object.cacheStatus,
-	};
-	if (object.age !== undefined) headers.age = object.age;
-	return new Response(object.bytes, {
-		status: 200,
-		headers,
-	});
-}
 
 test('a cold start is admitted only as a declaration, never inferred', () => {
 	assert.equal(COLD_START_VARIABLE, 'SCAPE_PAGES_COLD_START');

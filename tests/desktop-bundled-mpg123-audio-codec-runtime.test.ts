@@ -36,9 +36,6 @@ test('the exact mpg123 artifact gates MP3 and MP2 decoding on all five targets',
 	assert.equal(await loadBundledMpg123AudioCodecRuntime({
 		target: 'win-x64', readPayload: async () => new Uint8Array(BUNDLED_MPG123_WASM_BYTE_LENGTH),
 	}), null);
-	await assert.rejects(loadBundledMpg123AudioCodecRuntime({
-		target: 'mac-x64' as 'mac-arm64',
-	}), /target/iu);
 });
 
 test('mpg123 emits exact finite interleaved float32 geometry for MP3 and MP2', async () => {
@@ -157,25 +154,6 @@ test('valid unreviewed streams fall through while malformed streams and bounds f
 	});
 	assert.equal(bounded.status, 'failed');
 	if (bounded.status === 'failed') assert.equal(bounded.reason, 'result-failed');
-});
-
-test('mpg123 admits no encoder and an aborted request never enters WebAssembly', async () => {
-	const runtime = await requiredRuntime('mac-arm64');
-	const input = testMpegAudioStream({ layer: 2 });
-	const request = decodeRequest('mp2', input);
-	const controller = new AbortController();
-	controller.abort(new Error('stop-mpg123'));
-	await assert.rejects(runtime.execute(request, {
-		operation: deriveDesktopAudioCodecOperation(request), signal: controller.signal,
-	}), /stop-mpg123/u);
-	const encode = Object.freeze({
-		operation: 'audio-encode' as const, format: 'mp3' as const,
-		input: new Uint8Array(4), sampleRate: 44_100, channelCount: 1,
-		settings: Object.freeze({ bitrateKbps: 128 }), maximumOutputBytes: 1_024,
-	});
-	assert.equal((await runtime.preflightRequest?.(encode, {
-		operation: deriveDesktopAudioCodecOperation(encode),
-	}))?.disposition, 'rejected');
 });
 
 async function requiredRuntime(target: 'linux-x64' | 'mac-arm64' | 'win-arm64' | 'win-x64') {

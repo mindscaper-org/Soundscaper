@@ -1,8 +1,9 @@
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import {
-	bootEditor, clipByName, clipField, closeClipProperties, collectClientErrors,
+	bootEditor, clipByName, closeClipProperties, collectClientErrors, commitInput,
 	importFiles, openClipProperties, registerAudioEditorHooks, waitForEditor,
 } from './audio-editor-test-helpers.js';
+import { chooseClipMediaSetting } from './audio-editor-clip-settings-test-helpers.js';
 
 async function overlapStereoClips(page) {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -12,16 +13,11 @@ async function overlapStereoClips(page) {
 	const track = outgoing.locator('xpath=ancestor::*[@data-track-row][1]');
 	const trackId = await track.getAttribute('data-track-id');
 	const trackName = (await track.locator('.track-control-panel__track-name-text').textContent()).trim();
-	const properties = await openClipProperties(page, editor, incoming);
-	await properties.getByText('Media settings', { exact: true }).click();
-	await clipField(properties, 'startFrame').fill('19200');
-	await clipField(properties, 'startFrame').press('Tab');
+	const properties = await openClipProperties(page, editor, incoming, { additional: false });
+	await commitInput(properties.getByRole('textbox', { name: 'Start', exact: true }), '0.4');
+	await properties.getByRole('button', { name: 'Track', exact: true }).click();
+	await page.getByRole('option', { name: trackName, exact: true }).click();
 	await closeClipProperties(properties);
-	await incoming.click({ button: 'right', position: { x: 32, y: 10 } });
-	const menu = page.locator('.audio-editor-clip-context-menu');
-	const move = menu.getByRole('menuitem', { name: /^Move to track \(preserve time\)/u });
-	await move.hover();
-	await move.getByRole('menuitem', { name: trackName, exact: true }).click();
 	await expect(incoming.locator('xpath=ancestor::*[@data-track-row][1]')).toHaveAttribute('data-track-id', trackId);
 	return { editor, outgoing, incoming, track };
 }
@@ -44,8 +40,11 @@ async function curveMidpointGains(region) {
 async function expectCrossfadeShapes(page, editor, outgoing, incoming, value) {
 	for (const [clip, field] of [[outgoing, 'fadeOutShape'], [incoming, 'fadeInShape']]) {
 		const properties = await openClipProperties(page, editor, clip);
-		await properties.getByText('Fading', { exact: true }).click();
-		await expect(properties.locator(`[data-clip-field="${field}"]`).getByRole('slider')).toHaveValue(value);
+		const label = field === 'fadeInShape' ? 'Fade in shape' : 'Fade out shape';
+		await chooseClipMediaSetting(properties, label);
+		const shape = page.getByRole('dialog', { name: label, exact: true });
+		await expect(shape.getByRole('textbox', { name: label, exact: true })).toHaveValue(value);
+		await shape.getByRole('button', { name: 'Cancel', exact: true }).click();
 		await closeClipProperties(properties);
 	}
 }
@@ -133,7 +132,7 @@ test.describe('design-system audio crossfade visuals', () => {
 		await expect(region.locator('[data-fade-curve="in"]')).toBeVisible();
 		const handle = track.getByRole('slider', { name: /^Automatic crossfade between .+ and .+$/u });
 		await expect(handle).toBeVisible();
-		await expect(handle).toHaveAttribute('aria-valuenow', '0.5');
+		await expect.poll(async () => Number(await handle.getAttribute('aria-valuenow'))).toBeCloseTo(0.5, 6);
 		const gains = await curveMidpointGains(region);
 		expect(gains).toHaveLength(2);
 		for (const gain of gains) expect(gain).toBeCloseTo(Math.SQRT1_2, 2);
@@ -153,11 +152,23 @@ test.describe('design-system audio crossfade visuals', () => {
 		expect(handleBounds).not.toBeNull();
 		await page.mouse.move(handleBounds.x + handleBounds.width / 2, handleBounds.y + handleBounds.height / 2);
 		await page.mouse.down();
-		await page.mouse.move(handleBounds.x + handleBounds.width / 2 + 20, handleBounds.y + handleBounds.height / 2 + 4);
+		await page.mouse.move(handleBounds.x + handleBounds.width / 2 + 20, handleBounds.y + handleBounds.height / 2 + 20, { steps: 5 });
 		await page.mouse.up();
-		await expect(handle).not.toHaveAttribute('aria-valuenow', '0.5');
+		await expect.poll(async () => Number(await handle.getAttribute('data-crossfade-gain'))).toBeLessThan(Math.SQRT1_2);
+		await expect.poll(async () => Number(await handle.getAttribute('aria-valuenow'))).toBeCloseTo(0.5, 6);
+		const changedGain = await handle.getAttribute('data-crossfade-gain');
+		expect((await outgoing.boundingBox()).x).toBeCloseTo(outBounds.x, 1);
+		expect((await outgoing.boundingBox()).width).toBeCloseTo(outBounds.width, 1);
+		expect((await incoming.boundingBox()).x).toBeCloseTo(inBounds.x, 1);
+		expect((await incoming.boundingBox()).width).toBeCloseTo(inBounds.width, 1);
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
-		await expect(handle).toHaveAttribute('aria-valuenow', '0.5');
+		await expect.poll(async () => Number(await handle.getAttribute('data-crossfade-gain'))).toBeCloseTo(Math.SQRT1_2, 5);
+		await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+		await expect(handle).toHaveAttribute('data-crossfade-gain', changedGain);
+		await handle.dblclick();
+		await expect.poll(async () => Number(await handle.getAttribute('data-crossfade-gain'))).toBeCloseTo(Math.SQRT1_2, 5);
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect(handle).toHaveAttribute('data-crossfade-gain', changedGain);
 
 		await outgoing.focus();
 		await outgoing.press('Enter');
@@ -182,8 +193,9 @@ test.describe('design-system audio crossfade visuals', () => {
 		await expect(fadeControls).toHaveAttribute('data-clip-fade-handle', 'out');
 		await expect(track.locator('.audio-editor-track-window [data-crossfade-handle]')).toHaveCount(1);
 		await incoming.press('Tab');
-		await expect(fadeControls).toBeFocused();
-		await page.keyboard.press('Tab');
+		await expect(handle).toBeFocused();
+		await fadeControls.focus();
+		await fadeControls.press('Tab');
 		await expect(handle).toBeFocused();
 		const ruler = track.locator('[data-track-ruler]');
 		await handle.press('Tab');
@@ -192,6 +204,47 @@ test.describe('design-system audio crossfade visuals', () => {
 		await expect(handle).toBeFocused();
 		await handle.press('Shift+Tab');
 		await expect(fadeControls.last()).toBeFocused();
+		expect(errors).toEqual([]);
+	});
+
+	test('Alt-drag rolls both trim edges together while keeping the overlap and outer edges intact', async ({ page }) => {
+		const errors = collectClientErrors(page);
+		const { editor, outgoing, incoming, track } = await overlapStereoClips(page);
+		let properties = await openClipProperties(page, editor, outgoing, { additional: false });
+		await commitInput(properties.getByRole('textbox', { name: 'Length', exact: true }), '0.6');
+		await closeClipProperties(properties);
+		properties = await openClipProperties(page, editor, incoming, { additional: false });
+		await commitInput(properties.getByRole('textbox', { name: 'Trim start', exact: true }), '0.2');
+		await closeClipProperties(properties);
+		const region = track.locator('[data-automatic-crossfade="true"]');
+		const handle = track.getByRole('slider', { name: /^Automatic crossfade between .+ and .+$/u });
+		const [outBefore, inBefore, overlapBefore, grip] = await Promise.all([
+			outgoing.boundingBox(), incoming.boundingBox(), region.boundingBox(), handle.boundingBox(),
+		]);
+		for (const bounds of [outBefore, inBefore, overlapBefore, grip]) expect(bounds).not.toBeNull();
+		await page.keyboard.down('Alt');
+		await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(grip.x + grip.width / 2 + 12, grip.y + grip.height / 2, { steps: 5 });
+		await page.mouse.up();
+		await page.keyboard.up('Alt');
+		await expect.poll(async () => (await incoming.boundingBox()).x - inBefore.x).toBeGreaterThan(5);
+		const [outAfter, inAfter, overlapAfter] = await Promise.all([
+			outgoing.boundingBox(), incoming.boundingBox(), region.boundingBox(),
+		]);
+		const delta = inAfter.x - inBefore.x;
+		expect(outAfter.x).toBeCloseTo(outBefore.x, 1);
+		expect(outAfter.width - outBefore.width).toBeCloseTo(delta, 1);
+		expect(inAfter.x + inAfter.width).toBeCloseTo(inBefore.x + inBefore.width, 1);
+		expect(overlapAfter.x - overlapBefore.x).toBeCloseTo(delta, 1);
+		expect(overlapAfter.width).toBeCloseTo(overlapBefore.width, 1);
+		await expect.poll(async () => Number(await handle.getAttribute('aria-valuenow'))).toBeCloseTo(0.5, 6);
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		expect((await incoming.boundingBox()).x).toBeCloseTo(inBefore.x, 1);
+		expect((await outgoing.boundingBox()).width).toBeCloseTo(outBefore.width, 1);
+		await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+		expect((await incoming.boundingBox()).x).toBeCloseTo(inAfter.x, 1);
+		expect((await outgoing.boundingBox()).width).toBeCloseTo(outAfter.width, 1);
 		expect(errors).toEqual([]);
 	});
 });

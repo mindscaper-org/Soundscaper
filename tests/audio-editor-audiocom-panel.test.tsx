@@ -19,6 +19,7 @@ const COPY = {
 	connect: 'Connect to audio.com', connecting: 'Connecting…', disconnect: 'Disconnect',
 	checkingAccount: 'Checking account…', connectedAs: 'Connected as {username}', connected: 'Connected to audio.com',
 	uploadHeading: 'Upload to audio.com', uploadDrop: 'Drop audio files here', chooseFiles: 'Choose audio files',
+	uploadAudio: 'Upload audio', saveProject: 'Save project',
 	uploadFileTypes: 'Audio files up to 1 GiB', uploadQueue: 'Upload queue', title: 'Title', description: 'Description',
 	category: 'Category', license: 'License', visibility: 'Visibility', listed: 'Listed', unlisted: 'Unlisted',
 	unlistedNotice: 'Anyone with the link can listen to unlisted audio.', downloadable: 'Allow downloads',
@@ -69,11 +70,38 @@ test('project archives are opt-in and visible only when the selected provider ad
 	}, state: { ...BASE.state, auth: { status: 'connected' as const } }, archives };
 	const markup = renderToStaticMarkup(<AudiocomPanel {...props} />);
 	assert.match(markup, /<details[^>]*data-audiocom-projects="true"(?![^>]*\bopen)/u);
-	assert.match(markup, /accept="\.aup3,\.aup4"/u);
-	assert.match(markup, /Download project/u); assert.match(markup, /Storage server:/u);
+	assert.doesNotMatch(markup, /Upload AUP3 or AUP4|Save new revision|type="file"[^>]*aup/u);
+	assert.doesNotMatch(markup, /Download project/u); assert.match(markup, /Storage server:/u);
 	assert.match(markup, /href="http:\/\/127\.0\.0\.1:8088"/u);
 	assert.doesNotMatch(renderToStaticMarkup(<AudiocomPanel {...props} archives={{ ...archives, state: { ...state, supported: false } }} />), /data-audiocom-projects/u);
 	assert.doesNotMatch(renderToStaticMarkup(<AudiocomPanel {...props} state={BASE.state} />), /data-audiocom-projects/u);
+	const failed = renderToStaticMarkup(<AudiocomPanel {...props} archives={{ ...archives, state: { ...state, errorMessage: 'Cloud unavailable' } }} />);
+	assert.equal(failed.match(/role="alert">Cloud unavailable/gu)?.length, 1, 'archive errors remain visible above the collapsed archive list');
+});
+
+test('signed-in project actions use export and save icons and invoke the current-project handlers', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const calls: string[] = [];
+	try {
+		const props = { ...BASE, onUploadAudio: () => { calls.push('audio'); }, onSaveProject: () => { calls.push('project'); } };
+		await act(async () => root.render(<AudiocomPanel {...props} />));
+		assert.equal(dom.container.querySelectorAll('button').some(node => /Upload audio|Save project/u.test(node.textContent)), false);
+		await act(async () => root.render(<AudiocomPanel {...props} state={{ ...BASE.state, auth: { status: 'connected' } }} />));
+		const buttons = dom.container.querySelectorAll('button');
+		const upload = buttons.find(node => node.textContent.includes('Upload audio'));
+		const save = buttons.find(node => node.textContent.includes('Save project'));
+		assert.ok(upload); assert.ok(save);
+		assert.match(upload.textContent, /\uEF24/u); assert.match(save.textContent, /\uEF29/u);
+		await act(async () => { reactProps(upload).onClick(); reactProps(save).onClick(); });
+		assert.deepEqual(calls, ['audio', 'project']);
+	} finally {
+		await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct; dom.restore();
+	}
 });
 
 test('audio.com links preserve normal browser navigation and use an injected desktop opener', async () => {

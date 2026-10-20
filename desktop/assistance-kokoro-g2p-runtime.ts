@@ -17,6 +17,10 @@ import { isKokoroVoiceForLanguage } from '../src/common/editor/assistance/kokoro
 import type {
 	KokoroPhonemizeRequestV1,
 } from './assistance-onnx-kokoro-worker.ts';
+import {
+	runAssistanceKokoroGpuValidationV1,
+	type AssistanceKokoroGpuValidationEnvironmentV1,
+} from './assistance-kokoro-g2p-gpu-validation.ts';
 
 type SpawnPort = (
 	executable: string,
@@ -98,7 +102,8 @@ export function createAssistanceKokoroOfflinePhonemizerV1(
 			await authenticateClosure(directory, manifest, request.signal);
 			request.signal?.throwIfAborted();
 			const executable = resolve(directory, manifest.executable);
-			const output = await invoke(start, executable, directory, input, duration, request.signal);
+			const output = await runAssistanceKokoroGpuValidationV1(request.language, targetId, manifest.files,
+				(environment) => invoke(start, executable, directory, input, duration, request.signal, environment));
 			return reviewResponse(output);
 		} catch (error) { clearCache(); throw error; }
 	};
@@ -326,6 +331,7 @@ async function invoke(
 	input: Uint8Array,
 	duration: number,
 	signal?: AbortSignal,
+	gpuEnvironment?: AssistanceKokoroGpuValidationEnvironmentV1,
 ): Promise<Uint8Array> {
 	signal?.throwIfAborted();
 	const environment: NodeJS.ProcessEnv = { ...process.env, HF_HUB_OFFLINE: '1', TRANSFORMERS_OFFLINE: '1',
@@ -333,6 +339,9 @@ async function invoke(
 	for (const name of ['PYTHONPATH', 'PYTHONHOME', 'LD_PRELOAD', 'LD_LIBRARY_PATH',
 		'LD_LIBRARY_PATH_ORIG', 'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH',
 		'DYLD_FALLBACK_LIBRARY_PATH', 'ELECTRON_RUN_AS_NODE']) delete environment[name];
+	delete environment.SCAPE_KOKORO_REQUIRE_GPU;
+	delete environment.SCAPE_KOKORO_GPU_PROFILE_PREFIX;
+	Object.assign(environment, gpuEnvironment);
 	const child = start(executable, [], { cwd: directory, stdio: ['pipe', 'pipe', 'pipe'],
 		windowsHide: true, shell: false, env: environment });
 	return await new Promise<Uint8Array>((resolvePromise, rejectPromise) => {

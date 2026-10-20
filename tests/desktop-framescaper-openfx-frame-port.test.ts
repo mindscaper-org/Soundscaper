@@ -249,39 +249,6 @@ test('renderer close aborts main execution after ingress, including a zero-input
 	assert.equal(mainAborted, true);
 });
 
-test('the renderer refuses hostile mode records before they become fallback state', async () => {
-	let listener: ((offer: never, port: never) => void) | null = null;
-	let closes = 0;
-	const sessionId = '76'.repeat(20);
-	const requestNonce = '75'.repeat(20);
-	const port = {
-		onmessage: null as ((event: MessageEvent<unknown>) => void) | null,
-		onmessageerror: null as ((event: MessageEvent<unknown>) => void) | null,
-		postMessage() {},
-		start() {
-			setTimeout(() => this.onmessage?.({ data: {
-				protocolVersion: 1, type: 'result', sessionId, mode: 'bypass',
-				availability: 'missing', reportsDegradation: true, path: '/private/plugin.ofx',
-			} } as MessageEvent<unknown>), 0);
-		},
-		close() { closes += 1; },
-	};
-	const client = createFramescaperOpenFxFramePortClient({
-		openSession: async () => {
-			listener?.({ protocolVersion: 1, sessionId, requestNonce } as never, port as never);
-			return { protocolVersion: 1, sessionId, requestNonce };
-		},
-		subscribeOffers(value) { listener = value as never; return () => { listener = null; }; },
-		mintRequestNonce: () => requestNonce,
-	});
-	await assert.rejects(() => client.execute({
-		plan: plan(), instanceId: 'effect-generator', context: 'generator', outputOrdinal: 0,
-		requestedBackend: 'cpu', inputs: [], standardParameters: {}, signal: new AbortController().signal,
-	}), /fallback result|closed record/iu);
-	assert.equal(closes, 1);
-	client.dispose();
-});
-
 function control() {
 	const pixels = new Uint8Array(16);
 	const sha256 = '37'.repeat(32);

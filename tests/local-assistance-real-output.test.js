@@ -7,9 +7,11 @@ import { digest, encodeFloatWave, loadSpeechFixture, prepareModelInput } from '.
 import { createAssistanceEmbeddingMatrixV1 } from '../src/common/editor/assistance/binary-formats-v1.ts';
 import { ASSISTANCE_VISUAL_TAG_PROMPTS_V1 } from '../src/common/editor/assistance/visual-tag-classification-v1.ts';
 import { reviewAssistanceVisualFramePackV2 } from '../src/common/editor/assistance/visual-frame-pack-v2.ts';
+import { MODEL_TRANSCRIPT_FIXTURE } from './electron/local-assistance-models/model-deterministic-fixture-semantics.ts';
 
 const json = (value) => Buffer.from(JSON.stringify(value));
-const speech = { bytes: Buffer.from('input'), sampleRate: 16_000, frameCount: 160_000 };
+const speech = { bytes: Buffer.from('input'), sampleRate: 16_000, frameCount: 160_000,
+	expectedTranscript: MODEL_TRANSCRIPT_FIXTURE };
 
 test('real audio validation rejects silence, unchanged PCM, invalid numbers and lost frames', () => {
 	const input = { bytes: encodeFloatWave(new Float32Array([0.2, -0.3, 0.5]), 48_000), sampleRate: 48_000, frameCount: 3 };
@@ -24,8 +26,9 @@ test('real audio validation rejects silence, unchanged PCM, invalid numbers and 
 	assert.ok(result.changedSamples > 0);
 });
 
-test('real speech checks accept varying words but reject empty or out-of-range results', () => {
-	assert.equal(validateModelOutput('transcript', json({ segments: [{ text: 'some real words', startSeconds: 1, endSeconds: 4 }] }), speech).segments, 1);
+test('real speech checks require known words and reject empty or out-of-range results', () => {
+	assert.equal(validateModelOutput('transcript', json({ segments: [{ text: MODEL_TRANSCRIPT_FIXTURE.text, startSeconds: 1, endSeconds: 4 }] }), speech).segments, 1);
+	assert.throws(() => validateModelOutput('transcript', json({ segments: [{ text: 'some real words', startSeconds: 1, endSeconds: 4 }] }), speech));
 	assert.throws(() => validateModelOutput('transcript', json({ segments: [] }), speech));
 	assert.throws(() => validateModelOutput('transcript', json({ segments: [{ text: ' ', startSeconds: 0, endSeconds: 1 }] }), speech));
 	assert.throws(() => validateModelOutput('voice-activity', json({ sampleRate: 16_000, segments: [{ startSample: 159_000, sampleCount: 2_000 }] }), speech));
@@ -59,18 +62,31 @@ function pcm16Wave(samples, sampleRate) {
 
 test('visual checks reject empty detections and stale frame authority', () => {
 	const authority = { width: 512, height: 512, timescale: 30, frames: [{ sourceFrame: 0, presentationTick: '0' }] };
-	const input = { ...speech, authority };
+	const input = { ...speech, authority,
+		expectedOcr: { sourceFrame: 0, text: 'LOCAL MODEL TEST', maximumCharacterErrorRate: 0.1 } };
 	const result = { schemaVersion: 1, ...authority, frames: [{ ...authority.frames[0], saliency: { x: 0.4, y: 0.6, score: 0.8 } }] };
 	assert.equal(validateModelOutput('saliency', json(result), input).frames, 1);
 	assert.throws(() => validateModelOutput('saliency', json({ ...result, frames: [{ ...result.frames[0], saliency: null }] }), input));
 	assert.throws(() => validateModelOutput('saliency', json({ ...result, timescale: 60 }), input));
 	assert.throws(() => validateModelOutput('ocr', json({ ...result, frames: [{ ...authority.frames[0], regions: [] }] }), input));
 	const box = { x: 0.1, y: 0.1, width: 0.5, height: 0.5 };
+	assert.equal(validateModelOutput('ocr', json({ ...result, frames: [{ ...authority.frames[0],
+		regions: [{ text: 'LOCAL MODEL TEST', confidence: 0.95, box }] }] }), input).regions, 1);
 	const face = { kind: 'face', label: 'face', classId: null, confidence: 0.9, box };
-	const person = { kind: 'person', label: 'person', classId: 0, confidence: 0.9, box };
-	const subjects = (rows) => json({ ...result, frames: [{ ...authority.frames[0], subjects: rows }] });
-	assert.throws(() => validateModelOutput('subject-detections', subjects([face]), input));
-	assert.equal(validateModelOutput('subject-detections', subjects([face, person]), input).subjects, 2);
+	const cat = { kind: 'object', label: 'cat', classId: 15, confidence: 0.9, box };
+	const subjectAuthority = { ...authority, frames: [...authority.frames, { sourceFrame: 1, presentationTick: '1' }] };
+	const subjectInput = { ...input, authority: subjectAuthority, expectedSubjects: [
+		{ sourceFrame: 0, kind: 'face', label: 'face', classId: null },
+		{ sourceFrame: 1, kind: 'object', label: 'cat', classId: 15 },
+	] };
+	const subjects = (rows) => json({ schemaVersion: 1, ...subjectAuthority,
+		frames: subjectAuthority.frames.map((frame, index) => ({ ...frame, subjects: rows[index] })) });
+	assert.throws(() => validateModelOutput('subject-detections', subjects([[face], []]), subjectInput));
+	assert.equal(validateModelOutput('subject-detections', subjects([[face], [cat]]), subjectInput).subjects, 2);
+	assert.throws(() => validateModelOutput('subject-detections', subjects([[cat], [face]]), subjectInput));
+	assert.throws(() => validateModelOutput('subject-detections', subjects([[face], [cat]]), {
+		...subjectInput, authority: { ...subjectAuthority, timescale: 60 },
+	}));
 });
 
 test('embedding checks require a complete nonconstant 768-dimensional vector', () => {

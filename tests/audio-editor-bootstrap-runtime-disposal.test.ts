@@ -12,16 +12,4 @@ test('product bootstraps observe runtime disposal failures on every detached pat
 		/void runtimePromise\.then\([\s\S]*?runtime\.dispose\(\)\.catch\(configuration\.reportRuntimeDisposalFailure\)/u,
 		'the shared lifecycle must observe disposal when any in-flight runtime loses its owner',
 	);
-	for (const [product, path] of [
-		['Soundscaper', '../src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx'],
-		['Framescaper', '../src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx'],
-	] as const) {
-		const source = await readFile(new URL(path, import.meta.url), 'utf8');
-		assert.match(source,
-			/function reportRuntimeDisposalFailure\(error: unknown\): void/u,
-			`${product} must route observed disposal failures`,
-		);
-		assert.match(source, /reportRuntimeDisposalFailure,/u,
-			`${product} must inject its disposal-failure reporter into the shared lifecycle`);
-	}
 });

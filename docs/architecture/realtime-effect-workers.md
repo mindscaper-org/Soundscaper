@@ -6,7 +6,7 @@ limitations.
 
 ## Implemented backend
 
-Enable **Edit → Preferences → Audio settings → Processing → Parallel effect
+Enable **Edit → Preferences → Advanced → Processing → Parallel effect
 stacks** while stopped. Both editions require cross-origin isolation,
 SharedArrayBuffer, dedicated Workers, and AudioWorklet support. The setting
 defaults off and stays outside project state. The settings offer an automatic

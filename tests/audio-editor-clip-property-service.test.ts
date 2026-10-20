@@ -106,6 +106,20 @@ test('time/pitch edits and grouped stretching preserve render revisions and enve
 	});
 });
 
+test('merged property edits validate every clip before one undoable commit and preserve selection', () => {
+	const harness = createHarness(projectFixture());
+	harness.service.setClipsTimePitch(['active', 'companion', 'active'], { speedRatio: 2 });
+	assert.equal(harness.commits.length, 1);
+	assert.equal(harness.commits[0]?.selection, undefined);
+	const command = harness.commits[0]?.command;
+	assert.equal(command?.type, 'batch');
+	if (command?.type !== 'batch') assert.fail('Expected one batch.');
+	assert.equal(command.commands.length, 2);
+	const invalid = createHarness(projectFixture());
+	assert.throws(() => invalid.service.setClipsTimePitch(['active', 'removed'], { speedRatio: 2 }));
+	assert.equal(invalid.commits.length, 0, 'a rejected selected clip leaves every clip untouched');
+});
+
 test('reverse commits synchronously while normalization is owned by its clip task', async () => {
 	const project = projectFixture();
 	const gate = deferred<ClipAnalysisResult>();
@@ -280,7 +294,7 @@ function createHarness(
 	lifetime.markReady();
 	const generation = new EditorProjectGeneration();
 	generation.activate(project.id);
-	const commits: Array<{ command: AudioEditorCommand }> = [];
+	const commits: Array<{ command: AudioEditorCommand; selection?: Parameters<ClipPropertyServiceDependencies['commit']>[1] }> = [];
 	const analysisSignals: AbortSignal[] = [];
 	const sourceBuffers = new Map([['source', audioBufferFixture()]]);
 	const service = createClipPropertyService({
@@ -302,8 +316,8 @@ function createHarness(
 		},
 		sourceBuffers,
 		createId: (prefix) => `${prefix}-id`,
-		commit: (command) => {
-			commits.push({ command });
+		commit: (command, selection) => {
+			commits.push({ command, selection });
 			return project;
 		},
 	});

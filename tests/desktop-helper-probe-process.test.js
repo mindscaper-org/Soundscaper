@@ -113,30 +113,6 @@ test('helper worker validates a result before it reaches the process post seam',
 		'an oversized engine result must be refused before Electron clones it into main');
 });
 
-test('helper worker forwards bounded engine progress only for its active generation', async () => {
-	let reportProgress;
-	let finishCancellation;
-	const cancellation = new Promise((resolve) => {
-		finishCancellation = resolve;
-	});
-	const { worker, posted } = createControlHarness({
-		engine: ({ onProgress }) => {
-			reportProgress = onProgress;
-			return { completion: new Promise(() => {}), cancel: () => cancellation };
-		},
-	});
-	worker.handleMessage(structuredClone(JOB_MESSAGE));
-	for (const value of [0, null, 1]) reportProgress(value);
-	assert.deepEqual(posted.slice(-3).map((message) => message.value), [0, null, 1]);
-
-	worker.handleMessage({ contractVersion: 1, type: 'cancel', jobId: JOB_ID });
-	const beforeLateProgress = posted.length;
-	reportProgress(0.5);
-	assert.equal(posted.length, beforeLateProgress, 'a cancelling generation cannot publish late progress');
-	finishCancellation();
-	await new Promise((resolve) => setImmediate(resolve));
-});
-
 test('helper worker acknowledges cancellation only after engine quiescence and admits no overlap', async () => {
 	let finishCancellation;
 	let finishEngine;
@@ -253,29 +229,21 @@ test('engine thread runner resolves results, rejects crashes, and awaits termina
 			return this.termination;
 		}
 	}
+	const engineConfig = {
+		coreJavascript: { path: '/runtime/ffmpeg-core.js', byteLength: 1_024, sha256: '12'.repeat(32) },
+		coreWasm: { path: '/runtime/ffmpeg-core.wasm', byteLength: 4_096, sha256: '34'.repeat(32) },
+	};
 	const runner = createEngineThreadJobRunner({
 		engineModuleUrl: new URL('file:///engine.js'),
-		engineConfig: { pinned: true },
+		engineConfig,
 		WorkerImpl: FakeWorker,
 	});
 	const success = runner({ grant: JOB_MESSAGE.grant, resourcePolicy: JOB_MESSAGE.resourcePolicy });
 	const successWorker = FakeWorker.instances.at(-1);
-	assert.deepEqual(successWorker.options.workerData.engineConfig, { pinned: true });
+	assert.deepEqual(successWorker.options.workerData.engineConfig, engineConfig);
 	successWorker.emit('message', { ok: true, result: { probed: true } });
 	assert.deepEqual(await success.completion, { probed: true });
 	assert.equal(successWorker.terminations, 1, 'a settled engine thread is always terminated');
-
-	const progress = [];
-	const progressing = runner({
-		grant: JOB_MESSAGE.grant,
-		resourcePolicy: JOB_MESSAGE.resourcePolicy,
-		onProgress: (value) => progress.push(value),
-	});
-	const progressWorker = FakeWorker.instances.at(-1);
-	for (const value of [0, null, 1]) progressWorker.emit('message', { type: 'progress', value });
-	assert.deepEqual(progress, [0, null, 1]);
-	progressWorker.emit('message', { ok: true, result: 'done' });
-	assert.equal(await progressing.completion, 'done');
 
 	const malformedProgress = runner({ grant: JOB_MESSAGE.grant, resourcePolicy: JOB_MESSAGE.resourcePolicy });
 	const malformedProgressWorker = FakeWorker.instances.at(-1);

@@ -80,6 +80,7 @@ export function createNativeAudacityProjectSave(
 		options: SaveAup3Options | SaveAup4Options,
 	): Promise<SaveResult> {
 		const target = saveTarget(generation);
+		const updatesSaveState = target.updatesProjectSaveState && !options.saveFile;
 		let snapshot = dependencies.requireProject();
 		if (!hasCoreEditingProjectAuthority(snapshot)) {
 			throw createLocalizedError(Error, runtime.copy, target.onlyV2Key);
@@ -101,7 +102,7 @@ export function createNativeAudacityProjectSave(
 		let nativeId: string | null = null;
 		let nativeCreated = false;
 		try {
-			if (runtime.fileService.isDesktop && saveDestination === undefined) {
+			if (!options.saveFile && runtime.fileService.isDesktop && saveDestination === undefined) {
 				try {
 					saveDestination = await runtime.fileService.chooseSaveTarget({
 						purpose: target.generation,
@@ -114,7 +115,7 @@ export function createNativeAudacityProjectSave(
 				}
 				dependencies.assertOwnership(operation.task, operation.projectToken);
 				if (!saveDestination) return { cancelled: true };
-			} else if (!fileHandle && options.useFileSystemAccess !== false) {
+			} else if (!options.saveFile && !fileHandle && options.useFileSystemAccess !== false) {
 				try {
 					fileHandle = await target.requestFileHandle({ fileName: options.fileName || snapshot.title });
 				} catch (error) {
@@ -161,7 +162,7 @@ export function createNativeAudacityProjectSave(
 				});
 			let admittedPortable: Aup4PortableOptions = { ...portable, maxBytes, fileSizeWarningApproved: maxBytes > threshold };
 			setLocalizedStatus(runtime.setStatus, runtime.copy, target.savingKey);
-			if (target.updatesProjectSaveState) {
+			if (updatesSaveState) {
 				dependencies.beginSave(operation.task, operation.projectToken);
 			}
 			await client.create(nativeId, { targetGeneration: target.generation, signal });
@@ -185,13 +186,13 @@ export function createNativeAudacityProjectSave(
 			const saved = await target.saveResult(result, {
 				fileName: options.fileName || snapshot.title,
 				fileHandle,
-				fileService: runtime.fileService,
+				fileService: options.saveFile ? { ...runtime.fileService, saveFile: options.saveFile } : runtime.fileService,
 				saveTarget: saveDestination,
 				signal,
 			});
 			dependencies.assertOwnership(operation.task, operation.projectToken);
 			if (saved.cancelled) {
-				if (target.updatesProjectSaveState) {
+				if (updatesSaveState) {
 					dependencies.failSave(operation.task, operation.projectToken);
 				}
 				return { cancelled: true };
@@ -203,7 +204,7 @@ export function createNativeAudacityProjectSave(
 				'save', snapshot.id,
 			);
 			dependencies.assertOwnership(operation.task, operation.projectToken);
-			const mayPublish = !target.updatesProjectSaveState
+			const mayPublish = !updatesSaveState
 				|| dependencies.finishSave(operation.task, operation.projectToken, 'saved');
 			if (mayPublish) {
 				setLocalizedStatus(runtime.setStatus, runtime.copy, target.savedKey, undefined, 'success');
@@ -211,7 +212,7 @@ export function createNativeAudacityProjectSave(
 			}
 			return { ...saved, validation, compatibilityReport };
 		} catch (error) {
-			if (target.updatesProjectSaveState) {
+			if (updatesSaveState) {
 				dependencies.failSave(operation.task, operation.projectToken);
 			}
 			throw error;

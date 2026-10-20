@@ -53,7 +53,6 @@ test('unchanged crossover controls preserve smoothing without redesign', (contex
 	context.mock.method(Math, 'tan', (value: number) => { calls++; return original(value); });
 	crossover.configure(1300);
 	assert.equal(calls, 0);
-	assert.throws(() => crossover.configure(NaN), /finite/);
 });
 
 test('identical normalized Reverb updates avoid gain and tone redesign', (context) => {

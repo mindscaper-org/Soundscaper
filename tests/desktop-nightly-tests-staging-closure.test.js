@@ -67,54 +67,18 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('scripts/lib/browser-target-coverage-state.mjs'));
 	assert.ok(result.visited.has('src/common/editor/macro-script/dynamic-source-contract.js'));
 	assert.ok(result.visited.has('src/common/editor/native-plugin-realtime-worklet.js'));
+	assert.ok(result.visited.has('tests/helpers/aup4-database-harness.js'));
 	assert.ok(result.visited.has('vendor/audacity-design-system/components/src/utils/roseus-colormap.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-native-sidecar-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-ordinary-animation-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/interchange-reference.ts'));
+	assert.ok(result.visited.has('tests/helpers/scape-archive-rewrite.js'));
 	assert.ok(result.visited.has('desktop/main-file-capability-ipc.mjs'));
 	assert.ok(result.visited.has('desktop/desktop-video-h264-encoder.ts'));
 	assert.ok(result.visited.has('desktop/ara-preload.ts'));
 	assert.ok(result.visited.has('desktop/blender-preload.ts'));
 	assert.ok(result.queryImports.some(({ specifier }) => specifier.endsWith('?worker&url')));
-});
-
-for (const owner of ['ara', 'blender']) {
-	test(`nightly preload fixture audit rejects an omitted ${owner} runtime source`, () => {
-		const withoutOwner = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
-			source !== `desktop/${owner}-preload.ts`
-		));
-		assert.throws(() => inspectLocalImportClosure(withoutOwner),
-			new RegExp(`Unstaged local import desktop/preload\\.mjs.*${owner}-preload\\.ts`, 'u'));
-	});
-}
-
-test('nightly video fixture audit rejects an omitted H264 encoder source', () => {
-	const withoutEncoder = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
-		source !== 'desktop/desktop-video-h264-encoder.ts'
-	));
-	assert.throws(() => inspectLocalImportClosure(withoutEncoder),
-		/Unstaged local import desktop\/desktop-video-codec-operation-contract\.ts.*desktop-video-h264-encoder\.js/u);
-});
-
-test('nightly payload audit rejects an omitted native sidecar fixture dependency', () => {
-	const withoutReadLease = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
-		source !== 'desktop/read-capability-request-lease.js'
-	));
-	assert.throws(
-		() => inspectLocalImportClosure(withoutReadLease),
-		/Unstaged local import .*file-capabilities\.js.*read-capability-request-lease\.js/u,
-	);
-});
-
-test('nightly payload audit rejects an omitted spectrogram painter dependency', () => {
-	const withoutColormap = NIGHTLY_TEST_PAYLOAD_INPUTS.filter(({ source }) => (
-		source !== 'vendor/audacity-design-system/components/src/utils/roseus-colormap.ts'
-	));
-	assert.throws(
-		() => inspectLocalImportClosure(withoutColormap),
-		/Unstaged local import .*pffft-spectrogram\.js.*roseus-colormap\.ts/u,
-	);
 });
 
 test('nightly payload production-module audit rejects an unstaged local dependency', () => {

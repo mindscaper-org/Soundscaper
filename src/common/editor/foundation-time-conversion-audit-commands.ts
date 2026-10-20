@@ -13,6 +13,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
  */
 export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'selected-label-clipboard-placement',
+		file: 'src/common/editor/controller/edit/internal/selected-label-clipboard.ts',
+		behavior: 'Label-only paste independently scales resolved offsets to nearest destination samples, then recovers exact destination beat coordinates for musical labels while retaining their anchor kind.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }, { helper: 'sampleFrameToBeat', policies: ['exact'] }],
+	},
+	{
 		id: 'shared-source-effect-musical-warp-duration',
 		file: 'src/common/editor/commands/source-process-audio-runtime.ts',
 		behavior: 'Length-changing source effects resolve musical warp points to nearest project samples before scaling elapsed time and recovering their beat coordinates through the current tempo map.',
@@ -143,6 +149,12 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 		file: 'src/common/editor/controller/recording/internal/recording-source-alignment.ts',
 		behavior: 'Device latency plus the signed manual correction point-rounds its magnitude once on the project sample grid, then preserves its sign for source placement and selected-range bounds.',
 		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'ordinary-recording-recovery-placement',
+		file: 'src/common/editor/controller/recording/internal/ordinary-recording-recovery-project.ts',
+		behavior: 'Interrupted recording checkpoints retain their capture alignment and point-conform absolute source boundaries to the current project sample rate; selected punch endpoints map back to source samples with the same nearest-point policy.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 	{
 		id: 'recording-start-timing',

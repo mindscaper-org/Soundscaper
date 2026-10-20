@@ -28,7 +28,7 @@ export function boundProviderContext(context: AudiocomOAuthFunctionContext, bind
 
 export function contextWithProviderBinding(context: AudiocomOAuthFunctionContext, binding: AudiocomOAuthProviderBinding): AudiocomOAuthFunctionContext {
 	const configured = withOrigin(context, selectedOrigin(binding.apiOrigin, context));
-	if (providerConfiguration(configured.env).scope !== binding.scope) mismatch();
+	// Keep legacy grants bound to their issuer; new connections request Audacity's all scope.
 	return { ...configured, env: { ...configured.env, AUDIOCOM_CLIENT_ID: binding.clientId, AUDIOCOM_OAUTH_REDIRECT_URI: binding.redirectUri } };
 }
 

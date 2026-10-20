@@ -60,6 +60,7 @@ export interface TimedRecordingInputServiceRuntime<Stream> {
 		project: TimedRecordingInputProject,
 		trackId: string,
 	) => TimedRecordingInputTrack | null;
+	readonly recordingInputSampleRate?: (() => number) | undefined;
 	readonly projectSampleRate: (project: TimedRecordingInputProject) => number;
 	readonly getPreferredInputChannelCount: () => number;
 	readonly getRecordingRoutes: () => Readonly<Record<string, TimedRecordingInputRoute>>;
@@ -98,7 +99,7 @@ export function createTimedRecordingInputService<Stream>(
 	): Promise<PreparedTimedRecordingInputs> {
 		scope.assertCurrent();
 		const project = runtime.getProject();
-		const sampleRate = runtime.projectSampleRate(project);
+		const sampleRate = runtime.recordingInputSampleRate?.() ?? runtime.projectSampleRate(project);
 		const routes = runtime.getRecordingRoutes();
 		if (options.trackId) {
 			return prepareExplicitTrack(project, routes, sampleRate, options.trackId, options, scope);

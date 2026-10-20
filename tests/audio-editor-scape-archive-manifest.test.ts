@@ -9,14 +9,9 @@ import {
 	ZipWriter,
 } from '@zip.js/zip.js';
 
-import {
-	createArchiveManifestFromStreams,
-	compareArchiveManifests,
-} from '../src/common/editor/archive-manifest.ts';
-import * as scapeArchiveManifest from '../src/common/editor/scape-archive-manifest.ts';
+import { createScapeArchiveManifest } from '../src/common/editor/scape-archive-manifest.ts';
 import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
 
-const { createScapeArchiveManifest } = scapeArchiveManifest;
 const PROJECT = new TextEncoder().encode('{"schemaVersion":9}');
 const MEDIA = Uint8Array.from({ length: 5_000 }, (_value, index) => index % 253);
 
@@ -52,26 +47,6 @@ test('manifest creation obeys cancellation before opening an archive', async () 
 	}), { name: 'AbortError' });
 });
 
-test('the archive-manifest runtime does not publish an unshipped verification action', () => {
-	assert.equal('verifyScapeArchiveManifest' in scapeArchiveManifest, false);
-});
-
-test('comparing two manifests reports missing, size, digest and unlisted members', async () => {
-	const expected = await createArchiveManifestFromStreams([
-		{ id: 'a', chunks: chunksOf(MEDIA) },
-		{ id: 'b', chunks: chunksOf(PROJECT) },
-	]);
-	const observed = await createArchiveManifestFromStreams([
-		{ id: 'b', chunks: chunksOf(PROJECT.subarray(0, 4)) },
-		{ id: 'c', chunks: chunksOf(PROJECT) },
-	]);
-
-	assert.deepEqual(
-		compareArchiveManifests(expected, observed).mismatches.map(({ kind, member }) => `${kind}:${member}`),
-		['missing:a', 'size:b', 'digest:b', 'unlisted:c'],
-	);
-});
-
 async function archive(withDirectory = false): Promise<Blob> {
 	const writer = new ZipWriter(new BlobWriter('application/vnd.soundscaper.scape+zip'), {
 		level: 0,
@@ -81,10 +56,4 @@ async function archive(withDirectory = false): Promise<Blob> {
 	await writer.add('media/a.wav', new Uint8ArrayReader(MEDIA), { level: 0 });
 	await writer.add('project.json', new Uint8ArrayReader(PROJECT), { level: 0 });
 	return writer.close();
-}
-
-async function* chunksOf(bytes: Uint8Array): AsyncGenerator<Uint8Array> {
-	for (let offset = 0; offset < bytes.byteLength; offset += 512) {
-		yield bytes.subarray(offset, Math.min(bytes.byteLength, offset + 512));
-	}
 }

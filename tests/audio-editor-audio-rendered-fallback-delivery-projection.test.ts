@@ -26,15 +26,13 @@ const DIGEST = 'ed'.repeat(32);
 test('audio delivery applies only the maintained whole-mix fallback and preserves canonical video', () => {
 	const canonical = combinedFallbackProject();
 	const before = structuredClone(canonical);
-	const service = createPlaybackProjectService({ audioEffects: false, videoEffects: false });
+	const service = createPlaybackProjectService({ audioEffects: false, videoEffects: true });
 
 	const delivery = service.projectForAudioRenderedFallbackDelivery(canonical);
 
 	assert.equal(delivery.featureRequirementsReport?.compatible, false);
 	assert.equal(delivery.audioRenderedFallback?.sourceId, 'fallback-audio');
 	assert.deepEqual(delivery.requiredAudioSourceIds, ['fallback-audio']);
-	assert.equal(Object.isFrozen(delivery), true);
-	assert.equal(Object.isFrozen(delivery.requiredAudioSourceIds), true);
 	assert.deepEqual(canonical, before, 'the canonical project must remain unchanged');
 
 	assert.deepEqual(delivery.project.tracks.map(({ id }) => id), [
@@ -101,7 +99,7 @@ test('audio delivery projects an unknown feature through the closed whole-mix ro
 		disposition: 'rendered-fallback',
 		fallback: { kind: 'audio', sourceId: 'fallback-audio', sha256: DIGEST },
 	});
-	const delivery = createPlaybackProjectService({ audioEffects: true, videoEffects: true })
+	const delivery = createPlaybackProjectService({ audioEffects: true, videoEffects: false })
 		.projectForAudioRenderedFallbackDelivery(canonical);
 
 	assert.equal(delivery.featureRequirementsReport?.items[0]?.availability, 'unknown');
@@ -134,7 +132,7 @@ test('audio delivery does not traverse future project feature or media state', (
 		get clips(): never { throw new Error('future clips were traversed'); },
 		get tracks(): never { throw new Error('future tracks were traversed'); },
 	};
-	const delivery = createPlaybackProjectService({ audioEffects: false, videoEffects: false })
+	const delivery = createPlaybackProjectService({ audioEffects: false, videoEffects: true })
 		.projectForAudioRenderedFallbackDelivery(future);
 
 	assert.strictEqual(delivery.project, future);

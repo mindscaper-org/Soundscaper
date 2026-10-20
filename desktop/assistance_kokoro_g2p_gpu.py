@@ -50,7 +50,7 @@ class NativeGemm:
             raise RuntimeError("The G2P GPU session could not be released.")
 
 
-def create_gpu_ops(numpy, base_ops, native):
+def create_gpu_ops(numpy, base_ops, native, require_gpu=False):
     """All trained weights and remaining Thinc operations retain their original representation."""
     class GpuGemmOps(base_ops):
         name = "scape-ort-webgpu"
@@ -84,12 +84,14 @@ def create_gpu_ops(numpy, base_ops, native):
                     raise ValueError("The authenticated G2P GPU returned an invalid matrix result.")
                 # A synchronous native run has ended. Retire it before CPU inference.
                 native.close()
+            if require_gpu and min(m, k, n) > 0:
+                raise RuntimeError("GPU validation forbids a CPU G2P matrix fallback.")
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
 
     return GpuGemmOps()
 
 
-def install_gpu_ops(root=None, profile=None):
+def install_gpu_ops(root=None, profile=None, require_gpu=False):
     """Called before spaCy loads the learned Tok2Vec and tagger models."""
     import numpy
     from thinc.backends import NumpyOps, set_current_ops
@@ -98,14 +100,18 @@ def install_gpu_ops(root=None, profile=None):
         root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "scape-gpu"
     try:
         native = NativeGemm(Path(root), profile)
-    except OSError:
+    except OSError as error:
         # Missing host loader support is an ordinary CPU fallback after payload authentication.
+        if require_gpu:
+            raise RuntimeError("GPU validation requires the authenticated G2P GPU loader.") from error
         return None
     if not native.active:
         native.close()
+        if require_gpu:
+            raise RuntimeError("GPU validation requires an active G2P GPU device.")
         return None
     try:
-        ops = create_gpu_ops(numpy, NumpyOps, native)
+        ops = create_gpu_ops(numpy, NumpyOps, native, require_gpu=require_gpu)
         set_current_ops(ops)
     except BaseException:
         native.close()

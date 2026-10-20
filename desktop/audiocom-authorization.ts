@@ -6,7 +6,7 @@ export interface AudiocomExternalProvider {
 	readonly kind: 'audiocity';
 	readonly apiOrigin: string;
 	readonly webOrigin: string;
-	readonly scope: 'public' | 'public projects';
+	readonly scope: 'public' | 'public projects' | 'all';
 }
 export interface AudiocomExternalConfiguration {
 	readonly backendOrigin: string;
@@ -19,7 +19,7 @@ export function assertAudiocomExternalProvider(value: unknown, backendOrigin: st
 	const provider = value as Record<string, unknown>;
 	const backend = configuredOrigin(backendOrigin, true);
 	const allowLocal = backend.protocol === 'http:' && isLoopback(backend);
-	if (provider.kind !== 'audiocity' || (provider.scope !== 'public' && provider.scope !== 'public projects')
+	if (provider.kind !== 'audiocity' || (provider.scope !== 'public' && provider.scope !== 'public projects' && provider.scope !== 'all')
 		|| typeof provider.apiOrigin !== 'string' || typeof provider.webOrigin !== 'string'
 		|| provider.apiOrigin !== provider.webOrigin) throw new TypeError('Invalid audio provider configuration');
 	configuredOrigin(provider.apiOrigin, allowLocal);
@@ -44,7 +44,7 @@ export function assertAudiocomAuthorizationUrl(value: unknown, configuration?: A
 			|| url.username || url.password || url.hash
 			|| [...url.searchParams.keys()].some((key) => !OAUTH_PARAMETERS.includes(key))
 			|| OAUTH_PARAMETERS.some((key) => url.searchParams.getAll(key).length !== 1 || !url.searchParams.get(key))
-			|| url.searchParams.get('response_type') !== 'code' || url.searchParams.get('scope') !== (provider?.scope ?? 'public')
+			|| url.searchParams.get('response_type') !== 'code' || url.searchParams.get('scope') !== (provider?.scope ?? 'all')
 			|| url.searchParams.get('redirect_uri') !== `${callbackOrigin}/api/audiocom/oauth/callback`
 			|| url.searchParams.get('code_challenge_method') !== 'S256'
 			|| !/^[A-Za-z0-9_-]{43}$/u.test(url.searchParams.get('code_challenge') ?? '')) throw new TypeError();

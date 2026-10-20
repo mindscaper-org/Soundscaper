@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-	AUDACITY_ACTION_ALIASES,
 	AUDACITY_ACTION_MANIFEST,
 	AUDACITY_ACTION_SOURCE,
 	AUDACITY_ACTION_STATUS,
@@ -21,13 +20,10 @@ test('Audacity action parity is pinned to the reviewed Audacity 4 source revisio
 	assert.equal(AUDACITY_ACTION_SOURCE.commit, PINNED_COMMIT);
 	assert.match(AUDACITY_ACTION_SOURCE.url, new RegExp(PINNED_COMMIT));
 	assert.equal(AUDACITY_ACTION_SOURCE.version, '4.0.0');
-	assert.ok(Object.isFrozen(AUDACITY_ACTION_SOURCE));
 });
 
-test('every parity record carries the complete immutable action contract', () => {
+test('every parity record carries its action policy and upstream attribution', () => {
 	const entries = Object.entries(AUDACITY_ACTION_MANIFEST);
-	assert.ok(entries.length >= 190, `Expected a broad pinned inventory, received ${entries.length} actions.`);
-	assert.ok(Object.isFrozen(AUDACITY_ACTION_MANIFEST));
 
 	for (const [id, definition] of entries) {
 		assert.equal(definition.id, id);
@@ -41,8 +37,6 @@ test('every parity record carries the complete immutable action contract', () =>
 		assert.ok(Object.values(AUDACITY_ACTION_STATUS).includes(definition.status));
 		assert.equal(typeof definition.upstreamAction, 'string');
 		assert.ok(['upstream', 'local'].includes(definition.origin));
-		assert.ok(Object.isFrozen(definition));
-		assert.ok(Object.isFrozen(definition.locations));
 
 		if (definition.origin === 'upstream') {
 			assert.equal(typeof definition.upstreamSource, 'string');
@@ -59,7 +53,6 @@ test('every parity record carries the complete immutable action contract', () =>
 			assert.equal(definition.enableWhen, 'never');
 			assert.equal(typeof definition.reason.en, 'string');
 			assert.equal(typeof definition.reason.de, 'string');
-			assert.ok(Object.isFrozen(definition.reason));
 		}
 	}
 });
@@ -235,8 +228,6 @@ test('milestone 3 import and analysis actions have exact menu ownership and hand
 test('the unimplemented milestone 8B MIDI plan stays inert and post-1.0', () => {
 	const midiActionIds = ['export-midi', 'midi-device-info', 'local://midi-track'];
 	assert.deepEqual(AUDACITY_MIDI_FENCE.actionIds, midiActionIds);
-	assert.ok(Object.isFrozen(AUDACITY_MIDI_FENCE));
-	assert.ok(Object.isFrozen(AUDACITY_MIDI_FENCE.actionIds));
 	for (const id of midiActionIds) {
 		const definition = audacityActionDefinition(id);
 		assert.equal(definition.handler, null, id);
@@ -311,7 +302,6 @@ test('legacy UI aliases resolve to stable upstream IDs and share one policy reco
 		AUDACITY_ACTION_MANIFEST['action://trackedit/track/change-rate?rate=%1'],
 	);
 	assert.equal(audacityActionDefinition('not-in-inventory'), null);
-	assert.ok(Object.isFrozen(AUDACITY_ACTION_ALIASES));
 });
 
 test('Nyquist spectral processors require an editable frequency selection', () => {

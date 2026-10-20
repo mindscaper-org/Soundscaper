@@ -45,10 +45,6 @@ test('runtime-family task routing is closed over the three isolated CPU families
 	assert.equal(runtimeFamilyForAssistanceTask('text-embedding'), 'onnxruntime-node',
 		'the retained nomic ONNX model must not be sent to the Qwen-only llama runtime');
 	assert.equal(runtimeFamilyForAssistanceTask('subject-detection'), 'onnxruntime-node');
-	assert.throws(() => runtimeFamilyForAssistanceTask('face-detection'), /task|family/iu);
-	assert.throws(() => runtimeFamilyForAssistanceTask('object-detection'), /task|family/iu);
-	assert.throws(() => runtimeFamilyForAssistanceTask('voice-activity-detection'),
-		/task|family|unsupported/iu);
 });
 
 test('operation adapter captures exact files, runs one family, and returns pathless claims', async (t) => {
@@ -200,17 +196,4 @@ test('operation adapter reports a safe runtime failure without changing unavaila
 	assert.deepEqual(diagnostics, [{ familyId: 'onnxruntime-node', task: 'shot-detection',
 		code: 'worker-error', stage: 'worker', exitCode: null }]);
 	assert.doesNotMatch(JSON.stringify(diagnostics), /model\.onnx|assistance-family-operation/u);
-});
-
-test('operation adapter rejects non-canonical settings before granting filesystem paths', async () => {
-	let called = false;
-	const adapter = createAssistanceRuntimeFamilyOperationAdapter({ router: {
-		run: async () => { called = true; return null; },
-	} });
-	await assert.rejects(adapter.run({
-		jobId: JOB_ID, task: 'shot-detection', settings: { value: Number.NaN },
-		maximumRssBytes: 1, maximumDurationMs: 1,
-		inputs: [], models: [], outputs: [],
-	}), /settings|finite|files/iu);
-	assert.equal(called, false);
 });

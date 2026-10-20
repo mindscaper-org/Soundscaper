@@ -1,52 +1,51 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { MAX_UPLOAD_BYTES, record } from './contracts.ts';
+import { record } from './contracts.ts';
 import { OAuthHttpError } from './oauth-http.ts';
+import { trustedProviderUploadUrl, trustedProviderHookUrl, type AudiocomProviderConfiguration } from './provider-config.ts';
 
-export const PROJECT_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu;
-export interface ProjectArchive {
-	readonly id: string;
-	readonly name: string;
-	readonly format: 'aup3' | 'aup4';
-	readonly size: number;
-	readonly snapshotId: string | null;
+export const NATIVE_HASH = /^[a-f0-9]{64}$/iu;
+export function nativeProject(value: unknown) {
+	const data = record(value);
+	if (typeof data.name !== 'string' || !data.name.trim() || data.name.length > 256) throw invalid('Invalid cloud project.');
+	const head = data.latest_synced_snapshot_id ?? null;
+	const size = typeof data.size === 'number' && Number.isSafeInteger(data.size) && data.size >= 0 ? data.size : 0;
+	return { id: projectId(data.id), name: data.name, snapshotId: head ? snapshotId(head) : null, format: 'aup3' as const, size, transport: 'native' as const };
 }
+export function nativeTransferUrls(value: unknown, provider: AudiocomProviderConfiguration, project: string, snapshot: string) {
+	const descriptor = record(value);
+	if (provider.kind === 'audiocity') return { url: trustedProviderUploadUrl(descriptor.url, provider),
+		success: trustedProviderHookUrl(descriptor.success, provider, 'success'), fail: trustedProviderHookUrl(descriptor.fail, provider, 'fail') };
+	const url = checkedUrl(descriptor.url), success = checkedUrl(descriptor.success), fail = checkedUrl(descriptor.fail);
+	if (url.origin !== 'https://s3.eu-central-1.wasabisys.com' || !url.pathname.startsWith('/audio.com.projects/projects/')
+		|| !url.searchParams.has('X-Amz-Signature')) throw invalid('Invalid native project storage destination.');
+	for (const hook of [success, fail]) if (hook.origin !== 'https://api.audio.com'
+		|| !hook.pathname.startsWith(`/project/${project}/snapshot/${snapshot}/`)) throw invalid('Invalid native project transfer hook.');
+	return { url, success, fail };
+}
+function checkedUrl(value: unknown): URL {
+	if (typeof value !== 'string' || value.length > 8192) throw invalid('Invalid native project URL.');
+	let url: URL; try { url = new URL(value); } catch { throw invalid('Invalid native project URL.'); }
+	if (url.protocol !== 'https:' || url.username || url.password || url.hash) throw invalid('Invalid native project URL.');
+	return url;
+}
+export function nativePrepareInput(value: unknown) {
+	const data = record(value);
+	if (Object.keys(data).some(key => !['name', 'blocks', 'id', 'head'].includes(key)) || typeof data.name !== 'string'
+		|| !data.name.trim() || data.name.length > 256 || [...data.name].some(c => c.charCodeAt(0) < 32)
+		|| !Array.isArray(data.blocks) || data.blocks.length > 1000
+		|| data.blocks.some((hash: unknown) => typeof hash !== 'string' || !NATIVE_HASH.test(hash))) throw new OAuthHttpError(400, 'invalid_request', 'Invalid native project manifest.');
+	const revision = data.id !== undefined || data.head !== undefined ? { id: projectId(data.id), head: snapshotId(data.head) } : undefined;
+	return { name: data.name.trim(), blocks: [...new Set((data.blocks as string[]).map(hash => hash.toUpperCase()))], revision };
+}
+
+const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu;
 export function projectId(value: unknown): string {
-	if (typeof value !== 'string' || !PROJECT_ID.test(value)) throw invalid('Invalid project identifier.');
+	if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return String(value);
+	if (typeof value !== 'string' || !UUID.test(value) && !/^[1-9]\d{0,15}$/u.test(value)) throw invalid('Invalid cloud project id.');
 	return value;
 }
-export function normalizeProject(value: unknown): ProjectArchive {
-	const data = record(value);
-	const format = data.latest_synced_snapshot_id && data.latest_synced_format ? data.latest_synced_format : data.format;
-	if (data.transport !== 'file' || !['aup3', 'aup4'].includes(String(format))
-		|| typeof data.name !== 'string' || !data.name.trim() || data.name.length > 256
-		|| typeof data.size !== 'number' || !Number.isSafeInteger(data.size) || data.size < 0) throw invalid('Invalid project archive.');
-	return { id: projectId(data.id), name: data.name, format: format as 'aup3' | 'aup4', size: data.size,
-		snapshotId: data.latest_synced_snapshot_id ? projectId(data.latest_synced_snapshot_id) : null };
-}
-export function archiveUploadInput(request: Request): Readonly<{ name: string; format: 'aup3' | 'aup4'; size: number }> {
-	const query = new URL(request.url).searchParams;
-	if (query.size !== 2 || query.getAll('name').length !== 1 || query.getAll('format').length !== 1) throw new OAuthHttpError(400, 'invalid_request', 'Invalid project upload parameters.');
-	const name = query.get('name')?.trim() ?? '';
-	const format = query.get('format');
-	if (!name || name.length > 256 || [...name].some(character => character.charCodeAt(0) < 32) || (format !== 'aup3' && format !== 'aup4')) throw new OAuthHttpError(400, 'invalid_request', 'Choose an AUP3 or AUP4 project archive and name.');
-	const size = request.headers.get('X-Audiocom-Content-Length');
-	if (size === null || !/^[1-9]\d{0,15}$/u.test(size) || Number(size) > MAX_UPLOAD_BYTES) throw new OAuthHttpError(413, 'invalid_upload_size', 'Project archives must be no larger than 100 MB.');
-	if (Number(size) < 16 || request.body === null) throw new OAuthHttpError(400, 'invalid_upload', 'Choose a standalone SQLite project archive.');
-	return { name, format, size: Number(size) };
+export function snapshotId(value: unknown): string {
+	if (typeof value !== 'string' || !UUID.test(value)) throw invalid('Invalid cloud snapshot id.');
+	return value;
 }
 export function invalid(message: string): OAuthHttpError { return new OAuthHttpError(502, 'invalid_upstream_response', message); }
-
-/** Check the header while preserving streaming and without reading the whole file. */
-export function sqliteArchiveStream(source: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
-	const header = new TextEncoder().encode('SQLite format 3\0');
-	let offset = 0;
-	return source.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-		transform(chunk, controller) {
-			for (let index = 0; index < chunk.byteLength && offset < header.length; index++, offset++) {
-				if (chunk[index] !== header[offset]) throw new OAuthHttpError(422, 'invalid_project_archive', 'Choose a standalone SQLite AUP3 or AUP4 project file.');
-			}
-			controller.enqueue(chunk);
-		},
-		flush() { if (offset < header.length) throw new OAuthHttpError(422, 'invalid_project_archive', 'The project archive is incomplete.'); },
-	}));
-}

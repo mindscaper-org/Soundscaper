@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { app, MessageChannelMain, utilityProcess } from 'electron/main';
 
 import { HelperSupervisor } from './project-library-runtime/desktop/helper-supervisor.js';
-import { createNativeAudioHelperRuntime } from './project-library-runtime/desktop/native-audio-helper-adapter.js';
+import { createNativeAudioHelperRuntime, createNativeAudioSessionSupervisorPool } from './project-library-runtime/desktop/native-audio-helper-adapter.js';
 import { DesktopNativeAudioSessionService } from './project-library-runtime/desktop/native-audio-session-service.js';
 import {
 	createNativeAddonVerifier,
@@ -32,13 +32,21 @@ export function registerDesktopNativeAudioHelper({
 	channels, handle, ownerFor, settings, desktopRoot, packaged, resourcesPath,
 	createMessageChannel = () => new MessageChannelMain(),
 	isBackendActivated = productionAudioBackendActivated,
+	createHelperSupervisor = createDesktopNativeAddonHelperSupervisor,
 }) {
-	const helper = createDesktopNativeAddonHelperSupervisor({
+	const helper = createHelperSupervisor({
 		desktopRoot, packaged, resourcesPath, role: 'audio',
 		serviceName: 'soundscaper-native-audio-helper',
 		payloadKind: 'professional',
 	});
 	const { supervisor } = helper;
+	const sessionSupervisors = createNativeAudioSessionSupervisorPool({
+		createSupervisor: () => createHelperSupervisor({
+			desktopRoot, packaged, resourcesPath, role: 'audio',
+			serviceName: 'soundscaper-native-audio-session-helper', payloadKind: 'professional',
+		}).supervisor,
+		isQuarantined: () => supervisor.snapshot().quarantined,
+	});
 
 	const service = new DesktopNativeAudioService({
 		supervisor,
@@ -47,9 +55,10 @@ export function registerDesktopNativeAudioHelper({
 	});
 	const broker = new DesktopNativeRealtimeBroker({
 		isEnabled: () => settings.snapshot().nativeAudioHelperEnabled === true,
+		concurrentSessions: true,
 	});
 	const helperRuntime = createNativeAudioHelperRuntime({
-		supervisor,
+		supervisor: sessionSupervisors,
 		broker,
 		createChannel: createMessageChannel,
 	});
@@ -91,6 +100,7 @@ export function registerDesktopNativeAudioHelper({
 	const availability = async () => {
 		const value = await service.availability();
 		return Object.freeze({ ...value,
+			quarantined: value.quarantined || sessionSupervisors.snapshot().quarantined,
 			routePreference: settings.snapshot().nativeAudioRoutePreference ?? null,
 			backends: Object.freeze(
 			value.backends.filter((backend) => isBackendActivated(backend) === true),
@@ -139,9 +149,9 @@ export function registerDesktopNativeAudioHelper({
 		availability,
 		controlSnapshot: () => Object.freeze({
 			enabled: settings.snapshot().nativeAudioHelperEnabled === true,
-			quarantined: supervisor.snapshot().quarantined === true,
+			quarantined: supervisor.snapshot().quarantined === true || sessionSupervisors.snapshot().quarantined,
 		}),
-		clearQuarantine: () => service.clearQuarantine(),
+		clearQuarantine: () => { service.clearQuarantine(); sessionSupervisors.clearQuarantine(); },
 		describeBackend,
 		setEnabled,
 		sessions,
@@ -152,6 +162,7 @@ export function registerDesktopNativeAudioHelper({
 		},
 		dispose: async () => {
 			await sessions.dispose();
+			await sessionSupervisors.dispose();
 			broker.dispose();
 			service.dispose();
 		},

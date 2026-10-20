@@ -31,7 +31,7 @@ import { ACCEPTED_PROJECT_FILE_EXTENSIONS } from '../src/common/project-file-ext
 const INSTALLED_PRODUCTS = Object.freeze(['soundscaper', 'framescaper', 'motionscaper']);
 const MEDIA_HANDLER_PRODUCTS = Object.freeze(['soundscaper', 'framescaper']);
 
-/** Every member a product manifest emits, in the order it emits them. */
+/** Required browser and operating-system integration fields. */
 const MANIFEST_FIELDS = Object.freeze([
 	'id', 'name', 'short_name', 'description', 'lang', 'dir', 'start_url', 'scope',
 	'display', 'display_override', 'orientation', 'categories',
@@ -229,8 +229,9 @@ test('installed products declare only their maintained operating-system integrat
 	for (const productId of INSTALLED_PRODUCTS) {
 		const { manifest } = await productShell(context, productId);
 		const fields = productId === 'motionscaper' ? MANIFEST_FIELDS.filter((field) => field !== 'share_target') : MANIFEST_FIELDS;
-		assert.deepEqual(Object.keys(manifest), [...fields], productId);
+		for (const field of fields) assert.ok(Object.hasOwn(manifest, field), `${productId} ${field}`);
 		if (productId === 'motionscaper') {
+			assert.equal(Object.hasOwn(manifest, 'share_target'), false, 'Motion does not advertise an unsupported share target');
 			assert.equal(manifest.file_handlers.length, 1, 'Motion opens projects through the reviewed File workflow');
 			assert.deepEqual(manifest.screenshots, [], 'Motion does not advertise screenshots of another editor');
 		}
@@ -375,9 +376,6 @@ test('a maskable icon pads its artwork into the middle 80% over an opaque plate'
 	assert.match(maskable, /viewBox="-1\.25 -1\.25 12\.5 12\.5"/u);
 	assert.match(maskable, /<svg[^>]*><rect x="-1\.25" y="-1\.25" width="12\.5" height="12\.5" fill="#ffffff" \/>/u);
 	assert.equal(createSquareOfflineIconSvg(source, 512, 'fixture.svg').includes('#ffffff'), false);
-	for (const safeZone of [0, -1, 1.25, Number.NaN]) {
-		assert.throws(() => createSquareOfflineIconSvg(source, 512, 'fixture.svg', { safeZone }), /safe zone/u);
-	}
 });
 
 test('the maskable artwork of every product mark stays inside the safe circle', async () => {

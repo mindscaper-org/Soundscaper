@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
-import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
+import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipSourceMonitorPanel.tsx';
 import type { ClipSourceController } from '../src/common/editor/ui/inspector/clip-source-editor-types.ts';
 import { handleWorkspaceKeyboard } from '../src/common/editor/ui/workspace-shortcuts.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
@@ -22,10 +22,10 @@ test('Space on the initially focused properties body belongs to its source trans
 	} finally { await f.cleanup(); }
 });
 
-test('Space retains native drawer, input, and button behavior without starting project playback', async () => {
+test('Space retains native source button behavior without starting project playback', async () => {
 	const f = await fixture();
 	try {
-		for (const selector of ['summary', 'input', 'button']) {
+		for (const selector of ['button']) {
 			const event = await f.space(f.dom.one(selector));
 			assert.equal(event.defaultPrevented, false, selector);
 		}
@@ -78,7 +78,7 @@ async function fixture() {
 	} };
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	await act(async () => { root.render(<ClipPropertiesPanel controller={controller} copy={ENGLISH_COPY}
+	await act(async () => { root.render(<ClipPropertiesPanel run={operation => operation()} controller={controller} copy={ENGLISH_COPY}
 		snapshot={{ project, selectedClipId: 'clip', capabilities: { audioEffects: false } }}
 		focusRequest={{ projectId: 'project', clipId: 'clip', field: null }} />); });
 	const body = dom.one('[data-clip-properties-active-clip]');

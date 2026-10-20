@@ -40,8 +40,6 @@ test('desktop window icons contain the canonical selected product raster', async
 		icons.push(bytes);
 	}
 	assert.notDeepEqual(icons[0], icons[1], 'the two products retain their distinct marks');
-	await assert.rejects(() => generateProductWindowIcon({ outputRoot: root, repositoryRoot, productId: 'unknown' }),
-		/unsupported/u);
 });
 
 test('desktop preparation regenerates its window icon after Vite clears the renderer', async (context) => {

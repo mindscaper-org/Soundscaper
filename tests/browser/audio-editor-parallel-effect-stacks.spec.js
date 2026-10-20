@@ -183,6 +183,8 @@ async function openProcessingPreferences(page, editor) {
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Audio settings$/u }).click();
+	await expect(preferences.getByRole('checkbox', { name: 'Parallel effect stacks', exact: true })).toHaveCount(0);
+	await preferences.getByRole('tab', { name: /Advanced$/u }).click();
 	return preferences;
 }
 

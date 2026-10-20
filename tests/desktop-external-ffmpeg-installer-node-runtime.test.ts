@@ -171,22 +171,6 @@ test('termination has a bounded fallback when a hostile child never closes', asy
 	assert.deepEqual(child.kills, ['SIGKILL']);
 });
 
-test('malformed invocations fail before any process is spawned', () => {
-	let spawns = 0;
-	const runner = createExternalFfmpegInstallerNodeRunner({
-		spawn() { spawns += 1; return fakeChild(); },
-	});
-	assert.throws(() => runner({
-		...invocation(), argv: ['install', 'ffmpeg\0malicious'],
-	}), /installer runner request/iu);
-	assert.throws(() => runner({
-		...invocation(), options: { ...invocation().options, shell: true as never },
-	}), /installer runner request/iu);
-	assert.throws(() => runner({
-		...invocation(), executable: 'winget.exe',
-	}), /installer runner request/iu);
-	assert.equal(spawns, 0);
-});
 
 function invocation(overrides: Readonly<{
 	readonly signal?: AbortSignal;

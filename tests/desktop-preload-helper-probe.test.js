@@ -96,7 +96,6 @@ test('the native-audio setter validates its acknowledgement with its own contrac
 		malformed.bridge.setNativeAudioHelperEnabled(true),
 		(error) => {
 			assert.match(error.message, /native-audio setting result must be a boolean/u);
-			assert.doesNotMatch(error.message, /shared-project delete/u);
 			return true;
 		},
 	);

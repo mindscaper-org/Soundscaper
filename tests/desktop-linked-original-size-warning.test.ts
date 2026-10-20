@@ -49,7 +49,7 @@ test('native linked-file approval precedes locator minting and persists large au
 });
 
 test('cancelled, revoked, or changed linked-file warnings mint and persist no locator', async () => {
-	for (const outcome of ['cancel', 'revoke', 'change', 'truthy'] as const) {
+	for (const outcome of ['cancel', 'revoke', 'change'] as const) {
 		const owner = {};
 		let changed = false;
 		let minted = 0;
@@ -61,7 +61,7 @@ test('cancelled, revoked, or changed linked-file warnings mint and persist no lo
 			confirmFileSizeWarning: async () => {
 				if (outcome === 'revoke') store.revokeOwner(owner);
 				if (outcome === 'change') changed = true;
-				return outcome === 'truthy' ? 'accepted' as unknown as boolean : outcome !== 'cancel';
+				return outcome !== 'cancel';
 			},
 		});
 		await assert.rejects(store.registerPath('/tmp/large.mov', {
@@ -94,7 +94,7 @@ test('native materialization approval admits one resident-file budget and checks
 });
 
 test('materialization cancellation, owner revocation and changed identities close the unminted handle', async () => {
-	for (const outcome of ['cancel', 'revoke', 'change', 'truthy'] as const) {
+	for (const outcome of ['cancel', 'revoke', 'change'] as const) {
 		const owner = {};
 		let closed = 0;
 		let changed = false;
@@ -102,7 +102,7 @@ test('materialization cancellation, owner revocation and changed identities clos
 			confirmFileSizeWarning: async () => {
 				if (outcome === 'revoke') void store.revokeOwner(owner);
 				if (outcome === 'change') changed = true;
-				return outcome === 'truthy' ? 'accepted' as unknown as boolean : outcome !== 'cancel';
+				return outcome !== 'cancel';
 			},
 			openImpl: async () => ({
 				stat: async () => ({ ...metadata, ino: changed ? 9 : 2 }),

@@ -1,9 +1,9 @@
 {
 	"$comment": [
 		"Reference implementations used to prove the 6C-1 interchange profiles against something",
-		"other than themselves. These are conformance-time tools only: nothing here is bundled,",
-		"linked, or shipped with Soundscaper, so no obligation flows into the AGPL-3.0-only",
-		"distribution. They are recorded anyway because a dependency that decides whether a test",
+		"other than themselves. These are conformance-time tools only: normal product bundles",
+		"exclude them; the diagnostic nightly includes them and their notices with a portable Python.",
+		"They are recorded because a dependency that decides whether a test",
 		"passes deserves the same provenance discipline as one that ships.",
 		"",
 		"Every OpenTimelineIO package is Apache-2.0, which is one-way compatible with GPLv3-family",

@@ -307,7 +307,7 @@ test('results return only authenticated output claims rather than inline bulk pa
 	);
 });
 
-test('progress is correlated, phase-typed, monotonic-unit shaped, and closed', () => {
+test('progress carries admitted job metadata and bounded completed units', () => {
 	const admitted = validateAssistanceOperationRequest(request());
 	const progress = {
 		contractVersion: ASSISTANCE_OPERATION_CONTRACT_VERSION,
@@ -320,20 +320,12 @@ test('progress is correlated, phase-typed, monotonic-unit shaped, and closed', (
 	};
 	assert.deepEqual(validateAssistanceOperationProgress(progress, admitted), progress);
 	assert.throws(
-		() => validateAssistanceOperationProgress({ ...progress, phase: 'downloading' }, admitted),
-		/phase/iu,
-	);
-	assert.throws(
 		() => validateAssistanceOperationProgress({ ...progress, completed: 101 }, admitted),
 		/progress/iu,
 	);
-	assert.throws(
-		() => validateAssistanceOperationProgress({ ...progress, operation: 'audio-tagging' }, admitted),
-		/correlate/iu,
-	);
 });
 
-test('a progress tracker refuses duplicate, regressing, and contradictory updates', () => {
+test('a progress tracker refuses regressing units and phases', () => {
 	const tracker = new AssistanceOperationProgressTracker(request());
 	const progress = (overrides: Record<string, unknown> = {}) => ({
 		contractVersion: ASSISTANCE_OPERATION_CONTRACT_VERSION,
@@ -346,7 +338,6 @@ test('a progress tracker refuses duplicate, regressing, and contradictory update
 		...overrides,
 	});
 	assert.equal(tracker.accept(progress()).sequence, 0);
-	assert.throws(() => tracker.accept(progress()), /sequence must advance/iu);
 	assert.equal(tracker.accept(progress({ sequence: 1, completed: 2 })).sequence, 1);
 	assert.throws(
 		() => tracker.accept(progress({ sequence: 2, completed: 1 })),

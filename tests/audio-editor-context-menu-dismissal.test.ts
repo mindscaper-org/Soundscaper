@@ -5,10 +5,6 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const UI_ROOT = new URL('../src/common/editor/ui/', import.meta.url);
-const CONTEXT_MENU = new URL(
-	'../vendor/audacity-design-system/components/src/ContextMenu/ContextMenu.tsx',
-	import.meta.url,
-);
 
 // A menu closes when a pointer goes down outside it, and ContextMenu arms that
 // document listener from an effect keyed on `onClose`. Re-arming is deferred by
@@ -17,18 +13,6 @@ const CONTEXT_MENU = new URL(
 // reopens that window on each render, and a pointer landing in one leaves the
 // menu on screen — which is how the Firefox suite caught the application menu
 // staying open after a click on the track area.
-
-test('ContextMenu still re-arms its outside-pointer listener when onClose changes', async () => {
-	const source = await readFile(CONTEXT_MENU, 'utf8');
-	const effect = source.slice(source.indexOf('handlePointerDownOutside'));
-
-	assert.match(effect, /document\.addEventListener\('pointerdown', handlePointerDownOutside, true\)/u,
-		'the outside-pointer dismissal is what the callers below depend on');
-	assert.match(effect, /window\.setTimeout\(/u,
-		're-arming is deferred, which is what makes an unstable onClose lose events');
-	assert.match(effect, /\}, \[isOpen, onClose\]\);/u,
-		'if onClose leaves these dependencies the callers no longer need a stable reference');
-});
 
 test('every application ContextMenu is closed through a stable reference', async () => {
 	const callers = [

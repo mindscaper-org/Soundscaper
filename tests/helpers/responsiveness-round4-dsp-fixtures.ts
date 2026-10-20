@@ -83,11 +83,6 @@ export async function collectRound4DspFixtures(): Promise<Record<string, string>
 	for (const size of [32, 256, 2048]) for (const offsetFrame of [0, .5, 4077]) for (const average of [false, true]) {
 		result[`spectrum-${String(size)}-${String(offsetFrame)}-${String(average)}`] = round4Digest(calculateAudioSpectrum(input, 8000, { size, offsetFrame, average }));
 	}
-	for (const length of [2.5, 2, 7]) {
-		const unusual = Float32Array.of(0, 1, .5, .25);
-		Object.defineProperty(unusual, 'length', { value: length });
-		result[`spectrum-reported-length-${String(length)}`] = round4Digest(calculateAudioSpectrum([unusual], 48000, { size: 32 }));
-	}
 	for (const channels of [1, 3]) for (const blockSize of [1, 127, 8192]) {
 		const source = input.slice(0, channels);
 		result[`deesser-live-${String(channels)}-${String(blockSize)}`] = round4Digest(render(createDeesserProcessor({ sampleRate: 8000, channelCount: channels }), source, blockSize));

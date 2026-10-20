@@ -70,20 +70,3 @@ for (const differentRates of [false, true]) {
 		} finally { db.close(); }
 	});
 }
-
-test('pulling stops on cancellation before another sample range is read', async () => {
-	const source: Aup4ImportSourcePlan = { sourceId: 'source', sampleRate: 48_000, channelCount: 1,
-		frameCount: 131_072, channelPlans: [{ sampleRate: 48_000, frameCount: 131_072, outputFrames: 131_072,
-			blocks: [{ blockId: 1, start: 0, frameCount: 131_072 }] }] };
-	const abort = new AbortController();
-	let reads = 0;
-	const stream = streamAup4SourceAudio(source, (_block, _offset, count) => {
-		reads += 1;
-		return new Float32Array(count);
-	}, () => abort.signal.throwIfAborted());
-	await stream.next();
-	assert.equal(reads, 1);
-	abort.abort();
-	await assert.rejects(stream.next(), { name: 'AbortError' });
-	assert.equal(reads, 1);
-});

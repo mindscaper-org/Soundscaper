@@ -98,6 +98,41 @@ test('a hidden panel releases previews and disposal is idempotent', async () => 
 	session.dispose();
 });
 
+test('hiding a panel aborts original decoding and disposes a late prepared preview without playing it', async () => {
+	let signal: AbortSignal | undefined;
+	let release!: (value: { url: string; dispose(): void }) => void;
+	let created = 0;
+	let released = 0;
+	const session = createAudiocomPanelSession({ client: client(),
+		preparePreview: (_result, requested) => { signal = requested; return new Promise(resolve => { release = resolve; }); },
+		createAudio: () => { created++; throw new Error('A stale decode must never create a media element.'); },
+	});
+	await session.initialize(); await session.search({ query: 'forest', page: 1 });
+	const preparing = session.preview(RESULT.id);
+	assert.equal(session.getSnapshot().previewingId, RESULT.id);
+	session.setActive(false);
+	assert.equal(signal?.aborted, true);
+	assert.equal(session.getSnapshot().previewingId, null);
+	release({ url: 'blob:late-original', dispose() { released++; } });
+	await preparing;
+	assert.equal(created, 0); assert.equal(released, 1);
+	assert.equal(session.getSnapshot().previewError, undefined);
+	session.dispose();
+});
+
+test('decoded previews update unknown source duration and release their playback URL on stop', async () => {
+	let released = 0;
+	const audio = { src: '', volume: 1, play: async () => undefined, pause() {}, load() {}, addEventListener() {}, removeEventListener() {} };
+	const session = createAudiocomPanelSession({ client: client({ search: async () => ({ results: [{ ...RESULT, durationSeconds: 0 }], page: 1, hasNext: false }) }),
+		preparePreview: async () => ({ url: 'blob:original', durationSeconds: 12.5, dispose() { released++; } }), createAudio: () => audio,
+	});
+	await session.initialize(); await session.search({ query: 'forest', page: 1 }); await session.preview(RESULT.id);
+	assert.equal(audio.src, 'blob:original');
+	assert.equal(session.getSnapshot().search.results[0]!.durationSeconds, 12.5);
+	session.stopPreview(); session.dispose();
+	assert.equal(audio.src, ''); assert.equal(released, 1);
+});
+
 test('owner sessions retain queues through panel remounts and release on controller disposal', async () => {
 	let notify = (): void => undefined;
 	let disposed = false;

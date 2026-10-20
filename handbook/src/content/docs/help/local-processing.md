@@ -69,7 +69,12 @@ settings. Management remains reachable when processing is disabled.
 Use audio plugins through **Effect → Audio Plugins**. Framescaper's Add/Edit video
 effect commands remain under **Effect → Video effects**.
 
-Open **Edit → Preferences → Audio settings** for native audio devices and helper
-controls. **Media** holds native media settings; **Effects** links to Plugin
+Open **Edit → Preferences → Audio settings**, or **Audio setup**, to choose an
+audio host and its recording and playback devices. Desktop hosts include Electron
+and the available native audio backends. Native hosts also offer a sample rate
+for new recordings. Stop playback before changing that rate. If native plugin
+effects are loaded, remove them before changing the rate and add them again
+afterward. **Advanced** contains parallel effect processing, worker
+limits, buffering, and the storage optimization setting. **Media** holds native media settings; **Effects** links to Plugin
 Manager and contains the plugin-discovery switch. Plugin permissions and
 quarantine recovery still require explicit actions.

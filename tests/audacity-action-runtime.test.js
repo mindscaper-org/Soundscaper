@@ -241,7 +241,7 @@ test('disabled, excluded, unknown, and malformed runtime paths never become exec
 	assert.equal(resolveAudacityActionHandler('online-handbook', null), null);
 });
 
-test('UI action controller publishes immutable, monotonic command snapshots', () => {
+test('UI action controller publishes fresh, monotonic command snapshots', () => {
 	const uiController = createAudioEditorUiActionController();
 	let notifications = 0;
 	const unsubscribe = uiController.subscribe(() => { notifications += 1; });
@@ -250,7 +250,6 @@ test('UI action controller publishes immutable, monotonic command snapshots', ()
 	assert.equal(first.revision, 1);
 	assert.equal(uiController.getSnapshot().request.type, 'open-surface');
 	assert.equal(uiController.getSnapshot().request.payload.section, 'workspace');
-	assert.ok(Object.isFrozen(uiController.getSnapshot().request));
 	assert.notStrictEqual(uiController.getSnapshot(), initial);
 	assert.equal(uiController.actions.toggleFlag('statusbar'), false);
 	assert.equal(uiController.getSnapshot().flags.statusbar, false);

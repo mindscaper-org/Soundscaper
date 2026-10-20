@@ -3,10 +3,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import * as manifestActions from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
+import {
+	recordScapeArchiveManifest,
+	saveCurrentScapeArchiveManifest,
+} from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
 import { digestScapeBytes } from '../src/common/editor/scape-archive-media.ts';
-
-const { recordScapeArchiveManifest, saveCurrentScapeArchiveManifest } = manifestActions;
 
 const PROJECT = new TextEncoder().encode('{"schemaVersion":9}');
 const MEDIA = Uint8Array.from({ length: 2_048 }, (_value, index) => index % 251);
@@ -63,7 +64,7 @@ test('an archive that cannot be read back is a missing manifest, not a failed sa
 
 test('the recorded manifest saves as a report document', async () => {
 	const runtime = createRuntime();
-	await recordScapeArchiveManifest(runtime, {
+	const record = await recordScapeArchiveManifest(runtime, {
 		archive: archive(), fileName: 'Cafe Film.scape', projectTitle: 'Cafe Film',
 		signal: new AbortController().signal,
 	});
@@ -71,12 +72,15 @@ test('the recorded manifest saves as a report document', async () => {
 
 	assert.equal(saved.saved, true);
 	assert.equal(runtime.saved.length, 1);
-	assert.equal(runtime.saved[0]?.purpose, 'report');
-	assert.match(String(runtime.saved[0]?.suggestedName), /archive-manifest.*\.json$/u);
-});
-
-test('the controller publishes only the create-and-save checksum workflow it ships', () => {
-	assert.equal('verifyScapeArchiveAgainstManifest' in manifestActions, false);
+	const report = runtime.saved[0];
+	assert.ok(report);
+	assert.equal(report.purpose, 'report');
+	assert.equal(report.suggestedName, 'Cafe-Film-archive-manifest.json');
+	assert.equal(report.mimeType, 'application/json');
+	assert.ok(report.blob instanceof Blob);
+	assert.equal(report.blob.type, 'application/json');
+	const document: unknown = JSON.parse(await report.blob.text());
+	assert.deepEqual(document, record.manifest);
 });
 
 function archive(media: Uint8Array = MEDIA): Blob {

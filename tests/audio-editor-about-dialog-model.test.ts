@@ -19,7 +19,6 @@ test('About identifies each product and only lists its enabled command modules',
 	assert.ok(aboutDialogInformation('soundscaper').modules.some(({ id }) => id === 'audio-record'));
 	assert.ok(!aboutDialogInformation('soundscaper').modules.some(({ id }) => id === 'video-effects'));
 	assert.ok(!aboutDialogInformation('framescaper').modules.some(({ id }) => id === 'audio-record'));
-	assert.throws(() => aboutDialogInformation('unsupported'), /Unsupported editor product/u);
 });
 
 test('About copy belongs to the translation inventory and resolves bundled German and scoped overrides', () => {

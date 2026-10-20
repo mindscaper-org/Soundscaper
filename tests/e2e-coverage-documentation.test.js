@@ -4,9 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('the E2E coverage handoff documents and exposes the strict union workflow', async () => {
-	const [documentation, packageMetadata, technicalReadme] = await Promise.all([
-		readFile(new URL('../docs/development/end-to-end-coverage.md', import.meta.url), 'utf8'),
+test('E2E coverage commands and their reference link remain reachable', async () => {
+	const [packageMetadata, technicalReadme] = await Promise.all([
 		readFile(new URL('../package.json', import.meta.url), 'utf8').then(JSON.parse),
 		readFile(new URL('../Technical_README.md', import.meta.url), 'utf8'),
 	]);
@@ -23,26 +22,5 @@ test('the E2E coverage handoff documents and exposes the strict union workflow',
 		packageMetadata.scripts['coverage:e2e:check'],
 		'node scripts/check-e2e-coverage.mjs',
 	);
-	for (const phrase of [
-		'`coverage/v8-browser/`',
-		'`coverage/v8-packaged/`',
-		'`coverage/v8-local-assistance/`',
-		'`coverage/build-evidence/`',
-		'dedicated Chromium dual-origin phase',
-		'same `coverage/v8-browser/`',
-		'lines, statements, functions, and branches',
-		'Node and unit-test coverage is separate',
-		'same full Git revision',
-		'identical executable evidence and normalized source maps',
-		'digest-authenticated installed paths',
-		'manifest-bound private session directory',
-		'Chromium legitimately may emit no precise-V8-coverage range',
-		'schema-4 product evidence',
-		'omits authenticated Wasm before writing raw result and source',
-		'augment, but never replace',
-		'npm run coverage:e2e:assemble',
-		'npm run coverage:e2e:prepare',
-		'npm run coverage:e2e:check',
-	]) assert.ok(documentation.includes(phrase), `${phrase} is not documented`);
 	assert.match(technicalReadme, /\[end-to-end coverage\]\(docs\/development\/end-to-end-coverage\.md\)/u);
 });

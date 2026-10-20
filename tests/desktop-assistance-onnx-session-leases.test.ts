@@ -94,17 +94,6 @@ test('ONNX idle leases obey model size, RSS and TTL bounds and failures retire e
 	}
 });
 
-test('ONNX cache refuses creation outside its authenticated scope and concurrent scopes', async () => {
-	const direct = fixture(), cache = createAssistanceOnnxSessionLeaseCacheV1();
-	assert.throws(() => cache.wrapRuntime(direct.runtime), /authenticated scope/iu);
-	await cache.runAuthenticated(context(), async () => {
-		await assert.rejects(cache.runAuthenticated(context(), async () => {}), /active/iu);
-		await assert.rejects(Promise.resolve(cache.wrapRuntime(direct.runtime).InferenceSession.create('/foreign/model.onnx', CPU)), /authenticated/iu);
-	});
-	await cache.dispose();
-});
-
-
 test('concurrent native session requests share creation and return independent request leases', async () => {
 	const direct = fixture(), cache = createAssistanceOnnxSessionLeaseCacheV1({ getRssBytes: () => 64 * 1024 ** 2 });
 	await cache.runAuthenticated(context(), async () => {

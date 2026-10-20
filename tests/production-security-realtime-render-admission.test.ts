@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 interface SecurityEvidence {
 	readonly kind: string;
 	readonly path: string;
@@ -13,13 +11,11 @@ interface SecurityEvidence {
 
 interface SecurityControl {
 	readonly id: string;
-	readonly summary: string;
 	readonly evidence: readonly SecurityEvidence[];
 }
 
 interface SecurityResidual {
 	readonly id: string;
-	readonly exposure: string;
 	readonly ownerMilestone: string;
 }
 
@@ -31,7 +27,6 @@ interface SecurityRisk {
 }
 
 interface SecurityMatrix {
-	readonly modelDocument: string;
 	readonly risks: readonly SecurityRisk[];
 }
 
@@ -47,7 +42,7 @@ const EXPECTED_EVIDENCE = [
 	{ kind: 'test', path: 'tests/audio-editor-realtime-stream-underrun.test.ts' },
 ] as const;
 
-test('realtime render PCM admission remains narrowly evidenced and documented', async () => {
+test('realtime render PCM admission retains its required control and runtime evidence', async () => {
 	const matrix = JSON.parse(await readFile(
 		new URL('../config/production-security-matrix.json', import.meta.url),
 		'utf8',
@@ -64,41 +59,10 @@ test('realtime render PCM admission remains narrowly evidenced and documented', 
 			({ kind, path }) => kind === expected.kind && path === expected.path,
 		), `realtime-render admission needs ${expected.kind} evidence from ${expected.path}`);
 	}
-	assert.match(admission.summary, /before AudioContext construction.*1–32 channels.*128–16,384 frames.*2 MiB/isu);
-	assert.match(admission.summary, /non-raiseable.*512 packets.*8,388,608.*32 MiB.*Float32/isu);
-	assert.match(admission.summary, /smaller of 64 packets.*byte-bound/isu);
-	assert.match(admission.summary, /producer credit before transfer.*fails closed.*without posting PCM/isu);
-	assert.match(admission.summary, /after the sink promise settles.*count\/frame\/byte.*references.*dropped/isu);
-	assert.match(admission.summary, /32 MiB.*plus one maximum 2 MiB.*staging or replacement/isu);
-	assert.match(admission.summary, /exact channel width.*tight distinct non-shared fixed ArrayBuffer.*declared frame.*contiguous offset.*completion/isu);
 
 	const residual = cancellation.residualRisks.find(
 		({ id }) => id === 'render-worker-resident-set-accounting',
 	);
 	assert.ok(residual, 'render and worker resident-set residual is required');
 	assert.equal(residual.ownerMilestone, '2');
-	assertOrderedClaim(residual.exposure, /realtime.*32 MiB.*2 MiB.*not account.*structured-clone.*AudioContext.*graph.*encoder.*WASM/isu);
-	assertOrderedClaim(residual.exposure, /sink.*retain.*after.*promise settles.*outside.*queue contract/isu);
-	assert.match(residual.exposure, /job-local.*product-wide reservation.*concurrent.*overlap/isu);
-
-	const threatModel = await readFile(
-		new URL(`../${matrix.modelDocument}`, import.meta.url),
-		'utf8',
-	);
-	const scope = realtimeRenderDocumentation(threatModel, 'production threat model');
-	assert.match(scope, /before.*AudioContext.*1–32 channels.*128–16,384.*2 MiB/isu);
-	assert.match(scope, /non-raiseable.*512 packets.*8,388,608.*32 MiB.*Float32/isu);
-	assert.match(scope, /credit before.*transfer.*fails closed/isu);
-	assert.match(scope, /after.*sink promise settles.*count\/frame\/byte.*references.*drop/isu);
-	assert.match(scope, /32 MiB.*plus one.*2 MiB.*staging or replacement/isu);
-	assertOrderedClaim(scope, /exact.*channel.*tight distinct non-shared fixed.*ArrayBuffer.*frame.*offset.*completion/isu);
-	assertOrderedClaim(scope, /not.*structured-clone.*AudioContext.*graph.*source.*encoder.*WASM.*heap.*RSS.*GC/isu);
-	assertOrderedClaim(scope, /sink.*retain.*after.*promise settles.*outside.*queue contract/isu);
-	assert.match(scope, /concurrent render.*overlap.*product-wide reservation/isu);
 });
-
-function realtimeRenderDocumentation(documentation: string, name: string): string {
-	const marker = /Maintained realtime worklet-to-sink rendering/iu.exec(documentation);
-	assert.ok(marker, `${name} must document maintained realtime-render admission`);
-	return documentation.slice(marker.index, marker.index + 4_500);
-}

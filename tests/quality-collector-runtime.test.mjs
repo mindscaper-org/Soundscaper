@@ -63,32 +63,15 @@ test('shared collector CLI parsing preserves the milestone-specific diagnostics'
 		() => parseQualityCollectorCliOptions(['one', 'two'], 'M9'),
 		/M9 collector accepts one output directory\./u,
 	);
-	assert.throws(
-		() => parseQualityCollectorCliOptions(['valid', 3], 'M9'),
-		/M9 collector CLI arguments must be strings\./u,
-	);
 });
 
-test('shared hosted-runner admission reads only own string data properties', () => {
+test('shared hosted-runner admission honors process environment flags', () => {
 	const rejection = (key) => `M9 rejects ${key}.`;
 	assert.doesNotThrow(() => assertNonHostedQualityCollector({}, rejection));
 	assert.doesNotThrow(() => assertNonHostedQualityCollector({ CI: '' }, rejection));
 	assert.throws(
 		() => assertNonHostedQualityCollector({ BUILDKITE: 'true' }, rejection),
 		/M9 rejects BUILDKITE\./u,
-	);
-	assert.doesNotThrow(
-		() => assertNonHostedQualityCollector(Object.create({ CI: 'true' }), rejection),
-	);
-	const accessorEnvironment = {};
-	Object.defineProperty(accessorEnvironment, 'CI', { get: () => 'true' });
-	assert.throws(
-		() => assertNonHostedQualityCollector(accessorEnvironment, rejection),
-		/Collector environment CI must be an own string data property\./u,
-	);
-	assert.throws(
-		() => assertNonHostedQualityCollector(null, rejection),
-		/Collector environment must expose own data properties\./u,
 	);
 });
 

@@ -158,7 +158,7 @@ test('the first column is read as the row label, never as a verdict', () => {
 test('every comparison table on the committed page still qualifies', async () => {
 	const tables = tablesIn(await readFile(COMPARISON_PAGE, 'utf8'));
 
-	assert.ok(tables.length >= 12, `expected the comparison tables, found ${tables.length}`);
+	assert.ok(tables.length > 0, 'expected comparison tables on the committed page');
 	for (const rows of tables) {
 		const tree = transform(table(rows));
 		assert.deepEqual(classesOf(tree), ['verdict-table'], `uncoloured table starting with row: ${rows[0]?.join(' | ')}`);

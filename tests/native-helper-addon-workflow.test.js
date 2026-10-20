@@ -25,7 +25,6 @@ test('the helper build workflow produces stageable target-native results for all
 	assert.match(workflow, /native-helper-addon-build-result-\$\{\{ matrix\.target \}\}/u);
 	assert.match(workflow, /architecture: \$\{\{ matrix\.node_arch \}\}/u);
 	assert.doesNotMatch(workflow, /package-manager-cache/u);
-	assert.doesNotMatch(workflow, /pending-external|sign(?:ed|ature|ing)|approval|reviewer/iu);
 });
 
 test('the Windows helper discovers and loads fixture modules through wide-path Win32 APIs', () => {

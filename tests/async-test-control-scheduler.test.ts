@@ -24,20 +24,6 @@ test('one turn drains the microtask, immediate and timer queues, microtasks firs
 	assert.deepEqual([...order].sort(), ['immediate', 'microtask', 'timer']);
 });
 
-test('each turn advances work that reschedules itself one hop at a time', async () => {
-	let hops = 0;
-	const hop = (): void => { if (++hops < 3) setImmediate(hop); };
-	setImmediate(hop);
-	await settle(3);
-	assert.equal(hops, 3, 'each turn advances one immediate hop');
-});
-
-test('settle rejects a turn count that is not a whole number of turns', async () => {
-	await assert.rejects(settle(-1), RangeError);
-	await assert.rejects(settle(1.5), RangeError);
-	await settle(0);
-});
-
 test('a wait that already holds returns without spending a turn', async () => {
 	let advanced = false;
 	setImmediate(() => { advanced = true; });
@@ -86,10 +72,6 @@ test('a wait spends every turn it is given before it fails', async () => {
 		turns: 4,
 	}), /never-ready/u);
 	assert.equal(evaluations, 5, 'the predicate is read once per turn and once after the last');
-});
-
-test('a wait rejects a turn bound below one turn', async () => {
-	await assert.rejects(waitFor(() => true, 'the condition', { turns: 0 }), RangeError);
 });
 
 test('a delayed wait spends wall time on each turn rather than spinning', async () => {

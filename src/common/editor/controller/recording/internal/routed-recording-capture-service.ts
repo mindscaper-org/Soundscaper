@@ -141,7 +141,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				else {
 					promise = runtime.capturePool.acquireHardware(firstRoute.deviceId, {
 						channelCount: requiredChannels,
-						sampleRate,
+						sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
 					});
 				}
 				return { sourceKey, routes, promise };
@@ -263,7 +263,9 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 						sampleRate: captureSampleRate,
 						channelCount: route.channelCount,
 						chunkFrames: runtime.sourceChunkFrames,
-					});
+					}, { trackId: track.id, startFrame: session.recordingStartFrame,
+						sourceOffsetFrames: persistedSourceOffsetFrames, sampleRate: captureSampleRate,
+						selection: alignment.selection });
 					scope.assertCurrent();
 					const preview = runtime.createPreview({
 						trackId: track.id,

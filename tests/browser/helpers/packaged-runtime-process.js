@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { once } from 'node:events';
+import { terminateWindowsPackagedRuntimeTree } from './packaged-runtime-windows-containment.ts';
 
 const APPLICATION_EXIT_TIMEOUT_MS = 30_000;
 
@@ -85,9 +86,22 @@ export async function waitForPackagedRuntimeExit(child, timeoutMs) {
 	}
 }
 
-export async function terminatePackagedRuntime(child, graceMs = 5_000, forceMs = 5_000) {
+export async function terminatePackagedRuntime(child, graceMs = 5_000, forceMs = 5_000, {
+	platform = process.platform, terminateWindowsTree = terminateWindowsPackagedRuntimeTree,
+} = {}) {
 	if (child.exitCode !== null || child.signalCode !== null) return;
 	const exited = once(child, 'exit');
+	if (platform === 'win32') {
+		try { await terminateWindowsTree(child.pid, { timeoutMs: forceMs }); }
+		catch (error) {
+			child.kill('SIGKILL');
+			await waitForExitEvent(exited, forceMs);
+			throw error;
+		}
+		if (await waitForExitEvent(exited, forceMs)) return;
+		if (child.exitCode !== null || child.signalCode !== null) return;
+		throw new Error('Windows packaged runtime tree termination did not release its main process.');
+	}
 	child.kill();
 	const graceful = await waitForExitEvent(exited, graceMs);
 	if (graceful || child.exitCode !== null || child.signalCode !== null) return;

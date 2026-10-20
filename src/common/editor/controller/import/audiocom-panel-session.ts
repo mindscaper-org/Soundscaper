@@ -13,6 +13,7 @@ export interface AudiocomSearchResult {
 	readonly isDownloadable: boolean;
 	readonly durationSeconds: number;
 	readonly previewUrl?: string;
+	readonly previewMime?: string;
 	readonly waveformUrl?: string;
 }
 
@@ -98,8 +99,15 @@ export interface AudiocomPanelSessionOptions {
 	readonly apiOrigin?: string;
 	readonly client?: AudiocomApiClient;
 	readonly createAudio?: () => AudiocomPreviewAudio;
+	readonly preparePreview?: (result: AudiocomSearchResult, signal: AbortSignal) => Promise<AudiocomPreparedPreview>;
 	readonly wait?: (milliseconds: number, signal: AbortSignal) => Promise<void>;
 	readonly now?: () => number;
+}
+
+export interface AudiocomPreparedPreview {
+	readonly url: string;
+	readonly durationSeconds?: number;
+	dispose(): void;
 }
 
 export interface AudiocomPanelSession {

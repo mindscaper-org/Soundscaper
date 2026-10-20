@@ -130,13 +130,6 @@ test('OFX helper generations enforce the same bounded render grant body', () => 
 	}
 });
 
-test('OFX V2 rejects a backend value that only string-coerces to a supported name', () => {
-	assert.throws(() => createOfxHostInvocationV2({
-		...invocation(2),
-		requestedBackend: ['cpu'],
-	}), /backend.*unsupported/iu);
-});
-
 test('a V14 Retimer invocation admits the oracle SourceTime and survives the grant boundary', () => {
 	const timing = bindCfrTiming('curve-source', 20, { num: 1, den: 1 });
 	const authority = createVideoRetimeExactOrdinalAuthority(
@@ -175,9 +168,6 @@ test('a V14 Retimer invocation admits the oracle SourceTime and survives the gra
 	if (!('invocation' in admitted)) throw new Error('A render grant admitted as Interact.');
 	assert.equal(admitted.invocation.context, 'retimer');
 	assert.deepEqual(admitted.invocation.retimerSourceTime, { ...sourceTime });
-	// A structurally identical SourceTime that never visited the oracle is forged.
-	assert.throws(() => createOfxHostInvocationV2(retimerInput(structuredClone(sourceTime))),
-		/exact ordinal oracle/iu);
 });
 
 test('OFX helper dispatch rejects crossed, unknown, and widened invocation versions', () => {

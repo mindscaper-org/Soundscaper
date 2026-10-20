@@ -9,6 +9,7 @@ import test from 'node:test';
 
 import { captureAssistanceRuntimeFamilyJobGrantV1 } from '../desktop/assistance-runtime-family-file-grants.ts';
 import { runAssistanceRuntimeFamilyWorkerJobV1 } from '../desktop/assistance-runtime-family-worker-entry.ts';
+import { currentAssistanceGpuValidationJob } from '../desktop/assistance-gpu-validation.ts';
 
 const JOB_ID = '1'.repeat(40);
 const INPUT_ID = '2'.repeat(40);
@@ -85,6 +86,33 @@ test('worker execution never starts after a model grant changes', async (context
 		execute: async () => { executions += 1; throw new Error('must not run'); },
 	}), /model|digest/iu);
 	assert.equal(executions, 0);
+});
+
+test('GPU diagnostic correlation comes from the authenticated worker grant', async (context) => {
+	const { job, paths } = await fixture(context);
+	const environment = { ...process.env };
+	process.env.SOUNDSCAPER_LOCAL_ASSISTANCE_REAL_MODELS = '1';
+	process.env.SOUNDSCAPER_ASSISTANCE_GPU_VALIDATION = '1';
+	process.env.SOUNDSCAPER_ASSISTANCE_GPU_EVIDENCE_ROOT = paths.output;
+	try {
+		await runAssistanceRuntimeFamilyWorkerJobV1({ job, execute: async () => {
+			await Promise.resolve();
+			assert.deepEqual(currentAssistanceGpuValidationJob(), { jobId: JOB_ID,
+				familyId: 'onnxruntime-node', modelIds: ['transnetv2'] });
+			const body = Buffer.from('{}');
+			await writeFile(paths.output, body);
+			return { resultVersion: 1, jobId: JOB_ID, familyId: 'onnxruntime-node',
+				task: 'shot-detection', outputs: [{ claimId: OUTPUT_ID, role: 'shot-boundaries',
+					mediaType: 'application/vnd.soundscaper.shot-boundaries+json',
+					byteLength: body.byteLength, sha256: digest(body) }] };
+		} });
+		assert.equal(currentAssistanceGpuValidationJob(), undefined);
+	} finally {
+		for (const key of ['SOUNDSCAPER_LOCAL_ASSISTANCE_REAL_MODELS',
+			'SOUNDSCAPER_ASSISTANCE_GPU_VALIDATION', 'SOUNDSCAPER_ASSISTANCE_GPU_EVIDENCE_ROOT']) {
+			if (environment[key] === undefined) delete process.env[key]; else process.env[key] = environment[key];
+		}
+	}
 });
 
 test('worker execution refuses invalid progress and result claims even from an injected adapter', async (context) => {

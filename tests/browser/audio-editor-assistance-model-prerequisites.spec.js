@@ -49,7 +49,6 @@ test.describe('AI effect model prerequisites', () => {
 		await expect(prerequisite).toContainText('DeepFilterNet 3');
 		await expect(prerequisite).toContainText('4 KiB');
 		await expect(prerequisite).not.toContainText('Parakeet');
-		await expect(prerequisite).not.toContainText('Alternative enhancer');
 		await expect(prerequisite.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
 		await expect(prerequisite.getByRole('button', {
 			name: 'Open Model Manager', exact: true,
@@ -184,14 +183,12 @@ async function installFixture(page, options) {
 	await installDesktopSpeedWarmupManifest(page);
 	await page.addInitScript(({ installed = [], holdList = false, holdModels = false,
 		holdInstall = false }) => {
-		const installedIds = new Set([...installed, 'panns-cnn10', 'alternative-enhancer']);
+		const installedIds = new Set([...installed, 'panns-cnn10']);
 		const definitions = [
 			['deepfilternet3', '3.0.0', 'speech-enhancement', 4_096],
 			['silero-vad-v6', '6.2.1', 'voice-activity-detection', 8_192],
 			['parakeet-tdt-0.6b-v3', '3.0.0', 'speech-recognition', 16_384],
 			['panns-cnn10', '1.0.0', 'audio-tagging', 32_768],
-			['alternative-enhancer', '1.0.0', 'speech-enhancement', 65_536],
-			['unsupported-enhancer', '1.0.0', 'speech-enhancement', 131_072],
 		];
 		if (installed.includes('whisper-large-v3-turbo-ggml')) definitions.push([
 			'whisper-large-v3-turbo-ggml', '1.0.0', 'speech-recognition', 262_144,
@@ -209,8 +206,7 @@ async function installFixture(page, options) {
 		const installListeners = new Set();
 		const modelRecord = ([modelId, version, task, downloadBytes]) => ({
 			modelId, version, task, downloadBytes,
-			availability: installedIds.has(modelId) ? 'installed'
-				: modelId === 'unsupported-enhancer' ? 'unsupported-platform' : 'installable',
+			availability: installedIds.has(modelId) ? 'installed' : 'installable',
 			installedBytes: installedIds.has(modelId) ? downloadBytes : null,
 			attributionRequired: true,
 		});

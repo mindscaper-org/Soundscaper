@@ -55,6 +55,15 @@ export function partitionLintFiles(files) {
 	return shards;
 }
 
+/** Release type-aware ESLint state regularly as the repository grows. */
+export function partitionLintExecutionBatches(files) {
+	const batches = [];
+	for (let offset = 0; offset < files.length; offset += 256) {
+		batches.push(files.slice(offset, offset + 256));
+	}
+	return batches;
+}
+
 export function selectChangedLintFiles(changedTrackedFiles, untrackedFiles) {
 	return [...new Set([...changedTrackedFiles, ...untrackedFiles].filter(isLintableRepositoryPath))].sort();
 }

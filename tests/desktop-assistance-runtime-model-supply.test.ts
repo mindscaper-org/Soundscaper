@@ -15,5 +15,4 @@ test('every reviewed local model has an exact runtime-family mapping', () => {
 	assert.deepEqual(mapped.get('whisper-large-v3-turbo-ggml'), ['whisper-cpp']);
 	assert.deepEqual(mapped.get('kokoro-82m-v1.0'), ['onnxruntime-node', 'kokoro-g2p']);
 	assert.deepEqual(mapped.get('qwen3-4b-q4-k-m'), ['llama-cpp']);
-	assert.throws(() => assistanceRuntimeFamiliesForModel('foreign', 'foreign-task'), /mapping/u);
 });

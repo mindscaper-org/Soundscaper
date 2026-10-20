@@ -44,13 +44,6 @@ test('native transfer admission returns ports in grant order independent of inpu
 	assert.equal(helperJobTransferredPortCount('media-encode', grant() as never), 2);
 });
 
-test('native transfer admission rejects accessor fields in a transfer descriptor', () => {
-	const candidate = { streamId: PLAN, get port() { return port(); } };
-	assert.throws(() => admitHelperDataPlaneTransfers('audio-device', {
-		persistentPort: { streamId: PLAN },
-	} as never, [candidate]), /data field/iu);
-});
-
 test('control-only helper jobs refuse even an empty transfer list', () => {
 	assert.deepEqual(admitHelperDataPlaneTransfers('plugin-host', {} as never, undefined), []);
 	assert.throws(() => admitHelperDataPlaneTransfers('plugin-host', {} as never, []), /control-only/iu);

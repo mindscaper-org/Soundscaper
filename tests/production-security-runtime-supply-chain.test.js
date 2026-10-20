@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
 
 async function readRuntimeSupplyChainRisk() {
@@ -38,36 +36,11 @@ test('legacy FFmpeg WASM publication remains blocked and absent from production 
 		'tests/browser/offline-ffmpeg-runtime-download.spec.js',
 	]) assert.ok(legacyRuntime.evidence.some((item) => item.path === path), path);
 	assert.equal(legacyRuntime.evidence.some(({ path }) => path === 'src/common/editor/ffmpeg.js'), false);
-	assert.match(
-		legacyRuntime.summary,
-		/retained solely as legacy development and reproducibility tooling.*development-only dependencies.*no production artifact surface/isu,
-	);
-	assert.match(
-		legacyRuntime.summary,
-		/No production browser imports.*derives a runtime URL.*fetches.*caches.*executes FFmpeg WebAssembly/isu,
-	);
-	assertOrderedClaim(
-		legacyRuntime.summary,
-		/bundle audit rejects.*package specifiers.*ffmpeg-core.*old loader.*legacy cache namespace.*service worker.*no FFmpeg.*preferences.*no runtime download/isu,
-	);
-	assert.match(
-		legacyRuntime.summary,
-		/stable publication and browser reactivation remain blocked.*payload-authentication controls.*deliberate audit change/isu,
-	);
-	assert.match(
-		legacyRuntime.summary,
-		/Desktop external FFmpeg.*alternate Chromium `libffmpeg`.*distinct.*unchanged/isu,
-	);
 
 	const reactivation = runtimeSupplyChain.residualRisks.find(
 		({ id }) => id === 'served-external-runtime-authentication',
 	);
 	assert.ok(reactivation);
-	assert.match(
-		reactivation.exposure,
-		/development-only legacy audit machinery.*no production browser consumes.*payload digest.*blocked by the bundle audit/isu,
-	);
-	assert.match(reactivation.requiredControl, /Before any.*reactivation.*runtime catalog.*authenticates/isu);
 	const attestation = runtimeSupplyChain.residualRisks.find(
 		({ id }) => id === 'runtime-manifest-review-attestation',
 	);
@@ -76,6 +49,4 @@ test('legacy FFmpeg WASM publication remains blocked and absent from production 
 		({ id }) => id === 'unsigned-manual-release-integrity',
 	);
 	assert.ok(unsignedRelease);
-	assert.match(unsignedRelease.requiredControl, /SHA256SUMS.*package contents.*manual upgrade or rollback/isu);
-	assert.doesNotMatch(JSON.stringify(unsignedRelease), /certificate|notari[sz]|Developer ID|key rotation/iu);
 });

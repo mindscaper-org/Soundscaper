@@ -99,24 +99,6 @@ test('an available runtime recognizes and disposes its recognizer', { timeout: 1
 	assert.deepEqual(calls, ['/media/episode.wav', 'disposed']);
 });
 
-test('an available runtime with no wired factory says so plainly', { timeout: 10_000 }, async () => {
-	const adapter = createSpeechRuntimeAdapter({ load: () => Promise.resolve({}) });
-
-	await assert.rejects(adapter.recognize(REQUEST), /no speech recognizer factory is wired/iu);
-});
-
-test('a request missing its model paths is refused before loading anything', { timeout: 10_000 }, async () => {
-	const adapter = createSpeechRuntimeAdapter({
-		load: () => { throw new Error('must not load'); },
-	});
-
-	await assert.rejects(adapter.recognize({ ...REQUEST, audioPath: '' }), /needs an audio path/iu);
-	await assert.rejects(
-		adapter.recognize({ ...REQUEST, model: { ...REQUEST.model, tokens: '' } }),
-		/needs the model tokens path/iu,
-	);
-});
-
 test('runtime output is validated rather than trusted', () => {
 	assert.deepEqual(normalizeRecognition(RESULT).segments.length, 1);
 

@@ -143,6 +143,12 @@
 	z-index: var(--flyout-z);
 }
 
+/* Inline inspector menus belong to their workspace's stacking context. Raise
+ * that owner while open so a sibling Source monitor cannot cover the menu. */
+.kw-audio-editor__workspace:has([data-upstream-clip-properties] .context-menu) {
+	z-index: var(--flyout-z);
+}
+
 .audio-editor-track-menu-layer {
 	display: contents;
 }
@@ -174,6 +180,16 @@
 	margin-bottom: 8px;
 	color: var(--muted);
 	font-size: var(--editor-font-size, 12px);
+}
+
+.audio-editor-track-color-picker__follow {
+	grid-column: 1 / -1;
+	border: 0;
+	padding: 4px;
+	background: transparent;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
 }
 
 .audio-editor-track-color-picker__swatch {

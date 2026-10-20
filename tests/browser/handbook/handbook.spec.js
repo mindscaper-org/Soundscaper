@@ -129,7 +129,10 @@ test('compares Web and Desktop with accessible symbols and explains the capabili
 		await expect(row(capability).getByRole('cell').nth(1).getByRole('img', { name: web, exact: true })).toBeVisible();
 		await expect(row(capability).getByRole('cell').nth(2).getByRole('img', { name: desktop, exact: true })).toBeVisible();
 	}
-	await expect(row('Dedicated single-file editor').getByRole('cell').nth(1)).toContainText(/clip properties/iu);
+	for (const column of [1, 2]) {
+		await expect(row('Dedicated single-file editor').getByRole('cell').nth(column))
+			.toContainText(/source waveform editor in source monitor/iu);
+	}
 	await expect(row('Sample-level drawing').getByRole('cell').nth(3).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
 	const audacityAutomation = row('Automation lanes').getByRole('cell').nth(3);
 	await expect(audacityAutomation.getByRole('img', { name: 'Limited', exact: true })).toBeVisible();

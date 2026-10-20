@@ -1,17 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
+import { Uint8ArrayReader, Uint8ArrayWriter, ZipReader } from '@zip.js/zip.js';
 import { unzipSync } from 'fflate';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor, chooseDropdown, disableNativeSavePicker, importFiles, openExportDialog, readDownloadBytes,
 } from './audio-editor-test-helpers.js';
 
-const executeFile = promisify(execFile);
 for (const length of [4, 15]) test(`an ordinary ${length === 4 ? 'short' : 'long'} Japanese track title exports extractable WAV stems`, async ({ page }, testInfo) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
@@ -31,6 +29,7 @@ for (const length of [4, 15]) test(`an ordinary ${length === 4 ? 'short' : 'long
 	await expect(link).toBeVisible({ timeout: 20_000 });
 	const bytes = await readDownloadBytes(page, link);
 	const entries = Object.entries(unzipSync(bytes));
+	const expectedContents = new Map(entries);
 	expect(entries).toHaveLength(2);
 	const imported = entries.find(([fileName]) => fileName.startsWith('02-'));
 	expect(imported).toBeDefined();
@@ -48,13 +47,19 @@ for (const length of [4, 15]) test(`an ordinary ${length === 4 ? 'short' : 'long
 	await testInfo.attach('archive-members.json', { body: JSON.stringify({ title, audio, names: entries.map(([fileName]) => ({ fileName, bytes: Buffer.byteLength(fileName) })) }), contentType: 'application/json' });
 	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-export-name-'));
 	try {
-		const archive = join(directory, 'actual-download.zip');
-		const extracted = join(directory, 'extracted');
-		await writeFile(archive, bytes);
-		await executeFile('python3', ['-c', 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])', archive, extracted]);
-		for (const [fileName, content] of entries) {
-			expect(Buffer.byteLength(fileName)).toBeLessThanOrEqual(255);
-			expect(await readFile(join(extracted, fileName))).toEqual(Buffer.from(content));
-		}
+		// Decode independently of fflate, then exercise the host filesystem using
+		// the reference reader's names, including the complete UTF-8 basenames.
+		const archive = new ZipReader(new Uint8ArrayReader(bytes), { useWebWorkers: false, checkSignature: true });
+		try {
+			const extracted = await archive.getEntries();
+			expect(extracted.map(entry => entry.filename)).toEqual(entries.map(([fileName]) => fileName));
+			for (const entry of extracted) {
+				expect(entry.directory).toBe(false);
+				expect(Buffer.byteLength(entry.filename)).toBeLessThanOrEqual(255);
+				const content = await entry.getData(new Uint8ArrayWriter());
+				await writeFile(join(directory, entry.filename), content);
+				expect(await readFile(join(directory, entry.filename))).toEqual(Buffer.from(expectedContents.get(entry.filename)));
+			}
+		} finally { await archive.close(); }
 	} finally { await rm(directory, { recursive: true, force: true }); }
 });

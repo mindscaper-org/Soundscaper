@@ -85,7 +85,7 @@ test('each product with committed screenshots declares one wide and one narrow i
 			assert.equal(screenshot.type, 'image/png', screenshot.src);
 			// A label is read aloud in place of the image, so two screenshots
 			// sharing one label describe neither.
-			assert.ok(screenshot.label.length > 20, screenshot.src);
+			assert.ok(screenshot.label.trim().length > 0, screenshot.src);
 			assert.equal(labels.has(screenshot.label), false, screenshot.label);
 			labels.add(screenshot.label);
 

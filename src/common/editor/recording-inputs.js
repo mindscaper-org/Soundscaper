@@ -42,6 +42,9 @@ export async function requestHardwareInput({
 } = {}) {
 	const nativeStream = acquireSoundscaperNativeAudioCapture({ deviceId, channelCount, sampleRate });
 	if (nativeStream) return nativeStream;
+	if (typeof deviceId === 'string' && deviceId.startsWith('native:')) {
+		throw new Error('The selected native audio input is not connected.');
+	}
 	if (!mediaDevices?.getUserMedia) {
 		throw new Error('Hardware audio recording is not supported in this browser.');
 	}

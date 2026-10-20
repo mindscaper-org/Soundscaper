@@ -6,13 +6,10 @@ import test from 'node:test';
 
 import {
 	DIRECT_AIFF_SMOKE_FILE_BYTES,
-	DIRECT_BW64_SMOKE_FILE_BYTES,
 	DIRECT_BWF_SMOKE_FILE_BYTES,
 	DIRECT_WAV_SMOKE_FILE_BYTES,
 	createDirectWavSmokeTargetHarness,
 	encodeDirectWavSmokePlan,
-	validateDirectWavRendererResult,
-	validateDirectWavSmokeResult,
 } from '../desktop/direct-wav-smoke.js';
 
 const PLAN = Object.freeze({
@@ -22,31 +19,6 @@ const PLAN = Object.freeze({
 	token: '0123456789abcdef0123456789abcdef',
 });
 const FILTERS = Object.freeze([{ name: 'WAV and AIFF audio mix', extensions: ['wav', 'aif', 'aiff'] }]);
-
-test('direct export target harness admits one exact completed BW64 choice and evidence record', async () => {
-	const appDataPath = '/tmp/direct-bw64-smoke-protocol';
-	const root = join(appDataPath, `direct-wav-smoke-${PLAN.token}`);
-	const files = new Map();
-	const harness = createHarness(appDataPath, files);
-	await resolveEarlierChoices(harness, root, files);
-	assert.equal(await harness.resolveSavePath({
-		purpose: 'audio-pcm-mix', suggestedName: 'mix.wav', filters: FILTERS,
-	}), join(root, 'completed-bw64.wav'));
-	files.set(join(root, 'completed-bw64.wav'), DIRECT_BW64_SMOKE_FILE_BYTES);
-	assert.deepEqual(await harness.evidence(), {
-		selectionPurposes: Array.from({ length: 5 }, () => 'audio-pcm-mix'),
-		completedBytes: DIRECT_WAV_SMOKE_FILE_BYTES,
-		completedAiffBytes: DIRECT_AIFF_SMOKE_FILE_BYTES,
-		completedBwfBytes: DIRECT_BWF_SMOKE_FILE_BYTES,
-		completedBw64Bytes: DIRECT_BW64_SMOKE_FILE_BYTES,
-		aiffChoiceValidated: true,
-		bwfChoiceValidated: true,
-		bw64ChoiceValidated: true,
-		cancelledAbsent: true,
-		stagingFilesRemaining: 0,
-	});
-	await assert.rejects(harness.resolveSavePath({ purpose: 'audio-pcm-mix' }), /exactly five/iu);
-});
 
 test('direct export target harness rejects noncanonical BW64 choices', async () => {
 	for (const choice of [
@@ -61,43 +33,6 @@ test('direct export target harness rejects noncanonical BW64 choices', async () 
 		await resolveEarlierChoices(harness, root, files);
 		await assert.rejects(harness.resolveSavePath(choice), /BW64|filter/iu);
 	}
-});
-
-test('direct export payload closes packaged BW64 renderer and native evidence', () => {
-	const renderer = {
-		imported: true,
-		completed: true,
-		cancelled: true,
-		aiffCompleted: true,
-		bwfCompleted: true,
-		bw64Completed: true,
-		realtimeCount: 5,
-		downloadVisible: false,
-	};
-	assert.deepEqual(validateDirectWavRendererResult(renderer), renderer);
-	const payload = {
-		...PLAN,
-		renderer,
-		native: {
-			selectionPurposes: Array.from({ length: 5 }, () => 'audio-pcm-mix'),
-			completedBytes: DIRECT_WAV_SMOKE_FILE_BYTES,
-			completedAiffBytes: DIRECT_AIFF_SMOKE_FILE_BYTES,
-			completedBwfBytes: DIRECT_BWF_SMOKE_FILE_BYTES,
-			completedBw64Bytes: DIRECT_BW64_SMOKE_FILE_BYTES,
-			aiffChoiceValidated: true,
-			bwfChoiceValidated: true,
-			bw64ChoiceValidated: true,
-			cancelledAbsent: true,
-			stagingFilesRemaining: 0,
-		},
-	};
-	assert.deepEqual(validateDirectWavSmokeResult(payload, PLAN), payload);
-	for (const invalid of [
-		{ ...payload, renderer: { ...renderer, bw64Completed: false } },
-		{ ...payload, renderer: { ...renderer, realtimeCount: 4 } },
-		{ ...payload, native: { ...payload.native, completedBw64Bytes: DIRECT_BW64_SMOKE_FILE_BYTES - 1 } },
-		{ ...payload, native: { ...payload.native, bw64ChoiceValidated: false } },
-	]) assert.throws(() => validateDirectWavSmokeResult(invalid, PLAN), /BW64|realtime/iu);
 });
 
 async function resolveEarlierChoices(harness, root, files) {

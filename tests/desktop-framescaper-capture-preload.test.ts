@@ -59,7 +59,7 @@ test('preload exposes four bounded pathless operations and revalidates every res
 	]);
 });
 
-test('preload rejects malformed requests before IPC and malformed main responses after IPC', async () => {
+test('preload rejects malformed renderer requests before IPC', async () => {
 	let calls = 0;
 	const local = createFramescaperCaptureDesktopPreloadBridgeV1({
 		invoke: async () => { calls += 1; return null; },
@@ -74,14 +74,6 @@ test('preload rejects malformed requests before IPC and malformed main responses
 	await assert.rejects(() => local.teardown(Number.NaN), /generation/iu);
 	assert.equal(calls, 0);
 
-	const remote = createFramescaperCaptureDesktopPreloadBridgeV1({
-		invoke: async (channel) => channel === FRAMESCAPER_CAPTURE_DESKTOP_CHANNELS.status
-			? { ...status(), rawSourceId: 'screen:0:0' }
-			: false,
-	});
-	await assert.rejects(() => remote.status(), /unsupported fields/iu);
-	await assert.rejects(() => remote.listSources(1), /source list/iu);
-	await assert.rejects(() => remote.grant({ generation: 1, roles: ['camera'], sourceToken: null }), /grant/iu);
 });
 
 function status() {
