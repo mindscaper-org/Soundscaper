@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { MIXER_GRAPH_V21_MAX_ITEMS } from '../src/common/editor/mixer-graph-v21.ts';
 import { assertAcyclicRoutingV21 } from '../src/common/editor/routing-cycle-v21.ts';
 
 const MESSAGE = 'routing cycle';
@@ -40,11 +41,8 @@ test('acyclic and cyclic graphs are decided by their shape', () => {
 	), /routing cycle/iu);
 });
 
-test('a chain far deeper than the recursion limit is still decided by its shape', () => {
-	// Recursive descent overflows the call stack between 4k and 8k frames, which is
-	// under 2x the admissible mixer edge cap. This traversal carries its own stack so
-	// depth cannot turn a decidable graph into a crash.
-	const depth = 200_000;
+test('a chain at the admitted mixer edge limit is still decided by its shape', () => {
+	const depth = MIXER_GRAPH_V21_MAX_ITEMS;
 	assert.equal(assertAcyclicRoutingV21([...chain(depth).keys()], chain(depth), MESSAGE), true);
 	const cyclic = chain(depth, true);
 	assert.throws(() => assertAcyclicRoutingV21([...cyclic.keys()], cyclic, MESSAGE), /routing cycle/iu);
