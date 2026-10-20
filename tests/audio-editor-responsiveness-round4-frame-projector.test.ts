@@ -21,7 +21,7 @@ const receipt = JSON.parse(readFileSync(new URL('./fixtures/responsiveness-round
 	cases: readonly { inputs: [number, number, number, number, number, number]; result: ReturnType<typeof observe> }[];
 };
 
-test('public parameter offsets match 157 frozen original conversions and refusals', () => {
+test('normalized parameter offsets retain frozen conversions and overflow refusals', () => {
 	for (const { inputs, result } of receipt.cases) {
 		assert.deepEqual(observe(() => roundScheduledParameterContextFrameOffset(...inputs)), result);
 	}
