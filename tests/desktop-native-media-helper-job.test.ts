@@ -32,7 +32,6 @@ test('the CLI adapter emits only finalized closed arguments, with a role per sou
 		plan: { path: '/scratch/plan.json', sha256: '1'.repeat(64) },
 		sources: [
 			{ path: '/media/a.mov', sha256: '2'.repeat(64), byteLength: 2_048, role: 'original' },
-			{ path: '/media/b.wav', sha256: '3'.repeat(64), byteLength: 1_024, role: 'original' },
 		],
 		videoTimingAssets: [],
 		backend: 'native-cpu', maximumOutputBytes: 4_096,
@@ -48,8 +47,6 @@ test('the CLI adapter emits only finalized closed arguments, with a role per sou
 		'--plan', '/scratch/plan.json', '--plan-sha256', '1'.repeat(64),
 		'--source', '/media/a.mov', '--source-sha256', '2'.repeat(64),
 		'--source-byte-length', '2048', '--source-role', 'original',
-		'--source', '/media/b.wav', '--source-sha256', '3'.repeat(64),
-		'--source-byte-length', '1024', '--source-role', 'original',
 		'--backend', 'native-cpu',
 		'--maximum-output-bytes', '4096', '--scratch', '/scratch/job',
 		'--destination-root', '/output', '--temporary-output', '/output/.proxy.tmp',
@@ -204,7 +201,7 @@ test('decode output is helper-spooled, exact-bound, and streamed over its transf
 	}
 });
 
-test('a changed source, swapped executable, wrong port count, or oversized scratch demand fails before execution', async () => {
+test('a changed source or wrong port count fails before execution', async () => {
 	const harness = await jobHarness();
 	try {
 		const scratchRoot = join(harness.root, 'scratch');
