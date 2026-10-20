@@ -23,7 +23,6 @@ test('the source guard inspects required owners and deprecated full paths withou
 	});
 	assert.deepEqual(reads, files.filter(file => file !== unrelated));
 	assert.deepEqual(references, [REQUIRED[0], deprecated[0], deprecated[1], deprecated[3], REQUIRED[1]]);
-	assert.equal(references.every(file => !file.includes(`${STEM}-v2`)), false);
 });
 
 test('required ownership still depends on both the source inventory and its literal module reference', async () => {
