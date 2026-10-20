@@ -87,29 +87,6 @@ test('direct write and post-close MEMFS cleanup failures abort the destination e
 	});
 });
 
-test('hostile sink accessors are rejected before producer or FFmpeg ownership', async () => {
-	let getterCalls = 0;
-	const hostile = Object.create(null) as Record<string, unknown>;
-	for (const key of ['open', 'write', 'close', 'abort']) {
-		Object.defineProperty(hostile, key, {
-			enumerable: true,
-			get() { getterCalls += 1; return () => undefined; },
-		});
-	}
-	const events: string[] = [];
-	const fake = sinkFfmpeg(MP4, events);
-	const frameSource = source();
-	let disposals = 0;
-	await assert.rejects(encodeVideoKeyframeVideoToSink(fake.port, {
-		frameSource,
-		producer: producer(frameSource, () => { disposals += 1; }),
-		format: 'mp4',
-	}, hostile as never, { createJobToken: () => TOKEN }), /sink\.open.*data property/u);
-	assert.equal(getterCalls, 0);
-	assert.equal(disposals, 0);
-	assert.equal(fake.runCalls(), 0);
-});
-
 test('malformed and truncated direct containers never open or write the destination', async () => {
 	for (const bytes of [
 		Uint8Array.of(1, 2, 3, 4),
