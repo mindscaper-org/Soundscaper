@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
 		need(status == AVERROR_EOF && avcodec_send_packet(d.codec, nullptr) >= 0, "Decoder flush failed"); drain();
 		std::cout << "Motionscaper fine-edge maximum RGB codes " << color * 1023 << "; alpha codes " << alpha * 1023 << '\n';
 		need(count == 2 && color <= 8.0 / 1023 && alpha <= 2.0 / 1023, "ProRes fine edges exceed the unchanged RGB/alpha bounds");
-		std::filesystem::remove(output); return 0;
+		avformat_close_input(&d.format); std::filesystem::remove(output); return 0;
 	} catch (const std::exception& e) {
 		if (!output.empty()) { std::error_code ignored; std::filesystem::remove(output, ignored); }
 		std::cerr << e.what() << '\n'; return 1;

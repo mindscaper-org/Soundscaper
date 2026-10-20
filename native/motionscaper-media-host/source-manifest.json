@@ -110,18 +110,18 @@
 		},
 		{
 			"path": "native/motionscaper-media-host/tests/pcm_roundtrip.cpp",
-			"byteLength": 4028,
-			"sha256": "5b9c415bccc4679cd33765d93e7a2f00936445ebd2919c7bd0bcb46e26fef50c"
+			"byteLength": 4065,
+			"sha256": "74953030eb6b4c80d6403bed2facda99e253c0a81e1a4da7b59962bf7bcb7a09"
 		},
 		{
 			"path": "native/motionscaper-media-host/tests/prores_edges_roundtrip.cpp",
-			"byteLength": 7557,
-			"sha256": "ea7b8c874382595bafded0c208c7f6315fbd7450dfe9074e0e4a7b908086717e"
+			"byteLength": 7590,
+			"sha256": "8076239b0ae1fcbaa5200169f26b52819b5324a433f1730502a2ab7e41321676"
 		},
 		{
 			"path": "native/motionscaper-media-host/tests/prores_roundtrip.cpp",
-			"byteLength": 7055,
-			"sha256": "925e869213cd0b0a24ee480ab0ae942b229611e3a0b0af43f73f953b8a24bb78"
+			"byteLength": 7093,
+			"sha256": "977dbcc6b6b1c85d827949be6f0c1355362fd863baad187d3f124fad8aacdb8f"
 		},
 		{
 			"path": "scripts/build-motionscaper-media-host.mjs",

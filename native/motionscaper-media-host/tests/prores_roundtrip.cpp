@@ -90,7 +90,7 @@ int main(const int argc, char** argv) {
 			av_packet_unref(decode.packet);
 		}
 		require(avcodec_send_packet(decode.codec, nullptr) >= 0, "Flush ProRes decoder"); drain();
-		require(frames == 2, "ProRes frame count changed"); std::filesystem::remove(output);
+		require(frames == 2, "ProRes frame count changed"); avformat_close_input(&decode.format); std::filesystem::remove(output);
 		std::cout << "Motionscaper ProRes 4444 float color and alpha round trip passed\n"; return 0;
 	} catch (const std::exception& error) {
 		if (!output.empty()) { std::error_code ignored; std::filesystem::remove(output, ignored); }

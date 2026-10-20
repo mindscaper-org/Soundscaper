@@ -47,7 +47,7 @@ int main(const int argc, char** argv) {
 				}
 			} av_packet_unref(input.packet);
 		}
-		require(count == 6407, "PCM sample count changed"); std::filesystem::remove(output);
+		require(count == 6407, "PCM sample count changed"); avformat_close_input(&input.format); std::filesystem::remove(output);
 		std::cout << "Motionscaper PCM24 precision, clipping, channel order and exact A/V cadence passed\n"; return 0;
 	} catch (const std::exception& error) { if (!output.empty()) { std::error_code ignored; std::filesystem::remove(output, ignored); } std::cerr << error.what() << '\n'; return 1; }
 }
