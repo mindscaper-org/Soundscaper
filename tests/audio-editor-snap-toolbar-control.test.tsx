@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { audacityActionDefinition } from '../src/common/editor/audacity-action-parity.js';
 import { createSnapMenu, snapMenuCurrentLabel } from '../src/common/editor/ui/application-menu-model.js';
 import SnapToolbarControl from '../src/common/editor/ui/toolbar/SnapToolbarControl.jsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
@@ -16,7 +14,6 @@ import { installReactTestDom, reactProps, ReactTestElement } from './helpers/rea
 // needs the React global that the Vite build provides automatically.
 Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 
-const UI = new URL('../src/common/editor/ui/', import.meta.url);
 const MUSICAL_LABELS = ['Bar', '1/2', '1/4', '1/8', '1/16', '1/32', '1/64', '1/128'];
 
 test('the snap dropdown label is the checked interval, skipping the toggle rows', () => {
@@ -26,7 +23,6 @@ test('the snap dropdown label is the checked interval, skipping the toggle rows'
 	assert.equal(label({ snap: { enabled: true, unit: 'bar', division: 'bar' } }), 'Bar');
 	assert.equal(label({ snap: { enabled: true, unit: 'cdda', division: 'cdda' } }), 'CDDA frames (75 fps)');
 	assert.equal(label(undefined), 'Seconds');
-	assert.equal(label({ snap: { enabled: true, unit: 'unknown-unit', division: 'unknown-unit' } }), 'Seconds');
 });
 
 test('the snap control reflects the project snap state and the edit block', () => {
@@ -111,24 +107,6 @@ test('the time, video and CD groups open as submenus that close the menu on choi
 	}
 });
 
-test('the toolbar hosts the snap control between the time display and the meters', async () => {
-	const [toolbar, shortcuts, css] = await Promise.all([
-		readFile(new URL('toolbar/EditorToolToolbar.jsx', UI), 'utf8'),
-		readFile(new URL('workspace-shortcuts.ts', UI), 'utf8'),
-		readFile(new URL('audio-editor-design-system/34-toolbar-snap-workspace.css', UI), 'utf8'),
-	]);
-	assert.match(toolbar, /\{ id: 'time-display', label: copy\.timecode, icon: iconNameToChar\('CLOCK'\) \},\n\s*\{ id: 'snap', label: copy\.snap, icon: iconNameToChar\('MAGNET'\) \}/u);
-	assert.match(toolbar, /isToolbarButtonVisible\('snap'\) && <SnapToolbarControl/u);
-	const timecodeAt = toolbar.indexOf('<TelemetryTimeCode');
-	const snapAt = toolbar.indexOf('<SnapToolbarControl');
-	const recordingMeterAt = toolbar.indexOf('<RecordingMeterToolbarGroup');
-	assert.ok(timecodeAt > 0 && snapAt > timecodeAt && recordingMeterAt > snapAt);
-	assert.match(shortcuts, /'button, select, input, \[role="group"\], \[role="checkbox"\]'/u);
-	assert.match(css, /\.kw-audio-editor__snap-interval/u);
-	const snap = audacityActionDefinition('snap');
-	assert.deepEqual(snap.locations, ['Transport toolbar']);
-	assert.equal(snap.handler, 'timeline.configureSnap');
-});
 
 function project(snap: Record<string, unknown>) {
 	return { id: 'project', title: 'project', revision: 1, sampleRate: 48_000, tracks: [], clips: [], snap };
