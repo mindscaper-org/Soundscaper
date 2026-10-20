@@ -75,7 +75,7 @@ package complete.
 
 As of 2026-10-20, M01–M12 remain **In progress**; **no milestone is accepted**.
 Overall completion is estimated at **about 85%**. The current implementation
-checkpoint is `9ad5751d0`.
+checkpoint is `66b58a391`.
 
 The complete Node run on frozen source `657fe1f500` closed with **28,133 passes,
 10 failures and 20 declared skips**. Four failure groups—native dependency pins,
@@ -84,6 +84,15 @@ chunking—have committed corrections, with all **34 combined focused tests
 passing** on `f9e7d27b6`. A subsequent test type annotation passes scoped strict
 TypeScript, changed-file lint and all four translation tests. The production
 build passes the unchanged chunk limits. A complete rerun remains required.
+
+Windows native-build corrections now handle numeric zlib feature macros and
+normalize installed FFmpeg link metadata without changing dependency versions.
+The next build compiled both native hosts, then exposed three test fixtures
+deleting MOV files before closing their demuxers. That correction is committed
+in `66b58a391`; focused native checks pass **5/5 on Windows and Linux**, and
+**13 source/inventory checks pass**. These focused builds use read-only prior
+codec libraries; fresh complete native builds and packaged-app checks remain
+required.
 
 The latest complete ordinary browser run, on `fba35da53`, had **7,212 passes,
 19 failures and 308 declared skips**. A later focused run of the three Motion

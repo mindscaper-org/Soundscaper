@@ -14,6 +14,16 @@ production build pass. The largest locale chunk is 462,271 bytes, below the
 unchanged 490,000-byte regression budget and 500,000-byte production ceiling.
 These results do not qualify a fresh complete Node run.
 
+The current native implementation checkpoint is `66b58a391`. Windows build
+corrections handle numeric zlib feature macros and installed FFmpeg link
+metadata while preserving the dependency closure. The subsequent build compiled
+and linked both native hosts, then failed three Motion tests when they deleted
+MOV files with their demuxers still open. The committed fixture correction
+closes those inputs after all original media assertions. Focused native checks
+pass **5/5 on Windows and Linux**, and **13 source/inventory checks pass** without
+skips. These focused builds use read-only prior codec libraries and do not
+qualify fresh full native artifacts, packaged applications or the full suite.
+
 The latest complete ordinary browser run, on `fba35da53`, closed with **7,212
 passes, 19 failures and 308 declared skips**. The later three-scenario Motion
 run passed all nine engine/case combinations on `4d6a3bdc2`. Focused passes do
