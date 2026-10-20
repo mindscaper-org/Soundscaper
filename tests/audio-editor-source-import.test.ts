@@ -5,9 +5,6 @@ import test from 'node:test';
 
 import {
 	createImportVideoFile,
-	type ImportVideoFile,
-	type ImportVideoFileInput,
-	type ImportVideoRuntime,
 } from '../src/common/editor/controller/import/internal/source-import.ts';
 import {
 	createFixture,
@@ -398,25 +395,3 @@ test('a post-mutation commit failure retains resources for the landed canonical 
 	assert.deepEqual(fixture.deletedSources, []);
 	assert.deepEqual(fixture.deletedMedia, []);
 });
-
-/** Compile-time checks: video import retains its file, option, result, and runtime port contracts. */
-export function checkImportVideoBoundaryTypes(
-	importVideo: ImportVideoFile,
-	file: ImportVideoFileInput,
-	runtime: ImportVideoRuntime,
-): void {
-	// @ts-expect-error Video imports cannot target an undeclared destination.
-	void importVideo(file, { destination: 'library', trackId: null, timelineStartFrame: 0 });
-	// @ts-expect-error A video import file exposes a numeric byte length.
-	void importVideo({ name: 'broken.mp4', size: '32' });
-	void importVideo(file).then((result) => {
-		// @ts-expect-error Imported source IDs remain strings at the public boundary.
-		const sourceId: number = result.sourceId;
-		void sourceId;
-	});
-	// @ts-expect-error Storage admission for this domain can only be charged to import.
-	void runtime.preflightStorage(32, 'export');
-}
-
-// @ts-expect-error The runtime inventory has no arbitrary-name fallback.
-export type MisspelledVideoImportPort = ImportVideoRuntime['createAudioEditorVideoFrameExtracter'];

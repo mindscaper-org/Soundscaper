@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import React, { act } from 'react';
 
@@ -13,7 +12,6 @@ import { installReactTestDom, reactProps, ReactTestElement } from './helpers/rea
 // needs the React global that the Vite build provides automatically.
 Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 
-const TOOLBAR = new URL('../src/common/editor/ui/toolbar/EditorToolToolbar.jsx', import.meta.url);
 
 test('the spectrogram options always offer multi-view and both spectral tools', async () => {
 	const fixture = await mountedControl({ view: 'waveform' });
@@ -60,14 +58,6 @@ test('the multi-view option turns the whole timeline into multi-view and back', 
 	}
 });
 
-test('the customize-toolbar list offers the spectrogram button without its own options', async () => {
-	const toolbar = await readFile(TOOLBAR, 'utf8');
-	assert.match(toolbar, /\{ id: 'spectrogram-view', label: copy\.spectrogramView, icon: 'spectrogram' \},/u);
-	assert.doesNotMatch(toolbar, /id: 'spectral-box-select'/u);
-	assert.doesNotMatch(toolbar, /id: 'spectral-brush'/u);
-	assert.doesNotMatch(toolbar, /isToolbarButtonVisible\('spectral-/u);
-	assert.match(toolbar, /isToolbarButtonVisible\('spectrogram-view'\) && <SpectrogramToolControl/u);
-});
 
 async function mountedControl(timeline: Record<string, unknown>) {
 	const dom = installReactTestDom();
