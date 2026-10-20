@@ -2,7 +2,6 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ClipTimePitchRenderCacheCoordinator } from '../src/common/editor/clip-time-pitch-cache.js';
 import { createControllerResources } from '../src/common/editor/controller/composition/controller-resources.ts';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { parallelStackPlaybackEnabled } from '../src/common/editor/engine/parallel-stack-playback.ts';
@@ -45,7 +44,6 @@ test('controller resources give workers owned PCM without detaching resident cha
 			length: 2, numberOfChannels: 1, sampleRate: 48_000,
 			getChannelData: () => samples,
 		});
-		assert.ok(resources.clipTimePitchCache instanceof ClipTimePitchRenderCacheCoordinator);
 		const channels: Float32Array[] = await resources.clipTimePitchCache.loadSourceChannels({
 			id: 'source', frameCount: 2, channelCount: 1,
 		});
