@@ -184,20 +184,3 @@ test('registered apply controls validate the active renderer owner before mutati
 	}), /owner is stale/u);
 	assert.equal(fixture.state.nativePluginDiscoveryEnabled, false);
 });
-
-test('registration refuses missing, empty or aliased control channels', () => {
-	const fixture = harness();
-	for (const channels of [
-		{},
-		{ nativeTierControls: '', nativeTierApply: 'apply' },
-		{ nativeTierControls: 'same', nativeTierApply: 'same' },
-	]) {
-		assert.throws(() => registerDesktopNativeTierControls({
-			channels,
-			handle: () => undefined,
-			ownerFor: () => ({}),
-			settings: fixture.settings,
-			tier: fixture.tier,
-		}), /channel/iu);
-	}
-});

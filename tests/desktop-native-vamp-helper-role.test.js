@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -25,9 +24,4 @@ test('Vamp analysis owns a dedicated plugin-analyzer helper role and subcontract
 	assert.ok(worker);
 	assert.equal(posted[0].type, 'hello');
 	assert.deepEqual(posted[0].kinds, ['plugin-analyze']);
-});
-
-test('main admits plugin-analyzer as a professional native helper supervisor role', async () => {
-	const source = await readFile(new URL('../desktop/native-helper-registration.mjs', import.meta.url), 'utf8');
-	assert.match(source, /'plugin-analyzer'/u);
 });

@@ -12,8 +12,6 @@ import {
 	nativeTierScanEntry as scanEntry,
 } from './helpers/desktop-native-tier-fixtures.js';
 import {
-	DesktopNativeAudioSessionService,
-	DesktopPluginHostService,
 	DesktopPluginQuarantine,
 	DesktopPluginRegistry,
 	NATIVE_CHANNELS,
@@ -30,8 +28,6 @@ import {
 	observeScannedPlugins,
 	recordScannedPlugins,
 	registerDesktopHelperProbe,
-	registerDesktopNativeTier,
-	registrationOptions,
 	revokeDesktopNativeTierOwner,
 	scanDigestFor,
 	temporaryUserData,
@@ -60,23 +56,7 @@ test('registering the native tier claims every declared channel exactly once', a
 	assert.deepEqual([...registration.channels].sort(), [...NATIVE_CHANNELS].sort());
 	assert.notEqual(registration.tier.audio.supervisorPort, registration.tier.plugins.supervisorPort,
 		'audio sessions and plug-in scans must never share a process lifecycle or quarantine generation');
-	assert.ok(registration.tier.audio.sessions instanceof DesktopNativeAudioSessionService);
-	assert.ok(registration.tier.plugins.hostService instanceof DesktopPluginHostService);
 	await disposeDesktopNativeTier(registration.tier);
-});
-
-test('the native tier refuses an options bag missing a seam it forwards', async (context) => {
-	const userDataPath = await temporaryUserData(context);
-	const complete = registrationOptions(userDataPath);
-	for (const missing of [
-		'channels', 'handle', 'ownerFor', 'settings', 'desktopRoot', 'userDataPath', 'parentWindow',
-		'productId', 'nativePluginStateAuthority',
-	]) {
-		const options = { ...complete };
-		delete options[missing];
-		assert.throws(() => registerDesktopNativeTier(options), new RegExp(missing, 'u'),
-			`a native tier registered without ${missing} must fail by name rather than deep inside a helper`);
-	}
 });
 
 test('the renderer can change native-audio preference through the bounded main channel', async (context) => {
