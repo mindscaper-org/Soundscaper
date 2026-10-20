@@ -19,7 +19,7 @@ export const editorUiChunkGroups = [
 		// and the archive limit share no product domain imports. One neutral owner
 		// avoids timeline passengers and preserves startup request ceilings.
 		name: 'editor-neutral-foundations',
-		test: /src[\\/]common[\\/]editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|code-unit-order|error-diagnostic-message|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|photo-library-develop-(?:(?:proxy|original|full-resolution)-port-v1|proxy-port-v2)|photo-library-saved-collection-port-v1|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-project-format|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)$/,
+		test: /src[\\/]common[\\/]editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|code-unit-order|error-diagnostic-message|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|photo-library-develop-(?:(?:proxy|original|full-resolution|mask-raster)-port-v1|proxy-port-v2|original-current-v1)|photo-library-saved-collection-port-v1|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-project-format|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)$/,
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,

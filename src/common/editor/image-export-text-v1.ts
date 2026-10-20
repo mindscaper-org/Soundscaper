@@ -5,6 +5,10 @@ import { readCanonicalSafeVisualText } from './safe-visual-text.ts';
 import { hasOnlyUnicodeScalars } from './unicode-scalar-text.ts';
 import type { GraphicWatermarkPlacementV1 } from './imaging/pixel-frame-graphic-watermark-v1.ts';
 
+/** Immutable font facts may be budgeted without loading its resource owner. */
+export const IMAGE_EXPORT_TEXT_FONT_V1 = Object.freeze({ byteLength: 24_452,
+	sha256: 'f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a' });
+
 export interface ImageExportTextV1 {
 	readonly schemaVersion: 1;
 	readonly text: string;

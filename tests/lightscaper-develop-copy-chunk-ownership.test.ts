@@ -20,7 +20,7 @@ const COPY_MODULES = [...sourceModules(resolve(ROOT, 'src/common/i18n')), resolv
 const TRANSFER = 'src/common/editor/platform/bounded-transfer.ts';
 const CURRENT_IMAGE_LEAVES = ['video-effects-v2.ts', 'video-color-cube-lut-v27.ts',
 	'video-color-management-v27.ts', 'video-color-byte-encoding.ts'].map(name => `src/common/editor/${name}`);
-const CURRENT_PACK_TAGS = ['scape-photo-catalog-pack-v2.ts', 'scape-photo-cube-lut.ts'].map(name => `src/common/editor/${name}`);
+const CURRENT_PACK_TAGS = ['scape-photo-catalog-pack-v2.ts', 'scape-photo-catalog-pack-v3.ts', 'scape-photo-catalog-pack-v4.ts', 'scape-photo-cube-lut.ts'].map(name => `src/common/editor/${name}`);
 const PHOTO_OWNERS = new Set(['editor-neutral-foundations', 'editor-photo-library-scalars', 'editor-imaging',
 	'editor-media-storage-contracts', 'editor-media-custody-storage', 'editor-closed-domain-values',
 	'editor-dialog-foundations', 'editor-file-saving', 'editor-scape-archive-bytes',
@@ -52,21 +52,33 @@ test('ordinary photo copy cannot acquire develop or timeline catalogs through co
 });
 
 test('the real import-preset copy route retains visual labels without canonical audio catalogs', () => {
-	const dialog = 'src/common/editor/ui/lightscaper/PhotoImportDialogV2.tsx';
-	assert.ok(staticRelativeDependencies(runtimeSource(resolve(ROOT, dialog))).includes('../../../i18n/lightscaper-develop-settings-copy.ts'));
+	for (const version of ['V2', 'CurrentV1']) {
+		const dialog = `src/common/editor/ui/lightscaper/PhotoImportDialog${version}.tsx`;
+		assert.ok(staticRelativeDependencies(runtimeSource(resolve(ROOT, dialog))).includes('./internal/PhotoImportDialogKernelV1.tsx'));
+	}
+	const kernel = runtimeSource(resolve(ROOT, 'src/common/editor/ui/lightscaper/internal/PhotoImportDialogKernelV1.tsx'));
+	assert.ok(staticRelativeDependencies(kernel).includes('../../../../i18n/lightscaper-develop-settings-copy.ts'));
 	const reached = copyClosure(DEVELOP[1]!);
 	assert.ok(reached.has(DEVELOP[0]!)); assert.ok(reached.has(VISUAL));
 	for (const path of reached) assert.doesNotMatch(path, /\/i18n\/(?:canonical-extras[^/]*|catalogs|runtime|editor-copy-inventory)\./u);
 	assert.deepEqual(staticRelativeDependencies(runtimeSource(resolve(ROOT, VISUAL))), []);
 });
 
-test('both photo applications retain actual lazy import and develop entries with unchanged shared label identity', () => {
-	for (const version of ['', 'V2']) {
-		const source = runtimeSource(resolve(ROOT, `src/common/editor/ui/lightscaper/LightscaperApp${version}.tsx`));
-		for (const name of [`./PhotoImportDialog${version}.tsx`, `./PhotoDevelopWorkspace${version}.tsx`]) {
-			assert.ok(dynamicRelativeImports(source).includes(name), name);
-			assert.ok(!staticRelativeDependencies(source).includes(name), name);
-		}
+test('historical and Current photo applications retain actual lazy entries with unchanged shared label identity', () => {
+	const legacy = runtimeSource(resolve(ROOT, 'src/common/editor/ui/lightscaper/LightscaperApp.tsx'));
+	for (const name of ['./PhotoImportDialog.tsx', './PhotoDevelopWorkspace.tsx']) assertLazyEntry(legacy, name);
+	for (const version of ['V2', 'CurrentV1']) {
+		const wrapper = runtimeSource(resolve(ROOT, `src/common/editor/ui/lightscaper/LightscaperApp${version}.tsx`));
+		assert.ok(staticRelativeDependencies(wrapper).includes('./LightscaperAppKernelV1.tsx'));
+	}
+	const kernel = runtimeSource(resolve(ROOT, 'src/common/editor/ui/lightscaper/LightscaperAppKernelV1.tsx'));
+	assertLazyEntry(kernel, './LightscaperPhotoImportSurfaceV1.tsx');
+	assert.ok(staticRelativeDependencies(kernel).includes('./LightscaperPhotoDevelopSurfaceV1.tsx'));
+	const imports = runtimeSource(resolve(ROOT, 'src/common/editor/ui/lightscaper/LightscaperPhotoImportSurfaceV1.tsx'));
+	const develop = runtimeSource(resolve(ROOT, 'src/common/editor/ui/lightscaper/LightscaperPhotoDevelopSurfaceV1.tsx'));
+	for (const version of ['V2', 'CurrentV1']) {
+		assert.ok(staticRelativeDependencies(imports).includes(`./PhotoImportDialog${version}.tsx`));
+		assertLazyEntry(develop, `./PhotoDevelopWorkspace${version}.tsx`);
 	}
 	for (const locale of ['en', 'de'] as const) {
 		assert.equal(photoDevelopCopy(locale).shared, VIDEO_EFFECT_COPY_BY_LOCALE[locale]);
@@ -94,8 +106,54 @@ test('shared current transfer and image leaves have neutral owners without timel
 	}
 });
 
+// These are generic pixel/frame mask evaluators, not project/timeline owners.
+const MASK_PROCESSING_DEPENDENCIES = {
+	'video-mask-luminance-range-v1.ts': ['./closed-domain-value.ts', './imaging/pixel-frame-contract-v1.ts'],
+	'video-mask-color-range-v1.ts': [],
+	'video-mask-matte-graph-work-v1.ts': ['./video-mask-matte-v24.ts'],
+	'video-mask-matte-rgba-v13.ts': ['./closed-domain-value.ts', './video-mask-matte-v24.ts', './video-mask-luminance-range-v1.ts',
+		'./video-mask-color-range-v1.ts', './video-mask-matte-graph-work-v1.ts', './imaging/image-develop-brush-mask-v1.ts', './imaging/mask-raster-source-scope-v1.ts'],
+} as const;
+void test('the finite generic mask pixel closure keeps exact imaging ownership and closed runtime dependencies', () => {
+	const group = chunkGroups.find(candidate => candidate.name === 'editor-imaging'); assert.ok(group);
+	assert.equal(group.priority, 66); assert.equal(group.minSize, 0); assert.equal(group.maxSize, 400_000);
+	assert.equal(group.includeDependenciesRecursively, false);
+	for (const [leaf, dependencies] of Object.entries(MASK_PROCESSING_DEPENDENCIES)) {
+		const path = `src/common/editor/${leaf}`;
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), 'editor-imaging', path);
+			for (const impostor of [path + '.foreign', path.replace(/-v[0-9]+\.ts$/u, '-v999.ts'), path.replace('editor/', 'editor/internal/')]) {
+				assert.notEqual(chunkGroupForModulePath(impostor.replaceAll('/', separator)), 'editor-imaging', impostor);
+			}
+		}
+		const source = runtimeSource(resolve(ROOT, path));
+		assert.deepEqual([...staticRelativeDependencies(source)].sort(), [...dependencies].sort(), path);
+		assert.deepEqual(dynamicRelativeImports(source), [], path);
+		for (const specifier of dependencies) {
+			const target = resolveRelativeModule(resolve(ROOT, path), specifier); assert.ok(target, specifier);
+			assert.equal(chunkGroupForModulePath(target), specifier === './closed-domain-value.ts' ? 'editor-closed-domain-values' : 'editor-imaging', specifier);
+		}
+	}
+	for (const leaf of ['video-mask-matte-ffmpeg-v1.ts', 'video-mask-luminance-range-v2.ts', 'video-mask-color-range-v2.ts', 'video-mask-project-v1.ts']) {
+		assert.notEqual(chunkGroupForModulePath(`src/common/editor/${leaf}`), 'editor-imaging', leaf);
+	}
+});
+
+void test('all actual photo cold entries retain an empty complete timeline-domain closure', () => {
+	const violations = new Set<string>();
+	for (const entry of ['src/lightscaper/ui/LightscaperBootstrap.tsx', 'src/common/editor/ui/lightscaper/PhotoImportDialogV2.tsx',
+		'src/common/editor/ui/lightscaper/PhotoImportDialogCurrentV1.tsx', 'src/lightscaper/controller/photo-library-backup-v5.ts',
+		'src/lightscaper/controller/photo-library-backup-current-v1.ts']) {
+		for (const path of inspectPhotoRuntimeClosure(entry)) {
+			if (chunkGroupForModulePath(resolve(ROOT, path)) === 'editor-domain') violations.add(path);
+		}
+	}
+	assert.deepEqual([...violations].sort(), [], 'The complete real static and paid co-owned photo runtime must contain no timeline-domain leaves.');
+});
+
 test('the actual photo bootstrap and import dialog stay cold across non-i18n co-owned runtime modules', () => {
-	for (const entry of ['src/lightscaper/ui/LightscaperBootstrap.tsx', 'src/common/editor/ui/lightscaper/PhotoImportDialogV2.tsx']) {
+	for (const entry of ['src/lightscaper/ui/LightscaperBootstrap.tsx', 'src/common/editor/ui/lightscaper/PhotoImportDialogV2.tsx',
+		'src/common/editor/ui/lightscaper/PhotoImportDialogCurrentV1.tsx']) {
 		const reached = photoRuntimeClosure(entry);
 		for (const path of [TRANSFER, ...CURRENT_IMAGE_LEAVES]) assert.ok(reached.has(path), `${entry} omitted ${path}`);
 		for (const path of reached) assert.doesNotMatch(path, /\/i18n\/(?:canonical-extras[^/]*|catalogs|runtime|editor-copy-inventory)\./u);
@@ -111,7 +169,7 @@ test('current photo archive tags retain the existing exact nonrecursive byte own
 		assert.deepEqual(staticRelativeDependencies(runtimeSource(resolve(ROOT, path))), [], path);
 		assert.deepEqual(dynamicRelativeImports(runtimeSource(resolve(ROOT, path))), [], path);
 	}
-	for (const path of ['scape-photo-catalog-pack-v3.ts', 'scape-photo-cube-lut-future.ts']) {
+	for (const path of ['scape-photo-catalog-pack-v5.ts', 'scape-photo-cube-lut-future.ts']) {
 		assert.notEqual(chunkGroupForModulePath(`src/common/editor/${path}`), 'editor-scape-archive-bytes', path);
 	}
 	const group = chunkGroups.find(candidate => candidate.name === 'editor-scape-archive-bytes'); assert.ok(group);
@@ -120,25 +178,76 @@ test('current photo archive tags retain the existing exact nonrecursive byte own
 });
 
 test('the actual current backup entry stays cold across file and archive byte co-owners', () => {
-	const reached = photoRuntimeClosure('src/lightscaper/controller/photo-library-backup-v5.ts');
-	for (const path of CURRENT_PACK_TAGS) assert.ok(reached.has(path), `Current backup omitted ${path}`);
-	for (const path of reached) assert.doesNotMatch(path, /\/i18n\/(?:canonical-extras[^/]*|catalogs|runtime|editor-copy-inventory)\./u);
+	for (const entry of ['src/lightscaper/controller/photo-library-backup-v5.ts', 'src/lightscaper/controller/photo-library-backup-current-v1.ts']) {
+		const reached = photoRuntimeClosure(entry);
+		for (const path of CURRENT_PACK_TAGS) assert.ok(reached.has(path), `${entry} omitted ${path}`);
+		for (const path of reached) assert.doesNotMatch(path, /\/i18n\/(?:canonical-extras[^/]*|catalogs|runtime|editor-copy-inventory)\./u);
+	}
 });
 
+void test('Photo cold byte planning pays only exact scalar ports and archive validation without analysis or audio processing', () => {
+	const contracts = {
+		'photo-library-develop-mask-raster-port-v1.ts': 'editor-neutral-foundations',
+		'photo-library-develop-original-current-v1.ts': 'editor-neutral-foundations',
+		'video-timing-asset-reference.ts': 'editor-media-storage-contracts',
+		'video-motion-model-v27.ts': 'editor-imaging',
+		'video-motion-analysis-body-v1.ts': 'editor-scape-archive-bytes',
+	} as const;
+	for (const [leaf, owner] of Object.entries(contracts)) {
+		const path = `src/common/editor/${leaf}`;
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), owner, path);
+			for (const invalid of [path + '.foreign', path.replace('editor/', 'editor/internal/')]) {
+				assert.notEqual(chunkGroupForModulePath(invalid.replaceAll('/', separator)), owner, invalid);
+			}
+		}
+	}
+	const core = runtimeSource(resolve(ROOT, 'src/common/editor/scape-durable-asset-plan-core-v1.ts'));
+	assert.deepEqual([...staticRelativeDependencies(core)].sort(), [
+		'./controller/shared/file-size-warning.ts', './scape-abort.ts', './scape-byte-stream.ts', './storage/media-content-digest.ts',
+		'./video-color-management-v27.ts', './video-motion-analysis-body-v1.ts', './video-motion-model-v27.ts', './video-timing-asset-reference.ts',
+	].sort());
+	const body = runtimeSource(resolve(ROOT, 'src/common/editor/video-motion-analysis-body-v1.ts'));
+	assert.deepEqual(staticRelativeDependencies(body), ['./video-motion-model-v27.ts']);
+	assert.deepEqual(dynamicRelativeImports(body), []);
+	for (const leaf of ['video-motion-analysis-v27.ts', 'video-motion-processing-v27.ts', 'gray-video-frame-sampling-v1.ts',
+		'scape-archive-media.ts', 'scape-expanded-byte-budget.ts']) {
+		assert.equal(chunkGroupForModulePath(`src/common/editor/${leaf}`), 'editor-domain', leaf);
+	}
+	for (const entry of ['src/lightscaper/ui/LightscaperBootstrap.tsx', 'src/lightscaper/controller/photo-library-backup-current-v1.ts']) {
+		const reached = inspectPhotoRuntimeClosure(entry);
+		for (const leaf of ['video-motion-analysis-v27.ts', 'video-motion-processing-v27.ts', 'gray-video-frame-sampling-v1.ts',
+			'scape-archive-media.ts', 'scape-expanded-byte-budget.ts', 'video-timing-asset.ts']) {
+			assert.equal(reached.has(`src/common/editor/${leaf}`), false, `${entry} acquires ${leaf}`);
+		}
+	}
+});
+
+function assertLazyEntry(source: string, name: string): void {
+	assert.ok(dynamicRelativeImports(source).includes(name), name);
+	assert.ok(!staticRelativeDependencies(source).includes(name), name);
+}
+
 function runtimeSource(path: string): string {
-	return transformSync(readFileSync(path, 'utf8'), { loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : 'js', format: 'esm' }).code;
+	return transformSync(readFileSync(path, 'utf8'), { loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm' }).code;
 }
 
 // A neutral or image owner's static dependency is paid even when a different
 // co-owned consumer uses it. Inspect real product entries, not just their copy hook.
 function photoRuntimeClosure(entry: string): ReadonlySet<string> {
+	const reached = inspectPhotoRuntimeClosure(entry);
+	assert.deepEqual([...reached].filter(path => chunkGroupForModulePath(resolve(ROOT, path)) === 'editor-domain').sort(), [],
+		`Photo runtime ${entry} loads timeline domain leaves`);
+	return reached;
+}
+
+function inspectPhotoRuntimeClosure(entry: string): ReadonlySet<string> {
 	const reached = new Set<string>(), pending = [resolve(ROOT, entry)];
 	while (pending.length) {
 		const path = pending.pop()!, repositoryPath = relative(ROOT, path).split(sep).join('/');
 		if (reached.has(repositoryPath)) continue;
 		reached.add(repositoryPath);
 		const owner = chunkGroupForModulePath(path);
-		assert.notEqual(owner, 'editor-domain', `Photo runtime loads timeline domain ${repositoryPath}`);
 		if (owner && PHOTO_OWNERS.has(owner)) for (const candidate of PHOTO_COOWNERS) {
 			if (chunkGroupForModulePath(candidate) === owner && !reached.has(relative(ROOT, candidate).split(sep).join('/'))) pending.push(candidate);
 		}

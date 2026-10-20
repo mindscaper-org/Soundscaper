@@ -7,7 +7,7 @@ import { imageGeometryForVideoEffectV1 } from '../src/common/editor/video-image-
 import { planImageGeometryV1 } from '../src/common/editor/imaging/image-geometry-plan-v1.ts';
 import { imageDevelopHandoffRecipeSha256V1 } from '../src/common/editor/image-develop-handoff-provenance-v1.ts';
 import { openFramescaperCurrentImageFrameSource } from '../src/framescaper/timeline-image-current-frame-source.ts';
-import { editableImageFixture, PROFILE, LUT_BODY } from './helpers/framescaper-editable-image-current-fixture.ts';
+import { editableImageFixture, PROFILE, LUT, LUT_BODY } from './helpers/framescaper-editable-image-current-fixture.ts';
 
 for (const cube of [undefined, false, true]) test(`real selected bin and filmstrip evaluate saved natural crop with Cube ${String(cube)}`, async () => {
 	const f = editableImageFixture({ cube }), signal = new AbortController().signal;
@@ -95,21 +95,36 @@ test('closing current materialization joins an accepted held recipe resource, pr
 	await assert.rejects(reader.readFrame(0), /closed/u);
 });
 
-test('bound masks, oversized recipe working planes and foreign body accessors refuse before body I/O', async () => {
+for (const enabled of [false, true]) void test(`current Source2 ${enabled ? 'active' : 'disabled'} bound vector mask preserves literal pixels and source custody`, async () => {
 	const mask = { schemaVersion: 1 as const, id: 'mask', kind: 'mask' as const, inputs: [], nodes: [{ id: 'rectangle', kind: 'vector-shape' as const, shape: 'rectangle' as const, x: 0, y: 0, width: 1, height: 1 }], outputNodeId: 'rectangle' };
-	const f = editableImageFixture({ cube: false }), develop = { ...f.source.develop, masks: [mask], maskBindings: [{ effectId: 'saved-profile', maskId: 'mask' }] };
+	const f = editableImageFixture({ cube: enabled }), develop = { ...f.source.develop, masks: [mask], maskBindings: [{ effectId: 'saved-profile', maskId: 'mask' }] };
 	const bound = { ...f.source, develop, provenance: { ...f.source.provenance, developSha256: imageDevelopHandoffRecipeSha256V1(develop) } };
-	await assert.rejects(openFramescaperCurrentImageFrameSource(f.store, bound), /bound masks/u); assert.deepEqual(f.calls, []);
+	const sourceBefore = structuredClone(bound), originalBefore = f.original.slice(), packBefore = f.pack.bytes.slice();
+	const reader = await openFramescaperCurrentImageFrameSource(f.store, bound);
+	let pixels: Uint8Array | undefined;
+	try {
+		pixels = await reader.readFrame(0);
+		// The full rectangle retains the already-pinned cropped Cube/non-Cube literal reference above.
+		assert.deepEqual([...pixels], enabled ? [137,0,0,255,137,0,0,255] : [0,255,0,255,255,255,255,255]);
+		assert.equal(f.calls[0], f.source.storageKey); assert.ok(f.calls.includes(LUT.storageKey));
+	} finally { pixels?.fill(0); await reader.closeAndJoin(); }
+	await assert.rejects(reader.readFrame(0), /closed/u);
+	assert.deepEqual(bound, sourceBefore); assert.deepEqual(f.original, originalBefore); assert.deepEqual(f.pack.bytes, packBefore);
+});
+
+void test('oversized intermediate recipe planes and foreign body accessors refuse before body I/O', async () => {
+	const f = editableImageFixture({ cube: false });
 	const large = editableImageFixture({ crop: false });
 	const shrink = { id: 'later-crop', type: 'develop-geometry-v1', enabled: true, params: { cropWidth: .5 } };
 	const expanded = { ...large.source.develop, effects: [shrink], geometry: { ...large.source.develop.geometry, rotationDegrees: 30 } };
 	const rotated = planImageGeometryV1({ schemaVersion: 1, ...expanded.geometry, perspective: null }, 4_096, 4_096);
 	const dimensions = planImageGeometryV1(imageGeometryForVideoEffectV1(shrink, rotated.width, rotated.height), rotated.width, rotated.height);
+	assert.ok(rotated.width * rotated.height > 16_777_216, 'The intermediate rotation exceeds the fixed current frame pixel bound before the later crop.');
 	await assert.rejects(openFramescaperCurrentImageFrameSource(large.store, { ...large.source, canonical: { ...large.source.canonical, width: 4_096, height: 4_096 },
-		develop: expanded, developed: { width: dimensions.width, height: dimensions.height }, provenance: { ...large.source.provenance, developSha256: imageDevelopHandoffRecipeSha256V1(expanded) } }), /working byte/u);
+		develop: expanded, developed: { width: dimensions.width, height: dimensions.height }, provenance: { ...large.source.provenance, developSha256: imageDevelopHandoffRecipeSha256V1(expanded) } }), /pixel count exceeds the admitted limit/u);
 	assert.deepEqual(large.calls, []); let getters = 0;
 	const store = { get loadMediaAsset() { getters++; throw Error('Foreign authority'); } };
-	await assert.rejects(openFramescaperCurrentImageFrameSource(store as never, f.source), /data body reader/u); assert.equal(getters, 0);
+	await assert.rejects(openFramescaperCurrentImageFrameSource(store as never, f.source), /data native body reader/u); assert.equal(getters, 0);
 });
 
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(accept => { resolve = accept; }); return { promise, resolve }; }

@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
 import test, { type TestContext } from 'node:test';
-import { captureImageExportTextV1 } from '../src/common/editor/image-export-text-v1.ts';
+import { captureImageExportTextV1, IMAGE_EXPORT_TEXT_FONT_V1 as SCALAR_FONT_PIN } from '../src/common/editor/image-export-text-v1.ts';
 import { withImageExportTextFrameV1, type ImageExportTextCanvasV1 } from '../src/common/editor/imaging/image-export-text-frame-v1.ts';
 import { IMAGE_EXPORT_TEXT_FONT_V1, type ImageExportTextFontPortV1 } from '../src/common/editor/imaging/image-export-text-font-v1.ts';
 import { imageExportGraphicPlacement } from '../src/common/editor/image-export-graphic-request.ts';
@@ -50,6 +50,7 @@ test('closed scalar admission captures supported NFC text and refuses unsafe, fo
 });
 
 test('the exact font pin and every admitted Latin glyph are grounded in the installed paired font cmap', async () => {
+	assert.equal(IMAGE_EXPORT_TEXT_FONT_V1, SCALAR_FONT_PIN); assert.ok(Object.isFrozen(SCALAR_FONT_PIN));
 	assert.equal(FONT.length, 24_452); assert.equal(createHash('sha256').update(FONT).digest('hex'), IMAGE_EXPORT_TEXT_FONT_V1.sha256);
 	assert.equal(IMAGE_EXPORT_TEXT_FONT_V1.sha256, 'f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a');
 	const woff = await readFile(new URL('../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff', import.meta.url));

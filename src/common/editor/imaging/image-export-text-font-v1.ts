@@ -4,8 +4,8 @@ import fontUrl from '@fontsource/inter/files/inter-latin-600-normal.woff2?url';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
-export const IMAGE_EXPORT_TEXT_FONT_V1 = Object.freeze({ byteLength: 24_452,
-	sha256: 'f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a' });
+import { IMAGE_EXPORT_TEXT_FONT_V1 } from '../image-export-text-v1.ts';
+export { IMAGE_EXPORT_TEXT_FONT_V1 } from '../image-export-text-v1.ts';
 export interface ImageExportTextFontHandleV1 { readonly family: string; close(): void | Promise<void> }
 export interface ImageExportTextFontPortV1 {
 	fetch(url: string, signal?: AbortSignal): Promise<Response>;

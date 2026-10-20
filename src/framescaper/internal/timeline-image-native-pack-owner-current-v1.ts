@@ -67,9 +67,9 @@ export async function openFramescaperNativePackOwnerCurrentV1(store: Framescaper
 	let snapshot: Uint8Array<ArrayBuffer> | undefined;
 	try {
 		check(); const body = await load(source.storageKey, signal === undefined ? {} : { signal }); check();
-		if (body === null) throw new Error('Current image native body is missing.');
+		if (body === null) throw new Error(`timelineImage image frame pack ${source.id} is unavailable or has the wrong byte length.`);
 		const size = profile === 'source1' ? body.size : Number(Reflect.apply(SIZE, body, []));
-		if (size !== source.assetByteLength) throw new Error('Current image native body has a stale size.');
+		if (size !== source.assetByteLength) throw new Error(`timelineImage image frame pack ${source.id} is unavailable or has the wrong byte length.`);
 		const readBody = profile === 'source1' ? dataMethod<() => Promise<ArrayBuffer>>(body, 'arrayBuffer') : () => Reflect.apply(READ, body, []) as Promise<ArrayBuffer>;
 		if (profile === 'source1' && typeof body.slice !== 'function') throw new TypeError('Source1 image body requires a slice port.');
 		const backing = await readBody();

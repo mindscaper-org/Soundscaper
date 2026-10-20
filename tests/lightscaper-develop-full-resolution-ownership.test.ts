@@ -36,13 +36,15 @@ test('the shared natural-size recipe evaluator stays outside the startup imaging
 
 test('the opted-in product render composition stays lazy and its executable closure acquires no library persistence or Frame controller', async () => {
 	const bootstrap = transformSync(readFileSync(new URL('../src/lightscaper/ui/LightscaperBootstrap.tsx', import.meta.url), 'utf8'), { loader: 'tsx', format: 'esm' }).code;
-	assert.ok(!staticRelativeDependencies(bootstrap).includes('../photo-develop-render-runtime-v2.ts'));
-	assert.match(bootstrap, /import\(["']\.\.\/photo-develop-render-runtime-v2\.ts["']\)/u);
-	const output = await build({ entryPoints: [fileURLToPath(new URL('../src/lightscaper/photo-develop-render-runtime-v2.ts', import.meta.url))],
-		bundle: true, write: false, platform: 'browser', format: 'esm', metafile: true, logLevel: 'silent' });
-	assert.ok(Object.hasOwn(output.metafile.inputs, 'src/common/editor/imaging/image-develop-frame-core.ts'));
-	for (const path of Object.keys(output.metafile.inputs)) {
-		assert.ok(!path.includes('src/lightscaper/storage/') && !path.includes('editor/storage/') && !path.includes('src/framescaper/'), path);
-		assert.ok(!path.endsWith('/photo-library-session.ts') && !path.endsWith('/ffmpeg-runtime-core.js'), path);
+	assert.ok(!staticRelativeDependencies(bootstrap).includes('../photo-develop-render-runtime-current-v1.ts'));
+	assert.match(bootstrap, /import\(["']\.\.\/photo-develop-render-runtime-current-v1\.ts["']\)/u);
+	for (const runtime of ['photo-develop-render-runtime-v2.ts', 'photo-develop-render-runtime-current-v1.ts']) {
+		const output = await build({ entryPoints: [fileURLToPath(new URL(`../src/lightscaper/${runtime}`, import.meta.url))],
+			bundle: true, write: false, platform: 'browser', format: 'esm', metafile: true, logLevel: 'silent' });
+		assert.ok(Object.hasOwn(output.metafile.inputs, 'src/common/editor/imaging/image-develop-frame-core.ts'), runtime);
+		for (const path of Object.keys(output.metafile.inputs)) {
+			assert.ok(!path.includes('src/lightscaper/storage/') && !path.includes('editor/storage/') && !path.includes('src/framescaper/'), path);
+			assert.ok(!path.endsWith('/photo-library-session.ts') && !path.endsWith('/ffmpeg-runtime-core.js'), path);
+		}
 	}
 });

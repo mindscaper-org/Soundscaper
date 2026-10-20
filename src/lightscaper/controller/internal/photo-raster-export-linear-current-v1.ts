@@ -13,7 +13,7 @@ import { withLinearPixelFrameDisplayV1 } from '../../../common/editor/imaging/pi
 import { checkRepairSignalV1 } from '../../../common/editor/imaging/pixel-frame-repair-lifetime-v1.ts';
 import { imageExportGraphicPlacement, type ImageExportGraphicRequest } from '../../../common/editor/image-export-graphic-request.ts';
 import type { withImageExportTextFrameV1 } from '../../../common/editor/imaging/image-export-text-frame-v1.ts';
-import { IMAGE_EXPORT_TEXT_FONT_V1 } from '../../../common/editor/imaging/image-export-text-font-v1.ts';
+import { IMAGE_EXPORT_TEXT_FONT_V1 } from '../../../common/editor/image-export-text-v1.ts';
 import type { PhotoRasterExportOutputCurrentV1 } from '../photo-raster-export-output-current-v1.ts';
 
 /** Shared native Develop retains its own 768 MiB gate. This larger aggregate

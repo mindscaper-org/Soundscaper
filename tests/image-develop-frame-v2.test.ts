@@ -43,12 +43,13 @@ test('resource capture preserves the actual receiver without reflection or gette
 });
 
 test('the neutral wrapper remains a separate optional recipe owner with fixed semantic bounds', () => {
-	for (const path of ['src/common/editor/imaging/image-develop-frame-core.ts', 'src/common/editor/imaging/image-develop-frame-v2.ts']) {
+	for (const path of ['src/common/editor/imaging/image-develop-frame-core.ts', 'src/common/editor/imaging/image-develop-frame-v2.ts',
+		'src/common/editor/imaging/image-develop-frame-v3.ts', 'src/common/editor/imaging/image-develop-frame-current-v1.ts']) {
 		assert.equal(chunkGroupForModulePath(path), 'editor-image-develop-recipe');
 		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), 'editor-image-develop-recipe');
 		assert.notEqual(chunkGroupForModulePath(path + '.foreign'), 'editor-image-develop-recipe');
 	}
-	assert.notEqual(chunkGroupForModulePath('src/common/editor/imaging/image-develop-frame-v3.ts'), 'editor-image-develop-recipe');
+	assert.notEqual(chunkGroupForModulePath('src/common/editor/imaging/image-develop-frame-v4.ts'), 'editor-image-develop-recipe');
 	const group = chunkGroups.find(value => value.name === 'editor-image-develop-recipe'); assert.ok(group);
 	assert.equal(group.priority, 99); assert.equal(group.maxSize, 400_000); assert.equal(group.includeDependenciesRecursively, false);
 });
@@ -67,9 +68,9 @@ test('real Light bootstrap/import/backup runtime imports and paid copy co-owners
 			const path = pending.pop()!; if (reached.has(path)) continue; reached.add(path);
 			const owner = chunkGroupForModulePath(path);
 			if (owner && paid.has(owner) && !charged.has(owner)) { charged.add(owner); pending.push(...coowners.get(owner) ?? []); }
-			if (!source.has(path)) source.set(path, transformSync(readFileSync(path, 'utf8'), { loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : 'js', format: 'esm' }).code);
+			if (!source.has(path)) source.set(path, transformSync(readFileSync(path, 'utf8'), { loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm' }).code);
 			for (const specifier of staticRelativeDependencies(source.get(path)!)) { const target = resolveRelativeModule(path, specifier); assert.ok(target, specifier); pending.push(target); }
 		}
-		for (const path of reached) assert.doesNotMatch(relative(root, path).split(sep).join('/'), /\/imaging\/image-develop-frame-(?:core|v2)\.ts$/u, entry);
+		for (const path of reached) assert.doesNotMatch(relative(root, path).split(sep).join('/'), /\/imaging\/image-develop-frame-(?:core|v2|v3|current-v1)\.ts$/u, entry);
 	}
 });

@@ -15,6 +15,7 @@ const CONTRACTS = [
 	'video-chroma-develop-v1.ts', 'video-black-white-mix-v1.ts', 'video-hsl-mixer-v1.ts',
 	'video-curves-v1.ts', 'video-curve-types-v1.ts', 'video-curve-transfer-v1.ts',
 	'video-color-wheels-v1.ts', 'video-color-wheels-scalar-v1.ts',
+	'video-lens-distortion-v1.ts', 'video-chromatic-aberration-v1.ts', 'video-defringe-v1.ts', 'video-optical-vignette-v1.ts',
 	'video-sharpen-v1.ts', 'video-sharpen-ffmpeg-v1.ts', 'video-original-alpha-ffmpeg-v1.ts',
 	'video-post-crop-vignette-v1.ts', 'video-post-crop-vignette-ffmpeg-v1.ts',
 	'video-clarity-v1.ts', 'video-clarity-ffmpeg-v1.ts',
@@ -51,9 +52,26 @@ test('worker video ownership refuses neighboring processing, UI and filename suf
 	for (const path of ['src/common/editor/imaging/pixel-frame-global-develop-v1.ts',
 		'src/common/editor/imaging/pixel-frame-noise-reduction-v1.ts', 'src/common/editor/ui/video-preview-effects-shader.js',
 		'src/common/editor/imaging/pixel-frame-grain-v1.ts', 'src/common/editor/imaging/pixel-frame-texture-v1.ts', 'src/common/editor/imaging/pixel-frame-dehaze-v1.ts',
+		'src/common/editor/video-lens-distortion-ffmpeg-v1.ts', 'src/common/editor/video-chromatic-aberration-ffmpeg-v1.ts',
+		'src/common/editor/video-defringe-ffmpeg-v1.ts', 'src/common/editor/video-optical-vignette-ffmpeg-v1.ts',
+		'src/common/editor/imaging/pixel-frame-lens-distortion-v1.ts', 'src/common/editor/imaging/pixel-frame-chromatic-aberration-v1.ts',
+		'src/common/editor/imaging/pixel-frame-defringe-v1.ts', 'src/common/editor/imaging/pixel-frame-optical-vignette-v1.ts',
 		'src/common/editor/video-color-management-v27.ts', 'src/common/editor/aup4-worker.js',
 		'src/common/editor/aup4-database.js', 'src/framescaper/video-effects.js']) {
 		assert.notEqual(owner(path), 'editor-video-contracts-worker', path);
+	}
+});
+
+
+void test('the four closed optics contracts import only their exact scalar admission leaf', () => {
+	for (const name of ['lens-distortion', 'chromatic-aberration', 'defringe', 'optical-vignette']) {
+		const path = resolve(ROOT, `src/common/editor/video-${name}-v1.ts`);
+		const tree = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+		const imports = tree.statements.flatMap(statement => {
+			if (!ts.isImportDeclaration(statement) || statement.importClause?.isTypeOnly) return [];
+			assert.ok(ts.isStringLiteral(statement.moduleSpecifier)); return [statement.moduleSpecifier.text];
+		});
+		assert.deepEqual(imports, ['./closed-domain-value.ts'], name);
 	}
 });
 

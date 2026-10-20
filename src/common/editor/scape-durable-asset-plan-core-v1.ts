@@ -3,7 +3,7 @@
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
 import type { ScapeAssetDescriptor, ScapeManifest } from './scape-archive-envelope.ts';
-import { safeScapeEntryId } from './scape-archive-media.ts';
+import { safeScapeEntryId } from './scape-byte-stream.ts';
 import type { PlannedScapeExportAsset } from './scape-export-plan.ts';
 import { digestMediaContent } from './storage/media-content-digest.ts';
 import {
@@ -11,7 +11,7 @@ import {
 	VIDEO_COLOR_LIMITS_V1,
 	type VideoCubeLutReferenceV1,
 } from './video-color-management-v27.ts';
-import { requireVideoMotionAnalysisBodyV1 } from './video-motion-analysis-v27.ts';
+import { requireVideoMotionAnalysisBodyV1 } from './video-motion-analysis-body-v1.ts';
 import {
 	VIDEO_MOTION_LIMITS_V1,
 	type VideoMotionAnalysisReferenceV1,
@@ -23,7 +23,7 @@ import {
 import {
 	VIDEO_TIMING_ASSET_MAXIMUM_BYTES,
 	type VideoTimingAssetReference,
-} from './video-timing-asset.ts';
+} from './video-timing-asset-reference.ts';
 
 export const FRAMESCAPER_DURABLE_SCAPE_ASSET_KINDS = Object.freeze([
 	'framescaper-still', 'framescaper-freeze-render', 'framescaper-video-proxy',

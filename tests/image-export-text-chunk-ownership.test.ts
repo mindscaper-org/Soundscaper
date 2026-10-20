@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { transformSync } from 'esbuild';
 import { chunkGroupForModulePath, chunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
-import { EAGER_CHUNK_GROUPS, resolveRelativeModule, sourceModules, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
+import { EAGER_CHUNK_GROUPS, dynamicRelativeImports, resolveRelativeModule, sourceModules, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const TEXT = ['src/common/editor/imaging/image-export-text-font-v1.ts', 'src/common/editor/imaging/image-export-text-frame-v1.ts'];
@@ -74,16 +74,28 @@ test('both real export surfaces own shared fields while the pixel loader and tra
 		const reached = runtimeClosure(entry); assert.ok(reached.has(FIELDS)); assert.ok(reached.has(COPY));
 		for (const leaf of TEXT) assert.ok(!reached.has(leaf), `${entry} reads glyphs before the Save option`);
 	}
-	for (const entry of ['src/lightscaper/controller/photo-raster-export.ts', 'src/common/editor/controller/export/internal/video/video-export-text.ts']) {
-		const source = runtimeSource(resolve(ROOT, entry));
-		for (const leaf of TEXT.slice(1)) assert.ok(source.includes(`import("${entry.startsWith('src/lightscaper') ? '../../common/editor/' : '../../../../'}imaging/${leaf.split('/').at(-1)}")`), `${entry} lacks the actual dynamic ${leaf}`);
+	const kernel = 'src/lightscaper/controller/internal/photo-raster-export-kernel-v1.ts';
+	const linear = 'src/lightscaper/controller/internal/photo-raster-export-linear-current-v1.ts';
+	for (const name of ['photo-raster-export.ts', 'photo-raster-export-current-v1.ts']) {
+		const entry = `src/lightscaper/controller/${name}`, source = runtimeSource(resolve(ROOT, entry));
+		assert.ok(staticRelativeDependencies(source).includes('./internal/photo-raster-export-kernel-v1.ts'), entry);
+		assert.ok(runtimeClosure(entry).has(kernel), entry);
+		for (const leaf of TEXT) assert.ok(!runtimeClosure(entry).has(leaf), `${entry} reads glyphs before Save`);
+	}
+	for (const entry of [kernel, linear, 'src/common/editor/controller/export/internal/video/video-export-text.ts']) {
+		const source = runtimeSource(resolve(ROOT, entry)), prefix = entry.startsWith('src/lightscaper') ? '../../../common/editor/imaging/' : '../../../../imaging/';
+		for (const leaf of TEXT.slice(1)) {
+			const specifier = prefix + leaf.split('/').at(-1);
+			assert.ok(dynamicRelativeImports(source).includes(specifier), `${entry} lacks the actual dynamic ${leaf}`);
+			assert.ok(!staticRelativeDependencies(source).includes(specifier), `${entry} eagerly loads ${leaf}`);
+		}
 	}
 });
 function runtimeSource(path: string): string {
 	let source = RUNTIME_SOURCE.get(path);
 	if (source === undefined) {
 		source = transformSync(readFileSync(path, 'utf8'), {
-			sourcefile: path, loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : 'js', format: 'esm',
+			sourcefile: path, loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm',
 		}).code;
 		RUNTIME_SOURCE.set(path, source);
 	}

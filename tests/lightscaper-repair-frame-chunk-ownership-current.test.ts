@@ -8,9 +8,9 @@ function owner(path: string) {
 	return chunkGroupForModulePath(path);
 }
 
-test('Current Lightscaper handoff schemas share image metadata ownership while project LUT references retain their domain', () => {
+test('Current handoff metadata stays with imaging while project-resource custody shares retention contracts', () => {
 	for (const [name, expected] of [['timeline-image-model-editable-kernel-v1', 'editor-imaging'],
-		['image-develop-handoff-provenance-kernel-v1', 'editor-imaging'], ['video-cube-lut-project-references-kernel-v1', 'editor-domain']] as const) {
+		['image-develop-handoff-provenance-kernel-v1', 'editor-imaging'], ['video-cube-lut-project-references-kernel-v1', 'editor-media-storage-contracts']] as const) {
 		for (const prefix of ['/workspace/src/common/editor/internal/', 'D:\\workspace\\src\\common\\editor\\internal\\']) {
 			assert.equal(owner(`${prefix}${name}.ts`), expected, name);
 		}

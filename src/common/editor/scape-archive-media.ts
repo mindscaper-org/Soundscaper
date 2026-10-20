@@ -21,7 +21,7 @@ import {
 
 export const SCAPE_MAXIMUM_PENDING_AUDIO_BYTES = 4 + WAVPACK_PCM_MAXIMUM_RAW_BYTES;
 export { SCAPE_MAXIMUM_AUDIO_CHUNKS };
-export { createScapeDigest, digestScapeBytes, scapeHex, scapeBytesStream } from './scape-byte-stream.ts';
+export { createScapeDigest, digestScapeBytes, safeScapeEntryId, scapeHex, scapeBytesStream } from './scape-byte-stream.ts';
 
 export interface ScapeAudioSource {
 	readonly kind?: string;
@@ -71,13 +71,6 @@ export interface ScapeSourceWriter {
 export interface ScapeExtractedAsset {
 	readonly digest: string;
 	readonly size: number;
-}
-
-export function safeScapeEntryId(value: unknown): string {
-	const encoded = encodeURIComponent(String(value || '')).replaceAll('_', '_5F').replaceAll('%', '_');
-	if (encoded === '.') return '_2E';
-	if (encoded === '..') return '_2E_2E';
-	return encoded;
 }
 
 export function scapeHashingStream(

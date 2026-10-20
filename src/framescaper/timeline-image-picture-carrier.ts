@@ -2,7 +2,6 @@
 
 import { normalizeFramescaperImageClipV1 } from '../common/editor/timeline-image-model.ts';
 import { normalizeFramescaperImageSourceCurrentV1 } from '../common/editor/timeline-image-model-current-v1.ts';
-import { framescaperImageDimensionsTimelineImage } from './editor-selected-timeline-image-image-frame-source.ts';
 import { reconcileFramescaperProjectFeatureRequirementsNativeMedia } from './editor-project-feature-requirements-native-media.ts';
 import { FRAMESCAPER_NATIVE_MEDIA_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
 import { framescaperProjectNativeMediaFoundationShapeTimelineImage } from './editor-project-timeline-image-foundation.ts';
@@ -28,6 +27,7 @@ export function createTimelineImagePictureCarrier(project: Readonly<Record<strin
 	for (const clip of imageClips) {
 		const source = imagesBySourceId.get(clip.sourceId);
 		if (!source) throw new ReferenceError(`timelineImage export image source ${clip.sourceId} is unavailable.`);
+		const dimensions = source.schemaVersion === 1 ? source.canonical : source.developed;
 		const sequence = sequences.get(clip.sequenceId);
 		if (!sequence) throw new ReferenceError(`timelineImage export image sequence ${clip.sequenceId} is unavailable.`);
 		const rate = rational(sequence.rate, `timelineImage export sequence ${clip.sequenceId} rate`);
@@ -38,8 +38,8 @@ export function createTimelineImagePictureCarrier(project: Readonly<Record<strin
 			kind: 'generator',
 			id: source.id,
 			name: source.name,
-			width: framescaperImageDimensionsTimelineImage(source).width,
-			height: framescaperImageDimensionsTimelineImage(source).height,
+			width: dimensions.width,
+			height: dimensions.height,
 			frameRate: rate,
 			frameCount,
 			generator: { kind: 'solid', color: '#00000000' },
