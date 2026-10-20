@@ -10,290 +10,69 @@ import {
 	createAudioSource,
 	createAudioTrack,
 } from '../src/common/editor/project-media-factory.ts';
-import { ClipPropertiesDialog } from '../src/common/editor/ui/inspector/ClipPropertiesDialog.jsx';
+import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import {
-	installReactTestDom, reactProps, type ReactTestElement,
+	installReactTestDom, reactProps,
 } from './helpers/react-test-dom.ts';
 
-test('the four property drawers start collapsed and keep their controls together', async () => {
-	const fixture = await mountedFixture();
+test('the Media settings menu reads and changes the selected clip pitch link', async () => {
+	const f = await mountedFixture({ linkPitchAndTempo: true });
 	try {
-		await fixture.render();
-		const drawers = fixture.dom.container.querySelectorAll('[data-clip-properties-drawer]');
-		assert.deepEqual(drawers.map((drawer) => drawer.getAttribute('data-clip-properties-drawer')),
-			['media', 'fading', 'pitch', 'normalize']);
-		assert.ok(drawers.every((drawer) => drawer.getAttribute('open') === null));
-		assert.ok(drawers[0]!.querySelector('[data-clip-field="name"]'));
-		assert.ok(drawers[1]!.querySelector('[data-clip-field="fadeInFrame"]'));
-		assert.equal(drawers[1]!.querySelector('[data-clip-field="gain"]'), null);
-		assert.ok(drawers[2]!.querySelector('[data-clip-field="pitchCents"]'));
-		assert.ok(drawers[3]!.querySelector('[data-clip-field="gain"]'));
-		assert.equal(drawers[0]!.querySelector('[data-drawer-icon]')?.textContent, '\uEF28');
-		assert.ok(drawers[1]!.querySelector('[data-drawer-icon]')?.querySelector('svg'));
-		assert.equal(drawers[2]!.querySelector('[data-drawer-icon]')?.textContent, '\uF475');
-		assert.equal(drawers[3]!.querySelector('[data-drawer-icon]')?.textContent, '\uF4A8');
-		assert.deepEqual(drawers[3]!.querySelectorAll('[data-clip-action]')
-			.map((action) => action.getAttribute('data-clip-action')), ['normalize-peak', 'normalize-lufs']);
-	} finally { await fixture.cleanup(); }
+		await f.openSettings();
+		assert.equal(f.menuItem(ENGLISH_COPY.clipLinkPitchAndTempo).getAttribute('aria-checked'), 'true');
+		await f.choose(ENGLISH_COPY.clipLinkPitchAndTempo);
+		assert.deepEqual(f.timePitchCalls, [{ linkPitchAndTempo: false }]);
+	} finally { await f.cleanup(); }
 });
 
-test('unchanged pitch and speed point up without a change sweep in either pitch unit', async () => {
-	const fixture = await mountedFixture();
+test('linked pitch reads speed and commits semitones or percent without overwriting independent pitch', async () => {
+	const f = await mountedFixture({ linkPitchAndTempo: true, speedRatio: 4, pitchCents: 300 });
 	try {
-		await fixture.render();
-		for (const unit of [ENGLISH_COPY.clipPitchUnitSemitones, ENGLISH_COPY.clipPitchUnitPercent]) {
-			await fixture.choosePitchUnit(unit);
-			for (const field of ['pitchCents', 'speedRatio']) {
-				const knob = fixture.dom.one(`[data-clip-knob="${field}"]`);
-				const style = knob.querySelector('.knob__knob-group')!.style as unknown as { transform: string };
-				assert.equal(style.transform, 'rotate(0deg)');
-				assert.equal(knob.querySelector('.knob__value-sweep'), null);
-			}
-		}
-	} finally { await fixture.cleanup(); }
+		assert.equal(f.pitchValue(), '24');
+		await f.commitPitch('12');
+		await f.choosePitchUnit(ENGLISH_COPY.clipPitchUnitPercent);
+		assert.equal(f.pitchValue(), '300');
+		await f.commitPitch('-75');
+		assert.deepEqual(f.timePitchCalls, [{ speedRatio: 2 }, { speedRatio: 0.25 }]);
+		await f.commitPitch('-100');
+		assert.equal(f.failures[0]?.message, ENGLISH_COPY.clipLinkedPitchRange);
+		assert.equal(f.timePitchCalls.length, 2);
+	} finally { await f.cleanup(); }
 });
 
-test('pitch and tempo link commits the selected clip preference and shows saved state', async () => {
-	const fixture = await mountedFixture({ linkPitchAndTempo: true });
+test('exact semitone entry commits cents through the live property field', async () => {
+	const f = await mountedFixture({ pitchCents: 200 });
 	try {
-		await fixture.render();
-		assert.equal(fixture.toggleState('linkPitchAndTempo'), 'true');
-		assert.ok(fixture.pitchCard().querySelector('[data-clip-field="linkPitchAndTempo"]'));
-		await fixture.toggle('linkPitchAndTempo');
-		assert.deepEqual(fixture.timePitchCalls, [{ linkPitchAndTempo: false }]);
-	} finally { await fixture.cleanup(); }
+		assert.equal(f.pitchValue(), '2');
+		for (const text of ['1.01', '-0.07', '12']) await f.commitPitch(text);
+		assert.deepEqual(f.timePitchCalls, [{ pitchCents: 101 }, { pitchCents: -7 }, { pitchCents: 1200 }]);
+	} finally { await f.cleanup(); }
 });
 
-test('linked pitch reads playback speed and edits speed without overwriting independent pitch', async () => {
-	const fixture = await mountedFixture({ linkPitchAndTempo: true, speedRatio: 4, pitchCents: 300 });
+test('percent entry converts frequency change and reports an unsupported silent value to the workspace', async () => {
+	const f = await mountedFixture();
 	try {
-		await fixture.render();
-		assert.equal(fixture.pitchValue(), '24.00');
-		assert.equal(fixture.pitchLabel(), ENGLISH_COPY.clipLinkedPitchSemitones);
-		await fixture.commitPitch('24');
-		await fixture.choosePitchUnit(ENGLISH_COPY.clipPitchUnitPercent);
-		assert.equal(fixture.pitchValue(), '300.000');
-		assert.equal(fixture.pitchLabel(), ENGLISH_COPY.clipLinkedPitchPercent);
-		await fixture.commitPitch('-75');
-		assert.deepEqual(fixture.timePitchCalls, [{ speedRatio: 4 }, { speedRatio: 0.25 }]);
-		await fixture.commitPitch('-100');
-		assert.equal(fixture.errorText(), ENGLISH_COPY.clipLinkedPitchRange);
-		assert.equal(fixture.timePitchCalls.length, 2);
-	} finally { await fixture.cleanup(); }
+		await f.choosePitchUnit(ENGLISH_COPY.clipPitchUnitPercent);
+		for (const text of ['100', '-50']) await f.commitPitch(text);
+		assert.deepEqual(f.timePitchCalls, [{ pitchCents: 1200 }, { pitchCents: -1200 }]);
+		await f.commitPitch('-100');
+		assert.equal(f.failures[0]?.message, ENGLISH_COPY.clipPitchRange);
+		assert.equal(f.timePitchCalls.length, 2);
+	} finally { await f.cleanup(); }
 });
 
-test('linked unity speed has nothing to render while Reset can clear retained independent pitch', async () => {
-	const fixture = await mountedFixture({ linkPitchAndTempo: true, speedRatio: 1, pitchCents: 300 });
+test('empty and out-of-range semitone entries preserve the stored pitch', async () => {
+	const f = await mountedFixture({ pitchCents: 200 });
 	try {
-		await fixture.render();
-		const render = fixture.dom.one('[data-clip-action="render-pitch-speed"]').querySelector('button')!;
-		const reset = fixture.dom.one('[data-clip-action="reset-pitch-speed"]').querySelector('button')!;
-		assert.equal(render.getAttribute('disabled'), '');
-		assert.equal(reset.getAttribute('disabled'), null);
-	} finally { await fixture.cleanup(); }
-});
-
-test('pitch and speed have a knob beside their numeric value and exclusive pitch units', async () => {
-	const fixture = await mountedFixture({ pitchCents: 200, speedRatio: 8 });
-	try {
-		await fixture.render();
-		const pitch = fixture.dom.one('[data-clip-knob="pitchCents"]');
-		const speed = fixture.dom.one('[data-clip-knob="speedRatio"]');
-		assert.ok(pitch.querySelector('[role="slider"]'));
-		assert.equal(speed.querySelector('[role="slider"]')?.getAttribute('aria-valuenow'), '8');
-		const buttons = fixture.dom.one('[data-clip-pitch-unit]').querySelectorAll('button');
-		assert.deepEqual(buttons.map((button) => button.getAttribute('aria-pressed')), ['true', 'false']);
-		assert.equal(buttons[0]!.textContent, '\uEF21');
-		assert.equal(buttons[1]!.textContent, '%');
-		await fixture.choosePitchUnit(ENGLISH_COPY.clipPitchUnitPercent);
-		assert.deepEqual(fixture.dom.one('[data-clip-pitch-unit]').querySelectorAll('button')
-			.map((button) => button.getAttribute('aria-pressed')), ['false', 'true']);
-		const knob = fixture.dom.one('[data-clip-knob="pitchCents"]').querySelector('[role="slider"]')!;
-		assert.equal(knob.getAttribute('aria-valuenow'), '12.246');
-		await act(async () => reactProps(knob).onKeyDown({ key: 'ArrowRight', preventDefault() {}, stopPropagation() {} }));
-		assert.equal(fixture.timePitchCalls.length, 0, 'dragging previews without committing intermediate edits');
-		await act(async () => reactProps(knob).onKeyUp({ key: 'ArrowRight', preventDefault() {}, stopPropagation() {} }));
-		assert.equal(fixture.timePitchCalls.length, 1);
-		assert.ok(Number(fixture.timePitchCalls[0]!.pitchCents) > 200);
-	} finally { await fixture.cleanup(); }
-});
-
-test('reverse and invert are checkboxes inside the media settings card', async () => {
-	const fixture = await mountedFixture();
-	try {
-		await fixture.render();
-
-		assert.equal(fixture.headings()[0], ENGLISH_COPY.clipMediaSettings);
-		assert.equal(fixture.toggleState('reversed'), 'false');
-		assert.equal(fixture.toggleState('inverted'), 'false');
-
-		await fixture.toggle('reversed');
-		await fixture.toggle('inverted');
-		assert.deepEqual(fixture.calls, [['reverse', 'shared-clip'], ['invert', 'shared-clip']]);
-
-		assert.equal(
-			fixture.buttonLabels().includes(ENGLISH_COPY.reverse),
-			false,
-			'the reverse action must not remain a button beside the checkbox',
-		);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('a clip already reversed and inverted shows both boxes checked', async () => {
-	const fixture = await mountedFixture({ reversed: true, inverted: true });
-	try {
-		await fixture.render();
-		assert.equal(fixture.toggleState('reversed'), 'true');
-		assert.equal(fixture.toggleState('inverted'), 'true');
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('pitch and tempo owns its own render and reset buttons', async () => {
-	const fixture = await mountedFixture({ pitchCents: 200 });
-	try {
-		await fixture.render();
-
-		const actions = fixture.pitchCard().querySelectorAll('[data-clip-action]')
-			.map((hook) => hook.querySelector('button'));
-		assert.deepEqual(
-			actions.map((button) => button?.textContent),
-			[ENGLISH_COPY.render, ENGLISH_COPY.reset],
-		);
-		assert.equal(fixture.buttonLabels().includes(ENGLISH_COPY.renderPitchSpeed), false);
-		assert.equal(fixture.buttonLabels().includes(ENGLISH_COPY.resetPitchSpeed), false);
-
-		await fixture.click(actions[0]!);
-		await fixture.click(actions[1]!);
-		assert.deepEqual(fixture.calls, [
-			['renderPitchSpeed', 'shared-clip'],
-			['resetPitchSpeed', 'shared-clip'],
-		]);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('the pitch unit toggle offers Audacity\'s semitones or its percent change', async () => {
-	const fixture = await mountedFixture({ pitchCents: 200 });
-	try {
-		await fixture.render();
-
-		assert.deepEqual(
-			await fixture.pitchUnitOptions(),
-			[ENGLISH_COPY.clipPitchUnitSemitones, ENGLISH_COPY.clipPitchUnitPercent],
-			'the two readings Audacity\'s Change Pitch dialog shows',
-		);
-		assert.equal(ENGLISH_COPY.clipPitchUnitSemitones, 'Semitones (half-steps)');
-		assert.equal(fixture.pitchLabel(), ENGLISH_COPY.clipPitchSemitones);
-		assert.equal(fixture.pitchValue(), '2.00');
-
-		await fixture.choosePitchUnit(ENGLISH_COPY.clipPitchUnitPercent);
-		assert.equal(fixture.pitchLabel(), ENGLISH_COPY.clipPitchPercent);
-		assert.equal(fixture.pitchValue(), '12.246', 'two hundred cents raise the frequency by 12.246%');
-
-		await fixture.choosePitchUnit(ENGLISH_COPY.clipPitchUnitSemitones);
-		assert.equal(fixture.pitchValue(), '2.00', 'reading the shift back never rewrote it');
-		assert.deepEqual(fixture.timePitchCalls, []);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('cents are the two decimals of a semitone rather than a field of their own', async () => {
-	const fixture = await mountedFixture({ pitchCents: 101 });
-	try {
-		await fixture.render();
-		assert.equal(fixture.pitchValue(), '1.01', 'a semitone and a cent');
-
-		await fixture.commitPitch('1.01');
-		await fixture.commitPitch('-0.07');
-		await fixture.commitPitch('12');
-
-		assert.deepEqual(fixture.timePitchCalls, [
-			{ pitchCents: 101 },
-			{ pitchCents: -7 },
-			{ pitchCents: 1_200 },
-		]);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('a percentage commits the cents that frequency change asks for', async () => {
-	const fixture = await mountedFixture();
-	try {
-		await fixture.render();
-		await fixture.choosePitchUnit(ENGLISH_COPY.clipPitchUnitPercent);
-
-		await fixture.commitPitch('100');
-		await fixture.commitPitch('-50');
-
-		assert.deepEqual(fixture.timePitchCalls, [
-			{ pitchCents: 1_200 },
-			{ pitchCents: -1_200 },
-		]);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('a percentage that would silence the clip is refused rather than committed', async () => {
-	const fixture = await mountedFixture();
-	try {
-		await fixture.render();
-		await fixture.choosePitchUnit(ENGLISH_COPY.clipPitchUnitPercent);
-		await fixture.commitPitch('-100');
-
-		assert.deepEqual(fixture.timePitchCalls, []);
-		assert.equal(fixture.errorText(), ENGLISH_COPY.clipPitchRange);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('clearing the pitch field is refused instead of wiping the shift', async () => {
-	const fixture = await mountedFixture({ pitchCents: 200 });
-	try {
-		await fixture.render();
-		await fixture.commitPitch('');
-
-		assert.deepEqual(fixture.timePitchCalls, [], 'an empty field asks for nothing, not for no shift');
-		assert.equal(fixture.errorText(), ENGLISH_COPY.clipPitchRangeSemitones);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('a semitone shift past the octave is refused in semitones, not in cents', async () => {
-	const fixture = await mountedFixture({ pitchCents: 200 });
-	try {
-		await fixture.render();
-		assert.equal(fixture.pitchLabel(), ENGLISH_COPY.clipPitchSemitones);
-		await fixture.commitPitch('13');
-
-		assert.deepEqual(fixture.timePitchCalls, []);
-		assert.equal(fixture.errorText(), ENGLISH_COPY.clipPitchRangeSemitones);
-		assert.doesNotMatch(fixture.errorText(), /cents/u, 'the dialog never shows the reader cents');
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('the dialog confirms with an unpunctuated Done', async () => {
-	const fixture = await mountedFixture();
-	try {
-		await fixture.render();
-		assert.equal(ENGLISH_COPY.done, 'Done');
-		assert.equal(fixture.buttonLabels().includes('Done'), true);
-	} finally {
-		await fixture.cleanup();
-	}
+		await f.commitPitch('');
+		assert.deepEqual(f.timePitchCalls, []);
+		assert.equal(f.failures.length, 0, 'the native numeric control discards an empty draft');
+		await f.commitPitch('13');
+		assert.deepEqual(f.timePitchCalls, []);
+		assert.equal(f.failures[0]?.message, ENGLISH_COPY.clipPitchRangeSemitones);
+	} finally { await f.cleanup(); }
 });
 
 async function mountedFixture(clipOverrides: Readonly<Record<string, unknown>> = {}) {
@@ -304,106 +83,45 @@ async function mountedFixture(clipOverrides: Readonly<Record<string, unknown>> =
 	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 	const currentProject = project(clipOverrides);
-	const calls: Array<[string, string]> = [];
 	const timePitchCalls: Array<Record<string, unknown>> = [];
-	const record = (name: string) => (clipId: string) => {
-		calls.push([name, clipId]);
-		return Promise.resolve(clipId);
-	};
-	const controller = {
-		get project() { return currentProject; },
-		actions: {
-			clip: {
-				update: () => undefined,
-				move: () => undefined,
-				trim: () => undefined,
-				setTimePitch: (_clipId: string, changes: Record<string, unknown>) => {
-					timePitchCalls.push(changes);
-				},
-				toggleStretchToTempo: () => undefined,
-				reverse: record('reverse'),
-				invert: record('invert'),
-				normalizePeak: record('normalizePeak'),
-				normalizeLoudness: record('normalizeLoudness'),
-				renderPitchSpeed: record('renderPitchSpeed'),
-				resetPitchSpeed: record('resetPitchSpeed'),
-			},
-		},
+	const failures: Error[] = [];
+	const controller = { get project() { return currentProject; }, actions: { clip: {
+		setTimePitch: (_clipId: string, changes: Record<string, unknown>) => { timePitchCalls.push(changes); },
+	} } };
+	const run = (operation: () => unknown) => {
+		const value = operation();
+		void Promise.resolve(value).catch(cause => { failures.push(cause as Error); });
+		return value;
 	};
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	const click = async (element: ReactTestElement) => {
-		await act(async () => {
-			reactProps(element).onClick();
-			await Promise.resolve();
-		});
+	await act(async () => root.render(<ClipPropertiesPanel controller={controller} run={run}
+		snapshot={{ project: currentProject, selectedClipId: 'shared-clip', capabilities: { audioEffects: true } }} copy={ENGLISH_COPY} />));
+	const menuItem = (label: string) => {
+		const item = dom.container.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]').find(node =>
+			node.querySelector('.context-menu-item-label')?.textContent === label);
+		assert.ok(item, label);
+		return item;
 	};
-	const checkbox = (field: string) => {
-		const box = dom.one(`[data-clip-field="${field}"]`).querySelector('[role="checkbox"]');
-		assert.ok(box, `Missing mounted ${field} checkbox.`);
-		return box;
+	const choose = async (label: string) => {
+		await act(async () => reactProps(menuItem(label)).onClick({ stopPropagation() {} }));
 	};
-	const pitchField = () => dom.one('[data-clip-field="pitchCents"]');
-	const pitchInput = () => {
-		const input = pitchField().querySelector('input');
-		assert.ok(input, 'Missing mounted pitch input.');
-		return input;
+	const openSettings = async () => {
+		const trigger = dom.one('[data-clip-audio-settings]');
+		await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
 	};
-	return {
-		dom,
-		calls,
-		timePitchCalls,
-		click,
-		render: async () => {
-			await act(async () => root.render(<ClipPropertiesDialog
-				isOpen
-				controller={controller}
-				snapshot={{
-					project: currentProject,
-					selectedClipId: 'shared-clip',
-					capabilities: { audioEffects: true, videoEffects: false },
-				}}
-				copy={ENGLISH_COPY}
-				onClose={() => undefined}
-			/>));
+	const field = () => dom.one('[data-clip-properties-field="pitch"]');
+	const input = () => { const input = field().querySelector('input'); assert.ok(input); return input; };
+	return { timePitchCalls, failures, menuItem, choose, openSettings,
+		pitchValue: () => input().value,
+		commitPitch: async (text: string) => {
+			await act(async () => reactProps(input()).onChange({ target: { value: text } }));
+			await act(async () => reactProps(field()).onBlur({ target: input() }));
 		},
-		headings: () => dom.container.querySelectorAll('h3').map((node) => node.textContent),
-		buttonLabels: () => dom.container.querySelectorAll('button').map((node) => node.textContent),
-		pitchCard: () => {
-			const heading = dom.container.querySelectorAll('h3')
-				.find((node) => node.textContent === ENGLISH_COPY.pitchTempo);
-			assert.ok(heading?.parentNode instanceof Object, 'the pitch card carries a heading.');
-			return heading!.closest('details')!;
-		},
-		toggleState: (field: string) => checkbox(field).getAttribute('aria-checked'),
-		toggle: (field: string) => click(checkbox(field)),
-		errorText: () => dom.find('.audio-editor-field-error')?.textContent ?? '',
-		pitchLabel: () => pitchField().querySelectorAll('span')[0]?.textContent ?? '',
-		pitchValue: () => pitchInput().value,
-		commitPitch: async (typed: string) => {
-			const input = pitchInput();
-			await act(async () => {
-				reactProps(input).onChange({ target: { value: typed } });
-				await Promise.resolve();
-			});
-			await act(async () => {
-				reactProps(pitchInput()).onBlur();
-				await Promise.resolve();
-			});
-		},
-		pitchUnitOptions: () => dom.one('[data-clip-pitch-unit]').querySelectorAll('button')
-			.map((button) => button.getAttribute('aria-label')),
-		choosePitchUnit: async (optionLabel: string) => {
-			const option = dom.one('[data-clip-pitch-unit]').querySelectorAll('button')
-				.find((button) => button.getAttribute('aria-label') === optionLabel);
-			assert.ok(option, `Missing mounted pitch unit option ${optionLabel}.`);
-			await click(option);
-		},
+		choosePitchUnit: async (label: string) => { await openSettings(); await choose(ENGLISH_COPY.clipPitchUnit); await choose(label); },
 		cleanup: async () => {
-			await act(async () => root.unmount());
-			actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
-			if (priorReact) Object.defineProperty(globalThis, 'React', priorReact);
-			else Reflect.deleteProperty(globalThis, 'React');
+			await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+			if (priorReact) Object.defineProperty(globalThis, 'React', priorReact); else Reflect.deleteProperty(globalThis, 'React');
 			dom.restore();
 		},
 	};
