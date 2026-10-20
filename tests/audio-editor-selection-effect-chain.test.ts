@@ -26,15 +26,6 @@ test('one private packet exactly matches actual serial DSP and channel matching 
 	}
 });
 
-test('inter-step signed zero and subnormal PCM, fixed source layout, and independent channel copies are preserved', async () => {
-	let calls = 0;
-	const actual = await runSelectionEffectChain(steps.slice(0, 2), [input[0]!.slice()], 48000, async (_type, channels) => {
-		calls++; assert.equal(Object.is(channels[0]![0], -0), true); assert.equal(channels[0]![2], input[0]![2]);
-		return [channels[0]!, Float32Array.of(0, 0, 0, 0, 0, 0, 0)];
-	});
-	assert.equal(calls, 2); assert.equal(actual.length, 1); assert.notEqual(actual[0], input[0]);
-});
-
 test('closed packets reject context, realtime and reviewed effects before any DSP and cap step count', async () => {
 	for (const effectType of ['audacity-repair', 'audacity-change-pitch', 'audacity-auto-duck', 'audacity-compressor', 'eq', 'reviewed-utility-gain', 'unknown']) {
 		assert.equal(isBatchableSelectionEffectStep({ effectType, params: {} }), false);

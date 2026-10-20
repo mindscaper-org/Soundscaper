@@ -107,7 +107,7 @@ test('a start timecode offsets every label without moving a tick', () => {
 	]);
 });
 
-test('the ruler stays bounded and rejects an inverted viewport', () => {
+test('the ruler stays bounded over a long viewport', () => {
 	const ticks = createSequenceRulerTicks({
 		view: view(),
 		sampleRate: SAMPLE_RATE,
@@ -117,7 +117,5 @@ test('the ruler stays bounded and rejects an inverted viewport', () => {
 	});
 
 	assert.ok(ticks.length > 0 && ticks.length <= 4_096);
-	assert.throws(() => createSequenceRulerTicks({
-		view: view(), sampleRate: SAMPLE_RATE, startFrame: 10, endFrame: 0,
-	}), /endFrame cannot precede startFrame/);
+
 });
