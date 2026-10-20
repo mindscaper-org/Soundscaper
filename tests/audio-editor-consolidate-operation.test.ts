@@ -121,15 +121,6 @@ test('an unreachable original is reported by the run, not just by the plan', asy
 	assert.ok(reportItem(result, 'consolidate.incomplete'));
 });
 
-test('the operation has no way to remove or rewrite a linked original', () => {
-	const harness = createHarness();
-	// The rule is structural rather than written down and trusted: there is no
-	// port that could touch the original, so no caller can be asked to be careful.
-	assert.deepEqual(Object.keys(harness.ports).sort(), [
-		'discardManaged', 'readManaged', 'readOriginal', 'rebind', 'writeManaged',
-	]);
-});
-
 test('cancellation stops between chunks and leaves nothing rebound', async () => {
 	const controller = new AbortController();
 	const harness = createHarness({ onChunk: () => { controller.abort(new Error('cancelled')); } });

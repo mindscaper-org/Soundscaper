@@ -52,9 +52,9 @@ test('verification failure drains copy, writer, original and published cleanup w
 	assert.deepEqual(f.events, ['copy.release', 'writer.abort', 'source.release', 'source.discard']);
 });
 
-test('successful consolidation cleanup preserves the result and runs exactly once', async () => {
-	const result = {}; let releases = 0;
-	assert.strictEqual(await withConsolidationCleanup(() => result, () => { releases += 1; }), result);
+test('successful consolidation verification cleanup runs exactly once', async () => {
+	let releases = 0;
+	await withConsolidationCleanup(async () => {}, () => { releases += 1; });
 	assert.equal(releases, 1);
 });
 

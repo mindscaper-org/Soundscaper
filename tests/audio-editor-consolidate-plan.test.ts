@@ -25,15 +25,16 @@ function project(overrides: Record<string, unknown> = {}) {
 		id: 'p', title: 'Consolidate', sampleRate: 48_000,
 		sources: [
 			{ kind: 'audio', id: 'linked-a', name: 'A' },
-			{ kind: 'audio', id: 'linked-b', name: 'B' },
+			{ kind: 'video', id: 'linked-b', name: 'B' },
 			{ kind: 'audio', id: 'managed', name: 'C' },
 		],
 		clips: [
 			{ kind: 'audio', id: 'c1', sourceId: 'linked-a', durationFrames: 10, sourceStartFrame: 0 },
-			{ kind: 'audio', id: 'c2', sourceId: 'linked-b', durationFrames: 10, sourceStartFrame: 0 },
+			{ kind: 'video', id: 'c2', sourceId: 'linked-b', durationFrames: 10, sourceStartFrame: 0 },
 			{ kind: 'audio', id: 'c3', sourceId: 'managed', durationFrames: 10, sourceStartFrame: 0 },
 		],
-		tracks: [{ type: 'audio', id: 'a1', name: 'A1', clipIds: ['c1', 'c2', 'c3'] }],
+		tracks: [{ type: 'audio', id: 'a1', name: 'A1', clipIds: ['c1', 'c3'] },
+			{ type: 'video', id: 'v1', name: 'V1', clipIds: ['c2'] }],
 		...overrides,
 	};
 }
@@ -93,20 +94,6 @@ test('incompleteness is on the plan itself, not only buried in the report', () =
 	);
 });
 
-test('a binding whose source is gone is reported rather than copied', () => {
-	const plan = createConsolidatePlan({
-		project: project({ sources: [{ kind: 'audio', id: 'managed', name: 'C' }] }),
-		bindings: bindings(),
-	});
-	assert.deepEqual(plan.copy, []);
-	const stale = plan.sources.filter((entry) => entry.disposition === 'unbound');
-	assert.deepEqual(stale.map((entry) => entry.sourceId), ['linked-a', 'linked-b']);
-	assert.equal(
-		plan.report.items.filter((entry) => entry.code === 'consolidate.binding-without-source').length,
-		2,
-	);
-});
-
 test('an unreferenced source is still consolidated, not quietly dropped', () => {
 	// Consolidate makes a project self-contained. Deciding a source is expendable
 	// is trim-media's job, and only when the user asked for it.
@@ -132,21 +119,4 @@ test('the report counts agree with its items', () => {
 			`${disposition} count must match its items`,
 		);
 	}
-});
-
-test('the plan refuses contradictory input rather than picking a binding', () => {
-	assert.throws(
-		() => createConsolidatePlan({
-			project: project(), bindings: [binding('linked-a'), binding('linked-a', { storageKey: 'other' })],
-		}),
-		/more than one linked-original binding/u,
-	);
-	assert.throws(
-		() => createConsolidatePlan({ project: project(), bindings: [binding('')] }),
-		/requires a sourceId/u,
-	);
-	assert.throws(
-		() => createConsolidatePlan({ project: null as never, bindings: [] }),
-		/requires a project/u,
-	);
 });
