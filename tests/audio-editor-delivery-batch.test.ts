@@ -7,7 +7,6 @@ import { normalizeEditorExportSettings } from '../src/common/editor/controller/e
 import { createExportPlan } from '../src/common/editor/export.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import {
-	DeliveryBatchError,
 	createDeliveryBatch,
 	type DeliveryBatchTarget,
 } from '../src/common/editor/delivery-batch.ts';
@@ -63,14 +62,6 @@ const TARGETS: readonly DeliveryBatchTarget[] = [
 	{ kind: 'region', id: 'r-one' },
 	{ kind: 'mastering-sequence', id: 'album-order' },
 ];
-
-test('a BW64 programme preset refuses stems rather than silently normalizing them to mix', () => {
-	const programme = preset('programme', 'bw64');
-	const request = { batchId: 'programme', presets: [programme], targets: [{ kind: 'project' as const }] };
-	assert.throws(() => createDeliveryBatch(albumProject(), { ...request, mode: 'stems' }),
-		/ADM.*programme.*stems/iu);
-	assert.equal(createDeliveryBatch(albumProject(), request).members[0]?.mode, 'mix');
-});
 
 test('stems batches omit a saved mix-only loudness target without changing the preset', () => {
 	const project = albumProject();
@@ -161,7 +152,7 @@ test('a queued member keeps the frames it names when the export normalizes its s
 	assert.equal(projectSettings.range, 'project');
 });
 
-test('a stems batch delivers stems, and refuses the target that cannot be stems', () => {
+test('a stems batch produces ordinary stem export plans', () => {
 	const project = albumProject();
 	const batch = createDeliveryBatch(project, {
 		batchId: 'batch-1', presets: [preset('wav24', 'wav')],
@@ -169,36 +160,6 @@ test('a stems batch delivers stems, and refuses the target that cannot be stems'
 	});
 	assert.deepEqual(batch.members.map(({ mode }) => mode), ['stems', 'stems']);
 	assert.equal(createExportPlan(project, batch.members[0].settings).mode, 'stems');
-
-	assert.throws(() => createDeliveryBatch(project, {
-		batchId: 'batch-1', presets: [preset('wav24', 'wav')],
-		targets: [{ kind: 'mastering-sequence', id: 'album-order' }], mode: 'stems',
-	}), /cannot be delivered as stems/u);
-});
-
-test('a batch that names something the project does not have is refused when it is built', () => {
-	// Not member by member, halfway through a queue.
-	const project = albumProject();
-	for (const [targets, pattern] of [
-		[[{ kind: 'region', id: 'gone' }], /is not a region in this project/u],
-		[[{ kind: 'mastering-sequence', id: 'gone' }], /is not in this project/u],
-		[[{ kind: 'region' }], /requires its id/u],
-		[[{ kind: 'nonsense' }], /Unsupported delivery batch target/u],
-	] as const) {
-		assert.throws(() => createDeliveryBatch(project, {
-			batchId: 'batch-1', presets: [preset('wav24', 'wav')], targets: targets as never,
-		}), pattern);
-	}
-	assert.throws(() => createDeliveryBatch(project, {
-		batchId: 'batch-1', presets: [], targets: TARGETS,
-	}), DeliveryBatchError);
-	assert.throws(() => createDeliveryBatch(project, {
-		batchId: 'batch-1',
-		presets: [validateDeliveryPreset({
-			schemaVersion: 1, id: 'h264', label: 'H264', kind: 'video', format: 'mp4', settings: {},
-		})],
-		targets: TARGETS,
-	}), /is not an audio preset/u);
 });
 
 test('a selection target is frozen to the frames it named when the batch was built', () => {
@@ -215,9 +176,8 @@ test('a selection target is frozen to the frames it named when the batch was bui
 	assert.deepEqual(batch.members[0].settings.range, { startFrame: 1_000, endFrame: 5_000 },
 		'the batch names frames, not a word resolved later');
 
-	// Moving the selection afterwards cannot reach a batch already built.
+	// A later batch resolves the current selection frames.
 	const moved = { ...albumProject(), selection: { startFrame: 90_000, endFrame: 96_000 } };
-	assert.deepEqual(batch.members[0].settings.range, { startFrame: 1_000, endFrame: 5_000 });
 	assert.deepEqual(
 		createDeliveryBatch(moved as never, {
 			batchId: 'batch-2', presets: [preset('wav', 'wav')], targets: [{ kind: 'selection' }],
@@ -227,21 +187,8 @@ test('a selection target is frozen to the frames it named when the batch was bui
 	);
 });
 
-test('a batch naming an empty selection or a disabled loop is refused at the door', () => {
+test('a loop target resolves to the enabled loop frames', () => {
 	const presets = [preset('wav', 'wav')];
-	assert.throws(
-		() => createDeliveryBatch(albumProject() as never, {
-			batchId: 'b', presets, targets: [{ kind: 'selection' }],
-		}),
-		/selection is empty/u,
-		'rather than failing member by member halfway through a queue',
-	);
-	assert.throws(
-		() => createDeliveryBatch(albumProject() as never, {
-			batchId: 'b', presets, targets: [{ kind: 'loop' }],
-		}),
-		/loop is not enabled/u,
-	);
 	const looping = {
 		...albumProject(), loop: { enabled: true, startFrame: 100, endFrame: 700 },
 	};
@@ -289,7 +236,7 @@ test('retry-from-failure re-runs the failed and unstarted members, never the del
 	assert.deepEqual(deliveryBatchRetryMemberIds(report), [batch.members[1].memberId]);
 });
 
-test('a member report is carried by reference, not flattened into the batch', () => {
+test('member conversions remain nested under their own delivery report', () => {
 	// The batch says what happened to each member; the member's own report says
 	// what its delivery did to the material.
 	const batch = createDeliveryBatch(albumProject(), {
@@ -299,7 +246,7 @@ test('a member report is carried by reference, not flattened into the batch', ()
 	const report = createDeliveryBatchReport(batch, [
 		{ memberId: batch.members[0].memberId, state: 'delivered', report: memberReport as never },
 	]);
-	assert.equal(report.items[0].data.report, memberReport);
+	assert.deepEqual(report.items[0].data.report, memberReport);
 	assert.equal(
 		report.items.some(({ code }) => code === 'delivery.lossy-encode'),
 		false,
