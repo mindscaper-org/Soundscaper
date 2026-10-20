@@ -28,4 +28,3 @@ test('every offered replacement resolves back to a real effect type', () => {
 		}
 	}
 });
-

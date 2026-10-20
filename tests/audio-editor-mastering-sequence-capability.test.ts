@@ -61,4 +61,3 @@ test('the production capability inventory agrees with both products', () => {
 		);
 	}
 });
-

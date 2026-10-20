@@ -66,4 +66,3 @@ test('paste into a dense existing track indexes clip IDs once through planning a
 	assert.equal(value.writes(), 1);
 	assert.ok(idReads <= count * 5, `expected linear ID reads, received ${String(idReads)}`);
 });
-

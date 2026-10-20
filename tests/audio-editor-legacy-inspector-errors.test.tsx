@@ -108,4 +108,3 @@ test('legacy video rack errors route their existing nonempty message without pub
 	assert.deepEqual(errors, ['Video effect refused']);
 	assert.equal(dom.container.querySelectorAll('[role="alert"]').length, 0);
 });
-

@@ -51,4 +51,3 @@ void test('range delete shares requested track resolution across staging and pub
 	context.diagnostic(`120 range tracks: ${String(reads())} track identity reads`);
 	assert.ok(reads() <= 120 * 12, String(reads()));
 });
-
