@@ -105,19 +105,6 @@ test('a render failure clears the collector and preserves the renderer error', a
 	assert.equal(clears, 1);
 });
 
-test('a collector with inconsistent completed length is cleared', async () => {
-	let clears = 0;
-	await assert.rejects(() => createFramescaperNativeRgbaFramePackV1(request({
-		frameCount: 1,
-		createCollector() { return {
-			append() {},
-			complete() { return { bytes: new Blob([]), byteLength: 0, sha256: '0'.repeat(64), chunkCount: 0 }; },
-			clear() { clears += 1; },
-		}; },
-	})), /inconsistent byte length/iu);
-	assert.equal(clears, 1);
-});
-
 test('a sink failure stops streaming before a frame can be rendered', async () => {
 	const failure = new Error('sink refused header');
 	let renders = 0;

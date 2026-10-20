@@ -176,4 +176,3 @@ test('video and project imports are rejected before creating an import service',
 	assert.deepEqual(fixture.commands, []);
 	assert.equal(fixture.calls.includes('create-project'), false);
 });
-

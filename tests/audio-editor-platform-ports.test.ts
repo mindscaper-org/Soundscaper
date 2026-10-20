@@ -136,4 +136,3 @@ test('bounded transfer factories reject oversized or malformed chunks and messag
 		maximumEncodedBytes: 256,
 	}), /JSON-compatible/u);
 });
-
