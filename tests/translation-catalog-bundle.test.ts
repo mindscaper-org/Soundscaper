@@ -81,7 +81,7 @@ test('expanded locale fragments retain semantic owners and assemble the exact ca
 	let facade = await plugin.load.call(loader, id);
 	assert.ok(facade);
 	for (const owner of ['core', 'motion', 'framescaper'] as const) {
-		const partId = id.replace(/\.mjs$/u, `.${owner}.mjs`);
+		const partId: string = id.replace(/\.mjs$/u, `.${owner}.mjs`);
 		assert.ok(facade.includes(`import(${JSON.stringify(partId)})`), `${owner} stays independently lazy.`);
 		const source = await plugin.load.call(loader, partId);
 		assert.ok(source);
