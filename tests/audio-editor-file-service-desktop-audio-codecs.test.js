@@ -22,8 +22,8 @@ test('desktop file service forwards only the three preload audio codec calls', a
 			cancelDesktopAudioCodecOperation(requestId) { calls.push(['cancel', requestId]); return Promise.resolve(true); },
 		},
 	});
-	assert.equal(await service.getDesktopAudioCodecCapabilities(query), capabilities);
-	assert.equal(await service.runDesktopAudioCodecOperation(request), result);
+	assert.deepEqual(await service.getDesktopAudioCodecCapabilities(query), capabilities);
+	assert.deepEqual(await service.runDesktopAudioCodecOperation(request), result);
 	assert.equal(await service.cancelDesktopAudioCodecOperation(request.requestId), true);
 	assert.deepEqual(calls, [['capabilities', query], ['execute', request], ['cancel', request.requestId]]);
 });
