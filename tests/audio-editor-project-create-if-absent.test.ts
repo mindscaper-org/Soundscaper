@@ -189,6 +189,18 @@ test('IndexedDB delete-if-current rolls every deletion back when project deletio
 	assert.equal(fixture.projectBindingCount(), 1);
 });
 
+interface RepositoryFixture {
+	readonly repository: ProjectRepository;
+	readonly indexedDB: ReturnType<typeof createInstrumentedIndexedDB> | null;
+	seedMalformedExactRevision(): void;
+	seedOrphanRevision(): void;
+	seedPendingRecords(): void;
+	seedProjectBinding(): void;
+	sourceRecord(): Record<string, unknown> | null;
+	mediaRecord(): Record<string, unknown> | null;
+	projectBindingCount(): number;
+}
+
 async function repositoryFixture(
 	context: TestContext,
 	backend: 'memory' | 'indexeddb',

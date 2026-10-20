@@ -298,6 +298,16 @@ test('terminal cancellation, explicit discard, and reset remove stale source ses
 
 });
 
+interface FixtureOptions {
+	readonly preferences?: SoundActivationPreferences;
+	readonly state?: Partial<SoundActivationPolicyRecordingState>;
+	readonly update?: UpdateImplementation;
+}
+
+type UpdateImplementation = (
+	patch: SoundActivationPreferencePatch,
+	commit: (preferences: SoundActivationPreferences) => void,
+) => Promise<void>;
 
 function createFixture(options: FixtureOptions = {}) {
 	let preferences: unknown = options.preferences ?? DEFAULT_SOUND_ACTIVATION_PREFERENCES;

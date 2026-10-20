@@ -322,6 +322,11 @@ test('default archive-reader validation rejects offsets that zip.js repairs', as
 	assert.equal(actionCalled, false);
 });
 
+interface ArchiveOptions {
+	readonly dataDescriptor: boolean;
+	readonly dataDescriptorSignature: boolean;
+	readonly zip64: boolean;
+}
 
 function classicDescriptorOptions(): ArchiveOptions {
 	return { zip64: false, dataDescriptor: true, dataDescriptorSignature: true };
