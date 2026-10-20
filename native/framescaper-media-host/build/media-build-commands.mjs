@@ -116,6 +116,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	// The VS target selects its generated MSBuild projects when CC is empty.
 	const vpxEnvironment = windows
 		? Object.freeze({ ...makeEnvironment, CC: '', CXX: '' }) : makeEnvironment;
+	const vpxBuildEnvironment = windows
+		? Object.freeze({ ...vpxEnvironment, MSBUILDDISABLENODEREUSE: '1' }) : vpxEnvironment;
 	const pkgConfigRoots = [
 		paths.ffmpegInstall, paths.x264Install, paths.x265Install,
 		paths.libvpxInstall, paths.libopusInstall, paths.zlibInstall,
@@ -230,8 +232,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 				join(paths.x265Install, 'lib', 'pkgconfig', 'x265.pc')], paths.x265Build, nativeEnvironment),
 		] : []),
 		command('libvpx-configure', tools.executables.shell.path, vpxArgs, paths.libvpxBuild, vpxEnvironment),
-		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, vpxEnvironment),
-		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, vpxEnvironment),
+		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, vpxBuildEnvironment),
+		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, vpxBuildEnvironment),
 		...(windows ? [
 			command('libvpx-normalize-library', tools.executables.cmake.path, ['-E', 'copy',
 				join(paths.libvpxInstall, 'lib', target.id === 'win-arm64' ? 'ARM64' : 'x64', 'vpxmt.lib'),

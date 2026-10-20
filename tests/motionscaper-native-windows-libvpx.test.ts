@@ -38,7 +38,7 @@ function commandPlan(target: typeof targets[number], planRoot = root, workRoot =
 			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map(id => [id, join(planRoot, 'sources', id)]),
 		),
 		tools: { executables },
-		environment: { PATH: join(planRoot, 'authenticated-tools'), CC: 'ambient-cc', CXX: 'ambient-cxx', SOURCE_DATE_EPOCH: '1786492800' },
+		environment: { PATH: join(planRoot, 'authenticated-tools'), CC: 'ambient-cc', CXX: 'ambient-cxx', SOURCE_DATE_EPOCH: '1786492800', MSBUILDDISABLENODEREUSE: '0' },
 		configureFlags: [],
 	}) as unknown as readonly NativeCommand[];
 }
@@ -57,13 +57,16 @@ for (const target of targets) {
 		const codecEnvironment = phase(commands, 'x264-configure').environment;
 		const expectedEnvironment = windows ? { ...codecEnvironment, CC: '', CXX: '' } : codecEnvironment;
 		for (const name of ['libvpx-configure', 'libvpx-build', 'libvpx-install']) {
-			assert.deepEqual(phase(commands, name).environment, expectedEnvironment,
-				`${target}: libvpx must select upstream's native VS project path without ambient CC/CXX`);
+			const expected = windows && name !== 'libvpx-configure'
+				? { ...expectedEnvironment, MSBUILDDISABLENODEREUSE: '1' } : expectedEnvironment;
+			assert.deepEqual(phase(commands, name).environment, expected,
+				`${target}: libvpx must select native compilers and retire Windows build nodes after completion`);
 		}
 		for (const name of ['x264-build', 'x264-install', 'ffmpeg-configure', 'ffmpeg-build', 'ffmpeg-install']) {
 			const environment = phase(commands, name).environment;
 			assert.equal(environment.CC, codecEnvironment.CC, name);
 			assert.equal(environment.CXX, codecEnvironment.CXX, name);
+			assert.equal(environment.MSBUILDDISABLENODEREUSE, '0', name);
 			if (!name.startsWith('ffmpeg-')) assert.ok(!phase(commands, name).args.some(argument => /^(?:SHELL|\.SHELLFLAGS)=/u.test(argument)), name);
 			assert.ok(!('SHELL' in environment), name);
 		}
