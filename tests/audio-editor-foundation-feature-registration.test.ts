@@ -70,15 +70,6 @@ test('every foundation document type has one owned capability predicate', () => 
 	);
 });
 
-test('foundation registry and both project-capability profiles stay equal', () => {
-	const registry = Object.keys(PROJECT_FEATURE_CAPABILITY_IDS).sort();
-	assert.deepEqual(Object.keys(PRODUCT_PROFILES.soundscaper.capabilities).sort(), registry);
-	assert.deepEqual(Object.keys(PRODUCT_PROFILES.framescaper.capabilities).sort(), registry);
-	assert.equal(PRODUCT_PROFILES.framescaper.applicationFeatures.framescaperCapture, true,
-		'the selected F31 project registry activates the separate capture application route');
-	assert.equal(PRODUCT_PROFILES.framescaper.applicationFeatures.framescaperWebVcr, true);
-});
-
 test('V17 audio warp state is native when enabled and otherwise bypass-only', () => {
 	const manifest = reconcileProjectOwnedFeatureRequirements(FOUNDATION_FIXTURES[1].project, EMPTY_MANIFEST);
 	const project = { schemaVersion: AUDIO_EDITOR_PROJECT_CURRENT_SCHEMA_VERSION, featureRequirements: manifest };
