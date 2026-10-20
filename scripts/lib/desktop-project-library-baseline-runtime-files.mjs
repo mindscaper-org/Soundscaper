@@ -98,7 +98,7 @@ export const DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/video-global-develop-v1.js',
 	'src/common/editor/video-image-geometry-v1.js',
 	'src/common/editor/gray-video-frame-sampling-v1.js',
-	'src/common/editor/video-motion-analysis-v27.js',
+	'src/common/editor/video-motion-analysis-body-v1.js',
 	'src/common/editor/video-motion-model-v27.js',
 	'src/common/editor/video-motion-processing-v27.js',
 	'src/common/editor/video-source-color-interpretation-v27.js',
