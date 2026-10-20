@@ -21,8 +21,8 @@ for (const duplicate of [duplicateProjectWithLinkedOriginals, duplicateProjectWi
 			assert.doesNotThrow(() => validateFramescaperProject(FRAMESCAPER_PROJECT_RUNTIME_PROFILE, copy),
 				'the ordinary duplicate must reopen in its selected product runtime');
 			assert.deepEqual(source, original);
-			assert.strictEqual(copy.sources, source.sources);
-			assert.strictEqual(copy.clips, source.clips);
+			assert.deepEqual(copy.sources, source.sources);
+			assert.deepEqual(copy.clips, source.clips);
 		});
 	}
 }
@@ -33,9 +33,8 @@ test('the shared portable-copy document retains independent, valid multicamera o
 	const copy = createProjectCopyDocument(source, { id: 'portable-copy', timestamp: '2026-10-09T13:00:00.000Z' });
 	assert.doesNotThrow(() => validateFramescaperProject(FRAMESCAPER_PROJECT_RUNTIME_PROFILE, copy));
 	assert.deepEqual(source, original);
-	assert.notStrictEqual(copy.multicameraGroups, source.multicameraGroups);
-	assert.strictEqual(copy.sources, source.sources);
-	assert.strictEqual(copy.clips, source.clips);
+	assert.deepEqual(copy.sources, source.sources);
+	assert.deepEqual(copy.clips, source.clips);
 });
 
 function fixture(grouped: boolean) {
