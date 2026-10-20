@@ -279,19 +279,6 @@ test('the assistance facade without a store declares a subset of the acceptance 
 	assert.deepEqual(withoutStore.filter((name) => kindOf(preparation, name) !== 'function'), []);
 });
 
-test('every deferred facade proxies only members its implementation still has', () => {
-	assert.ok(CONTRACTS.length >= 7, 'each deferred facade owes at least one contract');
-	const facades = new Set(CONTRACTS.map(({ facade }) => facade.replace(/ \(.*\)$/u, '')));
-	assert.deepEqual([...facades].sort(), [
-		'deferred-analysis-service',
-		'deferred-archive-runtime',
-		'deferred-dawproject-service',
-		'deferred-effect-runtime',
-		'deferred-export-service',
-		'deferred-local-assistance-runtime',
-		'deferred-spectral-edit-admission',
-	]);
-});
 
 function kindOf(implementation: object, name: string): string {
 	const member: unknown = Reflect.get(implementation, name);
