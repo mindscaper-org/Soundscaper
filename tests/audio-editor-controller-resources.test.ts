@@ -36,20 +36,30 @@ test('parallel processing registers both browser and desktop Soundscaper playbac
 });
 
 test('controller resources give workers owned PCM without detaching resident channel views', async () => {
-	const resources = createControllerResources({}, callbacks);
+	const samples = Float32Array.of(0.25, -0.5);
+	let renders = 0;
+	const resources = createControllerResources({ staffPadRenderClient: {
+		render(request: { readonly channels: Float32Array[] }, options: { readonly transferInput?: boolean } = {}) {
+			renders += 1;
+			assert.deepEqual(request.channels[0], samples);
+			assert.notEqual(request.channels[0]?.buffer, samples.buffer);
+			assert.equal(options.transferInput, true);
+			const channels = request.channels.map(channel => channel.slice());
+			structuredClone(request.channels, { transfer: request.channels.map(channel => channel.buffer) });
+			return Promise.resolve({ channels });
+		},
+	} }, callbacks);
 	try {
 		await resources.store.ready();
-		const samples = Float32Array.of(0.25, -0.5);
 		resources.sourceBuffers.set('source', {
 			length: 2, numberOfChannels: 1, sampleRate: 48_000,
 			getChannelData: () => samples,
 		});
-		const channels: Float32Array[] = await resources.clipTimePitchCache.loadSourceChannels({
-			id: 'source', frameCount: 2, channelCount: 1,
-		});
-		assert.deepEqual(channels[0], samples);
-		assert.notEqual(channels[0]?.buffer, samples.buffer);
-		structuredClone(channels, { transfer: channels.map(channel => channel.buffer) });
+		await resources.clipTimePitchCache.prepareCommittedOutput(
+			{ id: 'clip', sourceId: 'source', durationFrames: 2, pitchCents: 100 },
+			{ id: 'source', frameCount: 2, channelCount: 1, sampleRate: 48_000 },
+		);
+		assert.equal(renders, 1);
 		assert.deepEqual([...samples], [0.25, -0.5]);
 	} finally {
 		await resources.clipTimePitchCache.dispose?.();
