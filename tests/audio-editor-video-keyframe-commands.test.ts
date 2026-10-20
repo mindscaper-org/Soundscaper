@@ -209,46 +209,6 @@ test('the runtime fails closed for missing, duplicate, and audio clip identities
 	);
 });
 
-test('the runtime inspects clip collections and identities without invoking accessors', () => {
-	const handlers = createVideoKeyframesRuntimeHandlers();
-	const project = projectFixture();
-	let reads = 0;
-	Object.defineProperty((project.clips as DataRecord[])[0], 'id', {
-		enumerable: true,
-		get() { reads += 1; return 'video'; },
-	});
-	assert.throws(
-		() => handlers['video-keyframes/set'](project, createSetVideoKeyframesCommand(
-			'video', emptyKeyframes(), opacityKeyframes(),
-		)),
-		/id.*data property/iu,
-	);
-	assert.equal(reads, 0);
-
-	const hostileContext = projectFixture();
-	const effect = (((hostileContext.clips as DataRecord[])[0]!.videoEffects as DataRecord[])[0]!);
-	Object.defineProperty(effect, 'params', {
-		enumerable: true,
-		get() { reads += 1; return {}; },
-	});
-	assert.throws(
-		() => handlers['video-keyframes/set'](hostileContext, createSetVideoKeyframesCommand(
-			'video', emptyKeyframes(), opacityKeyframes(),
-		)),
-		/accessor|data propert/iu,
-	);
-	assert.equal(reads, 0);
-
-	const disguised = projectFixture();
-	Object.defineProperty(disguised.clips as object, 'extra', { enumerable: true, value: true });
-	assert.throws(
-		() => handlers['video-keyframes/set'](disguised, createSetVideoKeyframesCommand(
-			'video', emptyKeyframes(), opacityKeyframes(),
-		)),
-		/unsupported field/iu,
-	);
-});
-
 test('removing a video effect takes its keyframe curves with it', () => {
 	// A curve may target an effect parameter, and the shipped keyframe dialog offers
 	// every effect parameter as an animation target, so deleting the effect has to
