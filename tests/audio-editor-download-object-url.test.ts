@@ -126,4 +126,3 @@ test('a custom saver or file service is used instead of an anchor download', asy
 		stub.restore();
 	}
 });
-
