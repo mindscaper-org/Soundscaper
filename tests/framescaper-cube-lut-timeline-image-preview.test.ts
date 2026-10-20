@@ -163,9 +163,14 @@ test('currentV16 image creation captures original currentness options across a h
 test('currentV16 image resolve refuses opaque native abort from the final currentness callback before publishing planes', async () => {
 	const value = fixture(), stop = new AbortController(); let armed = false, checks = 0, traps = 0;
 	const reason = new Proxy({}, { get() { traps++; throw Error('opaque'); }, getPrototypeOf() { traps++; throw Error('opaque'); }, getOwnPropertyDescriptor() { traps++; throw Error('opaque'); } });
-	Object.defineProperty(stop.signal, 'aborted', { value: false }); Object.defineProperty(stop.signal, 'reason', { value: 'shadow' });
 	const execution = await createFramescaperVideoExportImageExecutionTimelineImageV16({ profile: PROFILE, project: value.project,
-		foundationPlan: imagePlan(value), signal: new AbortController().signal, assertCurrent() { if (armed && ++checks === 2) stop.abort(reason); },
+		foundationPlan: imagePlan(value), signal: new AbortController().signal, assertCurrent() {
+			if (armed && ++checks === 2) {
+				// The read admits a valid native signal; this final callback then shadows it before aborting.
+				Object.defineProperty(stop.signal, 'aborted', { value: false }); Object.defineProperty(stop.signal, 'reason', { value: 'shadow' });
+				stop.abort(reason);
+			}
+		},
 		store: { async loadMediaAsset() { return new Blob([new Uint8Array(value.pack.bytes)]); } } }); assert.ok(execution);
 	armed = true;
 	const frame = createVideoExactPictureExportFrameSource({ sampleRate: 48_000, startFrame: 0, endFrame: 48_000,

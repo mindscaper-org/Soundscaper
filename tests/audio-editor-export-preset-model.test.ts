@@ -80,7 +80,7 @@ test('applying a preset resets omitted preset-owned defaults instead of retainin
 		format: 'video-mp4',
 		canvasWidth: '', canvasHeight: '', canvasFit: 'contain', canvasFrameRate: '',
 		canvasBackgroundColor: '', videoQuality: 'balanced', videoAudioLayout: 'preserve',
-		deliveryTarget: '',
+		deliveryTarget: '', textWatermark: undefined,
 	});
 });
 

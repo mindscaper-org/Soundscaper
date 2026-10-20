@@ -66,7 +66,10 @@ function effectProject(effects = [createVideoEffect('pixelate', { id: 'pixelate-
 }
 
 test('video effect registry exposes canonical defaults and rejects injected parameters', () => {
-	assert.equal(VIDEO_EFFECT_TYPES.length, 28);
+	assert.equal(VIDEO_EFFECT_TYPES.length, 32);
+	assert.deepEqual(VIDEO_EFFECT_TYPES.slice(-4), [
+		'lens-distortion-v1', 'chromatic-aberration-v1', 'defringe-v1', 'optical-vignette-v1',
+	]);
 	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'noise-reduction-v1'), ['noise-reduction-v1']);
 	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'grain-v1'), ['grain-v1']);
 	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'texture-v1'), ['texture-v1']);

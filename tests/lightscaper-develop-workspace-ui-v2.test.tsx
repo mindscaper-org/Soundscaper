@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act, StrictMode } from 'react';
 import PhotoDevelopWorkspaceV2 from '../src/common/editor/ui/lightscaper/PhotoDevelopWorkspaceV2.tsx';
+import PhotoDevelopWorkspaceKernelV1 from '../src/common/editor/ui/lightscaper/PhotoDevelopWorkspaceKernelV1.tsx';
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
 import { currentDevelopFixture, currentRecipe } from './helpers/lightscaper-current-develop-session-fixture.ts';
 import { mountPhotoImportUi } from './helpers/photo-import-options-react-fixture.tsx';
@@ -95,7 +96,7 @@ test('current Workspace Close joins a held cube importer and preview, fences old
 		await run({ signal: signal!, isCurrent: () => true, acquire: async () => fixture.develop, refresh: async () => undefined });
 	};
 	const messages = photoDevelopCopy('en'), beforePresent = Promise.resolve();
-	const mounted = await mountPhotoImportUi(() => { const element = <PhotoDevelopWorkspaceV2 locale="en" photoId={before.id} label="Photo" generation={fixture}
+	const mounted = await mountPhotoImportUi(() => { const element = <PhotoDevelopWorkspaceKernelV1 profile="legacy2" locale="en" photoId={before.id} label="Photo" generation={fixture}
 		execute={execute} readPreview={async function (this: unknown) { assert.equal(this, expected); return preview.promise; }} loadProxy={async () => { throw Error('Held preview only'); }}
 		beforePresent={beforePresent} registerRetirement={() => () => undefined} registerDemandRetirement={retire => { demands.push(retire); return () => undefined; }}
 		importCubeLut={async function (this: unknown, _file, options) { assert.equal(this, expected); calls++; options!.signal!.addEventListener('abort', () => { aborted = true; }); return held.promise; }}

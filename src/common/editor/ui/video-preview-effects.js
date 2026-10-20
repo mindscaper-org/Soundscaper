@@ -115,9 +115,9 @@ function gaussianBlurPass(sigma, renderScale, direction, kernel) {
  * Gaussian blur expands to two convolution passes.
  */
 export function videoEffectPasses(effect, previewScale = {}) {
+	if (!effect) return [];
 	if (effect.type === OPTICAL_VIGNETTE_EFFECT_TYPE_V1) { const pass = opticalVignettePreviewPassV1(effect); return pass ? [pass] : []; }
 	if (effect.type === DEFRINGE_EFFECT_TYPE_V1) { const pass = defringePreviewPassV1(effect); return pass ? [pass] : []; }
-	if (!effect) return [];
 	if (effect.type === CHROMATIC_ABERRATION_EFFECT_TYPE_V1) { const pass = chromaticAberrationPreviewPassV1(effect); return pass ? [pass] : []; }
 	if (effect.type === LENS_DISTORTION_EFFECT_TYPE_V1) { const pass = lensDistortionPreviewPassV1(effect); return pass ? [pass] : []; }
 	if (effect.type === TEXTURE_EFFECT_TYPE_V1) { const pass = texturePreviewPassV1(effect); return pass ? [pass] : []; }

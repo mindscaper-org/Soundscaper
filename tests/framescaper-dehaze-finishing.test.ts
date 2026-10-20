@@ -17,7 +17,7 @@ const descriptor = (width: number,height: number) => ({ schemaVersion: 1,width,h
 
 test('shared Dehaze registration owns shader33, private compiled dispatch and neutral/disabled admission', () => {
 	const effect = dehaze(); assert.deepEqual(normalizeVideoEffect(effect),effect);
-	assert.equal(EFFECT_CODES['dehaze-v1'],33); assert.equal(EFFECT_PROGRAM_COUNT,34);
+	assert.equal(EFFECT_CODES['dehaze-v1'],33); assert.equal(EFFECT_PROGRAM_COUNT,38);
 	assert.deepEqual(videoEffectPasses(effect),[{ code: 33,params0: [256,0,0,0],params1: [0,0,0,0],direction: [0,0] }]);
 	const operation = serializeVideoEffectsToFfmpegOperations([effect])[0]; assert.ok(operation); assert.ok(isCompiledDehazeOperationV1(operation));
 	const filters: string[] = []; appendVideoEffectOperation({ filters,inputLabel: '0:v',outputLabel: 'dehaze',operation,width: 2,height: 2 });

@@ -109,6 +109,42 @@ belong in Git history, not in the maintained documentation set.
 - [Realtime effect workers](architecture/realtime-effect-workers.md) records
   the implemented parallel effect-stack execution contract.
 
+### Current Photo processing and native storage
+
+- [Lightscaper batch graphic export](architecture/lightscaper-batch-graphic-export.md)
+- [Manual chromatic aberration correction](architecture/lightscaper-chromatic-aberration.md)
+- [Lightscaper Current Develop conformance](architecture/lightscaper-current-conformance.md)
+- [Manual defringe](architecture/lightscaper-defringe.md)
+- [Current Develop combined RAW qualification](architecture/lightscaper-develop-full-stack-current.md)
+- [Frame image brush authoring](architecture/lightscaper-frame-brush-authoring.md)
+- [Temporary Frame image mask presentation](architecture/lightscaper-frame-mask-overlay.md)
+- [Gradient local adjustments](architecture/lightscaper-gradient-local-adjustments.md)
+- [Manual lens distortion](architecture/lightscaper-lens-distortion.md)
+- [Lightscaper library debug soak](architecture/lightscaper-library-debug-soak.md)
+- [Lightscaper linear working frames](architecture/lightscaper-linear-working.md)
+- [Native retained Original repair](architecture/lightscaper-native-original-repair.md)
+- [Native Photo filesystem and folder grants](architecture/lightscaper-native-photo-filesystem.md)
+- [Native Photo library scopes](architecture/lightscaper-native-photo-library-scopes.md)
+- [Native managed Photo media](architecture/lightscaper-native-photo-media.md)
+- [Native Photo Original loading](architecture/lightscaper-native-photo-original-loading.md)
+- [Native Photo RAW process service](architecture/lightscaper-native-photo-raw-service.md)
+- [Native Photo LUT and brush resources](architecture/lightscaper-native-photo-resources.md)
+- [Native selected Photo Session ownership](architecture/lightscaper-native-photo-session-lease.md)
+- [Native Photo Session transport](architecture/lightscaper-native-photo-session-protocol.md)
+- [Native Photo settings](architecture/lightscaper-native-photo-settings.md)
+- [Native Photo storage](architecture/lightscaper-native-photo-storage.md)
+- [Current native-depth Develop proxies](architecture/lightscaper-native-proxy.md)
+- [Current native raster export](architecture/lightscaper-native-raster-export.md)
+- [Manual optical vignette](architecture/lightscaper-optical-vignette.md)
+- [Lightscaper output color profiles](architecture/lightscaper-output-color-profiles.md)
+- [Range local adjustments](architecture/lightscaper-range-local-adjustments.md)
+- [Lightscaper RAW decoding and Current workflow](architecture/lightscaper-raw-decoder.md)
+- [Editable RAW image handoff](architecture/lightscaper-raw-image-handoff.md)
+- [RAW highlight recovery foundation](architecture/lightscaper-raw-recovery.md)
+- [Current RAW source processing](architecture/lightscaper-raw-source-processing.md)
+- [Single-photo background export](architecture/lightscaper-single-export-queue.md)
+
+
 ## Develop and test
 
 - [Source graphs](development/source-graphs.md) generates focused dependency
@@ -123,6 +159,8 @@ belong in Git history, not in the maintained documentation set.
   records areas needing representative profiles before implementation.
 - [Editing performance boundaries](development/editing-performance-opportunities.md)
   records remaining optimization opportunities and the contracts they must preserve.
+
+- [Building the managed Lightscaper desktop package](development/lightscaper-desktop.md)
 
 ## Operate and release
 
