@@ -7,7 +7,7 @@ import test from 'node:test';
 import { extractJob } from './helpers/workflow-jobs.js';
 
 test('ordinary browser CI authenticates and transfers Lightscaper builds and sibling maps', async () => {
-	for (const [workflowName, buildJob] of [['quality.yml', 'build'], ['desktop-preview.yml', 'quality']]) {
+	for (const [workflowName, buildJob] of [['quality.yml', 'build']]) {
 		const source = await workflow(workflowName);
 		const publisher = extractJob(source, buildJob);
 		const buildIndex = publisher.indexOf('npm run build:browser:lightscaper');
@@ -26,6 +26,13 @@ test('ordinary browser CI authenticates and transfers Lightscaper builds and sib
 			assert.ok(job.indexOf('name: verified-lightscaper-site-source-maps') < job.indexOf('npm run test:browser:built'));
 		}
 	}
+});
+
+test('desktop preview delegates ordinary browser artifacts to Quality', async () => {
+	const source = await workflow('desktop-preview.yml');
+	assert.match(extractJob(source, 'quality'), /# testing and combined coverage enforcement belong to quality\.yml\./u);
+	assert.doesNotMatch(source, /name: verified-lightscaper-site-(?:build|source-maps)/u,
+		'desktop distribution does not publish the ordinary browser site artifacts');
 });
 
 test('other ordinary browser build callers include Lightscaper before site preparation', async () => {
