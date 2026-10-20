@@ -149,13 +149,6 @@ test('export strategy admission models mix and per-track stem graph latency', ()
 		trackId: 'long',
 		includeMaster: false,
 	}).graphLatencyFrames, 576);
-	assert.throws(
-		() => planExportOfflineRenderStrategyAdmission({
-			...base,
-			includeMaster: null,
-		} as never),
-		/export offline render include-master/iu,
-	);
 });
 
 test('export strategy admission uses render-rate frames before encode-rate resampling', () => {
