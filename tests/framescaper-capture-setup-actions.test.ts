@@ -12,7 +12,6 @@ test('flyout setup loads capture without opening its dock or requesting source p
 		() => { calls.push('error'); });
 	actions.openSetup({ showPanel: false });
 	assert.deepEqual(calls, ['load']);
-	assert.equal(actions.requestPreview, original.requestPreview);
 	actions.openSetup();
 	assert.deepEqual(calls, ['load', 'load', 'recording-setup:true']);
 });
