@@ -37,6 +37,8 @@ export async function previewMotionMaximum(application: Application, kind: Motio
 	try {
 		await motionSustainedMenu(application.page, 'View', 'Composition Preview');
 		const dialog = application.page.getByRole('dialog', { name: 'Composition Preview', exact: true }), canvas = dialog.locator('canvas');
+		pending = waitFor(() => dialog.getByLabel('Frame', { exact: true }).isEnabled(), 600000, cancellation.signal);
+		await Promise.race([pending, observer.failed]);
 		for (const index of profile.selectedFrames) {
 			const frame = profile.firstFrame + index;
 			await dialog.getByLabel('Frame', { exact: true }).fill(String(frame));
