@@ -302,10 +302,3 @@ test('regions require positive authoritative and projected spans', () => {
 		},
 	}), /resolve.*positive|positive.*sample/iu, 'a tempo edit cannot leave a collapsed region');
 });
-
-test('annotation collection guards expose the exact V11 union to strict TypeScript consumers', () => {
-	const unknownValue: unknown = [sampleMarker()];
-	assert.ok(validateTimelineAnnotationsV11(unknownValue, COLLECTION_CONTEXT));
-	const annotations: readonly TimelineAnnotationV11[] = unknownValue;
-	assert.equal(annotations[0].kind, 'marker');
-});

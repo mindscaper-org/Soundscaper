@@ -120,4 +120,3 @@ test('transitions reject stale generations and every mismatched evidence field',
 		);
 	}
 });
-

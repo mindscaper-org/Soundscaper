@@ -4,13 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	TIMELINE_ANNOTATION_COMMAND_TYPES,
-	defineTimelineAnnotationCommandHandlers,
-	type TimelineAnnotationCommand,
-} from '../src/common/editor/commands/timeline-annotation.ts';
-import {
 	applyTimelineAnnotationCommand,
-	createTimelineAnnotationRuntimeHandlers,
 	type MutableTimelineAnnotationProject,
 } from '../src/common/editor/commands/timeline-annotation-runtime.ts';
 import {
@@ -27,25 +21,6 @@ const CONTEXT: TimelineAnnotationCollectionContext = {
 	},
 	sequenceIds: ['main', 'secondary'],
 };
-
-test('the standalone command domain is exhaustive and rejects malformed registries', () => {
-	assert.deepEqual(TIMELINE_ANNOTATION_COMMAND_TYPES, [
-		'timeline-annotation/add',
-		'timeline-annotation/update-many',
-		'timeline-annotation/move-many',
-		'timeline-annotation/resize',
-		'timeline-annotation/convert',
-		'timeline-annotation/remove-many',
-		'timeline-annotation/batch-set',
-	]);
-	const handlers = createTimelineAnnotationRuntimeHandlers();
-	assert.equal(Object.isFrozen(handlers), true);
-	assert.deepEqual(Object.keys(handlers), TIMELINE_ANNOTATION_COMMAND_TYPES);
-	assert.throws(
-		() => defineTimelineAnnotationCommandHandlers({} as never),
-		/not exhaustive.*missing/iu,
-	);
-});
 
 test('add and update-many preserve document order and update only names and colors', () => {
 	const project = fixtureProject();

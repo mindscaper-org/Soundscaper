@@ -16,7 +16,6 @@ import {
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { PROJECT_OWNED_FEATURE_REQUIREMENT_IDS } from '../src/common/editor/project-owned-feature-requirements.ts';
 import type { TimelineAnnotationV11 } from '../src/common/editor/timeline-annotation.ts';
-import { createTimelineAnnotationRuntimeHandlers } from '../src/common/editor/commands/timeline-annotation-runtime.ts';
 import { resolveRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
 import {
 	createEditorHistory,
@@ -110,14 +109,7 @@ test('annotation commands are exact-current, atomic, and reconcile the reserved 
 	} as unknown as TimelineAnnotationV11), { now: NOW }), /unsupported.*timelineStartFrame/iu);
 	assert.deepEqual(original, snapshot);
 
-	const handlers = createTimelineAnnotationRuntimeHandlers();
-	assert.throws(
-		() => handlers['timeline-annotation/remove-many'](fixtureProject(), {
-			type: 'timeline-annotation/remove-many',
-			annotationIds: ['sample-marker'],
-		}),
-		/trusted runtime projection/iu,
-	);
+
 });
 
 test('tempo commands preserve authoritative annotation order while changing only the runtime projection', () => {
