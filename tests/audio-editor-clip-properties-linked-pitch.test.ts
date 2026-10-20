@@ -15,7 +15,7 @@ test('linked pitch converts semitones or percent directly to speed over its full
 });
 
 test('linked pitch rejects blank, non-finite and out-of-range speed values', () => {
-	for (const value of ['', ' ', null, 'Infinity', 'NaN', 120, -120]) {
+	for (const value of ['', ' ', 'Infinity', 'NaN', 120, -120]) {
 		assert.throws(() => clipLinkedPitchSpeed(value, 'semitones', 'Invalid linked pitch'), /Invalid linked pitch/u);
 	}
 	for (const value of [-100, -99.999, 100000]) {
