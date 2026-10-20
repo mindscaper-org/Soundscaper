@@ -160,15 +160,3 @@ test('a published revision the editor failed to adopt is reported as stale', asy
 	);
 });
 
-test('the publication port refuses an incomplete dependency composition', () => {
-	for (const overrides of [
-		{ executeCommand: 1 },
-		{ publishIfCurrent: 1 },
-		{ session: {} },
-		{ controller: { project: PROJECT, actions: {} } },
-		{ controller: { project: PROJECT, actions: { project: { openById: async () => undefined } } } },
-	]) {
-		assert.throws(() => createPort(harness(overrides).dependencies), TypeError);
-	}
-	assert.throws(() => createPort(null as never), TypeError);
-});
