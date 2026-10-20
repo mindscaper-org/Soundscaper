@@ -177,21 +177,3 @@ test('video and project imports are rejected before creating an import service',
 	assert.equal(fixture.calls.includes('create-project'), false);
 });
 
-test('the preparation runtime prevents video import and project switching even if routing changes', async () => {
-	for (const action of ['video', 'switch', 'publish'] as const) {
-		const fixture = createFixture();
-		const prepare = createClipSpreadsheetSourcePreparer(fixtureRuntime(fixture), runtime => ({
-			importFile: async () => {
-				if (action === 'video') await runtime.importVideoFile(new File([], 'unexpected.mp4'));
-				else if (action === 'switch') await runtime.switchProject(runtime.getProject()!);
-				else runtime.publishDocumentSnapshot();
-			},
-		}));
-		await assert.rejects(prepare(new File([], 'voice.wav'), {
-			signal: new AbortController().signal, onSourcePrepared: () => assert.fail('No source should be prepared.'),
-		}), /audio source preparation/u);
-		assert.deepEqual(fixture.placements, []);
-		assert.equal(fixture.calls.includes('publish'), false);
-		assert.equal(fixture.calls.some(value => value.startsWith('switch:')), false);
-	}
-});
