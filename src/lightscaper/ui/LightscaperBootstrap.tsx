@@ -7,6 +7,9 @@ import { LightscaperPhotoBackendContextCurrentV1 } from '../../common/editor/ui/
 import { PhotoLibraryLinkedCommandsCurrentV1 } from '../../common/editor/controller/composition/photo-library-linked-commands-current-v1.ts';
 import { PhotoLinkedCommandsContextCurrentV1 } from '../../common/editor/ui/lightscaper/photo-linked-commands-context-current-v1.ts';
 import PhotoLinkedLibraryMenuCurrentV1 from '../../common/editor/ui/lightscaper/PhotoLinkedLibraryMenuCurrentV1.tsx';
+import { PhotoLibraryDebugSoakOwnerCurrentV1 } from '../quality/photo-library-debug-soak-owner-current-v1.ts';
+import { PhotoLibraryDebugSoakContextCurrentV1 } from '../../common/editor/ui/lightscaper/photo-library-debug-soak-context-current-v1.ts';
+import PhotoLibraryDebugSoakMenuCurrentV1 from '../../common/editor/ui/lightscaper/PhotoLibraryDebugSoakMenuCurrentV1.tsx';
 import PhotoLibraryBackendMenuCurrentV1 from '../../common/editor/ui/lightscaper/PhotoLibraryBackendMenuCurrentV1.tsx';
 import { captureDesktopPhotoBackendPortsCurrentV1, createDesktopPhotoBackendFactoriesCurrentV1 } from '../desktop-photo-library-backend-current-v1.ts';
 import { bundledSiteCopyForLocale } from '../../common/i18n/site-copy.js';
@@ -61,13 +64,14 @@ export default function LightscaperBootstrap(props: LightscaperAppPropsCurrentV1
 	}, []);
 	const nativeSelected = !customized && selection.backend === 'native';
 	const selectedSession = suppliedSession ?? (nativeSelected ? native?.createSession ?? createSession : createSession);
-	return <PhotoLinkedCommandsContextCurrentV1.Provider value={customized ? null : linkedCommands}><LightscaperPhotoBackendContextCurrentV1.Provider value={customized ? null : backend}>
+	const diagnostic = useMemo(() => new PhotoLibraryDebugSoakOwnerCurrentV1(backend, selectedSession), [backend, selectedSession]);
+	return <PhotoLibraryDebugSoakContextCurrentV1.Provider value={customized ? null : diagnostic}><PhotoLinkedCommandsContextCurrentV1.Provider value={customized ? null : linkedCommands}><LightscaperPhotoBackendContextCurrentV1.Provider value={customized ? null : backend}>
 		<LightscaperAppCurrentV1 key={selection.epoch} locale={props.locale} createSession={selectedSession}
 		loadBackupSaveRuntime={suppliedBackup ?? loadBackupSaveRuntime}
 		loadMetadataQueryRuntime={suppliedQuery ?? loadMetadataQueryRuntime}
 		loadSavedFilterRuntime={suppliedSaved ?? loadSavedFilterRuntime}
 		loadRestoreRuntime={suppliedRestore ?? (nativeSelected ? native?.loadRestoreRuntime : loadRestoreRuntime)}
 		loadDevelopProxyRuntime={suppliedRenderer ?? loadDevelopProxyRuntime} />
-		<PhotoLibraryBackendMenuCurrentV1 locale={props.locale} /><PhotoLinkedLibraryMenuCurrentV1 locale={props.locale} />
-	</LightscaperPhotoBackendContextCurrentV1.Provider></PhotoLinkedCommandsContextCurrentV1.Provider>;
+		<PhotoLibraryBackendMenuCurrentV1 locale={props.locale} /><PhotoLinkedLibraryMenuCurrentV1 locale={props.locale} /><PhotoLibraryDebugSoakMenuCurrentV1 locale={props.locale} />
+	</LightscaperPhotoBackendContextCurrentV1.Provider></PhotoLinkedCommandsContextCurrentV1.Provider></PhotoLibraryDebugSoakContextCurrentV1.Provider>;
 }
