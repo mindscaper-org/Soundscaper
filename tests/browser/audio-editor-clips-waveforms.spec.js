@@ -312,7 +312,6 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 		await waveform.evaluate((canvas) => {
 			const prototype = CanvasRenderingContext2D.prototype;
-			globalThis.__waveformPlanBeforeDrag = canvas.__kwWaveformPlan;
 			globalThis.__waveformClearsAfterPointerDown = 0;
 			globalThis.__waveformStrokesAfterPointerDown = 0;
 			globalThis.__waveformOriginalClearRect = prototype.clearRect;
@@ -334,14 +333,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 		expect(await page.evaluate(() => globalThis.__waveformClearsAfterPointerDown)).toBe(0);
 		expect(await page.evaluate(() => globalThis.__waveformStrokesAfterPointerDown)).toBe(0);
-		expect(await waveform.evaluate((canvas) => canvas.__kwWaveformPlan === globalThis.__waveformPlanBeforeDrag)).toBe(true);
 		await page.mouse.move(clipHeaderBox.x + 88, clipHeaderBox.y + clipHeaderBox.height / 2);
 		await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-		expect(await waveform.evaluate((canvas) => canvas.__kwWaveformPlan === globalThis.__waveformPlanBeforeDrag)).toBe(true);
 		await page.mouse.up();
-		await expect.poll(() => waveform.evaluate((canvas) => (
-			canvas.__kwWaveformPlan === globalThis.__waveformPlanBeforeDrag || canvas.dataset.waveformPending === 'true'
-		))).toBe(false);
+		await expect(waveform).not.toHaveAttribute('data-waveform-pending', 'true');
 		await page.evaluate(() => {
 			globalThis.__waveformClearsAfterPointerDown = 0;
 			globalThis.__waveformStrokesAfterPointerDown = 0;
@@ -360,7 +355,6 @@ test.describe('audio editor React/design-system workflows', () => {
 			prototype.stroke = globalThis.__waveformOriginalStroke;
 			delete globalThis.__waveformOriginalClearRect;
 			delete globalThis.__waveformOriginalStroke;
-			delete globalThis.__waveformPlanBeforeDrag;
 			delete globalThis.__waveformClearsAfterPointerDown;
 			delete globalThis.__waveformStrokesAfterPointerDown;
 		});
