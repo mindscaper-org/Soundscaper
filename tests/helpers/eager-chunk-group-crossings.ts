@@ -104,12 +104,19 @@ const WORKER_ENTRY_PATTERN = /new Worker\(\s*new URL\(\s*'(\.[^']+)'/gu;
 // Both quote styles: `nyquist/plugin-registry.js` writes its specifiers with double
 // quotes, and while this pattern read single quotes only, every dependency that
 // eagerly owned module declares was invisible here.
-const STATIC_IMPORT_PATTERN = /^import\s+(?!type\b)([\s\S]*?)from\s+(?:'(\.[^']+)'|"(\.[^"]+)")/gmu;
+// A complete import clause cannot consume a bare package import and then
+// borrow the relative specifier of a later type-only import declaration.
+const IMPORT_BINDING = String.raw`[\p{ID_Start}$_][\p{ID_Continue}$]*`;
+const NAMED_OR_NAMESPACE_IMPORT = String.raw`(?:\*\s+as\s+${IMPORT_BINDING}|\{[^}]*\})`;
+const STATIC_IMPORT_PATTERN = new RegExp(
+	String.raw`^import\s+(?!type\b)(${IMPORT_BINDING}(?:\s*,\s*${NAMED_OR_NAMESPACE_IMPORT})?|${NAMED_OR_NAMESPACE_IMPORT})\s+from\s+(?:'(\.[^']+)'|"(\.[^"]+)")`,
+	'gmu',
+);
 // A barrel's re-exports are static dependencies exactly like its imports: `export { X }
 // from './x.ts'` puts `./x.ts` in the importer's chunk graph. The pattern spells the whole
-// re-export grammar out rather than reusing the lazy `[\s\S]*?` clause above, because
-// `export function`, `export const` and `export class` open a line in nearly every module
-// and a lazy clause would happily run from one of those to the `from` of a later statement.
+// re-export grammar out so it cannot span later declarations: `export function`,
+// `export const` and `export class` open a line in nearly every module, and an
+// unrestricted clause could run from one of those to the `from` of a later statement.
 const RE_EXPORT_PATTERN = /^export\s+(?!type\b)(\*(?:\s+as\s+[\p{ID_Start}$_][\p{ID_Continue}$]*)?|\{[^}]*\})\s*from\s*(?:'(\.[^']+)'|"(\.[^"]+)")/gmu;
 const DYNAMIC_IMPORT_PATTERN = /\bimport\(\s*(?:'(\.[^']+)'|"(\.[^"]+)")/gu;
 

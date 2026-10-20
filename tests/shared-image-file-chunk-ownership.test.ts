@@ -87,7 +87,7 @@ function runtimeSource(path: string): string {
 	let source = RUNTIME.get(path);
 	if (source === undefined) {
 		source = transformSync(readFileSync(path, 'utf8'), { sourcefile: path,
-			loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : 'js', format: 'esm' }).code;
+			loader: path.endsWith('.tsx') ? 'tsx' : path.endsWith('.ts') ? 'ts' : path.endsWith('.jsx') ? 'jsx' : path.endsWith('.json') ? 'json' : 'js', format: 'esm' }).code;
 		RUNTIME.set(path, source);
 	}
 	return source;

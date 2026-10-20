@@ -167,7 +167,7 @@ const audiocomOptionalModule = String.raw`(?:controller[\\/]import[\\/](?:intern
 
 /** Menu-opened UI, panel-only domain helpers, and deferred native authoring contracts. */
 export const EDITOR_OPTIONAL_SURFACE_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:${editorOptionalSurfaceModule}|${audiocomOptionalModule}|${deferredSurfaceHelpers}|recording-notes-(?:markdown|code)\\.ts|selected-generator-source-command\\.ts|ui[\\\\/]workspace[\\\\/]RecordingNotesPanel\\.tsx|freesound-upload-metadata\\.ts|ui[\\\\/]local-assistance-review-authority\\.ts|local-diagnostics-(?:report|contract)\\.ts|native-ofx-(?:host-contract(?:-v2)?|interact-contract)\\.ts)|src[\\\\/]common[\\\\/]i18n[\\\\/](?:freesound-attribution-copy\\.js|audiocom-copy\\.ts)|src[\\\\/]framescaper[\\\\/](?:editor-selected-timeline-image-image-(?:preview|filmstrip|preview-resources|preview-session)|editor-selected-timeline-image-resource-preview-v16|editor-native-openfx-authoring-model)\\.ts)$`,
+	`(?:${editorPath}(?:${editorOptionalSurfaceModule}|${audiocomOptionalModule}|${deferredSurfaceHelpers}|recording-notes-(?:markdown|code)\\.ts|selected-generator-source-command\\.ts|ui[\\\\/]workspace[\\\\/]RecordingNotesPanel\\.tsx|freesound-upload-metadata\\.ts|ui[\\\\/]local-assistance-review-authority\\.ts|local-diagnostics-(?:report|contract)\\.ts|native-ofx-(?:host-contract(?:-v2)?|interact-contract)\\.ts)|src[\\\\/]common[\\\\/]i18n[\\\\/](?:freesound-attribution-copy\\.js|audiocom-copy\\.ts)|src[\\\\/]framescaper[\\\\/](?:editor-selected-timeline-image-image-(?:preview|filmstrip|preview-resources|preview-session)|editor-selected-timeline-image-resource-preview-v16|editor-native-openfx-authoring-model|timeline-image-native-preview-companions)\\.ts)$`,
 );
 
 /** Split Tool interaction runtimes kept out of the product-ready startup graph. */
@@ -332,6 +332,7 @@ const framescaperProjectCommandModules = Object.freeze([
 	'editor-multicamera-source-retention-sequence',
 	'editor-project-assistance-commands',
 	'editor-project-assistance-transition-allocation',
+	'editor-project-commands',
 	'editor-project-composition-commands',
 	'editor-project-finishing-command-inheritance',
 	'editor-project-finishing-commands',
