@@ -124,7 +124,7 @@ jobs:
       - name: Qualify both real Linux packages through actual menu workflows
         if: runner.os == 'Linux'
         run: |
-          xvfb-run --auto-servernum node scripts/lightscaper-desktop-native-qualification-current-v1.ts \
+          xvfb-run --auto-servernum node --import tsx scripts/lightscaper-desktop-native-qualification-current-v1.ts \
             --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
             --native-result "$RUNNER_TEMP/lightscaper-photo-result" \
             --work-root "$RUNNER_TEMP/lightscaper-photo-work" --evidence-root "$RUNNER_TEMP/lightscaper-photo-evidence" \
@@ -132,7 +132,7 @@ jobs:
       - name: Qualify both real macOS or Windows packages through actual menu workflows
         if: runner.os != 'Linux'
         run: |
-          node scripts/lightscaper-desktop-native-qualification-current-v1.ts \
+          node --import tsx scripts/lightscaper-desktop-native-qualification-current-v1.ts \
             --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
             --native-result "$RUNNER_TEMP/lightscaper-photo-result" \
             --work-root "$RUNNER_TEMP/lightscaper-photo-work" --evidence-root "$RUNNER_TEMP/lightscaper-photo-evidence" \

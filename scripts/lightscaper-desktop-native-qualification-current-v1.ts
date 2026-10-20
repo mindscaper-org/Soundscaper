@@ -56,7 +56,9 @@ export async function runLightscaperDesktopNativeQualificationCurrentV1(args: re
 		set('SCAPE_PRODUCT', 'lightscaper'); set('SOUNDSCAPER_DESKTOP_TARGET_PLATFORM', plan.target.platform);
 		set('SOUNDSCAPER_DESKTOP_TARGET_ARCH', plan.target.arch); set('SCAPE_MAC_SIGNING', 'false');
 		set('SCAPE_WIN_SIGNING', 'none'); set('CSC_IDENTITY_AUTO_DISCOVERY', 'false');
-		const temporary = join(workRoot, 'tmp'); await mkdir(temporary); set('TMPDIR', temporary); set('TEMP', temporary); set('TMP', temporary);
+		// The builder's realpath guard admits os.tmpdir(). Every stage/package is
+		// below this exclusively created canonical private root, not a sibling tmp.
+		set('TMPDIR', workRoot); set('TEMP', workRoot); set('TMP', workRoot);
 		const entry = join(workRoot, 'public-package-entry.cjs');
 		await writeFile(entry, "process.chdir(process.env.LIGHTSCAPER_CI_SOURCE_ROOT);\nprocess.argv[1] = process.env.LIGHTSCAPER_CI_NPM_CLI;\nrequire(process.argv[1]);\n", { flag: 'wx', mode: 0o600 });
 		await receipt('host.json', { schemaVersion: 1, target: plan.target.target, sourceRevision: plan.sourceRevision,
