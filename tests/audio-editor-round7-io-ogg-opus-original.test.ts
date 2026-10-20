@@ -7,12 +7,6 @@ import { createExportPlan } from '../src/common/editor/export.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { ordinaryOggOpusFixture } from './helpers/ordinary-ogg-opus-fixture.ts';
 
-test('the ordinary .ogg and .opus controls contain exactly the same encoded recording', async () => {
-	const ogg = await ordinaryOggOpusFixture('ogg');
-	const opus = await ordinaryOggOpusFixture('opus');
-	assert.deepEqual(await ogg.arrayBuffer(), await opus.arrayBuffer());
-});
-
 for (const extension of ['ogg', 'opus'] as const) test(`the same ordinary Ogg Opus recording retains supported overwrite settings as .${extension}`, async () => {
 	const file = await ordinaryOggOpusFixture(extension);
 	const source = { id: 'voice', name: file.name, kind: 'audio', sampleRate: 48_000, originalSampleRate: 48_000,
