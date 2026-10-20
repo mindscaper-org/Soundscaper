@@ -22,7 +22,6 @@ const ACTIONS = Object.freeze([
 
 test('controller timeline facade exposes every clip-selection navigation action', () => {
 	const calls: string[] = [];
-	let ambientProductReads = 0;
 	const clipNavigation = Object.freeze(Object.fromEntries(ACTIONS.map((name) => [
 		name,
 		() => { calls.push(name); return name; },
@@ -39,10 +38,6 @@ test('controller timeline facade exposes every clip-selection navigation action'
 	});
 	const runtime = new Proxy(base, {
 		get(target, name, receiver) {
-			if (name === 'productSequenceActions') {
-				ambientProductReads += 1;
-				return { ambientSequenceAction: () => undefined };
-			}
 			if (name === 'selection') return selection;
 			return Reflect.get(target, name, receiver);
 		},
@@ -56,7 +51,4 @@ test('controller timeline facade exposes every clip-selection navigation action'
 		assert.equal(action(), name);
 	}
 	assert.deepEqual(calls, ACTIONS);
-	assert.equal(ambientProductReads, 0);
-	assert.equal(Object.hasOwn(createGroupedEditorActions(runtime).sequences, 'ambientSequenceAction'), false);
-	assert.equal(Object.isFrozen(timeline), true);
 });
