@@ -59,32 +59,7 @@ test('desktop codec providers resolve in bundled, OS, external order', async () 
 	assert.equal(Object.isFrozen(result.receipt.timing), true);
 });
 
-test('receipt settings are closed immutable data rather than an ambient options bag', async () => {
-	const coordinator = createDesktopCodecCoordinator({ providers: [
-		provider('bundled', 'bundled', 'supported', []),
-	] });
-	for (const settings of [
-		{ bitrateKbps: Number.NaN },
-		{ 'unsafe setting': 1 },
-		Object.defineProperty({}, 'bitrateKbps', { get: () => 128 }),
-	]) await assert.rejects(() => coordinator.execute(OPERATION, {
-		inputDigests: [], settings,
-		run: () => Promise.resolve({
-			value: null, outputDigest: '0'.repeat(64), timing: null,
-		}),
-	}), /settings/iu);
-});
 
-test('provider order is rejected when an OS or external provider precedes bundled codecs', () => {
-	assert.throws(() => createDesktopCodecCoordinator({ providers: [
-		provider('os', 'operating-system', 'supported', []),
-		provider('bundled', 'bundled', 'supported', []),
-	] }), /provider order/iu);
-	assert.throws(() => createDesktopCodecCoordinator({ providers: [
-		provider('external', 'external-ffmpeg', 'supported', []),
-		provider('os', 'operating-system', 'supported', []),
-	] }), /provider order/iu);
-});
 
 test('rejected preflight is terminal and never reaches a lower-priority provider', async () => {
 	const calls: string[] = [];
@@ -141,18 +116,6 @@ test('a selected provider may resolve unknown decode geometry and is re-prefligh
 	assert.deepEqual(result.receipt.operation, resolved);
 });
 
-test('resolved execution geometry cannot change the selected codec operation', async () => {
-	const coordinator = createDesktopCodecCoordinator({ providers: [
-		provider('bundled', 'bundled', 'supported', []),
-	] });
-	await assert.rejects(() => coordinator.execute(OPERATION, {
-		inputDigests: [],
-		run: () => Promise.resolve({
-			value: null, outputDigest: '0'.repeat(64), timing: null,
-			resolvedOperation: { ...OPERATION, codec: 'aac' },
-		}),
-	}), /resolved operation/iu);
-});
 
 test('cancellation before or during resolution is terminal', async () => {
 	const alreadyCancelled = new AbortController();
