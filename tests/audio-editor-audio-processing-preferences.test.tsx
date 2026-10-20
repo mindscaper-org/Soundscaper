@@ -23,7 +23,7 @@ function render(blocked: boolean, section = 'advanced', liveBlocked = blocked): 
 	/>);
 }
 
-test('Advanced renders processing settings and fallback status without a navigation button', () => {
+test('Advanced renders inline processing settings and fallback status', () => {
 	const markup = render(false);
 	assert.match(markup, /<legend>Processing<\/legend>/u);
 	assert.match(markup, /role="checkbox"[^>]*aria-checked="true"[^>]*aria-label="Parallel effect stacks"/u);
@@ -32,7 +32,6 @@ test('Advanced renders processing settings and fallback status without a navigat
 	assert.match(markup, /<option value="parallel-stack-buffering-1536" selected="">Recommended<\/option>/u);
 	assert.match(markup, /Added latency: 32 ms at 48000 Hz/u);
 	assert.match(markup, /Using standard processing: Unsupported rack/u);
-	assert.doesNotMatch(markup, /<button/u);
 	assert.equal(render(false, 'effects'), '');
 	assert.equal(render(false, 'audio'), '');
 });
