@@ -14,7 +14,7 @@ test('mock module URLs resolve exact ESM imports and delegate normal modules', a
 	const esm: unknown = await import(alias);
 	assert.equal((esm as { default: unknown }).default, 'asset-url');
 	const require = createRequire(import.meta.url);
-	assert.equal(await import('node:path'), await import('node:path'));
+	assert.equal((await import('node:path')).default, path);
 	assert.equal(require('node:path'), path);
 	const prototypeName = 'toString';
 	await assert.rejects(import(prototypeName), { code: 'ERR_MODULE_NOT_FOUND' });
