@@ -2,7 +2,7 @@
 import { readClosedDomainRecord as record, readClosedDomainField as field } from '../common/editor/closed-domain-value.ts';
 import { readDesktopPhotoRawRequestCurrentV1 as request, readDesktopPhotoRawTicketIdCurrentV1 as ticketId } from './desktop-photo-raw-contract-current-v1.ts';
 import { readDesktopPhotoLibrarySessionHandleCurrentV1 as handle } from './desktop-photo-library-session-protocol-current-v1.ts';
-import { copyDesktopPhotoBytesCurrentV1 as copy, desktopPhotoDigestCurrentV1 as digest } from './desktop-photo-library-session-transfer-client-current-v1.ts';
+import { copyDesktopPhotoBytesCurrentV1 as copy, desktopPhotoDigestCurrentV1 as digest } from './desktop-photo-transfer-bytes-current-v1.ts';
 const FIELDS: Readonly<Record<string, readonly string[]>> = Object.freeze({ available: [], begin: ['expectedBytes', 'expectedSha256'], write: ['handle', 'sequence', 'offset', 'bytes'], finish: ['handle'], close: ['handle'] });
 function integer(value: unknown, maximum: number, minimum = 0): number {
 	if (typeof value !== 'number' || !Number.isSafeInteger(value) || Object.is(value, -0) || value < minimum || value > maximum) throw new RangeError('Native RAW packet exceeds its fixed integer bound.'); return value;

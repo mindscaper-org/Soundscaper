@@ -8,25 +8,14 @@ import { DesktopPhotoSessionClientCallsCurrentV1 as Calls, desktopPhotoSignalCur
 	desktopPhotoVoidCurrentV1 as empty } from './desktop-photo-library-session-client-calls-current-v1.ts';
 import { readDesktopPhotoLibrarySessionHandleCurrentV1 as handle } from './desktop-photo-library-session-protocol-current-v1.ts';
 import { array, boolean, field, integer, record, text } from './catalog/value-validation.ts';
+import { DESKTOP_PHOTO_TRANSFER_BYTES_CURRENT_V1, copyDesktopPhotoBytesCurrentV1, desktopPhotoDigestCurrentV1 } from './desktop-photo-transfer-bytes-current-v1.ts';
+export { DESKTOP_PHOTO_TRANSFER_BYTES_CURRENT_V1, copyDesktopPhotoBytesCurrentV1, desktopPhotoDigestCurrentV1 };
 
 const SLICE = Blob.prototype.slice, READ = Blob.prototype.arrayBuffer, FILL = Uint8Array.prototype.fill;
-const NativeBytes = Uint8Array, TYPED = Object.getPrototypeOf(NativeBytes.prototype) as object;
-const BUFFER = Object.getOwnPropertyDescriptor(TYPED, 'buffer')!.get!, LENGTH = Object.getOwnPropertyDescriptor(TYPED, 'byteLength')!.get!;
-const TAG = Object.getOwnPropertyDescriptor(TYPED, Symbol.toStringTag)!.get!, SIZE = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength')!.get!, SET = NativeBytes.prototype.set;
-export const DESKTOP_PHOTO_TRANSFER_BYTES_CURRENT_V1 = 1_048_576;
 export type UploadReceiptReader<Value> = (value: unknown) => Value | Promise<Value>;
 
-/** Copy an actual native view before its first await; reject shared storage. */
-export function copyDesktopPhotoBytesCurrentV1(value: unknown, maximum = DESKTOP_PHOTO_TRANSFER_BYTES_CURRENT_V1): Uint8Array<ArrayBuffer> {
-	if (Reflect.apply(TAG, value, []) !== 'Uint8Array') throw new TypeError('Desktop bytes require a native Uint8Array.');
-	const length = Reflect.apply(LENGTH, value, []) as number, backing: unknown = Reflect.apply(BUFFER, value, []);
-	Reflect.apply(SIZE, backing, []); // Genuine ArrayBuffer, including cross-realm; SharedArrayBuffer refuses.
-	if (!Number.isSafeInteger(maximum) || maximum < 0 || length > maximum) throw new RangeError('Desktop transfer chunk exceeds its bound.');
-	const bytes = new NativeBytes(length); Reflect.apply(SET, bytes, [value]); return bytes;
-}
 export function wipeDesktopPhotoBytesCurrentV1(bytes: Uint8Array): void { Reflect.apply(FILL, bytes, [0]); }
 export function hashDesktopPhotoBytesCurrentV1(value: Uint8Array): string { return bytesToHex(sha256(value)); }
-export function desktopPhotoDigestCurrentV1(value: unknown): string { if (typeof value !== 'string' || !/^[a-f0-9]{64}$/u.test(value)) throw new TypeError('Desktop SHA-256 required.'); return value; }
 
 /** Every escaped writer caches terminal requests and joins an accepted write.
 	* Native COMMIT is the publication ACK; no post-ACK signal check revokes it. */
