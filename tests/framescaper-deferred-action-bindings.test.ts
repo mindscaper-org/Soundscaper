@@ -84,4 +84,3 @@ test('a failed load is not cached, so a later use retries it', async () => {
 	assert.equal(loads.count, 2, 'a rejected load must not be cached as the permanent answer');
 	assert.deepEqual(runs, ['render-queue-enqueue']);
 });
-

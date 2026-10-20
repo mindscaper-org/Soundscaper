@@ -110,4 +110,3 @@ test('manual scrolling suspends playback following until the playhead returns on
 		suspended: true,
 	}), { suspended: false, targetScrollX: null });
 });
-

@@ -46,4 +46,3 @@ test('the timeline ruler represents an empty loop range as absent', () => {
 	}
 	renderToStaticMarkup(<ThemeProvider><Probe /></ThemeProvider>);
 });
-

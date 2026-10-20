@@ -70,4 +70,3 @@ test('an aborted signal rethrows its own reason rather than a synthesized error'
 		return true;
 	});
 });
-

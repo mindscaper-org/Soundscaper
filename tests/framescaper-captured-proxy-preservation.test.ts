@@ -42,4 +42,3 @@ test('a captured proxy fingerprint separates any two distinct projects', () => {
 		'separately created projects carry their own identity',
 	);
 });
-

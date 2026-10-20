@@ -108,4 +108,3 @@ test('an unrecognised loudness target shape is refused', () => {
 	assert.throws(() => resolveTarget({ integratedLufs: -23, truePeakDbtp: -1 }), TypeError);
 	assert.throws(() => resolveTarget('not-a-preset'), Error);
 });
-
