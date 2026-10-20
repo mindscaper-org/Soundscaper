@@ -17,8 +17,8 @@ import { videoPreviewAuthoringPausedV1 } from '../src/common/editor/controller/c
 type Draft = <Result>(request: { develop: ImageDevelopStateCurrentV1; reference: unknown; bytes: Uint8Array; maskOverlay?: { maskId: string; effectId: string } }, consume: (view: Readonly<ImageDevelopFrameViewV1>) => Result | Promise<Result>) => Promise<Result>;
 const SELECTION = Object.freeze({ maskId: 'paint', effectId: 'invert' });
 function invert() { return createVideoEffect('point-curves-v1', { id: 'invert', params: { master: [{ x: 0, y: 1 }, { x: 1, y: 0 }] } }); }
-function develop(base: Readonly<ImageDevelopStateCurrentV1>, key: string) {
-	return normalizeImageDevelopStateCurrentV1({ ...base, effects: [invert()], masks: [{ schemaVersion: 2, id: 'paint', name: 'Local painted draft', kind: 'matte',
+function develop(base: unknown, key: string) {
+	return normalizeImageDevelopStateCurrentV1({ ...normalizeImageDevelopStateCurrentV1(base), effects: [invert()], masks: [{ schemaVersion: 2, id: 'paint', name: 'Local painted draft', kind: 'matte',
 		inputs: [{ name: 'alpha', kind: 'alpha', sourceRef: key }], nodes: [{ id: 'alpha', kind: 'alpha', inputName: 'alpha' }], outputNodeId: 'alpha' }], maskBindings: [SELECTION] });
 }
 function snapshot(view: Readonly<ImageDevelopFrameViewV1>) { return { width: view.frame.descriptor.width, height: view.frame.descriptor.height, pixels: [...view.frame.pixels], ...(view.maskOverlay ? { coverage: [...view.maskOverlay.coverage] } : {}) }; }

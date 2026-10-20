@@ -7,7 +7,6 @@ import { createFramescaperProjectHistory, executeFramescaperProjectCommand, undo
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import type { FramescaperImageSourceSetCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-image-command.ts';
 import { normalizeImageDevelopStateCurrentV1 } from '../src/common/editor/imaging/image-develop-state-current-v1.ts';
-import type { ImageDevelopStateCurrentV1 } from '../src/common/editor/imaging/image-develop-state-current-v1.ts';
 import { replaceImageDevelopRepairSpotsV1 } from '../src/common/editor/imaging/image-develop-repair-commands-v1.ts';
 import { imageDevelopHandoffRecipeSha256V2 } from '../src/common/editor/image-develop-handoff-provenance-v2.ts';
 import { withPreparedBrushMaskResourceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
@@ -18,8 +17,8 @@ import { deferred, remainsPending } from './helpers/async-test-control.ts';
 function display(value: number): number {
 	value = Math.max(0, Math.min(1, value)); return Math.round(255 * (value <= .0031308 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - .055));
 }
-function clone(develop: ImageDevelopStateCurrentV1) {
-	return replaceImageDevelopRepairSpotsV1(develop, { schemaVersion: 1, spots: [{ id: 'clone', enabled: true, mode: 'clone',
+function clone(develop: unknown) {
+	return replaceImageDevelopRepairSpotsV1(normalizeImageDevelopStateCurrentV1(develop), { schemaVersion: 1, spots: [{ id: 'clone', enabled: true, mode: 'clone',
 		target: { x: 24.5 / 32, y: 24.5 / 32 }, source: { x: 8.5 / 32, y: 24.5 / 32 }, radius: .0125, feather: 0, opacity: 1 }] });
 }
 function bind(f: Awaited<ReturnType<typeof createRawFrameFixtureCurrentV1>>, additional: ReadonlyMap<string, Blob> = new Map()) {

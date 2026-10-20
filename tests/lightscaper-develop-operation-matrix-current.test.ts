@@ -58,7 +58,7 @@ for (const processVersion of [1, 2, 3] as const) for (const [type, params] of OP
 			const snapshot = await f.session.develop.read({ schemaVersion: 3, photoId: photo.id });
 			assert.deepEqual(snapshot.develop, develop);
 			const render = (full: boolean) => f.session.develop.original!.withFrame({ schemaVersion: 1, photoId: photo.id, expectedRevision: photo.revision },
-				view => (full ? f.runtime.withFullResolution : f.runtime.withProxy)({ frame: view.frame, develop: snapshot.develop,
+				view => (full ? f.runtime.withFullResolution : f.runtime.withProxy)({ frame: view.frame, develop: normalizeImageDevelopStateCurrentV1(snapshot.develop),
 					signal: new AbortController().signal }, result => ({ descriptor: result.frame.descriptor, pixels: [...result.frame.pixels] })));
 			const preview = await render(false);
 			assert.deepEqual(await render(false), preview, 'Repeated rendering must be deterministic');

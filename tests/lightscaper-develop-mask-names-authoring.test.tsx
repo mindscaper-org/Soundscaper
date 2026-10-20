@@ -11,6 +11,7 @@ import { photoDevelopBrushMaskCopy } from '../src/common/i18n/lightscaper-develo
 import { defaultImageDevelopStateV2, normalizeImageDevelopStateV1OrV2 } from '../src/common/editor/imaging/image-develop-state-v2.ts';
 import { withPreparedBrushMaskResourceV1, withBrushMaskResourceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import type { PhotoLibraryDevelopSettingsV2 } from '../src/common/editor/photo-library-develop-port-v2.ts';
+import type { ImageDevelopStateCurrentV1 } from '../src/common/editor/imaging/image-develop-state-current-v1.ts';
 import type { PhotoLibraryDevelopMaskRasterPortV1 } from '../src/common/editor/photo-library-develop-mask-raster-port-v1.ts';
 import { createPhotoMediaMaskRasterResourcesV1 } from '../src/lightscaper/storage/photo-media-mask-raster-resources-v1.ts';
 import { createVideoEffect } from '../src/common/editor/video-effects.js';
@@ -49,7 +50,7 @@ for (const locale of ['en', 'de']) for (const kind of ['linear-gradient', 'radia
 	test(`${locale}: named ${kind} re-edit displays the name and preserves schema, node/output identity and unrelated names`, async () => {
 		const graph = { schemaVersion: 2, name: 'Named skyline', id: 'selected', kind: 'matte', inputs: [], nodes: [node(kind)], outputNodeId: 'retained-output' };
 		const initial = recipe(graph), wire = JSON.stringify(initial), applied: PhotoLibraryDevelopSettingsV2[] = [], text = photoDevelopLocalAdjustmentsCopy(locale, kind);
-		const props = { develop: initial, locale, isCurrent: () => true, onApply: (value: PhotoLibraryDevelopSettingsV2) => { applied.push(value); }, onClose: () => undefined };
+		const props = { develop: initial, locale, isCurrent: () => true, onApply: (value: ImageDevelopStateCurrentV1) => { if (value.processVersion === 3) assert.fail('Naming a mask must preserve the historical recipe.'); applied.push(value); }, onClose: () => undefined };
 		const mounted = await mountPhotoImportUi(() => kind === 'linear-gradient' || kind === 'radial-gradient'
 			? <PhotoDevelopGradientDialogV1 {...props} kind={kind} /> : <PhotoDevelopRangeMaskDialogV1 {...props} kind={kind} />);
 		try {
@@ -72,7 +73,7 @@ test('legacy unnamed gradient re-edit preserves exact Graph1 and ID-based select
 	const graph = { schemaVersion: 1, id: 'selected', kind: 'mask', inputs: [], nodes: [node('linear-gradient')], outputNodeId: 'retained-output' };
 	const initial = recipe(graph, false), text = photoDevelopLocalAdjustmentsCopy('en'), applied: PhotoLibraryDevelopSettingsV2[] = [];
 	const mounted = await mountPhotoImportUi(() => <PhotoDevelopGradientDialogV1 develop={initial} locale="en" isCurrent={() => true}
-		onApply={value => { applied.push(value); }} onClose={() => undefined} />);
+		onApply={value => { if (value.processVersion === 3) assert.fail('Re-editing a gradient must preserve the historical recipe.'); applied.push(value); }} onClose={() => undefined} />);
 	try {
 		const f = controls(mounted.dom.container); assert.equal(f.control(text.gradient).options.find(value => value.value === 'selected')!.textContent, 'selected');
 		await f.change(text.gradient, 'selected'); await f.click(text.apply); assert.deepEqual(applied[0], initial);
@@ -96,7 +97,7 @@ for (const locale of ['en', 'de']) test(`${locale}: named brush re-edit authenti
 		try {
 			await storage.resources.put(body.reference, body.bytes);
 			mounted = await mountPhotoImportUi(() => <PhotoDevelopBrushMaskDialogV1 port={port} develop={initial} locale={locale} isCurrent={() => true}
-				onApply={value => { assert.equal(receipts.length, 1, 'The actual install ACK precedes editing the recipe.'); applied.push(value); }} onClose={() => undefined}
+				onApply={value => { assert.equal(receipts.length, 1, 'The actual install ACK precedes editing the recipe.'); if (value.processVersion === 3) assert.fail('Re-editing a brush must preserve the historical recipe.'); applied.push(value); }} onClose={() => undefined}
 				registerRetirement={retire => { retirements.add(retire); return () => { retirements.delete(retire); }; }} />);
 			const active = mounted, f = controls(active.dom.container), text = photoDevelopBrushMaskCopy(locale);
 			const ready = async () => { for (let turn = 0; turn < 100; turn++) { await act(async () => { await settle(); }); if (active.dom.one('canvas').getAttribute('data-state') === 'ready') return; } assert.fail('Actual brush owner did not become ready.'); };

@@ -38,7 +38,7 @@ test('Lightscaper browser group fixture authenticates both independent locators 
 	let id: string | undefined, failed = false, primary: unknown; const cleanup: unknown[] = [];
 	try {
 		const { openGroup, readGroup, closeGroup } = fixture.transport;
-		assert.ok(openGroup && readGroup && closeGroup);
+		for (const method of [openGroup, readGroup, closeGroup]) assert.equal(typeof method, 'function');
 		assert.equal(fixture.requests.length, 2);
 		assert.equal(new Set(fixture.requests.map(value => value.photoId)).size, 2);
 		assert.equal(new Set(fixture.requests.map(value => value.original.storageKey)).size, 2);
@@ -54,7 +54,7 @@ test('Lightscaper browser group fixture authenticates both independent locators 
 		}
 		await fixture.provePinned(); await closeGroup({ id }); id = undefined; await fixture.proveReleased();
 	} catch (error) { failed = true; primary = error; }
-	if (id && fixture.transport.closeGroup) try { await fixture.transport.closeGroup({ id }); } catch (error) { cleanup.push(error); }
+	if (id) try { await fixture.transport.closeGroup({ id }); } catch (error) { cleanup.push(error); }
 	try { await fixture.close(); } catch (error) { cleanup.push(error); }
 	context.signal.removeEventListener('abort', cancel);
 	if (cleanup.length) throw new AggregateError([...(failed ? [primary] : []), ...cleanup], 'Native browser group fixture did not retire.');

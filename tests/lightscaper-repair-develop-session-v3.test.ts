@@ -163,7 +163,7 @@ test('Develop3 original child pins both source methods and their real receiver b
 	const f = await fixture(), entered = deferred<void>(), release = deferred<void>(), work: { value?: Promise<unknown> } = {}; let metadata = 0, loads = 0, decodes = 0;
 	try {
 		const ack = await createPhotoLibraryDevelopSessionV3(f.host).apply({ schemaVersion: 3, photoId: 'photo-1', expectedRevision: 0, command: record() });
-		const source = f.host.originalSource; assert.ok(source); const load = source.loadOriginal, decode = source.withFrame; assert.ok(decode);
+		const source = f.host.originalSource; assert.ok(source); const load = source.loadOriginal, decode = source.withFrame; assert.ok(load); assert.ok(decode);
 		Reflect.set(source, 'loadOriginal', new Proxy(load, { get() { metadata++; throw Error('Original callable metadata inspected'); },
 			apply(target, receiver, args) { assert.equal(receiver, source); loads++; return Reflect.apply(target, receiver, args); } }));
 		Reflect.set(source, 'withFrame', new Proxy(decode, { get() { metadata++; throw Error('Decoder callable metadata inspected'); },

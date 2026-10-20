@@ -63,7 +63,7 @@ async function editor(locale = 'en', frameDialog = false, develop: ImageDevelopS
 	const props: NeutralProps = { withOriginalFrame: f.read, develop, locale, isCurrent: () => current,
 		onApply: value => { applied.push(value); }, onClose: () => { closes++; }, registerRetirement: retire => { retirees.add(retire); return () => { retirees.delete(retire); }; } };
 	const mounted = await mountPhotoImportUi(() => frameDialog
-		? <FramescaperImageDevelopDialogV1 {...props} kind="repairs" onApply={value => { unchanged.push(value); }} />
+		? <FramescaperImageDevelopDialogV1 {...props} kind="repairs" onApply={value => { if (value.processVersion === 4) assert.fail('This repair fixture must preserve its historical recipe.'); unchanged.push(value); }} />
 		: <ImageRepairSpotsEditorV1 {...props as unknown as React.ComponentProps<typeof ImageRepairSpotsEditorV1>} />)
 		.catch((error: unknown) => { restore(); throw error; });
 	const text = photoDevelopRepairSpotsCopy(locale), control = (label: string) => {
@@ -148,7 +148,7 @@ for (const locale of ['en', 'de']) test(`${locale}: Frame mask editor renames a 
 	const develop: ImageDevelopStateCurrentV1 = { ...original, masks: [{ schemaVersion: 1, id: 'gradient', kind: 'matte', inputs: [],
 		nodes: [{ id: 'ramp', kind: 'linear-gradient', start: { x: 0, y: 0 }, end: { x: 1, y: 0 } }], outputNodeId: 'ramp' }] };
 	const props: FramescaperImageDevelopDialogPropsV1 = { kind: 'masks', develop, locale, withOriginalFrame: () => assert.fail('Mask names require no Original body.'),
-		isCurrent: () => true, onApply: value => { applied.push(value); }, onClose: () => undefined };
+		isCurrent: () => true, onApply: value => { if (value.processVersion === 4) assert.fail('Mask naming must preserve the historical recipe.'); applied.push(value); }, onClose: () => undefined };
 	const mounted = await mountPhotoImportUi(() => <FramescaperImageDevelopDialogV1 {...props} />);
 	try {
 		assert.equal(mounted.dom.container.querySelectorAll('input').some(node => node.getAttribute('aria-label') === text.showOverlay), false);

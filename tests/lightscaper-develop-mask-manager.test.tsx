@@ -36,7 +36,7 @@ async function fixture(locale = 'en', initial: PhotoLibraryDevelopSettingsV2 = r
 	let renderedProps: PhotoDevelopMaskManagerPropsV1;
 	const applied: Array<{ value: PhotoLibraryDevelopSettingsV2; overlay: Parameters<PhotoDevelopMaskManagerPropsV1['onApply']>[1] }> = [];
 	const onApply: PhotoDevelopMaskManagerPropsV1['onApply'] = function (this: PhotoDevelopMaskManagerPropsV1, value, overlay) {
-		assert.equal(this, renderedProps); applied.push({ value, overlay });
+		assert.equal(this, renderedProps); if (value.processVersion === 3) assert.fail('Mask management must preserve the historical recipe.'); applied.push({ value, overlay });
 	};
 	const onClose = function (this: PhotoDevelopMaskManagerPropsV1) { assert.equal(this, renderedProps); closed++; };
 	const mounted = await mountPhotoImportUi(() => {

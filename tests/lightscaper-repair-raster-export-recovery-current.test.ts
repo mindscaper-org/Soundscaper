@@ -10,6 +10,7 @@ import { createPhotoRasterExportJournalV1 } from '../src/lightscaper/storage/pho
 import { PhotoRasterExportJournalOwnerV1 } from '../src/lightscaper/storage/photo-raster-export-journal-owner-v1.ts';
 import type { BrowserFileSaveRequest } from '../src/common/editor/browser-file-save-service.ts';
 import { defaultImageDevelopStateV2 } from '../src/common/editor/imaging/image-develop-state-v2.ts';
+import { normalizeImageDevelopStateThroughV3 } from '../src/common/editor/imaging/image-develop-state-through-v3.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
 import { repairRasterFixture, decodePng } from './helpers/lightscaper-repair-raster-export-current-fixture.ts';
 
@@ -25,7 +26,7 @@ async function delivered(f: Fixture) {
 		await journal.create(createPhotoRasterExportJournalV1(plan, { catalogId: photo.catalogId, filenameTemplate: '{name}', bindings: [facts] }));
 		await journal.started(plan.members[0]!.jobId);
 		const bytes = await input.withOriginalFrame({ schemaVersion: 1, photoId: photo.id, expectedRevision: photo.revision }, view =>
-			f.runtime.withFullResolution({ frame: view.frame, develop: photo.versions[0]!.develop, signal: new AbortController().signal }, output =>
+			f.runtime.withFullResolution({ frame: view.frame, develop: normalizeImageDevelopStateThroughV3(photo.versions[0]!.develop), signal: new AbortController().signal }, output =>
 				input.encode(output.frame, { signal: new AbortController().signal, limits: { maximumSidePixels: 8192, maximumPixels: 16_777_216, maximumBytes: 67_108_864 }, maximumOutputBytes: 268_435_456 })));
 		try { const saved = await input.saveFile({ purpose: 'media', mimeType: 'image/png', suggestedName: plan.members[0]!.fileName, blob: new Blob([bytes]), target: { browserDownload: true } });
 			assert.ok(!('cancelled' in saved)); assert.equal(saved.method, 'download');

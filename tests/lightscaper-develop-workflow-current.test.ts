@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PhotoLibraryDevelopWorkflowCurrentV1, type ExecutePhotoDevelopCurrentV1 } from '../src/common/editor/controller/shared/photo-library-develop-workflow-current-v1.ts';
-import { createPhotoLibraryDevelopSessionV3, type PhotoLibraryDevelopSessionHostV3 } from '../src/lightscaper/controller/photo-library-develop-session-v3.ts';
+import { createPhotoLibraryDevelopSessionCurrentV1, type PhotoLibraryDevelopSessionHostCurrentV1 } from '../src/lightscaper/controller/photo-library-develop-session-current-v1.ts';
 import { PhotoCatalogRepositoryCurrentV1 } from '../src/lightscaper/catalog/photo-catalog-repository-current-v1.ts';
 import { PhotoCommandOwnerCurrentV1 } from '../src/lightscaper/controller/photo-command-owner-current-v1.ts';
 import { PhotoLibrarySessionLifetime } from '../src/lightscaper/controller/photo-library-session-lifetime.ts';
@@ -11,7 +11,7 @@ import { defaultImageDevelopStateV2 } from '../src/common/editor/imaging/image-d
 import { replaceImageDevelopRepairSpotsV1 } from '../src/common/editor/imaging/image-develop-repair-commands-v1.ts';
 import { createVideoEffectV2 } from '../src/common/editor/video-effects-v2.ts';
 import { normalizeVideoMaskMatteGraphV1OrV2 } from '../src/common/editor/video-mask-matte-name-v2.ts';
-import type { PhotoLibraryDevelopAcknowledgementV3, PhotoLibraryDevelopPortV3 } from '../src/common/editor/photo-library-develop-port-v3.ts';
+import type { PhotoLibraryDevelopAcknowledgementCurrentV1, PhotoLibraryDevelopPortCurrentV1 } from '../src/common/editor/photo-library-develop-port-current-v1.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
 import { gradientGraph } from './helpers/lightscaper-masked-frame-fixture.ts';
@@ -31,13 +31,13 @@ async function fixture() {
 	await repository.createCatalog({ schemaFamily: 'lightscaper', schemaVersion: 1, kind: 'photo-catalog', id: 'catalog-1', name: 'Current workflow',
 		revision: 0, photoCount: 0, folders: [], keywords: [], collections: [] });
 	await repository.publishPhotos('catalog-1', 0, [seed.photo]);
-	const host: PhotoLibraryDevelopSessionHostV3 = { repository, ready: async () => 'catalog-1', operation: (run, signal) => lifetime.operation(run, signal),
+	const host: PhotoLibraryDevelopSessionHostCurrentV1 = { repository, ready: async () => 'catalog-1', operation: (run, signal) => lifetime.operation(run, signal),
 		edit: (photoId, run, signal) => lifetime.mutation(async admitted => {
 			const owner = await PhotoCommandOwnerCurrentV1.open(repository, 'catalog-1', photoId);
 			try { return await run(owner, admitted); } finally { await owner.close(); }
 		}, signal) };
-	const actual = createPhotoLibraryDevelopSessionV3(host), hooks = { current: true, refresh: async (): Promise<unknown> => undefined,
-		acquire: async (): Promise<PhotoLibraryDevelopPortV3> => actual };
+	const actual = createPhotoLibraryDevelopSessionCurrentV1(host), hooks = { current: true, refresh: async (): Promise<unknown> => undefined,
+		acquire: async (): Promise<PhotoLibraryDevelopPortCurrentV1> => actual };
 	const execute: ExecutePhotoDevelopCurrentV1 = async (action, signal) => {
 		const admitted = signal ?? lifetime.signal;
 		return action({ signal: admitted, acquire: () => hooks.acquire(), isCurrent: () => hooks.current, refresh: () => hooks.refresh() });
@@ -116,14 +116,14 @@ test('Current Save claims its latch before a reentrant clock and preserves the c
 
 test('Current workflow returns the real stored ACK after held delivery, Cancel/Close and failed refresh without republishing retired state', async () => {
 	const f = await fixture(), entered = deferred<void>(), release = deferred<void>();
-	const holder: { save?: Promise<PhotoLibraryDevelopAcknowledgementV3 | null> } = {};
+	const holder: { save?: Promise<PhotoLibraryDevelopAcknowledgementCurrentV1 | null> } = {};
 	const owner = new PhotoLibraryDevelopWorkflowCurrentV1({ execute: f.execute, now: () => TIME });
 	try {
 		await owner.open('photo-1'); owner.edit(repairs());
 		f.hooks.acquire = async () => ({ ...f.actual, async apply(request, options) {
 			const ack = await f.actual.apply(request, options); entered.resolve(); await release.promise; return ack;
 		} });
-		holder.save = owner.save('Native ACK'); await enteredBeforeSettlement(holder.save, entered.promise);
+		const saving = owner.save('Native ACK'); holder.save = saving; await enteredBeforeSettlement(saving, entered.promise);
 		assert.equal((await f.repository.loadPhoto('catalog-1', 'photo-1'))?.revision, 1);
 		const closing = owner.close(); assert.equal(owner.close(), closing); assert.equal(await remainsPending(closing), true);
 		release.resolve(); const ack = await holder.save; assert.ok(ack); assert.deepEqual(ack.snapshot.develop, repairs()); await closing;

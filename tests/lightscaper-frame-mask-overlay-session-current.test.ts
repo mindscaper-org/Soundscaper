@@ -15,17 +15,15 @@ import { videoPreviewAuthoringPausedV1 } from '../src/common/editor/controller/c
 import { editableImageFixture, CORNERS, PROFILE, LUT, LUT_BODY } from './helpers/framescaper-editable-image-current-fixture.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
 
-type DraftFrame = <Result>(request: Readonly<{ develop: ImageDevelopStateCurrentV1; maskOverlay?: Readonly<{ maskId: string; effectId: string }> }>,
-	consume: (view: Readonly<ImageDevelopFrameViewV1>) => Result | Promise<Result>, options?: Readonly<{ signal?: AbortSignal }>) => Promise<Result>;
 type Session = Awaited<ReturnType<NonNullable<ReturnType<typeof framescaperImageDevelopAuthoringForCurrentV1>>['open']>>;
-function draft(session: Session): DraftFrame {
-	const native = session as Session & { withDraftFrame?: DraftFrame };
-	assert.equal(typeof native.withDraftFrame, 'function', 'A selected Frame Session must lend its real rendered local draft.'); return native.withDraftFrame!;
+function draft(session: Session) {
+	const native = session.withDraftFrame;
+	assert.ok(native, 'A selected Frame Session must lend its real rendered local draft.'); return native;
 }
 function observed<Value>(work: Promise<Value>) { return work.then(value => ({ ok: true as const, value }), (error: unknown) => ({ ok: false as const, error })); }
 function invert(id = 'invert') { return createVideoEffect('point-curves-v1', { id, params: { master: [{ x: 0, y: 1 }, { x: 1, y: 0 }] } }); }
-function range(develop: ImageDevelopStateCurrentV1) {
-	return normalizeImageDevelopStateCurrentV1({ ...develop, effects: [invert()], masks: [{ schemaVersion: 1, id: 'range', kind: 'matte', inputs: [],
+function range(develop: unknown) {
+	return normalizeImageDevelopStateCurrentV1({ ...normalizeImageDevelopStateCurrentV1(develop), effects: [invert()], masks: [{ schemaVersion: 1, id: 'range', kind: 'matte', inputs: [],
 		nodes: [{ id: 'luma', kind: 'luminance-range', lower: 0.7, upper: 1, falloff: 0 }], outputNodeId: 'luma' }], maskBindings: [{ maskId: 'range', effectId: 'invert' }] });
 }
 const SELECTION = Object.freeze({ maskId: 'range', effectId: 'invert' });

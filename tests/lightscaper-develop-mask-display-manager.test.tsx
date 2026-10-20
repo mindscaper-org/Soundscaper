@@ -28,7 +28,7 @@ async function fixture(locale = 'en', strict = false) {
 	const applied: Array<{ value: PhotoLibraryDevelopSettingsV2; selection: Parameters<PhotoDevelopMaskManagerPropsV1['onApply']>[1] }> = [];
 	const mounted = await mountPhotoImportUi(() => {
 		const element = <PhotoDevelopMaskManagerV1 develop={develop} disabled={disabled} locale={locale} isCurrent={() => current}
-			onApply={function (this: PhotoDevelopMaskManagerPropsV1, value, selection) { assert.equal(this, props); applied.push({ value, selection }); }}
+			onApply={function (this: PhotoDevelopMaskManagerPropsV1, value, selection) { assert.equal(this, props); if (value.processVersion === 3) assert.fail('Mask display must preserve the historical recipe.'); applied.push({ value, selection }); }}
 			onClose={function (this: PhotoDevelopMaskManagerPropsV1) { assert.equal(this, props); closed++; }} />;
 		props = element.props; return strict ? <StrictMode>{element}</StrictMode> : element;
 	});

@@ -9,6 +9,7 @@ import { applyFramescaperProjectCommand } from '../src/framescaper/editor-projec
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import type { FramescaperImageSourceSetCommandTimelineImage } from '../src/framescaper/editor-project-timeline-image-image-command.ts';
 import type { WithImageRepairSpotsOriginalFrameV1 } from '../src/common/editor/controller/shared/image-repair-spots-authoring-v1.ts';
+import { normalizeImageDevelopStateCurrentV1 } from '../src/common/editor/imaging/image-develop-state-current-v1.ts';
 import { photoDevelopRepairSpotsCopy } from '../src/common/i18n/lightscaper-develop-repair-spots-copy.ts';
 import { videoPreviewAuthoringPausedV1 } from '../src/common/editor/controller/clip-video/video-preview-authoring-suspension-v1.ts';
 import { createRawFrameFixtureCurrentV1 } from './helpers/lightscaper-raw-frame-current-fixture.ts';
@@ -90,7 +91,8 @@ test('Current native repair Close joins held actual RAW validation despite sourc
 			if (hold) { hold = false; entered.resolve(); await release.promise; } options?.signal?.throwIfAborted(); return consume(frame);
 		}, options);
 		let onClose = () => { oldCloses++; };
-		const ui = await mountPhotoImportUi(() => <ImageRepairSpotsEditorV1 nativeCurrent develop={session.develop} withOriginalFrame={original} locale="en"
+		const develop = normalizeImageDevelopStateCurrentV1(session.develop);
+		const ui = await mountPhotoImportUi(() => <ImageRepairSpotsEditorV1 nativeCurrent develop={develop} withOriginalFrame={original} locale="en"
 			isCurrent={() => current && session.isCurrent()} onApply={() => { applied++; }} onClose={onClose}
 			registerRetirement={retire => { retirees.add(retire); return () => { retirees.delete(retire); }; }} />);
 		try {
@@ -109,7 +111,8 @@ test('Current native repair failed Original retirement still hands Close to the 
 		const host = selected(f), session = await host.port.open(), text = photoDevelopRepairSpotsCopy('en'); let calls = 0, closed = false;
 		let joining: Promise<void> | undefined; const retirement = new Set<() => Promise<void>>();
 		const original: WithImageRepairSpotsOriginalFrameV1 = (consume, options) => session.withOriginalFrame(frame => { calls++; if (calls === 2) throw opaque; return consume(frame); }, options);
-		const ui = await mountPhotoImportUi(() => <ImageRepairSpotsEditorV1 nativeCurrent develop={session.develop} withOriginalFrame={original} locale="en" isCurrent={() => session.isCurrent()}
+		const develop = normalizeImageDevelopStateCurrentV1(session.develop);
+		const ui = await mountPhotoImportUi(() => <ImageRepairSpotsEditorV1 nativeCurrent develop={develop} withOriginalFrame={original} locale="en" isCurrent={() => session.isCurrent()}
 			onApply={() => assert.fail('Failed native preview cannot publish.')} onClose={() => {
 				joining = Promise.allSettled([...retirement].map(retire => retire())).then(async outcomes => { assert.ok(outcomes.some(value => value.status === 'rejected' && Object.is(value.reason, opaque))); await session.closeAndJoin(); closed = true; });
 			}} registerRetirement={retire => { retirement.add(retire); return () => { retirement.delete(retire); }; }} />);

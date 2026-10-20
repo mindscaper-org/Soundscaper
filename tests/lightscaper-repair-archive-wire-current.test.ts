@@ -7,13 +7,14 @@ import { defaultImageDevelopStateV1 } from '../src/common/editor/imaging/image-d
 import { replaceImageDevelopRepairSpotsV1 } from '../src/common/editor/imaging/image-develop-repair-commands-v1.ts';
 import { copyImageDevelopSelectedSettingsV3 } from '../src/common/editor/imaging/image-develop-settings-selected-v3.ts';
 import { createImageDevelopSelectedPresetV3 } from '../src/common/editor/imaging/image-develop-preset-selected-v3.ts';
-import { normalizePhotoDocumentCurrentV1, serializePhotoDocumentCurrentV1, type PhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/photo-document-current-v1.ts';
+import { serializePhotoDocumentCurrentV1, type PhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/photo-document-current-v1.ts';
 import { serializePhotoDocumentV1OrV2 } from '../src/lightscaper/catalog/photo-document-v2.ts';
+import { normalizePhotoDocumentV3 } from '../src/lightscaper/catalog/photo-document-v3.ts';
 import { normalizePhotoDevelopWorkspaceV3 } from '../src/lightscaper/catalog/photo-develop-workspace-v3.ts';
 import { normalizePhotoDevelopPresetRowCurrentV1, type PhotoDevelopPresetRowCurrentV1 } from '../src/lightscaper/storage/photo-develop-preset-row-current-v1.ts';
 import { encodePhotoCatalogPackV2 } from '../src/lightscaper/archive/catalog-pack-v2.ts';
 import { encodePhotoCatalogPackV3, readPhotoCatalogPackV3, measurePhotoCatalogPackRecordV3 } from '../src/lightscaper/archive/catalog-pack-v3.ts';
-import { encodePhotoCatalogPackV4, readPhotoCatalogPackV4, measurePhotoCatalogPackRecordV4 } from '../src/lightscaper/archive/catalog-pack-v4.ts';
+import { encodePhotoCatalogPackV4, readPhotoCatalogPackV4, measurePhotoCatalogPackRecordV4, type PhotoCatalogPackInputV4 } from '../src/lightscaper/archive/catalog-pack-v4.ts';
 import { encodePhotoDevelopPresetPackV2 } from '../src/lightscaper/archive/develop-preset-pack-v2.ts';
 import { encodePhotoDevelopPresetPackV3, readPhotoDevelopPresetPackV3 } from '../src/lightscaper/archive/develop-preset-pack-v3.ts';
 import { normalizePhotoCatalogArchiveV7, assertPhotoCatalogPackManifestV7 } from '../src/lightscaper/archive/catalog-archive-contract-v7.ts';
@@ -24,7 +25,7 @@ import { deferred, remainsPending } from './helpers/async-test-control.ts';
 
 // Root observed these oracles against actual strict legacy owners before
 // binding the named successors. Permanent old-profile controls stay explicit.
-type Input = Readonly<{ photo: PhotoDocumentCurrentV1; original: Blob }>;
+type Input = PhotoCatalogPackInputV4;
 type Options = Readonly<{ signal?: AbortSignal; maximumRecords?: number; maximumPackBytes?: number; maximumChunkBytes?: number }>;
 const encode = (records: Iterable<Input>, options: Options = {}): AsyncIterable<Uint8Array> => encodePhotoCatalogPackV4(records, options);
 const read = (source: AsyncIterable<Uint8Array>, consume: (photo: PhotoDocumentCurrentV1, original: AsyncIterable<Uint8Array>) => Promise<void>, options: Options = {}): Promise<number> => readPhotoCatalogPackV4(source, consume, options);
@@ -49,7 +50,7 @@ function fixture() {
 	const workspace = normalizePhotoDevelopWorkspaceV3({ schemaVersion: 3, kind: 'photo-develop-workspace', cursor: 0,
 		entries: [{ label: 'Selected legacy', createdAt: null, develop: legacy.develop }, { label: 'Redo repairs', createdAt: null, develop: current }],
 		snapshots: [{ id: 'repair-snapshot', name: 'Repairs and paint', createdAt: NOW, develop: current }] });
-	const photo = normalizePhotoDocumentCurrentV1({ ...old.photo, schemaVersion: 3, versions: [{ ...legacy, workspace },
+	const photo = normalizePhotoDocumentV3({ ...old.photo, schemaVersion: 3, versions: [{ ...legacy, workspace },
 		{ ...legacy, id: 'inactive', kind: 'virtual-copy', name: 'Inactive repairs', develop: current }] });
 	const settings = copyImageDevelopSelectedSettingsV3({ schemaVersion: 3, develop: current, selection: { effectTypes: 'all', geometry: true, localAdjustments: true, repairs: true } });
 	const preset = createImageDevelopSelectedPresetV3({ schemaVersion: 3, id: 'repairs', name: 'Repairs', settings });

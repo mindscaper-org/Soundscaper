@@ -44,7 +44,7 @@ async function fixture(photoCount = 2, savedCount = 1, hasStack = true) {
 	}));
 	if (savedCount) f.indexedDB.seedRecord(AUDIT_DATABASE, 'photoSmartCollectionStates', auditStateV1(savedCount, 31));
 	for (const definition of definitions) f.seed(definition);
-	const ports: PhotoLibraryBackupPortsV3 = { catalog, stacks: catalog,
+	const ports: PhotoLibraryBackupPortsV3 & Required<Pick<PhotoLibraryBackupPortsV3, 'loadOriginal'>> = { catalog, stacks: catalog,
 		loadOriginal: async original => originals.get(original.storageKey) };
 	return { ...f, catalog, root, definitions, ports, originals, close: async () => { await catalog.close(); f.close(); } };
 }

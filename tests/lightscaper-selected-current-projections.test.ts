@@ -21,6 +21,8 @@ import { PhotoPreviewSchedulerCurrentV1 } from '../src/lightscaper/preview/photo
 import { PhotoPreviewSchedulerV2 } from '../src/lightscaper/preview/photo-preview-scheduler-v2.ts';
 import type { PhotoPreviewCachePortV1 } from '../src/lightscaper/preview/photo-preview-cache-v1.ts';
 import type { PreparedPhotoPreviewV1 } from '../src/lightscaper/preview/photo-preview-preparation-v1.ts';
+import type { PreparedPhotoPreviewCurrentV1 } from '../src/lightscaper/preview/photo-preview-protocol-current-v1.ts';
+import { PHOTO_PREVIEW_RECIPE_V1 } from '../src/lightscaper/preview/photo-preview-plan-v1.ts';
 import type { withPhotoOriginalFrameV1 } from '../src/lightscaper/preview/photo-original-frame-v1.ts';
 import { PhotoMediaStoreV1 } from '../src/lightscaper/storage/photo-media-store.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
@@ -61,6 +63,9 @@ async function fixture(context: TestContext) {
 		originalInspection: { inspect: (binding, signal) => media.mediaRepository.inspectCatalogOriginalBody(binding, { signal }) } };
 	return { raw, indexedDB, name, media, repository, source, photo, ports,
 		async owner() { const owner = await PhotoCommandOwnerCurrentV1.open(repository, photo.catalogId, photo.id); owners.push(owner); return owner; } };
+}
+function assertOriginalPreview(value: Readonly<PreparedPhotoPreviewCurrentV1>): asserts value is Readonly<PreparedPhotoPreviewV1> {
+	assert.deepEqual(value.recipe, PHOTO_PREVIEW_RECIPE_V1);
 }
 function previewOptions(photo: unknown) {
 	let current = photo, cached: PreparedPhotoPreviewV1 | null = null;
@@ -175,7 +180,7 @@ test('Current original-only preview retains exact immutable pixels and cache ide
 		const ready = await scheduler.request({ photoId: 'photo-1', tier: 'thumbnail' }); assert.equal(ready.outcome, 'ready');
 		if (ready.outcome !== 'ready') assert.fail('Original preview missing');
 		assert.deepEqual(new Uint8Array(await ready.preview.body.arrayBuffer()), f.pixels);
-		f.cache(ready.preview); f.replace({ ...photoArchiveFixture().photo, revision: 1, rating: 5 });
+		assertOriginalPreview(ready.preview); f.cache(ready.preview); f.replace({ ...photoArchiveFixture().photo, revision: 1, rating: 5 });
 		const hit = await scheduler.request({ photoId: 'photo-1', tier: 'thumbnail' });
 		assert.equal(hit.outcome, 'ready'); if (hit.outcome !== 'ready') assert.fail('Legacy cache hit missing');
 		assert.equal(hit.cache, 'hit'); assert.equal(hit.preview, ready.preview); assert.deepEqual(f.stats, { reads: 1, decodes: 1, stores: 1 });

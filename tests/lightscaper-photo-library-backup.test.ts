@@ -47,7 +47,7 @@ async function fixture(count = 2, chunked = false) {
 		}
 		current = await catalog.publishPhotos(root.id, current.revision, photos);
 	}
-	const ports: PhotoLibraryBackupPortsV1 = { catalog,
+	const ports: PhotoLibraryBackupPortsV1 & Required<Pick<PhotoLibraryBackupPortsV1, 'loadOriginal'>> = { catalog,
 		loadOriginal: (original, signal) => media.mediaRepository.loadAsset(original.storageKey, { signal, expectedSize: original.byteLength }) };
 	return { indexedDB, catalog, media, ports, root: current, databaseName, mediaName, factory,
 		close: async () => { await Promise.all([catalog.close(), media.close()]); } };

@@ -11,6 +11,7 @@ import { normalizePhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/phot
 import { applyPhotoCommandCurrentV1 } from '../src/lightscaper/controller/photo-commands-current-v1.ts';
 import { withPhotoOriginalFrameV1 } from '../src/lightscaper/preview/photo-original-frame-v1.ts';
 import { defaultImageDevelopStateV2 } from '../src/common/editor/imaging/image-develop-state-v2.ts';
+import { normalizeImageDevelopStateThroughV3 } from '../src/common/editor/imaging/image-develop-state-through-v3.ts';
 import { withPreparedBrushMaskResourceV1 } from '../src/common/editor/imaging/brush-mask-resource-v1.ts';
 import type { PixelFrameV1 } from '../src/common/editor/imaging/pixel-frame-contract-v1.ts';
 import type { MaskRasterSourcePortV1 } from '../src/common/editor/imaging/mask-raster-source-port-v1.ts';
@@ -86,7 +87,7 @@ test('Photo runtime3 renders authenticated repaired originals before real range/
 	try {
 		const runtime = createPhotoDevelopRenderRuntimeV3({ source });
 		for (const method of ['withProxy', 'withFullResolution'] as const) for (const [effectId, coverage] of [['profile', [255, 255, 0]], ['invert', [0, 0, 0]]] as const) {
-			const actual = await f.read(frame => runtime[method]({ frame, develop: normalizePhotoDocumentCurrentV1(applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe })).versions[0]!.develop,
+			const actual = await f.read(frame => runtime[method]({ frame, develop: normalizeImageDevelopStateThroughV3(normalizePhotoDocumentCurrentV1(applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe })).versions[0]!.develop),
 				signal: f.lifetime.signal, maskOverlay: { maskId: 'mask', effectId } }, view => {
 				assert.ok(view.maskOverlay); return { pixels: [...view.frame.pixels], coverage: [...view.maskOverlay.coverage] };
 			}));
@@ -105,7 +106,7 @@ test('Photo runtime3 forwards actual borrowed suffix-projected coverage and pres
 	const f = fixture([255, 255, 255, 255, 0, 0, 0, 128, 0, 0, 0, 255, 0, 0, 0, 255], recipe), buffers: PixelFrameV1['pixels'][] = [];
 	try {
 		const runtime = createPhotoDevelopRenderRuntimeV3();
-		const actual = await f.read(frame => runtime.withFullResolution({ frame, develop: applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop,
+		const actual = await f.read(frame => runtime.withFullResolution({ frame, develop: normalizeImageDevelopStateThroughV3(applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop),
 			signal: f.lifetime.signal, maskOverlay: { maskId: 'mask', effectId: 'invert' } }, view => {
 			assert.ok(view.maskOverlay); buffers.push(view.frame.pixels, view.maskOverlay.coverage);
 			return { pixels: [...view.frame.pixels], coverage: [...view.maskOverlay.coverage], width: view.frame.descriptor.width, overlayWidth: view.maskOverlay.width };
@@ -125,7 +126,7 @@ test('Photo runtime3 Heal and donor movement use authenticated encoded 11x3 orig
 	for (const [sourceX, expected] of [[1.5 / 11, 138], [5.5 / 11, 217]] as const) {
 		const recipe = develop([{ ...repair(11, 9.5 / 11, sourceX), mode: 'heal', radius: 0.2 }]), f = fixture(pixels, recipe, 3);
 		try {
-			const runtime = createPhotoDevelopRenderRuntimeV3(), state = applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop;
+			const runtime = createPhotoDevelopRenderRuntimeV3(), state = normalizeImageDevelopStateThroughV3(applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop);
 			for (const method of ['withProxy', 'withFullResolution'] as const) {
 				const actual = await f.read(frame => runtime[method]({ frame, develop: state, signal: f.lifetime.signal }, view => [...view.frame.pixels]));
 				// Screened single-cell solutions: D(128)+D(64)-D(32), or D(128)+D(192)-D(64).
@@ -151,7 +152,7 @@ test('Photo runtime3 captures selected brush receiver before yields and snapshot
 	source.withBytes = new Proxy(source.withBytes, { get() { metadata++; throw Error('Source callable metadata inspected'); } });
 	const options = { maskSource: source }, runtime = createPhotoDevelopRenderRuntimeV3(options), work: { value?: Promise<unknown> } = {};
 	try {
-		work.value = f.read(frame => runtime.withFullResolution({ frame, develop: applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop,
+		work.value = f.read(frame => runtime.withFullResolution({ frame, develop: normalizeImageDevelopStateThroughV3(applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop),
 			signal: f.lifetime.signal }, view => { assert.equal(active, 0); assert.equal(retired.length, 2); return [...view.frame.pixels]; }));
 		await enteredBeforeSettlement(work.value, entered.promise);
 		f.borrowed[0]!.pixels.fill(0); Reflect.set(options, 'maskSource', { withBytes() { assert.fail('Replacement source acquired'); } });
@@ -175,7 +176,7 @@ test('Photo runtime3 cancellation and Close join held authenticated brush borrow
 	try {
 		const runtime = createPhotoDevelopRenderRuntimeV3({ maskSource: source }), stop = new AbortController();
 		work.value = f.port.withFrame({ schemaVersion: 1, photoId: 'photo-1', expectedRevision: 0 }, original => runtime.withFullResolution({ frame: original.frame,
-			develop: applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop, signal: stop.signal }, () => { deliveries++; }), { signal: stop.signal });
+			develop: normalizeImageDevelopStateThroughV3(applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop), signal: stop.signal }, () => { deliveries++; }), { signal: stop.signal });
 		const outcome = work.value.then(() => ({ error: undefined }), (error: unknown) => ({ error }));
 		await enteredBeforeSettlement(work.value, entered.promise); stop.abort(reason.proxy); const closing = f.close();
 		assert.equal(await remainsPending(closing), true); assert.equal(f.calls.cleanup, 0); release.resolve();
@@ -191,7 +192,7 @@ test('Photo runtime3 and authenticated Current original retain opaque consumer f
 	const reason = Proxy.revocable({}, {}); reason.revoke(); let getters = 0;
 	try {
 		const runtime = createPhotoDevelopRenderRuntimeV3();
-		const work = f.read(frame => runtime.withFullResolution({ frame, develop: applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop,
+		const work = f.read(frame => runtime.withFullResolution({ frame, develop: normalizeImageDevelopStateThroughV3(applyPhotoCommandCurrentV1(f.seed.photo, { type: 'set-develop', develop: recipe }).versions[0]!.develop),
 			signal: f.lifetime.signal, maskOverlay: { maskId: 'mask', effectId: 'invert' } }, view => {
 			assert.ok(view.maskOverlay);
 			for (const bytes of [view.frame.pixels, view.maskOverlay.coverage]) {

@@ -27,7 +27,7 @@ async function fixture(withPhoto = true) {
 		databaseName: AUDIT_DATABASE, verifyOriginal: async () => undefined });
 	const source = photoArchiveFixture(), settings = new KeyValueRepository({ memory: getMemoryDatabase(`backup-preset-${crypto.randomUUID()}`), database: async () => null }, 'settings');
 	const root = withPhoto ? await catalog.publishPhotos(f.root.id, f.root.revision, [normalizePhotoDocumentV1({ ...source.photo, catalogId: f.root.id })]) : f.root;
-	const calls = { originals: 0 }, ports: PhotoLibraryBackupPortsV4 = { catalog, stacks: catalog, developPresetSettings: settings,
+	const calls = { originals: 0 }, ports: PhotoLibraryBackupPortsV4 & Required<Pick<PhotoLibraryBackupPortsV4, 'loadOriginal'>> = { catalog, stacks: catalog, developPresetSettings: settings,
 		async loadOriginal() { calls.originals++; return source.original; } };
 	return { ...f, catalog, root, source, settings, ports, calls, key: photoDevelopPresetsKeyV1(root.id),
 		close: async () => { await catalog.close(); f.close(); } };

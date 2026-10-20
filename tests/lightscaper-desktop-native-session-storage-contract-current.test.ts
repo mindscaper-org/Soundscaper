@@ -50,8 +50,12 @@ void test('Lightscaper complete renderer storage contract accepts an actual sele
 				async open(options, localOwner) {
 					const selected = await manager.openSelected(options);
 					actual = await manager.openSessionLease(selected.scope, localOwner, { signal: options.signal });
-					// Genuine result, with no structural or port cast at the boundary.
-					const storage: Readonly<Storage> = actual;
+					// Project renderer-safe members from the genuine Main lease. The
+					// opaque linked/rawParts and physical Originals stay Main-private.
+					const { catalog, media, settings, resources, originalTickets } = actual.components;
+					const storage: Readonly<Storage> = Object.freeze({ ...actual,
+						components: Object.freeze({ catalog, media, settings, resources, originalTickets, close: actual.components.close }),
+					});
 					return storage;
 				},
 			});
@@ -59,7 +63,7 @@ void test('Lightscaper complete renderer storage contract accepts an actual sele
 				assert.equal(this, localOwner); localCloses++; return Promise.resolve();
 			} });
 			const storage = await service.open({ name: 'Native storage contract', signal: context.signal }, localOwner);
-			assert.equal(storage, actual); assert.ok(Object.isFrozen(storage));
+			assert.equal(storage.close, actual?.close); assert.equal(storage.components.catalog, actual?.components.catalog); assert.ok(Object.isFrozen(storage));
 			assert.match(storage.selectionToken, /^[0-9a-f]{32}$/u);
 			assert.ok(storage.signal instanceof AbortSignal);
 			const root = await storage.components.catalog.loadCatalog(storage.catalogId); assert.ok(root);

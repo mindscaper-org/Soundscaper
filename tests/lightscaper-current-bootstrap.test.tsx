@@ -8,42 +8,42 @@ import { NIGHTLY_IMAGE_TEST_HELPER_INPUTS } from '../scripts/lib/desktop-nightly
 import { staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 import React, { act, StrictMode } from 'react';
 import LightscaperBootstrap from '../src/lightscaper/ui/LightscaperBootstrap.tsx';
-import type { LightscaperAppPropsV2 } from '../src/common/editor/ui/lightscaper/LightscaperAppV2.tsx';
+import type { LightscaperAppPropsCurrentV1 } from '../src/common/editor/ui/lightscaper/LightscaperAppCurrentV1.tsx';
 import { mountPhotoImportUi } from './helpers/photo-import-options-react-fixture.tsx';
 import { reactProps } from './helpers/react-test-dom.ts';
 import { mediaRestoreFixture } from './helpers/lightscaper-media-restore-fixture.ts';
 import { InstrumentedKeyRange } from './helpers/instrumented-indexeddb-keys.ts';
 import { currentAppLocks, readResidentPhotoLibraryCurrent, seedCurrentAppPhoto, currentAppCanvasBoundary } from './helpers/lightscaper-current-app-fixture.tsx';
 import { settle } from './helpers/async-test-control.ts';
-import { createPhotoLibrarySessionV3 } from '../src/lightscaper/photo-library-session-runtime-v3.ts';
-import { createPhotoDevelopRenderRuntimeV2 } from '../src/lightscaper/photo-develop-render-runtime-v2.ts';
+import { createPhotoLibrarySessionCurrentV1 } from '../src/lightscaper/photo-library-session-runtime-current-v1.ts';
+import { createPhotoDevelopRenderRuntimeCurrentV1 } from '../src/lightscaper/photo-develop-render-runtime-current-v1.ts';
 import { createPhotoLibraryBackupSaveRuntimeV1 } from '../src/lightscaper/photo-library-backup-save-runtime.ts';
 import { PHOTO_METADATA_QUERY_RUNTIME_V2 } from '../src/lightscaper/photo-metadata-query-ui-runtime.ts';
 import { PHOTO_SAVED_FILTER_RUNTIME_V1 } from '../src/lightscaper/photo-saved-filter-ui-runtime-v1.ts';
 
-test('actual Bootstrap lazily composes current Session3, Restore2 and a selected-source-bound renderer2', () => {
+test('actual Bootstrap lazily composes the complete Current Session, restore and selected-source-bound renderer', () => {
 	const source = readFileSync(new URL('../src/lightscaper/ui/LightscaperBootstrap.tsx', import.meta.url), 'utf8');
 	const code = transformSync(source, { loader: 'tsx', format: 'esm' }).code;
-	for (const module of ['photo-library-session-runtime-v3', 'photo-library-restore-runtime-v2', 'photo-develop-render-runtime-v2']) {
+	for (const module of ['photo-library-session-runtime-current-v1', 'photo-library-restore-runtime-current-v1', 'photo-develop-render-runtime-current-v1']) {
 		assert.match(code, new RegExp(`import\\(["']\\.\\./${module}\\.ts["']\\)`));
 		assert.ok(!staticRelativeDependencies(code).includes(`../${module}.ts`));
 	}
-	assert.match(source, /createPhotoLibrarySessionV3/u); assert.match(source, /createPhotoDevelopRenderRuntimeV2\(\{\s*source\s*\}\)/u);
-	assert.match(code, /LightscaperAppV2/u); assert.match(source, /recoverPhotoLibraryRestoreV1/u);
+	assert.match(source, /createPhotoLibrarySessionCurrentV1/u); assert.match(source, /createPhotoDevelopRenderRuntimeCurrentV1\(\{\s*source,/u);
+	assert.match(code, /LightscaperAppCurrentV1/u); assert.match(source, /recoverPhotoLibraryRestoreV1/u);
 });
 
 for (const kind of ['session', 'renderer', 'backup', 'query', 'saved', 'restore'] as const) test(`injected Bootstrap ${kind} capability retains the exact original element.props receiver`, async () => {
 	const native = mediaRestoreFixture(), locks = currentAppLocks(), canvas = currentAppCanvasBoundary();
 	Object.defineProperty(globalThis, 'IDBKeyRange', { configurable: true, value: InstrumentedKeyRange });
 	const seeded = kind === 'renderer' ? await seedCurrentAppPhoto(native.factory, locks) : null, received: unknown[] = [];
-	let expected: LightscaperAppPropsV2 | null = null;
-	const options: LightscaperAppPropsV2 = { locale: 'en',
-		createSession: async function (this: LightscaperAppPropsV2) { if (kind === 'session') received.push(this); return seeded ? seeded.createSession() : createPhotoLibrarySessionV3({ name: 'Current', indexedDB: native.factory, locks }); },
-		loadDevelopProxyRuntime: async function (this: LightscaperAppPropsV2, source) { if (kind === 'renderer') received.push(this); return createPhotoDevelopRenderRuntimeV2({ source }); },
-		loadBackupSaveRuntime: async function (this: LightscaperAppPropsV2) { if (kind === 'backup') received.push(this); return createPhotoLibraryBackupSaveRuntimeV1(); },
-		loadMetadataQueryRuntime: async function (this: LightscaperAppPropsV2) { if (kind === 'query') received.push(this); return PHOTO_METADATA_QUERY_RUNTIME_V2; },
-		loadSavedFilterRuntime: async function (this: LightscaperAppPropsV2) { if (kind === 'saved') received.push(this); return PHOTO_SAVED_FILTER_RUNTIME_V1; },
-		loadRestoreRuntime: async function (this: LightscaperAppPropsV2) { if (kind === 'restore') received.push(this); return { restoreArchive: async () => ({ catalogId: 'catalog', catalogName: 'Restored', photoCount: 0,
+	let expected: LightscaperAppPropsCurrentV1 | null = null;
+	const options: LightscaperAppPropsCurrentV1 = { locale: 'en',
+		createSession: async function (this: LightscaperAppPropsCurrentV1) { if (kind === 'session') received.push(this); return createPhotoLibrarySessionCurrentV1(seeded?.options ?? { name: 'Current', indexedDB: native.factory, locks }); },
+		loadDevelopProxyRuntime: async function (this: LightscaperAppPropsCurrentV1, source) { if (kind === 'renderer') received.push(this); return createPhotoDevelopRenderRuntimeCurrentV1({ source }); },
+		loadBackupSaveRuntime: async function (this: LightscaperAppPropsCurrentV1) { if (kind === 'backup') received.push(this); return createPhotoLibraryBackupSaveRuntimeV1(); },
+		loadMetadataQueryRuntime: async function (this: LightscaperAppPropsCurrentV1) { if (kind === 'query') received.push(this); return PHOTO_METADATA_QUERY_RUNTIME_V2; },
+		loadSavedFilterRuntime: async function (this: LightscaperAppPropsCurrentV1) { if (kind === 'saved') received.push(this); return PHOTO_SAVED_FILTER_RUNTIME_V1; },
+		loadRestoreRuntime: async function (this: LightscaperAppPropsCurrentV1) { if (kind === 'restore') received.push(this); return { restoreArchive: async () => ({ catalogId: 'catalog', catalogName: 'Restored', photoCount: 0,
 			stackCount: 0, savedCollectionCount: 0, originalCount: 0, originalByteLength: 0, notices: [] }), close: async () => undefined }; },
 	};
 	const mounted = await mountPhotoImportUi(() => {

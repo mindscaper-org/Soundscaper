@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act, StrictMode } from 'react';
 import FramescaperImageDevelopDialogV1, { type FramescaperImageDevelopDialogPropsV1 } from '../src/common/editor/ui/dialogs/FramescaperImageDevelopDialogV1.tsx';
-import type { WithImageDevelopDraftFrameV1 } from '../src/common/editor/controller/shared/image-develop-draft-presentation-v1.ts';
+import type { WithFramescaperImageDevelopDraftFrameCurrentV1 } from '../src/framescaper/editor-selected-timeline-image-develop-authoring-controller-v1.ts';
 import { withImageDevelopFrameV3 } from '../src/common/editor/imaging/image-develop-frame-v3.ts';
 import { defaultImageDevelopStateV2 } from '../src/common/editor/imaging/image-develop-state-v2.ts';
 import { replaceImageDevelopRepairSpotsV1 } from '../src/common/editor/imaging/image-develop-repair-commands-v1.ts';
@@ -47,10 +47,11 @@ async function fixture(locale = 'en', strict = false) {
 	const initial = recipe(), backings: Uint8Array[] = [], entered = deferred<void>(), release = deferred<void>(); let hold = false, holdBefore = false, reached = false, current = true, closes = 0, calls = 0;
 	let failure: Readonly<{ value: unknown }> | null = null;
 	let props: FramescaperImageDevelopDialogPropsV1;
-	const render: WithImageDevelopDraftFrameV1 = async (request, consume, options) => {
+	const render: WithFramescaperImageDevelopDraftFrameCurrentV1 = async (request, consume, options) => {
+		const develop = request.develop; if (develop.processVersion === 4) assert.fail('This Frame fixture exercises the historical process3 renderer.');
 		calls++; const frame = rgbaFrame([0, 0, 0, 255, 128, 128, 128, 255, 255, 255, 255, 255]); backings.push(frame.pixels);
 		try { if (failure) { const value = failure.value; failure = null; throw value; }
-			return await withImageDevelopFrameV3({ frame, ...request, signal: options?.signal }, async output => {
+			return await withImageDevelopFrameV3({ frame, ...request, develop, signal: options?.signal }, async output => {
 			backings.push(output.frame.pixels as Uint8Array); if (output.maskOverlay) backings.push(output.maskOverlay.coverage);
 			if (holdBefore) { holdBefore = false; reached = true; entered.resolve(); await release.promise; }
 			const result = await consume(output); if (hold) { hold = false; reached = true; entered.resolve(); await release.promise; } return result;
@@ -59,7 +60,7 @@ async function fixture(locale = 'en', strict = false) {
 	const mounted = await mountPhotoImportUi(() => {
 		const element = <FramescaperImageDevelopDialogV1 kind="masks" develop={initial} locale={locale} disabled={false} withDraftFrame={render}
 			withOriginalFrame={() => assert.fail('Mask presentation must borrow the native rendered draft capability.')} isCurrent={() => current}
-			onApply={function(this: FramescaperImageDevelopDialogPropsV1, value) { assert.equal(this, props); applied.push(value); }}
+			onApply={function(this: FramescaperImageDevelopDialogPropsV1, value) { assert.equal(this, props); if (value.processVersion === 4) assert.fail('Mask authoring must preserve the historical recipe.'); applied.push(value); }}
 			onClose={function(this: FramescaperImageDevelopDialogPropsV1) { assert.equal(this, props); closes++; }}
 			registerRetirement={retire => { retired.add(retire); return () => { retired.delete(retire); }; }} />;
 		props = element.props; return strict ? <StrictMode>{element}</StrictMode> : element;

@@ -45,7 +45,7 @@ function fixture(count = 2, placement?: Placement) {
 	const root = normalizePhotoCatalogRootV1({ schemaFamily: 'lightscaper', schemaVersion: 1, kind: 'photo-catalog',
 		id: 'catalog-1', name: 'Preflight', revision: 7, photoCount: count, folders: [], keywords: [], collections: [] });
 	const reads: string[] = [], pages: number[] = []; let snapshots = 0, originalReads = 0, indexRevision = 11;
-	const ports: PhotoLibraryBackupSourcePortsV2 = { catalog: {
+	const ports: PhotoLibraryBackupSourcePortsV2 & Required<Pick<PhotoLibraryBackupSourcePortsV2, 'loadOriginal'>> = { catalog: {
 		async readSnapshot(catalogId) { assert.equal(this, ports.catalog); assert.equal(catalogId, root.id); snapshots++; return { catalog: root, indexRevision }; },
 		async readSummaryPage(catalogId, options = {}) {
 			assert.equal(this, ports.catalog); assert.equal(catalogId, root.id);
