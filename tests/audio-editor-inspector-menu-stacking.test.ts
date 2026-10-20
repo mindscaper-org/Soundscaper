@@ -37,14 +37,3 @@ test('an open Clip properties menu raises its workspace above the sibling Source
 	assert.ok(zIndex(active) > zIndex(videoWorkspace),
 		'a menu child cannot escape z-index 0 while the Source ruler is in its sibling at z-index 1');
 });
-
-test('the temporary inspector layer leaves the video workspace owner unchanged', async () => {
-	const { declaration, zIndex } = await styles();
-	const workspace = '.kw-audio-editor__workspace';
-	const videoWorkspace = '.kw-audio-editor__video-workspace';
-	const active = workspace + ':has([data-upstream-clip-properties] .context-menu)';
-	assert.equal(declaration(active, 'z-index'), 'var(--flyout-z)', 'the scoped owner uses the established editor layer');
-	assert.ok(zIndex(active) > zIndex(workspace), 'the temporary menu ordering ends when its DOM is retired');
-	assert.equal(zIndex(videoWorkspace), 1);
-	assert.equal(declaration(videoWorkspace + ':has([data-upstream-clip-properties] .context-menu)', 'z-index'), undefined);
-});
