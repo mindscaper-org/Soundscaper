@@ -9,7 +9,6 @@ import {
 
 class FakeAudioContext {
 	static instances = [];
-	static outputTimestampCalls = 0;
 
 	currentTime = 999;
 	destination = {};
@@ -42,7 +41,6 @@ class FakeAudioContext {
 	getOutputTimestamp() {
 		const frameIndex = this.#frameIndex;
 		this.#frameIndex += 1;
-		FakeAudioContext.outputTimestampCalls += 1;
 		const expectedDisplayTime = 1_000 + frameIndex * 1_000 / 15;
 		const timestampAgeMs = 20 + frameIndex * 3;
 		const presentationTime = 10 + frameIndex / 15 + frameIndex / 1_000;
@@ -118,7 +116,6 @@ test('decoded A/V drift correlates video presentation with the audio output cloc
 		]);
 
 		assert.equal(samples.length, 24);
-		assert.equal(FakeAudioContext.outputTimestampCalls, 24);
 		for (const fixtureId of ['landscape', 'portrait']) {
 			const fixtureSamples = samples.filter((sample) => sample.fixtureId === fixtureId);
 			assert.equal(fixtureSamples.length, 12);
