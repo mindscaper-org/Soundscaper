@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { loadMotionscaperNativeExecutable, parseMotionscaperNativePayload } from '../../desktop/motionscaper-native-payload.ts';
 import { extractFile, listPackage, statFile } from '@electron/asar';
 import { auditDesktopFfmpegAbsence, DESKTOP_CODEC_POLICY } from './desktop-codec-policy.mjs';
@@ -49,12 +49,12 @@ export async function verifyMotionscaperPackagedResources(resourcesRoot, stage) 
 	const asar = join(resourcesRoot, 'app.asar');
 	const files = [];
 	for (const entry of listPackage(asar)) {
-		const path = entry.replace(/^\//u, '');
+		const path = entry.startsWith(sep) ? entry.slice(sep.length) : entry;
 		const metadata = statFile(asar, path, false);
 		if (metadata.files) continue;
 		if (metadata.link || metadata.unpacked) throw new Error('Motionscaper app archive contains an unadmitted link or unpacked file.');
 		const bytes = extractFile(asar, path);
-		files.push({ path: `app/${path}`, byteLength: bytes.byteLength, sha256: digest(bytes) });
+		files.push({ path: `app/${path.replaceAll(sep, '/')}`, byteLength: bytes.byteLength, sha256: digest(bytes) });
 	}
 	for (const tree of ['renderer', 'runtime']) {
 		for (const path of await regularFiles(resourcesRoot, tree, tree === 'runtime')) {
