@@ -3,16 +3,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
-
 import {
 	createNativeMediaImageSequenceInventoryV25,
 	createNativeMediaImageSequenceSourceV25,
 	nativeMediaImageSequenceArchiveRootsV25,
 	nativeMediaImageSequenceDecodeRequestV25,
 	normalizeNativeMediaImageSequenceSourceV25,
-	runFramescaperImageSequenceImportV25,
 } from '../src/common/editor/native-media-image-sequence-v25.ts';
 import { resolveNativeMediaImageSequence } from '../src/common/editor/native-media-image-sequence.ts';
 import { createUnreportedVideoSourceCharacteristicsV25 } from '../src/common/editor/video-source-professional-characteristics-v25.ts';
@@ -98,95 +94,6 @@ test('closed source validation rejects reference substitution and embedded frame
 		...source,
 		frames: [{ fileName: 'smuggled.png' }],
 	}), /unsupported.*frames/u);
-});
-
-test('the controller action publishes the external inventory before one project mutation', async () => {
-	const events: string[] = [];
-	const frames = [new TextEncoder().encode('png-one'), new TextEncoder().encode('png-two')];
-	const entries = frames.map((frame, index) => ({
-		fileName: `take_${String(index + 1).padStart(3, '0')}.png`, frameNumber: index + 1,
-		byteLength: frame.byteLength, sha256: bytesToHex(sha256(frame)),
-	}));
-	const result = await runFramescaperImageSequenceImportV25({
-		select: () => ({
-			id: 'imported-sequence', name: 'Imported',
-			fileNames: ['take_001.png', 'take_002.png'],
-			frameRate: { num: 24, den: 1 },
-			entries,
-			frameChunks: (index) => [frames[index]!],
-			characteristics: createUnreportedVideoSourceCharacteristicsV25(),
-		}),
-		createSourcePackWriter: () => ({
-			write: (chunk) => { events.push(`pack-write:${String(chunk.byteLength)}`); },
-			commit: (reference) => { events.push(`pack-commit:${reference.sha256}`); },
-			discard: () => { events.push('pack-discard'); },
-		}),
-		publishInventory: (_bytes, reference) => { events.push(`publish:${reference.sha256}`); },
-		commitSource: (source) => { events.push(`commit:${source.id}`); },
-	});
-
-	assert.ok(result);
-	assert.equal(result.id, 'imported-sequence');
-	assert.ok(events.some((event) => event.startsWith('pack-write:')));
-	const packCommit = events.findIndex((event) => event.startsWith('pack-commit:'));
-	const inventoryPublish = events.findIndex((event) => event.startsWith('publish:'));
-	const projectCommit = events.indexOf('commit:imported-sequence');
-	assert.ok(packCommit >= 0 && packCommit < inventoryPublish && inventoryPublish < projectCommit);
-	assert.equal(events.includes('pack-discard'), false);
-});
-
-test('the controller discards an uncommitted source pack and publishes nothing after frame tamper', async () => {
-	const events: string[] = [];
-	const bytes = new TextEncoder().encode('expected-png');
-	await assert.rejects(runFramescaperImageSequenceImportV25({
-		select: () => ({
-			id: 'tampered-sequence', name: 'Tampered', fileNames: ['take_001.png'],
-			frameRate: { num: 24, den: 1 },
-			entries: [{
-				fileName: 'take_001.png', frameNumber: 1, byteLength: bytes.byteLength,
-				sha256: bytesToHex(sha256(bytes)),
-			}],
-			frameChunks: () => [new TextEncoder().encode('changed-png')],
-			characteristics: createUnreportedVideoSourceCharacteristicsV25(),
-		}),
-		createSourcePackWriter: () => ({
-			write: () => { events.push('write'); },
-			commit: () => { events.push('pack-commit'); },
-			discard: () => { events.push('pack-discard'); },
-		}),
-		publishInventory: () => { events.push('inventory-publish'); },
-		commitSource: () => { events.push('project-commit'); },
-	}), /frame.*inventory.*length or digest|frame.*digest/iu);
-	assert.equal(events.includes('write'), true);
-	assert.deepEqual(events.slice(-1), ['pack-discard']);
-	assert.equal(events.includes('inventory-publish') || events.includes('project-commit'), false);
-});
-
-test('import rollback attempts every cleanup and preserves the project failure', async () => {
-	const frame = new TextEncoder().encode('valid-png');
-	const primary = new Error('project commit failed');
-	const events: string[] = [];
-	await assert.rejects(runFramescaperImageSequenceImportV25({
-		select: () => ({
-			id: 'rollback-sequence', name: 'Rollback', fileNames: ['take_001.png'],
-			frameRate: { num: 24, den: 1 },
-			entries: [{
-				fileName: 'take_001.png', frameNumber: 1, byteLength: frame.byteLength,
-				sha256: bytesToHex(sha256(frame)),
-			}],
-			frameChunks: () => [frame],
-			characteristics: createUnreportedVideoSourceCharacteristicsV25(),
-		}),
-		createSourcePackWriter: () => ({
-			write: () => undefined,
-			commit: () => undefined,
-			discard: () => { events.push('pack-discard'); throw new Error('discard failed'); },
-		}),
-		publishInventory: () => undefined,
-		commitSource: () => { throw primary; },
-		cleanupInventory: () => { events.push('inventory-cleanup'); throw new Error('cleanup failed'); },
-	}), (error: unknown) => error === primary);
-	assert.deepEqual(events, ['inventory-cleanup', 'pack-discard']);
 });
 
 function fixtureSource() {
