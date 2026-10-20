@@ -12,18 +12,9 @@ test('a clip-body press moves the focused track onto the pressed clip', async ()
 	try {
 		await act(async () => { fixture.onPointerDown()(fixture.pointerEvent()); });
 		assert.deepEqual(fixture.selectTrackCalls, ['track-b']);
+		assert.deepEqual(fixture.order, ['selectTrack']);
 		assert.deepEqual(fixture.selectClipCalls, [], 'clip picks remain intact until a selection drag crosses the threshold');
 		assert.equal(fixture.pointerSession.current?.kind, 'selection');
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('a clip-body press focuses the pressed track before the range is drawn', async () => {
-	const fixture = await mountPointerStart();
-	try {
-		await act(async () => { fixture.onPointerDown()(fixture.pointerEvent()); });
-		assert.deepEqual(fixture.order, ['selectTrack']);
 	} finally {
 		await fixture.cleanup();
 	}

@@ -10,7 +10,6 @@ import {
 	createTimelineAnnotationsV11,
 	validateTimelineAnnotationV11,
 	validateTimelineAnnotationsV11,
-	type TimelineAnnotationV11,
 } from '../src/common/editor/timeline-annotation.ts';
 import { AUDIO_EDITOR_COORDINATE_MAXIMUM_DENOMINATOR } from '../src/common/editor/project-foundation-validation.ts';
 import type { HoldTempoMap } from '../src/common/editor/timeline-time.ts';

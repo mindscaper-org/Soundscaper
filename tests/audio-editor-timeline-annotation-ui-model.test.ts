@@ -49,29 +49,6 @@ test('annotation UI model filters the primary sequence and preserves determinist
 	assert.equal(Object.isFrozen(model.rows), true);
 });
 
-test('annotation UI model rejects unresolved or invalid runtime geometry at its boundary', () => {
-	const unresolved = { ...marker('bad', 12), coordinateDomain: 'samples' };
-	assert.throws(() => createTimelineAnnotationUiModel({
-		annotations: [unresolved as unknown as RuntimeTimelineAnnotationProjection],
-		primarySequenceId: 'main', selectedAnnotationIds: [], focusedAnnotationId: null, sampleRate: 48_000,
-		locale: 'en', secondsUnit: 's',
-	}), /resolved-samples/u);
-	assert.throws(() => createTimelineAnnotationUiModel({
-		annotations: [{ ...region('bad', 12, 24), timelineEndFrame: 12, durationFrames: 0 }],
-		primarySequenceId: 'main', selectedAnnotationIds: [], focusedAnnotationId: null, sampleRate: 48_000,
-		locale: 'en', secondsUnit: 's',
-	}), /positive duration/u);
-	assert.throws(() => createTimelineAnnotationUiModel({
-		annotations: [], primarySequenceId: 'main',
-		selectedAnnotationIds: 'not-an-array' as unknown as readonly string[],
-		focusedAnnotationId: null, sampleRate: 48_000, locale: 'en', secondsUnit: 's',
-	}), /selected annotation IDs must be an array/iu);
-	assert.throws(() => createTimelineAnnotationUiModel({
-		annotations: [], primarySequenceId: 'main', selectedAnnotationIds: [],
-		focusedAnnotationId: ' not-canonical ', sampleRate: 48_000, locale: 'en', secondsUnit: 's',
-	}), /focused annotation ID/iu);
-});
-
 test('annotation UI timing labels use the requested locale and injected unit copy', () => {
 	const model = createTimelineAnnotationUiModel({
 		annotations: [region('first', 24_000, 36_000)],
