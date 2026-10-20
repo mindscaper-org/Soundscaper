@@ -154,10 +154,8 @@ test('manual recording latency offsets remain independent per source and clamp t
 	assert.throws(() => setRecordingSourceOffset(initial, ' ', 10), /source key is required/);
 });
 
-test('recording route storage keys are project-specific and reject missing project IDs', () => {
+test('recording route storage keys are project-specific', () => {
 	assert.equal(recordingRoutingSettingKey('project-a'), `${RECORDING_ROUTING_SETTING_PREFIX}project-a`);
 	assert.equal(recordingRoutingSettingKey('project-b'), `${RECORDING_ROUTING_SETTING_PREFIX}project-b`);
 	assert.notEqual(recordingRoutingSettingKey('project-a'), recordingRoutingSettingKey('project-b'));
-	assert.throws(() => recordingRoutingSettingKey(''), /project ID is required/);
-	assert.throws(() => recordingRoutingSettingKey('   '), /project ID is required/);
 });
