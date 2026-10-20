@@ -38,7 +38,7 @@ test('Lightscaper native Original index initializes only its exact SQLite identi
 	try {
 		const index = new LightscaperNativePhotoOriginalIndexCurrentV1(database);
 		assert.equal(scalar(database, 'PRAGMA application_id', 'application_id'), LIGHTSCAPER_NATIVE_PHOTO_ORIGINAL_APPLICATION_ID_CURRENT_V1);
-		assert.equal(scalar(database, 'PRAGMA user_version', 'user_version'), 2);
+		assert.equal(scalar(database, 'PRAGMA user_version', 'user_version'), 4);
 		assert.equal(index.get('asset-missing'), null);
 		assert.throws(() => index.get('../outside'));
 		assert.throws(() => index.get(''));

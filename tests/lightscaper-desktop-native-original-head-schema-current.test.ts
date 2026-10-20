@@ -11,9 +11,18 @@ import { initializeLightscaperNativePhotoMediaDatabaseCurrentV1 as initialize,
 import { initializeHistoricalLightscaperOriginalV1Current as historicalV1 } from './helpers/lightscaper-native-original-v1-fixture-current.ts';
 import { initializeHistoricalLightscaperOriginalV2Current as historicalV2,
 	LIGHTSCAPER_ORIGINAL_V2_DDL_FIXTURE_CURRENT as V2 } from './helpers/lightscaper-native-original-v2-fixture-current.ts';
+import { initializeHistoricalLightscaperOriginalV3Current as historicalV3,
+	LIGHTSCAPER_ORIGINAL_V3_ADDITIONS_FIXTURE_CURRENT as V3 } from './helpers/lightscaper-native-original-v3-fixture-current.ts';
 import { originalHeadFixtureCurrentV1 as fixture, ORIGINAL_HEAD_TEST_OPTIONS_CURRENT_V1 as options,
 	ORIGINAL_HEAD_SHA_CURRENT_V1 as SHA } from './helpers/lightscaper-native-original-head-fixture-current.ts';
 
+// The sole intended historical DDL replacement is the assets' typed identity FK.
+// Both expected spellings come from the independent, immutable historical fixture.
+const currentAssetsDdl = V2[1].replace('source_id TEXT PRIMARY KEY NOT NULL REFERENCES native_photo_original_bindings(storage_key)',
+	'source_id TEXT PRIMARY KEY NOT NULL').replace('\n) STRICT',
+	',\n\tFOREIGN KEY(source_id,sha256,size) REFERENCES native_photo_media_identities(source_id,sha256,size)\n) STRICT');
+const assetsSql = 'SELECT source_id,sha256,size,media_content_token,hex(metadata) AS metadata,root_count,committed_at,pending_until FROM native_photo_media_assets';
+const rootsSql = 'SELECT hex(root_key) AS root_key,hex(scope_key) AS scope_key,asset_id,root FROM native_photo_media_roots';
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const objects = (db: DatabaseSync) => db.prepare("SELECT type,name,sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name").all();
 function seedHistoricalV2(db: DatabaseSync): void {
@@ -23,73 +32,103 @@ function seedHistoricalV2(db: DatabaseSync): void {
 	db.prepare('INSERT INTO native_photo_media_roots VALUES(?,?,?,?)').run(Uint8Array.of(0, 1), Uint8Array.of(0, 2), 'original', '{}');
 }
 
-void test('Lightscaper LSCP3 owns exact STRICT head/locator inventory and preserved historical DDL', options, async t => {
+void test('Lightscaper LSCP4 owns exact STRICT inventory and preserves historical DDL except the typed assets FK', options, async t => {
 	await fixture(t, db => {
 		assert.equal(inspect(db), 'empty'); initialize(db); assert.equal(inspect(db), 'owned');
-		assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 3);
+		assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 4);
 		assert.deepEqual(objects(db).map(row => [row.type, row.name]), [
 			['index', 'native_photo_media_assets_digest'], ['index', 'native_photo_media_roots_asset'], ['index', 'native_photo_media_roots_scope'],
-			['index', 'native_photo_original_bindings_digest'], ['table', 'native_photo_media_assets'], ['table', 'native_photo_media_roots'],
-			['table', 'native_photo_original_bindings'], ['table', 'native_photo_original_body_heads'], ['table', 'native_photo_original_body_locators'],
+			['index', 'native_photo_original_bindings_digest'], ['index', 'native_photo_original_bindings_identity'],
+			['table', 'native_photo_linked_original_bindings'], ['table', 'native_photo_media_assets'], ['table', 'native_photo_media_identities'],
+			['table', 'native_photo_media_roots'], ['table', 'native_photo_original_bindings'],
+			['table', 'native_photo_original_body_heads'], ['table', 'native_photo_original_body_locators'],
 		]);
 		for (const table of ['native_photo_original_body_heads', 'native_photo_original_body_locators']) {
 			assert.equal(db.prepare('SELECT strict FROM pragma_table_list WHERE name=?').get(table)?.strict, 1);
 		}
-		for (const sql of V2) assert.ok(objects(db).some(row => row.sql === sql));
+		for (const sql of [...V2.filter((_, index) => index !== 1), ...V3, currentAssetsDdl]) assert.ok(objects(db).some(row => row.sql === sql));
+		assert.equal(objects(db).some(row => row.sql === V2[1]), false);
 		const before = objects(db); initialize(db); assert.deepEqual(objects(db), before);
 	});
 });
 
-for (const version of [1, 2] as const) void test(`Lightscaper exact historical LSCP${version} migrates/reopens without body IO or row rewrites`, options, async t => {
+for (const version of [1, 2, 3] as const) void test(`Lightscaper exact historical LSCP${version} migrates/reopens with unchanged row and body bytes, without JS payload delivery`, options, async t => {
 	await fixture(t, async (db, path, directory) => {
 		if (version === 1) { historicalV1(db); db.prepare('INSERT INTO native_photo_original_bindings VALUES(?,?,?)').run('original', SHA, 3); }
-		else { historicalV2(db); seedHistoricalV2(db); }
+		else { (version === 2 ? historicalV2 : historicalV3)(db); seedHistoricalV2(db); }
+		if (version === 3) {
+			db.prepare('INSERT INTO native_photo_original_body_locators VALUES(?,?,?,?)').run(SHA, 'legacy', 3, 'legacy-sha-v1');
+			db.prepare('INSERT INTO native_photo_original_body_locators VALUES(?,?,?,?)').run(SHA, 'b'.repeat(64), 3, 'generation-v1');
+			db.prepare('INSERT INTO native_photo_original_body_heads VALUES(?,?,?,?)').run(SHA, 'b'.repeat(64), 3, 7);
+		}
 		const prior = objects(db), binding = db.prepare('SELECT * FROM native_photo_original_bindings').all();
-		const asset = version === 2 ? db.prepare('SELECT source_id,sha256,size,media_content_token,hex(metadata) AS metadata,root_count,committed_at,pending_until FROM native_photo_media_assets').all() : [];
-		const roots = version === 2 ? db.prepare('SELECT hex(root_key) AS root_key,hex(scope_key) AS scope_key,asset_id,root FROM native_photo_media_roots').all() : [];
+		const asset = version === 1 ? [] : db.prepare(assetsSql).all(), roots = version === 1 ? [] : db.prepare(rootsSql).all();
+		const heads = version < 3 ? [] : db.prepare('SELECT * FROM native_photo_original_body_heads').all();
+		const locators = version < 3 ? [] : db.prepare('SELECT * FROM native_photo_original_body_locators ORDER BY locator_id').all();
 		const bodyPath = join(directory, 'independent.body'); await writeFile(bodyPath, Uint8Array.of(1, 2, 3));
-		const execute = db.exec; let creatingEmptyRoots = false;
+		const execute = db.exec; let executingSql: string | null = null, deniedPreparedReads = 0, metadataCopyReads = 0, rootCopyReads = 0;
 		db.exec = function (sql: string): void {
-			creatingEmptyRoots = version === 1 && sql === V2[2];
-			try { execute.call(this, sql); } finally { creatingEmptyRoots = false; }
+			executingSql = sql;
+			try { execute.call(this, sql); } finally { executingSql = null; }
 		};
-		db.setAuthorizer((action, table, column) => action === constants.SQLITE_READ &&
-			((table === 'native_photo_media_assets' && column === 'metadata') || (!creatingEmptyRoots && table === 'native_photo_media_roots' && column === 'root')) ? constants.SQLITE_DENY : constants.SQLITE_OK);
-		try { initialize(db); } finally { db.setAuthorizer(null); db.exec = execute; }
-		assert.equal(inspect(db), 'owned'); assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 3);
-		assert.deepEqual(db.prepare('SELECT * FROM native_photo_original_bindings').all(), binding);
-		assert.deepEqual(db.prepare('SELECT source_id,sha256,size,media_content_token,hex(metadata) AS metadata,root_count,committed_at,pending_until FROM native_photo_media_assets').all(), asset);
-		assert.deepEqual(db.prepare('SELECT hex(root_key) AS root_key,hex(scope_key) AS scope_key,asset_id,root FROM native_photo_media_roots').all(), roots);
-		for (const row of prior) assert.ok(objects(db).some(value => value.sql === row.sql));
-		assert.equal(db.prepare('SELECT count(*) AS n FROM native_photo_original_body_heads').get()?.n, 0);
-		assert.equal(db.prepare('SELECT count(*) AS n FROM native_photo_original_body_locators').get()?.n, 0);
+		db.setAuthorizer((action, table, column) => {
+			if (action !== constants.SQLITE_READ || !((table === 'native_photo_media_assets' && column === 'metadata')
+				|| (table === 'native_photo_media_roots' && column === 'root'))) return constants.SQLITE_OK;
+			if (executingSql === null) { deniedPreparedReads++; return constants.SQLITE_DENY; }
+			if (table === 'native_photo_media_assets' && executingSql.startsWith('CREATE TABLE _native_photo_media_assets_v3_copy AS SELECT ')) metadataCopyReads++;
+			if (table === 'native_photo_media_roots' && executingSql.startsWith('CREATE TABLE _native_photo_media_roots_v3_copy AS SELECT ')) rootCopyReads++;
+			return constants.SQLITE_OK;
+		});
+		try {
+			initialize(db); assert.equal(deniedPreparedReads, 0);
+			assert.ok(metadataCopyReads > 0); assert.ok(rootCopyReads > 0);
+			// Independent controls prove prepared payload reads remain forbidden.
+			assert.throws(() => db.prepare('SELECT metadata FROM native_photo_media_assets').get());
+			assert.throws(() => db.prepare('SELECT root FROM native_photo_media_roots').get());
+			assert.equal(deniedPreparedReads, 2);
+		} finally { db.setAuthorizer(null); db.exec = execute; }
+		const assertRows = (connection: DatabaseSync): void => {
+			assert.equal(inspect(connection), 'owned'); assert.equal(connection.prepare('PRAGMA user_version').get()?.user_version, 4);
+			assert.deepEqual(connection.prepare('SELECT * FROM native_photo_original_bindings').all(), binding);
+			assert.deepEqual(connection.prepare(assetsSql).all(), asset); assert.deepEqual(connection.prepare(rootsSql).all(), roots);
+			assert.deepEqual(connection.prepare('SELECT * FROM native_photo_original_body_heads').all(), heads);
+			assert.deepEqual(connection.prepare('SELECT * FROM native_photo_original_body_locators ORDER BY locator_id').all(), locators);
+			assert.deepEqual(connection.prepare('SELECT source_id,kind,sha256,size,managed_key,linked_key FROM native_photo_media_identities').all()
+				.map(row => [row.source_id, row.kind, row.sha256, row.size, row.managed_key, row.linked_key]),
+				version === 1 ? [] : [['original', 'managed', SHA, 3, 'original', null]]);
+			assert.equal(connection.prepare('SELECT count(*) AS n FROM native_photo_linked_original_bindings').get()?.n, 0);
+		};
+		assertRows(db);
+		for (const row of prior) assert.ok(objects(db).some(value => value.name === row.name && value.sql ===
+			(row.name === 'native_photo_media_assets' ? currentAssetsDdl : row.sql)));
 		assert.equal(hash(await readFile(bodyPath)), hash(Uint8Array.of(1, 2, 3)));
-		const reopened = new DatabaseSync(path); try { initialize(reopened); assert.equal(inspect(reopened), 'owned'); } finally { reopened.close(); }
+		const schema = objects(db), reopened = new DatabaseSync(path);
+		try { initialize(reopened); assertRows(reopened); assert.deepEqual(objects(reopened), schema); } finally { reopened.close(); }
 	});
 });
 
-for (const version of [1, 2] as const) void test(`Lightscaper LSCP${version} readonly preflight leaves all real primary bytes unchanged`, options, async t => {
+for (const version of [1, 2, 3] as const) void test(`Lightscaper LSCP${version} readonly preflight leaves all real primary bytes unchanged`, options, async t => {
 	await fixture(t, async (db, path) => {
-		(version === 1 ? historicalV1 : historicalV2)(db);
+		(version === 1 ? historicalV1 : version === 2 ? historicalV2 : historicalV3)(db);
 		const before = hash(await readFile(path)), reader = new DatabaseSync(path, { readOnly: true });
-		try { assert.equal(inspect(reader), version === 1 ? 'original-v1' : 'media-v2'); } finally { reader.close(); }
+		try { assert.equal(inspect(reader), version === 1 ? 'original-v1' : version === 2 ? 'media-v2' : 'media-v3'); } finally { reader.close(); }
 		assert.equal(hash(await readFile(path)), before);
 	});
 });
 
-for (const kind of ['foreign', 'wrong-app', 'future', 'extra-table', 'extra-trigger', 'weakened'] as const) void test(`Lightscaper LSCP3 refuses ${kind} schema without changing primary bytes`, options, async t => {
+for (const kind of ['foreign', 'wrong-app', 'future', 'extra-table', 'extra-trigger', 'weakened'] as const) void test(`Lightscaper LSCP4 refuses ${kind} schema without changing primary bytes`, options, async t => {
 	await fixture(t, async (db, path) => {
 		if (kind === 'foreign') db.exec('CREATE TABLE foreign_bytes(value TEXT)');
 		else if (kind === 'weakened') db.exec('PRAGMA application_id=1280525136; PRAGMA user_version=2; CREATE TABLE native_photo_original_bindings(storage_key TEXT)');
 		else { historicalV2(db); if (kind === 'wrong-app') db.exec('PRAGMA application_id=1');
-			else if (kind === 'future') db.exec('PRAGMA user_version=4');
+			else if (kind === 'future') db.exec('PRAGMA user_version=5');
 			else db.exec(kind === 'extra-table' ? 'CREATE TABLE extra_bytes(value TEXT)' : 'CREATE TRIGGER extra_trigger AFTER INSERT ON native_photo_original_bindings BEGIN SELECT 1; END'); }
 		const before = hash(await readFile(path)); assert.throws(() => inspect(db)); assert.throws(() => initialize(db));
 		assert.equal(db.isTransaction, false); assert.equal(hash(await readFile(path)), before);
 	});
 });
 
-void test('Lightscaper LSCP3 genuine denied COMMIT rolls migration back to exact LSCP2', options, async t => {
+void test('Lightscaper LSCP4 genuine denied COMMIT rolls migration back to exact LSCP2', options, async t => {
 	await fixture(t, db => {
 		historicalV2(db); seedHistoricalV2(db);
 		db.setAuthorizer((action, operation) => action === constants.SQLITE_TRANSACTION && operation === 'COMMIT' ? constants.SQLITE_DENY : constants.SQLITE_OK);
@@ -99,7 +138,7 @@ void test('Lightscaper LSCP3 genuine denied COMMIT rolls migration back to exact
 	});
 });
 
-void test('Lightscaper LSCP3 preserves denied migration and actual rollback failure separately', options, async t => {
+void test('Lightscaper LSCP4 preserves denied migration and actual rollback failure separately', options, async t => {
 	await fixture(t, db => {
 		historicalV2(db);
 		db.setAuthorizer((action, operation) => action === constants.SQLITE_CREATE_INDEX || (action === constants.SQLITE_TRANSACTION && operation === 'ROLLBACK') ? constants.SQLITE_DENY : constants.SQLITE_OK);
@@ -110,7 +149,7 @@ void test('Lightscaper LSCP3 preserves denied migration and actual rollback fail
 	});
 });
 
-void test('Lightscaper LSCP3 head composite FK refuses a locator with another byte length', options, async t => {
+void test('Lightscaper LSCP4 head composite FK refuses a locator with another byte length', options, async t => {
 	await fixture(t, db => {
 		initialize(db); db.prepare('INSERT INTO native_photo_original_body_locators VALUES(?,?,?,?)').run(SHA, 'b'.repeat(64), 3, 'generation-v1');
 		assert.throws(() => db.prepare('INSERT INTO native_photo_original_body_heads VALUES(?,?,?,?)').run(SHA, 'b'.repeat(64), 4, 0));

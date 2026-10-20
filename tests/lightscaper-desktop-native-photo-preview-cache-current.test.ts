@@ -62,7 +62,13 @@ void test('Lightscaper native preview cache refuses source binding corruption wi
 	const core = f.owner.createBinaryDerivativeCache(profile()), identity = f.identity('scalar', 1);
 	f.source.prepare('UPDATE native_photo_media_assets SET metadata=?').run(new Uint8Array(131072));
 	assert.equal((await core.store(identity, new Blob(['x']), digest('x'))).outcome, 'stored'); assert.ok(await core.load(identity));
-	f.source.prepare('UPDATE native_photo_media_assets SET size=size+1').run(); await assert.rejects(core.store(identity, new Blob(['x']), digest('x'))); assert.equal(await core.load(identity), null);
+	const corrupt = () => f.source.prepare('UPDATE native_photo_media_assets SET size=size+1').run();
+	assert.throws(corrupt, /FOREIGN KEY/u);
+	// The real source connection rejects ordinary mutation; bypass it solely for forensic input.
+	f.source.exec('PRAGMA foreign_keys=OFF');
+	try { corrupt(); } finally { f.source.exec('PRAGMA foreign_keys=ON'); }
+	assert.equal(f.source.prepare('PRAGMA foreign_keys').get()?.foreign_keys, 1);
+	await assert.rejects(core.store(identity, new Blob(['x']), digest('x'))); assert.equal(await core.load(identity), null);
 }));
 
 

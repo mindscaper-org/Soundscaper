@@ -20,11 +20,11 @@ const exists = (path: string) => lstat(path).then(() => true, (error: unknown) =
 	if (error !== null && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return false; throw error;
 });
 
-test('Lightscaper managed media opener creates only product parents and exact genuine LSCP3 database with private WAL/FULL/FK', async () => {
+test('Lightscaper managed media opener creates only product parents and exact genuine LSCP4 database with private WAL/FULL/FK', async () => {
 	await fixture(async directory => {
 		const p = paths(directory), db = await openDatabase(directory);
 		try {
-			assert.equal(inspect(db), 'owned'); assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 3);
+			assert.equal(inspect(db), 'owned'); assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 4);
 			assert.equal(db.prepare('PRAGMA journal_mode').get()?.journal_mode, 'wal'); assert.equal(db.prepare('PRAGMA synchronous').get()?.synchronous, 2);
 			assert.equal(db.prepare('PRAGMA foreign_keys').get()?.foreign_keys, 1);
 			assert.equal(await exists(p.bodiesRoot), false); assert.equal(await exists(p.stagingRoot), false);

@@ -40,6 +40,7 @@ jobs:
       - run: npm install --global npm@12.0.1
       - run: npm ci
       - name: Linux build and OS-isolation prerequisites
+        timeout-minutes: 10
         if: runner.os == 'Linux'
         run: |
           bash scripts/ci-apt-install.sh build-essential cmake binutils

@@ -5,6 +5,10 @@ import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import beforePack from '../scripts/desktop-lightscaper-before-pack.mjs';
+import afterPack from '../scripts/desktop-lightscaper-after-pack.mjs';
+import afterSign from '../scripts/desktop-lightscaper-after-sign.mjs';
+import afterAllArtifactBuild from '../scripts/desktop-verify-release-artifacts.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SELECT_CONFIG = `
@@ -87,7 +91,6 @@ test('Lightscaper builder requests no microphone, camera or screen capture permi
 	assert.equal(config.mac.entitlements, 'desktop/lightscaper-entitlements.mac.plist');
 	assert.equal(config.mac.entitlementsInherit, config.mac.entitlements);
 	assert.deepEqual(config.mac.extendInfo, {});
-	assert.equal(config.mac.signIgnore, undefined);
 	const entitlements = await readFile(new URL('../desktop/lightscaper-entitlements.mac.plist', import.meta.url), 'utf8');
 	assert.deepEqual([...entitlements.matchAll(/<key>([^<]+)<\/key>/gu)].map((match) => match[1]), [
 		'com.apple.security.cs.allow-jit', 'com.apple.security.cs.allow-unsigned-executable-memory',
@@ -95,15 +98,30 @@ test('Lightscaper builder requests no microphone, camera or screen capture permi
 	assert.doesNotMatch(entitlements, /device\.(?:audio-input|camera)|screen-recording|audio-capture/iu);
 });
 
-test('Lightscaper builder retains runtime verification and code-sealing hooks', () => {
+void test('Lightscaper builder retains runtime verification and code-sealing hooks', async () => {
 	const config = readConfiguration('lightscaper');
 	assert.equal(config.asar, true);
 	assert.equal(config.npmRebuild, false);
 	assert.equal(config.downloadAlternateFFmpeg, true);
 	assert.equal(config.beforePack, './scripts/desktop-lightscaper-before-pack.mjs');
 	assert.equal(config.afterPack, './scripts/desktop-lightscaper-after-pack.mjs');
-	assert.equal(config.afterSign, './scripts/desktop-after-sign.mjs');
+	assert.equal(config.afterSign, './scripts/desktop-lightscaper-after-sign.mjs');
 	assert.equal(config.afterAllArtifactBuild, './scripts/desktop-verify-release-artifacts.mjs');
+	for (const hook of [beforePack, afterPack, afterSign, afterAllArtifactBuild]) assert.equal(typeof hook, 'function');
+	const afterSignSource = await readFile(new URL('../scripts/desktop-lightscaper-after-sign.mjs', import.meta.url), 'utf8');
+	assert.match(afterSignSource, /import verifySignature from '\.\/desktop-after-sign\.mjs';/u);
+	assert.match(afterSignSource, /await verifySignature\(context\);\s*await verifyDesktopLightscaperPackageReceiptCurrentV1\(/u,
+		'platform signature verification must settle before final native package receipt verification');
+	const signIgnore = config.mac.signIgnore;
+	assert.equal(signIgnore, '/Contents/Resources/runtime/photo-native/current-v1/');
+	assert.equal(typeof signIgnore, 'string');
+	assert.ok(typeof signIgnore === 'string');
+	const sealedPhotoCode = new RegExp(signIgnore, 'u');
+	assert.equal(sealedPhotoCode.test('/Lightscaper.app/Contents/Resources/runtime/photo-native/current-v1/mac-arm64/bin/lightscaper_photo_raw_current_v1'), true);
+	for (const path of ['/Lightscaper.app/Contents/MacOS/Lightscaper', '/Lightscaper.app/Contents/Frameworks/Electron Framework.framework/Electron Framework',
+		'/Lightscaper.app/Contents/Resources/renderer/assets/editor.js', '/Lightscaper.app/Contents/Resources/runtime/foreign/current-v1/helper']) {
+		assert.equal(sealedPhotoCode.test(path), false, path);
+	}
 	assert.equal(config.publish, null);
 });
 

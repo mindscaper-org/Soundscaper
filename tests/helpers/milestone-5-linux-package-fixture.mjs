@@ -321,6 +321,7 @@ async function writeJson(path, value) {
 async function writeBytes(path, bytes) {
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, bytes);
+	await chmod(path, 0o644);
 }
 
 function descriptor(bytes) {

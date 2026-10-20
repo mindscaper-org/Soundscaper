@@ -97,6 +97,7 @@ jobs:
         run: |
           node --input-type=module -e 'import {appendFile} from "node:fs/promises"; import {join} from "node:path"; await appendFile(process.env.GITHUB_ENV,"LIGHTSCAPER_CI_NPM_CLI="+join(process.argv[1],"npm/bin/npm-cli.js")+"\n");' "$(npm root --global)"
       - name: Prepare real Linux display and user namespaces
+        timeout-minutes: 10
         if: runner.os == 'Linux'
         run: |
           bash scripts/ci-apt-install.sh xvfb xauth libnss3 libgbm1 libasound2t64

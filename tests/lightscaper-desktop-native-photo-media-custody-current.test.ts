@@ -121,7 +121,14 @@ test('Lightscaper native custody authenticates current generation and physical k
 		const { binding } = await publish(f); execute(f.db, capture('retain', ['catalog', [reference('photo', binding)]]));
 		if (corruption === 'token') f.db.exec("UPDATE native_photo_media_assets SET media_content_token='media-content-0000000000000000'");
 		else if (corruption === 'native-key') f.db.prepare('UPDATE native_photo_media_roots SET root_key=?').run(Uint8Array.of(0, 1));
-		else f.db.prepare('UPDATE native_photo_original_bindings SET content_sha256=?').run('f'.repeat(64));
+		else {
+			const corrupt = () => f.db.prepare('UPDATE native_photo_original_bindings SET content_sha256=?').run('f'.repeat(64));
+			assert.throws(corrupt, /FOREIGN KEY/u);
+			// Bypass only this forensic writer to exercise detection of disk corruption.
+			f.db.exec('PRAGMA foreign_keys=OFF');
+			try { corrupt(); } finally { f.db.exec('PRAGMA foreign_keys=ON'); }
+			assert.equal(f.db.prepare('PRAGMA foreign_keys').get()?.foreign_keys, 1);
+		}
 		assert.throws(() => page(f.db));
 		if (corruption === 'native-key') execute(f.db, capture('release', ['catalog', ['photo']]));
 		else assert.throws(() => execute(f.db, capture('release', ['catalog', ['photo']])));

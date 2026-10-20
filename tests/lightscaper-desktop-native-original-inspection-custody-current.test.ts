@@ -51,6 +51,12 @@ void test('Lightscaper native inspection refuses scalar generation and physical 
 		f.db.exec("UPDATE native_photo_media_assets SET media_content_token='media-content-0000000000000000'"); await assert.rejects(f.inspect());
 	});
 	await fixture(t, async f => {
-		f.db.exec("UPDATE native_photo_original_bindings SET byte_length=byte_length+1"); await assert.rejects(f.inspect());
+		const corrupt = () => { f.db.exec("UPDATE native_photo_original_bindings SET byte_length=byte_length+1"); };
+		assert.throws(corrupt, /FOREIGN KEY/u);
+		// Model disk corruption only after proving ordinary writes retain typed identity.
+		f.db.exec('PRAGMA foreign_keys=OFF');
+		try { corrupt(); } finally { f.db.exec('PRAGMA foreign_keys=ON'); }
+		assert.equal(f.db.prepare('PRAGMA foreign_keys').get()?.foreign_keys, 1);
+		await assert.rejects(f.inspect());
 	});
 });
