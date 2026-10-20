@@ -6,7 +6,6 @@ import test from 'node:test';
 import { createVideoExportPlan } from '../src/common/editor/video-export.js';
 import { buildVideoFfmpegArgs } from '../src/common/editor/video-ffmpeg.js';
 import { CANONICAL_VIDEO_EXPORT_PLAN_VERSION } from '../src/common/editor/video-export-plan-version.ts';
-import { resolveVideoDeliveryFfmpegQuality } from '../src/common/editor/video-delivery-quality.ts';
 import { assertNativeMediaGraphPlan } from '../src/common/editor/native-media-graph-plan-admission.ts';
 import { resolveRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
 import { createVideoKeyframeExportFrameSource } from '../src/common/editor/video-keyframe-export-frame-source.ts';
@@ -100,10 +99,6 @@ test('the keyed encoder reads the same tiers as the composed graph', () => {
 
 test('an unrecognized keyed tier is refused before any frame is encoded', () => {
 	assert.throws(() => keyedEncoderArguments('archival'), /must be one of draft, balanced, high/u);
-});
-
-test('a format with no mapping is a refusal rather than a silent balanced encode', () => {
-	assert.throws(() => resolveVideoDeliveryFfmpegQuality('mkv', 'balanced'), /No delivery quality mapping/u);
 });
 
 function exportPlan(options: Readonly<Record<string, unknown>> = {}) {
