@@ -19,7 +19,18 @@ export async function exportPhotoLibraryBackupV1(catalogValue: unknown, ports: P
 	const source = await capturePhotoLibraryBackupSourceV1(catalogId, ports, signal);
 	if (ports.stacks) {
 		const stacks = await capturePhotoLibraryBackupStacksV1(source.initial, ports.stacks, source.verifyCatalog, signal);
-		return exportPhotoCatalogArchiveV2(source.initial.catalog, source.originals, stacks, options);
+		return exportPhotoCatalogArchiveV2(source.initial.catalog, source.originals, stacks, await destination());
 	}
-	return exportPhotoCatalogArchiveV1(source.initial.catalog, source.originals, options);
+	return exportPhotoCatalogArchiveV1(source.initial.catalog, source.originals, await destination());
+
+	async function destination() {
+		let writable = options.writable;
+		if (options.createWritable) {
+			await source.verifyCatalog();
+			writable = admitPhotoLibraryBackupRequestV1({ writable: await options.createWritable(), signal }).writable;
+			if (writable === undefined) throw new TypeError('Photo backup destination factory must return a native writable stream.');
+			await source.verifyCatalog();
+		}
+		return { writable, signal, maximumBlobBytes: options.maximumBlobBytes };
+	}
 }

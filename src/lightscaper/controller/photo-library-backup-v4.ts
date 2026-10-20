@@ -23,7 +23,17 @@ export async function exportPhotoLibraryBackupV4(catalogValue: unknown, ports: P
 		const presets = await capturePhotoDevelopPresetsArchiveV1(presetSettings, catalogId, { signal });
 		const inventory = await capturePhotoLibraryBackupInventory(catalogId, borrowed, signal);
 		const verifyPresets = presets.verify.bind(presets), verifyInventory = inventory.verify.bind(inventory);
+		let writable = options.writable;
+		if (options.createWritable) {
+			const verifyMetadata = async () => {
+				await inventory.source.verifyCatalog(); await verifyPresets(); await inventory.source.verifyCatalog();
+			};
+			await verifyMetadata();
+			writable = admitPhotoLibraryBackupRequestV1({ writable: await options.createWritable(), signal }).writable;
+			if (writable === undefined) throw new TypeError('Photo backup destination factory must return a native writable stream.');
+			await verifyMetadata();
+		}
 		return exportPhotoCatalogArchiveV4(inventory.source.initial.catalog, inventory.source.originals, inventory.stacks,
-			inventory.state, inventory.definitions, presets.row, { ...options, signal, verifySource: () => verifyInventory(verifyPresets) });
+			inventory.state, inventory.definitions, presets.row, { writable, signal, maximumBlobBytes: options.maximumBlobBytes, verifySource: () => verifyInventory(verifyPresets) });
 	});
 }

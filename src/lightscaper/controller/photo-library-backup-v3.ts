@@ -15,7 +15,14 @@ export async function exportPhotoLibraryBackupV3(catalogValue: unknown, ports: P
 	const catalogId = id(catalogValue, 'backup catalog ID'), options = admitPhotoLibraryBackupRequestV1(optionsValue);
 	return withPhotoSmartCollectionWriteSignalV1(options.signal, async signal => {
 		const inventory = await capturePhotoLibraryBackupInventory(catalogId, borrowPhotoLibraryBackupInventoryPorts(ports), signal);
+		let writable = options.writable;
+		if (options.createWritable) {
+			await inventory.source.verifyCatalog();
+			writable = admitPhotoLibraryBackupRequestV1({ writable: await options.createWritable(), signal }).writable;
+			if (writable === undefined) throw new TypeError('Photo backup destination factory must return a native writable stream.');
+			await inventory.source.verifyCatalog();
+		}
 		return exportPhotoCatalogArchiveV3(inventory.source.initial.catalog, inventory.source.originals, inventory.stacks,
-			inventory.state, inventory.definitions, { ...options, signal, verifySource: inventory.verify });
+			inventory.state, inventory.definitions, { writable, signal, maximumBlobBytes: options.maximumBlobBytes, verifySource: inventory.verify });
 	});
 }

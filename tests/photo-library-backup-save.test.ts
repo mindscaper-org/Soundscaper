@@ -37,7 +37,8 @@ function fixture() {
 		},
 		saveFile: async () => { assert.fail('Streaming does not use Blob delivery'); },
 		backupCatalog: async (options) => {
-			events.push('backup'); assert.ok(options?.writable); const writer = options.writable.getWriter();
+			events.push('backup'); assert.equal(options?.writable, undefined); assert.ok(options?.createWritable);
+			const writable = await options.createWritable(), writer = writable.getWriter();
 			try { await writer.write(BYTES); await writer.close(); } finally { writer.releaseLock(); }
 			return result();
 		},
@@ -49,7 +50,7 @@ test('start invokes the picker in the click stack and reports saved only after e
 	const f = fixture(), work = f.controller.start(f.input);
 	assert.deepEqual(f.events, ['picker']); assert.equal(f.controller.isPending(), true);
 	const receipt = await work;
-	assert.deepEqual(f.events, ['picker', 'open', 'backup', 'commit']); assert.deepEqual(f.writes, [BYTES]);
+	assert.deepEqual(f.events, ['picker', 'backup', 'open', 'commit']); assert.deepEqual(f.writes, [BYTES]);
 	assert.deepEqual(receipt, { status: 'saved', catalogId: 'catalog-1', catalogName: 'Summer', photoCount: 3,
 		byteLength: 4, fileName: 'Summer.liscape', method: 'file-system-access', notices: [] });
 	assert.equal('blob' in receipt, false); assert.equal(Object.isFrozen(receipt), true); assert.equal(f.controller.isPending(), false);
@@ -75,18 +76,28 @@ test('picker dismissal is a scalar cancelled receipt and does not acquire archiv
 	assert.deepEqual(receipt, { status: 'cancelled' }); assert.deepEqual(f.events, []);
 });
 
-test('held destination creation remains owned through cancellation and abort, with no archive call', async () => {
+test('held destination creation remains owned through cancellation and abort, with no archive body write', { timeout: 15_000 }, async context => {
 	const f = fixture(), open = deferred<WritableStream<Uint8Array>>(), abort = deferred<void>(), entered = deferred<void>();
-	const base = f.prepareDirect();
+	const base = f.prepareDirect(); let expired = false;
+	const release = () => { void f.controller.cancelAndJoin(); open.resolve(new WritableStream<Uint8Array>()); abort.resolve(); entered.resolve(); };
+	const stop = () => { expired = true; release(); };
+	const timer = setTimeout(stop, 13_000); context.signal.addEventListener('abort', stop, { once: true });
 	const work = f.controller.start({ ...f.input, prepareSave: async () => ({ ...base,
 		createWritable: async (maximum, mode) => { assert.equal(maximum, 1024); assert.equal(mode, 'maximum'); entered.resolve(); return open.promise; },
 		abort: async () => { f.events.push('held-abort'); await abort.promise; } }) });
-	const observed = work.catch(() => undefined); await entered.promise;
-	const joining = f.controller.cancelAndJoin(); assert.equal(await remainsPending(joining), true);
-	open.resolve(new WritableStream<Uint8Array>()); await waitForEvent(f.events, 'held-abort');
-	assert.equal(await remainsPending(joining), true); await assert.rejects(f.controller.start(f.input), /pending/iu);
-	abort.resolve(); await assert.rejects(work, { name: 'AbortError' }); await observed; await joining;
-	assert.equal(f.events.includes('backup'), false);
+	const observed = work.catch(() => undefined);
+	try {
+		// Observe early owning failure as well as real entry; an admission regression cannot strand this test at the gate.
+		await Promise.race([entered.promise, work.then(() => assert.fail('Destination creation was never entered'))]);
+		const joining = f.controller.cancelAndJoin(); assert.equal(await remainsPending(joining), true);
+		open.resolve(new WritableStream<Uint8Array>()); await waitForEvent(f.events, 'held-abort');
+		assert.equal(await remainsPending(joining), true); await assert.rejects(f.controller.start(f.input), /pending/iu);
+		abort.resolve(); await assert.rejects(work, { name: 'AbortError' }); await observed; await joining;
+		assert.equal(f.events.includes('backup'), true); assert.equal(f.writes.length, 0); assert.equal(f.events.includes('commit'), false);
+		assert.equal(expired, false);
+	} finally {
+		release(); await observed; await f.controller.cancelAndJoin(); clearTimeout(timer); context.signal.removeEventListener('abort', stop);
+	}
 });
 
 test('pre-acquisition archive refusal still aborts an opened prepared destination and retains both failures', async () => {
@@ -202,7 +213,8 @@ test('the real direct-save owner joins a cancelled native open and held native a
 	await abortEntered.promise; assert.equal(await remainsPending(joining), true);
 	await assert.rejects(f.controller.start(f.input), /pending/iu); abort.resolve();
 	await assert.rejects(work, { name: 'AbortError' }); await observed; await joining; assert.equal(aborts, 1);
-	assert.equal(f.events.includes('backup'), false); await f.controller.start(f.input);
+	assert.equal(f.events.includes('backup'), true); assert.equal(f.writes.length, 0); assert.equal(f.events.includes('commit'), false);
+	await f.controller.start(f.input);
 });
 
 test('cancelled Blob preparation discards the completed archive instead of starting download', async () => {
@@ -229,7 +241,9 @@ test('the owning archive bound stages an authentic photo archive before native c
 			target: { createWritable: async () => ({ write: value => { assert.ok(value instanceof Uint8Array); parts.push(new Uint8Array(value)); },
 				close: () => { assert.equal(staged, true); committed = true; }, abort: () => assert.fail('Valid archive') }) } }),
 		backupCatalog: async options => {
-			const exported = await exportPhotoCatalogArchiveV1(root, [original], options);
+			assert.equal(options.writable, undefined); assert.ok(options.createWritable);
+			const writable = await options.createWritable();
+			const exported = await exportPhotoCatalogArchiveV1(root, [original], { writable, signal: options.signal, maximumBlobBytes: options.maximumBlobBytes });
 			assert.equal(committed, false); staged = true;
 			return { catalogId: root.id, catalogName: root.name, photoCount: root.photoCount,
 				byteLength: exported.byteLength, blob: exported.blob, notices: [] };
