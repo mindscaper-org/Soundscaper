@@ -347,7 +347,7 @@ export function soundscaperProtocolSource(sourceValue) {
 		"const FRAMESCAPER_CAPTURE_POLICY =\n\t'microphone=(self), speaker-selection=(self), display-capture=(self), camera=(self), geolocation=()';\n",
 		'', 'Framescaper protocol capture policy');
 	source = replaceOnce(source,
-		"\tif (productId !== 'soundscaper' && productId !== 'framescaper') {",
+		"\tif (productId !== 'soundscaper' && productId !== 'framescaper' && productId !== 'lightscaper') {",
 		"\tif (productId !== 'soundscaper') {", 'desktop protocol product validation');
 	source = replaceOnce(source,
 		"\tif (productId === 'framescaper') return FRAMESCAPER_CAPTURE_POLICY;\n",
