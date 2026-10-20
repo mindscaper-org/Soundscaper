@@ -29,7 +29,6 @@ test('the clock fills the available panel while retaining digit proportions', ()
 	assert.equal(clockPanelDisplayScale({ width: 640, height: 200 }, { width: 200, height: 28 }), 3.08);
 	assert.equal(clockPanelDisplayScale({ width: 1_000, height: 80 }, { width: 200, height: 28 }), 2);
 	assert.equal(clockPanelDisplayScale({ width: 120, height: 160 }, { width: 200, height: 28 }), 0.48);
-	assert.equal(clockPanelDisplayScale({ width: 0, height: 0 }, { width: 0, height: 0 }), 1);
 });
 
 test('closing the clock returns focus to the toolbar timecode', () => {

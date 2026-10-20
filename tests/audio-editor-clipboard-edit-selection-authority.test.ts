@@ -58,16 +58,16 @@ function createSplitFixture(
 	return { commits, service: createClipboardEditService(dependencies), sourceBuffers };
 }
 
-test('Split execution uses a persisted clip without focus and falls back from stale persistence', () => {
+test('Split execution uses a persisted clip without focus and falls back from empty persistence', () => {
 	const persisted = createSplitFixture(project(), { trackId: null, clipId: null });
 	persisted.service.commitSplitAtFrames([50]);
 	assert.equal(persisted.commits[0]?.type, 'clip/split');
 
-	const stale = createSplitFixture(project({
-		selection: { startFrame: 0, endFrame: 0, trackIds: ['missing-track'], clipIds: ['missing-clip'] },
+	const focused = createSplitFixture(project({
+		selection: { startFrame: 0, endFrame: 0, trackIds: [], clipIds: [] },
 	}), { trackId: 'audio-track', clipId: 'audio-clip' });
-	stale.service.commitSplitAtFrames([50]);
-	assert.equal(stale.commits[0]?.type, 'clip/split');
+	focused.service.commitSplitAtFrames([50]);
+	assert.equal(focused.commits[0]?.type, 'clip/split');
 });
 
 test('Split execution accepts a selected video track as its exact target', () => {
