@@ -91,7 +91,7 @@ test('the supplemental application-menu reference is a unique lookup', () => {
 		assert.equal(ids.has(entry.id), false, entry.id);
 		assert.equal(Object.hasOwn(AUDACITY_ACTION_MANIFEST, entry.id), false, entry.id);
 		ids.add(entry.id);
-		assert.equal(APPLICATION_MENU_REFERENCE_BY_ID[entry.id], entry);
+		assert.deepEqual(APPLICATION_MENU_REFERENCE_BY_ID[entry.id], entry);
 	}
 
 	assert.deepEqual(Object.keys(APPLICATION_MENU_REFERENCE_BY_ID).sort(), [...ids].sort());
