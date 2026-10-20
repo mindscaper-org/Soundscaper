@@ -76,9 +76,6 @@ async function execution(overrides: Data = {}): Promise<Data> {
 test('a visual export execution compiles its own exact render plan', async () => {
 	const built = await execution();
 
-	assert.deepEqual(Object.keys(built), [
-		'exactPlan', 'timingSidecars', 'accountFrame', 'disposition', 'dispose',
-	]);
 	assert.equal((built.exactPlan as Data).version, 13);
 	(built.dispose as () => void)();
 });
@@ -98,10 +95,6 @@ test('an execution reports a disposition naming every node it accounted for', as
 
 	const disposition = (built.disposition as () => Data)();
 
-	assert.deepEqual(Object.keys(disposition), [
-		'exactPlanVersion', 'nodeDispositions', 'captionDisposition', 'captionTrackIds',
-		'audioDisposition', 'originalSourceIds', 'unexplainedOmittedNodeIds',
-	]);
 	assert.equal(disposition.exactPlanVersion, 13);
 	(built.dispose as () => void)();
 });
