@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import type { TimelineAnnotationCommand } from '../src/common/editor/commands/timeline-annotation.ts';
 import {
 	applyTimelineAnnotationCommand,
 	type MutableTimelineAnnotationProject,

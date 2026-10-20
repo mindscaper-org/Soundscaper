@@ -74,7 +74,7 @@ test('the Scape project binary codec exposes frozen lower-only production limits
 		{ unsupportedLimit: 1 },
 	]) {
 		assert.throws(
-			() => resolveLimits(limits),
+			() => resolveLimits(limits as unknown as Partial<codecModule.ScapeProjectBinaryLimits>),
 			(error: unknown) => error instanceof TypeError || error instanceof RangeError,
 		);
 	}
