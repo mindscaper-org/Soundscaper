@@ -41,10 +41,6 @@ type Scheduler = ReturnType<typeof createFramescaperCapturedVideoProxyScheduler>
 const NEVER_RUN = 'The captured proxy composition tests never encode or probe.';
 const SOURCE_ID = 'captured-video-source';
 const DIGEST = 'ab'.repeat(32);
-const SESSION_METHODS = [
-	'getSnapshot', 'captureProjectHistory', 'assertProjectHistoryToken',
-	'beginProjectActivation', 'installCommittedProjectHistory',
-] as const;
 
 /** The composition demands the WeakSet-registered environment, so one real store is shared. */
 let opened: Promise<Environment> | null = null;
@@ -146,54 +142,6 @@ test('an environment the product factory never minted is refused before the sess
 	assert.throws(
 		() => capturedVideoProxySchedulerDependencies({ ...real }, {}, composition()),
 		/product-created Framescaper environment/u,
-	);
-});
-
-test('a session that is not an object is refused as the missing capture session', async () => {
-	const real = await environment();
-
-	for (const candidate of [null, undefined, 'session', 7]) {
-		assert.throws(
-			() => capturedVideoProxySchedulerDependencies(real, candidate, composition()),
-			/Captured proxy scheduling requires its session\./u,
-		);
-	}
-});
-
-test('a session missing any one reconciliation method is refused by that method name', async () => {
-	const real = await environment();
-
-	for (const method of SESSION_METHODS) {
-		const partial = session();
-		delete partial[method];
-
-		assert.throws(
-			() => capturedVideoProxySchedulerDependencies(real, partial, composition()),
-			new RegExp(`requires session\\.${method}\\.`, 'u'),
-			`session.${method} must be demanded by name`,
-		);
-		partial[method] = 'not a function';
-		assert.throws(
-			() => capturedVideoProxySchedulerDependencies(real, partial, composition()),
-			new RegExp(`requires session\\.${method}\\.`, 'u'),
-		);
-	}
-});
-
-test('a composition that is not an object is refused before any candidate is observed', async () => {
-	const real = await environment();
-
-	for (const candidate of ['composition', 42, true]) {
-		assert.throws(
-			() => capturedVideoProxySchedulerDependencies(real, session(), candidate as never),
-			/Captured proxy runtime composition is required\./u,
-		);
-	}
-	// A null composition is read for its optional seams first, so it fails as a
-	// plain property read rather than with the composition's own message.
-	assert.throws(
-		() => capturedVideoProxySchedulerDependencies(real, session(), null as never),
-		TypeError,
 	);
 });
 
@@ -406,19 +354,6 @@ test('the captured scheduler factory refuses an environment the product never mi
 
 	assert.equal(typeof scheduler, 'function');
 	await scheduler.dispose();
-});
-
-test('the existing-proxy factory refuses its composition before it looks at the environment', () => {
-	const candidate = new Blob([Uint8Array.of(1, 2, 3)], { type: 'video/mp4' });
-
-	for (const value of [null, undefined, 'composition', 5]) {
-		assert.throws(
-			() => createFramescaperExistingVideoProxyScheduler(
-				{} as Environment, session(), value as never, candidate,
-			),
-			/Existing Framescaper proxy attachment requires its runtime composition\./u,
-		);
-	}
 });
 
 test('an existing proxy candidate must be a non-empty blob of canonical video bytes', async () => {

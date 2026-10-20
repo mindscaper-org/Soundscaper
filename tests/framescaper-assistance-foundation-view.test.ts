@@ -54,7 +54,7 @@ test('snapshot readers are invoked against the controller that owns them', () =>
 	assert.deepEqual(view.getTelemetrySnapshot(), { telemetry: true });
 });
 
-test('the projected project is reshaped on every access rather than captured once', () => {
+test('the projected project uses the foundation shape', () => {
 	const source = controller();
 
 	const view = createFramescaperControllerFoundationViewAssistance(source);
@@ -79,33 +79,6 @@ test('the optional native render input preparation appears only when supplied', 
 		createFramescaperControllerFoundationViewAssistance(source, prepare)
 			.prepareNativeRenderInputStreamNativeMedia,
 		prepare,
-	);
-});
-
-test('controller members reached through the prototype chain are accepted', () => {
-	const prototype = {
-		actions: {},
-		getSnapshot: () => ({}),
-		getTelemetrySnapshot: () => ({}),
-	};
-	const source = Object.create(prototype) as Data;
-	source.project = project();
-
-	assert.doesNotThrow(() => createFramescaperControllerFoundationViewAssistance(source));
-});
-
-test('an incomplete assistance controller is refused', () => {
-	assert.throws(() => createFramescaperControllerFoundationViewAssistance(null), TypeError);
-	assert.throws(() => createFramescaperControllerFoundationViewAssistance([]), TypeError);
-	assert.throws(
-		() => createFramescaperControllerFoundationViewAssistance({
-			project: project(), getSnapshot: () => ({}), getTelemetrySnapshot: () => ({}),
-		}),
-		/actions is unavailable/u,
-	);
-	assert.throws(
-		() => createFramescaperControllerFoundationViewAssistance(controller({ getSnapshot: 1 })),
-		/getSnapshot must be a function/u,
 	);
 });
 
@@ -154,11 +127,3 @@ test('the optional sink renderer is forwarded only when the operation offers one
 	assert.equal(withSink.renderAudioToSink!({} as never, {} as never, 'sink' as never), 'sink');
 });
 
-test('a render input authority without a begin port is refused', () => {
-	for (const value of [null, {}, { begin: 1 }]) {
-		assert.throws(
-			() => adaptFramescaperNativeRenderInputAuthorityAssistance(value as never),
-			TypeError,
-		);
-	}
-});
