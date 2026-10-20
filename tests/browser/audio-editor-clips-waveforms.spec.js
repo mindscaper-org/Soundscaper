@@ -336,6 +336,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.mouse.move(clipHeaderBox.x + 88, clipHeaderBox.y + clipHeaderBox.height / 2);
 		await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 		await page.mouse.up();
+		await expect.poll(() => page.evaluate(() => globalThis.__waveformClearsAfterPointerDown)).toBeGreaterThan(0);
 		await expect(waveform).not.toHaveAttribute('data-waveform-pending', 'true');
 		await page.evaluate(() => {
 			globalThis.__waveformClearsAfterPointerDown = 0;
