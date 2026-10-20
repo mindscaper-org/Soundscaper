@@ -22,7 +22,7 @@ for (const output of ['', 'speakers-a']) test(`controller audition resources inh
 			'the actual independent preview engine inherits the published main engine output');
 	} finally {
 		for (const preview of previews) await preview.dispose();
-		await resources.clipTimePitchCache.dispose();
+		await resources.clipTimePitchCache.dispose?.();
 		await resources.engine.dispose();
 		resources.ffmpeg.dispose(); resources.nyquistClient?.dispose();
 		await resources.store.close();
