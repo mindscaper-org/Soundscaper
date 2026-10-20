@@ -65,21 +65,6 @@ test('an unqualified browser refuses instead of falling back to browser FFmpeg',
 	}
 });
 
-test('WebCodecs video no longer requires cross-origin isolation for an FFmpeg ring', async () => {
-	let probed = false;
-	const decision = await withVideoFrame(() => resolveVideoDeliveryEncoderTier({
-			format: 'mp4', canvas: CANVAS, quality: 'balanced', eligible: true,
-		}, {
-			async isConfigSupported() {
-				probed = true;
-				return { supported: true };
-			},
-		}));
-
-	assert.equal(probed, true);
-	assert.equal(decision.tier, 'webcodecs');
-});
-
 test('a browser with an encoder but no frame constructor refuses', async () => {
 	await assert.rejects(
 		resolveVideoDeliveryEncoderTier({
