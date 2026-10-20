@@ -32,10 +32,17 @@ function isMotionTranslation(key) {
 		|| key.startsWith('ui.motionLinkBridge.');
 }
 
+/** @param {string} key */
+function translationOwner(key) {
+	if (isMotionTranslation(key)) return 'motion';
+	if (/^ui\.framescaper(?:[A-Z.-])/u.test(key)) return 'framescaper';
+	return 'core';
+}
+
 /** @param {Record<string, unknown>} entries @param {string} owner */
 function renderCatalogPart(entries, owner) {
 	const values = Object.fromEntries(Object.entries(entries)
-		.filter(([key]) => isMotionTranslation(key) === (owner === 'motion')));
+		.filter(([key]) => translationOwner(key) === owner));
 	return [...ORIGIN_DECLARATIONS, `export default ${compactCatalogValue(values)};`].join('\n');
 }
 
@@ -56,7 +63,7 @@ export function renderTranslationCatalogModule(catalog) {
 
 /**
  * Substitute the generated index's lazy imports. A locale facade assembles its
- * core and Motion entries so the expanded catalog keeps both semantic owners
+ * core, Motion and Framescaper entries so the expanded catalog keeps its owners
  * below the production chunk ceiling without changing the committed catalog.
  */
 export function createTranslationCatalogBundlePlugin() {
@@ -87,7 +94,7 @@ export function createTranslationCatalogBundlePlugin() {
 			const catalog = JSON.parse(await readFile(path, 'utf8'));
 			if (!Object.keys(catalog.entries).some(isMotionTranslation)) return renderTranslationCatalogModule(catalog);
 			const imports = [];
-			for (const owner of ['core', 'motion']) {
+			for (const owner of ['core', 'motion', 'framescaper']) {
 				const partId = `${VIRTUAL_PREFIX}${path}.${owner}${VIRTUAL_EXTENSION}`;
 				parts.set(partId, { path, owner });
 				imports.push(`import(${JSON.stringify(partId)})`);
@@ -95,9 +102,9 @@ export function createTranslationCatalogBundlePlugin() {
 			return [
 				// The selected locale awaits its fragments. Static imports here would
 				// put every locale's fragment URLs in the initial Vite preload list.
-				`const [core, motion] = await Promise.all([${imports.join(', ')}]);`,
+				`const [core, motion, framescaper] = await Promise.all([${imports.join(', ')}]);`,
 				...ORIGIN_DECLARATIONS,
-				`const catalog = { ...${compactCatalogValue({ ...catalog, entries: undefined })}, entries: { ...core.default, ...motion.default } };`,
+				`const catalog = { ...${compactCatalogValue({ ...catalog, entries: undefined })}, entries: { ...core.default, ...motion.default, ...framescaper.default } };`,
 				...catalogExports(catalog),
 			].join('\n');
 		},

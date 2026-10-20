@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -55,6 +55,44 @@ test('the bundle plugin only substitutes lazy imports from the generated catalog
 	assert.deepEqual((await loadModule(source)).default, catalog);
 });
 
+test('expanded locale fragments retain semantic owners and assemble the exact catalog', async (context) => {
+	const directory = await mkdtemp(join(tmpdir(), 'translation-catalog-owners-'));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const translations = join(directory, 'src/common/i18n/translations');
+	await mkdir(translations, { recursive: true });
+	const entries = {
+		core: Object.fromEntries([['__proto__', ['human', 'Prototype', 'Prototype traduit']],
+			['ui.transport.play', ['audacity', 'Play', 'Lecture']]]),
+		motion: { 'ui.motionscaper.play': ['machine', 'Play motion', 'Lire le mouvement'] },
+		framescaper: {
+			'ui.framescaperNative.queuePause': ['human', 'Pause queue', 'Suspendre la file'],
+			'ui.framescaperFinishing.apply': ['machine', 'Apply finishing', 'Appliquer la finition'],
+		},
+	};
+	const catalog = { schemaVersion: 2, locale: 'fr',
+		provenance: { machine: { model: 'gpt-6-luna' }, audacity: { licenseSpdx: 'GPL-3.0-only' } },
+		entries: { ...entries.core, ...entries.motion, ...entries.framescaper },
+		community: { 'ui.framescaperNative.queuePause': { contributor: 'A translator' } } };
+	await writeFile(join(translations, 'fr.json'), JSON.stringify(catalog));
+	const plugin = createTranslationCatalogBundlePlugin();
+	const id = plugin.resolveId('./fr.json', join(translations, 'index.js'));
+	assert.ok(id);
+	const loader = { addWatchFile() {} };
+	let facade = await plugin.load.call(loader, id);
+	assert.ok(facade);
+	for (const owner of ['core', 'motion', 'framescaper'] as const) {
+		const partId = id.replace(/\.mjs$/u, `.${owner}.mjs`);
+		assert.ok(facade.includes(`import(${JSON.stringify(partId)})`), `${owner} stays independently lazy.`);
+		const source = await plugin.load.call(loader, partId);
+		assert.ok(source);
+		assert.deepEqual((await loadModule(source)).default, entries[owner], owner);
+		facade = facade.replace(JSON.stringify(partId), JSON.stringify(`data:text/javascript,${encodeURIComponent(source)}`));
+	}
+	const built = await loadModule(facade);
+	assert.deepEqual(built.default, catalog);
+	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(built[key], value);
+});
+
 test('production chunks preserve complete catalogs within the chunk budget', async (context) => {
 	const directory = await mkdtemp(join(tmpdir(), 'translation-catalog-bundle-'));
 	context.after(() => rm(directory, { recursive: true, force: true }));
@@ -75,7 +113,7 @@ test('production chunks preserve complete catalogs within the chunk budget', asy
 			assert.ok(Buffer.byteLength(chunk.code) < 490_000,
 				`${chunk.fileName} must leave room under the unchanged 500 KB ceiling.`);
 		}
-		for (const owner of ['core', 'motion']) {
+		for (const owner of ['core', 'motion', 'framescaper']) {
 			assert.ok(chunks.some(chunk => chunk.fileName.startsWith(`translation-hi-${owner}-`)),
 				`The complete Hindi catalog must keep its ${owner} owner separate.`);
 		}
