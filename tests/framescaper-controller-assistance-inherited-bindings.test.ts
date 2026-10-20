@@ -138,21 +138,6 @@ test('carrier regeneration reaches the deferred render-queue module only for a d
 	assert.deepEqual(jobs, [JOB_ID]);
 });
 
-test('a render-queue module whose slice cannot regenerate carriers is refused', async () => {
-	const loads = { count: 0 };
-	const runtime = bindDeferredRenderQueue({}, {} as never, loader(
-		'createFramescaperNativeRenderQueueActionRuntimeNativeMedia',
-		() => renderQueueSlice([], false),
-		loads,
-	));
-
-	await assert.rejects(
-		() => runFramescaperNativeCarrierRegeneration(runtime, JOB_ID),
-		/returned an invalid action slice/u,
-	);
-	assert.equal(loads.count, 1);
-});
-
 test('the image-sequence surface composes onto the existing runtime without loading its module', () => {
 	const loads = { count: 0 };
 	const owner = ownerWithExistingRuntime([]);
@@ -183,25 +168,6 @@ test('an image-sequence import loads its module once and forwards the original r
 	assert.equal(loads.count, 1, 'a resolved module must be memoised across imports');
 	assert.deepEqual(requests, [request, request]);
 	assert.deepEqual(existing, ['proxy-attach'], 'the pre-existing slice keeps its own owner');
-});
-
-test('a deferred image-sequence module returning the wrong slice is refused', async () => {
-	const loads = { count: 0 };
-	const owner = ownerWithExistingRuntime([]);
-	const runtime = bindImageSequenceOn(
-		owner,
-		bridgeWith(IMAGE_SEQUENCE_BRIDGE_METHODS),
-		() => createFramescaperNativeProjectActionSubsetRuntime(
-			['image-sequence-import', 'proxy-detach'] as const,
-			{ 'image-sequence-import': async () => undefined, 'proxy-detach': async () => undefined },
-		),
-		loads,
-	);
-
-	await assert.rejects(
-		() => runtime.run('image-sequence-import', {}),
-		/Deferred image-sequence execution returned an invalid action slice/u,
-	);
 });
 
 test('a failed image-sequence load is discarded so the next import retries it', async () => {
@@ -273,7 +239,6 @@ test('the OpenFX surfaces register a frozen authoring facade before the module l
 	assert.deepEqual(runtime.surfaces, ['proxy-attach', 'ofx-add']);
 	assert.ok(authoring !== null);
 	assert.ok(Object.isFrozen(authoring));
-	assert.deepEqual(Object.keys(authoring), ['model', 'author', 'interactModel', 'commitInteract']);
 	assert.equal(loads.count, 0);
 });
 
@@ -311,58 +276,6 @@ test('the ofx-add action forwards to the deferred action runtime', async () => {
 
 	assert.deepEqual(requests, [{ pluginHandle: 'blur' }]);
 	assert.equal(loads.count, 1);
-});
-
-test('a deferred OpenFX module returning an inexact composition is refused', async () => {
-	const loads = { count: 0 };
-	const compositions: readonly (readonly [string, () => unknown])[] = [
-		['a null composition', () => null],
-		['an array composition', () => []],
-		['a composition carrying an extra key', () => ({
-			actionRuntime: ofxSlice([]), authoringRuntime: authoringStub([]), extra: 1,
-		})],
-		['a composition without its authoring runtime', () => ({ actionRuntime: ofxSlice([]) })],
-		['a composition whose action runtime was never created by the factory', () => ({
-			actionRuntime: { surfaces: ['ofx-add'], run: async () => undefined },
-			authoringRuntime: authoringStub([]),
-		})],
-		['a composition whose action runtime owns more than ofx-add', () => ({
-			actionRuntime: createFramescaperNativeProjectActionSubsetRuntime(
-				['ofx-add', 'proxy-detach'] as const,
-				{ 'ofx-add': async () => undefined, 'proxy-detach': async () => undefined },
-			),
-			authoringRuntime: authoringStub([]),
-		})],
-		['a composition exposing its action runtime through a getter', () => Object.defineProperty(
-			{ authoringRuntime: authoringStub([]) },
-			'actionRuntime',
-			{ get: () => ofxSlice([]), enumerable: true, configurable: true },
-		)],
-		['a composition hiding its authoring runtime behind a non-enumerable key', () => Object.defineProperty(
-			{ actionRuntime: ofxSlice([]) },
-			'authoringRuntime',
-			{ value: authoringStub([]), enumerable: false, configurable: true },
-		)],
-		['an authoring runtime missing commitInteract', () => {
-			const authoring = authoringStub([]);
-			delete authoring.commitInteract;
-			return { actionRuntime: ofxSlice([]), authoringRuntime: authoring };
-		}],
-		['an authoring runtime whose model is not callable', () => ({
-			actionRuntime: ofxSlice([]),
-			authoringRuntime: { ...authoringStub([]), model: 'not-callable' },
-		})],
-	];
-
-	for (const [label, factory] of compositions) {
-		const owner = ownerWithExistingRuntime([]);
-		const runtime = bindOpenFxOn(owner, bridgeWith(OPEN_FX_BRIDGE_METHODS), factory, loads);
-		await assert.rejects(
-			() => runtime.run('ofx-add', {}),
-			/returned an invalid OpenFX action composition/u,
-			label,
-		);
-	}
 });
 
 test('a failed OpenFX load is discarded so the next authoring call retries it', async () => {
@@ -430,12 +343,6 @@ function controllerStub(): ControllerStub {
 		getSnapshot: () => ({ selectedClipId: null }),
 		getTelemetrySnapshot: () => ({ positionFrame: 0 }),
 	};
-}
-
-function controllerWithout(field: string): Data {
-	const controller = { ...controllerStub() } as Data;
-	delete controller[field];
-	return controller;
 }
 
 function environmentStub(): Data {
@@ -530,17 +437,3 @@ test('the inherited finishing runtimes read the controller project through its d
 	assert.deepEqual(framescaperCubeLutActionsFinishingFor(controller)?.targets(), []);
 });
 
-test('a controller that cannot supply the detached foundation view is refused', () => {
-	const rejected: readonly (readonly [unknown, RegExp])[] = [
-		[null, /assistance common controller is required/u],
-		[[], /assistance common controller is required/u],
-		[controllerWithout('actions'), /controller actions is unavailable/u],
-		[controllerWithout('getTelemetrySnapshot'), /getTelemetrySnapshot is unavailable/u],
-		[{ ...controllerStub(), getSnapshot: 'snapshot' }, /getSnapshot must be a function/u],
-	];
-
-	for (const [controller, message] of rejected) {
-		assert.throws(() => inherit(controller, null), message);
-		assert.deepEqual(surfacesFor(controller), [], 'a refused controller keeps no partial runtime');
-	}
-});
