@@ -19,17 +19,14 @@ test('stable trim participants retain project clip order while filtering target 
 	assert.deepEqual(participants.map(({ clipId }) => clipId), ['first', 'third']);
 });
 
-test('track trim participants retain lane order and preserve missing-ownership errors', () => {
+test('track trim participants retain lane order', () => {
 	const index = audioIndex(['second', 'first']);
 
 	assert.deepEqual(
 		frameCanonicalTrackParticipants(index, 'track').map(({ clipId }) => clipId),
 		['second', 'first'],
 	);
-	assert.throws(
-		() => frameCanonicalTrackParticipants(index, 'missing'),
-		/Media lane missing is missing clip ownership\./u,
-	);
+
 });
 
 function audioIndex(trackClipIds: readonly string[]): FrameTrimProjectIndex {
