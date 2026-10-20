@@ -317,7 +317,7 @@ function allowedAssetKinds(additional: readonly string[], family: ProjectSchemaF
 	if (!Array.isArray(additional) || additional.length > 64) {
 		throw new TypeError('Additional Scape asset kinds must be a bounded array.');
 	}
-	const result = new Set(['audio', 'video', 'video-timing']);
+	const result = new Set(['audio', 'video', 'video-timing']), registered = new Set<string>();
 	if (family === 'lightscaper') result.add(PHOTO_CATALOG_PACK_ASSET_KIND);
 	if (family === 'lightscaper') result.add(PHOTO_STACK_PACK_ASSET_KIND);
 	if (family === 'lightscaper') result.add(PHOTO_SMART_COLLECTION_PACK_ASSET_KIND);
@@ -328,6 +328,12 @@ function allowedAssetKinds(additional: readonly string[], family: ProjectSchemaF
 		if (typeof kind !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/u.test(kind)) {
 			throw new TypeError(`An additional Scape asset kind is invalid: ${String(kind)}.`);
 		}
+		if (registered.has(kind)) throw new Error(`Duplicate Scape asset kind: ${kind}.`);
+		registered.add(kind);
+		// Frame always registers this shared kind. For an opaque Sound envelope
+		// it grants nothing; for Light it is already intrinsic. Actual Sound
+		// mask descriptors still fail the manifest's allowed-kind check.
+		if (kind === PHOTO_MASK_RASTER_ASSET_KIND_V1 && family !== 'framescaper') continue;
 		if (result.has(kind)) throw new Error(`Duplicate Scape asset kind: ${kind}.`);
 		// The selected Frame image extension independently closes and authenticates
 		// Source3 mask declarations; catalog/preset/root kinds keep their own family.
