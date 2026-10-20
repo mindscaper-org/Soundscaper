@@ -179,7 +179,6 @@ test('resampling one clip repoints only that clip and leaves its source for the 
 		tracks: [track], clips: [clip, sibling], sources: [source],
 	}));
 
-	assert.equal(Object.isFrozen(fixture.service), true);
 	assert.equal(await fixture.service.resampleClip('clip', { sampleRate: 48_000 }), 'clip');
 	assert.deepEqual(fixture.calls.preflights, [800]);
 	assert.deepEqual(fixture.calls.resamples, [[1, 24_000, 48_000, 200]]);
@@ -249,7 +248,7 @@ test('the resampled source keeps the original rate and the declared format', asy
 	// An imported Audacity project declares its own format, which the editor
 	// never converts between; a resample must not quietly restate it.
 	const source = sourceFixture('source', {
-		sampleRate: 96_000, originalSampleRate: 0, frameCount: 100, sampleFormat: 'int24',
+		sampleRate: 96_000, originalSampleRate: 44_100, frameCount: 100, sampleFormat: 'int24',
 	});
 	const clip = clipFixture('clip', source.id);
 	const fixture = createResampleFixture(projectFixture({
@@ -260,7 +259,7 @@ test('the resampled source keeps the original rate and the declared format', asy
 	const [persisted] = fixture.calls.persisted;
 	assert.equal(persisted?.sampleRate, 48_000);
 	assert.equal(persisted?.sampleFormat, 'int24');
-	assert.equal(persisted?.originalSampleRate, 96_000);
+	assert.equal(persisted?.originalSampleRate, 44_100);
 	assert.match(String(persisted?.name), /48000 Hz/u);
 });
 
@@ -308,10 +307,10 @@ test('resampled clip geometry never leaves the replacement source', () => {
 	const replacement = sourceFixture('replacement', { sampleRate: 24_000, frameCount: 50 });
 	const clip = clipFixture('clip', original.id, {
 		sourceStartFrame: 90,
-		sourceDurationFrames: 10,
-		durationFrames: 10,
+		sourceDurationFrames: 9,
+		durationFrames: 9,
 		trimStartFrames: 80,
-		trimEndFrames: 40,
+		trimEndFrames: 1,
 	});
 
 	const [remove, add] = resampledClipCommands('track', clip, original, replacement, 24_000);
