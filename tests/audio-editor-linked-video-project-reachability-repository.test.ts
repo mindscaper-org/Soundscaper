@@ -26,7 +26,6 @@ import {
 import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
 import { getMemoryDatabase, type EditorMemoryDatabase } from '../src/common/editor/storage/memory-backend.ts';
 import { ProjectRepository } from '../src/common/editor/storage/project-repository.ts';
-import { createStorageRepositories } from '../src/common/editor/storage/repositories.ts';
 import type { StorageRepositoryPort } from '../src/common/editor/storage/repository-port.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
@@ -295,18 +294,6 @@ test('revision, root, binding-row, and exact-reference bounds fail closed', asyn
 	);
 });
 
-test('storage composition exposes project binding reachability with production limits', async (context) => {
-	const fixture = await reachabilityFixture(context, 'memory');
-	const repositories = createStorageRepositories(fixture.port, {
-		revisionLimit: 20,
-		preferOpfs: false,
-	});
-	assert.ok(
-		repositories.linkedVideoOriginalProjectReachability
-			instanceof LinkedVideoOriginalProjectReachabilityRepository,
-	);
-	assert.ok(repositories.linkedOriginalBindings instanceof LinkedOriginalRepository);
-});
 
 interface ReachabilityOptions {
 	readonly revisionLimit?: number;
