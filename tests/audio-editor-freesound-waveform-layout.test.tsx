@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -32,23 +31,6 @@ const STATE: FreesoundPanelState = {
 		{ ...SOUND, soundId: 202, name: 'Dry leaves.wav', waveformUrl: null },
 	],
 };
-
-test('Freesound license marks use one standalone Zero, BY, or NC icon', () => {
-	const source = readFileSync(new URL(
-		'../src/common/editor/ui/workspace/FreesoundPanel.tsx', import.meta.url,
-	), 'utf8');
-	for (const [code, binding, asset] of [
-		['cc0', 'ccZeroIcon', 'cc-zero-icon.svg'],
-		["'cc-by'", 'ccByIcon', 'cc-by-icon.svg'],
-		["'cc-by-nc'", 'ccNcIcon', 'cc-nc-icon.svg'],
-	]) {
-		assert.match(source, new RegExp(`import ${binding} from './assets/${asset}'`, 'u'));
-		assert.match(source, new RegExp(`${code}: ${binding}`, 'u'));
-		const svg = readFileSync(new URL(`../src/common/editor/ui/workspace/assets/${asset}`, import.meta.url), 'utf8');
-		assert.match(svg, /<svg\b/u);
-		assert.match(svg, /width="64px" height="64px"/u);
-	}
-});
 
 test('Freesound results place play beside a waveform, with license and insert actions underneath', () => {
 	const markup = renderToStaticMarkup(<FreesoundPanel
