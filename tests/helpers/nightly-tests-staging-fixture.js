@@ -134,6 +134,7 @@ export async function createFixture(context) {
 		['scripts/lib/m4b2-keyframe-parity-metrics.mjs', 'export const keyframeMetrics = true;\n'],
 		['scripts/lib/strict-json-snapshot.mjs', 'export const snapshot = true;\n'],
 		['scripts/lib/browser-coverage-profile.mjs', 'export const browserCoverage = true;\n'],
+		['scripts/lib/browser-coverage-cleanup.ts', await readFile(new URL('../../scripts/lib/browser-coverage-cleanup.ts', import.meta.url), 'utf8')],
 		['scripts/lib/browser-webassembly-coverage.mjs', 'export const browserWebAssemblyCoverage = true;\n'],
 		['scripts/lib/cdp-javascript-coverage.mjs', 'export const cdpJavaScriptCoverage = true;\n'],
 		['scripts/lib/browser-dynamic-coverage-sources.mjs', 'export const dynamicCoverage = true;\n'],

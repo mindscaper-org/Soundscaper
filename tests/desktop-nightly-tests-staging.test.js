@@ -77,6 +77,11 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		await readFile(new URL('./helpers/scape-archive-rewrite.js', import.meta.url)),
 		'the nightly label clipboard test must receive the original archive rewrite helper bytes',
 	);
+	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'scripts/lib/browser-coverage-cleanup.ts')),
+		await readFile(new URL('../scripts/lib/browser-coverage-cleanup.ts', import.meta.url)),
+		'the nightly Chromium collectors must receive the original cleanup helper bytes',
+	);
 	const releaseReader = await import(pathToFileURL(join(fixture.outputRoot, 'scripts/lib/product-release-lines.mjs')).href);
 	const recorderUrl = new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64',
 		pathToFileURL(join(fixture.outputRoot, 'tests/browser/example.spec.js')));
