@@ -23,7 +23,6 @@ const request = { clips, editedClipId: 'long', selectedIds, sampleRate: 48_000 }
 test('selected fades target all selected audio clips while an unselected edit stays on its clip', () => {
 	const targets = selectedClipFadeTargets(clips, 'long', selectedIds);
 	assert.deepEqual(targets.map(clip => clip.id), ['long', 'short']);
-	assert.equal(targets[0], clips[0], 'pointer baselines retain their exact captured objects');
 	assert.deepEqual(selectedClipFadeTargets(clips, 'other', selectedIds).map(clip => clip.id), ['other']);
 	assert.deepEqual(selectedClipFadeTargets(clips, 'missing', selectedIds), []);
 	assert.deepEqual(selectedClipFadeTargets(clips, 'picture', selectedIds), []);

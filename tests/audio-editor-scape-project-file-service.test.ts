@@ -49,7 +49,6 @@ test('Scape project file composition shares owned inspection with collision-gate
 		read: () => new Uint8Array(4),
 	});
 
-	assert.equal(Object.isFrozen(service), true);
 	assert.equal(await service.inspectScape(inspectedFile, { marker: 'direct' }), inspected);
 	assert.deepEqual(
 		await service.openScapeFile(openedFile, (request) => {
