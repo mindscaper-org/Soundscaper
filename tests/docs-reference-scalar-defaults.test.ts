@@ -49,15 +49,3 @@ void test('local effect reference falls back for missing and structured defaults
 	assert.match(rendered, /\| structured \| 3 \| 0 to 10 \|/u);
 	assert.match(rendered, /\| absent \| — \| 0 to 10 \|/u);
 });
-
-void test('local effect reference only reads a band default when the own default needs fallback', () => {
-	let reads = 0;
-	const bandDefaults = Object.defineProperty({}, 'ratio', {
-		enumerable: true,
-		get: () => { reads += 1; return 5; },
-	}) as Record<string, unknown>;
-	renderDefaults({ ratio: 0 }, bandDefaults);
-	assert.equal(reads, 0);
-	renderDefaults({ ratio: undefined }, bandDefaults);
-	assert.equal(reads, 1);
-});

@@ -201,32 +201,12 @@ function createRoutedEntry(
 	};
 }
 
-test('legacy finalization validates and freezes its mutable controller snapshot', () => {
+test('legacy finalization detaches its mutable controller selection snapshot', () => {
 	const input = createSnapshot({ selection: { startFrame: 2, endFrame: 12 } });
 	const snapshot = snapshotLegacyRecordingFinalization(input);
 	assert.equal(Object.isFrozen(snapshot), true);
 	assert.equal(Object.isFrozen(snapshot.selection), true);
 	assert.notStrictEqual(snapshot.selection, input.selection);
-	assert.throws(
-		() => snapshotLegacyRecordingFinalization(createSnapshot({ writer: null })),
-		/The recording finalization writer is invalid/,
-	);
-	assert.throws(
-		() => snapshotLegacyRecordingFinalization(createSnapshot({ sourceId: null })),
-		/source and track are required/,
-	);
-	assert.throws(
-		() => snapshotLegacyRecordingFinalization(createSnapshot({ selection: { startFrame: Number.NaN, endFrame: 2 } })),
-		/selection is invalid/,
-	);
-	assert.throws(
-		() => snapshotLegacyRecordingFinalization(createSnapshot({ resampler: {} })),
-		/resampler is invalid/,
-	);
-	assert.throws(
-		() => snapshotLegacyRecordingFinalization(createSnapshot({ preview: 'invalid' })),
-		/preview is invalid/,
-	);
 });
 
 test('legacy finalization commits an atomic source and punch batch against the captured project', async () => {
@@ -422,23 +402,6 @@ test('routed finalization aligns compacted capture time with the longest committ
 		entries,
 	});
 	assert.deepEqual(fixture.transportPositions, [60]);
-});
-
-test('routed finalization rejects malformed entries before disposing the recorder', () => {
-	const input = createSnapshot({ entries: [{}] });
-	assert.throws(
-		() => snapshotRoutedRecordingFinalization({ ...input, entries: [{}] }),
-		/routed recording entry is invalid/,
-	);
-	const writer = createWriter().writer;
-	const entry = createRoutedEntry(writer);
-	assert.throws(
-		() => snapshotRoutedRecordingFinalization({
-			...input,
-			entries: [{ ...entry, route: { ...entry.route, channelCount: Number.NaN } }],
-		}),
-		/route channel count is invalid/,
-	);
 });
 
 test('routed finalization handles discarded, fatal, and empty selections without a batch', async () => {

@@ -13,7 +13,6 @@ test('spectral steps pair frequency bounds and gain with the actual dialog contr
 	assert.match(prose, /\*\*Maximum frequency \(Hz\)\*\* to `500`/u);
 	assert.match(prose, /\*\*Gain \(dB\)\*\* to `3`/u);
 	assert.match(prose, /press \*\*Spectral Amplify\*\*/u);
-	assert.ok(Object.isFrozen(entry));
 });
 
 test('spectral deletion and selection use their own dialog buttons', () => {

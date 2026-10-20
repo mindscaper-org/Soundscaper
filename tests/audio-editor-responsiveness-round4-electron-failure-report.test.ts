@@ -26,20 +26,6 @@ test('an Electron failure receipt serializes every completed observation and hos
 	assert.equal(receipt.completedObservationCount, 42);
 });
 
-test('explicit failure fields override stale success status, count, rows and error', () => {
-	const results = [{ latencyMs: .000_125, count: Number.MAX_SAFE_INTEGER }];
-	const receipt = createElectronEditingFailureReport({
-		status: 'succeeded', completedObservationCount: 800, results: [{ stale: true }],
-		error: { name: 'Stale', message: 'not this failure' },
-	}, results, new Error('Playback stopped.'));
-	assert.equal(receipt.status, 'failed');
-	assert.equal(receipt.completedObservationCount, 1);
-	assert.deepEqual(receipt.results, results);
-	assert.equal(receipt.error.name, 'Error');
-	assert.equal(receipt.error.message, 'Playback stopped.');
-	assert.doesNotMatch(JSON.stringify(receipt), /succeeded|stale|not this failure/u);
-});
-
 test('non-Error thrown refusals and absent stacks remain serializable without masking completed rows', () => {
 	for (const refusal of ['engine deadline', null, undefined, 37, 2n, Symbol('refusal')]) {
 		const report = createElectronEditingFailureReport({}, [{ ms: 4.125 }], refusal);

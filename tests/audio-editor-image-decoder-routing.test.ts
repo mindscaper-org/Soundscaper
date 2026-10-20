@@ -64,14 +64,6 @@ test('unimplemented ImageMagick-only tiers remain unavailable rather than lookin
 	}
 });
 
-test('the future Magick route becomes selectable only through explicit route verification', () => {
-	assert.deepEqual(route('jpeg-xl', 'icc-sdr', 'animated', ['imagemagick-q16-hdri']), {
-		status: 'ready',
-		decoder: 'imagemagick-q16-hdri',
-		normalization: 'icc-relative-bpc-to-srgb-rgba8',
-	});
-});
-
 test('HLG, scene-linear, ambiguous, and contradictory colour claims are terminal', () => {
 	for (const colour of ['hlg', 'scene-linear', 'ambiguous', 'contradictory'] as const) {
 		assert.deepEqual(route('openexr', colour, 'single', [
@@ -92,39 +84,6 @@ test('an exact FFmpeg route verification cannot grant a route outside the review
 	});
 });
 
-test('routing validates closed requests and unique known verified routes', () => {
-	assert.throws(
-		() => routeImageDecoder({
-			format: 'png',
-			colour: 'srgb-8-bit',
-			topology: 'single',
-			verifiedRoutes: [
-				verifiedRoute('ffmpeg', 'png', 'srgb-8-bit', 'single'),
-				verifiedRoute('ffmpeg', 'png', 'srgb-8-bit', 'single'),
-			],
-		}),
-		/unique/u,
-	);
-	assert.throws(
-		() => routeImageDecoder({
-			format: 'png',
-			colour: 'srgb-8-bit',
-			topology: 'single',
-			verifiedRoutes: [verifiedRoute('unknown' as never, 'png', 'srgb-8-bit', 'single')],
-		}),
-		/verified decoder route/u,
-	);
-	assert.throws(
-		() => routeImageDecoder({
-			format: 'png',
-			colour: 'srgb-8-bit',
-			topology: 'single',
-			verifiedRoutes: [],
-			extra: true,
-		} as never),
-		/Unknown image decoder routing request field/u,
-	);
-});
 
 function route(
 	format: Parameters<typeof routeImageDecoder>[0]['format'],

@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	ASSISTANCE_OWNED_AUDIO_CUT_TRANSFORM_IDS_V1,
 	createAssistanceOwnedAudioCutTransformRegistryV1,
 	reviewAssistanceOwnedAudioCutTransformResultV1,
 } from '../src/common/editor/assistance/owned-audio-cut-transform-registry-v1.ts';
@@ -42,11 +41,7 @@ function transcript(segments: readonly Readonly<Record<string, unknown>>[] = [
 	});
 }
 
-test('the registry exposes only the eight owned audio/cut transforms and exact request fields', () => {
-	assert.deepEqual(ASSISTANCE_OWNED_AUDIO_CUT_TRANSFORM_IDS_V1, [
-		'assemble-captions', 'propose-cleanup', 'attribute-speakers', 'merge-reaction-ranges',
-		'chunk-transcript', 'publish-transcript-index', 'propose-tempo-map', 'normalize-cuts',
-	]);
+test('the registry rejects unsupported transforms and unexpected request fields', () => {
 	assert.throws(() => registry.run({
 		schemaVersion: 1, transformId: 'execute-shell', settings: {}, inputs: {},
 	}), /transform/iu);

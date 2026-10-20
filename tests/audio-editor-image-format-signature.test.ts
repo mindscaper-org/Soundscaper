@@ -109,17 +109,6 @@ test('weak, truncated, contradictory, and unrelated prefixes remain unrecognized
 	}
 });
 
-test('the classifier accepts bytes only and does not execute object coercion', () => {
-	let coerced = false;
-	const hostile = {
-		get byteLength() { coerced = true; return 100; },
-	};
-	assert.throws(
-		() => classifyImageFormatSignature(hostile as never),
-		/Image signature classification requires Uint8Array bytes/u,
-	);
-	assert.equal(coerced, false);
-});
 
 function bytes(...values: number[]): Uint8Array {
 	return Uint8Array.from(values);

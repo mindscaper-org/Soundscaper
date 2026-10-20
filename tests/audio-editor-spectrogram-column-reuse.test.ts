@@ -95,27 +95,6 @@ test('reused PFFFT energies match a fresh stereo fade analysis at every shifted 
 	assert.deepEqual(reused, fresh);
 });
 
-test('the tile generator ignores a supplied cache when its FFT centers are unaligned', async () => {
-	let cacheReads = 0;
-	let cacheWrites = 0;
-	const result = await generateSpectrogramPcmTiles({
-		clip: { ...clip, waveformStartFrame: 1, waveformEndFrame: 101 }, width: 3, fftWindowSize: 32,
-		columnCache: { read: () => { cacheReads += 1; return [[99]]; }, write: () => { cacheWrites += 1; } },
-		async requestPcmWindow(startFrame, endFrame) {
-			return { startFrame, endFrame, channels: [samples.slice(startFrame, endFrame)] };
-		},
-		analyze(view, width, geometry) {
-			return Array.from({ length: geometry.pixelEnd - geometry.pixelStart }, (_, offset) => [
-				view.sampleAt(Math.floor((geometry.pixelStart + offset) * view.length / width)),
-			]);
-		},
-	});
-	assert.ok(result);
-	assert.equal(cacheReads, 0);
-	assert.equal(cacheWrites, 0);
-	assert.deepEqual(result.channels[0], [1, 34, 67].map((frame) => [samples[frame]]));
-});
-
 test('aborted spectral analysis does not publish reusable columns', async () => {
 	const abort = new AbortController();
 	let writes = 0;

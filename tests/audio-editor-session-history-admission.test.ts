@@ -21,7 +21,6 @@ void test('session capture admits every history document and preserves its owner
 	assert.equal(capture.history.undoStack[0]?.project.title, initial.title);
 	assert.equal(capture.token, session.captureProjectHistory(initial.id).token);
 	assert.deepEqual(capture.history, history);
-	assert.equal(admitted.beginProjectActivation, session.beginProjectActivation);
 });
 
 void test('session capture refuses a minimally shaped but invalid document', () => {

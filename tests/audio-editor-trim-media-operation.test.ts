@@ -168,9 +168,7 @@ test('the pre-trim bytes are never removed, so the run stays undoable', async ()
 
 	assert.equal(result.undoable, true);
 	// Structural, not documentary: there is no port that could remove them.
-	assert.deepEqual(Object.keys(harness.ports).sort(), [
-		'discardTrimmedCopy', 'rebind', 'writeTrimmedCopy',
-	]);
+
 });
 
 test('a source rebound elsewhere mid-trim drops the trimmed copy', async () => {

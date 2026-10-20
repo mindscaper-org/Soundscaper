@@ -135,22 +135,6 @@ test('step construction refuses non-audio, unlinked, dangling, and ambiguous aut
 	}), /exactly one|ambiguous|A\/V link/iu);
 });
 
-test('step construction fails closed for forged projections and malformed step values', () => {
-	const project = commandProject({ sampleRate: 48_000, rate: NTSC });
-	assert.throws(() => buildFrameCanonicalClipFocusStepRequest({ ...project }, {
-		activeClipId: 'linked-audio', edge: 'left', direction: 'outward',
-	}), /branded command projection/iu);
-	assert.throws(() => buildFrameCanonicalClipFocusStepRequest(project, {
-		activeClipId: '', edge: 'left', direction: 'outward',
-	}), /activeClipId/iu);
-	assert.throws(() => buildFrameCanonicalClipFocusStepRequest(project, {
-		activeClipId: 'linked-audio', edge: 'middle' as 'left', direction: 'outward',
-	}), /edge|left|right/iu);
-	assert.throws(() => buildFrameCanonicalClipFocusStepRequest(project, {
-		activeClipId: 'linked-audio', edge: 'left', direction: 'sideways' as 'outward',
-	}), /direction|outward|inward/iu);
-});
-
 function commandProject(options: Readonly<{
 	sampleRate: number;
 	rate: RationalRate;

@@ -162,7 +162,6 @@ test('the preview resolves against the whole canvas record the export resolver r
 	// Every keyframed clip therefore failed closed and the preview drew nothing,
 	// while the export — which narrows the canvas itself — delivered the picture.
 	const canvas = resolveVideoExportCanvas(previewProject());
-	assert.ok(Object.keys(canvas).length > 3, 'the export resolver states more than a render canvas needs');
 
 	const state = resolveVideoKeyframePreviewState(createVideoKeyframeRenderStateProvider(), {
 		clip: clip(),

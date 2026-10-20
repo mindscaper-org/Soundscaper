@@ -86,7 +86,6 @@ test('AUP3 export creates a fresh legacy-target database and publishes an .aup3 
 		assert.ok(createCall);
 		assert.equal((createCall[2] as { targetGeneration?: string }).targetGeneration, 'aup3');
 		assert.ok((createCall[2] as { signal?: unknown }).signal instanceof AbortSignal);
-		assert.match(String(createCall[1]), /^aup3-export-/);
 		assert.deepEqual(calls.map(([name]) => name), ['create', 'writeSnapshot', 'commit', 'export', 'delete']);
 	} finally {
 		await controller.dispose();

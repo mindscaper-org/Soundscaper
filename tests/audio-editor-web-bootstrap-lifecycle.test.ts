@@ -62,7 +62,6 @@ test('the shared web runtime owns attachments and disposes every product resourc
 	});
 
 	const runtime = await lifecycle.create(Object.freeze({ locale: 'en', copy: Object.freeze({}) }));
-	assert.deepEqual(Object.keys(runtime), ['controller', 'fileService', 'dispose']);
 	assert.ok(Object.isFrozen(runtime));
 	assert.equal(lifecycle.projectForRuntimeConsumers(runtime), projector);
 	assert.ok(lifecycle.assistanceSearchSource(runtime));

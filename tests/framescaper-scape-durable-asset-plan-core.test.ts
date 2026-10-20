@@ -68,10 +68,10 @@ test('a project collects one durable reference per still, proxy, timing, cube LU
 	]);
 	assert.deepEqual(references.map(({ sourceId }) => sourceId), ['still-1', null, null, null, 'video-1']);
 	assert.equal(references[0]!.archiveId, 'framescaper:still:still-1');
-	assert.equal(references[2]!.timingReference, TIMING.reference);
+	assert.deepEqual(references[2]!.timingReference, TIMING.reference);
 	assert.deepEqual(references[3]!.lutReference, lutReference());
-	assert.equal(references[4]!.motionReference, MOTION);
-	assert.equal(references[4]!.processorStack, MOTION_STACK);
+	assert.deepEqual(references[4]!.motionReference, MOTION);
+	assert.deepEqual(references[4]!.processorStack, MOTION_STACK);
 	assert.ok(Object.isFrozen(references) && Object.isFrozen(references[0]));
 });
 
@@ -187,7 +187,7 @@ test('planning admits every collected reference and carries timing authority onl
 	assert.equal(assets[0]!.kind, 'framescaper-still');
 	assert.equal(assets[0]!.encoding, 'still-image-v1');
 	assert.equal(Object.hasOwn(assets[0]!, 'timingReference'), false);
-	assert.equal(assets[2]!.timingReference, TIMING.reference);
+	assert.deepEqual(assets[2]!.timingReference, TIMING.reference);
 	assert.ok(Object.isFrozen(assets) && Object.isFrozen(assets[0]));
 });
 

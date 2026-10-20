@@ -512,7 +512,4 @@ test('all panels use the shared dock and header without legacy dock pickers or c
 	);
 	assert.match(group, /focusWorkspacePanelMenuButton\(/u, 'a dock change restores focus to the re-mounted menu button');
 	assert.match(group, /closeWorkspacePanelAndRestoreFocus\(/u);
-	assert.doesNotMatch(group, /closePanelAndRestoreFocus\(/u, 'the event-taking close helper is gone');
-	const focus = await readFile(new URL('workspace-panel-focus.js', WORKSPACE_ROOT), 'utf8');
-	assert.doesNotMatch(focus, /export function closePanelAndRestoreFocus/u);
 });

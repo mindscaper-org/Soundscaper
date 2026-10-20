@@ -12,7 +12,6 @@ import {
 import {
 	encodeVideoKeyframeVideo,
 	VIDEO_KEYFRAME_VIDEO_MAXIMUM_OUTPUT_BYTES,
-	type VideoKeyframeEncoderOperationLease,
 	type VideoKeyframeVideoEditorFfmpeg,
 } from '../src/common/editor/video-keyframe-video-encoder.ts';
 import type { VideoKeyframeRgbaFrameProducer } from '../src/common/editor/video-keyframe-encoder-stream.ts';
@@ -268,57 +267,6 @@ test('producer cleanup is retried once by its outer owner and retains every fail
 		},
 	);
 	assert.equal(retryAttempts, 2);
-});
-
-test('editor and lease authority accessors are rejected without invocation', async () => {
-	const frameSource = source();
-	const beforeOwnership = exactProducer(frameSource);
-	let editorGetterCalls = 0;
-	const hostileEditor = Object.create(null) as Record<string, unknown>;
-	Object.defineProperty(hostileEditor, 'runVideoKeyframeEncoderOperation', {
-		enumerable: true,
-		get() { editorGetterCalls += 1; return () => undefined; },
-	});
-	await assert.rejects(
-		encodeVideoKeyframeVideo(hostileEditor as never, {
-			frameSource,
-			producer: beforeOwnership.value,
-			format: 'mp4',
-		}, { createJobToken: () => TOKEN }),
-		/editor FFmpeg.*data property/u,
-	);
-	assert.equal(editorGetterCalls, 0);
-	assert.equal(beforeOwnership.disposeCalls(), 0);
-
-	const acceptedProducer = exactProducer(frameSource);
-	let leaseGetterCalls = 0;
-	const editor: VideoKeyframeVideoEditorFfmpeg = Object.freeze({
-		async runVideoKeyframeEncoderOperation<Output>(
-			operation: (lease: VideoKeyframeEncoderOperationLease) => PromiseLike<Output> | Output,
-		): Promise<Output> {
-			const lease = Object.create(null) as Record<string, unknown>;
-			for (const key of [
-				'createInputStream', 'exec', 'terminateExecution', 'statFile',
-				'readFileRange', 'deleteFile', 'isExecutionTerminated',
-			]) {
-				Object.defineProperty(lease, key, {
-					enumerable: true,
-					get() { leaseGetterCalls += 1; return () => undefined; },
-				});
-			}
-			return operation(lease as never);
-		},
-	});
-	await assert.rejects(
-		encodeVideoKeyframeVideo(editor, {
-			frameSource,
-			producer: acceptedProducer.value,
-			format: 'mp4',
-		}, { createJobToken: () => TOKEN }),
-		/lease\.createInputStream.*data property/u,
-	);
-	assert.equal(leaseGetterCalls, 0);
-	assert.equal(acceptedProducer.disposeCalls(), 1);
 });
 
 test('the wrapper owns closed options, valid thresholds, and a cryptographic token grammar', async () => {

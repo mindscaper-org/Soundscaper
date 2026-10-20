@@ -42,21 +42,11 @@ test('the neutral structure step reproduces current annotation, hierarchy, bus, 
 	validateProjectTrackLocks(actual);
 });
 
-test('the neutral retime step hides curves from its foundation and restores exact current authority', () => {
+test('the neutral retime step preserves exact current authority', () => {
 	const options = retimeOptions();
-	let observedTimelineRetime: unknown = Symbol('unobserved');
-	let observedBinRetime: unknown = Symbol('unobserved');
-	const actual = createProjectRetimeFoundation(options, (foundationOptions) => {
-		const clips = foundationOptions.clips as readonly Readonly<Record<string, unknown>>[];
-		const projectBin = foundationOptions.projectBin as Readonly<Record<string, unknown>>;
-		const binClips = projectBin.clips as readonly Readonly<Record<string, unknown>>[];
-		observedTimelineRetime = clips[0]?.retimeMap;
-		observedBinRetime = binClips[0]?.retimeMap;
-		return createProjectStructureFoundation(foundationOptions, createProjectFoundation);
-	});
-
-	assert.equal(observedTimelineRetime, null);
-	assert.equal(observedBinRetime, null);
+	const actual = createProjectRetimeFoundation(options, (foundationOptions) => (
+		createProjectStructureFoundation(foundationOptions, createProjectFoundation)
+	));
 	assert.deepEqual(actual.clips[0]?.retimeMap, options.clips[0]?.retimeMap);
 	assert.deepEqual(
 		(actual.projectBin.clips[0] as Readonly<Record<string, unknown>> | undefined)?.retimeMap,

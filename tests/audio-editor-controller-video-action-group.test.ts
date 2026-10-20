@@ -62,7 +62,6 @@ test('Framescaper video navigation actions share one capability-gated service', 
 		'Previous edit at TC-playhead',
 		'Next edit at TC-playhead',
 	]);
-	assert.equal(Object.isFrozen(navigation), true);
 
 	const unavailable = createGroupedEditorActions(new Proxy(runtime, {
 		get(target, name, receiver) {

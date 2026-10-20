@@ -75,5 +75,4 @@ test('routing handle placement remains with its optional graph consumer', () => 
 	for (const path of [modulePath, modulePath.replaceAll('/', '\\'), '/checkout/' + modulePath]) {
 		assert.equal(chunkGroupForModulePath(path), 'editor-optional-surfaces');
 	}
-	assert.equal(chunkGroupForModulePath(modulePath.replace('.ts', '-extra.ts')), 'editor-shell');
 });

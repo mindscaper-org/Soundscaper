@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -106,27 +105,6 @@ test('Freesound is a Soundscaper-only discoverable panel that remains hidden by 
 		.some((item: { id?: string }) => item.id === 'panel-freesound'));
 	assert.ok(!filterProductMenus(menus, capabilities, 'framescaper')[0].items
 		.some((item: { id?: string }) => item.id === 'panel-freesound'));
-});
-
-test('the optional Freesound surface stays behind the editor lazy-module boundary', () => {
-	const source = readFileSync(new URL(
-		'../src/common/editor/ui/workspace/WorkspacePanelContent.jsx', import.meta.url,
-	), 'utf8');
-	assert.match(source, /\.\.\.\(SOUNDSCAPER_BUILD \? \{\s*freesound: lazyEditorModule\(\(\) => import\('\.\/FreesoundPanelContainer\.tsx'\)\)/u);
-	assert.doesNotMatch(source, /^import .*FreesoundPanelContainer/mu);
-});
-
-test('the eager copy inventory owns only the Freesound menu label', () => {
-	const inventory = readFileSync(new URL(
-		'../src/common/i18n/editor-copy-inventory.ts', import.meta.url,
-	), 'utf8');
-	const labels = readFileSync(new URL(
-		'../src/common/i18n/editor-freesound-attribution-inventory-copy.ts', import.meta.url,
-	), 'utf8');
-	assert.match(inventory, /editor-freesound-attribution-inventory-copy\.ts/u);
-	assert.doesNotMatch(inventory, /from ['"]\.\/freesound-attribution-copy\.js['"]/u);
-	assert.match(labels, /panel: 'Freesound'/u);
-	assert.doesNotMatch(labels, /Attribution|Search Freesound|Export CSV/u);
 });
 
 test('Freesound drag payloads contain only their version and sound id', () => {

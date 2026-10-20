@@ -35,20 +35,11 @@ const ORIGINAL: Data = Object.freeze({
 });
 
 test('a proxy body identity normalizes to its closed proxy field set', () => {
-	assert.deepEqual(
-		Object.keys(normalizeBody(PROXY)),
-		['role', 'kind', 'encoding', 'storageKey', 'mimeType', 'byteLength', 'sha256', 'generationToken'],
-	);
+	assert.deepEqual(normalizeBody(PROXY), PROXY);
 });
 
 test('a timing body identity carries its own timing fields as well', () => {
-	assert.deepEqual(
-		Object.keys(normalizeBody(TIMING)),
-		[
-			'role', 'kind', 'encoding', 'storageKey', 'mimeType', 'byteLength', 'sha256',
-			'generationToken', 'frameCount', 'timescale', 'finalFrameDurationTicks',
-		],
-	);
+	assert.deepEqual(normalizeBody(TIMING), TIMING);
 });
 
 test('a proxy body must declare a video kind, encoding and media type', () => {

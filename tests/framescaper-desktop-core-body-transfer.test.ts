@@ -10,7 +10,6 @@ import {
 	prepareFramescaperDesktopPublicationBodies,
 } from '../src/framescaper/desktop-project-library-body-transfer.ts';
 import {
-	FRAMESCAPER_DESKTOP_CORE_MAXIMUM_BODY_CHUNK_BYTES as MAXIMUM_CHUNK_BYTES,
 	prepareFramescaperDesktopCorePublicationBodies as prepareBodies,
 	validateFramescaperDesktopCoreBodies as validateBodies,
 } from '../src/framescaper/desktop-project-library-core-body-transfer.ts';
@@ -65,11 +64,6 @@ function retainedVideoFixture() {
 	});
 	return { bytes, candidate, descriptor, metadata } as const;
 }
-
-test('the maximum body chunk is published as a bounded transfer unit', () => {
-	assert.ok(Number.isSafeInteger(MAXIMUM_CHUNK_BYTES));
-	assert.ok(MAXIMUM_CHUNK_BYTES > 0);
-});
 
 test('a project with no durable bodies validates and prepares an empty inventory', async () => {
 	assert.deepEqual(validate([]), []);

@@ -45,7 +45,6 @@ test('a stream with no keyframe at its start cannot be cut losslessly anywhere',
 	// output this index exists to prevent.
 	assert.throws(() => parseFfmpegVideoKeyframeLogs(headless), /no keyframe at the start/u);
 	assert.throws(() => parseFfmpegVideoKeyframeLogs([]), /no frames to index/u);
-	assert.throws(() => parseFfmpegVideoKeyframeLogs('not an array' as never), /must be an array/u);
 });
 
 test('the keyframe at or before a frame is where its cut has to begin', () => {

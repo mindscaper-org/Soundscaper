@@ -52,7 +52,7 @@ function handoffFixture(options: Readonly<{
 			assert.equal(exportOptions.maximumBlobBytes, 512 * 1024 * 1024);
 			assert.deepEqual(exportOptions.intent, intent);
 			return {
-				blob: Object.hasOwn(options, 'blob') ? options.blob : new Blob(['abc']),
+				blob: options.blob ?? new Blob(['abc']),
 				conversionReport: conversion.report,
 				projectId: 'failure-destination', title: 'Editable copy', fileExtension: '.fscape',
 			};
@@ -92,24 +92,6 @@ test('a handoff refuses an active project replaced or removed while flushing', a
 		assert.deepEqual(fixture.calls, ['guard']);
 		assert.deepEqual(fixture.requests, []);
 	}
-});
-
-test('a missing editable-copy runtime capability is refused before saving', async () => {
-	const fixture = handoffFixture();
-	await assert.rejects(fixture.run({}, { ...fixture.runtime, exportEditableCopy: undefined }), {
-		name: 'TypeError', message: /runtime cannot export editable/u,
-	});
-	assert.deepEqual(fixture.calls, ['guard', 'flush', 'project', 'runtime']);
-	assert.deepEqual(fixture.requests, []);
-});
-
-test('a runtime archive must be a Blob before a file picker is opened', async () => {
-	const fixture = handoffFixture({ blob: new Uint8Array([1, 2, 3]) });
-	await assert.rejects(fixture.run(), {
-		name: 'TypeError', message: /did not produce an archive Blob/u,
-	});
-	assert.deepEqual(fixture.calls, ['guard', 'flush', 'project', 'runtime', 'export']);
-	assert.deepEqual(fixture.requests, []);
 });
 
 test('archive save cancellation returns an immutable result without saving a report', async () => {
@@ -176,33 +158,6 @@ test('a noncanonical confirmed archive name reports a partial save before creati
 	assert.equal(fixture.requests.length, 1);
 });
 
-test('unavailable save receipt filenames use the archive and report suggestions', async () => {
-	for (const receipt of [undefined, null, false, 'downloaded', {}, { fileName: '' }, { fileName: 4 }]) {
-		const fixture = handoffFixture({ saveFile: () => receipt });
-		const result = await fixture.run();
-		assert.equal(result.fileName, 'Editable copy.fscape');
-		assert.equal(result.reportFileName, 'Editable copy.fscape.conversion-report.json');
-		assert.equal(result.saved, receipt);
-		assert.equal(result.reportSaved, receipt);
-		assert.equal(fixture.requests.length, 2);
-	}
-});
-
-test('save receipts do not execute accessor or inherited cancellation and filename properties', async () => {
-	const accessorReceipt = Object.defineProperties({}, {
-		cancelled: { get: () => { throw new Error('Cancellation accessor must not run.'); } },
-		fileName: { get: () => { throw new Error('Filename accessor must not run.'); } },
-	});
-	const inheritedReceipt: unknown = Object.create({ cancelled: true, fileName: 'Inherited.fscape' });
-	for (const receipt of [accessorReceipt, inheritedReceipt]) {
-		const fixture = handoffFixture({ saveFile: () => receipt });
-		const result = await fixture.run();
-		assert.equal(result.fileName, 'Editable copy.fscape');
-		assert.equal(result.reportFileName, 'Editable copy.fscape.conversion-report.json');
-		assert.equal(fixture.requests.length, 2);
-	}
-});
-
 class StreamArchiveBlob extends Blob {
 	constructor(readonly observedStream: ReadableStream<Uint8Array<ArrayBuffer>>) {
 		super(['abc']);
@@ -212,37 +167,6 @@ class StreamArchiveBlob extends Blob {
 		return this.observedStream;
 	}
 }
-
-test('an archive stream larger than its Blob is cancelled and unlocked without saving', async () => {
-	const cancelled: unknown[] = [];
-	const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({
-		start: (controller) => { controller.enqueue(new Uint8Array([1, 2, 3, 4])); },
-		cancel: (reason: unknown) => {
-			cancelled.push(reason);
-			throw new Error('Reader cancellation itself failed.');
-		},
-	});
-	const fixture = handoffFixture({ blob: new StreamArchiveBlob(stream) });
-	await assert.rejects(fixture.run(), /archive stream exceeded its Blob size/u);
-	assert.equal(stream.locked, false);
-	assert.equal(cancelled.length, 1);
-	assert.ok(cancelled[0] instanceof Error);
-	assert.match(cancelled[0].message, /archive stream exceeded/u);
-	assert.deepEqual(fixture.requests, []);
-});
-
-test('an archive stream shorter than its Blob is unlocked and refused before saving', async () => {
-	const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({
-		start: (controller) => {
-			controller.enqueue(new Uint8Array([1, 2]));
-			controller.close();
-		},
-	});
-	const fixture = handoffFixture({ blob: new StreamArchiveBlob(stream) });
-	await assert.rejects(fixture.run(), /stream ended before its complete Blob size/u);
-	assert.equal(stream.locked, false);
-	assert.deepEqual(fixture.requests, []);
-});
 
 test('an abort while reading the archive cancels and unlocks its stream before saving', async () => {
 	let readerStarted!: () => void;

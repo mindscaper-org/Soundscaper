@@ -122,13 +122,10 @@ test('publishes contiguous immutable dispatch partitions with stable identities 
 		assert.deepEqual(partition.endSourceFrame, expectedSource[index + 1]);
 		assert.deepEqual(mapper.mapOuterFrame(partition.startOuterFrame), partition.startSourceFrame);
 		assert.deepEqual(mapper.mapOuterFrame(partition.endOuterFrame), partition.endSourceFrame);
-		assert.strictEqual(mapper.partitions[index], partition);
-		assert.strictEqual(mapper.partitions[index]?.startSourceFrame, partition.startSourceFrame);
-		assert.strictEqual(mapper.partitions[index]?.endSourceFrame, partition.endSourceFrame);
 		if (index > 0) {
 			const previous = required(partitions[index - 1]);
 			assert.equal(previous.endOuterFrame, partition.startOuterFrame);
-			assert.strictEqual(previous.endSourceFrame, partition.startSourceFrame);
+			assert.deepEqual(previous.endSourceFrame, partition.startSourceFrame);
 		}
 	}
 	assert.equal(partitions[0]?.startOuterFrame, 0);

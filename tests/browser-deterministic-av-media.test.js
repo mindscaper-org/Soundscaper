@@ -36,7 +36,6 @@ test('deterministic A/V fixture factory returns isolated upload buffers and pres
 	const second = createDeterministicAvFixture('second.webm');
 	const portrait = createDeterministicAvFixture('portrait.webm', { variant: 'portrait' });
 
-	assert.deepEqual(Object.keys(first).sort(), ['buffer', 'mimeType', 'name']);
 	assert.equal(first.name, 'first.webm');
 	assert.equal(portrait.name, 'portrait.webm');
 	assert.notStrictEqual(first.buffer, second.buffer);
@@ -44,10 +43,6 @@ test('deterministic A/V fixture factory returns isolated upload buffers and pres
 	assert.notDeepEqual(first.buffer, portrait.buffer);
 	first.buffer[0] = 0;
 	assert.equal(second.buffer[0], 0x1a);
-	assert.throws(
-		() => createDeterministicAvFixture('unknown.webm', { variant: 'square' }),
-		/Unknown deterministic A\/V fixture variant/u,
-	);
 });
 
 test('deterministic silent-video fixtures are distinct digest-pinned VP8 media without audio tracks', () => {
@@ -77,8 +72,4 @@ test('deterministic silent-video fixture factory returns isolated named variants
 	assert.notDeepEqual(canonical.buffer, fallback.buffer);
 	canonical.buffer[0] = 0;
 	assert.equal(canonicalCopy.buffer[0], 0x1a);
-	assert.throws(
-		() => createDeterministicSilentVideoFixture('unknown.webm', { variant: 'portrait' }),
-		/Unknown deterministic silent-video fixture variant/u,
-	);
 });

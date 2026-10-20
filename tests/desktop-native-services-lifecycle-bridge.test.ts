@@ -17,7 +17,6 @@ import {
 	FramescaperNativeServicesLifecycleV3,
 } from '../desktop/native-services-lifecycle-v3.ts';
 import {
-	FRAMESCAPER_NATIVE_SERVICES_MAIN_CHANNELS,
 	registerFramescaperNativeServicesMainIpc,
 } from '../desktop/native-services-main-ipc.ts';
 import {
@@ -323,11 +322,6 @@ test('the pathless lifecycle bridge owns roots, watch reconciliation, cleanup, p
 	assert.equal((await bridge.setExternalDisplay({ displayId: null })).activeDisplayId, null);
 	assert.equal(await bridge.revokeRoot({ grantId: GRANT_ID }), true);
 
-	for (const method of [
-		'enqueue', 'abandonRenderInputs', 'selectRoot', 'reauthorizeQueueRoot', 'revalidateRoot', 'revokeRoot', 'createWatch', 'setWatchEnabled',
-		'removeWatch', 'reconcileWatch', 'cleanupScratch', 'publish', 'checkpoint',
-		'externalDisplays', 'setExternalDisplay',
-	] as const) assert.equal(typeof bridge[method], 'function', method);
 	await assert.rejects(() => bridge.enqueue({
 		...{
 			schemaFamily: planned.schemaFamily, schemaVersion: planned.schemaVersion,
@@ -340,7 +334,6 @@ test('the pathless lifecycle bridge owns roots, watch reconciliation, cleanup, p
 		},
 		planVersion: 6 as 7,
 	}), /unsupported plan/iu);
-	assert.ok(Object.keys(FRAMESCAPER_NATIVE_SERVICES_MAIN_CHANNELS).length >= 18);
 	registration.dispose();
 	database.close();
 });

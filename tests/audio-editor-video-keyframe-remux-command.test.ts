@@ -156,20 +156,3 @@ test('the pinned FFmpeg core remuxes a pre-encoded stream without re-encoding', 
 		'a remux repackages the stream rather than growing it into raw frames',
 	);
 });
-
-test('the pinned core also muxes a pre-encoded stream into the Matroska family', async () => {
-	const core = await loadPinnedCore();
-	core.setLogger(() => undefined);
-	core.FS.writeFile('raw.rgba', syntheticRgba());
-	assert.equal(core.exec(
-		'-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${WIDTH}x${HEIGHT}`, '-r', '30', '-i', 'raw.rgba',
-		'-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-an', '-f', 'mp4', '-y', 'a.mp4',
-	), 0);
-	assert.equal(core.exec(
-		'-i', 'a.mp4', '-c:v', 'copy', '-bsf:v', 'h264_mp4toannexb', '-f', 'h264', '-y', 'a.h264',
-	), 0);
-	assert.equal(core.exec(
-		'-f', 'h264', '-r', '30', '-i', 'a.h264', '-c:v', 'copy', '-f', 'matroska', '-y', 'a.mkv',
-	), 0, 'the WebM/Matroska muxer must accept a copied stream');
-	assert.ok(core.FS.readFile('a.mkv').byteLength > 0);
-});

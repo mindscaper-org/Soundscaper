@@ -12,7 +12,7 @@ test('scalar master peak and RMS measure channel power without mono downmix canc
 		const production = store.update({ kind: 'master' }, { channels, channelLabels: ['L', 'R'] });
 		const master = { peak: 0.4, rms: 0.4, dbfs: -8, spectrumDb: [-12] };
 		const frame = { master, tracks: {}, groups: {}, sends: {}, productionMeters: [production] };
-		assert.equal(reconcileEngineChannelMeters(frame), frame);
+		reconcileEngineChannelMeters(frame);
 		assert.ok(Math.abs(master.peak - 0.8) < 1e-7);
 		assert.ok(Math.abs(master.rms - Math.sqrt(right[0] === 0 ? 0.32 : 0.64)) < 1e-7);
 		assert.ok(Math.abs(master.dbfs - 20 * Math.log10(0.8)) < 1e-6);

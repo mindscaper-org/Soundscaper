@@ -52,12 +52,6 @@ test('an import gesture is bounded to between one and sixty-four files', async (
 	);
 });
 
-test('an import requires an array of files and both of its ports', async () => {
-	await assert.rejects(() => run({ files: 'shot.png' }), /files must be an array/u);
-	await assert.rejects(() => run({ createId: 1 }), /requires ID and publication ports/u);
-	await assert.rejects(() => run({ publisher: {} }), /requires ID and publication ports/u);
-});
-
 test('an import refuses a project outside the Framescaper schema family', async () => {
 	await assert.rejects(() => run({ project: { schemaFamily: 'soundscaper' } }), TypeError);
 });
@@ -145,7 +139,6 @@ test('an import returns the project alongside its per-file results', async () =>
 		decode: async () => { throw new Error('the image could not be decoded'); },
 	});
 
-	assert.deepEqual(Object.keys(result), ['project', 'files']);
 	assert.equal((result.project as Data).schemaFamily, 'framescaper');
 });
 

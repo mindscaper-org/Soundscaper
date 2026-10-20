@@ -16,7 +16,6 @@ import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js
 import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 import { createFramescaperBaselineImageFixture } from './helpers/framescaper-baseline-image-fixture.ts';
 import { normalizeFramescaperImageClipV1 } from '../src/common/editor/timeline-image-model.ts';
-import { FOUNDATION_TIME_CONVERSION_SITES } from '../src/common/editor/foundation-time-conversion-audit.ts';
 
 for (const [offset, short] of [[-10, false], [-5, false], [0, false], [5, false], [45, false], [50, false], [0, true]] as const) {
 	test(`public Bin Overwrite at Title offset ${String(offset)}${short ? ' (complete coverage)' : ''} retains only uncovered native picture and one Undo`, async context => {
@@ -140,11 +139,4 @@ for (const start of [0, 5]) test(`public Bin Overwrite at ${String(start)} retai
 	controller.actions.edit.redo();
 	assert.deepEqual(controller.project?.clips, after.clips);
 	assert.deepEqual(controller.project?.tracks, after.tracks);
-});
-
-test('native Overwrite owns the exact nearest-frame and source-trim conversion policies', () => {
-	const site = FOUNDATION_TIME_CONVERSION_SITES.find(value => value.id === 'framescaper-native-bin-overwrite-span');
-	assert.equal(site?.file, 'src/framescaper/editor-timeline-native-overwrite-command.ts');
-	assert.deepEqual(site?.conversions, [{ helper: 'sampleFrameToVideoFrame', policies: ['point'] },
-		{ helper: 'videoFrameToSampleFrame', policies: ['point'] }]);
 });

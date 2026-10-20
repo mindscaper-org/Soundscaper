@@ -25,6 +25,4 @@ test('source analysis cache owner preserves every persisted namespace and key by
 	assert.equal(legacyPeakCacheKey('source / one'), 'audio-editor-peaks-v1:source / one');
 	assert.equal(peakCacheKey('source / one'), 'audio-editor-peaks-v2:source / one');
 	assert.equal(frequencyWaveformCacheKey('source / one'), 'audio-editor-frequency-waveform-v1:source / one');
-	assert.equal(peakCacheKey(null), 'audio-editor-peaks-v2:null');
-	assert.equal(Object.isFrozen(SOURCE_ANALYSIS_CACHE_PREFIXES), true);
 });

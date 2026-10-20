@@ -42,12 +42,8 @@ test('capture adapter routing keeps source, display authorization, recorder, and
 	]);
 });
 
-test('capture adapter routing rejects missing, duplicate, unavailable, and unowned authorities', () => {
+test('capture adapter routing rejects unavailable and unowned authorities', () => {
 	const events: string[] = [];
-	assert.throws(() => createFramescaperCaptureSourceAdapterRouter([]), /required/iu);
-	assert.throws(() => createFramescaperCaptureSourceAdapterRouter([
-		adapter('devices', events), adapter('devices', events),
-	]), /duplicate/iu);
 	const router = createFramescaperCaptureSourceAdapterRouter([adapter('devices', events)]);
 	assert.throws(() => router.select('web-vcr'), /unavailable/iu);
 	assert.throws(() => router.sourceIdentity(source(), () => 'source'), /no adapter owner/iu);

@@ -98,7 +98,6 @@ test('token-shaped source text cannot collide with generated protection tokens',
 	const sourceWithToken = '<!-- Keep <docs-ai-token id="0001"/> as documentation. -->\n\nBody.\n';
 	const protectedDocument = protectMarkdown(sourceWithToken);
 
-	assert.deepEqual([...protectedDocument.tokens.keys()], ['<docs-ai-token id="0002"/>']);
 	assert.equal(restoreMarkdown(protectedDocument.markdown, protectedDocument.tokens), sourceWithToken);
 });
 

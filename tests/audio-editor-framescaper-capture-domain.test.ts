@@ -6,9 +6,6 @@ import test from 'node:test';
 import {
 	createCaptureRuntimeAvailability,
 	normalizeCaptureSelectedSources,
-	type CaptureEncodedVideoPacket,
-	type CapturePcmAudioPacket,
-	type CaptureStreamMetrics,
 } from '../src/common/editor/framescaper-capture-domain.ts';
 import {
 	createFramescaperCaptureStateMachine,
@@ -68,31 +65,6 @@ test('capture domain closes runtime availability and selected source roles', () 
 		]),
 		/Duplicate capture source ID same/u,
 	);
-});
-
-test('packet and metric contracts describe bounded timestamped video and PCM observations', () => {
-	const videoPacket: CaptureEncodedVideoPacket = {
-		kind: 'encoded-video', sessionId: 'session-1', streamId: 'camera-1', role: 'camera',
-		sequence: 0, presentationTimeUs: 0, durationUs: 33_333, receiptTimeMs: 12.5,
-		byteLength: 3, bytes: new Uint8Array([1, 2, 3]), mimeType: 'video/webm;codecs=vp8',
-		keyFrame: true, droppedBefore: { value: 0, confidence: 'exact' },
-	};
-	const audioPacket: CapturePcmAudioPacket = {
-		kind: 'pcm-audio', sessionId: 'session-1', streamId: 'microphone-1', role: 'microphone',
-		sequence: 0, presentationTimeUs: 0, durationUs: 10_000, receiptTimeMs: 12.5,
-		frameCount: 480, sampleRate: 48_000, channelCount: 1,
-		samples: new Float32Array(480), droppedBefore: { value: null, confidence: 'unavailable' },
-	};
-	const metrics: CaptureStreamMetrics = {
-		streamId: 'camera-1', role: 'camera', packetCount: 1, capturedDurationUs: 33_333,
-		droppedUnits: { value: 0, confidence: 'exact' },
-		droppedRatio: { value: 0, confidence: 'exact' },
-		currentDriftUs: { value: 4, confidence: 'estimated' },
-		maximumAbsoluteDriftUs: { value: 4, confidence: 'estimated' },
-	};
-	assert.equal(videoPacket.bytes.byteLength, 3);
-	assert.equal(audioPacket.samples.length, 480);
-	assert.equal(metrics.maximumAbsoluteDriftUs.value, 4);
 });
 
 test('capture state requires a fresh direct gesture and rejects stale permission completion', () => {

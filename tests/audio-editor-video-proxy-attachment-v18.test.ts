@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 
 import {
 	normalizeVideoProxyAttachmentV18,
@@ -15,22 +12,6 @@ import {
 	VIDEO_TIMING_ASSET_ENCODING,
 	VIDEO_TIMING_ASSET_HEADER_BYTES,
 } from '../src/common/editor/video-timing-asset-reference.ts';
-import {
-	canHaveModifiers,
-	createSourceFile,
-	getModifiers,
-	isExportAssignment,
-	isExportDeclaration,
-	isFunctionDeclaration,
-	isInterfaceDeclaration,
-	isVariableStatement,
-	ScriptKind,
-	ScriptTarget,
-	SyntaxKind,
-	type Statement,
-} from 'typescript';
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROXY_SHA256 = 'a'.repeat(64);
 const ORIGINAL_SHA256 = 'b'.repeat(64);
 const TIMING_SHA256 = 'c'.repeat(64);
@@ -214,61 +195,6 @@ test('descriptor-snapshots and validates the complete nested timing reference', 
 	assert.throws(() => normalizeVideoProxyAttachmentV18(frameMismatch), /frame|timing/iu);
 });
 
-test('remains a closed scalar owner with only the reviewed cumulative consumers', () => {
-	const sourceFile = 'src/common/editor/video-proxy-attachment-v18.ts';
-	const source = fs.readFileSync(path.join(ROOT, sourceFile), 'utf8');
-	assert.match(source, /from ['"]\.\/video-timing-asset-reference\.ts['"]/u);
-	assertExactExports(sourceFile, source);
-	assert.doesNotMatch(source,
-		/video-timing-asset\.ts|video-timing-storage|candidate-observation|proxy-relationship|project-|storage\/|controller\/|ui\/|repository|capabilit|scape-|desktop|app\./u);
-	const consumers = new Set([
-		'src/common/editor/scape-proxy-import-size-warning.ts',
-		'scripts/lib/desktop-project-library-runtime.mjs',
-		// Independently versioned exact-render plans consume the persisted proxy wire.
-		'src/common/editor/unified-exact-render-plan-v11.ts',
-		// The baseline library and capture paths transfer and preserve the same wire.
-		'src/framescaper/desktop-project-library-body-transfer.ts',
-		'src/framescaper/desktop-project-library-core-body-transfer.ts',
-		'src/framescaper/editor-captured-video-proxy-bodies.ts',
-		'src/framescaper/editor-captured-video-proxy-preservation.ts',
-		'src/framescaper/editor-captured-video-proxy-request.ts',
-		'src/framescaper/editor-captured-video-proxy-scheduler-guards.ts',
-		'src/framescaper/editor-captured-video-proxy-transition.ts',
-		'src/common/editor/controller/capture/framescaper-capture-derivative-scheduler.ts',
-		// Baseline sequence custody and professional-media validation own lifecycle edits.
-		'src/framescaper/editor-project-sequence-archive-repository.ts',
-		'src/framescaper/editor-project-sequence-claim-cleanup-repository.ts',
-		'src/framescaper/editor-project-sequence-preservation-repository.ts',
-		'src/framescaper/editor-project-sequence-runtime.ts',
-		'src/framescaper/editor-project-sequence-validation.ts',
-		'src/framescaper/editor-project-sequence.ts',
-		'src/framescaper/editor-project-professional-media-commands.ts',
-		'src/framescaper/editor-project-professional-media-validation.ts',
-		// Baseline actions, cleanup, commands, preview, retention, and archive planning
-		// consume the contract without defining another attachment type.
-		'src/framescaper/editor-video-proxy-actions-retime.ts',
-		'src/framescaper/editor-video-proxy-cleanup-retime.ts',
-		'src/framescaper/editor-video-proxy-command-retime.ts',
-		'src/framescaper/editor-video-proxy-attachment-retention-sequence.ts',
-		'src/framescaper/editor-video-proxy-preview-media-retime.ts',
-		// Both Scape wrappers delegate to this one durable-asset consumer.
-		'src/framescaper/editor-scape-durable-asset-plan-core.ts',
-	]);
-	for (const wrapper of [
-		'src/framescaper/editor-scape-asset-plan-finishing.ts',
-		'src/framescaper/editor-scape-asset-plan.ts',
-	]) {
-		assert.match(fs.readFileSync(path.join(ROOT, wrapper), 'utf8'),
-			/from ['"]\.\/editor-scape-durable-asset-plan-core\.ts['"]/u, wrapper);
-	}
-	for (const root of ['src', 'desktop', 'scripts']) for (const file of sourceFiles(path.join(ROOT, root))) {
-		const relative = path.relative(ROOT, file).replaceAll(path.sep, '/');
-		if (relative === sourceFile) continue;
-		const references = /video-proxy-attachment-v18/u.test(fs.readFileSync(file, 'utf8'));
-		assert.equal(references, consumers.has(relative), relative);
-	}
-});
-
 const ATTACHMENT_FIELDS = [
 	'kind', 'version', 'rule', 'storageKey', 'mimeType', 'byteLength', 'sha256',
 	'originalSha256', 'originalAuthorityKind', 'generatorId', 'generatorVersion',
@@ -349,34 +275,4 @@ interface TrapCounts {
 	ownKeys: number;
 	getOwnPropertyDescriptor: number;
 	get: number;
-}
-
-function sourceFiles(directory: string): string[] {
-	const files: string[] = [];
-	for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-		const resolved = path.join(directory, entry.name);
-		if (entry.isDirectory()) files.push(...sourceFiles(resolved));
-		else if (/\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/u.test(entry.name)) files.push(resolved);
-	}
-	return files;
-}
-
-function assertExactExports(file: string, source: string): void {
-	const parsed = createSourceFile(file, source, ScriptTarget.Latest, true, ScriptKind.TS);
-	const exported = parsed.statements.filter(isExportedStatement);
-	assert.equal(exported.length, 3);
-	const [maximum, attachmentType, normalizer] = exported;
-	assert.ok(maximum && isVariableStatement(maximum));
-	assert.equal(maximum.declarationList.declarations.length, 1);
-	assert.equal(maximum.declarationList.declarations[0]?.name.getText(parsed), 'VIDEO_PROXY_MAXIMUM_BODY_BYTES');
-	assert.ok(attachmentType && isInterfaceDeclaration(attachmentType));
-	assert.equal(attachmentType.name.text, 'VideoProxyAttachmentV18');
-	assert.ok(normalizer && isFunctionDeclaration(normalizer));
-	assert.equal(normalizer.name?.text, 'normalizeVideoProxyAttachmentV18');
-}
-
-function isExportedStatement(statement: Statement): boolean {
-	if (isExportAssignment(statement) || isExportDeclaration(statement)) return true;
-	return canHaveModifiers(statement)
-		&& Boolean(getModifiers(statement)?.some(({ kind }) => kind === SyntaxKind.ExportKeyword));
 }

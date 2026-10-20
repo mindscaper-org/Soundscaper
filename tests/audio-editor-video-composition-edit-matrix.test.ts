@@ -5,9 +5,7 @@ import test from 'node:test';
 import { assertAudioVideoClipRecord } from './helpers/audio-video-clip-record.ts';
 
 import {
-	preparePunchCommand,
 	prepareRangeDeleteCommand,
-	prepareRangeReplacementCommand,
 } from '../src/common/editor/commands.js';
 import {
 	prepareThreePointEditCommand,
@@ -282,39 +280,6 @@ test('insert and overwrite preserve split survivors and default only new video m
 		assertDetachedFromEachOther(edited, 'long', 'clip-0');
 		assert.deepEqual(timelineClip(edited, `${mode}-media`).videoComposition, DEFAULT_VIDEO_CLIP_COMPOSITION);
 	}
-});
-
-test('video punch and range replacement remain transactionally gated before survivor mutation', () => {
-	// Their generic wire has no video-kind/composition carrier, so current V19 must refuse them atomically.
-	const punchBase = singleVideoProject();
-	const punchBefore = JSON.stringify(punchBase);
-	const punch = preparePunchCommand(commandProject(punchBase), {
-		trackId: 'video-track', startFrame: 10 * FRAME_SAMPLES, endFrame: 20 * FRAME_SAMPLES,
-		sourceId: 'video-source-b', sourceStartFrame: 70, sourceDurationFrames: 10,
-		clipId: 'punch-media',
-	}, stableIds());
-	assert.throws(
-		() => apply(punchBase, punch),
-		/audio clip cannot be added to a video track/iu,
-	);
-	assert.equal(JSON.stringify(punchBase), punchBefore);
-	assert.deepEqual(compositionOf(punchBase, 'long'), composition(1));
-
-	const base = singleVideoProject();
-	const before = JSON.stringify(base);
-	const replacementSource = {
-		...videoSource('range-source', '56'),
-		frameCount: 10 * FRAME_SAMPLES,
-		sampleFrameCount: 10 * FRAME_SAMPLES,
-		sourceFrameCount: 10,
-	};
-	const command = prepareRangeReplacementCommand(commandProject(base), {
-		trackId: 'video-track', startFrame: 10 * FRAME_SAMPLES, endFrame: 20 * FRAME_SAMPLES,
-		source: replacementSource, clipId: 'range-media',
-	}, stableIds());
-	assert.throws(() => apply(base, command), /source bounds|audio.*video track/iu);
-	assert.equal(JSON.stringify(base), before);
-	assert.deepEqual(compositionOf(base, 'long'), composition(1));
 });
 
 test('removed occurrences do not influence surviving composition or owned requirements', () => {

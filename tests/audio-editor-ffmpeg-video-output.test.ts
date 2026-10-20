@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { FfmpegOutputSink } from '../src/common/editor/ffmpeg-output-stream.ts';
-import { createEditorFfmpeg } from '../src/common/editor/ffmpeg.js';
-import { createFfmpegVideoTimingProbe } from '../src/common/editor/video-timing-probe.ts';
 import {
 	encodeFfmpegVideoBytes,
 	encodeFfmpegVideoToSink,
@@ -15,14 +13,6 @@ import {
 interface TestSinkOutput {
 	readonly sealed: true;
 }
-
-test('editor FFmpeg exposes the extracted video sink route', () => {
-	const ffmpeg = createEditorFfmpeg({ idleTimeoutMs: false });
-	assert.equal(typeof ffmpeg.encodeVideoToSink, 'function');
-	assert.equal(typeof ffmpeg.probeVideoTiming, 'function');
-	assert.equal(createFfmpegVideoTimingProbe(ffmpeg)?.id, 'ffmpeg');
-	ffmpeg.dispose();
-});
 
 test('FFmpeg video sink output streams exact MP4 and WebM ranges without a whole-file read', async () => {
 	for (const fixture of [

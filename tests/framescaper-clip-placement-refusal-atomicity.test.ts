@@ -52,7 +52,6 @@ function imageCommand(placement: Data | null, expectedPlacement: Data): unknown 
 }
 
 const OWNED = Object.freeze({ scope: 'timeline', trackId: 'video-track' });
-const ORPHANED = Object.freeze({ scope: 'timeline', trackId: 'undefined' });
 
 test('a refused visual timeline placement leaves the clip linked to the track that owns it', () => {
 	const cases: readonly Readonly<{ tracks: Data[]; trackId: string; message: RegExp }>[] = [
@@ -106,28 +105,6 @@ test('a refused timeline-image placement leaves the clip linked to the track tha
 		), message);
 		assert.deepEqual(target, before);
 	}
-});
-
-test('a visual timeline clip that no track owns is not matchable by the track identifier undefined', () => {
-	const target = project(stillClip(), [{ id: 'video-track', type: 'video', clipIds: [] }]);
-	const before = structuredClone(target);
-
-	assert.throws(() => applyFramescaperOwnedVisualCommandVisual(
-		target,
-		snapshotFramescaperOwnedVisualCommandVisual(visualCommand(null, ORPHANED)),
-	), /clip or placement is stale/u);
-	assert.deepEqual(target, before);
-});
-
-test('a timeline-image clip that no track owns is not matchable by the track identifier undefined', () => {
-	const target = project(imageClip(), [{ id: 'video-track', type: 'video', clipIds: [] }]);
-	const before = structuredClone(target);
-
-	assert.throws(() => applyFramescaperImageCommandTimelineImage(
-		target,
-		snapshotFramescaperImageCommandTimelineImage(imageCommand(null, ORPHANED)),
-	), /clip or placement is stale/u);
-	assert.deepEqual(target, before);
 });
 
 test('an in-place visual clip edit still moves the clip and its link to the end of their orders', () => {

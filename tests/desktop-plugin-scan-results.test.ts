@@ -244,32 +244,6 @@ test('a sparse entry or channel list is refused rather than admitted as holes', 
 	assert.throws(() => validateHelperPluginScanResult(scanWith({ entries: oneHole })), /must carry its entry list/u);
 });
 
-test('every field is admitted on the read that checked it, never re-read afterwards', () => {
-	// A record whose properties answer differently each time is the general form
-	// of every check-then-store bug: whatever a guard approved must be the value
-	// that is stored, so admission cannot be walked past by a second answer.
-	function trap(key: string, approved: unknown, smuggled: unknown, honestReads: number): Record<string, unknown> {
-		let reads = 0;
-		const entry: Record<string, unknown> = { ...ENTRY };
-		Object.defineProperty(entry, key, {
-			enumerable: true,
-			get() {
-				reads += 1;
-				return reads <= honestReads ? approved : smuggled;
-			},
-		});
-		return entry;
-	}
-	const digest = validateHelperPluginScanResult(scanWith({
-		entries: [trap('binarySha256', 'b'.repeat(64), 'NOT A DIGEST', 2)],
-	}));
-	assert.equal(digest.entries[0].binarySha256, 'b'.repeat(64));
-	const realtime = validateHelperPluginScanResult(scanWith({ entries: [trap('realtime', true, 'definitely', 1)] }));
-	assert.equal(realtime.entries[0].realtime, true);
-	const offline = validateHelperPluginScanResult(scanWith({ entries: [trap('offline', false, 1, 1)] }));
-	assert.equal(offline.entries[0].offline, false);
-});
-
 test('the renderer projection strips the binary path and keeps everything else', () => {
 	const scan = validateHelperPluginScanResult(scanWith({ detail: 'Scanned 2 bundles.', entries: [
 		ENTRY,

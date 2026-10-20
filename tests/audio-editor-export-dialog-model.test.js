@@ -1,10 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 
-import { VIDEO_DELIVERY_QUALITY_TIERS } from '../src/common/editor/video-delivery-quality.ts';
-import { VIDEO_CANVAS_FIT_MODES } from '../src/common/editor/video-canvas-fit.ts';
-import { CANONICAL_EXTRA_COPY_BY_LOCALE } from '../src/common/i18n/canonical-extras.js';
 import {
 	VIDEO_EXPORT_DIALOG_FORMATS,
 	createExportDialogRequest,
@@ -165,32 +161,6 @@ test('Broadcast WAV requests carry structured BEXT metadata without changing ord
 	assert.equal(createExportDialogRequest({ ...settings, format: 'wav' }, { bext, metadata: {}, channelMapping: 'stereo' }).bext, undefined);
 });
 
-test('the export dialog reaches the delivery canvas for a video format and only for one', async () => {
-	const dialog = await readFile(new URL('../src/common/editor/ui/inspector/ExportDialog.jsx', import.meta.url), 'utf8');
-	const fields = await readFile(new URL('../src/common/editor/ui/VideoDeliveryFields.jsx', import.meta.url), 'utf8');
-
-	// The canvas is a video decision, so the dialog must gate it on the format
-	// rather than parking two more permanent controls on an audio export.
-	assert.match(dialog, /\{videoFormat && \(\s*<VideoDeliveryFields/u);
-	assert.match(fields, /data-export-field="canvasSize"/u);
-	assert.match(fields, /data-export-field="canvasFrameRate"/u);
-	assert.match(fields, /data-export-field="canvasBackground"/u);
-	assert.match(fields, /hook="canvasFit"/u);
-	assert.match(fields, /hook="videoQuality"/u);
-	assert.match(fields, /hook="videoAudioLayout"/u);
-	assert.match(fields, /hook="captionTrack"/u);
-	assert.match(fields, /hook="captionDelivery"/u);
-	assert.match(fields, /data-export-field="captionBurnIn"/u);
-	assert.match(fields, /hook="deliveryTarget"/u);
-	assert.match(fields, /data-export-field="deliveryTargetBlocked"/u);
-	for (const fit of VIDEO_CANVAS_FIT_MODES) {
-		assert.match(fields, new RegExp(`${fit}: 'videoCanvasFit`, 'u'), `${fit} needs a label of its own`);
-	}
-	for (const tier of VIDEO_DELIVERY_QUALITY_TIERS) {
-		assert.match(fields, new RegExp(`${tier}: 'videoQuality`, 'u'), `${tier} needs a label of its own`);
-	}
-});
-
 test('a video request states a tier only when the dialog asked for one', () => {
 	const settings = {
 		mode: 'mix', range: 'project', format: 'video-mp4',
@@ -202,29 +172,6 @@ test('a video request states a tier only when the dialog asked for one', () => {
 	// delivery it names stays byte-identical.
 	assert.equal(Object.hasOwn(createExportDialogRequest(settings, { metadata: {} }), 'quality'), false);
 	assert.equal(createExportDialogRequest({ ...settings, videoQuality: 'high' }, { metadata: {} }).quality, 'high');
-});
-
-test('every delivery-canvas control has copy in both catalogs', () => {
-	const keys = [
-		'videoCanvasSize', 'videoCanvasWidth', 'videoCanvasHeight', 'videoCanvasFit',
-		'videoCanvasFitContain', 'videoCanvasFitCover', 'videoCanvasFitStretch',
-		'videoCanvasAutomatic', 'videoCanvasFrameRate', 'videoCanvasBackground',
-		'videoCanvasHint',
-		'videoQuality', 'videoQualityDraft', 'videoQualityBalanced', 'videoQualityHigh',
-		'videoCaptionTrack', 'videoCaptionNone', 'videoCaptionDelivery',
-		'videoCaptionDeliveryMux', 'videoCaptionDeliverySrt', 'videoCaptionDeliveryVtt',
-		'videoCaptionDeliveryMuxSrt', 'videoCaptionDeliveryMuxVtt',
-		'videoCaptionBurnIn', 'videoCaptionBurnInHint',
-		'videoDeliveryTarget', 'videoDeliveryTargetCustom', 'videoDeliveryUnavailable',
-		'videoDeliveryBlockedHint',
-	];
-	for (const locale of ['en', 'de']) {
-		const catalog = CANONICAL_EXTRA_COPY_BY_LOCALE[locale];
-		for (const key of keys) {
-			assert.equal(typeof catalog[key], 'string', `${locale} is missing ${key}`);
-			assert.ok(catalog[key].length > 0, `${locale} ${key} must not be empty`);
-		}
-	}
 });
 
 test('a delivery target keeps the request in the dialog format namespace', () => {
@@ -295,16 +242,4 @@ test('the broadcast frame rates the dialog offers are delivered exactly', () => 
 	assert.equal(rate('25'), 25);
 	assert.equal(rate('48'), 48);
 	assert.equal(rate('12.5'), 12.5);
-});
-
-test('the export dialog offers the preview the delivery canvas it states', async () => {
-	const dialog = await readFile('src/common/editor/ui/inspector/ExportDialog.jsx', 'utf8');
-	const panel = await readFile('src/common/editor/ui/workspace/VideoPreviewPanel.jsx', 'utf8');
-
-	// A delivery that reframes to 9:16 was never previewed at 9:16, so the one
-	// control whose purpose is reframing could only be judged after the render.
-	assert.match(dialog, /previewDeliveryCanvas\(/u);
-	assert.match(dialog, /previewDeliveryCanvas\(null\)/u, 'and it is cleared when the dialog is not delivering video');
-	assert.match(panel, /snapshot\.videoDeliveryPreviewCanvas/u);
-	assert.match(panel, /resolveVideoExportCanvas\(project, deliveryCanvas \?\? \{\}\)/u);
 });

@@ -8,7 +8,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import TransportToolbarGroup, {
 	COMPACT_BAR_TRANSPORT_BUTTONS,
 	DRAWER_TRANSPORT_BUTTONS,
-	TRANSPORT_BUTTON_IDS,
 	transportToolbarButtonsVisible,
 } from '../src/common/editor/ui/toolbar/TransportToolbarGroup.jsx';
 import { AccessibleTimeCode, PlaySpeedFlyout, TelemetryTimeCode } from '../src/common/editor/ui/toolbar/AudioEditorTransportControls.jsx';
@@ -58,11 +57,6 @@ function render(buttons: readonly string[], audioRecording = true, toolbarButton
 		/>,
 	);
 }
-
-test('the compact-bar and drawer button sets partition the transport group', () => {
-	assert.deepEqual([...COMPACT_BAR_TRANSPORT_BUTTONS, ...DRAWER_TRANSPORT_BUTTONS].sort(), [...TRANSPORT_BUTTON_IDS].sort());
-	assert.equal(COMPACT_BAR_TRANSPORT_BUTTONS.some((id) => DRAWER_TRANSPORT_BUTTONS.includes(id)), false);
-});
 
 test('the compact-bar set renders play, stop and record and nothing else', () => {
 	const markup = render(COMPACT_BAR_TRANSPORT_BUTTONS);

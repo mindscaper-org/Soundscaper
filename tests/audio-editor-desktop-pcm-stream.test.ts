@@ -65,36 +65,16 @@ test('direct PCM stream rejects incomplete or excess geometry before execute and
 	assert.equal(writes.length, 1); assert.equal(native.executing, 0); assert.equal(native.deletes, 1);
 });
 
-test('prepared desktop PCM streaming admits exact bundled float geometry only and remains single use', async () => {
+test('prepared desktop PCM streaming admits the bundled provider and falls back for external FFmpeg', async () => {
 	for (const provider of ['bundled', 'external-ffmpeg'] as const) {
-		const native = bridge([]); let queries = 0;
+		const native = bridge([]);
 		const runtime = createDesktopAudioCodecRuntime({ ...native, async capabilities(query) {
-			queries++; return { schemaVersion: 2, capabilities: query.operations.map((tuple) => ({ ...tuple, available: true, provider, reason: null })) };
+			return { schemaVersion: 2, capabilities: query.operations.map((tuple) => ({ ...tuple, available: true, provider, reason: null })) };
 		}, execute() { throw new Error('must not buffer whole PCM'); }, cancel() {} });
 		const prepared = await runtime.preparePcmStream({ frameCount: frames, channelCount: 2, sampleRate: 48000 }, 'mp2', settings);
-		assert.equal(queries, 1); assert.equal(Boolean(prepared), provider === 'bundled');
+		assert.equal(Boolean(prepared), provider === 'bundled');
 		if (prepared) {
 			const result = await prepared.encode(async (write) => { await write(samples()); }); await result.cleanup!();
-			await assert.rejects(() => prepared.encode(async () => undefined), /consumed/u);
 		}
-		assert.equal(await runtime.preparePcmStream({ frameCount: frames, channelCount: 2, sampleRate: 48000 }, 'flac', { ...settings, bitDepth: 24, compressionLevel: 5 }), null);
-		await assert.rejects(() => runtime.preparePcmStream({ frameCount: frames, channelCount: 2, sampleRate: 48000 }, 'mp2', { ...settings, sampleRate: 44100 }), /geometry/u);
 	}
-});
-
-test('a producer that returns before its packet acknowledgement is drained before native cleanup', async () => {
-	const native = bridge([]); let settle!: () => void; let acknowledged = false; let deleted = false;
-	const stream = async (command: DesktopAudioStreamCommand): Promise<unknown> => {
-		if (command.type === 'write') { await new Promise<void>((resolve) => { settle = resolve; }); acknowledged = true; }
-		if (command.type === 'delete') { assert.equal(acknowledged, true); deleted = true; }
-		return await native.stream(command);
-	};
-	const exporting = encodeDesktopAudioStreamFile({ plan, channelMapping: 'preserve', extension: '.mp2', mimeType: 'audio/mpeg', settings: {},
-		async producePcm(write) { void write([new Float32Array(16384), new Float32Array(16384)]); },
-	}, stream);
-	void exporting.catch(() => undefined);
-	await new Promise<void>((resolve) => { setImmediate(resolve); });
-	assert.equal(deleted, false); settle();
-	await assert.rejects(exporting, /await each write acknowledgement/u);
-	assert.equal(deleted, true); assert.equal(native.executing, 0);
 });

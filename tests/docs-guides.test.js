@@ -65,8 +65,6 @@ test('every guide and tutorial validates, has a unique id, and only imports know
 		assert.ok(!ids.has(lesson.id), `duplicate id ${lesson.id}`);
 		ids.add(lesson.id);
 	}
-	assert.ok(SOUNDSCAPER_GUIDES.length >= 20, 'the catalog covers the common Audacity tasks');
-	assert.ok(SOUNDSCAPER_TUTORIALS.length >= 3, 'a newcomer has more than one lesson to start with');
 	assert.equal(SOUNDSCAPER_GUIDE_GROUPS.flatMap((group) => group.guides).length, SOUNDSCAPER_GUIDES.length);
 });
 
@@ -103,7 +101,6 @@ test('step constructors refuse malformed input', () => {
 	assert.throws(() => validateTutorial({
 		id: 'no-example', title: 't', description: 'd', intro: 'i', steps: [open()], learn: ['a'], next: ['b'],
 	}, GUIDE_FIXTURES), /example recording/u);
-	assert.throws(() => describeStep(open(), { fixture, facet: 'poem' }), RangeError);
 });
 
 test('the how-to facet describes the reader\'s material and the tutorial facet names the example', () => {

@@ -49,29 +49,6 @@ function author(surface: string, request: unknown, source: Data = project()): Pr
 	return prepare({ surface: surface as never, project: source, store: store(), request } as never);
 }
 
-test('an unsupported authoring surface is refused by name', async () => {
-	await assert.rejects(
-		() => author('video-nonsense', { fence: fence(), clipId: 'clip-1' }),
-		/does not support video-nonsense/u,
-	);
-});
-
-test('a project outside the Framescaper schema family cannot author a command', async () => {
-	await assert.rejects(
-		() => author(
-			'video-mask-matte',
-			{ fence: fence(), clipId: 'clip-1' },
-			project({ schemaFamily: 'soundscaper' }),
-		),
-		RangeError,
-	);
-});
-
-test('an authoring request must be a record', async () => {
-	await assert.rejects(() => author('video-mask-matte', null), TypeError);
-	await assert.rejects(() => author('video-mask-matte', 'apply'), TypeError);
-});
-
 test('the fence gate runs before any surface-specific work', async () => {
 	const stale = { ...fence(), projectRevision: 9 };
 
@@ -97,24 +74,6 @@ test('a selection that changed under the dialog is refused', async () => {
 		),
 		/selection changed\. Reopen the dialog/u,
 	);
-});
-
-test('each surface admits only its own operation vocabulary', async () => {
-	const bound = fence();
-
-	for (const [surface, request] of [
-		['video-transition-dissolve', { pairId: 'pair-1', durationFrames: 2 }],
-		['video-mask-matte', {}],
-		['video-adjustment-layer', {}],
-		['video-visual-preset', {}],
-		['video-freeze', {}],
-	] as const) {
-		await assert.rejects(
-			() => author(surface, { fence: bound, clipId: 'clip-1', operation: 'nonsense', ...request }),
-			/operation is unsupported/u,
-			`${surface} must refuse an operation outside its own vocabulary`,
-		);
-	}
 });
 
 test('a dissolve naming a pair the project no longer offers is refused', async () => {

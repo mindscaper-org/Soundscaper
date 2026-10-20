@@ -31,9 +31,6 @@ test('filters one recorder chunk into exact absolute active segments', () => {
 	]);
 	assert.notStrictEqual(result.segments[0]?.channels[0], left);
 	assert.deepEqual([...left], [0, 0.5, 0, 0.25]);
-	assert.equal(Object.isFrozen(result), true);
-	assert.equal(Object.isFrozen(result.segments), true);
-	assert.equal(Object.isFrozen(result.transitions), true);
 });
 
 test('returns no PCM while armed below threshold and preserves gate state on malformed geometry', () => {

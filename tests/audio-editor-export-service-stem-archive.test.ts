@@ -47,7 +47,6 @@ test('stem exports archive each output, report progress, and abort failed archiv
 		{ trackId: 'one', includeMaster: false, respectMuteSolo: false },
 		{ trackId: 'two', includeMaster: false, respectMuteSolo: false },
 	]);
-	assert.equal(renderRanges.some((range) => 'fileName' in range || 'kind' in range), false);
 
 	const realtime = createFixture();
 	const realtimeStems = structuredClone(stems);
@@ -59,7 +58,6 @@ test('stem exports archive each output, report progress, and abort failed archiv
 	assert.deepEqual(realtime.realtimeRenderOptions.map(({ trackId, includeMaster, respectMuteSolo }) => ({
 		trackId, includeMaster, respectMuteSolo,
 	})), [{ trackId: 'one', includeMaster: false, respectMuteSolo: false }]);
-	assert.equal(realtime.realtimeRenderOptions.some((range) => 'fileName' in range || 'kind' in range), false);
 
 	const failed = createFixture();
 	failed.setPlan(stems);

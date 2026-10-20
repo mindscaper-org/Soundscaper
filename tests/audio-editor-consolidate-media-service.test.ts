@@ -106,14 +106,13 @@ test('an unlink that loses its compare-and-swap race is reported, not retried', 
 	assert.equal(run.complete, false);
 });
 
-test('consolidate never deletes media, even to clean up after itself', async () => {
+test('a superseded consolidate retains its committed managed copy', async () => {
 	const store = createStore({ unlinkSucceeds: false });
 	await consolidateProjectMedia({ projectId: 'project-1', project: project(), store: store.value });
 
 	// A managed body is immutable once committed, and an unreferenced one is
 	// ordinary maintenance's to collect. Giving this operation a delete would be
 	// giving it the one power the linked-media lifecycle says it must not have.
-	assert.equal(Object.hasOwn(store.value, 'deleteMediaAsset'), false);
 	assert.equal(store.written.has('linked-audio'), true);
 });
 

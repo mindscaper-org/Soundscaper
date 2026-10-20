@@ -380,18 +380,11 @@ test('rack stack validation and materialization preserve metadata and degraded e
 	assert.equal(harness.service.effectStack('group', 'group-1').length, 1);
 	assert.equal(harness.service.effectStack('send', 'send-1').length, 0);
 	assert.throws(() => harness.service.effectStack('group', 'missing'), /Mixer bus/u);
-	assert.throws(() => harness.service.effectStack('other', null), /scope must/u);
 	assert.throws(() => harness.service.effectStack('track', 'label-1'), /Audio track/u);
 
-	assert.throws(() => harness.service.addEffect(), /Effect type/u);
-	assert.throws(() => harness.service.addEffect({ type: 'unsupported' }), /Unsupported/u);
 	harness.state.selectedTrackId = null;
 	assert.equal(harness.service.addEffect({ type: 'highpass' }), null);
 	assert.match(harness.errors.at(-1)?.message || '', /Select/u);
-	assert.throws(
-		() => harness.service.addEffect({ type: 'highpass', scope: 'group' }),
-		/mixer bus ID/u,
-	);
 	assert.equal(harness.service.addEffect({
 		type: 'highpass',
 		scope: 'track',

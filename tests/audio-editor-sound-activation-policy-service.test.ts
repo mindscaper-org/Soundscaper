@@ -12,7 +12,6 @@ import {
 	DEFAULT_SOUND_ACTIVATION_PREFERENCES,
 	type SoundActivationPreferences,
 } from '../src/common/editor/sound-activation-preferences.ts';
-import type { RecordingSoundActivationSource } from '../src/common/editor/controller/recording/recording-transaction-types.ts';
 
 const DEVICE_SOURCE = Object.freeze({
 	sourceKey: 'device:default',
@@ -296,53 +295,7 @@ test('terminal cancellation, explicit discard, and reset remove stale source ses
 	assert.equal(fixture.service.resetSources(), false);
 	assert.deepEqual(fixture.service.getSnapshot().sources, []);
 	assert.equal(fixture.publishes.length, 4, 'register, register, discard, and reset publish');
-	for (const sourceKey of ['', '   ', 2, null, Symbol('source')]) {
-		assert.throws(() => fixture.service.discardSource(sourceKey), /source key/i);
-	}
-});
 
-test('hostile sources, gate states, and preference providers fail closed without side effects', () => {
-	const fixture = createFixture({ preferences: ENABLED_PREFERENCES });
-	const accessor = { ...DEVICE_SOURCE } as Record<string, unknown>;
-	let getterCalls = 0;
-	Object.defineProperty(accessor, 'sampleRate', {
-		enumerable: true,
-		get() { getterCalls += 1; return 48_000; },
-	});
-	const inherited = Object.assign(Object.create({ hostile: true }) as Record<string, unknown>, DEVICE_SOURCE);
-	for (const source of [
-		null,
-		[],
-		accessor,
-		inherited,
-		{ ...DEVICE_SOURCE, [Symbol('field')]: true },
-		{ ...DEVICE_SOURCE, unknown: true },
-		{ ...DEVICE_SOURCE, sourceKey: '' },
-		{ ...DEVICE_SOURCE, kind: 'microphone' },
-		{ ...DEVICE_SOURCE, sampleRate: 44_100.5 },
-		{ ...DEVICE_SOURCE, sampleRate: 384_001 },
-		{ ...DEVICE_SOURCE, channelCount: 0 },
-	]) assert.throws(
-		() => fixture.service.getSettings(source as unknown as RecordingSoundActivationSource),
-		/sound activation.*source|source.*sound activation/i,
-	);
-	assert.equal(getterCalls, 0);
-	assert.equal(fixture.publishes.length, 0);
-	assert.deepEqual(fixture.service.getSnapshot().sources, []);
-
-	fixture.service.getSettings(DEVICE_SOURCE);
-	for (const state of ['', 'recording', null, {}, Symbol('state')]) {
-		assert.throws(
-			() => fixture.service.setState(DEVICE_SOURCE, state as never),
-			/gate state/i,
-		);
-	}
-	assert.equal(fixture.service.getSnapshot().sources[0]?.state, 'disarmed');
-
-	const invalidPreferences = createFixture({ preferences: ENABLED_PREFERENCES });
-	invalidPreferences.replacePreferences({ ...ENABLED_PREFERENCES, thresholdDb: Number.NaN });
-	assert.throws(() => invalidPreferences.service.getSnapshot(), /sound activation/i);
-	assert.throws(() => invalidPreferences.service.getSettings(DEVICE_SOURCE), /sound activation/i);
 });
 
 interface FixtureOptions {

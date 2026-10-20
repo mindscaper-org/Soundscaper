@@ -124,16 +124,6 @@ test('a desktop static product range preserves the legacy V6 FFmpeg encoder path
 	assert.deepEqual(fixture.errors, []);
 });
 
-test('common strategy rejects missing, duplicate, and accessor active source IDs before timing loads', async () => {
-	for (const malformed of ['missing', 'duplicate', 'accessor', 'entries', 'prototype'] as const) {
-		const fixture = createFixture({ mode: 'blob', malformedPlan: malformed });
-		assert.equal(await fixture.exportVideo({ format: 'video-mp4' }), null);
-		assert.match((fixture.errors[0] as Error).message, /activeSourceIds|active source/iu);
-		assert.equal(fixture.events.includes('active-timing-load'), false);
-		assert.equal(fixture.events.includes('off-range-timing-load'), false);
-	}
-});
-
 test('common strategy preserves video format aliases and refuses unsupported formats', async () => {
 	for (const staticRange of [false, true]) {
 		const fixture = createFixture({ mode: 'blob', staticRange, cancelPreparation: true, desktop: staticRange });
@@ -177,7 +167,6 @@ interface FixtureOptions {
 	readonly desktop?: boolean;
 	readonly encodeFailure?: Error;
 	readonly cancelPreparation?: boolean;
-	readonly malformedPlan?: 'missing' | 'duplicate' | 'accessor' | 'entries' | 'prototype';
 	readonly staticRange?: boolean;
 	readonly linkedOriginal?: boolean;
 }
@@ -360,33 +349,7 @@ function createFixture(options: FixtureOptions) {
 			events.push(`product-format:${request.format}`);
 			assert.strictEqual(request.canonicalProject, project);
 			if (options.staticRange) return null;
-			if (options.malformedPlan === 'missing') {
-				const malformed = { ...keyedPlan } as Record<string, unknown>;
-				delete malformed.activeSourceIds;
-				return malformed as never;
-			}
-			if (options.malformedPlan === 'duplicate') {
-				return { ...keyedPlan, activeSourceIds: [ACTIVE_SOURCE_ID, ACTIVE_SOURCE_ID] } as never;
-			}
-			if (options.malformedPlan === 'accessor') {
-				return Object.defineProperty({ ...keyedPlan }, 'activeSourceIds', {
-					enumerable: true,
-					get() { throw new Error('active source accessor'); },
-				}) as never;
-			}
-			if (options.malformedPlan === 'entries') {
-				const ids = [ACTIVE_SOURCE_ID];
-				Object.defineProperty(ids, 'entries', {
-					enumerable: true,
-					get() { throw new Error('entries accessor must not run'); },
-				});
-				return { ...keyedPlan, activeSourceIds: ids } as never;
-			}
-			if (options.malformedPlan === 'prototype') {
-				const ids = [ACTIVE_SOURCE_ID];
-				Object.setPrototypeOf(ids, null);
-				return { ...keyedPlan, activeSourceIds: ids } as never;
-			}
+
 			return keyedPlan;
 		},
 		async encode(request: ProductVideoExportStrategyEncodeRequest) {

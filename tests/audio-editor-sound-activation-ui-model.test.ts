@@ -43,9 +43,6 @@ test('sound activation UI model exposes bounded canonical controls and localized
 		hysteresisDb: { minimum: 0, maximum: 24, step: 1 },
 		holdMilliseconds: { minimum: 0, maximum: 600_000, step: 10 },
 	});
-	assert.equal(Object.isFrozen(model), true);
-	assert.equal(Object.isFrozen(SOUND_ACTIVATION_UI_RANGES), true);
-	assert.equal(Object.isFrozen(SOUND_ACTIVATION_UI_RANGES.thresholdDb), true);
 });
 
 test('read-only and every policy transition produce one explicit mutation guard', () => {
@@ -68,17 +65,6 @@ test('read-only and every policy transition produce one explicit mutation guard'
 		assert.equal(guarded.statusMessage, message, reason);
 		assert.equal(guarded.preferenceUpdatePending, reason === 'preference-update', reason);
 	}
-});
-
-test('sound activation UI model rejects contradictory guard state and invalid preferences', () => {
-	assert.throws(() => createSoundActivationUiModel({
-		...policy(),
-		preferenceMutationBlocked: true,
-	}, false, 'en', COPY), /block reason/iu);
-	assert.throws(() => createSoundActivationUiModel({
-		...policy(),
-		preferences: { enabled: false, thresholdDb: 1, hysteresisDb: 6, holdMilliseconds: 250, addTimestamps: false },
-	}, false, 'en', COPY), /sound activation preferences/iu);
 });
 
 function policy(

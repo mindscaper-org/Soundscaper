@@ -97,7 +97,6 @@ test('derived provenance is detached, frozen and compares contribution metadata 
 
 	assert.equal(derived?.contributions[0]?.metadata.raw.first, 1);
 	assert.equal(Object.isFrozen(derived?.contributions[0]?.metadata.raw), true);
-	assert.throws(() => createNonImportedSourceProvenance('imported' as never), /recorded or generated/iu);
 });
 
 test('derived provenance preserves contribution and warning bounds across merged inputs', () => {

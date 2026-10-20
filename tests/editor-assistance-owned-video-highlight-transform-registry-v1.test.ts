@@ -8,7 +8,6 @@ import { createAssistanceEmbeddingMatrixV1 } from
 import { createAssistanceSourceTimeRowChunksV1 } from
 	'../src/common/editor/assistance/source-time-rows-v1.ts';
 import {
-	ASSISTANCE_OWNED_VIDEO_HIGHLIGHT_TRANSFORM_IDS_V1,
 	createAssistanceOwnedVideoHighlightTransformRegistryV1,
 	reviewAssistanceOwnedVideoHighlightTransformResultV1,
 } from '../src/common/editor/assistance/owned-video-highlight-transform-registry-v1.ts';
@@ -38,12 +37,6 @@ const HIGHLIGHT_SETTINGS = Object.freeze({
 
 test('the owned video/highlight registry is closed and settings-bound', () => {
 	const registry = createAssistanceOwnedVideoHighlightTransformRegistryV1();
-	assert.deepEqual(registry.transformIds, [
-		'sample-shot-frames', 'publish-video-index', 'track-subjects', 'plan-crops',
-		'gather-signals', 'rank-highlights', 'assemble-highlights',
-	]);
-	assert.deepEqual(ASSISTANCE_OWNED_VIDEO_HIGHLIGHT_TRANSFORM_IDS_V1,
-		registry.transformIds);
 	assert.throws(() => registry.run({
 		schemaVersion: 1, transformId: 'sample-shot-frames', settings: REFRAME_SETTINGS,
 		inputs: {},

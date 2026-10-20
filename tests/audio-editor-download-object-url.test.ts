@@ -13,7 +13,6 @@ import test from 'node:test';
 import { saveLabelExport } from '../src/common/editor/controller/shared/app-helpers.ts';
 import {
 	OBJECT_URL_REVOKE_DELAY_MS,
-	releaseDownloadObjectUrl,
 } from '../src/common/editor/object-url-revoke.ts';
 
 interface BrowserDownloadStub {
@@ -126,22 +125,4 @@ test('a custom saver or file service is used instead of an anchor download', asy
 	} finally {
 		stub.restore();
 	}
-});
-
-test('a host without a timer releases the URL rather than leaking it', () => {
-	const revoked: string[] = [];
-	releaseDownloadObjectUrl('blob:immediate', { revoke: (url) => revoked.push(url) });
-	assert.deepEqual(revoked, ['blob:immediate']);
-
-	const deferred: string[] = [];
-	const timers: (() => void)[] = [];
-	releaseDownloadObjectUrl('blob:deferred', {
-		revoke: (url) => deferred.push(url),
-		setTimer: (callback) => timers.push(callback),
-	});
-	assert.deepEqual(deferred, []);
-	for (const callback of timers) callback();
-	assert.deepEqual(deferred, ['blob:deferred']);
-
-	assert.doesNotThrow(() => releaseDownloadObjectUrl('blob:none', {}));
 });

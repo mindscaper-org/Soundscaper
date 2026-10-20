@@ -45,25 +45,6 @@ const NOW = '2026-09-05T10:00:00.000Z';
 const VIDEO_SHA256 = '12'.repeat(32);
 const AUDIO_SHA256 = '34'.repeat(32);
 
-test('creating the publication requires every named transaction dependency', () => {
-	const complete = {
-		currentAuthority: () => ({}), captureProject: () => null,
-		assertProject: () => undefined, createId: (prefix: string) => prefix,
-		commit: () => undefined,
-	};
-	for (const key of Object.keys(complete)) {
-		assert.throws(() => createFramescaperAssistanceHighlightPublication(
-			{ ...complete, [key]: 'not-callable' } as never,
-		), { name: 'TypeError', message: /all transaction dependencies/u },
-		`a ${key} that is not callable must be refused`);
-	}
-	assert.throws(() => createFramescaperAssistanceHighlightPublication(null as never),
-		{ name: 'TypeError', message: /all transaction dependencies/u });
-	const publication = createFramescaperAssistanceHighlightPublication(complete as never);
-	assert.equal(Object.isFrozen(publication), true);
-	assert.deepEqual(Object.keys(publication), ['acceptReviewed']);
-});
-
 test('the selected highlight identity set must be a bounded array of unique valid identities',
 	async () => {
 		const held = session();

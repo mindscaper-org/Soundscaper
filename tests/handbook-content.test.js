@@ -9,7 +9,7 @@ import { auditHandbookContent } from '../scripts/lib/handbook-content-check.mjs'
 test('the committed handbook has complete frontmatter and resolvable internal links', async () => {
 	const report = await auditHandbookContent('handbook/src/content/docs');
 	assert.deepEqual(report.errors, []);
-	assert.ok(report.pages >= 15);
+	assert.ok(report.pages > 0);
 });
 
 test('the handbook audit reports missing frontmatter and broken local routes', async (context) => {

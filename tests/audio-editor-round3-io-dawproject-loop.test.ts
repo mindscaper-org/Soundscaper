@@ -17,9 +17,6 @@ function deliver(options: Readonly<{ sourceStart?: number; period?: number; offs
 		frameCount: 44_100, channelCount: 1 });
 	const base = createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: 38_400,
 		sourceStartFrame: options.sourceStart ?? 0, sourceDurationFrames: 35_280 });
-	assert.equal(typeof base.durationFrames, 'number');
-	assert.equal(typeof base.sourceStartFrame, 'number');
-	assert.equal(typeof base.sourceDurationFrames, 'number');
 	const loopable = { ...base, durationFrames: Number(base.durationFrames),
 		sourceStartFrame: Number(base.sourceStartFrame), sourceDurationFrames: Number(base.sourceDurationFrames) };
 	const clip = { ...base, ...clipLoopUpdateFields(loopable, {

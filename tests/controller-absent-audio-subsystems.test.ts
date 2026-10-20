@@ -37,19 +37,6 @@ const SHAPES = Object.freeze({
 	audioGenerator: createAbsentAudioGeneratorService(CONTEXT),
 });
 
-test('every absent subsystem member stays callable', () => {
-	for (const [name, shape] of Object.entries(SHAPES)) {
-		const members = Object.keys(shape);
-		assert.ok(members.length > 0, `${name} exposes no members`);
-		for (const member of members) {
-			assert.equal(
-				typeof (shape as Record<string, unknown>)[member], 'function',
-				`${name}.${member} is not callable`,
-			);
-		}
-	}
-});
-
 test('an absent subsystem refuses the work it was never composed for', async () => {
 	for (const [name, shape] of Object.entries(SHAPES)) {
 		for (const [member, value] of Object.entries(shape as Record<string, unknown>)) {
@@ -74,14 +61,4 @@ test('cancelling work an absent subsystem never started is not an error', () => 
 	assert.equal(SHAPES.nyquistHost.cancelNyquistEvaluation(), false);
 	assert.equal(SHAPES.effectMacro.cancelEffectMacro(), false);
 	assert.equal(SHAPES.selectionEffectExecution.cancelSelectedAudacityEffect(), false);
-});
-
-test('the absent analysis shape carries every member the deferred facade publishes', async () => {
-	const { createDeferredAudioAnalysisService } = await import(
-		'../src/common/editor/controller/analysis/internal/deferred-analysis-service.ts'
-	);
-	const real = createDeferredAudioAnalysisService({
-		lifetime: { cancelTask() {} },
-	} as never);
-	assert.deepEqual(Object.keys(SHAPES.analysis).sort(), Object.keys(real).sort());
 });

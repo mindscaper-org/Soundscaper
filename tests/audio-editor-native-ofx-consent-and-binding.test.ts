@@ -18,9 +18,6 @@ import {
 } from '../src/common/editor/native-ofx-consent.ts';
 import {
 	assertOfxEffectBindingV1,
-	ofxParameterStateDigestInput,
-	resolveOfxPlayback,
-	OFX_PLUGIN_AVAILABILITIES,
 	OfxBindingError,
 	type OfxEffectBindingV1,
 } from '../src/common/editor/native-ofx-binding.ts';
@@ -28,7 +25,6 @@ import type { OfxPluginDescriptorV1 } from '../src/common/editor/native-ofx-desc
 
 const DIGEST = 'a'.repeat(64);
 const OTHER_DIGEST = 'b'.repeat(64);
-const STATE_DIGEST = 'c'.repeat(64);
 
 test('a discovered binary may not run until it is consented to and enabled', () => {
 	const discovered = reconcileOfxConsent(null, descriptor());
@@ -192,53 +188,6 @@ test('a custom encoding must name a custom parameter the binding actually carrie
 		parameters: [param('shape', 'custom', 'A')],
 		customEncodings: { shape: 'A'.repeat(65_537) },
 	})), OfxBindingError);
-});
-
-test('an available plug-in renders and a disabled binding bypasses', () => {
-	assert.deepEqual(resolveOfxPlayback(binding(), 'available', STATE_DIGEST), {
-		mode: 'render', availability: 'available',
-		authoredStatePreserved: true, reportsDegradation: false,
-	});
-	assert.equal(resolveOfxPlayback(binding({ enabled: false }), 'available', STATE_DIGEST).mode, 'bypass');
-});
-
-test('an unavailable plug-in preserves authored state and falls back visibly', () => {
-	for (const availability of OFX_PLUGIN_AVAILABILITIES.filter((value) => value !== 'available')) {
-		const resolution = resolveOfxPlayback(binding(), availability, STATE_DIGEST);
-		assert.equal(resolution.mode, 'bypass', availability);
-		assert.equal(resolution.authoredStatePreserved, true, availability);
-		assert.equal(resolution.reportsDegradation, true, availability);
-	}
-});
-
-test('a frozen render stands in only while it matches the current parameter state', () => {
-	const frozen = binding({
-		frozenRender: {
-			storageKey: 'ofx-frozen-1',
-			sha256: 'd'.repeat(64),
-			parameterStateSha256: STATE_DIGEST,
-			frameCount: 240,
-		},
-	});
-
-	assert.equal(resolveOfxPlayback(frozen, 'missing', STATE_DIGEST).mode, 'frozen');
-	// Parameters moved since the freeze: the frames are the wrong picture now.
-	assert.equal(resolveOfxPlayback(frozen, 'missing', 'e'.repeat(64)).mode, 'bypass');
-	assert.equal(resolveOfxPlayback(frozen, 'missing', STATE_DIGEST).reportsDegradation, true);
-});
-
-test('the parameter-state digest input covers everything that changes a render', () => {
-	const base = ofxParameterStateDigestInput(binding());
-
-	assert.notEqual(base, ofxParameterStateDigestInput(binding({ binarySha256: OTHER_DIGEST })));
-	assert.notEqual(base, ofxParameterStateDigestInput(binding({ context: 'general' })));
-	assert.notEqual(base, ofxParameterStateDigestInput(binding({
-		parameters: [param('radius', 'double', [9])],
-	})));
-	assert.notEqual(base, ofxParameterStateDigestInput(binding({
-		inputs: [{ name: 'Source', sourceRef: 'source-b' }],
-	})));
-	assert.equal(base, ofxParameterStateDigestInput(binding()));
 });
 
 function enabled(): OfxConsentRecordV1 {

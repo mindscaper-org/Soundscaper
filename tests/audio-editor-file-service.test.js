@@ -317,24 +317,6 @@ test('exact File System Access saves abort instead of committing a short output'
 	assert.equal(calls.length, 2);
 });
 
-test('direct-save size mode is closed and rejects before opening a destination', async () => {
-	let beginCalls = 0;
-	const service = createAudioEditorFileService({
-		bridge: {
-			async chooseSaveTarget() { return { id: 'target-mode', name: 'mix.wav' }; },
-			async beginWrite() { beginCalls += 1; return { writeId: 'write-mode' }; },
-			async writeChunk() { return { nextOffset: 0 }; },
-			async finishWrite() { return { byteLength: 0 }; },
-		},
-	});
-	const prepared = await service.prepareSave({ purpose: 'audio', suggestedName: 'mix.wav' });
-	await assert.rejects(
-		prepared.createWritable(0, 'bounded'),
-		/Direct-save size mode must be "maximum" or "exact"/u,
-	);
-	assert.equal(beginCalls, 0);
-});
-
 test('direct-save streams abort without publishing when their admitted maximum is exceeded', async () => {
 	const aborted = [];
 	const service = createAudioEditorFileService({

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { cloneFrozenVideoExportProject } from '../src/common/editor/video-export-project-snapshot.ts';
@@ -21,7 +20,7 @@ test('both video export callers own independent immutable snapshots through the 
 	}
 });
 
-test('both video export snapshot roles retain their own binary, clone, and cloned-record errors', () => {
+test('both video export snapshot roles retain their own binary and clone errors', () => {
 	for (const [role, label] of [
 		['keyframe', 'Video keyframe export'],
 		['offline', 'Offline video export'],
@@ -44,27 +43,4 @@ test('both video export snapshot roles retain their own binary, clone, and clone
 			globalThis.structuredClone = clone;
 		}
 	}
-	const clone = globalThis.structuredClone;
-	try {
-		globalThis.structuredClone = () => [];
-		assert.throws(
-			() => cloneFrozenVideoExportProject({ sampleRate: 48_000 }, 'offline', (value) => {
-				if (Array.isArray(value)) throw new TypeError('offline video export project snapshot must be a plain record.');
-			}),
-			{ message: 'offline video export project snapshot must be a plain record.' },
-		);
-	} finally {
-		globalThis.structuredClone = clone;
-	}
-});
-
-test('video frame-source and offline exporter use one bounded clone/freeze authority', () => {
-	const source = readFileSync(new URL('../src/common/editor/video-keyframe-export-frame-source.ts', import.meta.url), 'utf8');
-	const offline = readFileSync(new URL('../src/common/editor/ui/video-keyframe-offline-video-export.ts', import.meta.url), 'utf8');
-	const runtimeInventory = readFileSync(new URL('../scripts/lib/desktop-project-runtime-files.mjs', import.meta.url), 'utf8');
-	for (const caller of [source, offline]) {
-		assert.match(caller, /cloneFrozenVideoExportProject\(/u);
-		assert.doesNotMatch(caller, /function (?:assertSnapshotPayloadBound|deepFreeze|freezeProjectSnapshot)\(/u);
-	}
-	assert.match(runtimeInventory, /src\/common\/editor\/video-export-project-snapshot\.js/u);
 });

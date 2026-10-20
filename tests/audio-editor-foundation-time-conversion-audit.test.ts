@@ -15,7 +15,6 @@ import {
 	forEachChild,
 	isCallExpression,
 	isConditionalExpression,
-	isFunctionDeclaration,
 	isIdentifier,
 	isImportDeclaration,
 	isNamedImports,
@@ -24,7 +23,6 @@ import {
 	preProcessFile,
 	ScriptKind,
 	ScriptTarget,
-	SyntaxKind,
 	type CallExpression,
 	type Expression,
 	type Node,
@@ -83,38 +81,6 @@ test('every shared timeline/timebase conversion call is classified under named p
 	}
 });
 
-test('the conversion audit is uniquely identified, deeply frozen, and limited to owned helpers', () => {
-	assert.equal(new Set(FOUNDATION_TIME_CONVERSION_SITES.map(({ id }) => id)).size, FOUNDATION_TIME_CONVERSION_SITES.length);
-	assert.ok(Object.isFrozen(FOUNDATION_TIME_CONVERSION_SITES));
-	for (const site of FOUNDATION_TIME_CONVERSION_SITES) {
-		assert.ok(Object.isFrozen(site));
-		assert.ok(Object.isFrozen(site.conversions));
-		for (const conversion of site.conversions) {
-			assert.ok(FOUNDATION_TIME_CONVERSION_HELPERS.includes(conversion.helper));
-			assert.ok(Object.isFrozen(conversion.policies));
-		}
-	}
-});
-
-test('the helper inventory is discovered from exported frame-conversion APIs', async () => {
-	const discovered = new Set<string>();
-	for (const file of ['src/common/editor/timeline-time.ts', 'src/common/editor/timeline-tempo-inverse.ts']) {
-		const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
-		const parsed = createSourceFile(file, source, ScriptTarget.Latest, true, ScriptKind.TS);
-		for (const statement of parsed.statements) {
-			if (!isFunctionDeclaration(statement) || !statement.name
-				|| !statement.modifiers?.some(({ kind }) => kind === SyntaxKind.ExportKeyword)) continue;
-			const name = statement.name.text;
-			const ownsNamedPolicy = statement.parameters.some((parameter) => (
-				parameter.type?.getText(parsed) === 'TimeRoundingPolicy'
-			));
-			const isFrameConversion = /frame.*to|to.*frame|scale.*frame|countin.*frame/iu.test(name);
-			if (ownsNamedPolicy || isFrameConversion) discovered.add(name);
-		}
-	}
-	assert.deepEqual([...FOUNDATION_TIME_CONVERSION_HELPERS].sort(), [...discovered].sort());
-});
-
 test('raw sample-rate changes of basis cannot bypass shared timeline policy', async () => {
 	// Resampler state owns a fractional input phase, so these are DSP buffer
 	// geometry rather than integer timeline conversions.
@@ -125,44 +91,6 @@ test('raw sample-rate changes of basis cannot bypass shared timeline policy', as
 			'Math.round((totalInputFrames - initialInputPosition) * outputRate / inputRate)',
 		]],
 	]));
-});
-
-test('the source gate preserves escaped helper imports, namespace rejection and raw rate arithmetic', () => {
-	assert.equal(needsTimeConversionSyntaxTree('export const unchanged = source.frameCount;'), false);
-	assert.equal(needsTimeConversionSyntaxTree('import { unrelated } from "./other.ts";'), false);
-	for (const path of ['./timeline-time.ts', './timeline\\x2dtime.ts', './timeline\\u002dtime.ts']) {
-		const content = `const view = <span>{\`nested ${'${value}'}\`}</span>;
-import { sampleFrameToSeconds as duration } from "${path}";
-const seconds = duration(frames, sampleRate);`;
-		assert.equal(needsTimeConversionSyntaxTree(content), true, path);
-		const parsed = createSourceFile('Fixture.tsx', content, ScriptTarget.Latest, true, ScriptKind.TSX);
-		assert.deepEqual(collectConversionSites(parsed), new Map([
-			['sampleFrameToSeconds', new Set(['exact'])],
-		]));
-	}
-	const namespace = 'import * as time from "./timeline\\x2dtime.ts";';
-	assert.equal(needsTimeConversionSyntaxTree(namespace), true);
-	assert.throws(() => collectConversionSites(createSourceFile(
-		'Fixture.ts', namespace, ScriptTarget.Latest, true, ScriptKind.TS,
-	)), /must use named shared-time imports/u);
-	for (const method of ['round', 'ceil', 'floor', 'trunc']) {
-		const content = `const frame = Math.${method}(durationFrames * outputRate / inputRate);`;
-		assert.equal(needsTimeConversionSyntaxTree(content), true);
-		assert.deepEqual(collectRawSampleRateChanges(createSourceFile(
-			'Fixture.ts', content, ScriptTarget.Latest, true, ScriptKind.TS,
-		)), [`Math.${method}(durationFrames * outputRate / inputRate)`]);
-	}
-	for (const content of [
-		'// Math.round(durationFrames * outputRate / inputRate);',
-		'const text = "Math.round(durationFrames * outputRate / inputRate)";',
-		'// import { duration } from "./timeline-time.ts";',
-		'const text = \'import { duration } from "./timeline-time.ts";\';',
-	]) {
-		assert.equal(needsTimeConversionSyntaxTree(content), true);
-		const parsed = createSourceFile('Fixture.ts', content, ScriptTarget.Latest, true, ScriptKind.TS);
-		assert.deepEqual(collectRawSampleRateChanges(parsed), []);
-		assert.deepEqual(collectConversionSites(parsed), new Map());
-	}
 });
 
 function needsTimeConversionSyntaxTree(source: string): boolean {

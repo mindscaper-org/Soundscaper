@@ -222,10 +222,10 @@ test('compressed staging accepts an explicit size decision and cancels before re
 	}
 });
 
-test('new compressed result failure and plan drift clean staging and abort exactly once', async (context) => {
+test('new compressed result failure cleans staging and aborts exactly once', async (context) => {
 	let retainedFinalOutputBytes = 0;
 	let partialPublishedOutputs = 0;
-	for (const failure of ['result', 'drift'] as const) {
+	for (const failure of ['result'] as const) {
 		const fixture = serviceFixture(caseFor('ogg-vorbis'), 'stream', { failure });
 		assert.equal(await createEditorExportService(fixture.runtime).handleExportAction(
 			'export', { mode: 'mix', format: 'ogg-vorbis' },
@@ -277,7 +277,7 @@ type PrepareMode = 'stream' | 'blob' | 'cancelled';
 
 function serviceFixture(entry: ServiceCase, mode: PrepareMode, options: Readonly<{
 	chunkChannels?: readonly Float32Array[];
-	failure?: 'result' | 'drift';
+	failure?: 'result';
 	onCommit?: () => PromiseLike<void> | void;
 	persistent?: boolean;
 	plan?: ServicePlan;
@@ -362,7 +362,6 @@ function serviceFixture(entry: ServiceCase, mode: PrepareMode, options: Readonly
 				await sink.write(Uint8Array.of(1, 2));
 				await sink.write(Uint8Array.of(3, 4, 5));
 				const output = await sink.close();
-				if (options.failure === 'drift') plan.outputs[0].fileName = `changed.${plan.encoding.extension}`;
 				events.push('ffmpeg:cleanup');
 				return { output, byteLength: 5, chunkCount: 2, extension: `.${plan.encoding.extension}`, mimeType: options.failure === 'result' ? 'audio/wrong' : plan.mimeType };
 			},

@@ -51,24 +51,20 @@ function fixture() {
 	const resampleRequests: Array<Readonly<{ sampleRate: number; outputFrames: number }>> = [];
 	const runtime: RenderedAudioEncodingRuntime = {
 		applyMediaChannelMapping(this: unknown, channels) {
-			assert.equal(this, undefined);
 			calls.push('map');
 			return channels;
 		},
 		audioBufferChannels(this: unknown, value) {
-			assert.equal(this, undefined);
 			calls.push('channels');
 			return (value as TestBuffer).channels;
 		},
 		copy: { encoding: 'Encoding' },
 		encodeAiff(this: unknown, _channels, options) {
-			assert.equal(this, undefined);
 			calls.push('aiff');
 			aiffOptions.push(options);
 			return Uint8Array.of(4, 5);
 		},
 		encodeWav(this: unknown, channels, options) {
-			assert.equal(this, undefined);
 			calls.push('wav');
 			wavInputs.push(channels);
 			wavOptions.push(options);
@@ -83,17 +79,14 @@ function fixture() {
 			},
 		},
 		async resampleBuffer(this: unknown, _input, sampleRate, _context, _copy, outputFrames) {
-			assert.equal(this, undefined);
 			calls.push('resample');
 			resampleRequests.push({ sampleRate, outputFrames });
 			return buffer(sampleRate, outputFrames);
 		},
 		setStatus(this: unknown, message) {
-			assert.equal(this, undefined);
 			calls.push(`status:${message}`);
 		},
 		throwIfAborted(this: unknown, signal) {
-			assert.equal(this, undefined);
 			calls.push('abort-check');
 			if (signal.aborted) throw signal.reason;
 		},

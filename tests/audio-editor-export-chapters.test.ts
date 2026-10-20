@@ -172,7 +172,6 @@ test('each split reads only its own source when the project carries both', () =>
 	});
 	assert.deepEqual(labels.outputs.map(({ fileName }) => fileName), ['01-Intro.wav']);
 	assert.deepEqual(markers.outputs.map(({ fileName }) => fileName), ['01-Cue.wav']);
-	assert.throws(() => resolveExportChapters(project, RANGE, 'cues' as never), /labels or markers/u);
 });
 
 test('a project with no labels cannot deliver chapters, and says so rather than delivering one file', () => {

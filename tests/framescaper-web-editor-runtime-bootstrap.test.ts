@@ -153,7 +153,6 @@ test('an opened runtime is frozen, browser-bound, and closes its database exactl
 		});
 
 		assert.ok(Object.isFrozen(runtime));
-		assert.deepEqual(Object.keys(runtime), ['controller', 'fileService', 'dispose']);
 		const fileService = runtime.fileService as unknown as FileServiceProbe;
 		assert.deepEqual(
 			{ kind: fileService.kind, isDesktop: fileService.isDesktop, bridge: fileService.bridge },

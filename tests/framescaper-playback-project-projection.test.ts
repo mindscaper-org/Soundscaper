@@ -9,15 +9,13 @@ import {
 	opaqueFramescaperPlaybackProjection,
 } from '../src/framescaper/editor-project-playback-projection.ts';
 
-test('Framescaper playback packaging has one frozen opaque and feature projection authority', () => {
+test('Framescaper playback packages opaque and feature source requirements', () => {
 	const project = Object.freeze({ id: 'project', clips: [], tracks: [], sources: [] });
 	const opaque = opaqueFramescaperPlaybackProjection(project);
 	assert.strictEqual(opaque.project, project);
 	assert.equal(opaque.featureRequirementsReport, null);
 	assert.deepEqual(opaque.requiredAudioSourceIds, []);
 	assert.deepEqual(opaque.requiredVideoSourceIds, []);
-	assert.equal(Object.isFrozen(opaque), true);
-	assert.strictEqual(opaque.requiredAudioSourceIds, opaque.requiredVideoSourceIds);
 
 	const projected = framescaperFeaturePlaybackProjection(project, null);
 	assert.strictEqual(projected.project, project);
@@ -25,7 +23,6 @@ test('Framescaper playback packaging has one frozen opaque and feature projectio
 	assert.equal(projected.videoEffectPlaybackBypass, null);
 	assert.deepEqual(projected.requiredAudioSourceIds, []);
 	assert.deepEqual(projected.requiredVideoSourceIds, []);
-	assert.equal(Object.isFrozen(projected), true);
 });
 
 test('Framescaper delivery packaging exposes fallbacks and source custody but not bypass reports', () => {
@@ -41,12 +38,11 @@ test('Framescaper delivery packaging exposes fallbacks and source custody but no
 		requiredVideoSourceIds: Object.freeze(['video']),
 	});
 	const delivery = framescaperPlaybackDeliveryProjection(projection);
-	assert.deepEqual(Object.keys(delivery), [
-		'project', 'featureRequirementsReport', 'audioRenderedFallback', 'videoRenderedFallback',
-		'requiredAudioSourceIds', 'requiredVideoSourceIds',
-	]);
+	assert.deepEqual(delivery, {
+		project, featureRequirementsReport: null, audioRenderedFallback: null, videoRenderedFallback: null,
+		requiredAudioSourceIds: ['audio'], requiredVideoSourceIds: ['video'],
+	});
 	assert.strictEqual(delivery.project, project);
 	assert.strictEqual(delivery.requiredAudioSourceIds, projection.requiredAudioSourceIds);
 	assert.strictEqual(delivery.requiredVideoSourceIds, projection.requiredVideoSourceIds);
-	assert.equal(Object.isFrozen(delivery), true);
 });

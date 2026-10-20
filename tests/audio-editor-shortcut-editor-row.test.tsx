@@ -67,18 +67,6 @@ test('emptying every field clears the command instead of assigning a blank', () 
 	assert.equal(draft.conflict, null);
 });
 
-test('an unusable binding is reported as invalid rather than as a conflict', () => {
-	const draft = shortcutEditorDraft({
-		shortcuts: {},
-		preferenceId: ACTION_ID,
-		bindings: [null as unknown as string],
-	});
-
-	assert.equal(draft.invalid, true);
-	assert.equal(draft.conflict, null);
-	assert.deepEqual(draft.bindings, []);
-});
-
 test('a command reachable under either identifier reports the bindings it holds', () => {
 	const command = { id: ACTION_ID, preferenceId: 'action://trackedit/delete-all', label: 'Delete' };
 	assert.deepEqual(

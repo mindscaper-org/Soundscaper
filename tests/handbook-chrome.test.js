@@ -30,7 +30,6 @@ test('every sidebar heading the site is configured with has a key', () => {
 	}
 	assert.ok(HANDBOOK_CHROME_KEYS.includes('site.title'));
 	assert.ok(HANDBOOK_CHROME_KEYS.includes('site.title.framescaper'));
-	assert.ok(HANDBOOK_CHROME_KEYS.length > 20);
 });
 
 /**

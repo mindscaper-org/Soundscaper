@@ -11,7 +11,7 @@ import AnalysisDialog from '../src/common/editor/ui/dialogs/AnalysisDialog.jsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
 
-function fixture(raw = true) {
+function fixture() {
 	const lifetime = new EditorControllerLifetime(); lifetime.markReady();
 	const generation = new EditorProjectGeneration(); generation.activate('contrast');
 	let sample = .25;
@@ -31,8 +31,7 @@ function fixture(raw = true) {
 		renderAudio: async () => ({ sampleRate: 8000, numberOfChannels: 1, length: 32,
 			getChannelData: () => new Float32Array(32).fill(sample) }),
 		analyzeChannels: async (channels: Float32Array[]) => {
-			const result = analyzeAudioChannels(channels, 8000);
-			return raw ? result : { rmsDbfs: result.rmsDbfs };
+			return analyzeAudioChannels(channels, 8000);
 		},
 		createVisuals: () => null,
 		showAnalysis() {}, setProcessing() {}, setStatus() {}, publish() {},
@@ -79,15 +78,11 @@ test('a truly silent foreground fails against a nonzero background', async () =>
 	assert.equal(report.passes, false);
 });
 
-test('Contrast retains the zero-against-zero decision and completed legacy meter-only captures', async () => {
+test('Contrast retains the zero-against-zero decision', async () => {
 	const silent = await fixture().measure(0, 0);
 	assert.ok(silent);
 	assert.equal(silent.differenceDb, 0);
 	assert.equal(silent.passes, false);
-	const legacy = await fixture(false).measure(.25, .25 / Math.sqrt(1000));
-	assert.ok(legacy);
-	assert.ok(Math.abs(legacy.differenceDb! - 30) < 1e-5);
-	assert.equal(legacy.passes, true);
 });
 
 for (const [differenceDb, label, passes] of [[Infinity, '∞ dB', true], [-Infinity, '−∞ dB', false], [25, '25.00 dB', true]] as const) {

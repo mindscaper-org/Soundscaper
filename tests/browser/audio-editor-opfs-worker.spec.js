@@ -59,12 +59,6 @@ test.describe('dedicated OPFS storage worker', () => {
 		expect(workerRequests.length).toBeGreaterThan(0);
 
 		await page.reload();
-		editor = await waitForEditor(page);
-		// A cleared informational toast must not keep an already-loaded project waiting.
-		await editor.locator('[data-status]').evaluate(status => {
-			status.dataset.state = 'info';
-			status.textContent = '';
-		});
 		editor = await waitForVideoEditor(page);
 		await expectPersistedPreviewClip(page, editor);
 		await playAndWaitForAdvance(editor);

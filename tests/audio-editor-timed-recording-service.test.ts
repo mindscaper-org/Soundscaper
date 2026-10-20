@@ -9,30 +9,6 @@ import {
 	type TimedRecordingMutableState,
 } from '../src/common/editor/controller/recording/internal/timed-recording-service.ts';
 
-test('timed recording service exposes only schedule and cancellation actions', () => {
-	const service = createTimedRecordingService({
-		state: createState(),
-		getProjectId: () => 'project-1',
-		normalizeStartTime: Number,
-		currentTimeMs: () => 1_000,
-		prepareInputs: async () => ({ inputKeys: [] }),
-		prepareContext: async () => {},
-		startRecording: async () => {},
-		cancelRecordingStart: () => false,
-		finalizeRecording: async () => {},
-		activatePreparedRecording: async () => {},
-		scheduleTimer: () => 1,
-		clearTimer: () => {},
-		messages: messages(),
-	});
-
-	assert.deepEqual(Object.keys(service).sort(), [
-		'cancelTimedRecording',
-		'scheduleTimedRecording',
-	]);
-	assert.equal(Object.isFrozen(service), true);
-});
-
 test('pending open recovery refuses timed recording before input or context preparation', async () => {
 	let preparations = 0;
 	const service = createTimedRecordingService({

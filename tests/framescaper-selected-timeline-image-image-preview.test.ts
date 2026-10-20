@@ -274,8 +274,7 @@ test('the inherited exact route is offered only while the session composites no 
 		createInheritedSession: inherited(inheritedLog(), exact),
 	});
 
-	assert.deepEqual(Object.keys(withImage), ['resolve', 'resolveTransitionWeight', 'dispose']);
-	assert.deepEqual(Object.keys(withoutImage), ['resolve', 'resolveTransitionWeight', 'renderExact', 'dispose']);
+	assert.equal(withImage.renderExact, undefined);
 	const rendered = await withoutImage.renderExact!({ timelineSample: 96_000, mediaLayers: [] });
 	assert.deepEqual(rendered.layers, [{ sample: 96_000 }]);
 	assert.deepEqual(rendered.renderedEffectIds, ['effect-1']);

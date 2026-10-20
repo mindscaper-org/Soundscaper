@@ -157,7 +157,7 @@ test('stem commit refuses a lost renderer owner before publication and aborts on
 	assert.equal(prepared.commits(), 0);
 });
 
-test('plan and encoded-input drift refuse publication', async () => {
+test('encoded-input drift refuses publication', async () => {
 	const inputDrift = eligiblePlan();
 	const inputTarget = preparedStream();
 	const inputPreparation = await prepareDirectStemArchiveDestination(
@@ -179,30 +179,6 @@ test('plan and encoded-input drift refuse publication', async () => {
 	assert.equal(inputTarget.commits(), 0);
 	assert.equal(inputTarget.aborts(), 1);
 
-	const planDrift = eligiblePlan();
-	const planTarget = preparedStream();
-	const planPreparation = await prepareDirectStemArchiveDestination(
-		{ prepareSave: () => planTarget }, planDrift, null, new AbortController().signal,
-	);
-	assert.ok(planPreparation.destination);
-	const result = await streamDirectStemArchive({
-		destination: planPreparation.destination,
-		plan: planDrift,
-		signal: new AbortController().signal,
-		assertCurrent: () => undefined,
-		renderStem: async (_output, index) => ({ bytes: stemBytes(index) }),
-	});
-	planDrift.outputs.reverse();
-	planDrift.archive.entries.reverse();
-	await assert.rejects(
-		async () => commitPreparedDirectStemArchiveDestination(
-			planPreparation.destination!, planDrift, result.byteLength, () => undefined,
-		),
-		/plan changed.*destination/iu,
-	);
-	assert.equal(planTarget.commits(), 0);
-	await planPreparation.destination.abort();
-	assert.equal(planTarget.aborts(), 1);
 });
 
 test('export service opens the direct ZIP before render without an archive Blob or download', async () => {

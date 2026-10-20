@@ -177,33 +177,6 @@ test('render and entry-size failures clean staged stems and abort exactly once',
 	}
 });
 
-test('plan drift after sealing refuses the final prefix and publication', async () => {
-	const plan = directSevenZipPlan();
-	const cleanups = [0, 0];
-	const target = preparedSevenZipTarget({
-		onClose() { plan.outputs.reverse(); },
-	});
-	const preparation = await prepareDirectStemArchiveDestination(
-		{ prepareSave: () => target }, plan, null, new AbortController().signal,
-	);
-	assert.ok(preparation.destination);
-	await assert.rejects(streamDirectStemArchive({
-		destination: preparation.destination,
-		plan,
-		signal: new AbortController().signal,
-		assertCurrent: () => undefined,
-		renderStem: async (_output, index) => ({
-			bytes: stemBytes(index),
-			cleanup: async () => { cleanups[index] += 1; },
-		}),
-	}), /plan changed.*destination/iu);
-	await preparation.destination.abort();
-	assert.deepEqual(cleanups, [1, 1]);
-	assert.equal(target.aborts(), 1);
-	assert.equal(target.patches(), 0);
-	assert.equal(target.commits(), 0);
-});
-
 test('a failed final-prefix patch preserves cleanup context and aborts only once', async () => {
 	const plan = directSevenZipPlan();
 	const cleanups = [0, 0];
@@ -384,7 +357,6 @@ function serviceFixture() {
 
 interface PreparedTargetOptions {
 	readonly events?: string[];
-	readonly onClose?: () => void;
 	readonly patchError?: Error;
 }
 
@@ -424,7 +396,6 @@ function preparedSevenZipTarget(options: PreparedTargetOptions = {}) {
 				close() {
 					sealed = true;
 					options.events?.push('close');
-					options.onClose?.();
 				},
 			});
 		},

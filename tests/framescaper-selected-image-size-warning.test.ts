@@ -18,7 +18,8 @@ test('image authoring forwards its warning callback and rejects a changed projec
 		actions: { project: { openById: async () => undefined, flush: async () => undefined } },
 	};
 	const imports: FramescaperTimelineImageImportRequestTimelineImage[] = [];
-	const confirmFileSizeWarning = async (): Promise<boolean> => true;
+	let warnings = 0;
+	const confirmFileSizeWarning = async (): Promise<boolean> => { warnings += 1; return true; };
 	bind({
 		controller,
 		session: {
@@ -35,7 +36,8 @@ test('image authoring forwards its warning callback and rejects a changed projec
 		importImages: async (request) => { imports.push(request); return { project, files: [] }; },
 	});
 	await runtimeFor(controller)!.run('video-still');
-	assert.equal(imports[0]!.confirmFileSizeWarning, confirmFileSizeWarning);
+	assert.equal(await imports[0]!.confirmFileSizeWarning!({ label: 'shot.png', byteLength: 8, thresholdBytes: 4 }), true);
+	assert.equal(warnings, 1);
 	const assertCurrent = imports[0]!.assertCurrent!;
 	assert.doesNotThrow(assertCurrent);
 	controller.project = { ...project, id: 'replaced-project' };

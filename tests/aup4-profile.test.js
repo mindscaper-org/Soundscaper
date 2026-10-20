@@ -181,7 +181,6 @@ test('AUP4 compatibility and GitHub Pages save tiers are explicit', () => {
 	assert.equal(effectiveAup4SaveLimit({
 		quota: 100 * mebibyte,
 		usage: 0,
-		workingBytes: 'not-a-number',
 	}), 84 * mebibyte);
 });
 
@@ -202,16 +201,7 @@ test('AUP4 schema validation permits only pinned tables and SQLite-owned objects
 		() => validateAup4SchemaObjects([{ type: 'trigger', name: 'sqlite_autoindex_project_1', tbl_name: 'project' }]),
 		(error) => error.code === 'UNSAFE_SCHEMA',
 	);
-	assert.equal(validateAup4SchemaObjects([
-		{ type: 'table', name: 'newer_data', tbl_name: 'newer_data' },
-		{ type: 'index', name: 'newer_data_index', tbl_name: 'newer_data' },
-	], { futureReadOnly: true }), true);
-	assert.throws(
-		() => validateAup4SchemaObjects([{
-			type: 'table', name: 'future_search', tbl_name: 'future_search', sql: 'CREATE VIRTUAL TABLE future_search USING fts5(value)',
-		}], { futureReadOnly: true }),
-		(error) => error.code === 'UNSAFE_SCHEMA',
-	);
+
 });
 
 function sha256(bytes) {

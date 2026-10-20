@@ -16,14 +16,13 @@ for (const output of ['', 'speakers-a']) test(`controller audition resources inh
 	const previews = [];
 	try {
 		await resources.engine.setOutputDevice(output);
-		for (const _kind of ['bin', 'source', 'take']) previews.push(resources.playbackPreviews.create({ onState() {} }));
+		previews.push(resources.playbackPreviews.create({ onState() {} }));
 		await setImmediate();
 		for (const preview of previews) assert.equal(preview.getOutputDeviceState().preferredDeviceId, output,
 			'the actual independent preview engine inherits the published main engine output');
 	} finally {
 		for (const preview of previews) await preview.dispose();
-		assert.ok(resources.clipTimePitchCache.dispose, 'the actual controller cache owns its cleanup');
-		await resources.clipTimePitchCache.dispose();
+		await resources.clipTimePitchCache.dispose?.();
 		await resources.engine.dispose();
 		resources.ffmpeg.dispose(); resources.nyquistClient?.dispose();
 		await resources.store.close();

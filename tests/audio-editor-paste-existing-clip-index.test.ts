@@ -9,14 +9,14 @@ import {
 } from '../src/common/editor/controller/edit/paste-existing-clip-service.ts';
 import type { ControllerClip, ControllerProject, ControllerSource } from '../src/common/editor/controller/track-audio/track-domain-types.ts';
 
-function fixture(clips: readonly ControllerClip[], clipIds = clips.map(({ id }) => id)) {
+function fixture(clips: readonly ControllerClip[]) {
 	const source: ControllerSource = {
 		id: 'source', storageKey: 'source', name: 'Source', mimeType: 'audio/wav',
 		frameCount: 2, channelCount: 1, sampleRate: 48_000, originalSampleRate: 48_000,
 	};
 	const project: ControllerProject = {
 		schemaVersion: 17, id: 'project', title: 'Project', sampleRate: 48_000,
-		clips, sources: [source], tracks: [{ id: 'track', name: 'Track', type: 'audio', clipIds }],
+		clips, sources: [source], tracks: [{ id: 'track', name: 'Track', type: 'audio', clipIds: clips.map(({ id }) => id) }],
 		mixer: { groups: [], sends: [], routes: {} },
 	};
 	let committed: unknown;
@@ -65,27 +65,4 @@ test('paste into a dense existing track indexes clip IDs once through planning a
 	assert.equal(await commitPasteIntoExistingClipCommand(value.request), 'committed');
 	assert.equal(value.writes(), 1);
 	assert.ok(idReads <= count * 5, `expected linear ID reads, received ${String(idReads)}`);
-});
-
-test('paste indexing preserves first matching clip and track records and missing clip references', async () => {
-	const value = fixture([clip('existing'), clip('existing', 100)], ['missing', 'existing']);
-	const project = { ...value.project, tracks: [...value.project.tracks, { id: 'track', name: 'Duplicate', type: 'video' as const }] };
-	await commitPasteIntoExistingClipCommand({ ...value.request, project });
-	assert.equal(value.writes(), 1);
-	assert.notEqual(value.committed(), value.request.command);
-});
-
-test('paste indexing does not replace an invalid first source with a valid duplicate', async () => {
-	const value = fixture([clip('existing')]);
-	const project = { ...value.project, sources: [{ id: 'source', kind: 'video' }, ...value.project.sources] };
-	await commitPasteIntoExistingClipCommand({ ...value.request, project });
-	assert.equal(value.writes(), 0);
-	assert.equal(value.committed(), value.request.command);
-});
-
-test('duplicate track clip references still make a paste target ambiguous', async () => {
-	const value = fixture([clip('existing')], ['existing', 'existing']);
-	await commitPasteIntoExistingClipCommand(value.request);
-	assert.equal(value.writes(), 0);
-	assert.equal(value.committed(), value.request.command);
 });

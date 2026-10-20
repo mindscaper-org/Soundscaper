@@ -187,9 +187,6 @@ test('the workspace lifecycle applies view defaults through the shared hook', as
 	assert.match(lifecycle, /ready: phase === 'ready',/u, 'boot-time preset changes are not user switches');
 	const workspace = await readFile(new URL('src/common/editor/ui/workspace/AudioEditorWorkspace.jsx', ROOT), 'utf8');
 	assert.match(workspace, /phase: snapshot\.phase,/u, 'the workspace hands the lifecycle its boot phase');
-	assert.doesNotMatch(lifecycle, /meterWorkspaceRef/u);
-	assert.doesNotMatch(lifecycle, /activeWorkspaceId !== 'modern'/u);
-	assert.doesNotMatch(lifecycle, /position === 'side'/u);
 });
 
 test('the Audacity preset narrows the side playback meter to the 4.0.0 panel width', async () => {

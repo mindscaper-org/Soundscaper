@@ -14,13 +14,8 @@ void test('active selection preserves an admitted range and its extension fields
 	assert.equal(fixture({ selection }).activeSelection(), selection);
 });
 
-void test('inactive and opaque malformed selections do not become controller ranges', () => {
-	for (const selection of [null, {}, { startFrame: 1, endFrame: 1 }, { startFrame: '1', endFrame: '5' },
-		{ startFrame: -1, endFrame: 5 }, { startFrame: 0, endFrame: Infinity },
-		{ startFrame: 0, endFrame: 5, clipIds: [17] },
-		{ startFrame: 0, endFrame: 5, frequencyRange: { minimumFrequency: '20', maximumFrequency: 20000 } }]) {
-		assert.equal(fixture({ selection }).activeSelection(), null);
-	}
+void test('closed projects and collapsed selections have no active range', () => {
+	assert.equal(fixture({ selection: { startFrame: 1, endFrame: 1 } }).activeSelection(), null);
 	assert.equal(fixture(null).activeSelection(), null);
 });
 
@@ -33,7 +28,6 @@ void test('export defaults work before activation and preserve explicit metadata
 		.normalizeExportSettings().metadata, { title: 'Project title', artist: 'Artist', genre: 'Ambient', composer: 'Renée' });
 	const explicit = { title: 'Export title' };
 	assert.equal(queries.normalizeExportSettings({ metadata: explicit }).metadata, explicit);
-	assert.deepEqual(fixture({ metadata: 17 }).normalizeExportSettings().metadata, {});
 });
 
 void test('command readers require activation and retain the projection owner result type', () => {

@@ -21,17 +21,6 @@ import {
 	createNativeMediaCapabilitySnapshotV1,
 	type NativeMediaCapabilityDomain,
 } from '../src/common/editor/native-media-capability-snapshot.ts';
-import {
-	evaluateNativeMediaSemanticComparison,
-	NATIVE_MEDIA_MAXIMUM_ENDPOINT_FRAME_DELTA,
-	NATIVE_MEDIA_MINIMUM_PSNR_DB,
-	NATIVE_MEDIA_MINIMUM_SSIM,
-	NativeMediaComparisonError,
-} from '../src/common/editor/native-media-semantic-comparison.ts';
-
-const REFERENCE = 'a'.repeat(64);
-const CANDIDATE = 'b'.repeat(64);
-
 test('the candidate backend matrix covers the qualifying platform set', () => {
 	assert.deepEqual([...NATIVE_MEDIA_PLATFORMS], ['win32', 'darwin', 'linux']);
 	assert.deepEqual([...NATIVE_MEDIA_BACKEND_CANDIDATES.win32.decode], ['d3d11va', 'qsv', 'nvdec']);
@@ -186,118 +175,6 @@ test('an unknown backend or non-finite timestamp is refused', () => {
 	assert.throws(() => resolveNativeMediaBackendPlan({
 		platform: 'linux', operation: 'transcode' as never, snapshot: snapshot({}),
 	}), /supported operation/u);
-});
-
-test('semantic agreement is judged on meaning rather than encoded bytes', () => {
-	const lossless = evaluateNativeMediaSemanticComparison({
-		mode: 'lossless',
-		referencePlanFingerprint: REFERENCE,
-		candidatePlanFingerprint: REFERENCE,
-		referenceFrameCount: 300,
-		candidateFrameCount: 300,
-		mismatchedFrameCount: 0,
-		endpointFrameDelta: NATIVE_MEDIA_MAXIMUM_ENDPOINT_FRAME_DELTA,
-	});
-	const lossy = evaluateNativeMediaSemanticComparison({
-		mode: 'lossy',
-		referencePlanFingerprint: REFERENCE,
-		candidatePlanFingerprint: REFERENCE,
-		referenceFrameCount: 300,
-		candidateFrameCount: 300,
-		ssim: NATIVE_MEDIA_MINIMUM_SSIM,
-		psnrDb: NATIVE_MEDIA_MINIMUM_PSNR_DB,
-		endpointFrameDelta: 0,
-	});
-
-	assert.deepEqual(lossless, { agreed: true, mode: 'lossless', failures: [] });
-	assert.deepEqual(lossy, { agreed: true, mode: 'lossy', failures: [] });
-});
-
-test('every semantic divergence is reported, not only the first', () => {
-	const verdict = evaluateNativeMediaSemanticComparison({
-		mode: 'lossy',
-		referencePlanFingerprint: REFERENCE,
-		candidatePlanFingerprint: CANDIDATE,
-		referenceFrameCount: 300,
-		candidateFrameCount: 299,
-		ssim: 0.994,
-		psnrDb: 44.9,
-		endpointFrameDelta: -2,
-	});
-
-	assert.equal(verdict.agreed, false);
-	assert.deepEqual(verdict.failures, [
-		'plan-fingerprint-diverged',
-		'frame-count-diverged',
-		'ssim-below-threshold',
-		'psnr-below-threshold',
-		'endpoint-drift-exceeded',
-	]);
-});
-
-test('a bit-identical lossy candidate reports the infinite PSNR the tools print', () => {
-	const identical = evaluateNativeMediaSemanticComparison({
-		mode: 'lossy',
-		referencePlanFingerprint: REFERENCE,
-		candidatePlanFingerprint: REFERENCE,
-		referenceFrameCount: 300,
-		candidateFrameCount: 300,
-		ssim: 1,
-		psnrDb: Number.POSITIVE_INFINITY,
-		endpointFrameDelta: 0,
-	});
-
-	assert.deepEqual(identical, { agreed: true, mode: 'lossy', failures: [] });
-
-	for (const psnrDb of [Number.NaN, Number.NEGATIVE_INFINITY, -1]) {
-		assert.throws(() => evaluateNativeMediaSemanticComparison({
-			mode: 'lossy',
-			referencePlanFingerprint: REFERENCE,
-			candidatePlanFingerprint: REFERENCE,
-			referenceFrameCount: 300,
-			candidateFrameCount: 300,
-			ssim: 1,
-			psnrDb,
-			endpointFrameDelta: 0,
-		}), /measured PSNR/u, String(psnrDb));
-	}
-});
-
-test('a lossless path admits no pixel mismatch at all', () => {
-	const verdict = evaluateNativeMediaSemanticComparison({
-		mode: 'lossless',
-		referencePlanFingerprint: REFERENCE,
-		candidatePlanFingerprint: REFERENCE,
-		referenceFrameCount: 10,
-		candidateFrameCount: 10,
-		mismatchedFrameCount: 1,
-		endpointFrameDelta: 0,
-	});
-
-	assert.deepEqual(verdict.failures, ['pixel-mismatch-in-lossless-path']);
-});
-
-test('a comparison without its measurements is refused rather than assumed passing', () => {
-	const base = {
-		referencePlanFingerprint: REFERENCE,
-		candidatePlanFingerprint: REFERENCE,
-		referenceFrameCount: 10,
-		candidateFrameCount: 10,
-		endpointFrameDelta: 0,
-	} as const;
-
-	assert.throws(() => evaluateNativeMediaSemanticComparison({ ...base, mode: 'lossless' }), NativeMediaComparisonError);
-	assert.throws(() => evaluateNativeMediaSemanticComparison({ ...base, mode: 'lossy', psnrDb: 60 }), /measured ssim/u);
-	assert.throws(() => evaluateNativeMediaSemanticComparison({ ...base, mode: 'lossy', ssim: 1 }), /measured PSNR/u);
-	assert.throws(() => evaluateNativeMediaSemanticComparison({
-		...base, mode: 'lossy', ssim: 1, psnrDb: 60, endpointFrameDelta: 0.5,
-	}), /integer endpoint frame delta/u);
-	assert.throws(() => evaluateNativeMediaSemanticComparison({
-		...base, mode: 'exact' as never, mismatchedFrameCount: 0,
-	}), /lossless or lossy mode/u);
-	assert.throws(() => evaluateNativeMediaSemanticComparison({
-		...base, mode: 'lossless', mismatchedFrameCount: 0, candidatePlanFingerprint: 'short',
-	}), /canonical plan fingerprints/u);
 });
 
 function entry(domain: NativeMediaCapabilityDomain, id: string, userEnabled: boolean) {

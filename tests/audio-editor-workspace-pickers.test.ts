@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
 
@@ -11,7 +10,6 @@ import { workspaceSwitcherOptions } from '../src/common/editor/ui/workspace/work
 import { WORKSPACE_PANEL_IDS } from '../src/common/editor/ui/workspace/workspace-panel-model.ts';
 import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
 
-const ROOT = new URL('../', import.meta.url);
 
 interface MenuItem {
 	readonly id?: string;
@@ -49,17 +47,6 @@ test('the workspace switcher options list every Soundscaper preset in order and 
 	]);
 });
 
-test('the lifecycle hook and the brand sidebar source their workspace lists from the shared helper', async () => {
-	const lifecycle = await readFile(new URL('src/common/editor/ui/workspace/useAudioEditorWorkspaceLifecycle.js', ROOT), 'utf8');
-	assert.match(lifecycle, /workspaceSwitcherOptions\(productId, copy, preferences\?\.workspace\?\.custom\)/u);
-	assert.doesNotMatch(lifecycle, /\{ id: 'modern', name: copy\.workspaceModern \}/u);
-	const sidebar = await readFile(new URL('src/common/site/BrandSidebar.jsx', ROOT), 'utf8');
-	assert.match(sidebar, /\{ id: 'audacity', name: copy\.workspaceAudacity \}/u);
-	assert.match(sidebar, /workspaceAudacity: catalog\.workspaceAudacity/u);
-	const dialog = await readFile(new URL('src/common/editor/ui/dialogs/WorkspacePreferencesDialog.jsx', ROOT), 'utf8');
-	assert.match(dialog, /workspaceSwitcherOptions\(productId, copy, preferences\.workspace\.custom\)/u);
-});
-
 test('the View menu offers the Audacity preset and the workspace onboarding to Soundscaper only', () => {
 	const opened: string[] = [];
 	const switched: string[] = [];
@@ -91,11 +78,6 @@ test('the View menu offers the Audacity preset and the workspace onboarding to S
 	assert.deepEqual(framescaperPreset.items.map((item) => item.id), ['workspace-video-editor', 'workspace-custom-1']);
 	assert.equal(findMenuItem(framescaper, 'workspace-audacity'), null);
 	assert.equal(findMenuItem(framescaper, 'workspace-onboarding'), null);
-});
-
-test('the View menu port routes the onboarding item to its editor surface', async () => {
-	const runtime = await readFile(new URL('src/common/editor/ui/workspace/selection-view-menu-ports.ts', ROOT), 'utf8');
-	assert.match(runtime, /openWorkspaceOnboarding: \(\) => openSurface\('workspace-onboarding'\)/u);
 });
 
 test('both products expose the live Clip properties panel through Window even without a clip selection', () => {

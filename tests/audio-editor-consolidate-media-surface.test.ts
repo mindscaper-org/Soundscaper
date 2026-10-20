@@ -164,7 +164,7 @@ test('consolidate immediately saves after success and propagates save failures',
 	assert.equal(saves, 0);
 });
 
-test('planning answers without copying, and a project with no store answers null', async () => {
+test('planning answers without copying, and a closed project answers null', async () => {
 	const store = createStore();
 	const planned = await createProjectMediaActionGroup({
 		state: {},
@@ -177,11 +177,11 @@ test('planning answers without copying, and a project with no store answers null
 	}).planConsolidate();
 	assert.deepEqual(planned?.copy.map(({ sourceId }) => sourceId), ['linked']);
 
-	const withoutStore = createProjectMediaActionGroup({
-		state: {}, getProject: () => ({ id: 'project-1', sources: [], clips: [] }), store: null,
+	const withoutProject = createProjectMediaActionGroup({
+		state: {}, getProject: () => null, store,
 	});
-	assert.equal(await withoutStore.consolidate(), null);
-	assert.equal(await withoutStore.planConsolidate(), null);
+	assert.equal(await withoutProject.consolidate(), null);
+	assert.equal(await withoutProject.planConsolidate(), null);
 });
 
 function createStore(options: { unreachable?: boolean } = {}) {

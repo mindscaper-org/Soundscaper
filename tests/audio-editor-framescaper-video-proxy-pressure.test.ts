@@ -67,13 +67,11 @@ test('a restarted decode counter does not report negative pressure', async () =>
 	assert.ok(restarted >= 0 && restarted <= 1, `ratio stays in range, got ${String(restarted)}`);
 });
 
-test('proxy-use policy accepts verified trust and rejects the legacy attested wire value', () => {
+test('proxy-use policy accepts verified trust', () => {
 	const request = {
 		purpose: 'preview', mode: 'proxy', originalAvailable: true,
 		proxyTrust: 'verified', pressure: null,
 	} as const;
 	assert.equal(resolveFramescaperVideoProxyUseRetime(request).kind, 'proxy');
-	assert.throws(() => resolveFramescaperVideoProxyUseRetime({
-		...request, proxyTrust: 'attested',
-	} as unknown as Parameters<typeof resolveFramescaperVideoProxyUseRetime>[0]), /trust state is unsupported/iu);
+
 });

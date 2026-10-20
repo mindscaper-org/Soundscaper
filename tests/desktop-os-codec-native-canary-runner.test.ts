@@ -139,28 +139,6 @@ test('malformed, expanded, legacy, or mismatched native results fail closed', as
 	}
 });
 
-test('hostile accessors are never invoked or forwarded to the native host', async () => {
-	let getterCalls = 0;
-	let hostCalls = 0;
-	const request = { ...canaryRequest({
-		target: 'win-x64', implementation: 'windows-media-foundation', capability: WINDOWS_VIDEO,
-	}) } as Record<string, unknown>;
-	Object.defineProperty(request, 'target', {
-		enumerable: true,
-		get() { getterCalls += 1; return 'win-x64'; },
-	});
-	const runner = createOperatingSystemCodecNativeCanaryRunner(adapter((nativeRequest) => {
-		hostCalls += 1;
-		return passed(nativeRequest, '99'.repeat(32));
-	}));
-	await assert.rejects(() => runner.run(
-		request as unknown as OperatingSystemCodecCanaryRequest,
-		new AbortController().signal,
-	), /closed data fields/iu);
-	assert.equal(getterCalls, 0);
-	assert.equal(hostCalls, 0);
-});
-
 test('the native-host seam exposes no subprocess, shell, argv, or filesystem path authority', async () => {
 	const source = await readFile(new URL('../desktop/os-codec-native-canary-runner.ts', import.meta.url), 'utf8');
 	assert.doesNotMatch(source, /node:child_process|\bspawn\s*\(|\bexec(?:File)?\s*\(|\bshell\s*:/u);

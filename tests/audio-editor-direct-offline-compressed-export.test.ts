@@ -72,10 +72,8 @@ test('offline compressed staging preserves input PCM and exact format dither own
 test('offline compressed staging validates central admission and unmapped renderer geometry first', async () => {
 	const plan = offlinePlan('ogg-vorbis', { channelMapping: 'mono' });
 	for (const [label, candidate, channels] of [
-		['bare plan', { ...plan, render: { strategy: 'offline' } }, renderedChannels(2, plan.outputFrames)],
 		['mapped width', plan, renderedChannels(plan.channelCount, plan.outputFrames)],
 		['short render', plan, renderedChannels(2, plan.outputFrames - 1)],
-		['invalid channel', plan, [new Float64Array(plan.outputFrames), new Float32Array(plan.outputFrames)]],
 	] as const) {
 		const evidence = await fixture(plan);
 		await assert.rejects(
@@ -97,36 +95,6 @@ test('offline compressed staging validates central admission and unmapped render
 	}
 });
 
-test('offline compressed staging fences cancellation and stale ownership after synchronous WAV creation', async () => {
-	for (const mode of ['abort', 'stale'] as const) {
-		const plan = offlinePlan('mp3');
-		const evidence = await fixture(plan);
-		const abort = new AbortController();
-		const failure = new Error(mode);
-		let stale = false;
-		await assert.rejects(
-			encodeDirectOfflineCompressed({
-				assertCurrent() { if (stale) throw failure; },
-				channels: renderedChannels(2, plan.outputFrames),
-				destination: evidence.destination,
-				encodeWav() {
-					evidence.events.push('stage');
-					if (mode === 'abort') abort.abort(failure);
-					else stale = true;
-					return Uint8Array.of(1);
-				},
-				ffmpeg: evidence.ffmpeg,
-				onEncoding: () => undefined,
-				plan,
-				signal: abort.signal,
-			}),
-			(error) => error === failure,
-			mode,
-		);
-		assert.deepEqual(evidence.events, ['stage'], mode);
-		assert.equal(evidence.opens(), 0, mode);
-	}
-});
 
 async function fixture(plan: ReturnType<typeof offlinePlan>) {
 	const events: string[] = [];

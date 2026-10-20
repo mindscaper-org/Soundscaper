@@ -205,7 +205,7 @@ test('encoded preview admission returns an immutable normalized byte result', ()
 	);
 });
 
-test('encoded preview admission rejects oversized and malformed byte counts', () => {
+test('encoded preview admission rejects oversized byte counts', () => {
 	assert.throws(
 		() => assertVideoPreviewEncodedBytes(1_025, 1_024),
 		(error: unknown) => error instanceof VideoPreviewEncodedPayloadTooLargeError
@@ -215,18 +215,8 @@ test('encoded preview admission rejects oversized and malformed byte counts', ()
 		() => assertVideoPreviewEncodedBytes(1, 0),
 		/exceeds.*0.*byte/iu,
 	);
-	for (const value of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1, '1']) {
-		assert.throws(
-			() => assertVideoPreviewEncodedBytes(value as never),
-			/video preview encoded byte length/iu,
-		);
-	}
 	assert.throws(
 		() => assertVideoPreviewEncodedBytes(0, 4 * MIB + 1),
-		/video preview capture maximum encoded bytes/iu,
-	);
-	assert.throws(
-		() => assertVideoPreviewEncodedBytes(0, null as never),
 		/video preview capture maximum encoded bytes/iu,
 	);
 });

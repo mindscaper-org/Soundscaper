@@ -162,16 +162,7 @@ test('constructs a two-million-frame cadence lazily and caches only queried fram
 	assert.equal(cadence.localCellAt(1_999_999, 0, 1), 0);
 	assert.equal(Object.hasOwn(cadence, 'frames'), false);
 	assert.equal(Object.hasOwn(cadence, 'cache'), false);
-	assert.deepEqual(Object.keys(cadence).sort(), [
-		'frameAt',
-		'localCellAt',
-		'outputFrameCount',
-		'outputRate',
-		'sampleDuration',
-		'sampleRate',
-		'sampleStart',
-		'sequenceRate',
-	]);
+
 });
 
 test('compares the sequence-rate sample-grid bound with exact integer arithmetic', () => {

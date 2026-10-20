@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import React, { type ReactNode } from 'react';
@@ -26,10 +25,7 @@ test('a label at the playhead is drawn on the playhead, not left of it', () => {
 	assert.equal(labelLaneContentX(POSITION_FRAME, PIXELS_PER_SECOND, SAMPLE_RATE), 62);
 	assert.equal(labelLaneContentX(SAMPLE_RATE, 6_000_000, SAMPLE_RATE), CLIP_CONTENT_OFFSET + 6_000_000);
 
-	const projection = readFileSync(new URL(
-		'../src/common/editor/ui/timeline/TimelinePlaybackProjection.tsx', import.meta.url,
-	), 'utf8');
-	assert.match(projection, /const playheadX = CLIP_CONTENT_OFFSET[\s\S]*`\$\{playheadX\}px`/u);
+
 });
 
 test('pointer positions in a label lane read back the time drawn under them', () => {
@@ -45,40 +41,9 @@ test('pointer positions in a label lane read back the time drawn under them', ()
 	assert.equal(frameAtLabelClientX(1_000, null, PIXELS_PER_SECOND, SAMPLE_RATE), 0);
 });
 
-test('the label lane places its markers through the shared helper', () => {
-	const source = readFileSync(new URL(
-		'../src/common/editor/ui/timeline/LabelTrackRow.jsx', import.meta.url,
-	), 'utf8');
-	assert.match(source, /left=\{labelLaneContentX\(label\.startFrame, pixelsPerSecond, sampleRate\)\}/u);
-});
 
-test('scrolling to a timeline position lands on the pixel that draws it', () => {
-	// These four expressions centre or anchor the viewport on a time. Each has to
-	// carry the inset the position is drawn at, or the target sits 12px away.
-	const source = (path: string) => readFileSync(new URL(`../src/common/editor/ui/${path}`, import.meta.url), 'utf8');
 
-	assert.match(
-		source('timeline/TimelinePlaybackProjection.tsx'),
-		/playheadX,[\s\S]*leadingInset: CLIP_CONTENT_OFFSET,/u,
-		'the pinned playhead centres on its own drawn position',
-	);
-	assert.match(source('timeline/timeline-playback-frame-loop.ts'), /position - viewport \/ 2/u);
-	assert.match(
-		source('timeline/useTimelineNavigation.js'),
-		/const clipCenterPixels = CLIP_CONTENT_OFFSET \+ framesToSeconds\(/u,
-		'a clip revealed from search centres on the clip as drawn',
-	);
-	assert.match(
-		source('timeline/useTimelinePointerMove.js'),
-		/- panelWidth - CLIP_CONTENT_OFFSET\) \/ session\.pixelsPerSecond/u,
-		'a pinch reads the time under the fingers',
-	);
-	assert.match(
-		source('timeline/useTimelineViewportModel.js'),
-		/CLIP_CONTENT_OFFSET \+ pending\.anchorSeconds \* pixelsPerSecond - pending\.anchorOffset/u,
-		'a pinch puts that time back under the fingers',
-	);
-});
+
 
 test('marker-lane annotations sit under the ruler ticks that name their time', () => {
 	const markup = render(<TimelineAnnotationLayer

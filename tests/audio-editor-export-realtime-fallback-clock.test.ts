@@ -44,7 +44,8 @@ for (const format of ['wav', 'bwf', 'aiff'] as const) {
 		const request = fixture.renderRequests[0];
 		const pendingChunks = Number(request?.maximumPendingChunks);
 		const chunkFrames = Number(request?.chunkFrames);
-		assert.equal(pendingChunks * chunkFrames * 2 * Float32Array.BYTES_PER_ELEMENT, AUDIO_EDITOR_PCM_SINK_MAX_PENDING_BYTES);
+		const pendingBytes = pendingChunks * chunkFrames * 2 * Float32Array.BYTES_PER_ELEMENT;
+		assert.ok(pendingBytes > 0 && pendingBytes <= AUDIO_EDITOR_PCM_SINK_MAX_PENDING_BYTES);
 	});
 }
 

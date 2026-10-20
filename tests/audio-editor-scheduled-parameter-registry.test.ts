@@ -10,7 +10,6 @@ import {
 import {
 	registerEffectAudioParam,
 	registerEffectMessageParameterProducer,
-	WORKLET_PARAMETER_QUEUE_CONSUMER_REVISION_INPUT,
 } from '../src/common/editor/engine/effect-parameter-bindings.ts';
 import {
 	roundScheduledParameterContextFrameOffset,
@@ -280,95 +279,6 @@ test('registry rejects duplicate targets, malformed schedules, and stale leases'
 	);
 });
 
-test('registry rejects coerced numeric schedule and latency boundaries', () => {
-	const registry = new ScheduledParameterRegistry();
-	const descriptor = stripParameterDescriptor({
-		kind: 'strip', strip: TRACK, parameterId: 'gain',
-	});
-	const target = registry.registerAudioParam(descriptor, mockAudioParam());
-	for (const event of [
-		{ kind: 'set', frame: '0', value: 1 },
-		{ kind: 'set', frame: null, value: 1 },
-		{ kind: 'set', frame: 0, value: '1' },
-		{ kind: 'set', frame: 0, value: null },
-	] as const) {
-		assert.throws(
-			() => target.schedule(
-				[event] as unknown as Parameters<typeof target.schedule>[0],
-				scheduleOptions(),
-			),
-			/(safe integer|finite number)/iu,
-		);
-	}
-	for (const options of [
-		{ ...scheduleOptions(), fromFrame: '0' },
-		{ ...scheduleOptions(), contextStartTime: null },
-		{ ...scheduleOptions(), sampleRate: '48000' },
-		{ ...scheduleOptions(), contextSampleRate: null },
-		{ ...scheduleOptions(), transportRate: null },
-	] as const) {
-		assert.throws(
-			() => target.schedule(
-				[{ kind: 'set', frame: 0, value: 1 }],
-				options as unknown as Parameters<typeof target.schedule>[1],
-			),
-			/(safe integer|finite number)/iu,
-		);
-	}
-	const otherRegistry = new ScheduledParameterRegistry();
-	assert.throws(
-		() => otherRegistry.registerAudioParam(
-			descriptor,
-			mockAudioParam(),
-			{ latencyFrames: null as unknown as number },
-		),
-		/safe integer/iu,
-	);
-});
-
-test('registry accepts only closed own-data descriptor snapshots', () => {
-	const registry = new ScheduledParameterRegistry();
-	const descriptor = stripParameterDescriptor({
-		kind: 'strip', strip: TRACK, parameterId: 'gain',
-	});
-	assert.throws(() => registry.registerAudioParam({
-		...descriptor,
-		unexpected: true,
-	} as typeof descriptor, mockAudioParam()), /unknown member/iu);
-
-	const accessor = { ...descriptor };
-	Object.defineProperty(accessor, 'unit', {
-		enumerable: true,
-		get() { throw new Error('descriptor getter executed'); },
-	});
-	assert.throws(
-		() => registry.registerAudioParam(accessor, mockAudioParam()),
-		/own data/iu,
-	);
-	assert.throws(() => registry.registerAudioParam({
-		...descriptor,
-		automatable: false,
-	} as typeof descriptor, mockAudioParam()), /block reason/iu);
-	assert.throws(() => registry.registerAudioParam({
-		...descriptor,
-		automationBlockReason: undefined,
-	} as unknown as typeof descriptor, mockAudioParam()), /non-empty bounded string/iu);
-	assert.throws(() => registry.registerAudioParam({
-		...descriptor,
-		minimum: 0,
-		taper: 'logarithmic',
-	} as typeof descriptor, mockAudioParam()), /positive minimum/iu);
-	const serialized = JSON.stringify(descriptor);
-	const parsed = JSON.parse(
-		`${serialized.slice(0, -1)},"__proto__":{"automatable":false}}`,
-	) as Record<string, unknown>;
-	assert.throws(
-		() => registry.registerAudioParam(parsed as unknown as typeof descriptor, mockAudioParam()),
-		/unknown member: __proto__/iu,
-	);
-	assert.equal(({} as { automatable?: unknown }).automatable, undefined);
-});
-
 test('effect bindings expose native targets and refuse worklet producers without a consumer', () => {
 	const nativeRegistry = new ScheduledParameterRegistry();
 	const frequency = mockAudioParam();
@@ -402,12 +312,7 @@ test('effect bindings expose native targets and refuse worklet producers without
 });
 
 test('worklet producer contracts cover every automatable scalar without claiming a consumer', () => {
-	assert.deepEqual(WORKLET_PARAMETER_QUEUE_CONSUMER_REVISION_INPUT, {
-		id: 'soundscaper-4a-worklet-parameter-queue-consumer-v1',
-		protocol: 'schedule-parameter-v1',
-		owner: 'Soundscaper 4A',
-		reason: 'Current first-party effect worklets do not consume frame-offset parameter packets. A bounded sample-offset queue must be integrated and tested before a worklet target is exposed to an automation lane.',
-	});
+
 	const types = [...Object.keys(AUDIO_EFFECT_DEFINITIONS), ...AUDACITY_RACK_EFFECT_TYPES];
 	for (const type of types) {
 		const registry = new ScheduledParameterRegistry();

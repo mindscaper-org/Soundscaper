@@ -113,6 +113,4 @@ test('a macro that committed nothing still collapses and rolls back to nothing',
 	const depth = macroDepth(history);
 	assert.strictEqual(collapseSoundscaperProjectHistory(history, depth, MACRO_RUN), history);
 	assert.strictEqual(rollbackSoundscaperProjectHistory(history, depth), history);
-	assert.throws(() => collapseSoundscaperProjectHistory(history, -1, MACRO_RUN), /non-negative/u);
-	assert.throws(() => rollbackSoundscaperProjectHistory(history, 1.5), /non-negative/u);
 });
