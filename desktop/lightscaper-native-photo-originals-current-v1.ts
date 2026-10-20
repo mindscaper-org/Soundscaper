@@ -3,7 +3,8 @@
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
 import { catalogOriginalId } from '../src/common/editor/storage/media-catalog-original-schema.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
-import { readLightscaperNativeOriginalCurrentV1, LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as MAXIMUM } from './lightscaper-native-original-contract-current-v1.ts';
+import { LIGHTSCAPER_NATIVE_ORIGINAL_CHUNK_BYTES_CURRENT_V1 as MAXIMUM } from './lightscaper-native-original-contract-current-v1.ts';
+import { readLightscaperNativePhotoOriginalEnvelopeCurrentV1 as readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-photo-original-envelope-current-v1.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
 import type { LightscaperNativeCatalogStoreCurrentV1 as Catalog } from './lightscaper-native-catalog-store-current-v1.ts';
 import type { LightscaperNativePhotoMediaCurrentV1 as Media } from './lightscaper-native-photo-media-current-v1.ts';

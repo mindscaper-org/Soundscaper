@@ -1,0 +1,147 @@
+name: Lightscaper internal native desktop qualification
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  photo-native:
+    uses: ./.github/workflows/lightscaper-photo-native-build.yml
+
+  qualify:
+    name: Internal Photo package / ${{ matrix.target }}
+    needs: photo-native
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            platform: linux
+            arch: x64
+            node_arch: x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            platform: linux
+            arch: arm64
+            node_arch: arm64
+            runner: ubuntu-24.04-arm
+          - target: mac-arm64
+            platform: mac
+            arch: arm64
+            node_arch: arm64
+            runner: macos-15
+          - target: win-x64
+            platform: win
+            arch: x64
+            node_arch: x64
+            runner: windows-2025
+          - target: win-arm64
+            platform: win
+            arch: arm64
+            node_arch: arm64
+            runner: windows-11-arm
+    env:
+      SCAPE_PRODUCT: lightscaper
+      SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
+      SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
+      LIGHTSCAPER_CI_TARGET: ${{ matrix.target }}
+      SCAPE_MAC_SIGNING: 'false'
+      SCAPE_WIN_SIGNING: none
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the exact producer revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Set up target-native Node
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ matrix.node_arch }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Set up native tooling
+        uses: ./.github/actions/setup-native-tooling
+      - name: Activate native Windows x64 compiler
+        if: runner.os == 'Windows' && matrix.arch == 'x64'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installation = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $installation) { throw 'Native x64 C++ tools are unavailable.' }
+          $devCmd = Join-Path $installation 'Common7\Tools\VsDevCmd.bat'
+          $activation = Join-Path $env:RUNNER_TEMP 'lightscaper-photo-native-x64-vs.cmd'
+          Set-Content -LiteralPath $activation -Encoding ascii -Value "@call `"$devCmd`" -no_logo -arch=amd64 -host_arch=amd64`r`n@if errorlevel 1 exit /b 1`r`n@set"
+          $lines = & cmd.exe /d /c $activation
+          if ($LASTEXITCODE -ne 0) { throw 'Native x64 compiler activation failed.' }
+          foreach ($key in @('INCLUDE', 'LIB', 'LIBPATH', 'PATH')) {
+            $line = $lines | Where-Object { $_ -like "$key=*" } | Select-Object -Last 1
+            if (-not $line) { throw "Native compiler environment omitted $key." }
+            Add-Content -LiteralPath $env:GITHUB_ENV -Value $line
+          }
+      - name: Pin npm
+        run: npm install --global npm@12.0.1
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Resolve the actual pinned npm CLI
+        run: |
+          node --input-type=module -e 'import {appendFile} from "node:fs/promises"; import {join} from "node:path"; await appendFile(process.env.GITHUB_ENV,"LIGHTSCAPER_CI_NPM_CLI="+join(process.argv[1],"npm/bin/npm-cli.js")+"\n");' "$(npm root --global)"
+      - name: Prepare real Linux display and user namespaces
+        if: runner.os == 'Linux'
+        run: |
+          bash scripts/ci-apt-install.sh xvfb xauth libnss3 libgbm1 libasound2t64
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Download only this target's authenticated Photo build result
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: lightscaper-photo-native-build-result-${{ matrix.target }}
+          path: ${{ runner.temp }}/lightscaper-photo-result
+      - name: Build the target-native Windows Job supervisor
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Bootstrap is retained until the hosted runner retires. All public
+          # packaging and app processes below use its actual empty-Job receipt.
+          $build = Join-Path $env:RUNNER_TEMP 'lightscaper-photo-job-bootstrap'
+          cmake -S native/lightscaper-desktop-managed-smoke-job-current-v1 -B $build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl.exe "-DLIGHTSCAPER_SMOKE_NATIVE_TARGET=$env:LIGHTSCAPER_CI_TARGET"
+          if ($LASTEXITCODE -ne 0) { throw 'Native Job supervisor configuration failed.' }
+          cmake --build $build --config Release --target lightscaper-desktop-managed-smoke-job-current-v1 --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Native Job supervisor build failed.' }
+          $helper = Join-Path $build 'lightscaper-desktop-managed-smoke-job-current-v1.exe'
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_HELPER=$helper"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256=$((Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant())"
+      - name: Qualify both real Linux packages through actual menu workflows
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run --auto-servernum node scripts/lightscaper-desktop-native-qualification-current-v1.ts \
+            --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
+            --native-result "$RUNNER_TEMP/lightscaper-photo-result" \
+            --work-root "$RUNNER_TEMP/lightscaper-photo-work" --evidence-root "$RUNNER_TEMP/lightscaper-photo-evidence" \
+            --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
+      - name: Qualify both real macOS or Windows packages through actual menu workflows
+        if: runner.os != 'Linux'
+        run: |
+          node scripts/lightscaper-desktop-native-qualification-current-v1.ts \
+            --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
+            --native-result "$RUNNER_TEMP/lightscaper-photo-result" \
+            --work-root "$RUNNER_TEMP/lightscaper-photo-work" --evidence-root "$RUNNER_TEMP/lightscaper-photo-evidence" \
+            --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
+      - name: Upload only bounded internal receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: lightscaper-internal-desktop-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lightscaper-photo-evidence
+          if-no-files-found: error
+          retention-days: 14

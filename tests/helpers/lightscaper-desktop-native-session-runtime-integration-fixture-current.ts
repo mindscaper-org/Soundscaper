@@ -90,7 +90,7 @@ async function createFixture(context: TestContext, directory: string, first: Sco
 		assert.equal(this, service); opens++; const name = options.name, signal = options.signal, close = localOwner.close, actualManager = manager;
 		const local = { close: (): Promise<void> => { localCloses++; return Reflect.apply(close, localOwner, []) as Promise<void>; } };
 		const selection = await actualManager.openSelected({ name, ...(signal ? { signal } : {}) });
-		const lease = await actualManager.openSessionLease(selection.scope, local, signal ? { signal } : {}); leases.push(lease); await hooks.opened(lease); return lease;
+		const lease = await actualManager.openSessionLease(selection.scope, local, signal ? { signal } : {}); leases.push(lease); await hooks.opened(lease); const { linked: mainLinked, ...components } = lease.components; assert.equal(mainLinked, undefined); return Object.freeze({ ...lease, components: Object.freeze(components) });
 	} };
 	const release = (): void => { for (const done of gates) done(); };
 	const cancel = (): void => { release(); stop.abort(context.signal.reason); for (const session of sessions) void session.close().catch(() => undefined); };

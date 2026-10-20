@@ -33,9 +33,16 @@ import { captureLightscaperNativePhotoOriginalRepairCurrentV1 as captureRepair,
 	restoreLightscaperNativePhotoOriginalCurrentV1 as restoreOriginal } from './lightscaper-native-photo-original-repair-current-v1.ts';
 import { assertLightscaperNativePhotoOriginalRepairRetiredCurrentV1 as assertRepairRetired } from './lightscaper-native-photo-original-repair-retirement-current-v1.ts';
 import { LightscaperNativePhotoUploadFileCurrentV1 as UploadFile, readLightscaperNativePhotoUploadFileRetirementCurrentV1 as uploadRetirement,
-	assertLightscaperNativePhotoUploadFilesCurrentV1 as assertUploads } from './lightscaper-native-photo-upload-file-current-v1.ts';
+	assertLightscaperNativePhotoUploadFilesCurrentV1 as assertUploads, consumeLightscaperNativePhotoUploadFileCurrentV1 as consumeUpload,
+	type LightscaperNativePhotoUploadReadCurrentV1 as UploadRead } from './lightscaper-native-photo-upload-file-current-v1.ts';
 
 type Options = Readonly<{ signal?: AbortSignal }>;
+export interface LightscaperNativePhotoMediaRawInputsCurrentV1 {
+ begin(options: Readonly<{ expectedBytes: number; expectedSha256: string }>): Promise<UploadFile>;
+ consume(proof: unknown): Promise<Readonly<UploadRead>>;
+}
+const RAW_INPUT_CLEANUP_FAILURES = new WeakSet<object>();
+const RAW_INPUT_FACETS = new WeakMap<object, Readonly<LightscaperNativePhotoMediaRawInputsCurrentV1>>();
 type Custody = Pick<MediaCatalogOriginalRepositoryV1, 'retain' | 'stage' | 'release' | 'releaseStaged' | 'promote' | 'readPage' | 'findDigestPage'>;
 
 /** Main-private managed Originals and scalar custody. This genuine component
@@ -56,6 +63,15 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		this.#originals = originals; this.#database = database; this.#cache = cache;
 		this.#reads = new LightscaperNativePhotoMediaOriginalReadsCurrentV1(database, originals, (options, capture, operation) => this.#run(options, capture, operation));
 		this.#writers = new LightscaperNativePhotoMediaWritersCurrentV1(originals, database);
+		const beginRawInput = this.beginOriginalRepairUploadCurrentV1;
+		RAW_INPUT_FACETS.set(this, Object.freeze({ begin: (options: Readonly<{ expectedBytes: number; expectedSha256: string }>) => beginRawInput(options).catch((error: unknown) => {
+			// Only the actual upload namespace's failed cleanup can issue this
+			// witness; an arbitrary borrower AggregateError grants nothing.
+			try { assertUploads(this.#database); } catch {
+				if (error !== null && typeof error === 'object') RAW_INPUT_CLEANUP_FAILURES.add(error);
+			} throw error;
+		}),
+			consume: (proof: unknown) => this.#run({}, () => proof, value => consumeUpload(value, this.#database)) }));
 		this.catalogOriginals = Object.freeze<Custody>({
 			retain: (catalog, references, options) => this.#custody('retain', [catalog, references], options),
 			stage: (catalog, imported, references, options) => this.#custody('stage', [catalog, imported, references], options),
@@ -100,6 +116,11 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		});
 	}
 
+	/** Main-private one-shot bind, before any consumer capacity can escape. */
+	readonly bindLinkedOriginalsCurrentV1 = (value: unknown): void => {
+		if (this.#closing || this.#quiescing) throw new Error('Native Photo media is closed.'); this.#reads.bind(value);
+	};
+
 	/** Main-private fixed reader composition; never a renderer filesystem API. */
 	readonly reserveOriginalRead = (): Readonly<{ release(): void }> => {
 		if (this.#closing || this.#quiescing) throw new Error('Native Photo media is closed.'); return this.#reads.reserve();
@@ -136,6 +157,11 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 			const proof = await this.#originals.storeBinding(binding, lightscaperNativePhotoMediaWriteChunksCurrentV1(captured, signal), { signal });
 			return installLightscaperNativePhotoMediaAssetCurrentV1(this.#database, captured, proof, signal);
 		});
+
+	/** Fixed Current import lookup. Generic custody still enumerates both kinds. */
+	readonly findManagedOriginalDigestPageCurrentV1: Custody['findDigestPage'] = (sha256, after = null, options) =>
+		this.#run(options, signal => captureLightscaperNativePhotoCustodyRequestCurrentV1('findManagedDigestPage', [sha256, after, Object.freeze({ signal })]),
+			(packet, signal) => executeLightscaperNativePhotoCustodyRequestCurrentV1(this.#database, packet, signal)) as ReturnType<Custody['findDigestPage']>;
 
 	readonly getAssetMetadata = (sourceId: string): Promise<Record<string, unknown> | null> =>
 		this.#run({}, () => readKey(sourceId), (key, signal) => {
@@ -264,4 +290,21 @@ export class LightscaperNativePhotoMediaCurrentV1 {
 		try { assertUploads(this.#database); } catch (error) { return Promise.reject(error); }
 		return run();
 	}
+}
+
+/** Main-private originally issued upload/proof capability, with no DB/path
+ * field. Every escaped read is backed by the already registered UploadFile. */
+export function captureLightscaperNativePhotoMediaRawInputsCurrentV1(value: unknown): Readonly<LightscaperNativePhotoMediaRawInputsCurrentV1> {
+ const facet = value !== null && typeof value === 'object' ? RAW_INPUT_FACETS.get(value) : undefined;
+ if (!facet) throw new TypeError('Native RAW input requires genuine selected Media authority.'); return facet;
+}
+/** Selected facade composition only. A facade gains only the exact capability
+ * already issued by its actual owner; caller-shaped descriptors mint nothing. */
+export function bindLightscaperNativePhotoMediaRawInputFacadeCurrentV1<Facade extends object>(facade: Facade, actual: unknown): Facade {
+ RAW_INPUT_FACETS.set(facade, captureLightscaperNativePhotoMediaRawInputsCurrentV1(actual)); return facade;
+}
+
+/** Exact owning witness from the actual Media/upload namespace boundary. */
+export function lightscaperNativePhotoMediaRawInputCleanupFailureCurrentV1(value: unknown): boolean {
+ return value !== null && typeof value === 'object' && RAW_INPUT_CLEANUP_FAILURES.has(value);
 }

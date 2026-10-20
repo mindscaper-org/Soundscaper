@@ -8,7 +8,7 @@ import { PHOTO_CATALOG_REPOSITORY_LIMITS as LIMITS } from '../src/lightscaper/ca
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
 import { array, field, record, unique } from '../src/lightscaper/catalog/value-validation.ts';
-import { readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';
+import { readLightscaperNativePhotoOriginalEnvelopeCurrentV1 as readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-photo-original-envelope-current-v1.ts';
 
 export type LightscaperNativeCatalogAdmissionPurposeCurrentV1 = 'import' | 'edit';
 export interface LightscaperNativeCatalogVerificationCurrentV1 {

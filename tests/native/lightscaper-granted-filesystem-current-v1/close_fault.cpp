@@ -12,6 +12,7 @@
 extern "C" int __real_close(int);
 namespace {
 bool failed = false;
+const bool directory_fault = [] { const auto* value = std::getenv("SCAPE_GRANTED_CLOSE_FAULT_DIRECTORY"); return value && value[0] == '1' && value[1] == '\0'; }();
 int replaced = -1;
 unsigned retries = 0;
 void receipt() {
@@ -21,7 +22,7 @@ void receipt() {
 extern "C" int __wrap_close(int descriptor) {
 	if (failed && descriptor == replaced) ++retries;
 	struct stat value{};
-	if (!failed && ::fstat(descriptor, &value) == 0 && S_ISREG(value.st_mode)) {
+	if (!failed && ::fstat(descriptor, &value) == 0 && (directory_fault ? S_ISDIR(value.st_mode) : S_ISREG(value.st_mode))) {
 		failed = true;
 		const auto result = __real_close(descriptor);
 		if (result != 0) return result;

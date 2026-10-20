@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { capturePhotoLibraryRawImportSourceCurrentV1, type PhotoLibraryRawImportSourceCurrentV1 } from '../controller/photo-library-raw-import-current-v1.ts';
+import { withPhotoLibraryRawImportCurrentV1 } from '../controller/photo-library-raw-frame-current-v1.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../common/editor/closed-domain-value.ts';
@@ -8,7 +10,7 @@ import { readPixelFrameV1 } from '../../common/editor/imaging/pixel-frame-contra
 import { readImageMetadataV1 } from '../../common/editor/imaging/image-metadata-reader-v1.ts';
 import { openFramescaperBrowserNativeImageV1 } from '../../common/editor/timeline-image-browser-native-port.ts';
 import type { OpenFramescaperBrowserNativeImageV1 } from '../../common/editor/timeline-image-native-decode-v1.ts';
-import { withDecodedRawOriginalV1, type RawDecodedOriginalV1 } from '../../common/editor/raw/libraw-runtime-v1.ts';
+import { withDecodedRawOriginalV1 } from '../../common/editor/raw/libraw-runtime-v1.ts';
 import { probeRawSourceV1, rawFlipExifOrientationV1, type RawSourceAdmissionV1 } from '../../common/editor/raw/raw-source-v1.ts';
 import { normalizePhotoDocumentV1 } from '../catalog/photo-document.ts';
 import { normalizePhotoMetadataV1 } from '../catalog/photo-metadata.ts';
@@ -21,6 +23,7 @@ import { admitPhotoImportPreparationPlanV1, type PhotoImportPreparationPlanV1, t
 export type PhotoRawImportPreparedCurrentV1 = Readonly<Omit<PhotoImportPreparedV1, 'decodeArtifact'>>;
 export type PhotoImportOutcomeCurrentV1 = PhotoImportOutcomeV1 | PhotoRawImportPreparedCurrentV1;
 export interface PhotoImportPreparationPortsCurrentV1 {
+	readonly rawImport?: Readonly<PhotoLibraryRawImportSourceCurrentV1>;
 	readonly openImage?: OpenFramescaperBrowserNativeImageV1;
 	readonly withRawFrame?: typeof withDecodedRawOriginalV1;
 }
@@ -40,15 +43,16 @@ function retireOwnedInput(backing: ArrayBuffer | undefined, allocationBytes: num
 export function preparePhotoImportGestureCurrentV1(value: unknown,
 	dependencies: Readonly<PhotoImportPreparationPortsCurrentV1> = {}): AsyncGenerator<PhotoImportOutcomeCurrentV1> {
 	const plan = admitPhotoImportPreparationPlanV1(value);
-	const ports = record(dependencies, 'Current photo preparation ports', ['openImage', 'withRawFrame'], []);
+	const ports = record(dependencies, 'Current photo preparation ports', ['openImage', 'withRawFrame', 'rawImport'], []);
 	const open = Object.hasOwn(ports, 'openImage') ? field(ports, 'openImage', 'Current photo preparation ports') : openFramescaperBrowserNativeImageV1;
+	const rawImport = capturePhotoLibraryRawImportSourceCurrentV1(Object.hasOwn(ports, 'rawImport') ? field(ports, 'rawImport', 'Current photo preparation ports') : undefined);
 	const raw = Object.hasOwn(ports, 'withRawFrame') ? field(ports, 'withRawFrame', 'Current photo preparation ports') : withDecodedRawOriginalV1;
 	if (typeof open !== 'function' || typeof raw !== 'function') throw new TypeError('Current photo preparation requires scoped decoder capabilities.');
-	return prepare(plan, open as OpenFramescaperBrowserNativeImageV1, raw as typeof withDecodedRawOriginalV1, dependencies);
+	return prepare(plan, open as OpenFramescaperBrowserNativeImageV1, raw as typeof withDecodedRawOriginalV1, dependencies, rawImport);
 }
 
 async function* prepare(plan: PhotoImportPreparationPlanV1, open: OpenFramescaperBrowserNativeImageV1,
-	raw: typeof withDecodedRawOriginalV1, receiver: Readonly<PhotoImportPreparationPortsCurrentV1>): AsyncGenerator<PhotoImportOutcomeCurrentV1> {
+	raw: typeof withDecodedRawOriginalV1, receiver: Readonly<PhotoImportPreparationPortsCurrentV1>, rawImport?: Readonly<PhotoLibraryRawImportSourceCurrentV1>): AsyncGenerator<PhotoImportOutcomeCurrentV1> {
 	for (const [index, selected] of plan.originals.entries()) {
 		check(plan.signal);
 		const deadline = new AbortController();
@@ -63,7 +67,7 @@ async function* prepare(plan: PhotoImportPreparationPlanV1, open: OpenFramescape
 			bytes = new Uint8Array(backing); check(signal);
 			if (bytes.length !== selected.byteLength) throw new RangeError('Selected original bytes disagree with its File length.');
 			const admission = probeRawSourceV1(bytes);
-			outcome = admission ? await prepareRaw(selected, index, plan.templates[index]!, bytes, admission, signal, raw, receiver)
+			outcome = admission ? await prepareRaw(selected, index, plan.templates[index]!, bytes, admission, signal, raw, receiver, rawImport)
 				: await preparePhotoRasterOriginalV1(selected, index, plan.templates[index]!, open, signal, bytes);
 		} catch (error) { failure = { error }; }
 		finally {
@@ -83,13 +87,13 @@ async function* prepare(plan: PhotoImportPreparationPlanV1, open: OpenFramescape
 
 async function prepareRaw(selected: SelectedPhotoOriginalV1, index: number, template: PhotoDocumentV1,
 	bytes: Uint8Array<ArrayBuffer>, admission: RawSourceAdmissionV1, signal: AbortSignal,
-	raw: typeof withDecodedRawOriginalV1, receiver: Readonly<PhotoImportPreparationPortsCurrentV1>): Promise<PhotoRawImportPreparedCurrentV1> {
+	raw: typeof withDecodedRawOriginalV1, receiver: Readonly<PhotoImportPreparationPortsCurrentV1>, rawImport?: Readonly<PhotoLibraryRawImportSourceCurrentV1>): Promise<PhotoRawImportPreparedCurrentV1> {
 	const digest = bytesToHex(sha256(bytes)), original = new Blob([bytes], { type: admission.mimeType });
 	const extractedMetadata = admission.format === 'dng' ? readImageMetadataV1(bytes)
 		: { schemaVersion: 1, container: 'unsupported', exif: null, iptc: null, issues: [] };
 	const facts = adaptPhotoImportMetadataV1({ fileName: selected.fileName, modifiedTime: selected.modifiedTime,
 		byteLength: selected.byteLength, extractedMetadata });
-	const photo = await Reflect.apply(raw, receiver, [{ bytes, signal }, (view: RawDecodedOriginalV1) => {
+	const accept = (view: Readonly<{ frame: unknown; rawFlip: unknown }>): PhotoDocumentV1 => {
 		check(signal);
 		const frame = readPixelFrameV1(view.frame, RAW_LIMITS);
 		if (frame.descriptor.sampleFormat !== 'unorm16' || frame.descriptor.primaries !== 'srgb' || frame.descriptor.transfer !== 'linear') {
@@ -100,7 +104,15 @@ async function prepareRaw(selected: SelectedPhotoOriginalV1, index: number, temp
 				width: frame.descriptor.width, height: frame.descriptor.height, hasAlpha: false },
 			metadata: normalizePhotoMetadataV1({ ...facts.metadata, orientation: rawFlipExifOrientationV1(view.rawFlip) }),
 			extractedMetadata: facts.extractedMetadata });
-	}]) as PhotoDocumentV1;
+	};
+	let photo: PhotoDocumentV1 | undefined;
+	if (rawImport) {
+		const native = await withPhotoLibraryRawImportCurrentV1(rawImport, { body: original, contentSha256: digest, profile: 'canonical' }, accept, signal);
+		if (native.outcome === 'native') photo = native.value;
+	}
+	// A classified native refusal has already joined the entire input/child
+	// scope. The permanent decoder then owns the whole Web fallback.
+	photo ??= await Reflect.apply(raw, receiver, [{ bytes, signal }, accept]) as PhotoDocumentV1;
 	check(signal);
 	if (bytesToHex(sha256(bytes)) !== digest || original.size !== selected.byteLength) throw new RangeError('RAW decoder replaced the selected Original binding.');
 	return Object.freeze({ outcome: 'prepared', index, fileName: selected.fileName, photo, original,

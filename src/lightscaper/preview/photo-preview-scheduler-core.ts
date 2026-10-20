@@ -21,6 +21,9 @@ export interface PhotoPreviewRequestCore {
 }
 export interface PhotoPreviewProtocolCore<Prepared extends PhotoPreviewPreparedCore, Plan extends { readonly key: string }> {
 	capture(value: unknown): PhotoPreviewRequestCore;
+	withSource?<Result>(request: Readonly<{ plan: Plan; binding: PhotoPreviewOriginalBindingV1; photo: PhotoPreviewSchedulerAdmittedPhoto;
+		originalSource: Readonly<PhotoLibraryOriginalSourceCurrentV1>; signal: AbortSignal; variant: string }>,
+		consume: (prepared: Readonly<Prepared>) => Promise<Result>, fallback: (plan?: Plan) => Promise<Result>): Promise<Result>;
 	plan(binding: PhotoPreviewOriginalBindingV1, tier: PhotoPreviewTierV1, photo: PhotoPreviewSchedulerAdmittedPhoto, variant: string): Plan;
 	render(request: Readonly<{ plan: Plan; binding: PhotoPreviewOriginalBindingV1; body: unknown; signal: AbortSignal; variant: string }>,
 		regenerate: typeof withPhotoOriginalFrameV1): Promise<Readonly<Prepared>>;
@@ -179,14 +182,30 @@ export class PhotoPreviewSchedulerCore<Prepared extends PhotoPreviewPreparedCore
 			if (!await this.#matches(job.photoId, binding, signal)) return Object.freeze({ outcome: 'superseded' });
 			return Object.freeze({ outcome: 'ready', preview: cached, cache: 'hit' });
 		}
-		return withPhotoLibraryOriginalCurrentV1(this.#ports.originalSource, { catalogId: this.#catalogId, photoId: photo.id, original: photo.original },
-			body => this.#prepareMiss(job, binding, plan, body), signal);
+		const fallback = async (selected: Plan = plan): Promise<PhotoPreviewJobOutcomeV1<Prepared>> => {
+			if (selected.key !== plan.key) {
+				const cached = await this.#ports.cache.load(selected, signal); check(signal);
+				if (cached) {
+					if (cached.key !== selected.key) throw new RangeError('Photo preview fallback cache returned another plan.');
+					if (!await this.#matches(job.photoId, binding, signal)) return Object.freeze({ outcome: 'superseded' });
+					return Object.freeze({ outcome: 'ready', preview: cached, cache: 'hit' });
+				}
+			}
+			return withPhotoLibraryOriginalCurrentV1(this.#ports.originalSource, { catalogId: this.#catalogId, photoId: photo.id, original: photo.original },
+				body => this.#prepareMiss(job, binding, selected, body), signal);
+		};
+		return this.#protocol.withSource ? this.#protocol.withSource({ plan, binding, photo, originalSource: this.#ports.originalSource, signal, variant: job.variant },
+			preview => this.#publishMiss(job, binding, preview), fallback) : fallback();
 	}
 
 	async #prepareMiss(job: Job<Prepared>, binding: PhotoPreviewOriginalBindingV1, plan: Plan, body: Blob): Promise<PhotoPreviewJobOutcomeV1<Prepared>> {
 		const signal = job.controller.signal; check(signal);
 		const preview = await this.#protocol.render({ plan, binding, body, signal, variant: job.variant }, this.#ports.regenerate);
-		check(signal);
+		return this.#publishMiss(job, binding, preview);
+	}
+
+	async #publishMiss(job: Job<Prepared>, binding: PhotoPreviewOriginalBindingV1, preview: Readonly<Prepared>): Promise<PhotoPreviewJobOutcomeV1<Prepared>> {
+		const signal = job.controller.signal; check(signal);
 		if (!await this.#matches(job.photoId, binding, signal)) return Object.freeze({ outcome: 'superseded' });
 		let cache: 'stored' | 'transient' = 'transient', persistenceError: unknown;
 		const cleanupErrors: unknown[] = [];

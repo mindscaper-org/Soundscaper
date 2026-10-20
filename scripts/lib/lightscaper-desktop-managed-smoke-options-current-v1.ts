@@ -4,6 +4,7 @@ import { isAbsolute, resolve } from 'node:path';
 
 export interface LightscaperManagedSmokeOptionsCurrentV1 {
 	readonly backend: 'web' | 'native';
+	readonly scenario: 'managed' | 'linked';
 	readonly executable: string; readonly runtimeRoot: string; readonly outputRoot: string;
 	readonly allowNoSandbox: boolean; readonly windowsJobHelper: string | null;
 	readonly windowsJobHelperSha256: string | null;
@@ -20,10 +21,12 @@ export function readLightscaperManagedSmokeOptionsCurrentV1(args: readonly strin
 			if (allowNoSandbox) throw new Error('Duplicate no-sandbox option.');
 			allowNoSandbox = true; continue;
 		}
-		if ((!paths.has(name) && name !== '--windows-job-helper-sha256' && name !== '--backend') || values.has(name)) throw new Error(`Unknown or duplicate smoke option ${name}.`);
+		if ((!paths.has(name) && name !== '--windows-job-helper-sha256' && name !== '--backend' && name !== '--scenario') || values.has(name)) throw new Error(`Unknown or duplicate smoke option ${name}.`);
 		const value = args[++at];
 		if (!value || value.includes('\0')) throw new Error('Smoke option value is missing or invalid.');
-		if (name === '--backend') {
+		if (name === '--scenario') {
+			if (value !== 'managed' && value !== 'linked') throw new Error('Photo smoke scenario must be managed or linked.');values.set(name,value);
+		} else if (name === '--backend') {
 			if (value !== 'web' && value !== 'native') throw new Error('Managed smoke backend must be web or native.');
 			values.set(name, value);
 		} else if (name === '--windows-job-helper-sha256') {
@@ -40,5 +43,6 @@ export function readLightscaperManagedSmokeOptionsCurrentV1(args: readonly strin
 	if (platform === 'win32') {
 		if (!windowsJobHelper || !windowsJobHelperSha256) throw new Error('Windows managed smoke requires paired explicit --windows-job-helper and --windows-job-helper-sha256.');
 	} else if (windowsJobHelper || windowsJobHelperSha256) throw new Error('Windows Job helper options require a Windows Node host.');
-	return Object.freeze({ backend: values.get('--backend') === 'native' ? 'native' : 'web', executable, runtimeRoot, outputRoot, allowNoSandbox, windowsJobHelper, windowsJobHelperSha256 });
+	if(values.get('--scenario')==='linked'&&values.get('--backend')!=='native')throw new Error('Linked smoke requires explicit native backend.');
+	return Object.freeze({ scenario:values.get('--scenario')==='linked'?'linked':'managed', backend: values.get('--backend') === 'native' ? 'native' : 'web', executable, runtimeRoot, outputRoot, allowNoSandbox, windowsJobHelper, windowsJobHelperSha256 });
 }

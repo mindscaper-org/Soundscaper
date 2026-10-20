@@ -7,6 +7,7 @@ export interface LightscaperSmokeFileCurrentV1 {
 export interface LightscaperSmokeRendererPlanCurrentV1 {
 	readonly nonce: string; readonly stage: 1 | 2 | 3; readonly locale: 'en';
 	readonly backend?: 'web' | 'native';
+	readonly scenario?: 'managed' | 'linked';
 	readonly fixtures: readonly LightscaperSmokeFileCurrentV1[];
 	readonly archive: LightscaperSmokeFileCurrentV1 | null;
 	readonly expectedFingerprint: string | null; readonly expectedNamespace: string | null;
@@ -21,10 +22,13 @@ export interface LightscaperSmokeCustodyCurrentV1 {
 	readonly namespace: string | null;
 	readonly fingerprint: string;
 	readonly root: unknown;
-	readonly photos: readonly Readonly<{ document: unknown; sha256: string; byteLength: number; storage: string }>[];
+	readonly linked?: Readonly<{identities:number;managedBindings:number;locatorRevisions:readonly number[]}>;
+	readonly photos: readonly Readonly<{ document: unknown; sha256: string; byteLength: number; storage: string; bodyVerified?:boolean }>[];
 }
 export interface LightscaperSmokeRendererReportCurrentV1 {
 	readonly backend: 'web' | 'native';
+	readonly scenario?: 'managed' | 'linked';
+	readonly linked?:Readonly<{importedInPlace:boolean;offlinePreview:boolean;fullOutputRefused:boolean;relinked:boolean;reopened:boolean}>;
 	readonly nonce: string; readonly stage: 1 | 2 | 3;
 	readonly initial: LightscaperSmokeCustodyCurrentV1 | null;
 	readonly final: LightscaperSmokeCustodyCurrentV1;

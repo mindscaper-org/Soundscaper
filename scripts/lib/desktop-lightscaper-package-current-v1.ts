@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { lightscaperPhotoRuntimeInventoryCurrentV1 as nativeInventory, verifyLightscaperPhotoRuntimeCurrentV1 as verifyNative } from './desktop-lightscaper-photo-native-current-v1.ts';
 import { extractFile, listPackage, statFile, uncache } from '@electron/asar';
 import { lstat, readdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -72,7 +73,8 @@ export async function verifyDesktopLightscaperPackagedCurrentV1({ repositoryRoot
 	await assertResourceRoots(root, target);
 	for (const scope of ['renderer', 'licenses'] as const) equal(await capture(join(root, scope)), stage.files[scope], `packaged ${scope}`);
 	equal(await verifyDesktopLightscaperRawRuntimeCurrentV1({ runtimeRoot: join(root, 'runtime') }), stage.rawRuntime, 'packaged RAW receipt');
-	equal(await capture(join(root, 'runtime')), stage.rawRuntime.files, 'packaged RAW inventory');
+	if (stage.nativePhotoRuntime) await verifyNative(join(root, 'runtime'), stage.nativePhotoRuntime);
+	equal(await capture(join(root, 'runtime')), [...stage.rawRuntime.files, ...nativeInventory(stage.nativePhotoRuntime)].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0), 'packaged RAW/native inventory');
 	const appAsar = await verifyAsar(root, stage.files.app);
 	await auditDesktopFfmpegAbsence({ root, label: 'Lightscaper packaged resources' });
 	return Object.freeze({ schemaVersion: 1, kind: 'lightscaper-desktop-owned-package-v1', status: 'owned-resource-closure-audited', stage, appAsar });

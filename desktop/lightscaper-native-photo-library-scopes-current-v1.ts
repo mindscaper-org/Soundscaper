@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
+import { captureLightscaperNativePhotoLibraryServicesCurrentV1 as captureServices, type LightscaperNativePhotoLibraryServicesCurrentV1 as Services } from './lightscaper-native-photo-library-services-current-v1.ts';
 import { createLightscaperNativePhotoSessionClaimCurrentV1 as sessionClaim } from './lightscaper-native-photo-session-claim-current-v1.ts';
 import { createLightscaperNativePhotoSessionLeaseCurrentV1 as sessionLease, type LightscaperNativePhotoSessionLeaseCurrentV1 as SessionLease } from './lightscaper-native-photo-session-lease-current-v1.ts';
 import { captureLightscaperNativePhotoLibraryArchiveReadersCurrentV1 as captureReaders } from './lightscaper-native-photo-library-archive-readers-current-v1.ts';
@@ -40,6 +41,7 @@ const ABORT = AbortController.prototype.abort;
  * claims. Registry creation state supplies no ready or deletion authority. */
 export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 	readonly #appDataPath: string;
+	readonly #services: Readonly<Services>;
 	readonly #guard: Writer;
 	readonly #registry: Registry;
 	readonly #anchor: Settings;
@@ -61,8 +63,8 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 	#restore: Readonly<Candidate> | null = null;
 	#unretired = false;
 	#closing: Promise<void> | null = null;
-	private constructor(appDataPath: string, guard: Writer, registry: Registry, anchor: Settings) {
-		this.#appDataPath = appDataPath; this.#guard = guard; this.#registry = registry; this.#anchor = anchor;
+	private constructor(appDataPath: string, guard: Writer, registry: Registry, anchor: Settings, services: Readonly<Services>) {
+		this.#appDataPath = appDataPath; this.#services=services; this.#guard = guard; this.#registry = registry; this.#anchor = anchor;
 		this.#selection = new SelectionOwner(anchor, registry, appDataPath, () => { this.#assertAccepting(); }, () => { this.#quarantine(); });
 		registerArchive(this, Object.freeze<Pick<LightscaperNativePhotoLibraryScopesCurrentV1, 'openSelected' | 'beginRestore' | 'publishRestoreReady'>>({
 			openSelected: options => Reflect.apply(ARCHIVE_SELECTED, this, [options]) as ReturnType<typeof ARCHIVE_SELECTED>,
@@ -70,16 +72,17 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 			publishRestoreReady: (ready, options) => Reflect.apply(ARCHIVE_PUBLISH, this, [ready, options]) as ReturnType<typeof ARCHIVE_PUBLISH>,
 		}));
 	}
-	static async open(options: Readonly<{ appDataPath: string }>): Promise<LightscaperNativePhotoLibraryScopesCurrentV1> {
-		const input = record(options, 'native library scopes', ['appDataPath']), appDataPath = field(input, 'appDataPath', 'native library scopes');
+	static async open(options: Readonly<{ appDataPath: string; services?: Readonly<Services> }>): Promise<LightscaperNativePhotoLibraryScopesCurrentV1> {
+		const input = record(options, 'native library scopes', ['appDataPath','services'],['appDataPath']), appDataPath = field(input, 'appDataPath', 'native library scopes');
 		if (typeof appDataPath !== 'string') throw new TypeError('Native library scopes require their main-owned appData root.');
+		const services=captureServices(Object.hasOwn(input,'services')?field(input,'services','native library scopes'):undefined);
 		const guard = await acquire(appDataPath);
 		let registry: Registry | undefined, anchor: Settings | undefined, unretired = false;
 		const quarantine = (): void => { unretired = true; QUARANTINED.add(guard); };
 		try {
 			guard.assertCurrent(); registry = await openOwner(() => Registry.open(appDataPath), quarantine);
 			guard.assertCurrent(); anchor = await openOwner(() => Settings.open({ appDataPath, scope: 'anchor' }), quarantine); guard.assertCurrent();
-			return new LightscaperNativePhotoLibraryScopesCurrentV1(appDataPath, guard, registry, anchor);
+			return new LightscaperNativePhotoLibraryScopesCurrentV1(appDataPath, guard, registry, anchor, services);
 		} catch (primary) {
 			const cleanup: unknown[] = [];
 			try { await registry?.close(); } catch (error) { cleanup.push(error); }
@@ -214,7 +217,7 @@ export class LightscaperNativePhotoLibraryScopesCurrentV1 {
 		}
 		this.#guard.assertCurrent(); check(signal);
 		const opened = await openComponents(binding.appDataPath, signal, () => { this.#quarantine(); },
-			Object.freeze({ signal: Reflect.apply(SIGNAL, binding.epoch?.physical ?? this.#physicalShutdown, []) as AbortSignal, assertCurrent: () => { this.#assertBindingCurrent(binding); } }));
+			Object.freeze({ signal: Reflect.apply(SIGNAL, binding.epoch?.physical ?? this.#physicalShutdown, []) as AbortSignal, assertCurrent: () => { this.#assertBindingCurrent(binding); } }),this.#services);
 		const actualClose = opened.close; let closing: Promise<void> | undefined;
 		const components: Readonly<Components> = Object.freeze({ ...opened, close: (): Promise<void> => {
 			if (closing) return closing;

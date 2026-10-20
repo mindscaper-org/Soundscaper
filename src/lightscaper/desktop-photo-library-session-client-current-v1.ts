@@ -9,6 +9,9 @@ import { createDesktopPhotoSessionMediaCurrentV1 } from './desktop-photo-library
 import { createDesktopPhotoSessionResourcesCurrentV1 } from './desktop-photo-library-session-resource-client-current-v1.ts';
 import { createDesktopPhotoSessionOriginalTransportCurrentV1 } from './desktop-photo-library-session-original-client-current-v1.ts';
 import { createDesktopPhotoSessionExclusiveCurrentV1 } from './desktop-photo-library-session-owned-client-current-v1.ts';
+import { createDesktopPhotoLinkedLibraryPortCurrentV1 as linkedClient } from './desktop-photo-library-session-linked-client-current-v1.ts';
+import { desktopPhotoBooleanCurrentV1 as boolean } from './desktop-photo-library-session-client-calls-current-v1.ts';
+import { createDesktopPhotoSessionRawClientCurrentV1 as rawClient } from './desktop-photo-library-session-raw-client-current-v1.ts';
 import { name } from './catalog/value-validation.ts';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../common/editor/closed-domain-value.ts';
 
@@ -28,13 +31,14 @@ export function createDesktopPhotoLibrarySessionServiceCurrentV1(transport: Read
 		if (opening) return Promise.reject(new Error('A desktop selected Session already owns this connection.'));
 		opening = true;
 		let localClose: (() => Promise<void>) | undefined, localClosing: Promise<void> | undefined, remove = (): void => undefined, detach = (): void => undefined;
+		let rawOwner: ReturnType<typeof rawClient> | undefined;
 		let calls: Calls | undefined, closing: Promise<void> | undefined, stopSent: Promise<unknown> | undefined;
 		const controller = new AbortController(), openId = randomId();
 		const stopLocal = (): Promise<void> => {
 			calls?.fence();
 			if (localClosing) return localClosing;
 			let resolve!: () => void, reject!: (reason: unknown) => void; localClosing = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
-			try { if (!localClose) throw new Error('Native Session local owner is not captured.'); void localClose().then(resolve, reject); } catch (error) { reject(error); }
+			try { if (!localClose) throw new Error('Native Session local owner is not captured.'); const joins = [localClose(), ...(rawOwner ? [rawOwner.close()] : [])]; void Promise.allSettled(joins).then(results => { const errors = results.flatMap(r => r.status === 'rejected' ? [r.reason as unknown] : []); if (errors.length) reject(new AggregateError(errors, 'Native local Session and RAW owners did not retire.')); else resolve(); }); } catch (error) { reject(error); }
 			if (!controller.signal.aborted) Reflect.apply(ABORT, controller, [new DOMException('The native Session is retiring.', 'AbortError')]);
 			void localClosing.catch(() => undefined); return localClosing;
 		};
@@ -60,7 +64,9 @@ export function createDesktopPhotoLibrarySessionServiceCurrentV1(transport: Read
 				let issued: ReturnType<typeof descriptor>;
 				try { issued = descriptor(await accepted); } catch (error) { if (controller.signal.aborted) throw Reflect.apply(REASON, controller.signal, []); throw error; }
 				calls = new Calls(issued, controller, invoke); if (controller.signal.aborted) { await close(); throw Reflect.apply(REASON, controller.signal, []); }
-				const components: Storage['components'] = Object.freeze({ catalog: createDesktopPhotoSessionCatalogCurrentV1(calls), media: createDesktopPhotoSessionMediaCurrentV1(calls),
+				rawOwner = rawClient(calls);
+				const linked = await calls.send('linked', () => ({ operation: 'available' }), boolean, controller.signal) ? linkedClient(calls, input => rawOwner!.forInput(input.id)) : undefined;
+				const components: Storage['components'] = Object.freeze({ ...(linked ? { linked } : {}), raw: rawOwner.raw, rawImport: rawOwner.rawImport, catalog: createDesktopPhotoSessionCatalogCurrentV1(calls), media: createDesktopPhotoSessionMediaCurrentV1(calls),
 					settings: createDesktopPhotoSessionSettingsCurrentV1(calls), resources: createDesktopPhotoSessionResourcesCurrentV1(calls),
 					originalTickets: Object.freeze({ transport: createDesktopPhotoSessionOriginalTransportCurrentV1(calls) }), close });
 				return Object.freeze<Storage>({ catalogId: issued.catalogId, selectionToken: issued.selectionToken, signal: controller.signal, components,

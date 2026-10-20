@@ -27,7 +27,7 @@ export class LightscaperPhotoBackendSwitchCurrentV1 {
 	#workspace: Registration | undefined;
 	#backend: LightscaperPhotoBackendCurrentV1 = 'web';
 	#epoch = 0;
-	#pending: { backend: LightscaperPhotoBackendCurrentV1; work: Promise<boolean> } | undefined;
+	#pending: { management?: boolean; backend: LightscaperPhotoBackendCurrentV1; work: Promise<boolean> } | undefined;
 	#failed = false;
 	#failure: unknown;
 	#closed = false;
@@ -67,7 +67,7 @@ export class LightscaperPhotoBackendSwitchCurrentV1 {
 		if (this.#closed) return Promise.reject(new Error('Photo backend choice is closed.'));
 		if (backend !== 'web' && backend !== 'native') return Promise.reject(new TypeError('Unknown Photo backend.'));
 		if (backend === 'native' && !this.#nativeAvailable) return Promise.resolve(false);
-		if (this.#pending) return this.#pending.backend === backend ? this.#pending.work : Promise.resolve(false);
+		if (this.#pending) return !this.#pending.management && this.#pending.backend === backend ? this.#pending.work : Promise.resolve(false);
 		if (backend === this.#backend) return Promise.resolve(false);
 		const workspace = this.#workspace; if (!workspace) return Promise.resolve(false);
 		let resolve!: (value: boolean) => void, reject!: (reason: unknown) => void;
@@ -89,6 +89,19 @@ export class LightscaperPhotoBackendSwitchCurrentV1 {
 		})();
 		return work;
 	}
+ /** A destructive permission transition uses the same full workspace fence,
+  * then a fresh matched management Session. It cannot retire itself from an
+  * operation running inside the workspace that it is waiting to close. */
+ retireAndRun(action:()=>Promise<void>):Promise<boolean>{
+  if(this.#failed)return Promise.reject(this.#failure);if(this.#closed)return Promise.reject(new Error('Photo backend choice is closed.'));if(this.#pending)return Promise.resolve(false);
+  const workspace=this.#workspace;if(!workspace)return Promise.resolve(false);
+  let resolve!:(value:boolean)=>void,reject!:(error:unknown)=>void;const work=new Promise<boolean>((yes,no)=>{resolve=yes;reject=no;}),pending={backend:this.#backend,management:true,work};this.#pending=pending;
+  try{if(typeof action!=='function')throw new TypeError('Linked management requires its retirement-bound callback.');if(workspace.safety()!=='ready'){this.#pending=undefined;this.refresh();resolve(false);return work;}workspace.fence();}
+  catch(error){this.#failed=true;this.#failure=error;this.#pending=undefined;this.refresh();reject(error);return work;}
+  this.refresh();void(async()=>{try{await workspace.retireAndJoin();if(this.#workspace===workspace)this.#workspace=undefined;if(this.#closed){resolve(false);return;}await action();if(this.#closed){resolve(false);return;}this.#epoch++;resolve(true);}
+   catch(error){this.#failed=true;this.#failure=error;reject(error);}finally{if(this.#pending===pending)this.#pending=undefined;this.refresh();}})();return work;
+ }
+
 	close(): Promise<void> {
 		if (this.#closing) return this.#closing;
 		this.#closed = true;

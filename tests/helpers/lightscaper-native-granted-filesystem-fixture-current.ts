@@ -34,8 +34,9 @@ interface Native {
 	maximumResponse(opcode: number): number;
 	hold(opcode?: number): Readonly<{ entered: Promise<void>; release(): void }>;
 }
-function actualNative(binary: string): Native {
-	const child = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+function actualNative(binary: string, directoryFault: boolean): Native {
+	const child = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+		env: { ...process.env, SCAPE_GRANTED_CLOSE_FAULT_DIRECTORY: directoryFault ? '1' : '0' } });
 	const joined = new Promise<void>(resolve => { child.once('close', () => { resolve(); }); });
 	let stderr = '', input = Buffer.alloc(0), output = Buffer.alloc(0), held: Buffer[] | undefined, heldBytes = 0, signalEntered: (() => void) | undefined;
 	let holdOpcode: number | undefined;
@@ -79,7 +80,7 @@ function actualNative(binary: string): Native {
 }
 
 export async function nativeGrantedFilesystemFixtureCurrentV1(context: TestContext,
-	run: (fixture: ReturnType<typeof fixtureFor>) => Promise<void>, fault = false): Promise<void> {
+	run: (fixture: ReturnType<typeof fixtureFor>) => Promise<void>, fault: boolean | 'directory' = false): Promise<void> {
 	const directory = await mkdtemp(join(tmpdir(), 'lightscaper-granted-fs-'));
 	const appData = join(directory, 'app-data'), rootPath = join(directory, 'root'), outside = join(directory, 'outside');
 	let originals: Originals | undefined, namespace: ReturnType<typeof register> | undefined, role: ActualRole | undefined, native: Native | undefined;
@@ -106,7 +107,7 @@ export async function nativeGrantedFilesystemFixtureCurrentV1(context: TestConte
 		originals = await Originals.open({ appDataPath: appData });
 		const databasePath = join(appData, 'Lightscaper', 'project-library', 'v1', 'native-photo-originals.sqlite3'); namespace = register(databasePath);
 		timer = setTimeout(stop, 14000);
-		role = await Role.open({ start: () => { native = actualNative(binary); return native.child; }, mediaDatabasePath: databasePath });
+		role = await Role.open({ start: () => { native = actualNative(binary, fault === 'directory'); return native.child; }, mediaDatabasePath: databasePath });
 		assert.ok(native); if (context.signal.aborted) stop();
 		fixture = fixtureFor(role, native, namespace, gates, holds, directory, rootPath, outside, bytes, foreign,
 			(error: unknown) => { expectedCleanup = error; hasExpectedCleanup = true; });

@@ -4,12 +4,19 @@ import { readClosedDomainField as field, readClosedDomainRecord as record } from
 import { name } from './catalog/value-validation.ts';
 import { PhotoLibrarySessionCurrentV1 as Session } from './controller/photo-library-session-current-v1.ts';
 import type { PhotoLibrarySessionPortsCurrentV1 as Ports } from './controller/photo-library-session-ports-current-v1.ts';
+import { capturePhotoLibraryRawImportSourceCurrentV1 } from './controller/photo-library-raw-import-current-v1.ts';
+import { preparePhotoImportGestureCurrentV1 } from './import/photo-import-preparation-current-v1.ts';
+import { capturePhotoLibraryRawSourceCurrentV1 } from './controller/photo-library-raw-source-current-v1.ts';
+import type { PhotoLibraryOriginalSourceCurrentV1 as OriginalPort } from './controller/photo-library-original-source-current-v1.ts';
 import type { DesktopPhotoLibrarySessionServiceCurrentV1 as Service, DesktopPhotoLibrarySessionStorageCurrentV1 as Storage } from './desktop-photo-library-session-storage-current-v1.ts';
 import { DesktopPhotoLibrarySessionOwnerCurrentV1 as Owner } from './desktop-photo-library-session-owner-current-v1.ts';
+import { DesktopPhotoDevelopAvailabilityOwnerCurrentV1 as Availability } from './desktop-photo-develop-availability-current-v1.ts';
+import { DesktopPhotoLinkedLibraryCurrentV1 as LinkedLibrary } from './desktop-photo-linked-library-current-v1.ts';
 import { DesktopPhotoOriginalSourceCurrentV1 as OriginalSource } from './desktop-photo-original-source-current-v1.ts';
 import type { DesktopPhotoOriginalSourceOptionsCurrentV1 as SourceOptions, DesktopPhotoOriginalStorageCurrentV1 as OriginalStorage } from './desktop-photo-original-contract-current-v1.ts';
 import { PhotoPreviewSchedulerCurrentV1 as Scheduler } from './preview/photo-preview-scheduler-current-v1.ts';
 import { PhotoPreviewCacheV1, PHOTO_PREVIEW_CACHE_PROFILE_V1 } from './preview/photo-preview-cache-v1.ts';
+import { PhotoNativeRawPreviewCacheCurrentV1 } from './preview/photo-native-raw-preview-cache-current-v1.ts';
 import { PhotoCullingPreviewCacheCurrentV1 } from './preview/photo-culling-preview-cache-current-v1.ts';
 import { PhotoHdrPreviewCacheCurrentV1 } from './preview/photo-hdr-preview-cache-current-v1.ts';
 import { verifyPhotoResourcesCurrentV1 } from './storage/photo-media-resource-verification-current-v1.ts';
@@ -62,14 +69,22 @@ export async function createDesktopPhotoLibrarySessionCurrentV1(options: Desktop
 		if (typeof retire !== 'function') throw new TypeError('Native selected storage requires its actual close.');
 		closeNative = () => Reflect.apply(retire, actual, []) as Promise<void>;
 		owner.assertAccepting(); check(actual.signal);
+		let linked: LinkedLibrary | undefined, availability: Availability | undefined;
 		const session = owner.construct(() => {
-			const source = new OriginalSource(actual.components.originalTickets.transport, sourceOptions); owner.ownLocal(source);
-			if (typeof source.acquireGroup !== 'function') throw new TypeError('Complete native Session requires all six Original transport methods.');
+			const physical = new OriginalSource(actual.components.originalTickets.transport, sourceOptions); owner.ownLocal(physical);
+			if (typeof physical.acquireGroup !== 'function') throw new TypeError('Complete native Session requires all six Original transport methods.');
+			const raw = capturePhotoLibraryRawSourceCurrentV1(actual.components.raw);
+			const source: Readonly<OriginalPort> = Object.freeze({ acquire: physical.acquire.bind(physical),
+				acquireGroup: physical.acquireGroup.bind(physical), ...(raw ? { raw } : {}) });
 			owner.assertAccepting(); check(actual.signal);
-			const ports = completePorts(actual, source, owner);
+			const linkedPort = actual.components.linked;
+			if (linkedPort) { linked = new LinkedLibrary(linkedPort, { signal: owner.signal, sourceOptions, rawImport: actual.components.rawImport }); owner.ownLocal(linked); }
+			if (linked) availability = Availability.create(actual, owner, linked);
+			const ports = completePorts(actual, source, owner, linked);
 			owner.assertAccepting(); check(actual.signal);
 			return new Session(ports);
 		});
+		linked?.bind(session); availability?.bind(session);
 		// Original close was captured inside construct before this own outer
 		// method. All prototype methods and Current/legacy children remain real.
 		Object.defineProperty(session, 'close', { value: close, enumerable: false, writable: false, configurable: false });
@@ -90,14 +105,16 @@ export async function createDesktopPhotoLibrarySessionCurrentV1(options: Desktop
 	}
 }
 
-function completePorts(storage: Readonly<Storage>, source: OriginalSource, owner: Owner): Readonly<Ports> {
+function completePorts(storage: Readonly<Storage>, source: Readonly<OriginalPort>, owner: Owner, linked?: LinkedLibrary): Readonly<Ports> {
 	const c = storage.components, catalog = c.catalog, selected = c.settings.settingsRepository;
+	const rawImport = capturePhotoLibraryRawImportSourceCurrentV1(c.rawImport);
 	const cube = c.resources.cubeLutResources.bind(c.resources), masks = c.resources.maskRasterResources.bind(c.resources);
 	const resourceHost = Object.freeze({ cubeLutResources: cube, maskRasterResources: masks });
 	const core = c.media.createBinaryDerivativeCache(PHOTO_PREVIEW_CACHE_PROFILE_V1);
-	const canonical = new PhotoPreviewCacheV1(core), culling = new PhotoCullingPreviewCacheCurrentV1(core), hdr = new PhotoHdrPreviewCacheCurrentV1(core);
+	const canonical = new PhotoPreviewCacheV1(core), culling = new PhotoCullingPreviewCacheCurrentV1(core), hdr = new PhotoHdrPreviewCacheCurrentV1(core), native = new PhotoNativeRawPreviewCacheCurrentV1(core);
 	const cache = Object.freeze({ load: canonical.load.bind(canonical), store: canonical.store.bind(canonical), trim: canonical.trim.bind(canonical) });
 	const cullingCache = Object.freeze({ load: culling.load.bind(culling), store: culling.store.bind(culling), trim: culling.trim.bind(culling) });
+	const nativeCache = Object.freeze({ load: native.load.bind(native), store: native.store.bind(native), trim: native.trim.bind(native) });
 	const hdrCache = Object.freeze({ load: hdr.load.bind(hdr), store: hdr.store.bind(hdr), trim: hdr.trim.bind(hdr) });
 	const readIntent = c.settings.readImportIntentCurrentV1.bind(c.settings), putIntent = selected.putIfAbsent.bind(selected), deleteIntent = selected.deleteIfCurrent.bind(selected);
 	const intentKey = photoImportIntentKeyV1(storage.catalogId);
@@ -116,7 +133,9 @@ function completePorts(storage: Readonly<Storage>, source: OriginalSource, owner
 	const load = catalog.loadPhoto.bind(catalog), root = catalog.loadCatalog.bind(catalog);
 	return Object.freeze<Ports>({
 		catalog, stacks: catalog, smartCollections: catalog,
-		media: Object.freeze({ writeAsset: c.media.writeAsset.bind(c.media), custody: c.media.catalogOriginals }),
+		...(linked ? { prepare: linked.prepare } : rawImport ? { prepare: (value: unknown) => preparePhotoImportGestureCurrentV1(value, { rawImport }) } : {}),
+		media: Object.freeze({ writeAsset: c.media.writeAsset.bind(c.media), custody: c.media.catalogOriginals, findManagedOriginalDigestPageCurrentV1: c.media.findManagedOriginalDigestPageCurrentV1.bind(c.media),
+			...(linked ? { stageLinkedOriginalCurrentV1: linked.stageLinkedOriginalCurrentV1 } : {}) }),
 		journal, settings: storage.importPresets, developPresetSettings: selected, exportJournalSettings: selected, exportPresetSettings: selected,
 		originalSource: source, exclusive: storage.exclusive.bind(storage), cubeLutResources: cube, maskRasterResources: masks,
 		verifyResources: (photo, signal) => verifyPhotoResourcesCurrentV1(photo, resourceHost, signal),
@@ -131,7 +150,7 @@ function completePorts(storage: Readonly<Storage>, source: OriginalSource, owner
 		createPreviewScheduler: async catalogId => {
 			owner.assertAccepting(); check(storage.signal);
 			if (catalogId !== storage.catalogId) throw new Error('Native preview scheduler belongs to another selected catalog.');
-			return new Scheduler({ catalogId, loadPhoto: photoId => load(catalogId, photoId), originalSource: source, cache, cullingCache, hdrCache });
+			return new Scheduler({ catalogId, loadPhoto: photoId => load(catalogId, photoId), originalSource: source, cache, cullingCache, hdrCache, nativeCache });
 		},
 		closeResources: () => owner.closeResources(),
 	});

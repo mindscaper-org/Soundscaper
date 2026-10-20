@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import {runLightscaperLinkedSmokeRendererCurrentV1} from './lightscaper-linked-smoke-renderer-current-v1.ts';
 import { bundledLightscaperEditorCopyForLocale } from '../src/common/i18n/lightscaper-editor-copy.ts';
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopMenuLabel } from '../src/common/i18n/lightscaper-develop-menu-copy.ts';
@@ -46,6 +47,7 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 	if (nodeExposed) throw new Error('Node authority leaked into the Photo renderer.');
 	const backend = plan.backend ?? 'web';
 	if (backend === 'native') mailbox = new LightscaperManagedSmokeMailboxCurrentV1(plan.nonce);
+	if(plan.scenario==='linked')return runLightscaperLinkedSmokeRendererCurrentV1(plan,{observe:ids=>mailbox!.request(ids),retire:()=>{mailbox?.retire();},publicBridgeKeys,nodeExposed});
 	const app = await wait(() => document.querySelector<HTMLElement>('[data-lightscaper-bound="true"]'), 'actual Lightscaper app');
 	const copy = bundledLightscaperEditorCopyForLocale(plan.locale), develop = photoDevelopCopy(plan.locale), restore = lightscaperRestoreCopy(plan.locale);
 	let initial: LightscaperSmokeRendererReportCurrentV1['initial'] = null;
@@ -115,7 +117,7 @@ export async function runLightscaperManagedSmokeCurrentV1(plan: LightscaperSmoke
 	// remains diagnostic and cannot stand in for the worker's native fetches.
 	if (rawRuntimeRequests.some(value => !value.startsWith('lightscaper-app://bundle/runtime/libraw/'))) throw new Error('RAW escaped the packaged offline asset route.');
 	mailbox?.retire();
-	return { backend, nonce: plan.nonce, stage: plan.stage, initial, final, preview, rawRuntimeRequests, publicBridgeKeys, nodeExposed, externalArchiveOpen: plan.stage === 2 };
+	return { backend,scenario:'managed', nonce: plan.nonce, stage: plan.stage, initial, final, preview, rawRuntimeRequests, publicBridgeKeys, nodeExposed, externalArchiveOpen: plan.stage === 2 };
 
 	function rawName(): string { const file = plan.fixtures.find(value => value.name.endsWith('.dng')); if (!file) throw new Error('Owned DNG missing.'); return file.name; }
 	async function menu(name: string): Promise<void> {

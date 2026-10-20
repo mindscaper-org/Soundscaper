@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_JOIN_CURRENT_V1 as IDENTITY_JOIN, LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_COLUMNS_CURRENT_V1 as IDENTITY_COLUMNS } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { binaryDerivativeManifestV1, normalizeBinaryDerivativeCacheIdentityV1,
 	type BinaryDerivativeCacheIdentityV1 as Identity, type BinaryDerivativeCacheProfileV1 as Profile } from '../src/common/editor/storage/binary-derivative-cache-records.ts';
@@ -17,10 +18,10 @@ export function lightscaperNativePhotoPreviewCleanupErrorCurrentV1(primary: unkn
 export function lightscaperNativePhotoPreviewSourceCurrentV1(db: DatabaseSync, identity: Identity): string | null {
 	const row = db.prepare(`SELECT CASE WHEN typeof(a.sha256)='text' AND length(CAST(a.sha256 AS BLOB))=64 THEN a.sha256 END AS sha,
 		CASE WHEN length(CAST(a.media_content_token AS BLOB))<=142 THEN a.media_content_token END AS token,a.size,
-		CASE WHEN length(CAST(b.content_sha256 AS BLOB))=64 THEN b.content_sha256 END AS physical_sha,b.byte_length
-		FROM native_photo_media_assets a LEFT JOIN native_photo_original_bindings b ON b.storage_key=a.source_id WHERE a.source_id=?`).get(identity.sourceId);
+		${IDENTITY_COLUMNS}
+		FROM native_photo_media_assets a ${IDENTITY_JOIN} WHERE a.source_id=?`).get(identity.sourceId);
 	return row && isMediaContentToken(row.token) && row.sha === identity.originalSha256 && row.size === identity.originalByteLength
-		&& row.physical_sha === row.sha && row.byte_length === row.size ? row.token : null;
+		&& (row.identity_kind === 'managed' || row.identity_kind === 'linked') ? row.token : null;
 }
 export function readLightscaperNativePhotoPreviewEntryCurrentV1(db: DatabaseSync, key: string, profile?: Profile): LightscaperNativePreviewEntryCurrentV1 | null {
 	const row = db.prepare(`SELECT CASE WHEN length(CAST(e.manifest AS BLOB))<=4096 THEN e.manifest END AS manifest,

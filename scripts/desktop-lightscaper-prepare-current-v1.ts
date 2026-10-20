@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { stageLightscaperPhotoNativeCurrentV1 as stageNative } from './lib/lightscaper-photo-native-stage-current-v1.ts';
 import { execFile } from 'node:child_process';
 import { cp, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -41,6 +42,10 @@ export async function prepareLightscaperDesktopCurrentV1(repositoryRoot: string,
 	await bundleLightscaperDesktopMainCurrentV1(repositoryRoot, appRoot);
 	await buildLightscaperDesktopRendererCurrentV1(repositoryRoot, rendererRoot, environment);
 	await stageDesktopLightscaperRawRuntimeCurrentV1({ repositoryRoot, runtimeRoot: join(buildRoot, 'runtime') });
+	if (environment.LIGHTSCAPER_PHOTO_NATIVE_BUILD_RESULT !== undefined) {
+		if (!environment.LIGHTSCAPER_PHOTO_NATIVE_BUILD_RESULT || environment.LIGHTSCAPER_PHOTO_NATIVE_BUILD_RESULT.includes('\0')) throw new TypeError('Photo native result path must be nonempty.');
+		await stageNative({ repositoryRoot, buildResultRoot: resolve(repositoryRoot, environment.LIGHTSCAPER_PHOTO_NATIVE_BUILD_RESULT), runtimeRoot: join(buildRoot, 'runtime'), applicationRoot: appRoot, target: `${target.platform}-${target.arch}` });
+	}
 	await generateDesktopIcon({ sourcePath: join(repositoryRoot, 'public/logo/lightscaper.svg'), outputPath: join(buildRoot, 'icons/icon.png') });
 	const licenses = join(buildRoot, 'licenses'); await mkdir(licenses);
 	await cp(join(repositoryRoot, 'LICENSE'), join(licenses, 'Soundscaper-AGPL-3.0.txt'));

@@ -18,6 +18,10 @@ const NAME = typeof File === 'function' ? Object.getOwnPropertyDescriptor(File.p
 const MODIFIED = typeof File === 'function' ? Object.getOwnPropertyDescriptor(File.prototype, 'lastModified')?.get : undefined;
 export function createDesktopPhotoSessionMediaCurrentV1(c: Calls): Media {
 	let metadataPreparing = false;
+	const readDigestPage = (value: unknown) => {
+			const row = record(value, 'digest page', ['matches', 'afterAssetId']); return Object.freeze({ matches: Object.freeze(array(field(row, 'matches'), 'digest matches', 0, 64).map(v => {
+				const r = record(v, 'digest match', ['assetId', 'sha256', 'size']); return Object.freeze({ assetId: string(field(r, 'assetId')), sha256: digest(field(r, 'sha256')), size: integer(field(r, 'size'), 0, Number.MAX_SAFE_INTEGER, 'original size') }); })), afterAssetId: cursor(field(row, 'afterAssetId')) }); };
+	const lookup = (operation: 'digest-page' | 'managed-digest-page', sha256: string, afterAssetId: string | null, options: Readonly<{ signal?: AbortSignal }>) => c.own(() => c.send('custody', () => ({ operation, sha256, afterAssetId }), readDigestPage, signalOf(options)));
 	const custody: Media['catalogOriginals'] = Object.freeze<Media['catalogOriginals']>({
 		retain: (catalogId, references, options = {}) => c.own(() => { c.catalog(catalogId); return c.send('custody', () => ({ operation: 'retain', references }), empty, signalOf(options), false, true); }),
 		stage: (catalogId, importId, references, options = {}) => c.own(() => { c.catalog(catalogId); return c.send('custody', () => ({ operation: 'stage', importId, references }), empty, signalOf(options), false, true); }),
@@ -28,11 +32,10 @@ export function createDesktopPhotoSessionMediaCurrentV1(c: Calls): Media {
 			const row = record(query, 'custody page request', ['catalogId', 'importId', 'afterKey'], ['catalogId']); c.catalog(field(row, 'catalogId'));
 			return { operation: 'page', importId: Object.hasOwn(row, 'importId') ? field(row, 'importId') : null, afterKey: Object.hasOwn(row, 'afterKey') ? field(row, 'afterKey') : null };
 		}, value => { const row = record(value, 'custody page', ['roots', 'afterKey']); return Object.freeze({ roots: Object.freeze(array(field(row, 'roots'), 'custody roots', 0, 64).map(v => { const root = normalizeCatalogOriginalRoot(v); c.catalog(root.catalogId); return root; })), afterKey: cursor(field(row, 'afterKey')) }); }, signalOf(options))),
-		findDigestPage: (sha256, afterAssetId = null, options = {}) => c.own(() => c.send('custody', () => ({ operation: 'digest-page', sha256, afterAssetId }), value => {
-			const row = record(value, 'digest page', ['matches', 'afterAssetId']); return Object.freeze({ matches: Object.freeze(array(field(row, 'matches'), 'digest matches', 0, 64).map(v => {
-				const r = record(v, 'digest match', ['assetId', 'sha256', 'size']); return Object.freeze({ assetId: string(field(r, 'assetId')), sha256: digest(field(r, 'sha256')), size: integer(field(r, 'size'), 0, Number.MAX_SAFE_INTEGER, 'original size') }); })), afterAssetId: cursor(field(row, 'afterAssetId')) }); }, signalOf(options))),
+		findDigestPage: (sha256, afterAssetId = null, options = {}) => lookup('digest-page', sha256, afterAssetId, options),
 	});
 	return Object.freeze<Media>({ catalogOriginals: custody,
+		findManagedOriginalDigestPageCurrentV1: (sha256, afterAssetId = null, options = {}) => lookup('managed-digest-page', sha256, afterAssetId, options),
 		writeAsset: (assetId, input, metadata = {}, options = {}) => c.own(async () => {
 			if (metadataPreparing) throw new RangeError('Desktop metadata preparation capacity is occupied.');
 			metadataPreparing = true; let release = (): void => undefined, wire: unknown;

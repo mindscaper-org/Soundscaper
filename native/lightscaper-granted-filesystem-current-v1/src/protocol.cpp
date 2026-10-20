@@ -86,8 +86,8 @@ void reply(unsigned opcode, std::uint32_t id, std::span<const std::byte> payload
 	if (!payload.empty()) std::cout.write(reinterpret_cast<const char*>(payload.data()), static_cast<std::streamsize>(payload.size()));
 	std::cout.flush(); if (!std::cout) throw protocol_error("Pipe write failed.");
 }
-void error_reply(unsigned phase, std::uint32_t id, unsigned code) {
-	writer result; result.number(code, 2); result.number(phase, 1); result.number(0, 4); result.number(process_retirement_is_unproved() ? 1 : 0, 1);
+void error_reply(unsigned phase, std::uint32_t id, unsigned code, std::uint32_t native_code = 0) {
+	writer result; result.number(code, 2); result.number(phase, 1); result.number(native_code, 4); result.number(process_retirement_is_unproved() ? 1 : 0, 1);
 	constexpr std::string_view diagnostic = "Granted filesystem operation refused.";
 	result.number(diagnostic.size(), 2); result.raw(std::as_bytes(std::span(diagnostic))); reply(255, id, result.value);
 }
@@ -174,7 +174,7 @@ int run_granted_filesystem() {
 			reader input{ body }; auto result = owner.execute(opcode, input); reply(opcode | 128U, id, result.value); if (opcode == 10) break;
 		} catch (const protocol_error&) { fatal = true; try { error_reply(opcode, id, 100); } catch (...) {} }
 		catch (const read_error& error) {
-			try { error_reply(opcode, id, static_cast<unsigned>(error.code())); } catch (...) { fatal = true; }
+			try { error_reply(opcode, id, static_cast<unsigned>(error.code()), error.native_code()); } catch (...) { fatal = true; }
 			if (opcode == 10) { status = 3; break; }
 		}
 		catch (...) { fatal = true; try { error_reply(opcode, id, 7); } catch (...) {} }

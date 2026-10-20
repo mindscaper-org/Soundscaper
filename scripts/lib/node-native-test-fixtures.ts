@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { PHOTO_NATIVE_FIXTURE_RESULT_CURRENT_V1 } from './lightscaper-photo-native-test-recipe-current-v1.ts';
+import { buildLightscaperPhotoNativeTestCurrentV1 } from './lightscaper-photo-native-test-build-current-v1.ts';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { constants, copyFileSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { nativeTestFixtureRecipe, type NativeTestFixtureKind, type NativeTestFixtureRecipe } from './node-native-test-fixture-recipes.ts';
 import { lightscaperNativeTestEnvironmentCurrentV1, prepareLightscaperNativeTestSourceCurrentV1 } from './lightscaper-native-test-source-current-v1.ts';
@@ -46,7 +48,7 @@ export function prepareNativeTestFixtures(options: FixtureOptions, build = build
 	try {
 		mkdirSync(options.fixtureRoot, { recursive: true });
 		const environment = options.environment ?? process.env;
-		if (options.kinds.some(kind => kind === 'lightscaper-raw-engine' || kind === 'lightscaper-raw-role') && !environment.LIGHTSCAPER_LIBRAW_SOURCE_ROOT) prepareLightscaperNativeTestSourceCurrentV1(options.repositoryRoot, options.fixtureRoot);
+		if (options.kinds.some(kind => kind === 'lightscaper-raw-engine' || kind === 'lightscaper-raw-role' || kind === 'lightscaper-photo-native') && !environment.LIGHTSCAPER_LIBRAW_SOURCE_ROOT) prepareLightscaperNativeTestSourceCurrentV1(options.repositoryRoot, options.fixtureRoot);
 		const recipeEnvironment = lightscaperNativeTestEnvironmentCurrentV1(environment, options.fixtureRoot);
 		const artifacts: Partial<Record<NativeTestFixtureKind, FixtureArtifact>> = {};
 		for (const kind of new Set(options.kinds)) {
@@ -54,7 +56,7 @@ export function prepareNativeTestFixtures(options: FixtureOptions, build = build
 			const compiler = identify(recipe.compiler);
 			if (compiler === null && recipe.compiler === 'c++' && !kind.startsWith('lightscaper-')) continue;
 			if (compiler === null) throw new Error(`Native fixture compiler ${recipe.compiler} is unavailable.`);
-			const file = `${kind}${process.platform === 'win32' ? '.exe' : ''}`;
+			const file = kind === 'lightscaper-photo-native' ? PHOTO_NATIVE_FIXTURE_RESULT_CURRENT_V1 : `${kind}${process.platform === 'win32' ? '.exe' : ''}`;
 			const inputSha256 = recipeIdentity(recipe, compiler);
 			build(recipe, join(options.fixtureRoot, file));
 			artifacts[kind] = { file, inputSha256, sha256: digest(regularFileBytes(join(options.fixtureRoot, file))) };
@@ -69,6 +71,7 @@ export function prepareNativeTestFixtures(options: FixtureOptions, build = build
 
 /** Copies are ordinary files, so one case cannot mutate another case's native executable. */
 export function copyNativeTestFixture(options: CopyOptions, identify: CompilerIdentity = compilerIdentity): boolean {
+	if (options.kind === 'lightscaper-photo-native') throw new TypeError('A complete Photo bundle cannot be copied as one executable.');
 	const environment = options.environment ?? process.env;
 	const fixtureRoot = environment[NATIVE_TEST_FIXTURE_ENV];
 	if (!fixtureRoot) return false;
@@ -93,12 +96,31 @@ export function copyNativeTestFixture(options: CopyOptions, identify: CompilerId
 	return true;
 }
 
+/** Resolve only an authenticated result from the runner's fresh shared prep.
+ * The deployment consumer still verifies every actual result/payload file. */
+export function photoNativeTestFixtureResultCurrentV1(options: Readonly<{ repositoryRoot: string; environment?: NodeJS.ProcessEnv }>, identify: CompilerIdentity = compilerIdentity): string | null {
+ const environment = options.environment ?? process.env, root = environment[NATIVE_TEST_FIXTURE_ENV]; if (!root) return null;
+ const details = lstatSync(root); if (!details.isDirectory() || details.isSymbolicLink()) throw new Error('Photo fixture root is not a real directory.');
+ const manifestPath = join(root, 'fixture.json'), manifestDetails = lstatSync(manifestPath);
+ if (!manifestDetails.isFile() || manifestDetails.isSymbolicLink() || manifestDetails.size > 1024 * 1024) throw new Error('Photo fixture manifest exceeds its fixed bound.');
+ const manifest = readManifest(regularFileBytes(manifestPath)), artifact = manifest.artifacts['lightscaper-photo-native'];
+ if (manifest.repositoryRoot !== resolve(options.repositoryRoot) || manifest.platform !== process.platform || manifest.architecture !== process.arch) throw new Error('Photo fixture belongs to another repository or host.');
+ if (!artifact) return null;
+ const recipe = nativeTestFixtureRecipe('lightscaper-photo-native', options.repositoryRoot, lightscaperNativeTestEnvironmentCurrentV1(environment, root)), compiler = identify(recipe.compiler);
+ if (compiler === null || recipeIdentity(recipe, compiler) !== artifact.inputSha256) throw new Error('Photo native fixture source/compiler identity changed.');
+ const result = join(root, artifact.file), resultDetails = lstatSync(result);
+ if (!resultDetails.isFile() || resultDetails.isSymbolicLink() || resultDetails.size > 2 * 1024 * 1024 || digest(regularFileBytes(result)) !== artifact.sha256) throw new Error('Photo native fixture result differs from its actual preparation.');
+ return dirname(result);
+}
+
 export function compileNativeTestFixture(options: CopyOptions): void {
+	if (options.kind === 'lightscaper-photo-native') throw new TypeError('Photo bundles must use shared preparation.');
 	if (copyNativeTestFixture(options)) return;
 	buildNativeRecipe(nativeTestFixtureRecipe(options.kind, options.repositoryRoot, options.environment ?? process.env), options.outputPath);
 }
 
 function buildNativeRecipe(recipe: NativeTestFixtureRecipe, outputPath: string): void {
+	if (recipe.photoNative) { buildLightscaperPhotoNativeTestCurrentV1(recipe, outputPath); return; }
 	if (recipe.cmake) { buildNativeTestCmakeFixture(recipe, outputPath); return; }
 	const result = spawnSync(recipe.compiler, [...recipe.arguments, ...recipe.sources, '-o', outputPath], { encoding: 'utf8' });
 	if (result.status !== 0) throw new Error(`Native fixture ${recipe.kind} failed to compile:\n${result.stderr || result.stdout}`);
@@ -130,9 +152,9 @@ function readManifest(bytes: Buffer): FixtureManifest {
 		|| !('architecture' in value) || typeof value.architecture !== 'string'
 		|| !('artifacts' in value) || typeof value.artifacts !== 'object' || value.artifacts === null) throw new Error('Invalid native fixture manifest.');
 	for (const [kind, artifact] of Object.entries(value.artifacts)) {
-		if (!['media-contract', 'media-contract-exact', 'media-validator', 'delivery-filesystem', 'lightscaper-granted-file-reader', 'lightscaper-raw-engine', 'lightscaper-granted-filesystem', 'lightscaper-granted-filesystem-close-fault', 'lightscaper-raw-role'].includes(kind)
+		if (!['media-contract', 'media-contract-exact', 'media-validator', 'delivery-filesystem', 'lightscaper-photo-native', 'lightscaper-granted-file-reader', 'lightscaper-raw-engine', 'lightscaper-granted-filesystem', 'lightscaper-granted-filesystem-close-fault', 'lightscaper-raw-role'].includes(kind)
 			|| typeof artifact !== 'object' || artifact === null
-			|| !('file' in artifact) || artifact.file !== `${kind}${process.platform === 'win32' ? '.exe' : ''}`
+			|| !('file' in artifact) || artifact.file !== (kind === 'lightscaper-photo-native' ? PHOTO_NATIVE_FIXTURE_RESULT_CURRENT_V1 : `${kind}${process.platform === 'win32' ? '.exe' : ''}`)
 			|| !('inputSha256' in artifact) || typeof artifact.inputSha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(artifact.inputSha256)
 			|| !('sha256' in artifact) || typeof artifact.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(artifact.sha256)) throw new Error('Invalid native fixture artifact.');
 	}

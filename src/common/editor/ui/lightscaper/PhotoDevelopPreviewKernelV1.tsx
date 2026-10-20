@@ -14,6 +14,8 @@ import { PhotoLibraryDevelopPresentationCurrentV1, preparePhotoDevelopPresentati
 import type { PhotoDevelopPreviewPropsV2 } from './PhotoDevelopPreviewV2.tsx';
 import type { PhotoDevelopPreviewPropsCurrentV1 } from './PhotoDevelopPreviewCurrentV1.tsx';
 
+import { photoDevelopInputQualityCopy } from '../../../i18n/lightscaper-develop-input-quality-copy.ts';
+
 const MODES = ['compare', 'before', 'after', 'split'] as const;
 type PreviewMode = typeof MODES[number];
 export default function PhotoDevelopPreviewKernelV1({ profile, props }: Readonly<{ props: PhotoDevelopPreviewPropsV2 | PhotoDevelopPreviewPropsCurrentV1; profile: 'legacy2' | 'current3' }>) {
@@ -21,6 +23,7 @@ export default function PhotoDevelopPreviewKernelV1({ profile, props }: Readonly
 	const { readPreview, withOriginalFrame, loadProxy, beforePresent, registerRetirement } = props;
 	const withDerivedFrame = profile === 'current3' ? (props as PhotoDevelopPreviewPropsCurrentV1).withDerivedFrame : undefined;
 	const softProof = profile === 'current3' ? (props as PhotoDevelopPreviewPropsCurrentV1).softProof : undefined;
+	const inputQuality = profile === 'current3' ? (props as PhotoDevelopPreviewPropsCurrentV1).inputQuality : undefined;
 	const previewRenderer = profile === 'current3' ? (props as PhotoDevelopPreviewPropsCurrentV1).previewRenderer : undefined;
 	const sourceRef = useRef({ readPreview, withOriginalFrame, withDerivedFrame, loadProxy, beforePresent, receiver: props });
 	if (sourceRef.current.readPreview !== readPreview || sourceRef.current.withOriginalFrame !== withOriginalFrame
@@ -38,7 +41,7 @@ export default function PhotoDevelopPreviewKernelV1({ profile, props }: Readonly
 	if (registrationRef.current.method !== registerRetirement) registrationRef.current = { method: registerRetirement, receiver: props };
 	const registration = registrationRef.current;
 	const interaction = useMemo(() => ({ owner, photoId: props.photoId, develop: props.develop, revision: props.revision, resolution: props.resolution,
-		maskOverlay: props.maskOverlay, maskOverlayMode: props.maskOverlayMode, suspended: props.suspended, softProof, previewRenderer }), [owner, props.photoId, props.develop, props.revision, props.resolution, props.maskOverlay, props.maskOverlayMode, props.suspended, softProof, previewRenderer]);
+		maskOverlay: props.maskOverlay, maskOverlayMode: props.maskOverlayMode, suspended: props.suspended, softProof, previewRenderer, inputQuality }), [owner, props.photoId, props.develop, props.revision, props.resolution, props.maskOverlay, props.maskOverlayMode, props.suspended, softProof, previewRenderer, inputQuality]);
 	const activeInteraction = useRef(interaction); activeInteraction.current = interaction;
 	const before = useRef<HTMLCanvasElement>(null), after = useRef<HTMLCanvasElement>(null), overlay = useRef<HTMLCanvasElement>(null);
 	const [view, setView] = useState(() => ({ owner, photoId: props.photoId, mode: 'compare' as PreviewMode, divider: 50 }));
@@ -79,6 +82,7 @@ export default function PhotoDevelopPreviewKernelV1({ profile, props }: Readonly
 			const prepared = (profile === 'legacy2' ? preparePhotoDevelopPresentationViewV2 : preparePhotoDevelopPresentationViewCurrentV1)({ photoId: props.photoId, develop: props.develop, revision: props.revision,
 				resolution: props.resolution, before: before.current, after: after.current,
 				...(softProof ? { softProof } : {}),
+				...(inputQuality ? { inputQuality } : {}),
 				...(previewRenderer ? { previewRenderer } : {}),
 				...(props.maskOverlay ? { maskOverlay: props.maskOverlay, maskOverlayMode: props.maskOverlayMode, overlay: overlay.current } : {}) });
 			void joinPhotoLibraryRetirementV1([retirement.current, owner.pause()]).then(() => {
@@ -88,17 +92,18 @@ export default function PhotoDevelopPreviewKernelV1({ profile, props }: Readonly
 			setPublication({ interaction, snapshot: Object.freeze({ status: 'failed', before: null, after: null, extent: null, error: 'The develop preview failed.' }) });
 		}
 		return () => { current = false; void owner.pause().catch(() => undefined); };
-	}, [owner, props.photoId, props.develop, props.revision, props.resolution, props.maskOverlay, props.maskOverlayMode, props.suspended, softProof, previewRenderer, profile, interaction]);
+	}, [owner, props.photoId, props.develop, props.revision, props.resolution, props.maskOverlay, props.maskOverlayMode, props.suspended, softProof, previewRenderer, inputQuality, profile, interaction]);
 	const { messages } = props, { mode, divider } = selected;
 	const current = () => lifetime.current && activeInteraction.current === interaction && rendered.current === selected && !props.suspended;
 	const aspect = mode === 'split' && snapshot.extent ? `${snapshot.extent.after.width} / ${snapshot.extent.after.height}` : undefined;
-	return <section aria-label={props.resolution === 'full' ? messages.fullPreview : messages.preview} data-photo-develop-preview data-state={snapshot.status}>
+	return <section aria-label={props.resolution === 'full' ? messages.fullPreview : messages.preview} data-photo-develop-preview data-state={snapshot.status} data-input-quality={inputQuality ?? 'original'}>
 		<label>{messages.previewMode}<select aria-label={messages.previewMode} value={mode} onChange={event => {
 			const next = event.currentTarget.value;
 			if (current() && MODES.some(value => value === next)) setView({ ...selected, mode: next as PreviewMode });
 		}}>
 			{MODES.map(value => <option key={value} value={value}>{messages[value]}</option>)}
 		</select></label>
+		{inputQuality === 'preview-derivative' && <p role="status" data-photo-develop-input-quality data-photo-develop-input-quality-notice>{photoDevelopInputQualityCopy(props.locale).notice}</p>}
 		{snapshot.status === 'pending' && <p role="status">{messages.working}</p>}
 		{snapshot.status === 'missing' && <p role="status">{messages.missing}</p>}
 		{snapshot.status === 'failed' && <p role="alert">{props.resolution === 'full' ? messages.fullResolutionFailed : messages.previewFailed}</p>}

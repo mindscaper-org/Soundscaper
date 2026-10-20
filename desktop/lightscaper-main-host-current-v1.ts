@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomUUID } from 'node:crypto';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, type DownloadItem } from 'electron/main';
 import { APP_ID, APP_NAME, APP_ORIGIN, APP_SCHEME, DECLARED_APPLICATION_VERSION, PRODUCT_ID, SESSION_PARTITION, SUPPORTED_LOCALES } from './constants.js';
@@ -20,11 +20,13 @@ import { registerSelectedReadCapability } from './read-selection-service.js';
 import { createDesktopSaveSizeWarningConfirmation } from './save-size-warning-dialog.ts';
 import { createLightscaperArchiveOpenCoordinatorCurrentV1 } from './lightscaper-archive-open-coordinator-current-v1.ts';
 import { extractLightscaperArchiveOpenPathsCurrentV1 } from './lightscaper-archive-open-paths-current-v1.ts';
+import { LightscaperNativePhotoHostServicesCurrentV1 as NativeServices } from './lightscaper-native-photo-host-services-current-v1.ts';
 import { installLightscaperMainPhotoSessionCurrentV1 } from './lightscaper-main-photo-session-current-v1.ts';
 
 /** Optional statically inventoried main-process smoke dispatch. These ports
  * never cross the context bridge; production composition passes no hooks. */
 export interface LightscaperMainHooksCurrentV1 {
+	readonly chooseLinkedRoot?: (signal?:AbortSignal)=>Promise<import('./lightscaper-native-photo-linked-grants-records-current-v1.ts').LinkedGrantSelectionCurrentV1|null>;
 	readonly onWindowCreated?: (window: BrowserWindow) => void;
 	readonly beforeArchiveReady?: (window: BrowserWindow) => Promise<void>;
 	readonly onRendererReady?: (window: BrowserWindow) => void | Promise<void>;
@@ -75,8 +77,17 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 			assertEditorDocumentUrl(url);
 			if (!isLightscaperShellDocumentCurrentV1(url)) throw new Error('Untrusted Lightscaper document.');
 		} });
+	const nativeServices = new NativeServices({ applicationRoot: app.isPackaged ? app.getAppPath() : resolve(buildRoot, 'app'), resourcesPath: app.isPackaged ? process.resourcesPath : buildRoot, packaged: app.isPackaged,
+		async chooseLinkedRoot(signal) {
+			signal?.throwIfAborted(); const owner = currentWindow(); if (!owner) return null;
+			if(hooks.chooseLinkedRoot){const result=await hooks.chooseLinkedRoot(signal);signal?.throwIfAborted();if(currentWindow()!==owner)return null;return result;}
+			const german = app.getLocale().toLowerCase().startsWith('de');
+			const result = await dialog.showOpenDialog(owner, { title: german ? 'Fotoordner auswählen' : 'Choose photo folder', properties: ['openDirectory'] });
+			signal?.throwIfAborted(); if (result.canceled || currentWindow() !== owner || result.filePaths.length !== 1) return null;
+			const path = result.filePaths[0]!; return Object.freeze({ path: Object.freeze({ encoding: process.platform === 'win32' ? 'windows-utf16le' as const : 'posix-bytes' as const, bytes: new Uint8Array(Buffer.from(path, process.platform === 'win32' ? 'utf16le' : 'utf8')) }), displayName: basename(path) || 'Photos' });
+		} });
 	const photoLibrary = installLightscaperMainPhotoSessionCurrentV1({ appDataPath: storage.projectLibraryAppData,
-		handle: trusted.handle, reportError: fail });
+		handle: trusted.handle, services: () => nativeServices.services(), reportError: fail });
 	function fail(error: unknown): void {
 		console.error('Lightscaper desktop failed:', error instanceof Error ? error.message : 'Unknown failure');
 		app.exit(1);
@@ -86,7 +97,7 @@ export function startLightscaperDesktopMainCurrentV1(hooks: LightscaperMainHooks
 		if (resourcesRetired) return;
 		event.preventDefault();
 		resourceRetirement ??= (async () => {
-			await photoLibrary.close(); await archiveOpen.close(); await readCapabilities.dispose(); desktopSession?.flushStorageData();
+			await photoLibrary.close(); await nativeServices.close(); await archiveOpen.close(); await readCapabilities.dispose(); desktopSession?.flushStorageData();
 			// will-quit was prevented while these barriers joined. Complete that
 			// shutdown directly; a nested quit can stay inside Electron's old quit.
 			resourcesRetired = true; app.exit(0);

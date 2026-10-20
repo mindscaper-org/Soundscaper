@@ -3,6 +3,13 @@ import { ChildProcess, type ChildProcessWithoutNullStreams } from 'node:child_pr
 import { randomBytes } from 'node:crypto';
 import { NativeReader, NativeWriter, nativeRetirementIsUnproved, readNativeError } from './lightscaper-native-photo-granted-filesystem-codec-current-v1.ts';
 const APPLY = Reflect.apply;
+type Missing = 'root-missing' | 'file-missing';
+const MISSING = new WeakMap<object, Missing>();
+/** Only actual pending native ROOT_OPEN/FILE_OPEN replies can mint a witness.
+ * Public Error classes, decoded caller frames and diagnostics grant nothing. */
+export function readNativeFilesystemMissingCurrentV1(value: unknown): Missing | null {
+	return typeof value === 'object' && value !== null ? MISSING.get(value) ?? null : null;
+}
 type Pending = Readonly<{ opcode: number; maximum: number; resolve(value: Uint8Array): void; reject(reason: unknown): void }>;
 export function nativeFilesystemTargetCurrentV1(): number {
 	if (process.platform === 'linux' && process.arch === 'x64') return 1;
@@ -54,7 +61,14 @@ export class NativeFilesystemProcessCurrentV1 {
 				if (this.#input.length < 16 + length) break;
 				const body = new Uint8Array(this.#input.subarray(16, 16 + length)); this.#input = this.#input.subarray(16 + length);
 				if (opcode === 255) {
-					const error = readNativeError(body); if (nativeRetirementIsUnproved(error)) this.#unproved(error); pending.reject(error);
+					const error = readNativeError(body);
+					if (error.phase !== pending.opcode) throw new Error('Native filesystem error belongs to another operation.');
+					if (nativeRetirementIsUnproved(error)) this.#unproved(error);
+					else if (error.code === 7 && (error.nativeCode === 2 || (process.platform === 'win32' && error.nativeCode === 3))) {
+						if (pending.opcode === 2) MISSING.set(error, 'root-missing');
+						else if (pending.opcode === 4) MISSING.set(error, 'file-missing');
+					}
+					pending.reject(error);
 				} else pending.resolve(body); this.#pending.delete(id);
 			}
 		} catch (error) { this.#fail(error); this.#kill(); }

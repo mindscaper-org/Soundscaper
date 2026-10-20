@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_JOIN_CURRENT_V1 as IDENTITY_JOIN, LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_COLUMNS_CURRENT_V1 as IDENTITY_COLUMNS } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import { createHash } from 'node:crypto';
 import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { catalogOriginalKey, catalogOriginalScope, normalizeCatalogOriginalRoot,
@@ -25,6 +26,14 @@ const ROOT_COLUMNS = `CASE WHEN typeof(root_key)='blob' AND length(root_key)<=40
  * Every alias is authenticated in bounded pages; no file work holds this tx. */
 export function readLightscaperNativePhotoOriginalInspectionCustodyCurrentV1(database: DatabaseSync,
 	binding: Readonly<CatalogOriginalRepairBindingV1>, signal?: AbortSignal): Readonly<LightscaperNativePhotoOriginalInspectionCustodyCurrentV1> {
+	return readCustody(database,binding,'managed',signal);
+}
+/** Fixed linked entry point; it does not widen managed inspection/repair. */
+export function readLightscaperNativePhotoLinkedCustodyCurrentV1(database: DatabaseSync,
+	binding: Readonly<CatalogOriginalRepairBindingV1>, signal?: AbortSignal): Readonly<LightscaperNativePhotoOriginalInspectionCustodyCurrentV1> {
+	return readCustody(database,binding,'linked',signal);
+}
+function readCustody(database: DatabaseSync,binding: Readonly<CatalogOriginalRepairBindingV1>,kind: 'managed'|'linked',signal?:AbortSignal): Readonly<LightscaperNativePhotoOriginalInspectionCustodyCurrentV1> {
 	if (database.isTransaction) throw new Error('Native Original inspection requires no unsettled transaction.');
 	check(signal); database.exec('BEGIN');
 	try {
@@ -36,7 +45,7 @@ export function readLightscaperNativePhotoOriginalInspectionCustodyCurrentV1(dat
 			|| root.assetId !== binding.assetId || root.sourceId !== binding.sourceId || root.sha256 !== binding.sha256 || root.size !== binding.size) {
 			throw new Error('Selected native Original custody differs from its inspection binding.');
 		}
-		const asset = readAsset(database, binding, root);
+		const asset = readAsset(database, binding, root, kind);
 		let after: Uint8Array | undefined, count = 0;
 		const hash = createHash('sha256');
 		for (;;) {
@@ -65,17 +74,16 @@ export function readLightscaperNativePhotoOriginalInspectionCustodyCurrentV1(dat
 	}
 }
 
-function readAsset(database: DatabaseSync, binding: Readonly<CatalogOriginalRepairBindingV1>, root: Readonly<CatalogOriginalRootV1>): Readonly<Asset> | null {
+function readAsset(database: DatabaseSync, binding: Readonly<CatalogOriginalRepairBindingV1>, root: Readonly<CatalogOriginalRootV1>, kind: 'managed'|'linked'): Readonly<Asset> | null {
 	const row = database.prepare(`SELECT a.source_id,
 		CASE WHEN typeof(a.sha256)='text' AND length(CAST(a.sha256 AS BLOB))=64 THEN a.sha256 END AS sha256,a.size,
 		CASE WHEN typeof(a.media_content_token)='text' AND length(CAST(a.media_content_token AS BLOB))<=142 THEN a.media_content_token END AS token,a.root_count,
-		b.storage_key AS binding_key,CASE WHEN typeof(b.content_sha256)='text' AND length(CAST(b.content_sha256 AS BLOB))=64 THEN b.content_sha256 END AS binding_sha,b.byte_length AS binding_size
-		FROM native_photo_media_assets a LEFT JOIN native_photo_original_bindings b ON b.storage_key=a.source_id WHERE a.source_id=?`).get(binding.assetId);
+		${IDENTITY_COLUMNS}
+		FROM native_photo_media_assets a ${IDENTITY_JOIN} WHERE a.source_id=?`).get(binding.assetId);
 	if (!row) return null;
 	if (row.source_id !== binding.assetId || !isMediaContentSha256(row.sha256) || row.sha256 !== binding.sha256 || row.size !== binding.size
 		|| !isMediaContentToken(row.token) || row.token !== root.mediaContentToken || typeof row.root_count !== 'number'
-		|| !Number.isSafeInteger(row.root_count) || row.root_count < 1 || row.binding_key !== binding.assetId
-		|| row.binding_sha !== binding.sha256 || row.binding_size !== binding.size) throw new Error('Native Original media generation or physical binding is corrupt.');
+		|| !Number.isSafeInteger(row.root_count) || row.root_count < 1 || row.identity_kind !== kind) throw new Error('Native Original media generation or physical binding is corrupt.');
 	return Object.freeze({ key: binding.assetId, sha256: row.sha256, size: binding.size, token: row.token, count: row.root_count });
 }
 function readRoot(row: Row): Readonly<CatalogOriginalRootV1> {

@@ -1,0 +1,91 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import test from 'node:test';
+import { LIGHTSCAPER_DESKTOP_NATIVE_CI_TARGETS_CURRENT_V1 as targets } from '../scripts/lib/lightscaper-desktop-native-ci-plan-current-v1.ts';
+
+const root = new URL('../', import.meta.url), require = createRequire(import.meta.url);
+const { load } = require('js-yaml') as { load: (source: string) => unknown };
+const workflowPath = '.github/workflows/lightscaper-desktop-native-internal.yml';
+function record(value: unknown): Record<string, unknown> {
+	assert.ok(value && typeof value === 'object' && !Array.isArray(value)); return value as Record<string, unknown>;
+}
+async function text(path: string): Promise<string> { return readFile(new URL(path, root), 'utf8'); }
+async function workflow(): Promise<Record<string, unknown>> { return record(load(await text(workflowPath))); }
+function steps(value: unknown): Record<string, unknown>[] { assert.ok(Array.isArray(value)); return value.map(record); }
+
+void test('internal Photo qualification consumes its own exact five-target producer before packaging', async () => {
+	const value = await workflow(), on = record(value.on), jobs = record(value.jobs);
+	assert.deepEqual(Object.keys(on).sort(), ['workflow_call', 'workflow_dispatch']);
+	assert.deepEqual(value.permissions, { contents: 'read' });
+	assert.equal(record(jobs['photo-native']).uses, './.github/workflows/lightscaper-photo-native-build.yml');
+	const job = record(jobs.qualify), matrix = record(record(job.strategy).matrix);
+	assert.equal(job.needs, 'photo-native'); assert.equal(record(job.strategy)['fail-fast'], false);
+	assert.deepEqual(matrix.include, targets);
+	assert.equal(job['runs-on'], '${{ matrix.runner }}');
+	assert.ok(typeof job['timeout-minutes'] === 'number' && job['timeout-minutes'] <= 60);
+	const all = steps(job.steps), download = all.find(step => String(step.uses).startsWith('actions/download-artifact@'));
+	assert.ok(download); const withValue = record(download.with);
+	assert.equal(withValue.name, 'lightscaper-photo-native-build-result-${{ matrix.target }}');
+	assert.equal(withValue.path, '${{ runner.temp }}/lightscaper-photo-result');
+	const checkout = all.find(step => String(step.uses).startsWith('actions/checkout@'));
+	assert.equal(record(checkout?.with).ref, '${{ github.sha }}');
+	const setup = all.find(step => String(step.uses).startsWith('actions/setup-node@'));
+	assert.equal(record(setup?.with).architecture, '${{ matrix.node_arch }}');
+	assert.equal(all.findIndex(step => step.uses === './.github/actions/setup-native-tooling') < all.findIndex(step => step.run === 'npm ci'), true);
+	assert.ok(all.some(step => step.run === 'npm install --global npm@12.0.1'));
+	for (const step of all) if (typeof step.uses === 'string' && step.uses.startsWith('actions/')) assert.match(step.uses, /@[a-f0-9]{40}$/u);
+});
+
+void test('internal workflow executes the complete public-package runner under native target hosts without release or sandbox shortcuts', async () => {
+	const source = await text(workflowPath), job = record(record((await workflow()).jobs).qualify), all = steps(job.steps);
+	const commands = all.filter(step => String(step.run).includes('scripts/lightscaper-desktop-native-qualification-current-v1.ts'));
+	assert.equal(commands.length, 2, 'Linux uses Xvfb, macOS and Windows use their actual host display');
+	for (const step of commands) {
+		assert.match(String(step.run), /--target "\$LIGHTSCAPER_CI_TARGET"/u);
+		assert.match(String(step.run), /--source-revision "\$GITHUB_SHA"/u);
+		assert.match(String(step.run), /--native-result "\$RUNNER_TEMP\/lightscaper-photo-result"/u);
+		assert.match(String(step.run), /--npm-cli "\$LIGHTSCAPER_CI_NPM_CLI"/u);
+	}
+	assert.ok(commands.some(step => String(step.run).includes('xvfb-run --auto-servernum')));
+	assert.match(source, /LIGHTSCAPER_WINDOWS_JOB_HELPER/u);
+	assert.match(source, /LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256/u);
+	assert.doesNotMatch(source, /--allow-no-sandbox|--no-sandbox|continue-on-error|contents: write|gh release|desktop:publish:assistance/u);
+	const upload = all.find(step => String(step.uses).startsWith('actions/upload-artifact@'));
+	assert.ok(upload); assert.equal(upload.if, 'always()');
+	assert.equal(record(upload.with).path, '${{ runner.temp }}/lightscaper-photo-evidence');
+	assert.equal(record(upload.with)['if-no-files-found'], 'error');
+});
+
+void test('existing preview and nightly flows invoke a separate Photo owner without changing deferred release scope', async () => {
+	const preview = record(load(await text('.github/workflows/desktop-preview.yml'))), nightly = record(load(await text('.github/workflows/desktop-nightly-tests.yml')));
+	for (const value of [preview, nightly]) {
+		const call = record(record(value.jobs)['lightscaper-internal-desktop']);
+		assert.equal(call.uses, './' + workflowPath);
+		assert.ok(String(call.if).includes("github.ref_type != 'tag'"));
+	}
+	const metadata = record(JSON.parse(await text('config/product-release-lines.json')) as unknown);
+	assert.equal(record(record(metadata.products).lightscaper).releaseChannel, 'deferred');
+	const previewSource = await text('.github/workflows/desktop-preview.yml');
+	assert.doesNotMatch(previewSource, /'lightscaper-v\*/u);
+	assert.match(previewSource, /\['soundscaper', 'framescaper'\]/u);
+	const nightlySource = await text('scripts/desktop-nightly-tests-products.mjs');
+	assert.doesNotMatch(nightlySource, /['"]lightscaper['"]/u);
+});
+
+void test('qualification runner authenticates final package bytes and uses actual joined process owners for both optional-service states', async () => {
+	const source = await text('scripts/lightscaper-desktop-native-qualification-current-v1.ts');
+	assert.match(source, /verifyDesktopLightscaperPackageReceiptCurrentV1/u);
+	assert.match(source, /verifyLightscaperPhotoNativeBuildResultCurrentV1/u);
+	assert.match(source, /launchLightscaperManagedSmokeProcessCurrentV1/u);
+	assert.match(source, /launchLightscaperWindowsJobProcessCurrentV1/u);
+	assert.match(source, /runLightscaperDesktopManagedSmokeCurrentV1/u);
+	assert.match(source, /'run', 'desktop:dir'/u);
+	assert.match(source, /LIGHTSCAPER_PHOTO_NATIVE_BUILD_RESULT/u);
+	assert.match(source, /nativePhotoRuntime/u);
+	assert.doesNotMatch(source, /--allow-no-sandbox|--no-sandbox|openAsBlob|execFileSync|spawnSync/u);
+	assert.match(source, /readersRetired/u);
+	assert.match(source, /workRetained/u);
+});

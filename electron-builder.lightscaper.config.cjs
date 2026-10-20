@@ -26,7 +26,7 @@ module.exports = {
 	npmRebuild: false,
 	beforePack: './scripts/desktop-lightscaper-before-pack.mjs',
 	afterPack: './scripts/desktop-lightscaper-after-pack.mjs',
-	afterSign: './scripts/desktop-after-sign.mjs',
+	afterSign: './scripts/desktop-lightscaper-after-sign.mjs',
 	afterAllArtifactBuild: './scripts/desktop-verify-release-artifacts.mjs',
 	directories: {
 		app: stagePath('app'),
@@ -47,6 +47,9 @@ module.exports = {
 	],
 	win: {
 		...signing.win,
+		// Preserve only the final ASAR-authenticated Photo helper bytes. App,
+		// installer, and all other executables retain builder's default signing.
+		signExts: ['win-x64', 'win-arm64'].flatMap(target => ['lightscaper_photo_granted_filesystem_current_v1.exe', 'lightscaper_photo_raw_current_v1.exe', 'milestone5-native-isolation-launcher.exe'].map(name => `!\\runtime\\photo-native\\current-v1\\${target}\\bin\\${name}`)),
 		icon: 'icon.png',
 		target: ['nsis', 'zip'],
 	},
@@ -62,6 +65,8 @@ module.exports = {
 	},
 	mac: {
 		notarize: signing.mac.notarize,
+		// Already execution-sealed and hashed by the dedicated Photo producer.
+		signIgnore: '/Contents/Resources/runtime/photo-native/current-v1/',
 		icon: 'icon.png',
 		identity: macSigningIdentity,
 		// Ad-hoc signatures have no Team ID; hardened library validation would

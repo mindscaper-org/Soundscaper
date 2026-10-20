@@ -9,6 +9,7 @@ import type { PixelPreviewPresentationReaderV1 } from './pixel-preview-presentat
 import type { PhotoDevelopPresentationSnapshotV2, PhotoDevelopPresentationViewV2 } from './photo-library-develop-presentation-v2.ts';
 import type { paintPixelFrameCanvasV1, clearPixelFrameCanvasV1 } from '../../imaging/pixel-frame-canvas-presenter-v1.ts';
 import type { ImageOutputSoftProofCurrentV1 } from '../../imaging/image-output-soft-proof-current-v1.ts';
+import type { PhotoDevelopInputQualityCurrentV1 } from '../../photo-develop-input-quality-current-v1.ts';
 import type { PhotoDevelopPreviewRendererCurrentV1 } from '../../photo-library-develop-gpu-preview-port-current-v1.ts';
 
 export type PhotoDevelopPresentationSnapshotCurrentV1 = PhotoDevelopPresentationSnapshotV2;
@@ -17,6 +18,7 @@ export interface PhotoDevelopPresentationViewCurrentV1 extends Omit<PhotoDevelop
 	readonly revision: number;
 	readonly softProof?: Readonly<ImageOutputSoftProofCurrentV1>;
 	readonly previewRenderer?: PhotoDevelopPreviewRendererCurrentV1;
+	readonly inputQuality?: PhotoDevelopInputQualityCurrentV1;
 }
 export interface PhotoDevelopPresentationPortsCurrentV1 {
 	readonly withOriginalFrame?: PhotoLibraryDevelopOriginalPortV1['withFrame'];
@@ -30,7 +32,8 @@ export interface PhotoDevelopPresentationPortsCurrentV1 {
 export function preparePhotoDevelopPresentationViewCurrentV1(value: unknown): Readonly<PhotoDevelopPresentationViewCurrentV1> {
 	return preparePhotoDevelopPresentationViewForProfileV1('current4', value) as Readonly<PhotoDevelopPresentationViewCurrentV1>;
 }
-/** Both display resolutions authenticate and render the full oriented Original. */
+/** Original is the default input. Explicit preview derivatives are bounded
+ * presentation inputs and can never satisfy full-resolution requests. */
 export class PhotoLibraryDevelopPresentationCurrentV1 extends PhotoLibraryDevelopPresentationKernelV1 {
 	constructor(value: PhotoDevelopPresentationPortsCurrentV1) { super('current4', value); }
 	override setView(value: PhotoDevelopPresentationViewCurrentV1): void { super.setView(value); }

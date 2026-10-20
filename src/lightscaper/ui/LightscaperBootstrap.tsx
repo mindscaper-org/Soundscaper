@@ -4,6 +4,9 @@ import LightscaperAppCurrentV1, { type LightscaperAppPropsCurrentV1 } from '../.
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { LightscaperPhotoBackendSwitchCurrentV1 } from '../../common/editor/controller/composition/lightscaper-photo-backend-switch-current-v1.ts';
 import { LightscaperPhotoBackendContextCurrentV1 } from '../../common/editor/ui/lightscaper/photo-library-backend-context-current-v1.ts';
+import { PhotoLibraryLinkedCommandsCurrentV1 } from '../../common/editor/controller/composition/photo-library-linked-commands-current-v1.ts';
+import { PhotoLinkedCommandsContextCurrentV1 } from '../../common/editor/ui/lightscaper/photo-linked-commands-context-current-v1.ts';
+import PhotoLinkedLibraryMenuCurrentV1 from '../../common/editor/ui/lightscaper/PhotoLinkedLibraryMenuCurrentV1.tsx';
 import PhotoLibraryBackendMenuCurrentV1 from '../../common/editor/ui/lightscaper/PhotoLibraryBackendMenuCurrentV1.tsx';
 import { captureDesktopPhotoBackendPortsCurrentV1, createDesktopPhotoBackendFactoriesCurrentV1 } from '../desktop-photo-library-backend-current-v1.ts';
 import { bundledSiteCopyForLocale } from '../../common/i18n/site-copy.js';
@@ -25,6 +28,15 @@ export default function LightscaperBootstrap(props: LightscaperAppPropsCurrentV1
 	const [backend] = useState(() => new LightscaperPhotoBackendSwitchCurrentV1({ nativeAvailable: !customized && !!ports }));
 	const selection = useSyncExternalStore(backend.subscribe, backend.snapshot, backend.snapshot);
 	const native = useMemo(() => ports ? createDesktopPhotoBackendFactoriesCurrentV1(bundledSiteCopyForLocale(props.locale).workspacePhoto, ports) : undefined, [ports, props.locale]);
+	const linkedCommands=useMemo(()=>new PhotoLibraryLinkedCommandsCurrentV1({
+		resolveSession:async session=>(await import('../desktop-photo-linked-library-current-v1.ts')).getDesktopPhotoLinkedLibraryCurrentV1(session),
+		async revoke(grantId){if(!native||backend.snapshot().backend!=='native')throw new Error('Linked management requires the selected native backend.');
+			const transitioned=await backend.retireAndRun(async()=>{const session=await native.createSession();let failed=false,primary:unknown;
+				try{const runtime=(await import('../desktop-photo-linked-library-current-v1.ts')).getDesktopPhotoLinkedLibraryCurrentV1(session);if(!runtime)throw new Error('Native linked management is unavailable.');await runtime.revoke(grantId);}
+				catch(error){failed=true;primary=error;}try{await session.close();}catch(cleanup){throw new AggregateError([...(failed?[primary]:[]),cleanup],'Linked revocation Session did not retire.',{cause:cleanup});}if(failed)throw primary;
+			});if(!transitioned)throw new Error('Close photo dialogs and finish pending work before revoking a folder.');
+		},
+	}),[native,backend]);
 	const createSession = useCallback(async () => {
 		const runtime = await import('../photo-library-session-runtime-current-v1.ts');
 		return runtime.createPhotoLibrarySessionCurrentV1({ name: bundledSiteCopyForLocale(props.locale).workspacePhoto,
@@ -48,13 +60,14 @@ export default function LightscaperBootstrap(props: LightscaperAppPropsCurrentV1
 			...(maskSource === undefined ? {} : { maskSource }) });
 	}, []);
 	const nativeSelected = !customized && selection.backend === 'native';
-	return <LightscaperPhotoBackendContextCurrentV1.Provider value={customized ? null : backend}>
-		<LightscaperAppCurrentV1 key={selection.epoch} locale={props.locale} createSession={suppliedSession ?? (nativeSelected ? native?.createSession : createSession)}
+	const selectedSession = suppliedSession ?? (nativeSelected ? native?.createSession ?? createSession : createSession);
+	return <PhotoLinkedCommandsContextCurrentV1.Provider value={customized ? null : linkedCommands}><LightscaperPhotoBackendContextCurrentV1.Provider value={customized ? null : backend}>
+		<LightscaperAppCurrentV1 key={selection.epoch} locale={props.locale} createSession={selectedSession}
 		loadBackupSaveRuntime={suppliedBackup ?? loadBackupSaveRuntime}
 		loadMetadataQueryRuntime={suppliedQuery ?? loadMetadataQueryRuntime}
 		loadSavedFilterRuntime={suppliedSaved ?? loadSavedFilterRuntime}
 		loadRestoreRuntime={suppliedRestore ?? (nativeSelected ? native?.loadRestoreRuntime : loadRestoreRuntime)}
 		loadDevelopProxyRuntime={suppliedRenderer ?? loadDevelopProxyRuntime} />
-		<PhotoLibraryBackendMenuCurrentV1 locale={props.locale} />
-	</LightscaperPhotoBackendContextCurrentV1.Provider>;
+		<PhotoLibraryBackendMenuCurrentV1 locale={props.locale} /><PhotoLinkedLibraryMenuCurrentV1 locale={props.locale} />
+	</LightscaperPhotoBackendContextCurrentV1.Provider></PhotoLinkedCommandsContextCurrentV1.Provider>;
 }

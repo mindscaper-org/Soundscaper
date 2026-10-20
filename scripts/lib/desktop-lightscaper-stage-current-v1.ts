@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { join } from 'node:path';
+import { readStagedLightscaperPhotoNativeCurrentV1 as readNative, lightscaperPhotoRuntimeInventoryCurrentV1 as nativeInventory, LIGHTSCAPER_PHOTO_NATIVE_MANIFEST_CURRENT_V1 as nativeManifest } from './desktop-lightscaper-photo-native-current-v1.ts';
+import { readLightscaperPhotoNativeBuildResultCurrentV1 as readNativeResult, type PhotoNativeBuildCurrentV1 } from '../../src/lightscaper/desktop-photo-native-artifacts-current-v1.ts';
 import { DESKTOP_CODEC_POLICY, assertDesktopCodecPolicy, auditDesktopFfmpegAbsence } from './desktop-codec-policy.mjs';
 import { readProductReleaseLines, resolveProductDesktopMetadata } from './product-release-lines.mjs';
 import { verifyDesktopLightscaperRawRuntimeCurrentV1, type DesktopLightscaperRawReceiptCurrentV1 } from './desktop-lightscaper-raw-runtime-current-v1.ts';
@@ -26,6 +28,7 @@ export interface DesktopLightscaperStageReceiptCurrentV1 {
 	readonly applicationVersion: string; readonly applicationVersionChannel: 'candidate'; readonly releaseChannel: 'deferred';
 	readonly sourceRevision: string; readonly target: Readonly<LightscaperDesktopTargetCurrentV1>;
 	readonly productMetadata: Readonly<LightscaperDesktopMetadataCurrentV1>;
+	readonly nativePhotoRuntime?: PhotoNativeBuildCurrentV1;
 	readonly desktopCodecPolicy: typeof DESKTOP_CODEC_POLICY; readonly rawRuntime: DesktopLightscaperRawReceiptCurrentV1;
 	readonly files: Readonly<{ app: readonly LightscaperPackageFileCurrentV1[]; renderer: readonly LightscaperPackageFileCurrentV1[];
 		licenses: readonly LightscaperPackageFileCurrentV1[] }>;
@@ -41,9 +44,10 @@ export async function captureDesktopLightscaperStageCurrentV1(options: Readonly<
 	const metadata = await metadataFor(repositoryRoot, options.productMetadata), target = normalizeLightscaperDesktopTargetCurrentV1(options.target);
 	if (!/^[a-f0-9]{40}$/u.test(options.sourceRevision)) throw new TypeError('Lightscaper source revision must be a full commit ID.');
 	const rawRuntime = await verifyDesktopLightscaperRawRuntimeCurrentV1({ runtimeRoot: join(root, 'runtime') });
-	equal(await capture(join(root, 'runtime')), rawRuntime.files, 'RAW runtime inventory');
+	const nativePhotoRuntime = await readNative({ repositoryRoot, appRoot: join(root, 'app'), runtimeRoot: join(root, 'runtime'), target: `${target.platform}-${target.arch}`, sourceRevision: options.sourceRevision });
+	equal(await capture(join(root, 'runtime')), [...rawRuntime.files, ...nativeInventory(nativePhotoRuntime)].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0), 'RAW/native runtime inventory');
 	const app = await capture(join(root, 'app')), renderer = await capture(join(root, 'renderer')), licenses = await capture(join(root, 'licenses'));
-	equal(app.map(file => file.path), APP_FILES, 'application member inventory');
+	equal(app.map(file => file.path), [...APP_FILES, ...(nativePhotoRuntime ? [nativeManifest] : [])].sort(), 'application member inventory');
 	await verifyAppIdentity(root, metadata);
 	if (!renderer.some(file => file.path === 'index.html')) throw new Error('Lightscaper renderer has no entry document.');
 	await verifyLicenses(repositoryRoot, licenses);
@@ -53,7 +57,7 @@ export async function captureDesktopLightscaperStageCurrentV1(options: Readonly<
 	return Object.freeze({ schemaVersion: 1, kind: 'lightscaper-desktop-managed-web-core-v1', productId: 'lightscaper',
 		applicationVersion: metadata.applicationVersion, applicationVersionChannel: 'candidate', releaseChannel: 'deferred',
 		sourceRevision: options.sourceRevision, target, productMetadata: metadata, desktopCodecPolicy: DESKTOP_CODEC_POLICY,
-		rawRuntime, files: Object.freeze({ app, renderer, licenses }) });
+		rawRuntime, ...(nativePhotoRuntime ? { nativePhotoRuntime } : {}), files: Object.freeze({ app, renderer, licenses }) });
 }
 
 export async function verifyDesktopLightscaperStageCurrentV1({ repositoryRoot, buildRoot, target }: Readonly<{
@@ -78,8 +82,11 @@ export function normalizeLightscaperDesktopTargetCurrentV1(value: unknown): Read
 	return Object.freeze({ platform, arch });
 }
 export function normalizeLightscaperStageReceiptCurrentV1(value: unknown): DesktopLightscaperStageReceiptCurrentV1 {
-	const row = record(value, FIELDS), scopes = record(row.files, ['app', 'renderer', 'licenses']);
+	const hasNative = value !== null && typeof value === 'object' && Object.hasOwn(value, 'nativePhotoRuntime');
+	const row = record(value, [...FIELDS, ...(hasNative ? ['nativePhotoRuntime'] : [])]), scopes = record(row.files, ['app', 'renderer', 'licenses']);
 	const metadata = normalizeMetadata(row.productMetadata);
+	const target = normalizeLightscaperDesktopTargetCurrentV1(row.target), nativePhotoRuntime = hasNative ? readNativeResult(row.nativePhotoRuntime) : undefined;
+	if (nativePhotoRuntime && (nativePhotoRuntime.sourceRevision !== row.sourceRevision || nativePhotoRuntime.target !== `${target.platform}-${target.arch}`)) throw new TypeError('Lightscaper native receipt differs from the enclosing stage target/source.');
 	if (row.schemaVersion !== 1 || row.kind !== 'lightscaper-desktop-managed-web-core-v1' || row.productId !== 'lightscaper'
 		|| row.applicationVersion !== metadata.applicationVersion || row.applicationVersionChannel !== 'candidate' || row.releaseChannel !== 'deferred'
 		|| typeof row.sourceRevision !== 'string' || !/^[a-f0-9]{40}$/u.test(row.sourceRevision)) {
@@ -95,9 +102,10 @@ export function normalizeLightscaperStageReceiptCurrentV1(value: unknown): Deskt
 	}
 	return Object.freeze({ schemaVersion: 1, kind: 'lightscaper-desktop-managed-web-core-v1', productId: 'lightscaper',
 		applicationVersion: metadata.applicationVersion, applicationVersionChannel: 'candidate', releaseChannel: 'deferred',
-		sourceRevision: row.sourceRevision, target: normalizeLightscaperDesktopTargetCurrentV1(row.target), productMetadata: metadata,
+		sourceRevision: row.sourceRevision, target, productMetadata: metadata,
 		desktopCodecPolicy: DESKTOP_CODEC_POLICY, rawRuntime: Object.freeze({ schemaVersion: 1,
 			kind: 'lightscaper-desktop-pinned-libraw-wasm-v1', totalByteLength, files: rawFiles }),
+		...(nativePhotoRuntime ? { nativePhotoRuntime } : {}),
 		files: Object.freeze({ app: files(scopes.app), renderer: files(scopes.renderer), licenses: files(scopes.licenses) }) });
 }
 

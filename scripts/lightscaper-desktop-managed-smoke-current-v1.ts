@@ -5,9 +5,8 @@ import { randomBytes } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { deflateSync } from 'node:zlib';
 import { rawDngFixtureV1 } from '../tests/helpers/lightscaper-raw-dng-current-fixture.ts';
-import { pngChunk } from '../tests/helpers/image-metadata-fixtures.ts';
+import { ownedRaster } from './lib/lightscaper-desktop-smoke-fixtures-current-v1.ts';
 import { bundledSiteCopyForLocale } from '../src/common/i18n/site-copy.js';
 import { withProjectFileExtension } from '../src/common/project-file-extensions.ts';
 import type { LightscaperManagedSmokePlanCurrentV1, LightscaperSmokeCustodyCurrentV1, LightscaperSmokeFileCurrentV1,
@@ -31,6 +30,7 @@ interface StageReceipt { readonly schemaVersion: number; readonly nonce: string;
 	* real packaged binary three times; it never starts a development web server. */
 export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly string[]): Promise<string> {
 	const options = readLightscaperManagedSmokeOptionsCurrentV1(args);
+	if(options.scenario==='linked')return (await import('./lib/lightscaper-desktop-linked-smoke-current-v1.ts')).runLightscaperDesktopLinkedSmokeCurrentV1(options);
 	// Authenticate the explicit current-host helper and app before any profile exists.
 	const windowsJob = process.platform === 'win32' ? await admitLightscaperWindowsJobHelperCurrentV1({
 		helperPath: options.windowsJobHelper ?? '', helperSha256: options.windowsJobHelperSha256 ?? '', executable: options.executable,
@@ -73,7 +73,7 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 			if (!allJoined || processReceipt.expired || processReceipt.launchError || processReceipt.exitCode !== 0 || processReceipt.forcedGroupRetirement) throw new Error(`Managed desktop process failed after owned-group retirement: ${JSON.stringify(processReceipt)}`);
 			const receipt = JSON.parse((await boundedRead(join(root, `${nonce}.stage-${stage}.result.json`), 1024 * 1024)).toString('utf8')) as StageReceipt;
 			if (receipt.schemaVersion !== 1 || receipt.nonce !== nonce || receipt.stage !== stage || receipt.processId !== processReceipt.processId
-				|| receipt.renderer.backend !== options.backend || receipt.renderer.nonce !== nonce || receipt.renderer.stage !== stage || receipt.renderer.nodeExposed || receipt.blockedNetworkRequests.length) throw new Error('Actual stage receipt identity/security differs from its joined process.');
+				|| receipt.renderer.scenario !== options.scenario || receipt.renderer.backend !== options.backend || receipt.renderer.nonce !== nonce || receipt.renderer.stage !== stage || receipt.renderer.nodeExposed || receipt.blockedNetworkRequests.length) throw new Error('Actual stage receipt identity/security differs from its joined process.');
 			if (receipt.renderer.externalArchiveOpen !== (stage === 2)) throw new Error('Actual OS archive delivery witness differs from its stage.');
 			for (const key of ['sandbox', 'contextIsolation', 'webSecurity']) if (receipt.security[key] !== true) throw new Error(`Actual packaged ${key} is disabled.`);
 			for (const key of ['nodeIntegration', 'nodeIntegrationInWorker', 'nodeIntegrationInSubFrames']) if (receipt.security[key] !== false) throw new Error(`Actual packaged ${key} is enabled.`);
@@ -106,7 +106,7 @@ export async function runLightscaperDesktopManagedSmokeCurrentV1(args: readonly 
 		}
 		await rm(profile, { recursive: true, force: true });
 		await writeFile(qualificationPath, `${JSON.stringify({ schemaVersion: 1, status: 'passed', nonce, executable,
-			backend: options.backend, allowNoSandbox: options.allowNoSandbox, threeFreshProcesses: true, samePrivateProfile: true, profileRemoved: true,
+			scenario:options.scenario,backend: options.backend, allowNoSandbox: options.allowNoSandbox, threeFreshProcesses: true, samePrivateProfile: true, profileRemoved: true,
 			fixtures: fixtures.map(({ base64: _base64, ...value }) => value), stages }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 		complete = true;
 		return qualificationPath;
@@ -144,11 +144,7 @@ async function boundedRead(path: string, maximum: number): Promise<Buffer> {
 function file(name: string, mimeType: string, bytes: Uint8Array): LightscaperSmokeFileCurrentV1 {
 	return { name, mimeType, base64: Buffer.from(bytes).toString('base64'), byteLength: bytes.length, sha256: hash(bytes) };
 }
-function ownedRaster(): Uint8Array<ArrayBuffer> {
-	return new Uint8Array(Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-		pngChunk('IHDR', Buffer.from([0, 0, 0, 2, 0, 0, 0, 2, 8, 6, 0, 0, 0])), pngChunk('sRGB', Buffer.of(0)),
-		pngChunk('IDAT', deflateSync(Buffer.from([0, 32, 64, 128, 255, 64, 128, 192, 255, 0, 96, 160, 224, 255, 128, 192, 240, 255]))), pngChunk('IEND', Buffer.alloc(0))]));
-}
+
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
 	void runLightscaperDesktopManagedSmokeCurrentV1(process.argv.slice(2)).then(path => { console.log(`Lightscaper packaged managed smoke passed: ${path}`); }, (error: unknown) => { console.error(error); process.exitCode = 1; });
 }

@@ -36,12 +36,14 @@ enum class error_code : unsigned {
 
 class read_error final : public std::runtime_error {
 public:
-	read_error(error_code code, std::string detail, std::vector<std::exception_ptr> causes = {})
-		: std::runtime_error(std::move(detail)), code_(code), causes_(std::move(causes)) {}
+	read_error(error_code code, std::string detail, std::vector<std::exception_ptr> causes = {}, std::uint32_t native_code = 0)
+		: std::runtime_error(std::move(detail)), code_(code), native_code_(native_code), causes_(std::move(causes)) {}
 	error_code code() const noexcept { return code_; }
+	std::uint32_t native_code() const noexcept { return native_code_; }
 	const std::vector<std::exception_ptr>& causes() const noexcept { return causes_; }
 private:
 	error_code code_;
+	std::uint32_t native_code_;
 	std::vector<std::exception_ptr> causes_;
 };
 

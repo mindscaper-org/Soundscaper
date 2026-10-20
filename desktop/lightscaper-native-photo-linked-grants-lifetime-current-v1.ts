@@ -34,7 +34,7 @@ export class LinkedGrantLifetimeCurrentV1 {
 		if (!this.#notified) { this.#notified = true; try { this.#notify(); } catch (failure) { remember(this.#failures, failure); } }
 	}
 	run<Input, Result>(control: boolean, optionsValue: unknown, capture: (entry: LinkedGrantOperationCurrentV1) => Input,
-		operation: (input: Input, entry: LinkedGrantOperationCurrentV1) => Promise<Result> | Result): Promise<Result> {
+		operation: (input: Awaited<Input>, entry: LinkedGrantOperationCurrentV1) => Promise<Result> | Result): Promise<Result> {
 		try { this.check(); } catch (error) { return Promise.reject(error); }
 		let count = 0; for (const accepted of this.#active) if (accepted.control === control) count++;
 		if (count >= 4) return Promise.reject(new Error('Native folder-grant capacity is busy.'));
@@ -42,7 +42,7 @@ export class LinkedGrantLifetimeCurrentV1 {
 		const pending = new Promise<Result>((accept, refuse) => { resolve = accept; reject = refuse; }), controller = new Controller();
 		const entry: Entry = { promise: pending, controller, signal: Reflect.apply(SIGNAL, controller, []) as AbortSignal,
 			grantId: null, acknowledged: false, detaches: [], control }; this.#active.add(entry);
-		let input: Promise<Input>;
+		let input: Promise<Awaited<Input>>;
 		try {
 			this.#link(entry, Reflect.apply(SIGNAL, this.#shutdown, []) as AbortSignal); this.#link(entry, this.#scope);
 			const value = optionsValue === undefined ? {} : optionsValue;

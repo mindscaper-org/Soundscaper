@@ -1,6 +1,12 @@
 {
 	"schemaVersion": 1,
-	"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
+	"targets": [
+		"linux-x64",
+		"linux-arm64",
+		"mac-arm64",
+		"win-x64",
+		"win-arm64"
+	],
 	"ciProducers": [
 		{
 			"id": "native-helper-addon",
@@ -12,7 +18,9 @@
 			"dispatchWorkflowPath": ".github/workflows/native-helper-addon-build.yml",
 			"buildCommand": "scripts/build-native-helper-addon-result.mjs",
 			"stageCommand": "scripts/stage-native-helper-addon-build-result.mjs",
-			"sourceCommands": ["scripts/provision-milestone-5-native-sources.mjs"],
+			"sourceCommands": [
+				"scripts/provision-milestone-5-native-sources.mjs"
+			],
 			"runners": {
 				"linux-x64": "ubuntu-24.04",
 				"linux-arm64": "ubuntu-24.04-arm",
@@ -24,12 +32,16 @@
 		},
 		{
 			"id": "soundscaper-professional-native",
-			"manifestPaths": ["config/soundscaper-professional-native-payload-manifest.json"],
+			"manifestPaths": [
+				"config/soundscaper-professional-native-payload-manifest.json"
+			],
 			"workflowPath": ".github/workflows/soundscaper-professional-native-build.yml",
 			"dispatchWorkflowPath": ".github/workflows/soundscaper-professional-native-build-run.yml",
 			"buildCommand": "scripts/build-soundscaper-professional-native.mjs",
 			"stageCommand": "scripts/stage-soundscaper-professional-native-build-result.mjs",
-			"sourceCommands": ["scripts/provision-milestone-5-native-sources.mjs"],
+			"sourceCommands": [
+				"scripts/provision-milestone-5-native-sources.mjs"
+			],
 			"runners": {
 				"linux-x64": "ubuntu-22.04",
 				"linux-arm64": "ubuntu-24.04-arm",
@@ -73,7 +85,9 @@
 			"dispatchWorkflowPath": ".github/workflows/framescaper-openfx-native-build.yml",
 			"buildCommand": "scripts/build-framescaper-openfx-host.mjs",
 			"stageCommand": "scripts/stage-framescaper-openfx-host-build-result.mjs",
-			"sourceCommands": ["scripts/ci-provision-framescaper-openfx-source.mjs"],
+			"sourceCommands": [
+				"scripts/ci-provision-framescaper-openfx-source.mjs"
+			],
 			"runners": {
 				"linux-x64": "ubuntu-24.04",
 				"linux-arm64": "ubuntu-24.04-arm",
@@ -82,6 +96,27 @@
 				"win-arm64": "windows-11-vs2026-arm"
 			},
 			"artifactPrefix": "framescaper-openfx-native-build-result-"
+		},
+		{
+			"id": "lightscaper-photo-native",
+			"manifestPaths": [
+				"native/lightscaper-photo-native-current-v1/source-manifest.json"
+			],
+			"workflowPath": ".github/workflows/lightscaper-photo-native-build.yml",
+			"dispatchWorkflowPath": ".github/workflows/lightscaper-photo-native-build.yml",
+			"buildCommand": "scripts/build-lightscaper-photo-native-current-v1.mjs",
+			"stageCommand": "scripts/stage-lightscaper-photo-native-current-v1.mjs",
+			"sourceCommands": [
+				"scripts/provision-lightscaper-photo-native-source-current-v1.mjs"
+			],
+			"runners": {
+				"linux-x64": "ubuntu-24.04",
+				"linux-arm64": "ubuntu-24.04-arm",
+				"mac-arm64": "macos-15",
+				"win-x64": "windows-2025",
+				"win-arm64": "windows-11-arm"
+			},
+			"artifactPrefix": "lightscaper-photo-native-build-result-"
 		}
 	],
 	"packageProducers": [
@@ -89,7 +124,13 @@
 			"id": "assistance-sherpa-onnx-node",
 			"manifestPath": "config/assistance-sherpa-gpu-build.json",
 			"manifestTargetPath": "targets",
-			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
 			"workflowPath": ".github/workflows/desktop-nightly-tests.yml",
 			"packageCommand": "scripts/desktop-nightly-tests-products.mjs",
 			"pipelinePaths": [
@@ -110,7 +151,13 @@
 			"id": "assistance-onnxruntime-node",
 			"manifestPath": "config/assistance-runtime-family-supply-candidates.json",
 			"manifestTargetPath": "manifests.onnxruntime-node.targets",
-			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
 			"workflowPath": ".github/workflows/desktop-nightly-tests.yml",
 			"packageCommand": "scripts/desktop-nightly-tests-products.mjs",
 			"pipelinePaths": [
@@ -138,7 +185,13 @@
 			"id": "assistance-whisper-cpp",
 			"manifestPath": "config/assistance-runtime-family-supply-candidates.json",
 			"manifestTargetPath": "manifests.whisper-cpp.targets",
-			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
 			"workflowPath": ".github/workflows/desktop-nightly-tests.yml",
 			"packageCommand": "scripts/desktop-nightly-tests-products.mjs",
 			"pipelinePaths": [
@@ -155,7 +208,13 @@
 			"id": "assistance-llama-cpp",
 			"manifestPath": "config/assistance-runtime-family-supply-candidates.json",
 			"manifestTargetPath": "manifests.llama-cpp.targets",
-			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
 			"workflowPath": ".github/workflows/desktop-nightly-tests.yml",
 			"packageCommand": "scripts/desktop-nightly-tests-products.mjs",
 			"pipelinePaths": [

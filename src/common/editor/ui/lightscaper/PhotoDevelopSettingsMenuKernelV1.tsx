@@ -11,6 +11,7 @@ import PhotoDevelopLocalAdjustmentsMenuV1 from './PhotoDevelopLocalAdjustmentsMe
 import type { PhotoDevelopSettingsMenuPropsV2 } from './PhotoDevelopSettingsMenuV2.tsx';
 import type { PhotoDevelopSettingsMenuPropsCurrentV1 } from './PhotoDevelopSettingsMenuCurrentV1.tsx';
 import type { ImageDevelopSelectionV4 } from '../../imaging/image-develop-settings-contract-v4.ts';
+import PhotoDevelopInputQualityMenuCurrentV1 from './PhotoDevelopInputQualityMenuCurrentV1.tsx';
 import PhotoDevelopSettingsPickerCurrentV1 from './PhotoDevelopSettingsPickerCurrentV1.tsx';
 import { photoDevelopRawDevelopmentCopy } from '../../../i18n/lightscaper-raw-development-copy.ts';
 import { photoDevelopSoftProofCopy } from '../../../i18n/lightscaper-develop-soft-proof-copy.ts';
@@ -54,6 +55,7 @@ export default function PhotoDevelopSettingsMenuKernelV1(props: Props) {
 	const modes = { copy: messages.copy, sync: messages.sync, auto: messages.auto, quick: messages.quick, presets: messages.presets };
 	return <>
 		<details className="lightscaper-develop-settings-menu"><summary>{messages.menu}</summary>
+			{props.profile === 'current3' && props.inputQuality && <PhotoDevelopInputQualityMenuCurrentV1 {...props.inputQuality} locale={props.locale} disabled={busy} isCurrent={() => current() && !active.current} />}
 			{props.profile === 'current3' && props.previewRenderer && <button type="button" disabled={busy} onClick={() => {
 				if (current() && !active.current) props.previewRenderer?.onOpen();
 			}}>{photoDevelopPreviewRendererCopy(props.locale).menu}</button>}

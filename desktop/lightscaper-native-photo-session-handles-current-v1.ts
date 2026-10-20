@@ -17,7 +17,7 @@ export class LightscaperNativePhotoSessionHandlesCurrentV1 {
 	#bytes = 0;
 	get count(): number { return this.#entries.size; }
 	assertCapacity(): void { if (this.#entries.size >= 16) throw new RangeError('Native Session handle capacity is full.'); }
-	reserve(kind: Kind, bytes = 0) {
+	reserve<HandleKind extends Kind>(kind: HandleKind, bytes = 0) {
 		this.assertCapacity(); this.#admitBytes(bytes);
 		let readyDone!: () => void; const ready = new Promise<void>(resolve => { readyDone = resolve; });
 		const id = randomBytes(32).toString('hex'), entry: Entry = { id, kind, bytes, ready, readyDone };

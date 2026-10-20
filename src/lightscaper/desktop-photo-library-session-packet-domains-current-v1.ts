@@ -121,7 +121,7 @@ export function admitDesktopPhotoSessionDomainsCurrentV1(channel: string, p: Rec
 		for (const key of ['ticket', 'group'] as const) if (Object.hasOwn(p, key)) {
 			const full = family === 'original-read' && key === 'ticket', input = record(p[key], 'Original ticket', full ? ['id', 'original'] : ['id']);
 			const ticketId = readDesktopPhotoOriginalTicketIdCurrentV1(input);
-			if (full) { const original = normalizePhotoOriginalV1(input.original); if (original.retention !== 'managed' || original.byteLength > Math.max(IMAGE_IMPORT_LIMITS.maximumFileInputBytes, IMAGE_HDR_ORIGINAL_LIMITS_V1.maximumEncodedBytes)) throw new RangeError('Native Original ticket exceeds its physical profile.'); p[key] = { id: ticketId, original }; }
+			if (full) { const original = normalizePhotoOriginalV1(input.original); if (original.byteLength > Math.max(IMAGE_IMPORT_LIMITS.maximumFileInputBytes, IMAGE_HDR_ORIGINAL_LIMITS_V1.maximumEncodedBytes)) throw new RangeError('Native Original ticket exceeds its physical profile.'); p[key] = { id: ticketId, original }; }
 			else p[key] = { id: ticketId };
 		}
 		if (Object.hasOwn(p, 'index')) p.index = integer(p.index, 0, 4093, 'group index');

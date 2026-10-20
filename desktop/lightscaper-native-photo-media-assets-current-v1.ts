@@ -2,7 +2,7 @@
 
 import { assertLightscaperNativePhotoOriginalUnpinnedCurrentV1 } from './lightscaper-native-photo-original-read-pins-current-v1.ts';
 import { ensureLightscaperNativeManagedPhotoMediaIdentityCurrentV1 as ensureManagedIdentity,
-	assertLightscaperNativeManagedPhotoMediaIdentityCurrentV1 as assertManagedIdentity } from './lightscaper-native-photo-media-identity-current-v1.ts';
+	readLightscaperNativePhotoMediaIdentityCurrentV1 as readIdentity } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { isMediaContentSha256, isMediaContentToken } from '../src/common/editor/storage/media-content-provenance.ts';
@@ -20,7 +20,7 @@ const COLUMNS = 'source_id,sha256,size,media_content_token,metadata,root_count,c
 export const LIGHTSCAPER_NATIVE_PHOTO_SESSION_METADATA_FRAME_MAXIMUM_BYTES_CURRENT_V1 = 134_217_728;
 const CHECK = AbortSignal.prototype.throwIfAborted;
 const NativeDate = Date, PARSE = Date.parse, ISO = Date.prototype.toISOString, TIME = Date.prototype.getTime;
-type Row = Readonly<{ binding: Readonly<Binding>; token: string; payload: Uint8Array; count: number;
+type Row = Readonly<{ kind: 'managed' | 'linked'; binding: Readonly<Binding>; token: string; payload: Uint8Array; count: number;
 	committedAt: string; pendingUntil: string; descriptive: Record<string, unknown> }>;
 
 /** Genuine file materialization precedes this short single-database authority
@@ -46,7 +46,7 @@ export function installLightscaperNativePhotoMediaStreamAssetCurrentV1(database:
 function installCaptured(database: DatabaseSync, assetId: string, metadataPayload: Uint8Array,
 	expected: Readonly<Binding>, proof: unknown, signal?: AbortSignal): Record<string, unknown> {
 	if (expected.storageKey !== assetId) throw new Error('Native Photo metadata capture and physical asset identity disagree.');
-	const descriptive = readMetadata(metadataPayload);
+	const descriptive = readLightscaperNativePhotoMediaDescriptiveCurrentV1(metadataPayload);
 	const now = new NativeDate(), committedAt = Reflect.apply(ISO, now, []) as string;
 	const pendingUntil = Reflect.apply(ISO, new NativeDate(Number(Reflect.apply(TIME, now, [])) + PENDING_SOURCE_RETENTION_MS), []) as string;
 	return transaction(database, signal, () => {
@@ -91,10 +91,11 @@ export function deleteLightscaperNativePhotoMediaAssetCurrentV1(database: Databa
 		}
 		database.prepare('DELETE FROM native_photo_media_assets WHERE source_id=?').run(key);
 		database.prepare('DELETE FROM native_photo_media_identities WHERE source_id=?').run(key);
-		database.prepare('DELETE FROM native_photo_original_bindings WHERE storage_key=?').run(key);
+		const leaf = row.kind === 'managed' ? 'native_photo_original_bindings' : 'native_photo_linked_original_bindings';
+		database.prepare(`DELETE FROM ${leaf} WHERE storage_key=?`).run(key);
 		if (database.prepare('SELECT 1 FROM native_photo_media_assets WHERE source_id=?').get(key)
 			|| database.prepare('SELECT 1 FROM native_photo_media_identities WHERE source_id=?').get(key)
-			|| database.prepare('SELECT 1 FROM native_photo_original_bindings WHERE storage_key=?').get(key)) {
+			|| database.prepare(`SELECT 1 FROM ${leaf} WHERE storage_key=?`).get(key)) {
 			throw new Error('Native Photo media asset and Original binding retirement was not complete.');
 		}
 	});
@@ -123,9 +124,9 @@ function read(database: DatabaseSync, key: string, maximumFrameBytes?: number): 
 		|| PARSE(row.pending_until) - PARSE(row.committed_at) !== PENDING_SOURCE_RETENTION_MS) {
 		throw new TypeError('Native Photo media asset metadata is malformed.');
 	}
-	const binding = Object.freeze({ storageKey: key, byteLength: row.size, contentSha256: row.sha256 }); assertBinding(database, binding); assertManagedIdentity(database, binding);
-	return { binding, token: row.media_content_token, payload: row.metadata, count: row.root_count,
-		committedAt: row.committed_at, pendingUntil: row.pending_until, descriptive: readMetadata(row.metadata) };
+	const binding = Object.freeze({ storageKey: key, byteLength: row.size, contentSha256: row.sha256 }); const kind = readIdentity(database,binding);
+	return { kind, binding, token: row.media_content_token, payload: row.metadata, count: row.root_count,
+		committedAt: row.committed_at, pendingUntil: row.pending_until, descriptive: readLightscaperNativePhotoMediaDescriptiveCurrentV1(row.metadata) };
 }
 
 function assertBinding(database: DatabaseSync, binding: Readonly<Binding>): void {
@@ -136,7 +137,7 @@ function assertBinding(database: DatabaseSync, binding: Readonly<Binding>): void
 		throw new Error('Native Photo asset has no matching immutable Original binding.');
 	}
 }
-function readMetadata(payload: Uint8Array): Record<string, unknown> {
+export function readLightscaperNativePhotoMediaDescriptiveCurrentV1(payload: Uint8Array): Record<string, unknown> {
 	const value = decodeLightscaperNativePhotoSettingCurrentV1(payload);
 	if (value === null || typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) throw new TypeError('Native Photo descriptive metadata is malformed.');
 	const data = value as Record<string, unknown>;
@@ -147,7 +148,7 @@ function readMetadata(payload: Uint8Array): Record<string, unknown> {
 }
 function receipt(row: Row): Record<string, unknown> {
 	return { ...row.descriptive, sourceId: row.binding.storageKey, sha256: row.binding.contentSha256, size: row.binding.byteLength,
-		storage: 'native-photo-original', committedAt: row.committedAt, pendingProjectUntil: row.pendingUntil };
+		storage: row.kind === 'managed' ? 'native-photo-original' : 'native-photo-linked-original', committedAt: row.committedAt, pendingProjectUntil: row.pendingUntil };
 }
 function timestamp(value: unknown): value is string {
 	if (typeof value !== 'string' || !Number.isFinite(PARSE(value))) return false;

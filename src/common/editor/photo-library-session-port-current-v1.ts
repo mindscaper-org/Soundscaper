@@ -16,6 +16,7 @@ export type PhotoLibraryRawPreviewSourceCurrentV1 = 'neutral-original' | 'camera
 export interface PhotoLibraryPreviewReadOptionsCurrentV1 {
 	readonly signal?: AbortSignal;
 	readonly rawPreviewSource?: PhotoLibraryRawPreviewSourceCurrentV1;
+	readonly expectedRevision?: number;
 }
 
 /** Current Develop settings with unchanged scalar library and organization capabilities. */

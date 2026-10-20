@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePhotoLinkedWorkflowCurrentV1 } from './use-photo-linked-workflow-current-v1.ts';
 import { PhotoExportDestinations } from '../../../../lightscaper/controller/photo-export-destinations.ts';
 import { usePhotoLibraryWorkflowReadsForProfileV1, type PhotoLibraryWorkflowReadOwnersKernelV1, type PhotoLibraryWorkflowReadsLegacyV2, type PhotoLibraryWorkflowReadsCurrentV1 } from './photo-library-workflow-reads-kernel-v1.ts';
 import { usePhotoLibraryWorkflowImageReceive } from './photo-library-workflow-image-receive.ts';
@@ -183,6 +184,7 @@ function useWorkflow(profile: 'legacy2' | 'current3', createSession?: CreatePhot
 				check(signal); publishPage(current, next);
 			} });
 	} }), [profile, perform, publishPage]);
+	usePhotoLinkedWorkflowCurrentV1(profile === 'current3', executeOriginalRecovery, registerExportDestination);
 	const executeStack = useCallback<ExecutePhotoStackV1>((action, externalSignal) => perform({ start: async (signal, current) => {
 		await action({ signal, acquire: () => acquire(profile, current),
 			isCurrent: () => current.live && slot.current === current && current.factory === factory.current && current.backupLoader === loader.current && current.proxyFactory === renderer.current,
@@ -225,10 +227,10 @@ function useWorkflow(profile: 'legacy2' | 'current3', createSession?: CreatePhot
 			const next = await readVisiblePage(owner, current, null, signal); check(signal); return publishPage(current, next);
 		} });
 	} }, externalSignal), [profile, perform, publishPage]);
-	const executeCurrent = useCallback<ExecutePhotoDevelopCurrentV1>((action, externalSignal) => perform({ start: async (signal, current) => {
+	const executeCurrent: ExecutePhotoDevelopCurrentV1 = useCallback<ExecutePhotoDevelopCurrentV1>((action, externalSignal) => perform({ start: async (signal, current) => {
 		await action({ signal, acquire: async () => {
 			const selected = await acquirePhotoLibraryWorkflowSlotCurrentV1(current as PhotoLibraryWorkflowSlotCurrentV1); check(signal);
-			return capturePhotoLibraryDevelopPortCurrentV1(selected.develop, signal);
+			return capturePhotoLibraryDevelopPortCurrentV1(selected.develop, signal, executeCurrent);
 		}, isCurrent: () => current.live && slot.current === current && current.factory === factory.current && current.backupLoader === loader.current && current.proxyFactory === renderer.current,
 		refresh: async () => { const selected = await acquire(profile, current); check(signal); const next = await readVisiblePage(selected, current, null, signal); check(signal); return publishPage(current, next); } });
 	} }, externalSignal), [profile, perform, publishPage]);

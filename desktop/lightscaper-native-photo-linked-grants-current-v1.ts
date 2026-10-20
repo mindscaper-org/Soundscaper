@@ -6,6 +6,10 @@ import { deriveLightscaperNativePhotoOriginalPathsCurrentV1 } from './lightscape
 import { captureLightscaperNativePhotoGrantedFilesystemCurrentV1 as captureFilesystem,
 	lightscaperNativePhotoGrantedFilesystemRetirementIsUnprovedCurrentV1 as nativeUnproved,
 	type LightscaperNativePhotoGrantedFilesystemCurrentV1 as FilesystemOwner, type NativePath, type NativeFileIdentity } from './lightscaper-native-photo-granted-filesystem-current-v1.ts';
+import { realpathSync } from 'node:fs';
+import { LinkedGrantScansCurrentV1 } from './lightscaper-native-photo-linked-grants-scans-current-v1.ts';
+import { LinkedGrantBorrowsCurrentV1, type LinkedGrantFileCaptureCurrentV1 } from './lightscaper-native-photo-linked-grants-borrows-current-v1.ts';
+import { createLightscaperNativePhotoLinkedUnavailableCurrentV1 as unavailable } from './lightscaper-native-photo-linked-unavailable-current-v1.ts';
 import { captureIdentity } from './lightscaper-native-photo-granted-filesystem-codec-current-v1.ts';
 import { openLightscaperNativePhotoLinkedGrantDatabaseCurrentV1 as openDatabase } from './lightscaper-native-photo-linked-grants-files-current-v1.ts';
 import { captureLinkedGrantNamespaceCurrentV1 as namespace, assertLinkedGrantNamespaceCurrentV1 as sameNamespace, readLinkedGrantNamespaceCurrentV1 as boundNamespace,
@@ -18,6 +22,13 @@ import { LinkedGrantLifetimeCurrentV1 as Lifetime, captureLinkedGrantSignalCurre
 import { createLinkedGrantCleanupFailureCurrentV1 as cleanup, linkedGrantCleanupIsUnprovedCurrentV1 as unproved,
 	retainLinkedGrantCleanupCurrentV1 as retain, combineLinkedGrantFailuresCurrentV1 as combine } from './lightscaper-native-photo-linked-grants-failures-current-v1.ts';
 export type { LightscaperNativePhotoLinkedGrantCurrentV1 } from './lightscaper-native-photo-linked-grants-records-current-v1.ts';
+const GRANTS = new WeakMap<object, Readonly<{ namespace: string; current(): void; borrows: LinkedGrantBorrowsCurrentV1; scans: LinkedGrantScansCurrentV1 }>>();
+const canonical = (path: string): string => { const actual = realpathSync(path); return process.platform === 'win32' ? actual.toLowerCase() : actual; };
+export function captureLightscaperNativePhotoLinkedGrantsCurrentV1(value: unknown, mediaDatabasePath: string) {
+	const owner = value !== null && typeof value === 'object' ? GRANTS.get(value) : undefined;
+	if (!owner || owner.namespace !== canonical(mediaDatabasePath)) throw new TypeError('A genuine same-namespace native grant owner is required.'); owner.current();
+	return Object.freeze({ capture: owner.borrows.capture.bind(owner.borrows), open: owner.borrows.open.bind(owner.borrows), captureScan: owner.scans.capture.bind(owner.scans), openScan: owner.scans.open.bind(owner.scans) });
+}
 type Options = Readonly<{ signal?: AbortSignal }>;
 type Scope = Readonly<{ signal: AbortSignal; assertCurrent(): void }>;
 type Selection = Readonly<{ path: NativePath; displayName: string }>;
@@ -33,9 +44,17 @@ export interface LightscaperNativePhotoLinkedGrantOptionsCurrentV1 {
 export class LightscaperNativePhotoLinkedGrantsCurrentV1 {
 	readonly #db: DatabaseSync; readonly #opening: Opening; readonly #binding: Namespace; readonly #life: Lifetime;
 	readonly #roots = new Set<Readonly<{ root: Root; close(): Promise<void> }>>();
+	readonly #borrows: LinkedGrantBorrowsCurrentV1;
+	readonly #scans: LinkedGrantScansCurrentV1;
 	readonly #revoking = new Map<string, Operation>();
 	private constructor(db: DatabaseSync, opening: Opening, binding: Namespace) {
-		this.#db = db; this.#opening = opening; this.#binding = binding; this.#life = new Lifetime(opening.scope.signal, opening.notify, this); Object.freeze(this);
+		this.#db = db; this.#opening = opening; this.#binding = binding; this.#life = new Lifetime(opening.scope.signal, opening.notify, this);
+		this.#borrows = new LinkedGrantBorrowsCurrentV1({ mediaPath: opening.mediaPath, snapshot: grantId => { this.#life.check(); boundNamespace(this.#db,this.#binding); const saved = read(this.#db,grantId);
+			if (!saved) throw unavailable('grant-missing'); if (saved.grant.revoked) throw unavailable('grant-revoked'); return saved; },
+			current: captured => { this.#fileCurrent(captured); }, open: (path,expected) => opening.facet.openRoot(path,expected), fail: error => { this.#life.fail(error); } });
+		this.#scans = new LinkedGrantScansCurrentV1({ snapshot: grantId => { this.#life.check(); boundNamespace(this.#db,this.#binding); const saved=read(this.#db,grantId); if(!saved)throw unavailable('grant-missing'); if(saved.grant.revoked)throw unavailable('grant-revoked'); return saved; },
+			current: captured => { this.#fileCurrent(captured); }, open: (path,expected) => opening.facet.openRoot(path,expected), fail: error => { this.#life.fail(error); } });
+		GRANTS.set(this,Object.freeze({ namespace: canonical(opening.mediaPath),current:()=>{this.#life.check();},borrows:this.#borrows,scans:this.#scans })); Object.freeze(this);
 	}
 	static async open(options: LightscaperNativePhotoLinkedGrantOptionsCurrentV1): Promise<LightscaperNativePhotoLinkedGrantsCurrentV1> {
 		const opening = captureOpening(options); let db: DatabaseSync | undefined;
@@ -79,13 +98,22 @@ export class LightscaperNativePhotoLinkedGrantsCurrentV1 {
 	}, async (grantId, entry) => {
 		if (this.#revoking.has(grantId)) throw new Error('Native grant revocation is busy.'); this.#revoking.set(grantId, entry);
 		try {
-			await this.#life.cancelGrant(grantId, entry); await this.#verify(entry);
+			await Promise.all([this.#life.cancelGrant(grantId, entry), this.#borrows.revoke(grantId), this.#scans.revoke(grantId)]); await this.#verify(entry);
 			return revoke(this.#db, grantId, () => { this.#check(entry); boundNamespace(this.#db, this.#binding); }, () => { entry.acknowledged = true; });
 		} finally { if (this.#revoking.get(grantId) === entry) this.#revoking.delete(grantId); }
 	});
-	readonly close = (): Promise<void> => this.#life.close(() => {
+	readonly close = (): Promise<void> => this.#life.close(async () => {
+		const retired=await Promise.allSettled([this.#borrows.close(),this.#scans.close()]); const errors=retired.flatMap(value=>value.status==='rejected'?[value.reason as unknown]:[]);
+		if(errors.length)throw combine(errors,'Native grant borrowers did not retire.');
 		try { this.#db.close(); } catch (error) { throw cleanup([error], 'Native grant SQLite retirement failed.'); }
 	});
+	#fileCurrent(captured: LinkedGrantFileCaptureCurrentV1): void {
+		this.#life.check(); checkOpening(this.#opening); boundNamespace(this.#db,this.#binding);
+		const grant = summary(this.#db,captured.row.grant.grantId);
+		if (!grant) throw unavailable('grant-missing'); if (grant.revoked) throw unavailable('grant-revoked');
+		if (this.#revoking.has(grant.grantId)) throw new Error('Native grant is being revoked.');
+		if (grant.revision !== captured.row.grant.revision) throw new Error('Native linked grant revision changed.');
+	}
 	#check(entry: Operation): void {
 		this.#life.check(entry);
 		try { checkOpening(this.#opening); } catch (error) { if (nativeUnproved(error)) this.#life.fail(error); throw error; }

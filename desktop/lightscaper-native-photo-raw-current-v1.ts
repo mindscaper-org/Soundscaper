@@ -15,6 +15,7 @@ import { captureLightscaperNativePhotoRawRequestCurrentV1 as capture, copyLights
 export type { LightscaperNativePhotoRawDecodedCurrentV1, LightscaperNativePhotoRawModeCurrentV1, LightscaperNativePhotoRawTierCurrentV1 } from './lightscaper-native-photo-raw-contract-current-v1.ts';
 export interface LightscaperNativePhotoRawOptionsCurrentV1 {
  readonly start: () => ChildProcessWithoutNullStreams;
+ readonly retire?: () => Promise<void>;
  readonly signal?: AbortSignal;
  readonly unretired?: () => void;
 }
@@ -29,6 +30,7 @@ const SIZE = Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength'
 export class LightscaperNativePhotoRawCurrentV1 {
  readonly #shutdown = new Controller(); readonly #cleanup = new Set<unknown>();
  #signal = Reflect.apply(SIGNAL, this.#shutdown, []) as AbortSignal;
+ #retire: (() => Promise<void>) | undefined;
  #detach = (): void => undefined; #start!: () => ChildProcessWithoutNullStreams; #unretired = (): void => undefined;
  #held: { request: Readonly<Request>; consume: unknown; peer?: Process; plane?: Uint8Array<ArrayBuffer> } | undefined;
  #notified = false; #active: Promise<unknown> | undefined; #peer: Process | undefined; #stopped = false; #closing: Promise<void> | undefined;
@@ -38,11 +40,13 @@ export class LightscaperNativePhotoRawCurrentV1 {
   try {
    const signal = ownSignal(value); if (signal !== undefined) assertPhotoStackQuerySignalV1(signal);
    const selected = link(signal, owner.#signal); owner.#signal = selected.signal; owner.#detach = selected.detach;
-   const input = record(value, 'native RAW owner', ['start', 'signal', 'unretired'], ['start']);
+   const input = record(value, 'native RAW owner', ['start', 'signal', 'unretired', 'retire'], ['start']);
    if ((Object.hasOwn(input, 'signal') ? field(input, 'signal', 'native RAW owner') : undefined) !== signal) throw new TypeError('Native RAW owner signal changed during capture.');
    const start = field(input, 'start', 'native RAW owner'), unretired = Object.hasOwn(input, 'unretired') ? field(input, 'unretired', 'native RAW owner') : undefined;
-   if (typeof start !== 'function' || unretired !== undefined && typeof unretired !== 'function') throw new TypeError('Native RAW requires trusted callable owner capabilities.');
+   const retire = Object.hasOwn(input, 'retire') ? field(input, 'retire', 'native RAW owner') : undefined;
+   if (retire !== undefined && typeof retire !== 'function' || typeof start !== 'function' || unretired !== undefined && typeof unretired !== 'function') throw new TypeError('Native RAW requires trusted callable owner capabilities.');
    owner.#start = () => Reflect.apply(start, value, []) as ChildProcessWithoutNullStreams;
+   if (typeof retire === 'function') owner.#retire = async () => { await Reflect.apply(retire, value, []); };
    if (typeof unretired === 'function') owner.#unretired = () => { Reflect.apply(unretired, value, []); };
    check(owner.#signal); return owner;
   } catch (caught) {
@@ -89,7 +93,7 @@ export class LightscaperNativePhotoRawCurrentV1 {
   let outcome: { value: Result } | { error: unknown }, subscribed = false;
   const terminate = (): void => { if (peer) void peer.retire(true).catch(error => { this.#quarantine(error); }); };
   try {
-   check(signal); peer = new Process(this.#start, error => { this.#quarantine(error); }); this.#peer = peer; if (this.#held) this.#held.peer = peer;
+   check(signal); peer = new Process(this.#start, error => { this.#quarantine(error); }, this.#retire); this.#peer = peer; if (this.#held) this.#held.peer = peer;
    Reflect.apply(ADD, signal, ['abort', terminate, { once: true }]); subscribed = true; check(signal);
    await handshake(peer); check(signal);
    const begin = Buffer.alloc(44); begin[0] = MODES.indexOf(request.mode) + 1; begin[1] = TIERS.indexOf(request.tier); begin.writeBigUInt64BE(BigInt(request.byteLength), 4);

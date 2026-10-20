@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import {installLightscaperManagedSmokeRawObserverCurrentV1} from './lightscaper-managed-smoke-native-raw-current-v1.ts';
 import { installLightscaperManagedSmokeNativeObserverCurrentV1 } from './lightscaper-managed-smoke-native-custody-current-v1.ts';
 import { prepareLightscaperManagedSmokeRendererCurrentV1, runLightscaperManagedSmokeRendererCurrentV1 } from './lightscaper-managed-smoke-session-driver-current-v1.ts';
 import { createHash } from 'node:crypto';
@@ -28,7 +29,9 @@ export function validateLightscaperManagedSmokePlanCurrentV1(value: unknown, aut
 	if (plan.schemaVersion !== 1 || plan.nonce !== authority.nonce || (stage !== 1 && stage !== 2 && stage !== 3)
 		|| authority.planPath !== join(dirname(authority.planPath), `${authority.nonce}.stage-${stage}.json`)
 		|| plan.profilePath !== join(dirname(authority.planPath), 'profile') || plan.profilePath !== resolve(authority.profilePath)) throw new TypeError('Managed smoke plan leaves its private profile or stage.');
-	const renderer = record(plan.renderer, ['nonce', 'stage', 'locale', 'fixtures', 'archive', 'expectedFingerprint', 'expectedNamespace', 'expectedPhotoIds', 'backupSuggestedName'], ['backend']);
+	const renderer = record(plan.renderer, ['nonce', 'stage', 'locale', 'fixtures', 'archive', 'expectedFingerprint', 'expectedNamespace', 'expectedPhotoIds', 'backupSuggestedName'], ['backend','scenario']);
+	if(renderer.scenario!==undefined&&renderer.scenario!=='managed'&&renderer.scenario!=='linked')throw new TypeError('Unknown finite smoke scenario.');
+	if(renderer.scenario==='linked'&&renderer.backend!=='native')throw new TypeError('Linked smoke requires native storage.');
 	if (renderer.backend !== undefined && renderer.backend !== 'web' && renderer.backend !== 'native') throw new TypeError('Unknown managed backend.');
 	if (renderer.nonce !== plan.nonce || renderer.stage !== stage || renderer.locale !== 'en'
 		|| !safeFilename(renderer.backupSuggestedName, '.liscape')
@@ -39,7 +42,7 @@ export function validateLightscaperManagedSmokePlanCurrentV1(value: unknown, aut
 	if (stage === 1 ? renderer.expectedPhotoIds !== null : !Array.isArray(renderer.expectedPhotoIds) || renderer.expectedPhotoIds.length !== 2
 		|| new Set(renderer.expectedPhotoIds).size !== 2 || renderer.expectedPhotoIds.some(value => typeof value !== 'string' || !/^[a-f0-9-]{36}$/u.test(value))) throw new TypeError('Managed smoke requires its preceding two Photo identities.');
 	if (renderer.expectedNamespace !== null && !/^[a-f0-9]{32}$/u.test(String(renderer.expectedNamespace))) throw new TypeError('Invalid restored namespace.');
-	if (stage === 2) validateFile(renderer.archive, 1_048_576); else if (renderer.archive !== null) throw new TypeError('Only restore stage accepts an archive input.');
+	if (stage === 2&&renderer.scenario!=='linked') validateFile(renderer.archive, 1_048_576); else if (renderer.archive !== null) throw new TypeError('Only restore stage accepts an archive input.');
 	return value as LightscaperManagedSmokePlanCurrentV1;
 }
 
@@ -63,10 +66,15 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 		const bytes = Buffer.from(file.base64, 'base64');
 		if (bytes.length !== file.byteLength || hash(bytes) !== file.sha256) throw new Error('Managed smoke fixture bytes differ from their private plan.');
 	}
-	const native = plan.renderer.backend === 'native' ? installLightscaperManagedSmokeNativeObserverCurrentV1() : undefined;
+	const linked=plan.renderer.scenario==='linked';
+	const linkedRoot=join(root,'linked-sources');
+	if(linked){const metadata=lstatSync(linkedRoot);if(!metadata.isDirectory()||metadata.isSymbolicLink()||realpathSync(linkedRoot)!==linkedRoot)throw new TypeError('Linked smoke chooser requires its owned actual source directory.');}
+	const native = plan.renderer.backend === 'native' ? installLightscaperManagedSmokeNativeObserverCurrentV1(linked?{scenario:'linked',allowUnavailable:plan.stage===2,appDataPath:plan.profilePath}:{}) : undefined;
+	const raw=linked?installLightscaperManagedSmokeRawObserverCurrentV1():undefined;
+
 	const pngSuggestedName = `${plan.renderer.fixtures[1]!.name.slice(0, -4)}.png`;
 	const expected = plan.stage === 1 ? [pngSuggestedName, plan.renderer.backupSuggestedName]
-		: plan.stage === 3 ? [pngSuggestedName] : [];
+		: plan.stage === 3 || linked ? [pngSuggestedName] : [];
 	const downloads = expected.map((suggestedName, index) => ({ suggestedName, index, ...deferred<unknown>() }));
 	for (const download of downloads) void download.promise.catch(() => undefined);
 	const blockedNetworkRequests: string[] = [], observedDownloads: unknown[] = [], rawRuntimeRequests = new Set<string>();
@@ -74,9 +82,10 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 	const resultPath = join(root, `${plan.nonce}.stage-${plan.stage}.result.json`);
 	const timeout = setTimeout(() => { options.reportFailure(new Error(`Managed desktop stage ${plan.stage} timed out; downloads ${JSON.stringify(observedDownloads)}`)); }, 180_000);
 	return Object.freeze({
+		...(linked?{chooseLinkedRoot:async(signal?:AbortSignal)=>{signal?.throwIfAborted();const metadata=lstatSync(linkedRoot);if(!metadata.isDirectory()||metadata.isSymbolicLink()||realpathSync(linkedRoot)!==linkedRoot)throw new Error('Owned linked chooser directory changed.');return Object.freeze({path:Object.freeze({encoding:process.platform==='win32'?'windows-utf16le' as const:'posix-bytes' as const,bytes:new Uint8Array(Buffer.from(linkedRoot,process.platform==='win32'?'utf16le':'utf8'))}),displayName:'Owned linked sources'});}}:{}),
 		beforeArchiveReady: async (window: BrowserWindow) => {
 			try { await prepareLightscaperManagedSmokeRendererCurrentV1(window, options.rendererScript, plan.renderer); }
-			catch (primary) { try { await native?.close(); } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Smoke native preparation and observer retirement failed.', { cause: cleanup }); } throw primary; }
+			catch (primary) { try { await native?.close();await raw?.close(); } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Smoke native preparation and observer retirement failed.', { cause: cleanup }); } throw primary; }
 		},
 		onWindowCreated(window: BrowserWindow) {
 			window.webContents.on('console-message', details => {
@@ -120,26 +129,27 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 			if (executed) return; executed = true;
 			try {
 				const report = await runLightscaperManagedSmokeRendererCurrentV1(window, plan.renderer, native);
-				if (report.backend !== (plan.renderer.backend ?? 'web') || report.nonce !== plan.nonce || report.stage !== plan.stage || JSON.stringify(report).length > 512 * 1024) throw new Error('Managed renderer report escaped its stage authority.');
+				if (report.scenario !== (plan.renderer.scenario ?? 'managed') || report.backend !== (plan.renderer.backend ?? 'web') || report.nonce !== plan.nonce || report.stage !== plan.stage || JSON.stringify(report).length > 512 * 1024) throw new Error('Managed renderer report escaped its stage authority.');
 				const completed = await Promise.all(downloads.map(download => download.promise));
 				if (failed || next !== expected.length) throw failed ?? new Error('Managed smoke download inventory is incomplete.');
 				if (blockedNetworkRequests.length) throw new Error('Offline managed smoke attempted external networking.');
-				if (plan.stage !== 2 && !rawRuntimeRequests.has('lightscaper-app://bundle/runtime/libraw/0.22.2/libraw.wasm')) throw new Error('Actual RAW worker did not request its packaged pinned runtime.');
+				if ((!linked&&plan.stage!==2) && !rawRuntimeRequests.has('lightscaper-app://bundle/runtime/libraw/0.22.2/libraw.wasm')) throw new Error('Actual RAW worker did not request its packaged pinned runtime.');
 				// Use the actual host inspection method when available; it sits outside
 				// public declarations. Fail qualification if the actual host lacks it.
 				const contents = window.webContents as unknown as { getLastWebPreferences?: () => Electron.WebPreferences };
 				if (typeof contents.getLastWebPreferences !== 'function') throw new Error('Actual window preferences are unavailable.');
 				const preferences = contents.getLastWebPreferences();
+				await raw?.settle();const nativeRaw=raw?.snapshot();if(linked&&(!nativeRaw||nativeRaw.decoded<1||nativeRaw.active!==0||nativeRaw.wiped!==nativeRaw.decoded||nativeRaw.retired<nativeRaw.decoded||!nativeRaw.samples.some(sample=>sample.mode==='neutral'&&sample.format==='rgba16le'&&sample.width===32&&sample.height===32)))throw new Error('Actual native RAW provenance/retirement witness is incomplete.');
 				const receipt = { schemaVersion: 1, nonce: plan.nonce, stage: plan.stage, processId: process.pid,
-					renderer: report, downloads: completed, blockedNetworkRequests, observedDownloads, rawRuntimeRequests: [...rawRuntimeRequests],
+					nativeRaw,renderer: report, downloads: completed, blockedNetworkRequests, observedDownloads, rawRuntimeRequests: [...rawRuntimeRequests],
 					security: { sandbox: preferences.sandbox, contextIsolation: preferences.contextIsolation,
 						nodeIntegration: preferences.nodeIntegration, nodeIntegrationInWorker: preferences.nodeIntegrationInWorker,
 						nodeIntegrationInSubFrames: preferences.nodeIntegrationInSubFrames, webSecurity: preferences.webSecurity } };
-				await native?.close();
+				await native?.close();await raw?.close();
 				writeFileSync(resultPath, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 				clearTimeout(timeout); options.quit();
 			} catch (primary) { clearTimeout(timeout); let failure: unknown = primary;
-				try { await native?.close(); } catch (cleanup) { failure = new AggregateError([primary, cleanup], 'Smoke workflow and native observer retirement failed.', { cause: primary }); }
+				try { await native?.close();await raw?.close(); } catch (cleanup) { failure = new AggregateError([primary, cleanup], 'Smoke workflow and native observer retirement failed.', { cause: primary }); }
 				options.reportFailure(failure); throw failure; }
 		},
 	});

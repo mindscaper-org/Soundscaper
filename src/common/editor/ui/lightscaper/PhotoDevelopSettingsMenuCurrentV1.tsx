@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { PhotoDevelopInputQualityMenuPropsCurrentV1 } from './PhotoDevelopInputQualityMenuCurrentV1.tsx';
 import PhotoDevelopSettingsMenuKernelV1 from './PhotoDevelopSettingsMenuKernelV1.tsx';
 import type { PhotoDevelopSettingsMenuPropsV2 } from './PhotoDevelopSettingsMenuV2.tsx';
 import type { PhotoLibraryDevelopSettingsWorkflowCurrentV1, PhotoDevelopSettingsSourceCurrentV1, PhotoDevelopSettingsWorkflowSnapshotCurrentV1 } from '../../controller/shared/photo-library-develop-settings-workflow-current-v1.ts';
@@ -11,6 +12,7 @@ export interface PhotoDevelopSettingsMenuPropsCurrentV1 extends Omit<PhotoDevelo
 	readonly withWritePreviewRetirement: (run: () => Promise<unknown>, isCurrent: () => boolean) => Promise<unknown>;
 	readonly rawDevelopment?: Readonly<{ onOpen: () => void }>;
 	readonly softProof?: Readonly<{ onOpen: () => void }>;
+	readonly inputQuality?: Pick<PhotoDevelopInputQualityMenuPropsCurrentV1, 'value' | 'onChange'>;
 	readonly previewRenderer?: Readonly<{ onOpen: () => void }>;
 }
 /** Explicit menu activation for complete Current settings; no legacy preset cap. */

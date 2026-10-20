@@ -65,6 +65,7 @@ export function dispatchLightscaperNativePhotoSessionDomainCurrentV1(lease: Leas
 			case 'release-staged': return custody.releaseStaged(catalog, p.importId as string, p.photoIds, options);
 			case 'promote': return custody.promote(catalog, p.importId as string, p.photoIds, options);
 			case 'page': return custody.readPage({ catalogId: catalog, importId: p.importId as string | null, afterKey: p.afterKey as string | null }, options);
+			case 'managed-digest-page': return lease.components.media.findManagedOriginalDigestPageCurrentV1(p.sha256 as string, p.afterAssetId as string | null, options);
 			case 'digest-page': return custody.findDigestPage(p.sha256 as string, p.afterAssetId as string | null, options);
 		}
 	}

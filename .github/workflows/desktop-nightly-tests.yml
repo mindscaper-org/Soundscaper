@@ -25,6 +25,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  lightscaper-internal-desktop:
+    if: github.ref == 'refs/heads/main' && github.ref_type != 'tag'
+    uses: ./.github/workflows/lightscaper-desktop-native-internal.yml
+
   nightly-test-targets:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04

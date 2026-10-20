@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_JOIN_CURRENT_V1 as IDENTITY_JOIN, LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_COLUMNS_CURRENT_V1 as IDENTITY_COLUMNS } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { readClosedDomainArray, readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
 import { assertPhotoStackQuerySignalV1 } from '../src/lightscaper/catalog/photo-stack-query-signal-v1.ts';
@@ -10,13 +11,13 @@ import { isMediaContentSha256, isMediaContentToken } from '../src/common/editor/
 import { LIGHTSCAPER_NATIVE_ORIGINAL_MAXIMUM_BYTES_CURRENT_V1 as MAXIMUM,
 	readLightscaperNativeOriginalStorageKeyCurrentV1 as readKey } from './lightscaper-native-original-contract-current-v1.ts';
 
-type Method = 'retain' | 'stage' | 'release' | 'releaseStaged' | 'promote' | 'readPage' | 'findDigestPage';
+type Method = 'retain' | 'stage' | 'release' | 'releaseStaged' | 'promote' | 'readPage' | 'findDigestPage' | 'findManagedDigestPage';
 type Base = Readonly<{ signal?: AbortSignal }>;
 export type LightscaperNativePhotoCustodyRequestCurrentV1 = Base & (
 	| Readonly<{ method: 'retain' | 'stage'; catalogId: string; importId: string | null; references: readonly CatalogOriginalReferenceV1[] }>
 	| Readonly<{ method: 'release' | 'releaseStaged' | 'promote'; catalogId: string; importId: string | null; photoIds: readonly string[] }>
 	| Readonly<{ method: 'readPage'; catalogId: string; importId: string | null; afterKey: string | null }>
-	| Readonly<{ method: 'findDigestPage'; sha256: string; afterAssetId: string | null }>);
+	| Readonly<{ method: 'findDigestPage' | 'findManagedDigestPage'; sha256: string; afterAssetId: string | null }>);
 export interface LightscaperNativePhotoCustodyRootPageCurrentV1 {
 	readonly roots: readonly Readonly<CatalogOriginalRootV1>[]; readonly afterKey: string | null;
 }
@@ -28,8 +29,8 @@ type Asset = Readonly<{ key: string; sha256: string; size: number; token: string
 type SqlRow = Record<string, unknown>;
 const admitted = new WeakSet<object>(), CHECK = AbortSignal.prototype.throwIfAborted;
 const ASSET = `SELECT a.source_id,a.sha256,a.size,a.media_content_token,a.root_count,
-	b.storage_key AS binding_key,b.content_sha256 AS binding_sha,b.byte_length AS binding_size
-	FROM native_photo_media_assets a LEFT JOIN native_photo_original_bindings b ON b.storage_key=a.source_id`;
+	${IDENTITY_COLUMNS}
+	FROM native_photo_media_assets a ${IDENTITY_JOIN}`;
 const ROOT_COLUMNS = 'root_key,scope_key,asset_id,root';
 
 /** Called after the owner's queue/placeholder registration. Cancellation is
@@ -42,9 +43,9 @@ export function captureLightscaperNativePhotoCustodyRequestCurrentV1(method: Met
 		const value = Object.hasOwn(options, 'signal') ? field(options, 'signal', 'native Photo custody options') : undefined;
 		if (value !== undefined) { assertPhotoStackQuerySignalV1(value); signal = value; }
 		check(signal);
-		readClosedDomainArray(args, 'native Photo custody arguments', method === 'findDigestPage' ? 1 : offset, offset + 1);
+		readClosedDomainArray(args, 'native Photo custody arguments', (method === 'findDigestPage' || method === 'findManagedDigestPage') ? 1 : offset, offset + 1);
 		let captured: LightscaperNativePhotoCustodyRequestCurrentV1;
-		if (method === 'findDigestPage') {
+		if (method === 'findDigestPage' || method === 'findManagedDigestPage') {
 			if (!isMediaContentSha256(args[0])) throw new TypeError('Native media digest lookup requires a lowercase SHA-256.');
 			captured = { method, signal, sha256: args[0], afterAssetId: cursor(args[1]) };
 		} else if (method === 'readPage') {
@@ -74,12 +75,12 @@ export function executeLightscaperNativePhotoCustodyRequestCurrentV1(database: D
 	if (!packet || typeof packet !== 'object' || !admitted.has(packet)) throw new TypeError('Native Photo custody requires its genuine captured packet.');
 	const signal = signalOverride ?? packet.signal;
 	if (database.isTransaction) throw new Error('Native Photo custody requires no active transaction.');
-	check(signal); const reading = packet.method === 'readPage' || packet.method === 'findDigestPage';
+	check(signal); const reading = packet.method === 'readPage' || (packet.method === 'findDigestPage' || packet.method === 'findManagedDigestPage');
 	database.exec(reading ? 'BEGIN' : 'BEGIN IMMEDIATE');
 	try {
 		let result: Result = undefined;
 		if (packet.method === 'readPage') result = rootPage(database, packet, signal);
-		else if (packet.method === 'findDigestPage') result = digestPage(database, packet, signal);
+		else if (packet.method === 'findDigestPage' || packet.method === 'findManagedDigestPage') result = digestPage(database, packet, signal);
 		else if (packet.method === 'retain' || packet.method === 'stage') {
 			for (const reference of packet.references) { check(signal); putRoot(database, makeRoot(database, packet.catalogId, packet.importId, reference)); }
 		} else if (packet.method === 'release' || packet.method === 'releaseStaged' || packet.method === 'promote') {
@@ -117,7 +118,7 @@ function asset(database: DatabaseSync, key: string): Asset {
 function readAsset(row: SqlRow, key: string): Asset {
 	if (readKey(row.source_id) !== key || !isMediaContentSha256(row.sha256) || typeof row.size !== 'number' || !Number.isSafeInteger(row.size)
 		|| row.size < 1 || row.size > MAXIMUM || !isMediaContentToken(row.media_content_token) || typeof row.root_count !== 'number'
-		|| !Number.isSafeInteger(row.root_count) || row.root_count < 0 || row.binding_key !== key || row.binding_sha !== row.sha256 || row.binding_size !== row.size) {
+		|| !Number.isSafeInteger(row.root_count) || row.root_count < 0 || (row.identity_kind !== 'managed' && row.identity_kind !== 'linked')) {
 		throw new Error('Native catalog Original asset provenance or physical binding is corrupt.');
 	}
 	return Object.freeze({ key, sha256: row.sha256, size: row.size, token: row.media_content_token, count: row.root_count });
@@ -173,9 +174,9 @@ function rootPage(database: DatabaseSync, packet: Extract<LightscaperNativePhoto
 	const roots = rows.map(row => { check(signal); const root = readRoot(database, row); if (root.scope !== scope) throw new Error('Native catalog Original scope index is corrupt.'); return root; });
 	return Object.freeze({ roots: Object.freeze(roots), afterKey: roots.length === CATALOG_ORIGINAL_PAGE_SIZE ? roots.at(-1)?.key ?? null : null });
 }
-function digestPage(database: DatabaseSync, packet: Extract<LightscaperNativePhotoCustodyRequestCurrentV1, { method: 'findDigestPage' }>, signal?: AbortSignal): LightscaperNativePhotoCustodyDigestPageCurrentV1 {
+function digestPage(database: DatabaseSync, packet: Extract<LightscaperNativePhotoCustodyRequestCurrentV1, { method: 'findDigestPage' | 'findManagedDigestPage' }>, signal?: AbortSignal): LightscaperNativePhotoCustodyDigestPageCurrentV1 {
 	const parameters = packet.afterAssetId === null ? [packet.sha256] : [packet.sha256, packet.afterAssetId];
-	const rows = database.prepare(`${ASSET} WHERE a.sha256=?${packet.afterAssetId === null ? '' : ' AND a.source_id>?'} ORDER BY a.source_id LIMIT ${CATALOG_ORIGINAL_PAGE_SIZE}`).all(...parameters);
+	const rows = database.prepare(`${ASSET} WHERE a.sha256=?${packet.method === 'findManagedDigestPage' ? " AND i.kind='managed'" : ''}${packet.afterAssetId === null ? '' : ' AND a.source_id>?'} ORDER BY a.source_id LIMIT ${CATALOG_ORIGINAL_PAGE_SIZE}`).all(...parameters);
 	const matches = rows.map(row => { check(signal); const media = readAsset(row, readKey(row.source_id));
 		if (media.sha256 !== packet.sha256) throw new Error('Native media digest index is corrupt.');
 		return Object.freeze({ assetId: media.key, sha256: media.sha256, size: media.size }); });

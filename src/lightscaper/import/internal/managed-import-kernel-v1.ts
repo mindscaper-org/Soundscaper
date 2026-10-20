@@ -65,9 +65,9 @@ export async function importManagedPhotosForProfileV1(profile: Profile, catalogI
 				if (original.size < 1 || original.size > maximumOriginalBytes
 					|| totalBytes > IMAGE_IMPORT_LIMITS.maximumGestureInputBytes || original.size !== document.original.byteLength) throw new RangeError('Managed original exceeds its admitted byte bounds.');
 				await verifyManagedImportResourcesForProfileV1(profile, document, ports, signal);
-				const retained = await prepareOriginal(profile, document, original, ports, signal);
+				const retained = await prepareOriginal(profile, document, original, ports, intent.importId, signal);
 				candidate = retained.photo; reusedOriginal = retained.reused;
-				await ports.media.custody.stage(catalog, intent.importId, [retained.reference], { signal }); check(signal);
+				if (!retained.staged) await ports.media.custody.stage(catalog, intent.importId, [retained.reference], { signal }); check(signal);
 				const current = await loadCatalog(catalog, ports, signal);
 				await Reflect.apply(ports.catalog.publishPhotos, ports.catalog, [catalog, current.revision, [candidate], { signal }]);
 				acknowledge(); check(signal);
@@ -129,13 +129,22 @@ async function recoverIntent(profile: Profile, catalogId: string, ports: Ports, 
 async function retireIntent(intent: PhotoImportIntentV1, ports: Ports): Promise<void> {
 	if (!await ports.journal.deleteIfCurrent(photoImportIntentKeyV1(intent.catalogId), intent)) throw new Error('The photo import intent changed before retirement.');
 }
-async function prepareOriginal(profile: Profile, photo: Photo, original: Blob, ports: Ports, signal?: AbortSignal): Promise<Readonly<{
-	photo: Photo; reused: boolean; reference: CatalogOriginalReferenceV1 }>> {
+async function prepareOriginal(profile: Profile, photo: Photo, original: Blob, ports: Ports, importId: string, signal?: AbortSignal): Promise<Readonly<{
+	photo: Photo; reused: boolean; reference: CatalogOriginalReferenceV1; staged?: true }>> {
 	const sha256 = await digestMediaContent(original, { signal }); check(signal);
 	if (sha256 !== photo.original.contentSha256) throw new Error('Selected photo original digest differs from its verified preparation.');
+	if (profile === 'current3' && photo.original.retention === 'linked') {
+		const stage = (ports as PhotoManagedImportPortsCurrentV1).media.stageLinkedOriginalCurrentV1;
+		if (!stage) throw new TypeError('Linked Current import requires its genuine selected native input publication capability.');
+		const stored = await stage(photo, importId, { signal }); check(signal);
+		if (stored.sourceId !== photo.original.storageKey || stored.sha256 !== sha256 || stored.size !== original.size) throw new Error('Linked native publication differs from actual prepared bytes.');
+		const reference: CatalogOriginalReferenceV1 = { photoId: photo.id, sourceId: photo.original.id, assetId: stored.sourceId, sha256, size: original.size };
+		return Object.freeze({ photo, reused: false, reference, staged: true });
+	}
+	const lookup = profile === 'current3' ? (ports as PhotoManagedImportPortsCurrentV1).media.findManagedOriginalDigestPageCurrentV1 ?? ports.media.custody.findDigestPage : ports.media.custody.findDigestPage;
 	let afterAssetId: string | null = null, assetId: string | null;
 	do {
-		check(signal); const page = await ports.media.custody.findDigestPage(photo.original.contentSha256, afterAssetId, { signal });
+		check(signal); const page = await lookup(photo.original.contentSha256, afterAssetId, { signal });
 		check(signal);
 		assetId = page.matches.find(match => match.size === original.size)?.assetId ?? null; afterAssetId = page.afterAssetId;
 	} while (assetId === null && afterAssetId !== null);

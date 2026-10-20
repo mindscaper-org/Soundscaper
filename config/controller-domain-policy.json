@@ -76,6 +76,8 @@
 		"composition/lightscaper-desktop-archive-open-current-v1.ts",
 		"composition/lightscaper-desktop-lifecycle.ts",
 		"composition/lightscaper-photo-backend-switch-current-v1.ts",
+		"composition/photo-library-linked-commands-current-v1.ts",
+		"composition/photo-library-linked-watch-current-v1.ts",
 		"composition/native-render-input-composition.ts",
 		"composition/presentation-localization-binding.ts",
 		"composition/presentation-state.ts",

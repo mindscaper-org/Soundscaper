@@ -31,3 +31,20 @@ export function assertLightscaperNativeManagedPhotoMediaIdentityCurrentV1(databa
 		throw new Error('Native Photo asset has no matching typed managed identity.');
 	}
 }
+
+/** Both published identity kinds retain exact immutable leaf tuples. This
+ * scalar projection grants no file/body authority by itself. */
+export const LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_JOIN_CURRENT_V1 = `
+ LEFT JOIN native_photo_media_identities i ON i.source_id=a.source_id
+ LEFT JOIN native_photo_original_bindings b ON b.storage_key=i.managed_key
+ LEFT JOIN native_photo_linked_original_bindings l ON l.storage_key=i.linked_key`;
+export const LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_COLUMNS_CURRENT_V1 = `
+ CASE WHEN i.source_id=a.source_id AND i.sha256=a.sha256 AND i.size=a.size
+ AND ((i.kind='managed' AND i.managed_key=a.source_id AND i.linked_key IS NULL AND b.storage_key=a.source_id AND b.content_sha256=a.sha256 AND b.byte_length=a.size)
+ OR (i.kind='linked' AND i.linked_key=a.source_id AND i.managed_key IS NULL AND l.storage_key=a.source_id AND l.content_sha256=a.sha256 AND l.byte_length=a.size)) THEN i.kind END AS identity_kind`;
+export function readLightscaperNativePhotoMediaIdentityCurrentV1(database: DatabaseSync,binding:Readonly<Binding>):'managed'|'linked'{
+	const row=database.prepare(`SELECT ${LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_COLUMNS_CURRENT_V1} FROM native_photo_media_assets a ${LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_JOIN_CURRENT_V1} WHERE a.source_id=?`).get(binding.storageKey);
+	if(!row||(row.identity_kind!=='managed'&&row.identity_kind!=='linked'))throw new Error('Native Photo lacks its exact typed media identity.');
+	const asset=database.prepare("SELECT CASE WHEN typeof(sha256)='text' AND length(CAST(sha256 AS BLOB))=64 THEN sha256 END AS sha256,size FROM native_photo_media_assets WHERE source_id=?").get(binding.storageKey);
+	if(asset?.sha256!==binding.contentSha256||asset.size!==binding.byteLength)throw new Error('Native Photo immutable typed media tuple differs.');return row.identity_kind;
+}

@@ -15,12 +15,13 @@ type Exit = Readonly<{ code: number | null; signal: NodeJS.Signals | null }>;
 export class LightscaperNativePhotoRawProcessCurrentV1 {
  readonly #child: ChildProcessWithoutNullStreams;
  readonly #closed: Promise<Exit>; readonly #streams: readonly Promise<void>[];
+ readonly #trustedRetire: (() => Promise<void>) | undefined; #trustedClosing: Promise<void> | undefined;
  readonly #cleanup: (error: unknown) => void; readonly #listeners: Array<readonly [EventEmitter, string, (...args: never[]) => void]> = [];
  readonly #writes = new Set<Promise<void>>(); readonly #cleanupErrors: unknown[] = [];
  #pending: Pending | undefined; #buffer = Buffer.alloc(0); #used = 0; #id = 0; #exit: Exit | undefined;
  #failed = false; #failure: unknown; #retiring: Promise<Exit> | undefined; #stderr = 0;
- constructor(start: () => ChildProcessWithoutNullStreams, cleanup: (error: unknown) => void) {
-  this.#cleanup = cleanup;
+ constructor(start: () => ChildProcessWithoutNullStreams, cleanup: (error: unknown) => void, retire?: () => Promise<void>) {
+  this.#cleanup = cleanup; this.#trustedRetire = retire;
   const child = start();
   if (!(child instanceof ChildProcess)) throw new TypeError('Native RAW trusted start returned no actual child.');
   this.#child = child;
@@ -48,7 +49,7 @@ export class LightscaperNativePhotoRawProcessCurrentV1 {
    // A real returned child must not vanish with a failed constructor. The
    // trusted producer contract was violated; keep this genuine owner strongly.
    UNRETURNED.add(this); this.#recordCleanup(primary);
-   try { Reflect.apply(ON, child, ['error', () => undefined]); Reflect.apply(KILL, child, ['SIGKILL']); } catch (cleanup) { this.#recordCleanup(cleanup); }
+   try { Reflect.apply(ON, child, ['error', () => undefined]); this.#terminate(); } catch (cleanup) { this.#recordCleanup(cleanup); }
    throw primary;
   }
  }
@@ -104,7 +105,16 @@ export class LightscaperNativePhotoRawProcessCurrentV1 {
   const pending = this.#pending; this.#pending = undefined; pending?.reject(this.#failure);
   void this.retire(true).catch(() => undefined);
  }
+ #joinTrustedRetirement(): Promise<void> {
+  if (this.#trustedClosing) return this.#trustedClosing;
+  let accept!: () => void, reject!: (error: unknown) => void;
+  this.#trustedClosing = new Promise<void>((yes, no) => { accept = yes; reject = no; });
+  const fail = (error: unknown): void => { UNRETURNED.add(this); this.#recordCleanup(error); reject(error); };
+  try { const actual = this.#trustedRetire!(); void Promise.resolve(actual).then(accept, fail); } catch (error) { fail(error); }
+  void this.#trustedClosing.catch(() => undefined); return this.#trustedClosing;
+ }
  #terminate(): void {
+  if (this.#trustedRetire) { void this.#joinTrustedRetirement(); return; }
   if (this.#exit) return;
   try { Reflect.apply(KILL, this.#child, ['SIGKILL']); } catch (error) { this.#recordCleanup(error); }
  }
@@ -120,6 +130,7 @@ export class LightscaperNativePhotoRawProcessCurrentV1 {
   const timer = setTimeout(() => this.#terminate(), 2000); timer.unref();
   void this.#closed.then(async exit => {
    clearTimeout(timer); await Promise.all(this.#streams); await Promise.allSettled([...this.#writes]);
+   if (this.#trustedRetire) { try { await this.#joinTrustedRetirement(); } catch { /* Recorded by the exact trusted retirement boundary. */ } }
    this.#buffer.fill(0); this.#buffer = Buffer.alloc(0); this.#used = 0;
    for (const [emitter, name, listener] of this.#listeners) { try { Reflect.apply(OFF, emitter, [name, listener]); } catch (error) { this.#recordCleanup(error); } }
    this.#listeners.length = 0;

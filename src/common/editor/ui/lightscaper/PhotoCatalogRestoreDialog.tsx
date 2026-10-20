@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useSyncExternalStore, useEffect, useRef, useState } from 'react';
 import type { PhotoLibraryRestoreCopyV1 } from '../../../i18n/lightscaper-restore-copy.ts';
 import type { PhotoLibraryRestoreReceiptV1 } from '../../photo-library-restore-port-v1.ts';
+import { LightscaperPhotoBackendContextCurrentV1 } from './photo-library-backend-context-current-v1.ts';
+import { lightscaperPhotoLinkedCopyCurrentV1 } from '../../../i18n/lightscaper-photo-linked-copy-current-v1.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import './photo-catalog-restore.css';
 
@@ -39,7 +41,7 @@ export default function PhotoCatalogRestoreDialog(props: PhotoCatalogRestoreDial
 	return <AudioEditorDialogShell title={messages.title} onClose={close} initialFocus="[data-photo-restore-file]"
 		className="lightscaper-dialog" overlayClassName="lightscaper-dialog-backdrop" closeOnOutside={false}>
 		<div data-photo-restore-dialog className="lightscaper-catalog-restore">
-			<p>{messages.description}</p>
+			<p>{messages.description}</p><NativeRestorePolicy locale={props.locale} />
 			<label>{messages.file}<input data-photo-restore-file type="file" accept=".liscape,.sscape,.fscape,.scape" disabled={props.busy}
 				onChange={event => { if (live.current && !props.busy) setFile(event.currentTarget.files?.[0] ?? null); }} /></label>
 			{file && <p data-photo-restore-selected-file>{file.name}</p>}
@@ -60,4 +62,9 @@ export default function PhotoCatalogRestoreDialog(props: PhotoCatalogRestoreDial
 			</div>
 		</div>
 	</AudioEditorDialogShell>;
+}
+
+function NativeRestorePolicy({locale}:Readonly<{locale:string}>){const owner=useContext(LightscaperPhotoBackendContextCurrentV1);return owner?<NativePolicy owner={owner} locale={locale}/>:null;}
+function NativePolicy({owner,locale}:Readonly<{owner:import('../../controller/composition/lightscaper-photo-backend-switch-current-v1.ts').LightscaperPhotoBackendSwitchCurrentV1;locale:string}>){
+	const snapshot=useSyncExternalStore(owner.subscribe,owner.snapshot,owner.snapshot);return snapshot.backend==='native'?<p data-photo-linked-restore-policy>{lightscaperPhotoLinkedCopyCurrentV1(locale).photoLinkedManagedCopies}</p>:null;
 }

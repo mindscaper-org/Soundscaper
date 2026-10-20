@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createLightscaperNativePhotoSessionLinkedFacadeCurrentV1 as linkedFacade } from './lightscaper-native-photo-linked-components-current-v1.ts';
+import { bindLightscaperNativePhotoMediaRawInputFacadeCurrentV1 as bindRawMedia } from './lightscaper-native-photo-media-current-v1.ts';
 import type { LightscaperNativePhotoLibraryComponentsCurrentV1 as Components } from './lightscaper-native-photo-library-components-current-v1.ts';
 import type { LightscaperNativePhotoSessionCallsCurrentV1 as Calls } from './lightscaper-native-photo-session-calls-current-v1.ts';
 import { captureLightscaperNativePhotoSessionArchiveCurrentV1 as archive, captureLightscaperNativePhotoSessionWriterCurrentV1 as writer } from './lightscaper-native-photo-session-escaped-current-v1.ts';
@@ -7,8 +9,10 @@ import { captureLightscaperNativePhotoSessionArchiveCurrentV1 as archive, captur
 type Catalog = Omit<Pick<Components['catalog'], keyof Components['catalog']>, 'close' | 'storeOriginal' | 'readOriginal'>;
 type Media = Pick<Components['media'], 'writeAsset' | 'beginAssetWrite' | 'getAssetMetadata' | 'deleteAsset'
 	| 'inspectCatalogOriginalBody' | 'restoreCatalogOriginalBody' | 'catalogOriginals' | 'createBinaryDerivativeCache'
-	| 'beginOriginalRepairUploadCurrentV1' | 'restoreCatalogOriginalBodyFromSourceCurrentV1' | 'readSessionAssetMetadataCurrentV1'>;
+	| 'beginOriginalRepairUploadCurrentV1' | 'restoreCatalogOriginalBodyFromSourceCurrentV1' | 'readSessionAssetMetadataCurrentV1' | 'findManagedOriginalDigestPageCurrentV1'>;
 export interface LightscaperNativePhotoSessionComponentsCurrentV1 {
+	readonly rawParts?: Components['rawParts'];
+	readonly linked?: Readonly<object>;
 	readonly catalog: Readonly<Catalog>;
 	readonly media: Readonly<Media>;
 	readonly settings: Readonly<Pick<Components['settings'], 'settingsRepository' | 'readImportIntentCurrentV1' | 'readSessionDomainEntryCurrentV1'>>;
@@ -32,11 +36,11 @@ export function createLightscaperNativePhotoSessionFacadesCurrentV1(actual: Read
 	const captureArchive = actual.catalog.captureSmartCollectionArchiveV1;
 	const begin = actual.media.beginAssetWrite, createCache = actual.media.createBinaryDerivativeCache;
 	const cube = actual.resources.cubeLutResources, brush = actual.resources.maskRasterResources;
-	return Object.freeze({
+	const result = Object.freeze({ ...(actual.rawParts ? { rawParts: actual.rawParts } : {}), ...(actual.linked?{linked:linkedFacade(actual.linked,calls)}:{}),
 		catalog: Object.freeze({ ...methods(actual.catalog, CATALOG, calls), captureSmartCollectionArchiveV1: (...args: Parameters<typeof captureArchive>) =>
 			calls.run(async () => archive(await Reflect.apply(captureArchive, actual.catalog, args), calls)) }),
 		media: Object.freeze({ ...methods(actual.media, ['writeAsset', 'getAssetMetadata', 'deleteAsset', 'inspectCatalogOriginalBody', 'restoreCatalogOriginalBody',
-			'beginOriginalRepairUploadCurrentV1', 'restoreCatalogOriginalBodyFromSourceCurrentV1', 'readSessionAssetMetadataCurrentV1'], calls),
+			'beginOriginalRepairUploadCurrentV1', 'restoreCatalogOriginalBodyFromSourceCurrentV1', 'readSessionAssetMetadataCurrentV1', 'findManagedOriginalDigestPageCurrentV1'], calls),
 			catalogOriginals: methods(actual.media.catalogOriginals, ['retain', 'stage', 'release', 'releaseStaged', 'promote', 'readPage', 'findDigestPage'], calls),
 			beginAssetWrite: (...args: Parameters<typeof begin>) => calls.run(async () => writer(await Reflect.apply(begin, actual.media, args), calls)),
 			createBinaryDerivativeCache: (...args: Parameters<typeof createCache>) => calls.sync(() => {
@@ -61,6 +65,7 @@ export function createLightscaperNativePhotoSessionFacadesCurrentV1(actual: Read
 			...methods(actual.originalTickets.transport, ['close', 'closeGroup'], calls, true),
 		}) }), close,
 	});
+	bindRawMedia(result.media, actual.media); return result;
 }
 
 function methods<Owner extends object, Key extends keyof Owner>(owner: Owner, names: readonly Key[], calls: Calls, cleanup = false): Readonly<Pick<Owner, Key>> {

@@ -12,11 +12,14 @@ export const DESKTOP_PHOTO_LIBRARY_SESSION_CHANNELS_CURRENT_V1 = Object.freeze({
 	stacks: 'lightscaper:v1:photo-session:stacks', saved: 'lightscaper:v1:photo-session:saved',
 	settings: 'lightscaper:v1:photo-session:settings', custody: 'lightscaper:v1:photo-session:custody',
 	originalOpen: 'lightscaper:v1:photo-session:original-open', originalRead: 'lightscaper:v1:photo-session:original-read',
+	rawOpen: 'lightscaper:v1:photo-session:raw-open', rawRead: 'lightscaper:v1:photo-session:raw-read', rawClose: 'lightscaper:v1:photo-session:raw-close',
+	rawInput: 'lightscaper:v1:photo-session:raw-input',
 	originalClose: 'lightscaper:v1:photo-session:original-close', originalOpenGroup: 'lightscaper:v1:photo-session:original-open-group',
 	originalReadGroup: 'lightscaper:v1:photo-session:original-read-group', originalCloseGroup: 'lightscaper:v1:photo-session:original-close-group',
 	upload: 'lightscaper:v1:photo-session:upload', cache: 'lightscaper:v1:photo-session:cache',
 	resource: 'lightscaper:v1:photo-session:resource', archive: 'lightscaper:v1:photo-session:archive',
 	exclusive: 'lightscaper:v1:photo-session:exclusive',
+	linked: 'lightscaper:v1:photo-session:linked',
 });
 
 /** Connection capacity, separate from each owning value grammar. Originals
@@ -43,7 +46,7 @@ export interface DesktopPhotoLibrarySessionRequestIdentityCurrentV1 {
 	readonly exclusiveId: string | null;
 }
 
-export type DesktopPhotoLibrarySessionHandleKindCurrentV1 = 'upload' | 'download' | 'resource' | 'archive' | 'exclusive';
+export type DesktopPhotoLibrarySessionHandleKindCurrentV1 = 'upload' | 'download' | 'resource' | 'archive' | 'exclusive' | 'raw-input' | 'linked-input' | 'linked-scan';
 export interface DesktopPhotoLibrarySessionHandleCurrentV1<Kind extends DesktopPhotoLibrarySessionHandleKindCurrentV1 = DesktopPhotoLibrarySessionHandleKindCurrentV1> {
 	readonly kind: Kind;
 	readonly id: string;
@@ -80,7 +83,7 @@ export function readDesktopPhotoLibrarySessionHandleCurrentV1<Kind extends Deskt
 ): Readonly<DesktopPhotoLibrarySessionHandleCurrentV1<Kind>> {
 	const label = 'desktop Photo Session handle', input = record(value, label, ['kind', 'id']);
 	const kind = field(input, 'kind', label);
-	if (!['upload', 'download', 'resource', 'archive', 'exclusive'].includes(typeof kind === 'string' ? kind : '') || kind !== expectedKind)
+	if (!['upload', 'download', 'resource', 'archive', 'exclusive', 'raw-input', 'linked-input', 'linked-scan'].includes(typeof kind === 'string' ? kind : '') || kind !== expectedKind)
 		throw new RangeError('Desktop Photo Session handle has an unsupported purpose.');
 	return Object.freeze({ kind: expectedKind, id: hexadecimal(field(input, 'id', label), 64) });
 }

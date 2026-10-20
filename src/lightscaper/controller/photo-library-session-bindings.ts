@@ -28,7 +28,7 @@ function capturePhotoLibrarySessionPortsForProfileV1<Ports extends PhotoLibraryS
 		verifyResources = ports.verifyResources, cubeLutResources = ports.cubeLutResources, maskRasterResources = ports.maskRasterResources, createPreviewScheduler = ports.createPreviewScheduler,
 		prepare = ports.prepare, importPhotos = ports.importPhotos, createId = ports.createId, now = ports.now;
 	const managed = capturePhotoManagedImportPortsForProfileV1({ catalog, media, journal,
-		...(exclusive === undefined ? {} : { exclusive }), ...(verifyResources === undefined ? {} : { verifyResources }) } as PhotoManagedImportPortsV2 | PhotoManagedImportPortsCurrentV1);
+		...(exclusive === undefined ? {} : { exclusive }), ...(verifyResources === undefined ? {} : { verifyResources }) } as PhotoManagedImportPortsV2 | PhotoManagedImportPortsCurrentV1, current);
 	return Object.freeze({
 		catalog: Object.freeze({ ...managed.catalog, savePhoto: pin(catalog.savePhoto, catalog), saveCatalog: pin(catalog.saveCatalog, catalog),
 			...(current ? optional(catalog as PhotoLibrarySessionPortsCurrentV1['catalog'], 'publishDerivedPhotoCurrentV1') : {}),

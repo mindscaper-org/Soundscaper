@@ -124,9 +124,9 @@ void test('Lightscaper Session transport capacities stay separate from Original 
 });
 
 void test('Lightscaper Session channel inventory is fixed and contains no lifecycle retirement DTO channel', options, () => {
-	assert.deepEqual(Object.keys(channels).sort(), ['archive', 'cache', 'cancel', 'catalog', 'close', 'custody', 'exclusive',
+	assert.deepEqual(Object.keys(channels).sort(), ['archive', 'cache', 'cancel', 'catalog', 'close', 'custody', 'exclusive', 'linked',
 		'open', 'originalClose', 'originalCloseGroup', 'originalOpen', 'originalOpenGroup', 'originalRead', 'originalReadGroup',
-		'query', 'resource', 'saved', 'settings', 'stacks', 'stop', 'upload'].sort());
+		'query', 'rawClose', 'rawInput', 'rawOpen', 'rawRead', 'resource', 'saved', 'settings', 'stacks', 'stop', 'upload'].sort());
 	assert.equal(new Set(Object.values(channels)).size, Object.keys(channels).length);
 	for (const channel of Object.values(channels)) assert.match(channel, /^lightscaper:v1:photo-session:[a-z-]+$/u);
 	assert.ok(Object.isFrozen(channels));

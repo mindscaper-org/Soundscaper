@@ -8,6 +8,7 @@ import { captureComponents, captureIdentity, captureNativePath, GRANTED_FS_OP_CU
 import { NativeFilesystemProcessCurrentV1 } from './lightscaper-native-photo-granted-filesystem-process-current-v1.ts';
 import { captureNativeFilesystemOptions, captureNativeFilesystemSignal, checkNativeFilesystemSignal, linkNativeFilesystemSignal } from './lightscaper-native-photo-granted-filesystem-signal-current-v1.ts';
 export type { NativeFileIdentity, NativePath, NativeEntry, NativePage } from './lightscaper-native-photo-granted-filesystem-codec-current-v1.ts';
+export { readNativeFilesystemMissingCurrentV1 as readLightscaperNativePhotoGrantedFilesystemMissingCurrentV1 } from './lightscaper-native-photo-granted-filesystem-process-current-v1.ts';
 type Options = Readonly<{ signal?: AbortSignal }>;
 export type NativeRoot = Readonly<{ identity: NativeFileIdentity; openFile(components: readonly NativePath[], options?: Options): Promise<NativeFile>;
 	openScan(components: readonly NativePath[], options?: Options): Promise<NativeScan>; close(): Promise<void> }>;

@@ -75,7 +75,7 @@ function useReads(profile: 'legacy2' | 'current3', { slot, factory, loader, rend
 		const signal = options.signal ? AbortSignal.any([options.signal, current.lifetime.signal]) : current.lifetime.signal;
 		check(signal);
 		const owner = await acquire(profile, current); check(signal);
-		const result = await owner.readPreview(photoId, tier, { signal, ...(options.rawPreviewSource === undefined ? {} : { rawPreviewSource: options.rawPreviewSource }) }); check(signal);
+		const result = await owner.readPreview(photoId, tier, { signal, ...(options.rawPreviewSource === undefined ? {} : { rawPreviewSource: options.rawPreviewSource }), ...(options.expectedRevision === undefined ? {} : { expectedRevision: options.expectedRevision }) }); check(signal);
 		return result;
 	}, [profile, createSession, createDevelopProxyRuntime, loadBackupSaveRuntime]);
 	const withOriginalFrame = useCallback<PhotoLibraryDevelopOriginalPortV1['withFrame']>(async (request, consume, options = {}) => {

@@ -5,11 +5,15 @@ import type { PhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v
 import { capturePhotoManagedImportPortsForProfileV1 } from './managed-import-ports-v2.ts';
 import type { PhotoManagedImportPortsV2 } from './managed-import-ports-v2.ts';
 
-export interface PhotoManagedImportPortsCurrentV1 extends Omit<PhotoManagedImportPortsV2, 'catalog' | 'verifyResources'> {
+export interface PhotoManagedImportPortsCurrentV1 extends Omit<PhotoManagedImportPortsV2, 'catalog' | 'verifyResources' | 'media'> {
+	readonly media: PhotoManagedImportPortsV2['media'] & Readonly<{
+		findManagedOriginalDigestPageCurrentV1?: PhotoManagedImportPortsV2['media']['custody']['findDigestPage'];
+		stageLinkedOriginalCurrentV1?: (photo: PhotoDocumentCurrentV1, importId: string, options?: Readonly<{ signal?: AbortSignal }>) => Promise<Readonly<{ sourceId: string; sha256: string; size: number }>>;
+	}>;
 	readonly catalog: Pick<PhotoCatalogRepositoryCurrentV1, 'loadCatalog' | 'loadPhoto' | 'publishPhotos'>;
 	readonly verifyResources?: (photo: PhotoDocumentCurrentV1, signal?: AbortSignal) => Promise<void>;
 }
 
 export function capturePhotoManagedImportPortsCurrentV1(ports: PhotoManagedImportPortsCurrentV1): Readonly<PhotoManagedImportPortsCurrentV1> {
-	return capturePhotoManagedImportPortsForProfileV1(ports);
+	return capturePhotoManagedImportPortsForProfileV1(ports, true);
 }

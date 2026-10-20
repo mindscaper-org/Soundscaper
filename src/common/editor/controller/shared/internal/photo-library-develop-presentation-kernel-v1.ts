@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../../../closed-domain-value.ts';
+import { preparePhotoDevelopInputQualityCurrentV1, type PhotoDevelopInputQualityCurrentV1 } from '../../../photo-develop-input-quality-current-v1.ts';
 import type { PixelPreviewPresentationReaderV1 } from '../pixel-preview-presentation-v1.ts';
 import type { PhotoLibraryDevelopSettingsCurrentV1 } from '../../../photo-library-develop-port-current-v1.ts';
 import type { LoadPhotoLibraryDevelopProxyRuntimeCurrentV1, PhotoLibraryDevelopProxyRuntimeCurrentV1 } from '../../../photo-library-develop-proxy-port-current-v1.ts';
@@ -33,6 +34,7 @@ export interface PhotoDevelopPresentationViewKernelV1 extends Omit<PhotoDevelopP
 	readonly develop: PhotoLibraryDevelopSettingsCurrentV1;
 	readonly softProof?: Readonly<ImageOutputSoftProofCurrentV1>;
 	readonly previewRenderer?: PhotoDevelopPreviewRendererCurrentV1;
+	readonly inputQuality?: PhotoDevelopInputQualityCurrentV1;
 }
 type CapturedPorts = Required<Omit<PhotoDevelopPresentationPortsKernelV1, 'withOriginalFrame' | 'withDerivedFrame' | 'readPreview'>> & Pick<PhotoDevelopPresentationPortsKernelV1, 'withOriginalFrame' | 'withDerivedFrame' | 'readPreview'>;
 function assertProfile(value: unknown): asserts value is PhotoDevelopPresentationProfileV1 {
@@ -64,10 +66,12 @@ export function preparePhotoDevelopPresentationViewForProfileV1(profile: PhotoDe
 	assertProfile(profile);
 	if (value && typeof value === 'object' && PREPARED.get(value) === profile) return value as Readonly<PhotoDevelopPresentationViewKernelV1>;
 	const input = record(value, 'develop presentation', ['photoId', 'develop', 'revision', 'resolution', 'before', 'after', 'maskOverlay', 'maskOverlayMode', 'overlay',
-		...(profile === 'current4' ? ['softProof', 'previewRenderer'] : [])], ['photoId', 'develop', 'before', 'after']);
+		...(profile === 'current4' ? ['softProof', 'previewRenderer', 'inputQuality'] : [])], ['photoId', 'develop', 'before', 'after']);
 	const rawProof = profile === 'current4' && Object.hasOwn(input, 'softProof') ? field(input, 'softProof', 'develop presentation') : undefined;
 	const softProof = rawProof === undefined ? undefined : prepareImageOutputSoftProofCurrentV1(rawProof);
 	const renderer = profile === 'current4' && Object.hasOwn(input, 'previewRenderer') ? preparePhotoDevelopPreviewRendererCurrentV1(field(input, 'previewRenderer', 'develop presentation')) : undefined;
+	const inputQuality = profile === 'current4' && Object.hasOwn(input, 'inputQuality')
+		? preparePhotoDevelopInputQualityCurrentV1(field(input, 'inputQuality', 'develop presentation')) : undefined;
 	const id = field(input, 'photoId', 'develop presentation');
 	if (typeof id !== 'string' || id.length === 0 || id.length > 256 || [...id].some(character => character.charCodeAt(0) < 32)) throw new TypeError('Develop requires a bounded photo ID.');
 	const resolution = Object.hasOwn(input, 'resolution') ? field(input, 'resolution', 'develop presentation') : undefined;
@@ -77,6 +81,10 @@ export function preparePhotoDevelopPresentationViewForProfileV1(profile: PhotoDe
 	if ((profile !== 'legacy2' || resolution === 'full') && revision === undefined) throw new RangeError('Full-resolution develop requires a photo revision.');
 	const develop = (profile === 'legacy2' ? normalizeImageDevelopStateV1OrV2 : profile === 'current3' ? normalizeImageDevelopStateThroughV3 : normalizeImageDevelopStateThroughV4)(field(input, 'develop', 'develop presentation'));
 	if (new TextEncoder().encode(JSON.stringify(develop)).byteLength > 2_097_152) throw new RangeError('Develop settings exceed their byte budget.');
+	if (inputQuality === 'preview-derivative' && resolution === 'full') throw new RangeError('Preview input cannot render at full resolution.');
+	if (inputQuality === 'preview-derivative' && develop.processVersion === 4 && develop.rawDevelopment.mode !== 'canonical') {
+		throw new RangeError('RAW headroom and recovery require the original source.');
+	}
 	const before = field(input, 'before', 'develop presentation'), after = field(input, 'after', 'develop presentation');
 	if (!before || typeof before !== 'object' || !after || typeof after !== 'object' || before === after) throw new TypeError('Develop requires two distinct canvas targets.');
 	const rawSelection = Object.hasOwn(input, 'maskOverlay') ? field(input, 'maskOverlay', 'develop presentation') : undefined;
@@ -88,7 +96,7 @@ export function preparePhotoDevelopPresentationViewForProfileV1(profile: PhotoDe
 	if (overlay !== undefined && (!overlay || typeof overlay !== 'object' || overlay === before || overlay === after)) throw new TypeError('Mask overlay requires a distinct canvas target.');
 	const maskOverlay = rawSelection === undefined ? undefined : prepareImageDevelopMaskOverlaySelectionV1(rawSelection);
 	const result = Object.freeze({ photoId: id, develop, resolution, revision: revision as number | undefined, before: before as HTMLCanvasElement, after: after as HTMLCanvasElement,
-		...(maskOverlay ? { maskOverlay, maskOverlayMode, overlay: overlay as HTMLCanvasElement } : {}), ...(softProof ? { softProof } : {}), ...(renderer ? { previewRenderer: renderer } : {}) });
+		...(maskOverlay ? { maskOverlay, maskOverlayMode, overlay: overlay as HTMLCanvasElement } : {}), ...(softProof ? { softProof } : {}), ...(renderer ? { previewRenderer: renderer } : {}), ...(inputQuality ? { inputQuality } : {}) });
 	PREPARED.set(result, profile); return result;
 }
 
@@ -210,6 +218,7 @@ export class PhotoLibraryDevelopPresentationKernelV1 {
 	async #run(view: Readonly<PhotoDevelopPresentationViewKernelV1>, signal: AbortSignal): Promise<void> {
 		try { await this.#ports.beforePresent; } catch (error) { this.#remember(error); throw error; }
 		check(signal);
+		if (this.#profile === 'current4' && view.inputQuality === 'preview-derivative') return this.#preview(view, signal);
 		if (this.#profile !== 'legacy2' || view.resolution === 'full') {
 			const loaded = await this.#ports.loadProxy(); check(signal); const runtime = captureRuntime(this.#profile, loaded, view.previewRenderer); check(signal);
 			if (this.#profile === 'current4' && view.develop.processVersion === 4 && view.develop.rawDevelopment.mode !== 'canonical') {
@@ -225,12 +234,17 @@ export class PhotoLibraryDevelopPresentationKernelV1 {
 			}, { signal });
 			check(signal); if (this.#view === view && rendered) this.#publish({ status: 'ready', ...rendered, error: null }); return;
 		}
-		const result = await this.#ports.readPreview!(view.photoId, 'fit-screen', { signal }); check(signal);
+		return this.#preview(view, signal);
+	}
+	async #preview(view: Readonly<PhotoDevelopPresentationViewKernelV1>, signal: AbortSignal): Promise<void> {
+		if (!this.#ports.readPreview) throw new Error('Cached Develop preview input is unavailable.');
+		const options = { signal, ...(this.#profile === 'current4' ? { expectedRevision: view.revision! } : {}) };
+		const result = await this.#ports.readPreview(view.photoId, 'fit-screen', options); check(signal);
 		if (result.outcome !== 'ready') { if (this.#view === view) this.#publish({ status: 'missing' }); return; }
 		if (result.preview.photoId !== view.photoId || result.preview.tier !== 'fit-screen') throw new Error('Develop source changed its requested identity.');
-		const loaded = await this.#ports.loadProxy(); check(signal); const runtime = captureRuntime(this.#profile, loaded); check(signal);
+		const loaded = await this.#ports.loadProxy(); check(signal); const runtime = captureRuntime(this.#profile, loaded, view.previewRenderer); check(signal);
 		const { descriptor, byteLength, outputSha256, body } = result.preview;
-		const rendered = await this.#ports.stage({ descriptor, byteLength, outputSha256, body, signal }, frame => this.#present(view, frame, runtime, signal), { limits: SOURCE });
+		const rendered = await this.#ports.stage({ descriptor, byteLength, outputSha256, body, signal }, frame => this.#profile === 'current4' ? this.#presentCurrent(view, frame, runtime, signal) : this.#present(view, frame, runtime, signal), { limits: SOURCE });
 		check(signal); if (this.#view === view && rendered) this.#publish({ status: 'ready', ...rendered, error: null });
 	}
 	async #present(view: Readonly<PhotoDevelopPresentationViewKernelV1>, frame: PixelFrameV1, runtime: Readonly<PhotoLibraryDevelopProxyRuntimeCurrentV1>, signal: AbortSignal): Promise<Rendered | null> {

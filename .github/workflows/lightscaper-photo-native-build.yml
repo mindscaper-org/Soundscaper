@@ -1,0 +1,63 @@
+name: Lightscaper Photo native build
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+            node_arch: x64
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            node_arch: arm64
+          - target: mac-arm64
+            runner: macos-15
+            node_arch: arm64
+          - target: win-x64
+            runner: windows-2025
+            node_arch: x64
+          - target: win-arm64
+            runner: windows-11-arm
+            node_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ matrix.node_arch }}
+          cache: npm
+      - uses: ./.github/actions/setup-native-tooling
+      - run: npm install --global npm@12.0.1
+      - run: npm ci
+      - name: Linux build and OS-isolation prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          bash scripts/ci-apt-install.sh build-essential cmake binutils
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Authenticate committed upstream source
+        shell: bash
+        run: node scripts/provision-lightscaper-photo-native-source-current-v1.mjs --root=. --output="$RUNNER_TEMP/lightscaper-libraw-source"
+      - name: Build, seal and execute target-native isolation self-tests
+        shell: bash
+        run: node scripts/build-lightscaper-photo-native-current-v1.mjs --root=. --target=${{ matrix.target }} --revision="$GITHUB_SHA" --libraw-source="$RUNNER_TEMP/lightscaper-libraw-source" --build-root="$RUNNER_TEMP/lightscaper-photo-native-build"
+      - name: Prove production staging preserves the pinned Web closure
+        shell: bash
+        run: |
+          node --input-type=module -e 'import {mkdir} from "node:fs/promises"; import {stageDesktopLightscaperRawRuntimeCurrentV1 as stage} from "./scripts/lib/desktop-lightscaper-raw-runtime-current-v1.ts"; const root=process.env.RUNNER_TEMP+"/lightscaper-photo-stage"; await mkdir(root+"/app",{recursive:true}); await stage({repositoryRoot:process.cwd(),runtimeRoot:root+"/runtime"});'
+          node scripts/stage-lightscaper-photo-native-current-v1.mjs --root=. --target=${{ matrix.target }} --result="$RUNNER_TEMP/lightscaper-photo-native-build/result" --app="$RUNNER_TEMP/lightscaper-photo-stage/app" --runtime="$RUNNER_TEMP/lightscaper-photo-stage/runtime"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: lightscaper-photo-native-build-result-${{ matrix.target }}
+          path: ${{ runner.temp }}/lightscaper-photo-native-build/result
+          if-no-files-found: error
+          retention-days: 14

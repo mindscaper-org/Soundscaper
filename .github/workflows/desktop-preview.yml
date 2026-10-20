@@ -22,6 +22,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  lightscaper-internal-desktop:
+    if: github.ref_type != 'tag'
+    needs: quality
+    uses: ./.github/workflows/lightscaper-desktop-native-internal.yml
+
   quality:
     runs-on: ubuntu-24.04
     timeout-minutes: 45

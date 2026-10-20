@@ -2,6 +2,12 @@
 #include "raw_engine.hpp"
 #include "raw_process_contract.hpp"
 #include "sha256.hpp"
+#ifdef LIGHTSCAPER_PHOTO_LINUX_BOOTSTRAP
+extern "C" int lightscaper_photo_linux_bootstrap(void);
+#endif
+#ifdef LIGHTSCAPER_PHOTO_MACOS_BOOTSTRAP
+#include "photo_macos_bootstrap.hpp"
+#endif
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -58,7 +64,8 @@ void send(std::uint8_t operation,std::uint32_t id,const std::uint8_t* data,std::
  require(length<=wire::chunk_bytes,4,5,"Native RAW output chunk exceeds its fixed bound.");
  std::array<std::uint8_t,16> header{};std::memcpy(header.data(),wire::magic,4);header[4]=wire::version;header[5]=operation;put(header.data()+8,id,4);put(header.data()+12,length,4);
  std::cout.write(reinterpret_cast<const char*>(header.data()),header.size());
- if(length)std::cout.write(reinterpret_cast<const char*>(data),static_cast<std::streamsize>(length));std::cout.flush();
+ if(length) { std::cout.write(reinterpret_cast<const char*>(data),static_cast<std::streamsize>(length)); }
+ std::cout.flush();
  if(!std::cout)throw std::runtime_error("Native RAW output pipe refused.");
 }
 std::uint8_t target() {
@@ -139,6 +146,12 @@ void error(std::uint32_t id,std::uint16_t code,std::uint8_t phase,const char* me
 }
 } // namespace
 int main() {
+#ifdef LIGHTSCAPER_PHOTO_LINUX_BOOTSTRAP
+ if (!lightscaper_photo_linux_bootstrap()) return 125;
+#endif
+#ifdef LIGHTSCAPER_PHOTO_MACOS_BOOTSTRAP
+ if(!lightscaper::photo::macosBootstrap::lightscaperPhotoMacosBootstrap())return 125;
+#endif
 #ifdef _WIN32
  if(_setmode(_fileno(stdin),_O_BINARY)==-1||_setmode(_fileno(stdout),_O_BINARY)==-1)return 2;
 #endif

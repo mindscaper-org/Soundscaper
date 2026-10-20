@@ -62,6 +62,6 @@ export function readDesktopPhotoOriginalTicketCurrentV1(value: unknown, expected
 }
 function original(value: unknown): Readonly<PhotoOriginalV1> {
 	const admitted = normalizePhotoOriginalV1(value);
-	if (admitted.retention !== 'managed' || admitted.byteLength > IMAGE_HDR_ORIGINAL_LIMITS_V1.maximumEncodedBytes) throw new RangeError('Desktop Original requires the bounded native managed byte profile.');
+	if (admitted.byteLength > IMAGE_HDR_ORIGINAL_LIMITS_V1.maximumEncodedBytes) throw new RangeError('Desktop Original requires the bounded native byte profile.');
 	return admitted;
 }

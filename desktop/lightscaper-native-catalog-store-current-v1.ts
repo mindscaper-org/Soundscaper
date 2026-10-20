@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { isAbsolute, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 import { normalizePhotoCatalogRootV1 } from '../src/lightscaper/catalog/catalog-root.ts';
 import { readValidatedPhotoCatalogRootV1 } from '../src/lightscaper/catalog/documents.ts';
@@ -67,8 +68,20 @@ import { retireLightscaperNativeSavedQueryProgressCurrentV1 } from './lightscape
 import { createLightscaperNativeSmartCollectionArchiveCurrentV1 } from './lightscaper-native-smart-collection-archive-current-v1.ts';
 import { LightscaperNativeSavedLifetimeCurrentV1 } from './lightscaper-native-saved-lifetime-current-v1.ts';
 
+import { captureLightscaperNativePhotoLinkedOriginalsCurrentV1 as captureLinked, type LightscaperNativePhotoLinkedOriginalsCurrentV1 as LinkedOriginals } from './lightscaper-native-photo-linked-originals-current-v1.ts';
+import { deriveLightscaperNativePhotoOriginalPathsCurrentV1 as originalPaths } from './lightscaper-native-original-index-current-v1.ts';
+
 type Options = Readonly<{ signal?: AbortSignal }>;
-type OpenOptions = Readonly<{ appDataPath: string; verifyResources?: LightscaperNativeCatalogVerificationCurrentV1['verifyResources'] }>;
+type OpenOptions = Readonly<{ appDataPath: string; linkedOriginals?: LinkedOriginals; verifyResources?: LightscaperNativeCatalogVerificationCurrentV1['verifyResources'] }>;
+
+export type LightscaperNativeCatalogReadCurrentV1 = Readonly<Pick<LightscaperNativeCatalogStoreCurrentV1, 'loadCatalog'|'loadPhoto'|'readSummaryPage'|'readSnapshot'> & {assertCurrent():void}>;
+const LINKED_READS = new WeakMap<object,Readonly<{namespace:string;read:LightscaperNativeCatalogReadCurrentV1}>>();
+/** Genuine namespace capture precedes any reflection of the proposed Catalog. */
+export function captureLightscaperNativeCatalogReadCurrentV1(value:unknown,mediaDatabasePath:string):LightscaperNativeCatalogReadCurrentV1 {
+ const entry=value!==null&&typeof value==='object'?LINKED_READS.get(value):undefined;
+ const namespace=realpathSync(mediaDatabasePath),canonical=process.platform==='win32'?namespace.toLowerCase():namespace;
+ if(!entry||entry.namespace!==canonical)throw new TypeError('A genuine same-namespace native Catalog is required.');entry.read.assertCurrent();return entry.read;
+}
 
 /** Main-private native component, not a renderer repository or IPC facade.
  * Full query/stack/resource/session ports are required before app activation. */
@@ -80,13 +93,20 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 	#tail: Promise<void> = Promise.resolve();
 	#closing: Promise<void> | null = null;
 	private constructor(database: DatabaseSync, originals: LightscaperNativeOriginalStoreCurrentV1,
-		verifyResources: OpenOptions['verifyResources']) {
+		verifyResources: OpenOptions['verifyResources'], linked: ReturnType<typeof captureLinked> | null) {
 		this.#database = database; this.#originals = originals;
-		this.#verification = Object.freeze({ verifyOriginal: (original: PhotoOriginalV1, signal?: AbortSignal) => originals.verify(original, { signal }),
+		this.#verification = Object.freeze({ verifyOriginal: (original: PhotoOriginalV1, signal?: AbortSignal) => original.retention === 'linked'
+			? linked ? linked.verifyOriginal(original, signal) : Promise.reject(new Error('Native Catalog has no genuine linked body owner.'))
+			: originals.verify(original, { signal }),
 			...(verifyResources === undefined ? {} : { verifyResources }) });
 	}
 	static async open(options: OpenOptions): Promise<LightscaperNativeCatalogStoreCurrentV1> {
-		const input = record(options, 'native catalog owner', ['appDataPath', 'verifyResources'], ['appDataPath']);
+		const pathDescriptor=Object.getOwnPropertyDescriptor(options,'appDataPath'),linkedDescriptor=Object.getOwnPropertyDescriptor(options,'linkedOriginals');
+		const pathValue:unknown=pathDescriptor&&Object.hasOwn(pathDescriptor,'value')?pathDescriptor.value:undefined;
+		if(typeof pathValue!=='string')throw new TypeError('Native Catalog requires inert appData.');
+		const linkedValue:unknown=linkedDescriptor&&Object.hasOwn(linkedDescriptor,'value')?linkedDescriptor.value:undefined;
+		const linked=linkedValue===undefined?null:captureLinked(linkedValue,originalPaths(pathValue).databasePath);
+		const input = record(options, 'native catalog owner', ['appDataPath', 'verifyResources', 'linkedOriginals'], ['appDataPath']);
 		const root = field(input, 'appDataPath'), verify = Object.hasOwn(input, 'verifyResources') ? field(input, 'verifyResources') : undefined;
 		if (typeof root !== 'string' || !isAbsolute(root) || resolve(root) !== root || root.includes('\0')) throw new TypeError('Native catalog appData requires a canonical absolute directory.');
 		if (verify !== undefined && typeof verify !== 'function') throw new TypeError('Native catalog resource verification requires a function.');
@@ -95,7 +115,11 @@ export class LightscaperNativeCatalogStoreCurrentV1 {
 			const database = await openLightscaperNativeCatalogDatabaseCurrentV1(root);
 			const verifyResources = verify === undefined ? undefined : (photo: PhotoDocumentCurrentV1, signal?: AbortSignal): Promise<void> =>
 				Reflect.apply(verify as NonNullable<OpenOptions['verifyResources']>, options, [photo, signal]);
-			return new LightscaperNativeCatalogStoreCurrentV1(database, originals, verifyResources);
+			const owner=new LightscaperNativeCatalogStoreCurrentV1(database, originals, verifyResources, linked);
+   const physical=originalPaths(root).databasePath,namespace=process.platform==='win32'?physical.toLowerCase():physical;
+   const read=Object.freeze<LightscaperNativeCatalogReadCurrentV1>({assertCurrent(){if(owner.#closing)throw new PhotoCatalogClosedError();},
+    loadCatalog:owner.loadCatalog.bind(owner),loadPhoto:owner.loadPhoto.bind(owner),readSummaryPage:owner.readSummaryPage.bind(owner),readSnapshot:owner.readSnapshot.bind(owner)});
+   const entry=Object.freeze({namespace,read});LINKED_READS.set(owner,entry);LINKED_READS.set(read,entry);return owner;
 		} catch (error) {
 			try { await originals.close(); }
 			catch (cleanup) { throw new AggregateError([error, cleanup], 'Native catalog opening and Original retirement failed.', { cause: cleanup }); }

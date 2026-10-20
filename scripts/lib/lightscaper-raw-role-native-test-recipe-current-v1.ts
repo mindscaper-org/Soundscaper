@@ -14,7 +14,7 @@ export function lightscaperRawRoleNativeTestRecipeCurrentV1(repositoryRoot: stri
    definitions: Object.freeze([...engine.cmake.definitions, '-DLIGHTSCAPER_BUILD_RAW_ENGINE_FIXTURE=OFF']) }),
   sources: Object.freeze([...engine.sources.filter(source => source !== fixture),
    join(repositoryRoot, 'native/lightscaper-raw-engine-current-v1/src/raw_process.cpp'),
-   join(repositoryRoot, 'native/common/sha256.cpp')]),
-  headerRoots: Object.freeze([...engine.headerRoots, join(repositoryRoot, 'native/common')]),
+   join(repositoryRoot, 'native/common/sha256.cpp'), join(repositoryRoot, 'native/common/sha256.hpp')]),
+  headerRoots: engine.headerRoots,
  });
 }

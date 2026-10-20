@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { capturePhotoLibraryRawSourceCurrentV1 } from './photo-library-raw-source-current-v1.ts';
+import { createPhotoLibraryDevelopNativeOriginalSessionCurrentV1 } from './photo-library-develop-native-original-session-current-v1.ts';
 import type { PhotoLibraryDevelopOriginalPortV1 } from '../../common/editor/photo-library-develop-original-port-v1.ts';
 import type { PhotoCatalogRepositoryCurrentV1 } from '../catalog/photo-catalog-repository-current-v1.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v1.ts';
@@ -12,6 +14,8 @@ export interface PhotoLibraryDevelopOriginalSessionHostCurrentV1 extends PhotoLi
 }
 /** Fully admit the current Photo before projecting its immutable original identity. */
 export function createPhotoLibraryDevelopOriginalSessionCurrentV1(host: PhotoLibraryDevelopOriginalSessionHostCurrentV1): Readonly<PhotoLibraryDevelopOriginalPortV1> {
-	return createPhotoLibraryDevelopOriginalSessionCore(host, normalizePhotoDocumentCurrentV1,
+	const fallback = createPhotoLibraryDevelopOriginalSessionCore(host, normalizePhotoDocumentCurrentV1,
 		withPhotoOriginalFrameCurrentV1, admitPhotoOriginalFrameBindingCurrentV1, capturePhotoOriginalBindingCurrentV1);
+	const raw = capturePhotoLibraryRawSourceCurrentV1(host.originalSource?.raw);
+	return raw ? createPhotoLibraryDevelopNativeOriginalSessionCurrentV1(host, raw, fallback) : fallback;
 }

@@ -39,7 +39,8 @@ retirement_quarantine& process_quarantine() {
 
 std::exception_ptr io_failure(const char* phase, DWORD error) {
 	return std::make_exception_ptr(read_error(error_code::io,
-		std::string("Granted native ") + phase + " failed (Windows " + std::to_string(error) + ")."));
+		std::string("Granted native ") + phase + " failed (Windows " + std::to_string(error) + ").",
+		std::vector<std::exception_ptr>{}, static_cast<std::uint32_t>(error)));
 }
 void assert_process() {
 	std::exception_ptr failure;

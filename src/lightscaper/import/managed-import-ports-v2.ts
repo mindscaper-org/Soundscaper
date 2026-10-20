@@ -24,14 +24,18 @@ export function capturePhotoManagedImportPortsV2(ports: PhotoManagedImportPortsV
 }
 
 /** Fixed frontdoors share capability capture only, never document admission. */
-export function capturePhotoManagedImportPortsForProfileV1<Ports extends PhotoManagedImportPortsV2 | PhotoManagedImportPortsCurrentV1>(ports: Ports): Readonly<Ports> {
+export function capturePhotoManagedImportPortsForProfileV1<Ports extends PhotoManagedImportPortsV2 | PhotoManagedImportPortsCurrentV1>(ports: Ports, current = false): Readonly<Ports> {
 	const catalog = ports.catalog, media = ports.media, custody = media.custody, journal = ports.journal;
+	const managedLookup = current ? (ports as PhotoManagedImportPortsCurrentV1).media.findManagedOriginalDigestPageCurrentV1 : undefined;
+	const stageLinked = current ? (ports as PhotoManagedImportPortsCurrentV1).media.stageLinkedOriginalCurrentV1 : undefined;
 	const verify = ports.verifyResources, exclusive = ports.exclusive, allocate = ports.createImportId;
 	const cryptoOwner = globalThis.crypto, uuid = cryptoOwner.randomUUID;
 	return Object.freeze({
 		catalog: Object.freeze({ loadCatalog: pin(catalog.loadCatalog, catalog), loadPhoto: pin(catalog.loadPhoto, catalog),
 			publishPhotos: pin(catalog.publishPhotos, catalog) }),
-		media: Object.freeze({ writeAsset: pin(media.writeAsset, media), custody: Object.freeze({
+		media: Object.freeze({ writeAsset: pin(media.writeAsset, media),
+			...(managedLookup === undefined ? {} : { findManagedOriginalDigestPageCurrentV1: pin(managedLookup, media) }),
+			...(stageLinked === undefined ? {} : { stageLinkedOriginalCurrentV1: pin(stageLinked, media) }), custody: Object.freeze({
 			findDigestPage: pin(custody.findDigestPage, custody), stage: pin(custody.stage, custody),
 			readPage: pin(custody.readPage, custody), promote: pin(custody.promote, custody), releaseStaged: pin(custody.releaseStaged, custody),
 		}) }),

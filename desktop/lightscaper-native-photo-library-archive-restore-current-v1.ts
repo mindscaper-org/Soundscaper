@@ -6,7 +6,7 @@ import { aggregateScapeErrors } from '../src/common/editor/scape-abort.ts';
 import type { ScapeProjectInput, ScapeProjectInputReaderFactories } from '../src/common/editor/scape-project-input.ts';
 import { importPhotoCatalogArchiveV8 } from '../src/lightscaper/archive/catalog-archive-import-v8.ts';
 import type { PhotoCatalogArchiveStageV8 } from '../src/lightscaper/archive/catalog-archive-import-kernel.ts';
-import { normalizePhotoDocumentCurrentV1 } from '../src/lightscaper/catalog/photo-document-current-v1.ts';
+import { captureLightscaperNativePhotoLibraryRestorePhotoCurrentV1 as capturePhoto } from './lightscaper-native-photo-library-restore-source-policy-current-v1.ts';
 import { name } from '../src/lightscaper/catalog/value-validation.ts';
 import { assertMediaRestoreSignalV1, mediaRestoreCancellationV1, forwardMediaRestoreSignalV1 } from '../src/lightscaper/storage/photo-media-restore-signal-v1.ts';
 import type { LightscaperNativePhotoLibraryScopesCurrentV1 as Scopes } from './lightscaper-native-photo-library-scopes-current-v1.ts';
@@ -76,7 +76,7 @@ export async function restoreLightscaperNativePhotoLibraryArchiveCurrentV1(scope
 				rowSchemaVersion: presets.rowSchemaVersion, revision: presets.revision, presetCount: presets.presetCount }, lutResources, maskRasters, signal: stop!.signal });
 			return Object.freeze<PhotoCatalogArchiveStageV8>({
 				writePhoto: (value, original) => throughCodec(async () => {
-					const photo = normalizePhotoDocumentCurrentV1(value); await media.writeOriginal(photo, original); check(stop!.signal); await catalog.writePhoto(photo);
+					const { photo } = capturePhoto(value); await media.writeOriginal(photo, original); check(stop!.signal); await catalog.writePhoto(photo);
 				}),
 				writeStack: value => throughCodec(async () => { await catalog.writeStack(value); }),
 				writeSavedCollection: value => throughCodec(async () => { await catalog.writeSavedCollection(value); }),

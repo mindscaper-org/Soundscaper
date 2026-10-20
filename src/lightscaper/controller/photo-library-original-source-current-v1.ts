@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { capturePhotoLibraryRawSourceCurrentV1, type PhotoLibraryRawSourceCurrentV1 } from './photo-library-raw-source-current-v1.ts';
 import { canonicalMediaContentBlob } from '../../common/editor/storage/media-content-digest.ts';
 import { normalizePhotoOriginalV1 } from '../catalog/photo-document-envelope-v1.ts';
 import type { PhotoOriginalV1 } from '../catalog/types.ts';
@@ -20,6 +21,7 @@ export interface PhotoLibraryOriginalGroupLeaseCurrentV1 {
 	close(): Promise<void>;
 }
 export interface PhotoLibraryOriginalSourceCurrentV1 {
+	readonly raw?: Readonly<PhotoLibraryRawSourceCurrentV1>;
 	acquire(request: Readonly<PhotoLibraryOriginalRequestCurrentV1>, options?: Readonly<{ signal?: AbortSignal }>): Promise<Readonly<PhotoLibraryOriginalLeaseCurrentV1>>;
 	acquireGroup?(requests: readonly Readonly<PhotoLibraryOriginalRequestCurrentV1>[], options?: Readonly<{ signal?: AbortSignal }>): Promise<Readonly<PhotoLibraryOriginalGroupLeaseCurrentV1>>;
 }
@@ -32,10 +34,10 @@ function check(signal?: AbortSignal): void { if (signal !== undefined) Reflect.a
 export function capturePhotoLibraryOriginalSourceCurrentV1(source: PhotoLibraryOriginalSourceCurrentV1 | undefined,
 	fallback?: Fallback): Readonly<PhotoLibraryOriginalSourceCurrentV1> {
 	if (source !== undefined) {
-		const acquire = source.acquire, acquireGroup = source.acquireGroup;
+		const acquire = source.acquire, acquireGroup = source.acquireGroup, raw = capturePhotoLibraryRawSourceCurrentV1(source.raw);
 		if (typeof acquire !== 'function') throw new TypeError('Original source requires an acquire capability.');
 		if (acquireGroup !== undefined && typeof acquireGroup !== 'function') throw new TypeError('Original source requires a callable group capability.');
-		return Object.freeze({ acquire: (request: Readonly<PhotoLibraryOriginalRequestCurrentV1>, options?: Readonly<{ signal?: AbortSignal }>) =>
+		return Object.freeze({ ...(raw ? { raw } : {}), acquire: (request: Readonly<PhotoLibraryOriginalRequestCurrentV1>, options?: Readonly<{ signal?: AbortSignal }>) =>
 			Reflect.apply(acquire, source, [request, options]) as Promise<Readonly<PhotoLibraryOriginalLeaseCurrentV1>>,
 		...(acquireGroup === undefined ? {} : { acquireGroup: (requests: readonly Readonly<PhotoLibraryOriginalRequestCurrentV1>[], options?: Readonly<{ signal?: AbortSignal }>) =>
 			Reflect.apply(acquireGroup, source, [requests, options]) as Promise<Readonly<PhotoLibraryOriginalGroupLeaseCurrentV1>> }) });

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { withPhotoLibraryRawFrameCurrentV1 } from './photo-library-raw-frame-current-v1.ts';
 import type { PhotoLibraryDevelopOriginalPortCurrentV1, PhotoLibraryDevelopDerivedReadCurrentV1, PhotoLibraryDevelopDerivedFrameCurrentV1 } from '../../common/editor/photo-library-develop-original-current-v1.ts';
 import { normalizePhotoDocumentCurrentV1 } from '../catalog/photo-document-current-v1.ts';
 import { PhotoCatalogRevisionConflictError } from '../catalog/repository-types.ts';
@@ -59,6 +60,16 @@ export function createPhotoLibraryDevelopDerivedOriginalSessionCurrentV1(host: P
 					if (JSON.stringify((await read()).original) !== identity) throw new PhotoCatalogRevisionConflictError('photo');
 					check(admitted);
 				};
+				if (originalSource.raw) {
+					const native = await withPhotoLibraryRawFrameCurrentV1(originalSource.raw, { catalogId, photoId,
+						original: photo.original, expectedRevision, profile }, async view => {
+						await current();
+						const result = await consume(Object.freeze({ frame: view.frame as Parameters<Parameters<typeof withPhotoOriginalDerivedFrameCurrentV1>[1]>[0]['frame'],
+							profile, rawFlip: view.rawFlip, exposureScale: view.exposureScale, photoId, revision: expectedRevision }));
+						check(admitted); await current(); return result;
+					}, admitted);
+					check(admitted); await current(); if (native.outcome === 'native') return native.value;
+				}
 				return withPhotoLibraryOriginalCurrentV1(originalSource, { catalogId, photoId, original: photo.original }, async body => {
 					check(admitted); await current();
 					const result = await (Reflect.apply(decode, host, [{ binding, body, profile, signal: admitted },

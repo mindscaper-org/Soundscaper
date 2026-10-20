@@ -63,7 +63,7 @@ export class DesktopPhotoSessionClientCallsCurrentV1 {
 				const value = await read(result);
 				if (!(typeof mutation === 'function' ? mutation(value) : mutation) && !cleanup) { if (admittedSignal) Reflect.apply(CHECK, admittedSignal, []); this.assert(); }
 				return value;
-			} finally { detach(); if (channel === 'upload' && packet?.operation === 'write' && packet.bytes instanceof Uint8Array) Reflect.apply(FILL, packet.bytes, [0]); if (!cleanup) this.#active--; }
+			} finally { detach(); if ((channel === 'upload' || channel === 'rawInput') && packet?.operation === 'write' && packet.bytes instanceof Uint8Array) Reflect.apply(FILL, packet.bytes, [0]); if (!cleanup) this.#active--; }
 		}, cleanup);
 	}
 	reserve(byteLength: number): () => void {

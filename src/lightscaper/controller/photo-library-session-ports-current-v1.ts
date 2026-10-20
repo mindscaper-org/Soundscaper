@@ -4,7 +4,8 @@ import type { PhotoCatalogRepositoryCurrentV1 } from '../catalog/photo-catalog-r
 import type { PhotoManagedImportPortsCurrentV1 } from '../import/managed-import-ports-current-v1.ts';
 import type { PhotoLibrarySessionPortsV2 } from './photo-library-session-ports-v2.ts';
 
-export interface PhotoLibrarySessionPortsCurrentV1 extends Omit<PhotoLibrarySessionPortsV2, 'catalog' | 'verifyResources'> {
+export interface PhotoLibrarySessionPortsCurrentV1 extends Omit<PhotoLibrarySessionPortsV2, 'catalog' | 'verifyResources' | 'media'> {
+	readonly media: PhotoManagedImportPortsCurrentV1['media'];
 	readonly catalog: Pick<PhotoCatalogRepositoryCurrentV1, 'loadCatalog' | 'loadPhoto' | 'publishPhotos' | 'savePhoto' | 'saveCatalog'
 		| 'readSummaryPage' | 'readQueryPage' | 'rebuildQueryIndexPage'>
 		& Partial<Pick<PhotoCatalogRepositoryCurrentV1, 'readQueryPageV2' | 'rebuildQueryIndexPageV2' | 'readCullingDestinationPage' | 'publishDerivedPhotoCurrentV1'>>;

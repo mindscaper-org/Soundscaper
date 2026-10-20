@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_JOIN_CURRENT_V1 as IDENTITY_JOIN, LIGHTSCAPER_NATIVE_PHOTO_MEDIA_IDENTITY_COLUMNS_CURRENT_V1 as IDENTITY_COLUMNS } from './lightscaper-native-photo-media-identity-current-v1.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../src/common/editor/closed-domain-value.ts';
 import { catalogOriginalId, catalogOriginalKey, catalogOriginalScope, normalizeCatalogOriginalRoot,
 	CATALOG_ORIGINAL_ROOT_MAX_BYTES } from '../src/common/editor/storage/media-catalog-original-schema.ts';
 import { isMediaContentSha256, isMediaContentToken } from '../src/common/editor/storage/media-content-provenance.ts';
-import { readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-original-contract-current-v1.ts';
+import { readLightscaperNativePhotoOriginalEnvelopeCurrentV1 as readLightscaperNativeOriginalCurrentV1 } from './lightscaper-native-photo-original-envelope-current-v1.ts';
 import type { PhotoOriginalV1 } from '../src/lightscaper/catalog/types.ts';
 
 export interface LightscaperNativePhotoOriginalReadRequestCurrentV1 {
@@ -32,11 +33,11 @@ export function readLightscaperNativePhotoOriginalAuthorityCurrentV1(database: D
 	try {
 		const row = database.prepare(`SELECT a.source_id,CASE WHEN typeof(a.sha256)='text' AND length(CAST(a.sha256 AS BLOB))=64 THEN a.sha256 END AS sha256,a.size,
 			CASE WHEN typeof(a.media_content_token)='text' AND length(CAST(a.media_content_token AS BLOB))<=256 THEN a.media_content_token END AS media_content_token,a.root_count,
-			b.storage_key AS binding_key,CASE WHEN typeof(b.content_sha256)='text' AND length(CAST(b.content_sha256 AS BLOB))=64 THEN b.content_sha256 END AS binding_sha,b.byte_length AS binding_size
-			FROM native_photo_media_assets a LEFT JOIN native_photo_original_bindings b ON b.storage_key=a.source_id WHERE a.source_id=?`).get(request.original.storageKey);
+			${IDENTITY_COLUMNS}
+			FROM native_photo_media_assets a ${IDENTITY_JOIN} WHERE a.source_id=?`).get(request.original.storageKey);
 		if (!row || row.source_id !== request.original.storageKey || !isMediaContentSha256(row.sha256) || row.sha256 !== request.original.contentSha256
 			|| row.size !== request.original.byteLength || !isMediaContentToken(row.media_content_token) || typeof row.root_count !== 'number'
-			|| !Number.isSafeInteger(row.root_count) || row.root_count < 1 || row.binding_key !== row.source_id || row.binding_sha !== row.sha256 || row.binding_size !== row.size) {
+			|| !Number.isSafeInteger(row.root_count) || row.root_count < 1 || row.identity_kind !== request.original.retention) {
 			throw new Error('Native Original lacks matching retained media provenance.');
 		}
 		const authority = Object.freeze({ storageKey: request.original.storageKey, contentSha256: row.sha256, byteLength: request.original.byteLength, token: row.media_content_token });

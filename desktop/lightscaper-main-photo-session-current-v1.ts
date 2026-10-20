@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { LightscaperNativePhotoLibraryServicesCurrentV1 as Services } from './lightscaper-native-photo-library-services-current-v1.ts';
 import { RendererSaveOwnership } from './renderer-save-owner.js';
 import { LightscaperNativePhotoLibraryScopesCurrentV1 as Scopes } from './lightscaper-native-photo-library-scopes-current-v1.ts';
 import { LightscaperNativePhotoSessionServiceCurrentV1 as Service } from './lightscaper-native-photo-session-service-current-v1.ts';
@@ -22,6 +23,7 @@ interface Contents {
 }
 interface Options {
 	readonly appDataPath: string;
+	readonly services?: () => Promise<Readonly<Services>>;
 	readonly handle: (channel: string, listener: (event: unknown, ...args: unknown[]) => unknown) => void;
 	readonly reportError: (error: unknown) => void;
 }
@@ -53,11 +55,12 @@ const QUARANTINE = new Set<object>();
  * window/main-frame/URL before these handlers; the exact process/frame/document
  * ownership check below then precedes every borrowed request field. */
 export function installLightscaperMainPhotoSessionCurrentV1(options: Options) {
+	const prepareServices = options.services;
 	const ownership = new RendererSaveOwnership(), documents = new Map<object, Document>(), processFor = new WeakMap<Contents, number>();
 	let library: Promise<Library> | undefined, loaded: Library | undefined, closing: Promise<void> | undefined, restoring: RestoreJob | undefined;
 	const getLibrary = (): Promise<Library> => {
 		if (closing) return Promise.reject(new Error('Native Photo library is closing.'));
-		library ??= Scopes.open({ appDataPath: options.appDataPath }).then(async scopes => {
+		library ??= Promise.resolve().then(async () => Scopes.open({ appDataPath: options.appDataPath, ...(prepareServices ? { services: await prepareServices() } : {}) })).then(async scopes => {
    try { const actual = Object.freeze({ scopes, service: new Service(scopes), restore: new Restore(scopes, options.appDataPath) }); loaded = actual; return actual; }
    catch (primary) { try { await scopes.close(); } catch (cleanup) { QUARANTINE.add(scopes); throw new AggregateError([primary, cleanup], 'Native service construction and guard retirement failed.', { cause: cleanup }); } throw primary; }
   });

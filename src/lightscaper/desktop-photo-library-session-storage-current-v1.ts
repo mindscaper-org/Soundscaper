@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { DesktopPhotoLinkedLibraryPortCurrentV1 } from './desktop-photo-linked-port-current-v1.ts';
+import type { PhotoLibraryRawImportSourceCurrentV1 } from './controller/photo-library-raw-import-current-v1.ts';
+import type { PhotoLibraryRawSourceCurrentV1 } from './controller/photo-library-raw-source-current-v1.ts';
 import type { KeyValueEntry } from '../common/editor/storage/key-value-repository.ts';
 import type { BinaryDerivativeCacheProfileV1 } from '../common/editor/storage/binary-derivative-cache-records.ts';
 import type { BinaryDerivativeCachePortV1 } from '../common/editor/storage/binary-derivative-cache-repository.ts';
@@ -33,6 +36,7 @@ type ImportPresets = Readonly<Pick<PhotoMediaSettingsRepositoryV1,
 
 interface Media {
 	readonly catalogOriginals: Custody;
+	readonly findManagedOriginalDigestPageCurrentV1: Custody['findDigestPage'];
 	writeAsset(sourceId: string, input: Blob, metadata?: Readonly<Record<string, unknown>>,
 		options?: Options): Promise<Record<string, unknown>>;
 	beginAssetWrite(sourceId: string, metadata: Readonly<Record<string, unknown>>,
@@ -47,6 +51,9 @@ interface Media {
 }
 
 interface Components {
+	readonly linked?: Readonly<DesktopPhotoLinkedLibraryPortCurrentV1>;
+	readonly rawImport?: Readonly<PhotoLibraryRawImportSourceCurrentV1>;
+	readonly raw?: Readonly<PhotoLibraryRawSourceCurrentV1>;
 	readonly catalog: Catalog;
 	readonly media: Readonly<Media>;
 	readonly settings: Readonly<{
