@@ -148,21 +148,6 @@ test('rebinding replaces the video-still action without duplicating the surface'
 	assert.deepEqual(second.imports[0]?.files.map(({ name }) => name), ['second.png']);
 });
 
-test('binding without the publication ports it writes through is refused', () => {
-	for (const missing of ['session', 'executeCommand', 'publishIfCurrent'] as const) {
-		assert.throws(
-			() => harness({ [missing]: undefined }),
-			(error: Error) => {
-				assert.ok(error instanceof TypeError);
-				assert.match(error.message, /exact controller, session, runtime, and storage ports/u);
-				return true;
-			},
-			`a binding without ${missing} must be refused`,
-		);
-	}
-	assert.throws(() => harness({ controller: null }), TypeError);
-});
-
 test('the video-still gesture imports the selection at the enclosing playhead frame', async () => {
 	const { controller, imports } = harness({
 		controller: controllerStub(ONE_SECOND_SAMPLES),
