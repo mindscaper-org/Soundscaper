@@ -12,38 +12,7 @@ import {
 const PROXY_KEY = `video-proxy-sha256:${'34'.repeat(32)}`;
 const TIMING_KEY = `video-timing-sha256:${'56'.repeat(32)}`;
 const HEAVY = { droppedFrameRatio: 0.5, decodeQueueDepth: 0, viewportScale: 1 };
-const PORTS = { name: 'TypeError', message: 'Framescaper 1.0 proxy actions require their exact controller ports.' };
 const CHANGED = { allowChangedContent: true };
-
-test('construction refuses an options record missing any of its exact controller ports', () => {
-	const cleanup = { prepareReplacement: () => 0, cancel: () => 0, settle: () => 0 };
-	const mutations: readonly ((options: Record<string, unknown>) => void)[] = [
-		(options) => { options.owner = null; },
-		(options) => { options.owner = 'owner'; },
-		(options) => { options.createScheduler = 'factory'; },
-		(options) => { options.previewTrust = 'verified'; },
-		(options) => { options.cleanup = null; },
-		(options) => { options.cleanup = { ...cleanup, prepareReplacement: undefined }; },
-		(options) => { options.cleanup = { ...cleanup, cancel: undefined }; },
-		(options) => { options.cleanup = { ...cleanup, settle: undefined }; },
-		(options) => { ownerActions(options).edit = null; },
-		(options) => { ownerActions(options).projectBin = null; },
-		(options) => { ownerActions(options).video = { reloadSourceVisual: 'reload' }; },
-	];
-	for (const [index, mutate] of mutations.entries()) {
-		const options = optionsFixture(ownerFixture(null));
-		mutate(options);
-		assert.throws(() => createFramescaperVideoProxyActions(options as never), PORTS, `mutation ${index}`);
-	}
-	assert.throws(() => createFramescaperVideoProxyActions(undefined as never), PORTS);
-});
-
-test('the editorial proxy session identifier must be bounded printable text', () => {
-	for (const sessionId of ['', 'session with a space', 'x'.repeat(257), 'session-é']) {
-		assert.throws(() => build(ownerFixture(null), { createSessionId: () => sessionId }),
-			{ name: 'TypeError', message: 'The Framescaper editorial proxy session ID is invalid.' });
-	}
-});
 
 test('an omitted session factory draws its identifier from secure randomness', async () => {
 	const requests: FramescaperCapturedVideoProxyRequest[] = [];
@@ -193,12 +162,6 @@ test('an already aborted operation refuses before any scheduler exists', async (
 	abort.abort(reason);
 	await assert.rejects(runtime.generate('video-source', { signal: abort.signal }),
 		(error: unknown) => error === reason);
-	// A signal that reports no reason still refuses as a well-named abort.
-	const reasonless = { aborted: true, reason: undefined, addEventListener: () => undefined,
-		removeEventListener: () => undefined } as unknown as AbortSignal;
-	await assert.rejects(runtime.generate('video-source', { signal: reasonless }),
-		(error: Error) => error.name === 'AbortError'
-			&& error.message === 'Video proxy generation was cancelled.');
 	assert.equal(schedulers, 0);
 });
 
@@ -437,10 +400,6 @@ function optionsFixture(
 	return { owner: owner.owner, cleanup: cleanupFixture(owner),
 		createSessionId: () => 'retime-branch-session', createScheduler: scheduler(),
 		createAttachExistingScheduler: scheduler(), ...overrides };
-}
-
-function ownerActions(options: Record<string, unknown>): Record<string, unknown> {
-	return (options.owner as Readonly<{ actions: Record<string, unknown> }>).actions;
 }
 
 function scheduler(

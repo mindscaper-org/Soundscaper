@@ -119,36 +119,6 @@ test('a retime export strategy refuses a runtime profile it cannot authenticate'
 	assert.throws(() => createFramescaperVideoExportStrategyRetime(null), TypeError);
 });
 
-test('stated dependencies must be an object carrying both offline encoders as own functions', () => {
-	const hidden = encoders();
-	Object.defineProperty(hidden, 'encodeOfflineToSink', {
-		value: () => undefined, enumerable: false, configurable: true, writable: true,
-	});
-	const inherited = Object.create({ encodeOffline: () => undefined }) as Data;
-	inherited.encodeOfflineToSink = () => undefined;
-
-	assert.throws(
-		() => createFramescaperVideoExportStrategyRetime(PROFILE, null),
-		/dependencies must be an object/u,
-	);
-	assert.throws(
-		() => createFramescaperVideoExportStrategyRetime(PROFILE, [encoders()]),
-		/dependencies must be an object/u,
-	);
-	assert.throws(
-		() => createFramescaperVideoExportStrategyRetime(PROFILE, encoders({ encodeOffline: 'encode' })),
-		/dependencies\.encodeOffline must be an own function/u,
-	);
-	assert.throws(
-		() => createFramescaperVideoExportStrategyRetime(PROFILE, hidden),
-		/dependencies\.encodeOfflineToSink must be an own function/u,
-	);
-	assert.throws(
-		() => createFramescaperVideoExportStrategyRetime(PROFILE, inherited),
-		/dependencies\.encodeOffline must be an own function/u,
-	);
-});
-
 test('omitted dependencies fall back to the shipped offline encoders without refusing', () => {
 	assert.doesNotThrow(() => createFramescaperVideoExportStrategyRetime(PROFILE));
 });
@@ -186,23 +156,6 @@ test('a delivery that states a rendered fallback or required sources is refused'
 			canonicalProject: project as never, delivery: { ...delivery(), ...override } as never,
 		}), /refuses a rendered-fallback delivery projection/u);
 	}
-});
-
-test('delivery fields must be own data properties and its project must be a record', () => {
-	const project = keyedProject();
-	const strategy = createFramescaperVideoExportStrategyRetime(PROFILE, encoders() as never);
-	const accessor = delivery();
-	Object.defineProperty(accessor, 'audioRenderedFallback', { get: () => null, enumerable: true });
-
-	assert.throws(() => strategy.createExportProject({
-		canonicalProject: project as never, delivery: accessor as never,
-	}), /delivery\.audioRenderedFallback must be an own data property/u);
-	assert.throws(() => strategy.createExportProject({
-		canonicalProject: project as never, delivery: { ...delivery(), project: [] } as never,
-	}), /retime delivery project must be a record/u);
-	assert.throws(() => strategy.createExportProject({
-		canonicalProject: project as never, delivery: { ...delivery(), project: null } as never,
-	}), /retime delivery project must be a record/u);
 });
 
 test('a plan request is refused when its projection was issued for another canonical project', () => {

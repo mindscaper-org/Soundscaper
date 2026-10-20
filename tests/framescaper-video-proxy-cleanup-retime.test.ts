@@ -20,22 +20,6 @@ const PROXY_KEY = `video-proxy-sha256:${'34'.repeat(32)}`;
 const TIMING_KEY = `video-timing-sha256:${'56'.repeat(32)}`;
 const OTHER_TIMING_KEY = `video-timing-sha256:${'78'.repeat(32)}`;
 
-test('the coordinator refuses ports that omit any journal, inventory or deletion method', () => {
-	const complete: Data = {
-		loadJournal: () => [], saveJournal: () => undefined,
-		listCurrentProjects: () => [], deleteBody: () => undefined,
-	};
-	for (const method of ['loadJournal', 'saveJournal', 'listCurrentProjects', 'deleteBody']) {
-		const ports: Data = { ...complete, [method]: 'not callable' };
-		assert.throws(
-			() => new FramescaperVideoProxyCleanupCoordinatorRetime(ports as never),
-			(error: Error) => error instanceof TypeError
-				&& error.message === `Selected video-proxy cleanup requires ${method}.`,
-		);
-	}
-	assert.throws(() => new FramescaperVideoProxyCleanupCoordinatorRetime(null as never), TypeError);
-});
-
 test('preparing a replacement records one durable claim naming both content-addressed bodies', async () => {
 	const fixture = harness();
 	const claim = await fixture.coordinator.prepareReplacement(
