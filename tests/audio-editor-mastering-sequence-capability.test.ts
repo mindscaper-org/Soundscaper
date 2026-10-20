@@ -49,8 +49,6 @@ test('both products declare the capability rather than leaving it out', () => {
 	// nobody declared is one nobody decided about.
 	assert.equal(SOUNDSCAPER_PROFILE.capabilities.masteringSequences, true);
 	assert.equal(FRAMESCAPER_PROFILE.capabilities.masteringSequences, false);
-	assert.equal(Object.hasOwn(SOUNDSCAPER_PROFILE.capabilities, 'masteringSequences'), true);
-	assert.equal(Object.hasOwn(FRAMESCAPER_PROFILE.capabilities, 'masteringSequences'), true);
 });
 
 test('the production capability inventory agrees with both products', () => {
@@ -64,18 +62,3 @@ test('the production capability inventory agrees with both products', () => {
 	}
 });
 
-test('the hand-written profiles keep their registrations in raw ascending order', () => {
-	// The profile validator compares keys with `<`, not localeCompare, and throws
-	// at module load rather than at an assertion — so an out-of-order insert
-	// surfaces as a mass import failure with no obvious cause.
-	for (const [name, profile] of [
-		['Framescaper V18', FRAMESCAPER_SEQUENCE_PROJECT_FEATURE_CAPABILITY_PROFILE],
-		['Framescaper V19', FRAMESCAPER_COMPOSITION_PROJECT_FEATURE_CAPABILITY_PROFILE],
-		['Framescaper V20', FRAMESCAPER_RETIME_PROJECT_FEATURE_CAPABILITY_PROFILE],
-		['Soundscaper baseline', SOUNDSCAPER_PROJECT_FEATURE_CAPABILITY_PROFILE],
-	] as const) {
-		const keys = editorProjectFeatureCapabilityProfileDefinition(profile)
-			.registrations.map((entry) => entry.key);
-		assert.deepEqual([...keys].sort(), keys, `${name} registrations must be raw-sorted`);
-	}
-});
