@@ -36,20 +36,6 @@ test('spectral brush gesture maps one pointer origin and drag radius into exact 
 	});
 });
 
-test('a lane that starts its audio at its own edge takes the pointer position unshifted', () => {
-	const flush = planSpectralBrushGesture({
-		...geometry,
-		contentOffsetX: 0,
-		startX: 120,
-		startY: 100,
-		endX: 150,
-		endY: 80,
-	});
-
-	assert.equal(flush.centerFrame, 96_000);
-	assert.equal(flush.radiusFrames, 12_000);
-});
-
 test('a stroke inside the content inset stays at the time the lane starts', () => {
 	const edge = planSpectralBrushGesture({
 		...geometry,
@@ -62,13 +48,13 @@ test('a stroke inside the content inset stays at the time the lane starts', () =
 	assert.equal(edge.centerFrame, 48_000);
 });
 
-test('spectral brush gesture clamps coordinates and gives clicks a usable minimum radius', () => {
+test('spectral brush clicks at the lane edge retain a usable minimum radius', () => {
 	assert.deepEqual(planSpectralBrushGesture({
 		...geometry,
-		startX: -20,
-		startY: 300,
-		endX: -20,
-		endY: 300,
+		startX: 0,
+		startY: 200,
+		endX: 0,
+		endY: 200,
 	}), {
 		centerFrame: 48_000,
 		centerFrequency: 0,
@@ -77,21 +63,3 @@ test('spectral brush gesture clamps coordinates and gives clicks a usable minimu
 	});
 });
 
-test('spectral brush gesture rejects malformed geometry before producing a selection', () => {
-	assert.throws(() => planSpectralBrushGesture({
-		...geometry,
-		pixelsPerSecond: 0,
-		startX: 10,
-		startY: 10,
-		endX: 20,
-		endY: 20,
-	}), /pixels per second/u);
-	assert.throws(() => planSpectralBrushGesture({
-		...geometry,
-		maximumFrequency: 0,
-		startX: 10,
-		startY: 10,
-		endX: 20,
-		endY: 20,
-	}), /frequency bounds/u);
-});

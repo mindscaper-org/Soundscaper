@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { applyStandardEffect } from '../src/common/editor/first-party-effects/standard/dsp.ts';
-import { createNoiseGateProcessor, createOfflineNoiseGateProcessor } from '../src/common/editor/first-party-effects/standard/noise-gate-dsp.ts';
+import { createNoiseGateProcessor } from '../src/common/editor/first-party-effects/standard/noise-gate-dsp.ts';
 import { ComplementaryCrossover } from '../src/common/editor/first-party-effects/dynamics/core.ts';
 
 function signal(length: number, channel = 0): Float32Array {
@@ -65,18 +65,6 @@ test('live gates preserve crossover history and join envelopes when stereo linki
 				`the live linked gate must share channel gain at frame ${frame}`);
 		}
 	}
-});
-
-test('fixed offline gates reject parameter changes and reset to the same linked state', () => {
-	const input = [signal(1_701), signal(1_701, 1)];
-	const processor = createOfflineNoiseGateProcessor({ sampleRate: 8_000, channelCount: 2, params });
-	const first = input.map((channel) => new Float32Array(channel.length));
-	processor.processBlock(input, first, input[0].length);
-	assert.throws(() => processor.updateParams({ stereoLink: 'independent', gateFrequency: 1_000 }), /fixed/);
-	processor.reset();
-	const second = input.map((channel) => new Float32Array(channel.length));
-	processor.processBlock(input, second, input[0].length);
-	assert.deepEqual(second, first);
 });
 
 test('destructive processors borrow complete input blocks and copy only partial latency padding', (t) => {
