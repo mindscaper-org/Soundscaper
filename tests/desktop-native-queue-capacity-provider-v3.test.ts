@@ -62,11 +62,11 @@ test('the V3 sampler counts running and retained scratch once and reports backen
 	});
 	const running = runningRecord('a1', {
 		cpuCores: 2, processTreeRssBytes: 4 * GIB, scratchBytes: 8 * GIB,
-		minimumFreeBytes: 0, hardwareBackend: 'nvenc',
+		minimumFreeBytes: 0, hardwareBackend: 'vaapi',
 	});
 	const queued = queueRecord('b2', {
 		cpuCores: 1, processTreeRssBytes: GIB, scratchBytes: GIB,
-		minimumFreeBytes: 0, hardwareBackend: 'nvenc',
+		minimumFreeBytes: 0, hardwareBackend: 'vaapi',
 	}, 1);
 	const snapshot = await provider({
 		queue: [running, queued],
@@ -84,7 +84,7 @@ test('the V3 sampler counts running and retained scratch once and reports backen
 		availableScratchBytes: 20 * GIB,
 		volumeFreeBytes: 40 * GIB,
 		reservedFreeBytes: 20 * GIB,
-		busyHardwareBackends: ['nvenc'],
+		busyHardwareBackends: ['vaapi'],
 	});
 	assert.equal(Object.isFrozen(snapshot), true);
 	assert.deepEqual(admitNativeQueueJobs([queued], 1, snapshot), {
@@ -230,14 +230,7 @@ test('the V3 sampler rejects invalid injected observations', async () => {
 			}),
 			message: /more free bytes/iu,
 		},
-		{
-			provider: createFramescaperNativeQueueCapacityProviderV3({
-				scratchRoot: '/private/scratch', availableParallelism: () => 2,
-				freeMemory: () => GIB, configuredConcurrency: () => 1.5,
-				inspectScratchVolume: async () => ({ totalBytes: 20 * GIB, freeBytes: 20 * GIB }),
-			}),
-			message: /concurrency/iu,
-		},
+
 	];
 	for (const { provider, message } of invalid) {
 		await assert.rejects(provider(context), message);

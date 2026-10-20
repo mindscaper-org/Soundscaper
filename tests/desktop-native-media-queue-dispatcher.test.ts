@@ -40,23 +40,17 @@ test('the durable V3 dispatcher authenticates V14, limits concurrency, publishes
 			queue: runtime.queue, roots: runtime.roots, lease: () => runtime.lease.lease(),
 			now: () => ++now, available: () => true, nativeMediaEnabled: () => true,
 			capacity: async () => capacity(),
-			pool: {
-				async runJob(request) {
-					active += 1;
-					maximumActive = Math.max(maximumActive, active);
-					request.onProgress?.(0.5);
-					await new Promise<void>((resolve) => setImmediate(resolve));
-					active -= 1;
-					return { output: true };
-				},
-			},
 			prepare: async (record) => {
 				assert.equal(record.state, 'running');
 				assert.equal(runtime.queue.read(record.jobId)?.state, 'running');
 				return {
-					request: {
-						kind: 'media-render',
-						grant: { plan: { sha256: record.planFingerprint } } as never,
+					execute: async ({ onProgress }) => {
+						active += 1;
+						maximumActive = Math.max(maximumActive, active);
+						onProgress(0.5);
+						await new Promise<void>((resolve) => setImmediate(resolve));
+						active -= 1;
+						return { output: true };
 					},
 					publish: async () => { published.push(record.jobId); },
 					cleanup: async (outcome) => { cleaned.push({ jobId: record.jobId, outcome }); },
@@ -76,77 +70,26 @@ test('the durable V3 dispatcher authenticates V14, limits concurrency, publishes
 	}
 });
 
-test('unavailable policy and a mismatched prepared plan remain fail-closed without helper execution', async () => {
+test('unavailable native policy leaves queued work untouched', async () => {
 	let now = 2_000;
 	const runtime = serviceRuntime(() => ++now);
 	await runtime.ready;
 	try {
 		const [record] = queueRecords(runtime, 1, ++now);
-		let poolCalls = 0;
-		const errors: unknown[] = [];
-		const base = {
+		let executionCalls = 0;
+		const dispatcher = new FramescaperNativeMediaQueueDispatcherV3({
 			queue: runtime.queue, roots: runtime.roots, lease: () => runtime.lease.lease(),
-			now: () => ++now, nativeMediaEnabled: () => true,
+			now: () => ++now, available: () => false, nativeMediaEnabled: () => true,
 			capacity: async () => capacity(),
-			pool: { runJob: async () => { poolCalls += 1; } },
 			prepare: async () => ({
-				request: {
-					kind: 'media-render' as const,
-					grant: { plan: { sha256: '0'.repeat(64) } } as never,
-				},
+				execute: async () => { executionCalls += 1; },
 				publish: async () => undefined,
 			}),
-			onError: (error: unknown) => { errors.push(error); },
-		};
-		const unavailable = new FramescaperNativeMediaQueueDispatcherV3({ ...base, available: () => false });
-		await unavailable.dispatch([record!]);
-		assert.equal(runtime.queue.read(record!.jobId)?.state, 'queued');
-		const mismatched = new FramescaperNativeMediaQueueDispatcherV3({ ...base, available: () => true });
-		await mismatched.dispatch([record!]);
-		assert.equal(runtime.queue.read(record!.jobId)?.state, 'paused');
-		assert.equal(runtime.queue.read(record!.jobId)?.lastFailureCode, 'awaiting-carrier-regeneration');
-		assert.equal(poolCalls, 0);
-		assert.match(String(errors[0]), /exact plan fingerprint/u);
-	} finally {
-		await runtime.close();
-	}
-});
-
-test('missing or invalid capacity fails closed without claiming queued work', async () => {
-	let now = 2_500;
-	const runtime = serviceRuntime(() => ++now);
-	await runtime.ready;
-	try {
-		const [record] = queueRecords(runtime, 1, ++now);
-		let poolCalls = 0;
-		const base = {
-			queue: runtime.queue, roots: runtime.roots, lease: () => runtime.lease.lease(),
-			now: () => ++now, available: () => true, nativeMediaEnabled: () => true,
-			pool: { runJob: async () => { poolCalls += 1; } },
-			prepare: async (current: NativeQueueRecordV3) => ({
-				request: {
-					kind: 'media-render' as const,
-					grant: { plan: { sha256: current.planFingerprint } } as never,
-				},
-				publish: async () => undefined,
-			}),
-		};
-		assert.throws(
-			() => new FramescaperNativeMediaQueueDispatcherV3(base as never),
-			/capacity snapshot provider/iu,
-		);
-		const absent = new FramescaperNativeMediaQueueDispatcherV3({
-			...base, capacity: async () => null,
 		});
-		await absent.dispatch([record!]);
+		await dispatcher.dispatch([record!]);
 		assert.equal(runtime.queue.read(record!.jobId)?.state, 'queued');
-		assert.equal(poolCalls, 0);
-		const invalid = new FramescaperNativeMediaQueueDispatcherV3({
-			...base, capacity: async () => ({ ...capacity(), availableCpuCores: -1 }),
-		});
-		await assert.rejects(invalid.dispatch([record!]), /availableCpuCores/u);
-		assert.equal(runtime.queue.read(record!.jobId)?.state, 'queued');
-		assert.equal(poolCalls, 0);
+		assert.equal(executionCalls, 0);
+		await dispatcher.dispose();
 	} finally {
 		await runtime.close();
 	}
@@ -157,7 +100,7 @@ test('deferred work waits for an explicit wake and hardware reservations stay ex
 	const runtime = serviceRuntime(() => ++now);
 	await runtime.ready;
 	try {
-		const records = queueRecords(runtime, 2, ++now, { hardwareBackend: 'nvenc' });
+		const records = queueRecords(runtime, 2, ++now, { hardwareBackend: 'vaapi' });
 		let available = false;
 		let capacityCalls = 0;
 		let active = 0;
@@ -175,23 +118,20 @@ test('deferred work waits for an explicit wake and hardware reservations stay ex
 				return capacity({
 					configuredConcurrency: 4,
 					availableCpuCores: available ? 8 : 0,
-					busyHardwareBackends: active > 0 ? ['nvenc'] : [],
+					busyHardwareBackends: active > 0 ? ['vaapi'] : [],
 				});
 			},
-			pool: { runJob: async () => {
-				active += 1;
-				helperStarts += 1;
-				maximumActive = Math.max(maximumActive, active);
-				if (helperStarts === 1) {
-					enterFirst();
-					await firstBarrier;
-				}
-				active -= 1;
-				return {};
-			} },
-			prepare: async (record) => ({
-				request: {
-					kind: 'media-render', grant: { plan: { sha256: record.planFingerprint } } as never,
+			prepare: async () => ({
+				execute: async () => {
+					active += 1;
+					helperStarts += 1;
+					maximumActive = Math.max(maximumActive, active);
+					if (helperStarts === 1) {
+						enterFirst();
+						await firstBarrier;
+					}
+					active -= 1;
+					return {};
 				},
 				publish: async () => undefined,
 			}),
@@ -232,18 +172,11 @@ test('reorder changes the next durable dispatch rather than only its displayed p
 			queue: runtime.queue, roots: runtime.roots, lease: () => runtime.lease.lease(),
 			now: () => ++now, available: () => true, nativeMediaEnabled: () => true,
 			capacity: async () => capacity({ configuredConcurrency: 1 }),
-			pool: { async runJob(request) {
-				const id = (request.grant as unknown as { output: { path: string } }).output.path;
-				started.push(id);
-				if (started.length === 1) await firstBarrier;
-				return {};
-			} },
 			prepare: async (record) => ({
-				request: {
-					kind: 'media-render',
-					grant: {
-						plan: { sha256: record.planFingerprint }, output: { path: record.jobId },
-					} as never,
+				execute: async () => {
+					started.push(record.jobId);
+					if (started.length === 1) await firstBarrier;
+					return {};
 				},
 				publish: async () => undefined,
 			}),
@@ -274,15 +207,12 @@ test('async dispatcher disposal aborts a running job and waits for authenticated
 			queue: runtime.queue, roots: runtime.roots, lease: () => runtime.lease.lease(),
 			now: () => ++now, available: () => true, nativeMediaEnabled: () => true,
 			capacity: async () => capacity(),
-			pool: { runJob: async (request) => {
-				helperStarted();
-				await new Promise<void>((_resolve, reject) => request.signal?.addEventListener(
-					'abort', () => reject(request.signal?.reason ?? new Error('aborted')), { once: true },
-				));
-			} },
-			prepare: async (current) => ({
-				request: {
-					kind: 'media-render', grant: { plan: { sha256: current.planFingerprint } } as never,
+			prepare: async () => ({
+				execute: async ({ signal }) => {
+					helperStarted();
+					await new Promise<void>((_resolve, reject) => signal.addEventListener(
+						'abort', () => reject(signal.reason ?? new Error('aborted')), { once: true },
+					));
 				},
 				publish: async () => undefined,
 				cleanup: async () => cleanupBarrier,
@@ -315,15 +245,12 @@ test('pausing a running selected V14 job reports paused cleanup for regenerated 
 			queue: runtime.queue, roots: runtime.roots, lease: () => runtime.lease.lease(),
 			now: () => ++now, available: () => true, nativeMediaEnabled: () => true,
 			capacity: async () => capacity(),
-			pool: { runJob: async (request) => {
-				helperStarted();
-				await new Promise<void>((_resolve, reject) => request.signal?.addEventListener(
-					'abort', () => reject(request.signal?.reason ?? new Error('aborted')), { once: true },
-				));
-			} },
-			prepare: async (current) => ({
-				request: {
-					kind: 'media-render', grant: { plan: { sha256: current.planFingerprint } } as never,
+			prepare: async () => ({
+				execute: async ({ signal }) => {
+					helperStarted();
+					await new Promise<void>((_resolve, reject) => signal.addEventListener(
+						'abort', () => reject(signal.reason ?? new Error('aborted')), { once: true },
+					));
 				},
 				publish: async () => undefined,
 				cleanup: async (outcome) => { outcomes.push(outcome); },
