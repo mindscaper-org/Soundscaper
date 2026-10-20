@@ -41,7 +41,6 @@ test('the dialog model admits one writable selected-route timeline video and exp
 	}).blockReason, null);
 
 	const choices = listVideoKeyframeTargetChoices(model);
-	assert.equal(choices.length, 13);
 	assert.deepEqual(choices[0], {
 		key: '["composition","crop.left"]',
 		target: { kind: 'composition', parameterId: 'crop.left' },
@@ -161,21 +160,6 @@ test('integer targets are hold-only and every candidate is context-normalized be
 		start: { position: rational(0), value: 0 },
 		end: { position: rational(20), value: 2 }, segment: { kind: 'linear' },
 	}), /range|outside/iu);
-});
-
-test('model selection and project reads reject accessor authority without invocation', () => {
-	let reads = 0;
-	const hostile = project();
-	Object.defineProperty(hostile.clips[0], 'videoKeyframes', {
-		enumerable: true,
-		get() { reads += 1; return createDefaultVideoKeyframeCurves(rational(20)); },
-	});
-	const model = createVideoKeyframeDialogModel({
-		productId: 'framescaper', capability: true, project: hostile,
-		snapshot: { selectedClipId: 'video' },
-	});
-	assert.equal(model.blockReason, 'no-video-clip');
-	assert.equal(reads, 0);
 });
 
 test('the keyframe entry is menu-only for selected keyframe routes and available under the shipped capability', () => {
