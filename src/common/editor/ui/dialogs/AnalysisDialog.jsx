@@ -49,6 +49,7 @@ export default function AnalysisDialog({ mode, controller, snapshot, copy, fileS
 		const savedContrast = analysisMode === 'contrast' && !repeatRequest
 			&& snapshot.analysisReport?.type === 'contrast' ? snapshot.analysisReport : null;
 		setPayload(savedContrast ? { result: null, report: savedContrast } : null);
+		setPending(false);
 		setError('');
 		if ((analysisMode !== 'contrast' || repeatRequest) && selection && !blocked) {
 			const range = { startFrame: selection.startFrame, endFrame: selection.endFrame };
