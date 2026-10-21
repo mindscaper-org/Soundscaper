@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { ParameterAddress } from '../../../parameter-address.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { AnalysisAudioBuffer, AnalysisRange } from '../analysis-service.ts';
 
 /** Group, send and cue strips gate audibility exactly like tracks do. */
@@ -17,6 +18,7 @@ export interface AnalysisRenderMixer {
 export interface AnalysisRenderProject {
 	readonly tracks: readonly { readonly id: string; readonly type: string; readonly mute?: boolean; readonly solo?: boolean }[];
 	readonly master: unknown;
+	readonly automationLanes?: readonly Readonly<{ readonly address: ParameterAddress }>[];
 	readonly mixer?: AnalysisRenderMixer;
 }
 
@@ -70,6 +72,9 @@ export function createAnalysisRenderer<Project extends AnalysisRenderProject, Bu
 				tracks: snapshot.tracks.map((track) => track.type === 'audio'
 					? { ...track, mute: track.id !== selected.id, solo: false } : track),
 				master: { gain: 1, effects: [] },
+				...(snapshot.automationLanes ? { automationLanes: snapshot.automationLanes.filter(({ address }) =>
+					address.kind === 'edge' || (address.strip.kind !== 'master'
+						&& !(address.kind === 'strip' && address.parameterId === 'mute'))) } : {}),
 				...(snapshot.mixer ? { mixer: isolateMixer(snapshot.mixer) } : {}),
 			};
 		} else if (scope !== 'master') throw createLocalizedError(RangeError, dependencies.copy, 'analysisScopeInvalid');
