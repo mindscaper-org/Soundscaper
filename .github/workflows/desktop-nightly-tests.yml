@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   lightscaper-internal-desktop:
-    if: github.ref == 'refs/heads/main' && github.ref_type != 'tag'
+    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && github.ref_type != 'tag'
     uses: ./.github/workflows/lightscaper-desktop-native-internal.yml
 
   nightly-test-targets:

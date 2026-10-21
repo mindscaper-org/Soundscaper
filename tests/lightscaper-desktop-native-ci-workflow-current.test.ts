@@ -89,3 +89,25 @@ void test('qualification runner authenticates final package bytes and uses actua
 	assert.match(source, /readersRetired/u);
 	assert.match(source, /workRetained/u);
 });
+
+void test('manual non-tag nightly feature dispatch admits only the separate internal Photo job', async () => {
+	const source = await text('.github/workflows/desktop-nightly-tests.yml'), value = record(load(source));
+	const on = record(value.on), jobs = record(value.jobs), photo = record(jobs['lightscaper-internal-desktop']);
+	// This exact GitHub condition admits main and manual branch runs, while
+	// excluding every tag and automatic non-main event. The other graph stays main-only.
+	assert.equal(photo.if, "(github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && github.ref_type != 'tag'");
+	assert.equal(photo.uses, './' + workflowPath);
+	assert.deepEqual(Object.keys(photo).sort(), ['if', 'uses']);
+	assert.deepEqual(Object.keys(on).sort(), ['push', 'workflow_dispatch']);
+	assert.deepEqual(on.push, { branches: ['main'] });
+	assert.deepEqual(value.permissions, { contents: 'read', packages: 'read' });
+	assert.deepEqual(Object.keys(jobs).sort(), ['browser-sites', 'lightscaper-internal-desktop', 'nightly-test-targets', 'package-with-tests']);
+	assert.equal(record(jobs['nightly-test-targets']).if, "github.ref == 'refs/heads/main'");
+	const browser = record(jobs['browser-sites']), packaged = record(jobs['package-with-tests']);
+	assert.equal(browser.needs, 'nightly-test-targets');
+	assert.equal(String(browser.if).replace(/\s+/gu, ' ').trim(), "!cancelled() && needs.nightly-test-targets.result == 'success'");
+	assert.deepEqual(packaged.needs, ['nightly-test-targets', 'browser-sites']);
+	assert.equal(String(packaged.if).replace(/\s+/gu, ' ').trim(),
+		"!cancelled() && needs.nightly-test-targets.result == 'success' && needs.browser-sites.result == 'success'");
+	assert.doesNotMatch(source, /desktop:publish:assistance-runtimes|R2_MODELS_ACCESS_KEY_ID|contents: write|secrets: inherit/u);
+});
