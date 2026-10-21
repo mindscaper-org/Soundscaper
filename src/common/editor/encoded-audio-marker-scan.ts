@@ -3,7 +3,7 @@
 import { consumeDs64TableSize, readDs64Directory } from './wav-ds64.js';
 import { riffMetadataCodePage } from './riff-metadata-text.ts';
 import { parseAiffMarkChunk } from './aiff-markers.ts';
-import { parseRiffMarkers, type RiffMarker } from './riff-markers.ts';
+import { parseRiffMarkers, type RiffMarker, type RiffMarkerTextWarning } from './riff-markers.ts';
 
 /**
  * Rescue markers from an encoded audio file the maintained PCM readers refused.
@@ -26,6 +26,7 @@ export interface EncodedAudioMarkerScanSource {
 
 export interface EncodedAudioMarkerScan {
 	readonly markers: readonly RiffMarker[];
+	readonly metadataWarnings?: readonly RiffMarkerTextWarning[];
 	/** The container's declared sample rate — the rate the cue offsets count in. */
 	readonly sampleRate: number | null;
 }
@@ -92,9 +93,10 @@ async function scanRiffMarkers(source: EncodedAudioMarkerScanSource, riffEnd: nu
 		offset = payloadEnd + (size & 1);
 	}
 	if (!cue) return null;
-	const markers = parseRiffMarkers(cue, adtl, codePage, littleEndian);
+	const warnings: RiffMarkerTextWarning[] = [];
+	const markers = parseRiffMarkers(cue, adtl, codePage, littleEndian, warning => { warnings.push(warning); });
 	if (!markers.length) return null;
-	return Object.freeze({ markers, sampleRate });
+	return Object.freeze({ markers, sampleRate, ...(warnings.length ? { metadataWarnings: Object.freeze(warnings) } : {}) });
 }
 
 async function scanAiffMarkers(source: EncodedAudioMarkerScanSource): Promise<EncodedAudioMarkerScan | null> {

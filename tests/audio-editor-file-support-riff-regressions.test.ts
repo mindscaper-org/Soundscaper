@@ -89,3 +89,21 @@ test('RF64 compressed imports rescue cue markers through the ds64 directory', as
 	const scanned = await scanEncodedAudioMarkers(wave('RF64', [Uint8Array.from(marker)]));
 	assert.equal(scanned?.markers[0]?.label, 'Pickup');
 });
+
+for (const placement of ['before-data', 'after-data'] as const) {
+	test(`an unsupported WAV CSET preserves cue and region geometry with text warnings (${placement})`, async () => {
+		const cset = new Uint8Array(8);
+		new DataView(cset.buffer).setUint16(0, 866, true);
+		const file = new Blob([Uint8Array.from(encodeWav([new Float32Array(1024)], {
+			[placement === 'before-data' ? 'preDataChunks' : 'trailingChunks']: [chunk('CSET', cset)],
+			markers: [{ id: 7, sampleOffset: 480, sampleLength: 240, label: 'Section', note: 'Comment' }],
+		}))]);
+		const inspected = await inspectWavBlobPcm(file);
+		assert.deepEqual(inspected.markers, [{ id: 7, sampleOffset: 480, sampleLength: 240, label: '', note: '' }]);
+		assert.ok(inspected.metadataWarnings.some(warning => warning.code === 'riff-marker-text-invalid' && /866/u.test(warning.message)));
+		assert.equal(inspected.metadataWarnings.some(warning => warning.code === 'riff-markers-invalid'), false);
+		const rescued = await scanEncodedAudioMarkers(file);
+		assert.deepEqual(rescued?.markers, inspected.markers);
+		assert.ok(rescued?.metadataWarnings?.some(warning => warning.code === 'riff-marker-text-invalid' && warning.codePage === 866));
+	});
+}

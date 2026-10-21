@@ -413,7 +413,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const { isStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
 		if (wavSignature === 'RIFX' || isStreamedAudioImportFile(file)) {
 			const { importStreamedAudioFile } = await import('./streamed-audio-import-service.ts');
-			return importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning }, ffmpeg, wavMetadata,
+			return importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
 				importIncrementalPcm, assertImportProjectCurrent);
 		}
 		await preflightStorage(Math.max(file.size * 8, 8 * 1024 * 1024), 'import');
@@ -527,7 +527,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			throw error;
 		}
 		warnEnvelope();
-		return importResultWithWarnings(importedResult, wavMetadata.warnings);
+		return importResultWithWarnings(importedResult, [...wavMetadata.warnings, ...(rescuedMarkerScan?.metadataWarnings ?? [])]);
 	}
 	function requireProject() {
 		const project = getProject();

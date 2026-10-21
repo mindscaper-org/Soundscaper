@@ -21,6 +21,16 @@ export interface RiffMarker {
 	readonly note: string;
 }
 
+export interface RiffMarkerTextWarning {
+	readonly code: 'riff-marker-text-invalid';
+	readonly message: string;
+	readonly cueId: number;
+	readonly field: 'label' | 'note';
+	readonly codePage: number;
+}
+
+type MarkerTextWarningHandler = (warning: RiffMarkerTextWarning) => void;
+
 export function normalizeRiffMarkers(input: readonly RiffMarkerInput[] = []): readonly RiffMarker[] {
 	if (!Array.isArray(input)) throw new TypeError('RIFF markers must be an array.');
 	if (input.length > MAX_MARKERS) throw new RangeError(`RIFF markers support at most ${MAX_MARKERS} entries.`);
@@ -68,7 +78,7 @@ export function createRiffMarkerChunks(input: readonly RiffMarkerInput[] = []): 
 	return concat(...parts);
 }
 
-export function parseRiffMarkers(cuePayload: Uint8Array | null, adtlPayloads: readonly Uint8Array[] = [], codePage = 0, littleEndian = true): readonly RiffMarker[] {
+export function parseRiffMarkers(cuePayload: Uint8Array | null, adtlPayloads: readonly Uint8Array[] = [], codePage = 0, littleEndian = true, onTextWarning?: MarkerTextWarningHandler): readonly RiffMarker[] {
 	if (!cuePayload) return Object.freeze([]);
 	if (cuePayload.byteLength < 4) throw new Error('The WAV cue chunk is truncated.');
 	const view = new DataView(cuePayload.buffer, cuePayload.byteOffset, cuePayload.byteLength);
@@ -87,11 +97,11 @@ export function parseRiffMarkers(cuePayload: Uint8Array | null, adtlPayloads: re
 			note: '',
 		}));
 	}
-	for (const payload of adtlPayloads) parseAdtl(payload, markers, codePage, littleEndian);
+	for (const payload of adtlPayloads) parseAdtl(payload, markers, codePage, littleEndian, onTextWarning);
 	return Object.freeze([...markers.values()].sort((left, right) => left.sampleOffset - right.sampleOffset || left.id - right.id));
 }
 
-function parseAdtl(payload: Uint8Array, markers: Map<number, RiffMarker>, codePage: number, littleEndian: boolean): void {
+function parseAdtl(payload: Uint8Array, markers: Map<number, RiffMarker>, codePage: number, littleEndian: boolean, onTextWarning?: MarkerTextWarningHandler): void {
 	let offset = 0;
 	while (offset < payload.byteLength) {
 		if (payload.byteLength - offset < 8) throw new Error('The WAV adtl list ends inside a subchunk header.');
@@ -103,15 +113,34 @@ function parseAdtl(payload: Uint8Array, markers: Map<number, RiffMarker>, codePa
 		if ((id === 'labl' || id === 'note') && size >= 4) {
 			const cueId = new DataView(payload.buffer, payload.byteOffset + start, 4).getUint32(0, littleEndian);
 			const marker = markers.get(cueId);
-			if (marker) markers.set(cueId, Object.freeze({ ...marker, [id === 'labl' ? 'label' : 'note']: decodeRiffMetadataText(payload.subarray(start + 4, end), codePage) }));
+			if (marker) {
+				const field = id === 'labl' ? 'label' : 'note';
+				const decoded = markerText(payload.subarray(start + 4, end), codePage, cueId, field, onTextWarning);
+				if (decoded !== undefined) markers.set(cueId, Object.freeze({ ...marker, [field]: decoded }));
+			}
 		} else if (id === 'ltxt' && size >= 20) {
 			const item = new DataView(payload.buffer, payload.byteOffset + start, size);
 			const cueId = item.getUint32(0, littleEndian);
 			const marker = markers.get(cueId);
-			if (marker) markers.set(cueId, Object.freeze({ ...marker, sampleLength: item.getUint32(4, littleEndian),
-				label: marker.label || decodeRiffMetadataText(payload.subarray(start + 20, end), item.getUint16(18, littleEndian) || codePage) }));
+			if (marker) {
+				const label = marker.label || markerText(payload.subarray(start + 20, end), item.getUint16(18, littleEndian) || codePage, cueId, 'label', onTextWarning);
+				markers.set(cueId, Object.freeze({ ...marker, sampleLength: item.getUint32(4, littleEndian),
+					...(label === undefined ? {} : { label }) }));
+			}
 		}
 		offset = end + (size & 1);
+	}
+}
+
+/** Optional marker text cannot invalidate independently parsed cue/region geometry. */
+function markerText(payload: Uint8Array, codePage: number, cueId: number, field: 'label' | 'note', onWarning?: MarkerTextWarningHandler): string | undefined {
+	if (payload.length === 0) return '';
+	try { return decodeRiffMetadataText(payload, codePage); }
+	catch (error) {
+		if (!onWarning) throw error;
+		onWarning(Object.freeze({ code: 'riff-marker-text-invalid', cueId, field, codePage,
+			message: `The ${field} for WAV cue ${String(cueId)} was omitted: ${error instanceof Error ? error.message : String(error)}` }));
+		return undefined;
 	}
 }
 
