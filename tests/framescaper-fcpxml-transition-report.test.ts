@@ -39,8 +39,13 @@ test('I16: a menu-authored dissolve reaches the FCPXML delivery report before th
 	const authored = applyFramescaperProjectCommand(PROFILE, initial, prepared.command);
 	const track = authored.tracks.find(({ id }) => id === 'picture');
 	assert.ok(track?.type === 'video');
-	assert.equal(track.videoTransitions.length, 1);
-	const transitionId = track.videoTransitions[0]?.id;
+	const transitions = track.videoTransitions;
+	assert.ok(Array.isArray(transitions));
+	assert.equal(transitions.length, 1);
+	const transition: unknown = transitions[0];
+	assert.ok(transition !== null && typeof transition === 'object' && 'id' in transition);
+	assert.ok(typeof transition.id === 'string');
+	const transitionId = transition.id;
 	const state: { deliveryReport?: DeliveryReport } = {};
 	let published = false;
 	let saved = false;
