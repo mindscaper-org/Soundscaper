@@ -17,6 +17,7 @@ export interface LightscaperSmokeRendererPlanCurrentV1 {
 export interface LightscaperManagedSmokePlanCurrentV1 {
 	readonly schemaVersion: 1; readonly nonce: string; readonly stage: 1 | 2 | 3;
 	readonly profilePath: string; readonly renderer: Readonly<LightscaperSmokeRendererPlanCurrentV1>;
+	readonly registeredAssociation?: Readonly<{ schemaVersion: 1; ownerNonce: string; sourceRevision: string }>;
 }
 export interface LightscaperSmokeCustodyCurrentV1 {
 	readonly namespace: string | null;

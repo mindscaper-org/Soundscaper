@@ -4,7 +4,7 @@ import {installLightscaperManagedSmokeRawObserverCurrentV1} from './lightscaper-
 import { installLightscaperManagedSmokeNativeObserverCurrentV1 } from './lightscaper-managed-smoke-native-custody-current-v1.ts';
 import { prepareLightscaperManagedSmokeRendererCurrentV1, runLightscaperManagedSmokeRendererCurrentV1 } from './lightscaper-managed-smoke-session-driver-current-v1.ts';
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { linkSync, lstatSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, dirname, join, resolve } from 'node:path';
 import type { BrowserWindow, DownloadItem } from 'electron';
 import type { LightscaperMainHooksCurrentV1 } from './lightscaper-main-host-current-v1.ts';
@@ -24,12 +24,19 @@ export function parseLightscaperManagedSmokeArgumentsCurrentV1(argv: readonly st
 	return Object.freeze({ planPath, nonce });
 }
 export function validateLightscaperManagedSmokePlanCurrentV1(value: unknown, authority: Readonly<{ planPath: string; profilePath: string; nonce: string }>): LightscaperManagedSmokePlanCurrentV1 {
-	const plan = record(value, ['schemaVersion', 'nonce', 'stage', 'profilePath', 'renderer']);
+	const plan = record(value, ['schemaVersion', 'nonce', 'stage', 'profilePath', 'renderer'], ['registeredAssociation']);
 	const stage = plan.stage;
 	if (plan.schemaVersion !== 1 || plan.nonce !== authority.nonce || (stage !== 1 && stage !== 2 && stage !== 3)
 		|| authority.planPath !== join(dirname(authority.planPath), `${authority.nonce}.stage-${stage}.json`)
-		|| plan.profilePath !== join(dirname(authority.planPath), 'profile') || plan.profilePath !== resolve(authority.profilePath)) throw new TypeError('Managed smoke plan leaves its private profile or stage.');
+		|| plan.profilePath !== resolve(authority.profilePath) || !isAbsolute(authority.profilePath)
+		|| plan.registeredAssociation === undefined && plan.profilePath !== join(dirname(authority.planPath), 'profile')) throw new TypeError('Managed smoke plan leaves its private profile or stage.');
 	const renderer = record(plan.renderer, ['nonce', 'stage', 'locale', 'fixtures', 'archive', 'expectedFingerprint', 'expectedNamespace', 'expectedPhotoIds', 'backupSuggestedName'], ['backend','scenario']);
+	if (plan.registeredAssociation !== undefined) {
+		const association = record(plan.registeredAssociation, ['schemaVersion', 'ownerNonce', 'sourceRevision']);
+		if (association.schemaVersion !== 1 || association.ownerNonce !== authority.nonce
+			|| typeof association.sourceRevision !== 'string' || !/^[a-f0-9]{40}$/u.test(association.sourceRevision)
+			|| renderer.backend !== 'web' || renderer.scenario !== 'managed') throw new TypeError('Registered association smoke requires its exact owned managed-Web profile.');
+	}
 	if(renderer.scenario!==undefined&&renderer.scenario!=='managed'&&renderer.scenario!=='linked')throw new TypeError('Unknown finite smoke scenario.');
 	if(renderer.scenario==='linked'&&renderer.backend!=='native')throw new TypeError('Linked smoke requires native storage.');
 	if (renderer.backend !== undefined && renderer.backend !== 'web' && renderer.backend !== 'native') throw new TypeError('Unknown managed backend.');
@@ -62,6 +69,7 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 	if (!profileMetadata.isDirectory() || profileMetadata.isSymbolicLink() || realpathSync(options.profilePath) !== options.profilePath) throw new TypeError('Managed smoke requires its canonical private browser profile.');
 	const plan = validateLightscaperManagedSmokePlanCurrentV1(JSON.parse(readFileSync(authority.planPath, 'utf8')) as unknown,
 		{ ...authority, profilePath: options.profilePath });
+	if (plan.registeredAssociation) validateAssociationProfile(plan, root, options.argv);
 	for (const file of [...plan.renderer.fixtures, ...(plan.renderer.archive ? [plan.renderer.archive] : [])]) {
 		const bytes = Buffer.from(file.base64, 'base64');
 		if (bytes.length !== file.byteLength || hash(bytes) !== file.sha256) throw new Error('Managed smoke fixture bytes differ from their private plan.');
@@ -128,6 +136,7 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 		async onRendererReady(window: BrowserWindow): Promise<void> {
 			if (executed) return; executed = true;
 			try {
+				if (plan.registeredAssociation && plan.stage === 2) publishAssociationReady(plan, root);
 				const report = await runLightscaperManagedSmokeRendererCurrentV1(window, plan.renderer, native);
 				if (report.scenario !== (plan.renderer.scenario ?? 'managed') || report.backend !== (plan.renderer.backend ?? 'web') || report.nonce !== plan.nonce || report.stage !== plan.stage || JSON.stringify(report).length > 512 * 1024) throw new Error('Managed renderer report escaped its stage authority.');
 				const completed = await Promise.all(downloads.map(download => download.promise));
@@ -153,6 +162,28 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 				options.reportFailure(failure); throw failure; }
 		},
 	});
+}
+function validateAssociationProfile(plan: LightscaperManagedSmokePlanCurrentV1, root: string, argv: readonly string[]): void {
+	if (!plan.registeredAssociation || argv.some(value => value === '--user-data-dir' || value.startsWith('--user-data-dir='))) throw new TypeError('OS association smoke must use the actual default Electron profile.');
+	const markerPath = join(plan.profilePath, '.lightscaper-registered-association-owner.json'), metadata = lstatSync(markerPath);
+	if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size < 2 || metadata.size > 4096
+		|| realpathSync(markerPath) !== markerPath || process.getuid && (metadata.uid !== process.getuid() || (metadata.mode & 0o077) !== 0)) throw new Error('Registered association profile has no bounded private owner marker.');
+	const marker = record(JSON.parse(readFileSync(markerPath, 'utf8')) as unknown,
+		['schemaVersion', 'kind', 'ownerRoot', 'profilePath', 'nonce', 'sourceRevision', 'profileDevice', 'profileInode']);
+	const profile = lstatSync(plan.profilePath);
+	if (marker.schemaVersion !== 1 || marker.kind !== 'lightscaper-registered-association-profile-current-v1'
+		|| marker.ownerRoot !== root || marker.profilePath !== plan.profilePath || marker.nonce !== plan.nonce
+		|| marker.sourceRevision !== plan.registeredAssociation.sourceRevision || marker.profileDevice !== String(profile.dev)
+		|| marker.profileInode !== String(profile.ino)) throw new Error('Registered association profile does not belong to this actual smoke composition.');
+}
+function publishAssociationReady(plan: LightscaperManagedSmokePlanCurrentV1, root: string): void {
+	const association = plan.registeredAssociation, archive = plan.renderer.archive;
+	if (!association || !archive || plan.stage !== 2) throw new Error('Only the genuine restore stage may publish association readiness.');
+	const path = join(root, `${plan.nonce}.stage-2.ready.json`), pending = `${path}.pending`;
+	writeFileSync(pending, `${JSON.stringify({ schemaVersion: 1, kind: 'lightscaper-registered-association-ready-current-v1',
+		nonce: plan.nonce, sourceRevision: association.sourceRevision, profilePath: plan.profilePath,
+		archiveName: archive.name, archiveSha256: archive.sha256, stage: 2, processId: process.pid })}\n`, { flag: 'wx', mode: 0o600 });
+	try { linkSync(pending, path); } finally { unlinkSync(pending); }
 }
 function validateFile(value: unknown, maximum: number): LightscaperSmokeFileCurrentV1 {
 	const file = record(value, ['name', 'mimeType', 'base64', 'byteLength', 'sha256']);
