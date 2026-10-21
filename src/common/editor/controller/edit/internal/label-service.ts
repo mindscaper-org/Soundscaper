@@ -5,6 +5,8 @@ import {
 	createAddTimelineAnnotationCommand,
 } from '../../../commands/factories.ts'; import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
+import { resolveRuntimeProjectProjection } from '../../../runtime-clip-projection.ts';
+import type { HoldTempoMap } from '../../../timeline-time.ts';
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import {
 	parseAudioEditorCueSheet,
@@ -44,6 +46,7 @@ export interface LabelProjectDocument {
 	readonly id: string;
 	readonly title: string;
 	readonly sampleRate: number;
+	readonly tempoMap?: HoldTempoMap;
 	readonly primarySequenceId: string;
 	readonly timelineAnnotations: readonly unknown[];
 	readonly tracks: readonly (LabelTrack | Readonly<Record<string, unknown>>)[];
@@ -254,7 +257,10 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 		const ownership = captureOwnership('labels:export');
 		try {
 			const requestedIds = Array.isArray(options.trackIds) ? new Set(options.trackIds) : null;
-			let tracks = ownership.project.tracks
+			let tracks = resolveRuntimeProjectProjection({
+				sampleRate: ownership.project.sampleRate, tempoMap: ownership.project.tempoMap,
+				tracks: ownership.project.tracks, clips: [],
+			}).tracks
 				.filter(isLabelTrack)
 				.filter((track) => !requestedIds || requestedIds.has(track.id));
 			const selected = tracks.find((track) => track.id === dependencies.state.selectedTrackId);
