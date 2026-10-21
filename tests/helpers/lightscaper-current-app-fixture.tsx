@@ -2,6 +2,8 @@
 
 import { PhotoMediaStoreV1 } from '../../src/lightscaper/storage/photo-media-store.ts';
 import { PhotoCatalogRepositoryV2 } from '../../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
+import { PhotoCatalogRepositoryCurrentV1 } from '../../src/lightscaper/catalog/photo-catalog-repository-current-v1.ts';
+import { verifyPhotoResourcesCurrentV1 } from '../../src/lightscaper/storage/photo-media-resource-verification-current-v1.ts';
 import { createPhotoLibrarySessionV3 } from '../../src/lightscaper/photo-library-session-runtime-v3.ts';
 import { readPhotoLibrarySessionLocationV2 } from '../../src/lightscaper/storage/photo-library-location-reader-v2.ts';
 import { normalizePhotoDocumentV1 } from '../../src/lightscaper/catalog/photo-document.ts';
@@ -43,19 +45,20 @@ export async function readResidentPhotoLibraryCurrent(photoIds: readonly string[
 	beforeClose?: () => Promise<void>) {
 	if (photoIds.length > 64) throw new RangeError('Current UI observation exceeds one page.');
 	const anchor = new PhotoMediaStoreV1({ indexedDB });
-	let media: PhotoMediaStoreV1 | null = null, catalog: PhotoCatalogRepositoryV2 | null = null;
+	let media: PhotoMediaStoreV1 | null = null, catalog: PhotoCatalogRepositoryCurrentV1 | null = null;
 	try {
 		await anchor.ready();
 		const selection = await readPhotoLibrarySessionLocationV2({ settings: anchor.settingsRepository,
 			initializeDefault: async () => { throw new ReferenceError('Observation cannot initialize a library.'); } });
 		media = selection.allocation ? new PhotoMediaStoreV1({ indexedDB, databaseName: selection.location.mediaDatabaseName, preferOpfs: false }) : anchor;
-		const resources = await media.getCubeLutResources();
-		catalog = new PhotoCatalogRepositoryV2({ indexedDB, databaseName: selection.location.catalogDatabaseName,
-			verifyOriginal: media.verifyOriginal, verifyResources: (photo, signal) => resources.verifyPhoto(photo, signal) });
+		const owner = media, resources = { cubeLutResources: () => owner.getCubeLutResources(), maskRasterResources: () => owner.getMaskRasterResources() };
+		const verifyResources = (photo: unknown, signal?: AbortSignal) => verifyPhotoResourcesCurrentV1(photo, resources, signal);
+		catalog = new PhotoCatalogRepositoryCurrentV1({ indexedDB, databaseName: selection.location.catalogDatabaseName,
+			verifyOriginal: media.verifyOriginal, verifyResources });
 		const root = await catalog.loadCatalog(selection.location.catalogId), photos = [];
 		for (const id of photoIds) {
 			const photo = await catalog.loadPhoto(selection.location.catalogId, id); if (!photo) throw new ReferenceError('Current photo missing.');
-			await media.verifyOriginal(photo.original); await resources.verifyPhoto(photo);
+			await media.verifyOriginal(photo.original); await verifyResources(photo);
 			const body = await media.mediaRepository.loadAsset(photo.original.storageKey); if (!(body instanceof Blob)) throw new TypeError('Original body missing.');
 			photos.push({ photo, bytes: [...new Uint8Array(await body.arrayBuffer())] });
 		}

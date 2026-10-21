@@ -97,12 +97,12 @@ for (const locale of ['en', 'de']) test(`${locale}: mounted StrictMode Bootstrap
 	}
 });
 
-test('current Photo2/native selected-namespace observer is an exact packaged browser helper and bundles owning current admission', async () => {
+test('current Photo1/2/3/native selected-namespace observer is an exact packaged browser helper and bundles owning current admission', async () => {
 	const helper = 'tests/helpers/lightscaper-current-app-fixture.tsx';
 	assert.deepEqual(NIGHTLY_IMAGE_TEST_HELPER_INPUTS.filter(row => row.source === helper).map(row => ({ source: row.source, destination: row.destination, kind: row.kind })),
 		[{ source: helper, destination: helper, kind: 'file' }]);
 	const output = await build({ stdin: { resolveDir: new URL('../tests/helpers/', import.meta.url).pathname, contents:
 		`export { readResidentPhotoLibraryCurrent } from './lightscaper-current-app-fixture.tsx';` }, bundle: true, write: false, format: 'esm', platform: 'browser', metafile: true });
-	for (const owner of ['src/lightscaper/catalog/photo-catalog-repository-v2.ts', 'src/lightscaper/catalog/photo-document-v2.ts', 'src/lightscaper/storage/photo-library-location-reader-v2.ts']) assert.ok(Object.hasOwn(output.metafile.inputs, owner), owner);
+	for (const owner of ['src/lightscaper/catalog/photo-catalog-repository-current-v1.ts', 'src/lightscaper/catalog/photo-document-current-v1.ts', 'src/lightscaper/storage/photo-media-resource-verification-current-v1.ts', 'src/lightscaper/storage/photo-library-location-reader-v2.ts']) assert.ok(Object.hasOwn(output.metafile.inputs, owner), owner);
 	assert.match(output.outputFiles[0]!.text, /readResidentPhotoLibraryCurrent/u);
 });
