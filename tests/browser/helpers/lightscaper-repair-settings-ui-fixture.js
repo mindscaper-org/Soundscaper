@@ -109,5 +109,5 @@ function originalPng(index) {
 export function active(photo) { const version = photo.versions.find(version => version.id === photo.activeVersionId); expect(version).toBeTruthy(); return version; }
 export function named(scope, role, name) { return scope.getByRole(role, { name, exact: true }); }
 export async function keyboard(page, control) { await expect(control).toBeEnabled(); await control.focus(); await expect(control).toBeFocused(); await page.keyboard.press('Enter'); }
-export async function check(page, control) { await expect(control).not.toBeChecked(); await control.focus(); await page.keyboard.press('Space'); await expect(control).toBeChecked(); }
-export async function uncheck(page, control) { await expect(control).toBeChecked(); await control.focus(); await page.keyboard.press('Space'); await expect(control).not.toBeChecked(); }
+export async function check(page, control) { await expect(control).not.toBeChecked(); await expect(control).toBeEnabled(); await control.focus(); await expect(control).toBeFocused(); await page.keyboard.press('Space'); await expect(control).toBeChecked(); }
+export async function uncheck(page, control) { await expect(control).toBeChecked(); await expect(control).toBeEnabled(); await control.focus(); await expect(control).toBeFocused(); await page.keyboard.press('Space'); await expect(control).not.toBeChecked(); }
