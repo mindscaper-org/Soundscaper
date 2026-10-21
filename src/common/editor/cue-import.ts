@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { decodeBomMarkedUtf16 } from './bom-marked-text.ts';
+
 const CD_FRAMES_PER_SECOND = 75;
 const DEFAULT_MAX_INPUT_CHARS = 16 * 1024 * 1024;
 const DEFAULT_MAX_CUES = 4_096;
@@ -184,7 +186,7 @@ function normalizeInput(input: string | Uint8Array | ArrayBuffer, maximum: numbe
 	if (typeof input === 'string') text = input;
 	else if (input instanceof Uint8Array || input instanceof ArrayBuffer) {
 		try {
-			text = new TextDecoder('utf-8', { fatal: true }).decode(input);
+			text = decodeBomMarkedUtf16(input) ?? new TextDecoder('utf-8', { fatal: true }).decode(input);
 		} catch (error) {
 			if (!legacyTextEncoding) throw cueError('CUE data is not valid UTF-8.', 'INVALID_UTF8', {}, error);
 			text = new TextDecoder(legacyTextEncoding).decode(input);
