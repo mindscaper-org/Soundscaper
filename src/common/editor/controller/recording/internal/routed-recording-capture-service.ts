@@ -5,6 +5,7 @@ import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import {
 	recordingCapturePeak,
 	recordingCapturePeakDb,
+	routedRecordingDetectorChannels,
 	selectRoutedRecordingChannels,
 } from './recording-capture-channels.ts';
 import {
@@ -246,7 +247,8 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					},
 					isCurrent,
 					runtime.handleError,
-					{ sourceOffsetFrames: session.sourceOffsetFrames, timestampAtFrame: frame => runtime.currentTimeMs()
+					{ sourceOffsetFrames: session.sourceOffsetFrames, detectorChannels: routedRecordingDetectorChannels(session.routes.map(({ route }) => route), session.channelCount),
+						timestampAtFrame: frame => runtime.currentTimeMs()
 						+ (frame / captureSampleRate - context.currentTime) * 1_000 },
 				);
 				soundActivationSessions.set(session, soundActivation);

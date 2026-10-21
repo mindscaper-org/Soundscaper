@@ -18,6 +18,17 @@ export function recordingCapturePeakDb(channels: readonly Float32Array[]): numbe
 	return peak > 0 ? Math.max(-60, 20 * Math.log10(peak)) : -60;
 }
 
+/** A shared physical-input gate listens only to channels assigned to surviving armed routes. */
+export function routedRecordingDetectorChannels(routes: readonly RecordingRoute[], availableChannels: number): readonly number[] {
+	const channels = new Set<number>();
+	for (const route of routes) {
+		for (let channel = route.channelStart; channel < Math.min(availableChannels, route.channelStart + route.channelCount); channel++) {
+			channels.add(channel);
+		}
+	}
+	return Object.freeze([...channels].sort((left, right) => left - right));
+}
+
 export function selectRoutedRecordingChannels(
 	channels: readonly Float32Array[],
 	route: RecordingRoute,
