@@ -120,3 +120,31 @@ test('I25: WebVTT voice and emphasis retain their meaning in either wrapper orde
 	assert.equal(imported.track.speakers[0]?.name, 'Alex');
 	assert.equal(imported.track.styles[0]?.fontWeight, 'bold');
 });
+
+test('I26: uppercase SubRip emphasis imports with its text and style intact', () => {
+	const imported = caption(`1\n${timing}\n<B><I>Hello</i></b>\n`);
+	assert.equal(imported.track.cues[0]?.text, 'Hello');
+	assert.equal(imported.track.styles[0]?.fontWeight, 'bold');
+	assert.equal(imported.track.styles[0]?.fontStyle, 'italic');
+});
+
+test('I27: WebVTT label import extracts visible text without displaying cue markup', () => {
+	const input = `WEBVTT\n\n${vttTiming}\n<v Narrator><b>Hello</b> <i>world</i></v> &lt;b&gt;literal&lt;/b&gt;\n`;
+	const imported = parseAudioEditorLabels(input, { format: 'vtt' });
+	assert.equal(imported.labels[0]?.title, 'Hello world <b>literal</b>');
+});
+
+test('I28: single-quoted CUE filenames and metadata import without literal quote marks', () => {
+	const input = "FILE 'album recording.wav' WAVE\nTRACK 01 AUDIO\nTITLE 'First song'\nPERFORMER 'The band'\nINDEX 01 00:00:00\n";
+	const imported = parseAudioEditorCueSheet(input, { sampleRate: 48_000 });
+	assert.equal(imported.cues[0]?.title, 'First song');
+	assert.equal(imported.cues[0]?.performer, 'The band');
+	const apostrophe = parseAudioEditorCueSheet(`FILE "C:\\Music\\O'Brien.wav" WAVE\nTRACK 01 AUDIO\nTITLE "O'Brien"\nINDEX 01 00:00:00\n`, { sampleRate: 48_000 });
+	assert.equal(apostrophe.cues[0]?.title, "O'Brien");
+});
+
+test('I29: CUE index numbers do not require artificial leading zeroes', () => {
+	const input = 'FILE "album.wav" WAVE\nTRACK 1 AUDIO\nINDEX 1 00:00:00\nTRACK 2 AUDIO\nINDEX 1 00:01:00\n';
+	const imported = parseAudioEditorCueSheet(input, { sampleRate: 48_000 });
+	assert.deepEqual(imported.cues.map(({ positionFrame }) => positionFrame), [0, 48_000]);
+});

@@ -357,12 +357,13 @@ function parseSrtCueMarkup(value: string): {
 	let italic = false;
 	let underline = false;
 	for (;;) {
-		const tag = content.match(/^<(b|i|u)>/u)?.[1];
-		if (!tag || !content.endsWith(`</${tag}>`)) break;
+		const wrapper = content.match(/^<(b|i|u)>([\s\S]*)<\/\1>$/iu);
+		const tag = wrapper?.[1]?.toLowerCase();
+		if (!tag) break;
 		if (tag === 'b') bold = true;
 		if (tag === 'i') italic = true;
 		if (tag === 'u') underline = true;
-		content = content.slice(3, -(tag.length + 3));
+		content = wrapper?.[2] ?? '';
 	}
 	// Complete tag-shaped markup stays outside the passive subset. An
 	// incomplete angle-bracket comparison is ordinary literal caption text.
