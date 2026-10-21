@@ -16,7 +16,15 @@ export async function runPhotoNativeToolCurrentV1(command: string, arguments_: r
  child.stdin.end();
  const outcome = await closed; await Promise.all(streams); if (signal) Reflect.apply(CHECK, signal, []);
   if (failed) throw primary;
-  if (outcome.code !== 0 || outcome.signal !== null) throw new Error(`Photo native tool failed (${String(outcome.code)}, ${String(outcome.signal)})\nstdout (tail):\n${Buffer.concat(output).toString('utf8').slice(-8192)}\nstderr (tail):\n${Buffer.concat(errors).toString('utf8').slice(-8192)}`);
+  if (outcome.code !== 0 || outcome.signal !== null) {
+   const stdout = Buffer.concat(output).toString('utf8'), stderr = Buffer.concat(errors).toString('utf8');
+   // Keep the first real compiler failures even when later warnings drown the tail.
+   const selected = (text: string): string => text.split(/\r?\n/u).filter(line => /\b(?:fatal\s+)?error(?:\s+[A-Z]+[0-9]+)?\s*:|\bCMake Error\b|(?:^|\s)(?:FAILED:|Build FAILED\.?)(?:\s|$)/iu.test(line))
+    .slice(0, 16).map(line => line.slice(0, 512)).join('\n').slice(0, 4096);
+   const important = [["stdout", selected(stdout)], ["stderr", selected(stderr)]].filter(([, text]) => text)
+    .map(([stream, text]) => `\n${stream} compiler errors (bounded):\n${text}`).join('');
+   throw new Error(`Photo native tool failed (${String(outcome.code)}, ${String(outcome.signal)})${important}\nstdout (tail):\n${stdout.slice(-8192)}\nstderr (tail):\n${stderr.slice(-8192)}`);
+  }
   return Buffer.concat(output).toString('utf8');
 
 }
