@@ -25,13 +25,14 @@ import { normalizeExportDialogAudioSettings } from './export-dialog-audio-codec-
  *   presetKind: 'audio' | 'video',
  *   desktop: boolean,
  *   projectChannelCount: number,
+ *   projectSampleRate?: number,
  *   setSettings: (update: (current: any) => any) => void,
  *   setPresetId: (id: string) => void,
  *   setPresetName: (name: string) => void,
  * }} options
  */
 export function createExportPresetActions({
-	controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount,
+	controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount, projectSampleRate,
 	setSettings, setPresetId, setPresetName,
 }) {
 	const store = controller.actions.export.presets;
@@ -45,7 +46,7 @@ export function createExportPresetActions({
 			// over a chosen loop or selection has to put the dialog back on a whole
 			// delivery rather than leave it showing a form it is not delivering.
 			setSettings((current) => conformExportDialogOutput(normalizeExportDialogAudioSettings(
-				{ ...current, ...dialogSettingsFromPreset(preset) }, desktop, projectChannelCount,
+				{ ...current, ...dialogSettingsFromPreset(preset, { desktop, projectSampleRate }) }, desktop, projectChannelCount,
 			)));
 		},
 		onNameChange: setPresetName,

@@ -101,6 +101,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const previewPresetSettings = presetId ? previewPresetSettingsFromDialog(settings, presetKind) : null;
 	const presetActions = createExportPresetActions({
 		controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount,
+		projectSampleRate: snapshot.project?.sampleRate,
 		setSettings, setPresetId, setPresetName,
 	});
 	const hasSelection = Boolean(snapshot.selection);

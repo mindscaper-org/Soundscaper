@@ -19,17 +19,21 @@ async function requestFromFile(settings: Readonly<Record<string, unknown>>) {
 	const fixture = await mountedExportDialog({ video: true, presets: [imported(settings)] });
 	try {
 		await fixture.chooseFormat(ENGLISH_COPY.videoExportMp4);
-		const trigger = fixture.dom.one('[data-delivery-preset-bar]').querySelector('.dropdown__trigger');
-		assert.ok(trigger);
-		await fixture.click(trigger);
-		const choice = (document.body as unknown as ReactTestElement).querySelectorAll('[role="option"]')
-			.find(node => node.textContent.includes('Imported video'));
-		assert.ok(choice);
-		await fixture.click(choice);
+		await selectPreset(fixture, 'Imported video');
 		await fixture.startExport();
 		assert.equal(fixture.requests.length, 1);
 		return fixture.requests[0]!;
 	} finally { await fixture.unmount(); }
+}
+
+async function selectPreset(fixture: Awaited<ReturnType<typeof mountedExportDialog>>, label: string) {
+	const trigger = fixture.dom.one('[data-delivery-preset-bar]').querySelector('.dropdown__trigger');
+	assert.ok(trigger);
+	await fixture.click(trigger);
+	const choice = (document.body as unknown as ReactTestElement).querySelectorAll('[role="option"]')
+		.find(node => node.textContent.includes(label));
+	assert.ok(choice);
+	await fixture.click(choice);
 }
 
 function project() {
@@ -56,4 +60,25 @@ test('imported automatic video size and rate limits survive the dialog and saved
 	assert.deepEqual([canvas.width, canvas.height], [640, 360]);
 	assert.equal(canvas.frameRate, 24_000 / 1_001);
 	assert.deepEqual(presetSettingsFromDialog(dialogSettingsFromPreset(imported(limits)), 'video'), limits);
+});
+
+test('an imported audio preset with omitted settings restores its defaults after a different preset', async () => {
+	const presets = importDeliveryPresets({}, JSON.stringify({ schemaVersion: 1, presets: [
+		{ schemaVersion: 1, id: 'telephone', label: 'Telephone', kind: 'audio', format: 'wav',
+			settings: { sampleRate: 16_000, sampleFormat: 'int16', channelMapping: 'mono', dither: 'none', includeTail: false, mode: 'clips' } },
+		{ schemaVersion: 1, id: 'default', label: 'Default WAV', kind: 'audio', format: 'wav', settings: {} },
+	] })).presets;
+	const fixture = await mountedExportDialog({ presets });
+	try {
+		await selectPreset(fixture, 'Telephone');
+		await selectPreset(fixture, 'Default WAV');
+		await fixture.startExport();
+		const request = fixture.requests[0]!;
+		assert.equal(request.sampleRate, 48_000);
+		assert.equal(request.sampleFormat, 'int24');
+		assert.equal(request.channelMapping, 'preserve');
+		assert.equal(request.dither, 'triangular');
+		assert.equal(request.includeTail, true);
+		assert.equal(request.mode, 'mix');
+	} finally { await fixture.unmount(); }
 });

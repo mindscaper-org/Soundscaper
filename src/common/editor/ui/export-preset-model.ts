@@ -15,6 +15,8 @@ import {
 } from '../video-delivery-frame-rate.ts';
 import { DEFAULT_VIDEO_DELIVERY_QUALITY } from '../video-delivery-quality.ts';
 import { DEFAULT_VIDEO_DELIVERY_AUDIO_LAYOUT } from '../video-delivery-audio-layout.ts';
+import { getMediaExportFormat } from '../media-export.js';
+import { exportDialogDefaultSampleFormat } from './export-dialog-audio-codec-options.ts';
 import {
 	findPlatformDeliveryPreset,
 	resolvePlatformDeliveryAvailability,
@@ -72,6 +74,8 @@ const VIDEO_CANVAS_LIMIT_KEYS: Readonly<Record<string, string>> = Object.freeze(
 const AUDIO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	loudnessNormalization: '', bitRatePreset: '2', vbrQuality: '2', averageBitRate: '192',
 	vbrMode: 'on', chapterSource: 'labels', embedLabelChapters: false,
+	mode: 'mix', channelMapping: 'preserve', channelMatrix: '', dither: 'triangular',
+	includeTail: true, bitRate: '192', quality: '5', compressionLevel: '5',
 });
 const VIDEO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	canvasWidth: '', canvasHeight: '', canvasFit: CANVAS_FIT_DEFAULT, canvasFrameRate: '',
@@ -363,12 +367,22 @@ function impliedBitRateMode(settings: Readonly<Record<string, unknown>> | undefi
 /** The dialog patch a preset implies. Numbers become strings again for the inputs. */
 export function dialogSettingsFromPreset(
 	preset: DeliveryPreset,
+	context: Readonly<{ projectSampleRate?: unknown; desktop?: boolean }> = {},
 ): Readonly<Record<string, unknown>> {
 	const patch: Record<string, unknown> = {
 		format: dialogFormatFromPreset(preset),
 		...(preset.kind === 'video' ? VIDEO_PRESET_DIALOG_DEFAULTS : AUDIO_PRESET_DIALOG_DEFAULTS),
 		...(preset.kind === 'video' ? {} : { bitRateMode: impliedBitRateMode(preset.settings) }),
 	};
+	if (preset.kind === 'audio') {
+		const descriptor = getMediaExportFormat(preset.format) as Readonly<{ defaults?: Readonly<Record<string, unknown>> }>;
+		for (const [key, value] of Object.entries(descriptor.defaults ?? {})) {
+			patch[key] = NUMERIC_KEYS.includes(key) ? String(value) : value;
+		}
+		patch.sampleRate = String(context.projectSampleRate ?? 48_000);
+		patch.sampleFormat = exportDialogDefaultSampleFormat(preset.format, context.desktop === true, 'int24');
+		patch.bitRateMode = impliedBitRateMode(preset.settings);
+	}
 	for (const [key, value] of Object.entries(preset.settings ?? {})) {
 		if (Object.hasOwn(VIDEO_CANVAS_LIMIT_KEYS, key)) {
 			patch[VIDEO_CANVAS_LIMIT_KEYS[key]!] = value;
