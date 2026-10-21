@@ -30,7 +30,7 @@ test('MP03: a canceled Scape save preserves the manifest of the last saved archi
 	const snapshot = project(), blob = await archive(snapshot);
 	const fixture = createFixture({ getProject: () => snapshot,
 		exportScapeProject: async () => ({ blob, manifest: {} }),
-		fileService: { isDesktop: false,
+		fileService: { ...createFixture().runtime.fileService,
 			prepareSave: async () => ({ mode: 'blob', fileName: 'cancelled.sscape', target: {} }),
 			saveFile: async () => ({ cancelled: true }),
 		},
@@ -46,7 +46,7 @@ test('MP05: Scape archive reports identify the filename actually chosen by the u
 	const snapshot = project(), blob = await archive(snapshot);
 	const fixture = createFixture({ getProject: () => snapshot,
 		exportScapeProject: async () => ({ blob, manifest: {} }),
-		fileService: { isDesktop: false,
+		fileService: { ...createFixture().runtime.fileService,
 			prepareSave: async () => ({ mode: 'blob', fileName: 'suggested.sscape', target: {} }),
 			saveFile: async () => ({ fileName: 'chosen.sscape', size: blob.size }),
 		},

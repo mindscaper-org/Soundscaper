@@ -101,7 +101,7 @@ export async function publishNativeScape(
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
 	await recordScapeArchiveManifest(runtime, {
-		archive: exported.blob, fileName: saved.fileName || request.fileName,
+		archive: exported.blob, fileName: savedScapeFileName(saved, request.fileName),
 		projectTitle: String(request.project?.title ?? '') || null, signal: request.signal,
 	});
 	return { exported, saved };
@@ -201,7 +201,7 @@ export async function publishNativeScapeArchiveCopy(
 			throw error;
 		}
 		await recordScapeArchiveManifest(runtime, {
-			archive: request.archive, fileName: publication.saved.fileName || request.fileName, signal: request.signal,
+			archive: request.archive, fileName: savedScapeFileName(publication.saved, request.fileName), signal: request.signal,
 		});
 		return publication;
 	}
@@ -226,7 +226,7 @@ export async function publishNativeScapeArchiveCopy(
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
 	await recordScapeArchiveManifest(runtime, {
-		archive: request.archive, fileName: saved.fileName || request.fileName, signal: request.signal,
+		archive: request.archive, fileName: savedScapeFileName(saved, request.fileName), signal: request.signal,
 	});
 	return { copied, saved };
 }
@@ -273,9 +273,13 @@ async function publishDirectScape(
 	}
 	await recordScapeArchiveManifest(runtime, {
 		archive: null,
-		fileName: publication.saved.fileName || request.fileName,
+		fileName: savedScapeFileName(publication.saved, request.fileName),
 		projectTitle: String(request.project?.title ?? '') || null,
 		signal: request.signal,
 	});
 	return publication;
+}
+
+function savedScapeFileName(saved: NativeSavedFile, fallback: string): string {
+	return typeof saved.fileName === 'string' && saved.fileName ? saved.fileName : fallback;
 }
