@@ -357,7 +357,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 				<ul className="kw-audio-editor__project-bin-list" data-project-bin-list>
 					{items.map((item) => (
 						<ProjectBinCard
-							key={item.id}
+							key={`${projectId}:${item.id}`}
 							clip={item.primaryClip}
 							itemClips={item.clips}
 							source={sourceById.get(item.primaryClip.sourceId) || null}
