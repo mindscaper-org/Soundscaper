@@ -153,7 +153,7 @@ export function labelExportFileName(value: unknown, format: string): string {
 
 export function ensureAup4FileName(value: unknown): string {
 	const base = sanitizeFileName(value, 'audacity-project');
-	return /\.aup4$/i.test(base) ? base : `${base}.aup4`;
+	return /\.aup4$/i.test(base) ? base : `${base.replace(/\.aup3$/i, '')}.aup4`;
 }
 
 export function ensureAup3FileName(value: unknown): string {
