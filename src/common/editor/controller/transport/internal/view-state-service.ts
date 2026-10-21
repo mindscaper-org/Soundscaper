@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { AUDIO_EDITOR_MIN_PIXELS_PER_SECOND } from '../../../timeline-zoom-limits.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { ControllerTransportMeters, ControllerTransportState } from '../transport-state.ts';
 
 export interface ViewStateTrack {
@@ -105,14 +106,14 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 		const project = getProject();
 		state.allowBelowProjectFitZoom = false;
 		if (action === 'fit') {
-			const viewport = Math.max(320, Number(requestedViewportWidth) || state.timelineViewportWidth || 960);
+			const viewport = Math.max(1, Number(requestedViewportWidth) || state.timelineViewportWidth || 960);
 			const sampleRate = projectSampleRate();
 			const editorDurationSeconds = editorTimelineDurationFrames(project, sampleRate) / sampleRate;
 			const contentDurationFrames = projectDurationFrames(project);
 			const fitDurationSeconds = contentDurationFrames > 0
 				? contentDurationFrames / sampleRate
 				: editorDurationSeconds;
-			state.pixelsPerSecond = Math.max(1, Math.min(MAX_PIXELS_PER_SECOND, viewport / fitDurationSeconds));
+			state.pixelsPerSecond = Math.max(AUDIO_EDITOR_MIN_PIXELS_PER_SECOND, Math.min(MAX_PIXELS_PER_SECOND, viewport / fitDurationSeconds));
 		} else {
 			const durationSeconds = editorTimelineDurationFrames(project, projectSampleRate()) / projectSampleRate();
 			const minimum = state.timelineViewportWidth > 0 ? state.timelineViewportWidth / durationSeconds : 1;

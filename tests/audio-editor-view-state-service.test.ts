@@ -186,3 +186,16 @@ test('unchanged fitted heights publish without emitting an empty command batch',
 	assert.equal(fixture.commands.length, 0);
 	assert.equal(fixture.projectPublishes(), 1);
 });
+
+test('Fit project shows a complete hour-long imported recording inside its actual viewport', () => {
+	const fixture = createFixture();
+	const durationSeconds = 3600;
+	fixture.setContentDurationFrames(durationSeconds * 48_000);
+	for (const viewport of [960, 240]) {
+		fixture.service.setTimelineViewportWidth(viewport);
+		const scale = fixture.service.updateZoom('fit', undefined);
+		assert.equal(scale, viewport / durationSeconds);
+		assert.ok(scale * durationSeconds <= fixture.state.timelineViewportWidth,
+			'the View > Zoom > Fit project command must not leave most of the recording off screen');
+	}
+});
