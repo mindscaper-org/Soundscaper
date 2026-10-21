@@ -56,6 +56,7 @@ test('a video preset imported from a file keeps its no-audio delivery in the dia
 test('imported automatic video size and rate limits survive the dialog and saved preset', async () => {
 	const limits = { maximumWidth: 640, maximumHeight: 360, maximumFrameRate: { num: 24_000, den: 1_001 } };
 	const request = await requestFromFile(limits);
+	assert.ok(request.canvas && typeof request.canvas === 'object');
 	const canvas = resolveVideoExportCanvas(project(), request.canvas);
 	assert.deepEqual([canvas.width, canvas.height], [640, 360]);
 	assert.equal(canvas.frameRate, 24_000 / 1_001);
