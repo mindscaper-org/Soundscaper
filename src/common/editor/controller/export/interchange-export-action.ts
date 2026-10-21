@@ -5,7 +5,7 @@ import { createProjectEdlExport } from '../../edl-project-adapter.ts';
 import { type OtioExportResult, createOtioExport } from '../../otio-export.ts';
 import { type FcpxmlExportResult, createFcpxmlExport } from '../../fcpxml-export.ts';
 import { projectForRuntimeConsumers } from '../../project-current-runtime.ts';
-import { interchangeSequenceProject } from '../../interchange-sequence-project.ts';
+import { exportSequenceProject } from '../../export-sequence-project.ts';
 import { resolveSequenceTimingView } from '../../sequence-timing-model.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
@@ -122,7 +122,7 @@ export function resolveDeliveredProject(
 	const mediaProject = projectTrackFolderMediaStateV12(selectedProject);
 	const project = projectForRuntimeConsumers(mediaProject as never);
 	return inheritTrackFolderMediaStateProjectionV12(mediaProject,
-		interchangeSequenceProject(project, runtime.sequenceId));
+		exportSequenceProject(project, runtime.sequenceId));
 }
 
 async function deliver<T extends {

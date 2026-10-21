@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { cloneProject } from '../../project.js';
+import { exportSequenceProject } from '../../export-sequence-project.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
 	projectTrackFolderMediaStateV12,
@@ -27,6 +28,6 @@ export function createExportRenderProject<Project extends object>(project: Proje
 	const mediaProject = projectTrackFolderMediaStateV12(project);
 	return inheritTrackFolderMediaStateProjectionV12(
 		mediaProject,
-		cloneProject(mediaProject as Parameters<typeof cloneProject>[0]) as Project,
+		exportSequenceProject(cloneProject(mediaProject as Parameters<typeof cloneProject>[0]) as Project),
 	);
 }

@@ -393,7 +393,7 @@ export function createEditorVideoExportAction(
 					method: published.method,
 				});
 				try { assertVideoExportCurrent(); } catch { return result; }
-				await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), published.fileName || fileName, fileService);
+				await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService);
 				try { assertVideoExportCurrent(); } catch { return result; }
 				state.exportOutput = result;
 				setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
@@ -422,7 +422,7 @@ export function createEditorVideoExportAction(
 			const publishedCleanup = published.cleanup || null;
 			const publishedUrl = published.url || null;
 			pendingCleanup = publishedCleanup;
-			await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), published.fileName || fileName, fileService);
+			await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService);
 			assertVideoExportCurrent();
 			state.outputCleanup = publishedCleanup;
 			state.outputUrl = publishedUrl;

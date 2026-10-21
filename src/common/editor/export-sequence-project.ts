@@ -3,23 +3,24 @@
 type Data = Readonly<Record<string, unknown>>;
 
 /** A delivered timeline belongs to its own track hierarchy, not the project-wide union. */
-export function interchangeSequenceProject(project: Data, sequenceId?: string): Data {
-	const id = sequenceId ?? project.primarySequenceId;
-	const sequence = records(project.sequences).find(item => item.id === id);
+export function exportSequenceProject<Project extends object>(project: Project, sequenceId?: string): Project {
+	const data = project as Data;
+	const id = sequenceId ?? data.primarySequenceId;
+	const sequence = records(data.sequences).find(item => item.id === id);
 	const nodes = sequence?.trackNodes;
 	const ids = sequence?.trackIds;
 	if (!Array.isArray(nodes) && !Array.isArray(ids)) return project;
 	const ownedIds = new Set(Array.isArray(nodes)
 		? records(nodes).filter(node => node.kind === 'track').map(node => String(node.id))
 		: Array.isArray(ids) ? ids.map(String) : []);
-	const tracks = records(project.tracks).filter(track => ownedIds.has(String(track.id)));
+	const tracks = records(data.tracks).filter(track => ownedIds.has(String(track.id)));
 	const clipIds = new Set(tracks.flatMap(track => Array.isArray(track.clipIds) ? track.clipIds.map(String) : []));
 	return Object.freeze({
 		...project,
 		tracks,
-		clips: records(project.clips).filter(clip => clipIds.has(String(clip.id))),
-		...(Array.isArray(project.timelineAnnotations) ? {
-			timelineAnnotations: records(project.timelineAnnotations).filter(annotation => annotation.sequenceId === id),
+		clips: records(data.clips).filter(clip => clipIds.has(String(clip.id))),
+		...(Array.isArray(data.timelineAnnotations) ? {
+			timelineAnnotations: records(data.timelineAnnotations).filter(annotation => annotation.sequenceId === id),
 		} : {}),
 	});
 }
