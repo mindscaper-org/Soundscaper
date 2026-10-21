@@ -67,11 +67,12 @@ if(process.argv[2]==='--network-policy-control'){
 }
 
 function record(value: unknown): Record<string, unknown> { assert.ok(typeof value === 'object' && value !== null); return value as Record<string, unknown>; }
-const POLICY = `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V2 POLICY_PASS type=2\n')});process.exit(0);`;
+const POLICY = `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V3 POLICY_PASS type=2 lpacAccess=2\n')});process.exit(0);`;
 void test('Windows policy receipt requires actual separate TCP positive control and labels policy rather than a restricted TCP syscall', OPTIONS, async context => fixture(context, POLICY, async f => {
  await f.start(); const receipt = record(await f.receipt()), evidence = record(receipt.networkEvidence), positive = record(evidence.positiveControl);
- assert.equal('networkDenied' in receipt, false); assert.equal(evidence.kind, 'windows-token-network-policy-v1'); assert.equal(evidence.classificationTarget, '192.0.2.1'); assert.equal(evidence.policyType, 2);
- assert.deepEqual(evidence.actualCurrentToken, { appContainer: true, lessPrivilegedAppContainer: true, capabilities: 0 });
+ assert.equal('networkDenied' in receipt, false); assert.equal(evidence.kind, 'windows-token-network-policy-v2'); assert.equal(evidence.classificationTarget, '192.0.2.1'); assert.equal(evidence.policyType, 2);
+ assert.deepEqual(evidence.actualCurrentToken, { appContainer: true, capabilities: 0 });
+ assert.deepEqual(evidence.actualLpacAccessCheck, { kind: 'actual-current-token-aap-exclusion-access-check-v1', allApplicationPackages: { requestedAccess: 1, apiSucceeded: true, accessStatus: false, grantedAccess: 0 }, allRestrictedApplicationPackages: { requestedAccess: 2, apiSucceeded: true, accessStatus: true, grantedAccess: 2 } });
  assert.equal(evidence.actualLoopbackExemptionAbsent, true); assert.equal(evidence.pointInTimePolicyEvidence, true);
  assert.equal(positive.kind, 'uncontained-tcp-positive-control'); assert.equal(positive.actualChildJoined, true); assert.equal(positive.appContainer, false);
  assert.equal(positive.winsockStartupStatus, 0); assert.equal(positive.connectionEstablishedStatus, 0); assert.equal(positive.actualLoopbackConnectionObserved, true); assert.equal(positive.nonAppContainerPolicyRefusalObserved, true);
@@ -79,7 +80,11 @@ void test('Windows policy receipt requires actual separate TCP positive control 
 }));
 void test('old private V1 PASS cannot masquerade as Windows policy proof', OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V1 PASS\n')});process.exit(0);`, async f => { await assert.rejects(f.start(), /OS-isolation canary failed/u); }));
 void test('generic Winsock startup10107 remains a failed canary and is never policy proof', OPTIONS, async context => fixture(context, `fs.writeSync(2,${JSON.stringify('PHOTO_ISOLATION_CANARY_V1 FAIL stage=winsock-startup code=10107\r\n')});process.exit(2);`, async f => { await assert.rejects(f.start(), /diagnostic=winsock-startup code=10107/u); }));
-void test('NONE policy type cannot pass the exact Windows policy receipt grammar', OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V2 POLICY_PASS type=0\n')});process.exit(0);`, async f => { await assert.rejects(f.start(), /OS-isolation canary failed/u); }));
+void test('NONE policy type cannot pass the exact Windows policy receipt grammar', OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V3 POLICY_PASS type=0 lpacAccess=2\n')});process.exit(0);`, async f => { await assert.rejects(f.start(), /OS-isolation canary failed/u); }));
 void test('uncontained marker without actual owned loopback connection cannot qualify control', OPTIONS, async context => fixture(context, POLICY, async f => { await assert.rejects(f.start(), /did not reach its actual owned loopback listener/u); }, 'no-connection'));
 void test('uncontained actual connection without exact private control marker cannot qualify control', OPTIONS, async context => fixture(context, POLICY, async f => { await assert.rejects(f.start(), /uncontained private canary network control differs/u); }, 'bad-marker'));
 void test('uncontained current-token policy guard must actually refuse before the positive control', OPTIONS, async context => fixture(context, POLICY, async f => { await assert.rejects(f.start(), /unexpectedly accepted LPAC network policy/u); }, 'accepted-policy'));
+
+void test('prior V2 policy receipt cannot substitute for actual AAP-exclusion AccessCheck evidence', OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V2 POLICY_PASS type=2\n')});process.exit(0);`, async f => { await assert.rejects(f.start(), /OS-isolation canary failed/u); }));
+for (const mask of [0, 1, 3]) void test(`Windows AccessCheck proof refuses granted mask ${String(mask)} instead of exact restricted-only bit2`, OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify(`PHOTO_ISOLATION_CANARY_V3 POLICY_PASS type=2 lpacAccess=${String(mask)}\n`)});process.exit(0);`, async f => { await assert.rejects(f.start(), /OS-isolation canary failed/u); }));
+void test('actual AccessCheck API error87 stays a trusted diagnostic failure rather than token evidence', OPTIONS, async context => fixture(context, `fs.writeSync(2,${JSON.stringify('PHOTO_ISOLATION_CANARY_V1 FAIL stage=network-token-access-api code=87\r\n')});process.exit(2);`, async f => { await assert.rejects(f.start(), /diagnostic=network-token-access-api code=87/u); }));

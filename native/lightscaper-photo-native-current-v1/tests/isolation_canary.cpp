@@ -16,6 +16,7 @@ extern "C" int lightscaper_photo_linux_bootstrap(void);
 #include <winsock2.h>
 #include <windows.h>
 #include <netfw.h>
+#include <sddl.h>
 #include <io.h>
 #include <fcntl.h>
 #else
@@ -32,25 +33,36 @@ int failed(const char* stage, unsigned long code) {
 }
 #ifdef _WIN32
 int windowsNetworkPolicy(unsigned long& policyType) {
- HANDLE token = nullptr; HMODULE module = nullptr; PSID_AND_ATTRIBUTES exemptions = nullptr; DWORD count = 0;
+ HANDLE token = nullptr, impersonation = nullptr; PSECURITY_DESCRIPTOR descriptor = nullptr; HMODULE module = nullptr; PSID_AND_ATTRIBUTES exemptions = nullptr; DWORD count = 0;
  auto finish = [&](const char* stage, DWORD code) {
   DWORD cleanup = ERROR_SUCCESS;
   if (exemptions) {
    for (DWORD index = 0; index < count; ++index) if (exemptions[index].Sid && !HeapFree(GetProcessHeap(), 0, exemptions[index].Sid) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
    if (!HeapFree(GetProcessHeap(), 0, exemptions) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   }
+  if (descriptor && LocalFree(descriptor) != nullptr && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
+  if (impersonation && !CloseHandle(impersonation) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   if (token && !CloseHandle(token) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   if (module && !FreeLibrary(module) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   if (stage) return failed(stage, code);
   return cleanup == ERROR_SUCCESS ? 0 : failed("network-policy-cleanup", cleanup);
  };
- if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return finish("network-token-open", GetLastError());
+ if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &token)) return finish("network-token-open", GetLastError());
  DWORD value = 0, size = 0;
  if (!GetTokenInformation(token, TokenIsAppContainer, &value, sizeof(value), &size)) return finish("network-token-app-api", GetLastError());
  if (size != sizeof(value) || value != 1) return finish("network-token-app", value);
- value = 0; size = 0;
- if (!GetTokenInformation(token, TokenIsLessPrivilegedAppContainer, &value, sizeof(value), &size)) return finish("network-token-lpac-api", GetLastError());
- if (size != sizeof(value) || value != 1) return finish("network-token-lpac", value);
+ // Measure effective AAP exclusion and a positive restricted-package grant.
+ // No thread token is changed; AccessCheck uses an actual impersonation duplicate.
+ if (!DuplicateToken(token, SecurityImpersonation, &impersonation)) return finish("network-token-duplicate", GetLastError());
+ if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"O:SYG:SYD:(A;;0x3;;;WD)(A;;0x1;;;S-1-15-2-1)(A;;0x2;;;S-1-15-2-2)", SDDL_REVISION_1, &descriptor, nullptr)) return finish("network-token-security-descriptor", GetLastError());
+ GENERIC_MAPPING mapping{};
+ for (const DWORD desired : std::array<DWORD, 2>{1, 2}) {
+  alignas(PRIVILEGE_SET) std::array<unsigned char, 4096> privileges{};
+  DWORD privilegeSize = static_cast<DWORD>(privileges.size()), granted = 0; BOOL access = FALSE;
+  if (!AccessCheck(descriptor, impersonation, desired, &mapping, reinterpret_cast<PRIVILEGE_SET*>(privileges.data()), &privilegeSize, &granted, &access)) return finish("network-token-access-api", GetLastError());
+  if (privilegeSize > privileges.size()) return finish("network-token-access-privilege-size", privilegeSize);
+  if (desired == 1 ? (access != FALSE || granted != 0) : (access == FALSE || granted != 2)) return finish("network-token-access-mask", granted);
+ }
  alignas(TOKEN_GROUPS) std::array<unsigned char, 65536> groups{};
  if (!GetTokenInformation(token, TokenCapabilities, groups.data(), static_cast<DWORD>(groups.size()), &size)) return finish("network-token-cap-api", GetLastError());
  if (size < sizeof(DWORD) || size > groups.size()) return finish("network-token-cap-size", size);
@@ -170,7 +182,7 @@ int main(int argc, char** argv) {
  childError = created ? ERROR_SUCCESS : GetLastError(); childDenied = !created && (childError == ERROR_ACCESS_DENIED || childError == ERROR_NOT_ENOUGH_QUOTA);
  if (created) { TerminateProcess(child.hProcess, 2); WaitForSingleObject(child.hProcess, INFINITE); CloseHandle(child.hThread); CloseHandle(child.hProcess); }
  if (!childDenied) return failed("child-denial", childError);
- if (std::fprintf(stdout, "PHOTO_ISOLATION_CANARY_V2 POLICY_PASS type=%lu\n", policyType) < 0) return failed("stdout-write", static_cast<unsigned long>(errno));
+ if (std::fprintf(stdout, "PHOTO_ISOLATION_CANARY_V3 POLICY_PASS type=%lu lpacAccess=2\n", policyType) < 0) return failed("stdout-write", static_cast<unsigned long>(errno));
 #else
  bool networkDenied = false; unsigned long socketError = 0, networkError = 0;
  const int file = open(path.c_str(), O_RDONLY | O_CLOEXEC); fileError = file < 0 ? static_cast<unsigned long>(errno) : 0; fileDenied = file < 0 && (fileError == EACCES || fileError == EPERM); if (file >= 0) close(file);
