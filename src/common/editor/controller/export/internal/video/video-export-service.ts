@@ -130,7 +130,8 @@ export function createEditorVideoExportAction(
 			}, { signal: abort.signal, assertCurrent: assertVideoExportCurrent });
 			const descriptor = getVideoExportFormat(formatValue) as Readonly<{ id: 'mp4' | 'webm' }>;
 			const format = descriptor.id;
-			const includeAudio = exportProject.clips.some((clip: RuntimeValue) => clip.kind === 'audio');
+			const includeAudio = requestedSettings.includeAudio !== false
+				&& exportProject.clips.some((clip: RuntimeValue) => clip.kind === 'audio');
 			const requestedRange = requestedSettings.range || 'project';
 			assertVideoExportCurrent();
 			const productPlan = productStrategy?.createPlan({
