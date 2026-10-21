@@ -59,6 +59,7 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 	#session = 0;
 	#output = 0;
 	#timestamp: number | null = null;
+	#timestampOffset = 0;
 	#outputGain = 1;
 	#closed = false;
 
@@ -94,8 +95,12 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 			|| instance.exports.memory.buffer.byteLength > payload.manifest.maximumMemoryBytes) throw new Error('The reviewed decoder memory is unsupported.');
 		const description = descriptionBytes(this.config.description);
 		if (this.codec === 'opus' && description.length >= 19) {
-			const gain = new DataView(description.buffer).getInt16(16, true);
+			const head = new DataView(description.buffer);
+			const gain = head.getInt16(16, true);
 			this.#outputGain = 10 ** (gain / (20 * 256));
+			// libopus returns its lookahead samples; native WebCodecs consumes this
+			// header field itself. Keep the reviewed output on the same source clock.
+			this.#timestampOffset = head.getUint16(10, true) / 48_000;
 		}
 		const pointer = description.length ? this.#allocate(description.length) : 0;
 		try {
@@ -120,7 +125,7 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 			const pcm = new Float32Array(this.#memory(), this.#output, frames * this.config.numberOfChannels).slice();
 			if (this.#outputGain !== 1) for (let index = 0; index < pcm.length; index += 1) pcm[index]! *= this.#outputGain;
 			if (pcm.some((sample) => !Number.isFinite(sample))) throw new Error('The reviewed packet decoder returned non-finite PCM.');
-			this.#timestamp ??= packet.timestamp;
+			this.#timestamp ??= packet.timestamp - this.#timestampOffset;
 			const sample = new AudioSample({ data: pcm, format: 'f32', sampleRate: this.config.sampleRate,
 				numberOfChannels: this.config.numberOfChannels, timestamp: this.#timestamp });
 			this.#timestamp += frames / this.config.sampleRate;
