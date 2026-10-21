@@ -189,6 +189,7 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 			END: endFrame / sampleRate,
 			TRACKS: selectedTrackIndices,
 			PEAK: stats.peak,
+			PEAK_LEVEL: Array.isArray(stats.peak) ? Math.max(0, ...stats.peak) : stats.peak,
 			RMS: stats.rms,
 		};
 		if (Number.isFinite(lowHz)) selectionProperties.LOW_HZ = lowHz;

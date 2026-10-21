@@ -26,3 +26,9 @@ source from the same snapshot, SHA-256
 `ecb7e97d021a6f61b4979e8883ef2aadeccb01fff1a19dfcec0b74fd2741e750`.
 Its embedded notice grants GPL-2.0-or-later. The archive installation and real
 interpreter regression exercises its string note-list control.
+
+`TrimSilence.ny.gz` preserves Steve Daulton's complete 9,577-byte Trim Silence
+source, SHA-256
+`55910e6008dc8ce20c281073b677f2da7613e9d80533b73f4d754fa7f82e1697`,
+with its embedded GPL-2.0 notice. The public controller regression processes
+selected PCM through this exact authenticated plug-in.
