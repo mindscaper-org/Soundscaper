@@ -48,3 +48,13 @@ test('MI04: harmless XML provenance comments cannot be mistaken for active docum
 	const text = document().replace('<body>', '<!-- Converter note: source had <?xml and <!DOCTYPE tokens. -->\n<body>');
 	assert.equal(imported(text).track.cues[0]?.text, 'Hello');
 });
+
+test('MI09: ordinary WebVTT header metadata stays outside the first caption cue', async () => {
+	const read = await openFramescaperCaptionSidecarFile({ file: new File([
+		'WEBVTT\nKind: captions\nLanguage: en\n\n00:00.000 --> 00:01.000\nHello\n',
+	], 'captions.vtt') });
+	assert.ok(read);
+	const result = importFramescaperCaptionSidecar({ project, format: read.format, text: read.text,
+		trackId: 'captions', sequenceId: 'main', trackName: 'Captions', language: 'en' }).result;
+	assert.equal(result.track.cues[0]?.text, 'Hello');
+});
