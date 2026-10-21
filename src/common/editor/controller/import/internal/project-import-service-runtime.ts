@@ -160,6 +160,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				const result = await importFile(file, importFilePlacement(requireProject(), importOptions, audioFileIndex), assertRequestedProjectCurrent);
 				if (result?.notice) notices.push({ text: result.notice, localization: result.noticeLocalization });
 				successes += 1;
+				audioFileIndex += 1;
 			} catch (error) {
 				if (cancellation.signal.aborted && !(error instanceof AggregateError)) break;
 				failures += 1;
@@ -167,7 +168,6 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			}
 			activeImportProgress?.update?.(1);
 			completedBytes += Math.max(1, Number(file?.size) || 0);
-			audioFileIndex += 1;
 		}
 		try {
 			if (!importing.isCurrent()) return;

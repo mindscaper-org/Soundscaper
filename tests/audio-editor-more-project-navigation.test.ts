@@ -91,3 +91,24 @@ test('MP19: a batch imported after the final visible track keeps every file in t
 	assert.equal(main?.trackNodes.find(({ id }) => id === importedTrack.id)?.parentFolderId, 'folder');
 	assert.deepEqual(controller.project?.sequences.find(({ id }) => id === 'other')?.trackNodes.map(({ id }) => id), ['inactive']);
 });
+
+test('MP29: an unreadable middle file cannot prevent later valid files from importing to timeline', async (context) => {
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
+	const projectRuntime = createSoundscaperProjectRuntimeSelection();
+	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
+		projectRuntime, sessionController: projectRuntime.createSessionController(),
+		store: createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: 'more-failed-batch-import' }),
+		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: {
+			...createMemoryFfmpeg(), decode: async () => { throw new Error('Unreadable audio'); },
+		} as unknown as Options['ffmpeg'],
+	});
+	context.after(async () => { await controller.dispose(); });
+	await controller.ready;
+	const trackId = controller.project?.tracks[0]?.id;
+	assert.ok(trackId);
+	const bytes = encodeWav([new Float32Array(4).fill(0.25)], { sampleRate: 48_000 }) as Uint8Array<ArrayBuffer>;
+	await controller.actions.project.importFiles([new File([bytes], 'first.wav'), new File(['bad'], 'broken.wav'),
+		new File([bytes], 'third.wav')], { destination: 'timeline', trackId, timelineStartFrame: 0 });
+	assert.equal(controller.project?.clips.length, 2);
+	assert.equal(controller.project?.tracks.length, 2);
+});
