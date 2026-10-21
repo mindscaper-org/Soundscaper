@@ -26,6 +26,7 @@ export interface AiffPcmDescriptor {
 	readonly container: 'aiff' | 'aifc';
 	readonly encoding: 'pcm-integer' | 'ieee-float';
 	readonly sampleFormat: AiffPcmSampleFormat;
+	readonly littleEndian?: boolean;
 	readonly sampleRate: number;
 	readonly channelCount: number;
 	readonly frameCount: number;
@@ -74,6 +75,7 @@ export interface AiffBlobPcmStreamOptions {
 interface AiffSoundData {
 	readonly dataOffset: number;
 	readonly dataByteLength: number;
+	readonly blockSize: number;
 }
 
 const DESCRIPTOR_FIELDS = Object.freeze([
@@ -171,15 +173,13 @@ export async function inspectAiffBlobPcm(
 			const view = dataView(prefix);
 			const soundOffset = view.getUint32(0, false);
 			const blockSize = view.getUint32(4, false);
-			if (blockSize !== 0) {
-				throw new Error('Blocked AIFF sound data is unsupported for linked originals.');
-			}
 			if (soundOffset > chunkBytes - SSND_PREFIX_BYTES) {
 				throw new Error('The AIFF SSND sound-data offset exceeds its chunk.');
 			}
 			sound = Object.freeze({
 				dataOffset: payloadOffset + SSND_PREFIX_BYTES + soundOffset,
 				dataByteLength: chunkBytes - SSND_PREFIX_BYTES - soundOffset,
+				blockSize,
 			});
 		} else if (chunkId === 'MARK' && !mark && chunkBytes <= MAXIMUM_MARK_BYTES) {
 			mark = await readSourceBytes(source, payloadOffset, payloadEnd, signal);
@@ -194,12 +194,14 @@ export async function inspectAiffBlobPcm(
 	if (!comm) throw new Error('The AIFF file does not contain one COMM chunk.');
 	if (!sound) throw new Error('The AIFF file does not contain one SSND chunk.');
 	const expectedDataBytes = comm.frameCount * comm.blockAlign;
-	if (!Number.isSafeInteger(expectedDataBytes) || sound.dataByteLength !== expectedDataBytes) {
+	if (!Number.isSafeInteger(expectedDataBytes) || sound.dataByteLength < expectedDataBytes
+		|| sound.dataByteLength - expectedDataBytes >= Math.max(1, sound.blockSize)) {
 		throw new Error('The AIFF sound data does not match its declared PCM geometry.');
 	}
 	return descriptorFromFields({
 		...comm,
-		...sound,
+		dataOffset: sound.dataOffset,
+		dataByteLength: expectedDataBytes,
 		formByteLength,
 		sourceByteLength: source.size,
 		markers: aiffMarkersFromChunk(mark),
@@ -314,9 +316,9 @@ function validateAiffPcmDescriptor(
 		throw new TypeError('An AIFF PCM descriptor is required.');
 	}
 	const bitDepth = positiveSafeInteger(candidate.bitDepth, 'bitDepth');
-	const sampleFormat = floatingPoint ? 'float32' : aiffIntegerSampleFormat(bitDepth);
-	if (floatingPoint && bitDepth !== 32) {
-		throw new TypeError('AIFF-C float PCM descriptors must use 32-bit samples.');
+	const sampleFormat = floatingPoint ? bitDepth === 64 ? 'float64' : 'float32' : aiffIntegerSampleFormat(bitDepth);
+	if (floatingPoint && bitDepth !== 32 && bitDepth !== 64) {
+		throw new TypeError('AIFF-C float PCM descriptors must use 32-bit or 64-bit samples.');
 	}
 	if (candidate.sampleFormat !== sampleFormat) {
 		throw new TypeError('AIFF PCM descriptor sample format is invalid.');
@@ -326,7 +328,7 @@ function validateAiffPcmDescriptor(
 	if (channelCount > MAXIMUM_CHANNELS) throw new TypeError('AIFF PCM descriptor channel count is invalid.');
 	const frameCount = positiveSafeInteger(candidate.frameCount, 'frameCount');
 	const bytesPerSample = positiveSafeInteger(candidate.bytesPerSample, 'bytesPerSample');
-	const expectedBytesPerSample = bitDepth / 8;
+	const expectedBytesPerSample = Math.ceil(bitDepth / 8);
 	const blockAlign = positiveSafeInteger(candidate.blockAlign, 'blockAlign');
 	const byteRate = positiveSafeInteger(candidate.byteRate, 'byteRate');
 	const dataOffset = positiveSafeInteger(candidate.dataOffset, 'dataOffset');
@@ -346,6 +348,9 @@ function validateAiffPcmDescriptor(
 		|| dataEnd > formByteLength || formByteLength > sourceByteLength) {
 		throw new TypeError('AIFF PCM descriptor geometry or data range is invalid.');
 	}
+	if (candidate.littleEndian !== undefined && (candidate.littleEndian !== true || floatingPoint || candidate.container !== 'aifc')) {
+		throw new TypeError('AIFF PCM descriptor byte order is invalid.');
+	}
 	const markers = candidate.markers === undefined
 		? undefined
 		: normalizeRiffMarkers(candidate.markers as readonly RiffMarker[]);
@@ -363,6 +368,7 @@ function validateAiffPcmDescriptor(
 		formByteLength,
 		sourceByteLength,
 		...(markers ? { markers } : {}),
+		...(candidate.littleEndian === true ? { littleEndian: true } : {}),
 	}, candidate.container === 'aifc');
 }
 
@@ -372,7 +378,7 @@ function descriptorFromFields(
 ): AiffPcmDescriptor {
 	return Object.freeze({
 		container: aifcContainer ? 'aifc' as const : 'aiff' as const,
-		encoding: fields.sampleFormat === 'float32' ? 'ieee-float' as const : 'pcm-integer' as const,
+		encoding: fields.sampleFormat.startsWith('float') ? 'ieee-float' as const : 'pcm-integer' as const,
 		...fields,
 	});
 }
@@ -383,7 +389,7 @@ function closedDescriptor(value: unknown): Readonly<Record<string, unknown>> {
 	}
 	const keys = Reflect.ownKeys(value);
 	// `markers` arrived after the closed field set, so descriptors without it stay valid.
-	const allowedFields: readonly string[] = [...DESCRIPTOR_FIELDS, 'markers'];
+	const allowedFields: readonly string[] = [...DESCRIPTOR_FIELDS, 'markers', 'littleEndian'];
 	if (keys.some((key) => typeof key !== 'string' || !allowedFields.includes(key))
 		|| DESCRIPTOR_FIELDS.some((field) => !keys.includes(field))) {
 		throw new TypeError('AIFF PCM descriptor fields are invalid.');
@@ -412,28 +418,28 @@ function decodeInterleavedPcm(
 	let offset = 0;
 	for (let frame = 0; frame < frameCount; frame += 1) {
 		for (let channel = 0; channel < descriptor.channelCount; channel += 1) {
-			channels[channel]![frame] = readSample(view, offset, descriptor.sampleFormat);
+			channels[channel]![frame] = readSample(view, offset, descriptor.sampleFormat, descriptor.littleEndian ?? false);
 			offset += descriptor.bytesPerSample;
 		}
 	}
 	return Object.freeze(channels);
 }
 
-function readSample(view: DataView, offset: number, format: AiffPcmSampleFormat): number {
-	if (format === 'float32') {
-		const value = view.getFloat32(offset, false);
+function readSample(view: DataView, offset: number, format: AiffPcmSampleFormat, littleEndian: boolean): number {
+	if (format === 'float32' || format === 'float64') {
+		const value = Math.fround(format === 'float32' ? view.getFloat32(offset, false) : view.getFloat64(offset, false));
 		return Number.isFinite(value) ? value : 0;
 	}
 	if (format === 'int8') return view.getInt8(offset) / 0x80;
-	if (format === 'int16') return view.getInt16(offset, false) / 0x8000;
+	if (format === 'int16') return view.getInt16(offset, littleEndian) / 0x8000;
 	if (format === 'int24') {
-		let value = (view.getUint8(offset) << 16)
+		let value = (view.getUint8(offset + (littleEndian ? 2 : 0)) << 16)
 			| (view.getUint8(offset + 1) << 8)
-			| view.getUint8(offset + 2);
+			| view.getUint8(offset + (littleEndian ? 0 : 2));
 		if ((value & 0x800000) !== 0) value |= 0xff000000;
 		return value / 0x800000;
 	}
-	return view.getInt32(offset, false) / 0x80000000;
+	return view.getInt32(offset, littleEndian) / 0x80000000;
 }
 
 async function readSourceBytes(
