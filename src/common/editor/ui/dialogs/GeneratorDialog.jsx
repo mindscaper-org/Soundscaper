@@ -174,7 +174,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 								<GeneratorSelect label={copy.generatorWaveform} value={params.waveform} onChange={(value) => update('waveform', value)} options={waveformOptions} />
 								{numberField('frequency', copy.generatorFrequency, { min: 0.01, max: sampleRate / 2, step: 1 })}
 								{numberField('amplitude', copy.generatorAmplitude, { min: 0, max: 1, step: 0.01 })}
-								{timeField('durationSeconds', copy.generatorDuration, { min: 0.001, max: 86_400 })}
+								{timeField('durationSeconds', copy.generatorDuration, { min: 1 / sampleRate, max: 86_400 })}
 							</div>
 						)}
 
@@ -212,7 +212,7 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 										</div>
 									</PreferencePanel>
 								</div>
-								{timeField('durationSeconds', copy.generatorDuration, { min: 0.001, max: 86_400 })}
+								{timeField('durationSeconds', copy.generatorDuration, { min: 1 / sampleRate, max: 86_400 })}
 							</div>
 						)}
 
@@ -222,13 +222,13 @@ export default function GeneratorDialog({ type, controller, snapshot = {}, copy,
 									['white', copy.generatorWhite], ['pink', copy.generatorPink], ['brown', copy.generatorBrown],
 								]} />
 								{numberField('amplitude', copy.generatorAmplitude, { min: 0, max: 1, step: 0.01 })}
-								{timeField('durationSeconds', copy.generatorDuration, { min: 0.001, max: 86_400 })}
+								{timeField('durationSeconds', copy.generatorDuration, { min: 1 / sampleRate, max: 86_400 })}
 							</div>
 						)}
 
 						{type === 'silence' && (
 							<div className="kw-audio-editor-generator__standard-grid kw-audio-editor-generator__standard-grid--single" data-generator-layout="silence">
-								{timeField('durationSeconds', copy.generatorDuration, { min: 0.001, max: 86_400 })}
+								{timeField('durationSeconds', copy.generatorDuration, { min: 1 / sampleRate, max: 86_400 })}
 							</div>
 						)}
 
