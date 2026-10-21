@@ -229,6 +229,8 @@ export class PcmRepository {
 				});
 				rawPayload = exactBuffer(decoded?.payload);
 			} catch (error) {
+				const cancellationReason = signal?.aborted ? signal.reason : undefined;
+				if (cancellationReason !== undefined && Object.is(error, cancellationReason)) throw error;
 				if (isAbortError(error)) throw error;
 				throw new PcmStorageCorruptionError(
 					'Persisted WavPack PCM could not be decoded losslessly.',
