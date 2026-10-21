@@ -204,7 +204,7 @@ static void perform(NSDictionary *request, NSMutableDictionary *result, NSMutabl
       require([request[@"primaryPid"] intValue] > 0, @"Open requires the actual primary PID.");
       NSMutableDictionary *before = NSMutableDictionary.dictionary;
       runningIdentity([NSRunningApplication runningApplicationWithProcessIdentifier:[request[@"primaryPid"] intValue]], request, before);
-      dispatch_semaphore_t completed = dispatch_semaphore_create(0); NSObject *lock = NSObject.new;
+      dispatch_semaphore_t completed = dispatch_semaphore_create(0); NSObject *lock = [NSObject new];
       __block NSRunningApplication *opened = nil; __block NSError *failure = nil; __block NSUInteger calls = 0; __block BOOL sealed = NO;
       counters[@"openCalls"] = @1;
       [workspace openURL:file configuration:NSWorkspaceOpenConfiguration.configuration completionHandler:^(NSRunningApplication *app, NSError *error) {
