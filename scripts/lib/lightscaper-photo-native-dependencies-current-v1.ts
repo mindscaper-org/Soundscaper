@@ -7,7 +7,7 @@ import { photoNativeRecordCurrentV1 as record, photoNativePathsCurrentV1 as path
 const owner: unknown = createRequire(import.meta.url)('./soundscaper-professional-native-dependency-inspection.mjs');
 const inspect = (() => { const candidate: unknown = Reflect.get(owner as object, 'inspectSoundscaperProfessionalNativeDependencies');
  if (typeof candidate !== 'function') throw new TypeError('The maintained native dependency inspector is missing.'); return candidate; })();
-const WINDOWS = new Set(['advapi32.dll', 'kernel32.dll', 'kernelbase.dll', 'ntdll.dll', 'userenv.dll', 'user32.dll', 'onecoreuap.dll', 'bcrypt.dll', 'ucrtbase.dll', 'msvcrt.dll', 'rpcrt4.dll', 'sechost.dll', 'ole32.dll', 'oleaut32.dll']);
+const WINDOWS = new Set(['advapi32.dll', 'kernel32.dll', 'kernelbase.dll', 'ntdll.dll', 'userenv.dll', 'user32.dll', 'onecoreuap.dll', 'bcrypt.dll', 'ucrtbase.dll', 'msvcrt.dll', 'rpcrt4.dll', 'sechost.dll', 'ole32.dll', 'oleaut32.dll', 'ws2_32.dll']);
 const LINUX = new Set(['libc.so.6', 'libm.so.6', 'libstdc++.so.6', 'libgcc_s.so.1', 'libpthread.so.0', 'libdl.so.2', 'librt.so.1']);
 const LINUX_LOADERS = Object.freeze({ 'linux-x64': 'ld-linux-x86-64.so.2', 'linux-arm64': 'ld-linux-aarch64.so.1' });
 const MACOS = new Set(['/usr/lib/libc++.1.dylib', '/usr/lib/libSystem.B.dylib', '/usr/lib/libsandbox.1.dylib', '/usr/lib/libproc.dylib']);
@@ -21,7 +21,7 @@ export async function inspectPhotoNativeDependenciesCurrentV1(root: string, targ
   const imports: string[] = row.imports;
   for (const name of imports) {
    if (target === 'linux-x64' || target === 'linux-arm64') { if (!LINUX.has(name) && name !== LINUX_LOADERS[target]) throw new Error(`Photo Linux artifact ${artifact} for ${target} imports an undeclared OS substrate library: ${name}`); continue; }
-   if (target === 'mac-arm64' ? !MACOS.has(name) : !WINDOWS.has(name.toLowerCase()) && !/^api-ms-win-[a-z0-9-]+\.dll$/u.test(name.toLowerCase())) throw new Error(`Photo native artifact has an undeclared ambient dependency: ${name}`);
+   if (target === 'mac-arm64' ? !MACOS.has(name) : !WINDOWS.has(name.toLowerCase()) && !/^api-ms-win-[a-z0-9-]+\.dll$/u.test(name.toLowerCase())) throw new Error(`Photo native artifact ${artifact} for ${target} has an undeclared ambient dependency: ${name}`);
   }
   const architecture = record(row.architecture, ['schemaVersion', 'target', 'format', 'architecture', 'machine']);
   if (architecture.schemaVersion !== 1 || architecture.target !== target) throw new Error('Photo native dependency inspector returned another target.');
