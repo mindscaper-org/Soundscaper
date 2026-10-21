@@ -52,3 +52,36 @@ function glyphWidth(grapheme: string, fontSize: number): number {
 		return total + Math.ceil(advance * fontSize);
 	}, 0);
 }
+
+/** Keep every wrapped line inside the title-safe height while retaining the readable floor. */
+export function fitBurnInTexts(
+	texts: readonly string[], maximumWidth: number, maximumHeight: number,
+	minimumFontSize: number, preferredFontSize: number,
+): Readonly<{ fontSizePx: number; lineSpacingPx: number; texts: readonly string[] }> {
+	const layout = (fontSizePx: number) => {
+		const lineSpacingPx = Math.round(fontSizePx * 0.25);
+		const wrapped = texts.map(text => wrapBurnInText(text, maximumWidth, fontSizePx));
+		// Every maintained Inter subset has a 1.442 em maximum ink bounding
+		// box. Round above it to include accent/descender rasterization.
+		const lineHeight = Math.ceil(fontSizePx * 1.5);
+		const fits = wrapped.every(text => {
+			const lines = text.split('\n').length;
+			return lines * lineHeight + (lines - 1) * lineSpacingPx
+				+ 2 * Math.max(2, Math.round(fontSizePx * 0.25)) <= maximumHeight;
+		});
+		return { fontSizePx, lineSpacingPx, texts: wrapped, fits };
+	};
+	const preferred = layout(preferredFontSize);
+	if (preferred.fits) return preferred;
+	let best = layout(minimumFontSize);
+	if (!best.fits) throw new RangeError('The caption text is too tall for the video title-safe height at its minimum font size.');
+	let low = minimumFontSize + 1;
+	let high = preferredFontSize - 1;
+	while (low <= high) {
+		const middle = Math.floor((low + high) / 2);
+		const candidate = layout(middle);
+		if (candidate.fits) { best = candidate; low = middle + 1; }
+		else high = middle - 1;
+	}
+	return best;
+}

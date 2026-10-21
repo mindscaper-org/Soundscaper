@@ -19,7 +19,7 @@
  */
 
 import { resolveVideoBurnInFontChoice } from './video-burn-in-font-subsets.ts';
-import { wrapBurnInText } from './video-caption-line-wrap.ts';
+import { fitBurnInTexts } from './video-caption-line-wrap.ts';
 
 /**
  * The bottom band captions stay out of, as a fraction of canvas height.
@@ -155,18 +155,22 @@ export function resolveVideoBurnInStage(
 	const widthFontSize = Math.floor(
 		safeWidth / (VIDEO_BURN_IN_REFERENCE_LINE_CHARACTERS * VIDEO_BURN_IN_CHARACTER_ADVANCE_RATIO),
 	);
-	const fontSizePx = Math.max(
+	const preferredFontSize = Math.max(
 		VIDEO_BURN_IN_MINIMUM_FONT_SIZE,
 		Math.min(Math.round(height * VIDEO_BURN_IN_FONT_HEIGHT_FRACTION), widthFontSize),
 	);
 
+	const bottomMarginPx = Math.round(height * VIDEO_BURN_IN_TITLE_SAFE_FRACTION);
+	const layout = fitBurnInTexts(drawn.map(cue => burnInText(cue.title)), safeWidth,
+		height - 2 * bottomMarginPx, VIDEO_BURN_IN_MINIMUM_FONT_SIZE, preferredFontSize);
+	const { fontSizePx, lineSpacingPx } = layout;
 	return Object.freeze({
 		fontSizePx,
-		bottomMarginPx: Math.round(height * VIDEO_BURN_IN_TITLE_SAFE_FRACTION),
+		bottomMarginPx,
 		boxBorderPx: Math.max(2, Math.round(fontSizePx * 0.25)),
-		lineSpacingPx: Math.round(fontSizePx * 0.25),
+		lineSpacingPx,
 		cues: Object.freeze(drawn.map((cue, index) => {
-			const text = wrapBurnInText(burnInText(cue.title), safeWidth, fontSizePx);
+			const text = layout.texts[index]!;
 			const font = resolveVideoBurnInFontChoice(text);
 			return Object.freeze({
 				index,

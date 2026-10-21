@@ -37,16 +37,26 @@ test('MI16: a portrait movie wraps wide caption glyphs within its frame using th
 	}
 });
 
+test('MI17: multiline burned subtitles fit vertically inside the delivered movie', () => {
+	const title = Array.from({ length: 20 }, (_, index) => `Line ${index + 1}`).join('\n');
+	const plan = captionPlan(title, 1_280, 720);
+	const stage = plan.filterPlan.burnIn as VideoBurnInStage;
+	assert.equal(stage.cues[0]?.text, title);
+	const lines = stage.cues[0]!.text.split('\n').length;
+	const head = woffTables().get('head')!;
+	const lineHeight = Math.ceil((head.readInt16BE(42) - head.readInt16BE(38)) / head.readUInt16BE(18) * stage.fontSizePx);
+	const textHeight = lines * lineHeight + (lines - 1) * stage.lineSpacingPx;
+	assert.ok(textHeight <= 720 - 2 * stage.bottomMarginPx,
+		`${lines} caption lines need ${textHeight}px, outside the delivered title-safe height`);
+	assert.ok(stage.fontSizePx >= 12, 'retain the maintained readable minimum');
+	assert.throws(() => captionPlan(Array.from({ length: 100 }, () => 'W').join('\n'), 1_280, 720),
+		/caption.*(?:tall|height)|(?:tall|height).*caption/iu,
+		'a subtitle too tall even at the minimum needs a clear refusal before file encoding');
+});
+
 /** Independent measurement of the exact bundled font's cmap and horizontal metrics. */
 function woffAdvance(character: string): number {
-	const file = readFileSync(new URL('../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff', import.meta.url));
-	const tables = new Map<string, Buffer>();
-	for (let index = 0; index < file.readUInt16BE(12); index++) {
-		const entry = 44 + index * 20;
-		const offset = file.readUInt32BE(entry + 4);
-		const compressed = file.subarray(offset, offset + file.readUInt32BE(entry + 8));
-		tables.set(file.toString('ascii', entry, entry + 4), compressed.length < file.readUInt32BE(entry + 12) ? inflateSync(compressed) : compressed);
-	}
+	const tables = woffTables();
 	const cmap = tables.get('cmap')!;
 	for (let index = 0; index < cmap.readUInt16BE(2); index++) {
 		const entry = 4 + index * 8;
@@ -66,4 +76,16 @@ function woffAdvance(character: string): number {
 		}
 	}
 	throw new Error('The bundled font has no requested glyph.');
+}
+
+function woffTables(): ReadonlyMap<string, Buffer> {
+	const file = readFileSync(new URL('../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff', import.meta.url));
+	const tables = new Map<string, Buffer>();
+	for (let index = 0; index < file.readUInt16BE(12); index++) {
+		const entry = 44 + index * 20;
+		const offset = file.readUInt32BE(entry + 4);
+		const compressed = file.subarray(offset, offset + file.readUInt32BE(entry + 8));
+		tables.set(file.toString('ascii', entry, entry + 4), compressed.length < file.readUInt32BE(entry + 12) ? inflateSync(compressed) : compressed);
+	}
+	return tables;
 }
