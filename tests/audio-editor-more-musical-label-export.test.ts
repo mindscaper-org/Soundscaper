@@ -22,6 +22,7 @@ test('MI14: Export Labels resolves musical labels from an opened SCAPE through i
 		] }],
 	});
 	const outbound = await exportScapeProject(source, createMemoryProjectStore(context, 'musical-label-export'));
+	assert.ok(outbound.blob instanceof Blob);
 	const imported: unknown = await importBaselineScapeProject(
 		new File([outbound.blob], 'musical.scape'), createMemoryProjectStore(context, 'musical-label-open'),
 	);
@@ -48,7 +49,11 @@ test('MI14: Export Labels resolves musical labels from an opened SCAPE through i
 	assert.match(podcast.text, /"startTime": 1.5/u);
 	assert.match(podcast.text, /"startTime": 4/u);
 	assert.equal(saved.length, 4);
-	assert.equal('startFrame' in project.tracks[0]!.labels[0]!, false, 'export must preserve persisted beat authority');
+	const track = project.tracks[0];
+	assert.ok(isRecord(track) && Array.isArray(track.labels));
+	const label: unknown = track.labels[0];
+	assert.ok(isRecord(label));
+	assert.equal('startFrame' in label, false, 'export must preserve persisted beat authority');
 });
 
 function isRecord(value: unknown): value is Record<string, unknown> {
