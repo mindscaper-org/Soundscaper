@@ -57,6 +57,7 @@ export function validateLightscaperManagedSmokePlanCurrentV1(value: unknown, aut
 	* production preload receives no smoke method and no filesystem path. */
 export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 	argv: readonly string[]; profilePath: string; rendererScript: string;
+	relocateApplicationData?: (profilePath: string) => void;
 	quit: () => void; reportFailure: (error: unknown) => void;
 }>): LightscaperMainHooksCurrentV1 | undefined {
 	const authority = parseLightscaperManagedSmokeArgumentsCurrentV1(options.argv);
@@ -77,6 +78,9 @@ export function createLightscaperManagedSmokeHooksCurrentV1(options: Readonly<{
 	const linked=plan.renderer.scenario==='linked';
 	const linkedRoot=join(root,'linked-sources');
 	if(linked){const metadata=lstatSync(linkedRoot);if(!metadata.isDirectory()||metadata.isSymbolicLink()||realpathSync(linkedRoot)!==linkedRoot)throw new TypeError('Linked smoke chooser requires its owned actual source directory.');}
+	// Isolated smoke needs a private native library; OS dispatch must preserve
+	// the same default appData/userData identity as its ordinary secondary.
+	if (!plan.registeredAssociation) options.relocateApplicationData?.(plan.profilePath);
 	const native = plan.renderer.backend === 'native' ? installLightscaperManagedSmokeNativeObserverCurrentV1(linked?{scenario:'linked',allowUnavailable:plan.stage===2,appDataPath:plan.profilePath}:{}) : undefined;
 	const raw=linked?installLightscaperManagedSmokeRawObserverCurrentV1():undefined;
 
