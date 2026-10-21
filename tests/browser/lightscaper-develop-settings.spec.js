@@ -22,7 +22,7 @@ for (const locale of ['en', 'de']) {
 	test(`${locale}: settings and presets remain opted-in menus on an empty library`, async ({ page }) => {
 		const origin = JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper;
 		await page.goto(`${origin}/${locale}/`);
-		const app = page.locator('[data-lightscaper-bound="true"]'), messages = photoDevelopSettingsCopy(locale);
+		const app = page.locator('[data-lightscaper-bound="true"]'), messages = photoDevelopSettingsCopy(locale, 'current3');
 		await expect(app).toBeVisible(); await expect(app.getByRole('dialog')).toHaveCount(0);
 		await expect(app.locator('summary').filter({ hasText: messages.menu })).toHaveCount(0);
 		await expect(app.getByRole('button', { name: messages.copy, exact: true })).toHaveCount(0);
@@ -32,7 +32,7 @@ for (const locale of ['en', 'de']) {
 		test.skip(browserName === 'webkit', 'The roadmap defers the full WebKit storage workflow until native Blob/OPFS support is qualified.');
 		test.setTimeout(120_000);
 		const origin = JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper, copy = bundledLightscaperEditorCopyForLocale(locale);
-		const develop = photoDevelopCopy(locale), messages = photoDevelopSettingsCopy(locale), errors = [];
+		const develop = photoDevelopCopy(locale), messages = photoDevelopSettingsCopy(locale, 'current3'), errors = [];
 		page.on('pageerror', error => { errors.push(error.message); }); await page.goto(`${origin}/${locale}/`);
 		const app = page.locator('[data-lightscaper-bound="true"]'); await expect(app).toBeVisible();
 		await summary(page, app, copy.photoFileMenu); await keyboard(page, app.getByRole('button', { name: copy.photoImportPhotos, exact: true }));

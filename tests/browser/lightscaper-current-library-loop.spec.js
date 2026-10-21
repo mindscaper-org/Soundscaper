@@ -270,7 +270,7 @@ async function setup(page, locale) {
 	await page.route(`**${OBSERVER}`, route => route.fulfill({ contentType: 'text/javascript', body: bundle.outputFiles[0].text }));
 	const origin = process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS ? JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper : browserProductSiteForBuild('lightscaper').origin;
 	await page.goto(`${origin}/${locale}/`); const app = page.locator('[data-lightscaper-bound="true"]'); await expect(app).toBeVisible();
-	return { app, copy: bundledLightscaperEditorCopyForLocale(locale), develop: photoDevelopCopy(locale), settings: photoDevelopSettingsCopy(locale), restoreCopy: lightscaperRestoreCopy(locale), errors };
+	return { app, copy: bundledLightscaperEditorCopyForLocale(locale), develop: photoDevelopCopy(locale), settings: photoDevelopSettingsCopy(locale, 'current3'), restoreCopy: lightscaperRestoreCopy(locale), errors };
 }
 async function decode(bytes) {
 	const result = { root: null, savedState: null, presetHeader: null, resources: [], presets: null, photos: [], stacks: [], saved: [] }; let published = false;

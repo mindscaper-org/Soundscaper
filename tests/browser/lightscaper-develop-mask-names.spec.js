@@ -27,7 +27,7 @@ const SHA = createHash('sha256').update(BODY).digest('hex'), KEY = `brush-mask-v
 for (const locale of ['en', 'de']) test(`${locale}: keyboard mask rename, clear and history preserve native brush pixels, body and original through reopen and PNG`, async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', 'Native WebKit storage qualification remains deferred.');
 	expect(test.info().config.workers).toBe(1); expect(test.info().retry).toBe(0); expect(test.info().project.retries).toBe(0);
-	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale);
+	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale, 'current3');
 	const brush = photoDevelopBrushMaskCopy(locale), management = photoDevelopMaskManagementCopy(locale), input = pngFixture();
 	const displayName = locale === 'de' ? 'Vordergrund é' : 'Foreground é', rawName = `  ${displayName.replace('é', 'e\u0301')}  `;
 	const errors = []; page.on('pageerror', error => { errors.push(error.message); });

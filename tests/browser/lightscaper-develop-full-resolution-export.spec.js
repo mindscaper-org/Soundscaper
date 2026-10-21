@@ -33,7 +33,7 @@ for (const locale of ['en', 'de']) test(`${locale}: saved spatial Develop matche
 	test.setTimeout(caseDeadlineMs);
 	expect(test.info().config.workers).toBe(1); expect(test.info().project.retries).toBe(0); expect(test.info().retry).toBe(0);
 	const fixture = await createDevelopProxyPngV1(), copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale);
-	const settings = photoDevelopSettingsCopy(locale), pngCopy = photoPngExportCopy(locale), handoffCopy = photoFramescaperHandoffCopy(locale);
+	const settings = photoDevelopSettingsCopy(locale, 'current3'), pngCopy = photoPngExportCopy(locale), handoffCopy = photoFramescaperHandoffCopy(locale);
 	const proxyFacts = Object.fromEntries(['before', 'dehaze', 50].map(stage => [stage, developProxyReferenceFactsV1(stage)]));
 	const proxyWitnesses = Object.fromEntries(['before', 'dehaze', 50].map(stage => [stage, developProxyReferenceWitnessesV1(stage)]));
 	const fullFacts = Object.fromEntries(['before', 'dehaze', 'sharpen50'].map(stage => [stage, developFullResolutionReferenceFactsV1(stage)]));

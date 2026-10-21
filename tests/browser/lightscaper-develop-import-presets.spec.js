@@ -24,7 +24,7 @@ for (const locale of ['en', 'de']) test(`${locale}: keyboard Import options appl
 	test.setTimeout(120_000);
 	const origins = process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS ? JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS) : null;
 	const origin = origins?.lightscaper ?? browserProductSiteForBuild('lightscaper').origin;
-	const copy = bundledLightscaperEditorCopyForLocale(locale), develop = photoDevelopCopy(locale), messages = photoDevelopSettingsCopy(locale), errors = [];
+	const copy = bundledLightscaperEditorCopyForLocale(locale), develop = photoDevelopCopy(locale), messages = photoDevelopSettingsCopy(locale, 'current3'), errors = [];
 	page.on('pageerror', error => { errors.push(error.message); }); await page.goto(`${origin}/${locale}/`);
 	const app = page.locator('[data-lightscaper-bound="true"]'); await expect(app).toBeVisible(); await expect(app.getByRole('dialog')).toHaveCount(0);
 	let importer = await importDialog();

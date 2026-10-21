@@ -32,7 +32,7 @@ const BODIES = [A, B].map(alpha => { const bytes = Buffer.from([83, 67, 77, 65, 
 for (const locale of ['en', 'de']) test(`${locale}: keyboard mask Add, Subtract and Intersect preserve named native bodies through Save, history, reopen and PNG`, async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', 'Native WebKit storage qualification remains deferred.');
 	expect(test.info().config.workers).toBe(1); expect(test.info().retry).toBe(0); expect(test.info().project.retries).toBe(0);
-	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale);
+	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale, 'current3');
 	const brush = photoDevelopBrushMaskCopy(locale), management = photoDevelopMaskManagementCopy(locale), input = pngFixture();
 	const labels = locale === 'de' ? ['Primäre Maske', 'Operandenmaske'] : ['Primary mask', 'Operand mask'];
 	const errors = []; page.on('pageerror', error => { errors.push(error.message); });

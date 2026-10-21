@@ -290,7 +290,7 @@ async function restoreAndReload(page, app, library, copy, restoreCopy, source, c
 	await expect(library.locator('[data-photo-count]')).toHaveAttribute('data-photo-count', String(count)); await expect(library).toHaveAttribute('aria-busy', 'false');
 }
 function developTools(page, app, library, copy, locale) {
-	const labels = photoDevelopCopy(locale), messages = photoDevelopSettingsCopy(locale); let dialog;
+	const labels = photoDevelopCopy(locale), messages = photoDevelopSettingsCopy(locale, 'current3'); let dialog;
 	const numberInput = key => named(dialog, 'spinbutton', `${labels.shared.videoEffectExactValue}: ${labels.shared[key]}`);
 	const settled = async () => { await expect(named(dialog, 'button', labels.cancel).last()).toBeDisabled(); await expect(library).toHaveAttribute('aria-busy', 'false'); };
 	return { messages, numberInput, settled,

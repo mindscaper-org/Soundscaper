@@ -39,12 +39,15 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(page.locator('.website-brand img')).toBeVisible();
 		await expect(page.locator('.website-sidebar-nav img').first()).toHaveAttribute('src', '/logo/soundscaper.svg');
 		await expect(page.locator('.website-sidebar-nav img').nth(1)).toHaveAttribute('src', '/logo/framescaper.svg');
+		await expect(page.locator('.website-sidebar-nav img').nth(2)).toHaveAttribute('src', '/logo/lightscaper.svg');
 		const joinUs = page.getByRole('link', { name: 'Join us', exact: true });
 		await expect(joinUs).toBeVisible();
 		await expect(joinUs).toHaveAttribute('href', 'https://mindscaper.org/');
 		await expect(joinUs.locator('img')).toHaveAttribute('src', '/logo/mindscaper.svg');
-		await expect(page.locator('.website-sidebar-nav img')).toHaveCount(3);
+		await expect(page.locator('.website-sidebar-nav img')).toHaveCount(4);
 		await expect.poll(() => page.locator('.website-sidebar-nav img').nth(1)
+			.evaluate((image) => image.complete ? image.naturalWidth : 0)).toBeGreaterThan(0);
+		await expect.poll(() => page.locator('.website-sidebar-nav img').nth(2)
 			.evaluate((image) => image.complete ? image.naturalWidth : 0)).toBeGreaterThan(0);
 		await expect(page.getByRole('link', { name: 'Audio editor', exact: true })).toBeVisible();
 		const productMenu = page.locator('[data-sidebar] [data-product-menu]');
@@ -127,7 +130,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(page.locator('.website-sidebar-nav img').first()).toHaveAttribute('src', '/logo/framescaper.svg');
 		await expect(page.locator('.website-sidebar-nav img').nth(1)).toHaveAttribute('src', '/logo/soundscaper.svg');
 		await expect(page.locator('.website-sidebar-nav img').nth(2)).toHaveAttribute('src', '/logo/lightscaper.svg');
-		await expect(page.locator('.website-sidebar-nav img')).toHaveCount(3);
+		await expect(page.locator('.website-sidebar-nav img')).toHaveCount(4);
 		await expect(page.getByRole('link', { name: 'Video editor', exact: true })).toBeVisible();
 		const productMenu = page.locator('[data-sidebar] [data-product-menu]');
 		await expect(productMenu.getByRole('link', { name: 'Audio editor', exact: true })).toBeHidden();

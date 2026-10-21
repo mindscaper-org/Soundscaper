@@ -28,7 +28,7 @@ const SHA = createHash('sha256').update(BODY).digest('hex'), KEY = `brush-mask-v
 for (const locale of ['en', 'de']) test(`${locale}: menu mask management duplicates, binds and removes real masks through save, history and PNG`, async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', 'Native WebKit storage qualification remains deferred.');
 	expect(test.info().config.workers).toBe(1); expect(test.info().retry).toBe(0); expect(test.info().project.retries).toBe(0);
-	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale);
+	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale, 'current3');
 	const brush = photoDevelopBrushMaskCopy(locale), management = photoDevelopMaskManagementCopy(locale), input = pngFixture();
 	const errors = []; page.on('pageerror', error => { errors.push(error.message); });
 	await installNativeImageHandoffRuntime(page);

@@ -30,7 +30,7 @@ const pixels = alpha => alpha.flatMap(value => [value ? 188 : 255, value ? 188 :
 for (const locale of ['en', 'de']) test(`${locale}: menu brush edits persist through PNG, JPEG, archive restore and two reopens`, async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', 'The roadmap defers native WebKit storage qualification.');
 	test.setTimeout(120_000); expect(test.info().config.workers).toBe(1); expect(test.info().retry).toBe(0); expect(test.info().project.retries).toBe(0);
-	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale);
+	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale, 'current3');
 	const brush = photoDevelopBrushMaskCopy(locale), input = pngFixture(), failures = []; page.on('pageerror', error => { failures.push(error.message); });
 	await installNativeImageHandoffRuntime(page);
 	const origin = process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS ? JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper : browserProductSiteForBuild('lightscaper').origin;

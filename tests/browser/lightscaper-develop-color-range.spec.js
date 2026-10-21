@@ -27,7 +27,7 @@ for (const locale of ['en', 'de']) test(`${locale}: menu-authored color range fo
 	await installNativeImageHandoffRuntime(page);
 	await page.goto(`${browserProductSiteForBuild('lightscaper').origin}/${locale}/`);
 	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale);
-	const settings = photoDevelopSettingsCopy(locale), local = photoDevelopLocalAdjustmentsCopy(locale, 'color-range');
+	const settings = photoDevelopSettingsCopy(locale, 'current3'), local = photoDevelopLocalAdjustmentsCopy(locale, 'color-range');
 	const app = named(page, 'region', 'Lightscaper'); await expect(app).toBeVisible();
 	await expect(named(app, 'button', local.menu)).toHaveCount(0);
 	await menu(page, app, copy.photoFileMenu); await keyboard(page, named(app, 'button', copy.photoImportPhotos));

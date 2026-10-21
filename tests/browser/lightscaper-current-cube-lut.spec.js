@@ -144,7 +144,7 @@ async function setup(page, locale) {
 	await page.addInitScript(() => { Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: undefined }); });
 	const origin = process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS ? JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper : browserProductSiteForBuild('lightscaper').origin;
 	await page.goto(`${origin}/${locale}/`); const app = page.locator('[data-lightscaper-bound="true"]'); await expect(app).toBeVisible();
-	return { app, copy: bundledLightscaperEditorCopyForLocale(locale), messages: photoDevelopCopy(locale), settings: photoDevelopSettingsCopy(locale), restoreCopy: lightscaperRestoreCopy(locale), errors };
+	return { app, copy: bundledLightscaperEditorCopyForLocale(locale), messages: photoDevelopCopy(locale), settings: photoDevelopSettingsCopy(locale, 'current3'), restoreCopy: lightscaperRestoreCopy(locale), errors };
 }
 async function downloadBackup(page, app, copy) {
 	await menu(page, app, copy.photoFileMenu, copy.photoBackupTitle); const dialog = named(page, 'dialog', copy.photoBackupTitle), pending = page.waitForEvent('download');

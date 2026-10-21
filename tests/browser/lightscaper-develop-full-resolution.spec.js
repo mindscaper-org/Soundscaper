@@ -12,7 +12,7 @@ const PNG = Buffer.from(RESOLUTION_PNG_BASE64, 'base64'), NAME = 'Resolution ref
 for (const locale of ['en', 'de']) test(`${locale}: keyboard full-resolution inspection renders original spatial detail, scrolls at100% and resets without authoring history`, async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', 'The roadmap defers the full WebKit storage workflow until native Blob/OPFS support is qualified.');
 	test.setTimeout(90_000);
-	const copy = bundledLightscaperEditorCopyForLocale(locale), messages = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale), errors = [];
+	const copy = bundledLightscaperEditorCopyForLocale(locale), messages = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale, 'current3'), errors = [];
 	page.on('pageerror', error => { errors.push(error.message); });
 	const origin = JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper;
 	await page.goto(`${origin}/${locale}/`); const app = page.locator('[data-lightscaper-bound="true"]'); await expect(app).toBeVisible();
@@ -79,7 +79,7 @@ for (const locale of ['en', 'de']) test(`${locale}: keyboard full-resolution ins
 
 async function chooseFamily(page, control, value) {
 	const values = await control.locator('option').evaluateAll(options => options.map(option => option.value)), target = values.indexOf(value);
-	expect(values).toEqual(['white-balance-v1', 'tone-ladder-v1', 'develop-geometry-v1', 'chroma-v1', 'black-white-mix-v1', 'hsl-mixer-v1',
+	expect(values).toEqual(['white-balance-v1', 'tone-ladder-v1', 'develop-geometry-v1', 'lens-distortion-v1', 'chromatic-aberration-v1', 'defringe-v1', 'optical-vignette-v1', 'chroma-v1', 'black-white-mix-v1', 'hsl-mixer-v1',
 		'point-curves-v1', 'parametric-curves-v1', 'color-wheels-v1', 'detail-sharpen-v1', 'post-crop-vignette-v1', 'clarity-v1',
 		'noise-reduction-v1', 'grain-v1', 'texture-v1', 'dehaze-v1', 'cube-lut-profile-v1']); expect(target).toBeGreaterThanOrEqual(0);
 	await control.focus(); await expect(control).toBeFocused();

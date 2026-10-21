@@ -96,7 +96,7 @@ function parameter(dialog, messages, key) { return named(dialog, 'spinbutton', `
 async function number(control, value) { await control.fill(value); await control.press('Enter'); await expect(control).toHaveValue(value); }
 async function chooseFamily(page, control, value) {
 	const values = await control.locator('option').evaluateAll(options => options.map(option => option.value)), target = values.indexOf(value);
-	expect(values).toEqual(['white-balance-v1', 'tone-ladder-v1', 'develop-geometry-v1', 'chroma-v1', 'black-white-mix-v1', 'hsl-mixer-v1',
+	expect(values).toEqual(['white-balance-v1', 'tone-ladder-v1', 'develop-geometry-v1', 'lens-distortion-v1', 'chromatic-aberration-v1', 'defringe-v1', 'optical-vignette-v1', 'chroma-v1', 'black-white-mix-v1', 'hsl-mixer-v1',
 		'point-curves-v1', 'parametric-curves-v1', 'color-wheels-v1', 'detail-sharpen-v1', 'post-crop-vignette-v1', 'clarity-v1',
 		'noise-reduction-v1', 'grain-v1', 'texture-v1', 'dehaze-v1', 'cube-lut-profile-v1']); expect(target).toBeGreaterThanOrEqual(0);
 	await control.focus(); await expect(control).toBeFocused(); await page.keyboard.press('Home');
