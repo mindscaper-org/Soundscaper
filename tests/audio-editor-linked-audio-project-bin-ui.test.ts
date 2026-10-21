@@ -44,13 +44,17 @@ test('a project change retires a destructive Project Bin confirmation', async ()
 });
 
 test('the linked-WAV Project Bin action forwards only the chosen File and opaque locator snapshot', async () => {
-	const source = await readFile(PANEL_URL, 'utf8');
-	const importAction = source.slice(source.indexOf('const chooseLinkedAudio'), source.indexOf('const relinkLinkedAudio'));
-
-	assert.match(source, /const chooseLinkedAudio = \(\) => run\(async \(\) => \{\s*if \(mutationBlocked\) return;\s*const choice = await fileService\.chooseLinkedAudioOriginal\(\)/u);
-	assert.match(source, /if \(!choice\) return;[\s\S]*controller\.actions\.project\.importFiles\(\[choice\.file\], \{[\s\S]*destination: 'project-bin',[\s\S]*linkedAudioLocatorId: choice\.locatorId,[\s\S]*linkedAudioLocatorRevision: choice\.locatorRevision,[\s\S]*\}\)/u);
-	assert.doesNotMatch(importAction, /releaseLinkedAudioOriginal/u);
-	assert.doesNotMatch(source, /choice\.(?:name|path|mimeType|size)/u);
+	const [source, handoff] = await Promise.all([
+		readFile(PANEL_URL, 'utf8'),
+		readFile(new URL('../src/common/editor/ui/workspace/linked-project-bin-import.ts', import.meta.url), 'utf8'),
+	]);
+	assert.match(source, /const chooseLinkedMedia = \(kind\) => run\(async \(\) => \{\s*if \(mutationBlocked\) return;/u);
+	assert.match(source, /const chooseLinkedAudio = \(\) => chooseLinkedMedia\('audio'\)/u);
+	assert.match(source, /importLinkedProjectBinChoice\(\{[\s\S]*chooseLinkedAudioOriginal\(\)[\s\S]*importFiles\(\[file\], options\)/u);
+	assert.match(handoff, /destination: 'project-bin'/u);
+	assert.match(handoff, /'linkedAudioLocatorId'[\s\S]*reference.locatorId/u);
+	assert.match(handoff, /'linkedAudioLocatorRevision'[\s\S]*reference.locatorRevision/u);
+	assert.doesNotMatch(handoff, /choice\.(?:name|path|mimeType|size)/u);
 });
 
 test('a binding-backed Project Bin audio member exposes exact-content relink without trusting missing-source state', async () => {
