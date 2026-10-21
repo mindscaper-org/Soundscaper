@@ -93,10 +93,12 @@ test('integer WavPack admission retains lossless-profile and original-checksum c
 	await assert.rejects(prepareStreamedAudioImport(new File([corrupt], 'corrupt-integer.wv')), /checksum/u);
 });
 
-test('unknown WavPack totals require a known first declaration and consistent continuations', async () => {
+test('unknown WavPack totals are inferred while explicit continuations remain consistent', async () => {
 	const { encoded } = await original();
 	const groups = splitGroups(encoded);
-	await assert.rejects(prepareStreamedAudioImport(new File([withWavPackTotalFrames(groups[0]!, 0xffff_ffff)], 'unknown.wv')), /inconsistent block geometry/u);
+	const unknown = await prepareStreamedAudioImport(new File([withWavPackTotalFrames(groups[0]!, 0xffff_ffff)], 'unknown.wv'));
+	assert.equal(unknown.descriptor.frameCount, 65_536);
+	unknown.dispose();
 	const inconsistent = concat(groups[0]!, withWavPackTotalFrames(groups[1]!, 96_001));
 	const prepared = await prepareStreamedAudioImport(new File([inconsistent], 'inconsistent.wv'), { desktopCodec: geometryDecoder() });
 	await assert.rejects(prepared.stream({ chunkFrames: 4_096, onChunk() {} }), /non-contiguous or change source geometry/u);

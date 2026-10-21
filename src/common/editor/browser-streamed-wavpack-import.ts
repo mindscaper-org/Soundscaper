@@ -33,7 +33,8 @@ export async function openStreamedWavPackImportSession(
 ): Promise<StreamedAudioImportSession> {
 	signal?.throwIfAborted();
 	file = await wavPackAudioBlob(file, signal);
-	const first = await readGroup(file, 0, signal);
+	const inferredFrames = await inferUnknownWavPackFrames(file, signal);
+	const first = await readGroup(file, 0, signal, inferredFrames);
 	if (first.blockIndex !== 0) throw new Error('The WavPack original does not begin at source frame zero.');
 	let decoder = suppliedDecoder;
 	let disposeDecoder: (() => void) | null = null;
@@ -89,6 +90,29 @@ export async function openStreamedWavPackImportSession(
 		},
 		dispose() { if (!disposed) { disposed = true; disposeDecoder?.(); } },
 	});
+}
+
+/** An unseekable encoder cannot rewrite its first total; block indexes still prove EOF. */
+async function inferUnknownWavPackFrames(file: Blob, signal?: AbortSignal): Promise<number | undefined> {
+	const first = await read(file, 0, HEADER_BYTES, signal);
+	if (new DataView(first.buffer).getUint32(12, true) !== 0xffff_ffff) return undefined;
+	let offset = 0;
+	let total = 0;
+	let blocks = 0;
+	while (offset < file.size) {
+		if (++blocks > 1_000_000) throw new RangeError('The WavPack source exceeds its block inspection bound.');
+		const header = await read(file, offset, HEADER_BYTES, signal);
+		const view = new DataView(header.buffer);
+		const size = view.getUint32(4, true) + 8;
+		const endFrame = view.getUint32(16, true) + view.getUint32(20, true);
+		if (String.fromCharCode(...header.subarray(0, 4)) !== 'wvpk' || header[10] || header[11]
+			|| size < HEADER_BYTES || size > MAXIMUM_GROUP_BYTES || size > file.size - offset
+			|| endFrame >= 0xffff_ffff) throw new Error('The WavPack source has invalid block geometry.');
+		total = Math.max(total, endFrame);
+		offset += size;
+	}
+	if (total < 1) throw new Error('The WavPack source has no audio frames.');
+	return total;
 }
 
 async function readGroup(file: Blob, offset: number, signal?: AbortSignal, sourceTotalFrames?: number): Promise<Group> {
