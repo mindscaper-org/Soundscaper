@@ -101,7 +101,7 @@ static void launched(GDesktopAppInfo* app, GPid pid, gpointer data) noexcept {
     require(pid > 0 && state.children.size() < 16, "Native launcher child inventory is outside its bound.");
     state.children.push_back(child{pid, {}, false, false, false, 0}); auto& value = state.children.back();
     require(g_app_info_equal(G_APP_INFO(app), state.expected), "Native PID callback came from another handler.");
-    value.identity = process(pid, state.input->executable); value.captured = true;
+    value.identity = process_snapshot(pid); value.pinned = true;
     require(value.identity.group == state.group, "Native secondary escaped the helper calling group.");
   } catch (...) { if (!state.failure) state.failure = std::current_exception(); }
 }
@@ -133,7 +133,8 @@ static void perform(const request& input, object& report, counters& count, launc
     if (!accepted || error) gio_error(error, "Default native desktop launcher refused the archive URI.");
     if (launch.failure) std::rethrow_exception(launch.failure);
     require(launch.children.size() == 1 && count.callbacks == 1, "One archive URI did not produce exactly one observed native secondary.");
-    auto& secondary = launch.children.front(); require(reap(secondary, 30000), "Native secondary did not retire within its bounded deadline.");
+    auto& secondary = launch.children.front(); capture_exec(secondary, input.executable, launch.group, 2000);
+    require(reap(secondary, 30000), "Native secondary did not retire within its bounded deadline.");
     require(WIFEXITED(secondary.status) && WEXITSTATUS(secondary.status) == 0, "Native secondary did not naturally exit zero.");
     const auto after = process(input.primary, input.executable);
     require(after.start == before.start && after.group == before.group, "Actual primary identity changed during default dispatch.");
