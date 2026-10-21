@@ -19,6 +19,7 @@ import type {
 	NativeCompatibilityReport,
 	NativeProgress,
 	NativeProjectAudioSource,
+	NativeProjectDocument,
 	NativeProjectServiceRuntime,
 	NativeSavedFile,
 	NativeStorageEstimate,
@@ -36,7 +37,7 @@ type SaveResult = Readonly<NativeSavedFile & {
 interface AudacityProjectSaveDependencies {
 	readonly assertOwnership: (task: EditorTaskScope, token: EditorProjectToken) => void;
 	readonly beginProjectTask: (name: string, expectedProjectId?: string, options?: Readonly<{ scope?: string | null }>) => ProjectTask;
-	readonly beginSave: (task: EditorTaskScope, token: EditorProjectToken) => void;
+	readonly beginSave: (task: EditorTaskScope, token: EditorProjectToken, snapshot?: NativeProjectDocument) => void;
 	readonly failSave: (task: EditorTaskScope, token: EditorProjectToken) => void;
 	readonly finishSave: (task: EditorTaskScope, token: EditorProjectToken, state: 'saved') => boolean;
 	readonly getClient: () => Promise<NativeAup4Client>;
@@ -131,9 +132,9 @@ export function createNativeAudacityProjectSave(
 			client = await dependencies.getClient();
 			dependencies.assertOwnership(operation.task, operation.projectToken);
 			nativeId = sanitizeNativeId(runtime.createStableId(target.idPrefix));
-			const referencedSources = snapshot.sources.filter((source): source is NativeProjectAudioSource => (
+			const referencedSources = exportSnapshot.sources.filter((source): source is NativeProjectAudioSource => (
 				isAudioMediaKind(source.kind)
-					&& snapshot.clips.some((clip) => isAudioMediaKind(clip.kind) && clip.sourceId === source.id)
+					&& exportSnapshot.clips.some((clip) => isAudioMediaKind(clip.kind) && clip.sourceId === source.id)
 			));
 			const sourceBytes = referencedSources.reduce(
 				(total, source) => total + runtime.sourcePcmBytes(source), 0,
@@ -163,7 +164,7 @@ export function createNativeAudacityProjectSave(
 			let admittedPortable: Aup4PortableOptions = { ...portable, maxBytes, fileSizeWarningApproved: maxBytes > threshold };
 			setLocalizedStatus(runtime.setStatus, runtime.copy, target.savingKey);
 			if (updatesSaveState) {
-				dependencies.beginSave(operation.task, operation.projectToken);
+				dependencies.beginSave(operation.task, operation.projectToken, exportSnapshot);
 			}
 			await client.create(nativeId, { targetGeneration: target.generation, signal });
 			nativeCreated = true;

@@ -26,6 +26,7 @@ export function projectChangedError(): DOMException {
 export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntime) {
 	let importOwner: EditorTaskScope | null = null;
 	let saveOwner: EditorTaskScope | null = null;
+	let saveRevision: unknown;
 	let disposed = false;
 
 	function assertNotDisposed(): void {
@@ -87,9 +88,10 @@ export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntim
 		runtime.publishDocumentSnapshot();
 	}
 
-	function beginSave(task: EditorTaskScope, token: EditorProjectToken): void {
+	function beginSave(task: EditorTaskScope, token: EditorProjectToken, snapshot: NativeProjectDocument = requireProject()): void {
 		assertOwnership(task, token);
 		saveOwner = task;
+		saveRevision = snapshot.revision;
 		runtime.state.saveState = 'saving';
 		runtime.publishDocumentSnapshot();
 	}
@@ -103,7 +105,7 @@ export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntim
 	function finishSave(task: EditorTaskScope, token: EditorProjectToken, state: 'saved'): boolean {
 		if (saveOwner !== task) return false;
 		saveOwner = null;
-		if (!ownershipIsCurrent(task, token)) {
+		if (!ownershipIsCurrent(task, token) || runtime.getProject()?.revision !== saveRevision) {
 			try {
 				runtime.projectGeneration.assertCurrent(token);
 			} catch {
