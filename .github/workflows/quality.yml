@@ -445,6 +445,11 @@ jobs:
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh xvfb
 
+      - name: Install Lightscaper native association test prerequisites
+        if: matrix.shard == 'lightscaper'
+        timeout-minutes: 10
+        run: bash scripts/ci-apt-install.sh libglib2.0-dev pkg-config shared-mime-info
+
       - name: Allow unprivileged user namespaces for the native isolation launcher
         # ubuntu-24.04 images restrict unprivileged user namespaces through
         # AppArmor, so the milestone-5 launcher's unshare(CLONE_NEWUSER) fails
