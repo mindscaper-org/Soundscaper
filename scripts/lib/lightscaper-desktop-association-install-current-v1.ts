@@ -38,7 +38,7 @@ export async function createLightscaperAssociationInstallerCurrentV1(options: Re
 		const planPath = join(options.workRoot, `${name}.plan.json`), resultPath = join(options.workRoot, `${name}.result.json`), wrapper = join(options.workRoot, `${name}.cjs`);
 		await writeFile(planPath, JSON.stringify({ executable: admitted, args, resultPath }), { flag: 'wx', mode: 0o600 });
 		await writeFile(wrapper, NSIS_OWNER, { flag: 'wx', mode: 0o600 });
-		const supervision = await run(process.execPath, [wrapper, planPath], { deadlineMs: 120_000 });
+		const supervision = await run(process.execPath, [wrapper, planPath], { deadlineMs: 210_000 });
 		const child = record(JSON.parse((await read(resultPath, 65536)).toString('utf8')) as unknown,
 			['schemaVersion', 'executable', 'args', 'peMachine', 'optionalHeaderMagic', 'processId', 'exitCode', 'signal', 'closed']);
 		if (child.schemaVersion !== 1 || JSON.stringify(child.executable) !== JSON.stringify(admitted) || JSON.stringify(child.args) !== JSON.stringify(args)
@@ -137,10 +137,19 @@ export function readLightscaperAssociationRegistrySnapshotCurrentV1(value: unkno
 }
 
 const NSIS_OWNER = String.raw`'use strict';
-const fs=require('node:fs/promises'), crypto=require('node:crypto'), cp=require('node:child_process');
+const fs=require('node:fs/promises'), crypto=require('node:crypto'), cp=require('node:child_process'), syncFs=require('node:fs');
+const began=process.hrtime.bigint();let stageCount=0;
+function stage(event,fields={}){
+ if(stageCount>=16)return;const ordinal=++stageCount;
+ const bytes=Buffer.from(JSON.stringify({schemaVersion:1,kind:'lightscaper-nsis-owner-stage-current-v1',ordinal,stage:event,elapsedMs:Number((process.hrtime.bigint()-began)/1000000n),...fields})+'\n');
+ if(bytes.length>1024)return;
+ try{let offset=0;while(offset<bytes.length){const count=syncFs.writeSync(2,bytes,offset,bytes.length-offset);if(count<=0)break;offset+=count}}catch{}
+}
+stage('owner-entry');
 async function main(){
  const plan=JSON.parse(await fs.readFile(process.argv[2],'utf8')), expected=plan.executable;
  if(!expected||typeof expected.path!=='string'||!Number.isSafeInteger(expected.byteLength)||!/^[a-f0-9]{64}$/.test(expected.sha256)||!Array.isArray(plan.args)||plan.args[0]!=='/S'||plan.args.length>2||(plan.args.length===2&&!plan.args[1].startsWith('/D=')&&!plan.args[1].startsWith('_?=')))throw Error('Invalid exact NSIS plan');
+ stage('plan-validated',{argumentCount:plan.args.length});
  const before=await fs.lstat(expected.path); if(!before.isFile()||before.isSymbolicLink()||before.size!==expected.byteLength||await fs.realpath(expected.path)!==expected.path)throw Error('NSIS path/size changed');
  const input=await fs.open(expected.path,'r'); let machine,magic;
  try{
@@ -151,12 +160,16 @@ async function main(){
   const hash=crypto.createHash('sha256');let size=0;
   for await(const bytes of input.createReadStream({start:0,autoClose:false})){size+=bytes.length;if(size>expected.byteLength)throw Error('NSIS grew');hash.update(bytes)}
   const after=await input.stat(), atPath=await fs.lstat(expected.path);
-  if(size!==expected.byteLength||hash.digest('hex')!==expected.sha256||after.size!==before.size||after.mtimeMs!==before.mtimeMs||after.ctimeMs!==before.ctimeMs||atPath.dev!==before.dev||atPath.ino!==before.ino||atPath.isSymbolicLink())throw Error('NSIS bytes/identity changed');
+  const actualSha256=hash.digest('hex');
+  if(size!==expected.byteLength||actualSha256!==expected.sha256||after.size!==before.size||after.mtimeMs!==before.mtimeMs||after.ctimeMs!==before.ctimeMs||atPath.dev!==before.dev||atPath.ino!==before.ino||atPath.isSymbolicLink())throw Error('NSIS bytes/identity changed');
+  stage('admitted',{byteLength:size,sha256:actualSha256,peMachine:machine,optionalHeaderMagic:magic});
  }finally{await input.close()}
  const output=await fs.open(plan.resultPath,'wx',0o600);let failed=false,primary;
  try{
   const child=cp.spawn(expected.path,plan.args,{shell:false,windowsHide:true,windowsVerbatimArguments:false,stdio:['ignore','inherit','inherit']});
-  const terminal=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(exitCode,signal)=>resolve({exitCode,signal}))});
+  child.once('spawn',()=>stage('spawn',{processId:child.pid??null}));
+  child.once('exit',(exitCode,signal)=>stage('exit',{processId:child.pid??null,exitCode,signal}));
+  const terminal=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(exitCode,signal)=>{stage('close',{processId:child.pid??null,exitCode,signal});resolve({exitCode,signal})})});
   await output.writeFile(JSON.stringify({schemaVersion:1,executable:expected,args:plan.args,peMachine:machine,optionalHeaderMagic:magic,processId:child.pid||0,exitCode:terminal.exitCode,signal:terminal.signal,closed:true}));await output.sync();
   if(terminal.exitCode!==0||terminal.signal!==null)throw Error('Actual NSIS child failed');
  }catch(error){failed=true;primary=error}
@@ -164,5 +177,5 @@ async function main(){
  if(closeFailure!==undefined){if(failed)throw new AggregateError([primary,closeFailure],'NSIS operation and result close failed',{cause:primary});throw closeFailure}
  if(failed)throw primary;
 }
-void main().catch(error=>{console.error(error);process.exitCode=1});
+void main().catch(error=>{stage('failure');console.error(error);process.exitCode=1});
 `;
