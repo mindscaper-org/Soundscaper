@@ -39,6 +39,16 @@ test('legacy AUP stereo channels with unequal sample rates are refused before ch
 	await assert.rejects(decodeLegacyAupProject(new File([xml], 'stereo.aup'), []), /sample rates/iu);
 });
 
+test('legacy AUP rejects inconsistent block positions and declared sequence lengths', async () => {
+	for (const sequence of [
+		'<sequence numsamples="4"><waveblock start="2"><silentblockfile len="4"/></waveblock></sequence>',
+		'<sequence numsamples="8"><waveblock start="0"><silentblockfile len="4"/></waveblock></sequence>',
+	]) {
+		const xml = `<project rate="48000"><wavetrack><waveclip>${sequence}</waveclip></wavetrack></project>`;
+		await assert.rejects(decodeLegacyAupProject(new File([xml], 'inexact.aup'), []), /sequence|block position/iu);
+	}
+});
+
 test('cancelling legacy AUP while decoding prevents conversion and project publication', async () => {
 	let finishDecode: ((value: unknown) => void) | undefined;
 	const decoding = new Promise<unknown>((resolve) => { finishDecode = resolve; });

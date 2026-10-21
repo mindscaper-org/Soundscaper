@@ -47,6 +47,10 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 				trackRate,
 			};
 			for (const waveBlock of children(sequence, 'waveblock')) {
+				const start = attribute(waveBlock, 'start', undefined);
+				if (start !== undefined && nonNegativeInteger(start) !== clipPlan.frameCount) {
+					throw new LegacyAupError('Legacy sequence block positions are not contiguous.', 'CORRUPT_BLOCK_FILE');
+				}
 				const silent = children(waveBlock, 'silentblockfile')[0];
 				if (silent) {
 					const length = positiveBlockLength(attribute(silent, 'len', undefined));
@@ -71,6 +75,10 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 					referencedFiles.set(file, referenced);
 				}
 				referenced.placements.push({ clipPlan, destinationOffset, length, filename });
+			}
+			const declaredFrames = attribute(sequence, 'numsamples', undefined);
+			if (declaredFrames !== undefined && nonNegativeInteger(declaredFrames) !== clipPlan.frameCount) {
+				throw new LegacyAupError('Legacy sequence length does not match its audio blocks.', 'CORRUPT_BLOCK_FILE');
 			}
 			if (clipPlan.frameCount) clipPlans.push(clipPlan);
 		}
