@@ -3,11 +3,12 @@ import { randomBytes, createHash } from 'node:crypto';
 import { createServer } from 'node:net';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { runPhotoNativeToolCurrentV1 as tool } from './lightscaper-photo-native-tool-current-v1.ts';
 import { checkNativeFilesystemSignal as check } from '../../desktop/lightscaper-native-photo-granted-filesystem-signal-current-v1.ts';
 import { preparePhotoNativeChildCurrentV1 as prepare, photoNativePreparedRetirementIsUnprovedCurrentV1 as childUnproved } from '../../desktop/lightscaper-native-photo-prepared-child-current-v1.ts';
 import { NativeFilesystemProcessCurrentV1 as Filesystem } from '../../desktop/lightscaper-native-photo-granted-filesystem-process-current-v1.ts';
 import { LightscaperNativePhotoRawProcessCurrentV1 as Raw } from '../../desktop/lightscaper-native-photo-raw-process-current-v1.ts';
-import { photoNativeArtifactRetirementIsUnprovedCurrentV1 as artifactUnproved, copyPhotoNativePinnedFileCurrentV1 as copy, photoNativeInventoryCurrentV1 as inventory } from '../../desktop/lightscaper-native-photo-artifact-files-current-v1.ts';
+import { photoNativeArtifactRetirementIsUnprovedCurrentV1 as artifactUnproved, openPhotoNativePinnedFileCurrentV1 as authenticate, copyPhotoNativePinnedFileCurrentV1 as copy, photoNativeInventoryCurrentV1 as inventory } from '../../desktop/lightscaper-native-photo-artifact-files-current-v1.ts';
 import { photoNativePathsCurrentV1, type PhotoNativeFileCurrentV1, type PhotoNativeTargetCurrentV1 } from '../../src/lightscaper/desktop-photo-native-artifacts-current-v1.ts';
 const UNPROVED = new WeakSet<object>();
 export function photoNativeSelfTestRetirementIsUnprovedCurrentV1(value: unknown): boolean { return typeof value === 'object' && value !== null && UNPROVED.has(value); }
@@ -21,7 +22,7 @@ async function joined<T>(work: () => Promise<T>, retirements: readonly (() => Pr
  if (failed) throw primary; return result;
 }
 const CANARY_PREFIX = 'PHOTO_ISOLATION_CANARY_V1 FAIL stage=';
-const CANARY_STAGES = new Set(['binary-stdio', 'header-read', 'path-length', 'path-read', 'utf16-length', 'winsock-startup', 'module-path', 'stdout-write', 'stdout-flush']);
+const CANARY_STAGES = new Set(['arguments', 'binary-stdio', 'child-denial', 'file-denial', 'header-read', 'module-path', 'network-control-connect', 'network-control-contained', 'network-control-port', 'network-control-socket-close', 'network-control-token-api', 'network-control-token-close', 'network-control-token-open', 'network-control-winsock-close', 'network-policy-cleanup', 'network-policy-config', 'network-policy-config-sid', 'network-policy-config-size', 'network-policy-diagnose', 'network-policy-library', 'network-policy-loopback-exempt', 'network-policy-procedure', 'network-policy-type', 'network-token-app', 'network-token-app-api', 'network-token-cap-api', 'network-token-cap-size', 'network-token-capabilities', 'network-token-lpac', 'network-token-lpac-api', 'network-token-open', 'network-token-sid', 'network-token-sid-api', 'network-token-sid-size', 'path-length', 'path-read', 'stdout-flush', 'stdout-write', 'utf16-length', 'winsock-startup']);
 function canaryDiagnostic(bytes: Buffer): string | undefined {
  const text = bytes.toString('utf8'), first = text.indexOf(CANARY_PREFIX);
  if (first < 0 || text.indexOf(CANARY_PREFIX, first + 1) !== -1 || (first !== 0 && text[first - 1] !== '\n')) return;
@@ -33,7 +34,7 @@ function canaryDiagnostic(bytes: Buffer): string | undefined {
  if (denials && denials.slice(1).every(value => Number(value) <= 0xffffffff)) return line.slice('PHOTO_ISOLATION_CANARY_V1 FAIL stage='.length);
  return undefined;
 }
-async function isolationCanary(prepared: Awaited<ReturnType<typeof prepare>>, packet: Buffer, connected: () => boolean, signal?: AbortSignal): Promise<Buffer> {
+async function isolationCanary(prepared: Awaited<ReturnType<typeof prepare>>, packet: Buffer, connected: () => boolean, signal?: AbortSignal, windowsPolicy = false): Promise<Readonly<{ receipt: Buffer; policyType: number | null }>> {
  const child = prepared.start(), output: Buffer[] = [], diagnostic = Buffer.alloc(4096), stdoutHash = createHash('sha256');
  let length = 0, used = 0, overflow = false, stdoutOverflow = false, code: number | null = null, signaled: NodeJS.Signals | null = null;
  let receipt = Buffer.alloc(0), stdoutSha256 = '', trusted: string | undefined, rejectRetirement!: (error: unknown) => void;
@@ -56,13 +57,43 @@ async function isolationCanary(prepared: Awaited<ReturnType<typeof prepare>>, pa
  child.stdout.on('data', stdout); child.stderr.on('data', stderr);
  try {
   child.stdin.end(packet); await Promise.race([closed, retirementFailed]); await prepared.close();
-  check(signal); const actualConnected = connected();
-  if (code !== 0 || signaled !== null || actualConnected || stdoutOverflow || !receipt.equals(Buffer.from('PHOTO_ISOLATION_CANARY_V1 PASS\n'))) {
+  check(signal); const actualConnected = connected(), policy = /^PHOTO_ISOLATION_CANARY_V2 POLICY_PASS type=([123])\n$/u.exec(receipt.toString('utf8'));
+  if (code !== 0 || signaled !== null || actualConnected || stdoutOverflow || (windowsPolicy ? !policy : !receipt.equals(Buffer.from('PHOTO_ISOLATION_CANARY_V1 PASS\n')))) {
    throw new Error(`Actual Photo RAW OS-isolation canary failed. Actual joined canary outcome: exit=${String(code)}, signal=${signaled ?? 'none'}, connected=${String(actualConnected)}, stdoutByteLength=${String(length)}, stdoutSha256=${stdoutSha256}.`
     + (overflow ? ' Canary stderr exceeded its 4096-byte capture bound; no diagnostic stage was admitted.' : trusted ? ` diagnostic=${trusted}.` : ' No trusted canary diagnostic marker was admitted.'));
   }
-  return receipt;
+  return Object.freeze({ receipt, policyType: windowsPolicy ? Number(policy![1]) : null });
  } catch (error) { receipt.fill(0); throw error; }
+}
+async function windowsNetworkControl(root: string, pin: PhotoNativeFileCurrentV1, signal?: AbortSignal) {
+ const executable = await authenticate(root, pin), sockets = new Set<import('node:net').Socket>();
+ let connected = false, listening = false, accepted!: () => void;
+ const connection = new Promise<void>(resolve => { accepted = resolve; });
+ const server = createServer(socket => { connected = true; accepted(); sockets.add(socket); socket.once('close', () => { sockets.delete(socket); }); socket.destroy(); });
+ return joined(async () => {
+  // Same pinned executable, real uncontained token: the policy-only mode must refuse.
+  let refused = false;
+  try { await tool(join(root, pin.path), ['--network-policy-control'], signal); }
+  catch (error) {
+   check(signal);
+   if (!(error instanceof Error) || !/^Photo native tool failed \(2, null\)\nstdout \(tail\):\n\nstderr \(tail\):\nPHOTO_ISOLATION_CANARY_V1 FAIL stage=network-token-app code=0\r?\n$/u.test(error.message)) throw error;
+   refused = true;
+  }
+  if (!refused) throw new Error('Uncontained private canary unexpectedly accepted LPAC network policy.');
+  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => { listening = true; resolve(); }); });
+  const address = server.address(); if (!address || typeof address === 'string') throw new Error('Actual positive network control listener has no owned address.');
+  const stdout = await tool(join(root, pin.path), ['--network-positive-control', String(address.port)], signal);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try { await Promise.race([connection, new Promise<never>((_resolve, reject) => { timer = setTimeout(() => { reject(new Error('Positive canary control did not reach its actual owned loopback listener.')); }, 2000); })]); }
+  finally { if (timer) clearTimeout(timer); }
+  check(signal);
+  if (!connected || stdout !== 'PHOTO_ISOLATION_CANARY_V2 NETWORK_CONTROL_PASS\n') throw new Error('Actual uncontained private canary network control differs.');
+  return Object.freeze({ kind: 'uncontained-tcp-positive-control' as const, canarySha256: pin.sha256, actualStdoutSha256: hash(Buffer.from(stdout)),
+   actualChildJoined: true, appContainer: false, winsockStartupStatus: 0, connectionEstablishedStatus: 0, actualLoopbackConnectionObserved: true, nonAppContainerPolicyRefusalObserved: true });
+ }, [async () => {
+  for (const socket of sockets) socket.destroy();
+  if (listening) await new Promise<void>((resolve, reject) => { server.close(error => { if (error) reject(error); else resolve(); }); });
+ }, executable.close]);
 }
 export async function selfTestPhotoNativeCurrentV1(root: string, target: PhotoNativeTargetCurrentV1, files: readonly PhotoNativeFileCurrentV1[],
  canaryRoot: string, canaryPin: PhotoNativeFileCurrentV1, signal?: AbortSignal) {
@@ -94,6 +125,7 @@ export async function selfTestPhotoNativeCurrentV1(root: string, target: PhotoNa
  const sandbox = join(canaryRoot, 'sandbox'); await mkdir(sandbox); const canaryFiles: PhotoNativeFileCurrentV1[] = [];
  for (const file of files.filter(file => new Set<string>([paths.launcher, paths.profile, paths.broker]).has(file.path))) { await copy(root, file, join(sandbox, file.path)); canaryFiles.push(file); }
  await copy(canaryRoot, canaryPin, join(sandbox, paths.raw)); canaryFiles.push(Object.freeze({ ...canaryPin, path: paths.raw }));
+ const positiveControl = target.startsWith('win-') ? await windowsNetworkControl(canaryRoot, canaryPin, signal) : null;
  const secret = join(canaryRoot, 'ungranted-private-canary'); await writeFile(secret, 'private ungranted canary\n', { flag: 'wx', mode: 0o600 });
  const sockets = new Set<import('node:net').Socket>(); let connected = false, listening = false;
  const server = createServer(socket => { connected = true; sockets.add(socket); socket.once('close', () => { sockets.delete(socket); }); socket.destroy(); });
@@ -103,8 +135,8 @@ export async function selfTestPhotoNativeCurrentV1(root: string, target: PhotoNa
   const address = server.address(); if (!address || typeof address === 'string') throw new Error('Actual isolation canary listener has no owned address.');
   prepared = await prepare(sandbox, target, canaryFiles, 'raw-engine', signal, () => undefined);
   const native = Buffer.from(secret, target.startsWith('win-') ? 'utf16le' : 'utf8'), header = Buffer.alloc(6); header.writeUInt32LE(native.length); header.writeUInt16BE(address.port, 4);
-  const receipt = await isolationCanary(prepared, Buffer.concat([header, native]), () => connected, signal);
-  try { await record('raw-isolation', { schemaVersion: 1, target, fileDenied: true, networkDenied: true, childDenied: true, actualStdoutSha256: hash(receipt), actualCanarySha256: canaryPin.sha256, actualChildJoined: true }); }
+  const { receipt, policyType } = await isolationCanary(prepared, Buffer.concat([header, native]), () => connected, signal, target.startsWith('win-'));
+  try { await record('raw-isolation', { schemaVersion: 1, target, fileDenied: true, ...(positiveControl ? { networkEvidence: { kind: 'windows-token-network-policy-v1', classificationTarget: '192.0.2.1', policyType, actualCurrentToken: { appContainer: true, lessPrivilegedAppContainer: true, capabilities: 0 }, actualLoopbackExemptionAbsent: true, pointInTimePolicyEvidence: true, positiveControl } } : { networkDenied: true }), childDenied: true, actualStdoutSha256: hash(receipt), actualCanarySha256: canaryPin.sha256, actualChildJoined: true }); }
   finally { receipt.fill(0); }
  }, [async () => prepared?.close(), async () => { for (const socket of sockets) socket.destroy(); if (listening) await new Promise<void>((resolve, reject) => { server.close(error => { if (error) reject(error); else resolve(); }); }); }]);
  await inventory(root); return Object.freeze(outputs);
