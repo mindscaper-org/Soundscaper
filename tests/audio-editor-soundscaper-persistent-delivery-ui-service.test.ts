@@ -140,6 +140,18 @@ test('a transient queue refresh failure does not poison every later refresh', as
 	assert.deepEqual(fixture.service.list().entries.map(({ jobId }) => jobId), [queued.jobId]);
 });
 
+test('a committed batch remains queued when its subsequent mirror refresh fails', async () => {
+	const fixture = persistentFixture({ failFirstList: true });
+	await fixture.service.selectDestination();
+	const queued = await fixture.service.enqueueBatch(deliveryBatch());
+	assert.deepEqual(queued, ['ef'.repeat(24)]);
+	assert.equal(fixture.calls.enqueue.length, 1);
+	assert.deepEqual(fixture.service.list().entries.map(({ jobId }) => jobId), queued);
+	assert.equal(fixture.service.batchReport('batch-1')?.items.length, 1);
+	await fixture.service.refresh();
+	assert.deepEqual(fixture.service.list().entries.map(({ jobId }) => jobId), queued);
+});
+
 function persistentFixture(overrides: Record<string, unknown> = {}) {
 	const calls: {
 		enqueue: SoundscaperPersistentDeliveryEnqueueRequest[]; list: number;

@@ -220,8 +220,16 @@ export function createSoundscaperPersistentDeliveryUiService(
 				saved: true as const, clean: true as const, named: true as const,
 			});
 			const queued = await runtime.bridge.enqueueBatch({ items: Object.freeze(items), admission });
-			const jobIds = Object.freeze(queued.map((entry) => summary(entry).jobId));
-			await refresh();
+			const admitted = queued.map(summary);
+			const jobIds = Object.freeze(admitted.map(({ jobId }) => jobId));
+			try { await refresh(); }
+			catch {
+				// Admission already committed in main. Keep its authoritative rows
+				// visible so a failed follow-up read does not invite a duplicate batch.
+				const ids = new Set(jobIds);
+				view = frozenView(view.paused, [...view.entries.filter(({ jobId }) => !ids.has(jobId)), ...admitted]);
+				runtime.publishDocumentSnapshot?.();
+			}
 			return jobIds;
 		},
 		batchReport: (batchId: string): DeliveryReport | null => batchDeliveryReport(view.entries, batchId),
