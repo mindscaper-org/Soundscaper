@@ -19,6 +19,7 @@ import {
 import { createInterchangeVisibility } from './interchange-track-visibility.ts';
 import { portableFileStem } from './portable-file-stem.ts';
 import { interchangeTrackClips } from './interchange-track-clips.ts';
+import { interchangePainterOrder } from './interchange-painter-order.ts';
 import { fcpxmlRationalTime } from './fcpxml-rational-time.ts';
 
 /**
@@ -135,7 +136,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 	const visibility = createInterchangeVisibility(asRecords(project.tracks) as never, project);
 	reportInterchangeAnnotationOmission(draft, project, 'fcpxml');
 	reportInterchangeCaptionTrackOmission(draft, project, 'fcpxml', request.sequenceId);
-	for (const track of asRecords(project.tracks)) {
+	for (const track of interchangePainterOrder(asRecords(project.tracks))) {
 		const type = String(track.type ?? '');
 		if (type !== 'video' && type !== 'audio') continue;
 		if (!visibility.contributes(track as never)) {
@@ -159,7 +160,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 				message: 'The profile emits no transition vocabulary; the authored video transition is omitted.',
 			});
 		}
-		// Lane 0 is the spine itself and holds the first contributing video
+		// Lane 0 is the spine itself and holds the lowest contributing video
 		// track. Everything simultaneous with it is a connected clip: further
 		// video above at 1, 2, …, audio below at -1, -2, …. Without lanes they
 		// would all share offset="0s" in a sequential spine, which is not a
