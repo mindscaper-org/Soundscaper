@@ -198,6 +198,8 @@ function freezeRenderProject(
 	} as never, masterChannels).tracks.get(trackId) ?? masterChannels;
 	return Object.freeze({
 		...project,
+		// Programme bed/object mapping belongs after the frozen source strip.
+		metadata: Object.freeze({ ...dataRecord(project.metadata, 'project.metadata'), adm: null }),
 		// The capture is pre-master, so the programme width is not the render width. Sizing
 		// the offline context from masterChannels downmixed a wide stem to the delivery
 		// width, and committing that render narrowed the track underneath every channel map
