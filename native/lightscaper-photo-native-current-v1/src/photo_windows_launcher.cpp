@@ -55,13 +55,13 @@ bool exactFd(const std::wstring &value, const wchar_t *prefix, HANDLE &output,
 {
 	const size_t length = std::wcslen(prefix);
 	if (value.rfind(prefix, 0u) != 0u) return false;
-	if (output != nullptr) ExitProcess(125u);
+	if (output != nullptr) nativeFailure("duplicate-descriptor", ERROR_INVALID_PARAMETER);
 	wchar_t *end = nullptr; const auto raw = std::wcstoull(value.c_str() + length, &end, 10);
-	if (end == nullptr || *end != L'\0' || raw < 3u || raw > 4095u) ExitProcess(125u);
+	if (end == nullptr || *end != L'\0' || raw < 3u || raw > 4095u) nativeFailure("descriptor-number", ERROR_INVALID_PARAMETER);
 	const intptr_t handle = _get_osfhandle(static_cast<int>(raw));
-	if (handle == -1) ExitProcess(125u);
+	if (handle == -1) nativeFailure("descriptor-handle", ERROR_INVALID_HANDLE);
 	if (descriptor != nullptr) {
-		if (*descriptor >= 0) ExitProcess(125u);
+		if (*descriptor >= 0) nativeFailure("duplicate-enforcement-descriptor", ERROR_INVALID_PARAMETER);
 		*descriptor = static_cast<int>(raw);
 	}
 	output = reinterpret_cast<HANDLE>(handle); return true;
@@ -71,9 +71,9 @@ bool exactNumber(const std::wstring &value, const wchar_t *prefix, uint64_t &slo
 {
 	const size_t length = std::wcslen(prefix);
 	if (value.rfind(prefix, 0u) != 0u) return false;
-	if (slot != 0u) ExitProcess(125u);
+	if (slot != 0u) nativeFailure("duplicate-limit", ERROR_INVALID_PARAMETER);
 	wchar_t *end = nullptr; const auto parsed = std::wcstoull(value.c_str() + length, &end, 10);
-	if (end == nullptr || *end != L'\0' || parsed == 0u) ExitProcess(125u);
+	if (end == nullptr || *end != L'\0' || parsed == 0u) nativeFailure("limit-number", ERROR_INVALID_PARAMETER);
 	slot = parsed; return true;
 }
 
@@ -82,7 +82,8 @@ std::wstring finalPath(HANDLE handle)
 	std::array<wchar_t, 32768> path{};
 	const DWORD length = GetFinalPathNameByHandleW(handle, path.data(), static_cast<DWORD>(path.size()),
 		FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-	if (length == 0u || length >= path.size()) ExitProcess(125u);
+	if (length == 0u) nativeFailure("grant-final-path", GetLastError());
+	if (length >= path.size()) nativeFailure("grant-final-path-size", ERROR_INSUFFICIENT_BUFFER);
 	return path.data();
 }
 
@@ -99,15 +100,15 @@ bool authorityProfile(const std::wstring &value, std::wstring &output)
 {
 	constexpr wchar_t prefix[] = L"--authority-profile=";
 	if (value.rfind(prefix, 0u) != 0u) return false;
-	if (!output.empty()) ExitProcess(125u);
+	if (!output.empty()) nativeFailure("duplicate-authority-profile", ERROR_INVALID_PARAMETER);
 	const std::wstring profile = value.substr(std::wcslen(prefix));
 	const size_t separator = profile.find(L':');
-	if (separator == std::wstring::npos || profile.size() - separator - 1u != 64u) ExitProcess(125u);
+	if (separator == std::wstring::npos || profile.size() - separator - 1u != 64u) nativeFailure("authority-profile-shape", ERROR_INVALID_PARAMETER);
 	const std::wstring brand = profile.substr(0u, separator);
-	if (brand != L"lightscaper-raw") ExitProcess(125u);
+	if (brand != L"lightscaper-raw") nativeFailure("authority-profile-brand", ERROR_INVALID_PARAMETER);
 	if (!std::all_of(profile.begin() + static_cast<ptrdiff_t>(separator + 1u), profile.end(),
 		[](wchar_t byte) { return (byte >= L'0' && byte <= L'9') || (byte >= L'a' && byte <= L'f'); })) {
-		ExitProcess(125u);
+		nativeFailure("authority-profile-digest", ERROR_INVALID_PARAMETER);
 	}
 	output = profile;
 	return true;
@@ -119,7 +120,7 @@ std::wstring appContainerName(const std::wstring &profile)
 	const std::wstring brand = profile.substr(0u, separator);
 	const std::wstring digest = profile.substr(separator + 1u, 40u);
 	if (brand == L"lightscaper-raw") return L"Lightscaper.M5.RAW." + digest;
-	ExitProcess(125u);
+	nativeFailure("appcontainer-name", ERROR_INVALID_PARAMETER);
 }
 
 bool registryReadAuthority(const std::wstring &profile)
@@ -201,11 +202,13 @@ void grantExactAccess(HANDLE source, PSID packageSid, PSID userSid, Access acces
 	const HANDLE handle = CreateFileW(path.c_str(), READ_CONTROL | WRITE_DAC | FILE_READ_ATTRIBUTES,
 		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
 		FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
-	if (handle == INVALID_HANDLE_VALUE || !sameFile(source, handle)) ExitProcess(125u);
+	if (handle == INVALID_HANDLE_VALUE) nativeFailure("open-grant", GetLastError());
+	if (!sameFile(source, handle)) nativeFailure("grant-identity", ERROR_INVALID_HANDLE);
 	PSECURITY_DESCRIPTOR descriptor = nullptr;
 	PACL currentAcl = nullptr, exactAcl = nullptr;
-	if (GetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
-		nullptr, nullptr, &currentAcl, nullptr, &descriptor) != ERROR_SUCCESS) ExitProcess(125u);
+	const DWORD readStatus = GetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+		nullptr, nullptr, &currentAcl, nullptr, &descriptor);
+	if (readStatus != ERROR_SUCCESS) nativeFailure("read-grant-acl", readStatus);
 	const DWORD permissions = access == Access::writeOnly
 		? FILE_GENERIC_WRITE | FILE_DELETE_CHILD : FILE_GENERIC_READ
 			| (access == Access::readExecute ? FILE_GENERIC_EXECUTE : 0u);
@@ -221,9 +224,11 @@ void grantExactAccess(HANDLE source, PSID packageSid, PSID userSid, Access acces
 	entries[1].grfAccessMode = GRANT_ACCESS;
 	entries[1].Trustee.TrusteeType = TRUSTEE_IS_USER;
 	entries[1].Trustee.ptstrName = static_cast<LPWSTR>(userSid);
-	if (SetEntriesInAclW(2u, entries.data(), currentAcl, &exactAcl) != ERROR_SUCCESS
-		|| SetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
-			nullptr, nullptr, exactAcl, nullptr) != ERROR_SUCCESS) ExitProcess(125u);
+	const DWORD entriesStatus = SetEntriesInAclW(2u, entries.data(), currentAcl, &exactAcl);
+	if (entriesStatus != ERROR_SUCCESS) nativeFailure("build-grant-acl", entriesStatus);
+	const DWORD writeStatus = SetSecurityInfo(handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+		nullptr, nullptr, exactAcl, nullptr);
+	if (writeStatus != ERROR_SUCCESS) nativeFailure("apply-grant-acl", writeStatus);
 	// This is an exact brand/payload AppContainer policy, not a launcher lease.
 	// Its security never depends on a later restore that a crash could skip.
 	LocalFree(exactAcl);
@@ -255,8 +260,8 @@ std::vector<unsigned char> crtDescriptors(HANDLE extraInput)
 	for (int index = 0; index < count; ++index) {
 		const DWORD selector = index == 0 ? STD_INPUT_HANDLE : index == 1 ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE;
 		const HANDLE handle = index < 3 ? GetStdHandle(selector) : extraInput;
-		if (handle == nullptr || handle == INVALID_HANDLE_VALUE
-			|| !SetHandleInformation(handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT)) ExitProcess(125u);
+		if (handle == nullptr || handle == INVALID_HANDLE_VALUE) nativeFailure("stdio-handle", ERROR_INVALID_HANDLE);
+		if (!SetHandleInformation(handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT)) nativeFailure("stdio-inherit", GetLastError());
 		flags[index] = 0x09u;
 		const auto raw = reinterpret_cast<intptr_t>(handle);
 		std::memcpy(bytes.data() + handleOffset + static_cast<size_t>(index) * sizeof(raw), &raw, sizeof(raw));
@@ -290,26 +295,26 @@ int wmain(int argc, wchar_t **argv)
 			if (exactFd(option, prefix, handle)) { values.grants.push_back({handle, access}); goto admitted; }
 		}
 		if (option.rfind(L"--maximum-rss-bytes=", 0u) == 0u) {
-			if (values.rss != 0u) return 125;
-			uint64_t value = 0u; if (!exactNumber(option, L"--maximum-rss-bytes=", value)) return 125;
-			if (value > static_cast<uint64_t>(SIZE_MAX)) { return 125; }
+			if (values.rss != 0u) nativeFailure("duplicate-rss", ERROR_INVALID_PARAMETER);
+			uint64_t value = 0u; if (!exactNumber(option, L"--maximum-rss-bytes=", value)) nativeFailure("rss-option", ERROR_INVALID_PARAMETER);
+			if (value > static_cast<uint64_t>(SIZE_MAX)) nativeFailure("rss-overflow", ERROR_INVALID_PARAMETER);
    values.rss = static_cast<SIZE_T>(value); continue;
 		}
 		if (exactNumber(option, L"--maximum-duration-ms=", values.durationMs)) continue;
-		return 125;
-	admitted: if (values.grants.size() > maximumGrants) return 125;
+		nativeFailure("unknown-option", ERROR_INVALID_PARAMETER);
+	admitted: if (values.grants.size() > maximumGrants) nativeFailure("grant-count", ERROR_INVALID_PARAMETER);
 	}
 	if (!separator || values.enforcement == nullptr || values.profile == nullptr || values.broker == nullptr
 		|| values.executable == nullptr || values.control == nullptr || values.authorityProfile.empty()
-		|| values.rss == 0u || values.durationMs == 0u || child.empty()) return 125;
+		|| values.rss == 0u || values.durationMs == 0u || child.empty()) nativeFailure("required-options", ERROR_INVALID_PARAMETER);
 	std::vector<HANDLE> unique{ values.enforcement, values.profile, values.broker, values.executable, values.control };
 	if (values.extraInput != nullptr) unique.push_back(values.extraInput);
 	for (const auto &grant : values.grants) unique.push_back(grant.handle);
 	std::sort(unique.begin(), unique.end());
-	if (std::adjacent_find(unique.begin(), unique.end()) != unique.end()) return 125;
+	if (std::adjacent_find(unique.begin(), unique.end()) != unique.end()) nativeFailure("descriptor-alias", ERROR_INVALID_PARAMETER);
 
 	if (!values.grants.empty() || values.extraInput != nullptr || child.size() != 1u || child[0] != L"lightscaper-photo-native-raw"
-  || values.durationMs > 30000u || values.rss > 805306368u) return 125;
+  || values.durationMs > 30000u || values.rss > 805306368u) nativeFailure("fixed-raw-policy", ERROR_INVALID_PARAMETER);
  PhotoWindowsImage image(values.executable);
  const auto executable = image.path();
 	std::wstring command = quote(executable);
