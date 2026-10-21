@@ -172,6 +172,7 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 				clip.timelineStartFrame / projectRate,
 				(clip.timelineStartFrame + clip.durationFrames) / projectRate,
 			] as const) ?? [];
+		clips.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
 		const stats = nyquistChannelStats([...channels]);
 		const lowHz = Number(frequencyRange?.minimumFrequency);
 		const highHz = Number(frequencyRange?.maximumFrequency);

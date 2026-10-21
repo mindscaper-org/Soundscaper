@@ -8,7 +8,7 @@ import { gunzipSync } from 'node:zlib';
 import { installNyquistArchivePlugin, parseNyquistArchiveManifest } from '../src/common/editor/nyquist/archive-catalog.js';
 import { createNyquistArchiveStore } from '../src/common/editor/nyquist/archive-store.js';
 import { loadNyquistWasm } from '../src/common/editor/nyquist/runtime.js';
-import { createController, createFixture } from './helpers/audio-editor-nyquist-controller-harness.js';
+import { createController, createCurrentAudioEditorProject, createFixture } from './helpers/audio-editor-nyquist-controller-harness.js';
 
 test('the published Trim Silence runs on selected PCM through the public Nyquist action', async () => {
 	const plugin = await installPlugin('TrimSilence.ny');
@@ -58,9 +58,27 @@ test('the published Oxygene Surf generator retains floating point widget binding
 	} finally { await controller.dispose(); }
 });
 
-async function controllerFor(input: Float32Array) {
-	const { store } = await createFixture('nyquist-host-compatibility', { sampleRate: 8_000,
+test('published Trim Silence finds selected clips after an earlier-created clip was moved later', async () => {
+	const plugin = await installPlugin('TrimSilence.ny');
+	const input = Float32Array.from({ length: 8_000 }, (_, i) => i < 800 || i >= 7_200 ? 0 : 0.2 * Math.cos(i * Math.PI / 10));
+	const { controller } = await controllerFor(input, true);
+	try {
+		const result = await controller.actions.nyquist.evaluate({ source: plugin.source, role: 'process',
+			name: plugin.name, controls: { threshold: -48, 'min-start-silence': 0, 'min-end-silence': 0 } });
+		assert.ok(result && typeof result === 'object' && 'frameCount' in result);
+		assert.ok(typeof result.frameCount === 'number' && result.frameCount >= 6_300 && result.frameCount <= 6_500);
+	} finally { await controller.dispose(); }
+});
+
+async function controllerFor(input: Float32Array, movedClip = false) {
+	const { store, project } = await createFixture('nyquist-host-compatibility', { sampleRate: 8_000,
 		tracks: [{ id: 'voice', name: 'Voice', input }] });
+	if (movedClip) await store.saveProject(createCurrentAudioEditorProject({ id: project.id, sampleRate: 8_000,
+		sources: project.sources, tracks: [{ id: 'voice', type: 'audio', clipIds: ['late', 'early'] }],
+		clips: [
+			{ id: 'late', sourceId: 'voice-source', timelineStartFrame: 16_000, sourceStartFrame: 0, sourceDurationFrames: 8_000, durationFrames: 8_000 },
+			{ id: 'early', sourceId: 'voice-source', timelineStartFrame: 0, sourceStartFrame: 0, sourceDurationFrames: 8_000, durationFrames: 8_000 },
+		] }));
 	const runtime = await loadNyquistWasm(readFileSync(new URL('../src/common/editor/nyquist/nyquist.wasm', import.meta.url)));
 	const controller = createController(store, new Map([['voice', input]]),
 		(request: Parameters<typeof runtime.evaluate>[0]) => Promise.resolve(runtime.evaluate(request)));
