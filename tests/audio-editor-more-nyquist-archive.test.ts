@@ -47,6 +47,9 @@ test('the authenticated published Chimes Delay processes audio with its string n
 	const result = await evaluateNyquist({ source, sampleRate: 44_100, channels: [input], maxOutputFrames: 44_100,
 		controls: { chimeslist: '0 7 12', lownote: 0, highnote: 12, maxdelay: 0.5, minvol: 50, count: 1 } }, runtime);
 	assert.equal(result.type, 'audio');
+	assert.equal(typeof result.frameCount, 'number');
+	assert.ok(result.channels);
+	assert.ok(result.frameCount !== undefined);
 	assert.ok(result.frameCount >= input.length);
-	assert.ok(result.channels[0].some((value: number) => Math.abs(value) > 0.01));
+	assert.ok(result.channels[0]?.some((value: number) => Math.abs(value) > 0.01));
 });
