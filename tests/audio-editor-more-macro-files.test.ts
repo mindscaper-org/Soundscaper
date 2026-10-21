@@ -2,10 +2,11 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { act } from 'react';
 import { createMacroScriptLibrary } from '../src/common/editor/macro-script-library.ts';
 import { createMacroScriptLibraryService } from '../src/common/editor/controller/effects/macro-script-library-service.ts';
 import { MACRO_SCRIPT_ENGINE, serializeMacroScriptEnvelope } from '../src/common/editor/macro-script-envelope.ts';
-import { changeFile, macroSnapshot, mountedMacroManagerFixture } from './helpers/macro-manager-fixture.tsx';
+import { changeFile, deferred, macroSnapshot, mountedMacroManagerFixture } from './helpers/macro-manager-fixture.tsx';
 
 function service() {
 	let id = 0;
@@ -48,3 +49,27 @@ test('MP15 manager route admits the encoded program bytes exported from its vali
 	}
 });
 
+
+test('MP34: a pending program import cannot replace a later project manager selection', async () => {
+	const fixture = await mountedMacroManagerFixture();
+	const text = deferred<string>();
+	try {
+		await fixture.render(macroSnapshot('project-a'));
+		await changeFile(fixture.importScriptInput(), { name: 'Old.soundscapemacro', size: 100,
+			text: () => text.promise } as File);
+		await fixture.render(macroSnapshot('project-b'));
+		await changeFile(fixture.importScriptInput(), new File([
+			serializeMacroScriptEnvelope({ name: 'New program', source: 'await sound.select.all();' }),
+		], 'New.soundscapemacro'));
+		assert.ok(fixture.selectedProgramName()?.startsWith('New program'));
+		await act(async () => {
+			text.resolve(serializeMacroScriptEnvelope({ name: 'Old program', source: 'await sound.select.none();' }));
+			await text.promise;
+			await Promise.resolve();
+		});
+		assert.ok(fixture.selectedProgramName()?.startsWith('New program'));
+		assert.deepEqual(fixture.scripts.list().map(({ name }) => name), ['New program']);
+	} finally {
+		text.resolve(''); fixture.settlePending(); await fixture.cleanup();
+	}
+});

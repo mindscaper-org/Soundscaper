@@ -81,20 +81,25 @@ export function AudioEditorMacroManagerDialog({
 	// anything and never grants anything, so the message says what is owed next.
 	const importScript = async (file) => {
 		if (!file) return;
+		const operation = startOperation(activeImportRef);
 		try {
 			if (file.size > MACRO_SCRIPT_FILE_MAXIMUM_BYTES) {
 				throw new RangeError('File exceeds the 2 MiB macro program import limit.');
 			}
-			const created = scriptLibrary.import(await file.text(), file.name);
+			const text = await file.text();
+			if (!ownsOperation(activeImportRef, operation)) return;
+			const created = scriptLibrary.import(text, file.name);
 			setSelectedScriptId(created.id);
 			openMacro(null);
 			showMessage({ key: 'ui.macroManager.programImported', fallback: managerCopy.programImported }, 'warning');
 		} catch (cause) {
+			if (!ownsOperation(activeImportRef, operation)) return;
 			showMessage({ key: 'ui.macroManager.programImportFailed', fallback: managerCopy.programImportFailed, parameters: { message: feedbackErrorParameter(cause) } }, 'error');
 		}
 	};
 	const exportScript = async () => {
 		if (!selectedScript) return;
+		const operation = startOperation(activeExportRef);
 		try {
 			const saved = await downloadTextFile(
 				scriptLibrary.export(selectedScript.id),
@@ -102,9 +107,10 @@ export function AudioEditorMacroManagerDialog({
 				fileService,
 				'macro',
 			);
-			if (saved?.cancelled) return;
+			if (!ownsOperation(activeExportRef, operation) || saved?.cancelled) return;
 			showMessage({ key: 'macroExported' }, 'success');
 		} catch (cause) {
+			if (!ownsOperation(activeExportRef, operation)) return;
 			showMessage({ key: 'macroExportFailed', parameters: { message: feedbackErrorParameter(cause) } }, 'error');
 		}
 	};
