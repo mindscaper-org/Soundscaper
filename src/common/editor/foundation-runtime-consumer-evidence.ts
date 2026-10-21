@@ -30,6 +30,16 @@ export interface FoundationRuntimeConsumerEvidence {
  */
 const entries: FoundationRuntimeConsumerEvidence[] = [
 	{
+		id: 'label-file-export', surface: 'interchange', file: 'src/common/editor/controller/edit/internal/label-service.ts',
+		entryPoint: 'exportLabels', inputIdentifier: 'labelProject', projectedIdentifier: 'tracks', boundary: 'resolveRuntimeProjectProjection',
+		evidence: 'Label file export resolves the label-only authored project through its tempo map before selecting tracks and serializing subtitle or chapter sample times.',
+	},
+	{
+		id: 'video-source-readiness', surface: 'video-export', file: 'src/common/editor/controller/export/video-export-source-inventory.ts',
+		entryPoint: 'videoExportSourceInventory', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'Movie source readiness resolves each visible video clip before intersecting its geometry with the selected output span; product picture leaves retain their owning renderer and audio inputs remain available for effect pre-roll.',
+	},
+	{
 		id: 'dawproject-imported-delivery', surface: 'interchange',
 		file: 'src/common/editor/controller/import/internal/dawproject/dawproject-service.ts',
 		entryPoint: 'openDawproject', inputIdentifier: 'created', projectedIdentifier: null,
@@ -46,7 +56,7 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 	{
 		id: 'export-dialog-delivered-chapter-admission', surface: 'audio-export',
 		file: 'src/common/editor/ui/export-dialog-embedded-chapters.ts',
-		entryPoint: 'exportDialogHasDeliveredChapterLabels', inputIdentifier: 'projectValue', projectedIdentifier: 'project',
+		entryPoint: 'exportDialogHasDeliveredChapterLabels', inputIdentifier: 'selectedProject', projectedIdentifier: 'project',
 		boundary: 'projectForRuntimeConsumers',
 		evidence: 'Chapter availability resolves the authored project before checking the selected delivery span, project duration and label occurrences; it uses the same output-frame rounding and exclusive range as the chapter writer.',
 	},

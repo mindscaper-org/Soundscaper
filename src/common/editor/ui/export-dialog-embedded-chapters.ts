@@ -33,7 +33,8 @@ export function exportDialogHasChapterLabels(projectValue: unknown): boolean {
 /** Availability follows the same exclusive span and output-frame rounding as the chapter writer. */
 export function exportDialogHasDeliveredChapterLabels(projectValue: unknown, settings: Readonly<Record<string, unknown>>): boolean {
 	try {
-		const project = projectForRuntimeConsumers(exportSequenceProject(projectValue as RuntimeClipProject));
+		const selectedProject = exportSequenceProject(projectValue as RuntimeClipProject);
+		const project = projectForRuntimeConsumers(selectedProject);
 		const loop = record(project.loop);
 		const selected = settings.range === 'selection' ? record(project.selection) : settings.range === 'loop'
 			? loop.enabled ? loop : null

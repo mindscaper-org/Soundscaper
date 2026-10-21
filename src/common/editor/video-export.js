@@ -409,7 +409,7 @@ export function createVideoExportPlan(project, options = {}) {
 }
 
 
-/** Resolve the canonical sample-frame range shared by legacy and exact video export. */
+/** Resolve the canonical sample-frame range shared by legacy and exact video export. @param {unknown} requested */
 export function resolveVideoExportRange(project, requested = 'project') {
 	const runtimeProject = ensureRuntimeProject(project);
 	let startFrame;

@@ -28,7 +28,7 @@ test('MW006 extension: the actual movie export controller honors the imported pi
 	const exporting = createEditorVideoExportAction({ ...fixture.runtime, getProject: () => project,
 		createVideoExportPlan: (value: Readonly<Record<string, unknown>>, settings: Readonly<Record<string, unknown>>) => {
 			const plan = createVideoExportPlan(value, settings);
-			audioInputs = plan.inputs.filter(input => input.kind === 'staged-audio-mix').length;
+			audioInputs = plan.inputs.filter((input: { readonly kind: string }) => input.kind === 'staged-audio-mix').length;
 			return plan;
 		},
 		fileService: { isDesktop: true, getDesktopVideoExportCapabilities: async () => ({ schemaVersion: 1,

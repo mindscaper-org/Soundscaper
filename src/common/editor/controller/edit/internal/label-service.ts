@@ -257,10 +257,11 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 		const ownership = captureOwnership('labels:export');
 		try {
 			const requestedIds = Array.isArray(options.trackIds) ? new Set(options.trackIds) : null;
-			let tracks = resolveRuntimeProjectProjection({
+			const labelProject = {
 				sampleRate: ownership.project.sampleRate, tempoMap: ownership.project.tempoMap,
 				tracks: ownership.project.tracks, clips: [],
-			}).tracks
+			};
+			let tracks = resolveRuntimeProjectProjection(labelProject).tracks
 				.filter(isLabelTrack)
 				.filter((track) => !requestedIds || requestedIds.has(track.id));
 			const selected = tracks.find((track) => track.id === dependencies.state.selectedTrackId);

@@ -146,9 +146,9 @@ test('desktop keyed delivery prefers WebCodecs and falls back to verified extern
 	}
 });
 test('product picture authority exports stills and generators without fake video timing or audio', async () => {
-	for (const kind of ['still', 'generator'] as const) {
+	for (const kind of ['still', 'generator'] as const) for (const range of ['project', { startFrame: 0, endFrame: SAMPLE_RATE }]) {
 		const fixture = createPictureOnlyFixture(kind, false);
-		const result = await fixture.exportVideo({ format: 'video-mp4' });
+		const result = await fixture.exportVideo({ format: 'video-mp4', range });
 		assert.equal(result?.fileName, `Picture-${kind}.mp4`);
 		assert.deepEqual(fixture.capture.timingSourceIds, []);
 		assert.deepEqual(fixture.capture.videoBlobIds, []);
@@ -288,13 +288,13 @@ function createFixture(options: FixtureOptions) {
 		height: 360,
 	});
 	const activeClip = Object.freeze({
-		id: 'active-clip', kind: 'video', sourceId: ACTIVE_SOURCE_ID,
+		id: 'active-clip', kind: 'video', sourceId: ACTIVE_SOURCE_ID, sequenceId: 'main', sequenceStartFrame: 0, sequenceFrameCount: 3,
 		timelineStartFrame: 0, durationFrames: SAMPLE_RATE,
 		sourceStartFrame: 0, sourceDurationFrames: 3,
 		sourceInFrame: 0, sourceFrameCount: 3,
 	});
 	const offRangeClip = Object.freeze({
-		id: 'off-range-clip', kind: 'video', sourceId: OFF_RANGE_SOURCE_ID,
+		id: 'off-range-clip', kind: 'video', sourceId: OFF_RANGE_SOURCE_ID, sequenceId: 'main', sequenceStartFrame: 6, sequenceFrameCount: 3,
 		timelineStartFrame: SAMPLE_RATE * 2, durationFrames: SAMPLE_RATE,
 		sourceStartFrame: 0, sourceDurationFrames: 3,
 		sourceInFrame: 0, sourceFrameCount: 3,
@@ -305,7 +305,7 @@ function createFixture(options: FixtureOptions) {
 		sourceStartFrame: 0, sourceDurationFrames: SAMPLE_RATE,
 	});
 	const project = Object.freeze({
-		id: 'keyed-video', title: 'Keyed video', sampleRate: SAMPLE_RATE, masterChannels: 2,
+		id: 'keyed-video', title: 'Keyed video', sampleRate: SAMPLE_RATE, masterChannels: 2, primarySequenceId: 'main', sequences: [{ id: 'main', rate: { num: 3, den: 1 }, trackIds: ['video-track', 'audio-track'] }],
 		tracks: Object.freeze([
 			Object.freeze({
 				id: 'video-track', type: 'video', hidden: false,

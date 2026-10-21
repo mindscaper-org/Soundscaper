@@ -127,6 +127,8 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/engine/lifecycle.ts', surfaces: ['playback'] },
 	{ file: 'src/common/editor/export.js', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/ui/export-dialog-embedded-chapters.ts', surfaces: ['audio-export'] },
+	{ file: 'src/common/editor/controller/edit/internal/label-service.ts', surfaces: ['interchange'] },
+	{ file: 'src/common/editor/controller/export/video-export-source-inventory.ts', surfaces: ['video-export'] },
 	{ file: 'src/common/editor/export-clip-boundaries.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/export-clips.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/aup4-export.js', surfaces: ['interchange'] },

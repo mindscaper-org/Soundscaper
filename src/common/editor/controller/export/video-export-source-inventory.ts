@@ -8,7 +8,9 @@ import { resolveVideoExportRange } from '../../video-export.js';
 export function videoExportSourceInventory(
 	project: RuntimeClipProject, requestedRange: unknown, includeAudio: boolean,
 ): Readonly<{ project: RuntimeClipProject; pictureClipIds: ReadonlySet<string> }> {
-	const range = requestedRange === 'project' ? null : resolveVideoExportRange(project, requestedRange);
+	const range = requestedRange === 'project' ? null : resolveVideoExportRange({
+		sampleRate: project.sampleRate, clips: [], selection: project.selection, loop: project.loop,
+	}, requestedRange);
 	const tracks = (project.tracks ?? []) as readonly Readonly<Record<string, unknown>>[];
 	const visible = createVisibleVideoTrackPredicate(tracks);
 	const pictureOwners = new Set(tracks.filter(track => visible(track))
