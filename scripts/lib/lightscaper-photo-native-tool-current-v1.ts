@@ -16,7 +16,7 @@ export async function runPhotoNativeToolCurrentV1(command: string, arguments_: r
  child.stdin.end();
  const outcome = await closed; await Promise.all(streams); if (signal) Reflect.apply(CHECK, signal, []);
   if (failed) throw primary;
-  if (outcome.code !== 0 || outcome.signal !== null) throw new Error(`Photo native tool failed (${String(outcome.code)}, ${String(outcome.signal)}): ${Buffer.concat(errors).toString('utf8').slice(-8192)}`);
+  if (outcome.code !== 0 || outcome.signal !== null) throw new Error(`Photo native tool failed (${String(outcome.code)}, ${String(outcome.signal)})\nstdout (tail):\n${Buffer.concat(output).toString('utf8').slice(-8192)}\nstderr (tail):\n${Buffer.concat(errors).toString('utf8').slice(-8192)}`);
   return Buffer.concat(output).toString('utf8');
 
 }
