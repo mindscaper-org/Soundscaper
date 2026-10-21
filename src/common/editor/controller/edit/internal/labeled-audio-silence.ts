@@ -21,6 +21,7 @@ import type {
 	OperationOwnership,
 } from '../generator-service.ts';
 import type { LabeledAudioRegion } from '../../../labeled-audio-regions.ts';
+import type { GeneratedSignalStream } from '../../../signal-generator-stream-client.ts';
 
 export interface LabeledAudioSilenceOwnership {
 	begin(): OperationOwnership;
@@ -59,6 +60,7 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 		if (spans.length === 0 || trackIds.length === 0) return false;
 		const owned = ownership.begin();
 		let processing = false;
+		const streams: GeneratedSignalStream[] = [];
 		try {
 			const persistedProject = owned.project;
 			const project = projectForAudioGeneratorCommands(persistedProject, dependencies.getCommandProject);
@@ -78,13 +80,9 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 			)));
 			// One frame of headroom keeps every clip inside the source bounds
 			// however the requested duration rounds.
-			const signals = [...new Set(plan.map(entry => entry.channelCount))].map(channelCount => generateAudioEditorSignal('silence', {
-				durationSeconds: (longestRegionFrames + 1) / sampleRate,
-				sampleRate,
-				channelCount,
-			}) as GeneratedSignal);
+			const widths = [...new Set(plan.map(entry => entry.channelCount))];
 			await dependencies.preflightStorage(
-				signals.reduce((bytes, generated) => bytes + generated.frameCount * generated.channelCount * Float32Array.BYTES_PER_ELEMENT, 0),
+				widths.reduce((bytes, width) => bytes + (longestRegionFrames + 1) * width * Float32Array.BYTES_PER_ELEMENT, 0),
 				'effect',
 			);
 			ownership.assert(owned);
@@ -96,14 +94,22 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 			return await publishWidth(0);
 
 			async function publishWidth(index: number): Promise<boolean> {
-				const generated = signals[index];
-				if (!generated) return commitSilence();
+				const channelCount = widths[index];
+				if (channelCount === undefined) return commitSilence();
+				const options = { durationSeconds: (longestRegionFrames + 1) / sampleRate, sampleRate, channelCount };
+				const generated = dependencies.generateStream
+					? await dependencies.generateStream('silence', options, owned.task.signal)
+					: generateAudioEditorSignal('silence', options) as GeneratedSignal;
+				const stream = 'chunks' in generated ? generated : null;
+				if (stream) streams.push(stream);
+				ownership.assert(owned);
 				return publishGeneratedAudioSource(dependencies, {
 					name,
 					sampleRate,
 					channelCount: generated.channelCount,
 					frameCount: generated.frameCount,
-					channels: generated.channels,
+					channels: 'channels' in generated ? generated.channels : undefined,
+					stream: stream ?? undefined,
 					ownership: {
 						signal: owned.task.signal,
 						assertCurrent: () => ownership.assert(owned),
@@ -137,6 +143,7 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 				return true;
 			}
 		} finally {
+			for (const stream of streams) stream.close();
 			ownership.finish(owned, processing);
 		}
 	}
