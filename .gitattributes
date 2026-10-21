@@ -77,3 +77,26 @@ patches/**/*.patch text eol=lf
 /config/assistance-onnx-webgpu-plugin.json text eol=lf
 /config/assistance-onnx-node-api-build.json text eol=lf
 /config/assistance-sherpa-gpu-build.json text eol=lf
+
+# The reviewed desktop RAW closure ships these existing text bytes verbatim.
+# Keep its source archives, sidecars, notices and build sources stable on Windows.
+/runtime-assets/libraw/0.22.2/corresponding-source.tar.gz.sha256 text eol=lf
+/runtime-assets/libraw/0.22.2/recovery-abi2/corresponding-source.tar.gz.sha256 text eol=lf
+/config/lightscaper-libraw-recovery-runtime-manifest.json text eol=lf
+/config/lightscaper-libraw-runtime-manifest.json text eol=lf
+/docs/architecture/lightscaper-raw-decoder.md text eol=lf
+/docs/architecture/lightscaper-raw-recovery.md text eol=lf
+/scripts/audit-lightscaper-libraw-recovery-wasm.mjs text eol=lf
+/scripts/audit-lightscaper-libraw-wasm.mjs text eol=lf
+/scripts/build-lightscaper-libraw-recovery-wasm.mjs text eol=lf
+/scripts/build-lightscaper-libraw-wasm.mjs text eol=lf
+/scripts/lib/lightscaper-libraw-recovery-profile.mjs text eol=lf
+/scripts/lib/wasm-binary-inspection.mjs text eol=lf
+/scripts/package-lightscaper-libraw-recovery-source.mjs text eol=lf
+/scripts/package-lightscaper-libraw-source.mjs text eol=lf
+/src/common/editor/raw/RECOVERY-NOTICE.md text eol=lf
+/src/common/editor/raw/licenses/COPYRIGHT text eol=lf
+/src/common/editor/raw/licenses/LICENSE.CDDL text eol=lf
+/src/common/editor/raw/licenses/LICENSE.LGPL text eol=lf
+/src/common/editor/raw/native/libraw_recovery_wasm.cpp text eol=lf
+/src/common/editor/raw/native/libraw_wasm.cpp text eol=lf
