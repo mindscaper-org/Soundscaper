@@ -299,8 +299,8 @@ function developTools(page, app, library, copy, locale) {
 		async add(type, key, value) { await chooseValue(page, named(dialog, 'combobox', labels.choose), type); await keyboard(page, named(dialog, 'button', labels.add));
 			const input = numberInput(key); await input.fill(value); await input.press('Enter'); await expect(input).toHaveValue(value); },
 		async save() { await keyboard(page, named(dialog, 'button', labels.save)); await expect(dialog.locator('[data-photo-develop-ack]')).toContainText(labels.acknowledged); await settled(); },
-		async presets() { const menu = dialog.locator('details').filter({ has: page.locator('summary').filter({ hasText: new RegExp(`^${messages.menu}$`, 'u') }) });
-			if (!(await menu.evaluate(value => value.open))) await keyboard(page, menu.locator('summary'));
+		async presets() { const settingsSummary = dialog.locator('summary').filter({ hasText: new RegExp(`^${messages.menu}$`, 'u') }), menu = settingsSummary.locator('xpath=parent::details');
+			if (!(await menu.evaluate(value => value.open))) await keyboard(page, settingsSummary);
 			await keyboard(page, named(menu, 'button', messages.presets)); const options = named(page, 'dialog', messages.presets); await settled(); return options; },
 		async choose(options, name, partial) { await chooseLabel(page, named(options, 'combobox', messages.choosePreset), `${name} (${partial ? messages.partial : messages.full})`); },
 		async savePreset(options, name, partial) { await checkbox(page, named(options, 'checkbox', messages.all), !partial);

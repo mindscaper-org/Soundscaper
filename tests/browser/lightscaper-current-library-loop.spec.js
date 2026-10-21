@@ -51,8 +51,8 @@ for (const locale of ['en', 'de']) test(`${locale}: current keyboard library loo
 	await expect(named(editor, 'button', develop.shared.videoEffectCubeLutClear)).toBeEnabled();
 	await key(named(editor, 'button', develop.save)); await expect(editor.locator('[data-photo-develop-ack]')).toBeVisible();
 	await expect(named(editor, 'button', develop.cancel).last()).toBeDisabled(); await settled(2);
-	const settingsMenu = editor.locator('details').filter({ has: page.locator('summary').filter({ hasText: exact(settings.menu) }) });
-	await key(settingsMenu.locator('summary')); await key(named(settingsMenu, 'button', settings.presets));
+	const settingsSummary = editor.locator('summary').filter({ hasText: exact(settings.menu) }), settingsMenu = settingsSummary.locator('xpath=parent::details');
+	await key(settingsSummary); await key(named(settingsMenu, 'button', settings.presets));
 	const presets = named(page, 'dialog', settings.presets);
 	await savePreset('Current full', false); await savePreset('Current LUT', true);
 	await close(presets, settings.close); await close(editor, develop.close);

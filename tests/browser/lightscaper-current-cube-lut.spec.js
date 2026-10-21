@@ -104,8 +104,8 @@ for (const locale of ['en', 'de']) {
 		async function settled() { await expect(named(dialog, 'button', messages.cancel).last()).toBeDisabled(); await expect(library).toHaveAttribute('aria-busy', 'false'); }
 		async function save() { await keyboard(page, named(dialog, 'button', messages.save)); await expect(dialog.locator('[data-photo-develop-ack]')).toBeVisible(); await settled(); }
 		async function closeDevelop() { await keyboard(page, closeButton(dialog, messages.close)); await expect(dialog).toHaveCount(0); }
-		async function presets() { const menu = dialog.locator('details').filter({ has: page.locator('summary').filter({ hasText: new RegExp(`^${settings.menu}$`, 'u') }) });
-			if (!(await menu.evaluate(element => element.open))) await keyboard(page, menu.locator('summary'));
+		async function presets() { const settingsSummary = dialog.locator('summary').filter({ hasText: new RegExp(`^${settings.menu}$`, 'u') }), menu = settingsSummary.locator('xpath=parent::details');
+			if (!(await menu.evaluate(element => element.open))) await keyboard(page, settingsSummary);
 			await keyboard(page, named(menu, 'button', settings.presets)); const options = named(page, 'dialog', settings.presets); await settled(); return options; }
 		async function savePreset(options, name, partial) {
 			await checked(page, named(options, 'checkbox', settings.all), !partial);

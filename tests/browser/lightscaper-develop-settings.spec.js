@@ -130,8 +130,8 @@ for (const locale of ['en', 'de']) {
 		async function settled() { await expect(dialog.getByRole('button', { name: develop.cancel, exact: true }).last()).toBeDisabled();
 			await expect(library).toHaveAttribute('aria-busy', 'false'); }
 		async function save() { await keyboard(page, dialog.getByRole('button', { name: develop.save, exact: true })); await expect(dialog.locator('[data-photo-develop-ack]')).toContainText(develop.acknowledged); await settled(); }
-		async function settingsAction(name) { const menu = dialog.locator('details').filter({ has: page.locator('summary').filter({ hasText: new RegExp(`^${messages.menu}$`, 'u') }) });
-			if (!(await menu.evaluate(value => value.open))) await summary(page, dialog, messages.menu); await keyboard(page, menu.getByRole('button', { name, exact: true })); }
+		async function settingsAction(name) { const settingsSummary = dialog.locator('summary').filter({ hasText: new RegExp(`^${messages.menu}$`, 'u') }), menu = settingsSummary.locator('xpath=parent::details');
+			if (!(await menu.evaluate(value => value.open))) await keyboard(page, settingsSummary); await keyboard(page, menu.getByRole('button', { name, exact: true })); }
 		async function partialWhiteBalance(target) { await checked(page, target.getByRole('checkbox', { name: messages.all, exact: true }), false);
 			await checked(page, target.getByRole('checkbox', { name: develop.shared.videoEffectWhiteBalance, exact: true }), true);
 			await checked(page, target.getByRole('checkbox', { name: messages.geometry, exact: true }), false); await checked(page, target.getByRole('checkbox', { name: messages.local, exact: true }), false); }
