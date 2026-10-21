@@ -379,9 +379,7 @@ directory_reader root_reader::open_directory(std::span<const std::filesystem::pa
 	try {
 		auto parent = state_->handle;
 		if (components.empty()) {
-			const auto handle = ReOpenFile(parent, FILE_GENERIC_READ | SYNCHRONIZE,
-				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT);
-			if (handle == INVALID_HANDLE_VALUE) std::rethrow_exception(io_failure("directory clone", GetLastError()));
+			const auto handle = open_relative(parent, std::filesystem::path{});
 			held.emplace_back(handle); require_directory(handle);
 			if (identity_of(handle) != state_->captured) throw read_error(error_code::identity_changed, "Granted native directory clone differs.");
 		}

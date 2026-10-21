@@ -27,7 +27,16 @@ process.stdin.on('data', part=>{ pending=Buffer.concat([pending,part]); while(pe
  const frame=pending.subarray(0,16+length);pending=pending.subarray(16+length);
  if(frame[5]===10){process.exitCode=0;process.stdin.destroy();return;}
  let payload;
- if(${JSON.stringify(magic)}==='SGR1'){
+ if(${JSON.stringify(magic)}==='SGR1' && frame[5]!==1) {
+  const fs=require('node:fs'),id=frame.subarray(16,48).toString('hex'),text=value=>{const b=Buffer.from(value);const n=Buffer.alloc(2);n.writeUInt16BE(b.length);return Buffer.concat([n,b]);};
+  const roots=globalThis.fixtureRoots??=new Map(),scans=globalThis.fixtureScans??=new Map();
+  if(frame[5]===2){const encoding=frame[48],size=frame.readUInt32BE(49),path=frame.subarray(53,53+size).toString(encoding===2?'utf16le':'utf8');const stat=fs.statSync(path);roots.set(id,path);payload=Buffer.concat([text(String(stat.dev)),text(String(stat.ino))]);}
+  else if(frame[5]===7){const parent=frame.subarray(48,80).toString('hex');if(frame[80]!==0)throw Error('fixture accepts only root scan');const path=roots.get(parent);scans.set(id,{path,names:fs.readdirSync(path),offset:0});payload=Buffer.alloc(0);}
+  else if(frame[5]===8){const scan=scans.get(id),names=scan.names.slice(scan.offset,scan.offset+64);scan.offset+=names.length;const header=Buffer.alloc(3);header[0]=Number(scan.offset===scan.names.length);header.writeUInt16BE(names.length,1);payload=Buffer.concat([header,...names.map(name=>{const bytes=Buffer.from(name),prefix=Buffer.alloc(6);prefix[0]=1;prefix[1]=1;prefix.writeUInt32BE(bytes.length,2);const tail=Buffer.alloc(10);tail.writeBigUInt64BE(BigInt(fs.statSync(require('node:path').join(scan.path,name)).size));return Buffer.concat([prefix,bytes,tail]);})]);}
+  else if(frame[5]===9){scans.delete(id);payload=Buffer.alloc(0);}
+  else if(frame[5]===3){roots.delete(id);payload=Buffer.alloc(0);}
+  else throw Error('unexpected fixture filesystem operation');
+ }else if(${JSON.stringify(magic)}==='SGR1'){
   const tail=Buffer.alloc(21);tail[0]=1;tail.writeUInt16BE(64,1);tail.writeUInt16BE(4094,3);tail[5]=4;tail[6]=4;
   tail.writeUInt32BE(1048576,7);tail.writeUInt32BE(262144,11);tail.writeUInt16BE(64,15);tail.writeUInt32BE(65536,17);
   payload=Buffer.concat([frame.subarray(16,48),tail]);

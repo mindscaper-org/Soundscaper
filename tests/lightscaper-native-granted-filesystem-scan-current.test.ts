@@ -59,3 +59,22 @@ void test('scan pages own detached name snapshots and keep closed cursor admissi
 	assert.ok(page.entries.some(entry => key(entry.component) === before));
 	await assert.rejects(scan.next()); await again.close(); await root.close();
 }));
+
+void test('simultaneous native root scans retain independent multi-page cursors from the same held root', deadline, async context => fixture(context, async f => {
+	const expected = new Set([key(path('photo.bin')), key(path('nested'))]);
+	for (let index = 0; index < 130; index++) { const name = `parallel-${String(index).padStart(3, '0')}`; await writeFile(join(f.rootPath, name), f.bytes); expected.add(key(path(name))); }
+	const root = await f.root(), a = await root.openScan([]), b = await root.openScan([]), first = await a.next();
+	assert.equal(first.entries.length, 64); assert.equal(first.done, false);
+	async function finish(scan: typeof a, page: typeof first): Promise<void> {
+	 const names = new Set<string>(); let count = 0;
+	 for (;;) {
+	  assert.ok(++count <= 4); assert.ok(page.entries.length <= 64);
+	  for (const entry of page.entries) { const name = key(entry.component); assert.equal(names.has(name), false); names.add(name); }
+	  if (page.done) break; assert.ok(page.entries.length); page = await scan.next();
+	 }
+	 assert.deepEqual([...names].sort(), [...expected].sort());
+	 const done = await scan.next(); assert.equal(done.done, true); assert.equal(done.entries.length, 0);
+	}
+	await finish(b, await b.next()); await finish(a, first); assert.equal(f.count(op.read), 0);
+	await a.close(); await b.close(); await root.close();
+}));

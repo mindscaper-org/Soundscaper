@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { randomBytes, createHash } from 'node:crypto';
 import { createServer } from 'node:net';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runPhotoNativeToolCurrentV1 as tool } from './lightscaper-photo-native-tool-current-v1.ts';
 import { spawnNativeRawStdioChildCurrentV1 as spawnControl } from '../../desktop/native-child-raw-stdio-current-v1.ts';
 import { checkNativeFilesystemSignal as check, linkNativeFilesystemSignal as link } from '../../desktop/lightscaper-native-photo-granted-filesystem-signal-current-v1.ts';
 import { preparePhotoNativeChildCurrentV1 as prepare, photoNativePreparedRetirementIsUnprovedCurrentV1 as childUnproved } from '../../desktop/lightscaper-native-photo-prepared-child-current-v1.ts';
+import { NativeReader, NativeWriter, readNativePage } from '../../desktop/lightscaper-native-photo-granted-filesystem-codec-current-v1.ts';
 import { NativeFilesystemProcessCurrentV1 as Filesystem } from '../../desktop/lightscaper-native-photo-granted-filesystem-process-current-v1.ts';
 import { LightscaperNativePhotoRawProcessCurrentV1 as Raw } from '../../desktop/lightscaper-native-photo-raw-process-current-v1.ts';
 import { photoNativeArtifactRetirementIsUnprovedCurrentV1 as artifactUnproved, openPhotoNativePinnedFileCurrentV1 as authenticate, copyPhotoNativePinnedFileCurrentV1 as copy, photoNativeInventoryCurrentV1 as inventory } from '../../desktop/lightscaper-native-photo-artifact-files-current-v1.ts';
@@ -152,11 +153,39 @@ export async function selfTestPhotoNativeCurrentV1(root: string, target: PhotoNa
   const bytes = Buffer.from(`${JSON.stringify(value)}\n`); await mkdir(join(root, 'checks'), { recursive: true });
   await writeFile(join(root, 'checks', `${id}.json`), bytes, { flag: 'wx' }); outputs.push(Object.freeze({ id, status: 'passed', sha256: hash(bytes) }));
  }
- const fsPrepared = await prepare(root, target, files, 'granted-filesystem', signal, () => undefined); let fs: Filesystem | undefined;
+ const fsPrepared = await prepare(root, target, files, 'granted-filesystem', signal, () => undefined); let fs: Filesystem | undefined, scanRoot: string | undefined, fsClosed = false, preparedClosed = false;
  await joined(async () => {
-  fs = new Filesystem(fsPrepared.start, () => { throw new Error('Actual FS self-test cleanup is unproved.'); }); await fs.initialize(); await fs.close();
-  await record('filesystem-protocol', { schemaVersion: 1, target, protocol: 'SGR1', initialized: true, actualShutdownJoined: true, payload: files.find(file => file.path === paths.filesystem)!.sha256 });
- }, [async () => fs?.close(), fsPrepared.close]);
+  const actual = new Filesystem(fsPrepared.start, () => { throw new Error('Actual FS self-test cleanup is unproved.'); }); fs = actual; await actual.initialize(); check(signal);
+  scanRoot = await mkdtemp(join(root, '.filesystem-scan-'));
+  const expected = new Set<string>();
+  for (let index = 0; index < 130; index++) { check(signal); const name = `entry-${String(index).padStart(3, '0')}`; expected.add(name); await writeFile(join(scanRoot, name), Buffer.from([index & 255]), { flag: 'wx' }); }
+  const rootId = randomBytes(32), firstId = randomBytes(32), secondId = randomBytes(32), windows = process.platform === 'win32';
+  const opened = new NativeReader(await actual.request(2, new NativeWriter().raw(rootId).path({ encoding: windows ? 'windows-utf16le' : 'posix-bytes', bytes: Buffer.from(scanRoot, windows ? 'utf16le' : 'utf8') }).number(0, 1).finish(), 516));
+  opened.identity(); opened.end();
+  for (const id of [firstId, secondId]) await actual.request(7, new NativeWriter().raw(id).raw(rootId).components([]).finish(), 0);
+  const next = async (id: Buffer) => { check(signal); return readNativePage(await actual.request(8, id, 65536)); };
+  const first = await next(firstId);
+  if (first.done || first.entries.length !== 64) throw new Error('Actual native root scan did not retain a bounded nonterminal first page.');
+  async function finish(id: Buffer, page: ReturnType<typeof readNativePage>): Promise<number> {
+   const observed = new Set<string>(); let pages = 0;
+   for (;;) {
+    if (++pages > 4) throw new Error('Actual native root scan exceeded its finite page bound.');
+    for (const entry of page.entries) {
+     const name = Buffer.from(entry.component.bytes).toString(windows ? 'utf16le' : 'utf8');
+     if (!expected.has(name) || observed.has(name) || entry.kind !== 'file' || entry.byteLength !== 1) throw new Error('Actual native root scan inventory differs.');
+     observed.add(name);
+    }
+    if (page.done) break; if (!page.entries.length) throw new Error('Actual native root scan made no progress.'); page = await next(id);
+   }
+   if (observed.size !== expected.size) throw new Error('Actual native root scans do not own independent complete cursors.');
+   const done = await next(id); if (!done.done || done.entries.length) throw new Error('Actual native root scan completion is not stable.');
+   return pages;
+  }
+  const secondPages = await finish(secondId, await next(secondId)), firstPages = await finish(firstId, first);
+  for (const id of [firstId, secondId]) await actual.request(9, id, 0); await actual.request(3, rootId, 0);
+  await actual.close(); fsClosed = true; await fsPrepared.close(); preparedClosed = true;
+  await record('filesystem-protocol', { schemaVersion: 1, target, protocol: 'SGR1', initialized: true, rootOpened: true, actualRootScanEntries: 130, actualIndependentRootScans: 2, actualRootScanPages: [firstPages, secondPages], actualScanAndRootClosed: true, actualShutdownJoined: true, payload: files.find(file => file.path === paths.filesystem)!.sha256 });
+ }, [async () => { await fs?.close(); fsClosed = true; }, async () => { await fsPrepared.close(); preparedClosed = true; }, async () => { if (scanRoot && fsClosed && preparedClosed) await rm(scanRoot, { recursive: true }); }]);
  const rawPrepared = await prepare(root, target, files, 'raw-engine', signal, () => undefined); let raw: Raw | undefined;
  const nonce = randomBytes(32);
  await joined(async () => {
