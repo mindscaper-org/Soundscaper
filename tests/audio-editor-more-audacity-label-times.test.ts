@@ -23,10 +23,13 @@ test('MP24: Audacity projects with labels before origin still open and retain th
 		]),
 	])]);
 	const decoded = await decodeAudacityProjectTree(root, async () => null, { idFactory: ids(), planAudio: true });
-	assert.deepEqual(decoded.project.timelineAnnotations.map((label) => ({ name: label.name,
-		start: label.kind === 'region' ? label.startFrame : label.positionFrame,
-		end: label.kind === 'region' ? label.endFrame : label.positionFrame,
-	})), [{ name: 'Visible region', start: 0, end: 44_100 }]);
+	assert.deepEqual(decoded.project.timelineAnnotations.map((label) => {
+		if (label.anchor !== 'sample') assert.fail('Audacity labels import as sample annotations.');
+		return { name: label.name,
+			start: label.kind === 'region' ? label.startFrame : label.positionFrame,
+			end: label.kind === 'region' ? label.endFrame : label.positionFrame,
+		};
+	}), [{ name: 'Visible region', start: 0, end: 44_100 }]);
 });
 
 test('MP24: legacy AUP labels wholly before origin do not become phantom zero markers', async () => {
