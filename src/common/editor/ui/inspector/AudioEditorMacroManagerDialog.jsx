@@ -11,7 +11,7 @@ import { parseAudacityEffectMacro, serializeAudacityEffectMacro } from '../../ef
 import {
 	effectMacroMissingEmbeddedNoiseProfile,
 } from '../../effect-macro-templates.ts';
-import { MACRO_SCRIPT_FILE_EXTENSION } from '../../macro-script-envelope.ts';
+import { MACRO_SCRIPT_FILE_EXTENSION, MACRO_SCRIPT_FILE_MAXIMUM_BYTES } from '../../macro-script-envelope.ts';
 import { AUDIO_EDITOR_SAMPLE_RATE } from '../../project.js';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
@@ -82,8 +82,8 @@ export function AudioEditorMacroManagerDialog({
 	const importScript = async (file) => {
 		if (!file) return;
 		try {
-			if (file.size > MAX_MACRO_IMPORT_BYTES) {
-				throw new RangeError('File exceeds the 1 MiB macro import limit.');
+			if (file.size > MACRO_SCRIPT_FILE_MAXIMUM_BYTES) {
+				throw new RangeError('File exceeds the 2 MiB macro program import limit.');
 			}
 			const created = scriptLibrary.import(await file.text(), file.name);
 			setSelectedScriptId(created.id);

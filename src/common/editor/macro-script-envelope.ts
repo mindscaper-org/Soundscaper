@@ -18,7 +18,11 @@ export const MACRO_SCRIPT_ENVELOPE_VERSION = 1 as const;
 export const MACRO_SCRIPT_FILE_EXTENSION = '.soundscapemacro';
 export const MACRO_SCRIPT_ENGINE = 'soundscaper-macro-js/1';
 
-const MAX_ENVELOPE_CODE_UNITS = 1024 * 1024;
+// JSON can expand each source code unit into a six-character Unicode escape.
+export const MACRO_SCRIPT_FILE_MAXIMUM_BYTES = 2 * 1024 * 1024;
+const MAX_ENVELOPE_CODE_UNITS = MACRO_SCRIPT_FILE_MAXIMUM_BYTES;
+const MAX_SOURCE_CODE_UNITS = 256 * 1024;
+const MAX_NAME_CODE_UNITS = 256;
 
 export interface MacroScriptEnvelope {
 	readonly schemaVersion: typeof MACRO_SCRIPT_ENVELOPE_VERSION;
@@ -67,12 +71,14 @@ export function parseMacroScriptEnvelope(text: unknown): MacroScriptEnvelope {
 	if (envelope.schemaVersion !== MACRO_SCRIPT_ENVELOPE_VERSION) {
 		throw new RangeError(`Unsupported macro program file version: ${String(envelope.schemaVersion)}.`);
 	}
-	if (typeof envelope.engine !== 'string' || !envelope.engine.startsWith('soundscaper-macro-js/')) {
+	if (envelope.engine !== MACRO_SCRIPT_ENGINE) {
 		throw new RangeError(`Unsupported macro program engine: ${String(envelope.engine)}.`);
 	}
 	const name = String(envelope.name ?? '').trim();
 	if (!name) throw new TypeError('A macro program file names its program.');
+	if (name.length > MAX_NAME_CODE_UNITS) throw new RangeError('The macro program name is too long.');
 	if (typeof envelope.source !== 'string') throw new TypeError('A macro program file carries its source.');
+	if (envelope.source.length > MAX_SOURCE_CODE_UNITS) throw new RangeError('The macro program is too large.');
 	return Object.freeze({
 		schemaVersion: MACRO_SCRIPT_ENVELOPE_VERSION,
 		kind: 'script',
