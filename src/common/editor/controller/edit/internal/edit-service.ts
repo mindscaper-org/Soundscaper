@@ -24,7 +24,7 @@ export interface EditServiceRuntime {
 }
 
 type RuntimeValue = EditServiceRuntime[string];
-export type HandleEditorEdit = (action: string) => RuntimeValue;
+export type HandleEditorEdit = (action: string, options?: Readonly<{ propagateErrors?: boolean }>) => RuntimeValue;
 
 // foundation-edit-matrix: duplicate
 
@@ -93,7 +93,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 		return ranges;
 	}
 
-	function handleEdit(action: string) {
+	function handleEdit(action: string, options: Readonly<{ propagateErrors?: boolean }> = {}) {
 		if (!state.history || editingBlocked()) return;
 		if (isLabeledAudioEditAction(action)) return executeLabeledAudioEdit(action);
 		try {
@@ -383,6 +383,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 				if (!baseSelection) state.selectedClipId = null;
 			}
 		} catch (error) {
+			if (options.propagateErrors) throw error;
 			handleError(error);
 		}
 	}

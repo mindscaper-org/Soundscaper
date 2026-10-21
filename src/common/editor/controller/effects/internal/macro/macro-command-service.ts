@@ -59,6 +59,11 @@ export interface MacroCommandServiceRuntime {
 }
 
 const TRACK_MODES = Object.freeze({ set: 'set', add: 'add', remove: 'remove' } as const);
+const EDIT_ACTIONS: Readonly<Record<string, string>> = Object.freeze({
+	Cut: 'cut', Copy: 'copy', Paste: 'paste', Delete: 'delete', Duplicate: 'duplicate',
+	Split: 'split', SplitNew: 'split-new-track', Join: 'join', Trim: 'trim-outside-selection',
+	SplitCut: 'cut-leave-gap', SplitDelete: 'delete-leave-gap',
+});
 
 /** Whether this build can run the command a step names. */
 export function isRunnableMacroCommand(command: string): boolean {
@@ -145,6 +150,17 @@ export function createMacroCommandService(runtime: MacroCommandServiceRuntime) {
 		}
 		if (typeof target !== 'function') {
 			throw new RangeError(`The macro command ${command} has no editor action (${path}).`);
+		}
+		const editAction = EDIT_ACTIONS[command];
+		const edit = actions?.edit;
+		const execute = edit && typeof edit === 'object'
+			? (edit as Readonly<Record<string, unknown>>).execute : null;
+		if (editAction && typeof execute === 'function') {
+			// Interactive edits report their own failures. A macro must receive the
+			// failure so its transaction can stop and restore the earlier steps.
+			return (execute as (action: string, options: { propagateErrors: boolean }) => unknown)(
+				editAction, { propagateErrors: true },
+			);
 		}
 		if (command === 'RemoveTracks') {
 			const removal = prepareSelectedTrackRemoval(runtime.getProject(), runtime.getSelectedTrackId?.());
