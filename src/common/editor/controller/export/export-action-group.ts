@@ -9,6 +9,7 @@ import type { DeliveryQueue } from '../../delivery-queue.ts';
 import { createOriginalOverwriteActions, type OriginalOverwriteState, type OriginalOverwriteFileService } from './internal/overwrite-original-action.ts';
 import type { BlenderPublishRequest } from './blender-publication.ts';
 import type { InterchangeProductProjection } from '../../interchange-multicamera-delivery.ts';
+import type { InterchangeTimingRuntime } from './interchange-export-timing.ts';
 
 /** Delivery owns these optional workspace slots; reports remain inert domain data. */
 export interface ExportActionState extends OriginalOverwriteState {
@@ -27,6 +28,7 @@ export interface ExportActionState extends OriginalOverwriteState {
  */
 
 export interface ExportActionGroupRuntime {
+	readonly store?: InterchangeTimingRuntime['store'];
 	readonly handleExportAction: (action: string, settings?: unknown) => Promise<unknown> | unknown;
 	readonly publishBlenderTracks?: (request: BlenderPublishRequest) => Promise<{ readonly revision: number }>;
 	readonly state: ExportActionState;
@@ -49,7 +51,7 @@ export function createExportActionGroup(runtime: ExportActionGroupRuntime) {
 	} = runtime;
 	const interchangeState = createDeliveryReportStateAccess(state);
 	const interchange = () => ({
-		getProject: getProject ?? (() => null), state: interchangeState, fileService, publishDocumentSnapshot, projectForRuntimeConsumers: runtime.projectForRuntimeConsumers,
+		getProject: getProject ?? (() => null), state: interchangeState, fileService, store: runtime.store, publishDocumentSnapshot, projectForRuntimeConsumers: runtime.projectForRuntimeConsumers,
 	});
 	return Object.freeze({
 		publishBlenderTracks: (request: BlenderPublishRequest) => {
