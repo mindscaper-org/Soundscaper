@@ -5,6 +5,7 @@ import test from 'node:test';
 import { createApeFileMetadata } from '../src/common/editor/ape-file-metadata.ts';
 import { readApeMetadataTags, wavPackAudioBlob } from '../src/common/editor/ape-metadata-reader.ts';
 import { browserAacMetadataFormat, browserAacMetadataTags } from '../src/common/editor/browser-aac-metadata.ts';
+import { projectAudioMetadata, updateId3ProjectField } from '../src/common/editor/id3-descriptive-fields.ts';
 import { createAudioMetadataId3Tag } from '../src/common/editor/id3-metadata.js';
 import { createExportDialogInitialSettings } from '../src/common/editor/ui/export-dialog-initial-settings.ts';
 import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
@@ -101,4 +102,12 @@ test('ID3 exports separate total fields in standard track and disc position fram
 
 test('RIFF CSET supports Windows Cyrillic text instead of discarding the metadata', () => {
 	assert.equal(decodeRiffMetadataText(Uint8Array.of(0xcf, 0xf0, 0xe8, 0xe2, 0xe5, 0xf2, 0), 1251), 'Привет');
+});
+
+
+test('ID3 ownership price and purchase date survive export when the seller field is blank', () => {
+	const first = updateId3ProjectField({}, 'ownershipPrice', 'EUR12.99');
+	const metadata = { ...first, ...updateId3ProjectField(first, 'ownershipDate', '20260101') };
+	const tag = createAudioMetadataId3Tag(projectAudioMetadata(metadata));
+	assert.equal(frameText(tag, 'OWNE'), 'EUR12.99\0' + '20260101');
 });

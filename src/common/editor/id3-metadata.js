@@ -16,6 +16,10 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 		value,
 		normalizedKey: key.toLowerCase().replace(/[^a-z0-9]/g, ''),
 	}));
+	if (normalized.ownershipPrice && normalized.ownershipDate
+		&& !entries.some(({ normalizedKey }) => normalizedKey === 'ownershipseller')) {
+		entries.push({ key: 'ownershipSeller', normalizedKey: 'ownershipseller', value: '' });
+	}
 	const preferredTextFrames = selectPreferredTextFrames(entries);
 	const frames = [];
 	for (const entry of entries) {
