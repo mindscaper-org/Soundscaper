@@ -2,9 +2,14 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { copyMimeTypes } from 'app-builder-lib/out/targets/appimage/appLauncher.js';
+import { projectFileExtensionForProduct } from '../src/common/project-file-extensions.ts';
+import { SCAPE_MIME_TYPE } from '../src/common/editor/scape-project-format.ts';
 import beforePack from '../scripts/desktop-lightscaper-before-pack.mjs';
 import afterPack from '../scripts/desktop-lightscaper-after-pack.mjs';
 import afterSign from '../scripts/desktop-lightscaper-after-sign.mjs';
@@ -34,7 +39,8 @@ interface BuilderMetadata {
 	readonly directories: { readonly app: string; readonly buildResources: string };
 	readonly win: { readonly icon: string };
 	readonly nsis: { readonly perMachine: boolean; readonly allowElevation: boolean; readonly packElevateHelper: boolean };
-	readonly fileAssociations?: readonly { readonly ext: string | readonly string[]; readonly role: string }[];
+	readonly fileAssociations?: readonly { readonly ext: string; readonly name: string; readonly description: string;
+		readonly mimeType: string; readonly role: string }[];
 	readonly mac: { readonly icon: string; readonly category: string; readonly entitlements: string;
 		readonly entitlementsInherit: string; readonly extendInfo: Record<string, unknown>; readonly signIgnore?: unknown };
 	readonly linux: { readonly icon: string; readonly executableName: string; readonly category: string };
@@ -48,14 +54,39 @@ interface BuilderMetadata {
 	readonly publish: unknown;
 }
 
-test('Lightscaper builder owns photo identity without claiming an external archive open lifecycle', () => {
+test('Lightscaper builder owns photo identity and only its catalog suffix association', () => {
 	const config = readConfiguration('lightscaper');
 	assert.equal(config.appId, 'org.lightscaper.desktop');
 	assert.equal(config.productName, 'Lightscaper');
 	assert.equal(config.linux.executableName, 'lightscaper');
 	assert.equal(config.linux.category, 'Graphics;Photography');
 	assert.equal(config.mac.category, 'public.app-category.photography');
-	assert.equal(config.fileAssociations, undefined);
+	assert.deepEqual(config.fileAssociations, [{
+		ext: projectFileExtensionForProduct('lightscaper').slice(1),
+		name: 'Lightscaper Catalog', description: 'Lightscaper photo catalog',
+		mimeType: 'application/vnd.lightscaper.liscape+zip', role: 'Editor',
+	}]);
+	assert.notEqual(config.fileAssociations?.[0]?.mimeType, SCAPE_MIME_TYPE,
+		'OS routing must not advertise Lightscaper for the other products shared archive MIME');
+});
+
+void test('Lightscaper AppImage MIME metadata registers only its own catalog route', async () => {
+	const config = readConfiguration('lightscaper');
+	const root = await mkdtemp(join(tmpdir(), 'lightscaper-owned-catalog-mime-'));
+	try {
+		const relative = await copyMimeTypes(root, {
+			fileAssociations: [...config.fileAssociations ?? []],
+			productName: config.productName, executableName: config.linux.executableName,
+		});
+		assert.equal(relative, 'usr/share/mime/packages/lightscaper.xml');
+		assert.ok(relative);
+		const xml = await readFile(join(root, relative), 'utf8');
+		assert.deepEqual([...xml.matchAll(/<mime-type type="([^"]+)">/gu)].map(match => match[1]),
+			['application/vnd.lightscaper.liscape+zip']);
+		assert.deepEqual([...xml.matchAll(/<glob pattern="([^"]+)"/gu)].map(match => match[1]), ['*.liscape']);
+		assert.ok(!xml.includes(SCAPE_MIME_TYPE), 'the shared Scape MIME must stay unadvertised');
+		assert.doesNotMatch(xml, /<alias\b|<sub-class-of\b/u);
+	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('Lightscaper icons resolve under the effective build resources directory', () => {

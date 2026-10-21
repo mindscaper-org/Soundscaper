@@ -45,6 +45,14 @@ module.exports = {
 		{ from: stagePath('runtime'), to: 'runtime' },
 		{ from: stagePath('licenses'), to: 'licenses' },
 	],
+	// OS routing owns only this suffix; the shared Scape wire MIME stays unchanged.
+	fileAssociations: [{
+		ext: 'liscape',
+		name: 'Lightscaper Catalog',
+		description: 'Lightscaper photo catalog',
+		mimeType: 'application/vnd.lightscaper.liscape+zip',
+		role: 'Editor',
+	}],
 	win: {
 		...signing.win,
 		// Preserve only the final ASAR-authenticated Photo helper bytes. App,

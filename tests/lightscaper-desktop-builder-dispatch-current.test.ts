@@ -27,7 +27,10 @@ test('Lightscaper public builder entry selects the complete dedicated photo conf
 	assert.equal(selected.productName, 'Lightscaper');
 	assert.equal(selected.beforePack, './scripts/desktop-lightscaper-before-pack.mjs');
 	assert.equal(selected.afterPack, './scripts/desktop-lightscaper-after-pack.mjs');
-	assert.equal(selected.fileAssociations, undefined);
+	assert.deepEqual(selected.fileAssociations, [{
+		ext: 'liscape', name: 'Lightscaper Catalog', description: 'Lightscaper photo catalog',
+		mimeType: 'application/vnd.lightscaper.liscape+zip', role: 'Editor',
+	}]);
 });
 
 test('Lightscaper public builder selects every resource from the same custom preparation root', () => {
