@@ -5,6 +5,18 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Focused WP-0.1 inventory for integer sample-rate changes of basis. */
 export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'edl-camera-timecode-origin',
+		file: 'src/common/editor/edl-source-in-point.ts',
+		behavior: 'Camera timecode origin and native media trim are added as exact seconds before nearest-point conversion to the EDL sequence frame grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'fcpxml-audio-sequence-extent',
+		file: 'src/common/editor/fcpxml-export.ts',
+		behavior: 'Audio clip positions and durations retain exact sample times; the enclosing sequence duration rounds outward to cover the final audio sample on its video frame grid.',
+		conversions: [{ helper: 'roundRational', policies: ['enclosingEnd'] }],
+	},
+	{
 		id: 'external-video-companion-audio-rebuild',
 		file: 'src/common/editor/external-media-audio-decoder.ts',
 		behavior: 'Reopening a referenced video reconstructs its companion audio at the saved project rate using the same nearest-frame resampling length as the original import, before padding or trimming to the timeline extent.',

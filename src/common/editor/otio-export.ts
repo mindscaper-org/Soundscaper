@@ -17,6 +17,7 @@ import {
 } from './interchange-omission-inventory.ts';
 import { createInterchangeVisibility } from './interchange-track-visibility.ts';
 import { portableFileStem } from './portable-file-stem.ts';
+import { interchangeTrackClips } from './interchange-track-clips.ts';
 
 /**
  * OpenTimelineIO export.
@@ -157,9 +158,7 @@ export function createOtioExport(request: OtioExportRequest): OtioExportResult {
 			// One timebase per item: sequence frames for picture, samples for sound.
 			timebase: isVideo ? sequenceRateValue : sampleRate,
 			rateValue: isVideo ? sequenceRateValue : sampleRate,
-			clips: asStrings(track.clipIds)
-				.map((clipId) => clipById.get(clipId))
-				.filter((clip): clip is Readonly<Record<string, unknown>> => Boolean(clip))
+			clips: interchangeTrackClips(track, clipById, draft, 'otio')
 				.sort((left, right) => (
 					Number(left.timelineStartFrame ?? 0) - Number(right.timelineStartFrame ?? 0)
 					|| compareCodeUnits(String(left.id), String(right.id))
