@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createAudacityXmlNode, audacityXmlChildren } from '../src/common/editor/audacity-binary-xml.js';
+import { createAudacityXmlNode } from '../src/common/editor/audacity-binary-xml.js';
 import { decodeAudacityProjectTree } from '../src/common/editor/aup4-conversion.js';
 import { decodeLegacyAupProject } from '../src/common/editor/aup-legacy.js';
 import { convertLegacyAupToProject } from '../src/common/editor/aup-legacy-conversion.js';
@@ -79,10 +79,14 @@ test('MP13: legacy AUP restores the selected audio track rather than selecting a
 });
 
 test('MP14: a high-rate Audacity track spectral selection cannot prevent opening a lower-rate project', async () => {
-	const tree = nativeClip(0);
+	type XmlNode = { name: string; content: Array<{ kind: 'attribute'; name: string; type: string; value: number }
+		| { kind: 'node'; node: XmlNode }> };
+	const tree = nativeClip(0) as unknown as XmlNode;
 	tree.content.push({ kind: 'attribute', name: 'selLow', type: 'double', value: 30_000 },
 		{ kind: 'attribute', name: 'selHigh', type: 'double', value: 40_000 });
-	audacityXmlChildren(tree, 'wavetrack')[0]!.content.push({ kind: 'attribute', name: 'rate', type: 'double', value: 96_000 });
+	const track = tree.content.find((entry) => entry.kind === 'node' && entry.node.name === 'wavetrack');
+	assert.ok(track?.kind === 'node');
+	track.node.content.push({ kind: 'attribute', name: 'rate', type: 'double', value: 96_000 });
 	const decoded = await decodeAudacityProjectTree(tree, async () => null, { idFactory: ids(), planAudio: true });
 	assert.equal(decoded.project.clips.length, 1);
 	assert.equal(decoded.project.selection.frequencyRange, null);
