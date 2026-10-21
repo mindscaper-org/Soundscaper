@@ -90,7 +90,7 @@ export function createAudiocomUploadQueue(
 			}
 			const ids = files.map(file => {
 				const id = crypto.randomUUID();
-				entries.set(id, { file, item: Object.freeze({ id, fileName: file.name, title: file.name.replace(/\.[^.]+$/u, ''), status: 'draft' }) });
+				entries.set(id, { file, item: Object.freeze({ id, fileName: file.name, title: initialTitle(file.name), status: 'draft' }) });
 				return id;
 			});
 			changed(); return ids;
@@ -121,3 +121,12 @@ function validateDraft(draft: AudiocomUploadDraft): AudiocomUploadDraft {
 }
 
 function message(error: unknown): string { return error instanceof Error ? error.message : 'The audio.com upload failed.'; }
+
+function initialTitle(fileName: string): string {
+	let title = '';
+	for (const character of fileName.replace(/\.[^.]+$/u, '').trim()) {
+		if (title.length + character.length > 200) break;
+		title += character;
+	}
+	return title || 'Untitled audio';
+}
