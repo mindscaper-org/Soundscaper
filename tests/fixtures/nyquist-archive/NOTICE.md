@@ -43,3 +43,10 @@ modified by Steve Daulton, SHA-256
 `786dce65f990f1748d351cfe5053a60d889a07782aef58560d6630e6b317ad6b`.
 Its GPL-2.0 notice is preserved. The public generator regression checks that
 Apply retains the requested duration beyond the plug-in's preview limit.
+
+`surf-oxy.ny.gz` preserves David R. Sky's complete 8,995-byte Surf [Oxygene]
+source, SHA-256
+`072c3db0b2297b24b404492fbd9ce85d12019a3cae2e2bb4fe381a4f7c3b7b5c`.
+The embedded notice grants the GNU Public License without specifying a version;
+both GPL texts remain alongside it. The generator regression verifies that
+real-number controls retain their floating point Lisp types.

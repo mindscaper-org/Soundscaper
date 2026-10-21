@@ -46,6 +46,18 @@ test('the published Pluck generator applies its requested duration beyond the pr
 	} finally { await controller.dispose(); }
 });
 
+test('the published Oxygene Surf generator retains floating point widget bindings for whole numbers', async () => {
+	const plugin = await installPlugin('surf-oxy.ny');
+	const { controller } = await controllerFor(new Float32Array(8_000));
+	try {
+		const result = await controller.actions.nyquist.evaluate({ source: plugin.source, role: 'generate', name: plugin.name,
+			controls: { channels: 1, spread: 80, fade: 0, count: 1, 'surf-type': 1, 'start-f': 100, 'end-f': 1_000,
+				'sweep-t': 0.2, 'pause-t': 0.2, 'crash-f': 300, boost: 24, 'crash-t': 0.2, 'post-t': 0.2 } });
+		assert.ok(result && typeof result === 'object' && 'frameCount' in result);
+		assert.equal(result.frameCount, 6_400);
+	} finally { await controller.dispose(); }
+});
+
 async function controllerFor(input: Float32Array) {
 	const { store } = await createFixture('nyquist-host-compatibility', { sampleRate: 8_000,
 		tracks: [{ id: 'voice', name: 'Voice', input }] });

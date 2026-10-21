@@ -111,8 +111,13 @@ export function buildNyquistEvaluationSource(value, options = {}) {
 	// through Nyx so the client can report them or enforce its hard deadline.
 	lines.push('(setf *breakenable* NIL)');
 	lines.push(`(setf *tracenable* ${request.debug ? 'T' : 'NIL'})`);
+	const floatingControls = new Set((plugin?.controls ?? [])
+		.filter((control) => control.kind === 'number' && !['int', 'int-text'].includes(control.type))
+		.map((control) => control.variable?.toUpperCase()));
 	for (const [name, controlValue] of Object.entries(request.controls)) {
-		lines.push(`(setf ${name} ${toLisp(controlValue)})`);
+		const binding = typeof controlValue === 'number' && floatingControls.has(name.toUpperCase())
+			? formatFloat(controlValue) : toLisp(controlValue);
+		lines.push(`(setf ${name} ${binding})`);
 	}
 	const program = plugin ? stripNyquistPluginHeader(request.source) : request.source;
 	if (request.language === 'lisp') {
