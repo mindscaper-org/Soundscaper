@@ -137,3 +137,39 @@ test('Lightscaper latches terminal retirement before a borrowed close callback r
 	value.current.mount(); await settle(); const closing = value.current.retireAndJoin();
 	assert.equal(reentered, closing); await closing; assert.equal(value.source.closes(), 1);
 });
+
+test('Lightscaper reports real archive pending transitions through loading, exact consumers and physical release', async () => {
+	const selected = source(), taking = deferred<DesktopLightscaperArchiveOpenDescriptorCurrentV1 | null>();
+	const reading = deferred<string>(), releasing = deferred<void>(), transitions: boolean[] = [];
+	let safe = true;
+	const value = owner({ canPresent: () => safe,
+		bridge: { ...nativeBridge().bridge, takeArchive: async () => taking.promise },
+		load: async () => ({ file: selected.file, close: async () => releasing.promise }),
+		onPendingChange: () => { transitions.push(value.current.isPending()); },
+	}, selected);
+	value.current.mount(); await settle(); assert.deepEqual(transitions, [true]);
+	taking.resolve(selected.descriptor); await settle(); assert.deepEqual(transitions, [true, false]);
+	const work = value.current.withFileConsumer(selected.file, async () => reading.promise);
+	assert.deepEqual(transitions, [true, false, true]);
+	reading.resolve('read'); assert.equal(await work, 'read');
+	assert.deepEqual(transitions, [true, false, true, false]);
+	safe = false; const hiding = value.current.dismiss();
+	assert.deepEqual(transitions, [true, false, true, false, true]);
+	await settle(); assert.equal(value.current.isPending(), true);
+	releasing.resolve(); await hiding;
+	assert.deepEqual(transitions, [true, false, true, false, true, false]);
+	await value.current.retireAndJoin(); assert.deepEqual(value.errors, []);
+});
+
+test('A throwing archive pending observer cannot cancel custody, suppress task handlers or clear failed physical release', async () => {
+	const observerFailure = new Error('Observer failed.'), releaseFailure = new Error('Native reader failed to retire.');
+	const value = owner({ onPendingChange: () => { throw observerFailure; },
+		load: async () => ({ file: value.source.file, close: async () => { throw releaseFailure; } }),
+	});
+	value.current.mount(); await settle(); assert.equal(value.presented(), 1);
+	assert.equal(await value.current.withFileConsumer(value.source.file, async () => 'read'), 'read');
+	await assert.rejects(value.current.dismiss(), error => error === releaseFailure);
+	assert.equal(value.current.isPending(), true);
+	await assert.rejects(value.current.retireAndJoin(), error => error === releaseFailure);
+	assert.ok(value.errors.includes(observerFailure));
+});

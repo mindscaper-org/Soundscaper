@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { DesktopLightscaperArchiveOpenBridgeCurrentV1, DesktopLightscaperArchiveOpenDescriptorCurrentV1 } from '../../desktop-lightscaper-archive-open-contract-current-v1.ts';
 import { LightscaperDesktopArchiveOpenCurrentV1, type LightscaperDesktopArchiveFileCurrentV1 } from '../../controller/composition/lightscaper-desktop-archive-open-current-v1.ts';
 import { loadDesktopPhotoArchiveFileCurrentV1 } from '../../../../lightscaper/desktop-photo-archive-loader-current-v1.ts';
@@ -22,6 +22,7 @@ export function useLightscaperDesktopArchiveOpenCurrentV1(options: LightscaperDe
 	const owner = useRef<LightscaperDesktopArchiveOpenCurrentV1 | null>(null), mounted = useRef(false);
 	const drain = useRef<Promise<void> | null>(null);
 	const [file, setFile] = useState<File | null>(null);
+	const [, refreshPending] = useReducer((value: number) => value + 1, 0);
 	useEffect(() => {
 		mounted.current = true;
 		const bridge = (window as Window & Scope).lightscaperDesktop?.v1;
@@ -39,6 +40,7 @@ export function useLightscaperDesktopArchiveOpenCurrentV1(options: LightscaperDe
 			onPresent: () => { if (mounted.current && owner.current === current) latest.current.onPresent(); },
 			retireRestore: () => latest.current.retireRestore(),
 			reportError: error => { latest.current.reportError(error); },
+			onPendingChange: () => { if (mounted.current && owner.current === current) refreshPending(); },
 		});
 		owner.current = current; current.mount();
 		// Settings and other global dialogs can close without rerendering this

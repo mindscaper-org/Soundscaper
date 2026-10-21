@@ -16,6 +16,7 @@ export interface LightscaperDesktopArchiveOpenOptionsCurrentV1 {
 	readonly onPresent: () => void;
 	readonly retireRestore: () => Promise<void>;
 	readonly reportError: (error: unknown) => void;
+	readonly onPendingChange?: () => void;
 }
 interface Stage {
 	readonly resource: Readonly<LightscaperDesktopArchiveFileCurrentV1>;
@@ -40,6 +41,7 @@ export class LightscaperDesktopArchiveOpenCurrentV1 {
 	#stage: Stage | null = null;
 	#restoreRetirement: Promise<void> | null = null;
 	#closing: Promise<void> | null = null;
+	#pending = false;
 
 	constructor(options: LightscaperDesktopArchiveOpenOptionsCurrentV1) { this.#options = options; }
 
@@ -73,6 +75,7 @@ export class LightscaperDesktopArchiveOpenCurrentV1 {
 					if (!this.#closed || !Object.is(error, stop.signal.reason)) this.#report(error);
 					this.#loaded(loading);
 				});
+				this.#pendingChanged();
 			} catch (error) { this.#report(error); }
 		});
 	}
@@ -92,8 +95,10 @@ export class LightscaperDesktopArchiveOpenCurrentV1 {
 		let resolve!: (value: Result | PromiseLike<Result>) => void, reject!: (error: unknown) => void;
 		const task = new Promise<Result>((accept, refuse) => { resolve = accept; reject = refuse; });
 		stage.consumers.add(task);
-		void task.then(() => { stage.consumers.delete(task); }, () => { stage.consumers.delete(task); });
+		const settled = () => { stage.consumers.delete(task); this.#pendingChanged(); };
+		void task.then(settled, settled);
 		try { void Promise.resolve(consume(file)).then(resolve, reject); } catch (error) { reject(error); }
+		this.#pendingChanged();
 		return task;
 	}
 
@@ -148,7 +153,7 @@ export class LightscaperDesktopArchiveOpenCurrentV1 {
 		else this.#present(stage);
 	}
 
-	#loaded(loading: Loading): void { if (this.#loading === loading) this.#loading = null; this.tick(); }
+	#loaded(loading: Loading): void { if (this.#loading === loading) this.#loading = null; this.#pendingChanged(); this.tick(); }
 	#present(stage: Stage): void {
 		if (!this.#live || this.#closed || stage.presented || stage.dismissed || !this.#options.canPresent()) return;
 		stage.presented = true;
@@ -162,13 +167,21 @@ export class LightscaperDesktopArchiveOpenCurrentV1 {
 			await stage.resource.close();
 			if (this.#stage === stage) {
 				this.#stage = null;
+				this.#pendingChanged();
 				if (stage.presented && this.#live) this.#options.onFile(null);
 				// A single wakeup can represent several argv/menu requests.
 				this.#available = true; this.tick();
 			}
 		})();
 		void stage.release.catch(error => { this.#report(error); });
+		this.#pendingChanged();
 		return stage.release;
+	}
+	#pendingChanged(): void {
+		const pending = this.isPending();
+		if (pending === this.#pending) return;
+		this.#pending = pending;
+		try { this.#options.onPendingChange?.(); } catch (error) { this.#report(error); }
 	}
 	#report(error: unknown): void { try { this.#options.reportError(error); } catch { /* Diagnostics cannot release custody. */ } }
 }
