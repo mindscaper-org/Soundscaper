@@ -39,6 +39,8 @@ const EAGER_ENTRY_MODULES: readonly string[] = [
 export const EAGER_CHUNK_GROUPS: ReadonlySet<string> = new Set([
 	'editor-codec-foundations',
 	'editor-copy',
+	// Photo and Frame HDR menus already read this one inert label owner.
+	'editor-hdr-merge-copy',
 	// Lightscaper's lazy product bootstrap reads its compact defaults immediately.
 	// Initial-page separation remains measured by the product startup graph.
 	'lightscaper-editor-copy',

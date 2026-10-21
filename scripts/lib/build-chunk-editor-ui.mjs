@@ -30,7 +30,10 @@ export const editorUiChunkGroups = [
 		// Sharing the broad timeline controller owner makes those few imports pull
 		// video commands, storage and effect copy into an otherwise isolated shell.
 		name: 'editor-photo-library-scalars',
-		test: /src[\\/]common[\\/]editor[\\/]controller[\\/]shared[\\/]photo-library-(?:definition-reader|develop-command(?:-v2)?|develop-workflow-v[12]|develop-settings-intent(?:-v2)?|develop-settings-workflow-v[12]|selection-v1|culling-v1|cull-advance-v1|compare-v1|survey-v1|import-gesture-v1|backup-save-v1|original-recovery-v1|restore-v1|workflow-slot(?:-v2)?|query-navigation|saved-command)\.ts$|src[\\/]common[\\/]editor[\\/]controller[\\/]composition[\\/]lightscaper-desktop-(?:lifecycle|archive-open-current-v1)\.ts$|src[\\/]common[\\/]editor[\\/]desktop-lightscaper-archive-open-contract-current-v1\.ts$/,
+		test: new RegExp([
+			/src[\\/]common[\\/]editor[\\/]controller[\\/]shared[\\/]photo-library-(?:definition-reader|develop-command(?:-v2)?|develop-workflow-v[12]|develop-settings-intent(?:-v2)?|develop-settings-workflow-v[12]|selection-v1|culling-v1|cull-advance-v1|compare-v1|survey-v1|import-gesture-v1|backup-save-v1|original-recovery-v1|restore-v1|workflow-slot(?:-v2)?|query-navigation|saved-command)\.ts$|src[\\/]common[\\/]editor[\\/]controller[\\/]composition[\\/]lightscaper-desktop-(?:lifecycle|archive-open-current-v1)\.ts$|src[\\/]common[\\/]editor[\\/]desktop-lightscaper-archive-open-contract-current-v1\.ts$/.source,
+			/src[\\/]common[\\/]editor[\\/]controller[\\/](?:shared[\\/](?:photo-library-(?:(?:raw-development-authoring|develop-command|develop-workflow|workflow-slot|develop-settings-intent|develop-settings-workflow)-current-v1|develop-command-v3|culling-workflow-v1)|internal[\\/]photo-library-(?:develop-command|develop-workflow|workflow-slot|develop-settings-workflow)-kernel-v1)|composition[\\/](?:lightscaper-photo-backend-switch-current-v1|photo-library-linked-(?:commands|watch)-current-v1))\.ts$/.source,
+		].join('|')),
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,
@@ -69,6 +72,16 @@ export const editorUiChunkGroups = [
 		// Full shared watermark presentation is reached through the export dialogs.
 		name: 'editor-export-graphic-dialog',
 		test: /src[\\/]common[\\/](?:i18n[\\/]image-export-graphic-copy\.ts|editor[\\/]ui[\\/]GraphicWatermarkFields\.tsx)$/,
+		priority: 98,
+		minSize: 0,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
+	{
+		// Both product menus read these inert labels before the HDR dialog opens.
+		// They must not acquire the complete timeline catalog's co-owned modules.
+		name: 'editor-hdr-merge-copy',
+		test: /src[\\/]common[\\/]i18n[\\/]image-hdr-merge-copy\.ts$/,
 		priority: 98,
 		minSize: 0,
 		maxSize: 400_000,
@@ -128,7 +141,7 @@ export const editorUiChunkGroups = [
 		// The full export dialog labels stay behind its menu-opened lazy entry.
 		// Only the small menu label belongs to ordinary photo shell copy.
 		name: 'lightscaper-photo-png-export-copy',
-		test: /src[\\/]common[\\/]i18n[\\/]lightscaper-photo-(?:png-export|raster-profile)-copy\.ts$/,
+		test: /src[\\/]common[\\/]i18n[\\/]lightscaper-photo-(?:png-export|raster-(?:profile|depth))-copy\.ts$/,
 		priority: 98,
 		minSize: 0,
 		maxSize: 400_000,
@@ -138,7 +151,7 @@ export const editorUiChunkGroups = [
 		// Develop and import presets read these labels only after their surfaces open.
 		// Co-owning them with the ordinary photo catalog would preload visual copy.
 		name: 'lightscaper-develop-copy',
-		test: /src[\\/]common[\\/]i18n[\\/]lightscaper-develop(?:-settings|-soft-proof)?-copy\.ts$/,
+		test: /src[\\/]common[\\/]i18n[\\/]lightscaper-(?:develop(?:-(?:settings|soft-proof|brush-mask|local-adjustments|mask-management|preview-renderer|repair-spots|input-quality))?|raw-development)-copy\.ts$/,
 		priority: 98,
 		minSize: 0,
 		maxSize: 400_000,

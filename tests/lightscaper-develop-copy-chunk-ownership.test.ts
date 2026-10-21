@@ -10,11 +10,17 @@ import { chunkGroupForModulePath, chunkGroups } from '../scripts/lib/build-chunk
 import { photoDevelopCopy } from '../src/common/i18n/lightscaper-develop-copy.ts';
 import { photoDevelopSettingsCopy } from '../src/common/i18n/lightscaper-develop-settings-copy.ts';
 import { VIDEO_EFFECT_COPY_BY_LOCALE } from '../src/common/i18n/video-effect-copy.js';
-import { dynamicRelativeImports, resolveRelativeModule, sourceModules, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
+import { EAGER_CHUNK_GROUPS, dynamicRelativeImports, resolveRelativeModule, sourceModules, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const HOOK = 'src/common/editor/ui/lightscaper/use-lightscaper-editor-copy.ts';
-const DEVELOP = ['src/common/i18n/lightscaper-develop-copy.ts', 'src/common/i18n/lightscaper-develop-settings-copy.ts'];
+const DEVELOP = ['lightscaper-develop-copy', 'lightscaper-develop-settings-copy', 'lightscaper-develop-soft-proof-copy',
+	'lightscaper-develop-brush-mask-copy', 'lightscaper-develop-local-adjustments-copy', 'lightscaper-develop-mask-management-copy',
+	'lightscaper-develop-preview-renderer-copy', 'lightscaper-raw-development-copy', 'lightscaper-develop-repair-spots-copy',
+	'lightscaper-develop-input-quality-copy'].map(name => `src/common/i18n/${name}.ts`);
+const HDR_MENU = 'src/common/editor/ui/lightscaper/use-photo-hdr-merge-entry-current-v1.tsx';
+const HDR_COPY = 'src/common/i18n/image-hdr-merge-copy.ts';
+const DEPTH_COPY = 'src/common/i18n/lightscaper-photo-raster-depth-copy.ts';
 const VISUAL = 'src/common/i18n/video-effect-copy.js';
 const COPY_MODULES = [...sourceModules(resolve(ROOT, 'src/common/i18n')), resolve(ROOT, HOOK)];
 const TRANSFER = 'src/common/editor/platform/bounded-transfer.ts';
@@ -42,6 +48,38 @@ test('optional develop labels and shared visual labels have exact independent no
 	for (const path of [HOOK, 'src/common/i18n/lightscaper-editor-copy.ts', 'src/common/i18n/lightscaper-develop-menu-copy.ts']) {
 		assert.equal(chunkGroupForModulePath(path), 'lightscaper-editor-copy', path);
 	}
+});
+
+test('shared HDR and raster depth labels keep exact inert owners apart from canonical timeline catalogs', () => {
+	const source = runtimeSource(resolve(ROOT, HDR_MENU));
+	assert.ok(staticRelativeDependencies(source).includes('../../../i18n/image-hdr-merge-copy.ts'));
+	assertLazyEntry(source, '../dialogs/ImageHdrMergeDialogCurrentV1.tsx');
+	// Pay every i18n co-owner reached through the real eager menu hook, even
+	// when that owner is not in the photo runtime walker's finite owner set.
+	const reached = copyClosure(HDR_MENU); assert.ok(reached.has(HDR_COPY));
+	assert.deepEqual(COPY_MODULES.filter(path => chunkGroupForModulePath(path) === 'editor-hdr-merge-copy')
+		.map(path => relative(ROOT, path).split(sep).join('/')).sort(), [HDR_COPY]);
+	assert.deepEqual(staticRelativeDependencies(runtimeSource(resolve(ROOT, HDR_COPY))), []);
+	assert.deepEqual(dynamicRelativeImports(runtimeSource(resolve(ROOT, HDR_COPY))), []);
+	assert.ok(EAGER_CHUNK_GROUPS.has('editor-hdr-merge-copy'));
+	for (const owner of ['lightscaper-develop-copy', 'lightscaper-photo-png-export-copy']) assert.ok(!EAGER_CHUNK_GROUPS.has(owner));
+	for (const path of reached) assert.doesNotMatch(path, /\/i18n\/(?:canonical-extras[^/]*|catalogs|runtime|editor-copy-inventory)\.|\/project-strip-control-index-v21\./u, path);
+	for (const [path, owner] of [[HDR_COPY, 'editor-hdr-merge-copy'], [DEPTH_COPY, 'lightscaper-photo-png-export-copy']] as const) {
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), owner, path);
+			for (const foreign of [path + '.foreign', path.replace('-copy.', '-future-copy.'), path.replace('i18n/', 'i18n/nested/')]) {
+				assert.notEqual(chunkGroupForModulePath(foreign.replaceAll('/', separator)), owner, foreign);
+			}
+		}
+		const group = chunkGroups.find(candidate => candidate.name === owner); assert.ok(group);
+		assert.equal(group.priority, 98); assert.equal(group.minSize, 0); assert.equal(group.maxSize, 400_000);
+		assert.equal(group.includeDependenciesRecursively, false);
+	}
+	for (const path of ['src/common/i18n/canonical-extras.js', 'src/common/i18n/canonical-extras-standard-effects.js']) {
+		assert.equal(chunkGroupForModulePath(path), 'editor-copy', path);
+	}
+	const canonical = chunkGroups.find(candidate => candidate.name === 'editor-copy'); assert.ok(canonical);
+	assert.equal(canonical.priority, 97); assert.equal(canonical.maxSize, 490_000); assert.equal(canonical.includeDependenciesRecursively, false);
 });
 
 test('ordinary photo copy cannot acquire develop or timeline catalogs through co-owned labels', () => {

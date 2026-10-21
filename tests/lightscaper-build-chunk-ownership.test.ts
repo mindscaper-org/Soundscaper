@@ -28,7 +28,7 @@ for (const [module, owner] of currentPhotoOwners) test(`current Photo exact chun
 	for (const separator of ['/', '\\']) {
 		const path = (directory + module).replaceAll('/', separator);
 		assert.equal(chunkGroupForModulePath(path), owner, path);
-		for (const impostor of [path + '.foreign', path.replace('-v2.ts', '-future-v2.ts'), path.replace('-v2.ts', '-v3.ts')]) {
+		for (const impostor of [path + '.foreign', path.replace('-v2.ts', '-future-v2.ts'), path.replace('-v2.ts', '-v999.ts')]) {
 			assert.notEqual(chunkGroupForModulePath(impostor), owner, impostor);
 		}
 	}
