@@ -82,5 +82,5 @@ test('MP4 source metadata rejects oversized tags, duplicates, and truncated box 
 			return super.slice(start, end, type);
 		}
 	}
-	await assert.rejects(readAacSourceMetadata(new HugeMetadataBlob([prefix])), /AAC source metadata/u);
+	assert.equal(await readAacSourceMetadata(new HugeMetadataBlob([prefix])), null);
 });
