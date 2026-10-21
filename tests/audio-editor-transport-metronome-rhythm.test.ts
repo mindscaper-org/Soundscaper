@@ -10,6 +10,8 @@ import {
 	createEditorTransportService,
 	type TransportServiceRuntime,
 } from '../src/common/editor/controller/transport/internal/transport-service.ts';
+import { createRoutedRecordingCaptureService } from '../src/common/editor/controller/recording/internal/routed-recording-capture-service.ts';
+import { createRecordingCaptureFixture, createScope } from './fixtures/recording-capture-fixture.ts';
 
 const SAMPLE_RATE = 48_000;
 const BPM = 120;
@@ -27,6 +29,7 @@ interface MetronomeRun {
 	readonly stallSeconds: number;
 	readonly playbackOutput?: object;
 	readonly onOutputConnected?: (destination: object) => void;
+	readonly recording?: boolean;
 }
 
 /**
@@ -66,6 +69,13 @@ test('a loop starting between beats keeps its project-time pulse phase across wr
 	const expected = Array.from({ length: RUN_SECONDS }, (_, loop) => [loop + 0.25, loop + 0.75]).flat();
 	const clicks = await runMetronome({ jitterSeconds: 0.03, stallEvery: 5, stallSeconds: 0.06 }, 1, 0.25);
 	assert.deepEqual(clicks, expected);
+});
+
+test('recording disables a saved playback loop without wrapping the metronome phase', async () => {
+	const clicks = await runMetronome({ jitterSeconds: 0.03, stallEvery: 5, stallSeconds: 0.06,
+		recording: true }, 1, .25);
+	assert.deepEqual(clicks, expectedPulses(clicks.length));
+	assert.ok(clicks.length >= RUN_SECONDS / BEAT_SECONDS - 1);
 });
 
 test('a stall longer than the lookahead drops pulses rather than firing them late', async () => {
@@ -129,12 +139,26 @@ async function runMetronome(
 			startFrame: loopStartSeconds * SAMPLE_RATE,
 			endFrame: (loopStartSeconds + loopSeconds) * SAMPLE_RATE },
 	};
+	let engineLoopEnabled = Boolean(project.loop?.enabled);
+	if (options.recording) {
+		const capture = createRecordingCaptureFixture();
+		capture.state.recordingRouting = { routes: { 'track-1': {
+			kind: 'device', deviceId: 'mic', channelStart: 0, channelCount: 1,
+		} }, offsets: {} };
+		await createRoutedRecordingCaptureService({ ...capture.runtime,
+			getProject: () => ({ ...capture.project, ...project }),
+			engine: { ...capture.runtime.engine, setLoop: enabled => { engineLoopEnabled = enabled; } },
+		}).capture({ trackId: 'track-1' }, createScope(() => true));
+		assert.ok(capture.state.recorder, 'the ordinary Record path starts capture');
+		assert.equal(engineLoopEnabled, false, 'recording disables the engine loop while retaining its saved region');
+		assert.equal(project.loop?.enabled, true);
+	}
 	const state: Record<string, unknown> = {
 		metronomeEnabled: true,
 		metronomeTimer: 0,
 		metronomeAnchor: null,
 		metronomePending: [],
-		transportState: 'playing',
+		transportState: options.recording ? 'recording' : 'playing',
 		disposed: false,
 	};
 	const runtime = {
@@ -147,9 +171,9 @@ async function runMetronome(
 		publishDocumentSnapshot: () => undefined,
 		copy: {},
 		engine: {
-			getState: () => ({ playbackRate: 1 }),
+			getState: () => ({ playbackRate: 1, loop: { ...project.loop, enabled: engineLoopEnabled } }),
 			// The playhead advances with the audio clock, exactly as during playback.
-			getPositionFrames: () => Math.round((loopSeconds === null ? clock
+			getPositionFrames: () => Math.round((loopSeconds === null || options.recording ? clock
 				: loopStartSeconds + clock % loopSeconds) * SAMPLE_RATE),
 			getAudioContext: async () => context,
 			getPlaybackDestination: options.playbackOutput ? () => options.playbackOutput : undefined,

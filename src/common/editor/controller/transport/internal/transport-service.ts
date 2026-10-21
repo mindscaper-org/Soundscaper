@@ -373,7 +373,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		const playbackStartTime = engine.getPlaybackAudibleStartTime?.() ?? null;
 		const audibleStartTime = playbackStartTime !== null && Number.isFinite(playbackStartTime)
 			? playbackStartTime : null;
-		const loop = (playback?.loop?.enabled ?? project?.loop?.enabled) && project?.loop && project.loop.endFrame > project.loop.startFrame
+		const loop = playback && (playback.loop?.enabled ?? project?.loop?.enabled) && project?.loop && project.loop.endFrame > project.loop.startFrame
 			? project.loop : null;
 		let anchor = state.metronomeAnchor;
 		// The cursor is only meaningful while the playhead keeps advancing from where it
