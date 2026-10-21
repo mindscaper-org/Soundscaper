@@ -387,14 +387,14 @@ function conformLabels(draft: DataRecord, persistedBase: DataRecord, tempoMap: H
 	const baseLabels = new Map<string, DataRecord>();
 	for (const track of recordArray(persistedBase.tracks, 'project.tracks')) {
 		for (const label of track.type === 'label' ? recordArray(track.labels, 'track.labels') : []) {
-			baseLabels.set(String(label.id), label);
+			baseLabels.set(JSON.stringify([track.id, label.id]), label);
 		}
 	}
 	for (const track of recordArray(draft.tracks, 'project.tracks')) {
 		if (track.type !== 'label') continue;
 		for (const label of recordArray(track.labels, 'track.labels')) {
 			if (label.anchor !== 'musical') continue;
-			const base = baseLabels.get(String(label.id));
+			const base = baseLabels.get(JSON.stringify([track.id, label.id]));
 			if (!base && label.startFrame === undefined && label.endFrame === undefined) continue;
 			const start = nonNegativeSafeInteger(label.startFrame, 'label.startFrame');
 			const end = nonNegativeSafeInteger(label.endFrame, 'label.endFrame');
