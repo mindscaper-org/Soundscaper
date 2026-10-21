@@ -26,7 +26,9 @@ export default function MacroScriptPanel({ controller, copy, script, blocked, on
 	const [cancelled, setCancelled] = useState(false);
 	const runRef = useRef(null);
 	useEffect(() => () => {
-		if (runRef.current) controller.actions.macros.cancel();
+		const activeRun = runRef.current;
+		runRef.current = null;
+		if (activeRun) controller.actions.macros.cancel();
 	}, [controller]);
 
 	const run = useCallback(async () => {

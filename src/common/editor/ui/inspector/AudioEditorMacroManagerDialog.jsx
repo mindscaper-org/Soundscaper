@@ -439,7 +439,7 @@ export function AudioEditorMacroManagerDialog({
 					<section className="audio-editor-macros-palette__detail">
 						{selectedScript ? (
 							<MacroScriptPanel
-								key={selectedScript.id}
+								key={`${projectIdentity || "none"}:${selectedScript.id}`}
 								controller={controller}
 								copy={{ ...managerCopy }}
 								script={selectedScript}

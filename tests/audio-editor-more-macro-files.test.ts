@@ -6,7 +6,7 @@ import { act } from 'react';
 import { createMacroScriptLibrary } from '../src/common/editor/macro-script-library.ts';
 import { createMacroScriptLibraryService } from '../src/common/editor/controller/effects/macro-script-library-service.ts';
 import { MACRO_SCRIPT_ENGINE, serializeMacroScriptEnvelope } from '../src/common/editor/macro-script-envelope.ts';
-import { changeFile, deferred, macroSnapshot, mountedMacroManagerFixture } from './helpers/macro-manager-fixture.tsx';
+import { changeFile, click, deferred, macroSnapshot, mountedMacroManagerFixture } from './helpers/macro-manager-fixture.tsx';
 
 function service() {
 	let id = 0;
@@ -71,5 +71,25 @@ test('MP34: a pending program import cannot replace a later project manager sele
 		assert.deepEqual(fixture.scripts.list().map(({ name }) => name), ['New program']);
 	} finally {
 		text.resolve(''); fixture.settlePending(); await fixture.cleanup();
+	}
+});
+
+test('MP35: switching projects releases a pending program run before the same program can run again', async () => {
+	const fixture = await mountedMacroManagerFixture();
+	try {
+		await fixture.render(macroSnapshot('project-a'));
+		await act(async () => { fixture.scripts.save({ name: 'Shared program', source: 'await sound.select.all();' }); });
+		await click(fixture.program('Shared program'));
+		await click(fixture.button('Run program'));
+		assert.equal(fixture.scriptRuns.length, 1);
+		await fixture.render(macroSnapshot('project-b'));
+		assert.ok(fixture.buttonLabels().includes('Run program'), 'the new project must not inherit the old run admission');
+		await click(fixture.button('Run program'));
+		assert.equal(fixture.scriptRuns.length, 2);
+		await act(async () => { fixture.scriptRuns[0]!.settlement.resolve({ log: [] }); await Promise.resolve(); });
+		assert.equal(fixture.buttonLabels().includes('Run program'), false, 'old completion cannot release the new run');
+	} finally {
+		for (const run of fixture.scriptRuns) run.settlement.resolve({ log: [] });
+		fixture.settlePending(); await fixture.cleanup();
 	}
 });
