@@ -66,8 +66,11 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const names: Readonly<Record<string, string>> = { TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', ALBUMARTIST: 'albumArtist', GENRE: 'genre',
 		TRACK: 'trackNumber', DISC: 'discNumber', YEAR: 'date', TOTALTRACKS: 'tracksTotal', TOTALDISCS: 'discsTotal',
 		COMMENT: 'comment', DATE: 'date', LYRICS: 'lyrics', TRACKNUMBER: 'trackNumber', TRACKTOTAL: 'tracksTotal', DISCNUMBER: 'discNumber', DISCTOTAL: 'discsTotal' };
+	const explicitDate = entries.some(([key, value]) => key.toUpperCase().replace(/[ _-]/gu, '') === 'DATE' && typeof value === 'string' && value !== '');
 	for (const [key, value] of entries) {
-		const name = names[key.toUpperCase().replace(/[ _-]/gu, '')];
+		const normalizedKey = key.toUpperCase().replace(/[ _-]/gu, '');
+		if (normalizedKey === 'YEAR' && explicitDate) continue;
+		const name = names[normalizedKey];
 		if (!name || typeof value !== 'string') continue;
 		if (['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name)) {
 			const pair = /^(\d+)\/(\d+)$/u.exec(value);
