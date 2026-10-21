@@ -4,6 +4,7 @@ import { publishedCopyFor } from '../../shared/presentation-localization.ts'; im
 import { loadImportAdmissionExecution } from './import-admission-loader.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts'; import { createDesktopOriginalImportRecorder } from '../../../desktop-overwrite-original.ts';
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
+import { importFilePlacement } from './import-file-placement.ts';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
 import {
 	createImportedAdmPassthroughMetadata,
@@ -156,7 +157,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			if (cancellation.signal.aborted) break;
 			setImportFileProgress(file, completedBytes, totalBytes);
 			try {
-				const result = await importFile(file, importFilePlacement(importOptions, audioFileIndex), assertRequestedProjectCurrent);
+				const result = await importFile(file, importFilePlacement(requireProject(), importOptions, audioFileIndex), assertRequestedProjectCurrent);
 				if (result?.notice) notices.push({ text: result.notice, localization: result.noticeLocalization });
 				successes += 1;
 			} catch (error) {
@@ -247,17 +248,6 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		return normalizeProjectImportTimelineStartFrame(value, copy.timelineFramesFinite);
 	}
 
-	function importFilePlacement(importOptions: RuntimeValue, fileIndex: RuntimeValue) {
-		if (importOptions.destination !== 'timeline' || !importOptions.trackId) return importOptions;
-		if (fileIndex === 0) return importOptions;
-		const targetTrackIndex = requireProject().tracks.findIndex((track: RuntimeValue) => track.id === importOptions.trackId);
-		return freezeImportOptions({
-			...importOptions,
-			trackId: null,
-			trackIndex: targetTrackIndex < 0 ? undefined : targetTrackIndex + fileIndex,
-		}, Boolean(importOptions.timelineStartExplicit));
-	}
-
 	function prepareImportedMediaCommand(
 		source: RuntimeValue,
 		clip: RuntimeValue,
@@ -321,6 +311,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					name: trackName,
 				}),
 				...(Number.isSafeInteger(importOptions.trackIndex) ? { index: importOptions.trackIndex } : {}),
+				...(importOptions.trackPlacement ?? {}),
 			});
 		}
 		commands.push(createAddClipCommand(trackId, {
