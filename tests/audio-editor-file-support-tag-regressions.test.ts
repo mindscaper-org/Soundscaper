@@ -2,6 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { audioMetadataComments } from '../src/common/editor/audio-metadata-values.ts';
+import { normalizeMediaMetadata } from '../src/common/editor/media-metadata.ts';
 import { createApeFileMetadata } from '../src/common/editor/ape-file-metadata.ts';
 import { readApeMetadataTags, wavPackAudioBlob } from '../src/common/editor/ape-metadata-reader.ts';
 import { browserAacMetadataFormat, browserAacMetadataTags } from '../src/common/editor/browser-aac-metadata.ts';
@@ -111,3 +113,16 @@ test('ID3 ownership price and purchase date survive export when the seller field
 	const tag = createAudioMetadataId3Tag(projectAudioMetadata(metadata));
 	assert.equal(frameText(tag, 'OWNE'), 'EUR12.99\0' + '20260101');
 });
+
+
+for (const format of ['flac', 'ogg-vorbis', 'opus', 'wavpack']) {
+	test(`${format} export retains a full Custom Metadata DATE over its YEAR alias`, () => {
+		for (const custom of [{ DATE: '2026-10-21', YEAR: '2026' }, { YEAR: '2026', DATE: '2026-10-21' }]) {
+			const settings = { ...createExportDialogInitialSettings({ sampleRate: 48_000 }), format,
+				metadataCustom: JSON.stringify(custom) };
+			const request = createExportDialogRequest(settings, { metadata: exportDialogMetadata(format, false,
+				JSON.parse(settings.metadataCustom) as Readonly<Record<string, string>>) });
+			assert.deepEqual(audioMetadataComments(normalizeMediaMetadata(request.metadata)), ['DATE=2026-10-21']);
+		}
+	});
+}
