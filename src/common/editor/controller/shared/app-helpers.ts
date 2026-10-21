@@ -101,12 +101,12 @@ export function isLegacyAupFile(file: NamedFile | null | undefined): boolean {
 }
 
 export function isLegacyBlockFile(file: NamedFile | null | undefined): boolean {
-	return /\.au$/i.test(String(file?.name || '').trim());
+	return /\.auf?$/i.test(String(file?.name || '').trim());
 }
 
 export function isWavFile(value: unknown): boolean {
 	const file = value && typeof value === 'object' ? value as NamedFile : null;
-	const mimeType = String(file?.type || '').trim().toLowerCase();
+	const mimeType = String(file?.type || '').split(';', 1)[0]!.trim().toLowerCase();
 	return /\.(?:wav|wave|rf64|bw64|bwf)$/i.test(String(file?.name || '').trim())
 		|| [
 			'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave',

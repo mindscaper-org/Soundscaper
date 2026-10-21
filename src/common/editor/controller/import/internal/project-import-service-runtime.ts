@@ -131,7 +131,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				assertRequestedProjectCurrent?.();
 				const result = await importLegacyAudacityProject(
 					legacyProject,
-					files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)),
+					files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)), { signal: cancellation.signal, assertCurrent: assertRequestedProjectCurrent },
 				);
 				if (getProject()?.id !== result.project?.id) throw new Error('The project changed during audio import.');
 				const importedProjectToken = captureProject();

@@ -5,5 +5,5 @@ export function isStreamedAudioImportFile(file: unknown): file is Blob {
 	if (!(file instanceof Blob)) return false;
 	const name = 'name' in file ? String(file.name) : '';
 	return /\.(?:mp3|mp2|flac|ogg|oga|opus|m4a|aac|mp4|wv|wavpack)$/iu.test(name)
-		|| /^(?:audio\/(?:mpeg|mp3|mp2|flac|x-flac|ogg|opus|mp4|aac|x-m4a|wavpack|x-wavpack))$/iu.test(file.type);
+		|| /^(?:audio\/(?:mpeg|mp3|mp2|flac|x-flac|ogg|opus|mp4|aac|x-m4a|wavpack|x-wavpack))$/iu.test(file.type.split(';', 1)[0]!.trim());
 }

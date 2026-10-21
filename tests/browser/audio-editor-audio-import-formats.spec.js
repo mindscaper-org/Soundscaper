@@ -20,6 +20,7 @@ const FORMATS = [
 	['Ogg Vorbis (.oga alias)', 'oga', 'libvorbis', ''],
 	['WavPack (.wavpack alias)', 'wavpack', 'wavpack', ''],
 	['AIFF (.aif alias)', 'aif', 'pcm_s16be', ''],
+	['AIFF-C little-endian PCM', 'aifc', 'pcm_s16le', ''],
 ];
 
 async function encodedFixture(extension, codec, mimeType) {
@@ -134,7 +135,7 @@ test.describe('audio file import formats', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await expect(editor.locator('[data-workspace-panel="project-bin"]')).toBeVisible();
 		const requiredExtensions = [
-			'.aac', '.aif', '.aiff', '.bw64', '.flac', '.m4a', '.mp2', '.mp3',
+			'.aac', '.aif', '.aifc', '.aiff', '.bw64', '.bwf', '.flac', '.m4a', '.mp2', '.mp3',
 			'.oga', '.ogg', '.opus', '.rf64', '.wav', '.wave', '.wavpack', '.wv',
 		];
 		const projectBinChoosingFile = page.waitForEvent('filechooser');
