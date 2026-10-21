@@ -320,28 +320,32 @@ export function createRecordingRoutingService<
 			state.preferredOutputDeviceId = normalized;
 			state.activeOutputDeviceId = '';
 			state.audioOutputStatus = 'available';
-			await persistAudioDevicePreferences();
-			if (generation === outputDeviceSelectionGeneration) publishDocumentSnapshot();
+			try { await persistAudioDevicePreferences(); }
+			finally { if (generation === outputDeviceSelectionGeneration) publishDocumentSnapshot(); }
 			return normalized;
 		}
+		let applied = false;
 		try {
 			const result = await Promise.resolve(engine.setOutputDevice?.(normalized));
 			if (generation !== outputDeviceSelectionGeneration) return normalized;
 			state.preferredOutputDeviceId = normalized;
 			state.activeOutputDeviceId = result?.activeDeviceId ?? normalized;
 			state.audioOutputStatus = normalized ? 'active' : 'default';
+			applied = true;
 			await persistAudioDevicePreferences();
 			if (generation === outputDeviceSelectionGeneration) publishDocumentSnapshot();
 			return normalized;
 		} catch (error) {
 			if (generation === outputDeviceSelectionGeneration) {
-				const errorName = (error as Readonly<{ name?: string }> | null)?.name;
-				state.preferredOutputDeviceId = previous;
-				state.audioOutputStatus = errorName === 'NotSupportedError'
-					? 'unsupported'
-					: errorName === 'NotAllowedError' || errorName === 'SecurityError'
-						? 'denied'
-						: 'error';
+				if (!applied) {
+					const errorName = (error as Readonly<{ name?: string }> | null)?.name;
+					state.preferredOutputDeviceId = previous;
+					state.audioOutputStatus = errorName === 'NotSupportedError'
+						? 'unsupported'
+						: errorName === 'NotAllowedError' || errorName === 'SecurityError'
+							? 'denied'
+							: 'error';
+				}
 				publishDocumentSnapshot();
 			}
 			throw error;
