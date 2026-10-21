@@ -95,7 +95,7 @@ jobs:
         run: npm ci
       - name: Resolve the actual pinned npm CLI
         run: |
-          node --input-type=module -e 'import {appendFile} from "node:fs/promises"; import {join} from "node:path"; await appendFile(process.env.GITHUB_ENV,"LIGHTSCAPER_CI_NPM_CLI="+join(process.argv[1],"npm/bin/npm-cli.js")+"\n");' "$(npm root --global)"
+          node --input-type=module -e 'import {appendFile,realpath} from "node:fs/promises"; import {join} from "node:path"; const root=await realpath(process.env.RUNNER_TEMP); const paths={LIGHTSCAPER_CI_NPM_CLI:await realpath(join(process.argv[1],"npm/bin/npm-cli.js")),LIGHTSCAPER_CI_NATIVE_RESULT:join(root,"lightscaper-photo-result"),LIGHTSCAPER_CI_PHOTO_WORK:join(root,"lightscaper-photo-work"),LIGHTSCAPER_CI_PHOTO_EVIDENCE:join(root,"lightscaper-photo-evidence"),LIGHTSCAPER_CI_ASSOCIATION_WORK:join(root,"lightscaper-association-work"),LIGHTSCAPER_CI_ASSOCIATION_EVIDENCE:join(root,"lightscaper-association-evidence")}; for(const [name,value] of Object.entries(paths)){if(/[\r\n]/u.test(value))throw Error("CI path contains a line break."); await appendFile(process.env.GITHUB_ENV,name+"="+value+"\n");}' "$(npm root --global)"
       - name: Prepare real Linux display and user namespaces
         timeout-minutes: 10
         if: runner.os == 'Linux'
@@ -155,16 +155,16 @@ jobs:
         run: |
           xvfb-run --auto-servernum node --import tsx scripts/lightscaper-desktop-native-qualification-current-v1.ts \
             --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
-            --native-result "$RUNNER_TEMP/lightscaper-photo-result" \
-            --work-root "$RUNNER_TEMP/lightscaper-photo-work" --evidence-root "$RUNNER_TEMP/lightscaper-photo-evidence" \
+            --native-result "$LIGHTSCAPER_CI_NATIVE_RESULT" \
+            --work-root "$LIGHTSCAPER_CI_PHOTO_WORK" --evidence-root "$LIGHTSCAPER_CI_PHOTO_EVIDENCE" \
             --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
       - name: Qualify both real macOS or Windows packages through actual menu workflows
         if: runner.os != 'Linux'
         run: |
           node --import tsx scripts/lightscaper-desktop-native-qualification-current-v1.ts \
             --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
-            --native-result "$RUNNER_TEMP/lightscaper-photo-result" \
-            --work-root "$RUNNER_TEMP/lightscaper-photo-work" --evidence-root "$RUNNER_TEMP/lightscaper-photo-evidence" \
+            --native-result "$LIGHTSCAPER_CI_NATIVE_RESULT" \
+            --work-root "$LIGHTSCAPER_CI_PHOTO_WORK" --evidence-root "$LIGHTSCAPER_CI_PHOTO_EVIDENCE" \
             --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
       - name: Qualify the actual installed Linux catalog default and confirmed restore
         timeout-minutes: 25
@@ -173,7 +173,7 @@ jobs:
           xvfb-run --auto-servernum node --import tsx scripts/lightscaper-desktop-association-qualification-current-v1.ts \
             --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
             --association-helper "$LIGHTSCAPER_ASSOCIATION_HELPER" --association-helper-sha256 "$LIGHTSCAPER_ASSOCIATION_HELPER_SHA256" \
-            --work-root "$RUNNER_TEMP/lightscaper-association-work" --evidence-root "$RUNNER_TEMP/lightscaper-association-evidence" \
+            --work-root "$LIGHTSCAPER_CI_ASSOCIATION_WORK" --evidence-root "$LIGHTSCAPER_CI_ASSOCIATION_EVIDENCE" \
             --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
       - name: Qualify the actual installed macOS or Windows catalog default and confirmed restore
         timeout-minutes: 25
@@ -182,7 +182,7 @@ jobs:
           node --import tsx scripts/lightscaper-desktop-association-qualification-current-v1.ts \
             --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
             --association-helper "$LIGHTSCAPER_ASSOCIATION_HELPER" --association-helper-sha256 "$LIGHTSCAPER_ASSOCIATION_HELPER_SHA256" \
-            --work-root "$RUNNER_TEMP/lightscaper-association-work" --evidence-root "$RUNNER_TEMP/lightscaper-association-evidence" \
+            --work-root "$LIGHTSCAPER_CI_ASSOCIATION_WORK" --evidence-root "$LIGHTSCAPER_CI_ASSOCIATION_EVIDENCE" \
             --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
       - name: Upload only bounded internal receipts
         if: always()

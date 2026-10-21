@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join, sep } from 'node:path';
+import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import { LIGHTSCAPER_DESKTOP_NATIVE_CI_TARGETS_CURRENT_V1 as targets } from '../scripts/lib/lightscaper-desktop-native-ci-plan-current-v1.ts';
@@ -46,7 +50,7 @@ void test('internal workflow executes the complete public-package runner under n
 	for (const step of commands) {
 		assert.match(String(step.run), /--target "\$LIGHTSCAPER_CI_TARGET"/u);
 		assert.match(String(step.run), /--source-revision "\$GITHUB_SHA"/u);
-		assert.match(String(step.run), /--native-result "\$RUNNER_TEMP\/lightscaper-photo-result"/u);
+		assert.match(String(step.run), /--native-result "\$LIGHTSCAPER_CI_NATIVE_RESULT"/u);
 		assert.match(String(step.run), /--npm-cli "\$LIGHTSCAPER_CI_NPM_CLI"/u);
 	}
 	assert.ok(commands.some(step => String(step.run).includes('xvfb-run --auto-servernum')));
@@ -162,4 +166,41 @@ void test('Photo native artifact transport retains its authenticated hidden corr
 	const hidden = manifest.files.filter((name): name is string => typeof name === 'string' && name.split('/').some(part => part.startsWith('.')));
 	assert.ok(hidden.includes('.github/workflows/lightscaper-photo-native-build.yml'), 'The actual producer workflow is delivered corresponding source.');
 	assert.equal(upload['include-hidden-files'], true, `Artifact upload must retain source/${hidden.join(', source/')}`);
+});
+
+void test('the actual CI path preparation emits canonical native spellings for every qualifier before invocation', async () => {
+	const all = steps(record(record((await workflow()).jobs).qualify).steps);
+	const step = all.find(value => value.name === 'Resolve the actual pinned npm CLI');
+	assert.ok(step); const command = String(step.run), prefix = "node --input-type=module -e '", suffix = `' "$(npm root --global)"`;
+	assert.ok(command.startsWith(prefix) && command.trimEnd().endsWith(suffix));
+	const body = command.trimEnd().slice(prefix.length, -suffix.length);
+	const folder = await realpath(await mkdtemp(join(tmpdir(), 'lightscaper-ci-paths-')));
+	try {
+		const temp = join(folder, 'actual temp ü'), npmRoot = join(folder, 'global npm ü');
+		await mkdir(temp); const canonicalTemp = await realpath(temp); await mkdir(join(npmRoot, 'npm', 'bin'), { recursive: true });
+		const npm = join(npmRoot, 'npm', 'bin', 'npm-cli.js'); await writeFile(npm, '// never executed\n');
+		const environment = join(folder, 'github-env'), run = promisify(execFile);
+		// Execute exactly the maintained Node body; no shell, package builder, installer or OS opener is involved.
+		const child = await run(process.execPath, ['--input-type=module', '--eval', body, npmRoot], { timeout: 10_000, maxBuffer: 65536,
+			env: { ...process.env, RUNNER_TEMP: temp + sep + '..' + sep + 'actual temp ü', GITHUB_ENV: environment } });
+		assert.equal(child.stderr, '');
+		const fields = Object.fromEntries((await readFile(environment, 'utf8')).trimEnd().split('\n').map(line => {
+			const at = line.indexOf('='); assert.ok(at > 0); return [line.slice(0, at), line.slice(at + 1)];
+		}));
+		assert.deepEqual(fields, { LIGHTSCAPER_CI_NPM_CLI: await realpath(npm),
+			LIGHTSCAPER_CI_NATIVE_RESULT: join(canonicalTemp, 'lightscaper-photo-result'), LIGHTSCAPER_CI_PHOTO_WORK: join(canonicalTemp, 'lightscaper-photo-work'),
+			LIGHTSCAPER_CI_PHOTO_EVIDENCE: join(canonicalTemp, 'lightscaper-photo-evidence'), LIGHTSCAPER_CI_ASSOCIATION_WORK: join(canonicalTemp, 'lightscaper-association-work'),
+			LIGHTSCAPER_CI_ASSOCIATION_EVIDENCE: join(canonicalTemp, 'lightscaper-association-evidence') });
+		const missingOutput = join(folder, 'missing-env');
+		await assert.rejects(run(process.execPath, ['--input-type=module', '--eval', body, npmRoot], { timeout: 10_000, maxBuffer: 65536,
+			env: { ...process.env, RUNNER_TEMP: join(folder, 'missing'), GITHUB_ENV: missingOutput } }));
+		await assert.rejects(readFile(missingOutput), { code: 'ENOENT' });
+		for (const [script, names] of [
+			['scripts/lightscaper-desktop-native-qualification-current-v1.ts', ['LIGHTSCAPER_CI_NATIVE_RESULT', 'LIGHTSCAPER_CI_PHOTO_WORK', 'LIGHTSCAPER_CI_PHOTO_EVIDENCE']],
+			['scripts/lightscaper-desktop-association-qualification-current-v1.ts', ['LIGHTSCAPER_CI_ASSOCIATION_WORK', 'LIGHTSCAPER_CI_ASSOCIATION_EVIDENCE']],
+		] as const) for (const invocation of all.filter(value => String(value.run).includes(script))) {
+			for (const name of names) assert.ok(String(invocation.run).includes('"$' + name + '"'));
+			assert.equal(String(invocation.run).includes('$RUNNER_TEMP/'), false);
+		}
+	} finally { await rm(folder, { recursive: true, force: false }); }
 });
