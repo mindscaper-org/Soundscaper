@@ -32,18 +32,28 @@ int failed(const char* stage, unsigned long code) {
  std::fflush(stderr); return 2;
 }
 #ifdef _WIN32
-int windowsNetworkPolicy(unsigned long& policyType) {
- HANDLE token = nullptr, impersonation = nullptr; PSECURITY_DESCRIPTOR descriptor = nullptr; HMODULE module = nullptr; PSID_AND_ATTRIBUTES exemptions = nullptr; DWORD count = 0;
+bool canonicalProfileSid(const std::string& text) {
+ if (text.size() > 195 || text.rfind("S-1-15-2-", 0) != 0) return false;
+ size_t offset = 9; unsigned int count = 0;
+ while (offset < text.size()) {
+  const size_t first = offset; std::uint64_t value = 0;
+  while (offset < text.size() && text[offset] != '-') {
+   const char digit = text[offset++]; if (digit < '0' || digit > '9' || offset - first > 10) return false;
+   value = value * 10 + static_cast<unsigned int>(digit - '0'); if (value > 0xffffffffULL) return false;
+  }
+  if (offset == first || (offset - first > 1 && text[first] == '0') || ++count > 7) return false;
+  if (offset < text.size() && ++offset == text.size()) return false;
+ }
+ return count == 7;
+}
+int windowsNetworkToken(std::string& sidText) {
+ HANDLE token = nullptr, impersonation = nullptr; PSECURITY_DESCRIPTOR descriptor = nullptr; LPWSTR sidString = nullptr;
  auto finish = [&](const char* stage, DWORD code) {
   DWORD cleanup = ERROR_SUCCESS;
-  if (exemptions) {
-   for (DWORD index = 0; index < count; ++index) if (exemptions[index].Sid && !HeapFree(GetProcessHeap(), 0, exemptions[index].Sid) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
-   if (!HeapFree(GetProcessHeap(), 0, exemptions) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
-  }
+  if (sidString && LocalFree(sidString) != nullptr) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   if (descriptor && LocalFree(descriptor) != nullptr && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   if (impersonation && !CloseHandle(impersonation) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   if (token && !CloseHandle(token) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
-  if (module && !FreeLibrary(module) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
   if (stage) return failed(stage, code);
   return cleanup == ERROR_SUCCESS ? 0 : failed("network-policy-cleanup", cleanup);
  };
@@ -74,28 +84,54 @@ int windowsNetworkPolicy(unsigned long& policyType) {
  const PSID sid = reinterpret_cast<const TOKEN_APPCONTAINER_INFORMATION*>(info.data())->TokenAppContainer;
  const auto begin = reinterpret_cast<std::uintptr_t>(info.data()), address = reinterpret_cast<std::uintptr_t>(sid);
  if (!sid || address < begin || address > begin + size - 8 || !IsValidSid(sid) || GetLengthSid(sid) > begin + size - address) return finish("network-token-sid", ERROR_INVALID_SID);
+ if (!ConvertSidToStringSidW(sid, &sidString)) { const DWORD error = GetLastError(); sidString = nullptr; return finish("network-token-sid-string", error); }
+ for (size_t index = 0; sidString[index] != L'\0'; ++index) {
+  if (index >= 195 || sidString[index] > 127) return finish("network-token-sid-text", ERROR_INVALID_SID);
+  sidText.push_back(static_cast<char>(sidString[index]));
+ }
+ if (!canonicalProfileSid(sidText)) return finish("network-token-sid-text", ERROR_INVALID_SID);
+ return finish(nullptr, ERROR_SUCCESS);
+}
+int windowsNetworkConfiguration(const char* supplied) {
+ std::string text; for (size_t index = 0; supplied[index] != '\0'; ++index) { if (index >= 195) return failed("network-config-sid", ERROR_INVALID_SID); text.push_back(supplied[index]); }
+ if (!canonicalProfileSid(text)) return failed("network-config-sid", ERROR_INVALID_SID);
+ HANDLE token = nullptr; PSID requested = nullptr; LPWSTR roundtrip = nullptr; HMODULE module = nullptr; PSID_AND_ATTRIBUTES exemptions = nullptr; DWORD count = 0;
+ auto finish = [&](const char* stage, DWORD code) {
+  DWORD cleanup = ERROR_SUCCESS;
+  if (exemptions) {
+   for (DWORD index = 0; index < count; ++index) if (exemptions[index].Sid && !HeapFree(GetProcessHeap(), 0, exemptions[index].Sid) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
+   if (!HeapFree(GetProcessHeap(), 0, exemptions) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
+  }
+  if (roundtrip && LocalFree(roundtrip) != nullptr && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
+  if (requested && LocalFree(requested) != nullptr && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
+  if (token && !CloseHandle(token) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
+  if (module && !FreeLibrary(module) && cleanup == ERROR_SUCCESS) cleanup = GetLastError() == ERROR_SUCCESS ? ERROR_INVALID_DATA : GetLastError();
+  if (stage) return failed(stage, code);
+  return cleanup == ERROR_SUCCESS ? 0 : failed("network-policy-cleanup", cleanup);
+ };
+ if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return finish("network-config-token-open", GetLastError());
+ DWORD app = 1, size = 0;
+ if (!GetTokenInformation(token, TokenIsAppContainer, &app, sizeof(app), &size)) return finish("network-config-token-api", GetLastError());
+ if (size != sizeof(app) || app != 0) return finish("network-config-contained", app);
+ const std::wstring native(text.begin(), text.end());
+ if (!ConvertStringSidToSidW(native.c_str(), &requested)) { const DWORD error = GetLastError(); requested = nullptr; return finish("network-config-sid", error); }
+ if (!IsValidSid(requested)) return finish("network-config-sid", ERROR_INVALID_SID);
+ if (!ConvertSidToStringSidW(requested, &roundtrip)) { const DWORD error = GetLastError(); roundtrip = nullptr; return finish("network-config-roundtrip", error); }
+ if (native != roundtrip) return finish("network-config-roundtrip", ERROR_INVALID_SID);
  module = LoadLibraryExW(L"FirewallAPI.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
  if (!module) return finish("network-policy-library", GetLastError());
  const auto configuration = reinterpret_cast<decltype(&NetworkIsolationGetAppContainerConfig)>(GetProcAddress(module, "NetworkIsolationGetAppContainerConfig"));
- const auto diagnose = reinterpret_cast<decltype(&NetworkIsolationDiagnoseConnectFailureAndGetInfo)>(GetProcAddress(module, "NetworkIsolationDiagnoseConnectFailureAndGetInfo"));
- if (!configuration || !diagnose) return finish("network-policy-procedure", ERROR_PROC_NOT_FOUND);
- DWORD status = configuration(&count, &exemptions);
+ if (!configuration) return finish("network-policy-procedure", ERROR_PROC_NOT_FOUND);
+ const DWORD status = configuration(&count, &exemptions);
  if (status != ERROR_SUCCESS) { exemptions = nullptr; return finish("network-policy-config", status); }
- // OS-owned output is bounded before enumeration; any excess is a failed probe.
- if (count > 4096 || (count != 0 && !exemptions)) {
-  // Do not walk an unbounded array. The failing private process retires all memory.
-  exemptions = nullptr; return finish("network-policy-config-size", count);
- }
+ if (count > 4096 || (count != 0 && !exemptions)) { exemptions = nullptr; return finish("network-policy-config-size", count); }
  for (DWORD index = 0; index < count; ++index) {
   if (!exemptions[index].Sid || !IsValidSid(exemptions[index].Sid)) return finish("network-policy-config-sid", ERROR_INVALID_SID);
-  if (EqualSid(sid, exemptions[index].Sid)) return finish("network-policy-loopback-exempt", ERROR_ACCESS_DENIED);
+  if (EqualSid(requested, exemptions[index].Sid)) return finish("network-policy-loopback-exempt", ERROR_ACCESS_DENIED);
  }
- NETISO_ERROR_TYPE type = NETISO_ERROR_TYPE_NONE;
- // Classification only: no socket or request is sent to this documentation IP.
- status = diagnose(L"192.0.2.1", &type);
- if (status != ERROR_SUCCESS) return finish("network-policy-diagnose", status);
- if (type != NETISO_ERROR_TYPE_PRIVATE_NETWORK && type != NETISO_ERROR_TYPE_INTERNET_CLIENT && type != NETISO_ERROR_TYPE_INTERNET_CLIENT_SERVER) return finish("network-policy-type", static_cast<DWORD>(type));
- policyType = static_cast<unsigned long>(type); return finish(nullptr, ERROR_SUCCESS);
+ if (const int result = finish(nullptr, ERROR_SUCCESS); result != 0) return result;
+ if (std::fprintf(stdout, "PHOTO_ISOLATION_CANARY_V4 CONFIG_PASS sid=%s\n", text.c_str()) < 0) return failed("stdout-write", static_cast<unsigned long>(errno));
+ return std::fflush(stdout) == 0 ? 0 : failed("stdout-flush", static_cast<unsigned long>(errno));
 }
 int windowsNetworkControl(const char* portText) {
  HANDLE token = nullptr; DWORD app = 1, size = 0;
@@ -157,7 +193,8 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
  if (_setmode(_fileno(stdin), _O_BINARY) == -1 || _setmode(_fileno(stdout), _O_BINARY) == -1) return failed("binary-stdio", static_cast<unsigned long>(errno));
  if (argc == 3 && std::strcmp(argv[1], "--network-positive-control") == 0) return windowsNetworkControl(argv[2]);
- if (argc == 2 && std::strcmp(argv[1], "--network-policy-control") == 0) { unsigned long type = 0; return windowsNetworkPolicy(type); }
+ if (argc == 2 && std::strcmp(argv[1], "--network-policy-control") == 0) { std::string sid; return windowsNetworkToken(sid); }
+ if (argc == 3 && std::strcmp(argv[1], "--network-config-control") == 0) return windowsNetworkConfiguration(argv[2]);
 #endif
  if (argc != 1) return failed("arguments", EINVAL);
  std::array<unsigned char, 6> header{}; if (std::fread(header.data(), 1, header.size(), stdin) != header.size()) return failed("header-read", static_cast<unsigned long>(errno));
@@ -174,7 +211,11 @@ int main(int argc, char** argv) {
  fileError = file == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS; fileDenied = file == INVALID_HANDLE_VALUE && fileError == ERROR_ACCESS_DENIED;
  if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
  if (!fileDenied) return failed("file-denial", fileError);
- unsigned long policyType = 0; if (const int result = windowsNetworkPolicy(policyType); result != 0) return result;
+ std::string sid; if (const int result = windowsNetworkToken(sid); result != 0) return result;
+ if (std::fprintf(stdout, "PHOTO_ISOLATION_CANARY_V4 SID_READY sid=%s\n", sid.c_str()) < 0) return failed("stdout-write", static_cast<unsigned long>(errno));
+ if (std::fflush(stdout) != 0) return failed("stdout-flush", static_cast<unsigned long>(errno));
+ unsigned char acknowledgement = 0;
+ if (std::fread(&acknowledgement, 1, 1, stdin) != 1 || acknowledgement != 1 || std::fgetc(stdin) != EOF || std::ferror(stdin)) return failed("host-ack", ERROR_INVALID_DATA);
  std::array<wchar_t, 32768> executable{}; const auto count = GetModuleFileNameW(nullptr, executable.data(), static_cast<DWORD>(executable.size()));
  if (count == 0 || count >= executable.size()) return failed("module-path", count == 0 ? GetLastError() : ERROR_INSUFFICIENT_BUFFER);
  STARTUPINFOW startup{}; startup.cb = sizeof(startup); PROCESS_INFORMATION child{}; std::wstring command = L"\"" + std::wstring(executable.data()) + L"\"";
@@ -182,7 +223,7 @@ int main(int argc, char** argv) {
  childError = created ? ERROR_SUCCESS : GetLastError(); childDenied = !created && (childError == ERROR_ACCESS_DENIED || childError == ERROR_NOT_ENOUGH_QUOTA);
  if (created) { TerminateProcess(child.hProcess, 2); WaitForSingleObject(child.hProcess, INFINITE); CloseHandle(child.hThread); CloseHandle(child.hProcess); }
  if (!childDenied) return failed("child-denial", childError);
- if (std::fprintf(stdout, "PHOTO_ISOLATION_CANARY_V3 POLICY_PASS type=%lu lpacAccess=2\n", policyType) < 0) return failed("stdout-write", static_cast<unsigned long>(errno));
+ if (std::fprintf(stdout, "PHOTO_ISOLATION_CANARY_V4 POLICY_PASS sid=%s lpacAccess=2\n", sid.c_str()) < 0) return failed("stdout-write", static_cast<unsigned long>(errno));
 #else
  bool networkDenied = false; unsigned long socketError = 0, networkError = 0;
  const int file = open(path.c_str(), O_RDONLY | O_CLOEXEC); fileError = file < 0 ? static_cast<unsigned long>(errno) : 0; fileDenied = file < 0 && (fileError == EACCES || fileError == EPERM); if (file >= 0) close(file);

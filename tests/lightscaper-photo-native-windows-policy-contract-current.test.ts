@@ -14,7 +14,7 @@ const hash = (bytes: Uint8Array): string => createHash('sha256').update(bytes).d
 // pipes/owner joins. They do not qualify native Windows or OS isolation.
 async function fixture(context: TestContext, body: string, work: (f: {
  marker: string; release: string; stopped: string; start(signal?: AbortSignal): Promise<unknown>; receipt(): Promise<unknown>;
-}) => Promise<void>, controlMode: 'normal' | 'no-connection' | 'bad-marker' | 'accepted-policy' = 'normal'): Promise<void> {
+}) => Promise<void>, controlMode: 'normal' | 'no-connection' | 'bad-marker' | 'accepted-policy' | 'config-error' | 'config-wrong-sid' | 'config-hold' = 'normal'): Promise<void> {
  const base = await realpath(await mkdtemp(join(tmpdir(), 'photo-canary-diagnostic-'))), root = join(base, 'stage'), canaryRoot = join(base, 'canary');
  const marker = join(base, 'entered.json'), release = join(base, 'release.json'), stopped = join(base, 'stopped.json');
  context.mock.property(process, 'env', { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(?:SystemRoot|SystemDrive|LOCALAPPDATA)$/iu.test(key))), SystemRoot: 'C:\\Windows', SystemDrive: 'C:', LOCALAPPDATA: base });
@@ -48,6 +48,11 @@ process.stdin.on('data', part=>{ pending=Buffer.concat([pending,part]); while(pe
 if(process.argv[2]==='--network-policy-control'){
  if(mode==='accepted-policy')process.exit(0);
  fs.writeSync(2,${JSON.stringify('PHOTO_ISOLATION_CANARY_V1 FAIL stage=network-token-app code=0\r\n')});process.exit(2);
+}else if(process.argv[2]==='--network-config-control'){
+ const sid=process.argv[3];
+ if(mode==='config-error'){fs.writeSync(2,'PHOTO_ISOLATION_CANARY_V1 FAIL stage=network-policy-config code=14\\r\\n');process.exit(2);}
+ if(mode==='config-hold'){fs.writeFileSync(marker,JSON.stringify({sid,pid:process.pid}));process.on('SIGTERM',()=>{fs.writeFileSync(stopped,'host-joined');process.exit(0);});setInterval(()=>{},1000);}
+ else{const echoed=mode==='config-wrong-sid'?'S-1-15-2-999':sid;process.on('exit',()=>fs.writeFileSync(marker,JSON.stringify({sid,exited:true})));fs.writeSync(1,'PHOTO_ISOLATION_CANARY_V4 CONFIG_PASS sid='+echoed+'\\n');process.exit(0);}
 }else if(process.argv[2]==='--network-positive-control'){
  if(mode==='no-connection'){fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V2 NETWORK_CONTROL_PASS\n')});process.exit(0);}
  const socket=require('node:net').connect({host:'127.0.0.1',port:Number(process.argv[3])},()=>{
@@ -67,12 +72,15 @@ if(process.argv[2]==='--network-policy-control'){
 }
 
 function record(value: unknown): Record<string, unknown> { assert.ok(typeof value === 'object' && value !== null); return value as Record<string, unknown>; }
-const POLICY = `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V3 POLICY_PASS type=2 lpacAccess=2\n')});process.exit(0);`;
+const SID = 'S-1-15-2-123-456-789-10-11-12-13';
+const POLICY = `fs.writeSync(1,${JSON.stringify(`PHOTO_ISOLATION_CANARY_V4 SID_READY sid=${SID}\n`)});let acked=false;process.stdin.once('data',ack=>{if(ack.length!==1||ack[0]!==1)process.exit(2);acked=true;if(!fs.existsSync(marker)||(JSON.parse(fs.readFileSync(marker,'utf8')).sid!==${JSON.stringify(SID)}||JSON.parse(fs.readFileSync(marker,'utf8')).exited!==true))process.exit(2);fs.writeSync(1,${JSON.stringify(`PHOTO_ISOLATION_CANARY_V4 POLICY_PASS sid=${SID} lpacAccess=2\n`)});process.exit(0);});process.stdin.once('end',()=>{if(!acked)process.exit(2);});`;
+
 void test('Windows policy receipt requires actual separate TCP positive control and labels policy rather than a restricted TCP syscall', OPTIONS, async context => fixture(context, POLICY, async f => {
  await f.start(); const receipt = record(await f.receipt()), evidence = record(receipt.networkEvidence), positive = record(evidence.positiveControl);
- assert.equal('networkDenied' in receipt, false); assert.equal(evidence.kind, 'windows-token-network-policy-v2'); assert.equal(evidence.classificationTarget, '192.0.2.1'); assert.equal(evidence.policyType, 2);
- assert.deepEqual(evidence.actualCurrentToken, { appContainer: true, capabilities: 0 });
+ assert.equal('networkDenied' in receipt, false); assert.equal(evidence.kind, 'windows-zero-capability-host-loopback-policy-v1'); assert.equal('classificationTarget' in evidence, false); assert.equal('policyType' in evidence, false);
+ assert.deepEqual(evidence.actualCurrentToken, { appContainer: true, capabilities: 0, appContainerSid: SID });
  assert.deepEqual(evidence.actualLpacAccessCheck, { kind: 'actual-current-token-aap-exclusion-access-check-v1', allApplicationPackages: { requestedAccess: 1, apiSucceeded: true, accessStatus: false, grantedAccess: 0 }, allRestrictedApplicationPackages: { requestedAccess: 2, apiSucceeded: true, accessStatus: true, grantedAccess: 2 } });
+ const config = record(evidence.hostConfiguration); assert.equal(config.kind, 'same-binary-host-global-loopback-config-v1'); assert.equal(config.appContainerSid, SID); assert.equal(config.actualApiStatus, 0); assert.equal(config.actualChildJoined, true); assert.equal(config.actualLoopbackExemptionAbsent, true); assert.equal(config.canarySha256, receipt.actualCanarySha256);
  assert.equal(evidence.actualLoopbackExemptionAbsent, true); assert.equal(evidence.pointInTimePolicyEvidence, true);
  assert.equal(positive.kind, 'uncontained-tcp-positive-control'); assert.equal(positive.actualChildJoined, true); assert.equal(positive.appContainer, false);
  assert.equal(positive.winsockStartupStatus, 0); assert.equal(positive.connectionEstablishedStatus, 0); assert.equal(positive.actualLoopbackConnectionObserved, true); assert.equal(positive.nonAppContainerPolicyRefusalObserved, true);
@@ -88,3 +96,16 @@ void test('uncontained current-token policy guard must actually refuse before th
 void test('prior V2 policy receipt cannot substitute for actual AAP-exclusion AccessCheck evidence', OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify('PHOTO_ISOLATION_CANARY_V2 POLICY_PASS type=2\n')});process.exit(0);`, async f => { await assert.rejects(f.start(), /OS-isolation canary failed/u); }));
 for (const mask of [0, 1, 3]) void test(`Windows AccessCheck proof refuses granted mask ${String(mask)} instead of exact restricted-only bit2`, OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify(`PHOTO_ISOLATION_CANARY_V3 POLICY_PASS type=2 lpacAccess=${String(mask)}\n`)});process.exit(0);`, async f => { await assert.rejects(f.start(), /OS-isolation canary failed/u); }));
 void test('actual AccessCheck API error87 stays a trusted diagnostic failure rather than token evidence', OPTIONS, async context => fixture(context, `fs.writeSync(2,${JSON.stringify('PHOTO_ISOLATION_CANARY_V1 FAIL stage=network-token-access-api code=87\r\n')});process.exit(2);`, async f => { await assert.rejects(f.start(), /diagnostic=network-token-access-api code=87/u); }));
+
+void test('host global config error14 is a failed proof with its actual bounded diagnostic', OPTIONS, async context => fixture(context, POLICY, async f => { await assert.rejects(f.start(), /network-policy-config code=14/u); }, 'config-error'));
+void test('host global config cannot acknowledge a different SID', OPTIONS, async context => fixture(context, POLICY, async f => { await assert.rejects(f.start(), /host.*configuration.*differs/iu); }, 'config-wrong-sid'));
+for (const ready of ['S-1-15-2-01', 'S-1-15-2-4294967296', 'S-1-5-18']) void test(`private readiness refuses noncanonical actual SID ${ready}`, OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify(`PHOTO_ISOLATION_CANARY_V4 SID_READY sid=${ready}\n`)});process.stdin.once('end',()=>process.exit(2));`, async f => { await assert.rejects(f.start(), /canary.*readiness/iu); }));
+void test('duplicate private readiness cannot acquire an acknowledgement', OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify(`PHOTO_ISOLATION_CANARY_V4 SID_READY sid=${SID}\nPHOTO_ISOLATION_CANARY_V4 SID_READY sid=${SID}\n`)});process.stdin.once('end',()=>process.exit(2));`, async f => { await assert.rejects(f.start(), /canary.*readiness/iu); }));
+void test('a final private PASS before the host proof cannot acquire an acknowledgement', OPTIONS, async context => fixture(context, `fs.writeSync(1,${JSON.stringify(`PHOTO_ISOLATION_CANARY_V4 SID_READY sid=${SID}\nPHOTO_ISOLATION_CANARY_V4 POLICY_PASS sid=${SID} lpacAccess=2\n`)});process.stdin.once('end',()=>process.exit(2));`, async f => { await assert.rejects(f.start(), /canary.*readiness/iu); }));
+void test('opaque cancellation joins the actual host query and contained control owner before rejection', OPTIONS, async context => fixture(context, POLICY, async f => {
+ let traps = 0; const controller = new AbortController(), reason = new Proxy({}, { get() { traps++; throw new Error('opaque cancellation must not be inspected'); } }); const operation = f.start(controller.signal);
+ let watching = true; const entered = (async () => { while (watching) { try { await readFile(f.marker); return true; } catch (error) { if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error; } context.signal.throwIfAborted(); await new Promise(resolve => setTimeout(resolve, 10)); } return false; })();
+ let actualHostEntered: boolean; try { actualHostEntered = await Promise.race([entered, operation.then(() => false, () => false)]); } finally { watching = false; await entered; } assert.equal(actualHostEntered, true, 'the actual host query must enter before cancellation');
+ controller.abort(reason); const outcome = await operation.then(() => ({ rejected: false, reason: undefined }), error => ({ rejected: true, reason: error as unknown }));
+ assert.equal(outcome.rejected, true); assert.equal(Object.is(outcome.reason, reason), true); assert.equal(traps, 0); assert.equal(await readFile(f.stopped, 'utf8'), 'host-joined');
+}, 'config-hold'));
