@@ -240,7 +240,7 @@ function visitTimeline(
 			return;
 		case 'Markers':
 		case 'markers':
-			visitMarkers(element, scope, state, resolver);
+			if (clip?.enabled !== false) visitMarkers(element, scope, state, resolver);
 			return;
 		case 'ClipSlot':
 		case 'Timeline':
@@ -473,8 +473,10 @@ function visitMarkers(element: XmlElement, scope: Scope, state: WalkState, resol
 	for (const marker of childElements(element, 'Marker')) {
 		const time = numberAttribute(marker, 'time');
 		if (time === null) continue;
+		const frame = frameOf(markerScope, time, resolver);
+		if (scope.window && (frame < scope.window.start || (scope.window.end !== null && frame >= scope.window.end))) continue;
 		state.markers.push(Object.freeze({
-			frame: frameOf(markerScope, time, resolver),
+			frame,
 			name: attribute(marker, 'name') ?? '',
 			color: attribute(marker, 'color'),
 			comment: attribute(marker, 'comment'),

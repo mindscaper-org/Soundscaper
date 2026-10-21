@@ -23,6 +23,7 @@ async function open(lanes: string, extraStructure = '') {
 	assert.ok(result);
 	return result.project as typeof result.project & {
 		tracks: { name: string; clipIds: string[]; envelope: { frame: number; value: number }[] }[];
+		timelineAnnotations: { name: string; positionFrame: number }[];
 	};
 }
 
@@ -72,4 +73,14 @@ test('MP18: a DAWproject standalone master Channel retains its mixer gain', asyn
 	const project = await open('', `<Channel id="master" role="master" name="Master" audioChannels="2">
 		<Volume unit="linear" value="0.25"/></Channel>`);
 	assert.equal((project.master as { gain: number }).gain, 0.25);
+});
+
+test('MP27: nested DAWproject marker timelines respect the owning clip playback window', async () => {
+	const project = await open(`<Clips><Clip time="10" duration="2" playStart="5"><Markers>
+		<Marker time="4" name="Before"/><Marker time="5" name="Visible"/><Marker time="8" name="After"/>
+		</Markers></Clip><Clip time="20" duration="2" enable="false"><Markers>
+		<Marker time="0" name="Disabled"/></Markers></Clip></Clips>`);
+	assert.deepEqual(project.timelineAnnotations.map(({ name, positionFrame }) => ({ name, positionFrame })), [
+		{ name: 'Visible', positionFrame: 480_000 },
+	]);
 });
