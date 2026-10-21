@@ -315,8 +315,10 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function syncMetronome() {
+		const recordingAnchor = state.transportState === 'recording' ? state.metronomeAnchor : null;
 		stopMetronome();
-		if (!state.metronomeEnabled || !['playing', 'recording'].includes(state.transportState)) return;
+		state.metronomeAnchor = recordingAnchor;
+		if ((!state.metronomeEnabled && state.transportState !== 'recording') || !['playing', 'recording'].includes(state.transportState)) return;
 		void runMetronomeScheduler();
 	}
 
@@ -338,11 +340,11 @@ export function createEditorTransportService<Project extends TransportProject = 
 	 * corrected.
 	 */
 	async function runMetronomeScheduler(generation = metronomeSchedulerGeneration) {
-		if (!metronomeSchedulerIsCurrent(generation)) return;
+		if (!metronomeClockIsCurrent(generation)) return;
 		try {
 			const context = await engine.getAudioContext?.({ resume: false });
 			// A test or headless context may lack the oscillator API; the guard is runtime, not type.
-			if (metronomeSchedulerIsCurrent(generation)
+			if (metronomeClockIsCurrent(generation)
 				&& typeof context?.createOscillator === 'function' && typeof context?.createGain === 'function' && context.destination) {
 				scheduleMetronomeWindow(context);
 			}
@@ -361,6 +363,10 @@ export function createEditorTransportService<Project extends TransportProject = 
 	function metronomeSchedulerIsCurrent(generation: number) {
 		return generation === metronomeSchedulerGeneration && metronomeRunning();
 	}
+	function metronomeClockIsCurrent(generation: number) {
+		return generation === metronomeSchedulerGeneration && !state.disposed
+			&& (metronomeRunning() || state.transportState === 'recording');
+	}
 
 	function scheduleMetronomeWindow(context: EngineAudioContext) {
 		const project = getProject();
@@ -369,13 +375,18 @@ export function createEditorTransportService<Project extends TransportProject = 
 		const playbackRate = Number(playback?.playbackRate) || 1;
 		const framesPerSecond = sampleRate * playbackRate;
 		if (!Number.isFinite(framesPerSecond) || framesPerSecond <= 0) return;
-		const position = Math.max(0, engine.getPositionFrames());
+		let position = Math.max(0, engine.getPositionFrames());
 		const playbackStartTime = engine.getPlaybackAudibleStartTime?.() ?? null;
-		const audibleStartTime = playbackStartTime !== null && Number.isFinite(playbackStartTime)
+		let audibleStartTime = playbackStartTime !== null && Number.isFinite(playbackStartTime)
 			? playbackStartTime : null;
 		const loop = playback && (playback.loop?.enabled ?? project?.loop?.enabled) && project?.loop && project.loop.endFrame > project.loop.startFrame
 			? project.loop : null;
 		let anchor = state.metronomeAnchor;
+		if (!playback && anchor) {
+			// Capture owns a continuous audio clock after backing playback ends.
+			position = anchor.frame + Math.max(0, context.currentTime - anchor.contextTime) * framesPerSecond;
+			audibleStartTime = anchor.audibleStartTime;
+		}
 		// The cursor is only meaningful while the playhead keeps advancing from where it
 		// was anchored, so a seek, a rate change, or a fresh start re-anchors it.
 		const expectedFrame = anchor
@@ -402,6 +413,8 @@ export function createEditorTransportService<Project extends TransportProject = 
 				loopStartFrame: loop?.startFrame ?? null, loopEndFrame: loop?.endFrame ?? null };
 			state.metronomeAnchor = anchor;
 		}
+		if (!state.metronomeEnabled) return;
+		anchor.cursorFrame = Math.max(anchor.cursorFrame, position);
 		const horizonFrame = anchor.frame
 			+ (context.currentTime + METRONOME_LOOKAHEAD_SECONDS - anchor.contextTime) * framesPerSecond;
 		const scheduleAt = (positionFrame: number) => calculateAudioEditorMetronomeSchedule({

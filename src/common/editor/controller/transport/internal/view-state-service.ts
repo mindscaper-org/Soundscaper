@@ -84,6 +84,8 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 
 	function updateTransportState(value: unknown) {
 		const nextTransportState = typeof value === 'string' && value ? value : 'stopped';
+		// The finite backing timeline can finish while microphone capture continues.
+		if (state.recorder && !['recording', 'paused-recording'].includes(nextTransportState)) return;
 		const previousTransportState = state.transportState;
 		state.transportState = nextTransportState;
 		handleMicrophoneMeterTransportState(previousTransportState, nextTransportState);
