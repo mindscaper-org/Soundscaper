@@ -38,7 +38,9 @@ for (const locale of ['en', 'de']) for (const scope of ['full', 'repair-only']) 
 		await expect.poll(async () => (await custody(f.ids)).row.revision).toBe(2);
 		await keyboard(page, named(presets, 'button', f.settings.close).last()); await expect(presets).toHaveCount(0); await f.closeDevelop(); await showLibrary();
 		const before = await custody(f.ids), selectedName = scope === 'full' ? 'Full repair import' : 'Repair only import';
-		const preset = before.row.presets.find(value => value.identity.name === selectedName); expect(preset).toBeTruthy(); expect(preset.schemaVersion).toBe(3);
+		const preset = before.row.presets.find(value => value.identity.name === selectedName); expect(preset).toBeTruthy(); expect(preset.schemaVersion).toBe(4); expect(preset.settings.schemaVersion).toBe(4);
+		expect(before.row.schemaVersion).toBe(4); expect(preset.settings.develop.processVersion).toBe(3);
+		expect(preset.settings.selection).toEqual({ effectTypes: scope === 'full' ? 'all' : [], geometry: scope === 'full', localAdjustments: scope === 'full', repairs: true, rawDevelopment: true });
 		expect(before.bodies).toHaveLength(1); expect(before.luts).toHaveLength(1); expect(before.luts[0].bytes).toEqual([...CUBE]);
 		await menu(copy.photoFileMenu); await keyboard(page, named(f.app, 'button', copy.photoImportPhotos)); const importer = named(page, 'dialog', copy.photoImportPhotos);
 		await expect(importer).toBeVisible(); await expect(named(importer, 'combobox', f.settings.choosePreset)).toHaveCount(0);

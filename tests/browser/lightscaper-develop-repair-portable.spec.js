@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { BlobReader, BlobWriter, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter } from '@zip.js/zip.js';
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
 import { lightscaperRestoreCopy } from '../../src/common/i18n/lightscaper-restore-copy.ts';
-import { importPhotoCatalogArchiveV7 } from '../../src/lightscaper/archive/catalog-archive-import-v7.ts';
-import { normalizePhotoCatalogArchiveV7 } from '../../src/lightscaper/archive/catalog-archive-contract-v7.ts';
+import { importPhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-import-v8.ts';
+import { normalizePhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-contract-v8.ts';
 import { readScapeArchiveEnvelope } from '../../src/common/editor/scape-archive-envelope.ts';
 import { withScapeArchiveReader } from '../../src/common/editor/scape-archive-reader.ts';
 import { expect, test, compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
@@ -23,7 +23,7 @@ for (const locale of ['en', 'de']) for (const presetOnly of [false, true]) test(
 	const f = await fixture(page, locale, presetOnly);
 	const before = await f.custody(), location = await f.location(), source = await f.backup();
 	const transported = await decode(source.buffer);
-	expect(transported.document.schemaVersion).toBe(7);
+	expect(transported.document.schemaVersion).toBe(8);
 	expect(documentsById(transported.photos)).toEqual(documentsById(before.photos.map(row => row.photo)));
 	expect(transported.presets).toEqual(before.row);
 	expect(transported.brushes).toEqual(before.bodies);
@@ -115,7 +115,7 @@ async function fixture(page, locale, presetOnly) {
 	await keyboard(page, named(dialog, 'button', f.settings.savePreset));
 	await expect.poll(async () => (await read('readRepairPresetRowNativeV1'))?.revision).toBe(1);
 	await closeSettings(dialog); await f.painted(HEAL_BRUSH); await f.closeDevelop();
-	const before = await custody(); expect(before.row.schemaVersion).toBe(3); expect(before.bodies).toHaveLength(1); expect(before.luts).toHaveLength(1);
+	const before = await custody(); expect(before.row.schemaVersion).toBe(4); expect(before.bodies).toHaveLength(1); expect(before.luts).toHaveLength(1);
 	expect(before.bodies[0].bytes.slice(-2)).toEqual([255, 0]); expect(before.luts[0].bytes).toEqual([...CUBE]);
 	if (presetOnly) expect((await f.observe()).bodies).toEqual([]);
 	else { expect(active(before.photos[0].photo).workspace.snapshots).toHaveLength(1); expect((await f.observe()).bodies).toHaveLength(1); }
@@ -147,19 +147,23 @@ async function fixture(page, locale, presetOnly) {
 
 async function decode(bytes) {
 	const blob = new Blob([bytes]);
-	const document = await withScapeArchiveReader(blob, undefined, async entries => normalizePhotoCatalogArchiveV7(JSON.parse((await readScapeArchiveEnvelope(entries)).projectText)));
-	const result = { document, photos: [], originals: new Map(), presets: null, brushes: [], luts: [] };
-	await importPhotoCatalogArchiveV7(blob, async () => ({
-		async writePhoto(photo, chunks) { const parts = []; for await (const chunk of chunks) parts.push(Buffer.from(chunk)); const body = Buffer.concat(parts);
-			expect(createHash('sha256').update(body).digest('hex')).toBe(photo.original.contentSha256); result.photos.push(photo);
-			result.originals.set(photo.id, { sha256: photo.original.contentSha256, byteLength: body.byteLength }); },
-		async writeStack() {}, async writeSavedCollection() {},
-		async writeDevelopPresets(row) { expect(result.presets).toBeNull(); result.presets = row; },
-		async writeLut(reference, body) { expect(createHash('sha256').update(body).digest('hex')).toBe(reference.sha256); result.luts.push({ reference, bytes: [...body] }); },
-		async writeMaskRaster(reference, body) { expect(createHash('sha256').update(body).digest('hex')).toBe(reference.sha256); result.brushes.push({ reference, bytes: [...body] }); },
-		async publish() {}, async rollback() { throw Error('The valid repair archive rolled back.'); },
-	}));
-	return result;
+	const document = await withScapeArchiveReader(blob, undefined, async entries => normalizePhotoCatalogArchiveV8(JSON.parse((await readScapeArchiveEnvelope(entries)).projectText)));
+	const result = { document, photos: [], originals: new Map(), presets: null, brushes: [], luts: [] }; let published = false;
+	await importPhotoCatalogArchiveV8(blob, async (root, state, presetHeader, luts, masks) => {
+		expect(root).toEqual(document.catalog); expect(state).toEqual(document.savedCollectionState);
+		expect(presetHeader).toEqual(document.developPresetPack); expect(luts).toEqual(document.lutResources); expect(masks).toEqual(document.maskRasters);
+		return {
+			async writePhoto(photo, chunks) { const parts = []; for await (const chunk of chunks) parts.push(Buffer.from(chunk)); const body = Buffer.concat(parts);
+				expect(createHash('sha256').update(body).digest('hex')).toBe(photo.original.contentSha256); result.photos.push(photo);
+				result.originals.set(photo.id, { sha256: photo.original.contentSha256, byteLength: body.byteLength }); },
+			async writeStack() {}, async writeSavedCollection() {},
+			async writeDevelopPresets(row) { expect(result.presets).toBeNull(); result.presets = row; },
+			async writeLut(reference, body) { expect(createHash('sha256').update(body).digest('hex')).toBe(reference.sha256); result.luts.push({ reference, bytes: [...body] }); },
+			async writeMaskRaster(reference, body) { expect(createHash('sha256').update(body).digest('hex')).toBe(reference.sha256); result.brushes.push({ reference, bytes: [...body] }); },
+			async publish() { published = true; }, async rollback() { throw Error('The valid repair archive rolled back.'); },
+		};
+	});
+	expect(published).toBe(true); return result;
 }
 async function corruptPreset(source) {
 	const reader = new ZipReader(new BlobReader(new Blob([source.buffer])), { useWebWorkers: false });
@@ -168,7 +172,7 @@ async function corruptPreset(source) {
 		for (const entry of await reader.getEntries()) {
 			if (entry.directory) continue;
 			const bytes = await entry.getData(new Uint8ArrayWriter());
-			if (entry.filename === 'assets/develop-presets-v3.bin') { expect(bytes.length).toBeGreaterThan(16); bytes[bytes.length - 4] ^= 1; changed = true; }
+			if (entry.filename === 'assets/develop-presets-v4.bin') { expect(bytes.length).toBeGreaterThan(16); bytes[bytes.length - 4] ^= 1; changed = true; }
 			await writer.add(entry.filename, new Uint8ArrayReader(bytes));
 		}
 		expect(changed).toBe(true); const blob = await writer.close();

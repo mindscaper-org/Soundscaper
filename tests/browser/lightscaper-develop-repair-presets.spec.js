@@ -21,9 +21,9 @@ for (const locale of ['en', 'de']) for (const brush of [false, true]) test(`${lo
 	await keyboard(page, named(dialog, 'button', f.settings.savePreset)); await f.rowRevision(1);
 	await expect(named(dialog, 'combobox', f.settings.choosePreset)).toContainText(`Dirty repair (${f.settings.full})`);
 	await f.closeSettings(dialog); await f.painted(expected); const saved = await f.custody();
-	expect(saved.photos).toEqual(original.photos); expect(saved.row.schemaVersion).toBe(3); expect(saved.row.presets).toHaveLength(1);
-	const preset = saved.row.presets[0]; expect(preset.schemaVersion).toBe(3); expect(preset.settings.develop.processVersion).toBe(3);
-	expect(preset.settings.develop.repairs.spots[0].mode).toBe('heal'); expect(preset.settings.selection.repairs).toBe(true);
+	expect(saved.photos).toEqual(original.photos); expect(saved.row.schemaVersion).toBe(4); expect(saved.row.presets).toHaveLength(1);
+	const preset = saved.row.presets[0]; expect(preset.schemaVersion).toBe(4); expect(preset.settings.schemaVersion).toBe(4); expect(preset.settings.develop.processVersion).toBe(3);
+	expect(preset.settings.develop.repairs.spots[0].mode).toBe('heal'); expect(preset.settings.selection.repairs).toBe(true); expect(preset.settings.selection.rawDevelopment).toBe(true);
 	expect(preset.identity.authoredStateSha256).toBe(createHash('sha256').update(JSON.stringify(preset.settings)).digest('hex'));
 	if (brush) {
 		expect(saved.bodies).toHaveLength(1); expect(saved.bodies[0].bytes.slice(-2)).toEqual([255, 0]);
@@ -61,7 +61,7 @@ for (const locale of ['en', 'de']) for (const brush of [false, true]) test(`${lo
 	await named(dialog, 'combobox', f.settings.choosePreset).selectOption(preset.identity.id); await keyboard(page, named(dialog, 'button', f.settings.deletePreset)); await f.rowRevision(4);
 	await expect(named(dialog, 'combobox', f.settings.choosePreset).getByRole('option')).toHaveText([f.settings.noPreset]);
 	await f.closeSettings(dialog); await f.painted(expected); await f.closeDevelop(); const deleted = await f.custody();
-	expect(deleted.row).toEqual({ schemaVersion: 3, kind: 'photo-develop-presets', catalogId: saved.row.catalogId, revision: 4, presets: [] });
+	expect(deleted.row).toEqual({ schemaVersion: 4, kind: 'photo-develop-presets', catalogId: saved.row.catalogId, revision: 4, presets: [] });
 	expect(deleted.photos).toEqual(applied.photos); expect(deleted.bodies).toEqual(applied.bodies); expect(deleted.luts).toEqual(applied.luts);
 	await page.reload(); await expect(f.app).toBeVisible(); await f.showLibrary(); await f.select(1); await f.openDevelop(); await f.painted(expected);
 	await f.closeDevelop(); expect(await f.custody()).toEqual(deleted); expect(f.errors).toEqual([]);
@@ -77,7 +77,7 @@ for (const locale of ['en', 'de']) test(`${locale}: a native repair-only preset 
 	await expect(named(dialog, 'checkbox', f.settings.repairs)).toBeChecked(); await named(dialog, 'textbox', f.settings.presetName).fill('Repair only');
 	await keyboard(page, named(dialog, 'button', f.settings.savePreset)); await f.rowRevision(1); await f.closeSettings(dialog); await f.painted(HEAL);
 	const saved = await f.custody(), preset = saved.row.presets[0]; expect(saved.photos).toEqual(before.photos);
-	expect(preset.settings.selection).toEqual({ effectTypes: [], geometry: false, localAdjustments: false, repairs: true });
+	expect(preset.settings.selection).toEqual({ effectTypes: [], geometry: false, localAdjustments: false, repairs: true, rawDevelopment: true });
 	expect(preset.settings.develop.effects).toEqual([]); expect(preset.settings.develop.masks).toEqual([]);
 	await f.closeDevelop(); await f.select(1); await f.openDevelop(); await f.painted(CLONE_BRUSH);
 	dialog = await f.settingsDialog('presets'); await named(dialog, 'combobox', f.settings.choosePreset).selectOption(preset.identity.id);
