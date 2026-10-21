@@ -5,8 +5,8 @@ import { inspectAiffBlobPcm } from './aiff-pcm-chunk-reader.ts';
 import { inspectWavBlobPcm } from './wav-import.js';
 import { originalMpegExportSettings, readOriginalMpegFrameHeader } from './desktop-original-mpeg-settings.ts';
 import { readDesktopOriginalM4aMovie } from './desktop-original-m4a-movie.ts';
+import { readDesktopOriginalAudioBitRate } from './desktop-original-audio-bit-rate.ts';
 import { BIT_RATES } from './media-export-values.js';
-import { sampleFrameToSeconds } from './timeline-time.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 export type DesktopOriginalExportSettings = Readonly<Record<string, unknown>>;
@@ -53,6 +53,12 @@ export async function resolveDesktopOriginalExportSettings(
 			if (!frameHeader) return null;
 			header = frameHeader;
 		}
+		if (format === 'flac') {
+			const offset = id3Offset(header);
+			if (offset !== null && offset + 42 > header.length && offset + 42 <= file.size) {
+				header = new Uint8Array(await file.slice(offset, offset + 42).arrayBuffer());
+			}
+		}
 		if (format === 'ogg-vorbis' && matchesEncodedContainer('opus', header)) format = 'opus';
 		const pcm = await pcmSettings(format, file, header);
 		if (pcm !== undefined) {
@@ -84,12 +90,12 @@ export async function resolveDesktopOriginalExportSettings(
 			settings.bitDepth = bits;
 			settings.sampleFormat = flags & 0x80 ? 'float32' : `int${String(bits)}`;
 		} else if (format === 'mp3' || format === 'mp2') {
-			const mpeg = originalMpegExportSettings(header, format, sourceBitRate(file, source, sampleRate));
+			const mpeg = originalMpegExportSettings(header, format, await readDesktopOriginalAudioBitRate(file));
 			if (!mpeg || !BIT_RATES[format].includes(Number(mpeg.bitRate))
 				|| (mpeg.averageBitRate !== undefined && !BIT_RATES.mp3.includes(Number(mpeg.averageBitRate)))) return null;
 			Object.assign(settings, mpeg);
 		} else if (format === 'opus' || format === 'aac-m4a') {
-			const bitRate = sourceBitRate(file, source, sampleRate);
+			const bitRate = await readDesktopOriginalAudioBitRate(file);
 			if (bitRate) settings.bitRate = BIT_RATES[format].reduce((closest, rate) => (
 				Math.abs(rate - bitRate) < Math.abs(closest - bitRate) ? rate : closest
 			));
@@ -195,14 +201,6 @@ function hasAacSampleEntry(bytes: Uint8Array): boolean {
 		}
 	}
 	return false;
-}
-
-function sourceBitRate(file: NamedByteSource, source: DataRecord, sampleRate: number): number | null {
-	const frames = positiveInteger(source.frameCount);
-	if (!frames) return null;
-	const durationSeconds = sampleFrameToSeconds(frames, positiveInteger(source.sampleRate) ?? sampleRate);
-	const kilobits = Math.round(file.size * 8 / durationSeconds / 1000);
-	return kilobits > 0 ? kilobits : null;
 }
 
 function flacOffset(bytes: Uint8Array): number | null {
