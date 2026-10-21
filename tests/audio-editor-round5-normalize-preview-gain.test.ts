@@ -12,12 +12,18 @@ interface WorkerRequest {
 	readonly sampleRate: number;
 	readonly channels: Float32Array[];
 	readonly params: Readonly<Record<string, unknown>>;
+	readonly context?: Readonly<Record<string, unknown>>;
 }
 
 for (const scenario of [
 	{ name: 'peak', type: 'audacity-normalize', sampleRate: 48_000, params: {} },
 	{ name: 'native-rate RMS', type: 'audacity-loudness-normalization', sampleRate: 32_000, params: { mode: 'rms' } },
 	{ name: 'DC-only', type: 'audacity-normalize', sampleRate: 48_000, params: { applyGain: false } },
+	{ name: 'Fade In', type: 'audacity-fade-in', sampleRate: 48_000, params: {} },
+	{ name: 'Fade Out', type: 'audacity-fade-out', sampleRate: 48_000, params: {} },
+	{ name: 'Reverse', type: 'audacity-reverse', sampleRate: 48_000, params: {} },
+	{ name: 'Legacy Compressor', type: 'audacity-legacy-compressor', sampleRate: 48_000, params: {} },
+	{ name: 'Auto Duck', type: 'audacity-auto-duck', sampleRate: 48_000, params: {} },
 	{ name: 'stateless control', type: 'audacity-invert', sampleRate: 48_000, params: {} },
 ]) test(`${scenario.name} preview agrees with the complete selection's applied first six seconds`, async () => {
 	const frames = scenario.sampleRate * 8;
@@ -25,11 +31,12 @@ for (const scenario of [
 		Math.sin(2 * Math.PI * 440 * frame / scenario.sampleRate) * (frame < scenario.sampleRate * 6 ? 0.1 : 0.9)
 		+ (scenario.name === 'DC-only' && frame >= scenario.sampleRate * 6 ? 0.3 : 0)
 	));
+	const control = Float32Array.from({ length: frames }, (_, frame) => frame > scenario.sampleRate * 6.1 ? .9 : 0);
 	let played: Float32Array[] = [];
 	let peakEstimateFrames = 0;
 	const state = { audacityEffectType: scenario.type, audacityEffectProcessing: false,
 		audacityPreviewGeneration: 0, audacityEffectTouchedParams: new Map<string, Set<string>>(),
-		audacityPreviewSource: null as unknown };
+		audacityPreviewSource: null as unknown, audacityControlTrackId: 'control' };
 	const source = { buffer: null as unknown, onended: null as unknown,
 		connect() {}, start() {}, disconnect() {} };
 	const preview = createSelectionEffectPreviewService({
@@ -53,15 +60,15 @@ for (const scenario of [
 		getProject: () => ({}), mixNyquistPreviewChannels, normalizeAudioSelectionEffectParams,
 		projectDurationFrames: () => frames, projectSampleRate: () => 48_000,
 		publishDocumentSnapshot() {},
-		renderDryTrackRange: async (_track: string, start: number, end: number) => [input.slice(start, end)],
+		renderDryTrackRange: async (track: string, start: number, end: number) => [(track === 'control' ? control : input).slice(start, end)],
 		resolveInteractiveAudacityParams: (_type: string, params: unknown) => params,
 		runSelectionEffectWorker: async (request: WorkerRequest) => ({
-			channels: applyAudacityEffect(request.effectType, request.channels, request.sampleRate, request.params),
+			channels: applyAudacityEffect(request.effectType, request.channels, request.sampleRate, request.params, request.context),
 		}),
 		setStatus() {},
 	});
 	assert.equal(await preview(), true);
-	const expected = applyAudacityEffect(scenario.type, [input], scenario.sampleRate, scenario.params)[0]!;
+	const expected = applyAudacityEffect(scenario.type, [input], scenario.sampleRate, scenario.params, { controlChannels: [control] })[0]!;
 	assert.equal(played[0]!.length, scenario.sampleRate * 6);
 	let residual = 0;
 	for (let frame = 0; frame < played[0]!.length; frame++) {
