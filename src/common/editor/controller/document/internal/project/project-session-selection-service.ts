@@ -66,14 +66,17 @@ export function createProjectSessionSelectionService<
 	): void {
 		if (dependencies.state.selectedLabels?.length) dependencies.state.selectedLabels = [];
 		dependencies.state.selectedTrackId = metadata.selectedTrackId === null ? null
-			: dependencies.findTrack(project, metadata.selectedTrackId)?.id
+			: dependencies.findTrack(project, metadata.selectedTrackId ?? durableSelectionId(project, 'trackIds',
+				(id) => dependencies.findTrack(project, id) !== null))?.id
 				?? project.tracks.find((track) => track.type !== 'label')?.id
 				?? project.tracks[0]?.id
 				?? null;
 		dependencies.state.selectedClipId = Object.hasOwn(metadata, 'selectedClipId')
 			? dependencies.findClip(project, metadata.selectedClipId)?.id ?? null
 			: firstDurableSelectedClipId(project);
-		dependencies.state.selectedAnnotationId = existingActiveAnnotationId(project, metadata.selectedAnnotationId);
+		dependencies.state.selectedAnnotationId = existingActiveAnnotationId(project,
+			Object.hasOwn(metadata, 'selectedAnnotationId') ? metadata.selectedAnnotationId
+				: durableSelectionId(project, 'annotationIds', (id) => existingActiveAnnotationId(project, id) !== null));
 	}
 
 	function firstDurableSelectedClipId(project: Project): string | null {
@@ -88,6 +91,12 @@ export function createProjectSessionSelectionService<
 		}
 		return null;
 	}
+}
+
+function durableSelectionId(project: ProjectSessionSelectionProject, key: 'trackIds' | 'annotationIds', exists: (id: string) => boolean): string | null {
+	if (!project.selection || typeof project.selection !== 'object' || Array.isArray(project.selection)) return null;
+	const ids = (project.selection as Readonly<Record<string, unknown>>)[key];
+	return Array.isArray(ids) ? ids.find((id): id is string => typeof id === 'string' && exists(id)) ?? null : null;
 }
 
 function existingActiveAnnotationId(
