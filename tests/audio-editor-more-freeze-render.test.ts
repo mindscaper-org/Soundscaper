@@ -82,6 +82,7 @@ test('MP32: Freeze captures a source strip before authored ADM programme channel
 		} } },
 	}, { createId: (kind) => kind === 'source' ? 'adm-frozen-source' : 'adm-frozen-clip', createRenderEngine: () => ({
 		loadProject(project) {
+			assert.ok(project);
 			buildProjectGraphV21(renderContext as unknown as BaseAudioContext,
 				renderContext.destination as unknown as AudioNode, project, {
 					includeMaster: false, includeTrackPan: false, respectMuteSolo: false, metering: false,
