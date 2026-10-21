@@ -138,7 +138,7 @@ async function verifyAsar(root: string, expected: readonly LightscaperPackageFil
 	} finally { uncache(archive); }
 }
 
-/** Electron's existing localization/icons stay outside application capability ownership. */
+/** Electron's existing localization, icons and notices stay outside application capability ownership. */
 async function assertResourceRoots(root: string, target: Readonly<LightscaperDesktopTargetCurrentV1>): Promise<void> {
 	const owned = new Set(['app.asar', 'renderer', 'runtime', 'licenses', LIGHTSCAPER_PACKAGE_CONTENT_CURRENT_V1]);
 	for (const child of await readdir(root, { withFileTypes: true })) {
@@ -146,6 +146,10 @@ async function assertResourceRoots(root: string, target: Readonly<LightscaperDes
 		if (target.platform === 'linux' && child.name === 'apparmor-profile') {
 			await validateDesktopPackageSpecificResources({ packageFormat: '.deb', productId: 'lightscaper',
 				resourcesRoot: root, targetId: `linux-${target.arch}` });
+			continue;
+		}
+		if (target.platform === 'mac' && ['LICENSE.electron.txt', 'LICENSES.chromium.html'].includes(child.name)) {
+			await read(root, child.name);
 			continue;
 		}
 		if (target.platform === 'mac' && child.isFile() && ['electron.icns', 'Lightscaper.icns', 'icon.icns'].includes(child.name)) continue;

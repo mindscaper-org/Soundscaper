@@ -2,6 +2,8 @@
 
 import assert from 'node:assert/strict';
 import { createPackage } from '@electron/asar';
+import { Platform } from 'app-builder-lib';
+import { cleanupAfterUnpack } from 'app-builder-lib/out/electron/ElectronFramework.js';
 import { FuseVersion, FuseV1Options, type FuseConfig } from '@electron/fuses';
 import { chmod, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -119,6 +121,58 @@ test('Lightscaper rejected resource roots identify the exact target, child and p
 			message: `Lightscaper packaged resources contain an unexpected application tree (linux-x64): {"name":"${name}","kind":"${kind}"}`,
 		});
 		await rm(path, { recursive: kind === 'directory' });
+	}
+	await verifyDesktopLightscaperPackagedCurrentV1(fixture);
+});
+
+test('Lightscaper preserves the actual builder-retained macOS Electron notices without opening other resource trees', async context => {
+	const fixture = await makeFixture(context), original = await verifyDesktopLightscaperPackagedCurrentV1(fixture);
+	const target = { platform: 'mac', arch: 'arm64' } as const;
+	const stage = await captureDesktopLightscaperStageCurrentV1({ ...fixture, target,
+		productMetadata: resolveProductDesktopMetadata('lightscaper'), sourceRevision: REVISION });
+	await writeFile(join(fixture.buildRoot, 'stage-manifest.json'), JSON.stringify(stage));
+	const appOutDir = join(fixture.repositoryRoot, 'mac-output'), resourcesRoot = join(appOutDir, 'Electron.app/Contents/Resources');
+	await cp(fixture.resourcesRoot, resourcesRoot, { recursive: true });
+	const notices = [ ['LICENSE', 'LICENSE.electron.txt', 'Electron license fixture\n'],
+		['LICENSES.chromium.html', 'LICENSES.chromium.html', '<html>Chromium notices fixture</html>\n'] ] as const;
+	for (const [source, , bytes] of notices) await writeFile(join(appOutDir, source), bytes);
+	await writeFile(join(resourcesRoot, 'default_app.asar'), 'unpacked Electron default app');
+	await writeFile(join(appOutDir, 'version'), '43.7.7');
+	// Invoke the installed builder itself with exactly the fields consumed by its unpack cleanup.
+	const cleanup: unknown = Reflect.apply(cleanupAfterUnpack, undefined,
+		[{ appOutDir, packager: { platform: Platform.MAC } }, 'Electron.app', true]);
+	assert.ok(cleanup instanceof Promise); await cleanup;
+	for (const [source, destination, bytes] of notices) {
+		await assert.rejects(readFile(join(appOutDir, source)), { code: 'ENOENT' });
+		assert.equal(await readFile(join(resourcesRoot, destination), 'utf8'), bytes);
+	}
+	await assert.rejects(readFile(join(resourcesRoot, 'default_app.asar')), { code: 'ENOENT' });
+	await assert.rejects(readFile(join(appOutDir, 'version')), { code: 'ENOENT' });
+	const options = { ...fixture, target, resourcesRoot };
+	const packaged = await verifyDesktopLightscaperPackagedCurrentV1(options);
+	assert.deepEqual(packaged.stage, stage); assert.deepEqual(packaged.appAsar, original.appAsar);
+	for (const [, name, bytes] of notices) {
+		const path = join(resourcesRoot, name);
+		for (const kind of ['directory', 'symlink', 'empty'] as const) {
+			await rm(path);
+			if (kind === 'directory') await mkdir(path);
+			else if (kind === 'symlink') await symlink(join(fixture.buildRoot, 'stage-manifest.json'), path);
+			else await writeFile(path, '');
+			await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options));
+			await rm(path, { recursive: kind === 'directory' }); await writeFile(path, bytes);
+		}
+	}
+	const unknown = join(resourcesRoot, 'LICENSES.chromium.html.exe'); await writeFile(unknown, 'foreign bytes');
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /unexpected application tree/u); await rm(unknown);
+	await verifyDesktopLightscaperPackagedCurrentV1(options);
+	for (const [, name, bytes] of notices) assert.equal(await readFile(join(resourcesRoot, name), 'utf8'), bytes);
+});
+
+test('Lightscaper does not admit macOS Electron notice resource exceptions on Linux', async context => {
+	const fixture = await makeFixture(context);
+	for (const name of ['LICENSE.electron.txt', 'LICENSES.chromium.html']) {
+		const path = join(fixture.resourcesRoot, name); await writeFile(path, 'license fixture');
+		await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(fixture), /unexpected application tree/u); await rm(path);
 	}
 	await verifyDesktopLightscaperPackagedCurrentV1(fixture);
 });
