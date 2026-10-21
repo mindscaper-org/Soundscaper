@@ -224,6 +224,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		return () => controller.actions.export.previewDeliveryCanvas(null);
 	}, [controller, settings, videoFormat]);
 	const setVideoDeliverySetting = (name, value) => {
+		if (name === 'canvasFrameRate') return setSettings((current) => ({ ...current, canvasFrameRate: value, canvasFrameRateExact: null }));
 		if (name !== 'deliveryTarget') return set(name, value);
 		const patch = dialogSettingsFromDeliveryTarget(value);
 		return setSettings((current) => ({ ...current, ...patch, deliveryTarget: value }));

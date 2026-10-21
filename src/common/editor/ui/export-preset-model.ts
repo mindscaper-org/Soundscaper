@@ -79,6 +79,7 @@ const AUDIO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 });
 const VIDEO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	canvasWidth: '', canvasHeight: '', canvasFit: CANVAS_FIT_DEFAULT, canvasFrameRate: '',
+	canvasFrameRateExact: null,
 	canvasBackgroundColor: '', videoQuality: VIDEO_QUALITY_DEFAULT, videoAudioLayout: AUDIO_LAYOUT_DEFAULT,
 	canvasMaximumWidth: null, canvasMaximumHeight: null, canvasMaximumFrameRate: null, includeAudio: true,
 	deliveryTarget: '',
@@ -302,9 +303,12 @@ export function statedVideoCanvas(
 	// A target can begin at cover; choosing contain must then state the change.
 	if (typeof fit === 'string' && fit && (fit !== CANVAS_FIT_DEFAULT
 		|| (targetCanvas?.fit && targetCanvas.fit !== fit))) stated.fit = fit;
-	// A rate the product offers by name is delivered as the rational that name
-	// means; `29.97` is 30000/1001, not 2997/100.
-	const statedRate = resolveVideoDeliveryFrameRate(settings?.canvasFrameRate);
+	// Typed names resolve to their broadcast rates; an imported preset retains
+	// its exact value until the operator edits this field.
+	const importedRate = settings?.canvasFrameRateExact;
+	const statedRate = importedRate != null
+		&& settings?.canvasFrameRate === videoDeliveryFrameRateLabel(importedRate)
+		? importedRate : resolveVideoDeliveryFrameRate(settings?.canvasFrameRate);
 	if (statedRate !== null) stated.frameRate = statedRate;
 	if (typeof backgroundColor === 'string' && backgroundColor) stated.backgroundColor = backgroundColor;
 	for (const [key, dialogKey] of Object.entries(VIDEO_CANVAS_LIMIT_KEYS)) {
@@ -418,6 +422,7 @@ export function dialogSettingsFromPreset(
 			// that names it, so 30000/1001 comes back as `29.97` and states the
 			// same rational again when the delivery is built.
 			patch.canvasFrameRate = videoDeliveryFrameRateLabel(value);
+			patch.canvasFrameRateExact = value;
 			continue;
 		}
 		if (key === 'backgroundColor') {

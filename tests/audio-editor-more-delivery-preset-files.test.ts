@@ -2,12 +2,13 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { act } from 'react';
 import { importDeliveryPresets } from '../src/common/editor/delivery-preset-store.ts';
 import { presetSettingsFromDialog, dialogSettingsFromPreset } from '../src/common/editor/ui/export-preset-model.ts';
 import { createVideoExportPlan, resolveVideoExportCanvas } from '../src/common/editor/video-export.js';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { mountedExportDialog } from './helpers/audio-editor-export-dialog-fixture.ts';
-import type { ReactTestElement } from './helpers/react-test-dom.ts';
+import { reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
 
 function imported(settings: Readonly<Record<string, unknown>>) {
 	return importDeliveryPresets({}, JSON.stringify({ schemaVersion: 1, presets: [{
@@ -61,6 +62,33 @@ test('imported automatic video size and rate limits survive the dialog and saved
 	assert.deepEqual([canvas.width, canvas.height], [640, 360]);
 	assert.equal(canvas.frameRate, 24_000 / 1_001);
 	assert.deepEqual(presetSettingsFromDialog(dialogSettingsFromPreset(imported(limits)), 'video'), limits);
+});
+
+test('an imported exact decimal frame rate retains its timing instead of becoming a named NTSC rate', async () => {
+	for (const frameRate of [29.97, { num: 2_997, den: 100 }]) {
+		const request = await requestFromFile({ frameRate });
+		const plan = createVideoExportPlan(project(), { ...request, format: 'mp4', range: { startFrame: 0, endFrame: 48_000_000 } });
+		assert.equal(plan.outputFrameCount, 29_970);
+		assert.deepEqual(presetSettingsFromDialog(dialogSettingsFromPreset(imported({ frameRate })), 'video').frameRate, frameRate);
+	}
+});
+
+test('editing an imported frame rate uses the value the operator now types', async () => {
+	const fixture = await mountedExportDialog({ video: true, presets: [imported({ frameRate: 29.97 })] });
+	try {
+		await fixture.chooseFormat(ENGLISH_COPY.videoExportMp4);
+		await selectPreset(fixture, 'Imported video');
+		const input = fixture.dom.one('[data-export-field="canvasFrameRate"]').querySelector('input');
+		assert.ok(input);
+		for (const value of ['30', '29.97']) await act(async () => {
+			reactProps(input).onChange({ currentTarget: { value } });
+			await Promise.resolve();
+		});
+		await fixture.startExport();
+		const request = fixture.requests[0]!;
+		assert.ok(request.canvas && typeof request.canvas === 'object');
+		assert.deepEqual((request.canvas as Readonly<Record<string, unknown>>).frameRate, { num: 30_000, den: 1_001 });
+	} finally { await fixture.unmount(); }
 });
 
 test('an imported audio preset with omitted settings restores its defaults after a different preset', async () => {

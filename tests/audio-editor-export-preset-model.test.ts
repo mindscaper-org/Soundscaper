@@ -79,6 +79,7 @@ test('applying a preset resets omitted preset-owned defaults instead of retainin
 	assert.deepEqual(dialogSettingsFromPreset(video), {
 		format: 'video-mp4',
 		canvasWidth: '', canvasHeight: '', canvasFit: 'contain', canvasFrameRate: '',
+		canvasFrameRateExact: null,
 		canvasBackgroundColor: '', videoQuality: 'balanced', videoAudioLayout: 'preserve',
 		canvasMaximumWidth: null, canvasMaximumHeight: null, canvasMaximumFrameRate: null, includeAudio: true,
 		deliveryTarget: '',
