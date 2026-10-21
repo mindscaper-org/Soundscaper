@@ -198,21 +198,28 @@ function wrapBurnInText(text: string, charactersPerLine: number): string {
 function wrapParagraph(paragraph: string, charactersPerLine: number): string {
 	const lines: string[] = [];
 	let line = '';
+	let lineLength = 0;
+	const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 	for (const word of paragraph.split(/\s+/u).filter((value) => value.length > 0)) {
-		let remaining = word;
+		let remaining = Array.from(segmenter.segment(word), part => part.segment);
 		while (remaining.length > charactersPerLine) {
-			if (line.length > 0) {
+			if (lineLength > 0) {
 				lines.push(line);
 				line = '';
+				lineLength = 0;
 			}
-			lines.push(remaining.slice(0, charactersPerLine));
+			lines.push(remaining.slice(0, charactersPerLine).join(''));
 			remaining = remaining.slice(charactersPerLine);
 		}
-		if (line.length === 0) line = remaining;
-		else if (line.length + 1 + remaining.length <= charactersPerLine) line = `${line} ${remaining}`;
+		if (lineLength === 0) { line = remaining.join(''); lineLength = remaining.length; }
+		else if (lineLength + 1 + remaining.length <= charactersPerLine) {
+			line = `${line} ${remaining.join('')}`;
+			lineLength += 1 + remaining.length;
+		}
 		else {
 			lines.push(line);
-			line = remaining;
+			line = remaining.join('');
+			lineLength = remaining.length;
 		}
 	}
 	if (line.length > 0) lines.push(line);
