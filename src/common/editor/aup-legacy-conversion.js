@@ -33,8 +33,8 @@ export function convertLegacyAupToProject(structure, options = {}) {
 				labels: (inputTrack.labels || []).map((label) => ({
 					selected: label.selected,
 					title: String(label.title || ''),
-					startSeconds: nonNegative(label.startSeconds),
-					endSeconds: nonNegative(Math.max(label.startSeconds, label.endSeconds)),
+					startSeconds: label.startSeconds,
+					endSeconds: label.endSeconds,
 					opaqueExtensions: label.opaqueExtensions || {},
 				})),
 				opaqueExtensions: inputTrack.opaqueExtensions || {},

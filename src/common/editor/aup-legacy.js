@@ -126,8 +126,8 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 		labels: children(trackNode, 'label').map((label) => ({
 			selected: booleanAttribute(label, 'isSelected', false),
 			title: String(attribute(label, 'title', '')),
-			startSeconds: nonNegative(attribute(label, 't', 0)),
-			endSeconds: nonNegative(attribute(label, 't1', attribute(label, 't', 0))),
+			startSeconds: finite(attribute(label, 't', 0)),
+			endSeconds: finite(attribute(label, 't1', attribute(label, 't', 0))),
 			opaqueExtensions: { legacyAupLabel: cloneNode(label) },
 		})),
 		opaqueExtensions: { legacyAupLabelTrack: cloneNode(trackNode) },
