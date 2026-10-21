@@ -18,6 +18,8 @@ import {
 	type DawprojectTimeUnit,
 } from './dawproject-format.ts';
 import type { DawprojectDocument } from './dawproject-import.ts';
+import { warpInverse, warpValue, type Warp } from './dawproject-import-warps.ts';
+import type { DawprojectFadeLayer } from './dawproject-import-fades.ts';
 
 /**
  * The reading half of DAWproject, part two: the arrangement flattened into
@@ -57,6 +59,7 @@ export interface DawprojectAudioEvent {
 	readonly contentSpanSeconds: number;
 	readonly fadeInFrames: number;
 	readonly fadeOutFrames: number;
+	readonly fadeLayers?: readonly DawprojectFadeLayer[];
 	readonly crossfade: boolean;
 	readonly name: string | null;
 	readonly color: string | null;
@@ -127,6 +130,7 @@ interface ClipInfo {
 	readonly fadeOutFrames: number;
 	readonly crossfade: boolean;
 	readonly looped: boolean;
+	readonly fadeLayers: readonly DawprojectFadeLayer[];
 }
 
 interface WalkState {
@@ -138,11 +142,6 @@ interface WalkState {
 	clipAutomation: number;
 	unresolvedReferences: number;
 	unsupportedContent: number;
-}
-
-interface Warp {
-	readonly time: number;
-	readonly contentTime: number;
 }
 
 const MAXIMUM_DEPTH = 48;
@@ -205,6 +204,8 @@ function visitTimeline(
 	document: DawprojectDocument,
 	resolver: DawprojectTimeResolver,
 ): void {
+	const trackId = attribute(element, 'track');
+	if (trackId !== null) scope = { ...scope, trackId };
 	if (scope.depth > MAXIMUM_DEPTH) {
 		state.unsupportedContent += 1;
 		return;
@@ -212,7 +213,7 @@ function visitTimeline(
 	switch (element.name) {
 		case 'Lanes': {
 			const inner = rebase(scope, timeUnit(attribute(element, 'timeUnit')) ?? scope.unit, resolver);
-			const next = { ...inner, trackId: attribute(element, 'track') ?? scope.trackId, depth: scope.depth + 1 };
+			const next = { ...inner, depth: scope.depth + 1 };
 			for (const child of element.children) visitTimeline(child, next, clip, state, document, resolver);
 			return;
 		}
@@ -271,7 +272,6 @@ function visitClip(
 	else if (playStop !== null) endFrame = frameOf(inner, playStop, resolver);
 	const window = intersect(scope.window, { start: startFrame, end: endFrame });
 	if (!window) return;
-
 	const fadeUnit = timeUnit(attribute(clip, 'fadeTimeUnit')) ?? scope.unit;
 	const fadeFrames = (value: number): number => (fadeUnit === 'seconds'
 		? Math.round(Math.abs(value) * resolver.sampleRate)
@@ -282,16 +282,20 @@ function visitClip(
 	const loopEnd = numberAttribute(clip, 'loopEnd');
 	const looped = loopStart !== null && loopEnd !== null && loopEnd > loopStart && endFrame !== null
 		&& endFrame - startFrame > frameOf(inner, loopEnd, resolver) - frameOf(inner, loopStart, resolver) + 1;
+	const fadeInFrames = fadeIn !== 0 ? fadeFrames(fadeIn) : (inherited?.fadeInFrames ?? 0);
+	const fadeOutFrames = fadeOut !== 0 ? (fadeUnit === 'beats' && endFrame !== null
+		? Math.max(0, endFrame - resolver.frameAtBeat(resolver.beatAtFrame(endFrame) - Math.abs(fadeOut)))
+		: fadeFrames(fadeOut)) : (inherited?.fadeOutFrames ?? 0);
 	const info: ClipInfo = {
 		name: attribute(clip, 'name') ?? inherited?.name ?? null,
 		color: attribute(clip, 'color') ?? inherited?.color ?? null,
 		enabled: booleanAttribute(clip, 'enable') !== false && (inherited?.enabled ?? true),
-		fadeInFrames: fadeIn !== 0 ? fadeFrames(fadeIn) : (inherited?.fadeInFrames ?? 0),
-		fadeOutFrames: fadeOut !== 0 ? (fadeUnit === 'beats' && endFrame !== null
-			? Math.max(0, endFrame - resolver.frameAtBeat(resolver.beatAtFrame(endFrame) - Math.abs(fadeOut)))
-			: fadeFrames(fadeOut)) : (inherited?.fadeOutFrames ?? 0),
+		fadeInFrames, fadeOutFrames,
 		crossfade: fadeIn < 0 || inherited?.crossfade === true,
 		looped: looped || inherited?.looped === true,
+		fadeLayers: [...(inherited?.fadeLayers ?? []), ...(fadeIn || fadeOut ? [{
+			startFrame, endFrame, fadeInFrames: fadeIn ? fadeInFrames : 0, fadeOutFrames: fadeOut ? fadeOutFrames : 0,
+		}] : [])],
 	};
 	const content = resolveContent(clip, scope, state, document);
 	if (!content) return;
@@ -307,8 +311,7 @@ function resolveContent(
 ): Readonly<{ element: XmlElement; reference: string | null }> | null {
 	const inline = clip.children[0];
 	if (inline) return { element: inline, reference: null };
-	const reference = attribute(clip, 'reference');
-	if (reference === null) return null;
+	const reference = attribute(clip, 'reference'); if (reference === null) return null;
 	const element = document.elementsById.get(reference);
 	if (!element || scope.expanding.has(reference)) {
 		state.unresolvedReferences += 1;
@@ -418,6 +421,7 @@ function visitAudio(
 		contentSpanSeconds,
 		fadeInFrames: clip.fadeInFrames,
 		fadeOutFrames: clip.fadeOutFrames,
+		fadeLayers: clip.fadeLayers,
 		crossfade: clip.crossfade,
 		name: clip.name,
 		color: clip.color,
@@ -519,29 +523,6 @@ function intersect(outer: Window | null, inner: Window): Window | null {
 		: inner.end === null ? outer.end : Math.min(outer.end, inner.end);
 	if (end !== null && end <= start) return null;
 	return { start, end };
-}
-
-/** Piecewise-linear content time at a warped time, extrapolating past the ends. */
-function warpValue(warps: readonly Warp[], time: number): number {
-	const first = warps[0]!;
-	const last = warps[warps.length - 1]!;
-	if (time <= first.time) return interpolate(first, warps[1] ?? last, time);
-	if (time >= last.time) return interpolate(warps[warps.length - 2] ?? first, last, time);
-	for (let index = 1; index < warps.length; index += 1) {
-		if (time <= warps[index]!.time) return interpolate(warps[index - 1]!, warps[index]!, time);
-	}
-	return last.contentTime;
-}
-
-function warpInverse(warps: readonly Warp[], contentTime: number): number {
-	const inverted = warps.map((warp) => ({ time: warp.contentTime, contentTime: warp.time }));
-	return warpValue(inverted, contentTime);
-}
-
-function interpolate(from: Warp, to: Warp, time: number): number {
-	const span = to.time - from.time;
-	if (span === 0) return from.contentTime;
-	return from.contentTime + (time - from.time) * (to.contentTime - from.contentTime) / span;
 }
 
 function timeUnit(value: string | null): DawprojectTimeUnit | null {

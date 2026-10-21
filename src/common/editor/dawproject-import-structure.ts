@@ -3,7 +3,7 @@
 import { addDeliveryReportItem, type createDeliveryReport } from './delivery-report.ts';
 import { clamp, parameterToLinearGain, parameterToPan } from './dawproject-format.ts';
 import type { DawprojectChannel, DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
-import type { DawprojectAudioEvent, DawprojectAutomationEvent } from './dawproject-import-timeline.ts';
+import type { DawprojectAudioEvent, DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
 
 /**
  * The structural half of the DAWproject importer: tracks, folders, buses,
@@ -318,7 +318,7 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 		}
 		const envelope: EnvelopePoint[] = [];
 		let held = 0;
-		for (const point of event.points) {
+		for (const point of visibleAutomationPoints(event.points)) {
 			const value = parameterToLinearGain(point.value, event.unit ?? target.unit);
 			if (value === null) continue;
 			const frame = Math.max(0, point.frame);
@@ -351,6 +351,17 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 			message: 'Volume automation becomes the strip\'s envelope.',
 		});
 	}
+}
+
+function visibleAutomationPoints(points: readonly DawprojectAutomationPoint[]): readonly DawprojectAutomationPoint[] {
+	const visible = points.filter((point) => point.frame >= 0);
+	const previous = points.filter((point) => point.frame < 0).at(-1);
+	if (!previous || visible[0]?.frame === 0) return visible;
+	const next = visible[0];
+	const value = previous.interpolation === 'linear' && next
+		? previous.value + (next.value - previous.value) * -previous.frame / (next.frame - previous.frame)
+		: previous.value;
+	return [{ frame: 0, value, interpolation: previous.interpolation }, ...visible];
 }
 
 export function stripRecord(value: StripBuild): DataRecord {
