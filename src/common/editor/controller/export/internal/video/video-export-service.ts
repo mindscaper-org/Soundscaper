@@ -7,6 +7,7 @@ import { prepareBrowserExportBlobWithWarning as prepareBrowserExportBlob } from 
 import { getVideoExportFormat } from '../../../../video-export.js';
 import { projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
 import { createExportRenderProject, exportReplacementTrackIds } from '../../export-render-project.ts';
+import { videoExportSourceInventory } from '../../video-export-source-inventory.ts';
 import { audioRenderedFallbackRenderSources } from '../audio/audio-rendered-fallback-export.ts';
 import {
 	admitVideoRenderedFallbackExport,
@@ -111,7 +112,8 @@ export function createEditorVideoExportAction(
 			...delivery.requiredAudioSourceIds,
 			...delivery.requiredVideoSourceIds,
 		]);
-		if (hasMissingTimelineSources(exportProject, { excludedSourceIds: fallbackSourceIds })) {
+		const sourceInventory = videoExportSourceInventory(exportProject, requestedSettings.range || 'project', requestedSettings.includeAudio !== false);
+		if (hasMissingTimelineSources(sourceInventory.project, { excludedSourceIds: fallbackSourceIds })) {
 			throw createLocalizedError(Error, copy, 'localSourcesMissing');
 		}
 		const exportOperation = beginExportTask({
@@ -167,7 +169,7 @@ export function createEditorVideoExportAction(
 					exportProject,
 					store,
 					{ findClip, findSource },
-					{ signal: abort.signal, assertCurrent: assertVideoExportCurrent },
+					{ signal: abort.signal, assertCurrent: assertVideoExportCurrent, contributingClipIds: sourceInventory.pictureClipIds },
 				);
 				try {
 					assertVideoExportCurrent();
