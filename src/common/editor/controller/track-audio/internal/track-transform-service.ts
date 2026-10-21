@@ -16,6 +16,7 @@ import { trackReplacementPlacement } from './track-replacement-placement.ts';
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
 import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-admission.ts';
+import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
 import { isStandaloneMonoAudioTrack } from '../../../mono-track-pair-admission.ts';
@@ -328,6 +329,7 @@ export function createTrackTransformService(
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const partner = findMonoPartner(project, track, trackIndex, partnerTrackId);
 		if (!partner) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.compatibleMonoTrackRequired ? 'compatibleMonoTrackRequired' : dependencies.copy.monoTrackRequired ? 'monoTrackRequired' : 'audioTrackRequired');
+		if (!monoMergeRoutingCompatible(project, track.id, partner.id)) throw createLocalizedError(Error, dependencies.copy, 'compatibleMonoTrackRequired');
 		const partnerIndex = project.tracks.findIndex((candidate) => candidate.id === partner.id);
 		const clips = [...(track.clipIds ?? []), ...(partner.clipIds ?? [])]
 			.map((clipId) => findControllerClip(project, clipId))
