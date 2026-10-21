@@ -8,7 +8,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../src/com
 import { normalizeMixerGraphV21 } from '../src/common/editor/mixer-graph-v21.ts';
 import { normalizeAutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
-import { COPY, audioBuffer, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { COPY, createAudioEditorController, createMemoryEngine, createMemoryRenderEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
 async function openedMonoPair(context: TestContext, databaseName: string) {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
@@ -25,7 +25,7 @@ async function openedMonoPair(context: TestContext, databaseName: string) {
 		projectRuntime, sessionController: projectRuntime.createSessionController(), store,
 		engine: createMemoryEngine() as unknown as Options['engine'],
 		ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
-		renderSnapshot: (async () => audioBuffer([new Float32Array(4).fill(0.25)], 48_000)) as Options['renderSnapshot'],
+		engineFactory: createMemoryRenderEngine as unknown as Options['engineFactory'],
 	});
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready; await controller.actions.project.open(project);
