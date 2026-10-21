@@ -226,7 +226,7 @@ export default function WorkspacePanelContent({
 			trackName: track.name,
 		})));
 		const targetTrack = labelTracks.find((track) => track.id === snapshot.selectedTrackId) || labelTracks[0];
-		return <LabelManagerList projectId={project?.id} labels={labels} sampleRate={project.sampleRate}
+		return <LabelManagerList key={project.id} projectId={project.id} labels={labels} sampleRate={project.sampleRate}
 			controller={controller} copy={copy} disabled={snapshot.readOnly} run={run}
 			onAdd={() => run(() => controller.actions.labels.add(targetTrack?.id || null, {
 				title: publishedCopyFor(copy).newLabel || publishedCopyFor(copy).untitledLabel,
