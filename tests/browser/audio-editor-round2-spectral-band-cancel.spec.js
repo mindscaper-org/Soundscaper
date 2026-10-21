@@ -16,9 +16,17 @@ test('Escape cancels adjustment of an existing spectral band', async ({ page }) 
 	// Keep the initial band's time range inside the actual audio clip.
 	const clipBox = await clip.boundingBox();
 	expect(clipBox).not.toBeNull();
-	await page.mouse.move(clipBox.x + clipBox.width / 2, box.y + box.height / 3);
+	const start = { x: clipBox.x + clipBox.width / 2, y: box.y + box.height / 3 };
+	await expect(brush).toBeEnabled();
+	await brush.hover({ position: { x: start.x - box.x, y: start.y - box.y } });
+	expect(await brush.evaluate((element, point) => (
+		element.ownerDocument.elementFromPoint(point.x, point.y) === element
+	), start)).toBe(true);
 	await page.mouse.down();
-	await page.mouse.move(clipBox.x + clipBox.width * 3 / 4, box.y + box.height / 3 + 30);
+	const draft = brush.locator('.audio-editor-spectral-brush__preview');
+	await expect(draft).toBeVisible();
+	await page.mouse.move(clipBox.x + clipBox.width * 3 / 4, start.y + 30);
+	await expect(draft).toBeVisible();
 	await page.mouse.up();
 	const maximum = editor.getByRole('slider', { name: 'Spectral selection maximum-frequency handle', exact: true });
 	await expect(maximum).toBeVisible();
