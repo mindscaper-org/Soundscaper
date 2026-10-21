@@ -1,3 +1,5 @@
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { spectrumReport, clippingReport, normalizeSpectrumSize } from '../../specialized-audio-analysis.ts';
 import { createLocalizedError, setLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import { measureBextLoudness } from '../../broadcast-loudness.ts';
@@ -162,9 +164,10 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 		const projectToken = dependencies.captureProject();
 		const task = begin('analysisRendering');
 		const key = [
-			'audio-editor-analysis-v4',
+			'audio-editor-analysis-v5',
 			request.projectId,
 			request.revision,
+			analysisDocumentFingerprint(project),
 			request.scope,
 			request.scope === 'track' ? request.selectedTrackId : 'master',
 			request.range.startFrame,
@@ -217,7 +220,7 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 			const reportOptions = type === 'spectrum'
 				? { size: normalizeSpectrumSize(options.size ?? dependencies.getSpectrumWindowSize()) }
 				: { threshold: Number(options.threshold ?? 1), minimumConsecutiveSamples: Number(options.minimumConsecutiveSamples ?? 3) };
-			const key = JSON.stringify([request, type, reportOptions]);
+			const key = JSON.stringify([analysisDocumentFingerprint(project), request, type, reportOptions]);
 			if (specializedCache?.key === key) {
 				const cached = specializedCache;
 				complete(task, () => {
@@ -487,6 +490,11 @@ function captureRequest(project: AnalysisProjectIdentity, scope: string, range: 
 		selectedTrackId: scope === 'track' ? selectedTrackId : null,
 		range: Object.freeze({ startFrame: range.startFrame, endFrame: range.endFrame }),
 	});
+}
+
+/** Numeric revisions can recur when a saved document is reopened and branched. */
+function analysisDocumentFingerprint(project: AnalysisProjectIdentity): string {
+	return bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(project))));
 }
 
 function assertAnalysisChannelAdmission(project: AnalysisProjectIdentity): void {
