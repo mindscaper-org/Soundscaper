@@ -6,7 +6,7 @@ import type { FileSizeWarningConfirmation } from '../../../shared/file-size-warn
 import { prepareBrowserExportBlobWithWarning as prepareBrowserExportBlob } from '../../../../browser-export-output.ts';
 import { getVideoExportFormat } from '../../../../video-export.js';
 import { projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
-import { createExportRenderProject } from '../../export-render-project.ts';
+import { createExportRenderProject, exportReplacementTrackIds } from '../../export-render-project.ts';
 import { audioRenderedFallbackRenderSources } from '../audio/audio-rendered-fallback-export.ts';
 import {
 	admitVideoRenderedFallbackExport,
@@ -100,7 +100,7 @@ export function createEditorVideoExportAction(
 		}) ?? null;
 		const exportProject = productExportProject
 			? productExportProject
-			: createExportRenderProject(deliveredProject);
+			: createExportRenderProject(deliveredProject, exportReplacementTrackIds(delivery));
 		const visibleVideoTrack = createVisibleVideoTrackPredicate(exportProject.tracks);
 		const hasTimelinePicture = exportProject.tracks.some((track: RuntimeValue) => (
 			visibleVideoTrack(track)

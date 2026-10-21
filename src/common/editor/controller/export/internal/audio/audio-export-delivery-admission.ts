@@ -2,6 +2,7 @@
 
 import { inheritTrackFolderMediaStateProjectionV12, projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
 import { exportSequenceProject } from '../../../../export-sequence-project.ts';
+import { exportReplacementTrackIds } from '../../export-render-project.ts';
 import {
 	assertAudioRenderedFallbackExportSettings,
 	projectForAudioRenderedFallbackExport,
@@ -44,7 +45,8 @@ export function admitAudioExportDelivery(
 	const delivery = projectForAudioRenderedFallbackExport(canonicalProject, playbackProjects);
 	const settings = normalizeExportSettings(requestedSettings || {});
 	const mediaProject = projectTrackFolderMediaStateV12(delivery.project);
-	const deliveredProject = inheritTrackFolderMediaStateProjectionV12(mediaProject, exportSequenceProject(mediaProject));
+	const deliveredProject = inheritTrackFolderMediaStateProjectionV12(mediaProject,
+		exportSequenceProject(mediaProject, undefined, exportReplacementTrackIds(delivery)));
 	// A frozen lane is delivered as one rendered track. Its original overlapping
 	// clips cannot be separated again from that render.
 	if (settings.mode === 'clips' && deliveredProject.tracks.some(

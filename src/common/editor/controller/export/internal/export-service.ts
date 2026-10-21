@@ -3,7 +3,7 @@ import { admitAudioExportBlob, prepareAudioExportBlobWithWarning as prepareAudio
 import { audioExportPublicationProgress, NO_AUDIO_EXPORT_PROGRESS as NO_TASK_PROGRESS } from './audio/audio-export-progress.ts';
 import { isVideoExportRequestFormat } from '../../../video-export-request-format.ts';
 import { inheritTrackFolderMediaStateProjectionV12 } from '../../../track-folder-media-runtime.ts';
-import { createExportRenderProject } from '../export-render-project.ts';
+import { createExportRenderProject, exportReplacementTrackIds } from '../export-render-project.ts';
 import { createBw64RenderProject } from './bw64-render-project.ts';
 import { publishBufferedExport } from './buffered-export-publication.ts';
 import {
@@ -171,7 +171,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		const { generation, abort, assertCurrent: assertExportCurrent } = exportOperation;
 		const progressTask = taskProgress?.begin?.('export', copy.rendering, 0, { key: 'rendering' }) || NO_TASK_PROGRESS;
 		progressTask.setCancellation?.(() => { abort.abort(); });
-		let exportProject = createExportRenderProject(deliveredProject);
+		let exportProject = createExportRenderProject(deliveredProject, exportReplacementTrackIds(delivery));
 		let exportRenderSources: ExportRenderSources;
 		let pendingCleanup = null;
 		let pendingDirectDestination: DirectPcmDestination | DirectCompressedDestination | null = null;
@@ -465,7 +465,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		if (!admission.hasMaterial) throw new Error('Persistent delivery requires audible project material.');
 		if (admission.localSourcesMissing) throw createLocalizedError(Error, copy, 'localSourcesMissing');
 		const { settings } = admission;
-		const exportProject = createExportRenderProject(admission.deliveredProject);
+		const exportProject = createExportRenderProject(admission.deliveredProject, exportReplacementTrackIds(admission.delivery));
 		const exportPlan = createExportPlan(exportProject, {
 			...settings,
 			inputChannelCount: exportProject.masterChannels,

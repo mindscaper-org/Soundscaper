@@ -32,7 +32,10 @@ test('MI05 extension: export dialog split controls use the primary sequence mate
 	try {
 		await act(async () => { root.render(<Output />); });
 		for (const name of ['clips', 'chapters']) {
-			const option = dom.container.querySelectorAll('option').find(item => reactProps(item).value === name);
+			const option = dom.container.querySelectorAll('option').find(item => {
+				const value: unknown = reactProps(item).value;
+				return value === name;
+			});
 			assert.ok(option);
 			assert.equal(reactProps(option).disabled, true);
 		}
