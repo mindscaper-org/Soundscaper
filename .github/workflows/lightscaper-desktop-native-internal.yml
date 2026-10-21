@@ -149,7 +149,9 @@ jobs:
         if: runner.os == 'Windows'
         env:
           LIGHTSCAPER_WINDOWS_ASSOCIATION_NATIVE_REQUIRED: '1'
-        run: node --import tsx --test tests/lightscaper-desktop-windows-association-native-source-current.test.ts tests/lightscaper-desktop-windows-association-native-refusal-current.test.ts
+        run: |
+          node --import tsx --test tests/lightscaper-desktop-windows-association-native-source-current.test.ts tests/lightscaper-desktop-windows-association-native-refusal-current.test.ts || exit $?
+          node --import tsx --test --test-name-pattern="^Lightscaper native Windows timeout snapshot records only held same-Job identities before retirement$" tests/lightscaper-desktop-windows-job-native-current.test.ts
       - name: Qualify both real Linux packages through actual menu workflows
         if: runner.os == 'Linux'
         run: |

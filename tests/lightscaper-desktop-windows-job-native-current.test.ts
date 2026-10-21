@@ -6,7 +6,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { constants } from 'node:fs';
 import { copyFile, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { basename, isAbsolute, join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 import { readLightscaperWindowsJobReceiptCurrentV1 } from '../scripts/lib/lightscaper-windows-job-contract-current-v1.ts';
@@ -60,6 +60,48 @@ test('Lightscaper native Windows driver preserves empty, quoted and Unicode lite
 	} finally {
 		if (receipt?.readersRetired) await rm(root, { recursive: true, force: false });
 		else context.diagnostic(`Literal argv readers unproven; retained fixture root: ${root}`);
+	}
+});
+
+test('Lightscaper native Windows timeout snapshot records only held same-Job identities before retirement', {
+	skip: process.platform !== 'win32' ? 'Requires actual Windows Job execution.'
+		: !process.env.LIGHTSCAPER_WINDOWS_JOB_HELPER || !process.env.LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256
+			? 'Requires the actual target-native admitted Job supervisor.' : false, timeout: 60_000,
+}, async context => {
+	const admission = await admitLightscaperWindowsJobHelperCurrentV1({ helperPath: setting('LIGHTSCAPER_WINDOWS_JOB_HELPER'),
+		helperSha256: setting('LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256'), executable: await realpath(process.execPath) });
+	const nonce = randomBytes(16).toString('hex'), root = await realpath(await mkdtemp(join(tmpdir(), 'lightscaper job snapshot ')));
+	let receipt: LightscaperWindowsManagedProcessReceiptCurrentV1 | undefined;
+	try {
+		const code = "const cp=require('node:child_process');const child=cp.spawn(process.execPath,['--eval','setInterval(()=>{},1000)'],{stdio:'ignore'});child.once('error',()=>process.exit(7));child.once('spawn',()=>process.stdout.write(JSON.stringify({processId:child.pid})+'\\n'));setInterval(()=>{},1000);";
+		receipt = await launchLightscaperWindowsJobProcessCurrentV1(admission, ['--eval', code],
+			{ nonce, stage: 1, receiptPath: join(root, `${nonce}.stage-1.windows-job.json`), deadlineMs: 10_000 });
+		assert.equal(receipt.expired, true); assert.equal(receipt.forcedGroupRetirement, true); assert.equal(receipt.exitCode, 125);
+		assert.equal(receipt.readersRetired, true); assert.equal(receipt.launchError, null);
+		assert.equal(receipt.windowsJob.outerExpired, false); const native = receipt.windowsJob.receipt; assert.ok(native);
+		assert.equal(native.activeProcesses, 0); assert.deepEqual(native.cleanupFailures, []); assert.equal(native.failure, null);
+		const child = metadataObject(JSON.parse(receipt.stdout) as unknown); assert.ok(uint32(child.processId) && child.processId > 0);
+		assert.notEqual(child.processId, receipt.processId);
+		const prefix = 'LIGHTSCAPER_MANAGED_JOB_SNAPSHOT_V1 ';
+		const lines = receipt.stderr.split(/\r?\n/u).filter(line => line.startsWith(prefix)); assert.equal(lines.length, 1);
+		assert.ok(Buffer.byteLength(lines[0]!) <= 16 * 1024);
+		const snapshot = metadataObject(JSON.parse(lines[0]!.slice(prefix.length)) as unknown);
+		assert.equal(snapshot.primaryPid, receipt.processId); assert.equal(snapshot.queryError, 0);
+		assert.equal(snapshot.enumerationTruncated, false); assert.ok(Array.isArray(snapshot.members));
+		const members: readonly unknown[] = snapshot.members; assert.ok(members.length >= 2 && members.length <= 32);
+		for (const processId of [receipt.processId, child.processId]) {
+			const member = metadataObject(members.find(value => metadataObject(value).processId === processId));
+			assert.equal(member.sameJob, true); assert.equal(member.imageTruncated, false);
+			assert.ok(typeof member.imageBasenameUtf16Hex === 'string'); assert.match(member.imageBasenameUtf16Hex, /^(?:[a-f0-9]{4}){1,48}$/u);
+			assert.equal(Buffer.from(member.imageBasenameUtf16Hex, 'hex').toString('utf16le').toLowerCase(), basename(process.execPath).toLowerCase());
+			assert.ok(typeof member.creationTimeHex === 'string'); assert.match(member.creationTimeHex, /^[a-f0-9]{16}$/u);
+			assert.ok(BigInt(`0x${member.creationTimeHex}`) > 0n); assert.equal(member.waitResult, 258); assert.equal(member.exitCode, 259);
+			assert.equal(member.processMachine, 0); assert.equal(member.nativeMachine, process.arch === 'arm64' ? 0xaa64 : 0x8664);
+			assert.ok(Object.values(metadataObject(member.errors)).every(value => value === 0));
+		}
+	} finally {
+		if (receipt?.readersRetired) await rm(root, { recursive: true, force: false });
+		else context.diagnostic(`Snapshot reader retirement unproved; retained fixture root: ${root}`);
 	}
 });
 

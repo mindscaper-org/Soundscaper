@@ -2,6 +2,9 @@
 #include "job-current-v1.hpp"
 #include <algorithm>
 #include <new>
+#include <cstdio>
+#include <cstddef>
+#include <sstream>
 
 namespace lightscaper::managed_smoke {
 void Receipt::cleanup(Failure value) noexcept
@@ -121,6 +124,88 @@ void setup(Context &context)
 	require(UpdateProcThreadAttribute(context.attributes, 0u, PROC_THREAD_ATTRIBUTE_JOB_LIST,
 		&context.job, sizeof(context.job), nullptr, nullptr) != FALSE, Stage::jobList);
 }
+// Point-in-time diagnostics only. Never use this snapshot as retirement proof.
+void timeoutSnapshot(HANDLE job, DWORD primaryPid) noexcept
+{
+	try {
+		constexpr size_t maximumMembers = 32u;
+		struct ProcessIds { DWORD assigned, listed; ULONG_PTR ids[maximumMembers]; } ids{};
+		static_assert(offsetof(ProcessIds, ids) == offsetof(JOBOBJECT_BASIC_PROCESS_ID_LIST, ProcessIdList));
+		const BOOL queried = QueryInformationJobObject(job, JobObjectBasicProcessIdList, &ids,
+			static_cast<DWORD>(sizeof(ids)), nullptr);
+		const DWORD queryError = queried ? ERROR_SUCCESS : GetLastError();
+		const size_t count = queried ? std::min<size_t>(ids.listed, maximumMembers) : 0u;
+		std::ostringstream out;
+		out << "LIGHTSCAPER_MANAGED_JOB_SNAPSHOT_V1 {\"primaryPid\":" << primaryPid << ",\"queryError\":" << queryError
+			<< ",\"enumerationTruncated\":" << ((!queried || ids.assigned > ids.listed || ids.listed > maximumMembers) ? "true" : "false")
+			<< ",\"numberAssigned\":";
+		if (queried) out << ids.assigned; else out << "null";
+		out << ",\"members\":[";
+		std::array<wchar_t, 32768> image{};
+		for (size_t index = 0u; index < count; ++index) {
+			if (index != 0u) out << ',';
+			struct Held { HANDLE value; ~Held() { if (value != nullptr) (void)CloseHandle(value); } } held{nullptr};
+			DWORD openError = ERROR_SUCCESS, memberError = ERROR_SUCCESS, timeError = ERROR_SUCCESS;
+			DWORD imageError = ERROR_SUCCESS, archError = ERROR_SUCCESS, waitError = ERROR_SUCCESS, exitError = ERROR_SUCCESS, closeError = ERROR_SUCCESS;
+			BOOL member = FALSE; bool memberKnown = false, timesKnown = false, imageKnown = false, archKnown = false, exitKnown = false;
+			FILETIME created{}, ended{}, kernel{}, user{}; USHORT processMachine = 0u, nativeMachine = 0u;
+			DWORD chars = static_cast<DWORD>(image.size()), waitResult = WAIT_FAILED, exitCode = 0u;
+			if (ids.ids[index] > MAXDWORD) openError = ERROR_INVALID_PARAMETER;
+			else {
+				held.value = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, static_cast<DWORD>(ids.ids[index]));
+				if (held.value == nullptr) openError = GetLastError();
+			}
+			if (held.value != nullptr) {
+				memberKnown = IsProcessInJob(held.value, job, &member) != FALSE;
+				if (!memberKnown) memberError = GetLastError();
+				if (memberKnown && member) {
+					timesKnown = GetProcessTimes(held.value, &created, &ended, &kernel, &user) != FALSE;
+					if (!timesKnown) timeError = GetLastError();
+					imageKnown = QueryFullProcessImageNameW(held.value, 0u, image.data(), &chars) != FALSE;
+					if (!imageKnown) imageError = GetLastError();
+					archKnown = IsWow64Process2(held.value, &processMachine, &nativeMachine) != FALSE;
+					if (!archKnown) archError = GetLastError();
+					waitResult = WaitForSingleObject(held.value, 0u); if (waitResult == WAIT_FAILED) waitError = GetLastError();
+					exitKnown = GetExitCodeProcess(held.value, &exitCode) != FALSE; if (!exitKnown) exitError = GetLastError();
+				}
+				if (CloseHandle(held.value)) held.value = nullptr; else closeError = GetLastError();
+			}
+			out << "{\"processId\":" << ids.ids[index] << ",\"sameJob\":";
+			if (memberKnown) out << (member ? "true" : "false"); else out << "null";
+			out << ",\"creationTimeHex\":";
+			if (timesKnown) {
+				std::array<char, 17> text{};
+				(void)std::snprintf(text.data(), text.size(), "%08lx%08lx", static_cast<unsigned long>(created.dwHighDateTime), static_cast<unsigned long>(created.dwLowDateTime));
+				out << '"' << text.data() << '"';
+			} else out << "null";
+			size_t start = 0u; if (imageKnown) for (size_t i = 0u; i < chars; ++i) if (image[i] == L'\\' || image[i] == L'/') start = i + 1u;
+			out << ",\"imageBasenameUtf16Hex\":";
+			if (imageKnown) {
+				out << '"';
+				for (size_t i = start; i < std::min<size_t>(chars, start + 48u); ++i) {
+					std::array<char, 5> text{}; const auto unit = static_cast<unsigned int>(image[i]);
+					(void)std::snprintf(text.data(), text.size(), "%02x%02x", unit & 255u, (unit >> 8u) & 255u); out << text.data();
+				}
+				out << '"';
+			} else out << "null";
+			out << ",\"imageTruncated\":" << ((imageKnown && chars - start > 48u) ? "true" : "false") << ",\"processMachine\":";
+			if (archKnown) out << processMachine; else out << "null";
+			out << ",\"nativeMachine\":"; if (archKnown) out << nativeMachine; else out << "null";
+			out << ",\"waitResult\":"; if (memberKnown && member) out << waitResult; else out << "null";
+			out << ",\"exitCode\":"; if (exitKnown) out << exitCode; else out << "null";
+			out << ",\"errors\":{\"open\":" << openError << ",\"membership\":" << memberError << ",\"times\":" << timeError
+				<< ",\"image\":" << imageError << ",\"architecture\":" << archError << ",\"wait\":" << waitError
+				<< ",\"exit\":" << exitError << ",\"close\":" << closeError << "}}";
+		}
+		out << "]}\n";
+		const std::string bytes = out.str(); if (bytes.size() > 16u * 1024u) return;
+		const HANDLE stderrHandle = GetStdHandle(STD_ERROR_HANDLE); DWORD mode = PIPE_NOWAIT;
+		// No synchronous blocking fallback: saturated/unavailable stderr is unknown evidence.
+		if (stderrHandle == nullptr || stderrHandle == INVALID_HANDLE_VALUE || GetFileType(stderrHandle) != FILE_TYPE_PIPE
+			|| !SetNamedPipeHandleState(stderrHandle, &mode, nullptr, nullptr)) return;
+		DWORD written = 0u; (void)WriteFile(stderrHandle, bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr);
+	} catch (...) {} // Diagnostics cannot mask or postpone the existing timeout cleanup with an exception.
+}
 void cleanupProcesses(Context &context, const Plan &plan, Receipt &receipt) noexcept
 {
 	if (!context.created) return; // No application process ever existed.
@@ -180,7 +265,7 @@ Receipt run(const Plan &plan)
 		if (!member) { context.assigned = false; throw Failure{Stage::verifyJob, ERROR_INVALID_DATA}; }
 		if (ResumeThread(context.process.hThread) == static_cast<DWORD>(-1)) fail(Stage::resumeThread);
 		if (!context.waitMain(plan.deadlineMs, Stage::waitMain)) {
-			receipt.expired = true; context.terminate(receipt);
+			receipt.expired = true; timeoutSnapshot(context.job, receipt.processId); context.terminate(receipt);
 			if (!context.waitMain(plan.graceMs, Stage::waitTerminatedMain)) throw Failure{Stage::waitTerminatedMain, ERROR_TIMEOUT};
 		}
 		context.exitCode(receipt);
