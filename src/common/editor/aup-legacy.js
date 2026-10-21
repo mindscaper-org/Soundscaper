@@ -121,8 +121,10 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	if (corrupt.length) throw new LegacyAupError(`Corrupt legacy Audacity block files: ${corrupt.map((entry) => entry.filename).join(', ')}.`, 'CORRUPT_BLOCK_FILES', { files: corrupt });
 	for (const [index, trackNode] of children(project, 'labeltrack').entries()) tracks.push({
 		type: 'label',
+		selected: booleanAttribute(trackNode, 'isSelected', false),
 		name: String(attribute(trackNode, 'name', `Labels ${index + 1}`)),
 		labels: children(trackNode, 'label').map((label) => ({
+			selected: booleanAttribute(label, 'isSelected', false),
 			title: String(attribute(label, 'title', '')),
 			startSeconds: nonNegative(attribute(label, 't', 0)),
 			endSeconds: nonNegative(attribute(label, 't1', attribute(label, 't', 0))),
@@ -137,10 +139,22 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 		selection: { startSeconds: nonNegative(attribute(project, 'sel0', 0)), endSeconds: nonNegative(attribute(project, 'sel1', 0)) },
 		view: { zoom: positive(attribute(project, 'zoom', 100), 100), horizontalPosition: nonNegative(attribute(project, 'h', 0)), verticalPosition: Math.round(nonNegative(attribute(project, 'vpos', 0))) },
 		tracks,
-		metadata: { title: String(attribute(project, 'projname', projectFile.name || 'Audacity project')).replace(/\.aup$/i, '') },
+		metadata: readLegacyMetadata(project, projectFile.name),
 		warnings: [],
 		opaqueExtensions: { legacyAupProject: cloneNode(project) },
 	};
+}
+
+function readLegacyMetadata(project, fileName) {
+	const metadata = { title: String(fileName || attribute(project, 'projname', 'Audacity project')).replace(/\.aup$/i, ''), tags: {} };
+	const known = { TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', TRACK: 'trackNumber', TRACKNUMBER: 'trackNumber', YEAR: 'year', COMMENTS: 'comments', COMMENT: 'comments' };
+	for (const tag of children(children(project, 'tags')[0], 'tag')) {
+		const name = String(attribute(tag, 'name', '')).toUpperCase();
+		const value = String(attribute(tag, 'value', ''));
+		if (known[name]) metadata[known[name]] = value;
+		else if (name) Object.defineProperty(metadata.tags, name, { value, enumerable: true, writable: true, configurable: true });
+	}
+	return metadata;
 }
 
 function legacyTrackClips(trackNode) {
@@ -228,6 +242,7 @@ function materializePhysicalTrack({ clipPlans, trackIndex, trackNode, trackRate 
 	});
 	return {
 		type: 'audio',
+		selected: booleanAttribute(trackNode, 'isSelected', false),
 		name: String(attribute(trackNode, 'name', `Track ${trackIndex + 1}`)),
 		rate: trackRate,
 		channel: Number(attribute(trackNode, 'channel', 2)),

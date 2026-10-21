@@ -92,7 +92,7 @@ export function readSnap(root) {
 export function readFrequencyRange(root, sampleRate) {
 	const minimum = Number(audacityXmlAttribute(root, 'selLow', Number.NaN));
 	const maximum = Number(audacityXmlAttribute(root, 'selHigh', Number.NaN));
-	if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum < 0 || maximum <= minimum) return null;
+	if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum < 0 || minimum >= sampleRate / 2 || maximum <= minimum) return null;
 	return { minimumFrequency: Math.min(sampleRate / 2, minimum), maximumFrequency: Math.min(sampleRate / 2, maximum) };
 }
 

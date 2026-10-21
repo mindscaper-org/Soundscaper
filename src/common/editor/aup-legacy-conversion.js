@@ -22,13 +22,16 @@ export function convertLegacyAupToProject(structure, options = {}) {
 	const sourceAudio = [];
 	const clips = [];
 	const tracks = [];
+	const selectedTrackIds = [];
 	const annotationTracks = [];
 	const warnings = [...(structure.warnings || [])];
 	for (const [trackIndex, inputTrack] of structure.tracks.entries()) {
 		if (inputTrack.type === 'label') {
 			annotationTracks.push({
+				selected: inputTrack.selected,
 				name: String(inputTrack.name || `Labels ${trackIndex + 1}`),
 				labels: (inputTrack.labels || []).map((label) => ({
+					selected: label.selected,
 					title: String(label.title || ''),
 					startSeconds: nonNegative(label.startSeconds),
 					endSeconds: nonNegative(Math.max(label.startSeconds, label.endSeconds)),
@@ -39,6 +42,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 			continue;
 		}
 		const trackId = idFactory('track');
+		if (inputTrack.selected) selectedTrackIds.push(trackId);
 		const trackRate = positiveRate(inputTrack.rate || sampleRate);
 		const clipIds = [];
 		for (const [clipIndex, inputClip] of (inputTrack.clips || []).entries()) {
@@ -107,9 +111,10 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		}, sampleRate));
 	}
 	const laneTracks = spreadLegacyOverlaps(tracks, clips, warnings);
+	const projectTitle = String(options.title || structure.metadata?.title || '').replace(/\.aup$/i, '');
 	const metadata = {
-		title: String(options.title || structure.metadata?.title || '').replace(/\.aup$/i, ''),
-		artist: '', album: '', trackNumber: '', year: '', comments: '', tags: {},
+		title: '', artist: '', album: '', trackNumber: '', year: '', comments: '', tags: {},
+		...structure.metadata,
 	};
 	const importedTempoBpm = finiteInRange(structure.tempo?.bpm, 1, 1_000, 120);
 	const musicalRoot = canonicalAudacityMusicalRoot(importedTempoBpm, structure.tempo?.timeSignature);
@@ -121,11 +126,12 @@ export function convertLegacyAupToProject(structure, options = {}) {
 	});
 	const project = createCurrentAudioEditorProject({
 		id: options.projectId || idFactory('project'),
-		title: metadata.title || 'Audacity project',
+		title: projectTitle || 'Audacity project',
 		now: options.now,
 		sampleRate,
 		...musicalRoot,
 		selection: {
+			trackIds: selectedTrackIds,
 			startFrame: secondsToSampleFrame(nonNegative(structure.selection?.startSeconds), sampleRate),
 			endFrame: secondsToSampleFrame(nonNegative(Math.max(structure.selection?.startSeconds || 0, structure.selection?.endSeconds || 0)), sampleRate),
 			annotationIds: annotationImport.selectedAnnotationIds,

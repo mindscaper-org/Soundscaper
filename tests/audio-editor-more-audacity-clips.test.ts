@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createAudacityXmlNode } from '../src/common/editor/audacity-binary-xml.js';
+import { createAudacityXmlNode, audacityXmlChildren } from '../src/common/editor/audacity-binary-xml.js';
 import { decodeAudacityProjectTree } from '../src/common/editor/aup4-conversion.js';
 import { decodeLegacyAupProject } from '../src/common/editor/aup-legacy.js';
 import { convertLegacyAupToProject } from '../src/common/editor/aup-legacy-conversion.js';
@@ -54,4 +54,36 @@ test('MP08: Audacity 1.2 track-level sequences retain audio, placement, and enve
 	assert.equal(result.project.clips[0]!.timelineStartFrame, 96_000);
 	assert.equal(result.project.clips[0]!.sourceDurationFrames, 4);
 	assert.deepEqual(result.project.clips[0]!.envelope, [{ frame: 0, value: 0.5 }]);
+});
+
+test('MP12: legacy AUP import retains music metadata and custom tags independently of project filename', async () => {
+	const decoded = await decodeLegacyAupProject(new File([`<project rate="48000"><tags>
+		<tag name="TITLE" value="Song"/><tag name="ARTIST" value="Band"/><tag name="TRACKNUMBER" value="7"/>
+		<tag name="COMMENT" value="Session notes"/><tag name="COPYRIGHT" value="Author"/>
+		</tags></project>`], 'Filename.aup'), []);
+	const project = convertLegacyAupToProject(decoded, { idFactory: ids(), title: 'Filename' }).project;
+	assert.equal(project.metadata.artist, 'Band');
+	assert.equal(project.metadata.title, 'Song');
+	assert.equal(project.metadata.trackNumber, '7');
+	assert.equal(project.metadata.comments, 'Session notes');
+	assert.equal(project.metadata.tags.COPYRIGHT, 'Author');
+	assert.equal(project.title, 'Filename');
+});
+
+test('MP13: legacy AUP restores the selected audio track rather than selecting another recording', async () => {
+	const decoded = await decodeLegacyAupProject(new File([`<project rate="48000">
+		<wavetrack name="First" isSelected="0"/><wavetrack name="Second" isSelected="1"/>
+		</project>`], 'selected.aup'), []);
+	const project = convertLegacyAupToProject(decoded, { idFactory: ids() }).project;
+	assert.deepEqual(project.selection.trackIds, [project.tracks[1]!.id]);
+});
+
+test('MP14: a high-rate Audacity track spectral selection cannot prevent opening a lower-rate project', async () => {
+	const tree = nativeClip(0);
+	tree.content.push({ kind: 'attribute', name: 'selLow', type: 'double', value: 30_000 },
+		{ kind: 'attribute', name: 'selHigh', type: 'double', value: 40_000 });
+	audacityXmlChildren(tree, 'wavetrack')[0]!.content.push({ kind: 'attribute', name: 'rate', type: 'double', value: 96_000 });
+	const decoded = await decodeAudacityProjectTree(tree, async () => null, { idFactory: ids(), planAudio: true });
+	assert.equal(decoded.project.clips.length, 1);
+	assert.equal(decoded.project.selection.frequencyRange, null);
 });
