@@ -10,10 +10,11 @@ import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/edi
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
-test('MP40: Duplicate Track preserves authored ADM bed and positioned-object delivery', async (context) => {
+for (const entry of ['track', 'selection'] as const) {
+test(`MP40: ${entry} duplicate preserves authored ADM bed and positioned-object delivery`, async (context) => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const projectRuntime = createSoundscaperProjectRuntimeSelection();
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: 'more-derived-adm' });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `more-derived-adm-${entry}` });
 	const source = createAudioSource({ id: 'source', frameCount: 8, channelCount: 1, sampleRate: 48_000 });
 	const writer = await store.beginSourceWrite(source.id, source); await writer.write([new Float32Array(8).fill(0.25)]); await writer.commit();
 	let project = createSoundscaperProject({ id: 'derived-adm', sources: [source],
@@ -28,7 +29,11 @@ test('MP40: Duplicate Track preserves authored ADM bed and positioned-object del
 		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready; await controller.actions.project.open(project);
-	controller.actions.track.duplicate('voice');
+	const duplicate = () => {
+		if (entry === 'track') controller.actions.track.duplicate('voice');
+		else { controller.actions.timeline.selectClip('clip'); controller.actions.edit.duplicate(); }
+	};
+	duplicate();
 	const duplicated = controller.project;
 	assert.ok(duplicated);
 	const newTrack = duplicated.tracks.find(({ id }) => id !== 'voice'); assert.ok(newTrack);
@@ -44,7 +49,7 @@ test('MP40: Duplicate Track preserves authored ADM bed and positioned-object del
 	controller.actions.edit.undo();
 	controller.actions.edit.commit({ type: 'metadata/update', changes: { adm: { ...adm, objects: [{ id: 'voice-object', name: 'Voice object',
 		stripKind: 'track', stripId: 'voice', sourceChannel: 0, gain: 0.75, position: { azimuth: 20, elevation: 10, distance: 1 } }] } } });
-	controller.actions.track.duplicate('voice');
+	duplicate();
 	const objectProject = controller.project; assert.ok(objectProject);
 	assert.ok(objectProject.metadata.adm);
 	const objects = normalizeAdmProjectMetadata(objectProject.metadata.adm);
@@ -55,3 +60,4 @@ test('MP40: Duplicate Track preserves authored ADM bed and positioned-object del
 	assert.notEqual(objects.objects?.[0]?.stripId, objects.objects?.[1]?.stripId);
 	assert.deepEqual(objects.objects?.[0]?.position, objects.objects?.[1]?.position);
 });
+}

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { duplicateTrackAdmCommands } from '../../../derived-track-adm.ts';
 import { createAddTrackCommand } from '../../../commands/factories.ts';
 import { preparePasteCommand } from '../../../commands/clipboard-runtime.js';
 import type { AudioEditorClipboard, AudioEditorCommand } from '../../../commands/protocol.ts';
@@ -116,7 +117,8 @@ export function prepareDuplicateSelectionCommand(
 	const paste = preparePasteCommand(clipboard, { atFrame: range.startFrame, trackMap, mode: 'overlap' }, runtime.createStableId);
 	const clipIds = Object.values(paste.clipIds ?? {});
 	const trackIds = [...sourceTracks.map((track) => track.id), ...sourceTracks.map((track) => trackMap[track.id]!)];
-	commands.push(paste);
+	commands.push(paste, ...duplicateTrackAdmCommands(project, sourceTracks.filter(track => track.type === 'audio')
+		.map(track => ({ sourceTrackId: track.id, targetTrackId: trackMap[track.id]! })), runtime.createStableId));
 	const prepared = runtime.prepareDuplicateCommand?.(clipboard, { type: 'batch', commands }) ?? { type: 'batch' as const, commands };
 	const batch = prepared.type === 'batch' ? prepared : { type: 'batch' as const, commands: [prepared] };
 	const routed = runtime.preserveTrackRouting?.(batch, sourceTracks.filter(track => track.type === 'audio')
