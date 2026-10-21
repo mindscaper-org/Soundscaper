@@ -428,6 +428,8 @@
 		,
 		{ "path": "desktop/lightscaper-native-stack-transactions-current-v1.ts", "kind": "native-contract", "justification": "lightscaper-native-stack-transactions-current-v1.ts belongs to the Main-private native Photo storage/filesystem/process owner closure; the version scopes that native implementation contract and grants no renderer or published project identity." }
 		,
+		{ "path": "desktop/lightscaper-nsis-native-powershell-current-v1.nsh", "kind": "helper-contract", "justification": "lightscaper-nsis-native-powershell-current-v1.nsh scopes the Lightscaper installer hook that selects native Windows PowerShell while preserving the pinned upstream running-application guard." }
+		,
 		{ "path": "desktop/lightscaper-preload-bridge-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-preload-bridge-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
 		{ "path": "desktop/lightscaper-preload-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-preload-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
