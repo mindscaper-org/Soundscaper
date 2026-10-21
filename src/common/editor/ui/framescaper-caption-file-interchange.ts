@@ -2,7 +2,7 @@
 
 import type { VideoCaptionInterchangeFormatV1 } from '../video-caption-interchange-contract-v27.ts';
 import { decodeLabelInputText } from '../label-input-text.ts';
-import { decodeBomMarkedUtf16 } from '../bom-marked-text.ts';
+import { decodeCaptionXmlFile } from './caption-xml-file-text.ts';
 import { withFramescaperSidecarFile, type FramescaperSidecarFileReader } from './framescaper-sidecar-file.ts';
 
 export interface FramescaperCaptionFileService extends FramescaperSidecarFileReader {
@@ -73,8 +73,7 @@ export async function openFramescaperCaptionSidecarFile(input: Readonly<{
 	let text: string;
 	try {
 		const bytes = await body.arrayBuffer();
-		text = (format === 'imsc1.1' ? decodeBomMarkedUtf16(bytes) : null)
-			?? decodeLabelInputText(bytes, format === 'srt');
+		text = format === 'imsc1.1' ? decodeCaptionXmlFile(bytes) : decodeLabelInputText(bytes, format === 'srt');
 	} catch (error) {
 		throwIfAborted(input.signal);
 		throw new TypeError('The caption sidecar must be strict UTF-8.', { cause: error });

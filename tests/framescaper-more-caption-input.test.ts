@@ -58,3 +58,12 @@ test('MI09: ordinary WebVTT header metadata stays outside the first caption cue'
 		trackId: 'captions', sequenceId: 'main', trackName: 'Captions', language: 'en' }).result;
 	assert.equal(result.track.cues[0]?.text, 'Hello');
 });
+
+test('MI13: TTML file import honors the declared XML text encoding', async () => {
+	for (const caption of ['Hello', 'Grüße à Montréal']) {
+		const text = `<?xml version="1.0" encoding="ISO-8859-1"?>${document().replace('Hello', caption)}`;
+		const read = await openFramescaperCaptionSidecarFile({ file: new File([Buffer.from(text, 'latin1')], 'captions.ttml') });
+		assert.ok(read);
+		assert.equal(imported(read.text).track.cues[0]?.text, caption);
+	}
+});

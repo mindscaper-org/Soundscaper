@@ -534,7 +534,7 @@ function positiveInteger(value: string | null, name: string, maximum: number): n
 }
 
 function assertNoActiveXml(value: string): void {
-	const withoutDeclaration = value.replace(/<!--[\s\S]*?-->/gu, '').replace(/^<\?xml\s+version=(?:"1\.0"|'1\.0')(?:\s+encoding=(?:"UTF-(?:8|16(?:LE|BE)?)"|'UTF-(?:8|16(?:LE|BE)?)'))?(?:\s+standalone=(?:"(?:yes|no)"|'(?:yes|no)'))?\s*\?>/iu, '');
+	const withoutDeclaration = value.replace(/<!--[\s\S]*?-->/gu, '').replace(/^<\?xml[ \t\r\n]+[^?]*\?>/u, '');
 	if (/<!\s*(?:DOCTYPE|ENTITY)\b|<\?|<!\[CDATA\[/iu.test(withoutDeclaration)) {
 		throw activeContent('DTD, entity declarations, processing instructions, and CDATA are not allowed in IMSC.');
 	}
