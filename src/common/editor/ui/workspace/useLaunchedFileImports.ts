@@ -64,6 +64,7 @@ export function useLaunchedFileImports({
 	// changes; the subscription is not, so a launch in flight is never handed to
 	// a closure that has just been replaced.
 	const importRef = useRef(importFiles);
+	const pendingImports = useRef<Promise<unknown>>(Promise.resolve());
 	useEffect(() => { importRef.current = importFiles; }, [importFiles]);
 	useEffect(() => {
 		// Claiming is idempotent, so a remount re-subscribes without disturbing the
@@ -77,18 +78,18 @@ export function useLaunchedFileImports({
 			onError(desktop ? error : markWebFileLoadLimitFailure(error));
 		};
 		void Promise.resolve(collect({ desktop, onError: reportCollectionError })).catch(reportCollectionError);
-		const unsubscribe = subscribe(async (launch: LaunchedFiles) => {
+		const unsubscribe = subscribe((launch: LaunchedFiles) => {
 			const files = [...(launch?.files ?? [])];
 			if (files.length === 0) return;
-			try {
+			const importing = pendingImports.current.then(async () => {
 				// The launch is delivered while the editor is still booting, so the
 				// files wait for the controller rather than being routed at an
 				// engine that cannot open them yet.
 				await controller?.ready;
 				await importRef.current(files);
-			} catch (error) {
-				onError(error);
-			}
+			}).catch(onError);
+			pendingImports.current = importing;
+			return importing;
 		});
 		// A launch that arrives while nothing is subscribed goes back to the
 		// buffer, so tearing this down between renders costs nothing but delay.
