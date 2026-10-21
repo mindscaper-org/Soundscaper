@@ -30,7 +30,7 @@ test('a malformed label file does not discard later healthy files from the same 
 			new File(['2\t3\tLast\n'], 'last.txt')],
 		importOptions: {}, openProjectFile() {}, projectBinVisible: false, requestCueImport() {},
 	}), { name: 'AudioEditorLabelIoError' });
-	assert.deepEqual(project.tracks.flatMap((track: { type: string; labels?: readonly { title: string }[] }) =>
+	assert.deepEqual(project.tracks.flatMap((track: { type: string; labels?: readonly { title?: string }[] }) =>
 		track.type === 'label' ? track.labels?.map(label => label.title) ?? [] : []), ['First', 'Last']);
 });
 
