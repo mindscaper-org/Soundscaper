@@ -59,7 +59,8 @@ test('floating-point CART calibration retains its sample unit through saved proj
 		importOptions: normalizeProjectImportOptions({ destination: 'timeline' }, 'Invalid frames.'),
 		freezeImportOptions: freezeProjectImportOptions });
 	const persisted = JSON.parse(JSON.stringify({ ...project, metadata: { cart: imported.projectCart } })) as unknown;
-	const restored = createCurrentAudioEditorProject(persisted);
+	assert.ok(persisted && typeof persisted === 'object' && !Array.isArray(persisted));
+	const restored = createCurrentAudioEditorProject(persisted as Readonly<Record<string, unknown>>);
 	const plan = createExportPlan(restored, { format: 'bwf', sampleFormat: 'int24', range: { startFrame: 0, endFrame: 1 } });
 	assert.equal(plan.cart?.levelReference, 8_388_608);
 });
