@@ -35,8 +35,7 @@ static BOOL integer(id value, long long minimum, long long maximum) {
 static NSString *bounded(NSString *value) { return value.length > 2048 ? [value substringToIndex:2048] : value; }
 static NSString *canonical(NSString *path, BOOL owned, BOOL directory) {
   require([path isKindOfClass:NSString.class] && path.length > 1 && path.length <= 4096 && [path hasPrefix:@"/"] &&
-    [path rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location == NSNotFound &&
-    [path isEqualToString:path.stringByStandardizingPath], @"Path must be absolute and canonical.");
+    [path rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location == NSNotFound, @"Path must be absolute and canonical.");
   char resolved[PATH_MAX]; require(realpath(path.fileSystemRepresentation, resolved) != nullptr, @"Path does not exist.");
   require([path isEqualToString:[NSString stringWithUTF8String:resolved]], @"Symlink or noncanonical path refused.");
   NSString *cursor = @"/"; struct stat st{};
@@ -80,7 +79,11 @@ static NSString *sha256(NSData *data) {
 }
 static NSString *nativePath(NSURL *url) {
   require(url != nil && url.isFileURL, @"Native application URL is unavailable.");
-  return url.URLByResolvingSymlinksInPath.path;
+  NSString *path = url.path;
+  require([path isKindOfClass:NSString.class] && path.length > 1 && path.length <= 4096 && [path hasPrefix:@"/"] &&
+    [path rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location == NSNotFound, @"Native application path is invalid.");
+  char resolved[PATH_MAX]; require(realpath(path.fileSystemRepresentation, resolved) != nullptr, @"Native application path does not exist.");
+  return [NSString stringWithUTF8String:resolved];
 }
 static NSURL *resolver(NSWorkspace *workspace, NSURL *archive, NSMutableDictionary *counters) {
   counters[@"resolverQueries"] = @([counters[@"resolverQueries"] unsignedIntegerValue] + 1);
@@ -243,7 +246,7 @@ int main(int argc, const char *argv[]) {
       require(getuid() == geteuid() && geteuid() != 0, @"Qualification must use an ordinary native account.");
       NSString *parent = canonical(input.stringByDeletingLastPathComponent, YES, YES);
       require([output.stringByDeletingLastPathComponent isEqual:parent] && [output.lastPathComponent hasSuffix:@".json"] &&
-        [output isEqual:output.stringByStandardizingPath] && output.length <= 4096 && [output rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location == NSNotFound,
+        [output isEqualToString:[NSString stringWithFormat:@"%@/%@", parent, output.lastPathComponent]] && output.length <= 4096 && [output rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location == NSNotFound,
         @"Result must be a new JSON file beside the private request.");
       struct stat directory{}, requestStat{};
       require(lstat(parent.fileSystemRepresentation, &directory) == 0 && (directory.st_mode & 0077) == 0, @"Request directory must remain private.");

@@ -91,6 +91,8 @@ void test('target-native Mac helper joins exact refusal cases before any registr
 		await writeFile(metadata, info());
 		const alias = join(root, 'alias.app'); await symlink(bundle, alias);
 		await refused({ ...base, bundlePath: alias }, /Symlink or noncanonical/u);
+		await refused({ ...base, bundlePath: `${bundle}/../refusal-only.app` }, /Symlink or noncanonical/u);
+		await refused({ ...base, bundlePath: `${root}//refusal-only.app` }, /Symlink or noncanonical/u);
 		const collisionInput = join(root, 'collision-request.json'), collisionOutput = join(root, 'collision-result.json');
 		await writeFile(collisionInput, JSON.stringify(base), { mode: 0o600 });
 		await writeFile(collisionOutput, 'retained-result', { mode: 0o600 });
