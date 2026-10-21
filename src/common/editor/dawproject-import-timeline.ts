@@ -270,19 +270,22 @@ function visitClip(
 	let endFrame: number | null = null;
 	if (duration !== null) endFrame = frameOf(scope, time + duration, resolver);
 	else if (playStop !== null) endFrame = frameOf(inner, playStop, resolver);
-	const window = intersect(scope.window, { start: startFrame, end: endFrame });
-	if (!window) return;
 	const fadeUnit = timeUnit(attribute(clip, 'fadeTimeUnit')) ?? scope.unit;
 	const fadeFrames = (value: number): number => (fadeUnit === 'seconds'
 		? Math.round(Math.abs(value) * resolver.sampleRate)
 		: Math.max(0, resolver.frameAtBeat(clipStartBeat + Math.abs(value)) - startFrame));
 	const fadeIn = numberAttribute(clip, 'fadeInTime') ?? 0;
 	const fadeOut = numberAttribute(clip, 'fadeOutTime') ?? 0;
+	const crossfadeHead = fadeIn < 0 ? (fadeUnit === 'beats'
+		? Math.max(0, startFrame - resolver.frameAtBeat(clipStartBeat - Math.abs(fadeIn))) : fadeFrames(fadeIn)) : 0;
+	const fadeStartFrame = startFrame - crossfadeHead;
+	const window = intersect(scope.window, { start: fadeStartFrame, end: endFrame });
+	if (!window) return;
 	const loopStart = numberAttribute(clip, 'loopStart');
 	const loopEnd = numberAttribute(clip, 'loopEnd');
 	const looped = loopStart !== null && loopEnd !== null && loopEnd > loopStart && endFrame !== null
 		&& endFrame - startFrame > frameOf(inner, loopEnd, resolver) - frameOf(inner, loopStart, resolver) + 1;
-	const fadeInFrames = fadeIn !== 0 ? fadeFrames(fadeIn) : (inherited?.fadeInFrames ?? 0);
+	const fadeInFrames = fadeIn !== 0 ? (fadeIn < 0 ? crossfadeHead : fadeFrames(fadeIn)) : (inherited?.fadeInFrames ?? 0);
 	const fadeOutFrames = fadeOut !== 0 ? (fadeUnit === 'beats' && endFrame !== null
 		? Math.max(0, endFrame - resolver.frameAtBeat(resolver.beatAtFrame(endFrame) - Math.abs(fadeOut)))
 		: fadeFrames(fadeOut)) : (inherited?.fadeOutFrames ?? 0);
@@ -294,7 +297,7 @@ function visitClip(
 		crossfade: fadeIn < 0 || inherited?.crossfade === true,
 		looped: looped || inherited?.looped === true,
 		fadeLayers: [...(inherited?.fadeLayers ?? []), ...(fadeIn || fadeOut ? [{
-			startFrame, endFrame, fadeInFrames: fadeIn ? fadeInFrames : 0, fadeOutFrames: fadeOut ? fadeOutFrames : 0,
+			startFrame: fadeStartFrame, endFrame, fadeInFrames: fadeIn ? fadeInFrames : 0, fadeOutFrames: fadeOut ? fadeOutFrames : 0,
 		}] : [])],
 	};
 	const content = resolveContent(clip, scope, state, document);

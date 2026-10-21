@@ -131,7 +131,13 @@ export function parseDawprojectProjectElement(root: XmlElement, metadataRoot: Xm
 			? { name: attribute(application, 'name') ?? '', version: attribute(application, 'version') ?? '' }
 			: null,
 		transport: parseTransport(childElement(root, 'Transport')),
-		tracks: Object.freeze(childElements(childElement(root, 'Structure') ?? root, 'Track').map(parseTrack)),
+		tracks: Object.freeze((childElement(root, 'Structure') ?? root).children.flatMap((element) => {
+			if (element.name === 'Track') return [parseTrack(element)];
+			if (element.name !== 'Channel') return [];
+			return [Object.freeze({ id: attribute(element, 'id'), name: attribute(element, 'name') ?? '',
+				color: attribute(element, 'color'), contentTypes: Object.freeze(['audio']),
+				channel: parseChannel(element), children: Object.freeze([]) })];
+		})),
 		arrangement: arrangementElement
 			? Object.freeze({
 				lanes: childElement(arrangementElement, 'Lanes'),

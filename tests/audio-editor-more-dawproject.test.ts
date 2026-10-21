@@ -7,12 +7,12 @@ import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.
 import { encodeWav } from '../src/common/editor/wav.js';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
 
-async function open(lanes: string) {
+async function open(lanes: string, extraStructure = '') {
 	const archive = await writeDawprojectArchive({
 		metadataXml: '<MetaData/>',
-		projectXml: `<Project><Structure><Track id="recording" name="Recording" contentType="audio">
+		projectXml: `<Project version="1.0"><Application name="Other DAW" version="1"/><Structure><Track id="recording" name="Recording" contentType="audio">
 			<Channel role="regular"><Volume id="gain" value="0.5" unit="linear"/></Channel>
-			</Track></Structure><Arrangement><Lanes timeUnit="seconds">${lanes}</Lanes></Arrangement></Project>`,
+			</Track>${extraStructure}</Structure><Arrangement><Lanes timeUnit="seconds">${lanes}</Lanes></Arrangement></Project>`,
 		files: [{ path: 'take.wav', blob: new Blob([encodeWav([new Float32Array(48_000)],
 			{ sampleRate: 48_000, float: true }) as Uint8Array<ArrayBuffer>]) }],
 	});
@@ -56,4 +56,20 @@ test('MP11: nested DAWproject clips retain parent fade positions and combine the
 		</Clips></Clip></Clips></Lanes>`);
 	const combinedClip = combined.clips[0] as unknown as typeof clip;
 	assert.equal(combinedClip.envelope.find((point) => point.frame === 24_000)?.value, 0.375);
+});
+
+test('MP17: a DAWproject negative fade-in retains the earlier crossfade head and its source samples', async () => {
+	const project = await open(`<Clips track="recording"><Clip time="1" duration="0.5" playStart="0.25"
+		contentTimeUnit="seconds" fadeTimeUnit="seconds" fadeInTime="-0.1">
+		<Audio timeUnit="seconds"><File path="take.wav"/></Audio></Clip></Clips>`);
+	const clip = project.clips[0] as unknown as { timelineStartFrame: number; sourceStartFrame: number; durationFrames: number };
+	assert.equal(clip.timelineStartFrame, 43_200);
+	assert.equal(clip.sourceStartFrame, 7_200);
+	assert.equal(clip.durationFrames, 28_800);
+});
+
+test('MP18: a DAWproject standalone master Channel retains its mixer gain', async () => {
+	const project = await open('', `<Channel id="master" role="master" name="Master" audioChannels="2">
+		<Volume unit="linear" value="0.25"/></Channel>`);
+	assert.equal((project.master as { gain: number }).gain, 0.25);
 });
