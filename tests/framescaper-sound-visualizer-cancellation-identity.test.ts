@@ -86,7 +86,7 @@ for (const cut of ['metadata', 'payload'] as const) test(`superseded real visual
 		f.release.resolve(); await running;
 		const result = await observed;
 		if (!result.passed) throw result.error;
-		assert.equal(joined, true); assert.deepEqual(failures, []);
+		assert.equal(joined, true); assert.equal(failures.length, 0);
 		await coordinator.run({ render: stop => f.reader.window(visual, 24, 1, stop), isCurrent: () => true,
 			publish: frame => { assert.ok(frame.channels); assert.deepEqual([...frame.channels[0]!], Array.from({ length: 10 }, (_, i) => (19 + i) / 64)); published.push(frame.timelineFrame); },
 			onError: error => { failures.push(error); } });

@@ -138,7 +138,7 @@ for (const change of ['definition', 'epoch', 'cancel'] as const) test(`held actu
 	const initial = f.slot.page, work = f.rate(stop.signal);
 	try {
 		const reached = await Promise.race([entered.promise.then(() => true), work.then(() => false)]); assert.equal(reached, true);
-		assert.equal(await remainsPending(work), true); assert.equal(f.slot.page, initial); assert.deepEqual(f.published, []);
+		assert.equal(await remainsPending(work), true); assert.equal(f.slot.page, initial); assert.equal(f.published.length, 0);
 		if (change === 'definition') {
 			const root = await f.catalog.loadCatalog(f.before.catalogId); assert.ok(root);
 			await f.catalog.saveCatalog({ ...root, collections: [{ id: 'eligible', name: 'Eligible ratings', kind: 'smart',

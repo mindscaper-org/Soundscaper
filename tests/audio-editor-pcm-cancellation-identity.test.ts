@@ -8,6 +8,12 @@ import { PcmRepository } from '../src/common/editor/storage/pcm-repository.ts';
 import { WavPackCodecClient } from '../src/common/editor/wavpack/client.js';
 import { crc32, decodePcmWithWavPack, encodePcmAdaptively, loadWavPackWasm, PCM_ENCODING_WAVPACK_F32_V1 } from '../src/common/editor/wavpack/index.js';
 
+/** These fixtures exercise real worker checksums; encode/decode are outside their admitted route. */
+class ChecksumOnlyCodec extends WavPackCodecClient {
+	async encode(): Promise<never> { throw new Error('Encoding is outside this checksum fixture.'); }
+	async decode(): Promise<never> { throw new Error('Decoding is outside this checksum fixture.'); }
+}
+
 async function rejectsWithIdentity(promise: Promise<unknown>, expected: unknown): Promise<void> {
 	const result = await promise.then(() => ({ rejected: false as const }), (error: unknown) => ({ rejected: true as const, error }));
 	assert.equal(result.rejected, true);
@@ -82,7 +88,7 @@ test('exact opaque cancellation after an actual checksum reply does not disable 
 		postMessage(value: unknown, transfer: ArrayBuffer[]) { reply({ data: structuredClone(value, { transfer }) }); } });
 	t.after(() => { if (previous) Object.defineProperty(globalThis, 'self', previous); else Reflect.deleteProperty(globalThis, 'self'); });
 	await import('../src/common/editor/wavpack/worker.js');
-	const client = new WavPackCodecClient({ workerFactory: () => ({
+	const client = new ChecksumOnlyCodec({ workerFactory: () => ({
 		addEventListener(type: string, listener: typeof reply) { if (type === 'message') reply = listener; },
 		postMessage(value: unknown, transfer: ArrayBuffer[]) { receive({ data: structuredClone(value, { transfer }) }); }, terminate() {},
 	}) });

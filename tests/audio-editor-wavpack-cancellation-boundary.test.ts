@@ -12,6 +12,12 @@ import { SourceRecordRepository } from '../src/common/editor/storage/source-reco
 import { WavPackCodecClient } from '../src/common/editor/wavpack/client.js';
 import { crc32, PCM_ENCODING_RAW_F32LE } from '../src/common/editor/wavpack/pcm.js';
 
+/** These fixtures exercise real worker checksums; encode/decode are outside their admitted route. */
+class ChecksumOnlyCodec extends WavPackCodecClient {
+	async encode(): Promise<never> { throw new Error('Encoding is outside this checksum fixture.'); }
+	async decode(): Promise<never> { throw new Error('Decoding is outside this checksum fixture.'); }
+}
+
 function deferred() {
 	let resolve!: () => void;
 	const promise = new Promise<void>(accept => { resolve = accept; });
@@ -81,11 +87,11 @@ test('actual WavPack checksum worker cancellation stays local at the client boun
 	await import('../src/common/editor/wavpack/worker.js');
 	function client(hold = false) {
 		const slot: { ready: ReturnType<typeof deferred>; worker?: Transport } = { ready: deferred() };
-		const codec = new WavPackCodecClient({ timeoutMs: 4_000, workerFactory: () => {
+		const codec = new ChecksumOnlyCodec({ timeoutMs: 4_000, workerFactory: () => {
 			const transport = new Transport(); transport.hold = hold; hold = false; workers.push(transport); slot.worker = transport; slot.ready.resolve(); return transport;
 		} }); clients.push(codec); slots.set(codec, slot); return codec;
 	}
-	async function source(context: TestContext, codec: WavPackCodecClient) {
+	async function source(context: TestContext, codec: ChecksumOnlyCodec) {
 		const records = new SourceRecordRepository({ memory: getMemoryDatabase(`worker-boundary-${crypto.randomUUID()}`), database: async () => null });
 		await records.putMetadata({ id: 'audio', sourceToken: 'token', storage: 'indexeddb-chunks',
 			frameCount: raw.length, channelCount: 1, chunkFrames: raw.length, chunkCount: 1, sampleRate: 48_000 });
