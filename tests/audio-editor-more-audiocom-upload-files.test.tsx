@@ -34,7 +34,10 @@ for (const name of [`${'a'.repeat(199)}😀tail.wav`, '.wav']) {
 			assert.equal(submissions.length, 1, 'the default title must pass the real upload queue admission');
 			assert.ok(submissions[0]?.title.trim());
 			assert.ok(submissions[0]!.title.length <= 200);
-			assert.equal(submissions[0]!.title.isWellFormed(), true);
+			assert.equal(Array.from(submissions[0]!.title).some(character => {
+				const scalar = character.codePointAt(0)!;
+				return scalar >= 0xd800 && scalar <= 0xdfff;
+			}), false);
 			assert.equal(closes, 1);
 		} finally {
 			queue.dispose();
