@@ -152,6 +152,9 @@ export function createPhotoLibraryCullingWorkflowV1<Slot extends ScalarSlot>({ p
 					const candidates = [...new Set([...successors, ...anchors])];
 					let target: string | null = null;
 					for (const photoId of candidates) { next = await destination(context, { photoId, signal }); check(signal); if (next && ids(next).includes(photoId)) { target = photoId; break; } next = null; }
+					if (!next && context.kind !== 'plain' && readers) {
+						next = await readVisiblePage(readers, { query: query.value, savedCollectionId, stackCollapsed }, null, signal); check(signal);
+					}
 					if (!next) throw new Error('Photo culling destination is unavailable.');
 					// Keep the existing window for an in-page successor; only publish
 					// its own destination window when a fresh anchor cannot contain it.
@@ -166,7 +169,7 @@ export function createPhotoLibraryCullingWorkflowV1<Slot extends ScalarSlot>({ p
 					}
 					// With auto-advance off, retain the edited selection when its
 					// new sort position is outside the surviving original window.
-					if (!input.advance && originalIds.includes(updated.id) && !ids(next).includes(updated.id)) {
+					if (target && !input.advance && originalIds.includes(updated.id) && !ids(next).includes(updated.id)) {
 						const edited = await destination(context, { photoId: updated.id, signal }); check(signal);
 						if (edited && ids(edited).includes(updated.id)) next = edited;
 					}
