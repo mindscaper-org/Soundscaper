@@ -10,6 +10,7 @@ import {
 	audacityXmlChildren,
 	createAudacityXmlNode,
 } from './audacity-binary-xml.js';
+import { convertAudacityEnvelopeInterpolation } from './aup4-envelope-interpolation.ts';
 import { aup4ClipTempoStretchRatio } from './aup4-clip-timing.ts';
 import { booleanValue } from './aup4-conversion-values.js';
 import { createAup4EffectsNode } from './aup4-effects.js';
@@ -319,7 +320,8 @@ function nativeLinearEnvelopePoints(points, durationFrames) {
 		value: finite(point.value, 1),
 	})).sort((left, right) => left.frame - right.frame);
 	if (output[0].frame > 0) output.unshift({ frame: 0, value: 1 });
-	return output.filter((point, index, all) => !index || point.frame > all[index - 1].frame);
+	return convertAudacityEnvelopeInterpolation(output.filter((point, index, all) => !index || point.frame > all[index - 1].frame),
+		0, durationFrames, 'to-native');
 }
 
 function nativeSpectrogramScaleType(spectrogram = {}) {

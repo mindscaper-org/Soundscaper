@@ -97,7 +97,6 @@ test('AUP4 export normalizes mixed-rate mono and stereo clips to one fixed track
 		durationFrames: reopenedMono.durationFrames,
 		trimStartFrames: reopenedMono.trimStartFrames,
 		trimEndFrames: reopenedMono.trimEndFrames,
-		envelope: reopenedMono.envelope,
 	}, {
 		timelineStartFrame: 120,
 		sourceStartFrame: 48,
@@ -105,8 +104,12 @@ test('AUP4 export normalizes mixed-rate mono and stereo clips to one fixed track
 		durationFrames: 384,
 		trimStartFrames: 48,
 		trimEndFrames: 48,
-		envelope: [{ frame: 0, value: 1 }, { frame: 192, value: 0.5 }],
 	});
+	assert.equal(reopenedMono.envelope[0].value, 1);
+	assert.equal(reopenedMono.envelope.at(-1).value, 0.5);
+	for (const point of reopenedMono.envelope) {
+		assert.ok(Math.abs(point.value - (1 - Math.min(192, point.frame) / 384)) < 1e-4);
+	}
 	const reopenedMonoAudio = reopened.sources.find((item) => item.sourceId === reopenedMono.sourceId);
 	assert.equal(reopenedMonoAudio.sampleRate, 48_000);
 	assert.deepEqual(reopenedMonoAudio.channels[0], reopenedMonoAudio.channels[1]);

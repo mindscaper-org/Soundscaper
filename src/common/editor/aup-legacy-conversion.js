@@ -1,3 +1,5 @@
+import { convertAudacityEnvelopeInterpolation } from './aup4-envelope-interpolation.ts';
+
 import { createCurrentAudioEditorProject } from './project-current.ts';
 import {
 	createAudioClip,
@@ -187,16 +189,7 @@ function convertEnvelope(points = [], inputRate, projectRate, speedRatio, maximu
 		value: Math.max(0, Math.min(16, Number(point.value) || 0)),
 	})).sort((left, right) => left.frame - right.frame)
 		.filter((point, index, values) => !index || point.frame > values[index - 1].frame);
-	if (!converted.length) return [];
-	const valueAt = (frame) => {
-		const rightIndex = converted.findIndex((point) => point.frame >= frame);
-		if (rightIndex < 0) return converted.at(-1).value;
-		if (rightIndex === 0) return converted[0].value;
-		const right = converted[rightIndex], left = converted[rightIndex - 1];
-		return left.value + (right.value - left.value) * (frame - left.frame) / (right.frame - left.frame);
-	};
-	return [{ frame: 0, value: valueAt(0) }, ...converted.filter((point) => point.frame > 0 && point.frame <= maximumFrame),
-		...(converted.at(-1).frame > maximumFrame ? [{ frame: maximumFrame, value: valueAt(maximumFrame) }] : [])];
+	return convertAudacityEnvelopeInterpolation(converted, 0, maximumFrame, 'from-native');
 }
 
 function normalizeSourceChannels(channels) {

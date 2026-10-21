@@ -9,6 +9,7 @@ import {
 	audacityXmlAttribute,
 	audacityXmlChildren,
 } from './audacity-binary-xml.js';
+import { convertAudacityEnvelopeInterpolation } from './aup4-envelope-interpolation.ts';
 import { secondsToSampleFrame } from './timeline-time.ts';
 import { normalizeAudioEditorSnapSettings } from './snap-grid.js';
 import {
@@ -31,33 +32,10 @@ export function readEnvelope(clipNode, projectRate, trimLeftSeconds, durationFra
 	})).sort((left, right) => left.time - right.time)
 		.filter((point, index, all) => !index || point.time > all[index - 1].time);
 	if (!nativePoints.length) return [];
-	const visibleStart = nonNegative(trimLeftSeconds);
-	const visibleEnd = visibleStart + durationFrames / projectRate;
-	const points = [
-		{ time: visibleStart, value: nativeEnvelopeValueAt(nativePoints, visibleStart) },
-		...nativePoints.filter((point) => point.time > visibleStart && point.time < visibleEnd),
-		...(nativePoints.at(-1).time > visibleEnd ? [{
-			time: visibleEnd,
-			value: nativeEnvelopeValueAt(nativePoints, visibleEnd),
-		}] : []),
-	].map((point) => ({
-		frame: Math.max(0, Math.min(durationFrames, secondsToSampleFrame(point.time - visibleStart, projectRate))),
-		value: point.value,
-	}));
-	return points.filter((point, index, all) => !index || point.frame > all[index - 1].frame);
-}
-
-function nativeEnvelopeValueAt(points, time) {
-	if (time <= points[0].time) return points[0].value;
-	for (let index = 1; index < points.length; index += 1) {
-		const right = points[index];
-		if (time > right.time) continue;
-		const left = points[index - 1];
-		if (right.time <= left.time) return right.value;
-		const fraction = (time - left.time) / (right.time - left.time);
-		return left.value + (right.value - left.value) * fraction;
-	}
-	return points.at(-1).value;
+	const visibleStart = secondsToSampleFrame(nonNegative(trimLeftSeconds), projectRate);
+	return convertAudacityEnvelopeInterpolation(nativePoints.map((point) => ({
+		frame: secondsToSampleFrame(point.time, projectRate), value: point.value,
+	})), visibleStart, visibleStart + durationFrames, 'from-native');
 }
 
 export function readMetadata(root) {
