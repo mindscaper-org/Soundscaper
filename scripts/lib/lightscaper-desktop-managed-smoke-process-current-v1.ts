@@ -93,3 +93,19 @@ function boundedDuration(value: number, maximum: number): number {
 	if (!Number.isSafeInteger(value) || value < 1 || value > maximum) throw new RangeError('Managed process duration exceeds its bound.');
 	return value;
 }
+
+/** Bounded observations only: this formatter never grants cleanup or success.
+ * Captured streams already belong to the actual joined process owner above. */
+export function lightscaperManagedProcessDiagnosticCurrentV1(receipt: LightscaperManagedProcessReceiptCurrentV1): string {
+	const limit = 32768, readerLimit = 128;
+	const encoded = JSON.stringify({ schemaVersion: 1, kind: 'lightscaper-managed-process-diagnostic-current-v1',
+		processId: receipt.processId, exitCode: receipt.exitCode, signal: receipt.signal?.slice(0, 64) ?? null,
+		expired: receipt.expired, launchError: receipt.launchError?.slice(-limit) ?? null,
+		readersRetired: receipt.readersRetired, forcedGroupRetirement: receipt.forcedGroupRetirement,
+		liveReaderCount: receipt.liveReaderIds.length, liveReaderIds: receipt.liveReaderIds.slice(0, readerLimit),
+		liveReaderIdsTruncated: receipt.liveReaderIds.length > readerLimit, unretiredOwnedGroupId: receipt.unretiredOwnedGroupId,
+		stdout: receipt.stdout.slice(-limit), stderr: receipt.stderr.slice(-limit),
+		capturedStdoutCodeUnits: receipt.stdout.length, capturedStderrCodeUnits: receipt.stderr.length });
+	if (Buffer.byteLength(encoded) > 1024 * 1024) throw new RangeError('Managed process diagnostic exceeds its closed byte bound.');
+	return encoded;
+}
