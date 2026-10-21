@@ -249,6 +249,29 @@ std::wstring quote(const std::wstring &value)
 	output.append(slashes * 2u, L'\\'); return output + L"\"";
 }
 
+// CreateProcess must construct the AppContainer profile from LOCALAPPDATA.
+// Pass only the same three OS substrate values admitted by the Main launcher;
+// parser inputs never inherit PATH, caller secrets, or arbitrary variables.
+std::vector<wchar_t> childEnvironment()
+{
+	constexpr size_t maximumCharacters = 32767u;
+	std::vector<wchar_t> block;
+	for (const wchar_t *name : { L"LOCALAPPDATA", L"SystemDrive", L"SystemRoot" }) {
+		std::array<wchar_t, maximumCharacters + 1u> value{};
+		const DWORD length = GetEnvironmentVariableW(name, value.data(), static_cast<DWORD>(value.size()));
+		if (length == 0u) nativeFailure("child-environment-missing", ERROR_ENVVAR_NOT_FOUND);
+		if (length >= value.size()) nativeFailure("child-environment-value-size", ERROR_INSUFFICIENT_BUFFER);
+		const size_t nameLength = std::wcslen(name);
+		if (block.size() + nameLength + 1u + length + 2u > maximumCharacters) {
+			nativeFailure("child-environment-block-size", ERROR_INSUFFICIENT_BUFFER);
+		}
+		block.insert(block.end(), name, name + nameLength); block.push_back(L'=');
+		block.insert(block.end(), value.data(), value.data() + length); block.push_back(L'\0');
+	}
+	block.push_back(L'\0');
+	return block;
+}
+
 std::vector<unsigned char> crtDescriptors(HANDLE extraInput)
 {
 	const int count = extraInput == nullptr ? 3 : 4;
@@ -374,10 +397,10 @@ int wmain(int argc, wchar_t **argv)
 	startup.StartupInfo.hStdInput = inherited[0]; startup.StartupInfo.hStdOutput = inherited[1];
 	startup.StartupInfo.hStdError = inherited[2]; startup.StartupInfo.cbReserved2 = static_cast<WORD>(crt.size());
 	startup.StartupInfo.lpReserved2 = const_cast<LPBYTE>(crt.data());
-	PROCESS_INFORMATION process{}; const wchar_t emptyEnvironment[2]{};
+	PROCESS_INFORMATION process{}; auto environment = childEnvironment();
 	if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, TRUE,
 		CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-		const_cast<wchar_t*>(emptyEnvironment), nullptr, &startup.StartupInfo, &process)) {
+		environment.data(), nullptr, &startup.StartupInfo, &process)) {
 		nativeFailure("create-process", GetLastError());
 	}
 	photoSupervisedProcess = process.hProcess;
