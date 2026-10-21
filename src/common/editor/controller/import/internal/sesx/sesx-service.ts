@@ -194,7 +194,8 @@ async function resolveReferences(
 }
 
 function mediaLookupPath(reference: SesxAudioReference): string | null {
-	const relative = reference.relativePath?.replaceAll('\\', '/');
+	const relative = reference.relativePath?.replaceAll('\\', '/').split('/')
+		.filter((part) => part !== '.').join('/');
 	const parts = relative?.split('/') ?? [];
 	if (relative && relative.length <= 4096 && parts.length <= 32 && !relative.startsWith('/')
 		&& !/^[a-z][a-z\d+.-]*:/iu.test(relative)
