@@ -29,7 +29,7 @@ test('MI24: editing a reopened SCAPE does not conflate labels whose IDs are scop
 	});
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready;
-	await controller.actions.project.openScapeFile(new File([exported.blob], 'Labels.scape'));
+	await controller.actions.project.openScapeFile(new File([exported.blob], 'Labels.scape'), () => 'copy');
 	assert.equal(controller.project?.id, source.id);
 	const readLabel = (trackId: string) => {
 		const track = controller.project?.tracks.find(candidate => candidate.id === trackId); assert.ok(track);
