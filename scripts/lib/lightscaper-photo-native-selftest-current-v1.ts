@@ -3,6 +3,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import { createServer } from 'node:net';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { checkNativeFilesystemSignal as check } from '../../desktop/lightscaper-native-photo-granted-filesystem-signal-current-v1.ts';
 import { preparePhotoNativeChildCurrentV1 as prepare, photoNativePreparedRetirementIsUnprovedCurrentV1 as childUnproved } from '../../desktop/lightscaper-native-photo-prepared-child-current-v1.ts';
 import { NativeFilesystemProcessCurrentV1 as Filesystem } from '../../desktop/lightscaper-native-photo-granted-filesystem-process-current-v1.ts';
 import { LightscaperNativePhotoRawProcessCurrentV1 as Raw } from '../../desktop/lightscaper-native-photo-raw-process-current-v1.ts';
@@ -18,6 +19,50 @@ async function joined<T>(work: () => Promise<T>, retirements: readonly (() => Pr
  for (const retire of retirements) try { await retire(); } catch (error) { cleanup.push(error); }
  if (cleanup.length) { const error = new AggregateError([...(failed ? [primary] : []), ...cleanup], 'Photo self-test and actual independent owner retirement failed.'); if ([...(failed ? [primary] : []), ...cleanup].some(value => childUnproved(value) || artifactUnproved(value))) UNPROVED.add(error); throw error; }
  if (failed) throw primary; return result;
+}
+const CANARY_PREFIX = 'PHOTO_ISOLATION_CANARY_V1 FAIL stage=';
+const CANARY_STAGES = new Set(['binary-stdio', 'header-read', 'path-length', 'path-read', 'utf16-length', 'winsock-startup', 'module-path', 'stdout-write', 'stdout-flush']);
+function canaryDiagnostic(bytes: Buffer): string | undefined {
+ const text = bytes.toString('utf8'), first = text.indexOf(CANARY_PREFIX);
+ if (first < 0 || text.indexOf(CANARY_PREFIX, first + 1) !== -1 || (first !== 0 && text[first - 1] !== '\n')) return;
+ const end = text.indexOf('\n', first); if (end < 0) return;
+ const line = text.slice(first, end).replace(/\r$/u, '');
+ const early = /^PHOTO_ISOLATION_CANARY_V1 FAIL stage=([a-z-]+) code=(0|[1-9][0-9]{0,9})$/u.exec(line);
+ if (early && CANARY_STAGES.has(early[1]!) && Number(early[2]) <= 0xffffffff) return `${early[1]} code=${early[2]}`;
+ const denials = /^PHOTO_ISOLATION_CANARY_V1 FAIL stage=denials fileDenied=([01]) fileError=(0|[1-9][0-9]{0,9}) networkDenied=([01]) socketError=(0|[1-9][0-9]{0,9}) networkError=(0|[1-9][0-9]{0,9}) childDenied=([01]) childError=(0|[1-9][0-9]{0,9})$/u.exec(line);
+ if (denials && denials.slice(1).every(value => Number(value) <= 0xffffffff)) return line.slice('PHOTO_ISOLATION_CANARY_V1 FAIL stage='.length);
+ return undefined;
+}
+async function isolationCanary(prepared: Awaited<ReturnType<typeof prepare>>, packet: Buffer, connected: () => boolean, signal?: AbortSignal): Promise<Buffer> {
+ const child = prepared.start(), output: Buffer[] = [], diagnostic = Buffer.alloc(4096), stdoutHash = createHash('sha256');
+ let length = 0, used = 0, overflow = false, stdoutOverflow = false, code: number | null = null, signaled: NodeJS.Signals | null = null;
+ let receipt = Buffer.alloc(0), stdoutSha256 = '', trusted: string | undefined, rejectRetirement!: (error: unknown) => void;
+ const retirementFailed = new Promise<never>((_resolve, reject) => { rejectRetirement = reject; }); void retirementFailed.catch(() => undefined);
+ const stdout = (bytes: Buffer): void => {
+  length += bytes.byteLength; stdoutHash.update(bytes);
+  if (length <= 1024) output.push(Buffer.from(bytes));
+  else if (!stdoutOverflow) { stdoutOverflow = true; void prepared.close().catch(rejectRetirement); }
+ };
+ const stderr = (bytes: Buffer): void => {
+  const count = Math.min(bytes.byteLength, diagnostic.byteLength - used); bytes.copy(diagnostic, used, 0, count); used += count;
+  if (count !== bytes.byteLength) overflow = true;
+ };
+ const closed = new Promise<void>(resolve => { child.once('close', (value, reason) => {
+  code = value; signaled = reason; stdoutSha256 = stdoutHash.digest('hex'); receipt = Buffer.concat(output);
+  trusted = overflow ? undefined : canaryDiagnostic(diagnostic.subarray(0, used));
+  diagnostic.fill(0); for (const bytes of output) bytes.fill(0); output.length = 0;
+  child.stdout.off('data', stdout); child.stderr.off('data', stderr); resolve();
+ }); });
+ child.stdout.on('data', stdout); child.stderr.on('data', stderr);
+ try {
+  child.stdin.end(packet); await Promise.race([closed, retirementFailed]); await prepared.close();
+  check(signal); const actualConnected = connected();
+  if (code !== 0 || signaled !== null || actualConnected || stdoutOverflow || !receipt.equals(Buffer.from('PHOTO_ISOLATION_CANARY_V1 PASS\n'))) {
+   throw new Error(`Actual Photo RAW OS-isolation canary failed. Actual joined canary outcome: exit=${String(code)}, signal=${signaled ?? 'none'}, connected=${String(actualConnected)}, stdoutByteLength=${String(length)}, stdoutSha256=${stdoutSha256}.`
+    + (overflow ? ' Canary stderr exceeded its 4096-byte capture bound; no diagnostic stage was admitted.' : trusted ? ` diagnostic=${trusted}.` : ' No trusted canary diagnostic marker was admitted.'));
+  }
+  return receipt;
+ } catch (error) { receipt.fill(0); throw error; }
 }
 export async function selfTestPhotoNativeCurrentV1(root: string, target: PhotoNativeTargetCurrentV1, files: readonly PhotoNativeFileCurrentV1[],
  canaryRoot: string, canaryPin: PhotoNativeFileCurrentV1, signal?: AbortSignal) {
@@ -56,14 +101,11 @@ export async function selfTestPhotoNativeCurrentV1(root: string, target: PhotoNa
  await joined(async () => {
   await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => { listening = true; resolve(); }); });
   const address = server.address(); if (!address || typeof address === 'string') throw new Error('Actual isolation canary listener has no owned address.');
-  prepared = await prepare(sandbox, target, canaryFiles, 'raw-engine', signal, () => undefined); const child = prepared.start(), output: Buffer[] = [];
-  let length = 0, code: number | null = null, signaled: NodeJS.Signals | null = null;
-  const closed = new Promise<void>(resolve => { child.once('close', (value, reason) => { code = value; signaled = reason; resolve(); }); });
-  child.stdout.on('data', (bytes: Buffer) => { length += bytes.length; if (length > 1024) child.kill('SIGKILL'); else output.push(Buffer.from(bytes)); }); child.stderr.resume();
+  prepared = await prepare(sandbox, target, canaryFiles, 'raw-engine', signal, () => undefined);
   const native = Buffer.from(secret, target.startsWith('win-') ? 'utf16le' : 'utf8'), header = Buffer.alloc(6); header.writeUInt32LE(native.length); header.writeUInt16BE(address.port, 4);
-  child.stdin.end(Buffer.concat([header, native])); await closed; await prepared.close();
-  const receipt = Buffer.concat(output); if (code !== 0 || signaled !== null || connected || receipt.toString('ascii') !== 'PHOTO_ISOLATION_CANARY_V1 PASS\n') throw new Error('Actual Photo RAW OS-isolation canary failed.');
-  await record('raw-isolation', { schemaVersion: 1, target, fileDenied: true, networkDenied: true, childDenied: true, actualStdoutSha256: hash(receipt), actualCanarySha256: canaryPin.sha256, actualChildJoined: true });
+  const receipt = await isolationCanary(prepared, Buffer.concat([header, native]), () => connected, signal);
+  try { await record('raw-isolation', { schemaVersion: 1, target, fileDenied: true, networkDenied: true, childDenied: true, actualStdoutSha256: hash(receipt), actualCanarySha256: canaryPin.sha256, actualChildJoined: true }); }
+  finally { receipt.fill(0); }
  }, [async () => prepared?.close(), async () => { for (const socket of sockets) socket.destroy(); if (listening) await new Promise<void>((resolve, reject) => { server.close(error => { if (error) reject(error); else resolve(); }); }); }]);
  await inventory(root); return Object.freeze(outputs);
 }
