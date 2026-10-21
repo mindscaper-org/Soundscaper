@@ -287,7 +287,14 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 	if (durationCandidate <= 0 || span <= 0) return null;
 	const sourceStartFrame = Math.max(0, Math.round(sourceOffset * sourceRate));
 	const available = info.frameCount - sourceStartFrame;
-	if (available <= 0) return null;
+	if (available <= 0) {
+		addDeliveryReportItem(draft, {
+			code: 'dawproject.clip-out-of-range', disposition: 'omitted', severity: 'warning',
+			scope: { kind: 'clip', id: clipId }, data: { sourceStartFrame, frameCount: info.frameCount },
+			message: 'The clip starts beyond the end of its audio file and is omitted.',
+		});
+		return null;
+	}
 	const requested = Math.max(1, Math.round(span * sourceRate));
 	let durationFrames = durationCandidate;
 	let sourceDurationFrames = requested;

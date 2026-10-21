@@ -39,6 +39,7 @@ test('spaces at the edges of embedded filenames survive media discovery and clip
 test('DAWproject clips starting beyond source EOF are omitted instead of repeating a final sample', () => {
 	const plan = build(clip('time="0" duration="1" contentTimeUnit="seconds" playStart="3"'));
 	assert.deepEqual(plan.project.clips, []);
+	assert.ok(plan.report.items.some(({ code }) => code === 'dawproject.clip-out-of-range'));
 });
 
 test('source audio before file origin is trimmed from the clip head without moving later audio earlier', () => {
