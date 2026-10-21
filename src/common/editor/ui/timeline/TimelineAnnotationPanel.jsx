@@ -7,7 +7,11 @@ import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { useTimelineAnnotationInteractions } from './useTimelineAnnotationInteractions.js';
 
-export function TimelineAnnotationPanel({
+export function TimelineAnnotationPanel(props) {
+	return <TimelineAnnotationPanelSession key={props.project?.id} {...props} />;
+}
+
+function TimelineAnnotationPanelSession({
 	controller,
 	project,
 	annotations,

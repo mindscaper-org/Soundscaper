@@ -19,7 +19,11 @@ import { useTimelineAnnotationDragCancellation } from './useTimelineAnnotationDr
 import { createTimelineAnnotationViewportIndex } from './timeline-annotation-viewport-index.ts';
 import { useTimelinePointerFrame } from './useTimelinePointerFrame.ts';
 
-export function TimelineAnnotationLayer({
+export function TimelineAnnotationLayer(props) {
+	return <TimelineAnnotationLayerSession key={props.project?.id} {...props} />;
+}
+
+function TimelineAnnotationLayerSession({
 	controller,
 	project,
 	annotations,
