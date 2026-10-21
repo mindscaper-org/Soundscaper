@@ -20,6 +20,7 @@ import { createDesktopLinkedVideoOriginalAccess } from './storage/desktop-linked
 import { bindSoundscaperPersistentDeliverySave } from './soundscaper-persistent-delivery-save-target.ts';
 import { createDesktopExternalMediaFiles } from './desktop-external-media-files.ts';
 import { registerDesktopOriginalFile, withDesktopOriginalReadCleanup } from './desktop-original-file-port.ts';
+import { sanitizeSuggestedFileName as sanitizeSuggestedName } from './portable-save-file-name.ts';
 const DEFAULT_WRITE_CHUNK_BYTES = 1024 * 1024;
 const NEVER_ABORTED_READ_SIGNAL = new AbortController().signal;
 const FRAMESCAPER_DESKTOP_BRIDGE_ENABLED = typeof __SCAPE_PRODUCT__ === 'undefined'
@@ -240,7 +241,7 @@ export function createAudioEditorFileService(options = {}) {
 	async function writeFile(target, input, request = {}) {
 		throwIfAborted(request.signal);
 		const blob = toBlob(input, request.mimeType);
-		const fileName = sanitizeSuggestedName(target?.originalOverwrite ? target.name : request.suggestedName || request.fileName || target?.name);
+		const fileName = sanitizeSuggestedName(target?.name || request.suggestedName || request.fileName);
 		if (!target) return { cancelled: true, fileName, size: blob.size };
 		if (bridge) return writeDesktopFile(target, blob, fileName, request.signal, request.onProgress);
 		if (typeof target.createWritable === 'function') return writeFileSystemHandle(target, blob, fileName, request.signal);
@@ -290,6 +291,7 @@ export function createAudioEditorFileService(options = {}) {
 	}
 
 	async function createDownload(request = {}) {
+		throwIfAborted(request.signal);
 		const blob = toBlob(request.blob ?? request.bytes ?? request.text ?? '', request.mimeType);
 		const fileName = sanitizeSuggestedName(request.suggestedName || request.fileName);
 		if (bridge) return saveFile({ ...request, blob, suggestedName: fileName });
@@ -518,14 +520,6 @@ function createNamedFile(blob, descriptor, scope) {
 function toBlob(input, mimeType) {
 	if (input instanceof Blob) return input;
 	return new Blob([input], { type: mimeType || 'application/octet-stream' });
-}
-
-function sanitizeSuggestedName(value) {
-	return String(value || 'soundscaper-export')
-		.trim()
-		.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-')
-		.replace(/[. ]+$/g, '')
-		|| 'soundscaper-export';
 }
 
 function normalizePurpose(value, allowed) {
