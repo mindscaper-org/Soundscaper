@@ -166,9 +166,14 @@ function addCurvedGainPoints(
 ): void {
 	if (end <= start) return;
 	const midpoint = (start + end) / 2;
-	const actual = evaluate(midpoint);
-	const linear = (evaluate(start) + evaluate(end)) / 2;
-	if (end - start > 1 && depth < 52 && points.length < 512 && Math.abs(actual - linear) > 0.001) {
+	const first = evaluate(start);
+	const last = evaluate(end);
+	// Symmetric S-curves meet the endpoint chord at its midpoint. Probe both
+	// sides too, so their quarter points cannot be mistaken for a linear fade.
+	const curved = [0.25, 0.5, 0.75].some(progress => Math.abs(
+		evaluate(start + (end - start) * progress) - (first + (last - first) * progress),
+	) > 0.001);
+	if (end - start > 1 && depth < 52 && points.length < 512 && curved) {
 		addCurvedGainPoints(evaluate, start, midpoint, points, depth + 1);
 		addCurvedGainPoints(evaluate, midpoint, end, points, depth + 1);
 		return;
