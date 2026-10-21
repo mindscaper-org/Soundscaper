@@ -19,7 +19,7 @@ export function audioMetadataComments(metadata: Readonly<Record<string, string>>
 	for (const [key, value] of Object.entries(metadata)) {
 		if (key === 'id3Artwork') continue;
 		const normalized = key.toLowerCase().replace(/[^a-z0-9]/gu, '');
-		const name = COMMENT_NAMES[normalized] ?? key.toUpperCase();
+		const name = Object.hasOwn(COMMENT_NAMES, normalized) ? COMMENT_NAMES[normalized]! : key.toUpperCase();
 		if (normalized === 'year' && hasDate) continue;
 		if (name === 'TRACKNUMBER' || name === 'DISCNUMBER') {
 			const pair = /^(\d+)\/(\d+)$/u.exec(value);
