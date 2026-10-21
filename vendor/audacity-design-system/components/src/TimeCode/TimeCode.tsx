@@ -8,7 +8,7 @@ import { TimeCodeFormatMenuItems } from './TimeCodeFormatMenuItems';
 import { useTheme } from '../ThemeProvider';
 import { TimeCodeMusicalContext } from './time-code-musical-context';
 import { timeCodePreviousMusicalBeat } from './time-code-musical-step';
-import { formatTimeToSegments, segmentsToSeconds, type TimeCodeSegment } from './time-code-segments';
+import { formatTimeToSegments, editedTimeCodeSeconds, type TimeCodeSegment } from './time-code-segments';
 import { useTimeCodeText } from './useTimeCodeText';
 import { ContextMenuItem } from '../ContextMenuItem/ContextMenuItem';
 import './TimeCode.css';
@@ -176,8 +176,7 @@ export function TimeCode({
     const newSeconds = stepBack && format === 'beats:bars' && targetSegmentIndex === 1
       && Number(targetSegment.value) === 1 && targetDigitPosition === targetSegment.value.length - 1
       ? timeCodePreviousMusicalBeat(value, musicalMap)
-      : value + segmentsToSeconds(newSegments, format, sampleRate, frameRate, musicalMap)
-        - segmentsToSeconds(segments, format, sampleRate, frameRate, musicalMap);
+      : editedTimeCodeSeconds(value, segments, newSegments, format, sampleRate, frameRate, musicalMap);
     onChange(newSeconds);
 
     if (autoAdvance) {

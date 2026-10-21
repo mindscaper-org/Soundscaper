@@ -9,7 +9,7 @@ import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { generateAudioEditorSignal } from '../src/common/editor/generators.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-for (const sampleRate of [44_100, 48_000, 96_000]) for (const type of ['tone', 'chirp', 'noise', 'silence']) test(`Generate ${type} at ${sampleRate} Hz retains a one-sample duration entered in Samples format`, async () => {
+for (const entry of ['free text', 'digits']) for (const sampleRate of [44_100, 48_000, 96_000]) for (const type of ['tone', 'chirp', 'noise', 'silence']) test(`Generate ${type} at ${sampleRate} Hz retains one sample entered through ${entry}`, async () => {
 	const dom = installReactTestDom();
 	const previousReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
 	const previousObserver = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
@@ -18,6 +18,9 @@ for (const sampleRate of [44_100, 48_000, 96_000]) for (const type of ['tone', '
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	const root = createRoot(dom.container as unknown as Element);
+	const keys = new Set<EventListenerOrEventListenerObject>();
+	document.addEventListener = (kind: string, listener: EventListenerOrEventListenerObject | null) => { if (kind === 'keydown' && listener) keys.add(listener); };
+	document.removeEventListener = (kind: string, listener: EventListenerOrEventListenerObject | null) => { if (kind === 'keydown' && listener) keys.delete(listener); };
 	let generatedFrames = 0;
 	const controller = { project: { sampleRate, tracks: [], clips: [] }, actions: { generators: {
 		generate: (generator: string, options: Readonly<Record<string, unknown>>) => {
@@ -32,12 +35,22 @@ for (const sampleRate of [44_100, 48_000, 96_000]) for (const type of ['tone', '
 		await act(async () => { reactProps(format).onClick({ detail: 1 }); });
 		const samples = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'samples'); assert.ok(samples);
 		await act(async () => { reactProps(samples).onClick({}); });
-		await act(async () => { reactProps(format).onClick({ detail: 1 }); });
-		const enter = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'Enter value…'); assert.ok(enter);
-		await act(async () => { reactProps(enter).onClick({}); });
-		const input = dom.one('.timecode__free-text');
-		await act(async () => { reactProps(input).onChange({ currentTarget: { value: '1' } }); });
-		await act(async () => { reactProps(input).onKeyDown({ key: 'Enter', stopPropagation() {}, preventDefault() {} }); });
+		if (entry === 'free text') {
+			await act(async () => { reactProps(format).onClick({ detail: 1 }); });
+			const enter = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'Enter value…'); assert.ok(enter);
+			await act(async () => { reactProps(enter).onClick({}); });
+			const input = dom.one('.timecode__free-text');
+			await act(async () => { reactProps(input).onChange({ currentTarget: { value: '1' } }); });
+			await act(async () => { reactProps(input).onKeyDown({ key: 'Enter', stopPropagation() {}, preventDefault() {} }); });
+		} else {
+			const digits = duration.querySelectorAll('.timecode-digit'); assert.ok(digits[0]);
+			digits[0].focus();
+			await act(async () => { reactProps(digits[0]!).onClick(); });
+			for (const key of [...'1'.padStart(digits.length, '0'), 'Enter']) await act(async () => {
+				const event = Object.assign(new Event('keydown', { cancelable: true }), { key });
+				for (const listener of [...keys]) { if (typeof listener === 'function') listener(event); else listener.handleEvent(event); }
+			});
+		}
 		const generate = dom.container.querySelectorAll('button').find(button => button.textContent === ENGLISH_COPY.generate); assert.ok(generate);
 		await act(async () => { reactProps(generate).onClick(); });
 		assert.equal(generatedFrames, 1, 'the displayed sample edit must generate the requested single sample');
