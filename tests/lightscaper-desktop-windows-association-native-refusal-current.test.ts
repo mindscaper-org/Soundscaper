@@ -46,7 +46,7 @@ test('actual Windows helper refuses malformed/changed inputs and an existing res
 		const admission = await admitLightscaperWindowsJobHelperCurrentV1({ helperPath: setting('LIGHTSCAPER_WINDOWS_JOB_HELPER'),
 			helperSha256: setting('LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256'), executable: helper.path });
 		for (const name of cases) await context.test(name, async child => {
-			const root = await mkdtemp(join(tmpdir(), 'lightscaper native association ü ')), nonce = randomBytes(16).toString('hex');
+			const root = await realpath(await mkdtemp(join(tmpdir(), 'lightscaper native association ü '))), nonce = randomBytes(16).toString('hex');
 			const requestPath = join(root, `${nonce}.windows-association-request.json`), resultPath = join(root, `${nonce}.windows-association-result.json`);
 			const archivePath = join(root, 'Owned catalog.liscape'), archive = Buffer.from('actual bounded negative archive bytes\n');
 			const sentinel = Buffer.from('existing result sentinel must remain byte-identical\n');

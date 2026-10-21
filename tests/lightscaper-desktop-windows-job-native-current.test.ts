@@ -45,7 +45,7 @@ const canaryKeys = ['schemaVersion', 'caseName', 'nonce', 'supervisorProcessId',
 test('Lightscaper native Windows driver preserves empty, quoted and Unicode literal argv', { skip }, async context => {
 	const admission = await admitLightscaperWindowsJobHelperCurrentV1({ helperPath: setting('LIGHTSCAPER_WINDOWS_JOB_HELPER'),
 		helperSha256: setting('LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256'), executable: await realpath(process.execPath) });
-	const nonce = randomBytes(16).toString('hex'), root = await mkdtemp(join(tmpdir(), 'lightscaper literal argv ü '));
+	const nonce = randomBytes(16).toString('hex'), root = await realpath(await mkdtemp(join(tmpdir(), 'lightscaper literal argv ü ')));
 	let receipt: LightscaperWindowsManagedProcessReceiptCurrentV1 | undefined;
 	try {
 		const literals = ['', 'ordinary', 'white space', 'quote"inside', 'trailing\\', '\\"', 'äΩ😀', '--literal-option'];
