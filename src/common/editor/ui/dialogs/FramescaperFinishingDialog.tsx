@@ -118,7 +118,7 @@ export default function FramescaperFinishingDialog({
 		setMotionStartFrame(motionTarget?.startFrame ?? 0);
 		setMotionEndFrame(motionTarget?.endFrame ?? 0);
 	}, [motionTarget?.stackId, motionTarget?.sourceId, motionTarget?.startFrame, motionTarget?.endFrame]);
-	useEffect(() => () => { motionAbortRef.current?.abort(); }, []);
+	useEffect(() => () => { motionAbortRef.current?.abort(); }, [finishingProjectId, surface]);
 	useEffect(() => () => { cubeLutAbortRef.current?.abort(); }, [finishingProjectId, surface]);
 	useEffect(() => {
 		captionLifetimeRef.current = true;
