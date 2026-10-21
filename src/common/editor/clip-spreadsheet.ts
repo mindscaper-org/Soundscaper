@@ -241,7 +241,7 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 			set(transform, 'pitchCents', numeric(raw, -12, 12, 'Pitch') * 100);
 		} else if (column === 'gain') {
 			const gain = spreadsheetGain(raw);
-			if (Math.abs(gain - clip.gain) > 1e-12) update.gain = gain;
+			if (Math.abs(gain - clip.gain) > 1e-12 * Math.max(gain, clip.gain)) update.gain = gain;
 		} else if (column === 'reversed' || column === 'inverted') set(update, column, booleanValue(raw));
 	}
 	const speedChanged = speedRatio !== clip.speedRatio;
