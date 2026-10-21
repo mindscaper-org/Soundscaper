@@ -229,6 +229,10 @@ function admitLinkedTrackPadding(physicalPlans, budget) {
 		const left = physicalPlans[index];
 		const right = physicalPlans[index + 1];
 		if (!booleanAttribute(left.trackNode, 'linked', false) || !right) continue;
+		if (left.trackRate !== right.trackRate) {
+			throw new LegacyAupError('Legacy linked-track sample rates do not match.', 'CORRUPT_LINKED_TRACK',
+				{ leftRate: left.trackRate, rightRate: right.trackRate });
+		}
 		for (let clipIndex = 0; clipIndex < Math.max(left.clipPlans.length, right.clipPlans.length); clipIndex += 1) {
 			const leftClip = left.clipPlans[clipIndex];
 			const rightClip = right.clipPlans[clipIndex];

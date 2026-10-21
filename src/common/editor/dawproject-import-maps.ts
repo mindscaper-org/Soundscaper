@@ -50,6 +50,7 @@ export function buildTempoMap(document: DawprojectDocument, draft: Draft): HoldT
 		}
 	}
 	points.sort((left, right) => left.beat - right.beat);
+	const finalPoints = points.filter((point, index) => points[index + 1]?.beat !== point.beat);
 	const events: { id: string; beat: Rational; bpm: Rational }[] = [];
 	let clamped = 0;
 	const push = (beat: number, bpm: number, index: number): void => {
@@ -57,8 +58,8 @@ export function buildTempoMap(document: DawprojectDocument, draft: Draft): HoldT
 		if (bounded !== bpm) clamped += 1;
 		events.push({ id: `tempo-${String(index)}`, beat: rationalFromDouble(beat), bpm: rationalFromDouble(bounded) });
 	};
-	push(0, points[0]?.beat === 0 ? points[0].bpm : rootBpm, 1);
-	for (const point of points) {
+	push(0, finalPoints[0]?.beat === 0 ? finalPoints[0].bpm : rootBpm, 1);
+	for (const point of finalPoints) {
 		if (point.beat <= (events.at(-1)?.beat.num ?? 0) / (events.at(-1)?.beat.den ?? 1)) continue;
 		push(point.beat, point.bpm, events.length + 1);
 	}
@@ -98,9 +99,10 @@ export function buildSignatureMap(document: DawprojectDocument, draft: Draft): D
 		}))
 		.filter((point) => Number.isFinite(point.beat) && point.beat >= 0 && point.numerator > 0 && point.denominator > 0)
 		.sort((left, right) => left.beat - right.beat);
+	const finalPoints = points.filter((point, index) => points[index + 1]?.beat !== point.beat);
 	let previousBeat = 0;
 	let offBar = 0;
-	for (const point of points) {
+	for (const point of finalPoints) {
 		const previous = events.at(-1)!;
 		const barsSince = (point.beat - previousBeat) / (previous.numerator * 4 / previous.denominator);
 		const bar = previous.bar + Math.round(barsSince);

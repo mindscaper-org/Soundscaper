@@ -51,16 +51,22 @@ export function createLegacyAudacityProjectImport(runtime: LegacyAudacityImportR
 
 	return async function importLegacyAudacityProject(
 		file: RuntimeValue, legacyDataFiles: RuntimeValue = [],
+		options: Readonly<{ signal?: AbortSignal; assertCurrent?: () => void }> = {},
 	) {
-		const assertImportProjectCurrent = captureImportProjectCurrentAssertion(
+		const assertProjectCurrent = captureImportProjectCurrentAssertion(
 			'The project changed during Audacity project import.',
 		);
+		const assertImportProjectCurrent = (): void => {
+			options.signal?.throwIfAborted();
+			options.assertCurrent?.();
+			assertProjectCurrent();
+		};
 		assertImportProjectCurrent();
 		await preflightStorage(Math.max(file.size * 8, 8 * 1024 * 1024), 'import');
 		assertImportProjectCurrent();
 		setLocalizedStatus(setStatus, copy, "aupImporting");
 		const structure = await decodeLegacyAupProject(file, legacyDataFiles, { onProgress: updateProgress,
-			confirmFileSizeWarning: runtime.confirmFileSizeWarning, assertCurrent: assertImportProjectCurrent });
+			confirmFileSizeWarning: runtime.confirmFileSizeWarning, signal: options.signal, assertCurrent: assertImportProjectCurrent });
 		assertImportProjectCurrent();
 		const decoded = await convertLegacyAupToProject(structure, {
 			title: stripExtension(file.name),

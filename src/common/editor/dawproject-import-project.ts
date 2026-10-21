@@ -129,14 +129,18 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 			continue;
 		}
 		let source = sourceByPath.get(event.path);
+		const newSource = !source;
 		if (!source) {
 			source = createSource(event, info, build, options.stagedSourceIds?.get(event.path));
-			sourceByPath.set(event.path, source);
-			sources.push(source);
-			media.push({ path: event.path, sourceId: String(source.id) });
 		}
 		const clip = createClip(event, info, source, build);
 		if (!clip) continue;
+		if (newSource) {
+			sourceByPath.set(event.path, source);
+			sources.push(source);
+			media.push({ path: event.path, sourceId: String(source.id) });
+			reportImportedSource(event, info, String(source.id), build);
+		}
 		const track = trackForEvent(event, build, document);
 		track.clipIds.push(String(clip.id));
 		clips.push(clip);
@@ -232,6 +236,15 @@ function chooseSampleRate(options: DawprojectImportOptions): number {
 function createSource(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInfo, build: Build, stagedId?: string): DataRecord {
 	const id = stagedId ?? build.createStableId('source');
 	const name = entryBaseName(event.path) || id;
+	return {
+		id, name, mimeType: dawprojectImportedAudioMimeType(name), storageKey: id,
+		frameCount: info.frameCount, channelCount: info.channelCount,
+		sampleRate: info.sampleRate, originalSampleRate: info.sampleRate,
+		sampleFormat: 'float32',
+	};
+}
+
+function reportImportedSource(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInfo, id: string, build: Build): void {
 	addDeliveryReportItem(build.draft, {
 		code: 'dawproject.audio-imported',
 		disposition: 'preserved',
@@ -240,12 +253,6 @@ function createSource(event: DawprojectAudioEvent, info: DawprojectDecodedMediaI
 		data: { path: event.path, frames: info.frameCount, channels: info.channelCount, sampleRate: info.sampleRate },
 		message: 'The embedded audio file is decoded once and stored as a float32 source at its own sample rate.',
 	});
-	return {
-		id, name, mimeType: dawprojectImportedAudioMimeType(name), storageKey: id,
-		frameCount: info.frameCount, channelCount: info.channelCount,
-		sampleRate: info.sampleRate, originalSampleRate: info.sampleRate,
-		sampleFormat: 'float32',
-	};
 }
 
 function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInfo, source: DataRecord, build: Build): DataRecord | null {
@@ -269,9 +276,15 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 			message: 'The clip started before the arrangement origin; the part before it is not imported.',
 		});
 	}
+	if (sourceOffset < 0 && span > 0) {
+		const missing = -sourceOffset;
+		startFrame += Math.round((event.endFrame - startFrame) * missing / span);
+		span -= missing;
+		sourceOffset = 0;
+	}
 	const durationCandidate = event.endFrame - startFrame;
 	if (durationCandidate <= 0 || span <= 0) return null;
-	const sourceStartFrame = clamp(Math.round(sourceOffset * sourceRate), 0, Math.max(0, info.frameCount - 1));
+	const sourceStartFrame = Math.max(0, Math.round(sourceOffset * sourceRate));
 	const available = info.frameCount - sourceStartFrame;
 	if (available <= 0) return null;
 	const requested = Math.max(1, Math.round(span * sourceRate));

@@ -287,7 +287,9 @@ function visitClip(
 		color: attribute(clip, 'color') ?? inherited?.color ?? null,
 		enabled: booleanAttribute(clip, 'enable') !== false && (inherited?.enabled ?? true),
 		fadeInFrames: fadeIn !== 0 ? fadeFrames(fadeIn) : (inherited?.fadeInFrames ?? 0),
-		fadeOutFrames: fadeOut !== 0 ? fadeFrames(fadeOut) : (inherited?.fadeOutFrames ?? 0),
+		fadeOutFrames: fadeOut !== 0 ? (fadeUnit === 'beats' && endFrame !== null
+			? Math.max(0, endFrame - resolver.frameAtBeat(resolver.beatAtFrame(endFrame) - Math.abs(fadeOut)))
+			: fadeFrames(fadeOut)) : (inherited?.fadeOutFrames ?? 0),
 		crossfade: fadeIn < 0 || inherited?.crossfade === true,
 		looped: looped || inherited?.looped === true,
 	};
@@ -407,7 +409,7 @@ function visitAudio(
 		trackId: scope.trackId,
 		startFrame: window.start,
 		endFrame: end,
-		path: normalizeEntryPath(path.trim()),
+		path: normalizeEntryPath(path),
 		external: booleanAttribute(file, 'external') === true,
 		fileDurationSeconds: fileDuration,
 		fileChannels: integerAttribute(element, 'channels'),
