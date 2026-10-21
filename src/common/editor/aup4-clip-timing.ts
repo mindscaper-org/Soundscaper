@@ -80,12 +80,14 @@ export function readAup4ClipTiming(
 	projectTempo: number,
 ): Aup4ClipTiming {
 	const stretch = readAup4ClipStretch(clipNode, projectTempo);
-	const trimLeftSeconds = nonNegative(readAttribute(clipNode, 'trimLeft', 0));
+	let trimLeftSeconds = nonNegative(readAttribute(clipNode, 'trimLeft', 0));
 	const trimRightSeconds = nonNegative(readAttribute(clipNode, 'trimRight', 0));
-	const trimStartFrames = secondsToSampleFrame(trimLeftSeconds / stretch.stretchRatio, trackRate);
-	const trimEndFrames = secondsToSampleFrame(trimRightSeconds / stretch.stretchRatio, trackRate);
-	const sourceDurationFrames = Math.max(1, frameCount - trimStartFrames - trimEndFrames);
 	const offsetSeconds = finite(readAttribute(clipNode, 'offset', 0), 0);
+	const visibleStartSeconds = offsetSeconds + trimLeftSeconds;
+	if (visibleStartSeconds < 0) trimLeftSeconds -= visibleStartSeconds;
+	const trimStartFrames = Math.min(frameCount, secondsToSampleFrame(trimLeftSeconds / stretch.stretchRatio, trackRate));
+	const trimEndFrames = secondsToSampleFrame(trimRightSeconds / stretch.stretchRatio, trackRate);
+	const sourceDurationFrames = Math.max(0, frameCount - trimStartFrames - trimEndFrames);
 	return Object.freeze({
 		...stretch,
 		trimLeftSeconds,
@@ -93,7 +95,7 @@ export function readAup4ClipTiming(
 		trimEndFrames,
 		sourceDurationFrames,
 		timelineStartFrame: Math.max(0, secondsToSampleFrame(offsetSeconds + trimLeftSeconds, projectRate)),
-		durationFrames: Math.max(1, secondsToSampleFrame(
+		durationFrames: Math.max(0, secondsToSampleFrame(
 			(sourceDurationFrames / trackRate) * stretch.stretchRatio,
 			projectRate,
 		)),

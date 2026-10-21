@@ -186,6 +186,7 @@ export async function decodeAudacityProjectTree(root, loadBlock, options = {}) {
 				stretchRatio, stretchToTempo, trimLeftSeconds, trimStartFrames, trimEndFrames,
 				sourceDurationFrames, timelineStartFrame, durationFrames,
 			} = readAup4ClipTiming(clipNode, frameCount, trackRate, projectRate, importedTempoBpm);
+			if (sourceDurationFrames <= 0 || durationFrames <= 0) continue;
 			const sourceId = reusedSource?.id || idFactory('source');
 			const clipId = idFactory('clip');
 			const pitchAndSpeedPreset = readPitchAndSpeedPreset(clipNode);

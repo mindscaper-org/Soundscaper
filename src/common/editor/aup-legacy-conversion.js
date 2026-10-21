@@ -80,7 +80,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 				durationFrames,
 				trimStartFrames: sourceStartFrame,
 				trimEndFrames: frameCount - sourceEndFrame,
-				envelope: convertEnvelope(inputClip.envelope, trackRate, sampleRate, speedRatio, durationFrames),
+				envelope: convertEnvelope(inputClip.envelope, trackRate, sampleRate, speedRatio, durationFrames, sourceStartFrame),
 				groupId: inputClip.groupId || null,
 				color: String(inputClip.color || 'auto'),
 				pitchCents: Math.max(-1_200, Math.min(1_200, Number(inputClip.pitchCents) || 0)),
@@ -169,18 +169,28 @@ function spreadLegacyOverlaps(tracks, clips, warnings) {
 	return output;
 }
 
-function convertEnvelope(points = [], inputRate, projectRate, speedRatio, maximumFrame) {
-	return points.map((point) => ({
-		frame: Math.max(0, Math.min(maximumFrame, secondsToSampleFrame(
+function convertEnvelope(points = [], inputRate, projectRate, speedRatio, maximumFrame, sourceStartFrame) {
+	const converted = points.map((point) => ({
+		frame: secondsToSampleFrame(
 			divideRationals(
-				divideRationals(nonNegative(point.frame), normalizeRational(inputRate)),
+				divideRationals(nonNegative(point.frame) - sourceStartFrame, normalizeRational(inputRate)),
 				normalizeRational(speedRatio),
 			),
 			projectRate,
-		))),
+		),
 		value: Math.max(0, Math.min(16, Number(point.value) || 0)),
 	})).sort((left, right) => left.frame - right.frame)
 		.filter((point, index, values) => !index || point.frame > values[index - 1].frame);
+	if (!converted.length) return [];
+	const valueAt = (frame) => {
+		const rightIndex = converted.findIndex((point) => point.frame >= frame);
+		if (rightIndex < 0) return converted.at(-1).value;
+		if (rightIndex === 0) return converted[0].value;
+		const right = converted[rightIndex], left = converted[rightIndex - 1];
+		return left.value + (right.value - left.value) * (frame - left.frame) / (right.frame - left.frame);
+	};
+	return [{ frame: 0, value: valueAt(0) }, ...converted.filter((point) => point.frame > 0 && point.frame <= maximumFrame),
+		...(converted.at(-1).frame > maximumFrame ? [{ frame: maximumFrame, value: valueAt(maximumFrame) }] : [])];
 }
 
 function normalizeSourceChannels(channels) {

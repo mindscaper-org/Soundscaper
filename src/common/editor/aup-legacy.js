@@ -36,7 +36,7 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	for (const [trackIndex, trackNode] of waveTracks.entries()) {
 		const trackRate = positiveRate(attribute(trackNode, 'rate', projectRate));
 		const clipPlans = [];
-		for (const [clipIndex, clipNode] of children(trackNode, 'waveclip').entries()) {
+		for (const [clipIndex, clipNode] of legacyTrackClips(trackNode).entries()) {
 			const sequence = children(clipNode, 'sequence')[0];
 			if (!sequence) continue;
 			const clipPlan = {
@@ -141,6 +141,17 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 		warnings: [],
 		opaqueExtensions: { legacyAupProject: cloneNode(project) },
 	};
+}
+
+function legacyTrackClips(trackNode) {
+	const clips = children(trackNode, 'waveclip');
+	if (clips.length || !children(trackNode, 'sequence').length) return clips;
+	// Before Audacity 1.3, each wave track stored one sequence directly.
+	return [{
+		name: 'waveclip',
+		attributes: { ...trackNode.attributes },
+		children: trackNode.children,
+	}];
 }
 
 function indexLegacyFiles(values, budget) {
