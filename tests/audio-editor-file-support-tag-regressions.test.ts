@@ -6,6 +6,9 @@ import { createApeFileMetadata } from '../src/common/editor/ape-file-metadata.ts
 import { readApeMetadataTags, wavPackAudioBlob } from '../src/common/editor/ape-metadata-reader.ts';
 import { browserAacMetadataFormat, browserAacMetadataTags } from '../src/common/editor/browser-aac-metadata.ts';
 import { createAudioMetadataId3Tag } from '../src/common/editor/id3-metadata.js';
+import { createExportDialogInitialSettings } from '../src/common/editor/ui/export-dialog-initial-settings.ts';
+import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
+import { exportDialogMetadata } from '../src/common/editor/ui/export-dialog-audio-codec-options.ts';
 import { decodeRiffMetadataText } from '../src/common/editor/riff-metadata-text.ts';
 
 const encoder = new TextEncoder();
@@ -26,7 +29,7 @@ function ape(entries: Readonly<Record<string, string>>): Blob {
 	view.setUint32(16, items.length, true);
 	return new Blob([new Uint8Array(32), ...items, footer]);
 }
-const picture = JSON.stringify([{ mimeType: 'image/png', pictureType: 3, description: 'Waterfall at dawn', data: 'iVBORw0KGgo=' }]);
+const picture = JSON.stringify([{ mimeType: 'image/png', pictureType: 3, description: 'Waterfall at dawn', data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6hxoAAAAASUVORK5CYII=' }]);
 function frameText(bytes: Uint8Array, id: string): string {
 	let offset = 10;
 	while (offset + 10 <= bytes.length) {
@@ -76,8 +79,13 @@ test('AAC cover artwork is stored once and uses the standard artwork metadata mo
 	assert.equal(browserAacMetadataFormat({ id3Artwork: picture }), 'mdir');
 });
 
-test('AAC exports core metadata aliases as standard player-visible fields', () => {
-	const tags = browserAacMetadataTags({ track: '3/12', disc: '2/4', ALBUMARTIST: 'Ensemble' });
+test('AAC exports Custom Metadata JSON aliases as standard player-visible fields', () => {
+	const settings = { ...createExportDialogInitialSettings({ sampleRate: 48_000 }), format: 'aac-m4a',
+		metadataCustom: JSON.stringify({ track: '3/12', disc: '2/4', ALBUMARTIST: 'Ensemble' }) };
+	// ExportDialog.start passes the visible Custom Metadata JSON through this request builder.
+	const request = createExportDialogRequest(settings, { metadata: exportDialogMetadata(settings.format, false,
+		JSON.parse(settings.metadataCustom) as Readonly<Record<string, string>>) });
+	const tags = browserAacMetadataTags(request.metadata as Readonly<Record<string, string>>);
 	assert.equal(tags.trackNumber, 3);
 	assert.equal(tags.tracksTotal, 12);
 	assert.equal(tags.discNumber, 2);

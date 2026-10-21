@@ -67,7 +67,7 @@ test('legacy AIFF marker names retain single-byte accented text', () => {
 });
 
 test('cover-art files with missing or generic MIME types are identified from image bytes', async () => {
-	const png = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);
+	const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6hxoAAAAASUVORK5CYII=', 'base64');
 	for (const type of ['', 'application/octet-stream']) {
 		const result = await createId3Artwork(new File([png], 'cover.png', { type }));
 		assert.equal(result.mimeType, 'image/png');

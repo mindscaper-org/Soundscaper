@@ -43,9 +43,13 @@ export function originalMpegExportSettings(
 	if (format === 'mp2') return Object.freeze({ bitRate: frame.bitRate });
 	const sideInfo = frame.version === 3 ? frame.mono ? 17 : 32 : frame.mono ? 9 : 17;
 	const crcBytes = bytes[frame.offset + 1]! & 1 ? 0 : 2;
-	const xingOffset = frame.offset + 4 + crcBytes + sideInfo;
+	const sideInfoEnd = frame.offset + 4 + sideInfo;
+	// LAME keeps Xing at the ordinary side-info offset even with CRC enabled;
+	// other encoders include the two CRC bytes before the tag.
+	const xingOffset = ['Xing', 'Info'].includes(ascii(bytes, sideInfoEnd, 4)) ? sideInfoEnd : sideInfoEnd + crcBytes;
 	const tag = ascii(bytes, xingOffset, 4);
-	const vbri = ascii(bytes, frame.offset + 36 + crcBytes, 4) === 'VBRI';
+	const vbri = ascii(bytes, frame.offset + 36, 4) === 'VBRI'
+		|| ascii(bytes, frame.offset + 36 + crcBytes, 4) === 'VBRI';
 	if (tag !== 'Xing' && !vbri) return Object.freeze({ bitRateMode: 'constant', bitRate: frame.bitRate });
 	const lame = tag === 'Xing' ? xingLameSettings(bytes, xingOffset) : null;
 	if (lame?.averageBitRate) return Object.freeze({ bitRateMode: 'average', bitRate: frame.bitRate,
