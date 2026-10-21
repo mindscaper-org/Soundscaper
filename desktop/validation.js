@@ -96,7 +96,7 @@ const SAVE_PURPOSES = Object.freeze({
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),
-	labels: Object.freeze({ defaultExtension: 'txt', filters: [{ name: 'Labels and captions', extensions: ['txt', 'srt', 'vtt'] }] }),
+	labels: Object.freeze({ defaultExtension: 'txt', filters: [{ name: 'Labels and captions', extensions: ['txt', 'srt', 'vtt', 'ttml', 'json'] }] }),
 	preset: Object.freeze({ defaultExtension: 'json', filters: [{ name: 'Soundscaper preset', extensions: ['json'] }] }),
 	macro: Object.freeze({ defaultExtension: 'txt', filters: [{ name: 'Audacity macro', extensions: ['txt'] }] }),
 	report: Object.freeze({ defaultExtension: 'json', filters: [{ name: 'Analysis report', extensions: ['json'] }] }),
