@@ -35,7 +35,7 @@ test('separate OS file launches wait for the prior production import instead of 
 	const root = createRoot(dom.container as unknown as Element);
 	const bytes = encodeWav([new Float32Array(4)], { sampleRate: 48_000 });
 	const launch = (name: string): void => consumer?.({ files: [{ kind: 'file',
-		getFile: () => Promise.resolve(new File([bytes], name, { type: 'audio/wav' })) }] });
+		getFile: () => Promise.resolve(new File([Uint8Array.from(bytes)], name, { type: 'audio/wav' })) }] });
 	try {
 		await act(async () => root.render(createElement(LaunchWorkspace, {
 			controller: { ready: Promise.resolve() }, claim: () => undefined, collect: () => undefined,
@@ -59,6 +59,37 @@ test('separate OS file launches wait for the prior production import instead of 
 		await Promise.allSettled(completed);
 		await act(async () => root.unmount());
 		installation.release();
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+		dom.restore();
+	}
+});
+
+test('an OS file handle read failure reaches the mounted workspace error handler', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	let consumer: ((params: FileHandlerLaunchParams) => void) | undefined;
+	let installation: ReturnType<typeof installFileHandlerLaunchConsumer> | undefined;
+	const errors: unknown[] = [];
+	const failure = new DOMException('Access to the launched recording was revoked.', 'NotAllowedError');
+	try {
+		await act(async () => root.render(createElement(LaunchWorkspace, {
+			controller: { ready: Promise.resolve() }, collect: () => undefined,
+			claim: (options: Parameters<NonNullable<LaunchedFileImportsInput['claim']>>[0]) => {
+				installation = installFileHandlerLaunchConsumer({ ...options,
+					launchQueue: { setConsumer: handler => { consumer = handler; } } });
+			}, importFiles: () => assert.fail('An unreadable handle cannot import audio.'),
+			onError: (error: unknown) => errors.push(error),
+		})));
+		consumer?.({ files: [{ kind: 'file', getFile: () => Promise.reject(failure) }] });
+		await installation?.settled();
+		assert.deepEqual(errors, [failure]);
+	} finally {
+		await act(async () => root.unmount());
+		installation?.release();
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 		dom.restore();
 	}

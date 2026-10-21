@@ -43,7 +43,7 @@ export interface LaunchedFileImportsInput {
 	/** Injectable for tests; the shared launch buffer otherwise. */
 	readonly subscribe?: (handler: (launch: LaunchedFiles) => unknown) => () => void;
 	/** Injectable for tests; claims the browser launch queue otherwise. */
-	readonly claim?: (options: Readonly<{ desktop: boolean }>) => unknown;
+	readonly claim?: (options: Readonly<{ desktop: boolean; onError: (error: unknown) => void }>) => unknown;
 	/** Injectable for tests; collects the share sheet's stashed files otherwise. */
 	readonly collect?: (options: Readonly<{
 		desktop: boolean;
@@ -69,7 +69,7 @@ export function useLaunchedFileImports({
 	useEffect(() => {
 		// Claiming is idempotent, so a remount re-subscribes without disturbing the
 		// consumer the first mount installed.
-		claim({ desktop });
+		claim({ desktop, onError });
 		// Collecting is idempotent too: the token is stripped from the address
 		// before the first collection reads a byte, so a remount finds nothing
 		// left to replay. The files land in the same buffer a launch does, which
