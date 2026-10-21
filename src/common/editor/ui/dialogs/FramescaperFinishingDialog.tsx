@@ -150,6 +150,7 @@ export default function FramescaperFinishingDialog({
 			trackName: captionTrackName, language: captionLanguage,
 		});
 		const result = controller.actions.edit.commit(imported.command);
+		setCaptionTrackId(imported.result.track.id);
 		setDocumentText(JSON.stringify([
 			...captionTracks(project).filter(({ id }) => id !== imported.result.track.id),
 			imported.result.track,
@@ -181,6 +182,7 @@ export default function FramescaperFinishingDialog({
 				trackName: captionTrackName, language: captionLanguage,
 			});
 			await controller.actions.edit.commit(imported.command);
+			setCaptionTrackId(imported.result.track.id);
 			setDocumentText(JSON.stringify([
 				...captionTracks(project).filter(({ id }) => id !== imported.result.track.id),
 				imported.result.track,
