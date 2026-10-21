@@ -62,6 +62,7 @@ module.exports = {
 		target: ['nsis', 'zip'],
 	},
 	nsis: {
+		include: 'desktop/lightscaper-nsis-native-powershell-current-v1.nsh',
 		oneClick: false,
 		perMachine: false,
 		allowElevation: false,
