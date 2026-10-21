@@ -222,7 +222,7 @@ export function createAudacityActionRuntime(controller, options = {}) {
 	}
 	function selectRelativeTrack(direction, mode = 'replace') {
 		const currentProject = project();
-		const tracks = visibleNavigationTracks(currentProject?.tracks || [], snapshot().trackFolders);
+		const tracks = visibleNavigationTracks(currentProject?.tracks || [], snapshot().trackFolders, currentProject);
 		if (!tracks.length) return null;
 		const current = Math.max(direction > 0 ? -1 : 0, tracks.findIndex((track) => track.id === selectedTrackId()));
 		const next = tracks[Math.max(0, Math.min(tracks.length - 1, current + direction))];

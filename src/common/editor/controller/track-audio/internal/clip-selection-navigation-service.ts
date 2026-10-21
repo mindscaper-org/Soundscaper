@@ -257,7 +257,7 @@ function projectedAudioClips(
 	}
 
 	const selectedTrackIds = new Set(selectionIds(selection.trackIds, 'selection.trackIds'));
-	const audioTracks = visibleNavigationTracks(projection.tracks, createDocumentTrackFolderSnapshot(project))
+	const audioTracks = visibleNavigationTracks(projection.tracks, createDocumentTrackFolderSnapshot(project), project)
 		.map((track, trackIndex) => ({ track, trackIndex }))
 		.filter(({ track }) => track.type === 'audio');
 	const selectedAudioTracks = audioTracks.filter(({ track }) => (

@@ -16,6 +16,7 @@ import type { AudioEditorCommand, CommandObject } from '../../../commands/protoc
 import type { EditorControllerLifetime } from '../../shared/lifecycle.ts';
 import { spectrogramSettingsForNewTrack } from '../../../spectrogram-track-defaults.ts';
 import { resolveSelectionRange } from '../../../selection-range.ts';
+import { visibleNavigationTracks } from '../../../audacity-visible-navigation-tracks.ts';
 import {
 	createTrackStructuralOperationService,
 	type TrackStructuralOperationService,
@@ -288,23 +289,22 @@ export function createEditorTrackService(
 		const project = dependencies.getProject();
 		const index = project.tracks.findIndex((track) => track.id === trackId);
 		if (index < 0) throw createLocalizedError(Error, dependencies.copy, 'trackNotFound');
+		const tracks = visibleNavigationTracks(project.tracks, null, project);
+		if (!tracks.some((track) => track.id === trackId)) return trackId;
 		const blocks: ControllerTrack[][] = [];
 		const consumedLaneGroups = new Set<string>();
-		for (const track of project.tracks) {
+		for (const track of tracks) {
 			if (!track.laneGroupId) blocks.push([track]);
 			else if (!consumedLaneGroups.has(track.laneGroupId)) {
 				consumedLaneGroups.add(track.laneGroupId);
-				blocks.push(project.tracks.filter((candidate) => candidate.laneGroupId === track.laneGroupId));
+				blocks.push(tracks.filter((candidate) => candidate.laneGroupId === track.laneGroupId));
 			}
 		}
 		const blockIndex = blocks.findIndex((block) => block.some((track) => track.id === trackId));
 		const adjacent = direction === 'up' ? blocks[blockIndex - 1]
 			: direction === 'down' ? blocks[blockIndex + 1] : null;
-		const destination = direction === 'top' ? 0
-			: direction === 'bottom' ? project.tracks.length - 1
-				: direction === 'up' || direction === 'down'
-					? project.tracks.findIndex((track) => track.id === adjacent?.[0]?.id)
-					: index;
+		const target = direction === 'top' ? tracks[0] : direction === 'bottom' ? tracks.at(-1) : adjacent?.[0];
+		const destination = target ? project.tracks.findIndex((track) => track.id === target.id) : -1;
 		return destination < 0 ? trackId : reorderTrack(trackId, destination);
 	}
 

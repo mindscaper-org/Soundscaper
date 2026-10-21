@@ -12,7 +12,7 @@ export function relativeNavigationClipId(
 	folders: Parameters<typeof visibleNavigationTracks>[1] = null,
 ): string | null {
 	if (!project?.clips.length) return null;
-	const visibleClipIds = new Set(visibleNavigationTracks(project.tracks, folders)
+	const visibleClipIds = new Set(visibleNavigationTracks(project.tracks, folders, project)
 		.flatMap(track => track.clipIds ?? []));
 	const clips = project.clips.filter(clip => visibleClipIds.has(clip.id)).map(clip => ({
 		id: clip.id,
