@@ -23,6 +23,18 @@ test('the published Trim Silence runs on selected PCM through the public Nyquist
 	} finally { await controller.dispose(); }
 });
 
+test('the published ACX Check can inspect the complete owning track duration', async () => {
+	const plugin = await installPlugin('ACX-Check.ny');
+	const input = Float32Array.from({ length: 8_000 }, (_, i) => 0.2 * Math.cos(i * Math.PI / 10));
+	const { controller } = await controllerFor(input);
+	try {
+		const result = await controller.actions.nyquist.evaluate({ source: plugin.source, role: 'analyze', name: plugin.name });
+		assert.ok(result && typeof result === 'object' && 'type' in result && result.type === 'message');
+		assert.ok('message' in result && typeof result.message === 'string');
+		assert.match(result.message, /Peak level:.*RMS level:/su);
+	} finally { await controller.dispose(); }
+});
+
 async function controllerFor(input: Float32Array) {
 	const { store } = await createFixture('nyquist-host-compatibility', { sampleRate: 8_000,
 		tracks: [{ id: 'voice', name: 'Voice', input }] });

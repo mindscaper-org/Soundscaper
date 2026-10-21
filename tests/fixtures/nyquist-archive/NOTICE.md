@@ -32,3 +32,8 @@ source, SHA-256
 `55910e6008dc8ce20c281073b677f2da7613e9d80533b73f4d754fa7f82e1697`,
 with its embedded GPL-2.0 notice. The public controller regression processes
 selected PCM through this exact authenticated plug-in.
+
+`ACX-Check.ny.gz` preserves Steve Daulton's complete 4,496-byte ACX Check source,
+SHA-256 `baf6580949962a18ed41d1fbed9ed22268c94189db235ca0961655c74d18c52f`,
+with its embedded GPL-2.0 notice. The public controller regression runs its
+whole-track duration inspection in the real interpreter.

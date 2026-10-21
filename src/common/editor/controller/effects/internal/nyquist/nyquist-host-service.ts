@@ -95,6 +95,8 @@ export interface NyquistHostProperties {
 	readonly TRACK: Readonly<{
 		INDEX: number;
 		NAME: string;
+		START_TIME: number;
+		END_TIME: number;
 		CLIPS: readonly unknown[];
 		INCLIPS: readonly unknown[];
 	}>;
@@ -214,6 +216,8 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 			TRACK: {
 				INDEX: selectedTrackIndex >= 0 ? selectedTrackIndex + 1 : index + 1,
 				NAME: track?.name || String(request.name || ''),
+				START_TIME: clips.length ? clips.reduce((start, clip) => Math.min(start, clip[0]), Infinity) : 0,
+				END_TIME: clips.reduce((end, clip) => Math.max(end, clip[1]), 0),
 				CLIPS: trackClips,
 				INCLIPS: trackClips,
 			},
