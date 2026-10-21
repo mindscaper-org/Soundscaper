@@ -100,7 +100,7 @@ jobs:
         timeout-minutes: 10
         if: runner.os == 'Linux'
         run: |
-          bash scripts/ci-apt-install.sh xvfb xauth libnss3 libgbm1 libasound2t64
+          bash scripts/ci-apt-install.sh xvfb xauth libnss3 libgbm1 libasound2t64 libglib2.0-dev pkg-config desktop-file-utils shared-mime-info xdg-utils
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Download only this target's authenticated Photo build result
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -122,6 +122,34 @@ jobs:
           $helper = Join-Path $build 'lightscaper-desktop-managed-smoke-job-current-v1.exe'
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_HELPER=$helper"
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "LIGHTSCAPER_WINDOWS_JOB_HELPER_SHA256=$((Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant())"
+      - name: Build the target-native registered association helper
+        timeout-minutes: 5
+        run: |
+          build="$RUNNER_TEMP/lightscaper-association-helper"
+          compiler=()
+          case "$LIGHTSCAPER_CI_TARGET" in
+            linux-*) native_dir=linux; suffix= ;;
+            mac-arm64) native_dir=mac; suffix=; compiler=(-DCMAKE_OSX_ARCHITECTURES=arm64) ;;
+            win-*) native_dir=windows; suffix=.exe; compiler=(-DCMAKE_CXX_COMPILER=cl.exe "-DLIGHTSCAPER_ASSOCIATION_NATIVE_TARGET=$LIGHTSCAPER_CI_TARGET") ;;
+            *) exit 1 ;;
+          esac
+          cmake -S "native/lightscaper-desktop-association-current-v1/$native_dir" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release "${compiler[@]}"
+          cmake --build "$build" --config Release --target lightscaper-desktop-association-current-v1 --parallel 2
+          node --input-type=module -e 'import {appendFile,readFile,realpath} from "node:fs/promises"; import {createHash} from "node:crypto"; const path=await realpath(process.argv[1]); const sha=createHash("sha256").update(await readFile(path)).digest("hex"); let text="LIGHTSCAPER_ASSOCIATION_HELPER="+path+"\nLIGHTSCAPER_ASSOCIATION_HELPER_SHA256="+sha+"\n"; if(process.platform==="win32")text+="LIGHTSCAPER_WINDOWS_ASSOCIATION_HELPER="+path+"\nLIGHTSCAPER_WINDOWS_ASSOCIATION_HELPER_SHA256="+sha+"\n"; await appendFile(process.env.GITHUB_ENV,text);' "$build/lightscaper-desktop-association-current-v1$suffix"
+      - name: Execute actual Linux association native refusals
+        timeout-minutes: 5
+        if: runner.os == 'Linux'
+        run: node --import tsx --test tests/lightscaper-desktop-association-linux-native-current.test.ts
+      - name: Execute actual macOS association native refusals
+        timeout-minutes: 5
+        if: runner.os == 'macOS'
+        run: node --import tsx --test tests/lightscaper-desktop-association-macos-current.test.ts
+      - name: Execute actual Windows association native refusals in the real Job
+        timeout-minutes: 5
+        if: runner.os == 'Windows'
+        env:
+          LIGHTSCAPER_WINDOWS_ASSOCIATION_NATIVE_REQUIRED: '1'
+        run: node --import tsx --test tests/lightscaper-desktop-windows-association-native-source-current.test.ts tests/lightscaper-desktop-windows-association-native-refusal-current.test.ts
       - name: Qualify both real Linux packages through actual menu workflows
         if: runner.os == 'Linux'
         run: |
@@ -138,11 +166,31 @@ jobs:
             --native-result "$RUNNER_TEMP/lightscaper-photo-result" \
             --work-root "$RUNNER_TEMP/lightscaper-photo-work" --evidence-root "$RUNNER_TEMP/lightscaper-photo-evidence" \
             --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
+      - name: Qualify the actual installed Linux catalog default and confirmed restore
+        timeout-minutes: 25
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run --auto-servernum node --import tsx scripts/lightscaper-desktop-association-qualification-current-v1.ts \
+            --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
+            --association-helper "$LIGHTSCAPER_ASSOCIATION_HELPER" --association-helper-sha256 "$LIGHTSCAPER_ASSOCIATION_HELPER_SHA256" \
+            --work-root "$RUNNER_TEMP/lightscaper-association-work" --evidence-root "$RUNNER_TEMP/lightscaper-association-evidence" \
+            --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
+      - name: Qualify the actual installed macOS or Windows catalog default and confirmed restore
+        timeout-minutes: 25
+        if: runner.os != 'Linux'
+        run: |
+          node --import tsx scripts/lightscaper-desktop-association-qualification-current-v1.ts \
+            --target "$LIGHTSCAPER_CI_TARGET" --source-revision "$GITHUB_SHA" \
+            --association-helper "$LIGHTSCAPER_ASSOCIATION_HELPER" --association-helper-sha256 "$LIGHTSCAPER_ASSOCIATION_HELPER_SHA256" \
+            --work-root "$RUNNER_TEMP/lightscaper-association-work" --evidence-root "$RUNNER_TEMP/lightscaper-association-evidence" \
+            --npm-cli "$LIGHTSCAPER_CI_NPM_CLI"
       - name: Upload only bounded internal receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: lightscaper-internal-desktop-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/lightscaper-photo-evidence
+          path: |
+            ${{ runner.temp }}/lightscaper-photo-evidence
+            ${{ runner.temp }}/lightscaper-association-evidence
           if-no-files-found: error
           retention-days: 14

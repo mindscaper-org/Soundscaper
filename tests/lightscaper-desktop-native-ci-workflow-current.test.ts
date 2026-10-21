@@ -55,7 +55,7 @@ void test('internal workflow executes the complete public-package runner under n
 	assert.doesNotMatch(source, /--allow-no-sandbox|--no-sandbox|continue-on-error|contents: write|gh release|desktop:publish:assistance/u);
 	const upload = all.find(step => String(step.uses).startsWith('actions/upload-artifact@'));
 	assert.ok(upload); assert.equal(upload.if, 'always()');
-	assert.equal(record(upload.with).path, '${{ runner.temp }}/lightscaper-photo-evidence');
+	assert.deepEqual(String(record(upload.with).path).trim().split('\n'), ['${{ runner.temp }}/lightscaper-photo-evidence', '${{ runner.temp }}/lightscaper-association-evidence']);
 	assert.equal(record(upload.with)['if-no-files-found'], 'error');
 });
 
@@ -110,4 +110,41 @@ void test('manual non-tag nightly feature dispatch admits only the separate inte
 	assert.equal(String(packaged.if).replace(/\s+/gu, ' ').trim(),
 		"!cancelled() && needs.nightly-test-targets.result == 'success' && needs.browser-sites.result == 'success'");
 	assert.doesNotMatch(source, /desktop:publish:assistance-runtimes|R2_MODELS_ACCESS_KEY_ID|contents: write|secrets: inherit/u);
+});
+
+void test('all five internal target hosts build their real association helper and require actual native refusal fixtures', async () => {
+	const all = steps(record(record((await workflow()).jobs).qualify).steps);
+	const build = all.find(step => step.name === 'Build the target-native registered association helper');
+	assert.ok(build); const command = String(build.run);
+	assert.match(command, /native\/lightscaper-desktop-association-current-v1\/\$native_dir/u);
+	for (const family of ['linux', 'mac', 'windows']) assert.ok(command.includes(`native_dir=${family}`));
+	assert.match(command, /--target lightscaper-desktop-association-current-v1 --parallel 2/u);
+	assert.match(command, /createHash\("sha256"\)/u);
+	assert.match(command, /LIGHTSCAPER_ASSOCIATION_HELPER_SHA256/u);
+	const linux = all.find(step => step.name === 'Execute actual Linux association native refusals');
+	const mac = all.find(step => step.name === 'Execute actual macOS association native refusals');
+	const windows = all.find(step => step.name === 'Execute actual Windows association native refusals in the real Job');
+	assert.equal(linux?.if, "runner.os == 'Linux'"); assert.equal(mac?.if, "runner.os == 'macOS'"); assert.equal(windows?.if, "runner.os == 'Windows'");
+	assert.equal(linux?.run, 'node --import tsx --test tests/lightscaper-desktop-association-linux-native-current.test.ts');
+	assert.equal(mac?.run, 'node --import tsx --test tests/lightscaper-desktop-association-macos-current.test.ts');
+	assert.equal(record(windows?.env).LIGHTSCAPER_WINDOWS_ASSOCIATION_NATIVE_REQUIRED, '1');
+	assert.match(String(windows?.run), /lightscaper-desktop-windows-association-native-refusal-current\.test\.ts/u);
+	assert.match(command, /LIGHTSCAPER_WINDOWS_ASSOCIATION_HELPER_SHA256/u);
+	const apt = all.find(step => step.name === 'Prepare real Linux display and user namespaces');
+	for (const dependency of ['libglib2.0-dev', 'pkg-config', 'desktop-file-utils', 'shared-mime-info', 'xdg-utils']) assert.ok(String(apt?.run).includes(dependency));
+});
+void test('installed association qualification invokes the real OS owner on every native target and retains both bounded evidence roots', async () => {
+	const all = steps(record(record((await workflow()).jobs).qualify).steps);
+	const commands = all.filter(step => String(step.run).includes('scripts/lightscaper-desktop-association-qualification-current-v1.ts'));
+	assert.equal(commands.length, 2);
+	assert.ok(commands.some(step => step.if === "runner.os == 'Linux'" && String(step.run).includes('xvfb-run --auto-servernum')));
+	assert.ok(commands.some(step => step.if === "runner.os != 'Linux'"));
+	for (const step of commands) {
+		assert.match(String(step.run), /--target "\$LIGHTSCAPER_CI_TARGET"/u);
+		assert.match(String(step.run), /--source-revision "\$GITHUB_SHA"/u);
+		assert.match(String(step.run), /--association-helper "\$LIGHTSCAPER_ASSOCIATION_HELPER"/u);
+		assert.match(String(step.run), /--association-helper-sha256 "\$LIGHTSCAPER_ASSOCIATION_HELPER_SHA256"/u);
+		assert.match(String(step.run), /--npm-cli "\$LIGHTSCAPER_CI_NPM_CLI"/u);
+		assert.ok(typeof step['timeout-minutes'] === 'number' && step['timeout-minutes'] <= 25);
+	}
 });
