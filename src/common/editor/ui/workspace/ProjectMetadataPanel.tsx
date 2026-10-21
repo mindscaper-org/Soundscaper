@@ -70,6 +70,7 @@ export function ProjectMetadataPanel({
 				onChange={setActiveTab}
 			/>
 			<div
+				key={String(project?.id ?? '')}
 				role="tabpanel"
 				aria-label={activeTab === 'bext'
 					? copy.metadataBextTab
