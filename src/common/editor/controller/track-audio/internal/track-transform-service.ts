@@ -19,6 +19,7 @@ import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-ad
 import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
+import { sequenceTrackMembers } from '../../../sequence-track-members.ts';
 import { isStandaloneMonoAudioTrack } from '../../../mono-track-pair-admission.ts';
 import { copyDerivedTrackStripAutomation } from '../../../derived-track-strip-automation.ts';
 import { copyDerivedTrackEffectAutomation } from '../../../derived-track-effect-automation.ts';
@@ -516,12 +517,13 @@ export function createTrackTransformService(
 		trackIndex: number,
 		partnerTrackId: string | null,
 	): ControllerTrack | null {
+		const members = sequenceTrackMembers(project, track.id);
 		const requested = findControllerTrack(project, partnerTrackId);
-		if (partnerTrackId !== null) return compatibleMonoPartner(project, track, requested)
+		if (partnerTrackId !== null) return (!members || members.has(partnerTrackId)) && compatibleMonoPartner(project, track, requested)
 			? requested : null;
-		return project.tracks.find((candidate, index) => compatibleMonoPartner(project, track, candidate)
+		return project.tracks.find((candidate, index) => (!members || members.has(candidate.id)) && compatibleMonoPartner(project, track, candidate)
 			&& index > trackIndex)
-			|| project.tracks.find((candidate) => compatibleMonoPartner(project, track, candidate))
+			|| project.tracks.find((candidate) => (!members || members.has(candidate.id)) && compatibleMonoPartner(project, track, candidate))
 			|| null;
 	}
 
