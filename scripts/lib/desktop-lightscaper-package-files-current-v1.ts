@@ -29,15 +29,15 @@ export function lightscaperRelativePathCurrentV1(value: unknown): string {
 	return value;
 }
 
-/** Capture only regular files below one owned root; no links or empty decoy trees. */
-export async function captureLightscaperPackageFilesCurrentV1(rootValue: string): Promise<readonly LightscaperPackageFileCurrentV1[]> {
+/** Capture regular files; only an explicitly selected Electron locale root may be empty. */
+export async function captureLightscaperPackageFilesCurrentV1(rootValue: string, allowEmptyRoot = false): Promise<readonly LightscaperPackageFileCurrentV1[]> {
 	const root = lightscaperAbsoluteRootCurrentV1(rootValue), metadata = await lstat(root);
 	if (!metadata.isDirectory() || metadata.isSymbolicLink()) throw new Error('Lightscaper package tree must be a regular directory.');
 	const canonical = await realpath(root), files: LightscaperPackageFileCurrentV1[] = [];
 	const folded = new Set<string>(); let total = 0, entries = 0;
 	async function visit(directory: string): Promise<void> {
 		const children = await readdir(directory, { withFileTypes: true });
-		if (!children.length) throw new Error('Lightscaper package tree contains an empty directory.');
+		if (!children.length && !(allowEmptyRoot && directory === canonical)) throw new Error('Lightscaper package tree contains an empty directory.');
 		for (const child of children) {
 			if (++entries > MAX_FILES * 2) throw new RangeError('Lightscaper package inventory exceeds its entry bound.');
 			const path = join(directory, child.name), name = lightscaperRelativePathCurrentV1(relative(canonical, path).split(sep).join('/'));

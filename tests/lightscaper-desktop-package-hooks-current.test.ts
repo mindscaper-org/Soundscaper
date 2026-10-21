@@ -5,7 +5,7 @@ import { createPackage } from '@electron/asar';
 import { Platform } from 'app-builder-lib';
 import { cleanupAfterUnpack } from 'app-builder-lib/out/electron/ElectronFramework.js';
 import { FuseVersion, FuseV1Options, type FuseConfig } from '@electron/fuses';
-import { chmod, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readFile, rm, rmdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -175,6 +175,38 @@ test('Lightscaper does not admit macOS Electron notice resource exceptions on Li
 		await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(fixture), /unexpected application tree/u); await rm(path);
 	}
 	await verifyDesktopLightscaperPackagedCurrentV1(fixture);
+});
+
+test('Lightscaper preserves empty Cocoa localization declarations only at the macOS locale root', async context => {
+	const fixture = await makeFixture(context), target = { platform: 'mac', arch: 'arm64' } as const;
+	const stage = await captureDesktopLightscaperStageCurrentV1({ ...fixture, target,
+		productMetadata: resolveProductDesktopMetadata('lightscaper'), sourceRevision: REVISION });
+	await writeFile(join(fixture.buildRoot, 'stage-manifest.json'), JSON.stringify(stage));
+	const options = { ...fixture, target }, locale = join(fixture.resourcesRoot, 'en.lproj');
+	await mkdir(locale);
+	assert.deepEqual((await verifyDesktopLightscaperPackagedCurrentV1(options)).stage, stage);
+	const nested = join(locale, 'nested'); await mkdir(nested);
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /empty directory/u); await rmdir(nested);
+	const strings = join(locale, 'InfoPlist.strings'); await writeFile(strings, '"CFBundleDisplayName" = "Lightscaper";');
+	await verifyDesktopLightscaperPackagedCurrentV1(options);
+	assert.equal(await readFile(strings, 'utf8'), '"CFBundleDisplayName" = "Lightscaper";');
+	const executable = join(locale, 'foreign.js'); await writeFile(executable, 'export {};');
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /unexpected executable content/u); await rm(executable);
+	await rm(strings); await rmdir(locale); await symlink(fixture.buildRoot, locale);
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /unexpected application tree/u); await rm(locale);
+	await writeFile(locale, 'foreign file');
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /unexpected application tree/u); await rm(locale);
+	const unknown = join(fixture.resourcesRoot, 'unknown-empty'); await mkdir(unknown);
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /unexpected application tree/u); await rmdir(unknown);
+	for (const scope of ['renderer', 'runtime', 'licenses']) {
+		const path = join(fixture.resourcesRoot, scope, 'empty'); await mkdir(path);
+		await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /empty directory/u); await rmdir(path);
+	}
+	const appEmpty = join(fixture.buildRoot, 'app/empty'); await mkdir(appEmpty);
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(options), /empty directory/u); await rmdir(appEmpty);
+	await mkdir(locale); await verifyDesktopLightscaperPackagedCurrentV1(options);
+	const linux = await makeFixture(context); await mkdir(join(linux.resourcesRoot, 'en.lproj'));
+	await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(linux), /unexpected application tree/u);
 });
 
 test('Lightscaper admits only authenticated Debian AppArmor metadata outside owned resources', async context => {

@@ -154,7 +154,7 @@ async function assertResourceRoots(root: string, target: Readonly<LightscaperDes
 		}
 		if (target.platform === 'mac' && child.isFile() && ['electron.icns', 'Lightscaper.icns', 'icon.icns'].includes(child.name)) continue;
 		if (target.platform === 'mac' && child.isDirectory() && /^[A-Za-z0-9_-]{1,32}\.lproj$/u.test(child.name)) {
-			const entries = await capture(join(root, child.name));
+			const entries = await capture(join(root, child.name), true);
 			if (entries.some(file => !/\.(?:pak|strings|nib)$/u.test(file.path))) throw new Error('Lightscaper Electron localization has unexpected executable content.');
 			continue;
 		}
