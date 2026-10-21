@@ -78,6 +78,7 @@ export function createExportDialogRequest(settings, options = {}) {
 			...(Object.keys(mergedCanvas).length > 0 ? { canvas: mergedCanvas } : {}),
 			...(quality ? { quality } : {}),
 			...(audioLayout ? { audioLayout } : {}),
+			...(settings.includeAudio === false ? { includeAudio: false } : {}),
 			...(captions ? { captions } : {}),
 		};
 	}

@@ -65,6 +65,9 @@ const NUMERIC_KEYS: readonly string[] = Object.freeze([
 const CANVAS_FIT_DEFAULT = 'contain';
 const VIDEO_QUALITY_DEFAULT = DEFAULT_VIDEO_DELIVERY_QUALITY;
 const AUDIO_LAYOUT_DEFAULT = DEFAULT_VIDEO_DELIVERY_AUDIO_LAYOUT;
+const VIDEO_CANVAS_LIMIT_KEYS: Readonly<Record<string, string>> = Object.freeze({
+	maximumWidth: 'canvasMaximumWidth', maximumHeight: 'canvasMaximumHeight', maximumFrameRate: 'canvasMaximumFrameRate',
+});
 
 const AUDIO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	loudnessNormalization: '', bitRatePreset: '2', vbrQuality: '2', averageBitRate: '192',
@@ -73,6 +76,7 @@ const AUDIO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 const VIDEO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	canvasWidth: '', canvasHeight: '', canvasFit: CANVAS_FIT_DEFAULT, canvasFrameRate: '',
 	canvasBackgroundColor: '', videoQuality: VIDEO_QUALITY_DEFAULT, videoAudioLayout: AUDIO_LAYOUT_DEFAULT,
+	canvasMaximumWidth: null, canvasMaximumHeight: null, canvasMaximumFrameRate: null, includeAudio: true,
 	deliveryTarget: '',
 });
 
@@ -103,6 +107,7 @@ export function presetSettingsFromDialog(
 		if (quality) result.quality = quality;
 		const audioLayout = statedVideoAudioLayout(settings);
 		if (audioLayout) result.audioLayout = audioLayout;
+		if (settings.includeAudio === false) result.includeAudio = false;
 	}
 	return Object.freeze(result);
 }
@@ -288,6 +293,10 @@ export function statedVideoCanvas(
 	const statedRate = resolveVideoDeliveryFrameRate(settings?.canvasFrameRate);
 	if (statedRate !== null) stated.frameRate = statedRate;
 	if (typeof backgroundColor === 'string' && backgroundColor) stated.backgroundColor = backgroundColor;
+	for (const [key, dialogKey] of Object.entries(VIDEO_CANVAS_LIMIT_KEYS)) {
+		const value = settings?.[dialogKey];
+		if (value != null && value !== '') stated[key] = value;
+	}
 	return Object.freeze(stated);
 }
 
@@ -361,6 +370,10 @@ export function dialogSettingsFromPreset(
 		...(preset.kind === 'video' ? {} : { bitRateMode: impliedBitRateMode(preset.settings) }),
 	};
 	for (const [key, value] of Object.entries(preset.settings ?? {})) {
+		if (Object.hasOwn(VIDEO_CANVAS_LIMIT_KEYS, key)) {
+			patch[VIDEO_CANVAS_LIMIT_KEYS[key]!] = value;
+			continue;
+		}
 		if (key === 'channelMapping' && value && typeof value === 'object') {
 			patch.channelMapping = 'custom';
 			patch.channelMatrix = JSON.stringify(value);
