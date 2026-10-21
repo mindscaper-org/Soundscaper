@@ -37,3 +37,9 @@ selected PCM through this exact authenticated plug-in.
 SHA-256 `baf6580949962a18ed41d1fbed9ed22268c94189db235ca0961655c74d18c52f`,
 with its embedded GPL-2.0 notice. The public controller regression runs its
 whole-track duration inspection in the real interpreter.
+
+`Pluck-hz.ny.gz` preserves David R. Sky's complete 1,331-byte Pluck (Hz) source,
+modified by Steve Daulton, SHA-256
+`786dce65f990f1748d351cfe5053a60d889a07782aef58560d6630e6b317ad6b`.
+Its GPL-2.0 notice is preserved. The public generator regression checks that
+Apply retains the requested duration beyond the plug-in's preview limit.

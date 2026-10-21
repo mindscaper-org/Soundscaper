@@ -35,6 +35,17 @@ test('the published ACX Check can inspect the complete owning track duration', a
 	} finally { await controller.dispose(); }
 });
 
+test('the published Pluck generator applies its requested duration beyond the preview limit', async () => {
+	const plugin = await installPlugin('Pluck-hz.ny');
+	const { controller } = await controllerFor(new Float32Array(8_000));
+	try {
+		const result = await controller.actions.nyquist.evaluate({ source: plugin.source, role: 'generate',
+			name: plugin.name, controls: { freq: 261.626, fade: 0, dur: 8 } });
+		assert.ok(result && typeof result === 'object' && 'frameCount' in result);
+		assert.equal(result.frameCount, 64_000);
+	} finally { await controller.dispose(); }
+});
+
 async function controllerFor(input: Float32Array) {
 	const { store } = await createFixture('nyquist-host-compatibility', { sampleRate: 8_000,
 		tracks: [{ id: 'voice', name: 'Voice', input }] });

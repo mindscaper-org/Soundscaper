@@ -336,7 +336,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 					sampleRate,
 					channels,
 					controls: { ...(request.controls || {}) },
-					properties: nyquistHostProperties(runTarget, hostTargets, hostTargetIndex, channels, request),
+					properties: nyquistHostProperties(runTarget, hostTargets, hostTargetIndex, channels, { ...request, preview }),
 					globals: { PREVIEWP: preview },
 					maxOutputFrames: outputAdmission.renderFrames,
 					debug: Boolean(request.debug),

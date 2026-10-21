@@ -97,6 +97,7 @@ export interface NyquistHostProperties {
 		NAME: string;
 		START_TIME: number;
 		END_TIME: number;
+		VIEW: string | null;
 		CLIPS: readonly unknown[];
 		INCLIPS: readonly unknown[];
 	}>;
@@ -218,6 +219,7 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 				NAME: track?.name || String(request.name || ''),
 				START_TIME: clips.length ? clips.reduce((start, clip) => Math.min(start, clip[0]), Infinity) : 0,
 				END_TIME: clips.reduce((end, clip) => Math.max(end, clip[1]), 0),
+				VIEW: request.preview === true ? null : track?.displayMode === 'spectrogram' ? 'Spectrogram' : 'Waveform',
 				CLIPS: trackClips,
 				INCLIPS: trackClips,
 			},
