@@ -7,6 +7,7 @@ import {
 	type ClipSpreadsheetInsertSource, type ClipSpreadsheetNewRow,
 } from '../../../clip-spreadsheet-insert.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
+import type { ImportBusyClaim } from '../../shared/import-busy-state.ts';
 import { peakCacheKey } from '../../../source-analysis-cache.ts';
 import { isAudioEditorVideoFile } from '../../../video-media.js';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
@@ -41,6 +42,7 @@ export interface ClipSpreadsheetPasteDependencies {
 	assertProject(token: EditorProjectToken): void;
 	editingBlocked(): boolean;
 	setImporting(value: boolean): void;
+	claimImporting?(): ImportBusyClaim;
 	createId(prefix: string): string;
 	commit(command: AudioEditorCommand): unknown;
 	prepareAudioSource(file: File, options: Readonly<{
@@ -107,7 +109,8 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 			task.assertCurrent(); dependencies.assertProject(projectToken);
 			if (dependencies.getProject() !== project) throw new Error('The project changed before the spreadsheet paste could finish.');
 		};
-		dependencies.setImporting(true);
+		const importing = dependencies.claimImporting?.();
+		if (!importing) dependencies.setImporting(true);
 		dependencies.publish();
 		try {
 			for (const reference of missing) {
@@ -139,7 +142,7 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 			const insertCommand = planClipSpreadsheetInsert({ ...project, sources: [...project.sources, ...sources] }, rows, {
 				createId: dependencies.createId, resolvedSourceIds: resolved,
 			});
-			dependencies.setImporting(false);
+			finishImporting();
 			importingHeld = false;
 			if (dependencies.editingBlocked()) throw new RangeError('Clip editing is currently unavailable.');
 			assertCurrent();
@@ -154,10 +157,14 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 		} finally {
 			for (const id of stagedSourceIds) dependencies.protectedSourceIds.delete(id);
 			if (ownsProject()) {
-				if (importingHeld) dependencies.setImporting(false);
+				if (importingHeld) finishImporting();
 				dependencies.publish();
 			}
 			progress.finish(); task.finish();
+		}
+		function finishImporting(): void {
+			if (importing) importing.finish();
+			else dependencies.setImporting(false);
 		}
 	};
 }

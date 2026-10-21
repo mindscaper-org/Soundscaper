@@ -2,6 +2,7 @@
 
 import { createLocalizedError } from '../../../../../i18n/presentation-message.ts'; import { EditorDisposedError, isCurrentAssertion, type EditorProjectToken, type EditorTaskOptions, type EditorTaskScope } from '../../../shared/lifecycle.ts';
 import type { NativeProjectDocument, NativeProjectServiceRuntime } from '../../native-project-types.ts';
+import { claimImportBusyState, type ImportBusyClaim } from '../../../shared/import-busy-state.ts';
 
 /** A started operation, paired with the project generation it began against. */
 export interface ProjectTask {
@@ -25,6 +26,7 @@ export function projectChangedError(): DOMException {
  */
 export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntime) {
 	let importOwner: EditorTaskScope | null = null;
+	let importBusy: ImportBusyClaim | null = null;
 	let saveOwner: EditorTaskScope | null = null;
 	let saveRevision: unknown;
 	let disposed = false;
@@ -77,15 +79,15 @@ export function createNativeProjectOwnership(runtime: NativeProjectServiceRuntim
 
 	function beginImport(task: EditorTaskScope): void {
 		importOwner = task;
-		runtime.state.importing = true;
+		importBusy = claimImportBusyState(runtime.state);
 		runtime.publishDocumentSnapshot();
 	}
 
 	function finishImport(task: EditorTaskScope): void {
 		if (importOwner !== task) return;
 		importOwner = null;
-		runtime.state.importing = false;
-		runtime.publishDocumentSnapshot();
+		if (importBusy?.finish()) runtime.publishDocumentSnapshot();
+		importBusy = null;
 	}
 
 	function beginSave(task: EditorTaskScope, token: EditorProjectToken, snapshot: NativeProjectDocument = requireProject()): void {
