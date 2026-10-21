@@ -8,6 +8,7 @@ import { getVideoExportFormat } from '../../../../video-export.js';
 import { projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
 import { createExportRenderProject, exportReplacementTrackIds } from '../../export-render-project.ts';
 import { videoExportSourceInventory } from '../../video-export-source-inventory.ts';
+import { retirePreviousExportOutput } from '../retire-export-output.ts';
 import { audioRenderedFallbackRenderSources } from '../audio/audio-rendered-fallback-export.ts';
 import {
 	admitVideoRenderedFallbackExport,
@@ -374,12 +375,6 @@ export function createEditorVideoExportAction(
 					plan,
 					fileName,
 				);
-				if (state.outputUrl) globalThis.URL?.revokeObjectURL?.(state.outputUrl);
-				await state.outputCleanup?.();
-				assertVideoExportCurrent();
-				state.outputUrl = null;
-				state.outputCleanup = null;
-				state.exportOutput = null;
 				const published = await commitDirectVideoDestination(
 					pendingDirectDestination,
 					plan,
@@ -396,9 +391,10 @@ export function createEditorVideoExportAction(
 					method: published.method,
 				});
 				try { assertVideoExportCurrent(); } catch { return result; }
-				let sidecarFailure: { error: unknown } | null = null;
+				let sidecarFailure = await retirePreviousExportOutput(state);
+				try { assertVideoExportCurrent(); } catch { return result; }
 				try { await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService); }
-				catch (error) { sidecarFailure = { error }; }
+				catch (error) { sidecarFailure = { error: sidecarFailure ? new AggregateError([sidecarFailure.error, error], 'Video companion output and previous output cleanup failed.') : error }; }
 				try { assertVideoExportCurrent(); } catch { return result; }
 				state.exportOutput = result;
 				if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError,
@@ -410,12 +406,6 @@ export function createEditorVideoExportAction(
 			const blob = await prepareBrowserExportBlob(
 				encoded, 'Video export', browserMaximumOutputBytes, { signal: abort.signal, assertCurrent: assertVideoExportCurrent, confirmFileSizeWarning: runtime.options?.confirmFileSizeWarning },
 			);
-			if (state.outputUrl) globalThis.URL?.revokeObjectURL?.(state.outputUrl);
-			await state.outputCleanup?.();
-			assertVideoExportCurrent();
-			state.outputUrl = null;
-			state.outputCleanup = null;
-			state.exportOutput = null;
 			const published = await publishBufferedExport(fileService, {
 				target: requestedSettings.saveTarget,
 				purpose: 'video',
@@ -429,9 +419,10 @@ export function createEditorVideoExportAction(
 			const publishedCleanup = published.cleanup || null;
 			const publishedUrl = published.url || null;
 			pendingCleanup = publishedCleanup;
-			let sidecarFailure: { error: unknown } | null = null;
+			let sidecarFailure = await retirePreviousExportOutput(state);
+			assertVideoExportCurrent();
 			try { await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService); }
-			catch (error) { sidecarFailure = { error }; }
+			catch (error) { sidecarFailure = { error: sidecarFailure ? new AggregateError([sidecarFailure.error, error], 'Video companion output and previous output cleanup failed.') : error }; }
 			assertVideoExportCurrent();
 			state.outputCleanup = publishedCleanup;
 			state.outputUrl = publishedUrl;

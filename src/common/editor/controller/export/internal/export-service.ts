@@ -6,6 +6,7 @@ import { inheritTrackFolderMediaStateProjectionV12 } from '../../../track-folder
 import { createExportRenderProject, exportReplacementTrackIds } from '../export-render-project.ts';
 import { createBw64RenderProject } from './bw64-render-project.ts';
 import { publishBufferedExport } from './buffered-export-publication.ts';
+import { retirePreviousExportOutput, reportExportOutputFailure } from './retire-export-output.ts';
 import {
 	admitAudioRenderedFallbackExport,
 	audioRenderedFallbackRenderSources,
@@ -375,7 +376,6 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			}
 			assertExportCurrent();
 			if (directOutput) {
-				await clearPreviousExportOutput();
 				const published = directStemArchive
 					? await commitPreparedDirectStemArchiveDestination(
 						pendingDirectDestination as DirectPcmDestination, plan, directOutput.byteLength, assertExportCurrent,
@@ -397,13 +397,14 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 					method: published.method,
 				});
 				try { assertExportCurrent(); } catch { return result; }
+				const priorFailure = await retirePreviousExportOutput(state);
+				try { assertExportCurrent(); } catch { return result; }
 				state.exportOutput = result;
-				setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
+				if (!reportExportOutputFailure(priorFailure, handleError)) setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 				publishDocumentSnapshot();
 				return result;
 			}
 			blob = admitAudioExportBlob(blob, 'Audio export', Math.max(1, blob?.size ?? 0));
-			await clearPreviousExportOutput();
 			const published = await publishBufferedExport(fileService, {
 				...audioExportPublicationProgress(progressTask, copy.save, abort.signal, { key: 'save' }),
 				purpose: 'audio', suggestedName: fileName,
@@ -421,10 +422,14 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				pendingCleanup = null;
 				return published;
 			}
-			state.outputCleanup = async () => {
+			const publishedCleanup = async () => {
 				await published.cleanup?.();
 				await outputCleanup?.();
 			};
+			pendingCleanup = publishedCleanup;
+			const priorFailure = await retirePreviousExportOutput(state);
+			assertExportCurrent();
+			state.outputCleanup = publishedCleanup;
 			pendingCleanup = null;
 			state.outputUrl = published.url || null;
 			state.exportOutput = Object.freeze({
@@ -434,7 +439,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				size: blob.size,
 				method: published.method,
 			});
-			setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
+			if (!reportExportOutputFailure(priorFailure, handleError)) setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 			publishDocumentSnapshot();
 			return state.exportOutput;
 		} catch (error) {
@@ -447,14 +452,6 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			exportOperation.finish(progressTask);
 			releaseExportOwner(executionOwner);
 		}
-	}
-
-	async function clearPreviousExportOutput() {
-		if (state.outputUrl) URL.revokeObjectURL(state.outputUrl);
-		await state.outputCleanup?.();
-		state.outputUrl = null;
-		state.outputCleanup = null;
-		state.exportOutput = null;
 	}
 
 	async function derivePersistentAudioDeliveryPlan(requestedSettings: RuntimeValue = {}) {
