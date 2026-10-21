@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { dawprojectMediaReferences, parseDawprojectDocument } from '../src/common/editor/dawproject-import.ts';
 import { buildDawprojectProject } from '../src/common/editor/dawproject-import-project.ts';
+import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 
 function build(content: string, transport = '<Tempo value="120" unit="bpm"/>') {
 	let id = 0;
@@ -78,4 +79,22 @@ test('beat-based fade-outs use the tempo at the clip tail', () => {
 		<Audio timeUnit="seconds"><File path="audio/take.wav"/></Audio></Clip></Clips></Lanes></Arrangement>`);
 	const imported = (plan.project.clips as Record<string, unknown>[])[0]!;
 	assert.equal(imported.fadeOutFrames, 48_000);
+});
+
+test('trimming a DAWproject clip at timeline origin keeps its existing fade gain at the retained head', () => {
+	const plan = build(clip('time="-1" duration="2" contentTimeUnit="seconds" fadeTimeUnit="seconds" fadeInTime="1.5"'));
+	const imported = (plan.project.clips as Record<string, unknown>[])[0]!;
+	assert.equal(imported.fadeInFrames, 0);
+	const envelope = imported.envelope as { frame: number; value: number }[];
+	assert.ok(Math.abs(envelope[0]!.value - 2 / 3) < 1e-10);
+	createCurrentAudioEditorProject(plan.project);
+});
+
+test('shortening a DAWproject clip to source EOF does not move its later fade-out earlier', () => {
+	const plan = build(clip('time="0" duration="3" contentTimeUnit="seconds" fadeTimeUnit="seconds" fadeOutTime="1"'));
+	const imported = (plan.project.clips as Record<string, unknown>[])[0]!;
+	assert.equal(imported.fadeOutFrames, 0);
+	const envelope = imported.envelope as { frame: number; value: number }[];
+	assert.equal(envelope.at(-1)?.value, 1);
+	createCurrentAudioEditorProject(plan.project);
 });

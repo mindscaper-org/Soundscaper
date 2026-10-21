@@ -127,7 +127,7 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 		...buildMixerNodeTracks(context),
 		buildMasterTrack(context),
 	]);
-	const arrangement = buildArrangement(context, structure);
+	const arrangement = buildArrangement(context, structure, request.sequenceId);
 	const application = request.application ?? DEFAULT_APPLICATION;
 	const document = xmlElement('Project', { version: DAWPROJECT_VERSION }, [
 		xmlElement('Application', { name: application.name, version: application.version }),

@@ -9,6 +9,7 @@ import {
 import { DAWPROJECT_DELIVERY_FORMAT, clamp, entryBaseName } from './dawproject-format.ts';
 import type { DawprojectDocument } from './dawproject-import.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
+import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
 import {
 	type Build,
 	type DataRecord,
@@ -91,7 +92,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		omittedTracks: 0, omittedNodes: 0, devices: 0,
 	};
 	const tempoMap = buildTempoMap(document, draft);
-	const signatureMap = buildSignatureMap(document, draft);
+	const signatureMap = buildSignatureMap(document, draft, tempoMap, sampleRate);
 	for (const track of document.tracks) walkTrack(track, null, build, document);
 	resolveRouting(document, build);
 	const resolver = createDawprojectTimeResolver(tempoMap, sampleRate);
@@ -342,8 +343,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 		sourceStartFrame,
 		sourceDurationFrames,
 		durationFrames,
-		fadeInFrames: Math.min(durationFrames, Math.max(0, event.fadeInFrames)),
-		fadeOutFrames: Math.min(durationFrames, Math.max(0, event.fadeOutFrames)),
+		...dawprojectImportedClipFades(event, startFrame, durationFrames),
 		speedRatio,
 	};
 }

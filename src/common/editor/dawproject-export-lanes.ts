@@ -14,6 +14,8 @@ import {
 	type DataRecord,
 	type DawprojectExportContext,
 	type DawprojectStructureNode,
+	dawprojectExportSequence,
+	dawprojectStructureTracks,
 	finite,
 	parameterIdFor,
 	record,
@@ -44,6 +46,7 @@ interface WarpPoint {
 export function buildArrangement(
 	context: DawprojectExportContext,
 	structure: readonly DawprojectStructureNode[],
+	sequenceId?: string,
 ): XmlElement {
 	const lanes = xmlElement('Lanes', { timeUnit: 'seconds', id: context.ids.id('arrangement-lanes') }, [
 		...structure.map((node) => buildNodeLanes(node, context)),
@@ -52,7 +55,7 @@ export function buildArrangement(
 	]);
 	const arrangement = xmlElement('Arrangement', { id: context.ids.id('arrangement') }, [
 		lanes,
-		buildMarkers(context),
+		buildMarkers(context, structure, sequenceId),
 		buildTempoAutomation(context),
 		buildSignatureAutomation(context),
 	]);
@@ -424,11 +427,13 @@ function reportUnconsumedLanes(context: DawprojectExportContext): void {
 	}
 }
 
-function buildMarkers(context: DawprojectExportContext): XmlElement | null {
+function buildMarkers(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[], sequenceId?: string): XmlElement | null {
 	const { project, sampleRate, draft } = context;
+	const sequence = dawprojectExportSequence(project, sequenceId);
 	const markers: MarkerEntry[] = [];
 	const regionIds: string[] = [];
 	for (const annotation of records(project.timelineAnnotations)) {
+		if (sequence && annotation.sequenceId != null && annotation.sequenceId !== sequence.id) continue;
 		const start = finite(annotation.timelineStartFrame ?? annotation.positionFrame ?? annotation.startFrame, Number.NaN);
 		if (!Number.isFinite(start)) continue;
 		const end = finite(annotation.timelineEndFrame ?? annotation.endFrame, start);
@@ -444,7 +449,7 @@ function buildMarkers(context: DawprojectExportContext): XmlElement | null {
 			message: 'A DAWproject marker is a point in time; each region is written as a marker at its start and its end is not carried.',
 		});
 	}
-	for (const track of records(project.tracks)) {
+	for (const track of dawprojectStructureTracks(structure)) {
 		if (track.type !== 'label') continue;
 		const labels = records(track.labels);
 		if (labels.length === 0) continue;

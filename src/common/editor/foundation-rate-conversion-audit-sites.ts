@@ -5,6 +5,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Focused WP-0.1 inventory for integer sample-rate changes of basis. */
 export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'dawproject-signature-seconds-position',
+		file: 'src/common/editor/dawproject-import-maps.ts',
+		behavior: 'Seconds-based signature automation rounds once onto the project sample grid, then converts exactly through the imported tempo map before meter changes are snapped to bars.',
+		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
+	},
+	{
 		id: 'edl-camera-timecode-origin',
 		file: 'src/common/editor/edl-source-in-point.ts',
 		behavior: 'Camera timecode origin and native media trim are added as exact seconds before nearest-point conversion to the EDL sequence frame grid.',
