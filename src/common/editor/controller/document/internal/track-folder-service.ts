@@ -13,6 +13,7 @@ import type { EditorControllerLifetime } from '../../shared/lifecycle.ts';
 type RuntimeValue = string | number | boolean | null | undefined;
 
 interface FolderedProjectShape {
+	readonly id?: unknown;
 	readonly tracks?: readonly Readonly<{ readonly id?: unknown; readonly laneGroupId?: unknown }>[];
 	readonly trackFolders?: readonly Readonly<{ readonly id: string; readonly name: string }>[];
 	readonly primarySequenceId?: string;
@@ -62,8 +63,16 @@ export function createTrackFolderService(
 	dependencies: TrackFolderServiceDependencies,
 ): Readonly<TrackFolderService> {
 	let selectedFolderId: string | null = null;
+	let selectedProjectId: unknown;
 
-	const project = (): FolderedProjectShape => dependencies.getProject() as FolderedProjectShape;
+	const project = (): FolderedProjectShape => {
+		const value = dependencies.getProject();
+		const current = value && typeof value === 'object' ? value as FolderedProjectShape : {};
+		if (current.id !== selectedProjectId || (selectedFolderId !== null
+			&& !current.trackFolders?.some(({ id }) => id === selectedFolderId))) selectedFolderId = null;
+		selectedProjectId = current.id;
+		return current;
+	};
 	const guard = (): void => {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) throw new RangeError('Editing is blocked.');
@@ -155,9 +164,11 @@ export function createTrackFolderService(
 		},
 		selectFolder(folderId: string | null): void {
 			dependencies.lifetime.assertActive();
+			project();
 			selectedFolderId = folderId;
 		},
 		selectedFolderId(): string | null {
+			project();
 			return selectedFolderId;
 		},
 	});
