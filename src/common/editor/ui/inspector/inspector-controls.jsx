@@ -8,17 +8,26 @@ import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCom
 export function CommitField({ label, name, value, type = 'text', disabled, readOnly, multiline, hookName = 'clip-field', visuallyHiddenLabel = false, onCommit }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
+	const editRevision = useRef(0);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	useEffect(() => {
+		editRevision.current++;
 		setDraft(String(value ?? ''));
 		setError(false);
 	}, [name, value]);
 	const commit = () => {
 		if (disabled || readOnly || !draftBlurShouldCommit(blurCommitGuard)) return;
+		const revision = editRevision.current;
+		const resolve = (accepted) => {
+			if (editRevision.current === revision) setError(accepted === false);
+		};
 		try {
-			setError(onCommit(name, draft) === false);
+			const outcome = onCommit(name, draft);
+			if (outcome && typeof outcome.then === 'function') {
+				void Promise.resolve(outcome).then(resolve, () => resolve(false));
+			} else resolve(outcome);
 		} catch {
-			setError(true);
+			resolve(false);
 		}
 	};
 	const hook = { [`data-${hookName}`]: name };
@@ -32,6 +41,7 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 			} else if (event.key === 'Escape') {
 				cancelDraftEditOnEscape(blurCommitGuard, { currentTarget: event.target,
 					preventDefault: () => event.preventDefault(), stopPropagation: () => event.stopPropagation() }, () => {
+					editRevision.current++;
 					setDraft(String(value ?? ''));
 					setError(false);
 				});
@@ -44,7 +54,7 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 				multiline={multiline}
 				disabled={disabled || readOnly}
 				error={error}
-				onChange={setDraft}
+				onChange={(next) => { editRevision.current++; setDraft(next); setError(false); }}
 				onBlur={commit}
 				width="100%"
 			/>
