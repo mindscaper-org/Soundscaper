@@ -7,7 +7,7 @@
 class PhotoWindowsImage final {
  std::vector<HANDLE> held_;
  HANDLE image_ = INVALID_HANDLE_VALUE;
- std::wstring path_;
+ std::wstring path_, launchPath_;
  static void requireDirectory(HANDLE handle) {
   FILE_ATTRIBUTE_TAG_INFO info{};
   if (handle == INVALID_HANDLE_VALUE || !GetFileInformationByHandleEx(handle, FileAttributeTagInfo, &info, sizeof(info))
@@ -34,10 +34,23 @@ public:
   FILE_ATTRIBUTE_TAG_INFO info{};
   if (image_ == INVALID_HANDLE_VALUE || !sameFile(expected, image_) || !GetFileInformationByHandleEx(image_, FileAttributeTagInfo, &info, sizeof(info))
    || (info.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) != 0) nativeFailure("photo-image-lock", GetLastError());
+  // Keep the GUID ancestors and image held, but give CreateProcess an ordinary
+  // drive-letter application name derived from that same retained image.
+  const DWORD dosCount = GetFinalPathNameByHandleW(image_, name.data(), static_cast<DWORD>(name.size()), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+  if (dosCount == 0) nativeFailure("photo-launch-dos-name", GetLastError());
+  if (dosCount >= name.size()) nativeFailure("photo-launch-dos-size", ERROR_INSUFFICIENT_BUFFER);
+  const std::wstring dos(name.data(), dosCount);
+  if (dos.size() < 8 || dos.rfind(L"\\\\?\\", 0) != 0 || dos[5] != L':' || dos[6] != L'\\'
+   || !((dos[4] >= L'A' && dos[4] <= L'Z') || (dos[4] >= L'a' && dos[4] <= L'z'))) nativeFailure("photo-launch-local-drive", ERROR_BAD_PATHNAME);
+  launchPath_ = dos.substr(4);
+  const HANDLE launch = CreateFileW(launchPath_.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  if (launch == INVALID_HANDLE_VALUE) nativeFailure("photo-launch-open", GetLastError());
+  if (!sameFile(image_, launch)) nativeFailure("photo-launch-identity", ERROR_INVALID_HANDLE);
+  held_.push_back(launch); // Retain the validated alias through creation and verification.
  }
  PhotoWindowsImage(const PhotoWindowsImage&) = delete;
  PhotoWindowsImage& operator=(const PhotoWindowsImage&) = delete;
- const std::wstring& path() const noexcept { return path_; }
+ const std::wstring& path() const noexcept { return launchPath_; }
  void verify(HANDLE process) const {
   std::array<wchar_t, 32768> name{}; DWORD count = static_cast<DWORD>(name.size());
   if (!QueryFullProcessImageNameW(process, PROCESS_NAME_NATIVE, name.data(), &count) || count < 1 || count >= name.size()) nativeFailure("photo-created-image", GetLastError());
