@@ -606,6 +606,20 @@
 		,
 		{ "path": "scripts/lib/e2e-v8-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-topology.mjs validates the upstream V8 coverage topology and does not identify project schema." }
 		,
+		{ "path": "scripts/lib/lightscaper-desktop-association-evidence-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-association-evidence-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "scripts/lib/lightscaper-desktop-association-install-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-association-install-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "scripts/lib/lightscaper-desktop-association-linux-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-association-linux-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "scripts/lib/lightscaper-desktop-association-native-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-association-native-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "scripts/lib/lightscaper-desktop-association-profile-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-association-profile-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "scripts/lib/lightscaper-desktop-association-registry-current-v1.ps1", "kind": "helper-contract", "justification": "lightscaper-desktop-association-registry-current-v1.ps1 is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "scripts/lib/lightscaper-desktop-association-registry-retire-current-v1.ps1", "kind": "helper-contract", "justification": "lightscaper-desktop-association-registry-retire-current-v1.ps1 is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
 		{ "path": "scripts/lib/lightscaper-desktop-linked-smoke-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-linked-smoke-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
 		{ "path": "scripts/lib/lightscaper-desktop-managed-smoke-options-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-managed-smoke-options-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
@@ -661,6 +675,8 @@
 		{ "path": "scripts/lib/m5b-quality-pipeline-v2.mjs", "kind": "external-contract", "justification": "m5b-quality-pipeline-v2.mjs names the retained quality-evidence pipeline revision consumed by repository automation." }
 		,
 		{ "path": "scripts/lib/v8-coverage-compaction.mjs", "kind": "upstream-contract", "justification": "v8-coverage-compaction.mjs follows the upstream V8 coverage format name and does not identify project schema." }
+		,
+		{ "path": "scripts/lightscaper-desktop-association-qualification-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-association-qualification-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
 		{ "path": "scripts/lightscaper-desktop-managed-smoke-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-managed-smoke-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
