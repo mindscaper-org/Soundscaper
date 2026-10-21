@@ -5,6 +5,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Focused WP-0.1 inventory for integer sample-rate changes of basis. */
 export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'label-file-decimal-timestamps',
+		file: 'src/common/editor/label-time-frame.ts',
+		behavior: 'Label file decimal seconds and subtitle millisecond clocks retain their exact decimal tokens until one nearest-point conversion to the project sample grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'dawproject-signature-seconds-position',
 		file: 'src/common/editor/dawproject-import-maps.ts',
 		behavior: 'Seconds-based signature automation rounds once onto the project sample grid, then converts exactly through the imported tempo map before meter changes are snapped to bars.',

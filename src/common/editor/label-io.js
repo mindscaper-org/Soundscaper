@@ -1,5 +1,6 @@
 import { decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
+import { labelTimeFrame } from './label-time-frame.ts';
 
 export const AUDIO_EDITOR_LABEL_FORMATS = Object.freeze(['txt', 'srt', 'vtt']);
 export const AUDIO_EDITOR_LABEL_EXPORT_FORMATS = Object.freeze([...AUDIO_EDITOR_LABEL_FORMATS, 'json']);
@@ -185,7 +186,8 @@ function parseTxtEntries(text, context) {
 			const possibleEnd = fields.length >= 3 ? parseFiniteNumber(fields[1]) : null;
 			const endSeconds = possibleEnd == null ? startSeconds : requiredSeconds(fields[1], { line: index + 1, field: 'end' });
 			const title = possibleEnd == null ? fields.slice(1).join('\t') : fields.slice(2).join('\t');
-			previous = validateEntry({ startSeconds, endSeconds, title, line: index + 1 }, context);
+			previous = validateEntry({ startSeconds, endSeconds, startTimeText: fields[0],
+				endTimeText: possibleEnd == null ? fields[0] : fields[1], title, line: index + 1 }, context);
 			entries.push(previous);
 		} catch (error) {
 			handleEntryError(error, context, { line: index + 1 });
@@ -245,9 +247,11 @@ function parseCueTiming(line, format, lineNumber) {
 	if (parts.length !== 2) throw labelError('A subtitle timing line must contain one arrow.', 'INVALID_CUE_TIMING', { line: lineNumber });
 	const startToken = parts[0].trim();
 	const endToken = parts[1].trim().split(/[ \t]+/, 1)[0];
+	const start = parseTimestamp(startToken, format, lineNumber);
+	const end = parseTimestamp(endToken, format, lineNumber);
 	return {
-		startSeconds: parseTimestamp(startToken, format, lineNumber),
-		endSeconds: parseTimestamp(endToken, format, lineNumber),
+		startSeconds: start.seconds, endSeconds: end.seconds,
+		startTimeText: start.secondsText, endTimeText: end.secondsText,
 	};
 }
 
@@ -258,30 +262,17 @@ function parseTimestamp(value, format, line) {
 		: new RegExp(`^(\\d+):([0-5]\\d):([0-5]\\d)${separator}(\\d{1,3})$`);
 	const match = value.match(expression);
 	if (!match) throw labelError('A subtitle timestamp is malformed.', 'INVALID_TIMESTAMP', { line, value });
-	let hours;
-	let minutes;
-	let seconds;
-	let fraction;
-	if (format === 'vtt') {
-		hours = Number(match[1] || 0);
-		minutes = Number(match[2]);
-		seconds = Number(match[3]);
-		fraction = match[4];
-	} else {
-		hours = Number(match[1]);
-		minutes = Number(match[2]);
-		seconds = Number(match[3]);
-		fraction = match[4];
-	}
-	const milliseconds = Number(format === 'srt' ? fraction : fraction.padEnd(3, '0'));
-	const result = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+	const fraction = match[4];
+	const milliseconds = BigInt(format === 'srt' ? fraction : fraction.padEnd(3, '0'));
+	const total = ((BigInt(match[1] || 0) * 60n + BigInt(match[2])) * 60n + BigInt(match[3])) * 1000n + milliseconds;
+	const result = Number(total) / 1000;
 	if (!Number.isFinite(result)) throw labelError('A subtitle timestamp is outside the supported range.', 'INVALID_TIMESTAMP', { line, value });
-	return result;
+	return { seconds: result, secondsText: `${total}e-3` };
 }
 
 function validateEntry(entry, context) {
-	secondsToFrame(entry.startSeconds, context.sampleRate, entry.line);
-	secondsToFrame(entry.endSeconds, context.sampleRate, entry.line);
+	secondsToFrame(entry.startSeconds, context.sampleRate, entry.line, entry.startTimeText);
+	secondsToFrame(entry.endSeconds, context.sampleRate, entry.line, entry.endTimeText);
 	if (entry.endSeconds < entry.startSeconds) {
 		throw labelError('A label end cannot precede its start.', 'REVERSED_RANGE', { line: entry.line });
 	}
@@ -304,8 +295,8 @@ function validateEntry(entry, context) {
 }
 
 function materializeLabel(entry, index, context) {
-	const startFrame = secondsToFrame(entry.startSeconds, context.sampleRate, entry.line);
-	const endFrame = secondsToFrame(entry.endSeconds, context.sampleRate, entry.line);
+	const startFrame = secondsToFrame(entry.startSeconds, context.sampleRate, entry.line, entry.startTimeText);
+	const endFrame = secondsToFrame(entry.endSeconds, context.sampleRate, entry.line, entry.endTimeText);
 	const id = nonEmptyString(String(context.idFactory(index, Object.freeze({ ...entry, startFrame, endFrame }))), `label ID at index ${index}`);
 	const opaqueExtensions = {};
 	if (entry.identifier) opaqueExtensions.cueIdentifier = entry.identifier;
@@ -405,9 +396,9 @@ function formatFrameSeconds(frame, sampleRate) {
 	return text === '-0' ? '0' : text;
 }
 
-function secondsToFrame(seconds, sampleRate, line) {
-	const frame = Math.round(seconds * sampleRate);
-	if (!Number.isSafeInteger(frame) || frame < 0) {
+function secondsToFrame(seconds, sampleRate, line, exactText = String(seconds)) {
+	const frame = labelTimeFrame(exactText, sampleRate);
+	if (frame === null || !Number.isSafeInteger(frame) || frame < 0) {
 		throw labelError('A label time is outside the supported frame range.', 'TIME_RANGE', { line, seconds, sampleRate });
 	}
 	return frame;
