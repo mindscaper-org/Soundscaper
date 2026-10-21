@@ -23,8 +23,12 @@ export function decodeRiffMetadataText(payload: Uint8Array, codePage = 0): strin
 		return Array.from(bytes, byte => byte < 128 ? String.fromCharCode(byte)
 			: codePage === 858 && byte === 213 ? '€' : table[byte - 128]!).join('');
 	}
-	const encoding = codePage === 65001 ? 'utf-8' : codePage === 1252 ? 'windows-1252'
-		: codePage === 28592 ? 'iso-8859-2' : null;
+	const encoding = codePage === 65001 ? 'utf-8'
+		: codePage >= 1250 && codePage <= 1258 ? `windows-${String(codePage)}`
+			: ({ 874: 'windows-874', 932: 'shift_jis', 936: 'gbk', 949: 'euc-kr', 950: 'big5',
+				28592: 'iso-8859-2', 28593: 'iso-8859-3', 28594: 'iso-8859-4', 28595: 'iso-8859-5',
+				28596: 'iso-8859-6', 28597: 'iso-8859-7', 28598: 'iso-8859-8', 28599: 'iso-8859-9',
+				28603: 'iso-8859-13', 28605: 'iso-8859-15' } as Readonly<Record<number, string>>)[codePage] ?? null;
 	if (encoding === null) throw new RangeError(`The RIFF CSET code page ${String(codePage)} is unsupported.`);
 	return new TextDecoder(encoding, { fatal: true }).decode(bytes);
 }

@@ -5,7 +5,7 @@ import test from 'node:test';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../src/common/editor/wav-import.js';
 import { createRiffInfoChunk, parseRiffInfo } from '../src/common/editor/riff-info.ts';
-import { createRiffMarkerChunks, parseRiffMarkers } from '../src/common/editor/riff-markers.ts';
+import { createRiffMarkerChunks, parseRiffMarkers, type RiffMarker } from '../src/common/editor/riff-markers.ts';
 import { scanEncodedAudioMarkers } from '../src/common/editor/encoded-audio-marker-scan.ts';
 
 const encoder = new TextEncoder();
@@ -16,7 +16,7 @@ function chunk(id: string, body: Uint8Array, littleEndian = true): Uint8Array<Ar
 	bytes.set(body, 8);
 	return bytes;
 }
-function wave(kind: 'RIFF' | 'RIFX' | 'RF64', parts: Uint8Array[]): Blob {
+function wave(kind: 'RIFF' | 'RIFX' | 'RF64', parts: Uint8Array<ArrayBuffer>[]): Blob {
 	const header = new Uint8Array(12);
 	header.set(encoder.encode(kind));
 	header.set(encoder.encode('WAVE'), 8);
@@ -35,9 +35,9 @@ test('WAV CSET also selects the encoding of cue labels and notes', async () => {
 	marker[marker.indexOf(88)] = 0xe9;
 	const cset = new Uint8Array(8);
 	new DataView(cset.buffer).setUint16(0, 1252, true);
-	const file = new Blob([encodeWav([Float32Array.of(0)], { preDataChunks: [chunk('CSET', cset), marker.subarray(0, 36), marker.subarray(36)] })]);
+	const file = new Blob([Uint8Array.from(encodeWav([Float32Array.of(0)], { preDataChunks: [chunk('CSET', cset), marker.subarray(0, 36), marker.subarray(36)] }))]);
 	const inspected = await inspectWavBlobPcm(file);
-	assert.equal(inspected.markers[0]?.label, 'Café');
+	assert.equal((inspected.markers as readonly RiffMarker[])[0]?.label, 'Café');
 	assert.equal((await scanEncodedAudioMarkers(file))?.markers[0]?.label, 'Café');
 });
 
@@ -86,6 +86,6 @@ test('RIFX imports rescue big-endian cue geometry and text', async () => {
 
 test('RF64 compressed imports rescue cue markers through the ds64 directory', async () => {
 	const marker = createRiffMarkerChunks([{ sampleOffset: 240, label: 'Pickup' }]);
-	const scanned = await scanEncodedAudioMarkers(wave('RF64', [marker]));
+	const scanned = await scanEncodedAudioMarkers(wave('RF64', [Uint8Array.from(marker)]));
 	assert.equal(scanned?.markers[0]?.label, 'Pickup');
 });

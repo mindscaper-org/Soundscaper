@@ -74,3 +74,9 @@ test('cover-art files with missing or generic MIME types are identified from ima
 		assert.equal(result.description, 'cover.png');
 	}
 });
+
+test('8-bit AIFF originals do not offer an export shortcut whose encoder cannot represent them', async () => {
+	const { resolveDesktopOriginalExportSettings } = await import('../src/common/editor/desktop-original-export-settings.ts');
+	const file = new File([aiff(Uint8Array.of(0x80, 0x40), 8)], 'voice.aiff');
+	assert.equal(await resolveDesktopOriginalExportSettings(file, [{ kind: 'audio', sampleRate: 44_100, channelCount: 1 }]), null);
+});
