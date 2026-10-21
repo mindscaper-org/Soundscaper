@@ -81,17 +81,17 @@ for (const locale of ['en', 'de']) test(`${locale}: keyboard Import options appl
 		expect(photo.original.contentSha256).toBe(SHA256); expect(bytes).toEqual([...PNG]); expect(photo.original.byteLength).toBe(PNG.length);
 		expect(createHash('sha256').update(Buffer.from(bytes)).digest('hex')).toBe(SHA256);
 		expect(photo.original.name).toBe(photo.metadata.fileName); expect(photo.revision).toBe(photo.metadata.fileName === 'Source.png' ? 1 : 0);
-		const partial = photo.metadata.fileName === 'Partial.png';
-		expect(photo.schemaVersion).toBe(partial ? 1 : 2); expect(photo.versions).toHaveLength(1);
+		const partial = photo.metadata.fileName === 'Partial.png', applied = photo.metadata.fileName !== 'Source.png';
+		expect(photo.schemaVersion).toBe(applied ? 3 : 2); expect(photo.versions).toHaveLength(1);
 		const version = photo.versions[0]; expect(photo.activeVersionId).toBe(version.id);
 		const effects = [{ type: 'white-balance-v1', enabled: true, params: { temperature: 23, tint: 0 } },
 			...(partial ? [] : [{ type: 'tone-ladder-v1', enabled: true, params: { exposure: 1.25, contrast: 0, highlights: 0, shadows: 0, whites: 0, blacks: 0 } },
 				{ type: 'cube-lut-profile-v1', enabled: true, params: { lut: LUT } }])];
-		expect(version.develop).toEqual({ processVersion: partial ? 1 : 2, effects: version.develop.effects.map(({ id }, index) => ({ id, ...effects[index] })),
-			geometry: { crop: null, rotationDegrees: 0, flipHorizontal: false, flipVertical: false }, masks: [], maskBindings: [] });
+		expect(version.develop).toEqual({ processVersion: applied ? 3 : 2, effects: version.develop.effects.map(({ id }, index) => ({ id, ...effects[index] })),
+			geometry: { crop: null, rotationDegrees: 0, flipHorizontal: false, flipVertical: false }, masks: [], maskBindings: [], ...(applied ? { repairs: { schemaVersion: 1, spots: [] } } : {}) });
 		expect(version.develop.effects).toHaveLength(effects.length); expect(new Set(version.develop.effects.map(effect => effect.id)).size).toBe(effects.length);
-		expect(version.workspace.schemaVersion).toBe(partial ? 1 : 2); expect(version.workspace.cursor).toBe(1);
-		expect(version.workspace.entries.map(entry => entry.develop.processVersion)).toEqual(partial ? [1, 1] : [1, 2]);
+		expect(version.workspace.schemaVersion).toBe(applied ? 3 : 2); expect(version.workspace.cursor).toBe(1);
+		expect(version.workspace.entries.map(entry => entry.develop.processVersion)).toEqual(applied ? [1, 3] : [1, 2]);
 		expect(version.workspace.entries[0].develop).toEqual({ processVersion: 1, effects: [],
 			geometry: { crop: null, rotationDegrees: 0, flipHorizontal: false, flipVertical: false }, masks: [], maskBindings: [] });
 		expect(version.workspace.entries.at(-1).develop).toEqual(version.develop); expect(version.workspace.snapshots).toEqual([]);

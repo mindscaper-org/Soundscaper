@@ -64,7 +64,7 @@ for (const locale of ['en', 'de']) {
 		const synced = await observe(page, ids); expect(synced.photos.map(({ photo }) => photo.revision)).toEqual([2, 2, 2]);
 		for (const { photo } of synced.photos) {
 			const version = photo.versions.find(value => value.id === photo.activeVersionId);
-			expect(photo.schemaVersion).toBe(photo.id === sourceId ? 2 : 1); expect(version.develop.processVersion).toBe(photo.id === sourceId ? 2 : 1);
+			expect(photo.schemaVersion).toBe(photo.id === sourceId ? 2 : 3); expect(version.develop.processVersion).toBe(photo.id === sourceId ? 2 : 3);
 			expect(version.develop.effects.map(effect => effect.type)).toEqual(photo.id === sourceId ? ['white-balance-v1', 'cube-lut-profile-v1'] : ['white-balance-v1']);
 		}
 		await settingsAction(messages.stopAuto); await settingsAction(messages.quick);
@@ -111,16 +111,16 @@ for (const locale of ['en', 'de']) {
 			expect(current.bytes).toEqual(original.bytes);
 			expect({ ...current.photo, schemaVersion: original.photo.schemaVersion, revision: original.photo.revision, versions: original.photo.versions }).toEqual(original.photo);
 			const numeric = original.photo.metadata.fileName === 'Target two.png';
-			expect(current.photo.schemaVersion).toBe(numeric ? 1 : 2); expect(current.photo.revision).toBe(numeric ? 3 : 5);
+			expect(current.photo.schemaVersion).toBe(3); expect(current.photo.revision).toBe(numeric ? 3 : 5);
 			for (const version of current.photo.versions) {
-				expect(version.develop.processVersion).toBe(numeric ? 1 : 2); expect(version.workspace.schemaVersion).toBe(numeric ? 1 : 2);
+				expect(version.develop.processVersion).toBe(3); expect(version.workspace.schemaVersion).toBe(3);
 				const effects = [{ type: 'white-balance-v1', enabled: true, params: { temperature: 0.5, tint: 0 } },
 					...(numeric ? [] : [{ type: 'cube-lut-profile-v1', enabled: true, params: { lut: LUT } }]),
 					{ type: 'tone-ladder-v1', enabled: true, params: { exposure: 0.5, contrast: 0, highlights: 0, shadows: 0, whites: 0, blacks: 0 } }];
-				expect(version.develop).toEqual({ processVersion: numeric ? 1 : 2, effects: version.develop.effects.map(({ id }, index) => ({ id, ...effects[index] })),
-					geometry: NEUTRAL_GEOMETRY, masks: [], maskBindings: [] });
+				expect(version.develop).toEqual({ processVersion: 3, effects: version.develop.effects.map(({ id }, index) => ({ id, ...effects[index] })),
+					geometry: NEUTRAL_GEOMETRY, masks: [], maskBindings: [], repairs: { schemaVersion: 1, spots: [] } });
 				expect(new Set(version.develop.effects.map(effect => effect.id)).size).toBe(effects.length); expect(version.develop.effects).toHaveLength(effects.length);
-				expect(version.workspace.entries.map(entry => entry.develop.processVersion)).toEqual(numeric ? [1, 1, 1, 1] : current.photo.id === sourceId ? [1, 2, 2, 2, 2, 2] : [1, 1, 1, 1, 1, 2]);
+				expect(version.workspace.entries.map(entry => entry.develop.processVersion)).toEqual(numeric ? [1, 3, 3, 3] : current.photo.id === sourceId ? [1, 2, 2, 2, 2, 3] : [1, 3, 3, 3, 3, 3]);
 			}
 		}
 		expect(errors).toEqual([]);
