@@ -148,3 +148,18 @@ void test('installed association qualification invokes the real OS owner on ever
 		assert.ok(typeof step['timeout-minutes'] === 'number' && step['timeout-minutes'] <= 25);
 	}
 });
+
+void test('Photo native artifact transport retains its authenticated hidden corresponding-source closure', async () => {
+	const producer = record(load(await text('.github/workflows/lightscaper-photo-native-build.yml')));
+	const all = steps(record(record(producer.jobs).build).steps);
+	const uploads = all.filter(step => String(step.uses).startsWith('actions/upload-artifact@'));
+	assert.equal(uploads.length, 1); const upload = record(uploads[0]?.with);
+	assert.equal(upload.name, 'lightscaper-photo-native-build-result-${{ matrix.target }}');
+	assert.equal(upload.path, '${{ runner.temp }}/lightscaper-photo-native-build/result');
+	assert.equal(upload['if-no-files-found'], 'error');
+	const manifest = record(JSON.parse(await text('native/lightscaper-photo-native-current-v1/source-manifest.json')) as unknown);
+	assert.ok(Array.isArray(manifest.files));
+	const hidden = manifest.files.filter((name): name is string => typeof name === 'string' && name.split('/').some(part => part.startsWith('.')));
+	assert.ok(hidden.includes('.github/workflows/lightscaper-photo-native-build.yml'), 'The actual producer workflow is delivered corresponding source.');
+	assert.equal(upload['include-hidden-files'], true, `Artifact upload must retain source/${hidden.join(', source/')}`);
+});

@@ -60,5 +60,6 @@ jobs:
         with:
           name: lightscaper-photo-native-build-result-${{ matrix.target }}
           path: ${{ runner.temp }}/lightscaper-photo-native-build/result
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
