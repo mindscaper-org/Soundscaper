@@ -19,6 +19,7 @@
  */
 
 import { resolveVideoBurnInFontChoice } from './video-burn-in-font-subsets.ts';
+import { wrapBurnInText } from './video-caption-line-wrap.ts';
 
 /**
  * The bottom band captions stay out of, as a fraction of canvas height.
@@ -158,17 +159,14 @@ export function resolveVideoBurnInStage(
 		VIDEO_BURN_IN_MINIMUM_FONT_SIZE,
 		Math.min(Math.round(height * VIDEO_BURN_IN_FONT_HEIGHT_FRACTION), widthFontSize),
 	);
-	const charactersPerLine = Math.max(
-		1,
-		Math.floor(safeWidth / (fontSizePx * VIDEO_BURN_IN_CHARACTER_ADVANCE_RATIO)),
-	);
+
 	return Object.freeze({
 		fontSizePx,
 		bottomMarginPx: Math.round(height * VIDEO_BURN_IN_TITLE_SAFE_FRACTION),
 		boxBorderPx: Math.max(2, Math.round(fontSizePx * 0.25)),
 		lineSpacingPx: Math.round(fontSizePx * 0.25),
 		cues: Object.freeze(drawn.map((cue, index) => {
-			const text = wrapBurnInText(burnInText(cue.title), charactersPerLine);
+			const text = wrapBurnInText(burnInText(cue.title), safeWidth, fontSizePx);
 			const font = resolveVideoBurnInFontChoice(text);
 			return Object.freeze({
 				index,
@@ -180,50 +178,6 @@ export function resolveVideoBurnInStage(
 			});
 		})),
 	});
-}
-
-/**
- * Break a caption into lines the frame can hold.
- *
- * `drawtext` draws exactly what it is given on one line unless the text itself
- * carries newlines, so the wrapping happens here or not at all. Words are kept
- * whole where they fit and split where a single word is wider than the frame,
- * because a word that cannot be broken would otherwise run off the edge that
- * this bound exists to keep it inside.
- */
-function wrapBurnInText(text: string, charactersPerLine: number): string {
-	return text.split('\n').map((paragraph) => wrapParagraph(paragraph, charactersPerLine)).join('\n');
-}
-
-function wrapParagraph(paragraph: string, charactersPerLine: number): string {
-	const lines: string[] = [];
-	let line = '';
-	let lineLength = 0;
-	const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-	for (const word of paragraph.split(/\s+/u).filter((value) => value.length > 0)) {
-		let remaining = Array.from(segmenter.segment(word), part => part.segment);
-		while (remaining.length > charactersPerLine) {
-			if (lineLength > 0) {
-				lines.push(line);
-				line = '';
-				lineLength = 0;
-			}
-			lines.push(remaining.slice(0, charactersPerLine).join(''));
-			remaining = remaining.slice(charactersPerLine);
-		}
-		if (lineLength === 0) { line = remaining.join(''); lineLength = remaining.length; }
-		else if (lineLength + 1 + remaining.length <= charactersPerLine) {
-			line = `${line} ${remaining.join('')}`;
-			lineLength += 1 + remaining.length;
-		}
-		else {
-			lines.push(line);
-			line = remaining.join('');
-			lineLength = remaining.length;
-		}
-	}
-	if (line.length > 0) lines.push(line);
-	return lines.length > 0 ? lines.join('\n') : paragraph.trim();
 }
 
 /** Whether any two burned cues are on screen at once, which the report says out loud. */

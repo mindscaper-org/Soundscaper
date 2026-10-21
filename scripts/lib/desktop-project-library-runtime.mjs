@@ -335,7 +335,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/video-visual-preset-v24.js',
 	'src/common/editor/video-burn-in-font-subsets.js',
 	'src/common/editor/video-caption-burn-in.js',
-	'src/common/editor/video-caption-cues.js', 'src/common/editor/video-caption-imsc-time.js',
+	'src/common/editor/video-caption-cues.js', 'src/common/editor/video-caption-imsc-time.js', 'src/common/editor/video-caption-line-wrap.js',
 	'src/common/editor/video-delivery-audio-layout.js',
 	'src/common/editor/video-delivery-color.js',
 	'src/common/editor/video-delivery-quality.js',
