@@ -30,6 +30,8 @@ export interface SoundActivatedRecordingCaptureOptions {
 	/** Raw capture frames which precede project frame zero after latency compensation. */
 	readonly sourceOffsetFrames?: number;
 	readonly now?: () => number;
+	/** Map the AudioContext frame clock to wall time independently of queued storage writes. */
+	readonly timestampAtFrame?: (frame: number) => number;
 }
 
 /**
@@ -133,9 +135,8 @@ export function createSoundActivatedRecordingCaptureSession(
 			if (activationFrames?.has(segment.frameStart) && chunkReceivedAtMs !== null) {
 				activationTimestamps.push(Object.freeze({
 					offsetFrames: admittedFrames,
-					occurredAtMs: Math.round(chunkReceivedAtMs - (
-						chunkEndFrame - segment.frameStart
-					) * 1_000 / source.sampleRate),
+					occurredAtMs: Math.round(options.timestampAtFrame?.(segment.frameStart)
+						?? chunkReceivedAtMs - (chunkEndFrame - segment.frameStart) * 1_000 / source.sampleRate),
 				}));
 			}
 			admittedFrames += segment.frames;

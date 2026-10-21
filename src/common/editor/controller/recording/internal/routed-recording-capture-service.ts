@@ -246,7 +246,8 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					},
 					isCurrent,
 					runtime.handleError,
-					{ sourceOffsetFrames: session.sourceOffsetFrames },
+					{ sourceOffsetFrames: session.sourceOffsetFrames, timestampAtFrame: frame => runtime.currentTimeMs()
+						+ (frame / captureSampleRate - context.currentTime) * 1_000 },
 				);
 				soundActivationSessions.set(session, soundActivation);
 				const persistedSourceOffsetProjectFrames = soundActivation.enabled
