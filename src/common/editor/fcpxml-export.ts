@@ -150,6 +150,15 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 			continue;
 		}
 		if (asStrings(track.clipIds).length === 0) continue;
+		if (type === 'video') for (const transition of asRecords(track.videoTransitions)) {
+			addDeliveryReportItem(draft, {
+				code: 'fcpxml.transition-omitted', disposition: 'omitted', severity: 'warning',
+				scope: { kind: 'transition', id: String(transition.id) },
+				data: { trackId: String(track.id), type: String(transition.type),
+					outgoingClipId: String(transition.outgoingClipId), incomingClipId: String(transition.incomingClipId) },
+				message: 'The profile emits no transition vocabulary; the authored video transition is omitted.',
+			});
+		}
 		// Lane 0 is the spine itself and holds the first contributing video
 		// track. Everything simultaneous with it is a connected clip: further
 		// video above at 1, 2, …, audio below at -1, -2, …. Without lanes they
