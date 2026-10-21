@@ -60,11 +60,13 @@ export async function createLightscaperLinuxAssociationEnvironmentCurrentV1(opti
 		if (defaultAfter !== DESKTOP_ID || await query(FOREIGN_MIME) !== foreignBefore) throw new Error('Actual default registration/foreign MIME preservation is incomplete.');
 		return Object.freeze({ profilePath: join(root, 'config/Lightscaper'), desktopFile,
 			async register(archivePath: string): Promise<unknown> {
-				const contentType = (await options.processOwner.run(xdg, ['query', 'filetype', archivePath], { deadlineMs: 15_000 })).stdout.trim();
-				if (contentType !== MIME || await query(MIME) !== DESKTOP_ID) throw new Error('The actual archive does not resolve to the registered owned default.');
+				// The native GIO owner proves the actual archive type and file default before dispatch and again after its joined secondary.
+				// Generic xdg-mime detectors may use unrelated magic databases; they are not the selected GIO route.
+				if (await query(MIME) !== DESKTOP_ID) throw new Error('The registered owned MIME default changed.');
 				return Object.freeze({ kind: 'actual-private-xdg-installed-debian-registration', metadata, desktopSource: await file(desktopSource, 65536),
 					mimeSource: await file(mimeSource, 65536), desktopFile: await file(desktopFile, 65536), mimeFile: await file(mimeFile, 65536),
-					defaultBefore, defaultAfter, foreignMime: FOREIGN_MIME, foreignBefore, contentType });
+					defaultBefore, defaultAfter, foreignMime: FOREIGN_MIME, foreignBefore,
+					archive: await file(archivePath, 64 * 1024 ** 2), contentTypeProofOwner: 'actual-native-gio-dispatch' });
 			},
 			async close(readersRetired: boolean): Promise<void> {
 				if (closed) return;
