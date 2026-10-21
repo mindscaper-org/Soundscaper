@@ -8,7 +8,9 @@ import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy
 import { photoDevelopSettingsCopy } from '../../src/common/i18n/lightscaper-develop-settings-copy.ts';
 import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { importPhotoCatalogArchiveV5 } from '../../src/lightscaper/archive/catalog-archive-import-v5.ts';
+import { importPhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-import-v8.ts';
 import { normalizePhotoCatalogArchiveV5 } from '../../src/lightscaper/archive/catalog-archive-contract-v5.ts';
+import { normalizePhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-contract-v8.ts';
 import { readScapeArchiveEnvelope } from '../../src/common/editor/scape-archive-envelope.ts';
 import { withScapeArchiveReader } from '../../src/common/editor/scape-archive-reader.ts';
 import { PHOTO_LIBRARY_CATALOG_POINTER_KEY_V1 } from '../../src/lightscaper/storage/photo-library-catalog-pointer.ts';
@@ -34,7 +36,7 @@ for (const locale of ['en', 'de']) {
 		await expect(named(dialog, 'button', restoreCopy.restore)).toBeDisabled();
 		await keyboard(page, bodyClose(dialog, restoreCopy.close)); await expect(dialog).toHaveCount(0);
 		await expect(app.locator('[data-photo-library]')).toHaveCount(0);
-		const source = await backup(page, app, copy), original = await decode(source.buffer);
+		const source = await backup(page, app, copy), original = await decode(source.buffer, 5);
 		expect(original.photos).toEqual([]); expect(original.savedState).toBeNull();
 		expect(original.presetHeader).toBeNull(); expect(original.presets).toBeNull();
 		await restore(page, app, copy, restoreCopy, source);
@@ -45,7 +47,7 @@ for (const locale of ['en', 'de']) {
 		await page.reload(); await expect(app).toBeVisible(); await expect(app.locator('[data-photo-library]')).toHaveCount(0);
 		await action(page, app, copy.photoViewMenu, copy.photoShowLibrary);
 		await expect(app.locator('[data-photo-count]')).toHaveAttribute('data-photo-count', '0');
-		expect(await decode((await backup(page, app, copy)).buffer)).toEqual(original); expect(errors).toEqual([]);
+		expect(await decode((await backup(page, app, copy)).buffer, 5)).toEqual(original); expect(errors).toEqual([]);
 	});
 
 	test(`${locale}: menu restore preserves full saved criteria, ordered stack and originals across a same-ID session epoch`, async ({ page, browserName }) => {
@@ -72,7 +74,7 @@ for (const locale of ['en', 'de']) {
 		await named(saved, 'textbox', copy.photoOrganizerQueryJson).fill(JSON.stringify(QUERY));
 		await keyboard(page, named(saved, 'button', copy.photoOrganizerQueryJson)); await keyboard(page, named(saved, 'button', copy.photoSavedFilterSave));
 		await expect(saved.locator('[data-saved-receipt]')).toHaveText(copy.photoSavedFilterSaved); await keyboard(page, bodyClose(saved, copy.photoCloseMetadata));
-		const source = await backup(page, app, copy), original = await decode(source.buffer);
+		const source = await backup(page, app, copy), original = await decode(source.buffer, 5);
 		expect(original.photos).toHaveLength(2); expect(original.stacks).toHaveLength(1); expect(original.saved).toHaveLength(1);
 		expect(original.presetHeader).toBeNull(); expect(original.presets).toBeNull();
 		expect(original.saved[0]).toMatchObject({ name: savedName, query: QUERY }); expect(original.savedState).toMatchObject({ collectionCount: 1, revision: 1 });
@@ -92,7 +94,7 @@ for (const locale of ['en', 'de']) {
 		await expect(library.locator('[data-photo-count]')).toHaveAttribute('data-photo-count', '2');
 		// This rebackup reads the selected durable catalog, physical saved state,
 		// full recipes, ordered stack and stored original bodies after real reload.
-		expect(await decode((await backup(page, app, copy)).buffer)).toEqual(original); expect(errors).toEqual([]);
+		expect(await decode((await backup(page, app, copy)).buffer, 5)).toEqual(original); expect(errors).toEqual([]);
 	});
 
 	test(`${locale}: full and partial presets survive same-ID restore and reload, then partial apply preserves unselected settings and originals`, async ({ page, browserName }) => {
@@ -107,13 +109,13 @@ for (const locale of ['en', 'de']) {
 		let options = await develop.presets();
 		await develop.savePreset(options, 'Full look', false); await develop.savePreset(options, 'WB only', true);
 		await develop.closeOptions(options); await develop.close();
-		const source = await backup(page, app, copy), original = await decode(source.buffer);
-		expect(original.presetHeader).toMatchObject({ revision: 2, presetCount: 2 });
-		expect(original.presets).toMatchObject({ catalogId: original.root.id, revision: 2 });
+		const source = await backup(page, app, copy), original = await decode(source.buffer, 8);
+		expect(original.presetHeader).toMatchObject({ rowSchemaVersion: 4, revision: 2, presetCount: 2 });
+		expect(original.presets).toMatchObject({ schemaVersion: 4, catalogId: original.root.id, revision: 2 });
 		const full = original.presets.presets.find(preset => preset.identity.name === 'Full look');
 		const partial = original.presets.presets.find(preset => preset.identity.name === 'WB only');
-		expect(full.settings.selection).toEqual({ effectTypes: 'all', geometry: true, localAdjustments: true });
-		expect(partial.settings.selection).toEqual({ effectTypes: ['white-balance-v1'], geometry: false, localAdjustments: false });
+		expect(full.settings.selection).toEqual({ effectTypes: 'all', geometry: true, localAdjustments: true, repairs: true, rawDevelopment: true });
+		expect(partial.settings.selection).toEqual({ effectTypes: ['white-balance-v1'], geometry: false, localAdjustments: false, repairs: true, rawDevelopment: true });
 		expect(full.settings.develop.effects.map(effect => effect.type)).toEqual(['white-balance-v1', 'tone-ladder-v1']);
 		expect(partial.settings.develop.effects).toHaveLength(1); expect(partial.settings.develop.effects[0].params.temperature).toBe(0.25);
 		expect(full.settings.develop.effects[1].params.exposure).toBe(0.5); expect(original.photos).toHaveLength(3);
@@ -134,19 +136,19 @@ for (const locale of ['en', 'de']) {
 		]);
 		await develop.closeOptions(options); await develop.close();
 		// A real second backup authenticates all recipes, full photo documents and stored bytes after reload.
-		expect(await decode((await backup(page, app, copy)).buffer)).toEqual(original);
+		expect(await decode((await backup(page, app, copy)).buffer, 8)).toEqual(original);
 		await develop.open('Target one.png'); options = await develop.presets(); await develop.choose(options, 'WB only', true);
 		await keyboard(page, named(options, 'button', messages.applyPreset)); await develop.settled();
 		await expect(develop.numberInput('videoEffectParamTemperature')).toHaveValue('0.25');
 		await expect(develop.numberInput('videoEffectParamExposure')).toHaveValue('1');
 		await develop.closeOptions(options); await develop.close();
-		const applied = await decode((await backup(page, app, copy)).buffer);
+		const applied = await decode((await backup(page, app, copy)).buffer, 8, target.document.id);
 		expect(applied.presets).toEqual(original.presets); expect(applied.presetHeader).toEqual(original.presetHeader);
 		for (const before of original.photos) {
 			const after = applied.photos.find(item => item.document.id === before.document.id); expect(after.original).toEqual(before.original);
 			if (before !== target) { expect(after.document).toEqual(before.document); continue; }
 			const { revision, versions, ...immutable } = before.document, { revision: nextRevision, versions: nextVersions, ...nextImmutable } = after.document;
-			expect(nextImmutable).toEqual(immutable); expect(nextRevision).toBe(revision + 1); expect(nextVersions).toHaveLength(versions.length);
+			expect(nextImmutable).toEqual({ ...immutable, schemaVersion: 3 }); expect(nextRevision).toBe(revision + 1); expect(nextVersions).toHaveLength(versions.length);
 			const version = activeVersion(after.document), prior = activeVersion(before.document);
 			expect(version.id).toBe(prior.id); expect(version.workspace.cursor).toBe(prior.workspace.cursor + 1);
 			expect(version.workspace.entries.slice(0, -1)).toEqual(prior.workspace.entries);
@@ -155,7 +157,9 @@ for (const locale of ['en', 'de']) {
 			expect(nextIdentity).toEqual(identity);
 			expect(nextWorkspace.snapshots).toEqual(priorWorkspace.snapshots);
 			expect(nextVersions.filter(item => item.id !== prior.id)).toEqual(versions.filter(item => item.id !== prior.id));
-			for (const key of ['processVersion', 'geometry', 'masks', 'maskBindings']) expect(nextDevelop[key], key).toEqual(priorDevelop[key]);
+			expect(priorDevelop.processVersion).toBe(1); expect(nextDevelop.processVersion).toBe(3);
+			expect(nextDevelop.repairs).toEqual({ schemaVersion: 1, spots: [] }); expect(nextWorkspace.schemaVersion).toBe(3);
+			for (const key of ['geometry', 'masks', 'maskBindings']) expect(nextDevelop[key], key).toEqual(priorDevelop[key]);
 			expect(nextWorkspace.entries[nextWorkspace.cursor].develop).toEqual(nextDevelop);
 			expect(version.develop.effects.find(effect => effect.type === 'white-balance-v1').params.temperature).toBe(0.25);
 			expect(version.develop.effects.find(effect => effect.type === 'tone-ladder-v1')).toEqual(prior.develop.effects[0]);
@@ -173,23 +177,23 @@ for (const locale of ['en', 'de']) {
 		await keyboard(page, named(options, 'button', develop.messages.deletePreset)); await develop.settled();
 		await expect(named(options, 'combobox', develop.messages.choosePreset).getByRole('option')).toHaveText([develop.messages.noPreset]);
 		await develop.closeOptions(options); await develop.close();
-		const source = await backup(page, app, copy), original = await decode(source.buffer);
-		expect(original.presetHeader).toMatchObject({ revision: 2, presetCount: 0 });
-		expect(original.presets).toEqual({ schemaVersion: 2, kind: 'photo-develop-presets', catalogId: original.root.id, revision: 2, presets: [] });
+		const source = await backup(page, app, copy), original = await decode(source.buffer, 8);
+		expect(original.presetHeader).toMatchObject({ rowSchemaVersion: 4, revision: 2, presetCount: 0 });
+		expect(original.presets).toEqual({ schemaVersion: 4, kind: 'photo-develop-presets', catalogId: original.root.id, revision: 2, presets: [] });
 		await develop.open('Empty presets.png'); options = await develop.presets(); await develop.savePreset(options, 'Old namespace preset', false);
 		await develop.closeOptions(options); await develop.close();
 		await restoreAndReload(page, app, library, copy, restoreCopy, source, 1);
 		await develop.open('Empty presets.png'); options = await develop.presets();
 		await expect(named(options, 'combobox', develop.messages.choosePreset).getByRole('option')).toHaveText([develop.messages.noPreset]);
 		await develop.closeOptions(options); await develop.close();
-		expect(await decode((await backup(page, app, copy)).buffer)).toEqual(original); expect(errors).toEqual([]);
+		expect(await decode((await backup(page, app, copy)).buffer, 8)).toEqual(original); expect(errors).toEqual([]);
 	});
 
 	test(`${locale}: keyboard Close and Cancel join held native publication and retain its completed acknowledgement`, async ({ page }) => {
 		test.setTimeout(120_000);
 		await installPublicationBarrier(page);
 		const { app, copy, restoreCopy, errors } = await setup(page, locale);
-		const source = await backup(page, app, copy), original = await decode(source.buffer);
+		const source = await backup(page, app, copy), original = await decode(source.buffer, 5);
 		expect(original.presetHeader).toBeNull(); expect(original.presets).toBeNull();
 		try {
 			await page.evaluate(() => globalThis.__lightscaperRestorePublicationBarrier.arm());
@@ -228,7 +232,7 @@ for (const locale of ['en', 'de']) {
 			await expect(dialog.locator('[data-photo-restore-receipt]')).toContainText(restoreCopy.acknowledged.replace('{name}', original.root.name));
 			await expect(dialog.getByRole('alert')).toHaveCount(0); await expect(dialog.getByText(restoreCopy.cancelled, { exact: true })).toHaveCount(0);
 			await keyboard(page, bodyClose(dialog, restoreCopy.close)); await page.reload(); await expect(app).toBeVisible();
-			expect(await decode((await backup(page, app, copy)).buffer)).toEqual(original); expect(errors).toEqual([]);
+			expect(await decode((await backup(page, app, copy)).buffer, 5)).toEqual(original); expect(errors).toEqual([]);
 		} finally { await page.evaluate(() => globalThis.__lightscaperRestorePublicationBarrier.release()); }
 	});
 }
@@ -255,24 +259,31 @@ async function restore(page, app, copy, restoreCopy, source) {
 	await keyboard(page, named(dialog, 'button', restoreCopy.restore));
 	await expect(dialog.locator('[data-photo-restore-receipt]')).toBeVisible(); await expect(dialog.getByRole('alert')).toHaveCount(0);
 }
-async function decode(bytes) {
+async function decode(bytes, expectedVersion, appliedPhotoId = null) {
+	if (expectedVersion !== 5 && expectedVersion !== 8) throw new RangeError('Restore witness requires its exact expected archive version.');
+	const normalize = expectedVersion === 8 ? normalizePhotoCatalogArchiveV8 : normalizePhotoCatalogArchiveV5;
+	const importArchive = expectedVersion === 8 ? importPhotoCatalogArchiveV8 : importPhotoCatalogArchiveV5;
 	const blob = new Blob([bytes]), header = await withScapeArchiveReader(blob, undefined, async entries =>
-		normalizePhotoCatalogArchiveV5(JSON.parse((await readScapeArchiveEnvelope(entries)).projectText)));
-	expect(header.schemaVersion).toBe(5); expect(header.lutResources).toEqual([]);
-	const result = { root: null, savedState: null, presetHeader: null, presets: null, photos: [], stacks: [], saved: [] };
-	await importPhotoCatalogArchiveV5(blob, async (root, state, presets, declaredLuts) => {
+		normalize(JSON.parse((await readScapeArchiveEnvelope(entries)).projectText)));
+	expect(header.schemaVersion).toBe(expectedVersion); expect(header.lutResources).toEqual([]);
+	if (expectedVersion === 8) expect(header.maskRasters).toEqual([]);
+	const result = { root: null, savedState: null, presetHeader: null, presets: null, photos: [], stacks: [], saved: [] }; let published = false;
+	await importArchive(blob, async (root, state, presets, declaredLuts, declaredMasks) => {
+		if (expectedVersion === 8) expect(declaredMasks).toEqual([]);
 		expect(declaredLuts).toEqual([]); expect(root).toEqual(header.catalog); expect(state).toEqual(header.savedCollectionState);
-		expect(presets).toEqual(header.developPresetPack); if (presets) expect(presets.rowSchemaVersion).toBe(2);
+		expect(presets).toEqual(header.developPresetPack); if (presets) expect(presets.rowSchemaVersion).toBe(expectedVersion === 8 ? 4 : 2);
+		if (expectedVersion === 5) expect(presets).toBeNull();
 		result.root = root; result.savedState = state; result.presetHeader = presets; return {
-		async writePhoto(document, chunks) { assertNumericPhoto(document); const parts = []; for await (const chunk of chunks) parts.push(Buffer.from(chunk)); result.photos.push({ document, original: Buffer.concat(parts) }); },
+		async writePhoto(document, chunks) { assertNumericPhoto(document, document.id === appliedPhotoId ? 3 : 1); const parts = []; for await (const chunk of chunks) parts.push(Buffer.from(chunk)); result.photos.push({ document, original: Buffer.concat(parts) }); },
 		async writeStack(stack) { result.stacks.push(stack); }, async writeSavedCollection(definition) { result.saved.push(definition); },
-		async writeDevelopPresets(row) { expect(result.presets).toBeNull(); expect(row.schemaVersion).toBe(2);
-			for (const preset of row.presets) { expect(preset.schemaVersion).toBe(2); expect(preset.settings.schemaVersion).toBe(2); expect(preset.settings.develop.processVersion).toBe(1); }
+		async writeDevelopPresets(row) { expect(result.presets).toBeNull(); expect(row.schemaVersion).toBe(expectedVersion === 8 ? 4 : 2);
+			for (const preset of row.presets) { expect(preset.schemaVersion).toBe(expectedVersion === 8 ? 4 : 2); expect(preset.settings.schemaVersion).toBe(expectedVersion === 8 ? 4 : 2); expect(preset.settings.develop.processVersion).toBe(1); }
 			result.presets = row; },
 		async writeLut() { throw Error('Numeric-only restore witness must not contain LUT resources.'); },
-		async publish() {}, async rollback() { throw new Error('Backup authentication rolled back.'); },
+		async writeMaskRaster() { throw Error('Numeric-only restore witness must not contain mask resources.'); },
+		async publish() { published = true; }, async rollback() { throw new Error('Backup authentication rolled back.'); },
 	}; });
-	result.photos.sort((a, b) => a.document.id.localeCompare(b.document.id)); result.stacks.sort((a, b) => a.id.localeCompare(b.id)); result.saved.sort((a, b) => a.id.localeCompare(b.id));
+	expect(published).toBe(true); result.photos.sort((a, b) => a.document.id.localeCompare(b.document.id)); result.stacks.sort((a, b) => a.id.localeCompare(b.id)); result.saved.sort((a, b) => a.id.localeCompare(b.id));
 	return result;
 }
 function activeVersion(document) { return document.versions.find(version => version.id === document.activeVersionId); }
@@ -312,12 +323,15 @@ function developTools(page, app, library, copy, locale) {
 		async close() { await keyboard(page, bodyClose(dialog, labels.close)); await expect(dialog).toHaveCount(0); },
 	};
 }
-function assertNumericPhoto(photo) {
-	expect(photo.schemaVersion).toBe(1);
+function assertNumericPhoto(photo, expectedVersion) {
+	expect(photo.schemaVersion).toBe(expectedVersion);
 	for (const version of photo.versions) {
-		expect(version.develop.processVersion).toBe(1);
-		if (version.workspace) { expect(version.workspace.schemaVersion).toBe(1);
-			for (const item of [...version.workspace.entries, ...version.workspace.snapshots]) expect(item.develop.processVersion).toBe(1); }
+		expect(version.develop.processVersion).toBe(expectedVersion);
+		if (expectedVersion === 3) expect(version.develop.repairs).toEqual({ schemaVersion: 1, spots: [] });
+		if (version.workspace) { expect(version.workspace.schemaVersion).toBe(expectedVersion);
+			if (expectedVersion === 3) expect(version.workspace.entries.map(item => item.develop.processVersion)).toEqual([1, 1, 3]);
+			else for (const item of version.workspace.entries) expect(item.develop.processVersion).toBe(1);
+			for (const item of version.workspace.snapshots) expect(item.develop.processVersion).toBe(1); }
 	}
 }
 async function chooseValue(page, combo, value) {

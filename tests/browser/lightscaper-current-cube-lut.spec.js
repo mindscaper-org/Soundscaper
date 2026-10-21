@@ -9,7 +9,10 @@ import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy
 import { photoDevelopSettingsCopy } from '../../src/common/i18n/lightscaper-develop-settings-copy.ts';
 import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { lightscaperRestoreCopy } from '../../src/common/i18n/lightscaper-restore-copy.ts';
-import { importPhotoCatalogArchiveV5 } from '../../src/lightscaper/archive/catalog-archive-import-v5.ts';
+import { importPhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-import-v8.ts';
+import { normalizePhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-contract-v8.ts';
+import { readScapeArchiveEnvelope } from '../../src/common/editor/scape-archive-envelope.ts';
+import { withScapeArchiveReader } from '../../src/common/editor/scape-archive-reader.ts';
 import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-site-plan.mjs';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 import { installNativeOpfsWorkerCompanion, assertNativeOpfsWorkerExecution } from './helpers/native-opfs-worker-companion.ts';
@@ -76,11 +79,12 @@ for (const locale of ['en', 'de']) {
 		const backup = await downloadBackup(page, app, copy), authenticated = await decodeCurrentPhotoArchive(backup.buffer);
 		expect(authenticated.photos).toEqual([{ document, original: PNG }]); expect(authenticated.resources).toHaveLength(1);
 		expect(authenticated.resources[0]).toEqual({ reference: version.develop.effects[0].params.lut, bytes: CUBE });
-		expect(authenticated.presets.schemaVersion).toBe(2); expect(authenticated.presetHeader).toMatchObject({ rowSchemaVersion: 2, revision: 2, presetCount: 2 });
+		expect(authenticated.presets.schemaVersion).toBe(4); expect(authenticated.presetHeader).toMatchObject({ rowSchemaVersion: 4, revision: 2, presetCount: 2 });
 		const full = authenticated.presets.presets.find(value => value.identity.name === 'Full LUT'), partial = authenticated.presets.presets.find(value => value.identity.name === 'LUT only');
-		expect(full.settings.selection).toEqual({ effectTypes: 'all', geometry: true, localAdjustments: true });
-		expect(partial.settings.selection).toEqual({ effectTypes: ['cube-lut-profile-v1'], geometry: false, localAdjustments: false });
-		for (const preset of [full, partial]) expect(preset.settings.develop.effects[0].params.lut).toEqual(version.develop.effects[0].params.lut);
+		expect(full.settings.selection).toEqual({ effectTypes: 'all', geometry: true, localAdjustments: true, repairs: true, rawDevelopment: true });
+		expect(partial.settings.selection).toEqual({ effectTypes: ['cube-lut-profile-v1'], geometry: false, localAdjustments: false, repairs: true, rawDevelopment: true });
+		for (const preset of [full, partial]) { expect(preset.schemaVersion).toBe(4); expect(preset.settings.schemaVersion).toBe(4);
+			expect(preset.settings.develop.processVersion).toBe(2); expect(preset.settings.develop.effects[0].params.lut).toEqual(version.develop.effects[0].params.lut); }
 		// Change the previous namespace so an ignored restore cannot satisfy the full-document comparison.
 		await openDevelop(); await keyboard(page, named(dialog, 'button', messages.shared.videoEffectCubeLutClear)); await save(); await closeDevelop();
 		expect(active((await observe(page, photoId)).photos[0].photo).develop.effects[0].params.lut).toBeNull();
@@ -117,18 +121,24 @@ for (const locale of ['en', 'de']) {
 	});
 }
 
-/** Authenticate the complete V5 record/resource closure and clone borrowed body bytes before release. */
+/** Authenticate exact V8 record/resource custody and copy borrowed bytes before release. */
 export async function decodeCurrentPhotoArchive(bytes) {
-	const result = { root: null, savedState: null, presetHeader: null, resources: [], presets: null, photos: [], stacks: [], saved: [] };
-	await importPhotoCatalogArchiveV5(new Blob([bytes]), async (root, savedState, presetHeader) => {
+	const blob = new Blob([bytes]), header = await withScapeArchiveReader(blob, undefined, async entries =>
+		normalizePhotoCatalogArchiveV8(JSON.parse((await readScapeArchiveEnvelope(entries)).projectText)));
+	expect(header.schemaVersion).toBe(8); expect(header.maskRasters).toEqual([]);
+	const result = { root: null, savedState: null, presetHeader: null, resources: [], presets: null, photos: [], stacks: [], saved: [] }; let published = false;
+	await importPhotoCatalogArchiveV8(blob, async (root, savedState, presetHeader, luts, masks) => {
+		expect(root).toEqual(header.catalog); expect(savedState).toEqual(header.savedCollectionState);
+		expect(presetHeader).toEqual(header.developPresetPack); expect(luts).toEqual(header.lutResources); expect(masks).toEqual([]);
 		Object.assign(result, { root, savedState, presetHeader }); return {
 			async writePhoto(document, chunks) { const parts = []; for await (const chunk of chunks) parts.push(Buffer.from(chunk)); result.photos.push({ document, original: Buffer.concat(parts) }); },
 			async writeLut(reference, bytes) { result.resources.push({ reference, bytes: Buffer.from(bytes) }); },
+			async writeMaskRaster() { throw new Error('LUT-only Current archive must not deliver a mask resource.'); },
 			async writeDevelopPresets(row) { result.presets = row; }, async writeStack(stack) { result.stacks.push(stack); }, async writeSavedCollection(definition) { result.saved.push(definition); },
-			async publish() {}, async rollback() { throw new Error('Current backup authentication rolled back.'); },
+			async publish() { published = true; }, async rollback() { throw new Error('Current backup authentication rolled back.'); },
 		};
 	});
-	result.photos.sort((a, b) => a.document.id.localeCompare(b.document.id)); return result;
+	expect(published).toBe(true); result.photos.sort((a, b) => a.document.id.localeCompare(b.document.id)); return result;
 }
 async function observe(page, photoId) {
 	await installNativeOpfsWorkerCompanion(page);

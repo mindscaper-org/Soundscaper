@@ -9,7 +9,10 @@ import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy
 import { photoDevelopSettingsCopy } from '../../src/common/i18n/lightscaper-develop-settings-copy.ts';
 import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop-menu-copy.ts';
 import { lightscaperRestoreCopy } from '../../src/common/i18n/lightscaper-restore-copy.ts';
-import { importPhotoCatalogArchiveV5 } from '../../src/lightscaper/archive/catalog-archive-import-v5.ts';
+import { importPhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-import-v8.ts';
+import { normalizePhotoCatalogArchiveV8 } from '../../src/lightscaper/archive/catalog-archive-contract-v8.ts';
+import { readScapeArchiveEnvelope } from '../../src/common/editor/scape-archive-envelope.ts';
+import { withScapeArchiveReader } from '../../src/common/editor/scape-archive-reader.ts';
 import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-site-plan.mjs';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 import { installNativeOpfsWorkerCompanion, assertNativeOpfsWorkerExecution } from './helpers/native-opfs-worker-companion.ts';
@@ -188,11 +191,12 @@ for (const locale of ['en', 'de']) test(`${locale}: current keyboard library loo
 	expect(archive.stacks[0]).toMatchObject({ photoIds: stackIds, coverPhotoId: legacyId });
 	expect(archive.savedState).toMatchObject({ collectionCount: 1 }); expect(archive.saved).toHaveLength(1);
 	expect(archive.saved[0]).toMatchObject({ name: 'Trip live query', query: { filter: { kind: 'collection', id: smart.id } } });
-	expect(archive.presets.schemaVersion).toBe(2); expect(archive.presetHeader).toMatchObject({ rowSchemaVersion: 2, revision: 2, presetCount: 2 });
+	expect(archive.presets.schemaVersion).toBe(4); expect(archive.presetHeader).toMatchObject({ rowSchemaVersion: 4, revision: 2, presetCount: 2 });
 	const full = archive.presets.presets.find(value => value.identity.name === 'Current full'), partial = archive.presets.presets.find(value => value.identity.name === 'Current LUT');
-	expect(full.settings.selection).toEqual({ effectTypes: 'all', geometry: true, localAdjustments: true });
-	expect(partial.settings.selection).toEqual({ effectTypes: ['cube-lut-profile-v1'], geometry: false, localAdjustments: false });
-	for (const preset of [full, partial]) expect(preset.settings.develop.effects[0].params.lut).toEqual(reference);
+	expect(full.settings.selection).toEqual({ effectTypes: 'all', geometry: true, localAdjustments: true, repairs: true, rawDevelopment: true });
+	expect(partial.settings.selection).toEqual({ effectTypes: ['cube-lut-profile-v1'], geometry: false, localAdjustments: false, repairs: true, rawDevelopment: true });
+	for (const preset of [full, partial]) { expect(preset.schemaVersion).toBe(4); expect(preset.settings.schemaVersion).toBe(4);
+		expect(preset.settings.develop.processVersion).toBe(2); expect(preset.settings.develop.effects[0].params.lut).toEqual(reference); }
 	await key(card(currentId)); await card(currentId).press('1'); await settled(2); expect((await observe(ids)).photos[0].photo.rating).toBe(1);
 	await action(copy.photoFileMenu, restoreCopy.title);
 	const restore = named(page, 'dialog', restoreCopy.title); await restore.getByLabel(restoreCopy.file, { exact: true }).setInputFiles(backup);
@@ -273,10 +277,16 @@ async function setup(page, locale) {
 	return { app, copy: bundledLightscaperEditorCopyForLocale(locale), develop: photoDevelopCopy(locale), settings: photoDevelopSettingsCopy(locale, 'current3'), restoreCopy: lightscaperRestoreCopy(locale), errors };
 }
 async function decode(bytes) {
+	const blob = new Blob([bytes]), header = await withScapeArchiveReader(blob, undefined, async entries =>
+		normalizePhotoCatalogArchiveV8(JSON.parse((await readScapeArchiveEnvelope(entries)).projectText)));
+	expect(header.schemaVersion).toBe(8); expect(header.maskRasters).toEqual([]);
 	const result = { root: null, savedState: null, presetHeader: null, resources: [], presets: null, photos: [], stacks: [], saved: [] }; let published = false;
-	await importPhotoCatalogArchiveV5(new Blob([bytes]), async (root, savedState, presetHeader) => {
+	await importPhotoCatalogArchiveV8(blob, async (root, savedState, presetHeader, luts, masks) => {
+		expect(root).toEqual(header.catalog); expect(savedState).toEqual(header.savedCollectionState);
+		expect(presetHeader).toEqual(header.developPresetPack); expect(luts).toEqual(header.lutResources); expect(masks).toEqual([]);
 		Object.assign(result, { root, savedState, presetHeader }); return {
 			async writePhoto(document, chunks) { const parts = []; for await (const chunk of chunks) parts.push(Buffer.from(chunk)); result.photos.push({ document, original: Buffer.concat(parts) }); },
+			async writeMaskRaster() { throw new Error('LUT-only Current loop archive must not deliver a mask resource.'); },
 			async writeLut(reference, body) { result.resources.push({ reference, bytes: Buffer.from(body) }); }, async writeDevelopPresets(row) { result.presets = row; },
 			async writeStack(stack) { result.stacks.push(stack); }, async writeSavedCollection(definition) { result.saved.push(definition); },
 			async publish() { published = true; }, async rollback() { throw Error('Current loop archive authentication rolled back.'); },
