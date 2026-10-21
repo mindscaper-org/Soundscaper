@@ -13,3 +13,10 @@ the exact 138,341-byte archive manifest whose SHA-256 is
 `9b646177cfe178c2d0a03cdda53ae0bbdb7b82f91a1c7594fb7d779e8c45e655`.
 
 These files are used only by the browser test and are not shipped with the app.
+
+`HQ-Tone.ny.gz` expands to the exact 4,908-byte HQ-Tone plug-in by Steve Daulton
+from the same archive. Its SHA-256 is
+`3ac8c19ff1b27b47346697a4f4347584e185e779291e34eb023a64f815b176b2`.
+Its embedded notices state GPL-2.0-or-later; the complete source and notices are
+preserved in the compressed fixture, with the GPL texts above. It is also used
+by the archive installation regression test.
