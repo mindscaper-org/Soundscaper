@@ -79,7 +79,7 @@ export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 		'clip range',
 	)));
 	const sampleRate = positiveInteger(project.sampleRate, 'project sample rate');
-	const tailFrames = track.effectsActive === false ? 0 : rackTailFrames(track.effects, sampleRate, 10);
+	const tailFrames = track.effectsActive === false ? 0 : rackTailFrames(track.effects, sampleRate, 10, runtime.automationLanes);
 	return Object.freeze({
 		renderStartFrame,
 		renderFrameCount: safeAdd(laneEndFrame - renderStartFrame, tailFrames, 'freeze render range'),
@@ -128,7 +128,7 @@ export async function renderFreezeBody(
 		const latency = compileProjectPathPdcPlanV21(request.project, { sampleRate: request.sampleRate })
 			.freezeLatencyFramesByTrack.get(request.trackId) ?? 0;
 		const laneEndFrame = request.renderStartFrame + request.renderFrameCount
-			- (track.effectsActive === false ? 0 : rackTailFrames(track.effects, request.sampleRate, 10));
+			- (track.effectsActive === false ? 0 : rackTailFrames(track.effects, request.sampleRate, 10, runtime.automationLanes));
 		const renderProject = freezeRenderProject(runtime, track, clips, sources);
 		if (options.prepareTimePitchCaches) {
 			await options.prepareTimePitchCaches(renderProject, request.signal);
