@@ -4,7 +4,7 @@ import type { Readable, Writable } from 'node:stream';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { nativeChildLauncherEnvironment } from './native-child-launcher-environment.ts';
-import { waitForNativeChildEnforcement } from './native-child-enforcement-handshake.ts';
+import { nativeChildEnforcementFailure, waitForNativeChildEnforcement } from './native-child-enforcement-handshake.ts';
 import { spawnNativeRawStdioChildCurrentV1 as spawn } from './native-child-raw-stdio-current-v1.ts';
 import { openPhotoNativePinnedFileCurrentV1 as authenticate } from './lightscaper-native-photo-artifact-files-current-v1.ts';
 import { photoNativePathsCurrentV1, type PhotoNativeFileCurrentV1, type PhotoNativeRoleCurrentV1, type PhotoNativeTargetCurrentV1 } from '../src/lightscaper/desktop-photo-native-artifacts-current-v1.ts';
@@ -17,6 +17,9 @@ export function photoNativePreparedRetirementIsUnprovedCurrentV1(value: unknown)
 export async function preparePhotoNativeChildCurrentV1(root: string, target: PhotoNativeTargetCurrentV1, files: readonly PhotoNativeFileCurrentV1[],
  role: PhotoNativeRoleCurrentV1, signal: AbortSignal | undefined, retired: () => void): Promise<LightscaperNativePhotoPreparedChildCurrentV1> {
  const paths = photoNativePathsCurrentV1(target), pins = new Map(files.map(file => [file.path, file])), handles: Awaited<ReturnType<typeof authenticate>>[] = [];
+ const diagnostic = Buffer.alloc(role === 'raw-engine' ? 4096 : 0); let diagnosticBytes = 0, diagnosticOverflow = false, enforcementFailed = false;
+ let detachDiagnostic: () => void = () => {};
+ const stopDiagnostic = (): void => { const actual = detachDiagnostic; detachDiagnostic = () => {}; actual(); };
  let peer: ReturnType<typeof spawn> | undefined, detach: () => void = () => {}, close: Promise<void> | undefined, used = false, failure: unknown;
  const owner: LightscaperNativePhotoPreparedChildCurrentV1 = Object.freeze({ start(): ChildProcessWithoutNullStreams {
   check(signal); if (used || close || !peer || peer.child.exitCode !== null || peer.child.signalCode !== null) throw new Error('Photo prepared native child is retired or already claimed.'); used = true; return peer.child;
@@ -25,6 +28,7 @@ export async function preparePhotoNativeChildCurrentV1(root: string, target: Pho
   void (async () => {
    const errors: unknown[] = [];
    try { await peer?.close(); } catch (error) { errors.push(error); }
+   try { stopDiagnostic(); } catch (error) { errors.push(error); }
    for (const handle of [...handles].reverse()) try { await handle.close(); } catch (error) { errors.push(error); }
    try { detach(); } catch (error) { errors.push(error); }
    if (errors.length) { const error = new AggregateError(errors, 'Photo prepared native child/artifact retirement failed.'); UNPROVED.add(error); QUARANTINE.add({ owner, peer, handles, error, failure }); throw error; }
@@ -45,14 +49,22 @@ export async function preparePhotoNativeChildCurrentV1(root: string, target: Pho
   detach = link(signal, () => { void owner.close().catch(() => undefined); }); check(signal);
   // The role waits for its protocol INIT; no binary body output is consumed.
   if (isolated) {
+   const capture = (bytes: Buffer): void => { const count = Math.min(bytes.byteLength, diagnostic.byteLength - diagnosticBytes); bytes.copy(diagnostic, diagnosticBytes, 0, count); diagnosticBytes += count; if (count !== bytes.byteLength) diagnosticOverflow = true; };
+   actual.child.stderr.on('data', capture); detachDiagnostic = () => { actual.child.stderr.off('data', capture); actual.child.stderr.pause(); };
    const enforcement = actual.child.stdio[3]; if (!enforcement || typeof enforcement === 'number' || !('read' in enforcement)) throw new Error('Photo RAW launcher omitted its genuine enforcement stream.');
-   await waitForNativeChildEnforcement(enforcement as Readable, 5000); check(signal);
+   try { await waitForNativeChildEnforcement(enforcement as Readable, 5000); } catch (error) { enforcementFailed = true; throw error; }
+   stopDiagnostic(); check(signal);
   }
   if (actual.child.exitCode !== null || actual.child.signalCode !== null) throw new Error('Photo native peer exited before start delivery.');
   void actual.joined.then(() => owner.close(), () => owner.close()).catch(() => undefined);
   return owner;
  } catch (error) {
-  failure = error; let primary = error; try { check(signal); } catch (reason) { primary = reason; }
-  try { await owner.close(); } catch (cleanup) { const error = new AggregateError([primary, cleanup], 'Photo native preparation and retirement failed.'); UNPROVED.add(error); throw error; } throw primary;
- }
+  failure = error; let primary = error, cancelled = false; try { check(signal); } catch (reason) { primary = reason; cancelled = true; }
+  try { await owner.close(); } catch (cleanup) { const error = new AggregateError([primary, cleanup], 'Photo native preparation and retirement failed.'); UNPROVED.add(error); throw error; }
+  if (enforcementFailed && !cancelled && peer) {
+   const detailed = nativeChildEnforcementFailure(primary, { exitCode: peer.child.exitCode, signal: peer.child.signalCode, stdout: '', stderr: diagnosticOverflow ? '' : diagnostic.subarray(0, diagnosticBytes).toString('utf8') });
+   if (diagnosticOverflow) detailed.message += ' Pre-enforcement stderr exceeded its 4096-byte capture bound; no diagnostic stage was admitted.'; primary = detailed;
+  }
+  throw primary;
+ } finally { diagnostic.fill(0); }
 }
