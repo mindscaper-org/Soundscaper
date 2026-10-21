@@ -9,7 +9,7 @@ import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import VideoDeliveryFields from '../VideoDeliveryFields.jsx';
 import {
-	dialogSettingsFromDeliveryTarget, previewPresetSettingsFromDialog,
+	dialogSettingsFromDeliveryTarget, previewPresetSettingsFromDialog, previewPresetSettingsFromPreset,
 	statedVideoCanvas, statedVideoDeliveryTarget,
 } from '../export-preset-model.ts';
 import {
@@ -395,7 +395,9 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 					resetKey={projectIdentity}
 					unsaved={Boolean(presetId) && (previewPresetSettings === null || !samePresetParams(
 						previewPresetSettings,
-						presets.find((preset) => preset.id === presetId)?.settings,
+						previewPresetSettingsFromPreset(presets.find((preset) => preset.id === presetId), {
+							desktop, projectSampleRate: snapshot.project?.sampleRate,
+						}),
 					))}
 					onError={(cause) => setError(
 						cause == null ? '' : (cause instanceof Error ? cause.message : String(cause)),

@@ -125,6 +125,16 @@ export function previewPresetSettingsFromDialog(
 	catch { return null; }
 }
 
+/** Compare the delivery a preset means, including its omitted defaults. */
+export function previewPresetSettingsFromPreset(
+	preset: DeliveryPreset | undefined,
+	context: Readonly<{ projectSampleRate?: unknown; desktop?: boolean }> = {},
+): Readonly<Record<string, unknown>> | null {
+	if (!preset) return null;
+	try { return presetSettingsFromDialog(dialogSettingsFromPreset(preset, context), preset.kind); }
+	catch { return null; }
+}
+
 /**
  * The delivery quality tier a video dialog is asking for, or nothing.
  *

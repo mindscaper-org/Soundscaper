@@ -83,3 +83,22 @@ test('an imported audio preset with omitted settings restores its defaults after
 		assert.equal(request.mode, 'mix');
 	} finally { await fixture.unmount(); }
 });
+
+test('applying or resetting a default-valued imported preset clears its edited indicator', async () => {
+	const presets = importDeliveryPresets({}, JSON.stringify({ schemaVersion: 1, presets: [{
+		schemaVersion: 1, id: 'default', label: 'Default WAV', kind: 'audio', format: 'wav', settings: {},
+	}] })).presets;
+	const fixture = await mountedExportDialog({ presets });
+	try {
+		await selectPreset(fixture, 'Default WAV');
+		const bar = fixture.dom.one('[data-delivery-presets]');
+		assert.doesNotMatch(bar.textContent, /\*/u);
+		const reset = bar.querySelectorAll('button').find(button => button.getAttribute('aria-label') === ENGLISH_COPY.resetEffectPreset);
+		assert.ok(reset);
+		assert.equal(reset.hasAttribute('disabled'), true);
+		await fixture.chooseChannels('mono');
+		assert.match(bar.textContent, /\*/u);
+		await fixture.click(reset);
+		assert.doesNotMatch(bar.textContent, /\*/u);
+	} finally { await fixture.unmount(); }
+});
