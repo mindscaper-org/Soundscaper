@@ -3,6 +3,7 @@
 import { normalizeCartMetadata, type CartMetadata, type CartMetadataInput, type CartTimer } from './cart-metadata.ts';
 import type { MasteringSequenceDeliveryPlan } from './mastering-sequence-delivery.ts';
 import { scaleSampleFrame } from './timeline-time.ts';
+import { cartForOutputPrecision } from './cart-level-reference.ts';
 
 /** Radio post timers describe each occurrence in the assembled file, including its lead-in. */
 export function cartForMasteringSequence(
@@ -10,6 +11,7 @@ export function cartForMasteringSequence(
 	plan: MasteringSequenceDeliveryPlan,
 	projectSampleRate: number,
 	outputSampleRate: number,
+	outputBitDepth?: number,
 ): CartMetadata | null {
 	if (input == null) return null;
 	const metadata = normalizeCartMetadata(input);
@@ -27,5 +29,5 @@ export function cartForMasteringSequence(
 	}
 	// Retain the container's eight-timer and unsigned-32-bit limits; refusing an
 	// unrepresentable delivery is preferable to truncating radio cues silently.
-	return normalizeCartMetadata({ ...metadata, postTimers });
+	return cartForOutputPrecision(normalizeCartMetadata({ ...metadata, postTimers }), outputBitDepth);
 }

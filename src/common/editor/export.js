@@ -240,11 +240,11 @@ export function createExportPlan(project, options = {}) {
 	const ixml = ixmlMetadata(range);
 	const spanIxml = spans?.map((span) => ixmlMetadata(span));
 	const cartMetadata = (deliveryRange) => cartForDeliveryRange(
-		runtimeProject.metadata?.cart, deliveryRange, runtimeProject.sampleRate, sampleRate,
+		runtimeProject.metadata?.cart, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth,
 	);
 	let cart = format === 'bwf' || format === 'bw64'
 		? masteringSequence
-			? cartForMasteringSequence(runtimeProject.metadata?.cart, masteringSequence.plan, runtimeProject.sampleRate, sampleRate)
+			? cartForMasteringSequence(runtimeProject.metadata?.cart, masteringSequence.plan, runtimeProject.sampleRate, sampleRate, encoding.bitDepth)
 			: cartMetadata(range) : null;
 	// The TimeReference states where the delivered audio sits on the project's
 	// timeline, so it is derived per delivered span, not once for the whole plan.

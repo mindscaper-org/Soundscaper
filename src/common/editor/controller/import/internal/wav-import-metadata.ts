@@ -2,6 +2,7 @@
 
 import { scaleBextTimeReference } from '../../../broadcast-wave-project.ts';
 import { cartMetadataAtImportOrigin } from '../../../cart-import-origin.ts';
+import { cartWithSourceReferenceScale } from '../../../cart-level-reference.ts';
 import { ixmlAtImportOrigin } from '../../../ixml-delivery-timing.ts';
 import { isNeutralAdmSignalPath } from '../../../adm-passthrough-project.ts';
 import { normalizeAdmProjectMetadata } from '../../../adm-project-metadata.ts';
@@ -29,7 +30,7 @@ export function prepareImportedWavMetadata(options: Readonly<Record<string, any>
 		let projectCart: ReturnType<typeof cartMetadataAtImportOrigin> | null = null;
 		if (project.metadata?.cart == null && sourceCart) {
 			try {
-				projectCart = cartMetadataAtImportOrigin(sourceCart, descriptor.sampleRate, projectSampleRate,
+				projectCart = cartMetadataAtImportOrigin(cartWithSourceReferenceScale(sourceCart, descriptor), descriptor.sampleRate, projectSampleRate,
 					resolvedImportOptions.destination === 'timeline' ? Number(resolvedImportOptions.timelineStartFrame) : 0);
 			} catch {
 				warnings.push(warning('cart-post-timer-conversion', copy.cartPostTimerConversionWarning
