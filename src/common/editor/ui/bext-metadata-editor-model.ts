@@ -36,7 +36,7 @@ function textValue(value: unknown): string {
 }
 
 function originationTimeValue(value: unknown): string {
-	const text = textValue(value);
+	const text = textValue(value).replace(/^(\d{2})[\x20-\x7e](\d{2})[\x20-\x7e](\d{2})$/u, '$1:$2:$3');
 	// A native time input omits zero seconds from an ordinary HH:MM entry.
 	return /^(?:[01]\d|2[0-3]):[0-5]\d$/u.test(text) ? `${text}:00` : text;
 }
@@ -65,7 +65,7 @@ export function normalizeBextMetadataEditorValue(value: unknown): BextMetadataEd
 		description: textValue(source.description),
 		originator: textValue(source.originator),
 		originatorReference: textValue(source.originatorReference),
-		originationDate: textValue(source.originationDate),
+		originationDate: textValue(source.originationDate).replace(/^(\d{4})[\x20-\x7e](\d{2})[\x20-\x7e](\d{2})$/u, '$1-$2-$3'),
 		originationTime: originationTimeValue(source.originationTime),
 		timeReference: timeReferenceValue(source.timeReference),
 		umid: textValue(source.umid),

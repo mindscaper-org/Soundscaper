@@ -1,7 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA, readFile } from './audio-editor-test-fixtures.js';
-import { bootEditor, disableNativeSavePicker, importFiles, openExportDialog } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, disableNativeSavePicker, importFiles, openExportDialog } from './audio-editor-test-helpers.js';
+import { encodeWav } from '../../src/common/editor/wav.js';
+
+for (const [date, time, displayedDate] of [['2026.02.03', '04_05_06', '2026-02-03'], ['0000-02-29', '04:05:06', '0000-02-29']]) {
+	test(`valid imported BEXT origination ${date} stays visible in its metadata fields`, async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const bytes = encodeWav([new Float32Array(480)], { sampleRate: 48_000,
+			bext: { originationDate: date, originationTime: time } });
+		await editor.locator('[data-import-input]').setInputFiles({ name: 'origination.wav', mimeType: 'audio/wav', buffer: Buffer.from(bytes) });
+		await expect(editor.locator('[data-clip-id]').first()).toBeVisible();
+		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
+		const panel = editor.locator('[data-workspace-panel="metadata"]');
+		await panel.getByRole('tab', { name: 'BEXT', exact: true }).click();
+		await expect(panel.locator('input[name="originationDate"]')).toHaveValue(displayedDate);
+		await expect(panel.locator('input[name="originationTime"]')).toHaveValue('04:05:06');
+	});
+}
 
 test('imported audio presets reset omitted settings in the actual downloaded WAV', async ({ page }) => {
 	await disableNativeSavePicker(page);
