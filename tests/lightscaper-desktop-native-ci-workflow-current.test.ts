@@ -135,7 +135,7 @@ void test('all five internal target hosts build their real association helper an
 	assert.match(String(windows?.run), /lightscaper-desktop-windows-association-native-refusal-current\.test\.ts/u);
 	assert.match(command, /LIGHTSCAPER_WINDOWS_ASSOCIATION_HELPER_SHA256/u);
 	const apt = all.find(step => step.name === 'Prepare real Linux display and user namespaces');
-	for (const dependency of ['libglib2.0-dev', 'pkg-config', 'desktop-file-utils', 'shared-mime-info', 'xdg-utils']) assert.ok(String(apt?.run).includes(dependency));
+	for (const dependency of ['libglib2.0-dev', 'pkg-config', 'desktop-file-utils', 'shared-mime-info', 'xdg-utils', 'libnotify4', 'libsecret-1-0']) assert.ok(String(apt?.run).includes(dependency));
 });
 void test('installed association qualification invokes the real OS owner on every native target and retains both bounded evidence roots', async () => {
 	const all = steps(record(record((await workflow()).jobs).qualify).steps);

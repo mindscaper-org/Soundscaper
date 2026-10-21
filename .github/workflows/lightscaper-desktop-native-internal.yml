@@ -100,7 +100,7 @@ jobs:
         timeout-minutes: 10
         if: runner.os == 'Linux'
         run: |
-          bash scripts/ci-apt-install.sh xvfb xauth libnss3 libgbm1 libasound2t64 libglib2.0-dev pkg-config desktop-file-utils shared-mime-info xdg-utils
+          bash scripts/ci-apt-install.sh xvfb xauth libnss3 libgbm1 libasound2t64 libglib2.0-dev pkg-config desktop-file-utils shared-mime-info xdg-utils libnotify4 libsecret-1-0
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Download only this target's authenticated Photo build result
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
