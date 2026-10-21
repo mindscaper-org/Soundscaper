@@ -129,7 +129,9 @@ export function estimateAudacityEffectPeakBytes(type, inputFrames, params = {}, 
 			scratchBytes += frames * FLOAT64_BYTES;
 			break;
 		case 'audacity-echo':
-			scratchBytes += Math.floor(sampleRate * normalized.delaySeconds) * FLOAT32_BYTES;
+			if (normalized.decay !== 0 && Math.floor(sampleRate * normalized.delaySeconds) < frames) {
+				scratchBytes += Math.floor(sampleRate * normalized.delaySeconds) * FLOAT32_BYTES;
+			}
 			break;
 		case 'audacity-filter-curve-eq':
 		case 'audacity-graphic-eq': {

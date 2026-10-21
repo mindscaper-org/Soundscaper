@@ -118,6 +118,7 @@ export function applyAudacityEcho(channels, sampleRate, params = {}) {
 	const decay = numberParam(params, 'decay', 0.5, 0, FLOAT_MAX);
 	const historyLength = Math.floor(sampleRate * delaySeconds);
 	if (historyLength < 1) throw new RangeError('delaySeconds must span at least one sample.');
+	if (decay === 0 || historyLength >= channels[0].length) return cloneChannels(channels);
 
 	return channels.map((input, channelIndex) => {
 		const output = new Float32Array(input.length);
