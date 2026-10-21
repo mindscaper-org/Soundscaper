@@ -7,7 +7,7 @@ import { ACCEPTED_PROJECT_FILE_EXTENSION_LIST, isProjectFileName } from '../../.
 export { isProjectFileName };
 
 export const WORKSPACE_PROJECT_FILE_ACCEPT = `${ACCEPTED_PROJECT_FILE_EXTENSION_LIST},.aup,.aup3,.aup4,.dawproject,application/vnd.soundscaper.scape+zip,application/x-audacity-project,application/vnd.audacity.aup4`;
-export const WORKSPACE_IMPORT_FILE_ACCEPT = 'audio/*,video/mp4,video/webm,.aac,.aif,.aifc,.aiff,.bw64,.bwf,.flac,.m4a,.m4v,.mka,.mp2,.mp3,.mp4,.oga,.ogg,.opus,.rf64,.wav,.wave,.wavpack,.webm,.wma,.wv,.cue,.txt,.srt,.vtt,application/x-cue,text/plain,text/vtt,application/x-subrip';
+export const WORKSPACE_IMPORT_FILE_ACCEPT = 'audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,.aac,.aif,.aifc,.aiff,.bw64,.bwf,.flac,.m4a,.m4v,.mka,.mp2,.mp3,.mp4,.oga,.ogg,.opus,.rf64,.wav,.wave,.wavpack,.webm,.wma,.wv,.cue,.txt,.srt,.vtt,application/x-cue,text/plain,text/vtt,application/x-subrip';
 export const WORKSPACE_OPEN_FILE_ACCEPT = `${WORKSPACE_PROJECT_FILE_ACCEPT},${WORKSPACE_IMPORT_FILE_ACCEPT}`;
 
 const LEGACY_AUDACITY_PROJECT_PATTERN = /\.(?:aup|aup3|aup4|dawproject|sesx)$/iu;
@@ -21,6 +21,7 @@ export function isWorkspaceImportFile(file) {
 	const type = String(file?.type || '').split(';', 1)[0].trim().toLowerCase();
 	const extension = name.slice(name.lastIndexOf('.'));
 	return IMPORT_FILE_EXTENSIONS.has(extension) || type.startsWith('audio/')
+		|| type === 'application/ogg' || type === 'application/x-ogg'
 		|| type === 'video/mp4' || type === 'video/webm'
 		|| (!name.includes('.') && (LABEL_MIME_TYPES.has(type) || type === 'application/x-cue'));
 }

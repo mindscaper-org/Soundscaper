@@ -180,6 +180,20 @@ test.describe('audio file import formats', () => {
 			.not.toBe(await secondClip.getAttribute('data-track-index'));
 	});
 
+	test('File Open accepts an Ogg container MIME without an audio filename suffix', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const initialId = await editor.getAttribute('data-project-id');
+		const encoded = await encodedFixture('ogg', 'libvorbis', 'application/ogg');
+		const choosingFile = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosingFile).setFiles({ ...encoded, name: 'downloaded-original' });
+		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
+		expect(await editor.getAttribute('data-project-id')).not.toBe(initialId);
+		const peaks = await sourcePeakChannels(page, 'downloaded-original');
+		expect(peaks.channelCount).toBe(2);
+		expect(peaks.channels[0].maximum).toBeGreaterThan(0.2);
+	});
+
 	for (const signature of ['RF64', 'BW64']) {
 		test(`${signature} imports through File > Import and survives reload`, async ({ page }) => {
 			const errors = collectClientErrors(page);

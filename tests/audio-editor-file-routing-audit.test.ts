@@ -38,6 +38,14 @@ test('AUF companion blocks are kept out of independent audio import', () => {
 	assert.equal(isLegacyBlockFile(new File([], 'e0000.AUF')), true);
 });
 
+test('Ogg container MIME identities retain bounded import without an audio filename suffix', () => {
+	for (const type of ['application/ogg', 'application/x-ogg']) {
+		const file = new File([], 'downloaded-original', { type });
+		assert.equal(isWorkspaceImportFile(file), true);
+		assert.equal(isStreamedAudioImportFile(file), true);
+	}
+});
+
 test('a failed first-use import module can be retried after connectivity recovers', async () => {
 	const fixture = createFixture(); let attempts = 0;
 	const service = createProjectImportService(fixture.runtime as unknown as Parameters<typeof createProjectImportService>[0], async () => {
