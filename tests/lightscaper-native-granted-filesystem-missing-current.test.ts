@@ -15,12 +15,16 @@ async function refusal(work: Promise<unknown>): Promise<unknown> {
 void test('actual missing root is positively classified only after native open and successful cleanup', options, async context => fixture(context, async f => {
  const error = await refusal(f.role.openRoot(path(join(f.directory, 'root-absent')), null));
  assert.equal(missing(error), 'root-missing'); assert.equal(unproved(error), false); assert.equal(f.count(op.rootOpen), 1);
+ assert.ok(error instanceof NativeGrantedFilesystemError); assert.equal(error.code, 7); assert.equal(error.phase, op.rootOpen);
+ assert.equal(error.message, `Native granted filesystem operation refused. [code=7, phase=2, nativeCode=${error.nativeCode}]`);
  const root = await f.root(); await root.close();
 }));
 void test('actual missing file leaf and missing native parent retain file-open context', options, async context => fixture(context, async f => {
  const root = await f.root();
  for (const components of [[path('absent.bin')], [path('absent-parent'), path('photo.bin')]]) {
   const error = await refusal(root.openFile(components)); assert.equal(missing(error), 'file-missing'); assert.equal(unproved(error), false);
+  assert.ok(error instanceof NativeGrantedFilesystemError); assert.equal(error.code, 7); assert.equal(error.phase, op.fileOpen);
+  assert.equal(error.message, `Native granted filesystem operation refused. [code=7, phase=4, nativeCode=${error.nativeCode}]`);
  }
  const file = await root.openFile([path('photo.bin')]); assert.equal((await file.read(0, file.byteLength)).byteLength, f.bytes.byteLength); await file.close(); await root.close();
 }));
@@ -56,3 +60,26 @@ void test('actual missing after an opened parent plus failed native close never 
  const cleanup = await refusal(f.role.close()); f.expectCleanup(cleanup); await f.native.joined;
  assert.match(f.native.stderr(), /SCAPE_CLOSE_FAULT actual=1 replacement=1 retries=0/u);
 }, 'directory'));
+
+for (const [code, phase, nativeCode, flag] of [[7, op.next, 87, 0], [65535, 255, 4294967295, 1]] as const) {
+ void test(`validated native refusal keeps exact bounded numeric diagnostics (${code}/${phase}/${nativeCode}) without path payload`, () => {
+  const secret = Buffer.from('/private/owned/photo.NEF', 'ascii');
+  const encoded = new NativeWriter().number(code, 2).number(phase, 1).number(nativeCode, 4).number(flag, 1)
+   .number(secret.byteLength, 2).raw(secret).finish();
+  const error = readNativeError(encoded);
+  assert.ok(error instanceof NativeGrantedFilesystemError); assert.equal(error.name, 'NativeGrantedFilesystemError');
+  assert.deepEqual([error.code, error.phase, error.nativeCode], [code, phase, nativeCode]);
+  assert.equal(error.message, `Native granted filesystem operation refused. [code=${code}, phase=${phase}, nativeCode=${nativeCode}]`);
+  assert.ok(error.message.length <= 128); assert.equal(error.message.includes(secret.toString('ascii')), false);
+  assert.equal(unproved(error), flag === 1); assert.equal(missing(error), null, 'Numeric diagnostics never mint a real missing reply witness.');
+ });
+}
+void test('numeric refusal diagnostics preserve malformed-frame and non-ASCII diagnostic refusals', () => {
+ const encoded = new NativeWriter().number(7, 2).number(op.next, 1).number(87, 4).number(0, 1).number(0, 2).finish();
+ const zeroCode = Buffer.from(encoded); zeroCode.writeUInt16BE(0, 0);
+ const invalidFlag = Buffer.from(encoded); invalidFlag[7] = 2;
+ const nonAscii = new NativeWriter().number(7, 2).number(op.next, 1).number(87, 4).number(0, 1).number(1, 2).raw(new Uint8Array([31])).finish();
+ for (const value of [zeroCode, invalidFlag, nonAscii, Buffer.concat([encoded, Buffer.from([0])]), encoded.subarray(0, 9)]) {
+  assert.throws(() => readNativeError(value));
+ }
+});

@@ -79,7 +79,7 @@ export class NativeReader {
 const UNPROVED = new WeakSet<object>();
 export class NativeGrantedFilesystemError extends Error {
 	readonly code: number; readonly phase: number; readonly nativeCode: number;
-	constructor(code: number, phase: number, nativeCode: number) { super('Native granted filesystem operation refused.'); this.name = 'NativeGrantedFilesystemError'; this.code = code; this.phase = phase; this.nativeCode = nativeCode; }
+	constructor(code: number, phase: number, nativeCode: number) { super(`Native granted filesystem operation refused. [code=${code}, phase=${phase}, nativeCode=${nativeCode}]`); this.name = 'NativeGrantedFilesystemError'; this.code = code; this.phase = phase; this.nativeCode = nativeCode; }
 }
 export function readNativeError(value: Uint8Array): NativeGrantedFilesystemError {
 	const reader = new NativeReader(value), code = reader.number(2), phase = reader.number(1), native = reader.number(4), flags = reader.number(1), length = reader.number(2);
