@@ -239,6 +239,7 @@ test('CRC-protected MP3 VBR tags retain their quality and M4A brands cannot prov
 test('WavPack floating point precision is retained and hybrid data remains ineligible', async () => {
 	const bytes = new Uint8Array(32);
 	bytes.set(new TextEncoder().encode('wvpk'));
+	new DataView(bytes.buffer).setUint32(20, 1, true);
 	new DataView(bytes.buffer).setUint32(24, 0x83, true);
 	const settings = await resolveDesktopOriginalExportSettings(new File([bytes], 'float.wv'), [source]);
 	assert.equal(settings?.sampleFormat, 'float32');

@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { decodeDedicatedAudioFile, encodeDedicatedAudioPcm } from '../src/common/editor/browser-dedicated-audio-codec.ts';
 import { prepareStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
+import { resolveDesktopOriginalExportSettings } from '../src/common/editor/desktop-original-export-settings.ts';
 import { withWavPackTotalFrames } from './helpers/wavpack-import-fixture.ts';
 
 const loadPayload = async (_format: unknown, url: URL) => Uint8Array.from(await readFile(url));
@@ -66,7 +67,10 @@ for (const placement of ['leading', 'trailing'] as const) test(`a WavPack file w
 	// the application's streaming group parser.
 	const runtime = await loadWavPackWasm(await readFile(new URL('../src/common/editor/wavpack/wavpack.wasm', import.meta.url)));
 	assert.deepEqual(new Float32Array(runtime.decode(bytes, { frames: pcm.length, channelCount: 1, sampleRate: 48_000 })), pcm);
-	const prepared = await prepareStreamedAudioImport(new File([bytes], 'Archival-recording.wv'), { desktopCodec: {
+	const file = new File([bytes], 'Archival-recording.wv');
+	const settings = await resolveDesktopOriginalExportSettings(file, [{ kind: 'audio', sampleRate: 48_000, channelCount: 1 }]);
+	assert.equal(settings?.sampleFormat, 'float32', 'Original export uses the audio block flags after wrapper/MD5 metadata');
+	const prepared = await prepareStreamedAudioImport(file, { desktopCodec: {
 		async decode(group) { return { channels: [new Float32Array(runtime.decode(await group.arrayBuffer(), {
 			frames: pcm.length, channelCount: 1, sampleRate: 48_000,
 		}))], sampleRate: 48_000 }; },

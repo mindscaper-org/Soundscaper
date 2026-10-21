@@ -59,6 +59,7 @@ export async function resolveDesktopOriginalExportSettings(
 				header = new Uint8Array(await file.slice(offset, offset + 42).arrayBuffer());
 			}
 		}
+		if (format === 'wavpack') header = await originalWavPackAudioHeader(file, header);
 		if (format === 'ogg-vorbis' && matchesEncodedContainer('opus', header)) format = 'opus';
 		const pcm = await pcmSettings(format, file, header);
 		if (pcm !== undefined) {
@@ -105,6 +106,22 @@ export async function resolveDesktopOriginalExportSettings(
 		// The import has already succeeded; an unprovable re-export disables the shortcut.
 		return null;
 	}
+}
+
+/** Imported wrapper/MD5 blocks carry no audio format flags. Seek only bounded headers. */
+async function originalWavPackAudioHeader(file: NamedByteSource, prefix: Uint8Array): Promise<Uint8Array> {
+	let offset = 0;
+	let header = prefix.subarray(0, 32);
+	for (let block = 0; block < 1_000_000; block++) {
+		if (header.length !== 32 || ascii(header, 0, 4) !== 'wvpk') throw new RangeError('Invalid WavPack header.');
+		const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+		if (view.getUint32(20, true) > 0) return header;
+		const size = view.getUint32(4, true) + 8;
+		if (size < 32 || size > 4 * 1024 ** 2 || offset + size + 32 > file.size) throw new RangeError('Invalid WavPack metadata block.');
+		offset += size;
+		header = new Uint8Array(await file.slice(offset, offset + 32).arrayBuffer());
+	}
+	throw new RangeError('The WavPack source has too many metadata blocks.');
 }
 
 function audioBase(format: string, sampleRate: number, channelCount: number): DataRecord {
