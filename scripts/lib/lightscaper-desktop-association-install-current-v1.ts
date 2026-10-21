@@ -26,7 +26,7 @@ export async function createLightscaperAssociationInstallerCurrentV1(options: Re
 	const registry = async () => {
 		if (!options.registryScriptPath) throw new Error('The fixed read-only association registry source is required.');
 		const script = await file(options.registryScriptPath, 65536);
-		const process = await run(await tool('powershell.exe'), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script.path], { deadlineMs: 15_000 });
+		const process = await run(await tool('powershell.exe'), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script.path], { deadlineMs: 60_000 });
 		const snapshot = readLightscaperAssociationRegistrySnapshotCurrentV1(JSON.parse(process.stdout) as unknown);
 		return { script, process, snapshot };
 	};
@@ -100,7 +100,7 @@ export async function createLightscaperAssociationInstallerCurrentV1(options: Re
 					|| postUninstall.snapshot.keys[1]?.state !== 'absent' || postUninstall.snapshot.keys[8]?.state !== 'absent') throw new Error('Native uninstall changed foreign associations or left owned class/UserChoice authority; no residue cleanup is authorized.');
 				if (!options.registryRetireScriptPath) throw new Error('The fixed exact-residue retirement source is required.');
 				const retireSource = await file(options.registryRetireScriptPath, 65536);
-				const retireProcess = await run(await tool('powershell.exe'), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', retireSource.path], { deadlineMs: 15_000 });
+				const retireProcess = await run(await tool('powershell.exe'), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', retireSource.path], { deadlineMs: 60_000 });
 				const after = await registry();
 				if (JSON.stringify(after.snapshot) !== JSON.stringify(windowsBefore)) throw new Error('Actual per-user native uninstall did not restore the captured association registry state.');
 				installed = false; return { kind: 'actual-per-user-nsis-native-remove', process: removed, postUninstall, ownResidueRetirement: { source: retireSource, process: retireProcess }, after, registryRestored: true, executableAbsent: true };
