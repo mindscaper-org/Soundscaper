@@ -79,6 +79,9 @@ export function buildNyquistEvaluationSource(value, options = {}) {
 		? parseNyquistPluginHeader(request.source) : null;
 	const lines = [
 		'(snd-set-latency 0.1)',
+		// Audacity init.lsp's in-memory reader helper is also used by audio
+		// plug-ins, including Chimes Delay's editable note list.
+		'(defun eval-string (string) (eval (read (make-string-input-stream string))))',
 		'(setf S 0.25)',
 		'(setf *PREVIEWP* NIL)',
 		"(putprop '*AUDACITY* (list 3 7 7) 'VERSION)",

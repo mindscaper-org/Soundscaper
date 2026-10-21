@@ -7,6 +7,7 @@ import { gunzipSync } from 'node:zlib';
 
 import { installNyquistArchivePlugin, parseNyquistArchiveManifest } from '../src/common/editor/nyquist/archive-catalog.js';
 import { createNyquistArchiveStore } from '../src/common/editor/nyquist/archive-store.js';
+import { evaluateNyquist, loadNyquistWasm } from '../src/common/editor/nyquist/runtime.js';
 
 test('authenticated HQ-Tone installation retains its published selectable waveform and smoothing options', async () => {
 	const fixture = new URL('./fixtures/nyquist-archive/', import.meta.url);
@@ -29,4 +30,23 @@ test('authenticated HQ-Tone installation retains its published selectable wavefo
 		assert.deepEqual(plugin.controls.find((control: { variable: string }) => control.variable === 'smooth')?.options
 			.map((option: { value: number; label: string }) => [option.value, option.label]), [[0, 'Enabled'], [1, 'Disabled']]);
 	}
+});
+
+test('the authenticated published Chimes Delay processes audio with its string note-list control', async () => {
+	const fixture = new URL('./fixtures/nyquist-archive/', import.meta.url);
+	const manifest = await parseNyquistArchiveManifest(gunzipSync(readFileSync(new URL('manifest.json.gz', fixture))));
+	const artifact = manifest.artifacts.find((entry: { fileName: string }) => entry.fileName === 'Chimesdelay3.ny');
+	assert.ok(artifact);
+	const bytes = gunzipSync(readFileSync(new URL('Chimesdelay3.ny.gz', fixture)));
+	const store = createNyquistArchiveStore({ getItem: () => null, setItem: () => undefined });
+	const plugin = await installNyquistArchivePlugin(store, artifact, { fetchImpl: async () => new Response(bytes) });
+	const source = store.source(plugin.id);
+	assert.equal(typeof source, 'string');
+	const runtime = await loadNyquistWasm(readFileSync(new URL('../src/common/editor/nyquist/nyquist.wasm', import.meta.url)));
+	const input = Float32Array.from({ length: 4_410 }, (_, i) => 0.2 * Math.sin(i * 2 * Math.PI * 440 / 44_100));
+	const result = await evaluateNyquist({ source, sampleRate: 44_100, channels: [input], maxOutputFrames: 44_100,
+		controls: { chimeslist: '0 7 12', lownote: 0, highnote: 12, maxdelay: 0.5, minvol: 50, count: 1 } }, runtime);
+	assert.equal(result.type, 'audio');
+	assert.ok(result.frameCount >= input.length);
+	assert.ok(result.channels[0].some((value: number) => Math.abs(value) > 0.01));
 });

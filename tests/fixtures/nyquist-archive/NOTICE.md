@@ -20,3 +20,9 @@ from the same archive. Its SHA-256 is
 Its embedded notices state GPL-2.0-or-later; the complete source and notices are
 preserved in the compressed fixture, with the GPL texts above. It is also used
 by the archive installation regression test.
+
+`Chimesdelay3.ny.gz` preserves Steve Daulton's complete 2,371-byte Chimes Delay
+source from the same snapshot, SHA-256
+`ecb7e97d021a6f61b4979e8883ef2aadeccb01fff1a19dfcec0b74fd2741e750`.
+Its embedded notice grants GPL-2.0-or-later. The archive installation and real
+interpreter regression exercises its string note-list control.
