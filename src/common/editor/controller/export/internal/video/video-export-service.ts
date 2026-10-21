@@ -393,10 +393,13 @@ export function createEditorVideoExportAction(
 					method: published.method,
 				});
 				try { assertVideoExportCurrent(); } catch { return result; }
-				await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService);
+				let sidecarFailure: { error: unknown } | null = null;
+				try { await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService); }
+				catch (error) { sidecarFailure = { error }; }
 				try { assertVideoExportCurrent(); } catch { return result; }
 				state.exportOutput = result;
-				setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
+				if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError });
+				else setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 				publishDocumentSnapshot();
 				return result;
 			}
@@ -422,7 +425,9 @@ export function createEditorVideoExportAction(
 			const publishedCleanup = published.cleanup || null;
 			const publishedUrl = published.url || null;
 			pendingCleanup = publishedCleanup;
-			await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService);
+			let sidecarFailure: { error: unknown } | null = null;
+			try { await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService); }
+			catch (error) { sidecarFailure = { error }; }
 			assertVideoExportCurrent();
 			state.outputCleanup = publishedCleanup;
 			state.outputUrl = publishedUrl;
@@ -434,7 +439,8 @@ export function createEditorVideoExportAction(
 				method: published.method,
 			});
 			pendingCleanup = null;
-			setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
+			if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError });
+			else setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 			publishDocumentSnapshot();
 			return state.exportOutput;
 		} catch (error) {

@@ -22,6 +22,14 @@ function project(title = 'caption') {
 }
 
 test('MI06: video caption sidecar follows the filename selected for the movie', async () => {
+	const { fixture, exportVideo, names } = sidecarFixture();
+	const result: unknown = await exportVideo({ captions: { trackId: 'labels', mux: false, sidecar: 'srt' } });
+	assert.equal(fixture.errors.length, 0, String(fixture.errors[0]));
+	assert.ok(result);
+	assert.deepEqual(names, ['Final.srt']);
+});
+
+function sidecarFixture(save?: () => unknown) {
 	const fixture = createFixture();
 	const initial = project();
 	const names: unknown[] = [];
@@ -32,15 +40,12 @@ test('MI06: video caption sidecar follows the filename selected for the movie', 
 				mp4: { available: true, provider: 'external-ffmpeg' }, webm: { available: true, provider: 'external-ffmpeg' },
 			} }),
 			createDownload: async () => ({ url: 'blob:movie', fileName: 'Final.mp4', method: 'memory' }),
-			saveFile: (request: Readonly<Record<string, unknown>>) => { names.push(request.suggestedName); return { cancelled: false }; },
+			saveFile: (request: Readonly<Record<string, unknown>>) => { names.push(request.suggestedName); return save?.() ?? { cancelled: false }; },
 		},
 	};
 	const exportVideo = createEditorVideoExportAction(runtime, async () => { throw new Error('No audio to render'); });
-	const result: unknown = await exportVideo({ captions: { trackId: 'labels', mux: false, sidecar: 'srt' } });
-	assert.equal(fixture.errors.length, 0, String(fixture.errors[0]));
-	assert.ok(result);
-	assert.deepEqual(names, ['Final.srt']);
-});
+	return { fixture, exportVideo, names };
+}
 
 test('MI07: burned caption wrapping preserves decomposed accented characters', () => {
 	const text = `${'A'.repeat(31)}u\u0308xxxxx`;
@@ -52,4 +57,15 @@ test('MI07: burned caption wrapping preserves decomposed accented characters', (
 	assert.ok(cue !== null && typeof cue === 'object' && 'text' in cue && typeof cue.text === 'string');
 	assert.doesNotMatch(cue.text, /\n\p{M}/u);
 	assert.equal(cue.text.replaceAll('\n', ''), text);
+});
+
+test('MI08: a caption sidecar write failure retains the already published movie', async () => {
+	const failure = new Error('Caption destination quota exceeded');
+	const { fixture, exportVideo } = sidecarFixture(() => { throw failure; });
+	const result: unknown = await exportVideo({ captions: { trackId: 'labels', mux: false, sidecar: 'srt' } });
+	assert.ok(result);
+	assert.strictEqual(fixture.state.exportOutput, result);
+	assert.equal(fixture.state.outputUrl, 'blob:movie');
+	assert.deepEqual(fixture.errors, [failure]);
+	assert.equal(fixture.statuses.some(([status]) => status === 'Done'), false);
 });
