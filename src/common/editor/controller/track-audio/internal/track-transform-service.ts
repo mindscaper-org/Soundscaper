@@ -370,8 +370,8 @@ export function createTrackTransformService(
 					clipIds: [],
 					gain: 1,
 					pan: 0,
-					mute: false,
-					solo: false,
+					mute: Boolean(track.mute),
+					solo: Boolean(track.solo),
 					effectsActive: true,
 					effects: [],
 				};
@@ -530,6 +530,7 @@ export function createTrackTransformService(
 	): candidate is ControllerTrack {
 		return candidate !== null
 			&& candidate.id !== track.id
+			&& Boolean(candidate.mute) === Boolean(track.mute) && Boolean(candidate.solo) === Boolean(track.solo)
 			&& isStandaloneMonoAudioTrack(candidate, dependencies.audioTrackChannelCount(project, candidate));
 	}
 }
