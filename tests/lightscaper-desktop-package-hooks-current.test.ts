@@ -108,6 +108,21 @@ test('Lightscaper packaged resources refuse changed, missing, extra and linked c
 	await verifyDesktopLightscaperPackagedCurrentV1(fixture);
 });
 
+test('Lightscaper rejected resource roots identify the exact target, child and physical kind without admitting content', async context => {
+	const fixture = await makeFixture(context);
+	for (const [name, kind] of [['unexpected-file', 'file'], ['unexpected-directory', 'directory'], ['unexpected-link', 'symlink']] as const) {
+		const path = join(fixture.resourcesRoot, name);
+		if (kind === 'file') await writeFile(path, 'unreviewed application bytes');
+		else if (kind === 'directory') await mkdir(path);
+		else await symlink(fixture.buildRoot, path);
+		await assert.rejects(verifyDesktopLightscaperPackagedCurrentV1(fixture), {
+			message: `Lightscaper packaged resources contain an unexpected application tree (linux-x64): {"name":"${name}","kind":"${kind}"}`,
+		});
+		await rm(path, { recursive: kind === 'directory' });
+	}
+	await verifyDesktopLightscaperPackagedCurrentV1(fixture);
+});
+
 test('Lightscaper admits only authenticated Debian AppArmor metadata outside owned resources', async context => {
 	const fixture = await makeFixture(context), path = join(fixture.resourcesRoot, 'apparmor-profile');
 	const profile = [

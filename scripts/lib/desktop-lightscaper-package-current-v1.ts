@@ -154,6 +154,7 @@ async function assertResourceRoots(root: string, target: Readonly<LightscaperDes
 			if (entries.some(file => !/\.(?:pak|strings|nib)$/u.test(file.path))) throw new Error('Lightscaper Electron localization has unexpected executable content.');
 			continue;
 		}
-		throw new Error('Lightscaper packaged resources contain an unexpected application tree.');
+		const kind = child.isSymbolicLink() ? 'symlink' : child.isDirectory() ? 'directory' : child.isFile() ? 'file' : 'other';
+		throw new Error(`Lightscaper packaged resources contain an unexpected application tree (${target.platform}-${target.arch}): ${JSON.stringify({ name: child.name, kind })}`);
 	}
 }
