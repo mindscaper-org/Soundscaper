@@ -398,7 +398,8 @@ export function createEditorVideoExportAction(
 				catch (error) { sidecarFailure = { error }; }
 				try { assertVideoExportCurrent(); } catch { return result; }
 				state.exportOutput = result;
-				if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError });
+				if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError,
+					destination: null, cleanup: null, cleanupFailureMessage: 'Caption sidecar saving failed.' });
 				else setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 				publishDocumentSnapshot();
 				return result;
@@ -439,7 +440,8 @@ export function createEditorVideoExportAction(
 				method: published.method,
 			});
 			pendingCleanup = null;
-			if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError });
+			if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError,
+				destination: null, cleanup: null, cleanupFailureMessage: 'Caption sidecar saving failed.' });
 			else setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 			publishDocumentSnapshot();
 			return state.exportOutput;
