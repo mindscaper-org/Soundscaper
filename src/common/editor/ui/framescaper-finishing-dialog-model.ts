@@ -112,7 +112,7 @@ export function importFramescaperCaptionSidecar(input: Readonly<{
 	readonly language: string;
 }>): Readonly<{
 	readonly result: VideoCaptionImportResultV1;
-	readonly command: FramescaperOwnedFinishingCommand;
+	readonly command: FramescaperOwnedFinishingCommand | null;
 }> {
 	const project = projectRecord(input.project);
 	const result = importVideoCaptionTrackV1(input.text, {
@@ -125,6 +125,9 @@ export function importFramescaperCaptionSidecar(input: Readonly<{
 	});
 	const tracks = records(project.videoCaptionTracks, 'videoCaptionTracks');
 	const expected = tracks.find(({ id }) => id === result.track.id) ?? null;
+	if (equalFramescaperOwnedFinishingCollectionValues('video-caption-track/set', expected, result.track)) {
+		return Object.freeze({ result, command: null });
+	}
 	const command = snapshotFramescaperOwnedFinishingCommand({
 		type: 'video-caption-track/set', captionTrackId: result.track.id,
 		expectedCaptionTrack: expected, captionTrack: result.track,
