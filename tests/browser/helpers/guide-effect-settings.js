@@ -60,11 +60,7 @@ export async function applyGuideEffectSetting(page, dialog, setting) {
 }
 
 async function commitAndVerify(control, value) {
-	if (await control.getAttribute('type') === 'number') {
-		await control.focus();
-		await control.fill('');
-		await expect(control).toHaveValue('');
-	}
+	await control.focus();
 	await commitInput(control, value);
 	await expect(control).toHaveValue(value);
 }

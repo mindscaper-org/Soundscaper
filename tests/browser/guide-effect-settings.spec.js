@@ -22,3 +22,16 @@ for (const deferredDefault of [false, true]) test(`guide replaces a numeric valu
 	await expect(page.getByRole('spinbutton')).toHaveValue('6');
 	if (deferredDefault) await expect(page.getByRole('spinbutton')).toHaveAttribute('data-default-applied', 'true');
 });
+
+test('guide replaces numeric values that reject empty drafts', async ({ page }) => {
+	await page.setContent('<div role="dialog" aria-label="Apply effect"><div role="group" aria-label="Minimum silence"><input type="number" data-timecode-direct-entry value="0.5"></div></div>');
+	await page.evaluate(() => {
+		const input = document.querySelector('input');
+		input.addEventListener('input', () => {
+			// Timecode controls retain their finite value when an edit is empty.
+			if (!Number.isFinite(input.valueAsNumber)) input.value = '0.5';
+		});
+	});
+	await applyGuideEffectSetting(page, page.getByRole('dialog', { name: 'Apply effect', exact: true }), { label: 'Minimum silence', value: '1' });
+	await expect(page.getByRole('spinbutton')).toHaveValue('1');
+});
