@@ -41,8 +41,8 @@ export default function FramescaperSelectedVisualAuthoringDialog(props: Props) {
 		surface: props.surface, project: props.project, copy: props.copy,
 		selectedClipId: props.selectedClipId, playheadSample: props.playheadSample,
 	}), [props.copy, props.playheadSample, props.project, props.selectedClipId, props.surface]);
-	const frameRate = audioEditorProjectFrameRate(props.project);
 	const [pairId, setPairId] = useState(model.selectedPairId ?? '');
+	const frameRate = authoringFrameRate(props.project, model, pairId);
 	const [durationFrames, setDurationFrames] = useState(() => selectedPair(model, pairId)?.durationFrames ?? 12);
 	const [brightness, setBrightness] = useState(String(model.adjustmentBrightness));
 	const [adjustmentLayerId, setAdjustmentLayerId] = useState(model.adjustmentLayerId);
@@ -308,6 +308,18 @@ function requestFor(operation: string, model: Model, values: Values) {
 
 function selectedPair(model: Model, pairId: string) {
 	return model.transitionPairs.find(({ id }) => id === pairId) ?? null;
+}
+
+function authoringFrameRate(project: unknown, model: Model, pairId: string): number {
+	if (!project || typeof project !== 'object') return audioEditorProjectFrameRate(project);
+	const clipId = model.surface === 'video-transition' || model.surface === 'video-transition-dissolve'
+		? selectedPair(model, pairId)?.outgoingClipId : model.selectedClipId;
+	const clips: unknown = Reflect.get(project, 'clips');
+	const clip: unknown = Array.isArray(clips) ? clips.find((value: unknown) => value !== null
+		&& typeof value === 'object' && Reflect.get(value, 'id') === clipId) : null;
+	const sequenceId: unknown = clip && typeof clip === 'object' ? Reflect.get(clip, 'sequenceId') : null;
+	return audioEditorProjectFrameRate(typeof sequenceId === 'string'
+		? { ...project, primarySequenceId: sequenceId } : project);
 }
 
 function numericDraft(value: string): number { return value.trim() ? Number(value) : NaN; }
