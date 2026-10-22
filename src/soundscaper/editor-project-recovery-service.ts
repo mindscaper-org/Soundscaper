@@ -76,7 +76,6 @@ export async function createSoundscaperProjectRecoveryCopy(
 	const repaired = await prepare(store, current);
 	const timestamp = new Date().toISOString();
 	const source = cloneSoundscaperProject(repaired.project) as unknown as Record<string, unknown>;
-	source.revision = 0;
 	const copyProjectId = createProjectStoreId('project');
 	const title = `${inspection.title} (recovered)`;
 	// The existing duplication lifecycle owns exact linked-original aliases and their rollback.
