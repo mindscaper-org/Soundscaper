@@ -436,7 +436,7 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 }
 
 [[nodiscard]] bool professional_component_set_available() {
-	for (const auto name : {"h264", "hevc", "vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr"}) {
+	for (const auto name : {"h264", "hevc", "vp9", "libvpx-vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr"}) {
 		if (avcodec_find_decoder_by_name(name) == nullptr) return false;
 	}
 	for (const auto name : {"mov", "matroska", "mxf", "image2"}) {
