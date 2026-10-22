@@ -8,7 +8,7 @@ import {
 } from '../../project-bin-dnd.js';
 import ProjectBinNameEditor from './ProjectBinNameEditor.tsx';
 import { formatProjectBinSource } from './project-bin-model.ts';
-import { useProjectBinWaveformPath, useProjectBinTransformBadges, useProjectBinMediaTiming, useProjectBinDuration, useProjectBinInstanceCount } from './useProjectBinPresentation.ts';
+import { useProjectBinWaveformPath, useProjectBinTransformBadges, useProjectBinMediaTiming, useProjectBinDuration, useProjectBinAudioDuration, useProjectBinInstanceCount } from './useProjectBinPresentation.ts';
 import { productVideoVisualPreviewRuntimeFor } from './product-video-visual-preview-runtime.ts';
 import { createProjectBinRetimePlayback } from '../../controller/import/project-bin-video-playback.ts';
 
@@ -59,7 +59,8 @@ export default function ProjectBinCard({
 		? sources[itemClips.indexOf(videoClip)] || project?.sources?.find((candidate) => candidate.id === videoClip.sourceId)
 		: null;
 	const { videoPreview, visualDuration } = useProjectBinMediaTiming(project, videoClip, videoSource, visualClip);
-	const duration = useProjectBinDuration(videoPreview?.durationFrames ?? visualDuration ?? clip.durationFrames, project?.sampleRate, locale);
+	const audioDuration = useProjectBinAudioDuration(project, clip);
+	const duration = useProjectBinDuration(videoPreview?.durationFrames ?? visualDuration ?? audioDuration ?? clip.durationFrames, project?.sampleRate, locale);
 	const videoStartSeconds = videoPreview?.startSeconds ?? 0;
 	const videoEndSeconds = videoPreview?.endSeconds ?? 0;
 	const videoPlaybackRate = videoPreview?.playbackRate ?? 1;

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { projectBinItems, projectBinWaveformPath, projectBinTransformBadges, formatProjectBinDuration } from './project-bin-model.ts';
 import { projectBinVideoPreviewModel, projectBinVisualDurationFrames } from './project-bin-video-preview-model.ts';
 import { videoTimingRegistryToken } from '../../video-source-time.ts';
+import { resolveRuntimeClipProjection, type RuntimeClipProject, type RuntimePersistedClip } from '../../runtime-clip-projection.ts';
 
 type BinClip = NonNullable<Parameters<typeof projectBinItems>[0]>[number] & { readonly sourceId?: string };
 type BinSource = Parameters<typeof projectBinTransformBadges>[1] & { readonly id: string };
@@ -35,6 +36,15 @@ export function useProjectBinMediaTiming(project: Parameters<typeof projectBinVi
 	const videoPreview = useMemo(() => projectBinVideoPreviewModel(project, videoClip, videoSource), [project, videoClip, videoSource, timingToken]);
 	const visualDuration = useMemo(() => projectBinVisualDurationFrames(project, visualClip), [project, visualClip]);
 	return { videoPreview, visualDuration };
+}
+
+/** Audio bin leaves retain musical coordinates, just as their timeline instances do. */
+export function useProjectBinAudioDuration(project: RuntimeClipProject | null | undefined, clip: RuntimePersistedClip) {
+	return useMemo(() => {
+		if (!project || clip.kind !== 'audio') return null;
+		try { return resolveRuntimeClipProjection(project, clip).durationFrames; }
+		catch { return null; }
+	}, [project, clip]);
 }
 
 export function useProjectBinDuration(durationFrames: number, sampleRate: number, locale: string) {

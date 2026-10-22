@@ -31,6 +31,7 @@ export interface FoundationRuntimeConsumerEvidence {
  */
 const entries: FoundationRuntimeConsumerEvidence[] = [
 	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS,
+	{ id: 'bin-audio-duration-presentation', surface: 'preview', file: 'src/common/editor/ui/workspace/useProjectBinPresentation.ts', entryPoint: 'useProjectBinAudioDuration', inputIdentifier: 'project', projectedIdentifier: null, boundary: 'resolveRuntimeClipProjection', evidence: 'Audio Bin cards resolve authored beat extents at the current tempo before displaying duration; sample clips and visual media retain their existing timing paths.' },
 	{
 		id: 'label-file-export', surface: 'interchange', file: 'src/common/editor/controller/edit/internal/label-service.ts',
 		entryPoint: 'exportLabels', inputIdentifier: 'labelProject', projectedIdentifier: 'tracks', boundary: 'resolveRuntimeProjectProjection',
