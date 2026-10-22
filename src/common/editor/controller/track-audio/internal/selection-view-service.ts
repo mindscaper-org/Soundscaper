@@ -266,7 +266,8 @@ export function createSelectionViewService<
 		const project = getProject();
 		if (!project) return null;
 		const trackIds = project.tracks.map((track) => track.id);
-		const next = applySelectionRange(project, 0, projectDurationFrames(project), { trackIds }, false);
+		const endFrame = Math.max(projectDurationFrames(project), selectedTrackContentRange(project, trackIds, () => 0)?.endFrame ?? 0);
+		const next = applySelectionRange(project, 0, endFrame, { trackIds }, false);
 		if (!state.selectedTrackId && trackIds.length) {
 			state.selectedTrackId = trackIds[0];
 			synchronizeMicrophoneMeterTarget();

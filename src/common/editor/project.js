@@ -6,6 +6,7 @@ import {
 	validateCurrentAudioEditorProject,
 } from './project-current-runtime.ts';
 import { runtimeTimelineAnnotationExtent } from './runtime-timeline-annotation-projection.ts';
+import { takeCompContentRange } from './take-comp-content-range.ts';
 
 export { createStableId } from './stable-id.js';
 
@@ -93,7 +94,7 @@ export function projectDurationFrames(project) {
 export function editorTimelineDurationFrames(project, sampleRate = project.sampleRate) {
 	const rate = Number(sampleRate) > 0 ? Number(sampleRate) : AUDIO_EDITOR_SAMPLE_RATE;
 	return Math.max(
-		Math.max(projectDurationFrames(project), runtimeTimelineAnnotationExtent(project)) * 2,
+		Math.max(projectDurationFrames(project), runtimeTimelineAnnotationExtent(project), takeCompContentRange(project)?.endFrame ?? 0) * 2,
 		Math.round(rate * EDITOR_TIMELINE_MINIMUM_SECONDS),
 	);
 }
