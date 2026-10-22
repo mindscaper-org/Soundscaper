@@ -9,7 +9,7 @@ import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { generateAudioEditorSignal } from '../src/common/editor/generators.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-for (const entry of ['free text', 'digits']) for (const sampleRate of [44_100, 48_000, 96_000]) for (const type of ['tone', 'chirp', 'noise', 'silence']) test(`Generate ${type} at ${sampleRate} Hz retains one sample entered through ${entry}`, async () => {
+for (const entry of ['free text', 'digits', 'seconds digits']) for (const sampleRate of [44_100, 48_000, 96_000]) for (const type of ['tone', 'chirp', 'noise', 'silence']) test(`Generate ${type} at ${sampleRate} Hz retains an exact duration entered through ${entry}`, async () => {
 	const dom = installReactTestDom();
 	const previousReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
 	const previousObserver = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
@@ -32,9 +32,11 @@ for (const entry of ['free text', 'digits']) for (const sampleRate of [44_100, 4
 			copy={ENGLISH_COPY} locale="en" run={(operation: () => unknown) => operation()} onClose={() => undefined} />); });
 		const duration = dom.one('[data-generator-field="durationSeconds"]');
 		const format = duration.querySelector('.timecode__format-button'); assert.ok(format);
-		await act(async () => { reactProps(format).onClick({ detail: 1 }); });
-		const samples = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'samples'); assert.ok(samples);
-		await act(async () => { reactProps(samples).onClick({}); });
+		if (entry !== 'seconds digits') {
+			await act(async () => { reactProps(format).onClick({ detail: 1 }); });
+			const samples = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'samples'); assert.ok(samples);
+			await act(async () => { reactProps(samples).onClick({}); });
+		}
 		if (entry === 'free text') {
 			await act(async () => { reactProps(format).onClick({ detail: 1 }); });
 			const enter = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'Enter value…'); assert.ok(enter);
@@ -46,14 +48,24 @@ for (const entry of ['free text', 'digits']) for (const sampleRate of [44_100, 4
 			const digits = duration.querySelectorAll('.timecode-digit'); assert.ok(digits[0]);
 			digits[0].focus();
 			await act(async () => { reactProps(digits[0]!).onClick(); });
-			for (const key of [...'1'.padStart(digits.length, '0'), 'Enter']) await act(async () => {
-				const event = Object.assign(new Event('keydown', { cancelable: true }), { key });
-				for (const listener of [...keys]) { if (typeof listener === 'function') listener(event); else listener.handleEvent(event); }
-			});
+			const text = entry === 'seconds digits' ? '000001000' : '1'.padStart(digits.length, '0');
+			for (const [index, key] of [...text, 'Enter'].entries()) {
+				await act(async () => {
+					const event = Object.assign(new Event('keydown', { cancelable: true }), { key });
+					for (const listener of [...keys]) { if (typeof listener === 'function') listener(event); else listener.handleEvent(event); }
+				});
+				if (entry === 'seconds digits' && index === 4) {
+					const generate = dom.container.querySelectorAll('button').find(button => button.textContent === ENGLISH_COPY.generate); assert.ok(generate);
+					assert.equal(reactProps(generate).disabled, true, 'zero is an editable draft, not a valid generation');
+					await act(async () => { reactProps(generate).onClick(); });
+					assert.equal(generatedFrames, 0);
+				}
+			}
 		}
 		const generate = dom.container.querySelectorAll('button').find(button => button.textContent === ENGLISH_COPY.generate); assert.ok(generate);
 		await act(async () => { reactProps(generate).onClick(); });
-		assert.equal(generatedFrames, 1, 'the displayed sample edit must generate the requested single sample');
+		assert.equal(generatedFrames, entry === 'seconds digits' ? sampleRate : 1,
+			'the displayed duration must not retain an invisible minimum after typing through zero');
 	} finally {
 		await act(async () => { root.unmount(); });
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
