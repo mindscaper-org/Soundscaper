@@ -177,7 +177,7 @@ export function createOtioExport(request: OtioExportRequest): OtioExportResult {
 		OTIO_SCHEMA: 'Timeline.1',
 		name: title,
 		global_start_time: rationalTime(
-			nonNegativeInteger(request?.startFrameCount ?? 0, 'startFrameCount'),
+			request?.startFrameCount ?? 0,
 			sequenceRateValue,
 		),
 		metadata: {
