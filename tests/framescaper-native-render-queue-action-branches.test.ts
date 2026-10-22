@@ -151,7 +151,7 @@ function replace(bridge: Data): void {
 	(globalThis as unknown as Data).framescaperDesktop = { v1: { nativeServices: bridge } };
 }
 
-function enqueue(runtime: FramescaperNativeProjectActionRuntime, request?: unknown): Promise<void> {
+function enqueue(runtime: FramescaperNativeProjectActionRuntime, request?: unknown): ReturnType<FramescaperNativeProjectActionRuntime['run']> {
 	return runtime.run('render-queue-enqueue', request);
 }
 

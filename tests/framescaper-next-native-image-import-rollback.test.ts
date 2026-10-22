@@ -50,7 +50,7 @@ for (const mode of ['same-project-edit', 'unchanged'] as const) test(`NP026: fai
 	const entered = deferred<void>(), failed = deferred<void>(); const { bridge, control } = nativeBridge(); let minted = 0;
 	const originalSave = environment.store.saveProjectIfCurrentWithWriteFence.bind(environment.store); let armed = true;
 	environment.store.saveProjectIfCurrentWithWriteFence = async (...args: Parameters<typeof originalSave>) => {
-		if (armed && Array.isArray(args[1].sources) && args[1].sources.some(source => record(source).imageSequence != null)) {
+		if (armed && Array.isArray(args[1].sources) && args[1].sources.some((source: unknown) => record(source).imageSequence != null)) {
 			armed = false; entered.resolve(); await failed.promise;
 		}
 		return originalSave(...args);
