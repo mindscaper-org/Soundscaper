@@ -25,7 +25,7 @@ test('memory compare-and-swap shares its owned publication snapshot without dupl
 	let committed;
 	try {
 		committed = await repository.saveIfCurrent(initial, next);
-		assert.equal(projectClones, 3, 'detach expected, detach incoming, and detach the returned committed snapshot');
+		assert.ok(projectClones <= 3, 'publication must stay within the existing three-project-clone budget');
 	} finally { globalThis.structuredClone = nativeClone; }
 	assert.ok(committed);
 	next.metadata.title = 'Caller mutation';

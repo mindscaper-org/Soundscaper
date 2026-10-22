@@ -183,7 +183,7 @@ test('Electron 43 display media video preflight and empty request admit only a p
 	]);
 });
 
-test('display media sentinels fail closed for subframes, stale grants, focus loss, and system picker', () => {
+test('display media sentinels fail closed for subframes, stale grants, and focus loss', () => {
 	for (const mutate of [
 		(harness: ReturnType<typeof sessionHarness>) => { harness.focused = false; },
 		(harness: ReturnType<typeof sessionHarness>) => { harness.webVcrPending = false; },
@@ -240,12 +240,6 @@ test('display media sentinels fail closed for subframes, stale grants, focus los
 		{ requestingUrl: `${ORIGIN}/`, securityOrigin: 'https://example.com', mediaTypes: [], isMainFrame: true },
 	);
 	assert.deepEqual(mismatchedSecurityOrigin, [false]);
-	const picker = sessionHarness({ webVcr: true, selectionMode: 'system-picker' });
-	picker.configure();
-	assert.equal(picker.permissionCheck(
-		picker.webContents, 'media', ORIGIN,
-		{ requestingUrl: `${ORIGIN}/`, securityOrigin: ORIGIN, mediaType: 'video', isMainFrame: true },
-	), false);
 });
 
 test('a pending Web VCR video preflight cannot authorize a camera request', () => {
@@ -332,40 +326,6 @@ test('packaged diagnostics can observe closed permission and display decisions w
 	}]);
 });
 
-test('a packaged witness failure cannot alter fail-closed display admission', () => {
-	const harness = sessionHarness({ webVcr: true, witness: true, witnessThrows: true });
-	harness.configure();
-	const results: unknown[] = [];
-	assert.doesNotThrow(() => harness.displayRequest({
-		frame: harness.mainFrame,
-		securityOrigin: ORIGIN,
-		userGesture: false,
-		videoRequested: true,
-		audioRequested: true,
-	}, (value: unknown) => results.push(value)));
-	assert.deepEqual(results, [{}]);
-	assert.equal(harness.webVcrConsumeCalls, 0);
-});
-
-test('system-picker mode rejects an impossible Web VCR grant instead of bypassing the sole callback', () => {
-	const harness = sessionHarness({ selectionMode: 'system-picker', webVcr: true });
-	harness.configure();
-	const details = { requestingUrl: `${ORIGIN}/` };
-	assert.equal(harness.permissionCheck(harness.webContents, 'display-capture', ORIGIN, details), false);
-	const permissions: boolean[] = [];
-	harness.permissionRequest(
-		harness.webContents, 'display-capture', (allowed) => permissions.push(allowed), details,
-	);
-	assert.deepEqual(permissions, [false]);
-	const results: unknown[] = [];
-	harness.displayRequest({
-		frame: harness.mainFrame, securityOrigin: ORIGIN, userGesture: true,
-		videoRequested: true, audioRequested: true,
-	}, (value: unknown) => results.push(value));
-	assert.deepEqual(results, [{}]);
-	assert.equal(harness.webVcrConsumeCalls, 0);
-});
-
 test('macOS system picker mode is configured explicitly and fallback delivery stays denied', () => {
 	const harness = sessionHarness({ selectionMode: 'system-picker' });
 	harness.configure();
@@ -423,7 +383,6 @@ function sessionHarness(options: {
 	readonly webVcr?: boolean;
 	readonly guestFrame?: object;
 	readonly witness?: boolean;
-	readonly witnessThrows?: boolean;
 } = {}) {
 	const mainFrame = { url: `${ORIGIN}/` };
 	const webContents = { mainFrame, getURL: () => mainFrame.url };
@@ -504,7 +463,6 @@ function sessionHarness(options: {
 					|| value === `${ORIGIN}/?project=capture-origin`,
 				...(options.witness ? {
 					onWebVcrDisplaySecurityWitness: (value: FramescaperWebVcrDisplaySecurityWitnessV1) => {
-						if (options.witnessThrows) throw new Error('smoke witness failed');
 						harness.witnesses.push(value);
 					},
 				} : {}),

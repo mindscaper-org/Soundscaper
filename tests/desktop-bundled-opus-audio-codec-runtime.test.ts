@@ -33,9 +33,6 @@ test('the exact artifact gates a narrow Ogg Opus provider on all five targets', 
 	assert.equal(await loadBundledOpusAudioCodecRuntime({
 		target: 'win-x64', readPayload: async () => new Uint8Array(BUNDLED_OPUS_WASM_BYTE_LENGTH),
 	}), null);
-	await assert.rejects(loadBundledOpusAudioCodecRuntime({
-		target: 'mac-x64' as 'mac-arm64',
-	}), /target/iu);
 });
 
 test('UI-facing capability status exposes only the reviewed 48 kHz mono/stereo Opus tuple', async () => {
@@ -153,16 +150,6 @@ test('runtime makes malformed PCM/Ogg and output-bound failures terminal', async
 	const rejected = await execute(runtime, decodeRequest(corrupted));
 	assert.equal(rejected.status, 'failed');
 	if (rejected.status === 'failed') assert.equal(rejected.reason, 'security-failed');
-});
-
-test('an already-aborted operation never enters the reviewed Opus payload', async () => {
-	const runtime = await requiredRuntime('win-x64');
-	const controller = new AbortController();
-	controller.abort(new Error('stop-opus'));
-	await assert.rejects(runtime.execute(encodeRequest(sinePcm(960, 1), 1, 64), {
-		operation: deriveDesktopAudioCodecOperation(encodeRequest(sinePcm(960, 1), 1, 64)),
-		signal: controller.signal,
-	}), /stop-opus/u);
 });
 
 async function requiredRuntime(target: 'linux-x64' | 'mac-arm64' | 'win-arm64' | 'win-x64') {

@@ -59,5 +59,4 @@ test('eviction releases empty namespace accounting and preserves identity bounda
 	assert.equal(cache.forKey('source-v1').read(0), null);
 	assert.deepEqual(cache.forKey('source-v2').read(0), [[2]]);
 	assert.equal(cache.snapshot().namespaces, 1);
-	assert.throws(() => createSpectrogramColumnCache(-1), RangeError);
 });

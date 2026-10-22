@@ -6,6 +6,7 @@ import { openInstalledGain } from './helpers/native-plugin-parameter-host.js';
 test('restoring installed native plug-in state refreshes its visible controls', async ({ page }) => {
 	const dialog = await openInstalledGain(page);
 	const range = dialog.locator('[data-native-plugin-parameter="gain"]');
+	await expect(dialog.getByRole('alert')).toHaveCount(0);
 	await expect(range).toHaveValue('0.25');
 	await range.press('Home');
 	await expect(range).toHaveValue('0');

@@ -49,11 +49,10 @@ test('renders one exact keyed RGBA frame through the real compositor with top-do
 			resolveSource: () => presentation,
 		});
 		const first = new Uint8Array(renderer.byteLength);
-		const second = first;
 		await renderer.produce(frameSource.frame(0), first, { signal: new AbortController().signal });
 		const firstPixels = landmarks(first, renderer.width);
-		await renderer.produce(frameSource.frame(1), second, { signal: new AbortController().signal });
-		const secondPixels = landmarks(second, renderer.width);
+		await renderer.produce(frameSource.frame(1), first, { signal: new AbortController().signal });
+		const secondPixels = landmarks(first, renderer.width);
 		await renderer.dispose();
 		return {
 			root,
@@ -61,7 +60,6 @@ test('renders one exact keyed RGBA frame through the real compositor with top-do
 			secondPixels,
 			presentCalls,
 			disposeCalls,
-			reusedBuffer: first === second,
 			canvas: { width: outputCanvas.width, height: outputCanvas.height },
 		};
 
@@ -139,7 +137,6 @@ test('renders one exact keyed RGBA frame through the real compositor with top-do
 		}
 	}, ROUTE_ROOT);
 
-	expect(result.reusedBuffer).toBe(true);
 	expect(result.presentCalls).toBe(2);
 	expect(result.disposeCalls).toBe(1);
 	expect(result.canvas).toEqual({ width: 64, height: 64 });

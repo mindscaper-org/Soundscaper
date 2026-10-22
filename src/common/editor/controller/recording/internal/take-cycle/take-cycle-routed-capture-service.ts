@@ -189,7 +189,7 @@ export function createTakeCycleRoutedCaptureService(
 			};
 		});
 		inputsOwned = true;
-		const sources = await acquireSources(plan.groups, lanes, project.sampleRate);
+		const sources = await acquireSources(plan.groups, lanes, runtime.recordingInputSampleRate?.() ?? project.sampleRate);
 		assertScopeCurrent(scope, project.id);
 		if (!sources.some(({ lanes: sourceLanes }) => sourceLanes.length)) {
 			throw new Error('No routed take cycle inputs are available.');

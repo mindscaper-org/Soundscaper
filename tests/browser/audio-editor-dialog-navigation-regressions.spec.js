@@ -21,7 +21,7 @@ test('timed recording skips its disabled duration when tabbing from the start da
 	await expect(end).toBeFocused();
 });
 
-test('a realtime effect header remains reachable after dragging toward the window edge', async ({ page }) => {
+async function moveReverbToWindowEdge(page) {
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
 	await page.getByRole('dialog', { name: 'Tone', exact: true }).getByRole('button', { name: 'Generate', exact: true }).click();
@@ -37,22 +37,6 @@ test('a realtime effect header remains reachable after dragging toward the windo
 	const after = await header.boundingBox();
 	expect(after.y).toBeGreaterThanOrEqual(0);
 	expect(after.x + after.width).toBeGreaterThanOrEqual(48);
-});
-
-async function moveReverbToWindowEdge(page) {
-	const editor = await bootEditor(page, '/embed/en/');
-	await chooseCommandAction(page, editor, 'Generate', 'Tone');
-	await page.getByRole('dialog', { name: 'Tone', exact: true }).getByRole('button', { name: 'Generate', exact: true }).click();
-	const effects = await openEffectsForTrack(editor, 0);
-	await addRackEffect(page, effects, 'track', 'Reverb');
-	const dialog = page.getByRole('dialog', { name: 'Reverb', exact: true });
-	const header = dialog.locator('.dialog-header');
-	const before = await header.boundingBox();
-	await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
-	await page.mouse.down();
-	await page.mouse.move(1, 1, { steps: 5 });
-	await page.mouse.up();
-	expect((await header.boundingBox()).y).toBeGreaterThanOrEqual(0);
 	return { dialog, header };
 }
 

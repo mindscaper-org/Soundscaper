@@ -171,7 +171,6 @@ test('a complete 30-minute run recomputes all diagnostic metrics', () => {
 	const result = createM8ACaptureResult(makeMeasurement(), config);
 	assert.equal(result.metricGatePassed, true);
 	assert.equal(result.status, 'passed');
-	assert.equal('qualificationEvidencePublished' in result, false);
 	assert.equal(result.evaluation.passed, true);
 	assert.ok(result.evaluation.verdicts.every(({ passed }: { passed: boolean }) => passed));
 	assert.deepEqual(result.observedFingerprint, fingerprint());
@@ -292,7 +291,7 @@ test('optional system audio is admitted only as a display-returned separate stre
 	);
 });
 
-test('fingerprints are exact per-run observations and no fixed device matrix exists', () => {
+test('fingerprints require every device observation', () => {
 	assert.deepEqual(M8A_CAPTURE_FINGERPRINT_FIELDS, [
 		'camera', 'microphone', 'displayCapture', 'systemAudio',
 	]);
@@ -304,8 +303,6 @@ test('fingerprints are exact per-run observations and no fixed device matrix exi
 			/fingerprint must contain the exact fields/u,
 		);
 	}
-
-	assert.equal(Object.hasOwn(config, 'environments'), false);
 });
 
 test('hosted runners and unsupported result states are refused', async () => {

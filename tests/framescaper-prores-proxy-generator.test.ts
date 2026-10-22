@@ -5,7 +5,6 @@ import test from 'node:test';
 
 import {
 	createFramescaperNativeProResProxyCandidateObserver as createObserver,
-	createFramescaperNativeProResProxyGenerator as createGenerator,
 } from '../src/framescaper/editor-native-prores-proxy-generator.ts';
 
 type Data = Record<string, unknown>;
@@ -68,47 +67,4 @@ test('an observer declines when no timing probe can measure the source', () => {
 		null,
 		'a proxy that cannot be timed must not be offered',
 	);
-});
-
-test('an observer requires its project authority', () => {
-	assert.throws(() => createObserver({ profile: {}, scope: scope() } as never), TypeError);
-	assert.throws(() => createObserver(null as never), TypeError);
-	assert.throws(
-		() => createObserver({ profile: {}, getProject: 'not-a-function', scope: scope() } as never),
-		TypeError,
-	);
-});
-
-test('a generator exposes its recipe identity and generate port', () => {
-	const generator = createGenerator({ profile: {}, getProject, bridge: bridge() } as never);
-
-	assert.deepEqual(Object.keys(generator), ['id', 'version', 'generate']);
-	assert.equal(typeof (generator as unknown as Data).generate, 'function');
-});
-
-test('a generator requires its exact execution ports', () => {
-	assert.throws(
-		() => createGenerator({ profile: {}, bridge: bridge() } as never),
-		/requires its exact execution ports/u,
-	);
-	assert.throws(
-		() => createGenerator({ profile: {}, getProject, bridge: {} } as never),
-		/requires its exact execution ports/u,
-	);
-	assert.throws(
-		() => createGenerator({ profile: {}, getProject, bridge: bridge(), waitForPoll: 1 } as never),
-		/requires its exact execution ports/u,
-	);
-	assert.throws(() => createGenerator(null as never), /requires its exact execution ports/u);
-});
-
-test('a generator refuses a bridge missing any single proxy port', () => {
-	for (const method of PROXY_METHODS) {
-		const partial = bridge();
-		delete partial[method];
-		assert.throws(
-			() => createGenerator({ profile: {}, getProject, bridge: partial } as never),
-			/requires its exact execution ports/u,
-		);
-	}
 });

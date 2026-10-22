@@ -150,7 +150,7 @@ export interface SherpaFactoryOptions extends SherpaAccelerationOptions {
 	readonly numThreads?: number;
 }
 
-function transducerConfig(model: SpeechModelPaths, options: SherpaFactoryOptions, provider: SherpaExecutionProvider) {
+function transducerConfig(model: SpeechModelPaths, options: SherpaFactoryOptions, provider: SherpaExecutionProvider, modelId: string) {
 	if (typeof model.joiner !== 'string' || model.joiner === '') {
 		throw new TypeError('This runtime needs a separate joiner model.');
 	}
@@ -160,7 +160,7 @@ function transducerConfig(model: SpeechModelPaths, options: SherpaFactoryOptions
 			transducer: { encoder: model.encoder, decoder: model.decoder, joiner: model.joiner },
 			tokens: model.tokens,
 			numThreads: options.numThreads ?? 2,
-			provider,
+			provider: options.providerForModel?.(modelId, provider) ?? provider,
 			debug: 0,
 			modelType: 'nemo_transducer',
 		},
@@ -208,7 +208,7 @@ export function createSherpaRecognizerFactory(
 				if (owned) disposeSherpaNativeV1(owned);
 			};
 			const construct = (provider: SherpaExecutionProvider): void => {
-				const config = transducerConfig(request.model, options, provider);
+					const config = transducerConfig(request.model, options, provider, request.modelId ?? 'speech-model');
 				recognizer = callSherpaNativeV1(() => new module.OfflineRecognizer(config));
 			};
 			try { await executor.run(request.signal, construct); }

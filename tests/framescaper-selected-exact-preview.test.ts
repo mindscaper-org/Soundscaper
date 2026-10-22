@@ -90,16 +90,6 @@ function frameRequest(built: Data, timelineSample: number): Data {
 	};
 }
 
-test('an exact preview composes against an injected output rather than a canvas', async () => {
-	const { options } = harness();
-
-	const preview = await createPreview(options) as unknown as Data;
-
-	assert.equal(typeof preview.render, 'function');
-	assert.equal(typeof preview.dispose, 'function');
-	(preview.dispose as () => void)();
-});
-
 test('rendering writes exactly one full canvas of pixels', async () => {
 	const { options, written } = harness();
 	const preview = await createPreview(options) as unknown as Data;

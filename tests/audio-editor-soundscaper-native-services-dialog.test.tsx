@@ -488,23 +488,7 @@ test('the manager is an accessible modal for installed plugins and quarantine, w
 	assert.match(manage, /data-native-quarantine-clear="re-enable"/u);
 	assert.match(manage, /Proof Gain/u);
 
-	const preferences = renderToStaticMarkup(<SoundscaperNativeServicesDialog
-		bridge={fakeBridge().bridge}
-		initialSurface="native-audio-preferences"
-		initialState={{ ...seeded, audio: { ...seeded.audio!, enabled: false } }}
-		onClose={() => {}}
-	/>);
-	assert.match(preferences, /data-native-audio-set-enabled="true"/u);
-	assert.match(preferences, /Turn on native audio/u);
-
-	const devices = renderToStaticMarkup(<SoundscaperNativeServicesDialog
-		bridge={fakeBridge().bridge}
-		initialSurface="native-audio-device"
-		initialState={{ ...seeded, audio: { ...seeded.audio!, enabled: false } }}
-		onClose={() => {}}
-	/>);
-	assert.match(devices, /disabled=""[^>]*data-native-audio-describe="alsa"/u,
-		'device discovery must remain unavailable while native audio is off');
+	assert.doesNotMatch(manage, /Native audio and latency|Turn on native audio|data-native-audio/u);
 });
 
 test('the menu-opened surface mounts and unmounts one host, and nothing before it is opened', async () => {

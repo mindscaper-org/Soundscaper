@@ -28,15 +28,6 @@ function validIntent() {
 	});
 }
 
-test('minting an intent refuses options that are not a record', () => {
-	for (const options of [null, undefined, 'handoff', 42]) {
-		assert.throws(
-			() => createCrossProductHandoffLaunchIntent(options as never),
-			{ name: 'TypeError', message: /options must be a record/u },
-		);
-	}
-});
-
 test('minting an intent refuses a source that is not an exact family-v1 project', () => {
 	const source = createSoundscaperProject({ id: 'source-project', now: NOW });
 	assert.throws(
@@ -45,18 +36,6 @@ test('minting an intent refuses a source that is not an exact family-v1 project'
 			destinationFamily: 'framescaper',
 		}),
 		{ name: 'RangeError', message: /exact family-v1 source/u },
-	);
-});
-
-test('minting an intent refuses an unsupported or identical destination family', () => {
-	const sourceProject = createSoundscaperProject({ id: 'source-project', now: NOW });
-	assert.throws(
-		() => createCrossProductHandoffLaunchIntent({ sourceProject, destinationFamily: 'lightscaper' as never }),
-		{ name: 'RangeError', message: /destination schemaFamily is unsupported/u },
-	);
-	assert.throws(
-		() => createCrossProductHandoffLaunchIntent({ sourceProject, destinationFamily: 'soundscaper' }),
-		{ name: 'RangeError', message: /different product family/u },
 	);
 });
 

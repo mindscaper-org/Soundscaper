@@ -67,6 +67,11 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	});
 
 	assert.equal(result.outputRoot, fixture.outputRoot);
+	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'tests/helpers/scape-archive-rewrite.js')),
+		await readFile(new URL('./helpers/scape-archive-rewrite.js', import.meta.url)),
+		'the nightly label clipboard test must receive the original archive rewrite helper bytes',
+	);
 	const releaseReader = await import(pathToFileURL(join(fixture.outputRoot, 'scripts/lib/product-release-lines.mjs')).href);
 	const recorderUrl = new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64',
 		pathToFileURL(join(fixture.outputRoot, 'tests/browser/example.spec.js')));
@@ -122,6 +127,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		...['flac', 'mpeg-audio', 'opus', 'vorbis', 'wavpack'].map((format) => `desktop/bundled-${format}-stream.ts`),
 		'desktop/desktop-audio-codec-capability-contract.ts',
 		'desktop/desktop-audio-codec-operation-contract.ts',
+		'desktop/desktop-audio-decode-formats.ts',
 		'desktop/desktop-video-codec-operation-contract.ts',
 		'desktop/coverage-checkpoint-exit.mjs',
 		'desktop/nightly-tests-main.mjs',
@@ -202,6 +208,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'tests/electron/local-assistance-models/example.spec.js',
 		'tests/browser/example.spec.js-snapshots/example-chromium-linux.png',
 		'tests/aup3-fixture.js',
+		'tests/helpers/aup4-database-harness.js',
 		'tests/helpers/png-fixture.mjs',
 		'tests/helpers/lightscaper-current-catalog-companions-fixture.ts',
 		'tests/helpers/lightscaper-current-library-loop-fixture.ts',

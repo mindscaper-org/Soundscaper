@@ -180,6 +180,7 @@ export interface EditorActionFunctions {
 	readonly setAudacityEffectType: ReturnType<typeof createEffectsComposition>['controls']['setAudacityEffectType'];
 	readonly setAudioOutputDevice: ReturnType<typeof createRecordingComposition>['routing']['setAudioOutputDevice'];
 	readonly setAutoFitTrackHeight: ReturnType<typeof createTransportComposition>['view']['setAutoFitTrackHeight'];
+	readonly setClipsTimePitch: ReturnType<typeof createClipVideoComposition>['clipProperty']['setClipsTimePitch'];
 	readonly setClipTimePitch: ReturnType<typeof createClipVideoComposition>['clipProperty']['setClipTimePitch'];
 	readonly setLatencyOffset: ReturnType<typeof createRecordingComposition>['setLatencyOffset'];
 	readonly setLoopRegion: ReturnType<typeof createTransportComposition>['transport']['setLoopRegion'];
@@ -188,6 +189,8 @@ export interface EditorActionFunctions {
 	readonly setMicrophoneMetering: ReturnType<typeof createMicrophoneMeterService>['setMicrophoneMetering'];
 	readonly setMonitoring: ReturnType<typeof createRecordingComposition>['setMonitoring'];
 	readonly setPlayAtSpeedRate: ReturnType<typeof createTransportComposition>['transport']['setPlayAtSpeedRate'];
+	readonly setRecordingSampleRate: ReturnType<typeof createRecordingComposition>['routing']['setRecordingSampleRate'];
+	readonly setHostInventory: ReturnType<typeof createRecordingComposition>['routing']['setHostInventory'];
 	readonly setPreferredInputChannelCount: ReturnType<typeof createRecordingComposition>['routing']['setPreferredInputChannelCount'];
 	readonly setPreferredInputDevice: ReturnType<typeof createRecordingComposition>['routing']['setPreferredInputDevice'];
 	readonly setRecordingInputGain: ReturnType<typeof createRecordingComposition>['setRecordingInputGain'];

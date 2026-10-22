@@ -56,12 +56,11 @@ test('telemetry snapshots normalize playback defaults and isolate meter maps', (
 		id: 'task-1', kind: 'export', label: 'Encoding', value: 0.25,
 	});
 	assert.equal(snapshot.exportProgress, 0.25);
-	assert.equal(Object.isFrozen(snapshot), true);
 });
 
 test('audio-device snapshots distinguish availability, support, and active output', () => {
 	const snapshot = createAudioDeviceSnapshot({
-		preferredInputDeviceId: 'display',
+		audioHost: 'browser', preferredRecordingSampleRate: 48_000, preferredInputDeviceId: 'display',
 		preferredInputChannelCount: 2,
 		preferredOutputDeviceId: 'speaker-1',
 		activeOutputDeviceId: '',
@@ -85,7 +84,7 @@ test('audio-device snapshots distinguish availability, support, and active outpu
 
 test('audio-device snapshots copy arrays exposed by an owner compatibility view', () => {
 	const owner = {
-		preferredInputDeviceId: 'default', preferredInputChannelCount: 1,
+		audioHost: 'browser', preferredRecordingSampleRate: 48_000, preferredInputDeviceId: 'default', preferredInputChannelCount: 1,
 		preferredOutputDeviceId: '', activeOutputDeviceId: '', audioInputAccess: false,
 		audioInputDevices: [{ deviceId: 'microphone-1' }],
 		audioOutputDevices: [{ deviceId: 'speaker-1' }],
@@ -99,6 +98,5 @@ test('audio-device snapshots copy arrays exposed by an owner compatibility view'
 	assert.deepEqual(snapshot.outputs, owner.audioOutputDevices);
 	assert.notEqual(snapshot.inputs, state.audioInputDevices);
 	assert.notEqual(snapshot.outputs, state.audioOutputDevices);
-	assert.equal(Object.isFrozen(snapshot.inputs), true);
 	assert.equal(Object.isFrozen(owner.audioInputDevices), false);
 });

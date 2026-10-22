@@ -140,21 +140,6 @@ export default function GeneralPreferencesPage({
 					))}
 				</div>
 			</PreferencePanel>
-			<Separator />
-			<PreferencePanel title={copy.optimizeFor}>
-				<div className="kw-audio-editor-preferences__grid">
-					<PreferenceDropdownField
-						label={copy.optimizeFor}
-						value={snapshot.preferences.performance?.optimizeFor || 'memory'}
-						onChange={(value) => run(() => updatePreferences({ performance: { optimizeFor: value } }))}
-						options={[
-							{ value: 'memory', label: copy.optimizeForMemory },
-							{ value: 'speed', label: copy.optimizeForSpeed },
-						]}
-					/>
-				</div>
-				<p className="kw-audio-editor-preferences__note">{copy.optimizeForDescription}</p>
-			</PreferencePanel>
 			{fileService.isDesktop && (
 				<>
 					<Separator />

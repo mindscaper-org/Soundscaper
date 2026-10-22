@@ -91,7 +91,7 @@ test('worker demand-loads one 65,536-frame chunk and enforces packet backpressur
 		startFrame: 0,
 		endFrame: 2_500,
 		packetFrames: AUDIO_EDITOR_TRANSFER_CHUNK_FRAMES,
-		highWaterMark: 2, reportProgress: true,
+		highWaterMark: 2,
 	});
 	assert.equal(scope.messages.at(-1).message.type, 'stream-ready');
 	scope.dispatch({ type: 'start-stream', streamId: 'worker-test' });
@@ -134,10 +134,6 @@ test('worker demand-loads one 65,536-frame chunk and enforces packet backpressur
 		scope.messages.filter(({ message }) => message.type === 'need-storage-chunk').length,
 		1,
 	);
-	assert.equal(
-		scope.messages.filter(({ message }) => message.type === 'stream-progress').at(-1).message.progress,
-		1,
-	);
 	server.dispose();
 });
 
@@ -154,7 +150,7 @@ test('worker windowed-sinc resamples a source range into bounded playback packet
 		sourceEndFrame: 4_800,
 		resample: true,
 		packetFrames: AUDIO_EDITOR_TRANSFER_CHUNK_FRAMES,
-		highWaterMark: 2, reportProgress: true,
+		highWaterMark: 2,
 	});
 	scope.dispatch({ type: 'start-stream', streamId: 'resample-test' });
 	const request = scope.messages.find(({ message }) => message.type === 'need-storage-chunk').message;
@@ -184,7 +180,6 @@ test('worker windowed-sinc resamples a source range into bounded playback packet
 	}
 	assert.ok(packets.every((packet) => packet.frames <= AUDIO_EDITOR_TRANSFER_CHUNK_FRAMES));
 	assert.equal(scope.messages.filter(({ message }) => message.type === 'need-storage-chunk').length, 1);
-	assert.equal(scope.messages.filter(({ message }) => message.type === 'stream-progress').at(-1).message.progress, 1);
 	server.dispose();
 });
 

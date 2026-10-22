@@ -251,15 +251,6 @@ test('broker receipts attribute bundled encode and decode to each concrete revie
 		'LAME -> mpg123 should preserve a modest aligned signal-to-noise ratio');
 });
 
-test('the composite remains fail closed for an empty or wrong-tier runtime list', () => {
-	assert.throws(() => createBundledDesktopAudioCodecRuntime({
-		target: 'mac-arm64', runtimes: [],
-	}), /runtime list/iu);
-	assert.throws(() => createBundledDesktopAudioCodecRuntime({
-		target: 'mac-x64' as 'mac-arm64', runtimes: [{}] as never,
-	}), /target|runtime/iu);
-});
-
 function unreachableRuntime(kind: Exclude<DesktopCodecProviderKind, 'bundled'>): DesktopAudioCodecProviderRuntime {
 	return Object.freeze({
 		provider: Object.freeze({

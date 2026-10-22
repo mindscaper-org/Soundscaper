@@ -21,6 +21,8 @@ test('recording preferences and timing inputs are normalized at the controller b
 		inputChannelCount: 2,
 		outputDeviceId: 'default',
 	}), {
+		host: 'browser',
+		recordingSampleRate: 48_000,
 		inputDeviceId: 'microphone',
 		inputChannelCount: 2,
 		outputDeviceId: '',

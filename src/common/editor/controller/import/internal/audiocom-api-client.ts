@@ -147,7 +147,7 @@ function normalizeResult(value: unknown, requestUrl: (path: string) => string, p
 	if (!validId) throw new Error('Invalid audio.com audio ID.');
 	const url = new URL(requiredString(data.url));
 	if (url.origin !== provider.webOrigin || url.username || url.password || url.search || url.hash
-		|| (provider.kind === 'audiocity' && url.pathname !== `/public/audio/${id}`)) throw new Error('Invalid audio.com audio link.');
+		|| (provider.kind === 'audiocity' && url.pathname !== `/audio/${id}/play`)) throw new Error('Invalid audio.com audio link.');
 	const preview = typeof data.previewUrl === 'string' ? new URL(data.previewUrl, 'https://soundscaper.org') : null;
 	if (preview && (preview.origin !== 'https://soundscaper.org' || preview.pathname !== `${PREFIX}preview`)) throw new Error('Invalid audio.com preview link.');
 	const duration = Number(data.durationSeconds);
@@ -156,6 +156,7 @@ function normalizeResult(value: unknown, requestUrl: (path: string) => string, p
 		id, url: url.href, title: requiredString(data.title), authorName: text(data.authorName), username: text(data.username),
 		description: text(data.description), license: text(data.license), isDownloadable: data.isDownloadable === true,
 		durationSeconds: duration, ...(preview ? { previewUrl: requestUrl(`${preview.pathname}${preview.search}`) } : {}),
+		...(typeof data.previewMime === 'string' && /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/iu.test(data.previewMime) ? { previewMime: data.previewMime.toLowerCase() } : {}),
 	});
 }
 

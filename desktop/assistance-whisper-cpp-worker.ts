@@ -25,6 +25,8 @@ import {
 	createAssistanceNativeGpuExecutorV1,
 	type AssistanceNativeGpuExecutor,
 } from './assistance-native-gpu-execution.ts';
+import { isAssistanceGpuValidationEnabled } from './assistance-gpu-validation.ts';
+import { recordAssistanceNativeGpuReceipt } from './assistance-native-gpu-receipt.ts';
 
 interface AssistanceWhisperCppReadable {
 	on(event: 'data', listener: (chunk: unknown) => void): this;
@@ -256,6 +258,7 @@ async function runWhisperCli(
 			'--language', language, '--threads', '4',
 		]),
 		maximumStdoutBytes: maximumOutputBytes,
+		provider,
 		terminationGraceMs,
 		signal: context.signal,
 	}));
@@ -340,6 +343,7 @@ async function runCli(options: Readonly<{
 	executable: string;
 	args: readonly string[];
 	maximumStdoutBytes: number;
+	provider: string;
 	terminationGraceMs: number;
 	signal?: AbortSignal;
 }>): Promise<Uint8Array> {
@@ -358,6 +362,7 @@ async function runCli(options: Readonly<{
 		const stdout: Uint8Array[] = [];
 		let stdoutBytes = 0;
 		let stderrBytes = 0;
+		const stderr: Uint8Array[] = [];
 		let settled = false;
 		let terminating = false;
 		let terminalError: Error | null = null;
@@ -413,7 +418,11 @@ async function runCli(options: Readonly<{
 		});
 		child.stderr.on('data', (value) => {
 			if (settled || terminating) return;
-			try { stderrBytes += bytesFrom(value).byteLength; }
+			try {
+				const bytes = bytesFrom(value);
+				stderrBytes += bytes.byteLength;
+				if (isAssistanceGpuValidationEnabled() && stderrBytes <= MAXIMUM_STDERR_BYTES) stderr.push(bytes);
+			}
 			catch (error) {
 				stop(new TypeError('The whisper.cpp diagnostic stream is invalid.', { cause: error }));
 				return;
@@ -438,7 +447,10 @@ async function runCli(options: Readonly<{
 			const result = new Uint8Array(stdoutBytes);
 			let offset = 0;
 			for (const chunk of stdout) { result.set(chunk, offset); offset += chunk.byteLength; }
-			finish(null, result);
+			if (isAssistanceGpuValidationEnabled()) {
+				void recordAssistanceNativeGpuReceipt(Buffer.concat(stderr).toString('utf8'), options.provider)
+					.then(() => finish(null, result), error => finish(error instanceof Error ? error : new Error(String(error))));
+			} else finish(null, result);
 		});
 		if (options.signal?.aborted) abort();
 	});

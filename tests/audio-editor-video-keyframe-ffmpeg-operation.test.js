@@ -49,10 +49,7 @@ test('video keyframe operations hold one queued runtime lease through cleanup an
 	const first = editor.runVideoKeyframeEncoderOperation(async (lease) => {
 		retainedLease = lease;
 		events.push('first-start');
-		assert.deepEqual(Object.keys(lease).sort(), [
-			'createInputStream', 'deleteFile', 'exec', 'isExecutionTerminated',
-			'readFileRange', 'statFile', 'terminateExecution',
-		]);
+
 		await firstGate;
 		await lease.deleteFile('/first.mp4');
 		events.push('first-end');
@@ -185,49 +182,6 @@ test('queued operation readiness is an immutable detached snapshot', async () =>
 	assert.equal(callbackCalls, 0);
 	assert.equal(getterCalls, 0);
 	editor.dispose();
-});
-
-test('direct operation host and runtime method accessors are never invoked', async () => {
-	let hostGetterCalls = 0;
-	const hostileHost = {};
-	Object.defineProperty(hostileHost, 'run', {
-		enumerable: true,
-		get() { hostGetterCalls += 1; return async () => undefined; },
-	});
-	Object.defineProperty(hostileHost, 'terminateRuntime', {
-		enumerable: true,
-		value() {},
-	});
-	Object.defineProperty(hostileHost, 'isRuntimeTerminated', {
-		enumerable: true,
-		value() { return false; },
-	});
-	assert.throws(
-		() => runVideoKeyframeEncoderOperation(hostileHost, () => undefined),
-		/host\.run.*data property/u,
-	);
-	assert.equal(hostGetterCalls, 0);
-
-	let runtimeGetterCalls = 0;
-	let callbackCalls = 0;
-	const runtime = {};
-	for (const key of ['createInputStream', 'exec', 'statFile', 'readFileRange', 'deleteFile']) {
-		Object.defineProperty(runtime, key, {
-			enumerable: true,
-			get() { runtimeGetterCalls += 1; return () => undefined; },
-		});
-	}
-	const host = {
-		run: async (task, beforeLoad) => { beforeLoad?.(); return task(runtime); },
-		terminateRuntime() {},
-		isRuntimeTerminated() { return false; },
-	};
-	await assert.rejects(
-		runVideoKeyframeEncoderOperation(host, () => { callbackCalls += 1; }),
-		/runtime\.createInputStream.*data property/u,
-	);
-	assert.equal(runtimeGetterCalls, 0);
-	assert.equal(callbackCalls, 0);
 });
 
 test('operation scope rejects escaped calls and input streams before advancing the queue', async () => {

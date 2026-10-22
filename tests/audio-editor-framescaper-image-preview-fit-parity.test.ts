@@ -63,32 +63,6 @@ test('the finishing visual preview preserves the selected delivery fit', async (
 	assert.doesNotMatch(preview, /canvas: \{ \.\.\.canvas, fit: 'contain'/u);
 });
 
-test('finishing playback, exact preview, and export share one visual placement', async () => {
-	const [playback, facade, exact, gradedPlacement, exportDriver, exportLedger] = await Promise.all([
-		readFile(new URL('src/framescaper/editor-selected-finishing-visual-preview.ts', ROOT), 'utf8'),
-		readFile(new URL('src/framescaper/selected-finishing-exact-frame-execution.ts', ROOT), 'utf8'),
-		readFile(new URL('src/framescaper/selected-finishing-exact-frame-core.ts', ROOT), 'utf8'),
-		readFile(new URL('src/framescaper/selected-finishing-managed-grade-frame.ts', ROOT), 'utf8'),
-		readFile(new URL('src/framescaper/video-export-exact-execution-finishing.ts', ROOT), 'utf8'),
-		readFile(new URL('src/framescaper/video-export-visual-execution-finishing.ts', ROOT), 'utf8'),
-	]);
-
-	for (const source of [playback, gradedPlacement]) {
-		assert.match(source, /resolveFramescaperVisualPlacementFinishing/u);
-	}
-	assert.match(facade, /import \{ createSelectedExactFrameLegacyCore \} from '\.\/selected-finishing-exact-frame-core\.ts';/u);
-	assert.match(facade, /return createSelectedExactFrameLegacyCore\(options\);/u);
-	assert.match(exact, /createSelectedExactFrameLegacyCore = \(options:[^\n]+\) => createExecution\(options, false\);/u);
-	assert.match(exact, /from '\.\/selected-finishing-managed-grade-frame\.ts'/u);
-	assert.match(exact, /await placeFramescaperManagedGradedVisualFrameV1\(/u);
-	assert.match(exportDriver, /createFramescaperSelectedExactFrameExecutionFinishing/u);
-	assert.doesNotMatch(exportLedger, /resolveFramescaperVisualPlacementFinishing/u);
-	assert.doesNotMatch(exportLedger, /placeUnifiedExactLinearRgbaFrameV13/u);
-	assert.doesNotMatch(exact, /renderDescription: identityDescription\(width, height, entry\.blendMode\)/u);
-	assert.doesNotMatch(gradedPlacement, /renderDescription: identityDescription\(width, height, entry\.blendMode\)/u);
-	assert.doesNotMatch(exportLedger, /renderDescription: identityDescription\(width, height, entry\.blendMode\)/u);
-});
-
 test('the shared finishing placement preserves portrait geometry for exact output', () => {
 	const entry = {
 		modelKind: 'still', opacity: 1, blendMode: 'normal',

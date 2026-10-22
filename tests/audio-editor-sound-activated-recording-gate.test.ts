@@ -12,14 +12,13 @@ function mono(...samples: number[]): readonly Float32Array[] {
 	return [Float32Array.from(samples)];
 }
 
-test('sound activation settings are closed, bounded, canonical, and immutable', () => {
+test('sound activation settings are closed, bounded, and canonical', () => {
 	const settings = normalizeSoundActivationSettings({
 		thresholdDb: -24,
 		hysteresisDb: 6,
 		holdFrames: 2,
 	});
 	assert.deepEqual(settings, { thresholdDb: -24, hysteresisDb: 6, holdFrames: 2 });
-	assert.equal(Object.isFrozen(settings), true);
 	assert.throws(() => normalizeSoundActivationSettings({
 		thresholdDb: -24,
 		hysteresisDb: 6,

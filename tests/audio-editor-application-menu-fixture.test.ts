@@ -13,7 +13,6 @@ test('menu action fixtures leave optional runtime ports absent while supplying c
 	}
 	assert.equal(actions[Symbol.iterator], undefined);
 	const openFile = actions.openFile;
-	assert.equal(typeof openFile, 'function');
 	assert.ok(typeof openFile === 'function');
 	openFile();
 	assert.deepEqual(calls, ['openFile']);

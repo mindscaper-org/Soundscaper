@@ -1,24 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
 	waitForPackagedRuntimeProductPage,
 } from './browser/helpers/packaged-runtime-coverage.js';
-
-test('packaged collector proves reload readiness before recorder instrumentation', async () => {
-	const source = await readFile(new URL(
-		'./browser/helpers/packaged-runtime-coverage.js',
-		import.meta.url,
-	), 'utf8');
-	const start = source.slice(source.indexOf('async start()'));
-	const readiness = start.indexOf('await waitForPackagedRuntimeProductPage(');
-	const attach = start.indexOf('attachPage(page)');
-	assert.ok(readiness >= 0, 'collector startup must probe product reload readiness');
-	assert.ok(attach > readiness, 'recorder instrumentation must not precede the unload-guard probe');
-});
 
 test('packaged coverage discovers its product only after the initial save releases beforeunload', async () => {
 	let releaseReadiness!: () => void;

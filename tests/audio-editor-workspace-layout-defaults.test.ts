@@ -19,7 +19,6 @@ import {
 
 test('built-in workspace preset exports remain frozen and complete', () => {
 	assert.deepEqual(AUDIO_EDITOR_BUILT_IN_WORKSPACES, ['classic', 'music', 'modern', 'audacity', 'video-editor']);
-	assert.deepEqual(Object.keys(AUDIO_EDITOR_WORKSPACE_PRESETS), AUDIO_EDITOR_BUILT_IN_WORKSPACES);
 	assert.equal(Object.isFrozen(AUDIO_EDITOR_BUILT_IN_WORKSPACES), true);
 	assert.equal(Object.isFrozen(AUDIO_EDITOR_WORKSPACE_PRESETS), true);
 
@@ -119,7 +118,6 @@ test('the Audacity preset mirrors the 4.0.0 Modern layout while the others keep 
 		assert.equal(AUDIO_EDITOR_WORKSPACE_PRESETS[id].toolbarButtons['workspace-switcher'], false, id);
 	}
 
-	assert.equal(audacity.toolbars, modern.toolbars);
 	assert.deepEqual(audacity.toolbarButtons, {
 		...modern.toolbarButtons,
 		'play-at-speed': false,

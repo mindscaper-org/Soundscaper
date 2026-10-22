@@ -3,6 +3,7 @@
 import { randomBytes } from 'node:crypto'
 
 import type { HelperJobRequest } from './helper-supervisor.ts'
+import { HelperCrashLedger, HelperSupervisionError, type HelperSupervisorSnapshot } from './helper-supervision-state.ts'
 import type {
 	NativeAudioAdapterOpenOutcome,
 	NativeAudioAdapterSession,
@@ -34,6 +35,61 @@ export interface PersistentAudioSupervisor {
 	runJob(request: HelperJobRequest<'audio-device'>): Promise<unknown>
 }
 
+interface OwnedAudioSupervisor extends PersistentAudioSupervisor {
+	snapshot(): HelperSupervisorSnapshot
+	clearQuarantine?(): void
+	dispose(): void
+}
+
+/** Persistent input and output require independent one-job helper processes. */
+export function createNativeAudioSessionSupervisorPool(options: Readonly<{
+	createSupervisor(): OwnedAudioSupervisor
+	isQuarantined?: () => boolean
+	now?: () => number
+}>) {
+	const active = new Set<OwnedAudioSupervisor>()
+	const pending = new Set<Promise<unknown>>()
+	const crashes = new HelperCrashLedger({ crashLimit: 3, windowMs: 60_000, now: options.now ?? (() => Date.now()) })
+	let disposed = false
+	const quarantined = () => crashes.quarantined || options.isQuarantined?.() === true
+		|| [...active].some(supervisor => supervisor.snapshot().quarantined)
+	return Object.freeze({
+		runJob(request: HelperJobRequest<'audio-device'>): Promise<unknown> {
+			if (disposed) return Promise.reject(new HelperSupervisionError('disposed', 'The native audio session helpers are disposed.'))
+			if (quarantined()) return Promise.reject(new HelperSupervisionError('quarantined', 'The native audio session helpers are quarantined after repeated crashes.'))
+			if (active.size >= 2) return Promise.reject(new HelperSupervisionError('capacity', 'Native audio admits at most 2 concurrent session helpers.'))
+			let supervisor: OwnedAudioSupervisor
+			try { supervisor = options.createSupervisor() }
+			catch (error) { return Promise.reject(error) }
+			active.add(supervisor)
+			const operation = Promise.resolve().then(() => supervisor.runJob(request)).finally(() => {
+				const faults = supervisor.snapshot().recentCrashes
+				for (let index = 0; index < faults; index += 1) crashes.record()
+				active.delete(supervisor)
+				supervisor.dispose()
+				pending.delete(operation)
+				if (crashes.quarantined) for (const other of active) other.dispose()
+			})
+			pending.add(operation)
+			return operation
+		},
+		snapshot(): HelperSupervisorSnapshot {
+			return Object.freeze({ state: disposed ? 'disposed' : quarantined() ? 'quarantined' : active.size ? 'busy' : 'idle',
+				recentCrashes: crashes.recentCount + [...active].reduce((count, supervisor) => count + supervisor.snapshot().recentCrashes, 0),
+				quarantined: quarantined() })
+		},
+		clearQuarantine(): void {
+			crashes.clear()
+			for (const supervisor of active) supervisor.clearQuarantine?.()
+		},
+		async dispose(): Promise<void> {
+			disposed = true
+			for (const supervisor of active) supervisor.dispose()
+			await Promise.allSettled([...pending])
+		},
+	})
+}
+
 export interface NativeAudioPortBroker {
 	acceptHelperPort(offer: unknown, ports: readonly NativeMainMessagePort[]): Readonly<{
 		status: 'delivered' | 'refused'
@@ -41,6 +97,7 @@ export interface NativeAudioPortBroker {
 	}>
 	/** The helper's supervised job settled while a session still held it. */
 	notifyHelperExit?(): void
+	revokeGeneration?(generation: number): void
 }
 
 interface HelperAudioSession extends NativeAudioAdapterSession {
@@ -127,6 +184,7 @@ class HelperBackendAdapter implements NativeAudioBackendAdapter {
 			answer = await configured
 		} catch (error) {
 			abort.abort()
+			close(channel.port1)
 			close(channel.port2)
 			await completion.catch(() => undefined)
 			signal?.removeEventListener('abort', forwardAbort)
@@ -134,6 +192,7 @@ class HelperBackendAdapter implements NativeAudioBackendAdapter {
 		}
 		if (answer.status === 'refused') {
 			abort.abort()
+			close(channel.port1)
 			close(channel.port2)
 			await completion.catch(() => undefined)
 			signal?.removeEventListener('abort', forwardAbort)
@@ -167,17 +226,24 @@ function createSession(input: Readonly<{
 }>): HelperAudioSession {
 	let handedOff = false
 	let closed = false
+	let ended = false
+	let boundGeneration: number | null = null
 	// A job that settles while the session is still open is the helper dying:
 	// the broker must close its live generation, or main keeps a dead route
 	// bound and the renderer plays and records silence with no loss signal.
 	void input.completion.catch(() => undefined).then(() => {
-		if (!closed) input.broker.notifyHelperExit?.()
+		ended = true
+		if (!closed) {
+			if (input.broker.revokeGeneration) {
+				if (boundGeneration !== null) input.broker.revokeGeneration(boundGeneration)
+			} else input.broker.notifyHelperExit?.()
+		}
 	})
 	return Object.freeze({
 		backend: input.backend,
 		format: input.format,
 		handoff: (generation: number, wireFormat: Readonly<Record<string, unknown>>) => {
-			if (closed || handedOff) throw new Error('The native audio port is no longer available for hand-off.')
+			if (closed || handedOff || ended) throw new Error('The native audio port is no longer available for hand-off.')
 			const offer = {
 				protocolVersion: 1,
 				generation,
@@ -191,6 +257,7 @@ function createSession(input: Readonly<{
 			const outcome = input.broker.acceptHelperPort(offer, [input.port])
 			if (outcome.status !== 'delivered') throw new Error(outcome.message ?? 'The audio port hand-off was refused.')
 			handedOff = true
+			boundGeneration = generation
 		},
 		close: async () => {
 			if (closed) return

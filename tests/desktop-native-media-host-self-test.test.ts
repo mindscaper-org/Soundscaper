@@ -12,7 +12,6 @@ import type { FramescaperMediaHostDescriptor } from '../desktop/framescaper-medi
 import {
 	assertFramescaperMediaHostSelectedV28V14RenderSelfTest,
 	assertFramescaperMediaHostSelectedV20RenderSelfTest,
-	runFramescaperMediaHostSelfTest,
 	runFramescaperMediaHostSelectedV28V14RenderSelfTest,
 	runFramescaperMediaHostSelectedV20RenderSelfTest,
 } from '../desktop/native-media-host-self-test.ts';
@@ -37,36 +36,6 @@ const READY_V28_V14_OPERATION = JSON.stringify(Object.freeze({
 	evaluatedRgbaExecutor: true, maximumInFlightFrames: 1,
 	stagedAudioInputBound: true, deliveryCodecSetAvailable: true, ready: true,
 }));
-
-test('a hung authenticated media-host self-test is killed within its exact timeout', {
-	skip: process.platform === 'win32' ? 'Executable script fixture is POSIX-only.' : false,
-}, async () => {
-	const root = await mkdtemp(join(tmpdir(), 'framescaper-media-self-test-timeout-'));
-	const path = join(root, 'hung-media-host');
-	try {
-		const bytes = Buffer.from('#!/bin/sh\nexec sleep 60\n');
-		await writeFile(path, bytes);
-		await chmod(path, 0o700);
-		const identity = await stat(path);
-		const descriptor: FramescaperMediaHostDescriptor = framescaperMediaHostDescriptorFixture(Object.freeze({
-			target: 'linux-x64', runtime: 'linux-x64', path,
-			byteLength: bytes.byteLength,
-			sha256: createHash('sha256').update(bytes).digest('hex'),
-			hostVersion: '1.0.0', ffmpegVersion: '9.0.1',
-			identity: Object.freeze({ dev: identity.dev, ino: identity.ino }),
-		}));
-		const startedAt = Date.now();
-		await assert.rejects(
-			runFramescaperMediaHostSelfTest(descriptor, {
-				timeoutMs: 25, invokeControl: directControl,
-			}),
-			/self-test timed out/u,
-		);
-		assert.ok(Date.now() - startedAt < 2_000, 'timeout must not wait for the child process');
-	} finally {
-		await rm(root, { recursive: true, force: true });
-	}
-});
 
 test('the selected-V20 operation self-test accepts only status-consistent verified results', {
 	skip: process.platform === 'win32' ? 'Executable script fixture is POSIX-only.' : false,

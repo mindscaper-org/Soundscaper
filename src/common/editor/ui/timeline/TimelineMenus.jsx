@@ -1,3 +1,5 @@
+import { clipFadeChangeCommand } from './clip-fade-actions.ts';
+import { ClipFadeMenuEntries } from './ClipFadeMenuEntries.tsx';
 import { ContextMenu } from '@soundscaper/design-system/ContextMenu';
 import { ContextMenuItem } from '@soundscaper/design-system/ContextMenuItem';
 import { RulerFlyout } from '@soundscaper/design-system/RulerFlyout';
@@ -297,6 +299,10 @@ export function TimelineMenus({
 					}}
 					onClose={() => setClipMenu(null)}
 				/>
+				<ClipFadeMenuEntries clip={menuClip} copy={copy} disabled={mutationsBlocked} onClose={() => setClipMenu(null)} onRemove={(id, changes) => run(() => {
+					const command = clipFadeChangeCommand(project, id, sampleRate, changes);
+					if (command) controller.actions.edit.commit(command);
+				})} />
 				{clipDragMenuItems.map((item, index) => renderTrackMenuItem(item, index, setClipMenu))}
 				<ContextMenuItem isDivider />
 				<ManifestContextMenuItem
@@ -306,7 +312,10 @@ export function TimelineMenus({
 					disabled={mutationsBlocked || !menuClip}
 					disabledReason={unavailableReason}
 					locale={contextLocale}
-					onClick={() => menuClip && run(() => controller.actions.edit.split())}
+					onClick={() => menuClip && run(() => {
+						if (!project.selection?.clipIds?.includes(menuClip.id)) controller.actions.timeline.selectClip(menuClip.id);
+						controller.actions.edit.split();
+					})}
 					onClose={() => setClipMenu(null)}
 				/>
 				<ManifestContextMenuItem

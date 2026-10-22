@@ -154,11 +154,11 @@ function createSerializeContext(options, format) {
 function parseTxtEntries(text, context) {
 	const entries = [];
 	const lines = text.split('\n');
+	let previous = null;
 	for (let index = 0; index < lines.length; index += 1) {
 		const line = lines[index];
 		if (!line.trim()) continue;
 		if (line.startsWith('\\')) {
-			const previous = entries.at(-1);
 			if (!previous) {
 				recoverableError(context, 'A TXT continuation has no preceding label.', 'ORPHAN_CONTINUATION', { line: index + 1 });
 				continue;
@@ -173,18 +173,20 @@ function parseTxtEntries(text, context) {
 				} else {
 					recoverableError(context, 'A TXT frequency continuation is malformed.', 'INVALID_CONTINUATION', { line: index + 1 });
 				}
-			} else if (fields[0] === '\\') recoverableError(context, 'A TXT continuation is malformed.', 'INVALID_CONTINUATION', { line: index + 1 });
+			} else recoverableError(context, 'A TXT continuation is malformed.', 'INVALID_CONTINUATION', { line: index + 1 });
 			continue;
 		}
+		previous = null;
 		try {
 			assertCanAddLabel(entries, context, index + 1);
 			const fields = line.split('\t');
 			if (fields.length < 2) throw labelError('A TXT label needs a time and title.', 'INVALID_TXT_ROW', { line: index + 1 });
 			const startSeconds = requiredSeconds(fields[0], { line: index + 1, field: 'start' });
-			const possibleEnd = parseFiniteNumber(fields[1]);
+			const possibleEnd = fields.length >= 3 ? parseFiniteNumber(fields[1]) : null;
 			const endSeconds = possibleEnd == null ? startSeconds : requiredSeconds(fields[1], { line: index + 1, field: 'end' });
 			const title = possibleEnd == null ? fields.slice(1).join('\t') : fields.slice(2).join('\t');
-			entries.push(validateEntry({ startSeconds, endSeconds, title, line: index + 1 }, context));
+			previous = validateEntry({ startSeconds, endSeconds, title, line: index + 1 }, context);
+			entries.push(previous);
 		} catch (error) {
 			handleEntryError(error, context, { line: index + 1 });
 		}
@@ -250,7 +252,7 @@ function parseCueTiming(line, format, lineNumber) {
 }
 
 function parseTimestamp(value, format, line) {
-	const separator = format === 'srt' ? ',' : '\\.';
+	const separator = format === 'srt' ? '[,.]' : '\\.';
 	const expression = format === 'vtt'
 		? new RegExp(`^(?:(\\d+):)?([0-5]\\d):([0-5]\\d)${separator}(\\d{1,3})$`)
 		: new RegExp(`^(\\d+):([0-5]\\d):([0-5]\\d)${separator}(\\d{1,3})$`);
@@ -271,13 +273,15 @@ function parseTimestamp(value, format, line) {
 		seconds = Number(match[3]);
 		fraction = match[4];
 	}
-	const milliseconds = Number(fraction.padEnd(3, '0'));
+	const milliseconds = Number(format === 'srt' ? fraction : fraction.padEnd(3, '0'));
 	const result = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
 	if (!Number.isFinite(result)) throw labelError('A subtitle timestamp is outside the supported range.', 'INVALID_TIMESTAMP', { line, value });
 	return result;
 }
 
 function validateEntry(entry, context) {
+	secondsToFrame(entry.startSeconds, context.sampleRate, entry.line);
+	secondsToFrame(entry.endSeconds, context.sampleRate, entry.line);
 	if (entry.endSeconds < entry.startSeconds) {
 		throw labelError('A label end cannot precede its start.', 'REVERSED_RANGE', { line: entry.line });
 	}
@@ -349,7 +353,12 @@ function serializeTxt(labels, context) {
 function serializeTimed(labels, context, format) {
 	const lines = format === 'vtt' ? ['WEBVTT', ''] : [];
 	labels.forEach((label, index) => {
-		if (context.includeCueIdentifiers) lines.push(String(format === 'srt' ? index + 1 : label.opaqueExtensions?.cueIdentifier || index + 1));
+		if (context.includeCueIdentifiers) {
+			const identifier = String(label.opaqueExtensions?.cueIdentifier || index + 1);
+			const safe = !/[\r\n\0]/u.test(identifier) && !identifier.includes('-->')
+				&& !/^(?:NOTE|STYLE|REGION)(?:[ \t]|$)/u.test(identifier);
+			lines.push(String(format === 'srt' || !safe ? index + 1 : identifier));
+		}
 		const startMilliseconds = Math.round(label.startFrame * 1000 / context.sampleRate);
 		// Subtitle cues must last at least one representable millisecond. A point
 		// label or a shorter range would otherwise disappear during playback.

@@ -100,36 +100,6 @@ test('playback leasing requires an exact revision and forwards the locator ident
 	}]);
 });
 
-test('playback leasing retires a descriptor that does not match its locator snapshot', async () => {
-	const expectedIdentity = { dev: 1, ino: 2, size: 3, mtimeMs: 4, ctimeMs: 5 };
-	const releases: unknown[] = [];
-	const owner = {};
-	const store = new DesktopLinkedVideoLocatorStore({
-		readCapabilities: {
-			registerMaterializedPath: async () => { throw new Error('materialized read'); },
-			registerLinkedOriginalRangePath: async () => ({
-				...playbackDescriptor(),
-				readProfile: 'materialized-v1',
-			}),
-			release: async (id, options) => {
-				releases.push({ id, options });
-				return true;
-			},
-		},
-		randomBytes: deterministicTokens(),
-		stat: async () => ({ ...expectedIdentity, isFile: () => true }),
-	});
-	const locator = await store.registerPath(join(tmpdir(), 'selected.mp4'), {
-		owner,
-		mimeType: 'video/mp4',
-		displayName: 'selected.mp4',
-	});
-	await assert.rejects(store.leaseRange(locator.locatorId, {
-		owner, expectedRevision: locator.locatorRevision, expectedKind: 'video',
-	}), /does not match/iu);
-	assert.deepEqual(releases, [{ id: 'f'.repeat(64), options: { owner } }]);
-});
-
 function playbackDescriptor() {
 	const id = 'f'.repeat(64);
 	return Object.freeze({

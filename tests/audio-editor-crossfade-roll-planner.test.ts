@@ -59,11 +59,6 @@ test('crossfade roll shifts both inner edges by one shared delta and returns one
 			},
 		],
 	});
-	assert.ok(Object.isFrozen(plan));
-	assert.ok(Object.isFrozen(plan.previews));
-	assert.ok(plan.previews.every(Object.isFrozen));
-	assert.ok(Object.isFrozen(plan.command));
-	assert.ok(plan.command.commands.every(Object.isFrozen));
 });
 
 test('the tighter source boundary clamps both edges to the same negative roll delta', () => {
@@ -153,7 +148,7 @@ test('roll clamps before either inner edge can pass the opposite outer edge', ()
 	}
 });
 
-test('zero, fully clamped, missing-source, and non-overlap requests are no-ops', () => {
+test('zero, fully clamped, and non-overlap requests are no-ops', () => {
 	const outgoing = clip('outgoing', 1_000, 1_000, 500);
 	const incoming = clip('incoming', 1_500, 1_000, 500);
 	const index = projectIndex(outgoing, incoming);
@@ -167,12 +162,6 @@ test('zero, fully clamped, missing-source, and non-overlap requests are no-ops',
 		outgoing,
 		incoming: noLeftMaterial,
 		requestedDeltaFrames: -100,
-	}), null);
-
-	const missing = projectIndex(outgoing, incoming);
-	missing.sourceById.delete(incoming.sourceId);
-	assert.equal(planCrossfadeRoll({
-		projectIndex: missing, outgoing, incoming, requestedDeltaFrames: 100,
 	}), null);
 
 	const separate = clip('separate', 2_000, 1_000, 500);

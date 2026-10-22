@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createHash } from 'node:crypto';
+
 import { expect, longTone, test, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles, showToolbarButton } from './audio-editor-test-helpers.js';
 
@@ -27,6 +29,18 @@ async function drag(page, startX, endX, startY, endY = startY) {
 	await page.mouse.down();
 	await page.mouse.move(endX, endY, { steps: 5 });
 	await page.mouse.up();
+}
+
+async function audacitySelectionCursor(display, expectedSha256) {
+	const cursor = await display.evaluate(element => getComputedStyle(element).cursor);
+	expect(cursor).toContain('image-set(');
+	expect(cursor).toContain('2dppx) 16 16,');
+	const url = cursor.match(/url\("([^"]+)"\)/u)?.[1];
+	expect(url).toBeTruthy();
+	const response = await display.page().request.get(url);
+	expect(response.ok()).toBe(true);
+	expect(createHash('sha256').update(await response.body()).digest('hex')).toBe(expectedSha256);
+	return cursor;
 }
 
 async function setup(page, files = [longTone]) {
@@ -108,13 +122,13 @@ test('selection edges show directional cursors and resize without moving the pla
 	await playhead.press('Shift+ArrowRight');
 	await page.mouse.move(xAt(0.2), wave.y);
 	await expect.poll(() => wave.display.evaluate(element => getComputedStyle(element).cursor)).toContain('url(');
-	const leftCursor = await wave.display.evaluate(element => getComputedStyle(element).cursor);
+	const leftCursor = await audacitySelectionCursor(wave.display, '20ee6cb0a9da1514e195cdda98723d8f7b61d1affe2f529c99de9bcf05e8fcfe');
 	await drag(page, xAt(0.2), xAt(0.1), wave.y);
 	await expect.poll(() => selectionSeconds(editor, 'start')).toBe(0.1);
 	await expect.poll(() => selectionSeconds(editor, 'end')).toBe(0.6);
 	await page.mouse.move(xAt(0.6), wave.y);
 	await expect.poll(() => wave.display.evaluate(element => getComputedStyle(element).cursor)).toContain('url(');
-	expect(await wave.display.evaluate(element => getComputedStyle(element).cursor)).not.toBe(leftCursor);
+	expect(await audacitySelectionCursor(wave.display, 'ba7957d5e19e2b7971e49497606739e5a280b193751ce3a27713eb598a6b1fc7')).not.toBe(leftCursor);
 	await drag(page, xAt(0.6), xAt(0.8), wave.y);
 	await expect.poll(() => selectionSeconds(editor, 'end')).toBe(0.8);
 	await expect(playhead).toHaveAttribute('aria-valuenow', '4800');

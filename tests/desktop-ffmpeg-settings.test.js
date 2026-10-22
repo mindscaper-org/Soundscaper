@@ -5,10 +5,10 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { DesktopSettingsStore } from '../desktop/settings.js';
+import { externalFfmpegExecutablePairClosureSha256 } from '../desktop/external-ffmpeg-node-runtime.ts';
 
 const SHA_A = '12'.repeat(32);
 const SHA_B = '34'.repeat(32);
-const SHA_C = '56'.repeat(32);
 const SHA_D = '78'.repeat(32);
 
 test('schema-1 desktop settings default external FFmpeg selection to null', async (context) => {
@@ -39,7 +39,10 @@ test('external FFmpeg selection and exact probe evidence persist atomically', as
 			ffmpegSha256: SHA_A,
 			ffprobePath: resolve(join(fixture.root, 'bin', 'ffprobe')),
 			ffprobeSha256: SHA_B,
-			executablePairClosureSha256: SHA_C,
+			executablePairClosureSha256: externalFfmpegExecutablePairClosureSha256({
+				ffmpegPath: resolve(executablePath), ffmpegSha256: SHA_A,
+				ffprobePath: resolve(join(executablePath, '..', 'ffprobe')), ffprobeSha256: SHA_B,
+			}),
 		},
 		capabilities: {
 			digest: SHA_D,
@@ -87,15 +90,16 @@ test('changing or clearing the executable invalidates all external FFmpeg probe 
 	assert.equal(fixture.settings.snapshot().externalFfmpegSelection, null);
 });
 
-test('external FFmpeg settings reject malformed paths, identities, and capability metadata', async (context) => {
-	const fixture = await settingsFixture(context);
-	await fixture.settings.load(['en']);
-	for (const path of [42, '', 'relative/ffmpeg', `/bin/ffmpeg\0other`, `/${'x'.repeat(4_097)}`]) {
-		await assert.rejects(() => fixture.settings.setExternalFfmpegSelection(path), /FFmpeg executable/iu);
+test('loading corrupt external FFmpeg evidence keeps only independently valid persisted fields', async (context) => {
+	for (const executablePath of [42, '', 'relative/ffmpeg', `/bin/ffmpeg\0other`, `/${'x'.repeat(4_097)}`]) {
+		const fixture = await settingsFixture(context, {
+			schemaVersion: 1, locale: 'en',
+			externalFfmpegSelection: { executablePath, identity: null, capabilities: null },
+		});
+		assert.equal((await fixture.settings.load(['en'])).externalFfmpegSelection, null);
 	}
 
-	const executablePath = join(fixture.root, 'ffmpeg');
-	await fixture.settings.setExternalFfmpegSelection(executablePath);
+	const executablePath = resolve('/opt/media/../bin/ffmpeg');
 	for (const metadata of [
 		probeMetadata(executablePath, { version: 9 }),
 		probeMetadata(executablePath, { version: `9.0\0snapshot` }),
@@ -103,29 +107,28 @@ test('external FFmpeg settings reject malformed paths, identities, and capabilit
 		probeMetadata(executablePath, { ffprobePath: 'relative/ffprobe' }),
 		probeMetadata(executablePath, { ffprobeSha256: 'AB'.repeat(32) }),
 		probeMetadata(executablePath, { executablePairClosureSha256: null }),
-		{ ...probeMetadata(executablePath), capabilities: { digest: 'bad', probedAtEpochMs: 1 } },
-		{ ...probeMetadata(executablePath), capabilities: { digest: SHA_D, probedAtEpochMs: 1.5 } },
 		{ ...probeMetadata(executablePath), identity: null },
-	]) await assert.rejects(() => fixture.settings.setExternalFfmpegProbeMetadata(metadata), /FFmpeg|identity|capabilit|digest|version|probe/iu);
-	assert.deepEqual(fixture.settings.snapshot().externalFfmpegSelection, {
-		executablePath: resolve(executablePath), identity: null, capabilities: null,
-	});
-});
-
-test('loading corrupt external FFmpeg evidence preserves only a valid canonical selection', async (context) => {
-	const executablePath = resolve('/opt/media/../bin/ffmpeg');
-	const fixture = await settingsFixture(context, {
-		schemaVersion: 1,
-		locale: 'en',
-		externalFfmpegSelection: {
-			executablePath,
-			identity: { version: '9.0.1', ffmpegSha256: 'bad' },
-			capabilities: { digest: SHA_D, probedAtEpochMs: 1_787_605_200_000 },
-		},
-	});
-	assert.deepEqual((await fixture.settings.load(['en'])).externalFfmpegSelection, {
-		executablePath: resolve(executablePath), identity: null, capabilities: null,
-	});
+	]) {
+		const fixture = await settingsFixture(context, {
+			schemaVersion: 1, locale: 'en', externalFfmpegSelection: metadata,
+		});
+		assert.deepEqual((await fixture.settings.load(['en'])).externalFfmpegSelection, {
+			executablePath, identity: null, capabilities: null,
+		});
+	}
+	for (const capabilities of [
+		{ digest: 'bad', probedAtEpochMs: 1 },
+		{ digest: SHA_D, probedAtEpochMs: 1.5 },
+	]) {
+		const metadata = probeMetadata(executablePath);
+		const fixture = await settingsFixture(context, {
+			schemaVersion: 1, locale: 'en',
+			externalFfmpegSelection: { ...metadata, capabilities },
+		});
+		assert.deepEqual((await fixture.settings.load(['en'])).externalFfmpegSelection, {
+			executablePath, identity: metadata.identity, capabilities: null,
+		});
+	}
 });
 
 function probeMetadata(executablePath, identityOverride = {}) {
@@ -136,7 +139,10 @@ function probeMetadata(executablePath, identityOverride = {}) {
 			ffmpegSha256: SHA_A,
 			ffprobePath: resolve(join(executablePath, '..', 'ffprobe')),
 			ffprobeSha256: SHA_B,
-			executablePairClosureSha256: SHA_C,
+			executablePairClosureSha256: externalFfmpegExecutablePairClosureSha256({
+				ffmpegPath: resolve(executablePath), ffmpegSha256: SHA_A,
+				ffprobePath: resolve(join(executablePath, '..', 'ffprobe')), ffprobeSha256: SHA_B,
+			}),
 			...identityOverride,
 		},
 		capabilities: { digest: SHA_D, probedAtEpochMs: 1_787_605_200_000 },

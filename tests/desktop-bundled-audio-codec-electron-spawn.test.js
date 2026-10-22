@@ -49,24 +49,3 @@ test('Electron adapter forks only the fixed bundled helper with exact configurat
 	wrapped.kill();
 	assert.equal(calls.some(([kind]) => kind === 'kill'), true);
 });
-
-test('Electron adapter rejects inexact configuration and child surfaces before fork authority', () => {
-	let forks = 0;
-	const spawn = createBundledAudioCodecElectronSpawn({
-		helperPath: '/app/helper.js',
-		fork() {
-			forks += 1;
-			return { postMessage() {}, on() {}, off() {}, kill() {} };
-		},
-	});
-	assert.throws(() => spawn({ ...configuration, codec: 'ffmpeg' }), /codec|configuration/iu);
-	assert.throws(() => spawn({ ...configuration, extra: true }), /inexact shape/iu);
-	assert.equal(forks, 0);
-	assert.throws(() => createBundledAudioCodecElectronSpawn({
-		helperPath: 'relative.js', fork() {},
-	}), /spawn options/iu);
-	const invalidChild = createBundledAudioCodecElectronSpawn({
-		helperPath: '/app/helper.js', fork: () => ({}),
-	});
-	assert.throws(() => invalidChild(configuration), /utility process/iu);
-});

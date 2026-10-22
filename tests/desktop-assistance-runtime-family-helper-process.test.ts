@@ -153,13 +153,6 @@ test('the helper entry composes the authenticated utility shell with one worker-
 	assert.deepEqual(exits, []);
 });
 
-test('the helper entry validates its private process seams', () => {
-	assert.throws(() => createAssistanceRuntimeFamilyHelperProcessV1({
-		post: () => undefined, exit: () => undefined,
-		workerEntry: new URL('https://example.invalid/worker.js'),
-	}), /entry|file|local/iu);
-});
-
 test('whisper.cpp jobs use the utility-owned terminateable CLI worker instead of a thread', async () => {
 	const messages: unknown[] = [];
 	let threads = 0;

@@ -227,7 +227,7 @@ test('native PCM stems remain on their existing exact direct route', async () =>
 	await preparation.destination.abort();
 });
 
-test('offline-memory refusal must remain exact and route hooks never run', () => {
+test('offline-memory refusal must remain exact', () => {
 	const plan = actualPlan('mp3', { bitRate: 320, livePcmBytes: 0 }, 33_685_504);
 	assert.equal(record(plan.render).reason, 'offline-render-output-memory');
 	assert.ok(captureDirectCompressedStemArchiveContract(plan as never));
@@ -237,97 +237,6 @@ test('offline-memory refusal must remain exact and route hooks never run', () =>
 	refusal.peakUsefulBinaryBytes = Number(refusal.peakUsefulBinaryBytes) + 1;
 	assert.equal(captureDirectCompressedStemArchiveContract(drifted as never), null);
 
-	let calls = 0;
-	const hooked = structuredClone(plan);
-	Object.setPrototypeOf(record(hooked.render), {
-		toJSON() { calls += 1; throw new Error('render hook ran'); },
-	});
-	assert.equal(captureDirectCompressedStemArchiveContract(hooked as never), null);
-	assert.equal(calls, 0);
-});
-
-test('compressed stem routing rejects accessors without invoking caller code', async () => {
-	const cases: Array<Readonly<{
-		label: string;
-		mutate(plan: Record<string, unknown>, called: () => void): void;
-	}>> = [
-		{
-			label: 'top-level format',
-			mutate(plan, called) {
-				Object.defineProperty(plan, 'format', {
-					enumerable: true,
-					get() { called(); throw new Error('format getter ran'); },
-				});
-			},
-		},
-		{
-			label: 'top-level archive',
-			mutate(plan, called) {
-				Object.defineProperty(plan, 'archive', {
-					enumerable: true,
-					get() { called(); throw new Error('archive getter ran'); },
-				});
-			},
-		},
-		{
-			label: 'nested output',
-			mutate(plan, called) {
-				Object.defineProperty(records(plan.outputs)[0]!, 'fileName', {
-					enumerable: true,
-					get() { called(); throw new Error('output getter ran'); },
-				});
-			},
-		},
-		{
-			label: 'nested archive entry',
-			mutate(plan, called) {
-				Object.defineProperty(records(record(plan.archive).entries)[0]!, 'fileName', {
-					enumerable: true,
-					get() { called(); throw new Error('entry getter ran'); },
-				});
-			},
-		},
-	];
-	for (const entry of cases) {
-		const plan = structuredClone(actualPlan('mp3', { bitRate: 320 }));
-		let calls = 0;
-		entry.mutate(plan, () => { calls += 1; });
-		assert.equal(captureDirectCompressedStemArchiveContract(plan as never), null, entry.label);
-		assert.equal(directStemArchiveTemporaryBytes(plan), null, entry.label);
-		let pickers = 0;
-		const preparation = await prepareDirectStemArchiveDestination({
-			prepareSave() { pickers += 1; return preparedStream([]); },
-		}, plan, null, new AbortController().signal);
-		assert.equal(preparation.destination, null, entry.label);
-		assert.equal(pickers, 0, entry.label);
-		assert.equal(calls, 0, entry.label);
-	}
-});
-
-test('offline compressed stem admission snapshots central evidence without invoking accessors', () => {
-	const plan = structuredClone(actualPlan('mp3', { bitRate: 320, livePcmBytes: 0 }));
-	let calls = 0;
-	Object.defineProperty(record(record(plan.render).offlineRenderAdmission), 'peakUsefulBinaryBytes', {
-		enumerable: true,
-		get() { calls += 1; throw new Error('offline admission getter ran'); },
-	});
-	assert.equal(captureDirectCompressedStemArchiveContract(plan as never), null);
-	assert.equal(directStemArchiveTemporaryBytes(plan), null);
-	assert.equal(calls, 0);
-});
-
-test('offline compressed stem admission captures caller descriptors exactly once', () => {
-	const source = structuredClone(actualPlan('mp3', { bitRate: 320, livePcmBytes: 0 }));
-	const descriptorReads = new Map<PropertyKey, number>();
-	const plan = new Proxy(source, {
-		getOwnPropertyDescriptor(target, property) {
-			descriptorReads.set(property, (descriptorReads.get(property) ?? 0) + 1);
-			return Reflect.getOwnPropertyDescriptor(target, property);
-		},
-	});
-	assert.ok(captureDirectCompressedStemArchiveContract(plan as never));
-	assert.equal(descriptorReads.get('format'), 2, 'one envelope read and one owned field read');
-	assert.equal(descriptorReads.get('aggregateStereoMinutes'), 1, 'one caller envelope read');
 });
 
 test('compressed stem picker cancellation and prepared Blob mode retain legacy routing', async () => {

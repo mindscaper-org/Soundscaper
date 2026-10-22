@@ -77,7 +77,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { listProjects, clearRecentProjects, renameProject, duplicateProject, garbageCollectSources } = deferAsyncControllerMethods(() => services.projectAdminService(), ['listProjects', 'clearRecentProjects', 'renameProject', 'duplicateProject', 'garbageCollectSources']);
 	const { disjoinSelectedClip } = deferAsyncControllerMethods(() => services.edits().clipboard, ['disjoinSelectedClip']);
 	const { generateSelectionSilence, generateSignal, repeatLastGenerator } = deferAsyncControllerMethods(() => services.edits(), ['generateSelectionSilence', 'generateSignal', 'repeatLastGenerator']);
-	const { requestInputAccess, setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setAudioOutputDevice, setRecordingSourceLatency, setRetainInputs } = deferAsyncControllerMethods(() => services.recording().routing, ['requestInputAccess', 'setPreferredInputDevice', 'configureDisplayInput', 'setPreferredInputChannelCount', 'setAudioOutputDevice', 'setRecordingSourceLatency', 'setRetainInputs']);
+	const { requestInputAccess, setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory, setAudioOutputDevice, setRecordingSourceLatency, setRetainInputs } = deferAsyncControllerMethods(() => services.recording().routing, ['requestInputAccess', 'setPreferredInputDevice', 'configureDisplayInput', 'setPreferredInputChannelCount', 'setRecordingSampleRate', 'setHostInventory', 'setAudioOutputDevice', 'setRecordingSourceLatency', 'setRetainInputs']);
 	const { setRecordingTrackInput } = deferAsyncControllerMethods(() => services.recording().inputs, ['setRecordingTrackInput']);
 	const { setMicrophoneMetering } = deferAsyncControllerMethods(() => services.microphoneMeterService(), ['setMicrophoneMetering']);
 	const { apply: applyProjectToPlaybackEngine } = deferAsyncControllerMethods(() => services.sources().playbackApply, ['apply']);
@@ -116,7 +116,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { compactLiveSourceState, liveSessionSourceIds, liveSessionClipIds } = deferControllerMethods(() => services.doc().retention, ['compactLiveSourceState', 'liveSessionSourceIds', 'liveSessionClipIds']);
 	const { publishProjectState, setTimelineView, setAllTracksView } = deferControllerMethods(() => services.doc().view, ['publishProjectState', 'setTimelineView', 'setAllTracksView']);
 	const { duplicateTrack } = deferControllerMethods(() => services.doc().trackDuplication, ['duplicateTrack']);
-	const { handleClipAction, setClipTimePitch, stretchClip, resetClipPitchSpeed } = deferControllerMethods(() => services.clips().clipProperty, ['handleClipAction', 'setClipTimePitch', 'stretchClip', 'resetClipPitchSpeed']);
+	const { handleClipAction, setClipTimePitch, setClipsTimePitch, stretchClip, resetClipPitchSpeed } = deferControllerMethods(() => services.clips().clipProperty, ['handleClipAction', 'setClipTimePitch', 'setClipsTimePitch', 'stretchClip', 'resetClipPitchSpeed']);
 	const { moveClips, moveClipsToNewTrack, trimClips, overwriteClips } = deferControllerMethods(() => services.clips().clipTransform, ['moveClips', 'moveClipsToNewTrack', 'trimClips', 'overwriteClips']);
 	const { renderClipPitchSpeed } = deferControllerMethods(() => services.clips(), ['renderClipPitchSpeed']);
 	const { createCacheAwareRenderEngine, prepareCommittedTimePitchCaches, beginPlaybackCachePreparation, cancelPlaybackCachePreparation } = deferControllerMethods(() => services.sources().timePitchCaches, ['createCacheAwareRenderEngine', 'prepareCommittedTimePitchCaches', 'beginPlaybackCachePreparation', 'cancelPlaybackCachePreparation']);
@@ -148,7 +148,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		loadProjectSources, listProjects, clearRecentProjects, renameProject,
 		duplicateProject, garbageCollectSources, disjoinSelectedClip,
 		generateSelectionSilence, generateSignal, repeatLastGenerator, requestInputAccess,
-		setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setAudioOutputDevice,
+		setPreferredInputDevice, configureDisplayInput, setPreferredInputChannelCount, setRecordingSampleRate, setHostInventory, setAudioOutputDevice,
 		setRecordingSourceLatency, setRetainInputs, setRecordingTrackInput, setMicrophoneMetering,
 		applyProjectToPlaybackEngine, stopRecording, getSnapshot, getTelemetrySnapshot,
 		getClipVisualData, revokeVideoVisuals, revokeVideoVisual,
@@ -166,7 +166,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		updateSelection, projectChanged, saveNow, flushProject,
 		compactLiveSourceState, liveSessionSourceIds, liveSessionClipIds, publishProjectState,
 		setTimelineView, setAllTracksView, duplicateTrack, handleClipAction,
-		setClipTimePitch, stretchClip, resetClipPitchSpeed, moveClips,
+		setClipTimePitch, setClipsTimePitch, stretchClip, resetClipPitchSpeed, moveClips,
 		moveClipsToNewTrack, trimClips, overwriteClips, renderClipPitchSpeed,
 		createCacheAwareRenderEngine, prepareCommittedTimePitchCaches, beginPlaybackCachePreparation, cancelPlaybackCachePreparation,
 		videoEffectGestureKey, reorderVideoClipEffect, removeVideoClipEffect, beginVideoEffectGesture,

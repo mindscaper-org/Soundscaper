@@ -22,8 +22,9 @@
 
 import { imagingChunkGroups } from './build-chunk-imaging.mjs';
 import { translationCatalogChunkGroups } from './build-chunk-translation-catalogs.mjs';
+import { EDITOR_UI_CHUNK_GROUPS } from './build-editor-ui-chunks.mjs';
+
 import {
-	DESIGN_SYSTEM_EDITOR_SHELL_COMPONENT_CHUNK_TEST,
 	EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
 	EDITOR_ASSISTANCE_SEMANTIC_SEARCH_RUNTIME_CHUNK_TEST,
 	EDITOR_CODEC_FOUNDATION_CHUNK_TEST,
@@ -197,16 +198,7 @@ export const chunkGroups = [
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
-	{
-		// Components used by the ready editor shell belong to that consumer. Components
-		// reached only by a lazy dialog remain unowned and follow the dialog instead of
-		// being hoisted into a broad shared vendor chunk.
-		name: 'editor-shell-design-components',
-		test: DESIGN_SYSTEM_EDITOR_SHELL_COMPONENT_CHUNK_TEST,
-		priority: 94,
-		maxSize: 400_000,
-		includeDependenciesRecursively: false,
-	},
+	...EDITOR_UI_CHUNK_GROUPS,
 	{
 		// Keep the shared FFT leaf out of the broader execution group. A dynamic
 		// spectrogram import must not evaluate every unrelated effect/export entry.
@@ -496,10 +488,8 @@ export const chunkGroups = [
 	},
 ];
 
-// Worker patterns keep their established public import site.
-export { workerChunkGroups, WORKER_XML_VENDOR_CHUNK_TEST,
-	WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_VIDEO_CONTRACT_CHUNK_TEST,
-} from './build-chunk-workers.mjs';
+export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR_CHUNK_TEST,
+	WORKER_VIDEO_CONTRACT_CHUNK_TEST } from './build-worker-chunk-groups.mjs';
 
 /**
  * The group that claims one repository-relative module path, or null.

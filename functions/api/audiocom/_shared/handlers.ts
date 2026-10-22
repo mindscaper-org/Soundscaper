@@ -5,7 +5,6 @@ import { handleOAuthEndpoint, oauthJson, oauthResponseHeaders, OAuthHttpError, r
 import { exactUploadStream, limitedPreviewStream } from './streams.ts';
 import { providerConfiguration } from './provider-config.ts';
 import { selectedProviderContext } from './provider-selection.ts';
-import { discoverAudiocityCapabilities } from './provider-discovery.ts';
 import { providerFetch, checkResponse } from './provider-fetch.ts';
 export { providerFetch, checkResponse } from './provider-fetch.ts';
 const MAX_PREVIEW_BYTES = 128 * 1024 * 1024;
@@ -61,6 +60,25 @@ export function handleAudiocomUploadRequest(context: AudiocomOAuthFunctionContex
 		const success = trustedHookUrl(policy.success, provider, 'success');
 		const fail = trustedHookUrl(policy.fail, provider, 'fail');
 		let audio = normalizeAudio(policy.audio, provider);
+		const cleanupUpload = async (): Promise<void> => {
+			// Storage hooks never receive OAuth, and cleanup must survive caller cancellation.
+			try {
+				const failed = await (dependencies.fetchImpl ?? fetch)(fail, { method: 'DELETE', redirect: 'manual', signal: AbortSignal.timeout(10_000) });
+				await failed.body?.cancel();
+			} catch { /* Cleanup is best-effort after a failed or cancelled transfer. */ }
+			if (provider.kind === 'audiocity') {
+				// The hook retains metadata and cannot cancel a confirmed source. Owner
+				// deletion also works after the upload capability itself has expired.
+				const discard = new URL('/v1/audio/delete', provider.apiOrigin);
+				discard.searchParams.set('id', audio.id);
+				try {
+					const removed = await (dependencies.fetchImpl ?? fetch)(discard, {
+						method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, redirect: 'manual', signal: AbortSignal.timeout(10_000),
+					});
+					await removed.body?.cancel();
+				} catch { /* Preserve the original transfer failure if removal is unavailable. */ }
+			}
+		};
 		try {
 			const transfer = exactUploadStream(context.request.body, input.size);
 			const uploaded = await providerFetch(context, dependencies, destination, {
@@ -73,11 +91,7 @@ export function handleAudiocomUploadRequest(context: AudiocomOAuthFunctionContex
 			await checkResponse(confirmed, authorized, dependencies);
 			await confirmed.body?.cancel();
 		} catch (error) {
-			// The signed failure hook removes the incomplete source; never attach OAuth to storage URLs.
-			try {
-				const failed = await (dependencies.fetchImpl ?? fetch)(fail, { method: 'DELETE', redirect: 'manual', signal: AbortSignal.timeout(10_000) });
-				await failed.body?.cancel();
-			} catch { /* Cleanup is best-effort after a failed or cancelled transfer. */ }
+			await cleanupUpload();
 			throw error;
 		}
 		if (provider.kind === 'audiocity') {
@@ -90,20 +104,25 @@ export function handleAudiocomUploadRequest(context: AudiocomOAuthFunctionContex
 				await checkResponse(refreshed, authorized, dependencies);
 				const ready = normalizeAudio(await readUpstreamJson(refreshed), provider);
 				if (ready.id === audio.id) audio = ready;
-			} catch { /* The committed upload and its share URL remain valid. */ }
+				if (context.request.signal.aborted) throw new OAuthHttpError(502, 'upload_cancelled', 'The audio upload was cancelled.');
+			} catch (error) {
+				if (context.request.signal.aborted) { await cleanupUpload(); throw error; }
+				// An ordinary metadata refresh outage does not undo a committed upload.
+			}
 		}
 		return oauthJson({ data: { audio, processing: provider.kind !== 'audiocity' } }, 201, admission);
 	});
 }
 export function handleAudiocomUsageRequest(context: AudiocomOAuthFunctionContext, dependencies: OAuthHandlerDependencies = {}): Promise<Response> {
+	void dependencies;
 	return handleOAuthEndpoint(context, ['GET', 'HEAD'], async admission => {
 		context = selectedProviderContext(context);
 		const provider = providerConfiguration(context.env);
-		const capabilities = await discoverAudiocityCapabilities(context, dependencies);
+
 		return oauthJson({ data: {
-			maximumUploadBytes: Math.min(MAX_UPLOAD_BYTES, capabilities.maximumUploadBytes),
-			providerMaximumUploadBytes: capabilities.maximumUploadBytes, provider,
-			projectStorageSupported: capabilities.projectFormats.length > 0, projectFormats: capabilities.projectFormats,
+			maximumUploadBytes: MAX_UPLOAD_BYTES,
+			providerMaximumUploadBytes: MAX_UPLOAD_BYTES, provider,
+			projectStorageSupported: true, projectFormats: ['aup3'],
 		} }, 200, admission);
 	});
 }

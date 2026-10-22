@@ -368,6 +368,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify Windows GPU CMake recipes
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        run: node --import tsx --test tests/desktop-assistance-gpu-cmake.test.ts tests/desktop-assistance-sherpa-cmake.test.ts tests/desktop-assistance-vulkan-cmake.test.ts tests/desktop-assistance-build-process.test.ts
+
       - name: Verify durable native manifest staging
         run: node --import tsx --test tests/soundscaper-professional-native-manifest-sync.test.ts
 
@@ -594,7 +599,9 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
     # Run 37803116461 cancelled WebKit shard 3 at the 45-minute job deadline.
-    timeout-minutes: 60
+    # Chromium photo shards run serially to bound native image memory; an
+    # observed complete phase takes 88 minutes before setup and compaction.
+    timeout-minutes: ${{ matrix.project == 'chromium' && 120 || 60 }}
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

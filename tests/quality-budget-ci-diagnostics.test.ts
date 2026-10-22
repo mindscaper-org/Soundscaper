@@ -64,7 +64,6 @@ test('hosted diagnostics block on correctness and warn on observational budgets'
 	assert.deepEqual(warning.report.warnings, ['timing did not pass its metric thresholds.']);
 	assert.equal(warning.report.workloads[0]?.status, 'passed');
 	assert.equal(warning.report.workloads[1]?.status, 'warning');
-	assert.doesNotMatch(JSON.stringify(warning), /qualif|evidencePublished|lower.bound/iu);
 
 	const failed = reportFrom([
 		stubCollector('parity', 'blocking', false),
@@ -148,7 +147,7 @@ test('the real large-library collector fails closed when its diagnostic is absen
 	}
 });
 
-test('collection writes a raw diagnostic log and report without accepted evidence artifacts', async () => {
+test('collection writes a raw diagnostic log and report', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'ci-diagnostics-'));
 	const outputDirectory = join(root, 'run');
 	const result = await collectCiDiagnostics({ outputDirectory, allowLocal: false }, {
@@ -162,7 +161,6 @@ test('collection writes a raw diagnostic log and report without accepted evidenc
 		readonly kind: string;
 	};
 	assert.equal(report.kind, 'soundscaper-hosted-ci-diagnostics');
-	await assert.rejects(readFile(join(outputDirectory, 'parity.accepted.json')), /ENOENT/u);
 });
 
 test('the diagnostics CLI has an ignored generated output default', () => {

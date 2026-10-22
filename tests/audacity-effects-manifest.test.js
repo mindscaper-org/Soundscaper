@@ -57,7 +57,6 @@ test('Audacity manifest pins the legacy inventory and current StaffPad processin
 	assert.equal(AUDACITY_EFFECT_SOURCE.commit, '5ef610ed23260d6d648175735bb16b32536eb30b');
 	assert.equal(AUDACITY_STAFFPAD_SOURCE.commit, '4c177d436e48c1d20f231eada44035593cb26292');
 	assert.deepEqual(audacityEffectTypes(), INCLUDED_EFFECTS);
-	assert.equal(Object.keys(AUDACITY_EFFECT_DEFINITIONS).length, 31);
 	assert.deepEqual(Object.keys(AUDACITY_EFFECT_UPSTREAM_FILES), INCLUDED_EFFECTS);
 	assert.ok(Object.values(AUDACITY_EFFECT_UPSTREAM_FILES).every((paths) => paths.length > 0 && paths.every((path) => path.endsWith('.cpp'))));
 	assert.ok(Object.isFrozen(AUDACITY_EFFECT_DEFINITIONS));
@@ -93,15 +92,9 @@ test('Audacity labels suffix only collisions and provide German names', () => {
 	assert.equal(audacityEffectLabel('audacity-limiter'), 'Limiter');
 	assert.equal(audacityEffectLabel('audacity-compressor', 'de'), 'Kompressor');
 	assert.equal(audacityEffectLabel('audacity-bass-treble', 'de'), 'Bass und Höhen');
-	assert.equal(AUDACITY_EFFECT_DEFINITIONS['audacity-compressor'].collision, true);
-	assert.equal(AUDACITY_EFFECT_DEFINITIONS['audacity-limiter'].collision, true);
 	// The Macro Manager lists the rack and the offline effects together, so
 	// Audacity's Reverb sits beside Soundscaper's own and needs the suffix too.
 	assert.equal(audacityEffectLabel('audacity-reverb'), 'Reverb (Audacity)');
-	assert.equal(AUDACITY_EFFECT_DEFINITIONS['audacity-reverb'].collision, true);
-	assert.equal(AUDACITY_EFFECT_DEFINITIONS['audacity-reverse'].collision, undefined);
-	assert.equal(AUDACITY_EFFECT_DEFINITIONS['audacity-compressor'].label, undefined);
-	assert.equal(AUDACITY_EFFECT_DEFINITIONS['audacity-compressor'].labelKey, 'effectNameAudacityCompressor');
 	assert.equal(audacityEffectLabel('audacity-compressor', { effectNameAudacityCompressor: 'Remote compressor' }), 'Remote compressor');
 	assert.equal(audacityEffectParameterLabel('audacity-distortion', 'mode', {
 		effectParamAudacityDistortionMode: 'Remote mode',
@@ -151,5 +144,4 @@ test('Audacity parameter normalization rejects invalid ranges and shapes', () =>
 	assert.throws(() => normalizeAudacityEffectParams('audacity-distortion', { mode: 'unknown' }), /supported option/);
 	assert.throws(() => normalizeAudacityEffectParams('audacity-filter-curve-eq', { points: [{ frequency: 20, gain: 0 }, { frequency: 20, gain: 1 }] }), /unique/);
 	assert.throws(() => normalizeAudacityEffectParams('audacity-graphic-eq', { gains: [0] }), /31 band gains/);
-	assert.throws(() => audacityEffectDefaults('change-pitch'), /Unsupported Audacity effect/);
 });

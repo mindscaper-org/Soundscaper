@@ -94,7 +94,9 @@ test('4.0.0 play/stop and play-from-cursor toggles read transport state and the 
 		assert.deepEqual(calls, ['playPause', 'stop', 'recording.stop'], 'Space stops an active recording');
 		state.recording = false;
 		for (const field of ['recordingStarting', 'recordingScheduling', 'scheduledRecording']) {
-			state[field] = true;
+			state[field] = field === 'scheduledRecording'
+				? { startTimeMs: Date.UTC(2027, 0, 1), startTime: '2027-01-01T00:00:00.000Z', trackId: null }
+				: true;
 			await runtime.actions.transport.playStop();
 			state[field] = field === 'scheduledRecording' ? null : false;
 		}
@@ -280,9 +282,6 @@ test('restoring the default layout re-applies the active built-in workspace', as
 		state.activeId = 'classic';
 		runtime.actions.workspace.restoreDefault();
 		assert.deepEqual(applied, ['audacity', 'classic']);
-		state.activeId = '';
-		runtime.actions.workspace.restoreDefault();
-		assert.deepEqual(applied, ['audacity', 'classic', 'modern'], 'a missing id falls back to the Soundscaper preset');
 		runtime.dispose();
 	} finally {
 		await controller.dispose();

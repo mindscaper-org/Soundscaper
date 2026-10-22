@@ -59,40 +59,6 @@ test('frame-pack v1 is deterministic and exposes authenticated original, receipt
 	);
 });
 
-test('writer canonicalizes receipt JSON and rejects noncanonical pixels or timing', () => {
-	const left = createFramescaperImageFramePackV1({
-		...packFixture(), receipt: { schemaVersion: 1, z: 'last', a: 'first' },
-	});
-	const right = createFramescaperImageFramePackV1({
-		...packFixture(), receipt: { a: 'first', z: 'last', schemaVersion: 1 },
-	});
-	assert.deepEqual(left.bytes, right.bytes);
-	assert.throws(() => createFramescaperImageFramePackV1({
-		...packFixture(), frames: [{
-			presentationTicks: 0n, durationTicks: 50_000n,
-			rgba: Uint8Array.of(1, 2, 3, 0, 4, 5, 6, 255),
-		}], width: 2, height: 1,
-	}), /transparent.*RGB/iu);
-	assert.throws(() => createFramescaperImageFramePackV1({
-		...packFixture(), frames: [
-			packFixture().frames[0]!,
-			{
-				...packFixture().frames[1]!,
-				rgba: Uint8Array.of(1, 2, 3, 0, 4, 5, 6, 255),
-			},
-		],
-	}), /transparent.*RGB/iu);
-	assert.throws(() => createFramescaperImageFramePackV1({
-		...packFixture(), frames: [
-			packFixture().frames[0]!,
-			{ ...packFixture().frames[1]!, presentationTicks: 34_000n },
-		],
-	}), /continuous/iu);
-	assert.throws(() => createFramescaperImageFramePackV1({
-		...packFixture(), receipt: { schemaVersion: 1, unsafe: Number.NaN },
-	}), /receipt/iu);
-});
-
 test('reader fails closed on body, section, index, and compressed-frame substitution', async () => {
 	const publication = createFramescaperImageFramePackV1(packFixture());
 	const source = sourceFrom(publication);

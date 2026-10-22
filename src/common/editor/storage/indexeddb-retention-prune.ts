@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { collectProjectStorageKeys, compactProjectSourceMetadata } from '../retention.js';
+import { collectRecoverableProjectStorageKeys, compactRecoverableProjectMetadata, collectRecordingRecoveryRoots } from './recovery-retention-roots.ts';
 import { DERIVATIVE_CACHE_ENTRY_STORE_NAME, VIDEO_DERIVATIVE_STORE_NAME } from './derivative-cache-entry.ts';
 import { deleteByIndex, readCursorPage, request, transact } from './indexeddb-backend.ts';
 import { candidateEligibleAt, protectSourceDependencies, sourceStorageCandidates, type StorageRecord } from './media-records.ts';
@@ -21,6 +21,7 @@ export async function deleteIndexedDbRetentionCandidates(
 		readonly getNextEligibleAt: () => number | null;
 		readonly setNextEligibleAt: (value: number) => void;
 	},
+	validateProjectForRetention?: (project: unknown) => boolean,
 ): Promise<{ removedSources: StorageRecord[]; removedBinaryRecords: StorageRecord[]; removedSourceIds: string[] }> {
 	return transact(database, [
 		'projects', 'revisions', 'settings', 'analysis', 'sources', 'sourceChunks', 'mediaAssets',
@@ -34,17 +35,18 @@ export async function deleteIndexedDbRetentionCandidates(
 		const projectUpdates: unknown[] = [];
 		const revisionUpdates: Record<string, unknown>[] = [];
 		for (const saved of await request(projects.getAll())) {
-			const compacted = compactProjectSourceMetadata(saved);
+			const compacted = compactRecoverableProjectMetadata(saved, validateProjectForRetention);
 			if (compacted !== saved) projectUpdates.push(compacted);
-			collectProjectStorageKeys(compacted, state.protectedIds);
+			collectRecoverableProjectStorageKeys(compacted, state.protectedIds, validateProjectForRetention);
 		}
 		for (const value of await request(revisions.getAll())) {
 			const record = asRecord(value);
 			if (!record) continue;
-			const compacted = compactProjectSourceMetadata(record.project);
+			const compacted = compactRecoverableProjectMetadata(record.project, validateProjectForRetention);
 			if (compacted !== record.project) revisionUpdates.push({ ...record, project: compacted });
-			collectProjectStorageKeys(compacted, state.protectedIds);
+			collectRecoverableProjectStorageKeys(compacted, state.protectedIds, validateProjectForRetention);
 		}
+		collectRecordingRecoveryRoots(await request(analysis.getAll()), state.protectedIds);
 		const storedSources = (await request(sources.getAll())) as StorageRecord[];
 		const storedMediaAssets = await unretainedMediaAssets(mediaAssets, stores[CATALOG_ORIGINAL_ROOT_STORE_NAME]);
 		const storedVideoDerivatives = (await request(derivativeCacheEntries.getAll())) as StorageRecord[];

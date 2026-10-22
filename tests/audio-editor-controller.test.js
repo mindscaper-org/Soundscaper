@@ -42,10 +42,6 @@ test('headless audio editor exposes cached snapshots, subscriptions, and frame-a
 	assert.equal(controller.clipTimePitchCache.transferLoadedSourceChannels, true);
 	assert.equal(controller.clipTimePitchCache.maximumResidentChannelBytes, 1_024);
 
-	assert.deepEqual(Object.keys(controller.actions), [
-		'project', 'projectBin', 'video', 'edit', 'transport', 'recording', 'capture', 'webVcr', 'metering', 'audioDevices', 'storage', 'timeline', 'timelineAnnotations', 'sequences', 'trackFolders', 'audioWarp', 'takeComp', 'sampleEdit', 'spectral',
-		'track', 'mixer', 'generators', 'nyquist', 'labels', 'metadata', 'recordingNotes', 'preferences', 'clipSourcePreview', 'clip', 'effects', 'macros', 'analysis', 'export', 'media',
-	]);
 	assert.equal(readySnapshot.preferences.workspace.activeId, 'modern');
 	assert.equal(readySnapshot.preferences.appearance.theme, 'system');
 	assert.equal(readySnapshot.preferences.appearance.clipStyle, 'colorful');
@@ -342,7 +338,7 @@ test('controller persists direct workspace panel and toolbar moves', async () =>
 	await controller.dispose();
 });
 
-test('controller reverts editor preferences to product factory defaults without removing projects', async () => {
+test('controller reverts editor preferences to product factory defaults without removing projects', async (t) => {
 	const store = createMemoryStore();
 	const controller = createAudioEditorController(null, {
 		headless: true,
@@ -352,11 +348,12 @@ test('controller reverts editor preferences to product factory defaults without 
 		engine: createMemoryEngine(),
 		ffmpeg: createMemoryFfmpeg(),
 	});
+	t.after(() => controller.dispose());
 	await controller.ready;
 	const projectId = controller.getSnapshot().project.id;
 
 	await controller.actions.preferences.update({
-		appearance: { skin: 'techno', theme: 'dark', clipStyle: 'classic', layout: 'compact' },
+		appearance: { skin: 'techno', theme: 'dark', clipStyle: 'classic', layout: 'compact', labelTextSizePt: 24 },
 		shortcuts: {},
 	});
 	await controller.actions.preferences.setWorkspace('music');
@@ -364,12 +361,11 @@ test('controller reverts editor preferences to product factory defaults without 
 
 	const snapshot = controller.getSnapshot();
 	assert.equal(snapshot.project.id, projectId);
-	assert.deepEqual(snapshot.preferences.appearance, { skin: 'default', theme: 'system', clipStyle: 'colorful', layout: 'auto', defaultView: 'waveform' });
+	assert.deepEqual(snapshot.preferences.appearance, { skin: 'default', theme: 'system', clipStyle: 'colorful', layout: 'auto', defaultView: 'waveform', labelTextSizePt: 9 });
 	assert.equal(snapshot.preferences.workspace.activeId, 'modern');
 	assert.ok(Object.keys(snapshot.preferences.shortcuts).length > 0);
 	assert.deepEqual(store.settings.get('audio-editor-preferences-v1'), snapshot.preferences);
 	assert.equal(store.projects.has(projectId), true);
-	await controller.dispose();
 });
 
 test('controller persists play-at-speed pitch behavior and dispatches the selected mode', async () => {

@@ -46,13 +46,9 @@ const GREEN_LUT = `LUT_3D_SIZE 2\n${'0.0 1.0 0.0\n'.repeat(8)}`;
 const live = new AbortController().signal;
 
 function plate(fill: number, alpha = 255): UnifiedExactRenderVisualRgbaV13 {
-	const pixels = new Uint8Array(BYTES);
-	for (let offset = 0; offset < BYTES; offset += 4) {
-		pixels[offset] = fill;
-		pixels[offset + 1] = fill;
-		pixels[offset + 2] = fill;
-		pixels[offset + 3] = alpha;
-	}
+	const pixels = Uint8Array.from({ length: BYTES }, (_value, offset) => (
+		offset % 4 === 3 ? alpha : fill
+	));
 	return { width: WIDTH, height: HEIGHT, pixels };
 }
 

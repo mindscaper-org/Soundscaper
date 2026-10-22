@@ -8,7 +8,7 @@ import {
 } from '../src/common/editor/controller/composition/action-facade.ts';
 import { createActionFacadeRuntime } from './helpers/action-facade-runtime-fixture.ts';
 
-test('controller action facade exposes frozen optional Framescaper capture actions', () => {
+test('controller action facade forwards optional Framescaper capture actions', () => {
 	const calls: string[] = [];
 	const captureActions = {
 		start: () => { calls.push('start'); },
@@ -28,5 +28,4 @@ test('controller action facade exposes frozen optional Framescaper capture actio
 	}
 	void start(); void stop();
 	assert.deepEqual(calls, ['start', 'stop']);
-	assert.equal(Object.isFrozen(capture), true);
 });

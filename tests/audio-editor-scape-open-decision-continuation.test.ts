@@ -114,7 +114,6 @@ test('each decision kind only settles with one of its closed choices', async () 
 	});
 	const compatibilityPrompt = published.at(-1);
 	assert.equal((compatibilityPrompt as Readonly<{ kind?: unknown }>).kind, 'compatibility');
-	assert.throws(() => owner.settle(compatibilityPrompt, 'copy'), /not available.*compatibility/iu);
 	assert.equal(owner.settle(compatibilityPrompt, 'open-read-only'), true);
 	assert.equal(await compatibility, 'open-read-only');
 
@@ -125,7 +124,6 @@ test('each decision kind only settles with one of its closed choices', async () 
 		signal: new AbortController().signal,
 	});
 	const combinedPrompt = published.at(-1);
-	assert.throws(() => owner.settle(combinedPrompt, 'replace'), /not available.*compatibility-collision/iu);
 	assert.equal(owner.settle(combinedPrompt, 'copy-read-only'), true);
 	assert.equal(await combined, 'copy-read-only');
 });

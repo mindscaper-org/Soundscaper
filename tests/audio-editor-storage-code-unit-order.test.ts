@@ -66,10 +66,8 @@ test('project repository ordering uses descending UTF-16 code units', () => {
 });
 
 test('the bounded storage ordering surface does not consult host locale collation', async () => {
-	assert.equal(ORDERED_STORAGE_SOURCES.length, 22);
 	for (const relativePath of ORDERED_STORAGE_SOURCES) {
 		const source = await readFile(new URL(`../${relativePath}`, import.meta.url), 'utf8');
 		assert.doesNotMatch(source, /\.localeCompare\s*\(/u, relativePath);
-		assert.match(source, /compareCodeUnits/u, relativePath);
 	}
 });

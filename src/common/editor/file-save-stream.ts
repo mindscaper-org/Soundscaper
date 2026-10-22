@@ -198,7 +198,9 @@ function createPreparedDirectSave(options: Readonly<{
 	let opened = false;
 	let sealed = false;
 	let committed: DirectSavedFile | null = null;
+	let commitPromise: Promise<DirectSavedFile> | null = null;
 	let abortPromise: Promise<void> | null = null;
+	let abortRequested = false;
 	let abortReason: unknown;
 	let listening = false;
 	let finalPrefixByteLength = 0;
@@ -215,6 +217,7 @@ function createPreparedDirectSave(options: Readonly<{
 		requestedSizeMode?: DirectSaveSizeMode,
 		requestedOptions?: DirectSaveWritableOptions,
 	): Promise<WritableStream<Uint8Array>> {
+		if (abortRequested) throw abortReason;
 		if (opened) throw new Error('The direct-save destination was already opened.');
 		const nextSizeMode = normalizeSizeMode(requestedSizeMode);
 		const nextMaximumBytes = safeNonNegativeInteger(
@@ -233,6 +236,7 @@ function createPreparedDirectSave(options: Readonly<{
 		throwIfAborted(options.signal);
 		backend = await options.open(maximumBytes, sizeMode, writableOptions);
 		try {
+			if (abortRequested) throw abortReason;
 			throwIfAborted(options.signal);
 		} catch (error) {
 			await requestAbort(error);
@@ -305,29 +309,39 @@ function createPreparedDirectSave(options: Readonly<{
 
 	async function commit(): Promise<DirectSavedFile> {
 		if (committed) return committed;
+		if (commitPromise) return commitPromise;
 		if (!backend || !sealed || abortPromise) throw new Error('The direct-save destination is not ready to commit.');
-		throwIfAborted(options.signal);
-		if (sizeMode === 'exact' && byteLength !== maximumBytes) {
-			await abortAfterFailure(new RangeError(
-				'Exact direct-save output size does not match the declared size.',
-			));
+		commitPromise = finishCommit();
+		return commitPromise;
+	}
+
+	async function finishCommit(): Promise<DirectSavedFile> {
+		try {
+			throwIfAborted(options.signal);
+			if (sizeMode === 'exact' && byteLength !== maximumBytes) {
+				throw new RangeError('Exact direct-save output size does not match the declared size.');
+			}
+			if (finalPrefixByteLength && !finalPrefixPatched) {
+				throw new Error('The direct-save final prefix was not patched.');
+			}
+			detachAbort();
+			await backend!.commit(byteLength);
+			committed = Object.freeze({
+				method: options.method,
+				fileName: options.fileName,
+				size: byteLength,
+			});
+			return committed;
+		} catch (error) {
+			return abortAfterFailure(error);
 		}
-		if (finalPrefixByteLength && !finalPrefixPatched) {
-			await abortAfterFailure(new Error('The direct-save final prefix was not patched.'));
-		}
-		detachAbort();
-		await backend.commit(byteLength);
-		committed = Object.freeze({
-			method: options.method,
-			fileName: options.fileName,
-			size: byteLength,
-		});
-		return committed;
 	}
 
 	async function requestAbort(reason?: unknown): Promise<void> {
-		if (committed || !backend) return;
-		abortReason ??= reason;
+		if (committed) return;
+		abortRequested = true;
+		abortReason ??= reason ?? new DOMException('The file operation was cancelled.', 'AbortError');
+		if (!backend) return;
 		detachAbort();
 		abortPromise ??= backend.abort(abortReason);
 		await abortPromise;

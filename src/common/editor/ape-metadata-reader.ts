@@ -5,10 +5,11 @@ import { metadataBlobBytes } from './audio-metadata-values.ts';
 /** Keep APEv2 trailers outside the reviewed WavPack audio-block decoder. */
 export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promise<Blob> {
 	if (file.size < 32) return file;
-	const footer = await metadataBlobBytes(file, file.size - 32, file.size, signal);
+	const tagEnd = await apeTagEnd(file, signal);
+	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
 	const info = apeFooter(footer);
-	if (!info) return file;
-	const start = file.size - info.size - (info.header ? 32 : 0);
+	if (!info) return tagEnd === file.size ? file : file.slice(0, tagEnd, file.type);
+	const start = tagEnd - info.size - (info.header ? 32 : 0);
 	if (start < 32) throw new RangeError('The APEv2 trailer exceeds its WavPack file.');
 	if (info.header) {
 		const header = await metadataBlobBytes(file, start, start + 32, signal);
@@ -23,11 +24,12 @@ export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promis
 /** Inspect APE text and cover art without asking a codec to decode the trailer. */
 export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Promise<Readonly<Record<string, unknown>>> {
 	if (file.size < 32) return {};
-	const footer = await metadataBlobBytes(file, file.size - 32, file.size, signal);
+	const tagEnd = await apeTagEnd(file, signal);
+	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
 	const info = apeFooter(footer);
 	if (!info) return {};
 	await wavPackAudioBlob(file, signal);
-	const bytes = await metadataBlobBytes(file, file.size - info.size, file.size - 32, signal);
+	const bytes = await metadataBlobBytes(file, tagEnd - info.size, tagEnd - 32, signal);
 	const view = new DataView(bytes.buffer);
 	const count = new DataView(footer.buffer).getUint32(16, true);
 	const entries: [string, string | Uint8Array][] = [];
@@ -52,7 +54,7 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 				const end = value.indexOf(0);
 				if (end >= 0 && end + 1 < value.length) {
 					const data = value.subarray(end + 1);
-					images.push({ data, mimeType: data[0] === 137 ? 'image/png' : 'image/jpeg',
+					images.push({ data, description: new TextDecoder().decode(value.subarray(0, end)), mimeType: data[0] === 137 ? 'image/png' : 'image/jpeg',
 						kind: /\(front\)/iu.test(key) ? 'coverFront' : /\(back\)/iu.test(key) ? 'coverBack' : 'unknown' });
 				}
 			}
@@ -62,10 +64,21 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const raw = Object.fromEntries(entries);
 	const tags: Record<string, unknown> = { raw, ...(images.length ? { images } : {}) };
 	const names: Readonly<Record<string, string>> = { TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', ALBUMARTIST: 'albumArtist', GENRE: 'genre',
+		TRACK: 'trackNumber', DISC: 'discNumber', YEAR: 'date', TOTALTRACKS: 'tracksTotal', TOTALDISCS: 'discsTotal',
 		COMMENT: 'comment', DATE: 'date', LYRICS: 'lyrics', TRACKNUMBER: 'trackNumber', TRACKTOTAL: 'tracksTotal', DISCNUMBER: 'discNumber', DISCTOTAL: 'discsTotal' };
 	for (const [key, value] of entries) {
-		const name = names[key.toUpperCase()];
-		if (name && typeof value === 'string') tags[name] = ['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name) ? Number(value) : value;
+		const name = names[key.toUpperCase().replace(/[ _-]/gu, '')];
+		if (!name || typeof value !== 'string') continue;
+		if (['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name)) {
+			const pair = /^(\d+)\/(\d+)$/u.exec(value);
+			const number = Number(pair ? pair[1] : value);
+			if (Number.isSafeInteger(number) && number >= 0) tags[name] = number;
+			if (pair && (name === 'trackNumber' || name === 'discNumber')) {
+				const total = Number(pair[2]);
+				const totalName = name === 'trackNumber' ? 'tracksTotal' : 'discsTotal';
+				if (Number.isSafeInteger(total) && tags[totalName] === undefined) tags[totalName] = total;
+			}
+		} else tags[name] = value;
 	}
 	return tags;
 }
@@ -76,4 +89,13 @@ function apeFooter(bytes: Uint8Array): Readonly<{ size: number; header: boolean 
 	const size = view.getUint32(12, true);
 	if (bytes.length !== 32 || view.getUint32(8, true) !== 2000 || size < 32 || size > 16 * 1024 ** 2 || view.getUint32(16, true) > 256) throw new RangeError('Invalid APEv2 trailer.');
 	return { size, header: Boolean(view.getUint32(20, true) & 0x8000_0000) };
+}
+
+/** ID3v1 may follow APEv2 for compatibility with older tagging programs. */
+async function apeTagEnd(file: Blob, signal?: AbortSignal): Promise<number> {
+	if (file.size >= 160) {
+		const marker = await metadataBlobBytes(file, file.size - 128, file.size - 125, signal);
+		if (new TextDecoder().decode(marker) === 'TAG') return file.size - 128;
+	}
+	return file.size;
 }

@@ -51,10 +51,10 @@ for (const changed of [true, false]) test(`a held rack knob ${changed ? 'retires
 		await act(async () => { handlers.onPointerDown(pointer(initial)); });
 		await act(async () => { (reactProps(initial) as unknown as KnobProps).onPointerMove(pointer(initial, 112)); });
 		assert.equal(initial.getAttribute('aria-valuenow'), '0.46');
-		const priorHandlers = reactProps(initial) as unknown as KnobProps;
 		await render(changed ? .2 : .4);
 		assert.equal(knob()?.getAttribute('aria-valuenow'), changed ? '0.2' : '0.46');
-		await act(async () => { priorHandlers.onPointerUp(pointer(initial, 112)); });
+		const current = knob();
+		await act(async () => { (reactProps(current) as unknown as KnobProps).onPointerUp(pointer(current, 112)); });
 		assert.deepEqual(calls, changed ? ['begin', 'preview:0.46', 'cancel']
 			: ['begin', 'preview:0.46', 'commit:0.46']);
 		if (changed) {

@@ -20,7 +20,7 @@ import { createIsolatedBundledAudioCodecProvider } from
 	'../desktop/bundled-audio-codec-provider-catalog.ts';
 import type { BundledAudioCodecOperationRunner } from '../desktop/bundled-audio-codec-operation-runner.ts';
 import type { DesktopAudioCodecProviderRuntime } from '../desktop/desktop-audio-codec-broker.ts';
-import type { DesktopAudioCodecRequest } from '../desktop/desktop-audio-codec-operation-contract.ts';
+import type { DesktopAudioCodecFormat, DesktopAudioCodecRequest } from '../desktop/desktop-audio-codec-operation-contract.ts';
 import type { DesktopCodecOperation } from '../src/common/editor/desktop-codec-coordinator.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,7 +38,7 @@ const configurations = Object.freeze(Object.fromEntries(IDS.map((codec) => [code
 
 function configuration(codec: BundledAudioCodecId) { return configurations[codec]; }
 
-function request(format: DesktopAudioCodecRequest['format'], operation: 'audio-decode' | 'audio-encode') {
+function request(format: DesktopAudioCodecFormat, operation: 'audio-decode' | 'audio-encode') {
 	if (operation === 'audio-decode') return Object.freeze({
 		operation, format, input: Uint8Array.of(1), sampleRate: null, channelCount: null,
 		settings: Object.freeze({ sampleFormat: 'f32le' as const }), maximumOutputBytes: 1_024,
@@ -53,7 +53,7 @@ function request(format: DesktopAudioCodecRequest['format'], operation: 'audio-d
 	}) as DesktopAudioCodecRequest;
 }
 
-function operation(format: DesktopAudioCodecRequest['format'], direction: 'decode' | 'encode') {
+function operation(format: DesktopAudioCodecFormat, direction: 'decode' | 'encode') {
 	const tuples = {
 		flac: ['flac', 'flac', direction === 'encode' ? 's24' : 'f32'],
 		mp3: ['mp3', 'mp3', direction === 'encode' ? 'f32p' : 'f32'],

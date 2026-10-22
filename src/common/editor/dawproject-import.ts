@@ -120,7 +120,9 @@ export function parseDawprojectProjectElement(root: XmlElement, metadataRoot: Xm
 	const elementsById = new Map<string, XmlElement>();
 	for (const element of walkXml(root)) {
 		const id = attribute(element, 'id');
-		if (id !== null && !elementsById.has(id)) elementsById.set(id, element);
+		if (id === null) continue;
+		if (elementsById.has(id)) throw new SyntaxError(`Duplicate DAWproject ID: ${id}.`);
+		elementsById.set(id, element);
 	}
 	return Object.freeze({
 		root,
@@ -152,11 +154,13 @@ export function dawprojectMediaReferences(document: DawprojectDocument): readonl
 		const file = childElement(element, 'File');
 		const path = file ? attribute(file, 'path') : null;
 		if (!file || path === null || !path.trim()) continue;
-		const normalized = normalizeEntryPath(path.trim());
-		if (references.has(normalized)) continue;
-		references.set(normalized, Object.freeze({
+		const normalized = normalizeEntryPath(path);
+		const external = booleanAttribute(file, 'external') === true;
+		const key = JSON.stringify([normalized, external, element.name]);
+		if (references.has(key)) continue;
+		references.set(key, Object.freeze({
 			path: normalized,
-			external: booleanAttribute(file, 'external') === true,
+			external,
 			kind: element.name === 'Audio' ? 'audio' : 'video',
 		}));
 	}

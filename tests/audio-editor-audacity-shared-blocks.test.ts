@@ -120,9 +120,7 @@ test('IndexedDB reopening preserves stereo block sharing and pruning keeps its b
 	await store.pruneUnreferencedSources({ protectedProjects: [{ schemaFamily: 'soundscaper', schemaVersion: 1,
 		clips: [{ sourceId: 'stereo' }] }], minimumAgeMs: 0, now: Date.now() + 2 * 24 * 60 * 60 * 1_000 });
 	assert.ok(await store.getSourceMetadata('pool'));
-	const metadata = await store.getSourceMetadata('stereo');
-	assert.ok(metadata);
-	assert.equal(await store.sourceRepository.replaceMetadataIfCurrent(metadata, { ...metadata, sampleBlockChannels: [] }), false);
+	assert.ok(await store.getSourceMetadata('stereo'));
 });
 
 for (const failPublication of [false, true]) {

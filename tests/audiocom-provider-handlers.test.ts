@@ -33,7 +33,7 @@ async function connected(): Promise<{ token: string; repository: MemoryAudiocomO
 	const attempt = await start(repository);
 	const authorize = new URL(attempt.authorizeUrl);
 	assert.equal(authorize.origin, ORIGIN);
-	assert.equal(authorize.searchParams.get('scope'), 'public projects');
+	assert.equal(authorize.searchParams.get('scope'), 'all');
 	assert.equal(authorize.searchParams.get('redirect_uri'), `${EDITOR}/api/audiocom/oauth/callback`);
 	const callback = await handleAudiocomOAuthCallbackRequest(context(request(`oauth/callback?code=code&state=${authorize.searchParams.get('state') ?? ''}`)), {
 		repository, now: () => NOW, fetchImpl: async (input, init) => {
@@ -41,7 +41,7 @@ async function connected(): Promise<{ token: string; repository: MemoryAudiocomO
 			const fields = new URLSearchParams(String(init?.body));
 			assert.equal(fields.get('client_id'), 'registered-client');
 			assert.equal(await hashCapability(fields.get('code_verifier') ?? ''), authorize.searchParams.get('code_challenge'));
-			return json({ token_type: 'Bearer', scope: 'public projects', access_token: 'private-provider-access', refresh_token: 'private-provider-refresh', expires_in: 3600 });
+			return json({ token_type: 'Bearer', scope: 'all', access_token: 'private-provider-access', refresh_token: 'private-provider-refresh', expires_in: 3600 });
 		},
 	});
 	assert.equal(callback.status, 200, await callback.text());
@@ -71,38 +71,30 @@ test('Audiocity callback exchanges only at its persisted issuer after deployment
 		calls++;
 		assert.equal(String(input), `${ORIGIN}/auth/token`);
 		assert.equal(new URLSearchParams(String(init?.body)).get('client_id'), 'registered-client');
-		return Promise.resolve(json({ token_type: 'Bearer', scope: 'public projects', access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }));
+		return Promise.resolve(json({ token_type: 'Bearer', scope: 'all', access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }));
 	} });
 	assert.equal(callback.status, 200);
 	assert.equal(calls, 1);
 });
-test('Audiocity usage discovers archive capabilities and limits only at the configured origin', async () => {
-	const response = await handleAudiocomUsageRequest(context(request('usage')), { fetchImpl: (input, init) => {
-		assert.equal(String(input), `${ORIGIN}/.well-known/audiocity`);
-		assert.equal(new Headers(init?.headers).has('Authorization'), false);
-		return Promise.resolve(json({ name: 'Audiocity', url: ORIGIN, features: ['audio-uploads', 'aup3-archives', 'aup4-archives'], limits: { max_upload_bytes: 50000000 } }));
-	} });
+test('Audiocity uses the shared native project protocol without archive discovery', async () => {
+	const response = await handleAudiocomUsageRequest(context(request('usage')), { fetchImpl: async () => { throw new Error('No alternate discovery API.'); } });
 	assert.equal(response.status, 200);
-	const { data } = await response.json() as { data: { projectFormats: string[]; projectStorageSupported: boolean; maximumUploadBytes: number; providerMaximumUploadBytes: number } };
-	assert.deepEqual(data.projectFormats, ['aup3', 'aup4']);
-	assert.equal(data.projectStorageSupported, true);
-	assert.equal(data.maximumUploadBytes, 50000000);
-	assert.equal(data.providerMaximumUploadBytes, 50000000);
-	const invalid = await handleAudiocomUsageRequest(context(request('usage')), { fetchImpl: () => Promise.resolve(json({ name: 'Audiocity', url: 'https://evil.test', features: ['aup3-archives'], limits: { max_upload_bytes: 100 } })) });
-	assert.equal(invalid.status, 502);
+	const { data } = await response.json() as { data: { projectFormats: string[]; projectStorageSupported: boolean; maximumUploadBytes: number } };
+	assert.deepEqual(data.projectFormats, ['aup3']); assert.equal(data.projectStorageSupported, true); assert.equal(data.maximumUploadBytes, 100000000);
 });
 test('Audiocity transfers signed raw audio and previews on one origin without forwarding OAuth credentials', async () => {
 	const { repository, token } = await connected();
 	const uploaded = request('uploads?title=Rain&category=recording&license=arr&listed=1&downloadable=0', token, { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Audiocom-Filename': 'rain.wav', 'X-Audiocom-Content-Length': '4' }, body: new Uint8Array([1, 2, 3, 4]) });
 	const calls: string[] = [];
 	const media = `${ORIGIN}/media/${ID}?expires=1792080000&signature=${SIGNATURE}`;
+	const transferQuery = `token=${SIGNATURE}&X-Amz-Date=20261015T000000Z&X-Amz-Expires=86400`;
 	const response = await handleAudiocomUploadRequest(context(uploaded), { repository, now: () => NOW, fetchImpl: async (input, init) => {
 		const url = new URL(String(input));
 		assert.equal(url.origin, ORIGIN);
 		calls.push(`${init?.method ?? 'GET'} ${url.pathname}`);
 		if (url.pathname === '/v1/audio/create') {
 			assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer private-provider-access');
-			return json({ audio, url: `${ORIGIN}/uploads/${ID}?token=${SIGNATURE}`, success: `${ORIGIN}/uploads/${ID}/success?token=${SIGNATURE}`, fail: `${ORIGIN}/uploads/${ID}/fail?token=${SIGNATURE}` }, 201);
+			return json({ audio, url: `${ORIGIN}/uploads/${ID}?${transferQuery}`, success: `${ORIGIN}/uploads/${ID}/success?${transferQuery}`, fail: `${ORIGIN}/uploads/${ID}/fail?${transferQuery}` }, 201);
 		}
 		if (url.pathname === '/v1/audio/view') {
 			assert.equal(url.searchParams.get('id'), ID);
@@ -110,6 +102,7 @@ test('Audiocity transfers signed raw audio and previews on one origin without fo
 			return json({ ...audio, status: 'ready', play: { duration: 1500, url: media } });
 		}
 		assert.equal(new Headers(init?.headers).has('Authorization'), false);
+		assert.equal(url.search, `?${transferQuery}`);
 		if (init?.method === 'PUT') {
 			assert.equal(init.signal, uploaded.signal);
 			assert.ok(init.body instanceof ReadableStream);
@@ -160,6 +153,6 @@ test('a committed Audiocity upload remains successful when its optional metadata
 	const result = await response.json() as { data: { audio: { id: string; url: string }; processing: boolean } };
 	assert.equal(result.data.processing, false);
 	assert.equal(result.data.audio.id, ID);
-	assert.equal(result.data.audio.url, `${ORIGIN}/public/audio/${ID}`);
+	assert.equal(result.data.audio.url, `${ORIGIN}/audio/${ID}/play`);
 	assert.deepEqual(calls, ['POST /v1/audio/create', `PUT /uploads/${ID}`, `POST /uploads/${ID}/success`, 'GET /v1/audio/view']);
 });

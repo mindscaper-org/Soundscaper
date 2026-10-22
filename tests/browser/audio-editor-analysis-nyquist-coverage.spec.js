@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setClipGain } from './audio-editor-clip-settings-test-helpers.js';
 import {
 	createWavFixture,
 	expect,
@@ -13,7 +14,6 @@ import {
 	clipByName,
 	closeClipProperties, closeDialog,
 	collectClientErrors,
-	commitInput,
 	importFiles,
 	openClipProperties,
 	registerAudioEditorHooks,
@@ -50,8 +50,7 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 		const fixture = clippedTone();
 		await importFiles(editor, [fixture]);
 		const properties = await openClipProperties(page, editor, clipByName(editor, fixture.name));
-		await properties.getByText('Normalize', { exact: true }).click();
-		await commitInput(properties.getByRole('spinbutton', { name: 'Clip gain (dB)', exact: true }), '24');
+		await setClipGain(properties, 24);
 		await closeClipProperties(properties);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 
@@ -176,8 +175,6 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 		await expect(dialog.locator('.kw-audio-editor__nyquist-output')).toContainText('42', {
 			timeout: 20_000,
 		});
-		const stopPreview = dialog.getByRole('button', { name: 'Stop preview', exact: true });
-		if (await stopPreview.isVisible()) await stopPreview.click();
 		await dialog.getByRole('button', { name: 'Reset', exact: true }).click();
 		await expect(dialog.getByRole('checkbox', { name: 'Show debug output', exact: true })).not.toBeChecked();
 		await dialog.getByRole('textbox', { name: 'Nyquist source', exact: true }).fill('"coverage message"');
@@ -197,7 +194,6 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 		await expect(dialog.locator('.kw-audio-editor__nyquist-output')).toContainText(/frames, \d+ channel/u, {
 			timeout: 30_000,
 		});
-		await dialog.getByRole('button', { name: 'Reset', exact: true }).click();
 		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 
 		await chooseNestedCommandAction(page, editor, 'Analyze', ['Nyquist', 'Label Sounds']);
@@ -209,7 +205,6 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 		await expect(dialog.locator('.kw-audio-editor__nyquist-output')).toContainText(/label\(s\)/u, {
 			timeout: 30_000,
 		});
-		await dialog.getByRole('button', { name: 'Reset', exact: true }).click();
 		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 
 		expect(errors).toEqual([]);

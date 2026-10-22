@@ -315,15 +315,12 @@ test('a device diagnostic reports thresholds without making a release decision',
 	const result = createM5NativeHelperResult(makeMeasurement(), config);
 	assert.equal(result.status, 'passed');
 	assert.equal(result.evaluation.passed, true);
-	assert.equal('qualificationEvidencePublished' in result, false);
-	assert.equal('qualificationBlockers' in result, false);
 	// The observed fingerprint stays beside the result and no fixed hardware
 	// matrix is created from it.
 	assert.deepEqual(
 		(result as unknown as { observedFingerprint: Record<string, unknown> }).observedFingerprint,
 		makeFingerprint(),
 	);
-	assert.equal(Object.hasOwn(config, 'environments'), false);
 
 	await assert.rejects(
 		writeM5NativeHelperResult('/unused', { ...result, status: 'accepted' }),

@@ -9,8 +9,6 @@ import {
 	PROJECT_TRANSFER_DEFAULT_MAXIMUM_ENTRY_BYTES,
 } from '../src/common/transfer/project-transfer-bundle-admission.ts';
 
-import { assertOrderedClaim } from './helpers/ordered-evidence-claim.js';
-
 const matrix = JSON.parse(
 	await readFile(new URL('../config/production-security-matrix.json', import.meta.url), 'utf8'),
 );
@@ -50,8 +48,6 @@ test('cross-origin project transfer owns a bounded authenticated security bounda
 	assert.equal(risk.status, 'partial');
 	assert.equal(risk.surfaceDisposition, 'conditional');
 	assert.ok(control);
-	assertOrderedClaim(control.summary,
-		/exact origin.*window identity.*versioned.*session.*strict sequence and acknowledgement.*one-shot terminal.*closed record.*512 entries.*512 MiB archive.*256 MiB wire-payload.*1 GiB aggregate.*explicit user confirmation.*Protocol v3.*safe-integer per-entry and cumulative byte bounds.*metadata-only size-offer\/size-accept.*before.*oversized payload.*both origins.*independently.*cancellation publishes nothing.*declared and actual lengths.*SharedArrayBuffer.*one archive/isu);
 	assert.ok(control.evidence.some(({ kind }: { kind: string }) => kind === 'implementation'));
 	assert.ok(control.evidence.some(({ kind }: { kind: string }) => kind === 'test'));
 });
@@ -84,6 +80,4 @@ test('the threat model publishes the transfer boundary and register scope', () =
 	for (const identity of [BOUNDARY_ID, RISK_ID, CONTROL_ID, ROUTE_ID, FAULT_PATH_ID]) {
 		assert.match(threatModel, new RegExp(`\\b${identity}\\b`, 'u'), identity);
 	}
-	assert.match(threatModel, /16 route\s+IDs.*five browser-Blob fallbacks/isu);
-	assert.match(threatModel, /fifteen publication paths\s+crossed with eight fault classes, one hundred twenty cells/isu);
 });

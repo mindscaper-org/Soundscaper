@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { longTone, test } from './audio-editor-test-fixtures.js';
-import { chooseNestedCommandAction, clipByName, getMenuItem, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
+import { showClipTimingFields, clipByName, getMenuItem, importFiles, openClipProperties, waitForEditor } from './audio-editor-test-helpers.js';
 import { closeWorkspacePanel } from './helpers/workspace-panel-chrome.js';
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
@@ -84,9 +84,8 @@ test.describe('shared audio editor dialog behavior', () => {
 		await expect(editor.locator('[data-selection-toolbar] .timecode').first()
 			.locator('.timecode__format-button')).toBeVisible();
 
-		await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Clip properties']);
-		const dialog = editor.locator('[data-workspace-panel="clip-properties"]');
-		await dialog.getByText('Media settings', { exact: true }).click();
+		const dialog = await openClipProperties(page, editor);
+		await showClipTimingFields(dialog);
 		const duration = dialog.locator('[data-clip-field="durationFrame"]');
 		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveText('h');
 		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveCSS('text-transform', 'none');

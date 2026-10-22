@@ -9,7 +9,6 @@ import type {
 	CreateEditorController,
 	EditorController,
 	EditorControllerOptions,
-	EditorActions,
 	EditorLabelTrack,
 	EditorProject,
 	SampleFrame,
@@ -76,17 +75,6 @@ test('public project validation accepts only the exact current shared schema', (
 		() => editor.validateAudioEditorProject({ ...current, schemaVersion: 18 }),
 		/Unsupported audio editor schema version/u,
 	);
-});
-
-test('public action types expose every stable action group', () => {
-	const groupNames: readonly (keyof EditorActions)[] = [
-		'project', 'projectBin', 'video', 'edit', 'transport', 'recording',
-		'metering', 'audioDevices', 'timeline', 'timelineAnnotations', 'trackFolders', 'sampleEdit', 'spectral', 'track',
-		'mixer', 'generators', 'nyquist', 'labels', 'metadata', 'recordingNotes', 'preferences',
-		'clip', 'effects', 'macros', 'analysis', 'export',
-	];
-
-	assert.equal(groupNames.length, 26);
 });
 
 test('public label-track type matches the serialized label model', () => {

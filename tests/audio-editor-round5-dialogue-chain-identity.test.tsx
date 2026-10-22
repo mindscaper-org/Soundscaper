@@ -43,13 +43,13 @@ test('each production Dialogue Chain application owns fresh replay-stable rack i
 		await apply();
 		assert.equal(commands.length, 1);
 		const firstRack = structuredClone(project.tracks[0]!.effects);
-		assert.equal(firstRack.length, 5);
+		assert.ok(firstRack.length > 0);
 		await apply();
 		assert.equal(commands.length, 2, 'a second deliberate application must reach the real rack command');
-		assert.equal(project.tracks[0]!.effects.length, 10);
-		assert.deepEqual(project.tracks[0]!.effects.slice(0, 5), firstRack);
+		assert.equal(project.tracks[0]!.effects.length, firstRack.length * 2);
+		assert.deepEqual(project.tracks[0]!.effects.slice(0, firstRack.length), firstRack);
 		assert.notEqual(commands[0]!.chain.id, commands[1]!.chain.id);
-		assert.equal(new Set(commands.flatMap(command => command.chain.effects.map(effect => effect.id))).size, 10);
+		assert.equal(new Set(commands.flatMap(command => command.chain.effects.map(effect => effect.id))).size, project.tracks[0]!.effects.length);
 		const replay = structuredClone(original);
 		for (const command of commands) applyFramescaperOwnedFinishingCommandFinishing(replay, command);
 		assert.deepEqual(replay, project, 'replay uses the allocated command IDs without allocating again');

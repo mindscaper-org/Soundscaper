@@ -76,12 +76,6 @@ test('a client missing any required port reports itself unavailable', () => {
 	);
 });
 
-test('a non-positive poll interval is refused', () => {
-	assert.throws(() => client({ intervalMs: 0 }), RangeError);
-	assert.throws(() => client({ intervalMs: -5 }), RangeError);
-	assert.throws(() => client({ intervalMs: 1.5 }), RangeError);
-});
-
 test('an available client schedules its first poll unless auto-start is declined', () => {
 	let scheduled = 0;
 	const schedule = () => { scheduled += 1; return { handle: true }; };

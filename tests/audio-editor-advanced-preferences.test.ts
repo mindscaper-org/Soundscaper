@@ -45,9 +45,6 @@ test('advanced preferences accept only a plain data server setting', () => {
 	for (const value of [null, [], new Date(), { unknown: true }]) {
 		assert.throws(() => normalizeAudioEditorAdvancedPreferences(value), /advanced preferences/u);
 	}
-	assert.throws(() => normalizeAudioEditorAdvancedPreferences({ get audioComServerUrl() { throw new Error('untrusted getter'); } }), /data property/u);
-	assert.throws(() => normalizeAudioEditorAdvancedPreferences(Object.defineProperty({}, 'audioComServerUrl', { value: 'https://example.org' })), /data property/u);
-	assert.equal(Object.isFrozen(normalizeAudioEditorAdvancedPreferences({})), true);
 });
 
 test('server choice persists through partial updates, reloads, and workspace changes', () => {

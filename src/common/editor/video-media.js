@@ -50,6 +50,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 	const selectedRange = selectedRangeDescriptorForBlob(file);
 	const objectUrl = selectedRange?.url || urlApi.createObjectURL(file);
 	let disposed = false;
+	let durationSeconds, width, height;
 	const captureLifetime = new AbortController();
 	video.preload = 'metadata';
 	video.muted = true;
@@ -61,6 +62,9 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			timeoutMs: options.timeoutMs ?? DEFAULT_METADATA_TIMEOUT_MS,
 			errorMessage: 'The browser could not read this video.',
 		});
+		durationSeconds = nonNegativeFinite(video.duration, 'Video duration');
+		width = positiveInteger(video.videoWidth, 'Video width');
+		height = positiveInteger(video.videoHeight, 'Video height');
 	} catch (error) {
 		video.removeAttribute?.('src');
 		video.load?.();
@@ -68,9 +72,6 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		throw error;
 	}
 
-	const durationSeconds = nonNegativeFinite(video.duration, 'Video duration');
-	const width = positiveInteger(video.videoWidth, 'Video width');
-	const height = positiveInteger(video.videoHeight, 'Video height');
 	const metadata = Object.freeze({
 		durationSeconds,
 		width,
@@ -135,7 +136,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		const seekTimestamp = timestamp === 0 && !hasPresentedFrame
 			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
 			: timestamp;
-		if (Math.abs(Number(video.currentTime) - seekTimestamp) > 0.001) {
+		if (Math.abs(Number(video.currentTime) - seekTimestamp) > (hasPresentedFrame ? 0.001 : 0)) {
 			const seeked = waitForMediaEvent(video, 'seeked', {
 				signal,
 				timeoutMs,

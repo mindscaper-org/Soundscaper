@@ -15,11 +15,12 @@ const COMMENT_NAMES: Readonly<Record<string, string>> = Object.freeze({
 /** Vorbis-style field names are ASCII; values retain their exact UTF-8 text. */
 export function audioMetadataComments(metadata: Readonly<Record<string, string>>): readonly string[] {
 	const values = new Map<string, string>();
+	const hasDate = Object.entries(metadata).some(([key, value]) => key.toLowerCase().replace(/[^a-z0-9]/gu, '') === 'date' && value !== '');
 	for (const [key, value] of Object.entries(metadata)) {
 		if (key === 'id3Artwork') continue;
 		const normalized = key.toLowerCase().replace(/[^a-z0-9]/gu, '');
 		const name = COMMENT_NAMES[normalized] ?? key.toUpperCase();
-		if (normalized === 'year' && metadata.date) continue;
+		if (normalized === 'year' && hasDate) continue;
 		if (name === 'TRACKNUMBER' || name === 'DISCNUMBER') {
 			const pair = /^(\d+)\/(\d+)$/u.exec(value);
 			if (pair) { values.set(name, pair[1]!); values.set(name === 'TRACKNUMBER' ? 'TRACKTOTAL' : 'DISCTOTAL', pair[2]!); continue; }

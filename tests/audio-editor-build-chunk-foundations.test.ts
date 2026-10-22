@@ -11,6 +11,7 @@ test('optional editor ownership is independent of path separator', () => {
 		['src/common/editor/assistance/local-model.ts', 'editor-optional-assistance'],
 		['src/common/editor/storage/assistance-derivative-repository.ts', 'editor-optional-assistance'],
 		['src/common/editor/ui/local-model-manager-store.ts', 'editor-assistance-model-preflight'],
+		['src/common/editor/wavpack-import-group-geometry.ts', 'editor-optional-execution'],
 	] as const) {
 		assert.equal(chunkGroupForModulePath(path), owner, path);
 		const windowsPath = path.replaceAll('/', '\\');
@@ -74,6 +75,8 @@ test('workers give effect definitions and the complete canonical copy registry a
 		'src/common/i18n/canonical-extras-audacity-presets.js',
 		'src/common/i18n/canonical-extras-standard-effects.js',
 		'src/common/i18n/locale.js',
+		'src/common/i18n/editor-project-recovery-copy.ts',
+		'src/common/i18n/editor-recording-recovery-copy.ts',
 	]) {
 		assert.equal(group.test.test(path), true, path);
 		const windowsPath = path.replaceAll('/', '\\');

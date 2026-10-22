@@ -42,13 +42,6 @@ test('OpenFX 1.5.1 is pinned to commit, archive, and extracted-tree digests', ()
 	});
 });
 
-test('native OpenFX loading delegates machine isolation to the enforced launcher', () => {
-	const source = readFileSync(join(repositoryRoot,
-		'native/framescaper-openfx-host/src/isolation_contract.hpp'), 'utf8');
-	assert.match(source, /require_os_isolation_for_plugin_execution\(\) noexcept \{\}/u);
-	assert.match(source, /Distribution metadata is intentionally not an in-process execution oracle/iu);
-});
-
 test('scanner and runtime are distinct C++20 targets and CI-generated payloads are not packaged', () => {
 	const cmake = readFileSync(join(hostRoot, 'CMakeLists.txt'), 'utf8');
 	assert.match(cmake, /add_executable\(framescaper-ofx-scanner/iu);

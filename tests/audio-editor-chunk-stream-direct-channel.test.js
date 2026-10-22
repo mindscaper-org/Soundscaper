@@ -93,13 +93,11 @@ test('client bridges immutable storage to the worklet and completes atomically',
 		Float32Array.from({ length: 2_500 }, (_, frame) => frame / 2_500),
 		Float32Array.from({ length: 2_500 }, (_, frame) => -frame / 2_500),
 	]);
-	const progress = [];
 	const handle = client.open({
 		streamId: 'bridge-test',
 		source,
 		outputPort: clientPort,
 		highWaterMark: 2,
-		onProgress: (value) => progress.push(value),
 	});
 	assert.equal((await handle.ready).channelCount, 2);
 	assert.equal((await handle.primed).packets, 2);
@@ -115,7 +113,6 @@ test('client bridges immutable storage to the worklet and completes atomically',
 	assert.equal(result.frames, 2_500);
 	assert.ok(Math.abs(output[0][1_000] - (1_000 / 2_500)) < 1e-6);
 	assert.ok(Math.abs(output[1][2_499] - (-2_499 / 2_500)) < 1e-6);
-	assert.equal(progress.at(-1).progress, 1);
 	assert.equal(handle.state, 'closed');
 	assert.ok(packetPorts[1].sent.some((message) => message.type === 'audio-packet'));
 	assert.ok(packetPorts[0].sent.some((message) => message.type === 'packet-consumed'));

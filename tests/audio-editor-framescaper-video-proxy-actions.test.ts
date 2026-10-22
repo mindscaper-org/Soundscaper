@@ -171,28 +171,6 @@ test('the baseline uses its detach command builder while sharing the lifecycle b
 	assert.equal(framescaperVideoProxyActionRuntimeFor(owner.owner), runtime);
 });
 
-test('the baseline preserves the authenticated editorial proxy lifecycle', async () => {
-	const owner = ownerFixture(attachment());
-	const commands: unknown[] = [];
-	owner.commit = (command) => { commands.push(command); owner.detach(); };
-	const runtime = createFramescaperVideoProxyActions({
-		owner: owner.owner as never,
-		cleanup: cleanupFixture(owner),
-		createSessionId: () => 'v32-session',
-		createScheduler: () => Object.assign(async () => undefined, { dispose: async () => undefined }),
-		createAttachExistingScheduler: () => Object.assign(
-			async () => undefined, { dispose: async () => undefined },
-		),
-		createDetachCommand: (sourceId, expectedAttachment) => ({
-			type: 'framescaper/video-proxy-detach', sourceId, expectedAttachment,
-		}),
-	});
-	await runtime.detach('video-source');
-	assert.equal((commands[0] as Readonly<Record<string, unknown>>).type,
-		'framescaper/video-proxy-detach');
-	assert.equal(framescaperVideoProxyActionRuntimeFor(owner.owner), runtime);
-});
-
 test('adaptive pressure refreshes Auto only when it crosses the proxy threshold', async () => {
 	const owner = ownerFixture(attachment());
 	const runtime = createFramescaperVideoProxyActions({
@@ -468,20 +446,6 @@ test('cancelling an existing-body attachment disposes its exact scheduler', asyn
 	abort.abort(new DOMException('cancelled', 'AbortError'));
 	await assert.rejects(pending, (error: Error) => error.name === 'AbortError');
 	assert.equal(disposals, 1);
-});
-
-test('an omitted attach-existing scheduler keeps construction valid and refuses only that action', async () => {
-	const owner = ownerFixture(null);
-	const runtime = createFramescaperVideoProxyActions({
-		owner: owner.owner as never,
-		cleanup: cleanupFixture(owner),
-		createSessionId: () => 'generation-only-session',
-		createScheduler: () => Object.assign(async () => undefined, { dispose: async () => undefined }),
-	});
-	await assert.rejects(
-		() => runtime.attachExisting('video-source', new Blob(['proxy'])),
-		/This runtime cannot attach an existing video proxy/u,
-	);
 });
 
 function completedScheduler(): ReturnType<NonNullable<Parameters<

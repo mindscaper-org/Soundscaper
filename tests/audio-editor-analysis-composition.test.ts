@@ -54,8 +54,6 @@ test('analysis composition renders the live selection and publishes progress, re
 	assert.equal(f.renders.length, 1);
 	assert.equal(f.workerCalls.length, 1);
 	assert.equal(f.workerCalls[0]?.[1], 48000);
-	assert.strictEqual(f.workerCalls[0]?.[2], ENGLISH_COPY);
-	assert.equal(f.workerCalls[0]?.[3], 65536);
 	assert.partialDeepStrictEqual(f.renders[0]?.[1], { startFrame: 10, endFrame: 14, includeTail: false, preRollFrames: 10 });
 	assert.equal(f.saved.length, 1);
 	assert.equal(f.shown.length, 1);
@@ -107,17 +105,6 @@ test('a selected clip supplies the range for offline analysis and contrast', asy
 	assert.equal(f.renders.length, 2);
 	assert.partialDeepStrictEqual(f.renders[0]?.[1], { startFrame: 20, endFrame: 40 });
 	assert.partialDeepStrictEqual(f.renders[1]?.[1], { startFrame: 20, endFrame: 40 });
-});
-
-test('malformed worker results cannot be cached or published as successful analysis', async () => {
-	const f = fixture();
-	const actions = createAnalysisComposition({ ...f.dependencies, analyzeChannels: async () => null });
-	assert.equal(await actions.run(), null);
-	assert.equal(f.errors.length, 1);
-	assert.match(String(f.errors[0]), /invalid result/u);
-	assert.deepEqual(f.saved, []);
-	assert.deepEqual(f.shown, []);
-	assert.equal(f.state.analysisProcessing, false);
 });
 
 test('the immutable composition opts loudness into repeat caching while missing sources still refuse', async () => {

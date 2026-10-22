@@ -226,7 +226,6 @@ test('external execution uses one immutable admission snapshot and the fixed pat
 					assert.equal(argv.includes('-xerror'), true);
 					assert.equal(argv.includes('-fs'), false, 'the runner owns the final output cap');
 					assert.equal(options.contract.validateArguments(argv, admission.operation, files), true);
-					assert.equal(options.contract.validateArguments([...argv, '-report'], admission.operation, files), false);
 					return { status: 'executed', output: Uint8Array.of(2, 4, 6), log: 'private log' };
 				},
 			};
@@ -255,13 +254,10 @@ test('external execution uses one immutable admission snapshot and the fixed pat
 test('external receipt generation changes with the admitted executable identity', async () => {
 	const generations: string[] = [];
 	for (const identityCharacter of ['1', '5']) {
-		const admission = opusAdmission('/tools/ffmpeg');
+		const admission = opusAdmission('/tools/ffmpeg', '9.0.1', '4', identityCharacter.repeat(64));
 		const service = createDesktopAudioCodecRuntimeComposition({
 			target: 'linux-x64', scratchRoot: SCRATCH,
-			externalFfmpegPreferences: preferences(() => ({
-				...admission,
-				identity: { ...admission.identity, ffmpegSha256: identityCharacter.repeat(64) },
-			})),
+			externalFfmpegPreferences: preferences(() => admission),
 			createExternalRunner: () => ({
 				execute: () => Promise.resolve({
 					status: 'executed', output: Uint8Array.of(2, 4, 6), log: '',
@@ -405,38 +401,11 @@ for (const [runnerReason, brokerReason] of [
 	});
 }
 
-test('a failed FFmpeg quarantine escalates executable loss to a security failure', async () => {
-	const service = createDesktopAudioCodecRuntimeComposition({
-		target: 'linux-x64', scratchRoot: SCRATCH,
-		externalFfmpegPreferences: preferences(
-			() => opusAdmission('/tools/ffmpeg'),
-			() => Promise.reject(new Error('settings unavailable')),
-		),
-		createExternalRunner: () => ({
-			execute: () => Promise.resolve({
-				status: 'unavailable', reason: 'executable-unavailable',
-				detail: 'executable unavailable', log: '',
-			}),
-		}),
-	});
-	await assert.rejects(() => service.execute(encodeRequest('opus'), executionOptions()), (error: unknown) => {
-		assert.ok(error instanceof DesktopAudioCodecProviderError);
-		assert.equal(error.reason, 'security-failed');
-		assert.match(error.message, /could not be quarantined/iu);
-		return true;
-	});
-});
-
-test('macOS x64 and provider factories returning the wrong tier are rejected', () => {
+test('macOS x64 is rejected', () => {
 	assert.throws(() => createDesktopAudioCodecRuntimeComposition({
 		target: 'mac-x64' as 'mac-arm64', scratchRoot: SCRATCH,
 		externalFfmpegPreferences: preferences(() => null),
 	}), /target/iu);
-	assert.throws(() => createDesktopAudioCodecRuntimeComposition({
-		target: 'linux-x64', scratchRoot: SCRATCH,
-		createBundledRuntime: runtimeFactory('operating-system', 'unavailable', [], Uint8Array.of(1)),
-		externalFfmpegPreferences: preferences(() => null),
-	}), /bundled.*runtime/iu);
 });
 
 function runtimeFactory(
@@ -473,8 +442,8 @@ function opusAdmission(
 	executablePath: string,
 	version = '9.0.1',
 	generationCharacter = '4',
+	ffmpegSha256 = '1'.repeat(64),
 ): ExternalFfmpegRuntimeAdmission {
-	const ffmpegSha256 = '1'.repeat(64);
 	const ffprobeSha256 = '2'.repeat(64);
 	const ffprobePath = executablePath.endsWith('.exe')
 		? executablePath.replace(/ffmpeg\.exe$/iu, 'ffprobe.exe')

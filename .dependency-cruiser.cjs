@@ -3,15 +3,15 @@
  *
  * `desktop/` is not only the main process: it is also where the renderer/main
  * contracts and the bundled stream parsers live, and browser code genuinely reads
- * both. Nine modules under `src/common/editor` import eight modules under
- * `desktop/`, and the allow-list is written out so that a tenth is a decision
- * someone makes rather than one that happens.
+ * both. The explicit allow-list makes every new shared dependency an API decision.
  *
  * Two kinds are named here, and they are not the same claim:
  *
  * - `desktop-*-contract.ts` are the codec capability and operation contracts. Both
  *   sides of the IPC boundary must agree on them by construction, so a shared
  *   declaration is the point of the module and reading it from `src/` is correct.
+ *   `desktop-audio-decode-formats.ts` defines their import profiles and inspects
+ *   companded WAV format tags on both sides of the boundary.
  * - `bundled-*-stream.ts` are the container parsers the packaged app ships. They are
  *   shared *implementation*, not contract: `browser-dedicated-audio-codec.ts` runs
  *   the same parser inside the dedicated audio worker so the browser and the desktop
@@ -26,6 +26,7 @@
 const SHARED_DESKTOP_CONTRACTS = [
 	'^desktop/desktop-audio-codec-capability-contract\\.ts$',
 	'^desktop/desktop-audio-codec-operation-contract\\.ts$',
+	'^desktop/desktop-audio-decode-formats\\.ts$',
 	'^desktop/desktop-audio-stream-contract\\.ts$',
 	'^desktop/desktop-video-codec-operation-contract\\.ts$',
 	'^desktop/bundled-flac-stream\\.ts$',

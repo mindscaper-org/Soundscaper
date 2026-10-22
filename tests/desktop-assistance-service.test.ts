@@ -403,16 +403,6 @@ test('an unavailable runtime is reported rather than hidden', { timeout: 20_000 
 	assert.equal(status.models[0]?.availability, 'installable', 'models install without the runtime');
 });
 
-test('runtime loader details cannot carry a private path into renderer status', { timeout: 20_000 }, async (t) => {
-	const service = await serviceIn(t, {
-		runtime: runtimeStub(false, "dlopen failed at '/Users/alice/private/native.node'"),
-	});
-
-	const status = await service.status();
-	assert.equal(status.runtimeReason, 'The optional speech runtime failed to load.');
-	assert.doesNotMatch(JSON.stringify(status), /Users\/alice|private\/native/u);
-});
-
 test('a catalog that disagrees with the licensing register fails at construction', { timeout: 20_000 }, async (t) => {
 	const userDataPath = await mkdtemp(join(tmpdir(), 'scape-assistance-service-'));
 	t.after(() => rm(userDataPath, { recursive: true, force: true }));

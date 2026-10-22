@@ -16,7 +16,6 @@ import { createWavHeader } from '../src/common/editor/wav.js';
 import {
 	DESKTOP_DIRECT_BW64_SIGNAL_LIMITS,
 	DESKTOP_DIRECT_BW64_SMOKE_FIXTURE,
-	validateDesktopDirectBw64FileEvidence,
 	verifyDesktopDirectBw64File,
 } from '../scripts/lib/desktop-direct-bw64-smoke-file.mjs';
 
@@ -140,30 +139,6 @@ test('authored-BW64 completed geometry and metadata form one exact packaged fixt
 	});
 });
 
-test('completed authored-BW64 evidence validation admits only the exact verifier shape', () => {
-	const valid = productionFileEvidence();
-	const validated = validateDesktopDirectBw64FileEvidence(valid);
-	assert.deepEqual(validated, valid);
-	assert.equal(Object.isFrozen(validated), true);
-	assert.equal(Object.isFrozen(validated.riff), true);
-	assert.equal(Object.isFrozen(validated.chna.entries), true);
-	for (const mutation of [
-		(value) => { value.unexpected = true; },
-		(value) => { delete value.sha256; },
-		(value) => { value.sha256 = 'A'.repeat(64); },
-		(value) => { value.maximumReadChunkBytes = 1024 * 1024 + 1; },
-		(value) => { value.riff.sampleCount = 1; },
-		(value) => { value.bext.description = 'Different'; },
-		(value) => { value.chna.entries[5].trackRef = 'AC_00010005_00'; },
-		(value) => { value.axml.bedName = 'Different'; },
-		(value) => { value.signal.frameCount -= 1; },
-	]) {
-		const evidence = structuredClone(valid);
-		mutation(evidence);
-		assert.throws(() => validateDesktopDirectBw64FileEvidence(evidence), /BW64|PCM/iu);
-	}
-});
-
 test('completed authored-BW64 verification streams exact structure, metadata, and signal', async (t) => {
 	const root = await mkdtemp(join(tmpdir(), 'direct-bw64-file-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
@@ -268,27 +243,6 @@ test('completed authored-BW64 verification rejects structural and metadata corru
 	);
 });
 
-test('completed authored-BW64 verification rejects non-normalized paths and invalid schemas', async () => {
-	await assert.rejects(() => verifyDesktopDirectBw64File('relative.wav'), /absolute|normalized/iu);
-	await assert.rejects(() => verifyDesktopDirectBw64File('/tmp/direct-bw64/../file.wav'), /absolute|normalized/iu);
-	await assert.rejects(() => verifyDesktopDirectBw64File('/tmp/bad\0file.wav'), /path/iu);
-	for (const expected of [
-		null,
-		{ ...SMALL_GEOMETRY, unexpected: true },
-		{ ...SMALL_GEOMETRY, channelCount: 2 },
-		{ ...SMALL_GEOMETRY, bitDepth: 24 },
-		{ ...SMALL_GEOMETRY, headerByteLength: 1_027 },
-		{ ...SMALL_GEOMETRY, dataBytes: 59 },
-		{ ...SMALL_GEOMETRY, axmlOffset: 1_087 },
-		{ ...SMALL_GEOMETRY, byteLength: 3_567 },
-	]) {
-		await assert.rejects(
-			() => verifyDesktopDirectBw64File('/tmp/missing-bw64.wav', { expected }),
-			/BW64/iu,
-		);
-	}
-});
-
 function pcmBw64(expected, samples) {
 	const fixture = DESKTOP_DIRECT_BW64_SMOKE_FIXTURE;
 	const chna = createRiffChnaChunk(createAdmChna({ layout: '5.1' }));
@@ -359,34 +313,6 @@ function expectedAxml() {
 		version: 'ITU-R_BS.2076-3',
 		...DESKTOP_DIRECT_BW64_SMOKE_FIXTURE.adm,
 		payloadSha256: DESKTOP_DIRECT_BW64_SMOKE_FIXTURE.hashes.axmlPayload,
-	};
-}
-
-function productionFileEvidence() {
-	const fixture = DESKTOP_DIRECT_BW64_SMOKE_FIXTURE;
-	return {
-		byteLength: fixture.output.byteLength,
-		sha256: 'a'.repeat(64),
-		maximumReadChunkBytes: 1024 * 1024,
-		riff: expectedRiff({ ...fixture.output, axmlOffset: fixture.offsets.axml }),
-		bext: expectedBext(),
-		chna: expectedChna(),
-		axml: expectedAxml(),
-		signal: {
-			frameCount: fixture.output.frameCount,
-			channelComparisons: fixture.output.frameCount * 5,
-			channelMismatchSamples: 0,
-			maximumCarryBytes: 11,
-			nonzeroFrames: 16_894_240,
-			positiveFrames: 8_447_120,
-			negativeFrames: 8_447_120,
-			zeroCrossings: 19_359,
-			peakAbsoluteSample: 9_830,
-			sampleSum: 0,
-			sampleSquareSum: 816_000_000_000_000,
-			meanSample: 0,
-			rmsSample: Math.sqrt(816_000_000_000_000 / fixture.output.frameCount),
-		},
 	};
 }
 

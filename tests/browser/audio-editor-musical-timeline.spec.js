@@ -60,10 +60,6 @@ test.describe('musical timeline controls', () => {
 		await editor.getByRole('button', { name: 'Redo', exact: true }).evaluate((button) => button.click());
 		await expect(secondTempo.getByRole('spinbutton', { name: 'Beat position numerator', exact: true })).toHaveValue('8');
 		await expect(secondTempo.getByRole('spinbutton', { name: 'Tempo (BPM) numerator', exact: true })).toHaveValue('90');
-		secondTempo = flyout.getByRole('form', { name: 'Tempo event 2', exact: true });
-		await expect(secondTempo.getByRole('spinbutton', { name: 'Beat position numerator', exact: true })).toHaveValue('8');
-		await expect(secondTempo.getByRole('spinbutton', { name: 'Tempo (BPM) numerator', exact: true })).toHaveValue('90');
-
 		await flyout.getByRole('button', { name: 'Add time signature event', exact: true }).click();
 		let secondSignature = flyout.getByRole('form', { name: 'Time signature event 2', exact: true });
 		await expect(secondSignature).toBeVisible();

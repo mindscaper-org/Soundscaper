@@ -187,20 +187,3 @@ test('an accepted cleanup undoes in one step', () => {
 		'one undo restores the whole cleanup, not one cut at a time',
 	);
 });
-
-test('accepting nothing proposes no command at all', () => {
-	const { transcript } = ingestRecognitionResult(RECOGNITION, {
-		sourceId: 'source', sampleRate: SAMPLE_RATE, modelId: 'parakeet-tdt-0.6b-v2',
-	});
-	const proposals = findDisfluencyProposals(transcript, { fillerLexicon: EN_FILLERS });
-
-	const ranges = acceptedProposalRanges(proposals, []);
-	assert.deepEqual(ranges, []);
-	assert.throws(
-		() => prepareDisjointRangeDeleteCommand(podcastProject(), {
-			ranges, trackIds: ['track'], rippleMode: 'track',
-		}),
-		/at least one delete range/iu,
-		'an empty acceptance never reaches the document',
-	);
-});

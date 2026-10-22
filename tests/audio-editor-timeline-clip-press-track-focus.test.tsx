@@ -12,29 +12,20 @@ test('a clip-body press moves the focused track onto the pressed clip', async ()
 	try {
 		await act(async () => { fixture.onPointerDown()(fixture.pointerEvent()); });
 		assert.deepEqual(fixture.selectTrackCalls, ['track-b']);
-		assert.deepEqual(fixture.selectClipCalls, [[null, undefined]]);
+		assert.deepEqual(fixture.order, ['selectTrack']);
+		assert.deepEqual(fixture.selectClipCalls, [], 'clip picks remain intact until a selection drag crosses the threshold');
 		assert.equal(fixture.pointerSession.current?.kind, 'selection');
 	} finally {
 		await fixture.cleanup();
 	}
 });
 
-test('a clip-body press focuses the pressed track before the range is drawn', async () => {
-	const fixture = await mountPointerStart();
-	try {
-		await act(async () => { fixture.onPointerDown()(fixture.pointerEvent()); });
-		assert.deepEqual(fixture.order, ['selectTrack', 'selectClip']);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('a clip-header press carries the focus through the clip selection itself', async () => {
+test('a clip-header press defers clip selection until its click', async () => {
 	const fixture = await mountPointerStart();
 	try {
 		await act(async () => { fixture.onPointerDown()(fixture.pointerEvent({ overHeader: true })); });
-		assert.deepEqual(fixture.selectTrackCalls, [], 'selectClip already focuses the clip’s track');
-		assert.deepEqual(fixture.selectClipCalls, [['clip-b', undefined]]);
+		assert.deepEqual(fixture.selectTrackCalls, [], 'the header click will focus the clip’s track');
+		assert.deepEqual(fixture.selectClipCalls, []);
 	} finally {
 		await fixture.cleanup();
 	}
@@ -46,7 +37,7 @@ for (const overHeader of [false, true]) test(`a locked clip preserves ${overHead
 		await act(async () => { fixture.onPointerDown()(fixture.pointerEvent({ overHeader })); });
 		if (overHeader) {
 			assert.equal(fixture.pointerSession.current, null);
-			assert.deepEqual(fixture.selectClipCalls, [['clip-b', undefined]]);
+			assert.deepEqual(fixture.selectClipCalls, []);
 		} else {
 			assert.equal(fixture.pointerSession.current?.kind, 'selection');
 			assert.deepEqual(fixture.selectTrackCalls, ['track-b']);
@@ -59,7 +50,7 @@ test('a grouped header cannot preview a transform of its locked companion', asyn
 	try {
 		await act(async () => { fixture.onPointerDown()(fixture.pointerEvent({ overHeader: true })); });
 		assert.equal(fixture.pointerSession.current, null);
-		assert.deepEqual(fixture.selectClipCalls, [['clip-b', undefined]]);
+		assert.deepEqual(fixture.selectClipCalls, []);
 	} finally { await fixture.cleanup(); }
 });
 

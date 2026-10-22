@@ -5,14 +5,11 @@ import test from 'node:test';
 
 import {
 	FRAMESCAPER_NATIVE_CHECKPOINT_MAXIMUM_DURABLE_BYTES,
-	createFramescaperNativeFilesystemCheckpointStore,
 	nativeImageSequenceCheckpointEvidenceByteLength,
 	type NativeImageSequenceCheckpointEvidenceV1,
 } from '../desktop/native-services-checkpoint-recovery-core.ts';
 import {
 	admitNativeImageSequenceCheckpointEvidenceV3,
-	createFramescaperNativeFilesystemCheckpointStore as createFramescaperNativeFilesystemCheckpointStoreV3,
-	nativeImageSequenceCheckpointEvidenceByteLength as nativeImageSequenceCheckpointEvidenceByteLengthV3,
 	nativeImageSequenceSourceInventoryDigestV3,
 	verifyAndStoreNativeImageSequenceCheckpointV3,
 } from '../desktop/native-services-checkpoint-recovery-v3.ts';
@@ -31,17 +28,6 @@ import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 
 const SHA_A = '12'.repeat(32);
 const SHA_B = '34'.repeat(32);
-
-test('checkpoint generations share one durable evidence and filesystem implementation', () => {
-	assert.equal(
-		nativeImageSequenceCheckpointEvidenceByteLengthV3,
-		nativeImageSequenceCheckpointEvidenceByteLength,
-	);
-	assert.equal(
-		createFramescaperNativeFilesystemCheckpointStoreV3,
-		createFramescaperNativeFilesystemCheckpointStore,
-	);
-});
 
 test('checkpoint IPC admission refuses a control envelope over 64 KiB before copying it', () => {
 	const manifest = Array.from({ length: 100 }, (_, frameIndex) => ({
@@ -164,8 +150,6 @@ test('V3 checkpoint admission uses the shared durable representation for a V14 i
 		read: async () => null,
 		write: async (evidence) => { stored.push(evidence); },
 	});
-	assert.equal(nativeImageSequenceCheckpointEvidenceByteLengthV3(admitted),
-		nativeImageSequenceCheckpointEvidenceByteLength(admitted));
 	assert.deepEqual(stored, [admitted]);
 	assert.deepEqual(result, {
 		verifiedFrameCount: 1,

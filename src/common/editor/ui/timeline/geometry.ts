@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { secondsToFrames } from '../../design-system-adapters.js';
+import { CLIP_HEADER_HEIGHT, isClipCollapsed } from '@soundscaper/design-system/utils/clipHandleRows';
 import type { WaveformRulerFormat } from '../../waveform-display-preferences.ts';
 
 export type { WaveformRulerFormat } from '../../waveform-display-preferences.ts';
@@ -9,9 +10,8 @@ export const DEFAULT_WAVEFORM_RULER_STATE = Object.freeze({
 	format: 'linear-db' as const,
 	zoom: 0,
 });
-export const CLIP_HEADER_HEIGHT = 20;
-const TRUNCATED_CLIP_MAXIMUM_HEIGHT = 44;
-export const MAXIMUM_WAVEFORM_VERTICAL_ZOOM = 8;
+export { CLIP_HEADER_HEIGHT };
+export { MAXIMUM_WAVEFORM_VERTICAL_ZOOM } from '../../waveform-display-preferences.ts';
 export const MINIMUM_TRACK_HEIGHT = 40;
 export const DEFAULT_TRACK_HEIGHT = 114;
 export const RECORDING_INPUT_CONTROLS_HEIGHT = 24;
@@ -46,7 +46,7 @@ export function audioEditorClipBodyGeometry(trackHeight: number): Readonly<{
 	height: number;
 }> {
 	const height = Math.max(0, Number.isFinite(trackHeight) ? trackHeight : 0);
-	const top = height > TRUNCATED_CLIP_MAXIMUM_HEIGHT
+	const top = !isClipCollapsed(height)
 		? Math.min(CLIP_HEADER_HEIGHT, height)
 		: 0;
 	return { top, height: height - top };

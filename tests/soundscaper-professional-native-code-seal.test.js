@@ -27,7 +27,6 @@ test('mac ad-hoc sealing covers runtime dependencies before every consumer and v
 	});
 	assert.equal(plan.schemaVersion, 1);
 	assert.equal(plan.method, 'codesign-ad-hoc');
-	assert.equal(Object.hasOwn(plan, 'signing'), false);
 	assert.deepEqual(plan.artifacts.map(({ candidatePath }) => candidatePath), [
 		'payload/runtime/libalpha.dylib',
 		'payload/runtime/nested/libbeta.dylib',

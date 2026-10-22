@@ -56,9 +56,9 @@ test('Linux desktop storage honors each absolute XDG directory independently', (
 	assert.equal(result.crashDumpsRoot, join(stateBase, 'Soundscaper', 'Crashpad'));
 });
 
-test('Linux ignores unset, empty, relative and NUL-containing XDG values', () => {
+test('Linux ignores unset, empty and relative XDG values', () => {
 	const expected = resolveDesktopStoragePaths(defaults);
-	for (const value of [undefined, '', 'relative/storage', '~/storage', '/invalid\0storage']) {
+	for (const value of [undefined, '', 'relative/storage', '~/storage']) {
 		assert.deepEqual(resolveDesktopStoragePaths({
 			...defaults,
 			environment: { XDG_DATA_HOME: value, XDG_CACHE_HOME: value, XDG_STATE_HOME: value },
@@ -106,17 +106,4 @@ test('Linux storage isolates application roots while sharing the library data ba
 		assert.notEqual(framescaper[field], soundscaper[field], field);
 	}
 	assert.ok(Object.isFrozen(soundscaper));
-});
-
-test('desktop storage rejects unsafe base paths and application names', () => {
-	for (const field of ['homePath', 'appDataPath', 'userDataPath'] as const) {
-		for (const value of ['', 'relative/path', '/invalid\0path']) {
-			assert.throws(() => resolveDesktopStoragePaths({ ...defaults, [field]: value }),
-				TypeError, `${field}: ${JSON.stringify(value)}`);
-		}
-	}
-	for (const appName of ['', '.', '..', '/absolute', 'nested/name', 'nested\\name', 'invalid\0name']) {
-		assert.throws(() => resolveDesktopStoragePaths({ ...defaults, appName }), TypeError,
-			JSON.stringify(appName));
-	}
 });

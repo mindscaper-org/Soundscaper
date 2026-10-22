@@ -2,29 +2,29 @@
 	"schemaVersion": 1,
 	"targets": {
 		"linux-x64": {
-			"sourceRevision": "840dc5ecd2364b2d15027acbffa561336c52c68a",
-			"byteLength": 832618,
-			"sha256": "70acdee7f5f43f09404ddbb07b72c163c35f62d80830ef7e913500fce41a4677"
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"byteLength": 845830,
+			"sha256": "2725a50f479d24252b6819a53f34bcf27f21856d685f7119ee7adf05f1012305"
 		},
 		"linux-arm64": {
-			"sourceRevision": "840dc5ecd2364b2d15027acbffa561336c52c68a",
-			"byteLength": 818716,
-			"sha256": "7293a7d673d25d7ff391d8f97d3f2a76908233e2aab4928cf72deaee1f20f994"
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"byteLength": 831959,
+			"sha256": "3c1b2157c30335f341bfe0aca3b00222869815eba1cbabe1137fbf207c3ac60a"
 		},
 		"mac-arm64": {
-			"sourceRevision": "840dc5ecd2364b2d15027acbffa561336c52c68a",
-			"byteLength": 836110,
-			"sha256": "6721e6980eaa96e13b5157ad56a4387ca056a6512c4620ae14140021a3fbabc9"
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"byteLength": 846515,
+			"sha256": "dd1f6421447f5e8de1f6c6fa3d0b1f51a998d571aa234246c63ce07783fa383a"
 		},
 		"win-x64": {
-			"sourceRevision": "840dc5ecd2364b2d15027acbffa561336c52c68a",
-			"byteLength": 900653,
-			"sha256": "5b7b2989c7a1787174ffff0034aa148d19d4d245770a267ca164df2eb33bcbbf"
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"byteLength": 915204,
+			"sha256": "f1829baccad5ba53ed2e3819708d449b838d6416d17b23fedf1e80311f67a244"
 		},
 		"win-arm64": {
-			"sourceRevision": "840dc5ecd2364b2d15027acbffa561336c52c68a",
-			"byteLength": 900414,
-			"sha256": "9c47352c45c389e2c5160f67941c76d03c886cfde563c62f5aeafe49c3484ade"
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"byteLength": 911728,
+			"sha256": "ae2d0ad80790545a184d16602c997f2703fa51e9c96841247eb47f89f458358d"
 		}
 	}
 }

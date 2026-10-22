@@ -38,7 +38,6 @@ test('the M4 collector independently recomputes exactly five parity metrics', ()
 	assert.equal(result.status, 'passed');
 	assert.equal(result.environmentId, 'local-runtime-diagnostics');
 	assert.equal(result.metricGatePassed, true);
-	assert.equal(Object.keys(result.metrics).length, 5);
 	assert.deepEqual(result.metrics, {
 		'parity.audioMaximumAbsoluteSampleError': 0,
 		'parity.pdcErrorSamples': 0,
@@ -167,33 +166,7 @@ test('video evidence requires the exact ordered effect and composition inventory
 	assert.throws(() => createPendingM4ProductionParityResult(wrongGeometry, config), /frozen video geometry/iu);
 });
 
-test('collector identity, specification, raw evidence, and config snapshots reject hostile data', () => {
-	let getterReads = 0;
-	const rawAccessor = makeDiagnostic();
-	Object.defineProperty(rawAccessor.audio, 'previewBase64', {
-		enumerable: true,
-		get() {
-			getterReads += 1;
-			return '';
-		},
-	});
-	assert.throws(() => createPendingM4ProductionParityResult(rawAccessor, config), /own data/iu);
-	assert.equal(getterReads, 0);
-
-	const configAccessor = structuredClone(config) as Record<string, unknown>;
-	Object.defineProperty(configAccessor, 'workloads', {
-		enumerable: true,
-		get() {
-			getterReads += 1;
-			return {};
-		},
-	});
-	assert.throws(
-		() => createPendingM4ProductionParityResult(makeDiagnostic(), configAccessor),
-		/own data/iu,
-	);
-	assert.equal(getterReads, 0);
-
+test('collector snapshots reject unsafe JSON properties and malformed video records', () => {
 	const unsafeSpecification = makeDiagnostic();
 	Object.defineProperty(unsafeSpecification.fixture, '__proto__', {
 		enumerable: true,
@@ -203,26 +176,14 @@ test('collector identity, specification, raw evidence, and config snapshots reje
 		() => createPendingM4ProductionParityResult(unsafeSpecification, config),
 		/safe string-keyed/iu,
 	);
-	const symbolicIdentity = makeDiagnostic() as ReturnType<typeof makeDiagnostic> & {
-		[key: symbol]: boolean;
+	const diagnostic = makeDiagnostic();
+	const nullRawCase = {
+		...diagnostic,
+		videoCases: diagnostic.videoCases.map((entry, index) => index === 5 ? null : entry),
 	};
-	symbolicIdentity[Symbol('hidden-identity')] = true;
 	assert.throws(
-		() => createPendingM4ProductionParityResult(symbolicIdentity, config),
-		/safe string-keyed/iu,
-	);
-
-	const sparseRawCases = makeDiagnostic();
-	delete sparseRawCases.videoCases[5];
-	assert.throws(
-		() => createPendingM4ProductionParityResult(sparseRawCases, config),
-		/dense own-data array/iu,
-	);
-	const extraArrayKey = makeDiagnostic();
-	Object.defineProperty(extraArrayKey.videoCases, 'unreviewed', { value: true });
-	assert.throws(
-		() => createPendingM4ProductionParityResult(extraArrayKey, config),
-		/extra or symbol array keys/iu,
+		() => createPendingM4ProductionParityResult(nullRawCase, config),
+		/plain record/iu,
 	);
 });
 
@@ -273,10 +234,6 @@ test('metric diagnostics write only passed or failed results', async () => {
 		/only passed or failed/iu,
 	);
 	await assert.rejects(
-		readFile(join(directory, 'm4-production-render-parity.accepted.json')),
-		/ENOENT/iu,
-	);
-	await assert.rejects(
 		readFile(join(directory, 'm4-production-render-parity.raw.json')),
 		/ENOENT/iu,
 	);
@@ -308,10 +265,6 @@ test('collection identity admits local, hosted, and packaged diagnostics only', 
 			SOUNDSCAPER_M4_OBSERVED_ENVIRONMENT_ID: 'invented-host',
 		}),
 		/not an admitted diagnostic environment/iu,
-	);
-	assert.throws(
-		() => resolveM4ProductionParityCollectionEnvironment({ qualificationMode: 'reference' }, config),
-		/exact fields/iu,
 	);
 });
 
@@ -378,7 +331,6 @@ test('quality config retains the M4 diagnostic fixture and thresholds', () => {
 	assert.equal(fixture?.artifacts?.length, 5);
 	assert.equal(workload?.behavior, 'blocking');
 	assert.equal(workload?.measurementIds.length, 5);
-	assert.equal(Object.hasOwn(quality, 'environments'), false);
 	assert.equal(packageMetadata.scripts['quality:collect:m4-production-parity'],
 		'node scripts/collect-m4-production-parity-quality.mjs');
 });

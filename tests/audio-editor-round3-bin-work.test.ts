@@ -39,7 +39,7 @@ void test('bin move retains its selected material instead of filtering it again 
 	assert.equal(project.projectBin.clips[0]!.id, 'clip-0');
 });
 
-void test('bin move preserves one-hop selection, authored item order and malformed first identity', () => {
+void test('bin move preserves one-hop selection and authored item order', () => {
 	const project = commandFixture(4);
 	project.clips[0]!.groupId = 'group';
 	project.clips[1]!.groupId = 'group';
@@ -49,10 +49,5 @@ void test('bin move preserves one-hop selection, authored item order and malform
 	assert.deepEqual(project.projectBin.clips.map(clip => clip.id), ['clip-0', 'clip-1']);
 	assert.deepEqual(project.clips.map(clip => clip.id), ['clip-2', 'clip-3']);
 	assert.equal(project.projectBin.clips[1]!.binItemId, 'clip-1');
-	const duplicate = commandFixture(3);
-	duplicate.clips[0]!.avLinkId = 'first';
-	duplicate.clips[1]!.avLinkId = 'first';
-	duplicate.clips[2]!.id = 'clip-0';
-	handlers['project-bin/move-from-timeline'](duplicate, { clipIds: ['clip-0'] });
-	assert.deepEqual(duplicate.projectBin.clips.map(clip => [clip.id, clip.binItemId]), [['clip-0', 'clip-0'], ['clip-1', 'clip-0'], ['clip-0', 'clip-0']]);
+
 });

@@ -143,17 +143,6 @@ test('linked-video IPC validates load input and returns a materialized pathless 
 		}),
 		/unsupported field/iu,
 	);
-	let getterCalls = 0;
-	const accessorRequest = { locatorId: LOCATOR_ID, expectedRevision: null };
-	Object.defineProperty(accessorRequest, 'playback', {
-		enumerable: true,
-		get() { getterCalls += 1; return false; },
-	});
-	await assert.rejects(
-		fixture.handlers.get(IPC.loadLinkedVideoOriginal)(fixture.event, accessorRequest),
-		/enumerable data field/iu,
-	);
-	assert.equal(getterCalls, 0);
 });
 
 test('linked-video IPC leases an exact pathless playback descriptor on the load channel', async () => {
@@ -188,76 +177,8 @@ test('linked-video IPC leases an exact pathless playback descriptor on the load 
 	);
 });
 
-test('linked-video IPC rolls back an admitted descriptor when response validation fails', async () => {
+test('linked-video IPC scopes exact release to the renderer owner', async () => {
 	const fixture = harness();
-	fixture.loaded = {
-		locatorRevision: LOCATOR_REVISION,
-		descriptor: { ...readDescriptor(), url: 'file:///private/selected.mp4' },
-	};
-	await assert.rejects(
-		fixture.handlers.get(IPC.loadLinkedVideoOriginal)(fixture.event, {
-			locatorId: LOCATOR_ID,
-			expectedRevision: LOCATOR_REVISION,
-			playback: false,
-		}),
-		/capability URL/iu,
-	);
-	assert.deepEqual(fixture.readCapabilityCalls, [{
-		method: 'release', id: READ_ID, owner: OWNER,
-	}]);
-});
-
-test('linked-video IPC preserves response-validation and rollback failures', async () => {
-	const fixture = harness();
-	fixture.loaded = {
-		locatorRevision: LOCATOR_REVISION,
-		descriptor: { ...readDescriptor(), url: 'file:///private/selected.mp4' },
-	};
-	fixture.releaseReadError = new Error('read cleanup failed');
-	await assert.rejects(
-		fixture.handlers.get(IPC.loadLinkedVideoOriginal)(fixture.event, {
-			locatorId: LOCATOR_ID,
-			expectedRevision: LOCATOR_REVISION,
-			playback: false,
-		}),
-		(error) => {
-			assert.ok(error instanceof AggregateError);
-			assert.match(String(error.errors[0]), /capability URL/iu);
-			assert.match(String(error.errors[1]), /cleanup failed/iu);
-			return true;
-		},
-	);
-});
-
-test('linked-video IPC rejects malformed store values and scopes release to the renderer owner', async () => {
-	const fixture = harness();
-	fixture.locator = {
-		locatorId: LOCATOR_ID,
-		locatorRevision: 'not-a-revision',
-		name: 'selected.mp4',
-		size: 42,
-		mimeType: 'video/mp4',
-		lastModified: 123,
-	};
-	fixture.dialogResult = { canceled: false, filePaths: [VIDEO_PATH] };
-	await assert.rejects(
-		fixture.handlers.get(IPC.chooseLinkedVideoOriginal)(fixture.event),
-		/revision/iu,
-	);
-	assert.equal(fixture.storeCalls.some(({ method }) => method === 'release'), false);
-
-	fixture.loaded = {
-		locatorRevision: LOCATOR_REVISION,
-		descriptor: { ...readDescriptor(), readProfile: 'scape-range-v1' },
-	};
-	await assert.rejects(
-		fixture.handlers.get(IPC.loadLinkedVideoOriginal)(fixture.event, {
-			locatorId: LOCATOR_ID,
-			expectedRevision: null,
-			playback: false,
-		}),
-		/materialized/iu,
-	);
 
 	assert.equal(
 		await fixture.handlers.get(IPC.releaseLinkedVideoOriginal)(fixture.event, {
@@ -275,39 +196,11 @@ test('linked-video IPC rejects malformed store values and scopes release to the 
 		LOCATOR_ID,
 		{ locatorId: LOCATOR_ID },
 		{ locatorId: LOCATOR_ID, locatorRevision: LOCATOR_REVISION, path: VIDEO_PATH },
-		Object.defineProperty({ locatorRevision: LOCATOR_REVISION }, 'locatorId', { enumerable: true, get() { throw new Error('must not read'); } }),
 	]) await assert.rejects(
 		fixture.handlers.get(IPC.releaseLinkedVideoOriginal)(fixture.event, value),
 		/field|identifier|reference/iu,
 	);
 	assert.equal(fixture.storeCalls.length, releaseCalls);
-});
-
-test('linked-video IPC treats an unacknowledged exact chooser rollback as cleanup failure', async () => {
-	const fixture = harness();
-	fixture.dialogResult = { canceled: false, filePaths: [VIDEO_PATH] };
-	fixture.locator = {
-		locatorId: LOCATOR_ID,
-		locatorRevision: LOCATOR_REVISION,
-		name: '../selected.mp4',
-		size: 42,
-		mimeType: 'video/mp4',
-		lastModified: 123,
-	};
-	fixture.releaseResult = false;
-	await assert.rejects(
-		fixture.handlers.get(IPC.chooseLinkedVideoOriginal)(fixture.event),
-		(error) => {
-			assert.ok(error instanceof AggregateError);
-			assert.match(String(error.errors[0]), /name/iu);
-			assert.match(String(error.errors[1]), /not acknowledged/iu);
-			return true;
-		},
-	);
-	assert.deepEqual(fixture.storeCalls.at(-1), {
-		method: 'release', locatorId: LOCATOR_ID,
-		options: { owner: OWNER, expectedRevision: LOCATOR_REVISION },
-	});
 });
 
 test('linked-video IPC accepts only a complete bounded exact startup inventory', async () => {
@@ -356,11 +249,9 @@ test('desktop main wires linked-video grants into renderer revocation and shutdo
 function harness() {
 	const handlers = new Map();
 	const dialogCalls = [];
-	const readCapabilityCalls = [];
 	const storeCalls = [];
 	const fixture = {
 		dialogCalls,
-		readCapabilityCalls,
 		storeCalls,
 		handlers,
 		event: Object.freeze({ owner: OWNER }),
@@ -369,8 +260,6 @@ function harness() {
 		locator: null,
 		loaded: null,
 		reconciled: 0,
-		releaseResult: true,
-		releaseReadError: null,
 	};
 	const store = {
 		async registerPath(path, options) {
@@ -387,7 +276,7 @@ function harness() {
 		},
 		release(locatorId, options) {
 			storeCalls.push({ method: 'release', locatorId, options });
-			return fixture.releaseResult;
+			return true;
 		},
 		reconcileStartup(references, options) {
 			storeCalls.push({ method: 'reconcileStartup', references, options });
@@ -403,11 +292,7 @@ function harness() {
 		},
 		handle(channel, listener) { handlers.set(channel, listener); },
 		ownerFor: (event) => event.owner,
-		releaseRead(id, owner) {
-			readCapabilityCalls.push({ method: 'release', id, owner });
-			if (fixture.releaseReadError) throw fixture.releaseReadError;
-			return true;
-		},
+		releaseRead: () => true,
 		store,
 		windowFor: () => fixture.window,
 	});

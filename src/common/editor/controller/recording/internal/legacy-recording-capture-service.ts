@@ -69,7 +69,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			}
 			if (!options.reusePreparedInputsOnly || !stream) stream = await runtime.capturePool.acquireHardware(runtime.defaultDeviceId, {
 				channelCount: 2,
-				sampleRate,
+				sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
 			});
 			scope.assertCurrent();
 			runtime.syncRecordingPoolSnapshot();
@@ -97,15 +97,6 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			);
 			scope.assertCurrent();
 			const sourceId = runtime.createStableId('recording');
-			writer = await runtime.openSourceWriter(sourceId, {
-				name: runtime.createRecordingName(),
-				mimeType: 'audio/wav',
-				sampleRate: captureSampleRate,
-				channelCount,
-				chunkFrames: runtime.sourceChunkFrames,
-			});
-			scope.assertCurrent();
-			const openedWriter = writer;
 			const previewResampler = runtime.createPreviewResampler(captureSampleRate, sampleRate, channelCount);
 			const requestedStartFrame = selection?.startFrame ?? runtime.engine.getPositionFrames();
 			const automaticLatency = (context.baseLatency || 0)
@@ -134,6 +125,17 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				? 0
 				: sourceOffsetProjectFrames;
 			const persistedSourceOffsetFrames = soundActivation.enabled ? 0 : sourceOffsetFrames;
+			writer = await runtime.openSourceWriter(sourceId, {
+				name: runtime.createRecordingName(),
+				mimeType: 'audio/wav',
+				sampleRate: captureSampleRate,
+				channelCount,
+				chunkFrames: runtime.sourceChunkFrames,
+			}, { trackId: track.id, startFrame: recordingStartFrame,
+				sourceOffsetFrames: persistedSourceOffsetFrames, sampleRate: captureSampleRate,
+				selection: alignment.selection });
+			scope.assertCurrent();
+			const openedWriter = writer;
 			const preview = runtime.createPreview({
 				trackId: track.id,
 				startFrame: recordingStartFrame,

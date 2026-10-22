@@ -73,7 +73,8 @@ export function createSherpaVadFactory(runtime: unknown, options: SherpaAccelera
 						minSilenceDuration: 0.5, minSpeechDuration: 0.25,
 						windowSize: WINDOW_SAMPLES, maxSpeechDuration: 30,
 					},
-					sampleRate: SAMPLE_RATE, numThreads: 2, provider, debug: 0,
+					sampleRate: SAMPLE_RATE, numThreads: 2,
+					provider: options.providerForModel?.(request.modelId ?? 'vad-model', provider) ?? provider, debug: 0,
 				}, 60));
 				const segments: Array<{ startSample: number; sampleCount: number }> = [];
 				const drain = (): void => {

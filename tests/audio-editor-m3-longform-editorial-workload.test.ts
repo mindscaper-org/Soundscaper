@@ -27,6 +27,7 @@ test('the milestone 3 long-form fixture has the exact two-hour editorial shape',
 	const project = createM3LongformEditorialBaseProject();
 	validateSoundscaperProject(project);
 
+	assert.equal(project.schemaFamily, 'soundscaper');
 	assert.equal(project.schemaVersion, PROJECT_SCHEMA_VERSION);
 	assert.equal(project.sampleRate, 48_000);
 	assert.equal(project.tracks.filter(({ type }) => type === 'audio').length, 24);
@@ -77,8 +78,6 @@ test('the edit workload replays deterministically with exact audio and video pos
 	assert.equal(checks.length, 26);
 	assert.ok(checks.every(({ audioPositionErrorSamples }) => audioPositionErrorSamples === 0));
 	assert.ok(checks.every(({ videoPositionErrorFrames }) => videoPositionErrorFrames === 0));
-	assert.equal(Math.max(...checks.map(({ audioPositionErrorSamples }) => audioPositionErrorSamples)), 0);
-	assert.equal(Math.max(...checks.map(({ videoPositionErrorFrames }) => videoPositionErrorFrames)), 0);
 });
 
 test('the complete generated workload remains byte deterministic and specification-bound', () => {
@@ -97,18 +96,6 @@ test('the complete generated workload remains byte deterministic and specificati
 		createHash('sha256').update(planBytes).digest('hex'),
 		first.specification.expectedEditPlanSha256,
 	);
-});
-
-// The fixture kind is `deterministic-current-schema-project-generator`, and the
-// browser harness seeds it straight into the project store rather than through
-// an import that could migrate it. A fixture generated one schema behind the
-// maintained product is therefore unopenable, which is how this workload sat
-// broken while nothing ran the benchmark: keep it pinned to the newest declared
-// Soundscaper schema so the next schema bump fails here instead of in a nightly.
-test('the long-form fixture is generated at the newest declared Soundscaper schema', () => {
-	const project = createM3LongformEditorialBaseProject();
-	assert.equal(project.schemaFamily, 'soundscaper');
-	assert.equal(project.schemaVersion, PROJECT_SCHEMA_VERSION);
 });
 
 test('the maintained Soundscaper loader opens the long-form fixture without migration', () => {

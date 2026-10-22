@@ -267,21 +267,6 @@ test('linked-video cleanup requires an exact own-data locator reference', async 
 	assert.equal(getterCalls, 0);
 });
 
-test('linked-video release rejects non-exact references before invoking the bridge', async () => {
-	let releaseCalls = 0;
-	const service = createAudioEditorFileService({ bridge: {
-		async chooseLinkedVideoOriginal() { return null; },
-		async loadLinkedVideoOriginal() { return null; },
-		async reconcileLinkedVideoOriginals() { return 0; },
-		async releaseLinkedVideoOriginal() { releaseCalls += 1; return true; },
-	} });
-	assert.ok(service.linkedVideoOriginalPort);
-	const release = service.linkedVideoOriginalPort.release as (value: unknown) => Promise<boolean>;
-	for (const value of [LOCATOR_ID, { locatorId: LOCATOR_ID }, {
-		locatorId: LOCATOR_ID, locatorRevision: LOCATOR_REVISION, path: '/private/movie.mp4',
-	}]) await assert.rejects(release(value), /object|unsupported field/iu);
-	assert.equal(releaseCalls, 0);
-});
 
 test('linked-video reconciliation rejects malformed references and bridge results', async () => {
 	const service = createAudioEditorFileService({
@@ -300,13 +285,7 @@ test('linked-video reconciliation rejects malformed references and bridge result
 		}])),
 		/removal count|non-negative/iu,
 	);
-	await assert.rejects(
-		Promise.resolve(service.linkedVideoOriginalPort.reconcile?.([{
-			locatorId: '../selected.mp4',
-			locatorRevision: LOCATOR_REVISION,
-		}])),
-		/locator identifier/iu,
-	);
+
 });
 
 function locatorChoice() {

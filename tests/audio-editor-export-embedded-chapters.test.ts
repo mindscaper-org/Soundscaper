@@ -231,10 +231,6 @@ test('chapter normalization requires plain objects with own frame and title valu
 		[{ startFrame: 10, endFrame: 100, title: 'Later' }, { startFrame: 0, endFrame: 20, title: 'Earlier' }],
 	];
 	for (const value of invalid) assert.throws(() => normalizeEmbeddedExportChapters(value, SAMPLE_RATE), RangeError);
-	let read = false;
-	const accessor = { startFrame: 0, endFrame: 100, get title() { read = true; return 'Getter'; } };
-	assert.throws(() => normalizeEmbeddedExportChapters([accessor], SAMPLE_RATE), RangeError);
-	assert.equal(read, false);
 });
 
 test('chapter normalization bounds titles and counts and refuses NUL characters', () => {

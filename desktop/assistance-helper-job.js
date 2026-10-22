@@ -4,8 +4,25 @@
 
 import { Worker } from 'node:worker_threads';
 
-export function createAssistanceSpeechJobRunner({ WorkerImpl = Worker } = {}) {
-	return ({ grant, onProgress }) => {
+export function createAssistanceSpeechJobRunner({ WorkerImpl = Worker,
+	loadGpuValidation = () => import('./project-library-runtime/desktop/assistance-sherpa-gpu-validation.js') } = {}) {
+	return ({ grant, onProgress, jobId }) => {
+		if (process.env.SOUNDSCAPER_LOCAL_ASSISTANCE_REAL_MODELS === '1'
+			&& process.env.SOUNDSCAPER_ASSISTANCE_GPU_VALIDATION === '1' && grant.operation !== 'status') {
+			let runner = null;
+			let cancelled = false;
+			const completion = loadGpuValidation().then(async (module) => {
+				runner = module.createValidatedSherpaSpeechJob({ jobId, grant, WorkerImpl, onProgress,
+					workerEntry: new URL('./assistance-inference-worker.js', import.meta.url) });
+				if (cancelled) await runner.cancel();
+				return runner.completion;
+			});
+			return Object.freeze({ completion, async cancel() {
+				cancelled = true;
+				await runner?.cancel();
+				await completion.catch(() => undefined);
+			} });
+		}
 		let settled = false;
 		const worker = new WorkerImpl(new URL('./assistance-inference-worker.js', import.meta.url), {
 			workerData: grant,

@@ -308,7 +308,7 @@ function matchedSpecifiers(source: string, pattern: RegExp): readonly string[] {
 export function sourceModules(directory: string): readonly string[] {
 	return readdirSync(directory, { recursive: true, withFileTypes: true })
 		.filter((entry) => entry.isFile() && /\.(?:[jt]sx?)$/u.test(entry.name))
-		.map((entry) => `${entry.parentPath}/${entry.name}`)
+		.map((entry) => resolve(entry.parentPath, entry.name))
 		.sort();
 }
 

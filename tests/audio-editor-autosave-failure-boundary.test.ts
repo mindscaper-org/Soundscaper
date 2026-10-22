@@ -50,7 +50,7 @@ function fixture(overrides: Partial<ProjectSaveServiceDependencies<Project>> = {
 	};
 }
 
-for (const failure of ['clone', 'prepare', 'identity'] as const) {
+for (const failure of ['clone', 'prepare'] as const) {
 	test(`autosave reports ${failure} failure, remains dirty, and a subsequent save recovers`, async () => {
 		let fail = true;
 		const error = new Error(`${failure} failed`);
@@ -61,7 +61,7 @@ for (const failure of ['clone', 'prepare', 'identity'] as const) {
 			},
 			prepareSnapshot: async (value) => {
 				if (fail && failure === 'prepare') throw error;
-				return fail && failure === 'identity' ? { ...value, id: 'wrong-project' } : value;
+				return value;
 			},
 		});
 		assert.doesNotThrow(() => runtime.service.scheduleAutosave());

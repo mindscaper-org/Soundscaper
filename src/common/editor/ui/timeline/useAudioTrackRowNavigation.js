@@ -1,3 +1,5 @@
+import { clipFadeChangeCommand } from './clip-fade-actions.ts';
+import { routeClipHandleKeyboard } from './clip-handle-keyboard.ts';
 import { secondsDeltaToFrames } from './geometry.ts';
 import { clipHasLoopRepeats, normalizeInactiveClipLoop } from '../../audio-clip-loop.ts';
 import { routeClipFocusTrimKeyboard } from './clip-focus-trim-keyboard-routing.ts';
@@ -27,6 +29,7 @@ export function useAudioTrackRowNavigation({
 	onFocusTrackClip,
 	onFocusTrackRuler,
 	onFocusSelectionToolbar,
+	onEditFades = () => undefined,
 }) {
 	const focusNavigation = useTrackRowFocusNavigation({
 		trackWindowRef,
@@ -46,14 +49,7 @@ export function useAudioTrackRowNavigation({
 		onSelectClip: (clipId, options) => run(() => (
 			controller.actions.timeline.selectClip(clipId, options)
 		)),
-		routeClipKey: (event) => {
-			const fadeHandle = event.target.querySelector('[data-clip-fade-handle]:not(:disabled), [data-clip-fade-shape-handle]:not(:disabled)');
-			if (event.key !== 'Tab' || event.shiftKey || !fadeHandle) return false;
-			event.preventDefault();
-			event.stopPropagation();
-			fadeHandle.focus();
-			return true;
-		},
+
 	});
 	const moveClipBySeconds = (clipId, deltaSeconds) => {
 		if (blocked) return;
@@ -161,7 +157,7 @@ export function useAudioTrackRowNavigation({
 			}));
 			return;
 		}
-		const durationFrames = Math.max(1, clip.durationFrames + deltaFrames);
+		const durationFrames = Math.max(1, clip.durationFrames - deltaFrames);
 		if (durationFrames === clip.durationFrames) return;
 		run(() => controller.actions.clip.stretch(clip.id, { durationFrames }));
 	};
@@ -201,9 +197,40 @@ export function useAudioTrackRowNavigation({
 		)),
 		commitLegacy: () => stretchClipBySecondsLegacy(clipId, edge, deltaSeconds),
 	});
+	const editClipEdgeToFrame = (clipId, edge, requestedBoundarySample, stretch) => {
+		if (blocked) return;
+		const clip = clipLookup.get(String(clipId)) || clipLookup.get(clipId);
+		if (!clip || !Number.isSafeInteger(requestedBoundarySample) || requestedBoundarySample < 0) return;
+		const boundary = clip.timelineStartFrame + (edge === 'right' ? clip.durationFrames : 0);
+		if (boundary === requestedBoundarySample) return;
+		if (canonicalVideoTrim === true && clip.kind === 'audio'
+			&& typeof clip.avLinkId === 'string' && clip.avLinkId.length > 0) {
+			const request = { activeClipId: clip.id, edge, requestedBoundarySample };
+			run(() => stretch ? controller.actions.video.trim.rateStretch.commit(request)
+				: controller.actions.video.trim.commit(request));
+			return;
+		}
+		const deltaSeconds = (edge === 'left' ? requestedBoundarySample - boundary : boundary - requestedBoundarySample) / sampleRate;
+		(stretch ? stretchClipBySecondsLegacy : trimClipBySecondsLegacy)(clipId, edge, deltaSeconds);
+	};
 
 	return {
 		...focusNavigation,
+		handleClipKeyDownCapture: (event) => {
+			if (routeClipHandleKeyboard(event, {
+				clips: track.clipIds.map(id => clipLookup.get(id)).filter(Boolean), sampleRate, blocked,
+				selectedIds: project.selection?.clipIds ?? [], playheadFrame: controller.getTelemetrySnapshot?.().positionFrame ?? 0,
+				updateFade: (id, changes, edge) => run(() => {
+					const command = clipFadeChangeCommand(project, id, sampleRate, changes, edge);
+					if (command) controller.actions.edit.commit(command);
+				}),
+				trim: trimClipBySeconds, stretch: stretchClipBySeconds,
+				trimToFrame: (id, edge, frame) => editClipEdgeToFrame(id, edge, frame, false),
+				stretchToFrame: (id, edge, frame) => editClipEdgeToFrame(id, edge, frame, true),
+				seek: frame => run(() => controller.actions.transport.seek(frame)), openFades: onEditFades,
+			})) return;
+			focusNavigation.handleClipKeyDownCapture(event);
+		},
 		moveClipBySeconds,
 		moveClipToTrack,
 		navigateClipVertical,

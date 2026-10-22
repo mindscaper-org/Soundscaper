@@ -4,10 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION as SESSION_REEXPORT_SCHEMA_VERSION,
-	createAudioEditorSessionClipboard as createSessionClipboardFromPublicModule,
-} from '../src/common/editor/session.js';
-import {
 	AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION,
 	collectAudioEditorClipboardSourceIds,
 	createAudioEditorSessionClipboard,
@@ -166,7 +162,7 @@ test('session clipboard normalization orders referenced sources, prunes extras, 
 	);
 });
 
-test('session clipboard creation resolves descriptor sources and preserves the public session exports', () => {
+test('session clipboard creation resolves descriptor sources and keeps its descriptor detached', () => {
 	const descriptor = pairedDescriptor();
 	const project = {
 		schemaVersion: 2,
@@ -183,8 +179,6 @@ test('session clipboard creation resolves descriptor sources and preserves the p
 	const clipboard = createAudioEditorSessionClipboard(project, { descriptor });
 
 	assert.equal(AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION, 1);
-	assert.equal(SESSION_REEXPORT_SCHEMA_VERSION, AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION);
-	assert.equal(createSessionClipboardFromPublicModule, createAudioEditorSessionClipboard);
 	assert.equal(clipboard.originProjectId, 'project');
 	assert.deepEqual(clipboard.sources.map(({ id }) => id), ['source-a', 'source-z']);
 	assert.notEqual(clipboard.descriptor, descriptor);

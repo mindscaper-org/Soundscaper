@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import {
-	collectProjectStorageKeys,
-	compactProjectSourceMetadata,
-} from '../retention.js';
+import { collectProjectStorageKeys } from '../retention.js';
+import { collectRecoverableProjectStorageKeys, compactRecoverableProjectMetadata, collectRecordingRecoveryRoots } from './recovery-retention-roots.ts';
 import {
 	DERIVATIVE_CACHE_ENTRY_STORE_NAME,
 	VIDEO_DERIVATIVE_STORE_NAME,
@@ -331,7 +329,7 @@ export class RetentionRepository {
 				deferredSourceIds,
 				getNextEligibleAt: () => nextEligibleAt,
 				setNextEligibleAt: (value) => { nextEligibleAt = value; },
-			});
+			}, this.#options.port.validateProjectForRetention);
 			deletedSources.push(...result.removedSources);
 			deletedBinaryRecords.push(...result.removedBinaryRecords);
 			deletedSourceIds.push(...result.removedSourceIds);
@@ -359,17 +357,18 @@ export class RetentionRepository {
 	}
 
 	#collectMemoryRoots(protectedIds: Set<string>): void {
+		collectRecordingRecoveryRoots(this.#options.port.memory.analysis.values(), protectedIds);
 		for (const [id, project] of this.#options.port.memory.projects) {
-			const compacted = compactProjectSourceMetadata(project);
+			const compacted = compactRecoverableProjectMetadata(project, this.#options.port.validateProjectForRetention);
 			if (compacted !== project) this.#options.port.memory.projects.set(id, compacted);
-			collectProjectStorageKeys(compacted, protectedIds);
+			collectRecoverableProjectStorageKeys(compacted, protectedIds, this.#options.port.validateProjectForRetention);
 		}
 		for (const [key, value] of this.#options.port.memory.revisions) {
 			const record = asRecord(value);
 			if (!record) continue;
-			const compacted = compactProjectSourceMetadata(record.project);
+			const compacted = compactRecoverableProjectMetadata(record.project, this.#options.port.validateProjectForRetention);
 			if (compacted !== record.project) this.#options.port.memory.revisions.set(key, { ...record, project: compacted });
-			collectProjectStorageKeys(compacted, protectedIds);
+			collectRecoverableProjectStorageKeys(compacted, protectedIds, this.#options.port.validateProjectForRetention);
 		}
 	}
 

@@ -129,6 +129,25 @@ class G2PGpuTests(unittest.TestCase):
             ops.gemm(Array([[1]]), Array([[1]]))
         self.assertEqual(Ops.calls, 0)
 
+    def test_strict_gpu_validation_never_retries_matrix_work_on_cpu(self):
+        native = Native(status=2)
+        ops = gpu.create_gpu_ops(Numpy, Ops, native, require_gpu=True)
+        with self.assertRaisesRegex(RuntimeError, "GPU"):
+            ops.gemm(Array([[2]]), Array([[2]]))
+        self.assertEqual(native.events, ["gpu", "close"])
+        self.assertEqual(Ops.calls, 0)
+
+    def test_strict_gpu_validation_rejects_missing_device_and_loader(self):
+        native = Native()
+        native.active = False
+        modules = {"numpy": Numpy, "thinc.backends": types.SimpleNamespace(NumpyOps=Ops, set_current_ops=lambda _: None)}
+        with patch.dict(sys.modules, modules), patch.object(gpu, "NativeGemm", return_value=native):
+            with self.assertRaisesRegex(RuntimeError, "GPU"):
+                gpu.install_gpu_ops("/verified", require_gpu=True)
+        with patch.dict(sys.modules, modules), patch.object(gpu, "NativeGemm", side_effect=OSError("loader missing")):
+            with self.assertRaisesRegex(RuntimeError, "GPU"):
+                gpu.install_gpu_ops("/verified", require_gpu=True)
+
     def test_installation_precedes_model_load_and_closes_on_set_ops_failure(self):
         native = Native()
         selected = []

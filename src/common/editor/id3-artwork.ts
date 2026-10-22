@@ -52,9 +52,12 @@ export function decodeArtworkData(value: string): Uint8Array<ArrayBuffer> {
 }
 
 export async function createId3Artwork(file: File): Promise<Id3Artwork> {
-	if (file.size > MAXIMUM_IMAGE_BYTES || (file.type !== 'image/png' && file.type !== 'image/jpeg')) throw new RangeError('Artwork must be PNG or JPEG, up to 4 MiB.');
+	if (file.size > MAXIMUM_IMAGE_BYTES) throw new RangeError('Artwork must be PNG or JPEG, up to 4 MiB.');
 	const bytes = new Uint8Array(await file.arrayBuffer());
+	const mimeType = bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71
+		? 'image/png' : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? 'image/jpeg' : null;
+	if (!mimeType) throw new RangeError('Artwork must be PNG or JPEG.');
 	let binary = '';
 	for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-	return parseId3Artwork([{ mimeType: file.type, pictureType: 3, description: file.name, data: btoa(binary) }])[0]!;
+	return parseId3Artwork([{ mimeType, pictureType: 3, description: file.name, data: btoa(binary) }])[0]!;
 }

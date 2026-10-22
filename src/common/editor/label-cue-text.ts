@@ -11,7 +11,10 @@ const WEBVTT_ENTITIES: Readonly<Record<string, string>> = Object.freeze({
 
 /** Decode the six character references the WebVTT text reader recognizes once. */
 export function decodeWebVttLabelText(value: string): string {
-	return value.replace(/&(amp|lt|gt|nbsp|lrm|rlm);/gu, (reference: string, name: string) => (
+	// Remove source markup before decoding references so exported literal tags
+	// such as &lt;b&gt; remain ordinary label text after a round trip.
+	const plain = value.replace(/<\/?(?:b|i|u|c|v|lang|ruby|rt)(?:\.[^\s<>]+)*(?:[ \t][^<>]*)?>|<(?:\d+:)?[0-5]\d:[0-5]\d\.\d{3}>/gu, '');
+	return plain.replace(/&(amp|lt|gt|nbsp|lrm|rlm);/gu, (reference: string, name: string) => (
 		WEBVTT_ENTITIES[name] ?? reference
 	));
 }

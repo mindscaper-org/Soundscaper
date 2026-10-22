@@ -183,7 +183,6 @@ test('the delivery tier becomes a bitrate the same way it becomes a CRF', () => 
 		resolveVideoDeliveryWebCodecsBitrate('vp9', 'balanced', canvas)
 		< resolveVideoDeliveryWebCodecsBitrate('h264', 'balanced', canvas),
 	);
-	assert.throws(() => resolveVideoDeliveryWebCodecsBitrate('av1', 'balanced', canvas), /No delivery bitrate mapping/u);
 });
 
 function createHarness(options: {

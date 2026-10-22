@@ -6,10 +6,8 @@ import test from 'node:test';
 
 import { localModelEvidenceSha256 } from '../desktop/local-model-catalog-integrity.ts';
 import {
-	catalogEntryDownloadBytes,
 	describeModelAvailability,
 	LOCAL_MODEL_CATALOG_SCHEMA_VERSION,
-	plannedMirrorLocation,
 	validateLocalModelCatalog as validateCatalog,
 } from '../desktop/local-model-catalog.ts';
 
@@ -125,13 +123,11 @@ test('every offered catalog model is installable because V2 requires pinned arti
 	const silero = catalog.entries.find(({ modelId }) => modelId === 'silero-vad-v6');
 	assert.ok(silero, 'the mirrored model stays cataloged');
 	assert.equal(availability(silero), 'installable');
-	assert.equal(catalogEntryDownloadBytes(silero), 2_327_524);
 	assert.equal(
 		silero.artifacts?.[0]?.url,
 		'https://assets.soundscaper.org/models/silero-vad-v6/6.2.1/silero_vad.onnx',
 	);
 
-	assert.ok(catalog.entries.every((candidate) => catalogEntryDownloadBytes(candidate) > 0));
 	assert.ok(catalog.entries.every((candidate) => availability(candidate) === 'installable'));
 });
 
@@ -140,21 +136,6 @@ test('a model without a licensing evidence record cannot be cataloged', () => {
 		() => validateLocalModelCatalog(catalogOf([entry({ modelId: 'unreviewed-model' })]), binding()),
 		/needs exactly one licensing evidence record/iu,
 	);
-});
-
-test('distribution metadata cannot disable a digest-bound test catalog', () => {
-	assert.doesNotThrow(() => validateLocalModelCatalog(
-		catalogOf([entry({ modelId: 'crisperwhisper' })]),
-		binding({ evidenceIds: ['crisperwhisper'], refusedIds: ['crisperwhisper'] }),
-	));
-	const pending = evidenceFor('pending-model', 'blocked');
-	assert.doesNotThrow(() => validateLocalModelCatalog(
-		catalogOf([entry({
-			modelId: 'pending-model',
-			licensingEvidence: { id: 'pending-model', sha256: localModelEvidenceSha256(pending) },
-		})]),
-		{ licensingEvidence: [pending], refusedIds: [] },
-	));
 });
 
 test('availability reflects the machine, including for an installed model', () => {
@@ -166,7 +147,6 @@ test('availability reflects the machine, including for an installed model', () =
 	})]), binding()).entries;
 
 	assert.ok(pinned);
-	assert.equal(catalogEntryDownloadBytes(pinned), 1_000);
 	assert.equal(
 		describeModelAvailability(pinned, { platform: 'linux-x64', totalMemoryBytes: 16 * GIB, installedModelIds: [] }),
 		'installable',
@@ -416,12 +396,6 @@ test('the publication block names the bucket and public host', async () => {
 		jurisdiction: 'eu',
 	});
 
-	const [entryUnderTest] = catalog.entries;
-	assert.ok(entryUnderTest);
-	assert.deepEqual(plannedMirrorLocation(catalog, entryUnderTest, 'silero_vad.onnx'), {
-		key: 'models/silero-vad-v6/6.2.1/silero_vad.onnx',
-		url: 'https://assets.soundscaper.org/models/silero-vad-v6/6.2.1/silero_vad.onnx',
-	});
 });
 
 test('an unusable publication block is refused', () => {

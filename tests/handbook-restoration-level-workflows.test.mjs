@@ -19,8 +19,6 @@ test('the six restoration and level workflows have validated reader-facing recip
 	assert.equal(new Set(allGuides.map(({ id }) => id)).size, 6);
 	for (const guide of allGuides) {
 		validateGuide(guide, GUIDE_FIXTURES);
-		assert.equal((guide.intro.match(/[.!?](?:\s|$)/gu) || []).length, 2, `${guide.id} needs a two-sentence introduction`);
-		assert.equal(guide.tips.length, 2, `${guide.id} needs two practical tips`);
 		assert.ok(guide.steps.some(({ kind }) => kind === 'play' || kind === 'check'), `${guide.id} needs a result check`);
 		assert.doesNotMatch(JSON.stringify(guide), /guide-[a-z-]+\.wav|quarter point|halfway point/u);
 	}

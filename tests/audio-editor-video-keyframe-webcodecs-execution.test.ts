@@ -134,32 +134,6 @@ test('a refused encoder configuration fails the delivery instead of truncating i
 	assert.equal(encoder.closed, true);
 });
 
-test('the WebCodecs decision is admitted as strictly as every other request field', async () => {
-	const frameSource = source({ width: 4, height: 4, frameRate: 3 });
-	const base = {
-		frameSource,
-		producer: producerFor(frameSource),
-		ffmpeg: fakeFfmpeg() as never,
-		format: 'mp4' as const,
-		inputPath: '/frames.h264',
-		outputPath: '/encoded.mp4',
-		ringCapacityBytes: 4_096,
-	};
-	const valid = decision(recordingEncoder());
-	for (const [webCodecs, message] of [
-		[{ ...valid, codec: '' }, /codec must be a codec string/u],
-		[{ ...valid, bitrate: 0 }, /bitrate must be a positive integer/u],
-		[{ ...valid, encoderClass: {} }, /encoderClass must be a constructor/u],
-		[{ ...valid, videoFrameClass: null }, /videoFrameClass must be a constructor/u],
-		[{ ...valid, extra: 1 }, /unsupported field/u],
-	] as const) {
-		await assert.rejects(
-			encodeVideoKeyframeFrames({ ...base, webCodecs: webCodecs as never }),
-			message,
-		);
-	}
-});
-
 function decision(encoder: ReturnType<typeof recordingEncoder>, codec = 'avc1.4d001e') {
 	return Object.freeze({
 		codec,

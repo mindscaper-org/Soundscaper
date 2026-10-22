@@ -5,68 +5,15 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
-const threatModelUrl = new URL('../docs/policies/security.md', import.meta.url);
 const CONTROL_ID = 'durable-routed-take-cycle-capture-and-recovery';
 
-test('routed take-cycle capture has exact durability, recovery, and resource truth', async () => {
+test('routed take-cycle control retains conditional status and durability, recovery, and resource evidence', async () => {
 	const matrix = JSON.parse(await readFile(matrixUrl, 'utf8'));
 	const risk = matrix.risks.find(({ id }) => id === 'long-job-cancellation');
 	const control = risk?.currentControls.find(({ id }) => id === CONTROL_ID);
 	assert.ok(control);
 	assert.equal(risk.status, 'partial');
 	assert.equal(risk.surfaceDisposition, 'conditional');
-	assert.match(
-		control.summary,
-		/Soundscaper.*`takeComp`-gated.*Record options.*Record loop into takes.*writable exact owning-family v1.*positive enabled loop.*unlocked armed audio targets.*routed input.*one owning sequence.*Framescaper.*neither.*cycle entry.*recovery UI.*direct start, Recover, and Discard.*before controller mutation/iu,
-	);
-	assert.match(
-		control.summary,
-		/refuse.*busy.*pending recovery.*timed recording.*punch selection.*sound activation.*locked or unrouted.*disabled or empty loop.*differently sized overlapping.*cannot pause/iu,
-	);
-	assert.match(
-		control.summary,
-		/selection-only.*session history.*dirty state.*without autosave or compaction.*flushes the exact current project.*before capture input or durable session I\/O.*currentness.*input acquisition.*AudioContext.*before.*one-minute point-in-time.*project sample rate.*total routed channels.*Float32.*60 seconds.*not a duration cap, quota reservation, or write guarantee.*before durable session and lane registration.*recorder creation or start/iu,
-	);
-	assert.match(
-		control.summary,
-		/resamples.*project rate.*contiguous integer sample grid.*complete pass.*explicitly interrupted partial final pass.*distinct ordered lane, take, and source.*exact-loop repeat.*same group.*differently sized overlap.*before input.*multiple tracks.*same publication generation.*finalizes.*independently.*not all-track atomic.*one history command and undo per routed track.*restart replay.*no undo/iu,
-	);
-	assert.match(
-		control.summary,
-		/raw capture.*outside project JSON and `\.scape`.*durable analysis registry.*source-chunk roots.*1 through 768,000.*1 through 64 channels.*65,536 frames.*8 MiB useful planar Float32.*4,096 spans and passes.*current family v1 entity capacity.*64 active spools per project.*4,096 globally.*exact global boundary.*IndexedDB reopen/iu,
-	);
-	assert.match(
-		control.summary,
-		/registry-visible prefix.*chunk written before.*failed registry CAS.*never capture evidence.*exact-token cleanup.*capturing and sealed roots.*retention.*regardless of age.*unregistered stale chunks.*reclaimed.*no age pruning or general project-deletion lifecycle.*registered roots/iu,
-	);
-	assert.match(
-		control.summary,
-		/source token.*canonical packed byte length and SHA-256.*recovery envelope.*publication generation.*lane ownership.*source journals.*base and target project revisions and document SHA-256.*project and source CAS.*strict active project.*session history.*session token.*before synchronization/iu,
-	);
-	assert.match(
-		control.summary,
-		/8 MiB.*each raw planar chunk.*one evidence accumulator.*separate useful-planar boundaries.*not a combined or aggregate transient-memory claim.*input callback PCM.*routed views.*resampler output.*span and source clones.*repository.*IndexedDB.*structured-clone.*canonical pack buffer.*JavaScript objects.*MediaStream.*codec.*browser audio internals.*GC.*heap.*RSS.*unrelated jobs.*excluded.*no aggregate duration, global byte, or RSS bound/iu,
-	);
-	assert.match(
-		control.summary,
-		/frozen recovery authority.*every envelope, raw, and capturing root.*ownership.*one publication generation.*exact object identity.*matching token.*current writable project.*no implicit decision.*closing.*switching.*durable roots.*inspection and pending authority.*block.*edits.*save and autosave.*ordinary, new-track, cycle, and timed recording.*handoff.*deletion.*garbage collection.*maintenance.*exact Recover or Discard/iu,
-	);
-	assert.match(
-		control.summary,
-		/lock loss.*cancellation and stop.*reinspection.*no prompt or bounded[- ]deadline guarantee.*partial settlement.*exact retry authority.*mixed.*IndexedDB process reopen.*Recover.*never activates.*stale published source token.*raw draft.*exact two-lane family v1.*PCM.*Discard.*base unchanged.*zero.*source, envelope, spool, and chunk roots/iu,
-	);
-	assert.match(
-		control.summary,
-		/durable repository finalization and restart replay.*exact two-lane.*`\.scape` collision-copy.*production-recovered.*exact PCM.*remapping.*fresh Soundscaper family-v1 desktop-library reopen.*production-finalized.*no missing sources.*no foreign-family editing or shared-catalog authority/iu,
-	);
-	assert.match(
-		control.summary,
-		/configured Chromium.*persistent userDataDir.*closes and relaunches the browser without application unload.*preserves IndexedDB.*ordinary settlement.*exact-loop repeat.*restart Recover.*second restart.*close.*no decision.*mutation controls.*blocked.*keyboard.*Discard.*named dialog.*Recover focus.*basic accessibility.*no serious axe.*forced colors/iu,
-	);
-	assert.match(
-		control.summary,
-		/not.*operating-system crash or power-loss.*fsync.*packaged device or OS matrix.*cross-browser.*screen-reader.*assistive-technology.*synthetic oscillator MediaStream.*synthetic quota.*not exact browser captured-waveform or PCM parity.*external latency calibration.*punch, timed, sound-activated, and paused modes.*excluded/iu,
-	);
 
 	assertEvidence(control, [
 		'src/common/editor/take-cycle-capture-domain.ts',
@@ -114,11 +61,6 @@ test('routed take-cycle capture has exact durability, recovery, and resource tru
 		'tests/desktop-soundscaper-project-library-baseline.test.ts',
 		'tests/browser/audio-editor-take-cycle-recording.spec.js',
 	]);
-
-	const threatModel = (await readFile(threatModelUrl, 'utf8')).replace(/\s+/gu, ' ');
-	assert.match(threatModel, /policy-narrative:durable-routed-take-cycle-capture-and-recovery/iu);
-	assert.match(threatModel, /one-minute point-in-time.*not a duration cap.*8 MiB.*not a combined or aggregate transient-memory claim/iu);
-	assert.match(threatModel, /persistent userDataDir.*without application unload.*not.*operating-system crash or power-loss/iu);
 });
 
 function assertEvidence(control, paths) {

@@ -9,7 +9,7 @@ const video = createDeterministicSilentVideoFixture('recorded.webm');
 const caption = { name: 'dialogue.srt', mimeType: 'application/x-subrip',
 	buffer: Buffer.from('1\n00:00:00,100 --> 00:00:00,500\nA normal caption\n\n') };
 
-for (const captions of [false, true]) test(`Soundscaper video ${captions ? 'does not offer its refused caption delivery' : 'delivers ordinary video without captions'}`, async ({ page }) => {
+test('Soundscaper video does not offer its refused caption delivery', async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [video]);
@@ -17,11 +17,9 @@ for (const captions of [false, true]) test(`Soundscaper video ${captions ? 'does
 	await expect(editor.getByText('A normal caption', { exact: true })).toBeVisible();
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
-	if (captions) {
-		await expect(dialog.getByRole('button', { name: 'Captions from', exact: true })).toHaveCount(0);
-		await expect(dialog.locator('[data-export-field="captionDeliveryUnavailable"]')).toContainText('Soundscaper');
-		await expect(dialog.locator('[data-export-field="captionDeliveryUnavailable"]')).toContainText('Export labels');
-	}
+	await expect(dialog.getByRole('button', { name: 'Captions from', exact: true })).toHaveCount(0);
+	await expect(dialog.locator('[data-export-field="captionDeliveryUnavailable"]')).toContainText('Soundscaper');
+	await expect(dialog.locator('[data-export-field="captionDeliveryUnavailable"]')).toContainText('Export labels');
 	const webGl2Available = await page.evaluate(hasWebGl2Capability);
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 	const link = dialog.locator('[data-export-download]');

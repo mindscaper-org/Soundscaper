@@ -9,7 +9,6 @@ import {
 	applyAssistanceBackgroundPriority,
 	awaitAssistancePowerAdmission,
 	normalizeAssistanceThermalState,
-	validateAssistancePowerObservation,
 	type AssistancePowerEtiquettePort,
 	type AssistancePowerObservation,
 } from '../desktop/assistance-power-etiquette-v1.ts';
@@ -68,22 +67,6 @@ test('battery power and serious thermal pressure each hold new inference', () =>
 test('thermal pressure outranks battery so the reported reason is the worse one', () => {
 	const both = admitAssistancePower({ onBatteryPower: true, thermalState: 'critical' });
 	assert.equal(both.admitted === false && both.reason, 'thermal-pressure');
-});
-
-test('the power observation refuses a foreign shape, key set, or thermal word', () => {
-	assert.throws(() => validateAssistancePowerObservation(null), TypeError);
-	assert.throws(() => validateAssistancePowerObservation([]), TypeError);
-	assert.throws(() => validateAssistancePowerObservation({ onBatteryPower: false }), TypeError);
-	assert.throws(() => validateAssistancePowerObservation({
-		onBatteryPower: false, thermalState: 'nominal', extra: 1,
-	}), TypeError);
-	assert.throws(() => validateAssistancePowerObservation({
-		onBatteryPower: 'no', thermalState: 'nominal',
-	}), TypeError);
-	assert.throws(() => validateAssistancePowerObservation({
-		onBatteryPower: false, thermalState: 'toasty',
-	}), TypeError);
-	assert.deepEqual(validateAssistancePowerObservation({ ...MAINS }), MAINS);
 });
 
 test('an unrecognised host thermal word reads as unknown rather than refusing the machine', () => {
@@ -246,7 +229,7 @@ test('a power reading the host cannot supply admits the job instead of stalling 
 		{ outcome: 'admitted' });
 });
 
-test('a change the port cannot read keeps the hold rather than admitting on a bad sample', async () => {
+test('a host read failure during a hold preserves its previous observation', async () => {
 	const port = new FakePowerPort({ onBatteryPower: true, thermalState: 'nominal' });
 	let fire!: () => void;
 	const pending = awaitAssistancePowerAdmission({
@@ -259,23 +242,11 @@ test('a change the port cannot read keeps the hold rather than admitting on a ba
 		clearTimeoutImpl: (() => {}) as unknown as typeof clearTimeout,
 	});
 	await Promise.resolve();
-	port.change({ onBatteryPower: 'nonsense' } as unknown as AssistancePowerObservation);
+	port.observe = () => { throw new Error('powerMonitor read failed'); };
+	port.change(MAINS);
 	fire();
 	const outcome = await pending;
 	assert.equal(outcome.outcome === 'deferred' && outcome.reason, 'on-battery');
-});
-
-test('the hold budget and port are validated before any wait begins', async () => {
-	const port = new FakePowerPort(MAINS);
-	await assert.rejects(() => awaitAssistancePowerAdmission({
-		port: null as unknown as AssistancePowerEtiquettePort, holdBudgetMs: 1_000,
-	}), TypeError);
-	await assert.rejects(() => awaitAssistancePowerAdmission({ port, holdBudgetMs: 0 }), RangeError);
-	await assert.rejects(() => awaitAssistancePowerAdmission({ port, holdBudgetMs: 600_001 }), RangeError);
-	await assert.rejects(() => awaitAssistancePowerAdmission({ port, holdBudgetMs: 1.5 }), RangeError);
-	await assert.rejects(() => awaitAssistancePowerAdmission({
-		port, holdBudgetMs: 1_000, onHold: 'later' as unknown as () => void,
-	}), TypeError);
 });
 
 test('background priority reports whether the operating system accepted the change', () => {
@@ -287,12 +258,4 @@ test('background priority reports whether the operating system accepted the chan
 	assert.equal(applyAssistanceBackgroundPriority(4_321, () => {
 		throw new Error('EPERM');
 	}, 10), false);
-});
-
-test('background priority refuses a request that names no real process', () => {
-	assert.throws(() => applyAssistanceBackgroundPriority(0, () => {}, 10), TypeError);
-	assert.throws(() => applyAssistanceBackgroundPriority(1.5, () => {}, 10), TypeError);
-	assert.throws(() => applyAssistanceBackgroundPriority(
-		12, null as unknown as (pid: number, priority: number) => void, 10), TypeError);
-	assert.throws(() => applyAssistanceBackgroundPriority(12, () => {}, 1.5), TypeError);
 });

@@ -3,6 +3,7 @@
 /** Native GPU attempts are bounded by the authenticated runtime's capabilities. */
 
 import type { AssistanceRuntimeFamilyDescriptor } from './assistance-runtime-family-manifest.ts';
+import { isAssistanceGpuValidationEnabled } from './assistance-gpu-validation.ts';
 
 export type AssistanceNativeGpuProvider = 'cpu' | 'metal' | 'vulkan';
 
@@ -39,6 +40,8 @@ export function createAssistanceNativeGpuExecutorV1(
 ): AssistanceNativeGpuExecutor {
 	let provider: AssistanceNativeGpuProvider = descriptor.executionProviders?.includes('vulkan')
 		? 'vulkan' : descriptor.executionProviders?.includes('metal') ? 'metal' : 'cpu';
+	const strict = isAssistanceGpuValidationEnabled();
+	if (strict && provider === 'cpu') throw new Error('GPU validation requires an authenticated native GPU runtime.');
 	return Object.freeze({
 		async run<T>(
 			signal: AbortSignal | undefined,
@@ -49,7 +52,7 @@ export function createAssistanceNativeGpuExecutorV1(
 				return await execute(provider);
 			} catch (error) {
 				signal?.throwIfAborted();
-				if (provider === 'cpu' || !(error instanceof AssistanceNativeCliExecutionError)) {
+				if (strict || provider === 'cpu' || !(error instanceof AssistanceNativeCliExecutionError)) {
 					throw error;
 				}
 				// A failed backend stays disabled for subsequent VAD ranges in this job.

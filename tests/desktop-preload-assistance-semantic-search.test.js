@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises'; import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
+import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
 import test from 'node:test';
 import vm from 'node:vm';
 
@@ -67,11 +67,6 @@ test('preload rejects forged semantic-search authority on both IPC sides', async
 	await assert.rejects(malformedRequest.bridge.localAssistance.semanticSearch.revoke('../session'),
 		/semantic-search|identifier/iu);
 	assert.deepEqual(malformedRequest.invocations, []);
-});
-
-test('semantic-search preload activation does not grow the maintained script ratchet', async () => {
-	const source = await readFile(new URL('../desktop/preload.mjs', import.meta.url), 'utf8');
-	assert.ok(source.trimEnd().split('\n').length <= 756);
 });
 
 async function loadPreload(invocationResults) {

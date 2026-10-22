@@ -34,18 +34,8 @@ test.describe('Inspector lazy feature boundaries', () => {
 		expectLoadedOnly(requestedScripts, 'RealtimeAnalysisPanel');
 	});
 
-	test('opening Export loads its entry without preloading sibling Inspector features', async ({ page }) => {
+	test('loads only Export while keeping lazy loading from painting a timeline-sized placeholder', async ({ page }) => {
 		const requestedScripts = collectRequestedScripts(page);
-		const editor = await bootEditorWithTone(page);
-		requestedScripts.length = 0;
-
-		await chooseCommand(page, editor, 'File', 'Export audio');
-		await expect(page.getByRole('dialog', { name: 'Export audio', exact: true })).toBeVisible();
-		await expect.poll(() => requestedScripts.some((name) => name.startsWith('ExportDialog-'))).toBe(true);
-		expectLoadedOnly(requestedScripts, 'ExportDialog');
-	});
-
-	test('keeps lazy dialog loading from painting a timeline-sized placeholder', async ({ page }) => {
 		let releaseChunk;
 		let chunkRequested = false;
 		const heldChunk = new Promise((resolve) => { releaseChunk = resolve; });
@@ -55,6 +45,7 @@ test.describe('Inspector lazy feature boundaries', () => {
 			await route.continue();
 		});
 		const editor = await bootEditorWithTone(page);
+		requestedScripts.length = 0;
 
 		try {
 			await chooseCommand(page, editor, 'File', 'Export audio');
@@ -68,6 +59,8 @@ test.describe('Inspector lazy feature boundaries', () => {
 		}
 
 		await expect(page.getByRole('dialog', { name: 'Export audio', exact: true })).toBeVisible();
+		await expect.poll(() => requestedScripts.some((name) => name.startsWith('ExportDialog-'))).toBe(true);
+		expectLoadedOnly(requestedScripts, 'ExportDialog');
 	});
 
 	test('keeps the editor mounted while a shared dialog chunk loads', async ({ page }) => {

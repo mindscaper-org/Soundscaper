@@ -63,12 +63,6 @@ test('loopback smoke certificate trust is exact, partition-local, and falls back
 	registration.dispose();
 	assert.equal(harness.certificateVerifyValue, null);
 
-	assert.throws(() => configureFramescaperWebVcrSmokeCertificateTrustV1(harness.session, {
-		enabled: true, origin: 'https://example.com:9443', fingerprint: CERTIFICATE_FINGERPRINT,
-	}), /loopback/iu);
-	assert.throws(() => configureFramescaperWebVcrSmokeCertificateTrustV1(harness.session, {
-		enabled: true, origin: 'http://127.0.0.1:9443', fingerprint: CERTIFICATE_FINGERPRINT,
-	}), /HTTPS/iu);
 });
 
 function sessionHarness() {

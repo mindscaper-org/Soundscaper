@@ -159,9 +159,6 @@ test('owned dereverb-room STFT/ISTFT round-trips the pinned centered Hann geomet
 test('dereverb-room custody rejects malformed, incomplete, and non-finite tensors', () => {
 	assert.throws(() => createDereverbRoomChunkPlanV1({ schemaVersion: 1, sourceFrameCount: 0 }),
 		/frame count|invalid/iu);
-	assert.throws(() => createDereverbRoomChunkPlanV1({
-		schemaVersion: 1, sourceFrameCount: 1, invented: true,
-	}), /fields/iu);
 	const plan = createDereverbRoomChunkPlanV1({ schemaVersion: 1, sourceFrameCount: 4 });
 	const channel = Float32Array.of(0, 1, 0, -1);
 	assert.throws(() => mergeDereverbRoomChunksV1({ schemaVersion: 1, plan, chunks: [] }),

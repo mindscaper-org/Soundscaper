@@ -9,7 +9,7 @@ const CANONICAL_AIFF_MIME_TYPE = 'audio/aiff';
  * Windows has no registry content type.
  */
 const PLATFORM_AIFF_MIME_TYPES: ReadonlySet<string> = new Set([
-	'', 'audio/aiff', 'audio/x-aiff', 'audio/aif', 'audio/x-aif', 'audio/aifc', 'audio/x-aifc',
+	'', 'application/octet-stream', 'audio/aiff', 'audio/x-aiff', 'audio/aif', 'audio/x-aif', 'audio/aifc', 'audio/x-aifc',
 ]);
 
 interface NamedAudioFile {

@@ -108,6 +108,8 @@ interface RecordingPoolSourceLike {
 }
 
 export interface AudioDeviceSnapshotState {
+	readonly audioHost: string;
+	readonly preferredRecordingSampleRate: number;
 	readonly preferredInputDeviceId: string;
 	readonly preferredInputChannelCount: number;
 	readonly preferredOutputDeviceId: string;
@@ -137,24 +139,27 @@ export function createAudioDeviceSnapshot(
 	displayInputDeviceId: string,
 ) {
 	const outputState = engine.getOutputDeviceState?.() || {};
-	const preferredInputAvailable = state.preferredInputDeviceId === defaultInputDeviceId
+	const nativeHost = state.audioHost !== 'browser' && state.audioHost !== 'electron';
+	const preferredInputAvailable = (!nativeHost && state.preferredInputDeviceId === defaultInputDeviceId)
 		|| (state.preferredInputDeviceId === displayInputDeviceId && supportsDisplayAudioCapture(mediaDevices))
 		|| state.audioInputDevices.some((device) => device.deviceId === state.preferredInputDeviceId);
-	const preferredOutputAvailable = !state.preferredOutputDeviceId
+	const preferredOutputAvailable = (!nativeHost && !state.preferredOutputDeviceId)
 		|| state.audioOutputDevices.some((device) => device.deviceId === state.preferredOutputDeviceId);
 	return Object.freeze({
 		inputs: Object.freeze([...state.audioInputDevices]),
 		outputs: Object.freeze([...state.audioOutputDevices]),
+		host: state.audioHost,
+		recordingSampleRate: state.preferredRecordingSampleRate,
 		preferredInputDeviceId: state.preferredInputDeviceId,
 		preferredInputChannelCount: state.preferredInputChannelCount,
 		preferredOutputDeviceId: state.preferredOutputDeviceId,
 		activeOutputDeviceId: outputState.activeDeviceId ?? state.activeOutputDeviceId,
 		inputAccess: state.audioInputAccess,
-		inputSupported: Boolean(mediaDevices?.getUserMedia || mediaDevices?.getDisplayMedia),
-		microphoneInputSupported: Boolean(mediaDevices?.getUserMedia),
+		inputSupported: nativeHost || Boolean(mediaDevices?.getUserMedia || mediaDevices?.getDisplayMedia),
+		microphoneInputSupported: nativeHost || Boolean(mediaDevices?.getUserMedia),
 		displayInputSupported: supportsDisplayAudioCapture(mediaDevices),
 		displayCaptureOpen: state.recordingPoolSources.some((source) => source.kind === 'display'),
-		outputSupported: Boolean(outputState.supported),
+		outputSupported: nativeHost || Boolean(outputState.supported),
 		preferredInputAvailable,
 		preferredOutputAvailable,
 		outputStatus: state.audioOutputStatus,

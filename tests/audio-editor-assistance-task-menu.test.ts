@@ -21,19 +21,18 @@ test('every guided task has one destination and opens its own workflow', () => {
 		}
 	};
 	visit(menus);
-	assert.equal(ASSISTANCE_TASKS.length, 14);
 	assert.equal(taskEntries.length, ASSISTANCE_TASKS.length);
 	for (const entry of taskEntries) {
 		assert.equal(entry.icon, String.fromCodePoint(0xF476));
 		assert.doesNotMatch(entry.label ?? '', /…|\.{3}/u);
 	}
-	assert.equal(requests.length, 14);
+	assert.equal(requests.length, ASSISTANCE_TASKS.length);
 	for (const task of ASSISTANCE_TASKS) {
 		const request = { mode: 'task' as const, workflowId: task.workflowId };
 		assert.deepEqual(assistanceDialogRequest(assistanceDialogSurface(request)), request);
 		assert.ok(requests.some((value) => JSON.stringify(value) === JSON.stringify(request)));
 	}
-	assert.equal(assistanceDialogRequest('local-assistance:unknown'), null);
+	assert.equal(assistanceDialogRequest('local-models'), null);
 	assert.deepEqual(assistanceDialogRequest('local-assistance'), { mode: 'advanced' });
 });
 
@@ -64,7 +63,9 @@ test('effects join existing categories and honor alphabetical organization', () 
 	const options = { productId: 'soundscaper', available: true, copy: {}, open: () => undefined };
 	const grouped = mergeAssistanceTaskMenus(base, options);
 	assert.equal(grouped[0].items?.filter((item) => item.id === 'noiseRepair').length, 1);
-	assert.equal(grouped[0].items?.find((item) => item.id === 'noiseRepair')?.items?.length, 4);
+	const repairItems = grouped[0].items?.find((item) => item.id === 'noiseRepair')?.items;
+	assert.ok(repairItems?.some((item) => item.id === 'existing'));
+	assert.ok(repairItems?.some((item) => item.id === 'assistance-task-enhance-dialogue'));
 	assert.equal(grouped[0].items?.find((item) => item.id === 'noiseRepair')?.disabled, false);
 	const sorted = mergeAssistanceTaskMenus([{ id: 'effect', items: [] }], {
 		...options, organization: 'sortby:name',
@@ -77,15 +78,15 @@ test('native configuration moves to preferences while effect use and management 
 	const { organizeNativePreferences } = await import('../src/common/editor/ui/local-processing-menus.ts');
 	const result = organizeNativePreferences([
 		{ id: 'effect', items: [{ id: 'native-effect-manage' }, { id: 'native-effect-use' }] },
-		{ id: 'tools', items: [{ id: 'native-audio', items: [{ id: 'native-audio-device' }] },
-			{ id: 'desktop-services', items: [{ id: 'desktop-use-native-audio-helper' },
+		{ id: 'tools', items: [{ id: 'parallel-stack-processing', items: [{ id: 'parallel-stack-enabled' }] },
+			{ id: 'desktop-services', items: [{ id: 'desktop-clear-audio-helper-quarantine' },
 				{ id: 'desktop-use-native-probe-helper' }, { id: 'desktop-discover-native-effects' }] },
 			{ id: 'framescaper-native-media-preferences' }, { id: 'manage-local-models' }] },
 	]);
 	assert.deepEqual(result[1].items?.map((entry) => entry.id), ['manage-local-models']);
 	assert.deepEqual(result[0].items?.map((entry) => entry.id), ['native-effect-manage', 'native-effect-use']);
 	assert.deepEqual((result[1].nativePreferences as { section: string }[]).map((entry) => entry.section),
-		['audio', 'audio', 'media', 'effects', 'media']);
+		['advanced', 'audio', 'media', 'effects', 'media']);
 });
 
 test('task destinations match the editing task, with no generic assistance submenu', () => {
@@ -108,12 +109,12 @@ test('moving native configuration into Preferences preserves its assignable comm
 	const { organizeNativePreferences } = await import('../src/common/editor/ui/local-processing-menus.ts');
 	const { collectAudacityShortcutCommands } = await import('../src/common/editor/ui/dialogs/workspace-preferences-shortcut-commands.ts');
 	const { findShortcutMenuHandler } = await import('../src/common/editor/ui/workspace-shortcuts.ts');
-	let opened = false;
-	const menus = organizeNativePreferences([{ id: 'tools', items: [{ id: 'native-audio', items: [
-		{ id: 'native-audio-preferences', label: 'Native audio and latency', onClick: () => { opened = true; } },
+	let toggled = false;
+	const menus = organizeNativePreferences([{ id: 'tools', items: [{ id: 'parallel-stack-processing', items: [
+		{ id: 'parallel-stack-enabled', label: 'Parallel effect stacks', onClick: () => { toggled = true; } },
 	] }] }]);
-	assert.equal(collectAudacityShortcutCommands(menus).find((command) => command.id === 'native-audio-preferences')?.label,
-		'Native audio and latency');
-	findShortcutMenuHandler(menus, 'native-audio-preferences').handler?.();
-	assert.equal(opened, true);
+	assert.equal(collectAudacityShortcutCommands(menus).find((command) => command.id === 'parallel-stack-enabled')?.label,
+		'Parallel effect stacks');
+	findShortcutMenuHandler(menus, 'parallel-stack-enabled').handler?.();
+	assert.equal(toggled, true);
 });

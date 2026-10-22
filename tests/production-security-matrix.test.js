@@ -102,15 +102,10 @@ async function readMatrix() {
 	return JSON.parse(await readFile(matrixUrl, 'utf8'));
 }
 
-test('security metadata follows the configured Soundscaper versions without admission state', async () => {
-	const [matrix, releaseLines] = await Promise.all([
-		readMatrix(),
-		readFile(new URL('../config/product-release-lines.json', import.meta.url), 'utf8').then(JSON.parse),
-	]);
-	const soundscaper = releaseLines.products.soundscaper;
-	assert.equal(matrix.productVersions.version, soundscaper.candidate.version);
-	assert.equal(matrix.productVersions.stableTarget, soundscaper.stable.version);
-	assert.doesNotMatch(JSON.stringify(matrix.productVersions), /admission/iu);
+test('security metadata refers to the release authority without copying versions', async () => {
+	const matrix = await readMatrix();
+	assert.equal(matrix.releaseLineAuthority, 'config/product-release-lines.json');
+	assert.equal(Object.hasOwn(matrix, 'productVersions'), false);
 });
 
 test('security matrix covers the production threat-model surfaces without promoting gaps', async () => {
@@ -210,11 +205,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		assert.ok(kinds.has('implementation'), `${control.id} needs implementation evidence`);
 		assert.ok(kinds.has('test'), `${control.id} needs test evidence`);
 	}
-	assert.match(
-		helperProcesses.residualRisks[0].acceptanceCriteria.join(' '),
-		/crash, hang, malformed message, oversized payload, binary mismatch, and cancellation tests.*matching verified build result/iu,
-		'helper distribution stays tied to real tests and its matching build result',
-	);
 
 	const archiveStructure = risks.get('scape-archive-structure-integrity');
 	assert.equal(archiveStructure.status, 'enforced');
@@ -232,7 +222,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 	]) assert.ok(
 		sourceBijection.evidence.some((item) => item.path === path),
 		`project source bijection needs evidence from ${path}`);
-	assert.match(sourceBijection.summary, /equal source\/descriptor counts.*case-sensitive source IDs.*audio\/video kinds.*before.*storage call/iu);
 	const fallbackIntegrity = archiveStructure.currentControls.find(
 		({ id }) => id === 'rendered-fallback-asset-integrity');
 	assert.ok(fallbackIntegrity);
@@ -249,10 +238,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 	]) assert.ok(
 		fallbackIntegrity.evidence.some((item) => item.path === path),
 		`rendered fallback integrity needs evidence from ${path}`);
-	assert.match(
-		fallbackIntegrity.summary,
-		/exact owning-family v1.*claim.*relationship role.*target clip ID.*source ID.*kind.*SHA-256.*canonical asset descriptor.*before.*collision.*storage.*export.*project root.*source records.*same sources.*accessors.*toJSON hooks.*without invocation.*completed.*digest.*before.*manifest.*commit.*import.*body.*SHA-256.*publication.*copy collision.*remaps.*source ID.*preserving.*target clip ID.*inspection.*does not hash.*asset bodies/iu,
-	);
 	const archiveExpansion = risks.get('scape-archive-expansion');
 	assert.equal(archiveExpansion.status, 'enforced');
 	assert.equal(Object.hasOwn(archiveExpansion, 'releaseGate'), false);
@@ -277,38 +262,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 			`${controlId} needs evidence from ${path}`,
 		);
 	}
-	assert.match(
-		implementedControls.get('zipjs-local-header-and-pairwise-overlap-preflight').summary,
-		/pairwise entry-range overlap/iu,
-	);
-	assert.match(
-		implementedControls.get('local-header-and-overlap-validation').summary,
-		/33 MiB.*exact classic\/Zip64.*data descriptor.*without extracting or hashing entry bodies.*before zip\.js construction.*fixed ZIP end-record search.*65,557 bytes.*final payload tail.*greater-than-4-GiB/iu,
-	);
-	assert.match(
-		implementedControls.get('compression-ratio-or-store-policy').summary,
-		/central-directory.*ZIP STORE.*before.*body reads/iu,
-	);
-	assert.match(
-		implementedControls.get('bounded-streaming-media-extraction').summary,
-		/4 MiB.*awaited transactional storage write.*byte-backed chunks.*legacy Blob rows.*canonical Blob reads.*64 MiB/iu,
-	);
-	assert.match(
-		implementedControls.get('bounded-direct-archive-publication').summary,
-		/4 MiB.*independent byte counts.*File System Access.*desktop.*512 MiB/iu,
-	);
-	const capacitySummary = implementedControls.get('point-in-time-import-capacity-admission').summary;
-	for (const claim of [
-		/validated manifest assets.*collision-cancel decision.*before copy remapping.*transaction construction.*writer creation/iu,
-		/checked safe-integer sum.*ceil\(10%\).*obtains exactly one storage estimate/iu,
-		/cancel performs no estimate.*copy and replace.*full incoming asset total.*absent or unknown estimate permits.*known insufficient.*stable frozen.*QUOTA_EXCEEDED/iu,
-		/maintained native-controller route.*exclusively.*decorated preflight callback.*raw asset-byte total.*composed import task signal/iu,
-		/storage-capacity service.*same exact headroom requirement.*checking.*ready.*unknown.*insufficient.*lastPreflight.*one normalized estimate.*Scape quota decision/iu,
-		/cancellation.*signal-ignoring estimate.*no writer or extraction.*restores the prior settled preflight snapshot.*late provider resolution or rejection.*generation-fences older work.*newer state/iu,
-		/standalone undecorated imports.*optional direct store estimator.*do not update controller state/iu,
-		/8,589,930,860.*9,448,923,946.*before its media writer/iu,
-		/does not reserve capacity.*real browser or filesystem quota accuracy.*durable OPFS or IndexedDB 8 GiB.*overhead.*policy headroom.*write-time success.*concurrent writers/iu,
-	]) assert.match(capacitySummary, claim);
 	const residuals = new Map(archiveExpansion.residualRisks.map((risk) => [risk.id, risk]));
 	assert.equal(residuals.has('compression-amplification-policy'), false);
 	assert.equal(residuals.has('incomplete-zip-layout-validation'), false);
@@ -354,10 +307,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/audio-editor-controller-action-facade.test.ts',
 		'tests/audio-editor-project-switch-service.test.ts',
 	]) assert.ok(scapeInspection.evidence.some((item) => item.path === path));
-	assert.match(
-		scapeInspection.summary,
-		/distinct named controller task.*snapshots caller options.*composes the caller signal.*replacement.*project switching.*terminal disposal.*post-await current-task check.*signal-ignoring late results.*finally releases completed tasks.*project-collision read.*races stalled database admission.*aborts and drains.*read-only IndexedDB transaction.*exact cancellation reason.*retention capability.*normalizes and registers.*same inspection admission.*synchronous read callback.*returning the provider promise.*abort race.*signal-ignoring provider.*closes its archive reader.*suppresses the late result or failure/iu,
-	);
 	const scapeInspectionQuiescence = cancellation.currentControls.find(
 		({ id }) => id === 'fenced-scape-inspection-quiescence',
 	);
@@ -377,10 +326,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/audio-editor-project-switch-inspection-timeout.test.ts',
 		'tests/audio-editor-scape-inspection-controller.test.ts',
 	]) assert.ok(scapeInspectionQuiescence.evidence.some((item) => item.path === path));
-	assert.match(
-		scapeInspectionQuiescence.summary,
-		/registers before its first await.*retains current and superseded generations.*archive-reader cleanup.*registered injected collision-provider settlement.*eight lower-only production slots.*synchronously before task creation or archive work.*reference-counted temporary fence.*shared legacy supersession AbortError per admission.*permanent fence.*exact lifetime reason.*30-second settlement deadline per inspection.*reused without reset.*exact registration abort reason.*provider fulfillment or rejection.*without replacing.*primary outcome.*typed non-benign barrier failure.*aggregates.*cleanup failures.*does not remove or release.*capacity charge.*actually settles.*project switching rejects before project work.*disposal continues remaining engine and storage teardown.*rejecting/iu,
-	);
 	const scapeOpenDecisionContinuation = cancellation.currentControls.find(
 		({ id }) => id === 'owned-scape-open-decision-continuation',
 	);
@@ -410,10 +355,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/browser/audio-editor-scape-direct-save.spec.js',
 		'tests/browser/audio-editor-scape-open-compatibility.spec.js',
 	]) assert.ok(scapeOpenDecisionContinuation.evidence.some((item) => item.path === path));
-	assert.match(
-		scapeOpenDecisionContinuation.summary,
-		/replaceable request task.*before inspection.*signal.*closed.*open decision.*native-open settlement.*opaque prompt.*exact identity.*replacement.*project switching.*terminal disposal.*exact cancellation reasons.*explicit user cancel.*native-import cleanup.*cleared busy flag.*project activation.*generation.*default.*Cancel.*Escape.*focus/iu,
-	);
 	const generationGuards = cancellation.currentControls.find(
 		({ id }) => id === 'controller-generation-and-abort-guards',
 	);
@@ -421,20 +362,10 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 	assert.ok(generationGuards.evidence.some(
 		({ path }) => path === 'tests/audio-editor-native-scape-open-cancellation.test.ts',
 	));
-	assert.match(generationGuards.summary, /importing flag.*external project generation change.*older owner.*newer work/iu);
 	const projectIoResidual = cancellation.residualRisks.find(
 		({ id }) => id === 'project-io-signal-propagation',
 	);
 	assert.ok(projectIoResidual);
-	assert.doesNotMatch(projectIoResidual.exposure, /inspection has no owned controller task/iu);
-	assert.doesNotMatch(projectIoResidual.exposure, /collision continuation.*outside controller lifetime/iu);
-	assert.doesNotMatch(projectIoResidual.exposure, /inspection store lookup.*no abortable repository API/iu);
-	assert.doesNotMatch(projectIoResidual.exposure, /do not join inspection cleanup|abort but do not join|injected lookup can continue after that boundary rejects|hold lifecycle barriers indefinitely|no provider deadline or admission cap/iu);
-	assert.doesNotMatch(projectIoResidual.exposure, /whole-file desktop reads/iu);
-	assert.match(
-		projectIoResidual.exposure,
-		/inspection.*collision continuation.*own cancellation.*default inspection collision lookup.*owned signal.*races stalled database admission.*aborts and drains.*read-only IndexedDB transaction.*signal-ignoring injected lookups.*closes the archive reader.*registers and retains.*normalized provider promise.*project switching.*controller disposal.*join.*provider settlement.*lower-only per-inspection deadline.*admission.*capacity-bounded.*provider.*continue consuming resources.*typed barrier timeout.*keeps its admission slot.*does not sandbox or force-terminate.*desktop materializer.*supplied signal.*release.*abort.*open.*import.*does not consistently own or provide.*AUP4.*broad storage operations/iu,
-	);
 	const streamedMaintenance = cancellation.currentControls.find(
 		({ id }) => id === 'streamed-media-maintenance-abort',
 	);
@@ -452,10 +383,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/audio-editor-media-write-admission.test.ts',
 		'tests/audio-editor-streaming-media-lifecycle.test.ts',
 	]) assert.ok(streamedMaintenance.evidence.some((item) => item.path === path));
-	assert.match(
-		streamedMaintenance.summary,
-		/every streamed-writer begin.*passes synchronous argument and signal validation.*per-store lifecycle.*before its first awaited backend operation.*after staging preparation returns.*chunk-token or OPFS-path identity.*terminal writer abort.*before begin can return.*clear.*temporary admission fence.*close.*permanent.*reject later begins.*drain captured pre-staging begins.*abort staged chunk or OPFS sinks.*active writers.*cannot settle.*pre-fence begin.*return a live writer.*publish late state.*cleanup failure.*rejects the maintenance barrier/iu,
-	);
 	const serializedMaintenance = cancellation.currentControls.find(
 		({ id }) => id === 'serialized-store-maintenance-shutdown',
 	);
@@ -466,10 +393,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/audio-editor-media-digest-lifecycle.test.ts',
 		'tests/audio-editor-storage-lifecycle.test.js',
 	]) assert.ok(serializedMaintenance.evidence.some((item) => item.path === path));
-	assert.match(
-		serializedMaintenance.summary,
-		/one active clear.*one shared close barrier.*clear establishes media maintenance.*captures its backend-admission promise.*before its first wait.*close installs the permanent media fence.*terminal facade state.*before its first await.*joins an already admitted clear.*concurrent close callers return the same terminal-cleanup promise.*admitted clear retains its normal memory fallback.*unrelated pending database admission remains fenced when no clear is active.*clear settles before close.*neither close caller settles.*media operation drains/iu,
-	);
 	assert.ok(cancellation.currentControls.some(({ id }) => id === 'direct-scape-save-rollback'));
 	const stagingLeases = cancellation.currentControls.find(
 		({ id }) => id === 'cross-context-streamed-media-staging-leases',
@@ -502,10 +425,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/audio-editor-media-digest-lifecycle.test.ts',
 		'tests/audio-editor-media-asset-load.test.ts',
 	]) assert.ok(digestMaintenance.evidence.some((item) => item.path === path));
-	assert.match(
-		digestMaintenance.summary,
-		/registers synchronously.*same per-store lifecycle.*before its first await.*clear.*temporary admission fence.*close.*permanent fence.*signal captured loads.*await terminal settlement.*data deletion or database close.*multi-chunk.*observes the maintenance abort.*cannot return a payload.*standalone clear.*reopens admission.*close remains terminal/iu,
-	);
 	assert.equal(cancellation.residualRisks.some(
 		({ id }) => id === 'legacy-media-digest-lifecycle-quiescence',
 	), false);
@@ -525,10 +444,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/desktop-save.test.js',
 		'tests/desktop-application-lifecycle.test.ts',
 	]) assert.ok(saveShutdown.evidence.some((item) => item.path === path));
-	assert.match(
-		saveShutdown.summary,
-		/synchronously rejects new target and save-session admission.*sync-and-rename.*late-opened staging.*idempotent disposal barrier.*rejects on unacknowledged handle close or staging removal/iu,
-	);
 	const rendererOwnedSave = desktopWrite.currentControls.find(
 		({ id }) => id === 'renderer-document-owned-save-lifecycle',
 	);
@@ -542,10 +457,6 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		'tests/desktop-project-library-packaging.test.js',
 		'tests/desktop-protocol.test.js',
 	]) assert.ok(rendererOwnedSave.evidence.some((item) => item.path === path));
-	assert.match(
-		rendererOwnedSave.summary,
-		/committed main-document owner.*synchronously fences admission.*delayed dialog results.*drains admitted begin.*chunk.*finish.*abort.*sync-and-rename.*aborts remaining staging.*fresh-owner session admission waits.*stale commit cannot overtake/iu,
-	);
 	assert.equal(desktopWrite.residualRisks.some(
 		({ id }) => id === 'write-capacity-and-disk-admission',
 	), false);
@@ -553,5 +464,4 @@ test('native plug-in surfaces are conditional for testing and portable archive c
 		desktopWrite.residualRisks.some(({ id }) => id === 'write-owner-and-capacity-lifecycle'),
 		false,
 	);
-
 });

@@ -2,6 +2,7 @@
 
 import { createFileSystemPreparedSave, type PreparedDirectSave } from './file-save-stream.ts';
 import { releaseDownloadObjectUrl } from './object-url-revoke.ts';
+import { sanitizeSuggestedFileName } from './portable-save-file-name.ts';
 
 type FileSystemSaveTarget = Parameters<typeof createFileSystemPreparedSave>[0]['target'];
 type FileSystemSaveWriter = Awaited<ReturnType<FileSystemSaveTarget['createWritable']>>;
@@ -102,7 +103,7 @@ export function createBrowserFileSaveService(options: BrowserFileSaveServiceOpti
 	async function writeFile(target: BrowserSaveTarget | null | undefined, input: BlobPart, request: BrowserFileSaveRequest = {}): Promise<BrowserSavedFile> {
 		throwIfAborted(request.signal);
 		const blob = toBlob(input, request.mimeType);
-		const fileName = sanitizeSuggestedSaveName(target?.originalOverwrite ? target.name : request.suggestedName || request.fileName || target?.name);
+		const fileName = sanitizeSuggestedSaveName(target?.name || request.suggestedName || request.fileName);
 		if (!target) return { cancelled: true, fileName, size: blob.size };
 		if (isWritableTarget(target)) {
 			const writable = await target.createWritable();
@@ -133,6 +134,7 @@ export function createBrowserFileSaveService(options: BrowserFileSaveServiceOpti
 		return writeFile(target, blob, request);
 	}
 	async function createDownload(request: BrowserFileSaveRequest = {}) {
+		throwIfAborted(request.signal);
 		const blob = toBlob(request.blob ?? request.bytes ?? request.text ?? '', request.mimeType);
 		const fileName = sanitizeSuggestedSaveName(request.suggestedName || request.fileName);
 		if (!urlApi?.createObjectURL) return { method: 'blob' as const, blob, fileName, size: blob.size, url: null, cleanup: async () => {} };
@@ -145,8 +147,7 @@ export function createBrowserFileSaveService(options: BrowserFileSaveServiceOpti
 }
 
 export function sanitizeSuggestedSaveName(value: unknown): string {
-	// eslint-disable-next-line no-control-regex -- Save names replace C0 filesystem control bytes.
-	return String(value || 'soundscaper-export').trim().replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').replace(/[. ]+$/g, '') || 'soundscaper-export';
+	return sanitizeSuggestedFileName(value);
 }
 function assertSavePurpose(value: unknown): void {
 	const purpose = String(value || '').trim().toLowerCase();

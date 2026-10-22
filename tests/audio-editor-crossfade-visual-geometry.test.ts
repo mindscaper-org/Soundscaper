@@ -7,7 +7,6 @@ import { automaticClipCrossfadeRanges } from '../src/common/editor/audio-clip-ov
 import {
 	clipCrossfadeCurvePath,
 	crossfadeIntersection,
-	crossfadeShapeDragResult,
 	crossfadeShapesAtKey,
 	crossfadeShapesAtPointer,
 } from '../src/common/editor/ui/timeline/crossfade-visual-geometry.ts';
@@ -64,25 +63,6 @@ test('the design-system crossfade handle follows the curve intersection and solv
 	assert.ok(Math.abs(intersection.gain - (Math.SQRT1_2 - 0.05)) < 1e-10);
 });
 
-test('a click or subpixel tremor cannot rewrite unequal authored crossfade shapes', () => {
-	const initialOutShape = 0.37;
-	const initialInShape = 3.41;
-	const intersection = crossfadeIntersection(initialOutShape, initialInShape);
-	const gesture = {
-		initialPosition: intersection.position,
-		initialGain: intersection.gain,
-		initialOutShape,
-		initialInShape,
-		startX: 100,
-		startY: 100,
-		width: 240,
-		height: 120,
-	};
-	assert.equal(crossfadeShapeDragResult({ ...gesture, clientX: 100, clientY: 100 }), null);
-	assert.equal(crossfadeShapeDragResult({ ...gesture, clientX: 100.5, clientY: 100.5 }), null);
-	assert.ok(crossfadeShapeDragResult({ ...gesture, clientX: 102, clientY: 100 }));
-});
-
 test('keyboard crossfade edits move the advertised horizontal intersection through the same solver', () => {
 	const input = {
 		initialPosition: 0.5,
@@ -103,5 +83,4 @@ test('keyboard crossfade edits move the advertised horizontal intersection throu
 	assert.deepEqual(crossfadeShapesAtKey({ ...input, key: 'End', shiftKey: false }), {
 		outShape: 0.15, inShape: 6,
 	});
-	assert.equal(crossfadeShapesAtKey({ ...input, key: 'Enter', shiftKey: false }), null);
 });

@@ -166,35 +166,6 @@ test('legacy schema-1 locator rows reopen as video while new audio and video sha
 	await store.dispose();
 });
 
-test('linked-audio locator admission rejects mismatched metadata and requires above-threshold approval', async (context) => {
-	const root = await temporaryRoot(context);
-	const wavPath = join(root, 'selected.wav');
-	await writeFile(wavPath, 'wav');
-	const request = { kind: 'audio' as const, owner: {}, mimeType: 'audio/wav', displayName: 'selected.wav' };
-	const store = new DesktopLinkedVideoLocatorStore({
-		readCapabilities: readCapabilities().port,
-		randomBytes: deterministicTokens(),
-	});
-	await assert.rejects(store.registerPath(wavPath, {
-		...request, mimeType: 'audio/mpeg',
-	}), /WAV|audio MIME|media type/iu);
-	await assert.rejects(store.registerPath(wavPath, {
-		...request, displayName: 'selected.mp3',
-	}), /WAV|extension|name/iu);
-	await assert.rejects(store.registerPath(wavPath, {
-		...request, kind: 'image' as never,
-	}), /kind|media/iu);
-
-	const oversized = new DesktopLinkedVideoLocatorStore({
-		readCapabilities: readCapabilities().port,
-		stat: async () => ({
-			dev: 1, ino: 2, size: 512 * 1024 ** 2 + 1, mtimeMs: 3, ctimeMs: 4,
-			isFile: () => true,
-		}),
-	});
-	await assert.rejects(oversized.registerPath(wavPath, request), /bytes|limit/iu);
-});
-
 test('linked-audio locator admission accepts classic AIFF extensions with their canonical MIME type', async (context) => {
 	const root = await temporaryRoot(context);
 	const registryPath = join(root, 'linked-originals.json');

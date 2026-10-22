@@ -76,11 +76,13 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('src/lightscaper/quality/large-library-workload-v1.ts'));
 	assert.ok(result.visited.has('src/common/editor/macro-script/dynamic-source-contract.js'));
 	assert.ok(result.visited.has('src/common/editor/native-plugin-realtime-worklet.js'));
+	assert.ok(result.visited.has('tests/helpers/aup4-database-harness.js'));
 	assert.ok(result.visited.has('vendor/audacity-design-system/components/src/utils/roseus-colormap.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-native-sidecar-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-ordinary-animation-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/interchange-reference.ts'));
+	assert.ok(result.visited.has('tests/helpers/scape-archive-rewrite.js'));
 	assert.ok(result.visited.has('desktop/main-file-capability-ipc.mjs'));
 	assert.ok(result.visited.has('desktop/desktop-video-h264-encoder.ts'));
 	assert.ok(result.visited.has('desktop/ara-preload.ts'));

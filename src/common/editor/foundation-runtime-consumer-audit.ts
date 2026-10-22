@@ -157,7 +157,8 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/ui/linked-audio-recovery-menu-model.ts', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/ui/regular-interval-dialog-defaults.ts', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/controller/document/project-visual-service.ts', surfaces: ['waveform'] },
-	{ file: 'src/common/editor/ui/inspector/ClipPropertiesPanel.tsx', surfaces: ['waveform'] },
+	{ file: 'src/common/editor/ui/inspector/ClipPropertiesPanel.tsx', surfaces: ['timeline'] },
+	{ file: 'src/common/editor/ui/inspector/ClipSourceMonitorPanel.tsx', surfaces: ['waveform'] },
 ]);
 
 /** Exact non-consumer readers co-located with a shield owner. No wildcard exclusions are admitted. */
@@ -223,6 +224,10 @@ export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly Foundat
 	{
 		file: 'src/common/editor/controller/edit/internal/labeled-audio-silence-removal.ts',
 		reason: 'The downstream audio-only removal planner receives the resolved generator command project from labeled-audio-silence; it preserves that projection brand while suppressing A/V peer expansion before the existing disjoint range command planner.',
+	},
+	{
+		file: 'src/common/editor/controller/recording/internal/ordinary-recording-recovery-target.ts',
+		reason: 'Recording recovery builds one atomic command publication, comparing resolved command clip placement to avoid attaching a checkpoint twice; its authored result is reconciled by the owning product command runtime rather than consumed for playback.',
 	},
 	{
 		file: 'src/common/editor/controller/edit/internal/frozen-track-edit-command.ts',

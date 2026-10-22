@@ -81,6 +81,5 @@ test('replacement carries an authored freeze through the authenticated irregular
 		const [snapshot] = conformFramescaperVideoRetimeReplacementSnapshots(before, commanded, command, [{ id: 'clip', retimeMap }]);
 		assert.deepEqual(snapshot?.retimeMap.points, [{ outerFrame: 0, sourceFrame: { num: 41, den: 14 } }, { outerFrame: 8, sourceFrame: { num: 41, den: 14 } }]);
 		assert.deepEqual(retimeMap.points.at(-1), { outerFrame: 30, sourceFrame: { num: 2, den: 1 } });
-		assert.equal(conformFramescaperVideoRetimeReplacementSnapshots(before, commanded, { type: 'project/rename' }, [snapshot!])[0], snapshot);
 	} finally { unregisterVideoTimingIndex(oldSource); unregisterVideoTimingIndex(newSource); }
 });

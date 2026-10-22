@@ -176,7 +176,6 @@ test('the snapshot authority compiles lazily once and retains only its current r
 
 	const first = provider.resolve(request(active, rational(0)));
 	assert.strictEqual(provider.resolve(request(active, rational(0))), first);
-	assert.doesNotThrow(() => first);
 
 	(baseComposition as unknown as { opacity: number }).opacity = 0.9;
 	(effects[0] as unknown as { params: Record<string, number> }).params.brightness = 1;

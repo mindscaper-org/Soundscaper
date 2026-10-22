@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { audiocityValidationPort } from './lib/audiocity-validation-config.mjs';
+import { installArchiveTransferFaults } from './lib/audiocity-validation-transfer-faults.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const checkout = resolve(process.env.SCAPE_AUDIOCITY_CHECKOUT ?? resolve(root, '../audiocity'));
@@ -18,6 +19,7 @@ const wrangler = resolve(root, 'node_modules/wrangler/bin/wrangler.js');
 await mkdir(resolve(root, '.wrangler'), { recursive: true });
 const temporary = await mkdtemp(resolve(root, '.wrangler/audiocity-browser-'));
 let provider;
+let transferFaults;
 let worker;
 let closing = false;
 let cleanup;
@@ -36,6 +38,7 @@ function close() {
 		// A signal can arrive while createApp/listen is still initializing.
 		await startupFinished;
 		stopped.push(...await Promise.allSettled([...children].map(stopChild)));
+		transferFaults?.dispose();
 		try { await provider?.app.close(); }
 		finally { await rm(temporary, { recursive: true, force: true }); }
 		const failures = stopped.filter(result => result.status === 'rejected');
@@ -59,6 +62,7 @@ try {
 		corsOrigins: [providerOrigin, editorOrigin],
 		adminEmail: 'soundscaper-validation@example.test', adminPassword: 'soundscaper-audiocity-test-only-password',
 	});
+	transferFaults = installArchiveTransferFaults(provider.app, provider.ctx);
 	startupAbort.signal.throwIfAborted();
 	await provider.app.listen({ host: '127.0.0.1', port: providerPort });
 	startupAbort.signal.throwIfAborted();

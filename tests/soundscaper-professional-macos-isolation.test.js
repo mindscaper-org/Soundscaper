@@ -19,7 +19,6 @@ test('macOS reports bounded pre-enforcement launcher and bootstrap stages', () =
 	assert.match(BOOTSTRAP_SOURCE, /sandbox_init\([\s\S]*bootstrapFailure\("sandbox-init"/u);
 	assert.match(BOOTSTRAP_SOURCE,
 		/exactWrite\(enforcementDescriptor[\s\S]*bootstrapFailure\("enforcement-write"/u);
-	assert.doesNotMatch(`${LAUNCHER_SOURCE}\n${BOOTSTRAP_SOURCE}`, /attest/iu);
 });
 
 test('macOS grants transport data only through inherited descriptors', () => {

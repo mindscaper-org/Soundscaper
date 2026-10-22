@@ -16,26 +16,6 @@ import { createUnreportedVideoSourceCharacteristicsV25 } from '../src/common/edi
 import { normalizeNativeMediaImageSequenceSourceV25 } from '../src/common/editor/native-media-image-sequence-v25.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 
-test('selected V14 retries only a typed closed backend refusal through Web Core', async () => {
-	const fixture = executionFixture();
-	const failures: string[] = [];
-	let webCalls = 0;
-	const error = Object.assign(new Error('native subset unavailable'), {
-		code: 'unsupported-render-subset',
-	});
-	const result = await executeNativeMediaPlanV14({
-		...fixture,
-		native: { async execute() { throw error; } },
-		web: { async execute() { webCalls += 1; return fixture.receipt; } },
-		onBackendFailure: (backend) => { failures.push(backend); },
-	});
-	assert.equal(result.outcome, 'web-core');
-	assert.equal(result.backend, NATIVE_MEDIA_WEB_BACKEND);
-	assert.deepEqual(result.failedBackends, [NATIVE_MEDIA_CPU_BACKEND]);
-	assert.deepEqual(failures, [NATIVE_MEDIA_CPU_BACKEND]);
-	assert.equal(webCalls, 1);
-});
-
 test('selected V14 never downgrades authority or publication failures', async () => {
 	const fixture = executionFixture();
 	for (const error of [

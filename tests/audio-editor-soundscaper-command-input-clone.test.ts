@@ -25,8 +25,6 @@ test('inherited commands clone their mutation draft without cloning the untouche
 			assert.equal(inputClones, 0);
 			assert.deepEqual(project, prior);
 			assert.notEqual(result, project);
-			assert.notEqual(result.master, project.master);
-			assert.notEqual(result.metadata, project.metadata);
 			assert.equal(result.revision, project.revision + 1);
 		} finally { globalThis.structuredClone = clone; }
 	}

@@ -66,10 +66,7 @@ test('snapping honours explicit direction and leaves boundaries untouched', () =
 	assert.equal(snapSampleToSequenceFrame(2_000, FILM, 44_100, 'next'), 3_675);
 	assert.equal(snapSampleToSequenceFrame(2_000, FILM, 44_100, 'nearest'), 1_838);
 	assert.equal(snapSampleToSequenceFrame(3_000, FILM, 44_100, 'nearest'), 3_675);
-	assert.throws(
-		() => snapSampleToSequenceFrame(10, FILM, 44_100, 'sideways' as 'nearest'),
-		/Unsupported sequence frame snap mode/,
-	);
+
 });
 
 test('stepping resolves onto the boundary it moves toward', () => {

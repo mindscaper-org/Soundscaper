@@ -3,10 +3,11 @@
 import assert from 'node:assert/strict';
 import { copyFile, mkdir, mkdtemp, readFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, matchesGlob, resolve } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
+import nightlyConfig from '../electron-builder.nightly-tests.config.cjs';
 import { NIGHTLY_TEST_PAYLOAD_INPUTS } from '../scripts/lib/desktop-nightly-tests-staging.mjs';
 
 test('the declared nightly preload fixture builds from packaged sources without a generated desktop runtime', async (context) => {
@@ -21,12 +22,17 @@ test('the declared nightly preload fixture builds from packaged sources without 
 		...runtimeSources,
 		'src/common/editor/ara-contract.ts', 'src/common/editor/blender-contract.ts',
 	];
+	const payload = nightlyConfig.extraResources.find(({ to }) => to === 'nightly-tests');
+	assert.ok(payload?.filter, 'The preload fixture must be retained as an unpacked resource');
 	for (const source of sources) {
 		const input = NIGHTLY_TEST_PAYLOAD_INPUTS.find((entry) => entry.source === source
 			|| (entry.kind === 'directory' && source.startsWith(`${entry.source}/`)));
 		assert.ok(input, `The packaged fixture must declare ${source}`);
 		const suffix = source.slice(input.source.length);
-		const destination = join(root, `${input.destination}${suffix}`);
+		const packaged = `${input.destination}${suffix}`;
+		assert.ok(payload.filter.some(pattern => matchesGlob(packaged, pattern)),
+			`The packaged fixture must retain ${packaged}`);
+		const destination = join(root, packaged);
 		await mkdir(dirname(destination), { recursive: true });
 		await copyFile(join(repository, source), destination);
 	}

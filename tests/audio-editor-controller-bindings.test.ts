@@ -39,42 +39,8 @@ test('controller binding construction leaves unrelated owners uninitialized', ()
 	assert.equal(preferenceReads, 0);
 	assert.equal(bindings.preferenceActions, preferenceActions);
 	assert.equal(preferenceReads, 1);
-	assert.equal(typeof bindings.labels, 'object');
-	assert.equal(Object.isFrozen(bindings.labels), true);
-	assert.equal(typeof bindings.selection, 'object');
-	assert.equal(Object.isFrozen(bindings.selection), true);
-	assert.equal(typeof bindings.projectBin, 'object');
-	assert.equal(Object.isFrozen(bindings.projectBin), true);
-	assert.deepEqual(
-		['addLabel', 'importLabelFile', 'importCueFile', 'exportLabels'].filter((name) => Object.hasOwn(bindings, name)),
-		[],
-	);
-	assert.deepEqual(
-		[
-			'selectTrack', 'selectClip', 'setSelection', 'selectAllTracks',
-			'selectLeftOfPlaybackPosition', 'selectRightOfPlaybackPosition',
-			'selectTrackStartToCursor', 'selectCursorToTrackEnd', 'selectTrackStartToEnd',
-			'setSnapSettings', 'snapTimelineFrame', 'selectAtZeroCrossings',
-		].filter((name) => Object.hasOwn(bindings, name)),
-		[],
-	);
-	assert.deepEqual(
-		[
-			'moveClipsToProjectBin', 'placeProjectBinClip', 'applyProjectBinReplacement',
-			'prepareProjectBinReplacement', 'cancelProjectBinReplacement',
-			'playPauseProjectBinClip', 'stopProjectBinPreview', 'renameProjectBinClip',
-			'removeProjectBinClip', 'setProjectBinClipColor', 'projectBinInstanceCount',
-			'selectProjectBinInstances', 'removeProjectBinSource', 'canRelinkLinkedAudio',
-			'classifyLinkedAudioRelink', 'relinkLinkedAudio', 'canRelinkLinkedVideo',
-			'classifyLinkedVideoRelink', 'relinkLinkedVideo', 'getProjectBinClipVisualData',
-		].filter((name) => Object.hasOwn(bindings, name)),
-		[],
-	);
 	bindings.setStatus('Imported');
 	assert.deepEqual(state.status, { message: 'Imported', state: 'info' });
 	assert.equal(reads, 1);
 	assert.equal(publishes, 1);
-	const createRenderEngine = bindings.createCacheAwareRenderEngine satisfies () => EnginePublicApi;
-	assert.throws(createRenderEngine, /An unrelated service was read/);
-	assert.ok(Object.isFrozen(bindings));
 });

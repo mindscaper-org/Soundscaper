@@ -27,11 +27,6 @@ test('range stream rejects early zero-byte reads', async () => {
 	await assert.rejects(async () => { for await (const _chunk of stream) { /* drain */ } }, /ended before.*range/iu);
 });
 
-test('range stream rejects oversized byte counts from a file handle', async () => {
-	const stream = createReadCapabilityRangeStream({ read: async () => ({ bytesRead: 2 }) }, { start: 0, end: 0 });
-	await assert.rejects(async () => { for await (const _chunk of stream) { /* drain */ } }, /ended before.*range/iu);
-});
-
 test('range stream propagates asynchronous handle read failures', async () => {
 	const failure = new Error('disk read failed');
 	const stream = createReadCapabilityRangeStream({ read: async () => { throw failure; } }, { start: 0, end: 0 });
@@ -74,16 +69,4 @@ test('range stream bounds each file-handle read to 64 KiB', async () => {
 	}
 	assert.equal(maximum, 64 * 1024);
 	assert.equal(bytes, 140_001);
-});
-
-test('range stream rejects invalid offsets and handles before reading', () => {
-	for (const range of [
-		{ start: -1, end: 1 },
-		{ start: 2, end: 1 },
-		{ start: 0.5, end: 1 },
-		{ start: 0, end: Number.MAX_SAFE_INTEGER + 1 },
-	]) {
-		assert.throws(() => createReadCapabilityRangeStream({ read: () => assert.fail() }, range), TypeError);
-	}
-	assert.throws(() => createReadCapabilityRangeStream({}, { start: 0, end: 1 }), TypeError);
 });

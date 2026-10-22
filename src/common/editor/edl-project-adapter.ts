@@ -9,7 +9,7 @@ import {
 } from './edl-export.ts';
 import { resolveSequenceTimingView } from './sequence-timing-model.ts';
 import { sequenceFrameAtSample } from './sequence-frame-navigation.ts';
-import { interchangeSourceInPoint } from './interchange-source-in-point.ts';
+import { edlSourceInPoint } from './edl-source-in-point.ts';
 import {
 	interchangeAnnotationOmission,
 	interchangeCaptionTrackOmission,
@@ -167,7 +167,7 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 		}
 		activeCuts.push({ clipId: String(clip.id), recordOut });
 		const source = sourceById.get(String(clip.sourceId));
-		const sourceIn = interchangeSourceInPoint(clip, source, sequence.rate, sampleRate);
+		const sourceIn = edlSourceInPoint(clip, source, sequence.rate, sampleRate);
 		const timeEffect = interchangeClipTimeEffect(clip);
 		// The formatter already reports legacy scalar speeds. Native curves have
 		// unity scalars, so their authority must be inventoried at this boundary.

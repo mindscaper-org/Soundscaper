@@ -9,6 +9,8 @@ module.exports = Object.freeze([
 	...externalDisplaySources,
 	...lightscaperSources,
 	'desktop/preload.mjs',
+	'desktop/audiocom-authorization.ts',
+	'desktop/audiocom-links.ts',
 	'desktop/ara-preload.ts',
 	'desktop/blender-preload.ts',
 	'src/common/editor/ara-contract.ts',

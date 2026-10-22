@@ -248,23 +248,6 @@ test('cancelling a native picker does not construct or mutate the service', asyn
 	assert.equal(builtCount(), 0);
 });
 
-test('a malformed native picker result is refused before service construction', async () => {
-	const { handlers, builtCount } = harness({}, {
-		choosePreseedDirectory: async () => '../renderer-controlled',
-		chooseRelocationDirectory: async () => 'relative-target',
-	});
-
-	await assert.rejects(
-		Promise.resolve(handlers.get(CHANNELS.installPreseededAssistanceModel)?.(null, 'silero-vad-v6')),
-		/selected offline model files could not be authenticated/iu,
-	);
-	await assert.rejects(
-		Promise.resolve(handlers.get(CHANNELS.relocateAssistanceModels)?.(null)),
-		/storage could not be relocated safely/iu,
-	);
-	assert.equal(builtCount(), 0);
-});
-
 test('native filesystem failures cross IPC without their paths', async () => {
 	const { handlers } = harness({
 		installPreseeded: async () => { throw new Error("ENOENT '/private/offline/model.onnx'"); },

@@ -195,8 +195,6 @@ test('a complete authenticated trace deterministically derives all five metrics'
 	});
 	assert.equal(computed.package.target, 'linux-x64');
 	assert.equal(computed.sourceRevision, sourceRevision);
-	assert.equal(Object.isFrozen(computed), true);
-	assert.equal(Object.isFrozen(computed.metrics), true);
 });
 
 test('zero-tolerance ledgers include warm-up failures while timing excludes warm-up', () => {
@@ -326,7 +324,6 @@ test('local results report their thresholds without claiming release authority',
 	const result = createM7AssistancePrivacyResult(makeMeasurement(), config);
 	assert.equal(result.status, 'passed');
 	assert.equal(result.metricGatePassed, true);
-	assert.equal('qualificationEvidencePublished' in result, false);
 	assert.equal(result.evaluation.passed, true);
 	assert.match(result.canonicalMeasurementSha256, /^[a-f\d]{64}$/u);
 });

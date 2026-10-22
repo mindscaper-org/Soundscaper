@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -11,9 +11,7 @@ import { promisify } from 'node:util';
 const ROOT = resolve(import.meta.dirname, '..');
 const execute = promisify(execFile);
 
-test('professional native self-test authorities retain Git blob bytes on Windows', async () => {
-	const attributes = await readFile(resolve(ROOT, '.gitattributes'), 'utf8');
-	const rules = new Set(attributes.split(/\r?\n/u));
+test('professional native self-test authorities retain Git blob bytes on Windows', () => {
 	for (const path of [
 		'/scripts/self-test-soundscaper-professional-native-runtime.mjs',
 		'/scripts/lib/soundscaper-ara-native-canary.mjs',
@@ -24,7 +22,10 @@ test('professional native self-test authorities retain Git blob bytes on Windows
 		'/desktop/soundscaper-professional-linux-system-libraries.ts',
 		'/desktop/soundscaper-professional-linux-system-runtime.ts',
 	]) {
-		assert(rules.has(`${path} text eol=lf`),
+		const attribute = execFileSync('git', ['check-attr', 'eol', '--', path.slice(1)], {
+			cwd: ROOT, encoding: 'utf8',
+		}).trim();
+		assert(attribute.endsWith(': lf'),
 			`${path} must be pinned to LF for byte-for-byte Git authentication`);
 	}
 });

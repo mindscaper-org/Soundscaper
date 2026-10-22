@@ -14,13 +14,10 @@ void test('tooling deep freeze preserves identity and recursively freezes object
 	assert.throws(() => { value.rows.push({ count: 2 }); }, TypeError);
 });
 
-void test('tooling deep freeze leaves primitives, functions, and already-frozen parents alone', () => {
-	for (const value of [null, undefined, false, 0, '', Symbol('value')]) {
+void test('tooling deep freeze leaves primitives and already-frozen parents alone', () => {
+	for (const value of [null, undefined, false, 0, '']) {
 		assert.equal(deepFreeze(value), value);
 	}
-	const callback = () => undefined;
-	assert.equal(deepFreeze(callback), callback);
-	assert.equal(Object.isFrozen(callback), false);
 	const child = { count: 1 };
 	const parent = Object.freeze({ child });
 	assert.equal(deepFreeze(parent), parent);

@@ -109,7 +109,3 @@ test('a document rendered from outside the content tree is treated as English', 
 	assert.equal(page('/reference/', undefined), '/docs/reference/');
 	assert.equal(page('/reference/', 'file:///tmp/scratch.md'), '/docs/reference/');
 });
-
-test('an unsupported product is refused', () => {
-	assert.throws(() => rehypeHandbookBase({ productId: 'lightscaper' }), /Unsupported handbook product/u);
-});

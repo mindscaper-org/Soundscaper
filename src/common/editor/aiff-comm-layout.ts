@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-export type AiffPcmSampleFormat = 'int8' | 'int16' | 'int24' | 'int32' | 'float32';
+export type AiffPcmSampleFormat = 'int8' | 'int16' | 'int24' | 'int32' | 'float32' | 'float64';
 
 export interface AiffCommLayout {
 	readonly sampleFormat: AiffPcmSampleFormat;
+	readonly littleEndian?: boolean;
 	readonly sampleRate: number;
 	readonly channelCount: number;
 	readonly frameCount: number;
@@ -32,12 +33,13 @@ export function parseAiffCommLayout(bytes: Uint8Array, isAifc: boolean): AiffCom
 	if (channelCount < 1 || channelCount > 64) throw new RangeError('AIFF channel count must be between 1 and 64.');
 	if (frameCount < 1) throw new RangeError('AIFF frame count must be positive.');
 	const sampleFormat = isAifc ? aifcSampleFormat(bytes, bitDepth) : aiffIntegerSampleFormat(bitDepth);
-	const bytesPerSample = bitDepth / 8;
+	const bytesPerSample = Math.ceil(bitDepth / 8);
 	const blockAlign = channelCount * bytesPerSample;
 	const sampleRate = readExtended80(view, 8);
 	const byteRate = sampleRate * blockAlign;
 	if (!Number.isSafeInteger(byteRate)) throw new RangeError('AIFF byte rate exceeds integer precision.');
-	return Object.freeze({ sampleFormat, sampleRate, channelCount, frameCount, bitDepth, bytesPerSample, blockAlign, byteRate });
+	const littleEndian = isAifc && String.fromCharCode(...bytes.subarray(18, 22)) === 'sowt';
+	return Object.freeze({ sampleFormat, sampleRate, channelCount, frameCount, bitDepth, bytesPerSample, blockAlign, byteRate, ...(littleEndian ? { littleEndian } : {}) });
 }
 
 function aifcSampleFormat(bytes: Uint8Array, bitDepth: number): AiffPcmSampleFormat {
@@ -46,19 +48,19 @@ function aifcSampleFormat(bytes: Uint8Array, bitDepth: number): AiffPcmSampleFor
 	if (23 + nameLength + (1 + nameLength) % 2 !== bytes.byteLength) {
 		throw new Error('The AIFF-C compression name does not fit its COMM chunk.');
 	}
-	if (compression === 'NONE') return aiffIntegerSampleFormat(bitDepth);
-	if (bitDepth !== 32 || (compression !== 'fl32' && compression !== 'FL32')) {
-		throw new Error('AIFF-C linked originals require NONE integer PCM or fl32/FL32 float PCM.');
-	}
-	// The Pascal string describes the codec; its spelling does not select one.
-	return 'float32';
+	if (['NONE', 'twos', 'sowt'].includes(compression)) return aiffIntegerSampleFormat(bitDepth);
+	if ((bitDepth === 32 && compression.toLowerCase() === 'fl32')
+		|| (bitDepth === 64 && compression.toLowerCase() === 'fl64')) return bitDepth === 32 ? 'float32' : 'float64';
+	throw new Error('AIFF-C compression is unsupported; uncompressed integer or IEEE float PCM is required.');
 }
 
 export function aiffIntegerSampleFormat(value: number): AiffPcmSampleFormat {
-	if (value === 8) return 'int8';
-	if (value === 16) return 'int16';
-	if (value === 24) return 'int24';
-	if (value === 32) return 'int32';
+	if (Number.isInteger(value) && value > 0 && value <= 32) {
+		if (value <= 8) return 'int8';
+		if (value <= 16) return 'int16';
+		if (value <= 24) return 'int24';
+		return 'int32';
+	}
 	throw new RangeError(`AIFF integer PCM bit depth ${value} is unsupported.`);
 }
 

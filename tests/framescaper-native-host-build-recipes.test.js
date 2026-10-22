@@ -188,8 +188,6 @@ test('fake execution runs only the admitted phases once and never writes a paylo
 	if (!mediaTarget || !openfxTarget) return context.skip(`No five-target recipe executes on ${runtime}.`);
 	for (const [kind, target] of [['media', mediaTarget], ['openfx', openfxTarget]]) {
 		const fixture = buildFixture(context, kind, target.id);
-		const payload = join(fixture.root, `${kind}-payload-manifest.json`);
-		writeFileSync(payload, '{"targets":{}}\n');
 		const calls = [];
 		const recipe = kind === 'media'
 			? createFramescaperMediaHostBuildRecipe(fixture.options)
@@ -205,7 +203,6 @@ test('fake execution runs only the admitted phases once and never writes a paylo
 		assert.ok(calls.every(({ executable }) => Object.values(fixture.executables).some(
 			(tool) => tool.path === executable,
 		)));
-		assert.equal(readFileSync(payload, 'utf8'), '{"targets":{}}\n');
 		assert.equal(recipe.payloadManifestMutation, false);
 		assert.throws(() => execute(recipe, { run: () => ({ status: 0 }) }), /fresh authentic/u);
 		const swapped = buildFixture(context, kind, target.id), redirected = join(swapped.root, 'redirected');

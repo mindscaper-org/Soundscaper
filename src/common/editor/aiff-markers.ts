@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { decodeAiffMetadataText } from './aiff-metadata-text.ts';
 import { normalizeRiffMarkers, type RiffMarker, type RiffMarkerInput } from './riff-markers.ts';
 
 /**
@@ -60,7 +61,7 @@ export function parseAiffMarkChunk(payload: Uint8Array): readonly RiffMarker[] {
 			id,
 			sampleOffset: position,
 			sampleLength: 0,
-			label: new TextDecoder('utf-8', { fatal: false }).decode(payload.subarray(offset + 7, nameEnd)),
+			label: decodeAiffMetadataText(payload.subarray(offset + 7, nameEnd), false),
 			note: '',
 		}));
 		// The Pascal string pads to an even total, count byte included.

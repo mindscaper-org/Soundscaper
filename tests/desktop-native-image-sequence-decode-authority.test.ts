@@ -9,6 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
+import { crc32, deflateSync } from 'node:zlib';
 
 import type { HelperDataPlaneBinding } from '../desktop/helper-data-plane.ts';
 import {
@@ -23,6 +24,9 @@ import {
 	FramescaperNativeImageSequenceDecodeAuthority,
 } from '../desktop/native-image-sequence-decode-authority.ts';
 import type { NativeMediaHelperPoolJobRequest } from '../desktop/native-media-helper-pool.ts';
+import { createNativeMediaImageSequenceInventoryV25 } from '../src/common/editor/native-media-image-sequence-v25.ts';
+import { createNativeMediaImageSequenceSourcePackV25 } from '../src/common/editor/native-media-image-sequence-pack-v25.ts';
+import { resolveNativeMediaImageSequence } from '../src/common/editor/native-media-image-sequence.ts';
 
 const PROJECT_ID = 'sequence-project';
 const SOURCE_ID = 'sequence-source';
@@ -239,21 +243,24 @@ async function authorityFixture(t: TestContext,
 	const scratchRoot = join(directory, 'scratch');
 	const objects = join(root, 'objects');
 	await mkdir(objects, { recursive: true });
-	const packBytes = Uint8Array.of(1, 2, 3);
-	const inventoryBytes = new TextEncoder().encode('{"schemaVersion":1}');
-	const packSha256 = digest(packBytes);
-	const inventorySha256 = digest(inventoryBytes);
-	const pack = Object.freeze({
-		kind: 'image-sequence-source-pack' as const,
-		storageKey: `image-sequence-pack-sha256:${packSha256}`,
-		sha256: packSha256, byteLength: packBytes.byteLength,
+	const frameBytes = rgbPngFrame();
+	const entries = [{
+		fileName: 'shot.0001.png', frameNumber: 1,
+		byteLength: frameBytes.byteLength, sha256: digest(frameBytes),
+	}];
+	const selection = resolveNativeMediaImageSequence({
+		fileNames: entries.map(({ fileName }) => fileName), frameRate: RATE,
 	});
-	const inventory = Object.freeze({
-		kind: 'image-sequence-inventory' as const, version: 1 as const,
-		storageKey: `image-sequence-inventory-sha256:${inventorySha256}`,
-		sha256: inventorySha256, byteLength: inventoryBytes.byteLength,
-		frameCount: 1, firstFrameNumber: 1, lastFrameNumber: 1,
+	const publishedInventory = createNativeMediaImageSequenceInventoryV25(selection, entries);
+	const inventory = publishedInventory.reference;
+	const inventoryBytes = publishedInventory.bytes;
+	const chunks: Uint8Array[] = [];
+	const pack = await createNativeMediaImageSequenceSourcePackV25({
+		inventory, entries, frameRate: RATE,
+		frameChunks: () => [frameBytes],
+		write: (chunk) => { chunks.push(chunk); },
 	});
+	const packBytes = Buffer.concat(chunks);
 	await Promise.all([
 		writeFile(framescaperNativeImageSequenceAssetPath(root, pack), packBytes),
 		writeFile(framescaperNativeImageSequenceAssetPath(root, inventory), inventoryBytes),
@@ -375,6 +382,24 @@ function completion(reservation: HelperDataPlaneOutputReservation, bytes: Uint8A
 	return Object.freeze({
 		streamId: reservation.streamId, byteLength: bytes.byteLength, sha256: digest(bytes),
 	});
+}
+
+function rgbPngFrame(): Uint8Array {
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(2, 0); header.writeUInt32BE(2, 4);
+	header.set([8, 2, 0, 0, 0], 8);
+	const chunk = (name: string, data: Uint8Array): Buffer => {
+		const body = Buffer.concat([Buffer.from(name), data]);
+		const bytes = Buffer.alloc(body.byteLength + 8);
+		bytes.writeUInt32BE(data.byteLength); body.copy(bytes, 4);
+		bytes.writeUInt32BE(crc32(body), body.byteLength + 4);
+		return bytes;
+	};
+	return Buffer.concat([
+		Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header),
+		chunk('IDAT', deflateSync(Uint8Array.of(0, 11, 22, 33, 44, 55, 66,
+			0, 77, 88, 99, 111, 122, 133))), chunk('IEND', new Uint8Array()),
+	]);
 }
 
 function decodedPack(): Uint8Array {

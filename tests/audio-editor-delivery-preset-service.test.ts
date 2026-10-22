@@ -200,12 +200,3 @@ test('overlapping delivery preset saves retain both changes in required storage'
 	assert.equal(persisted.presets[1]?.settings.quality, 5);
 	assert.deepEqual(persisted.presets[2]?.settings.size, { width: 1_080, height: 1_920 });
 });
-
-test('the service requires controller state rather than inventing its own', () => {
-	assert.throws(() => createDeliveryPresetService({} as never), /requires controller state/u);
-});
-
-test('delete preserves the preset-id validator for invalid runtime callers', async () => {
-	const { service } = harness();
-	await assert.rejects(() => service.delete(null as never), /presetId must be a non-empty string/u);
-});

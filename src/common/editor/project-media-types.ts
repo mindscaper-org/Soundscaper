@@ -190,6 +190,7 @@ export interface LabelLeaf {
 
 export interface LabelTrackLeaf {
 	readonly type: 'label';
+	readonly color?: string;
 	readonly id: string;
 	readonly name: string;
 	readonly labels: readonly LabelLeaf[];

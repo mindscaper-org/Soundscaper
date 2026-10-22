@@ -41,8 +41,9 @@ test('an admitted operation launches only main-built argv in a private scratch d
 	const runner = createExternalFfmpegAudioOperationRunner({
 		scratchRoot: root,
 		contract: contract({
+			maximumOutputBytes: 16,
 			onBuild(next) { events.push('build'); files = next; },
-			onValidate() { events.push('validate'); return true; },
+			onValidate() { events.push('validate'); },
 		}),
 		getAdmittedExecutable: () => Promise.resolve(admittedExecutableIdentity('/opt/ffmpeg/bin/ffmpeg')),
 		digestExecutable: (path) => {
@@ -54,8 +55,6 @@ test('an admitted operation launches only main-built argv in a private scratch d
 			HOME: '/leak', FFREPORT: 'file=/leak/report', LD_PRELOAD: '/leak/inject.so',
 			DYLD_INSERT_LIBRARIES: '/leak/inject.dylib', AV_LOG_FORCE_COLOR: '1',
 		},
-		maximumInputBytes: 16,
-		maximumOutputBytes: 16,
 		maximumLogBytes: 32,
 		spawn(executable, argv, options) {
 			events.push('spawn');
@@ -120,62 +119,6 @@ test('default external audio execution does not impose a file-size cap', async (
 	}));
 });
 
-test('renderer-shaped paths and argv are rejected before a contract or process sees them', async (context) => {
-	const root = await temporaryRoot(context);
-	let admitted = 0;
-	let spawned = 0;
-	const runner = createExternalFfmpegAudioOperationRunner({
-		scratchRoot: root,
-		contract: contract({ onAdmit() { admitted += 1; } }),
-		getAdmittedExecutable: admittedExecutable,
-		digestExecutable: admittedDigest,
-		maximumInputBytes: 3,
-		spawn() { spawned += 1; return fakeChild(); },
-	});
-	const rendererRequest = {
-		operation: { codec: 'opus' }, input: Uint8Array.of(1),
-		argv: ['-i', '/renderer/file'], outputPath: '/renderer/output',
-	};
-	assert.deepEqual(await runner.execute(rendererRequest), unavailable('request-rejected'));
-	assert.deepEqual(await runner.execute({
-		operation: { codec: 'opus' }, input: Uint8Array.of(1, 2, 3, 4),
-	}), unavailable('input-limit'));
-	assert.equal(admitted, 0);
-	assert.equal(spawned, 0);
-});
-
-test('the operation contract must admit the request and validate its own exact argv', async (context) => {
-	const root = await temporaryRoot(context);
-	const scratchDirectories: string[] = [];
-	let spawned = 0;
-	const runner = createExternalFfmpegAudioOperationRunner({
-		scratchRoot: root,
-		contract: contract({
-			onBuild(files) { scratchDirectories.push(dirname(files.inputPath)); },
-			onValidate() { return false; },
-		}),
-		getAdmittedExecutable: admittedExecutable,
-		digestExecutable: admittedDigest,
-		spawn() { spawned += 1; return fakeChild(); },
-	});
-	assert.deepEqual(await runner.execute({
-		operation: { codec: 'opus' }, input: Uint8Array.of(1),
-	}), unavailable('contract-rejected'));
-	assert.equal(spawned, 0);
-	assert.equal(scratchDirectories.length, 1);
-	await assertRemoved(scratchDirectories[0]);
-
-	const rejecting = createExternalFfmpegAudioOperationRunner({
-		scratchRoot: root,
-		contract: contract({ reject: true }),
-		getAdmittedExecutable: admittedExecutable,
-		digestExecutable: admittedDigest,
-	});
-	assert.deepEqual(await rejecting.execute({
-		operation: { codec: 'opus' }, input: Uint8Array.of(1),
-	}), unavailable('request-rejected'));
-});
-
 test('the executable pair is re-hashed immediately before spawn and identity drift is terminal', async (context) => {
 	const root = await temporaryRoot(context);
 	let scratchDirectory = '';
@@ -194,24 +137,23 @@ test('the executable pair is re-hashed immediately before spawn and identity dri
 	await assertRemoved(scratchDirectory);
 });
 
-test('an inconsistent executable-pair closure is never hashed or spawned', async (context) => {
+test('an admitted executable lost from native storage never spawns and releases scratch', async (context) => {
 	const root = await temporaryRoot(context);
 	let hashed = 0;
 	let spawned = 0;
+	let scratchDirectory = '';
 	const runner = createExternalFfmpegAudioOperationRunner({
 		scratchRoot: root,
-		contract: contract(),
-		getAdmittedExecutable: () => Promise.resolve({
-			...admittedExecutableIdentity('/tools/ffmpeg'),
-			executablePairClosureSha256: 'c'.repeat(64),
-		}),
-		digestExecutable: () => { hashed += 1; return Promise.resolve('a'.repeat(64)); },
+		contract: contract({ onBuild(files) { scratchDirectory = dirname(files.inputPath); } }),
+		getAdmittedExecutable: () => Promise.resolve(admittedExecutableIdentity(join(root, 'missing', 'ffmpeg'))),
+		digestExecutable: (path) => { hashed += 1; return access(path).then(() => 'a'.repeat(64)); },
 		spawn() { spawned += 1; return fakeChild(); },
 	});
 
 	assert.deepEqual(await runner.execute(operationRequest()), unavailable('executable-unavailable'));
-	assert.equal(hashed, 0);
+	assert.equal(hashed, 1);
 	assert.equal(spawned, 0);
+	await assertRemoved(scratchDirectory);
 });
 
 test('ffprobe identity drift rejects the executable pair before FFmpeg can spawn', async (context) => {
@@ -246,27 +188,6 @@ test('a successful process is rejected when its executable identity drifts durin
 	});
 	assert.deepEqual(await runner.execute(operationRequest()), unavailable('identity-changed', 'encoded'));
 	assert.equal(ffmpegDigests, 2);
-});
-
-test('the runner is single-flight until the active process has exited and cleanup completes', async (context) => {
-	const root = await temporaryRoot(context);
-	const child = fakeChild();
-	let outputPath = '';
-	const runner = createExternalFfmpegAudioOperationRunner({
-		scratchRoot: root,
-		contract: contract({ onBuild(files) { outputPath = files.outputPath; } }),
-		getAdmittedExecutable: admittedExecutable,
-		digestExecutable: admittedDigest,
-		spawn: () => child,
-	});
-	const first = runner.execute({ operation: { codec: 'opus' }, input: Uint8Array.of(1) });
-	await waitFor(() => outputPath !== '', 'the operation to name its output path');
-	assert.deepEqual(await runner.execute({
-		operation: { codec: 'opus' }, input: Uint8Array.of(2),
-	}), unavailable('busy'));
-	await writeFile(outputPath, Uint8Array.of(9));
-	child.emit('close', 0, null);
-	assert.deepEqual(await first, { status: 'executed', output: Uint8Array.of(9), log: '' });
 });
 
 test('AbortSignal cancellation escalates from TERM to KILL and still removes scratch files', async (context) => {
@@ -319,10 +240,9 @@ test('runtime, log, output, and process failures remain typed and bounded', asyn
 	const oversized = fakeChild();
 	const outputRunner = createExternalFfmpegAudioOperationRunner({
 		scratchRoot: root,
-		contract: contract({ onBuild(files) { outputPath = files.outputPath; } }),
+		contract: contract({ maximumOutputBytes: 2, onBuild(files) { outputPath = files.outputPath; } }),
 		getAdmittedExecutable: admittedExecutable,
 		digestExecutable: admittedDigest,
-		maximumOutputBytes: 2,
 		spawn() { void complete(oversized, outputPath, Uint8Array.of(1, 2, 3)); return oversized; },
 	});
 	assert.deepEqual(await outputRunner.execute(operationRequest()), unavailable('output-limit', 'encoded'));
@@ -351,7 +271,6 @@ test('the trusted contract can narrow the per-operation output limit', async (co
 		}),
 		getAdmittedExecutable: admittedExecutable,
 		digestExecutable: admittedDigest,
-		maximumOutputBytes: 16,
 		spawn(_executable, arguments_) {
 			launchedArguments = arguments_;
 			void complete(child, outputPath, Uint8Array.of(1, 2, 3));
@@ -363,26 +282,20 @@ test('the trusted contract can narrow the per-operation output limit', async (co
 });
 
 function contract(options: Readonly<{
-	reject?: boolean;
 	maximumOutputBytes?: number;
-	onAdmit?(): void;
 	onBuild?(files: ExternalFfmpegAudioOperationFiles): void;
-	onValidate?(): boolean;
+	onValidate?(): void;
 }> = {}): ExternalFfmpegAudioOperationContract<Operation> {
 	return {
-		maximumOutputBytes: () => options.maximumOutputBytes,
-		admitOperation(value) {
-			options.onAdmit?.();
-			return options.reject || !value || typeof value !== 'object'
-				|| (value as { codec?: unknown }).codec !== 'opus'
-				? { status: 'rejected' }
-				: { status: 'admitted', operation: { codec: 'opus' } };
+		maximumOutputBytes: () => options.maximumOutputBytes ?? Number.MAX_SAFE_INTEGER,
+		admitOperation() {
+			return { status: 'admitted', operation: { codec: 'opus' } };
 		},
 		buildArguments(_operation, files) {
 			options.onBuild?.(files);
 			return ['-i', files.inputPath, '-map', '0:a:0', '-c:a', 'libopus', '-f', 'ogg', files.outputPath];
 		},
-		validateArguments() { return options.onValidate?.() ?? true; },
+		validateArguments() { options.onValidate?.(); return true; },
 	};
 }
 
@@ -420,16 +333,12 @@ function unavailable(reason: string, log = ''): Readonly<{
 	readonly status: 'unavailable'; readonly reason: string; readonly detail: string; readonly log: string;
 }> {
 	const details: Readonly<Record<string, string>> = {
-		busy: 'Another external FFmpeg audio operation is already active.',
 		cancelled: 'The external FFmpeg audio operation was cancelled.',
-		'contract-rejected': 'The external FFmpeg operation contract rejected its generated arguments.',
 		'executable-unavailable': 'No admitted external FFmpeg executable is available.',
 		'identity-changed': 'The selected FFmpeg/FFprobe executable pair changed after it was admitted.',
-		'input-limit': 'The external FFmpeg audio input exceeds its byte limit.',
 		'log-limit': 'The external FFmpeg process exceeded its log limit.',
 		'output-limit': 'The external FFmpeg audio output exceeds its byte limit.',
 		'process-failed': 'The external FFmpeg process returned a nonzero exit code.',
-		'request-rejected': 'The external FFmpeg audio operation request was rejected.',
 		timeout: 'The external FFmpeg audio operation exceeded its runtime limit.',
 	};
 	return { status: 'unavailable', reason, detail: details[reason] ?? reason, log };

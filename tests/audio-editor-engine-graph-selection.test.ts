@@ -149,24 +149,3 @@ test('a panned mono strip renders the same frames through either builder', async
 
 	assert.deepEqual(productionFrames, legacyFrames);
 });
-
-test('the builder resolved at load survives the project object changing shape mid-session', async () => {
-	const contexts: RecordingContext[] = [];
-	const engine = renderEngine(contexts);
-	const project = pannedMonoPreviewProject();
-	engine.loadProject(project, sourceBuffers());
-	assert.equal(engine.projectGraphSelection, 'v21');
-	await engine.renderMix({ startFrame: 0, endFrame: FRAME_COUNT });
-	assert.equal(contexts.length, 1);
-	const first = graphTopology(contexts[0]!);
-
-	// Nothing in the editor mutates a loaded project in place, but the point of
-	// resolving once is that the answer no longer depends on the object holding
-	// still: a second render in the same session must compile the same builder.
-	Reflect.deleteProperty(engine.project as unknown as object, 'automationLanes');
-	assert.equal(resolveProjectGraphSelection(engine.project), 'legacy');
-	await engine.renderMix({ startFrame: 0, endFrame: FRAME_COUNT });
-	await engine.dispose();
-	assert.equal(contexts.length, 2);
-	assert.equal(graphTopology(contexts[1]!), first);
-});

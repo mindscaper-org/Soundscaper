@@ -66,24 +66,28 @@ test('Noise Reduction retains queued audio when Sensitivity changes with zero re
 
 for (const type of ['audacity-phaser', 'audacity-wahwah'] as const) {
 	test(`${type} keeps the current modulation phase when its live frequency changes`, () => {
-		const processor = createAudacityLiveProcessor(type, RATE, { frequency: 1, phaseDegrees: 0 });
-		processor.process([tone(4800)], [new Float32Array(4800)]);
-		processor.updateParams({ frequency: 2 });
-		processor.process([tone(600, 4800)], [new Float32Array(600)]);
-		processor.updateParams({ frequency: .5 });
-		processor.process([tone(600, 5400)], [new Float32Array(600)]);
+		const processor = createAudacityLiveProcessor(type, RATE, { frequency: 1, phaseDegrees: 0 }) as LiveProcessor;
+		const segments = [[4800, 1], [600, 2], [600, .5]] as const;
+		let elapsedFrames = 0;
+		let elapsedCycles = 0;
+		for (const [frames, frequency] of segments) {
+			processor.updateParams({ frequency });
+			processor.process([new Float32Array(frames)], [new Float32Array(frames)]);
+			elapsedFrames += frames;
+			elapsedCycles += frames * frequency / RATE;
+		}
 		processor.updateParams({ frequency: .5 });
 		processor.updateParams({ frequency: 1.5 });
-		processor.process([tone(1, 6000)], [new Float32Array(1)]);
-		const phase = (4800 * 1 + 600 * 2 + 600 * .5 + 1.5) * 2 * Math.PI / RATE;
-		if (type === 'audacity-phaser') {
-			const phaser = processor as unknown as { states: readonly { gain: number }[]; params: { depth: number } };
-			const shaped = Math.expm1((1 + Math.cos(phase)) / 2 * 4) / Math.expm1(4);
-			assert.ok(Math.abs(phaser.states[0]!.gain - (1 - shaped / 255 * phaser.params.depth)) < 1e-12);
-		} else {
-			const wahwah = processor as unknown as { states: readonly { a1: number }[]; depth: number; offset: number };
-			const center = ((1 + Math.cos(phase)) / 2 * wahwah.depth * (1 - wahwah.offset) + wahwah.offset);
-			assert.ok(Math.abs(wahwah.states[0]!.a1 + 2 * Math.cos(Math.PI * Math.exp((center - 1) * 6))) < 1e-12);
-		}
+		// Silence leaves the audio history empty. A constant-rate processor with
+		// the same elapsed angle must now produce the same audible response.
+		const phaseDegrees = ((elapsedCycles - elapsedFrames * 1.5 / RATE) * 360 + 360) % 360;
+		const reference = createAudacityLiveProcessor(type, RATE, { frequency: 1.5, phaseDegrees }) as LiveProcessor;
+		reference.process([new Float32Array(elapsedFrames)], [new Float32Array(elapsedFrames)]);
+		const actual = new Float32Array(1024), expected = new Float32Array(1024);
+		const input = tone(actual.length);
+		processor.process([input], [actual]);
+		reference.process([input], [expected]);
+		assert.ok(expected.some(sample => Math.abs(sample) > .001));
+		assert.ok(actual.every((sample, frame) => Math.abs(sample - expected[frame]!) < 1e-6));
 	});
 }

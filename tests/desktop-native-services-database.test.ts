@@ -250,7 +250,7 @@ test('the shared leased mutation authority commits results and rolls back thrown
 	assert.deepEqual(result, { committed: true });
 	assert.equal(database.prepare('SELECT COUNT(*) AS count FROM mutation_probe').get()?.count, 1);
 
-	const failure = Object.freeze({ reason: 'operation failed' });
+	const failure = new Error('operation failed');
 	assert.throws(
 		() => withFramescaperNativeServicesWriterMutation(database, lease, 2, () => {
 			database.prepare('INSERT INTO mutation_probe (value) VALUES (?)').run('rolled-back');

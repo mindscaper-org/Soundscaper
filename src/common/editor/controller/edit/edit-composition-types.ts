@@ -21,6 +21,8 @@ import type {
 } from './paste-mono-conversion-service.ts';
 import type { PasteLinkedSourceAliasStore } from './internal/paste-linked-source-aliases.ts';
 import type { CurrentAudioEditorMutationCommandV2 } from '../../commands/clipboard-command-v2.ts';
+import type { SelectedLabelState } from '../../label-clipboard-selection.ts';
+import type { AudioEditorCommand } from '../../commands/protocol.ts';
 
 /** The document identity the label and generator services read. */
 export type EditCompositionProject =
@@ -33,7 +35,7 @@ export type EditCommandProject =
 	& ReturnType<NonNullable<AudioGeneratorServiceDependencies['getCommandProject']>>;
 
 export type EditCompositionState<History extends ControllerRuntimeHistory = ControllerRuntimeHistory> =
-	& LabelServiceDependencies['state']
+	& LabelServiceDependencies['state'] & SelectedLabelState
 	& ClipboardEditServiceDependencies['state']
 	& AudioGeneratorServiceDependencies['state']
 	& {
@@ -115,6 +117,7 @@ export interface EditCompositionDependencies<History extends ControllerRuntimeHi
 		& ((command: CurrentAudioEditorMutationCommandV2) => unknown);
 	readonly setStatus: (message: string, state?: string, localization?: import('../../../i18n/presentation-message.ts').LocalizedPresentationMessage) => void;
 	readonly publishDocumentSnapshot: () => void;
+	readonly updateSelection: (command: AudioEditorCommand) => unknown;
 	readonly batchPresentation?: (operation: () => void) => void;
 	readonly handleError: (error: unknown) => void;
 	readonly preflightStorage: AudioGeneratorServiceDependencies['preflightStorage'];

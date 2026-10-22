@@ -15,15 +15,24 @@ import { createSherpaVadFactory } from './project-library-runtime/desktop/assist
 import { createSpeechRuntimeAdapter } from './project-library-runtime/desktop/assistance-speech-runtime.js';
 import { validateAssistanceSpeechJobGrant } from './project-library-runtime/desktop/assistance-speech-job-contract.js';
 import { nativeChildFileIdentityFromStat } from './project-library-runtime/desktop/native-child-file-identity.js';
+import { isAssistanceGpuValidationEnabled } from './project-library-runtime/desktop/assistance-gpu-validation.js';
+import { createSherpaGpuProfileProvider } from './project-library-runtime/desktop/assistance-sherpa-gpu-validation.js';
 
 let executionProviders;
+const gpuProfile = isAssistanceGpuValidationEnabled() && workerData?.operation !== 'status' && workerData?.grant?.operation !== 'status'
+	? createSherpaGpuProfileProvider(workerData?.gpuValidation) : null;
+const acceleration = () => ({ executionProviders,
+	...(gpuProfile ? { providerForModel: gpuProfile.providerForModel } : {}) });
 const runtime = createSpeechRuntimeAdapter({
-	createFactory: (module) => createSherpaRecognizerFactory(module, { executionProviders }),
+	createFactory: (module) => createSherpaRecognizerFactory(module, acceleration()),
 	load: loadVerifiedRuntime,
 });
 
 void run().then(
-	(result) => parentPort?.postMessage({ type: 'result', result }),
+	(result) => {
+		if (gpuProfile) parentPort?.postMessage({ type: 'gpu-profiles', selections: gpuProfile.selections() });
+		parentPort?.postMessage({ type: 'result', result });
+	},
 	(error) => parentPort?.postMessage({
 		type: 'error',
 		error: {
@@ -34,7 +43,7 @@ void run().then(
 );
 
 async function run() {
-	const grant = validateAssistanceSpeechJobGrant(workerData);
+	const grant = validateAssistanceSpeechJobGrant(gpuProfile ? workerData.grant : workerData);
 	if (grant.operation === 'status') return runtime.status();
 	const modelFiles = grant.operation === 'recognize'
 		? Object.values(grant.model)
@@ -45,7 +54,7 @@ async function run() {
 	parentPort?.postMessage({ type: 'progress', value: 0 });
 	if (grant.operation === 'detect-voice-activity') {
 		const module = await loadVerifiedRuntime();
-		const detector = createSherpaVadFactory(module, { executionProviders });
+		const detector = createSherpaVadFactory(module, acceleration());
 		return detector.detect({
 			modelId: grant.modelId,
 			audioPath: grant.audio.path,
@@ -57,7 +66,7 @@ async function run() {
 	}
 	if (grant.operation === 'diarize-speakers') {
 		const module = await loadVerifiedRuntime();
-		const diarizer = createSherpaDiarizerFactory(module, { executionProviders });
+		const diarizer = createSherpaDiarizerFactory(module, acceleration());
 		return diarizer.diarize({
 			audioPath: grant.audio.path,
 			modelIds: grant.modelIds,

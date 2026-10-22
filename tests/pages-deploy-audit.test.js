@@ -214,14 +214,3 @@ test('a retired product path redirects its documents and returns 404 for its old
 		/requires a permanent redirect for \/framescaper\/en\/.*200/u,
 	);
 });
-
-test('the retired-route audit refuses a product without an explicit route table', () => {
-	const routing = webBuildRouting({ SCAPE_PRODUCT: 'soundscaper' });
-	assert.throws(
-		() => pagesCachePolicyDescriptors({
-			routing: { ...routing, productId: 'future-product' },
-			assetPath: '/assets/site-entry-AbCd1234.js',
-		}),
-		/has no retired-route table for future-product/u,
-	);
-});

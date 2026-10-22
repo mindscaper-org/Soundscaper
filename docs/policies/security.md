@@ -874,57 +874,66 @@ callback; the default client secret is never sent to a custom server. D1
 persists the issuer, public client ID, scope and callback on each attempt and
 grant, so headerless callbacks and refresh use the authorized binding, while a
 changed selection requires reconnecting. Headerless audio previews derive their
-issuer from the authenticated grant. OAuth requests public projects only for
-Audiocity, and origin-bound attempt identifiers and persisted bindings prevent
-grants being forwarded after a provider change. The browser and Electron main
-validate authorization and content links against configuration returned by their
-fixed Soundscaper backend and matched to the explicit server selection. Electron
-main captures only successfully validated server-issued provider metadata, and
-changing preferences disposes stale searches, previews, uploads and archive
-transfers even while the panel is closed. D1 stores provider tokens and polling
-session secrets only as AES-256-GCM ciphertext with provider- and field-specific
-authenticated data; browser sessions use Secure HttpOnly SameSite=Strict cookies
-and desktop sessions use opaque hashed Soundscaper capabilities. Rolling
-sessions expire after 30 days, refresh rotation uses generation-fenced leases,
-and disconnect removes orphan grants. No public userinfo endpoint is invented or
-account identity inferred. Uploads require supported raw audio of exactly 1
-through 100,000,000 bytes with bounded metadata; only provider-returned policies
-on exact HTTPS s3.audio.com/audio/, s3.ustatik.com/audio.com.audio/, or
+issuer from the authenticated grant. OAuth requests Audacity's all scope for
+both services, and origin-bound attempt identifiers and persisted bindings
+prevent grants being forwarded after a provider change. The browser and Electron
+main validate authorization and content links against configuration returned by
+their fixed Soundscaper backend and matched to the explicit server selection.
+Electron main captures only successfully validated server-issued provider
+metadata, and changing preferences disposes stale searches, previews, uploads
+and project transfers even while the panel is closed. D1 stores provider tokens
+and polling session secrets only as AES-256-GCM ciphertext with provider- and
+field-specific authenticated data; browser sessions use Secure HttpOnly
+SameSite=Strict cookies and desktop sessions use opaque hashed Soundscaper
+capabilities. Rolling sessions expire after 30 days, refresh rotation uses
+generation-fenced leases, and disconnect removes orphan grants. No public
+userinfo endpoint is invented or account identity inferred. Uploads require
+supported raw audio of exactly 1 through 100,000,000 bytes with bounded
+metadata; only provider-returned policies on exact HTTPS s3.audio.com/audio/,
+s3.ustatik.com/audio.com.audio/, or
 s3.eu-central-1.wasabisys.com/audio.com.audio/source/ paths receive bytes. The
 Wasabi source destination is upload-only and does not broaden playback or
 source-download authority, and provider OAuth credentials are never sent to
-storage. Configured Audiocity transfers admit only exact same-origin UUID
-upload/hook and signed media paths; discovery must match that origin and
-advertise archive formats and byte ceilings. The server awaits verified stream
-completion before the POST success hook; failure and cancellation attempt the
-provider DELETE cleanup hook with an independent ten-second timeout. Preview
-requests require a valid application session, pin the same exact CDN hosts and
-paths, block redirects, accept only audio MIME responses, enforce simple byte
-ranges, and cap declared and observed bytes at 128 MiB. JSON responses are
-bounded and normalized, omit signed upload policies and OAuth credentials, and
-use no-store and nosniff. Electron main holds the opaque capability outside
-renderer authority, captures it from polling responses, strips renderer
-credentials, exposes closed routes and an exact authorization-URL opener, and
-persists only with an admitted safeStorage backend. The regular public audio.com
-API has no Audacity project storage or retrieval and no original source download
-route. Configured Audiocity archive routes require project-scoped sessions, list
-only whole-file transport, and stream selected standalone AUP3/AUP4 files of 16
-through 100,000,000 bytes. Completion requires verified exact bytes, a SQLite
-header, the storage success hook and snapshot synchronization; downloads select
-a completed revision with its own format and bounded exact length. Native block
-snapshots and automatic serialization of the open project are excluded. Backend
-and desktop tests prove state replay and handoff rejection, encrypted PKCE and
-token confinement, refresh fencing, session transport admission, fixed
-destinations, exact upload byte checks, cancellation cleanup, range handling,
-and bounded response failure; fixtures alone do not establish live audio.com
-upload success. A registered preview smoke test on 2026-10-15 separately
-confirmed browser consent and polling, panel search, ranged playback, an
-unlisted two-second WAV upload through processing completion and playback,
-provider deletion, and application disconnect; it does not qualify account quota
-failures or production abuse controls. A separate disposable local integration
-harness exercises real Pages Functions and D1, an Audiocity server, cross-origin
-PKCE consent, audio search/upload/range playback, and whole-file archive
-upload/download followed by the existing editor importer.
+storage. Custom-server transfers admit only exact same-origin UUID upload/hook
+and signed media paths. Native audio.com project uploads additionally admit the
+exact HTTPS s3.eu-central-1.wasabisys.com/audio.com.projects/projects/ storage
+prefix and project/snapshot-bound API hooks; OAuth credentials never follow
+those signed capabilities. The server awaits verified stream completion before
+the POST success hook; failure and cancellation attempt the provider DELETE
+cleanup hook with an independent ten-second timeout. Preview requests require a
+valid application session, pin the same exact CDN hosts and paths, block
+redirects, accept only audio MIME responses, enforce simple byte ranges, and cap
+declared and observed bytes at 128 MiB. JSON responses are bounded and
+normalized, omit signed upload policies and OAuth credentials, and use no-store
+and nosniff. Electron main holds the opaque capability outside renderer
+authority, captures it from polling responses, strips renderer credentials,
+exposes closed routes and an exact authorization-URL opener, and persists only
+with an admitted safeStorage backend. Both services use one Audacity-compatible
+project path: owned project listing, metadata framed as a little-endian
+dictionary length and binary XML, per-block SHA-256 hashes bound to SQLite block
+IDs, tagged mono float32 WavPack transfers, and explicit snapshot
+synchronization. The open project serializes through the existing AUP3 writer;
+no whole-file AUP3/AUP4 archive transport or separate revision buttons remain.
+Each staged part is limited to 100,000,000 bytes with exact stream verification,
+metadata/block processing retains one decoded block at a time, and manifests
+admit at most 1,000 hashes. Revisions carry the expected head; stale heads
+conflict without force. Cancellation deletes only pending snapshots and
+preserves completed revisions when a completion response is lost. The regular
+public audio API still has no original source download route. Backend and
+desktop tests prove state replay and handoff rejection, encrypted PKCE and token
+confinement, refresh fencing, session transport admission, fixed destinations,
+exact upload byte checks, cancellation cleanup, range handling, and bounded
+response failure; fixtures alone do not establish live audio.com upload success.
+A registered preview smoke test on 2026-10-15 separately confirmed browser
+consent and polling, panel search, ranged playback, an unlisted two-second WAV
+upload through processing completion and playback, provider deletion, and
+application disconnect; it does not qualify account quota failures or production
+abuse controls. A separate disposable local integration harness exercises real
+Pages Functions and D1, an Audiocity server, cross-origin PKCE consent, audio
+search/upload/range playback, and native project saves, changed revisions,
+conflicts, cancellation and lost completion responses. Shared protocol fixtures
+cover both server URLs; local integration also decodes transferred WavPack and
+verifies its native PCM hashes.
 <!-- /policy-narrative:bounded-audiocom-oauth-media-proxy -->
 
 The [control register](../../config/production-security-matrix.json) records

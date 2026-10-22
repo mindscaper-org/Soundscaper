@@ -11,7 +11,10 @@ test('the assistance utility process advertises only native speech', async () =>
 	const posted = [];
 	const worker = createAssistanceHelperWorker({
 		post: (message) => posted.push(message),
-		runJob: () => ({ completion: Promise.resolve({ available: false, reason: null, moduleId: 'sherpa-onnx-node' }), cancel: async () => {} }),
+		runJob: ({ jobId }) => {
+			assert.equal(jobId, JOB_ID, 'private inference evidence retains the admitted job correlation');
+			return { completion: Promise.resolve({ available: false, reason: null, moduleId: 'sherpa-onnx-node' }), cancel: async () => {} };
+		},
 		setIntervalImpl: () => ({ unref() {} }),
 		clearIntervalImpl: () => {},
 	});
@@ -30,17 +33,15 @@ test('the assistance utility process advertises only native speech', async () =>
 	worker.dispose();
 });
 
-test('the speech process refuses audio, media, and plug-in roles', () => {
-	for (const kind of ['audio-device', 'plugin-scan', 'plugin-host', 'media-render', 'ofx-host']) {
-		const exits = [];
-		const worker = createAssistanceHelperWorker({
-			post: () => {},
-			runJob: () => { throw new Error('wrong role reached inference'); },
-			setIntervalImpl: () => ({ unref() {} }), clearIntervalImpl: () => {}, exit: (code) => exits.push(code),
-		});
-		worker.handleMessage({ contractVersion: 1, type: 'job', jobId: JOB_ID, kind });
-		assert.deepEqual(exits, [1]);
-	}
+test('the speech process exits on an incomplete job envelope', () => {
+	const exits = [];
+	const worker = createAssistanceHelperWorker({
+		post: () => {},
+		runJob: () => { throw new Error('incomplete job reached inference'); },
+		setIntervalImpl: () => ({ unref() {} }), clearIntervalImpl: () => {}, exit: (code) => exits.push(code),
+	});
+	worker.handleMessage({ contractVersion: 1, type: 'job', jobId: JOB_ID, kind: 'audio-device' });
+	assert.deepEqual(exits, [1]);
 });
 
 test('the speech process acknowledges cancellation only after its runner is quiescent', async () => {

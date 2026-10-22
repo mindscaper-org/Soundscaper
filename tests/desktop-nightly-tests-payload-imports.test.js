@@ -97,6 +97,7 @@ test('the nightly package retains every staged browser source-map input', async 
 		[
 			'desktop/desktop-audio-codec-capability-contract.ts',
 			'desktop/desktop-audio-codec-operation-contract.ts',
+			'desktop/desktop-audio-decode-formats.ts',
 		],
 		'the regression must cover every source file read while making browser maps portable',
 	);

@@ -14,11 +14,12 @@ import { createDesktopScapeArchiveByteSource } from './desktop-scape-archive-byt
 import { createDesktopHelperVideoTimingProbe } from './desktop-helper-video-timing-probe.ts';
 import { createDesktopLinkedOriginalAccess } from './desktop-linked-original-port.ts';
 import { registerDesktopReadCapability } from './desktop-read-capability-registry.ts';
-import { createBrowserFileSaveService, sanitizeSuggestedSaveName as sanitizeSuggestedName } from './browser-file-save-service.ts';
+import { createBrowserFileSaveService } from './browser-file-save-service.ts';
 import { createDesktopLinkedVideoOriginalAccess } from './storage/desktop-linked-video-original-port.ts';
 import { bindSoundscaperPersistentDeliverySave } from './soundscaper-persistent-delivery-save-target.ts';
 import { createDesktopExternalMediaFiles } from './desktop-external-media-files.ts';
 import { registerDesktopOriginalFile, withDesktopOriginalReadCleanup } from './desktop-original-file-port.ts';
+import { sanitizeSuggestedFileName as sanitizeSuggestedName } from './portable-save-file-name.ts';
 const DEFAULT_WRITE_CHUNK_BYTES = 1024 * 1024;
 const NEVER_ABORTED_READ_SIGNAL = new AbortController().signal;
 const FRAMESCAPER_DESKTOP_BRIDGE_ENABLED = typeof __SCAPE_PRODUCT__ === 'undefined'
@@ -230,7 +231,7 @@ export function createAudioEditorFileService(options = {}) {
 		if (!bridge) return browserFiles.writeFile(target, input, request);
 		throwIfAborted(request.signal);
 		const blob = toBlob(input, request.mimeType);
-		const fileName = sanitizeSuggestedName(target?.originalOverwrite ? target.name : request.suggestedName || request.fileName || target?.name);
+		const fileName = sanitizeSuggestedName(target?.name || request.suggestedName || request.fileName);
 		if (!target) return { cancelled: true, fileName, size: blob.size };
 		return writeDesktopFile(target, blob, fileName, request.signal, request.onProgress);
 	}
@@ -274,6 +275,7 @@ export function createAudioEditorFileService(options = {}) {
 	}
 
 	async function createDownload(request = {}) {
+		throwIfAborted(request.signal);
 		if (bridge) {
 			const blob = toBlob(request.blob ?? request.bytes ?? request.text ?? '', request.mimeType);
 			const fileName = sanitizeSuggestedName(request.suggestedName || request.fileName);

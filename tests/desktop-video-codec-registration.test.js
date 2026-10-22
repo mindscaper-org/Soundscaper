@@ -56,14 +56,3 @@ test('desktop video registration binds one main-owned service and owner-scoped I
 async function pending(promise) {
 	return Promise.race([promise.then(() => false, () => false), Promise.resolve(true)]);
 }
-
-test('desktop video registration rejects an untrusted product scope', async () => {
-	await assert.rejects(() => registerDesktopVideoCodecs({
-		channels: Object.fromEntries([
-			'Capabilities', 'Begin', 'Write', 'Close', 'Execute', 'Stat', 'Read', 'Delete', 'Cancel',
-		].map((suffix) => [`desktopVideoCodec${suffix}`, `video:${suffix.toLowerCase()}`])),
-		handle() {}, removeHandler() {}, ownerFor: () => ({}), productId: 'legacy',
-		externalFfmpegPreferences: { admission: () => null, invalidateAdmission: async () => ({}) },
-		userDataPath: '/user-data', environment: {},
-	}), /product|ports/iu);
-});

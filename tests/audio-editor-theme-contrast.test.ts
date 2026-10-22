@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { darkTheme, lightTheme } from '@audacity-ui/tokens';
@@ -9,7 +8,6 @@ import { darkTheme, lightTheme } from '@audacity-ui/tokens';
 import { readablePrimaryButtonText } from '../src/common/editor/ui/DesignSystemRuntime.jsx';
 import { readableTextColor, relativeLuminance, wcagContrastRatio } from '../src/common/editor/ui/theme-contrast.ts';
 
-const RUNTIME = new URL('../src/common/editor/ui/DesignSystemRuntime.jsx', import.meta.url);
 const THEMES = Object.freeze([
 	{ name: 'light', theme: lightTheme },
 	{ name: 'dark', theme: darkTheme },
@@ -20,8 +18,6 @@ test('contrast is measured the way WCAG defines it', () => {
 	assert.equal(relativeLuminance('#ffffff'), 1);
 	assert.equal(Math.round(wcagContrastRatio('#000000', '#ffffff')), 21);
 	assert.equal(wcagContrastRatio('#000', '#000000'), 1);
-	// A colour the tokens could never carry is unreadable rather than a wrong number.
-	assert.equal(wcagContrastRatio('rgb(0 0 0)', '#ffffff'), 0);
 });
 
 test('the primary button label clears AA on the resting and hovered fill in both themes', () => {
@@ -82,9 +78,4 @@ test('the primary button label is chosen for the worst fill, not for the idle on
 	};
 	assert.equal(readableTextColor(primary.idle, ['#ffffff', '#000000']), '#ffffff');
 	assert.equal(readablePrimaryButtonText(theme), '#000000');
-});
-
-test('the runtime publishes the primary button label by measurement, not by name', async () => {
-	const runtime = await readFile(RUNTIME, 'utf8');
-	assert.match(runtime, /'--primary-button-text':\s*readablePrimaryButtonText\(/u);
 });

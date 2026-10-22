@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createRecordingController, requestHardwareInput } from '../src/common/editor/recording.js';
-import { createSoundscaperNativeAudioRenderer } from '../src/common/editor/soundscaper-native-audio-renderer.ts';
+import { createSoundscaperNativeAudioRenderer, soundscaperNativeAudioDestination } from '../src/common/editor/soundscaper-native-audio-renderer.ts';
 import {
 	acquireSoundscaperNativeAudioCapture,
 	claimSoundscaperNativeAudioCapture,
@@ -250,6 +250,53 @@ test('an older route preparation cannot overwrite a newer completed route', asyn
 	await renderer.dispose();
 	assert.equal(staleSettlement[0]?.status, 'fulfilled');
 	assert.deepEqual(disposals, [1, 1], 'both the stale and current transports retire exactly once');
+});
+
+test('separate native input and output sessions coexist and closing output preserves the input lease', async () => {
+	const events: unknown[] = [];
+	const destination = audioNode('destination', events) as unknown as AudioNode;
+	const context = {
+		sampleRate: 48_000, destination,
+		createGain: () => Object.assign(audioNode('sink', events), { gain: { value: 1 } }),
+		createMediaStreamDestination: () => ({ stream: captureStream() }),
+	} as unknown as AudioContext;
+	let receive: ((event: Event) => void) | null = null;
+	const renderer = createSoundscaperNativeAudioRenderer({
+		engine: { getAudioContext: async () => context, getState: () => ({ state: 'stopped' }), pause() {}, play: async () => undefined },
+		windowValue: { window: FIXTURE_WINDOW_SOURCE, addEventListener: (_type: string, listener: EventListener) => { receive = listener; },
+			removeEventListener() {} } as unknown as Pick<Window, 'addEventListener' | 'removeEventListener'>,
+		createNode: async () => ({
+			node: audioNode('device', events) as unknown as AudioNode,
+			attach: (_port: unknown, value: { generation: number }) => value.generation,
+			revoke: () => 1, notifyPeerLoss: () => 1, calibrate: async () => 0, dispose() {},
+		}),
+	});
+	const request = { candidates: [{ backend: 'alsa' as const, deviceHandle: 'opaque-input' }], mode: 'shared' as const,
+		sampleRate: 48_000, periodFrames: 128, channelCount: 2 };
+	await renderer.prepare('input', { ...request, direction: 'input' }, { backend: 'alsa', deviceHandle: 'opaque-input' });
+	renderer.expectPort('input');
+	await renderer.prepare('output', { ...request, direction: 'output' });
+	renderer.expectPort('output');
+	let attached = false;
+	const inputReady = renderer.waitForPort('input').then(() => { attached = true; });
+	await new Promise<void>((resolve) => setImmediate(resolve));
+	assert.equal(attached, false, 'a host stays pending until its native input port is attached');
+	const offer = (sessionId: string) => ({ source: FIXTURE_WINDOW_SOURCE, data: { type: 'soundscaper-native-realtime-port-v1', offer: {
+		sessionId,
+		protocolVersion: 1, generation: 1, sampleFormat: 'f32-planar', sampleRate: 48_000,
+		channelCount: 2, frameCount: 128, queueCapacity: 8, startFrame: 0,
+	} }, ports: [{ close() {} }] }) as unknown as Event;
+	(receive as ((event: Event) => void) | null)?.(offer('output'));
+	assert.equal(acquireSoundscaperNativeAudioCapture(), null, 'a late output offer cannot attach the input');
+	(receive as ((event: Event) => void) | null)?.(offer('input'));
+	await inputReady;
+	assert.ok(acquireSoundscaperNativeAudioCapture({ deviceId: 'native:alsa:in:opaque-input', channelCount: 2 }));
+	assert.notEqual(soundscaperNativeAudioDestination(context, destination), destination);
+	await renderer.release('output');
+	assert.equal(soundscaperNativeAudioDestination(context, destination), destination);
+	assert.ok(acquireSoundscaperNativeAudioCapture({ deviceId: 'native:alsa:in:opaque-input', channelCount: 2 }));
+	await renderer.dispose();
+	assert.equal(acquireSoundscaperNativeAudioCapture(), null);
 });
 
 function audioNode(name: string, events: unknown[]) {

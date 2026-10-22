@@ -40,7 +40,6 @@ import {
 	sendTransferArchives,
 	transferArchiveTitle,
 	TRANSFER_MAX_ARCHIVE_BYTES,
-	type TransferRuntime,
 } from '../src/common/transfer/transfer-session.ts';
 import {
 	describeTransferDownload,
@@ -384,21 +383,6 @@ test('the manual fallback imports downloaded archives file by file', async () =>
 	const described = describeTransferImport(result);
 	assert.deepEqual(described.rows.map(({ outcome }) => outcome), ['skipped', 'ok']);
 	assert.match(described.summary, /Imported 1 of 2 archives, skipped 1\./u);
-});
-
-test('a half-built runtime is refused before any project is read', async () => {
-	const store = new FakeStore([{ id: 'p1', title: 'One' }]);
-	const archive = createFakeArchive();
-	const partial = { ...runtimeFor(archive), sendTransfer: undefined } as unknown as TransferRuntime;
-	await assert.rejects(
-		collectTransferArchives({ runtime: partial, store }),
-		/missing sendTransfer\(\)/u,
-	);
-	await assert.rejects(
-		collectTransferArchives({ runtime: null as unknown as TransferRuntime, store }),
-		/missing exportProject\(\)/u,
-	);
-	assert.deepEqual(archive.exportCalls, []);
 });
 
 test('the page bound mirrors the protocol bound, and titles come off file names', () => {

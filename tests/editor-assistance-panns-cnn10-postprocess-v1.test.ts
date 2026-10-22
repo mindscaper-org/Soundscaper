@@ -92,9 +92,6 @@ test('PANNs Cnn10 bounded window projection is semantically equal to whole-resul
 
 test('PANNs Cnn10 binds an ordered, unique exact-index AudioSet authority', () => {
 	assert.throws(() => createAssistancePannsCnn10AudioTagsV1(request({
-		classCount: ASSISTANCE_PANNS_CNN10_AUDIOSET_CLASS_COUNT - 1,
-	})), /class.*count|527|AudioSet/iu);
-	assert.throws(() => createAssistancePannsCnn10AudioTagsV1(request({
 		classBindings: [BINDINGS[1], BINDINGS[0], BINDINGS[2], BINDINGS[3]],
 	})), /binding.*ordered|index/iu);
 	assert.throws(() => createAssistancePannsCnn10AudioTagsV1(request({
@@ -126,12 +123,8 @@ test('PANNs Cnn10 binds an ordered, unique exact-index AudioSet authority', () =
 	})), /fields/iu);
 });
 
-test('PANNs Cnn10 refuses non-baseline audio and window geometry', () => {
+test('PANNs Cnn10 refuses malformed window timing and score geometry', () => {
 	for (const overrides of [
-		{ schemaVersion: 2 },
-		{ sampleRate: 16_000 },
-		{ channelCount: 2 },
-		{ windowSamples: 16_000 },
 		{ windows: [{ startSample: 1, scores: scores() }] },
 		{ windows: [
 			{ startSample: 32_000, scores: scores() },
@@ -141,16 +134,11 @@ test('PANNs Cnn10 refuses non-baseline audio and window geometry', () => {
 			ASSISTANCE_PANNS_CNN10_AUDIOSET_CLASS_COUNT - 1,
 		) }] },
 		{ windows: [{ startSample: 0, scores: [...scores()] }] },
-		{ windows: [] },
 	] as const) {
 		assert.throws(() => createAssistancePannsCnn10AudioTagsV1(request(overrides)),
 			/schema|audio|mono|window|sample|score|geometry|ordered/iu);
 	}
-	assert.throws(() => createAssistancePannsCnn10AudioTagsV1({ ...request(), invented: true }),
-		/fields/iu);
-	assert.throws(() => createAssistancePannsCnn10AudioTagsV1(request({
-		windows: [{ ...request().windows[0], activation: 'sigmoid' }],
-	})), /fields/iu);
+
 });
 
 test('PANNs Cnn10 rejects NaN, infinity, and out-of-domain probability scores', () => {

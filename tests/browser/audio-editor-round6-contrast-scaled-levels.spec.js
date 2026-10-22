@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseDropdown, chooseNestedCommandAction, clipByName, clipField,
+import { expectClipGain, setClipGain } from './audio-editor-clip-settings-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseDropdown, chooseNestedCommandAction, clipByName,
 	closeClipProperties, commitInput, disableNativeSavePicker, importFiles, openClipProperties,
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 import { inspectWavBlobPcm, streamWavBlobPcm } from '../../src/common/editor/wav-import.js';
@@ -34,9 +35,8 @@ test('ordinary equal attenuation preserves the foreground/background Contrast de
 		return editor.locator(`[data-track-row][data-track-id="${id}"]`);
 	}));
 	const properties = await openClipProperties(page, editor, clipByName(editor, background.name));
-	await properties.getByText('Normalize', { exact: true }).click();
-	await commitInput(clipField(properties, 'gain'), '-30');
-	await expect(clipField(properties, 'gain')).toHaveValue('-30.00');
+	await setClipGain(properties, -30);
+	await expectClipGain(properties, -30);
 	await closeClipProperties(properties);
 	await rows[1].getByRole('button', { name: 'Mute', exact: true }).click();
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
@@ -55,9 +55,12 @@ test('ordinary equal attenuation preserves the foreground/background Contrast de
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Amplify']);
 		const effect = page.getByRole('dialog', { name: 'Apply effect', exact: true });
-		await commitInput(effect.locator('[data-effect-param="gainDb"] input[type="number"]'), '-50');
+		const amplification = effect.locator('[data-effect-param="gainDb"] input[type="number"]');
+		await commitInput(amplification, '-50');
+		await expect(amplification).toHaveValue('-50');
 		await effect.getByRole('button', { name: 'Apply to selection', exact: true }).click();
 		await expect(effect).toBeHidden({ timeout: 20_000 });
+		await expect(editor.locator('[data-editor-task-progress]')).toBeHidden();
 	}
 	await rows[0].getByRole('button', { name: 'Mute', exact: true }).click();
 	await rows[1].getByRole('button', { name: 'Mute', exact: true }).click();

@@ -113,20 +113,6 @@ test('a reference whose archive entry is absent names the missing entry', async 
 	assert.equal(harnessValue.writes.length, 0);
 });
 
-test('import validation must be a record carrying both a reference list and a descriptor map', async () => {
-	const harnessValue = harness();
-	const staged = (validation: unknown): Promise<void> => stageFramescaperScapeImportAssetsFinishing(
-		request([proxyFixture()], harnessValue, { validation }),
-	);
-	await assert.rejects(staged([]), {
-		name: 'TypeError', message: /The exact finishing Scape import validation is required\./u,
-	});
-	await assert.rejects(staged({ references: [], descriptorByArchiveId: {} }), {
-		name: 'TypeError', message: /The finishing Scape import validation is incomplete\./u,
-	});
-	assert.equal(harnessValue.writes.length, 0);
-});
-
 test('a buffered cube LUT body is written whole once its parsed geometry matches its reference', async () => {
 	const harnessValue = harness();
 	await stageFramescaperScapeImportAssetsFinishing(request([lutFixture()], harnessValue, {}));
@@ -263,15 +249,6 @@ test('an already stored streaming body still verifies the archive stream it skip
 		/video-proxy-body failed SHA-256 verification\./u,
 	);
 	assert.equal(harnessValue.writes.length, 0);
-});
-
-test('the import requires a writer that both owns its publication and holds the fixed chunk bound', async () => {
-	for (const writer of ['unowned', 'oversized'] as const) {
-		await assert.rejects(
-			stageFramescaperScapeImportAssetsFinishing(request([lutFixture()], harness({ writer }), {})),
-			{ name: 'TypeError', message: /requires an exact bounded owned media writer\./u },
-		);
-	}
 });
 
 test('a failed body write aborts its writer, while a refused publication is discarded instead', async () => {

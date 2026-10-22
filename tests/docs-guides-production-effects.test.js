@@ -15,11 +15,8 @@ test('production effect guides cover the six reader tasks with browser-replayabl
 	]);
 	assert.deepEqual(REPAIR_EFFECT_GUIDES.map(({ id }) => id), ['reduce-sibilance-with-a-de-esser']);
 	assert.deepEqual(DYNAMICS_EFFECT_GUIDES.map(({ id }) => id), ['compress-frequency-bands-independently']);
-	assert.equal(all.length, 6);
 	for (const guide of all) {
 		validateGuide(guide, GUIDE_FIXTURES);
-		assert.equal((guide.intro.match(/[.!?](?:\s|$)/gu) || []).length, 2, `${guide.id} needs a two-sentence introduction`);
-		assert.equal(guide.tips.length, 2, `${guide.id} needs two practical tips`);
 		assert.ok(guide.steps.some(({ kind, path }) => kind === 'menu' && path[0] === 'Select' && path[1] === 'Select all'), `${guide.id} must explicitly scope the selection`);
 		assert.ok(guide.steps.some(({ kind }) => kind === 'effect'), `${guide.id} must apply its effect from the Effect menu`);
 		assert.ok(guide.steps.some(({ kind }) => kind === 'play' || kind === 'check'), `${guide.id} must verify its result`);

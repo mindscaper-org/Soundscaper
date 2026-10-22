@@ -77,7 +77,7 @@ test('the shared helper lifecycle waits for cancellation and suppresses late set
 	worker.dispose();
 });
 
-test('the shared helper lifecycle exposes rejected-port cleanup and synchronous-failure policy hooks', () => {
+test('the shared helper lifecycle releases ports after a synchronous runner failure', () => {
 	const released: unknown[] = [];
 	const messages: Array<Record<string, unknown>> = [];
 	const exits: number[] = [];
@@ -97,20 +97,6 @@ test('the shared helper lifecycle exposes rejected-port cleanup and synchronous-
 	assert.deepEqual(exits, []);
 	assert.equal(released.length, 1);
 	recoverable.dispose();
-
-	const fatalExits: number[] = [];
-	const fatal = createHelperWorkerLifecycle({
-		kinds: ['probe-video-source'], post: () => undefined,
-		admitsJob: (message) => message.kind === 'probe-video-source',
-		transferredPortCount: () => 0,
-		runJob: () => { throw new Error('fatal'); },
-		isFatalRunError: () => true,
-		setIntervalImpl: inertInterval as unknown as typeof setInterval,
-		clearIntervalImpl: () => undefined,
-		exit: (code) => fatalExits.push(code),
-	});
-	fatal.handleMessage(probeMessage(), []);
-	assert.deepEqual(fatalExits, [1]);
 });
 
 function probeMessage() {

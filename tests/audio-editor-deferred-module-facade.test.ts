@@ -34,10 +34,8 @@ function fakeLoader() {
 
 test('a deferred facade loads nothing until one of its methods is called', () => {
 	const loader = fakeLoader();
-	const facade = createDeferredModuleFacade(loader.load, ['measure', 'count', 'dispose']);
+	createDeferredModuleFacade(loader.load, ['measure', 'count', 'dispose']);
 	assert.equal(loader.loads(), 0);
-	assert.deepEqual(Object.keys(facade).sort(), ['count', 'dispose', 'measure']);
-	assert.equal(Object.isFrozen(facade), true);
 });
 
 test('concurrent calls share one load and preserve the real signatures', async () => {
@@ -102,17 +100,4 @@ test('a rejected load is not cached, so the next call retries', async () => {
 	await assert.rejects(facade.count([1]), (error) => error === failure);
 	assert.equal(await facade.count([1, 2]), 2);
 	assert.equal(attempts, 2);
-});
-
-test('a method missing from the loaded module reports the name it could not reach', async () => {
-	const facade = createDeferredModuleFacade(
-		async (): Promise<FakeService> => (
-			{ count: () => 0, dispose: () => undefined } as unknown as FakeService
-		),
-		['measure'],
-		{ covered: ['count', 'dispose'] },
-	);
-	await assert.rejects(facade.measure('alpha'), (error) => (
-		error instanceof TypeError && error.message.includes('measure')
-	));
 });

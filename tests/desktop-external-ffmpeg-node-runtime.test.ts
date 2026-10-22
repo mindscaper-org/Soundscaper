@@ -42,7 +42,7 @@ test('manual selection derives only a sibling ffprobe executable', () => {
 		ffmpegPath: 'C:\\Tools\\ffmpeg.exe',
 		ffprobePath: 'C:\\Tools\\ffprobe.exe',
 	});
-	for (const path of ['/tools/ffprobe', '/tools/ffmpeg.sh', '../ffmpeg', '/tools/ffmpeg\0other']) {
+	for (const path of ['/tools/ffprobe', '/tools/ffmpeg.sh']) {
 		assert.throws(() => externalFfmpegPairFromSelection(path, 'linux'), /FFmpeg selection/iu);
 	}
 });

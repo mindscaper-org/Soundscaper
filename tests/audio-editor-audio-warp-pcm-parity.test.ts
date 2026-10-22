@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	AUDIO_WARP_PCM_AMPLITUDE_ERROR_BUDGET,
-	evaluateAudioWarpPcmRenderParity,
 	renderExactAudioWarpPcm,
 	renderRealtimeAudioWarpPcmProjection,
 } from '../src/common/editor/audio-warp-render-parity.ts';
@@ -38,25 +36,7 @@ test('piecewise scheduler projection and exact evaluator interpolation agree wit
 	const realtime = renderRealtimeAudioWarpPcmProjection(PROJECT, CLIP, RANGE, source);
 	assert.equal(exact.length, 2);
 	assert.equal(exact[0]?.length, 2_048);
-	for (const frame of [0, 255, 511, 512, 900, 1_299, 1_300, 1_700, 2_047]) {
-		for (let channel = 0; channel < exact.length; channel += 1) {
-			assert.ok(Math.abs(exact[channel]![frame]! - realtime[channel]![frame]!)
-				<= AUDIO_WARP_PCM_AMPLITUDE_ERROR_BUDGET, `channel ${String(channel)} frame ${String(frame)}`);
-		}
-	}
-	const evidence = evaluateAudioWarpPcmRenderParity(PROJECT, CLIP, RANGE, source);
-	assert.deepEqual({
-		breakpointCount: evidence.breakpointCount,
-		comparedFrameCount: evidence.comparedFrameCount,
-		comparedSampleCount: evidence.comparedSampleCount,
-		amplitudeErrorBudget: evidence.amplitudeErrorBudget,
-	}, {
-		breakpointCount: 4,
-		comparedFrameCount: 2_048,
-		comparedSampleCount: 4_096,
-		amplitudeErrorBudget: 0.000_001,
-	});
-	assert.ok(evidence.maximumSignalError <= evidence.amplitudeErrorBudget);
+	assertPcmParity(exact, realtime);
 });
 
 test('fractional breakpoints preserve exact PCM projection across every output frame', () => {
@@ -69,11 +49,11 @@ test('fractional breakpoints preserve exact PCM projection across every output f
 				: point),
 		},
 	};
-	const evidence = evaluateAudioWarpPcmRenderParity(
-		PROJECT, clip, RANGE, deterministicSource(4_096),
-	);
-	assert.equal(evidence.comparedFrameCount, RANGE.endFrame - RANGE.startFrame);
-	assert.ok(evidence.maximumSignalError <= evidence.amplitudeErrorBudget);
+	const source = deterministicSource(4_096);
+	const exact = renderExactAudioWarpPcm(PROJECT, clip, RANGE, source);
+	const realtime = renderRealtimeAudioWarpPcmProjection(PROJECT, clip, RANGE, source);
+	assert.equal(exact[0]?.length, RANGE.endFrame - RANGE.startFrame);
+	assertPcmParity(exact, realtime);
 });
 
 function deterministicSource(frameCount: number): readonly Float32Array[] {
@@ -84,4 +64,15 @@ function deterministicSource(frameCount: number): readonly Float32Array[] {
 		right[frame] = Math.cos(frame * 0.019) * 0.5 - ((frame % 307) === 0 ? 0.15 : 0);
 	}
 	return Object.freeze([left, right]);
+}
+
+function assertPcmParity(exact: readonly Float32Array[], realtime: readonly Float32Array[]): void {
+	assert.equal(realtime.length, exact.length);
+	for (let channel = 0; channel < exact.length; channel += 1) {
+		assert.equal(realtime[channel]!.length, exact[channel]!.length);
+		for (let frame = 0; frame < exact[channel]!.length; frame += 1) {
+			assert.ok(Math.abs(exact[channel]![frame]! - realtime[channel]![frame]!) <= 0.000_001,
+				`channel ${String(channel)} frame ${String(frame)}`);
+		}
+	}
 }

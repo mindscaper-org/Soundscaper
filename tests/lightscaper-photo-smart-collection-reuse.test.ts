@@ -13,14 +13,15 @@ function definition() {
 }
 
 test('a successfully admitted definition is reused by identity including its full immutable Query2 graph', () => {
-	const input = definition(), admitted = admitPhotoSmartCollectionSaveV1(input, null);
+	const input = definition(), originalTerm = input.query.predicate.terms[0]!;
+	const admitted = admitPhotoSmartCollectionSaveV1(input, null);
 	assert.notEqual(admitted, input); assert.equal(admitPhotoSmartCollectionSaveV1(admitted, null), admitted);
 	assert.equal(admitPhotoSmartCollectionSaveV1(admitted, 0), admitted); assert.equal(Object.isFrozen(admitted.query), true);
 	const predicate = admitted.query.predicate!;
 	assert.equal(Object.isFrozen(predicate), true);
 	if (predicate.kind !== 'all') assert.fail('Expected group');
 	assert.equal(Object.isFrozen(predicate.terms), true); assert.equal(Object.isFrozen(predicate.terms[0]), true);
-	input.name = 'Changed'; input.query.text = 'Changed'; input.query.predicate.terms[0]!.value = 'Changed';
+	input.name = 'Changed'; input.query.text = 'Changed'; originalTerm.value = 'Changed';
 	assert.equal(admitted.name, 'Saved'); assert.equal(admitted.query.text, 'canon');
 	assert.equal(admitPhotoSmartCollectionSaveV1(admitted, 0).query, admitted.query);
 });

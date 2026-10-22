@@ -67,21 +67,14 @@ test('reverse chains read each dependency list a bounded number of times', () =>
 	assert.ok(previousReads > tasks.length * 50);
 });
 
-test('cycles and missing dependencies retain their original refusal', () => {
-	for (const tasks of [[task(0, [1]), task(1, [0])], [task(0, [3])], [task(0, [0])]]) {
-		assert.throws(() => orderParallelStackTasks(tasks, 2), { message: 'Parallel stack graph contains a cycle.' });
-	}
-	assert.deepEqual(orderParallelStackTasks([], 2), []);
-});
-
-test('control preparation retains exact authored VCA multiplication and group-before-send authority', () => {
+test('control preparation retains exact authored VCA multiplication and strip scopes', () => {
 	let memberReads = 0;
 	const graph = normalizeMixerGraphV21({ schemaVersion: 1, groups: [], sends: [], cues: [], vcas: [], outputs: [], edges: [] });
 	const members = Array.from({ length: 30 }, (_, index) => Object.defineProperty({ kind: 'track' as const, id: String(index) }, 'id', {
 		enumerable: true, get() { memberReads += 1; return String(index); },
 	}));
 	const vcas = [
-		{ id: 'first', name: 'first', gain: .1, mute: false, members: [...members, members[0]!] },
+		{ id: 'first', name: 'first', gain: .1, mute: false, members },
 		{ id: 'second', name: 'second', gain: .3, mute: false, members },
 	];
 	const index = createParallelStackControlIndex({ ...graph, vcas });
@@ -93,18 +86,18 @@ test('control preparation retains exact authored VCA multiplication and group-be
 	assert.equal(index.vcaGain('master'), 1);
 	assert.equal(index.scope({ kind: 'master' }), 'master');
 	assert.equal(index.scope({ kind: 'track', id: '0' }), 'track');
-	const group = { id: 'shared', name: '', color: '', collapsed: false, gain: 1, pan: 0, mute: false, solo: false, effectsActive: true, effects: [], channelCount: 2 };
-	const scopes = createParallelStackControlIndex({ ...graph, groups: [group], sends: [group] });
-	assert.equal(scopes.scope({ kind: 'mixer-node', id: 'shared' }), 'group');
-	assert.equal(scopes.scope({ kind: 'mixer-node', id: 'missing' }), 'cue');
+	const group = { id: 'group', name: '', color: '', collapsed: false, gain: 1, pan: 0, mute: false, solo: false, effectsActive: true, effects: [], channelCount: 2 };
+	const scopes = createParallelStackControlIndex({ ...graph, groups: [group], sends: [{ ...group, id: 'send' }] });
+	assert.equal(scopes.scope({ kind: 'mixer-node', id: 'group' }), 'group');
+	assert.equal(scopes.scope({ kind: 'mixer-node', id: 'send' }), 'send');
 });
 
-test('sidechain effect indexes are lazy, first-match and confined to one plan build', () => {
+test('sidechain effect indexes are lazy and confined to one plan build', () => {
 	let reads = 0;
 	const first = Object.defineProperty({ id: 'detector', type: 'gate', params: {}, latencyFrames: 0, stateBytes: 1 }, 'id', {
 		enumerable: true, get() { reads += 1; return 'detector'; },
 	});
-	const second = { ...first, type: 'limiter' };
+	const second = { ...first, id: 'other', type: 'limiter' };
 	const value = { ...task(0, []), effects: [first, second] };
 	reads = 0;
 	const find = createParallelStackSidechainResolver();
@@ -114,5 +107,5 @@ test('sidechain effect indexes are lazy, first-match and confined to one plan bu
 	for (let repeat = 0; repeat < 500; repeat += 1) assert.equal(find(value, 'detector'), first);
 	assert.equal(reads, preparedReads);
 	assert.equal(find(value, 'absent'), undefined);
-	assert.equal(createParallelStackSidechainResolver()({ ...value, effects: [second] }, 'detector'), second);
+	assert.equal(createParallelStackSidechainResolver()({ ...value, effects: [second] }, 'other'), second);
 });

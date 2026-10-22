@@ -4,10 +4,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdir, readdir, readlink, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { NIGHTLY_IMAGE_TEST_HELPER_INPUTS } from './desktop-nightly-image-test-payloads.mjs';
-
 import nativeFixtureSources from './desktop-nightly-tests-native-fixture-inputs.cjs';
 import { NIGHTLY_BROWSER_CODEC_INPUTS } from './desktop-nightly-tests-browser-codec-inputs.mjs';
 import { NIGHTLY_BROWSER_MEDIA_INPUTS } from './desktop-nightly-tests-browser-media-inputs.mjs';
+import { NIGHTLY_INTERCHANGE_INPUTS, validateNightlyInterchange } from './desktop-nightly-tests-interchange-inputs.mjs';
 import {
 	assertDirectory,
 	assertRegularFile,
@@ -61,7 +61,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 		kind: 'file', label: `${format} browser import fixture support`,
 	})),
 	...[
-		'audiocom-authorization.ts', 'audiocom-links.ts', 'constants.js', 'file-associations.js', 'file-capabilities.js', 'freesound-integration.js',
+		'constants.js', 'file-associations.js', 'file-capabilities.js', 'freesound-integration.js',
 		'main-file-capability-ipc.mjs', 'product.json', 'protocol.js', 'read-capability-admission.js',
 		'read-capability-range-stream.js', 'read-capability-request-lease.js', 'read-capability-support.js',
 		'read-selection-service.js', 'save-publication-mode.js', 'save-space.js', 'save-targets.js', 'validation.js',
@@ -170,10 +170,15 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'tests/browser', destination: 'tests/browser', kind: 'directory', label: 'browser test tree', exclude: new Set(['AGENTS.md', 'handbook']) },
 	{ source: 'tests/electron/local-assistance-models', destination: 'tests/electron/local-assistance-models', kind: 'directory', label: 'real local assistance model tests', exclude: new Set(['AGENTS.md']) },
 	{ source: 'tests/aup3-fixture.js', destination: 'tests/aup3-fixture.js', kind: 'file', label: 'AUP3 browser support fixture' },
+	{ source: 'tests/helpers/aup4-database-harness.js', destination: 'tests/helpers/aup4-database-harness.js', kind: 'file', label: 'Audacity recovery browser SQLite fixture' },
 	{ source: 'tests/helpers/png-fixture.mjs', destination: 'tests/helpers/png-fixture.mjs', kind: 'file', label: 'timeline image browser support fixture' },
 	...NIGHTLY_IMAGE_TEST_HELPER_INPUTS,
+	...['scape-archive-rewrite.js', 'wavpack-import-fixture.ts'].map(file => ({
+		source: `tests/helpers/${file}`, destination: `tests/helpers/${file}`, kind: 'file', label: 'ordinary browser workflow fixture support',
+	})),
+	...NIGHTLY_INTERCHANGE_INPUTS,
 	{ source: 'tests/fixtures/aup4-native-rich.js', destination: 'tests/fixtures/aup4-native-rich.js', kind: 'file', label: 'AUP4 browser support fixture' },
-	...NIGHTLY_BROWSER_MEDIA_INPUTS,
+	...NIGHTLY_BROWSER_MEDIA_INPUTS.filter(input => !NIGHTLY_INTERCHANGE_INPUTS.some(({ source }) => source === input.source)),
 	{ source: 'desktop/original-file-overwrite.ts', destination: 'desktop/original-file-overwrite.ts', kind: 'file', label: 'ordinary native original media browser workflow support' },
 	{ source: 'tests/fixtures/nyquist-archive', destination: 'tests/fixtures/nyquist-archive', kind: 'directory', label: 'Nyquist browser archive and notices' },
 	{ source: 'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json', destination: 'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json', kind: 'file', label: 'Nyquist browser catalog metadata' },
@@ -215,6 +220,7 @@ export async function stageDesktopNightlyTests({
 	}
 
 	await validateRequiredInputs(root);
+	await validateNightlyInterchange(root);
 	const runtimePackages = await resolveNightlyTestRuntimePackages(root);
 	await validateRuntimePackages(root, runtimePackages);
 	const browserRevisions = await validateBrowserCache(root, browsers);
@@ -283,7 +289,7 @@ async function validateRequiredInputs(root) {
 		const path = join(root, input.source);
 		if (input.kind === 'directory') await assertDirectory(path, `required ${input.label}`);
 		else await assertRegularFile(path, `required ${input.label}`);
-		await assertSafeTree(path, input.label);
+		await assertSafeTree(path, input.label, { allowContainedSymlinks: input.allowContainedSymlinks });
 	}
 	for (const path of ['LICENSE', 'THIRD_PARTY_LICENSES.md']) {
 		await assertRegularFile(join(root, path), `required ${path}`);
@@ -295,7 +301,6 @@ async function validateRequiredInputs(root) {
 	await assertDirectory(join(root, 'LICENSES'), 'required license directory');
 	await assertSafeTree(join(root, 'LICENSES'), 'license directory');
 }
-
 async function copyRequiredInputs(root, output) {
 	for (const input of NIGHTLY_TEST_PAYLOAD_INPUTS) {
 		await copyTree(join(root, input.source), join(output, input.destination), {
@@ -303,7 +308,6 @@ async function copyRequiredInputs(root, output) {
 		});
 	}
 }
-
 export async function resolveNightlyTestRuntimePackages(root) {
 	const packages = new Map();
 	const pending = [...NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS];

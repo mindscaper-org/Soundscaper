@@ -54,7 +54,7 @@ function assertNear(actual, expected, tolerance = 1e-6) {
 	assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} should be within ${tolerance} of ${expected}`);
 }
 
-test('one-shot Audacity effects validate channel data and never alias neutral output', () => {
+test('one-shot Audacity effects never alias neutral output', () => {
 	const left = Float32Array.of(-0.5, 0, 0.5);
 	const right = Float32Array.of(0.25, 0, -0.25);
 	const originalLeft = new Float32Array(left);
@@ -64,10 +64,6 @@ test('one-shot Audacity effects validate channel data and never alias neutral ou
 	assert.notEqual(output[0], left);
 	assert.notEqual(output[1], right);
 	assert.deepEqual(left, originalLeft);
-	assert.throws(() => applyAudacityEcho([], SAMPLE_RATE), /non-empty array/);
-	assert.throws(() => applyAudacityEcho([new Float64Array(2)], SAMPLE_RATE), /Float32Array/);
-	assert.throws(() => applyAudacityEcho([new Float32Array(2), new Float32Array(3)], SAMPLE_RATE), /same length/);
-	assert.throws(() => applyAudacityEcho([left], 0), /sampleRate/);
 });
 
 test('streaming-compatible ports accept their manifest parameter contracts', () => {

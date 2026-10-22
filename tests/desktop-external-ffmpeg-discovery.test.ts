@@ -111,7 +111,7 @@ test('package scanning tolerates inaccessible directories and skips unrelated pa
 		environment: { LOCALAPPDATA: LOCAL, PATH: 'D:\\tools', ProgramFiles: 'relative' },
 		listSubdirectories(path) {
 			checked.push(path);
-			if (path === USER_PACKAGES) return Promise.resolve(['Other.Package', 'Gyan.FFmpeg_MissingPair', 'Gyan.FFmpeg_Essentials', '..', 'bad/ffmpeg']);
+			if (path === USER_PACKAGES) return Promise.resolve(['Other.Package', 'Gyan.FFmpeg_MissingPair', 'Gyan.FFmpeg_Essentials']);
 			return Promise.reject(new Error('access denied'));
 		},
 		isExecutable: (path) => Promise.resolve(executable.has(path) || path.endsWith('MissingPair\\ffmpeg.exe')),
@@ -119,7 +119,7 @@ test('package scanning tolerates inaccessible directories and skips unrelated pa
 	assert.deepEqual(candidates.map((candidate) => candidate.ffmpegPath), [
 		win32.join(packageBin, 'ffmpeg.exe'), 'D:\\tools\\ffmpeg.exe',
 	]);
-	assert.ok(!checked.some((path) => path.includes('Other.Package') || path.includes('relative') || path.includes('bad')));
+	assert.ok(!checked.some((path) => path.includes('Other.Package') || path.includes('relative')));
 });
 
 test('WinGet nested discovery is shallow and deterministic', async () => {

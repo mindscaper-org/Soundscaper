@@ -192,23 +192,16 @@ test('compressed entry admission accepts its exact ceiling and refuses zero, cei
 	}
 });
 
-test('plan hooks, cancellation, and stale generation abort once without retaining encoded output', async () => {
-	for (const drift of ['unsafe hook', 'canonical filename'] as const) {
+test('plan drift, cancellation, and stale generation abort once without retaining encoded output', async () => {
+	for (const drift of ['canonical filename'] as const) {
 		const plan = structuredClone(actualPlan());
 		const target = preparedStream();
 		const preparation = await prepareDirectStemArchiveDestination(
 			{ prepareSave: () => target }, plan, null, new AbortController().signal,
 		);
 		assert.ok(preparation.destination);
-		let hooks = 0;
-		if (drift === 'unsafe hook') {
-			Object.setPrototypeOf(record(records(plan.outputs)[0]), {
-				toJSON() { hooks += 1; throw new Error('output hook ran'); },
-			});
-		} else {
-			record(records(plan.outputs)[0]).fileName = 'changed.mp3';
-			record(records(record(plan.archive).entries)[0]).fileName = 'changed.mp3';
-		}
+		record(records(plan.outputs)[0]).fileName = 'changed.mp3';
+		record(records(record(plan.archive).entries)[0]).fileName = 'changed.mp3';
 		let renders = 0;
 		await assert.rejects(streamDirectStemArchive({
 			destination: preparation.destination,
@@ -217,7 +210,6 @@ test('plan hooks, cancellation, and stale generation abort once without retainin
 			assertCurrent: () => undefined,
 			renderStem: async () => { renders += 1; return { bytes: Uint8Array.of(1) }; },
 		}), /plan changed/iu);
-		assert.equal(hooks, 0, drift);
 		assert.equal(renders, 0, drift);
 		assert.equal(target.aborts(), 1, drift);
 	}

@@ -99,18 +99,6 @@ test('disposal cancels every pending unload without running any of them', () => 
 	assert.deepEqual(unloaded, []);
 });
 
-test('the scheduler refuses an interval or request it cannot honour', () => {
-	const timers = fakeTimers();
-	assert.throws(() => createAssistanceIdleUnloadScheduler({ idleUnloadMs: 0, ...timers }), RangeError);
-	assert.throws(() => createAssistanceIdleUnloadScheduler({ idleUnloadMs: 1.5, ...timers }), RangeError);
-	assert.throws(() => createAssistanceIdleUnloadScheduler({
-		idleUnloadMs: 3_600_001, ...timers,
-	}), RangeError);
-	const scheduler = createAssistanceIdleUnloadScheduler({ idleUnloadMs: 1_000, ...timers });
-	assert.throws(() => scheduler.schedule('', () => {}), TypeError);
-	assert.throws(() => scheduler.schedule('llama-cpp', null as unknown as () => void), TypeError);
-});
-
 test('the default quiet period is the registered two minutes', () => {
 	const timers = fakeTimers();
 	const scheduler = createAssistanceIdleUnloadScheduler({

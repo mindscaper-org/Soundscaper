@@ -45,16 +45,15 @@ for (const type of ['rename', 'track-rename', 'resample', 'track-rate']) {
 			await render(false);
 			const submit = action(label);
 			assert.equal(submit.hasAttribute('disabled'), false);
-			const staleClick = reactProps(submit).onClick;
 			await render(true);
 			assert.equal(submit.hasAttribute('disabled'), true, 'the same dialog follows its actual writer lease');
 			assert.equal(action(ENGLISH_COPY.cancel).hasAttribute('disabled'), false);
 			await act(async () => {
-				staleClick();
+				reactProps(dom.one('form')).onSubmit({ preventDefault() {} });
 				await Promise.all(running);
 				await Promise.resolve();
 			});
-			assert.equal(calls, 0, 'a captured confirm callback cannot publish an unavailable edit');
+			assert.equal(calls, 0, 'keyboard submission cannot publish an unavailable edit');
 			assert.equal(closes, 0, 'the refused edit must keep its draft available');
 			await render(false);
 			await act(async () => {

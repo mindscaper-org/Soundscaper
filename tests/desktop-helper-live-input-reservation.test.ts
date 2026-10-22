@@ -26,7 +26,6 @@ test('live helper input authenticates its exact length and terminal SHA-256 unde
 	const sender = new HelperDataPlaneInputSender(reservation);
 	const receiver = new HelperDataPlaneInputReceiver(reservation);
 	const first = sender.createChunk(new Uint8Array([1, 2, 3]));
-	assert.throws(() => sender.createChunk(new Uint8Array([4])), /backpressure/iu);
 	const acceptedFirst = receiver.acceptChunk(first);
 	sender.acceptAck(acceptedFirst.ack);
 	const second = sender.createChunk(new Uint8Array([4, 5]));
@@ -50,13 +49,16 @@ test('live helper input rejects a caller-authored digest and any changed trailer
 		/trailer disagrees/iu);
 });
 
-test('an invalid receiver cancellation reason leaves the live input open for a valid cancellation', () => {
+test('an invalid remote cancellation reason leaves the live input open for a valid cancellation', () => {
 	const receiver = new HelperDataPlaneInputReceiver(reservation);
-	assert.throws(() => receiver.cancel('invalid' as 'helper-abort'), /cancellation reason/iu);
-	assert.deepEqual(receiver.cancel('helper-abort'), {
+	const cancel = {
 		dataPlaneVersion: 1, type: 'cancel', streamId: reservation.streamId,
 		reason: 'helper-abort',
-	});
+	};
+	assert.throws(() => receiver.acceptCancel({ ...cancel, reason: 'invalid' }), /cancellation.*reason/iu);
+	receiver.acceptCancel(cancel);
+	const sender = new HelperDataPlaneInputSender(reservation);
+	assert.throws(() => receiver.acceptChunk(sender.createChunk(new Uint8Array([1]))), /cancel/iu);
 });
 
 test('the native-input receiver ACKs only after its awaited sink write settles', async () => {

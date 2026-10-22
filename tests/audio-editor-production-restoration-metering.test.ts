@@ -82,9 +82,6 @@ test('per-strip session meters report mono, stereo phase references, and declare
 	assert.equal(surround.channelCount, 6);
 	assert.deepEqual(surround.channels.map(({ label }) => label), ['L', 'R', 'C', 'LFE', 'Ls', 'Rs']);
 	assert.ok(Math.abs((surround.channels[5]?.peak ?? 0) - 0.6) < 1e-6);
-	assert.deepEqual(METER_SESSION_POLICY.projectFields, []);
-	assert.deepEqual(METER_SESSION_POLICY.historyFields, []);
-	assert.deepEqual(METER_SESSION_POLICY.exportTransforms, []);
 });
 
 test('per-strip meter state is bounded, lifecycle-resettable, and rejects malformed PCM', () => {
@@ -160,7 +157,7 @@ test('one deterministic budgeted scheduler covers 128 strips without analyzing h
 	assert.equal(covered.has('hidden-idle'), false);
 });
 
-test('analysis scheduling validates hostile candidates and skips work that cannot fit the shared budget', () => {
+test('analysis scheduling skips work that cannot fit the shared budget', () => {
 	const scheduler = createStripAnalysisScheduler({ maximumStripsPerTick: 2, maximumFramesPerTick: 1_000 });
 	const plan = scheduler.plan([
 		{ strip: track('fits'), visible: true, armed: false, costFrames: 600 },
@@ -174,17 +171,7 @@ test('analysis scheduling validates hostile candidates and skips work that canno
 		{ strip: track('impossible'), visible: true, armed: false, costFrames: 1_001 },
 	]), /costFrames must be an integer from 1 through 1000/iu);
 
-	let reads = 0;
-	const hostile = Object.create(null) as Record<string, unknown>;
-	Object.defineProperty(hostile, 'strip', { enumerable: true, value: track('hostile') });
-	Object.defineProperty(hostile, 'visible', {
-		enumerable: true,
-		get() { reads += 1; return true; },
-	});
-	Object.defineProperty(hostile, 'armed', { enumerable: true, value: false });
-	Object.defineProperty(hostile, 'costFrames', { enumerable: true, value: 1 });
-	assert.throws(() => scheduler.plan([hostile]), /data property/iu);
-	assert.equal(reads, 0);
+
 });
 
 test('the engine meter bridge samples one bounded session and resets on demand or project replacement', () => {

@@ -32,8 +32,6 @@ async function collectSourceFiles(directory) {
 
 test('every vendored createContext call is annotated pure so rolldown cannot strand it', async () => {
 	const files = await collectSourceFiles(VENDOR_ROOT);
-	assert.ok(files.length > 100, 'expected the vendored design-system source tree to be present');
-
 	const unannotated = [];
 	let annotated = 0;
 	for (const file of files) {

@@ -51,6 +51,8 @@ test('other ordinary browser build callers include Lightscaper before site prepa
 
 test('ordinary browser CI executes the exact collected shard with its required run policy', async () => {
 	const source = await workflow('quality.yml');
+	assert.match(extractJob(source, 'browser'), /timeout-minutes: \$\{\{ matrix\.project == 'chromium' && 120 \|\| 60 \}\}/u,
+		'serial Chromium photo workflows need a bounded job window beyond their observed 88-minute phase');
 	for (const [jobName, collectName, runName, project, shard, normalWorkers] of [
 		['browser', 'Collect browser shard run shape', 'Run browser workflows against the existing build', '${{ matrix.project }}', "${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }}", "${{ matrix.project == 'webkit' && 1 || 2 }}"],
 		['firefox', 'Collect Firefox shard run shape', 'Run Firefox workflows against the existing build', 'firefox', '${{ matrix.shard }}/6', '1'],

@@ -239,6 +239,7 @@ export function createEditorTrackService(
 					...(displayInput
 						? { kind: 'display', label: publishedCopyFor(dependencies.copy).recordingDesktopAudio }
 						: { kind: 'device', deviceId, deviceLabel: device?.label || '' }),
+					...(channelStart === 0 ? { followsPreferences: true } : {}),
 					channelStart,
 					channelCount,
 				});

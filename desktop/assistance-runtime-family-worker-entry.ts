@@ -15,6 +15,7 @@ import {
 import {
 	validateAssistanceRuntimeFamilyDescriptorV1,
 } from './assistance-runtime-family-process-protocol.ts';
+import { withAssistanceGpuValidationJob } from './assistance-gpu-validation.ts';
 
 export interface AssistanceRuntimeFamilyWorkerExecutionContext {
 	readonly job: AssistanceRuntimeFamilyAdmittedJob;
@@ -74,13 +75,15 @@ export async function runAssistanceRuntimeFamilyWorkerJobV1(
 	};
 	let candidate: unknown;
 	try {
-		candidate = await options.execute(Object.freeze({
+		candidate = await withAssistanceGpuValidationJob({ jobId: request.jobId,
+			familyId: request.familyId, modelIds: grant.models.map(model => model.modelId) },
+		async () => options.execute(Object.freeze({
 			job: Object.freeze({ ...request, descriptor }),
 			grant,
 			settings: Object.freeze(JSON.parse(grant.settingsJson) as Record<string, unknown>),
 			signal: options.signal,
 			onProgress,
-		}));
+		})));
 	} finally {
 		active = false;
 	}

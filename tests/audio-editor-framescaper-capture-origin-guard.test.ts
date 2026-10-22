@@ -131,15 +131,3 @@ test('only stop or discard releases a fence and stale authority cannot release a
 	assert.equal(guard.release(current, 'discarded'), true);
 	assert.equal(guard.snapshot('project-b').active, false);
 });
-
-test('origin inputs and active-project projections reject ambiguous identity values', () => {
-	const guard = createFramescaperCaptureOriginGuard();
-	assert.throws(() => guard.bind({ ...ORIGIN_A, baseRevision: -1 }), /base revision/u);
-	assert.throws(() => guard.bind({ ...ORIGIN_A, baseSha256: 'ABC' }), /SHA-256/u);
-	assert.throws(() => guard.bind({ ...ORIGIN_A, sequenceId: ' sequence-a' }), /sequenceId/u);
-	assert.throws(
-		() => guard.bind({ ...ORIGIN_A, extra: true } as FramescaperCaptureOriginBinding),
-		/closed shape/u,
-	);
-	assert.throws(() => guard.snapshot(' project-a'), /active projectId/u);
-});

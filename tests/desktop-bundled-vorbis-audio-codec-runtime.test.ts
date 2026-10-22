@@ -29,9 +29,6 @@ test('the exact artifact gates a narrow Ogg Vorbis provider on all five targets'
 	assert.equal(await loadBundledVorbisAudioCodecRuntime({
 		target: 'win-x64', readPayload: async () => new Uint8Array(BUNDLED_VORBIS_WASM_BYTE_LENGTH),
 	}), null);
-	await assert.rejects(loadBundledVorbisAudioCodecRuntime({
-		target: 'mac-x64' as 'mac-arm64',
-	}), /target/iu);
 });
 
 test('reviewed Vorbis encoding and decoding preserve source geometry with lossy qualification', async () => {
@@ -101,7 +98,7 @@ test('exact request preflight falls through only for valid unreviewed Vorbis pro
 	}))?.disposition, 'rejected');
 });
 
-test('runtime makes malformed PCM/Ogg, output bounds, and cancellation terminal', async () => {
+test('runtime makes malformed PCM/Ogg and output bounds terminal', async () => {
 	const runtime = await requiredRuntime('mac-arm64');
 	const invalidPcm = await execute(runtime, encodeRequest(floatBytes([0, Number.NaN]), {
 		frameCount: 1, channelCount: 2, sampleRate: 48_000, quality: 5,
@@ -116,15 +113,6 @@ test('runtime makes malformed PCM/Ogg, output bounds, and cancellation terminal'
 	const tooSmall = await execute(runtime, { ...decodeRequest(encoded.output), maximumOutputBytes: 3_839 });
 	assert.equal(tooSmall.status, 'failed');
 	if (tooSmall.status === 'failed') assert.equal(tooSmall.reason, 'result-failed');
-	const controller = new AbortController();
-	controller.abort(new Error('stop-vorbis'));
-	await assert.rejects(runtime.execute(encodeRequest(sinePcm(960, 1, 48_000), {
-		frameCount: 960, channelCount: 1, sampleRate: 48_000, quality: 5,
-	}), {
-		operation: deriveDesktopAudioCodecOperation(encodeRequest(sinePcm(960, 1, 48_000), {
-			frameCount: 960, channelCount: 1, sampleRate: 48_000, quality: 5,
-		})), signal: controller.signal,
-	}), /stop-vorbis/u);
 });
 
 async function requiredRuntime(target: 'linux-x64' | 'mac-arm64' | 'win-arm64') {

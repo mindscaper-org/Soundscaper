@@ -5,17 +5,37 @@
 import type {
 	AssistanceOnnxInferenceSessionV1, AssistanceOnnxRuntimeModuleV1,
 } from './assistance-onnx-runtime-worker.ts';
+import {
+	createAssistanceOnnxGpuValidatedRuntimeV1,
+	type AssistanceOnnxGpuExecutionProofV1,
+} from './assistance-onnx-gpu-validation.ts';
+import { isAssistanceGpuValidationEnabled, recordAssistanceGpuValidation } from './assistance-gpu-validation.ts';
 
 type SessionOptions = Parameters<AssistanceOnnxRuntimeModuleV1['InferenceSession']['create']>[1];
 type OnnxGpuProvider = 'coreml' | 'webgpu';
+
+export interface AssistanceOnnxGpuValidationOptionsV1 {
+	readonly onExecution: (proof: AssistanceOnnxGpuExecutionProofV1) => PromiseLike<void> | void;
+}
 
 export function createAssistanceOnnxAcceleratedRuntimeV1(
 	runtime: AssistanceOnnxRuntimeModuleV1,
 	descriptor: Readonly<{ executionProviders?: readonly string[] }>,
 	getSignal: () => AbortSignal | undefined = () => undefined,
+	gpuValidation?: AssistanceOnnxGpuValidationOptionsV1,
 ): AssistanceOnnxRuntimeModuleV1 {
 	const providers = (descriptor.executionProviders ?? []).filter((provider): provider is OnnxGpuProvider =>
 		provider === 'coreml' || provider === 'webgpu');
+	const validation = gpuValidation ?? (isAssistanceGpuValidationEnabled() ? {
+		onExecution: (proof: AssistanceOnnxGpuExecutionProofV1) => recordAssistanceGpuValidation({
+			provider: proof.provider, proof: 'onnx-profile',
+			gpuWorkCount: proof.gpuKernelCount, cpuWorkCount: proof.cpuKernelCount,
+			...(proof.processIds === undefined ? {} : { processIds: proof.processIds }),
+		}),
+	} : undefined);
+	if (validation !== undefined) {
+		return createAssistanceOnnxGpuValidatedRuntimeV1(runtime, providers, getSignal, validation.onExecution);
+	}
 	if (!providers.length) return runtime;
 	return { Tensor: runtime.Tensor, InferenceSession: { create: async (path, settings) => {
 		const signal = getSignal();

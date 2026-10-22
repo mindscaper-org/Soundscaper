@@ -45,9 +45,6 @@ test('rejects foreign workflow authority and nomic model substitution before mod
 		await assert.rejects(harness.resolve({
 			requestBinding: foreignVersion, callbackModel: foreignVersion,
 		}), /exact|nomic|version|identity/iu);
-		await assert.rejects(harness.resolve({ callbackModel: {
-			...harness.binding, artifactSha256s: ['f'.repeat(64)],
-		} }), /callback|binding|correlate|authority/iu);
 		assert.deepEqual(harness.resolvedModelIds, []);
 	});
 });
@@ -78,9 +75,6 @@ test('admits exactly the model graph plus four tokenizer/config artifact roles',
 		})];
 		assert.equal(await harness.resolve(), null);
 
-		harness.installed = [harness.installation];
-		harness.paths = Object.freeze({ ...harness.paths, unexpected: harness.paths.config! });
-		assert.equal(await harness.resolve(), null);
 	});
 });
 

@@ -117,7 +117,7 @@ function inspectFlacSampleRate(bytes) {
 		if (tagLength === null) return null;
 		offset = 10 + tagLength + (bytes[5] & 0x10 ? 10 : 0);
 	}
-	if (offset > 64 * 1024 || ascii(bytes, offset, 4) !== 'fLaC') return null;
+	if (ascii(bytes, offset, 4) !== 'fLaC') return null;
 	const block = offset + 4;
 	if (block + 38 > bytes.byteLength || (bytes[block] & 0x7f) !== 0) return null;
 	const length = (bytes[block + 1] << 16) | (bytes[block + 2] << 8) | bytes[block + 3];
@@ -131,29 +131,40 @@ function inspectFlacSampleRate(bytes) {
 }
 
 function inspectOggSampleRate(bytes) {
-	if (bytes.byteLength < 28 || ascii(bytes, 0, 4) !== 'OggS' || bytes[4] !== 0) return null;
-	const segmentCount = bytes[26];
-	const packetOffset = 27 + segmentCount;
-	if (packetOffset > bytes.byteLength) return null;
-	let packetLength = 0;
-	let complete = false;
-	for (let index = 0; index < segmentCount; index += 1) {
-		const segmentLength = bytes[27 + index];
-		packetLength += segmentLength;
-		if (segmentLength < 255) {
-			complete = true;
-			break;
+	let offset = 0;
+	const limit = Math.min(bytes.byteLength, MAX_SIGNATURE_SCAN_BYTES);
+	for (let pages = 0; pages < MAX_CONTAINER_BOXES && offset + 27 <= limit; pages += 1) {
+		if (ascii(bytes, offset, 4) !== 'OggS' || bytes[offset + 4] !== 0) return null;
+		const segmentCount = bytes[offset + 26];
+		const packetOffset = offset + 27 + segmentCount;
+		if (packetOffset > limit) return null;
+		let packetLength = 0;
+		let pageLength = 0;
+		let complete = false;
+		for (let index = 0; index < segmentCount; index += 1) {
+			const segmentLength = bytes[offset + 27 + index];
+			pageLength += segmentLength;
+			if (!complete) {
+				packetLength += segmentLength;
+				if (segmentLength < 255) complete = true;
+			}
 		}
-	}
-	if (!complete || packetOffset + packetLength > bytes.byteLength) return null;
-	if (packetLength >= 16 && bytes[packetOffset] === 1
-		&& ascii(bytes, packetOffset + 1, 6) === 'vorbis') {
-		return sampleRate(dataView(bytes).getUint32(packetOffset + 12, true));
-	}
-	if (packetLength >= 19 && ascii(bytes, packetOffset, 8) === 'OpusHead') {
-		// Opus packets always use a 48 kHz decode clock. The header's input
-		// rate field is informational and must not drive PCM resampling.
-		return 48_000;
+		if (!complete || packetOffset + pageLength > limit) return null;
+		if (packetLength >= 16 && bytes[packetOffset] === 1
+			&& ascii(bytes, packetOffset + 1, 6) === 'vorbis') {
+			return sampleRate(dataView(bytes).getUint32(packetOffset + 12, true));
+		}
+		if (packetLength >= 19 && ascii(bytes, packetOffset, 8) === 'OpusHead') {
+			// Opus always decodes on a 48 kHz clock; the input rate is informational.
+			return 48_000;
+		}
+		if (packetLength >= 51 && bytes[packetOffset] === 0x7f
+			&& ascii(bytes, packetOffset + 1, 4) === 'FLAC' && bytes[packetOffset + 5] === 1) {
+			return inspectFlacSampleRate(bytes.subarray(packetOffset + 9, packetOffset + packetLength));
+		}
+		// Skeleton and other non-audio BOS streams can precede the primary audio.
+		if (!(bytes[offset + 5] & 2)) return null;
+		offset = packetOffset + pageLength;
 	}
 	return null;
 }
@@ -221,8 +232,28 @@ function inspectAsfSampleRate(bytes) {
 
 function inspectWavPackSampleRate(bytes) {
 	if (ascii(bytes, 0, 4) !== 'wvpk' || bytes.byteLength < 32) return null;
-	const flags = dataView(bytes).getUint32(24, true);
-	return sampleRate(WAVPACK_SAMPLE_RATES[(flags >>> 23) & 0x0f]);
+	const view = dataView(bytes);
+	const flags = view.getUint32(24, true);
+	const rateIndex = (flags >>> 23) & 0x0f;
+	if (rateIndex !== 15) return sampleRate(WAVPACK_SAMPLE_RATES[rateIndex]);
+	const end = Math.min(bytes.byteLength, view.getUint32(4, true) + 8, MAX_SIGNATURE_SCAN_BYTES);
+	let offset = 32;
+	while (offset + 2 <= end) {
+		const id = bytes[offset++];
+		let words = bytes[offset++];
+		if (id & 0x80) {
+			if (offset + 2 > end) return null;
+			words += bytes[offset++] * 256 + bytes[offset++] * 65_536;
+		}
+		const paddedLength = words * 2;
+		const length = paddedLength - (id & 0x40 ? 1 : 0);
+		if (offset + paddedLength > end || length < 0) return null;
+		if ((id & 0x3f) === 0x27 && length === 3) {
+			return sampleRate(bytes[offset] + bytes[offset + 1] * 256 + bytes[offset + 2] * 65_536);
+		}
+		offset += paddedLength;
+	}
+	return null;
 }
 
 function inspectMpegOrAdtsSampleRate(bytes, includeAdts = true) {
@@ -265,7 +296,7 @@ function inspectMpegOrAdtsSampleRate(bytes, includeAdts = true) {
 		const layer = (header >>> 17) & 0x03;
 		const bitrateIndex = (header >>> 12) & 0x0f;
 		const frequencyIndex = (header >>> 10) & 0x03;
-		if (version === 1 || layer === 0 || bitrateIndex === 0 || bitrateIndex === 0x0f || frequencyIndex === 3) continue;
+		if (version === 1 || layer === 0 || bitrateIndex === 0x0f || frequencyIndex === 3) continue;
 		const rates = version === 3
 			? [44_100, 48_000, 32_000]
 			: version === 2

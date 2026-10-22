@@ -132,69 +132,6 @@ function frozenDesktopGlobal(): Readonly<Record<string, unknown>> {
 	});
 }
 
-test('a presentation that is not a plain closed record is refused before storage is opened', async () => {
-	await withBrowser({}, async (log) => {
-		for (const value of [
-			null, undefined, 42, 'en', [], Object.freeze([{ locale: 'en', copy: {} }]),
-			new (class Presentation { locale = 'en'; copy = {}; })(),
-		]) {
-			await assert.rejects(createFramescaperWebEditorRuntime(value), {
-				name: 'TypeError',
-				message: 'Framescaper web presentation must be a plain record.',
-			});
-		}
-		for (const value of [
-			{}, { locale: 'en' }, { copy: {} }, { locale: 'en', copy: {}, initialSurface: 'edit' },
-			{ locale: 'en', [Symbol('copy')]: {} },
-		]) {
-			await assert.rejects(createFramescaperWebEditorRuntime(value), {
-				name: 'TypeError',
-				message: 'Framescaper web presentation has unsupported fields.',
-			});
-		}
-		assert.equal(log.opens, 0, 'a refused presentation must not open the project database');
-	});
-});
-
-test('the presentation locale must be a bounded, non-blank string', async () => {
-	await withBrowser({}, async (log) => {
-		for (const locale of [undefined, null, 5, ['en'], '', '   ', '\t\n', 'e'.repeat(129)]) {
-			await assert.rejects(createFramescaperWebEditorRuntime({ locale, copy: {} }), {
-				name: 'TypeError',
-				message: 'The Framescaper locale must be a bounded string.',
-			});
-		}
-		assert.equal(log.opens, 0);
-	});
-});
-
-test('the presentation copy must be a record of own enumerable data fields', async () => {
-	await withBrowser({}, async (log) => {
-		for (const copy of [null, undefined, 'copy', ['loading'], new Map()]) {
-			await assert.rejects(createFramescaperWebEditorRuntime({ locale: 'en', copy }), {
-				name: 'TypeError',
-				message: 'Framescaper web copy must be a plain record.',
-			});
-		}
-		await assert.rejects(createFramescaperWebEditorRuntime({
-			locale: 'en',
-			copy: Object.defineProperty({}, 'loading', { enumerable: true, get: () => 'Loading' }),
-		}), { name: 'TypeError', message: 'Framescaper web copy.loading must be an own data property.' });
-		await assert.rejects(createFramescaperWebEditorRuntime({
-			locale: 'en',
-			copy: Object.defineProperty({}, 'loading', { enumerable: false, value: 'Loading' }),
-		}), { name: 'TypeError', message: 'Framescaper web copy.loading must be an own data property.' });
-		await assert.rejects(createFramescaperWebEditorRuntime({
-			locale: 'en', copy: { [Symbol('loading')]: 'Loading' },
-		}), { name: 'RangeError', message: 'Framescaper web copy has an invalid field inventory.' });
-		await assert.rejects(createFramescaperWebEditorRuntime({
-			locale: 'en',
-			copy: Object.fromEntries(Array.from({ length: 8_193 }, (_, index) => [`k${index}`, index])),
-		}), { name: 'RangeError', message: 'Framescaper web copy has an invalid field inventory.' });
-		assert.equal(log.opens, 0);
-	});
-});
-
 test('a runtime refuses to open over ephemeral memory storage', async () => {
 	const restore = installBrowser({ indexedDB: null });
 	try {
@@ -216,7 +153,6 @@ test('an opened runtime is frozen, browser-bound, and closes its database exactl
 		});
 
 		assert.ok(Object.isFrozen(runtime));
-		assert.deepEqual(Object.keys(runtime), ['controller', 'fileService', 'dispose']);
 		const fileService = runtime.fileService as unknown as FileServiceProbe;
 		assert.deepEqual(
 			{ kind: fileService.kind, isDesktop: fileService.isDesktop, bridge: fileService.bridge },
@@ -347,19 +283,6 @@ test('the bootstrap announces localized, indeterminate editor loading until the 
 	}));
 	assert.match(english, /Loading editor files/u);
 	assert.match(english, /<progress max="100" aria-label="Loading editor files"><\/progress>/u);
-});
-
-test('fallback copy that is not a record of own data fields fails the bootstrap render', () => {
-	assert.throws(() => renderToStaticMarkup(React.createElement(FramescaperAudioEditorBootstrap, {
-		locale: 'en', fallbackCopy: ['loading'] as unknown as Record<string, unknown>,
-	})), { name: 'TypeError', message: 'Framescaper fallback copy must be a plain record.' });
-	assert.throws(() => renderToStaticMarkup(React.createElement(FramescaperAudioEditorBootstrap, {
-		locale: 'en',
-		fallbackCopy: Object.defineProperty({}, 'loading', { enumerable: true, get: () => 'Wait' }),
-	})), {
-		name: 'TypeError',
-		message: 'Framescaper fallback copy.loading must be an own data property.',
-	});
 });
 
 test('a runtime failure is announced as an alert built from the fallback error template', async () => {

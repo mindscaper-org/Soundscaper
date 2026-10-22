@@ -100,7 +100,6 @@ export async function workflowHarness(
 	const progress: Array<[number, number]> = [];
 	const authenticated: string[] = [];
 	let openCount = 0;
-	let mediaOverride: string | null = null;
 	const custody = {
 		workflowCustodyClaim(value: unknown) {
 			const workflowClaim = value as AssistanceWorkflowClaimV1;
@@ -114,7 +113,7 @@ export async function workflowHarness(
 				) : assistanceWorkflowCustodySlotSpec(
 					workflowId, workflowClaim.stageId, workflowClaim.direction, workflowClaim.slotId,
 				);
-			const mediaType = mediaOverride ?? custodySpec.mediaTypes[0]!;
+			const mediaType = custodySpec.mediaTypes[0]!;
 			const record = inputRecords.get(`${workflowClaim.stageId}:${workflowClaim.slotId}`);
 			return {
 				custodyVersion: 1 as const, workflowId, direction: workflowClaim.direction,
@@ -163,8 +162,6 @@ export async function workflowHarness(
 	return {
 		request, custody, progress, authenticated,
 		get openCount() { return openCount; },
-		get mediaOverride() { return mediaOverride; },
-		set mediaOverride(value: string | null) { mediaOverride = value; },
 		execution(stageId: string, signal = new AbortController().signal) {
 			const stage = selected.find((candidate) => candidate.stageId === stageId)!;
 			const binding = { request, stage, stageIndex: stageIds.indexOf(stageId),

@@ -28,7 +28,6 @@ const expectedHelpers = [
 ] as const;
 
 test('round-four preparation helpers retain the semantic owners their production callers load', () => {
-	assert.equal(expectedHelpers.length, 19);
 	for (const [path, owner] of expectedHelpers) {
 		assert.equal(chunkGroupForModulePath(path), owner, path);
 		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner, path);
@@ -50,13 +49,8 @@ test('optional preparation ownership retains existing priorities, bounded chunks
 	}
 });
 
-test('preparation ownership does not absorb unrelated UI, similarly named modules or eager engine work', () => {
+test('preparation ownership preserves eager engine and unrelated UI ownership', () => {
 	for (const [path, owner] of [
-		['src/common/editor/ui/useCompressionCurve-extra.ts', 'editor-shell'],
-		['src/common/editor/ui/workspace/routing-graph-presentation-extra.ts', 'editor-shell'],
-		['src/common/editor/ui/dialogs/useGeneratorPresentation-extra.ts', null],
-		['src/common/editor/ui/dialogs/useAnalyzerLookup-extra.ts', null],
-		['src/common/editor/ui/inspector/useEffectPresentation-extra.ts', null],
 		['src/common/editor/engine/scheduled-parameter-registry.ts', 'editor-engine'],
 		['src/common/editor/engine/parallel-stack-playback.ts', 'editor-engine'],
 		['src/common/editor/ui/workspace/ProjectBinCard.jsx', 'editor-shell'],

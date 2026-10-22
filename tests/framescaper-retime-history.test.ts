@@ -39,13 +39,11 @@ function stacks(value: Data): Readonly<{ undo: number; redo: number; title: unkn
 test('a fresh history holds the project with both stacks empty', () => {
 	const initial = history();
 
-	assert.deepEqual(Object.keys(initial), ['limit', 'present', 'undoStack', 'redoStack']);
 	assert.deepEqual(stacks(initial), { undo: 0, redo: 0, title: 'Untitled project' });
 });
 
 test('a history validates against its own runtime profile', () => {
 	assert.doesNotThrow(() => validate(PROFILE, history() as never));
-	assert.throws(() => validate({}, history() as never), TypeError);
 	assert.throws(() => validate(PROFILE, {} as never), /history\.limit is required/u);
 });
 

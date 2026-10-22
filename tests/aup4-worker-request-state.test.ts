@@ -38,10 +38,6 @@ test('AUP4 worker exposes only protocol operations reached by the application cl
 	]) {
 		assert.doesNotMatch(worker, new RegExp(`type === '${operation}'`, 'u'), operation);
 	}
-	const snapshot = await readFile(
-		new URL('../src/common/editor/aup4-worker-snapshot.js', import.meta.url), 'utf8',
-	);
-	assert.doesNotMatch(snapshot, /function writeSnapshot\b/u);
 });
 
 test('AUP4 snapshot compatibility state is published only after COMMIT succeeds', async () => {

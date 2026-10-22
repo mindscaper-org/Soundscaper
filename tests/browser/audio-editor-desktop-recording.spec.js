@@ -115,7 +115,9 @@ test.describe('desktop audio recording', () => {
 		expect(await page.evaluate(() => window.__desktopDisplayRequests)).toBe(0);
 		await setup.getByRole('button', { name: 'Choose display source', exact: true }).click();
 		await expect(setup.getByRole('button', { name: 'Choose a different display source', exact: true })).toBeVisible();
-		await setup.getByRole('radio', { name: 'Stereo', exact: true }).check();
+		const stereo = setup.getByRole('radio', { name: 'Stereo', exact: true });
+		await stereo.click();
+		await expect(stereo).toBeChecked();
 		await page.keyboard.press('Escape');
 		const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
 		await record.click();
@@ -150,7 +152,9 @@ test.describe('desktop audio recording', () => {
 		await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
 		const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
 		await setup.getByRole('combobox', { name: 'Microphone', exact: true }).selectOption('display');
-		await setup.getByRole('radio', { name: 'Stereo', exact: true }).check();
+		const stereo = setup.getByRole('radio', { name: 'Stereo', exact: true });
+		await stereo.click();
+		await expect(stereo).toBeChecked();
 		await page.keyboard.press('Escape');
 		const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
 		await record.click();

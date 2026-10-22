@@ -15,12 +15,12 @@ export async function exchangeAuthorizationCode(context: AudiocomOAuthFunctionCo
 }
 export async function refreshAccessToken(context: AudiocomOAuthFunctionContext, grant: OAuthGrantRecord, masterKey: string, dependencies: OAuthHandlerDependencies): Promise<AudiocomTokenPair> {
 	return tokenRequest(context, {
-		grant_type: 'refresh_token',
+		grant_type: 'refresh_token', scope: grant.provider?.scope ?? 'public',
 		refresh_token: await decryptOAuthSecret(grant.refreshTokenCiphertext, masterKey, `audiocom-oauth:${grant.id}:refresh`),
 	}, dependencies);
 }
 async function tokenRequest(context: AudiocomOAuthFunctionContext, fields: Record<string, string>, dependencies: OAuthHandlerDependencies): Promise<AudiocomTokenPair> {
-	const form = new URLSearchParams({ ...fields, client_id: configuredSecret(context.env.AUDIOCOM_CLIENT_ID, 'OAuth client') });
+	const form = new URLSearchParams({ scope: providerConfiguration(context.env).scope, ...fields, client_id: configuredSecret(context.env.AUDIOCOM_CLIENT_ID, 'OAuth client') });
 	if (context.env.AUDIOCOM_CLIENT_SECRET?.trim()) form.set('client_secret', configuredSecret(context.env.AUDIOCOM_CLIENT_SECRET, 'OAuth client secret'));
 	const response = await (dependencies.fetchImpl ?? fetch)(new URL('/auth/token', providerConfiguration(context.env).apiOrigin), {
 		method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -39,7 +39,7 @@ async function tokenRequest(context: AudiocomOAuthFunctionContext, fields: Recor
 		console.warn(JSON.stringify({ event: 'audiocom_oauth_token_unreadable', status: response.status }));
 		throw new OAuthHttpError(502, 'oauth_token_response_unreadable', 'audio.com returned an unreadable authorization response.');
 	}
-	try { return normalizeTokenPair(value, providerConfiguration(context.env).scope.split(' ')); }
+	try { return normalizeTokenPair(value, (fields.scope ?? providerConfiguration(context.env).scope).split(' ')); }
 	catch (error) {
 		if (error instanceof AudiocomOAuthContractError) {
 			const source = value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};

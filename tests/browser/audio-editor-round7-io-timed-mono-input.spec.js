@@ -14,7 +14,7 @@ test('a negotiated mono default microphone can schedule the same take it records
 	await preferences.getByRole('tab', { name: /Audio settings$/u }).click();
 	const stereo = preferences.getByRole('radio', { name: 'Stereo', exact: true });
 	await expect(stereo).toBeEnabled();
-	await stereo.check();
+	await stereo.click();
 	await expect(stereo).toBeChecked();
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 	const projectId = await editor.getAttribute('data-project-id');

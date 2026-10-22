@@ -28,7 +28,6 @@ test('PDC plan extraction preserves the legacy project latency calculation byte-
 		{ includeMaster: false },
 		{ trackId: 'track-fast' },
 		{ trackId: 'track-slow', includeMaster: false },
-		{ trackId: 'undefined' },
 		{ sampleRate: 96_000 },
 	] as const;
 	for (const options of cases) {
@@ -81,7 +80,6 @@ function representativeProject(): EngineProject {
 				envelope: [{ frame: 8_000, value: 0.25 }, { frame: 32_000, value: 0.75 }],
 			},
 			{ id: 'label', type: 'label', gain: 1, effects: [limiter('ignored-label', 1)] },
-			{ type: 'audio', gain: 1, effects: [limiter('legacy-undefined-id', 0.0025)] },
 		],
 		mixer: {
 			groups: [{

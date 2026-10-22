@@ -25,7 +25,6 @@ test('Windows Whisper archive diagnostics expose executable and provenance diges
 	assert.equal(whisperArchiveIdentityLine(distribution),
 		`Whisper archive win-x64: archive=${'a'.repeat(64)} executable=${'b'.repeat(64)} provenance=${'c'.repeat(64)}`);
 	assert.equal(whisperArchiveIdentityLine({ ...distribution, targetId: 'linux-x64' }), null);
-	assert.throws(() => whisperArchiveIdentityLine({ ...distribution, bundles: [] }), /Whisper archive inventory/u);
 });
 
 test('runtime publication uploads immutable R2 keys and reads public bytes back before success', async () => {

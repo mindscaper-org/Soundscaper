@@ -22,7 +22,6 @@ void test('native PCM delivery fences each sink chunk and disposes after a revis
 		async prepareCommittedTimePitchCaches() {},
 		createRenderEngine: () => ({ loadProject() {}, async renderMixToSink(options) {
 			const sink = options.sink;
-			assert.equal(typeof sink, 'function');
 			assert.ok(typeof sink === 'function');
 			await sink([new Float32Array([1])], { sampleRate: 48000, frameOffset: 0, frames: 1 });
 			return { sampleRate: 48000, channelCount: 1, frameCount: 1, chunkCount: 1 };

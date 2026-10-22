@@ -1,4 +1,5 @@
 import { EditorStoreBlockedError, EditorStoreClosedError, EditorStoreVersionStaleError, memoryFallbackReason } from './storage/status.ts';
+import { ProjectRecoveryRepository } from './storage/project-recovery-repository.ts';
 import { openDatabase } from './storage/indexeddb-backend.ts';
 import { getMemoryDatabase } from './storage/memory-backend.ts';
 import { createStorageRepositories } from './storage/repositories.ts';
@@ -80,6 +81,7 @@ export class AudioEditorProjectStore {
 			opfsWorkerName: projectStorageProfileNames?.opfsWorkerName ?? DEFAULT_OPFS_WORKER_NAME,
 		});
 		this.projectRepository = repositories.projects;
+		this.projectRecoveryRepository = new ProjectRecoveryRepository({ memory: this.memory, database: () => this.#database() });
 		this.settingsRepository = repositories.settings;
 		this.analysisRepository = repositories.analysis;
 		this.analysisCacheRepository = repositories.analysisCache || repositories.analysis;
@@ -138,25 +140,23 @@ export class AudioEditorProjectStore {
 			this.projectRepository, projectId, collectProtectedSourceReferences, async () => await this.#database() !== null,
 		);
 	}
-
 	async loadProject(projectId, { revision, signal } = {}) {
 		return this.projectRepository.load(projectId, { revision, signal });
 	}
-
 	async listProjects() {
 		return this.projectRepository.list();
 	}
-
+	/** @param {string} projectId */
+	readProjectRecoveryCandidates(projectId) { return this.projectRecoveryRepository.read(projectId); }
+	listProjectRecoverySummaries() { return this.projectRecoveryRepository.list(); }
 	async listProjectRevisions(projectId) {
 		return this.projectRepository.listRevisions(projectId);
 	}
-
 	async deleteProject(projectId) {
 		const result = await this.linkedOriginalStoreService.deleteProject(projectId, () => this.projectRepository.delete(projectId));
 		await this.assistanceDerivativeRepository?.purgeProject(projectId).catch(() => undefined);
 		return result;
 	}
-
 	/** Binding-preserving replace-import rollback; see restoreStoreProjectSnapshot. */
 	restoreProjectSnapshot(projectId, snapshot) { return restoreStoreProjectSnapshot(this, this.projectRepository, projectId, snapshot); }
 	restoreProjectSnapshotIfCurrent(projectId, expected, snapshot) { return restoreStoreProjectSnapshotIfCurrent(this.projectRepository, projectId, expected, snapshot); }

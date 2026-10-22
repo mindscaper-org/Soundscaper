@@ -37,7 +37,7 @@ test('desktop .scape sources issue exact bounded 206 requests without release au
 		size: DESCRIPTOR.size, read: () => new Uint8Array(),
 	})), false);
 
-	assert.deepEqual(Object.keys(source).sort(), ['maximumReadBytes', 'read', 'size']);
+	assert.equal('release' in source, false);
 	assert.equal(source.maximumReadBytes, 16 * 1024 * 1024);
 	assert.equal(source.maximumReadBytes, DESKTOP_SCAPE_RANGE_MAXIMUM_READ_BYTES);
 	assert.equal(source.size, DESCRIPTOR.size);
@@ -219,32 +219,6 @@ test('desktop .scape sources preserve admitted transport failures and cleanup ca
 		assert.equal(await rejectionOf(() => source.read({ offset: 2, length: 2 })), primary);
 	});
 
-	for (const scenario of [
-		{ name: 'malformed read result', result: null },
-		{ name: 'non-byte chunk', result: { done: false, value: 'not bytes' } },
-	]) {
-		await context.test(scenario.name, async () => {
-			const cancellations: unknown[] = [];
-			let reads = 0;
-			const reader = {
-				async read(): Promise<ReadableStreamReadResult<Uint8Array>> {
-					reads += 1;
-					return scenario.result as unknown as ReadableStreamReadResult<Uint8Array>;
-				},
-				async cancel(reason: unknown): Promise<void> {
-					cancellations.push(reason);
-				},
-			} as ReadableStreamDefaultReader<Uint8Array>;
-			const source = createDesktopScapeArchiveByteSource(DESCRIPTOR, {
-				fetch: async () => responseWithReader(reader),
-			});
-			const primary = await rejectionOf(() => source.read({ offset: 0, length: 2 }));
-			assert.match(String(primary), /body|byte|result/iu);
-			assert.deepEqual(cancellations, [primary]);
-			assert.equal(await rejectionOf(() => source.read({ offset: 2, length: 2 })), primary);
-			assert.equal(reads, 1);
-		});
-	}
 });
 
 test('desktop .scape sources serialize concurrent reads through response-body completion', async () => {

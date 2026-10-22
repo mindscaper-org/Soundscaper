@@ -66,6 +66,7 @@ export interface NativeRealtimeOwnerTarget {
 
 export type NativeRealtimeAuthorizationRequest = NativeRealtimeFormatRequest & Readonly<{
 	owner: NativeRealtimeOwnerTarget;
+	sessionId?: string;
 }>;
 
 export type NativeRealtimeAuthorization =
@@ -86,6 +87,7 @@ export interface NativeRealtimeBrokerSnapshot {
 
 export interface DesktopNativeRealtimeBrokerOptions {
 	readonly isEnabled: () => boolean;
+	readonly concurrentSessions?: boolean;
 	/** Injected so revocation is observable; production closes the port handle. */
 	readonly closePort?: (port: NativeRealtimeTransferredPort) => void;
 	readonly onClose?: (event: NativeRealtimeBrokerCloseEvent) => void;
@@ -96,6 +98,7 @@ interface BrokeredGeneration {
 	readonly generation: number;
 	readonly owner: NativeRealtimeOwnerTarget;
 	readonly format: NativeRealtimeFormat;
+	readonly sessionId?: string;
 	port: NativeRealtimeTransferredPort | null;
 }
 
@@ -110,6 +113,8 @@ export class DesktopNativeRealtimeBroker {
 	readonly #closePort: (port: NativeRealtimeTransferredPort) => void;
 	readonly #onClose: ((event: NativeRealtimeBrokerCloseEvent) => void) | null;
 	readonly #channel: string;
+	readonly #concurrentSessions: boolean;
+	readonly #retained = new Map<number, BrokeredGeneration>();
 	// The ledger of ports this broker has already closed. A port that arrives
 	// twice, or a live port torn down by two signals at once, is closed on the
 	// first cause only: the reason a generation ended is not overwritten by the
@@ -123,6 +128,7 @@ export class DesktopNativeRealtimeBroker {
 
 	constructor(options: DesktopNativeRealtimeBrokerOptions) {
 		this.#isEnabled = options.isEnabled;
+		this.#concurrentSessions = options.concurrentSessions === true;
 		this.#closePort = options.closePort ?? ((port) => port.close());
 		this.#onClose = options.onClose ?? null;
 		this.#channel = options.channel ?? NATIVE_REALTIME_PORT_CHANNEL;
@@ -162,7 +168,8 @@ export class DesktopNativeRealtimeBroker {
 		// generation keeps playing until a port for the new one actually lands.
 		this.#owner = request.owner;
 		this.#issued += 1;
-		this.#pending = { generation: this.#issued, owner: request.owner, format, port: null };
+		this.#pending = { generation: this.#issued, owner: request.owner, format, port: null,
+			...(request.sessionId ? { sessionId: request.sessionId } : {}) };
 		return Object.freeze({ status: 'authorized' as const, generation: this.#issued, format });
 	}
 
@@ -195,7 +202,8 @@ export class DesktopNativeRealtimeBroker {
 			return refused;
 		}
 		try {
-			admitted.owner.postMessage(this.#channel, handshake, Object.freeze([port]));
+			admitted.owner.postMessage(this.#channel, admitted.sessionId
+				? Object.freeze({ ...handshake, sessionId: admitted.sessionId }) : handshake, Object.freeze([port]));
 		} catch (error) {
 			this.#retire(admitted);
 			this.#closeOffered(port, handshake.generation, 'delivery-failed');
@@ -214,7 +222,8 @@ export class DesktopNativeRealtimeBroker {
 		// The port is the renderer's from here. Superseding after the handover,
 		// not at authorization, is what keeps the running stream audible until
 		// its replacement is genuinely in the worklet's hands.
-		this.#closeGeneration(this.#live, 'superseded');
+		if (this.#concurrentSessions && this.#live) this.#retained.set(this.#live.generation, this.#live);
+		else this.#closeGeneration(this.#live, 'superseded');
 		admitted.port = port;
 		this.#live = admitted;
 		this.#pending = null;
@@ -232,6 +241,19 @@ export class DesktopNativeRealtimeBroker {
 		this.#owner = null;
 		this.#closeGeneration(this.#live, 'owner-revoked');
 		this.#live = null;
+		this.#closeRetained('owner-revoked');
+	}
+
+	/** Closing one device must preserve another direction owned by the same editor. */
+	revokeGeneration(generation: number): void {
+		if (this.#pending?.generation === generation) this.#pending = null;
+		if (this.#live?.generation === generation) {
+			this.#closeGeneration(this.#live, 'owner-revoked');
+			this.#live = null;
+		}
+		this.#closeGeneration(this.#retained.get(generation) ?? null, 'owner-revoked');
+		this.#retained.delete(generation);
+		if (!this.#live && !this.#pending && this.#retained.size === 0) this.#owner = null;
 	}
 
 	/**
@@ -243,6 +265,7 @@ export class DesktopNativeRealtimeBroker {
 		this.#pending = null;
 		this.#closeGeneration(this.#live, 'helper-exit');
 		this.#live = null;
+		this.#closeRetained('helper-exit');
 	}
 
 	dispose(): void {
@@ -252,6 +275,7 @@ export class DesktopNativeRealtimeBroker {
 		this.#pending = null;
 		this.#closeGeneration(this.#live, 'disposed');
 		this.#live = null;
+		this.#closeRetained('disposed');
 	}
 
 	#available(): boolean {
@@ -261,7 +285,7 @@ export class DesktopNativeRealtimeBroker {
 	/** The authorization this offer satisfies, or the reason it satisfies none. */
 	#admit(handshake: NativeRealtimeHandshake): Admission {
 		const generation = handshake.generation;
-		if (this.#live?.generation === generation) {
+		if (this.#live?.generation === generation || this.#retained.has(generation)) {
 			return refusedAdmission('generation-occupied', `Generation ${generation} already holds a live port.`);
 		}
 		const pending = this.#pending;
@@ -307,6 +331,11 @@ export class DesktopNativeRealtimeBroker {
 		const port = record.port;
 		record.port = null;
 		if (port) this.#close(port, record.generation, reason, null);
+	}
+
+	#closeRetained(reason: NativeRealtimeBrokerCloseReason): void {
+		for (const record of this.#retained.values()) this.#closeGeneration(record, reason);
+		this.#retained.clear();
 	}
 
 	#closeOffered(port: unknown, generation: number | null, refusal: NativeRealtimeBrokerRefusal): void {

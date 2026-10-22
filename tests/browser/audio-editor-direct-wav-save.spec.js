@@ -44,7 +44,6 @@ test.describe('direct native PCM File System Access publication', () => {
 			});
 		});
 		const editor = await bootEditor(page, '/embed/en/');
-		expect(await page.evaluate(() => navigator.userAgentData?.mobile)).toBe(true);
 		await importFiles(editor, [createThresholdTone()]);
 		await installDirectPcmTarget(page, {
 			fileName: 'direct-browser-mix.wav',
@@ -61,7 +60,6 @@ test.describe('direct native PCM File System Access publication', () => {
 			routes: (input) => input === 0,
 		});
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="dither"]'), 'None');
-		expect(FRAME_COUNT * CHANNEL_COUNT * 4).toBeGreaterThan(96 * 1024 ** 2);
 
 		await exportDialog.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect(editor.getByText('Large project: rendering in realtime to conserve memory', { exact: true })).toBeVisible();
@@ -188,7 +186,6 @@ test.describe('direct native PCM File System Access publication', () => {
 			});
 		});
 		const editor = await bootEditor(page, '/embed/en/');
-		expect(await page.evaluate(() => navigator.userAgentData?.mobile)).toBe(true);
 		await importFiles(editor, [createThresholdTone()]);
 		await installDirectPcmTarget(page, { fileName: 'direct-browser-mix.aiff', pcmOffset: 54 });
 
@@ -201,7 +198,6 @@ test.describe('direct native PCM File System Access publication', () => {
 			routes: (input) => input === 0,
 		});
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="dither"]'), 'None');
-		expect(FRAME_COUNT * CHANNEL_COUNT * 4).toBeGreaterThan(96 * 1024 ** 2);
 
 		await exportDialog.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect(editor.getByText('Large project: rendering in realtime to conserve memory', { exact: true })).toBeVisible();
@@ -276,7 +272,6 @@ test.describe('direct native PCM File System Access publication', () => {
 			});
 		});
 		const editor = await bootEditor(page, '/embed/en/');
-		expect(await page.evaluate(() => navigator.userAgentData?.mobile)).toBe(true);
 		await importFiles(editor, [createThresholdTone()]);
 		await installDirectPcmTarget(page, {
 			fileName: 'direct-browser-broadcast-master.wav',
@@ -294,7 +289,6 @@ test.describe('direct native PCM File System Access publication', () => {
 		});
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="dither"]'), 'None');
 		await authorBextMetadata(page, exportDialog);
-		expect(FRAME_COUNT * CHANNEL_COUNT * 4).toBeGreaterThan(96 * 1024 ** 2);
 
 		await exportDialog.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect(editor.getByText('Large project: rendering in realtime to conserve memory', { exact: true })).toBeVisible();
@@ -393,7 +387,6 @@ test.describe('direct native PCM File System Access publication', () => {
 			});
 		});
 		const editor = await bootEditor(page, '/embed/en/');
-		expect(await page.evaluate(() => navigator.userAgentData?.mobile)).toBe(true);
 		await importFiles(editor, [createThresholdTone(BW64_FRAME_COUNT)]);
 		await installDirectPcmTarget(page, {
 			fileName: 'direct-browser-adm-master.wav',
@@ -409,7 +402,6 @@ test.describe('direct native PCM File System Access publication', () => {
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="dither"]'), 'None');
 		await authorBw64Metadata(page, exportDialog);
 		const outputFrames = BW64_FRAME_COUNT * BW64_SAMPLE_RATE / SAMPLE_RATE;
-		expect(outputFrames * 2 * 4).toBeGreaterThan(96 * 1024 ** 2);
 
 		await exportDialog.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect(editor.getByText('Large project: rendering in realtime to conserve memory', { exact: true })).toBeVisible();

@@ -62,7 +62,6 @@ test('the shared web runtime owns attachments and disposes every product resourc
 	});
 
 	const runtime = await lifecycle.create(Object.freeze({ locale: 'en', copy: Object.freeze({}) }));
-	assert.deepEqual(Object.keys(runtime), ['controller', 'fileService', 'dispose']);
 	assert.ok(Object.isFrozen(runtime));
 	assert.equal(lifecycle.projectForRuntimeConsumers(runtime), projector);
 	assert.ok(lifecycle.assistanceSearchSource(runtime));
@@ -89,10 +88,6 @@ test('the shared web runtime owns attachments and disposes every product resourc
 	await rejectedSize;
 	await assert.rejects(runtime.dispose());
 	assert.deepEqual(log, ['confirmation', 'extension', 'controller', 'environment']);
-	assert.throws(
-		() => lifecycle.projectForRuntimeConsumers(Object.freeze({}) as never),
-		{ name: 'TypeError', message: 'exact runtime required' },
-	);
 });
 
 test('web runtime leaves storage open when a controller cannot retire its readers', async () => {

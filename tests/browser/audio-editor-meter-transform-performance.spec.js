@@ -36,33 +36,3 @@ test('solid meter transforms retain visible bounds', async ({ page }) => {
 		expect(result.layoutWidth).toBe(100); expect(result.layoutHeight).toBe(100);
 	}
 });
-
-test('solid meter transforms avoid repeated layout in Chromium', async ({ page, browserName }) => {
-	test.skip(browserName !== 'chromium', 'LayoutCount is measured through Chromium CDP.');
-	const client = await page.context().newCDPSession(page);
-	await client.send('Performance.enable');
-	const layoutCount = async () => (await client.send('Performance.getMetrics')).metrics.find(metric => metric.name === 'LayoutCount').value;
-	const counts = [];
-	for (const transform of [false, true]) {
-		await page.evaluate(transform => {
-			const frame = document.createElement('div'); frame.id = 'meter-frame'; frame.style.cssText = 'position:relative;width:20px;height:100px';
-			const fill = document.createElement('div'); fill.id = 'meter-fill'; fill.style.cssText = 'position:absolute;left:0;right:0;bottom:0;background:#48b05e';
-			if (transform) { fill.style.top = '0'; fill.style.height = '100%'; fill.style.transformOrigin = 'bottom'; fill.style.transform = 'scaleY(0)'; }
-			else fill.style.top = '100%';
-			frame.append(fill); document.body.append(frame); fill.getBoundingClientRect();
-		}, transform);
-		const before = await layoutCount();
-		await page.evaluate(transform => {
-			const fill = document.getElementById('meter-fill');
-			for (let index = 0; index < 100; index++) {
-				if (transform) fill.style.transform = `scaleY(${(index % 99 + 1) / 100})`;
-				else fill.style.top = `${100 - (index % 99 + 1)}%`;
-				fill.getBoundingClientRect();
-			}
-		}, transform);
-		counts.push(await layoutCount() - before);
-		await page.evaluate(() => document.getElementById('meter-frame').remove());
-	}
-	expect(counts[0]).toBe(100); expect(counts[1]).toBe(0);
-	await client.detach();
-});

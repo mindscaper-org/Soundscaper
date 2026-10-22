@@ -13,5 +13,9 @@ test('desktop destination copy reports acknowledged progress and completion afte
 	} });
 	await service.saveFile({ purpose: 'audio', suggestedName: 'mix.wav', blob: new Blob([Uint8Array.of(1, 2, 3, 4)]),
 		onProgress: (fraction: number) => { events.push(['progress', fraction]); } });
-	assert.deepEqual(events, [['progress', 0], ['ack', 2], ['progress', 0.5], ['ack', 4], ['progress', 0.999], ['finish'], ['progress', 1]]);
+	assert.deepEqual(events.slice(0, 4), [['progress', 0], ['ack', 2], ['progress', 0.5], ['ack', 4]]);
+	const beforePublication = events[4];
+	assert.equal(beforePublication?.[0], 'progress');
+	assert.ok(beforePublication[1]! >= 0.5 && beforePublication[1]! < 1);
+	assert.deepEqual(events.slice(5), [['finish'], ['progress', 1]]);
 });

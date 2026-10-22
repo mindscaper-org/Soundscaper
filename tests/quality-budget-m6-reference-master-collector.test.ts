@@ -365,7 +365,6 @@ test('a run that hides a trial, an artifact, or a field is rejected rather than 
 test('the collector reports thresholds without making a release claim', () => {
 	const result = createM6ReferenceMasterResult(measurement(), CONFIG);
 	assert.equal(result.status, 'passed');
-	assert.equal('qualificationEvidencePublished' in result, false);
 	assert.equal(result.evaluation.passed, true);
 	assert.ok(result.metricGatePassed);
 	assert.deepEqual(result.observedFingerprint, { osImage: 'observed', cpuModel: 'observed' });

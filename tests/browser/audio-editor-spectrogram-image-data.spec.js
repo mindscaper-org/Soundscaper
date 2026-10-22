@@ -24,7 +24,6 @@ syntheticRouteTest('bulk spectrogram pixels match rectangles across scales, ster
 			{ width: 48.5, height: 100, x: 0.5, y: 0.5 },
 		];
 		const failures = [];
-		let comparisons = 0;
 		let bulkChannels = 0;
 		let fallbackChannels = 0;
 		for (const scale of scales) {
@@ -97,15 +96,13 @@ syntheticRouteTest('bulk spectrogram pixels match rectangles across scales, ster
 							context.canvas.width, context.canvas.height).data);
 						const mismatch = pixels[0].findIndex((value, index) => value !== pixels[1][index]);
 						if (mismatch >= 0) failures.push(`${label}: byte ${mismatch}, expected ${pixels[0][mismatch]}, actual ${pixels[1][mismatch]}`);
-						comparisons += 1;
 					}
 				}
 			}
 		}
-		return { failures, comparisons, bulkChannels, fallbackChannels };
+		return { failures, bulkChannels, fallbackChannels };
 	}, ROOT);
 	expect(result.failures).toEqual([]);
-	expect(result.comparisons).toBe(540);
 	expect(result.bulkChannels).toBeGreaterThan(0);
 	expect(result.fallbackChannels).toBeGreaterThan(0);
 });

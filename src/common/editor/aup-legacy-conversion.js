@@ -149,8 +149,9 @@ function spreadLegacyOverlaps(tracks, clips, warnings) {
 	const output = [];
 	for (const track of tracks) {
 		if (track.type === 'label') { output.push(track); continue; }
+		if (!track.clipIds.length) { output.push(track); continue; }
 		const lanes = [];
-		for (const clipId of track.clipIds) {
+		for (const clipId of [...track.clipIds].sort((left, right) => clipById.get(left).timelineStartFrame - clipById.get(right).timelineStartFrame)) {
 			const clip = clipById.get(clipId);
 			let lane = lanes.find((candidate) => candidate.endFrame <= clip.timelineStartFrame);
 			if (!lane) { lane = { clipIds: [], endFrame: 0 }; lanes.push(lane); }

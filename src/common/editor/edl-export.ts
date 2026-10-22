@@ -129,7 +129,7 @@ export function createEdlExport(request: EdlExportRequest): EdlExportResult {
 			timecode(event?.recordInFrames, rate, dropFrame, `event ${index} record in`),
 			timecode(event?.recordOutFrames, rate, dropFrame, `event ${index} record out`),
 		].join(' '));
-		const clipName = String(event?.clipName ?? '').replaceAll(/[\r\n]+/gu, ' ').trim();
+		const clipName = String(event?.clipName ?? '').replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').trim();
 		if (clipName) lines.push(`* FROM CLIP NAME: ${clipName}`);
 
 		if (event?.transition) {
@@ -219,5 +219,5 @@ function reportReel(
 }
 
 function sanitizeTitle(value: string): string {
-	return value.replaceAll(/[\r\n]+/gu, ' ').slice(0, 70);
+	return value.replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').slice(0, 70);
 }

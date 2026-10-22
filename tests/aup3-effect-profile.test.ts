@@ -13,7 +13,6 @@ import {
 	type Aup3XmlNode,
 } from '../src/common/editor/aup3-profile.ts';
 import {
-	AUP4_REALTIME_EFFECT_PROFILES,
 	aup4NativeEffectId,
 	createAup4EffectsNode,
 } from '../src/common/editor/aup4-effects.js';
@@ -36,9 +35,6 @@ test('AUP3 profile retains only the native effects Audacity 3.7 can run in real 
 		'audacity-filter-curve-eq', 'audacity-graphic-eq', 'audacity-invert',
 		'audacity-noise-reduction', 'audacity-classic-filters',
 	];
-	assert.deepEqual(Object.keys(AUP4_REALTIME_EFFECT_PROFILES).sort(), [
-		...supportedTypes, ...unsupportedTypes,
-	].sort());
 	const result = createAup3ProjectDocument(projectWithEffects(
 		[...supportedTypes, ...unsupportedTypes].map((type) => createEffect(type, { id: type })),
 	));

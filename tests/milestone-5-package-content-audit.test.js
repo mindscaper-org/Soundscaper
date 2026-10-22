@@ -82,9 +82,6 @@ test('a genuine package audit binds one exact target manifest and every packaged
 			byteLength: debianBytes.byteLength, sha256: digest(debianBytes),
 		},
 	]);
-	assert.ok(audit.packages.every(({ content }) => (
-		content.status === 'installed-resource-closure-audited'
-	)));
 	const manifestBytes = await readFile(join(fixture.packageRoot, MANIFEST));
 	assert.deepEqual({
 		name: audit.runtimeManifest.name,

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, clipByName, clipField, closeClipProperties,
+import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, clipField, closeClipProperties,
 	commitInput, disableNativeSavePicker, importFiles, openClipProperties,
 } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
@@ -19,17 +19,17 @@ test('splitting a mixed mono and stereo track preserves each recording level', a
 	const destination = clipByName(editor, stereo.name).locator('xpath=ancestor::*[@data-track-row][1]');
 	const destinationId = await destination.getAttribute('data-track-id');
 	const properties = await openClipProperties(page, editor, source);
-	await properties.getByText('Media settings', { exact: true }).click();
+	await showClipTimingFields(properties);
 	await commitInput(clipField(properties, 'startFrame'), '48000');
 	await closeClipProperties(properties);
 	const clipBox = await source.boundingBox(), trackBox = await destination.boundingBox();
 	expect(clipBox).not.toBeNull(); expect(trackBox).not.toBeNull();
-	await page.keyboard.down('Control');
+	// Move vertically at the existing timeline position; Ctrl now duplicates.
 	await page.mouse.move(clipBox.x + 32, clipBox.y + 10);
 	await page.mouse.down();
 	await page.mouse.move(clipBox.x + 32, trackBox.y + 60, { steps: 8 });
 	await page.mouse.up();
-	await page.keyboard.up('Control');
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await expect(source.locator('xpath=ancestor::*[@data-track-row][1]')).toHaveAttribute('data-track-id', destinationId);
 	const before = await exportSamples(page, editor);
 	await chooseTrackMenuAction(page, editor, destination, ['Track channels', 'Split stereo to left/right mono']);

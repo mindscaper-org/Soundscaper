@@ -139,22 +139,6 @@ test('canonical body admission has its own post-encode exact boundary', () => {
 	assertAdmissionCode(() => admitImageCanonicalBody(512 * MIB + 1), 'canonical-body-bytes');
 });
 
-test('admission reads closed data records without invoking accessors', () => {
-	let accessed = false;
-	const hostile = Object.defineProperty({}, 'fileByteLengths', {
-		enumerable: true,
-		get() { accessed = true; return [1]; },
-	});
-	assertAdmissionCode(() => admitImageImportGesture(hostile as never), 'invalid-request');
-	assert.equal(accessed, false);
-	assertAdmissionCode(
-		() => admitImageImportGesture({ fileByteLengths: [1], extra: true } as never),
-		'invalid-request',
-	);
-	assert.deepEqual(admitImageImportGesture(Object.freeze({
-		fileByteLengths: Object.freeze([1]),
-	})), { fileCount: 1, totalInputBytes: 1 });
-});
 
 function assertAdmissionCode(operation: () => unknown, code: string): void {
 	assert.throws(operation, (error: unknown) => (

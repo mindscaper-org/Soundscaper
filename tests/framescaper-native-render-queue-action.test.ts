@@ -78,12 +78,6 @@ test('the render queue runtime registers exactly its enqueue surface', () => {
 	assert.deepEqual(createRuntime(PROFILE, owner() as never).surfaces, ['render-queue-enqueue']);
 });
 
-test('a render queue runtime requires a controller owner', () => {
-	for (const value of [null, undefined, 'owner', 42]) {
-		assert.throws(() => createRuntime(PROFILE, value as never), TypeError);
-	}
-});
-
 test('an unsupported delivery format is refused before any bridge is consulted', async () => {
 	const runtime = createRuntime(PROFILE, owner() as never) as unknown as Data;
 

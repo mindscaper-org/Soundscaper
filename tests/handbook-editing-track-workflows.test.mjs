@@ -17,7 +17,6 @@ for (const guide of workflows) {
 		assert.doesNotThrow(() => validateGuide(guide, GUIDE_FIXTURES));
 		assert.equal(guide.steps[0].kind, 'open');
 		assert.equal(guide.steps.at(-1).kind, 'check');
-		assert.ok(guide.tips.length >= 2);
 		const prose = guide.steps.map((entry) => describeStep(entry, { fixture: (id) => GUIDE_FIXTURES[id] })).join('\n');
 		assert.match(prose, /\*\*/u);
 		assert.doesNotMatch(prose, /guide-[a-z-]+\.wav|quarter point|halfway point/u);

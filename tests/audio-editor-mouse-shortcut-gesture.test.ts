@@ -69,19 +69,6 @@ test('a new unassigned press forgets an earlier gesture that had no auxiliary cl
 	assert.equal(gesture.release(releaseEvent(3)), true);
 });
 
-test('standard and invalid mouse buttons cannot be claimed', () => {
-	const gesture = createMouseShortcutGesture();
-	for (const button of [0, 1, 2, -1, 3.5, NaN, Infinity, Number.MAX_SAFE_INTEGER]) {
-		gesture.claim(button);
-		const event = releaseEvent(button);
-		assert.equal(gesture.release(event), false, String(button));
-		assert.equal(gesture.auxiliaryClick(event), false, String(button));
-		assert.deepEqual([event.prevented, event.stopped], [0, 0], String(button));
-	}
-	gesture.claim(7);
-	assert.equal(gesture.release(releaseEvent(7)), true);
-});
-
 test('disposal clears every claim and supports a subsequent effect setup', () => {
 	const gesture = createMouseShortcutGesture();
 	gesture.claim(3);

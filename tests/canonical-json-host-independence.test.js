@@ -21,12 +21,6 @@ import { encodeCanonicalJson as translationCanonicalJson } from '../scripts/auda
 
 const DIVERGENT = Object.freeze({ audiob: 1, audioX: 2 });
 
-test('host collation and code-unit order genuinely disagree on these keys', () => {
-	assert.ok('audioX' < 'audiob');
-	assert.equal(Math.sign('audioX'.localeCompare('audiob')), 1,
-		'if this ever agrees the hazard is gone, not the requirement');
-});
-
 test('every canonical serializer orders object keys by code unit', () => {
 	const expected = '{"audioX":2,"audiob":1}';
 	assert.equal(releaseCanonicalJson(DIVERGENT).trimEnd(), expected);

@@ -38,6 +38,7 @@ interface FixtureOptions {
 	readonly enumerateDevices?: () => Promise<readonly RecordingRoutingMediaDevice[]>;
 	readonly acquireHardware?: (deviceId: string) => Promise<unknown>;
 	readonly persistSetting?: (key: string, value: unknown, options?: unknown) => Promise<unknown>;
+	readonly getAudioContext?: (options: Readonly<{ resume?: boolean; sampleRate?: number }>) => Promise<unknown>;
 	readonly setOutputDevice?: (deviceId: string) => Promise<OutputDeviceResult>;
 }
 
@@ -70,6 +71,8 @@ export function createFixture(options: FixtureOptions = {}) {
 		audioInputDevices: [],
 		audioOutputDevices: [],
 		audioInputAccess: false,
+		audioHost: 'browser',
+		preferredRecordingSampleRate: 48_000,
 		preferredInputDeviceId: 'default',
 		preferredInputChannelCount: 1,
 		preferredOutputDeviceId: '',
@@ -118,7 +121,7 @@ export function createFixture(options: FixtureOptions = {}) {
 			assignedTrackIds.push(trackId);
 			return false;
 		},
-		engine: { setOutputDevice: options.setOutputDevice || (async (deviceId: string) => ({ activeDeviceId: deviceId })) },
+		engine: { getAudioContext: options.getAudioContext, setOutputDevice: options.setOutputDevice || (async (deviceId: string) => ({ activeDeviceId: deviceId })) },
 		mediaDevices: {
 			getUserMedia: () => undefined,
 			getDisplayMedia: () => undefined,

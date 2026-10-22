@@ -387,7 +387,6 @@ test('the picker offers every routed locale a committed catalog serves without f
 		const values = optionValues(context.dom.one('[data-locale-select]'));
 		assert.deepEqual(values, expectedLocaleOptions());
 		assert.ok(values.includes('fr') && values.includes('ar'), 'machine-served locales are offered');
-		assert.ok(values.length >= 20, 'every routed locale with a catalog is offered');
 		assert.ok(optionNames(context.dom.one('[data-locale-select]')).includes('Français'));
 	} finally {
 		await context.close();

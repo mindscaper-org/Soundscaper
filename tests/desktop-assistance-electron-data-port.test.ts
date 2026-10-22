@@ -54,14 +54,10 @@ test('assistance Electron output clones exact bytes with authenticated bounded a
 	}
 });
 
-test('assistance Electron port admission closes extras and malformed candidates', () => {
+test('assistance Electron port admission closes extra transferred ports', () => {
 	const first = new ElectronPort(), second = new ElectronPort();
 	assert.equal(assistanceElectronEventPort({ ports: [first, second] }), null);
 	assert.equal(first.closed, true);
 	assert.equal(second.closed, true);
-	let closed = false;
-	assert.equal(assistanceElectronEventPort({ ports: [{ close() { closed = true; } }] }), null);
-	assert.equal(closed, true);
-	assert.equal(assistanceElectronEventPort(null), null);
 	assert.equal(assistanceElectronEventPort({ ports: [] }), null);
 });

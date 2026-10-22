@@ -157,8 +157,6 @@ test.describe('audio editor React/design-system workflows', () => {
 		expect(settingsBounds).not.toBeNull();
 		expect(sidebarBounds.y + sidebarBounds.height - settingsBounds.y - settingsBounds.height).toBeLessThanOrEqual(32);
 		await expect(workspaceSelect.locator('option')).toHaveText(['Video editor']);
-		await expect(editor.locator('[data-action-id="playback-bpm"]')).toHaveCount(0);
-		await expect(editor.locator('[data-action-id="playback-time-signature"]')).toHaveCount(0);
 
 		await expect(editor).toHaveAttribute('data-workspace-preset', 'video-editor');
 		await expect(editor.locator('[data-action-id="playback-bpm"]')).toHaveCount(0);

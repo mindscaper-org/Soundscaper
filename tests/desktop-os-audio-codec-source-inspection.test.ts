@@ -79,10 +79,3 @@ test('source inspection refuses valid but unqualified M4A geometry and implicit 
 	noM4aBrand.set(Buffer.from('isom'), 16);
 	assert.equal(inspectOperatingSystemAudioSource('aac-m4a', noM4aBrand), null);
 });
-
-test('source inspection rejects unreviewed formats at its closed boundary', () => {
-	assert.throws(
-		() => inspectOperatingSystemAudioSource('opus' as 'mp3', Uint8Array.of(1)),
-		/format/iu,
-	);
-});

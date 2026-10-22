@@ -2,7 +2,6 @@
 
 import assert from 'node:assert/strict';
 import { readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
-import { registerHooks } from 'node:module';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 
@@ -18,6 +17,7 @@ import {
 } from './helpers/ffmpeg-runtime-fixture.mjs';
 
 import {
+	assertSafeRelativePath,
 	stageVerifiedFfmpegRuntime,
 	verifyFfmpegRuntimeManifest,
 } from '../scripts/lib/ffmpeg-runtime-manifest.mjs';
@@ -400,29 +400,7 @@ test('desktop entry points enforce absence without consuming the browser FFmpeg 
 	assert.match(packageMetadata.scripts['audit:ci'], /audit:ffmpeg-runtime/u);
 });
 
-test('manifest-relative paths stay safe under Windows path semantics', async (context) => {
-	// Windows packaging runners resolve with the win32 flavour from a
-	// drive-rooted working directory, where resolving a relative path against
-	// the root separator yields "D:\\config\\..." rather than "\\config\\...".
-	// Bind node:path to win32 for one module instance and report a drive-rooted
-	// working directory so a platform-coupled guard fails here rather than only
-	// on a Windows runner.
-	const marker = '?path-flavour=win32';
-	const hooks = registerHooks({
-		resolve(specifier, hookContext, nextResolve) {
-			if (specifier === 'node:path' && hookContext.parentURL?.endsWith(marker)) {
-				return nextResolve('node:path/win32', hookContext);
-			}
-			return nextResolve(specifier, hookContext);
-		},
-	});
-	context.after(() => hooks.deregister());
-	const { assertSafeRelativePath } = await import(`../scripts/lib/ffmpeg-runtime-manifest.mjs${marker}`);
-
-	const realCwd = process.cwd;
-	process.cwd = () => 'D:\\a\\Soundscaper\\Soundscaper';
-	context.after(() => { process.cwd = realCwd; });
-
+test('manifest-relative paths accept safe POSIX inputs and reject traversal', () => {
 	for (const safePath of [
 		'config/ffmpeg-runtime-manifest.json',
 		'desktop/ffmpeg-corresponding-source.json',

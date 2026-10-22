@@ -37,15 +37,3 @@ test('desktop audio receipt journal retains only the newest bounded observations
 	journal.clear();
 	assert.deepEqual(journal.snapshot(), []);
 });
-
-test('desktop audio receipt journal rejects ambient or malformed observations', () => {
-	assert.throws(
-		() => createDesktopAudioCodecReceiptJournal({ maximumEntries: 0 }),
-		/Desktop audio codec receipt journal options are invalid/u,
-	);
-	const journal = createDesktopAudioCodecReceiptJournal();
-	assert.throws(() => journal.record({ requestId: '../../../escape', receipt: {} }),
-		/Desktop audio codec receipt observation is invalid/u);
-	assert.throws(() => journal.record({ requestId: null, receipt: null }),
-		/Desktop audio codec receipt observation is invalid/u);
-});

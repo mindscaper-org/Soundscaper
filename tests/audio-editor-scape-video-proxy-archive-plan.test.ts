@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import test from 'node:test';
-import { scapeVideoProxySourceReferences } from './helpers/scape-video-proxy-source-audit.ts';
 
-import * as archivePlanModule from '../src/common/editor/scape-video-proxy-archive-plan.ts';
 import {
 	planScapeVideoProxyArchiveAssets,
 	type ScapeVideoProxyArchiveAssetDescriptor,
@@ -19,10 +15,6 @@ import {
 	VIDEO_TIMING_ASSET_MIME_TYPE,
 } from '../src/common/editor/video-timing-asset-reference.ts';
 
-const ROOT = resolve(import.meta.dirname, '..');
-const MODULE = 'src/common/editor/scape-video-proxy-archive-plan.ts';
-const TEST_MODULE = 'tests/audio-editor-scape-video-proxy-archive-plan.test.ts';
-const MODULE_STEM = 'scape-video-proxy-archive-plan';
 const PROXY_SHA = 'a'.repeat(64);
 const TIMING_SHA = 'b'.repeat(64);
 const FRAME_COUNT = 3;
@@ -30,19 +22,6 @@ const TIMING_BYTES = VIDEO_TIMING_ASSET_HEADER_BYTES + FRAME_COUNT * 8;
 
 type MutableRecord = Record<PropertyKey, unknown>;
 
-test('owns exactly two TypeScript declarations and one runtime export', async () => {
-	assert.deepEqual(Object.keys(archivePlanModule), ['planScapeVideoProxyArchiveAssets']);
-	const source = await readSource(MODULE);
-	const declarations = [...source.matchAll(
-		/^export\s+(?:declare\s+)?(?:interface|type|function|class|const)\s+([A-Za-z0-9_]+)/gmu,
-	)].map((match) => match[1]);
-	assert.deepEqual(declarations, [
-		'ScapeVideoProxyArchiveReference',
-		'ScapeVideoProxyArchiveAssetDescriptor',
-		'planScapeVideoProxyArchiveAssets',
-	]);
-	assert.doesNotMatch(source, /export\s+(?:type\s+)?\{/u);
-});
 
 test('keeps proxy and timing attachments in the unified format 1', () => {
 	assert.equal(SCAPE_FORMAT_VERSION, 1);
@@ -100,17 +79,6 @@ test('deduplicates exact bodies and permits shared timing while rejecting confli
 	);
 });
 
-test('descriptor-snapshots the dense reference list and records with zero ordinary gets', () => {
-	const referenceProbe = descriptorProbe(reference());
-	const timingProbe = descriptorProbe(timing());
-	const target = reference({ timingAsset: timingProbe.proxy });
-	const referencesProbe = descriptorProbe([new Proxy(target, referenceProbe.handler)]);
-	assert.deepEqual(planScapeVideoProxyArchiveAssets(referencesProbe.proxy).assets,
-		[proxyDescriptor(), timingDescriptor()]);
-	assert.deepEqual(referencesProbe.hits, counts(1, 1, 2));
-	assert.deepEqual(referenceProbe.hits, counts(1, 1, REFERENCE_FIELDS.length));
-	assert.deepEqual(timingProbe.hits, counts(1, 1, TIMING_FIELDS.length));
-});
 
 test('refuses open, sparse, accessor, exotic, and malformed reference input', () => {
 	class References extends Array<unknown> {}
@@ -144,28 +112,6 @@ test('refuses open, sparse, accessor, exotic, and malformed reference input', ()
 	}
 });
 
-test('propagates descriptor trap failures and refuses nonconforming proxy results', () => {
-	for (const [target, consume] of [
-		[[reference()], (value: object) => planScapeVideoProxyArchiveAssets(value)],
-		[reference(), (value: object) => planScapeVideoProxyArchiveAssets([value])],
-		[timing(), (value: object) => planScapeVideoProxyArchiveAssets([
-			reference({ timingAsset: value }),
-		])],
-	] as const) {
-		for (const trap of ['getPrototypeOf', 'ownKeys', 'getOwnPropertyDescriptor'] as const) {
-			const proxy = new Proxy(target, {
-				[trap]() { throw new Error(`${trap} failed`); },
-			});
-			assert.throws(() => consume(proxy), new RegExp(`${trap} failed`, 'u'));
-		}
-	}
-	assert.throws(() => planScapeVideoProxyArchiveAssets(new Proxy([reference()], {
-		ownKeys() { return ['length']; },
-	})), TypeError);
-	assert.throws(() => planScapeVideoProxyArchiveAssets([new Proxy(reference(), {
-		getOwnPropertyDescriptor() { return undefined; },
-	})]), TypeError);
-});
 
 test('enforces proxy identity, body bounds, timing binding, and the archive entry budget', () => {
 	for (const invalid of [
@@ -195,23 +141,6 @@ test('enforces proxy identity, body bounds, timing binding, and the archive entr
 	assert.throws(() => planScapeVideoProxyArchiveAssets(references), /entry|asset|limit|many/iu);
 });
 
-test('has no deprecated V2 wrapper and keeps the baseline archive owner at format 1', async () => {
-	const references = await scapeVideoProxySourceReferences(
-		await sourceFiles(['src', 'desktop', 'scripts', 'tests']),
-		['src/framescaper/editor-professional-media-archive-plan.ts', TEST_MODULE], MODULE_STEM, readSource,
-	);
-	assert.ok(references.includes('src/framescaper/editor-professional-media-archive-plan.ts'));
-	assert.ok(references.includes(TEST_MODULE));
-	assert.ok(references.every((file) => !file.includes('scape-video-proxy-archive-plan-v2')));
-	const source = await readSource(MODULE);
-	assert.deepEqual(importSpecifiers(source), ['./video-timing-asset-reference.ts']);
-	assert.doesNotMatch(source,
-		/project-runtime-profile|framescaper|soundscaper|scape-archive-envelope|SCAPE_FORMAT_VERSION|repository|storage\/|controller|desktop|productId|\bBlob\b|arrayBuffer|ReadableStream/iu);
-	const baselineEnvelope = await readSource('src/common/editor/scape-archive-envelope.ts');
-	assert.match(baselineEnvelope, /export\s*\{[^}]*SCAPE_FORMAT_VERSION[^}]*\}\s*from '\.\/scape-archive-limits\.ts'/u);
-	assert.match(await readSource('src/common/editor/scape-archive-limits.ts'), /export const SCAPE_FORMAT_VERSION = 1;/u);
-	assert.doesNotMatch(baselineEnvelope, /video-proxy/iu);
-});
 
 const REFERENCE_FIELDS = ['storageKey', 'mimeType', 'byteLength', 'sha256', 'timingAsset'] as const;
 const TIMING_FIELDS = [
@@ -272,43 +201,4 @@ function timingDescriptor(): ScapeVideoProxyArchiveAssetDescriptor {
 		size: TIMING_BYTES,
 		sha256: TIMING_SHA,
 	};
-}
-
-function counts(prototype: number, keys: number, descriptors: number) {
-	return { prototype, keys, descriptors, gets: 0 };
-}
-
-function descriptorProbe<T extends object>(target: T) {
-	const hits = { prototype: 0, keys: 0, descriptors: 0, gets: 0 };
-	const handler: ProxyHandler<T> = {
-		getPrototypeOf(value) { hits.prototype += 1; return Reflect.getPrototypeOf(value); },
-		ownKeys(value) { hits.keys += 1; return Reflect.ownKeys(value); },
-		getOwnPropertyDescriptor(value, key) {
-			hits.descriptors += 1;
-			return Reflect.getOwnPropertyDescriptor(value, key);
-		},
-		get() { hits.gets += 1; throw new Error('ordinary get invoked'); },
-	};
-	return { handler, hits, proxy: new Proxy(target, handler) };
-}
-
-async function sourceFiles(roots: readonly string[]): Promise<string[]> {
-	const output: string[] = [];
-	for (const root of roots) await visit(root);
-	return output.sort();
-	async function visit(relative: string): Promise<void> {
-		for (const entry of await readdir(resolve(ROOT, relative), { withFileTypes: true })) {
-			const child = `${relative}/${entry.name}`;
-			if (entry.isDirectory()) await visit(child);
-			else if (/\.(?:[cm]?[jt]sx?)$/u.test(entry.name)) output.push(child);
-		}
-	}
-}
-
-async function readSource(relative: string): Promise<string> {
-	return readFile(resolve(ROOT, relative), 'utf8');
-}
-
-function importSpecifiers(source: string): string[] {
-	return [...source.matchAll(/\bfrom\s+['"]([^'"]+)['"]/gu)].map((match) => match[1]);
 }

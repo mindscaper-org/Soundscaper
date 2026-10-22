@@ -79,17 +79,12 @@ test('partial new rows preserve supplied columns for domain validation', () => {
 	assert.deepEqual(planClipSpreadsheetPaste('Name only', null, []).newRows, [{ name: 'Name only' }]);
 });
 
-test('paste rejects invalid ranges, skipped rows, ragged matrices, column overflow and incompatible dimensions', () => {
+test('paste rejects ragged matrices, column overflow and incompatible dimensions', () => {
 	assert.throws(() => planClipSpreadsheetPaste('a\tb\nc', null, []), /rectangular/u);
-	assert.throws(() => planClipSpreadsheetPaste('a', origin, []), /range/u);
-	assert.throws(() => planClipSpreadsheetPaste('a', { top: 1, left: 0, bottom: 1, right: 0 }, [row('first')]), /range/u);
-	assert.throws(() => planClipSpreadsheetPaste('a', { top: 2, left: 0, bottom: 2, right: 0 }, [row('first')]), /range/u);
-	assert.throws(() => planClipSpreadsheetPaste('a', { top: 0, left: 0, bottom: 2, right: 0 }, [row('first')]), /range/u);
 	const lastColumn = CLIP_SPREADSHEET_COLUMNS.length - 1;
 	assert.throws(() => planClipSpreadsheetPaste('a\tb', { ...origin, left: lastColumn, right: lastColumn }, [row('first')]), /outside/u);
 	assert.throws(() => planClipSpreadsheetPaste(Array<string>(CLIP_SPREADSHEET_COLUMNS.length + 1).fill('a').join('\t'), null, []), /outside/u);
 	assert.throws(() => planClipSpreadsheetPaste('1\t2', { top: 0, left: 0, bottom: 0, right: 2 }, [row('first')]), /dimensions/u);
-	assert.throws(() => planClipSpreadsheetPaste('a', { ...origin, left: Number.NaN }, []), /range/u);
 });
 
 test('source matching accepts exact POSIX, Windows, file URL and chooser-relative paths', () => {

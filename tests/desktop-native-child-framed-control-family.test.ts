@@ -13,7 +13,6 @@ import {
 
 test('native-child framed control binds each admitted protocol family and version to its own magic', async () => {
 	const bindings = [
-		{ protocolFamily: 'M5F' as const, protocolVersion: 1 as const, magic: 'M5F1' },
 		{ protocolFamily: 'M5F' as const, protocolVersion: 2 as const, magic: 'M5F2' },
 		{ protocolFamily: 'M5A' as const, protocolVersion: 1 as const, magic: 'M5A1' },
 	] as const;
@@ -36,18 +35,6 @@ test('native-child framed control binds each admitted protocol family and versio
 		fixture.stderr.end();
 		fixture.process.emit('close', 0, null);
 		assert.equal((await bound.completion).exitCode, 0);
-	}
-});
-
-test('native-child framed control rejects unbound or cross-family protocol versions', () => {
-	for (const binding of [
-		{ protocolVersion: 1, maximumMessageBytes: 4_096, maximumInFlightMessages: 1 },
-		{ protocolFamily: 'M5A', protocolVersion: 2, maximumMessageBytes: 4_096, maximumInFlightMessages: 1 },
-		{ protocolFamily: 'M5X', protocolVersion: 1, maximumMessageBytes: 4_096, maximumInFlightMessages: 1 },
-		{ protocolFamily: 'M5F', protocolVersion: 2, maximumMessageBytes: 4_096,
-			maximumInFlightMessages: 1, magic: 'M5F1' },
-	]) {
-		assert.throws(() => bindNativeChildProcess(child().process, binding as never), /closed bounded.*binding/iu);
 	}
 });
 

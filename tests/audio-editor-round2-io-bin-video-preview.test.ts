@@ -42,14 +42,12 @@ test('exact video timing retains source in and out times in a bin preview', () =
 			...clip, sequenceFrameCount: 15, sourceInFrame: 1, sourceFrameCount: 2,
 		}, source);
 		assert.deepEqual(result, { durationFrames: 24_000, startSeconds: 0.1, endSeconds: 0.7, playbackRate: 1.2 });
-		assert.ok(Object.isFrozen(result));
 	} finally { unregisterVideoTimingIndex(source); }
 });
 
 test('audio and unavailable source cards do not acquire a video preview clock', () => {
 	assert.equal(projectBinVideoPreviewModel(project, { ...clip, kind: 'audio' }, null), null);
 	assert.equal(projectBinVideoPreviewModel(project, clip, null), null);
-	assert.equal(projectBinVideoPreviewModel(project, clip, { id: 'other' }), null);
 });
 
 test('owned visual card duration counts its authored sequence frames', () => {

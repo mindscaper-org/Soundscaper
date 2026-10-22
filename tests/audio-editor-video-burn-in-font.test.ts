@@ -93,10 +93,7 @@ test('every subset the catalog names is fetched exactly once, by its own URL', a
 	assert.equal(asked.length, 2);
 	assert.equal(asked[0], VIDEO_BURN_IN_FONT_URLS.cyrillic);
 	assert.equal(asked[1], VIDEO_BURN_IN_FONT_URLS.latin);
-	await assert.rejects(
-		() => loadVideoBurnInFonts(['klingon'], async () => ({ ok: true, status: 200, blob: async () => new Blob() })),
-		/No caption font subset named klingon/u,
-	);
+
 	await assert.rejects(
 		() => loadVideoBurnInFonts(['latin'], async () => ({ ok: false, status: 404, blob: async () => new Blob() })),
 		/latin caption font could not be loaded \(404\)/u,

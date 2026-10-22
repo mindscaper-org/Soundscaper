@@ -206,7 +206,7 @@ async function nextTick(): Promise<void> {
 	await new Promise((resolve) => { setTimeout(resolve, 0); });
 }
 
-test('a renderer that asks twice aborts its own older request', async () => {
+test('owner revocation aborts an inventory even when the helper returns a late result', async () => {
 	const owner = {};
 	const signals: AbortSignal[] = [];
 	const { service } = createService({

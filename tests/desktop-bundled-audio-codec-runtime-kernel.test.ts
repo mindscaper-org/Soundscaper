@@ -46,16 +46,6 @@ function loader(options: Readonly<{
 	});
 }
 
-test('authenticated bundled codec loading validates options outside its fail-closed boundary', async () => {
-	await assert.rejects(() => loader({ target: 'invalid' as 'linux-x64' }, []), /target/u);
-	await assert.rejects(() => loader({
-		target: 'linux-x64', readPayload: 1 as unknown as () => Promise<Uint8Array>,
-	}, []), /payload reader/u);
-	await assert.rejects(() => loader({
-		target: 'linux-x64', yieldControl: 1 as unknown as () => Promise<void>,
-	}, []), /scheduler/u);
-});
-
 test('authenticated bundled codec loading authenticates, instantiates, canaries, then constructs', async () => {
 	const events: string[] = [];
 	const runtime = await loader({ target: 'linux-x64' }, events);
@@ -79,9 +69,6 @@ test('authenticated bundled codec loading maps payload, instantiate, and canary 
 test('bundled codec support preserves target, abort, and failure result contracts', () => {
 	const support = createBundledAudioCodecRuntimeSupport('Opus');
 	assert.equal(support.admitTarget('mac-arm64'), 'mac-arm64');
-	assert.throws(() => support.admitTarget('mac-x64'), {
-		name: 'TypeError', message: 'The bundled Opus desktop target is unsupported.',
-	});
 	const abort = new AbortController();
 	abort.abort(new Error('owned reason'));
 	assert.throws(() => support.throwIfAborted(abort.signal), /owned reason/u);

@@ -2,6 +2,7 @@
 import { Button } from '@soundscaper/design-system/Button';
 import { Checkbox } from '@soundscaper/design-system/Checkbox';
 import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
+import { Separator } from '@soundscaper/design-system/Separator';
 import type { AssistanceMenuEntry } from '../assistance-task-catalog.ts';
 import type { NativePreferenceEntry } from '../local-processing-menus.ts';
 import AudioProcessingPreferences from './AudioProcessingPreferences.tsx';
@@ -15,7 +16,8 @@ export default function NativePreferencesPanel({ menus, section, copy, onNavigat
 	readonly copy: Readonly<Record<string, string>>;
 }) {
 	const entries: AssistanceMenuEntry[] = menus.flatMap((menu) => menu.nativePreferences ?? [])
-		.filter((entry) => entry.section === section).flatMap((entry) => entry.items ?? [entry]);
+		.filter((entry) => entry.section === section)
+		.flatMap((entry) => entry.id === 'parallel-stack-processing' ? [entry] : entry.items ?? [entry]);
 	if (section === 'effects') {
 		for (const menu of menus) for (const entry of menu.items ?? []) {
 			if (entry.id === 'native-effect-manage' || entry.id === 'framescaper-ofx-manage') entries.push(entry);
@@ -23,6 +25,12 @@ export default function NativePreferencesPanel({ menus, section, copy, onNavigat
 	}
 	if (entries.length === 0) return null;
 	const nativeCopy = resolveSoundscaperNativeServicesCopy(copy);
+	if (section === 'advanced') return <>
+		<div className="kw-processing-preferences">
+			{entries.map((entry) => <AudioProcessingPreferences key={entry.id} entry={entry} />)}
+		</div>
+		<Separator />
+	</>;
 	return <PreferencePanel title={section === 'effects' ? copy.assistancePlugins || 'Plugins'
 		: copy.assistanceDeviceProcessing || 'Device processing'}>
 		<div className="kw-processing-preferences">

@@ -5,7 +5,11 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
-import { createAssistanceOnnxAcceleratedRuntimeV1 } from './assistance-onnx-acceleration.ts';
+import {
+	createAssistanceOnnxAcceleratedRuntimeV1,
+	type AssistanceOnnxGpuValidationOptionsV1,
+} from './assistance-onnx-acceleration.ts';
+import { isAssistanceGpuValidationEnabled } from './assistance-gpu-validation.ts';
 
 import {
 	reviewAssistanceFramePackV1,
@@ -73,6 +77,7 @@ export interface AssistanceOnnxInferenceSessionV1 {
 		Readonly<Record<string, AssistanceOnnxTensorV1>>
 	>;
 	release?(): PromiseLike<void> | void;
+	endProfiling?(): PromiseLike<void> | void;
 }
 
 export interface AssistanceOnnxRuntimeModuleV1 {
@@ -89,6 +94,8 @@ export interface AssistanceOnnxRuntimeModuleV1 {
 				graphOptimizationLevel: 'all';
 				interOpNumThreads: 1;
 				intraOpNumThreads: 4;
+				enableProfiling?: boolean;
+				profileFilePrefix?: string;
 			}>,
 		): PromiseLike<AssistanceOnnxInferenceSessionV1>;
 	}>;
@@ -98,6 +105,8 @@ export interface AssistanceOnnxRuntimeWorkerAdapterOptionsV1 {
 	readonly loadRuntime?: (entrypoint: string) => PromiseLike<AssistanceOnnxRuntimeModuleV1>;
 	readonly phonemizeKokoro?: KokoroOfflinePhonemizerV1;
 	readonly sessionCache?: AssistanceOnnxSessionLeaseCacheV1;
+	/** Supplied only by the trusted diagnostic host, never renderer model settings. */
+	readonly gpuValidation?: (context: AssistanceRuntimeFamilyWorkerExecutionContext) => AssistanceOnnxGpuValidationOptionsV1 | undefined;
 }
 
 const TRANSNET_INPUT_NAMES = Object.freeze(['frames']);
@@ -122,14 +131,20 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 	if (options.phonemizeKokoro !== undefined && typeof options.phonemizeKokoro !== 'function') {
 		throw new TypeError('The offline Kokoro phonemizer port is invalid.');
 	}
+	if (options.gpuValidation !== undefined && typeof options.gpuValidation !== 'function') {
+		throw new TypeError('The ONNX GPU validation port is invalid.');
+	}
 	const baseLoader = options.loadRuntime ?? loadOnnxRuntime;
 	const execute = async (context: AssistanceRuntimeFamilyWorkerExecutionContext) => {
+		const gpuValidation = options.gpuValidation?.(context);
+		const sessionCache = gpuValidation === undefined && !isAssistanceGpuValidationEnabled() ? options.sessionCache : undefined;
 		const acceleratedLoader = async (entrypoint: string) => createAssistanceOnnxAcceleratedRuntimeV1(
 			await baseLoader(entrypoint), context.job.descriptor,
-			() => options.sessionCache === undefined ? context.signal : options.sessionCache.activeSignal,
+			() => sessionCache === undefined ? context.signal : sessionCache.activeSignal,
+			gpuValidation,
 		);
-		const loadRuntime = options.sessionCache === undefined ? acceleratedLoader
-			: async (entrypoint: string) => options.sessionCache!.wrapRuntime(await acceleratedLoader(entrypoint));
+		const loadRuntime = sessionCache === undefined ? acceleratedLoader
+			: async (entrypoint: string) => sessionCache.wrapRuntime(await acceleratedLoader(entrypoint));
 		const executeAudio = createAssistanceOnnxAudioRuntimeWorkerAdapterV1(loadRuntime);
 		const executeEnhancementSeparation =
 			createAssistanceOnnxEnhancementSeparationWorkerAdapterV1(loadRuntime);

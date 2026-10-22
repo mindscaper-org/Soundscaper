@@ -8,6 +8,8 @@ import { reviewAssistanceOcrResultV1, reviewAssistanceSaliencyResultV1, reviewAs
 import { reviewAssistanceWordAlignmentV1, reviewAssistanceAudioTagsV1, reviewAssistanceBeatGridV1,
 	reviewAssistanceEditorialProposalV1 } from '../../../src/common/editor/assistance/m7-semantic-results.ts';
 import { reviewAssistanceShotBoundariesV1 } from '../../../src/common/editor/assistance/shot-boundaries-v1.ts';
+import { validateOcrFixtureSemantics, validateSubjectFixtureSemantics } from './model-fixture-semantics.ts';
+import { validateBeatFixtureSemantics, validateShotFixtureSemantics, validateTranscriptFixtureSemantics } from './model-deterministic-fixture-semantics.ts';
 
 export function validateModelOutputs(validation, outputs, input) {
 	if (validation !== 'separated-audio') {
@@ -25,7 +27,7 @@ export function validateModelOutputs(validation, outputs, input) {
 	return { stems };
 }
 
-/** Smoke checks for real inference, deliberately independent of exact model predictions. */
+/** Check source integrity and known fixture content without comparing exact model bytes. */
 export function validateModelOutput(validation, bytes, input) {
 	assert.ok(bytes.byteLength > 0, 'Inference returned empty output.');
 	assert.notDeepEqual(Buffer.from(bytes), Buffer.from(input.bytes), 'Inference copied the input bytes.');
@@ -66,7 +68,7 @@ export function validateModelOutput(validation, bytes, input) {
 		assert.equal(result.sampleRate, input.sampleRate);
 		assert.ok(result.points.length > 0, 'No beats detected in the rhythmic fixture.');
 		assert.ok(result.points.every(({ sample }) => sample < input.frameCount), 'Beat lies outside the source.');
-		return { points: result.points.length, tempoProposal: result.tempoProposal };
+		return validateBeatFixtureSemantics(result, input.expectedBeatGrid);
 	}
 	if (validation === 'shot-boundaries') {
 		const result = reviewAssistanceShotBoundariesV1(value);
@@ -78,7 +80,7 @@ export function validateModelOutput(validation, bytes, input) {
 			assert.equal(boundary.presentationTick, input.authority.frames.find(({ sourceFrame }) =>
 				sourceFrame === boundary.sourceFrame)?.presentationTick, 'Shot lost its source-frame timing.');
 		}
-		return { boundaries: result.boundaries.length };
+		return validateShotFixtureSemantics(result, input.expectedShotBoundaries);
 	}
 	if (validation === 'editorial-proposal') {
 		const result = reviewAssistanceEditorialProposalV1(value, input.candidateIds);
@@ -97,7 +99,7 @@ export function validateModelOutput(validation, bytes, input) {
 			assert.ok(segment.startSeconds >= 0 && segment.endSeconds > segment.startSeconds);
 			assert.ok(segment.endSeconds <= input.frameCount / input.sampleRate + 0.1, 'Transcript exceeds the source duration.');
 		}
-		return { segments: value.segments.length, characters: value.segments.reduce((sum, row) => sum + row.text.length, 0) };
+		return validateTranscriptFixtureSemantics(value, input.expectedTranscript);
 	}
 	if (validation === 'voice-activity' || validation === 'speaker-turns') {
 		assert.equal(value.sampleRate, input.sampleRate);
@@ -120,7 +122,7 @@ export function validateModelOutput(validation, bytes, input) {
 		const subjects = result.frames.flatMap((frame) => frame.subjects);
 		assert.ok(subjects.some((subject) => subject.kind === 'face'), 'YuNet did not find a face.');
 		assert.ok(subjects.some((subject) => subject.kind !== 'face'), 'D-FINE did not find an object.');
-		return { frames: result.frames.length, subjects: subjects.length };
+		return validateSubjectFixtureSemantics(result, input.expectedSubjects);
 	}
 	if (validation === 'saliency') {
 		const result = reviewAssistanceSaliencyResultV1(value, input.authority);
@@ -131,7 +133,7 @@ export function validateModelOutput(validation, bytes, input) {
 		const result = reviewAssistanceOcrResultV1(value, input.authority);
 		const regions = result.frames.flatMap((frame) => frame.regions);
 		assert.ok(regions.some((region) => /[\p{L}\p{N}]/u.test(region.text)), 'No readable text detected.');
-		return { frames: result.frames.length, regions: regions.length };
+		return validateOcrFixtureSemantics(result, input.expectedOcr);
 	}
 	throw new Error(`Unknown real-model validation: ${validation}`);
 }

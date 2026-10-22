@@ -153,16 +153,6 @@ test('one classification reads shared cyclic helpers once and keeps each product
 	assert.equal(classifyNodeTestFile(root, join(root, 'tests/second.test.js')), 'soundscaper');
 });
 
-test('no test file names both products, so the filename signal is never ambiguous', () => {
-	// A test is also shelved by its own name, because roughly a hundred Framescaper
-	// modules live under src/common/editor and a test of those reaches no product
-	// tree at all. That signal only stays honest while no filename claims both.
-	const ambiguous = listNodeTestFiles(ROOT)
-		.map((file) => basename(file))
-		.filter((name) => name.includes('framescaper') && name.includes('soundscaper'));
-	assert.deepEqual(ambiguous, [], 'rename such a test after the product that owns it, or after neither');
-});
-
 test('the shard selection CLI accepts the shard ids and refuses anything else', () => {
 	assert.deepEqual(parseNodeTestSelection([]), { shard: null });
 	for (const shard of NODE_TEST_SHARD_IDS) {
@@ -194,6 +184,18 @@ test('the real-time desktop protocol probe runs outside the parallel Node batch'
 	const batches = partitionNodeTestExecutionBatches(selected);
 	assert.deepEqual(batches.flat().sort(), [...selected].sort(), 'batching must retain every selected test exactly once');
 	assert.deepEqual(batches[0], discovered, 'the discovered real-time protocol probe must be the first singleton');
+});
+
+test('the archived Electron progress test runs alone before the parallel Node batch', () => {
+	const progress = '/repository/tests/desktop-nightly-tests-progress-archive.test.ts';
+	const ordinary = '/repository/tests/ordinary.test.js';
+	assert.deepEqual(partitionNodeTestExecutionBatches([ordinary, progress]), [[progress], [ordinary]]);
+	const selected = selectNodeTestFiles(ROOT, { shard: 'common-1' });
+	const batches = partitionNodeTestExecutionBatches(selected);
+	const discovered = selected.find((file) => basename(file) === basename(progress));
+	assert.ok(discovered);
+	assert.ok(batches.some((batch) => batch.length === 1 && batch[0] === discovered));
+	assert.deepEqual(batches.flat().sort(), [...selected].sort());
 });
 
 for (const workflowName of SHARDED_WORKFLOWS) {

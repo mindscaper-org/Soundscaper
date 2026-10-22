@@ -7,6 +7,46 @@ import { adaptNativeAudioInventory } from '../src/common/editor/controller/recor
 import type { RecordingInputRoute } from '../src/common/editor/controller/recording/internal/recording-input-coordination-service.ts';
 import { createFixture, type OutputDeviceResult } from './helpers/recording-routing-service-fixture.ts';
 
+
+test('recording preferences preserve explicit routes and persist the next recording sample rate', async () => {
+	const fixture = createFixture();
+	const route: RecordingInputRoute = { kind: 'device', deviceId: 'usb-mic', channelStart: 2, channelCount: 1 };
+	fixture.state.recordingRouting = { routes: { track: route }, offsets: {} };
+	await fixture.service.setPreferredInputChannelCount(2);
+	assert.equal(fixture.state.recordingRouting.routes.track, route);
+	await fixture.service.setRecordingSampleRate(96_000);
+	assert.equal(fixture.state.preferredRecordingSampleRate, 96_000);
+	assert.ok(fixture.persistCalls.some(([, value]) => (value as { recordingSampleRate?: number }).recordingSampleRate === 96_000));
+	await assert.rejects(() => fixture.service.setRecordingSampleRate(123), RangeError);
+});
+
+test('host changes replace device lists and incompatible preferred devices', async () => {
+	const fixture = createFixture({ enumerateDevices: async () => [
+		{ kind: 'audioinput', deviceId: 'web-mic', label: 'Web mic' },
+		{ kind: 'audiooutput', deviceId: 'web-speaker', label: 'Web speaker' },
+	] });
+	await fixture.service.refreshAudioDevices({ probe: false });
+	fixture.state.preferredInputDeviceId = 'web-mic';
+	fixture.state.preferredOutputDeviceId = 'web-speaker';
+	const report = { backend: 'wasapi', status: 'available', detail: '', devices: [{
+		handle: 'studio', label: 'Studio interface', direction: 'duplex' as const,
+		channelCount: 2, isDefault: true,
+	}, { handle: 'alphabetically-first', label: 'Other interface', direction: 'duplex' as const, channelCount: 2 }] };
+	await fixture.service.setHostInventory('wasapi', report);
+	assert.equal(fixture.state.audioHost, 'wasapi');
+	assert.deepEqual(fixture.state.audioInputDevices.map(device => device.deviceId), ['native:wasapi:in:alphabetically-first', 'native:wasapi:in:studio']);
+	assert.deepEqual(fixture.state.audioOutputDevices.map(device => device.deviceId), ['native:wasapi:out:alphabetically-first', 'native:wasapi:out:studio']);
+	assert.equal(fixture.state.preferredInputDeviceId, 'native:wasapi:in:studio');
+	assert.equal(fixture.state.preferredOutputDeviceId, 'native:wasapi:out:studio');
+	await fixture.service.refreshAudioDevices({ probe: false });
+	assert.deepEqual(fixture.state.audioInputDevices.map(device => device.deviceId), ['native:wasapi:in:alphabetically-first', 'native:wasapi:in:studio']);
+	await fixture.service.setHostInventory('electron', null);
+	assert.deepEqual(fixture.state.audioInputDevices.map(device => device.deviceId), ['web-mic']);
+	assert.equal(fixture.state.preferredInputDeviceId, 'default');
+	assert.equal(fixture.state.preferredOutputDeviceId, '');
+	assert.ok(fixture.persistCalls.some(([, value]) => (value as { host?: string }).host === 'electron'));
+});
+
 test('input channel preferences do not route a missing selected track', async () => {
 	const fixture = createFixture();
 	fixture.state.selectedTrackId = null;
@@ -18,7 +58,7 @@ test('input channel preferences do not route a missing selected track', async ()
 test('input selection moves the matching active route and persists it without opening a display chooser', async () => {
 	const fixture = createFixture();
 	fixture.state.recordingRouting = {
-		routes: { track: { kind: 'device', deviceId: 'default', channelStart: 0, channelCount: 1 } },
+		routes: { track: { kind: 'device', deviceId: 'default', channelStart: 0, channelCount: 1, followsPreferences: true } },
 		offsets: {},
 	};
 	await fixture.service.setPreferredInputDevice('display');
@@ -95,7 +135,7 @@ test('input access settles each device request once and tolerates partial failur
 	assert.deepEqual(allFailed.hardwareRequests.sort(), ['default', 'microphone-a', 'microphone-b']);
 });
 
-test('native inventory joins Web devices through the routing action without probing or Web sink substitution', async () => {
+test('native inventory replaces Web devices through the routing action without probing or Web sink substitution', async () => {
 	const sinkCalls: string[] = [];
 	const fixture = createFixture({
 		enumerateDevices: async () => [
@@ -111,15 +151,16 @@ test('native inventory joins Web devices through the routing action without prob
 			channelCount: 32, isDefault: true,
 		}],
 	});
+	fixture.state.audioHost = 'wasapi';
 	fixture.state.preferredOutputDeviceId = 'native:wasapi:out:studio-interface';
 	await fixture.service.refreshAudioDevices({ probe: false, nativeInventory });
 	assert.deepEqual(fixture.state.recordingDevices.map((device) => device.deviceId), [
-		'web-mic', 'loopback', 'native:wasapi:in:studio-interface',
+		'native:wasapi:in:studio-interface',
 	]);
 	assert.deepEqual(fixture.state.audioOutputDevices.map((device) => device.deviceId), [
-		'web-speaker', 'native:wasapi:out:studio-interface',
+		'native:wasapi:out:studio-interface',
 	]);
-	const nativeInput = fixture.state.recordingDevices[2];
+	const nativeInput = fixture.state.recordingDevices[0];
 	assert.deepEqual({
 		groupId: nativeInput.groupId, channelCount: nativeInput.channelCount,
 		channels: (nativeInput.channels || []).length, status: nativeInput.status,
@@ -129,7 +170,7 @@ test('native inventory joins Web devices through the routing action without prob
 	assert.equal(fixture.state.audioOutputStatus, 'available');
 });
 
-test('ordinary device refresh preserves native inventory until it is explicitly cleared', async () => {
+test('ordinary device refresh preserves the selected native host until it is changed', async () => {
 	const fixture = createFixture({
 		enumerateDevices: async () => [
 			{ kind: 'audioinput', deviceId: 'web-mic', label: 'Web mic' },
@@ -143,16 +184,17 @@ test('ordinary device refresh preserves native inventory until it is explicitly 
 		}],
 	});
 
+	fixture.state.audioHost = 'wasapi';
 	await fixture.service.refreshAudioDevices({ probe: false, nativeInventory });
 	await fixture.service.refreshAudioDevices({ probe: false });
 	assert.deepEqual(fixture.state.audioInputDevices.map((device) => device.deviceId), [
-		'web-mic', 'native:wasapi:in:studio-interface',
+		'native:wasapi:in:studio-interface',
 	]);
 	assert.deepEqual(fixture.state.audioOutputDevices.map((device) => device.deviceId), [
-		'web-speaker', 'native:wasapi:out:studio-interface',
+		'native:wasapi:out:studio-interface',
 	]);
 
-	await fixture.service.refreshAudioDevices({ probe: false, nativeInventory: null });
+	await fixture.service.setHostInventory('electron', null);
 	assert.deepEqual(fixture.state.audioInputDevices.map((device) => device.deviceId), ['web-mic']);
 	assert.deepEqual(fixture.state.audioOutputDevices.map((device) => device.deviceId), ['web-speaker']);
 });
@@ -199,7 +241,7 @@ test('an older audio output completion cannot overwrite a newer persisted select
 	assert.equal(fixture.state.audioOutputStatus, 'active');
 	assert.deepEqual(fixture.persistCalls, [[
 		'audio-devices',
-		{ inputDeviceId: 'default', inputChannelCount: 1, outputDeviceId: 'speaker-b' },
+		{ host: 'browser', recordingSampleRate: 48_000, inputDeviceId: 'default', inputChannelCount: 1, outputDeviceId: 'speaker-b' },
 		undefined,
 	]]);
 	assert.equal(fixture.publishes(), 1);

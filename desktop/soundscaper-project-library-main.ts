@@ -2,6 +2,7 @@
 
 import { chmod, mkdir } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
+import { readSoundscaperDesktopProjectRecoveryCandidates, listSoundscaperDesktopProjectRecoverySummaries } from './soundscaper-project-recovery-reader.ts';
 
 import { admitLowerOnly } from '../src/common/editor/lower-only-seam.ts';
 import type { SoundscaperDesktopDocumentSizeConfirmation } from './soundscaper-project-library-document-size-warning.ts';
@@ -246,6 +247,13 @@ export class SoundscaperDesktopProjectLibraryMain {
 		this.#assertWritable();
 		return this.#pluginStates.read(bodyId);
 	}
+
+	readProjectRecoveryCandidates(projectId: string) {
+		this.#assertWritable();
+		const current = this.#catalog.readMetadata().projects.find((project) => project.projectId === projectId);
+		return readSoundscaperDesktopProjectRecoveryCandidates(this.#database, projectId, current?.projectRevision ?? null);
+	}
+	listProjectRecoverySummaries() { this.#assertWritable(); return listSoundscaperDesktopProjectRecoverySummaries(this.#database); }
 
 	close(): Promise<void> {
 		if (this.#closePromise) return this.#closePromise;

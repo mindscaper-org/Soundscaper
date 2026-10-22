@@ -4,7 +4,6 @@ import {
 	BlobReader,
 	BlobWriter,
 	TextReader,
-	TextWriter,
 	ZipReader,
 	ZipWriter,
 } from '@zip.js/zip.js/index-native.js';
@@ -79,7 +78,7 @@ interface ArchiveEntry {
 	readonly filename: string;
 	readonly directory: boolean;
 	readonly uncompressedSize: number;
-	getData?<Value>(writer: TextWriter | BlobWriter | WritableStream<Uint8Array>, options?: Readonly<{ signal?: AbortSignal }>): Promise<Value>;
+	getData?<Value>(writer: BlobWriter | WritableStream<Uint8Array>, options?: Readonly<{ signal?: AbortSignal; checkSignature?: boolean }>): Promise<Value>;
 }
 
 export async function writeDawprojectArchive(
@@ -160,17 +159,22 @@ export async function readDawprojectArchive(
 			throw new RangeError(`The DAWproject archive holds more than ${String(maximumEntries)} entries.`);
 		}
 		const byPath = new Map<string, ArchiveEntry>();
-		const byLowerPath = new Map<string, ArchiveEntry>();
+		const byLowerPath = new Map<string, ArchiveEntry | null>();
 		for (const entry of entries) {
 			if (entry.directory) continue;
 			const path = normalizeEntryPath(entry.filename);
-			if (!byPath.has(path)) byPath.set(path, entry);
+			if (byPath.has(path)) throw new Error(`Duplicate DAWproject entry path: ${path}.`);
+			byPath.set(path, entry);
 			const lower = path.toLowerCase();
-			if (!byLowerPath.has(lower)) byLowerPath.set(lower, entry);
+			byLowerPath.set(lower, byLowerPath.has(lower) ? null : entry);
 		}
 		const find = (path: string): ArchiveEntry | null => {
 			const normalized = normalizeEntryPath(path);
-			return byPath.get(normalized) ?? byLowerPath.get(normalized.toLowerCase()) ?? null;
+			const exact = byPath.get(normalized);
+			if (exact) return exact;
+			const fallback = byLowerPath.get(normalized.toLowerCase());
+			if (fallback === null) throw new Error(`Ambiguous DAWproject entry path: ${path}.`);
+			return fallback ?? null;
 		};
 		let xmlMaximumBytes = DAWPROJECT_XML_LIMITS.maximumBytes;
 		const readText = async (path: string, required: boolean): Promise<string | null> => {
@@ -182,14 +186,15 @@ export async function readDawprojectArchive(
 			xmlMaximumBytes = Math.max(xmlMaximumBytes, await confirmFileSizeWarning(entry.uncompressedSize,
 				DAWPROJECT_XML_LIMITS.maximumBytes, path, { confirmFileSizeWarning: options.confirmFileSizeWarning, signal }));
 			if (!entry.getData) throw new Error(`${path} cannot be read from the archive.`);
-			return stripByteOrderMark(await entry.getData<string>(new TextWriter('utf-8'), { signal }));
+			const blob = await entry.getData<Blob>(new BlobWriter(), { signal, checkSignature: true });
+			return stripByteOrderMark(new TextDecoder('utf-8', { fatal: true }).decode(await blob.arrayBuffer()));
 		};
 		const projectXml = await readText(DAWPROJECT_PROJECT_ENTRY, true);
 		const metadataXml = await readText(DAWPROJECT_METADATA_ENTRY, false);
 		let closed = false;
 		const temporaryNames = new Map<string, Set<string>>();
 		const removeTemporary = async (path: string): Promise<void> => {
-			const key = normalizeEntryPath(path).toLowerCase();
+			const key = normalizeEntryPath(find(path)?.filename ?? path);
 			const names = temporaryNames.get(key);
 			temporaryNames.delete(key);
 			if (names && temporaryDirectory) await Promise.all([...names].map((name) => temporaryDirectory.removeEntry(name)));
@@ -211,10 +216,10 @@ export async function readDawprojectArchive(
 					const name = crypto.randomUUID();
 					const handle = await temporaryDirectory.getFileHandle(name, { create: true });
 					try {
-						await entry.getData<WritableStream<Uint8Array>>(await handle.createWritable(), { signal });
+						await entry.getData<WritableStream<Uint8Array>>(await handle.createWritable(), { signal, checkSignature: true });
 						const file = await handle.getFile();
 						if (file.size !== entry.uncompressedSize) throw new Error('DAWproject temporary media has an inexact size.');
-						const key = normalizeEntryPath(path).toLowerCase();
+						const key = normalizeEntryPath(entry.filename);
 						if (!temporaryNames.has(key)) temporaryNames.set(key, new Set());
 						temporaryNames.get(key)!.add(name);
 						return file;
@@ -223,7 +228,7 @@ export async function readDawprojectArchive(
 						throw error;
 					}
 				}
-				return entry.getData<Blob>(new BlobWriter(), { signal });
+				return entry.getData<Blob>(new BlobWriter(), { signal, checkSignature: true });
 			},
 			releaseEntry: removeTemporary,
 			async close(): Promise<void> {

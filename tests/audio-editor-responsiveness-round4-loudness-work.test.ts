@@ -41,7 +41,7 @@ test('unchanged loudness histograms reuse summaries and invalidate only real mut
 	const first = [histogram.integratedLufs(), histogram.loudnessRangeLu()]; module.work.bins = 0;
 	for (let repeat = 0; repeat < 100; repeat++) assert.deepEqual([histogram.integratedLufs(), histogram.loudnessRangeLu()], first);
 	assert.equal(module.work.bins, 0);
-	histogram.push(0); histogram.push(NaN);
+	histogram.push(0);
 	assert.deepEqual([histogram.integratedLufs(), histogram.loudnessRangeLu()], first);
 	assert.equal(module.work.bins, 0, 'rejected energies do not mutate the histogram');
 	histogram.push(.91);

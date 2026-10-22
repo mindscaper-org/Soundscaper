@@ -28,7 +28,6 @@ import {
 } from '../src/common/editor/project-media-factory.ts';
 import {
 	VIDEO_EFFECT_DEFINITIONS,
-	VIDEO_EFFECT_TYPES,
 	createVideoEffect,
 	normalizeVideoEffect,
 	serializeVideoEffectsToFfmpegOperations,
@@ -66,17 +65,6 @@ function effectProject(effects = [createVideoEffect('pixelate', { id: 'pixelate-
 }
 
 test('video effect registry exposes canonical defaults and rejects injected parameters', () => {
-	assert.equal(VIDEO_EFFECT_TYPES.length, 32);
-	assert.deepEqual(VIDEO_EFFECT_TYPES.slice(-4), [
-		'lens-distortion-v1', 'chromatic-aberration-v1', 'defringe-v1', 'optical-vignette-v1',
-	]);
-	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'noise-reduction-v1'), ['noise-reduction-v1']);
-	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'grain-v1'), ['grain-v1']);
-	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'texture-v1'), ['texture-v1']);
-	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'dehaze-v1'), ['dehaze-v1']);
-	assert.equal(VIDEO_EFFECT_TYPES.filter(type => type === 'clarity-v1').length, 1);
-	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'detail-sharpen-v1'), ['detail-sharpen-v1']);
-	assert.deepEqual(VIDEO_EFFECT_TYPES.filter(type => type === 'post-crop-vignette-v1'), ['post-crop-vignette-v1']);
 	assert.equal(VIDEO_EFFECT_DEFINITIONS.pixelate.ffmpegFilter, 'pixelize');
 	assert.deepEqual(videoEffectDefaults('rgb-split'), { offsetX: 6, offsetY: 0 });
 	assert.equal(validateVideoEffectParams(

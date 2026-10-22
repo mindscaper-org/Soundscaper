@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { decodeBomMarkedUtf16 } from './bom-marked-text.ts';
+
 const CD_FRAMES_PER_SECOND = 75;
 const DEFAULT_MAX_INPUT_CHARS = 16 * 1024 * 1024;
 const DEFAULT_MAX_CUES = 4_096;
@@ -162,9 +164,9 @@ export function parseAudioEditorCueSheet(
 			continue;
 		}
 		if (keyword === 'INDEX' && track?.audio) {
-			const match = value.match(/^(\d{2})\s+(\S+)$/u);
+			const match = value.match(/^(\d{1,2})\s+(\S+)$/u);
 			if (!match) throw cueError('A CUE INDEX directive is malformed.', 'INVALID_INDEX', { line: lineNumber });
-			if (match[1] !== '01') continue;
+			if (Number(match[1]) !== 1) continue;
 			if (track.index01 !== null) {
 				throw cueError('An AUDIO track has more than one INDEX 01.', 'DUPLICATE_INDEX', { line: lineNumber });
 			}
@@ -184,7 +186,7 @@ function normalizeInput(input: string | Uint8Array | ArrayBuffer, maximum: numbe
 	if (typeof input === 'string') text = input;
 	else if (input instanceof Uint8Array || input instanceof ArrayBuffer) {
 		try {
-			text = new TextDecoder('utf-8', { fatal: true }).decode(input);
+			text = decodeBomMarkedUtf16(input) ?? new TextDecoder('utf-8', { fatal: true }).decode(input);
 		} catch (error) {
 			if (!legacyTextEncoding) throw cueError('CUE data is not valid UTF-8.', 'INVALID_UTF8', {}, error);
 			text = new TextDecoder(legacyTextEncoding).decode(input);
@@ -196,19 +198,21 @@ function normalizeInput(input: string | Uint8Array | ArrayBuffer, maximum: numbe
 }
 
 function cueFileName(value: string, line: number): string {
-	const match = value.match(/^("[^"]+"|\S+)\s+\S+$/u);
+	const match = value.match(/^("[^"]+"|'[^']+'|\S+)\s+\S+$/u);
 	if (!match) throw cueError('A CUE FILE directive is malformed.', 'INVALID_FILE', { line });
 	return cueText(match[1]!, line, 'FILE');
 }
 
 function cueText(value: string, line: number, directive: string): string {
 	const trimmed = value.trim();
-	const quoted = trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2;
+	const quote = trimmed.startsWith("'") ? "'" : '"';
+	const quoted = trimmed.startsWith(quote) && trimmed.endsWith(quote) && trimmed.length >= 2;
 	const text = quoted
 		? trimmed.slice(1, -1)
 		: trimmed;
 	const emptyMetadata = quoted && (directive === 'TITLE' || directive === 'PERFORMER');
-	if ((!text && !emptyMetadata) || (trimmed.startsWith('"') !== trimmed.endsWith('"'))) {
+	if ((!text && !emptyMetadata) || (trimmed.startsWith(quote) && !quoted)
+		|| (!quoted && trimmed.endsWith('"'))) {
 		throw cueError(`A CUE ${directive} directive is malformed.`, `INVALID_${directive}`, { line });
 	}
 	return text;

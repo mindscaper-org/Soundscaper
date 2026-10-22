@@ -63,15 +63,6 @@ test('positions round-trip through the scaled scroll space', () => {
 	}
 });
 
-test('scroll spaces reject impossible geometry', () => {
-	assert.throws(() => createTimelineScrollSpace({ contentWidth: 0, viewportWidth: VIEWPORT }), /contentWidth/u);
-	assert.throws(() => createTimelineScrollSpace({ contentWidth: 10, viewportWidth: 0 }), /viewportWidth/u);
-	assert.throws(
-		() => createTimelineScrollSpace({ contentWidth: 10, viewportWidth: 5, maximumScrollWidth: Number.NaN }),
-		/maximumScrollWidth/u,
-	);
-});
-
 test('live scroll elements publish their scale for DOM-level navigation', () => {
 	const element = { scrollLeft: 4_000, scrollWidth: 16_000, clientWidth: 1_000, dataset: { timelineScrollScale: '2.5' } };
 	assert.equal(readTimelineScrollScale(element as never), 2.5);

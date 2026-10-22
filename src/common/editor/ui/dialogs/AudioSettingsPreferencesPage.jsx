@@ -3,19 +3,11 @@
 import { useEffect, useState } from 'react';
 import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
 
-import { AudioDevicesFlyout } from '../toolbar/AudioEditorMeterControls.jsx';
+import { AudioDevicesFlyout } from '../toolbar/AudioDevicesFlyout.jsx';
 import { recordingOffsetSources } from './editor-dialog-model.js';
 import RecordingOffsetInput from './RecordingOffsetInput.tsx';
 
-/**
- * Audacity's Audio settings preferences page: the playback and recording
- * devices, reached from Preferences as well as from the transport's Audio
- * setup button.
- *
- * Audacity's page leads with an audio API choice. This editor has none to
- * offer — the browser has only Web Audio, and the desktop backend chain is
- * discovered rather than chosen — so the page begins at the devices.
- */
+/** Shared host, device, and next-recording settings for Preferences and Audio setup. */
 export default function AudioSettingsPreferencesPage({ controller, snapshot, copy, run, displayAudioSupported = true }) {
 	const [requestedSourceKey, setSourceKey] = useState('global');
 	const sources = recordingOffsetSources(snapshot, copy);

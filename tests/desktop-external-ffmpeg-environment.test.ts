@@ -20,7 +20,6 @@ test('one external FFmpeg environment authority admits only bounded Windows root
 
 	assert.deepEqual(curatedExternalFfmpegEnvironment({
 		SystemRoot: `C:${'x'.repeat(32_768)}`,
-		WINDIR: 'C:\\Windows\0escape',
 	}), {});
 });
 

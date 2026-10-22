@@ -25,7 +25,7 @@ for (const buttons of [4, 2]) for (const phase of ['release', 'foreign', 'auxili
 				assert.deepEqual(f.preview.snapshot().selection, { startFrame: 200, endFrame: 400 });
 				assert.deepEqual(f.effectSelection(), { clipId: 'clip', startFrame: 200, endFrame: 400 });
 				await f.send('onPointerMove', 1, 500, true, 'mouse', -1, buttons);
-				await f.cancelSelection('pointercancel');
+				await f.cancelSelection();
 				await f.send('onPointerUp', 1, 500, true, 'mouse', buttons === 4 ? 1 : 2, 0);
 				assert.deepEqual(f.preview.snapshot().selection, { startFrame: 200, endFrame: 400 });
 				assert.deepEqual(f.effectSelection(), { clipId: 'clip', startFrame: 200, endFrame: 400 });
@@ -64,9 +64,8 @@ async function fixture() {
 	preview.focus('clip');
 	let effectSelection: (SourceSelection & { readonly clipId: string }) | null = null;
 	const noop = () => undefined;
-	const markerMoves: unknown[][] = [];
 	const controller: ClipSourceController = { getClipVisualData: () => null, actions: {
-		clip: { update: noop }, audioWarp: { addSourceMarker: noop, moveSourceMarker: (...args: unknown[]) => { markerMoves.push(args); }, deleteSourceMarker: noop }, timeline: {},
+		clip: { update: noop }, audioWarp: { addSourceMarker: noop, moveSourceMarker: noop, deleteSourceMarker: noop }, timeline: {},
 		effects: { setSourceSelection: value => { effectSelection = value; } },
 		clipSourcePreview: { ...preview, trim: noop },
 	} };
@@ -74,7 +73,7 @@ async function fixture() {
 	const root = createRoot(dom.container as unknown as Element);
 	const render = async (changes: Partial<ClipSourceProject['clips'][number]> = {}) => {
 		project = { ...project, clips: [{ ...project.clips[0]!, ...changes }] };
-		await act(async () => { root.render(<ClipSourceEditor controller={controller} project={project} clipId="clip" copy={ENGLISH_COPY} blocked={false} />); });
+		await act(async () => { root.render(<ClipSourceEditor run={operation => operation()} controller={controller} project={project} clipId="clip" copy={ENGLISH_COPY} blocked={false} />); });
 	};
 	await render();
 	const wave = dom.one('.audio-editor-source-wave-area');
@@ -82,32 +81,12 @@ async function fixture() {
 	Object.defineProperty(wave, 'setPointerCapture', { value: noop });
 	const event = { button: 0, pointerId: 1, preventDefault: noop, stopPropagation: noop };
 	return {
-		render, preview, markerMoves, effectSelection: () => effectSelection,
+		preview, effectSelection: () => effectSelection,
 		send: async (kind: 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel', pointerId: number, clientX: number, isPrimary = true, pointerType = 'mouse', button = 0, buttons = 1) => {
 			await act(async () => { reactProps(wave)[kind]({ ...event, pointerId, clientX, isPrimary, pointerType, button, buttons }); });
 		},
-		pressMarker: async (index: number, key: string) => {
-			const marker = dom.container.querySelectorAll('.audio-editor-source-stretch-marker')[index]!;
-			await act(async () => { reactProps(marker).onKeyDown({ ...event, key }); });
-		},
-		fadeHandle: (edge: string) => dom.find(`[data-clip-fade-handle="${edge}"]`),
-		highlight: () => {
-			const highlight = dom.find('.audio-editor-source-selection');
-			return highlight ? [Reflect.get(highlight.style, 'left'), Reflect.get(highlight.style, 'width')] : null;
-		},
-		dragSelection: async (startFrame: number, endFrame: number) => {
-			await act(async () => { reactProps(wave).onPointerDown({ ...event, clientX: startFrame }); });
-			await act(async () => { reactProps(wave).onPointerMove({ ...event, clientX: endFrame }); });
-		},
-		cancelSelection: async (method: 'Escape' | 'pointercancel') => {
-			await act(async () => {
-				if (method === 'Escape') reactProps(dom.one('.audio-editor-clip-source-editor')).onKeyDownCapture({ ...event, key: 'Escape' });
-				else reactProps(wave).onPointerCancel(event);
-			});
-		},
-		select: async (startFrame: number, endFrame: number) => {
-			await act(async () => { reactProps(wave).onPointerDown({ ...event, clientX: startFrame }); });
-			await act(async () => { reactProps(wave).onPointerUp({ ...event, clientX: endFrame }); });
+		cancelSelection: async () => {
+			await act(async () => { reactProps(wave).onPointerCancel(event); });
 		},
 		cleanup: async () => {
 			await act(async () => { root.unmount(); });

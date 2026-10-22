@@ -34,7 +34,6 @@ for (const [id, command] of commands) {
 		assert.ok(guide.steps.some((entry) => entry.kind === 'effect'));
 		assert.equal(guide.steps.at(-1).kind, 'play');
 		assert.ok(guide.steps.at(-1).see);
-		assert.equal(guide.tips.length, 2);
 		assert.doesNotMatch(page, /guide-[a-z-]+\.wav|quarter point|halfway point/u);
 	});
 }

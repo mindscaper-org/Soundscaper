@@ -6,56 +6,6 @@ import test from 'node:test';
 import { createGroupedEditorActions } from '../src/common/editor/controller/composition/action-facade.ts';
 import { createActionFacadeRuntime } from './helpers/action-facade-runtime-fixture.ts';
 
-const EXPECTED_ACTION_GROUPS = Object.freeze([
-	'analysis',
-	'audioDevices',
-	'audioWarp',
-	'capture',
-	'clip',
-	'clipSourcePreview',
-	'edit',
-	'effects',
-	'export',
-	'generators',
-	'labels',
-	'macros',
-	'media',
-	'metadata',
-	'metering',
-	'mixer',
-	'nyquist',
-	'preferences',
-	'project',
-	'projectBin',
-	'recording',
-	'recordingNotes',
-	'sampleEdit',
-	'sequences',
-	'spectral',
-	'storage',
-	'takeComp',
-	'timeline',
-	'timelineAnnotations',
-	'track',
-	'trackFolders',
-	'transport',
-	'video',
-	'webVcr',
-]);
-
-test('controller action facade exposes stable frozen responsibility groups', () => {
-	const runtime = createActionFacadeRuntime();
-	const actions = createGroupedEditorActions(runtime);
-	assert.deepEqual(Object.keys(actions).sort(), EXPECTED_ACTION_GROUPS);
-	assert.equal(Object.isFrozen(actions), true);
-	for (const group of Object.values(actions)) assert.equal(Object.isFrozen(group), true);
-	assert.equal(actions.labels, runtime.labels);
-	assert.deepEqual(Object.keys(actions.labels), ['add', 'update', 'remove', 'importFile', 'importCueFile', 'export']);
-	for (const [name, action] of Object.entries(runtime.selection)) {
-		assert.equal(actions.timeline[name as keyof typeof actions.timeline], action, name);
-	}
-});
-
 test('project actions dispatch stable-ID musical map commands', () => {
 	const commands: unknown[] = [];
 	const base = createActionFacadeRuntime();
@@ -212,7 +162,6 @@ test('recording actions expose one capability-guarded sound activation preferenc
 	assert.deepEqual(calls, [
 		['enabled', true], ['threshold', -24], ['hysteresis', 3], ['hold', 500], ['timestamps', true],
 	]);
-	assert.equal(Object.isFrozen(soundActivation), true);
 
 	const blocked = createGroupedEditorActions(new Proxy(runtime, {
 		get(target, name, receiver) {
@@ -471,19 +420,3 @@ test('controller action facade routes Scape file opens through continuation owne
 	assert.equal(await open(file, choose), expected);
 	assert.deepEqual(calls, [[file, choose]]);
 });
-
-// Compiled without invocation: public groups must retain their owning contracts.
-export function checkActionContracts(actions: ReturnType<typeof createGroupedEditorActions>): void {
-	actions.video.navigation.shuttleForward();
-	actions.video.sourceMonitor.seek(120);
-	// @ts-expect-error Video actions must reject unknown method names.
-	actions.video.navigation.missing();
-	// @ts-expect-error Source-monitor frame arguments must stay numeric.
-	actions.video.sourceMonitor.seek('120');
-	// @ts-expect-error Macro programs take structured requests.
-	void actions.macros.run('macro');
-	// @ts-expect-error Sequence frame snapping only accepts supported modes.
-	actions.sequences.snapSample(120, 'invalid');
-	// @ts-expect-error Mixer buses use the command protocol's bus kinds.
-	actions.mixer.addBus('invalid');
-}

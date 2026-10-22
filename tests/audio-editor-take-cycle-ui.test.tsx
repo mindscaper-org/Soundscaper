@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -103,41 +102,6 @@ test('recovery dialog exposes an exact explicit accessible recover/discard choic
 		run={(operation) => operation()}
 		onClose={() => undefined}
 	/>), '');
-});
-
-test('workspace auto-offers each authority once and keeps recovery menu-only', async () => {
-	const [workspace, toolbar, transport, overlays, hook, css] = await Promise.all([
-		readFile(new URL('../src/common/editor/ui/workspace/AudioEditorWorkspace.jsx', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/toolbar/EditorToolToolbar.jsx', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/toolbar/RecordFlyout.jsx', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/workspace/AudioEditorWorkspaceOverlays.jsx', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/use-take-cycle-recovery-surface.ts', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/audio-editor-design-system/28-take-cycle-recovery.css', import.meta.url), 'utf8'),
-	]);
-	assert.match(workspace, /useTakeCycleRecoverySurface\(productId, snapshot\.takeCycleRecovery\)/u);
-	assert.match(workspace, /onOpenTakeCycleRecovery: \(\) => openSurface\('take-cycle-recovery'\)/u);
-	assert.match(toolbar, /onOpenTakeCycleRecovery=\{onOpenTakeCycleRecovery\}/u);
-	assert.match(transport, /createTakeCycleRecordingMenuItems/u);
-	assert.match(overlays, /activeSurface === 'take-cycle-recovery' && snapshot\.takeCycleRecovery/u);
-	assert.match(hook, /offeredToken\.current === pending\.recoveryToken/u);
-	assert.match(hook, /setActiveSurface\('take-cycle-recovery'\)/u);
-	assert.doesNotMatch(workspace, /takeCycleRecovery[^\n]*recover\(/u);
-	assert.match(css, /@media \(forced-colors: active\)/u);
-	assert.match(css, /forced-color-adjust: none/u);
-});
-
-test('pending recovery visibly blocks ordinary recording mutations and cycle pause', async () => {
-	const [transport, toolbar] = await Promise.all([
-		readFile(new URL('../src/common/editor/ui/toolbar/RecordFlyout.jsx', import.meta.url), 'utf8'),
-		readFile(new URL('../src/common/editor/ui/toolbar/TransportToolbarGroup.jsx', import.meta.url), 'utf8'),
-	]);
-	assert.match(transport, /const recoveryBlocked = Boolean\(snapshot\.takeCycleRecovery\)/u);
-	assert.match(transport, /const recordingInputBlocked = recoveryBlocked \|\| snapshot\.recording/u);
-	assert.match(transport, /disabled=\{recoveryBlocked \|\| snapshot\.recordingStarting\}/u);
-	assert.match(transport, /disabled=\{actionBlocked\}/u);
-	assert.match(transport, /disabled=\{!soundActivation \|\| recoveryBlocked\}/u);
-	assert.doesNotMatch(transport, /recordingOffset|refreshInputs|releaseInputs/u);
-	assert.match(toolbar, /disabled=\{Boolean\(snapshot\.takeCycleRecovery\) \|\| snapshot\.readOnly/u);
 });
 
 test('cycle recording and recovery copy is complete in English and German', () => {

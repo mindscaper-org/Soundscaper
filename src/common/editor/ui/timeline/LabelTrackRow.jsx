@@ -3,7 +3,8 @@ import { Button } from '@soundscaper/design-system/Button';
 import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 import { GhostButton } from '@soundscaper/design-system/GhostButton';
 import { Icon } from '@soundscaper/design-system/Icon';
-import { LabelMarker } from '@soundscaper/design-system/LabelMarker';
+import { TimelineLabelChrome } from './TimelineLabelChrome.jsx';
+import { getLabelMetrics, layoutTimelineLabels, moveLabelRange, snapLabelFrame, stretchLabelRange, TIMELINE_LABEL_CONTENT_TOP } from './label-design-geometry.ts';
 
 import { framesToSeconds } from '../../design-system-adapters.js';
 import { TimeSelectionOverlay } from './TimelineOverlayComponents.jsx';
@@ -43,12 +44,22 @@ export function LabelTrackRow({
 	const [editingName, setEditingName] = useState(false);
 	const [selectedLabelId, setSelectedLabelId] = useState(null);
 	const [editingLabelId, setEditingLabelId] = useState(null);
+	const [neighborPreview, setNeighborPreview] = useState(null);
+	const snapshot = controller.getSnapshot();
+	const nativeSelectedLabels = snapshot.selectedLabels;
+	const selectedLabelIds = useMemo(() => new Set(Array.isArray(nativeSelectedLabels)
+		? nativeSelectedLabels.filter(ref => ref.trackId === track.id).map(ref => ref.labelId)
+		: selectedLabelId ? [selectedLabelId] : []), [nativeSelectedLabels, selectedLabelId, track.id]);
+	const fontSizePt = snapshot.preferences?.appearance?.labelTextSizePt ?? 9;
+	const metrics = useMemo(() => getLabelMetrics(fontSizePt), [fontSizePt]);
 	const labelIndex = useMemo(() => track.labels.length > 128 ? createLabelViewportIndex(track.labels) : null, [track.labels]);
 	const visibleLabels = useMemo(() => labelIndex && viewportDurationFrames > 0
 		? labelIndex.query(Math.max(0, renderViewportStartFrame - viewportDurationFrames),
 			Math.min(Number.MAX_SAFE_INTEGER, renderViewportStartFrame + viewportDurationFrames * 2),
-			Math.ceil(128 / pixelsPerSecond * sampleRate), [selectedLabelId, editingLabelId])
-		: track.labels, [editingLabelId, labelIndex, pixelsPerSecond, renderViewportStartFrame, sampleRate, selectedLabelId, track.labels, viewportDurationFrames]);
+			Math.ceil((metrics.maxPointWidth + metrics.earWidth + metrics.pointFlagGap) / pixelsPerSecond * sampleRate), [...selectedLabelIds, editingLabelId])
+		: track.labels, [editingLabelId, labelIndex, metrics, pixelsPerSecond, renderViewportStartFrame, sampleRate, selectedLabelIds, track.labels, viewportDurationFrames]);
+	const labelLayout = useMemo(() => layoutTimelineLabels(visibleLabels, pixelsPerSecond, sampleRate, metrics),
+		[visibleLabels, pixelsPerSecond, sampleRate, metrics]);
 	const addLabel = (event = null) => {
 		if (labelBlocked || labelTrackEditBlocked(controller, track.id)) return;
 		const pointerFrame = event?.clientX != null && laneRef.current
@@ -61,6 +72,7 @@ export function LabelTrackRow({
 		if (labelId) {
 			setSelectedLabelId(labelId);
 			setEditingLabelId(labelId);
+			if (controller.actions.labels?.select) run(() => controller.actions.labels.select(track.id, labelId));
 		}
 	};
 	return (
@@ -69,6 +81,7 @@ export function LabelTrackRow({
 			data-track-row
 			data-label-track
 			data-track-id={track.id}
+			data-track-color={track.color || 'blue'}
 			data-track-index={trackIndex}
 			data-collapsed="false"
 			style={{ height: trackHeight }}
@@ -124,6 +137,7 @@ export function LabelTrackRow({
 				onClick={(event) => {
 					if (!event.target.closest('[data-label-id]')) {
 						setSelectedLabelId(null);
+						if (controller.actions.labels?.select) run(() => controller.actions.labels.select(track.id, null));
 						run(() => controller.actions.timeline.selectTrack(track.id));
 					}
 				}}
@@ -142,12 +156,17 @@ export function LabelTrackRow({
 						trackId={track.id}
 						label={label}
 						left={labelLaneContentX(label.startFrame, pixelsPerSecond, sampleRate)}
+						layout={labelLayout.get(label.id)} metrics={metrics} trackColor={track.color}
+						leftNeighborSelected={selectedLabelIds.has(labelLayout.get(label.id)?.leftNeighbor?.id)}
+						getSnapTargets={() => visibleLabels.filter(candidate => candidate.id !== label.id).flatMap(candidate => [candidate.startFrame, candidate.endFrame])}
+						externalPreview={neighborPreview?.id === label.id ? neighborPreview : null}
+						onNeighborPreview={setNeighborPreview} fontSizePt={fontSizePt}
 						trackHeight={trackHeight}
 						pixelsPerSecond={pixelsPerSecond}
 						sampleRate={sampleRate}
 						renderOriginX={renderOriginX}
 						laneRef={laneRef}
-						selected={selectedLabelId === label.id}
+						selected={selectedLabelIds.has(label.id)}
 						editing={editingLabelId === label.id}
 						blocked={labelBlocked}
 						audioBlocked={blocked}
@@ -180,6 +199,11 @@ export function AudacityLabelMarker({
 	pixelsPerSecond,
 	sampleRate,
 	renderOriginX = 0,
+	layout = /** @type {import('./label-design-geometry.ts').LabelLayout | null} */ (null),
+	metrics = getLabelMetrics(), trackColor = 'blue', leftNeighborSelected = false,
+	snapTargets = [], getSnapTargets = null, externalPreview = null,
+	onNeighborPreview = /** @type {((preview: import('./label-design-geometry.ts').TimelineLabelRange | null) => void) | null} */ (null),
+	fontSizePt = 9,
 	laneRef,
 	selected,
 	editing,
@@ -194,16 +218,17 @@ export function AudacityLabelMarker({
 }) {
 	const inputRef = useRef(null);
 	const markerRef = useRef(null);
-	const baselineRef = useRef(label);
+	const gestureRef = useRef(null);
 	const pendingRef = useRef(null);
 	const [preview, setPreview] = useState(null);
 	const [contextMenu, setContextMenu] = useState(null);
-	const clearPreview = useCallback(() => setPreview(null), []);
+	const clearPreview = useCallback(() => { gestureRef.current = null; setPreview(null); onNeighborPreview?.(null); }, [onNeighborPreview]);
 	const dragCancellation = useLabelMarkerDragCancellation(markerRef, pendingRef, clearPreview, label);
-	const point = label.startFrame === label.endFrame;
-	const displayed = preview || label;
+	const displayed = preview || externalPreview || label;
+	const point = displayed.startFrame === displayed.endFrame;
 	const displayedLeft = left + (displayed.startFrame - label.startFrame) / sampleRate * pixelsPerSecond;
-	const displayedWidth = Math.max(1, (displayed.endFrame - displayed.startFrame) / sampleRate * pixelsPerSecond);
+	const displayedWidth = point ? layout?.width || metrics.minPointWidth
+		: Math.max(1, (displayed.endFrame - displayed.startFrame) / sampleRate * pixelsPerSecond);
 
 	useEffect(() => {
 		if (!editing) return;
@@ -214,12 +239,15 @@ export function AudacityLabelMarker({
 	const finishDrag = useCallback((event) => {
 		if (event.button !== 0) return;
 		const pending = pendingRef.current;
+		gestureRef.current = null;
 		if (!pending) return;
 		pendingRef.current = null;
-		setPreview(null);
+		clearPreview();
 		if (blocked || labelTrackEditBlocked(controller, trackId)) return;
-		run(() => controller.actions.labels.update(trackId, label.id, pending));
-	}, [blocked, controller, label.id, run, trackId]);
+		run(() => pending.neighbor
+			? controller.actions.labels.updateMany(trackId, [{ labelId: label.id, changes: pending.changes }, pending.neighbor])
+			: controller.actions.labels.update(trackId, label.id, pending.changes));
+	}, [blocked, clearPreview, controller, label.id, run, trackId]);
 
 	useEffect(() => {
 		document.addEventListener('mouseup', finishDrag);
@@ -230,20 +258,56 @@ export function AudacityLabelMarker({
 		};
 	}, [finishDrag]);
 
-	const previewRange = (startFrame, endFrame) => {
-		if (blocked || labelTrackEditBlocked(controller, trackId) || dragCancellation.cancelledRef.current) return;
-		const changes = {
-			startFrame: Math.max(0, Math.min(startFrame, endFrame)),
-			endFrame: Math.max(0, Math.max(startFrame, endFrame)),
-		};
-		pendingRef.current = changes;
-		setPreview({ ...label, ...changes });
+	const beginGesture = (event, mode) => {
+		if (event.button !== 0 || blocked || labelTrackEditBlocked(controller, trackId)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		gestureRef.current = { mode, clientX: event.clientX, baseline: label, targets: getSnapTargets?.() || snapTargets };
 	};
-	const select = () => {
+	useEffect(() => {
+		const move = (event) => {
+			const gesture = gestureRef.current;
+			if (!gesture || blocked || dragCancellation.cancelledRef.current || labelTrackEditBlocked(controller, trackId)) return;
+			const { mode, baseline, clientX, targets } = gesture;
+			const delta = event.clientX - clientX;
+			if (mode === 'move' && Math.abs(delta) <= 3) return;
+			const frame = frameAtLabelClientX(event.clientX, laneRef.current, pixelsPerSecond, sampleRate, renderOriginX);
+			let changes, neighbor;
+			if (mode.startsWith('shared-')) {
+				const left = mode === 'shared-left';
+				const adjacent = left ? layout?.leftNeighbor : layout?.rightNeighbor;
+				if (!adjacent) return;
+				const boundary = Math.max(left ? adjacent.startFrame : baseline.startFrame,
+					Math.min(left ? baseline.endFrame : adjacent.endFrame, frame));
+				changes = left ? { startFrame: boundary, endFrame: baseline.endFrame }
+					: { startFrame: baseline.startFrame, endFrame: boundary };
+				const neighborChanges = left ? { startFrame: adjacent.startFrame, endFrame: boundary }
+					: { startFrame: boundary, endFrame: adjacent.endFrame };
+				neighbor = { labelId: adjacent.id, changes: neighborChanges };
+				onNeighborPreview?.({ ...adjacent, ...neighborChanges });
+			} else if (mode === 'move-point') {
+				const snapped = snapLabelFrame(frame, targets, pixelsPerSecond, sampleRate);
+				changes = { startFrame: snapped, endFrame: snapped };
+			} else if (mode === 'move') {
+				changes = moveLabelRange(baseline, Math.round(delta / pixelsPerSecond * sampleRate), targets, pixelsPerSecond, sampleRate);
+			} else {
+				changes = stretchLabelRange(frame, mode === 'left' ? baseline.endFrame : baseline.startFrame,
+					targets, pixelsPerSecond, sampleRate);
+			}
+			pendingRef.current = { changes, neighbor };
+			setPreview({ ...label, ...changes });
+		};
+		document.addEventListener('mousemove', move);
+		return () => document.removeEventListener('mousemove', move);
+	}, [blocked, controller, dragCancellation.cancelledRef, label, laneRef, layout, onNeighborPreview,
+		pixelsPerSecond, renderOriginX, sampleRate, snapTargets, trackId]);
+	const select = (event = /** @type {Pick<MouseEvent, 'shiftKey'> | null} */ (null)) => {
 		onSelect();
-		if (!dragCancellation.activeRef.current) baselineRef.current = preview || label;
-		run(() => controller.actions.timeline.selectTrack(trackId));
-		run(() => controller.actions.timeline.setExactSelection(label.startFrame, label.endFrame));
+		if (controller.actions.labels?.select) run(() => controller.actions.labels.select(trackId, label.id, { additive: Boolean(event?.shiftKey) }));
+		else {
+			run(() => controller.actions.timeline.selectTrack(trackId));
+			run(() => controller.actions.timeline.setExactSelection(label.startFrame, label.endFrame));
+		}
 	};
 	return (
 		<div
@@ -255,12 +319,15 @@ export function AudacityLabelMarker({
 			onMouseDownCapture={dragCancellation.onMouseDownCapture}
 			onMouseUp={finishDrag}
 			onPointerUp={finishDrag}
-			style={{ left: timelineContentLeft(displayedLeft), width: displayedWidth }}
+			style={{ left: timelineContentLeft(displayedLeft), width: point ? 1 : displayedWidth,
+				top: TIMELINE_LABEL_CONTENT_TOP + (layout?.row || 0) * metrics.rowHeight }}
 			role="group"
 			tabIndex={0}
 			aria-label={`${copy.editLabels}: ${label.title || copy.newLabel}`}
 			onFocus={(event) => {
-				if (event.target === event.currentTarget) select();
+				if (event.target !== event.currentTarget) return;
+				if (!selected) select();
+				else if (controller.getSnapshot().selectedTrackId !== trackId) select({ shiftKey: true });
 			}}
 			onDoubleClick={(event) => {
 				event.stopPropagation();
@@ -270,7 +337,7 @@ export function AudacityLabelMarker({
 				if (event.target.closest('input, textarea, [contenteditable="true"]')) return;
 				event.preventDefault();
 				event.stopPropagation();
-				select();
+				if (!selected) select();
 				setContextMenu({ x: event.clientX, y: event.clientY, target: event.currentTarget });
 			}}
 			onKeyDown={(event) => {
@@ -283,7 +350,7 @@ export function AudacityLabelMarker({
 					event.preventDefault();
 					event.stopPropagation();
 					const rect = event.currentTarget.getBoundingClientRect();
-					select();
+					if (!selected) select();
 					setContextMenu({ x: rect.left, y: rect.top + 18, target: event.currentTarget });
 				} else if ((event.key === 'Delete' || event.key === 'Backspace') && !editing && !blocked) {
 					event.preventDefault();
@@ -291,30 +358,11 @@ export function AudacityLabelMarker({
 				}
 			}}
 		>
-			<LabelMarker
-				text={label.title || copy.newLabel}
-				type={point ? 'point' : 'region'}
-				width={displayedWidth}
-				stalkHeight={Math.max(24, trackHeight - 18)}
-				selected={selected}
-				onClick={select}
-				onSelect={() => {
-					select();
-					baselineRef.current = preview || label;
-				}}
-				onLabelMove={blocked ? undefined : (deltaX) => {
-					const baseline = baselineRef.current || label;
-					const deltaFrames = Math.round(deltaX / pixelsPerSecond * sampleRate);
-					const duration = baseline.endFrame - baseline.startFrame;
-					const startFrame = Math.max(0, baseline.startFrame + deltaFrames);
-					previewRange(startFrame, startFrame + duration);
-				}}
-				onRegionResize={blocked ? undefined : ({ side, clientX }) => {
-					const frame = frameAtLabelClientX(clientX, laneRef.current, pixelsPerSecond, sampleRate, renderOriginX);
-					if (side === 'left') previewRange(frame, label.endFrame);
-					else previewRange(label.startFrame, frame);
-				}}
-			/>
+			<TimelineLabelChrome text={label.title || copy.newLabel} point={point} width={displayedWidth}
+				stalkHeight={Math.max(metrics.bannerHeight, trackHeight - TIMELINE_LABEL_CONTENT_TOP - (layout?.row || 0) * metrics.rowHeight)}
+				metrics={metrics} trackColor={trackColor} selected={selected} editing={editing}
+				leftNeighbor={layout?.leftNeighbor} rightNeighbor={layout?.rightNeighbor} leftNeighborSelected={leftNeighborSelected}
+				onSelect={select} onGesture={beginGesture} onEdit={() => { if (!blocked) { onSelect(); onEdit(); } }}>
 			{editing && <input
 				ref={inputRef}
 				className="audio-editor-label-title-input"
@@ -342,9 +390,11 @@ export function AudacityLabelMarker({
 					}
 				}}
 			/>}
+			</TimelineLabelChrome>
 			<LabelContextMenu position={contextMenu} copy={copy} blocked={blocked} audioBlocked={audioBlocked} point={point}
 				audioEditing={controller.getSnapshot().project?.schemaFamily !== 'framescaper'}
-				run={run} editActions={controller.actions.edit} onEdit={onEdit} onRemove={onRemove}
+				run={run} editActions={controller.actions.edit} fontSizePt={fontSizePt}
+				onFontSizeChange={(labelTextSizePt) => run(() => controller.actions.preferences.update({ appearance: { labelTextSizePt } }))} onEdit={onEdit} onRemove={onRemove}
 				onClose={() => setContextMenu(null)} />
 		</div>
 	);

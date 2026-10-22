@@ -165,40 +165,6 @@ test('a Framescaper bridge cannot surface Framescaper native menus in Soundscape
 // their budgets are sized from measured worst cases rather than defaults.
 const SLOW_WORKFLOW = { timeout: 120_000 };
 
-test('Framescaper v1 authors typed OpenFX state only from the opted-in Effect menu', async ({ page }) => {
-	test.setTimeout(240_000);
-	await installNativeServicesFixture(page);
-	const editor = await bootEditor(page, '/framescaper/embed/en/');
-	await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Solid'], SLOW_WORKFLOW);
-	await expect(editor.getByRole('group', { name: 'Video clip: Solid', exact: true })).toHaveCount(1, SLOW_WORKFLOW);
-	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', SLOW_WORKFLOW);
-	await openNativePreferences(page, editor, 'Media', 'Native media and scratch');
-	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	await dialog.locator('[data-native-service-preference="native-media"]').check();
-	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
-	await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
-	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	await dialog.getByText('Scanning & Settings', { exact: true }).click();
-	await dialog.getByRole('checkbox', { name: 'Allow OpenFX plugin scanning and execution' }).check();
-	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
-
-	const effects = await openNestedCommandMenu(page, editor, 'Effect', ['Video effects'], SLOW_WORKFLOW);
-	const add = getMenuItem(effects, 'Add OFX');
-	await expect(add).toBeEnabled();
-	await add.click();
-	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	const form = dialog.locator('[data-framescaper-openfx-add-form="true"]');
-	await expect(form).toBeVisible();
-	await form.locator('[data-openfx-parameter-type="boolean"] input').check();
-	await form.getByLabel('customState', { exact: true }).fill('opaque-state');
-	await form.getByLabel('Custom encoding for customState', { exact: true }).fill('vendor-v1');
-	await form.getByRole('button', { name: 'Add OpenFX effect', exact: true }).click();
-	await expect(form.getByRole('status')).toContainText('OpenFX effect added.', SLOW_WORKFLOW);
-	await expect.poll(() => page.evaluate(() => globalThis.__framescaperNativeCalls)).toContainEqual([
-		'listOpenFxPlugins',
-	]);
-});
-
 test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow without a vendor window', async ({ page, browserName }) => {
 	test.setTimeout(360_000);
 	await page.emulateMedia({ forcedColors: 'active' });
@@ -217,14 +183,20 @@ test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow wit
 	await dialog.getByRole('checkbox', { name: 'Allow OpenFX plugin scanning and execution' }).check();
 	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
 	let effects = await openNestedCommandMenu(page, editor, 'Effect', ['Video effects'], SLOW_WORKFLOW);
-	await getMenuItem(effects, 'Add OFX').click();
+	const add = getMenuItem(effects, 'Add OFX');
+	await expect(add).toBeEnabled();
+	await add.click();
 	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
 	const form = dialog.locator('[data-framescaper-openfx-add-form="true"]');
+	await expect(form).toBeVisible();
 	await form.locator('[data-openfx-parameter-type="boolean"] input').check();
 	await form.getByLabel('customState', { exact: true }).fill('opaque-state');
 	await form.getByLabel('Custom encoding for customState', { exact: true }).fill('vendor-v1');
 	await form.getByRole('button', { name: 'Add OpenFX effect', exact: true }).click();
 	await expect(form.getByRole('status')).toContainText('OpenFX effect added.', SLOW_WORKFLOW);
+	await expect.poll(() => page.evaluate(() => globalThis.__framescaperNativeCalls)).toContainEqual([
+		'listOpenFxPlugins',
+	]);
 	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
 
 	const effectButton = editor.getByRole('menuitem', { name: 'Effect', exact: true });

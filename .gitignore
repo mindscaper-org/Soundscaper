@@ -34,7 +34,7 @@ private/
 .model-mirror/
 .docs-ai-cache/
 
-# Provisioned by scripts/provision-interchange-conformance.mjs; reference readers, never shipped.
+# Provisioned reference readers; only the diagnostic nightly bundles this tree.
 /vendor/interchange-conformance/
 
 # Digest-pinned RAW qualification fixtures; provisioned separately from the app.

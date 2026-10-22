@@ -65,15 +65,6 @@ function projectWithVisualInputs() {
 	} as Record<string, unknown>;
 }
 
-test('no clip places the media these visual graphs reach', () => {
-	const placed = new Set((projectWithVisualInputs().clips as readonly { sourceId?: string }[])
-		.map((clip) => clip.sourceId));
-
-	for (const [label, sourceId] of Object.entries(UNPLACED)) {
-		assert.equal(placed.has(sourceId), false, `${label} media must not be on the timeline`);
-	}
-});
-
 test('the rebinder rewrites every visual graph input', () => {
 	const project = projectWithVisualInputs();
 	const remap = new Map(Object.values(UNPLACED).map((sourceId) => [sourceId, `${sourceId}-2`]));
@@ -95,9 +86,12 @@ test('the rebinder rewrites every visual graph input', () => {
 });
 
 test('retention keeps every source the rebinder would rewrite', () => {
-	const retained = collectProjectSourceIds(projectWithVisualInputs());
+	const project = projectWithVisualInputs();
+	const placed = new Set((project.clips as readonly { sourceId?: string }[]).map((clip) => clip.sourceId));
+	const retained = collectProjectSourceIds(project);
 
 	for (const [label, sourceId] of Object.entries(UNPLACED)) {
+		assert.equal(placed.has(sourceId), false, `${label} media must not be on the timeline`);
 		assert.equal(retained.has(sourceId), true, `${label} media must survive a retention sweep`);
 	}
 });

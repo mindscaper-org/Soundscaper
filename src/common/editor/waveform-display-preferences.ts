@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+export const MAXIMUM_WAVEFORM_VERTICAL_ZOOM = 8;
+
 export type WaveformRulerFormat = 'linear-db' | 'linear-amp' | 'logarithmic-db';
 
 export interface WaveformDisplayPreferences {

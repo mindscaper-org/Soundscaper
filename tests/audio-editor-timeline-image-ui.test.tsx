@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import React from 'react';
@@ -38,7 +37,7 @@ test('image filmstrips sample product-owned timeline frames without video source
 	}]);
 });
 
-test('timeline and Project Bin route image clips through product visual thumbnails', async () => {
+test('timeline routes image clips through product visual thumbnails', () => {
 	const reactDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'React');
 	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 	const controller = {
@@ -82,10 +81,7 @@ test('timeline and Project Bin route image clips through product visual thumbnai
 	assert.match(markup, /aria-label="Image clip: Poster"/u);
 	assert.match(markup, /data-product-visual-thumbnail="true"/u);
 
-	const projectBin = await readFile(new URL(
-		'../src/common/editor/ui/workspace/ProjectBinCard.jsx', import.meta.url,
-	), 'utf8');
-	assert.match(projectBin, /itemClip\.kind === 'image'/u);
+
 });
 
 test('video track keeps an image clip visible at its drag-preview position', () => {

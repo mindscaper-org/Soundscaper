@@ -25,7 +25,8 @@ function deepFrozen(value: unknown): boolean {
 }
 
 test('saved collection retains the complete canonical catalog query, not a predicate-only conversion', () => {
-	const predicate = { kind: 'all', terms: [{ kind: 'text', column: 'camera-make', operator: 'equals', value: 'Canon' },
+	const originalTerm = { kind: 'text', column: 'camera-make', operator: 'equals', value: 'Canon' };
+	const predicate = { kind: 'all', terms: [originalTerm,
 		{ kind: 'number', column: 'iso', minimum: 100, maximum: 400 }] };
 	const input = definition(query(predicate, { kind: 'collection', id: 'legacy-root-collection' }));
 	const normalized = normalizePhotoSmartCollectionV1(input);
@@ -37,7 +38,7 @@ test('saved collection retains the complete canonical catalog query, not a predi
 	assert.equal(serializePhotoSmartCollectionV1(normalized), JSON.stringify(normalized));
 	assert.deepEqual(normalizePhotoSmartCollectionV1(JSON.parse(serializePhotoSmartCollectionV1(normalized)) as unknown), normalized);
 	assert.ok(deepFrozen(normalized));
-	predicate.terms[0]!.value = 'mutated';
+	originalTerm.value = 'mutated';
 	assert.equal(JSON.stringify(normalized.query.predicate).includes('mutated'), false);
 });
 

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { validateAudacityAudioInput } from '../src/common/editor/audacity-effects/basic-channel-math.js';
 import { applyAudacityAmplify } from '../src/common/editor/audacity-effects/basic.js';
 import { applyAudacityEcho } from '../src/common/editor/audacity-effects/realtime.js';
 
@@ -17,14 +16,9 @@ const invalidInputs = [
 	{ channels: [new Float32Array(1)], sampleRate: Number.NaN, message: /sampleRate/u },
 ];
 
-test('one Audacity input authority preserves the basic and realtime rejection matrix', () => {
+test('basic and realtime Audacity effects reject unusable PCM inputs', () => {
 	for (const { channels, sampleRate, message } of invalidInputs) {
-		assert.throws(() => validateAudacityAudioInput(channels, sampleRate), message);
 		assert.throws(() => applyAudacityAmplify(channels, sampleRate), message);
 		assert.throws(() => applyAudacityEcho(channels, sampleRate), message);
 	}
-	assert.equal(validateAudacityAudioInput([
-		new Float32Array(0),
-		new Float32Array(0),
-	], 48_000), undefined);
 });

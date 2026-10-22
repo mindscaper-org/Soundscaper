@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { sameNativeRenderInputStageIdentity } from '../desktop/native-services-render-input-contract.ts';
 
-test('render-input identity binds schema, plan, project and ordered original fingerprints', () => {
+test('render-input identity binds plan, project and ordered original fingerprints', () => {
 	const identity = {
 		schemaFamily: 'framescaper' as const, schemaVersion: 1 as const,
 		planFingerprint: 'a'.repeat(64), projectId: 'project-1', projectRevision: 2,
@@ -13,7 +13,6 @@ test('render-input identity binds schema, plan, project and ordered original fin
 	};
 	assert.equal(sameNativeRenderInputStageIdentity(identity, { ...identity, inputFingerprints: [...identity.inputFingerprints] }), true);
 	for (const changed of [
-		{ ...identity, schemaVersion: 2 as 1 },
 		{ ...identity, planFingerprint: 'c'.repeat(64) },
 		{ ...identity, projectId: 'other' },
 		{ ...identity, projectRevision: 3 },

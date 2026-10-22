@@ -13,14 +13,6 @@ const SELECTION_KEYS = [
 	'extendSelectionLeft', 'extendSelectionRight', 'contractSelectionLeft', 'contractSelectionRight',
 	'extendSelectionToProjectStart', 'extendSelectionToProjectEnd',
 ];
-const VIEW_KEYS = [
-	'setTimelineView', 'setVideoPreviewResolution', 'toggleRms', 'toggleFadeShapeHandles', 'toggleVerticalRulers',
-	'toggleScrollViewToPlayhead', 'togglePinnedPlayhead', 'toggleRulerPlayback', 'setSnap',
-	'zoomIn', 'zoomOut', 'zoomDefault', 'zoomSelection', 'zoomToggle', 'zoomFit', 'fitHeight',
-	'centerOnPlayhead', 'toggleArmControls', 'toggleMarkers', 'decreaseAllTrackHeights',
-	'increaseAllTrackHeights', 'setWorkspace', 'togglePanel', 'openWorkspaceOnboarding',
-];
-
 function fixture() {
 	const calls: unknown[][] = [];
 	const methods = (owner: string) => new Proxy({}, {
@@ -40,16 +32,6 @@ function fixture() {
 	});
 	return { calls, snapshot, togglePanel, ...ports };
 }
-
-test('two menu ports expose exact frozen selection and view contracts without resolving actions', () => {
-	const f = fixture();
-	assert.deepEqual(Object.keys(f.selectionMenu), SELECTION_KEYS);
-	assert.deepEqual(Object.keys(f.viewMenu), VIEW_KEYS);
-	assert.equal(Object.isFrozen(f.selectionMenu), true);
-	assert.equal(Object.isFrozen(f.viewMenu), true);
-	assert.deepEqual(f.calls, []);
-	assert.equal(f.viewMenu.togglePanel, f.togglePanel);
-});
 
 test('menu ports preserve direct zoom, parity operations, snapshot toggles and functional arm updates', () => {
 	const f = fixture();

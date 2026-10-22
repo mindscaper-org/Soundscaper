@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { access, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { videoSourceGeometryMedia } from './browser/fixtures/video-source-geometry-media.js';
@@ -10,11 +10,9 @@ import { videoTimingProbeMedia } from './browser/fixtures/video-timing-probe-med
 
 const fixtures = JSON.parse(await readFile('config/milestone-3-timing-probe-fixtures.json', 'utf8'));
 
-test('WP-0.3 keeps only digest-pinned correctness fixtures', async () => {
+test('WP-0.3 keeps only digest-pinned correctness fixtures', () => {
 	assert.equal(fixtures.workPacket, 'WP-0.3');
 	assert.deepEqual(Object.keys(fixtures), ['schemaVersion', 'workPacket', 'purpose', 'fixtures']);
-	assert.doesNotMatch(JSON.stringify(fixtures), /qualification|admission|cohort|humanReview/iu);
-	await assert.rejects(access('config/milestone-3-timing-probe-matrix.json'), { code: 'ENOENT' });
 
 	const configured = new Map(fixtures.fixtures.map((fixture) => [fixture.id, fixture]));
 	assert.deepEqual(

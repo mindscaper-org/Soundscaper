@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { createAudioEditorUiActionController } from '../src/common/editor/audacity-action-runtime.js';
-import { AUDACITY_ACTION_MANIFEST, AUDACITY_ACTION_STATUS } from '../src/common/editor/audacity-action-parity.js';
 import createApplicationMenus from '../src/common/editor/ui/application-menus.js';
 import {
 	COMPACT_TRACK_PANEL_WIDTH,
@@ -44,11 +42,7 @@ test('the track-header drawer is a session UI flag with a local View command', (
 	ui.actions.setFlag('trackHeaderDrawer', false);
 	assert.equal(ui.getSnapshot().flags.trackHeaderDrawer, false);
 
-	const definition = AUDACITY_ACTION_MANIFEST['local://track-header-drawer'];
-	assert.equal(definition.status, AUDACITY_ACTION_STATUS.IMPLEMENTED);
-	assert.deepEqual(definition.locations, ['View']);
-	assert.equal(definition.handler, 'workspace.toggleTrackHeaderDrawer');
-	assert.equal(definition.origin, 'local');
+
 });
 
 test('the View menu offers the track headers toggle only in the compact layout', () => {
@@ -74,13 +68,7 @@ test('the drawer handle names its state', () => {
 	assert.match(open, new RegExp(`aria-label="${ENGLISH_COPY.trackHeadersHide}"`, 'u'));
 });
 
-test('the ruler corner is the handle and shows its content only while the drawer is open', () => {
-	const view = readFileSync(new URL('../src/common/editor/ui/timeline/TimelineWorkspaceView.jsx', import.meta.url), 'utf8');
-	assert.match(view, /data-track-header-drawer-strip=\{trackHeaderDrawer \? 'true' : undefined\}/u);
-	assert.match(view, /\{trackHeaderDrawer && <TrackHeaderDrawerToggle/u);
-	assert.match(view, /\{\(!trackHeaderDrawer \|\| trackHeaderDrawer\.isOpen\) && <TimelineRulerCornerContent/u);
-	assert.match(view, /trackHeaderDrawer\.isOpen \? trackHeaderWidth : TRACK_HEADER_DRAWER_HANDLE_WIDTH/u);
-});
+
 
 test('pointer targets inside a header or the handle strip do not dismiss the drawer', () => {
 	const target = (matches: string[]) => ({ closest: (selector: string) => (matches.some((m) => selector.includes(m)) ? {} : null) });
@@ -102,37 +90,7 @@ test('pointer targets inside a header or the handle strip do not dismiss the dra
  * z-index does not sit under the dock chrome it was picked for - it simply wins
  * and paints the dimming over the header the drawer has just brought back.
  */
-test('the drawer dims the lanes under the reopened headers, never over them', () => {
-	const styles = (file: string) => readFileSync(
-		new URL(`../src/common/editor/ui/audio-editor-design-system/${file}`, import.meta.url),
-		'utf8',
-	);
-	const compact = styles('36-compact-layout.css');
-	const tracks = styles('07-timeline-tracks.css');
-	assert.match(styleBlock(tracks, '.audio-editor-track-row {'), /contain:\s*layout paint/u);
 
-	const dim = styleZIndex(compact, '.audio-editor-track-lane::after {');
-	const headers = [
-		[tracks, '.audio-editor-track-controls {'],
-		[tracks, '.audio-editor-label-track-controls {'],
-		[styles('08f-video-track-controls.css'), '.audio-editor-video-track-controls {'],
-	] as const;
-	for (const [css, header] of headers) {
-		assert.ok(dim < styleZIndex(css, header), `${header} paints above the drawer dimming, not under it`);
-	}
-	assert.ok(
-		dim < styleZIndex(compact, '.audio-editor-track-folder-row__panel {'),
-		'the folder header paints above the drawer dimming, not under it',
-	);
-
-	// The wash still covers everything it is meant to darken: the lane's window
-	// sits on the row's auto layer and its vertical ruler just above that.
-	assert.ok(dim > 0, 'the dimming covers the lane content on the row\'s auto layer');
-	assert.ok(
-		dim > styleZIndex(styles('08-timeline-clips-effects.css'), '.audio-editor-vertical-ruler {'),
-		'the dimming covers the lane\'s vertical ruler',
-	);
-});
 
 interface MenuItem {
 	readonly id?: string;
@@ -192,18 +150,3 @@ function menuInput() {
 }
 
 /** The declarations of the first rule whose selector contains `selector`. */
-function styleBlock(css: string, selector: string): string {
-	const start = css.indexOf(selector);
-	assert.notEqual(start, -1, `${selector} is declared`);
-	const open = css.indexOf('{', start);
-	const close = css.indexOf('}', open);
-	assert.ok(open !== -1 && close !== -1, `${selector} has a declaration block`);
-	return css.slice(open + 1, close);
-}
-
-function styleZIndex(css: string, selector: string): number {
-	const match = /z-index:\s*(-?\d+)/u.exec(styleBlock(css, selector));
-	const value = Number(match?.[1]);
-	assert.ok(Number.isInteger(value), `${selector} sets a numeric z-index`);
-	return value;
-}

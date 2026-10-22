@@ -74,7 +74,7 @@ product enables see
 | Native project format | + — `.sscape`, a lossless portable archive | + — `.sscape`, a lossless portable archive | + — `.aup4` | + — `.sesx` |
 | Opens Audacity projects | + — AUP, AUP3, and AUP4 import; AUP3 and AUP4 export | + — AUP, AUP3, and AUP4 import; AUP3 and AUP4 export | + — AUP, AUP3, and AUP4 import; AUP4 export, no AUP3 export | / |
 | Non-destructive clip timeline | + | + | + | + — multitrack editor |
-| Dedicated single-file editor | + — source waveform editor in Clip properties | + — source waveform editor in Clip properties | ~ — edits apply in place in the timeline | + — waveform editor |
+| Dedicated single-file editor | + — source waveform editor in Source monitor | + — source waveform editor in Source monitor | ~ — edits apply in place in the timeline | + — waveform editor |
 | Mono and stereo content on one track | + — a track holds either | + — a track holds either | / — a track is mono or stereo | / — channel format is fixed per track |
 | Nested track folders | + — any depth, undoable, with routing | + — any depth, undoable, with routing | / | ~ — submix buses only, no folder tracks |
 | Project bin | + — organises files and doubles as a clipboard | + — organises files and doubles as a clipboard | / | ~ — the Files panel lists open files |
@@ -160,14 +160,14 @@ ARA in addition to VST3; Adobe's documented
 [plug-in workflow](https://helpx.adobe.com/audition/desktop/applying-effects/adding-third-party-plug-ins.html)
 describes ordinary effects hosting.
 
-In Web and Desktop, **Edit → Preferences → Audio settings → Processing** offers
+In Web and Desktop, **Edit → Preferences → Advanced → Processing** offers
 optional parallel effect stacks with worker and buffering controls. The setting
 defaults off and requires a supported, cross-origin-isolated environment. It
 adds pipeline latency and admits only supported built-in effects and mixer
 graphs; projects with timeline automation, authored warp maps, or ADM routing
 use conventional playback instead.
 
-Both editions offer **Edit → Preferences → General → Optimize for**. Web
+Both editions offer **Edit → Preferences → Advanced → Optimize for**. Web
 defaults to **Memory**; Desktop defaults to **Speed**. Speed favors faster audio
 chunk storage at the cost of more storage space. Desktop also loads editor
 tools ahead of time in Speed mode. Restart the desktop editor or reload the

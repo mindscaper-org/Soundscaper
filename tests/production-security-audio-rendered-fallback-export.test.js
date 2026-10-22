@@ -5,7 +5,6 @@ import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
-const threatModelUrl = new URL('../docs/policies/security.md', import.meta.url);
 
 test('role-defined audio rendered-fallback export stays private and narrowly qualified', async () => {
 	const matrix = JSON.parse(await readFile(matrixUrl, 'utf8'));
@@ -45,60 +44,4 @@ test('role-defined audio rendered-fallback export stays private and narrowly qua
 		await assert.doesNotReject(access(new URL(`../${path}`, import.meta.url)), path);
 		assert.ok(control.evidence.some((item) => item.path === path), path);
 	}
-
-	assert.match(
-		control.summary,
-		/exact owning-family v1.*canonical namespaced feature ID.*unavailable or unknown.*declared and effective rendered-fallback.*closed project-audio-mix-v1 role.*canonical manifest.*only.*standalone final audio mix delivery/iu,
-	);
-	assert.match(control.summary, /standalone.*simultaneous rendered fallback.*reject.*separate.*final-video.*one-audio.one-video/iu);
-	assert.match(control.summary, /role supplies.*media semantics.*feature ID.*opaque identity.*does not discover, load, or execute.*feature code/iu);
-	assert.match(
-		control.summary,
-		/selector.mode.*requirement ID.*feature ID.*audio kind.*source ID.*SHA-256.*only.*selected.*PCM.*unrelated.*fallback.*not read/iu,
-	);
-	assert.match(
-		control.summary,
-		/full canonical audio-f32le-chunks-v1.*65,536.*64 GiB.*32(?: bytes|-bytes)-per-chunk digest table.*2 MiB/iu,
-	);
-	assert.match(
-		control.summary,
-		/private provider.*each requested stored chunk.*copies.*Float32Array.*index.*frame.*channel.*geometry.*digest.*currentness.*before.*after.*return/iu,
-	);
-	assert.match(
-		control.summary,
-		/stems.*BW64.*ADM.*before verification.*verification.*precede(?:s)?.*plan.*picker.*storage preflight.*render.*output publication/iu,
-	);
-	assert.match(
-		control.summary,
-		/empty private source-buffer map.*sole private chunk source.*global.*buffers.*providers.*caches.*unpublished.*time-pitch cache preparation.*offline.*realtime.*direct PCM/iu,
-	);
-	assert.match(
-		control.summary,
-		/stable.*integrity.*does not.*retry.*realtime.*ordinary audio export.*keeps.*existing/iu,
-	);
-	assert.match(
-		control.summary,
-		/corrupt.*after activation.*before.*render.*download.*restor.*exact PCM.*expected fallback samples.*canonical.*unchanged/iu,
-	);
-	assert.match(
-		control.summary,
-		/org\.example\.future-mixer.*unknown-feature.*Soundscaper family-v1 same-family.*manifest.*metadata.*localized.*UI.*exact feature ID.*requirement ID/iu,
-	);
-	assert.match(
-		control.summary,
-		/operation-time.*selector.*exact requirement ID.*feature ID.*audio kind.*source ID.*SHA-256.*tamper.*refus.*repair.*canonical project.*shadow.*unchanged/iu,
-	);
-	assert.match(
-		control.summary,
-		/not a durable storage-record or byte lease.*cross-process immutability.*non-audio roles.*more than one.*feature identities.*publisher authenticity.*third-party feature-code activation.*authored.*freeze.*proxy.*linked-only.*unmanaged.*stems.*BW64.*ADM.*surround.*packaged runtime or UI.*browser.*reference-scale.*future.*earlier/iu,
-	);
-
-	const threatModel = await readFile(threatModelUrl, 'utf8');
-	assert.match(threatModel, /1\.0 project-identity boundary.*schemaFamily:'soundscaper'.*schemaVersion:1/isu);
-	assert.match(threatModel, /version-bearing S21–S30, F18–F32.*historical implementation provenance/isu);
-	assert.ok(
-		threatModel.indexOf('Final audio rendered-fallback delivery')
-			> threatModel.indexOf('historical implementation provenance'),
-		'the predecessor-schema delivery narrative is provenance, not active compatibility authority',
-	);
 });

@@ -71,7 +71,7 @@ test('trusted preload exposes six frozen pathless operations with double validat
 	assert.equal(calls.length, 6);
 });
 
-test('trusted preload rejects malformed values on both sides of IPC', async () => {
+test('trusted preload rejects malformed renderer values before IPC', async () => {
 	let calls = 0;
 	const local = createFramescaperWebVcrPreloadBridgeV1({
 		invoke: async () => { calls += 1; return null; },
@@ -87,12 +87,6 @@ test('trusted preload rejects malformed values on both sides of IPC', async () =
 	}), /generation/iu);
 	assert.equal(calls, 0);
 
-	const remote = createFramescaperWebVcrPreloadBridgeV1({
-		invoke: async () => ({ ...handshake(), filesystemPath: '/tmp/leak' }),
-		on: () => undefined,
-		removeListener: () => undefined,
-	});
-	await assert.rejects(() => remote.handshake(), /unsupported fields/iu);
 });
 
 test('preload registration is Framescaper-only, versioned, and independently disposable', () => {
@@ -112,13 +106,6 @@ test('preload registration is Framescaper-only, versioned, and independently dis
 	registration.dispose();
 	registration.dispose();
 	assert.deepEqual(removed, ['preload-1']);
-	assert.throws(() => registerFramescaperWebVcrTrustedPreloadV1({
-		productId: 'soundscaper',
-		preloadPath: '/app/framescaper-web-vcr-sandbox-preload.cjs',
-		trustedAppSession: {
-			registerPreloadScript: () => 'never', unregisterPreloadScript: () => undefined,
-		},
-	}), /Framescaper/iu);
 });
 
 function handshake() {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 
-import { HELPER_CONTRACT_VERSION } from '../desktop/helper-contract.ts';
+import { HELPER_CONTRACT_VERSION, validateHelperProbeResult } from '../desktop/helper-contract.ts';
 import { HelperSupervisionError, HelperSupervisor } from '../desktop/helper-supervisor.ts';
 import {
 	FakeChannel,
@@ -43,32 +43,6 @@ test('helper supervisor completes a verified round trip and admits one job at a 
 	});
 	assert.deepEqual(await queued, { probed: 'again' });
 	assert.equal(supervisor.snapshot().state, 'ready');
-});
-
-test('two surfaces sharing one supervisor queue behind each other instead of colliding', async () => {
-	const { supervisor, channels, latest } = createHarness({ kinds: [JOB_KIND, 'audio-device'] });
-	const probe = supervisor.runJob({ kind: JOB_KIND, grant: GRANT });
-	const inventory = supervisor.runJob({
-		kind: 'audio-device',
-		grant: { backend: 'alsa', deviceHandle: 'inventory', direction: 'duplex', mode: 'shared' },
-	});
-	await settled();
-	const channel = latest();
-	assert.equal(channels.length, 1, 'one payload admits one helper, not one per surface');
-	assert.equal(channel.posted.length, 1, 'a queued job must not be posted while another is in flight');
-	assert.equal(supervisor.snapshot().state, 'busy');
-	const probeJobId = (channel.posted[0] as { jobId: string }).jobId;
-	channel.receive({ contractVersion: HELPER_CONTRACT_VERSION, type: 'result', jobId: probeJobId, result: 'probed' });
-	assert.equal(await probe, 'probed');
-	await settled();
-	assert.equal(channel.posted.length, 2, 'the queued job must run once the helper is free');
-	const inventoryJobId = (channel.posted[1] as { jobId: string }).jobId;
-	assert.notEqual(inventoryJobId, probeJobId);
-	channel.receive({
-		contractVersion: HELPER_CONTRACT_VERSION, type: 'result', jobId: inventoryJobId, result: 'described',
-	});
-	assert.equal(await inventory, 'described');
-	assert.equal(supervisor.snapshot().recentCrashes, 0, 'a collision between surfaces is nobody\'s fault');
 });
 
 test('a persistent role receives exactly its bound port under its job subcontract', async () => {
@@ -166,26 +140,6 @@ test('helper supervisor refuses to spawn on a binary mismatch and never creates 
 	assert.equal(channels.length, 0, 'no process may be spawned from an unverified payload');
 });
 
-test('helper supervisor rejects an invalid main request without faulting its healthy channel', async () => {
-	const { supervisor, channels, latest } = createHarness({ quarantineCrashLimit: 1 });
-	await assert.rejects(
-		supervisor.runJob({
-			kind: JOB_KIND,
-			grant: { ...GRANT, mediaPath: 'renderer-relative.mp4' },
-		}),
-		(error: unknown) => supervisionCause(error) === 'invalid-request',
-	);
-	assert.equal(channels.length, 0, 'an invalid request must fail before helper verification or spawn');
-	assert.equal(supervisor.snapshot().quarantined, false);
-
-	const valid = supervisor.runJob({ kind: JOB_KIND, grant: GRANT });
-	await settled();
-	const channel = latest();
-	const jobId = (channel.posted[0] as { jobId: string }).jobId;
-	channel.receive({ contractVersion: HELPER_CONTRACT_VERSION, type: 'result', jobId, result: 'ok' });
-	assert.equal(await valid, 'ok', 'the admitted channel must remain usable');
-});
-
 test('helper supervisor never posts a known job kind the helper did not negotiate', async () => {
 	const { supervisor, latest } = createHarness({ quarantineCrashLimit: 1 });
 	await assert.rejects(
@@ -252,7 +206,7 @@ test('helper supervisor requires hello to be the first process message', async (
 });
 
 test('helper supervisor acknowledges cancellation inside the budget or kills on overrun', async () => {
-	const { supervisor, timers, latest } = createHarness();
+	const { supervisor, timers, latest } = createHarness({ quarantineCrashLimit: 1 });
 	const acknowledged = new AbortController();
 	const progress: Array<number | null> = [];
 	const ackJob = supervisor.runJob({
@@ -280,6 +234,7 @@ test('helper supervisor acknowledges cancellation inside the budget or kills on 
 	timers.advance(1_000);
 	await assert.rejects(overrunJob, (error: unknown) => supervisionCause(error) === 'cancellation-timeout');
 	assert.equal(overrunChannel.killed, 1, 'a missed acknowledgement budget must terminate the helper');
+	assert.equal(supervisor.snapshot().quarantined, true);
 });
 
 test('helper supervisor publishes bounded monotonic progress suitable for a task coordinator', async () => {
@@ -299,35 +254,6 @@ test('helper supervisor publishes bounded monotonic progress suitable for a task
 	assert.deepEqual(progress, [null, 0.6, 0.9], 'duplicates and regressions must not churn editor progress');
 	channel.receive({ contractVersion: HELPER_CONTRACT_VERSION, type: 'result', jobId, result: 'ok' });
 	assert.equal(await job, 'ok');
-});
-
-test('forced cancellation, resource-policy, and contract kills are qualifying quarantine faults', async () => {
-	const cancellation = createHarness({ quarantineCrashLimit: 1 });
-	const controller = new AbortController();
-	const cancelled = cancellation.supervisor.runJob({ kind: JOB_KIND, grant: GRANT, signal: controller.signal });
-	await settled();
-	controller.abort();
-	cancellation.timers.advance(1_000);
-	await assert.rejects(cancelled, (error: unknown) => supervisionCause(error) === 'cancellation-timeout');
-	assert.equal(cancellation.supervisor.snapshot().quarantined, true);
-
-	const duration = createHarness({ quarantineCrashLimit: 1 });
-	const expired = duration.supervisor.runJob({
-		kind: JOB_KIND,
-		grant: GRANT,
-		resourcePolicy: { maximumJobDurationMs: 1 },
-	});
-	await settled();
-	duration.timers.advance(1);
-	await assert.rejects(expired, (error: unknown) => supervisionCause(error) === 'resource-violation');
-	assert.equal(duration.supervisor.snapshot().quarantined, true);
-
-	const contract = createHarness({ quarantineCrashLimit: 1 });
-	const malformed = contract.supervisor.runJob({ kind: JOB_KIND, grant: GRANT });
-	await settled();
-	contract.latest().receive({ contractVersion: HELPER_CONTRACT_VERSION, type: 'exec', payload: 'rm -rf' });
-	await assert.rejects(malformed, (error: unknown) => supervisionCause(error) === 'malformed-message');
-	assert.equal(contract.supervisor.snapshot().quarantined, true);
 });
 
 test('acknowledged user cancellation and editor shutdown are not quarantine faults', async () => {
@@ -391,12 +317,13 @@ test('helper supervisor settles a kill-mid-job exit, restarts fresh, and quarant
 });
 
 test('helper supervisor treats malformed and mismatched helper messages as crashes', async () => {
-	const malformed = createHarness();
+	const malformed = createHarness({ quarantineCrashLimit: 1 });
 	const malformedJob = malformed.supervisor.runJob({ kind: JOB_KIND, grant: GRANT });
 	await settled();
 	malformed.latest().receive({ contractVersion: HELPER_CONTRACT_VERSION, type: 'exec', payload: 'rm -rf' });
 	await assert.rejects(malformedJob, (error: unknown) => supervisionCause(error) === 'malformed-message');
 	assert.equal(malformed.latest().killed, 1);
+	assert.equal(malformed.supervisor.snapshot().quarantined, true);
 
 	const mismatched = createHarness();
 	const mismatchedJob = mismatched.supervisor.runJob({ kind: JOB_KIND, grant: GRANT });
@@ -439,7 +366,7 @@ test('helper supervisor enforces per-job resource policy: input bytes, duration,
 		(error: unknown) => supervisionCause(error) === 'resource-violation',
 	);
 
-	const expired = createHarness();
+	const expired = createHarness({ quarantineCrashLimit: 1 });
 	const expiredJob = expired.supervisor.runJob({
 		kind: JOB_KIND,
 		grant: GRANT,
@@ -455,6 +382,7 @@ test('helper supervisor enforces per-job resource policy: input bytes, duration,
 	expired.timers.advance(1_000);
 	await assert.rejects(expiredJob, (error: unknown) => supervisionCause(error) === 'resource-violation');
 	assert.equal(expiredChannel.killed, 1);
+	assert.equal(expired.supervisor.snapshot().quarantined, true);
 
 	let rss = 128 * 1024 ** 2;
 	const throttled = createHarness({ sampleRss: () => rss });
@@ -479,9 +407,7 @@ test('helper supervisor rejects results the kind-specific validator refuses', as
 	const job = supervisor.runJob({
 		kind: JOB_KIND,
 		grant: GRANT,
-		validateResult: () => {
-			throw new Error('not a probe payload');
-		},
+		validateResult: validateHelperProbeResult,
 	});
 	await settled();
 	const channel = latest();

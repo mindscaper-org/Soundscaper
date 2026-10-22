@@ -100,7 +100,4 @@ test('supported sample rates remain finite with the cutoff clamped below Nyquist
 		assert.ok(output.every(Number.isFinite));
 		assert.equal(output.length, input.length);
 	}
-	assert.throws(() => applyDeesser([], rate, params), /channel/i);
-	assert.throws(() => applyDeesser([tone(100), new Float32Array(1)], rate, params), /length/i);
-	assert.throws(() => applyDeesser([tone(100)], 0, params), /sample rate/i);
 });

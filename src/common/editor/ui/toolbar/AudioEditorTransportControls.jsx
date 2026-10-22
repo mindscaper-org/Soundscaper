@@ -16,7 +16,7 @@ import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { formatOptionsLabel } from '../localization-template.ts';
 import { formatPlaybackSpeed } from '../meter-settings.ts';
 export { default as RecordFlyout } from './RecordFlyout.jsx';
-import { AudioDevicesFlyout } from './AudioEditorMeterControls.jsx';
+import { AudioDevicesFlyout } from './AudioDevicesFlyout.jsx';
 import EditorTaskProgressBar from './EditorTaskProgressBar.tsx';
 import WorkspaceSwitcherControl from './WorkspaceSwitcherControl.jsx';
 import TransportAuditionMenu from './TransportAuditionMenu.tsx';
@@ -96,9 +96,9 @@ export function PlaySpeedFlyout({ copy, snapshot, blocked, controller, run, clos
 				<span>{copy.playbackSpeed}</span>
 				<input
 					type="range"
-					min="0.5"
-					max="2"
-					step="0.05"
+					min="0.01"
+					max="3"
+					step="0.01"
 					value={snapshot.playbackOptions?.rate || 1}
 					aria-label={copy.playbackSpeed}
 					disabled={blocked || transportState === 'playing'}
@@ -223,7 +223,8 @@ function ActionBarAudioDevicesButton({ copy, snapshot, controller, run, displayA
 			close();
 			return;
 		}
-		if (!framescaper && !snapshot.audioDevices?.inputAccess
+		if (!framescaper && ['browser', 'electron'].includes(snapshot.audioDevices?.host ?? 'browser')
+			&& !snapshot.audioDevices?.inputAccess
 			&& typeof controller.actions.recording.requestInputAccess === 'function') {
 			run(() => controller.actions.recording.requestInputAccess());
 		}

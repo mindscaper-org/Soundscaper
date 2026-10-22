@@ -4,6 +4,11 @@
 - Use test-driven development principles.
 - Use Node.js 26.5.0 and npm 12.0.1. Use npm and preserve `package-lock.json`;
   never edit dependency metadata without updating the lockfile.
+- Release versions belong in `config/product-release-lines.json`. Use
+  `npm run release:soundscaper:prepare -- <version>` for stable, RC, or beta
+  releases, or omit the version to synchronize packaging metadata after editing
+  the register. Commit the register and generated packaging metadata together;
+  version bumps do not require policy inventories or test fixtures to change.
 - Application UI lives in `src/common/editor/ui/`.
 - Every newly added feature must be reachable through a menu. Do not surface new
   features by default in the UI: no new always-visible toolbar buttons, panels,

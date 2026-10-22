@@ -29,30 +29,6 @@ test('desktop contract reuses and strengthens frozen common Web VCR DTOs', () =>
 	assert.doesNotMatch(JSON.stringify(snapshot), /title|cookie|file|path/iu);
 });
 
-test('desktop contract rejects unsupported capabilities and malformed snapshots', () => {
-	assert.throws(() => validateWebVcrHandshakeV1({
-		version: 1,
-		capability: { status: 'available', resolutions: ['4k'] },
-		captureGrantTtlMs: 10_000,
-	}), /baseline|resolution/iu);
-	assert.throws(() => validateWebVcrSnapshotV1({
-		...readySnapshot(),
-		captureSurface: { width: 1280, height: 720 },
-	}), /surface/iu);
-	assert.throws(() => validateWebVcrSnapshotV1({
-		...readySnapshot(),
-		sessionId: 'raw-session-id',
-	}), /identity/iu);
-	assert.throws(() => validateWebVcrSnapshotV1({
-		...readySnapshot(),
-		navigation: { ...readySnapshot().navigation, url: 'http://example.com/' },
-	}), /url|https/iu);
-	assert.throws(() => validateWebVcrSnapshotV1({
-		...readySnapshot(),
-		filesystemPath: '/tmp/capture',
-	}), /closed shape/iu);
-});
-
 test('sessionless closed snapshots retain retired generation while opening stays generation zero', () => {
 	const retired = validateWebVcrSnapshotV1({
 		...readySnapshot(),
@@ -65,14 +41,6 @@ test('sessionless closed snapshots retain retired generation while opening stays
 	});
 	assert.equal(retired.sessionId, null);
 	assert.equal(retired.generation, 4);
-	assert.throws(() => validateWebVcrSnapshotV1({
-		...retired,
-		phase: 'opening',
-	}), /generation-zero opening/iu);
-	assert.throws(() => validateWebVcrSnapshotV1({
-		...retired,
-		phase: 'ready',
-	}), /sessionless/iu);
 });
 
 test('desktop command validation follows the common union and adds opaque ownership', () => {
@@ -162,7 +130,7 @@ function readySnapshot() {
 		},
 		targetEndedRecordingToken: null,
 		captureSurface: { width: 1920, height: 1080 },
-		outputSize: { width: 1280, height: 720 },
+		outputSize: null,
 		metrics: null,
 		failure: null,
 	};

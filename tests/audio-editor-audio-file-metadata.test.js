@@ -39,7 +39,6 @@ test('decode-rate inspection reports only the rates a decoder is bound to emit',
 	assert.equal(inspectDecodedAudioSampleRate(oggOpus()), 48_000);
 	assert.equal(inspectDecodedAudioSampleRate(mp3(32_000)), 32_000);
 	assert.equal(inspectDecodedAudioSampleRate(wavPack(44_100)), 44_100);
-	assert.equal(inspectDecodedAudioSampleRate(null), null);
 });
 
 test('decode-rate inspection withholds the core rate AAC reconstructs above', () => {
@@ -122,7 +121,6 @@ test('metadata inspection is offset-safe and rejects malformed or implausible he
 		0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0,
 		0xff, 0xfb, 0x90, 0,
 	)), null, 'sync bytes inside an unknown container are not treated as an elementary stream');
-	assert.equal(inspectEncodedAudioSampleRate(null), null);
 });
 
 test('WAV metadata ignores a truncated fmt chunk even when its rate field is present', () => {

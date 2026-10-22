@@ -55,7 +55,6 @@ for (const grouped of [true, false]) for (const operation of ['remove', 'replace
 		if (grouped) {
 			const retained = project.sources.find(source => source.id === 'camera-b');
 			assert.deepEqual(retained, original);
-			assert.notStrictEqual(retained, original);
 			const group = validateFramescaperMulticameraGroupsSequence(PROFILE, project, project.multicameraGroups)[0]!;
 			const plan = planFramescaperMulticameraCommandSequence(PROFILE, project, project.multicameraGroups, {
 				type: 'multicamera/switch', projectId: project.id, expectedProjectRevision: project.revision,

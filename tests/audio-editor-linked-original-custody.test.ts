@@ -33,16 +33,18 @@ test('linked-original one-shot releases share successful and failed settlements'
 	let calls = 0;
 	const release = oneShotLinkedOriginalRelease(async () => { calls += 1; });
 	const first = release();
-	assert.strictEqual(release(), first);
+	await release();
 	await first;
 	await release();
 	assert.equal(calls, 1);
 
 	const failure = new Error('cleanup failed');
-	const rejected = oneShotLinkedOriginalRelease(() => { throw failure; });
+	let failures = 0;
+	const rejected = oneShotLinkedOriginalRelease(() => { failures += 1; throw failure; });
 	const rejectedFirst = rejected();
-	assert.strictEqual(rejected(), rejectedFirst);
+	await assert.rejects(rejected(), (error: unknown) => error === failure);
 	await assert.rejects(rejectedFirst, (error: unknown) => error === failure);
+	assert.equal(failures, 1);
 });
 
 test('linked-original binding equality requires the token and complete normalized value', () => {

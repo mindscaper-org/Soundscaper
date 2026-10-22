@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Closed renderer/main contract for bounded desktop audio codec operations. */
-
+import { desktopAudioDecodeFormat, maximumDesktopAudioChannelCount as maximumChannelCount, type DesktopAudioDecodeFormat } from './desktop-audio-decode-formats.ts';
 export const DESKTOP_AUDIO_CODEC_FORMATS = Object.freeze([
 	'flac', 'mp3', 'ogg-vorbis', 'opus', 'wavpack', 'mp2', 'aac-m4a',
 ] as const);
@@ -43,7 +43,7 @@ interface DesktopAudioCodecRequestBase {
 
 export interface DesktopAudioDecodeRequest extends DesktopAudioCodecRequestBase {
 	readonly operation: 'audio-decode';
-	readonly format: DesktopAudioCodecFormat;
+	readonly format: DesktopAudioDecodeFormat;
 	/** Null means the admitted source stream, never project geometry, is authoritative. */
 	readonly sampleRate: null;
 	readonly channelCount: null;
@@ -67,7 +67,7 @@ export type DesktopAudioCodecRequest = DesktopAudioDecodeRequest | DesktopAudioE
 
 export interface DesktopDecodedAudioMetadata {
 	readonly kind: 'decoded-audio';
-	readonly sourceFormat: DesktopAudioCodecFormat;
+	readonly sourceFormat: DesktopAudioDecodeFormat;
 	readonly sampleFormat: 'f32le';
 	readonly interleaving: 'interleaved';
 	readonly sampleRate: number;
@@ -176,7 +176,7 @@ export function assertDesktopAudioCodecRequest(value: unknown): asserts value is
 	if (operation !== 'audio-decode' && operation !== 'audio-encode') {
 		throw new TypeError('The desktop audio codec operation is unsupported.');
 	}
-	const format = audioFormat(record.format);
+	const format = operation === 'audio-decode' ? desktopAudioDecodeFormat(record.format) : audioFormat(record.format);
 	bytes(record.input, Number.MAX_SAFE_INTEGER, 'input');
 	integer(record.maximumOutputBytes, 1, Number.MAX_SAFE_INTEGER, 'maximum output');
 	if (Object.hasOwn(record, 'requestId')) requestId(record.requestId);
@@ -196,8 +196,8 @@ export function assertDesktopAudioCodecRequest(value: unknown): asserts value is
 		if (channelCount > maximumChannelCount(format)) {
 			throw new RangeError(`The desktop audio ${format} channel count is unsupported.`);
 		}
-		validateEncodeSampleRate(format, sampleRate);
-		validateEncodeSettings(format, record.settings, sampleRate, channelCount);
+		validateEncodeSampleRate(audioFormat(format), sampleRate);
+		validateEncodeSettings(audioFormat(format), record.settings, sampleRate, channelCount);
 		if ((record.input as Uint8Array).byteLength % (Float32Array.BYTES_PER_ELEMENT * channelCount) !== 0) {
 			throw new RangeError('The desktop audio codec input must contain complete PCM frames.');
 		}
@@ -258,7 +258,7 @@ export function createDesktopAudioCodecResult(
 
 function validateDecodedGeometry(
 	value: unknown,
-	format: DesktopAudioCodecFormat,
+	format: DesktopAudioDecodeFormat,
 	output: Uint8Array,
 ): DesktopDecodedAudioGeometry {
 	const geometry = exactRecord(value, 'decoded geometry');
@@ -465,7 +465,7 @@ function validateDecodedMetadata(value: unknown, output: Uint8Array): void {
 		|| metadata.interleaving !== 'interleaved') {
 		throw new TypeError('The decoded desktop audio metadata representation is invalid.');
 	}
-	const sourceFormat = audioFormat(metadata.sourceFormat);
+	const sourceFormat = desktopAudioDecodeFormat(metadata.sourceFormat);
 	integer(metadata.sampleRate, DESKTOP_AUDIO_CODEC_MINIMUM_SAMPLE_RATE,
 		DESKTOP_AUDIO_CODEC_MAXIMUM_SAMPLE_RATE, 'decoded sample rate');
 	const channels = integer(metadata.channelCount, 1, DESKTOP_AUDIO_CODEC_MAXIMUM_CHANNEL_COUNT,
@@ -520,10 +520,6 @@ function exactRecord(value: unknown, label: string): Record<string, unknown> {
 		return descriptor !== undefined && !Object.hasOwn(descriptor, 'value');
 	})) throw new TypeError(`The desktop audio codec ${label} must contain only data properties.`);
 	return value as Record<string, unknown>;
-}
-
-function maximumChannelCount(format: DesktopAudioCodecFormat): number {
-	return format === 'mp3' || format === 'mp2' ? 2 : DESKTOP_AUDIO_CODEC_MAXIMUM_CHANNEL_COUNT;
 }
 
 function exactKeys(

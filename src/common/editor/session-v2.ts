@@ -4,6 +4,7 @@ import { createAudioEditorSessionControllerCore } from './session-controller-cor
 import { createAudioEditorSessionClipboardV2, normalizeAudioEditorSessionClipboardV1OrV2,
 	collectSessionClipboardStorageKeysV2, type CurrentAudioEditorSessionClipboard } from './session-clipboard-codec-v2.ts';
 import { collectAudioEditorClipboardSourceIdsV7 } from './commands/clipboard-codec-v7.ts';
+import { isCurrentAudioEditorFrameClipboardDescriptorV7 } from './commands/clipboard-command-v2.ts';
 import { collectAudioEditorClipboardSourceIds, createAudioEditorSessionClipboard } from './session-clipboard-codec.ts';
 
 const CURRENT_CLIPBOARD = Object.freeze({ schemaVersion: 2,
@@ -11,8 +12,7 @@ const CURRENT_CLIPBOARD = Object.freeze({ schemaVersion: 2,
 	createClipboard: (project: unknown, options: object) => {
 		const descriptor = Object.getOwnPropertyDescriptor(options, 'descriptor');
 		const value: unknown = descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
-		const schema = value && typeof value === 'object' ? Object.getOwnPropertyDescriptor(value, 'schemaVersion') : undefined;
-		return schema && Object.hasOwn(schema, 'value') && schema.value === 7
+		return isCurrentAudioEditorFrameClipboardDescriptorV7(value)
 			? createAudioEditorSessionClipboardV2(project, options as Readonly<{ descriptor: unknown }>)
 			: createAudioEditorSessionClipboard(project, options);
 	},

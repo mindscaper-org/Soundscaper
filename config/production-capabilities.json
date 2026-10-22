@@ -2,15 +2,6 @@
 	"schemaVersion": 1,
 	"groundedAt": "2026-08-30",
 	"releaseLineAuthority": "config/product-release-lines.json",
-	"productVersions": {
-		"productId": "soundscaper",
-		"version": "1.0.0-rc.Oct.13.a",
-		"previewTagPatterns": [
-			"soundscaper-v*-beta.*",
-			"soundscaper-v*-rc.*"
-		],
-		"stableTarget": "1.0.0"
-	},
 	"projectSchemaBaselines": [
 		{
 			"schemaFamily": "soundscaper",
@@ -117,10 +108,7 @@
 		"soundscaper": {
 			"profileEvidence": "src/soundscaper/product.js",
 			"release": {
-				"softwareStatus": "feature-complete",
-				"channel": "candidate",
-				"candidateVersion": "1.0.0-rc.Oct.13.a",
-				"stableTarget": "1.0.0"
+				"softwareStatus": "feature-complete"
 			},
 			"applicationFeatures": {},
 			"platforms": {
@@ -353,10 +341,7 @@
 		"framescaper": {
 			"profileEvidence": "src/framescaper/product.js",
 			"release": {
-				"softwareStatus": "pre-release",
-				"channel": "candidate",
-				"candidateVersion": "1.0.0-rc.13",
-				"stableTarget": null
+				"softwareStatus": "pre-release"
 			},
 			"applicationFeatures": {
 				"framescaperCapture": true,

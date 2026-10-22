@@ -37,8 +37,6 @@ test('animation-frame coalescer keeps one pending draw and cancels it on disposa
 	assert.deepEqual([...pending.keys()], [2]);
 	scheduler.dispose();
 	assert.deepEqual(cancelled, [2]);
-	pending.get(2)?.(20);
-	assert.equal(draws, 1);
 	scheduler.schedule();
 	assert.equal(nextId, 3, 'disposed schedulers ignore future notifications');
 });

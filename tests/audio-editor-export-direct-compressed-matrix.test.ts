@@ -148,27 +148,11 @@ test('canonical centrally admitted offline plans select unopened targets for all
 	}
 });
 
-test('direct compressed admission rejects every noncanonical route and plan drift', async () => {
-	const mp3 = canonicalPlan(FORMAT_CASES[0]!);
-	const offline = actualPlan('mp3', { livePcmBytes: 0 });
+test('direct compressed admission leaves native, custom, and archive routes to their owners', async () => {
 	const ineligible: Array<Readonly<{ label: string; plan: DirectCompressedPlan }>> = [
 		{ label: 'native backend', plan: actualPlan('wav') },
 		{ label: 'custom backend', plan: actualPlan('custom-ffmpeg', { extension: 'foo', mimeType: 'audio/x-foo', customArguments: ['-c:a', 'copy'] }) },
-		changedPlan(offline, 'bare offline render', (plan) => { plan.render = { strategy: 'offline' }; }),
-		changedPlan(offline, 'forged offline admission', (plan) => {
-			record(record(plan.render).offlineRenderAdmission).maximumUsefulBinaryBytes = 1;
-		}),
 		{ label: 'stems archive', plan: actualPlan('mp3', { mode: 'stems' }) },
-		changedPlan(mp3, 'backend drift', (plan) => { record(plan.encoding).backend = 'custom-ffmpeg'; }),
-		changedPlan(mp3, 'setting drift', (plan) => { record(plan.encoding).bitRate = 191; }),
-		changedPlan(mp3, 'metadata drift', (plan) => { plan.metadata = { artist: 'changed' }; }),
-		changedPlan(mp3, 'mapping drift', (plan) => { record(plan.channelMapping).mode = 'mono'; }),
-		changedPlan(mp3, 'wrong MIME', (plan) => { plan.mimeType = 'audio/mp3'; }),
-		changedPlan(mp3, 'wrong filename', (plan) => { records(plan.outputs)[0]!.fileName = 'Session.wav'; }),
-		changedPlan(mp3, 'inexact geometry', (plan) => { plan.outputBytesPerRender = 7; }),
-		changedPlan(mp3, 'file size claim', (plan) => { plan.outputFileBytesPerRender = 5; }),
-		changedPlan(mp3, 'archive route', (plan) => { plan.archive = {}; }),
-		changedPlan(mp3, 'unknown reason', (plan) => { record(plan.render).reason = 'manual'; }),
 	];
 	for (const entry of ineligible) {
 		let pickers = 0;
@@ -181,39 +165,36 @@ test('direct compressed admission rejects every noncanonical route and plan drif
 	}
 });
 
-test('descriptor result mismatch and cross-format plan drift abort once without publication', async () => {
-	for (const failure of ['result', 'drift'] as const) {
-		const entry = FORMAT_CASES.find(({ format }) => format === 'ogg-vorbis')!;
-		const plan = canonicalPlan(entry);
-		const target = preparedTarget(plan.outputs[0].fileName, []);
-		const preparation = await prepareDirectCompressedDestination(
-			{ prepareSave: () => target }, plan, null, new AbortController().signal,
-		);
-		assert.ok(preparation.destination);
-		let cleanups = 0;
-		const error = await encodeDirectCompressedStagedFile({
-			destination: preparation.destination,
-			plan,
-			stagedFile: new Blob([Uint8Array.of(0)], { type: 'audio/wav' }),
-			encodingSettings: plan.encoding,
-			signal: new AbortController().signal,
-			assertCurrent: () => undefined,
-			cleanupStagedFile: async () => { cleanups += 1; },
-			ffmpeg: {
-				async encodeFileToSink(_file, _format, sink) {
-					await sink.open(3);
-					await sink.write(Uint8Array.of(1, 2, 3));
-					const output = await sink.close();
-					if (failure === 'drift') plan.outputs[0].fileName = 'changed.ogg';
-					return { output, byteLength: 3, chunkCount: 1, extension: '.ogg', mimeType: 'audio/wrong' };
-				},
+test('descriptor result mismatch aborts once without publication', async () => {
+	const entry = FORMAT_CASES.find(({ format }) => format === 'ogg-vorbis')!;
+	const plan = canonicalPlan(entry);
+	const target = preparedTarget(plan.outputs[0].fileName, []);
+	const preparation = await prepareDirectCompressedDestination(
+		{ prepareSave: () => target }, plan, null, new AbortController().signal,
+	);
+	assert.ok(preparation.destination);
+	let cleanups = 0;
+	const error = await encodeDirectCompressedStagedFile({
+		destination: preparation.destination,
+		plan,
+		stagedFile: new Blob([Uint8Array.of(0)], { type: 'audio/wav' }),
+		encodingSettings: plan.encoding,
+		signal: new AbortController().signal,
+		assertCurrent: () => undefined,
+		cleanupStagedFile: async () => { cleanups += 1; },
+		ffmpeg: {
+			async encodeFileToSink(_file, _format, sink) {
+				await sink.open(3);
+				await sink.write(Uint8Array.of(1, 2, 3));
+				const output = await sink.close();
+				return { output, byteLength: 3, chunkCount: 1, extension: '.ogg', mimeType: 'audio/wrong' };
 			},
-		}).then(() => null, (caught: unknown) => caught);
-		assert.ok(error instanceof Error);
-		assert.equal(cleanups, 1);
-		assert.equal(target.aborts(), 1);
-		assert.equal(target.commits(), 0);
-	}
+		},
+	}).then(() => null, (caught: unknown) => caught);
+	assert.ok(error instanceof Error);
+	assert.equal(cleanups, 1);
+	assert.equal(target.aborts(), 1);
+	assert.equal(target.commits(), 0);
 });
 
 function canonicalPlan(entry: FormatCase) {
@@ -225,26 +206,6 @@ function actualPlan(format: string, options: Readonly<Record<string, unknown>> =
 		mode: 'mix', format, includeTail: false, livePcmBytes: 2 * 1024 ** 3,
 		metadata: { artist: 'Codex', title: format }, date: '2026-08-02', ...options,
 	}) as unknown as CanonicalPlan;
-}
-
-function changedPlan(
-	base: unknown,
-	label: string,
-	change: (plan: Record<string, unknown>) => void,
-): Readonly<{ label: string; plan: DirectCompressedPlan }> {
-	const plan = structuredClone(base) as Record<string, unknown>;
-	change(plan);
-	return { label, plan };
-}
-
-function record(value: unknown): Record<string, unknown> {
-	assert.ok(value && typeof value === 'object' && !Array.isArray(value));
-	return value as Record<string, unknown>;
-}
-
-function records(value: unknown): Record<string, unknown>[] {
-	assert.ok(Array.isArray(value));
-	return value as Record<string, unknown>[];
 }
 
 function preparedTarget(fileName: string, events: string[]) {

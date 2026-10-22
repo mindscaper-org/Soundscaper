@@ -24,7 +24,7 @@ test('file service exposes only dedicated desktop video capability and session b
 	const browser = createAudioEditorFileService({ bridge: null });
 	const request = { operationId: 'id' };
 
-	assert.strictEqual(await desktop.getDesktopVideoExportCapabilities(), explicit);
+	assert.deepEqual(await desktop.getDesktopVideoExportCapabilities(), explicit);
 	assert.deepEqual(await desktop.beginDesktopVideoCodecOperation(request), { operationId: 'id' });
 	assert.deepEqual(await desktop.writeDesktopVideoCodecInput(request), { offset: 1 });
 	assert.deepEqual(await desktop.closeDesktopVideoCodecInput(request), { offset: 1 });

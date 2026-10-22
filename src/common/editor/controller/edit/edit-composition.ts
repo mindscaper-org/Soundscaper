@@ -34,6 +34,7 @@ import type { AudioEditorCommand as LegacyAudioEditorCommand } from '../../comma
 import { normalizeAudioEditorClipboardDescriptor } from '../../commands/clipboard-codec.ts';
 import { preserveProductionTrackRouting } from '../../derived-track-routing.ts';
 import { prepareFrozenTrackEditCommand } from './internal/frozen-track-edit-command.ts';
+import { createSelectedLabelClipboardService } from './internal/selected-label-clipboard.ts';
 
 export type {
 	EditCommandProject,
@@ -58,7 +59,7 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		return project;
 	};
 
-	const labels = createLabelService({
+	const baseLabels = createLabelService({
 		lifetime,
 		projectGeneration,
 		state,
@@ -94,6 +95,13 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		commit: dependencies.commit,
 		setStatus: dependencies.setStatus,
 	});
+	const labelClipboard = createSelectedLabelClipboardService({
+		state, getProject: dependencies.getCommandProject, getPositionFrames: () => engine.getPositionFrames(),
+		createId: createStableId, updateSelection: dependencies.updateSelection, commit: dependencies.commit,
+		prepareClipboard: clipboard.prepareSessionClipboard, publish: dependencies.publishDocumentSnapshot,
+		copy, setStatus: dependencies.setStatus,
+	});
+	const labels = Object.freeze({ ...baseLabels, select: labelClipboard.select });
 	const generators: AudioGeneratorService = dependencies.composition.generators
 		? createAudioGeneratorService({
 			lifetime,
@@ -212,6 +220,7 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		}
 	};
 	const handleEdit = createEditorEditService({
+		handleSelectedLabelClipboard: labelClipboard.handle,
 		supportsTrackFolders: dependencies.supportsTrackFolders,
 		activeSelection: dependencies.activeSelection,
 		commit: (command: LegacyAudioEditorCommand, selection?: Readonly<{ selectTrackId?: string | null; selectClipId?: string | null }>) => (

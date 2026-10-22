@@ -61,8 +61,6 @@ test('both product menus read Select/View callbacks exclusively from the two foc
 		const menus = createApplicationMenus({
 			...input, productId,
 			selectionMenu: { selectAll }, viewMenu: { zoomIn },
-			actions: actionPorts({ selectAll: () => { throw new Error('Flat selection callback was used.'); },
-				zoomIn: () => { throw new Error('Flat view callback was used.'); } }),
 		});
 		assert.equal(child(topLevelMenu(menus, 'select'), 'select-all').onClick, selectAll);
 		assert.equal(child(child(topLevelMenu(menus, 'view'), 'zoom'), 'zoom-in').onClick, zoomIn);
@@ -98,7 +96,7 @@ test('menu model disables navigation only when its exact state prerequisite is a
 		copy: copyValues() as Readonly<Record<string, string>>,
 		project: null,
 		selectedTrackId: null,
-		selectionActive: true,
+		selectionActive: false,
 	}, actions as never);
 	assert.ok(closed.skip.items.every(({ disabled }) => disabled));
 });

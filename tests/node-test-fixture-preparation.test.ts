@@ -23,7 +23,7 @@ interface PreparationRecord {
 
 const CONTROL_SOURCE = String.raw`
 import assert from 'node:assert/strict';
-import { access, appendFile, readFile, writeFile } from 'node:fs/promises';
+import { access, appendFile, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as pause } from 'node:timers/promises';
 
@@ -50,7 +50,9 @@ export async function prepare(label, directory) {
 	assert.equal(process.env.SCAPE_NODE_TEST_DESKTOP_RUNTIME_FIXTURE, undefined);
 	assert.equal(process.env.SCAPE_NODE_TEST_NATIVE_FIXTURE, undefined);
 	if (label === 'desktop') await appendFile(join(control, 'desktop.compilations'), 'compiled\n');
-	await writeFile(join(control, label + '.started'), JSON.stringify({ pid: process.pid, directory }));
+	const started = join(control, label + '.started');
+	await writeFile(started + '.tmp', JSON.stringify({ pid: process.pid, directory }));
+	await rename(started + '.tmp', started);
 	const sibling = label === 'openfx' ? 'desktop' : 'openfx';
 	await until(() => exists(join(control, sibling + '.started')));
 	if (label === failedLabel) {

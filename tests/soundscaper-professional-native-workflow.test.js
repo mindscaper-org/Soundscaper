@@ -38,11 +38,36 @@ test('reusable professional-native workflow produces five verified build results
 	assert.doesNotMatch(source, /uses:\s+actions\/[a-z-]+@v\d+/u);
 });
 
+test('Windows checks the GPU CMake recipes before the expensive desktop harness build', async () => {
+	const source = await readFile(new URL('.github/workflows/soundscaper-professional-native-build.yml', ROOT), 'utf8');
+	const start = source.indexOf('- name: Verify Windows GPU CMake recipes');
+	assert.ok(start > source.indexOf('- run: npm ci'));
+	const check = source.slice(start, source.indexOf('\n      - ', start + 1));
+	assert.match(check, /if: runner\.os == 'Windows'/u);
+	assert.match(check, /tests\/desktop-assistance-gpu-cmake\.test\.ts/u);
+	assert.match(check, /tests\/desktop-assistance-sherpa-cmake\.test\.ts/u);
+	assert.match(check, /tests\/desktop-assistance-vulkan-cmake\.test\.ts/u);
+	assert.ok(start < source.indexOf('- name: Build a non-publishable Electron self-test harness'));
+});
+
+test('regular quality checks run the GPU CMake preflight on both Windows architectures', async () => {
+	const source = await readFile(new URL('.github/workflows/quality.yml', ROOT), 'utf8');
+	const job = source.slice(source.indexOf('\n  native-platform-compile:'), source.indexOf('\n  tests:'));
+	const start = job.indexOf('- name: Verify Windows GPU CMake recipes');
+	assert.ok(start > job.indexOf('run: npm ci'));
+	const check = job.slice(start, job.indexOf('\n      - ', start + 1));
+	assert.match(check, /if: runner\.os == 'Windows'/u);
+	for (const fixture of ['gpu', 'sherpa', 'vulkan']) {
+		assert.ok(check.includes(`tests/desktop-assistance-${fixture}-cmake.test.ts`));
+	}
+	for (const runner of ['windows-2025', 'windows-11-arm']) assert.ok(job.includes(`runner: ${runner}`));
+	assert.ok(start < job.indexOf('- name: Build and test the authenticated target-native OS audio codec host'));
+});
+
 test('dispatchable native-build workflow produces results without promotion controls', async () => {
 	const source = await readFile(new URL(
 		'.github/workflows/soundscaper-professional-native-build-run.yml', ROOT,
 	), 'utf8');
-	assert.match(source, /^name: Soundscaper professional native target builds$/mu);
 	assert.match(source, /workflow_dispatch:/u);
 	assert.match(source, /soundscaper-professional-native-build\.yml/u);
 	assert.doesNotMatch(source, /promot|signing|certificate|secrets: inherit/iu);

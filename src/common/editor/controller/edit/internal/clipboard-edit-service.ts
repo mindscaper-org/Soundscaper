@@ -16,9 +16,8 @@ import type { ControllerEditSessionClipboardCarrier } from '../../document/proje
 import { mergeEditingRanges, resolveEditingSelectionAuthority } from '../../../commands/editing-selection-authority.ts';
 import { prepareClipboardPasteTrackPlan, isClipboardMediaTrack as isMediaTrack } from './clipboard-paste-track-plan.ts';
 import { preparePasteCommandV7 } from '../../../commands/clipboard-runtime-v7.ts';
-import { normalizeAudioEditorClipboardDescriptor } from '../../../commands/clipboard-codec.ts';
-import { normalizeAudioEditorClipboardDescriptorV7 } from '../../../commands/clipboard-codec-v7.ts';
-import type { CurrentAudioEditorClipboardDescriptor as AudioEditorClipboard, CurrentAudioEditorMutationCommandV2 } from '../../../commands/clipboard-command-v2.ts';
+import { isAudioEditorLabelClipboardDescriptor, normalizeAudioEditorClipboardDescriptor } from '../../../commands/clipboard-codec.ts';
+import { isCurrentAudioEditorFrameClipboardDescriptorV7, type CurrentAudioEditorClipboardDescriptor as AudioEditorClipboard, type CurrentAudioEditorMutationCommandV2 } from '../../../commands/clipboard-command-v2.ts';
 import { createAudioEditorSessionClipboard } from '../../../session-clipboard-codec.ts';
 import { createAudioEditorSessionClipboardV2 } from '../../../session-clipboard-codec-v2.ts';
 import type { RuntimeClipProject } from '../../../runtime-clip-projection.ts';
@@ -186,13 +185,15 @@ export function createClipboardEditService(
 	function prepareClipboardPublication(descriptor: AudioEditorClipboard, captureSources: boolean): () => AudioEditorClipboard {
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
-		const carrier: ControllerEditSessionClipboardCarrier = dependencies.createEditSessionClipboard?.(
+		const carrier: ControllerEditSessionClipboardCarrier = isAudioEditorLabelClipboardDescriptor(descriptor)
+			? Object.freeze({ descriptor, originProjectId: project.id, sources: [] }) : dependencies.createEditSessionClipboard?.(
 			project,
 			descriptor,
 		) ?? Object.freeze({ descriptor });
+		const frameClipboard = isCurrentAudioEditorFrameClipboardDescriptorV7(carrier.descriptor);
 		const sessionValue = carrier.sources === undefined ? (captureSources
-			? (carrier.descriptor.schemaVersion === 7 ? createAudioEditorSessionClipboardV2 : createAudioEditorSessionClipboard)(project, { descriptor: carrier.descriptor }) : carrier.descriptor) : {
-			schemaVersion: carrier.descriptor.schemaVersion === 7 ? 2 : 1,
+			? (frameClipboard ? createAudioEditorSessionClipboardV2 : createAudioEditorSessionClipboard)(project, { descriptor: carrier.descriptor }) : carrier.descriptor) : {
+			schemaVersion: frameClipboard ? 2 : 1,
 			originProjectId: carrier.originProjectId ?? project.id,
 			descriptor: carrier.descriptor,
 			sources: carrier.sources,
@@ -204,9 +205,7 @@ export function createClipboardEditService(
 				{ originProjectId: project.id },
 			);
 			const returned = result.clipboard.descriptor;
-			const schema = returned && typeof returned === 'object' ? Object.getOwnPropertyDescriptor(returned, 'schemaVersion') : undefined;
-			if (schema && Object.hasOwn(schema, 'value') && schema.value === 7) normalizeAudioEditorClipboardDescriptorV7(returned);
-			else normalizeAudioEditorClipboardDescriptor(returned);
+			if (!isCurrentAudioEditorFrameClipboardDescriptorV7(returned)) normalizeAudioEditorClipboardDescriptor(returned);
 			dependencies.state.clipboard = returned as AudioEditorClipboard;
 			editSessionClipboard = carrier;
 			return dependencies.state.clipboard;
@@ -418,7 +417,7 @@ export function createClipboardEditService(
 		trackMap: Readonly<Record<string, string>>,
 		mode: ClipboardPasteMode, pasteAsNewClip: boolean,
 	): Extract<CurrentAudioEditorMutationCommandV2, { readonly type: 'clipboard/paste' }> {
-		if (clipboard.schemaVersion === 7) return preparePasteCommandV7(clipboard,
+		if (isCurrentAudioEditorFrameClipboardDescriptorV7(clipboard)) return preparePasteCommandV7(clipboard,
 			{ project, atFrame, trackMap, mode, pasteAsNewClip }, dependencies.createId);
 		return prepareLegacyPasteCommand(
 			clipboard,

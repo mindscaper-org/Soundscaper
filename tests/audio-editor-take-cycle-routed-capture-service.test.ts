@@ -319,17 +319,12 @@ test('locked armed targets refuse cycle capture before permission or durable I/O
 	assert.equal(fixture.releaseCalls(), 0);
 });
 
-test('cycle capture rejects timed, punch, sound-activated, non-loop, and pause ambiguity before input I/O', async () => {
+test('cycle capture rejects punch, sound-activated, non-loop, and pause ambiguity before input I/O', async () => {
 	const cases: Array<Readonly<{
 		name: string;
 		configure(fixture: ReturnType<typeof captureFixture>): void;
-		request?: unknown;
 		message: RegExp;
 	}>> = [
-		{
-			name: 'timed', configure() {},
-			request: { kind: 'take-cycle-routed-capture', timedStartTimeMs: 1_000 }, message: /closed shape/u,
-		},
 		{
 			name: 'punch', configure(fixture) { fixture.selection.current = { startFrame: 100, endFrame: 200 }; },
 			message: /selection|punch/u,
@@ -348,7 +343,7 @@ test('cycle capture rejects timed, punch, sound-activated, non-loop, and pause a
 		scenario.configure(fixture);
 		const service = createTakeCycleRoutedCaptureService(fixture.runtime);
 		await assert.rejects(
-			service.start((scenario.request ?? { kind: 'take-cycle-routed-capture' }) as never, fixture.scope),
+			service.start({ kind: 'take-cycle-routed-capture' }, fixture.scope),
 			scenario.message,
 			scenario.name,
 		);

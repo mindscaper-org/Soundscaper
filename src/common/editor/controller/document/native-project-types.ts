@@ -271,6 +271,7 @@ export interface Aup4Environment extends Readonly<Record<string, unknown>> {
 }
 
 export interface Aup4PortableOptions {
+	readonly recover?: boolean;
 	readonly maxBytes?: number;
 	readonly fileSizeWarningApproved?: boolean;
 	readonly signal?: AbortSignal;
@@ -500,6 +501,8 @@ export interface SaveAup4Options {
 	readonly fileHandle?: unknown;
 	readonly saveTarget?: unknown;
 	readonly useFileSystemAccess?: boolean;
+	/** Deliver an archive directly to a service without opening a local save picker. */
+	readonly saveFile?: (request: NativeFileSaveRequest) => Promise<NativeSavedFile>;
 }
 
 export type SaveAup3Options = SaveAup4Options;

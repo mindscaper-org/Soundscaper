@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { validateAssistanceOperationRequest } from '../desktop/assistance-operation-contract.ts';
 import { createAssistanceOperationService } from '../desktop/assistance-operation-service.ts';
 import { AssistanceStagingRegistry } from '../desktop/assistance-staging-registry.ts';
 
@@ -75,6 +76,16 @@ test('staged primitive execution obeys the aggregate cancellation authority', as
 	const temporary = await mkdtemp(join(tmpdir(), 'assistance-staged-cancel-'));
 	t.after(() => rm(temporary, { recursive: true, force: true }));
 	const registry = new AssistanceStagingRegistry({ root: join(temporary, 'staging') });
+	const jobId = await registry.createJob();
+	const input = await registry.stageInput({ jobId, role: 'audio', mediaType: 'audio/wav',
+		byteLength: 10, bytes: chunks('RIFF-audio') });
+	const output = await registry.reserveOutput({ jobId, role: 'transcript',
+		mediaType: 'application/json', maximumByteLength: 8_192 });
+	const request = validateAssistanceOperationRequest({ contractVersion: 1, jobId,
+		operation: 'speech-recognition', selectionFence: FENCE,
+		models: [{ modelId: 'parakeet-tdt-0.6b-v3', version: '3.0.0', artifactSha256s: DIGESTS }],
+		inputs: [input], outputs: [output] });
+
 	const service = createAssistanceOperationService({
 		registry,
 		models: Object.freeze({ status: async () => ({ runtimeAvailable: true, runtimeReason: null,
@@ -88,7 +99,7 @@ test('staged primitive execution obeys the aggregate cancellation authority', as
 	controller.abort(new DOMException('cancelled', 'AbortError'));
 
 	await assert.rejects(
-		service.executeStaged(null, controller.signal),
+		service.executeStaged(request, controller.signal),
 		(error: unknown) => error instanceof DOMException && error.name === 'AbortError',
 	);
 });

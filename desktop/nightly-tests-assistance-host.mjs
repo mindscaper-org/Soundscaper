@@ -11,6 +11,10 @@ import { exitAfterCoverageCheckpoint } from './coverage-checkpoint-exit.mjs';
 export const NIGHTLY_ASSISTANCE_HOST_FLAG = '--soundscaper-nightly-assistance-host';
 export const NIGHTLY_ASSISTANCE_SCHEME = 'soundscaper-nightly-assistance';
 export const NIGHTLY_ASSISTANCE_DOCUMENT_URL = `${NIGHTLY_ASSISTANCE_SCHEME}://host/`;
+const SPEECH_HELPER_FAILURE_CAUSES = new Set([
+	'helper-error', 'helper-exit', 'heartbeat', 'malformed-message',
+	'job-mismatch', 'cancelled', 'cancellation-timeout', 'disposed',
+]);
 
 /** Retain main-process failure causes without writing profile paths into nightly artifacts. */
 export function summarizeNightlyAssistanceError(error) {
@@ -23,7 +27,9 @@ export function summarizeNightlyAssistanceError(error) {
 			? current.name : 'Error';
 		const code = typeof current.code === 'string' && /^[A-Z][A-Z\d_]{1,31}$/u.test(current.code)
 			? current.code : undefined;
-		summary.push({ name, ...(code === undefined ? {} : { code }) });
+		const cause = name === 'AssistanceJobError' && SPEECH_HELPER_FAILURE_CAUSES.has(current.cause)
+			? current.cause : undefined;
+		summary.push({ name, ...(code === undefined ? {} : { code }), ...(cause === undefined ? {} : { cause }) });
 		current = current.cause;
 	}
 	return summary;

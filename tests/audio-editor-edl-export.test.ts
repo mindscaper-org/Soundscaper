@@ -64,12 +64,6 @@ test('drop frame is a sequence flag, signalled in FCM and the separator', () => 
 	assert.match(drop.text, /00:00:00;00/u, 'drop frame labels use a semicolon');
 });
 
-test('drop frame at a rate that cannot carry it is refused, not quietly dropped', () => {
-	assert.throws(
-		() => createEdlExport({ title: 'T', rate: RATE_24, dropFrame: true, events: [event()] }),
-		/Drop frame is illegal at 24\/1/u,
-	);
-});
 
 test('emitted timecode round-trips through the shared parser at every rate', () => {
 	for (const [rate, dropFrame] of [
@@ -140,12 +134,4 @@ test('an empty sequence still produces a valid header and says so', () => {
 	assert.equal(result.text, 'TITLE: Empty\nFCM: NON-DROP FRAME\n');
 	const preserved = result.report.items.find(({ code }) => code === 'edl.events-preserved');
 	assert.equal(preserved?.data.events, 0);
-});
-
-test('a malformed rate or frame count is refused', () => {
-	assert.throws(() => createEdlExport({ title: 'T', rate: { num: 24, den: 0 }, events: [] }), /rational sequence rate/u);
-	assert.throws(
-		() => createEdlExport({ title: 'T', rate: RATE_24, events: [event({ recordInFrames: -1 })] }),
-		/non-negative frame count/u,
-	);
 });

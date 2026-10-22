@@ -86,3 +86,18 @@ test('the nonrecursive codec split preserves earlier semantic owners and bounded
 	]);
 	for (const earlier of workerChunkGroups.slice(0, 4)) assert.equal(earlier.maxSize, 400_000);
 });
+
+test('database vocabulary stays outside the worker dispatcher alongside its inert codec', () => {
+	const core = workerChunkGroups.find(candidate => candidate.name === 'editor-audacity-project-core-worker');
+	assert.ok(core);
+	for (const name of ['aup3-database.ts', 'aup4-database.js', 'aup4-profile.ts', 'aup4-conversion.js']) {
+		const path = `src/common/editor/${name}`;
+		assert.deepEqual(matchingOwners(path), ['editor-audacity-project-core-worker']);
+		assert.deepEqual(matchingOwners(path.replaceAll('/', '\\')), ['editor-audacity-project-core-worker']);
+	}
+	assert.deepEqual(matchingOwners(CODEC), [OWNER]);
+	assert.deepEqual(matchingOwners('src/common/editor/aup4-worker.js'), []);
+	assert.equal(core.includeDependenciesRecursively, true);
+	assert.equal(core.maxSize, 400_000);
+	assert.ok(Number(core.priority) < 96, 'Explicit inert XML and effect owners take precedence over the core closure.');
+});

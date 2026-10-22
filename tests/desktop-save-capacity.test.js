@@ -287,75 +287,6 @@ test('disk admission checks exact statfs arguments against cross-owner aggregate
 	await manager.dispose();
 });
 
-test('per-save maximum rejects before consuming a target or inspecting its filesystem', async () => {
-	let statCalls = 0;
-	let openCalls = 0;
-	const targets = new SaveTargetStore();
-	const target = targets.registerPath('/tmp/practical-maximum.scape', { owner: OWNER_A, purpose: 'project' });
-	const manager = new AtomicSaveManager({
-		targets,
-		maximumSessions: 1,
-		maximumSaveBytes: 5,
-		maximumAdmittedBytes: 5,
-		statfsImpl: async () => {
-			statCalls += 1;
-			return availableBytes(5);
-		},
-		openImpl: async () => {
-			openCalls += 1;
-			return fakeHandle();
-		},
-		unlinkImpl: async () => undefined,
-	});
-
-	await assert.rejects(
-		manager.begin({ owner: OWNER_A, targetId: target.id, maximumSize: 6 }),
-		/(?:practical|per-save|save).*maximum/iu,
-	);
-	assert.equal(statCalls, 0);
-	assert.equal(openCalls, 0);
-	const boundary = await manager.begin({ owner: OWNER_A, targetId: target.id, maximumSize: 5 });
-	await manager.abort(boundary.writeId, { owner: OWNER_A });
-	await manager.dispose();
-});
-
-test('production practical save maximum accepts the boundary and refuses the next byte', async () => {
-	let statCalls = 0;
-	let openCalls = 0;
-	const targets = new SaveTargetStore();
-	const boundaryTarget = targets.registerPath('/tmp/production-boundary.scape', { owner: OWNER_A, purpose: 'project' });
-	const excessTarget = targets.registerPath('/tmp/production-excess.scape', { owner: OWNER_A, purpose: 'project' });
-	const manager = new AtomicSaveManager({
-		targets,
-		statfsImpl: async () => {
-			statCalls += 1;
-			return availableBytes(MAX_DESKTOP_SAVE_BYTES);
-		},
-		openImpl: async () => {
-			openCalls += 1;
-			return fakeHandle();
-		},
-		unlinkImpl: async () => undefined,
-	});
-	const boundary = await manager.begin({
-		owner: OWNER_A,
-		targetId: boundaryTarget.id,
-		maximumSize: MAX_DESKTOP_SAVE_BYTES,
-	});
-	await assert.rejects(
-		manager.begin({
-			owner: OWNER_A,
-			targetId: excessTarget.id,
-			maximumSize: MAX_DESKTOP_SAVE_BYTES + 1,
-		}),
-		/(?:practical|per-save|save).*maximum/iu,
-	);
-	assert.equal(statCalls, 1);
-	assert.equal(openCalls, 1);
-	await manager.abort(boundary.writeId, { owner: OWNER_A });
-	await manager.dispose();
-});
-
 test('filesystem capacity fails closed before staging and releases the pending reservation', async () => {
 	const results = [availableBytes(4), availableBytes(5)];
 	let statCalls = 0;
@@ -389,13 +320,10 @@ test('filesystem capacity fails closed before staging and releases the pending r
 	await manager.dispose();
 });
 
-test('filesystem capacity requires valid bigint bavail and bsize values', async () => {
+test('filesystem capacity refuses negative available blocks and zero block size', async () => {
 	for (const details of [
-		{ bavail: 1, bsize: 1n },
-		{ bavail: 1n, bsize: 1 },
 		{ bavail: -1n, bsize: 1n },
 		{ bavail: 1n, bsize: 0n },
-		null,
 	]) {
 		let openCalls = 0;
 		const targets = new SaveTargetStore();

@@ -66,16 +66,16 @@ test('a frame count becomes a whole multiple of the frame duration', () => {
 	assert.equal(frameTime(30_000, NTSC), '1001s');
 });
 
-test('every emitted duration is a whole number of frames', () => {
-	// A duration that is not a multiple of frameDuration is a clip starting
-	// mid-frame, which FCP cannot represent and will silently move.
+test('video and sequence durations are whole frames while audio keeps its own clock', () => {
 	const { text } = createFcpxmlExport({ project: project(), sequenceRate: NTSC });
-	for (const match of text.matchAll(/duration="(\d+)(?:\/(\d+))?s"/gu)) {
+	const video = text.replaceAll(/<asset-clip[^>]*srcEnable="audio"[^>]*\/>/gu, '');
+	for (const match of video.matchAll(/duration="(\d+)(?:\/(\d+))?s"/gu)) {
 		const numerator = Number(match[1]);
 		const denominator = match[2] ? Number(match[2]) : 1;
 		const frames = (numerator * 30_000) / (denominator * 1_001);
 		assert.ok(Number.isInteger(frames), `duration ${match[0]} is not a whole frame count`);
 	}
+	assert.match(text, /<asset-clip[^>]*srcEnable="audio"[^>]*duration="1s"/u);
 });
 
 test('one asset is written per source identity, however often it is used', () => {

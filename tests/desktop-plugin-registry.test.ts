@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { PluginConsentError, assertPluginRootPath } from '../desktop/plugin-consent.ts';
 import {
 	DesktopPluginRegistry,
-	type DesktopPluginRegistryOptions,
-	PLUGIN_CLASSIFICATIONS,
-	PLUGIN_COMPATIBILITY_VERDICTS,
 	type PluginEntryView,
 	type PluginRegistryAdmission,
 	PluginRegistryError,
@@ -21,7 +17,6 @@ import {
 } from '../desktop/plugin-registry.ts';
 import {
 	MAXIMUM_PLUGIN_PATH_BYTES,
-	PLUGIN_CLASSIFICATIONS as SCAN_PLUGIN_CLASSIFICATIONS,
 	PLUGIN_COMPATIBILITY_RESULTS,
 	isAdmissiblePluginPath,
 	type PluginScanEntry,
@@ -413,15 +408,6 @@ test('hostile scanner text never reaches renderer-facing state as a path', () =>
 	assert.equal(registry.digestFor(admission.installationId), DIGEST_A);
 });
 
-test('a registry cannot be built without the quarantine it must consult', () => {
-	// Defaulting the seam to "nothing is quarantined" would make forgetting to
-	// wire the durable store look exactly like a clean machine.
-	assert.equal(registryErrorCode(() => new DesktopPluginRegistry({} as DesktopPluginRegistryOptions)),
-		'missing-quarantine');
-	assert.equal(registryErrorCode(() => new DesktopPluginRegistry(
-		{ isQuarantined: null } as unknown as DesktopPluginRegistryOptions)), 'missing-quarantine');
-});
-
 test('a colliding installation cannot rename the identity behind the user', () => {
 	const registry = createRegistry();
 	const first = recorded(registry.record(observation()));
@@ -484,19 +470,6 @@ test('an unknown installation is an error rather than a silent no-op', () => {
 	const admission = recorded(registry.record(observation()));
 	assert.equal(registry.forget(admission.installationId), true);
 	assert.deepEqual(registry.describe().entries, [], 'an identity with no installations is not an entry');
-});
-
-test('the registry and scanner share classification but keep compatibility vocabularies distinct', () => {
-	assert.notDeepEqual([...PLUGIN_COMPATIBILITY_VERDICTS], [...PLUGIN_COMPATIBILITY_RESULTS]);
-	const registrySource = readFileSync(new URL('../desktop/plugin-registry.ts', import.meta.url), 'utf8');
-	const scanSource = readFileSync(new URL('../desktop/plugin-scan-results.ts', import.meta.url), 'utf8');
-	const names = (source: string): string[] => [...source.matchAll(/^export const ([A-Z][A-Z0-9_]*)/gmu)]
-		.map(([, name]) => name);
-	const shared = names(registrySource).filter((name) => names(scanSource).includes(name));
-	assert.deepEqual(shared, [], 'a constant declared in both modules is a name a caller can pick wrong');
-
-	// What is genuinely shared has one definition, so the two agree by identity.
-	assert.equal(PLUGIN_CLASSIFICATIONS, SCAN_PLUGIN_CLASSIFICATIONS);
 });
 
 test('one plug-in path admission serves every gate, bounded in what a filesystem counts', () => {

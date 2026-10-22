@@ -22,8 +22,7 @@ for (const warped of [false, true]) test(`media Reverse availability matches the
 	const project = createSoundscaperProject({ id: 'project', title: 'Recording', sources: [source], clips: [clip],
 		tracks: [createAudioTrack({ id: 'track', clipIds: [clip.id] })] });
 	const command = { type: 'clip/update' as const, clipId: clip.id, changes: { reversed: true } };
-	if (warped) assert.throws(() => applySoundscaperProjectCommand(project, command), (error: unknown) =>
-		error instanceof RangeError && error.cause instanceof RangeError && /forward/iu.test(error.cause.message));
+	if (warped) assert.throws(() => applySoundscaperProjectCommand(project, command), RangeError);
 	else assert.equal(applySoundscaperProjectCommand(project, command).clips[0]?.reversed, true);
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };

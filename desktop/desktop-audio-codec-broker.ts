@@ -10,11 +10,11 @@ import {
 	createDesktopAudioCodecResult,
 	assertDesktopAudioCodecResult,
 	normalizeDesktopAudioCodecRequest,
-	type DesktopAudioCodecFormat,
 	type DesktopAudioCodecRequest,
 	type DesktopAudioCodecResult,
 	type DesktopDecodedAudioGeometry,
 } from './desktop-audio-codec-operation-contract.ts';
+import type { DesktopAudioDecodeFormat } from './desktop-audio-decode-formats.ts';
 import {
 	createDesktopCodecCoordinator,
 	type DesktopCodecExecutionResult,
@@ -115,7 +115,7 @@ interface AudioOperationDescriptor {
 	readonly encodeSampleFormat: string;
 }
 
-const AUDIO_OPERATIONS: Readonly<Record<DesktopAudioCodecFormat, Readonly<AudioOperationDescriptor>>> = Object.freeze({
+const AUDIO_OPERATIONS: Readonly<Record<DesktopAudioDecodeFormat, Readonly<AudioOperationDescriptor>>> = Object.freeze({
 	flac: Object.freeze({
 		container: 'flac', codec: 'flac', profile: null,
 		decodeSampleFormat: 'f32', encodeSampleFormat: 's24',
@@ -144,6 +144,14 @@ const AUDIO_OPERATIONS: Readonly<Record<DesktopAudioCodecFormat, Readonly<AudioO
 		container: 'm4a', codec: 'aac', profile: 'lc',
 		decodeSampleFormat: 'f32p', encodeSampleFormat: 'f32p',
 	}),
+	'matroska-mp3': Object.freeze({ container: 'matroska', codec: 'mp3', profile: null,
+		decodeSampleFormat: 'f32', encodeSampleFormat: 'f32p' }),
+	wma: Object.freeze({ container: 'asf', codec: 'wmav2', profile: null,
+		decodeSampleFormat: 'f32p', encodeSampleFormat: 'f32p' }),
+	'wav-mulaw': Object.freeze({ container: 'wav', codec: 'pcm_mulaw', profile: null,
+		decodeSampleFormat: 's16', encodeSampleFormat: 's16' }),
+	'wav-alaw': Object.freeze({ container: 'wav', codec: 'pcm_alaw', profile: null,
+		decodeSampleFormat: 's16', encodeSampleFormat: 's16' }),
 });
 
 const PROVIDER_ORDER = Object.freeze([

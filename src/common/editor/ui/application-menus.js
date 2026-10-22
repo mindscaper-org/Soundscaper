@@ -280,6 +280,10 @@ export default function createApplicationMenus({
 					label: copy.projectManagement,
 					items: [
 						{ id: 'local-projects', label: copy.projectsTitle, disabled: blocked, onClick: actions.openProjects },
+						...(productId === 'soundscaper' ? [
+							{ id: 'recover-project', label: copy.projectRecoveryMenu, preserveLabel: true, disabled: blocked, onClick: actions.openProjectRecovery },
+							{ id: 'recover-audacity-project', label: copy.recoverAudacityProjectMenu, preserveLabel: true, disabled: blocked, onClick: actions.openAudacityRecovery },
+						] : []),
 						{ id: 'consolidate-media', label: copy.consolidateMedia, disabled: editBlocked, onClick: actions.consolidateMedia },
 						{ id: 'trim-media', label: copy.trimMedia, disabled: editBlocked, onClick: actions.trimMedia },
 						{ id: 'save-archive-manifest', label: copy.saveArchiveManifest, disabled: !snapshot.archiveManifest?.manifest, onClick: actions.saveArchiveManifest },
@@ -304,11 +308,11 @@ export default function createApplicationMenus({
 						id: 'cut',
 						label: copy.cut,
 						items: [
-							{ id: 'action://cut', label: copy.cut, shortcut: 'Ctrl+X', disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('cut') },
-							{ id: 'cut-leave-gap', label: copy.cutLeaveGap, disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('cutLeaveGap') },
-							{ id: 'cut-per-clip-ripple', label: copy.cutPerClipRipple, disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('cutPerClipRipple') },
-							{ id: 'cut-per-track-ripple', label: copy.cutPerTrackRipple, shortcut: 'Ctrl+Shift+X', disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('cutPerTrackRipple') },
-							{ id: 'cut-all-tracks-ripple', label: copy.cutAllTracksRipple, disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('cutAllTracksRipple') },
+							{ id: 'action://cut', label: copy.cut, shortcut: 'Ctrl+X', disabled: editBlocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('cut') },
+							{ id: 'cut-leave-gap', label: copy.cutLeaveGap, disabled: editBlocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('cutLeaveGap') },
+							{ id: 'cut-per-clip-ripple', label: copy.cutPerClipRipple, disabled: editBlocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('cutPerClipRipple') },
+							{ id: 'cut-per-track-ripple', label: copy.cutPerTrackRipple, shortcut: 'Ctrl+Shift+X', disabled: editBlocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('cutPerTrackRipple') },
+							{ id: 'cut-all-tracks-ripple', label: copy.cutAllTracksRipple, disabled: editBlocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('cutAllTracksRipple') },
 						],
 					},
 					{
@@ -322,7 +326,7 @@ export default function createApplicationMenus({
 							{ id: 'delete-all-tracks-ripple', label: copy.deleteAllTracksRipple, shortcut: 'Ctrl+Delete, Ctrl+Backspace', disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('deleteAllTracksRipple') },
 						],
 					},
-				{ id: 'copy', label: copy.copy, shortcut: 'Ctrl+C', disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('copy') },
+				{ id: 'copy', label: copy.copy, shortcut: 'Ctrl+C', disabled: editBlocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('copy') },
 				{
 					id: 'paste',
 					label: copy.paste,

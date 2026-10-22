@@ -26,6 +26,7 @@ interface TestPresets {
 export function createFixture(options: Readonly<{
 	genericReconciliation?: boolean;
 	automaticAudioDeviceEnumeration?: boolean;
+	desktopAudio?: boolean;
 	startupProjectId?: (lastProjectId: string | null) => string | null;
 }> = {}) {
 	const lifetime = new EditorControllerLifetime();
@@ -75,7 +76,7 @@ export function createFixture(options: Readonly<{
 		playbackOnRulerClick: true,
 		metronomeEnabled: false,
 		selectionFollowsLoop: false,
-		preferredInputDeviceId: '',
+		audioHost: 'browser', preferredRecordingSampleRate: 48_000, preferredInputDeviceId: '',
 		preferredInputChannelCount: 1,
 		preferredOutputDeviceId: '',
 		readOnly: false,
@@ -127,6 +128,8 @@ export function createFixture(options: Readonly<{
 			removeEventListener() { events.push('unlisten-devices'); },
 		},
 		automaticAudioDeviceEnumeration: options.automaticAudioDeviceEnumeration,
+		desktopAudio: options.desktopAudio,
+		requestInputAccess: () => { events.push('request-input-access'); },
 		productSettingKey: (key) => `product:${key}`,
 		audioDevicePreferencesSettingKey: 'audio-devices',
 		recordingInputGainDefault: 1,
@@ -141,6 +144,8 @@ export function createFixture(options: Readonly<{
 		normalizeAudioDevicePreferences: (value) => {
 			const record = value as Readonly<Record<string, unknown>> | null;
 			return {
+				host: String(record?.host ?? 'browser'),
+				recordingSampleRate: Number(record?.recordingSampleRate ?? 48_000),
 				inputDeviceId: String(record?.inputDeviceId ?? ''),
 				inputChannelCount: Number(record?.inputChannelCount ?? 1),
 				outputDeviceId: String(record?.outputDeviceId ?? ''),

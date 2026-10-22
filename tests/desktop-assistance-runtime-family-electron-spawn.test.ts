@@ -255,7 +255,3 @@ test('an operating system that refuses background priority still yields a usable
 	assert.equal(process.familyId, 'onnxruntime-node');
 	assert.equal(rig.children[0]!.kills, 0);
 });
-
-test('the spawn refuses a background-priority hook that is not callable', () => {
-	assert.throws(() => harness({ applyBackgroundPriority: 'low' }), TypeError);
-});

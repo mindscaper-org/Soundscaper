@@ -94,7 +94,7 @@ test.describe('transport audition shortcuts', () => {
 		});
 	}
 
-	test('C previews and P resumes a gap without an edit, and X stops at the audible position', async ({ page }) => {
+	test('Cut preview and P resume a gap without an edit, and X stops at the audible position', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [longTone]);
@@ -115,11 +115,11 @@ test.describe('transport audition shortcuts', () => {
 		const undoDisabled = await undo.isDisabled();
 		await playOptions(editor).click();
 		const menu = page.getByRole('menu', { name: 'Play options', exact: true });
-		await expect(menuItem(menu, 'Cut preview').locator('.context-menu-item-shortcut')).toHaveText('C');
+		await expect(menuItem(menu, 'Cut preview').locator('.context-menu-item-shortcut')).toHaveCount(0);
 		await expect(menuItem(menu, 'Play/Stop and set cursor').locator('.context-menu-item-shortcut')).toHaveText('X');
 		await expect(menuItem(menu, 'Pause').locator('.context-menu-item-shortcut')).toHaveText('P');
-		await page.keyboard.press('Escape');
-		await page.keyboard.press('c');
+		await menuItem(menu, 'Cut preview').click();
+		await expect(playOptions(editor)).toBeFocused();
 		await expect(editor.locator('[data-transport="play"]').getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		await expect.poll(() => frame(playhead)).toBeLessThan(selectionStart);
 		await page.keyboard.press('p');

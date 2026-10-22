@@ -12,7 +12,7 @@ export function interchangeSourceInPoint(
 	sequenceRate: SequenceRationalRate,
 	sampleRate: number,
 ): number {
-	const time = sourceInTime(clip, source, sampleRate);
+	const time = interchangeSourceInTime(clip, source, sampleRate);
 	return roundRational(time.numerator * BigInt(sequenceRate.num), time.denominator * BigInt(sequenceRate.den), 'point');
 }
 
@@ -22,11 +22,12 @@ export function interchangeSourceInSeconds(
 	source: Readonly<Record<string, unknown>> | undefined,
 	sampleRate: number,
 ): number {
-	const time = sourceInTime(clip, source, sampleRate);
+	const time = interchangeSourceInTime(clip, source, sampleRate);
 	return Number(time.numerator) / Number(time.denominator);
 }
 
-function sourceInTime(
+/** The exact media boundary for formats with native rational-second times. */
+export function interchangeSourceInTime(
 	clip: Readonly<Record<string, unknown>>,
 	source: Readonly<Record<string, unknown>> | undefined,
 	sampleRate: number,

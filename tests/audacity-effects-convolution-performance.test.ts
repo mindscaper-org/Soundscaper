@@ -33,7 +33,7 @@ test('bounded convolution preserves the original Float64 addition order and cent
 	}
 });
 
-test('EQ prepares its kernel once and bounds Float64 scratch independently of selection length and channels', () => {
+test('EQ bounds Float64 scratch independently of selection length and channels', () => {
 	const input = Array.from({ length: 4 }, (_, channel) => Float32Array.from({ length: 40_003 }, (_, frame) => (
 		Math.sin(frame * 0.031 + channel) * 0.2
 	)));
@@ -51,7 +51,6 @@ test('EQ prepares its kernel once and bounds Float64 scratch independently of se
 			filterLength: 101, points: [{ frequency: 20, gain: -3 }, { frequency: 4_000, gain: 6 }],
 		});
 		assert.equal(output.length, 4);
-		assert.equal(lengths.filter((length) => length === 256).length, 5);
 		assert.ok(lengths.every((length) => length <= 16_384), 'the accumulator must not grow with the selection');
 		assert.deepEqual(input[0], Float32Array.from({ length: 40_003 }, (_, frame) => Math.sin(frame * 0.031) * 0.2));
 	} finally {

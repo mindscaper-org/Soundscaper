@@ -27,7 +27,7 @@ interface PcmSettings {
 
 const MAXIMUM_HEADER_BYTES = 1024 * 1024;
 const EXTENSIONS: Readonly<Record<string, string>> = Object.freeze({
-	wav: 'wav', bwf: 'bwf', bw64: 'bw64', aif: 'aiff', aiff: 'aiff', aifc: 'aiff',
+	wav: 'wav', wave: 'wav', rf64: 'wav', bwf: 'bwf', bw64: 'bw64', aif: 'aiff', aiff: 'aiff', aifc: 'aiff',
 	flac: 'flac', mp3: 'mp3', mp2: 'mp2', ogg: 'ogg-vorbis', oga: 'ogg-vorbis',
 	opus: 'opus', wv: 'wavpack', wavpack: 'wavpack', m4a: 'aac-m4a',
 });
@@ -120,7 +120,10 @@ async function pcmSettings(format: string, file: NamedByteSource, header: Uint8A
 	}
 	if (format === 'aiff') {
 		if (ascii(header, 0, 4) !== 'FORM') return null;
-		return inspectAiffBlobPcm(file);
+		const descriptor = await inspectAiffBlobPcm(file);
+		if (!['int16', 'int24', 'int32', 'float32'].includes(descriptor.sampleFormat)
+			|| descriptor.bitDepth !== Number(descriptor.sampleFormat.replace(/\D/gu, ''))) return null;
+		return descriptor;
 	}
 	return undefined;
 }

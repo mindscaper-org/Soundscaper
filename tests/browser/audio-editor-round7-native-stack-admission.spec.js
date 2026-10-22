@@ -5,7 +5,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { addRackEffect, bootEditor, chooseCommandAction, importFiles, openEffectsForTrack, openEffectStackMenu } from './audio-editor-test-helpers.js';
 import { installNativePluginParameterHost } from './helpers/native-plugin-parameter-host.js';
 
-test('native hosted stacks suspend unsupported copying while ordinary effect stacks still paste', async ({ page }) => {
+test('native hosted stacks suspend unsupported copying and macro export while ordinary stacks retain both', async ({ page }) => {
 	const nativeDialog = await openHostedStack(page);
 	await nativeDialog.getByRole('button', { name: 'Close', exact: true }).first().click();
 	await expect(nativeDialog).toBeHidden();
@@ -20,6 +20,9 @@ test('native hosted stacks suspend unsupported copying while ordinary effect sta
 	await menu.getByRole('menuitem', { name: 'Paste effects', exact: true }).click();
 	await expect(panel.locator('.effect-slot__name-text')).toHaveText(['Invert', 'Invert']);
 	panel = await openEffectsForTrack(editor, 1);
+	menu = await openEffectStackMenu(panel, 'master');
+	await menu.getByRole('menuitem', { name: 'Export as macro', exact: true }).click();
+	await expect.poll(() => page.evaluate(() => globalThis.__nativeStackSavedMacros)).toEqual(['Invert:\n']);
 	menu = await openEffectStackMenu(panel, 'track');
 	const copy = menu.getByRole('menuitem', { name: 'Copy effects', exact: true });
 	if (await copy.getAttribute('aria-disabled') === 'false') {
@@ -29,19 +32,6 @@ test('native hosted stacks suspend unsupported copying while ordinary effect sta
 		await expect(panel.getByRole('alert')).toContainText('Unsupported audio effect: native-plugin');
 	}
 	await expect(menu.getByRole('menuitem', { name: 'Copy effects', exact: true })).toHaveAttribute('aria-disabled', 'true');
-});
-
-test('native hosted stacks suspend unsupported macro export while ordinary effect macros still download', async ({ page }) => {
-	const nativeDialog = await openHostedStack(page);
-	await nativeDialog.getByRole('button', { name: 'Close', exact: true }).first().click();
-	await expect(nativeDialog).toBeHidden();
-	const editor = page.locator('[data-audio-editor]');
-	const panel = await openEffectsForTrack(editor, 1);
-	await addRackEffect(page, panel, 'master', 'Invert');
-	let menu = await openEffectStackMenu(panel, 'master');
-	await menu.getByRole('menuitem', { name: 'Export as macro', exact: true }).click();
-	await expect.poll(() => page.evaluate(() => globalThis.__nativeStackSavedMacros)).toEqual(['Invert:\n']);
-	menu = await openEffectStackMenu(panel, 'track');
 	const macro = menu.getByRole('menuitem', { name: 'Export as macro', exact: true });
 	if (await macro.getAttribute('aria-disabled') === 'false') {
 		await macro.click();

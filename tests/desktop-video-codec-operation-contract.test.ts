@@ -83,8 +83,6 @@ test('main native H264 selection keeps endpoints fixed and maps quality to bitra
 	assert.throws(() => normalizeDesktopVideoCodecOperationPlan({
 		...PLAN, h264Encoder: 'h264_mf',
 	}), /unsupported field/u);
-	assert.throws(() => createDesktopExternalFfmpegVideoWorkload(PLAN,
-		{ outputPath: '/private/output.mp4' }, 'arbitrary' as 'h264_mf'), /encoder/u);
 });
 
 test('desktop external video accepts file sizes beyond the former 2 GiB cap', () => {

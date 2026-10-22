@@ -16,6 +16,10 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 		value,
 		normalizedKey: key.toLowerCase().replace(/[^a-z0-9]/g, ''),
 	}));
+	if (normalized.ownershipPrice && normalized.ownershipDate
+		&& !entries.some(({ normalizedKey }) => normalizedKey === 'ownershipseller')) {
+		entries.push({ key: 'ownershipSeller', normalizedKey: 'ownershipseller', value: '' });
+	}
 	const preferredTextFrames = selectPreferredTextFrames(entries);
 	const frames = [];
 	for (const entry of entries) {
@@ -35,7 +39,7 @@ export function createAudioMetadataId3Tag(metadata = {}) {
 			? TEXT_FRAME_IDS[normalizedKey]
 			: undefined;
 		if (frameId && preferredTextFrames.get(frameId) === entry) {
-			frames.push(createId3Frame(frameId, id3FramePayload(frameId, value)));
+			frames.push(createId3Frame(frameId, id3FramePayload(frameId, positionWithTotal(frameId, value, normalized))));
 			continue;
 		}
 		frames.push(createId3Frame('TXXX', concatBytes(
@@ -128,4 +132,10 @@ function concatBytes(...parts) {
 
 function writeAscii(view, offset, value) {
 	for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
+}
+
+function positionWithTotal(frameId, value, metadata) {
+	const total = frameId === 'TRCK' ? metadata.tracksTotal : frameId === 'TPOS' ? metadata.discsTotal : undefined;
+	if (total === undefined || !/^\d+$/.test(value) || !/^\d+$/.test(total)) return value;
+	return `${value}/${total}`;
 }

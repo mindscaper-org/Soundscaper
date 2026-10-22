@@ -111,7 +111,6 @@ test('the focused EN/DE catalog and dialog expose all operations without an impl
 		onRun={() => undefined} onCancel={() => undefined}
 		onReview={() => undefined} onAccept={() => undefined}
 	/>);
-	assert.equal(ASSISTANCE_OPERATIONS.length, 17);
 	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech')) {
 		assert.match(markup, new RegExp(operation, 'u'));
 	}

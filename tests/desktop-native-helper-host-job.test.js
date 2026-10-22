@@ -11,7 +11,6 @@ import {
 	createNativePluginHostJobRunner,
 } from '../desktop/native-helper-host-job.js';
 import {
-	NATIVE_HELPER_JOB_KINDS,
 	createNativeHelperWorker,
 	loadVerifiedNativeAddon,
 } from '../desktop/native-helper-process.js';
@@ -172,13 +171,7 @@ test('a binary that changed after it was granted never opens an instance at all'
 	assert.deepEqual(recorder.events, []);
 });
 
-test('the helper announces hosting alongside discovery and devices', () => {
-	assert.deepEqual([...NATIVE_HELPER_JOB_KINDS], [
-		'audio-device', 'plugin-scan', 'plugin-host', 'plugin-analyze',
-	]);
-});
-
-test('a host job runs the plug-in out of process and reports what it measured', { skip: !built }, async () => {
+test('a host job runs the fixture addon and reports what it measured', { skip: !built }, async () => {
 	const run = await hostRunner();
 	const progress = [];
 	const result = await run({ grant: await grantFor('gain-effect'), onProgress: (v) => progress.push(v) }).completion;
@@ -236,9 +229,7 @@ test('the worker routes a host job to the host runner and never to the device ru
 	const worker = createNativeHelperWorker({
 		role: 'plugin-host',
 		post: (message) => posted.push(message),
-		runDeviceJob: () => { throw new Error('a host job must never reach the device runner'); },
-		runScanJob: () => { throw new Error('a host job must never reach the scan runner'); },
-		runHostJob: await hostRunner(),
+		runJob: await hostRunner(),
 		heartbeatIntervalMs: 1_000_000,
 		exit: () => undefined,
 	});

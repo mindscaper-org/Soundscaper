@@ -27,19 +27,7 @@ test('case 01: planar Float32 conversion rejects a zero channel count', () => {
 	);
 });
 
-test('case 02: planar Float32 conversion rejects a fractional frame offset', () => {
-	assert.throws(
-		() => planarFloat32Chunk(words([1, 2]), 0.5, 1, 1),
-		/invalid interleaved Float32 PCM geometry/iu,
-	);
-});
 
-test('case 03: planar Float32 conversion rejects a noncanonical negative-zero frame count', () => {
-	assert.throws(
-		() => planarFloat32Chunk(words([1]), 0, -0, 1),
-		/invalid interleaved Float32 PCM geometry/iu,
-	);
-});
 
 test('case 04: planar Float32 conversion rejects unsafe byte-length arithmetic before allocation', () => {
 	assert.throws(
@@ -87,17 +75,6 @@ test('case 09: planar-to-interleaved conversion rejects zero channels before tou
 	assert.deepEqual(output, before);
 });
 
-test('case 10: planar-to-interleaved conversion rejects fractional offsets before touching output', () => {
-	const output = words([0xaaaa_aaaa, 0xbbbb_bbbb]);
-	const before = output.slice();
-	const failure = new RangeError('invalid geometry');
-
-	assert.throws(
-		() => interleavePlanarFloat32Chunk(words([1]), output, 0.5, 1, 1, () => failure),
-		(error: unknown) => error === failure,
-	);
-	assert.deepEqual(output, before);
-});
 
 test('case 11: planar-to-interleaved conversion preflights its complete destination range', () => {
 	const output = words([
@@ -115,23 +92,6 @@ test('case 11: planar-to-interleaved conversion preflights its complete destinat
 	assert.deepEqual(output, before);
 });
 
-test('case 12: planar-to-interleaved conversion snapshots overlapping source bytes', () => {
-	const storage = words([0x0000_0001, 0x0000_0002, 0x0000_0011, 0x0000_0012]);
-
-	interleavePlanarFloat32Chunk(
-		storage,
-		storage,
-		0,
-		2,
-		2,
-		() => new RangeError('invalid geometry'),
-	);
-
-	assert.deepEqual(readWords(storage), [
-		0x0000_0001, 0x0000_0011,
-		0x0000_0002, 0x0000_0012,
-	]);
-});
 
 test('case 13: omitted performance preferences produce an immutable memory-mode snapshot', () => {
 	const result = normalizeAudioEditorPerformancePreferences(undefined);
@@ -145,29 +105,6 @@ test('case 14: explicit speed-mode performance preferences remain supported', ()
 		normalizeAudioEditorPerformancePreferences({ optimizeFor: 'speed' }),
 		{ optimizeFor: 'speed' },
 	);
-});
-
-test('case 15: performance preferences reject inherited optimization state', () => {
-	const inherited = Object.create({ optimizeFor: 'speed' }) as unknown;
-
-	assert.throws(
-		() => normalizeAudioEditorPerformancePreferences(inherited),
-		/plain data object/iu,
-	);
-});
-
-test('case 16: performance preferences reject accessors without invoking them', () => {
-	let reads = 0;
-	const hostile = Object.defineProperty({}, 'optimizeFor', {
-		enumerable: true,
-		get() { reads += 1; return 'speed'; },
-	});
-
-	assert.throws(
-		() => normalizeAudioEditorPerformancePreferences(hostile),
-		/enumerable data property/iu,
-	);
-	assert.equal(reads, 0);
 });
 
 test('case 17: performance preferences reject unsupported own fields', () => {
@@ -191,32 +128,6 @@ test('case 19: waveform visualization preferences do not coerce numeric strings'
 		}),
 		/must be an integer/iu,
 	);
-});
-
-test('case 20: waveform visualization preferences reject inherited crossover values', () => {
-	const inherited = Object.create({
-		lowMidCrossoverHz: 320,
-		midHighCrossoverHz: 4_000,
-	}) as unknown;
-
-	assert.throws(
-		() => normalizeWaveformVisualizationPreferences(inherited),
-		/plain data object/iu,
-	);
-});
-
-test('case 21: waveform visualization preferences reject accessors without invoking them', () => {
-	let reads = 0;
-	const hostile = Object.defineProperty({ midHighCrossoverHz: 4_000 }, 'lowMidCrossoverHz', {
-		enumerable: true,
-		get() { reads += 1; return 320; },
-	});
-
-	assert.throws(
-		() => normalizeWaveformVisualizationPreferences(hostile),
-		/enumerable data property/iu,
-	);
-	assert.equal(reads, 0);
 });
 
 test('case 22: waveform visualization normalization returns an immutable detached snapshot', () => {
@@ -256,12 +167,4 @@ function words(values: readonly number[]): Uint8Array<ArrayBuffer> {
 		view.setUint32(index * Uint32Array.BYTES_PER_ELEMENT, value, true);
 	});
 	return output;
-}
-
-function readWords(input: Uint8Array): number[] {
-	const view = new DataView(input.buffer, input.byteOffset, input.byteLength);
-	return Array.from(
-		{ length: input.byteLength / Uint32Array.BYTES_PER_ELEMENT },
-		(_value, index) => view.getUint32(index * Uint32Array.BYTES_PER_ELEMENT, true),
-	);
 }

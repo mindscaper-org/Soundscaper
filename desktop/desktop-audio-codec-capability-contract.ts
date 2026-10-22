@@ -11,6 +11,7 @@ import {
 	type DesktopAudioCodecFormat,
 	type DesktopAudioCodecRequest,
 } from './desktop-audio-codec-operation-contract.ts';
+import { DESKTOP_AUDIO_DECODE_ONLY_FORMATS, type DesktopAudioDecodeFormat } from './desktop-audio-decode-formats.ts';
 
 export const DESKTOP_AUDIO_CODEC_CAPABILITY_SCHEMA_VERSION = 2 as const;
 export const DESKTOP_AUDIO_CODEC_CAPABILITY_QUERY_LIMIT = 14;
@@ -27,31 +28,33 @@ export type DesktopAudioCodecCapabilityReason =
 
 export type DesktopAudioCodecCapabilitySettings = DesktopAudioCodecRequest['settings'];
 
-export interface DesktopAudioCodecCapabilityTuple {
-	readonly operation: 'audio-decode' | 'audio-encode';
-	readonly format: DesktopAudioCodecFormat;
+interface DesktopAudioCodecCapabilityGeometry {
 	readonly sampleRate: number;
 	readonly channelCount: number;
 	readonly settings: DesktopAudioCodecCapabilitySettings;
 }
+export type DesktopAudioCodecCapabilityTuple = DesktopAudioCodecCapabilityGeometry & (
+	| Readonly<{ operation: 'audio-encode'; format: DesktopAudioCodecFormat }>
+	| Readonly<{ operation: 'audio-decode'; format: DesktopAudioDecodeFormat }>
+);
 
 export interface DesktopAudioCodecCapabilityQuery {
 	readonly schemaVersion: typeof DESKTOP_AUDIO_CODEC_CAPABILITY_SCHEMA_VERSION;
 	readonly operations: readonly DesktopAudioCodecCapabilityTuple[];
 }
 
-export interface DesktopAudioCodecCapabilityEntry extends DesktopAudioCodecCapabilityTuple {
+export type DesktopAudioCodecCapabilityEntry = DesktopAudioCodecCapabilityTuple & Readonly<{
 	readonly available: boolean;
 	readonly provider: DesktopAudioCodecCapabilityProvider | null;
 	readonly reason: DesktopAudioCodecCapabilityReason | null;
-}
+}>;
 
 export interface DesktopAudioCodecCapabilityResult {
 	readonly schemaVersion: typeof DESKTOP_AUDIO_CODEC_CAPABILITY_SCHEMA_VERSION;
 	readonly capabilities: readonly DesktopAudioCodecCapabilityEntry[];
 }
 
-const FORMATS = new Set<string>(DESKTOP_AUDIO_CODEC_FORMATS);
+const FORMATS = new Set<string>([...DESKTOP_AUDIO_CODEC_FORMATS, ...DESKTOP_AUDIO_DECODE_ONLY_FORMATS]);
 const PROVIDERS = new Set<string>(['bundled', 'operating-system', 'external-ffmpeg']);
 const REASONS = new Set<string>([
 	'configure-external-ffmpeg', 'unsupported-by-configured-ffmpeg', 'unsupported-settings',
@@ -131,18 +134,18 @@ function normalizeTuple(value: unknown): DesktopAudioCodecCapabilityTuple {
 	let settings: DesktopAudioCodecCapabilitySettings;
 	try {
 		settings = normalizeCapabilitySettings(
-			record.operation, record.format as DesktopAudioCodecFormat, record.settings,
+			record.operation, record.format as DesktopAudioDecodeFormat, record.settings,
 		);
 	} catch {
 		throw new TypeError('The desktop audio codec capability tuple settings are unsupported.');
 	}
 	return Object.freeze({
 		operation: record.operation,
-		format: record.format as DesktopAudioCodecFormat,
+		format: record.format as DesktopAudioDecodeFormat,
 		sampleRate,
 		channelCount,
 		settings,
-	});
+	}) as DesktopAudioCodecCapabilityTuple;
 }
 
 function normalizeEntry(value: unknown): DesktopAudioCodecCapabilityEntry {
@@ -174,7 +177,7 @@ function tupleIdentity(tuple: DesktopAudioCodecCapabilityTuple): string {
 
 function normalizeCapabilitySettings(
 	operation: DesktopAudioCodecCapabilityTuple['operation'],
-	format: DesktopAudioCodecFormat,
+	format: DesktopAudioDecodeFormat,
 	settings: unknown,
 ): DesktopAudioCodecCapabilitySettings {
 	const decode = operation === 'audio-decode';

@@ -29,11 +29,7 @@ test('unwarped clip source projection returns an ordered range for reversed clip
 	});
 });
 
-test('unwarped clip source projection orders caller-supplied boundaries without rounding them', () => {
-	assert.deepEqual(projectUnwarpedClipSourceRange(stretchedClip, 20.75, 10.25), {
-		startFrame: 50.5,
-		endFrame: 71.5,
-	});
+test('unwarped clip source projection preserves coincident fractional boundaries', () => {
 	assert.deepEqual(projectUnwarpedClipSourceRange(stretchedClip, 12.5, 12.5), {
 		startFrame: 55,
 		endFrame: 55,

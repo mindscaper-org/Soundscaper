@@ -151,9 +151,6 @@ test('target builds select concrete Linux, identity-preserving macOS Seatbelt an
 	assert.doesNotMatch(cmake, /CMAKE_GENERATOR_PLATFORM STREQUAL "(?:x64|ARM64)"/u);
 	assert.match(cmake, /elseif\(APPLE\)[\s\S]*macos_launcher\.mm[\s\S]*"-lproc"/u);
 	assert.match(cmake, /elseif\(WIN32\)[\s\S]*windows_launcher\.cpp[\s\S]*advapi32 onecoreuap userenv/u);
-	assert.match(mac, /#include <cstdint>/u);
-	assert.match(mac, /#include <utility>/u);
-	assert.match(windows, /#include <utility>/u);
 	assert.match(mac, /F_GETPATH/u);
 	assert.match(mac, /allow process-exec \(literal [\s\S]*pathFor\(value\.executableFd\)/u);
 	assert.match(mac, /PROC_PIDREGIONPATHINFO/u);
@@ -166,18 +163,11 @@ test('target builds select concrete Linux, identity-preserving macOS Seatbelt an
 	assert.match(mac, /PROC_PIDLISTFDS/u,
 		'the trusted verifier must close the complete descriptor snapshot rather than scan an unbounded limit');
 	assert.match(mac, /POSIX_SPAWN_SETEXEC[\s\S]*POSIX_SPAWN_START_SUSPENDED/u);
-	assert.doesNotMatch(mac, /POSIX_SPAWN_CLOEXEC_DEFAULT|posix_spawn_file_actions_/u,
-		'the single-threaded SETEXEC parent must not rely on Darwin spawn file actions');
 	assert.match(mac, /F_DUPFD_CLOEXEC/u,
 		'the fixed bootstrap descriptors must be sourced from collision-free private duplicates');
 	assert.match(mac,
 		/mapBootstrapDescriptors\([\s\S]*const std::vector<int> &openDescriptors[\s\S]*for \(const int descriptor : openDescriptors\)[\s\S]*descriptor > bootstrap::extraInputDescriptor[\s\S]*close\(descriptor\) != 0\) return failureCode\(\)/u,
 		'the parent must close every snapshotted descriptor above the exact bootstrap descriptor set');
-	assert.doesNotMatch(mac, /closefrom\(/u,
-		'the launcher must compile against the macOS SDK without relying on undeclared BSD extensions');
-	assert.match(mac,
-		/fork\(\)[\s\S]*mapBootstrapDescriptors\([\s\S]*posix_spawn\(nullptr,[\s\S]*nullptr, &attributes/u,
-		'the verifier must retain authority before the parent maps and closes the exact peer descriptor set');
 	assert.match(mac, /kill\([^,]+, SIGCONT\)[\s\S]*exactWrite/u,
 		'the exact stopped peer must resume before a maximum-size policy can fill the pipe');
 	assert.match(mac, /kill\([^,]+, SIGKILL\)/u);

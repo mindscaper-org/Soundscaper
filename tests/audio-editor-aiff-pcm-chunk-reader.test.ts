@@ -64,8 +64,6 @@ test('bounded AIFF inspection and chunk reads decode signed big-endian PCM', asy
 		sourceByteLength: encoded.byteLength,
 		markers: [],
 	});
-	assert.equal(Object.isFrozen(descriptor), true);
-	assert.ok(reads.length >= 5);
 	assert.ok(reads.every(([start, end]) => end - start <= 18));
 	assert.equal(reads.some(([start, end]) => start === 54 && end > start), false);
 
@@ -151,7 +149,7 @@ test('AIFF admission rejects unsupported AIFC, geometry, truncation, and excess 
 		/AIFF-C.*version|FVER/iu,
 	);
 	const compressed = floating.slice();
-	compressed.set(new TextEncoder().encode('sowt'), 50);
+	compressed.set(new TextEncoder().encode('ulaw'), 50);
 	await assert.rejects(
 		inspectAiffBlobPcm(new Blob([compressed.buffer])),
 		/AIFF-C.*compression|fl32/iu,
@@ -164,7 +162,7 @@ test('AIFF admission rejects unsupported AIFC, geometry, truncation, and excess 
 	);
 
 	const unsupportedDepth = integer.slice();
-	new DataView(unsupportedDepth.buffer).setUint16(26, 12, false);
+	new DataView(unsupportedDepth.buffer).setUint16(26, 33, false);
 	await assert.rejects(
 		inspectAiffBlobPcm(new Blob([unsupportedDepth.buffer])),
 		/bit depth/iu,

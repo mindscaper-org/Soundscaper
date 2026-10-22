@@ -97,17 +97,9 @@ test('Framescaper offers only the video-editor workspace', async () => {
 	}
 });
 
-test('the customize flyout and the action bar wire the switcher through the toolbar button', async () => {
-	const [toolbar, transport, control] = await Promise.all([
-		readFile(new URL('toolbar/EditorToolToolbar.jsx', UI), 'utf8'),
-		readFile(new URL('toolbar/AudioEditorTransportControls.jsx', UI), 'utf8'),
-		readFile(new URL('toolbar/WorkspaceSwitcherControl.jsx', UI), 'utf8'),
-	]);
+test('the customize flyout exposes the workspace switcher toolbar choice', async () => {
+	const toolbar = await readFile(new URL('toolbar/EditorToolToolbar.jsx', UI), 'utf8');
 	assert.match(toolbar, /\{ id: 'workspace-switcher', label: copy\.workspace, icon: iconNameToChar\('WORKSPACE'\) \}/u);
-	assert.match(transport, /toolbarButtons\?\.\['workspace-switcher'\] === true && <WorkspaceSwitcherControl/u);
-	assert.match(control, /createPortal\(/u);
-	assert.match(control, /workspaceSwitcherOptions\(/u);
-	assert.match(control, /preferences\.setWorkspace\(/u);
 });
 
 function snapshot(

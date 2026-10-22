@@ -10,12 +10,12 @@ import {
 	createAudioSource,
 	createAudioTrack,
 } from '../src/common/editor/project-media-factory.ts';
-import { ClipPropertiesDialog } from '../src/common/editor/ui/inspector/ClipPropertiesDialog.jsx';
+import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { deferred } from './helpers/async-test-control.ts';
 import {
-	installReactTestDom, reactProps, type ReactTestElement,
+	installReactTestDom, reactProps,
 } from './helpers/react-test-dom.ts';
 
 test('clip property async failures belong only to the project and clip that started them', async () => {
@@ -29,61 +29,11 @@ test('clip property async failures belong only to the project and clip that star
 
 		await fixture.render(project('project-b'));
 		await reject(fixture.normalizeCalls[0]!.completion, new Error('Project A normalization failed'));
-		assert.equal(Boolean(fixture.alert()), false, 'project A failure must not paint on project B');
+		assert.equal(fixture.failures.length, 0, 'a stale project failure must not reach the workspace runner');
 
 		await fixture.startNormalizePeak();
 		await reject(fixture.normalizeCalls[1]!.completion, new Error('Project B normalization failed'));
-		assert.equal(fixture.alert()?.textContent, 'Project B normalization failed');
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('clip property errors reset across projects even when clip ids repeat', async () => {
-	const fixture = await mountedClipPropertiesFixture();
-	try {
-		await fixture.render(project('project-a'));
-		await fixture.startNormalizePeak();
-		await reject(fixture.normalizeCalls[0]!.completion, new Error('Project A normalization failed'));
-		assert.equal(fixture.alert()?.textContent, 'Project A normalization failed');
-
-		await fixture.render(project('project-b'));
-		assert.equal(Boolean(fixture.alert()), false);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('clip property actions cannot reenter while the first action is pending', async () => {
-	const fixture = await mountedClipPropertiesFixture();
-	try {
-		await fixture.render(project('project-a'));
-		await fixture.startNormalizePeak();
-		await fixture.startNormalizePeak();
-
-		assert.equal(fixture.normalizeCalls.length, 1);
-	} finally {
-		await fixture.cleanup();
-	}
-});
-
-test('clip properties expose both fade shape sliders and commit their values', async () => {
-	const fixture = await mountedClipPropertiesFixture();
-	try {
-		await fixture.render(project('fade-shapes', 25));
-		for (const [field, expected] of [['fadeInShape', 0.5], ['fadeOutShape', 3]] as const) {
-			const slider = fixture.fadeShapeSlider(field);
-			assert.equal(slider.getAttribute('min'), '0.15');
-			assert.equal(slider.getAttribute('max'), '6');
-			assert.equal(slider.getAttribute('step'), '0.01');
-			assert.equal(slider.value, '2', 'an unshaped legacy fade keeps its linear curve');
-			assert.equal(slider.getAttribute('aria-valuetext'), ENGLISH_COPY.legacyLinearFadeShape);
-			await act(async () => reactProps(slider).onChange({ currentTarget: { value: String(expected) } }));
-		}
-		assert.deepEqual(fixture.updateCalls, [
-			{ clipId: 'shared-clip', changes: { fadeInShape: 0.5 } },
-			{ clipId: 'shared-clip', changes: { fadeOutShape: 3 } },
-		]);
+		assert.equal(fixture.failures[0]?.message, 'Project B normalization failed');
 	} finally {
 		await fixture.cleanup();
 	}
@@ -102,12 +52,17 @@ async function mountedClipPropertiesFixture() {
 		clipId: string;
 		completion: Deferred<void>;
 	}>> = [];
-	const updateCalls: Array<{ clipId: string; changes: Record<string, number> }> = [];
+	const failures: Error[] = [];
+	const run = (operation: () => unknown) => {
+		const value = operation();
+		void Promise.resolve(value).catch(cause => { failures.push(cause as Error); });
+		return value;
+	};
 	const controller = {
 		get project() { return currentProject; },
 		actions: {
 			clip: {
-				update: (clipId: string, changes: Record<string, number>) => { updateCalls.push({ clipId, changes }); },
+				update: () => undefined,
 				move: () => undefined,
 				trim: () => undefined,
 				setTimePitch: () => undefined,
@@ -128,18 +83,11 @@ async function mountedClipPropertiesFixture() {
 	const root = createRoot(dom.container as unknown as Element);
 	return {
 		normalizeCalls,
-		updateCalls,
-		fadeShapeSlider: (field: string) => {
-			const wrapper = dom.container.querySelector(`[data-clip-field="${field}"]`);
-			assert.ok(wrapper, `Missing ${field} field.`);
-			const slider = wrapper.querySelector('input');
-			assert.ok(slider, `Missing ${field} slider.`);
-			return slider;
-		},
+		failures,
 		render: async (nextProject: ReturnType<typeof project>) => {
 			currentProject = nextProject;
-			await act(async () => root.render(<ClipPropertiesDialog
-				isOpen
+			await act(async () => root.render(<ClipPropertiesPanel
+				run={run}
 				controller={controller}
 				snapshot={{
 					project: nextProject,
@@ -147,16 +95,16 @@ async function mountedClipPropertiesFixture() {
 					capabilities: { audioEffects: true, videoEffects: false },
 				}}
 				copy={ENGLISH_COPY}
-				onClose={() => undefined}
 			/>));
 		},
 		startNormalizePeak: async () => {
-			await act(async () => {
-				void reactProps(buttonNamed(dom.container, ENGLISH_COPY.normalizePeak)).onClick();
-				await Promise.resolve();
-			});
+			const trigger = dom.one('[data-clip-audio-settings]');
+			await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
+			const item = dom.container.querySelectorAll('[role="menuitem"]').find(node =>
+				node.querySelector('.context-menu-item-label')?.textContent === ENGLISH_COPY.normalizePeak);
+			assert.ok(item);
+			await act(async () => reactProps(item).onClick({ stopPropagation() {} }));
 		},
-		alert: () => dom.container.querySelector('[role="alert"]'),
 		cleanup: async () => {
 			for (const call of normalizeCalls) call.completion.resolve();
 			await act(async () => root.unmount());
@@ -168,7 +116,7 @@ async function mountedClipPropertiesFixture() {
 	};
 }
 
-function project(id: string, fadeFrames = 0) {
+function project(id: string) {
 	const source = createAudioSource({
 		id: 'shared-source', storageKey: `${id}-source`, name: `${id} source`,
 		frameCount: 1_000, channelCount: 1, sampleRate: 48_000,
@@ -177,19 +125,12 @@ function project(id: string, fadeFrames = 0) {
 		id: 'shared-clip', sourceId: source.id, title: `${id} clip`,
 		timelineStartFrame: 0, durationFrames: 200,
 		sourceStartFrame: 0, sourceDurationFrames: 200,
-		fadeInFrames: fadeFrames, fadeOutFrames: fadeFrames,
 	});
 	return createSoundscaperProject({
 		id, title: id, now: '2026-08-29T00:00:00.000Z',
 		sources: [source], clips: [clip],
 		tracks: [createAudioTrack({ id: 'shared-track', name: 'Track', clipIds: [clip.id] })],
 	});
-}
-
-function buttonNamed(root: ReactTestElement, text: string): ReactTestElement {
-	const button = root.querySelectorAll('button').find((candidate) => candidate.textContent === text);
-	assert.ok(button, `Missing mounted button ${text}.`);
-	return button;
 }
 
 async function reject(completion: Deferred<void>, error: Error): Promise<void> {

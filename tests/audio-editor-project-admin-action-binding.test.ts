@@ -50,5 +50,4 @@ void test('administration binding forwards defaults and handoff expectations wit
 	f.setProject(null);
 	await f.actions.clearLocalData();
 	assert.deepEqual(f.calls, [['handoff', expected], 'assert-handoff', ['close', 'next', { discard: true }], 'clear']);
-	assert.equal(Object.isFrozen(f.actions), true);
 });

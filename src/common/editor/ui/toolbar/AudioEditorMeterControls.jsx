@@ -1,20 +1,18 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button } from '@soundscaper/design-system/Button';
 import { Flyout } from '@soundscaper/design-system/Flyout';
 import { Separator } from '@soundscaper/design-system/Separator';
 import { ToolbarButtonGroup } from '@soundscaper/design-system/Toolbar';
 
 import { iconNameToChar } from '../../audacity-iconcodes.js';
-import { displayAudioCaptureUnsupportedReason } from '../../recording-display-input.ts';
 import {
 	playbackMeterAmplitudeToDb,
 	playbackMeterGainFromPosition,
 	playbackMeterPercent,
 } from '../../playback-meter.js';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
-import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
+import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
 import { MeterPanelGrip } from '../workspace/MeterPanelControls.jsx';
 import { formatDb } from '../meter-settings.ts';
 import { playbackMeterWithChannels } from '../playback-meter-channel-presentation.ts';
@@ -263,146 +261,6 @@ function RecordingMeterFlyout({
 					</>
 				)}
 			/>
-		</div>
-	);
-}
-
-/**
- * Audacity's Audio setup content: the recording device, its channel count, and
- * the playback device. It is both the transport flyout and the body of the
- * Audio settings preferences page, which is why the heading is optional — the
- * preferences panel draws its own.
- */
-export function AudioDevicesFlyout({
-	copy,
-	snapshot,
-	controller,
-	run,
-	displayAudioSupported = true,
-	heading = true,
-}) {
-	const devices = snapshot.audioDevices || {};
-	const inputs = Array.isArray(devices.inputs) ? devices.inputs : [];
-	const outputs = Array.isArray(devices.outputs) ? devices.outputs : [];
-	const preferredInput = devices.preferredInputDeviceId || 'default';
-	const preferredInputChannelCount = devices.preferredInputChannelCount === 2 ? 2 : 1;
-	const displayInputSelected = preferredInput === 'display';
-	const firefoxDisplayUnsupported = displayAudioCaptureUnsupportedReason() === 'firefox';
-	const displayInputSupported = devices.displayInputSupported && displayAudioSupported !== false && !firefoxDisplayUnsupported;
-	const displayAudioTooltip = firefoxDisplayUnsupported ? copy.recordingDesktopAudioFirefoxUnsupported : undefined;
-	const preferredOutput = devices.preferredOutputDeviceId || '';
-	const selectedInput = inputs.find((device) => device.deviceId === preferredInput);
-	const stereoUnavailable = Number(selectedInput?.channelCount) === 1;
-	const missingInput = preferredInput === 'display'
-		? !displayInputSupported
-		: preferredInput !== 'default' && !inputs.some((device) => device.deviceId === preferredInput);
-	const missingOutput = Boolean(preferredOutput)
-		&& !outputs.some((device) => device.deviceId === preferredOutput);
-	const outputMessage = devices.outputStatus === 'unavailable'
-		? copy.audioDeviceOutputUnavailable
-		: devices.outputStatus === 'denied'
-			? copy.audioDeviceOutputDenied
-			: !devices.outputSupported
-				? copy.audioDeviceOutputUnsupported
-				: '';
-
-	return (
-		<div className="kw-audio-editor__audio-devices-content" data-audio-devices-flyout>
-			{heading && <strong>{copy.audioDevices}</strong>}
-			<label>
-				<span className="audio-editor-help-label">{copy.audioInputDevice}
-					{firefoxDisplayUnsupported && <EditorHelpTooltip subject={copy.recordingDesktopAudio}
-						description={displayAudioTooltip} helpLabel={copy.helpMenu} />}
-				</span>
-				<select
-					aria-label={copy.audioInputDevice}
-					title={displayAudioTooltip}
-					value={preferredInput}
-					disabled={!devices.inputSupported}
-					onChange={(event) => run(() => controller.actions.audioDevices.setPreferredInput(event.currentTarget.value))}
-				>
-					<option value="default">{copy.audioDeviceSystemDefault}</option>
-					{missingInput && !(displayInputSelected && firefoxDisplayUnsupported) && <option value={preferredInput}>{copy.audioDevicePreferredUnavailable}</option>}
-					{inputs
-						.filter((device) => device.deviceId !== 'default')
-						.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
-					{(displayInputSupported || firefoxDisplayUnsupported) && <option value="display"
-						disabled={!displayInputSupported} title={displayAudioTooltip}>{copy.recordingDesktopAudio}</option>}
-				</select>
-			</label>
-			{!displayInputSelected && !devices.inputAccess && devices.microphoneInputSupported && (
-				<p className="kw-audio-editor__audio-devices-note">{copy.audioDeviceInputAccessRequired}</p>
-			)}
-			{displayInputSelected && displayInputSupported && (
-				<Button
-					variant="secondary"
-					onClick={() => run(() => controller.actions.audioDevices.configureDisplayInput())}
-				>
-					{devices.displayCaptureOpen ? copy.audioDeviceChangeDisplaySource : copy.audioDeviceChooseDisplaySource}
-				</Button>
-			)}
-			<fieldset
-				className="kw-audio-editor__audio-device-channels"
-				role="radiogroup"
-				aria-label={copy.audioDeviceRecordingChannels}
-			>
-				<legend>{copy.audioDeviceRecordingChannels}</legend>
-				<label>
-					<input
-						type="radio"
-						name="audio-device-recording-channels"
-						value="1"
-						checked={preferredInputChannelCount === 1}
-						onChange={() => run(() => controller.actions.audioDevices.setPreferredInputChannelCount(1))}
-					/>
-					<span>{copy.mono}</span>
-				</label>
-				<label>
-					<input
-						type="radio"
-						name="audio-device-recording-channels"
-						value="2"
-						checked={preferredInputChannelCount === 2}
-						disabled={stereoUnavailable}
-						onChange={() => run(() => controller.actions.audioDevices.setPreferredInputChannelCount(2))}
-					/>
-					<span>{copy.stereo}</span>
-				</label>
-			</fieldset>
-			<p className="kw-audio-editor__audio-devices-note">{copy.audioDeviceRecordingChannelsNote}</p>
-			<label>
-				<span>{copy.audioOutputDevice}</span>
-				<select
-					aria-label={copy.audioOutputDevice}
-					value={preferredOutput}
-					disabled={!devices.outputSupported}
-					onChange={(event) => run(() => controller.actions.audioDevices.setOutput(event.currentTarget.value))}
-				>
-					<option value="">{copy.audioDeviceSystemDefault}</option>
-					{missingOutput && <option value={preferredOutput}>{copy.audioDevicePreferredUnavailable}</option>}
-					{outputs.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
-				</select>
-			</label>
-			{outputMessage && <p className="kw-audio-editor__audio-devices-note" role="status">{outputMessage}</p>}
-			<div className="kw-audio-editor__audio-devices-actions">
-				{!snapshot.recordingInputs?.hasOpenInputs && typeof controller.actions.recording.requestInputAccess === 'function' && <Button
-					variant="secondary"
-					disabled={snapshot.recording || snapshot.recordingStarting || snapshot.recordingScheduling || snapshot.scheduledRecording}
-					onClick={() => run(() => controller.actions.recording.requestInputAccess())}
-				>{copy.recordingAllowInputs}</Button>}
-				{snapshot.recordingInputs?.hasOpenInputs && <Button
-					variant="secondary"
-					disabled={snapshot.recording || snapshot.recordingStarting || snapshot.recordingScheduling || snapshot.scheduledRecording}
-					onClick={() => run(() => controller.actions.recording.releaseInputs())}
-				>{copy.recordingReleaseInputs}</Button>}
-				<Button
-					variant="secondary"
-					disabled={snapshot.recording || snapshot.recordingStarting || snapshot.recordingScheduling || snapshot.scheduledRecording}
-					onClick={() => run(() => controller.actions.audioDevices.refresh())}
-				>
-					{copy.audioDeviceRefresh}
-				</Button>
-			</div>
 		</div>
 	);
 }

@@ -10,7 +10,6 @@ import {
 	createTimelineAnnotationsV11,
 	validateTimelineAnnotationV11,
 	validateTimelineAnnotationsV11,
-	type TimelineAnnotationV11,
 } from '../src/common/editor/timeline-annotation.ts';
 import { AUDIO_EDITOR_COORDINATE_MAXIMUM_DENOMINATOR } from '../src/common/editor/project-foundation-validation.ts';
 import type { HoldTempoMap } from '../src/common/editor/timeline-time.ts';
@@ -301,11 +300,4 @@ test('regions require positive authoritative and projected spans', () => {
 			events: [{ beat: { num: 0, den: 1 }, bpm: { num: 1_000, den: 1 } }],
 		},
 	}), /resolve.*positive|positive.*sample/iu, 'a tempo edit cannot leave a collapsed region');
-});
-
-test('annotation collection guards expose the exact V11 union to strict TypeScript consumers', () => {
-	const unknownValue: unknown = [sampleMarker()];
-	assert.ok(validateTimelineAnnotationsV11(unknownValue, COLLECTION_CONTEXT));
-	const annotations: readonly TimelineAnnotationV11[] = unknownValue;
-	assert.equal(annotations[0].kind, 'marker');
 });

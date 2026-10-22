@@ -29,10 +29,10 @@ import { exportImscCaptionTrackV1, importImscCaptionTrackV1 } from './video-capt
 
 const STABLE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const WEBVTT_RESERVED_CUE_ID = /^(?:NOTE|REGION|STYLE)$/u;
-const SRT_TIMING = /^(\d+):([0-5]\d):([0-5]\d),(\d{3}) --> (\d+):([0-5]\d):([0-5]\d),(\d{3})$/u;
+const SRT_TIMING = /^[ \t]*(\d+):([0-5]\d):([0-5]\d)[,.](\d{1,3})[ \t]+-->[ \t]+(\d+):([0-5]\d):([0-5]\d)[,.](\d{1,3})[ \t]*$/u;
 const VTT_TIMING = /^(?:(\d+):)?([0-5]\d):([0-5]\d)\.(\d{3})[ \t]+-->[ \t]+(?:(\d+):)?([0-5]\d):([0-5]\d)\.(\d{3})(.*)$/u;
 const PASSIVE_ENTITIES: Readonly<Record<string, string>> = Object.freeze({
-	amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+	amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0', lrm: '\u200e', rlm: '\u200f',
 });
 
 interface TimedCueSource {
@@ -53,6 +53,7 @@ interface TextImportState {
 	readonly styleIds: Map<string, string>;
 	readonly speakerIds: Map<string, string>;
 	readonly cueIds: Set<string>;
+	readonly reservedCueIds: ReadonlySet<string>;
 }
 
 export function importCaptionInterchangeV1(
@@ -68,6 +69,7 @@ export function importCaptionInterchangeV1(
 		return importImscCaptionTrackV1(text, { ...options, format, sampleRate }, limits, normalize);
 	}
 	const losses: VideoCaptionInterchangeLossV1[] = [];
+	const sources = format === 'srt' ? parseSrt(text, limits) : parseWebVtt(text, limits);
 	const state: TextImportState = {
 		options,
 		sampleRate,
@@ -78,8 +80,8 @@ export function importCaptionInterchangeV1(
 		styleIds: new Map(),
 		speakerIds: new Map(),
 		cueIds: new Set(),
+		reservedCueIds: new Set(sources.map(({ identifier }) => identifier).filter((id): id is string => id !== null && STABLE_ID.test(id))),
 	};
-	const sources = format === 'srt' ? parseSrt(text, limits) : parseWebVtt(text, limits);
 	const cues = sources.map((source, index) => materializeTextCue(source, index, format, state));
 	const track = normalize({
 		schemaVersion: 1,
@@ -151,7 +153,7 @@ function parseSrt(text: string, limits: Readonly<VideoCaptionInterchangeLimitsV1
 		const lines = block.split('\n');
 		let timingIndex = 0;
 		if (!SRT_TIMING.test(lines[0] ?? '')) {
-			if (!/^\d+$/u.test(lines[0] ?? '')) throw interchangeError(`SRT cue ${index + 1} has no numeric sequence.`, 'INVALID_CUE');
+			if (!/^\d+$/u.test((lines[0] ?? '').trim())) throw interchangeError(`SRT cue ${index + 1} has no numeric sequence.`, 'INVALID_CUE');
 			timingIndex = 1;
 		}
 		const match = (lines[timingIndex] ?? '').match(SRT_TIMING);
@@ -355,12 +357,13 @@ function parseSrtCueMarkup(value: string): {
 	let italic = false;
 	let underline = false;
 	for (;;) {
-		const tag = content.match(/^<(b|i|u)>/u)?.[1];
-		if (!tag || !content.endsWith(`</${tag}>`)) break;
+		const wrapper = content.match(/^<(b|i|u)>([\s\S]*)<\/\1>$/iu);
+		const tag = wrapper?.[1]?.toLowerCase();
+		if (!tag) break;
 		if (tag === 'b') bold = true;
 		if (tag === 'i') italic = true;
 		if (tag === 'u') underline = true;
-		content = content.slice(3, -(tag.length + 3));
+		content = wrapper?.[2] ?? '';
 	}
 	// Complete tag-shaped markup stays outside the passive subset. An
 	// incomplete angle-bracket comparison is ordinary literal caption text.
@@ -379,17 +382,17 @@ function parseVttCueMarkup(value: string): {
 } {
 	let content = value;
 	let speaker: string | null = null;
-	const voice = content.match(/^<v ([^<>]+)>/u);
-	if (voice) {
-		speaker = decodePassiveText(voice[1] ?? '');
-		content = content.slice(voice[0].length);
-		// A whole-cue voice may either close explicitly or omit its end tag.
-		if (content.endsWith('</v>')) content = content.slice(0, -4);
-	}
 	let bold = false;
 	let italic = false;
 	let underline = false;
 	for (;;) {
+		const voice = speaker === null ? content.match(/^<v ([^<>]+)>/u) : null;
+		if (voice) {
+			speaker = decodePassiveText(voice[1] ?? '');
+			content = content.slice(voice[0].length);
+			if (content.endsWith('</v>')) content = content.slice(0, -4);
+			continue;
+		}
 		const tag = content.match(/^<(b|i|u)>/u)?.[1];
 		if (!tag || !content.endsWith(`</${tag}>`)) break;
 		if (tag === 'b') bold = true;
@@ -441,7 +444,7 @@ function uniqueCueId(preferred: string | null, index: number, state: TextImportS
 		return preferred;
 	}
 	let suffix = index + 1;
-	while (state.cueIds.has(`cue-${suffix}`)) suffix += 1;
+	while (state.cueIds.has(`cue-${suffix}`) || state.reservedCueIds.has(`cue-${suffix}`)) suffix += 1;
 	const id = `cue-${suffix}`;
 	state.cueIds.add(id);
 	if (preferred !== null) state.losses.push(captionLoss('cue-identity-normalized', `cues.${index}.id`, 'A WebVTT cue identifier was not a unique stable ID.', { source: preferred, id }));
@@ -460,7 +463,7 @@ function parseVttSettings(value: string): VideoCaptionStyleV1['textAlign'] | nul
 }
 
 function subtitleBlocks(text: string): string[] {
-	const trimmed = text.replace(/^\n+/u, '').replace(/\n+$/u, '');
+	const trimmed = text.replace(/\n[ \t]+(?=\n[^\n])/gu, '\n').replace(/^\n+/u, '').replace(/\n+$/u, '');
 	return trimmed === '' ? [] : trimmed.split(/\n{2,}/u);
 }
 
@@ -521,6 +524,9 @@ function decodePassiveText(value: string): string {
 }
 
 function passiveCodePoint(value: string, radix: number): string {
+	if (!(radix === 16 ? /^[\da-f]+$/iu : /^\d+$/u).test(value)) {
+		throw interchangeError('Caption cue contains an invalid numeric entity.', 'ACTIVE_CONTENT');
+	}
 	const codePoint = Number.parseInt(value, radix);
 	if (!Number.isSafeInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff
 		|| (codePoint >= 0xd800 && codePoint <= 0xdfff)) {

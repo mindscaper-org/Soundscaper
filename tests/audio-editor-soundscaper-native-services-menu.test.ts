@@ -65,15 +65,14 @@ test('every native surface is reached from an existing menu family and none is a
 
 test('a healthy tier opens each surface exactly once per click', () => {
 	const { items, opened } = build();
-	find(items.tools, 'native-audio-device').onClick?.();
 	find(items.effect, 'native-effect-use').onClick?.();
 	find(items.analyze, 'native-analyzer-use').onClick?.();
-	assert.deepEqual(opened, ['native-audio-device', 'native-effect-use', 'native-analyzer-use']);
+	assert.deepEqual(opened, ['native-effect-use', 'native-analyzer-use']);
 });
 
 test('the audio switch does not disable independently enabled effects or analyzers', () => {
 	const { items } = build({}, { ...HEALTHY, enabled: false, usableAudioBackends: [] });
-	assert.equal(find(items.tools, 'native-audio-device').disabled, true);
+	assert.deepEqual(items.tools, [], 'audio hosts are configured directly in Audio settings');
 	assert.equal(find(items.effect, 'native-effect-use').disabled, false);
 	assert.equal(find(items.analyze, 'native-analyzer-use').disabled, false);
 });
@@ -90,7 +89,7 @@ test('audio and plug-in helper health never disable the other native service fam
 		quarantine: { loaded: true, degraded: false, records: [], pendingFaults: 0 },
 	});
 	const audioFailedItems = build({}, audioFailed).items;
-	assert.equal(find(audioFailedItems.tools, 'native-audio-device').disabled, true);
+	assert.deepEqual(audioFailedItems.tools, []);
 	assert.equal(find(audioFailedItems.effect, 'native-effect-use').disabled, false);
 	assert.equal(find(audioFailedItems.analyze, 'native-analyzer-use').disabled, false);
 
@@ -104,7 +103,7 @@ test('audio and plug-in helper health never disable the other native service fam
 		quarantine: { loaded: true, degraded: false, records: [], pendingFaults: 0 },
 	});
 	const pluginsFailedItems = build({}, pluginsFailed).items;
-	assert.equal(find(pluginsFailedItems.tools, 'native-audio-device').disabled, false);
+	assert.deepEqual(pluginsFailedItems.tools, []);
 	assert.equal(find(pluginsFailedItems.effect, 'native-effect-use').disabled, true);
 	assert.equal(find(pluginsFailedItems.analyze, 'native-analyzer-use').disabled, true);
 });
@@ -138,34 +137,21 @@ test('the surfaces that turn the tier on or repair it stay reachable while it is
 	]) {
 		const { items } = build({}, snapshot);
 		for (const surface of SOUNDSCAPER_ALWAYS_REACHABLE_SURFACES) {
-			const entry = find(surface === 'native-audio-preferences' ? items.tools : items.effect, surface);
+			const entry = find(items.effect, surface);
 			assert.equal(entry.disabled, false, `${surface} must stay reachable so the user can act`);
 		}
-		assert.equal(find(items.tools, 'native-audio-device').disabled, true);
+		assert.deepEqual(items.tools, [], 'audio hosts are configured directly in Audio settings');
 	}
 });
 
 test('a disabled entry says which problem it has, not merely that it is unavailable', () => {
-	const quarantined = build({}, { ...HEALTHY, quarantined: true });
-	assert.match(find(quarantined.items.tools, 'native-audio-device').disabledReason, /quarantined/iu);
-
-	const unbuilt = build({}, {
-		...HEALTHY,
-		payloadAvailable: false,
-		payloadDetail: 'No Windows ARM64 build host is provisioned.',
-	});
-	assert.match(find(unbuilt.items.tools, 'native-audio-device').disabledReason, /build host is provisioned/u);
-
-	const noBackend = build({}, { ...HEALTHY, usableAudioBackends: [] });
-	assert.match(find(noBackend.items.tools, 'native-audio-device').disabledReason, /no native audio backend/iu);
-
 	const noFormat = build({}, { ...HEALTHY, enabledPluginFormats: [] });
 	assert.match(find(noFormat.items.effect, 'native-effect-use').disabledReason, /no native effect format/iu);
 });
 
 test('a disabled entry cannot be activated at all', () => {
-	const { items, opened } = build({}, { ...HEALTHY, enabled: false });
-	const entry = find(items.tools, 'native-audio-device');
+	const { items, opened } = build({}, { ...HEALTHY, pluginEnabled: false });
+	const entry = find(items.effect, 'native-effect-use');
 	assert.equal(entry.disabled, true);
 	assert.equal(entry.onClick, undefined, 'a disabled entry must carry no activation path');
 	assert.deepEqual(opened, []);
@@ -194,8 +180,14 @@ test('a build with no native runtime shows no native entries at all', () => {
 
 test('a group stays reachable while any child is, and the always-reachable ones always are', () => {
 	const { items } = build({}, { ...HEALTHY, enabled: false, usableAudioBackends: [], enabledPluginFormats: [] });
-	assert.equal(items.tools[0].disabled, false, 'preferences keep the audio group reachable');
+	assert.deepEqual(items.tools, []);
 	assert.equal(items.effect[0].disabled, false, 'manage keeps the effect group reachable');
-	assert.equal(find(items.tools, 'native-audio-device').disabled, true);
+	assert.deepEqual(items.tools, [], 'audio hosts are configured directly in Audio settings');
 	assert.equal(find(items.effect, 'native-effect-use').disabled, true);
+});
+
+test('native audio dialogs have no menu entry or surface after host settings replace them', () => {
+	const { items } = build();
+	assert.deepEqual(items.tools, []);
+	assert.ok(SOUNDSCAPER_NATIVE_SERVICE_SURFACES.every((surface) => !surface.startsWith('native-audio')));
 });

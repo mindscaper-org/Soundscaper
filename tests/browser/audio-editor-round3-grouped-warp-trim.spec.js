@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction, clipByName, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
 
 test('a grouped keyboard trim resolves an editable boundary on every participating recording', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -24,12 +24,18 @@ test('a grouped keyboard trim resolves an editable boundary on every participati
 	const clip = clipByName(editor, plain.name);
 	await clip.focus();
 	await expect(clip).toBeFocused();
-	await clip.press('[');
+	await clip.getByRole('button', { name: 'Trim right edge', exact: true }).press('ArrowLeft');
 	await expect(editor.locator('[data-editor-toast="workspace-error"]')).toBeHidden();
-	const properties = await openClipProperties(page, editor, clip);
-	await properties.getByText('Media settings', { exact: true }).click();
-	const duration = properties.locator('[data-clip-field="durationFrame"]');
-	await duration.locator('.timecode__format-button').click();
-	await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
-	await expect(duration.locator('.timecode__display')).toHaveText('000,000,043,201samples');
+	// Group selection uses the merged inspector; ungroup after the edit to inspect both native boundaries.
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Ungroup clips']);
+	for (const fixture of [plain, warped]) {
+		await chooseCommandAction(page, editor, 'Select', 'Select none');
+		const properties = await openClipProperties(page, editor, clipByName(editor, fixture.name));
+		await expect(editor.locator('.clip-display[data-selected="true"]')).toHaveCount(1);
+		await showClipTimingFields(properties);
+		const duration = properties.locator('[data-clip-field="durationFrame"]');
+		await duration.locator('.timecode__format-button').click();
+		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+		await expect(duration.locator('.timecode__display')).toHaveText('000,000,043,201samples');
+	}
 });

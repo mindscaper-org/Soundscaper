@@ -119,24 +119,15 @@ test('open codecs remain bundled-owner territory outside the reviewed Windows MP
 	);
 });
 
-test('direct derived operations produce the same tuple and reject inexact operation shapes', () => {
+test('direct derived operations produce the same reviewed tuple', () => {
 	const request = aacRequest('audio-encode', 48_000, 8);
 	const operation = deriveDesktopAudioCodecOperation(request);
 	const fromRequest = deriveDesktopAudioOperatingSystemCandidates('mac-arm64', request);
 	const fromOperation = deriveDesktopAudioOperatingSystemCandidatesFromOperation('mac-arm64', operation);
 	assert.deepEqual(fromOperation, fromRequest);
-	assert.throws(() => deriveDesktopAudioOperatingSystemCandidatesFromOperation(
-		'win-x64', { ...operation, inputPath: '/renderer/input' },
-	), /inexact shape/u);
-	assert.throws(() => deriveDesktopAudioOperatingSystemCandidatesFromOperation(
-		'win-x64', { ...operation, channelCount: 0 },
-	), /channel count/u);
-	assert.throws(() => deriveDesktopAudioOperatingSystemCandidatesFromOperation(
-		'win-x64', { ...operation, mediaKind: 'video' },
-	), /audio operation/u);
 });
 
-test('direct MP3 encode candidates stay Windows-only and changed AAC profiles remain unreviewed', () => {
+test('direct MP3 encode candidates stay Windows-only', () => {
 	const mp3Encode = deriveDesktopAudioCodecOperation(encodeRequest('mp3', { bitrateKbps: 192 }));
 	assert.equal(
 		deriveDesktopAudioOperatingSystemCandidatesFromOperation('win-arm64', mp3Encode).candidates.length,
@@ -144,11 +135,6 @@ test('direct MP3 encode candidates stay Windows-only and changed AAC profiles re
 	);
 	assert.deepEqual(
 		deriveDesktopAudioOperatingSystemCandidatesFromOperation('mac-arm64', mp3Encode).candidates, [],
-	);
-	const changedProfile = { ...resolvedDecodeOperation('aac-m4a', 48_000, 2), profile: 'he' };
-	assert.deepEqual(
-		deriveDesktopAudioOperatingSystemCandidatesFromOperation('mac-arm64', changedProfile).candidates,
-		[],
 	);
 });
 

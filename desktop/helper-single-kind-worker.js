@@ -100,6 +100,7 @@ export function createSingleKindHelperWorker({
 		let handle;
 		try {
 			handle = runJob({
+				jobId: message.jobId,
 				grant: message.grant,
 				ports: Object.freeze([...ports]),
 				resourcePolicy: message.resourcePolicy,

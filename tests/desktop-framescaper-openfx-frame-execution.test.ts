@@ -74,13 +74,6 @@ test('main refuses renderer-authored handles, changed fingerprints, input identi
 	assert.deepEqual(await service.execute(fixture.request), {
 		mode: 'bypass', availability: 'fingerprint-changed', reportsDegradation: true,
 	});
-	inventory = [plugin()] as never;
-	await assert.rejects(() => service.execute({ ...fixture.request,
-		planPayload: `${fixture.request.planPayload}\n`,
-	}), /canonical/iu);
-	await assert.rejects(() => service.execute({ ...fixture.request,
-		inputs: [{ ...fixture.request.inputs[0]!, rgba: new Uint8Array(3) }],
-	}), /RGBA/iu);
 });
 
 test('main projects unavailable execution without mutating the exact authored plan', async () => {

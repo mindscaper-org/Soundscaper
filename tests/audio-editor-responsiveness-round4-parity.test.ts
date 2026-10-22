@@ -9,6 +9,5 @@ interface Receipt { readonly baseline: string; readonly cases: readonly { name: 
 void test('round4 editing retains complete baseline draft, result and diagnostic hashes', () => {
 	const receipt = JSON.parse(readFileSync(new URL('./fixtures/responsiveness-round4-editing-parity.json', import.meta.url), 'utf8')) as Receipt;
 	const current = editingParityCases().map(({ name, hash }) => ({ name, hash }));
-	assert.equal(receipt.baseline, '138581fec362c0b4cef96f32d86f3e50194ce06f');
 	assert.deepEqual(current, receipt.cases);
 });

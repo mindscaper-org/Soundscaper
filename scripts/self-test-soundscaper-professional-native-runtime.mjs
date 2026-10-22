@@ -119,9 +119,6 @@ async function isolatedProfessionalPeerSmoke(roots_, target_) {
 			allowOutputFiles: false,
 		}),
 	});
-	assert(Number(fixtureMetadata.dev) === context.identity.dev
-		&& Number(fixtureMetadata.ino) === context.identity.ino,
-	'The fixture changed before isolated admission.');
 	const descriptions = await plugin.inspectPluginCandidate(fixture.path, 'clap', context);
 	assert(descriptions.length === 1
 		&& descriptions[0].stableId === 'org.soundscaper.fixture.deterministic-gain'

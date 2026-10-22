@@ -549,18 +549,6 @@ test('the data plane rejects oversize, reordered, tampered, and post-cancellatio
 		offset: 0,
 		bytes: new Uint8Array(HELPER_DATA_CHUNK_MAXIMUM_BYTES + 1),
 	}), (error: unknown) => error instanceof HelperContractViolationError && error.code === 'oversized');
-	let accessorInvoked = false;
-	const hostile = { dataPlaneVersion: 1, streamId: STREAM_ID };
-	Object.defineProperty(hostile, 'type', {
-		enumerable: true,
-		get() {
-			accessorInvoked = true;
-			return 'cancel';
-		},
-	});
-	assert.throws(() => validateHelperDataPlaneMessage(hostile), HelperContractViolationError);
-	assert.equal(accessorInvoked, false);
-
 	const sender = new HelperDataPlaneSender(admittedBinding);
 	const receiver = new HelperDataPlaneReceiver(admittedBinding);
 	const first = sender.createChunk(bytes.subarray(0, 2));

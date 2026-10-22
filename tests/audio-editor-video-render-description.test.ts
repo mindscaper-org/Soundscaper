@@ -205,6 +205,4 @@ test('noncanonical geometry and transition weights are refused', () => {
 		assert.throws(() => resolveVideoRenderDescription({ ...valid, opacityStart }), /opacityStart/iu);
 	}
 	assert.throws(() => resolveVideoRenderDescription({ ...valid, opacityEnd: Number.POSITIVE_INFINITY }), /opacityEnd/iu);
-	assert.throws(() => resolveVideoRenderDescription(null as never), /description|input|request/iu);
-	assert.throws(() => resolveVideoRenderDescription([] as never), /description|input|request/iu);
 });

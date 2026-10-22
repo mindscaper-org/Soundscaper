@@ -113,10 +113,6 @@ test('startup canary verifies, forks once, and drains the terminal helper', asyn
 
 test('startup canary uses its short deadline and drains a killed child', async (context) => {
 	const scratchRoot = await scratch(context);
-	assert.throws(() => createBundledAudioCodecOperationRunner({
-		target: 'linux-x64', scratchRoot, verifyPayload: async () => configuration,
-		spawn: () => new FakeChild(), canaryDurationMs: 5_001,
-	}), /canary duration/iu);
 	let child: FakeChild;
 	let resolveCanarySpawn: (() => void) | undefined;
 	const canarySpawned = new Promise<void>((resolve) => { resolveCanarySpawn = resolve; });

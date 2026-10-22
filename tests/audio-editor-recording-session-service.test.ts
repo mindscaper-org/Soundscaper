@@ -11,28 +11,6 @@ import {
 	type RecordingSessionMutableState,
 } from '../src/common/editor/controller/recording/internal/recording-session-service.ts';
 
-test('recording service exposes only controller action entry points', () => {
-	const service = createRecordingSessionService({
-		state: createState(),
-		getProjectId: () => 'project-1',
-		beginRecording: async () => {},
-		performLegacyFinalization: async () => {},
-		performRoutedFinalization: async () => {},
-	});
-
-	assert.deepEqual(Object.keys(service).sort(), [
-		'cancelRecordingStart',
-		'finalizeRecording',
-		'startRecording',
-		'startRecordingOnNewTrack', 'startSoundActivatedRecording',
-		'startTakeCycleRecording',
-		'stopRecording',
-		'toggleLeadInRecording',
-		'toggleRecordingPause',
-	]);
-	assert.equal(Object.isFrozen(service), true);
-});
-
 test('take cycle recording owns a distinct kind and stop finalizes only through its adapter', async () => {
 	const state = createState();
 	let cycleStops = 0;

@@ -198,6 +198,12 @@ jobs:
           sudo chown root:root -- "${sandboxes[@]}"
           sudo chmod 4755 -- "${sandboxes[@]}"
 
+      - name: Provision the hermetic independent interchange readers
+        run: node scripts/provision-nightly-interchange.mjs
+        env:
+          SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
+          SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
+
       - name: Stage the nightly-with-tests application
         run: node scripts/desktop-nightly-tests-prepare.mjs
         env:

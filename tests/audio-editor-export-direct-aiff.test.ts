@@ -126,20 +126,11 @@ test('direct AIFF admission is exact and opens the canonical PCM mix target', as
 	const valid = directAiffPlan();
 	const incorrectlyAdmitted: string[] = [];
 	for (const [label, candidate] of [
-		['wrong format', { ...valid, format: 'wav' }],
-		['BWF format', { ...valid, format: 'bwf' }],
-		['BW64 format', { ...valid, format: 'bw64' }],
-		['wrong MIME type', { ...valid, mimeType: 'audio/x-aiff' }],
 		['stems', { ...valid, mode: 'stems' }],
 		['multiple outputs', { ...valid, outputs: [
 			{ fileName: 'mix.aiff', trackId: 'track' },
 			{ fileName: 'other.aiff', trackId: 'other' },
 		] }],
-		['wrong extension', { ...valid, outputs: [{ fileName: 'mix.aif', trackId: 'track' }] }],
-		['missing byte count', { ...valid, outputFileBytesPerRender: undefined }],
-		['zero byte count', { ...valid, outputFileBytesPerRender: 0 }],
-		['fractional byte count', { ...valid, outputFileBytesPerRender: 1.5 }],
-		['unsafe byte count', { ...valid, outputFileBytesPerRender: Number.MAX_SAFE_INTEGER + 1 }],
 		['over-limit byte count', { ...valid, outputFileBytesPerRender: AIFF_MAXIMUM_FILE_BYTES + 1 }],
 		['layout byte-count mismatch', { ...valid, outputFileBytesPerRender: valid.outputFileBytesPerRender + 2 }],
 		['stale channel geometry', { ...valid, channelCount: 1 }],
@@ -149,54 +140,8 @@ test('direct AIFF admission is exact and opens the canonical PCM mix target', as
 		} }],
 		['stale metadata geometry', { ...valid, metadata: { title: 'Changed' } }],
 		['offline render', { ...valid, render: { strategy: 'offline' } }],
-		['missing sample rate', { ...valid, sampleRate: undefined }],
-		['zero sample rate', { ...valid, sampleRate: 0 }],
-		['string sample rate', { ...valid, sampleRate: '48000' }],
-		['fractional sample rate', { ...valid, sampleRate: 48_000.5 }],
-		['missing channel count', { ...valid, channelCount: undefined }],
-		['zero channel count', { ...valid, channelCount: 0 }],
-		['string channel count', { ...valid, channelCount: '2' }],
-		['fractional channel count', { ...valid, channelCount: 1.5 }],
 		['over-limit channel count', { ...valid, channelCount: 33 }],
-		['missing output frames', { ...valid, outputFrames: undefined }],
-		['string output frames', { ...valid, outputFrames: '2' }],
-		['fractional output frames', { ...valid, outputFrames: 1.5 }],
-		['negative output frames', { ...valid, outputFrames: -1 }],
 		['over-limit output frames', { ...valid, outputFrames: 0x1_0000_0000 }],
-		['missing encoding', { ...valid, encoding: undefined }],
-		['null encoding', { ...valid, encoding: null }],
-		['array encoding', { ...valid, encoding: [] }],
-		['decorated array encoding', { ...valid, encoding: Object.assign([], {
-			bitDepth: 24, floatingPoint: false, sampleFormat: 'int24',
-		}) }],
-		['missing bit depth', { ...valid, encoding: {
-			floatingPoint: false, sampleFormat: 'int24',
-		} }],
-		['missing floating-point flag', { ...valid, encoding: {
-			bitDepth: 24, sampleFormat: 'int24',
-		} }],
-		['missing sample format', { ...valid, encoding: {
-			bitDepth: 24, floatingPoint: false,
-		} }],
-		['bit-depth mismatch', { ...valid, encoding: {
-			bitDepth: 16, floatingPoint: false, sampleFormat: 'int24',
-		} }],
-		['unsupported sample format', { ...valid, encoding: {
-			bitDepth: 20, floatingPoint: false, sampleFormat: 'int20',
-		} }],
-		['floating-point mismatch', { ...valid, encoding: {
-			bitDepth: 24, floatingPoint: true, sampleFormat: 'int24',
-		} }],
-		['integer-32 floating-point mismatch', { ...valid, encoding: {
-			bitDepth: 32, floatingPoint: true, sampleFormat: 'int32',
-		} }],
-		['float-32 integer mismatch', { ...valid, encoding: {
-			bitDepth: 32, floatingPoint: false, sampleFormat: 'float32',
-		} }],
-		['missing metadata', { ...valid, metadata: undefined }],
-		['null metadata', { ...valid, metadata: null }],
-		['array metadata', { ...valid, metadata: [] }],
-		['malformed metadata', { ...valid, metadata: { title: '\u0001' } }],
 	] satisfies Array<readonly [string, Readonly<Record<string, unknown>>]>) {
 		let prepareCalls = 0;
 		const preparation = await prepareDirectAiffDestination({

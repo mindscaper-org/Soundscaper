@@ -125,8 +125,9 @@ export function dawprojectStructureTree(project: DataRecord, sequenceId?: string
 	const trackById = new Map(tracks.map((track) => [String(track.id), track]));
 	const folders = new Map(records(project.trackFolders).map((folder) => [String(folder.id), folder]));
 	const sequences = records(project.sequences);
-	const sequence = sequences.find((candidate) => String(candidate.id) === String(sequenceId ?? project.primarySequenceId ?? ''))
-		?? sequences[0];
+	const sequence = dawprojectExportSequence(project, sequenceId);
+	const assignedElsewhere = new Set(sequences.filter((candidate) => candidate !== sequence)
+		.flatMap((candidate) => records(candidate.trackNodes).filter((node) => node.kind === 'track').map((node) => String(node.id))));
 	const nodes = records(sequence?.trackNodes);
 	const roots: DawprojectStructureNode[] = [];
 	const childrenByFolder = new Map<string, DawprojectStructureNode[]>();
@@ -148,11 +149,21 @@ export function dawprojectStructureTree(project: DataRecord, sequenceId?: string
 	}
 	for (const track of tracks) {
 		const id = String(track.id);
-		if (seenTracks.has(id)) continue;
+		if (seenTracks.has(id) || assignedElsewhere.has(id)) continue;
 		seenTracks.add(id);
 		roots.push({ kind: 'track', id, folder: null, track, children: [] });
 	}
 	return freezeTree(roots);
+}
+
+export function dawprojectExportSequence(project: DataRecord, sequenceId?: string): DataRecord | null {
+	const sequences = records(project.sequences);
+	return sequences.find((candidate) => String(candidate.id) === String(sequenceId ?? project.primarySequenceId ?? ''))
+		?? sequences[0] ?? null;
+}
+
+export function dawprojectStructureTracks(nodes: readonly DawprojectStructureNode[]): readonly DataRecord[] {
+	return nodes.flatMap((node) => node.kind === 'track' && node.track ? [node.track] : dawprojectStructureTracks(node.children));
 }
 
 function freezeTree(nodes: DawprojectStructureNode[]): readonly DawprojectStructureNode[] {

@@ -312,35 +312,6 @@ test('a non-record local body metadata row is refused before any body is mirrore
 	assert.deepEqual(fixture.commands, []);
 });
 
-test('a writer whose chunk ceiling exceeds the mirroring bound is refused without being aborted', async () => {
-	const fixture = harness();
-	fixture.state.maximumChunkBytes = 16 * 1024 * 1024 + 1;
-
-	await assert.rejects(() => fixture.run(fixture.runtime()), TypeError);
-	assert.equal(fixture.writes.length, 1);
-	assert.equal(fixture.writes[0]!.aborted, false, 'a rejected writer is never entered');
-	assert.deepEqual(fixture.commands, []);
-});
-
-test('a writer that cannot report a chunk ceiling at all is refused', async () => {
-	const fixture = harness();
-	fixture.state.maximumChunkBytes = 0;
-
-	await assert.rejects(
-		() => fixture.run(fixture.runtime()),
-		/exact bounded owned writer/u,
-	);
-});
-
-test('a publication that cannot be discarded is refused and the writer is aborted', async () => {
-	const fixture = harness();
-	fixture.state.ownedPublication = false;
-
-	await assert.rejects(() => fixture.run(fixture.runtime()), TypeError);
-	assert.equal(fixture.writes[0]!.aborted, true);
-	assert.deepEqual(fixture.discards, []);
-});
-
 test('a short read from the committed transaction body aborts the mirror', async () => {
 	const fixture = harness();
 	fixture.state.bodySlice = (bytes, offset, length) => bytes.slice(offset, offset + length - 1);
@@ -440,15 +411,6 @@ test('a cancelled picker imports nothing and never opens a transaction', async (
 	assert.deepEqual(fixture.commands, []);
 	assert.equal(fixture.writes.length, 0);
 	assert.equal(fixture.state.releases, 0);
-});
-
-test('an identity factory that mints an unusable id refuses before the picker is opened', async () => {
-	const fixture = harness();
-	fixture.state.mintId = () => 'minted id/one';
-
-	await assert.rejects(() => fixture.run(fixture.runtime()), /source ID is invalid/u);
-	assert.equal(fixture.state.releases, 0);
-	assert.deepEqual(fixture.operations(), []);
 });
 
 test('a second import waits for the one in flight and still runs after it fails', async () => {

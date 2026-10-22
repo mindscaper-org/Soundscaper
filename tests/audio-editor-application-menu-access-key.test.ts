@@ -185,14 +185,7 @@ test('updating menubar callbacks across a render preserves an armed Alt press', 
 		openMenuByAccessKey: () => false,
 	});
 	controller.onKeyDown(keyEvent('Alt', { altKey: true }).event);
-	const updateOptions = (controller as unknown as {
-		updateOptions(options: {
-			focusFileMenu(): void;
-			openMenuByAccessKey(key: string): boolean;
-		}): void;
-	}).updateOptions;
-	assert.equal(typeof updateOptions, 'function');
-	updateOptions({
+	controller.updateOptions({
 		focusFileMenu: () => { focused.push('current'); },
 		openMenuByAccessKey: () => false,
 	});

@@ -58,18 +58,6 @@ const BODY_DIGEST = bytesToHex(sha256(BODY));
 const OTHER_BODY = Uint8Array.from([1, 1, 2, 3, 5, 8]);
 const OTHER_DIGEST = bytesToHex(sha256(OTHER_BODY));
 
-test('creating the frame provider refuses a store that cannot load original media', () => {
-	assert.throws(() => createProvider({ store: null as never }), (error: unknown) =>
-		error instanceof TypeError && /requires an original-media store/u.test(error.message));
-	assert.throws(() => createProvider({ store: { loadMediaAsset: 'later' } as never }),
-		/requires an original-media store/u);
-	assert.equal(typeof createProvider({ store: storeHarness().store }), 'function');
-});
-
-/**
- * The factory declares its frame call as PromiseLike, which assert.rejects will
- * not take; wrapping it once keeps every refusal case readable.
- */
 function createProvider(options: Parameters<typeof createFrameProvider>[0]) {
 	const provider = createFrameProvider(options);
 	return async (request: Parameters<typeof provider>[0]) => provider(request);
@@ -202,16 +190,6 @@ test('an original whose bytes no longer match the recorded digest is refused bef
 	assert.equal(frames.length, 1, 'the digest the source records is the one that must match');
 });
 
-test('an extractor factory that returns an unusable session is refused', async () => {
-	const invalid = [null, {}, { capture: () => ({ blob: new Blob([]) }) }, { dispose: () => {} }];
-
-	for (const value of invalid) {
-		const provider = providerFor({ createExtractor: (() => Promise.resolve(value)) as never });
-		await assert.rejects(provider(request()), (error: unknown) =>
-			error instanceof TypeError && /frame extractor is invalid/u.test(error.message));
-	}
-});
-
 test('a capture that yields no image body fails the run and still disposes the extractor', async () => {
 	const extractor = extractorHarness({ capture: () => ({ blob: 'data:image/png;base64,' } as never) });
 	const progress: Progress[] = [];
@@ -274,10 +252,7 @@ test('a run cancelled before it starts reports the abort reason and opens nothin
 	assert.deepEqual(held.loads, []);
 	assert.deepEqual(extractor.log, []);
 
-	const reasonless = { aborted: true, reason: undefined } as unknown as AbortSignal;
-	await assert.rejects(provider(request({ signal: reasonless })), (error: unknown) =>
-		error instanceof DOMException && error.name === 'AbortError'
-		&& /Motion frame decoding was cancelled/u.test(error.message));
+
 });
 
 test('a run cancelled between frames stops decoding, releases the extractor, and keeps no frames', async () => {

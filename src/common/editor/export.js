@@ -165,9 +165,8 @@ export function sanitizeExportName(value, fallback = 'audio-project') {
 		.normalize('NFC')
 		.replace(/[^\p{L}\p{N}\p{M}_-]+/gu, '-')
 		.replace(/-{2,}/g, '-')
-		.replace(/^[-_.]+|[-_.]+$/g, '')
-		.slice(0, 96);
-	return normalized || fallback;
+		.replace(/^[-_.]+|[-_.]+$/g, '');
+	return Array.from(normalized).slice(0, 96).join('') || fallback;
 }
 
 export function createExportFileName(project, options = {}) {

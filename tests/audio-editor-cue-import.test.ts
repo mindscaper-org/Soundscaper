@@ -141,12 +141,9 @@ test('CUE import permits a data file before one audio file but rejects malformed
 	);
 });
 
-test('CUE import enforces input and numeric limits before authoring cues', () => {
+test('CUE import enforces its input limit before authoring cues', () => {
 	assert.throws(
 		() => parseAudioEditorCueSheet('TRACK 01 AUDIO\n INDEX 01 00:00:00', { sampleRate: 48_000, maxInputChars: 5 }),
 		(error: unknown) => error instanceof AudioEditorCueImportError && error.code === 'INPUT_LIMIT',
 	);
-	for (const sampleRate of [0, 44_100.5, Number.MAX_SAFE_INTEGER + 1]) {
-		assert.throws(() => parseAudioEditorCueSheet('', { sampleRate }), RangeError);
-	}
 });

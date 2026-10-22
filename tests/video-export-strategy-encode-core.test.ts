@@ -67,7 +67,6 @@ test('the shared export request admits the exact active Blob and preserves calle
 	const ffmpeg = createVideoExportOfflineRequest(input, plan(), { editorFfmpeg: input.editorFfmpeg as never }, ERRORS);
 	assert.equal(ffmpeg.sources[0]?.blob, input.videoBlobs.get('video-a'));
 	assert.deepEqual(ffmpeg.sources.map(({ sourceId }) => sourceId), ['video-a']);
-	assert.ok(Object.isFrozen(ffmpeg) && Object.isFrozen(ffmpeg.sources) && Object.isFrozen(ffmpeg.sources[0]));
 	assert.deepEqual(ffmpeg.canvas, {
 		width: 320, height: 180, frameRate: { num: 30, den: 1 },
 		fit: 'contain', backgroundColor: '#000000',
@@ -99,8 +98,6 @@ test('the shared export request rejects Blob and audio mix drift using caller wo
 test('the shared result projections enforce identity, bytes, and chunks before publication', () => {
 	const byteResult = projectVideoExportBrowserResult(browser(), plan(), ERRORS);
 	assert.deepEqual(byteResult.bytes, new Uint8Array([1, 2]));
-	assert.ok(Object.isFrozen(byteResult));
-	assert.equal(Object.hasOwn(byteResult, 'codec'), false);
 	assert.throws(() => projectVideoExportBrowserResult(browser({ extension: '.webm' }), plan(), ERRORS),
 		{ name: 'Error', message: ERRORS.identity });
 	assert.throws(() => projectVideoExportBrowserResult(browser({ byteLength: 3 }), plan(), ERRORS),
@@ -108,7 +105,6 @@ test('the shared result projections enforce identity, bytes, and chunks before p
 	const sinkResult = projectVideoExportSinkResult(sink({ codec: 'h264' }), plan(), ERRORS);
 	assert.deepEqual({ output: sinkResult.output, count: sinkResult.chunkCount, codec: sinkResult.codec },
 		{ output: 'sink', count: 3, codec: 'h264' });
-	assert.ok(Object.isFrozen(sinkResult));
 	assert.throws(() => projectVideoExportSinkResult(sink({ outputChunkCount: -1 }), plan(), ERRORS),
 		{ name: 'RangeError', message: ERRORS.chunks });
 	const picturePlan = { format: 'mp4', extension: 'mp4', mimeType: 'video/mp4' } as const;

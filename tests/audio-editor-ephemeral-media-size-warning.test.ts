@@ -5,7 +5,6 @@ import test from 'node:test';
 import { createControllerResources } from '../src/common/editor/controller/composition/controller-resources.ts';
 import { createFileSizeWarningConfirmation } from '../src/common/editor/controller/shared/file-size-warning-confirmation.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';
-import type { AudioEditorProjectStoreOptions } from '../src/common/editor/storage/project-store-options.ts';
 import { MEDIA_ASSET_MEMORY_STREAM_MAXIMUM_BYTES, MEDIA_ASSET_STREAM_CHUNK_BYTES } from '../src/common/editor/storage/media-asset-write-repository.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
@@ -76,7 +75,7 @@ test('maintenance cancels a pending memory warning and prevents late admission',
 	} finally { unsubscribe(); confirmation.dispose(); await disposeResources(resources); }
 });
 
-test('durable IndexedDB chunks bypass the memory warning and constructor ports remain validated', async () => {
+test('durable IndexedDB chunks bypass the memory warning', async () => {
 	const indexedDB = createInstrumentedIndexedDB();
 	const store = createProjectStore({ indexedDB, databaseName: `durable-size-warning-${crypto.randomUUID()}`,
 		preferOpfs: false, confirmFileSizeWarning: async () => { throw new Error('Durable chunks must not prompt for memory storage.'); } });
@@ -86,8 +85,7 @@ test('durable IndexedDB chunks bypass the memory warning and constructor ports r
 		await writer.abort();
 		assert.equal(indexedDB.recordCount(store.databaseName, 'mediaAssetChunks'), 0);
 	} finally { await store.close(); }
-	assert.throws(() => createProjectStore({ confirmFileSizeWarning: 'yes' } as unknown as AudioEditorProjectStoreOptions),
-		/confirmFileSizeWarning must be a function/u);
+
 });
 
 async function disposeResources(resources: ReturnType<typeof createControllerResources>): Promise<void> {

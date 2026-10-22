@@ -10,6 +10,8 @@ import {
 	classifyLintFile,
 	isLintableRepositoryPath,
 	parseLintSelection,
+	partitionLintExecutionBatches,
+	partitionLintFiles,
 	selectChangedLintFiles,
 } from '../scripts/lib/lint-shards.mjs';
 
@@ -49,6 +51,17 @@ test('lint shards preserve semantic ownership before subdividing large trees', (
 	assert.equal(classifyLintFile('eslint.config.mjs'), 'tooling');
 });
 
+test('lint processes bound their file inventory while checking every shard member exactly once', () => {
+	for (const [shard, files] of partitionLintFiles(repositoryFiles())) {
+		const original = [...files];
+		const batches = partitionLintExecutionBatches(files);
+		assert.deepEqual(batches.flat(), original, `${shard} lost or repeated lint files`);
+		assert.deepEqual(files, original, `${shard} mutated the inventory`);
+		assert.ok(batches.every(batch => batch.length > 0 && batch.length <= 256), shard);
+	}
+	assert.deepEqual(partitionLintExecutionBatches([]), []);
+});
+
 test('lint file discovery follows the extensions and ignores in the ESLint config', () => {
 	for (const file of ['src/a.js', 'src/a.jsx', 'src/a.mjs', 'src/a.cjs', 'src/a.ts', 'src/a.tsx', 'src/a.mts', 'src/a.cts']) {
 		assert.equal(isLintableRepositoryPath(file), true, file);
@@ -85,12 +98,8 @@ test('lint selection accepts a shard or changed files, but not both', () => {
 	assert.throws(() => parseLintSelection(['--stripe=1/8']), /Unknown lint selection argument/u);
 });
 
-test('package scripts and agent guidance use the bounded lint entry points', () => {
+test('package scripts use the bounded lint entry points', () => {
 	const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 	assert.equal(packageJson.scripts.lint, 'node scripts/run-lint.mjs');
 	assert.equal(packageJson.scripts['lint:changed'], 'node scripts/run-lint.mjs --changed');
-
-	const guidance = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
-	assert.match(guidance, /lint added and modified lintable files with `npm run lint:changed`/u);
-	assert.match(guidance, /complete repository lint.*CI\/pre-merge gate/u);
 });

@@ -14,6 +14,7 @@ type Awaitable<Value> = PromiseLike<Value> | Value;
 export interface RecordingRoutingTrack {
 	readonly id: string;
 	readonly type?: string;
+	readonly armed?: boolean;
 }
 
 export interface RecordingRoutingProject {
@@ -79,6 +80,8 @@ export interface RecordingRoutingState {
 	audioInputDevices: readonly ControllerAudioDevice[];
 	audioOutputDevices: readonly ControllerAudioDevice[];
 	audioInputAccess: boolean;
+	audioHost: string;
+	preferredRecordingSampleRate: number;
 	preferredInputDeviceId: string;
 	preferredInputChannelCount: number;
 	preferredOutputDeviceId: string;
@@ -109,6 +112,7 @@ export interface RecordingRoutingServiceRuntime<
 	readonly RECORDING_DISPLAY_SOURCE_KEY: string;
 	readonly assignPreferredInputToTrack: (trackId: string) => boolean;
 	readonly engine: Readonly<{
+		getAudioContext?: (options: Readonly<{ resume?: boolean; sampleRate?: number }>) => Awaitable<unknown>;
 		setOutputDevice?: (
 			deviceId: string,
 		) => Awaitable<Readonly<{ readonly activeDeviceId?: string }> | null | undefined>;

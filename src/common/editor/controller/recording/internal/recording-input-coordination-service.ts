@@ -10,6 +10,7 @@ export interface RecordingDeviceInputRoute {
 	readonly kind: 'device';
 	readonly deviceId: string;
 	readonly deviceLabel?: string;
+	readonly followsPreferences?: true;
 	readonly channelStart: number;
 	readonly channelCount: number;
 }
@@ -17,6 +18,7 @@ export interface RecordingDeviceInputRoute {
 export interface RecordingDisplayInputRoute {
 	readonly kind: 'display';
 	readonly label?: string;
+	readonly followsPreferences?: true;
 	readonly channelStart: number;
 	readonly channelCount: number;
 }

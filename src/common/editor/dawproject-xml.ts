@@ -98,7 +98,7 @@ export function serializeXmlDocument(root: XmlElement): string {
 function serializeInto(element: XmlElement, depth: number, lines: string[]): void {
 	const indent = '  '.repeat(depth);
 	const attributes = Object.entries(element.attributes)
-		.map(([key, value]) => ` ${key}="${escapeXml(value)}"`)
+		.map(([key, value]) => ` ${key}="${escapeXml(value).replaceAll('\t', '&#9;').replaceAll('\n', '&#10;')}"`)
 		.join('');
 	if (element.children.length === 0) {
 		lines.push(element.text
@@ -116,11 +116,12 @@ export function escapeXml(value: string): string {
 	return value
 		// XML 1.0 cannot carry these code points at all; the rule guards against typos, this is the point.
 		// eslint-disable-next-line no-control-regex
-		.replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/gu, '')
+		.replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, '')
 		.replaceAll('&', '&amp;')
 		.replaceAll('<', '&lt;')
 		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;');
+		.replaceAll('"', '&quot;')
+		.replaceAll('\r', '&#13;');
 }
 
 interface OpenElement {
@@ -133,7 +134,7 @@ interface OpenElement {
 
 export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJECT_XML_LIMITS): XmlElement {
 	if (typeof text !== 'string') throw new TypeError('An XML document must be a string.');
-	if (text.length > limits.maximumBytes) {
+	if (utf8ByteLength(text) > limits.maximumBytes) {
 		throw new RangeError(`The XML document exceeds the ${String(limits.maximumBytes)}-byte limit.`);
 	}
 	const parser = new SaxesParser({ xmlns: false, position: true });
@@ -164,17 +165,19 @@ export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJE
 		for (const [key, value] of Object.entries(tag.attributes)) attributes[key] = String(value);
 		stack.push({ name: tag.name, attributes, children: [], textBytes: 0, text: [] });
 	});
-	parser.on('text', (value) => {
+	const appendText = (value: string): void => {
 		if (failure) return;
 		const open = stack.at(-1);
 		if (!open) return;
-		open.textBytes += value.length;
+		open.textBytes += utf8ByteLength(value);
 		if (open.textBytes > limits.maximumTextBytes) {
 			fail(new RangeError(`An XML element carries more than ${String(limits.maximumTextBytes)} bytes of text.`));
 			return;
 		}
 		open.text.push(value);
-	});
+	};
+	parser.on('text', appendText);
+	parser.on('cdata', appendText);
 	parser.on('closetag', () => {
 		if (failure) return;
 		const open = stack.pop();
@@ -212,10 +215,10 @@ export function numberAttribute(element: XmlElement, name: string): number | nul
 	const value = attribute(element, name);
 	if (value === null || value.trim() === '') return null;
 	const trimmed = value.trim();
-	if (trimmed === 'inf') return Number.POSITIVE_INFINITY;
-	if (trimmed === '-inf') return Number.NEGATIVE_INFINITY;
+	if (/^inf$/iu.test(trimmed)) return Number.POSITIVE_INFINITY;
+	if (/^-inf$/iu.test(trimmed)) return Number.NEGATIVE_INFINITY;
 	const number = Number(trimmed);
-	if (!Number.isFinite(number)) {
+	if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u.test(trimmed) || !Number.isFinite(number)) {
 		throw new RangeError(`<${element.name} ${name}="${value}"> is not a number.`);
 	}
 	return number;
@@ -247,4 +250,13 @@ const XML_NAME = /^[A-Za-z_][\w.-]*$/u;
 
 function isXmlName(value: string): boolean {
 	return XML_NAME.test(value);
+}
+
+function utf8ByteLength(text: string): number {
+	let bytes = 0;
+	for (const character of text) {
+		const code = character.codePointAt(0)!;
+		bytes += code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4;
+	}
+	return bytes;
 }

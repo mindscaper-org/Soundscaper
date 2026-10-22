@@ -600,3 +600,64 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     `tests/audio-editor-round7-io-mixer-fader-primary-release.test.tsx` and the
     ordinary Window → Mixer Master Volume, primary release and keyboard
     Undo/Redo workflow that retains the imported recording. Upstream-PR candidate.
+
+77. Selected interaction components and behavior are ported from upstream
+    `20ce5547d592e89dee7630952853c3facd3eb4ed` (2026-10-15): direct value entry
+    for numeric controls and timecodes, the visual keyboard map, clip properties,
+    label geometry and color, adaptive clip handles, clip/fade pointer and
+    keyboard interactions, and the optional play-at-speed control. The overall
+    vendor pin remains unchanged because this is a selective port.
+    Host adapters retain native history, source clocks, linked media, selection,
+    source editing, configured shortcuts, localization, and project persistence.
+    The existing source editor is exposed as Source monitor without property
+    drawers; Clip properties is a separate panel. Keyboard visualization opens
+    from Keyboard shortcuts preferences, and Speed is an opt-in toolbar item
+    sharing the existing Play menu state. Direct entry uses the editor overlay
+    host so menus and dialogs retain focus and stacking. Clip duplication uses
+    native project carriers, including linked video/audio, without replacing the
+    clipboard. New fades use upstream S-curves; existing unshaped fades retain
+    their stored linear interpretation. Maintained helpers and public browser
+    workflows cover these host adaptations.
+
+78. `ToolButton.css` scopes icon styles to the button's direct child so the
+    component keeps its flex centering when the shared `.musescore-icon` font
+    stylesheet loads in a later chunk. Covered by both products' light and dark
+    Sakura toolbar workflows in `tests/browser/audio-editor-sakura-buttons.spec.js`.
+    Upstream-PR candidate.
+
+79. `ClipPropertiesPanel.css` paints the unchecked Reverse switch track from
+    the themed secondary text color. The former translucent black track nearly
+    disappeared against its dark inset thumb. Actual stylesheet color checks in
+    `tests/audio-editor-clip-properties-switch-contrast.test.ts` retain at least
+    3:1 thumb-to-track contrast in both states across the maintained theme palettes.
+    Upstream-PR candidate.
+
+80. `ClipPropertiesPanel` accepts host color, pitch and timing field slots so
+    the native color palette, pitch units and sample/musical timecode formats
+    replace the corresponding controls without duplicating the inspector.
+    Its source visual has a separate accessible monitor button beside its trim
+    grips. `Button` forwards native button attributes and `ContextMenu` accepts
+    an accessible label, preserving menu semantics without DOM mutation in
+    consumer code. Covered by the mounted inspector, exact-time and error-routing
+    regressions and ordinary Clip properties browser workflows. Upstream-PR
+    candidates; the selective upstream pin remains unchanged.
+
+81. The clip properties `NumberField` reveals its full authored precision on
+    input focus and returns to the compact display on blur. Focusing and leaving
+    the field never round, clamp or commit its value; explicitly entering the
+    rounded neutral value can therefore reset a tiny non-neutral speed. The
+    panel retains raw speed percentages before display formatting and accepts an
+    optional `speedPercent` for native scalar speed, separate from the source
+    strip's resolved `stretchFactor`. Without that value the upstream stretch
+    conversion remains in use. The percentage field accepts native speeds down
+    to 0.1%, preserving explicit edits below 1% and their authored precision.
+    Covered by the host inspector speed-range regression,
+    `tests/vendored-clip-number-field-precision.test.tsx` and the tiny-speed
+    indicator browser workflow. Upstream-PR candidate.
+
+82. `ClipPropertiesPanel` accepts an optional `resetPitchSpeedDisabled` override
+    so the host can keep Reset available for stored independent pitch or formant
+    settings hidden by linked neutral playback. Hosts that omit it retain the
+    upstream displayed-pitch/speed default; the action callback still controls
+    mutation admission. Covered by the merged and linked reset inspector tests.
+    Upstream-PR candidate.

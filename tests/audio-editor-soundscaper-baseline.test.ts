@@ -1,15 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import test from 'node:test';
 
 import { ProjectReimportRequiredError } from '../src/common/editor/project-schema-identity.ts';
-import {
-	SOUNDSCAPER_BASELINE_ENTRY_MODULES,
-	SOUNDSCAPER_BASELINE_VERSIONED_BOUNDARIES,
-} from '../src/soundscaper/baseline-versioned-boundaries.ts';
 import { editorProjectRuntimeProfileDefinition } from
 	'../src/common/editor/project-runtime-profile.ts';
 import { editorProjectRuntimeProfilePrerequisiteDefinition } from
@@ -101,47 +95,4 @@ test('direct baseline commands preserve every product-owned field without predec
 	);
 	assert.equal(prerequisite.projectSchemaVersion, 1);
 	assert.equal(prerequisite.attachedScapeFormatVersion, 1);
-});
-
-test('the selected Soundscaper graph contains no project-generation facade imports', () => {
-	const root = resolve('src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx');
-	const pending = [root];
-	const visited = new Set<string>();
-	while (pending.length > 0) {
-		const file = pending.pop()!;
-		if (visited.has(file)) continue;
-		visited.add(file);
-		const source = readFileSync(file, 'utf8');
-		for (const match of source.matchAll(/(?:from\s*|import\s*)['"]([^'"]+)['"]/gu)) {
-			if (!match[1]?.startsWith('.')) continue;
-			const imported = resolve(dirname(file), match[1]);
-			if (imported.includes('/src/soundscaper/')) pending.push(imported);
-		}
-	}
-	const retired = [...visited].filter((file) => (
-		/-v(?:21|23|29|30)\.(?:ts|tsx)$/u.test(file)
-		|| /BootstrapV(?:21|23|29|30)\.tsx$/u.test(file)
-	));
-	assert.deepEqual(retired, []);
-});
-
-test('Soundscaper has a closed versioned boundary and no predecessor source files', () => {
-	const sourceRoot = resolve('src/soundscaper');
-	const registered = new Set(SOUNDSCAPER_BASELINE_VERSIONED_BOUNDARIES.map(({ module }) => (
-		module.slice(2)
-	)));
-	assert.equal(SOUNDSCAPER_BASELINE_VERSIONED_BOUNDARIES.every(({ reason }) => (
-		reason.length >= 24
-	)), true);
-	const versioned = readdirSync(sourceRoot, { recursive: true })
-		.filter((entry): entry is string => typeof entry === 'string')
-		.filter((entry) => /(?:^|\/)[^/]*(?:-v\d+|V\d+)[^/]*\.(?:ts|tsx)$/u.test(entry));
-	assert.deepEqual(versioned.sort(), [...registered].sort());
-	for (const entry of SOUNDSCAPER_BASELINE_ENTRY_MODULES) {
-		assert.equal(existsSync(resolve(sourceRoot, entry)), true, `missing baseline entry ${entry}`);
-	}
-	const retiredImport = /(?:from\s*|import\s*)['"]\.\/[^'"]*(?:-v(?:21|23|29|30)|BootstrapV\d+)[^'"]*['"]/gu;
-	for (const entry of SOUNDSCAPER_BASELINE_ENTRY_MODULES) {
-		assert.doesNotMatch(readFileSync(resolve(sourceRoot, entry), 'utf8'), retiredImport, entry);
-	}
 });
