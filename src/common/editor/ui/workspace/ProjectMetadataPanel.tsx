@@ -18,6 +18,7 @@ const ProjectAttributionTab = lazyEditorModule(() => import('./ProjectAttributio
 export interface ProjectMetadataPanelProps {
 	readonly controller?: unknown;
 	readonly project: Readonly<Record<string, unknown>> | null | undefined;
+	readonly runtimeProject?: Readonly<Record<string, unknown>> | null;
 	readonly copy: Readonly<Record<string, string>>;
 	readonly locale?: string;
 	readonly disabled: boolean;
@@ -36,6 +37,7 @@ function objectValue(value: unknown): Readonly<Record<string, unknown>> {
 export function ProjectMetadataPanel({
 	controller,
 	project,
+	runtimeProject = null,
 	copy,
 	locale,
 	disabled,
@@ -132,7 +134,7 @@ export function ProjectMetadataPanel({
 				) : (
 					<Suspense fallback={<p role="status" aria-live="polite">{copy.loading}</p>}>
 						<ProjectAttributionTab
-							project={project}
+							project={runtimeProject ?? project}
 							copy={copy}
 							locale={locale}
 							fileService={fileService}

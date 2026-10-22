@@ -213,7 +213,7 @@ function createMutableSourceReport(source: DataRecord): MutableSourceReport {
 	const legacy = sourceExtensionMetadata(source.opaqueExtensions, 'Legacy metadata');
 	return {
 		source,
-		classification: 'legacy',
+		classification: source.kind === 'generator' ? 'generated' : 'legacy',
 		contributions: Object.freeze([]),
 		sourceMetadata: legacy.metadata,
 		warnings: Object.freeze([
