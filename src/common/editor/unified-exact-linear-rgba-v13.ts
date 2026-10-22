@@ -213,8 +213,8 @@ function place(
 		const sourceY = (-b * dx + a * dy) / determinant;
 		if (sourceX < crop.x || sourceY < crop.y
 			|| sourceX >= crop.x + crop.width || sourceY >= crop.y + crop.height) continue;
-		// Share the clamped bilinear addresses across all channels. The oracle's
-		// arithmetic order is preserved without allocating a frozen RGBA tuple.
+		// Share clamped bilinear addresses across the alpha-weighted channels
+		// without allocating a frozen RGBA tuple for each output pixel.
 		const sx = Math.max(0, Math.min(source.width - 1, sourceX * source.width / displayWidth - 0.5));
 		const sy = Math.max(0, Math.min(source.height - 1, sourceY * source.height / displayHeight - 0.5));
 		const x0 = Math.floor(sx);
@@ -228,13 +228,14 @@ function place(
 		const bottomLeft = (y1 * source.width + x0) * 4;
 		const bottomRight = (y1 * source.width + x1) * 4;
 		const pixel = y * target.width + x;
+		const presentationOpacity = opacity * (mask === undefined ? 1 : mask[pixel]! / 255);
 		const alpha = sampleChannel(source.pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, 3)
-			/ 255 * opacity * (mask === undefined ? 1 : mask[pixel]! / 255);
+			/ 255 * presentationOpacity;
 		const offset = pixel * 4;
 		for (let channel = 0; channel < 3; channel += 1) {
 			target.pixels[offset + channel] = sampleChannel(
-				source.pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, channel,
-			) / 255 * alpha;
+				source.pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, channel, true,
+			) / 255 * presentationOpacity;
 		}
 		target.pixels[offset + 3] = alpha;
 	}
@@ -249,11 +250,16 @@ function sampleChannel(
 	mixX: number,
 	mixY: number,
 	channel: number,
+	premultiply = false,
 ): number {
-	const top = pixels[topLeft + channel]!
-		+ (pixels[topRight + channel]! - pixels[topLeft + channel]!) * mixX;
-	const bottom = pixels[bottomLeft + channel]!
-		+ (pixels[bottomRight + channel]! - pixels[bottomLeft + channel]!) * mixX;
+	let a = pixels[topLeft + channel]!, b = pixels[topRight + channel]!;
+	let c = pixels[bottomLeft + channel]!, d = pixels[bottomRight + channel]!;
+	if (premultiply) {
+		a *= pixels[topLeft + 3]! / 255; b *= pixels[topRight + 3]! / 255;
+		c *= pixels[bottomLeft + 3]! / 255; d *= pixels[bottomRight + 3]! / 255;
+	}
+	const top = a + (b - a) * mixX;
+	const bottom = c + (d - c) * mixX;
 	return top + (bottom - top) * mixY;
 }
 

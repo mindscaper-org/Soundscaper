@@ -56,7 +56,7 @@ test('placement applies masks to alpha without changing straight color', () => {
 	assert.deepEqual([...placed.pixels], [1, 1, 1, 1, 0, 0, 0, 0]);
 });
 
-test('exact placement agrees byte-for-byte with the canonical bilinear oracle across affine crops and alpha masks', () => {
+test('exact placement agrees with premultiplied bilinear sampling across affine crops and alpha masks', () => {
 	const frame = { width: 7, height: 5, pixels: Uint8Array.from(
 		{ length: 7 * 5 * 4 }, (_unused, index) => (index * 37 + 11) % 256,
 	) };
@@ -94,7 +94,9 @@ test('exact placement agrees byte-for-byte with the canonical bilinear oracle ac
 			for (let channel = 0; channel < 3; channel += 1) expected[pixel * 4 + channel] = rgba[channel]! * alpha;
 			expected[pixel * 4 + 3] = alpha;
 		}
-		assert.deepEqual(actual.pixels, expected);
+		assert.ok(actual.pixels.every((value, index) => Math.abs(value - expected[index]!) <= 1e-12));
+		assert.deepEqual(encodeUnifiedExactLinearFrameV13(actual, 'srgb'),
+			encodeUnifiedExactLinearFrameV13({ width: 9, height: 6, pixels: expected }, 'srgb'));
 	}
 });
 

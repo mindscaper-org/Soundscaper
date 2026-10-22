@@ -4,7 +4,7 @@ import type {
 	UnifiedExactRenderRgbaFrameV13,
 } from './unified-exact-render-finishing-consumers-v13.ts';
 
-/** Sample one byte channel with the clamped bilinear kernel used by V13 visual rendering. */
+/** Filter in premultiplied RGBA, returning straight RGB to the motion frame owner. */
 export function sampleUnifiedExactRgbaChannelV13(
 	frame: UnifiedExactRenderRgbaFrameV13,
 	xValue: number,
@@ -19,10 +19,14 @@ export function sampleUnifiedExactRgbaChannelV13(
 	const y1 = Math.min(frame.height - 1, y0 + 1);
 	const mixX = x - x0;
 	const mixY = y - y0;
-	const pixel = (px: number, py: number): number => (
-		frame.pixels[(py * frame.width + px) * 4 + channel]!
-	);
+	const pixel = (px: number, py: number): number => {
+		const offset = (py * frame.width + px) * 4;
+		return frame.pixels[offset + channel]! * (channel === 3 ? 1 : frame.pixels[offset + 3]! / 255);
+	};
 	const top = pixel(x0, y0) + (pixel(x1, y0) - pixel(x0, y0)) * mixX;
 	const bottom = pixel(x0, y1) + (pixel(x1, y1) - pixel(x0, y1)) * mixX;
-	return top + (bottom - top) * mixY;
+	const value = top + (bottom - top) * mixY;
+	if (channel === 3) return value;
+	const alpha = sampleUnifiedExactRgbaChannelV13(frame, x, y, 3) / 255;
+	return alpha === 0 ? 0 : value / alpha;
 }
