@@ -371,6 +371,7 @@ export default function FramescaperFinishingDialog({
 			/>}
 			{surface === 'motion-tracking' && <MotionAnalysisControls
 				blocked={blocked}
+				sampleRate={projectSampleRate(project)}
 				targets={motionTargets}
 				target={motionTarget}
 				stackId={motionStackId}

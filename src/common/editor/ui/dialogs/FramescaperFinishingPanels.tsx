@@ -119,6 +119,7 @@ export function CaptionSidecarEditor(props: Readonly<{
 
 export function MotionAnalysisControls(props: Readonly<{
 	readonly blocked: boolean;
+	readonly sampleRate?: number;
 	readonly targets: readonly FramescaperMotionAnalysisTarget[];
 	readonly target: FramescaperMotionAnalysisTarget | null;
 	readonly stackId: string;
@@ -147,13 +148,13 @@ export function MotionAnalysisControls(props: Readonly<{
 				}</option>)}</select></label>
 			<label><span>{text(props.copy, 'motionAnalysisStartFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisStartFrame)}</span>
 				<MotionSourceFrameTimeCodeField label={text(props.copy, 'motionAnalysisStartFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisStartFrame)}
-					value={props.startFrame} source={props.source}
+					value={props.startFrame} source={props.source} sampleRate={props.sampleRate ?? 48_000}
 					minimum={props.target?.startFrame ?? 0} maximum={Math.max(
 						props.target?.startFrame ?? 0, props.endFrame - 1,
 					)} disabled={props.blocked} onChange={props.onStartFrame} /></label>
 			<label><span>{text(props.copy, 'motionAnalysisEndFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisEndFrame)}</span>
 				<MotionSourceFrameTimeCodeField label={text(props.copy, 'motionAnalysisEndFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisEndFrame)}
-					value={props.endFrame} source={props.source}
+					value={props.endFrame} source={props.source} sampleRate={props.sampleRate ?? 48_000}
 					minimum={props.startFrame + 1} maximum={props.target?.endFrame ?? 1}
 					disabled={props.blocked} onChange={props.onEndFrame} /></label>
 			<p role="status">{freshnessLabel(props.copy, props.target?.freshness ?? 'missing')}</p>
