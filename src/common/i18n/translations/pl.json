@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "pl",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:917d380105d241b7e30c8f52d94e7310ca5a906195102c7e93ba1a0367ff8b6c","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:4b1c69b593a7d11995aca59fcb1dcb3cc833e4d6239692afa3971c167fed8b83","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -646,6 +646,7 @@
 		"decreaseAllTrackHeights": ["machine","Decrease all track heights","Zmniejsz wysokość wszystkich ścieżek"],
 		"decreaseTrackHeight": ["machine","Decrease track height","Zmniejsz wysokość ścieżki"],
 		"defaultOption": ["machine","Default","Domyślny"],
+		"defaultTrackFolderName": ["machine","Folder {number}","Folder {number}"],
 		"defaultTrackView": ["machine","Default view","Widok domyślny"],
 		"defaultTrackViewNote": ["machine","How tracks are drawn until one is given a display of its own.","Sposób wyświetlania ścieżek, dopóki nie zostanie wybrany własny wygląd."],
 		"delay": ["audacity","Delay","Opóźnienie"],

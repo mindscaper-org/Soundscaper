@@ -107,6 +107,7 @@ export type DocumentCompositionState =
 export type DocumentCompositionCopy = Readonly<{
 	readonly projectReadOnly: string;
 	readonly projectCopySuffix: string;
+	readonly defaultTrackFolderName?: string;
 }>;
 
 export type DocumentCompositionStore = Readonly<{

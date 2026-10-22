@@ -39,6 +39,7 @@ export interface TrackFolderServiceDependencies {
 	readonly getProjectSessionKey?: () => unknown;
 	readonly editingBlocked: () => boolean;
 	readonly createId: (prefix: string) => string;
+	readonly defaultFolderName?: (number: number) => string;
 	readonly commit: (command: AudioEditorCommand) => unknown;
 	readonly publishProjectState: () => void;
 }
@@ -82,7 +83,7 @@ export function createTrackFolderService(
 	const folderName = (name: RuntimeValue): string => {
 		if (typeof name === 'string' && name.trim()) return name;
 		const count = project().trackFolders?.length ?? 0;
-		return `Folder ${String(count + 1)}`;
+		return dependencies.defaultFolderName?.(count + 1) ?? `Folder ${String(count + 1)}`;
 	};
 
 	return Object.freeze({

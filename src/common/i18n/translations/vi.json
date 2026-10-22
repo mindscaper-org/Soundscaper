@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "vi",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:3c7476e3e408b12a661f32372d8f4752f5dbda97189777158753b61f3e1d7b71","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:824526f845e304a48bad15bc9bb7aa0363ee9d6d883bb0d751d4f924534fd9e8","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -646,6 +646,7 @@
 		"decreaseAllTrackHeights": ["machine","Decrease all track heights","Giảm chiều cao tất cả track"],
 		"decreaseTrackHeight": ["machine","Decrease track height","Giảm chiều cao track"],
 		"defaultOption": ["machine","Default","Mặc định"],
+		"defaultTrackFolderName": ["machine","Folder {number}","Thư mục {number}"],
 		"defaultTrackView": ["machine","Default view","Chế độ xem mặc định"],
 		"defaultTrackViewNote": ["machine","How tracks are drawn until one is given a display of its own.","Cách các track được hiển thị cho đến khi một track được gán chế độ hiển thị riêng."],
 		"delay": ["audacity","Delay","Delay - Độ trễ"],

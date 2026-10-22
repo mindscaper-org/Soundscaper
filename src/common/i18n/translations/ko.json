@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ko",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:8b3e471d078ea6aa0dc68d42ae747bc7e373f274cf2d876d26b00fa1a01adb00","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:5001f0d6fb1d3fa49753f9754f66b1408c2be8ee9caa455df6520d4c6ae81505","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -646,6 +646,7 @@
 		"decreaseAllTrackHeights": ["machine","Decrease all track heights","모든 트랙 높이 축소"],
 		"decreaseTrackHeight": ["machine","Decrease track height","트랙 높이 축소"],
 		"defaultOption": ["machine","Default","기본값"],
+		"defaultTrackFolderName": ["machine","Folder {number}","폴더 {number}"],
 		"defaultTrackView": ["machine","Default view","기본 보기"],
 		"defaultTrackViewNote": ["machine","How tracks are drawn until one is given a display of its own.","트랙이 자체 표시가 지정될 때까지 표시되는 방식"],
 		"delay": ["audacity","Delay","지연"],

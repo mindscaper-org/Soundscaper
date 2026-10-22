@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ru",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:4379ad10ec9adbfe68f55a19d20e8ad6c507bd0e141e6f4bd258bc817e95ddba","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:586d198bb69d24a39ce2b9ed6d9ea15cef64bdb1151a78baa7417a8b5bc8e79b","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -646,6 +646,7 @@
 		"decreaseAllTrackHeights": ["machine","Decrease all track heights","Уменьшить высоту всех треков"],
 		"decreaseTrackHeight": ["machine","Decrease track height","Уменьшить высоту трека"],
 		"defaultOption": ["machine","Default","По умолчанию"],
+		"defaultTrackFolderName": ["machine","Folder {number}","Папка {number}"],
 		"defaultTrackView": ["machine","Default view","Стандартный вид"],
 		"defaultTrackViewNote": ["machine","How tracks are drawn until one is given a display of its own.","Как отображаются треки, пока у них нет собственного отображения."],
 		"delay": ["audacity","Delay","Задержка"],
