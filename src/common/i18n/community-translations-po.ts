@@ -18,7 +18,7 @@ export function emitTranslationPo(snapshot: ContributionSnapshot, template = fal
 	];
 	for (const entry of Object.values(snapshot.entries)) {
 		const change = changes.find(({ key }) => key === entry.key);
-		if (!template && change?.note) lines.push(...change.note.split(/\r?\n/u).map(line => `# ${line}`));
+		if (!template && change?.note) lines.push(...change.note.split(/\r\n?|\n/u).map(line => `# ${line}`));
 		if (!template && change?.contributor) lines.push(`#. Soundscaper-Contributor: ${JSON.stringify(change.contributor)}`);
 		if (entry.baselineEntry?.[0] === 'audacity' || snapshot.community?.[entry.key]?.upstreamProvenance) {
 			lines.push('#. Existing translation derives from Audacity (GPL-3.0-only); see manifest.json upstreamNotices and community attribution.');
