@@ -91,7 +91,7 @@ export interface ClipPropertyServiceDependencies {
 	readonly copy: ClipPropertyCopy;
 	readonly sourceBuffers: Pick<Map<string, AudioBufferLike>, 'get'>;
 	loadSourceBuffer?(sourceId: string, signal: AbortSignal): Promise<AudioBufferLike | null>;
-	renderNormalizationAudio?(project: ClipTransformProject, clip: ClipTransformClip, buffer: AudioBufferLike, signal: AbortSignal): Promise<AudioBufferLike>;
+	renderNormalizationAudio?(project: ClipTransformProject, clip: ClipTransformClip, buffer: AudioBufferLike | null, signal: AbortSignal): Promise<AudioBufferLike>;
 	getProject(): ClipTransformProject;
 	getSelectedClipId(): string | null;
 	editingBlocked(): boolean;
@@ -150,14 +150,14 @@ export function createClipPropertyService(
 		const fingerprint = fingerprintClip(project, clip);
 		try {
 			const buffer = dependencies.sourceBuffers.get(clip.sourceId)
-				?? await dependencies.loadSourceBuffer?.(clip.sourceId, task.signal);
+				?? (dependencies.renderNormalizationAudio ? null : await dependencies.loadSourceBuffer?.(clip.sourceId, task.signal));
 			assertOwned(task, projectToken, fingerprint);
-			if (!buffer) return undefined;
-			const rendered = await dependencies.renderNormalizationAudio?.(project, clip, buffer, task.signal);
+			const rendered = await dependencies.renderNormalizationAudio?.(project, clip, buffer ?? null, task.signal);
 			assertOwned(task, projectToken, fingerprint);
 			const analysisBuffer = rendered ?? buffer;
+			if (!analysisBuffer) return undefined;
 			const channels = Array.from({ length: analysisBuffer.numberOfChannels }, (_, channel) => (
-				rendered ? rendered.getChannelData(channel) : buffer.getChannelData(channel).subarray(
+				rendered ? rendered.getChannelData(channel) : analysisBuffer.getChannelData(channel).subarray(
 					clip.sourceStartFrame, clip.sourceStartFrame + clip.sourceDurationFrames,
 				)
 			));
