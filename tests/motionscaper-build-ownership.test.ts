@@ -87,3 +87,15 @@ test('shared Framescaper runtime ownership is independently eager while successo
 	assert.equal(chunkGroupForModulePath('src/framescaper/visual-finishing-kernel.ts'), 'framescaper-timeline-images');
 	assert.ok(reached.has(resolve(import.meta.dirname, '../src/common/i18n/site-copy.js')));
 });
+
+
+test('the Motion locale contract shares its static shell owner without absorbing lazy product entries', () => {
+	const contract = 'src/motionscaper/desktop-locale-contract.ts';
+	for (const path of [contract, contract.replaceAll('/', '\\')]) {
+		assert.equal(chunkGroupForModulePath(path), 'editor-shell', 'the shell must not import a shared contract out of its own lazy Bootstrap');
+	}
+	assert.equal(chunkGroupForModulePath('src/common/editor/ui/motionscaper/motionscaper-locale.ts'), 'editor-shell');
+	for (const path of ['src/motionscaper/MotionscaperBootstrap.tsx', 'src/common/editor/ui/motionscaper/MotionLanguageDialog.tsx']) {
+		assert.equal(chunkGroupForModulePath(path), null, `${path} keeps its independent lazy placement`);
+	}
+});
