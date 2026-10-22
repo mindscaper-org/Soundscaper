@@ -170,10 +170,14 @@ export function createProjectAdminService<
 			const result = sessionController.closeProject(projectId, { force: true });
 			if (!result.closed) return result;
 			projectSaveService.forgetPersistedSnapshot?.(projectId);
-			if (active) state.projects = Object.freeze(await store.listProjects());
 			clipTimePitchCache.retainClipIds?.(liveSessionClipIds());
 			evictUnreferencedSourceCaches(sourceBuffers, sourcePeaks, liveSessionSourceIds());
 			publishDocumentSnapshot();
+			if (active) {
+				try { state.projects = Object.freeze(await store.listProjects()); }
+				catch (error) { handleError(error); }
+				publishDocumentSnapshot();
+			}
 			await garbageCollectSources();
 			return result;
 		} finally {
