@@ -114,6 +114,7 @@ Product availability follows each product profile’s command filters and each l
 | Contribute translations | `community-translations` | — | Help | Soundscaper, Framescaper | Soundscaper local |
 | Copy | `action://copy` | Ctrl+C | Edit | Soundscaper, Framescaper | Audacity |
 | Copy labeled audio | `copy-labels` | Alt+Shift+C | Edit > Labeled audio | Soundscaper | Audacity |
+| CorridorKey 2.0 | `corridorkey-2.0` | — | Effect > Video effects | Framescaper | Soundscaper local |
 | Create from video sources | `multicamera-create` | — | Tracks > Multicamera | Framescaper | Soundscaper local |
 | Create shared sequence | `nested-sequence-create` | — | Tracks > Nested sequences | Framescaper | Soundscaper local |
 | Creating a loop also selects audio | `toggle-selection-follows-loop-region` | — | Select > Looping | Soundscaper, Framescaper | Audacity |
