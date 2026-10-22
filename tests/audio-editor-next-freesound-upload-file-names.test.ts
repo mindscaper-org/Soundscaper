@@ -26,7 +26,7 @@ for (const [name, expectedName] of [
 		accessExpiresAt: now + 3_600_000, refreshGeneration: 0, refreshLeaseOwner: null, refreshLeaseExpiresAt: null });
 	const tokenHash = await hashCapability(token);
 	repository.sessions.set(tokenHash, { tokenHash, grantId, clientKind: 'desktop', createdAt: now, expiresAt: now + 86_400_000 });
-	const original = new File([encodeWav([Float32Array.of(.25, -.5)], { sampleRate: 48_000, bitDepth: 16 })], name, { type: 'audio/wav', lastModified: 123 });
+	const original = new File([Uint8Array.from(encodeWav([Float32Array.of(.25, -.5)], { sampleRate: 48_000, bitDepth: 16 })).buffer], name, { type: 'audio/wav', lastModified: 123 });
 	const transferred: Array<{ name: string; bytes: Uint8Array }> = [];
 	const client = createFreesoundApiClient({ openAuthorization: () => undefined,
 		request: async (path, init) => {
@@ -50,7 +50,7 @@ for (const [name, expectedName] of [
 	await new Promise<void>(resolve => {
 		const unsubscribe = queue.subscribe(() => { if (!queue.getSnapshot().active) { unsubscribe(); resolve(); } });
 	});
-	assert.equal(queue.getSnapshot().items[0]?.status, 'ready-to-publish', queue.getSnapshot().items[0]?.errorMessage);
+	assert.equal(queue.getSnapshot().items[0]?.status, 'ready-to-publish', queue.getSnapshot().items[0]?.errorMessage ?? 'Upload should complete.');
 	assert.equal(transferred.length, 1);
 	assert.equal(transferred[0]?.name, expectedName);
 	assert.equal(queue.getSnapshot().items[0]?.fileName, name, 'queue retains the original disk name');
