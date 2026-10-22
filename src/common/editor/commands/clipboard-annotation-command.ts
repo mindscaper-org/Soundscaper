@@ -51,8 +51,8 @@ export function preparePasteAnnotationMaps(
 		for (const track of clipboard.tracks) {
 			const sourceSequenceId = requiredId(track.sourceSequenceId, 'clipboard track sourceSequenceId');
 			const targetTrackId = options.trackMap?.[track.sourceTrackId] || track.sourceTrackId;
-			const targetSequenceId = sequenceIdForTrack(options.project, targetTrackId);
 			const mapped = sequenceMap[sourceSequenceId];
+			const targetSequenceId = sequenceIdForTrack(options.project, targetTrackId, mapped);
 			if (mapped && mapped !== targetSequenceId) {
 				throw new RangeError(`Clipboard sequence ${sourceSequenceId} cannot map to multiple target sequences.`);
 			}
@@ -135,10 +135,10 @@ export function createAnnotationPasteGeometry(
 	return Object.freeze({ placementFrameBySequenceId, insertionSpanBySequenceId });
 }
 
-function sequenceIdForTrack(project: DataRecord, trackId: string): string {
+function sequenceIdForTrack(project: DataRecord, trackId: string, plannedSequenceId?: string | null): string {
 	const tracks = Array.isArray(project.tracks) ? project.tracks : [];
 	if (!tracks.some((track) => track && typeof track === 'object' && (track as DataRecord).id === trackId)) {
-		return requiredId(project.primarySequenceId, `target sequence for new track ${trackId}`);
+		return requiredId(plannedSequenceId ?? project.primarySequenceId, `target sequence for new track ${trackId}`);
 	}
 	const sequence = sequenceForTrack(project, trackId) as Readonly<{ id?: unknown }>;
 	return requiredId(sequence.id, `target sequence for track ${trackId}`);

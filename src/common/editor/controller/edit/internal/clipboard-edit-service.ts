@@ -18,7 +18,7 @@ import type { EditorControllerLifetime } from '../../shared/lifecycle.ts';
 import type { ControllerEditSessionClipboardCarrier } from '../../document/project-runtime.ts';
 import { mergeEditingRanges, resolveEditingSelectionAuthority } from '../../../commands/editing-selection-authority.ts';
 import { missingClipboardSourcesForPaste } from './clipboard-source-identity.ts';
-import { clipboardPasteTrackType, planClipboardPasteTargets } from '../../../clipboard-paste-targets.ts';
+import { clipboardPasteTrackType, createClipboardPasteSequencePlan, planClipboardPasteTargets } from '../../../clipboard-paste-targets.ts';
 import { createAudioEditorSessionClipboard } from '../../../session-clipboard-codec.ts';
 import type { RuntimeClipProject } from '../../../runtime-clip-projection.ts';
 export interface ClipboardEditClip extends Readonly<Record<string, unknown>> {
@@ -70,6 +70,7 @@ export interface ClipboardEditProject extends RuntimeClipProject {
 	readonly primarySequenceId?: string;
 	readonly sequences?: readonly Readonly<{
 		readonly id: string;
+		readonly trackIds?: readonly string[];
 		readonly trackNodes: readonly Readonly<{
 			readonly kind: 'folder' | 'track';
 			readonly id: string;
@@ -264,6 +265,7 @@ export function createClipboardEditService(
 				: createAddSourceCommand(source));
 		let addedTrackCount = 0;
 		const selected = findMediaTrack(project, dependencies.state.selectedTrackId);
+		const sequencePlan = createClipboardPasteSequencePlan(project, selected?.id ?? null, clipboard.tracks);
 		/**
 		 * A synthesized paste track joins the folder of the track the paste is
 		 * anchored to: the selected track's parent, else the surviving source
@@ -272,15 +274,17 @@ export function createClipboardEditService(
 		const resolveFolderPlacement = (
 			clipboardTrack: AudioEditorClipboard['tracks'][number],
 		): Readonly<{ sequenceId: string; parentFolderId: string | null }> | null => {
-			if (!project.trackFolders?.length || !project.sequences?.length) return null;
+			if (!project.sequences?.length) return null;
+			const targetSequenceId = sequencePlan.targetSequenceBySourceTrackId.get(clipboardTrack.sourceTrackId);
 			for (const anchorId of [selected?.id, clipboardTrack.sourceTrackId]) {
 				if (!anchorId) continue;
 				for (const sequence of project.sequences) {
+					if (targetSequenceId && sequence.id !== targetSequenceId) continue;
 					const node = sequence.trackNodes.find((candidate) => candidate.id === anchorId);
 					if (node) return { sequenceId: sequence.id, parentFolderId: node.parentFolderId };
 				}
 			}
-			const fallback = project.sequences.find(({ id }) => id === project.primarySequenceId)
+			const fallback = project.sequences.find(({ id }) => id === (targetSequenceId ?? project.primarySequenceId))
 				?? project.sequences[0];
 			return { sequenceId: fallback.id, parentFolderId: null };
 		};
@@ -303,18 +307,25 @@ export function createClipboardEditService(
 						|| `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + addedTrackCount}`,
 					laneGroupId,
 				}),
-				...(placement === null ? {} : placement),
+				...(placement === null ? {} : {
+					...(placement.sequenceId === project.primarySequenceId ? {} : { sequenceId: placement.sequenceId }),
+					...(project.trackFolders?.length ? { parentFolderId: placement.parentFolderId } : {}),
+				}),
 			});
 			return { id: trackId, type, name: clipboardTrack.sourceTrackName, laneGroupId, clipIds: [] };
 		};
 
-		for (const group of planClipboardPasteTargets(project.tracks, selected?.id ?? null, clipboard.tracks ?? [])) {
+		for (const group of planClipboardPasteTargets(project.tracks, selected?.id ?? null, clipboard.tracks ?? [], sequencePlan)) {
 			const laneGroupId = group.length === 2 && !group[0]?.target ? dependencies.createId('media-lanes') : null;
 			for (const { clipboardTrack, target } of group) {
 				trackMap[clipboardTrack.sourceTrackId] = (target ?? createTargetTrack(clipboardTrack, laneGroupId)).id;
 			}
 		}
-		commands.push(preparePaste(clipboard, project, atFrame, trackMap, mode, pasteAsNewClip));
+		const sequenceMap = Object.fromEntries(clipboard.tracks.flatMap(track => {
+			const sequence = sequencePlan.targetSequenceBySourceTrackId.get(track.sourceTrackId);
+			return typeof track.sourceSequenceId === 'string' && sequence ? [[track.sourceSequenceId, sequence]] : [];
+		}));
+		commands.push(preparePaste(clipboard, project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap));
 		const command: AudioEditorCommand = commands.length === 1 ? commands[0]! : { type: 'batch', commands };
 		if (!preparedCarrier || !dependencies.prepareEditClipboardPasteCommand) return command;
 		return dependencies.prepareEditClipboardPasteCommand(
@@ -465,11 +476,11 @@ export function createClipboardEditService(
 		project: ClipboardEditProject,
 		atFrame: number,
 		trackMap: Readonly<Record<string, string>>,
-		mode: ClipboardPasteMode, pasteAsNewClip: boolean,
+		mode: ClipboardPasteMode, pasteAsNewClip: boolean, sequenceMap: Readonly<Record<string, string>>,
 	): Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }> {
 		return prepareLegacyPasteCommand(
 			clipboard,
-			{ project, atFrame, trackMap, mode, pasteAsNewClip },
+			{ project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap },
 			dependencies.createId,
 		) as Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }>;
 	}
