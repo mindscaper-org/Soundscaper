@@ -11,6 +11,11 @@ const RELEASES_WEB = 'https://github.com/LeoWattenberg/Soundscaper/releases';
 const MAX_PAGES = 5;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 8_000;
+const VERSION_CORE = String.raw`(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)`;
+const PRERELEASE_IDENTIFIER = String.raw`(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)`;
+const CANDIDATE_VERSION = String.raw`${VERSION_CORE}-(?:beta|rc)\.${PRERELEASE_IDENTIFIER}(?:\.${PRERELEASE_IDENTIFIER})*`;
+const SOUNDSCAPER_RELEASE_TAG = new RegExp(String.raw`^(?:v${VERSION_CORE}|soundscaper-v${CANDIDATE_VERSION})$`, 'u');
+const FRAMESCAPER_RELEASE_TAG = new RegExp(String.raw`^framescaper-v(?:${VERSION_CORE}|${CANDIDATE_VERSION})$`, 'u');
 
 interface GitHubRelease {
 	readonly tag_name?: unknown;
@@ -140,8 +145,8 @@ async function readBoundedJson(response: Response): Promise<unknown> {
 
 function productReleaseTag(productId: DesktopDownloadProductId, tag: string): boolean {
 	return productId === 'soundscaper'
-		? /^(?:v\d+\.\d+\.\d+|soundscaper-v\d+\.\d+\.\d+-(?:beta|rc)\.\d+)$/u.test(tag)
-		: /^framescaper-v\d+\.\d+\.\d+(?:-(?:beta|rc)\.\d+)?$/u.test(tag);
+		? SOUNDSCAPER_RELEASE_TAG.test(tag)
+		: FRAMESCAPER_RELEASE_TAG.test(tag);
 }
 
 function hasDesktopInstaller(assets: unknown, productId: DesktopDownloadProductId): boolean {
