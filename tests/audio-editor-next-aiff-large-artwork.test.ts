@@ -30,6 +30,7 @@ test('File Import retains AIFF text beside multiple artwork images admitted by t
 	const second = { ...await createId3Artwork(new File([png], 'Back.png')), pictureType: 4 };
 	const aiff = encodeAiff([new Float32Array(4800).fill(.25)], { sampleRate: 48_000, sampleFormat: 'float32',
 		metadata: { title: 'Artwork recording', artist: 'Recordist', id3Artwork: JSON.stringify([first, second]) } });
+	assert.ok(aiff instanceof Uint8Array);
 	assert.ok(aiff.byteLength > 4 * 1024 ** 2);
 	const { store } = await createTwoTrackFixture('next-aiff-cover-budget', new Map<string, Float32Array>(), 48_000);
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
@@ -37,7 +38,7 @@ test('File Import retains AIFF text beside multiple artwork images admitted by t
 		engine: createMemoryEngine() as unknown as Options['engine'] });
 	try {
 		await controller.ready;
-		await controller.actions.project.importFiles([new File([aiff], 'Art.aiff', { type: 'audio/aiff' })], { destination: 'timeline' });
+		await controller.actions.project.importFiles([new File([Uint8Array.from(aiff)], 'Art.aiff', { type: 'audio/aiff' })], { destination: 'timeline' });
 		const project = controller.getSnapshot().project; assert.ok(project && Array.isArray(project.sources));
 		const sources: readonly unknown[] = project.sources; assert.equal(sources.length, 1);
 		const source = sources[0]; assert.ok(source && typeof source === 'object' && 'id' in source && typeof source.id === 'string' && 'provenance' in source);
