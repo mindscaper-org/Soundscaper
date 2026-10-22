@@ -163,6 +163,7 @@ export function describeClipTimePitchRender(clip, source, options = {}) {
 			sampleRate,
 			sampleFormat: String(source.sampleFormat || 'float32'),
 			revision: sourceRevision(source),
+			...(options.sourceContentSha256 ? { contentSha256: options.sourceContentSha256 } : {}),
 		}),
 	});
 }
