@@ -4,10 +4,11 @@ Status: **M01–M12 In progress**, updated 2026-10-22. **No milestone is accepte
 Engineering completion is estimated at **about 90%**; release acceptance remains
 open.
 
-The latest complete Node and browser-build checkpoint is `bc586f975`, a two-file,
-six-line fixture correction after application checkpoint `0282106d9`. The
-production application, native inputs, package inputs and dependencies are
-unchanged. Completed results retain their actual source revisions below.
+The latest completed full Node checkpoint remains `bc586f975`, a two-file,
+six-line fixture correction after application checkpoint `0282106d9`.
+Subsequent focused application corrections are recorded below; the complete
+gates must run again on the final source. Completed results retain their actual
+source revisions and tested patch bytes.
 
 The fresh complete Node gate passes on `bc586f975`: the desktop-runtime fixture
 and all five unfiltered maintained shards close successfully, with **28,168
@@ -90,7 +91,25 @@ disposal and failure attachment. The first Node-based diagnostic runner remains
 failed: its serialized callback contained undefined compiler name helpers.
 The successor uses the unchanged helper through Playwright's normal transform;
 this establishes diagnostic plumbing, not an application failure cause.
-The other four saved browser cases and the final complete gates remain pending.
+On `0ee60f956`, mono-paste confirmation, recovered recording audio and pencil
+editing pass their original Chromium assertions with zero retries. The remaining
+WebKit damaged-autosave case still fails its original 30-second opened-status
+assertion. Its worker diagnostic records one import-planning request receiving
+both `PROJECT_NOT_OPEN` and a result; the emitted lazy dependency graph imports
+the executable worker entry. Both focused commands pass source/site/audio
+postconditions and process closure; all 53 recorded process births are absent.
+The failed WebKit result remains failed.
+
+`d9b4a8676` isolates that worker's already-initial library graph from its
+registration code, preserving existing vendor owners, lazy recovery/import
+modules and chunk ceilings. A real Vite emission regression reproduces the
+original registration backedge; the correction passes all 37 focused chunk
+checks. The emitted registration entry has one source module and no shared
+exports, and all five recovery/import consumers remain lazy. Scoped strict
+types, changed-file lint and size checks pass. Earlier failed candidate layouts
+and the corrected regression's failing baseline remain preserved. The fresh
+three-product build, four-case WebKit recovery verification and final complete
+gates remain pending.
 
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
