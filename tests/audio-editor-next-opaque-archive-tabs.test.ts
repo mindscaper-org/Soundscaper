@@ -28,10 +28,10 @@ for (const secondFuture of [false, true]) test(`NP029: a retained future archive
 		return future ? rewriteScapeProjectDocument(result.blob, (document: { schemaVersion: number; futureOpaqueValue?: string }) => { document.schemaVersion = 2; document.futureOpaqueValue = 'Keep exact bytes'; }) : result.blob;
 	};
 	const first = await archive('first-opaque', true), second = await archive('second-project', secondFuture);
-	await controller.actions.project.openScapeFile(new File([first], 'future.sscape'), () => 'read-only');
+	await controller.actions.project.openScapeFile(new File([first], 'future.sscape'), () => 'open-read-only');
 	assert.equal(controller.project?.id, 'first-opaque'); assert.equal(controller.getSnapshot().readOnly, true);
 	await controller.actions.project.create({ title: 'Ordinary' });
-	await controller.actions.project.openScapeFile(new File([second], 'second.sscape'), () => secondFuture ? 'read-only' : 'copy');
+	await controller.actions.project.openScapeFile(new File([second], 'second.sscape'), () => secondFuture ? 'open-read-only' : 'copy');
 	await controller.actions.project.openById('first-opaque');
 	await controller.actions.project.saveScape({ saveCopy: true, useFileSystemAccess: false });
 	assert.ok(saved[0]); assert.deepEqual(new Uint8Array(await saved[0].arrayBuffer()), new Uint8Array(await first.arrayBuffer()));
