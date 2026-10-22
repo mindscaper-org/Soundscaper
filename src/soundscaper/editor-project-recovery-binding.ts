@@ -6,11 +6,19 @@ import type { SoundscaperProjectRecoveryInspection, SoundscaperProjectRecoveryRe
 import { hasSoundscaperProjectRecoveryEvidence, isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 import { readSoundscaperRecoveryAvailableMediaSources } from './editor-project-recovery-media.ts';
 import { validateSoundscaperProject } from './editor-project-validation.ts';
+import { EditorProjectChangedError, type EditorProjectToken } from '../common/editor/controller/shared/lifecycle.ts';
+
+interface RecoveryWorkspace {
+	readonly project: { readonly id: string } | null;
+	captureProjectGeneration(projectId?: string): EditorProjectToken;
+	assertProjectGeneration(token: EditorProjectToken): void;
+}
 
 /** Open the published copy through the ordinary activation fences; retries reuse a completed publication. */
 export function bindSoundscaperProjectRecovery(
 	store: SoundscaperProjectRecoveryStore & { readonly analysisRepository?: RecordingRecoveryJournalCopyPort },
 	open: (project: SoundscaperProjectRecoveryResult['project']) => PromiseLike<unknown> | unknown,
+	workspace?: RecoveryWorkspace,
 ) {
 	const service = createSoundscaperProjectRecoveryActions(store);
 	const published = new WeakMap<SoundscaperProjectRecoveryInspection, Map<number, SoundscaperProjectRecoveryResult>>();
@@ -22,12 +30,19 @@ export function bindSoundscaperProjectRecovery(
 			const pending = inFlight.get(inspection);
 			if (pending) return pending.index === index ? pending.operation
 				: Promise.reject(new Error('A different recovery candidate is already being restored.'));
+			const token = workspace?.project ? workspace.captureProjectGeneration(workspace.project.id) : null;
+			const assertCurrent = (): void => {
+				if (token) workspace?.assertProjectGeneration(token);
+				else if (workspace?.project) throw new EditorProjectChangedError();
+			};
 			const operation = Promise.resolve().then(async () => {
 				let candidates = published.get(inspection);
 				if (!candidates) { candidates = new Map(); published.set(inspection, candidates); }
 				let result = candidates.get(index);
 				if (!result) { result = await service.recover(inspection, index); candidates.set(index, result); }
+				assertCurrent();
 				if (store.analysisRepository) await copyOrdinaryRecordingRecoveryToProject(store.analysisRepository, inspection.projectId, result.project);
+				assertCurrent();
 				await open(result.project);
 				return result;
 			}).finally(() => { inFlight.delete(inspection); });
