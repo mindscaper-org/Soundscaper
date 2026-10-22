@@ -45,6 +45,7 @@ for (const destination of ['fresh', 'occupied-media', 'copy'] as const) test(`na
 	await sender.saveProject(project);
 	const runtime = createFramescaperScapeNativeRuntime(PROFILE);
 	const archive = await runtime.exportScapeProject(project, sender);
+	assert.ok(archive.blob);
 	const receiver = destination === 'copy' ? sender : store();
 	if (destination === 'occupied-media') await writeAudio(receiver);
 	const imported = await runtime.importScapeProject(archive.blob, receiver, { collision: 'copy' });
