@@ -17,8 +17,8 @@ export function audioMetadataComments(metadata: Readonly<Record<string, string>>
 	const values = new Map<string, string>();
 	const hasDate = Object.entries(metadata).some(([key, value]) => key.toLowerCase().replace(/[^a-z0-9]/gu, '') === 'date' && value !== '');
 	for (const [key, value] of Object.entries(metadata)) {
-		if (key === 'id3Artwork') continue;
 		const normalized = key.toLowerCase().replace(/[^a-z0-9]/gu, '');
+		if (normalized === 'id3artwork') continue;
 		const name = Object.hasOwn(COMMENT_NAMES, normalized) ? COMMENT_NAMES[normalized]! : key.toUpperCase();
 		if (normalized === 'year' && hasDate) continue;
 		if (name === 'TRACKNUMBER' || name === 'DISCNUMBER') {
@@ -48,12 +48,19 @@ export function flacPictureBytes(picture: Id3Artwork): Uint8Array<ArrayBuffer> {
 }
 
 export function artworkComments(metadata: Readonly<Record<string, string>>): readonly string[] {
-	return parseId3Artwork(metadata.id3Artwork).map(picture => {
+	return audioMetadataArtwork(metadata).map(picture => {
 		const bytes = flacPictureBytes(picture);
 		let binary = '';
 		for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
 		return `METADATA_BLOCK_PICTURE=${btoa(binary)}`;
 	});
+}
+
+/** Export metadata accepts case and separator aliases for the artwork control. */
+export function audioMetadataArtwork(metadata: Readonly<Record<string, string>>): readonly Id3Artwork[] {
+	const value = Object.hasOwn(metadata, 'id3Artwork') ? metadata.id3Artwork
+		: Object.entries(metadata).find(([key]) => key.toLowerCase().replace(/[^a-z0-9]/gu, '') === 'id3artwork')?.[1];
+	return parseId3Artwork(value);
 }
 
 export function metadataBytes(...parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { audioMetadataComments, little32, metadataBytes } from './audio-metadata-values.ts';
-import { decodeArtworkData, parseId3Artwork } from './id3-artwork.ts';
+import { audioMetadataArtwork, audioMetadataComments, little32, metadataBytes } from './audio-metadata-values.ts';
+import { decodeArtworkData } from './id3-artwork.ts';
 
 /** APEv2 size includes items and footer, while its optional header is excluded. */
 export function createApeFileMetadata(metadata: Readonly<Record<string, string>>): Uint8Array<ArrayBuffer> {
@@ -11,7 +11,7 @@ export function createApeFileMetadata(metadata: Readonly<Record<string, string>>
 		return item(comment.slice(0, separator), encoder.encode(comment.slice(separator + 1)), false);
 	});
 	const pictureNames = new Map<string, number>();
-	for (const picture of parseId3Artwork(metadata.id3Artwork)) {
+	for (const picture of audioMetadataArtwork(metadata)) {
 		const kind = picture.pictureType === 3 ? 'Front' : picture.pictureType === 4 ? 'Back' : `Type ${picture.pictureType}`;
 		const count = (pictureNames.get(kind) ?? 0) + 1;
 		pictureNames.set(kind, count);
