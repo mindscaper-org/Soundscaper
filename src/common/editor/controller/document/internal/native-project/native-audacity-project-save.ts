@@ -6,6 +6,7 @@ import { hasCoreEditingProjectAuthority } from '../../../../project-schema-versi
 import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
 import {
 	EDITOR_PROJECT_TASK_SCOPE,
+	isCurrentAssertion,
 	type EditorProjectToken,
 	type EditorTaskScope,
 } from '../../../shared/lifecycle.ts';
@@ -184,6 +185,10 @@ export function createNativeAudacityProjectSave(
 			const result = await withAudacityWorkerSizeAdmission((workerOptions) => writingClient.export(writingNativeId, workerOptions),
 				admittedPortable, target.ensureFileName(options.fileName || snapshot.title), warningOptions, 'export');
 			dependencies.assertOwnership(operation.task, operation.projectToken);
+			const validation = result.validation || await client.inspect(nativeId);
+			dependencies.assertOwnership(operation.task, operation.projectToken);
+			const rawReport = written.compatibilityReport || result.compatibilityReport || validation.compatibilityReport;
+			const compatibilityReport = runtime.normalizeCompatibilityReport(rawReport, 'save');
 			const saved = await target.saveResult(result, {
 				fileName: options.fileName || snapshot.title,
 				fileHandle,
@@ -191,23 +196,19 @@ export function createNativeAudacityProjectSave(
 				saveTarget: saveDestination,
 				signal,
 			});
-			dependencies.assertOwnership(operation.task, operation.projectToken);
 			if (saved.cancelled) {
 				if (updatesSaveState) {
 					dependencies.failSave(operation.task, operation.projectToken);
 				}
 				return { cancelled: true };
 			}
-			const validation = result.validation || await client.inspect(nativeId);
-			dependencies.assertOwnership(operation.task, operation.projectToken);
-			const compatibilityReport = dependencies.rememberCompatibilityReport(
-				written.compatibilityReport || result.compatibilityReport || validation.compatibilityReport,
-				'save', snapshot.id,
-			);
-			dependencies.assertOwnership(operation.task, operation.projectToken);
-			const mayPublish = !updatesSaveState
-				|| dependencies.finishSave(operation.task, operation.projectToken, 'saved');
+			// A successful destination acknowledgement is final even if File New or
+			// Cancel superseded this task while the file was being committed.
+			const mayPublish = updatesSaveState
+				? dependencies.finishSave(operation.task, operation.projectToken, 'saved')
+				: isCurrentAssertion(() => dependencies.assertOwnership(operation.task, operation.projectToken));
 			if (mayPublish) {
+				dependencies.rememberCompatibilityReport(rawReport, 'save', snapshot.id);
 				setLocalizedStatus(runtime.setStatus, runtime.copy, target.savedKey, undefined, 'success');
 				runtime.publishDocumentSnapshot();
 			}
