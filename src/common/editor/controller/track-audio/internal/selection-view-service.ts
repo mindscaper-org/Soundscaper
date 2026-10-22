@@ -440,7 +440,7 @@ export function createSelectionViewService<
 			}));
 			if (getProject() !== projectAtStart) return null;
 			const channels = rendered.flatMap(audioBufferChannels);
-			const snapEdge = (frame: number) => frame < renderStart || frame >= renderEnd
+			const snapEdge = (frame: number) => frame < renderStart || frame > renderEnd
 				? frame
 				: renderStart + findNearestAudioZeroCrossing(
 					channels, frame - renderStart, { maximumDistance: radius },
