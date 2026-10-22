@@ -334,15 +334,13 @@ export function createEditorTrackService(
 	function addLabel(trackId: string | null = null, options: LabelCreateOptions = {}): string | null {
 		dependencies.lifetime.assertActive();
 		if (dependencies.labelEditingBlocked?.() ?? dependencies.editingBlocked()) return null;
-		let project = dependencies.getProject();
+		const project = dependencies.getProject();
 		const focused = findControllerTrack(project, trackId || dependencies.getSelectedTrackId());
-		let target = focused?.type === 'label' ? focused : labelTrackFrom(project, focused);
-		if (!target) {
-			const createdTrackId = addLabelTrack();
-			project = dependencies.getProject();
-			target = findControllerTrack(project, createdTrackId);
-		}
-		if (!target || target.type !== 'label') throw createLocalizedError(Error, dependencies.copy, 'trackNotFound');
+		const target = focused?.type === 'label' ? focused : labelTrackFrom(project, focused);
+		const targetId = target?.id ?? dependencies.createId('label-track');
+		const addTrack = target ? null : createAddLabelTrackCommand({
+			id: targetId, name: publishedCopyFor(dependencies.copy).labels, height: 300,
+		});
 		// A running transport labels what is being heard or recorded. A stopped
 		// transport labels the selected region, or the cursor when it has no span.
 		const live = ['playing', 'recording'].includes(dependencies.getTransportState?.() || 'stopped');
@@ -354,13 +352,14 @@ export function createEditorTrackService(
 			options.endFrame ?? (options.startFrame === undefined ? region?.endFrame : undefined) ?? startFrame,
 		);
 		const labelId = options.id || dependencies.createId('label');
-		const command = createAddLabelCommand(target.id, {
+		const command = createAddLabelCommand(targetId, {
 			...options,
 			id: labelId,
 			startFrame: Math.min(startFrame, endFrame),
 			endFrame: Math.max(startFrame, endFrame),
 		} as CommandObject);
-		dependencies.commit(command, { selectTrackId: target.id });
+		dependencies.commit(addTrack ? { type: 'batch', commands: [addTrack, command] } : command,
+			{ selectTrackId: targetId });
 		return labelId;
 	}
 }
