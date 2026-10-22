@@ -10,7 +10,9 @@ import { resolveNativeMediaImageSequence } from '../src/common/editor/native-med
 import { createNativeMediaImageSequenceInventoryV25 } from '../src/common/editor/native-media-image-sequence-v25.ts';
 import { createPngFixture } from './helpers/png-fixture.mjs';
 
-for (const separator of ['\n', '\u2028']) test(`native image-sequence chooser retains a legal filename stem containing ${JSON.stringify(separator)}`, async (context) => {
+for (const separator of ['\n', '\u2028']) test(`native image-sequence chooser retains a legal filename stem containing ${JSON.stringify(separator)}`, {
+	skip: process.platform === 'win32' && separator === '\n',
+}, async (context) => {
 	const directory = await mkdtemp(join(tmpdir(), 'framescaper-sequence-name-'));
 	context.after(() => rm(directory, { recursive: true, force: true }));
 	const bytes = createPngFixture(1);
