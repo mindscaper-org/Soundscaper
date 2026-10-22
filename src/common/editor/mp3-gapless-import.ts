@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { leadingId3AudioOffset } from './leading-id3-tags.ts';
+
 export interface Mp3GaplessGeometry {
 	readonly sampleRate: number;
 	readonly encodedFrames: number;
@@ -9,13 +11,8 @@ export interface Mp3GaplessGeometry {
 
 /** Read the Xing/LAME geometry without reading the compressed original into memory. */
 export async function inspectMp3GaplessGeometry(file: Blob): Promise<Mp3GaplessGeometry | null> {
-	const prefix = new Uint8Array(await file.slice(0, 10).arrayBuffer());
-	let offset = 0;
-	if (text(prefix, 0, 3) === 'ID3') {
-		if (prefix.length !== 10 || prefix.subarray(6, 10).some((byte) => byte > 127)) return null;
-		offset = 10 + ((prefix[6]! << 21) | (prefix[7]! << 14) | (prefix[8]! << 7) | prefix[9]!);
-		if (prefix[5]! & 16) offset += 10;
-	}
+	const offset = await leadingId3AudioOffset(file);
+	if (offset === null) return null;
 	const header = new Uint8Array(await file.slice(offset, offset + 4096).arrayBuffer());
 	if (header.length < 4 || header[0] !== 255 || (header[1]! & 224) !== 224) return null;
 	const version = (header[1]! >> 3) & 3;
