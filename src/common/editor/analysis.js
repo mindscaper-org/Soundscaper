@@ -167,45 +167,7 @@ export function analyzeAudioChannels(channels, sampleRate, options = {}) {
 }
 
 /** Audacity-style Find Clipping report with linked-channel frame regions. */
-export function findAudioClippingRegions(channels, options = {}) {
-	validateAnalysisChannels(channels);
-	const threshold = Number(options.threshold ?? 1);
-	const minimumConsecutiveSamples = Number(options.minimumConsecutiveSamples ?? 3);
-	if (!Number.isFinite(threshold) || threshold <= 0) throw new RangeError('Clipping threshold must be positive.');
-	if (!Number.isSafeInteger(minimumConsecutiveSamples) || minimumConsecutiveSamples <= 0) {
-		throw new RangeError('Minimum consecutive clipping samples must be positive.');
-	}
-	const regions = [];
-	let startFrame = null;
-	let peakAmplitude = 0;
-	let clippedSamples = 0;
-	for (let frame = 0; frame <= channels[0].length; frame += 1) {
-		let framePeak = 0;
-		let frameClippedSamples = 0;
-		if (frame < channels[0].length) {
-			for (const channel of channels) {
-				const amplitude = Math.abs(channel[frame]);
-				framePeak = Math.max(framePeak, amplitude);
-				if (amplitude >= threshold) frameClippedSamples += 1;
-			}
-		}
-		if (frameClippedSamples) {
-			if (startFrame == null) startFrame = frame;
-			peakAmplitude = Math.max(peakAmplitude, framePeak);
-			clippedSamples += frameClippedSamples;
-			continue;
-		}
-		if (startFrame == null) continue;
-		const endFrame = frame;
-		if (endFrame - startFrame >= minimumConsecutiveSamples) {
-			regions.push(Object.freeze({ startFrame, endFrame, frameCount: endFrame - startFrame, clippedSamples, peakAmplitude }));
-		}
-		startFrame = null;
-		peakAmplitude = 0;
-		clippedSamples = 0;
-	}
-	return Object.freeze(regions);
-}
+export { findAudioClippingRegions } from './audio-clipping-regions.ts';
 
 /** Audacity Contrast report comparing foreground and background RMS levels. */
 export function analyzeAudioContrast(foregroundChannels, backgroundChannels, options = {}) {
