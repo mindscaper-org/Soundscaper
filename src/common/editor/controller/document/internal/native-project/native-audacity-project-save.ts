@@ -265,7 +265,7 @@ async function* readAudacitySourceAudio(
 		const buffer = runtime.sourceBuffers.get(source.id);
 		const channels = buffer
 			? Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel))
-			: await runtime.loadStoredSourceChannels(runtime.store, source);
+			: await readStoredAudacityChannels(runtime, source, operation.task.signal);
 		assertOwnership(operation.task, operation.projectToken);
 		if (!channels?.length) {
 			throw createLocalizedError(Error, runtime.copy, 'sourcePcmUnavailable', {
@@ -274,6 +274,32 @@ async function* readAudacitySourceAudio(
 		}
 		yield { sourceId: source.id, sampleRate: source.sampleRate, channels };
 	}
+}
+
+/** Audacity can downmix wider sources; StaffPad's stereo-only loader cannot. */
+async function readStoredAudacityChannels(
+	runtime: NativeProjectServiceRuntime,
+	source: NativeProjectAudioSource,
+	signal: AbortSignal,
+): Promise<readonly Float32Array[] | null | undefined> {
+	if (!runtime.store.readSourceChunks) return runtime.loadStoredSourceChannels(runtime.store, source);
+	signal.throwIfAborted();
+	const channels = Array.from({ length: source.channelCount }, () => new Float32Array(source.frameCount));
+	let offset = 0;
+	for await (const chunk of runtime.store.readSourceChunks(source.storageKey || source.id, { signal })) {
+		signal.throwIfAborted();
+		const packet: readonly Float32Array[] = 'channels' in chunk ? chunk.channels : chunk;
+		const frames = packet[0]?.length ?? 0;
+		if (packet.length !== source.channelCount || frames < 1 || offset + frames > source.frameCount
+			|| packet.some(channel => !(channel instanceof Float32Array) || channel.length !== frames)) {
+			throw new Error(`Audacity source ${source.id} has invalid stored PCM chunks.`);
+		}
+		for (let channel = 0; channel < channels.length; channel += 1) channels[channel]!.set(packet[channel]!, offset);
+		offset += frames;
+	}
+	signal.throwIfAborted();
+	if (offset !== source.frameCount) throw new Error(`Audacity source ${source.id} ended early.`);
+	return channels;
 }
 
 function portableOptions(
