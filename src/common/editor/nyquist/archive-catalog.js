@@ -110,7 +110,9 @@ export async function fetchNyquistArchiveManifest({ fetchImpl = globalThis.fetch
 	return parseNyquistArchiveMetadata(metadataBytes, await parseNyquistArchiveManifest(bytes));
 }
 
-export async function installNyquistArchivePlugin(store, artifact, { fetchImpl = globalThis.fetch, signal } = {}) {
+/** @param {{ fetchImpl?: typeof globalThis.fetch, signal?: AbortSignal }} [options] */
+export async function installNyquistArchivePlugin(store, artifact, options = {}) {
+	const { fetchImpl = globalThis.fetch, signal } = options;
 	validateArtifact(artifact);
 	const response = await fetchImpl(artifact.publicUrl, { signal });
 	const bytes = await boundedResponseBytes(response, artifact.byteLength);
@@ -118,6 +120,7 @@ export async function installNyquistArchivePlugin(store, artifact, { fetchImpl =
 		throw new Error('Nyquist archive plug-in length or digest mismatch.');
 	}
 	const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+	signal?.throwIfAborted();
 	return store.install({
 		id: `nyquist:archive:${artifact.fileName}`,
 		fileName: artifact.fileName,
