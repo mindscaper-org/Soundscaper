@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { showClipTimingFields } from './audio-editor-inspector-test-helpers.js';
 import { createPngFixture } from '../helpers/png-fixture.mjs';
 
@@ -12,6 +12,7 @@ for (const kind of ['image', 'generator']) for (const entry of ['Window', 'clip 
 		await (await choosing).setFiles({ name: 'poster.png', mimeType: 'image/png', buffer: createPngFixture(16) });
 	} else await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Title/Text']);
 	const clip = editor.getByRole('group', { name: kind === 'image' ? 'Image clip: poster' : 'Video clip: Title', exact: true });
+	await expect(clip).toBeVisible(); await waitForProjectActivation(editor);
 	await clip.press('Enter'); await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
 	if (entry === 'Window') await chooseNestedCommandAction(page, editor, 'Window', ['Clip properties']);
 	else {
