@@ -526,11 +526,6 @@
       "count": 1
     }
   },
-  "src/common/editor/file-save-stream.ts": {
-    "preserve-caught-error": {
-      "count": 1
-    }
-  },
   "src/common/editor/framescaper-capture-domain.ts": {
     "no-control-regex": {
       "count": 1
