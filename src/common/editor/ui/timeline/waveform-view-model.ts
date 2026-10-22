@@ -77,6 +77,8 @@ export interface TimelineWaveformClip {
 	readonly reversed?: boolean;
 	readonly inverted?: boolean;
 	readonly pitchCents?: number;
+	readonly preserveFormants?: boolean;
+	readonly renderCacheRevision?: number;
 	readonly linkPitchAndTempo?: boolean;
 	readonly speedRatio?: number;
 	readonly kind?: unknown;
@@ -110,6 +112,7 @@ export interface TimelinePeakWindow {
 }
 
 export interface TimelineClipVisualData {
+	readonly prepareSpectrogramPcm?: import('../../spectrogram-processed-pcm-contract.ts').PrepareSpectrogramProcessedPcm;
 	readonly available?: boolean;
 	readonly source?: TimelineWaveformSource | null;
 	readonly buffer?: TimelineAudioBuffer | null;

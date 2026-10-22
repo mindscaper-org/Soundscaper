@@ -122,13 +122,13 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 			run(() => controller.actions.timeline.requestFrequencyWaveform?.(clipId));
 		}
 		let current = true;
-		if (!visual?.buffer && (displayMode === 'spectrogram' || displayMode === 'multiview')) {
+		if (!visual?.buffer && !visual?.prepareSpectrogramPcm && (displayMode === 'spectrogram' || displayMode === 'multiview')) {
 			run(() => controller.actions.effects.loadSourceAudio?.(clipId).then(buffer => {
 				if (current) setLoadedAudio({ sourceId: source.id, buffer });
 			}).catch(cause => { if (current) throw cause; }));
 		}
 		return () => { current = false; };
-	}, [controller, clipId, source.id, displayMode, visual?.buffer, run]);
+	}, [controller, clipId, source.id, displayMode, visual?.buffer, visual?.prepareSpectrogramPcm, run]);
 	useEffect(() => {
 		if (!(transport.state === 'playing') || !view || !ruler.scroll) return;
 		const span = endFrame - startFrame;

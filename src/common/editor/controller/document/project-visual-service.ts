@@ -59,8 +59,10 @@ export function createProjectVisualService(
 		const peakWindow = dependencies.waveformPeakWindows?.get(String(clip.id));
 		const frequencyAnalysis = sourceFrequencyAnalysis(project, source);
 		const frequencyWindow = clipFrequencyWindow(project, clip, source);
+		const prepareSpectrogramPcm = source ? dependencies.prepareSpectrogramPcm?.(project, clip, source) : undefined;
 		return Object.freeze({
 			clip,
+			...(prepareSpectrogramPcm ? { prepareSpectrogramPcm } : {}),
 			track: findClipTrack(project, clip.id),
 			source,
 			buffer: dependencies.sourceBuffers.get(clip.sourceId) ?? null,
@@ -90,8 +92,10 @@ export function createProjectVisualService(
 		const video = videoClip ? videoVisuals.get(videoClip.sourceId)?.visual : null;
 		const frequencyAnalysis = sourceFrequencyAnalysis(project, source);
 		const frequencyWindow = clipFrequencyWindow(project, clip, source);
+		const prepareSpectrogramPcm = source ? dependencies.prepareSpectrogramPcm?.(project, clip, source) : undefined;
 		return Object.freeze({
 			clip,
+			...(prepareSpectrogramPcm ? { prepareSpectrogramPcm } : {}),
 			track: null,
 			source,
 			buffer: dependencies.sourceBuffers.get(clip.sourceId) ?? null,

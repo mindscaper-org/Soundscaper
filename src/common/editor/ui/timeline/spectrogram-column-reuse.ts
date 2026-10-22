@@ -5,6 +5,12 @@ import { immutableWaveformKeyJson } from '../immutable-waveform-key-json.ts';
 import { createWaveformContentKey } from '../waveform-preview-cache.ts';
 import type { TimelineWaveformClip, TimelineWaveformSource } from './waveform-view-model.ts';
 
+/** Spectral PCM changes independently of the raw waveform's source geometry. */
+export function spectrogramProcessingKey(clip: TimelineWaveformClip): string {
+	return JSON.stringify([clip.pitchCents ?? 0, clip.speedRatio ?? 1, Boolean(clip.linkPitchAndTempo),
+		Boolean(clip.preserveFormants), clip.renderCacheRevision ?? 0]);
+}
+
 /** The existing FFT centers can move to fixed clip-local columns only at this phase. */
 export function alignedSpectrogramFramesPerPixel(clip: TimelineWaveformClip, width: number, pixelSkip = 1): number | null {
 	const frameCount = clip.waveformEndFrame - clip.waveformStartFrame;
@@ -29,7 +35,7 @@ export function spectrogramColumnReuseKey({ clip, source, width, sampleRate, fft
 }>): string | null {
 	const framesPerPixel = alignedSpectrogramFramesPerPixel(clip, width);
 	if (framesPerPixel === null) return null;
-	return `[${createWaveformContentKey(source, clip)},${JSON.stringify([
+	return `[${createWaveformContentKey(source, clip)},${spectrogramProcessingKey(clip)},${JSON.stringify([
 		'spectral-columns-v1', framesPerPixel, source?.sampleRate ?? null,
 		source?.frameCount ?? null, source?.channelCount ?? null,
 		fftWindowSize, windowType, sampleRate, project?.id ?? null, project?.sampleRate ?? null,

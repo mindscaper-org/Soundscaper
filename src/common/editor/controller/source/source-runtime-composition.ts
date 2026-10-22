@@ -52,6 +52,7 @@ import {
 	type WorkerCopy,
 } from './waveform-analysis.ts';
 import { frequencyWaveformCacheKey } from '../../source-analysis-cache.ts';
+import { processedSpectrogramPreparation } from './internal/processed-spectrogram-pcm.ts';
 
 export type {
 	SourceRuntimeCompositionCopy,
@@ -199,6 +200,22 @@ export function createSourceRuntimeComposition<RenderEngine extends ClipTimePitc
 	let playbackApply: PlaybackApply | null = null;
 
 	const projectVisual = dependencies.createProjectVisualService({
+		prepareSpectrogramPcm: (project, clip, source) => processedSpectrogramPreparation({
+			getProject: dependencies.getProject, cache: dependencies.timePitchCache,
+			captureAuthority(projectId) { const token = captureProject(projectId); return () => { assertProject(token); }; },
+			open(entry) {
+				if (!isStoredSourceMetadata(entry.metadata)) throw new Error('The committed spectral source metadata is unavailable.');
+				const cached = { id: String(entry.cacheSourceId), storageKey: String(entry.cacheSourceId),
+					frameCount: Number(entry.frameCount), channelCount: Number(entry.channelCount), sampleRate: entry.sampleRate };
+				const provider = lifecycleAdapters.createStoredChunkProviderCandidate(cached, entry.metadata);
+				if (!provider) throw new Error('The committed spectral source is unavailable.');
+				return { frameCount: cached.frameCount, dispose: () => provider.dispose(),
+					async readWindow(start, end, signal) {
+						const range = { startFrame: Math.max(0, start), endFrame: Math.min(cached.frameCount, end) };
+						return { ...range, channels: await lifecycleAdapters.readWaveformPcmWindow(provider, range, { signal }) };
+					} };
+			},
+		}, project, clip, source),
 		getProject: dependencies.getProject,
 		captureProject,
 		assertProject,
