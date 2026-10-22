@@ -32,12 +32,14 @@ export function preserveAutomationLanesAfterInheritedCommand(
 ): readonly AutomationLaneV21[] {
 	const plan = planAutomationEdits(previous, commanded, command);
 	if (plan.byTrackId.size === 0 && plan.global?.length === 0) return lanes;
-	if (plan.global === null && lanes.some((lane) => addressedTrackId(lane) === null)) {
+	const edgeTracks = new Map(previous.mixer.edges.flatMap(edge => edge.source.kind === 'track'
+		? [[edge.id, edge.source.id] as const] : []));
+	if (plan.global === null && lanes.some((lane) => addressedTrackId(lane, edgeTracks) === null)) {
 		throw new RangeError('All-track automation cannot reconcile distinct sequence interval maps.');
 	}
 	const options = { sampleRate: previous.sampleRate, tempoMap: previous.tempoMap };
 	return lanes.map((lane) => {
-		const trackId = addressedTrackId(lane);
+		const trackId = addressedTrackId(lane, edgeTracks);
 		const edits = trackId === null ? plan.global ?? [] : plan.byTrackId.get(trackId) ?? [];
 		return edits.reduce((current, edit) => (
 			replaceAutomationLaneTimelineIntervalV21(current, edit, options)
@@ -251,8 +253,8 @@ function commonEditSeries(
 	return first;
 }
 
-function addressedTrackId(lane: AutomationLaneV21): string | null {
-	if (lane.address.kind === 'edge') return null;
+function addressedTrackId(lane: AutomationLaneV21, edgeTracks: ReadonlyMap<string, string>): string | null {
+	if (lane.address.kind === 'edge') return edgeTracks.get(lane.address.edgeId) ?? null;
 	return lane.address.strip.kind === 'track' ? lane.address.strip.id : null;
 }
 
