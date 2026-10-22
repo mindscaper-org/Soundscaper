@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { AutomationLaneV21 } from '../src/common/editor/automation-lane-v21.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
@@ -32,7 +33,7 @@ for (const scope of ['clip', 'range', 'all-tracks'] as const) test(`NP037: ${sco
 	assert.equal(resolveRuntimeProjectProjection(result).clips.find(clip => clip.id === 'later')?.timelineStartFrame, 144_000);
 	assert.equal(result.automationLanes.find(lane => lane.id === 'voice-output')?.points.find(point => point.id === 'voice-later')?.position, 144_000);
 	for (const id of ['other-output', 'master-gain']) {
-		const lane: (typeof result.automationLanes)[number] | undefined = result.automationLanes.find(lane => lane.id === id); assert.ok(lane);
+		const lane: AutomationLaneV21 | undefined = result.automationLanes.find(candidate => candidate.id === id); assert.ok(lane);
 		if (scope === 'all-tracks') assert.equal(lane.points.at(-1)?.position, 144_000);
 		else assert.deepEqual(lane, before.automationLanes.find(lane => lane.id === id), 'unrelated routes and global Master automation stay fixed');
 	}
