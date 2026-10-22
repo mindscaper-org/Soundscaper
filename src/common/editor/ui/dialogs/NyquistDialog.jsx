@@ -131,7 +131,7 @@ function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose 
 	};
 	const processing = busy || snapshot.nyquist?.processing;
 	const previewing = Boolean(snapshot.effects?.previewing);
-	const canPreview = !plugin || plugin.role !== 'analyze';
+	const canPreview = !plugin || (plugin.role !== 'analyze' && !['disabled', 'false'].includes(plugin.preview?.at(-1)));
 	const title = plugin?.name || copy.nyquistPrompt;
 
 	return (
