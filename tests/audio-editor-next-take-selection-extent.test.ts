@@ -8,7 +8,7 @@ import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/edi
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
-for (const mode of ['all', 'track', 'long'] as const) test(`NP009: ${mode} selection includes unflattened recorded takes for Copy and Paste`, async context => {
+for (const mode of ['all', 'track', 'long', 'extend', 'right'] as const) test(`NP009: ${mode} selection includes unflattened recorded takes for Copy and Paste`, async context => {
 	const startSample = mode === 'long' ? 2_000_000 : 9600, endSample = startSample + 4800;
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const runtime = createSoundscaperProjectRuntimeSelection();
@@ -26,6 +26,8 @@ for (const mode of ['all', 'track', 'long'] as const) test(`NP009: ${mode} selec
 			compRegions: [{ id: 'region', takeId: 'take', startSample, endSample }] }] }));
 	controller.actions.timeline.selectTrack('voice');
 	if (mode === 'track') controller.actions.timeline.selectTrackStartToEnd();
+	else if (mode === 'extend') controller.actions.timeline.extendSelectionToProjectEnd();
+	else if (mode === 'right') controller.actions.timeline.selectRightOfPlayback();
 	else controller.actions.timeline.selectAll();
 	assert.deepEqual([controller.project?.selection.startFrame, controller.project?.selection.endFrame], [mode === 'track' ? startSample : 0, endSample],
 		'Select All must reach recorded take content even before it has ordinary clips');

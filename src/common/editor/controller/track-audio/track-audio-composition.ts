@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { takeCompContentRange } from '../../take-comp-content-range.ts';
 import { createAiffStreamEncoder, encodeAiff } from '../../aiff.js';
 import { loadStoredSourceChannels } from '../../clip-time-pitch-cache.js';
 import { collectRelatedClipIds } from '../../commands.js';
@@ -299,7 +300,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		normalizeTimelineFrame: dependencies.normalizeTimelineFrame,
 		persistSetting: dependencies.persistSetting,
 		productSettingKey: dependencies.productSettingKey,
-		projectDurationFrames: dependencies.projectDurationFrames,
+		projectDurationFrames: (project) => Math.max(dependencies.projectDurationFrames(project), takeCompContentRange(project)?.endFrame ?? 0),
 		projectSampleRate: dependencies.projectSampleRate,
 		publishDocumentSnapshot: dependencies.publishDocumentSnapshot,
 		publishProjectState: dependencies.publishProjectState,
