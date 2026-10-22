@@ -394,7 +394,7 @@ function parseVttCueMarkup(value: string): {
 	let italic = false;
 	let underline = false;
 	for (;;) {
-		const voice = speaker === null ? content.match(/^<v ([^<>]+)>/u) : null;
+		const voice = speaker === null ? content.match(/^<v[ \t]([^<>]+)>/u) : null;
 		if (voice) {
 			speaker = decodePassiveText(voice[1] ?? '');
 			content = content.slice(voice[0].length);
