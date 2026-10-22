@@ -37,10 +37,10 @@ export async function readLoopSpectrogramPcmWindow(
 	if (!channels) return null;
 	return {
 		pcm: { startFrame: 0, endFrame: frames, channels },
-		// The stitched PCM already carries the original mapping, gain and fades.
+		// The stitched PCM already carries the original mapping, gain, fades and envelope.
 		clip: { ...clip, opaqueExtensions: withoutClipLoop(clip.opaqueExtensions),
 			durationFrames: frames, sourceStartFrame: 0, sourceDurationFrames: frames,
 			waveformStartFrame: 0, waveformEndFrame: frames, gain: 1, inverted: false,
-			reversed: false, fadeInFrames: 0, fadeOutFrames: 0 },
+			reversed: false, fadeInFrames: 0, fadeOutFrames: 0, envelope: [] },
 	};
 }
