@@ -27,13 +27,13 @@ export function createClipSilenceWarpProjection(clip: ClipSilenceScanClip,
 		timelineStartFrame: clip.sourceStartFrame, durationFrames: normalized.sourceDurationFrames,
 		sourceDurationFrames: normalized.sourceDurationFrames };
 	const sourceBounds = until > from ? {
-		startFrame: sourceNumber(from), endFrame: sourceNumber(until),
+		startFrame: sourceNumber(from, 'start'), endFrame: sourceNumber(until, 'end'),
 	} : { startFrame: clip.sourceStartFrame, endFrame: clip.sourceStartFrame };
 	return { clip: sourceClip, bounds: sourceBounds, toTimeline };
 
-	function sourceNumber(frame: number): number {
+	function sourceNumber(frame: number, edge: 'start' | 'end'): number {
 		const value = evaluator.sourceAtTimelineFrame(frame);
-		return Math.round(value.num / value.den);
+		return edge === 'start' ? Math.ceil(value.num / value.den) : Math.floor(value.num / value.den);
 	}
 	function timelineNumber(source: number): number | null {
 		const outer = evaluateAudioWarpMapAtSource(evaluator.map, source);
@@ -48,7 +48,8 @@ export function createClipSilenceWarpProjection(clip: ClipSilenceScanClip,
 			const start = timelineNumber(sourceStart);
 			const end = timelineNumber(sourceEnd);
 			if (start !== null && end !== null && start > clip.timelineStartFrame
-				&& end < clip.timelineStartFrame + clip.durationFrames && end > start) {
+				&& end < clip.timelineStartFrame + clip.durationFrames && end > start
+				&& start >= from && end <= until) {
 				result.push(Object.freeze([start, end]));
 			}
 		}
