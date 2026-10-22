@@ -287,7 +287,7 @@ export function TimelineMenus({
 				<ManifestContextMenuItem
 					actionId={AUDACITY_CLIP_CONTEXT_ACTION_IDS.properties}
 					label={copy.clipPropertiesCommand}
-					disabled={!menuClip || (menuClip.kind !== 'audio' && menuClip.kind !== 'video')}
+					disabled={!menuClip || !['audio', 'video', 'image', 'generator'].includes(menuClip.kind)}
 					disabledReason={unavailableReason}
 					locale={contextLocale}
 					onClick={() => {
