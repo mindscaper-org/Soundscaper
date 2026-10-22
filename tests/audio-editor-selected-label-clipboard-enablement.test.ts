@@ -26,7 +26,7 @@ function fixture(selected = true, editBlocked = false) {
 	const calls: string[] = [];
 	const context = { snapshot };
 	const menus = createApplicationMenus({ productId: 'soundscaper', aboutLabel: 'About', capabilities: {}, locale: 'en', copy: ENGLISH_COPY,
-		project, snapshot, blocked: editBlocked, editBlocked, showArmControls: false, selectionActive: false, selectedClip: null,
+		project, snapshot, blocked: false, editBlocked, showArmControls: false, selectionActive: false, selectedClip: null,
 		durationFrames: 0, effectsPanelOpen: false, projectBinEffectivelyOpen: false, uiFlags: {},
 		actionRuntime: { getActionContext: () => context }, actions: createMenuActionFixture({ executeEdit: (action: string) => calls.push(action) }) }) as readonly Menu[];
 	return { project, snapshot, context, menus, calls, selectedLabels };
@@ -46,12 +46,13 @@ test('a selected point label enables only clipboard commands without an audio ra
 	}
 });
 
-test('label clipboard commands keep read-only and empty-selection gates', () => {
+test('label clipboard commands permit read-only Copy and keep mutation and empty-selection gates', () => {
 	for (const [selected, blocked] of [[false, false], [true, true]] as const) {
 		const { context, menus } = fixture(selected, blocked);
 		for (const id of clipboardActions) {
-			assert.equal(evaluateAudacityActionEnablement(id, context), false, id);
-			assert.equal(findMenuItem(menus, id === 'action://copy' ? 'copy' : id)?.disabled, true, id);
+			const copyAvailable = selected && id === 'action://copy';
+			assert.equal(evaluateAudacityActionEnablement(id, context), copyAvailable, id);
+			assert.equal(findMenuItem(menus, id === 'action://copy' ? 'copy' : id)?.disabled, !copyAvailable, id);
 		}
 	}
 });

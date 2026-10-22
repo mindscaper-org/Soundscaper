@@ -71,7 +71,7 @@ export function evaluateAudacityActionEnablement(id, context) {
 	if (!definition || definition.status !== AUDACITY_ACTION_STATUS.IMPLEMENTED) return false;
 	const resolvedContext = resolveActionContext(context);
 	if (resolvedContext?.snapshot?.selectedLabels?.length && ['action://copy', 'action://cut', 'cut-leave-gap', 'cut-per-clip-ripple', 'cut-per-track-ripple', 'cut-all-tracks-ripple'].includes(definition.id))
-		return Boolean(resolvedContext.snapshot.project) && !selectAudioEditorEditBlock(resolvedContext.snapshot).blocked && !resolvedContext.telemetry?.recording;
+		return Boolean(resolvedContext.snapshot.project) && !selectAudioEditorEditBlock(definition.id === 'action://copy' ? { ...resolvedContext.snapshot, readOnly: false } : resolvedContext.snapshot).blocked && !resolvedContext.telemetry?.recording;
 	return evaluateAudacityEnableWhen(definition.enableWhen, resolvedContext);
 }
 

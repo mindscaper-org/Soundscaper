@@ -107,7 +107,7 @@ export interface EditCompositionDependencies<History extends ControllerRuntimeHi
 	readonly persistEffectResults: AudioGeneratorServiceDependencies<unknown, EffectTarget>['persistEffectResults'];
 	readonly getProject: () => EditCompositionProject | null;
 	readonly getCommandProject: () => EditCommandProject;
-	readonly editingBlocked: () => boolean;
+	readonly editingBlocked: (allowReadOnly?: boolean) => boolean;
 	readonly commit:
 		& LabelServiceDependencies['commit']
 		& ClipboardEditServiceDependencies['commit']

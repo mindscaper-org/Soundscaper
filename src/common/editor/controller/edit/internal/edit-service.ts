@@ -94,7 +94,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 	}
 
 	function handleEdit(action: string, options: Readonly<{ propagateErrors?: boolean }> = {}) {
-		if (!state.history || editingBlocked()) return;
+		if (!state.history || editingBlocked(action === 'copy')) return;
 		if (isLabeledAudioEditAction(action)) return executeLabeledAudioEdit(action);
 		try {
 			if (action === 'undo') return travel(undoEditorCommand);

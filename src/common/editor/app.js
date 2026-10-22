@@ -664,8 +664,8 @@ export function createAudioEditorController(_root = null, options = {}) {
 	function continueLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.continueLoudnessMeasurement(kind); }
 	function resetLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.resetLoudnessMeasurement(kind); }
 
-	function editingBlocked() {
-		return selectAudioEditorControllerEditBlock(state).blocked
+	function editingBlocked(allowReadOnly = false) {
+		return selectAudioEditorControllerEditBlock(allowReadOnly ? { ...state, readOnly: false } : state).blocked
 			|| Boolean(framescaperCapture?.originSnapshot(documentState.project?.id ?? null).editBlocked);
 	}
 
