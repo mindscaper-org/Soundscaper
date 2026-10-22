@@ -6,11 +6,12 @@ import test from 'node:test';
 import { createFreesoundApiClient } from '../src/common/editor/ui/workspace/freesound-auth-upload-client.ts';
 import { createFreesoundPanelSession } from '../src/common/editor/ui/workspace/freesound-panel-session.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { deferred } from './helpers/async-test-control.ts';
 
 for (const existingLocal of [false, true]) {
 	test(`Freesound restores a visible bounded queue when remote pending uploads exceed ${existingLocal ? 'the remaining' : 'its'} capacity`, async () => {
-		const pending = Promise.withResolvers<Response>();
-		const pendingRequested = Promise.withResolvers<void>();
+		const pending = deferred<Response>();
+		const pendingRequested = deferred<void>();
 		let id = 0;
 		const client = createFreesoundApiClient({
 			openAuthorization: () => undefined,

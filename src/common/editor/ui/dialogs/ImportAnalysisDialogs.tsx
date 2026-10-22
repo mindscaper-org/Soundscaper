@@ -46,8 +46,16 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 	const [importing, setImporting] = useState(false);
 	const importingRef = useRef(false);
 	const pendingImport = useRef<AbortController | null>(null);
+	const projectIdentity = controller.project?.id ?? null;
 	const formId = 'audio-editor-raw-pcm-import-form';
-	useEffect(() => () => { pendingImport.current?.abort(); }, []);
+	useEffect(() => {
+		setImporting(false);
+		return () => {
+			pendingImport.current?.abort();
+			pendingImport.current = null;
+			importingRef.current = false;
+		};
+	}, [projectIdentity]);
 	const close = (): void => {
 		pendingImport.current?.abort();
 		onClose();
@@ -73,9 +81,11 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 			} catch (error) {
 				if (!cancellation.signal.aborted) throw error;
 			} finally {
-				if (pendingImport.current === cancellation) pendingImport.current = null;
-				importingRef.current = false;
-				setImporting(false);
+				if (pendingImport.current === cancellation) {
+					pendingImport.current = null;
+					importingRef.current = false;
+					setImporting(false);
+				}
 			}
 			if (projectIsCurrent()) onClose();
 		});
