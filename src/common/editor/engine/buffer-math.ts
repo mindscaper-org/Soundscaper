@@ -5,6 +5,7 @@ import {
 	estimateAudacityEffectPeakBytes,
 } from '../audacity-effects/contracts.js';
 import { EDITOR_TIMELINE_MINIMUM_SECONDS } from '../project.js';
+import { runtimeTimelineAnnotationExtent } from '../runtime-timeline-annotation-projection.ts';
 import type { EngineClip, EngineProject } from './types.ts';
 
 export const DEFAULT_SAMPLE_RATE = 48_000;
@@ -67,7 +68,7 @@ export function getProjectDurationFrames(project: EngineProject | null | undefin
 export function getProjectTimelineDurationFrames(project: EngineProject | null | undefined): number {
 	const sampleRate = positiveInteger(project?.sampleRate, DEFAULT_SAMPLE_RATE);
 	return Math.max(
-		getProjectDurationFrames(project) * 2,
+		Math.max(getProjectDurationFrames(project), runtimeTimelineAnnotationExtent(project)) * 2,
 		Math.round(sampleRate * EDITOR_TIMELINE_MINIMUM_SECONDS),
 	);
 }

@@ -18,5 +18,12 @@ test('Fit project reveals markers from an ordinary long CUE sheet opened without
 	await expect(editor.getByRole('list', { name: 'Marker and region list' })).toContainText('Ten minute cue');
 	await chooseCommandAction(page, editor, 'View', 'Markers');
 	await editor.getByRole('button', { name: 'Fit project', exact: true }).click();
-	await expect(editor.locator('[data-timeline-annotation-layer]').getByRole('option', { name: /Ten minute cue/u })).toBeInViewport();
+	const marker = editor.locator('[data-timeline-annotation-layer]').getByRole('option', { name: /Ten minute cue/u });
+	await expect(marker).toBeInViewport();
+	await editor.locator('[data-ruler-interaction]').click({ button: 'right', position: { x: 30, y: 12 } });
+	await page.getByRole('menuitem', { name: 'Click ruler to start playback', exact: true }).click();
+	const bounds = await marker.boundingBox(), ruler = await editor.locator('[data-ruler-interaction]').boundingBox();
+	expect(bounds).not.toBeNull(); expect(ruler).not.toBeNull();
+	await page.mouse.click(bounds.x + 1, ruler.y + 28);
+	await expect(editor.getByRole('group', { name: 'Playhead', exact: true }).locator('.timecode__display')).toHaveText(/00h(?:09m|10m)/u);
 });
