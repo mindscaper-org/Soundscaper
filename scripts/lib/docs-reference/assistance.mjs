@@ -54,6 +54,7 @@ const TASK_LABELS = Object.freeze({
 	'face-detection': 'Face detection',
 	'object-detection': 'Object detection',
 	'saliency-detection': 'Saliency detection',
+	'video-keying': 'Green/blue-screen keying',
 	'editorial-generation': 'Editorial generation',
 });
 
@@ -70,6 +71,12 @@ const DISTRIBUTION_LABELS = Object.freeze({
 	'identity-mirrored': 'Mirrored byte-for-byte from upstream',
 	'reproducibly-derived': 'Reproducibly derived from pinned upstream inputs',
 });
+
+function operationMenuEntry(operation) {
+	if (operation === 'text-to-speech') return 'Generate > Text to Speech';
+	if (operation === 'video-keying') return 'Effect > Video effects > CorridorKey 2.0';
+	return `\`advanced:${operation}\``;
+}
 
 function operationSequence(stages, wanted) {
 	const labels = stages
@@ -148,7 +155,7 @@ export function renderAssistanceReference({
 		.map((operation) => [
 			operation.label,
 			`\`${operation.id}\``,
-			operation.id === 'text-to-speech' ? 'Generate > Text to Speech' : `\`advanced:${operation.id}\``,
+			operationMenuEntry(operation.id),
 		]);
 
 	const body = [

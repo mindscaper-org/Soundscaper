@@ -338,6 +338,15 @@ test('assistance reference gives text-to-speech its reviewed operation label', (
 	assert.match(rendered, /\| Text to speech \| `text-to-speech` \| Generate > Text to Speech \|/u);
 });
 
+test('assistance reference directs video keying to its dedicated menu workflow', () => {
+	const rendered = renderAssistanceReference({
+		...assistanceInput,
+		operations: ['video-keying'],
+	});
+	assert.match(rendered, /\| Green\/blue-screen keying \| `video-keying` \| Effect > Video effects > CorridorKey 2\.0 \|/u);
+	assert.doesNotMatch(rendered, /advanced:video-keying/u);
+});
+
 test('assistance reference refuses a workflow or distribution it has no reviewed wording for', () => {
 	assert.throws(
 		() => renderAssistanceReference({ ...assistanceInput, guidedWorkflowIds: ['summarise-everything'] }),

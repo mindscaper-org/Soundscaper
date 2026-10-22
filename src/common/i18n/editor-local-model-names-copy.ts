@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const LOCAL_MODEL_NAMES_COPY: Readonly<Record<string, string>> = {
+	'corridorkey-2.0': 'CorridorKey 2.0',
 	'deepfilternet3': 'DeepFilterNet 3',
 	'dereverb-room': 'Room Dereverberation',
 	'tiger-dnr': 'TIGER Dialogue / Music / Effects',
