@@ -247,7 +247,11 @@ function buildTracks(walk: TrackWalk, context: {
 			});
 			continue;
 		}
-		let lane = laneEnds.findIndex((position) => position <= start);
+		// A later picture is above every still-active outgoing picture. Reusing
+		// a retired lower lane would invert that order on the next overlap.
+		const minimumLane = walk.kind === 'Video'
+			? laneEnds.reduce((minimum, position, index) => position > start ? index + 1 : minimum, 0) : 0;
+		let lane = laneEnds.findIndex((position, index) => index >= minimumLane && position <= start);
 		if (lane < 0) {
 			lane = lanes.length;
 			lanes.push([]);
