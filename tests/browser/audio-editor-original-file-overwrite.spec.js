@@ -207,6 +207,8 @@ for (const variant of [
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseFileAction(page, editor, 'Import');
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		// Original-file metadata settles after the clip is first published.
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', /./u);
 		await chooseFileAction(page, editor, `Overwrite ${fixture.name}`);
 		await expect.poll(() => page.evaluate(() => globalThis.__originalOverwriteFixture.completed.length)).toBe(1);
 		const bytes = Uint8Array.from(await page.evaluate(() => globalThis.__originalOverwriteFixture.completed[0].bytes));
