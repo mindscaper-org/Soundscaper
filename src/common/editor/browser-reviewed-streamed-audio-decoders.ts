@@ -93,7 +93,7 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 		exported(instance.exports, '_initialize')();
 		if (!(instance.exports.memory instanceof WebAssembly.Memory)
 			|| instance.exports.memory.buffer.byteLength > payload.manifest.maximumMemoryBytes) throw new Error('The reviewed decoder memory is unsupported.');
-		const description = descriptionBytes(this.config.description);
+		const description = descriptionBytes(this.config.description, this.codec);
 		if (this.codec === 'opus' && description.length >= 19) {
 			const head = new DataView(description.buffer);
 			const gain = head.getInt16(16, true);
@@ -163,12 +163,67 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 	}
 }
 
-function descriptionBytes(value: AllowSharedBufferSource | undefined): Uint8Array<ArrayBuffer> {
+function descriptionBytes(value: AllowSharedBufferSource | undefined, codec: AudioCodec): Uint8Array<ArrayBuffer> {
 	if (!value) return new Uint8Array();
 	const bytes = ArrayBuffer.isView(value)
 		? new Uint8Array(value.buffer, value.byteOffset, value.byteLength) : new Uint8Array(value);
-	if (bytes.byteLength > 262_144) throw new Error('The audio decoder configuration exceeds its bound.');
+	if (bytes.byteLength > 262_144) {
+		if (codec === 'vorbis') return compactVorbisDescription(bytes);
+		throw new Error('The audio decoder configuration exceeds its bound.');
+	}
 	return Uint8Array.from(bytes);
+}
+
+/** Xiph configurations include comments, but only identification/setup configure
+ * PCM decoding. Keep album art outside the decoder's existing256KiB ABI bound.
+ */
+function compactVorbisDescription(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+	if (bytes[0] !== 2) throw new Error('The Vorbis decoder configuration has invalid header lacing.');
+	let offset = 1;
+	const lengths: number[] = [];
+	for (let entry = 0; entry < 2; entry++) {
+		let length = 0, value: number;
+		do {
+			if (offset >= bytes.length) throw new Error('The Vorbis decoder configuration has truncated header lacing.');
+			value = bytes[offset++]!; length += value;
+		} while (value === 255);
+		lengths.push(length);
+	}
+	const identificationLength = lengths[0]!;
+	const commentLength = lengths[1]!;
+	const setupOffset = offset + identificationLength + commentLength;
+	if (identificationLength < 1 || setupOffset >= bytes.length
+		|| !validVorbisComment(bytes.subarray(offset + identificationLength, setupOffset))) {
+		throw new Error('The Vorbis decoder configuration has invalid comment geometry.');
+	}
+	const comment = Uint8Array.of(3, 118, 111, 114, 98, 105, 115, 0, 0, 0, 0, 0, 0, 0, 0, 1);
+	const lacing = [2];
+	for (let length of [identificationLength, comment.length]) {
+		while (length >= 255) { lacing.push(255); length -= 255; }
+		lacing.push(length);
+	}
+	const length = lacing.length + identificationLength + comment.length + bytes.length - setupOffset;
+	if (length > 262_144) throw new Error('The audio decoder configuration exceeds its bound.');
+	const result = new Uint8Array(length);
+	result.set(lacing);
+	result.set(bytes.subarray(offset, offset + identificationLength), lacing.length);
+	result.set(comment, lacing.length + identificationLength);
+	result.set(bytes.subarray(setupOffset), lacing.length + identificationLength + comment.length);
+	return result;
+}
+
+function validVorbisComment(bytes: Uint8Array): boolean {
+	if (bytes.length < 16 || bytes[0] !== 3 || String.fromCharCode(...bytes.subarray(1, 7)) !== 'vorbis') return false;
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	let offset = 11 + view.getUint32(7, true);
+	if (offset > bytes.length - 4) return false;
+	const count = view.getUint32(offset, true);
+	offset += 4;
+	for (let index = 0; index < count; index++) {
+		if (offset > bytes.length - 4) return false;
+		offset += 4 + view.getUint32(offset, true);
+	}
+	return offset < bytes.length && Boolean(bytes[offset]! & 1);
 }
 
 function exported(exports: WebAssembly.Exports, name: string): (...values: number[]) => number {
