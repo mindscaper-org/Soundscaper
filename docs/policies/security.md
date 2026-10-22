@@ -819,26 +819,47 @@ accepts only one bounded committed-catalog tag from the same
 own-window/main-frame/document caller, atomically persists only the
 product-private language preference and updates interface copy in place after
 persistence; it exposes no paths, reload or foreign desktop services. Native
-project paths stay main-private. OS-selected .mscape and .scape launch arguments
-admit at most 16 pending/open/active selections; the renderer can only take a
-bounded read capability or acknowledge its exact token. The pending notification
-carries no payload and confers no file authority. Cold startup, second-instance
-arguments and macOS open-file notifications use that same queue; reload or
-renderer loss revokes the current read token and reissues the queued selection.
-Authoring and archive reviews defer additional selections, retain the previous
-document and preserve retryable file release/acknowledgement authority. Project
-file reads and private save publication use the existing closed pathless
-capability methods; unknown or future archives remain exact-byte opaque custody
-without binding an editable native destination. Delivery uses the declared
-native carrier/encoder profile and an explicitly chosen destination, with
-retained cleanup authority when cancellation fails. Documentation and manual
-own-tag update checks open only reviewed fixed-origin links; no automatic
-installer is admitted. Focused Chromium and an actual packaged Linux x64
-executable qualify cold/warm launch, original-file save, collision review,
-opaque custody and reload reissue. Other native targets, installed OS
-association behavior, abrupt process/power loss and signing/update release
-behavior remain unqualified. This development control does not extend the frozen
-Soundscaper/Framescaper family-v1 bridge authority.
+project paths stay main-private. Ordinary File Open admits Adobe .aep and .aepx
+selections through a Motion-only chooser filter and routes their filenames to
+installed-AE bridge guidance without reading project bytes, importing a document
+or replacing its native Save binding. The lazy bridge retains dialog ownership
+until closure, including while its view loads; native release and
+acknowledgement failures retain cleanup authority for retry. OS-selected .mscape
+and .scape launch arguments admit at most 16 pending/open/active selections; the
+renderer can only take a bounded read capability or acknowledge its exact token.
+The pending notification carries no payload and confers no file authority. Cold
+startup, second-instance arguments and macOS open-file notifications use that
+same queue; reload or renderer loss revokes the current read token and reissues
+the queued selection. Authoring and archive reviews defer additional selections,
+retain the previous document and preserve retryable file release/acknowledgement
+authority. Project file reads and private save publication use the existing
+closed pathless capability methods; unknown or future archives remain exact-byte
+opaque custody without binding an editable native destination. Delivery uses the
+declared native carrier/encoder profile and an explicitly chosen destination,
+with retained cleanup authority when cancellation fails. Optional Developer ID
+packaging signs only a temporary copy of the verified Motion helper, requires
+the configured Apple Developer ID Application team and unchanged
+signature-stripped executable contents, and preserves the original compile
+artifact and receipt. A closed payload derivation binds the original digest,
+size and unchanged receipt digest to the signed helper digest and size. Only
+that helper and its payload inventory are repinned; the packaging process
+retains exact signed-stage authority and refuses later stage or
+packaged-resource drift. Before issuing a native target receipt, the target
+qualifier independently verifies the actual packaged helper signature and
+compares its stripped executable with the verified original. Aggregate release
+assembly validates the closed provenance tuple and relies on artifacts produced
+by the source-bound native target jobs in the same workflow run; the JSON
+derivation alone grants no signing authority. Windows packaging excludes only
+the Motion helper from the builder extra-resource signing transform so its
+independently verified compile bytes remain exact; the configured application
+and installer signing paths remain enabled. Documentation and manual own-tag
+update checks open only reviewed fixed-origin links; no automatic installer is
+admitted. Focused Chromium and an actual packaged Linux x64 executable qualify
+cold/warm launch, original-file save, collision review, opaque custody and
+reload reissue. Other native targets, installed OS association behavior, abrupt
+process/power loss and signing/update release behavior remain unqualified. This
+development control does not extend the frozen Soundscaper/Framescaper family-v1
+bridge authority.
 <!-- /policy-narrative:isolated-motion-desktop-capabilities -->
 
 ### Desktop download release lookup

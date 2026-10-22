@@ -245,10 +245,52 @@ edits, Undo/Redo, native binding and no reload. All 18 recorded browser process
 births are absent; scoped strict types, changed-file lint, size and whitespace
 checks also pass, with all eight recorded check process births absent.
 
-Only the browser test and checkpoint documentation change after that production
-build. Fresh complete static, Node and browser gates remain pending on the final
-committed source. Mocked browser IPC does not qualify actual Electron persistence
-or native-menu behavior.
+The locale browser scenarios retain their actual `240929222` production build
+and the exact readiness-test patch. The subsequent corrections below require a
+fresh production build and complete gates on the final committed source. Mocked
+browser IPC does not qualify actual Electron persistence or native-menu behavior.
+
+The completion review at `d7a1ce091` found missing native Adobe Open routing and
+credentialed Mac helper signing. Its complete static attempt was deliberately
+canceled before source edits, with original terminal code 125. All 41 recorded
+process births are absent and all 1,185 preserved output records remain verified;
+this is an incomplete gate, with no OOM or leak cause claimed. Further packaging
+review also confirmed a Windows helper mutation before resource verification.
+
+`db7eaf1f9` routes native `.aep` and `.aepx` selections to the existing bridge
+using only their filenames. It preserves dirty state, Undo, native Save binding
+and retryable release/acknowledgement ownership. An explicit bridge fence defers
+queued native opens through lazy loading and dialog closure. All 31 focused
+checks pass with zero skips; both routing and mounted-runtime regressions first
+fail on the old implementation. Two earlier runtime-harness failures remain
+retained separately. The added browser cases and the same-dialog Adobe-to-JSON
+transition assertion still require a fresh build and actual browser execution.
+
+`92d79e5ca` signs a temporary copy of only the admitted Mac helper, verifies
+Developer ID and the configured team, and checks signature-stripped executable
+equivalence before replacing staged bytes. Its closed signed derivation preserves
+the original compile receipt. The native target qualifier independently verifies
+the actual packaged helper before issuing a receipt; aggregate assembly validates
+the provenance tuple and relies on the source-bound native target artifacts from
+the same workflow run. JSON alone grants no signing authority. The initial 30 focused
+checks and scoped strict types pass. Changed lint first rejects two cleanup
+handlers; their correction passes all 21 directly affected signing checks,
+strict types and the maintained changed-file lint gate. Earlier failed attempts
+remain retained. These controlled fixtures do not qualify actual Mac signing.
+
+`5ba96c4a7` excludes only the Motion helper from the Windows builder's resource
+signing transform. Its compiled bytes remain exact while application, installer,
+uninstaller and other-executable signing stay configured. Eight focused checks
+and scoped strict types pass, using the installed builder predicate and copier;
+the initial private-import harness failure remains retained. This is no actual
+Windows certificate/Azure or installation qualification.
+
+Motion policy checks, scoped Node/browser types, file-size checks, derived security
+narratives, runtime evidence pins and whitespace checks pass for these corrections.
+The failed first changed-lint batch and its successful successor each close with
+all 18 recorded process births absent. The owning development policies retain
+partial qualification. Fresh complete static, Node and browser gates remain
+pending; no milestone is accepted and no AI runtime asset update is required.
 
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
