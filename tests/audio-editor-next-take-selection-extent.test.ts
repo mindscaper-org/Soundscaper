@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
@@ -31,6 +32,7 @@ for (const mode of ['all', 'track', 'long'] as const) test(`NP009: ${mode} selec
 	controller.actions.edit.copy();
 	await controller.actions.project.create({ title: 'Destination' });
 	await controller.actions.edit.paste();
-	assert.equal(controller.project?.takeGroups.length, 1);
-	assert.equal(controller.project?.takeGroups[0]?.takes[0]?.sourceId, source.id);
+	const pasted: unknown = controller.project; assert.ok(validateSoundscaperProject(pasted));
+	assert.equal(pasted.takeGroups.length, 1);
+	assert.equal(pasted.takeGroups[0]?.takes[0]?.sourceId, source.id);
 });

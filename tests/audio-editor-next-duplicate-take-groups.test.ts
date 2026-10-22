@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
@@ -22,9 +23,9 @@ test('NP008: Duplicate track retains unflattened recorded takes and the selected
 		takeGroups: [{ id: 'group', sequenceId: 'main', trackId: 'voice', startSample: 0, endSample: 4800,
 			laneOrder: ['lane'], lanes: [{ id: 'lane' }], takes: [{ id: 'take', laneId: 'lane', sourceId: source.id, startSample: 0, endSample: 4800, sourceStartSample: 0 }],
 			compRegions: [{ id: 'region', takeId: 'take', startSample: 0, endSample: 4800 }] }] }));
-	const original = controller.project; assert.ok(original);
+	const original: unknown = controller.project; assert.ok(validateSoundscaperProject(original));
 	controller.actions.track.duplicate('voice');
-	const duplicated = controller.project; assert.ok(duplicated);
+	const duplicated: unknown = controller.project; assert.ok(validateSoundscaperProject(duplicated));
 	const targetId = controller.getSnapshot().selectedTrackId; assert.ok(targetId && targetId !== 'voice');
 	assert.equal(duplicated.takeGroups.length, 2, 'the copy must carry the recorded audio that has no ordinary clip yet');
 	const group = duplicated.takeGroups.find(item => item.trackId === targetId); assert.ok(group);
