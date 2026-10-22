@@ -387,7 +387,7 @@ function timeSelectionRegion(
  */
 function labelTrackFrom(project: ControllerProject, focused: ControllerTrack | null): ControllerTrack | null {
 	const members = sequenceTrackMembers(project, focused?.id);
-	const labelTracks = project.tracks.filter((track) => track.type === 'label' && (!members || members.has(track.id)));
+	const labelTracks = project.tracks.filter((track) => track.type === 'label' && !track.locked && (!members || members.has(track.id)));
 	const start = focused ? project.tracks.indexOf(focused) : 0;
 	const below = labelTracks.find((track) => project.tracks.indexOf(track) >= start);
 	return below ?? labelTracks.at(-1) ?? null;
