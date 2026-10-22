@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { retimedClipSourceStretchFields } from '../clip-source-stretch-memory.ts';
 import { clipsOverlap } from '../project.js';
 import { hasSequenceGeometryProjectAuthority } from '../project-schema-version.ts';
 import { scaleClipboardClip } from './clipboard-clip-scaling-runtime.js';
@@ -62,10 +63,13 @@ export function stageClipboardClipAdditions(
 			const id = command.clipIds?.[key];
 			if (!id) throw new TypeError(`A stable pasted clip ID is required for ${key}.`);
 			if (clipIds.has(id)) throw new RangeError(`Duplicate clip ID: ${id}.`);
-			const clip = normalizeClipForProject(project, scaleClip(
+			const scaled = scaleClip(
 				descriptor, scale, atFrame, id, command.groupIds || {}, command.avLinkIds || {},
 				command.videoEffectIds?.[key], targetSequence, conformedAnchor,
-			)) as Clip;
+			);
+			const clip = normalizeClipForProject(project, { ...scaled,
+				...retimedClipSourceStretchFields(descriptor, Number(project.sampleRate), clipboard.sampleRate),
+			}) as Clip;
 			assertSourceBounds(project, clip, sources.get(clip.sourceId));
 			if (mode === 'reject' && clipIndex) {
 				let existing = existingByTrack.get(targetTrack.id);
