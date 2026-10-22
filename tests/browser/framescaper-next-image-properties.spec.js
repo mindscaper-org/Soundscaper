@@ -23,10 +23,11 @@ for (const kind of ['image', 'generator']) for (const entry of ['Window', 'clip 
 	await showClipTimingFields(panel);
 	const duration = panel.getByRole('group', { name: 'Duration', exact: true });
 	await expect(duration.locator('.timecode-digit')).toHaveText([...'000005000']);
-	await duration.locator('.timecode-digit').nth(5).click(); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter');
-	await expect(duration.locator('.timecode-digit')).toHaveText([...'000006000']);
-	if (kind === 'image') {
-		await chooseNestedCommandAction(page, editor, 'Edit', ['Undo']);
-		await expect(duration.locator('.timecode-digit')).toHaveText([...'000005000']);
-	}
+	const before = await clip.boundingBox(); expect(before).not.toBeNull();
+	await duration.locator('.timecode-digit').nth(5).click();
+	await page.keyboard.press(kind === 'image' ? 'ArrowUp' : 'ArrowDown'); await page.keyboard.press('Enter');
+	await expect(duration.locator('.timecode-digit')).toHaveText([...kind === 'image' ? '000006000' : '000004000']);
+	await expect.poll(async () => (await clip.boundingBox())?.width).toBeCloseTo(before.width * (kind === 'image' ? 1.2 : 0.8), 0);
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Undo']);
+	await expect(duration.locator('.timecode-digit')).toHaveText([...'000005000']);
 });
