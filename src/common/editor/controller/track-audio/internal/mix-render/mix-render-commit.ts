@@ -7,6 +7,8 @@ import {
 	createMoveTrackNodeCommand,
 } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
+import { duplicateTrackAdmCommands } from '../../../../derived-track-adm.ts';
+import { combinedAdmMixCommands } from './mix-render-adm.ts';
 import { isSoundscaperProductionProject } from '../../../../project-schema-version.ts';
 import { v21StripLaneRemovalCommands } from '../../mix-render-model.ts';
 import type { NormalizedMixRenderOptions } from '../../mix-render-options.ts';
@@ -74,6 +76,8 @@ export function prepareMixRenderOperationCommit(
 			);
 		}
 	}
+	if (options.mixDown) commands.push(...combinedAdmMixCommands(project, outputs[0]!.targetTracks, results[0]!.trackId, options));
+	else if (!options.replaceOriginals) commands.push(...duplicateTrackAdmCommands(project, routingCopies, runtime.createId));
 	commands.push(selectionCommand(project, results.map(({ trackId }) => trackId)));
 	return Object.freeze({
 		type: 'mix-render',

@@ -32,6 +32,7 @@ import {
 	createNormalizingMixRenderPacketSink,
 	normalizeMixRenderChannels,
 } from './mix-render-channel-normalizer.ts';
+import { authoredMixRenderAdm } from './mix-render-adm.ts';
 import { assertMixRenderPreflight } from './mix-render-operation-model.ts';
 import {
 	normalizeMixRenderOptions,
@@ -153,6 +154,7 @@ interface MixRenderJob {
 	readonly plan: NonNullable<ReturnType<typeof createMixRenderPlan>>;
 	readonly name: string;
 	readonly sourceName: string;
+	readonly includeTrackPan: boolean;
 }
 
 export function createMixRenderService(
@@ -199,7 +201,7 @@ export function createMixRenderService(
 				let renderedSource: DerivedSourceRecord;
 				if (job.plan.streamToStorage) {
 					renderedSource = await persistStreamedMixSource(
-						job.renderProject, job.sourceName, job.plan, ownership, provenance,
+						job.renderProject, job.sourceName, job.plan, ownership, job.includeTrackPan, provenance,
 					);
 				} else {
 					const rendered = await dependencies.renderSnapshot(job.renderProject, {
@@ -208,7 +210,7 @@ export function createMixRenderService(
 						includeTail: job.plan.tailFrames
 							? job.plan.tailFrames / project.sampleRate : false,
 						includeMaster: false,
-						includeTrackPan: true,
+						includeTrackPan: job.includeTrackPan,
 						respectMuteSolo: false,
 						preRollFrames: job.plan.preRollFrames,
 					});
@@ -304,6 +306,7 @@ export function createMixRenderService(
 					: `${jobTracks[0]!.name} — Rendered`;
 			return Object.freeze({
 				targetTracks: jobTracks,
+				includeTrackPan: options.mixDown || authoredMixRenderAdm(project) === null,
 				renderProject,
 				plan,
 				name,
@@ -353,6 +356,7 @@ export function createMixRenderService(
 			outputChannelCount: number;
 		}>,
 		ownership: MixOwnership,
+		includeTrackPan: boolean,
 		provenance?: SourceProvenanceV1,
 	): Promise<DerivedSourceRecord> {
 		const sampleRate = project.sampleRate;
@@ -386,7 +390,7 @@ export function createMixRenderService(
 				endFrame: plan.endFrame,
 				includeTail: plan.tailFrames ? plan.tailFrames / sampleRate : false,
 				includeMaster: false,
-				includeTrackPan: true,
+				includeTrackPan,
 				respectMuteSolo: false,
 				preRollFrames: plan.preRollFrames,
 				outputFrames: plan.outputFrames,

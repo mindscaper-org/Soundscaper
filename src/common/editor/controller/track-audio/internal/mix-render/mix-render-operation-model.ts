@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { assertCombinedAdmMixRepresentable } from './mix-render-adm.ts';
 import type { NormalizedMixRenderOptions } from '../../mix-render-options.ts';
 import {
 	findControllerClip,
@@ -13,6 +14,7 @@ export function assertMixRenderPreflight(
 	targetTracks: readonly ControllerTrack[],
 	options: Readonly<NormalizedMixRenderOptions>,
 ): void {
+	assertCombinedAdmMixRepresentable(project, targetTracks, options);
 	if (!options.replaceOriginals) return;
 	const locked = targetTracks.find((track) => track.locked === true);
 	if (locked) throw new Error(`Mix and Render cannot replace locked track ${locked.name}.`);
