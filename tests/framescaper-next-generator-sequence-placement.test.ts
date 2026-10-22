@@ -8,6 +8,7 @@ import { createFramescaperEditorProjectEnvironment } from '../src/framescaper/ed
 import { framescaperCandidateAuthoringActionRuntimeFor } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
 import { createFramescaperFixtureController } from './helpers/framescaper-controller-project-fixture.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { normalizeVideoGeneratorClipV1 } from '../src/common/editor/video-visual-model-v24.ts';
 
 for (const rate of [25, 60]) for (const selected of [true, false]) test(`${selected ? 'Selected' : 'Default'} track owns direct title generation beside ${rate}fps media`, async context => {
 	const clip = { schemaVersion: 1, kind: 'generator', id: 'placed', sourceId: 'source', sequenceId: 'cut',
@@ -31,7 +32,7 @@ for (const rate of [25, 60]) for (const selected of [true, false]) test(`${selec
 	const before = controller.project; assert.ok(before);
 	const runtime = framescaperCandidateAuthoringActionRuntimeFor(controller); assert.ok(runtime);
 	await runtime.run('video-title');
-	const added = controller.project?.clips.find(value => value.id !== 'placed'); assert.ok(added && added.kind === 'generator');
+	const added = normalizeVideoGeneratorClipV1(controller.project?.clips.find(value => value.id !== 'placed'));
 	assert.equal(added.sequenceId, selected ? 'cut' : 'main');
 	assert.equal(added.sequenceStartFrame, selected ? rate * 6 : 0);
 	assert.equal(added.sequenceFrameCount, selected ? rate * 5 : 150);
