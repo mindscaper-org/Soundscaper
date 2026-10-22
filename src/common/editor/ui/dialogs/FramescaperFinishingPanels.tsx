@@ -155,7 +155,7 @@ export function MotionAnalysisControls(props: Readonly<{
 			<label><span>{text(props.copy, 'motionAnalysisEndFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisEndFrame)}</span>
 				<MotionSourceFrameTimeCodeField label={text(props.copy, 'motionAnalysisEndFrame', FRAMESCAPER_FINISHING_ADDITIONAL_COPY.motionAnalysisEndFrame)}
 					value={props.endFrame} source={props.source} sampleRate={props.sampleRate ?? 48_000}
-					minimum={props.startFrame + 1} maximum={props.target?.endFrame ?? 1}
+					minimum={props.startFrame + 1} maximum={Number(record(props.source).sourceFrameCount)}
 					disabled={props.blocked} onChange={props.onEndFrame} /></label>
 			<p role="status">{freshnessLabel(props.copy, props.target?.freshness ?? 'missing')}</p>
 			<button type="button" data-framescaper-motion-analyze disabled={props.blocked} onClick={props.onAnalyze}>{
