@@ -81,9 +81,26 @@ test('renders an imported native image sequence through the pathless desktop dec
 	expect(clientErrors).toEqual([]);
 });
 
-async function installNativeImageSequenceFixture(page) {
+test('native image sequence picker cancellation returns to ready without reporting a completed import', async ({ page }) => {
+	await installNativeImageSequenceFixture(page, true);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await expect.poll(() => page.evaluate(() => globalThis.__nativeSequenceJourney.snapshots)).toBeGreaterThan(0);
+	await chooseCommandAction(page, editor, 'File', 'Image sequence', WORKFLOW);
+	const dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+	const action = dialog.locator('[data-framescaper-native-project-action="image-sequence-import"]');
+	const status = action.locator('xpath=ancestor::section[1]').getByRole('status');
+	const ready = await status.textContent();
+	await action.click();
+	await expect(status).toHaveText(ready, WORKFLOW);
+	await expect(status).not.toContainText(/complete/iu);
+	await expect(action).toBeEnabled();
+	await expect(editor.locator('[data-project-bin-item]')).toHaveCount(0);
+	expect(await page.evaluate(() => globalThis.__nativeSequenceJourney.importOperations)).toEqual([]);
+});
+
+async function installNativeImageSequenceFixture(page, cancelImageSelection = false) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(() => {
+	await page.addInitScript((cancelImageSelection) => {
 		const FRAME_COUNT = 2;
 		const WIDTH = 2;
 		const HEIGHT = 2;
@@ -163,7 +180,7 @@ async function installNativeImageSequenceFixture(page) {
 				hardwareEncodeEnabled: false,
 				ofxConsentEnabled: false,
 			}),
-			selectImageSequence: async () => ({
+			selectImageSequence: async () => cancelImageSelection ? null : ({
 				selectionId: 'c'.repeat(40),
 				files: sourceFrames.map(({ fileId, name, bytes }) => ({
 					fileId, name, byteLength: bytes.byteLength,
@@ -328,5 +345,5 @@ async function installNativeImageSequenceFixture(page) {
 				}),
 			}),
 		});
-	});
+	}, cancelImageSelection);
 }

@@ -113,7 +113,7 @@ export function bindDeferredFramescaperNativeRenderQueueActionNativeMedia(
 	const loadAction = retryableRenderQueueActionLoader(profile, owner, loadModule);
 	const runtime = createFramescaperNativeProjectActionSubsetRuntime(RENDER_QUEUE_SURFACES, {
 		'render-queue-enqueue': async (request) => {
-			await (await loadAction()).run('render-queue-enqueue', request);
+			return await (await loadAction()).run('render-queue-enqueue', request);
 		},
 	});
 	bindFramescaperNativeCarrierRegeneration(runtime, async (jobId) => {
@@ -139,7 +139,7 @@ export function bindDeferredFramescaperNativeImageSequenceActionNativeMedia(
 	const loadAction = retryableImageSequenceActionLoader(options, loadModule);
 	const deferred = createFramescaperNativeProjectActionSubsetRuntime(IMAGE_SEQUENCE_SURFACES, {
 		'image-sequence-import': async (request) => {
-			await (await loadAction()).run('image-sequence-import', request);
+			return await (await loadAction()).run('image-sequence-import', request);
 		},
 	});
 	const runtime = composeFramescaperNativeProjectActionRuntimes([existing, deferred]);

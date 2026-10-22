@@ -9,6 +9,7 @@ import {
 	createFramescaperNativeProjectActionSubsetRuntime,
 	framescaperNativeProjectActionRuntimeFor,
 	type FramescaperNativeProjectActionRuntime,
+	type FramescaperNativeProjectActionResult,
 } from '../common/editor/ui/framescaper-native-project-actions.ts';
 import {
 	createFramescaperImageSequenceProductionPortsProfessionalMedia,
@@ -110,7 +111,7 @@ async function importCurrentSequence(
 	options: BindFramescaperNativeImageSequenceActionNativeMediaOptions,
 	mintId: () => string,
 	request: FramescaperNativeImageSequenceImportRequestNativeMedia,
-): Promise<void> {
+): Promise<FramescaperNativeProjectActionResult> {
 	const project = cloneFramescaperProjectNativeMedia(options.profile, options.owner.project);
 	const activation = options.owner.captureProjectGeneration?.();
 	const bridge = exactBridge(options.bridge);
@@ -121,18 +122,23 @@ async function importCurrentSequence(
 	});
 	const sourceId = stableId(mintId(), 'source ID');
 	const projectBinClipId = stableId(mintId(), 'Project Bin clip ID');
+	let cancelled = false;
 	await composeFramescaperImageSequenceImport({
 		profile: options.profile,
 		project,
-		select: () => selectFramescaperDesktopImageSequenceProfessionalMedia({
-			bridge, sourceId, projectBinClipId, name: 'Image-Sequence',
-			frameRate: request.frameRate,
-		}),
+		select: async () => {
+			const selected = await selectFramescaperDesktopImageSequenceProfessionalMedia({
+				bridge, sourceId, projectBinClipId, name: 'Image-Sequence', frameRate: request.frameRate,
+			});
+			cancelled = selected === null;
+			return selected;
+		},
 		ports,
 		commit: (source, projectBinClip) => commitImportedSequence(
 			options, project, ports, source, projectBinClip, activation,
 		),
 	});
+	if (cancelled) return Object.freeze({ cancelled: true });
 }
 
 async function commitImportedSequence(
@@ -341,12 +347,12 @@ function assertOptions(options: BindFramescaperNativeImageSequenceActionNativeMe
 	exactBridge(options.bridge);
 }
 
-function serialize<Request>(
-	operation: (request: Request) => Promise<void>,
-): (request: Request) => Promise<void> {
+function serialize<Request, Result>(
+	operation: (request: Request) => Promise<Result>,
+): (request: Request) => Promise<Result> {
 	let tail = Promise.resolve();
 	return (request) => {
-		const run = (): Promise<void> => operation(request);
+		const run = (): Promise<Result> => operation(request);
 		const result = tail.then(run, run);
 		tail = result.then(() => undefined, () => undefined);
 		return result;

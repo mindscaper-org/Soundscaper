@@ -409,7 +409,7 @@ test('a cancelled picker imports nothing and never opens a transaction', async (
 	const fixture = harness();
 	fixture.state.selection = null;
 
-	await fixture.run(fixture.runtime());
+	assert.deepEqual(await fixture.run(fixture.runtime()), { cancelled: true });
 
 	assert.deepEqual(fixture.operations(), []);
 	assert.deepEqual(fixture.commands, []);

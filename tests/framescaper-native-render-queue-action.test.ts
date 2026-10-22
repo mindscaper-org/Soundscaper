@@ -143,7 +143,7 @@ test('an operator who declines the destination root leaves nothing enqueued', as
 	});
 	const runtime = createRuntime(PROFILE, owner() as never) as unknown as Data;
 
-	await assert.doesNotReject(() => enqueue(runtime));
+	assert.deepEqual(await enqueue(runtime), { cancelled: true });
 	assert.equal(enqueued, 0, 'a declined root must not queue work');
 });
 
