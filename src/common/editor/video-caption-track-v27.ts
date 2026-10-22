@@ -124,6 +124,9 @@ const CUE_FIELDS = Object.freeze([
 const WORD_FIELDS = Object.freeze(['startFrame', 'endFrame', 'text']);
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const LANGUAGE = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8}){0,8}$/u;
+const PRIVATE_LANGUAGE = /^x(?:-[A-Za-z0-9]{1,8}){1,8}$/iu;
+// RFC 5646's fixed irregular registrations with the one-letter i prefix.
+const GRANDFATHERED_LANGUAGE = /^i-(?:ami|bnn|default|enochian|hak|klingon|lux|mingo|navajo|pwn|tao|tay|tsu)$/iu;
 const COLOR = /^#[a-f0-9]{8}$/u;
 const UNSAFE_TEXT = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 
@@ -340,7 +343,7 @@ function optionalId(value: unknown, name: string): string | null {
 }
 
 function language(value: unknown): string {
-	if (typeof value !== 'string' || !LANGUAGE.test(value)) {
+	if (typeof value !== 'string' || ![LANGUAGE, PRIVATE_LANGUAGE, GRANDFATHERED_LANGUAGE].some(pattern => pattern.test(value))) {
 		throw new TypeError('Caption track language must be a bounded BCP 47 language tag.');
 	}
 	return value;
