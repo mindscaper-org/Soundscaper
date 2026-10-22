@@ -306,7 +306,7 @@ export function createClipboardEditService(
 					name: clipboardTrack.sourceTrackName
 						|| `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + addedTrackCount}`,
 					laneGroupId,
-				}),
+				}, project.sampleRate),
 				...(placement === null ? {} : {
 					...(placement.sequenceId === project.primarySequenceId ? {} : { sequenceId: placement.sequenceId }),
 					...(project.trackFolders?.length ? { parentFolderId: placement.parentFolderId } : {}),
