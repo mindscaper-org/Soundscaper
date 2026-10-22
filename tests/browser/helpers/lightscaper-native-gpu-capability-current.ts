@@ -1,11 +1,27 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { build } from 'esbuild';
+import { fileURLToPath } from 'node:url';
+import type { probeNativeGpuConformanceCurrentV1 } from './lightscaper-native-gpu-capability-reference-current.ts';
+
+let nativeProgram: Promise<string> | undefined;
+function productionConformanceProgram(): Promise<string> {
+	nativeProgram ??= build({
+		entryPoints: [fileURLToPath(new URL('./lightscaper-native-gpu-capability-reference-current.ts', import.meta.url))],
+		bundle: true, platform: 'browser', format: 'iife', globalName: 'NativeGpuConformanceCurrent',
+		target: 'es2022', write: false, sourcemap: false, logLevel: 'silent',
+	}).then((result) => {
+		if (result.outputFiles.length !== 1) throw new Error('Native capability canary must remain one private program.');
+		return result.outputFiles[0]!.text;
+	});
+	return nativeProgram;
+}
 
 /** Capability qualification is an actual native observation, never an engine
  * name. The pinned software target must provide it; ordinary hosts may lack it. */
 export async function requireNativeGpuCapabilityCurrentV1(page: Page, info: TestInfo, level: 'webgl2' | 'float32' = 'float32') {
-	const capability = await page.evaluate(level => {
+	let capability: { supported: boolean; reason: string | null; renderer: string | null } = await page.evaluate(level => {
 		const canvas = document.createElement('canvas');
 		const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false });
 		if (!gl) return { supported: false, reason: 'context-unavailable', renderer: null };
@@ -31,6 +47,16 @@ export async function requireNativeGpuCapabilityCurrentV1(page: Page, info: Test
 			expected.fill(0); actual.fill(0); gl.getExtension('WEBGL_lose_context')?.loseContext(); canvas.width = 0; canvas.height = 0;
 		}
 	}, level);
+	if (capability.supported && level === 'float32') {
+		// Clear/readPixels alone does not establish the production shader's Float32
+		// copy/arithmetic contract. Run its actual owner without navigating, adding
+		// routes, or contributing synthetic source URLs to built GPU coverage.
+		const source = await productionConformanceProgram();
+		const actual = await page.evaluate<Awaited<ReturnType<typeof probeNativeGpuConformanceCurrentV1>>>(
+			`(() => { ${source}\nreturn NativeGpuConformanceCurrent.probeNativeGpuConformanceCurrentV1(); })()`,
+		);
+		capability = { ...capability, ...actual };
+	}
 	info.annotations.push({ type: 'actual-native-gpu-capability', description: JSON.stringify({ level, ...capability }) });
 	if (info.project.name === 'lightscaper-software-gpu') {
 		expect(capability.supported, `Mandatory pinned native capability: ${capability.reason}`).toBe(true);
