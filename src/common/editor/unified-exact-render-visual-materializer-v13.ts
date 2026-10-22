@@ -18,6 +18,7 @@ import {
 	type SoundVisualizerRgbaRequest,
 } from './sound-visualizer-rgba.ts';
 import { renderVideoNoiseRgba, renderVideoTestImageRgba } from './video-test-image-noise-rgba.ts';
+import { decodeManagedSdrOutputPixelV1, encodeManagedSdrLinearPixelV1 } from './video-color-management-v27.ts';
 
 export type UnifiedExactRenderVisualRgbaV13 = VideoMaskMatteRgbaInputV13;
 
@@ -125,6 +126,7 @@ function drawShape(
 	const bottom = height - marginY;
 	const fill = document.fillColor === null ? null : color(document.fillColor);
 	const stroke = document.strokeColor === null || document.strokeWidth === 0 ? null : color(document.strokeColor);
+	const filledStroke = stroke && fill ? strokeOverFill(stroke, fill) : stroke;
 	const strokeWidth = Math.max(1, Math.round(document.strokeWidth * width / 1_920));
 	for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
 		let inside = false;
@@ -143,9 +145,24 @@ function drawShape(
 			const expected = top + (x - left) * (bottom - top) / Math.max(1, right - left);
 			boundary = x >= left && x < right && Math.abs(y - expected) <= strokeWidth;
 		}
-		if (boundary && stroke) writePixel(pixels, width, x, y, stroke);
+		if (boundary && stroke) writePixel(pixels, width, x, y, inside ? filledStroke! : stroke);
 		else if (inside && fill) writePixel(pixels, width, x, y, fill);
 	}
+}
+
+/** Paint the stroke over its fill in the same linear working space as the programme. */
+function strokeOverFill(
+	stroke: readonly [number, number, number, number],
+	fill: readonly [number, number, number, number],
+): readonly [number, number, number, number] {
+	const upper = decodeManagedSdrOutputPixelV1(stroke.map(value => value / 255), 'srgb');
+	const lower = decodeManagedSdrOutputPixelV1(fill.map(value => value / 255), 'srgb');
+	const lowerAlpha = lower[3] * (1 - upper[3]);
+	const alpha = upper[3] + lowerAlpha;
+	if (alpha === 0) return [0, 0, 0, 0];
+	const channel = (index: 0 | 1 | 2): number => (upper[index] * upper[3] + lower[index] * lowerAlpha) / alpha;
+	const output = encodeManagedSdrLinearPixelV1([channel(0), channel(1), channel(2), alpha], 'srgb');
+	return [Math.round(output[0] * 255), Math.round(output[1] * 255), Math.round(output[2] * 255), Math.round(output[3] * 255)];
 }
 
 function drawText(
