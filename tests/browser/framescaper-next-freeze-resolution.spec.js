@@ -6,9 +6,11 @@ import { videoPreviewBenchmarkMedia } from './fixtures/video-preview-benchmark-m
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
 import { hasDurableMediaStorageCapability } from './helpers/durable-media-storage-capability.js';
+import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 
 test('permanent programme freeze dimensions do not depend on preview quality', async ({ page }) => {
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	test.skip(!await page.evaluate(hasWebGl2Capability), 'Exact composited Freeze requires WebGL2.');
 	test.skip(!await page.evaluate(hasDurableMediaStorageCapability, 'indexeddb-only'), 'PNG freeze storage requires durable IndexedDB Blob support.');
 	await editor.locator('[data-project-bin-input]').setInputFiles(videoPreviewBenchmarkMedia.file);
 	const card = editor.locator('[data-project-bin-item]').first(); await expect(card).toBeVisible();
