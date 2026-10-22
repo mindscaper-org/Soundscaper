@@ -38,3 +38,18 @@ for (const kind of ['wave', 'aifc'] as const) {
 		assert.equal(frames, expected.frameCount);
 	});
 }
+
+test('Freesound recovers a valid source rate the native decode context cannot open', async () => {
+	const bytes = encodeWav([Float32Array.of(0, .25, -.5, .75)], { sampleRate: 1_000, bitDepth: 16 });
+	const output = await prepareFreesoundUploadFile(new File([Uint8Array.from(bytes).buffer], 'measurement.wave'), undefined, {
+		createDecodeContext: options => {
+			assert.equal(options.sampleRate, 1_000);
+			throw new DOMException('The requested sampleRate is unsupported.', 'NotSupportedError');
+		},
+	});
+	const descriptor = await inspectWavBlobPcm(output);
+	assert.equal(descriptor.sampleRate, 1_000);
+	assert.equal(descriptor.channelCount, 1);
+	assert.equal(descriptor.frameCount, 4);
+	assert.equal(descriptor.bitDepth, 24);
+});
