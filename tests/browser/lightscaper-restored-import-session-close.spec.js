@@ -5,7 +5,7 @@ import { expect, installNativeImageHandoffRuntime, qualifyNativePhotoRestoredImp
 
 const PHASES = ['intent', 'original', 'stage', 'publish', 'promote', 'retire'];
 const CUTS = ['mutation-success', 'completed-ack'];
-const MUTATIONS = { intent: 'settings.put', original: 'mediaAssets.add', stage: 'catalogOriginalRoots.put',
+const MUTATIONS = { intent: 'settings.put', original: 'mediaAssets.put', stage: 'catalogOriginalRoots.put',
 	publish: 'photos.put', promote: 'catalogOriginalRoots.put', retire: 'settings.delete' };
 // Digest of the distinct encoded 2×3 PNG, independent of production hashing.
 const CURRENT_SHA256 = 'fdfe0f7d2f827ae8200625a0d5f4c21ee47a2e037b6f6a22fcd36c5012e5614c';
@@ -55,7 +55,7 @@ for (const phase of PHASES) for (const boundary of CUTS) {
 		expect(result.donor).toEqual({ catalogExact: true, photoExact: true, originalMetadataExact: true,
 			originalRecordExact: true, custodyExact: true, bytesExact: true, cacheExact: true });
 		expect(result.resources).toEqual({ developPresetExact: true, disabledLutBodyExact: true, disabledLutReferenceExact: true });
-		expect(result.current).toMatchObject({ storage: expected.body ? 'indexeddb-blob' : null, path: null,
+		expect(result.current).toMatchObject({ storage: expected.body ? 'indexeddb-media-chunks-v1' : null, path: null,
 			photoSchemaVersion: expected.photo ? 2 : null, processVersion: expected.photo ? 2 : null,
 			photoAndRecipeExact: true, metadataOptionsExact: true, bytesExact: true, custodyExact: true });
 		expect(result.current.contentToken).toEqual(expected.body ? expect.any(String) : null);

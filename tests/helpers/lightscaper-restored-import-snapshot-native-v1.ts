@@ -3,6 +3,9 @@
 import { openDatabase, request, transact } from '../../src/common/editor/storage/indexeddb-backend.ts';
 import { normalizeCatalogOriginalRoot, type CatalogOriginalReferenceV1 } from '../../src/common/editor/storage/media-catalog-original-schema.ts';
 import type { StorageRecord } from '../../src/common/editor/storage/media-records.ts';
+import { mediaAssetChunkKey } from '../../src/common/editor/storage/media-asset-chunk-records.ts';
+import { MEDIA_ASSET_CHUNK_STORAGE_TYPE, MEDIA_ASSET_STREAM_CHUNK_BYTES } from '../../src/common/editor/storage/media-asset-chunk-schema.ts';
+import { isMediaContentToken } from '../../src/common/editor/storage/media-content-provenance.ts';
 import type { VideoCubeLutReferenceV1 } from '../../src/common/editor/video-color-cube-lut-v27.ts';
 import { openPhotoCatalogDatabaseV1 } from '../../src/lightscaper/catalog/catalog-database.ts';
 import { normalizePhotoDocumentV1OrV2 } from '../../src/lightscaper/catalog/photo-document-v2.ts';
@@ -47,7 +50,8 @@ export async function readRestoredImportSnapshotNativeV1(factory: IDBFactory, se
 		databaseName: location.mediaDatabaseName, preferOpfs: selected.allocation === null });
 	const catalog = new PhotoCatalogRepositoryV2({ indexedDB: factory, databaseName: location.catalogDatabaseName, verifyOriginal: media.verifyOriginal,
 		verifyResources: async (photo, signal) => { await (await media.getCubeLutResources()).verifyPhoto(photo, signal); } });
-	const result = await nativeOutcomeV1(read()), failures: unknown[] = [];
+	const physicalCopies: Uint8Array[] = [], result = await nativeOutcomeV1(read()), failures: unknown[] = [];
+	for (const bytes of physicalCopies) { try { bytes.fill(0); } catch (error) { failures.push(error); } }
 	// A default snapshot really opens an original-file worker. Join its ordinary
 	// companion before retiring that owner, including when the read failed.
 	if (selected.allocation === null) { try { await companion(); } catch (error) { failures.push(error); } }
@@ -92,18 +96,25 @@ export async function readRestoredImportSnapshotNativeV1(factory: IDBFactory, se
 			'Full native query build counts or cursor disagree with the complete tiny Photo inventory.');
 		const prior = photos.find(photo => photo.id === priorId), current = photos.find(photo => photo.id !== priorId) ?? null;
 		nativeCheckV1(prior !== undefined && prior.schemaVersion === 1 && prior.versions[0]?.develop.processVersion === 1, 'Actual donor must remain a complete process-one Photo.');
-		const raw = await database(location.mediaDatabaseName, ['mediaAssets', 'catalogOriginalRoots', 'videoDerivatives', 'videoDerivativeCacheEntries'], async stores => {
+		const raw = await database(location.mediaDatabaseName, ['mediaAssets', 'mediaAssetChunks', 'catalogOriginalRoots', 'videoDerivatives', 'videoDerivativeCacheEntries'], async stores => {
+			const chunks = await request(store(stores, 'mediaAssetChunks').getAll(undefined, 3)) as Record<string, unknown>[];
+			for (const chunk of chunks) if (chunk.payloadBytes instanceof ArrayBuffer) physicalCopies.push(new Uint8Array(chunk.payloadBytes));
 			const [assets, roots, payloads, inventories] = await Promise.all([request(store(stores, 'mediaAssets').getAll(undefined, 3)) as Promise<StorageRecord[]>,
 				request(store(stores, 'catalogOriginalRoots').getAll(undefined, 4)) as Promise<unknown[]>, request(store(stores, 'videoDerivatives').count()), request(store(stores, 'videoDerivativeCacheEntries').count())]);
-			nativeCheckV1(assets.length >= 1 && assets.length <= 2 && roots.length <= 3 && payloads === 0 && inventories === 0, 'Native original/custody/cache inventory exceeds its fixture closure.');
-			return { assets, roots: roots.map(normalizeCatalogOriginalRoot), cacheJson: JSON.stringify([payloads, inventories]) };
+			nativeCheckV1(assets.length >= 1 && assets.length <= 2 && chunks.length <= 2 && roots.length <= 3 && payloads === 0 && inventories === 0, 'Native original/custody/cache inventory exceeds its fixture closure.');
+			return { assets, chunks, roots: roots.map(normalizeCatalogOriginalRoot), cacheJson: JSON.stringify([payloads, inventories]) };
 		});
 		const originalRecord = raw.assets.find(asset => asset.sourceId === prior.original.storageKey);
 		nativeCheckV1(originalRecord !== undefined, 'Selected donor original record is missing.');
 		const currentRecord = raw.assets.find(asset => asset.sourceId !== prior.original.storageKey) ?? null;
 		if (currentRecord) nativeCheckV1(currentRecord.sha256 === RESTORED_IMPORT_CURRENT_SHA256_V1 && currentRecord.size === currentBytes.length
-			&& currentRecord.storage === 'indexeddb-blob' && currentRecord.path === undefined && currentRecord.blob instanceof Blob && currentRecord.blob.size === currentBytes.length,
-		'Allocated new original must be the authentic indexeddb-blob record.');
+			&& currentRecord.storage === MEDIA_ASSET_CHUNK_STORAGE_TYPE && currentRecord.path === undefined && !Object.hasOwn(currentRecord, 'blob'),
+		'Allocated new original must be the authentic IndexedDB byte-chunk record.');
+		const physical: Array<Awaited<ReturnType<typeof physicalOriginal>> | null> = [];
+		for (const asset of raw.assets) physical.push(asset.storage === MEDIA_ASSET_CHUNK_STORAGE_TYPE
+			? await physicalOriginal(asset, asset.sourceId === prior.original.storageKey ? priorBytes : currentBytes, raw.chunks) : null);
+		nativeCheckV1(raw.chunks.length === physical.filter(value => value !== null).length, 'Physical chunks contain an unowned or missing Original payload.');
+		if (selected.allocation !== null) nativeCheckV1(physical.every(value => value !== null), 'Allocated originals must retain native byte-chunk storage.');
 		const priorBody = await body(prior.original.storageKey, priorBytes), currentBody = currentRecord ? await body(String(currentRecord.sourceId), currentBytes) : null;
 		await media.verifyOriginal(prior.original);
 		const priorToken = token(originalRecord), currentToken = currentRecord ? token(currentRecord) : null;
@@ -137,13 +148,29 @@ export async function readRestoredImportSnapshotNativeV1(factory: IDBFactory, se
 		for (const root of currentRoots) nativeCheckV1(root.importId === null || root.importId === journal?.importId, 'Provisional root lacks its exact selected import intent.');
 		const ledger: RestoredImportLedgerV1 = Object.freeze({ body: currentRecord !== null, photo: current !== null,
 			staged: currentRoots.some(root => root.importId !== null), retained: currentRoots.some(root => root.importId === null), journal: journal !== null });
+		const priorPhysical = physical[raw.assets.indexOf(originalRecord)], currentPhysical = currentRecord ? physical[raw.assets.indexOf(currentRecord)] : null;
 		const immutableRecord = currentRecord === null ? null : { ...currentRecord }; if (immutableRecord !== null) delete immutableRecord.catalogRootCount;
 		return { ledger, catalogJson: JSON.stringify(snapshot), catalogRevision: snapshot.catalog.revision, indexRevision: snapshot.indexRevision, build1, build2,
 			prior, priorMetadata: await media.mediaRepository.getAssetMetadata(prior.original.storageKey),
-			priorRecordJson: JSON.stringify(originalRecord), priorToken, priorRootsJson: JSON.stringify(priorRoots), priorBody, cacheJson: raw.cacheJson,
-			current, currentRecordJson: JSON.stringify(currentRecord), currentImmutableRecordJson: JSON.stringify(immutableRecord), currentMetadata: currentRecord ? await media.mediaRepository.getAssetMetadata(String(currentRecord.sourceId)) : null,
+			priorRecordJson: JSON.stringify({ record: originalRecord, physical: priorPhysical }), priorToken, priorRootsJson: JSON.stringify(priorRoots), priorBody, cacheJson: raw.cacheJson,
+			current, currentStorage: currentRecord ? MEDIA_ASSET_CHUNK_STORAGE_TYPE as typeof MEDIA_ASSET_CHUNK_STORAGE_TYPE : null, currentRecordJson: JSON.stringify({ record: currentRecord, physical: currentPhysical }),
+			currentImmutableRecordJson: JSON.stringify({ record: immutableRecord, physical: currentPhysical }), currentMetadata: currentRecord ? await media.mediaRepository.getAssetMetadata(String(currentRecord.sourceId)) : null,
 			currentToken, currentRootsJson: JSON.stringify(currentRoots), currentBody,
-			presetRow, lutSha256, journalJson: JSON.stringify(journal), stateJson: JSON.stringify({ snapshot, photos, projected, assets: raw.assets, roots: raw.roots, presetRow, journal }) };
+			presetRow, lutSha256, journalJson: JSON.stringify(journal), stateJson: JSON.stringify({ snapshot, photos, projected, assets: raw.assets, physical, roots: raw.roots, presetRow, journal }) };
+	}
+	async function physicalOriginal(asset: StorageRecord, expected: Uint8Array, chunks: readonly Record<string, unknown>[]) {
+		nativeCheckV1(expected.length > 0 && expected.length <= 4096 && asset.size === expected.length && asset.sha256 === await nativeDigestV1(expected)
+			&& asset.mediaContentDigestVersion === 1 && isMediaContentToken(asset.mediaContentToken) && typeof asset.mediaChunkToken === 'string'
+			&& asset.mediaChunkToken.length > 0 && asset.mediaChunkCount === 1 && asset.mediaChunkBytes === MEDIA_ASSET_STREAM_CHUNK_BYTES
+			&& asset.path === undefined && !Object.hasOwn(asset, 'blob'), 'Native Original chunk metadata differs from its exact literal.');
+		const retained = chunks.filter(chunk => chunk.sourceId === asset.sourceId || chunk.mediaChunkToken === asset.mediaChunkToken);
+		nativeCheckV1(retained.length === 1, 'Tiny Original must own exactly one physical chunk.'); const chunk = retained[0]!;
+		nativeCheckV1(chunk.sourceId === asset.sourceId && chunk.mediaChunkToken === asset.mediaChunkToken && chunk.index === 0
+			&& chunk.key === mediaAssetChunkKey(asset.mediaChunkToken, 0) && chunk.byteLength === expected.length
+			&& chunk.payloadEncoding === 'array-buffer-v1' && !Object.hasOwn(chunk, 'payload') && chunk.payloadBytes instanceof ArrayBuffer
+			&& chunk.payloadBytes.byteLength === expected.length, 'Native Original chunk membership or payload differs.');
+		const bytes = new Uint8Array(chunk.payloadBytes); nativeCheckV1(nativeBytesEqualV1(bytes, expected), 'Physical Original differs from the independent encoded literal.');
+		return { key: chunk.key, sourceId: chunk.sourceId, mediaChunkToken: chunk.mediaChunkToken, index: 0, byteLength: bytes.length, sha256: await nativeDigestV1(bytes) };
 	}
 	async function body(key: string, expected: Uint8Array) {
 		const blob = await media.mediaRepository.loadAsset(key); nativeCheckV1(blob !== null && blob.size === expected.length, 'Native immutable original body is missing.');

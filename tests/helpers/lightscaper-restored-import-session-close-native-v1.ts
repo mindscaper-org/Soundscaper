@@ -39,7 +39,7 @@ export interface PhotoRestoredImportSessionCloseNativeResultV1 {
 	readonly donor: { readonly catalogExact: boolean; readonly photoExact: boolean; readonly originalMetadataExact: boolean; readonly originalRecordExact: boolean;
 		readonly custodyExact: boolean; readonly bytesExact: boolean; readonly cacheExact: boolean };
 	readonly resources: { readonly developPresetExact: boolean; readonly disabledLutBodyExact: boolean; readonly disabledLutReferenceExact: boolean };
-	readonly current: { readonly bodySha256: string | null; readonly contentToken: string | null; readonly storage: 'indexeddb-blob' | null; readonly path: null;
+	readonly current: { readonly bodySha256: string | null; readonly contentToken: string | null; readonly storage: 'indexeddb-media-chunks-v1' | null; readonly path: null;
 		readonly photoSchemaVersion: 2 | null; readonly processVersion: 2 | null; readonly photoAndRecipeExact: boolean; readonly metadataOptionsExact: boolean;
 		readonly bytesExact: boolean; readonly custodyExact: boolean };
 	readonly allocatedOriginalNativeWriterOpens: number;
@@ -148,7 +148,7 @@ export async function qualifyPhotoRestoredImportSessionCloseNativeV1(cutValue: u
 			import: { fulfilled: result.ok, receiptCount: returned.length, importedReceiptCount: returned.filter(item => item.status === 'imported').length,
 				acknowledgedCount: acknowledgements.length, acknowledgedPhotoId: acknowledgements[0]?.photoId ?? null, returnedPhotoId: returned[0]?.photoId ?? null },
 			afterCut: after.ledger, recovered: recovered.ledger, reopened: { idempotent: true, pagePhotoCount: secondPage.totalCount }, original, donor, resources,
-			current: { bodySha256: final.currentBody?.sha256 ?? null, contentToken: final.currentToken, storage: final.currentBody ? 'indexeddb-blob' : null, path: null,
+			current: { bodySha256: final.currentBody?.sha256 ?? null, contentToken: final.currentToken, storage: final.currentStorage, path: null,
 				photoSchemaVersion: final.current ? 2 : null, processVersion: final.current ? 2 : null, photoAndRecipeExact: fullPhotoExact, metadataOptionsExact,
 				bytesExact: !expected.body || final.currentBody?.sha256 === CURRENT_SHA256, custodyExact: same(final.ledger, recovered.ledger) }, allocatedOriginalNativeWriterOpens };
 		function snapshot(location: Readonly<PhotoLibrarySessionLocationV2>) { return readRestoredImportSnapshotNativeV1(nativeFactory, location, priorId, priorBytes, currentBytes, lut, companion, currentReference); }
@@ -239,7 +239,7 @@ export async function qualifyPhotoRestoredImportSessionCloseNativeV1(cutValue: u
 			if (mode !== 'armed' || !targetEntered || database.name !== selectedName || native.mode !== 'readwrite') return native;
 			let targeted = false; native.addEventListener('complete', () => { if (targeted) complete++; }, { once: true }); native.addEventListener('abort', () => { if (targeted) abort++; }, { once: true });
 			return forward(native, property => property !== 'objectStore' ? undefined : (name: string) => {
-				const actual = native.objectStore(name), method = target === 'original' ? 'add' : target === 'retire' ? 'delete' : 'put';
+				const actual = native.objectStore(name), method = target === 'retire' ? 'delete' : 'put';
 				const writing = actual[method].bind(actual); return forward(actual, key => key !== method ? undefined : (...values: Parameters<IDBObjectStore['put']>) => {
 					const request = Reflect.apply(writing, actual, values) as IDBRequest<unknown>, value: unknown = values[0];
 					if (matchesMutation(name, value)) { targeted = true; request.addEventListener('success', () => { mutationSuccesses.push(`${name}.${method}`); if (boundary === 'mutation-success') fire(); }, { once: true }); }
