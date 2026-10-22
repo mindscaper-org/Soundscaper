@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { setTimeout as delay } from 'node:timers/promises';
 import initSqlJs from 'sql.js';
 import { createAup3Fixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseFileAction, chooseNestedCommandAction, closeAup4CompatibilityReport,
@@ -9,6 +10,10 @@ import { decodeAudacityProjectTree } from '../../src/common/editor/aup4-conversi
 import { initializeAup4Database, insertAup4SampleBlock, readAup4SampleBlock, writeAup4Document } from '../../src/common/editor/aup4-database.js';
 import { createAup4SampleBlock } from '../../src/common/editor/aup4-profile.js';
 import { projectWithBlocks } from '../helpers/aup4-database-harness.js';
+
+test.afterEach(async ({ page }, testInfo) => {
+	await attachRecoveryWorkerDiagnostics(page, testInfo);
+});
 
 test('File Open recovers missing AUP3 audio as timed silence and exports an editable repaired copy', async ({ page }) => {
 	test.setTimeout(90_000);
@@ -124,14 +129,99 @@ async function observeWorkerRecovery(page) {
 	await page.addInitScript(() => {
 		const NativeWorker = globalThis.Worker;
 		globalThis.__audacityRecoveryOpenRequests = [];
+		const events = [], unanswered = new Map(), workerIds = new WeakMap();
+		let workerSequence = 0, totalEvents = 0, collectionErrors = 0, unansweredEvictions = 0;
+		const clip = (value) => typeof value === 'string' ? value.slice(0, 64) : null;
+		const key = (worker, id) => `${worker}:${id}`;
+		const record = (worker, kind, fields = {}) => {
+			events.push({ sequence: ++totalEvents, at: performance.now(), worker, kind, ...fields });
+			if (events.length > 64) events.shift();
+		};
+		const request = (worker, message) => {
+			try {
+				const id = clip(message?.id), type = clip(message?.type);
+				const fields = { id, type, recover: type === 'open-file' ? message.args?.recover === true : null };
+				record(worker, 'request', fields);
+				if (id && type !== 'cancel') {
+					unanswered.set(key(worker, id), { worker, ...fields, at: performance.now() });
+					if (unanswered.size > 64) {
+						unanswered.delete(unanswered.keys().next().value);
+						unansweredEvictions++;
+					}
+				}
+			} catch { collectionErrors++; }
+		};
+		const reply = (worker, message) => {
+			try {
+				const id = clip(message?.id), pending = unanswered.get(key(worker, id));
+				const fields = { id, type: pending?.type ?? null };
+				if (message?.progress) {
+					record(worker, 'progress', { ...fields, phase: clip(message.progress.phase),
+						value: Number.isFinite(message.progress.value) ? message.progress.value : null });
+				} else {
+					record(worker, message?.error ? 'reply-error' : 'reply-result', { ...fields,
+						errorName: clip(message?.error?.name), errorCode: clip(message?.error?.code) });
+					unanswered.delete(key(worker, id));
+				}
+			} catch { collectionErrors++; }
+		};
+		Object.defineProperty(globalThis, '__audacityRecoveryWorkerDiagnostic', { value: { read: () => {
+			const retained = [...events], pending = [...unanswered.values()];
+			const requests = globalThis.__audacityRecoveryOpenRequests;
+			for (;;) {
+				const body = JSON.stringify({ available: true, eventCapacity: 64, unansweredCapacity: 64,
+					totalEvents, droppedEvents: totalEvents - retained.length,
+					unansweredEvictions, unansweredOmitted: unanswered.size - pending.length,
+					collectionErrors, events: retained, unansweredRequests: pending,
+					openRequests: requests.slice(-128), openRequestCount: requests.length,
+					openRequestsOmitted: Math.max(0, requests.length - 128), byteLimit: 32_768 });
+				if (new TextEncoder().encode(body).byteLength <= 32_768) return body;
+				if (retained.length) retained.shift();
+				else if (pending.length) pending.shift();
+				else return JSON.stringify({ available: false, reason: 'Recovery diagnostic exceeded its byte bound.' });
+			}
+		} } });
 		globalThis.Worker = class extends NativeWorker {
-			constructor(url, options) { super(url, options); this.audacity = options?.name === 'kw-media-audacity-projects'; }
+			constructor(url, options) {
+				super(url, options); this.audacity = options?.name === 'kw-media-audacity-projects';
+				if (this.audacity) {
+					try {
+						const worker = ++workerSequence;
+						workerIds.set(this, worker);
+						this.addEventListener('message', (event) => reply(worker, event.data));
+						for (const kind of ['error', 'messageerror']) this.addEventListener(kind, () => {
+							try { record(worker, kind); } catch { collectionErrors++; }
+						});
+					} catch { collectionErrors++; }
+				}
+			}
 			postMessage(message, ...options) {
 				if (this.audacity && message.type === 'open-file') globalThis.__audacityRecoveryOpenRequests.push(message.args.recover === true);
-				super.postMessage(message, ...options);
+				const result = super.postMessage(message, ...options);
+				if (this.audacity) request(workerIds.get(this), message);
+				return result;
 			}
 		};
 	});
+}
+
+async function attachRecoveryWorkerDiagnostics(page, testInfo) {
+	if (testInfo.status === testInfo.expectedStatus) return;
+	const deadline = new AbortController();
+	let body;
+	try {
+		body = await Promise.race([
+			page.evaluate(() => globalThis.__audacityRecoveryWorkerDiagnostic?.read()
+				?? JSON.stringify({ available: false, reason: 'Recovery worker recorder was not installed in this document.' })),
+			delay(1_000, JSON.stringify({ available: false, reason: 'Recovery diagnostic read deadline exceeded.' }),
+				{ signal: deadline.signal, ref: false }),
+		]);
+		if (Buffer.byteLength(body) > 32_768) throw new Error('Recovery diagnostic exceeded its byte bound.');
+		JSON.parse(body);
+	} catch (error) {
+		body = JSON.stringify({ available: false, error: String(error).slice(0, 512) });
+	} finally { deadline.abort(); }
+	await testInfo.attach('audacity-recovery-worker-diagnostics', { body, contentType: 'application/json' }).catch(() => undefined);
 }
 
 async function openThroughMenu(page, editor, name, bytes) {
