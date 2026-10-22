@@ -222,8 +222,8 @@ export default function WorkspacePanelContent({
 	}
 	if (panelId === 'labels') {
 		if (!project) return null;
-		const labelProject = runtimeProject || resolveRuntimeProjectProjection({ sampleRate: project.sampleRate,
-			tempoMap: project.tempoMap, tracks: project.tracks || [], clips: [] });
+		const labelInput = { sampleRate: project.sampleRate, tempoMap: project.tempoMap, tracks: project.tracks || [], clips: [] };
+		const labelProject = runtimeProject || resolveRuntimeProjectProjection(labelInput);
 		const labelTracks = (labelProject.tracks || []).filter((track) => track.type === 'label');
 		const labels = labelTracks.flatMap((track) => (track.labels || []).map((label) => ({
 			...label,

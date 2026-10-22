@@ -32,6 +32,11 @@ export interface FoundationRuntimeConsumerEvidence {
 const entries: FoundationRuntimeConsumerEvidence[] = [
 	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS,
 	{
+		id: 'label-manager-presentation', surface: 'timeline', file: 'src/common/editor/ui/workspace/WorkspacePanelContent.jsx',
+		entryPoint: 'WorkspacePanelContent', inputIdentifier: 'labelInput', projectedIdentifier: 'labelProject', boundary: 'resolveRuntimeProjectProjection',
+		evidence: 'Manage labels uses the supplied runtime project or resolves a label-only authored view before passing sample positions to its timecode controls; label edits retain the persisted beat authority.',
+	},
+	{
 		id: 'label-file-export', surface: 'interchange', file: 'src/common/editor/controller/edit/internal/label-service.ts',
 		entryPoint: 'exportLabels', inputIdentifier: 'labelProject', projectedIdentifier: 'tracks', boundary: 'resolveRuntimeProjectProjection',
 		evidence: 'Label file export resolves the label-only authored project through its tempo map before selecting tracks and serializing subtitle or chapter sample times.',

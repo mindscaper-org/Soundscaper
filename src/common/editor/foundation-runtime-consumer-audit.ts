@@ -117,6 +117,7 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 
 /** Files that own the raw-project boundary for every WP-0.2 consumer surface. */
 export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShieldedOwner[] = deepFreeze([
+	{ file: 'src/common/editor/ui/workspace/WorkspacePanelContent.jsx', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/controller/track-audio/internal/selected-track-content-range.ts', surfaces: ['navigation'] },
 	{ file: 'src/common/editor/ui/timeline/TrackControls.jsx', surfaces: ['navigation'] },
 	{ file: 'src/common/editor/clip-spreadsheet.ts', surfaces: ['timeline', 'composition'] },
