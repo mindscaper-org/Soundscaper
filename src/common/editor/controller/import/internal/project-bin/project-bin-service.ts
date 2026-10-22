@@ -7,6 +7,7 @@ import {
 	collectRelatedClipIds as collectLegacyRelatedClipIds,
 } from '../../../../commands/clip-basic-runtime.js';
 import { createAddTrackCommand } from '../../../../commands/factories.ts';
+import { projectBinTrackPlacement } from './project-bin-track-placement.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import {
 	createProjectBinPreviewService,
@@ -225,6 +226,7 @@ export function createProjectBinService(
 					laneGroupId,
 				}),
 				index: insertion,
+				...projectBinTrackPlacement(project, requestedTrack?.id ?? null),
 			}, {
 				...createAddTrackCommand({
 					type: 'audio',
@@ -234,16 +236,17 @@ export function createProjectBinService(
 					armed: false,
 				}),
 				index: insertion + 1,
+				...projectBinTrackPlacement(project, requestedTrack?.id ?? null, 2),
 			});
 			videoTrack = { id: videoTrackId, type: 'video', laneGroupId, clipIds: [] };
 			audioTrack = { id: audioTrackId, type: 'audio', laneGroupId, clipIds: [] };
 		} else if (audioClip && !audioTrack) {
 			const audioTrackId = dependencies.createId('track');
-			commands.push(createAddTrackCommand({
+			commands.push({ ...createAddTrackCommand({
 				type: 'audio',
 				id: audioTrackId,
 				name: binClip.title || `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + 1}`,
-			}));
+			}), ...projectBinTrackPlacement(project, requestedTrack?.id ?? null) });
 			audioTrack = { id: audioTrackId, type: 'audio', laneGroupId: null, clipIds: [] };
 		}
 		const timelineStartFrame = dependencies.normalizeTimelineStartFrame(
