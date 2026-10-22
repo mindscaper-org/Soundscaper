@@ -10,7 +10,7 @@ import { inspectWavBlobPcm } from '../src/common/editor/wav-import.js';
 
 for (const container of ['RF64', 'BW64'] as const) test(`File Open retains ${container} INFO and trailing ID3 metadata beside its PCM`, async () => {
 	const samples = Float32Array.of(0.25, -0.25, 0.5, -0.5);
-	const bytes = Uint8Array.from(encodeWav([samples], { container: 'bw64', sampleRate: 48_000,
+	const bytes = Uint8Array.from(encodeWav([samples], { container: 'bw64', sampleRate: 48_000, dither: false,
 		metadata: { title: 'Field take', artist: 'Ada', lyrics: 'The complete words', composer: 'Composer' } }));
 	bytes.set(new TextEncoder().encode(container));
 	if (container === 'RF64') new DataView(bytes.buffer).setBigUint64(36, BigInt(samples.length), true);
