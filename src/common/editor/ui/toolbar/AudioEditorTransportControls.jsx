@@ -12,6 +12,7 @@ import { TransportButton } from '@soundscaper/design-system/TransportButton';
 import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { framesToSeconds, secondsToFrames } from '../../design-system-adapters.js';
 import { editorTimelineDurationFrames } from '../../project.js';
+import { audioEditorProjectFrameRate } from '../AudioEditorTimeCodeInput.tsx';
 import AudioEditorSplitButton from '../AudioEditorSplitButton.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { formatOptionsLabel } from '../localization-template.ts';
@@ -409,6 +410,7 @@ export function AccessibleSelectionToolbar({
 				durationFormat={durationFormat}
 				durationMusicalMap={durationMusicalMap}
 				sampleRate={sampleRate}
+				frameRate={audioEditorProjectFrameRate(snapshot.project)}
 				onFormatChange={setFormat}
 				onDurationFormatChange={setDurationFormat}
 				onSelectionStartChange={updateStart}
