@@ -23,7 +23,7 @@ export default function FramescaperNativeProjectActionPanel({
 		setStatus('working');
 		setError('');
 		void projectActions.run(surface, request).then(
-			() => setStatus('complete'),
+			(result) => setStatus(result?.cancelled ? 'ready' : 'complete'),
 			(failure: unknown) => {
 				setStatus('ready');
 				setError(feedbackFailure(failure));

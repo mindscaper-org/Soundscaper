@@ -173,7 +173,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'tests/helpers/aup4-database-harness.js', destination: 'tests/helpers/aup4-database-harness.js', kind: 'file', label: 'Audacity recovery browser SQLite fixture' },
 	{ source: 'tests/helpers/png-fixture.mjs', destination: 'tests/helpers/png-fixture.mjs', kind: 'file', label: 'timeline image browser support fixture' },
 	...NIGHTLY_IMAGE_TEST_HELPER_INPUTS,
-	...['scape-archive-rewrite.js', 'single-frame-poster-apng.ts', 'wavpack-import-fixture.ts'].map(file => ({
+	...['next-overlap-ripple-project.ts', 'next-route-ripple-project.ts', 'next-time-preserving-effect-project.ts', 'next-vca-print-project.ts', 'next-zero-crossing-route-project.ts', 'ogg-multiplexed-tail-fixture.ts', 'scape-archive-rewrite.js', 'single-frame-poster-apng.ts', 'wavpack-import-fixture.ts'].map(file => ({
 		source: `tests/helpers/${file}`, destination: `tests/helpers/${file}`, kind: 'file', label: 'ordinary browser workflow fixture support',
 	})),
 	...NIGHTLY_INTERCHANGE_INPUTS,

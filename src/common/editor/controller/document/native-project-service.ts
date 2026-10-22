@@ -64,7 +64,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 	let environment: Aup4Environment | null = null;
 	let initialization: Promise<Aup4Environment> | null = null;
 	let clientDisposed = false;
-	let futureScapeArchive: NativeRetainedScapeArchive | null = null;
+	const futureScapeArchives = new Map<string, NativeRetainedScapeArchive>();
 	const {
 		assertNotDisposed, assertOwnership, beginImport, beginProjectTask, beginSave,
 		failSave, finishImport, finishSave, markDisposed,
@@ -122,9 +122,13 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		client = null;
 		environment = null;
 		initialization = null;
-		const retained = futureScapeArchive;
-		futureScapeArchive = null;
-		try { await retained?.cleanup?.(); }
+		const retained = [...futureScapeArchives.values()];
+		futureScapeArchives.clear();
+		try {
+			const settled = await Promise.allSettled(retained.map(archive => Promise.resolve().then(() => archive.cleanup?.())));
+			const failures = settled.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []);
+			if (failures.length) throw new AggregateError(failures, 'Retained project archive cleanup failed.');
+		}
 		finally {
 			if (activeClient && !clientDisposed) {
 				clientDisposed = true;
@@ -170,8 +174,9 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 					projectId: imported.project.id, manifest: imported.manifest, signal,
 					assertCurrent: () => assertOwnership(operation.task, operation.projectToken),
 				}) : null;
-			const previous = futureScapeArchive;
-			futureScapeArchive = retained;
+			const previous = futureScapeArchives.get(imported.project.id);
+			if (retained) futureScapeArchives.set(imported.project.id, retained);
+			else futureScapeArchives.delete(imported.project.id);
 			try {
 				await runtime.switchProject(imported.project, {
 					readOnly: imported.readOnly,
@@ -182,11 +187,17 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 					preserveScapeOpenRequest: true,
 				});
 			} catch (error) {
-				futureScapeArchive = previous;
+				if (previous) futureScapeArchives.set(imported.project.id, previous);
+				else futureScapeArchives.delete(imported.project.id);
 				await retained?.cleanup?.();
 				throw error;
 			}
 			await previous?.cleanup?.();
+			for (const [projectId, archive] of futureScapeArchives) {
+				if (runtime.sessionTab(projectId)) continue;
+				futureScapeArchives.delete(projectId);
+				await archive.cleanup?.();
+			}
 			if (imported.publicationCommitted !== true) {
 				signal.throwIfAborted();
 				operation.task.assertCurrent();
@@ -204,6 +215,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		readonly manifest: NativeScapeManifest;
 	}) | Readonly<{ cancelled: true }>> {
 		const projectAtStart = requireProject();
+		const futureScapeArchive = futureScapeArchives.get(projectAtStart.id);
 		if (runtime.state.readOnly && !options.saveCopy) throw createLocalizedError(Error, runtime.copy, 'projectReadOnly');
 		if (runtime.state.readOnly && futureScapeArchive?.projectId === projectAtStart.id) {
 			const operation = beginProjectTask('native-project-save', projectAtStart.id, PROJECT_SCOPED_TASK);

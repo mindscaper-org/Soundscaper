@@ -21,6 +21,7 @@ export function TrackFolderRow({
 	plan,
 	copy,
 	blocked,
+	collapseBlocked = blocked,
 	selected,
 	activeFolderId,
 	isFlatNavigation = false,
@@ -86,7 +87,7 @@ export function TrackFolderRow({
 					type="button"
 					className="audio-editor-track-folder-row__chevron"
 					aria-label={row.collapsed ? copy.expandTrackFolder : copy.collapseTrackFolder}
-					disabled={blocked}
+					disabled={collapseBlocked}
 					tabIndex={controlTabIndex}
 					onClick={(event) => {
 						event.stopPropagation();

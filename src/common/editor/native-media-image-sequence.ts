@@ -98,7 +98,7 @@ interface ParsedName {
 }
 
 const MAXIMUM_DETAIL_ENTRIES = 32;
-const NAME_PATTERN = /^(?<stem>.*?)(?<digits>\d+)\.(?<extension>[A-Za-z0-9]+)$/u;
+const NAME_PATTERN = /^(?<stem>.*?)(?<digits>\d+)\.(?<extension>[A-Za-z0-9]+)$/su;
 
 /**
  * Resolve one image sequence from the files the user chose.

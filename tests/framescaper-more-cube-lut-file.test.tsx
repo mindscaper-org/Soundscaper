@@ -15,8 +15,8 @@ import { parseCubeLutV1, sampleCubeLut } from '../src/common/editor/video-color-
 import { createMemoryProjectStore } from './helpers/memory-project-store.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('MI25: the grading file picker imports a signed-zero CUBE and preserves its exact file digest', async context => {
-	const body = ['TITLE "Signed zero identity"', 'LUT_3D_SIZE 2', 'DOMAIN_MIN -0 -0.000000 -0e0',
+for (const title of ['Signed zero identity', '']) test(`the grading file picker imports a CUBE with ${title ? 'signed-zero numbers' : 'an empty optional title'} and preserves its exact digest`, async context => {
+	const body = [`TITLE "${title}"`, 'LUT_3D_SIZE 2', 'DOMAIN_MIN -0 -0.000000 -0e0',
 		'-0.000000 -0 0', '1 0 0', '0 1 0', '1 1 0', '0 0 1', '1 0 1', '0 1 1', '1 1 1', ''].join('\n');
 	const file = new File([body], 'Identity.cube', { type: 'text/plain' });
 	const dom = installReactTestDom();
@@ -43,13 +43,14 @@ test('MI25: the grading file picker imports a signed-zero CUBE and preserves its
 		const choose = dom.container.querySelectorAll('button').find(button => button.textContent?.includes('Choose .cube'));
 		assert.ok(choose);
 		await act(async () => { reactProps(choose).onClick({}); await new Promise<void>(resolve => setImmediate(resolve)); });
-		assert.equal(commands.length, 1, 'the valid signed numerical tokens must reach the native finishing command');
+		assert.equal(commands.length, 1, 'the standards-compliant metadata and numeric tokens must reach the native finishing command');
 		const presets: unknown = project.videoFinishingPresets; assert.ok(Array.isArray(presets));
 		const preset = normalizeVideoFinishingPresetV1(presets[0]);
 		const reference = preset.template.grade?.lut; assert.ok(reference);
 		const stored: unknown = await store.loadMediaAsset(reference.storageKey); assert.ok(stored instanceof Blob);
 		assert.equal(await stored.text(), body, 'immutable storage retains original signed-zero file bytes');
 		const parsed = parseCubeLutV1(await stored.text());
+		assert.equal(parsed.title, title);
 		assert.equal(parsed.sha256, reference.sha256);
 		assert.deepEqual(reference.domainMin, [0, 0, 0]);
 		assert.equal(parsed.values.some(value => Object.is(value, -0)), false);

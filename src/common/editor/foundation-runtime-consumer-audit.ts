@@ -117,6 +117,7 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 
 /** Files that own the raw-project boundary for every WP-0.2 consumer surface. */
 export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShieldedOwner[] = deepFreeze([
+	{ file: 'src/common/editor/ui/workspace/WorkspacePanelContent.jsx', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/controller/track-audio/internal/selected-track-content-range.ts', surfaces: ['navigation'] },
 	{ file: 'src/common/editor/ui/timeline/TrackControls.jsx', surfaces: ['navigation'] },
 	{ file: 'src/common/editor/clip-spreadsheet.ts', surfaces: ['timeline', 'composition'] },
@@ -235,7 +236,7 @@ export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly Foundat
 		reason: 'Recording recovery builds one atomic command publication, comparing resolved command clip placement to avoid attaching a checkpoint twice; its authored result is reconciled by the owning product command runtime rather than consumed for playback.',
 	},
 	{
-		file: 'src/common/editor/controller/edit/internal/frozen-track-edit-command.ts',
+		file: 'src/common/editor/controller/shared/frozen-track-edit-command.ts',
 		reason: 'The edit reconciliation adapter previews a command in its resolved command projection only to determine surviving track membership before retiring an unusable freeze; it consumes no runtime media timing.',
 	},
 	{

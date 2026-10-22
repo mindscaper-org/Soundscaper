@@ -177,7 +177,7 @@ function parseWebVtt(text: string, limits: Readonly<VideoCaptionInterchangeLimit
 	}
 	let bodyStart = 1;
 	while (bodyStart < lines.length && lines[bodyStart]?.trim() && !VTT_TIMING.test(lines[bodyStart] ?? '')) {
-		if (/^(?:REGION|STYLE)(?:\s|$)/u.test(lines[bodyStart] ?? '')) {
+		if (/^(?:REGION|STYLE)[ \t]*$/u.test(lines[bodyStart] ?? '')) {
 			throw interchangeError('The maintained WebVTT subset does not accept global scriptable or styling blocks.', 'ACTIVE_CONTENT');
 		}
 		if (VTT_TIMING.test(lines[bodyStart + 1] ?? '')) break;
@@ -187,7 +187,7 @@ function parseWebVtt(text: string, limits: Readonly<VideoCaptionInterchangeLimit
 	assertCueCount(blocks.length, limits);
 	return blocks.map((block, index) => {
 		const cueLines = block.split('\n');
-		if (/^(?:REGION|STYLE)(?:\s|$)/u.test(cueLines[0] ?? '')) {
+		if (/^(?:REGION|STYLE)[ \t]*$/u.test(cueLines[0] ?? '')) {
 			throw interchangeError('The maintained WebVTT subset does not accept global scriptable or styling blocks.', 'ACTIVE_CONTENT');
 		}
 		let identifier: string | null = null;
@@ -394,7 +394,7 @@ function parseVttCueMarkup(value: string): {
 	let italic = false;
 	let underline = false;
 	for (;;) {
-		const voice = speaker === null ? content.match(/^<v ([^<>]+)>/u) : null;
+		const voice = speaker === null ? content.match(/^<v[ \t]([^<>]+)>/u) : null;
 		if (voice) {
 			speaker = decodePassiveText(voice[1] ?? '');
 			content = content.slice(voice[0].length);

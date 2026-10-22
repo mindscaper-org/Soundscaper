@@ -7,6 +7,7 @@ export const DESKTOP_AUDACITY_EFFECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/audacity-effects/audacity-dynamics-lookahead.js',
 	'src/common/editor/audacity-effects/basic-channel-math.js',
 	'src/common/editor/audacity-effects/classic-filter-coefficients.js',
+	'src/common/editor/audacity-effects/curve-text.js',
 	'src/common/editor/audacity-effects/distortion-table.js',
 	'src/common/editor/audacity-effects/live.js',
 	'src/common/editor/audacity-effects/live-dynamics-processors.js',

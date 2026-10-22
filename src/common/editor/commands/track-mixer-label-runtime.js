@@ -139,11 +139,20 @@ function disableAutoDuckForRemovedControlTrack(project, controlTrackId) {
 	for (const rack of racks) {
 		for (let index = 0; index < rack.length; index += 1) {
 			const effect = rack[index];
-			if (effect.type !== 'audacity-auto-duck' || effect.context?.controlTrackId !== controlTrackId) continue;
-			rack[index] = updateEffect(effect, {
-				enabled: false,
-				context: { controlTrackId: null },
-			});
+			if (effect.type !== 'audacity-auto-duck') continue;
+			// Native routing can rebind the detector without rewriting the legacy
+			// selector. Its explicit routes own the processor's actual input.
+			const explicit = (project.mixer?.edges || []).filter((edge) => edge.destination.kind === 'effect-sidechain'
+				&& edge.destination.effectId === effect.id);
+			const surviving = explicit.some((edge) => edge.enabled !== false && (edge.source.kind !== 'track'
+				|| project.tracks.some((track) => track.id === edge.source.id)));
+			const lostControl = explicit.length ? !surviving : effect.context?.controlTrackId === controlTrackId;
+			if (lostControl) {
+				rack[index] = updateEffect(effect, { enabled: false, context: { controlTrackId: null } });
+			} else if (effect.context?.controlTrackId === controlTrackId) {
+				const source = explicit.length === 1 ? explicit[0].source : null;
+				rack[index] = updateEffect(effect, { context: { controlTrackId: source?.kind === 'track' ? source.id : null } });
+			}
 		}
 	}
 }

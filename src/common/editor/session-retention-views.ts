@@ -4,6 +4,7 @@ import { compareCodeUnits } from './code-unit-order.ts';
 import { collectProjectStorageKeys, editorHistoryProjects } from './retention.js';
 import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
 import type { ProjectLinkedOriginalSourceReference } from './storage/project-publication-options.ts';
+import type { AudioEditorSessionClipboard } from './session-clipboard-codec.ts';
 
 interface SourceRoot { readonly id?: unknown; readonly kind?: unknown }
 interface ClipRoot { readonly sourceId?: unknown; readonly kind?: unknown }
@@ -67,6 +68,33 @@ export function collectHistoryStorageKeys(histories: readonly unknown[]): Readon
 		for (const project of editorHistoryProjects(history)) collectProjectStorageKeys(project, keys);
 	}
 	return keys;
+}
+
+/** A copied source keeps physical media and its required sidecars after its origin tab closes. */
+export function collectSessionClipboardStorageKeys(
+	clipboard: Pick<AudioEditorSessionClipboard, 'sources'> | null,
+): Set<string> {
+	const keys = new Set<string>();
+	const retainBody = (value: unknown): void => {
+		const key = record(value)?.storageKey;
+		if (typeof key === 'string' && key) keys.add(key);
+	};
+	for (const source of clipboard?.sources ?? []) {
+		keys.add(source.id);
+		retainBody(source);
+		retainBody(source.timingAsset);
+		const proxy = record(source.proxyAttachment);
+		retainBody(proxy);
+		retainBody(proxy?.timingAsset);
+		const sequence = record(source.imageSequence);
+		retainBody(sequence?.sourcePack);
+		retainBody(sequence?.inventory);
+	}
+	return keys;
+}
+
+function record(value: unknown): Readonly<Record<string, unknown>> | null {
+	return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Readonly<Record<string, unknown>> : null;
 }
 
 function linkedOriginalKind(value: unknown): 'audio' | 'video' | null {

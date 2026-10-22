@@ -18,9 +18,14 @@ import { createVideoPreviewFrameIdentity } from '../controller/clip-video/video-
  * Reuse pixels until the decoded frame changes. A dimension change reallocates
  * the texture; subsequent decoded frames sub-image the existing allocation.
  */
-export function uploadVideoTexture(gl, videoTextures, video, generation) {
-	const drawable = video.drawable || video;
+export function uploadVideoTexture(gl, videoTextures, video, generation, reusePresented = false) {
 	let record = videoTextures.get(video);
+	if (reusePresented) {
+		if (!record) throw new Error('The video has no presented texture to freeze.');
+		record.generation = generation;
+		return record.texture;
+	}
+	const drawable = video.drawable || video;
 	if (!record) {
 		const texture = gl.createTexture();
 		if (!texture) throw new Error('Unable to allocate a video frame texture.');

@@ -22,7 +22,9 @@ export const FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES = Object.freeze([
 export type FramescaperNativeProjectActionSurface =
 	(typeof FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES)[number];
 
-type FramescaperNativeProjectAction = (request?: unknown) => void | PromiseLike<void>;
+export type FramescaperNativeProjectActionResult = void | Readonly<{ cancelled: true }>;
+
+type FramescaperNativeProjectAction = (request?: unknown) => FramescaperNativeProjectActionResult | PromiseLike<FramescaperNativeProjectActionResult>;
 
 export type FramescaperNativeProjectActions = Readonly<{
 	[Surface in FramescaperNativeProjectActionSurface]: FramescaperNativeProjectAction;
@@ -30,7 +32,7 @@ export type FramescaperNativeProjectActions = Readonly<{
 
 export interface FramescaperNativeProjectActionRuntime {
 	readonly surfaces: readonly FramescaperNativeProjectActionSurface[];
-	run(surface: FramescaperNativeProjectActionSurface, request?: unknown): Promise<void>;
+	run(surface: FramescaperNativeProjectActionSurface, request?: unknown): Promise<FramescaperNativeProjectActionResult>;
 }
 
 const SURFACE_SET = new Set<string>(FRAMESCAPER_NATIVE_PROJECT_ACTION_SURFACES);
@@ -59,11 +61,11 @@ export function createFramescaperNativeProjectActionSubsetRuntime(
 		run: async (
 			surfaceValue: FramescaperNativeProjectActionSurface,
 			request?: unknown,
-		): Promise<void> => {
+		): Promise<FramescaperNativeProjectActionResult> => {
 			const surface = exactSurface(surfaceValue);
 			const action = actions[surface];
 			if (!action) throw new Error(`Framescaper project action ${surface} is unavailable.`);
-			await action(request);
+			return await action(request);
 		},
 	});
 	RUNTIMES.add(runtime);

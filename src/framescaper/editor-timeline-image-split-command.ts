@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
-import { FRAMESCAPER_IMAGE_TICKS_PER_SECOND, normalizeFramescaperImageClipV1 } from '../common/editor/timeline-image-model.ts';
+import { normalizeFramescaperImageClipV1 } from '../common/editor/timeline-image-model.ts';
+import { advanceTimelineImageSourcePhase } from '../common/editor/timeline-image-phase.ts';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
 import type { FramescaperProjectCommandTimelineImage } from './editor-project-timeline-image-commands.ts';
@@ -41,14 +42,14 @@ export function prepareTimelineImageSplitCommand(project: FramescaperProjectTime
 		if (leftCount <= 0 || leftCount >= expectedClip.sequenceFrameCount) {
 			throw new RangeError('An image split must resolve inside its sequence extent.');
 		}
-		const elapsed = BigInt(leftCount) * BigInt(FRAMESCAPER_IMAGE_TICKS_PER_SECOND)
-			* BigInt(sequence.rate.den) / BigInt(sequence.rate.num);
-		const requestedTicks = BigInt(expectedClip.sourceStartTicks) + elapsed;
 		const finalTick = BigInt(source.canonical.durationTicks) - 1n;
 		const left = { ...expectedClip, sequenceFrameCount: leftCount };
+		const phase = advanceTimelineImageSourcePhase(expectedClip, leftCount, sequence.rate, finalTick);
 		const right = { ...expectedClip, id: split.rightClipId, sequenceStartFrame: boundary,
 			sequenceFrameCount: expectedClip.sequenceFrameCount - leftCount,
-			sourceStartTicks: String(requestedTicks < finalTick ? requestedTicks : finalTick) };
+			sourceStartTicks: phase.sourceStartTicks };
+		delete right.sourceStartFraction;
+		if (phase.sourceStartFraction) right.sourceStartFraction = phase.sourceStartFraction;
 		const placement = { scope: 'timeline' as const, trackId: owners.get(split.clipId)! };
 		clips.set(left.id, left); clips.set(right.id, right); owners.set(right.id, placement.trackId);
 		return { type: 'batch', commands: [{ type: 'image-clip/set', clipId: left.id, expectedClip,

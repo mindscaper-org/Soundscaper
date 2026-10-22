@@ -200,8 +200,8 @@ export class VideoPreviewCompositor {
 		this.effectResultCache.clear();
 	}
 
-	uploadVideo(video) {
-		return uploadVideoTexture(this.gl, this.videoTextures, video, this.renderGeneration);
+	uploadVideo(video, reusePresented = false) {
+		return uploadVideoTexture(this.gl, this.videoTextures, video, this.renderGeneration, reusePresented);
 	}
 
 	releaseVideo(video) {
@@ -375,7 +375,7 @@ export class VideoPreviewCompositor {
 				if (!decodableVideoPreviewEntry(entry)) continue;
 				let videoTexture;
 				try {
-					videoTexture = this.uploadVideo(video);
+					videoTexture = this.uploadVideo(video, options.reusePresentedMedia === true);
 				} catch {
 					recordVideoPreviewEntryFallback(ledger, entry);
 					continue;

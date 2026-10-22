@@ -31,7 +31,7 @@ export function resolveRegisteredVideoRetimePreview(
 
 /** Keep exact retime preview frame-addressed while preserving legacy continuous playback. */
 export function synchronizeVideoPreviewMedia(
-	video: HTMLVideoElement,
+	video: Pick<HTMLVideoElement, 'currentTime' | 'playbackRate' | 'pause' | 'play'>,
 	entry: Readonly<{
 		readonly sourceTimeSeconds?: unknown;
 		readonly playbackRate?: unknown;
@@ -42,7 +42,10 @@ export function synchronizeVideoPreviewMedia(
 ): void {
 	const targetTime = Math.max(0, Number(entry.sourceTimeSeconds) || 0);
 	const exact = entry.exactPresentation === true;
-	if (Math.abs((Number(video.currentTime) || 0) - targetTime) > (exact ? 0.000001 : 0.08)) {
+	// Drift tolerance keeps continuous playback from seeking on every update.
+	// A stopped transport owns an explicit picture, even a single frame away.
+	const tolerance = exact || transportState !== 'playing' ? 0.000001 : 0.08;
+	if (Math.abs((Number(video.currentTime) || 0) - targetTime) > tolerance) {
 		try {
 			video.currentTime = targetTime;
 		} catch {

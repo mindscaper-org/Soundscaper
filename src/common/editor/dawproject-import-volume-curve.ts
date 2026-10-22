@@ -22,7 +22,7 @@ export function dawprojectImportedVolumeCurve(
 	for (const [index, left] of admitted.entries()) {
 		output.set(left.frame, gain(left.value));
 		const right = admitted[index + 1];
-		if (unit !== 'decibel' || left.interpolation !== 'linear' || !right
+		if (left.interpolation !== 'linear' || !right
 			|| !Number.isFinite(left.value) || !Number.isFinite(right.value)) continue;
 		const valueAt = (frame: number): number => gain(left.value
 			+ (right.value - left.value) * (frame - left.frame) / (right.frame - left.frame));

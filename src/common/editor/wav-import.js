@@ -24,6 +24,7 @@ import {
 	WAV_PCM_MINIMUM_FORMAT_BYTES,
 } from './wav-pcm-chunk-reader.ts';
 import { createWavAdmRiffSequencePreserver } from './wav-adm-riff-sequence.ts';
+import { createRiffStreamingSizeResolver } from './riff-streaming-size.ts';
 import {
 	createWavOpaqueRiffCollector,
 	shouldPreserveWavOpaqueRiffChunk,
@@ -56,6 +57,7 @@ export async function inspectWavBlobPcm(blob, options = {}) {
 		throw new Error('The file is not a RIFF WAV file.');
 	}
 	if (ascii(header, 8, 4) !== 'WAVE') throw new Error('The RIFF file is not a WAVE file.');
+	const streamingSize = signature === 'RIFF' ? createRiffStreamingSizeResolver(headerView.getUint32(4, true), blob.size) : null;
 	let riffEnd;
 	let ds64Directory = null;
 	let offset = RIFF_HEADER_BYTES;
@@ -74,7 +76,7 @@ export async function inspectWavBlobPcm(blob, options = {}) {
 		chunksRead = 1;
 	} else {
 		const riffPayloadBytes = headerView.getUint32(4, true);
-		riffEnd = 8 + riffPayloadBytes;
+		riffEnd = streamingSize?.riffEnd ?? 8 + riffPayloadBytes;
 		if (riffPayloadBytes < 4) throw new Error('The WAV RIFF size is invalid.');
 		if (riffEnd > blob.size) throw new Error('The WAV RIFF payload is truncated.');
 	}
@@ -118,6 +120,8 @@ export async function inspectWavBlobPcm(blob, options = {}) {
 			chunkBytes = consumeDs64TableSize(ds64Directory, chunkId);
 		}
 		const payloadOffset = offset + CHUNK_HEADER_BYTES;
+		const terminalData = streamingSize?.resolveChunk(chunkId, declaredChunkBytes, payloadOffset);
+		if (terminalData) chunkBytes = terminalData.byteLength;
 		if (chunkBytes > riffEnd - payloadOffset || chunkBytes > blob.size - payloadOffset) {
 			if (isAdmChunkId(chunkId) && format && data) {
 				admWarnings.push(wavAdmWarning(
@@ -235,7 +239,7 @@ export async function inspectWavBlobPcm(blob, options = {}) {
 			}
 		}
 
-		const paddedEnd = payloadEnd + (chunkBytes % 2);
+		const paddedEnd = terminalData?.paddedEnd ?? payloadEnd + (chunkBytes % 2);
 		if (paddedEnd > riffEnd) {
 			if (preserveOpaqueChunk && payloadEnd === riffEnd && format && data) {
 				opaqueRiffWarnings.push(wavOpaqueRiffPreservationWarning(
@@ -303,6 +307,7 @@ export async function inspectWavBlobPcm(blob, options = {}) {
 		offset = paddedEnd;
 	}
 	if (ds64Directory) assertDs64TableConsumed(ds64Directory);
+	streamingSize?.assertComplete();
 
 	if (!format) throw new Error('The WAV file has no format chunk.');
 	if (!data) throw new Error('The WAV file has no data chunk.');

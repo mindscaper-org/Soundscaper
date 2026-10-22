@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { resolveRuntimeClipProjection, type RuntimeClipProject, type RuntimePersistedClip } from '../runtime-clip-projection.ts';
+import { exportSequenceProject } from '../export-sequence-project.ts';
 
 export interface RegularIntervalDialogProject extends RuntimeClipProject {
 	readonly id: string;
@@ -12,7 +13,7 @@ export interface RegularIntervalDialogProject extends RuntimeClipProject {
 export function regularIntervalDialogDefaults(project: RegularIntervalDialogProject | null) {
 	let endFrame = 1;
 	if (project) {
-		for (const clip of project.clips) endFrame = Math.max(endFrame, resolveRuntimeClipProjection(project, clip).timelineEndFrame);
+		for (const clip of exportSequenceProject(project).clips) endFrame = Math.max(endFrame, resolveRuntimeClipProjection(project, clip).timelineEndFrame);
 	}
 	return {
 		kind: 'marker' as const,

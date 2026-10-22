@@ -513,7 +513,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 			{activeSurface?.startsWith('offline-analysis-') && <div data-editor-surface={activeSurface}>
 				<AnalysisDialog mode={activeSurface.slice('offline-analysis-'.length)} controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={() => setActiveSurface(null)} />
 			</div>}
-			<LocalProcessingOverlays activeSurface={activeSurface} fileService={fileService}
+			<LocalProcessingOverlays activeSurface={activeSurface} fileService={fileService} controller={controller}
 				capabilities={capabilities} snapshot={snapshot} copy={copy} locale={locale}
 				selectedMediaPreparation={selectedMediaPreparation}
 				textToSpeechProjectPort={controller?.textToSpeechProjectPort ?? null}

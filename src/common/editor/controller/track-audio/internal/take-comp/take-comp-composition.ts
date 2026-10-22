@@ -46,7 +46,11 @@ export function createTakeCompControllerComposition(dependencies: TakeCompCompos
 	return Object.freeze({
 		createGroup: service.createGroup,
 		updateGroup: service.updateGroup,
-		removeGroup: service.removeGroup,
+		removeGroup(groupId: string) {
+			const result = service.removeGroup(groupId);
+			preview.stopGroup(groupId);
+			return result;
+		},
 		auditionTake: preview.auditionTake,
 		auditionLane: preview.auditionLane,
 		promoteTake(groupId: string, request: Omit<TakePromotionRequest, 'regionId' | 'rightRemainderRegionId'>) {
@@ -64,7 +68,11 @@ export function createTakeCompControllerComposition(dependencies: TakeCompCompos
 		},
 		editCompBoundary: service.editCompBoundary,
 		editSharedCompBoundary: service.editSharedCompBoundary,
-		flatten: flatten.flatten,
+		async flatten(groupId: string) {
+			const result = await flatten.flatten(groupId);
+			preview.stopGroup(groupId);
+			return result;
+		},
 		stopAudition: preview.stop,
 		dispose: preview.dispose,
 	});

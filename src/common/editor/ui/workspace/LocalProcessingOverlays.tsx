@@ -4,6 +4,7 @@ import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import { assistanceDialogRequest, assistanceTaskLabel } from '../assistance-task-catalog.ts';
 import AssistanceLoadingDialog from '../dialogs/AssistanceLoadingDialog.tsx';
 import { resolveLocalModelManagerBridge } from '../local-model-manager-availability.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { AudioEditorListeningGainContext, AudioEditorListeningOutputDeviceContext } from '../audio-editor-listening-preview.tsx';
 import type { LocalAssistanceSelectedMediaPreparationPort } from '../../assistance/local-assistance-preparation.ts';
 import type { TextToSpeechProjectPort } from '../dialogs/text-to-speech-port-runtime.ts';
@@ -12,10 +13,11 @@ const LocalModelManagerDialog = lazyEditorModule(() => import('../dialogs/LocalM
 const LocalAssistanceDialog = lazyEditorModule(() => import('../dialogs/LocalAssistanceDialogSurface.tsx'));
 const TextToSpeechDialog = lazyEditorModule(() => import('../dialogs/TextToSpeechDialogSurface.tsx'));
 
-export default function LocalProcessingOverlays({ activeSurface, fileService, capabilities, snapshot,
+export default function LocalProcessingOverlays({ activeSurface, fileService, capabilities, snapshot, controller,
 	copy, locale, selectedMediaPreparation, textToSpeechProjectPort, setActiveSurface,
 }: {
 	readonly activeSurface: string | null;
+	readonly controller?: unknown;
 	readonly fileService: { readonly isDesktop: boolean; readonly bridge?: unknown };
 	readonly capabilities: { readonly assistanceAssets?: boolean };
 	readonly snapshot: { readonly project?: { readonly id: string } | null;
@@ -47,6 +49,7 @@ export default function LocalProcessingOverlays({ activeSurface, fileService, ca
 		</div>}
 		{activeSurface === 'text-to-speech' && capabilities.assistanceAssets &&
 			<div data-editor-surface="text-to-speech"><TextToSpeechDialog
+				key={editorProjectEditSessionKey(controller, snapshot.project?.id)}
 				bridgeScope={fileService.bridge} projectPort={textToSpeechProjectPort ?? null}
 				copy={copy} locale={locale} onClose={close} /></div>}
 		</Suspense>

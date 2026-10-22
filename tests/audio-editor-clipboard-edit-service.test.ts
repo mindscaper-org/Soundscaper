@@ -523,7 +523,7 @@ test('paste-created tracks join the folder of the selected track on a foldered p
 	const added = command.commands.find((entry) => entry.type === 'track/add');
 	assert.equal(added?.type, 'track/add');
 	if (added?.type === 'track/add') {
-		assert.equal(added.sequenceId, 'main');
+		assert.equal(added.sequenceId, undefined, 'the primary sequence is implicit and needs no nested-sequence capability');
 		assert.equal(added.parentFolderId, 'band');
 	}
 });
@@ -552,7 +552,7 @@ test('paste-created tracks fall back to the sequence root without an anchored fo
 	const added = command.commands.find((entry) => entry.type === 'track/add');
 	assert.equal(added?.type, 'track/add');
 	if (added?.type === 'track/add') {
-		assert.equal(added.sequenceId, 'main');
+		assert.equal(added.sequenceId, undefined, 'the primary sequence is implicit and needs no nested-sequence capability');
 		assert.equal(added.parentFolderId, null);
 	}
 });

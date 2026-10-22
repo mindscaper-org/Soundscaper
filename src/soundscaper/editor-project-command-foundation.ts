@@ -37,7 +37,7 @@ import {
 import { reconcileProjectOwnedFeatureRequirements } from '../common/editor/project-owned-feature-requirements.ts';
 import { resolveTerminalChannelWidths } from '../common/editor/terminal-channel-widths.ts';
 import type { SoundscaperProject } from './editor-project.ts';
-import { preserveAutomationLanesAfterInheritedCommand } from './editor-automation-edit-preservation.ts';
+import { preserveAutomationLanesAfterInheritedCommand, preserveGlobalAutomationAfterReplacementBatch } from './editor-automation-edit-preservation.ts';
 import { applySoundscaperMixerSurfaceCommand } from './editor-project-mixer-surface.ts';
 import { reconcileSoundscaperProjectFeatureRequirements } from './editor-project-feature-requirements.ts';
 import { validateSoundscaperProject } from './editor-project-validation.ts';
@@ -110,7 +110,7 @@ function applyCommandTree(
 			result = applyCommandTree(result, child, options, transaction, false);
 		}
 		if (result === project) return project;
-		return finalizeIntermediate(result as unknown as Record<string, unknown>, validateResult);
+		return finalizeIntermediate(preserveGlobalAutomationAfterReplacementBatch(project, result, command), validateResult);
 	}
 	if (command.type === 'automation-lane/set' || command.type === 'mixer-graph/set'
 		|| command.type === 'audio-freeze/install' || command.type === 'audio-freeze/remove'

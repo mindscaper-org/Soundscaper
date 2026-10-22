@@ -5,6 +5,7 @@ import {
 } from '@soundscaper/design-system/ClipPropertiesPanel/clip-properties-glyphs';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx';
+import { clipPropertiesSourceFrameRate } from './clip-time-code-clock.ts';
 
 interface TimeClip {
 	readonly timelineStartFrame: number;
@@ -21,6 +22,7 @@ interface Options {
 	readonly clip: TimeClip;
 	readonly source: Readonly<{ sampleRate?: number; frameCount?: number }>;
 	readonly sampleRate: number;
+	readonly frameRate?: number;
 	readonly copy: Readonly<Record<string, string>>;
 	readonly disabled: boolean;
 	readonly onStart?: (projectFrames: number) => unknown;
@@ -32,9 +34,10 @@ interface Options {
 type Slot = 'start' | 'length' | 'end' | 'trim-start' | 'trim-end' | 'fade-in' | 'fade-out';
 
 /** One native timecode per glyph slot; callbacks retain their owning sample clock. */
-export function clipPropertiesTimeFields({ controller, clip, source, sampleRate, copy, disabled,
+export function clipPropertiesTimeFields({ controller, clip, source, sampleRate, frameRate = 24, copy, disabled,
 	onStart, onDuration, onTrimStart, onTrimEnd, onFade }: Options): Readonly<Record<Slot, ReactNode>> {
 	const sourceRate = source.sampleRate || sampleRate;
+	const sourceFrameRate = clipPropertiesSourceFrameRate(source, frameRate);
 	const sourceFrames = source.frameCount ?? clip.sourceStartFrame + clip.sourceDurationFrames;
 	const field = (slot: Slot, name: string, label: string, value: number, glyph: ReactNode,
 		onCommit: ((frames: number) => unknown) | undefined, rate = sampleRate,
@@ -44,6 +47,7 @@ export function clipPropertiesTimeFields({ controller, clip, source, sampleRate,
 		<span className="clip-properties__glyph-cell">{glyph}</span>
 		<EditorMusicalTimeCodeProvider controller={controller} originFrame={duration ? clip.timelineStartFrame : undefined}>
 			<AudioEditorTimeCodeInput label={label} value={value} unit="samples" rate={rate} sampleRate={rate}
+				frameRate={slot === 'trim-start' || slot === 'trim-end' ? sourceFrameRate : frameRate}
 				format="hh:mm:ss+milliseconds" minimum={minimum} maximum={maximum}
 				disabled={disabled || !onCommit} onCommit={onCommit} />
 		</EditorMusicalTimeCodeProvider>

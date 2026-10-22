@@ -199,7 +199,7 @@ function UploadRow({
 			</Button> : null}
 			{active ? <Button size="small" onClick={onCancel}>{copy.cancelUpload}
 				<span className="kw-audio-editor-sr-only">: {item.fileName}</span></Button> : null}
-			{!active && item.status !== 'ready-to-publish' ? <Button size="small" onClick={onRemove}>
+			{!active ? <Button size="small" onClick={onRemove}>
 				{copy.removeUpload}<span className="kw-audio-editor-sr-only">: {item.fileName}</span>
 			</Button> : null}
 		</div>

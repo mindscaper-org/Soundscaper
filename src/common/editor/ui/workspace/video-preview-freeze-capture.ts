@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { FramescaperSelectedFreezeCaptureRequest } from '../../../../framescaper/editor-selected-finishing-visual-authoring-commands.ts';
+import { captureVideoPreviewProgramFreezeFrame, type VideoPreviewFreezeCompositor } from './video-preview-freeze-program.ts';
 
 interface EvaluatedFrame {
 	readonly projectId: string;
@@ -18,16 +19,18 @@ export async function bindFramescaperPreviewFreezeCapture(input: Readonly<{
 	readonly owner: object;
 	readonly projectRef: Readonly<{ readonly current: unknown }>;
 	readonly evaluatedRef: Readonly<{ readonly current: EvaluatedFrame | null }>;
-	readonly compositorRef: Readonly<{ readonly current: Readonly<{
-		captureEvaluatedRgba(): CaptureFrame | null;
-	}> | null }>;
+	readonly compositorRef: Readonly<{ readonly current: VideoPreviewFreezeCompositor | null }>;
+	readonly layersRef: Readonly<{ readonly current: readonly unknown[] }>;
+	readonly renderOptionsRef: Readonly<{ readonly current: Readonly<Record<string, unknown>> }>;
 }>): Promise<() => void> {
 	const binding = await import('../../../../framescaper/editor-selected-finishing-freeze-capture.ts');
 	return binding.bindFramescaperSelectedFreezeCapture(input.owner, Object.freeze({
 		async capture(request: FramescaperSelectedFreezeCaptureRequest) {
 			assertCurrent(input, request);
-			const evaluated = input.compositorRef.current?.captureEvaluatedRgba() ?? null;
-			if (!evaluated) throw new Error('The exact evaluated preview frame is unavailable.');
+			const compositor = input.compositorRef.current;
+			if (!compositor) throw new Error('The exact evaluated preview frame is unavailable.');
+			const evaluated = captureVideoPreviewProgramFreezeFrame({ compositor,
+				layers: input.layersRef.current, options: input.renderOptionsRef.current });
 			assertCurrent(input, request);
 			return Object.freeze({
 				blob: await encodePng(evaluated),

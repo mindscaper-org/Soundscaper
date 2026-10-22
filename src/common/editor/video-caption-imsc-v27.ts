@@ -323,7 +323,7 @@ function readStyle(tag: SaxesTagNS, state: ParseState): VideoCaptionStyleV1 {
 		schemaVersion: 1,
 		id,
 		fontFamily: family,
-		fontSizePercent: percent(values[1] ?? '5%', 'IMSC font size'),
+		fontSizePercent: percent(values[1] ?? '100%', 'IMSC font size') / 15, // The inherited 1c font is 1/15 of root height.
 		foregroundColor: color(values[2] ?? '#ffffffff', 'IMSC foreground color'),
 		backgroundColor: color(values[3] ?? '#000000cc', 'IMSC background color'),
 		fontWeight: choice(values[4] ?? 'normal', ['normal', 'bold'] as const, 'IMSC font weight'),
@@ -390,7 +390,7 @@ function readTiming(
 
 function exportStyle(style: VideoCaptionStyleV1, identities: ImscXmlIdentitiesV1): string {
 	return `<style xml:id="${xml(mapped(identities.styles, style.id))}" tts:fontFamily="${FONT_TO_TTML[style.fontFamily]}"`
-		+ ` tts:fontSize="${style.fontSizePercent}%" tts:color="${style.foregroundColor}"`
+		+ ` tts:fontSize="${style.fontSizePercent * 15}%" tts:color="${style.foregroundColor}"`
 		+ ` tts:backgroundColor="${style.backgroundColor}" tts:fontWeight="${style.fontWeight}"`
 		+ ` tts:fontStyle="${style.fontStyle}" tts:textDecoration="${style.textDecoration}"`
 		+ ` tts:textAlign="${style.textAlign}"/>`;
@@ -504,13 +504,13 @@ function requiredAttribute(tag: SaxesTagNS, uri: string, local: string, name: st
 }
 
 function pair(value: string, name: string): readonly [number, number] {
-	const match = value.match(/^(\d+(?:\.\d+)?)% (\d+(?:\.\d+)?)%$/u);
+	const match = value.match(/^(\+?(?:\d+(?:\.\d+)?|\.\d+))%[ \t\r\n]+(\+?(?:\d+(?:\.\d+)?|\.\d+))%$/u);
 	if (!match) throw interchangeError(`${name} must contain two percentages.`, 'INVALID_CAPTION');
 	return [Number(match[1]), Number(match[2])];
 }
 
 function percent(value: string, name: string): number {
-	const match = value.match(/^(\d+(?:\.\d+)?)%$/u);
+	const match = value.match(/^(\+?(?:\d+(?:\.\d+)?|\.\d+))%$/u);
 	if (!match) throw interchangeError(`${name} must be a percentage.`, 'UNSUPPORTED_STYLE');
 	return Number(match[1]);
 }

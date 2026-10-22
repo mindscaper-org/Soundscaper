@@ -237,7 +237,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 						</form>
 					)}
 					{type === 'timed-recording' && (
-						<TimedRecordingDialogFields controller={controller}
+						<TimedRecordingDialogFields controller={controller} project={snapshot.project}
 							originFrame={controller.getTelemetrySnapshot?.().positionFrame}
 							value={value} onValueChange={onValueChange}
 							onSubmit={submitTimedRecording} scheduledRecording={snapshot.scheduledRecording}

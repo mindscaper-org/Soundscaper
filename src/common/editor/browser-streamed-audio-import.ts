@@ -319,7 +319,7 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		}
 		if (codec === 'opus' || codec === 'vorbis') {
 			const { inspectOggGaplessGeometry } = await import('./ogg-gapless-import.ts');
-			const gapless = await inspectOggGaplessGeometry(file, codec);
+			const gapless = await inspectOggGaplessGeometry(file, codec, signal);
 			if (gapless) {
 				if (gapless.sampleRate !== sampleRate || gapless.sourceFrames > Math.round(durationSeconds * sampleRate) + 1) {
 					throw new Error('The Ogg final granule exceeds its encoded packet duration.');

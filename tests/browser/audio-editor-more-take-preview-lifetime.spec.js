@@ -30,7 +30,7 @@ async function archives() {
 	} finally { await store.close(); }
 }
 
-test('an OS-delivered project stops audio from the open Take Comp audition dialog', async ({ page }) => {
+for (const operation of ['open-project', 'remove-group']) test(`${operation} stops audio from the open Take Comp audition dialog`, async ({ page }) => {
 	await page.addInitScript(() => {
 		globalThis.__takePreviewSources = [];
 		Object.defineProperty(globalThis, 'launchQueue', { configurable: true,
@@ -59,6 +59,12 @@ test('an OS-delivered project stops audio from the open Take Comp audition dialo
 	await page.evaluate(() => { globalThis.__takePreviewSources = []; });
 	await dialog.getByRole('button', { name: 'Audition Take', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => globalThis.__takePreviewSources.length)).toBeGreaterThan(0);
-	await launch(incoming); await expect(editor).toHaveAttribute('data-project-id', 'incoming-take-preview');
+	if (operation === 'open-project') {
+		await launch(incoming); await expect(editor).toHaveAttribute('data-project-id', 'incoming-take-preview');
+	} else {
+		await dialog.getByRole('button', { name: 'Remove take group', exact: true }).click();
+		await expect(dialog.locator('[data-take-comp-empty]')).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Audition Take', exact: true })).toHaveCount(0);
+	}
 	await expect.poll(() => page.evaluate(() => globalThis.__takePreviewSources.every(source => source.__takeRetired === true))).toBe(true);
 });

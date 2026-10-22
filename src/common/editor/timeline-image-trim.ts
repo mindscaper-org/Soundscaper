@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { FRAMESCAPER_IMAGE_TICKS_PER_SECOND, normalizeFramescaperImageClipV1, type FramescaperImageClipV1 } from './timeline-image-model.ts';
+import { normalizeFramescaperImageClipV1, type FramescaperImageClipV1 } from './timeline-image-model.ts';
+import { advanceTimelineImageSourcePhase, timelineImageAvailableSourceFrames } from './timeline-image-phase.ts';
 import { sampleFrameToVideoFrame, videoFrameToSampleFrame, type RationalRate } from './timeline-time.ts';
 
 export interface TimelineImageTrimClock {
@@ -18,8 +19,7 @@ export function prepareTimelineImageTrim(clock: TimelineImageTrimClock, original
 	const sequence = clock.sequences.find(item => item.id === original.sequenceId);
 	if (!sequence) throw new ReferenceError('An image trim requires its sequence clock.');
 	const end = original.sequenceStartFrame + original.sequenceFrameCount;
-	const ticksPerFrameNumerator = BigInt(FRAMESCAPER_IMAGE_TICKS_PER_SECOND) * BigInt(sequence.rate.den);
-	const availableLeftFrames = Number(BigInt(original.sourceStartTicks) * BigInt(sequence.rate.num) / ticksPerFrameNumerator);
+	const availableLeftFrames = timelineImageAvailableSourceFrames(original, sequence.rate);
 	const requestedStart = changes.timelineStartFrame === undefined ? original.sequenceStartFrame
 		: sampleFrameToVideoFrame(changes.timelineStartFrame, sequence.rate, clock.sampleRate);
 	const start = Math.max(0, original.sequenceStartFrame - availableLeftFrames, Math.min(end - 1, requestedStart));
@@ -27,10 +27,9 @@ export function prepareTimelineImageTrim(clock: TimelineImageTrimClock, original
 	const requestedEnd = changes.durationFrames === undefined ? end
 		: sampleFrameToVideoFrame(startSample + Math.max(1, changes.durationFrames), sequence.rate, clock.sampleRate);
 	const count = Math.max(1, requestedEnd - start);
-	const elapsed = BigInt(start - original.sequenceStartFrame) * ticksPerFrameNumerator / BigInt(sequence.rate.num);
-	const phase = BigInt(original.sourceStartTicks) + elapsed;
 	const finalTick = BigInt(source.canonical.durationTicks) - 1n;
 	return normalizeFramescaperImageClipV1({ schemaVersion: original.schemaVersion, kind: 'image', id: original.id,
 		sourceId: original.sourceId, sequenceId: original.sequenceId, sequenceStartFrame: start,
-		sequenceFrameCount: count, sourceStartTicks: String(phase > finalTick ? finalTick : phase) });
+		sequenceFrameCount: count,
+		...advanceTimelineImageSourcePhase(original, start - original.sequenceStartFrame, sequence.rate, finalTick) });
 }

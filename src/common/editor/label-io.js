@@ -1,4 +1,4 @@
-import { decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
+import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
 import { labelTimeFrame } from './label-time-frame.ts';
 
@@ -211,7 +211,7 @@ function parseTimedEntries(text, context, format) {
 		while (index < lines.length && !lines[index].trim()) index += 1;
 		if (index >= lines.length) break;
 		const cueStartLine = index + 1;
-		if (format === 'vtt' && /^(NOTE|STYLE|REGION)(?:[ \t]|$)/.test(lines[index])) {
+		if (format === 'vtt' && /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/.test(lines[index])) {
 			while (index < lines.length && lines[index].trim()) index += 1;
 			continue;
 		}
@@ -231,7 +231,7 @@ function parseTimedEntries(text, context, format) {
 			const timing = parseCueTiming(timingLine, format, cueStartLine + (identifier == null ? 0 : 1));
 			entries.push(validateEntry({
 				...timing,
-				title: format === 'vtt' ? decodeWebVttLabelText(titleLines.join('\n')) : titleLines.join('\n'),
+				title: format === 'vtt' ? decodeWebVttLabelText(titleLines.join('\n')) : decodeSubRipLabelText(titleLines.join('\n')),
 				identifier,
 				line: cueStartLine,
 			}, context));

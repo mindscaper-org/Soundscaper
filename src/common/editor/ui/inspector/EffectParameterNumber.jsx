@@ -169,6 +169,9 @@ export default function ParameterNumber({
 				name={hook}
 				value={String(value ?? '')}
 				type="number"
+				min={knobRange?.[0]}
+				max={knobRange?.[1]}
+				step={step}
 				disabled={disabled}
 				hookName="effect-number-input"
 				visuallyHiddenLabel

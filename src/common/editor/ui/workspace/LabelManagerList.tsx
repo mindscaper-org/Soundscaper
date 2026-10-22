@@ -5,6 +5,7 @@ import { Button } from '@soundscaper/design-system/Button';
 import { LabelManagerRow } from './LabelManagerRows.jsx';
 
 interface Label {
+	readonly frameRate?: number;
 	readonly id: string;
 	readonly trackId: string;
 	readonly trackName: string;
@@ -53,7 +54,7 @@ export default function LabelManagerList({ projectId, labels, sampleRate, copy, 
 			<Button ref={add} variant="secondary" disabled={disabled} onClick={onAdd}>{copy.newLabel || copy.addLabelTrack}</Button>
 		</div>
 		{labels.length ? <ul ref={list} className="kw-audio-editor__panel-list kw-audio-editor__label-manager" data-labels-panel-list>
-			{labels.map((label, index) => <LabelManagerRow key={JSON.stringify([label.trackId, label.id])} label={label} sampleRate={sampleRate}
+			{labels.map((label, index) => <LabelManagerRow key={JSON.stringify([label.trackId, label.id])} label={label} sampleRate={sampleRate} frameRate={label.frameRate}
 				controller={controller} copy={copy} disabled={disabled} run={run}
 				onRemoving={(control) => { removal.current = control.ownerDocument.activeElement === control
 					? { control, id: label.id, trackId: label.trackId, index, projectId } : null; }} />)}

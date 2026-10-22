@@ -130,7 +130,8 @@ test('the real current session keeps Label7 on wrapper1 and Frame7 on wrapper2 w
 		const { descriptor } = frameClipboard();
 		session.setClipboard(descriptor);
 		assert.equal(session.serialize().clipboard?.schemaVersion, 2);
-		assert.deepEqual(new Set(session.getHistoryStorageKeys()), new Set(['video-original', REF.storageKey]));
+		assert.deepEqual(new Set(session.getHistoryStorageKeys()), new Set(['video-source', 'video-original', REF.storageKey]),
+			'Frame clipboard retains its logical source, physical Original and LUT until replacement.');
 		const before = session.serialize().clipboard;
 		assert.ok(isAudioEditorLabelClipboardDescriptor(labels));
 		assert.throws(() => session.setClipboard({ ...descriptor, labels: labels.labels }), /label|empty/iu);

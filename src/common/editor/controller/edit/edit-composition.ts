@@ -33,7 +33,7 @@ import type { CurrentAudioEditorClipboardDescriptor as AudioEditorClipboard, Cur
 import type { AudioEditorCommand as LegacyAudioEditorCommand } from '../../commands/protocol.ts';
 import { normalizeAudioEditorClipboardDescriptor } from '../../commands/clipboard-codec.ts';
 import { preserveProductionTrackRouting } from '../../derived-track-routing.ts';
-import { prepareFrozenTrackEditCommand } from './internal/frozen-track-edit-command.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createSelectedLabelClipboardService } from './internal/selected-label-clipboard.ts';
 
 export type {

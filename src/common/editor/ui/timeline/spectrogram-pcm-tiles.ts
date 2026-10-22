@@ -6,6 +6,7 @@ import {
 	type AudioWarpRuntimeProject,
 } from '../../audio-warp-runtime.ts';
 import { projectUnwarpedClipSourceRange } from '../../audio-clip-source-projection.ts';
+import { readClipLoop } from '../../audio-clip-loop.ts';
 import {
 	pffftSpectrogramBandEnergies,
 	preparePffftSpectrogram,
@@ -14,6 +15,7 @@ import { analyzeTimelineSpectrogramTileInWorker } from '../../timeline-spectrogr
 import type { SpectrogramColumnCacheView } from '../../controller/source/timeline-spectrogram-cache.ts';
 import { pcmWindowCoversProjectedClip } from './preview.ts';
 import { alignedSpectrogramFramesPerPixel } from './spectrogram-column-reuse.ts';
+import { readLoopSpectrogramPcmWindow } from './spectrogram-loop-pcm-window.ts';
 import {
 	createSpectrogramSampleViews,
 	type SpectrogramSampleView,
@@ -102,7 +104,12 @@ export async function generateSpectrogramPcmTiles(
 	const contextEndAt = (pixel: number): number => Math.min(
 		clip.durationFrames, localStartAt(pixel) + rightContext,
 	);
+	const sourceLimit = maximumSourceFrames - SOURCE_REQUEST_PADDING_FRAMES;
+	const loop = readClipLoop(clip);
+	const fragmentedLoop = loop && (clip.sourceDurationFrames ?? clip.durationFrames) > sourceLimit;
 	const sourceSpan = (startFrame: number, endFrame: number): number => {
+		if (fragmentedLoop && loop) return Math.max(endFrame - startFrame,
+			Math.ceil((endFrame - startFrame) * (clip.sourceDurationFrames ?? clip.durationFrames) / loop.periodFrames) + 2);
 		const range = clip.warpMap == null
 			? projectUnwarpedClipSourceRange({
 				opaqueExtensions: clip.opaqueExtensions,
@@ -120,7 +127,6 @@ export async function generateSpectrogramPcmTiles(
 		if (!range) throw new TypeError('A warped spectrogram tile requires a project.');
 		return Math.ceil(range.endFrame) - Math.floor(range.startFrame);
 	};
-	const sourceLimit = maximumSourceFrames - SOURCE_REQUEST_PADDING_FRAMES;
 	let columnsByChannel: Array<Array<readonly number[]>> | null = null;
 	const appendColumn = (column: readonly (readonly number[])[]): void => {
 		if (columnsByChannel === null) columnsByChannel = column.map(() => []);
@@ -144,9 +150,12 @@ export async function generateSpectrogramPcmTiles(
 			last += 1;
 			endFrame = candidateEnd;
 		}
-		const pcm = await options.requestPcmWindow(startFrame, endFrame);
+		const fragment = fragmentedLoop ? await readLoopSpectrogramPcmWindow(
+			clip, startFrame, endFrame, options.requestPcmWindow, signal,
+		) : null;
+		const pcm = fragmentedLoop ? fragment?.pcm : await options.requestPcmWindow(startFrame, endFrame);
 		signal?.throwIfAborted();
-		const tileClip = { ...clip, waveformStartFrame: startFrame, waveformEndFrame: endFrame };
+		const tileClip = fragment?.clip ?? { ...clip, waveformStartFrame: startFrame, waveformEndFrame: endFrame };
 		if (!pcm || !pcmWindowCoversProjectedClip(pcm, tileClip, project)) return null;
 
 		const pixelStart = pixelPositions[first]!;

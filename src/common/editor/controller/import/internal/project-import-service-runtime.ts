@@ -530,7 +530,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		return prepareImportedWavMetadata({ descriptor, importOptions, project: getProject(),
 			projectSampleRate: projectSampleRate(), copy, freezeImportOptions });
 	}
-	const importFile = createDesktopOriginalImportRecorder({ state, getProject, publishDocumentSnapshot }, importMediaFile);
+	const importFile = createDesktopOriginalImportRecorder({ state, getProject, publishDocumentSnapshot, codecRuntime: ffmpeg }, importMediaFile);
 	return Object.freeze({
 		importFile,
 		importFiles,

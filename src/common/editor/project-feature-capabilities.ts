@@ -45,6 +45,7 @@ export const PROJECT_FEATURE_CAPABILITY_IDS = Object.freeze({
 	audioWarp: 'org.soundscaper.capability.audio-warp',
 	sequenceTiming: 'org.soundscaper.capability.sequence-timing',
 	timelineImages: 'org.soundscaper.capability.timeline-images-v1',
+	timelineImagePhase: 'org.soundscaper.capability.timeline-image-phase-v1',
 	videoRetime: 'org.soundscaper.capability.video-retime',
 	videoCaptions: 'org.soundscaper.capability.video-captions',
 	videoColorManagement: 'org.soundscaper.capability.video-color-management',
@@ -108,6 +109,7 @@ export const PROJECT_FEATURE_VIDEO_CAPABILITY_IDS = Object.freeze([
 	PROJECT_FEATURE_CAPABILITY_IDS.videoCompositing,
 	PROJECT_FEATURE_CAPABILITY_IDS.sequenceTiming,
 	PROJECT_FEATURE_CAPABILITY_IDS.timelineImages,
+	PROJECT_FEATURE_CAPABILITY_IDS.timelineImagePhase,
 	PROJECT_FEATURE_CAPABILITY_IDS.videoRetime,
 	PROJECT_FEATURE_CAPABILITY_IDS.videoTimingAssets,
 ] as const);

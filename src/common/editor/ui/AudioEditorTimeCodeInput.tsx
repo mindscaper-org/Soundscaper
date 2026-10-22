@@ -215,6 +215,18 @@ export function audioEditorProjectFrameRate(value: unknown): number {
 		? num / den : DEFAULT_FRAME_RATE;
 }
 
+/** Local track fields follow declared sequence membership, including foldered tracks. */
+export function audioEditorTrackFrameRate(value: unknown, trackId: unknown): number {
+	if (!isRecord(value)) return audioEditorProjectFrameRate(value);
+	const sequences: readonly unknown[] = Array.isArray(value.sequences) ? value.sequences : [];
+	const selected = sequences.find(sequence => isRecord(sequence) && (
+		Array.isArray(sequence.trackIds) && sequence.trackIds.includes(trackId)
+		|| Array.isArray(sequence.trackNodes) && sequence.trackNodes.some((node: unknown) => isRecord(node)
+			&& node.kind === 'track' && node.id === trackId)
+	));
+	return audioEditorProjectFrameRate(isRecord(selected) ? { ...value, primarySequenceId: selected.id } : value);
+}
+
 function editorTimeRate(unit: AudioEditorTimeUnit, rate: number): number {
 	if (unit === 'seconds' || unit === 'milliseconds') return 1;
 	if (!Number.isFinite(rate) || rate <= 0) throw new RangeError('A timecode input requires a positive finite rate.');

@@ -7,11 +7,13 @@ import {
 import type { AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { clipboardContainsVideo, pasteSpanForTrack } from '../common/editor/commands/clipboard-time-runtime.js';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
+import { mergeEditingRanges } from '../common/editor/commands/editing-selection-authority.ts';
 import {
 	resolveRangeSequenceGeometry,
 	type RangeSampleSpan,
 } from '../common/editor/commands/range-sequence-geometry.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
+import { resolveRuntimeProjectProjection } from '../common/editor/runtime-clip-projection.ts';
 
 interface PlannedAutomationEditsV21 {
 	readonly byTrackId: ReadonlyMap<string, readonly AutomationLaneTimelineReplacementV21[]>;
@@ -20,6 +22,52 @@ interface PlannedAutomationEditsV21 {
 }
 
 type DataRecord = Record<string, unknown>;
+
+/** Multi-track processing emits one replacement per track, with one common programme edit. */
+export function preserveGlobalAutomationAfterReplacementBatch(
+	previous: SoundscaperProject,
+	commanded: SoundscaperProject,
+	command: Extract<AudioEditorCommand, { type: 'batch' }>,
+): Readonly<Record<string, unknown>> {
+	if (command.commands.some(child => child.type !== 'range/replace' && child.type !== 'range/ripple-delete' && child.type !== 'selection/set'
+			&& !(child.type === 'clipboard/paste' && child.mode === 'insert-track'))) return commanded;
+	const replacement = command.commands.find(child => child.type === 'range/replace');
+	const replacementEdit = replacement ? [...planAutomationEdits(previous, commanded, replacement).byTrackId.values()][0]?.[0] : undefined;
+	const byTrackId = new Map<string, readonly AutomationLaneTimelineReplacementV21[]>();
+	for (const child of command.commands) {
+		if (child.type === 'selection/set') continue;
+		const plan = planAutomationEdits(previous, commanded, child);
+		// A child that already edited the complete programme must not move it twice.
+		if (plan.global === null || plan.global.length) return commanded;
+		for (const [trackId, edits] of plan.byTrackId) {
+			if (byTrackId.has(trackId)) return commanded;
+			// A silent target expresses the same suffix move as an insertion or deletion
+			// at the selection end. The processed material owns the programme interval.
+			byTrackId.set(trackId, replacementEdit && child.type !== 'range/replace' && edits.length === 1
+				&& isSilentReplacementSuffix(edits[0]!, replacementEdit) ? [replacementEdit] : edits);
+		}
+	}
+	if (!coversEveryMediaTrack(previous, [...byTrackId.keys()])) return commanded;
+	const edgeTracks = new Map(previous.mixer.edges.flatMap(edge => edge.source.kind === 'track'
+		? [[edge.id, edge.source.id] as const] : []));
+	if (!commanded.automationLanes.some(lane => addressedTrackId(lane, edgeTracks) === null)) return commanded;
+	const edits = commonEditSeries(byTrackId);
+	if (edits === null) throw new RangeError('All-track automation cannot reconcile distinct sequence interval maps.');
+	const options = { sampleRate: previous.sampleRate, tempoMap: previous.tempoMap };
+	return { ...commanded, automationLanes: commanded.automationLanes.map(lane => (
+		addressedTrackId(lane, edgeTracks) !== null ? lane : edits.reduce((current, edit) => (
+			edit.endFrame - edit.startFrame === edit.insertedDurationFrames ? current
+				: replaceAutomationLaneTimelineIntervalV21(current, edit, options)
+		), lane)
+	)) };
+}
+
+function isSilentReplacementSuffix(edit: AutomationLaneTimelineReplacementV21, replacement: AutomationLaneTimelineReplacementV21): boolean {
+	const delta = replacement.insertedDurationFrames - (replacement.endFrame - replacement.startFrame);
+	return edit.endFrame === replacement.endFrame && (delta >= 0
+		? edit.startFrame === edit.endFrame && edit.insertedDurationFrames === delta
+		: edit.startFrame === replacement.endFrame + delta && edit.insertedDurationFrames === 0);
+}
 
 /** Apply only command-declared timeline geometry to surviving baseline lanes. */
 export function preserveAutomationLanesAfterInheritedCommand(
@@ -30,15 +78,18 @@ export function preserveAutomationLanesAfterInheritedCommand(
 ): readonly AutomationLaneV21[] {
 	const plan = planAutomationEdits(previous, commanded, command);
 	if (plan.byTrackId.size === 0 && plan.global?.length === 0) return lanes;
-	if (plan.global === null && lanes.some((lane) => addressedTrackId(lane) === null)) {
+	const edgeTracks = new Map(previous.mixer.edges.flatMap(edge => edge.source.kind === 'track'
+		? [[edge.id, edge.source.id] as const] : []));
+	if (plan.global === null && lanes.some((lane) => addressedTrackId(lane, edgeTracks) === null)) {
 		throw new RangeError('All-track automation cannot reconcile distinct sequence interval maps.');
 	}
 	const options = { sampleRate: previous.sampleRate, tempoMap: previous.tempoMap };
 	return lanes.map((lane) => {
-		const trackId = addressedTrackId(lane);
+		const trackId = addressedTrackId(lane, edgeTracks);
 		const edits = trackId === null ? plan.global ?? [] : plan.byTrackId.get(trackId) ?? [];
 		return edits.reduce((current, edit) => (
-			replaceAutomationLaneTimelineIntervalV21(current, edit, options)
+			edit.endFrame - edit.startFrame === edit.insertedDurationFrames ? current
+				: replaceAutomationLaneTimelineIntervalV21(current, edit, options)
 		), lane);
 	});
 }
@@ -56,7 +107,7 @@ function planAutomationEdits(
 		}, true);
 	}
 	if (command.type === 'range/replace') {
-		const replacement = recordArray(commanded.clips, 'commanded.clips')
+		const replacement = resolvedClipRecords(commanded)
 			.find((clip) => clip.id === command.clipId);
 		if (!replacement) throw new RangeError('A range replacement did not publish its replacement clip.');
 		return trackPlan(command.trackId, {
@@ -160,7 +211,7 @@ function removedClipPlan(
 		for (const clipId of track.clipIds) trackByClipId.set(String(clipId), String(track.id));
 	}
 	const byTrackId = new Map<string, AutomationLaneTimelineReplacementV21[]>();
-	for (const clip of recordArray(previous.clips, 'previous.clips')) {
+	for (const clip of resolvedClipRecords(previous)) {
 		const id = String(clip.id);
 		if (surviving.has(id)) continue;
 		const trackId = trackByClipId.get(id);
@@ -171,7 +222,9 @@ function removedClipPlan(
 		edits.push({ startFrame, endFrame: safeAdd(startFrame, durationFrames), insertedDurationFrames: 0 });
 		byTrackId.set(trackId, edits);
 	}
-	for (const edits of byTrackId.values()) edits.sort((left, right) => right.startFrame - left.startFrame);
+	for (const [trackId, edits] of byTrackId) byTrackId.set(trackId, mergeEditingRanges(edits).reverse().map(range => ({
+		startFrame: range.startFrame, endFrame: range.endFrame, insertedDurationFrames: 0,
+	})));
 	return { byTrackId, global: [] };
 }
 
@@ -180,8 +233,8 @@ function renderedClipReplacementPlan(
 	commanded: Readonly<Record<string, unknown>>,
 	command: Extract<AudioEditorCommand, { readonly type: 'clip/render-replace-many' }>,
 ): PlannedAutomationEditsV21 {
-	const previousClips = recordArray(previous.clips, 'previous.clips');
-	const nextById = new Map(recordArray(commanded.clips, 'commanded.clips')
+	const previousClips = resolvedClipRecords(previous);
+	const nextById = new Map(resolvedClipRecords(commanded)
 		.map((clip) => [String(clip.id), clip]));
 	const trackByClipId = trackOwnership(previous);
 	const pending = new Set(command.entries.map(({ clipId }) => clipId));
@@ -247,8 +300,8 @@ function commonEditSeries(
 	return first;
 }
 
-function addressedTrackId(lane: AutomationLaneV21): string | null {
-	if (lane.address.kind === 'edge') return null;
+function addressedTrackId(lane: AutomationLaneV21, edgeTracks: ReadonlyMap<string, string>): string | null {
+	if (lane.address.kind === 'edge') return edgeTracks.get(lane.address.edgeId) ?? null;
 	return lane.address.strip.kind === 'track' ? lane.address.strip.id : null;
 }
 
@@ -292,6 +345,11 @@ function sampleSpan(value: AutomationLaneTimelineReplacementV21): RangeSampleSpa
 
 function clipStart(clip: DataRecord): number {
 	return nonNegativeSafeInteger(clip.timelineStartFrame, `clip ${String(clip.id)}.timelineStartFrame`);
+}
+
+/** Persisted musical clips carry beats; interval planning always reads resolved samples. */
+function resolvedClipRecords(project: Readonly<Record<string, unknown>>): DataRecord[] {
+	return recordArray(resolveRuntimeProjectProjection(project).clips, 'resolved project.clips');
 }
 
 function clipEnd(clip: DataRecord): number {

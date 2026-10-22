@@ -538,7 +538,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	});
 	const imports = createImportComposition({
 		state, copy, lifetime, projectGeneration, store, engine, ffmpeg, archiveRuntime: deferredArchiveRuntime, confirmFileSizeWarning: options.confirmFileSizeWarning, helperTimingProbe: fileService.helperTimingProbe, adaptAudacityProject: options.adaptAudacityProject, captureExternalMediaFile: fileService.captureExternalMediaFile,
-		sourceBuffers, sourceChunkProviders, sourcePeaks, sourceResolver: clipTimePitchSourceResolver, sourceChunkFrames: SOURCE_CHUNK_FRAMES,
+		sourceBuffers, sourceChunkProviders, sourcePeaks, sourceResolver: clipTimePitchSourceResolver, sourceChunkFrames: SOURCE_CHUNK_FRAMES, prepareTimePitchCaches: bindings.prepareCommittedTimePitchCaches,
 		protectedSourceIds: stagedProjectBinSourceIds, trackColors: AUDIO_EDITOR_TRACK_COLORS, taskProgress, projectVisual: sources.projectVisual,
 		createPreviewEngine: (previewOptions) => playbackPreviews.create(previewOptions),
 		getProject: () => documentState.project, editingBlocked, commit: bindings.commit, updateSelection: bindings.updateSelection, setStatus: bindings.setStatus, publishDocumentSnapshot, handleError: bindings.handleError, preflightStorage: bindings.preflightStorage, projectSampleRate,
@@ -664,8 +664,8 @@ export function createAudioEditorController(_root = null, options = {}) {
 	function continueLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.continueLoudnessMeasurement(kind); }
 	function resetLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.resetLoudnessMeasurement(kind); }
 
-	function editingBlocked() {
-		return selectAudioEditorControllerEditBlock(state).blocked
+	function editingBlocked(allowReadOnly = false) {
+		return selectAudioEditorControllerEditBlock(allowReadOnly ? { ...state, readOnly: false } : state).blocked
 			|| Boolean(framescaperCapture?.originSnapshot(documentState.project?.id ?? null).editBlocked);
 	}
 

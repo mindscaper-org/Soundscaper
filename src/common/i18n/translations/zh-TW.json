@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "zh-TW",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:69aba6357006ba36ced5e5f788c916ac851ccb05e5d90f866016d528efe304f9","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:40b539d34ade78d536c945bb26c33005081401ac22733e9194f10b275fb27d76","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -646,6 +646,7 @@
 		"decreaseAllTrackHeights": ["machine","Decrease all track heights","降低所有軌道高度"],
 		"decreaseTrackHeight": ["machine","Decrease track height","降低軌道高度"],
 		"defaultOption": ["machine","Default","預設"],
+		"defaultTrackFolderName": ["machine","Folder {number}","資料夾 {number}"],
 		"defaultTrackView": ["machine","Default view","預設檢視"],
 		"defaultTrackViewNote": ["machine","How tracks are drawn until one is given a display of its own.","在軌道獲得專屬顯示方式之前，軌道的繪製方式。"],
 		"delay": ["audacity","Delay","延遲"],

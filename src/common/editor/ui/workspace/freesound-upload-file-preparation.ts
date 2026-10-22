@@ -35,11 +35,14 @@ export async function prepareFreesoundUploadFile(
 	signal?.throwIfAborted();
 	const sampleRate = inspectDecodedAudioSampleRate(inputBytes);
 	const options: AudioContextOptions = { latencyHint: 'playback', ...(sampleRate ? { sampleRate } : {}) };
-	const context = runtime.createDecodeContext?.(options) ?? createBrowserDecodeContext(options);
+	let context: DecodeContext | null = null;
 	let decoded: DecodedAudio | null = null;
-	try { decoded = await context.decodeAudioData(inputBytes); }
+	try {
+		context = runtime.createDecodeContext?.(options) ?? createBrowserDecodeContext(options);
+		decoded = await context.decodeAudioData(inputBytes);
+	}
 	catch { signal?.throwIfAborted(); }
-	finally { await context.close(); }
+	finally { await context?.close(); }
 	signal?.throwIfAborted();
 	if (!decoded?.length) {
 		decoded = await recoverUploadAudio(file, signal, maximumBytes);

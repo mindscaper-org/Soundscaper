@@ -107,6 +107,14 @@ export interface FramescaperImageSequenceImportPorts {
 	complete?(request: FramescaperImageSequenceNativeAdmissionRequest): Awaitable<void>;
 }
 
+/** A published edit or its Undo/Redo history still owns the staged native bodies. */
+export class FramescaperImageSequencePublishedError extends Error {
+	constructor(cause: unknown) {
+		super(cause instanceof Error ? cause.message : 'The image-sequence save failed after publication.', { cause });
+		this.name = 'FramescaperImageSequencePublishedError';
+	}
+}
+
 export interface ComposeFramescaperImageSequenceImportOptions {
 	readonly profile: unknown;
 	readonly project: CandidateProject;
@@ -193,6 +201,7 @@ export async function composeFramescaperImageSequenceImport(
 		catch { /* The main-owned recovery manifest settles an acknowledged project commit. */ }
 	}
 	catch (error) {
+		if (error instanceof FramescaperImageSequencePublishedError) throw error;
 		const failures: unknown[] = [error];
 		if (inventoryPublished) {
 			try { await options.ports.cleanupInventory(inventory.reference); }

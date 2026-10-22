@@ -2,6 +2,8 @@
 
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { EngineParametricEqPreview } from '../../engine/public-api.ts';
 import type { EditorActionRuntime } from './action-facade-runtime.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
+import { snapshotInertEditorCommand } from '../../commands/editor-command-snapshot.ts';
 import type { AudioEditorCommandPayloads } from '../../commands/protocol.ts';
 import { assertEditorActionRuntime } from './action-facade-runtime.ts';
 import {
@@ -150,7 +152,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		video: createVideoActionGroup(scope, restricted),
 		edit: Object.freeze({
 			execute: handleEdit,
-			commit,
+			commit: (...args: Parameters<typeof commit>) => commit(args[0]
+				? prepareFrozenTrackEditCommand(getProject(), snapshotInertEditorCommand(args[0])) : args[0], args[1], args[2]),
 			undo: () => handleEdit('undo'),
 			redo: () => handleEdit('redo'),
 			copy: () => handleEdit('copy'),

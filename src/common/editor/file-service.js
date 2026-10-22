@@ -132,7 +132,7 @@ export function createAudioEditorFileService(options = {}) {
 	async function chooseFiles(request = {}) {
 		if (!bridge?.chooseFiles) return [];
 		const descriptors = await bridge.chooseFiles({
-			purpose: normalizePurpose(request.purpose, ['project', 'audio', 'video', 'media', 'image', 'labels', 'lut']),
+			purpose: normalizePurpose(request.purpose, ['project', 'audio', 'video', 'audio-video', 'media', 'image', 'labels', 'lut']),
 			...(request.multiple ? { multiple: true } : {}),
 		});
 		return Array.isArray(descriptors) ? descriptors.filter(isReadDescriptor) : [];
@@ -217,7 +217,7 @@ export function createAudioEditorFileService(options = {}) {
 
 	async function chooseSaveTarget(request = {}) {
 		if (!bridge) return browserFiles.chooseSaveTarget(request);
-		const purpose = normalizePurpose(request.purpose, ['project', 'project-copy', 'aup3', 'aup4', 'audio-pcm-mix', 'audio', 'video', 'media', 'labels', 'preset', 'macro', 'report', 'attribution-csv', 'interchange']);
+		const purpose = normalizePurpose(request.purpose, ['project', 'project-copy', 'aup3', 'aup4', 'audio-pcm-mix', 'audio', 'video', 'media', 'labels', 'preset', 'macro', 'report', 'attribution-csv', 'interchange', 'translation']);
 		const suggestedName = sanitizeSuggestedName(request.suggestedName || request.fileName);
 		if (bridge.chooseSaveTarget) {
 			return bridge.chooseSaveTarget({ purpose, suggestedName,

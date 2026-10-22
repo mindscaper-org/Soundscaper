@@ -216,6 +216,7 @@
 		"shared/deferred-module-facade.ts",
 		"shared/file-size-warning-confirmation.ts",
 		"shared/file-size-warning.ts",
+		"shared/frozen-track-edit-command.ts",
 		"shared/image-brush-mask-authoring-v1.ts",
 		"shared/image-develop-draft-presentation-v1.ts",
 		"shared/image-hdr-merge-authoring-current-v1.ts",

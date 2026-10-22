@@ -1,0 +1,100 @@
+diff --git a/node_modules/mediabunny/src/flac/flac-demuxer.ts b/node_modules/mediabunny/src/flac/flac-demuxer.ts
+--- a/node_modules/mediabunny/src/flac/flac-demuxer.ts
++++ b/node_modules/mediabunny/src/flac/flac-demuxer.ts
+@@ -339,7 +339,7 @@
+ 
+ 		const slice = await this.reader.requestSliceRange(
+ 			startPos,
+-			maximumHeaderLength,
++			minimumHeaderLength,
+ 			maximumSliceLength,
+ 		);
+ 
+@@ -689,6 +689,7 @@
+ 					x => x.blockOffset / this.demuxer.audioInfo!.sampleRate,
+ 				);
+ 				if (packetIndex === -1) {
++					if (this.demuxer.lastSampleLoaded) return null;
+ 					await this.demuxer.advanceReader();
+ 					continue;
+ 				}
+diff --git a/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js b/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
+--- a/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
++++ b/node_modules/mediabunny/dist/modules/src/flac/flac-demuxer.js
+@@ -215,7 +215,7 @@
+         const effectiveMinFrameSize = this.audioInfo.minimumFrameSize || minimumFrameLength;
+         const effectiveMaxFrameSize = this.audioInfo.maximumFrameSize || maximumFrameLength;
+         const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
+-        const slice = await this.reader.requestSliceRange(startPos, maximumHeaderLength, maximumSliceLength);
++        const slice = await this.reader.requestSliceRange(startPos, minimumHeaderLength, maximumSliceLength);
+         if (!slice) {
+             return null;
+         }
+@@ -490,6 +490,7 @@
+             while (true) {
+                 const packetIndex = binarySearchLessOrEqual(this.demuxer.loadedSamples, timestamp, x => x.blockOffset / this.demuxer.audioInfo.sampleRate);
+                 if (packetIndex === -1) {
++                    if (this.demuxer.lastSampleLoaded) return null;
+                     await this.demuxer.advanceReader();
+                     continue;
+                 }
+diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/mediabunny/dist/bundles/mediabunny.cjs
+--- a/node_modules/mediabunny/dist/bundles/mediabunny.cjs
++++ b/node_modules/mediabunny/dist/bundles/mediabunny.cjs
+@@ -13929,7 +13929,7 @@
+       const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
+       const slice = await this.reader.requestSliceRange(
+         startPos,
+-        maximumHeaderLength,
++        minimumHeaderLength,
+         maximumSliceLength
+       );
+       if (!slice) {
+@@ -14179,6 +14179,7 @@
+             (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
+           );
+           if (packetIndex === -1) {
++            if (this.demuxer.lastSampleLoaded) return null;
+             await this.demuxer.advanceReader();
+             continue;
+           }
+diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
+--- a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
++++ b/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs
+@@ -13926,7 +13926,7 @@
+       const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
+       const slice = await this.reader.requestSliceRange(
+         startPos,
+-        maximumHeaderLength,
++        minimumHeaderLength,
+         maximumSliceLength
+       );
+       if (!slice) {
+@@ -14176,6 +14176,7 @@
+             (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
+           );
+           if (packetIndex === -1) {
++            if (this.demuxer.lastSampleLoaded) return null;
+             await this.demuxer.advanceReader();
+             continue;
+           }
+diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/mediabunny/dist/bundles/mediabunny.mjs
+--- a/node_modules/mediabunny/dist/bundles/mediabunny.mjs
++++ b/node_modules/mediabunny/dist/bundles/mediabunny.mjs
+@@ -13772,7 +13772,7 @@
+     const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
+     const slice = await this.reader.requestSliceRange(
+       startPos,
+-      maximumHeaderLength,
++      minimumHeaderLength,
+       maximumSliceLength
+     );
+     if (!slice) {
+@@ -14022,6 +14022,7 @@
+           (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
+         );
+         if (packetIndex === -1) {
++          if (this.demuxer.lastSampleLoaded) return null;
+           await this.demuxer.advanceReader();
+           continue;
+         }

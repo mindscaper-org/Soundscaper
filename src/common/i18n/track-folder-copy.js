@@ -3,6 +3,7 @@
 /** Copy for the native track folder tree; a folder is the arrangement view of a mix channel. */
 export const TRACK_FOLDER_COPY_BY_LOCALE = Object.freeze({
 	de: Object.freeze({
+		defaultTrackFolderName: 'Ordner {number}',
 		trackFolderTree: 'Spurordner',
 		trackFolder: 'Spurordner',
 		newTrackFolder: 'Neuer Ordner',
@@ -19,6 +20,7 @@ export const TRACK_FOLDER_COPY_BY_LOCALE = Object.freeze({
 		trackFolderRowLabel: 'Ordner {name}, Ebene {level}',
 	}),
 	en: Object.freeze({
+		defaultTrackFolderName: 'Folder {number}',
 		trackFolderTree: 'Track folders',
 		trackFolder: 'Track folder',
 		newTrackFolder: 'New folder',

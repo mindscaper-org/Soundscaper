@@ -38,6 +38,7 @@ Families describe product entry points, not every file extension a decoder might
 | Audio track freeze | Enabled | Not enabled | Not enabled |
 | Audio warping | Enabled | Not enabled | Not enabled |
 | Dissolve video transitions | Not enabled | Enabled | Not enabled |
+| Exact animated-image phase | Not enabled | Enabled | Not enabled |
 | Immersive ADM audio | Enabled | Not enabled | Not enabled |
 | Local assistance assets | Enabled | Enabled | Not enabled |
 | Mastering sequences | Enabled | Not enabled | Not enabled |

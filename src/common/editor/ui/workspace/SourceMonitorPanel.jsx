@@ -90,6 +90,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 					preload="auto"
 					aria-label={`${copy.panelSourceMonitor}: ${view.sourceName || copy.videoClip}`}
 					onLoadedMetadata={(event) => { event.currentTarget.currentTime = view.mediaSeconds; }}
+					onTimeUpdate={capturePlayback}
 					onEnded={() => run(() => { capturePlayback(); stop(); })}
 				/>
 				: <p className="kw-audio-editor__panel-empty" role="status">{copy.videoPreviewUnavailable}</p>}

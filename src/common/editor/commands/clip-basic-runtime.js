@@ -73,13 +73,12 @@ export function removeClips(project, clipIds, rippleMode = 'none') {
 	}
 	project.clips = project.clips.filter((candidate) => !removedIds.has(candidate.id));
 	if (rippleMode !== 'track') return;
-	const commitTakeGraph = planTakeGraphClipRipple(project, takeGraphClipRemovals(removedByTrack));
+	const removals = takeGraphClipRemovals(removedByTrack);
+	const commitTakeGraph = planTakeGraphClipRipple(project, removals);
 	for (const track of project.tracks) {
 		const removed = removedByTrack.get(track.id) || [];
 		if (!removed.length || !Array.isArray(track.clipIds)) continue;
-		const removedRanges = mergeEditingRanges(removed.map((clip) => ({
-			startFrame: clip.timelineStartFrame, endFrame: clipEndFrame(clip),
-		})));
+		const removedRanges = removals.get(track.id);
 		const shiftAt = createCompletedFrameSum(removedRanges.map(range => ({ endFrame: range.endFrame, frames: range.durationFrames })));
 		for (const clipId of track.clipIds) {
 			const clip = requireIndexedClip(clipById, clipId);
@@ -96,10 +95,10 @@ function takeGraphClipRemovals(removedByTrack) {
 	const removals = new Map();
 	for (const [trackId, removed] of removedByTrack) {
 		if (!removed.length) continue;
-		removals.set(String(trackId), removed.map((clip) => ({
+		removals.set(String(trackId), mergeEditingRanges(removed.map((clip) => ({
 			startFrame: clip.timelineStartFrame,
 			endFrame: clipEndFrame(clip),
-		})));
+		}))));
 	}
 	return removals;
 }

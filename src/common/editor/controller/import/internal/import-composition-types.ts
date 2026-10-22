@@ -110,6 +110,7 @@ export interface ImportCompositionDependencies {
 	readonly sourceChunkProviders: ProjectBinServiceDependencies['sourceChunkProviders'];
 	readonly sourcePeaks: ProjectBinServiceDependencies['sourcePeaks'];
 	readonly sourceResolver: ProjectBinServiceDependencies['sourceResolver'];
+	readonly prepareTimePitchCaches?: ProjectBinServiceDependencies['prepareTimePitchCaches'];
 	readonly sourceChunkFrames: number;
 	/** Shared with project retention so staged bin imports stay live until they settle. */
 	readonly protectedSourceIds: ProjectBinServiceDependencies['protectedSourceIds'];

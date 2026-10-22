@@ -196,6 +196,7 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 	});
 	const trackFolder = createTrackFolderService({
 		lifetime,
+		defaultFolderName: number => (publishedCopyFor(copy).defaultTrackFolderName ?? 'Folder {number}').replace('{number}', String(number)),
 		getProject: document.get,
 		getProjectSessionKey: () => { try { return document.captureCurrent().generation; } catch { return null; } },
 		editingBlocked: dependencies.editingBlocked,

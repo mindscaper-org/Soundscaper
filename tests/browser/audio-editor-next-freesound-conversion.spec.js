@@ -3,9 +3,12 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { createAudacityWavPackFixture } from '../helpers/wavpack-import-fixture.ts';
+import { encodeWav } from '../../src/common/editor/wav.js';
 
-test('Freesound uploads the maintained WavPack format as decoded PCM WAV', async ({ page }) => {
-	const original = await createAudacityWavPackFixture(256);
+for (const kind of ['WavPack', 'low-rate WAV alias']) test(`Freesound uploads the maintained ${kind} format as decoded PCM WAV`, async ({ page }) => {
+	const lowRate = kind === 'low-rate WAV alias';
+	const original = lowRate ? encodeWav([Float32Array.of(0, .25, -.5, .75)], { sampleRate: 1_000, bitDepth: 16 })
+		: await createAudacityWavPackFixture(256);
 	// WebKit's request instrumentation omits Blob bodies. Read the same body
 	// supplied to the real fetch without replacing the file or upload transport.
 	await page.addInitScript(() => {
@@ -29,14 +32,15 @@ test('Freesound uploads the maintained WavPack format as decoded PCM WAV', async
 	await chooseNestedCommandAction(page, editor, 'Window', ['Freesound']);
 	const uploads = editor.locator('[data-freesound-uploads="true"]');
 	await uploads.getByText('Upload to Freesound', { exact: true }).click();
-	await uploads.locator('input[type="file"]').setInputFiles({ name: 'field-take.wv', mimeType: 'audio/wavpack', buffer: Buffer.from(original) });
+	await uploads.locator('input[type="file"]').setInputFiles({ name: lowRate ? 'measurement.wave' : 'field-take.wv',
+		mimeType: lowRate ? 'audio/wav' : 'audio/wavpack', buffer: Buffer.from(original) });
 	const row = uploads.locator('li');
 	await expect(row).toHaveAttribute('data-upload-status', 'ready-to-publish');
 	const uploaded = Buffer.from(await page.evaluate(() => globalThis.__nextFreesoundUploaded), 'base64');
 	expect(uploaded.subarray(0, 4).toString()).toBe('RIFF');
 	expect(uploaded.subarray(8, 12).toString()).toBe('WAVE');
-	expect(uploaded.readUInt16LE(22)).toBe(2);
-	expect(uploaded.readUInt32LE(24)).toBe(48_000);
+	expect(uploaded.readUInt16LE(22)).toBe(lowRate ? 1 : 2);
+	expect(uploaded.readUInt32LE(24)).toBe(lowRate ? 1_000 : 48_000);
 	expect(uploaded.readUInt16LE(34)).toBe(24);
-	expect(uploaded.readUInt32LE(40)).toBe(256 * 2 * 3);
+	expect(uploaded.readUInt32LE(40)).toBe(lowRate ? 4 * 3 : 256 * 2 * 3);
 });

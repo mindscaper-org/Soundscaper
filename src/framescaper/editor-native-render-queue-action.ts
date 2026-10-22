@@ -18,6 +18,7 @@ import {
 	bindFramescaperNativeProjectActionRuntime,
 	createFramescaperNativeProjectActionSubsetRuntime,
 	type FramescaperNativeProjectActionRuntime,
+	type FramescaperNativeProjectActionResult,
 } from '../common/editor/ui/framescaper-native-project-actions.ts';
 import {
 	createFramescaperNativeServicesStore,
@@ -102,9 +103,9 @@ export function createFramescaperNativeRenderQueueActionRuntimeNativeMedia(
 		}),
 	});
 	bindFramescaperNativeCarrierRegeneration(runtime,
-		async (jobId) => enqueue({
+		async (jobId) => { await enqueue({
 			delivery: await recoverableDelivery(profile, owner, jobId), restartJobId: jobId,
-		}));
+		}); });
 	return runtime;
 }
 
@@ -113,7 +114,7 @@ async function enqueueCurrentProject(
 	owner: FramescaperNativeRenderQueueProjectOwnerNativeMedia,
 	delivery: FramescaperNativeRenderDeliveryRequestNativeMedia,
 	expectedRestartJobId: string | null = null,
-): Promise<void> {
+): Promise<FramescaperNativeProjectActionResult> {
 	const bridge = exactBridge();
 	const first = queueSnapshot(profile, owner.project, delivery);
 	const store = createFramescaperNativeServicesStore(bridge);
@@ -127,7 +128,7 @@ async function enqueueCurrentProject(
 		throw new Error('This authenticated desktop bridge cannot enqueue selected V14 renders.');
 	}
 	const selected = await bridge.selectRoot.call(bridge);
-	if (selected === null) return;
+	if (selected === null) return Object.freeze({ cancelled: true });
 	const root = exactRoot(selected);
 	if (root.revoked || await bridge.revalidateRoot.call(
 		bridge, Object.freeze({ grantId: root.grantId }),
@@ -484,12 +485,12 @@ function sameSnapshot(left: QueueSnapshotNativeMedia, right: QueueSnapshotNative
 		&& left.planFingerprint === right.planFingerprint && left.planPayload === right.planPayload
 		&& JSON.stringify(left.inputFingerprints) === JSON.stringify(right.inputFingerprints);
 }
-function serialize<Request>(action: (request: Request) => Promise<void>): (request: Request) => Promise<void> {
+function serialize<Request, Result>(action: (request: Request) => Promise<Result>): (request: Request) => Promise<Result> {
 	let tail = Promise.resolve();
 	return (request) => {
-		const run = (): Promise<void> => action(request);
+		const run = (): Promise<Result> => action(request);
 		const next = tail.then(run, run);
-		tail = next.catch(() => undefined);
+		tail = next.then(() => undefined, () => undefined);
 		return next;
 	};
 }

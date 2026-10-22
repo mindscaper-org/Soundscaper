@@ -4,13 +4,13 @@ import { mixerEndpointKeyV21, type MixerGraphV21, type MixerVcaV21 } from '../mi
 import { createMixerSignalTopologyV21 } from '../mixer-signal-topology-v21.ts';
 import type { StripRef } from '../parameter-address.ts';
 
-export function createProjectVcaGainResolverV21(vcas: readonly MixerVcaV21[]): (ref: StripRef, includeMaster: boolean) => number {
+export function createProjectVcaGainResolverV21(vcas: readonly MixerVcaV21[], respectMuteSolo = true): (ref: StripRef, includeMaster: boolean) => number {
 	if (!vcas.length) return () => 1;
 	const gains = new Map<string, number>();
 	for (const vca of vcas) {
 		const members = new Set<string>();
 		for (const member of vca.members) members.add(mixerEndpointKeyV21(member));
-		const factor = vca.mute ? 0 : vca.gain;
+		const factor = respectMuteSolo && vca.mute ? 0 : vca.gain;
 		for (const key of members) gains.set(key, (gains.get(key) ?? 1) * factor);
 	}
 	return (ref, includeMaster): number => {

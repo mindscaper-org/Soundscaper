@@ -25,6 +25,7 @@ import { prepareTimelineVisualMoveCommand } from './editor-timeline-visual-move-
 import { prepareTimelineImageRemoveCommand } from './editor-timeline-image-remove-command.ts';
 import { prepareTimelineImageSplitCommand } from './editor-timeline-image-split-command.ts';
 import { prepareTimelineImageTrimCommand } from './editor-timeline-image-trim-command.ts';
+import { prepareTimelineImageRenameCommand } from './editor-timeline-image-rename-command.ts';
 import { prepareTimelineGeneratorTrimCommand } from './editor-timeline-generator-trim-command.ts';
 import { prepareTimelineGeneratorSplitCommand } from './editor-timeline-generator-split-command.ts';
 import { prepareTimelineNativeInsertCommand } from './editor-timeline-native-insert-command.ts';
@@ -65,8 +66,8 @@ export function applyFramescaperProjectCommandTimelineImage(
 	const split = prepareTimelineGeneratorSplitCommand(prior,
 		prepareTimelineImageSplitCommand(prior, prepareTimelineNativeInsertCommand(prior,
 			prepareTimelineNativeOverwriteCommand(prior, snapshotFramescaperProjectCommandTimelineImage(commandValue)))));
-	const command = prepareTimelineGeneratorTrimCommand(prior, prepareTimelineVisualMoveCommand(prior,
-		prepareTimelineImageRemoveCommand(prior, prepareTimelineImageMoveCommand(prior, prepareTimelineImageTrimCommand(prior, split)))));
+	const command = prepareTimelineImageRenameCommand(prior, prepareTimelineGeneratorTrimCommand(prior, prepareTimelineVisualMoveCommand(prior,
+		prepareTimelineImageRemoveCommand(prior, prepareTimelineImageMoveCommand(prior, prepareTimelineImageTrimCommand(prior, split))))));
 	const draft = applyBody(profile, prior, command, options);
 	return finalize(profile, prior, draft, options);
 }

@@ -17,6 +17,7 @@ import { useLabelMarkerDragCancellation } from './useLabelMarkerDragCancellation
 import { prepareTimelineLabelRemovalFocus } from './label-removal-focus.ts';
 import { isContextMenuKey } from './context-menu-keyboard.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import { selectTrackFromHeader } from './track-header-selection.ts';
 
 export function LabelTrackRow(props) {
 	return <LabelTrackRowSession key={editorProjectEditSessionKey(props.controller, props.controller.getSnapshot().project?.id)} {...props} />;
@@ -96,6 +97,11 @@ function LabelTrackRowSession({
 				data-track-header
 				data-selected={selected ? 'true' : 'false'}
 				style={{ width: trackHeaderWidth }}
+				onClick={(event) => {
+					if (blocked || event.target.closest?.('button,input,textarea,select,[contenteditable="true"]')) return;
+					const mode = event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'replace';
+					run(() => selectTrackFromHeader(controller, track.id, mode));
+				}}
 			>
 				{selected && <span className="audio-editor-track-header-selection" aria-hidden="true" />}
 				<div className="audio-editor-label-track-title">

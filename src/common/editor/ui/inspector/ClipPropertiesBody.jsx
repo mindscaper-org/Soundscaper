@@ -15,6 +15,7 @@ import ClipFadeShapeField from './ClipFadeShapeField.tsx';
 import ClipSourceInTimeCodeField from './ClipSourceInTimeCodeField.tsx';
 import { clipPropertiesMediaRange } from './clip-properties-media-range.ts';
 import { clipLinkedPitchSpeed } from './clip-properties-linked-pitch.ts';
+import { clipPropertiesFrameRate } from './clip-time-code-clock.ts';
 import ClipResampleDialog from './ClipResampleDialog.jsx';
 import { VideoEffectRack } from './VideoEffectRack.jsx';
 import VideoSourcePropertiesSection from './VideoSourcePropertiesSection.jsx';
@@ -49,6 +50,7 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 	const displayedName = clip?.title || source?.name || copy.clip;
 	const track = clip ? findClipTrack(project, clip.id) : null;
 	const sampleRate = project?.sampleRate || AUDIO_EDITOR_SAMPLE_RATE;
+	const frameRate = clipPropertiesFrameRate(project, clipId);
 	const blocked = selectAudioEditorEditBlock(snapshot).blocked;
 	const disabled = blocked || !clip || track?.locked === true;
 	const isVideoClip = clip?.kind === 'video';
@@ -173,14 +175,14 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 					<CommitField label={copy.clipName} name="name" value={displayedName} disabled={disabled} onCommit={commitField} />
 					<div className="audio-editor-clip-properties__time-grid">
 						<ClipTimeCodeField name="startFrame" label={copy.clipStart} value={clip?.timelineStartFrame ?? 0}
-							sampleRate={sampleRate} disabled={disabled}
+							sampleRate={sampleRate} frameRate={frameRate} disabled={disabled}
 							onCommit={(value) => commitField('startFrame', value)} />
 						<ClipSourceInTimeCodeField label={copy.clipIn} value={clip?.sourceStartFrame ?? 0}
-							source={source} sampleRate={source?.sampleRate || sampleRate} disabled={disabled}
+							source={source} sampleRate={source?.sampleRate || sampleRate} frameRate={frameRate} disabled={disabled}
 							onCommit={(value) => commitField('sourceInFrame', value)} />
 						<ClipTimeCodeField name="durationFrame" label={copy.clipDuration} value={clip?.durationFrames ?? 1}
 							controller={controller} musicalOriginFrame={clip?.timelineStartFrame ?? 0}
-							sampleRate={sampleRate} minimum={1} disabled={disabled}
+							sampleRate={sampleRate} frameRate={frameRate} minimum={1} disabled={disabled}
 							onCommit={(value) => commitField('durationFrame', value)} />
 						{!isVideoClip && source && (
 							<ClipSourceFactRow name="sampleRate" label={copy.sampleRateHz} value={source.sampleRate}
@@ -209,14 +211,14 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 					<div className="audio-editor-clip-properties__stack">
 						<ClipTimeCodeField name="fadeInFrame" label={copy.fadeIn} value={clip?.fadeInFrames ?? 0}
 						controller={controller} musicalOriginFrame={clip?.timelineStartFrame ?? 0}
-							sampleRate={sampleRate} maximum={clip?.durationFrames ?? 0} disabled={disabled}
+							sampleRate={sampleRate} frameRate={frameRate} maximum={clip?.durationFrames ?? 0} disabled={disabled}
 							onCommit={(value) => commitField('fadeInFrame', value)} />
 						<ClipFadeShapeField name="fadeInShape" label={copy.fadeInShape} value={clip?.fadeInShape}
 							fadeFrames={clip?.fadeInFrames ?? 0} legacyLabel={copy.legacyLinearFadeShape}
 							disabled={disabled} onCommit={commitField} />
 						<ClipTimeCodeField name="fadeOutFrame" label={copy.fadeOut} value={clip?.fadeOutFrames ?? 0}
 						controller={controller} musicalOriginFrame={clip?.timelineStartFrame ?? 0}
-							sampleRate={sampleRate} maximum={clip?.durationFrames ?? 0} disabled={disabled}
+							sampleRate={sampleRate} frameRate={frameRate} maximum={clip?.durationFrames ?? 0} disabled={disabled}
 							onCommit={(value) => commitField('fadeOutFrame', value)} />
 						<ClipFadeShapeField name="fadeOutShape" label={copy.fadeOutShape} value={clip?.fadeOutShape}
 							fadeFrames={clip?.fadeOutFrames ?? 0} legacyLabel={copy.legacyLinearFadeShape}
@@ -308,9 +310,9 @@ function ClipSourceFactRow({ name, label, value, action = null }) {
 	</div>;
 }
 
-function ClipTimeCodeField({ name, label, value, sampleRate, minimum = 0,
+function ClipTimeCodeField({ name, label, value, sampleRate, frameRate, minimum = 0,
 	maximum = Number.POSITIVE_INFINITY, disabled, onCommit, controller, musicalOriginFrame }) {
-	const input = <AudioEditorTimeCodeInput label={label} value={value} unit="samples" rate={sampleRate}
+	const input = <AudioEditorTimeCodeInput label={label} value={value} unit="samples" rate={sampleRate} frameRate={frameRate}
 			format="hh:mm:ss+milliseconds" minimum={minimum} maximum={maximum}
 			disabled={disabled} onCommit={onCommit} />;
 	return <label className="audio-editor-field" data-clip-field={name}><span>{label}</span>

@@ -226,7 +226,14 @@ export function AudioEditorMacroManagerDialog({
 		onDraftChange?.(next);
 		// A half-typed name is not storable; the next keystroke that leaves one
 		// behind saves the macro, and the library keeps the last stored name.
-		if (String(next.name ?? '').trim()) library.save(next);
+		if (String(next.name ?? '').trim()) {
+			try {
+				library.save(next);
+				setMessage('');
+			} catch (cause) {
+				showMessage(feedbackFailure(cause), 'error');
+			}
+		}
 	};
 	const openMacro = (macro) => {
 		draftRef.current = macro;
@@ -243,8 +250,10 @@ export function AudioEditorMacroManagerDialog({
 			const saved = library.save(macro);
 			setSelectedScriptId(null);
 			openMacro(saved);
+			return true;
 		} catch (cause) {
 			showMessage(feedbackFailure(cause), 'error');
+			return false;
 		}
 	};
 	const deleteMacro = () => {
@@ -323,10 +332,10 @@ export function AudioEditorMacroManagerDialog({
 			}
 			const parsed = parseAudacityEffectMacro(await file.text());
 			if (!ownsOperation(activeImportRef, operation)) return;
-			createMacro({
-				name: file.name.replace(/\.txt$/i, '') || publishedCopyFor(copy).untitledMacro,
+			if (!createMacro({
+				name: file.name.replace(/\.txt$/i, '').trim() || publishedCopyFor(copy).untitledMacro,
 				effects: [...parsed.effects],
-			});
+			})) return;
 			const warning = parsed.ignoredCommands.length
 				? [' ', { key: 'macroUnsupportedCommands', parameters: { commands: parsed.ignoredCommands.join(', ') } }]
 				: [];

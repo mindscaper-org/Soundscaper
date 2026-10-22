@@ -3,8 +3,9 @@
 import { compareCodeUnits } from './code-unit-order.ts';
 import { collectProjectSourceIds } from './retention.js';
 import { collectHistoryRetentionRoots } from './session-history.js';
-import { collectHistoryLinkedOriginalSourceReferences, collectHistoryStorageKeys } from './session-retention-views.ts';
+import { collectHistoryLinkedOriginalSourceReferences, collectHistoryStorageKeys, collectSessionClipboardStorageKeys } from './session-retention-views.ts';
 import type { ProjectLinkedOriginalSourceReference } from './storage/project-publication-options.ts';
+import type { AudioEditorSessionClipboard } from './session-clipboard-codec.ts';
 
 interface History<Project extends object> {
 	readonly present: Project;
@@ -116,8 +117,11 @@ export function collectSessionLinkedOriginalSourceReferences(
 	})));
 }
 
-export function collectSessionStorageKeys(indices: readonly SessionRetentionIndex[]): ReadonlySet<string> {
-	const keys = new Set<string>();
+export function collectSessionStorageKeys(
+	indices: readonly SessionRetentionIndex[],
+	clipboard: Pick<AudioEditorSessionClipboard, 'sources'> | null = null,
+): ReadonlySet<string> {
+	const keys = collectSessionClipboardStorageKeys(clipboard);
 	for (const index of indices) for (const key of index.getStorageKeys()) keys.add(key);
 	return keys;
 }

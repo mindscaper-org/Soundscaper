@@ -355,7 +355,7 @@ export function createAudioEditorSessionControllerCore(options = {}, owner) {
 	function getHistoryRetentionRoots() { return collectSessionRetentionRoots(retentionIndices()); }
 	function getHistoryLinkedOriginalSourceReferences() { return collectSessionLinkedOriginalSourceReferences(retentionIndices()); }
 	function getHistoryStorageKeys() {
-		const keys = new Set(collectSessionStorageKeys(retentionIndices()));
+		const keys = new Set(collectSessionStorageKeys(retentionIndices(), clipboard));
 		for (const key of owner.storageKeys(clipboard)) keys.add(key);
 		return keys;
 	}

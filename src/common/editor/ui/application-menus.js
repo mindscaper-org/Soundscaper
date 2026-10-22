@@ -326,7 +326,7 @@ export default function createApplicationMenus({
 							{ id: 'delete-all-tracks-ripple', label: copy.deleteAllTracksRipple, shortcut: 'Ctrl+Delete, Ctrl+Backspace', disabled: editBlocked || !editSelectionActive, onClick: () => actions.executeEdit('deleteAllTracksRipple') },
 						],
 					},
-				{ id: 'copy', label: copy.copy, shortcut: 'Ctrl+C', disabled: editBlocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('copy') },
+				{ id: 'copy', label: copy.copy, shortcut: 'Ctrl+C', disabled: blocked || !(editSelectionActive || snapshot.selectedLabels?.length), onClick: () => actions.executeEdit('copy') },
 				{
 					id: 'paste',
 					label: copy.paste,

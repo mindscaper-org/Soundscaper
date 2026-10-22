@@ -199,7 +199,7 @@ export const DESIGN_SYSTEM_EDITOR_SHELL_COMPONENT_CHUNK_TEST = /(?:^|[\\/])vendo
 // through the desktop codec composition that dynamically imports the adapter.
 export const EDITOR_DESKTOP_VIDEO_CODEC_RUNTIME_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]desktop-video-codec-runtime\.ts|desktop[\\/]desktop-video-(?:codec-operation-contract|h264-encoder)\.ts)$/;
 export const EDITOR_CODEC_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/](?:wavpack[\\/]|staffpad[\\/]|parametric-eq[\\/](?:authorities|parameters|design|wasm-runtime|wasm-loader)\.js$)|desktop[\\/]desktop-audio-(?:codec-(?:capability|operation)-contract|decode-formats)\.ts$|(?:^|[\\/])config[\\/]lightscaper-libraw-runtime-manifest\.json$)/;
-export const EDITOR_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/](?:i18n[\\/]action-parity\.js|editor[\\/](?:selection-effect-chain-contract\.ts|audacity-effects[\\/](?:(?:classic-filter-coefficients|contracts|factory-preset-tables|factory-presets|live-capabilities|live-capability-policy|manifest)\.js|(?:audacity-dynamics-lookahead|audacity-filter-release|live-update-geometry|noise-reduction-clock|pcm-channel-validation|reverb-parameters)\.ts)|first-party-effects[\\/](?:(?:bitcrusher|parametric-eq)[\\/]definition\.js|parametric-eq[\\/]coefficients\.ts|dynamics[\\/]definition\.ts|standard[\\/](?:definition|filters-definition|filters-coefficients|modulation-definition|noise-gate-definition|delay-definition|delay-pitch-admission|delay-selection-contract|parameter-range|effect-tail|nyquist-replacements|selection-contract)\.ts)|nyquist[\\/](?:(?:plugin-parser|plugin-registry|plugins[\\/]catalog)\.js|audio-budget\.ts)|reviewed-effects[\\/](?:errors|manifest|selection-effect-contract|utility-gain-package)\.ts)))$/;
+export const EDITOR_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/](?:i18n[\\/]action-parity\.js|editor[\\/](?:selection-effect-chain-contract\.ts|audacity-effects[\\/](?:(?:classic-filter-coefficients|contracts|factory-preset-tables|factory-presets|live-capabilities|live-capability-policy|manifest)\.js|(?:audacity-dynamics-lookahead|audacity-filter-release|curve-text|live-update-geometry|noise-reduction-clock|pcm-channel-validation|reverb-parameters)\.ts)|first-party-effects[\\/](?:(?:bitcrusher|parametric-eq)[\\/]definition\.js|parametric-eq[\\/]coefficients\.ts|dynamics[\\/]definition\.ts|standard[\\/](?:definition|filters-definition|filters-coefficients|modulation-definition|noise-gate-definition|delay-definition|delay-pitch-admission|delay-selection-contract|parameter-range|effect-tail|nyquist-replacements|selection-contract)\.ts)|nyquist[\\/](?:(?:plugin-parser|plugin-registry|plugins[\\/]catalog)\.js|audio-budget\.ts)|reviewed-effects[\\/](?:errors|manifest|selection-effect-contract|utility-gain-package)\.ts)))$/;
 /**
  * Soundscaper family-v1 project and archive authority shared with transfer pages.
  *
@@ -364,6 +364,7 @@ const framescaperProjectCommandModules = Object.freeze([
 	'editor-timeline-image-remove-command',
 	'editor-timeline-image-split-command',
 	'editor-timeline-image-trim-command',
+	'editor-timeline-image-rename-command',
 	'editor-timeline-generator-trim-command',
 	'editor-timeline-generator-split-command',
 	'editor-timeline-native-insert-command',

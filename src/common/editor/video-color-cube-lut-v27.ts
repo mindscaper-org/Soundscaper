@@ -43,7 +43,7 @@ export function parseCubeLutV1(value: string): ParsedCubeLutV1 {
 		const line = cubeLutLine(rawLine);
 		if (!line) continue;
 		if (/^TITLE\s/u.test(line)) {
-			const match = /^TITLE\s+"([^"\r\n]{1,512})"$/u.exec(line);
+			const match = /^TITLE\s+"([^"\r\n]{0,512})"$/u.exec(line);
 			if (!match) throw new TypeError('The cube LUT title is invalid.');
 			title = match[1]!;
 			continue;

@@ -380,7 +380,7 @@ export function TimelineWorkspaceView({
 					/>
 
 					<TrackListView
-						project={project}
+						project={project} searchRevealRequest={selection.searchRevealRequest}
 						controller={controller}
 						projectIndex={projectIndex}
 						visualTrackHeight={visualTrackHeight}

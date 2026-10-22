@@ -56,6 +56,10 @@ export function browserAacMetadataTags(
 	}
 	const artwork = parseId3Artwork(metadata.id3Artwork);
 	consumed.add('id3Artwork');
+	// The maintained MP4 writer omits every image with a different role.
+	if (artwork.some(picture => picture.pictureType !== 3)) {
+		throw new RangeError('AAC supports front-cover artwork only. Choose a front cover or an audio format that retains the requested picture type.');
+	}
 	if (artwork.length) {
 		tags.images = artwork.map(picture => ({ data: decodeArtworkData(picture.data), mimeType: picture.mimeType,
 			kind: picture.pictureType === 3 ? 'coverFront' : picture.pictureType === 4 ? 'coverBack' : 'unknown', description: picture.description }));

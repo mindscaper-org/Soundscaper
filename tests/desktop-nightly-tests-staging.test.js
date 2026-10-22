@@ -215,6 +215,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'tests/helpers/framescaper-ordinary-animation-fixture.ts',
 		'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts',
 		'tests/helpers/interchange-reference.ts',
+		'tests/helpers/interchange-top-clip.ts',
 		'tests/helpers/libsndfile-rifx-fixture.ts',
 		'tests/fixtures/aup4-native-rich.js',
 		'tests/fixtures/bwfmetaedit-cp1252-info.wav.base64',

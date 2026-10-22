@@ -89,7 +89,7 @@ export function parameterToPan(value: number, unit: string | null): number | nul
 		case null:
 			return normalizedToPan(value);
 		case 'percent':
-			return clamp(value / 100, -1, 1);
+			return normalizedToPan(value / 100);
 		case 'linear':
 			return clamp(value, -1, 1);
 		default:

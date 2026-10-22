@@ -8,7 +8,7 @@ import { PROJECT_FEATURE_CAPABILITY_IDS } from '../src/common/editor/project-fea
 import { prepareRangeDeleteCommand } from '../src/common/editor/commands/range-runtime.js';
 import { projectForCommandConsumers } from '../src/common/editor/project-current-runtime.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
-import { prepareFrozenTrackEditCommand } from '../src/common/editor/controller/edit/internal/frozen-track-edit-command.ts';
+import { prepareFrozenTrackEditCommand } from '../src/common/editor/controller/shared/frozen-track-edit-command.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperProjectHistory, executeSoundscaperProjectCommand,
 	redoSoundscaperProjectCommand, undoSoundscaperProjectCommand } from '../src/soundscaper/editor-project-history.ts';

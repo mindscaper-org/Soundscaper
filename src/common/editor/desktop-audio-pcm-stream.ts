@@ -3,7 +3,7 @@ import { normalizeDesktopAudioStreamPlan } from '../../../desktop/desktop-audio-
 import type { DesktopAudioCodecFormat } from '../../../desktop/desktop-audio-codec-operation-contract.ts';
 import type { DesktopAudioCodecCapabilityTuple } from '../../../desktop/desktop-audio-codec-capability-contract.ts';
 import { createMediaExportCapabilities, normalizeMediaExportSettings } from './media-export.js';
-import { encodeDesktopAudioSettings } from './desktop-audio-stream-request.ts';
+import { encodeDesktopAudioSettings } from './desktop-audio-encode-settings.ts';
 import { queryDesktopAudioCodecCapability } from './desktop-audio-codec-capabilities.ts';
 import type { DesktopAudioCodecRuntimeSettings, NormalizedMediaSettings } from './desktop-audio-codec-runtime.ts';
 import { encodeDesktopAudioStreamFile, encodeDesktopAudioStreamToSink, withDesktopAudioStreamOwnership,

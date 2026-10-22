@@ -4,7 +4,7 @@ import { publishedCopyFor } from '../../shared/presentation-localization.ts';
 import { createAddSourceCommand, createAddTrackCommand } from '../../../commands/factories.ts';
 import { hasProjectBinMediaAuthority } from '../../../project-schema-version.ts';
 import type { AudioEditorClipboardTrack, AudioEditorCommand } from '../../../commands/protocol.ts';
-import { clipboardPasteTrackType, planClipboardPasteTargets } from '../../../clipboard-paste-targets.ts';
+import { clipboardPasteTrackType, createClipboardPasteSequencePlan, planClipboardPasteTargets } from '../../../clipboard-paste-targets.ts';
 import { missingClipboardSourcesForPaste } from './clipboard-source-identity.ts';
 import type { ClipboardEditProject, ClipboardEditMediaTrack, ClipboardEditTrack, ClipboardEditSource } from './clipboard-edit-service.ts';
 
@@ -19,6 +19,7 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 			: createAddSourceCommand(source));
 	let addedTrackCount = 0;
 	const selected = findMediaTrack(project, selectedTrackId);
+	const sequencePlan = createClipboardPasteSequencePlan(project, selected?.id ?? null, clipboardTracks);
 	/**
 	 * A synthesized paste track joins the folder of the track the paste is
 	 * anchored to: the selected track's parent, else the surviving source
@@ -27,15 +28,17 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 	const resolveFolderPlacement = (
 		clipboardTrack: AudioEditorClipboardTrack,
 	): Readonly<{ sequenceId: string; parentFolderId: string | null }> | null => {
-		if (!project.trackFolders?.length || !project.sequences?.length) return null;
+		if (!project.sequences?.length) return null;
+		const targetSequenceId = sequencePlan.targetSequenceBySourceTrackId.get(clipboardTrack.sourceTrackId);
 		for (const anchorId of [selected?.id, clipboardTrack.sourceTrackId]) {
 			if (!anchorId) continue;
 			for (const sequence of project.sequences) {
+				if (targetSequenceId && sequence.id !== targetSequenceId) continue;
 				const node = sequence.trackNodes.find((candidate) => candidate.id === anchorId);
 				if (node) return { sequenceId: sequence.id, parentFolderId: node.parentFolderId };
 			}
 		}
-		const fallback = project.sequences.find(({ id }) => id === project.primarySequenceId)
+		const fallback = project.sequences.find(({ id }) => id === (targetSequenceId ?? project.primarySequenceId))
 			?? project.sequences[0];
 		return { sequenceId: fallback.id, parentFolderId: null };
 	};
@@ -58,18 +61,25 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 					|| `${publishedCopyFor(copy).track} ${project.tracks.length + addedTrackCount}`,
 				laneGroupId,
 			}),
-			...(placement === null ? {} : placement),
+			...(placement === null ? {} : {
+				...(placement.sequenceId === project.primarySequenceId ? {} : { sequenceId: placement.sequenceId }),
+				...(project.trackFolders?.length ? { parentFolderId: placement.parentFolderId } : {}),
+			}),
 		});
 		return { id: trackId, type, name: clipboardTrack.sourceTrackName, laneGroupId, clipIds: [] };
 	};
 
-	for (const group of planClipboardPasteTargets(project.tracks, selected?.id ?? null, clipboardTracks)) {
+	for (const group of planClipboardPasteTargets(project.tracks, selected?.id ?? null, clipboardTracks, sequencePlan)) {
 		const laneGroupId = group.length === 2 && !group[0]?.target ? createId('media-lanes') : null;
 		for (const { clipboardTrack, target } of group) {
 			trackMap[clipboardTrack.sourceTrackId] = (target ?? createTargetTrack(clipboardTrack, laneGroupId)).id;
 		}
 	}
-	return { commands, trackMap };
+	const sequenceMap = Object.fromEntries(clipboardTracks.flatMap(track => {
+		const sequence = sequencePlan.targetSequenceBySourceTrackId.get(track.sourceTrackId);
+		return typeof track.sourceSequenceId === 'string' && sequence ? [[track.sourceSequenceId, sequence]] : [];
+	}));
+	return { commands, trackMap, sequenceMap };
 }
 
 export function isClipboardMediaTrack(track: ClipboardEditTrack): track is ClipboardEditMediaTrack {
