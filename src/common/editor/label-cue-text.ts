@@ -1,5 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+/** Project supported whole-cue SubRip emphasis into the plain label title. */
+export function decodeSubRipLabelText(value: string): string {
+	let text = value;
+	for (;;) {
+		const wrapper = /^<(b|i|u)>([\s\S]*)<\/\1>$/iu.exec(text);
+		if (!wrapper) return text;
+		text = wrapper[2] ?? '';
+	}
+}
+
 /** Labels are plain text; WebVTT cue payloads give punctuation markup meaning. */
 export function encodeWebVttLabelText(value: string): string {
 	return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');

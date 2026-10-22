@@ -1,4 +1,4 @@
-import { decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
+import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
 import { labelTimeFrame } from './label-time-frame.ts';
 
@@ -231,7 +231,7 @@ function parseTimedEntries(text, context, format) {
 			const timing = parseCueTiming(timingLine, format, cueStartLine + (identifier == null ? 0 : 1));
 			entries.push(validateEntry({
 				...timing,
-				title: format === 'vtt' ? decodeWebVttLabelText(titleLines.join('\n')) : titleLines.join('\n'),
+				title: format === 'vtt' ? decodeWebVttLabelText(titleLines.join('\n')) : decodeSubRipLabelText(titleLines.join('\n')),
 				identifier,
 				line: cueStartLine,
 			}, context));
