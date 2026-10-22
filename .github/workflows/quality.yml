@@ -688,8 +688,17 @@ jobs:
           name: verified-lightscaper-site-source-maps
           path: .wrangler/browser-products/lightscaper-source-maps
 
+      - name: Collect browser shard run shape
+        id: browser-run-shape
+        run: |
+          node node_modules/@playwright/test/cli.js test --config=playwright.config.mjs --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ matrix.project == 'webkit' && 1 || 2 }} --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"
+          node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" "${{ matrix.project }}" "${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }}" "${{ matrix.project == 'webkit' && 1 || 2 }}" >> "$GITHUB_OUTPUT"
+        env:
+          SCAPE_BROWSER_COVERAGE: ${{ matrix.project == 'chromium' && '1' || '' }}
+          PWTEST_SHARD_WEIGHTS: ${{ matrix.project == 'chromium' && '24:28:28:20' || '' }}
+
       - name: Run browser workflows against the existing build
-        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
+        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ steps.browser-run-shape.outputs.workers }} --retries=${{ steps.browser-run-shape.outputs.retries }}
         env:
           # Chromium is the only engine whose V8 coverage Playwright can read, so
           # it is the only one that records. Every other project runs exactly as
@@ -745,6 +754,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            ${{ runner.temp }}/browser-shard-collection.json
           if-no-files-found: ignore
           retention-days: 7
 
@@ -937,11 +947,17 @@ jobs:
           name: verified-lightscaper-site-source-maps
           path: .wrangler/browser-products/lightscaper-source-maps
 
+      - name: Collect Firefox shard run shape
+        id: browser-run-shape
+        run: |
+          node node_modules/@playwright/test/cli.js test --config=playwright.config.mjs --project=firefox --shard=${{ matrix.shard }}/6 --workers=1 --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"
+          node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" firefox "${{ matrix.shard }}/6" 1 >> "$GITHUB_OUTPUT"
+
       - name: Run Firefox workflows against the existing build
         # A second Firefox content process can starve the live AudioContext even
         # after the PulseAudio clock probe passes. The six shard runners still
         # keep the suite parallel without competing for one runner's audio clock.
-        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/6 --workers=1
+        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/6 --workers=${{ steps.browser-run-shape.outputs.workers }} --retries=${{ steps.browser-run-shape.outputs.retries }}
 
       - name: Upload Firefox diagnostics
         if: always()
@@ -952,6 +968,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            ${{ runner.temp }}/browser-shard-collection.json
           if-no-files-found: ignore
           retention-days: 7
 

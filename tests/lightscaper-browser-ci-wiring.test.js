@@ -49,6 +49,34 @@ test('other ordinary browser build callers include Lightscaper before site prepa
 	assert.match(stable, /name: soundscaper-stable-1-lightscaper-browser-site\n\s+path: \.wrangler\/browser-products\/lightscaper\/\n\s+include-hidden-files: true/u);
 });
 
+test('ordinary browser CI executes the exact collected shard with its required run policy', async () => {
+	const source = await workflow('quality.yml');
+	for (const [jobName, collectName, runName, project, shard, normalWorkers] of [
+		['browser', 'Collect browser shard run shape', 'Run browser workflows against the existing build', '${{ matrix.project }}', "${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }}", "${{ matrix.project == 'webkit' && 1 || 2 }}"],
+		['firefox', 'Collect Firefox shard run shape', 'Run Firefox workflows against the existing build', 'firefox', '${{ matrix.shard }}/6', '1'],
+	]) {
+		const job = extractJob(source, jobName), collect = step(job, collectName), run = step(job, runName);
+		assert.ok(job.indexOf(collectName) < job.indexOf(runName), `${jobName} must collect before execution`);
+		assert.ok(collect.includes('id: browser-run-shape'));
+		assert.ok(collect.includes(`node node_modules/@playwright/test/cli.js test --config=playwright.config.mjs --project=${project} --shard=${shard} --workers=${normalWorkers} --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"`));
+		const projectArgument = jobName === 'browser' ? `"${project}"` : project, workersArgument = jobName === 'browser' ? `"${normalWorkers}"` : normalWorkers;
+		assert.ok(collect.includes(`node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" ${projectArgument} "${shard}" ${workersArgument} >> "$GITHUB_OUTPUT"`));
+		assert.ok(run.includes(`npm run test:browser:built -- --project=${project} --shard=${shard} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`));
+		assert.doesNotMatch(collect + run, /--grep(?:[= ]|$)/u, 'policy selection must not filter the shard');
+		assert.doesNotMatch(run.split('\n').find(line => line.trimStart().startsWith('run:')) ?? '', /--list/u, 'the execution step must run the collected tests');
+		for (const name of ['SCAPE_BROWSER_COVERAGE', 'PWTEST_SHARD_WEIGHTS']) {
+			const expression = block => block.split('\n').find(line => line.trimStart().startsWith(`${name}:`))?.trim();
+			assert.equal(expression(collect), expression(run), `${jobName} must collect with the execution ${name}`);
+			if (jobName === 'browser') assert.ok(expression(run), `${name} must remain explicit for the shared browser matrix`);
+		}
+	}
+});
+
+function step(job, name) {
+	const block = job.split('\n      - name: ').find(value => value.startsWith(`${name}\n`));
+	assert.ok(block, `Missing workflow step: ${name}`); return block;
+}
+
 async function workflow(name) {
 	return readFile(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8');
 }

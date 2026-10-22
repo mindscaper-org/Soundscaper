@@ -264,8 +264,8 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /name: verified-site-build/u);
 	const browserTotal = "${{ matrix.project == 'webkit' && 8 || 4 }}";
 	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount, browserTotal);
-	assert.match(browserJob, /--workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\}/u,
-		`${label} must give WebKit real-time audio one worker per shard`);
+	assert.match(browserJob, /--workers=\$\{\{ steps\.browser-run-shape\.outputs\.workers \}\} --retries=\$\{\{ steps\.browser-run-shape\.outputs\.retries \}\}/u,
+		`${label} must execute the collected shard's worker and retry policy`);
 	for (const shard of [5, 6, 7, 8]) {
 		assert.ok(browserJob.includes(`- project: chromium\n            shard: ${shard}`),
 			`${label} must exclude Chromium shard ${shard} from its four-way partition`);
@@ -291,8 +291,8 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /name: verified-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
 	assert.ok(
-		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1`),
-		`${label} must keep Firefox media workflows on one worker per shard`,
+		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`),
+		`${label} must execute Firefox's collected worker and retry policy`,
 	);
 	assert.ok(
 		firefoxJob.indexOf('ci-firefox-audio-clock.mjs')
