@@ -250,13 +250,14 @@ function isResolvedRuntimeClip(value: RuntimePersistedClip): boolean {
 		&& Number(clip.sourceDurationFrames) > 0;
 }
 
-function resolveRuntimeTrackProjection(
+/** Resolve one selected track without projecting unrelated clip or annotation state. */
+export function resolveRuntimeTrackProjection<Track extends object>(
 	project: RuntimeClipProject,
-	value: object,
-	resolveBeatFrame: BeatFrameResolver,
-): Readonly<Record<string, unknown>> {
+	value: Track,
+	resolveBeatFrame: BeatFrameResolver = beatToSampleFrame,
+): ResolvedRuntimeTrack<Track> {
 	const track = value as Readonly<Record<string, unknown>>;
-	if (track.type !== 'label' || !Array.isArray(track.labels)) return track;
+	if (track.type !== 'label' || !Array.isArray(track.labels)) return track as ResolvedRuntimeTrack<Track>;
 	const sampleRate = positiveSafeInteger(project.sampleRate, 'project.sampleRate');
 	return Object.freeze({
 		...track,
@@ -272,7 +273,7 @@ function resolveRuntimeTrackProjection(
 				coordinateDomain: 'resolved-samples',
 			});
 		})),
-	});
+	}) as ResolvedRuntimeTrack<Track>;
 }
 
 function usesFoundationCoordinates(project: RuntimeClipProject, clip: RuntimePersistedClip): boolean {

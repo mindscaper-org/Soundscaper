@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { resolveRuntimeTrackProjection } from '../../../runtime-clip-projection.ts';
 import { clipContentRange } from '../../../clip-content-range.ts';
 import { takeCompContentRange } from '../../../take-comp-content-range.ts';
 import type { SelectionViewProject } from './selection-view-service-types.d.ts';
@@ -16,7 +17,8 @@ export function selectedTrackContentRange(
 	emptyTrackDuration: () => number,
 ): SelectedTrackContentRange | null {
 	const selectedIds = new Set(requestedTrackIds);
-	const tracks = project.tracks.filter(track => selectedIds.has(track.id));
+	const tracks = project.tracks.filter(track => selectedIds.has(track.id))
+		.map(track => resolveRuntimeTrackProjection(project, track));
 	const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
 	const takeRange = takeCompContentRange(project, requestedTrackIds);
 	const ranges: SelectedTrackContentRange[] = takeRange ? [takeRange] : [];
