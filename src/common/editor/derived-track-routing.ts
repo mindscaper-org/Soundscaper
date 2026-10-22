@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AudioEditorCommand } from './commands/protocol.ts';
+import { preserveDerivedFolderMixer, preservedDerivedFolderAutomation } from './derived-track-folder-mixer.ts';
 import { derivedTrackSidechainRoutes } from './derived-track-sidechains.ts';
 import { copyDerivedTrackRouteAutomation, type DerivedTrackRouteCopy } from './derived-track-route-automation.ts';
 import {
@@ -29,10 +30,11 @@ export function preserveProductionTrackRouting<Project extends RoutingProject>(
 	const staged = previewCommand(project, command);
 	const originalGraph = normalizeMixerGraphV21(project.mixer as never);
 	const stagedGraph = normalizeMixerGraphV21(staged.mixer as never);
+	const folders = preserveDerivedFolderMixer(project, staged, originalGraph, stagedGraph);
 	const { graph: desired, edgeCopies } = restateRoutes(
 		project,
 		staged,
-		stagedGraph,
+		folders.graph,
 		originalGraph,
 		routingCopies,
 		directRoutingTrackIds,
@@ -44,7 +46,8 @@ export function preserveProductionTrackRouting<Project extends RoutingProject>(
 		mixer: desired as unknown as Readonly<Record<string, unknown>>,
 	};
 	const automation = copyDerivedTrackRouteAutomation(project, staged, edgeCopies, createId);
-	return Object.freeze({ type: 'batch', commands: Object.freeze([...command.commands, graphCommand, ...automation]) });
+	const folderAutomation = preservedDerivedFolderAutomation(project, staged, desired, folders.folderIds, automation);
+	return Object.freeze({ type: 'batch', commands: Object.freeze([...command.commands, graphCommand, ...automation, ...folderAutomation]) });
 }
 
 function restateRoutes(
