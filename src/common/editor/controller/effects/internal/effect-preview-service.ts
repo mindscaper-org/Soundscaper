@@ -84,7 +84,8 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 				? speedDelayPreviewInputFrames(params, sampleRate, auditionFrames)
 				: type === 'audacity-paulstretch' ? paulstretchPreviewInputFrames(params, sampleRate,
 					Math.min(maximumFrames - (startFrame - previewStartFrame),
-						Math.ceil(full.durationFrames * Number(params.stretchFactor)))) : auditionFrames;
+						Math.ceil(full.durationFrames * Number(params.stretchFactor))))
+					: rateChangePreviewInputFrames(type, params, auditionFrames);
 			const endFrame = Math.min(startFrame + inputFrames, full.endFrame);
 			if (endFrame <= startFrame) return null;
 			return {
@@ -244,6 +245,15 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			publishDocumentSnapshot();
 		}
 	};
+}
+
+/** Fast constant transforms need more source audio to fill the output audition. */
+function rateChangePreviewInputFrames(type: string, params: Readonly<Record<string, unknown>>, auditionFrames: number): number {
+	const percent = type === 'audacity-change-tempo' ? params.tempoPercent
+		: type === 'audacity-change-speed-pitch' ? params.speedPercent
+			: type === 'audacity-sliding-stretch' ? params.startTempoPercent : 0;
+	const rate = 1 + (Number(percent) || 0) / 100;
+	return Math.ceil(auditionFrames * Math.max(1, rate));
 }
 
 function alignPreviewChannels(
