@@ -339,6 +339,8 @@ function indexTracksByClip(tracks) {
 
 function mediaKindOf(clip, source, track = null) {
 	const kind = textValue(clip?.kind) || textValue(source?.kind) || textValue(track?.type);
+	if (kind === 'image' || kind === 'still') return 'image';
+	if (kind === 'generator') return 'generator';
 	return kind === 'video' ? 'video' : 'audio';
 }
 
