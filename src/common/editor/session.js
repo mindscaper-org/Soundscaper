@@ -440,7 +440,7 @@ export function createAudioEditorSessionController(options = {}) {
 	function retentionIndices() { ensureUsable(); return tabs.map((tab) => tab.retentionIndex); }
 	function getHistoryRetentionRoots() { return collectSessionRetentionRoots(retentionIndices()); }
 	function getHistoryLinkedOriginalSourceReferences() { return collectSessionLinkedOriginalSourceReferences(retentionIndices()); }
-	function getHistoryStorageKeys() { return collectSessionStorageKeys(retentionIndices()); }
+	function getHistoryStorageKeys() { return collectSessionStorageKeys(retentionIndices(), clipboard); }
 
 	function getSnapshot(fresh = false) {
 		if (!fresh && snapshotCache) return snapshotCache;
