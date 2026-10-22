@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { createHash } from 'node:crypto';
 import { openDatabase, request, transact } from '../src/common/editor/storage/indexeddb-backend.ts';
+import { mediaAssetChunkKey } from '../src/common/editor/storage/media-asset-chunk-records.ts';
 import { PhotoCatalogRepositoryV2 } from '../src/lightscaper/catalog/photo-catalog-repository-v2.ts';
 import type { PhotoStackV1 } from '../src/lightscaper/catalog/photo-stack-v1.ts';
 import type { PhotoSmartCollectionV1 } from '../src/lightscaper/catalog/photo-smart-collection-v1.ts';
@@ -113,15 +114,25 @@ test('current companions follow real same-ID Restore2 private allocation with mi
 test('current companions refuse native original-body corruption and missing committed custody without repairing either', async () => {
 	const x = await defaultLibrary(), database = await openDatabase(x.native.factory, PHOTO_MEDIA_NAMESPACES_V1.databaseName);
 	try {
-		const originalRow = await transact(database, 'mediaAssets', 'readwrite', async stores => {
+		const originalChunk = await transact(database, ['mediaAssets', 'mediaAssetChunks'], 'readwrite', async stores => {
 			const row = await request<Record<string, unknown>>(stores.mediaAssets.get('original-1'));
-			await request(stores.mediaAssets.put({ ...row, blob: new Blob([new Uint8Array([0, 0, 0])]) }));
-			return row;
+			assert.equal(row.storage, 'indexeddb-media-chunks-v1');
+			assert.equal(typeof row.mediaChunkToken, 'string');
+			const chunk = await request<Record<string, unknown>>(stores.mediaAssetChunks.get(mediaAssetChunkKey(row.mediaChunkToken as string, 0)));
+			assert.equal(chunk.payloadEncoding, 'array-buffer-v1');
+			assert.ok(chunk.payloadBytes instanceof ArrayBuffer); assert.equal(chunk.payloadBytes.byteLength, 3);
+			await request(stores.mediaAssetChunks.put({ ...chunk, payloadBytes: Uint8Array.of(0, 0, 0).buffer }));
+			return chunk;
 		});
-		await assert.rejects(readCurrentCatalogCompanionsV1(IDS, x.native.factory), /body|digest/u);
-		const corrupted = await x.media.mediaRepository.loadAsset('original-1'); assert.ok(corrupted instanceof Blob);
-		assert.deepEqual([...new Uint8Array(await corrupted.arrayBuffer())], [0, 0, 0]);
-		await transact(database, 'mediaAssets', 'readwrite', stores => request(stores.mediaAssets.put(originalRow)));
+		await assert.rejects(readCurrentCatalogCompanionsV1(IDS, x.native.factory), /requested local media asset is missing/u);
+		await assert.rejects(x.media.mediaRepository.loadAsset('original-1'), /requested local media asset is missing/u);
+		const corrupted = await transact(database, 'mediaAssetChunks', 'readonly', stores =>
+			request<Record<string, unknown>>(stores.mediaAssetChunks.get(originalChunk.key as string)));
+		assert.ok(corrupted.payloadBytes instanceof ArrayBuffer);
+		const corruptedBytes = new Uint8Array(corrupted.payloadBytes);
+		try { assert.deepEqual([...corruptedBytes], [0, 0, 0]); } finally { corruptedBytes.fill(0); }
+		await transact(database, 'mediaAssetChunks', 'readwrite', stores => request(stores.mediaAssetChunks.put(originalChunk)));
+		new Uint8Array(originalChunk.payloadBytes as ArrayBuffer).fill(0);
 		await transact(database, 'catalogOriginalRoots', 'readwrite', async stores => {
 			await request(stores.catalogOriginalRoots.clear());
 		});

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import fc from 'fast-check';
 import { normalizeImageDevelopStateV3 } from '../../src/common/editor/imaging/image-develop-state-v3.ts';
 import type { ImageDevelopStateThroughV4 } from '../../src/common/editor/imaging/image-develop-state-v4.ts';
@@ -17,6 +15,7 @@ import { verifyPhotoResourcesCurrentV1 } from '../../src/lightscaper/storage/pho
 import type { PhotoLibraryDevelopCommandCurrentV1 } from '../../src/common/editor/photo-library-develop-port-current-v1.ts';
 import { repairPresetsFixture } from './lightscaper-repair-presets-current-fixture.ts';
 import { LUT_BODY } from './lightscaper-lut-archive-fixture.ts';
+import { inspectNativeOriginalChunksCurrentV1 } from './lightscaper-physical-original-chunks-current.ts';
 
 export const GENERATED_CURRENT_TIME = '2026-10-15T00:00:00.000Z';
 export interface GeneratedDevelopSpecCurrentV1 {
@@ -97,18 +96,17 @@ export async function developPropertiesFixtureCurrentV1(count = 3) {
 				const owner = await PhotoCommandOwnerCurrentV1.open(catalog, photo.catalogId, photo.id); commands.add(owner); return owner; },
 			async inspectCustody() {
 				const rows = await refresh(), raw = f.native.raw(selected.location.mediaDatabaseName);
-				const bodies = [];
-				for (const reference of [brush, unusedBrush]) { const resource = await f.resources.maskRasterResources();
-					bodies.push({ key: reference.storageKey, bytes: await resource.source.withBytes(reference, bytes => Array.from(bytes)) }); }
-				const profiles = await f.resources.cubeLutResources(); bodies.push({ key: lut.storageKey, bytes: await profiles.source.withBytes(lut, bytes => Array.from(bytes)) });
-				const keys = new Set(rows.map(row => row.photo.original.storageKey)), mediaRows = raw.records(selected.location.mediaDatabaseName, 'mediaAssets') as Record<string, unknown>[];
-				const originals = rows.map(row => { assert.equal(createHash('sha256').update(row.bytes).digest('hex'), row.photo.original.contentSha256);
-					return { original: row.photo.original, bytes: row.bytes }; });
-				const retained = mediaRows.filter(row => keys.has(row.sourceId as string)).map(row => { const { blob, ...metadata } = row;
-					assert.ok(blob instanceof Blob); assert.equal(typeof metadata.mediaContentToken, 'string'); return { metadata, blobSize: blob.size, blobType: blob.type }; });
-				assert.equal(retained.length, keys.size);
-				return { originals, mediaRows: retained, roots: raw.records(selected.location.mediaDatabaseName, 'catalogOriginalRoots'),
-					analysis: (raw.records(selected.location.mediaDatabaseName, 'analysis') as Record<string, unknown>[]).filter(row => resourceKeys.includes(row.key as string)), bodies };
+				try {
+					const bodies = [];
+					for (const reference of [brush, unusedBrush]) { const resource = await f.resources.maskRasterResources();
+						bodies.push({ key: reference.storageKey, bytes: await resource.source.withBytes(reference, bytes => Array.from(bytes)) }); }
+					const profiles = await f.resources.cubeLutResources(); bodies.push({ key: lut.storageKey, bytes: await profiles.source.withBytes(lut, bytes => Array.from(bytes)) });
+					const retained = rows.map(({ photo, bytes }) => inspectNativeOriginalChunksCurrentV1(raw, selected.location.mediaDatabaseName,
+						{ sourceId: photo.original.storageKey, size: photo.original.byteLength, sha256: photo.original.contentSha256 }, bytes));
+					const originals = rows.map(row => ({ original: row.photo.original, bytes: Array.from(row.bytes) }));
+					return { originals, mediaRows: retained, roots: raw.records(selected.location.mediaDatabaseName, 'catalogOriginalRoots'),
+						analysis: (raw.records(selected.location.mediaDatabaseName, 'analysis') as Record<string, unknown>[]).filter(row => resourceKeys.includes(row.key as string)), bodies };
+				} finally { for (const row of rows) row.bytes.fill(0); }
 			},
 			async close() {
 				const outcomes = await Promise.allSettled([...commands].map(owner => owner.close()));

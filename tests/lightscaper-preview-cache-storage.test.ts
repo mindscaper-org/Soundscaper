@@ -8,6 +8,7 @@ import { planPhotoPreviewV1 } from '../src/lightscaper/preview/photo-preview-pla
 import { preparePhotoPreviewV1 } from '../src/lightscaper/preview/photo-preview-preparation-v1.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
+import { inspectNativeOriginalChunksCurrentV1 } from './helpers/lightscaper-physical-original-chunks-current.ts';
 import type { qualifyPhotoPreviewCacheNativeV1 } from './helpers/lightscaper-preview-cache-native-fixture.ts';
 
 const nativeModes = { reopen: 'reopen', fault: 'fault' } satisfies Record<string, Parameters<typeof qualifyPhotoPreviewCacheNativeV1>[0]>;
@@ -47,6 +48,9 @@ test(`the narrow preview cache survives ${nativeModes.reopen} independently of o
 		await catalog.publishPhotos(source.photo.catalogId, 0, [source.photo]);
 		const originalRoots = await store.mediaRepository.catalogOriginals.readPage({ catalogId: source.photo.catalogId });
 		const stagedRoots = await store.mediaRepository.catalogOriginals.readPage({ catalogId: source.photo.catalogId, importId: 'import-1' });
+		const originalBinding = { sourceId: source.photo.original.storageKey, size: source.photo.original.byteLength, sha256: source.photo.original.contentSha256 };
+		const physicalOriginal = inspectNativeOriginalChunksCurrentV1(current.indexedDB, current.databaseName, originalBinding);
+		const fullReadBaseline = structuredClone(current.indexedDB.stats.getAllRequests);
 		assert.equal((await cache.store(value.prepared)).outcome, 'stored');
 		assert.equal(current.indexedDB.recordCount(current.databaseName, 'videoDerivatives'), 1);
 		assert.equal(current.indexedDB.recordCount(current.databaseName, 'videoDerivativeCacheEntries'), 1);
@@ -56,16 +60,19 @@ test(`the narrow preview cache survives ${nativeModes.reopen} independently of o
 		const reopened = current.create();
 		try {
 			const cached = await reopened.getPreviewCache().load(value.plan); assert.ok(cached);
-			assert.deepEqual(new Uint8Array(await cached.body.arrayBuffer()), Uint8Array.from([12, 34, 56, 255]));
+			const cachedBytes = new Uint8Array(await cached.body.arrayBuffer());
+			try { assert.deepEqual(cachedBytes, Uint8Array.from([12, 34, 56, 255])); } finally { cachedBytes.fill(0); }
 			await reopened.getPreviewCache().trim();
 			assert.deepEqual(await reopened.mediaRepository.catalogOriginals.readPage({ catalogId: source.photo.catalogId }), originalRoots);
 			assert.deepEqual(await reopened.mediaRepository.catalogOriginals.readPage({ catalogId: source.photo.catalogId, importId: 'import-1' }), stagedRoots);
 			assert.deepEqual(await catalog.loadPhoto(source.photo.catalogId, source.photo.id), source.photo);
 			await assert.rejects(reopened.mediaRepository.deleteAsset(source.photo.original.storageKey), /catalog original/u);
 			const original = await reopened.mediaRepository.loadAsset(source.photo.original.storageKey); assert.ok(original);
-			assert.deepEqual(new Uint8Array(await original.arrayBuffer()), new Uint8Array([1, 2, 3]));
+			const originalBytes = new Uint8Array(await original.arrayBuffer());
+			try { assert.deepEqual(originalBytes, new Uint8Array([1, 2, 3])); } finally { originalBytes.fill(0); }
 		} finally { await reopened.close(); }
-		assert.equal(current.indexedDB.stats.getAllRequests.length, 0);
+		assert.deepEqual(current.indexedDB.stats.getAllRequests, fullReadBaseline);
+		assert.deepEqual(inspectNativeOriginalChunksCurrentV1(current.indexedDB, current.databaseName, originalBinding), physicalOriginal);
 	} finally { await catalog.close(); await store.close(); }
 });
 

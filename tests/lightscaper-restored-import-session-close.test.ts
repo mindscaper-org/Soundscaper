@@ -28,6 +28,7 @@ import { InstrumentedKeyRange } from './helpers/instrumented-indexeddb-keys.ts';
 import { LUT_BODY, LUT_REFERENCE, lutArchiveFixture } from './helpers/lightscaper-lut-archive-fixture.ts';
 import { mediaRestoreFixture, mediaRestoreRoot } from './helpers/lightscaper-media-restore-fixture.ts';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
+import { inspectNativeOriginalChunksCurrentV1 } from './helpers/lightscaper-physical-original-chunks-current.ts';
 import { qualifyPhotoRestoredImportSessionCloseNativeV1, type PhotoRestoredImportSessionCloseCutV1 } from './helpers/lightscaper-restored-import-session-close-native-v1.ts';
 
 type Mode = 'stage' | 'publish' | 'retire';
@@ -117,14 +118,17 @@ async function fixture() {
 			const donorRecord = originalRecords.find(record => (record as { sourceId: string }).sourceId === input.photo.original.storageKey);
 			const bodies = await Promise.all(originalRecords.map(async record => {
 				const value = record as { sourceId: string; sha256: string; size: number; mediaContentToken: string; storage: string };
-				assert.equal(value.storage, value.sha256 === sha(DONOR) ? MEDIA_ASSET_CHUNK_STORAGE_TYPE : 'indexeddb-blob');
+				assert.equal(value.storage, MEDIA_ASSET_CHUNK_STORAGE_TYPE);
 				assert.equal(typeof value.mediaContentToken, 'string');
+				const physical = inspectNativeOriginalChunksCurrentV1(raw, database, value, value.sha256 === sha(DONOR) ? DONOR : SELECTED);
+				const { catalogRootCount: _rootCount, ...immutableMetadata } = physical.metadata;
 				const body = await owner.media.mediaRepository.loadAsset(value.sourceId); assert.ok(body);
 				const bytes = new Uint8Array(await body.arrayBuffer());
 				try { assert.equal(sha(bytes), value.sha256); assert.equal(bytes.length, value.size);
 					assert.deepEqual(bytes, value.sha256 === sha(DONOR) ? DONOR : SELECTED);
 				} finally { bytes.fill(0); }
-				return { key: value.sourceId, sha256: value.sha256, size: value.size, token: value.mediaContentToken };
+				return { key: value.sourceId, sha256: value.sha256, size: value.size, token: value.mediaContentToken,
+					physical: { ...physical, metadata: immutableMetadata } };
 			}));
 			for (const storedRoot of roots) assert.equal(storedRoot.mediaContentToken, bodies.find(body => body.key === storedRoot.assetId)?.token);
 			const preset = await owner.media.settingsRepository.get(presetKey); assert.deepEqual(preset, row);

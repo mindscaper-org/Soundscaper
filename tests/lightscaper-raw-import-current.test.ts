@@ -19,6 +19,7 @@ import { repairSettingsFixture } from './helpers/lightscaper-repair-settings-cur
 import { rawDngFixtureV1 } from './helpers/lightscaper-raw-dng-current-fixture.ts';
 import { rawWorkerFixtureV1 } from './helpers/lightscaper-raw-worker-current-fixture.ts';
 import { deferred } from './helpers/async-test-control.ts';
+import { inspectNativeOriginalChunksCurrentV1 } from './helpers/lightscaper-physical-original-chunks-current.ts';
 
 type Fixture = Awaited<ReturnType<typeof repairSettingsFixture>>;
 type Workers = Awaited<ReturnType<typeof rawWorkerFixtureV1>>;
@@ -70,7 +71,13 @@ async function inspectImported(f: Fixture, photoId: string) {
 		const raw = f.native.raw(selection.location.mediaDatabaseName);
 		const roots = (raw.records(selection.location.mediaDatabaseName, 'catalogOriginalRoots') as Record<string, unknown>[]).filter(row => row.photoId === photoId);
 		const assets = (raw.records(selection.location.mediaDatabaseName, 'mediaAssets') as Record<string, unknown>[]).filter(row => row.sourceId === photo.original.storageKey);
-		return { photo, bytes: new Uint8Array(await body.arrayBuffer()), roots, assets };
+		const bytes = new Uint8Array(await body.arrayBuffer());
+		try {
+			const physical = inspectNativeOriginalChunksCurrentV1(raw, selection.location.mediaDatabaseName,
+				{ sourceId: photo.original.storageKey, size: photo.original.byteLength, sha256: photo.original.contentSha256,
+					mimeType: photo.original.mimeType }, bytes);
+			return { photo, bytes: Array.from(bytes), roots, assets, physical };
+		} finally { bytes.fill(0); }
 	} finally { await Promise.all([catalog.close(), media.close()]); }
 }
 
@@ -81,7 +88,7 @@ test('Current File import accepts genuine DNG bytes through the real native deco
 		assert.equal(receipt.length, 1); assert.equal(receipt[0]?.status, 'imported'); assert.ok(receipt[0]?.photoId);
 		assert.deepEqual(acknowledged, receipt); assert.equal((await f.session.readPage()).totalCount, 2);
 		const retained = await inspectImported(f, receipt[0].photoId);
-		assert.deepEqual(retained.bytes, bytes); assert.equal(retained.photo.original.contentSha256, digest(bytes));
+		assert.deepEqual(retained.bytes, Array.from(bytes)); assert.equal(retained.photo.original.contentSha256, digest(bytes));
 		assert.equal(retained.photo.original.mimeType, 'image/x-adobe-dng'); assert.equal(retained.photo.original.name, 'Native sensor.DNG');
 		assert.deepEqual([retained.photo.original.width, retained.photo.original.height, retained.photo.original.hasAlpha], [32, 32, false]);
 		assert.equal(retained.roots.length, 1); assert.equal(retained.roots[0]?.importId, null); assert.equal(retained.assets.length, 1);
@@ -106,12 +113,12 @@ test('Current File import retains the pinned Canon CRW Original after actual pro
 		assert.equal(retained.photo.original.contentSha256, pin.sha256); assert.equal(retained.photo.original.byteLength, pin.byteLength);
 		assert.equal(retained.photo.original.retention, 'managed'); assert.equal(retained.photo.extractedMetadata?.container, 'unsupported');
 		assert.equal(retained.photo.extractedMetadata?.exif, null); assert.equal(retained.photo.extractedMetadata?.iptc, null);
-		assert.deepEqual(retained.bytes, bytes); assert.equal(retained.roots.length, 1); assert.equal(retained.assets.length, 1);
+		assert.deepEqual(retained.bytes, Array.from(bytes)); assert.equal(retained.roots.length, 1); assert.equal(retained.assets.length, 1);
 		assert.equal(retained.roots[0]?.importId, null); assert.equal(retained.roots[0]?.sha256, pin.sha256);
 		assert.equal(retained.roots[0]?.size, pin.byteLength); assert.equal(retained.roots[0]?.assetId, retained.photo.original.storageKey);
-		const nativeBody = retained.assets[0]?.blob; assert.ok(nativeBody instanceof Blob);
-		assert.equal(nativeBody.type, 'image/x-canon-crw'); assert.equal(nativeBody.size, pin.byteLength);
-		assert.deepEqual(new Uint8Array(await nativeBody.arrayBuffer()), bytes);
+		assert.equal(retained.physical.metadata.mimeType, 'image/x-canon-crw'); assert.equal(retained.physical.byteLength, pin.byteLength);
+		assert.equal(retained.physical.sha256, pin.sha256); assert.equal(retained.physical.chunks.length, 2);
+		assert.deepEqual(retained.physical.chunks.map(chunk => chunk.byteLength), [4 * 1024 * 1024, pin.byteLength - 4 * 1024 * 1024]);
 		assert.deepEqual(await f.inspect(), before); assert.equal(workers.statistics.joined, 1); assert.equal(workers.active(), 0);
 		// This licensed lens-cap capture proves the actual import/storage route;
 		// it provides no scene-color accuracy or camera-breadth claim.
@@ -206,7 +213,7 @@ test('Current RAW import keeps source indexes and settings while deduplicating e
 		assert.equal(first.photo.metadata.creator, 'Photographer'); assert.equal(last.photo.metadata.creator, 'Photographer');
 		assert.equal(first.photo.original.name, 'same.DNG'); assert.equal(last.photo.original.name, 'same.DNG');
 		assert.equal(first.photo.original.storageKey, last.photo.original.storageKey); assert.equal(items[2].reusedOriginal, true);
-		assert.deepEqual(first.bytes, bytes); assert.deepEqual(last.bytes, bytes); assert.equal(workers.statistics.joined, 2);
+		assert.deepEqual(first.bytes, Array.from(bytes)); assert.deepEqual(last.bytes, Array.from(bytes)); assert.equal(workers.statistics.joined, 2);
 	});
 });
 
@@ -220,7 +227,7 @@ test('Cancellation after genuine RAW catalog ACK retains the photo and immutable
 		await f.session.close(); const reopened = await createPhotoLibrarySessionCurrentV1(f.options);
 		try {
 			assert.equal((await reopened.readPage()).totalCount, 2); const retained = await inspectImported(f, acknowledged.photoId);
-			assert.deepEqual(retained.bytes, bytes); assert.equal(retained.roots.length, 1); assert.equal(retained.roots[0]?.importId, null);
+			assert.deepEqual(retained.bytes, Array.from(bytes)); assert.equal(retained.roots.length, 1); assert.equal(retained.roots[0]?.importId, null);
 		} finally { await reopened.close(); }
 	});
 });

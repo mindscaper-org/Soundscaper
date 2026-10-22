@@ -7,8 +7,23 @@ import { photoImportIntentKeyV1 } from '../src/lightscaper/import/import-intent-
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
 import { originalRestorationFixture } from './helpers/lightscaper-original-restoration-fixture.ts';
 import { InstrumentedKeyRange } from './helpers/instrumented-indexeddb-keys.ts';
+import { inspectNativeOriginalChunksCurrentV1 } from './helpers/lightscaper-physical-original-chunks-current.ts';
 
 Object.defineProperty(globalThis, 'IDBKeyRange', { value: InstrumentedKeyRange, configurable: true });
+
+function assertRestoredChunks(f: Awaited<ReturnType<typeof originalRestorationFixture>>,
+	target: Awaited<ReturnType<typeof f.target>>, before: readonly Record<string, unknown>[]) {
+	const oldKeys = new Set(before.map(row => row.key));
+	const chunks = f.backing.records(f.mediaName, 'mediaAssetChunks');
+	assert.equal(chunks.length, before.length + 1);
+	assert.deepEqual(chunks.filter(row => oldKeys.has(row.key)), before);
+	// Removing only metadata intentionally leaves these old chunks orphaned.
+	// Verify that unchanged baseline separately, then authenticate the new body.
+	inspectNativeOriginalChunksCurrentV1({ records: (database, store) => {
+		const rows = f.backing.records(database, store);
+		return store === 'mediaAssetChunks' ? rows.filter(row => !oldKeys.has(row.key)) : rows;
+	} }, f.mediaName, { sourceId: target.binding.assetId, size: target.binding.size, sha256: target.binding.sha256 }, Uint8Array.of(1, 2, 3));
+}
 
 for (const provisional of [false, true]) {
 	test(`Session exact restoration reconstructs a missing row under ${provisional ? 'published provisional' : 'committed'} custody before ordinary recovery`, async context => {
@@ -36,6 +51,7 @@ for (const provisional of [false, true]) {
 
 test('stale catalog, photo, active intent and every immutable binding field refuse before any selected body read', async context => {
 	const f = await originalRestorationFixture(context), target = await f.target(), originalRead = Blob.prototype.arrayBuffer;
+	const chunks = f.backing.records(f.mediaName, 'mediaAssetChunks');
 	let reads = 0; Blob.prototype.arrayBuffer = function () { reads++; return originalRead.call(this); };
 	try {
 		const stale = [{ ...target, catalogRevision: target.catalogRevision + 1 }, { ...target, photoRevision: target.photoRevision + 1 },
@@ -46,7 +62,7 @@ test('stale catalog, photo, active intent and every immutable binding field refu
 		for (const [field, value] of Object.entries(changes)) await assert.rejects(f.session.restoreOriginalBody({ ...target,
 			binding: { ...target.binding, [field]: value } }, f.source.original));
 		assert.equal(reads, 0); assert.equal(f.calls.includes('restore'), false);
-		assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssetChunks'), 0);
+		assert.deepEqual(f.backing.records(f.mediaName, 'mediaAssetChunks'), chunks);
 	} finally { Blob.prototype.arrayBuffer = originalRead; }
 });
 
@@ -74,10 +90,11 @@ test('new or corrupt durable import intent refuses without weakening the normal 
 
 test('wrong selected size or same-size digest cannot change originals, documents or custody', async context => {
 	const f = await originalRestorationFixture(context), target = await f.target(); await f.removeMediaRow();
+	const chunks = f.backing.records(f.mediaName, 'mediaAssetChunks');
 	const roots = f.backing.records(f.mediaName, 'catalogOriginalRoots'), photo = await f.catalog.loadPhoto('catalog-1', 'photo-1');
 	await assert.rejects(f.session.restoreOriginalBody(target, new Blob(['short'])), /size/iu);
 	await assert.rejects(f.session.restoreOriginalBody(target, new Blob([Uint8Array.of(1, 2, 4)])), /SHA-256/iu);
-	assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssets'), 0); assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssetChunks'), 0);
+	assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssets'), 0); assert.deepEqual(f.backing.records(f.mediaName, 'mediaAssetChunks'), chunks);
 	assert.deepEqual(f.backing.records(f.mediaName, 'catalogOriginalRoots'), roots); assert.deepEqual(await f.catalog.loadPhoto('catalog-1', 'photo-1'), photo);
 });
 
@@ -94,6 +111,7 @@ test('closed admission rejects getters, unknown target/options fields and fake n
 for (const heldRead of [1, 3]) {
 	test(`close joins ${heldRead === 1 ? 'preflight hashing' : 'persisted staging encoding'} and the repair lease before closing storage`, async context => {
 		const f = await originalRestorationFixture(context), target = await f.target(), held = deferred<void>(), entered = deferred<void>();
+		const chunks = f.backing.records(f.mediaName, 'mediaAssetChunks');
 		const nativeRead = Blob.prototype.arrayBuffer; let reads = 0;
 		Blob.prototype.arrayBuffer = async function () { if (++reads === heldRead) { entered.resolve(); await held.promise; } return nativeRead.call(this); };
 		const work = f.session.restoreOriginalBody(target, f.source.original), settled = work.catch(() => undefined);
@@ -105,7 +123,7 @@ for (const heldRead of [1, 3]) {
 			held.resolve(); await assert.rejects(work, { name: 'AbortError' }); await closing;
 			assert.equal(f.active(), false); assert.equal(f.calls.at(-1), 'close');
 			const stages = f.backing.records(f.mediaName, 'mediaAssetStaging') as Array<Record<string, unknown>>;
-			assert.equal(stages.filter(row => row.kind === 'lease').length, 0); assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssetChunks'), 0);
+			assert.equal(stages.filter(row => row.kind === 'lease').length, 0); assert.deepEqual(f.backing.records(f.mediaName, 'mediaAssetChunks'), chunks);
 		} finally { held.resolve(); Blob.prototype.arrayBuffer = nativeRead; await settled; }
 	});
 }
@@ -113,20 +131,22 @@ for (const heldRead of [1, 3]) {
 test('durable restoration survives late cancellation and failed catalog lease cleanup with a scalar notice', async context => {
 	const f = await originalRestorationFixture(context, true), target = await f.target(), stop = new AbortController();
 	await f.removeMediaRow();
+	const chunks = f.backing.records(f.mediaName, 'mediaAssetChunks');
 	f.cleanup(async () => { stop.abort(); throw new Error('lease cleanup failed after durable repair'); });
 	const result = await f.session.restoreOriginalBody(target, f.source.original, { signal: stop.signal });
 	assert.deepEqual(result.notices, ['cleanup-failed']); assert.equal(Object.isFrozen(result.notices), true);
-	assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssets'), 1); assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssetChunks'), 1);
+	assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssets'), 1); assertRestoredChunks(f, target, chunks);
 	assert.equal(f.active(), false); assert.deepEqual(Object.keys(result).sort(), ['assetId', 'notices', 'photoId', 'sha256', 'size']);
 	f.cleanup(async () => undefined); assert.equal((await f.session.readPage()).rows.length, 1); assert.equal(await f.intent(), undefined);
 });
 
 test('a held post-ACK lease release remains owned through close and preserves the successful receipt', async context => {
 	const f = await originalRestorationFixture(context), target = await f.target(), held = deferred<void>(), entered = deferred<void>();
+	const chunks = f.backing.records(f.mediaName, 'mediaAssetChunks');
 	f.cleanup(async () => { entered.resolve(); await held.promise; });
 	const work = f.session.restoreOriginalBody(target, f.source.original), settled = work.catch(() => undefined);
 	try {
-		await entered.promise; assert.equal(f.backing.recordCount(f.mediaName, 'mediaAssetChunks'), 1);
+		await entered.promise; assertRestoredChunks(f, target, chunks);
 		const closing = f.session.close(); assert.equal(await remainsPending(closing), true); assert.equal(f.calls.includes('close'), false);
 		held.resolve(); assert.deepEqual((await work).notices, []); await closing; assert.equal(f.calls.at(-1), 'close');
 	} finally { held.resolve(); await settled; }
