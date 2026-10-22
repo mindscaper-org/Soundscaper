@@ -453,6 +453,7 @@ const COPY_ENTRIES = Object.freeze([
 	["takeCompSharedBoundary","Shared boundary","Gemeinsame Grenze"],
 	["takeCompApplySharedBoundary","Apply shared boundary","Gemeinsame Grenze anwenden"],
 	["takeCompFlatten","Flatten comp","Comp zusammenführen"],
+	["takeCompFlattenBeforeChannelRewrite","Flatten the track’s take comp before splitting or merging its channels.","Führe den Take-Comp der Spur zusammen, bevor du ihre Kanäle aufteilst oder zusammenführst."],
 	["takeCompRemoveGroup","Remove take group","Take-Gruppe entfernen"],
 	["takeCompReadOnly","Take editing is unavailable while the project is read-only.","Das Bearbeiten von Takes ist bei einem schreibgeschützten Projekt nicht verfügbar."],
 	["takeCompLocked","Take operations are unavailable while the owning track is locked.","Take-Aktionen sind nicht verfügbar, solange die zugehörige Spur gesperrt ist."],

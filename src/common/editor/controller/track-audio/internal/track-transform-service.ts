@@ -20,6 +20,7 @@ import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
 import { sequenceTrackMembers } from '../../../sequence-track-members.ts';
+import { assertTakeCompChannelRewriteAllowed } from './take-comp-channel-rewrite-admission.ts';
 import { isStandaloneMonoAudioTrack } from '../../../mono-track-pair-admission.ts';
 import { copyDerivedTrackStripAutomation } from '../../../derived-track-strip-automation.ts';
 import { copyDerivedTrackEffectAutomation } from '../../../derived-track-effect-automation.ts';
@@ -232,6 +233,7 @@ export function createTrackTransformService(
 		if (dependencies.editingBlocked()) return null;
 		const project = dependencies.getProject();
 		const track = requireStereoTrack(project, trackId);
+		assertTakeCompChannelRewriteAllowed(project, [track.id], dependencies.copy);
 		assertStereoSplitRoutingRepresentable(project, track.id, dependencies.copy);
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const clips = trackClips(project, track);
@@ -330,6 +332,7 @@ export function createTrackTransformService(
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const partner = findMonoPartner(project, track, trackIndex, partnerTrackId);
 		if (!partner) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.compatibleMonoTrackRequired ? 'compatibleMonoTrackRequired' : dependencies.copy.monoTrackRequired ? 'monoTrackRequired' : 'audioTrackRequired');
+		assertTakeCompChannelRewriteAllowed(project, [track.id, partner.id], dependencies.copy);
 		const partnerIndex = project.tracks.findIndex((candidate) => candidate.id === partner.id);
 		const clips = [...(track.clipIds ?? []), ...(partner.clipIds ?? [])]
 			.map((clipId) => findControllerClip(project, clipId))
