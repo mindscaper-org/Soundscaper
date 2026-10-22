@@ -173,7 +173,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 		const encoded = controller.actions.effects.presets.export(selectedPresetId);
 		await fileService.saveFile({
 			purpose: 'preset',
-			suggestedName: `${(presetName || 'audacity-effect-preset').replace(/[^a-z0-9_-]+/gi, '-')}.json`,
+			suggestedName: `${(presetName || 'audacity-effect-preset').replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-')}.json`,
 			mimeType: 'application/json',
 			text: encoded,
 		});

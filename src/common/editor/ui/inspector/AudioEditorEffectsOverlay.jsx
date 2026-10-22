@@ -288,7 +288,7 @@ export function AudioEditorEffectsOverlay({
 		const encoded = controller.actions.effects.presets.export(rackPresetId);
 		await fileService.saveFile({
 			purpose: 'preset',
-			suggestedName: `${(selectedRackPreset?.preset.name || 'audacity-effect-preset').replace(/[^a-z0-9_-]+/gi, '-')}.json`,
+			suggestedName: `${(selectedRackPreset?.preset.name || 'audacity-effect-preset').replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-')}.json`,
 			mimeType: 'application/json',
 			text: encoded,
 		});
