@@ -49,7 +49,7 @@ test('NP054: cross-rate clipboard retains hidden stretch timeline geometry', asy
 	const pasted: unknown = controller.project; assert.ok(validateSoundscaperProject(pasted));
 	const clip = pasted.clips[0]; assert.ok(clip);
 	assert.equal(pasted.sampleRate, 24_000); assert.equal(clip.durationFrames, 8_000);
-	const sourceAfter = pasted.sources.find(source => source.id === clip.sourceId); assert.ok(sourceAfter);
+	const sourceAfter = pasted.sources.find(source => source.id === clip.sourceId); assert.ok(sourceAfter?.kind === 'audio');
 	const { timelineStartFrame, durationFrames, sourceStartFrame, sourceDurationFrames } = clip;
 	assert.ok(typeof timelineStartFrame === 'number' && typeof durationFrames === 'number'
 		&& typeof sourceStartFrame === 'number' && typeof sourceDurationFrames === 'number');
