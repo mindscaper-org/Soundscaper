@@ -4,6 +4,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, waitForProj
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
+import { encodeWav } from '../../src/common/editor/wav.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
@@ -36,4 +37,30 @@ test('Paste creates a destination track in a lower-rate native project', async (
 	await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(0);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
 	await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(1);
+});
+
+for (const action of ['bin', 'import']) test(`${action} creates a track at the lower-rate project clock`, async ({ page }) => {
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
+	let blob;
+	try {
+		const source = createAudioSource({ id: 'source', sampleRate: 24_000, frameCount: 24_000, channelCount: 1 });
+		const writer = await store.beginSourceWrite(source.storageKey, source);
+		await writer.write([new Float32Array(24_000).fill(.25)]); await writer.commit();
+		const project = createSoundscaperProject({ id: `rate-${action}`, sampleRate: 24_000,
+			...(action === 'bin' ? { sources: [source], projectBin: { clips: [createAudioClip({ id: 'bin-clip', binItemId: 'recording', title: 'Recording',
+				sourceId: source.id, durationFrames: 24_000, sourceDurationFrames: 24_000 })] } } : {}) });
+		blob = (await exportScapeProject(project, store)).blob;
+	} finally { await store.close(); }
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: '24k.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
+	await expect(editor).toHaveAttribute('data-project-id', `rate-${action}`); await waitForProjectActivation(editor);
+	if (action === 'bin') {
+		if (!await editor.locator('[data-workspace-panel="project-bin"]').isVisible()) await chooseNestedCommandAction(page, editor, 'Window', ['Project bin']);
+		await editor.locator('[data-project-bin-item="recording"]').getByRole('button', { name: 'Add to timeline: Recording', exact: true }).click();
+	} else await editor.locator('[data-import-input]').setInputFiles({ name: 'Recording.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav(
+		[new Float32Array(24_000).fill(.25)], { sampleRate: 24_000, float: true })) });
+	await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(1);
+	await expect.poll(async () => (await persistedProject(page, `rate-${action}`))?.clips[0]?.durationFrames).toBe(24_000);
+	await chooseCommandAction(page, editor, 'Edit', 'Undo'); await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(0);
+	await chooseCommandAction(page, editor, 'Edit', 'Redo'); await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(1);
 });

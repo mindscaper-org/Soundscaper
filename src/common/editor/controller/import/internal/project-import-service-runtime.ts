@@ -309,7 +309,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					type: 'audio',
 					id: trackId,
 					name: trackName,
-				}),
+				}, projectSampleRate()),
 				...(Number.isSafeInteger(importOptions.trackIndex) ? { index: importOptions.trackIndex } : {}),
 				...(importOptions.trackPlacement ?? {}),
 			});

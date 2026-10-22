@@ -222,7 +222,7 @@ export interface ImportVideoRuntime {
 	): unknown;
 	createAddClipCommand(trackId: string, clip: CommandFactoryValue): AddClipCommand;
 	createAddSourceCommand(source: CommandFactoryValue): AddSourceCommand;
-	createAddTrackCommand(track: CommandFactoryValue): AddTrackCommand;
+	createAddTrackCommand(track: CommandFactoryValue, projectSampleRate?: number): AddTrackCommand;
 	createAudioEditorVideoFrameExtractor(file: ImportVideoMedia): Awaitable<ImportVideoFrameExtractor>;
 	createStableId(prefix: string): string;
 	captureProject(): EditorProjectToken;

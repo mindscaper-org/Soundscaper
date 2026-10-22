@@ -450,7 +450,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 							name: `${trackName} Audio`,
 							laneGroupId,
 							armed: false,
-						}),
+						}, currentProject.sampleRate),
 						index: index + 1,
 					});
 					videoTrack = { id: videoTrackId, type: 'video' };

@@ -170,7 +170,7 @@ export function createEditorTrackService(
 			...(spectrogram ? { spectrogram } : {}),
 			armed: options.armed ?? project.tracks.length === 0,
 			height: options.height ?? 300,
-		});
+		}, project.sampleRate);
 		dependencies.commit(command, { selectTrackId: trackId });
 		assignPreferredInputToTrack(trackId);
 		return trackId;
@@ -209,7 +209,7 @@ export function createEditorTrackService(
 				armed: false,
 				...(spectrogram ? { spectrogram } : {}),
 				height: options.height ?? options.audioHeight ?? 300,
-			}),
+			}, project.sampleRate),
 			index: requestedIndex + 1,
 		}];
 		dependencies.commit({ type: 'batch', commands }, { selectTrackId: videoTrackId });

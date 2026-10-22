@@ -6,6 +6,7 @@ import { validateSoundscaperProject } from '../src/soundscaper/editor-project-va
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { encodeWav } from '../src/common/editor/wav.js';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
@@ -44,4 +45,30 @@ test('NP053: Paste creates a valid new destination track below the default proje
 	assert.equal(spectrogram.maximumFrequency, 12_000);
 	controller.actions.edit.undo(); assert.equal(controller.project?.clips.length, 0);
 	controller.actions.edit.redo(); assert.deepEqual(controller.project?.clips, pasted.clips);
+});
+
+for (const action of ['bin', 'import'] as const) test(`NP053: ${action} creates audio tracks on the native destination rate`, async context => {
+	const runtime = createSoundscaperProjectRuntimeSelection();
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
+	const archiveStore = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `${context.name}:archive` });
+	const source = createAudioSource({ id: 'source', sampleRate: 24_000, frameCount: 24_000, channelCount: 1 });
+	const writer = await archiveStore.beginSourceWrite(source.storageKey, source);
+	await writer.write([new Float32Array(24_000).fill(.25)]); await writer.commit();
+	const project = createSoundscaperProject({ id: `low-rate-${action}`, sampleRate: 24_000,
+		...(action === 'bin' ? { sources: [source], projectBin: { clips: [createAudioClip({ id: 'bin-clip', binItemId: 'recording',
+			sourceId: source.id, durationFrames: 24_000, sourceDurationFrames: 24_000 })] } } : {}) });
+	const archive = await exportScapeProject(project, archiveStore); assert.ok(archive.blob instanceof Blob); await archiveStore.close();
+	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
+		projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
+		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
+	context.after(async () => { await controller.dispose(); }); await controller.ready;
+	await controller.actions.project.openScapeFile(new File([archive.blob], '24k.sscape'), () => 'copy');
+	assert.equal(controller.getSnapshot().readOnly, false);
+	if (action === 'bin') controller.actions.projectBin.place('bin-clip');
+	else await controller.actions.project.importFiles([new File([new Uint8Array(encodeWav([new Float32Array(24_000).fill(.25)],
+		{ sampleRate: 24_000, float: true }))], 'Recording.wav')], { destination: 'timeline' });
+	assert.equal(controller.project?.clips.length, 1, JSON.stringify(controller.getSnapshot().status));
+	assert.equal(controller.project.clips[0]?.durationFrames, 24_000);
+	controller.actions.edit.undo(); assert.equal(controller.project?.clips.length, 0);
+	controller.actions.edit.redo(); assert.equal(controller.project?.clips.length, 1);
 });

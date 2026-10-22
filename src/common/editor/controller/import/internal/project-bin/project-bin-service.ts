@@ -234,7 +234,7 @@ export function createProjectBinService(
 					name: `${binClip.title || publishedCopyFor(dependencies.copy).track} Audio`,
 					laneGroupId,
 					armed: false,
-				}),
+				}, project.sampleRate),
 				index: insertion + 1,
 				...projectBinTrackPlacement(project, requestedTrack?.id ?? null, 2),
 			});
@@ -246,7 +246,7 @@ export function createProjectBinService(
 				type: 'audio',
 				id: audioTrackId,
 				name: binClip.title || `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + 1}`,
-			}), ...projectBinTrackPlacement(project, requestedTrack?.id ?? null) });
+			}, project.sampleRate), ...projectBinTrackPlacement(project, requestedTrack?.id ?? null) });
 			audioTrack = { id: audioTrackId, type: 'audio', laneGroupId: null, clipIds: [] };
 		}
 		const timelineStartFrame = dependencies.normalizeTimelineStartFrame(
