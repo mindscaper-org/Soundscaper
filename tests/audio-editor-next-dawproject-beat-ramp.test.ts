@@ -7,6 +7,7 @@ import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.
 import { evaluateAutomationLaneAtFrameV21 } from '../src/common/editor/automation-lane-v21.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
 
 test('File Open preserves a beat-linear volume ramp across imported tempo changes', async () => {
@@ -27,7 +28,9 @@ test('File Open preserves a beat-linear volume ramp across imported tempo change
 		adaptAudacityProject: importSoundscaperAudacityProject });
 	const opened = await createNativeProjectService(fixture.runtime).openDawproject(archive as Blob & { name: string });
 	assert.ok(opened);
-	assert.equal(opened.project.clips[0]?.durationFrames, 72_000);
+	assert.ok(validateSoundscaperProject(opened.project));
+	const clip = opened.project.clips[0]; assert.ok(clip && clip.kind === 'audio');
+	assert.equal(clip.durationFrames, 72_000);
 	const lane = opened.project.automationLanes[0]; assert.ok(lane);
 	assert.ok(Math.abs(evaluateAutomationLaneAtFrameV21(lane, 48_000, { sampleRate: 48_000 }) - 0.6) < 1e-9,
 		'the value halfway through two beats must remain0.6at the tempo change, one second into the imported clip');

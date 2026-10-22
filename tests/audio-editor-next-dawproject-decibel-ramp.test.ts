@@ -7,6 +7,7 @@ import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.
 import { evaluateAutomationLaneAtFrameV21 } from '../src/common/editor/automation-lane-v21.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
 
 test('File Open preserves the declared decibel domain between linear volume automation points', async () => {
@@ -25,6 +26,7 @@ test('File Open preserves the declared decibel domain between linear volume auto
 		adaptAudacityProject: importSoundscaperAudacityProject });
 	const opened = await createNativeProjectService(fixture.runtime).openDawproject(archive as Blob & { name: string });
 	assert.ok(opened);
+	assert.ok(validateSoundscaperProject(opened.project));
 	assert.equal(opened.project.clips.length, 1);
 	const lane = opened.project.automationLanes[0]; assert.ok(lane);
 	for (let frame = 0; frame <= 96_000; frame += 1_000) {

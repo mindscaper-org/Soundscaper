@@ -6,6 +6,7 @@ import { createNativeProjectService } from '../src/common/editor/controller/docu
 import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
 
 for (const shape of ['ramp', 'triangle'] as const) test(`File Open retains audio with densely sampled ${shape} DAWproject automation`, async () => {
@@ -25,6 +26,7 @@ for (const shape of ['ramp', 'triangle'] as const) test(`File Open retains audio
 		adaptAudacityProject: importSoundscaperAudacityProject });
 	const opened = await createNativeProjectService(fixture.runtime).openDawproject(archive as Blob & { name: string });
 	assert.ok(opened);
+	assert.ok(validateSoundscaperProject(opened.project));
 	assert.equal(opened.project.clips.length, 1);
 	const lane = opened.project.automationLanes[0];
 	assert.ok(lane);
