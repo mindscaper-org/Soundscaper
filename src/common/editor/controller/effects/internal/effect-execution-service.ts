@@ -15,6 +15,7 @@ const SELECTION_EFFECT_TASK = 'selection-effect-apply';
 /** The registry name a Nyquist evaluation holds while the evaluator runs. */
 import { processIndependentSelectionTargets, type IndependentSelectionPorts } from './independent-selection-targets.ts';
 import { assertCompleteNyquistOutput, planNyquistOutputAdmission } from './nyquist/nyquist-output-admission.ts';
+import { conformNyquistTargetChannels } from './nyquist/nyquist-audio.ts';
 
 export const NYQUIST_EVALUATION_TASK = 'nyquist-evaluation';
 
@@ -330,7 +331,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 				const hostTargets = availableTargets.length ? availableTargets : targets;
 				const outputAdmission = planNyquistOutputAdmission(maxOutputFrames, channels.length, preview);
 				const hostTargetIndex = target ? Math.max(0, hostTargets.indexOf(target)) : index;
-				const result = await nyquistEvaluator({
+				let result = await nyquistEvaluator({
 					source,
 					language: request.language === 'sal' ? 'sal' : 'lisp',
 					sampleRate,
@@ -350,6 +351,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 				assertCompleteNyquistOutput(result, outputAdmission,
 					() => createLocalizedError(RangeError, copy, 'nyquistAudioOutputTooLong'));
 				if (result?.type === 'audio') {
+					result = conformNyquistTargetChannels(result, runTarget?.channelCount);
 					aggregateAudioBytes += nyquistAudioResultBytes(result);
 					if (aggregateAudioBytes > NYQUIST_AGGREGATE_AUDIO_LIMIT_BYTES) {
 						throw audacityEffectMemoryError(copy);

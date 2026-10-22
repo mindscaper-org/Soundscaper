@@ -50,3 +50,9 @@ source, SHA-256
 The embedded notice grants the GNU Public License without specifying a version;
 both GPL texts remain alongside it. The generator regression verifies that
 real-number controls retain their floating point Lisp types.
+
+`vocalrediso.ny.gz` preserves Robert Haenggi's complete 13,206-byte Vocal
+Reduction and Isolation source from the same authenticated snapshot, SHA-256
+`d660eecc5681deeff495803861196433d71a12209249bb8479157a1251da0979`.
+Its GPL-2.0 notice remains intact. The controller and browser regressions apply
+its default mono result to a stereo selection using Audacity's channel contract.

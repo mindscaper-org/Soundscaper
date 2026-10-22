@@ -47,6 +47,12 @@ export function nyquistAudioResultBytes(result: NyquistAudioResult | null | unde
 	return result.channels.reduce((sum, channel) => sum + (channel?.byteLength || 0), 0);
 }
 
+/** Audacity repeats a mono Nyquist result into both channels of a stereo target. */
+export function conformNyquistTargetChannels(result: NyquistAudioResult | null | undefined, channelCount: unknown): NyquistAudioResult | null | undefined {
+	if (result?.type !== 'audio' || result.channels?.length !== 1 || channelCount !== 2) return result;
+	return { ...result, channelCount: 2, channels: [result.channels[0]!, result.channels[0]!] };
+}
+
 export function mixNyquistPreviewChannels(channelSets: Float32Array[][], maximumFrames: unknown, offsets: readonly number[] = []): Float32Array[] {
 	if (!Array.isArray(channelSets) || !channelSets.length) return [];
 	const frameLimit = Math.max(0, Math.round(Number(maximumFrames) || 0));
