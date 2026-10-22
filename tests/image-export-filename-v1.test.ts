@@ -51,5 +51,12 @@ test('all input and expanded filename capacities are enforced without truncation
 	const names = Array.from({ length: 64 }, (_, index) => formatImageExportFilenameV1({ ...request, template: '{name}-{index:3}', index: index + 1 }));
 	assert.equal(new Set(names).size, 64);
 	assert.equal(names[0], 'Summer.photo-001.png'); assert.equal(names.at(-1), 'Summer.photo-064.png');
-	assert.equal(formatImageExportFilenameV1({ ...request, sourceFileName: 'x'.repeat(508) + '.png' }).length, 512);
+	assert.equal(formatImageExportFilenameV1({ ...request, sourceFileName: 'x'.repeat(251) + '.png' }).length, 255);
+	for (const sourceFileName of ['x'.repeat(252) + '.png', 'x'.repeat(508) + '.png', 'ä'.repeat(126) + '.png']) {
+		assert.throws(() => formatImageExportFilenameV1({ ...request, sourceFileName }), /bound/u);
+	}
+	assert.equal(formatImageExportFilenameV1({ ...request, sourceFileName: 'ä'.repeat(125) + 'x.png' }), 'ä'.repeat(125) + 'x.png');
+	const longest = { ...request, template: '{name}-{index:3}', sourceFileName: 'x'.repeat(247) + '.png' };
+	assert.equal(new Set(Array.from({ length: 64 }, (_, index) => formatImageExportFilenameV1({ ...longest, index: index + 1 }))).size, 64);
+	assert.throws(() => formatImageExportFilenameV1({ ...longest, sourceFileName: 'x'.repeat(248) + '.png' }), /bound/u);
 });

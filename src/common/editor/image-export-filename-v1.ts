@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readClosedDomainField as field, readClosedDomainRecord as record } from './closed-domain-value.ts';
-import { sanitizeSuggestedSaveName } from './browser-file-save-service.ts';
+import { sanitizeSuggestedFileName } from './portable-save-file-name.ts';
 
 /** Format a suggested flat basename, then append the selected codec's suffix.
  * {name} is the original's stem; {index} is the caller's stable, one-based batch
@@ -42,8 +42,9 @@ export function formatImageExportFilenameV1(value: unknown): string {
 			append(character); cursor += 1;
 		}
 	}
-	if (!expanded.trim().replace(/[. ]+$/u, '')) throw new RangeError('Image export filename template is empty.');
-	return sanitizeSuggestedSaveName(expanded) + (format === 'png' ? '.png' : '.jpg');
+	const basename = expanded.trim().replace(/[. ]+$/u, '');
+	if (!basename) throw new RangeError('Image export filename template is empty.');
+	return sanitizeSuggestedFileName(basename + (format === 'png' ? '.png' : '.jpg'), 'reject');
 }
 
 function text(value: unknown, maximum: number): string {
