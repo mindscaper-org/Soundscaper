@@ -63,7 +63,7 @@ export default function ClipSourceRuler(props: Props) {
 			<button type="button" aria-label={copy.stop} onClick={props.onStop}><Icon name="stop" size={16} /></button>
 			<button type="button" aria-label={copy.loop} aria-pressed={props.loop} onClick={props.onLoop}><Icon name="loop" size={16} /></button>
 		</div>
-		<svg className="audio-editor-source-ruler__scale" role="slider" tabIndex={0} aria-label={copy.clipSourceTimeline}
+		<svg className="audio-editor-source-ruler__scale" role="slider" tabIndex={props.disabled ? -1 : 0} aria-disabled={props.disabled} aria-label={copy.clipSourceTimeline}
 			aria-valuenow={props.positionFrame / props.sampleRate} aria-valuemin={startFrame / props.sampleRate} aria-valuemax={endFrame / props.sampleRate}
 			data-time-origin={options.global ? 'global' : 'local'} width={width} height={40}
 			onPointerDown={props.onSeek} onContextMenu={event => { event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY }); }}
@@ -72,7 +72,7 @@ export default function ClipSourceRuler(props: Props) {
 				if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
 					event.preventDefault(); event.stopPropagation();
 					const frame = event.key === 'Home' ? startFrame : event.key === 'End' ? endFrame : props.positionFrame + (event.key === 'ArrowLeft' ? -1 : 1) * Math.round(props.sampleRate * (event.shiftKey ? 1 : 0.1));
-					props.onSeekFrame(Math.max(startFrame, Math.min(endFrame, frame)));
+					if (!props.disabled) props.onSeekFrame(Math.max(startFrame, Math.min(endFrame, frame)));
 				}
 				if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
 				event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); setMenu({ x: rect.left, y: rect.bottom });

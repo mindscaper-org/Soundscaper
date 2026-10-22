@@ -80,7 +80,7 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		preview.setSelection(normalized.display);
 		controller.actions.effects.setSourceSelection({ clipId, ...normalized.source });
 	};
-	const focus = () => run(() => { preview.focus(clipId); applySelection(selectedRef.current); });
+	const focus = () => { if (!previewBlocked) run(() => { preview.focus(clipId); applySelection(selectedRef.current); }); };
 	const restoreSourceFocus = useRef(() => {});
 	restoreSourceFocus.current = () => run(() => { preview.focus(clipId); applySelection(selectedRef.current); });
 	useEffect(() => {
@@ -228,19 +228,19 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		onKeyDownCapture={event => { if (event.key === 'Escape' && gesture.current) { event.preventDefault(); event.stopPropagation(); cancelGesture(); } }}
 		onKeyDown={event => {
 			if (event.defaultPrevented || event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
-			if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); run(() => preview.playPause(clipId)); }
+			if (event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); if (!previewBlocked) run(() => preview.playPause(clipId)); }
 			if (event.key === 'Escape') { gesture.current = null; setDragFrame(null); setFadePreview(null); run(() => preview.stop()); }
 			if ((event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey) && !event.altKey && !event.shiftKey && event.key === 'a') { event.preventDefault(); event.stopPropagation(); run(() => applySelection({ startFrame: 0, endFrame: range.totalFrames })); }
 		}}>
 		<ClipSourceRuler copy={copy} width={width} sampleRate={project.sampleRate} startFrame={startFrame} endFrame={endFrame}
 			clipStartFrame={range.startFrame} projectStartFrame={clip.timelineStartFrame} tempoMap={project.tempoMap} signatureMap={project.signatureMap}
-			positionFrame={transport.positionFrame} onSeekFrame={frame => run(() => preview.seek(frame))}
+			positionFrame={transport.positionFrame} onSeekFrame={frame => { if (!previewBlocked) run(() => preview.seek(frame)); }}
 			options={ruler} onOptions={setRuler} playing={(transport.state === 'playing')} loop={transport.loop} loopRange={transport.loopRange} selection={selection} disabled={previewBlocked || !available}
 			onPlay={() => run(() => preview.playPause(clipId))} onStop={() => run(() => preview.stop())} onLoop={() => run(() => preview.setLoop(!transport.loop))}
 			onClearLoop={() => run(() => { preview.setLoop(false); preview.setLoopRange(null); })}
 			onLoopSelection={() => run(() => { preview.setLoopRange(selection); preview.setLoop(true); if (ruler.selectionFollows) applySelection(selection ?? { startFrame: 0, endFrame: range.totalFrames }); })}
 			onSelectionLoop={() => run(() => applySelection(transport.loopRange ?? { startFrame: 0, endFrame: range.totalFrames }))}
-			onSeek={event => { if (event.button !== 0) return; event.preventDefault(); focus(); run(() => { preview.seek(frameAt(event.clientX)); if (ruler.clickToPlay && !(transport.state === 'playing')) return preview.playPause(clipId); }); }} />
+			onSeek={event => { if (event.button !== 0 || previewBlocked) return; event.preventDefault(); focus(); run(() => { preview.seek(frameAt(event.clientX)); if (ruler.clickToPlay && !(transport.state === 'playing')) return preview.playPause(clipId); }); }} />
 		<div className="audio-editor-source-body">
 			<div className="audio-editor-source-vertical-ruler" role="region" aria-label={copy.clipSourceVerticalRuler} tabIndex={0}
 				onContextMenu={event => { event.preventDefault(); setMenu({ kind: 'view', x: event.clientX, y: event.clientY, frame: 0 }); }}

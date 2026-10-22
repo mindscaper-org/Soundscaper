@@ -6,7 +6,7 @@ import React, { act } from 'react';
 import ClipSourceRuler, { INITIAL_SOURCE_RULER_OPTIONS } from '../src/common/editor/ui/inspector/ClipSourceRuler.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('source ruler leaves modified seek commands available and retains plain and Shift seeking', async () => {
+for (const disabled of [false, true]) test(`source ruler leaves modified commands available and admits plain seeking only when disabled=${disabled}`, async () => {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
@@ -19,7 +19,7 @@ test('source ruler leaves modified seek commands available and retains plain and
 			sampleRate={48_000} startFrame={0} endFrame={38_400} clipStartFrame={0} projectStartFrame={0}
 			tempoMap={{ mode: 'musical', events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] }}
 			options={INITIAL_SOURCE_RULER_OPTIONS} onOptions={() => {}} playing={false} positionFrame={19_200}
-			onSeekFrame={frame => positions.push(frame)} loop={false} loopRange={null} selection={null} disabled={false}
+			onSeekFrame={frame => positions.push(frame)} loop={false} loopRange={null} selection={null} disabled={disabled}
 			onPlay={() => {}} onStop={() => {}} onLoop={() => {}} onClearLoop={() => {}} onLoopSelection={() => {}}
 			onSelectionLoop={() => {}} onSeek={() => {}} />));
 		const ruler = dom.one('[role="slider"]');
@@ -40,7 +40,7 @@ test('source ruler leaves modified seek commands available and retains plain and
 				preventDefault() { prevented = true; }, stopPropagation() {} }));
 			assert.equal(prevented, true);
 		}
-		assert.deepEqual(positions, [0, 38_400, 14_400, 38_400]);
+		assert.deepEqual(positions, disabled ? [] : [0, 38_400, 14_400, 38_400]);
 	} finally {
 		await act(async () => root.unmount());
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
