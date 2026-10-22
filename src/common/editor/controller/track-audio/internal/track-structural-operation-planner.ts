@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { AudioEditorCommand } from '../../../commands/protocol.ts';
-import { hasSequenceHierarchyProjectAuthority, isSelectedFramescaperProjectSchema } from '../../../project-schema-version.ts';
+import type { AudioEditorCommand, CommandObject } from '../../../commands/protocol.ts';
+import type { TakeCompDocumentGroup } from '../../../take-comp-document-v17.ts';
+import { hasSequenceHierarchyProjectAuthority, isSelectedFramescaperProjectSchema, isTakeCompProjectSchema } from '../../../project-schema-version.ts';
 import {
 	resolveTrackNodeSpanV12,
 	trackNodeLaneGroupsV12,
@@ -39,6 +40,7 @@ export interface TrackAlignmentPlan {
 	readonly transforms: readonly TrackAlignmentTransform[];
 	readonly trackIds: readonly string[];
 	readonly labelCommands?: readonly Extract<AudioEditorCommand, { readonly type: 'label/update' }>[];
+	readonly takeCommands?: readonly Extract<AudioEditorCommand, { readonly type: 'take-comp/group-update' }>[];
 }
 
 type StructuralCommand = Extract<AudioEditorCommand, {
@@ -56,6 +58,7 @@ interface StructuralFolder {
 }
 
 interface StructuralProject extends ControllerProject {
+	readonly takeGroups?: readonly TakeCompDocumentGroup[];
 	readonly sequences?: readonly StructuralSequence[];
 	readonly trackFolders?: readonly StructuralFolder[];
 }
@@ -75,6 +78,7 @@ interface StructuralBlock {
 }
 
 interface TimedStructuralBlock extends StructuralBlock {
+	readonly takeGroups: readonly TakeCompDocumentGroup[];
 	readonly clips: readonly Readonly<{ clip: ControllerClip; trackId: string; start: number; end: number }>[];
 	readonly labels: readonly TrackLabelContent[];
 	readonly start: number;
@@ -94,6 +98,7 @@ export function planTrackAlignment(
 	const starts = alignedBlockStarts(blocks, mode, targetFrame);
 	const transforms: TrackAlignmentTransform[] = [];
 	const labelCommands: Extract<AudioEditorCommand, { readonly type: 'label/update' }>[] = [];
+	const takeCommands: Extract<AudioEditorCommand, { readonly type: 'take-comp/group-update' }>[] = [];
 	for (const [index, block] of blocks.entries()) {
 		const delta = starts[index] - block.start;
 		if (delta === 0) continue;
@@ -106,11 +111,26 @@ export function planTrackAlignment(
 			}));
 		}
 		labelCommands.push(...moveTrackLabelContent(block.labels, delta));
+		// Move later groups first when shifting right so intermediate groups never overlap.
+		const takeGroups = delta > 0 ? [...block.takeGroups].reverse() : block.takeGroups;
+		takeCommands.push(...takeGroups.map(group => ({
+			type: 'take-comp/group-update' as const, groupId: group.id, group: {
+				...group, startSample: safeFrame(group.startSample + delta, 'Aligned take group start'),
+				endSample: safeFrame(group.endSample + delta, 'Aligned take group end'),
+				takes: group.takes.map(take => ({ ...take,
+					startSample: safeFrame(take.startSample + delta, 'Aligned take start'),
+					endSample: safeFrame(take.endSample + delta, 'Aligned take end') })),
+				compRegions: group.compRegions.map(region => ({ ...region,
+					startSample: safeFrame(region.startSample + delta, 'Aligned comp start'),
+					endSample: safeFrame(region.endSample + delta, 'Aligned comp end') })),
+			} as unknown as CommandObject,
+		})));
 	}
 	return Object.freeze({
 		transforms: Object.freeze(transforms),
 		trackIds: Object.freeze(blocks.flatMap(({ trackIds }) => trackIds)),
 		...(labelCommands.length ? { labelCommands: Object.freeze(labelCommands) } : {}),
+		...(takeCommands.length ? { takeCommands: Object.freeze(takeCommands) } : {}),
 	});
 }
 
@@ -163,7 +183,7 @@ function selectedTimedBlocks(
 	return structuralBlocks(project)
 		.filter((block) => block.trackIds.some((trackId) => requested.has(trackId)))
 		.map((block) => timedBlock(project, block))
-		.filter(({ clips, labels }) => clips.length > 0 || labels.length > 0);
+		.filter(({ clips, labels, takeGroups }) => clips.length > 0 || labels.length > 0 || takeGroups.length > 0);
 }
 
 function alignedBlockStarts(
@@ -277,10 +297,13 @@ function timedBlock(project: ControllerProject, block: StructuralBlock): TimedSt
 		const track = trackById.get(trackId);
 		return track ? trackLabelContent(track) : [];
 	});
-	const content = [...clips, ...labels];
+	const takeGroups = isTakeCompProjectSchema(project)
+		? (project as StructuralProject).takeGroups?.filter(group => block.trackIds.includes(group.trackId)) ?? [] : [];
+	const content = [...clips, ...labels, ...takeGroups.map(group => ({ start: group.startSample, end: group.endSample }))];
 	return Object.freeze({
 		...block,
 		clips: Object.freeze(clips),
+		takeGroups,
 		labels: Object.freeze(labels),
 		start: content.length ? Math.min(...content.map(({ start }) => start)) : Number.POSITIVE_INFINITY,
 		end: content.length ? Math.max(...content.map(({ end }) => end)) : Number.POSITIVE_INFINITY,
