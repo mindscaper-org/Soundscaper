@@ -49,6 +49,7 @@ test.describe('project archive and checksum files', () => {
 		const archive = await downloadBytes(archiveDownload);
 		expect([...archive.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
 		await archiveDownload.delete();
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 
 		const checksumDownloadPromise = page.waitForEvent('download');
 		await chooseNestedCommandAction(page, editor, 'File', [
