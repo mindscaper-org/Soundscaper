@@ -24,7 +24,8 @@ export default function AnalysisDialog({ mode, controller, snapshot, copy, fileS
 	const [error, setError] = useState('');
 	const operationRef = useRef(null);
 	const blocked = !snapshot.ready || !project?.clips?.length || snapshot.importing || snapshot.recording
-		|| snapshot.exporting || snapshot.analysisProcessing || snapshot.missingSourceIds?.length > 0;
+		|| snapshot.exporting || snapshot.analysisProcessing
+		|| project.clips.some(clip => snapshot.missingSourceIds?.includes(clip.sourceId));
 	const title = copy[MODES[analysisMode] || MODES.levels];
 	const perform = useCallback((operation, toPayload) => {
 		const operationId = Symbol('offline-analysis');
