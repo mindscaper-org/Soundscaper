@@ -13,7 +13,7 @@ for (const anchor of ['musical', 'sample']) test(`Project Bin shows the resolved
 			sourceId: source.id, sourceDurationFrames: 48_000, anchor, ...(anchor === 'musical'
 				? { musicalStartBeat: 0, musicalExtent: 'beat', musicalDurationBeats: 2 }
 				: { timelineStartFrame: 0, durationFrames: 48_000 }) })] });
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false }); let blob;
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: project.id }); let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write([new Float32Array(48_000).fill(.25)]); await writer.commit();
