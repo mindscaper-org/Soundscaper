@@ -188,6 +188,7 @@ for (const extension of ['opus', 'ogg']) {
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseFileAction(page, editor, 'Import');
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 		const menu = await openNestedCommandMenu(page, editor, 'File', []);
 		await expect(menu.getByRole('menuitem', { name: `Overwrite ${fixture.name}`, exact: true })).toBeEnabled();
 	});
