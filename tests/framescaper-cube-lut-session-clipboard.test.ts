@@ -56,7 +56,7 @@ test('current Session2 retains Frame14 descriptor source and immutable LUT roots
 	session.openProject(project); session.setClipboard({ schemaVersion: 2, originProjectId: carrier.originProjectId,
 		descriptor: carrier.descriptor, sources: carrier.sources });
 	session.closeProject(project.id, { force: true });
-	assert.deepEqual([...session.getHistoryStorageKeys()], [REF.storageKey]);
+	assert.deepEqual([...session.getHistoryStorageKeys()], ['video-source', REF.storageKey]);
 	const restored = createAudioEditorSessionControllerV2({ currentSchemaVersion: 1, snapshot: session.serialize() });
 	restored.openProject(project);
 	assert.deepEqual(restored.clipboardForProject(project.id)!.descriptor, carrier.descriptor);
@@ -91,7 +91,7 @@ test('the selected Frame runtime retains current clipboard resources after closi
 	assert.equal(session.serialize().schemaVersion, 2);
 	session.setClipboard({ schemaVersion: 2, originProjectId: project.id, descriptor, sources: project.sources });
 	session.closeProject(project.id, { force: true });
-	assert.deepEqual([...session.getHistoryStorageKeys()], [REF.storageKey]);
+	assert.deepEqual([...session.getHistoryStorageKeys()], ['video-source', REF.storageKey]);
 	session.dispose();
 });
 

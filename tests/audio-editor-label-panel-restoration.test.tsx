@@ -26,6 +26,6 @@ test('a restored labels panel waits for its project and then uses the real proje
 	const restored = LabelsWorkspace({ ...props, snapshot: { ...props.snapshot, project } });
 	assert.ok(React.isValidElement<{ sampleRate: number; projectId: string; labels: readonly Readonly<{ id: string; startFrame: number; endFrame: number }>[] }>(restored));
 	assert.equal(restored.props.sampleRate, 96_000); assert.equal(restored.props.projectId, 'restored-project');
-	assert.deepEqual(restored.props.labels, [{ ...project.tracks[0]!.labels[0], trackId: 'labels-track', trackName: 'Captions' }]);
+	assert.deepEqual(restored.props.labels, [{ ...project.tracks[0]!.labels[0], frameRate: 24, trackId: 'labels-track', trackName: 'Captions' }]);
 	assert.equal(actions, 0);
 });

@@ -70,7 +70,7 @@ test('the current controller clipboard copies, switches tabs, closes its origin 
 	assert.equal(session.serialize().clipboard!.schemaVersion, 2);
 	active = destination; session.switchProject(destination.id);
 	session.closeProject(origin.id, { force: true });
-	assert.deepEqual([...session.getHistoryStorageKeys()], [REF.storageKey]);
+	assert.deepEqual([...session.getHistoryStorageKeys()], ['video-source', REF.storageKey]);
 	state.selectedClipId = null;
 	const prepared = service.prepareControllerPaste('overlap', 48_000);
 	const paste = pasteOf(prepared);

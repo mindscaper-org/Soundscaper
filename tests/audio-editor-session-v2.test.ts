@@ -24,14 +24,14 @@ test('named session2 owns current clipboard source and disabled LUT roots across
 	const session = createAudioEditorSessionControllerV2({ currentSchemaVersion: 1 });
 	session.openProject(project()); session.setClipboard(clipboard());
 	assert.equal(session.clipboardForProject('origin')!.descriptor.schemaVersion, 7);
-	assert.deepEqual([...session.getHistoryStorageKeys()], ['original', key]);
+	assert.deepEqual([...session.getHistoryStorageKeys()], ['source', 'original', key]);
 	assert.equal(session.getSourceReferenceCounts().source, 2);
 	const closed = session.closeProject('origin', { force: true }); assert.equal(closed.closed, true);
-	assert.equal(session.getSourceReferenceCounts().source, 1); assert.deepEqual([...session.getHistoryStorageKeys()], [key]);
+	assert.equal(session.getSourceReferenceCounts().source, 1); assert.deepEqual([...session.getHistoryStorageKeys()], ['source', 'original', key]);
 	const snapshot = session.serialize(); assert.equal(snapshot.schemaVersion, 2); assert.equal(snapshot.clipboard!.schemaVersion, 2);
 	assert.throws(() => createAudioEditorSessionController({ currentSchemaVersion: 1, snapshot }), /schema version/iu);
 	const restored = createAudioEditorSessionControllerV2({ currentSchemaVersion: 1, snapshot });
-	assert.deepEqual(restored.serialize().clipboard, snapshot.clipboard); assert.deepEqual([...restored.getHistoryStorageKeys()], [key]);
+	assert.deepEqual(restored.serialize().clipboard, snapshot.clipboard); assert.deepEqual([...restored.getHistoryStorageKeys()], ['source', 'original', key]);
 	assert.equal(restored.getSourceReferenceCounts().source, 1);
 	assert.deepEqual(restored.clearClipboard().releasedSourceIds, ['source']); assert.deepEqual([...restored.getHistoryStorageKeys()], []);
 	assert.deepEqual(restored.getSourceReferenceCounts(), {}); restored.dispose(); session.dispose();
