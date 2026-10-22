@@ -78,6 +78,7 @@ export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller,
 }
 
 export function MetadataEditorField({ name, label, value, disabled, onCommit, multiline = false }) {
+	const multilineField = multiline || /[\r\n]/u.test(String(value ?? ''));
 	const [draft, setDraft] = useState(value);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	useEffect(() => setDraft(value), [value]);
@@ -85,20 +86,20 @@ export function MetadataEditorField({ name, label, value, disabled, onCommit, mu
 		if (!draftBlurShouldCommit(blurCommitGuard)) return;
 		if (draft !== value) onCommit(draft);
 	};
-	const Field = multiline ? 'textarea' : 'input';
+	const Field = multilineField ? 'textarea' : 'input';
 	return (
 		<label>
 			<span>{label}</span>
 			<Field
 				name={name}
 				value={draft}
-				rows={multiline ? 3 : undefined}
+				rows={multilineField ? 3 : undefined}
 				disabled={disabled}
 				onChange={(event) => setDraft(event.currentTarget.value)}
 				onBlur={commit}
 				onKeyDown={(event) => {
 					if (event.nativeEvent?.isComposing) return;
-					if (event.key === 'Enter' && !multiline) event.currentTarget.blur();
+					if (event.key === 'Enter' && !multilineField) event.currentTarget.blur();
 					else if (event.key === 'Escape') {
 						cancelDraftEditOnEscape(
 							blurCommitGuard,
