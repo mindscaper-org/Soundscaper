@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
@@ -26,8 +27,9 @@ for (const anchor of ['musical', 'sample'] as const) test(`NP018: Edit Duplicate
 	const before = structuredClone(controller.project?.tracks);
 	const historyCount = controller.getSnapshot().history.undoEntries.length;
 	controller.actions.edit.duplicate();
-	assert.equal(controller.project?.tracks.length, 2);
-	const copied = controller.project?.tracks[1]?.labels?.[0]; assert.ok(copied);
+	const project: unknown = controller.project; assert.ok(validateSoundscaperProject(project));
+	assert.equal(project.tracks.length, 2);
+	const copied = project.tracks[1]?.labels?.[0]; assert.ok(copied);
 	assert.notEqual(copied.id, 'span');
 	assert.equal(copied.anchor, anchor);
 	if (anchor === 'musical') assert.deepEqual([copied.startBeat, copied.endBeat], [{ num: 7, den: 2 }, { num: 9, den: 2 }]);
