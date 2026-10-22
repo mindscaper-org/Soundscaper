@@ -29,10 +29,17 @@ test('NP022: warp marker row drafts cannot rewrite a newly activated native proj
 		store: createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false }),
 		engine: { ...createMemoryEngine(), getAudioWarpRenderStatus: () => ({ path: 'exact-offline', realtimeAcceleration: false, exactOfflineAvailable: true, fallback: true }) } as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
+	const warpView = () => {
+		const value: unknown = controller.actions.audioWarp.view();
+		assert.ok(isRecord(value)); const status = value.renderStatus; assert.ok(isRecord(status));
+		assert.ok(status.path === 'realtime' || status.path === 'exact-offline');
+		return { warpMap: value.warpMap, renderStatus: { path: status.path } };
+	};
+	const dialogController = { ...controller, actions: { ...controller.actions, audioWarp: { ...controller.actions.audioWarp, view: warpView } } };
 	const dom = installReactTestDom(); const root = createRoot(dom.container as unknown as Element);
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT; globals.IS_REACT_ACT_ENVIRONMENT = true;
-	const render = async () => { await act(async () => root.render(<AudioWarpDialog productId="soundscaper" controller={controller}
+	const render = async () => { await act(async () => root.render(<AudioWarpDialog productId="soundscaper" controller={dialogController}
 		snapshot={controller.getSnapshot()} copy={ENGLISH_COPY} run={operation => operation()} onClose={() => undefined} />)); };
 	const marker = () => dom.one('[aria-label="Marker 1 outer position"]');
 	const activate = async (id: string) => {
@@ -45,12 +52,16 @@ test('NP022: warp marker row drafts cannot rewrite a newly activated native proj
 		await activate('incoming');
 		const move = dom.container.querySelectorAll('button').find(button => button.textContent === 'Move marker 1'); assert.ok(move);
 		await act(async () => reactProps(move).onClick());
-		const map = controller.actions.audioWarp.view().warpMap;
+		const map = warpView().warpMap;
 		assert.deepEqual(map, project('reference').clips[0]?.warpMap, 'the outgoing marker draft must not move the incoming marker');
 		assert.equal(marker().value, '1000/1');
 		await act(async () => reactProps(marker()).onChange({ currentTarget: { value: '3000' } }));
 		await act(async () => reactProps(move).onClick());
-		assert.notDeepEqual(controller.actions.audioWarp.view().warpMap, map, 'a fresh row edit still commits');
-		controller.actions.edit.undo(); assert.deepEqual(controller.actions.audioWarp.view().warpMap, map);
+		assert.notDeepEqual(warpView().warpMap, map, 'a fresh row edit still commits');
+		controller.actions.edit.undo(); assert.deepEqual(warpView().warpMap, map);
 	} finally { await act(async () => root.unmount()); globals.IS_REACT_ACT_ENVIRONMENT = priorAct; dom.restore(); }
 });
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
