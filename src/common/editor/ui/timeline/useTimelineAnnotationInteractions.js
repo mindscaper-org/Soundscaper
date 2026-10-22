@@ -14,6 +14,7 @@ import {
 	timelineAnnotationPointerSelectionIds,
 } from './timeline-annotation-ui-model.ts';
 import { useTimelineAnnotationModels } from './useTimelineAnnotationModels.ts';
+import { planTimelineAnnotationMove } from './timeline-annotation-move-preview.ts';
 
 const EMPTY_SELECTION = Object.freeze([]);
 
@@ -154,9 +155,12 @@ export function useTimelineAnnotationInteractions({
 	const moveBy = (annotation, bounds, deltaFrames) => {
 		if (blocked || !deltaFrames) return;
 		run(() => {
-			const result = actions.move(bounds.ids, deltaFrames, annotation.id);
+			const ids = new Set(bounds.ids);
+			const move = planTimelineAnnotationMove(project, projected.filter(value => ids.has(value.id)), annotation.id, deltaFrames);
+			if (!move.deltaFrames) return null;
+			const result = actions.move(bounds.ids, move.deltaFrames, annotation.id);
 			setStatus(message('timelineAnnotationMoved', {
-				name: annotation.name || { key: 'unnamedTimelineAnnotation' }, frames: deltaFrames,
+				name: annotation.name || { key: 'unnamedTimelineAnnotation' }, frames: move.deltaFrames,
 			}));
 			return result;
 		});
@@ -228,7 +232,7 @@ export function useTimelineAnnotationInteractions({
 				return result;
 			});
 		} else if (intent.type === 'resize') resizeTo(annotation, intent.edge, intent.frame);
-		else moveBy(annotation, bounds, intent.deltaFrames);
+		else moveBy(annotation, bounds, (event.key === 'ArrowLeft' ? -1 : 1) * (event.ctrlKey || event.metaKey ? sampleRate : 1));
 	};
 
 	return {

@@ -18,6 +18,7 @@ import { useTimelineAnnotationInteractions } from './useTimelineAnnotationIntera
 import { useTimelineAnnotationDragCancellation } from './useTimelineAnnotationDragCancellation.ts';
 import { createTimelineAnnotationViewportIndex } from './timeline-annotation-viewport-index.ts';
 import { useTimelinePointerFrame } from './useTimelinePointerFrame.ts';
+import { planTimelineAnnotationMove } from './timeline-annotation-move-preview.ts';
 
 export function TimelineAnnotationLayer(props) {
 	return <TimelineAnnotationLayerSession key={props.project?.id} {...props} />;
@@ -139,13 +140,15 @@ function TimelineAnnotationLayerSession({
 		const bounds = edge
 			? timelineAnnotationEditBounds(row.id, [], projected)
 			: timelineAnnotationEditBounds(row.id, selectedIds, projected);
+		const idSet = new Set(bounds.ids);
+		const members = projected.filter(annotation => idSet.has(annotation.id));
 		dragRef.current = {
 			kind: 'annotation',
 			pointerId: event.pointerId, target: event.currentTarget,
 			annotation: row.annotation,
 			gesture: { ...gesture, dragIds: bounds.ids },
-			idSet: new Set(bounds.ids),
-			ranges: new Map(projected.filter(annotation => bounds.ids.includes(annotation.id))
+			idSet,
+			members, ranges: new Map(members
 				.map(annotation => [annotation.id, { start: annotation.timelineStartFrame, end: annotation.timelineEndFrame }])),
 			edge,
 			startX: event.clientX,
@@ -159,13 +162,15 @@ function TimelineAnnotationLayerSession({
 	const applyPointerMove = (event) => {
 		const drag = dragRef.current;
 		if (!drag || drag.pointerId !== event.pointerId) return;
-		const deltaFrames = timelineAnnotationPointerDelta(
+		const requestedDelta = timelineAnnotationPointerDelta(
 			drag.startX, event.clientX, pixelsPerSecond, sampleRate,
-			drag.minimumStartFrame, drag.maximumEndFrame,
+			drag.edge ? drag.minimumStartFrame : Number.MAX_SAFE_INTEGER, drag.edge ? drag.maximumEndFrame : 0,
 		);
+		const move = drag.edge ? null : planTimelineAnnotationMove(project, drag.members, drag.annotation.id, requestedDelta);
+		const deltaFrames = move?.deltaFrames ?? requestedDelta;
 		if (drag.deltaFrames === deltaFrames) { event.preventDefault(); return; }
 		drag.deltaFrames = deltaFrames;
-		setPreview({ idSet: drag.idSet, annotationId: drag.annotation.id, edge: drag.edge, deltaFrames });
+		setPreview({ idSet: drag.idSet, annotationId: drag.annotation.id, edge: drag.edge, deltaFrames, ranges: move?.ranges });
 		event.preventDefault();
 	};
 	const queuePointerMove = useTimelinePointerFrame(applyPointerMove, dragRef, null, pointerFlushRef);
@@ -236,14 +241,14 @@ function TimelineAnnotationLayerSession({
 		>
 			{visibleRows.map(({ row, index }) => {
 				const annotation = row.annotation;
-				const movingDelta = preview?.idSet.has(annotation.id) && !preview.edge ? preview.deltaFrames : 0;
+				const moved = preview?.ranges?.get(annotation.id);
 				const resizing = preview?.annotationId === annotation.id ? preview : null;
 				const startFrame = resizing?.edge === 'start'
 					? Math.min(annotation.timelineEndFrame - 1, Math.max(0, annotation.timelineStartFrame + resizing.deltaFrames))
-					: annotation.timelineStartFrame + movingDelta;
+					: moved?.startFrame ?? annotation.timelineStartFrame;
 				const endFrame = resizing?.edge === 'end'
 					? Math.max(annotation.timelineStartFrame + 1, annotation.timelineEndFrame + resizing.deltaFrames)
-					: annotation.timelineEndFrame + movingDelta;
+					: moved?.endFrame ?? annotation.timelineEndFrame;
 				const left = startFrame / sampleRate * pixelsPerSecond - laneScrollX;
 				const width = annotation.kind === 'region'
 					? timelineAnnotationRegionWidth(endFrame - startFrame, pixelsPerSecond, sampleRate)
