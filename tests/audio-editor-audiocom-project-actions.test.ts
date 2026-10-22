@@ -88,7 +88,9 @@ test('a successful upload retains its new head even if refreshing the list fails
 	} });
 	const file = async () => new File(['SQLite format 3\0current edits'], 'Session.aup3');
 	await archives.setConnected(true); await archives.saveProject('local', file);
-	assert.equal(archives.getSnapshot().status, 'error');
+	assert.equal(archives.getSnapshot().status, 'ready');
+	assert.equal(archives.getSnapshot().completedFileName, 'Session.aup3');
+	assert.equal(archives.getSnapshot().errorMessage, 'List unavailable');
 	const completed = head;
 	failList = false; await archives.saveProject('local', file);
 	assert.deepEqual(targets, [undefined, completed]); archives.dispose();

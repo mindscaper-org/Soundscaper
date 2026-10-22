@@ -95,7 +95,13 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 				const uploaded = await client.upload(file, name, signal, revision); signal.throwIfAborted();
 				savedProjects.set(projectId, uploaded);
 				bindings.set(projectId, uploaded.id);
-				return { ...await client.list(1, signal), completedFileName: file.name };
+				try { return { ...await client.list(1, signal), completedFileName: file.name }; }
+				catch (error) {
+					signal.throwIfAborted();
+					if (error instanceof AudiocomApiError && error.status === 401) throw error;
+					return { completedFileName: file.name, errorMessage: error instanceof Error
+						? error.message : 'The project archive request failed.' };
+				}
 			});
 		},
 		cancel,
