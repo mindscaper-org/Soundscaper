@@ -35,7 +35,7 @@ export class RateConvertedNoiseReductionProcessor {
 	}
 	get params(): Parameters { return { ...this.inner.params, output: this.requestedOutput }; }
 	updateParams(params: Parameters): void {
-		const normalized: Parameters = normalizeAudacityEffectParams(this.type, { ...this.params, ...params });
+		const normalized = normalizeAudacityEffectParams(this.type, { ...this.params, ...params }) as Parameters;
 		this.inner.updateParams(this.profileRate === this.sampleRate ? normalized : { ...normalized, output: 'residue' });
 		this.requestedOutput = normalized.output;
 	}
