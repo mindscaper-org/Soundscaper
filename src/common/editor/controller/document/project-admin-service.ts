@@ -372,6 +372,7 @@ export function createProjectAdminService<
 		const originHistory = state.history;
 		let replacementEstablished = false;
 		let originRestorable = true;
+		let storageClearStarted = false;
 		projectSaveService.suspend();
 		projectGeneration.invalidate();
 		state.history = null;
@@ -394,6 +395,7 @@ export function createProjectAdminService<
 			clearWaveformPcmWindows();
 			await revokeVideoVisuals();
 			interlock?.assertCurrent();
+			storageClearStarted = true;
 			await store.clear();
 			sessionController.clearClipboard();
 			for (const tab of [...sessionController.getSnapshot().tabs]) {
@@ -405,6 +407,14 @@ export function createProjectAdminService<
 			replacementEstablished = true;
 			state.projects = Object.freeze(store.preservesProjectsOnClear?.() ? await store.listProjects() : []);
 			publishDocumentSnapshot();
+		} catch (error) {
+			if (!storageClearStarted && !originRestorable && originProject && !getProject()) {
+				const failures = [error];
+				try { await switchProject(originProject, { skipFlush: true }); }
+				catch (recoveryError) { failures.push(recoveryError); }
+				if (failures.length > 1) throw new AggregateError(failures, 'Local reset and project recovery both failed.', { cause: error });
+			}
+			throw error;
 		} finally {
 			if (!replacementEstablished && originRestorable && originProject && originHistory) {
 				state.history = originHistory;
