@@ -44,6 +44,7 @@ import {
 import { framescaperCubeLutActionsFor } from '../../../../framescaper/editor-cube-lut-actions-finishing.ts';
 import { useCaptionTrackFields } from './useCaptionTrackFields.ts';
 import { withFramescaperSidecarFile } from '../framescaper-sidecar-file.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 interface FramescaperFinishingControllerPort {
 	readonly actions: Readonly<{
@@ -83,9 +84,12 @@ export default function FramescaperFinishingDialog({
 	const [noiseProfileText, setNoiseProfileText] = useState('');
 	const captionFileRef = useRef<HTMLInputElement | null>(null);
 	const captionLifetimeRef = useRef(true);
-	const captionOwnerRef = useRef({ projectId: record(project).id, surface });
 	const finishingProjectId = record(project).id;
-	captionOwnerRef.current = { projectId: finishingProjectId, surface };
+	const operationScope = `${editorProjectEditSessionKey(controller, finishingProjectId)}:${surface}`;
+	const operationOwnerRef = useRef({ scope: operationScope, operation: null as object | null });
+	if (operationOwnerRef.current.scope !== operationScope) {
+		operationOwnerRef.current = { scope: operationScope, operation: null };
+	}
 	const cubeLutFileRef = useRef<HTMLInputElement | null>(null);
 	const cubeLutAbortRef = useRef<AbortController | null>(null);
 	const motionRuntime = framescaperMotionAnalysisActionsFor(controller);
@@ -110,9 +114,10 @@ export default function FramescaperFinishingDialog({
 	}, [model.documentText]);
 
 	useEffect(() => {
+		setPending(false);
 		setStatus('');
 		setError('');
-	}, [model.surface, setError, setStatus]);
+	}, [operationScope, setError, setStatus]);
 	useEffect(() => {
 		setMotionStackId(motionTarget?.stackId ?? '');
 		setMotionStartFrame(motionTarget?.startFrame ?? 0);
@@ -129,15 +134,20 @@ export default function FramescaperFinishingDialog({
 	const exportBlocked = pending || (editingBlocked && !readOnly);
 	const perform = (operation: () => unknown, success: PresentationFeedback | (() => PresentationFeedback), readOperation = false): void => {
 		if (readOperation ? exportBlocked : blocked) return;
+		const owner = operationOwnerRef.current;
+		const invocation = {};
+		owner.operation = invocation;
+		const current = () => captionLifetimeRef.current && operationOwnerRef.current === owner
+			&& owner.operation === invocation;
 		setPending(true);
 		setStatus('');
 		setError('');
 		void runAwaitedAudioEditorOperation(run, operation)
-			.then(() => { setStatus(typeof success === 'function' ? success() : success); })
+			.then(() => { if (current()) setStatus(typeof success === 'function' ? success() : success); })
 			.catch((operationError: unknown) => {
-				setError(feedbackFailure(operationError));
+				if (current()) setError(feedbackFailure(operationError));
 			})
-			.finally(() => { setPending(false); });
+			.finally(() => { if (current()) setPending(false); });
 	};
 	const applyDocument = (): void => perform(() => controller.actions.edit.commit(
 		createFramescaperFinishingCommand(surface, project, documentText),
@@ -163,13 +173,12 @@ export default function FramescaperFinishingDialog({
 			captionFileRef.current?.click();
 			return;
 		}
-		const owner = captionOwnerRef.current;
+		const owner = operationOwnerRef.current;
 		perform(async () => {
 			const opened = await openFramescaperCaptionSidecarFile({
 				...(file ? { file } : {}), fileService,
 			});
-			if (!captionLifetimeRef.current || captionOwnerRef.current.projectId !== owner.projectId
-				|| captionOwnerRef.current.surface !== owner.surface) return;
+			if (!captionLifetimeRef.current || operationOwnerRef.current !== owner) return;
 			if (opened === null) {
 				captionImportSummary = { key: 'captionFileSelectionCancelled' };
 				return;
