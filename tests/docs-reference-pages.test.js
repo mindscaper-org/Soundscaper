@@ -343,7 +343,7 @@ test('assistance reference directs video keying to its dedicated menu workflow',
 		...assistanceInput,
 		operations: ['video-keying'],
 	});
-	assert.match(rendered, /\| Green-screen keying \| `video-keying` \| Effect > Video effects > CorridorKey 2\.0 \|/u);
+	assert.match(rendered, /\| Green-screen keying \| `video-keying` \| Framescaper: Effect > Video effects > CorridorKey 2\.0 \|/u);
 	assert.doesNotMatch(rendered, /advanced:video-keying/u);
 });
 

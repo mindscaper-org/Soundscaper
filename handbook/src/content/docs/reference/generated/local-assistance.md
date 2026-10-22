@@ -41,7 +41,7 @@ Each operation has the menu entry below for use without a surrounding workflow. 
 | Beat tracking | `beat-tracking` | `advanced:beat-tracking` |
 | Dereverberation | `dereverberation` | `advanced:dereverberation` |
 | Editorial generation | `editorial-generation` | `advanced:editorial-generation` |
-| Green-screen keying | `video-keying` | Effect > Video effects > CorridorKey 2.0 |
+| Green-screen keying | `video-keying` | Framescaper: Effect > Video effects > CorridorKey 2.0 |
 | Image and text embedding | `image-text-embedding` | `advanced:image-text-embedding` |
 | Optical character recognition | `optical-character-recognition` | `advanced:optical-character-recognition` |
 | Saliency detection | `saliency-detection` | `advanced:saliency-detection` |

@@ -74,7 +74,7 @@ const DISTRIBUTION_LABELS = Object.freeze({
 
 function operationMenuEntry(operation) {
 	if (operation === 'text-to-speech') return 'Generate > Text to Speech';
-	if (operation === 'video-keying') return 'Effect > Video effects > CorridorKey 2.0';
+	if (operation === 'video-keying') return 'Framescaper: Effect > Video effects > CorridorKey 2.0';
 	return `\`advanced:${operation}\``;
 }
 
