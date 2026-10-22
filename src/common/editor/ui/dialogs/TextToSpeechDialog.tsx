@@ -59,8 +59,7 @@ export default function TextToSpeechDialog({
 	useEffect(() => {
 		if (managingModels) return undefined;
 		if (port === null) {
-			setState((current) => ({ ...current, phase: 'error', error: text(copy,
-				'unavailable', 'Text to Speech is unavailable in this desktop build.') }));
+			setState((current) => ({ ...current, phase: 'error', error: null }));
 			return undefined;
 		}
 		let live = true;
@@ -83,7 +82,7 @@ export default function TextToSpeechDialog({
 			if (live) setState((current) => ({ ...current, phase: 'error', error: failureMessage(failure) }));
 		});
 		return () => { live = false; };
-	}, [copy, managingModels, port]);
+	}, [managingModels, port]);
 
 	useEffect(() => {
 		const body = state.reviewed?.audio;
@@ -146,7 +145,9 @@ export default function TextToSpeechDialog({
 		bridge={modelBridge} copy={copy} locale={locale}
 		modelFilter={(model) => model.task === 'text-to-speech'}
 		onClose={() => setManagingModels(false)} />;
-	return <TextToSpeechDialogView copy={copy} state={state} previewUrl={previewUrl}
+	const presented = port === null ? { ...state, error: text(copy,
+		'unavailable', 'Text to Speech is unavailable in this desktop build.') } : state;
+	return <TextToSpeechDialogView copy={copy} state={presented} previewUrl={previewUrl}
 		onClose={close} onManageModels={() => setManagingModels(true)}
 		onTextChange={(value) => edit({ text: value })}
 		onLanguageChange={(language) => {
