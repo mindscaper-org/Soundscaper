@@ -55,7 +55,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function setPlayAtSpeedRate(value: unknown) {
-		const rate = normalizePlayAtSpeedRate(value);
+		const rate = normalizePlayAtSpeedRate(value, state.preferences?.playback?.playAtSpeedMode === 'staffpad');
 		state.playAtSpeedRate = rate;
 		publishDocumentSnapshot();
 		return rate;

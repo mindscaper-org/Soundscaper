@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { materializeSnapshotValue } from './internal/snapshots/published-snapshot-value.ts';
+import { normalizePlayAtSpeedRate } from '../../engine/buffer-math.ts';
 import { projectFeatureAffectedObjects } from '../../project-feature-affected-objects.ts';
 import type { ProjectFeatureRequirementsReport } from '../../project-feature-requirements.ts';
 import type { MacroScriptRecord } from '../../macro-script-library.ts';
@@ -281,7 +282,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 			? Object.freeze({ ...state.projectBinPreview })
 			: null,
 		playbackOptions: Object.freeze({
-			rate: state.playAtSpeedRate,
+			rate: normalizePlayAtSpeedRate(state.playAtSpeedRate, state.preferences.playback?.playAtSpeedMode === 'staffpad'),
 			mode: state.preferences.playback?.playAtSpeedMode || 'naive',
 			preparing: Boolean(state.playAtSpeedAbort),
 		}),

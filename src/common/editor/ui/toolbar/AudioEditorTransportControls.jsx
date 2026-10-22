@@ -12,6 +12,7 @@ import { TransportButton } from '@soundscaper/design-system/TransportButton';
 import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { framesToSeconds, secondsToFrames } from '../../design-system-adapters.js';
 import { editorTimelineDurationFrames } from '../../project.js';
+import { playAtSpeedRateBounds } from '../../engine/buffer-math.ts';
 import { audioEditorProjectFrameRate } from '../AudioEditorTimeCodeInput.tsx';
 import AudioEditorSplitButton from '../AudioEditorSplitButton.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
@@ -74,6 +75,7 @@ export function PlaySpeedFlyout({ copy, snapshot, blocked, controller, run, clos
 	// Preferences owns the same choice as a dropdown; the transport keeps it one
 	// click from the slider because pitch is what the listener notices first.
 	const preservePitch = snapshot.playbackOptions?.mode === 'staffpad';
+	const { minimum, maximum } = playAtSpeedRateBounds(preservePitch);
 	return (
 		<div className="kw-audio-editor__split-button-options" data-play-at-speed>
 			<ContextMenuItem
@@ -98,8 +100,8 @@ export function PlaySpeedFlyout({ copy, snapshot, blocked, controller, run, clos
 				<span>{copy.playbackSpeed}</span>
 				<input
 					type="range"
-					min="0.01"
-					max="3"
+					min={minimum}
+					max={maximum}
 					step="0.01"
 					value={snapshot.playbackOptions?.rate || 1}
 					aria-label={copy.playbackSpeed}

@@ -50,6 +50,9 @@ export interface VarispeedControlProps {
   /** The speed the engine runs at — what the readout reads */
   speed: number;
   disabled?: boolean;
+  /** Host processor limits can be narrower than ordinary resampling. */
+  minimumSpeed?: number;
+  maximumSpeed?: number;
   label?: string;
   title?: string;
   /** Whether play-at-speed is on — the host derives it: the speed is not 1× */
@@ -61,12 +64,14 @@ export interface VarispeedControlProps {
   onDial: (speed: number) => void;
 }
 
-export function VarispeedControl({ speed, enabled, disabled = false, label = 'Speed', title = 'Playback speed', onChange, onDial }: VarispeedControlProps) {
+export function VarispeedControl({ speed, enabled, disabled = false, minimumSpeed = VARISPEED_MIN, maximumSpeed = VARISPEED_MAX, label = 'Speed', title = 'Playback speed', onChange, onDial }: VarispeedControlProps) {
   const { theme } = useTheme();
   const draggingRef = React.useRef(false);
   // Right-click anywhere on the control: "Enter value…" (ManualValueDialog,
   // %, the range) / "Reset to 100%" (2026-10-15)
   const [manualOpen, setManualOpen] = React.useState(false);
+  const minimum = speedToSlider(minimumSpeed), maximum = speedToSlider(maximumSpeed);
+  const constrain = (value: number) => Math.max(minimumSpeed, Math.min(maximumSpeed, value));
   const valueMenu = useValueContextMenu({ disabled, onEnterValue: () => setManualOpen(true), onReset: () => onChange(1), resetLabel: '100%' });
 
   const style = {
@@ -89,12 +94,12 @@ export function VarispeedControl({ speed, enabled, disabled = false, label = 'Sp
         label={label}
         value={speedToSlider(speed)}
         unit="%"
-        min={1}
-        max={300}
+        min={minimum}
+        max={maximum}
         step={1}
         decimals={0}
-        hint="1% to 300%; 100% is normal"
-        onApply={(v) => onChange(sliderToSpeed(v))}
+        hint={`${minimum}% to ${maximum}%; 100% is normal`}
+        onApply={(v) => onChange(constrain(sliderToSpeed(v)))}
         onClose={() => setManualOpen(false)}
       />
       {/* A CAPTION, NOT A BUTTON, NOT A STATE: the word names the readout;
@@ -118,8 +123,8 @@ export function VarispeedControl({ speed, enabled, disabled = false, label = 'Sp
         <Slider
           disabled={disabled}
           value={speedToSlider(speed)}
-          min={1}
-          max={300}
+          min={minimum}
+          max={maximum}
           ariaLabel={`${title} ${percent}`}
           className="varispeed__slider"
           onChange={(v) => {
@@ -133,8 +138,8 @@ export function VarispeedControl({ speed, enabled, disabled = false, label = 'Sp
         className="varispeed__readout"
         data-varispeed-display
         role="spinbutton"
-        aria-valuemin={1}
-        aria-valuemax={300}
+        aria-valuemin={minimum}
+        aria-valuemax={maximum}
         aria-valuenow={speedToSlider(speed)}
         aria-valuetext={percent}
         aria-label={`${title} ${percent}`}
@@ -146,7 +151,7 @@ export function VarispeedControl({ speed, enabled, disabled = false, label = 'Sp
             e.preventDefault();
             e.stopPropagation();
             const step = e.shiftKey ? stepVarispeedFine : stepVarispeed;
-            onDial(step(speed, e.key === 'ArrowUp' ? 1 : -1));
+            onDial(constrain(step(speed, e.key === 'ArrowUp' ? 1 : -1)));
           } else if (e.key === 'Enter') {
             e.preventDefault();
             e.stopPropagation();
