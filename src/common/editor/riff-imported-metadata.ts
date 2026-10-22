@@ -5,6 +5,7 @@ import { riffMetadataCodePage } from './riff-metadata-text.ts';
 import { readImportedMetadataTags } from './imported-metadata-reader.ts';
 import { ascii, dataView, readBlobBytes } from './wav-import-io.ts';
 import { consumeDs64TableSize, readDs64Directory } from './wav-ds64.js';
+import { createRiffStreamingSizeResolver } from './riff-streaming-size.ts';
 
 const MAXIMUM_CHUNKS = 4096;
 const MAXIMUM_INFO_BYTES = 4 * 1024 * 1024;
@@ -45,10 +46,11 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
 	if (!['RIFF', 'RIFX', 'RF64', 'BW64'].includes(kind) || ascii(header, 8, 4) !== 'WAVE') return null;
 	const littleEndian = kind !== 'RIFX';
 	const declaredSize = dataView(header).getUint32(4, littleEndian);
+	const streamingSize = kind === 'RIFF' ? createRiffStreamingSizeResolver(declaredSize, file.size) : null;
 	const directory = kind === 'RF64' || kind === 'BW64'
 		? await readDs64Directory(file, signal, MAXIMUM_CHUNKS, declaredSize, kind.toLowerCase(), readBlobBytes) as Ds64Directory
 		: null;
-	const end = directory?.riffEnd ?? declaredSize + 8;
+	const end = directory?.riffEnd ?? streamingSize?.riffEnd ?? declaredSize + 8;
 	if (!Number.isSafeInteger(end) || end < 12 || end > file.size) throw new RangeError('The RIFF metadata container size is invalid.');
 	let offset = directory?.nextOffset ?? 12;
 	let codePage: number | null = null;
@@ -67,7 +69,9 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
 			? directory.dataByteLength : consumeDs64TableSize(directory, id) as number;
 		if (id === 'data') dataSeen = true;
 		const start = offset + 8;
-		const next = start + size + (size % 2);
+		const terminalData = streamingSize?.resolveChunk(id, size, start);
+		if (terminalData) size = terminalData.byteLength;
+		const next = terminalData?.paddedEnd ?? start + size + (size % 2);
 		if (!Number.isSafeInteger(next) || next > end) throw new RangeError('The RIFF metadata chunk is incomplete.');
 		if (id === 'CSET' && codePage === null && size >= 8) {
 			codePage = riffMetadataCodePage(await readBlobBytes(file, start, start + 8, signal), littleEndian);
@@ -82,6 +86,7 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
 		}
 		offset = next;
 	}
+	streamingSize?.assertComplete();
 	let invalid = false;
 	const fields = parseRiffInfoFields(payloads, codePage ?? 0, littleEndian, (id, error) => {
 		if (!onWarning) throw error;
