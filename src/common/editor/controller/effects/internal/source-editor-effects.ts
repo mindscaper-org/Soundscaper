@@ -3,6 +3,7 @@
 import type { AudioBufferLike } from '../../source/source-audio.ts';
 import type { EffectSelectionProject, EffectTarget } from '../effect-selection-service.ts';
 import type { SourceEditorAudioWindow, SourceEditorAudioWindowRequest } from './source-editor-audio-window.ts';
+import { SOURCE_CHUNK_FRAMES } from '../../../source-pcm-contract.ts';
 
 const SOURCE_TRACK_PREFIX = 'source-editor:';
 
@@ -96,7 +97,21 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 	}
 	async function renderRange(trackId: string, startFrame: number, endFrame: number): Promise<Float32Array[] | null> {
 		if (!trackId.startsWith(SOURCE_TRACK_PREFIX)) return null;
-		const buffer = await readSource(trackId.slice(SOURCE_TRACK_PREFIX.length));
+		const sourceId = trackId.slice(SOURCE_TRACK_PREFIX.length);
+		const source = findSource(dependencies.getProject(), sourceId);
+		if (!source) throw new RangeError('The selected source is no longer available.');
+		if (dependencies.loadSourceWindow) {
+			const output = Array.from({ length: source.channelCount }, () => new Float32Array(endFrame - startFrame));
+			let available = true;
+			for (let from = Math.max(0, startFrame); from < Math.min(source.frameCount, endFrame); from += SOURCE_CHUNK_FRAMES) {
+				const to = Math.min(source.frameCount, endFrame, from + SOURCE_CHUNK_FRAMES);
+				const window = await dependencies.loadSourceWindow(source, { startFrame: from, endFrame: to });
+				if (!window) { available = false; break; }
+				for (let channel = 0; channel < source.channelCount; channel++) output[channel]!.set(window.channels[channel]!, from - startFrame);
+			}
+			if (available) return output;
+		}
+		const buffer = await readSource(sourceId);
 		return Array.from({ length: buffer.numberOfChannels }, (_, index) => {
 			const output = new Float32Array(endFrame - startFrame);
 			const from = Math.max(0, startFrame);
