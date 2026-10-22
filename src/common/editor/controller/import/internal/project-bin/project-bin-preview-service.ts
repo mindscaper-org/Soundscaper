@@ -93,7 +93,7 @@ export function createProjectBinPreviewService(
 		const videoClip = itemClips.find((candidate) => candidate.kind === 'video') ?? null;
 		const audioClip = itemClips.find((candidate) => candidate.kind !== 'video') ?? (videoClip ? null : clip);
 		const active = dependencies.getPreview();
-		if (active?.clipId === clipId) return toggleActivePreview(active, Boolean(videoClip) && !active.audioSourceId);
+		if (active?.clipId === clipId) return toggleActivePreview(active, Boolean(videoClip) && !active.audioSourceId, project, audioClip?.id ?? clipId);
 
 		await stopProjectBinPreview();
 		const projectToken = dependencies.captureProject();
@@ -179,6 +179,8 @@ export function createProjectBinPreviewService(
 	async function toggleActivePreview(
 		active: ProjectBinPreview,
 		video: boolean,
+		project: ProjectBinProject,
+		audioClipId: string,
 	): Promise<ProjectBinPreview> {
 		if (active.state === 'playing') {
 			dependencies.lifetime.cancelTask(PROJECT_BIN_PREVIEW_TASK);
@@ -196,7 +198,12 @@ export function createProjectBinPreviewService(
 		}
 		const projectToken = dependencies.captureProject();
 		const task = dependencies.lifetime.startTask(PROJECT_BIN_PREVIEW_TASK, { scope: EDITOR_PROJECT_TASK_SCOPE });
+		const starting = active.kind === 'audio' ? Object.freeze({ ...active, state: 'playing' as const }) : active;
+		if (starting !== active) { dependencies.setPreview(starting); dependencies.publish(); }
 		try {
+			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
+				task.signal, { clipIds: [audioClipId] });
+			assertCurrent(task, projectToken);
 			await previewEngine?.play();
 			assertCurrent(task, projectToken);
 			const playing = Object.freeze({ ...active, state: 'playing' as const });
@@ -204,7 +211,7 @@ export function createProjectBinPreviewService(
 			dependencies.publish();
 			return playing;
 		} catch (error) {
-			await retireFailedPreview(task, projectToken, active);
+			await retireFailedPreview(task, projectToken, starting);
 			throw error;
 		} finally {
 			task.finish();
