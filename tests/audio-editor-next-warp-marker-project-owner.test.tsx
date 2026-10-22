@@ -29,7 +29,7 @@ test('NP022: warp marker row drafts cannot rewrite a newly activated native proj
 		store: createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false }),
 		engine: { ...createMemoryEngine(), getAudioWarpRenderStatus: () => ({ path: 'exact-offline', realtimeAcceleration: false, exactOfflineAvailable: true, fallback: true }) } as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
-	const warpView = () => {
+	const warpView = (): Readonly<{ warpMap: unknown; renderStatus: Readonly<{ path: 'realtime' | 'exact-offline' }> }> => {
 		const value: unknown = controller.actions.audioWarp.view();
 		assert.ok(isRecord(value)); const status = value.renderStatus; assert.ok(isRecord(status));
 		assert.ok(status.path === 'realtime' || status.path === 'exact-offline');
