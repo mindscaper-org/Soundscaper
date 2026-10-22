@@ -218,7 +218,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 				assertOwnership(ownership);
 				dependencies.commit(createAddLabelTrackCommand({
 					id: trackId,
-					name: parsed.title || stripExtension(file.name) || publishedCopyFor(dependencies.copy).labels,
+					name: parsed.title.trim() ? parsed.title : stripExtension(file.name).trim() || publishedCopyFor(dependencies.copy).labels,
 					labels,
 				}), { selectTrackId: trackId });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "labelsImported", { count: String(labels.length) }, 'success');
