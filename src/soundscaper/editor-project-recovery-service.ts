@@ -86,7 +86,13 @@ export async function createSoundscaperProjectRecoveryCopy(
 			return [{ id: inspection.projectId }, ...summaries.filter(({ id }) => id !== inspection.projectId).map(({ id }) => ({ id }))];
 		},
 		createProjectIfAbsent: async (copy) => {
-			try { return await store.createProjectIfAbsent(copy); }
+			try {
+				// A stale imported ADM fence may require nonzero independent history.
+				// Desktop's ordinary fresh-project entry point accepts revision zero;
+				// its exact archive publication already supports this saved revision.
+				return await (copy.revision !== 0 && store.createScapeProjectIfAbsent
+					? store.createScapeProjectIfAbsent(copy) : store.createProjectIfAbsent(copy));
+			}
 			catch (error) {
 				if (error instanceof ProjectCommittedMaintenanceError && error.committedProject.id === copy.id) {
 					validateSoundscaperProject(error.committedProject);

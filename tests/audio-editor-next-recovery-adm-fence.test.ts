@@ -33,6 +33,13 @@ for (const editedCopy of [false, true]) test(`NP002: File Recover preserves ${ed
 	if (editedCopy) {
 		await controller.actions.project.duplicate('Edited library copy');
 		await controller.actions.project.rename('Changed after copying');
+		// The desktop fresh-project port only accepts revision zero, while its
+		// exact create-only archive port admits any valid saved revision.
+		const create = store.createProjectIfAbsent.bind(store);
+		store.createProjectIfAbsent = async (copy, options) => {
+			assert.equal(copy.revision, 0, 'desktop fresh-project publication requires revision zero');
+			return create(copy, options);
+		};
 	}
 	await controller.actions.project.save();
 	const origin = controller.project; assert.ok(origin);
