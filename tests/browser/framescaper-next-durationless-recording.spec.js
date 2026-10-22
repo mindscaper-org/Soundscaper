@@ -37,7 +37,7 @@ for (const fresh of [false, true]) test(`Project Bin imports a ${fresh ? 'fresh 
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	const bytes = fresh ? Buffer.from(await recordScreen(page)) : Buffer.from(RECORDED_WEBM, 'base64');
 	const duration = await nativeDuration(page, bytes);
-	test.skip(duration !== 'Infinity', `This regression requires unknown native duration; ${browserName} reports ${duration}s. The pinned WebKit finite import also stalls with the original extractor; finite files have a separate control.`);
+	test.skip(duration !== 'Infinity', `This regression requires unknown native duration; ${browserName} reports ${duration}s. Recorded finite-duration imports have a separate pixel regression.`);
 	await editor.locator('[data-project-bin-input]').setInputFiles({
 		name: 'Screen recording.webm', mimeType: 'video/webm', buffer: bytes,
 	});

@@ -246,6 +246,15 @@ export function createProjectVisualService(
 			if (!mediaBlob && !linkedPlaybackLease) {
 				throw new Error('The original video file is missing.');
 			}
+			if (mediaBlob instanceof Blob && (/^(?:video|audio)\/webm(?:;|$)/iu.test(mediaBlob.type)
+				|| ('name' in mediaBlob && typeof mediaBlob.name === 'string' && /\.webm$/iu.test(mediaBlob.name)))) {
+				mediaBlob = await (await import('../../video-webm-decoder-source.ts'))
+					.prepareVideoWebmDecoderSource(mediaBlob, options);
+				throwIfAborted(options.signal);
+				if (!isActivationCurrent(source.id, operation, project, projectToken)) {
+					return cleanupLate(ownedUrls, linkedPlaybackLease);
+				}
+			}
 			const mediaUrl = linkedPlaybackLease?.mediaUrl
 				?? (mediaBlob ? dependencies.url.createObjectURL(requireVisualBlob(mediaBlob)) : null);
 			if (mediaBlob && mediaUrl) ownedUrls.push(mediaUrl);

@@ -2,6 +2,7 @@ import {
 	assertVideoPreviewEncodedBytes,
 	planVideoPreviewCapture,
 } from './video-preview-capture-admission.ts';
+import { mountVideoFrameCaptureElement, releaseVideoFrameCaptureElement } from './video-frame-capture-element.ts';
 
 export const AUDIO_EDITOR_VIDEO_FILE_ACCEPT = 'video/mp4,video/webm,.mp4,.m4v,.webm';
 export const AUDIO_EDITOR_VIDEO_THUMBNAIL_INTERVAL_SECONDS = 5;
@@ -48,19 +49,25 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 	const video = document.createElement('video');
 	const { selectedRangeDescriptorForBlob } = await import('./desktop-selected-range-blob.ts');
 	const selectedRange = selectedRangeDescriptorForBlob(file);
-	const objectUrl = selectedRange?.url || urlApi.createObjectURL(file);
+	const decoderFile = selectedRange ? file
+		: await (await import('./video-webm-decoder-source.ts')).prepareVideoWebmDecoderSource(file, {
+			...(options.signal ? { signal: options.signal } : {}),
+		});
+	const objectUrl = selectedRange?.url || urlApi.createObjectURL(decoderFile);
 	let disposed = false;
 	let durationSeconds, width, height;
 	const captureLifetime = new AbortController();
-	video.preload = 'metadata';
-	video.muted = true;
-	video.playsInline = true;
-	video.src = objectUrl;
 	try {
+		throwIfCaptureAborted(options.signal);
+		video.preload = 'auto';
+		video.muted = true;
+		video.playsInline = true;
+		mountVideoFrameCaptureElement(video, document);
 		await waitForMediaEvent(video, 'loadedmetadata', {
 			signal: options.signal,
 			timeoutMs: options.timeoutMs ?? DEFAULT_METADATA_TIMEOUT_MS,
 			errorMessage: 'The browser could not read this video.',
+			start: () => { video.src = objectUrl; },
 		});
 		// MediaRecorder WebM can omit Duration even though its packet clock is complete.
 		durationSeconds = video.duration === Infinity
@@ -69,9 +76,9 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		width = positiveInteger(video.videoWidth, 'Video width');
 		height = positiveInteger(video.videoHeight, 'Video height');
 	} catch (error) {
-		video.removeAttribute?.('src');
-		video.load?.();
-		if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
+		releaseVideoFrameCaptureElement(video, () => {
+			if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
+		});
 		throw error;
 	}
 
@@ -140,13 +147,12 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
 			: timestamp;
 		if (Math.abs(Number(video.currentTime) - seekTimestamp) > (hasPresentedFrame ? 0.001 : 0)) {
-			const seeked = waitForMediaEvent(video, 'seeked', {
+			await waitForMediaEvent(video, 'seeked', {
 				signal,
 				timeoutMs,
 				errorMessage: 'The browser could not seek this video.',
+				start: () => { video.currentTime = seekTimestamp; },
 			});
-			video.currentTime = seekTimestamp;
-			await seeked;
 		}
 		throwIfCaptureAborted(signal);
 		const canvas = document.createElement('canvas');
@@ -172,10 +178,9 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		if (disposed) return;
 		disposed = true;
 		captureLifetime.abort();
-		video.pause?.();
-		video.removeAttribute?.('src');
-		video.load?.();
-		if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
+		releaseVideoFrameCaptureElement(video, () => {
+			if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
+		});
 	}
 
 	return Object.freeze({ metadata, capture, dispose });
@@ -263,6 +268,7 @@ function waitForMediaEvent(media, successEvent, options = {}) {
 		signal?.addEventListener?.('abort', onAbort, { once: true });
 		const timeoutMs = Math.max(0, Number(options.timeoutMs) || 0);
 		if (timeoutMs) timeout = globalThis.setTimeout?.(onError, timeoutMs);
+		try { options.start?.(); } catch (error) { cleanup(); reject(error); }
 	});
 }
 
