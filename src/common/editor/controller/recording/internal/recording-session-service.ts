@@ -351,7 +351,9 @@ export function createRecordingSessionService(runtime: RecordingSessionServiceRu
 			const resumed = state.recorder.resume?.();
 			if (resumed !== false) {
 				state.recordingPaused = false;
-				void runtime.playTransport?.();
+				// A completed backing run stays completed while microphone capture
+				// continues. Only a transport paused with this take needs restarting.
+				if (!runtime.getTransportState || runtime.getTransportState() === 'paused') void runtime.playTransport?.();
 				runtime.updateTransportState?.('recording');
 			}
 		} else {
