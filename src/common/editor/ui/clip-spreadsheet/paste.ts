@@ -143,7 +143,7 @@ function sourceReference(value: string, literal = false): SourceReference {
 	} else if (!windows && /^[a-z][a-z\d+.-]*:/iu.test(path)) {
 		throw new RangeError('Spreadsheet source references must name local files.');
 	}
-	path = path.replaceAll('\\', '/');
+	if (windows || !path.startsWith('/')) path = path.replaceAll('\\', '/');
 	const prefix = path.startsWith('//') ? '//' : path.startsWith('/') ? '/' : '';
 	const segments: string[] = [];
 	for (const segment of path.split('/')) {
