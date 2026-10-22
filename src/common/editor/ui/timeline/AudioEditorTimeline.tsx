@@ -15,6 +15,7 @@ export interface TrackHeaderDrawer {
 interface TimelineSearchRevealRequest {
 	readonly clipId?: string;
 	readonly revision?: number;
+	readonly projectIdentity?: string;
 }
 
 interface AudioEditorTimelineProps {

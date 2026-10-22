@@ -6,6 +6,7 @@ import {
 	isWorkspaceModalShortcutTarget,
 } from '../workspace-shortcuts.ts';
 import { runAwaitedAudioEditorOperation } from './audio-editor-workspace-runner.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 export function useWorkspaceSearchRuntime({
 	applicationMenus,
@@ -54,12 +55,18 @@ export function useWorkspaceSearchRuntime({
 		if (entry.kind === 'timeline') {
 			const clipId = entry.target?.clipId;
 			if (!clipId) return;
+			const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
+			if (snapshot.readOnly) {
+				setTimelineSearchReveal({ clipId, revision, projectIdentity });
+				return;
+			}
 			void runAwaitedAudioEditorOperation(
 				run,
 				() => controller.actions.timeline.selectClip(clipId),
 			).then(() => {
-				if (searchRevealRevisionRef.current === revision) {
-					setTimelineSearchReveal({ clipId, revision });
+				if (searchRevealRevisionRef.current === revision
+					&& editorProjectEditSessionKey(controller, project?.id) === projectIdentity) {
+					setTimelineSearchReveal({ clipId, revision, projectIdentity });
 				}
 			}).catch(() => undefined);
 			return;
@@ -70,7 +77,7 @@ export function useWorkspaceSearchRuntime({
 			openWorkspacePanel('project-bin');
 			setProjectBinSearchReveal({ binItemId, revision });
 		}
-	}, [controller, openWorkspacePanel, run, setProjectBinSearchReveal, setTimelineSearchReveal]);
+	}, [controller, openWorkspacePanel, project?.id, run, setProjectBinSearchReveal, setTimelineSearchReveal, snapshot.readOnly]);
 
 	return { activateSearchEntry, searchEntries };
 }

@@ -161,6 +161,7 @@ export default function TimelineController({
 	});
 	const geometry = model;
 	const selection = {
+		searchRevealRequest,
 		documentSelection: model.documentSelection,
 		timeSelection: model.timeSelection,
 		selectedClipIdSet: model.selectedClipIdSet,

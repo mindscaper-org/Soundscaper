@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { selectAudioEditorBusyBlock } from '../../edit-blocking.ts';
 import { inspectTrackFolderSnapshot } from './track-folder-inspection-snapshot.ts';
+import { useSearchFolderReveal } from './useSearchFolderReveal.ts';
 
 import { MemoizedAudioTrackRow } from './MemoizedAudioTrackRow.jsx';
 import { EMPTY_TIMELINE_CLIPS } from './constants.ts';
@@ -31,6 +32,7 @@ export function TrackListView(props) {
 
 function TrackListViewSession({
 	project,
+	searchRevealRequest,
 	controller,
 	projectIndex,
 	visualTrackHeight,
@@ -89,9 +91,10 @@ function TrackListViewSession({
 	const [activeFolderId, setActiveFolderId] = useState(null);
 	const [editingFolderId, setEditingFolderId] = useState(null);
 	const [collapsedOverrides, setCollapsedOverrides] = useState(() => new Map());
+	useSearchFolderReveal(project, controller, searchRevealRequest, snapshot.trackFolders, setCollapsedOverrides);
 	const inspectReadOnly = Boolean(snapshot.readOnly) && !selectAudioEditorBusyBlock(snapshot).blocked;
 	const plan = useMemo(
-		() => planTrackListRows(snapshot.readOnly ? inspectTrackFolderSnapshot(snapshot.trackFolders, collapsedOverrides) : snapshot.trackFolders, project.tracks, project.trackFolders || []),
+		() => planTrackListRows(inspectTrackFolderSnapshot(snapshot.trackFolders, collapsedOverrides), project.tracks, project.trackFolders || []),
 		[snapshot.trackFolders, snapshot.readOnly, collapsedOverrides, project.tracks, project.trackFolders],
 	);
 	const trackIndexById = useMemo(
@@ -104,7 +107,7 @@ function TrackListViewSession({
 		run(() => trackFolderActions.select(folderId));
 	};
 	const toggleFolderCollapsed = (folderId) => {
-		if (inspectReadOnly) {
+		if (inspectReadOnly || !mutationsBlocked && collapsedOverrides.has(folderId)) {
 			const row = plan.folderRows.find(candidate => candidate.id === folderId);
 			if (row) setCollapsedOverrides(current => new Map(current).set(folderId, !row.collapsed));
 		} else if (!mutationsBlocked) run(() => trackFolderActions.toggleCollapsed(folderId));
