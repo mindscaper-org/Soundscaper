@@ -54,7 +54,7 @@ const TASK_LABELS = Object.freeze({
 	'face-detection': 'Face detection',
 	'object-detection': 'Object detection',
 	'saliency-detection': 'Saliency detection',
-	'video-keying': 'Green/blue-screen keying',
+	'video-keying': 'Green-screen keying',
 	'editorial-generation': 'Editorial generation',
 });
 

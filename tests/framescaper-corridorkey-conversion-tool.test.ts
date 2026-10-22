@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { CORRIDORKEY_GRAPH_ARTIFACTS_V1 } from '../desktop/assistance-corridorkey-model.ts';
 
 const TOOL_ROOT = fileURLToPath(new URL('../scripts/models/corridorkey-conversion-tool/', import.meta.url));
 
@@ -72,6 +73,9 @@ test('retained real-weight CPU parity binds all five embedded graphs to the meas
 	assert.equal(report.publicationReady, false, 'CPU parity does not establish GPU support or publication.');
 	assert.equal(report.allFiveGraphsValidated, true);
 	assert.deepEqual(report.graphs.map(({ role }) => role), ['cradio', 'moge', 'rvm', 'stage1', 'stage2']);
+	assert.deepEqual(CORRIDORKEY_GRAPH_ARTIFACTS_V1, report.graphs.map((graph) => ({
+		role: graph.role, ...graph.artifacts[0],
+	})), 'Runtime graph admission must use the exact artifacts that passed real-weight conversion parity.');
 	assert.equal(report.registerSha256, digest(await readFile(new URL(
 		'../config/framescaper-corridorkey-model-source-candidate.json', import.meta.url))));
 	assert.equal(report.toolchainLockSha256, digest(await readFile(`${TOOL_ROOT}/uv.lock`)));
