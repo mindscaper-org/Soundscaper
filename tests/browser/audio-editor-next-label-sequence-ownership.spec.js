@@ -6,7 +6,7 @@ import { createAudioTrack } from '../../src/common/editor/project-media-factory.
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
-for (const existing of [false, true]) test(`Add label stays in the focused sequence; existing label track=${existing}`, async ({ page }) => {
+for (const entry of ['Edit', 'Manage labels']) for (const existing of [false, true]) test(`Add label through ${entry} stays in the focused sequence; existing label track=${existing}`, async ({ page }) => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
 	let blob;
 	try {
@@ -22,7 +22,11 @@ for (const existing of [false, true]) test(`Add label stays in the focused seque
 	await expect(editor).toHaveAttribute('data-project-id', 'label-sequences');
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	await editor.locator('[data-track-row][data-track-id="voice"] .track-control-panel__track-name-text').click();
-	await chooseCommandAction(page, editor, 'Edit', 'Add label');
+	if (entry === 'Edit') await chooseCommandAction(page, editor, 'Edit', 'Add label');
+	else {
+		await chooseCommandAction(page, editor, 'Edit', 'Manage labels');
+		await editor.locator('[data-workspace-panel="labels"]').getByRole('button', { name: 'New label', exact: true }).click();
+	}
 	await expect(editor.locator('[data-label-track][data-track-id="foreign-labels"] [data-label-id]')).toHaveCount(0);
 	await expect(editor.locator('[data-label-track]').filter({ hasText: existing ? 'Own labels' : 'Labels' }).locator('[data-label-id]')).toHaveCount(1);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
