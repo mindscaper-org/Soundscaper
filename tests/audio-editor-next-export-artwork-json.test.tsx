@@ -23,7 +23,9 @@ for (const [key, inherited] of [['id3Artwork', false], ['id3Artwork', true], ['I
 		await controller.ready; await controller.actions.project.openById(fixture.project.id);
 		const snapshot = controller.getSnapshot();
 		assert.ok(snapshot.project);
-		const inputProject = inherited ? { ...snapshot.project, metadata: { ...snapshot.project.metadata,
+		const projectMetadata = snapshot.project.metadata;
+		assert.ok(projectMetadata && typeof projectMetadata === 'object');
+		const inputProject = inherited ? { ...snapshot.project, metadata: { ...projectMetadata,
 			tags: { id3Artwork: artwork('Inherited cover') } } } : snapshot.project;
 		let request: Readonly<Record<string, unknown>> | null = null;
 		const dialogController = { ...controller, project: inputProject, actions: { ...controller.actions,
