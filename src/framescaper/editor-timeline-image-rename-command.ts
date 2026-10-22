@@ -3,7 +3,7 @@
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import { normalizeFramescaperImageSourceV1 } from '../common/editor/timeline-image-model.ts';
 import type { FramescaperProjectTimelineImage } from './editor-project-timeline-image.ts';
-import type { FramescaperProjectCommandTimelineImage } from './editor-project-timeline-image-commands.ts';
+import type { FramescaperProjectCommandBatchTimelineImage, FramescaperProjectCommandTimelineImage } from './editor-project-timeline-image-commands.ts';
 
 /** Image labels share their source name, as the existing Project Bin rename does. */
 export function prepareTimelineImageRenameCommand(project: FramescaperProjectTimelineImage,
@@ -15,7 +15,10 @@ export function prepareTimelineImageRenameCommand(project: FramescaperProjectTim
 	return visit(command);
 
 	function visit(value: FramescaperProjectCommandTimelineImage): FramescaperProjectCommandTimelineImage {
-		if (value.type === 'batch') return { ...value, commands: value.commands.map(visit) };
+		if (isBatch(value)) {
+			const commands = value.commands;
+			return { ...value, commands: commands.map(visit) };
+		}
 		if (value.type !== 'clip/update') return value;
 		const update = value as Extract<AudioEditorCommand, { type: 'clip/update' }>;
 		const clip = clips.get(update.clipId);
@@ -26,4 +29,8 @@ export function prepareTimelineImageRenameCommand(project: FramescaperProjectTim
 		sources.set(source.id, source);
 		return { type: 'image-source/set', sourceId: source.id, expectedSource, source };
 	}
+}
+
+function isBatch(value: FramescaperProjectCommandTimelineImage): value is FramescaperProjectCommandBatchTimelineImage {
+	return value.type === 'batch' && Array.isArray(value.commands);
 }
