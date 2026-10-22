@@ -28,8 +28,8 @@ test('a supported project that loses its write lock can copy audio into a new pr
 	context.after(async () => { lose(); await controller.dispose(); });
 	await controller.ready;
 	const samples = new Float32Array(4_800).fill(0.25);
-	const wav = encodeWav([samples], { sampleRate: 48_000, sampleFormat: 'float32' });
-	await controller.actions.project.importFiles([new File([wav], 'Copy source.wav')], { destination: 'timeline' });
+	const wav = encodeWav([samples], { sampleRate: 48_000, bitDepth: 32, float: true, dither: false });
+	await controller.actions.project.importFiles([new File([new Uint8Array(wav)], 'Copy source.wav')], { destination: 'timeline' });
 	const importedClip = controller.project?.clips[0]; assert.ok(importedClip);
 	const importedSample = await storedChannelSample(store, importedClip.sourceId, 0, 10);
 	assert.ok(Math.abs(importedSample - 0.25) < 1e-6);
