@@ -124,7 +124,7 @@ function drawShape(
 	const right = width - marginX;
 	const bottom = height - marginY;
 	const fill = document.fillColor === null ? null : color(document.fillColor);
-	const stroke = document.strokeColor === null ? null : color(document.strokeColor);
+	const stroke = document.strokeColor === null || document.strokeWidth === 0 ? null : color(document.strokeColor);
 	const strokeWidth = Math.max(1, Math.round(document.strokeWidth * width / 1_920));
 	for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
 		let inside = false;
