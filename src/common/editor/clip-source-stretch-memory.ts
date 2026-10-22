@@ -3,6 +3,7 @@
 import { evaluateAudioWarpMapAtSource, normalizeAudioWarpMap, type AudioWarpMap } from './audio-warp-domain.ts';
 import { clipSourceDisplayRange, clipSourcePreviewWarpMap, type ClipSourceTimingClip, type ClipSourceTimingProject, type ClipSourceTimingSource } from './clip-source-timing.ts';
 import { addRationals, subtractRationals, type Rational } from './timeline-time.ts';
+import { remapAudioWarpSourceWindow } from './audio-warp-source-window.ts';
 
 export const CLIP_SOURCE_STRETCH_EXTENSION = 'org.soundscaper.clipSourceStretch';
 interface StretchClip extends ClipSourceTimingClip { readonly sourceId?: unknown; readonly opaqueExtensions?: unknown }
@@ -34,6 +35,23 @@ export function clipSourceStretchMemory(project: ClipSourceTimingProject, clip: 
 
 export function clipSourceStretchExtensions(clip: StretchClip, source: ClipSourceTimingSource, map: Readonly<AudioWarpMap>) {
 	return { ...extensionsOf(clip), [CLIP_SOURCE_STRETCH_EXTENSION]: { sourceId: clip.sourceId ?? null, sourceFrameCount: source.frameCount, map } };
+}
+
+/** A resampled source retains hidden anchors on its replacement sample grid. */
+export function resampledClipSourceStretchFields(
+	clip: StretchClip,
+	previous: Readonly<{ id: string; frameCount: number }>,
+	replacement: Readonly<{ id: string; frameCount: number }>,
+): Readonly<{ opaqueExtensions?: Readonly<Record<string, unknown>> }> {
+	const extensions = extensionsOf(clip);
+	const memory = extensions[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;
+	if (!memory || memory.sourceId !== previous.id || memory.sourceFrameCount !== previous.frameCount) return {};
+	const map = remapAudioWarpSourceWindow(memory.map,
+		{ sourceStartFrame: 0, sourceDurationFrames: previous.frameCount },
+		{ sourceStartFrame: 0, sourceDurationFrames: replacement.frameCount });
+	return { opaqueExtensions: { ...extensions, [CLIP_SOURCE_STRETCH_EXTENSION]: {
+		sourceId: replacement.id, sourceFrameCount: replacement.frameCount, map,
+	} } };
 }
 
 function extensionsOf(clip: StretchClip): Readonly<Record<string, unknown>> {

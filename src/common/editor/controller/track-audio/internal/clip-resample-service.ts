@@ -6,6 +6,7 @@ import { createAddClipCommand, createAddSourceCommand } from '../../../commands/
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import { scaleSampleFrame } from '../../../timeline-time.ts';
 import { remapAudioWarpSourceWindow } from '../../../audio-warp-source-window.ts';
+import { resampledClipSourceStretchFields } from '../../../clip-source-stretch-memory.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
 import type { DerivedSourceService } from './derived-audio/derived-source-service.ts';
 import {
@@ -114,6 +115,7 @@ export function resampledClipCommands(
 		{ type: 'clip/remove', clipId: clip.id },
 		createAddClipCommand(trackId, {
 			...clip,
+			...resampledClipSourceStretchFields(clip, originalSource, replacement),
 			...(avLinkId ? { avLinkId: null } : {}),
 			sourceId: replacement.id,
 			sourceStartFrame,
