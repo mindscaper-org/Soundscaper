@@ -84,10 +84,13 @@ test('a valid production BWF keeps its PCM when the native decoder resolves zero
 test('a zero-frame native decode cannot publish an empty WAV for a non-PCM source', async () => {
 	const input = new File([Uint8Array.from(aacLcM4a44_100Fixture()).buffer], 'field-recording.m4a', { type: 'audio/mp4' });
 	let closes = 0;
+	let encodes = 0;
 	await assert.rejects(prepareFreesoundUploadFile(input, undefined, {
 		createDecodeContext: () => ({ decodeAudioData: async () => decodedBuffer(0, 44_100), close: async () => { closes += 1; } }),
-	}), /could not be decoded into PCM frames/u);
+		encode: () => { encodes += 1; throw new Error('Empty decoded audio must not reach the WAV writer.'); },
+	}), /cannot incrementally decode the compressed audio track/u);
 	assert.equal(closes, 1);
+	assert.equal(encodes, 0);
 });
 
 test('PCM recovery respects the converted byte ceiling before encoding', async () => {
