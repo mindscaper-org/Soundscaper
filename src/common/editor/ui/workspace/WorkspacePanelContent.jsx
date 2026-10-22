@@ -230,10 +230,11 @@ export default function WorkspacePanelContent({
 			frameRate: audioEditorTrackFrameRate(project, track.id),
 			trackId: track.id,
 			trackName: track.name,
+			locked: track.locked === true,
 		})));
 		const targetTrack = labelTracks.find((track) => track.id === snapshot.selectedTrackId);
 		return <LabelManagerList key={editorProjectEditSessionKey(controller, project.id)} projectId={project.id} labels={labels} sampleRate={project.sampleRate}
-			controller={controller} copy={copy} disabled={snapshot.readOnly} run={run}
+			controller={controller} copy={copy} disabled={snapshot.readOnly || blocked} addDisabled={targetTrack?.locked === true} run={run}
 			onAdd={() => run(() => controller.actions.labels.add(targetTrack?.id || null, {
 				title: publishedCopyFor(copy).newLabel || publishedCopyFor(copy).untitledLabel,
 				...newLabelRange(snapshot.selection, controller.getTelemetrySnapshot().positionFrame),

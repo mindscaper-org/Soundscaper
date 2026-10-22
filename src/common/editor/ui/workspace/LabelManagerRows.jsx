@@ -14,15 +14,18 @@ export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller,
 	onRemoving = /** @type {null | ((control: HTMLElement) => void)} */ (null) }) {
 	const [title, setTitle] = useState(label.title || '');
 	const TitleField = label.title?.includes('\n') ? 'textarea' : 'input';
+	const mutationDisabled = disabled || label.locked === true;
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	useEffect(() => {
 		setTitle(label.title || '');
 	}, [label.title]);
 	const commitTitle = () => {
+		if (mutationDisabled) return;
 		if (!draftBlurShouldCommit(blurCommitGuard)) return;
 		if (title !== label.title) run(() => controller.actions.labels.update(label.trackId, label.id, { title }));
 	};
 	const updateRange = (edge, value) => {
+		if (mutationDisabled) return;
 		const startFrame = edge === 'start' ? value : label.startFrame;
 		const endFrame = edge === 'end' ? value : label.endFrame;
 		if (startFrame === label.startFrame && endFrame === label.endFrame) return;
@@ -35,7 +38,7 @@ export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller,
 					aria-label={`${copy.labelTitle || copy.trackName}: ${label.trackName}`}
 					rows={TitleField === 'textarea' ? Math.min(4, label.title.split('\n').length) : undefined}
 					value={title}
-					disabled={disabled}
+					disabled={mutationDisabled}
 					onChange={(event) => setTitle(event.currentTarget.value)}
 					onBlur={commitTitle}
 					onKeyDown={(event) => {
@@ -53,7 +56,7 @@ export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller,
 					type="button"
 					className="kw-audio-editor__workspace-panel-close"
 					aria-label={`${copy.deleteLabel || copy.liftDelete}: ${title || copy.untitledLabel}`}
-					disabled={disabled}
+					disabled={mutationDisabled}
 					onClick={(event) => { onRemoving?.(event.currentTarget); run(() => controller.actions.labels.remove(label.trackId, label.id)); }}
 				>×</button>
 			</div>
@@ -63,16 +66,16 @@ export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller,
 					label={copy.selectionStart || copy.clipStart} value={label.startFrame}
 					unit="samples" rate={sampleRate} frameRate={frameRate} format="hh:mm:ss+milliseconds"
 					directEntryUnit="seconds" directEntryPrecision={3}
-					maximum={label.endFrame} disabled={disabled}
+					maximum={label.endFrame} disabled={mutationDisabled}
 					onCommit={(value) => updateRange('start', value)} /></label>
 				<label><span>{copy.selectionEnd || copy.clipDuration}</span><AudioEditorTimeCodeInput
 					label={copy.selectionEnd || copy.clipDuration} value={label.endFrame}
 					unit="samples" rate={sampleRate} frameRate={frameRate} format="hh:mm:ss+milliseconds"
 					directEntryUnit="seconds" directEntryPrecision={3}
-					minimum={label.startFrame} disabled={disabled}
+					minimum={label.startFrame} disabled={mutationDisabled}
 					onCommit={(value) => updateRange('end', value)} /></label>
 			</div>
-			<Button variant="secondary" onClick={() => run(() => controller.actions.timeline.setExactSelection(label.startFrame, label.endFrame))}>{copy.select || copy.selection}</Button>
+			<Button variant="secondary" disabled={disabled} onClick={() => run(() => controller.actions.timeline.setExactSelection(label.startFrame, label.endFrame))}>{copy.select || copy.selection}</Button>
 		</li>
 	);
 }

@@ -9,6 +9,7 @@ interface Label {
 	readonly id: string;
 	readonly trackId: string;
 	readonly trackName: string;
+	readonly locked?: boolean;
 	readonly title?: string;
 	readonly startFrame: number;
 	readonly endFrame: number;
@@ -19,6 +20,7 @@ interface Props {
 	readonly sampleRate: number;
 	readonly copy: Readonly<Record<string, string>>;
 	readonly disabled: boolean;
+	readonly addDisabled?: boolean;
 	readonly controller: Readonly<{ actions: Readonly<{
 		labels: Readonly<{ update(trackId: string, id: string, changes: unknown): unknown; remove(trackId: string, id: string): unknown }>;
 		timeline: Readonly<{ setExactSelection(startFrame: number, endFrame: number): unknown }>;
@@ -34,7 +36,7 @@ interface Removal {
 	readonly projectId: unknown;
 }
 
-export default function LabelManagerList({ projectId, labels, sampleRate, copy, disabled, controller, run, onAdd }: Props) {
+export default function LabelManagerList({ projectId, labels, sampleRate, copy, disabled, addDisabled = false, controller, run, onAdd }: Props) {
 	const list = useRef<HTMLUListElement>(null);
 	const add = useRef<HTMLButtonElement>(null);
 	const removal = useRef<Removal | null>(null);
@@ -51,7 +53,7 @@ export default function LabelManagerList({ projectId, labels, sampleRate, copy, 
 	}, [disabled, labels, projectId]);
 	return <>
 		<div className="kw-audio-editor__panel-actions-inline">
-			<Button ref={add} variant="secondary" disabled={disabled} onClick={onAdd}>{copy.newLabel || copy.addLabelTrack}</Button>
+			<Button ref={add} variant="secondary" disabled={disabled || addDisabled} onClick={onAdd}>{copy.newLabel || copy.addLabelTrack}</Button>
 		</div>
 		{labels.length ? <ul ref={list} className="kw-audio-editor__panel-list kw-audio-editor__label-manager" data-labels-panel-list>
 			{labels.map((label, index) => <LabelManagerRow key={JSON.stringify([label.trackId, label.id])} label={label} sampleRate={sampleRate} frameRate={label.frameRate}
