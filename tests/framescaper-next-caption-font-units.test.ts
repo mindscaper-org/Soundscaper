@@ -6,6 +6,7 @@ import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { applyFramescaperProjectCommand } from '../src/framescaper/editor-project-commands.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { openFramescaperCaptionSidecarFile } from '../src/common/editor/ui/framescaper-caption-file-interchange.ts';
+import { normalizeVideoCaptionTrackV1 } from '../src/common/editor/video-caption-track-v27.ts';
 import { exportFramescaperCaptionSidecar, importFramescaperCaptionSidecar } from '../src/common/editor/ui/framescaper-finishing-dialog-model.ts';
 
 for (const [font, expected] of [['75%', 5], ['97.5%', 6.5], ['7.5%', .5], ['300%', 20], [null, 100 / 15]] as const) {
@@ -16,8 +17,10 @@ for (const [font, expected] of [['75%', 5], ['97.5%', 6.5], ['7.5%', .5], ['300%
 		const imported = importFramescaperCaptionSidecar({ project: initial, format: opened.format, text: opened.text,
 			trackId: 'captions', sequenceId: initial.primarySequenceId, trackName: 'Captions', language: 'en' });
 		const project = applyFramescaperProjectCommand(PROFILE, initial, imported.command);
-		assert.equal(project.videoCaptionTracks[0]?.styles[0]?.fontSizePercent, expected);
-		assert.equal(project.videoCaptionTracks[0]?.cues[0]?.text, 'Readable caption');
+		assert.ok(Array.isArray(project.videoCaptionTracks));
+		const published = normalizeVideoCaptionTrackV1(project.videoCaptionTracks[0]);
+		assert.equal(published.styles[0]?.fontSizePercent, expected);
+		assert.equal(published.cues[0]?.text, 'Readable caption');
 		const exported = exportFramescaperCaptionSidecar({ project, trackId: 'captions', format: 'imsc1.1' });
 		assert.match(exported.text, new RegExp(`tts:fontSize="${font ?? '100%'}"`, 'u'));
 	});
