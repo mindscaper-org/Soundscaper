@@ -9,9 +9,10 @@ import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import VideoDeliveryFields from '../VideoDeliveryFields.jsx';
 import {
-	dialogSettingsFromDeliveryTarget, previewPresetSettingsFromDialog, previewPresetSettingsFromPreset,
+	previewPresetSettingsFromDialog, previewPresetSettingsFromPreset,
 	statedVideoCanvas, statedVideoDeliveryTarget,
 } from '../export-preset-model.ts';
+import { changeVideoDeliveryDialogSetting } from './video-delivery-setting-change.ts';
 import {
 	createExportDialogInitialSettings, exportDialogProjectIdentity,
 } from '../export-dialog-initial-settings.ts';
@@ -223,12 +224,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		controller.actions.export.previewDeliveryCanvas(Object.keys(merged).length > 0 ? merged : null);
 		return () => controller.actions.export.previewDeliveryCanvas(null);
 	}, [controller, settings, videoFormat]);
-	const setVideoDeliverySetting = (name, value) => {
-		if (name === 'canvasFrameRate') return setSettings((current) => ({ ...current, canvasFrameRate: value, canvasFrameRateExact: null }));
-		if (name !== 'deliveryTarget') return set(name, value);
-		const patch = dialogSettingsFromDeliveryTarget(value);
-		return setSettings((current) => ({ ...current, ...patch, deliveryTarget: value }));
-	};
+	const setVideoDeliverySetting = (name, value) => setSettings((current) => changeVideoDeliveryDialogSetting(current, name, value));
 	const setFormat = (format) => setSettings((current) => {
 		const passthrough = format === 'bw64' && current.adm?.mode === 'passthrough';
 		return normalizeExportDialogAudioSettings({
