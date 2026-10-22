@@ -288,6 +288,7 @@ export function createProjectSwitchService<
 			runtime.state.history = runtime.session.getProjectHistory(projectId);
 			const activeProject = runtime.state.history.present;
 			fallbackAdmission.assertCurrent(activeProject);
+			resetProjectScopedState();
 			runtime.setProject(activeProject);
 			runtime.projectGeneration.activate(activeProject.id);
 			await guard(openRecovery.inspectOpenedProject(projectId));
@@ -295,7 +296,6 @@ export function createProjectSwitchService<
 			const tabMetadata = runtime.sessionTab(projectId)?.metadata || {};
 			runtime.restoreProjectSelection(activeProject, tabMetadata);
 			runtime.state.clipboard = runtime.session.clipboardForProject(projectId)?.descriptor ?? null;
-			resetProjectScopedState();
 			const outputUrl = runtime.state.outputUrl;
 			runtime.state.outputUrl = null;
 			if (outputUrl) runtime.revokeOutputUrl(outputUrl);
