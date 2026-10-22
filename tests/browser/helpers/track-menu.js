@@ -14,7 +14,11 @@ export const TRACK_MENU_TRIGGER = /^(?:Track menu|Track options|Spuroptionen|Spu
  * reach a submenu such as Move track or Track visualization.
  */
 export async function chooseTrackMenuAction(page, editor, trackRow, path) {
-	await (await openTrackMenuPath(page, editor, trackRow, path)).click();
+	const item = await openTrackMenuPath(page, editor, trackRow, path);
+	await expect(item).toBeEnabled();
+	await item.focus();
+	await item.press('Enter');
+	await expect(page.locator('.audio-editor-track-menu')).toBeHidden();
 }
 
 async function openTrackMenuPath(page, editor, trackRow, path) {
