@@ -22,7 +22,7 @@ for (const kind of ['combined-budget', 'Unicode-tag'] as const) {
 			importFile: async (_file, options) => { contributions.push(normalizeSourceProvenance(options.sourceProvenance)); },
 			fetch: async input => {
 				const url = new URL(String(input));
-				if (url.pathname.endsWith('/original')) return new Response(bytes, { headers: { 'Content-Type': 'audio/wav' } });
+				if (url.pathname.endsWith('/original')) return new Response(Uint8Array.from(bytes).buffer, { headers: { 'Content-Type': 'audio/wav' } });
 				const id = Number(url.pathname.split('/').at(-1));
 				return Response.json({ data: {
 					id, name: `Recording ${String(id)}.wav`, pageUrl: `https://freesound.org/s/${String(id)}/`,
