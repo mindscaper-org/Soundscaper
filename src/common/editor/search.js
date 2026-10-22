@@ -70,7 +70,7 @@ export function normalizeAudioEditorSearchText(value) {
 		.replace(/ß/g, 'ss')
 		.replace(/æ/g, 'ae')
 		.replace(/œ/g, 'oe')
-		.replace(/[^\p{L}\p{N}]+/gu, ' ')
+		.replace(/[^\p{L}\p{N}\p{Emoji}]+/gu, ' ')
 		.trim();
 }
 
