@@ -211,9 +211,22 @@ retains OS menu roles. All 43 focused checks, scoped strict types, changed-file
 lint and size checks pass; the final App test also passes after a quote-only
 lint correction. All 87 recorded process births across the retained attempts are
 absent. The generated security narrative and runtime evidence pins are refreshed.
-The fresh locale-source build, two-case Chromium workflow and complete gates
-remain pending; mocked browser IPC does not qualify actual Electron persistence
-or native-menu behavior.
+The first locale-source build on `c86c83fd2` fails the unchanged Motion startup
+guard: its bootstrap and editor-shell chunks statically import each other.
+Soundscaper and Framescaper finish, but this is no complete product cohort.
+The failed command closes with code 1, unchanged source, clean owned cleanup
+and all 19 recorded process births absent. Previous output preservation remains
+verified; partial new outputs retain their failed-attempt attribution. No OOM
+or leak cause is claimed.
+
+`42a8c8f07` assigns only the shared desktop-locale contract to its existing static
+shell owner, preventing the shell from importing that validator out of the
+bootstrap. The regression first fails on the old owner; all 29 focused checks,
+scoped strict types, changed-file lint and size checks pass after the fix.
+All 16 recorded process births are absent. Startup budgets, cycle guards and
+lazy dialog placement remain unchanged. The fresh corrected-source build,
+two-case Chromium workflow and complete gates remain pending; mocked browser
+IPC does not qualify actual Electron persistence or native-menu behavior.
 
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
