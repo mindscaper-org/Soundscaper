@@ -29,8 +29,9 @@ for (const trackNumber of [null, 7]) test(`File Open retains a WavPack recording
 				Float32Array.from({ length: decoded.frameCount }, (_, frame) => data.getFloat32((frame * decoded.channelCount + channel) * 4, true))) };
 		}, dispose() {},
 	};
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const controller = createAudioEditorController(null, { headless: true, copy: ENGLISH_COPY, locale: 'en',
-		store, engine: createMemoryEngine(), ffmpeg: codec });
+		store, engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: codec as unknown as Options['ffmpeg'] });
 	try {
 		await controller.ready;
 		await controller.actions.project.importFiles([new File([withWavPackTotalFrames(encoded, pcm.length), tag], 'Legacy.wv', { type: 'audio/wavpack' })], { destination: 'timeline' });
