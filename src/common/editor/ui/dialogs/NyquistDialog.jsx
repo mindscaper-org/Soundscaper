@@ -11,10 +11,11 @@ import NyquistGetEffectsDialog from './NyquistGetEffectsDialog.jsx';
 import { loadNyquistPromptDraft, storeNyquistPromptDraft } from './nyquist-prompt-draft.ts';
 import NyquistNumberInput from './NyquistNumberInput.tsx';
 import { nyquistDialogAppliedResult } from './nyquist-dialog-result.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 export default function NyquistDialog({ controller, snapshot, copy, target, run, onClose }) {
 	if (target?.pluginId === '__get-effects__') return <NyquistGetEffectsDialog copy={copy} onClose={onClose} />;
-	return <NyquistRunnerDialog controller={controller} snapshot={snapshot} copy={copy} target={target} run={run} onClose={onClose} />;
+	return <NyquistRunnerDialog key={editorProjectEditSessionKey(controller, snapshot.project?.id)} controller={controller} snapshot={snapshot} copy={copy} target={target} run={run} onClose={onClose} />;
 }
 
 function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose }) {
@@ -79,6 +80,7 @@ function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose 
 	};
 	const submit = async (preview = false) => {
 		if (busy) return;
+		const projectSession = editorProjectEditSessionKey(controller, snapshot.project?.id);
 		const submission = new AbortController();
 		submissionRef.current?.abort();
 		submissionRef.current = submission;
@@ -93,7 +95,9 @@ function NyquistRunnerDialog({ controller, snapshot, copy, target, run, onClose 
 							? nyquistArchiveStore.source(plugin.id)
 							: await loadNyquistPluginSource(plugin, { signal: submission.signal });
 					if (evaluationSource === null) throw new Error('Installed Nyquist plug-in is no longer available.');
-					if (submission.signal.aborted) return null;
+					if (submission.signal.aborted || projectSession !== editorProjectEditSessionKey(
+						controller, 'project' in controller ? controller.project?.id : snapshot.project?.id,
+					)) return null;
 					const request = {
 						source: evaluationSource,
 						language: prompt ? language : 'lisp',
