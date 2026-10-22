@@ -3,6 +3,7 @@
 	--label-chrome: var(--label-track-color);
 	position: relative;
 	pointer-events: none;
+	touch-action: none;
 }
 
 .audio-editor-label-marker .audio-editor-upstream-label.label-marker--active {
