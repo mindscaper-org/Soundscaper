@@ -132,13 +132,16 @@ export default function FramescaperFinishingDialog({
 
 	const blocked = pending || editingBlocked || readOnly;
 	const exportBlocked = pending || (editingBlocked && !readOnly);
-	const perform = (operation: () => unknown, success: PresentationFeedback | (() => PresentationFeedback), readOperation = false): void => {
-		if (readOperation ? exportBlocked : blocked) return;
+	const claimOperation = (): (() => boolean) => {
 		const owner = operationOwnerRef.current;
 		const invocation = {};
 		owner.operation = invocation;
-		const current = () => captionLifetimeRef.current && operationOwnerRef.current === owner
+		return () => captionLifetimeRef.current && operationOwnerRef.current === owner
 			&& owner.operation === invocation;
+	};
+	const perform = (operation: () => unknown, success: PresentationFeedback | (() => PresentationFeedback), readOperation = false): void => {
+		if (readOperation ? exportBlocked : blocked) return;
+		const current = claimOperation();
 		setPending(true);
 		setStatus('');
 		setError('');
@@ -256,6 +259,7 @@ export default function FramescaperFinishingDialog({
 		}
 		const abort = new AbortController();
 		motionAbortRef.current = abort;
+		const current = claimOperation();
 		setPending(true);
 		setMotionProgress(null);
 		setStatus('');
@@ -265,9 +269,10 @@ export default function FramescaperFinishingDialog({
 			startFrame,
 			endFrame,
 			signal: abort.signal,
-			onProgress: setMotionProgress,
+			onProgress: progress => { if (current()) setMotionProgress(progress); },
 		}));
 		void operation.then((reference) => {
+			if (!current()) return;
 			setDocumentText(JSON.stringify({
 				videoProcessorStacks: processorStacks(project),
 				videoMotionAnalyses: [
@@ -277,6 +282,7 @@ export default function FramescaperFinishingDialog({
 			}, null, '\t'));
 			setStatus({ key: 'motionAnalysisPublished' });
 		}, (operationError: unknown) => {
+			if (!current()) return;
 			if ((operationError as Error)?.name === 'AbortError') {
 				setStatus({ key: 'motionAnalysisCancelled' });
 			} else {
@@ -284,6 +290,7 @@ export default function FramescaperFinishingDialog({
 			}
 		}).finally(() => {
 			if (motionAbortRef.current === abort) motionAbortRef.current = null;
+			if (!current()) return;
 			setPending(false);
 			setMotionProgress(null);
 		});
