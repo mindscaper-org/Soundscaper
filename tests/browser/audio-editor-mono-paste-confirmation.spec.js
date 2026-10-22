@@ -10,6 +10,15 @@ import {
 	importFiles,
 } from './audio-editor-test-helpers.js';
 
+import { attachMenuKeyboardDiagnostics, installMenuKeyboardDiagnostics } from './helpers/menu-keyboard-diagnostics.ts';
+
+test.beforeEach(async ({ page, browserName }) => {
+	if (browserName === 'chromium') await installMenuKeyboardDiagnostics(page, { menu: 'Edit', branch: 'Paste' });
+});
+test.afterEach(async ({ page, browserName }, testInfo) => {
+	if (browserName === 'chromium') await attachMenuKeyboardDiagnostics(page, testInfo);
+});
+
 test('confirms a stereo paste into a mono track and can remember the decision', async ({ page }) => {
 	test.setTimeout(60_000);
 	const clientErrors = collectClientErrors(page);
