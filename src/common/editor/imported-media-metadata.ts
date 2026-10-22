@@ -16,6 +16,8 @@ const MAXIMUM_TOTAL_METADATA_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAXIMUM_METADATA_KEY_LENGTH = 256;
 const MAXIMUM_AIFF_CHUNKS = 4_096;
 const MAXIMUM_AIFF_METADATA_CHUNK_BYTES = 4 * 1024 * 1024;
+// One ID3 tag can contain the admitted 8 MiB artwork plus text and frame headers.
+const MAXIMUM_AIFF_ID3_CHUNK_BYTES = 17 * 1024 * 1024;
 const MAC_EPOCH_TO_UNIX_SECONDS = 2_082_844_800;
 type JsonScalar = string | number | boolean | null;
 export type ImportedMediaMetadataValue = JsonScalar
@@ -322,9 +324,10 @@ async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Promise<Ai
 		const dataStart = offset + 8;
 		const dataEnd = Math.min(file.size, dataStart + size);
 		if (['NAME', 'AUTH', '(c) ', 'ANNO', 'COMT', 'ID3 '].includes(id)) {
-			if (size > MAXIMUM_AIFF_METADATA_CHUNK_BYTES) {
+			const maximumBytes = id === 'ID3 ' ? MAXIMUM_AIFF_ID3_CHUNK_BYTES : MAXIMUM_AIFF_METADATA_CHUNK_BYTES;
+			if (size > maximumBytes) {
 				warnings.push(
-					`AIFF ${id.trim()} metadata chunk exceeded ${String(MAXIMUM_AIFF_METADATA_CHUNK_BYTES)} bytes and was omitted.`,
+					`AIFF ${id.trim()} metadata chunk exceeded ${String(maximumBytes)} bytes and was omitted.`,
 				);
 			} else {
 				const bytes = new Uint8Array(await file.slice(dataStart, dataEnd).arrayBuffer());

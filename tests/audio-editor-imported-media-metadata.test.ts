@@ -225,10 +225,10 @@ test('AIFF embedded ID3 fields remain searchable metadata instead of only a bina
 	assert.equal(inspected.attachments.some(({ path }) => path === 'raw.ID3.COMM'), true);
 });
 
-test('an oversized AIFF metadata chunk does not erase earlier safe metadata', async () => {
+for (const [id, limit] of [['ID3 ', 17], ['ANNO', 4]] as const) test(`an oversized AIFF ${id.trim()} chunk does not erase earlier safe metadata`, async () => {
 	const file = aiffFile([
 		chunk('NAME', new TextEncoder().encode('Harbour ambience')),
-		declaredChunk('ID3 ', 4 * 1024 * 1024 + 1),
+		declaredChunk(id, limit * 1024 * 1024 + 1),
 	]);
 
 	const inspected = await inspectImportedMediaMetadata(file);
@@ -236,7 +236,7 @@ test('an oversized AIFF metadata chunk does not erase earlier safe metadata', as
 	assert.deepEqual(inspected.metadata.normalized, { title: 'Harbour ambience' });
 	assert.deepEqual(inspected.attachments, []);
 	assert.deepEqual(inspected.warnings, [
-		'AIFF ID3 metadata chunk exceeded 4194304 bytes and was omitted.',
+		`AIFF ${id.trim()} metadata chunk exceeded ${String(limit * 1024 * 1024)} bytes and was omitted.`,
 	]);
 });
 
