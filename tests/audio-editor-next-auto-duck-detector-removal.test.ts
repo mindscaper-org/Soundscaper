@@ -6,6 +6,7 @@ import { createAudacityActionRuntime } from '../src/common/editor/audacity-actio
 import { normalizeMixerGraphV21 } from '../src/common/editor/mixer-graph-v21.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { rewireSoundscaperRoutingEdge } from '../src/common/editor/ui/workspace/soundscaper-routing-graph-candidates.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
@@ -45,16 +46,23 @@ for (const { removed, disabledSpare } of [
 			mixer: { ...rewired.graph, edges: [...rewired.graph.edges, ...(disabledSpare ? [{ ...route, id: 'inactive-spare', enabled: false }] : [])] } as unknown as Readonly<Record<string, unknown>> });
 		controller.actions.timeline.setSelection(0, 0, { trackIds: removed });
 		createAudacityActionRuntime(controller).actions.track.removeSelected();
+		const currentEffect = () => {
+			const current = controller.project;
+			assert.ok(validateSoundscaperProject(current));
+			const programme = current.tracks.find(track => track.id === 'programme');
+			assert.ok(programme?.type === 'audio');
+			const result = programme.effects.find(candidate => candidate.id === effectId);
+			assert.ok(result); return result;
+		};
 		const next = controller.project!;
-		const effect = next.tracks.find(track => track.id === 'programme')?.effects?.find(candidate => candidate.id === effectId);
-		assert.ok(effect);
+		const effect = currentEffect();
 		const routes = normalizeMixerGraphV21(next.mixer).edges.filter(edge => edge.destination.kind === 'effect-sidechain' && edge.destination.effectId === effectId);
 		assert.equal(effect.enabled, !removed.includes('actual-control'), 'only deleting the actual detector may disable the processor');
 		assert.deepEqual(routes.filter(edge => edge.enabled).map(edge => edge.source), removed.includes('actual-control') ? [] : [{ kind: 'track', id: 'actual-control' }]);
 		controller.actions.edit.undo();
 		assert.equal(controller.project!.tracks.length, 3);
-		assert.equal(controller.project!.tracks.find(track => track.id === 'programme')?.effects?.[0]?.enabled, true);
+		assert.equal(currentEffect().enabled, true);
 		controller.actions.edit.redo();
-		assert.equal(controller.project!.tracks.find(track => track.id === 'programme')?.effects?.[0]?.enabled, !removed.includes('actual-control'));
+		assert.equal(currentEffect().enabled, !removed.includes('actual-control'));
 	});
 }
