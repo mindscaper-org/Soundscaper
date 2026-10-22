@@ -16,6 +16,7 @@ import {
 	type AudioEditorEditBlockingSnapshot,
 } from '../edit-blocking.ts';
 import type { SoundscaperMasteringSequenceCopy } from '../soundscaper-mastering-sequence-copy.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useProjectOwnedDialogOperation } from '../useProjectOwnedDialogOperation.ts';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
 import SoundscaperMasteringSequenceEditor from './SoundscaperMasteringSequenceEditor.tsx';
@@ -43,7 +44,13 @@ export interface SoundscaperMasteringSequenceDialogProps {
 }
 
 /** Focused authoring surface for the document's mastering sequence commands. */
-export default function SoundscaperMasteringSequenceDialog({
+export default function SoundscaperMasteringSequenceDialog(props: SoundscaperMasteringSequenceDialogProps) {
+	const project = props.snapshot.project;
+	const id = project && typeof project === 'object' && 'id' in project ? project.id : null;
+	return <MasteringSequenceDialogSession key={editorProjectEditSessionKey(props.controller, id)} {...props} />;
+}
+
+function MasteringSequenceDialogSession({
 	isOpen = true,
 	controller,
 	snapshot,
