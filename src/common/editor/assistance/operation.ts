@@ -17,6 +17,7 @@ export const ASSISTANCE_OPERATIONS = Object.freeze([
 	'shot-detection',
 	'subject-detection',
 	'saliency-detection',
+	'video-keying',
 	'editorial-generation',
 	'text-to-speech',
 ] as const);

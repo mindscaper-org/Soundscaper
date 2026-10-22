@@ -26,6 +26,7 @@ const ONNX_TASKS = new Set<AssistanceRuntimeFamilyTask>([
 	'audio-tagging', 'beat-tracking', 'text-embedding', 'image-text-embedding',
 	'optical-character-recognition', 'shot-detection', 'subject-detection',
 	'saliency-detection',
+	'video-keying',
 	'text-to-speech',
 ]);
 const MAXIMUM_SETTINGS_DEPTH = 16;

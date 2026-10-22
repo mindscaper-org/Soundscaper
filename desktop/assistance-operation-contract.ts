@@ -289,6 +289,13 @@ function assertOperationRoles(
 	outputs: readonly AssistanceOutputReservation[],
 ): void {
 	const operationSpec = resolveLocalAssistanceOperationMediaContract(operation, 'operation-request');
+	if (operation === 'video-keying' && inputs.reduce((sum, input) => sum + input.byteLength, 0) > 8 * 1024 ** 3) {
+		throw new RangeError('Video keying input claims exceed their aggregate 8 GiB frame-pack bound.');
+	}
+	if (operation === 'video-keying' && (inputs.length !== outputs.length
+		|| outputs.some((output, index) => output.maximumByteLength !== inputs[index]?.byteLength))) {
+		throw new TypeError('Video keying requires paired input/output counts and matching exact pack byte reservations.');
+	}
 	for (const input of inputs) {
 		if (!operationSpec.inputs.some((role) => role === input.role)) {
 			throw new TypeError(`The ${operation} operation does not admit the ${input.role} input role.`);

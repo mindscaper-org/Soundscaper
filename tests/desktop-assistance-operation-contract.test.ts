@@ -110,6 +110,7 @@ test('the operation contract closes the complete planned local-assistance vocabu
 		'shot-detection',
 		'subject-detection',
 		'saliency-detection',
+		'video-keying',
 		'editorial-generation',
 		'text-to-speech',
 	]);

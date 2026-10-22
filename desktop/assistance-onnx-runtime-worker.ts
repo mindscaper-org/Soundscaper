@@ -63,6 +63,7 @@ import {
 import {
 	createAssistanceOnnxSubjectWorkerAdapterV1,
 } from './assistance-onnx-subject-worker.ts';
+import { createAssistanceOnnxCorridorKeyWorkerAdapterV1 } from './assistance-onnx-corridorkey-worker.ts';
 
 export interface AssistanceOnnxTensorV1 {
 	readonly type: string;
@@ -158,6 +159,7 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 		const executeOcr = createAssistanceOnnxOcrWorkerAdapterV1(loadRuntime);
 		const executeSubjects = createAssistanceOnnxSubjectWorkerAdapterV1(loadRuntime);
 		const executeSaliency = createAssistanceOnnxSaliencyWorkerAdapterV1(loadRuntime);
+		const executeKeying = createAssistanceOnnxCorridorKeyWorkerAdapterV1(loadRuntime);
 		if (context.grant.task === 'word-alignment') return executeWordAlignment(context);
 		if (context.grant.task === 'speech-enhancement'
 			|| context.grant.task === 'source-separation') {
@@ -174,6 +176,7 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1(
 		if (context.grant.task === 'optical-character-recognition') return executeOcr(context);
 		if (context.grant.task === 'subject-detection') return executeSubjects(context);
 		if (context.grant.task === 'saliency-detection') return executeSaliency(context);
+		if (context.grant.task === 'video-keying') return executeKeying(context);
 		throw new AssistanceRuntimeFamilyAdapterUnavailableError();
 	};
 	return (context) => options.sessionCache === undefined ? execute(context)
