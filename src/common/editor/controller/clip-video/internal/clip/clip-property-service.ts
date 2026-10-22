@@ -91,6 +91,7 @@ export interface ClipPropertyServiceDependencies {
 	readonly copy: ClipPropertyCopy;
 	readonly sourceBuffers: Pick<Map<string, AudioBufferLike>, 'get'>;
 	loadSourceBuffer?(sourceId: string, signal: AbortSignal): Promise<AudioBufferLike | null>;
+	sourceContentIdentity?(sourceId: string, signal: AbortSignal): Promise<string | undefined>;
 	renderNormalizationAudio?(project: ClipTransformProject, clip: ClipTransformClip, buffer: AudioBufferLike | null, signal: AbortSignal): Promise<AudioBufferLike>;
 	getProject(): ClipTransformProject;
 	getSelectedClipId(): string | null;
@@ -150,6 +151,8 @@ export function createClipPropertyService(
 		const projectToken = dependencies.captureProject();
 		const fingerprint = fingerprintClip(project, clip);
 		try {
+			const sourceIdentity = dependencies.sourceContentIdentity ? await dependencies.sourceContentIdentity(clip.sourceId, task.signal) : undefined;
+			assertOwned(task, projectToken, fingerprint);
 			const buffer = dependencies.sourceBuffers.get(clip.sourceId)
 				?? (dependencies.renderNormalizationAudio ? null : await dependencies.loadSourceBuffer?.(clip.sourceId, task.signal));
 			assertOwned(task, projectToken, fingerprint);
@@ -164,6 +167,11 @@ export function createClipPropertyService(
 			));
 			const result = await dependencies.analyzeChannels(channels, analysisBuffer.sampleRate, task.signal, action === 'normalize-peak');
 			assertOwned(task, projectToken, fingerprint);
+			if (dependencies.sourceContentIdentity) {
+				const currentIdentity = await dependencies.sourceContentIdentity(clip.sourceId, task.signal);
+				assertOwned(task, projectToken, fingerprint);
+				if (currentIdentity !== sourceIdentity) throw new DOMException('The source audio changed before normalization completed.', 'AbortError');
+			}
 			let gain = clip.gain;
 			if (action === 'normalize-peak' && result.peakAmplitude > 0) {
 				gain = 10 ** (-1 / 20) / result.peakAmplitude;

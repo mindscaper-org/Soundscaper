@@ -18,6 +18,7 @@ import { createClipSourcePreviewService } from './internal/clip-source-preview-s
 import type { ClipSourcePreviewProject } from './internal/clip-source-preview-project.ts';
 import { createClipPropertyService } from './internal/clip/clip-property-service.ts';
 import { loadStoredSourceChannels } from '../../clip-time-pitch-cache-channels.js';
+import { linkedSourceContentDigest } from '../../linked-source-cache-content.ts';
 import { createClipTimePitchRenderService } from './clip-time-pitch-render-service.ts';
 import { renderLinkedClipAudio } from './internal/linked-clip-render.ts';
 import { renderClipNormalizationAudio } from './internal/clip-normalization-render.ts';
@@ -211,6 +212,10 @@ export function createClipVideoComposition(dependencies: ClipVideoCompositionDep
 		lifetime,
 		copy,
 		sourceBuffers: dependencies.sourceBuffers,
+		sourceContentIdentity: async (sourceId, signal) => {
+			const source = dependencies.getCommandProject().sources.find(item => item.id === sourceId);
+			return source ? await linkedSourceContentDigest(dependencies.store, source, signal) : undefined;
+		},
 		loadSourceBuffer: async (sourceId, signal) => {
 			const source = dependencies.getCommandProject().sources.find((item) => item.id === sourceId);
 			if (!source) return null;
