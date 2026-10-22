@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { AutomationLaneV21 } from '../../automation-lane-v21.ts';
 import type { ParameterDescriptor } from '../../parameter-address.ts';
@@ -125,13 +126,20 @@ export function TrackAutomationCurveMenu({
 		action();
 		if (event.detail === 0 && returnFocus.isConnected) returnFocus.focus({ preventScroll: true });
 	};
-	return <foreignObject
+	const bounds = returnFocus.ownerSVGElement?.getBoundingClientRect();
+	const document = returnFocus.ownerDocument;
+	const view = document.defaultView;
+	const viewportWidth = view?.innerWidth || width;
+	const viewportHeight = view?.innerHeight || height;
+	const host = returnFocus.closest('#kw-audio-editor-design-system') ?? document.body;
+	return createPortal(<div
 		className="audio-editor-track-automation-menu"
 		data-track-automation-interactive
-		x={Math.max(2, Math.min(width - 154, menu.x))}
-		y={Math.max(bodyTop, Math.min(height - 154, menu.y))}
-		width={152}
-		height={152}
+		style={{ position: 'fixed', zIndex: 'var(--flyout-z)', width: 152,
+			left: Math.max(2, Math.min(viewportWidth - 154, (bounds?.left ?? 0) + menu.x)),
+			top: Math.max(2, Math.min(viewportHeight - 154, (bounds?.top ?? bodyTop) + menu.y)) }}
+		onClick={(event) => event.stopPropagation()}
+		onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
 	>
 		<div
 			ref={surfaceRef}
@@ -160,5 +168,5 @@ export function TrackAutomationCurveMenu({
 			</button>}
 			<button type="button" role="menuitem" onClick={(event) => activate(event, onClose)}>{copy.close || 'Close'}</button>
 		</div>
-	</foreignObject>;
+	</div>, host);
 }

@@ -50,7 +50,7 @@ test.describe('Soundscaper inline track automation', () => {
 		await page.keyboard.press('i');
 		await expect(overlay.locator('[data-automation-point-id]')).not.toHaveCount(0);
 		await openFirstSegmentMenu(curveHit);
-		const curveMenu = overlay.getByRole('menu', { name: 'Automation curve', exact: true });
+		const curveMenu = editor.getByRole('menu', { name: 'Automation curve', exact: true });
 		await curveMenu.getByRole('menuitemradio', { name: 'Bézier', exact: true }).click();
 		await expect(overlay.locator('[data-automation-bezier-control]')).toHaveCount(2);
 		await openFirstSegmentMenu(curveHit);
@@ -120,7 +120,7 @@ test.describe('Soundscaper inline track automation', () => {
 		await curve.focus();
 		await page.keyboard.press('i');
 		await curve.press('Shift+F10');
-		const menu = row.getByRole('menu', { name: 'Automation curve', exact: true });
+		const menu = editor.getByRole('menu', { name: 'Automation curve', exact: true });
 		await expect(menu).toBeVisible();
 		await expect(menu.getByRole('menuitemradio').first()).toBeFocused();
 		await page.keyboard.press('ArrowDown');
