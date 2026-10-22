@@ -175,7 +175,8 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 		].join(':');
 		try {
 			assertAnalysisChannelAdmission(project);
-			const cached = readStoredAnalysis(await dependencies.loadAnalysis(key));
+			// Cache availability is optional; measurement and report export remain usable without it.
+			const cached = readStoredAnalysis(await dependencies.loadAnalysis(key).catch(() => null));
 			assertCurrent(task, projectToken, request);
 			if (cached?.result) {
 				complete(task, () => {
@@ -194,7 +195,7 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 				visuals,
 				report,
 				createdAt: new Date().toISOString(),
-			});
+			}).catch(() => undefined);
 			assertCurrent(task, projectToken, request);
 			complete(task, () => {
 				remember({ type: 'levels', scope });
