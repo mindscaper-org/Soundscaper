@@ -260,6 +260,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 			{routingGraphOpen && routingGraphAvailable && SoundscaperRoutingGraphView ? <div id="soundscaper-mixer-routing-graph" className="kw-audio-editor__mixer-routing-graph-host">
 				<Suspense fallback={<p className="kw-audio-editor__panel-empty" role="status">{copy.loading || 'Loading routing graph…'}</p>}>
 					<SoundscaperRoutingGraphView
+						controller={controller}
 						project={project}
 						graph={project.mixer}
 						disabled={snapshot.readOnly}

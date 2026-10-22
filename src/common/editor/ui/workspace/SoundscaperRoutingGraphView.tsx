@@ -15,6 +15,7 @@ import React, {
 import EditorToast from '../EditorToast.tsx';
 import RoutingGraphWires from './RoutingGraphWires.tsx';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { indexRoutingNodes, indexRoutingEdges, indexRoutingPorts, indexRoutingConnections, indexRoutingEndpointLabels, routingNavigationTarget } from './routing-graph-presentation.ts';
 import { useRoutingHoverFrame } from './useRoutingHoverFrame.ts';
 import { routingGraphOwnsKeyboardEvent } from './routing-keyboard-event-ownership.ts';
@@ -57,6 +58,7 @@ export interface SoundscaperRoutingGraphCommit {
 }
 
 export interface SoundscaperRoutingGraphViewProps {
+	readonly controller?: unknown;
 	readonly project: unknown;
 	readonly graph: MixerGraphV21;
 	readonly disabled: boolean;
@@ -76,7 +78,12 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
 
-export default function SoundscaperRoutingGraphView({
+export default function SoundscaperRoutingGraphView(props: SoundscaperRoutingGraphViewProps) {
+	const id = props.project && typeof props.project === 'object' && 'id' in props.project ? props.project.id : null;
+	return <RoutingGraphProjectSession key={editorProjectEditSessionKey(props.controller, id)} {...props} />;
+}
+
+function RoutingGraphProjectSession({
 	project,
 	graph,
 	disabled,
