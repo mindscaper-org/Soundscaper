@@ -33,17 +33,17 @@ for (const panel of [false, true]) test(`${panel ? 'panel' : 'dialog'} clip name
 	await controller.ready; await controller.actions.project.openById(fixture.project.id);
 	controller.actions.timeline.selectClip('voice-clip');
 	const render = async () => await act(async () => {
-		const props = { controller, snapshot: controller.getSnapshot(), copy: ENGLISH_COPY };
+		const props = { controller, snapshot: controller.getSnapshot() as unknown as Parameters<typeof ClipPropertiesPanel>[0]['snapshot'], copy: ENGLISH_COPY };
 		root.render(panel ? <ClipPropertiesPanel {...props} run={work => work()} /> : <ClipPropertiesDialog {...props} isOpen onClose={() => undefined} />);
 	});
 	const input = () => { const value = dom.one(panel ? '[data-clip-properties-field="name"]' : '[data-clip-field="name"]').querySelector('input'); assert.ok(value); return value; };
 	await render();
 	await act(async () => { reactProps(input()).onChange({ currentTarget: { value: 'Old draft' }, target: { value: 'Old draft' } }); });
 	const saved = await fixture.store.loadProject(fixture.project.id); assert.ok(saved);
-	const archive = await exportScapeProject(saved, fixture.store); assert.ok(archive.blob instanceof Blob);
+	const archive = await exportScapeProject(saved, fixture.store); const blob = archive.blob; assert.ok(blob instanceof Blob);
 	const generation = controller.captureProjectGeneration().generation;
 	await act(async () => {
-		await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), () => 'replace');
+		await controller.actions.project.openScapeFile(new File([blob], 'Replacement.sscape'), () => 'replace');
 		controller.actions.timeline.selectClip('voice-clip');
 	});
 	assert.notEqual(controller.captureProjectGeneration().generation, generation);
