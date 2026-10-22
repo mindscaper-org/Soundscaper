@@ -151,9 +151,31 @@ shell owner, preventing the shell from importing that validator out of the
 bootstrap. The regression first fails on the old owner; all 29 focused checks,
 scoped strict types, changed-file lint and size checks pass after the fix.
 All 16 recorded process births are absent. Startup budgets, cycle guards and
-lazy dialog placement remain unchanged. The fresh corrected-source build,
-two-case Chromium workflow and complete gates remain pending; mocked browser
-IPC does not qualify actual Electron persistence or native-menu behavior.
+lazy dialog placement remain unchanged.
+
+The corrected three-product hidden-source-map build passes on `240929222` with
+the original startup guards. Exact maintained site/map verification and all 25
+recorded process-birth closures pass. The preceding partial `c86c83fd2` outputs
+remain preserved and verified across all 2,446 records. Another worktree owns
+the standard browser ports, so this cohort uses isolated ports 4332–4334 without
+changing its processes.
+
+The first focused Chromium attempt passes German startup but fails the second
+test's immediate option collection while the lazy dialog still shows its
+working fallback. Source/site posts and all 18 recorded process-birth closures
+pass; the failed test remains failed. `d37f97446` adds the missing visible-dialog
+precondition before reading options, preserving every behavior assertion and
+case timeout. Both scenarios then pass against the unchanged `240929222`
+production build and that exact test patch, with zero retries, skips or failures.
+They cover deferred/rejected persistence, German labels, RTL document direction, dirty
+edits, Undo/Redo, native binding and no reload. All 18 recorded browser process
+births are absent; scoped strict types, changed-file lint, size and whitespace
+checks also pass, with all eight recorded check process births absent.
+
+Only the browser test and checkpoint documentation change after that production
+build. Fresh complete static, Node and browser gates remain pending on the final
+committed source. Mocked browser IPC does not qualify actual Electron persistence
+or native-menu behavior.
 
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
