@@ -175,6 +175,8 @@ export function handleProjectZoomShortcut(
 ): boolean {
 	const zoomActionId = projectZoomShortcut(event);
 	if (!zoomActionId) return false;
+	const configuredAction = matchAudioEditorShortcut(event, snapshot.preferences?.shortcuts || {});
+	if (configuredAction && resolveAudacityActionId(configuredAction) !== resolveAudacityActionId(zoomActionId)) return false;
 	const bindings = snapshot.preferences?.shortcuts?.[zoomActionId] || [];
 	const normalizedEvent = normalizedProjectZoomEvent(event, zoomActionId);
 	if (!bindings.some((binding) => matchesAudioEditorShortcutBinding(normalizedEvent, binding))) return false;
