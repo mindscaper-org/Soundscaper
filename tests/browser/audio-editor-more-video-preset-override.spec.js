@@ -4,6 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, disableNativeSavePicker, importFiles, openExportDialog,
 	readDownloadBytes, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
+import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 
 registerAudioEditorHooks();
 
@@ -27,9 +28,19 @@ test('an imported automatic video preset permits a different explicit delivery s
 	const size = dialog.locator('[data-export-field="canvasSize"] input');
 	await size.nth(0).fill('128');
 	await size.nth(1).fill('72');
+	await expect(size.nth(0)).toHaveValue('128');
+	await expect(size.nth(1)).toHaveValue('72');
+	const webGl2Available = await page.evaluate(hasWebGl2Capability);
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 	const link = dialog.locator('[data-export-download]');
-	await expect(link.filter({ visible: true }).or(page.locator('[data-editor-toast="workspace-error"], [data-editor-toast="workspace-status-error"]'))).toBeVisible({ timeout: 60_000 });
+	const error = page.locator('[data-editor-toast="workspace-error"], [data-editor-toast="workspace-status-error"]');
+	await expect(link.filter({ visible: true }).or(error)).toBeVisible({ timeout: 60_000 });
+	if (!webGl2Available) {
+		await expect(error).toBeVisible();
+		await expect(error).toContainText('WebGL2 is unavailable.');
+		await expect(link).toBeHidden();
+		return;
+	}
 	await expect(link).toBeVisible();
 	const bytes = await readDownloadBytes(page, link);
 	const dimensions = await page.evaluate(async data => {
