@@ -254,7 +254,7 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 			batchPresentation(() => { state.lastAudacityEffect = {
 				type,
 				params: structuredClone(params),
-				controlTrackId: state.audacityControlTrackId,
+				controlTrackId: definition.requiresControlTrack ? state.audacityControlTrackId : null,
 			};
 			setLocalizedStatus(setStatus, copy, "audacityApplied", undefined, 'success');
 				finishSelectionEffectProcessing(runtime, ownership); finished = true; });
