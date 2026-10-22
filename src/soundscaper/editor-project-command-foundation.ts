@@ -2,6 +2,7 @@
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
+import { reconcileAutoDuckControlRoutes } from './editor-auto-duck-routes.ts';
 import { normalizeAutomationLaneV21, type AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { applyCommandTreeWithAdmCleanup } from '../common/editor/commands/adm-removed-track-references.ts';
 import {
@@ -56,7 +57,6 @@ export function snapshotSoundscaperProjectFoundationCommand(command: AudioEditor
 		'Soundscaper command',
 	) as AudioEditorCommand;
 }
-
 /**
  * Apply one baseline transaction. Shared editorial commands use the common
  * resolved-coordinate projection without changing schema or dropping product
@@ -386,9 +386,9 @@ function reconcileGraphAfterInheritedCommand(
 		...vca,
 		members: vca.members.filter((member) => member.kind !== 'track' || audioTrackIds.has(member.id)),
 	}));
-	return reconcileFolderMixerGraphV21(project as never, normalizeMixerGraphV21({
+	return reconcileAutoDuckControlRoutes(previousProject, project, reconcileFolderMixerGraphV21(project as never, normalizeMixerGraphV21({
 		...previous, groups, sends, cues, vcas, outputs, edges,
-	}));
+	})));
 }
 
 type CanonicalAssignmentEndpointV21 =
