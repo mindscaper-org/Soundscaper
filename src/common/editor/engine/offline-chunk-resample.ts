@@ -93,9 +93,12 @@ function copyOutput(
 ): number {
 	if (values.length !== target.length) throw new Error('The offline long-source resample changed channel count.');
 	const frames = values[0]?.length ?? 0;
-	if (values.some((channel) => channel.length !== frames) || offset + frames > targetFrames) {
+	if (values.some((channel) => channel.length !== frames) || offset > targetFrames) {
 		throw new Error('The offline long-source resample returned invalid channel geometry.');
 	}
-	for (let channel = 0; channel < target.length; channel += 1) target[channel]!.set(values[channel]!, offset);
-	return offset + frames;
+	// Lookahead beyond a fractional source endpoint can produce an extra sample.
+	// The requested output window owns the crop; preserve lookahead only as input.
+	const retained = Math.min(frames, targetFrames - offset);
+	for (let channel = 0; channel < target.length; channel += 1) target[channel]!.set(values[channel]!.subarray(0, retained), offset);
+	return offset + retained;
 }
