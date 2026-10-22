@@ -28,7 +28,7 @@ export function audibleEffectTailGraphV21(project: EffectTailGateProject, graph:
 	for (const track of tracks) owners.set(`track:${track.id}`, track);
 	for (const strip of [...graph.groups, ...graph.sends, ...graph.cues]) owners.set(`mixer-node:${strip.id}`, strip);
 	const soloOpen = createProjectSoloGainResolverV21(graph, tracks, respectMuteSolo);
-	const vcaGain = createProjectVcaGainResolverV21(graph.vcas);
+	const vcaGain = createProjectVcaGainResolverV21(graph.vcas, respectMuteSolo);
 	const automated = new Map<string, Set<string>>();
 	for (const value of project.automationLanes ?? []) {
 		const lane = record(value), address = record(lane.address);
