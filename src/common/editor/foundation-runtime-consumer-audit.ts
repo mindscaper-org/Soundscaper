@@ -35,6 +35,7 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 	{ boundary: 'clipContentRange', file: 'src/common/editor/clip-content-range.ts', root: false, delegate: 'projectedClipContentRange', guardsBrand: false },
 	{ boundary: 'projectedClipContentRange', file: 'src/common/editor/clip-content-range.ts', root: false, delegate: 'resolveRuntimeClipProjection', guardsBrand: false },
 	{ boundary: 'resolveRuntimeClipProjection', file: 'src/common/editor/runtime-clip-projection.ts', root: true, delegate: null, guardsBrand: false },
+	{ boundary: 'resolveRuntimeTrackProjection', file: 'src/common/editor/runtime-clip-projection.ts', root: true, delegate: null, guardsBrand: false },
 	{ boundary: 'resolveProjectBinAudioPreviewClip', file: 'src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts', root: false, delegate: 'resolveRuntimeClipProjection', guardsBrand: false },
 	{ boundary: 'projectBinReplacementShortensClip', file: 'src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts', root: false, delegate: 'resolveRuntimeClipProjection', guardsBrand: false },
 	{
@@ -116,6 +117,8 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 
 /** Files that own the raw-project boundary for every WP-0.2 consumer surface. */
 export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShieldedOwner[] = deepFreeze([
+	{ file: 'src/common/editor/controller/track-audio/internal/selected-track-content-range.ts', surfaces: ['navigation'] },
+	{ file: 'src/common/editor/ui/timeline/TrackControls.jsx', surfaces: ['navigation'] },
 	{ file: 'src/common/editor/clip-spreadsheet.ts', surfaces: ['timeline', 'composition'] },
 	{ file: 'src/common/editor/controller/track-audio/internal/audio-warp/audio-warp-composition.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts', surfaces: ['preview', 'composition'] },

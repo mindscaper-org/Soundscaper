@@ -1,3 +1,4 @@
+import { resolveRuntimeProjectProjection } from '../../runtime-clip-projection.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { trackPanelClickSelection } from './clip-pointer-selection.ts';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -224,7 +225,7 @@ export function TrackControls({
 		<div ref={controlsRef} className="audio-editor-track-controls" data-track-header data-selected={selected ? 'true' : 'false'} style={{ width: panelWidth }} onClickCapture={(event) => {
 			if (blocked || event.detail < 2 || event.target.closest('button, input, textarea, select, .track-control-panel__track-name-text')) return;
 			const project = controller.getSnapshot().project;
-			const selection = project && trackPanelClickSelection(project, track.id, event.detail);
+			const selection = project && trackPanelClickSelection(resolveRuntimeProjectProjection(project), track.id, event.detail);
 			if (!selection) return;
 			event.preventDefault(); event.stopPropagation();
 			run(() => controller.actions.timeline.setExactSelection(selection.startFrame, selection.endFrame, selection));

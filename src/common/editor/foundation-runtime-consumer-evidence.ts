@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { FOUNDATION_SELECTION_RUNTIME_CONSUMERS } from './foundation-selection-consumer-evidence.ts';
 
 export type FoundationRuntimeConsumerSurface =
 	| 'playback'
@@ -29,6 +30,7 @@ export interface FoundationRuntimeConsumerEvidence {
  * boundary before reading any persisted/resolved clip timing field.
  */
 const entries: FoundationRuntimeConsumerEvidence[] = [
+	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS,
 	{
 		id: 'label-file-export', surface: 'interchange', file: 'src/common/editor/controller/edit/internal/label-service.ts',
 		entryPoint: 'exportLabels', inputIdentifier: 'labelProject', projectedIdentifier: 'tracks', boundary: 'resolveRuntimeProjectProjection',
