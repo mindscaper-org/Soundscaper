@@ -15,7 +15,7 @@ const PNG = 'src/common/editor/imaging/pixel-frame-png-v1.ts';
 const EXPORT_COPY = 'src/common/i18n/lightscaper-photo-png-export-copy.ts';
 const MENU_COPY = 'src/common/i18n/lightscaper-photo-png-export-menu-copy.ts';
 const PHOTO_OWNERS = new Set(['editor-neutral-foundations', 'editor-photo-library-scalars', 'editor-imaging',
-	'editor-media-storage-contracts', 'editor-media-custody-storage', 'editor-closed-domain-values',
+	'editor-media-storage-contracts', 'editor-media-custody-storage',
 	'editor-dialog-foundations', 'editor-file-saving', 'editor-scape-archive-bytes',
 	'lightscaper-editor-copy', 'lightscaper-develop-copy', 'editor-visual-effect-copy']);
 const PHOTO_COOWNERS = sourceModules(resolve(ROOT, 'src'))

@@ -28,7 +28,7 @@ const CURRENT_IMAGE_LEAVES = ['video-effects-v2.ts', 'video-color-cube-lut-v27.t
 	'video-color-management-v27.ts', 'video-color-byte-encoding.ts'].map(name => `src/common/editor/${name}`);
 const CURRENT_PACK_TAGS = ['scape-photo-catalog-pack-v2.ts', 'scape-photo-catalog-pack-v3.ts', 'scape-photo-catalog-pack-v4.ts', 'scape-photo-cube-lut.ts'].map(name => `src/common/editor/${name}`);
 const PHOTO_OWNERS = new Set(['editor-neutral-foundations', 'editor-photo-library-scalars', 'editor-imaging',
-	'editor-media-storage-contracts', 'editor-media-custody-storage', 'editor-closed-domain-values',
+	'editor-media-storage-contracts', 'editor-media-custody-storage',
 	'editor-dialog-foundations', 'editor-file-saving', 'editor-scape-archive-bytes',
 	'lightscaper-editor-copy', 'lightscaper-develop-copy', 'editor-visual-effect-copy']);
 const PHOTO_COOWNERS = sourceModules(resolve(ROOT, 'src')).filter(path => PHOTO_OWNERS.has(chunkGroupForModulePath(path) ?? ''));
@@ -169,7 +169,7 @@ void test('the finite generic mask pixel closure keeps exact imaging ownership a
 		assert.deepEqual(dynamicRelativeImports(source), [], path);
 		for (const specifier of dependencies) {
 			const target = resolveRelativeModule(resolve(ROOT, path), specifier); assert.ok(target, specifier);
-			assert.equal(chunkGroupForModulePath(target), specifier === './closed-domain-value.ts' ? 'editor-closed-domain-values' : 'editor-imaging', specifier);
+			assert.equal(chunkGroupForModulePath(target), specifier === './closed-domain-value.ts' ? 'editor-neutral-foundations' : 'editor-imaging', specifier);
 		}
 	}
 	for (const leaf of ['video-mask-matte-ffmpeg-v1.ts', 'video-mask-luminance-range-v2.ts', 'video-mask-color-range-v2.ts', 'video-mask-project-v1.ts']) {

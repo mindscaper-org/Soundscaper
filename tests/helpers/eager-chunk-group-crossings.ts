@@ -46,12 +46,10 @@ export const EAGER_CHUNK_GROUPS: ReadonlySet<string> = new Set([
 	'lightscaper-editor-copy',
 	// The File menu reads these scalar batch labels immediately at product startup.
 	'lightscaper-photo-batch-export-menu-copy',
-	// The photo bootstrap composes these scalar owners immediately; the shared
-	// inert value validator is also read by the existing timeline boot domains.
+	// The photo bootstrap composes this scalar owner immediately.
 	'editor-photo-library-scalars',
-	'editor-closed-domain-values',
 	// Existing startup domains use cancellation, ordering, IDs and the inert
-	// limit read by archive estimation; their actual product graphs stay measured.
+	// closed value/archive validation; actual product graphs stay measured.
 	'editor-neutral-foundations',
 	// Existing project storage reaches retention, publication and writer contracts.
 	'editor-media-storage-contracts',

@@ -16,10 +16,10 @@ export const editorUiChunkGroups = [
 	...fileSavingChunkGroups,
 	{
 		// IDs, safe text, cancellation, ordering, worker lifetimes, file failures
-		// and the archive limit share no product domain imports. One neutral owner
+		// and closed value/archive validation share no product domain imports. One neutral owner
 		// avoids timeline passengers and preserves startup request ceilings.
 		name: 'editor-neutral-foundations',
-		test: /src[\\/]common[\\/]editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|code-unit-order|error-diagnostic-message|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|photo-library-develop-(?:(?:proxy|original|full-resolution|mask-raster)-port-v1|proxy-port-v2|original-current-v1)|photo-library-saved-collection-port-v1|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-project-format|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)$/,
+		test: /src[\\/]common[\\/]editor[\\/](?:platform[\\/]bounded-transfer\.ts|(?:abort-error|abort-race|desktop-read-profile|closed-domain-value|code-unit-order|error-diagnostic-message|image-export-graphic-request|image-export-text-v1|native-media-plan-canonical-form|photo-library-develop-(?:(?:proxy|original|full-resolution|mask-raster)-port-v1|proxy-port-v2|original-current-v1)|photo-library-saved-collection-port-v1|safe-visual-text|unicode-scalar-text|scape-archive-limits|scape-blob-budget|scape-project-format|web-file-limit-failure|worker-error-transport|worker-protocol|worker-request-broker)\.ts|stable-id\.js)$/,
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,
@@ -34,16 +34,6 @@ export const editorUiChunkGroups = [
 			/src[\\/]common[\\/]editor[\\/]controller[\\/]shared[\\/]photo-library-(?:definition-reader|develop-command(?:-v2)?|develop-workflow-v[12]|develop-settings-intent(?:-v2)?|develop-settings-workflow-v[12]|selection-v1|culling-v1|cull-advance-v1|compare-v1|survey-v1|import-gesture-v1|backup-save-v1|original-recovery-v1|restore-v1|workflow-slot(?:-v2)?|query-navigation|saved-command)\.ts$|src[\\/]common[\\/]editor[\\/]controller[\\/]composition[\\/]lightscaper-desktop-(?:lifecycle|archive-open-current-v1)\.ts$|src[\\/]common[\\/]editor[\\/]desktop-lightscaper-archive-open-contract-current-v1\.ts$/.source,
 			/src[\\/]common[\\/]editor[\\/]controller[\\/](?:shared[\\/](?:photo-library-(?:(?:raw-development-authoring|develop-command|develop-workflow|workflow-slot|develop-settings-intent|develop-settings-workflow)-current-v1|develop-command-v3|culling-workflow-v1)|internal[\\/]photo-library-(?:develop-command|develop-workflow|workflow-slot|develop-settings-workflow)-kernel-v1)|composition[\\/](?:lightscaper-photo-backend-switch-current-v1|photo-library-linked-(?:commands|watch)-current-v1))\.ts$/.source,
 		].join('|')),
-		priority: 99,
-		minSize: 0,
-		maxSize: 400_000,
-		includeDependenciesRecursively: false,
-	},
-	{
-		// This inert validator has no domain imports. Both product domains and
-		// generic image presentation can share it without acquiring each other.
-		name: 'editor-closed-domain-values',
-		test: /src[\\/]common[\\/]editor[\\/]closed-domain-value\.ts$/,
 		priority: 99,
 		minSize: 0,
 		maxSize: 400_000,

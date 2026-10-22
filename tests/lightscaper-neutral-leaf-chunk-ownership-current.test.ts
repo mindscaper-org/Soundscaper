@@ -11,6 +11,7 @@ import { resolveRelativeModule, staticRelativeDependencies } from './helpers/eag
 const EDITOR = fileURLToPath(new URL('../src/common/editor/', import.meta.url));
 const LEAVES = [
 	['unicode-scalar-text.ts', 'editor-neutral-foundations', []],
+	['closed-domain-value.ts', 'editor-neutral-foundations', []],
 	['ui/modal-native-range-keys.ts', 'editor-dialog-foundations', []],
 	['controller/shared/photo-library-cull-advance-v1.ts', 'editor-photo-library-scalars',
 		['../../closed-domain-value.ts', './photo-library-selection-v1.ts']],

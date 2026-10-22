@@ -17,7 +17,7 @@ test('the synchronous photo save owner has only scalar contracts in the existing
 	while (pending.length) {
 		const path = pending.pop()!; if (seen.has(path)) continue; seen.add(path);
 		assert.ok(path.startsWith(root + 'src/common/'), path);
-		if (path.startsWith(editor)) assert.ok(['editor-photo-library-scalars', 'editor-closed-domain-values', 'editor-neutral-foundations']
+		if (path.startsWith(editor)) assert.ok(['editor-photo-library-scalars', 'editor-neutral-foundations']
 			.some(owner => owner === chunkGroupForModulePath(path)), path);
 		for (const dependency of runtimeDependencies(path)) { const target = resolveRelativeModule(path, dependency); assert.ok(target); pending.push(target); }
 	}
@@ -47,7 +47,7 @@ test('actual photo export composition uses neutral archive bytes instead of time
 		const path = pending.pop()!; if (seen.has(path)) continue; seen.add(path);
 		if (path.startsWith(editor) && !path.slice(editor.length).includes('/')) {
 			assert.ok(['editor-file-saving', 'editor-scape-archive-bytes', 'editor-neutral-foundations',
-				'editor-imaging', 'editor-closed-domain-values', 'project-interchange-foundations']
+				'editor-imaging', 'project-interchange-foundations']
 				.some(owner => owner === chunkGroupForModulePath(path)), path);
 		}
 		const sourcePath = relative(root, path).split(sep).join('/');

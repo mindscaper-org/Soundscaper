@@ -26,7 +26,7 @@ test('actual Lightscaper effect admission reaches geometry through only imaging 
 	while (pending.length) {
 		const path = pending.pop()!;
 		if (seen.has(path)) continue; seen.add(path);
-		assert.ok(['editor-imaging', 'editor-neutral-foundations', 'editor-closed-domain-values'].some(owner => owner === chunkGroupForModulePath(path)), path);
+		assert.ok(['editor-imaging', 'editor-neutral-foundations'].some(owner => owner === chunkGroupForModulePath(path)), path);
 		const source = transformSync(readFileSync(path, 'utf8'), { loader: path.endsWith('.ts') ? 'ts' : 'js', format: 'esm' }).code;
 		for (const dependency of staticRelativeDependencies(source)) {
 			const target = resolveRelativeModule(path, dependency); assert.ok(target, dependency); pending.push(target);

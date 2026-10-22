@@ -136,7 +136,7 @@ test('the actual photo scalar controller closure has no timeline, storage, effec
 		...scalarModules.map((path): [string, string] => [directory + path, 'editor-photo-library-scalars']),
 		[directory + 'controller/shared/photo-library-cull-advance-v1.ts', 'editor-photo-library-scalars'],
 		[directory + 'photo-library-saved-collection-port-v1.ts', 'editor-neutral-foundations'],
-		[directory + 'closed-domain-value.ts', 'editor-closed-domain-values'],
+		[directory + 'closed-domain-value.ts', 'editor-neutral-foundations'],
 	]);
 	const seen = new Set<string>(), pending = scalarModules.map(path => directory + path);
 	while (pending.length) {
@@ -171,7 +171,7 @@ test('the eager Survey hook uses the photo scalar owner while its dialog remains
 test('scalar and closed-value owners are exact nonrecursive groups with their actual eager classification', () => {
 	for (const [paths, owner] of [
 		[scalarModules, 'editor-photo-library-scalars'],
-		[['closed-domain-value.ts'], 'editor-closed-domain-values'],
+		[['closed-domain-value.ts'], 'editor-neutral-foundations'],
 	] as const) {
 		for (const path of paths) {
 			assert.equal(chunkGroupForModulePath(directory + path), owner);
@@ -200,7 +200,7 @@ test('opt-in pixel presentation has a separate lazy controller owner and uses on
 	const dependencies = staticRelativeDependencies(readFileSync(path, 'utf8')).map(specifier => {
 		const target = resolveRelativeModule(path, specifier); assert.ok(target, specifier); return chunkGroupForModulePath(target);
 	});
-	assert.deepEqual(dependencies, ['editor-closed-domain-values', 'editor-imaging', 'editor-imaging', 'editor-imaging']);
+	assert.deepEqual(dependencies, ['editor-neutral-foundations', 'editor-imaging', 'editor-imaging', 'editor-imaging']);
 });
 
 test('the shared Scape Blob bound has an inert exact owner apart from timeline archive estimation', async () => {
@@ -254,7 +254,7 @@ test('original recovery composes only scalar, neutral and original-contract owne
 		const module = pending.pop()!;
 		if (seen.has(module)) continue;
 		seen.add(module);
-		assert.ok(['editor-photo-library-scalars', 'editor-neutral-foundations', 'editor-closed-domain-values',
+		assert.ok(['editor-photo-library-scalars', 'editor-neutral-foundations',
 			'editor-media-custody-storage'].some(owner => owner === chunkGroupForModulePath(module)), module);
 		const source = transformSync(readFileSync(module, 'utf8'), { loader: 'ts', format: 'esm' }).code;
 		for (const specifier of staticRelativeDependencies(source)) {
@@ -300,7 +300,7 @@ test('shared still admission, effect and mask contracts retain only imaging and 
 			if (exact) {
 				const edge = exact.find(([specifier]) => specifier === dependency); assert.ok(edge, dependency);
 				assert.equal(chunkGroupForModulePath(target), edge[1], target);
-			} else assert.ok(['editor-imaging', 'editor-neutral-foundations', 'editor-closed-domain-values', 'project-interchange-foundations']
+			} else assert.ok(['editor-imaging', 'editor-neutral-foundations', 'project-interchange-foundations']
 				.some(owner => owner === chunkGroupForModulePath(target)), target);
 		}
 	}
@@ -325,7 +325,7 @@ test('global develop and histogram production imports stay within the image proc
 		if (seen.has(path)) continue;
 		seen.add(path);
 		for (const candidate of [path, path.replaceAll('/', '\\')]) {
-			assert.ok(['editor-imaging', 'editor-neutral-foundations', 'editor-closed-domain-values']
+			assert.ok(['editor-imaging', 'editor-neutral-foundations']
 				.some(owner => owner === chunkGroupForModulePath(candidate)), candidate);
 		}
 		const source = transformSync(readFileSync(path, 'utf8'), { loader: 'ts', format: 'esm' }).code;
@@ -393,7 +393,7 @@ test('Cube custody owns only exact scalar references and plans without parsing o
 	}
 	while (pending.length) {
 		const path = pending.pop()!; if (seen.has(path)) continue; seen.add(path);
-		assert.ok(['editor-media-storage-contracts', 'editor-closed-domain-values']
+		assert.ok(['editor-media-storage-contracts', 'editor-neutral-foundations']
 			.some(owner => owner === chunkGroupForModulePath(path)), path);
 		const source = transformSync(readFileSync(path, 'utf8'), { loader: 'ts', format: 'esm' }).code;
 		for (const dependency of staticRelativeDependencies(source)) {
@@ -412,7 +412,7 @@ void test('project-resource collectors pin their fixed-profile kernel and exact 
 		assert.deepEqual(staticRelativeDependencies(readFileSync(path, 'utf8')), ['./' + kernel], module);
 	}
 	const dependencies = [
-		['../closed-domain-value.ts', 'editor-closed-domain-values'],
+		['../closed-domain-value.ts', 'editor-neutral-foundations'],
 		['../video-cube-lut-profile-v1.ts', 'editor-media-storage-contracts'],
 		['../timeline-image-model-v2.ts', 'editor-imaging'], ['../timeline-image-model-current-v1.ts', 'editor-imaging'],
 		['../imaging/image-develop-resource-reachability-current-v1.ts', 'editor-imaging'],
@@ -460,7 +460,7 @@ test('the actual photo session borrows shared media repositories without linked 
 		if (path.startsWith(directory) && !path.slice(directory.length).includes('/')) {
 			const owner = chunkGroupForModulePath(path);
 			if (fileAdmission.has(path)) assert.equal(owner, 'editor-image-file-admission', path);
-			else if (!['editor-neutral-foundations', 'editor-closed-domain-values', 'editor-imaging',
+			else if (!['editor-neutral-foundations', 'editor-imaging',
 				'editor-media-storage-contracts', 'project-interchange-foundations'].some(expected => expected === owner)) {
 				unexpectedOwners.push(path.slice(directory.length) + ': ' + owner);
 			}
