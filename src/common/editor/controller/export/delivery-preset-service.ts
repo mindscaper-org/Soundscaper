@@ -27,7 +27,7 @@ import {
 export const DELIVERY_PRESETS_SETTING_KEY = 'audio-editor-delivery-presets-v1';
 
 export interface DeliveryPresetServiceRuntime {
-	readonly state: { deliveryPresets?: unknown; deliveryPresetsReadOnly?: boolean };
+	readonly state: { deliveryPresets?: unknown; deliveryPresetsReadOnly?: boolean; projectAdministrationPending?: boolean };
 	readonly persistSetting: (
 		key: string,
 		value: unknown,
@@ -46,6 +46,9 @@ export function createDeliveryPresetService(runtime: DeliveryPresetServiceRuntim
 	let mutationTail: Promise<void> = Promise.resolve();
 
 	function enqueueMutation<Result>(operation: () => Promise<Result>): Promise<Result> {
+		if (runtime.state.projectAdministrationPending) {
+			return Promise.reject(new DOMException('Local editor settings are being cleared.', 'InvalidStateError'));
+		}
 		const result = mutationTail.then(operation);
 		mutationTail = result.then(() => undefined, () => undefined);
 		return result;
@@ -67,6 +70,11 @@ export function createDeliveryPresetService(runtime: DeliveryPresetServiceRuntim
 	}
 
 	return Object.freeze({
+		flush: (): Promise<void> => mutationTail,
+		reset: (): void => {
+			runtime.state.deliveryPresets = createDeliveryPresetState();
+			runtime.state.deliveryPresetsReadOnly = false;
+		},
 		list: (kind: DeliveryPresetKind | null = null): readonly DeliveryPreset[] =>
 			listDeliveryPresets(runtime.state.deliveryPresets, kind),
 		apply: (presetId: string): DeliveryPreset =>
