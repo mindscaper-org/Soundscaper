@@ -45,7 +45,7 @@ for (const format of ['sesx', 'dawproject'] as const) for (const emptyFirst of [
 		let released = false;
 		const files: NativeProjectFileService = { ...fixture.runtime.fileService, isDesktop: true,
 			resolveSesxMedia: async ({ relativePath }) => ({ status: 'found', descriptor: { id: relativePath, name: relativePath,
-				readProfile: 'linked-audio-range-v1', size: relativePath === 'empty.wav' ? 0 : healthy.size,
+				readProfile: 'linked-audio-range-v1', lastModified: 0, size: relativePath === 'empty.wav' ? 0 : healthy.size,
 				url: `soundscaper-app://bundle/${relativePath}`, mimeType: 'audio/wav' } }),
 			chooseSesxMediaFolder: async () => { assert.fail('both files exist beside the session'); },
 			releaseSesxSession: async () => { released = true; return true; },
