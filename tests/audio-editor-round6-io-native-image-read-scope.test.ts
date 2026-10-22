@@ -17,7 +17,7 @@ import { createPngFixture } from './helpers/png-fixture.mjs';
 import { nativeSidecarFixture } from './helpers/framescaper-native-sidecar-fixture.ts';
 
 test('the existing Add Images menu uses its specific maintained raster chooser', () => {
-	const extensions = ['jpg', 'jpeg', 'png', 'apng', 'gif', 'webp', 'bmp'];
+	const extensions = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'bmp'];
 	const choice = validateFileChoice({ purpose: 'image', multiple: true });
 	assert.deepEqual(choice.extensions, extensions);
 	assert.deepEqual(choice.filters, [{ name: 'Images', extensions }]);
