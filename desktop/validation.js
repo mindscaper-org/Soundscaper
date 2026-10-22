@@ -52,8 +52,8 @@ const FILE_PURPOSES = Object.freeze({
 		filters: Object.freeze([{ name: 'Audio and video', extensions: [...AUDIO_VIDEO_IMPORT_EXTENSIONS] }]),
 	}),
 	image: Object.freeze({
-		extensions: Object.freeze(['jpg', 'jpeg', 'png', 'apng', 'gif', 'webp', 'bmp']),
-		filters: Object.freeze([{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'apng', 'gif', 'webp', 'bmp'] }]),
+		extensions: Object.freeze(['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'bmp']),
+		filters: Object.freeze([{ name: 'Images', extensions: ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'apng', 'gif', 'webp', 'bmp'] }]),
 	}),
 	labels: Object.freeze({
 		extensions: Object.freeze(['srt', 'txt', 'vtt', 'webvtt', 'ttml', 'imsc', 'xml']),
@@ -152,6 +152,8 @@ const MIME_TYPES = Object.freeze({
 	'.gif': 'image/gif',
 	'.jpeg': 'image/jpeg',
 	'.jpg': 'image/jpeg',
+	'.jpe': 'image/jpeg',
+	'.jfif': 'image/jpeg',
 	'.m4a': 'audio/mp4',
 	'.m4v': 'video/mp4',
 	'.mka': 'audio/x-matroska',

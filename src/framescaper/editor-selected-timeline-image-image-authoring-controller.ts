@@ -23,7 +23,7 @@ import { assertFramescaperProjectIdentity } from './editor-project-identity.ts';
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts';
 
 const IMAGE_ACCEPT = [
-	'.jpg', '.jpeg', '.png', '.apng', '.gif', '.webp', '.bmp',
+	'.jpg', '.jpeg', '.jpe', '.jfif', '.png', '.apng', '.gif', '.webp', '.bmp',
 	'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
 ].join(',');
 
