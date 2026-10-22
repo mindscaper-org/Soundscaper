@@ -54,8 +54,7 @@ test.describe('take lane and comp workflow', () => {
 		await assertAccessibleBasics(dialog);
 		await assertNoSeriousAxeViolations(page, '[data-take-comp-dialog]');
 
-		await page.keyboard.press('Escape');
-		await expect(dialog).toBeHidden();
+		await dismissTakeCompDialog(page, dialog);
 		// Focus returns to the control that opened the dialog, which is the track
 		// overflow trigger rather than a menubar entry.
 		await expect(editor.getByRole('button', { name: TRACK_MENU_TRIGGER }).first()).toBeFocused();
@@ -64,10 +63,7 @@ test.describe('take lane and comp workflow', () => {
 		await expect(dialog.getByText('Take operations are unavailable while the owning track is locked.', { exact: true })).toBeVisible();
 		await expect(dialog.getByRole('button', { name: 'Audition lane', exact: true }).first()).toBeDisabled();
 		await expect(dialog.getByRole('button', { name: 'Flatten comp', exact: true })).toBeDisabled();
-		await page.mouse.move(1, 1);
-		await expect(page.getByRole('tooltip')).toHaveCount(0);
-		await page.keyboard.press('Escape');
-		await expect(dialog).toBeHidden();
+		await dismissTakeCompDialog(page, dialog);
 		await chooseTrackMenuAction(page, editor, null, 'Unlock track');
 
 		dialog = await openTakeCompDialog(page, editor);
@@ -119,8 +115,7 @@ test.describe('take lane and comp workflow', () => {
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		dialog = await openTakeCompDialog(page, editor);
 		await expect(dialog.locator('[data-take-comp-group]')).toBeVisible();
-		await page.keyboard.press('Escape');
-		await expect(dialog).toBeHidden();
+		await dismissTakeCompDialog(page, dialog);
 		expect(errors).toEqual([]);
 	});
 
@@ -160,6 +155,14 @@ async function openTakeCompDialog(page, editor) {
 	const dialog = page.getByRole('dialog', { name: 'Take lanes and comps', exact: true });
 	await expect(dialog).toBeVisible();
 	return dialog;
+}
+
+async function dismissTakeCompDialog(page, dialog) {
+	// A hover tooltip owns the first Escape, so leave it before testing dismissal.
+	await page.mouse.move(1, 1);
+	await expect(page.getByRole('tooltip')).toHaveCount(0);
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
 }
 
 async function openTakeCompArchive(editor) {

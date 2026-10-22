@@ -49,9 +49,9 @@ test('desktop staging contains only unversioned v1 project-library authorities',
 	));
 });
 
-test('desktop staging includes the shared Framescaper durable asset authority', () => {
+test('desktop staging includes the shared durable asset authority', () => {
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(
-		'src/framescaper/editor-scape-durable-asset-plan-core.js',
+		'src/common/editor/scape-durable-asset-plan-core-v1.js',
 	));
 });
 

@@ -11,6 +11,10 @@ import {
 	renderOfflineServiceWorker,
 } from './offline-service-worker.mjs';
 import {
+	MAXIMUM_INSTALL_ASSET_BYTES,
+	validateOfflineShellConfiguration,
+} from './offline-shell-worker.mjs';
+import {
 	ICON_SIZES,
 	INSTALL_SCREENSHOT_DIRECTORY,
 	MANIFEST_ICON_SIZES,
@@ -23,7 +27,7 @@ import { webBuildRouting } from './product-web-routing.mjs';
 const MAXIMUM_ASSET_BYTES = 25 * 1024 * 1024;
 const MAXIMUM_AGGREGATE_BYTES = 256 * 1024 * 1024;
 const MAXIMUM_ASSET_COUNT = 4_096;
-export const MAXIMUM_INSTALL_ASSET_BYTES = 12 * 1024 * 1024;
+export { MAXIMUM_INSTALL_ASSET_BYTES };
 export const MAXIMUM_INSTALL_ASSET_COUNT = 128;
 const BUILD_MANIFEST = '.offline-build-manifest.json';
 const STATIC_CONTROL_FILES = Object.freeze([
@@ -39,25 +43,34 @@ const STATIC_CONTROL_FILES = Object.freeze([
 ]);
 const PRODUCT_ENTRIES = Object.freeze({
 	framescaper: 'src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx',
+	lightscaper: 'src/lightscaper/ui/LightscaperBootstrap.tsx',
 	soundscaper: 'src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx',
 });
 const PRODUCT_INSTALL_ARTIFACTS = Object.freeze({
 	framescaper: Object.freeze({
 		name: 'Framescaper',
 		description: 'Local-first video effects and compositing editor',
-		// Both product marks are shared navigation chrome; only the generated
+		// Product marks are shared navigation chrome; only the generated
 		// install artwork below remains product-specific.
-		logos: Object.freeze(['/logo/framescaper.svg', '/logo/soundscaper.svg', '/logo/mindscaper.svg']),
+		logos: Object.freeze(['/logo/framescaper.svg', '/logo/soundscaper.svg', '/logo/lightscaper.svg', '/logo/mindscaper.svg']),
 		source: 'public/logo/framescaper.svg',
 		// Chosen from the standard manifest category vocabulary, which names no
 		// video category; `photo` is the one it files moving-image work under.
 		categories: Object.freeze(['photo', 'productivity', 'utilities']),
 		media: Object.freeze(['audio', 'video']),
 	}),
+	lightscaper: Object.freeze({
+		name: 'Lightscaper',
+		description: 'Local-first photo library and develop editor',
+		logos: Object.freeze(['/logo/lightscaper.svg', '/logo/soundscaper.svg', '/logo/framescaper.svg', '/logo/mindscaper.svg']),
+		source: 'public/logo/lightscaper.svg',
+		categories: Object.freeze(['photo', 'productivity', 'utilities']),
+		media: Object.freeze([]),
+	}),
 	soundscaper: Object.freeze({
 		name: 'Soundscaper',
 		description: 'Local-first multitrack audio editor',
-		logos: Object.freeze(['/logo/soundscaper.svg', '/logo/framescaper.svg', '/logo/mindscaper.svg']),
+		logos: Object.freeze(['/logo/soundscaper.svg', '/logo/framescaper.svg', '/logo/lightscaper.svg', '/logo/mindscaper.svg']),
 		source: 'public/logo/soundscaper.svg',
 		categories: Object.freeze(['music', 'productivity', 'utilities']),
 		media: Object.freeze(['audio']),
@@ -114,6 +127,7 @@ export async function generateOfflineApplicationShell({ outputRoot, repositoryRo
 		});
 		const releaseId = sha256(Buffer.from(JSON.stringify(identity)));
 		const configuration = Object.freeze({ ...identity, releaseId });
+		validateOfflineShellConfiguration(configuration);
 		const output = resolve(root, `.${worker.scriptUrl}`);
 		await mkdir(dirname(output), { recursive: true });
 		await writeFile(output, renderOfflineServiceWorker(configuration), 'utf8');

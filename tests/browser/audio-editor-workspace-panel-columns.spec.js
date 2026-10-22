@@ -5,6 +5,7 @@ import {
 	bootEditor, chooseCommandAction, chooseNestedCommandAction, openWorkspacePanelMenu,
 	registerAudioEditorHooks, waitForEditor, waitForResponsiveEditorLayout,
 } from './audio-editor-test-helpers.js';
+import { savedWorkspacePanels } from './helpers/workspace-preferences.js';
 
 test.describe('Workspace panel columns', () => {
 	registerAudioEditorHooks();
@@ -66,6 +67,17 @@ test.describe('Workspace panel columns', () => {
 		await dock.locator('[data-workspace-dock-resize-handle="right"]').press('ArrowLeft');
 		await expect.poll(async () => (await dock.boundingBox()).width).toBeGreaterThan(width + 10);
 		const resized = (await dock.boundingBox()).width;
+		await expect.poll(async () => {
+			const panels = await savedWorkspacePanels(page);
+			const savedHistory = panels?.history, savedMetadata = panels?.metadata;
+			return {
+				docks: [savedHistory?.dock, savedMetadata?.dock],
+				visible: [savedHistory?.visible, savedMetadata?.visible],
+				distinctColumns: (savedHistory?.column ?? 0) !== (savedMetadata?.column ?? 0),
+				width: Number.isSafeInteger(savedHistory?.width) && Number.isSafeInteger(savedMetadata?.width)
+					? savedHistory.width + savedMetadata.width : null,
+			};
+		}).toEqual({ docks: ['right', 'right'], visible: [true, true], distinctColumns: true, width: Math.round(resized) });
 		await page.reload();
 		await waitForEditor(page);
 		expect((await dock.boundingBox()).width).toBeCloseTo(resized, 0);

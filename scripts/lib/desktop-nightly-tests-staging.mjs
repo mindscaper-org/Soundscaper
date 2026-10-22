@@ -3,6 +3,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdir, readdir, readlink, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { NIGHTLY_IMAGE_TEST_HELPER_INPUTS } from './desktop-nightly-image-test-payloads.mjs';
 import nativeFixtureSources from './desktop-nightly-tests-native-fixture-inputs.cjs';
 import { NIGHTLY_BROWSER_CODEC_INPUTS } from './desktop-nightly-tests-browser-codec-inputs.mjs';
 import { NIGHTLY_BROWSER_MEDIA_INPUTS } from './desktop-nightly-tests-browser-media-inputs.mjs';
@@ -42,6 +43,7 @@ export const NIGHTLY_TEST_RUNTIME_PACKAGE_ROOTS = Object.freeze([
 	'saxes',
 	'sql.js',
 	'typescript',
+	'v8-to-istanbul',
 ]);
 
 // esbuild publishes its compiled binary as one optional dependency per platform
@@ -111,6 +113,7 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'scripts/collect-m4-production-parity-quality.mjs', destination: 'scripts/collect-m4-production-parity-quality.mjs', kind: 'file', label: 'M4 production parity metric collector' },
 	{ source: 'scripts/collect-m4b2-keyframe-parity-quality.mjs', destination: 'scripts/collect-m4b2-keyframe-parity-quality.mjs', kind: 'file', label: 'M4B2 keyframe metric collector' },
 	{ source: 'scripts/lib/quality-budget-config.mjs', destination: 'scripts/lib/quality-budget-config.mjs', kind: 'file', label: 'quality budget config reader' },
+	{ source: 'scripts/lib/lightscaper-large-library-diagnostics-v1.ts', destination: 'scripts/lib/lightscaper-large-library-diagnostics-v1.ts', kind: 'file', label: 'photo library native workload diagnostics' },
 	{ source: 'scripts/quality-budget-evaluator.mjs', destination: 'scripts/quality-budget-evaluator.mjs', kind: 'file', label: 'quality budget evaluator' },
 	{ source: 'scripts/quality-budget-result.mjs', destination: 'scripts/quality-budget-result.mjs', kind: 'file', label: 'quality budget result evaluator' },
 	{ source: 'scripts/verify-quality-budget-result.mjs', destination: 'scripts/verify-quality-budget-result.mjs', kind: 'file', label: 'quality budget diagnostic verifier' },
@@ -169,16 +172,13 @@ export const NIGHTLY_TEST_PAYLOAD_INPUTS = Object.freeze([
 	{ source: 'tests/aup3-fixture.js', destination: 'tests/aup3-fixture.js', kind: 'file', label: 'AUP3 browser support fixture' },
 	{ source: 'tests/helpers/aup4-database-harness.js', destination: 'tests/helpers/aup4-database-harness.js', kind: 'file', label: 'Audacity recovery browser SQLite fixture' },
 	{ source: 'tests/helpers/png-fixture.mjs', destination: 'tests/helpers/png-fixture.mjs', kind: 'file', label: 'timeline image browser support fixture' },
-	{ source: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-animation-fixture.ts', kind: 'file', label: 'ordinary animated image browser support fixture' },
-	{ source: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', destination: 'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts', kind: 'file', label: 'ordinary high-precision PNG browser support fixture' },
-	...['desktop-preload-source.mjs', 'ordinary-cover-mp3-fixture.ts', 'native-original-import-fixture.ts', 'next-overlap-ripple-project.ts', 'next-route-ripple-project.ts', 'next-time-preserving-effect-project.ts', 'next-vca-print-project.ts', 'next-zero-crossing-route-project.ts', 'ordinary-ogg-opus-fixture.ts', 'ogg-multiplexed-tail-fixture.ts', 'ordinary-tail-m4a-fixture.ts', 'os-audio-codec-fixtures.ts', 'round7-speech-preview-bridge.ts', 'round7-warp-drums.ts', 'scape-archive-rewrite.js', 'single-frame-poster-apng.ts', 'wavpack-import-fixture.ts'].map(file => ({
+	...NIGHTLY_IMAGE_TEST_HELPER_INPUTS,
+	...['next-overlap-ripple-project.ts', 'next-route-ripple-project.ts', 'next-time-preserving-effect-project.ts', 'next-vca-print-project.ts', 'next-zero-crossing-route-project.ts', 'ogg-multiplexed-tail-fixture.ts', 'scape-archive-rewrite.js', 'single-frame-poster-apng.ts', 'wavpack-import-fixture.ts'].map(file => ({
 		source: `tests/helpers/${file}`, destination: `tests/helpers/${file}`, kind: 'file', label: 'ordinary browser workflow fixture support',
 	})),
 	...NIGHTLY_INTERCHANGE_INPUTS,
-	{ source: 'tests/helpers/framescaper-native-sidecar-fixture.ts', destination: 'tests/helpers/framescaper-native-sidecar-fixture.ts', kind: 'file', label: 'native sidecar chooser/read/save browser support fixture' },
-	{ source: 'tests/helpers/libsndfile-rifx-fixture.ts', destination: 'tests/helpers/libsndfile-rifx-fixture.ts', kind: 'file', label: 'normal RIFX browser import fixture' },
 	{ source: 'tests/fixtures/aup4-native-rich.js', destination: 'tests/fixtures/aup4-native-rich.js', kind: 'file', label: 'AUP4 browser support fixture' },
-	...NIGHTLY_BROWSER_MEDIA_INPUTS,
+	...NIGHTLY_BROWSER_MEDIA_INPUTS.filter(input => !NIGHTLY_INTERCHANGE_INPUTS.some(({ source }) => source === input.source)),
 	{ source: 'desktop/original-file-overwrite.ts', destination: 'desktop/original-file-overwrite.ts', kind: 'file', label: 'ordinary native original media browser workflow support' },
 	{ source: 'tests/fixtures/nyquist-archive', destination: 'tests/fixtures/nyquist-archive', kind: 'directory', label: 'Nyquist browser archive and notices' },
 	{ source: 'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json', destination: 'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json', kind: 'file', label: 'Nyquist browser catalog metadata' },

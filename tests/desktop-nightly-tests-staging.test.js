@@ -23,12 +23,17 @@ const EXPECTED_RUNTIME_PACKAGES = [
 	'@ffmpeg/ffmpeg',
 	'@ffmpeg/types',
 	'@fontsource/inter',
+	'@jridgewell/resolve-uri',
+	'@jridgewell/sourcemap-codec',
+	'@jridgewell/trace-mapping',
 	'@noble/hashes',
 	'@playwright/test',
 	'@types/dom-mediacapture-transform',
 	'@types/dom-webcodecs',
+	'@types/istanbul-lib-coverage',
 	'@zip.js/zip.js',
 	'axe-core',
+	'convert-source-map',
 	'esbuild',
 	'fflate',
 	'mediabunny',
@@ -37,6 +42,7 @@ const EXPECTED_RUNTIME_PACKAGES = [
 	'saxes',
 	'sql.js',
 	'typescript',
+	'v8-to-istanbul',
 	'xmlchars',
 ];
 
@@ -101,6 +107,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'saxes',
 		'sql.js',
 		'typescript',
+		'v8-to-istanbul',
 	]);
 
 	const packageMetadata = await readJson(join(fixture.outputRoot, 'package.json'));
@@ -203,6 +210,8 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'tests/aup3-fixture.js',
 		'tests/helpers/aup4-database-harness.js',
 		'tests/helpers/png-fixture.mjs',
+		'tests/helpers/lightscaper-current-catalog-companions-fixture.ts',
+		'tests/helpers/lightscaper-current-library-loop-fixture.ts',
 		'tests/helpers/framescaper-ordinary-animation-fixture.ts',
 		'tests/helpers/framescaper-ordinary-high-precision-image-fixture.ts',
 		'tests/helpers/interchange-reference.ts',
@@ -237,6 +246,10 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'licenses/node_modules/@fontsource/inter/LICENSE',
 		'licenses/node_modules/axe-core/LICENSE-3RD-PARTY.txt',
 	]) await access(join(fixture.outputRoot, relativePath));
+	assert.equal(await readFile(join(fixture.outputRoot, 'tests/helpers/lightscaper-current-catalog-companions-fixture.ts'), 'utf8'),
+		await readFile(new URL('./helpers/lightscaper-current-catalog-companions-fixture.ts', import.meta.url), 'utf8'));
+	assert.equal(await readFile(join(fixture.outputRoot, 'tests/helpers/lightscaper-current-library-loop-fixture.ts'), 'utf8'),
+		await readFile(new URL('./helpers/lightscaper-current-library-loop-fixture.ts', import.meta.url), 'utf8'));
 	for (const name of BURN_IN_FONT_FILES) {
 		await access(join(fixture.outputRoot, 'node_modules/@fontsource/inter/files', name));
 	}

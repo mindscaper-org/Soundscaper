@@ -54,10 +54,11 @@ test('Playwright runs the maintained evergreen browser-engine matrix', async () 
 		'the ordinary suite must not accidentally run the separately served dual-origin workflow');
 });
 
-test('ordinary Playwright previews separately built Soundscaper and Framescaper origins', async () => {
+test('ordinary Playwright previews separately built product origins', async () => {
 	delete process.env.CI;
 	process.env.PLAYWRIGHT_PORT = '4372';
 	process.env.PLAYWRIGHT_FRAMESCAPER_PORT = '4379';
+	process.env.PLAYWRIGHT_LIGHTSCAPER_PORT = '4380';
 	try {
 		const [{ default: config }, packageText] = await Promise.all([
 			import('../playwright.config.mjs?product-sites'),
@@ -68,10 +69,11 @@ test('ordinary Playwright previews separately built Soundscaper and Framescaper 
 		assert.equal(config.use.baseURL, 'http://127.0.0.1:4372');
 		assert.equal(config.use.ignoreHTTPSErrors, undefined);
 		assert.ok(Array.isArray(config.webServer));
-		assert.equal(config.webServer.length, 2);
+		assert.equal(config.webServer.length, 3);
 		for (const [server, product, port] of [
 			[config.webServer[0], 'soundscaper', '4372'],
 			[config.webServer[1], 'framescaper', '4379'],
+			[config.webServer[2], 'lightscaper', '4380'],
 		]) {
 			assert.equal(server.url, `http://127.0.0.1:${port}/en/`);
 			assert.match(server.command, /^node node_modules\/vite\/bin\/vite\.js preview /u);
@@ -85,14 +87,17 @@ test('ordinary Playwright previews separately built Soundscaper and Framescaper 
 
 		assert.equal(scripts['build:browser:framescaper'],
 			'node scripts/build-browser-product-site.mjs framescaper');
+		assert.equal(scripts['build:browser:lightscaper'],
+			'node scripts/build-browser-product-site.mjs lightscaper');
 		assert.equal(scripts['prepare:browser:products'],
 			'node scripts/prepare-browser-product-sites.mjs');
 		assert.equal(scripts['pretest:browser'],
-			'npm run build && npm run build:browser:framescaper && npm run prepare:browser:products');
+			'npm run build && npm run build:browser:framescaper && npm run build:browser:lightscaper && npm run prepare:browser:products');
 		assert.equal(scripts['pretest:browser:built'], 'npm run prepare:browser:products');
 	} finally {
 		delete process.env.PLAYWRIGHT_PORT;
 		delete process.env.PLAYWRIGHT_FRAMESCAPER_PORT;
+		delete process.env.PLAYWRIGHT_LIGHTSCAPER_PORT;
 	}
 });
 
@@ -258,8 +263,8 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(browserJob, /name: verified-site-build/u);
 	const browserTotal = "${{ matrix.project == 'webkit' && 8 || 4 }}";
 	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount, browserTotal);
-	assert.match(browserJob, /--workers=\$\{\{ matrix\.project == 'webkit' && 1 \|\| 2 \}\}/u,
-		`${label} must give WebKit real-time audio one worker per shard`);
+	assert.match(browserJob, /--workers=\$\{\{ steps\.browser-run-shape\.outputs\.workers \}\} --retries=\$\{\{ steps\.browser-run-shape\.outputs\.retries \}\}/u,
+		`${label} must execute the collected shard's worker and retry policy`);
 	for (const shard of [5, 6, 7, 8]) {
 		assert.ok(browserJob.includes(`- project: chromium\n            shard: ${shard}`),
 			`${label} must exclude Chromium shard ${shard} from its four-way partition`);
@@ -285,8 +290,8 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /name: verified-site-build/u);
 	assertEngineIsSharded(firefoxJob, `${label} firefox`, 'npm run test:browser:built -- --project=firefox', firefoxShardCount);
 	assert.ok(
-		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=1`),
-		`${label} must keep Firefox media workflows on one worker per shard`,
+		firefoxJob.includes(`--shard=\${{ matrix.shard }}/${firefoxShardCount} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`),
+		`${label} must execute Firefox's collected worker and retry policy`,
 	);
 	assert.ok(
 		firefoxJob.indexOf('ci-firefox-audio-clock.mjs')

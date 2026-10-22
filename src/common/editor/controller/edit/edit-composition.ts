@@ -29,7 +29,9 @@ import { commitPasteIntoExistingClipCommand } from './paste-existing-clip-servic
 import { discoverPasteCommandTree } from './internal/paste-command-tree.ts';
 import { findControllerSource } from '../track-audio/track-domain-types.ts';
 import { generateAudioEditorSignalStream } from '../../signal-generator-stream-client.ts';
-import type { AudioEditorClipboard, AudioEditorCommand } from '../../commands/protocol.ts';
+import type { CurrentAudioEditorClipboardDescriptor as AudioEditorClipboard, CurrentAudioEditorMutationCommandV2 as AudioEditorCommand } from '../../commands/clipboard-command-v2.ts';
+import type { AudioEditorCommand as LegacyAudioEditorCommand } from '../../commands/protocol.ts';
+import { normalizeAudioEditorClipboardDescriptor } from '../../commands/clipboard-codec.ts';
 import { preserveProductionTrackRouting } from '../../derived-track-routing.ts';
 import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createSelectedLabelClipboardService } from './internal/selected-label-clipboard.ts';
@@ -221,8 +223,8 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		handleSelectedLabelClipboard: labelClipboard.handle,
 		supportsTrackFolders: dependencies.supportsTrackFolders,
 		activeSelection: dependencies.activeSelection,
-		commit: (...args: Parameters<EditCompositionDependencies<History>['commit']>) => (
-			dependencies.commit(prepareFrozenTrackEditCommand(requireProject(), args[0]), args[1])
+		commit: (command: LegacyAudioEditorCommand, selection?: Readonly<{ selectTrackId?: string | null; selectClipId?: string | null }>) => (
+			dependencies.commit(prepareFrozenTrackEditCommand(requireProject(), command), selection)
 		),
 		commitPreparedPaste,
 		commitSplitAtFrames: clipboard.commitSplitAtFrames,
@@ -232,11 +234,13 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		createClipboardDescriptor: (commandProject: unknown, descriptorOptions: Parameters<typeof createClipboardDescriptor>[1]) => (
 			projectRuntime.prepareEditClipboardDescriptor(
 				dependencies.getProject(),
-				createClipboardDescriptor(clipboardProject(commandProject), descriptorOptions),
+				projectRuntime.captureEditClipboardDescriptor
+					? projectRuntime.captureEditClipboardDescriptor(requireProject(), descriptorOptions ?? {})
+					: createClipboardDescriptor(clipboardProject(commandProject), descriptorOptions),
 			)
 		),
 		createStableId,
-		preserveTrackRouting: (command: Extract<AudioEditorCommand, { type: 'batch' }>, copies: readonly Readonly<{ sourceTrackId: string; targetTrackId: string }>[]) => preserveProductionTrackRouting(
+		preserveTrackRouting: (command: Extract<LegacyAudioEditorCommand, { type: 'batch' }>, copies: readonly Readonly<{ sourceTrackId: string; targetTrackId: string }>[]) => preserveProductionTrackRouting(
 			requireProject(), prepareFrozenTrackEditCommand(requireProject(), command), copies, projectRuntime.applyCommand, createStableId,
 		),
 		prepareDuplicateCommand: projectRuntime.prepareEditDuplicateCommand
@@ -252,7 +256,12 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 		labeledClipboard: createLabeledAudioClipboardPort({
 			getProject: dependencies.getProject,
 			getCommandProject: dependencies.getCommandProject,
-			projectRuntime,
+			projectRuntime: {
+				projectForEditClipboardConsumers: projectRuntime.projectForEditClipboardConsumers,
+				prepareEditClipboardDescriptor: (project, descriptor) => normalizeAudioEditorClipboardDescriptor(
+					projectRuntime.prepareEditClipboardDescriptor(project, descriptor),
+				),
+			},
 			createDescriptor: createClipboardDescriptor,
 		}),
 		disjoinLabeledRegions: clipboard.disjoinLabeledRegions,

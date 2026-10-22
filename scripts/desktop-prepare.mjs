@@ -92,15 +92,20 @@ const DESKTOP_STAGE_TARGETS = new Set([
 
 export function resolveDesktopProductId(value) {
 	const requested = value === undefined ? 'soundscaper' : value;
-	if (requested !== 'soundscaper' && requested !== 'framescaper') {
+	if (requested !== 'soundscaper' && requested !== 'framescaper' && requested !== 'lightscaper') {
 		throw new Error(
-			`SCAPE_PRODUCT must be soundscaper or framescaper; received ${JSON.stringify(value)}.`,
+			`SCAPE_PRODUCT must be soundscaper, framescaper or lightscaper; received ${JSON.stringify(value)}.`,
 		);
 	}
 	return requested;
 }
 
 async function main() {
+	if (PRODUCT_ID === 'lightscaper') {
+		const { prepareLightscaperDesktopCurrentV1 } = await import('./desktop-lightscaper-prepare-current-v1.ts');
+		await prepareLightscaperDesktopCurrentV1(ROOT);
+		return;
+	}
 	const projectPackage = parseJson(await readFile(resolve(ROOT, 'package.json')), 'package.json');
 	assert(projectPackage.name === 'soundscaper', 'Run desktop preparation from the Soundscaper checkout.');
 	const releaseLines = await readProductReleaseLines(ROOT);

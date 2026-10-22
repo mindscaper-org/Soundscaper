@@ -20,6 +20,8 @@
  * `tests/audio-editor-build-chunk-ownership.test.ts` keeps it that way.
  */
 
+import { imagingChunkGroups } from './build-chunk-imaging.mjs';
+import { translationCatalogChunkGroups } from './build-chunk-translation-catalogs.mjs';
 import { EDITOR_UI_CHUNK_GROUPS } from './build-editor-ui-chunks.mjs';
 
 import {
@@ -60,10 +62,10 @@ import {
 	editorOptionalAssistanceModule,
 	editorOptionalCaptureControllerModule,
 	editorOptionalControllerModule,
-	editorOptionalSurfaceModule,
 	editorPath,
 } from './build-chunk-tests.mjs';
 import { withUiPreparationChunkTest } from './build-chunk-ui-preparation.mjs';
+import { editorUiChunkGroups } from './build-chunk-editor-ui.mjs';
 
 // The membership patterns keep their long-standing import site.
 export {
@@ -93,6 +95,7 @@ export {
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const chunkGroups = [
+	...translationCatalogChunkGroups,
 	{ name: 'editor-assistance-model-preflight', test: EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
 		priority: 100, minSize: 0, maxSize: 400_000,
 		includeDependenciesRecursively: false },
@@ -188,7 +191,9 @@ export const chunkGroups = [
 	},
 	{
 		name: 'vendor-design-system',
-		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|constants\.ts|assets[\\/]fonts))/,
+		// Keep the neutral context out of lazy routes when a small product's
+		// component group falls below the global minimum chunk size.
+		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|constants\.ts|assets[\\/]fonts|TimeCode[\\/]time-code-musical-context\.ts$))/,
 		priority: 95,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
@@ -303,7 +308,7 @@ export const chunkGroups = [
 		name: 'editor-copy',
 		test: EDITOR_COPY_CHUNK_TEST,
 		priority: 97,
-		maxSize: 400_000,
+		maxSize: 490_000,
 		includeDependenciesRecursively: false,
 	},
 	{
@@ -439,18 +444,13 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-controller-core',
-		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|facade\\.ts|index\\.js)`),
+		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|delivery-queue-runner\\.ts$|facade\\.ts|index\\.js)`),
 		priority: 75,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
-	{
-		name: 'editor-shell',
-		test: new RegExp(`(?:${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx)$)|inspector[\\\\/]))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
-		priority: 70,
-		maxSize: 400_000,
-		includeDependenciesRecursively: false,
-	},
+	...editorUiChunkGroups,
+	...imagingChunkGroups,
 	{
 		// The schema, planners, assistance domain, and value tables the shell and dialogs share.
 		// They are owned here rather than placed by reachability; see the module
@@ -458,7 +458,7 @@ export const chunkGroups = [
 		name: 'editor-domain',
 		test: EDITOR_DOMAIN_CHUNK_TEST,
 		priority: 65,
-		maxSize: 400_000,
+		maxSize: 490_000,
 		includeDependenciesRecursively: false,
 	},
 	{
@@ -488,8 +488,8 @@ export const chunkGroups = [
 	},
 ];
 
-export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR_CHUNK_TEST }
-	from './build-worker-chunk-groups.mjs';
+export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR_CHUNK_TEST,
+	WORKER_VIDEO_CONTRACT_CHUNK_TEST } from './build-worker-chunk-groups.mjs';
 
 /**
  * The group that claims one repository-relative module path, or null.
@@ -502,5 +502,6 @@ export function chunkGroupForModulePath(path) {
 	const candidates = chunkGroups
 		.filter((group) => group.test instanceof RegExp && group.test.test(path))
 		.sort((left, right) => right.priority - left.priority);
-	return candidates[0]?.name ?? null;
+	const name = candidates[0]?.name;
+	return typeof name === 'function' ? name(path) : name ?? null;
 }

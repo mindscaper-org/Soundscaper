@@ -7,10 +7,11 @@ import test from 'node:test';
 import { recordBrowserProductSiteEvidence } from '../scripts/lib/browser-product-test-sites.mjs';
 import { NIGHTLY_BROWSER_SITES, verifyNightlyBrowserSites } from '../scripts/verify-nightly-browser-sites.mjs';
 
-test('nightly artifacts retain both products at all four ordinary and reciprocal origins', () => {
+test('nightly artifacts retain three ordinary products and both reciprocal origins', () => {
 	assert.deepEqual(NIGHTLY_BROWSER_SITES.map(site => [site.productId, site.origin, site.peerOrigin, site.outputDirectory]), [
 		['soundscaper', 'http://127.0.0.1:4322', 'http://127.0.0.1:4323', '.wrangler/browser-products/soundscaper'],
 		['framescaper', 'http://127.0.0.1:4323', 'http://127.0.0.1:4322', '.wrangler/browser-products/framescaper'],
+		['lightscaper', 'http://127.0.0.1:4324', 'http://127.0.0.1:4322', '.wrangler/browser-products/lightscaper'],
 		['soundscaper', 'http://127.0.0.1:4332', 'http://127.0.0.1:4333', '.wrangler/dual-origin-browser/soundscaper'],
 		['framescaper', 'http://127.0.0.1:4333', 'http://127.0.0.1:4332', '.wrangler/dual-origin-browser/framescaper'],
 	]);

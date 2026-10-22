@@ -336,7 +336,7 @@ test.describe('Framescaper visual authoring menus', () => {
 			.toBeVisible(UI_OPTIONS);
 
 		await expect(dialog.getByRole('combobox', { name: 'Shape', exact: true }).locator('option'))
-			.toHaveText(['Rectangle', 'Ellipse']);
+			.toHaveText(['Rectangle', 'Ellipse', 'Linear gradient', 'Radial gradient', 'Luminance range', 'Color range']);
 		await dialog.getByRole('spinbutton', { name: 'Height', exact: true }).fill('0');
 		await dialog.getByRole('button', { name: 'Update attached mask', exact: true }).click();
 		await expect(status).toHaveText('mask height is outside its finite bound.', UI_OPTIONS);

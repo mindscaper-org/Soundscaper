@@ -11,6 +11,7 @@ import {
 	VIDEO_DERIVATIVE_STORE_NAME,
 } from '../src/common/editor/storage/derivative-cache-entry.ts';
 import { videoDerivativeIdentity } from '../src/common/editor/storage/video-derivative-relationship.ts';
+import type { MediaAssetWriter, MediaAssetWriteOptions } from '../src/common/editor/storage/media-asset-write-contract.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 interface ReadStats {
@@ -33,6 +34,8 @@ interface InstrumentedIndexedDB {
 
 interface DerivativeProjectStore {
 	ready(): Promise<unknown>;
+	close(): Promise<void>;
+	beginMediaAssetWrite(sourceId: string, metadata: Readonly<Record<string, unknown>>, options: MediaAssetWriteOptions): Promise<MediaAssetWriter>;
 	saveVideoDerivative(sourceId: string, input: Readonly<{
 		timestamp?: number;
 		type?: string;
@@ -63,7 +66,7 @@ interface DerivativeProjectStore {
 	): Promise<Record<string, unknown>[]>;
 }
 
-test('IndexedDB derivative replacement publishes matching payload and scalar records atomically', async () => {
+test('IndexedDB derivative replacement publishes matching payload and scalar records atomically', async context => {
 	const indexedDB = instrumentedIndexedDB();
 	const databaseName = uniqueDatabaseName('derivative-pair-replacement');
 	const files = new Map<string, Blob>();
@@ -75,7 +78,8 @@ test('IndexedDB derivative replacement publishes matching payload and scalar rec
 		databaseName,
 	}));
 	await store.ready();
-	const original = await persistOriginal(store, 'source');
+	context.after(() => store.close());
+	const original = await persistOriginal(store, 'source', files);
 	const originalPath = String(original.path);
 	await store.saveVideoDerivative('source', {
 		timestamp: 3,
@@ -212,7 +216,7 @@ test('exact and partial derivative deletes remove payload and companion pairs to
 });
 
 for (const operation of ['exact derivative deletion', 'media asset cascade'] as const) {
-	test(`${operation} rejects a companion path that could delete an unrelated OPFS original`, async () => {
+	test(`${operation} rejects a companion path that could delete an unrelated OPFS original`, async context => {
 		const indexedDB = instrumentedIndexedDB();
 		const databaseName = uniqueDatabaseName(`derivative-delete-path-spoof-${operation}`);
 		const files = new Map<string, Blob>();
@@ -224,8 +228,9 @@ for (const operation of ['exact derivative deletion', 'media asset cascade'] as 
 			databaseName,
 		}));
 		await store.ready();
-		const sourceOriginal = await persistOriginal(store, 'source');
-		const unrelatedOriginal = await persistOriginal(store, 'unrelated');
+		context.after(() => store.close());
+		const sourceOriginal = await persistOriginal(store, 'source', files);
+		const unrelatedOriginal = await persistOriginal(store, 'unrelated', files);
 		await store.saveVideoDerivative('source', {
 			type: 'poster', blob: new Blob(['poster']),
 		});
@@ -346,11 +351,31 @@ function derivativeKey(sourceId: string, type: string, timestamp: number): strin
 	return videoDerivativeIdentity(sourceId, originalSha256(sourceId), timestamp, type).key;
 }
 
-function persistOriginal(
+async function persistOriginal(
 	store: DerivativeProjectStore,
 	sourceId: string,
+	modeledFiles?: Map<string, Blob>,
 ): Promise<Record<string, unknown>> {
-	return store.writeMediaAsset(sourceId, new Blob([originalBody(sourceId)]));
+	if (!modeledFiles) return store.writeMediaAsset(sourceId, new Blob([originalBody(sourceId)]));
+	// The streamed model has its own path/lease contract. A structural directory
+	// cannot mint the native witness required by the separate whole-Blob route.
+	const bytes = new TextEncoder().encode(originalBody(sourceId));
+	const writer = await store.beginMediaAssetWrite(sourceId, {}, { expectedBytes: bytes.byteLength, expectedSha256: originalSha256(sourceId) });
+	try {
+		await writer.write(bytes);
+		const metadata = await writer.commit();
+		assert.equal(metadata.storage, 'opfs', 'the fixture must begin with an actual modeled OPFS original');
+		assert.equal(metadata.sha256, originalSha256(sourceId)); assert.equal(metadata.size, bytes.byteLength);
+		assert.equal(typeof metadata.path, 'string');
+		const body = modeledFiles.get(String(metadata.path)); assert.ok(body, 'the original path must physically exist in this model');
+		assert.equal(await body.text(), originalBody(sourceId));
+		return metadata;
+	} catch (primary) {
+		let cleanupFailed = false, cleanupFailure: unknown;
+		try { await writer.abort(); } catch (cleanup) { cleanupFailed = true; cleanupFailure = cleanup; }
+		if (cleanupFailed) throw new AggregateError([primary, cleanupFailure], 'Original fixture staging and retirement failed.', { cause: primary });
+		throw primary;
+	}
 }
 
 function originalSha256(sourceId: string): string {

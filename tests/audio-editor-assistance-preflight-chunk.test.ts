@@ -42,6 +42,26 @@ test('model preflight has a narrow lazy owner independent of the inference and o
 	assert.ok(typeof group.maxSize === 'number' && group.maxSize <= 500_000);
 });
 
+test('assistance loading styles share the shell fallback without claiming the model runtime', () => {
+	const path = 'src/common/editor/ui/dialogs/AssistanceModelGate.css';
+	for (const variant of [path, path.replaceAll('/', '\\')]) {
+		assert.equal(chunkGroupForModulePath(variant), 'editor-shell', variant);
+	}
+	const loading = readFileSync(new URL('../src/common/editor/ui/dialogs/AssistanceLoadingDialog.tsx', import.meta.url), 'utf8');
+	assert.match(loading, /^import '\.\/AssistanceModelGate\.css';$/mu);
+	const styles = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+	assert.doesNotMatch(styles, /@import\b|url\s*\(/u);
+	for (const name of ['AssistanceModelGate.tsx', 'AssistanceModelGateExtra.css',
+		'LocalAssistanceDialogSurface.tsx', 'LocalAssistanceRuntimeDialog.tsx']) {
+		const owner = chunkGroupForModulePath(`src/common/editor/ui/dialogs/${name}`);
+		assert.equal(EAGER_CHUNK_GROUPS.has(owner ?? ''), false, name);
+	}
+	const group = chunkGroups.find(({ name }) => name === 'editor-shell');
+	assert.ok(group);
+	assert.equal(group.includeDependenciesRecursively, false);
+	assert.equal(group.maxSize, 400_000);
+});
+
 test('preflight helpers never statically import processing implementation owners', () => {
 	assert.deepEqual(processingDependencies(PREFLIGHT_MODULES), []);
 });

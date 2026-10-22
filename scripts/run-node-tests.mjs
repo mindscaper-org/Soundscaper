@@ -55,7 +55,7 @@ if (coverageArgument !== undefined) {
 	// union, and c8 would spend minutes building a report nobody reads.
 	const coverageDirectory = resolve(root, coverageArgument.slice('--coverage-directory='.length));
 	rmSync(coverageDirectory, { recursive: true, force: true });
-	mkdirSync(coverageDirectory, { recursive: true });
+	mkdirSync(coverageDirectory, { recursive: true, mode: 0o700 });
 	env.NODE_V8_COVERAGE = coverageDirectory;
 }
 

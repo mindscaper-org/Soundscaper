@@ -39,8 +39,31 @@ const EAGER_ENTRY_MODULES: readonly string[] = [
 export const EAGER_CHUNK_GROUPS: ReadonlySet<string> = new Set([
 	'editor-codec-foundations',
 	'editor-copy',
+	// Photo and Frame HDR menus already read this one inert label owner.
+	'editor-hdr-merge-copy',
+	// Lightscaper's lazy product bootstrap reads its compact defaults immediately.
+	// Initial-page separation remains measured by the product startup graph.
+	'lightscaper-editor-copy',
+	// The File menu reads these scalar batch labels immediately at product startup.
+	'lightscaper-photo-batch-export-menu-copy',
+	// The photo bootstrap composes this scalar owner immediately.
+	'editor-photo-library-scalars',
+	// Existing startup domains use cancellation, ordering, IDs and the inert
+	// closed value/archive validation; actual product graphs stay measured.
+	'editor-neutral-foundations',
+	// Existing project storage reaches retention, publication and writer contracts.
+	'editor-media-storage-contracts',
+	// Existing product boot repositories already compose shared original custody.
+	'editor-media-custody-storage',
+	// Existing editor bootstrap file/archive services already consume these
+	// implementations. The photo product reaches them only after menu opt-in.
+	'editor-file-saving',
+	'editor-scape-archive-bytes',
 	'editor-controller-core',
 	'editor-domain',
+	// Frame's existing image decoder/frame source already compose these common
+	// kernels at product startup; the group gives those kernels a stable owner.
+	'editor-imaging',
 	'editor-effect-contracts',
 	'editor-engine',
 	// The browser reaches this composition only through a dynamic trim lease;
@@ -49,6 +72,10 @@ export const EAGER_CHUNK_GROUPS: ReadonlySet<string> = new Set([
 	'editor-production-meter',
 	'editor-presentation',
 	'editor-shell',
+	// Ready audio/video tooltips, overlays and workspace dialogs already import
+	// these neutral leaves. Product-specific startup budgets still measure when
+	// Lightscaper reaches its menu-opened dialog owner.
+	'editor-dialog-foundations',
 	'editor-shell-design-components',
 	'editor-web-bootstrap',
 	'editor-storage-model',
@@ -77,12 +104,19 @@ const WORKER_ENTRY_PATTERN = /new Worker\(\s*new URL\(\s*'(\.[^']+)'/gu;
 // Both quote styles: `nyquist/plugin-registry.js` writes its specifiers with double
 // quotes, and while this pattern read single quotes only, every dependency that
 // eagerly owned module declares was invisible here.
-const STATIC_IMPORT_PATTERN = /^import\s+(?!type\b)([\s\S]*?)from\s+(?:'(\.[^']+)'|"(\.[^"]+)")/gmu;
+// A complete import clause cannot consume a bare package import and then
+// borrow the relative specifier of a later type-only import declaration.
+const IMPORT_BINDING = String.raw`[\p{ID_Start}$_][\p{ID_Continue}$]*`;
+const NAMED_OR_NAMESPACE_IMPORT = String.raw`(?:\*\s+as\s+${IMPORT_BINDING}|\{[^}]*\})`;
+const STATIC_IMPORT_PATTERN = new RegExp(
+	String.raw`^import\s+(?!type\b)(${IMPORT_BINDING}(?:\s*,\s*${NAMED_OR_NAMESPACE_IMPORT})?|${NAMED_OR_NAMESPACE_IMPORT})\s+from\s+(?:'(\.[^']+)'|"(\.[^"]+)")`,
+	'gmu',
+);
 // A barrel's re-exports are static dependencies exactly like its imports: `export { X }
 // from './x.ts'` puts `./x.ts` in the importer's chunk graph. The pattern spells the whole
-// re-export grammar out rather than reusing the lazy `[\s\S]*?` clause above, because
-// `export function`, `export const` and `export class` open a line in nearly every module
-// and a lazy clause would happily run from one of those to the `from` of a later statement.
+// re-export grammar out so it cannot span later declarations: `export function`,
+// `export const` and `export class` open a line in nearly every module, and an
+// unrestricted clause could run from one of those to the `from` of a later statement.
 const RE_EXPORT_PATTERN = /^export\s+(?!type\b)(\*(?:\s+as\s+[\p{ID_Start}$_][\p{ID_Continue}$]*)?|\{[^}]*\})\s*from\s*(?:'(\.[^']+)'|"(\.[^"]+)")/gmu;
 const DYNAMIC_IMPORT_PATTERN = /\bimport\(\s*(?:'(\.[^']+)'|"(\.[^"]+)")/gu;
 
@@ -105,6 +139,10 @@ const DYNAMIC_IMPORT_PATTERN = /\bimport\(\s*(?:'(\.[^']+)'|"(\.[^"]+)")/gu;
  * the entry module is its own bundle root.
  */
 export const REACHABILITY_PLACED_TARGETS: ReadonlyMap<string, string> = new Map([
+	[
+		'src/common/i18n/site-copy.js',
+		'Site defaults already read by the initial BrandSidebar/use-site-copy graph; Lightscaper reuses four identity strings without giving the initial leaf an editor owner.',
+	],
 	[
 		'src/common/i18n/locale.js',
 		'Site copy leaf: `src/common/site/BrandSidebar.jsx` reads it, so an editor owner would put an editor chunk in the initial graph.',

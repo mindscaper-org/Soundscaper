@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { physicalEsbuildInputPaths } from './helpers/esbuild-metafile-inputs.ts';
+import { execFile } from 'node:child_process';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { builtinModules } from 'node:module';
-import { isAbsolute, join, matchesGlob, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
+import { dirname, isAbsolute, join, matchesGlob, relative, resolve, sep } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { build } from 'esbuild';
 
@@ -22,6 +26,7 @@ import {
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const BROWSER_TESTS = join(REPOSITORY_ROOT, 'tests/browser');
 const FRAMESCAPER_LIFECYCLE_SPEC = join(BROWSER_TESTS, 'audio-editor-framescaper-product-lifecycle.spec.js');
+const PHOTO_DIAGNOSTIC = 'scripts/lib/lightscaper-large-library-diagnostics-v1.ts';
 // The `testMatch` of playwright.nightly-tests.config.mjs.
 const TEST_FILE = /\.(?:spec|test)\.[cm]?[jt]sx?$/u;
 const BUILTIN_MODULES = new Set([
@@ -30,6 +35,19 @@ const BUILTIN_MODULES = new Set([
 	// Electron supplies this raw-filesystem builtin in addition to Node's set.
 	'node:original-fs',
 ]);
+
+test('the nightly runtime carries the browser-native container fixture dependency', async () => {
+	const staged = new Set((await resolveNightlyTestRuntimePackages(REPOSITORY_ROOT)).map(({ name }) => name));
+	assert.equal(staged.has('mediabunny'), true);
+});
+
+test('the nightly runtime carries the built GPU coverage remapper and its own runtime dependencies', async () => {
+	const staged = new Set((await resolveNightlyTestRuntimePackages(REPOSITORY_ROOT)).map(({ name }) => name));
+	for (const name of ['v8-to-istanbul', '@jridgewell/trace-mapping', '@jridgewell/resolve-uri',
+		'@jridgewell/sourcemap-codec', '@types/istanbul-lib-coverage', 'convert-source-map']) {
+		assert.equal(staged.has(name), true, `the real runtime closure must carry ${name}`);
+	}
+});
 
 test('the nightly payload carries the data file its release-line reader opens at runtime', async () => {
 	const input = 'config/product-release-lines.json';
@@ -47,7 +65,7 @@ test('the packaged spectrogram painter harness resolves its vendored colormap', 
 		bundle: true, write: false, format: 'esm', target: 'es2022', metafile: true,
 	});
 	const filter = await readPackagedPayloadFilter();
-	for (const entry of Object.keys(result.metafile.inputs)) {
+	for (const entry of physicalEsbuildInputPaths(result.metafile)) {
 		const input = relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, entry));
 		assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
 		const packaged = packagedPathOf(input);
@@ -138,7 +156,7 @@ test('the nightly test payload satisfies every import its browser specs reach', 
 
 	const staged = new Set((await resolveNightlyTestRuntimePackages(REPOSITORY_ROOT)).map(({ name }) => name));
 	const packagedFilter = await readPackagedPayloadFilter();
-	const reached = Object.keys(result.metafile.inputs)
+	const reached = physicalEsbuildInputPaths(result.metafile)
 		.map((input) => relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, input)));
 	const failures = [
 		...reached
@@ -184,6 +202,48 @@ test('the nightly payload runs the Framescaper baseline lifecycle against the sh
 		'the selected lifecycle must exercise the real product route without generating source');
 });
 
+test('the staged photo diagnostic loads through the packaged Playwright TypeScript loader', async (context) => {
+	const payload = await mkdtemp(join(tmpdir(), 'scape-nightly-photo-diagnostic-'));
+	context.after(() => rm(payload, { recursive: true, force: true }));
+	const graph = await build({ entryPoints: [join(REPOSITORY_ROOT, PHOTO_DIAGNOSTIC)],
+		bundle: true, write: false, metafile: true, platform: 'node', format: 'esm' });
+	const filter = await readPackagedPayloadFilter();
+	for (const entry of physicalEsbuildInputPaths(graph.metafile)) {
+		const input = relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, entry));
+		assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
+		const packaged = packagedPathOf(input);
+		assert.ok(packaged !== null && filter.some(pattern => matchesGlob(packaged, pattern)), input);
+		const target = join(payload, packaged);
+		await mkdir(dirname(target), { recursive: true });
+		await copyFile(join(REPOSITORY_ROOT, input), target);
+	}
+	// Use only the runtime packages the nightly launcher already ships. Disabling
+	// Node's native stripping proves Playwright handles the original source TS.
+	const packages = new Set((await resolveNightlyTestRuntimePackages(REPOSITORY_ROOT)).map(({ name }) => name));
+	for (const name of ['@playwright/test', 'playwright', 'playwright-core']) {
+		assert.ok(packages.has(name), name);
+		const target = join(payload, 'node_modules', name);
+		await mkdir(dirname(target), { recursive: true });
+		await symlink(join(REPOSITORY_ROOT, 'node_modules', name), target, 'junction');
+	}
+	await mkdir(join(payload, 'tests/browser'), { recursive: true });
+	await writeFile(join(payload, 'package.json'), '{"type":"module"}\n');
+	await writeFile(join(payload, 'playwright.config.mjs'), 'export default { testDir: "./tests/browser" };\n');
+	await writeFile(join(payload, 'tests/browser/photo-diagnostic.spec.ts'), [
+		'import { test } from "@playwright/test";',
+		'import { parseLightscaperLargeLibraryDiagnostic } from "../../scripts/lib/lightscaper-large-library-diagnostics-v1.ts";',
+		'import { PHOTO_LARGE_LIBRARY_SPECIFICATION_V1 as fixture } from "../../src/lightscaper/quality/large-library-workload-v1.ts";',
+		'if (typeof parseLightscaperLargeLibraryDiagnostic !== "function" || fixture.photoCount !== 20000) throw new Error("Staged diagnostic source did not load.");',
+		'test("staged E diagnostic source loads", () => {});',
+	].join('\n'));
+	const { stdout } = await promisify(execFile)(process.execPath, [
+		'--no-experimental-strip-types', join(payload, 'node_modules/@playwright/test/cli.js'),
+		'test', '--config', join(payload, 'playwright.config.mjs'), '--list', '--reporter=list',
+	], { cwd: payload, env: { ...process.env, NODE_OPTIONS: '' }, timeout: 30_000 });
+	assert.match(stdout, /staged E diagnostic source loads/u);
+	assert.match(stdout, /Total: 1 test in 1 file/u);
+});
+
 test('the nightly launcher ASAR satisfies every local import it reaches', async () => {
 	const result = await build({
 		entryPoints: [join(REPOSITORY_ROOT, 'desktop/nightly-tests-main.mjs')],
@@ -207,7 +267,7 @@ test('the nightly launcher ASAR satisfies every local import it reaches', async 
 	});
 	const { default: config } = await import('../electron-builder.nightly-tests.config.cjs');
 	const included = config.files.filter((pattern) => !pattern.startsWith('!'));
-	const failures = Object.keys(result.metafile.inputs)
+	const failures = physicalEsbuildInputPaths(result.metafile)
 		.map((input) => relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, input)))
 		.flatMap((input) => {
 			const packaged = packagedPathOf(input);

@@ -263,15 +263,15 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.mouse.move(clipBox.x + 28, clipBox.y + 12);
 		await page.mouse.down();
 		await expect.poll(() => waveform.evaluate((canvas) => Boolean(canvas.__kwWaveformPlan))).toBe(true);
-		await waveform.evaluate((canvas) => { globalThis.__movePreviewWaveformPlan = canvas.__kwWaveformPlan; });
+		await waveform.evaluate((canvas) => { globalThis.__movePreviewWaveformPlan = { plan: canvas.__kwWaveformPlan, width: canvas.getBoundingClientRect().width }; });
 		await page.mouse.move(clipBox.x + 148, clipBox.y + 12, { steps: 8 });
-		await expect.poll(() => waveform.evaluate((canvas) => {
-			const original = globalThis.__movePreviewWaveformPlan;
-			const preview = canvas.__kwWaveformPlan;
-			return Boolean(preview && preview !== original && preview.startFrame === original.startFrame
-				&& preview.endFrame < original.endFrame
-				&& preview.frameCount === preview.endFrame - preview.startFrame);
-		})).toBe(true);
+		await expect.poll(() => waveform.evaluate((canvas, targetX) => {
+			const { plan: original, width } = globalThis.__movePreviewWaveformPlan;
+			const preview = canvas.__kwWaveformPlan, moved = canvas.closest('[data-clip-id]');
+			return Boolean(preview && preview !== original && moved && Math.abs(moved.getBoundingClientRect().x - targetX) < 1
+				&& preview.startFrame === original.startFrame && preview.endFrame < original.endFrame && preview.frameCount === preview.endFrame - preview.startFrame
+				&& Math.abs((preview.pixelWidth - original.pixelWidth) - (canvas.getBoundingClientRect().width - width)) < 1);
+		}, clipBox.x + 120)).toBe(true);
 		const previewEndFrame = await waveform.evaluate((canvas) => canvas.__kwWaveformPlan.endFrame);
 		await page.mouse.up();
 		await expect(clip).toHaveCSS('opacity', '1');

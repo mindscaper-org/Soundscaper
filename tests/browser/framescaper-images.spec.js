@@ -91,12 +91,72 @@ test.describe('Framescaper selected timeline images', () => {
 		// the page because only a real <video> can prove the frame decodes.
 		const encoded = Buffer.from(await readDownloadBytes(page, download)).toString('base64');
 		const witness = await page.evaluate(async (base64) => {
+			async function readNativeSourceCenter(video) {
+				const frame = new VideoFrame(video);
+				let payload, result, primary;
+				let failed = false;
+				try {
+					const { primaries, transfer, matrix, fullRange } = frame.colorSpace;
+					if (frame.format !== 'I420' || primaries !== 'bt709' || transfer !== 'bt709'
+						|| matrix !== 'bt709' || fullRange !== false) throw new Error('Expected limited BT.709 I420.');
+					const visible = frame.visibleRect;
+					if (!visible || ![frame.codedWidth, frame.codedHeight].every((value) => (
+						Number.isSafeInteger(value) && value > 0 && value <= 8192
+					)) || ![visible.x, visible.y, visible.width, visible.height].every((value) => (
+						Number.isSafeInteger(value) && value >= 0
+					)) || visible.width !== 64 || visible.height !== 64
+						|| frame.displayWidth !== 64 || frame.displayHeight !== 64
+						|| visible.x + 64 > frame.codedWidth || visible.y + 64 > frame.codedHeight) {
+						throw new Error('Unexpected decoded image aperture.');
+					}
+					const rect = { x: visible.x + 32, y: visible.y + 32, width: 2, height: 2 };
+					if (rect.x % 2 || rect.y % 2 || frame.allocationSize({ rect }) !== 6) {
+						throw new Error('Unexpected center I420 allocation.');
+					}
+					payload = new Uint8Array(6);
+					const layout = await frame.copyTo(payload, { rect });
+					if (layout.length !== 3 || payload.byteLength !== 6) throw new Error('Unexpected I420 layout.');
+					const used = new Set();
+					const planes = layout.map(({ offset, stride }, plane) => {
+						const side = plane === 0 ? 2 : 1;
+						if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(stride)
+							|| stride < side) throw new Error('Invalid I420 plane bounds.');
+						return Array.from({ length: side * side }, (_, index) => {
+							const at = offset + Math.floor(index / side) * stride + index % side;
+							if (at >= 6 || used.has(at)) throw new Error('Overlapping or unbounded I420 plane.');
+							used.add(at);
+							return payload[at];
+						});
+					});
+					if (used.size !== 6) throw new Error('Incomplete I420 center copy.');
+					const cb = (planes[1][0] - 128) / 224;
+					const cr = (planes[2][0] - 128) / 224;
+					// Independent limited BT.709 matrix, inverse OETF, then IEC sRGB encoding.
+					const pixels = planes[0].map((sample) => {
+						const y = (sample - 16) / 219;
+						const red = y + 1.5748 * cr, blue = y + 1.8556 * cb;
+						return [red, (y - 0.2126 * red - 0.0722 * blue) / 0.7152, blue].map((value) => {
+							const encoded = Math.min(1, Math.max(0, value));
+							const linear = encoded < 0.081 ? encoded / 4.5 : ((encoded + 0.099) / 1.099) ** (1 / 0.45);
+							return 255 * (linear <= 0.0031308 ? 12.92 * linear : 1.055 * linear ** (1 / 2.4) - 0.055);
+						});
+					});
+					result = { format: frame.format, colorSpace: { primaries, transfer, matrix, fullRange }, pixels };
+				} catch (error) { failed = true; primary = error; }
+				const cleanup = [];
+				try { payload?.fill(0); } catch (error) { cleanup.push(error); }
+				try { frame.close(); } catch (error) { cleanup.push(error); }
+				if (cleanup.length) throw new AggregateError(failed ? [primary, ...cleanup] : cleanup,
+					'Native image center cleanup failed.', { cause: failed ? primary : cleanup[0] });
+				if (failed) throw primary;
+				return result;
+			}
 			const binary = atob(base64);
 			const bytes = new Uint8Array(binary.length);
 			for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
 			const media = new Blob([bytes], { type: 'video/mp4' });
 			const mediaUrl = URL.createObjectURL(media);
-			let centerPixel;
+			let centerPixel, sourceCopy;
 			let dimensions;
 			try {
 				const video = document.createElement('video');
@@ -120,6 +180,7 @@ test.describe('Framescaper selected timeline images', () => {
 				if (!context) throw new Error('Encoded image witness canvas is unavailable.');
 				context.drawImage(video, 0, 0, canvas.width, canvas.height);
 				centerPixel = [...context.getImageData(32, 32, 1, 1).data];
+				sourceCopy = await readNativeSourceCenter(video);
 			} finally {
 				URL.revokeObjectURL(mediaUrl);
 			}
@@ -128,14 +189,23 @@ test.describe('Framescaper selected timeline images', () => {
 				box: String.fromCharCode(...bytes.subarray(4, 8)),
 				dimensions,
 				centerPixel,
+				sourceCopy,
 			};
 		}, encoded);
 		expect(witness.byteLength).toBeGreaterThan(32);
 		expect(witness.box).toBe('ftyp');
 		expect(witness.dimensions).toEqual([64, 64]);
-		// H.264 is lossy; each decoded channel should stay near the fixture's #ff2000.
-		for (const [channel, expected] of [255, 32, 0].entries()) {
-			expect(Math.abs(witness.centerPixel[channel] - expected)).toBeLessThanOrEqual(12);
+		expect(witness.sourceCopy.format).toBe('I420');
+		expect(witness.sourceCopy.colorSpace).toEqual({
+			primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false,
+		});
+		expect(witness.sourceCopy.pixels).toHaveLength(4);
+		// H.264 is lossy; reverse the declared coding transfer before comparing source sRGB.
+		// Browser video-to-canvas presentation need not invert that transfer mathematically.
+		for (const pixel of witness.sourceCopy.pixels) {
+			for (const [channel, expected] of [255, 32, 0].entries()) {
+				expect(Math.abs(pixel[channel] - expected)).toBeLessThanOrEqual(12);
+			}
 		}
 		expect(witness.centerPixel[3]).toBe(255);
 		expect(clientErrors).toEqual([]);

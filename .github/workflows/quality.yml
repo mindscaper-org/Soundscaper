@@ -88,6 +88,8 @@ jobs:
       - name: Build and verify the Framescaper browser site
         run: npm run build:browser:framescaper
 
+      - name: Build and verify the Lightscaper browser site
+        run: npm run build:browser:lightscaper
       - name: Record the checked Soundscaper handbook
         run: node scripts/ci-handbook-build.mjs record
 
@@ -119,6 +121,15 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload the verified Lightscaper website build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-lightscaper-site-build
+          path: .wrangler/browser-products/lightscaper/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Upload the website build's source maps
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -135,6 +146,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload the Lightscaper website build's source maps
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-lightscaper-site-source-maps
+          path: .wrangler/browser-products/lightscaper-source-maps/
+          if-no-files-found: error
+          retention-days: 1
       - name: Prepare one fresh desktop test runtime for the common shards
         uses: ./.github/actions/prepare-desktop-runtime-test-fixture
 
@@ -399,7 +417,7 @@ jobs:
       # four-core runner no longer carries the whole shared suite by itself.
       # Coverage is checked only after all four shards upload their profiles.
       matrix:
-        shard: [common-1, common-2, framescaper, soundscaper]
+        shard: [common-1, common-2, framescaper, soundscaper, lightscaper]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -431,6 +449,11 @@ jobs:
       - name: Install virtual display for the native-helper Electron proof
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh xvfb
+
+      - name: Install Lightscaper native association test prerequisites
+        if: matrix.shard == 'lightscaper' || startsWith(matrix.shard, 'common-')
+        timeout-minutes: 10
+        run: bash scripts/ci-apt-install.sh libglib2.0-dev pkg-config shared-mime-info
 
       - name: Allow unprivileged user namespaces for the native isolation launcher
         # ubuntu-24.04 images restrict unprivileged user namespaces through
@@ -464,6 +487,10 @@ jobs:
       - name: Provision pinned Boost closure for Framescaper native tests
         if: matrix.shard == 'framescaper'
         run: node scripts/ci-provision-framescaper-boost.mjs
+
+      - name: Provision pinned Lightscaper RAW fixtures
+        if: matrix.shard == 'lightscaper'
+        run: node scripts/provision-lightscaper-raw-fixtures.mjs
 
       - name: Restore Electron binary for the desktop protocol test
         if: matrix.shard == 'common-2'
@@ -515,7 +542,7 @@ jobs:
     # as what the Node shards ran. It costs nothing on the critical path —
     # `deploy` already waits on both — only the moment the Coverage status
     # settles, which now trails the slowest browser shard.
-    needs: [tests, native-platform-compile, browser, lint, typecheck, audits]
+    needs: [tests, native-platform-compile, browser, browser-lightscaper-gpu, lint, typecheck, audits]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -572,7 +599,10 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
     # Run 37803116461 cancelled WebKit shard 3 at the 45-minute job deadline.
-    timeout-minutes: 60
+    # Chromium photo shards run serially to bound native image memory. Shard 3
+    # completed its 865-case command at the old 120-minute boundary, leaving
+    # no window for dual-origin qualification and coverage compaction.
+    timeout-minutes: ${{ matrix.project == 'chromium' && (matrix.shard == 3 && 150 || 120) || 60 }}
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -626,6 +656,10 @@ jobs:
       - name: Provision interchange conformance readers
         run: npm run provision:interchange-conformance
 
+      - name: Provision pinned Lightscaper RAW fixtures
+        timeout-minutes: 2
+        run: node scripts/provision-lightscaper-raw-fixtures.mjs
+
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -637,6 +671,12 @@ jobs:
         with:
           name: verified-framescaper-site-build
           path: .wrangler/browser-products/framescaper
+
+      - name: Download the verified Lightscaper website build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-lightscaper-site-build
+          path: .wrangler/browser-products/lightscaper
 
       # Beside each site rather than inside it: the sites are digest-verified
       # file by file, so nothing may be added within them. Every browser verifies
@@ -654,8 +694,23 @@ jobs:
           name: verified-framescaper-site-source-maps
           path: .wrangler/browser-products/framescaper-source-maps
 
+      - name: Download the Lightscaper website build's source maps
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-lightscaper-site-source-maps
+          path: .wrangler/browser-products/lightscaper-source-maps
+
+      - name: Collect browser shard run shape
+        id: browser-run-shape
+        run: |
+          node node_modules/@playwright/test/cli.js test --config=playwright.config.mjs --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ matrix.project == 'webkit' && 1 || 2 }} --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"
+          node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" "${{ matrix.project }}" "${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }}" "${{ matrix.project == 'webkit' && 1 || 2 }}" >> "$GITHUB_OUTPUT"
+        env:
+          SCAPE_BROWSER_COVERAGE: ${{ matrix.project == 'chromium' && '1' || '' }}
+          PWTEST_SHARD_WEIGHTS: ${{ matrix.project == 'chromium' && '24:28:28:20' || '' }}
+
       - name: Run browser workflows against the existing build
-        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
+        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ steps.browser-run-shape.outputs.workers }} --retries=${{ steps.browser-run-shape.outputs.retries }}
         env:
           # Chromium is the only engine whose V8 coverage Playwright can read, so
           # it is the only one that records. Every other project runs exactly as
@@ -711,6 +766,106 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            ${{ runner.temp }}/browser-shard-collection.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # A finite native-Float32 corpus, isolated from ordinary host GPU capability.
+  # This does not claim completion of the remaining Develop GPU families.
+  browser-lightscaper-gpu:
+    name: Browser / Lightscaper software GPU
+    needs: build
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    # The expanded 39-spec corpus includes the shared Frame shader families
+    # and 4MP mask/repair witnesses. Keep one worker and the existing per-case
+    # deadlines, with room for setup, native execution and coverage compaction.
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pin npm
+        run: |
+          npm install --global --prefix "$HOME/.local" npm@12.0.1
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download the verified Lightscaper website build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-lightscaper-site-build
+          path: .wrangler/browser-products/lightscaper
+
+      - name: Download the Lightscaper website build's source maps
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-lightscaper-site-source-maps
+          path: .wrangler/browser-products/lightscaper-source-maps
+
+      - name: Authenticate the downloaded Lightscaper build and maps
+        run: >-
+          node --input-type=module -e
+          "import { browserProductSiteForBuild } from './scripts/lib/browser-product-site-plan.mjs';
+          import { verifyBrowserProductSite } from './scripts/lib/browser-product-test-sites.mjs';
+          await verifyBrowserProductSite(browserProductSiteForBuild('lightscaper'));"
+
+      - name: Download the verified Framescaper website build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-framescaper-site-build
+          path: .wrangler/browser-products/framescaper
+
+      - name: Download the Framescaper website build's source maps
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-framescaper-site-source-maps
+          path: .wrangler/browser-products/framescaper-source-maps
+
+      - name: Authenticate the downloaded Framescaper build and maps
+        run: >-
+          node --input-type=module -e
+          "import { browserProductSiteForBuild } from './scripts/lib/browser-product-site-plan.mjs';
+          import { verifyBrowserProductSite } from './scripts/lib/browser-product-test-sites.mjs';
+          await verifyBrowserProductSite(browserProductSiteForBuild('framescaper'));"
+
+      - name: Run the native software GPU browser corpus
+        run: npx playwright test --config=playwright.lightscaper-gpu.config.mjs --project=lightscaper-software-gpu --workers=1
+        env:
+          SCAPE_BROWSER_COVERAGE: '1'
+
+      - name: Compact Lightscaper software GPU UI coverage
+        run: npm run coverage:compact:browser -- coverage/shards/browser-chromium-lightscaper-gpu.json
+
+      - name: Upload Lightscaper software GPU UI coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-shard-browser-chromium-lightscaper-gpu
+          path: coverage/shards/browser-chromium-lightscaper-gpu.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Lightscaper software GPU diagnostics
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-diagnostics-lightscaper-software-gpu
+          path: |
+            playwright-report/
+            test-results/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -725,7 +880,10 @@ jobs:
     runs-on: ubuntu-24.04
     # Run 37733071611 passed all 395 shard-2 tests in 44 minutes, then the
     # 45-minute job limit cancelled the job after setup overhead.
-    timeout-minutes: 60
+    # One real-audio worker is intentionally retained. The full shard was
+    # still advancing without a reported failed case at the old 60-minute
+    # job boundary; individual Playwright deadlines remain unchanged.
+    timeout-minutes: 90
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -790,6 +948,10 @@ jobs:
       - name: Provision interchange conformance readers
         run: npm run provision:interchange-conformance
 
+      - name: Provision pinned Lightscaper RAW fixtures
+        timeout-minutes: 2
+        run: node scripts/provision-lightscaper-raw-fixtures.mjs
+
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -801,6 +963,12 @@ jobs:
         with:
           name: verified-framescaper-site-build
           path: .wrangler/browser-products/framescaper
+
+      - name: Download the verified Lightscaper website build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-lightscaper-site-build
+          path: .wrangler/browser-products/lightscaper
 
       - name: Download the website build's source maps
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -814,11 +982,23 @@ jobs:
           name: verified-framescaper-site-source-maps
           path: .wrangler/browser-products/framescaper-source-maps
 
+      - name: Download the Lightscaper website build's source maps
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-lightscaper-site-source-maps
+          path: .wrangler/browser-products/lightscaper-source-maps
+
+      - name: Collect Firefox shard run shape
+        id: browser-run-shape
+        run: |
+          node node_modules/@playwright/test/cli.js test --config=playwright.config.mjs --project=firefox --shard=${{ matrix.shard }}/6 --workers=1 --retries=1 --list --reporter=json > "$RUNNER_TEMP/browser-shard-collection.json"
+          node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" firefox "${{ matrix.shard }}/6" 1 >> "$GITHUB_OUTPUT"
+
       - name: Run Firefox workflows against the existing build
         # A second Firefox content process can starve the live AudioContext even
         # after the PulseAudio clock probe passes. The six shard runners still
         # keep the suite parallel without competing for one runner's audio clock.
-        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/6 --workers=1
+        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/6 --workers=${{ steps.browser-run-shape.outputs.workers }} --retries=${{ steps.browser-run-shape.outputs.retries }}
 
       - name: Upload Firefox diagnostics
         if: always()
@@ -829,6 +1009,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            ${{ runner.temp }}/browser-shard-collection.json
           if-no-files-found: ignore
           retention-days: 7
 

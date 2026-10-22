@@ -5,6 +5,8 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { resolveVideoDisplayGeometry } from '../src/common/editor/video-display-geometry.ts';
+import { normalizeVideoSourceCharacteristics } from '../src/common/editor/video-source-characteristics.ts';
 import { videoSourceGeometryMedia } from './browser/fixtures/video-source-geometry-media.js';
 import { videoTimingProbeMedia } from './browser/fixtures/video-timing-probe-media.js';
 
@@ -41,8 +43,17 @@ test('WP-0.3 geometry fixtures state one picture under three declarations', () =
 		assert.deepEqual(fixture.display, turned
 			? { width: fixture.coded.height, height: stretched }
 			: { width: stretched, height: fixture.coded.height });
-		for (const presented of Object.values(fixture.presentedByEngine)) {
-			assert.ok(presented.width <= fixture.display.width && presented.height <= fixture.display.height);
+		const characteristics = normalizeVideoSourceCharacteristics({
+			codedWidth: fixture.coded.width, codedHeight: fixture.coded.height,
+			rotationDegrees: fixture.rotationDegrees, pixelAspectRatio: fixture.pixelAspectRatio,
+		});
+		for (const [engine, presented] of Object.entries(fixture.presentedByEngine)) {
+			assert.ok(Number.isSafeInteger(presented.width) && presented.width > 0
+				&& Number.isSafeInteger(presented.height) && presented.height > 0, `${fixture.id}/${engine}`);
+			const geometry = resolveVideoDisplayGeometry(characteristics, presented);
+			assert.notEqual(geometry.reconciliation, 'disagreed', `${fixture.id}/${engine}`);
+			assert.deepEqual({ width: geometry.displayWidth, height: geometry.displayHeight }, fixture.display,
+				`${fixture.id}/${engine} must reconcile to the independently declared display`);
 		}
 	}
 });

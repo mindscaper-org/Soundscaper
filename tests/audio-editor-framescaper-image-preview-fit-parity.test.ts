@@ -33,14 +33,17 @@ test('every delivery fit places a timeline image differently, so the preview mus
 });
 
 test('the baseline image preview composites through the delivery fit, as the export does', async () => {
-	const [preview, execution, panel, hook, runtime] = await Promise.all([
+	const [preview, facade, execution, panel, hook, runtime] = await Promise.all([
 		readFile(new URL('src/framescaper/editor-selected-timeline-image-image-preview.ts', ROOT), 'utf8'),
 		readFile(new URL('src/framescaper/video-export-image-execution-timeline-image.ts', ROOT), 'utf8'),
+		readFile(new URL('src/framescaper/video-export-image-execution-timeline-image-core.ts', ROOT), 'utf8'),
 		readFile(new URL('src/common/editor/ui/workspace/VideoPreviewPanel.jsx', ROOT), 'utf8'),
 		readFile(new URL('src/common/editor/ui/workspace/use-product-video-visual-preview-session.ts', ROOT), 'utf8'),
 		readFile(new URL('src/common/editor/ui/workspace/product-video-visual-preview-runtime.ts', ROOT), 'utf8'),
 	]);
 
+	assert.match(facade, /import \{ createTimelineImageExecutionCore \} from '\.\/video-export-image-execution-timeline-image-core\.ts';/u);
+	assert.match(facade, /return createTimelineImageExecutionCore\(options\);/u);
 	assert.match(execution, /fit: options\.foundationPlan\.output\.canvas\.fit/u);
 	assert.match(runtime, /readonly fit\?: VideoCanvasFit;/u);
 	assert.match(panel, /fit: referenceCanvas\.fit/u);

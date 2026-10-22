@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createTakeCompDocumentGroupsV17 } from '../../../../take-comp-document-v17.ts';
-import type { SourceProvenanceV1 } from '../../../../source-provenance.ts';
 
 /** Media fields read by take authoring, audition, and flattening in either product. */
 export interface TakeCompProject extends Readonly<Record<string, unknown>> {
@@ -10,7 +9,7 @@ export interface TakeCompProject extends Readonly<Record<string, unknown>> {
 		readonly id?: unknown;
 		readonly name?: unknown;
 		readonly channelCount?: unknown;
-		readonly provenance?: SourceProvenanceV1;
+		readonly provenance?: unknown;
 	}>[];
 	readonly tracks: readonly Readonly<{ readonly id: string; readonly locked?: boolean }>[];
 }

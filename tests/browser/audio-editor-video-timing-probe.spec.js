@@ -125,13 +125,25 @@ async function persistedTimingEvidence(page) {
 				return new Uint8Array(await (await handle.getFile()).arrayBuffer());
 			}
 			if (record.blob instanceof Blob) return new Uint8Array(await record.blob.arrayBuffer());
+			if (typeof record.mediaChunkToken !== 'string' || !record.mediaChunkToken) throw new Error('Stored media has no chunk identity.');
 			const chunks = mediaChunks
 				.filter(({ mediaChunkToken }) => mediaChunkToken === record.mediaChunkToken)
 				.sort((left, right) => left.index - right.index);
-			const bytes = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.payload.size, 0));
+			const size = chunks.reduce((total, chunk, index) => {
+				if (chunk.index !== index || chunk.sourceId !== record.sourceId || !Number.isSafeInteger(chunk.byteLength) || chunk.byteLength <= 0) {
+					throw new Error('Stored media chunks have invalid identities, order or lengths.');
+				}
+				return total + chunk.byteLength;
+			}, 0);
+			if (!chunks.length || size !== record.size) throw new Error('Stored media chunk lengths differ from their source.');
+			const bytes = new Uint8Array(size);
 			let offset = 0;
 			for (const chunk of chunks) {
-				const payload = new Uint8Array(await chunk.payload.arrayBuffer());
+				let payload;
+				if (chunk.payloadEncoding === 'array-buffer-v1' && chunk.payloadBytes instanceof ArrayBuffer) payload = new Uint8Array(chunk.payloadBytes);
+				else if (chunk.payloadEncoding === undefined && chunk.payload instanceof Blob) payload = new Uint8Array(await chunk.payload.arrayBuffer());
+				else throw new Error('Stored media chunk payload encoding is unsupported.');
+				if (payload.byteLength !== chunk.byteLength) throw new Error('Stored media chunk payload length differs.');
 				bytes.set(payload, offset);
 				offset += payload.byteLength;
 			}

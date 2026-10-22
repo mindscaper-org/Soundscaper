@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+export const MAXIMUM_INSTALL_ASSET_BYTES = 12 * 1024 * 1024;
+
 export function offlineShellFunctionSources() {
-	return [
+	return `const MAXIMUM_INSTALL_ASSET_BYTES = ${String(MAXIMUM_INSTALL_ASSET_BYTES)};\n` + [
 		plainObject,
 		exactKeys,
 		validShellPath,
@@ -56,7 +58,7 @@ export function validateOfflineShellConfiguration(value) {
 			'scope', 'workerSha256',
 		])
 		|| value.schemaVersion !== 2
-		|| !['framescaper', 'soundscaper'].includes(value.productId)
+		|| !['framescaper', 'soundscaper', 'lightscaper'].includes(value.productId)
 		|| !validShellScope(value.scope)
 		|| !Array.isArray(value.foreignScopes) || value.foreignScopes.length > 8
 		|| value.foreignScopes.some((scope, index) => !validShellScope(scope) || !scope.startsWith(value.scope)
@@ -98,7 +100,7 @@ export function validateOfflineShellConfiguration(value) {
 			throw new Error('Offline shell install descriptor exceeds its in-flight byte limit.');
 		}
 		installBytes += descriptor.byteLength;
-		if (!Number.isSafeInteger(installBytes) || installBytes > 8 * 1024 * 1024) {
+		if (!Number.isSafeInteger(installBytes) || installBytes > MAXIMUM_INSTALL_ASSET_BYTES) {
 			throw new Error('Offline shell install byte limit is exceeded.');
 		}
 	}
@@ -133,7 +135,7 @@ function legacyShellCompletionUrl(releaseId) {
 }
 
 async function completionRecord(cache, cacheName, productId) {
-	let match = cacheName.match(/^soundscaper-application-shell-v2-(framescaper|soundscaper)-([a-f\d]{64})$/u);
+	let match = cacheName.match(/^soundscaper-application-shell-v2-(framescaper|soundscaper|lightscaper)-([a-f\d]{64})$/u);
 	let marker;
 	let expected;
 	if (match) {

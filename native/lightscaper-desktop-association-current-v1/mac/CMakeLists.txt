@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+cmake_minimum_required(VERSION 3.20)
+project(lightscaper_desktop_association_mac_current_v1 LANGUAGES CXX OBJCXX)
+if(NOT APPLE OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
+  message(FATAL_ERROR "The association helper requires native macOS arm64.")
+endif()
+if(CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+  message(FATAL_ERROR "Only the maintained native arm64 target is admitted.")
+endif()
+add_executable(lightscaper-desktop-association-current-v1 mac.mm)
+set_target_properties(lightscaper-desktop-association-current-v1 PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
+target_compile_options(lightscaper-desktop-association-current-v1 PRIVATE -fobjc-arc -fblocks -Wall -Wextra -Werror)
+target_link_libraries(lightscaper-desktop-association-current-v1 PRIVATE "-framework AppKit" "-framework CoreServices")

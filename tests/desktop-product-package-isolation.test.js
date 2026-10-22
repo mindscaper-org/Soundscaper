@@ -382,6 +382,34 @@ test('Soundscaper staged entry transforms accept Windows CRLF checkouts', async 
 	}
 });
 
+test('Soundscaper transformed protocol admits only Soundscaper and retains denied foreign capture', async () => {
+	const protocolUrl = new URL('../desktop/protocol.js', import.meta.url);
+	const protocol = await readFile(protocolUrl, 'utf8');
+	let source = soundscaperProtocolSource(protocol);
+	for (const name of ['constants.js', 'freesound-integration.js', 'validation.js']) {
+		source = source.replaceAll(`'./${name}'`, JSON.stringify(new URL(name, protocolUrl).href));
+	}
+	const staged = await importSource(source);
+	const options = { rendererRoot: '/unused-renderer', runtimeRoot: '/unused-runtime', readCapabilities: { get: () => null } };
+	assert.equal(typeof staged.createProtocolHandler({ ...options, productId: 'soundscaper' }), 'function');
+	for (const productId of ['framescaper', 'lightscaper', 'other']) {
+		assert.throws(() => staged.createProtocolHandler({ ...options, productId }), /Desktop protocol product is invalid/u);
+		assert.equal(staged.securityHeaders({ productId, editorDocument: true })['Permissions-Policy'],
+			'microphone=(), speaker-selection=(), display-capture=(), camera=(), geolocation=()');
+	}
+	assert.equal(staged.securityHeaders({ productId: 'soundscaper', editorDocument: true })['Permissions-Policy'],
+		'microphone=(self), speaker-selection=(self), display-capture=(self), camera=(), geolocation=()');
+});
+
+test('Soundscaper protocol isolation refuses a changed or duplicated owning product guard', async () => {
+	const protocol = await readFile('desktop/protocol.js', 'utf8');
+	const guard = "\tif (productId !== 'soundscaper' && productId !== 'framescaper' && productId !== 'lightscaper') {";
+	assert.throws(() => soundscaperProtocolSource(protocol.replace(guard, guard.replace("'lightscaper'", "'other'"))),
+		/Cannot isolate desktop protocol product validation/u);
+	assert.throws(() => soundscaperProtocolSource(`${protocol}\n${guard}\n`),
+		/Cannot isolate desktop protocol product validation/u);
+});
+
 test('Soundscaper package audit rejects callable bridge and native-service markers', () => {
 	for (const marker of [
 		"contextBridge.exposeInMainWorld('framescaperDesktop', bridge)",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -50,7 +50,7 @@ export async function generateDesktopIcon({
 	}
 	await mkdir(dirname(outputPath), { recursive: true });
 	const master = rendered.asPng();
-	await writeFile(outputPath, master);
+	await writeCanonicalIcon(outputPath, master);
 	// The Linux set converter passes a single PNG through without resizing it.
 	// Render the launcher and menu sizes from the vectors for both deb and AppImage.
 	const linuxDirectory = resolve(dirname(outputPath), 'linux');
@@ -60,9 +60,14 @@ export async function generateDesktopIcon({
 			fitTo: { mode: 'width', value: size },
 			font: { loadSystemFonts: false },
 		}).render().asPng();
-		await writeFile(resolve(linuxDirectory, `${size}x${size}.png`), bytes);
+		await writeCanonicalIcon(resolve(linuxDirectory, `${size}x${size}.png`), bytes);
 	}
 	return outputPath;
+}
+
+async function writeCanonicalIcon(path, bytes) {
+	await writeFile(path, bytes, { mode: 0o644 });
+	await chmod(path, 0o644);
 }
 
 /** NSIS displays this before Electron exists, while the large payload extracts. */
