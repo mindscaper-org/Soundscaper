@@ -24,22 +24,23 @@ function failureText(failure: unknown): string {
 	if (failure instanceof AggregateError) return `${failure.message} ${failure.errors.map(failureText).join(' ')}`;
 	return failure instanceof Error ? failure.message : String(failure);
 }
-export default function MotionAeBridgeDialog({ store, project, copy, busy, onOpen, onClose, initialFile }: Readonly<{
+export default function MotionAeBridgeDialog({ store, project, copy, busy, onOpen, onClose, initialAdobeName }: Readonly<{
 	store: MotionscaperProjectStore; project?: MotionscaperProject; copy: Readonly<Record<string, string>>; busy: boolean;
-	onOpen: (id: string) => Promise<void>; onClose: () => void; initialFile?: File;
+	onOpen: (id: string) => Promise<void>; onClose: () => void; initialAdobeName?: string;
 }>) {
 	const id = useId(), alive = useRef(true), active = useRef<AbortController | null>(null);
 	const [textReview, setTextReview] = useState<MotionAeTextReview>({ enabled: false, spacing: 1.2, colorSpace: 'srgb' }), [fonts, setFonts] = useState<readonly MotionAeSelectedFont[]>([]);
 	const [sceneReview, setSceneReview] = useState<MotionAeSceneSelection>({ enabled: false, colorSpace: 'srgb' });
 	const [gaussianProfile, setGaussianProfile] = useState<MotionAeGaussianProfile | null>(null);
 	const [translateExpressions, setTranslateExpressions] = useState(false);
-	const [manifest, setManifest] = useState<File | null>(initialFile ?? null), [media, setMedia] = useState<readonly File[]>([]);
+	const [manifest, setManifest] = useState<File | null>(null), [media, setMedia] = useState<readonly File[]>([]);
+	const [adobeName, setAdobeName] = useState<string | null>(initialAdobeName ?? null);
 	const [prepared, setPrepared] = useState<PreparedMotionscaperAeImport | null>(null), [acknowledged, setAcknowledged] = useState(false);
 	const [cleanupFailure, setCleanupFailure] = useState<unknown>(null);
 	const [working, setWorking] = useState(false), [error, setError] = useState<string | null>(null), [status, setStatus] = useState<string | null>(null);
 	const [page, setPage] = useState(0), [importedId, setImportedId] = useState<string | null>(null);
 	useEffect(() => { alive.current = true; return () => { alive.current = false; active.current?.abort(); }; }, []);
-	const adobeProject = Boolean(manifest && /\.aepx?$/iu.test(manifest.name)), disabled = busy || working || pendingMotionDeliveryCleanup(cleanupFailure).length > 0;
+	const adobeProject = adobeName !== null, disabled = busy || working || pendingMotionDeliveryCleanup(cleanupFailure).length > 0;
 	const resetReview = () => { setPrepared(null); setAcknowledged(false); setPage(0); setError(null); setStatus(null); setImportedId(null); };
 	const run = async (operation: (signal: AbortSignal) => Promise<void>) => {
 		if (disabled || active.current) return;
@@ -88,8 +89,11 @@ export default function MotionAeBridgeDialog({ store, project, copy, busy, onOpe
 		<Button variant="secondary" disabled={disabled} onClick={() => { void scripts(); }}>{copy.motionscaperAeDownload}</Button>
 		<MotionAeExportPanel key={project?.id ?? ''} project={project} store={store} copy={copy} disabled={disabled} run={run} download={download} />
 		<fieldset disabled={disabled || Boolean(importedId)} className="motionscaper-timeline-actions"><legend>{copy.motionscaperAeReview}</legend>
-			<label htmlFor={`${id}-manifest`}>{copy.motionscaperAeManifest}</label><input id={`${id}-manifest`} type="file" accept=".json,.aep,.aepx" onChange={event => { resetReview(); setManifest(event.currentTarget.files?.[0] ?? null); }} />
-			{manifest && <p>{manifest.name}</p>}
+				<label htmlFor={`${id}-manifest`}>{copy.motionscaperAeManifest}</label><input id={`${id}-manifest`} type="file" accept=".json,.aep,.aepx" onChange={event => {
+					resetReview(); const file = event.currentTarget.files?.[0] ?? null, adobe = file !== null && /\.aepx?$/iu.test(file.name);
+					setAdobeName(adobe ? file.name : null); setManifest(adobe ? null : file);
+				}} />
+				{(manifest || adobeName) && <p>{adobeName ?? manifest?.name}</p>}
 			{adobeProject && <p role="status">{copy.motionscaperAeOriginalProject}</p>}
 			<label htmlFor={`${id}-media`}>{copy.motionscaperAeMedia}</label><input id={`${id}-media`} type="file" multiple disabled={adobeProject} onChange={event => { resetReview(); setMedia(Array.from(event.currentTarget.files ?? [])); }} />
 			<p>{copy.motionscaperAeLimits}</p>

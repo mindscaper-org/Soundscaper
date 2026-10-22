@@ -34,18 +34,24 @@ export async function writeMotionscaperDesktopProject(project: MotionscaperProje
 export async function openMotionscaperDesktopProject(session: MotionscaperDocumentSession,
 	files: MotionDesktopFiles | null = motionscaperDesktopFiles(),
 	onOpaque?: (archive: MotionscaperOpaqueArchive) => void | Promise<void>,
-	onReview?: (pending: MotionscaperDocumentOpen) => void | Promise<void>): Promise<'browser' | 'cancelled' | 'opened' | 'opaque' | 'review'> {
+	onReview?: (pending: MotionscaperDocumentOpen) => void | Promise<void>,
+	onAdobeProject?: (name: string) => void): Promise<'browser' | 'cancelled' | 'opened' | 'opaque' | 'review' | 'after-effects'> {
 	if (!files) return 'browser';
 	const selected = await selectMotionscaperDesktopArchive(files);
 	if (!selected) return 'cancelled';
-	return openMotionscaperDesktopArchiveSelection(session, selected, onOpaque, onReview);
+	return openMotionscaperDesktopArchiveSelection(session, selected, onOpaque, onReview, onAdobeProject);
 }
 
 export async function openMotionscaperDesktopArchiveSelection(session: MotionscaperDocumentSession, selected: MotionDesktopArchiveInput,
 	onOpaque?: (archive: MotionscaperOpaqueArchive) => void | Promise<void>,
-	onReview?: (pending: MotionscaperDocumentOpen) => void | Promise<void>): Promise<'opened' | 'opaque' | 'review'> {
-	let retained = false, failed = false; let failure: unknown; let result: 'opened' | 'opaque' | 'review' | undefined;
-	const inspect = async (): Promise<'opened' | 'opaque' | 'review'> => {
+	onReview?: (pending: MotionscaperDocumentOpen) => void | Promise<void>,
+	onAdobeProject?: (name: string) => void): Promise<'opened' | 'opaque' | 'review' | 'after-effects'> {
+	let retained = false, failed = false; let failure: unknown; let result: 'opened' | 'opaque' | 'review' | 'after-effects' | undefined;
+	const inspect = async (): Promise<'opened' | 'opaque' | 'review' | 'after-effects'> => {
+		if (/\.aepx?$/iu.test(selected.name)) {
+			if (!onAdobeProject) throw new Error('Open this Adobe project through the After Effects Bridge.');
+			onAdobeProject(selected.name); return 'after-effects';
+		}
 		if (onOpaque) {
 			const archive = await inspectMotionscaperOpaqueArchive(selected.input, selected.name, { release: selected.release });
 			if (archive) { await onOpaque(archive); retained = true; return 'opaque'; }

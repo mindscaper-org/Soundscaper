@@ -55,6 +55,13 @@ test('AE bridge stays opt-in, downloads readable scripts and routes Adobe projec
 	await dialog.getByLabel('AE exchange manifest', { exact: true }).setInputFiles({ name: 'Original.aep', mimeType: 'application/octet-stream', buffer: Buffer.from('untouched binary project') });
 	await expect(dialog).toContainText('Open this project in installed After Effects');
 	await expect(dialog.getByRole('button', { name: 'Review Import', exact: true })).toBeDisabled();
+	const exchange = await fixture(page);
+	await dialog.getByLabel('AE exchange manifest', { exact: true }).setInputFiles(exchange.manifest);
+	await expect(dialog).not.toContainText('Open this project in installed After Effects');
+	await expect(dialog.getByLabel('Package media files', { exact: true })).toBeEnabled();
+	await dialog.getByLabel('Package media files', { exact: true }).setInputFiles(exchange.files);
+	await dialog.getByRole('button', { name: 'Review Import', exact: true }).click();
+	await expect(dialog.getByRole('region', { name: 'Conversion report', exact: true })).toContainText('Retain original text intent');
 	await dialog.getByRole('button', { name: 'Close', exact: true }).last().click(); await expect(dialog).toHaveCount(0);
 	await menu(page, 'Open'); await page.getByLabel('Scape project (.mscape, .fscape, .sscape)', { exact: true }).setInputFiles({ name: 'Original.aepx', mimeType: 'application/xml', buffer: Buffer.from('<AfterEffectsProject/>') });
 	await expect(dialog).toContainText('Original.aepx'); await expect(dialog).toContainText('Open this project in installed After Effects');

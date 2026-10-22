@@ -3,6 +3,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from 'electron';
 import { MotionscaperLocaleSettings, dispatchMotionscaperLocale, createMotionscaperNativeMenu } from './motionscaper-locale.ts';
 import { resolveMotionscaperLocaleCopy } from '../src/common/i18n/editor-motionscaper-locale-copy.ts';
+import { resolveMotionscaperAeCopy } from '../src/common/i18n/editor-motionscaper-ae-copy.ts';
 import { localeLanguage } from '../src/common/i18n/locale.js';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -123,7 +124,10 @@ async function start(): Promise<void> {
 	const files = createMotionscaperFileAuthority({
 		chooseOpen: async () => {
 			if (!window) throw new Error('Motionscaper has no active document window.');
-			const selection = await dialog.showOpenDialog(window, { title: nativeCopy().motionscaperNativeOpenTitle, properties: ['openFile'], filters: [{ name: nativeCopy().motionscaperNativeProjectFilter, extensions: ACCEPTED_PROJECT_FILE_EXTENSIONS.map(extension => extension.slice(1)) }] });
+			const selection = await dialog.showOpenDialog(window, { title: nativeCopy().motionscaperNativeOpenTitle, properties: ['openFile'], filters: [
+				{ name: nativeCopy().motionscaperNativeProjectFilter, extensions: ACCEPTED_PROJECT_FILE_EXTENSIONS.map(extension => extension.slice(1)) },
+				{ name: resolveMotionscaperAeCopy(currentDesktopLocale).motionscaperAfterEffectsBridge!, extensions: ['aep', 'aepx'] },
+			] });
 			return selection.canceled ? null : selection.filePaths[0] ?? null;
 		},
 		chooseSave: async ({ suggestedName, defaultPath }) => {

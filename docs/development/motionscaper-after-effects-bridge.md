@@ -32,6 +32,13 @@ be downloaded alongside its untouched source exchange. Choosing `.aep` or
 `.aepx` through **File > Open** routes to installed-AE instructions without
 trying to parse the source project.
 
+The desktop chooser offers a separate Adobe project filter. This route uses
+only the selected filename, releases its native read capability and leaves the
+current document, Undo history and Save destination intact. Failed native
+cleanup remains retryable. The bridge holds queued native opens until it closes,
+including while its lazy view is loading. Adobe OS file associations remain
+outside this route.
+
 Actual Chromium workflows cover script ZIP download, AEP/AEPX routing,
 real encoded PNG import and alpha pixels in the preview, report acknowledgement,
 Save/reopen and `.mscape` custody, unused original media byte preservation,
