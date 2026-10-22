@@ -168,7 +168,7 @@ export interface RecordingCompositionDependencies {
 		options?: Readonly<{ readonly policy?: 'best-effort' | 'required' }>,
 	) => Promise<unknown>;
 	readonly updatePreferences: (patch: RecordingPreferencePatch) => Promise<unknown>;
-	readonly preflightStorage: (requiredBytes: number, operation: 'recording') => Promise<void>;
+	readonly preflightStorage: (requiredBytes: number, operation: 'recording', signal?: AbortSignal) => Promise<void>;
 	readonly publishDocumentSnapshot: () => void;
 	readonly publishTelemetrySnapshot: () => void;
 	readonly publishProjectState: () => void;

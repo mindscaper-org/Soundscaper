@@ -45,7 +45,7 @@ export interface TakeCycleRoutedCaptureRuntime {
 	createRecorder: RecordingControllerFactory;
 	createGroupId(trackId: string): string;
 	createRecordingName(trackId: string): string;
-	preflightStorage(requiredBytes: number, operation: 'take-cycle-recording'): Promise<void>;
+	preflightStorage(requiredBytes: number, operation: 'take-cycle-recording', signal?: AbortSignal): Promise<void>;
 	beginPlaybackCachePreparation(project: TakeCycleRoutedCaptureProject): Promise<unknown>;
 	handleError(error: unknown): void;
 	stopRecording?(): PromiseLike<unknown> | unknown;

@@ -93,7 +93,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			const selection = runtime.activeSelection(project);
 			await runtime.preflightStorage(
 				captureSampleRate * channelCount * Float32Array.BYTES_PER_ELEMENT * 60,
-				'recording',
+				'recording', scope.signal,
 			);
 			scope.assertCurrent();
 			const sourceId = runtime.createStableId('recording');
