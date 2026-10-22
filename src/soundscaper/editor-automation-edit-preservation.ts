@@ -253,10 +253,18 @@ function renderedClipReplacementPlan(
 		const startFrame = Math.min(...originals.map(clipStart));
 		const endFrame = Math.max(...originals.map(clipEnd));
 		const nextEndFrame = Math.max(...replacements.map(clipEnd));
-		const edit = {
+		const insertionFrames = command.entries.filter(({ clipId }) => related.has(clipId))
+			.map(({ insertionFrame }) => insertionFrame);
+		const insertionFrame = insertionFrames.find(frame => frame !== undefined);
+		if (insertionFrame !== undefined && (!Number.isSafeInteger(insertionFrame)
+			|| insertionFrame < startFrame || insertionFrame > endFrame || nextEndFrame <= endFrame
+			|| insertionFrames.some(frame => frame !== insertionFrame))) {
+			throw new RangeError('Joined insertion must retain one valid insertion point and extend its clip.');
+		}
+		const edit = insertionFrame === undefined ? {
 			startFrame, endFrame,
 			insertedDurationFrames: nextEndFrame - startFrame,
-		};
+		} : { startFrame: insertionFrame, endFrame: insertionFrame, insertedDurationFrames: nextEndFrame - endFrame };
 		for (const trackId of new Set(originals.map((clip) => trackByClipId.get(String(clip.id))))) {
 			if (trackId === undefined) continue;
 			const edits = byTrackId.get(trackId) ?? [];
