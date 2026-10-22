@@ -9,6 +9,7 @@ import { createAnalyser } from './effect-rack.ts';
 import { playbackOutputDestination } from './playback-output.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
+import { createStripMeterAnalyserBankV21 } from './strip-meter-analyser-bank-v21.ts';
 import { ENGINE_EMIT_POSITION, ENGINE_ENSURE_MASTER_LOUDNESS_METER, ENGINE_HALT_GRAPH, ENGINE_SET_STATE,
 	ENGINE_START_TICKER } from './runtime-symbols.ts';
 import type { EngineRuntimeHost } from './runtime-types.ts';
@@ -64,6 +65,8 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 		connect(source, masterAnalyser);
 		connect(masterAnalyser, meterDestination);
 	} else connect(source, meterDestination);
+	const masterBank = masterAnalyser
+		? createStripMeterAnalyserBankV21(context, nodes, masterAnalyser, { kind: 'master' }, prepared.channels.length) : null;
 	const outputFrameAt = (timelineFrame: number) => prepared.durationFrames > 0
 		? clampFrame(Math.round(timelineFrame / prepared.durationFrames * prepared.frameCount), 0, prepared.frameCount)
 		: 0;
@@ -98,6 +101,7 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 		groupAnalysers: new Map(),
 		sendAnalysers: new Map(),
 		masterAnalyser,
+		productionStripAnalysersV21: masterBank ? new Map([['master', masterBank]]) : undefined,
 		effectNodes: new Map(),
 		effectAnalysers: new Map(),
 		effectMessageSequences: new Map(),
