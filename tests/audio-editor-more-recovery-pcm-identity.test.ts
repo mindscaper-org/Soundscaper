@@ -21,7 +21,7 @@ for (const changed of [false, true]) test(`MP58: File Recover verifies ${changed
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	const descriptor = createAudioSource({ id: `digest-recovery-source-${String(changed)}`, frameCount: 8, channelCount: 2, sampleRate: 48_000 });
 	await store.writeAudioBuffer(descriptor.storageKey, { sampleRate: 48_000, numberOfChannels: 2, length: 8,
-		getChannelData: channel => new Float32Array(8).fill(channel ? -.25 : .5) }, descriptor);
+		getChannelData: (channel: number) => new Float32Array(8).fill(channel ? -.25 : .5) }, descriptor);
 	const digest = createScapeDigest();
 	await scapeAudioSourceStream(store, descriptor, digest, () => undefined).pipeTo(new WritableStream<Uint8Array>({ write() {} }));
 	const source = { ...descriptor, contentSha256: scapeHex(digest.digest()) };
