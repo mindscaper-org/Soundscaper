@@ -235,6 +235,8 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		? publishedProject.selection
 		: null;
 	const projects = publishStableValue(state.projects, PUBLISHED_PROJECT_LISTS);
+	const projectTabs = runtime.getProjectTabs();
+	const tabTitles = new Map(projectTabs.map((tab) => [tab.projectId, tab.title]));
 	const history = state.history;
 	return Object.freeze({
 		product: runtime.product,
@@ -251,9 +253,13 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		webVcr: runtime.getFramescaperWebVcrSnapshot?.() ?? null,
 		projects,
 		recentProjects: Object.freeze(state.recentProjectIds
-			.map((projectId) => projects.find((candidate) => candidate.id === projectId))
+			.map((projectId) => {
+				const summary = projects.find((candidate) => candidate.id === projectId);
+				const title = tabTitles.get(projectId);
+				return summary && title !== undefined && title !== summary.title ? Object.freeze({ ...summary, title }) : summary;
+			})
 			.filter((candidate): candidate is SnapshotProjectSummary => Boolean(candidate))),
-		projectTabs: Object.freeze(runtime.getProjectTabs().map((tab) => Object.freeze({
+		projectTabs: Object.freeze(projectTabs.map((tab) => Object.freeze({
 			id: tab.projectId,
 			title: tab.title,
 			dirty: tab.dirty,
