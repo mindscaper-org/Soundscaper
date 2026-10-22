@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { encodeDesktopAudioSettings } from './desktop-audio-encode-settings.ts';
 /** Renderer adapter for the pathless, main-owned desktop audio codec bridge. */
 import {
 	DESKTOP_AUDIO_CODEC_FORMATS,
@@ -255,7 +257,7 @@ export function createDesktopAudioCodecRuntime(bridgeValue: DesktopAudioCodecRen
 		const format = desktopFormat(formatValue);
 		const settings = withWarningDefault(settingsRecord(settingsValue, ENCODE_SETTING_FIELDS, 'encode'));
 		throwIfAborted(settings.signal);
-		const { buildDesktopAudioStreamRequest, encodeDesktopAudioSettings, stagedDesktopWavPcm } = await import('./desktop-audio-stream-request.ts');
+		const { buildDesktopAudioStreamRequest, stagedDesktopWavPcm } = await import('./desktop-audio-stream-request.ts');
 		const streamedRequest = bridge.stream ? await buildDesktopAudioStreamRequest(file, format, settings, bridge.capabilities) : null;
 		if (streamedRequest) {
 			const encoder = await import('./desktop-audio-stream-encoder.ts'); assertActive();

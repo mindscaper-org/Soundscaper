@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { DESKTOP_AUDIO_CODEC_FORMATS } from '../../../desktop/desktop-audio-codec-operation-contract.ts';
 import { desktopOriginalFileFor, releaseDesktopOriginalFile, retainDesktopOriginalFile, type DesktopOriginalFile } from './desktop-original-file-port.ts';
 import type { DesktopOriginalExportSettings } from './desktop-original-export-settings.ts';
 
@@ -22,11 +23,13 @@ interface ImportProject {
 
 interface ImportRecorderRuntime {
 	readonly state: object;
+	readonly codecRuntime?: unknown;
 	readonly getProject: () => ImportProject | null;
 	readonly publishDocumentSnapshot?: () => void;
 }
 
 const sessions = new WeakMap<object, Session>();
+const compressedAudioFormats = new Set<string>(DESKTOP_AUDIO_CODEC_FORMATS);
 
 /** Original-file authority is controller session state and never joins the saved document. */
 export function desktopOriginalForProject(state: object, projectId: string | null | undefined): DesktopOriginalMedia | null {
@@ -82,8 +85,12 @@ export function createDesktopOriginalImportRecorder<Arguments extends readonly u
 		if (original) {
 			try {
 				const { resolveDesktopOriginalExportSettings } = await import('./desktop-original-export-settings.ts');
-				const settings = await resolveDesktopOriginalExportSettings(file, newSources);
-				// A second import or a project switch may have settled while headers were read.
+				let settings = await resolveDesktopOriginalExportSettings(file, newSources);
+				if (settings && runtime.codecRuntime && typeof settings.format === 'string' && compressedAudioFormats.has(settings.format)) {
+					const { desktopOriginalAudioEncoderAvailable } = await import('./desktop-original-audio-capability.ts');
+					if (!await desktopOriginalAudioEncoderAvailable(runtime.codecRuntime, settings, newSources)) settings = null;
+				}
+				// A second import or project switch may settle during header reads or codec admission.
 				if (settings && sessions.get(runtime.state) === session && runtime.getProject()?.id === after.id) {
 					retainDesktopOriginalFile(original);
 					sessions.set(runtime.state, { ...session, original: Object.freeze({ ...original, settings }) });
