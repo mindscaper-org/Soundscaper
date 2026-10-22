@@ -9,7 +9,7 @@ import type { ClipTransformClip, ClipTransformProject } from './clip/clip-domain
 
 /** Measure the authored clip at unity gain, independently of its track and master. */
 export async function renderClipNormalizationAudio(
-	resources: Pick<ClipSourcePreviewResources, 'createEngine' | 'sourceChunkProviders'>,
+	resources: Pick<ClipSourcePreviewResources, 'createEngine' | 'sourceChunkProviders' | 'prepare'>,
 	project: ClipTransformProject,
 	clip: ClipTransformClip,
 	buffer: AudioBufferLike,
@@ -18,6 +18,8 @@ export async function renderClipNormalizationAudio(
 	signal.throwIfAborted();
 	const source = project.sources.find(value => value.id === clip.sourceId);
 	if (!source) throw new Error('Clip normalization requires its source.');
+	await resources.prepare(project, signal, { clipIds: [clip.id] });
+	signal.throwIfAborted();
 	const preview = { ...createAudioPreviewProject({ sampleRate: project.sampleRate, masterChannels: buffer.numberOfChannels,
 		sources: [source], tracks: [{ id: 'clip-normalization', type: 'audio', name: 'Clip', channelCount: buffer.numberOfChannels, clipIds: [clip.id] }],
 		clips: [{ ...clip, anchor: 'sample', musicalStartBeat: null, musicalDurationBeats: null, musicalExtent: 'fixedSamples',
