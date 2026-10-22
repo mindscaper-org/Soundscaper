@@ -4,8 +4,8 @@ import { installDesktopSpeedWarmupManifest } from './desktop-speed-warmup-fixtur
 import { createWavFixture, expect } from '../audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from '../audio-editor-test-helpers.js';
 
-export async function openInstalledGain(page) {
-	await installNativePluginParameterHost(page);
+export async function openInstalledGain(page, options = {}) {
+	await installNativePluginParameterHost(page, options);
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'recording.wav', duration: 1, channelCount: 2 })]);
 	await chooseCommandAction(page, editor, 'Effect', 'Audio Plugins');
@@ -17,10 +17,12 @@ export async function openInstalledGain(page) {
 }
 
 /** Desktop host fixture over the production preload relay and plug-in RPC port. */
-export async function installNativePluginParameterHost(page) {
+export async function installNativePluginParameterHost(page, options = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(() => {
-		const values = [.25];
+	await page.addInitScript(({ parameterCount, holdParameterReads }) => {
+		const values = Array.from({ length: parameterCount }, () => .25);
+		const heldParameterReplies = [];
+		let readsHeld = holdParameterReads;
 		const writes = [];
 		const requests = [];
 		const stateBodies = new Map();
@@ -48,6 +50,7 @@ export async function installNativePluginParameterHost(page) {
 				granted: true, roots: [{ rootId: 'system-ladspa', origin: 'standard', name: 'LADSPA', admitted: true }] }] }, quarantine };
 		Object.defineProperty(globalThis, '__nativePluginParameterHost', { configurable: true, value: {
 			values, writes, requests, setDelay: (milliseconds) => { delay = milliseconds; },
+			releaseParameterReads: () => { readsHeld = false; for (const reply of heldParameterReplies.splice(0)) reply(); },
 			get persisted() { return persisted; },
 		} });
 		const bridge = {
@@ -86,12 +89,15 @@ export async function installNativePluginParameterHost(page) {
 					} else if (request.kind === 'load-state') {
 						values.splice(0, values.length, ...JSON.parse(new TextDecoder().decode(request.bytes)));
 						reply({ kind: 'state-loaded' });
-					} else if (request.kind === 'capabilities') reply({ kind: 'capabilities', parameterCount: 1, hasVendorUi: false });
-					else if (request.kind === 'parameters') reply({ kind: 'parameters', parameters: [{
-						index: 0, id: 'gain', name: 'Gain', label: '', minimumValue: 0, maximumValue: 1,
+					} else if (request.kind === 'capabilities') reply({ kind: 'capabilities', parameterCount, hasVendorUi: false });
+					else if (request.kind === 'parameters') reply({ kind: 'parameters', parameters: Array.from({ length: parameterCount }, (_, index) => ({
+						index, id: index === 0 ? 'gain' : `parameter-${index}`, name: index === 0 ? 'Gain' : `Parameter ${index}`, label: '', minimumValue: 0, maximumValue: 1,
 						defaultValue: .25, flags: 8,
-					}] });
-					else if (request.kind === 'parameter-get') reply({ kind: 'parameter-value', index: request.index, value: values[request.index] });
+					})) });
+					else if (request.kind === 'parameter-get') {
+						const respond = () => reply({ kind: 'parameter-value', index: request.index, value: values[request.index] });
+						if (readsHeld) heldParameterReplies.push(respond); else respond();
+					}
 					else if (request.kind === 'parameter-set') {
 						writes.push(request.value);
 						setTimeout(() => {
@@ -135,5 +141,5 @@ export async function installNativePluginParameterHost(page) {
 			closeNativePluginVendorUi: refused, closeNativePluginInstance: async () => true,
 		};
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: Object.freeze({ v1: bridge }) });
-	});
+	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true });
 }
