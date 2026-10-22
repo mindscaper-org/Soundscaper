@@ -5,6 +5,7 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'config/lightscaper-libraw-runtime-manifest.json',
 	'src/common/editor/commands/clipboard-codec-core.js',
 	'src/common/editor/commands/clipboard-codec-v7.js',
+	'src/common/editor/commands/clipboard-codec.js',
 	'src/common/editor/commands/clipboard-command-v2.js',
 	'src/common/editor/commands/frame-resource-command-carriers-v2.js',
 	'src/common/editor/commands/label-clipboard-codec.js',
