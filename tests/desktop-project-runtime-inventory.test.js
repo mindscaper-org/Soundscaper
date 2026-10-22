@@ -20,6 +20,18 @@ test('the native label clipboard descriptor is admitted to the desktop project r
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes('src/common/editor/commands/label-clipboard-codec.js'));
 });
 
+test('CorridorKey inference application modules enter the exact compiled runtime inventory', () => {
+	for (const member of [
+		'desktop/assistance-corridorkey-model.js',
+		'desktop/assistance-corridorkey-inference.js',
+		'desktop/assistance-onnx-corridorkey-worker.js',
+		'src/common/editor/assistance/corridorkey-pixels-v1.js',
+	]) {
+		assert.ok(DESKTOP_ASSISTANCE_RUNTIME_FILES.includes(member), member);
+		assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(member), member);
+	}
+});
+
 test('desktop project recovery declares its application closure independently of assistance runtime assets', () => {
 	const shared = 'src/common/editor/storage/project-recovery-repository.js';
 	const soundscaper = [

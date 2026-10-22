@@ -206,6 +206,7 @@ import { createAssistanceOnnxOcrWorkerAdapterV1, } from "./assistance-onnx-ocr-w
 import { createAssistanceOnnxSaliencyWorkerAdapterV1, } from "./assistance-onnx-saliency-worker.js";
 import { createAssistanceOnnxSiglip2WorkerAdapterV1, } from "./assistance-onnx-siglip2-worker.js";
 import { createAssistanceOnnxSubjectWorkerAdapterV1, } from "./assistance-onnx-subject-worker.js";
+import { createAssistanceOnnxCorridorKeyWorkerAdapterV1 } from "./assistance-onnx-corridorkey-worker.js";
 const TRANSNET_INPUT_NAMES = Object.freeze(['frames']);
 const TRANSNET_OUTPUT_NAMES = Object.freeze(['single_frame_logits', 'all_frame_logits']);
 const RUNTIME_MODULE_ERRORS = Object.freeze({
@@ -226,6 +227,7 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1() {
     const executeOcr = createAssistanceOnnxOcrWorkerAdapterV1(loadOnnxRuntime);
     const executeSubjects = createAssistanceOnnxSubjectWorkerAdapterV1(loadOnnxRuntime);
     const executeSaliency = createAssistanceOnnxSaliencyWorkerAdapterV1(loadOnnxRuntime);
+    const executeKeying = createAssistanceOnnxCorridorKeyWorkerAdapterV1(loadOnnxRuntime);
     return async (context) => {
         if (context.grant.task === 'word-alignment') return executeWordAlignment(context);
         if (context.grant.task === 'speech-enhancement' || context.grant.task === 'source-separation') return executeEnhancementSeparation(context);
@@ -237,6 +239,7 @@ export function createAssistanceOnnxRuntimeWorkerAdapterV1() {
         if (context.grant.task === 'optical-character-recognition') return executeOcr(context);
         if (context.grant.task === 'subject-detection') return executeSubjects(context);
         if (context.grant.task === 'saliency-detection') return executeSaliency(context);
+        if (context.grant.task === 'video-keying') return executeKeying(context);
         throw new AssistanceRuntimeFamilyAdapterUnavailableError();
     };
 }
@@ -250,8 +253,8 @@ async function loadOnnxRuntime(entrypoint) {
 		'audio-tagging', 'beat-tracking', 'text-embedding',
 	]) assert.match(onnx, new RegExp(`['"]${task}['"]`, 'u'));
 	assert.doesNotMatch(onnx,
-		/shot-detection|image-text-embedding|optical-character-recognition|subject-detection|saliency-detection/iu);
-	assert.doesNotMatch(onnx, /assistance-onnx-(?:ocr|saliency|siglip2|subject)-worker/u);
+		/shot-detection|image-text-embedding|optical-character-recognition|subject-detection|saliency-detection|video-keying/iu);
+	assert.doesNotMatch(onnx, /assistance-onnx-(?:ocr|saliency|siglip2|subject|corridorkey)-worker/u);
 	assert.match(onnx, /const RUNTIME_MODULE_ERRORS = Object\.freeze/u);
 	assert.match(onnx, /reviewAssistanceOnnxRuntimeModuleV1\([^;]+RUNTIME_MODULE_ERRORS\)/u);
 	assert.doesNotMatch(onnx, /RUNTIME_SESSION_ERRORS/u);
@@ -271,7 +274,7 @@ test('Soundscaper emitted ONNX worker retains accelerated per-job loaders and sh
 
 	assert.match(transformed, /const RUNTIME_MODULE_ERRORS = Object\.freeze/u);
 	assert.doesNotMatch(transformed, /RUNTIME_SESSION_ERRORS/u);
-	assert.doesNotMatch(transformed, /executeSiglip2|executeOcr|executeSubjects|executeSaliency|executeTransNetV2/u);
+	assert.doesNotMatch(transformed, /executeSiglip2|executeOcr|executeSubjects|executeSaliency|executeTransNetV2|executeKeying|corridorkey-worker/u);
 	const acceleration = await emitFixtureSource(new URL('../desktop/assistance-onnx-acceleration.ts', import.meta.url));
 	const audioPorts = ['AudioRuntime', 'EnhancementSeparation', 'Dereverb', 'Kokoro', 'TextEmbedding', 'WordAlignment']
 		.map((name) => `function createAssistanceOnnx${name}WorkerAdapterV1(loadRuntime) {
