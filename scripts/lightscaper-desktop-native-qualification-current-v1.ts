@@ -14,6 +14,17 @@ import { launchLightscaperManagedSmokeProcessCurrentV1 } from './lib/lightscaper
 import { admitLightscaperWindowsJobHelperCurrentV1, launchLightscaperWindowsJobProcessCurrentV1 } from './lib/lightscaper-windows-job-driver-current-v1.ts';
 
 const MAXIMUM_RECEIPT = 16 * 1024 * 1024, MAXIMUM_ARTIFACT = 64 * 1024 * 1024;
+type QualificationWorkRemover = (path: string, options: Readonly<{
+	recursive: true; force: false; maxRetries: number; retryDelay: number;
+}>) => Promise<void>;
+
+/** Only called after both package phases and their actual process owners joined. */
+export async function retireLightscaperDesktopNativeWorkCurrentV1(
+	workRoot: string, remove: QualificationWorkRemover = rm,
+): Promise<void> {
+	await remove(workRoot, { recursive: true, force: false, maxRetries: 10, retryDelay: 100 });
+}
+
 /** Internal qualification, never a release publisher. Packaging uses the public
  * command. Only successful actual app/group/Job retirement permits work removal. */
 export async function runLightscaperDesktopNativeQualificationCurrentV1(args: readonly string[]): Promise<string> {
@@ -98,7 +109,7 @@ export async function runLightscaperDesktopNativeQualificationCurrentV1(args: re
 			const smokeReceipt = await receipt(`${phase.name}-smoke.json`, smoke);
 			phases.push(Object.freeze({ name: phase.name, packageReceipt: packagePath, smokeReceipt }));
 		}
-		await rm(workRoot, { recursive: true, force: false }); complete = true;
+		await retireLightscaperDesktopNativeWorkCurrentV1(workRoot); complete = true;
 		return await receipt('qualification.json', { schemaVersion: 1, kind: 'lightscaper-internal-native-desktop-qualification-current-v1',
 			status: 'passed', target: plan.target.target, sourceRevision: plan.sourceRevision, releaseChannel: 'deferred',
 			phases, workRemoved: true, workRetained: false });
