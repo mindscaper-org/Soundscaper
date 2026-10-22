@@ -249,7 +249,7 @@ export function createNyquistGeneratedAudioService<Buffer extends NyquistGenerat
 				targetTrackId = runtime.createId('track');
 				commands.push(createAddTrackCommand({
 					type: 'audio', id: targetTrackId, name,
-				}));
+				}, sampleRate));
 			}
 			const selectedClipId = runtime.createId('clip');
 			commands.push(createAddClipCommand(requireId(targetTrackId, 'track'), {

@@ -29,7 +29,7 @@ export function prepareMediaNewTrackPlan(project: ClipTransformProject, clips: r
 				const audioTrackId = createId('track');
 				commands.push(createAddTrackCommand({ type: 'audio', id: audioTrackId,
 					name: companion?.name || `${track.name} Audio`, channelCount: companion?.channelCount || 2,
-					color: companion?.color, armed: false, laneGroupId }));
+					color: companion?.color, armed: false, laneGroupId }, project.sampleRate));
 				if (companion) destinationTrackIds.set(companion.id, audioTrackId);
 			}
 		} else if (track.type === 'audio') {
@@ -37,7 +37,7 @@ export function prepareMediaNewTrackPlan(project: ClipTransformProject, clips: r
 			commands.push(createAddTrackCommand({ type: 'audio', id: trackId,
 				name: `${trackName} ${project.tracks.length + commands.length + 1}`,
 				...(track.channelCount === undefined ? {} : { channelCount: track.channelCount }),
-				...(track.color === undefined ? {} : { color: track.color }), armed: false }));
+				...(track.color === undefined ? {} : { color: track.color }), armed: false }, project.sampleRate));
 			destinationTrackIds.set(track.id, trackId);
 		}
 	}

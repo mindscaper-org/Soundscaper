@@ -211,7 +211,7 @@ export function createClipTransformService(
 			id: dependencies.createId('track'),
 			name: `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + index + 1}`,
 			armed: false,
-		}));
+		}, project.sampleRate));
 		const virtualTracks: ClipTransformTrack[] = [
 			...audioTracks,
 			...newTrackCommands.map((command) => command.track as unknown as ClipTransformTrack),

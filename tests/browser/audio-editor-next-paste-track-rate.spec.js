@@ -39,7 +39,7 @@ test('Paste creates a destination track in a lower-rate native project', async (
 	await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(1);
 });
 
-for (const action of ['bin', 'import']) test(`${action} creates a track at the lower-rate project clock`, async ({ page }) => {
+for (const action of ['bin', 'import', 'generate', 'move', 'nyquist']) test(`${action} creates a track at the lower-rate project clock`, async ({ page }) => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {
@@ -47,6 +47,8 @@ for (const action of ['bin', 'import']) test(`${action} creates a track at the l
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write([new Float32Array(24_000).fill(.25)]); await writer.commit();
 		const project = createSoundscaperProject({ id: `rate-${action}`, sampleRate: 24_000,
+			...(action === 'move' ? { sources: [source], clips: [createAudioClip({ id: 'clip', title: 'Recording', sourceId: source.id, durationFrames: 24_000, sourceDurationFrames: 24_000 })],
+				tracks: [createAudioTrack({ id: 'voice', clipIds: ['clip'] }, 24_000)] } : {}),
 			...(action === 'bin' ? { sources: [source], projectBin: { clips: [createAudioClip({ id: 'bin-clip', binItemId: 'recording', title: 'Recording',
 				sourceId: source.id, durationFrames: 24_000, sourceDurationFrames: 24_000 })] } } : {}) });
 		blob = (await exportScapeProject(project, store)).blob;
@@ -57,10 +59,32 @@ for (const action of ['bin', 'import']) test(`${action} creates a track at the l
 	if (action === 'bin') {
 		if (!await editor.locator('[data-workspace-panel="project-bin"]').isVisible()) await chooseNestedCommandAction(page, editor, 'Window', ['Project bin']);
 		await editor.locator('[data-project-bin-item="recording"]').getByRole('button', { name: 'Add to timeline: Recording', exact: true }).click();
+	} else if (action === 'generate') {
+		await chooseCommandAction(page, editor, 'Generate', 'Tone');
+		await page.getByRole('dialog', { name: 'Tone', exact: true }).getByRole('button', { name: 'Generate', exact: true }).click();
+	} else if (action === 'nyquist') {
+		await chooseNestedCommandAction(page, editor, 'Generate', ['Nyquist', 'Risset Drum']);
+		const dialog = page.getByRole('dialog', { name: 'Risset Drum', exact: true });
+		await dialog.getByRole('spinbutton', { name: /^Decay \(seconds\)/u }).fill('1');
+		await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+		await expect(dialog).toBeHidden({ timeout: 20_000 });
+	} else if (action === 'move') {
+		const clip = editor.locator('[data-clip-id="clip"]');
+		await clip.scrollIntoViewIfNeeded();
+		const box = await clip.boundingBox();
+		const inner = await editor.locator('.audio-editor-timeline-inner').boundingBox();
+		const lastTrack = await editor.locator('.audio-editor-track-row').last().boundingBox();
+		expect(box).not.toBeNull(); expect(inner).not.toBeNull(); expect(lastTrack).not.toBeNull();
+		const targetY = Math.min(inner.y + inner.height - 16, lastTrack.y + lastTrack.height + 32);
+		await page.mouse.move(box.x + 32, box.y + 10); await page.mouse.down();
+		await page.mouse.move(box.x + 32, targetY, { steps: 6 });
+		await expect(editor.locator('.audio-editor-new-track-drop-preview')).toBeVisible(); await page.mouse.up();
+		await expect(editor).toHaveAttribute('data-track-count', '2');
 	} else await editor.locator('[data-import-input]').setInputFiles({ name: 'Recording.wav', mimeType: 'audio/wav', buffer: Buffer.from(encodeWav(
 		[new Float32Array(24_000).fill(.25)], { sampleRate: 24_000, float: true })) });
 	await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(1);
-	await expect.poll(async () => (await persistedProject(page, `rate-${action}`))?.clips[0]?.durationFrames).toBe(24_000);
-	await chooseCommandAction(page, editor, 'Edit', 'Undo'); await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(0);
+	await expect.poll(async () => (await persistedProject(page, `rate-${action}`))?.clips[0]?.durationFrames).toBe(action === 'generate' ? 720_000 : 24_000);
+	await chooseCommandAction(page, editor, 'Edit', 'Undo'); await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(action === 'move' ? 1 : 0);
+	if (action === 'move') await expect(editor).toHaveAttribute('data-track-count', '1');
 	await chooseCommandAction(page, editor, 'Edit', 'Redo'); await expect(editor.locator('[data-clip-id] .clip-header')).toHaveCount(1);
 });
