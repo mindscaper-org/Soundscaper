@@ -119,6 +119,7 @@ export function createProjectBinPreviewService(
 			throw createLocalizedError(Error, dependencies.copy, 'localSourcesMissing');
 		}
 		const task = dependencies.lifetime.startTask(PROJECT_BIN_PREVIEW_TASK, { scope: EDITOR_PROJECT_TASK_SCOPE });
+		let startingPreview: ProjectBinPreview | null = null;
 		try {
 			previewEngine ??= createOwnedPreviewEngine();
 			previewEngine.setSourceResolver?.(dependencies.sourceResolver);
@@ -154,6 +155,7 @@ export function createProjectBinPreviewService(
 				kind: videoClip ? 'video' as const : 'audio' as const,
 				...(videoClip ? { mediaUrl: dependencies.getVisualData(clipId)?.mediaUrl || null, audioSourceId: source.id } : {}),
 			});
+			startingPreview = preview;
 			dependencies.setPreview(preview);
 			dependencies.publish();
 			await dependencies.prepareTimePitchCaches?.({ ...project, clips: [...project.clips, ...projectBinClips(project)] },
@@ -166,6 +168,9 @@ export function createProjectBinPreviewService(
 				dependencies.publish();
 			}
 			return dependencies.getPreview() ?? preview;
+		} catch (error) {
+			await retireFailedPreview(task, projectToken, startingPreview);
+			throw error;
 		} finally {
 			task.finish();
 		}
@@ -198,9 +203,19 @@ export function createProjectBinPreviewService(
 			dependencies.setPreview(playing);
 			dependencies.publish();
 			return playing;
+		} catch (error) {
+			await retireFailedPreview(task, projectToken, active);
+			throw error;
 		} finally {
 			task.finish();
 		}
+	}
+
+	async function retireFailedPreview(
+		task: EditorTaskScope, projectToken: EditorProjectToken, expected: ProjectBinPreview | null,
+	): Promise<void> {
+		try { assertCurrent(task, projectToken); } catch { return; }
+		if (expected && dependencies.getPreview() === expected) await stopProjectBinPreview();
 	}
 
 	async function stopProjectBinPreview(
