@@ -7,6 +7,7 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import type { ClipTimePitchCacheEntry } from '../src/common/editor/controller/source/clip-time-pitch-service.ts';
 import { spectrogramColumnReuseKey } from '../src/common/editor/ui/timeline/spectrogram-column-reuse.ts';
+import type { TimelineWaveformClip } from '../src/common/editor/ui/timeline/waveform-view-model.ts';
 
 function fixture() {
 	const source = createAudioSource({ id: 'tone', frameCount: 48_000, channelCount: 1, sampleRate: 48_000 });
@@ -70,7 +71,8 @@ test('untransformed and linked-varispeed clips keep their existing source projec
 
 test('spectral cache identity follows independent processing without changing waveform geometry', () => {
 	const f = fixture();
-	const clip = { ...f.clip, timelineStartFrame: 0, waveformStartFrame: 0, waveformEndFrame: 24_000 };
+	const clip: TimelineWaveformClip = { ...f.clip, timelineStartFrame: 0, durationFrames: 24_000,
+		waveformStartFrame: 0, waveformEndFrame: 24_000 };
 	const key = (changes = {}) => spectrogramColumnReuseKey({ clip: { ...clip, ...changes }, source: f.source,
 		width: 100, sampleRate: 48_000, fftWindowSize: 2048, windowType: 'hann', project: f.project });
 	for (const changes of [{ pitchCents: 0 }, { preserveFormants: true }, { renderCacheRevision: 10 }, { linkPitchAndTempo: true }]) {
