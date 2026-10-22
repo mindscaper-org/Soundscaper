@@ -29,7 +29,8 @@ for (const anchor of ['musical', 'sample'] as const) test(`NP018: Edit Duplicate
 	controller.actions.edit.duplicate();
 	const project: unknown = controller.project; assert.ok(validateSoundscaperProject(project));
 	assert.equal(project.tracks.length, 2);
-	const copied = project.tracks[1]?.labels?.[0]; assert.ok(copied);
+	const labels = project.tracks[1]?.labels; assert.ok(Array.isArray(labels));
+	const copied: unknown = labels[0]; assert.ok(record(copied));
 	assert.notEqual(copied.id, 'span');
 	assert.equal(copied.anchor, anchor);
 	if (anchor === 'musical') assert.deepEqual([copied.startBeat, copied.endBeat], [{ num: 7, den: 2 }, { num: 9, den: 2 }]);
@@ -40,3 +41,7 @@ for (const anchor of ['musical', 'sample'] as const) test(`NP018: Edit Duplicate
 	controller.actions.edit.undo(); assert.deepEqual(controller.project?.tracks, before);
 	controller.actions.edit.redo(); assert.deepEqual(controller.project?.tracks, duplicated);
 });
+
+function record(value: unknown): value is Readonly<Record<string, unknown>> {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
