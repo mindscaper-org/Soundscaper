@@ -17,6 +17,7 @@ import { useAudacityEffectOptions } from './audacity-effect-options.ts';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
 import EffectPresetBar from './EffectPresetBar.jsx';
 import EffectParameterEditor from './EffectParameterEditor.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { LabeledDropdown } from './inspector-controls.jsx';
 import { effectPresetChoices, safeEffectLabel, samePresetParams } from './effect-helpers.ts';
 
@@ -298,6 +299,7 @@ export function SelectionEffectsDialog({ isOpen, controller, snapshot, copy, fil
 					/>
 				)}
 				<EffectParameterEditor
+					key={editorProjectEditSessionKey(controller, projectIdentity)}
 					advancedSettings={advancedSettings}
 					effect={{
 						type: selectionType,

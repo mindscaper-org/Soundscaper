@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'; import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts'; import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { EffectsPanel } from '@soundscaper/design-system/EffectsPanel';
 import { audioSelectionEffectDefaults, createEffect } from '../../effects.js';
 import { audioEffectControlTracks } from '../../audio-effect-control-tracks.ts';
@@ -126,7 +127,6 @@ export function AudioEditorEffectsOverlay({
 			button.removeAttribute('title');
 		}
 	}, [copy.effectStackOptions, isOpen, channel?.id]);
-
 	const liveProjectIdentity = () => controller.project?.id ?? null;
 	const run = (work) => {
 		const session = operationSessionRef.current;
@@ -228,7 +228,6 @@ export function AudioEditorEffectsOverlay({
 		},
 		onOpenEffectPicker: (index, anchor) => openPicker(scope, effects[index]?.id || null, anchor),
 	});
-
 	const effectRack = selectedEffect?.scope === 'master' ? masterEffects : channelEffects;
 	const effect = effectRack.find((candidate) => candidate.id === selectedEffect?.id) || null;
 	const { advancedSettings, onAdvancedSettings } = useAudacityEffectOptions(effect?.type || '', `${projectIdentity}:${effect?.id || ''}`);
@@ -431,6 +430,7 @@ export function AudioEditorEffectsOverlay({
 				>
 					<section className="audio-editor-effect-settings">
 						<LazyEffectParameterEditor
+							key={editorProjectEditSessionKey(controller, projectIdentity)}
 							advancedSettings={advancedSettings}
 							effect={effect}
 							copy={copy}
