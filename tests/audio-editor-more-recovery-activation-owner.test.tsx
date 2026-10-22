@@ -44,8 +44,8 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 	const dom = installReactTestDom();
 	const keyListeners = new Set<EventListenerOrEventListenerObject>();
 	const add = document.addEventListener.bind(document), remove = document.removeEventListener.bind(document);
-	document.addEventListener = (type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) => { if (type === 'keydown' && listener) keyListeners.add(listener); add(type, listener, options); };
-	document.removeEventListener = (type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions) => { if (type === 'keydown' && listener) keyListeners.delete(listener); remove(type, listener, options); };
+	document.addEventListener = (type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) => { if (type === 'keydown' && listener) keyListeners.add(listener); if (listener) add(type, listener, options); };
+	document.removeEventListener = (type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions) => { if (type === 'keydown' && listener) keyListeners.delete(listener); if (listener) remove(type, listener, options); };
 	const root = createRoot(dom.container as unknown as Element);
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const prior = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
@@ -68,8 +68,9 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 		assert.ok(button); assert.equal(reactProps(button).disabled, false);
 		await act(async () => { reactProps(button).onClick(); await started; });
 		await act(async () => {
-			const event = { key: 'Escape', defaultPrevented: false, isComposing: false,
-				preventDefault() { this.defaultPrevented = true; } } as KeyboardEvent;
+			let prevented = false;
+			const event = { key: 'Escape', get defaultPrevented() { return prevented; }, isComposing: false,
+				preventDefault() { prevented = true; } } as KeyboardEvent;
 			for (const listener of keyListeners) { if (typeof listener === 'function') listener(event); else listener.handleEvent(event); }
 		});
 		assert.equal(dom.find('[data-project-recovery-dialog="true"]'), null);
