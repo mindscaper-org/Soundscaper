@@ -5,15 +5,16 @@ import test from 'node:test';
 import { admitPhotoSmartCollectionSaveV1 } from '../src/lightscaper/catalog/photo-smart-collection-repository-types-v1.ts';
 import { normalizePhotoSmartCollectionV1 } from '../src/lightscaper/catalog/photo-smart-collection-v1.ts';
 
-function definition() {
+function definition(originalTerm = { kind: 'text', column: 'camera-make', operator: 'equals', value: 'Canon' }) {
 	return { schemaVersion: 1, kind: 'photo-smart-collection', catalogId: 'catalog', id: 'saved', revision: 0, name: 'Saved',
 		query: { schemaVersion: 2, kind: 'photo-catalog-query', text: 'Canon', predicate: { kind: 'all', terms: [
-			{ kind: 'text', column: 'camera-make', operator: 'equals', value: 'Canon' }, { kind: 'keyword', id: 'keyword' },
+			originalTerm, { kind: 'keyword', id: 'keyword' },
 		] } } };
 }
 
 test('a successfully admitted definition is reused by identity including its full immutable Query2 graph', () => {
-	const input = definition(), originalTerm = input.query.predicate.terms[0]!;
+	const originalTerm = { kind: 'text', column: 'camera-make', operator: 'equals', value: 'Canon' };
+	const input = definition(originalTerm);
 	const admitted = admitPhotoSmartCollectionSaveV1(input, null);
 	assert.notEqual(admitted, input); assert.equal(admitPhotoSmartCollectionSaveV1(admitted, null), admitted);
 	assert.equal(admitPhotoSmartCollectionSaveV1(admitted, 0), admitted); assert.equal(Object.isFrozen(admitted.query), true);
