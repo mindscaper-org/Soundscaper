@@ -42,6 +42,9 @@ for (const identifiers of [['STYLE introduction', 'REGION A'], ['REGION\tA', 'ST
 		]);
 		controller.actions.edit.undo(); assert.ok(!controller.project?.tracks.some(value => value.id === track.id));
 		controller.actions.edit.redo(); assert.deepEqual(controller.project?.tracks.find(value => value.id === track.id), track);
+		const exported = await controller.actions.labels.export({ format: 'vtt', download: false, trackIds: [track.id] });
+		assert.deepEqual(parseAudioEditorLabels(exported.text, { format: 'vtt' }).labels
+			.map(label => label.opaqueExtensions?.cueIdentifier), identifiers, 'File Export preserves valid imported cue identifiers');
 	});
 }
 

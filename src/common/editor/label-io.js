@@ -12,6 +12,7 @@ const DEFAULT_MAX_INPUT_CHARS = 16 * 1024 * 1024;
 const DEFAULT_MAX_LABELS = 100_000;
 const DEFAULT_MAX_TITLE_CHARS = 1_000_000;
 const DEFAULT_MAX_TOTAL_TITLE_CHARS = 8 * 1024 * 1024;
+const WEBVTT_METADATA_HEADER = /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/u;
 const TIME_ARROW = /\s+-->\s+/;
 
 /** Error with machine-readable context for a malformed label file. */
@@ -214,7 +215,7 @@ function parseTimedEntries(text, context, format) {
 		while (index < lines.length && !lines[index].trim()) index += 1;
 		if (index >= lines.length) break;
 		const cueStartLine = index + 1;
-		if (format === 'vtt' && /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/.test(lines[index])) {
+		if (format === 'vtt' && WEBVTT_METADATA_HEADER.test(lines[index])) {
 			while (index < lines.length && lines[index].trim()) index += 1;
 			continue;
 		}
@@ -350,7 +351,7 @@ function serializeTimed(labels, context, format) {
 		if (context.includeCueIdentifiers) {
 			const identifier = String(label.opaqueExtensions?.cueIdentifier || index + 1);
 			const safe = !/[\r\n\0]/u.test(identifier) && !identifier.includes('-->')
-				&& !/^(?:NOTE|STYLE|REGION)(?:[ \t]|$)/u.test(identifier);
+				&& !WEBVTT_METADATA_HEADER.test(identifier);
 			lines.push(String(format === 'srt' || !safe ? index + 1 : identifier));
 		}
 		const startMilliseconds = Math.round(label.startFrame * 1000 / context.sampleRate);
