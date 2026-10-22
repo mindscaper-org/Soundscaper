@@ -95,7 +95,7 @@ function TrackListViewSession({
 	const inspectReadOnly = Boolean(snapshot.readOnly) && !selectAudioEditorBusyBlock(snapshot).blocked;
 	const plan = useMemo(
 		() => planTrackListRows(inspectTrackFolderSnapshot(snapshot.trackFolders, collapsedOverrides), project.tracks, project.trackFolders || []),
-		[snapshot.trackFolders, snapshot.readOnly, collapsedOverrides, project.tracks, project.trackFolders],
+		[snapshot.trackFolders, collapsedOverrides, project.tracks, project.trackFolders],
 	);
 	const trackIndexById = useMemo(
 		() => new Map(project.tracks.map((track, index) => [track.id, index])),
