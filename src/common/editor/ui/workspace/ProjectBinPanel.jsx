@@ -145,7 +145,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
 			fileService,
 			importFiles,
-		}, 'media', true);
+		}, 'audio-video', true);
 	});
 	const chooseLinkedMedia = (kind) => run(async () => {
 		if (mutationBlocked) return;

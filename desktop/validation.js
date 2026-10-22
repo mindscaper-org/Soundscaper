@@ -19,6 +19,9 @@ const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
 	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'm4a', 'm4v', 'mka', 'mp2', 'mp3', 'mp4',
 	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 ]);
+const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
+	(extension) => !['cue', 'srt', 'txt', 'vtt'].includes(extension),
+));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
 	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
 ]);
@@ -43,6 +46,10 @@ const FILE_PURPOSES = Object.freeze({
 	media: Object.freeze({
 		extensions: MEDIA_IMPORT_EXTENSIONS,
 		filters: Object.freeze([{ name: 'Audio, video, CUE sheets, and labels', extensions: [...MEDIA_IMPORT_EXTENSIONS] }]),
+	}),
+	'audio-video': Object.freeze({
+		extensions: AUDIO_VIDEO_IMPORT_EXTENSIONS,
+		filters: Object.freeze([{ name: 'Audio and video', extensions: [...AUDIO_VIDEO_IMPORT_EXTENSIONS] }]),
 	}),
 	image: Object.freeze({
 		extensions: Object.freeze(['jpg', 'jpeg', 'png', 'apng', 'gif', 'webp', 'bmp']),
