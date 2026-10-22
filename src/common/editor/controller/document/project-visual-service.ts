@@ -424,7 +424,7 @@ export function createProjectVisualService(
 	): boolean {
 		if (!isCurrent(sourceId, generation)) return false;
 		if (projectToken !== null) dependencies.assertProject(projectToken);
-		return dependencies.getProject() === project;
+		return dependencies.getProject()?.id === project?.id;
 	}
 
 	async function dropVisual(sourceId: string): Promise<boolean> {
