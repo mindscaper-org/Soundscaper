@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import { selectAudioEditorBusyBlock } from '../../edit-blocking.ts';
+import { inspectTrackFolderSnapshot } from './track-folder-inspection-snapshot.ts';
 
 import { MemoizedAudioTrackRow } from './MemoizedAudioTrackRow.jsx';
 import { EMPTY_TIMELINE_CLIPS } from './constants.ts';
@@ -24,7 +26,7 @@ import { resolveTrackAutomationCopy } from '../soundscaper-workflow-product-runt
  * preorder on foldered documents.
  */
 export function TrackListView(props) {
-	return <TrackListViewSession key={editorProjectEditSessionKey(props.controller, props.project?.id)} {...props} />;
+	return <TrackListViewSession key={`${editorProjectEditSessionKey(props.controller, props.project?.id)}:${Boolean(props.snapshot.readOnly)}`} {...props} />;
 }
 
 function TrackListViewSession({
@@ -86,9 +88,11 @@ function TrackListViewSession({
 	);
 	const [activeFolderId, setActiveFolderId] = useState(null);
 	const [editingFolderId, setEditingFolderId] = useState(null);
+	const [collapsedOverrides, setCollapsedOverrides] = useState(() => new Map());
+	const inspectReadOnly = Boolean(snapshot.readOnly) && !selectAudioEditorBusyBlock(snapshot).blocked;
 	const plan = useMemo(
-		() => planTrackListRows(snapshot.trackFolders, project.tracks, project.trackFolders || []),
-		[snapshot.trackFolders, project.tracks, project.trackFolders],
+		() => planTrackListRows(snapshot.readOnly ? inspectTrackFolderSnapshot(snapshot.trackFolders, collapsedOverrides) : snapshot.trackFolders, project.tracks, project.trackFolders || []),
+		[snapshot.trackFolders, snapshot.readOnly, collapsedOverrides, project.tracks, project.trackFolders],
 	);
 	const trackIndexById = useMemo(
 		() => new Map(project.tracks.map((track, index) => [track.id, index])),
@@ -99,8 +103,12 @@ function TrackListViewSession({
 		setActiveFolderId(folderId);
 		run(() => trackFolderActions.select(folderId));
 	};
-	const toggleFolderCollapsed = (folderId) => !mutationsBlocked
-		&& run(() => trackFolderActions.toggleCollapsed(folderId));
+	const toggleFolderCollapsed = (folderId) => {
+		if (inspectReadOnly) {
+			const row = plan.folderRows.find(candidate => candidate.id === folderId);
+			if (row) setCollapsedOverrides(current => new Map(current).set(folderId, !row.collapsed));
+		} else if (!mutationsBlocked) run(() => trackFolderActions.toggleCollapsed(folderId));
+	};
 	const setFolderFlag = (folderId, flag, value) => !mutationsBlocked
 		&& run(() => trackFolderActions.update(folderId, { [flag]: value }));
 	const focusFolderRow = (folderId) => {
@@ -296,6 +304,7 @@ function TrackListViewSession({
 							plan={plan}
 							copy={copy}
 							blocked={mutationsBlocked}
+							collapseBlocked={mutationsBlocked && !inspectReadOnly}
 							selected={activeFolderId === entry.row.id}
 							activeFolderId={activeFolderId}
 							isFlatNavigation={isFlatNavigation}
