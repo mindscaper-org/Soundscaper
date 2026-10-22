@@ -182,8 +182,8 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 		if (!originalSource) throw new RangeError('The clip source is missing.');
 		let source = originalSource;
 		if (fields.has('source')) {
-			const reference = fields.get('source')!.trim();
-			if (!reference) throw new RangeError('A source file is required.');
+			const reference = fields.get('source')!;
+			if (!reference.trim()) throw new RangeError('A source file is required.');
 			const resolvedReference = options.resolvedSourceIds && Object.hasOwn(options.resolvedSourceIds, reference)
 				? options.resolvedSourceIds[reference]! : reference;
 			const target = sourceForReference(sources, resolvedReference);
@@ -287,11 +287,14 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 }
 
 function sourceForReference(sources: ReadonlyMap<string, SpreadsheetSource>, reference: string): SpreadsheetSource | undefined {
-	const byId = sources.get(reference);
-	if (byId) return byId;
-	const byName = [...sources.values()].filter(source => source.name === reference);
-	if (byName.length > 1) throw new RangeError(`The source name is ambiguous; use its ID: ${reference}.`);
-	return byName[0];
+	for (const spelling of new Set([reference, reference.trim()])) {
+		const byId = sources.get(spelling);
+		if (byId) return byId;
+		const byName = [...sources.values()].filter(source => source.name === spelling);
+		if (byName.length > 1) throw new RangeError(`The source name is ambiguous; use its ID: ${reference}.`);
+		if (byName[0]) return byName[0];
+	}
+	return undefined;
 }
 
 function validateSource(source: SpreadsheetSource): void {

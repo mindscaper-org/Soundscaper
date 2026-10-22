@@ -93,6 +93,16 @@ test('loaded-source rows and existing edits paste as one undo entry without impo
 	assert.deepEqual(getClipSpreadsheetRows(undoEditorCommand(f.history).present), getClipSpreadsheetRows(f.initial));
 });
 
+test('selected spreadsheet source files retain whitespace in the requested reference across import', async () => {
+	const f = fixture();
+	const file = new File(['RIFF'], ' take.wav ', { type: 'audio/wav' });
+	await f.paste('sheet', [], [{ source: ' take.wav ', track: 'Voice', duration: '1' }],
+		[{ reference: ' take.wav ', file }]);
+	assert.deepEqual(f.imports, [' take.wav ']);
+	assert.equal(f.history.present.sources[1]?.name, file.name);
+	assert.equal(f.history.present.clips[1]?.sourceId, f.history.present.sources[1]?.id);
+});
+
 test('source edits import replacement files and join other pasted edits in one undo entry', async () => {
 	const f = fixture();
 	const file = new File(['audio'], 'Replacement.wav', { type: 'audio/wav' });

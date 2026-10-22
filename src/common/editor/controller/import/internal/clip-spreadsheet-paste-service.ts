@@ -73,8 +73,9 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 		const sourcesById = new Map(project.sources.map(source => [source.id, source]));
 		const sourcesByName = new Map(project.sources.map(source => [Reflect.get(source, 'name') as unknown, source]));
 		for (const referenceValue of [...rows.map(row => row.source), ...edits.filter(edit => edit.column === 'source').map(edit => edit.value)]) {
-			const reference = referenceValue?.trim();
-			const source = (reference ? sourcesById.get(reference) : undefined) ?? sourcesByName.get(reference);
+			const reference = referenceValue;
+			const source = (reference ? sourcesById.get(reference) : undefined) ?? sourcesByName.get(reference)
+				?? (reference ? sourcesById.get(reference.trim()) ?? sourcesByName.get(reference.trim()) : undefined);
 			if (source && dependencies.missingSourceIds.has(source.id)) throw new RangeError(`Relink the missing source before pasting clips: ${reference ?? source.id}`);
 		}
 		const fileByReference = await validatedFiles(files);
@@ -172,8 +173,8 @@ export function createClipSpreadsheetPasteService(dependencies: ClipSpreadsheetP
 async function validatedFiles(files: readonly ClipSpreadsheetImportFile[]): Promise<Map<string, File>> {
 	const result = new Map<string, File>();
 	for (const { reference, file } of files) {
-		const key = reference.trim();
-		if (!key || result.has(key)) throw new RangeError('Every selected spreadsheet file needs one unique source reference.');
+		const key = reference;
+		if (!key.trim() || result.has(key)) throw new RangeError('Every selected spreadsheet file needs one unique source reference.');
 		if (!file || typeof file.name !== 'string' || typeof file.arrayBuffer !== 'function'
 			|| file.type.startsWith('image/')
 			|| isProjectFileName(file.name) || /\.(?:aup[34]?|sesx|dawproject|rpp|otio|fcpxml|xml|zip)$/iu.test(file.name)) {
