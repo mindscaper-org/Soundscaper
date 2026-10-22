@@ -85,7 +85,9 @@ test('native catalog root admission and deletion serialize across shared media c
 
 test('native digest and recovery indexes bound distant pages in a 100,000-original catalog', async ({ page, browserName }) => {
 	test.skip(browserName !== 'chromium', 'The six-figure index fixture runs once; transaction races run in each engine.');
-	test.setTimeout(180_000);
+	// The 200,000 native fixture puts took 179 seconds on the four-core CI
+	// runner. Indexed page bounds are asserted separately after seeding.
+	test.setTimeout(300_000);
 	await routeMedia(page);
 	const result = await page.evaluate(async (root) => {
 		const api = await import(`${root}/entry.js`);

@@ -125,7 +125,9 @@ test('native version changes close catalog owners and future databases refuse v1
 
 test('native indexes bound distant 100,000-photo pages without retaining transactions or loading aggregates', async ({ page, browserName }) => {
 	test.skip(browserName !== 'chromium', 'The six-figure physical index fixture is qualified once; CAS scheduling is checked in every engine.');
-	test.setTimeout(180_000);
+	// CI committed 80,000 fixture rows in 140.672 seconds before the 180-second timeout.
+	// Allow native seeding; the page, cursor, and transaction bounds below stay fixed.
+	test.setTimeout(300_000);
 	await routeRepository(page);
 	const result = await page.evaluate(async (root) => {
 		const { PhotoCatalogRepositoryV1, catalog, photo, photoSummary, photoMemberships, indexState, PHOTO_CATALOG_DATABASE_VERSION,

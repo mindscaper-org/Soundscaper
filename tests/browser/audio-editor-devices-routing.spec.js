@@ -360,7 +360,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(microphone).toContainText('USB microphone');
 		await expect(speakers).toContainText('USB speakers');
 		await microphone.selectOption('usb-mic');
-		await recordingChannels.getByRole('radio', { name: 'Stereo', exact: true }).check();
+		await expect(microphone).toHaveValue('usb-mic');
+		const stereo = recordingChannels.getByRole('radio', { name: 'Stereo', exact: true });
+		await stereo.click();
+		await expect(stereo).toBeChecked();
 		await speakers.selectOption('usb-speakers');
 		await expect(microphone).toHaveValue('usb-mic');
 		await expect(recordingChannels.getByRole('radio', { name: 'Stereo', exact: true })).toBeChecked();

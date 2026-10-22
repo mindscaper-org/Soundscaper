@@ -6,7 +6,7 @@ import { MediaRepository } from '../../src/common/editor/storage/media-repositor
 import { OpfsSyncRepositoryBridge } from '../../src/common/editor/storage/opfs-sync-repository-bridge.ts';
 import { WorkerRequestBroker } from '../../src/common/editor/worker-request-broker.ts';
 import { createPhotoLibrarySessionV3 } from '../../src/lightscaper/photo-library-session-runtime-v3.ts';
-import { PhotoLibrarySessionV2 } from '../../src/lightscaper/controller/photo-library-session-v2.ts';
+import { PhotoLibrarySessionKernelV2 } from '../../src/lightscaper/controller/photo-library-session-kernel-v2.ts';
 import { PHOTO_LIBRARY_DEFAULT_CATALOG_DATABASE_NAME_V2 as CATALOG } from '../../src/lightscaper/storage/photo-library-location-v2.ts';
 import { PHOTO_MEDIA_NAMESPACES_V1 as MEDIA, PhotoMediaStoreV1 } from '../../src/lightscaper/storage/photo-media-store.ts';
 import { nativeCheckV1 as check, nativeDigestV1 as digest, nativeOutcomeV1 as outcome, nativeSameV1 as same,
@@ -118,8 +118,8 @@ export async function prepareOriginalProcessCrashNativeV1(): Promise<Readonly<Or
 			}
 			return Reflect.apply(original, this, args) as ReturnType<typeof original>;
 		});
-		const close = PhotoLibrarySessionV2.prototype.close;
-		replace(PhotoLibrarySessionV2.prototype, 'close', function(this: PhotoLibrarySessionV2) {
+		const close = PhotoLibrarySessionKernelV2.prototype.close;
+		replace(PhotoLibrarySessionKernelV2.prototype, 'close', function(this: PhotoLibrarySessionKernelV2) {
 			if (armed && this === session) closeCalls++;
 			return Reflect.apply(close, this, []) as ReturnType<typeof close>;
 		});

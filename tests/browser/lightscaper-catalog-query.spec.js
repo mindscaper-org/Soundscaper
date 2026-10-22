@@ -30,7 +30,9 @@ test('native v1 query rebuild resumes across close and includes concurrent write
 
 test('100,000 native query rows preserve global order and bounded sparse-search steps', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', 'The large-library query timing gate covers Chromium and Firefox; WebKit qualifies query migration only.');
-	test.setTimeout(180_000); await routeQuery(page);
+	// CI seeded 100,000 native rows in 40.199 seconds but expired before indexes-ready.
+	// Allow fixture construction; the measured query p95 bound remains separate.
+	test.setTimeout(300_000); await routeQuery(page);
 	const result = await page.evaluate(async (root) => (await import(`${root}/entry.js`)).qualifyCatalogQueryScaleNativeV1(), ROOT);
 	expect(result.first).toBe('photo-099999'); expect(result.distant).toBe('photo-004999');
 	expect(result.sparseIds).toEqual(Array.from({ length: 101 }, (_, index) => `photo-${String(index * 997).padStart(6, '0')}`));
