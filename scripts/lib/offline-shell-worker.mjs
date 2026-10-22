@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+export const MAXIMUM_INSTALL_ASSET_BYTES = 12 * 1024 * 1024;
+
 export function offlineShellFunctionSources() {
-	return [
+	return `const MAXIMUM_INSTALL_ASSET_BYTES = ${String(MAXIMUM_INSTALL_ASSET_BYTES)};\n` + [
 		plainObject,
 		exactKeys,
 		validShellPath,
@@ -98,7 +100,7 @@ export function validateOfflineShellConfiguration(value) {
 			throw new Error('Offline shell install descriptor exceeds its in-flight byte limit.');
 		}
 		installBytes += descriptor.byteLength;
-		if (!Number.isSafeInteger(installBytes) || installBytes > 8 * 1024 * 1024) {
+		if (!Number.isSafeInteger(installBytes) || installBytes > MAXIMUM_INSTALL_ASSET_BYTES) {
 			throw new Error('Offline shell install byte limit is exceeded.');
 		}
 	}

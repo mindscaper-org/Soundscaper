@@ -11,6 +11,10 @@ import {
 	renderOfflineServiceWorker,
 } from './offline-service-worker.mjs';
 import {
+	MAXIMUM_INSTALL_ASSET_BYTES,
+	validateOfflineShellConfiguration,
+} from './offline-shell-worker.mjs';
+import {
 	ICON_SIZES,
 	INSTALL_SCREENSHOT_DIRECTORY,
 	MANIFEST_ICON_SIZES,
@@ -23,7 +27,7 @@ import { webBuildRouting } from './product-web-routing.mjs';
 const MAXIMUM_ASSET_BYTES = 25 * 1024 * 1024;
 const MAXIMUM_AGGREGATE_BYTES = 256 * 1024 * 1024;
 const MAXIMUM_ASSET_COUNT = 4_096;
-export const MAXIMUM_INSTALL_ASSET_BYTES = 12 * 1024 * 1024;
+export { MAXIMUM_INSTALL_ASSET_BYTES };
 export const MAXIMUM_INSTALL_ASSET_COUNT = 128;
 const BUILD_MANIFEST = '.offline-build-manifest.json';
 const STATIC_CONTROL_FILES = Object.freeze([
@@ -123,6 +127,7 @@ export async function generateOfflineApplicationShell({ outputRoot, repositoryRo
 		});
 		const releaseId = sha256(Buffer.from(JSON.stringify(identity)));
 		const configuration = Object.freeze({ ...identity, releaseId });
+		validateOfflineShellConfiguration(configuration);
 		const output = resolve(root, `.${worker.scriptUrl}`);
 		await mkdir(dirname(output), { recursive: true });
 		await writeFile(output, renderOfflineServiceWorker(configuration), 'utf8');
