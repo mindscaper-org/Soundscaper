@@ -24,6 +24,7 @@ for (const scenario of [
 	{ name: 'Reverse', type: 'audacity-reverse', sampleRate: 48_000, params: {} },
 	{ name: 'Legacy Compressor', type: 'audacity-legacy-compressor', sampleRate: 48_000, params: {} },
 	{ name: 'Auto Duck', type: 'audacity-auto-duck', sampleRate: 48_000, params: {} },
+	{ name: 'Truncate Silence', type: 'audacity-truncate-silence', sampleRate: 48_000, params: {} },
 	{ name: 'stateless control', type: 'audacity-invert', sampleRate: 48_000, params: {} },
 ]) test(`${scenario.name} preview agrees with the complete selection's applied first six seconds`, async () => {
 	const frames = scenario.sampleRate * 8;
@@ -31,6 +32,7 @@ for (const scenario of [
 		Math.sin(2 * Math.PI * 440 * frame / scenario.sampleRate) * (frame < scenario.sampleRate * 6 ? 0.1 : 0.9)
 		+ (scenario.name === 'DC-only' && frame >= scenario.sampleRate * 6 ? 0.3 : 0)
 	));
+	if (scenario.name === 'Truncate Silence') input.fill(0, 0, scenario.sampleRate * 7);
 	const control = Float32Array.from({ length: frames }, (_, frame) => frame > scenario.sampleRate * 6.1 ? .9 : 0);
 	let played: Float32Array[] = [];
 	let peakEstimateFrames = 0;
@@ -69,7 +71,7 @@ for (const scenario of [
 	});
 	assert.equal(await preview(), true);
 	const expected = applyAudacityEffect(scenario.type, [input], scenario.sampleRate, scenario.params, { controlChannels: [control] })[0]!;
-	assert.equal(played[0]!.length, scenario.sampleRate * 6);
+	assert.equal(played[0]!.length, Math.min(scenario.sampleRate * 6, expected.length));
 	let residual = 0;
 	for (let frame = 0; frame < played[0]!.length; frame++) {
 		residual = Math.max(residual, Math.abs(played[0]![frame]! - expected[frame]!));

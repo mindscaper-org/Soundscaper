@@ -68,7 +68,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
 		// Whole-range transforms must run before trimming the six-second audition.
 		const processCompleteSelection = ['audacity-normalize', 'audacity-loudness-normalization',
-			'audacity-fade-in', 'audacity-fade-out', 'audacity-reverse', 'audacity-legacy-compressor', 'audacity-auto-duck'].includes(type)
+			'audacity-fade-in', 'audacity-fade-out', 'audacity-reverse', 'audacity-legacy-compressor', 'audacity-auto-duck', 'audacity-truncate-silence'].includes(type)
 			|| (type === 'audacity-sliding-stretch' && (params.startTempoPercent !== params.endTempoPercent
 				|| params.startPitchSemitones !== params.endPitchSemitones));
 		const fullPreviewTargets: FullPreviewTarget[] = fullTargets.map((full: RuntimeValue, fullIndex: number) => ({
