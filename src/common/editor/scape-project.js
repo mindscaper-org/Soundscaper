@@ -231,7 +231,7 @@ async function importScapeProjectAttempt(input, store, options, remapAllSources)
 			});
 			throwIfScapeAborted(signal);
 			if (existingProject && collision === 'copy') {
-				project = createProjectCopyDocument(project, { id: createStableId('project'), timestamp: new Date().toISOString() });
+				project = createProjectCopyDocument(project, { id: createStableId('project'), title: options.copySuffix ? `${project.title} ${options.copySuffix}` : undefined, timestamp: new Date().toISOString() });
 			}
 			transaction = await beginScapeImportTransaction(store, signal, project.id,
 				existingProject && collision === 'replace' ? existingProject : null,

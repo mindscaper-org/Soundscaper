@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import { isAudioMediaKind } from '../../audio-media-kind.ts'; import { createLocalizedError, publishLocalizedStatus, setLocalizedStatus, type LocalizedPresentationMessage } from '../../../i18n/presentation-message.ts';
 
 import { isProjectFileName } from '../../../project-file-extensions.ts';
@@ -156,7 +157,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 			}
 			const imported = await runtime.importScapeProject(file, runtime.store, {
 				...(runtime.fileService?.isDesktop ? { resolveExternalMedia: runtime.fileService.externalMediaResolver?.(file), decodeExternalAudio: runtime.decodeExternalAudio } : {}),
-				collision: options.collision || 'copy', acquireReplaceProjectWriteAuthority: runtime.acquireReplaceProjectWriteAuthority,
+				collision: options.collision || 'copy', copySuffix: publishedCopyFor(runtime.copy).projectCopySuffix, acquireReplaceProjectWriteAuthority: runtime.acquireReplaceProjectWriteAuthority,
 				confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 				assertCurrent: () => assertOwnership(operation.task, operation.projectToken),
 				estimateStorageForPreflight: (bytes, operation) => runtime.estimateStorageForPreflight(bytes, operation, signal), signal,

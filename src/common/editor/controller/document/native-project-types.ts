@@ -87,6 +87,7 @@ export interface NativeProjectState {
 }
 
 export interface NativeProjectCopy {
+	readonly projectCopySuffix?: string;
 	readonly projectNotFound: string;
 	readonly projectReadOnly: string;
 	readonly missingSourcesPreventSave: string;
@@ -438,6 +439,7 @@ export interface NativeProjectServiceRuntime {
 			confirmFileSizeWarning?: FileSizeWarningConfirmation;
 			assertCurrent?: () => void;
 			collision: string;
+			copySuffix?: string;
 			acquireReplaceProjectWriteAuthority?: (projectId: string) => Promise<ScapeReplaceWriteAuthority>;
 			estimateStorageForPreflight: (
 				requiredBytes: number,
