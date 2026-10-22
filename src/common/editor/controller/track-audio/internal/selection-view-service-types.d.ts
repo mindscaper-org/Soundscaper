@@ -105,6 +105,8 @@ export interface SelectionViewServiceRuntime<
 	Project extends SelectionViewProject = SelectionViewProject,
 	Rendered extends RenderedAudio = RenderedAudio,
 > {
+	readonly captureProject?: () => import('../../shared/lifecycle.ts').EditorProjectToken;
+	readonly assertProject?: (token: import('../../shared/lifecycle.ts').EditorProjectToken) => void;
 	readonly DEFAULT_PIXELS_PER_SECOND: number;
 	readonly MAX_PIXELS_PER_SECOND: number;
 	readonly activeSelection: () => Pick<SelectionRange, 'startFrame' | 'endFrame'> | null;

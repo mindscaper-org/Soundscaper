@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import type { CommandObject } from '../../../commands/protocol.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts';
 import type { RenderedAudio } from '../../../rendered-audio-channels.ts';
 import { hasCoreEditingProjectAuthority, isActiveAudioEditorProjectSchema } from '../../../project-schema-version.ts';
@@ -418,6 +419,7 @@ export function createSelectionViewService<
 		));
 		if (!audioTrackIds.length) return null;
 		const generation = ++zeroCrossingGeneration;
+		const projectToken = runtime.captureProject?.();
 		const radius = Math.max(1, Math.round(projectSampleRate() * 0.01));
 		const renderStart = Math.max(0, selection.startFrame - radius);
 		const renderEnd = Math.min(projectDurationFrames(projectAtStart), selection.endFrame + radius);
@@ -461,7 +463,8 @@ export function createSelectionViewService<
 			return null;
 		} finally {
 			if (generation === zeroCrossingGeneration
-				&& getProject()?.id === projectAtStart.id) {
+				&& getProject()?.id === projectAtStart.id
+				&& (!projectToken || isCurrentAssertion(() => runtime.assertProject?.(projectToken)))) {
 				state.analysisProcessing = false;
 				publishDocumentSnapshot();
 			}
