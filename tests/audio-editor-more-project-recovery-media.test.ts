@@ -30,7 +30,8 @@ for (const linked of [false, true]) test(`MP52: File Recover Project preserves i
 for (const damage of ['missing', 'body', 'timing'] as const) test(`MP52: recovery reports confirmed ${damage} video damage without retaining an unusable clip`, async context => {
 	const { store, recovery, project, source } = await fixture(context);
 	const load = store.loadMediaAsset.bind(store);
-	store.loadMediaAsset = async key => key === (damage === 'timing' ? source.timingAsset.storageKey : source.storageKey)
+	const damagedKey = damage === 'timing' ? source.timingAsset?.storageKey : source.storageKey; assert.ok(damagedKey);
+	store.loadMediaAsset = async key => key === damagedKey
 		? damage === 'missing' ? null : new Blob(['corrupt']) : load(key);
 	const inspection = await recovery.inspect(project.id);
 	assert.equal(inspection.candidates[0]?.status, 'repairable');

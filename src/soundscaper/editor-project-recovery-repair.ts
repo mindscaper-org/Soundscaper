@@ -8,6 +8,7 @@ import { reconcileProjectOwnedFeatureRequirements } from '../common/editor/proje
 import { reconcileSoundscaperProjectFeatureRequirements } from './editor-project-feature-requirements.ts';
 import { createSoundscaperProject, validateSoundscaperProject, type SoundscaperProject } from './editor-project.ts';
 import { PROJECT_SCHEMA_VERSION, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from './editor-project-validation.ts';
+import { restoreSoundscaperRecoveryClipGroups } from './editor-project-recovery-clip-groups.ts';
 import type { SoundscaperProjectRecoveryChange } from './editor-project-recovery-types.ts';
 
 type RecordValue = Record<string, unknown>;
@@ -139,18 +140,7 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		}
 	}
 	const acceptedTracks = ids(project.tracks);
-	for (const [index, clip] of values(raw.clips).entries()) {
-		const owner = values(raw.tracks).map(record).find((track) =>
-			track && acceptedTracks.has(String(track.id)) && values(track.clipIds).includes(record(clip)?.id));
-		if (!owner) { note(`clips[${String(index)}]`, 'Removed a clip without a valid owning track.'); continue; }
-		attempt(`clips[${String(index)}]`, (draft) => {
-			draft.clips = [...values(draft.clips), clip];
-			draft.tracks = values(draft.tracks).map((value) => {
-				const track = record(value)!;
-				return track.id === owner.id ? { ...track, clipIds: [...values(track.clipIds), record(clip)?.id] } : track;
-			});
-		}, true);
-	}
+	restoreSoundscaperRecoveryClipGroups(raw, acceptedTracks, attempt, note);
 	for (const [index, clip] of values(record(raw.projectBin)?.clips).entries()) {
 		attempt(`projectBin.clips[${String(index)}]`, (draft) => {
 			draft.projectBin = { ...record(draft.projectBin), clips: [...values(record(draft.projectBin)?.clips), clip] };

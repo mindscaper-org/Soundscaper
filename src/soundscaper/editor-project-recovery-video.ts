@@ -5,6 +5,7 @@ import { loadVideoTimingAsset } from '../common/editor/video-timing-storage.ts';
 
 export interface SoundscaperRecoveryVideoStore {
 	loadMediaAsset?(storageKey: string): PromiseLike<unknown>;
+	getLinkedOriginalBinding?(projectId: string, sourceId: string): PromiseLike<unknown>;
 	resolveLinkedVideoOriginal?(projectId: string, source: unknown): PromiseLike<Readonly<{ blob?: unknown }> | null>;
 }
 
@@ -18,7 +19,9 @@ export async function soundscaperRecoveryVideoAvailable(
 	if (!load) throw new Error('Video recovery media reads are unavailable.');
 	const storageKey = typeof source.storageKey === 'string' && source.storageKey ? source.storageKey : String(source.id);
 	const stored = await load.call(store, storageKey);
-	const linked = !stored && typeof project.id === 'string'
+	const bound = !stored && typeof project.id === 'string'
+		&& (!store.getLinkedOriginalBinding || await store.getLinkedOriginalBinding(project.id, String(source.id)));
+	const linked = bound && typeof project.id === 'string'
 		? await store.resolveLinkedVideoOriginal?.(project.id, source) : null;
 	const value = stored ?? linked?.blob;
 	if (!value) return false;
