@@ -108,6 +108,8 @@ type SharedFileBodyMatch =
 	| Readonly<{ response: Response | undefined }>
 	| Readonly<{ error: unknown }>;
 
+class SharedFilesByteLimitError extends RangeError {}
+
 /**
  * Takes the share this document was opened by, if it was opened by one.
  *
@@ -182,9 +184,9 @@ async function collectStashedFiles(
 		await deleteSharedFileBodies(cache, token, 0);
 		return collection('unreadable');
 	}
-	let files: File[];
+	let collected: Awaited<ReturnType<typeof readStashedFiles>>;
 	try {
-		files = await readStashedFiles(bodyMatches, entries, onError);
+		collected = await readStashedFiles(bodyMatches, entries, onError);
 	} finally {
 		try {
 			await deleteSharedFileBodies(cache, token, entries.length);
@@ -192,9 +194,9 @@ async function collectStashedFiles(
 			reportError(onError, error);
 		}
 	}
-	if (files.length === 0) return collection('missing');
-	await deliverLaunchedFiles(files, options.deliver);
-	return collection('collected', files);
+	if (collected.files.length === 0) return collection(collected.unreadable ? 'unreadable' : 'missing');
+	await deliverLaunchedFiles(collected.files, options.deliver);
+	return collection('collected', collected.files);
 }
 
 async function matchStashedFileBodies(
@@ -225,8 +227,9 @@ async function readStashedFiles(
 	matches: readonly SharedFileBodyMatch[],
 	entries: readonly SharedFileEntry[],
 	onError: (error: unknown) => void,
-): Promise<File[]> {
+): Promise<Readonly<{ files: File[]; unreadable: boolean }>> {
 	const files: File[] = [];
+	let unreadable = false;
 	const budget = { consumedBytes: 0 };
 	let nextUnreadIndex = 0;
 	try {
@@ -234,24 +237,30 @@ async function readStashedFiles(
 			const entry = entries[index];
 			const match = matches[index];
 			nextUnreadIndex = index + 1;
-			if ('error' in match) throw match.error;
-			const response = match.response;
-			if (!response) {
-				reportError(onError, new Error(`A shared file was missing from the handoff: ${entry.name}`));
-				continue;
+			try {
+				if ('error' in match) throw match.error;
+				const response = match.response;
+				if (!response) {
+					reportError(onError, new Error(`A shared file was missing from the handoff: ${entry.name}`));
+					continue;
+				}
+				const body = await readStashedFileBody(response, entry.byteLength, budget);
+				if (body === null) {
+					reportError(onError, new Error(`A shared file was truncated in the handoff: ${entry.name}`));
+					continue;
+				}
+				files.push(new File([body], entry.name, { type: entry.type }));
+			} catch (error) {
+				if (error instanceof SharedFilesByteLimitError) throw error;
+				unreadable = true;
+				reportError(onError, error);
 			}
-			const body = await readStashedFileBody(response, entry.byteLength, budget);
-			if (body === null) {
-				reportError(onError, new Error(`A shared file was truncated in the handoff: ${entry.name}`));
-				continue;
-			}
-			files.push(new File([body], entry.name, { type: entry.type }));
 		}
 	} catch (error) {
 		await cancelStashedFileBodies(matches.slice(nextUnreadIndex), error);
 		throw error;
 	}
-	return files;
+	return { files, unreadable };
 }
 
 async function readStashedFileBody(
@@ -277,7 +286,7 @@ async function readStashedFileBody(
 				throw new TypeError('A shared file returned an invalid body chunk.');
 			}
 			if (value.byteLength > SHARED_FILES_LIMITS.maximumBytes - budget.consumedBytes) {
-				const error = new RangeError('Shared-file handoff bodies exceed their actual byte limit.');
+				const error = new SharedFilesByteLimitError('Shared-file handoff bodies exceed their actual byte limit.');
 				await cancel(error);
 				throw error;
 			}
