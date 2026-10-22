@@ -50,7 +50,11 @@ test('NP054: cross-rate clipboard retains hidden stretch timeline geometry', asy
 	const clip = pasted.clips[0]; assert.ok(clip);
 	assert.equal(pasted.sampleRate, 24_000); assert.equal(clip.durationFrames, 8_000);
 	const sourceAfter = pasted.sources.find(source => source.id === clip.sourceId); assert.ok(sourceAfter);
-	const trim = clipSourceTrim(clip, sourceAfter, pasted.sampleRate, 'start', 0, pasted);
+	const { timelineStartFrame, durationFrames, sourceStartFrame, sourceDurationFrames } = clip;
+	assert.ok(typeof timelineStartFrame === 'number' && typeof durationFrames === 'number'
+		&& typeof sourceStartFrame === 'number' && typeof sourceDurationFrames === 'number');
+	const sampleClip = { ...clip, timelineStartFrame, durationFrames, sourceStartFrame, sourceDurationFrames };
+	const trim = clipSourceTrim(sampleClip, sourceAfter, pasted.sampleRate, 'start', 0, pasted);
 	assert.equal(trim.durationFrames, 24_000, 'extending the copied source retains its original one-second time span');
 	controller.actions.clipSourcePreview.trim(clip.id, trim);
 	const restored: unknown = controller.project; assert.ok(validateSoundscaperProject(restored));
