@@ -8,6 +8,8 @@ import TimelineAnnotationWorkspacePanel from '../src/common/editor/ui/workspace/
 import { TimelineAnnotationLayer } from '../src/common/editor/ui/timeline/TimelineAnnotationLayer.jsx';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
@@ -28,6 +30,7 @@ async function fixture(context: TestContext, surface: 'panel' | 'lane') {
 	}));
 	const projectRuntime = createSoundscaperProjectRuntimeSelection();
 	const controller = createAudioEditorController(null, { headless: true, productId: 'soundscaper', locale: 'en', copy: COPY,
+		scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
 		projectRuntime, sessionController: projectRuntime.createSessionController(), store,
 		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
 	context.after(async () => {
@@ -46,7 +49,11 @@ async function fixture(context: TestContext, surface: 'panel' | 'lane') {
 	});
 	await render();
 	if (surface === 'panel') Reflect.defineProperty(dom.one('input'), 'select', { value() {} });
-	return { controller, dom, render, annotation: () => controller.project?.timelineAnnotations.find(value => value.id === 'marker') };
+	return { controller, dom, render, replace: async () => {
+		const saved = await store.loadProject('first'); assert.ok(saved);
+		const archive = await exportScapeProject(saved, store); assert.ok(archive.blob instanceof Blob);
+		await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), () => 'replace');
+	}, annotation: () => controller.project?.timelineAnnotations.find(value => value.id === 'marker') };
 }
 
 for (const surface of ['panel', 'lane'] as const) test(`MI27: an unfinished ${surface} marker rename cannot overwrite a replacement native project`, async context => {
@@ -74,4 +81,17 @@ test('MI27: a pending ruler marker drag retires when a replacement project has m
 	await act(async () => { reactProps(current).onPointerUp(event(150, current)); });
 	const annotation = f.annotation(); assert.ok(annotation && annotation.anchor === 'sample' && annotation.kind === 'marker');
 	assert.equal(annotation.positionFrame, 48_000, 'pointer release cannot move the replacement project marker');
+});
+
+for (const surface of ['panel', 'lane'] as const) test(`MI27 ancillary: ${surface} marker drafts retire on explicit same-ID SCAPE replacement`, async context => {
+	const f = await fixture(context, surface);
+	await act(async () => { reactProps(f.dom.one('[data-annotation-id="marker"]')).onDoubleClick({}); });
+	await act(async () => { reactProps(f.dom.one('input')).onChange({ target: { value: 'Before file replacement' } }); });
+	const generation = f.controller.captureProjectGeneration().generation;
+	await f.replace(); await f.render();
+	assert.equal(f.controller.project?.id, 'first');
+	assert.notEqual(f.controller.captureProjectGeneration().generation, generation, 'actual Replace adopts a new native history generation');
+	const current = f.dom.find('input');
+	if (current) await act(async () => { reactProps(current).onBlur({ currentTarget: current }); });
+	assert.equal(f.annotation()?.name, 'Original');
 });

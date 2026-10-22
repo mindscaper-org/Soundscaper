@@ -7,11 +7,13 @@ import { createRoot } from 'react-dom/client';
 import WorkspacePanelContent from '../src/common/editor/ui/workspace/WorkspacePanelContent.jsx';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
+import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
+import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('MI23: a Labels panel title draft cannot overwrite a different reopened project with matching label IDs', async context => {
+for (const replaceSameId of [false, true]) test(`MI23: a Labels panel title draft retires on ${replaceSameId ? 'same-ID SCAPE replacement' : 'a different reopened project'}`, async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -24,6 +26,7 @@ test('MI23: a Labels panel title draft cannot overwrite a different reopened pro
 	}));
 	const projectRuntime = createSoundscaperProjectRuntimeSelection();
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
+		scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
 		projectRuntime, sessionController: projectRuntime.createSessionController(), store,
 		engine: createMemoryEngine() as unknown as Options['engine'],
 		ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
@@ -44,7 +47,11 @@ test('MI23: a Labels panel title draft cannot overwrite a different reopened pro
 		await controller.actions.timeline.setExactSelection(12, 24);
 		await act(async () => { render(); });
 		assert.equal(input().value, 'Uncommitted first-project draft', 'ordinary publications retain the same project draft');
-		await controller.actions.project.openById('second');
+		if (replaceSameId) {
+			const saved = await store.loadProject('first'); assert.ok(saved);
+			const archive = await exportScapeProject(saved, store); assert.ok(archive.blob instanceof Blob);
+			await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), () => 'replace');
+		} else await controller.actions.project.openById('second');
 		await act(async () => { render(); });
 		await act(async () => { reactProps(input()).onBlur({ currentTarget: input() }); });
 		const track = controller.project?.tracks.find(candidate => candidate.id === 'labels'); assert.ok(track);

@@ -19,9 +19,10 @@ import { useTimelineAnnotationDragCancellation } from './useTimelineAnnotationDr
 import { createTimelineAnnotationViewportIndex } from './timeline-annotation-viewport-index.ts';
 import { useTimelinePointerFrame } from './useTimelinePointerFrame.ts';
 import { planTimelineAnnotationMove } from './timeline-annotation-move-preview.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 export function TimelineAnnotationLayer(props) {
-	return <TimelineAnnotationLayerSession key={props.project?.id} {...props} />;
+	return <TimelineAnnotationLayerSession key={editorProjectEditSessionKey(props.controller, props.project?.id)} {...props} />;
 }
 
 function TimelineAnnotationLayerSession({

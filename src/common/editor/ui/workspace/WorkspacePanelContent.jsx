@@ -15,6 +15,7 @@ import { historyCommandLabel } from './workspace-panel-model.ts';
 import { consumeEffectsFocusSuppression, hasEffectsFocusSuppression } from './workspace-preset-focus.js';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import { readProjectRecordingNotes } from '../../recording-notes.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 const RealtimeAnalysisPanel = lazyEditorModule(() => import('../inspector/RealtimeAnalysisPanel.jsx'));
 const AudioSourceMonitorPanel = lazyEditorModule(() => import('../inspector/ClipSourceMonitorPanel.tsx'));
@@ -226,7 +227,7 @@ export default function WorkspacePanelContent({
 			trackName: track.name,
 		})));
 		const targetTrack = labelTracks.find((track) => track.id === snapshot.selectedTrackId) || labelTracks[0];
-		return <LabelManagerList key={project.id} projectId={project.id} labels={labels} sampleRate={project.sampleRate}
+		return <LabelManagerList key={editorProjectEditSessionKey(controller, project.id)} projectId={project.id} labels={labels} sampleRate={project.sampleRate}
 			controller={controller} copy={copy} disabled={snapshot.readOnly} run={run}
 			onAdd={() => run(() => controller.actions.labels.add(targetTrack?.id || null, {
 				title: publishedCopyFor(copy).newLabel || publishedCopyFor(copy).untitledLabel,
