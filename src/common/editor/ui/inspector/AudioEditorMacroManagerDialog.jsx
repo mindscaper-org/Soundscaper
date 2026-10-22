@@ -226,7 +226,14 @@ export function AudioEditorMacroManagerDialog({
 		onDraftChange?.(next);
 		// A half-typed name is not storable; the next keystroke that leaves one
 		// behind saves the macro, and the library keeps the last stored name.
-		if (String(next.name ?? '').trim()) library.save(next);
+		if (String(next.name ?? '').trim()) {
+			try {
+				library.save(next);
+				setMessage('');
+			} catch (cause) {
+				showMessage(feedbackFailure(cause), 'error');
+			}
+		}
 	};
 	const openMacro = (macro) => {
 		draftRef.current = macro;
