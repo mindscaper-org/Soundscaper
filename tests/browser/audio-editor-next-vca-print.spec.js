@@ -8,7 +8,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 for (const mute of [true, false]) test(`Mix and Render ignores a ${mute ? 'muted' : 'healthy'} VCA listening gate while preserving gain`, async ({ page }) => {
 	const { project, source, samples } = vcaPrintProject(mute);
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false }); let blob;
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write([samples]); await writer.commit(); blob = (await exportScapeProject(project, store)).blob;

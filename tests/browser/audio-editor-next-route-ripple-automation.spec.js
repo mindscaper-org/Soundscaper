@@ -9,7 +9,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 test('per-track gap closure keeps its output automation with the edited recording', async ({ page }) => {
 	const { project, source } = routeRippleProject();
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);

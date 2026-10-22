@@ -18,7 +18,7 @@ for (const operation of ['split', 'merge']) test(`Stereo ${operation} retains th
 			{ id: 'mix', kind: 'folder', parentFolderId: null }, ...ids.map(id => ({ id, kind: 'track', parentFolderId: 'mix' })),
 		] }], primarySequenceId: 'main' });
 	const project = createSoundscaperProject({ ...base, mixer: { ...base.mixer, groups: base.mixer.groups.map(bus => ({ ...bus, gain: .5 })) } });
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false }); let blob;
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write(Array.from({ length: source.channelCount }, () => new Float32Array(source.frameCount).fill(.25))); await writer.commit();

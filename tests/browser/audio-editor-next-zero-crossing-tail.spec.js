@@ -8,7 +8,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 for (const kind of ['reference']) test(`At zero crossings snaps a selection ending at the actual recording tail`, async ({ page }) => {
 	const { project, source, samples } = zeroCrossingRouteProject(kind);
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source); await writer.write([samples]); await writer.commit();

@@ -7,7 +7,7 @@ import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
 test('Copy and Paste at a sequence boundary keep both copied tracks in one sequence', async ({ page }) => {
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {
 		const source = createAudioSource({ id: 'tone', name: 'Tone', frameCount: 48_000, channelCount: 1, sampleRate: 48_000 });

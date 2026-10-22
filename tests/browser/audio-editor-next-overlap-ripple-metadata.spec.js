@@ -8,7 +8,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 for (const kind of ['takes', 'automation']) test(`overlapping clip ripple keeps ${kind} aligned with the remaining audio`, async ({ page }) => {
 	const { project, source } = overlapRippleProject(kind);
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);

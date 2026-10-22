@@ -9,7 +9,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 test('Repeat across every track carries the global Master automation with the later programme', async ({ page }) => {
 	const { project, source } = routeRippleProject();
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false }); let blob;
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write([new Float32Array(source.frameCount).fill(.25)]); await writer.commit();

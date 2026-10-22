@@ -7,7 +7,7 @@ import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
 for (const available of [true, false]) test(`Add label finds an editable destination; existing peer=${available}`, async ({ page }) => {
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {
 		const project = createSoundscaperProject({ id: 'available-labels', tracks: [
