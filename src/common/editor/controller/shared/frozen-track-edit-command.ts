@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { AudioEditorCommand } from '../../../commands/protocol.ts';
-import { createEditorCommandMutationTransaction } from '../../../commands/mutation-transaction.ts';
-import { normalizeAudioTrackFreezeV1 } from '../../../audio-track-freeze-v21.ts';
-import { projectForCommandConsumers } from '../../../project-current-runtime.ts';
-import { cloneProject } from '../../../project.js';
-import { isSoundscaperProductionProject } from '../../../project-schema-version.ts';
+import type { AudioEditorCommand } from '../../commands/protocol.ts';
+import { createEditorCommandMutationTransaction } from '../../commands/mutation-transaction.ts';
+import { normalizeAudioTrackFreezeV1 } from '../../audio-track-freeze-v21.ts';
+import { projectForCommandConsumers } from '../../project-current-runtime.ts';
+import { cloneProject } from '../../project.js';
+import { isSoundscaperProductionProject } from '../../project-schema-version.ts';
 
 interface MembershipProject {
 	readonly tracks: readonly Readonly<{ id: string; clipIds?: readonly string[] }>[];

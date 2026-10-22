@@ -204,6 +204,7 @@
 		"shared/deferred-module-facade.ts",
 		"shared/file-size-warning-confirmation.ts",
 		"shared/file-size-warning.ts",
+		"shared/frozen-track-edit-command.ts",
 		"shared/import-busy-state.ts",
 		"shared/isolated-track-render-project-v21.ts",
 		"shared/lifecycle.ts",

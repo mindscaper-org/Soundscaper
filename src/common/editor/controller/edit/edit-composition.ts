@@ -31,7 +31,7 @@ import { findControllerSource } from '../track-audio/track-domain-types.ts';
 import { generateAudioEditorSignalStream } from '../../signal-generator-stream-client.ts';
 import type { AudioEditorClipboard, AudioEditorCommand } from '../../commands/protocol.ts';
 import { preserveProductionTrackRouting } from '../../derived-track-routing.ts';
-import { prepareFrozenTrackEditCommand } from './internal/frozen-track-edit-command.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createSelectedLabelClipboardService } from './internal/selected-label-clipboard.ts';
 
 export type {

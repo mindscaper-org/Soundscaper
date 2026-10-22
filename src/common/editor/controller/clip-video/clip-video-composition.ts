@@ -22,7 +22,7 @@ import { createClipTimePitchRenderService } from './clip-time-pitch-render-servi
 import { renderLinkedClipAudio } from './internal/linked-clip-render.ts';
 import { renderClipNormalizationAudio } from './internal/clip-normalization-render.ts';
 import { createClipTransformService } from './internal/clip/clip-transform-service.ts';
-import { prepareFrozenTrackEditCommand } from '../edit/internal/frozen-track-edit-command.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createSampleEditService } from './internal/sample-edit-service.ts';
 import { createSequenceTimingService } from './internal/sequence-timing-service.ts';
 import { createSourceMonitorService } from './internal/source-monitor-service.ts';

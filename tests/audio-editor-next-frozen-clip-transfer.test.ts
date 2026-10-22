@@ -13,7 +13,7 @@ import { createSoundscaperPlaybackProjectService } from '../src/soundscaper/edit
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine } from './helpers/audio-editor-controller-harness.js';
 
-for (const action of ['track', 'new-track', 'bin', 'remove-project', 'partial', 'duplicate'] as const) test(`NP019: frozen clip ${action} transfer retires only an emptied print`, async context => {
+for (const action of ['track', 'new-track', 'bin', 'remove-project', 'partial', 'duplicate', 'inspector-track'] as const) test(`NP019: frozen clip ${action} transfer retires only an emptied print`, async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false });
 	const runtime = createSoundscaperProjectRuntimeSelection();
@@ -43,7 +43,9 @@ for (const action of ['track', 'new-track', 'bin', 'remove-project', 'partial', 
 	const historyCount = controller.getSnapshot().history.undoEntries.length;
 	if (action === 'track' || action === 'partial' || action === 'duplicate') {
 		controller.actions.clip.move(clipId, 'destination', 0, { exactFrame: true, duplicate: action === 'duplicate' });
-	} else if (action === 'new-track') controller.actions.clip.moveToNewTrack(clipId, 0, { exactFrame: true });
+	} else if (action === 'inspector-track') controller.actions.edit.commit({ type: 'batch', commands: [{ type: 'clip/move',
+		clipId, trackId: 'destination', timelineStartFrame: 0 }] });
+	else if (action === 'new-track') controller.actions.clip.moveToNewTrack(clipId, 0, { exactFrame: true });
 	else if (action === 'bin') controller.actions.projectBin.moveFromTimeline(clipId);
 	else controller.actions.projectBin.removeFromProject('clip');
 	const after: unknown = controller.project; assert.ok(validateSoundscaperProject(after));

@@ -2,7 +2,7 @@
 
 import { inspectEncodedAudioSampleRate } from '../../audio-file-metadata.js';
 import { claimImportBusyState } from '../shared/import-busy-state.ts';
-import { prepareFrozenTrackEditCommand } from '../edit/internal/frozen-track-edit-command.ts';
+import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } from '../../commands.js';
 import { isAudioEditorEngineSupported } from '../../engine.js';
 import { createStableId, findTrack } from '../../project.js';
