@@ -2,7 +2,7 @@
 
 import { takeCompContentRange } from '../../take-comp-content-range.ts';
 import { createAiffStreamEncoder, encodeAiff } from '../../aiff.js';
-import { loadStoredSourceChannels } from '../../clip-time-pitch-cache.js';
+import { loadStoredSourceChannels } from '../../clip-time-pitch-cache-channels.js';
 import { collectRelatedClipIds } from '../../commands.js';
 import { isAudacityRackEffectType, rackTailFrames } from '../../effects.js';
 import { createExportPlan } from '../../export.js';
@@ -102,7 +102,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		preflightStorage: dependencies.preflightStorage,
 		getAudioContext,
 		createBufferFromChannels,
-		loadSourceChannels: (source) => loadStoredSourceChannels(store, source),
+		loadSourceChannels: (source) => loadStoredSourceChannels(store, source, { maximumChannelCount: 64 }),
 		writeBuffer,
 		generateWaveformPeaks: (channels) => generateWaveformPeaks(channels, copy),
 		peakCacheKey,
