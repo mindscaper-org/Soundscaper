@@ -74,11 +74,19 @@ export function useCommunityTranslationDraft(port: CommunityTranslationPresentat
 	const importContributionFile = useCallback(async (file: { text(): Promise<string> }): Promise<boolean> => {
 		const started = currentLoaded.current;
 		if (!started || started.snapshot.locale !== currentLocale.current) return false;
-		const incoming = parseTranslationContribution(await file.text());
-		const current = currentLoaded.current;
-		if (!current || current.snapshot !== started.snapshot || currentLocale.current !== started.snapshot.locale) return false;
-		await save(mergeTranslationContributions(current.draft, incoming));
-		return true;
+		const ownsImport = () => currentLoaded.current?.snapshot === started.snapshot
+			&& currentLocale.current === started.snapshot.locale;
+		try {
+			const text = await file.text();
+			const current = currentLoaded.current;
+			if (!current || !ownsImport()) return false;
+			const incoming = parseTranslationContribution(text);
+			await save(mergeTranslationContributions(current.draft, incoming));
+			return ownsImport();
+		} catch (failure) {
+			if (!ownsImport()) return false;
+			throw failure;
+		}
 	}, [save]);
 	const assessment = useMemo(() => loaded
 		? assessTranslationContribution(loaded.draft, loaded.snapshot) : null, [loaded]);
