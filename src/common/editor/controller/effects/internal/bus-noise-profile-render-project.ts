@@ -45,12 +45,12 @@ export function createBusNoiseProfileRenderProject(
 	const captureMixer: MixerGraphV21 = { ...mixer, [field]: mixer[field].map(candidate => candidate.id === busId
 		? { ...candidate, effects: prefix, gain: 1, pan: 0, mute: false, solo: false } : candidate),
 		vcas: mixer.vcas.map(vca => ({ ...vca, members: vca.members.filter(member =>
-			member.kind !== 'mixer-node' || member.id !== busId) })),
+			member.kind !== 'master' && (member.kind !== 'mixer-node' || member.id !== busId)) })),
 		outputs: mixer.outputs.map(output => output.role === 'main' ? { ...output, channelCount: masterChannels } : output),
 		edges: [...edges, capture] };
 	const retainedEdgeIds = new Set(captureMixer.edges.map(edge => edge.id));
-	return { ...project, masterChannels,
-		master: { ...project.master, gain: 1, mute: false, effects: [] },
+	const master = { ...project.master, gain: 1, pan: 0, mute: false, effects: [] };
+	return { ...project, masterChannels, master,
 		automationLanes: Array.isArray(project.automationLanes) ? project.automationLanes.filter(lane => {
 			const address = (lane as { address?: { kind?: string; edgeId?: string; effectId?: string;
 				strip?: { kind?: string; id?: string } } }).address;
