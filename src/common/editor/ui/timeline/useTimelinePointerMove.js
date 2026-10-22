@@ -54,6 +54,7 @@ export function useTimelinePointerMove({
 		projectIndex,
 		panelWidth,
 		pixelsPerSecond,
+		durationFrames,
 		sampleRate,
 	} = model;
 	const mediaTracks = useMemo(() => project?.tracks.filter((track) => Array.isArray(track.clipIds)) || [], [project?.tracks]);
@@ -332,6 +333,7 @@ export function useTimelinePointerMove({
 				}) : previewTimelineSelectionDrag({
 					session, project, rawEndFrame: frameAtClientX(event.clientX, session.lane),
 					clientY: event.clientY, scrollRoot: scrollRef.current, pixelsPerSecond, sampleRate,
+					maximumFrame: durationFrames,
 				});
 			setBoundarySnapGuideFrames(preview.guideFrames);
 			setSelectionPreview(preview.selection);
