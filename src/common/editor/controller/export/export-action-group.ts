@@ -13,6 +13,7 @@ import type { InterchangeTimingRuntime } from './interchange-export-timing.ts';
 
 /** Delivery owns these optional workspace slots; reports remain inert domain data. */
 export interface ExportActionState extends OriginalOverwriteState {
+	projectAdministrationPending?: boolean;
 	deliveryReport?: unknown;
 	deliveryPresets?: unknown;
 	deliveryQueue?: DeliveryQueue;
