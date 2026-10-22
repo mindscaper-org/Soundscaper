@@ -73,11 +73,11 @@ package complete.
 
 ### Implementation status
 
-As of 2026-10-20, M01–M12 remain **In progress**; **no milestone is accepted**.
+As of 2026-10-22, M01–M12 remain **In progress**; **no milestone is accepted**.
 Engineering completion is estimated at **about 90%**; this estimate does not
 accept a package or public release.
 
-The current test and browser-build checkpoint is `bc586f975`, a two-file,
+The latest complete Node and browser-build checkpoint is `bc586f975`, a two-file,
 six-line fixture correction after application checkpoint `0282106d9`. The
 production application, native inputs, package inputs and dependencies are
 unchanged. Completed results retain their actual source revisions below.
@@ -113,18 +113,28 @@ covers the original two-frame ProRes case with stereo 48 kHz PCM; it does not
 qualify hardware GPUs, installers, signing, updating or other targets.
 
 The fresh hidden-source-map browser build passes on `bc586f975`. Discovery finds
-**7,614 ordinary identities**, 2,538 per engine. Their complete unfiltered
-Chromium/Firefox/WebKit execution is **running at this checkpoint**, with
-four workers (2/1/1), zero retries and the default application heap. Discovery
-and progress are not browser acceptance.
+**7,614 ordinary identities**, 2,538 per engine. The unfiltered four-worker
+Chromium/Firefox/WebKit attempt used zero retries and the default application
+heap, but was **interrupted and failed**. Its saved list log contains **1,819
+passes, 32 skips and eight failures**; no complete report was produced, so these
+are provisional observed outcomes rather than an accounted full-suite result.
 
-At 2026-10-20 18:27 UTC, the provisional log contained **883 passes,
-9 skips and one failure**. The WebKit damaged-autosave recovery test
-exhausted its unchanged 30-second completed-open assertion; the saved UI still
-showed import progress. Its report and PCM assertions were not reached. Saved
-evidence does not identify the pending worker/storage/activation stage or
-establish a cause. All eleven other engine/recovery combinations passed. The
-original run continues without retries or source changes in the tested checkout.
+The resource guard disappeared while the original finite test owner remained
+active. The authenticated owned Playwright child was canceled, leaving that
+owner to clean up descendants and finish its postconditions. The cause of the
+guard loss is unknown; no OOM or leak cause is established. Inputs remained
+unchanged and output writers closed. The independent 2026-10-22 audit finds all
+4,311 recorded process births absent. All 889 raw coverage files remain opaque
+and unadmitted. The closure receipt is
+`current-bc586f975-browser-interruption-closure-20261022.json`, SHA-256
+`8c9067b6bedd3e76ec42917e37d88ea2c70503f7f8479b87efca78ab0e516d43`,
+under the retained Motionscaper recovery evidence directory.
+
+Focused work now addresses the saved failures: damaged-autosave recovery,
+mono paste, recovered recording audio, original-file overwrite readiness,
+desktop recording channel selection, nonmodal dialog focus and pencil
+amplitude. Saved evidence and focused regressions retain their individual
+scope; none turns the interrupted run into a pass.
 
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
