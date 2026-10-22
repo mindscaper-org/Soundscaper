@@ -208,6 +208,15 @@ export function matchAudioEditorShortcut(
 	event: Pick<KeyboardEventLike, 'altKey' | 'code' | 'ctrlKey' | 'key' | 'metaKey' | 'shiftKey'>,
 	shortcuts: Record<string, readonly string[]>,
 ): string | null {
+	// Printed punctuation can have its own saved binding as well as the
+	// established shortcut for the unshifted physical key. Give that explicit
+	// character ownership before trying the compatibility key aliases.
+	if (event.shiftKey && event.key.length === 1 && keyboardShortcutEventKey(event) !== event.key) {
+		for (const [actionId, bindings] of Object.entries(shortcuts)) {
+			if (bindings.some(candidate => audioEditorShortcutParts(candidate).key === event.key
+				&& matchesAudioEditorShortcutBinding(event, candidate))) return actionId;
+		}
+	}
 	for (const [actionId, bindings] of Object.entries(shortcuts)) {
 		if (bindings.some((candidate) => matchesAudioEditorShortcutBinding(event, candidate))) return actionId;
 	}
