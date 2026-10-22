@@ -70,6 +70,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 					await withRead([descriptor], { signal }, async (blobs) => {
 						const blob = blobs[0];
 						if (!blob) throw new Error(`SESX media ${reference.name} was not opened.`);
+						if (blob.size === 0) { media.set(reference.id, null); return; }
 						const wav = await inspectPcmWav(blob, signal);
 						let prepared: PreparedStreamedAudioImport | null = null;
 						try {

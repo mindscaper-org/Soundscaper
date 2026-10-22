@@ -127,6 +127,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				const blob = await archive.readEntry(reference.path);
 				assertReady();
 				if (!blob) continue;
+				if (blob.size === 0) { media.set(reference.path, null); continue; }
 				if (!temporaryDirectory) admittedWorkingBytes = await confirmFileSizeWarning(blob.size + 64 * 1024 * 1024,
 					admittedWorkingBytes, `DAWproject media ${reference.path}`, { confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 						signal, assertCurrent: assertReady });
