@@ -20,6 +20,7 @@ import {
 import type { DawprojectDocument } from './dawproject-import.ts';
 import { warpInverse, warpValue, type Warp } from './dawproject-import-warps.ts';
 import type { DawprojectFadeLayer } from './dawproject-import-fades.ts';
+import { readDawprojectAutomationPoints } from './dawproject-import-points.ts';
 
 /**
  * The reading half of DAWproject, part two: the arrangement flattened into
@@ -41,6 +42,7 @@ import type { DawprojectFadeLayer } from './dawproject-import-fades.ts';
 
 export interface DawprojectTimeResolver {
 	readonly sampleRate: number;
+	readonly tempoChangeBeats?: readonly number[];
 	frameAtBeat(beat: number): number;
 	beatAtFrame(frame: number): number;
 }
@@ -152,6 +154,7 @@ export function createDawprojectTimeResolver(tempoMap: HoldTempoMap, sampleRate:
 	const rootBpm = rationalToNumber(first.bpm);
 	return Object.freeze({
 		sampleRate,
+		tempoChangeBeats: Object.freeze(tempoMap.events.slice(1).map(event => rationalToNumber(event.beat))),
 		frameAtBeat(beat: number): number {
 			if (!Number.isFinite(beat)) throw new RangeError('A beat position must be finite.');
 			return beatToSampleFrame(rationalFromDouble(beat), tempoMap, sampleRate);
@@ -437,35 +440,10 @@ function visitAudio(
 
 function visitPoints(element: XmlElement, scope: Scope, state: WalkState, resolver: DawprojectTimeResolver): void {
 	const pointScope = rebase(scope, timeUnit(attribute(element, 'timeUnit')) ?? scope.unit, resolver);
-	const target = childElement(element, 'Target');
-	let kind: 'real' | 'bool' = 'real';
-	const points: DawprojectAutomationPoint[] = [];
-	for (const point of element.children) {
-		const time = point.name === 'Target' ? null : numberAttribute(point, 'time');
-		if (time === null || !Number.isFinite(time)) continue;
-		const frame = frameOf(pointScope, time, resolver);
-		if (point.name === 'RealPoint') {
-			const value = numberAttribute(point, 'value');
-			if (value === null) continue;
-			const interpolation = attribute(point, 'interpolation') === 'linear' ? 'linear' : 'hold';
-			points.push({ frame, value, interpolation });
-		} else if (point.name === 'BoolPoint') {
-			kind = 'bool';
-			points.push({ frame, value: booleanAttribute(point, 'value') === true ? 1 : 0, interpolation: 'hold' });
-		} else if (point.name === 'IntegerPoint' || point.name === 'EnumPoint') {
-			const value = integerAttribute(point, 'value');
-			if (value !== null) points.push({ frame, value, interpolation: 'hold' });
-		}
-	}
-	if (points.length === 0) return;
-	points.sort((left, right) => left.frame - right.frame);
-	state.automation.push(Object.freeze({
-		trackId: scope.trackId,
-		parameterId: target ? attribute(target, 'parameter') : null,
-		unit: attribute(element, 'unit'),
-		kind,
-		points: Object.freeze(points),
-	}));
+	const event = readDawprojectAutomationPoints(element, { trackId: pointScope.trackId,
+		frameAt: time => frameOf(pointScope, time, resolver), originBeat: pointScope.originBeat,
+		beatTimebase: pointScope.unit === 'beats', resolver });
+	if (event) state.automation.push(event);
 }
 
 function visitMarkers(element: XmlElement, scope: Scope, state: WalkState, resolver: DawprojectTimeResolver): void {
