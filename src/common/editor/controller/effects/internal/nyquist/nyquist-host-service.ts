@@ -5,7 +5,7 @@ import type { AudioBufferContext } from '../../../source/source-audio.ts';
 import { createAddLabelCommand, createAddLabelTrackCommand } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import { projectForRuntimeConsumers } from '../../../../project-current-runtime.ts';
-import { visibleNavigationTracks } from '../../../../audacity-visible-navigation-tracks.ts';
+import { sequenceTrackMembers } from '../../../../sequence-track-members.ts';
 import { sampleFrameToBeat } from '../../../../timeline-tempo-inverse.ts';
 import { compareRationals, type HoldTempoEvent, type HoldTempoMap } from '../../../../timeline-time.ts';
 import { nyquistChannelStats } from './nyquist-audio.ts';
@@ -262,9 +262,10 @@ export function createNyquistHostService(runtime: NyquistHostServiceRuntime) {
 	function persistNyquistLabels(labels: readonly NyquistLabel[], name: unknown = null): string | null {
 		if (!labels.length) return null;
 		const project = runtime.getProject();
-		const destinations = visibleNavigationTracks(project.tracks, null, project)
-			.filter(track => track.type === 'label' && track.locked !== true);
-		const target = destinations.find(track => track.id === runtime.state.selectedTrackId) ?? destinations[0] ?? null;
+		const members = sequenceTrackMembers(project, runtime.state.selectedTrackId);
+		const destinations = project.tracks.filter(track => track.type === 'label' && track.locked !== true);
+		const target = destinations.find(track => track.id === runtime.state.selectedTrackId)
+			?? destinations.find(track => members?.has(track.id)) ?? destinations[0] ?? null;
 		const commands: AudioEditorCommand[] = [];
 		let targetId = target?.id ?? null;
 		if (!targetId) {

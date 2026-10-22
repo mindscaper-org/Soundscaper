@@ -7,7 +7,7 @@ import { exportScapeProject, SCAPE_MIME_TYPE } from '../../src/common/editor/sca
 
 registerAudioEditorHooks();
 
-test('Nyquist analysis of an opened project publishes its labels into the visible sequence', async ({ page }) => {
+test('Nyquist analysis of an opened project honors the focused label destination', async ({ page }) => {
 	const project = createSoundscaperProject({ id: 'nyquist-label-sequence', title: 'Two sequences', primarySequenceId: 'main',
 		sequences: [{ id: 'other', trackIds: ['hidden-labels'] }, { id: 'main', trackIds: ['visible-labels'] }],
 		tracks: [{ id: 'hidden-labels', type: 'label', name: 'Hidden labels', labels: [] },
@@ -22,6 +22,7 @@ test('Nyquist analysis of an opened project publishes its labels into the visibl
 	await (await chooser).setFiles({ name: 'two-sequences.sscape', mimeType: SCAPE_MIME_TYPE,
 		buffer: Buffer.from(await archive.blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await editor.getByRole('region', { name: 'Visible labels', exact: true }).click({ position: { x: 60, y: 25 } });
 	await chooseCommandAction(page, editor, 'Tools', 'Nyquist prompt');
 	const dialog = page.getByRole('dialog', { name: 'Nyquist prompt', exact: true });
 	await dialog.getByRole('textbox', { name: 'Nyquist source', exact: true }).fill("'((0.1 0.2 \"Speech\"))");
