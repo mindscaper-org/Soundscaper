@@ -52,5 +52,7 @@ for (const paused of [false, true]) test(`MP63: opening an OS-delivered native p
 	await controller.actions.takeComp.auditionTake('group', 'take');
 	assert.equal(previews[0]?.state, 'playing');
 	assert.equal(previews[0]?.loadedProjects.length, 2, 'reused take identities must load the incoming document rather than toggle the old preview');
-	assert.equal(previews[0]?.loadedProjects.at(-1)?.sources[0]?.name, 'Incoming Take');
+	const previewSource = previews[0]?.loadedProjects.at(-1)?.sources?.[0];
+	assert.ok(previewSource && 'name' in previewSource);
+	assert.equal(previewSource.name, 'Incoming Take');
 });
