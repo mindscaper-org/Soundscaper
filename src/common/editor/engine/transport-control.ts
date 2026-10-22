@@ -9,17 +9,15 @@ import {
 	projectHasAuthoredAudioWarp,
 } from './audio-warp-fallback.ts';
 import {
-	assertPlayAtSpeedStaffPadMemorySafe,
-	audioBufferChannels,
 	clamp,
 	clampFrame,
 	DEFAULT_SAMPLE_RATE,
 	normalizeLoop,
 	normalizePlayAtSpeedRate,
 	normalizePlayRange,
-	normalizePreparedSpeedPlayback,
 	positiveInteger,
 } from './buffer-math.ts';
+import { assertPreparedSpeedMemorySafe, prepareSpeedRender } from './prepared-speed-render.ts';
 import {
 	scheduleProjectClips,
 } from './clip-scheduler.ts';
@@ -162,11 +160,7 @@ async playAtSpeed(rate, {
 			if (isPlaybackLoopEnabled(this) && (this.positionFrame < this.loop.startFrame || this.positionFrame >= this.loop.endFrame)) {
 				this.positionFrame = this.loop.startFrame;
 			}
-			if (preservePitch) assertPlayAtSpeedStaffPadMemorySafe(
-				this.durationFrames,
-				this.sampleRate,
-				normalizedRate,
-			);
+			if (preservePitch) assertPreparedSpeedMemorySafe(this, normalizedRate);
 			this.playbackRate = normalizedRate;
 			if (!preservePitch) {
 				this.playbackMode = 'naive';
@@ -185,29 +179,8 @@ async playAtSpeed(rate, {
 			if (typeof pitchPreserver !== 'function') {
 				throw new TypeError('Pitch-preserving playback requires a StaffPad renderer.');
 			}
-			if (this.preparedSpeedPlayback?.playbackRate !== normalizedRate) {
-				const renderedProject = this.project;
-				const rendered = await this.renderMix({
-					startFrame: 0,
-					endFrame: this.durationFrames,
-					includeTail: false,
-					signal,
-					onProgress,
-				});
-				throwIfAborted(signal);
-				assertPlaybackRequestCurrent(this, generation);
-				const channels = audioBufferChannels(rendered);
-				const processed = await pitchPreserver(channels, this.sampleRate, normalizedRate, { signal, onProgress });
-				throwIfAborted(signal);
-				assertPlaybackRequestCurrent(this, generation);
-				if (this.project !== renderedProject) throw createAbortError();
-				this.preparedSpeedPlayback = normalizePreparedSpeedPlayback(
-					processed,
-					this.sampleRate,
-					this.durationFrames,
-					normalizedRate,
-				);
-			}
+			await prepareSpeedRender(this, normalizedRate, pitchPreserver, signal, onProgress,
+				() => assertPlaybackRequestCurrent(this, generation));
 			this.playbackMode = 'staffpad';
 			const context = await this.getAudioContext();
 			throwIfAborted(signal);

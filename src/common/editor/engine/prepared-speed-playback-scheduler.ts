@@ -64,13 +64,13 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 		connect(source, masterAnalyser);
 		connect(masterAnalyser, meterDestination);
 	} else connect(source, meterDestination);
-	const outputFrameAt = (timelineFrame: number) => engine.durationFrames > 0
-		? clampFrame(Math.round(timelineFrame / engine.durationFrames * prepared.frameCount), 0, prepared.frameCount)
+	const outputFrameAt = (timelineFrame: number) => prepared.durationFrames > 0
+		? clampFrame(Math.round(timelineFrame / prepared.durationFrames * prepared.frameCount), 0, prepared.frameCount)
 		: 0;
 	if (smallLoop) {
 		source.loop = true; source.loopStart = 0;
 		source.loopEnd = (engine.loop.endFrame - engine.loop.startFrame) / (engine.sampleRate * engine.playbackRate);
-	} else if (isPlaybackLoopEnabled(engine) && engine.loop.endFrame > engine.loop.startFrame && engine.loop.endFrame <= engine.durationFrames) {
+	} else if (isPlaybackLoopEnabled(engine) && engine.loop.endFrame > engine.loop.startFrame && engine.loop.endFrame <= prepared.durationFrames) {
 		source.loop = true;
 		source.loopStart = outputFrameAt(engine.loop.startFrame) / prepared.sampleRate;
 		source.loopEnd = outputFrameAt(engine.loop.endFrame) / prepared.sampleRate;
@@ -111,7 +111,7 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 			throw new DOMException('Playback cancelled', 'AbortError');
 		}
 		engine.playbackStartTime = scheduledTime;
-		if (!smallLoop && isPlaybackLoopEnabled(engine) && engine.loop.endFrame > engine.durationFrames) {
+		if (!smallLoop && isPlaybackLoopEnabled(engine) && engine.loop.endFrame > prepared.durationFrames) {
 			engine.loopScheduleTime = scheduledTime + (engine.loop.endFrame - frame) / (engine.sampleRate * engine.playbackRate);
 		}
 		source.start(scheduledTime, smallLoop ? (frame - engine.loop.startFrame) / (engine.sampleRate * engine.playbackRate)
@@ -131,12 +131,12 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 /** Sample-scale loops need native looping; copying at most4096 frames stays bounded at32channels. */
 function smallSilentLoopBody(engine: EngineRuntimeHost, context: AudioContext,
 	prepared: NonNullable<EngineRuntimeHost['preparedSpeedPlayback']>): AudioBuffer | null {
-	if (!isPlaybackLoopEnabled(engine) || engine.loop.endFrame <= engine.durationFrames) return null;
+	if (!isPlaybackLoopEnabled(engine) || engine.loop.endFrame <= prepared.durationFrames) return null;
 	const seconds = (engine.loop.endFrame - engine.loop.startFrame) / (engine.sampleRate * engine.playbackRate);
 	const frames = Math.ceil(seconds * prepared.sampleRate);
 	if (frames < 1 || frames > 4096) return null;
 	const buffer = context.createBuffer(prepared.channels.length, frames, prepared.sampleRate);
-	const first = Math.round(engine.loop.startFrame / Math.max(1, engine.durationFrames) * prepared.frameCount);
+	const first = Math.round(engine.loop.startFrame / Math.max(1, prepared.durationFrames) * prepared.frameCount);
 	for (let channel = 0; channel < prepared.channels.length; channel++) {
 		buffer.getChannelData(channel).set(prepared.channels[channel]!.subarray(first, first + frames));
 	}
@@ -146,7 +146,7 @@ function smallSilentLoopBody(engine: EngineRuntimeHost, context: AudioContext,
 /** Repeat the shared PCM body on the loop clock; unoccupied timeline stays implicit silence. */
 export function scheduleSilentPreparedLoopAhead(engine: EngineRuntimeHost): void {
 	const { graph, context, preparedSpeedPlayback: prepared } = engine;
-	if (!graph || !context || !prepared?.audioBuffer || engine.loop.endFrame <= engine.durationFrames) return;
+	if (!graph || !context || !prepared?.audioBuffer || engine.loop.endFrame <= prepared.durationFrames) return;
 	const duration = (engine.loop.endFrame - engine.loop.startFrame) / (engine.sampleRate * engine.playbackRate);
 	if (!(duration > 0)) return;
 	const horizon = context.currentTime + Math.max(.25, engine.meterInterval / 1000 * 4);
@@ -154,13 +154,13 @@ export function scheduleSilentPreparedLoopAhead(engine: EngineRuntimeHost): void
 		Math.ceil((context.currentTime - engine.loopScheduleTime) / duration) * duration;
 	let iterations = 0;
 	while (engine.loopScheduleTime < horizon && iterations++ < 1024) {
-		if (engine.loop.startFrame < engine.durationFrames) {
+		if (engine.loop.startFrame < prepared.durationFrames) {
 			const transient = getTransientNodes(graph.nodes);
 			const source = addNode(transient, context.createBufferSource());
 			source.buffer = prepared.audioBuffer;
 			connect(source, graph.masterAnalyser || engine.masterLoudnessMeter?.node || playbackOutputDestination(
 				engine, context, soundscaperNativeAudioDestination(context, context.destination)));
-			const offset = Math.round(engine.loop.startFrame / engine.durationFrames * prepared.frameCount);
+			const offset = Math.round(engine.loop.startFrame / prepared.durationFrames * prepared.frameCount);
 			source.onended = () => { graph.sources.delete(source); releaseTransientNodes(transient, [source]); };
 			source.start(engine.loopScheduleTime, offset / prepared.sampleRate);
 			graph.sources.add(source);

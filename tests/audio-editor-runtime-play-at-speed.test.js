@@ -205,18 +205,19 @@ test('pitch-preserving play at speed schedules a StaffPad-tempo mix at unity sou
 	engine.loadProject(project, new Map([['source-1', source]]));
 	const preservePitch = async (channels, sampleRate, rate) => {
 		calls.push({ channelCount: channels.length, frames: channels[0].length, sampleRate, rate });
-		return channels.map(() => new Float32Array(24_000));
+		return channels.map((channel) => new Float32Array(Math.ceil(channel.length / rate)));
 	};
 
 	await engine.playAtSpeed(2, {
 		preservePitch: true,
 		pitchPreserver: preservePitch,
 	});
-	assert.deepEqual(calls, [{ channelCount: 2, frames: 48_000, sampleRate: 48_000, rate: 2 }]);
+	assert.deepEqual(calls.map(({ frames, ...request }) => request), [{ channelCount: 2, sampleRate: 48_000, rate: 2 }]);
+	assert.ok(calls[0].frames > 48_000, 'the rendered mix includes its rack release before pitch preservation');
 	assert.equal(offlineContexts.length, 1);
 	assert.equal(engine.getState().playbackMode, 'staffpad');
 	assert.equal(engine.getState().playbackRate, 2);
-	assert.equal(realtime.bufferSources[0].buffer.length, 24_000);
+	assert.equal(realtime.bufferSources[0].buffer.length, Math.ceil(calls[0].frames / 2));
 	assert.equal(realtime.bufferSources[0].playbackRate.value, 1);
 	assert.deepEqual(realtime.bufferSources[0].started, [0, 0, undefined]);
 	realtime.currentTime = 0.25;
