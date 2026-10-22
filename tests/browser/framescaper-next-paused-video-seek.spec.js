@@ -15,8 +15,10 @@ async function centerPixel(page, canvas) {
 	}, [...png]);
 }
 
-test('ordinary paused video presents the correct picture on small forward and backward seeks', async ({ page }) => {
+test('ordinary paused video presents the correct picture on small forward and backward seeks', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'The four-frame H264 fixture follows its existing focused Chromium decoder qualification.');
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await expect(editor.getByRole('button', { name: 'Add media', exact: true }).first()).toBeEnabled();
 	await editor.locator('[data-project-bin-input]').setInputFiles(videoRetimePreviewMedia.file);
 	const card = editor.locator('[data-project-bin-item]').first(); await expect(card).toBeVisible();
 	await card.getByRole('button', { name: /Add to timeline/u }).click();
