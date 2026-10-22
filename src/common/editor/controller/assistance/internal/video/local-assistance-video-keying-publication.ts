@@ -2,6 +2,8 @@
 
 /** Full-source alpha-video derivatives published through the existing clip/source history. */
 
+import { createLocalAssistanceSelectionFence } from '../local-assistance-selected-media.ts';
+import type { AssistanceSelectionFence } from '../../../../assistance/proposal-session.ts';
 import { AssistanceProposalStaleError } from '../../../../assistance/proposal-session.ts';
 import { createAddSourceCommand, createReplaceClipSourceCommand } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
@@ -40,6 +42,10 @@ export interface LocalAssistanceVideoKeyingRun {
 	readonly height: number;
 	readonly sourceFrameCount: number;
 	readonly frameRate: Rate;
+	readonly selectionFence: AssistanceSelectionFence;
+	readonly timescale: number;
+	readonly sourceEndTick: bigint;
+	readonly presentationTick: (sourceFrame: number) => bigint;
 }
 
 export interface LocalAssistanceKeyedVideoResult {
@@ -70,6 +76,7 @@ export interface LocalAssistanceVideoKeyingPublicationDependencies {
 
 export interface LocalAssistanceVideoKeyingPublication {
 	capture(options?: Readonly<{ signal?: AbortSignal }>): Promise<LocalAssistanceVideoKeyingRun>;
+	assertCurrent(run: LocalAssistanceVideoKeyingRun, signal?: AbortSignal): void;
 	accept(run: LocalAssistanceVideoKeyingRun, result: LocalAssistanceKeyedVideoResult,
 		options?: Readonly<{ signal?: AbortSignal }>): Promise<Readonly<{ sourceId: string }>>;
 }
@@ -97,7 +104,11 @@ export function createLocalAssistanceVideoKeyingPublication(
 ): Readonly<LocalAssistanceVideoKeyingPublication> {
 	assertDependencies(dependencies);
 	const runs = new WeakMap<LocalAssistanceVideoKeyingRun, RunState>();
-	return Object.freeze({ capture, accept });
+	return Object.freeze({ capture, accept, assertCurrent(run: LocalAssistanceVideoKeyingRun, signal?: AbortSignal) {
+		const state = runs.get(run);
+		if (!state || state.accepted) throw new Error('The captured video keying run is no longer available.');
+		assertCurrent(dependencies, state, signal);
+	} });
 
 	async function capture(options: Readonly<{ signal?: AbortSignal }> = {}): Promise<LocalAssistanceVideoKeyingRun> {
 		options.signal?.throwIfAborted();
@@ -115,6 +126,18 @@ export function createLocalAssistanceVideoKeyingPublication(
 			source: freeze(structuredClone(source)),
 			width: integer(source.width, 1, 'source width'), height: integer(source.height, 1, 'source height'),
 			sourceFrameCount: count, frameRate,
+			selectionFence: createLocalAssistanceSelectionFence(selection.project as never, selection.clip, source,
+				records(selection.project.tracks).find((track) => Array.isArray(track.clipIds)
+					&& track.clipIds.includes(selection.clip.id))!, Number(selection.clip.sequenceStartFrame),
+				Number(selection.clip.sequenceStartFrame) + Number(selection.clip.sequenceFrameCount), 0, count),
+			timescale: timing?.timescale ?? frameRate.num,
+			sourceEndTick: timing?.endTicks ?? BigInt(count) * BigInt(frameRate.den),
+			presentationTick(sourceFrame: number): bigint {
+				if (!Number.isSafeInteger(sourceFrame) || sourceFrame < 0 || sourceFrame >= count) {
+					throw new RangeError('The keyed video source ordinal is outside its captured extent.');
+				}
+				return timing?.presentationTicks[sourceFrame] ?? BigInt(sourceFrame) * BigInt(frameRate.den);
+			},
 		});
 		runs.set(run, state);
 		return run;
@@ -223,7 +246,10 @@ function currentSelection(dependencies: LocalAssistanceVideoKeyingPublicationDep
 	}
 	const selectedId = identifier(dependencies.getSelectedClipId());
 	const selected = record(project.selection, 'Video keying selection');
-	if (!Array.isArray(selected.clipIds) || selected.clipIds.length !== 1 || selected.clipIds[0] !== selectedId) {
+	const selectedVideos = Array.isArray(selected.clipIds) ? selected.clipIds.filter((id) => (
+		records(project.clips).some((clip) => clip.id === id && clip.kind === 'video')
+	)) : [];
+	if (selectedVideos.length > 1 || selectedVideos.length === 1 && selectedVideos[0] !== selectedId) {
 		throw new Error('Video keying requires one selected video occurrence.');
 	}
 	const clips = records(project.clips).filter(({ id }) => id === selectedId);
@@ -240,7 +266,7 @@ function currentSelection(dependencies: LocalAssistanceVideoKeyingPublicationDep
 	if (tracks[0]!.locked === true) throw new Error('The selected keying track is locked.');
 	identifier(project.id); integer(project.revision, 0, 'project revision'); digest(source.contentSha256);
 	const snapshot = { project: structuredClone(project), source: structuredClone(source), clip: structuredClone(clip) };
-	return { ...snapshot, fingerprint: JSON.stringify(project) };
+	return { ...snapshot, fingerprint: JSON.stringify({ project, selectedId }) };
 }
 
 function assertCurrent(dependencies: LocalAssistanceVideoKeyingPublicationDependencies,

@@ -180,6 +180,28 @@ test('keying refuses read-only documents and locked tracks before capture', asyn
 	assert.equal(fixture.records.size, 0);
 });
 
+test('captured decode authority binds the full original ordinal extent to one publication instance', async () => {
+	const fixture = harness(); const run = await fixture.publication.capture();
+	assert.equal(run.selectionFence.sourceStartFrame, 0);
+	assert.equal(run.selectionFence.sourceEndFrame, run.sourceFrameCount);
+	assert.equal(run.presentationTick(0), 0n);
+	assert.ok(run.sourceEndTick > run.presentationTick(run.sourceFrameCount - 1));
+	fixture.publication.assertCurrent(run);
+	assert.throws(() => fixture.publication.assertCurrent({ ...run }), /no longer available/u);
+	assert.throws(() => harness().publication.assertCurrent(run), /no longer available/u);
+	assert.throws(() => run.presentationTick(run.sourceFrameCount), /ordinal/u);
+	fixture.setSelection('another-clip');
+	assert.throws(() => fixture.publication.assertCurrent(run), /selection|selected|changed/iu);
+});
+test('transient Framescaper focus admits one video and changing focus invalidates its captured authority', async () => {
+	const fixture = harness();
+	fixture.setCurrent({ ...fixture.project, selection: { ...fixture.project.selection, clipIds: [] } });
+	const run = await fixture.publication.capture();
+	assert.equal(run.clipId, 'video-clip'); fixture.publication.assertCurrent(run);
+	fixture.setSelection('another-clip');
+	assert.throws(() => fixture.publication.assertCurrent(run), /video occurrence|keying/u);
+});
+
 test('keying refuses a changed selection, source, project activation, or writable state', async () => {
 	for (const mutation of ['selection', 'source', 'activation', 'read-only'] as const) {
 		const fixture = harness(); const run = await fixture.publication.capture();
