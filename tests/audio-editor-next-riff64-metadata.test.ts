@@ -21,9 +21,13 @@ for (const container of ['RF64', 'BW64'] as const) test(`File Open retains ${con
 		await controller.actions.project.importFiles([new File([bytes], `${container}.wav`, { type: 'audio/wav' })], { destination: 'timeline' });
 		const project = controller.getSnapshot().project;
 		assert.ok(project);
-		assert.equal(project.sources.length, 1, 'the maintained PCM reader must successfully publish the recording');
-		const source = project.sources[0];
-		assert.ok(source && 'provenance' in source);
+		assert.ok(Array.isArray(project.sources));
+		const sources: readonly unknown[] = project.sources;
+		assert.equal(sources.length, 1, 'the maintained PCM reader must successfully publish the recording');
+		const source = sources[0];
+		assert.ok(source && typeof source === 'object' && 'provenance' in source && 'id' in source);
+		assert.equal(typeof source.id, 'string');
+		if (typeof source.id !== 'string') throw new TypeError('Expected the native imported source ID.');
 		assert.equal(await storedSample(store, source.id, 0), 0.25);
 		const provenance = normalizeSourceProvenance(source.provenance, 'imported source');
 		assert.equal(provenance.contributions[0]?.metadata.normalized.title, 'Field take');

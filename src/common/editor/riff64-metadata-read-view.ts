@@ -43,7 +43,7 @@ export async function riff64MetadataReadView(file: Blob, header: Uint8Array, sig
 			metadataBytes += 8 + size + size % 2;
 			if (metadataBytes > MAXIMUM_METADATA_BYTES) throw new RangeError('The RIFF64 metadata exceeds its inspection limit.');
 			dataView(chunk).setUint32(4, size, true);
-			parts.push(chunk, file.slice(start, next));
+			parts.push(Uint8Array.from(chunk), file.slice(start, next));
 		}
 		offset = next;
 	}
