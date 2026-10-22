@@ -5,9 +5,11 @@ import { readTakeCompProjectGroups, type TakeCompProject } from './take-comp-pro
 import type { TakeCompDocumentGroup, TakeCompDocumentTake } from '../../../../take-comp-document-v17.ts';
 import type { EngineChunkSourceInput, EngineSourceBufferInput } from '../../../../engine/public-api.ts';
 import type { EngineProject, EngineSourceResolver } from '../../../../engine/types.ts';
-import type {
-	EditorControllerLifetime,
-	EditorProjectToken,
+import {
+	EDITOR_PROJECT_TASK_SCOPE,
+	type EditorControllerLifetime,
+	type EditorProjectToken,
+	type EditorTaskScope,
 } from '../../../shared/lifecycle.ts';
 import type {
 	TakeCompService,
@@ -65,6 +67,8 @@ export function createTakeCompPreviewService(
 	let engine: TakeCompPreviewEngine | null = null;
 	let active: Readonly<TakeCompPreviewState> | null = null;
 	let previewGeneration = 0;
+	let activeTask: EditorTaskScope | null = null;
+	let releaseTask: (() => void) | null = null;
 
 	return Object.freeze({ auditionTake, auditionLane, stop, dispose });
 
@@ -97,7 +101,22 @@ export function createTakeCompPreviewService(
 		const project = dependencies.getProject();
 		const group = requireGroup(project, groupId);
 		const selectedTakes = takeIds.map((takeId) => requireTake(group, takeId));
-		const task = dependencies.lifetime.startTask(TAKE_COMP_PREVIEW_TASK);
+		const task = dependencies.lifetime.startTask(TAKE_COMP_PREVIEW_TASK, { scope: EDITOR_PROJECT_TASK_SCOPE });
+		activeTask = task;
+		const retire = (): void => {
+			if (activeTask !== task) return;
+			previewGeneration += 1;
+			engine?.stop?.();
+			active = active ? Object.freeze({ ...active, state: 'stopped' as const }) : null;
+			releaseTask?.();
+		};
+		task.signal.addEventListener('abort', retire, { once: true });
+		releaseTask = () => {
+			task.signal.removeEventListener('abort', retire);
+			task.finish();
+			if (activeTask === task) { activeTask = null; releaseTask = null; }
+		};
+		let retained = false;
 		try {
 			await dependencies.stopPlayback();
 			task.assertCurrent();
@@ -116,6 +135,7 @@ export function createTakeCompPreviewService(
 			task.assertCurrent();
 			dependencies.assertProject(token);
 			active = playing;
+			retained = true;
 			return active;
 		} catch (error) {
 			if (previewGeneration === generation) {
@@ -124,7 +144,7 @@ export function createTakeCompPreviewService(
 			}
 			throw error;
 		} finally {
-			task.finish();
+			if (!retained && activeTask === task) releaseTask?.();
 		}
 	}
 
@@ -137,8 +157,9 @@ export function createTakeCompPreviewService(
 		}
 		const token = dependencies.captureProject();
 		const generation = previewGeneration;
-		const task = dependencies.lifetime.startTask(TAKE_COMP_PREVIEW_TASK);
+		const task = activeTask!;
 		try {
+			task.assertCurrent();
 			await engine?.play();
 			task.assertCurrent();
 			dependencies.assertProject(token);
@@ -148,15 +169,15 @@ export function createTakeCompPreviewService(
 			if (previewGeneration === generation) {
 				engine?.stop?.();
 				active = Object.freeze({ ...current, state: 'stopped' as const });
+				releaseTask?.();
 			}
 			throw error;
-		} finally {
-			task.finish();
 		}
 	}
 
 	async function stop(): Promise<boolean> {
 		previewGeneration += 1;
+		releaseTask?.();
 		dependencies.lifetime.cancelTask(TAKE_COMP_PREVIEW_TASK);
 		const changed = active !== null;
 		active = active ? Object.freeze({ ...active, state: 'stopped' as const }) : null;
@@ -185,6 +206,7 @@ export function createTakeCompPreviewService(
 			...active,
 			state: state === 'paused' ? 'paused' : 'stopped',
 		});
+		if (active.state === 'stopped') releaseTask?.();
 	}
 }
 
