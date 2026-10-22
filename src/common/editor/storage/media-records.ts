@@ -73,6 +73,7 @@ export function binaryMetadata(metadata: unknown): Record<string, unknown> {
 		'storage',
 		'path',
 		'blob',
+		'encodedBytes',
 		'size',
 		'mimeType',
 		'committedAt',
@@ -97,8 +98,10 @@ export function binaryMetadata(metadata: unknown): Record<string, unknown> {
 
 export function mediaAssetMetadata(record: StorageRecord): Record<string, unknown> {
 	const trustedSha256 = trustedMediaContentSha256(record);
-	const value = cloneValue(record) as Record<string, unknown>;
-	delete value.blob;
+	const metadata = { ...record };
+	delete metadata.blob;
+	delete metadata.encodedBytes;
+	const value = cloneValue(metadata) as Record<string, unknown>;
 	delete value.cacheToken;
 	delete value.sourceToken;
 	delete value.mediaChunkToken;

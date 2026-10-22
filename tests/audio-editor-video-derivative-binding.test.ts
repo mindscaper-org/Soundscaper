@@ -10,6 +10,7 @@ import {
 	VIDEO_DERIVATIVE_STORE_NAME,
 } from '../src/common/editor/storage/derivative-cache-entry.ts';
 import { freshVerifiedMediaContentDigest } from '../src/common/editor/storage/media-content-provenance.ts';
+import { VIDEO_DERIVATIVE_BYTES_STORAGE } from '../src/common/editor/storage/video-derivative-payload.ts';
 import {
 	VIDEO_DERIVATIVE_RECIPES,
 	videoDerivativeIdentity,
@@ -178,21 +179,23 @@ for (const backend of ['memory', 'indexeddb'] as const) {
 			blob: new Blob(['poster-body']),
 		});
 		const record = onlyRecord(fixture.records(VIDEO_DERIVATIVE_STORE_NAME));
+		const corruptBody = (body: string) => record.storage === VIDEO_DERIVATIVE_BYTES_STORAGE
+			? { ...record, encodedBytes: new TextEncoder().encode(body) }
+			: { ...record, blob: new Blob([body]) };
 
-		fixture.seedDerivative({ ...record, blob: new Blob(['short']) });
+		fixture.seedDerivative(corruptBody('short'));
 		await assert.rejects(
 			fixture.store.loadVideoDerivative('video-source', { type: 'poster' }),
 			/derivative.*size|size.*derivative/iu,
 		);
-		fixture.seedDerivative({ ...record, blob: new Blob(['altered-bod']) });
+		fixture.seedDerivative(corruptBody('altered-bod'));
 		await assert.rejects(
 			fixture.store.loadVideoDerivative('video-source', { type: 'poster' }),
 			/derivative.*digest|digest.*derivative/iu,
 		);
 		if (backend === 'indexeddb') {
 			fixture.seedDerivative({
-				...record,
-				blob: new Blob(['altered-bod']),
+				...corruptBody('altered-bod'),
 				outputSha256: sha256('altered-bod'),
 			});
 			await assert.rejects(

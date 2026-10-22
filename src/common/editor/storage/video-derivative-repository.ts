@@ -20,6 +20,7 @@ import {
 } from './derivative-cache-policy.ts';
 import { request, transact } from './indexeddb-backend.ts';
 import { canonicalMediaContentBlob, digestMediaContent } from './media-content-digest.ts';
+import { prepareVideoDerivativePayload } from './video-derivative-payload.ts';
 import { isMediaContentSha256, isMediaContentToken } from './media-content-provenance.ts';
 import {
 	binaryMetadata,
@@ -119,9 +120,7 @@ export class VideoDerivativeRepository {
 				originalMediaContentToken: original.mediaContentToken,
 				outputSha256,
 				cacheToken: createCacheToken(),
-				storage: storedFile ? 'opfs' : 'indexeddb-blob',
-				path: storedFile?.path,
-				blob: storedFile ? undefined : blob,
+				...(await prepareVideoDerivativePayload(blob, storedFile, Boolean(database))),
 				size: blob.size,
 				mimeType: String(metadata.mimeType || blob.type || ''),
 				committedAt: new Date(publicationTime).toISOString(),
