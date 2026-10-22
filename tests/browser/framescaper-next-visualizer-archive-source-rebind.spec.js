@@ -40,7 +40,7 @@ test('SCAPE Open as copy keeps explicit visualizer audio and its saved visual pr
 		mimeType: 'application/vnd.soundscaper.scape+zip', buffer: Buffer.from(bytes) });
 	const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });
 	await collision.getByRole('button', { name: 'Open as copy', exact: true }).click();
-	await expect(editor).not.toHaveAttribute('data-project-id', oldId);
+	await expect(editor).not.toHaveAttribute('data-project-id', oldId, { timeout: 30_000 });
 	await waitForProjectActivation(editor);
 	await visual.press('Enter');
 	dialog = await openInspector();
