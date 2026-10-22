@@ -51,6 +51,19 @@ export function decodeArtworkData(value: string): Uint8Array<ArrayBuffer> {
 	return Uint8Array.from(atob(value), character => character.charCodeAt(0));
 }
 
+/** Filename proposals must satisfy APIC text and uniqueness rules before publication. */
+export function suggestId3ArtworkDescription(fileName: string, existing: readonly Id3Artwork[] = []): string {
+	// eslint-disable-next-line no-control-regex
+	const stem = fileName.replace(/[\u0000-\u001f\u007f]/gu, ' ').slice(0, 4096) || 'Artwork';
+	const used = new Set(existing.map(picture => picture.description));
+	let description = stem;
+	for (let index = 2; used.has(description); index += 1) {
+		const suffix = ` (${index})`;
+		description = `${stem.slice(0, 4096 - suffix.length)}${suffix}`;
+	}
+	return description;
+}
+
 export async function createId3Artwork(file: File): Promise<Id3Artwork> {
 	if (file.size > MAXIMUM_IMAGE_BYTES) throw new RangeError('Artwork must be PNG or JPEG, up to 4 MiB.');
 	const bytes = new Uint8Array(await file.arrayBuffer());
@@ -59,5 +72,5 @@ export async function createId3Artwork(file: File): Promise<Id3Artwork> {
 	if (!mimeType) throw new RangeError('Artwork must be PNG or JPEG.');
 	let binary = '';
 	for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-	return parseId3Artwork([{ mimeType, pictureType: 3, description: file.name, data: btoa(binary) }])[0]!;
+	return parseId3Artwork([{ mimeType, pictureType: 3, description: suggestId3ArtworkDescription(file.name), data: btoa(binary) }])[0]!;
 }
