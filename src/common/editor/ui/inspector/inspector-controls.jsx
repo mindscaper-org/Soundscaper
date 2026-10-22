@@ -9,11 +9,18 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
+	const draftOwner = useRef({ name, focused: false, dirty: false });
 	useEffect(() => {
+		const owner = draftOwner.current;
+		if (owner.name === name && owner.focused && owner.dirty) return;
+		owner.name = name;
+		owner.dirty = false;
 		setDraft(String(value ?? ''));
 		setError(false);
 	}, [name, value]);
 	const commit = () => {
+		draftOwner.current.focused = false;
+		draftOwner.current.dirty = false;
 		if (disabled || readOnly || !draftBlurShouldCommit(blurCommitGuard)) return;
 		try {
 			setError(onCommit(name, draft) === false);
@@ -32,6 +39,7 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 			} else if (event.key === 'Escape') {
 				cancelDraftEditOnEscape(blurCommitGuard, { currentTarget: event.target,
 					preventDefault: () => event.preventDefault(), stopPropagation: () => event.stopPropagation() }, () => {
+					draftOwner.current.dirty = false;
 					setDraft(String(value ?? ''));
 					setError(false);
 				});
@@ -44,7 +52,11 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 				multiline={multiline}
 				disabled={disabled || readOnly}
 				error={error}
-				onChange={setDraft}
+				onFocus={() => { draftOwner.current.focused = true; }}
+				onChange={(next) => {
+					draftOwner.current.dirty = next !== String(value ?? '');
+					setDraft(next);
+				}}
 				onBlur={commit}
 				width="100%"
 			/>
