@@ -235,8 +235,9 @@ export function createRecordingRoutingService<
 	async function setPreferredInputChannelCount(channelCount: number) {
 		const normalized = Number(channelCount) === 2 ? 2 : 1;
 		state.preferredInputChannelCount = normalized;
-		await updatePreferredRecordingRoutes();
-		publishDocumentSnapshot();
+		const routingPersistence = updatePreferredRecordingRoutes();
+		try { publishDocumentSnapshot(); }
+		finally { await routingPersistence; }
 		await persistAudioDevicePreferences();
 		return normalized;
 	}
