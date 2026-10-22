@@ -11,6 +11,7 @@ import type { createAssistanceOperationService } from './assistance-operation-se
 import { awaitAssistanceCleanupPhases } from './assistance-cleanup-barrier.ts';
 import { AssistanceOperationTransfers } from './assistance-operation-transfers.ts';
 import { assistanceElectronEventPort } from './assistance-electron-data-port.ts';
+import type { createAssistanceKeyedVideoService } from './assistance-keyed-video-service.ts';
 
 export const ASSISTANCE_OPERATION_IPC_CHANNELS = Object.freeze({
 	models: 'soundscaper:v1:assistance:operation:models',
@@ -19,6 +20,8 @@ export const ASSISTANCE_OPERATION_IPC_CHANNELS = Object.freeze({
 	inputPort: 'soundscaper:v1:assistance:operation:input-port',
 	reserve: 'soundscaper:v1:assistance:operation:reserve',
 	run: 'soundscaper:v1:assistance:operation:run',
+	encodeKeyedVideo: 'soundscaper:v1:assistance:operation:encode-keyed-video',
+	keyedVideoAvailable: 'soundscaper:v1:assistance:operation:keyed-video-available',
 	cancel: 'soundscaper:v1:assistance:operation:cancel',
 	readOutput: 'soundscaper:v1:assistance:operation:read-output',
 	outputPort: 'soundscaper:v1:assistance:operation:output-port',
@@ -40,6 +43,7 @@ export interface AssistanceOperationIpcOptions {
 		onProgress: (progress: AssistanceOperationProgress) => void,
 	) => AssistanceOperations;
 	readonly createTransfers?: (operations: AssistanceOperations) => AssistanceOperationTransfers;
+	readonly createKeyedVideo?: (operations: AssistanceOperations) => ReturnType<typeof createAssistanceKeyedVideoService>;
 	/** Trusted native confirmation for this exact validated selection and operation. */
 	readonly confirmOperation: (request: AssistanceOperationRequest) => PromiseLike<boolean>;
 	/** Main-only diagnostics receive the original failure before renderer redaction. */
@@ -51,6 +55,7 @@ export function registerAssistanceOperationIpc(options: AssistanceOperationIpcOp
 }> {
 	let operations: AssistanceOperations | null = null;
 	let transfers: AssistanceOperationTransfers | null = null;
+	let keyedVideo: ReturnType<typeof createAssistanceKeyedVideoService> | null = null;
 	const resolve = (): Readonly<{ operations: AssistanceOperations; transfers: AssistanceOperationTransfers }> => {
 		if (!operations) {
 			operations = options.createOperations((progress) =>
@@ -88,8 +93,18 @@ export function registerAssistanceOperationIpc(options: AssistanceOperationIpcOp
 		}
 		return resolve().operations.run(request);
 	}, 'The assistance operation could not be completed.', options.onError));
+	options.handle(options.channels.encodeKeyedVideo, (_event, value) => pathless(() => {
+		keyedVideo ??= options.createKeyedVideo?.(resolve().operations) ?? null;
+		if (!keyedVideo) throw new Error('The keyed-video encoder is unavailable.');
+		return keyedVideo.encode(value);
+	}, 'The keyed alpha-video could not be encoded.', options.onError));
+	options.handle(options.channels.keyedVideoAvailable, () => pathless(() => {
+		keyedVideo ??= options.createKeyedVideo?.(resolve().operations) ?? null;
+		return keyedVideo?.available() ?? false;
+	}, 'Alpha-video encoder availability could not be checked.', options.onError));
 	options.handle(options.channels.cancel, (_event, value) => pathless(async () => {
 		const jobId = opaqueId(value);
+		await keyedVideo?.cancel(jobId);
 		await resolve().transfers.cancelJob(jobId);
 		return resolve().operations.cancel(jobId);
 	}, 'The assistance operation could not be cancelled.', options.onError));
@@ -97,6 +112,7 @@ export function registerAssistanceOperationIpc(options: AssistanceOperationIpcOp
 		() => resolve().transfers.prepareOutput(value), 'The assistance output could not be read.', options.onError));
 	options.handle(options.channels.release, (_event, value) => pathless(async () => {
 		const jobId = opaqueId(value);
+		await keyedVideo?.cancel(jobId);
 		await resolve().transfers.cancelJob(jobId);
 		return resolve().operations.release(jobId);
 	}, 'The assistance operation job could not be released.', options.onError));
@@ -115,6 +131,7 @@ export function registerAssistanceOperationIpc(options: AssistanceOperationIpcOp
 	});
 
 	return Object.freeze({ dispose: () => awaitAssistanceCleanupPhases([
+		[() => keyedVideo?.dispose()],
 		[() => transfers?.dispose()],
 		[() => operations?.dispose()],
 	]) });
