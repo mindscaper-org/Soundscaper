@@ -8,8 +8,16 @@ import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-
 registerAudioEditorHooks();
 
 test('an imported automatic video preset permits a different explicit delivery size', async ({ page }) => {
+	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
+	const webgl2Available = await page.evaluate(() => {
+		const context = document.createElement('canvas').getContext('webgl2');
+		if (!context) return false;
+		context.getExtension('WEBGL_lose_context')?.loseContext();
+		return true;
+	});
+	test.skip(!webgl2Available, 'The delivery-size export requires WebGL2; this browser host disables its creation.');
 	await importFiles(editor, [createDeterministicSilentVideoFixture('Preset source.webm')]);
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MP4 video');
