@@ -107,9 +107,40 @@ original registration backedge; the correction passes all 37 focused chunk
 checks. The emitted registration entry has one source module and no shared
 exports, and all five recovery/import consumers remain lazy. Scoped strict
 types, changed-file lint and size checks pass. Earlier failed candidate layouts
-and the corrected regression's failing baseline remain preserved. The fresh
-three-product build, four-case WebKit recovery verification and final complete
-gates remain pending.
+and the corrected regression's failing baseline remain preserved.
+
+The fresh three-product hidden-source-map build passes on `18dd1724b`. All four
+original WebKit recovery cases pass on that revision with zero retries, skips
+or failures; source/site/audio postconditions and all 24 recorded process-birth
+closures pass. Linux native source equivalence, both fresh desktop stages,
+unsigned unpacked packages and exact resource verification also pass on
+`18dd1724b`. These retain their original native compilation receipts and do not
+qualify installers, signing, hardware GPUs or additional hosts. All eight saved
+ordinary-browser failures now have focused passes on their respective correction
+revisions; they are not one complete final-source browser cohort.
+
+`d0fef8db3` changes only the chunk regression's import to its owning module; the
+real emission regression, scoped strict types and changed-file lint pass.
+Its full static attempt was deliberately canceled before completion when the
+scope review found that desktop startup forced English and offered no language
+preference. The original terminal code 125 and owned cleanup are retained;
+all 40 recorded process births are absent. This is an incomplete gate, with no
+OOM or leak cause claimed. The new source requires a fresh complete static run.
+
+`a4a233e64` adds the missing desktop preference through **View → Language**.
+Startup uses the persisted or supported system locale; a private, closed IPC
+setter persists the selected committed catalog before changing copy, `lang` and
+`dir` in place. Dirty project state, Undo/Redo and native file binding retain
+their existing owners. Future link connections use the accepted locale without
+replacing an active connection. Native chooser/error copy follows the preference;
+Windows/Linux use the existing localized document-menu convention and macOS
+retains OS menu roles. All 43 focused checks, scoped strict types, changed-file
+lint and size checks pass; the final App test also passes after a quote-only
+lint correction. All 87 recorded process births across the retained attempts are
+absent. The generated security narrative and runtime evidence pins are refreshed.
+The fresh locale-source build, two-case Chromium workflow and complete gates
+remain pending; mocked browser IPC does not qualify actual Electron persistence
+or native-menu behavior.
 
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
