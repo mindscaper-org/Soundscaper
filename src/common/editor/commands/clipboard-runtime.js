@@ -229,8 +229,8 @@ export function preparePasteCommand(clipboard, options = {}, idFactory = createS
 	for (const track of normalizedClipboard.tracks || []) {
 		for (const clip of track.clips || []) {
 			clipIds[clip.key] = idFactory('clip');
-			if (clip.groupId && !groupIds[clip.groupId]) groupIds[clip.groupId] = idFactory('clip-group');
-			if (clip.avLinkId && !avLinkIds[clip.avLinkId]) avLinkIds[clip.avLinkId] = idFactory('av-link');
+			if (clip.groupId && !Object.hasOwn(groupIds, clip.groupId)) Object.defineProperty(groupIds, clip.groupId, { value: idFactory('clip-group'), enumerable: true });
+			if (clip.avLinkId && !Object.hasOwn(avLinkIds, clip.avLinkId)) Object.defineProperty(avLinkIds, clip.avLinkId, { value: idFactory('av-link'), enumerable: true });
 			if (clip.kind === 'video' && clip.videoEffects?.length) {
 				videoEffectIds[clip.key] = clip.videoEffects.map(() => idFactory('video-effect'));
 			}
