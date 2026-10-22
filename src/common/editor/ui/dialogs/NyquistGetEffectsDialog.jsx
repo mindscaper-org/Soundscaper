@@ -26,6 +26,8 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 	useEffect(() => {
 		const request = new AbortController();
 		requestRef.current = request;
+		const refreshInstalled = () => setInstalled(nyquistArchiveStore.list());
+		globalThis.addEventListener('soundscaper-nyquist-archive-changed', refreshInstalled);
 		void fetchNyquistArchiveManifest({ signal: request.signal }).then((catalog) => {
 			nyquistArchiveStore.updateCatalogMetadata(catalog.artifacts);
 			setInstalled(nyquistArchiveStore.list());
@@ -33,7 +35,10 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		}).catch((reason) => {
 			if (!request.signal.aborted) setError(reason instanceof Error ? reason.message : String(reason));
 		});
-		return () => requestRef.current?.abort();
+		return () => {
+			requestRef.current?.abort();
+			globalThis.removeEventListener('soundscaper-nyquist-archive-changed', refreshInstalled);
+		};
 	}, []);
 
 	const filtered = useMemo(() => {
