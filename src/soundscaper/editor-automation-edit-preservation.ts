@@ -42,7 +42,8 @@ export function preserveAutomationLanesAfterInheritedCommand(
 		const trackId = addressedTrackId(lane, edgeTracks);
 		const edits = trackId === null ? plan.global ?? [] : plan.byTrackId.get(trackId) ?? [];
 		return edits.reduce((current, edit) => (
-			replaceAutomationLaneTimelineIntervalV21(current, edit, options)
+			edit.endFrame - edit.startFrame === edit.insertedDurationFrames ? current
+				: replaceAutomationLaneTimelineIntervalV21(current, edit, options)
 		), lane);
 	});
 }
