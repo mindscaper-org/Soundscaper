@@ -5,18 +5,24 @@ import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { createAudioEditorEngine } from '../src/common/editor/engine.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
+import { MockAudioContext } from './helpers/mock-audio-context.js';
 
 test('source audition prepares only the healthy clip even when another pitched recording is unavailable', async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: 'source-audition-inventory' });
 	const runtime = createSoundscaperProjectRuntimeSelection();
-	const previews: ReturnType<typeof createMemoryEngine>[] = [];
+	const previews: ReturnType<typeof createAudioEditorEngine>[] = [];
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), store,
 		engine: { ...createMemoryEngine(), subscribeState: () => () => undefined, getPlaybackGain: () => 1 } as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
-		engineFactory: () => { const engine = { ...createMemoryEngine(), setPlaybackGain() {}, setPlayRange() {}, subscribePosition: () => () => undefined }; previews.push(engine); return engine; },
+		engineFactory: options => {
+			const engine = createAudioEditorEngine({ ...options, audioContextFactory: () => new MockAudioContext() as unknown as AudioContext });
+			previews.push(engine);
+			return engine;
+		},
 	});
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready;
