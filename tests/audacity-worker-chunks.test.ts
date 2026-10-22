@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import type { OutputChunk } from 'rolldown';
 import { build } from 'vite';
-import { workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
+import { workerChunkGroups } from '../scripts/lib/build-worker-chunks.mjs';
 
 test('Audacity lazy recovery and import chunks cannot execute the worker registration entry again', async (context) => {
 	const root = resolve(import.meta.dirname, '..');
