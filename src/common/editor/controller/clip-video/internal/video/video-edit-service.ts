@@ -114,13 +114,20 @@ export function createVideoEditService(
 	dependencies: VideoEditServiceDependencies,
 ): Readonly<VideoEditService> {
 	let targeting: VideoEditTargeting | null = null;
+	let targetingSequenceId: string | undefined;
+	let targetingProjectId: unknown;
 
 	function targets(sequenceId?: string | null): VideoEditTargets {
 		dependencies.lifetime.assertActive();
-		return resolveVideoEditTargets(dependencies.getProject(), {
+		const project = dependencies.getProject();
+		if (targetingProjectId !== project.id) {
+			targeting = null; targetingSequenceId = undefined; targetingProjectId = project.id;
+		}
+		const selectedTrackId = dependencies.getSelectedTrackId();
+		return resolveVideoEditTargets(project, {
 			targeting,
-			selectedTrackId: dependencies.getSelectedTrackId(),
-			sequenceId,
+			selectedTrackId,
+			sequenceId: sequenceId ?? targetingSequenceId ?? trackSequenceId(project, selectedTrackId),
 		});
 	}
 
@@ -242,13 +249,16 @@ export function createVideoEditService(
 			const project = dependencies.getProject();
 			const track = arrayOf(project.tracks).find((candidate) => candidate.id === trackId);
 			if (!track) throw new ReferenceError(`Unknown track: ${trackId}.`);
-			targeting = toggleVideoEditTarget(targets(sequenceId), trackId, String(track.type));
+			const current = targets(sequenceId ?? trackSequenceId(project, trackId));
+			targeting = toggleVideoEditTarget(current, trackId, String(track.type));
+			targetingSequenceId = current.sequenceId;
 			dependencies.publishProjectState();
 			return targets(sequenceId);
 		},
 		clearTargets(): VideoEditTargets {
 			dependencies.lifetime.assertActive();
 			targeting = null;
+			targetingSequenceId = undefined;
 			dependencies.publishProjectState();
 			return targets();
 		},
@@ -388,6 +398,15 @@ function requireSequence(project: DataRecord, sequenceId: string): DataRecord {
 	const sequence = arrayOf(project.sequences).find((candidate) => String(candidate.id) === sequenceId);
 	if (!sequence) throw new ReferenceError(`Unknown sequence: ${sequenceId}.`);
 	return sequence;
+}
+
+/** Resolve declared membership instead of treating the primary sequence as every visible lane's owner. */
+function trackSequenceId(project: DataRecord, trackId: string | null): string | undefined {
+	const sequence = arrayOf(project.sequences).find(candidate => (
+		Array.isArray(candidate.trackIds) && candidate.trackIds.includes(trackId)
+		|| arrayOf(candidate.trackNodes).some(node => node.kind === 'track' && node.id === trackId)
+	));
+	return typeof sequence?.id === 'string' ? sequence.id : undefined;
 }
 
 function requireSource(project: DataRecord, sourceId: unknown): DataRecord {
