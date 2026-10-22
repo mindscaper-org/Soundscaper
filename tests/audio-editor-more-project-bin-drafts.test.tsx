@@ -7,7 +7,7 @@ import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import ProjectBinPanel from '../src/common/editor/ui/workspace/ProjectBinPanel.jsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('MP37: a bin name draft cannot rename an identically named clip in a replacement project', async () => {
+for (const sameId of [false, true]) test(`MP37: a bin name draft cannot rename a replacement clip with ${sameId ? 'the same' : 'a different'} project ID`, async () => {
 	const dom = installReactTestDom();
 	const priorReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
 	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
@@ -18,7 +18,8 @@ test('MP37: a bin name draft cannot rename an identically named clip in a replac
 	let project = { id: 'project-a', revision: 0, sampleRate: 48_000, tracks: [], clips: [],
 		sources: [{ id: 'source', kind: 'audio', frameCount: 8, sampleRate: 48_000, channelCount: 1 }], projectBin: { clips: [clip] } };
 	const renamed: string[] = [];
-	const controller = { getSnapshot: () => ({ project }), actions: { project: {}, projectBin: {
+	let generation = 1;
+	const controller = { captureProjectGeneration: () => ({ projectId: project.id, generation }), getSnapshot: () => ({ project }), actions: { project: {}, projectBin: {
 		getVisualData: () => null, instanceCount: () => 0,
 		rename: (_id: string, name: string) => { renamed.push(`${project.id}:${name}`); },
 	} } };
@@ -32,7 +33,7 @@ test('MP37: a bin name draft cannot rename an identically named clip in a replac
 	try {
 		await render();
 		await act(async () => { reactProps(dom.one('[data-project-bin-name]')).onChange?.({ currentTarget: { value: 'Private draft for A' } }); });
-		project = { ...project, id: 'project-b' }; await render();
+		project = { ...project, id: sameId ? 'project-a' : 'project-b' }; generation++; await render();
 		const currentInput = dom.one('[data-project-bin-name]');
 		await act(async () => { reactProps(currentInput).onBlur?.(); });
 		assert.deepEqual(renamed, []);

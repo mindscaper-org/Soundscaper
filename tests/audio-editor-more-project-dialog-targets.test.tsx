@@ -21,8 +21,11 @@ async function dialog(type: Kind) {
 	const calls: unknown[][] = [];
 	let closes = 0;
 	const operation = (...args: unknown[]) => { calls.push(args); };
-	const controller = { actions: { project: { rename: operation }, track: { update: operation, resample: operation } } };
-	const render = async (projectId = 'original', trackId = 'first') => {
+	let generation = 1, activeId = 'original';
+	const controller = { captureProjectGeneration: () => ({ projectId: activeId, generation }), actions: { project: { rename: operation }, track: { update: operation, resample: operation } } };
+	const render = async (projectId = 'original', trackId = 'first', reactivate = false) => {
+		if (activeId !== projectId || reactivate) generation++;
+		activeId = projectId;
 		await act(async () => root.render(<EditorDialog type={type}
 			value={type === 'resample' ? '24000' : 'Original draft'} onValueChange={() => undefined} trackId="first"
 			controller={controller} snapshot={{ project: { id: projectId, sampleRate: 48_000,
@@ -66,6 +69,15 @@ test('MP20: track editing dialogs retain the original track when focus changes',
 			await view.render('original', 'second');
 			await view.confirm();
 			assert.equal(view.calls[0]?.[0], 'first', type);
+		} finally { await view.cleanup(); }
+	}
+});
+
+test('MP20 ancillary: project editing dialogs retire when native Replace activates the same project ID', async () => {
+	for (const type of ['rename', 'track-rename', 'resample'] as const) {
+		const view = await dialog(type);
+		try { await view.render('original', 'first', true); await view.confirm();
+			assert.deepEqual(view.calls, [], type); assert.equal(view.closes(), 1, type);
 		} finally { await view.cleanup(); }
 	}
 });

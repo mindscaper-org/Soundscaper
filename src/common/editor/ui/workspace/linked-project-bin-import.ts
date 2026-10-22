@@ -10,7 +10,7 @@ interface LinkedChoice {
 }
 
 interface LinkedProjectBinImportRuntime {
-	getProjectId(): string | null;
+	getProjectSessionKey(): string;
 	choose(): PromiseLike<LinkedChoice | null>;
 	release(reference: Readonly<{ locatorId: string; locatorRevision: string }>): PromiseLike<boolean>;
 	importFile(file: Blob, options: Readonly<Record<string, unknown>>): PromiseLike<unknown>;
@@ -18,11 +18,11 @@ interface LinkedProjectBinImportRuntime {
 
 /** A chooser owns its pathless locator until publication enters the original project. */
 export async function importLinkedProjectBinChoice(runtime: LinkedProjectBinImportRuntime, kind: 'audio' | 'video') {
-	const scope = Object.freeze({ projectId: runtime.getProjectId() });
+	const scope = Object.freeze({ projectSessionKey: runtime.getProjectSessionKey() });
 	return handoffLinkedAudioChoice({
 		choose: runtime.choose,
 		release: runtime.release,
-		isCurrent: (captured) => runtime.getProjectId() === captured.projectId,
+		isCurrent: (captured) => runtime.getProjectSessionKey() === captured.projectSessionKey,
 		accept: (file, reference) => withWebFileLoadLimitContext(() => runtime.importFile(file, {
 			destination: 'project-bin',
 			[kind === 'audio' ? 'linkedAudioLocatorId' : 'linkedVideoLocatorId']: reference.locatorId,

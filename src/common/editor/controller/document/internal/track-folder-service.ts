@@ -36,6 +36,7 @@ export interface TrackFolderPlacement {
 export interface TrackFolderServiceDependencies {
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive'>;
 	readonly getProject: () => unknown;
+	readonly getProjectSessionKey?: () => unknown;
 	readonly editingBlocked: () => boolean;
 	readonly createId: (prefix: string) => string;
 	readonly commit: (command: AudioEditorCommand) => unknown;
@@ -63,14 +64,15 @@ export function createTrackFolderService(
 	dependencies: TrackFolderServiceDependencies,
 ): Readonly<TrackFolderService> {
 	let selectedFolderId: string | null = null;
-	let selectedProjectId: unknown;
+	let selectedProjectSession: unknown;
 
 	const project = (): FolderedProjectShape => {
 		const value = dependencies.getProject();
 		const current = value && typeof value === 'object' ? value as FolderedProjectShape : {};
-		if (current.id !== selectedProjectId || (selectedFolderId !== null
+		const session = dependencies.getProjectSessionKey ? dependencies.getProjectSessionKey() : current.id;
+		if (session !== selectedProjectSession || (selectedFolderId !== null
 			&& !current.trackFolders?.some(({ id }) => id === selectedFolderId))) selectedFolderId = null;
-		selectedProjectId = current.id;
+		selectedProjectSession = session;
 		return current;
 	};
 	const guard = (): void => {

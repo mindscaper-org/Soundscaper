@@ -6,6 +6,7 @@ import { TextInput } from '@soundscaper/design-system/TextInput';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import TimedRecordingDialogFields from './TimedRecordingDialogFields.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useOwnedDialogOperation } from '../useOwnedDialogOperation.ts';
 import { formatDate } from '../workspace-runtime.js';
 import {
@@ -36,16 +37,17 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 	const editBlockedRef = useRef(editBlocked);
 	editBlockedRef.current = editBlocked;
 	const cancelTimedRecordingOnClose = useRef(false);
+	const projectSession = editorProjectEditSessionKey(controller, snapshot.project?.id);
 	const projectIdAtOpen = useRef(snapshot.project?.id ?? null);
-	const editingTargetAtOpen = useRef({ type, projectId: snapshot.project?.id ?? null, trackId: snapshot.selectedTrackId ?? null });
+	const editingTargetAtOpen = useRef({ type, projectSession, trackId: snapshot.selectedTrackId ?? null });
 	if (editingTargetAtOpen.current.type !== type) {
-		editingTargetAtOpen.current = { type, projectId: snapshot.project?.id ?? null, trackId: snapshot.selectedTrackId ?? null };
+		editingTargetAtOpen.current = { type, projectSession, trackId: snapshot.selectedTrackId ?? null };
 		projectIdAtOpen.current = snapshot.project?.id ?? null;
 	}
 	// These actions intentionally replace the project before their promise settles.
 	const replacesProject = ['projects', 'delete', 'clear'].includes(type);
 	const operationState = useOwnedDialogOperation({
-		owner: JSON.stringify([type, replacesProject ? null : snapshot.project?.id ?? null]), blocked: editBlocked, run,
+		owner: JSON.stringify([type, replacesProject ? null : projectSession]), blocked: editBlocked, run,
 	});
 	cancelTimedRecordingOnClose.current = type === 'timed-recording' && snapshot.recordingScheduling;
 	const closeDialog = () => {
@@ -56,7 +58,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 	const runThenClose = (operation, shouldClose = () => true) => {
 		if (editBlockedRef.current) return;
 		if (['rename', 'track-rename', 'resample', 'track-rate', 'timed-recording'].includes(type)
-			&& (snapshot.project?.id ?? null) !== editingTargetAtOpen.current.projectId) {
+			&& projectSession !== editingTargetAtOpen.current.projectSession) {
 			onClose();
 			return;
 		}
@@ -135,7 +137,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 		(result) => result !== TRACK_RATE_DIALOG_MISSING_TRACK && result !== TRACK_RATE_DIALOG_INVALID_RATE,
 	);
 	const confirmDeletion = () => {
-		if (type === 'delete' && snapshot.project?.id !== projectIdAtOpen.current) {
+		if (type === 'delete' && projectSession !== editingTargetAtOpen.current.projectSession) {
 			onClose();
 			return;
 		}

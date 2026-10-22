@@ -50,14 +50,14 @@ test('MP15 manager route admits the encoded program bytes exported from its vali
 });
 
 
-test('MP34: a pending program import cannot replace a later project manager selection', async () => {
+for (const sameId of [false, true]) test(`MP34: a pending program import cannot replace a later ${sameId ? 'same-ID' : 'different-ID'} manager selection`, async () => {
 	const fixture = await mountedMacroManagerFixture();
 	const text = deferred<string>();
 	try {
 		await fixture.render(macroSnapshot('project-a'));
 		await changeFile(fixture.importScriptInput(), { name: 'Old.soundscapemacro', size: 100,
 			text: () => text.promise } as File);
-		await fixture.render(macroSnapshot('project-b'));
+		await fixture.render(macroSnapshot(sameId ? 'project-a' : 'project-b'), sameId);
 		await changeFile(fixture.importScriptInput(), new File([
 			serializeMacroScriptEnvelope({ name: 'New program', source: 'await sound.select.all();' }),
 		], 'New.soundscapemacro'));
@@ -74,7 +74,7 @@ test('MP34: a pending program import cannot replace a later project manager sele
 	}
 });
 
-test('MP35: switching projects releases a pending program run before the same program can run again', async () => {
+for (const sameId of [false, true]) test(`MP35: replacing a ${sameId ? 'same-ID' : 'different-ID'} project releases pending program run ownership`, async () => {
 	const fixture = await mountedMacroManagerFixture();
 	try {
 		await fixture.render(macroSnapshot('project-a'));
@@ -82,7 +82,7 @@ test('MP35: switching projects releases a pending program run before the same pr
 		await click(fixture.program('Shared program'));
 		await click(fixture.button('Run program'));
 		assert.equal(fixture.scriptRuns.length, 1);
-		await fixture.render(macroSnapshot('project-b'));
+		await fixture.render(macroSnapshot(sameId ? 'project-a' : 'project-b'), sameId);
 		assert.ok(fixture.buttonLabels().includes('Run program'), 'the new project must not inherit the old run admission');
 		await click(fixture.button('Run program'));
 		assert.equal(fixture.scriptRuns.length, 2);
@@ -92,4 +92,17 @@ test('MP35: switching projects releases a pending program run before the same pr
 		for (const run of fixture.scriptRuns) run.settlement.resolve({ log: [] });
 		fixture.settlePending(); await fixture.cleanup();
 	}
+});
+
+
+test('MP34 ancillary: a pending program file retires on same-ID native replacement without a newer import', async () => {
+	const fixture = await mountedMacroManagerFixture(); const text = deferred<string>();
+	try {
+		await fixture.render(macroSnapshot('project-a'));
+		await changeFile(fixture.importScriptInput(), { name: 'Old.soundscapemacro', size: 100, text: () => text.promise } as File);
+		await fixture.render(macroSnapshot('project-a'), true);
+		await act(async () => { text.resolve(serializeMacroScriptEnvelope({ name: 'Old program', source: '' }));
+			await text.promise; await Promise.resolve(); });
+		assert.deepEqual(fixture.scripts.list(), []);
+	} finally { text.resolve(''); fixture.settlePending(); await fixture.cleanup(); }
 });

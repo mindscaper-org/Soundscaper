@@ -8,7 +8,7 @@ import ProjectMetadataPanel from '../src/common/editor/ui/workspace/ProjectMetad
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('MP21: project metadata drafts cannot leak into another project with equal saved field values', async () => {
+for (const sameId of [false, true]) test(`MP21: project metadata drafts cannot leak into a replacement with ${sameId ? 'the same' : 'a different'} project ID`, async () => {
 	const dom = installReactTestDom();
 	const root = createRoot(dom.container as unknown as Element);
 	const priorReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
@@ -17,8 +17,11 @@ test('MP21: project metadata drafts cannot leak into another project with equal 
 	const priorAct = environment.IS_REACT_ACT_ENVIRONMENT;
 	environment.IS_REACT_ACT_ENVIRONMENT = true;
 	const updates: unknown[] = [];
+	let generation = 0, activeId = '';
+	const controller = { captureProjectGeneration: () => ({ projectId: activeId, generation }) };
 	const render = async (projectId: string) => {
-		await act(async () => root.render(<ProjectMetadataPanel project={{ id: projectId, metadata: { artist: '' } }}
+		generation++; activeId = projectId;
+		await act(async () => root.render(<ProjectMetadataPanel controller={controller} project={{ id: projectId, metadata: { artist: '' } }}
 			copy={ENGLISH_COPY} disabled={false} onUpdate={(changes) => updates.push({ projectId, changes })} />));
 	};
 	try {
@@ -26,7 +29,7 @@ test('MP21: project metadata drafts cannot leak into another project with equal 
 		const artist = dom.container.querySelectorAll('input').find((field) => field.name === 'artist');
 		assert.ok(artist);
 		await act(async () => { reactProps(artist).onChange({ currentTarget: { value: 'Old project draft' } }); });
-		await render('replacement');
+		await render(sameId ? 'original' : 'replacement');
 		const nextArtist = dom.container.querySelectorAll('input').find((field) => field.name === 'artist');
 		assert.ok(nextArtist);
 		assert.equal(reactProps(nextArtist).value, '');

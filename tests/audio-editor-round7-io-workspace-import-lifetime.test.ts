@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { openDesktopWorkspaceFiles } from '../src/common/editor/ui/workspace/desktop-workspace-file-choice.ts';
 
-for (const changeAt of ['unchanged', 'choice', 'read'] as const) test(`desktop media choice retains its original project (${changeAt})`, async () => {
+for (const sameId of [false, true]) for (const changeAt of ['unchanged', 'choice', 'read'] as const) test(`desktop media choice retains its original session (${changeAt}; sameId=${sameId})`, async () => {
 	let projectId = 'original';
+	let generation = 1;
 	let completeChoice: (descriptors: readonly unknown[]) => void = () => undefined;
 	let completeRead: () => void = () => undefined;
 	const choice = new Promise<readonly unknown[]>(resolve => { completeChoice = resolve; });
@@ -16,6 +17,7 @@ for (const changeAt of ['unchanged', 'choice', 'read'] as const) test(`desktop m
 	const file = new File([Uint8Array.of(1, 2, 3)], 'Dialogue.wav');
 	const operation = openDesktopWorkspaceFiles({
 		getProjectId: () => projectId,
+		getProjectSessionKey: () => JSON.stringify([projectId, generation]),
 		fileService: {
 			chooseFiles: () => choice,
 			async withReadDescriptors(descriptors, _request, consume) {
@@ -27,11 +29,11 @@ for (const changeAt of ['unchanged', 'choice', 'read'] as const) test(`desktop m
 		},
 		importFiles: files => { imported.push(...files.map(file => ({ projectId, file }))); },
 	}, 'media', true, { destination: 'timeline' });
-	if (changeAt === 'choice') projectId = 'replacement';
+	if (changeAt === 'choice') { generation++; projectId = sameId ? 'original' : 'replacement'; }
 	completeChoice([{ id: 'native-choice' }]);
 	await Promise.resolve();
 	assert.equal(reads, 1);
-	if (changeAt === 'read') projectId = 'replacement';
+	if (changeAt === 'read') { generation++; projectId = sameId ? 'original' : 'replacement'; }
 	completeRead();
 	assert.equal(await operation, changeAt === 'unchanged' ? 1 : 0);
 	assert.equal(releases, 1, 'a completed stale handoff releases its acquired native read');

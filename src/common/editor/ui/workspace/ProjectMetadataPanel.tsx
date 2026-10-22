@@ -9,12 +9,14 @@ import { createBextMetadataEditorValue } from '../bext-metadata-editor-model.ts'
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import { freesoundAttributionCopy } from '../../../i18n/freesound-attribution-copy.js';
 import { MetadataEditorField } from './LabelManagerRows.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import Id3MetadataFields from '../Id3MetadataFields.tsx';
 import { id3ProjectFieldValue, isId3ProjectTag, updateId3ProjectField } from '../../id3-descriptive-fields.ts';
 
 const ProjectAttributionTab = lazyEditorModule(() => import('./ProjectAttributionTab.tsx'));
 
 export interface ProjectMetadataPanelProps {
+	readonly controller?: unknown;
 	readonly project: Readonly<Record<string, unknown>> | null | undefined;
 	readonly copy: Readonly<Record<string, string>>;
 	readonly locale?: string;
@@ -32,6 +34,7 @@ function objectValue(value: unknown): Readonly<Record<string, unknown>> {
 }
 
 export function ProjectMetadataPanel({
+	controller,
 	project,
 	copy,
 	locale,
@@ -70,7 +73,7 @@ export function ProjectMetadataPanel({
 				onChange={setActiveTab}
 			/>
 			<div
-				key={String(project?.id ?? '')}
+				key={editorProjectEditSessionKey(controller, project?.id)}
 				role="tabpanel"
 				aria-label={activeTab === 'bext'
 					? copy.metadataBextTab
@@ -107,7 +110,7 @@ export function ProjectMetadataPanel({
 						))}
 					</div>
 				) : activeTab === 'id3' ? (
-					<Id3MetadataFields key={String(project?.id ?? '')} metadata={metadata} copy={copy} locale={locale}
+					<Id3MetadataFields key={editorProjectEditSessionKey(controller, project?.id)} metadata={metadata} copy={copy} locale={locale}
 						disabled={disabled} onUpdate={onUpdate} />
 				) : activeTab === 'sequence' ? (
 					sequenceEditor

@@ -14,6 +14,7 @@ import {
 import { MACRO_SCRIPT_FILE_EXTENSION, MACRO_SCRIPT_FILE_MAXIMUM_BYTES } from '../../macro-script-envelope.ts';
 import { AUDIO_EDITOR_SAMPLE_RATE } from '../../project.js';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
 import { takeSelectedFile } from '../file-input-selection.ts';
 import EffectParameterEditor from './EffectParameterEditor.jsx';
@@ -45,7 +46,7 @@ export function AudioEditorMacroManagerDialog({
 	onClose,
 }) {
 	const project = snapshot.project;
-	const projectIdentity = project?.id ?? null;
+	const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
 	const library = controller.actions.macros.library;
 	const macros = snapshot.macros?.library || EMPTY_MACROS;
 	const effects = draft?.effects || EMPTY_EFFECTS;
@@ -214,7 +215,7 @@ export function AudioEditorMacroManagerDialog({
 		&& activeRef.current === operation
 		&& operationSessionRef.current === operation.session
 		&& operation.session?.isOpen === true
-		&& (controller.project?.id ?? null) === operation.session.projectIdentity;
+		&& editorProjectEditSessionKey(controller, controller.project?.id) === operation.session.projectIdentity;
 	/** Publishes an edit to the open macro and stores it under the same name. */
 	const writeDraft = (updater) => {
 		const base = draftRef.current;
