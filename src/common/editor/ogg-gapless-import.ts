@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { inspectOpusInitialGranule } from './opus-initial-granule.ts';
+
 export interface OggGaplessGeometry {
 	readonly sampleRate: number;
 	readonly sourceFrames: number;
@@ -26,6 +28,7 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		sampleRate = new DataView(body.buffer, body.byteOffset, body.byteLength).getUint32(12, true);
 	}
 	const serial = new DataView(first.buffer).getUint32(14, true);
+	const origin = codec === 'opus' ? await inspectOpusInitialGranule(file, serial, signal) : 0;
 	const tail = new Uint8Array(await file.slice(Math.max(0, file.size - MAXIMUM_PAGE_BYTES * 2)).arrayBuffer());
 	signal?.throwIfAborted();
 	for (let offset = tail.length - 27; offset >= 0; offset -= 1) {
@@ -34,20 +37,20 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		if (!size) continue;
 		const view = new DataView(tail.buffer, tail.byteOffset + offset, size);
 		if (view.getUint32(14, true) !== serial) continue;
-		return endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate);
+		return endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate, origin);
 	}
 	// A secondary logical stream can continue long after the primary audio ends.
 	// Follow physical page headers without reading intervening encoded payloads.
 	const end = await findEarlierEndPage(file, serial, signal);
-	if (end) return endPageGeometry(end, preSkip, sampleRate);
+	if (end) return endPageGeometry(end, preSkip, sampleRate, origin);
 	throw new Error('The Ogg audio source has no final granule for its primary stream.');
 }
 
-function endPageGeometry(page: Uint8Array, preSkip: number, sampleRate: number): OggGaplessGeometry {
+function endPageGeometry(page: Uint8Array, preSkip: number, sampleRate: number, origin: number): OggGaplessGeometry {
 	verifyPageChecksum(page);
 	const granule = new DataView(page.buffer, page.byteOffset, page.byteLength).getBigUint64(6, true);
 	if (granule > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('The Ogg source granule exceeds the safe range.');
-	const sourceFrames = Number(granule) - preSkip;
+	const sourceFrames = Number(granule) - origin - preSkip;
 	if (sourceFrames < 1 || sampleRate < 1) throw new Error('The Ogg source declares empty gapless geometry.');
 	return Object.freeze({ sampleRate, sourceFrames });
 }

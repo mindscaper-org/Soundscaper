@@ -26,6 +26,26 @@ export async function multiplexedOpusFixture(): Promise<Readonly<{
 	return { primary, multiplexed, frames };
 }
 
+/** Cropping/live capture may retain an absolute nonzero audio granule origin. */
+export async function croppedOpusGranuleFixture(origin = 480_000): Promise<Readonly<{
+	original: Uint8Array<ArrayBuffer>; cropped: Uint8Array<ArrayBuffer>; frames: number;
+}>> {
+	const frames = 48_001;
+	const original = await encode(frames, false);
+	const shifted = pages(original);
+	assert.ok(shifted.some(page => !(page[5]! & 4) && new DataView(page.buffer).getBigUint64(6, true) > 0n),
+		'the first audio page precedes EOS so end trimming remains independently stated');
+	for (const page of shifted) {
+		const view = new DataView(page.buffer);
+		const granule = view.getBigUint64(6, true);
+		if (granule > 0n && granule < 0xffff_ffff_ffff_ffffn) {
+			view.setBigUint64(6, granule + BigInt(origin), true);
+			view.setUint32(22, oggPageCrc(page), true);
+		}
+	}
+	return { original, cropped: new Uint8Array(await new Blob(shifted).arrayBuffer()), frames };
+}
+
 async function encode(frames: number, noise: boolean): Promise<Uint8Array<ArrayBuffer>> {
 	let state = 42;
 	const pcm = Float32Array.from({ length: frames }, (_, index) => noise

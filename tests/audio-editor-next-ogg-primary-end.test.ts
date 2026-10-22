@@ -70,7 +70,9 @@ test('primary Ogg EOS fallback reads bounded headers and honors cancellation', a
 	}
 	const file = new InspectedBlob([fixture.multiplexed]);
 	assert.deepEqual(await inspectOggGaplessGeometry(file, 'opus'), { sampleRate: 48_000, sourceFrames: fixture.frames });
-	const fallback = slices.slice(2);
+	const tailRead = slices.findIndex(([start, end]) => end === file.size && end - start === 2 * 65_307);
+	assert.ok(tailRead >= 0);
+	const fallback = slices.slice(tailRead + 1);
 	assert.ok(fallback.slice(0, -1).every(([start, end]) => end - start <= 282),
 		'the fallback reads only fixed page headers and lacing before its matching EOS');
 	assert.ok(fallback.at(-1)![1] - fallback.at(-1)![0] <= 65_307, 'only the matched EOS body is read for CRC');
