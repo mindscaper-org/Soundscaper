@@ -64,8 +64,8 @@
 		},
 		"notices": {
 			"path": "THIRD_PARTY_LICENSES.md",
-			"byteLength": 92348,
-			"sha256": "1558432ff9324ab567b755ad6d544ac3e32d65841af2d3b868e409f40797acd0"
+			"byteLength": 92571,
+			"sha256": "dd4924bb9a98a1ef38f36a745df5e32ed026fd7fab734e40fd664596ad682ec9"
 		},
 		"licensingPolicy": {
 			"path": "docs/policies/licensing.md",
@@ -115,6 +115,6 @@
 		}
 	},
 	"integrity": {
-		"payloadSha256": "b686d5dfe507a72300729df9edf7cb811469f1708e1c27c3734ce733816c401f"
+		"payloadSha256": "efdcde90ea5fb12623d9fc3d7a643bcfaefb68d47679081e31348937ee45c161"
 	}
 }
