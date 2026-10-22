@@ -104,6 +104,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount,
 		projectSampleRate: snapshot.project?.sampleRate,
 		setSettings, setPresetId, setPresetName,
+		isCurrent: () => currentOperationOwner.current === operationOwner,
 	});
 	const hasSelection = Boolean(snapshot.selection);
 	const hasLoop = Boolean(snapshot.project?.loop?.enabled);
@@ -385,6 +386,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		>
 			<div className="audio-editor-export-dialog__body">
 				<ExportPresetSection
+					key={projectIdentity}
 					copy={copy}
 					presets={presets}
 					selectedId={presetId}
@@ -396,7 +398,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 							desktop, projectSampleRate: snapshot.project?.sampleRate,
 						}),
 					))}
-					onError={(cause) => setError(
+					onError={(cause) => currentOperationOwner.current === operationOwner && setError(
 						cause == null ? '' : (cause instanceof Error ? cause.message : String(cause)),
 					)}
 					{...presetActions}

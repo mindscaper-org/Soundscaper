@@ -26,6 +26,7 @@ import { normalizeExportDialogAudioSettings } from './export-dialog-audio-codec-
  *   desktop: boolean,
  *   projectChannelCount: number,
  *   projectSampleRate?: number,
+ *   isCurrent?: () => boolean,
  *   setSettings: (update: (current: any) => any) => void,
  *   setPresetId: (id: string) => void,
  *   setPresetName: (name: string) => void,
@@ -33,7 +34,7 @@ import { normalizeExportDialogAudioSettings } from './export-dialog-audio-codec-
  */
 export function createExportPresetActions({
 	controller, settings, presetId, presetName, presetKind, desktop, projectChannelCount, projectSampleRate,
-	setSettings, setPresetId, setPresetName,
+	setSettings, setPresetId, setPresetName, isCurrent = () => true,
 }) {
 	const store = controller.actions.export.presets;
 	return {
@@ -58,11 +59,13 @@ export function createExportPresetActions({
 				format: presetFormatFromDialog(settings.format, presetKind),
 				settings: presetSettingsFromDialog(settings, presetKind),
 			});
+			if (!isCurrent()) return;
 			setPresetId(preset.id);
 			setPresetName(preset.label);
 		},
 		onDelete: async () => {
 			await store.delete(presetId);
+			if (!isCurrent()) return;
 			setPresetId('');
 			setPresetName('');
 		},
