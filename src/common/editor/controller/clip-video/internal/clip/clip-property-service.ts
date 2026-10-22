@@ -29,7 +29,7 @@ export type ClipPropertyAction = 'reverse' | 'invert' | 'normalize-peak' | 'norm
 
 export interface ClipAnalysisResult {
 	readonly peakAmplitude: number;
-	readonly integratedLufs: number;
+	readonly integratedLufs: number | null;
 }
 
 export interface ClipTimePitchChanges extends Readonly<Record<string, unknown>> {
@@ -101,6 +101,7 @@ export interface ClipPropertyServiceDependencies {
 		channels: readonly Float32Array[],
 		sampleRate: number,
 		signal: AbortSignal,
+		peakOnly?: boolean,
 	): Promise<ClipAnalysisResult>;
 	createId(prefix: string): string;
 	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
@@ -161,13 +162,13 @@ export function createClipPropertyService(
 					clip.sourceStartFrame, clip.sourceStartFrame + clip.sourceDurationFrames,
 				)
 			));
-			const result = await dependencies.analyzeChannels(channels, analysisBuffer.sampleRate, task.signal);
+			const result = await dependencies.analyzeChannels(channels, analysisBuffer.sampleRate, task.signal, action === 'normalize-peak');
 			assertOwned(task, projectToken, fingerprint);
 			let gain = clip.gain;
 			if (action === 'normalize-peak' && result.peakAmplitude > 0) {
 				gain = 10 ** (-1 / 20) / result.peakAmplitude;
 			}
-			if (action === 'normalize-lufs' && Number.isFinite(result.integratedLufs)) {
+			if (action === 'normalize-lufs' && typeof result.integratedLufs === 'number' && Number.isFinite(result.integratedLufs)) {
 				gain = 10 ** ((-14 - result.integratedLufs) / 20);
 			}
 			if (gain > 16) throw createLocalizedError(RangeError, dependencies.copy, 'clipNormalizationGainLimit');
