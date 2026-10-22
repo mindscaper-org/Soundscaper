@@ -63,6 +63,16 @@ desktop recording channel selection, nonmodal dialog focus and pencil
 amplitude. Saved evidence and focused regressions retain their individual
 scope; none turns the interrupted run into a pass.
 
+`16f5e83a8` publishes coherent recording-channel and route state before awaiting
+required persistence; its regression fails before the correction and all 37
+focused checks pass afterward. `aac0a6714` preserves focus deliberately moved
+outside a nonmodal dialog before its initial animation frame; its regression
+also fails before the correction and all 33 focused checks pass afterward.
+Scoped strict types, changed-file lint and size checks pass. `316c8af24` adds the
+existing public import-ready precondition to the Dialogue overwrite test.
+Browser verification remains pending; these focused results do not accept the
+saved browser failures or extend the earlier complete Node pass to this source.
+
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
 results retain their failures and do not contribute accepted coverage.
