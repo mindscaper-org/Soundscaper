@@ -92,7 +92,13 @@ function xingLameSettings(bytes: Uint8Array, offset: number): Readonly<{ quality
 	// https://github.com/lameproject/lame/blob/master/libmp3lame/VbrTag.c
 	if (ascii(bytes, cursor, 4) !== 'LAME' || scale > 100) return null;
 	const method = cursor + 10 <= bytes.length ? bytes[cursor + 9]! & 0x0f : null;
-	const averageBitRate = method === 2 && cursor + 21 <= bytes.length ? bytes[cursor + 20]! : null;
+	let averageBitRate = method === 2 && cursor + 21 <= bytes.length ? bytes[cursor + 20]! : null;
+	if (averageBitRate === 255 && cursor + 28 <= bytes.length) {
+		// LAME saturates this one-byte ABR field at 255. Its 16-bit preset
+		// field retains the exact ABR target, even for highly compressible audio.
+		const preset = view.getUint16(cursor + 26, false) & 0x07ff;
+		if (preset >= 255 && preset <= 320) averageBitRate = preset;
+	}
 	return { quality: Math.min(9, Math.floor((100 - scale) / 10)), averageBitRate };
 }
 
