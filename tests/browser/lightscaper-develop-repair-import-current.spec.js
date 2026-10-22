@@ -31,10 +31,12 @@ for (const locale of ['en', 'de']) for (const scope of ['full', 'repair-only']) 
 		await uncheck(page, f.develop().locator('[data-photo-develop-effect="cube-lut-profile-v1"] input[type="checkbox"]')); await f.painted(FULL_PIXELS); await f.save();
 		const presets = await f.settingsDialog('presets');
 		await named(presets, 'textbox', f.settings.presetName).fill('Full repair import'); await keyboard(page, named(presets, 'button', f.settings.savePreset));
+		await expect(named(presets, 'combobox', f.settings.choosePreset).getByRole('option', { name: `Full repair import (${f.settings.full})`, exact: true })).toHaveCount(1); await expect(named(presets, 'button', f.settings.savePreset)).toBeEnabled();
 		await expect.poll(async () => (await custody(f.ids)).row.revision).toBe(1);
 		for (const key of ['all', 'geometry', 'local']) await uncheck(page, named(presets, 'checkbox', f.settings[key]));
 		const repairChoice = named(presets, 'checkbox', f.settings.repairs); if (!await repairChoice.isChecked()) await check(page, repairChoice);
 		await named(presets, 'textbox', f.settings.presetName).fill('Repair only import'); await keyboard(page, named(presets, 'button', f.settings.savePreset));
+		await expect(named(presets, 'combobox', f.settings.choosePreset).getByRole('option', { name: `Repair only import (${f.settings.partial})`, exact: true })).toHaveCount(1); await expect(named(presets, 'button', f.settings.savePreset)).toBeEnabled();
 		await expect.poll(async () => (await custody(f.ids)).row.revision).toBe(2);
 		await keyboard(page, named(presets, 'button', f.settings.close).last()); await expect(presets).toHaveCount(0); await f.closeDevelop(); await showLibrary();
 		const before = await custody(f.ids), selectedName = scope === 'full' ? 'Full repair import' : 'Repair only import';
