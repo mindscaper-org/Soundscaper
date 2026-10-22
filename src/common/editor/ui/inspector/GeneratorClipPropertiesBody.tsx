@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { videoFrameToSampleFrame } from '../../timeline-time.ts';
 import AudioEditorTimeCodeInput, { audioEditorProjectSampleRate } from '../AudioEditorTimeCodeInput.tsx';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 
@@ -20,6 +21,13 @@ export default function GeneratorClipPropertiesBody({ controller, project, clipI
 	const track = records(owner.tracks).find(item => Array.isArray(item.clipIds) && item.clipIds.includes(clipId));
 	if (clip?.kind !== 'generator' || !source || !track) throw new ReferenceError('Generator properties require their timeline source and track.');
 	const sampleRate = audioEditorProjectSampleRate(project);
+	const sequence = records(owner.sequences).find(item => item.id === clip.sequenceId);
+	const clock = record(sequence?.rate);
+	const rate = { num: Number(clock.num), den: Number(clock.den) };
+	const sourceRatio = Number(clip.sourceFrameCount) / Number(clip.sequenceFrameCount);
+	const maximumCount = Math.max(1, Math.floor((Number(source.frameCount) - Number(clip.sourceInFrame)) / sourceRatio));
+	const maximumDuration = videoFrameToSampleFrame(Number(clip.sequenceStartFrame) + maximumCount, rate, sampleRate, 'point')
+		- videoFrameToSampleFrame(Number(clip.sequenceStartFrame), rate, sampleRate, 'point');
 	const [error, setError] = usePresentationFeedback(copy);
 	const commit = (field: 'startFrame' | 'durationFrame', value: number): unknown => {
 		if (disabled) return false;
@@ -47,7 +55,7 @@ export default function GeneratorClipPropertiesBody({ controller, project, clipI
 							<AudioEditorTimeCodeInput label={field === 'startFrame' ? copy.clipStart : copy.clipDuration}
 								value={Number(field === 'startFrame' ? clip.timelineStartFrame : clip.durationFrames)}
 								unit="samples" rate={sampleRate} format="hh:mm:ss+milliseconds"
-								minimum={field === 'startFrame' ? 0 : 1} disabled={disabled} onCommit={value => commit(field, value)} />
+								minimum={field === 'startFrame' ? 0 : 1} maximum={field === 'durationFrame' ? maximumDuration : Infinity} disabled={disabled} onCommit={value => commit(field, value)} />
 						</label>)}
 					</div>
 				</div>
