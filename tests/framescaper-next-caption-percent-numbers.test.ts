@@ -28,7 +28,7 @@ for (const field of ['region', 'style'] as const) test(`TTML ${field} percentage
 
 for (const token of ['.%', '5.%', '1e1%', '++5%', 'NaN%', 'Infinity%']) test(`TTML percentage grammar refuses ${token}`, async () => {
 	const project = createFramescaperProject(PROFILE, { id: 'invalid-percent' });
-	const opened = await openFramescaperCaptionSidecarFile({ file: new File([sidecar('style').replace('+.5%', token)], 'captions.ttml') });
+	const opened = await openFramescaperCaptionSidecarFile({ file: new File([sidecar('style').replace('+7.5%', token)], 'captions.ttml') });
 	assert.ok(opened);
 	assert.throws(() => importFramescaperCaptionSidecar({ project, format: opened.format, text: opened.text,
 		trackId: 'captions', sequenceId: project.primarySequenceId, trackName: 'Captions', language: 'en' }), /must be a percentage/u);
@@ -38,7 +38,7 @@ function sidecar(field: 'region' | 'style'): string {
 	return '<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" '
 		+ 'xmlns:tts="http://www.w3.org/ns/ttml#styling" xml:id="captions" xml:space="preserve" '
 		+ 'ttp:timeBase="media" ttp:contentProfiles="http://www.w3.org/ns/ttml/profile/imsc1.1/text" ttp:tickRate="1000">'
-		+ `<head><styling><style xml:id="spoken" tts:fontSize="${field === 'style' ? '+.5%' : '5%'}"/></styling>`
+		+ `<head><styling><style xml:id="spoken" tts:fontSize="${field === 'style' ? '+7.5%' : '75%'}"/></styling>`
 		+ `<layout><region xml:id="lower" tts:origin="${field === 'region' ? '.5% +70%' : '10% 70%'}" `
 		+ `tts:extent="${field === 'region' ? '+99% 20%' : '80% 20%'}" tts:displayAlign="after"/></layout></head>`
 		+ '<body><div><p xml:id="cue" style="spoken" region="lower" begin="0t" end="1000t">Speech</p></div></body></tt>';
