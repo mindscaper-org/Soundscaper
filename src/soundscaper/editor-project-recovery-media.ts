@@ -4,6 +4,8 @@ import { serializeScapeProjectDocument } from '../common/editor/scape-project-do
 import { PcmStorageCorruptionError } from '../common/editor/wavpack/pcm.js';
 import { isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 import type { SoundscaperProjectRecoveryStore } from './editor-project-recovery-types.ts';
+import { createScapeDigest, scapeHex } from '../common/editor/scape-archive-media.ts';
+import type { SourcePcmChunk } from '../common/editor/storage/source-read-repository.ts';
 
 import { soundscaperRecoveryVideoAvailable } from './editor-project-recovery-video.ts';
 import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
@@ -33,6 +35,7 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 			}
 			let frames = 0;
 			let nextIndex = 0;
+			const digest = typeof source.contentSha256 === 'string' ? createScapeDigest() : null;
 			for await (const chunk of store.readSourceChunks(storageKey)) {
 				if (chunk.index !== nextIndex || chunk.frames < 1 || !Number.isSafeInteger(chunk.frames)
 					|| chunk.channels.length !== source.channelCount
@@ -41,9 +44,13 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 				}
 				frames += chunk.frames;
 				if (frames > Number(source.frameCount)) throw new PcmStorageCorruptionError('Source PCM exceeds its saved extent.', 'PCM_RECORD_GEOMETRY');
+				if (digest) updateRecoveryPcmDigest(digest, chunk);
 				nextIndex += 1;
 			}
 			if (frames !== source.frameCount) throw new PcmStorageCorruptionError('Source PCM is incomplete.', 'PCM_RECORD_GEOMETRY');
+			if (digest && scapeHex(digest.digest()) !== source.contentSha256) {
+				throw new PcmStorageCorruptionError('Source PCM does not match its saved digest.', 'PCM_RECORD_DIGEST');
+			}
 			available.add(source.id);
 			availability.set(cacheKey, true);
 		} catch (error) {
@@ -54,6 +61,20 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 		}
 	}
 	return available;
+}
+
+/** The canonical source identity hashes each little-endian packet header and planar sample bits. */
+function updateRecoveryPcmDigest(digest: ReturnType<typeof createScapeDigest>, chunk: SourcePcmChunk): void {
+	const header = new Uint8Array(4);
+	new DataView(header.buffer).setUint32(0, chunk.frames, true);
+	digest.update(header);
+	for (const channel of chunk.channels) {
+		const bits = new Uint32Array(channel.buffer, channel.byteOffset, channel.length);
+		const bytes = new Uint8Array(channel.byteLength);
+		const view = new DataView(bytes.buffer);
+		for (const [index, value] of bits.entries()) view.setUint32(index * 4, value, true);
+		digest.update(bytes);
+	}
 }
 
 function isConfirmedMediaDamage(error: unknown): boolean {
