@@ -331,15 +331,18 @@ export function parseArchiveManifest(text: string): ArchiveManifest {
 export async function saveArchiveManifest(
 	manifest: ArchiveManifest,
 	fileService: { saveFile?: (request: Readonly<Record<string, unknown>>) => unknown } | null | undefined,
-): Promise<SerializedArchiveManifest> {
+): Promise<SerializedArchiveManifest & Readonly<{ cancelled?: true }>> {
 	const serialized = serializeArchiveManifest(manifest);
 	if (fileService?.saveFile) {
-		await fileService.saveFile({
+		const saved = await fileService.saveFile({
 			purpose: 'report',
 			suggestedName: serialized.fileName,
 			mimeType: serialized.mimeType,
 			blob: new Blob([serialized.text], { type: serialized.mimeType }),
 		});
+		if (saved !== null && typeof saved === 'object' && 'cancelled' in saved && saved.cancelled === true) {
+			return Object.freeze({ ...serialized, cancelled: true });
+		}
 	}
 	return serialized;
 }
