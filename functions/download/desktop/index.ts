@@ -6,7 +6,8 @@ import {
 	type DesktopDownloadProductId,
 } from '../../../src/common/editor/desktop-download-links.ts';
 
-const RELEASES_API = 'https://api.github.com/repos/LeoWattenberg/Soundscaper/releases';
+// GitHub redirects owner/name URLs after a transfer; repository IDs stay fixed.
+const RELEASES_API = 'https://api.github.com/repositories/1299822768/releases';
 const RELEASES_WEB = 'https://github.com/LeoWattenberg/Soundscaper/releases';
 const MAX_PAGES = 5;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
