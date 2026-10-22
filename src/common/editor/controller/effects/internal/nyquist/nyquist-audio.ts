@@ -1,4 +1,5 @@
 import { createLocalizedError } from '../../../../../i18n/presentation-message.ts'; import { assertAudacityEffectOutput } from '../../../../audacity-effects/contracts.js';
+import { defaultMixerChannelMapV21 } from '../../../../mixer-graph-v21.ts';
 
 interface NyquistAudioResult extends Record<string, unknown> {
 	readonly type?: string;
@@ -68,8 +69,9 @@ export function mixNyquistPreviewChannels(channelSets: Float32Array[][], maximum
 	for (let index = 0; index < channelSets.length; index += 1) {
 		const channels = channelSets[index]!;
 		const offset = offsets[index] ?? 0;
+		const channelMap = defaultMixerChannelMapV21(channels.length, channelCount);
 		for (let outputChannel = 0; outputChannel < channelCount; outputChannel += 1) {
-			const input = channels.length === 1 ? channels[0] : channels[outputChannel];
+			const input = channels[channelMap[outputChannel]!];
 			if (!input) continue;
 			const frames = Math.min(frameCount - offset, input.length);
 			for (let frame = 0; frame < frames; frame += 1) mixed[outputChannel]![offset + frame] += input[frame]!;
