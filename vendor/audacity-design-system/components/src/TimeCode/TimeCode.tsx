@@ -127,7 +127,7 @@ export function TimeCode({
 
   const segments = formatTimeToSegments(value, format, sampleRate, frameRate, musicalMap);
   const segmentsRef = useRef(segments);
-  const textEntry = useTimeCodeText({ value, format, sampleRate, disabled, ariaLabel, onChange, onCommit, containerRef });
+  const textEntry = useTimeCodeText({ value, format, sampleRate, frameRate, disabled, ariaLabel, onChange, onCommit, containerRef });
 
   // Keep segmentsRef up to date
   useEffect(() => {
