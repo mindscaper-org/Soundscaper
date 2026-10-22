@@ -25,6 +25,7 @@ export interface MotionscaperShellMenuOptions {
 	readonly hasProject?: boolean; readonly busy?: boolean;
 	readonly canUndo?: boolean; readonly canRedo?: boolean;
 	readonly onDocumentation?: (destination: 'manual' | 'tutorials') => void;
+	readonly onLanguage?: () => void;
 	readonly onCheckForUpdates?: () => void; readonly checkingUpdates?: boolean;
 }
 
@@ -72,7 +73,9 @@ export function createMotionscaperShellMenus(
 			}), item('motion-settings', copy.motionscaperSettings, 'settings', options.hasProject),
 			item('motion-canvas', copy.motionscaperCanvas, 'canvas', options.hasProject),
 			item('motion-preview', copy.motionscaperPreview, 'preview', options.hasProject),
-			item('motion-timeline', copy.motionscaperTimeline, 'timeline', options.hasProject)]),
+			item('motion-timeline', copy.motionscaperTimeline, 'timeline', options.hasProject),
+				...(options.onLanguage ? [Object.freeze({ id: 'motion-language', label: copy.motionscaperLanguage, disabled: Boolean(options.busy),
+					...(options.busy ? {} : { onClick: options.onLanguage }) })] : [])]),
 		}),
 		Object.freeze({
 			id: 'tracks' as const, label: copy.motionscaperLayerMenu,

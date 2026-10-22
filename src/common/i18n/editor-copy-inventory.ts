@@ -53,6 +53,7 @@ import { MOTIONSCAPER_SCENE_COPY_BY_LOCALE } from './editor-motionscaper-scene-c
 import { MOTIONSCAPER_APPEARANCE_COPY_BY_LOCALE } from './editor-motionscaper-appearance-copy.ts';
 import { MOTIONSCAPER_CANVAS_COPY_BY_LOCALE } from './editor-motionscaper-canvas-copy.ts';
 import { MOTIONSCAPER_IMPORT_COPY_BY_LOCALE } from './editor-motionscaper-import-copy.ts';
+import { MOTIONSCAPER_LOCALE_COPY_BY_LOCALE } from './editor-motionscaper-locale-copy.ts';
 import { MOTIONSCAPER_UPDATES_COPY_BY_LOCALE } from './editor-motionscaper-updates-copy.ts';
 import { MOTIONSCAPER_QUEUE_COPY_BY_LOCALE } from './editor-motionscaper-queue-copy.ts';
 import { MOTIONSCAPER_LINK_COPY_BY_LOCALE } from './editor-motionscaper-link-copy.ts';
@@ -188,6 +189,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, GERMAN_COPY, [
 	{ owner: 'motionscaper-queue', ...MOTIONSCAPER_QUEUE_COPY_BY_LOCALE },
 	{ owner: 'motionscaper-import', ...MOTIONSCAPER_IMPORT_COPY_BY_LOCALE },
 	{ owner: 'motionscaper-updates', ...MOTIONSCAPER_UPDATES_COPY_BY_LOCALE },
+	{ owner: 'motionscaper-locale', ...MOTIONSCAPER_LOCALE_COPY_BY_LOCALE },
 	{ owner: 'motionscaper-link', ...MOTIONSCAPER_LINK_COPY_BY_LOCALE },
 	{ owner: 'motionscaper-ae', ...MOTIONSCAPER_AE_COPY_BY_LOCALE },
 	{ owner: 'motionscaper-tracking', ...MOTIONSCAPER_TRACKING_COPY_BY_LOCALE },

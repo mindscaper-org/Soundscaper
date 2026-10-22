@@ -11,6 +11,7 @@ import { MOTIONSCAPER_IMPORT_COPY_BY_LOCALE } from './editor-motionscaper-import
 import { MOTIONSCAPER_UPDATES_COPY_BY_LOCALE } from './editor-motionscaper-updates-copy.ts';
 import { MOTIONSCAPER_LINK_COPY_BY_LOCALE } from './editor-motionscaper-link-copy.ts';
 import { MOTIONSCAPER_AE_COPY_BY_LOCALE } from './editor-motionscaper-ae-copy.ts';
+import { MOTIONSCAPER_LOCALE_COPY_BY_LOCALE } from './editor-motionscaper-locale-copy.ts';
 import { MOTIONSCAPER_TRACKING_COPY_BY_LOCALE } from './editor-motionscaper-tracking-copy.ts';
 
 const ENTRIES = [
@@ -467,6 +468,7 @@ export const MOTIONSCAPER_CANONICAL_ENGLISH_COPY: Readonly<Record<string, string
 		['motionscaper-link', MOTIONSCAPER_LINK_COPY_BY_LOCALE.en],
 		['motionscaper-ae', MOTIONSCAPER_AE_COPY_BY_LOCALE.en],
 		['motionscaper-tracking', MOTIONSCAPER_TRACKING_COPY_BY_LOCALE.en],
+		['motionscaper-locale', MOTIONSCAPER_LOCALE_COPY_BY_LOCALE.en],
 	] as const).flatMap(([owner, copy]) => Object.entries(copy).map(([key, source]) => [`ui.${owner}.${key}`, source]))),
 });
 

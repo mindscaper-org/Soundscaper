@@ -813,28 +813,32 @@ integration, denied new windows, webviews and permissions, and an exact
 own-window/main-frame/document caller fence. Its closed channels are
 motionscaper:v1:environment, motionscaper:v1:project-files,
 motionscaper:v1:project-launch, motionscaper:v1:project-launch:pending,
-motionscaper:v1:delivery, motionscaper:v1:documentation and
-motionscaper:v1:updates:check. Native project paths stay main-private.
-OS-selected .mscape and .scape launch arguments admit at most 16
-pending/open/active selections; the renderer can only take a bounded read
-capability or acknowledge its exact token. The pending notification carries no
-payload and confers no file authority. Cold startup, second-instance arguments
-and macOS open-file notifications use that same queue; reload or renderer loss
-revokes the current read token and reissues the queued selection. Authoring and
-archive reviews defer additional selections, retain the previous document and
-preserve retryable file release/acknowledgement authority. Project file reads
-and private save publication use the existing closed pathless capability
-methods; unknown or future archives remain exact-byte opaque custody without
-binding an editable native destination. Delivery uses the declared native
-carrier/encoder profile and an explicitly chosen destination, with retained
-cleanup authority when cancellation fails. Documentation and manual own-tag
-update checks open only reviewed fixed-origin links; no automatic installer is
-admitted. Focused Chromium and an actual packaged Linux x64 executable qualify
-cold/warm launch, original-file save, collision review, opaque custody and
-reload reissue. Other native targets, installed OS association behavior, abrupt
-process/power loss and signing/update release behavior remain unqualified. This
-development control does not extend the frozen Soundscaper/Framescaper family-v1
-bridge authority.
+motionscaper:v1:delivery, motionscaper:v1:documentation,
+motionscaper:v1:updates:check and motionscaper:v1:locale:set. The locale setter
+accepts only one bounded committed-catalog tag from the same
+own-window/main-frame/document caller, atomically persists only the
+product-private language preference and updates interface copy in place after
+persistence; it exposes no paths, reload or foreign desktop services. Native
+project paths stay main-private. OS-selected .mscape and .scape launch arguments
+admit at most 16 pending/open/active selections; the renderer can only take a
+bounded read capability or acknowledge its exact token. The pending notification
+carries no payload and confers no file authority. Cold startup, second-instance
+arguments and macOS open-file notifications use that same queue; reload or
+renderer loss revokes the current read token and reissues the queued selection.
+Authoring and archive reviews defer additional selections, retain the previous
+document and preserve retryable file release/acknowledgement authority. Project
+file reads and private save publication use the existing closed pathless
+capability methods; unknown or future archives remain exact-byte opaque custody
+without binding an editable native destination. Delivery uses the declared
+native carrier/encoder profile and an explicitly chosen destination, with
+retained cleanup authority when cancellation fails. Documentation and manual
+own-tag update checks open only reviewed fixed-origin links; no automatic
+installer is admitted. Focused Chromium and an actual packaged Linux x64
+executable qualify cold/warm launch, original-file save, collision review,
+opaque custody and reload reissue. Other native targets, installed OS
+association behavior, abrupt process/power loss and signing/update release
+behavior remain unqualified. This development control does not extend the frozen
+Soundscaper/Framescaper family-v1 bridge authority.
 <!-- /policy-narrative:isolated-motion-desktop-capabilities -->
 
 ### Desktop download release lookup

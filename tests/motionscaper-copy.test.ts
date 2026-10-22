@@ -9,7 +9,7 @@ import { loadTranslationCatalog } from '../src/common/i18n/translation-catalog.j
 import { motionscaperCopy } from '../src/common/editor/ui/motionscaper/motionscaper-copy.ts';
 
 const motionOwners = ['motionscaper', 'motionscaper-ae', 'motionscaper-appearance', 'motionscaper-canvas',
-	'motionscaper-import', 'motionscaper-link', 'motionscaper-queue', 'motionscaper-scene',
+	'motionscaper-import', 'motionscaper-link', 'motionscaper-locale', 'motionscaper-queue', 'motionscaper-scene',
 	'motionscaper-tracking', 'motionscaper-updates'];
 const registeredMotionEntries = Object.values(getEditorCopyMetadata())
 	.filter(({ owner }) => owner === 'motionscaper' || owner.startsWith('motionscaper-'));

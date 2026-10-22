@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { validateMotionDesktopLocale } from '../src/motionscaper/desktop-locale-contract.ts';
+
 export const MOTIONSCAPER_DESKTOP = Object.freeze({
 	productId: 'motionscaper', name: 'Motionscaper', appId: 'org.motionscaper.desktop',
 	scheme: 'motionscaper-app', origin: 'motionscaper-app://bundle',
@@ -9,6 +11,7 @@ export const MOTIONSCAPER_DESKTOP = Object.freeze({
 
 export const MOTIONSCAPER_DESKTOP_CHANNELS = Object.freeze({
 	environment: 'motionscaper:v1:environment',
+	setLocale: 'motionscaper:v1:locale:set',
 	projectFiles: 'motionscaper:v1:project-files',
 	projectLaunch: 'motionscaper:v1:project-launch',
 	projectLaunchPending: 'motionscaper:v1:project-launch:pending',
@@ -18,10 +21,10 @@ export const MOTIONSCAPER_DESKTOP_CHANNELS = Object.freeze({
 });
 
 /** File I/O is explicitly admitted; no foreign native processing service is exposed. */
-export function motionscaperDesktopEnvironment(version: string, platform: string, nativeProres = false) {
+export function motionscaperDesktopEnvironment(version: string, platform: string, nativeProres = false, locale = 'en') {
 	return Object.freeze({
 		productId: MOTIONSCAPER_DESKTOP.productId, appName: MOTIONSCAPER_DESKTOP.name,
-		version, platform, locale: 'en', nativeCapabilities: Object.freeze(['project-files-v1', ...(nativeProres ? ['prores-4444-v1'] : [])]),
+		version, platform, locale: validateMotionDesktopLocale(locale), nativeCapabilities: Object.freeze(['project-files-v1', ...(nativeProres ? ['prores-4444-v1'] : [])]),
 	});
 }
 

@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { MOTIONSCAPER_DESKTOP_CHANNELS as channels } from './motionscaper-desktop-contract.ts';
 import type { MotionDesktopDocumentation } from '../src/motionscaper/desktop-documentation-contract.ts';
 import type { MotionDesktopUpdates } from '../src/motionscaper/desktop-updates-contract.ts';
+import { validateMotionDesktopLocale, type MotionDesktopLocale } from '../src/motionscaper/desktop-locale-contract.ts';
 import type { MotionDesktopLaunch } from '../src/motionscaper/desktop-launch-contract.ts';
 
 import type { MotionDesktopFiles, MotionDesktopFileMethod } from '../src/motionscaper/desktop-file-contract.ts';
@@ -19,6 +20,7 @@ const motionDelivery: MotionDesktopDelivery = {
 };
 const invoke = <T>(method: MotionDesktopFileMethod, payload: unknown): Promise<T> => ipcRenderer.invoke(channels.projectFiles, method, payload) as Promise<T>;
 const documentation: MotionDesktopDocumentation = { open: (request) => ipcRenderer.invoke(channels.documentation, request) as Promise<void> };
+const motionLocale: MotionDesktopLocale = { set: async value => validateMotionDesktopLocale(await ipcRenderer.invoke(channels.setLocale, { locale: validateMotionDesktopLocale(value) })) };
 const motionUpdates: MotionDesktopUpdates = { check: () => ipcRenderer.invoke(channels.checkForUpdates, {}) as Promise<void> };
 const motionLaunch: MotionDesktopLaunch = {
 	take: () => ipcRenderer.invoke(channels.projectLaunch, 'take', {}) as ReturnType<MotionDesktopLaunch['take']>,
@@ -40,5 +42,5 @@ const motionFiles: MotionDesktopFiles = {
 	},
 };
 contextBridge.exposeInMainWorld('scapeDesktop', Object.freeze({
-	v1: Object.freeze({ motionLaunch: Object.freeze(motionLaunch), motionUpdates: Object.freeze(motionUpdates), documentation: Object.freeze(documentation), motionDelivery: Object.freeze(motionDelivery), motionFiles: Object.freeze(motionFiles), getEnvironment: (): Promise<unknown> => ipcRenderer.invoke(channels.environment) as Promise<unknown> }),
+	v1: Object.freeze({ motionLocale: Object.freeze(motionLocale), motionLaunch: Object.freeze(motionLaunch), motionUpdates: Object.freeze(motionUpdates), documentation: Object.freeze(documentation), motionDelivery: Object.freeze(motionDelivery), motionFiles: Object.freeze(motionFiles), getEnvironment: (): Promise<unknown> => ipcRenderer.invoke(channels.environment) as Promise<unknown> }),
 }));

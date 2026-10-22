@@ -1,5 +1,6 @@
 /* global __SCAPE_FRAMESCAPER_LINE__ */
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
+import { getLocaleDescriptor } from '../i18n/locales.js';
 
 import { bundledSiteCopyForLocale } from '../i18n/site-copy.js';
 import { productIdentity } from '../product-identities.js';
@@ -32,7 +33,15 @@ const EditorBootstrap = __SCAPE_PRODUCT__ === 'motionscaper'
 const PrivacyPolicyRoute = lazyEditorModule(() => import('../editor/ui/PrivacyPolicyRoute.tsx'));
 
 export default function App({ route }) {
-	const { desktop, direction, embedded, locale, productId } = route;
+	const { desktop, direction, embedded, productId } = route;
+	const [motionLocale, setMotionLocale] = useState(null);
+	const locale = desktop && productId === 'motionscaper' ? motionLocale ?? route.locale : route.locale;
+	const changeMotionLocale = desktop && productId === 'motionscaper' ? (value) => {
+		const descriptor = getLocaleDescriptor(value); if (!descriptor) throw new RangeError('Unsupported application locale.');
+		document.documentElement.lang = descriptor.locale;
+		document.documentElement.dir = descriptor.direction;
+		setMotionLocale(descriptor.locale);
+	} : undefined;
 	const copy = useSiteCopy(locale);
 	if (route.privacyPolicy) {
 		return <>
@@ -57,6 +66,7 @@ export default function App({ route }) {
 							<EditorBootstrap
 								locale={locale}
 								fallbackCopy={copy}
+								onLocaleChange={changeMotionLocale}
 								productId={productId}
 								initialSurface={route.initialSurface}
 							/>

@@ -137,7 +137,7 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 			void run(async () => {
 				if (!linkSender.current) {
 					const [{ createMotionscaperLinkSender }, { resolveMotionLinkOrigins }] = await Promise.all([import('../../../../motionscaper/editor-link-sender.ts'), import('../../motion-link-connection-urls.ts')]);
-					linkSender.current = createMotionscaperLinkSender({ session, store, ...resolveMotionLinkOrigins('motionscaper', location.origin, import.meta.env.PUBLIC_MOTION_LINK_PEER_ORIGIN), locale: motionLinkLocaleForEditor(document.documentElement.lang) });
+					linkSender.current = createMotionscaperLinkSender({ session, store, ...resolveMotionLinkOrigins('motionscaper', location.origin, import.meta.env.PUBLIC_MOTION_LINK_PEER_ORIGIN), locale: () => motionLinkLocaleForEditor(document.documentElement.lang) });
 				}
 				setDialog('send');
 			});

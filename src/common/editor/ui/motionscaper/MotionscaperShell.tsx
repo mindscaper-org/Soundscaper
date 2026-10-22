@@ -11,6 +11,7 @@ import type { MotionscaperDocumentSnapshot } from '../../../../motionscaper/edit
 import '../audio-editor-design-system.css';
 import './motionscaper-shell.css';
 
+const MotionLanguageDialog = lazyEditorModule(() => import('./MotionLanguageDialog.tsx'));
 const MotionWorkspace = lazyEditorModule(() => import('./MotionscaperWorkspace.tsx'));
 const DocumentRuntime = lazyEditorModule(() => import('./MotionscaperDocumentRuntime.tsx'));
 const noAction = () => undefined;
@@ -18,11 +19,13 @@ const noAction = () => undefined;
 export interface MotionscaperShellProps {
 	readonly locale: string;
 	readonly copy: Readonly<Record<string, string>>;
+	readonly onLocaleChange?: (locale: string) => Promise<void>;
 	readonly onNewComposition?: () => void;
 }
 
 /** Product presentation has no foreign project controller or media runtime. */
-export default function MotionscaperShell({ locale, copy, onNewComposition }: MotionscaperShellProps) {
+export default function MotionscaperShell({ locale, copy, onNewComposition, onLocaleChange }: MotionscaperShellProps) {
+	const [languageOpen, setLanguageOpen] = useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = useState(false);
 	const [request, setRequest] = useState<MotionDocumentRequest | null>(null);
 	const [helpError, setHelpError] = useState(false);
@@ -100,6 +103,7 @@ export default function MotionscaperShell({ locale, copy, onNewComposition }: Mo
 		copy, workspaceOpen, onToggleWorkspace: () => setWorkspaceOpen((open) => !open),
 		onCommand, hasProject: documentState.project !== null, busy: documentState.busy,
 		canUndo: documentState.canUndo, canRedo: documentState.canRedo,
+		...(onLocaleChange ? { onLanguage: () => setLanguageOpen(true) } : {}),
 		onDocumentation: destination => { setHelpError(false); void openMotionscaperDocumentation(destination, locale).catch(() => setHelpError(true)); },
 		...(updates ? { checkingUpdates, onCheckForUpdates: () => {
 			setCheckingUpdates(true); setUpdatesError(false);
@@ -114,13 +118,16 @@ export default function MotionscaperShell({ locale, copy, onNewComposition }: Mo
 	return <DesignSystemProviders copy={menuCopy}>
 		<div id="kw-audio-editor-design-system" className="motionscaper-shell" data-motion-editor-bound="true" data-product="motionscaper">
 			<AudioEditorMenuBar appName="Motionscaper" productId="motionscaper" locale={locale}
-				menuAvailabilityRevision={[documentState.busy, documentState.project !== null, documentState.canUndo, documentState.canRedo, checkingUpdates, workspaceOpen].join(':')}
+				menuAvailabilityRevision={[locale, documentState.busy, documentState.project !== null, documentState.canUndo, documentState.canRedo, checkingUpdates, workspaceOpen].join(':')}
 				copy={menuCopy} menus={menus} projectName={documentState.project?.title ?? 'Motionscaper'} projectTabs={null}
 				searchEnabled={false} saveState={documentState.dirty ? 'dirty' : 'saved'} saveText="" onAssistanceSearchClose={noAction}
 				onSearchActivate={noAction} onFullscreen={toggleFullscreen} />
 			{helpError && <p role="alert">{copy.motionscaperHelpFailed}</p>}
 			{launchError && <p role="alert">{copy.motionscaperLaunchFailed}</p>}
 			{updatesError && <p role="alert">{copy.motionscaperUpdatesFailed}</p>}
+			{languageOpen && onLocaleChange && <Suspense fallback={<p role="status">{copy.motionscaperWorking}</p>}>
+				<MotionLanguageDialog locale={locale} copy={copy} onApply={onLocaleChange} onClose={() => setLanguageOpen(false)} />
+			</Suspense>}
 			{workspaceOpen && <Suspense fallback={<p role="status">{copy.loading}</p>}>
 				<MotionWorkspace copy={copy} document={documentState} />
 			</Suspense>}

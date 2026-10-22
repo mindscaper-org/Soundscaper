@@ -11,7 +11,7 @@ export interface MotionscaperLinkSenderState {
 /** Observe explicit saved heads; retain one in-flight offer and coalesce subsequent saves to the newest head. */
 export function createMotionscaperLinkSender(options: Readonly<{
 	session: MotionscaperDocumentSession; store: MotionscaperProjectStore; senderOrigin: string; receiverOrigin: string;
-	locale?: string; openConnection?: (options: MotionLinkSenderConnectionOptions) => Promise<Channel>;
+	locale?: string | (() => string); openConnection?: (options: MotionLinkSenderConnectionOptions) => Promise<Channel>;
 }>) {
 	let state: MotionscaperLinkSenderState = Object.freeze({ status: 'idle', projectId: null, compositionId: null, lastDigest: null, error: null });
 	let channel: Channel | null = null, lifetime: AbortController | null = null, generation = 0, pending: string | null = null;
@@ -57,7 +57,7 @@ export function createMotionscaperLinkSender(options: Readonly<{
 			try {
 				// Open synchronously from the explicit dialog button before awaiting any saved bytes.
 				const opened = await (options.openConnection ?? openMotionLinkSenderConnection)({ senderOrigin: options.senderOrigin, receiverOrigin: options.receiverOrigin, connectionUrl,
-					readAsset: asset => options.store.readAsset(asset), locale: options.locale, signal });
+					readAsset: asset => options.store.readAsset(asset), locale: typeof options.locale === 'function' ? options.locale() : options.locale, signal });
 				if (token !== generation) { await opened.dispose(); return; } channel = opened;
 				void opened.closed.then(() => { if (token === generation) return disconnect(); }).catch(error => fail(error, token)); await drain();
 			} catch (error) { await fail(error, token); }

@@ -20,8 +20,8 @@ test('motion scene and lazy raster runtime have distinct semantic chunk owners',
 
 test('Motionscaper menu surfaces cannot move their dynamic entry into the eager shell', async () => {
 	const { chunkGroupForModulePath } = await import('../scripts/lib/build-chunk-groups.mjs');
-	for (const name of ['MotionscaperShell.tsx', 'shell-menu.ts', 'motionscaper-copy.ts', 'motionscaper-shell.css']) assert.equal(chunkGroupForModulePath(`src/common/editor/ui/motionscaper/${name}`), 'editor-shell', name);
-	for (const name of ['MotionOperatorsDialog.tsx', 'MotionOperatorForm.tsx', 'MotionShapeCollection.tsx', 'MotionPathsDialog.tsx', 'MotionPropertyGraph.tsx', 'motion-plane-geometry.ts', 'MotionscaperDocumentRuntime.tsx', 'MotionPreviewDialog.tsx']) {
+	for (const name of ['MotionscaperShell.tsx', 'shell-menu.ts', 'motionscaper-copy.ts', 'motionscaper-locale.ts', 'motionscaper-shell.css']) assert.equal(chunkGroupForModulePath(`src/common/editor/ui/motionscaper/${name}`), 'editor-shell', name);
+	for (const name of ['MotionLanguageDialog.tsx', 'MotionOperatorsDialog.tsx', 'MotionOperatorForm.tsx', 'MotionShapeCollection.tsx', 'MotionPathsDialog.tsx', 'MotionPropertyGraph.tsx', 'motion-plane-geometry.ts', 'MotionscaperDocumentRuntime.tsx', 'MotionPreviewDialog.tsx']) {
 		assert.equal(chunkGroupForModulePath(`src/common/editor/ui/motionscaper/${name}`), null, name);
 	}
 	assert.equal(chunkGroupForModulePath('src/common/editor/ui/AudioEditorApplicationHeader.jsx'), 'editor-shell');

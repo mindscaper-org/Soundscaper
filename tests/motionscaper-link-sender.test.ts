@@ -45,3 +45,23 @@ test('a failed sender disconnect does not skip cleanup of a later connection', a
 		await sender.connect('pair', session.getSnapshot().project!.primaryCompositionId); await sender.dispose(); assert.equal(disposed, 2);
 	} finally { await store.close(); }
 });
+
+
+test('Motion sender reads the current locale only for a new connection without replacing an active owner', async () => {
+	const store = createMotionscaperProjectStore({ indexedDB: createInstrumentedIndexedDB() as unknown as IDBFactory });
+	const session = new MotionscaperDocumentSession(store); await session.create(settings);
+	let locale = 'en', disposed = 0; const locales: unknown[] = [];
+	const options = { session, store, senderOrigin: 'http://localhost:1001', receiverOrigin: 'http://localhost:1002', locale: () => locale,
+		openConnection: async (options: { locale?: string }) => { locales.push(options.locale); return {
+			send: async (value: unknown) => normalizeMotionCompositionOffer(value).revision.digest, closed: new Promise<void>(() => undefined),
+			async dispose() { disposed++; },
+		}; } };
+	const sender = createMotionscaperLinkSender(options);
+	try {
+		const id = session.getSnapshot().project!.primaryCompositionId;
+		await sender.connect('pair', id); locale = 'de';
+		assert.equal(disposed, 0); assert.equal(sender.getSnapshot().status, 'connected');
+		await sender.disconnect(); await sender.connect('pair', id);
+		assert.deepEqual(locales, ['en', 'de']); assert.equal(disposed, 1);
+	} finally { await sender.dispose(); await session.dispose(); await store.close(); }
+});

@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from 'electron';
+import { MotionscaperLocaleSettings, dispatchMotionscaperLocale, createMotionscaperNativeMenu } from './motionscaper-locale.ts';
+import { resolveMotionscaperLocaleCopy } from '../src/common/i18n/editor-motionscaper-locale-copy.ts';
+import { localeLanguage } from '../src/common/i18n/locale.js';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ACCEPTED_PROJECT_FILE_EXTENSIONS } from '../src/common/project-file-extensions.ts';
@@ -37,6 +40,8 @@ protocol.registerSchemesAsPrivileged([{
 	scheme: identity.scheme,
 	privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true, codeCache: true },
 }]);
+let currentDesktopLocale = 'en';
+const nativeCopy = () => resolveMotionscaperLocaleCopy(currentDesktopLocale);
 let window: BrowserWindow | null = null;
 let desktopReady = false;
 let nativeSmoke: unknown = null;
@@ -69,6 +74,8 @@ async function start(): Promise<void> {
 		throw new Error('Motionscaper desktop package identity does not match its declared release.');
 	}
 	await app.whenReady();
+	const localeSettings = new MotionscaperLocaleSettings(join(app.getPath('userData'), 'locale-settings.json'));
+	currentDesktopLocale = await localeSettings.load([app.getLocale(), ...app.getPreferredSystemLanguages()]);
 	const desktopSession = session.fromPartition(identity.partition);
 	desktopSession.setPermissionCheckHandler(() => false);
 	desktopSession.setPermissionRequestHandler((_contents, _permission, callback) => { callback(false); });
@@ -84,8 +91,16 @@ async function start(): Promise<void> {
 	ipcMain.handle(channels.environment, (event: Electron.IpcMainInvokeEvent) => {
 		if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame
 			|| !motionscaperDesktopDocumentUrl(event.senderFrame.url)) throw new Error('Untrusted Motionscaper caller.');
-		return motionscaperDesktopEnvironment(metadata.applicationVersion, process.platform, nativeEncoder !== null);
+		return motionscaperDesktopEnvironment(metadata.applicationVersion, process.platform, nativeEncoder !== null, localeSettings.locale);
 	});
+	ipcMain.handle(channels.setLocale, (event: Electron.IpcMainInvokeEvent, request: unknown) => dispatchMotionscaperLocale({
+		ownWindow: window !== null && event.sender === window.webContents,
+		mainFrame: window !== null && event.senderFrame === window.webContents.mainFrame, url: event.senderFrame?.url ?? '',
+	}, request, async value => {
+		currentDesktopLocale = await localeSettings.set(value);
+		installNativeMenu();
+		return currentDesktopLocale;
+	}));
 	ipcMain.handle(channels.documentation, (event: Electron.IpcMainInvokeEvent, request: unknown) => dispatchMotionscaperDocumentation({
 		ownWindow: window !== null && event.sender === window.webContents,
 		mainFrame: window !== null && event.senderFrame === window.webContents.mainFrame,
@@ -97,7 +112,7 @@ async function start(): Promise<void> {
 		mainFrame: window !== null && event.senderFrame === window.webContents.mainFrame, url: event.senderFrame?.url ?? '',
 	}, request, () => updateDialog ??= (async () => {
 		const target = window; if (!target) return;
-		const copy = MOTIONSCAPER_UPDATES_COPY_BY_LOCALE[new URL(event.senderFrame?.url ?? identity.origin).pathname.startsWith('/de/') ? 'de' : 'en'];
+		const copy = MOTIONSCAPER_UPDATES_COPY_BY_LOCALE[localeLanguage(localeSettings.locale) === 'de' ? 'de' : 'en'];
 		const result = await checkUpdates(); if (window !== target || target.isDestroyed()) return;
 		const available = result.status === 'available';
 		const choice = await dialog.showMessageBox(target, { type: result.status === 'error' ? 'warning' : 'info', title: copy.motionscaperUpdatesTitle,
@@ -108,12 +123,12 @@ async function start(): Promise<void> {
 	const files = createMotionscaperFileAuthority({
 		chooseOpen: async () => {
 			if (!window) throw new Error('Motionscaper has no active document window.');
-			const selection = await dialog.showOpenDialog(window, { title: 'Open Motionscaper project', properties: ['openFile'], filters: [{ name: 'Scape project', extensions: ACCEPTED_PROJECT_FILE_EXTENSIONS.map(extension => extension.slice(1)) }] });
+			const selection = await dialog.showOpenDialog(window, { title: nativeCopy().motionscaperNativeOpenTitle, properties: ['openFile'], filters: [{ name: nativeCopy().motionscaperNativeProjectFilter, extensions: ACCEPTED_PROJECT_FILE_EXTENSIONS.map(extension => extension.slice(1)) }] });
 			return selection.canceled ? null : selection.filePaths[0] ?? null;
 		},
 		chooseSave: async ({ suggestedName, defaultPath }) => {
 			if (!window) throw new Error('Motionscaper has no active document window.');
-			const selection = await dialog.showSaveDialog(window, { title: 'Save Motionscaper project', defaultPath: defaultPath ?? suggestedName, filters: [{ name: 'Motionscaper project', extensions: ['mscape'] }] });
+			const selection = await dialog.showSaveDialog(window, { title: nativeCopy().motionscaperNativeSaveTitle, defaultPath: defaultPath ?? suggestedName, filters: [{ name: nativeCopy().motionscaperNativeProjectFilter, extensions: ['mscape'] }] });
 			return selection.canceled ? null : selection.filePath ?? null;
 		},
 	});
@@ -129,7 +144,7 @@ async function start(): Promise<void> {
 	});
 	const delivery = createMotionscaperDeliveryAuthority({ encoder: nativeEncoder, chooseOutput: async (suggestedName) => {
 		if (!window) throw new Error('Motionscaper has no active document window.');
-		const selection = await dialog.showSaveDialog(window, { title: 'Export ProRes 4444', defaultPath: suggestedName, filters: [{ name: 'QuickTime movie', extensions: ['mov'] }] });
+		const selection = await dialog.showSaveDialog(window, { title: nativeCopy().motionscaperNativeExportTitle, defaultPath: suggestedName, filters: [{ name: nativeCopy().motionscaperNativeMovieFilter, extensions: ['mov'] }] });
 		return selection.canceled ? null : selection.filePath ?? null;
 	} });
 	abortNativeDelivery = () => delivery.abortActive();
@@ -139,11 +154,7 @@ async function start(): Promise<void> {
 		return dispatchMotionscaperDeliveryCall(delivery, method, request);
 	});
 	app.on('before-quit', () => { void Promise.all([launches.dispose().then(() => files.dispose()), delivery.dispose()]).catch((error: unknown) => { console.error(error); }); });
-	Menu.setApplicationMenu(Menu.buildFromTemplate([
-		...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
-		{ label: 'File', submenu: [{ role: 'close' }] },
-		{ role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
-	]));
+	installNativeMenu();
 	desktopReady = true; await createWindow();
 }
 
@@ -166,6 +177,11 @@ async function createWindow(): Promise<void> {
 	if (process.argv.includes('--motionscaper-shell-smoke')) await smokeShell(window);
 }
 
+function installNativeMenu(): void {
+	const template = createMotionscaperNativeMenu(currentDesktopLocale, process.platform);
+	Menu.setApplicationMenu(template ? Menu.buildFromTemplate(template) : null);
+}
+
 function queueLaunchArguments(argv: readonly string[], workingDirectory: string): void {
 	try { launches.enqueue(motionLaunchPaths(argv, workingDirectory)); } catch (error) { reportLaunchError(error); }
 }
@@ -174,7 +190,8 @@ function showLaunchWindow(): void {
 	else if (desktopReady) void createWindow().catch(failStartup);
 }
 function reportLaunchError(error: unknown): void {
-	dialog.showErrorBox('Motionscaper could not open the project', error instanceof Error ? error.message : 'The native file launch failed.');
+	const copy = nativeCopy();
+	dialog.showErrorBox(copy.motionscaperNativeLaunchErrorTitle, `${copy.motionscaperNativeLaunchError}${error instanceof Error ? `\n${error.message}` : ''}`);
 }
 
 function isMetadata(value: unknown): value is ProductMetadata {
@@ -186,7 +203,7 @@ function isMetadata(value: unknown): value is ProductMetadata {
 
 function failStartup(error: unknown): void {
 	if (process.argv.includes('--motionscaper-shell-smoke')) console.error(error);
-	else dialog.showErrorBox('Motionscaper could not start', error instanceof Error ? error.message : 'Desktop startup failed.');
+	else { const copy = nativeCopy(); dialog.showErrorBox(copy.motionscaperNativeStartupErrorTitle, `${copy.motionscaperNativeStartupError}${error instanceof Error ? `\n${error.message}` : ''}`); }
 	app.exit(1);
 }
 
