@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, closeWorkspacePanel, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, closeWorkspacePanel, disableNativeSavePicker, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
+import { exportSamples } from './helpers/round2-audio-export.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 
-for (const mode of ['levels', 'contrast']) test(`Analyze ${mode} works after unused Project Bin media is lost from local storage`, async ({ page }) => {
+for (const mode of ['levels', 'contrast', 'export']) test(`${mode === 'export' ? 'Export' : `Analyze ${mode}`} works after unused Project Bin media is lost from local storage`, async ({ page }) => {
+	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [createWavFixture({ name: 'Programme.wav', duration: 1, channelCount: 1 })]);
+	await importFiles(editor, [createWavFixture({ name: 'Programme.wav', frequency: 523, duration: 1, channelCount: 1 })]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Project bin']);
-	await editor.locator('[data-project-bin-input]').setInputFiles(createWavFixture({ name: 'Unused.wav', duration: 1, channelCount: 1 }));
+	await editor.locator('[data-project-bin-input]').setInputFiles(createWavFixture({ name: 'Unused.wav', frequency: 233, duration: 1, channelCount: 1 }));
 	await expect(editor.locator('[data-project-bin-item]')).toHaveCount(1);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
@@ -40,6 +42,12 @@ for (const mode of ['levels', 'contrast']) test(`Analyze ${mode} works after unu
 	await expect(bin.getByRole('status')).toContainText('The local audio is unavailable.');
 	await closeWorkspacePanel(editor, 'project-bin');
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	if (mode === 'export') {
+		const samples = await exportSamples(page, editor);
+		expect(samples.length).toBe(48_000);
+		expect(samples.some(sample => Math.abs(sample) > .1)).toBe(true);
+		return;
+	}
 	await chooseCommandAction(page, editor, 'Analyze', mode === 'levels' ? 'Analyze selection' : 'Contrast');
 	const dialog = page.getByRole('dialog', { name: mode === 'levels' ? 'Analyze selection' : 'Contrast', exact: true });
 	if (mode === 'contrast') {

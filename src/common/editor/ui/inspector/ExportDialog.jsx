@@ -112,7 +112,9 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const exporting = Boolean(snapshot.exporting);
 	const progress = Math.round(Math.max(0, Math.min(1, exportProgress ?? snapshot.export?.progress ?? 0)) * 100);
 	const output = snapshot.export?.output;
-	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || snapshot.missingSourceIds?.length > 0 || !snapshot.project?.clips?.length;
+	// The export action admits sources for its chosen delivery, including verified
+	// render fallbacks; an unavailable unused Bin source does not block that output.
+	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || !snapshot.project?.clips?.length;
 	const hasTimelineVideo = projectHasTimelineVideo(snapshot.project);
 	const videoFormat = isVideoExportDialogFormat(settings.format);
 	const captionDeliveryUnavailable = videoCaptionDeliveryUnavailable(
