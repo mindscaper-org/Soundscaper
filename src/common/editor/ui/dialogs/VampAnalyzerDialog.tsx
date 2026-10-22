@@ -184,10 +184,11 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 				binarySha256: selectedAnalyzer.binarySha256,
 				outputId: selectedOutput.id,
 				program,
-				parameters: selectedAnalyzer.parameters.filter(({ id }) => program === null || Object.hasOwn(parameters, id)).map(({ id }) => ({
-					id,
-					value: Number(parameters[id]),
-				})),
+				parameters: selectedAnalyzer.parameters.filter(({ id }) => program === null || Object.hasOwn(parameters, id)).map(({ id, name }) => {
+					const value = parameters[id];
+					if (typeof value !== 'string' || !value.trim()) throw new TypeError(`Enter a value for ${name}.`);
+					return { id, value: Number(value) };
+				}),
 				scope: selectedScope,
 				startFrame: props.startFrame,
 				endFrame: props.endFrame,
