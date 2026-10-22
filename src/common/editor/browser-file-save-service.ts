@@ -151,7 +151,7 @@ export function sanitizeSuggestedSaveName(value: unknown): string {
 }
 function assertSavePurpose(value: unknown): void {
 	const purpose = String(value || '').trim().toLowerCase();
-	if (!['project', 'project-copy', 'aup3', 'aup4', 'audio-pcm-mix', 'audio', 'video', 'media', 'labels', 'preset', 'macro', 'report', 'attribution-csv', 'interchange'].includes(purpose)) {
+	if (!['project', 'project-copy', 'aup3', 'aup4', 'audio-pcm-mix', 'audio', 'video', 'media', 'labels', 'preset', 'macro', 'report', 'attribution-csv', 'interchange', 'translation'].includes(purpose)) {
 		throw new RangeError(`Unsupported file purpose: ${purpose || 'empty'}.`);
 	}
 }
