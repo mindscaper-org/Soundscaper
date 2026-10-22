@@ -27,7 +27,8 @@ export function importSoundscaperAudacityProject(value: unknown, context?: Dawpr
 		automationLanes: importedStripGainLanes(decoded),
 		now: decoded.createdAt,
 	} as SoundscaperProjectOptions;
-	const imported = createSoundscaperProject(options);
+	// Establish imported bus identities before validating their gain lanes.
+	const imported = createSoundscaperProject({ ...options, automationLanes: [] });
 	return createSoundscaperProject({ ...options, mixer: importSoundscaperAudacityMixer(decoded, imported, context) });
 }
 
@@ -38,6 +39,9 @@ function importedStripGainLanes(project: AudioEditorProjectV17): readonly Automa
 		if (track.type === 'audio') add({ kind: 'track', id: track.id }, track);
 	}
 	add({ kind: 'master' }, project.master);
+	for (const bus of [...project.mixer.groups, ...project.mixer.sends]) {
+		add({ kind: 'mixer-node', id: bus.id }, bus);
+	}
 	return lanes;
 
 	function add(strip: StripRef, owner: Readonly<{ gain: number; envelope?: readonly Readonly<{ frame: number; value: number }>[] }>): void {
