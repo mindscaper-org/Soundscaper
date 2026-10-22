@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { fileURLToPath } from 'node:url';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 test.use({ browserCoverage: false });
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Native repair broker conformance requires pinned software Chromium or actual Firefox.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 const PROGRAM = '/__lightscaper_gpu_repair_broker_current.js', BLANK = '/lightscaper/__gpu_repair_broker_current.html';
 let compiled;
 test.beforeAll(async () => {
@@ -13,7 +13,7 @@ test.beforeAll(async () => {
 	expect(compiled.assets).toEqual([]);
 });
 for (const [name, iterations] of [['clone-alpha', 0], ['heal-coupled', 64], ['heal-forward', 128], ['heal-reverse', 128],
-	['heal-mixed', 64], ['heal-range', 64], ['underflow-boundary', 0], ['invalid-boundary', 0]]) test(`maintained native repair broker: ${name}`, async ({ page, browserName }) => {
+	['heal-mixed', 64], ['heal-range', 64], ['underflow-boundary', 0], ['invalid-boundary', 0]]) test(`maintained native repair broker: ${name}`, async ({ page }) => {
 	test.setTimeout(60_000);
 	await page.route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: compiled.source }));
 	await page.route(`**${BLANK}`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Maintained GPU repair broker</title>' }));
@@ -21,7 +21,7 @@ for (const [name, iterations] of [['clone-alpha', 0], ['heal-coupled', 64], ['he
 	const value = await page.evaluate(`import(${JSON.stringify(PROGRAM)}).then(module=>module.runNativeGpuRepairBrokerCurrentV1(${JSON.stringify(name)}))`);
 	await test.info().attach('native-repair-broker-observation', { body: JSON.stringify({ browser: page.context().browser()?.version(), value }), contentType: 'application/json' });
 	expect(value.renderers.length).toBeGreaterThan(0);
-	if (browserName === 'chromium') for (const renderer of value.renderers) expect(renderer).toContain('SwiftShader');
+	if (test.info().project.name === 'lightscaper-software-gpu') for (const renderer of value.renderers) expect(renderer).toContain('SwiftShader');
 	expect(value.sourceUploads).toBe(1); expect(value.nativeJacobi).toBe(iterations); expect(value.sourceUnchanged).toBe(true);
 	expect(value.aliveHandles).toBe(0); expect(value.readbacksRetired).toBe(true); expect(value.uploadsRetired).toBe(true); expect(value.outputRetired).toBe(true); expect(value.overlayRetired).toBe(true);
 	if (name === 'underflow-boundary' || name === 'invalid-boundary') expect(value.statuses).toEqual([-1]);

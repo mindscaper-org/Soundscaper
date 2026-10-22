@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
+
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
@@ -200,6 +202,7 @@ syntheticRouteTest('actual persisted mixed Frame Noise preserves straight alpha 
 });
 
 async function prepareNative(page){
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 	const bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('.',ENTRY)),contents:`export {qualifyNoiseNativeV1} from ${JSON.stringify(fileURLToPath(ENTRY))};`},
 		bundle:true,write:false,format:'esm',platform:'browser',logLevel:'silent'});
 	await page.context().route(`**${MODULE}`,route=>route.fulfill({contentType:'text/javascript',body:bundle.outputFiles[0].text,

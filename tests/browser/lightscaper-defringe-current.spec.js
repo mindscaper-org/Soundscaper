@@ -11,6 +11,7 @@ import { pngChunk } from '../helpers/image-metadata-fixtures.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 
 test.use({ browserCoverage: false });
 const PROGRAM = '/__lightscaper_defringe_native.js', NAME = 'Defringe reference.png';
@@ -87,8 +88,8 @@ for (const locale of ['en', 'de']) test(`${locale}: Photo menu authors manual de
 	}
 });
 
-test('Native WebGL2 defringe36 matches purple/green literals, threshold bypass and exact flat/transparent hidden color', async ({ page, browserName }) => {
-	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page, browserName);
+test('Native WebGL2 defringe36 matches purple/green literals, threshold bypass and exact flat/transparent hidden color', async ({ page }) => {
+	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page);
 	for (const [center, purple, green, gray] of [[[255, 0, 255], 100, 0, 73], [[0, 255, 0], 0, 100, 182]]) {
 		const source = [0, 0, 0, 255, ...center, 255, 255, 255, 255, 255];
 		const result = await qualify(page, source, 3, 1, purple, green, 25); nativeFacts(result, source, true);
@@ -101,8 +102,8 @@ test('Native WebGL2 defringe36 matches purple/green literals, threshold bypass a
 	}
 });
 
-test('Native WebGL2 defringe36 matches independent clamped-neighbor statistics across fractional controls and varied alpha', async ({ page, browserName }) => {
-	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page, browserName);
+test('Native WebGL2 defringe36 matches independent clamped-neighbor statistics across fractional controls and varied alpha', async ({ page }) => {
+	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page);
 	const width = 9, height = 7, source = Array.from({ length: width * height }, (_, n) => [(n * 37 + 47) % 256, (n * 59 + 31) % 256, (n * 101 + 7) % 256,
 		n === 0 || n === width * height - 1 ? 0 : n * 41 % 256]).flat();
 	for (const [purple, green, threshold, enabled] of [[100, 0, 25, true], [0, 100, 25, true], [100, 100, 0, true], [37.125, 62.5, 12.5, true], [100, 100, 100, true], [0, 0, 25, true], [100, 100, 25, false]]) {
@@ -148,9 +149,8 @@ function nativeFacts(value, source, active) {
 	expect(value.passCodes).toEqual(active ? [36] : []); expect(value.programCount).toBe(38); expect(value.defringeProgramLinked).toBe(true);
 	expect(value.nativeWebgl2).toBe(true); expect(value.nativeReadbacks).toBe(1); expect(value.glError).toBe(0); expect(value.before).toEqual(source); expect(value.source).toEqual(source); expect(value.ownedBuffersRetired).toBe(true);
 }
-async function nativeCapability(page, browserName) {
-	const supported = await page.evaluate(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext(); return gl !== null; });
-	test.skip(browserName === 'webkit' && !supported, 'This WebKit environment does not provide actual WebGL2.'); expect(supported).toBe(true);
+async function nativeCapability(page) {
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 }
 async function prepare(page, locale) { await page.context().route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: program.source })); await page.goto(resolveBrowserProductTestUrl(`/lightscaper/${locale}/`)); }
 function qualify(page, source, width, height, purple, green, edgeThreshold, enabled = true) { return helper(page, 'qualifyDefringeNativeCurrentV1', { source, width, height, purple, green, edgeThreshold, enabled }); }

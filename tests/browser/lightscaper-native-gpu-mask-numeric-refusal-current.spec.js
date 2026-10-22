@@ -2,12 +2,12 @@
 
 import { fileURLToPath } from 'node:url';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 
 test.use({ browserCoverage: false });
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Precision-refusal witness requires pinned software Chromium or the actual Firefox GPU project.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 const PROGRAM = '/__lightscaper_mask_numeric_refusal.js', BLANK = '/lightscaper/__mask_numeric_refusal_blank.html';
 let compiled;
 test.beforeAll(async () => {
@@ -15,7 +15,7 @@ test.beforeAll(async () => {
 	expect(compiled.assets).toEqual([]);
 });
 
-test('actual high broker refuses q128 cancellation only after native masked draw/proof retirement and delivers wholeCPU exactly once', async ({ page, browserName }) => {
+test('actual high broker proves q128 precision after native masked draw and delivers once, with pinned software refusal', async ({ page }) => {
 	test.setTimeout(60_000);
 	await page.route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: compiled.source }));
 	await page.route(`**${BLANK}`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Native masked broker precision refusal</title>' }));
@@ -25,25 +25,35 @@ test('actual high broker refuses q128 cancellation only after native masked draw
 	// Native F32 opacity arithmetic historically differs by127ULP on the pinned
 	// software/Firefox corpus. The production8ULP guard must select full CPU.
 	const RGB = 0xbb808081, expected = [RGB, RGB, RGB, 0x3ec00000, RGB, RGB, RGB, 0x3f000000, RGB, RGB, RGB, 0x3f800000];
-	expect(value.backend).toBe('cpu'); expect(value.reason).toBe('numeric-range'); expect(value.callbacks).toBe(1);
-	expect([value.descriptor.width, value.descriptor.height]).toEqual([3, 1]); expect(value.bits).toEqual(expected);
+	const native = value.atDelivery;
+	const nativeMismatch = native.nativeReads.some(read => read.bits.some((word, at) => at % 4 !== 3 && Math.abs(rank(word) - rank(expected[at])) > 8));
+	const pinned = test.info().project.name === 'lightscaper-software-gpu';
+	if (pinned) expect(nativeMismatch).toBe(true);
+	if (nativeMismatch) {
+		expect(value.backend).toBe('cpu'); expect(value.reason).toBe('numeric-range'); expect(value.bits).toEqual(expected);
+	} else {
+		expect(value.backend).toBe('webgl2'); expect(value.reason).toBeUndefined();
+		for (let at = 0; at < expected.length; at++) {
+			if (at % 4 === 3) expect(value.bits[at]).toBe(expected[at]);
+			else expect(Math.abs(rank(value.bits[at]) - rank(expected[at]))).toBeLessThanOrEqual(8);
+		}
+	}
+	expect(value.callbacks).toBe(1); expect([value.descriptor.width, value.descriptor.height]).toEqual([3, 1]);
 	expect(value.coverage).toEqual([128, 128, 128]); expect(value.overlay).toEqual({ maskId: 'half', effectId: 'negative', width: 3, height: 1 });
 	expect(value.sourceAfter).toEqual(value.before); expect(value.bodyAfter).toEqual(value.bodyBefore);
-	expect(value.sourceReads).toBe(2); expect(value.maximumActive).toBe(1); expect(value.sourceActiveAtDelivery).toBe(0);
+	expect(value.sourceReads).toBe(nativeMismatch ? 2 : 1); expect(value.maximumActive).toBe(1); expect(value.sourceActiveAtDelivery).toBe(0);
 	expect(value.sourceCopiesRetiredAtDelivery).toBe(true); expect(value.sourceCopiesRetired).toBe(true); expect(value.outputRetired).toBe(true); expect(value.overlayRetired).toBe(true);
-	const native = value.atDelivery;
 	expect(native.draws.some(draw => draw.program === 'image' && draw.kind === 8 && draw.width === 3 && draw.height === 1)).toBe(true);
 	expect(native.draws.some(draw => draw.program === 'node' && draw.kind === 3 && draw.width === 3 && draw.height === 1)).toBe(true);
 	expect(native.draws.some(draw => draw.program === 'blend' && draw.width === 3 && draw.height === 1)).toBe(true);
 	expect(native.integerReads.some(read => read.x === 0 && read.y === 0 && read.width === 3 && read.height === 1 && read.values.every(n => n === 128))).toBe(true);
 	expect(native.nativeReads.length).toBeGreaterThan(0);
-	expect(native.nativeReads.some(read => read.bits.some((word, at) => at % 4 !== 3 && Math.abs(rank(word) - rank(expected[at])) > 8))).toBe(true);
 	// Capability literals0/1/255 may be uploaded; the procedural q128 output
 	// must never be replaced by CPU-produced coverage in an R8UI upload.
 	expect(native.byteUploads.every(upload => upload.values.every(n => n !== 128))).toBe(true);
 	expect(native.aliveHandles).toBe(0); expect(native.nativeBuffersRetired).toBe(true); expect(native.uploadBackingsRetired).toBe(true);
 	for (const kind of Object.keys(native.created)) expect(native.deleted[kind], kind).toBe(native.created[kind]);
-	if (browserName === 'chromium') for (const context of native.contexts) expect(context.renderer).toContain('SwiftShader');
+	if (test.info().project.name === 'lightscaper-software-gpu') for (const context of native.contexts) expect(context.renderer).toContain('SwiftShader');
 	expect(value.after.aliveHandles).toBe(0); expect(value.after.nativeBuffersRetired).toBe(true);
 });
 

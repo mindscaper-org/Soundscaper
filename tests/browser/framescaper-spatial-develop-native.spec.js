@@ -2,6 +2,7 @@
 
 import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { build } from 'esbuild';
 import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
@@ -15,6 +16,8 @@ import { DEHAZE_PNG_BASE64, DEHAZE_SOURCE, DEHAZE_PARAMS, DEHAZE_PIXELS } from '
 
 // Every case serves a test-only shader/export witness; it is excluded from portable coverage.
 test.use({ browserCoverage: false });
+
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info, 'webgl2'); });
 
 const MODULE = '/__framescaper_authored_spatial_native.js';
 const ENTRY = new URL('../helpers/framescaper-global-export-fixture.ts', import.meta.url);

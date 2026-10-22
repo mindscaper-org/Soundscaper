@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { fileURLToPath } from 'node:url';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { build } from 'esbuild';
 import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-site-plan.mjs';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 
 // The route serves test-only native capture/finishing executable code.
 test.use({ browserCoverage: false });
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info, 'webgl2'); });
+
 const MODULE = '/__framescaper_global_export_pipeline.js';
 const ENTRY = new URL('../helpers/framescaper-global-export-fixture.ts', import.meta.url);
 

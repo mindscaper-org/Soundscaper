@@ -11,6 +11,7 @@ import { pngChunk } from '../helpers/image-metadata-fixtures.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 
 test.use({ browserCoverage: false });
 const PROGRAM = '/__lightscaper_lens_native.js', NAME = 'Manual lens reference.png';
@@ -90,16 +91,16 @@ for (const locale of ['en', 'de']) test(`${locale}: Photo menu authors manual le
 	}
 });
 
-test('Native WebGL2 lens34 uses exact zero-extended alpha taps for the independent three-pixel literal', async ({ page, browserName }) => {
+test('Native WebGL2 lens34 uses exact zero-extended alpha taps for the independent three-pixel literal', async ({ page }) => {
 	test.setTimeout(90_000);
-	await prepare(page, 'en'); await nativeCapability(page, browserName);
+	await prepare(page, 'en'); await nativeCapability(page);
 	const source = [255, 0, 0, 255, 0, 128, 255, 128, 32, 200, 16, 64], result = await qualify(page, source, 3, 1, 100);
 	expect(result.pixels).toEqual([255, 0, 0, 224, 0, 128, 255, 128, 32, 200, 16, 56]); nativeFacts(result, source, true);
 });
 
-test('Native WebGL2 lens34 transports varied alpha over both radial signs and preserves exact neutral/disabled hidden color', async ({ page, browserName }) => {
+test('Native WebGL2 lens34 transports varied alpha over both radial signs and preserves exact neutral/disabled hidden color', async ({ page }) => {
 	test.setTimeout(90_000);
-	await prepare(page, 'en'); await nativeCapability(page, browserName);
+	await prepare(page, 'en'); await nativeCapability(page);
 	const width = 9, height = 7, source = Array.from({ length: width * height }, (_, index) => [index * 37 % 256, index * 59 % 256, index * 101 % 256,
 		index === 0 ? 0 : index === width * height - 1 ? 255 : index * 41 % 256]).flat();
 	for (const amount of [-100, -50, 25, 100]) {
@@ -135,10 +136,8 @@ function nativeFacts(value, source, active) {
 	expect(value.nativeWebgl2).toBe(true); expect(value.nativeReadbacks).toBe(1); expect(value.glError).toBe(0);
 	expect(value.before).toEqual(source); expect(value.source).toEqual(source); expect(value.ownedBuffersRetired).toBe(true);
 }
-async function nativeCapability(page, browserName) {
-	const supported = await page.evaluate(() => { const canvas = document.createElement('canvas'), gl = canvas.getContext('webgl2');
-		if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext(); return gl !== null; });
-	test.skip(browserName === 'webkit' && !supported, 'This WebKit environment does not provide an actual WebGL2 context.'); expect(supported).toBe(true);
+async function nativeCapability(page) {
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 }
 async function prepare(page, locale) {
 	await page.context().route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: program.source }));

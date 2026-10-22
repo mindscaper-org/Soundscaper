@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { fileURLToPath } from 'node:url';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { build } from 'esbuild';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseNestedCommandAction, collectClientErrors, importFiles, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
@@ -22,6 +23,7 @@ const CASES = [
 ];
 
 for (const [index, fixture] of CASES.entries()) test(`native Frames geometry: ${fixture.name}`, async ({ page }) => {
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 	const bundle = await build({ entryPoints: [fileURLToPath(ENTRY)], bundle: true, write: false, format: 'esm', platform: 'browser', logLevel: 'silent' });
 	await page.context().route(`**${MODULE}`, route => route.fulfill({ contentType: 'text/javascript', body: bundle.outputFiles[0].text }));
 	const origin = process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS ? JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).framescaper : browserProductSiteForBuild('framescaper').origin;

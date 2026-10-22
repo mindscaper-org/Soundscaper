@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import { test, expect } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import type { runFullStackCurrentV1, runFullStackFallbackCurrentV1 } from './helpers/lightscaper-develop-full-stack-current-reference.ts';
@@ -11,8 +12,6 @@ import type { FullStackModeCurrentV1, FullStackFaultCurrentV1 } from './helpers/
 
 const coverage: Parameters<typeof test.use>[0] & Readonly<{ browserCoverage: boolean }> = { browserCoverage: false };
 test.use(coverage);
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Finite full-stack native conformance requires pinned software Chromium or actual Firefox.');
 const PROGRAM = '/__lightscaper_develop_full_stack_current.js', HOST = '/lightscaper/__develop_full_stack_current.html';
 type Compiled = Awaited<ReturnType<typeof compileNativeImageHandoffScript>>;
 type Result = Awaited<ReturnType<typeof runFullStackCurrentV1>>;
@@ -66,6 +65,7 @@ async function host(page: Page) {
 }
 
 async function run(page: Page, mode: FullStackModeCurrentV1, fault: FullStackFaultCurrentV1 = 'none', colorControl = false) {
+	if (fault === 'none' || fault === 'held-consumer-abort') await requireNativeGpuCapabilityCurrentV1(page, test.info());
 	const workerUrls = await host(page);
 	const result = await page.evaluate<Result>(`import(${JSON.stringify(PROGRAM)}).then(module => module.runFullStackCurrentV1(${JSON.stringify(mode)}, ${JSON.stringify(fault)}, ${JSON.stringify(colorControl)}))`);
 	await test.info().attach('full-stack-small-observation', { contentType: 'application/json', body: JSON.stringify({ browser: page.context().browser()?.version(), workerUrls, result }) });
@@ -86,7 +86,7 @@ function gpu(result: Result, page: Page) {
 	expect(result.delivery?.attemptedComparison?.mismatches).toBe(0);
 	expect(result.observation?.floatUploads).toBeGreaterThan(0);
 	const renderers = result.observation?.renderers ?? []; expect(renderers.length).toBeGreaterThan(0);
-	if (page.context().browser()?.browserType().name() === 'chromium') for (const renderer of renderers) expect(renderer).toContain('SwiftShader');
+	if (test.info().project.name === 'lightscaper-software-gpu' && page.context().browser()?.browserType().name() === 'chromium') for (const renderer of renderers) expect(renderer).toContain('SwiftShader');
 }
 
 function complete(result: Result, page: Page) {
@@ -117,7 +117,7 @@ test('Current4 genuine RAW, Clone, color, LUT, masks and geometry deliver actual
 });
 
 test('Current4 numerical repair boundary falls back once to the EXACT entire CPU recipe', async ({ page }) => {
-	test.setTimeout(30_000); await host(page);
+	test.setTimeout(30_000); await requireNativeGpuCapabilityCurrentV1(page, test.info()); await host(page);
 	const result = await page.evaluate<Awaited<ReturnType<typeof runFullStackFallbackCurrentV1>>>(`import(${JSON.stringify(PROGRAM)}).then(module => module.runFullStackFallbackCurrentV1())`);
 	await test.info().attach('full-stack-exact-fallback', { contentType: 'application/json', body: JSON.stringify(result) });
 	expect(result.calls).toBe(1); expect(result.delivery.backend).toBe('cpu'); expect(result.delivery.reason).toBe('numeric-range');

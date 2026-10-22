@@ -2,18 +2,18 @@
 
 import { fileURLToPath } from 'node:url';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 test.use({ browserCoverage: false });
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Repair fault evidence requires pinned software Chromium or actual Firefox capability.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 const PROGRAM = '/__lightscaper_native_repair_fault.js', BLANK = '/lightscaper/__native_repair_fault.html';
 let compiled;
 test.beforeAll(async () => {
 	compiled = await compileNativeImageHandoffScript('native-repair-fault.js', fileURLToPath(new URL('./helpers/lightscaper-native-gpu-repair-fault-current-reference.ts', import.meta.url)));
 	expect(compiled.assets).toEqual([]);
 });
-for (const fault of ['jacobi-abort', 'held-abort', 'detach-opaque']) test(`real native repair candidate joins ${fault} without replay or source mutation`, async ({ page, browserName }) => {
+for (const fault of ['jacobi-abort', 'held-abort', 'detach-opaque']) test(`real native repair candidate joins ${fault} without replay or source mutation`, async ({ page }) => {
 	test.setTimeout(60_000);
 	await page.route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: compiled.source }));
 	await page.route(`**${BLANK}`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Actual repair candidate lifetime</title>' }));
@@ -28,5 +28,5 @@ for (const fault of ['jacobi-abort', 'held-abort', 'detach-opaque']) test(`real 
 	if (fault === 'held-abort') { expect(value.nativeJacobi).toBe(64); expect(value.exactReason).toBe(true); expect(value.cleanupRetained).toBe(false);
 		expect(value.heldPending).toBe(true); expect(value.heldReadbackLive).toBe(true); expect(value.heldHandles).toBeGreaterThan(0); }
 	if (fault === 'detach-opaque') { expect(value.nativeJacobi).toBe(0); expect(value.exactReason).toBe(false); expect(value.cleanupRetained).toBe(true); }
-	if (browserName === 'chromium') for (const context of value.after.contexts) expect(context.renderer).toContain('SwiftShader');
+	if (test.info().project.name === 'lightscaper-software-gpu') for (const context of value.after.contexts) expect(context.renderer).toContain('SwiftShader');
 });

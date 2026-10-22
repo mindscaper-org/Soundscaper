@@ -390,9 +390,10 @@ export function createBrowserCoverageCollector({
 		 *
 		 * @param {string} label a readable stem for the profile's file name
 		 * @param {Set<string>} alreadyWritten maps this worker has already written
+		 * @param {{status?: string, errors?: readonly unknown[], project?: {name?: string}}} [testInfo] actual fixture outcome; absent stays strict
 		 * @returns {Promise<string | null>} the profile written, if any
 		 */
-		async collect(label, alreadyWritten) {
+		async collect(label, alreadyWritten, testInfo) {
 			await settle();
 			const entries = [];
 			const capturedSources = new Map();
@@ -446,14 +447,18 @@ export function createBrowserCoverageCollector({
 				return retainedBrowserFfmpegCoverageScript(url, source, ffmpegCoverage)
 					?? retainedBrowserDynamicCoverageScript(url, source) ?? scripts.get(url) ?? null;
 			});
-			const observerEvidence = observer ? { exclusions: observer.complete(),
-				production: await assertBuiltLightscaperGpuCoverage(profile, { repositoryRoot, outputDirectory: observerOutput }) } : null;
+			const exclusions = observer?.complete();
+			const skipped = exclusions?.length === 0 && testInfo?.status === 'skipped' && Array.isArray(testInfo.errors)
+				&& testInfo.errors.length === 0 && testInfo.project?.name === 'chromium';
+			const observerEvidence = observer ? { exclusions,
+				production: skipped ? null : await assertBuiltLightscaperGpuCoverage(profile, { repositoryRoot, outputDirectory: observerOutput }) } : null;
 			if (profile.result.length === 0) return null;
 
 			const file = resolve(coverageDirectory, `${profileFileStem(label)}-${randomUUID()}.json`);
 			await mkdir(coverageDirectory, { recursive: true });
 			const retained = withoutRepeatedSourceMaps(profile, alreadyWritten);
 			if (observerEvidence) Object.assign(retained, { 'test-only-observer-exclusions': observerEvidence.exclusions, 'built-gpu-execution': observerEvidence.production });
+			if (skipped) Object.assign(retained, { 'built-gpu-qualification-skipped': { status: 'skipped', project: 'chromium' } });
 			await writeFile(file, JSON.stringify(retained));
 			return file;
 		},

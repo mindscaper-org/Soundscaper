@@ -2,12 +2,12 @@
 // Native component qualification; application activation has its own broker gate.
 import { fileURLToPath } from 'node:url';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 
 test.use({ browserCoverage: false });
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Native integer overlay components require pinned software Chromium or Firefox.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 const PATH = '/__lightscaper_native_gpu_mask_overlay_current.js'; let program;
 const BLANK = '/lightscaper/__native_mask_overlay_blank.html';
 test.beforeAll(async () => {
@@ -21,8 +21,7 @@ async function render(page, value) {
 	await page.route(`**${BLANK}`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Native selected mask overlay</title>' }));
 	await page.goto(resolveBrowserProductTestUrl(BLANK));
 	const result = await page.evaluate(`import(${JSON.stringify(PATH)}).then(module=>module.qualifyNativeGpuMaskOverlayCurrentV1(${JSON.stringify(value)}))`);
-	const browserName = page.context().browser()?.browserType().name();
-	if (browserName === 'chromium') expect(result.renderer).toContain('SwiftShader');
+	if (test.info().project.name === 'lightscaper-software-gpu') expect(result.renderer).toContain('SwiftShader');
 	await test.info().attach('native-mask-overlay-observation', { body: JSON.stringify({ browser: page.context().browser()?.version(), result }), contentType: 'application/json' });
 	return result;
 }

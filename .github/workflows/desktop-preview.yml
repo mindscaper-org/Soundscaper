@@ -143,7 +143,7 @@ jobs:
         run: bash scripts/ci-apt-install.sh xvfb
 
       - name: Install Lightscaper native association test prerequisites
-        if: matrix.shard == 'lightscaper'
+        if: matrix.shard == 'lightscaper' || startsWith(matrix.shard, 'common-')
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh libglib2.0-dev pkg-config shared-mime-info
 

@@ -451,7 +451,7 @@ jobs:
         run: bash scripts/ci-apt-install.sh xvfb
 
       - name: Install Lightscaper native association test prerequisites
-        if: matrix.shard == 'lightscaper'
+        if: matrix.shard == 'lightscaper' || startsWith(matrix.shard, 'common-')
         timeout-minutes: 10
         run: bash scripts/ci-apt-install.sh libglib2.0-dev pkg-config shared-mime-info
 
@@ -599,9 +599,10 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
     # Run 37803116461 cancelled WebKit shard 3 at the 45-minute job deadline.
-    # Chromium photo shards run serially to bound native image memory; an
-    # observed complete phase takes 88 minutes before setup and compaction.
-    timeout-minutes: ${{ matrix.project == 'chromium' && 120 || 60 }}
+    # Chromium photo shards run serially to bound native image memory. Shard 3
+    # completed its 865-case command at the old 120-minute boundary, leaving
+    # no window for dual-origin qualification and coverage compaction.
+    timeout-minutes: ${{ matrix.project == 'chromium' && (matrix.shard == 3 && 150 || 120) || 60 }}
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -654,6 +655,10 @@ jobs:
 
       - name: Provision interchange conformance readers
         run: npm run provision:interchange-conformance
+
+      - name: Provision pinned Lightscaper RAW fixtures
+        timeout-minutes: 2
+        run: node scripts/provision-lightscaper-raw-fixtures.mjs
 
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -774,7 +779,10 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
-    timeout-minutes: 20
+    # The expanded 39-spec corpus includes the shared Frame shader families
+    # and 4MP mask/repair witnesses. Keep one worker and the existing per-case
+    # deadlines, with room for setup, native execution and coverage compaction.
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -814,7 +822,26 @@ jobs:
           import { verifyBrowserProductSite } from './scripts/lib/browser-product-test-sites.mjs';
           await verifyBrowserProductSite(browserProductSiteForBuild('lightscaper'));"
 
-      - name: Run the twelve Lightscaper software GPU browser specs
+      - name: Download the verified Framescaper website build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-framescaper-site-build
+          path: .wrangler/browser-products/framescaper
+
+      - name: Download the Framescaper website build's source maps
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-framescaper-site-source-maps
+          path: .wrangler/browser-products/framescaper-source-maps
+
+      - name: Authenticate the downloaded Framescaper build and maps
+        run: >-
+          node --input-type=module -e
+          "import { browserProductSiteForBuild } from './scripts/lib/browser-product-site-plan.mjs';
+          import { verifyBrowserProductSite } from './scripts/lib/browser-product-test-sites.mjs';
+          await verifyBrowserProductSite(browserProductSiteForBuild('framescaper'));"
+
+      - name: Run the native software GPU browser corpus
         run: npx playwright test --config=playwright.lightscaper-gpu.config.mjs --project=lightscaper-software-gpu --workers=1
         env:
           SCAPE_BROWSER_COVERAGE: '1'
@@ -853,7 +880,10 @@ jobs:
     runs-on: ubuntu-24.04
     # Run 37733071611 passed all 395 shard-2 tests in 44 minutes, then the
     # 45-minute job limit cancelled the job after setup overhead.
-    timeout-minutes: 60
+    # One real-audio worker is intentionally retained. The full shard was
+    # still advancing without a reported failed case at the old 60-minute
+    # job boundary; individual Playwright deadlines remain unchanged.
+    timeout-minutes: 90
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -917,6 +947,10 @@ jobs:
 
       - name: Provision interchange conformance readers
         run: npm run provision:interchange-conformance
+
+      - name: Provision pinned Lightscaper RAW fixtures
+        timeout-minutes: 2
+        run: node scripts/provision-lightscaper-raw-fixtures.mjs
 
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

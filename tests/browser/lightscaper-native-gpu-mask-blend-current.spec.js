@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { PIXEL_FRAME_WEBGL2_MASK_BLEND_FRAGMENT_CURRENT_V1, preparePixelFrameWebGl2MaskBlendUniformsCurrentV1 } from '../../src/common/editor/imaging/pixel-frame-webgl2-mask-blend-glsl-current-v1.ts';
 import { referenceNativeMaskBlendCurrentV1 } from './helpers/lightscaper-native-gpu-mask-blend-current-reference.ts';
 import { MASK_BLEND_COMPONENT_PAGE_SOURCE } from './helpers/lightscaper-native-gpu-mask-blend-page-source.js';
 
 test.use({ browserCoverage: false });
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Native mask blend diagnostics require pinned software Chromium or actual Firefox.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 
 const generic = Object.freeze({ kind: 'generic' }), unchanged = Object.freeze({ kind: 'unchanged-components' });
 const decode = words => [...new Float32Array(Uint32Array.from(words).buffer)];
@@ -27,8 +27,7 @@ async function run(page, value) {
 	// Raw function source is invoked as a string expression, avoiding tsx's
 	// named-function __name helpers in page.evaluate. No global shim is installed.
 	const actual = await page.evaluate(`(${MASK_BLEND_COMPONENT_PAGE_SOURCE})(${JSON.stringify(payload)})`);
-	const browserName = page.context().browser()?.browserType().name();
-	if (browserName === 'chromium') expect(actual.context.renderer).toContain('SwiftShader');
+	if (test.info().project.name === 'lightscaper-software-gpu') expect(actual.context.renderer).toContain('SwiftShader');
 	expect(actual.draws).toBe(1); expect(actual.floatReadbacks).toBe(1);
 	expect(actual.retired).toEqual({ textures: true, framebuffers: true, program: true, shaders: true, vao: true, host: true });
 	await test.info().attach('native-mask-blend-observation', {

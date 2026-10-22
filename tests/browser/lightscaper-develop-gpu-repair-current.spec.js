@@ -11,11 +11,11 @@ import { photoDevelopPreviewRendererCopy } from '../../src/common/i18n/lightscap
 import { hdrMergeBrowserFixtureCurrentV1 } from './helpers/lightscaper-hdr-merge-current-fixture.ts';
 import { editLightscaperDevelopNumberCurrentV1 } from './helpers/lightscaper-develop-numeric-keyboard-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { expect, test, installLightscaperGpuObserverRoute } from './helpers/browser-coverage-fixture.js';
 
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Native repair UI requires pinned software Chromium or the actual Firefox GPU project.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 const PROGRAM = '/__lightscaper_develop_gpu_repair_current.js';
 let fixture, program, manifest;
 test.beforeAll(async () => {
@@ -26,7 +26,7 @@ test.beforeAll(async () => {
 	expect(program.assets).toEqual([]);
 });
 
-for (const locale of ['en', 'de']) test(`${locale}: actual RAW Clone then Heal run through GPU opt-in, Full Fit, Save and CPU-default reopen with unchanged Original`, async ({ page, browserName }) => {
+for (const locale of ['en', 'de']) test(`${locale}: actual RAW Clone then Heal run through GPU opt-in, Full Fit, Save and CPU-default reopen with unchanged Original`, async ({ page }) => {
 	test.setTimeout(300_000); expect(test.info().config.workers).toBe(1); expect(test.info().retry).toBe(0); expect(test.info().project.retries).toBe(0);
 	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), settings = photoDevelopSettingsCopy(locale, 'current3');
 	const repairs = photoDevelopRepairSpotsCopy(locale), renderer = photoDevelopPreviewRendererCopy(locale), source = fixture.sources[0], original = Buffer.from(source.bytes), errors = [], workers = [];
@@ -113,7 +113,7 @@ for (const locale of ['en', 'de']) test(`${locale}: actual RAW Clone then Heal r
 			for (const kind of Object.keys(value.created)) expect(value.deleted[kind], kind).toBe(value.created[kind]);
 			expect(value.readbacks.length).toBeGreaterThan(0); for (const read of value.readbacks) { expect([read.width, read.height]).toEqual([32, 32]); expect(read.clone).toBe(1); expect(read.healBlend).toBe(1); expect(read.jacobi).toBe(64); nativeValues(read.bits); }
 			for (const context of value.contexts) { expect(context.native).toBe(true); expect(context.sourceUploads).toBe(1); expect(context.sources).toEqual([expected.sourceBits]);
-				if (browserName === 'chromium') expect(context.renderer).toContain('SwiftShader'); }
+				if (test.info().project.name === 'lightscaper-software-gpu') expect(context.renderer).toContain('SwiftShader'); }
 		}
 	} finally { await observe('stop'); }
 	function immutable(value) { expect(value.bytes).toEqual([...original]); expect(value.original.sha256).toBe(source.sha256); expect(value.native.words).toEqual(fixture.words[0]); expect(value.native.rawFlip).toBe(6);

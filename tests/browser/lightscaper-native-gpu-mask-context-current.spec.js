@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { fileURLToPath } from 'node:url';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 test.use({ browserCoverage: false });
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Native mask graph conformance requires pinned software Chromium or actual Firefox.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 const PROGRAM = '/__lightscaper_native_mask_context_current.js';
 const BLANK = '/lightscaper/__native_mask_context_blank.html';
 let compiled;
@@ -20,8 +20,7 @@ async function run(page, request) {
 	await page.goto(resolveBrowserProductTestUrl(BLANK));
 	// Raw import expression contains no transformed nested callbacks/__name shim.
 	const value = await page.evaluate(`import(${JSON.stringify(PROGRAM)}).then(module=>module.runMaskContextCurrentV1(${JSON.stringify(request)}))`);
-	const browserName = page.context().browser()?.browserType().name();
-	if (browserName === 'chromium') expect(value.renderer).toContain('SwiftShader');
+	if (test.info().project.name === 'lightscaper-software-gpu') expect(value.renderer).toContain('SwiftShader');
 	await test.info().attach('native-mask-context-observation', { body: JSON.stringify({ browser: page.context().browser()?.version(), value }), contentType: 'application/json' });
 	return value;
 }

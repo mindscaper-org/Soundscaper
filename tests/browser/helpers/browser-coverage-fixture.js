@@ -48,7 +48,7 @@ export const test = base.extend({
 			collectors.set(context, collector);
 			collector.attach(context);
 			try { await use(context); }
-			finally { await collector.collect(testInfo.titlePath.join(' '), writtenSourceMaps); }
+			finally { await collector.collect(testInfo.titlePath.join(' '), writtenSourceMaps, testInfo); }
 		} finally { observer.close(); }
 	},
 	page: async ({ page, browserName }, use, testInfo) => {

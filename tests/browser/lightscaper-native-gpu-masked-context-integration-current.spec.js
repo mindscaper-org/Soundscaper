@@ -2,9 +2,9 @@
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 test.use({ browserCoverage: false });
-test.skip(({ browserName }) => test.info().project.name !== 'lightscaper-software-gpu' && browserName !== 'firefox',
-	'Native masked integration requires pinned software Chromium or actual Firefox.');
+test.beforeEach(async ({ page }, info) => { await requireNativeGpuCapabilityCurrentV1(page, info); });
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 const PROGRAM = '/__lightscaper_masked_context_integration.js', BLANK = '/lightscaper/__masked_context_integration_blank.html';
@@ -21,8 +21,7 @@ async function run(page, request) {
 	await page.route(`**${BLANK}`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Native masked context integration</title>' }));
 	await page.goto(resolveBrowserProductTestUrl(BLANK));
 	const value = await page.evaluate(`import(${JSON.stringify(PROGRAM)}).then(module=>module.runMaskedContextIntegrationCurrentV1(${JSON.stringify(request)}))`);
-	const browserName = page.context().browser()?.browserType().name();
-	if (browserName === 'chromium') { expect(value.renderers.length).toBeGreaterThan(0); for (const renderer of value.renderers) expect(renderer).toContain('SwiftShader'); }
+	if (test.info().project.name === 'lightscaper-software-gpu') { expect(value.renderers.length).toBeGreaterThan(0); for (const renderer of value.renderers) expect(renderer).toContain('SwiftShader'); }
 	await test.info().attach('native-masked-context-integration-observation', { body: JSON.stringify({ browser: page.context().browser()?.version(), value }), contentType: 'application/json' });
 	return value;
 }

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
+
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
@@ -26,6 +28,7 @@ for (const [locale, route] of Object.entries(ROUTES)) {
 
 	test(`${locale}: keyboard Frame Cube authoring renders exact pixels and preserves disabled clipboard resources and original bytes after reload`, async ({ browserName, page }) => {
 		test.skip(browserName === 'webkit', WEBKIT_IMPORT_DEFERRED);
+		await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 		test.setTimeout(180_000);
 		const { copy } = route, input = createDeterministicAvFixture('immutable-cube-source.webm');
 		let editor = await bootEditor(page, `/framescaper/embed/${locale}/`);

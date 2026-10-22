@@ -84,6 +84,52 @@ test('actual relocated build-map digests restore exact owner bytes before counti
 	assert.equal(JSON.stringify(f.profile['source-map-cache']), before, 'authentication must not rewrite the retained raw map');
 });
 
+/** Hosted builds and browser containers use different physical checkout roots. */
+async function transferFixtureMaps(f: Awaited<ReturnType<typeof fixture>>): Promise<void> {
+	for (const [index, source] of SOURCES.entries()) {
+		const producerSource = join(f.root, 'producer-checkout', source);
+		await mkdir(dirname(producerSource), { recursive: true }); await writeFile(producerSource, CODE);
+		f.profile['source-map-cache'][f.profile.result[index]!.url]!.data.sources = [pathToFileURL(producerSource).href];
+	}
+	relocateFixtureMaps(f);
+}
+
+test('transferred build maps authenticate executed GPU owners from a different checkout root', async context => {
+	const f = await fixture(context); await transferFixtureMaps(f);
+	const before = JSON.stringify(f.profile['source-map-cache']);
+	const hits = await assertBuiltLightscaperGpuCoverage(f.profile, f.options);
+	assert.deepEqual(hits.map(hit => hit.path), SOURCES);
+	assert.ok(hits.every(hit => hit.executedFunctions > 0 && hit.executedStatements > 0));
+	assert.equal(JSON.stringify(f.profile['source-map-cache']), before);
+});
+
+test('transferred maps still reject changed consumer source bytes', async context => {
+	const f = await fixture(context); await transferFixtureMaps(f);
+	await writeFile(join(f.root, SOURCES[0]!), CODE.replace('return 7', 'return 8'));
+	await assert.rejects(assertBuiltLightscaperGpuCoverage(f.profile, f.options), /source.*bytes|build-time|digest/iu);
+});
+
+test('transferred maps still reject conflicting embedded text and missing build digests', async context => {
+	const f = await fixture(context); await transferFixtureMaps(f);
+	const map = f.profile['source-map-cache'][f.profile.result[0]!.url]!.data;
+	map.sourcesContent = [CODE.replace('return 7', 'return 8')];
+	await assert.rejects(assertBuiltLightscaperGpuCoverage(f.profile, f.options), /source.*bytes|build-time|digest/iu);
+	delete map.sourcesContent; delete map.x_soundscaper_source_sha256;
+	await assert.rejects(assertBuiltLightscaperGpuCoverage(f.profile, f.options), /source.*bytes|build-time|digest/iu);
+});
+
+test('transferred maps cannot substitute module initialization or helper copies for built GPU calls', async context => {
+	const f = await fixture(context); await transferFixtureMaps(f);
+	for (const entry of f.profile.result) entry.functions[1]!.ranges[0]!.count = 0;
+	await assert.rejects(assertBuiltLightscaperGpuCoverage(f.profile, f.options), /executed broker and WebGL functions/iu);
+	for (const entry of f.profile.result) {
+		entry.functions[1]!.ranges[0]!.count = 1;
+		const map = f.profile['source-map-cache'][entry.url]!; delete f.profile['source-map-cache'][entry.url];
+		entry.url = pathToFileURL(join(f.root, '__observer.js')).href; f.profile['source-map-cache'][entry.url] = map;
+	}
+	await assert.rejects(assertBuiltLightscaperGpuCoverage(f.profile, f.options), /executed broker and WebGL functions/iu);
+});
+
 test('a changed checkout owner never authenticates against an earlier relocated build digest', async context => {
 	const f = await fixture(context); relocateFixtureMaps(f);
 	await writeFile(join(f.root, SOURCES[0]!), CODE.replace('return 7', 'return 8'));

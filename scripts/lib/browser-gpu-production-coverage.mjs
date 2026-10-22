@@ -2,9 +2,10 @@
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import v8ToIstanbul from 'v8-to-istanbul';
 import { E2E_REPOSITORY_URL_PREFIX } from './e2e-coverage-prefixes.mjs';
+import { repositorySourcePath } from './e2e-coverage-source-maps.mjs';
 
 const SOURCES = Object.freeze(['src/common/editor/imaging/image-develop-gpu-current-v1.ts',
 	'src/common/editor/imaging/pixel-frame-webgl2-context-current-v1.ts']);
@@ -79,5 +80,12 @@ function sourcePath(value, root) {
 	if (portable) return decodeURIComponent(portable[1]);
 	let path = value;
 	try { if (value.startsWith('file:')) path = fileURLToPath(value); } catch { return ''; }
+	// Hosted build maps retain their producer checkout address. Reuse the E2E
+	// map owner parser; the exact required owners still authenticate their text
+	// against the build-time digest before any actual V8 function is counted.
+	if (isAbsolute(path)) {
+		const owner = repositorySourcePath(pathToFileURL(path).href);
+		if (owner !== null && SOURCES.includes(owner)) return owner;
+	}
 	return relative(root, path).split(sep).join('/');
 }

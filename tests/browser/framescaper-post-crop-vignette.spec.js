@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { fileURLToPath } from 'node:url';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { build } from 'esbuild';
 import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-site-plan.mjs';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
@@ -8,6 +9,7 @@ import { expect, test } from './helpers/browser-coverage-fixture.js';
 const syntheticRouteTest = test.extend({ browserCoverage: false });
 const ENTRY=new URL('../helpers/framescaper-global-export-fixture.ts',import.meta.url);
 syntheticRouteTest('native highp integer post-crop vignette matches literal signed corners and every straight alpha byte',async({page})=>{
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 	const path='/__post_crop_vignette_native.js',bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('.',ENTRY)),contents:
 		`export {qualifyPostCropVignetteNativeV1} from ${JSON.stringify(fileURLToPath(ENTRY))};`},bundle:true,write:false,format:'esm',platform:'browser',logLevel:'silent'});
 	await page.context().route(`**${path}`,route=>route.fulfill({contentType:'text/javascript',body:bundle.outputFiles[0].text,

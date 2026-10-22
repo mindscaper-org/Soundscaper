@@ -11,6 +11,7 @@ import { pngChunk } from '../helpers/image-metadata-fixtures.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 
 test.use({ browserCoverage: false });
 const PROGRAM = '/__lightscaper_ca_native.js', NAME = 'Chromatic correction reference.png';
@@ -85,8 +86,8 @@ for (const locale of ['en', 'de']) test(`${locale}: Photo menu authors independe
 	}
 });
 
-test('Native WebGL2 CA35 matches unequal-alpha literals and reconstructs hidden corrected red from sub-byte support without changing Green/alpha/zero Blue', async ({ page, browserName }) => {
-	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page, browserName);
+test('Native WebGL2 CA35 matches unequal-alpha literals and reconstructs hidden corrected red from sub-byte support without changing Green/alpha/zero Blue', async ({ page }) => {
+	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page);
 	const source = [0, 91, 255, 128, 255, 37, 0, 255, 0, 203, 255, 64], result = await qualify(page, source, 3, 1, -100, 100);
 	expect(result.pixels).toEqual([2, 91, 255, 128, 255, 37, 0, 255, 4, 203, 255, 64]); nativeFacts(result, source, true);
 	const hidden = [47, 31, 7, 0, 255, 11, 70, 1, 15, 9, 140, 0];
@@ -100,8 +101,8 @@ test('Native WebGL2 CA35 matches unequal-alpha literals and reconstructs hidden 
 	}
 });
 
-test('Native WebGL2 CA35 retains tiny inward motion when hidden reference pixels borrow visible neighboring color', async ({ page, browserName }) => {
-	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page, browserName);
+test('Native WebGL2 CA35 retains tiny inward motion when hidden reference pixels borrow visible neighboring color', async ({ page }) => {
+	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page);
 	const source = [47, 31, 7, 0, 255, 11, 70, 255, 15, 9, 140, 0];
 	// k=-1e-8 and edge r²=.4 move both edges inward by4e-9 pixels.
 	// Only the opaque center contributes alpha, so the corrected channel is
@@ -112,8 +113,8 @@ test('Native WebGL2 CA35 retains tiny inward motion when hidden reference pixels
 	}
 });
 
-test('Native WebGL2 CA35 matches independent varied-alpha color reconstruction and exactly preserves reference and independently zero channels', async ({ page, browserName }) => {
-	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page, browserName);
+test('Native WebGL2 CA35 matches independent varied-alpha color reconstruction and exactly preserves reference and independently zero channels', async ({ page }) => {
+	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page);
 	const width = 9, height = 7, source = Array.from({ length: width * height }, (_, n) => [(n * 37 + 47) % 256, (n * 59 + 31) % 256, (n * 101 + 7) % 256,
 		n === 0 || n === width * height - 1 ? 0 : n * 41 % 256]).flat();
 	for (const [red, blue, enabled] of [[-100, 100, true], [100, -100, true], [37.125, -22.5, true], [0, -100, true], [100, 0, true], [0, 0, true], [100, -100, false]]) {
@@ -151,9 +152,8 @@ function nativeFacts(value, source, active) {
 	expect(value.passCodes).toEqual(active ? [35] : []); expect(value.programCount).toBe(38); expect(value.caProgramLinked).toBe(true);
 	expect(value.nativeWebgl2).toBe(true); expect(value.nativeReadbacks).toBe(1); expect(value.glError).toBe(0); expect(value.before).toEqual(source); expect(value.source).toEqual(source); expect(value.ownedBuffersRetired).toBe(true);
 }
-async function nativeCapability(page, browserName) {
-	const supported = await page.evaluate(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext(); return gl !== null; });
-	test.skip(browserName === 'webkit' && !supported, 'This WebKit environment does not provide actual WebGL2.'); expect(supported).toBe(true);
+async function nativeCapability(page) {
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 }
 async function prepare(page, locale) { await page.context().route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: program.source })); await page.goto(resolveBrowserProductTestUrl(`/lightscaper/${locale}/`)); }
 function qualify(page, source, width, height, red, blue, enabled = true) { return helper(page, 'qualifyChromaticNativeCurrentV1', { source, width, height, red, blue, enabled }); }

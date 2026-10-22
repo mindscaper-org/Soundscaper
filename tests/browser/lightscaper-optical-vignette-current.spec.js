@@ -9,6 +9,7 @@ import { photoDevelopMenuLabel } from '../../src/common/i18n/lightscaper-develop
 import { photoDevelopSettingsCopy } from '../../src/common/i18n/lightscaper-develop-settings-copy.ts';
 import { pngChunk } from '../helpers/image-metadata-fixtures.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { compileNativeImageHandoffScript } from './helpers/lightscaper-image-handoff-native-fixture.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 
@@ -84,8 +85,8 @@ for (const locale of ['en', 'de']) test(`${locale}: Photo menu authors optical v
 	}
 });
 
-test('Native WebGL2 optical37 matches independent linear-light gain literals and exactly retains black, center and transparent hidden color', async ({ page, browserName }) => {
-	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page, browserName);
+test('Native WebGL2 optical37 matches independent linear-light gain literals and exactly retains black, center and transparent hidden color', async ({ page }) => {
+	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page);
 	const source = [64, 32, 16, 1, 64, 32, 16, 127, 64, 32, 16, 255];
 	for (const [amount, expected] of [[100, [84, 44, 24, 1, 64, 32, 16, 127, 84, 44, 24, 255]],
 		[-100, [48, 23, 10, 1, 64, 32, 16, 127, 48, 23, 10, 255]]]) {
@@ -97,8 +98,8 @@ test('Native WebGL2 optical37 matches independent linear-light gain literals and
 	const center = [64, 32, 16, 127], result = await qualify(page, center, 1, 1, 100); nativeFacts(result, center, true); expect(result.pixels).toEqual(center);
 });
 
-test('Native WebGL2 optical37 matches independent continuous radial gain over varied alpha and fractional Amount', async ({ page, browserName }) => {
-	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page, browserName);
+test('Native WebGL2 optical37 matches independent continuous radial gain over varied alpha and fractional Amount', async ({ page }) => {
+	test.setTimeout(90_000); await prepare(page, 'en'); await nativeCapability(page);
 	const width = 9, height = 7, source = Array.from({ length: width * height }, (_, n) => [(n * 37 + 47) % 256, (n * 59 + 31) % 256, (n * 101 + 7) % 256,
 		n === 0 || n === width * height - 1 ? 0 : n * 41 % 256]).flat();
 	for (const [amount, enabled] of [[100, true], [-100, true], [37.125, true], [-22.5, true], [0, true], [100, false]]) {
@@ -133,9 +134,8 @@ function nativeFacts(value, source, active) {
 	expect(value.passCodes).toEqual(active ? [37] : []); expect(value.programCount).toBe(38); expect(value.opticalProgramLinked).toBe(true);
 	expect(value.nativeWebgl2).toBe(true); expect(value.nativeReadbacks).toBe(1); expect(value.glError).toBe(0); expect(value.before).toEqual(source); expect(value.source).toEqual(source); expect(value.ownedBuffersRetired).toBe(true);
 }
-async function nativeCapability(page, browserName) {
-	const supported = await page.evaluate(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext(); return gl !== null; });
-	test.skip(browserName === 'webkit' && !supported, 'This WebKit environment does not provide actual WebGL2.'); expect(supported).toBe(true);
+async function nativeCapability(page) {
+	await requireNativeGpuCapabilityCurrentV1(page, test.info(), 'webgl2');
 }
 async function prepare(page, locale) { await page.context().route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: program.source })); await page.goto(resolveBrowserProductTestUrl(`/lightscaper/${locale}/`)); }
 function qualify(page, source, width, height, amount, enabled = true) { return helper(page, 'qualifyOpticalNativeCurrentV1', { source, width, height, amount, enabled }); }
