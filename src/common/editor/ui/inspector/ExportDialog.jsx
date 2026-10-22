@@ -22,6 +22,7 @@ import {
 	isVideoExportDialogFormat,
 } from '../export-dialog-model.js';
 import { exportDialogOutputSettings } from '../export-dialog-output-options.ts';
+import { exportDialogMetadataFields } from '../export-dialog-metadata-fields.ts';
 import { useExportDialogOutput } from '../use-export-dialog-output.ts';
 import { createExportPresetActions } from '../export-preset-actions.js';
 import { projectHasTimelineVideo } from '../timeline-media-presence.ts';
@@ -271,18 +272,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			const customMetadata = metadataAvailable
 				? parseJsonObject(settings.metadataCustom, copy.customMetadata, copy)
 				: {};
-			const metadata = compactFields({
-				...customMetadata,
-				title: settings.metadataTitle,
-				artist: settings.metadataArtist,
-				album: settings.metadataAlbum,
-				trackNumber: settings.metadataTrack,
-				year: settings.metadataYear,
-				genre: settings.metadataGenre,
-				comments: settings.metadataComments,
-				copyright: settings.metadataCopyright,
-				id3Artwork: settings.metadataArtwork,
-			});
+			const metadata = compactFields(exportDialogMetadataFields(settings, customMetadata));
 			const request = createExportDialogRequest(admittedSettings, {
 				metadata: exportDialogMetadata(admittedSettings.format, desktop, metadata), desktop, captionDeliveryUnavailable, project: snapshot.project,
 				bext: admittedSettings.bext,
