@@ -18,10 +18,12 @@ for (const kind of ['takes', 'automation']) test(`overlapping clip ripple keeps 
 	const editor = await bootEditor(page, '/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Overlap ripple.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
-	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
-	await clipByName(editor, 'First').locator('.clip-header').click();
+	await expect(editor).not.toHaveAttribute('data-project-activation-pending', 'true');
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+	await clipByName(editor, 'First').press('Enter');
 	await expect(clipByName(editor, 'First').locator('.clip-display')).toHaveAttribute('data-selected', 'true');
-	await clipByName(editor, 'Second').locator('.clip-header').click({ modifiers: ['Shift'] });
+	// These headers overlap; use the supported additive keyboard selection.
+	await clipByName(editor, 'Second').press('Shift+Enter');
 	await expect(editor.locator('.clip-display[data-selected="true"]')).toHaveCount(2);
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Delete', 'Delete and close gap per track']);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
