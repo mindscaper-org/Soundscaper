@@ -56,7 +56,9 @@ test('NP031: removing another take group preserves the current audition', async 
 	await controller.actions.takeComp.auditionTake('first', 'take-first');
 	controller.actions.takeComp.removeGroup('second');
 	assert.equal(previews[0]?.state, 'playing');
-	assert.equal((await controller.actions.takeComp.auditionTake('first', 'take-first')).state, 'paused');
+	const paused: unknown = await controller.actions.takeComp.auditionTake('first', 'take-first');
+	assert.ok(paused !== null && typeof paused === 'object' && 'state' in paused);
+	assert.equal(paused.state, 'paused');
 });
 
 test('NP031: a refused removal leaves the existing audition intact', async context => {
