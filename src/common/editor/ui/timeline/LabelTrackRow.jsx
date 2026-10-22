@@ -226,6 +226,7 @@ export function AudacityLabelMarker({
 	const dragCancellation = useLabelMarkerDragCancellation(markerRef, pendingRef, clearPreview, label);
 	const cancelPointerDrag = dragCancellation.cancelDrag;
 	const displayed = preview || externalPreview || label;
+	const TitleField = label.title?.includes('\n') ? 'textarea' : 'input';
 	const point = displayed.startFrame === displayed.endFrame;
 	const displayedLeft = left + (displayed.startFrame - label.startFrame) / sampleRate * pixelsPerSecond;
 	const displayedWidth = point ? layout?.width || metrics.minPointWidth
@@ -379,9 +380,10 @@ export function AudacityLabelMarker({
 				metrics={metrics} trackColor={trackColor} selected={selected} editing={editing}
 				leftNeighbor={layout?.leftNeighbor} rightNeighbor={layout?.rightNeighbor} leftNeighborSelected={leftNeighborSelected}
 				onSelect={select} onGesture={beginGesture} onPointerGesture={beginPointerGesture} onEdit={() => { if (!blocked) { onSelect(); onEdit(); } }}>
-			{editing && <input
+			{editing && <TitleField
 				ref={inputRef}
 				className="audio-editor-label-title-input"
+				rows={TitleField === 'textarea' ? Math.min(4, label.title.split('\n').length) : undefined}
 				defaultValue={label.title}
 				disabled={blocked}
 				aria-label={`${copy.editLabels}: ${label.title || copy.newLabel}`}
@@ -396,7 +398,8 @@ export function AudacityLabelMarker({
 				onKeyDown={(event) => {
 					if (event.nativeEvent?.isComposing) return;
 					event.stopPropagation();
-					if (event.key === 'Enter') {
+					if (event.key === 'Enter' && (TitleField === 'input' || !event.shiftKey)) {
+						if (TitleField === 'textarea') event.preventDefault();
 						event.currentTarget.blur();
 						markerRef.current?.focus();
 					} else if (event.key === 'Escape') {

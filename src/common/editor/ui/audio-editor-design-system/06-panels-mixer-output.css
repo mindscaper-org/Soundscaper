@@ -139,7 +139,7 @@
 	gap: 5px;
 }
 
-.kw-audio-editor__label-manager-heading input {
+.kw-audio-editor__label-manager-heading :is(input, textarea) {
 	flex: 1;
 }
 

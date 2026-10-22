@@ -75,6 +75,15 @@
 	width: 100%;
 }
 
+#kw-audio-editor-design-system .audio-editor-label-marker .audio-editor-upstream-label textarea.audio-editor-label-title-input {
+	top: 0;
+	height: auto;
+	transform: none;
+	line-height: 1.4;
+	white-space: pre;
+	resize: none;
+}
+
 .audio-editor-label-marker .audio-editor-upstream-label :is(.label-marker__left-ear, .label-marker__right-ear) {
 	position: absolute;
 	top: 0;
