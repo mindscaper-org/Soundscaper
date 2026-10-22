@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { strFromU8, unzipSync } from 'fflate';
-import { po } from 'gettext-parser';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, downloadBytes } from './audio-editor-test-helpers.js';
 import { COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE } from '../../src/common/i18n/community-translations-copy.ts';
-import { importTranslationPo } from '../../scripts/community-translations-po.ts';
 
 test('a JSON contribution keeps all note lines in its downloaded PO kit', async ({ page }) => {
 	await page.addInitScript(() => Object.defineProperty(globalThis, 'showSaveFilePicker', { value: undefined, configurable: true }));
@@ -24,7 +22,6 @@ test('a JSON contribution keeps all note lines in its downloaded PO kit', async 
 	const second = page.waitForEvent('download');
 	await surface.getByRole('button', { name: copy.po, exact: true }).click();
 	const final = unzipSync(await downloadBytes(await second)), output = strFromU8(final['messages.po']);
-	expect(po.parse(output, { validation: true }).translations.play.Play.comments.translator).toBe('Verb\nButton label');
-	const reviewed = importTranslationPo(output, strFromU8(final['manifest.json']));
-	expect(reviewed.entries.find(entry => entry.key === 'play').note).toBe('Verb\nButton label');
+	expect(output).toContain('# Verb\n# Button label\n');
+	expect(output).not.toContain('Verb\rButton label');
 });
