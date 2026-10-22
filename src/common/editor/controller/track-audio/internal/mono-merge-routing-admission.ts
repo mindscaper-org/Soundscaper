@@ -6,7 +6,7 @@ import { isSoundscaperProductionProject } from '../../../project-schema-version.
 
 /** A merged stereo strip can retain only one shared outgoing graph. */
 export function monoMergeRoutingCompatible(
-	project: Readonly<Record<string, unknown>>, leftTrackId: string, rightTrackId: string,
+	project: Readonly<Record<string, unknown>>, leftTrackId: string, rightTrackId: string, bakeTrackEffects = false,
 ): boolean {
 	if (!isSoundscaperProductionProject(project)) return true;
 	const graph = normalizeMixerGraphV21(project.mixer);
@@ -30,7 +30,9 @@ export function monoMergeRoutingCompatible(
 			level: edge.level, enabled: edge.enabled, channelMap: edge.channelMap,
 			automation: [...(lanes.get(edge.id) ?? [])].sort() });
 	};
-	const routes = (trackId: string) => graph.edges.filter(edge => edge.source.kind === 'track' && edge.source.id === trackId)
+	const removedDetector = (edge: MixerEdgeV21): boolean => bakeTrackEffects && edge.destination.kind === 'effect-sidechain'
+		&& edge.destination.strip.kind === 'track' && [leftTrackId, rightTrackId].includes(edge.destination.strip.id);
+	const routes = (trackId: string) => graph.edges.filter(edge => edge.source.kind === 'track' && edge.source.id === trackId && !removedDetector(edge))
 		.map(route).sort();
 	const left = routes(leftTrackId), right = routes(rightTrackId);
 	if (left.includes(null) || right.includes(null) || JSON.stringify(left) !== JSON.stringify(right)) return false;

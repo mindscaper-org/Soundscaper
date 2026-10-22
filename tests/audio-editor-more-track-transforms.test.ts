@@ -79,3 +79,21 @@ test('MP30 ancillary: Make Stereo admits matching automatic folder feed maps', a
 	assert.equal(project.sequences.find(({ id }) => id === project.primarySequenceId)?.trackNodes
 		.find(({ id }) => id === 'left')?.parentFolderId, folder);
 });
+
+for (const outside of [false, true]) test(`MP30 ancillary: Make Stereo ${outside ? 'refuses an unpreserved outside' : 'bakes its own'} Gate detector route`, async context => {
+	const controller = await openedMonoPair(context, `more-stereo-detector-${String(outside)}`);
+	const target = outside ? controller.actions.track.add({ name: 'Outside programme' }) : 'left';
+	assert.equal(typeof target, 'string'); if (typeof target !== 'string') throw new Error('Missing track.');
+	const gate = controller.actions.effects.add({ scope: 'track', trackId: target, type: 'gate' });
+	assert.equal(typeof gate, 'string'); if (typeof gate !== 'string') throw new Error('Missing gate.');
+	const mixer = normalizeMixerGraphV21(controller.project?.mixer);
+	controller.actions.edit.commit({ type: 'mixer-graph/set', expected: mixer, mixer: { ...mixer, edges: [...mixer.edges,
+		{ id: 'detector', kind: 'sidechain', source: { kind: 'track', id: 'right' },
+			destination: { kind: 'effect-sidechain', strip: { kind: 'track', id: target }, effectId: gate },
+			position: 'pre-fader', level: 1, enabled: true, channelMap: [0, 0] }] } });
+	if (outside) { await assert.rejects(controller.actions.track.makeStereo('left', 'right'), /mono tracks/iu); return; }
+	await controller.actions.track.makeStereo('left', 'right');
+	assert.equal(controller.project?.tracks.length, 1);
+	assert.equal(controller.project?.tracks[0]?.effects.length, 0, 'the selected Gate is already printed into the merged source');
+	assert.equal(normalizeMixerGraphV21(controller.project?.mixer).edges.some(edge => edge.id === 'detector'), false);
+});

@@ -330,13 +330,13 @@ export function createTrackTransformService(
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const partner = findMonoPartner(project, track, trackIndex, partnerTrackId);
 		if (!partner) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.compatibleMonoTrackRequired ? 'compatibleMonoTrackRequired' : dependencies.copy.monoTrackRequired ? 'monoTrackRequired' : 'audioTrackRequired');
-		if (!monoMergeRoutingCompatible(project, track.id, partner.id)) throw createLocalizedError(Error, dependencies.copy, 'compatibleMonoTrackRequired');
 		const partnerIndex = project.tracks.findIndex((candidate) => candidate.id === partner.id);
 		const clips = [...(track.clipIds ?? []), ...(partner.clipIds ?? [])]
 			.map((clipId) => findControllerClip(project, clipId))
 			.filter((clip): clip is ControllerClip => Boolean(clip));
 		const { startFrame, endFrame } = stereoTrackRenderRange([track, partner], clips, dependencies.projectSampleRate(),
 			Array.isArray(project.automationLanes) ? project.automationLanes : []);
+		if (!monoMergeRoutingCompatible(project, track.id, partner.id, endFrame > startFrame)) throw createLocalizedError(Error, dependencies.copy, 'compatibleMonoTrackRequired');
 		if (endFrame <= startFrame) return dependencies.commit({ type: 'batch', commands: [
 			{ type: 'track/update', trackId: track.id, changes: { pan: 0 } },
 			{ type: 'track/remove', trackId: partner.id },
