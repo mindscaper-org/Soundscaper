@@ -213,6 +213,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await clipMenu.getByRole('menuitem', { name: 'Clip properties', exact: true }).click();
 		const clipDialog = editor.locator('[data-workspace-panel="clip-properties"]');
 		await expect(clipDialog).toBeVisible();
+		await expect(clipDialog.getByRole('textbox', { name: 'Clip name', exact: true })).toBeFocused();
 		await closeClipProperties(clipDialog);
 		expect(errors).toEqual([]);
 	});

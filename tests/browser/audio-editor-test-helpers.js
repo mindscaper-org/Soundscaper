@@ -403,6 +403,10 @@ async function openCommandMenu(page, editor, menu, options, { openWithKeyboard =
 	} else await menuItem.click(options);
 	const commandMenu = page.getByRole('menu', { name: menu, exact: true });
 	await expect(commandMenu).toBeVisible(options);
+	if (openWithKeyboard) {
+		// Let the menu's initial focus settle before targeting another item.
+		await expect(commandMenu.locator(':scope > :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):not([aria-disabled="true"]):not([disabled])').first()).toBeFocused(options);
+	}
 	return commandMenu;
 }
 async function openMenuItemSubmenu(page, item, options) {
