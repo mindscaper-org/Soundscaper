@@ -6,10 +6,13 @@ export interface OggGaplessGeometry {
 }
 
 const MAXIMUM_PAGE_BYTES = 65_307;
+const MAXIMUM_SCAN_PAGES = 1_000_000;
 
 /** The final Ogg granule, rather than the full last codec packet, ends the source. */
-export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vorbis'): Promise<OggGaplessGeometry | null> {
+export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vorbis', signal?: AbortSignal): Promise<OggGaplessGeometry | null> {
+	signal?.throwIfAborted();
 	const first = await findAudioIdentificationPage(file, codec);
+	signal?.throwIfAborted();
 	if (!first) return null;
 	verifyPageChecksum(first);
 	const body = first.subarray(27 + first[26]!);
@@ -24,20 +27,51 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 	}
 	const serial = new DataView(first.buffer).getUint32(14, true);
 	const tail = new Uint8Array(await file.slice(Math.max(0, file.size - MAXIMUM_PAGE_BYTES * 2)).arrayBuffer());
+	signal?.throwIfAborted();
 	for (let offset = tail.length - 27; offset >= 0; offset -= 1) {
 		if (ascii(tail, offset, 4) !== 'OggS' || tail[offset + 4] || !(tail[offset + 5]! & 4)) continue;
 		const size = pageSize(tail, offset);
 		if (!size) continue;
 		const view = new DataView(tail.buffer, tail.byteOffset + offset, size);
 		if (view.getUint32(14, true) !== serial) continue;
-		verifyPageChecksum(tail.subarray(offset, offset + size));
-		const granule = view.getBigUint64(6, true);
-		if (granule > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('The Ogg source granule exceeds the safe range.');
-		const sourceFrames = Number(granule) - preSkip;
-		if (sourceFrames < 1 || sampleRate < 1) throw new Error('The Ogg source declares empty gapless geometry.');
-		return Object.freeze({ sampleRate, sourceFrames });
+		return endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate);
 	}
+	// A secondary logical stream can continue long after the primary audio ends.
+	// Follow physical page headers without reading intervening encoded payloads.
+	const end = await findEarlierEndPage(file, serial, signal);
+	if (end) return endPageGeometry(end, preSkip, sampleRate);
 	throw new Error('The Ogg audio source has no final granule for its primary stream.');
+}
+
+function endPageGeometry(page: Uint8Array, preSkip: number, sampleRate: number): OggGaplessGeometry {
+	verifyPageChecksum(page);
+	const granule = new DataView(page.buffer, page.byteOffset, page.byteLength).getBigUint64(6, true);
+	if (granule > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('The Ogg source granule exceeds the safe range.');
+	const sourceFrames = Number(granule) - preSkip;
+	if (sourceFrames < 1 || sampleRate < 1) throw new Error('The Ogg source declares empty gapless geometry.');
+	return Object.freeze({ sampleRate, sourceFrames });
+}
+
+async function findEarlierEndPage(file: Blob, serial: number, signal?: AbortSignal): Promise<Uint8Array | null> {
+	let offset = 0;
+	for (let count = 0; offset < file.size; count++) {
+		signal?.throwIfAborted();
+		if (count >= MAXIMUM_SCAN_PAGES) throw new RangeError('The Ogg source exceeds its bounded page inspection count.');
+		const header = new Uint8Array(await file.slice(offset, offset + 27).arrayBuffer());
+		if (header.length !== 27 || ascii(header, 0, 4) !== 'OggS' || header[4] || header[5]! & ~7) return null;
+		const laces = new Uint8Array(await file.slice(offset + 27, offset + 27 + header[26]!).arrayBuffer());
+		if (laces.length !== header[26]) return null;
+		const size = 27 + laces.length + laces.reduce((sum, length) => sum + length, 0);
+		if (size > file.size - offset) return null;
+		if (header[5]! & 4 && new DataView(header.buffer).getUint32(14, true) === serial) {
+			const page = new Uint8Array(await file.slice(offset, offset + size).arrayBuffer());
+			signal?.throwIfAborted();
+			return page;
+		}
+		offset += size;
+	}
+	signal?.throwIfAborted();
+	return null;
 }
 
 async function findAudioIdentificationPage(file: Blob, codec: 'opus' | 'vorbis'): Promise<Uint8Array<ArrayBuffer> | null> {
