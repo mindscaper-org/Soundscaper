@@ -426,7 +426,7 @@ export default function VideoPreviewPanel({ controller, snapshot, copy, run }) {
 			owner: controller,
 			projectRef: freezeCaptureProjectRef,
 			evaluatedRef: freezeEvaluatedFrameRef,
-			compositorRef,
+			compositorRef, layersRef: composedLayersRef, renderOptionsRef,
 		}).then((boundRelease) => {
 			if (disposed) boundRelease();
 			else release = boundRelease;
