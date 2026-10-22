@@ -27,9 +27,9 @@ for (const format of ['FCPXML', 'edit list (EDL)', 'OpenTimelineIO', 'DAWproject
 		const text = new TextDecoder().decode(bytes);
 		if (format === 'FCPXML') {
 			const sourceStart = /<asset-clip[^>]*\bstart="([^"]+)"/u.exec(text)?.[1];
-			// The captured WebM's sixth source ordinal has PTS 456/1000s;
-			// its nearest boundary on the 30 fps interchange grid is frame 14.
-			expect(sourceStart).toBe('7/15s');
+			// FCPXML retains the captured WebM's sixth source ordinal at PTS
+			// 456/1000s on the native media clock, reduced to its exact rational.
+			expect(sourceStart).toBe('57/125s');
 		} else if (format === 'edit list (EDL)') {
 			const event = text.split('\n').find((line) => /^001\s/u.test(line));
 			expect(event?.trim().split(/\s+/u)[4]).toBe('00:00:00:14');
