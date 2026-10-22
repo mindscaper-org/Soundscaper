@@ -180,14 +180,16 @@ function validateAssociationProfile(plan: LightscaperManagedSmokePlanCurrentV1, 
 		|| marker.sourceRevision !== plan.registeredAssociation.sourceRevision || marker.profileDevice !== String(profile.dev)
 		|| marker.profileInode !== String(profile.ino)) throw new Error('Registered association profile does not belong to this actual smoke composition.');
 }
-function publishAssociationReady(plan: LightscaperManagedSmokePlanCurrentV1, root: string): void {
+export function publishAssociationReady(plan: LightscaperManagedSmokePlanCurrentV1, root: string): void {
 	const association = plan.registeredAssociation, archive = plan.renderer.archive;
 	if (!association || !archive || plan.stage !== 2) throw new Error('Only the genuine restore stage may publish association readiness.');
 	const path = join(root, `${plan.nonce}.stage-2.ready.json`), pending = `${path}.pending`;
 	writeFileSync(pending, `${JSON.stringify({ schemaVersion: 1, kind: 'lightscaper-registered-association-ready-current-v1',
 		nonce: plan.nonce, sourceRevision: association.sourceRevision, profilePath: plan.profilePath,
 		archiveName: archive.name, archiveSha256: archive.sha256, stage: 2, processId: process.pid })}\n`, { flag: 'wx', mode: 0o600 });
-	try { linkSync(pending, path); } finally { unlinkSync(pending); }
+	// Keep the owned alias until evidence-root retirement; unlinking it after
+	// publication changes the ready inode's metadata while its reader is active.
+	try { linkSync(pending, path); } catch (error) { unlinkSync(pending); throw error; }
 }
 function validateFile(value: unknown, maximum: number): LightscaperSmokeFileCurrentV1 {
 	const file = record(value, ['name', 'mimeType', 'base64', 'byteLength', 'sha256']);
