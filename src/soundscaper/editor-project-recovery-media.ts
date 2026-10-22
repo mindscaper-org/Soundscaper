@@ -5,10 +5,13 @@ import { PcmStorageCorruptionError } from '../common/editor/wavpack/pcm.js';
 import { isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 import type { SoundscaperProjectRecoveryStore } from './editor-project-recovery-types.ts';
 
-type MediaReadStore = Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks'>;
+import { soundscaperRecoveryVideoAvailable } from './editor-project-recovery-video.ts';
+import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
 
-/** Read complete canonical PCM. Only confirmed missing/corrupt media may be omitted. */
-export async function readSoundscaperRecoveryAvailableAudioSources(
+type MediaReadStore = Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks'> & SoundscaperRecoveryVideoStore;
+
+/** Read canonical PCM and original video. Only confirmed missing/corrupt media may be omitted. */
+export async function readSoundscaperRecoveryAvailableMediaSources(
 	store: MediaReadStore, project: unknown, availability = new Map<string, boolean>(),
 ): Promise<ReadonlySet<string>> {
 	serializeScapeProjectDocument(project);
@@ -17,11 +20,17 @@ export async function readSoundscaperRecoveryAvailableAudioSources(
 	if (!Array.isArray(sources)) return available;
 	for (const value of sources) {
 		const source = record(value);
-		if (!source || typeof source.id !== 'string' || source.kind !== 'audio') continue;
+		if (!source || typeof source.id !== 'string' || (source.kind !== 'audio' && source.kind !== 'video')) continue;
 		const storageKey = typeof source.storageKey === 'string' && source.storageKey ? source.storageKey : source.id;
-		const cacheKey = JSON.stringify([storageKey, source.frameCount, source.channelCount]);
+		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount, source.contentSha256, source.timingAsset]);
 		if (availability.has(cacheKey)) { if (availability.get(cacheKey)) available.add(source.id); continue; }
 		try {
+			if (source.kind === 'video') {
+				const readable = await soundscaperRecoveryVideoAvailable(store, record(project)!, source);
+				availability.set(cacheKey, readable);
+				if (readable) available.add(source.id);
+				continue;
+			}
 			let frames = 0;
 			let nextIndex = 0;
 			for await (const chunk of store.readSourceChunks(storageKey)) {

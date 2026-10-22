@@ -9,7 +9,7 @@ import { ProjectDuplicationIndeterminateError } from '../common/editor/storage/p
 import { SoundscaperDesktopProjectLibraryCommittedError, SoundscaperDesktopProjectLibraryIndeterminateError } from './desktop-project-library-renderer-catalog.ts';
 import { cloneSoundscaperProject, validateSoundscaperProject } from './editor-project.ts';
 import { repairSoundscaperProject, type SoundscaperProjectRepair } from './editor-project-recovery-repair.ts';
-import { readSoundscaperRecoveryAvailableAudioSources } from './editor-project-recovery-media.ts';
+import { readSoundscaperRecoveryAvailableMediaSources } from './editor-project-recovery-media.ts';
 import { isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 import type {
 	SoundscaperProjectRecoveryActions, SoundscaperProjectRecoveryInspection,
@@ -131,7 +131,7 @@ export function createSoundscaperProjectRecoveryActions(store: SoundscaperProjec
 }
 
 async function prepare(store: SoundscaperProjectRecoveryStore, row: ProjectRecoveryCandidate, availability = new Map<string, boolean>()): Promise<SoundscaperProjectRepair> {
-	const available = await readSoundscaperRecoveryAvailableAudioSources(store, row.project, availability);
+	const available = await readSoundscaperRecoveryAvailableMediaSources(store, row.project, availability);
 	return repairSoundscaperProject(row.project, available);
 }
 function record(value: unknown): Record<string, unknown> | null {

@@ -4,7 +4,7 @@ import { createSoundscaperProjectRecoveryActions } from './editor-project-recove
 import { copyOrdinaryRecordingRecoveryToProject, type RecordingRecoveryJournalCopyPort } from '../common/editor/storage/recording-recovery-journal-copy.ts';
 import type { SoundscaperProjectRecoveryInspection, SoundscaperProjectRecoveryResult, SoundscaperProjectRecoveryStore } from './editor-project-recovery-types.ts';
 import { hasSoundscaperProjectRecoveryEvidence, isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
-import { readSoundscaperRecoveryAvailableAudioSources } from './editor-project-recovery-media.ts';
+import { readSoundscaperRecoveryAvailableMediaSources } from './editor-project-recovery-media.ts';
 import { validateSoundscaperProject } from './editor-project-validation.ts';
 
 /** Open the published copy through the ordinary activation fences; retries reuse a completed publication. */
@@ -39,7 +39,7 @@ export function bindSoundscaperProjectRecovery(
 
 /** Saved document or media damage can enter repair; an unrelated startup failure stays fatal. */
 export async function hasSoundscaperStartupRecovery(
-	store: Pick<SoundscaperProjectRecoveryStore, 'readProjectRecoveryCandidates'> & Partial<Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks'>>,
+	store: Pick<SoundscaperProjectRecoveryStore, 'readProjectRecoveryCandidates'> & Partial<Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks' | 'loadMediaAsset' | 'resolveLinkedVideoOriginal'>>,
 	projectId: string,
 	error: unknown,
 ): Promise<boolean> {
@@ -50,6 +50,7 @@ export async function hasSoundscaperStartupRecovery(
 	if (!current || !store.readSourceChunks) return false;
 	const project = current.project;
 	if (!validateSoundscaperProject(project)) return false;
-	const available = await readSoundscaperRecoveryAvailableAudioSources({ readSourceChunks: store.readSourceChunks.bind(store) }, project);
-	return project.sources.some((source) => source.kind === 'audio' && !available.has(source.id));
+	const available = await readSoundscaperRecoveryAvailableMediaSources({ readSourceChunks: store.readSourceChunks.bind(store),
+		loadMediaAsset: store.loadMediaAsset?.bind(store), resolveLinkedVideoOriginal: store.resolveLinkedVideoOriginal?.bind(store) }, project);
+	return project.sources.some((source) => (source.kind === 'audio' || source.kind === 'video') && !available.has(source.id));
 }
