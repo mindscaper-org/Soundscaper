@@ -37,12 +37,18 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		if (!size) continue;
 		const view = new DataView(tail.buffer, tail.byteOffset + offset, size);
 		if (view.getUint32(14, true) !== serial) continue;
-		return endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate, origin);
+		const geometry = endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate, origin);
+		await rejectChainedAudio(file, file.size - tail.length + offset + size, signal);
+		return geometry;
 	}
 	// A secondary logical stream can continue long after the primary audio ends.
 	// Follow physical page headers without reading intervening encoded payloads.
 	const end = await findEarlierEndPage(file, serial, signal);
-	if (end) return endPageGeometry(end, preSkip, sampleRate, origin);
+	if (end) {
+		const geometry = endPageGeometry(end.page, preSkip, sampleRate, origin);
+		await rejectChainedAudio(file, end.endOffset, signal);
+		return geometry;
+	}
 	throw new Error('The Ogg audio source has no final granule for its primary stream.');
 }
 
@@ -55,7 +61,7 @@ function endPageGeometry(page: Uint8Array, preSkip: number, sampleRate: number, 
 	return Object.freeze({ sampleRate, sourceFrames });
 }
 
-async function findEarlierEndPage(file: Blob, serial: number, signal?: AbortSignal): Promise<Uint8Array | null> {
+async function findEarlierEndPage(file: Blob, serial: number, signal?: AbortSignal): Promise<Readonly<{ page: Uint8Array; endOffset: number }> | null> {
 	let offset = 0;
 	for (let count = 0; offset < file.size; count++) {
 		signal?.throwIfAborted();
@@ -69,12 +75,38 @@ async function findEarlierEndPage(file: Blob, serial: number, signal?: AbortSign
 		if (header[5]! & 4 && new DataView(header.buffer).getUint32(14, true) === serial) {
 			const page = new Uint8Array(await file.slice(offset, offset + size).arrayBuffer());
 			signal?.throwIfAborted();
-			return page;
+			return { page, endOffset: offset + size };
 		}
 		offset += size;
 	}
 	signal?.throwIfAborted();
 	return null;
+}
+
+/** The maintained decoder selects a track from the first link, not a full chain. */
+async function rejectChainedAudio(file: Blob, start: number, signal?: AbortSignal): Promise<void> {
+	for (let offset = start, count = 0; offset < file.size; count++) {
+		signal?.throwIfAborted();
+		if (count >= MAXIMUM_SCAN_PAGES) throw new RangeError('The Ogg source exceeds its bounded page inspection count.');
+		const header = new Uint8Array(await file.slice(offset, offset + 27).arrayBuffer());
+		if (header.length !== 27 || ascii(header, 0, 4) !== 'OggS' || header[4] || header[5]! & ~7) return;
+		const laces = new Uint8Array(await file.slice(offset + 27, offset + 27 + header[26]!).arrayBuffer());
+		if (laces.length !== header[26]) return;
+		const bodyBytes = laces.reduce((sum, length) => sum + length, 0);
+		const size = 27 + laces.length + bodyBytes;
+		if (size > file.size - offset) return;
+		if ((header[5]! & 3) === 2 && bodyBytes >= 8) {
+			const body = new Uint8Array(await file.slice(offset + 27 + laces.length, offset + 35 + laces.length).arrayBuffer());
+			if (ascii(body, 0, 8) === 'OpusHead' || body[0] === 1 && ascii(body, 1, 6) === 'vorbis') {
+				const page = new Uint8Array(await file.slice(offset, offset + size).arrayBuffer());
+				signal?.throwIfAborted();
+				verifyPageChecksum(page);
+				throw new Error('This Ogg file contains chained audio recordings. Split it into individual recordings before importing to avoid losing later audio.');
+			}
+		}
+		offset += size;
+	}
+	signal?.throwIfAborted();
 }
 
 async function findAudioIdentificationPage(file: Blob, codec: 'opus' | 'vorbis'): Promise<Uint8Array<ArrayBuffer> | null> {

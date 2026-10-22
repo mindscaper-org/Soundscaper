@@ -46,6 +46,20 @@ export async function croppedOpusGranuleFixture(origin = 480_000): Promise<Reado
 	return { original, cropped: new Uint8Array(await new Blob(shifted).arrayBuffer()), frames };
 }
 
+/** RFC 7845 sequential links, as produced by segmented Internet-radio captures. */
+export async function chainedOpusFixture(): Promise<Readonly<{
+	first: Uint8Array<ArrayBuffer>; chained: Uint8Array<ArrayBuffer>; frames: number;
+}>> {
+	const first = await encode(48_001, false);
+	const second = pages(await encode(24_001, true));
+	for (const page of second) {
+		const view = new DataView(page.buffer);
+		view.setUint32(14, view.getUint32(14, true) ^ 0x31415926, true);
+		view.setUint32(22, oggPageCrc(page), true);
+	}
+	return { first, chained: new Uint8Array(await new Blob([first, ...second]).arrayBuffer()), frames: 72_002 };
+}
+
 async function encode(frames: number, noise: boolean): Promise<Uint8Array<ArrayBuffer>> {
 	let state = 42;
 	const pcm = Float32Array.from({ length: frames }, (_, index) => noise
