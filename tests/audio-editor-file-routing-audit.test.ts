@@ -8,7 +8,10 @@ import { isLegacyBlockFile, isWavFile } from '../src/common/editor/controller/sh
 import { maintainedAiffMimeType } from '../src/common/editor/controller/import/internal/aiff-file-identity.ts';
 import { createProjectImportService } from '../src/common/editor/controller/import/internal/project-import-service.ts';
 import { createProjectImportServiceRuntime } from '../src/common/editor/controller/import/internal/project-import-service-runtime.ts';
+import { resolveMediaImportVideoRoute } from '../src/common/editor/controller/import/internal/media-import-video-route.ts';
+import { isAudioEditorVideoFile } from '../src/common/editor/video-media.js';
 import { createFixture, file } from './audio-editor-project-import-service-fixture.ts';
+import { aacLcM4a44_100Fixture } from './helpers/os-audio-codec-fixtures.ts';
 
 test('AIFF-C is selectable through the ordinary import menu without an OS MIME association', () => {
 	assert.ok(WORKSPACE_IMPORT_FILE_ACCEPT.split(',').includes('.aifc'));
@@ -36,6 +39,19 @@ test('generic MIME types do not bypass the maintained AIFF PCM reader', () => {
 
 test('AUF companion blocks are kept out of independent audio import', () => {
 	assert.equal(isLegacyBlockFile(new File([], 'e0000.AUF')), true);
+});
+
+test('audio-only MP4 and M4V aliases retain the bounded streamed audio route without an OS MIME association', async () => {
+	for (const extension of ['mp4', 'm4v', 'M4V']) {
+		for (const type of ['', 'application/octet-stream']) {
+			const original = new File([Uint8Array.from(aacLcM4a44_100Fixture()).buffer], `recording.${extension}`, { type });
+			assert.equal(isWorkspaceImportFile(original), true);
+			assert.equal(isAudioEditorVideoFile(original), true, 'the ambiguous container must first pass real track classification');
+			assert.equal(await resolveMediaImportVideoRoute(original, true), false, 'the actual AAC-only container has no video track');
+			assert.equal(isStreamedAudioImportFile(original), true, `${original.name} must not fall through to output-device-rate decoding`);
+		}
+	}
+	assert.equal(isStreamedAudioImportFile(new File([], 'recording.m4v.bak')), false);
 });
 
 test('Ogg container MIME identities retain bounded import without an audio filename suffix', () => {
