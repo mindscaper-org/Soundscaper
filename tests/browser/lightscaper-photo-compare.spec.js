@@ -92,7 +92,7 @@ for (const locale of ['en', 'de']) {
 
 		async function keyboard(target) { await expect(target).toBeEnabled(); await target.focus(); await target.press('Enter'); }
 		async function menu(name, action) {
-			const summary = app.locator('summary').filter({ hasText: name }); await summary.focus(); await summary.press('Enter');
+			const summary = app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${name}$`, 'u') }); await summary.focus(); await summary.press('Enter');
 			await keyboard(app.getByRole('button', { name: action, exact: true }));
 		}
 		async function pair(reference, next) {

@@ -50,16 +50,17 @@ for (const locale of ['en', 'de']) {
 		// Hold an actual cold renderer response unchanged. This keeps member one
 		// running while the user pauses/cancels member two; no codec is replaced.
 		let release; const gate = new Promise(resolve => { release = resolve; });
-		let held; const entered = new Promise(resolve => { held = resolve; });
-		const route = async intercepted => { const response = await intercepted.fetch(); held(); try { await gate; await intercepted.fulfill({ response }); } finally { await response.dispose(); } };
-		await page.route('**/assets/photo-develop-render-runtime-v2-*.js', route);
+		let entered = false;
+		const route = async intercepted => { const response = await intercepted.fetch(); entered = true; try { await gate; await intercepted.fulfill({ response }); } finally { await response.dispose(); } };
+		const renderer = '**/assets/photo-develop-render-runtime-current-v1-*.js';
+		await page.route(renderer, route);
 		try {
-			await keyboard(page, named(dialog, 'button', words.start)); await entered;
+			await keyboard(page, named(dialog, 'button', words.start)); await expect.poll(() => entered).toBe(true);
 			await keyboard(page, named(dialog, 'button', words.pause));
 			const jobs = dialog.locator('[data-photo-batch-job]'); await expect(jobs).toHaveCount(2);
 			await keyboard(page, named(jobs.nth(1), 'button', words.cancelMember)); release();
 			await expect.poll(() => downloads.length).toBe(1); await expect(dialog.locator('[data-photo-batch-export-receipt]')).toHaveAttribute('data-phase', 'settled');
-		} finally { release(); await page.unroute('**/assets/photo-develop-render-runtime-v2-*.js', route); }
+		} finally { release(); await page.unroute(renderer, route); }
 		const interrupted = await observeNativePhotoRasterBatchGraphicJournal(page);
 		expect(interrupted.members.map(member => member.state)).toEqual(['committed', 'pending']);
 		expect(interrupted.graphicWatermark).toEqual({ schemaVersion: 1, kind: 'photo-raster-batch-graphic', contentSha256: createHash('sha256').update(MARK).digest('hex'),

@@ -53,8 +53,8 @@
 	background: color-mix(in srgb, CanvasText 12%, Canvas);
 }
 
-.lightscaper-photo-submenu > summary { padding: 8px; }
-.lightscaper-photo-submenu > .lightscaper-menu-items { position: static; box-shadow: none; }
+:is(.lightscaper-photo-submenu, .lightscaper-raw-preview-source-submenu, .lightscaper-backend-submenu) > summary { padding: 8px; }
+:is(.lightscaper-photo-submenu, .lightscaper-raw-preview-source-submenu, .lightscaper-backend-submenu) > .lightscaper-menu-items { position: static; box-shadow: none; }
 
 .lightscaper-library { padding: 24px; }
 

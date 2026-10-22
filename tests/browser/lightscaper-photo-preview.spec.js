@@ -17,7 +17,7 @@ for (const [locale, copy] of [
 		await page.goto(`${origin}/${locale}/`);
 		const app = page.locator('[data-lightscaper-bound="true"]'); await expect(app).toBeVisible();
 		await expect(app.locator('canvas')).toHaveCount(0);
-		await app.locator('summary').filter({ hasText: copy.file }).click();
+		await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') }).click();
 		await app.getByRole('button', { name: copy.importer, exact: true }).click();
 		const importer = page.getByRole('dialog', { name: copy.importer, exact: true });
 		await importer.getByLabel(copy.choose).setInputFiles({ name: 'Asymmetric.png', mimeType: 'image/png', buffer: PNG });
@@ -41,7 +41,7 @@ for (const [locale, copy] of [
 		await assertPixels(thumbnail); expect(errors).toEqual([]);
 
 		async function chooseView(label) {
-			await app.locator('summary').filter({ hasText: copy.view }).focus(); await page.keyboard.press('Enter');
+			await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).focus(); await page.keyboard.press('Enter');
 			await app.getByRole('button', { name: label, exact: true }).focus(); await page.keyboard.press('Enter');
 		}
 		async function assertPixels(canvas) {

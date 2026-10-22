@@ -11,6 +11,7 @@ import { readScapeArchiveEnvelope } from '../../src/common/editor/scape-archive-
 import { withScapeArchiveReader } from '../../src/common/editor/scape-archive-reader.ts';
 import { createPngFixture } from '../helpers/png-fixture.mjs';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { assertLightscaperSharedCopyRequests } from './helpers/lightscaper-shared-copy-ownership.ts';
 import { installNativeOpfsWorkerCompanion, assertNativeOpfsWorkerExecution } from './helpers/native-opfs-worker-companion.ts';
 
 test.use({ browserCoverage: false });
@@ -95,7 +96,7 @@ for (const locale of ['en', 'de']) {
 		await keyboard(page, stackButton(copy.photoCloseMetadata)); await expect(dialog).toHaveCount(0); await expect(cards).toHaveCount(4);
 		const dissolved = await observe(page, ids); expect(dissolved.stacks).toEqual([]);
 		expect(dissolved.stackState).toMatchObject({ stackCount: 0, revision: 3 }); expect(dissolved.photos).toEqual(culled.photos); assertCustody(before, dissolved);
-		expect(errors).toEqual([]); expect(requests.filter(url => /\/assets\/editor-copy-/u.test(url))).toEqual([]);
+		expect(errors).toEqual([]); await assertLightscaperSharedCopyRequests(requests);
 	});
 }
 

@@ -72,8 +72,24 @@ for (const [locale, copy] of copies) {
 		await openQuery(); await apply(); await closeQuery();
 		const firstSmart = library.locator(`[data-photo-id="${fixture.smartFirst}"]`);
 		await firstSmart.focus(); await page.keyboard.press('0');
-		await expect(library.locator('[data-photo-id]')).toHaveCount(fixture.smartFirstPageCount - 1);
 		await expect(firstSmart).toHaveCount(0);
+		// The bounded candidate index may refill a different first page after
+		// the rating changes. Verify the complete visible collection instead.
+		const smartIds = [];
+		for (let step = 0; ; step++) {
+			expect(step).toBeLessThan(80);
+			await expect(library).toHaveAttribute('aria-busy', 'false');
+			const ids = await library.locator('[data-photo-id]').evaluateAll(elements => elements.map(element => element.dataset.photoId));
+			smartIds.push(...ids);
+			await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).click();
+			const next = app.getByRole('button', { name: copy.next, exact: true });
+			if (await next.isDisabled()) { await page.keyboard.press('Escape'); break; }
+			await next.focus(); await page.keyboard.press('Enter');
+			await expect.poll(() => library.locator('[data-photo-id]').evaluateAll(elements => elements.map(element => element.dataset.photoId)))
+				.not.toEqual(ids);
+		}
+		expect(smartIds.sort()).toEqual(Array.from({ length: 80 }, (_, index) => index)
+			.filter(index => index % 6 === 4 && index !== 4).map(index => `query-photo-${String(index).padStart(3, '0')}`));
 		const retained = await observe(page, [fixture.smartFirst, fixture.sparsePhotoId]);
 		for (const original of retained) { expect(original.actualSha256).toBe(fixture.originalSha256); expect(original.expectedSha256).toBe(fixture.originalSha256); }
 		expect(retained[0].rating).toBe(0);
@@ -90,7 +106,7 @@ for (const [locale, copy] of copies) {
 		expect(errors).toEqual([]);
 
 		async function openQuery() {
-			await app.locator('summary').filter({ hasText: copy.view }).focus(); await page.keyboard.press('Enter');
+			await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).focus(); await page.keyboard.press('Enter');
 			await app.getByRole('button', { name: copy.query, exact: true }).focus(); await page.keyboard.press('Enter');
 			await expect(dialog).toBeVisible(); await expect(dialog.locator('[data-query-close]')).toBeEnabled();
 		}
@@ -106,7 +122,7 @@ for (const [locale, copy] of copies) {
 		}
 		async function closeQuery() { await dialog.locator('[data-query-close]').focus(); await page.keyboard.press('Enter'); await expect(dialog).toHaveCount(0); }
 		async function nextPage() {
-			await app.locator('summary').filter({ hasText: copy.view }).click();
+			await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).click();
 			await app.getByRole('button', { name: copy.next, exact: true }).focus(); await page.keyboard.press('Enter');
 		}
 	});
@@ -120,7 +136,7 @@ test('search index rebuilding requires explicit menu demand and leaves retained 
 		const api = await import(new URL('/__lightscaper_photo_query_fixture.js', location.href).href); return api.invalidatePhotoLibraryQueryIndexNativeV2(catalogId);
 	}, fixture.catalogId);
 	expect(invalidated).toEqual({ legacyRows: 64, totalCount: fixture.count });
-	await app.locator('summary').filter({ hasText: copy.view }).click(); await app.getByRole('button', { name: copy.query, exact: true }).click();
+	await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).click(); await app.getByRole('button', { name: copy.query, exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: copy.query, exact: true });
 	await expect(dialog.getByText(copy.required, { exact: true })).toBeVisible();
 	await expect(dialog.getByRole('button', { name: copy.apply, exact: true })).toBeDisabled();

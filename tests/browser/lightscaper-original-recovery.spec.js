@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-site-plan.mjs';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { assertLightscaperSharedCopyRequests } from './helpers/lightscaper-shared-copy-ownership.ts';
 
 test.use({ browserCoverage: false });
 const ROOT = '/__photo_original_recovery_observer.js';
@@ -45,7 +46,7 @@ for (const locale of ['en', 'de']) {
 		assertRestored(await observe(page, ids), before);
 		await keyboard(page, dialog.locator('[data-original-close]'));
 		await reopenLibrary(page, app, copy); assertRestored(await observe(page, ids), before);
-		assertClean(context);
+		await assertClean(context);
 	});
 
 	test(`${locale}: recovery remains reachable after failed startup and ACK precedes provisional promotion`, async ({ page, browserName }) => {
@@ -95,7 +96,7 @@ for (const locale of ['en', 'de']) {
 		assertRestored(await observe(page, ids), before);
 		await keyboard(page, reopened.locator('[data-original-close]'));
 		await reopenLibrary(page, app, copy); assertRestored(await observe(page, ids), before);
-		assertClean(context);
+		await assertClean(context);
 	});
 
 	test(`${locale}: held native selected-file read stays owned across Close, reopen and Cancel`, async ({ page, browserName }) => {
@@ -132,7 +133,7 @@ for (const locale of ['en', 'de']) {
 		await settled(app, dialog, copy);
 		await keyboard(page, dialog.getByRole('button', { name: copy.photoOriginalInspect, exact: true }));
 		await verified(dialog, copy, 2); assertRestored(await observe(page, ids), before);
-		assertClean(context);
+		await assertClean(context);
 	});
 }
 
@@ -222,8 +223,8 @@ function assertRestored(current, previous) {
 	assertDocumentsAndSource(current, previous);
 	expect(current.authority.roots).toEqual(previous.authority.roots); expect(current.authority.intent).toBeNull();
 }
-function assertClean({ errors, requests }) {
-	expect(errors).toEqual([]); expect(requests.filter(url => /\/assets\/editor-copy-/u.test(url))).toEqual([]);
+async function assertClean({ errors, requests }) {
+	expect(errors).toEqual([]); await assertLightscaperSharedCopyRequests(requests);
 }
 async function reopenLibrary(page, app, copy) {
 	await page.reload(); await expect(app).toBeVisible(); await action(page, app, copy.photoViewMenu, copy.photoShowLibrary);

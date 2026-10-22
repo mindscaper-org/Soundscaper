@@ -36,6 +36,6 @@ for (const locale of ['en', 'de']) test(`${locale}: cached Develop input is opt-
 	async function open() { await action(photoDevelopMenuLabel(locale), true); dialog = page.getByRole('dialog', { name: `${develop.title}: Cached input.png`, exact: true }); }
 	async function action(label, photo = false) { await menu(app, copy.photoFileMenu); if (photo) await menu(app, copy.photoPhotoMenu); await key(app.getByRole('button', { name: label, exact: true })); }
 	async function pixels() { return dialog.locator('[data-photo-develop-after]').evaluate(canvas => [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data]); }
-	async function menu(root, label) { const summary = root.locator('summary').filter({ hasText: label }); const match = summary.filter({ hasText: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first(); if (await match.evaluate(node => !node.parentElement.open)) await key(match); }
+	async function menu(root, label) { const match = root.locator('summary').filter({ hasText: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }); if (await match.evaluate(node => !node.parentElement.open)) await key(match); }
 	async function key(locator) { await locator.focus(); await locator.press('Enter'); }
 });

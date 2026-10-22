@@ -34,7 +34,7 @@ function BackendMenu({ owner, locale }: Readonly<{ owner: NonNullable<ContextTyp
 		if (next === snapshot.backend) target.querySelector<HTMLElement>(`[data-photo-backend-choice="${next}"]`)?.focus();
 		else select(next, true);
 	};
-	return createPortal(<details className="lightscaper-photo-submenu" data-photo-backend-menu>
+	return createPortal(<details className="lightscaper-backend-submenu" data-photo-backend-menu>
 		<summary className="application-header__menu-item">{copy.photoBackendTitle}</summary>
 		<div className="lightscaper-menu-items" role="radiogroup" aria-label={copy.photoBackendTitle}>
 			{(['web', 'native'] as const).map(backend => <button key={backend} type="button" role="radio" data-photo-backend-choice={backend}

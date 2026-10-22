@@ -27,7 +27,7 @@ for (const [locale, copy] of [
 		await expect(app).toBeVisible();
 		await expect(app.locator('[data-photo-library]')).toHaveCount(0);
 		await expect(app.locator('input')).toHaveCount(0);
-		const file = app.locator('summary').filter({ hasText: copy.file });
+		const file = app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') });
 		await file.focus(); await page.keyboard.press('Enter'); await page.keyboard.press('Tab');
 		await expect(app.getByRole('button', { name: copy.importPhotos, exact: true })).toBeFocused();
 		await page.keyboard.press('Enter');
@@ -48,13 +48,13 @@ for (const [locale, copy] of [
 		const first = library.getByRole('button').filter({ hasText: 'First.png' });
 		await first.focus(); await page.keyboard.press('Enter'); await page.keyboard.press('5');
 		await expect(first).toContainText(copy.rating);
-		await app.locator('summary').filter({ hasText: copy.file }).click();
-		await app.locator('summary').filter({ hasText: copy.photo }).click();
+		await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') }).click();
+		await app.locator('.lightscaper-photo-submenu > summary').filter({ hasText: new RegExp(`^${copy.photo}$`, 'u') }).click();
 		await expect(app.getByRole('button', { name: copy.rate, exact: true })).toBeEnabled();
 		await app.getByRole('button', { name: copy.flagPick, exact: true }).focus(); await page.keyboard.press('Enter');
 		await expect(first).toHaveAttribute('data-photo-flag', 'pick');
-		await app.locator('summary').filter({ hasText: copy.file }).click();
-		await app.locator('summary').filter({ hasText: copy.photo }).click();
+		await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') }).click();
+		await app.locator('.lightscaper-photo-submenu > summary').filter({ hasText: new RegExp(`^${copy.photo}$`, 'u') }).click();
 		await app.getByRole('button', { name: copy.labelBlue, exact: true }).focus(); await page.keyboard.press('Enter');
 		await expect(first).toHaveAttribute('data-photo-color-label', 'blue');
 		const ids = await library.locator('[data-photo-id]').evaluateAll(elements => elements.map(element => element.dataset.photoId));
@@ -69,7 +69,7 @@ for (const [locale, copy] of [
 		}
 		await page.reload(); await expect(app).toBeVisible();
 		await expect(app.locator('[data-photo-library]')).toHaveCount(0);
-		await app.locator('summary').filter({ hasText: copy.view }).click();
+		await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).click();
 		await app.getByRole('button', { name: copy.show, exact: true }).focus(); await page.keyboard.press('Enter');
 		await expect(first).toContainText(copy.rating);
 		const after = await observeLibrary(page, ids);
@@ -85,7 +85,7 @@ test('a keyboard rating on the second library page retains the selected photo an
 	const app = page.locator('[data-lightscaper-bound="true"]');
 	const library = app.getByRole('region', { name: 'Photo library', exact: true });
 	for (const [offset, count] of [[0, 64], [64, 1]]) {
-		await app.locator('summary').filter({ hasText: 'File' }).click();
+		await app.locator('nav > details > summary').filter({ hasText: /^File$/u }).click();
 		await app.getByRole('button', { name: 'Import photos', exact: true }).click();
 		const dialog = page.getByRole('dialog', { name: 'Import photos', exact: true });
 		await dialog.getByLabel('Choose photos').setInputFiles(Array.from({ length: count }, (_, index) => ({
@@ -96,7 +96,7 @@ test('a keyboard rating on the second library page retains the selected photo an
 		await expect(library).toHaveAttribute('aria-busy', 'false');
 	}
 	await expect(library.locator('[data-photo-id]')).toHaveCount(64);
-	await app.locator('summary').filter({ hasText: 'View' }).click();
+	await app.locator('nav > details > summary').filter({ hasText: /^View$/u }).click();
 	await app.getByRole('button', { name: 'Next page', exact: true }).focus();
 	await page.keyboard.press('Enter');
 	await expect(library.locator('[data-photo-id]')).toHaveCount(1);

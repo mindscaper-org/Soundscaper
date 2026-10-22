@@ -6,6 +6,7 @@ import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-si
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
 import { createPhotoMetadataQueryByteFixtureV1 } from '../helpers/lightscaper-metadata-query-byte-fixture.ts';
 import { expect, test } from './helpers/browser-coverage-fixture.js';
+import { assertLightscaperSharedCopyRequests } from './helpers/lightscaper-shared-copy-ownership.ts';
 
 // The routed esbuild observation helper is test-only executable code, excluded from portable coverage.
 test.use({ browserCoverage: false });
@@ -131,7 +132,7 @@ for (const locale of ['en', 'de']) {
 		await page.reload(); await expect(app).toBeVisible(); await expect(app.locator('[data-photo-library],canvas')).toHaveCount(0);
 		await menuAction(page, app, copy.photoViewMenu, copy.photoShowLibrary); await expect(cards).toHaveCount(7);
 		await query(canonConditions, CANON); expect(await observe(page, ids)).toEqual(grouped);
-		expect(errors).toEqual([]); expect(requests.filter(url => /\/assets\/editor-copy-/u.test(url))).toEqual([]);
+		expect(errors).toEqual([]); await assertLightscaperSharedCopyRequests(requests);
 
 		async function query(conditions, cases) {
 			await applyQuery(page, app, copy, conditions);

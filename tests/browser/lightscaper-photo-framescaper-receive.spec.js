@@ -132,8 +132,12 @@ for (const locale of ['en', 'de']) {
 		await expect(dialog.getByRole('alert')).toHaveText(words.failed); await expect(cards).toHaveCount(1);
 		await expect(dialog.locator('[data-photo-framescaper-receive-receipt]')).toHaveCount(0); expect(await observe(page, [originalId])).toEqual(before);
 		const unsupported = rewriteArchive(archive, (_files, project, manifest) => {
-			const selected = project.sources[0], effectId = selected.develop.effects[0].id;
-			selected.develop.masks = [{ schemaVersion: 1, id: 'unsupported-mask', kind: 'mask', inputs: [], outputNodeId: 'rectangle',
+			const selected = project.sources[0], effectId = 'unsupported-masked-geometry';
+			// This self-contained Source2 graph parses, but Photo refuses a local
+			// mask bound to geometry. Keep the saved effects and resource inventory.
+			selected.develop.effects.push({ id: effectId, type: 'develop-geometry-v1', enabled: true, params: {} });
+			selected.develop.masks = [{ schemaVersion: 1, id: 'unsupported-mask', kind: 'mask',
+				inputs: [], outputNodeId: 'rectangle',
 				nodes: [{ id: 'rectangle', kind: 'vector-shape', shape: 'rectangle', x: 0, y: 0, width: 1, height: 1 }] }];
 			selected.develop.maskBindings = [{ effectId, maskId: 'unsupported-mask' }]; selected.provenance.developSha256 = imageDevelopHandoffRecipeSha256V1(selected.develop);
 			project.sources[0] = normalizeFramescaperImageSourceV2(selected);

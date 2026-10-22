@@ -105,7 +105,7 @@ for (const locale of ['en', 'de']) {
 		async function keyboard(locator) {
 			await expect(locator).toBeEnabled(); await locator.focus(); await expect(locator).toBeFocused(); await page.keyboard.press('Enter');
 		}
-		async function menu(name) { await keyboard(app.locator('nav > details > summary').filter({ hasText: name })); }
+		async function menu(name) { await keyboard(app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${name}$`, 'u') })); }
 		async function fileAction(name, photo = false) {
 			await menu(copy.photoFileMenu);
 			if (photo) await keyboard(app.locator('.lightscaper-photo-submenu > summary'));

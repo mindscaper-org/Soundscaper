@@ -17,7 +17,7 @@ interface Props {
 /** A culling preference is available only through the existing View menu. */
 export default function PhotoRawPreviewSourceMenuCurrentV1(props: Props) {
 	const copy = photoRawPreviewSourceCopy(props.locale);
-	return <details className="lightscaper-photo-submenu" onKeyDown={props.onKeyDown} onBlur={props.onBlur}>
+	return <details className="lightscaper-raw-preview-source-submenu" onKeyDown={props.onKeyDown} onBlur={props.onBlur}>
 		<summary className="application-header__menu-item">{copy.menu}</summary>
 		<div className="lightscaper-menu-items">
 			{(['neutral-original', 'camera-embedded'] as const).map(source => <button key={source} type="button"

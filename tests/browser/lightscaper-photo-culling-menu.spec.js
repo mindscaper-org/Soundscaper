@@ -27,7 +27,7 @@ for (const [locale, copy] of [
 		await page.goto(`${origin}/${locale}/`);
 		const app = page.locator('[data-lightscaper-bound="true"]'); await expect(app).toBeVisible();
 		await expect(app.locator('[data-photo-library],canvas')).toHaveCount(0);
-		await app.locator('summary').filter({ hasText: copy.file }).click();
+		await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') }).click();
 		await app.getByRole('button', { name: copy.importer, exact: true }).click();
 		const importer = page.getByRole('dialog', { name: copy.importer, exact: true });
 		await importer.getByLabel(copy.choose).setInputFiles(['One.png', 'Two.png', 'Three.png'].map(name => ({ name, mimeType: 'image/png', buffer: PNG })));
@@ -70,12 +70,12 @@ for (const [locale, copy] of [
 		expect(await observe(page, ids)).toEqual(after); expect(errors).toEqual([]);
 
 		async function chooseView(label) {
-			await app.locator('summary').filter({ hasText: copy.view }).focus(); await page.keyboard.press('Enter');
+			await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).focus(); await page.keyboard.press('Enter');
 			await choose(label);
 		}
 		async function choosePhoto(label) {
-			await app.locator('summary').filter({ hasText: copy.file }).focus(); await page.keyboard.press('Enter');
-			await app.locator('summary').filter({ hasText: copy.photo }).focus(); await page.keyboard.press('Enter');
+			await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') }).focus(); await page.keyboard.press('Enter');
+			await app.locator('.lightscaper-photo-submenu > summary').filter({ hasText: new RegExp(`^${copy.photo}$`, 'u') }).focus(); await page.keyboard.press('Enter');
 			await choose(label);
 		}
 		async function choose(label) {

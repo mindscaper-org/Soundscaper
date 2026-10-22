@@ -28,7 +28,7 @@ for (const [locale, copy] of [
 		const app = page.locator('[data-lightscaper-bound="true"]');
 		await expect(app).toBeVisible();
 		await expect(app.getByRole('dialog')).toHaveCount(0);
-		await app.locator('summary').filter({ hasText: copy.file }).click();
+		await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') }).click();
 		await app.getByRole('button', { name: copy.importPhotos, exact: true }).click();
 		const importer = page.getByRole('dialog', { name: copy.importPhotos, exact: true });
 		await importer.getByLabel(copy.choose).setInputFiles({ name: 'Original.png', mimeType: 'image/png', buffer: PNG });
@@ -64,7 +64,7 @@ for (const [locale, copy] of [
 		expect(after.bytes).toEqual(Array.from(PNG)); expect(after.revision).toBe(before.revision + 2);
 		await page.reload(); await expect(app).toBeVisible();
 		await expect(app.locator('[data-photo-library]')).toHaveCount(0);
-		await app.locator('summary').filter({ hasText: copy.view }).click();
+		await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.view}$`, 'u') }).click();
 		await app.getByRole('button', { name: copy.show, exact: true }).click();
 		await expect(card).toContainText('Catalog name.png'); await card.focus(); await page.keyboard.press('Enter'); await openMetadata();
 		await expect(dialog.getByLabel(copy.title, { exact: true })).toHaveValue('A second authored title');
@@ -72,8 +72,8 @@ for (const [locale, copy] of [
 		expect(await observe(page, photoId)).toEqual(after);
 
 		async function openMetadata() {
-			await app.locator('summary').filter({ hasText: copy.file }).focus(); await page.keyboard.press('Enter');
-			await app.locator('summary').filter({ hasText: copy.photo }).focus(); await page.keyboard.press('Enter');
+			await app.locator('nav > details > summary').filter({ hasText: new RegExp(`^${copy.file}$`, 'u') }).focus(); await page.keyboard.press('Enter');
+			await app.locator('.lightscaper-photo-submenu > summary').filter({ hasText: new RegExp(`^${copy.photo}$`, 'u') }).focus(); await page.keyboard.press('Enter');
 			await app.getByRole('button', { name: copy.edit, exact: true }).focus(); await page.keyboard.press('Enter');
 		}
 	});
