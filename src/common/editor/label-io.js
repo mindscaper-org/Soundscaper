@@ -25,7 +25,7 @@ export class AudioEditorLabelIoError extends Error {
 }
 
 /**
- * Detect label interchange format from an explicit format, filename, or text.
+ * Detect label interchange format from an explicit format, filename, MIME, or text.
  * Explicit values always win so a caller never has to rely on content sniffing.
  */
 export function detectAudioEditorLabelFormat(options = {}) {
@@ -34,6 +34,9 @@ export function detectAudioEditorLabelFormat(options = {}) {
 	if (explicit) return assertFormat(explicit);
 	const match = String(options.filename || '').trim().toLowerCase().match(/\.([^.]+)$/);
 	if (match && FORMAT_SET.has(match[1])) return match[1];
+	const mimeType = String(options.mimeType || '').split(';', 1)[0].trim().toLowerCase();
+	if (mimeType === 'application/x-subrip') return 'srt';
+	if (mimeType === 'text/vtt') return 'vtt';
 	const text = stripBom(String(options.text || '')).trimStart();
 	if (/^WEBVTT(?:\s|$)/i.test(text)) return 'vtt';
 	if (/^(?:\d+\s*\r?\n)?\s*\d{1,}:\d{2}:\d{2}[,.]\d{1,3}\s+-->\s+/m.test(text)) return 'srt';

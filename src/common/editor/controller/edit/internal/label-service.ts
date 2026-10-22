@@ -69,6 +69,7 @@ export interface LabelServiceCopy {
 
 export interface LabelInputFile {
 	readonly name: string;
+	readonly type?: string;
 	arrayBuffer?(): Promise<ArrayBuffer>;
 	text?(): Promise<string>;
 }
@@ -158,6 +159,7 @@ export function createLabelService(dependencies: LabelServiceDependencies): Read
 			assertOwnership(ownership);
 			const parsed = parseAudioEditorLabels(data, {
 				filename: file.name,
+				mimeType: file.type,
 				format: options.format,
 				sampleRate: ownership.project.sampleRate,
 				strict: options.strict,
