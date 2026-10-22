@@ -54,7 +54,7 @@ export default function GeneratorClipPropertiesBody({ controller, project, clipI
 							<span>{field === 'startFrame' ? copy.clipStart : copy.clipDuration}</span>
 							<AudioEditorTimeCodeInput label={field === 'startFrame' ? copy.clipStart : copy.clipDuration}
 								value={Number(field === 'startFrame' ? clip.timelineStartFrame : clip.durationFrames)}
-								unit="samples" rate={sampleRate} format="hh:mm:ss+milliseconds"
+								unit="samples" rate={sampleRate} frameRate={rate.num / rate.den} format="hh:mm:ss+milliseconds"
 								minimum={field === 'startFrame' ? 0 : 1} maximum={field === 'durationFrame' ? maximumDuration : Infinity} disabled={disabled} onCommit={value => commit(field, value)} />
 						</label>)}
 					</div>

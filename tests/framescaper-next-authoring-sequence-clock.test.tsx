@@ -13,11 +13,12 @@ import { createFramescaperProjectStore } from '../src/framescaper/editor-project
 import { bindFramescaperSelectedAuthoringController } from '../src/framescaper/editor-selected-finishing-authoring-controller.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('dissolve duration entry uses its owning sequence rather than the primary clock', async () => {
-	let project = createFramescaperProject(PROFILE, { id: 'two-clocks', sampleRate: 48_000,
+for (const entry of ['seconds', 'samples'] as const) test(`dissolve ${entry} entry uses its owning clocks`, async () => {
+	const sampleRate = entry === 'samples' ? 44_100 : 48_000;
+	let project = createFramescaperProject(PROFILE, { id: 'two-clocks', sampleRate,
 		sources: [createVideoSource({ id: 'camera', storageKey: 'camera', name: 'Camera', mimeType: 'video/webm',
 			contentSha256: '12'.repeat(32), frameRate: { num: 30, den: 1 }, sourceFrameCount: 240,
-			sampleFrameCount: 384_000, width: 160, height: 90 })],
+			sampleRate, sampleFrameCount: sampleRate * 8, width: 160, height: 90 })],
 		clips: ['first', 'second'].map((id, index) => ({ kind: 'video', id, sourceId: 'camera', title: id,
 			sequenceId: 'cut', sequenceStartFrame: index * 100, sequenceFrameCount: 100,
 			sourceInFrame: index * 120, sourceFrameCount: 120, retimeMap: null })),
@@ -34,6 +35,8 @@ test('dissolve duration entry uses its owning sequence rather than the primary c
 	bindFramescaperSelectedAuthoringController({ controller,
 		store: createFramescaperProjectStore(PROFILE, { indexedDB: null, preferOpfs: false }) });
 	const dom = installReactTestDom();
+	const previousObserver = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
+	Object.defineProperty(globalThis, 'MutationObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
 	const globals = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previousReact = globals.React, previousAct = globals.IS_REACT_ACT_ENVIRONMENT;
 	globals.React = React; globals.IS_REACT_ACT_ENVIRONMENT = true;
@@ -42,9 +45,14 @@ test('dissolve duration entry uses its owning sequence rather than the primary c
 		await act(async () => root.render(<FramescaperSelectedVisualAuthoringDialog surface="video-transition-dissolve"
 			controller={controller} project={project} selectedClipId="first" playheadSample={0}
 			editingBlocked={false} readOnly={false} run={(operation: () => unknown) => operation()} onClose={() => undefined} />));
+		if (entry === 'samples') {
+			await act(async () => { reactProps(dom.one('.timecode__format-button')).onClick?.(); });
+			const samples = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'samples'); assert.ok(samples);
+			await act(async () => { reactProps(samples).onClick?.({ stopPropagation() {} }); });
+		}
 		await act(async () => { reactProps(dom.one('.timecode__display')).onDoubleClick?.({}); });
 		const input = dom.one('.timecode').querySelector('input'); assert.ok(input);
-		await act(async () => { reactProps(input).onChange?.({ currentTarget: { value: '1s' } }); });
+		await act(async () => { reactProps(input).onChange?.({ currentTarget: { value: entry === 'samples' ? String(sampleRate) : '1s' } }); });
 		await act(async () => { reactProps(input).onKeyDown?.({ key: 'Enter', preventDefault() {}, stopPropagation() {} }); });
 		const value: unknown = reactProps(dom.one('[data-timecode-direct-entry]')).value;
 		assert.equal(value, 25, 'one second must author 25 owning frames, not 30 primary frames');
@@ -58,5 +66,7 @@ test('dissolve duration entry uses its owning sequence rather than the primary c
 	} finally {
 		await act(async () => root.unmount()); dom.restore();
 		globals.React = previousReact; globals.IS_REACT_ACT_ENVIRONMENT = previousAct;
+		if (previousObserver) Object.defineProperty(globalThis, 'MutationObserver', previousObserver);
+		else Reflect.deleteProperty(globalThis, 'MutationObserver');
 	}
 });

@@ -22,6 +22,7 @@ import { upstreamClipPropertiesLabels } from './upstream-clip-properties-copy.ts
 import ClipPropertiesColorPicker from './ClipPropertiesColorPicker.tsx';
 import ClipAudioSettingsMenu from './ClipAudioSettingsMenu.tsx';
 import { clipPropertiesTimeFields } from './ClipPropertiesTimeFields.tsx';
+import { clipPropertiesFrameRate } from './clip-time-code-clock.ts';
 import { NumberField } from '@soundscaper/design-system/ClipPropertiesPanel/clip-properties-controls';
 import { PitchGlyph } from '@soundscaper/design-system/ClipPropertiesPanel/clip-properties-glyphs';
 import { clipLinkedPitchSpeed } from './clip-properties-linked-pitch.ts';
@@ -121,6 +122,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 	const setFade = (side: 'in' | 'out', frames: number) => update(clip => ({ [side === 'in' ? 'fadeInFrames' : 'fadeOutFrames']: Math.min(clip.durationFrames, Math.max(0, frames)) }));
 	const timingFields = nativeTimeFields && clip && source && project && !presentation.selection ? clipPropertiesTimeFields({
 		controller: controller as Parameters<typeof clipPropertiesTimeFields>[0]['controller'], clip, source, sampleRate: project.sampleRate, copy, disabled: blocked,
+		frameRate: clipPropertiesFrameRate(snapshot.project, clip.id),
 		onStart: setStart, onDuration: setDuration, onFade: setFade,
 		onTrimStart: readClipLoop(clip) ? undefined : frames => trimSourceFrame('start', frames),
 		onTrimEnd: readClipLoop(clip) ? undefined : frames => trimSourceFrame('end', (source.frameCount ?? 0) - frames),
