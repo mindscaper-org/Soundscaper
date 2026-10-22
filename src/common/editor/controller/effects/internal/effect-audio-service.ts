@@ -32,6 +32,7 @@ import { renderSimpleDryTrackPcm } from './direct-dry-track-pcm.ts';
 import { createBusNoiseProfileRenderProject } from './bus-noise-profile-render-project.ts';
 import type { MixerGraphV21 } from '../../../mixer-graph-v21.ts';
 import { createTrackNoiseProfileRenderProject } from './track-noise-profile-render-project.ts';
+import { normalizeAutomationLaneV21 } from '../../../automation-lane-v21.ts';
 
 export type * from './effect-audio-service-types.ts';
 
@@ -163,6 +164,18 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 			snapshot.master.effects = snapshot.master.effects.slice(0, effectIndex);
 			snapshot.master.gain = 1;
 			snapshot.master.mute = false;
+			if (hasProductionMixerProjectAuthority(snapshot)) {
+				const prefixIds = new Set(snapshot.master.effects.map(candidate => candidate.id));
+				const mixer = snapshot.mixer as unknown as MixerGraphV21;
+				const edges = mixer.edges.filter(edge => !(edge.destination.kind === 'effect-sidechain'
+					&& edge.destination.strip.kind === 'master' && !prefixIds.has(edge.destination.effectId)));
+				const retainedEdges = new Set(edges.map(edge => edge.id));
+				snapshot.mixer = { ...mixer, edges };
+				const lanes: readonly unknown[] = Array.isArray(snapshot.automationLanes) ? snapshot.automationLanes : [];
+				snapshot.automationLanes = lanes.map(lane => normalizeAutomationLaneV21(lane)).filter(({ address }) =>
+					address.kind === 'edge' ? retainedEdges.has(address.edgeId)
+						: address.strip.kind !== 'master' || address.kind === 'effect' && prefixIds.has(address.effectId));
+			}
 		}
 		await runtime.prepareCommittedTimePitchCaches(snapshot);
 		runtime.assertProject(token);
