@@ -23,6 +23,40 @@ test.beforeAll(async () => {
 	expect(program.assets).toEqual([]);
 });
 
+test('WebKit RAW menu import retains native IndexedDB Original custody and deep words after reload', async ({ page, browserName }) => {
+	test.skip(browserName !== 'webkit', 'This case positively qualifies the native WebKit IndexedDB RAW fallback.');
+	test.setTimeout(90_000);
+	const copy = bundledLightscaperEditorCopyForLocale(locale), original = Buffer.from(rawDngFixtureV1().bytes), errors = [];
+	const sha256 = createHash('sha256').update(original).digest('hex');
+	page.on('pageerror', error => { errors.push(error.message); });
+	await page.route(manifest.runtime.url, route => route.fulfill({ status: 200, headers: {
+		'content-type': 'application/wasm', 'access-control-allow-origin': '*', 'cross-origin-resource-policy': 'cross-origin',
+	}, body: wasm }));
+	await page.route(`**${PROGRAM}`, route => route.fulfill({ contentType: 'text/javascript', body: program.source }));
+	await page.goto(resolveBrowserProductTestUrl('/lightscaper/en/'));
+	const app = named(page, 'region', 'Lightscaper'); await expect(app).toBeVisible();
+	const fileMenu = app.getByRole('navigation').locator('summary').filter({ hasText: new RegExp(`^${copy.photoFileMenu.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}$`, 'u') });
+	await fileMenu.focus(); await fileMenu.press('Enter'); await named(app, 'button', copy.photoImportPhotos).click();
+	const importer = named(page, 'dialog', copy.photoImportPhotos);
+	await importer.getByLabel(copy.photoChooseFiles, { exact: true }).setInputFiles({ name: NAME, mimeType: 'image/png', buffer: original });
+	await named(importer, 'button', copy.photoImportAction).click(); await expect(importer).toHaveCount(0);
+	const library = app.locator('[data-photo-library]'), card = app.locator('[data-photo-id]');
+	await expect(card).toHaveCount(1); await expect(library).toHaveAttribute('aria-busy', 'false');
+	const photoId = await card.getAttribute('data-photo-id'); expect(photoId).toBeTruthy();
+	const initial = await observe();
+	expect(initial.original.metadata.storage).toBe('indexeddb-media-chunks-v1');
+	expect(initial.bytes).toEqual([...original]); expect(initial.original.sha256).toBe(sha256); expect(initial.original.byteLength).toBe(original.length);
+	expect(initial.original.roots).toHaveLength(1); expect(initial.original.roots[0].importId).toBeNull();
+	expect(initial.native.descriptor).toEqual({ schemaVersion: 1, width: 32, height: 32, sampleFormat: 'unorm16', primaries: 'srgb', transfer: 'linear' });
+	expect(initial.native.rawFlip).toBe(0); expect(initial.native.words).toHaveLength(4096);
+	for (let channel = 0; channel < 3; channel++) {
+		const low = initial.native.words[(8 * 32 + 8) * 4 + channel], high = initial.native.words[(8 * 32 + 24) * 4 + channel];
+		expect(high).toBeGreaterThan(low); expect(Math.floor(high / 257)).toBe(Math.floor(low / 257));
+	}
+	await page.reload(); await expect(app).toBeVisible(); expect(await observe()).toEqual(initial); expect(errors).toEqual([]);
+	function observe() { return page.evaluate(async ({ pathname, photoId }) => (await import(new URL(pathname, location.href).href)).readRawImportCustodyCurrentV1(photoId), { pathname: PROGRAM, photoId }); }
+});
+
 test('real RAW File import, native word Original, thumbnail and linear Develop survive Save and reload', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', 'This bounded RAW workflow qualifies Chromium and Firefox.'); test.setTimeout(90_000);
 	const copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale), errors = [], workers = [], assetRequests = [];
