@@ -2,6 +2,7 @@
 
 import { inspectEncodedAudioSampleRate } from '../../audio-file-metadata.js';
 import { claimImportBusyState } from '../shared/import-busy-state.ts';
+import { prepareFrozenTrackEditCommand } from '../edit/internal/frozen-track-edit-command.ts';
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } from '../../commands.js';
 import { isAudioEditorEngineSupported } from '../../engine.js';
 import { createStableId, findTrack } from '../../project.js';
@@ -199,7 +200,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		getPreview: () => state.projectBinPreview,
 		setPreview: (preview) => { state.projectBinPreview = preview; },
 		editingBlocked: dependencies.editingBlocked,
-		commit: dependencies.commit,
+		commit: (command, selection) => dependencies.commit(prepareFrozenTrackEditCommand(dependencies.getProject(), command), selection),
 		updateSelection: dependencies.updateSelection,
 		getPositionFrames: () => engine.getPositionFrames(),
 		normalizeTimelineStartFrame: projectImport.normalizeImportTimelineStartFrame,

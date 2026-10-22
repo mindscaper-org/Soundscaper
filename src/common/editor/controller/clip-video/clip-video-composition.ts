@@ -22,6 +22,7 @@ import { createClipTimePitchRenderService } from './clip-time-pitch-render-servi
 import { renderLinkedClipAudio } from './internal/linked-clip-render.ts';
 import { renderClipNormalizationAudio } from './internal/clip-normalization-render.ts';
 import { createClipTransformService } from './internal/clip/clip-transform-service.ts';
+import { prepareFrozenTrackEditCommand } from '../edit/internal/frozen-track-edit-command.ts';
 import { createSampleEditService } from './internal/sample-edit-service.ts';
 import { createSequenceTimingService } from './internal/sequence-timing-service.ts';
 import { createSourceMonitorService } from './internal/source-monitor-service.ts';
@@ -196,7 +197,7 @@ export function createClipVideoComposition(dependencies: ClipVideoCompositionDep
 		createId: createStableId,
 		snapTimelineFrame: dependencies.snapTimelineFrame,
 		activeSelection: dependencies.activeSelection,
-		commit: dependencies.commit,
+		commit: (command, selection) => dependencies.commit(prepareFrozenTrackEditCommand(requireProject(), command), selection),
 		createDuplicateClipboard: (project, options) => {
 			const runtime = dependencies.projectRuntime;
 			const owner = requireProject();
