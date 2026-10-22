@@ -21,7 +21,7 @@ for (const type of ['levels', 'spectrum'] as const) {
 			tracks: [createAudioTrack({ id: 'track', clipIds: ['clip'] })] });
 		let renders = 0;
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
-			projectRuntime: runtime, sessionController: runtime.createSessionController(), store,
+			projectRuntime: runtime, sessionController: runtime.createSessionController(), store: store as unknown as Options['store'],
 			engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
 			renderSnapshot: async (snapshot: typeof project, range: { startFrame: number; endFrame: number }) => {
 				renders++;
