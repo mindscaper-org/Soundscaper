@@ -23,6 +23,7 @@ for (const mode of ['assignment', 'adm', 'detector'] as const) test(`NP038: zero
 		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
 		engineFactory: () => createAudioEditorEngine({ audioContextFactory: null, offlineAudioContextFactory: null,
 			softwareRenderer: ({ project: captured, captureStartFrame, endFrame, sampleRate }) => {
+				assert.ok(captured && typeof captured === 'object' && 'masterChannels' in captured);
 				captures.push(captured as EngineProject);
 				return { channels: Array.from({ length: Number(captured.masterChannels) }, () => samples.slice(Number(captureStartFrame), Number(endFrame))), sampleRate };
 			},
@@ -41,7 +42,7 @@ for (const mode of ['assignment', 'adm', 'detector'] as const) test(`NP038: zero
 	assert.ok(output.length && output.every(edge => edge.enabled && edge.level > 0), 'the capture bypasses a zero programme output level');
 	const metadata = captured.metadata as Readonly<{ adm?: unknown }> | undefined;
 	assert.equal(metadata?.adm ?? null, null, 'programme ADM assignments cannot hide the selected recording');
-	const track = captured.tracks.find(track => track.id === 'voice'); assert.ok(track);
+	assert.ok(captured.tracks); const track = captured.tracks.find(track => track.id === 'voice'); assert.ok(track);
 	assert.equal(track.gain, .6); assert.equal(track.mute, true, 'mute is retained for the renderer respectMuteSolo:false policy');
 	if (mode === 'detector') {
 		assert.equal(graph.edges.find(edge => edge.id === 'external-detector')?.level, .5);
