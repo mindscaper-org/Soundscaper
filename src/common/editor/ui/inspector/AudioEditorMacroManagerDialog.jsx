@@ -76,7 +76,8 @@ export function AudioEditorMacroManagerDialog({
 	};
 	const writeScript = (next) => {
 		if (!String(next.name || '').trim()) return;
-		scriptLibrary.save(next);
+		try { scriptLibrary.save(next); }
+		catch (cause) { showMessage(feedbackFailure(cause), 'error'); }
 	};
 	// Importing a program stores text and marks it unreviewed; it never runs
 	// anything and never grants anything, so the message says what is owed next.
