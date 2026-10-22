@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { remapTakeGroupSourceIds } from './take-group-source-references.ts';
+import { CLIP_SOURCE_STRETCH_EXTENSION } from './clip-source-stretch-memory.ts';
 
 /** Remap every source identity owned by a copied Scape project. */
 export function remapScapeProjectSourceReferences(
@@ -10,6 +11,9 @@ export function remapScapeProjectSourceReferences(
 	if (!isRecord(project)) return;
 	const projectBin = isRecord(project.projectBin) ? project.projectBin : null;
 	for (const clip of [...records(project.clips), ...records(projectBin?.clips)]) {
+		const extensions = isRecord(clip.opaqueExtensions) ? clip.opaqueExtensions : null;
+		const stretch = extensions?.[CLIP_SOURCE_STRETCH_EXTENSION];
+		if (isRecord(stretch) && stretch.sourceId === clip.sourceId) remapSourceId(stretch, sourceIdMap);
 		remapSourceId(clip, sourceIdMap);
 	}
 	for (const track of records(project.tracks)) {
