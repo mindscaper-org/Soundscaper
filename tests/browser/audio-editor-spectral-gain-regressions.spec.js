@@ -16,8 +16,15 @@ test('spectral amplification requires a gain inside its displayed bounds', async
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await editor.getByRole('button', { name: 'Spectrogram options', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true }).click();
+	const menu = page.getByRole('menu', { name: 'Spectrogram options', exact: true });
+	await expect(menu).toBeVisible();
+	const selectRange = menu.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true });
+	await expect(selectRange).toBeEnabled();
+	await selectRange.focus();
+	await selectRange.press('Enter');
+	await expect(menu).toBeHidden();
 	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await expect(dialog).toBeVisible();
 	const gain = dialog.getByRole('textbox', { name: /^Gain \(dB\)/u });
 	const apply = dialog.getByRole('button', { name: 'Spectral Amplify', exact: true });
 	await gain.fill('100');
