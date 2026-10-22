@@ -95,6 +95,9 @@ export function createEdlExport(request: EdlExportRequest): EdlExportResult {
 		throw new TypeError('An EDL export requires an exact rational sequence rate.');
 	}
 	const events = Array.isArray(request?.events) ? request.events : [];
+	if (events.length > 999) {
+		throw new RangeError('CMX3600 supports at most 999 events. Export OTIO or FCPXML for a longer edit list.');
+	}
 	const dropFrame = Boolean(request?.dropFrame);
 	if (dropFrame && !isSequenceDropFrameRate(rate)) {
 		throw new RangeError(`Drop frame is illegal at ${rate.num}/${rate.den}.`);
