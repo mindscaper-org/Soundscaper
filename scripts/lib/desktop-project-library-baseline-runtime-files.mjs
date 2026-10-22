@@ -49,6 +49,7 @@ export const DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/storage/video-proxy-cleanup-tombstone-schema.js',
 	'src/common/editor/storage/video-proxy-cleanup-tombstone.js',
 	'src/common/editor/timeline-image-model.js',
+	'src/common/editor/timeline-image-phase.js',
 	'src/common/editor/unified-exact-render-generation.js',
 	'src/common/editor/unified-exact-render-plan-primitives.js',
 	'src/common/editor/unified-exact-render-plan-v13.js',

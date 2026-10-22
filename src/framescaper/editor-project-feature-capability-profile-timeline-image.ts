@@ -17,6 +17,11 @@ export const FRAMESCAPER_TIMELINE_IMAGE_PROJECT_FEATURE_CAPABILITY_PROFILE =
 				FRAMESCAPER_NATIVE_MEDIA_PROJECT_FEATURE_CAPABILITY_PROFILE,
 			).registrations,
 			{
+				key: 'timelineImagePhase',
+				featureId: PROJECT_FEATURE_CAPABILITY_IDS.timelineImagePhase,
+				available: true,
+			},
+			{
 				key: 'timelineImages',
 				featureId: PROJECT_FEATURE_CAPABILITY_IDS.timelineImages,
 				available: true,
