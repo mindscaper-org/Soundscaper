@@ -473,10 +473,10 @@ test('the actual photo session borrows shared media repositories without linked 
 	assert.deepEqual(unexpectedOwners.sort(), [], 'complete shared Session closure has no foreign flat owners');
 	assert.deepEqual([...seen].filter(path => fileAdmission.has(path)).sort(), [...fileAdmission].sort());
 	assert.ok(seen.has(fileURLToPath(new URL('../config/lightscaper-libraw-runtime-manifest.json', import.meta.url))));
-	// The append-only native schema registry is a separate shared custody leaf.
-	assert.equal(storage.size, 65);
+	// The native schema registry and byte-stream writer are explicit shared custody leaves.
+	assert.equal(storage.size, 66);
 	assert.ok(storage.has(directory + 'storage/indexeddb-schema.ts'));
-	for (const leaf of ['media-asset-path-staging.ts', 'media-asset-opfs-startup-namespace.ts', 'media-asset-opfs-startup-reconciliation.ts', 'opfs-blob-write-plan.ts']) {
+	for (const leaf of ['media-asset-blob-stream.ts', 'media-asset-path-staging.ts', 'media-asset-opfs-startup-namespace.ts', 'media-asset-opfs-startup-reconciliation.ts', 'opfs-blob-write-plan.ts']) {
 		assert.ok(storage.has(directory + 'storage/' + leaf));
 	}
 	for (const module of ['media-repository.ts', 'media-catalog-original-repository.ts', 'opfs-repository.ts', 'opfs-binary-inspection.ts',
