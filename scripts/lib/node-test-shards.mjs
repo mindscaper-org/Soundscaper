@@ -37,6 +37,8 @@ const ISOLATED_NODE_TEST_NAMES = new Set([
 	'desktop-parallel-stack-protocol.test.ts',
 	// Chromium startup can abort under the shared batch's process/memory pressure.
 	'desktop-nightly-tests-progress-archive.test.ts',
+	// The genuine above-64MiB HDR proof keeps its deadline without CPU contention.
+	'lightscaper-hdr-frame-handoff-current.test.ts',
 ]);
 
 export function listNodeTestFiles(repositoryRoot) {
@@ -94,7 +96,7 @@ export function partitionNodeTestExecutionBatches(testFiles) {
 	for (const testFile of testFiles) {
 		(ISOLATED_NODE_TEST_NAMES.has(basename(testFile)) ? isolated : parallel).push(testFile);
 	}
-	// Start real-time probes on the clean runner. A completed high-concurrency
+	// Start isolated probes on the clean runner. A completed high-concurrency
 	// batch can leave short-lived child-process and scheduler pressure behind.
 	return [
 		...isolated.map((testFile) => [testFile]),

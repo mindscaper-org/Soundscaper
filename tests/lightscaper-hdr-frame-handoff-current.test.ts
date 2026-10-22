@@ -46,20 +46,26 @@ test('Current reverse proves a real HDR Original just above64MiB without widenin
 	// 64 MiB body. Keep an active cancellation bound inside the fixture deadline.
 	const stop = new AbortController(), deadline = setTimeout(() => { stop.abort(new Error('HDR boundary fixture deadline.')); }, 75_000);
 	t.after(() => { clearTimeout(deadline); stop.abort(); });
-	const f = await hdrFrameFixtureCurrentV1(), width = 4096, height = 1366;
-	const before = readImageHdrOriginalV1(f.original).provenance;
-	const provenance = { ...before, inputs: before.inputs.map(input => ({ ...input, original: { ...input.original, width, height } })),
-		output: { x: 0, y: 0, width, height } };
-	const metadata = new TextEncoder().encode(serializeImageHdrOriginalProvenanceV1(provenance)), payloadOffset = Math.ceil((64 + metadata.length) / 4) * 4, payloadBytes = width * height * 12;
-	const bytes = new Uint8Array(payloadOffset + payloadBytes), header = new DataView(bytes.buffer), cache = new Uint8Array(width * height * 4);
-	bytes.set(new TextEncoder().encode('LSCHDRF1')); bytes.set(metadata, 64);
-	for (const [offset, value] of [[8, 64], [12, 1], [16, width], [20, height], [24, metadata.length], [28, payloadBytes]]) header.setUint32(offset!, value!, true);
-	bytes.set(Uint8Array.from(Buffer.from(hdrFrameDigest(metadata), 'hex')), 32);
-	for (let at = 3; at < cache.length; at += 4) cache[at] = 255;
-	const hdr = { ...f.hdr, descriptor: { ...f.descriptor, width, height }, pixelsSha256: hdrFrameDigest(bytes.subarray(payloadOffset)), metadataSha256: hdrFrameDigest(metadata) };
-	const pack = await createFramescaperImageFramePackWithWarningsV1({ original: bytes, receipt: { schemaVersion: 1, kind: 'hdr-original', hdr }, width, height,
-		timingMode: 'fallback', frames: [{ presentationTicks: 0n, durationTicks: 5_000_000n, rgba: cache }] }, { maximumOriginalBytes: 196 * 1024 * 1024, signal: stop.signal });
+	const started = performance.now(); let stage = 'fixture preparation';
+	let bytes: Uint8Array<ArrayBuffer> | undefined, cache: Uint8Array<ArrayBuffer> | undefined;
+	let pack: Awaited<ReturnType<typeof createFramescaperImageFramePackWithWarningsV1>> | undefined;
 	try {
+		const f = await hdrFrameFixtureCurrentV1(), width = 4096, height = 1366;
+		const before = readImageHdrOriginalV1(f.original).provenance;
+		const provenance = { ...before, inputs: before.inputs.map(input => ({ ...input, original: { ...input.original, width, height } })),
+			output: { x: 0, y: 0, width, height } };
+		const metadata = new TextEncoder().encode(serializeImageHdrOriginalProvenanceV1(provenance)), payloadOffset = Math.ceil((64 + metadata.length) / 4) * 4, payloadBytes = width * height * 12;
+		bytes = new Uint8Array(payloadOffset + payloadBytes); cache = new Uint8Array(width * height * 4);
+		const header = new DataView(bytes.buffer);
+		bytes.set(new TextEncoder().encode('LSCHDRF1')); bytes.set(metadata, 64);
+		for (const [offset, value] of [[8, 64], [12, 1], [16, width], [20, height], [24, metadata.length], [28, payloadBytes]]) header.setUint32(offset!, value!, true);
+		bytes.set(Uint8Array.from(Buffer.from(hdrFrameDigest(metadata), 'hex')), 32);
+		for (let at = 3; at < cache.length; at += 4) cache[at] = 255;
+		const hdr = { ...f.hdr, descriptor: { ...f.descriptor, width, height }, pixelsSha256: hdrFrameDigest(bytes.subarray(payloadOffset)), metadataSha256: hdrFrameDigest(metadata) };
+		stage = 'pack creation';
+		pack = await createFramescaperImageFramePackWithWarningsV1({ original: bytes, receipt: { schemaVersion: 1, kind: 'hdr-original', hdr }, width, height,
+			timingMode: 'fallback', frames: [{ presentationTicks: 0n, durationTicks: 5_000_000n, rgba: cache }] }, { maximumOriginalBytes: 196 * 1024 * 1024, signal: stop.signal });
+		stage = 'source admission';
 		assert.ok(bytes.length > 64 * 1024 * 1024); assert.ok(bytes.length < 65 * 1024 * 1024);
 		const source = normalizeFramescaperHdrImageSourceCurrentV1({ ...f.source, contentSha256: pack.contentSha256, assetByteLength: pack.assetByteLength,
 			conversionReceiptSha256: pack.conversionReceiptSha256, original: { ...f.source.original, sha256: pack.originalSha256, byteLength: bytes.length },
@@ -67,10 +73,16 @@ test('Current reverse proves a real HDR Original just above64MiB without widenin
 			provenance: { ...f.source.provenance, original: { ...f.source.provenance.original, sha256: pack.originalSha256, byteLength: bytes.length } } });
 		const plan = prepareFramescaperHdrImageOriginalCurrentV1(source);
 		assert.ok(BigInt(source.assetByteLength) * 3n + plan.decodeWorkingBytes < 1024n * 1024n * 1024n);
+		stage = 'reverse native proof';
 		const result = await preparePhotoFramescaperHandoffOriginalCurrentV1({ source, originalBlob: new Blob([bytes], { type: source.original.mimeType! }), canonicalFrameSha256: hdr.pixelsSha256, signal: stop.signal });
+		stage = 'result assertions';
 		assert.equal(result.originalBlob.size, bytes.length); assert.equal(result.originalBlob.type, 'image/x-lightscaper-hdr');
 		assert.equal(result.metadata.orientation, 1); assert.equal(result.metadata.cameraModel, null); assert.equal(result.extractedMetadata.container, 'unsupported');
-	} finally { bytes.fill(0); cache.fill(0); pack.bytes.fill(0); }
+	} catch (error) {
+		try { t.diagnostic(JSON.stringify({ fixture: 'HDR above64MiB', stage, elapsedMilliseconds: performance.now() - started, aborted: stop.signal.aborted })); }
+		catch { /* Diagnostics must preserve the exact operation failure. */ }
+		throw error;
+	} finally { bytes?.fill(0); cache?.fill(0); pack?.bytes.fill(0); }
 });
 
 test('Current collection handoff preserves genuine HDR bodies, order and native Source5 frames through archive import', async t => {
