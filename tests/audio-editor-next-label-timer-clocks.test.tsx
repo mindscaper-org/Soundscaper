@@ -31,7 +31,7 @@ test('Manage labels keeps optional frame entry on its foldered owning sequence',
 		sequences: [{ id: 'main', rate: { num: 30, den: 1 }, trackIds: [] }, { id: 'cut', rate: { num: 120, den: 1 }, trackNodes: [
 			{ kind: 'folder', id: 'folder', parentFolderId: null }, { kind: 'track', id: 'labels', parentFolderId: 'folder' },
 		] }], primarySequenceId: 'main' }));
-	const controller = { actions: { labels: { update(trackId: string, labelId: string, changes: unknown) {
+	const controller = { actions: { labels: { update(trackId: string, labelId: string, changes: Readonly<Record<string, unknown>>) {
 		history = executeSoundscaperProjectCommand(history, { type: 'label/update', trackId, labelId, changes });
 	}, remove() {} }, timeline: { setExactSelection() {} } } };
 	await withDom(async (dom, root) => {
