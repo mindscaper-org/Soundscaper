@@ -182,6 +182,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		sourcePeaks: dependencies.sourcePeaks,
 		missingSourceIds: state.missingSourceIds,
 		sourceResolver: dependencies.sourceResolver,
+		prepareTimePitchCaches: dependencies.prepareTimePitchCaches,
 		store,
 		activateVideoSource,
 		createPreviewEngine: dependencies.createPreviewEngine,
