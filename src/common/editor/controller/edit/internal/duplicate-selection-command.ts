@@ -5,6 +5,8 @@ import { createAddTrackCommand } from '../../../commands/factories.ts';
 import { preparePasteCommand } from '../../../commands/clipboard-runtime.js';
 import type { AudioEditorClipboard, AudioEditorCommand } from '../../../commands/protocol.ts';
 import type { ControllerTrackDuplicateCarrier, ControllerTrackDuplicateRequest } from '../../document/project-runtime.ts';
+import { sampleFrameToBeat } from '../../../timeline-tempo-inverse.ts';
+import type { HoldTempoMap } from '../../../timeline-time.ts';
 
 interface DuplicateEffect extends Readonly<Record<string, unknown>> {
 	readonly id: string;
@@ -26,6 +28,8 @@ interface DuplicateTrack extends Readonly<Record<string, unknown>> {
 }
 
 interface DuplicateProject extends Readonly<Record<string, unknown>> {
+	readonly sampleRate?: number;
+	readonly tempoMap?: HoldTempoMap;
 	readonly tracks: readonly DuplicateTrack[];
 	readonly trackFolders?: readonly object[];
 	readonly sequences?: readonly Readonly<{
@@ -99,7 +103,7 @@ export function prepareDuplicateSelectionCommand(
 			.filter(candidate => candidate.laneGroupId === track.laneGroupId)
 			.every(candidate => requested.has(candidate.id)) ? track.laneGroupId : null;
 		if (laneGroupId && !laneGroups.has(laneGroupId)) laneGroups.set(laneGroupId, runtime.createStableId('lane-group'));
-		const labels = track.type === 'label' ? duplicateLabels(runtime, track.labels ?? [], range) : undefined;
+		const labels = track.type === 'label' ? duplicateLabels(runtime, project, track.labels ?? [], range) : undefined;
 		commands.push({
 			...createAddTrackCommand({
 				...structuredClone(track), id: trackId, locked: false,
@@ -137,15 +141,23 @@ export function prepareDuplicateSelectionCommand(
 		selectTrackId: trackMap[sourceTracks[0]!.id]!, selectClipId: range.exactClips ? clipIds[0] ?? null : null };
 }
 
-function duplicateLabels(runtime: DuplicateSelectionRuntime, labels: readonly DuplicateLabel[], range: DuplicateSelectionRange) {
+function duplicateLabels(runtime: DuplicateSelectionRuntime, project: DuplicateProject, labels: readonly DuplicateLabel[], range: DuplicateSelectionRange) {
 	return labels.flatMap((label) => {
 		const startFrame = label.startFrame;
 		const endFrame = label.endFrame ?? startFrame;
 		if (startFrame === undefined || endFrame === undefined) return [];
 		const point = startFrame === endFrame;
 		if (point ? startFrame < range.startFrame || startFrame > range.endFrame : endFrame <= range.startFrame || startFrame >= range.endFrame) return [];
+		const clippedStart = Math.max(startFrame, range.startFrame), clippedEnd = Math.min(endFrame, range.endFrame);
+		if (label.anchor === 'musical' && (!project.tempoMap || !project.sampleRate)) {
+			throw new TypeError('Musical label duplication requires the project tempo map and sample rate.');
+		}
 		return [{ ...structuredClone(label), id: runtime.createStableId('label'),
-			startFrame: Math.max(startFrame, range.startFrame), endFrame: Math.min(endFrame, range.endFrame),
+			startFrame: clippedStart, endFrame: clippedEnd,
+			...(label.anchor === 'musical' ? {
+				startBeat: sampleFrameToBeat(clippedStart, project.tempoMap!, project.sampleRate!),
+				endBeat: sampleFrameToBeat(clippedEnd, project.tempoMap!, project.sampleRate!),
+			} : {}),
 		}];
 	});
 }

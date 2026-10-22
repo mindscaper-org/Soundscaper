@@ -5,6 +5,12 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Focused WP-0.1 inventory for integer sample-rate changes of basis. */
 export const FOUNDATION_RATE_CONVERSION_AUDIT_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'duplicate-musical-label-range-authority',
+		file: 'src/common/editor/controller/edit/internal/duplicate-selection-command.ts',
+		behavior: 'Duplicating a selected label range clips its resolved sample endpoints, then exactly inverts those endpoints through the project tempo map to retain authoritative musical coordinates.',
+		conversions: [{ helper: 'sampleFrameToBeat', policies: ['exact'] }],
+	},
+	{
 		id: 'annotation-move-gesture-musical-boundary',
 		file: 'src/common/editor/ui/timeline/timeline-annotation-move-preview.ts',
 		behavior: 'Annotation move gestures resolve the primary sample delta to one exact beat delta; a musical lower bound rounds inward at its enclosing end before exact inversion, while the shared indexed point projector matches native annotation previews.',
