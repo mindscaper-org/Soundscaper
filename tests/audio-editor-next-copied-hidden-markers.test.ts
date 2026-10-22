@@ -20,7 +20,7 @@ test('NP052: native Open as copy retains hidden stretch source identity', async 
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const archiveStore = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `${context.name}:archive` });
 	const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: 48_000, channelCount: 1 });
-	const full = createAudioClip({ id: 'clip', sourceId: 'source', durationFrames: 48_000, sourceDurationFrames: 48_000,
+	const full = createAudioClip({ id: 'clip', sourceId: 'source', timelineStartFrame: 0, sourceStartFrame: 0, durationFrames: 48_000, sourceDurationFrames: 48_000,
 		warpMap: { feature: 'audio-warp', points: [
 			{ outer: 0, source: 0, mode: 'forward' }, { outer: 24_000, source: 12_000, mode: 'forward' },
 			{ outer: 48_000, source: 48_000, mode: 'forward' },
