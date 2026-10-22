@@ -183,12 +183,17 @@ export function admitVampAnalyzerConfiguration(
 		throw new RangeError('Vamp analysis duration exceeds its admitted limit.');
 	}
 	const supplied = openRecord(record.parameters, 'Vamp analyzer parameter values');
+	const program = record.program === null ? null : text(record.program, 'program');
+	if (program !== null && !descriptor.programs.includes(program)) {
+		throw new TypeError('The Vamp analyzer program was not declared by the analyzer.');
+	}
 	const known = new Map(descriptor.parameters.map((parameter) => [parameter.identifier, parameter]));
 	for (const key of Object.keys(supplied)) {
 		if (!known.has(key)) throw new TypeError(`Unknown Vamp parameter: ${key}`);
 	}
 	const parameters: Record<string, number> = {};
 	for (const parameter of descriptor.parameters) {
+		if (program !== null && !Object.hasOwn(supplied, parameter.identifier)) continue;
 		const candidate = Object.hasOwn(supplied, parameter.identifier)
 			? supplied[parameter.identifier] : parameter.defaultValue;
 		const admitted = finite(candidate, `parameter ${parameter.identifier}`);
@@ -200,10 +205,6 @@ export function admitVampAnalyzerConfiguration(
 			throw new RangeError(`Vamp parameter ${parameter.identifier} is not quantized.`);
 		}
 		parameters[parameter.identifier] = admitted;
-	}
-	const program = record.program === null ? null : text(record.program, 'program');
-	if (program !== null && !descriptor.programs.includes(program)) {
-		throw new TypeError('The Vamp analyzer program was not declared by the analyzer.');
 	}
 	return Object.freeze({
 		sampleRate, channelCount, stepSize, blockSize, frameCount,

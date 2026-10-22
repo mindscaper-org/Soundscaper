@@ -15,6 +15,7 @@ namespace {
 
 struct Instance {
 	float gain = 1.0F;
+	unsigned int program = 0u;
 	unsigned int channels = 0u;
 };
 
@@ -45,8 +46,13 @@ void setParameter(VampPluginHandle handle, int index, float value)
 	if (handle != nullptr && index == 0) static_cast<Instance *>(handle)->gain = value;
 }
 
-unsigned int currentProgram(VampPluginHandle) { return 0u; }
-void selectProgram(VampPluginHandle, unsigned int) {}
+unsigned int currentProgram(VampPluginHandle handle) { return static_cast<Instance *>(handle)->program; }
+void selectProgram(VampPluginHandle handle, unsigned int program)
+{
+	auto *instance = static_cast<Instance *>(handle);
+	instance->program = program;
+	instance->gain = program == 1u ? 0.5F : 1.0F;
+}
 unsigned int preferredStep(VampPluginHandle) { return 2u; }
 unsigned int preferredBlock(VampPluginHandle) { return 4u; }
 unsigned int minimumChannels(VampPluginHandle) { return 1u; }
@@ -122,12 +128,12 @@ const VampParameterDescriptor gain{
 	"gain", "Gain", "Analysis gain", "", 0.0F, 2.0F, 1.0F, 1, 1.0F, valueNames,
 };
 const VampParameterDescriptor *parameters[] = { &gain };
-const char *programs[] = { "Default" };
+const char *programs[] = { "Default", "Sensitive" };
 const VampPluginDescriptor descriptor{
 	VAMP_API_VERSION,
 	"org.soundscaper.fixture.amplitude", "Soundscaper amplitude fixture",
 	"Exact-library Vamp host fixture", "Soundscaper", 1, "AGPL-3.0-only",
-	1u, parameters, 1u, programs, vampTimeDomain,
+	1u, parameters, 2u, programs, vampTimeDomain,
 	instantiate, cleanup, initialise, reset, getParameter, setParameter,
 	currentProgram, selectProgram, preferredStep, preferredBlock,
 	minimumChannels, maximumChannels, outputCount, outputDescriptor,

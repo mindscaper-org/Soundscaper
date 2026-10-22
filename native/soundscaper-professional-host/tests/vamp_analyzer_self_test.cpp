@@ -43,5 +43,17 @@ int main(int argc, char **argv)
 		|| features[0].values[0] != 0.25F) return 5;
 	if (analyzer->finish(features, detail) != Status::ok || features.empty()) return 6;
 	analyzer->cancel();
+	for (const bool overrideProgram : { false, true }) {
+		if (ExactVampAnalyzer::openExactLibrary(path, descriptors[0].identifier, 48000.0,
+			analyzer, detail) != Status::ok) return 7;
+		configuration.program = "Sensitive";
+		configuration.parameters.clear();
+		if (overrideProgram) configuration.parameters.emplace_back("gain", 1.0F);
+		if (analyzer->configure(configuration, outputs, detail) != Status::ok) return 8;
+		if (analyzer->processPcm(0u, planes, 1u, pcm.size(), features, detail) != Status::ok
+			|| features.size() != 1u || features[0].values.size() != 1u
+			|| features[0].values[0] != (overrideProgram ? 0.25F : 0.125F)) return 9;
+		analyzer->cancel();
+	}
 	return 0;
 }

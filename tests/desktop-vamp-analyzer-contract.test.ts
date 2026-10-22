@@ -98,7 +98,9 @@ test('configuration fills parameter defaults and enforces program, channel, and 
 		sampleRate: 48_000, channelCount: 2, stepSize: 512, blockSize: 1_024,
 		frameCount: 48_000 * 60, parameters: { threshold: -42 }, program: 'Speech',
 	}, admitted);
-	assert.deepEqual(configured.parameters, { threshold: -42, mode: 0 });
+	assert.deepEqual(configured.parameters, { threshold: -42 });
+	assert.deepEqual(admitVampAnalyzerConfiguration({ ...configured, program: null }, admitted).parameters,
+		{ threshold: -42, mode: 0 });
 	assert.equal(configured.program, 'Speech');
 	assert.ok(Object.isFrozen(configured.parameters));
 
