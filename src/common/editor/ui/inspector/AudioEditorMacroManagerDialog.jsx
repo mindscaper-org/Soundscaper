@@ -333,7 +333,7 @@ export function AudioEditorMacroManagerDialog({
 			const parsed = parseAudacityEffectMacro(await file.text());
 			if (!ownsOperation(activeImportRef, operation)) return;
 			if (!createMacro({
-				name: file.name.replace(/\.txt$/i, '') || publishedCopyFor(copy).untitledMacro,
+				name: file.name.replace(/\.txt$/i, '').trim() || publishedCopyFor(copy).untitledMacro,
 				effects: [...parsed.effects],
 			})) return;
 			const warning = parsed.ignoredCommands.length
