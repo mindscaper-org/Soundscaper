@@ -68,5 +68,5 @@ test('NP030: copied native image sequence bodies survive project deletion and ex
  await controller.actions.project.saveScape({saveCopy:false,useFileSystemAccess:false});
  assert.equal(downloads.length,1);
  assert.ok(await environment.store.getMediaAssetMetadata(String(pack.storageKey)));
- assert.ok(await environment.store.getMediaAssetMetadata(String(inventory.storageKey))); 
+ assert.ok(await environment.store.getMediaAssetMetadata(String(inventory.storageKey)));
 });

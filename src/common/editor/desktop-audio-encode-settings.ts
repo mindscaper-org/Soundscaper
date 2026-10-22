@@ -27,4 +27,3 @@ function requiredInteger(value: unknown, label: string): number {
 	if (!Number.isSafeInteger(value)) throw new TypeError(`Invalid ${label}.`);
 	return Number(value);
 }
-

@@ -151,4 +151,3 @@ function desktopFixtureFile(file, locatorDigit, revisionDigit, readDigit) {
 		readId: readDigit.repeat(64),
 	};
 }
-
