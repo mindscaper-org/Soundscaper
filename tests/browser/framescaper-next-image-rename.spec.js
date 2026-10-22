@@ -11,6 +11,7 @@ test('an imported image can be renamed from its existing timeline header', async
 	await expect(clip).toBeVisible();
 	await clip.press('Enter');
 	await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
+	await expect(clip.getByRole('button', { name: 'Trim left edge', exact: true })).toBeVisible();
 	await clip.locator('.clip-header__name').dblclick();
 	const field = clip.getByRole('textbox'); await expect(field).toBeVisible();
 	await field.fill('Renamed poster'); await field.press('Enter');
