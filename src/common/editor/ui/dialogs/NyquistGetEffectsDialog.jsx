@@ -27,7 +27,7 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		const request = new AbortController();
 		requestRef.current = request;
 		const refreshInstalled = () => setInstalled(nyquistArchiveStore.list());
-		globalThis.addEventListener('soundscaper-nyquist-archive-changed', refreshInstalled);
+		globalThis.addEventListener?.('soundscaper-nyquist-archive-changed', refreshInstalled);
 		void fetchNyquistArchiveManifest({ signal: request.signal }).then((catalog) => {
 			try { nyquistArchiveStore.updateCatalogMetadata(catalog.artifacts); } catch {
 				// Optional display metadata must not prevent removing installed effects to free storage.
@@ -39,16 +39,19 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		});
 		return () => {
 			requestRef.current?.abort();
-			globalThis.removeEventListener('soundscaper-nyquist-archive-changed', refreshInstalled);
+			globalThis.removeEventListener?.('soundscaper-nyquist-archive-changed', refreshInstalled);
 		};
 	}, []);
 
 	const filtered = useMemo(() => {
 		const needle = query.trim().toLocaleLowerCase();
-		return manifest?.artifacts.filter((artifact) => (
+		const artifacts = manifest?.artifacts ?? (error ? installed.map(plugin => ({
+			fileName: plugin.fileName, title: plugin.name, description: plugin.description,
+		})) : []);
+		return artifacts.filter((artifact) => (
 			[artifact.title, artifact.description, artifact.fileName].some((value) => value.toLocaleLowerCase().includes(needle))
 		)).sort((left, right) => left.title.localeCompare(right.title)) ?? [];
-	}, [manifest, query]);
+	}, [manifest, query, error, installed]);
 	const installedIds = useMemo(() => new Set(installed.map((plugin) => plugin.id)), [installed]);
 	const close = () => {
 		requestRef.current?.abort();
@@ -73,7 +76,7 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		try {
 			nyquistArchiveStore.remove(id);
 			setInstalled(nyquistArchiveStore.list());
-			setError('');
+			if (manifest) setError('');
 		} catch (reason) {
 			setError(reason instanceof Error ? reason.message : String(reason));
 		}
@@ -93,7 +96,7 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		</label>
 		{error && <p role="alert">{error}</p>}
 		{!manifest && !error && <p role="status">{copy.loading}</p>}
-		{manifest && <>
+		{(manifest || error) && <>
 			<p>{archiveCopy.effectCount.replace('{count}', String(filtered.length))}</p>
 			<div style={{ maxHeight: 400, overflowY: 'auto' }}>
 				<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
