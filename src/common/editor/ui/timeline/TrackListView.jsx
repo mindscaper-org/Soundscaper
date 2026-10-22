@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 import { MemoizedAudioTrackRow } from './MemoizedAudioTrackRow.jsx';
 import { EMPTY_TIMELINE_CLIPS } from './constants.ts';
@@ -22,7 +23,11 @@ import { resolveTrackAutomationCopy } from '../soundscaper-workflow-product-runt
  * ordering are unchanged: rows follow `project.tracks`, which is the hierarchy
  * preorder on foldered documents.
  */
-export function TrackListView({
+export function TrackListView(props) {
+	return <TrackListViewSession key={editorProjectEditSessionKey(props.controller, props.project?.id)} {...props} />;
+}
+
+function TrackListViewSession({
 	project,
 	controller,
 	projectIndex,
