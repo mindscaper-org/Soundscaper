@@ -174,6 +174,16 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	for (const [index, lane] of values(raw.automationLanes).entries()) {
 		attempt(`automationLanes[${String(index)}]`, (draft) => { draft.automationLanes = [...values(draft.automationLanes), lane]; });
 	}
+	for (const [index, value] of values(raw.tracks).entries()) {
+		const track = record(value);
+		if (!track || !Object.hasOwn(track, 'audioFreeze') || !acceptedTracks.has(String(track.id))) continue;
+		attempt(`tracks[${String(index)}].audioFreeze`, (draft) => {
+			draft.tracks = values(draft.tracks).map((value) => {
+				const current = record(value)!;
+				return current.id === track.id ? { ...current, audioFreeze: track.audioFreeze } : current;
+			});
+		});
+	}
 	for (const field of ['selection', 'view', 'featureRequirements'] as const) {
 		attempt(field, (draft) => { draft[field] = raw[field]; });
 	}
