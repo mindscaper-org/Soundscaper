@@ -4,6 +4,7 @@ import {
 	type DeliveryPreset,
 	type DeliveryPresetKind,
 } from '../../delivery-preset.ts';
+import { sanitizeSuggestedFileName } from '../../portable-save-file-name.ts';
 import {
 	type DeliveryPresetState,
 	applyDeliveryPreset,
@@ -132,7 +133,7 @@ export function createDeliveryPresetService(runtime: DeliveryPresetServiceRuntim
 			const text = exportDeliveryPreset(runtime.state.deliveryPresets, presetId);
 			await runtime.fileService?.saveFile?.({
 				purpose: 'preset',
-				suggestedName: `${preset.label.replaceAll(/[^a-z0-9_-]+/giu, '-') || 'delivery-preset'}.json`,
+				suggestedName: sanitizeSuggestedFileName(`${preset.label.replaceAll(/[^\p{L}\p{M}\p{N}_-]+/gu, '-') || 'delivery-preset'}.json`),
 				mimeType: 'application/json',
 				text,
 			});
