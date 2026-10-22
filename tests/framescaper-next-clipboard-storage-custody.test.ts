@@ -47,7 +47,8 @@ test('NP030: copied native image sequence bodies survive project deletion and ex
  const controller=createFramescaperAudioEditorController(environment,{fileService});
  context.after(async()=>{await controller.dispose();await environment.close()});await controller.ready;
  const foundation=createFramescaperControllerFoundationViewAssistance(controller),{bridge}=nativeBridge();let minted=0;
- const runtime=createFramescaperNativeImageSequenceActionRuntimeNativeMedia({profile:PROFILE,owner:foundation,store:environment.store,bridge,mintId:()=>`retention-${++minted}`});
+ const owner={...foundation,get project(){return foundation.project;},actions:{edit:controller.actions.edit,project:{save:controller.actions.project.save}}};
+ const runtime=createFramescaperNativeImageSequenceActionRuntimeNativeMedia({profile:PROFILE,owner,store:environment.store,bridge,mintId:()=>`retention-${++minted}`});
  await runtime.run('image-sequence-import',{frameRate:{num:24,den:1}});
  const before=record(controller.project),source=record((before.sources as unknown[])[0]),sequence=record(source.imageSequence),pack=record(sequence.sourcePack),inventory=record(sequence.inventory);
  const bin=record(before.projectBin),clip=record((bin.clips as unknown[])[0]);
