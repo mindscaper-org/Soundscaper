@@ -7,6 +7,7 @@ import type { EngineAudioContext } from '../src/common/editor/engine/public-api.
 import { createAudioEditorController, createController, createCurrentAudioEditorProject, createMemoryEngine, createTwoTrackFixture, ENGLISH_COPY } from './helpers/audio-editor-multitrack-selection-harness.js';
 import { MockAudioContext } from './helpers/mock-audio-context.js';
 import { MockOfflineAudioContext } from './helpers/audio-editor-runtime-harness.js';
+import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
 
 async function sourceFixture(name: string, frames = 70_000) {
 	const pcm = new Float32Array(frames).fill(.25);
@@ -43,13 +44,14 @@ for (const reversed of [false, true]) test(`a selection export of a ${reversed ?
 		if (reversed) await controller.actions.clip.reverse('voice-clip');
 		controller.actions.timeline.setSelection(1, 16_001, { trackIds: ['voice'], clipIds: [] });
 		const project = controller.getSnapshot().project;
-		assert.ok(project);
+		assert.ok(validateAudioEditorProjectV17(project));
 		engine.loadProject(project, new Map(), { chunkSources: new Map([['voice-source', {
 			channelCount: 1, frameCount: pcm.length, sampleRate: 48_000, chunkFrames: 65_536,
 			readStorageChunk: (index: number) => [pcm.subarray(index * 65_536, Math.min(pcm.length, (index + 1) * 65_536))],
 		}]]) });
 		// File > Export Audio > Selection uses the production offline clip scheduler.
 		const result = await engine.renderMix({ startFrame: 1, endFrame: 16_001, includeTail: false });
+		assert.ok('length' in result);
 		assert.equal(result.length, 16_000);
 		const scheduled = offline[0]?.bufferSources[0]?.buffer;
 		assert.ok(scheduled);
