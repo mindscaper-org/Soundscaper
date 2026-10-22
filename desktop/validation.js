@@ -58,6 +58,11 @@ const FILE_PURPOSES = Object.freeze({
 	}),
 });
 
+const MACRO_PROGRAM_SAVE = Object.freeze({
+	defaultExtension: 'soundscapemacro',
+	filters: [{ name: 'Soundscaper macro program', extensions: ['soundscapemacro'] }],
+});
+
 const SAVE_PURPOSES = Object.freeze({
 	project: Object.freeze({
 		defaultExtension: NATIVE_PROJECT_EXTENSION,
@@ -227,8 +232,10 @@ export function acceptsFile(purpose, filePath) {
 export function validateSaveChoice(value) {
 	const purpose = String(value?.purpose || '');
 	if (!Object.hasOwn(SAVE_PURPOSES, purpose)) throw new TypeError('Unsupported save purpose');
-	const definition = SAVE_PURPOSES[purpose];
-	const suggestedName = sanitizeSuggestedName(value?.suggestedName, `untitled.${definition.defaultExtension}`);
+	const purposeDefinition = SAVE_PURPOSES[purpose];
+	const suggestedName = sanitizeSuggestedName(value?.suggestedName, `untitled.${purposeDefinition.defaultExtension}`);
+	const definition = purpose === 'macro' && extname(suggestedName).toLowerCase() === '.soundscapemacro'
+		? MACRO_PROGRAM_SAVE : purposeDefinition;
 	return {
 		purpose,
 		suggestedName: ensureExtension(suggestedName, definition.defaultExtension),
