@@ -53,6 +53,7 @@ test('Motion language preference changes copy in place after persistence and pre
 	await settings.getByLabel('Project title', { exact: true }).fill('Unpublished locale draft');
 	await settings.getByRole('button', { name: 'Apply', exact: true }).click();
 	await menu(page, 'View', 'Language'); const language = page.getByRole('dialog', { name: 'Language', exact: true });
+	await expect(language).toBeVisible();
 	expect(await language.locator('option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))).toEqual(COMMITTED_LOCALE_TAGS);
 	await language.getByLabel('Language', { exact: true }).selectOption('de');
 	await page.evaluate(() => { (Reflect.get(globalThis, '__motionLocaleHold') as (hold: boolean) => void)(true); });
