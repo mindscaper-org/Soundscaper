@@ -12,13 +12,14 @@ import { createPackagedRuntimeAudioWave, packagedRuntimeAudioArguments } from '.
 test.use({ browserCoverage: false });
 registerAudioEditorHooks();
 
-test('ordinary recording survives a renderer crash with its saved checkpoints and exports the recovered audio', async ({ browserName, baseURL }) => {
+test('ordinary recording survives a renderer crash with its saved checkpoints and exports the recovered audio', async ({ browserName, baseURL }, testInfo) => {
 	test.skip(browserName !== 'chromium', 'The renderer crash witness uses Chromium CDP and a persistent profile.');
 	test.setTimeout(180_000);
 	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-recording-recovery-'));
 	const input = join(directory, 'capture.wav');
 	await writeFile(input, createPackagedRuntimeAudioWave());
 	let context = await launch(directory, baseURL, input);
+	let recoveredWave = null, decodedWitness = null;
 	try {
 		let page = context.pages()[0] ?? await context.newPage();
 		let editor = await bootEditor(page, '/embed/en/');
@@ -65,6 +66,7 @@ test('ordinary recording survives a renderer crash with its saved checkpoints an
 		await expect(link).toBeVisible({ timeout: 30_000 });
 		const download = page.waitForEvent('download'); await link.click();
 		const bytes = await downloadBytes(await download);
+		recoveredWave = bytes;
 		const decoded = await page.evaluate(async (values) => {
 			const audioContext = new AudioContext({ sampleRate: 48_000 });
 			try {
@@ -76,9 +78,14 @@ test('ordinary recording survives a renderer crash with its saved checkpoints an
 					energy += samples[index] ** 2;
 					if (samples[index - 1] <= 0 && samples[index] > 0) crossings += 1;
 				}
-				return { frames: buffer.length, sampleRate: buffer.sampleRate, rms: Math.sqrt(energy / (end - begin)), frequency: crossings * buffer.sampleRate / (end - begin) };
+				return { frames: buffer.length, sampleRate: buffer.sampleRate,
+					rms: Math.sqrt(energy / (end - begin)), frequency: crossings * buffer.sampleRate / (end - begin),
+					channel: 0, channelCount: buffer.numberOfChannels, positiveCrossings: crossings,
+					windowStartFrame: begin, windowEndFrame: end, windowFrameCount: end - begin,
+					availableWindowFrames: Math.max(0, Math.min(end, samples.length) - begin) };
 			} finally { await audioContext.close(); }
 		}, [...bytes]);
+		decodedWitness = { ...decoded, expectedRecoveredEndFrame: after.projectEndFrame };
 		expect(decoded.frames).toBe(after.projectEndFrame);
 		expect(decoded.rms).toBeGreaterThan(0.05);
 		expect(Math.abs(decoded.frequency - 440)).toBeLessThan(4);
@@ -89,6 +96,23 @@ test('ordinary recording survives a renderer crash with its saved checkpoints an
 		await expect.poll(async () => (await durableRecording(page)).journalCount).toBe(1);
 		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 		await expect.poll(async () => (await durableRecording(page)).journalCount, { timeout: 30_000 }).toBe(0);
+	} catch (error) {
+		try {
+			if (recoveredWave) {
+				const byteLimit = 64 * 1024 * 1024;
+				const witness = { fixture: { frequency: 440, sampleRate: 48_000, channelCount: 1, durationSeconds: 1 },
+					estimator: 'channel0-positive-zero-crossings', decodeRequestedSampleRate: 48_000,
+					decoded: decodedWitness, waveByteLength: recoveredWave.byteLength,
+					waveAttachmentByteLimit: byteLimit, waveAttachmentEligible: recoveredWave.byteLength <= byteLimit };
+				await testInfo.attach('recording-recovery-decoded-window', {
+					body: JSON.stringify(witness), contentType: 'application/json',
+				}).catch(() => undefined);
+				if (recoveredWave.byteLength <= byteLimit) await testInfo.attach('recording-recovery-export.wav', {
+					body: Buffer.from(recoveredWave), contentType: 'audio/wav',
+				}).catch(() => undefined);
+			}
+		} catch { /* Diagnostic failure must preserve the original test error. */ }
+		throw error;
 	} finally {
 		await context.close().catch(() => undefined);
 		await rm(directory, { recursive: true, force: true });
