@@ -37,7 +37,7 @@ for (const [fromWidth, toWidth, start, occupied, expected] of [
 	} } } };
 	await act(async () => { root.render(<RecordingInputSelectors controller={controller} recordingInputs={{
 		routes: capture.state.recordingRouting.routes, devices: [{ deviceId: 'mic', label: 'Interface', channelCount: 4, status: 'open' }],
-	}} track={track} copy={{ ...ENGLISH_COPY, ...TRACK_COPY_BY_LOCALE.en }} run={(operation: () => unknown) => operation()} />); });
+	}} track={track} displayAudioSupported={false} copy={{ ...ENGLISH_COPY, ...TRACK_COPY_BY_LOCALE.en }} run={(operation: () => unknown) => operation()} />); });
 	const width = dom.container.querySelectorAll('select')[1];
 	assert.ok(width);
 	await act(async () => { reactProps(width).onChange?.({ currentTarget: { value: String(toWidth) } }); });
