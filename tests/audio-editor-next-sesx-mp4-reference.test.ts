@@ -12,7 +12,7 @@ import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from '../src/common/editor/de
 import { registerDesktopReadCapability } from '../src/common/editor/desktop-read-capability-registry.ts';
 import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
 import { cloneSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import type { NativeSesxReadDescriptor } from '../src/common/editor/controller/document/native-project-types.ts';
+import type { NativeProjectFileService, NativeSesxReadDescriptor } from '../src/common/editor/controller/document/native-project-types.ts';
 import { aacLcM4a48_000Fixture } from './helpers/os-audio-codec-fixtures.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
 
@@ -82,7 +82,7 @@ for (const [extension, relocated] of [['m4a', false], ['mp4', false], ['mp4', tr
 					return new Blob([Uint8Array.from(await readFile(path))], { type: 'audio/mp4' }); }));
 				return consume(blobs);
 			},
-		};
+		} satisfies NativeProjectFileService;
 		const file = new File([xml], 'Session.sesx'); registerDesktopReadCapability(file, capability);
 		const opened = await createNativeProjectService({ ...fixture.runtime, fileService }).openSesx(file);
 		assert.ok(opened);
