@@ -6,18 +6,24 @@ import { BoundedTextInput } from './BoundedTextInput.tsx';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
 
-export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, hookName = 'clip-field', visuallyHiddenLabel = false, onCommit }) {
+export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
 	const editRevision = useRef(0);
+	const editedDraft = useRef(false);
+	const draftName = useRef(name);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	useEffect(() => {
 		editRevision.current++;
+		if (preserveEditedDraft && draftName.current === name && editedDraft.current) return;
+		draftName.current = name;
+		editedDraft.current = false;
 		setDraft(String(value ?? ''));
 		setError(false);
-	}, [name, value]);
+	}, [name, value, preserveEditedDraft]);
 	const commit = () => {
 		if (disabled || readOnly || !draftBlurShouldCommit(blurCommitGuard)) return;
+		editedDraft.current = false;
 		const revision = editRevision.current;
 		const resolve = (accepted) => {
 			if (editRevision.current === revision) setError(accepted === false);
@@ -44,6 +50,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 				cancelDraftEditOnEscape(blurCommitGuard, { currentTarget: event.target,
 					preventDefault: () => event.preventDefault(), stopPropagation: () => event.stopPropagation() }, () => {
 					editRevision.current++;
+					editedDraft.current = false;
 					setDraft(String(value ?? ''));
 					setError(false);
 				});
@@ -59,7 +66,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 				multiline={multiline}
 				disabled={disabled || readOnly}
 				error={error}
-				onChange={(next) => { editRevision.current++; setDraft(next); setError(false); }}
+				onChange={(next) => { editRevision.current++; editedDraft.current = true; setDraft(next); setError(false); }}
 				onBlur={commit}
 				width="100%"
 			/>
