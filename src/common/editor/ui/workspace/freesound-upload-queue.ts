@@ -13,6 +13,7 @@ import {
 	type FreesoundUploadLicenseAnalysis,
 	type FreesoundUploadSourceMetadata,
 } from '../../freesound-upload-metadata.ts';
+import { sanitizeSuggestedFileName } from '../../portable-save-file-name.ts';
 
 export type { FreesoundDescribeUploadRequest } from './freesound-auth-upload-client.ts';
 
@@ -208,9 +209,9 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 						update(record, { fileName: file.name, byteLength: file.size });
 					} else {
 						validatePreparedFile(file);
-						file = normalizeDirectUploadFile(file);
-						record.file = file;
 					}
+					file = normalizeDirectUploadFile(file);
+					record.file = file;
 					abort.signal.throwIfAborted();
 					update(record, { status: 'uploading', errorMessage: undefined });
 					const result = await runtime.upload(file, abort.signal);
@@ -396,16 +397,17 @@ function validatePreparedFile(file: File): void {
 	if (file.size > MAXIMUM_UPLOAD_BYTES) throw new RangeError(`${file.name} exceeds the 100 MB upload limit.`);
 }
 
-/** Supply the exact extension-derived MIME accepted by the authenticated upload proxy. */
+/** Supply a portable transfer filename and the proxy's extension-derived MIME. */
 function normalizeDirectUploadFile(file: File): File {
 	const extension = /\.([^.]+)$/u.exec(file.name)?.[1]?.toLocaleLowerCase('en-US') ?? '';
 	const type = FREESOUND_DIRECT_MIME_BY_EXTENSION[
 		extension as keyof typeof FREESOUND_DIRECT_MIME_BY_EXTENSION
 	];
 	if (!type) throw new TypeError('Prepared Freesound audio must be WAV, AIFF, FLAC, OGG, or MP3.');
-	return file.type.toLocaleLowerCase('en-US') === type
+	const name = sanitizeSuggestedFileName(file.name);
+	return file.name === name && file.type.toLocaleLowerCase('en-US') === type
 		? file
-		: new File([file], file.name, { type, lastModified: file.lastModified });
+		: new File([file], name, { type, lastModified: file.lastModified });
 }
 
 function assertQueueCapacity(current: number, addition: number): void {
