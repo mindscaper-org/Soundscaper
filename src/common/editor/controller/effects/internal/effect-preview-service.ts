@@ -126,6 +126,13 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			)
 		), 0);
 		if (estimatedPeakBytes > AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES) throw audacityEffectMemoryError(copy);
+		const cancelPreparing = () => {
+			if (state.audacityPreviewCancel !== cancelPreparing) return;
+			state.audacityPreviewCancel = null;
+			state.audacityEffectProcessing = false;
+			runtime.cancelSelectionWorkers?.();
+		};
+		state.audacityPreviewCancel = cancelPreparing;
 		state.audacityEffectProcessing = true;
 		setLocalizedStatus(setStatus, copy, (copy.audacityPreviewProcessing ? "audacityPreviewProcessing" : "audacityProcessing"));
 		publishDocumentSnapshot();
@@ -154,7 +161,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 				(fullChannelSets ?? previewChannelSets).flat(),
 			);
 			if (type === 'eq') {
-				return previewEqualizer(
+				return await previewEqualizer(
 					mixNyquistPreviewChannels(targets.map(({ offsetFrames }, index) => (
 						alignPreviewChannels(previewChannelSets[index], offsetFrames, previewFrameCount)
 					)), previewFrameCount),
@@ -241,8 +248,11 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			if ((error as Readonly<{ name?: string }>)?.name === 'AbortError') return false;
 			throw error;
 		} finally {
-			state.audacityEffectProcessing = false;
-			publishDocumentSnapshot();
+			if (state.audacityPreviewCancel === cancelPreparing) {
+				state.audacityPreviewCancel = null;
+				state.audacityEffectProcessing = false;
+				publishDocumentSnapshot();
+			}
 		}
 	};
 }

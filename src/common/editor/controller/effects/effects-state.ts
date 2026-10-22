@@ -64,6 +64,7 @@ export function createControllerEffectsState<EffectPresets>({
 		audacityPreviewSource: null,
 		audacityPreviewAuditionBandId: null,
 		audacityPreviewGeneration: 0,
+		audacityPreviewCancel: null,
 		lastAudacityEffect: null,
 		audacityEffectWorker: null,
 		nyquistAbort: null,

@@ -53,6 +53,7 @@ export interface EffectControlsState {
 	audacityPreviewSource: EffectControlPreviewSource | null;
 	audacityPreviewAuditionBandId: string | number | null;
 	audacityPreviewGeneration: number;
+	audacityPreviewCancel?: (() => void) | null;
 	audacityControlTrackId: string | null;
 	effectPresets: EffectPresetCollection;
 	effectPresetsReadOnly?: boolean;
@@ -314,6 +315,8 @@ export function createEffectControlsService(runtime: EffectControlsServiceRuntim
 
 	function cancelAudacityEffectPreview(options: Readonly<{ publish?: boolean }> = {}): boolean {
 		runtime.state.audacityPreviewGeneration += 1;
+		const cancelPreparing = runtime.state.audacityPreviewCancel;
+		cancelPreparing?.();
 		const source = runtime.state.audacityPreviewSource;
 		runtime.state.audacityPreviewSource = null;
 		runtime.state.audacityPreviewAuditionBandId = null;
@@ -329,7 +332,7 @@ export function createEffectControlsService(runtime: EffectControlsServiceRuntim
 			setLocalizedStatus(runtime.setStatus, runtime.copy, (runtime.copy.audacityPreviewCancelled ? "audacityPreviewCancelled" : "ready"));
 			runtime.publishDocumentSnapshot();
 		}
-		return Boolean(source);
+		return Boolean(source || cancelPreparing);
 	}
 
 	async function applyAudacityEffectFromController(request: ApplyEffectRequest = {}): Promise<unknown> {
