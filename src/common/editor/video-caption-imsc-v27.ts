@@ -504,7 +504,7 @@ function requiredAttribute(tag: SaxesTagNS, uri: string, local: string, name: st
 }
 
 function pair(value: string, name: string): readonly [number, number] {
-	const match = value.match(/^(\d+(?:\.\d+)?)% (\d+(?:\.\d+)?)%$/u);
+	const match = value.match(/^(\d+(?:\.\d+)?)%[ \t\r\n]+(\d+(?:\.\d+)?)%$/u);
 	if (!match) throw interchangeError(`${name} must contain two percentages.`, 'INVALID_CAPTION');
 	return [Number(match[1]), Number(match[2])];
 }
