@@ -152,6 +152,7 @@ export interface ProjectAdminServiceRuntime<
 		): Promise<unknown | null>;
 		duplicateProject(projectId: string, options: Readonly<{ title: string; confirmFileSizeWarning?: FileSizeWarningConfirmation; assertCurrent?: () => void }>): Awaitable<AdminProject>;
 		deleteProject(projectId: string): Awaitable<unknown>;
+		deleteProjectIfCurrent?(project: AdminProject): Awaitable<boolean>;
 		clear(): Awaitable<unknown>;
 		preservesProjectsOnClear?(): boolean;
 		pruneUnreferencedSources?(options: Readonly<{

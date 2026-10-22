@@ -209,7 +209,16 @@ export function createProjectAdminService<
 		const title = String(requestedTitle || `${project.title} ${publishedCopyFor(copy).projectCopySuffix}`).trim();
 		const duplicated = await store.duplicateProject(project.id, { title, confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 			assertCurrent: () => { if (getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError'); } });
-		await persistSetting(recordingRoutingSettingKey(duplicated.id), recordingRouting, { policy: 'required' });
+		try {
+			await persistSetting(recordingRoutingSettingKey(duplicated.id), recordingRouting, { policy: 'required' });
+		} catch (error) {
+			try {
+				if (!sessionTab(duplicated.id)) await store.deleteProjectIfCurrent?.(duplicated);
+			} catch (rollbackError) {
+				throw new AggregateError([error, rollbackError], 'Project duplication and its rollback both failed.', { cause: rollbackError });
+			}
+			throw error;
+		}
 		if (getProject() !== project) {
 			state.projects = Object.freeze(await store.listProjects());
 			publishDocumentSnapshot();
