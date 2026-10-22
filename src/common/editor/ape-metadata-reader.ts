@@ -98,9 +98,23 @@ function apeFooter(bytes: Uint8Array): Readonly<{ size: number; header: boolean 
 async function apeTagEnd(file: Blob, signal?: AbortSignal): Promise<number> {
 	if (file.size >= 160) {
 		const marker = await metadataBlobBytes(file, file.size - 128, file.size - 125, signal);
-		if (new TextDecoder().decode(marker) === 'TAG') return file.size - 128;
+		if (new TextDecoder().decode(marker) === 'TAG' && await isExternalWavPackTrailer(file, file.size - 128, signal)) return file.size - 128;
 	}
 	return file.size;
+}
+
+/** Wrapper bytes inside a WavPack block may contain any tag-looking prefix. */
+async function isExternalWavPackTrailer(file: Blob, position: number, signal?: AbortSignal): Promise<boolean> {
+	let offset = 0;
+	while (offset < position) {
+		const header = await metadataBlobBytes(file, offset, offset + 32, signal);
+		if (new TextDecoder().decode(header.subarray(0, 4)) !== 'wvpk') return true;
+		const size = new DataView(header.buffer).getUint32(4, true) + 8;
+		if (size < 32 || size > file.size - offset) return true;
+		offset += size;
+		if (offset > position) return false;
+	}
+	return true;
 }
 
 /** ID3v1 is an admitted WavPack trailer even when no APEv2 tag accompanies it. */
