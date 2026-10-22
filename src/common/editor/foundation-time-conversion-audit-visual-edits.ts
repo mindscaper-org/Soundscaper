@@ -8,10 +8,11 @@ export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTi
 	{
 		id: 'restored-native-visual-sequence-rate-conformance',
 		file: 'src/framescaper/editor-sequence-visual-rate-conformance.ts',
-		behavior: 'Detached native image, still and generator clips preserve absolute wall-clock placement across inherited sequence-rate changes by resolving both old sequence boundaries as nearest project samples, conforming each to the new sequence grid, and deriving extent from their difference while retaining native source phase and windows.',
+		behavior: 'Detached native image, still and generator clips preserve absolute wall-clock placement across inherited sequence-rate changes by resolving both old sequence boundaries as nearest project samples, conforming each to the new sequence grid, and deriving extent from their difference while retaining native source phase and windows. Explicit cross-sequence visual moves and Bin placement rebase coordinates directly between rational frame grids with nearest-point rounding before applying their existing source windows.',
 		conversions: [
 			{ helper: 'videoFrameToSampleFrame', policies: ['point'] },
 			{ helper: 'sampleFrameToVideoFrame', policies: ['point'] },
+			{ helper: 'roundRational', policies: ['point'] },
 		],
 	},
 	{

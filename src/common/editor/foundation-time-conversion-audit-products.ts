@@ -61,7 +61,7 @@ export const FOUNDATION_TIME_CONVERSION_PRODUCT_SITES: readonly FoundationTimeCo
 		id: 'framescaper-bin-visual-placement',
 		file: 'src/framescaper/editor-project-bin-visual-actions.ts',
 		behavior: 'Placing an owned visual bin leaf converts the requested exact sample position or current playhead once to the nearest destination sequence frame. Its duration is rebased directly from the donor sequence rational rate to the destination rational rate with nearest-point rounding, retaining at least one frame and the unchanged source span.',
-		conversions: [{ helper: 'sampleFrameToVideoFrame', policies: ['point'] }, { helper: 'roundRational', policies: ['point'] }],
+		conversions: [{ helper: 'sampleFrameToVideoFrame', policies: ['point'] }],
 	},
 	{
 		id: 'desktop-owned-audio-cut-source-bounds',

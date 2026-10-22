@@ -3,12 +3,13 @@
 import { createStableId } from '../common/editor/stable-id.js';
 import { fingerprintNativeMediaPlan } from '../common/editor/native-media-plan-canonical-form.ts';
 import { collectVisualPresetGeneratorSourceIds, normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
-import { sampleFrameToVideoFrame, roundRational } from '../common/editor/timeline-time.ts';
+import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import { resolveSequenceTimingView } from '../common/editor/sequence-timing-model.ts';
 import {
 	bindProductProjectBinActions, type ProductProjectBinActions,
 } from '../common/editor/controller/composition/project-bin-action-group.ts';
 import { createFramescaperImageBatchPlacementTimelineImage } from './editor-image-placement-timeline-image.ts';
+import { rebaseSequenceVisualFrame } from './editor-sequence-visual-rate-conformance.ts';
 import { createSplitVisualPresentationPlanner } from './editor-split-visual-presentations.ts';
 
 type Data = Readonly<Record<string, unknown>>;
@@ -133,10 +134,7 @@ export function createFramescaperProjectBinVisualActions(
 		if (!Number.isSafeInteger(sample) || sample < 0) throw new RangeError('Bin placement needs a non-negative exact playhead sample.');
 		const start = sampleFrameToVideoFrame(sample, sequence.rate, Number(project.sampleRate), 'point');
 		const origin = resolveSequenceTimingView(project, String(clip.sequenceId));
-		const duration = Math.max(1, roundRational(
-			BigInt(Number(clip.sequenceFrameCount)) * BigInt(origin.rate.den) * BigInt(sequence.rate.num),
-			BigInt(origin.rate.num) * BigInt(sequence.rate.den), 'point',
-		));
+		const duration = Math.max(1, rebaseSequenceVisualFrame(Number(clip.sequenceFrameCount), origin.rate, sequence.rate));
 		const targetProject = placement.trackId ? { ...project,
 			selection: { ...data(project.selection), trackIds: [placement.trackId] } } : project;
 		const target = createFramescaperImageBatchPlacementTimelineImage(targetProject, {
