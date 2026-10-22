@@ -312,19 +312,15 @@ test('connected original imports retain an explicit HQ preview choice after a pr
 	}
 });
 
-class MockAudio {
+class MockAudio extends EventTarget {
 	src: string;
 	preload = '';
 	currentTime = 0;
 	playCount = 0;
 	pauseCount = 0;
 	loadCount = 0;
-	readonly listeners = new Map<string, Array<() => void>>();
-	constructor(source = '') { this.src = source; }
-	addEventListener(type: string, listener: () => void): void {
-		this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
-	}
-	emit(type: string): void { for (const listener of this.listeners.get(type) ?? []) listener(); }
+	constructor(source = '') { super(); this.src = source; }
+	emit(type: string): void { this.dispatchEvent(new Event(type)); }
 	play(): Promise<void> { this.playCount += 1; return Promise.resolve(); }
 	pause(): void { this.pauseCount += 1; }
 	load(): void { this.loadCount += 1; }

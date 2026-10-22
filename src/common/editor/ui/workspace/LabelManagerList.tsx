@@ -28,6 +28,7 @@ interface Props {
 interface Removal {
 	readonly control: HTMLElement;
 	readonly id: string;
+	readonly trackId: string;
 	readonly index: number;
 	readonly projectId: unknown;
 }
@@ -40,7 +41,7 @@ export default function LabelManagerList({ projectId, labels, sampleRate, copy, 
 		const request = removal.current;
 		if (!request) return;
 		if (!Object.is(request.projectId, projectId)) { removal.current = null; return; }
-		if (disabled || labels.some(label => label.id === request.id)) return;
+		if (disabled || labels.some(label => label.id === request.id && label.trackId === request.trackId)) return;
 		removal.current = null;
 		const document = request.control.ownerDocument;
 		if (document.activeElement !== request.control && document.activeElement !== document.body) return;
@@ -52,10 +53,10 @@ export default function LabelManagerList({ projectId, labels, sampleRate, copy, 
 			<Button ref={add} variant="secondary" disabled={disabled} onClick={onAdd}>{copy.newLabel || copy.addLabelTrack}</Button>
 		</div>
 		{labels.length ? <ul ref={list} className="kw-audio-editor__panel-list kw-audio-editor__label-manager" data-labels-panel-list>
-			{labels.map((label, index) => <LabelManagerRow key={label.id} label={label} sampleRate={sampleRate}
+			{labels.map((label, index) => <LabelManagerRow key={JSON.stringify([label.trackId, label.id])} label={label} sampleRate={sampleRate}
 				controller={controller} copy={copy} disabled={disabled} run={run}
 				onRemoving={(control) => { removal.current = control.ownerDocument.activeElement === control
-					? { control, id: label.id, index, projectId } : null; }} />)}
+					? { control, id: label.id, trackId: label.trackId, index, projectId } : null; }} />)}
 		</ul> : <p className="kw-audio-editor__panel-empty">{copy.labelsEmpty}</p>}
 	</>;
 }

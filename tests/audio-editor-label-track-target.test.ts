@@ -44,7 +44,7 @@ test('a project without a label track still gets one for its first label', () =>
 	const service = labelServiceFixture(['audio'], 'audio');
 
 	assert.equal(service.addLabel(), 'label-2');
-	assert.deepEqual(service.commands(), ['track/add', 'label/add']);
+	assert.deepEqual(service.commands(), ['batch']);
 	assert.equal(service.lastLabelTrackId(), 'label-track-1');
 });
 
@@ -81,7 +81,7 @@ test('adding during playback or recording labels the live cursor instead of an o
 	}
 	const firstRecordingLabel = labelServiceFixture(['audio'], 'audio', null, 'recording');
 	assert.equal(firstRecordingLabel.addLabel(), 'label-2');
-	assert.deepEqual(firstRecordingLabel.commands(), ['track/add', 'label/add']);
+	assert.deepEqual(firstRecordingLabel.commands(), ['batch']);
 });
 
 interface LabelServiceFixture {
@@ -117,10 +117,11 @@ function labelServiceFixture(
 		createId: (prefix) => `${prefix}-${++sequence}`,
 		commit: (command) => {
 			commits.push(command);
-			if (command.type === 'track/add') {
+			for (const child of command.type === 'batch' ? command.commands : [command]) {
+				if (child.type !== 'track/add') continue;
 				project = {
 					...project,
-					tracks: [...project.tracks, command.track as unknown as ControllerTrack],
+					tracks: [...project.tracks, child.track as unknown as ControllerTrack],
 				};
 			}
 			return command;
@@ -136,11 +137,13 @@ function labelServiceFixture(
 		addLabel: (trackId = null, options = {}) => service.addLabel(trackId, options),
 		commands: () => commits.map((command) => command.type),
 		lastLabelTrackId: () => {
-			const added = commits.filter((command) => command.type === 'label/add').at(-1);
+			const added = commits.flatMap(command => command.type === 'batch' ? command.commands : [command])
+				.filter((command) => command.type === 'label/add').at(-1);
 			return added ? String((added as unknown as { trackId: string }).trackId) : null;
 		},
 		lastLabelRange: () => {
-			const added = commits.filter((command) => command.type === 'label/add').at(-1);
+			const added = commits.flatMap(command => command.type === 'batch' ? command.commands : [command])
+				.filter((command) => command.type === 'label/add').at(-1);
 			const label = (added as unknown as { label: { startFrame: number; endFrame: number } } | undefined)?.label;
 			return label ? [label.startFrame, label.endFrame] : null;
 		},

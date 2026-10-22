@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { inspectEncodedAudioSampleRate } from '../../audio-file-metadata.js';
+import { claimImportBusyState } from '../shared/import-busy-state.ts';
 import { createAddClipCommand, createAddSourceCommand, createAddTrackCommand } from '../../commands.js';
 import { isAudioEditorEngineSupported } from '../../engine.js';
 import { createStableId, findTrack } from '../../project.js';
@@ -206,6 +207,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		captureActiveDocument: dependencies.captureActiveDocument,
 		restoreActiveDocument: dependencies.restoreActiveDocument,
 		setImporting: (importing) => { state.importing = importing; },
+		claimImporting: () => claimImportBusyState(state),
 		importProjectBinFile: async (file, { signal }) => {
 			throwIfAborted(signal);
 			const result = await projectImport.importFile(file, projectImport.normalizeImportOptions({ destination: 'project-bin' }));
@@ -242,6 +244,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 			getProject: dependencies.getProject, captureProject, assertProject,
 			editingBlocked: dependencies.editingBlocked,
 			setImporting: importing => { state.importing = importing; },
+			claimImporting: () => claimImportBusyState(state),
 			createId: createStableId, commit: dependencies.commit,
 			prepareAudioSource: createClipSpreadsheetSourcePreparer(projectImportRuntime),
 			retireSourceChunkProvider: dependencies.retireSourceChunkProvider,

@@ -46,6 +46,7 @@ export function createProjectSessionService<
 	dependencies: ProjectSessionServiceDependencies<Project, Tab>,
 ) {
 	const projectSelection = createProjectSessionSelectionService(dependencies);
+	let recentWrites = Promise.resolve();
 	return Object.freeze({
 		sessionTab,
 		persistActiveSessionUiState,
@@ -121,20 +122,28 @@ export function createProjectSessionService<
 			...dependencies.getRecentProjectIds().filter((candidate) => candidate !== projectId),
 		].slice(0, 20);
 		dependencies.setRecentProjectIds(recentProjectIds);
-		await guard(dependencies.persistSetting(dependencies.recentProjectsSettingKey, recentProjectIds));
-		if (dependencies.productId === 'soundscaper') {
-			await guard(dependencies.persistSetting('audio-editor-recent-project-ids', recentProjectIds));
-		}
+		await persistRecentProjects(recentProjectIds, guard);
 		return recentProjectIds;
+	}
+
+	function persistRecentProjects(ids: readonly string[], guard?: ProjectSessionGuard): Promise<void> {
+		const operation = recentWrites.then(async () => {
+			if (guard) await guard(undefined);
+			const write = dependencies.persistSetting(dependencies.recentProjectsSettingKey, ids);
+			await (guard ? guard(write) : write);
+			if (dependencies.productId === 'soundscaper') {
+				const legacyWrite = dependencies.persistSetting('audio-editor-recent-project-ids', ids);
+				await (guard ? guard(legacyWrite) : legacyWrite);
+			}
+		});
+		recentWrites = operation.catch(() => undefined);
+		return operation;
 	}
 
 	async function clearRecentProjects(): Promise<string[]> {
 		const recentProjectIds: string[] = [];
 		dependencies.setRecentProjectIds(recentProjectIds);
-		await dependencies.persistSetting(dependencies.recentProjectsSettingKey, recentProjectIds);
-		if (dependencies.productId === 'soundscaper') {
-			await dependencies.persistSetting('audio-editor-recent-project-ids', recentProjectIds);
-		}
+		await persistRecentProjects(recentProjectIds);
 		dependencies.publish();
 		return recentProjectIds;
 	}

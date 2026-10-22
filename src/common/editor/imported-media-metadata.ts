@@ -81,9 +81,10 @@ export async function inspectImportedMediaMetadata(
 	try {
 		const aiff = options.readTags ? null : await inspectAiffMetadata(file, options.signal);
 		options.signal?.throwIfAborted();
-		const tags = await correctImportedRiffMetadata(file, aiff?.tags ?? await (options.readTags ?? readImportedMetadataTags)(file, options.signal), options.signal);
+		const warnings = [...aiff?.warnings ?? []];
+		const tags = await correctImportedRiffMetadata(file, aiff?.tags ?? await (options.readTags ?? readImportedMetadataTags)(file, options.signal), options.signal, (warning) => { if (warnings.length < MAXIMUM_METADATA_WARNINGS) warnings.push(warning); });
 		options.signal?.throwIfAborted();
-		const inspected = await canonicalizeImportedMediaMetadata(tags, aiff?.namespaces, aiff?.warnings);
+		const inspected = await canonicalizeImportedMediaMetadata(tags, aiff?.namespaces, warnings);
 		options.signal?.throwIfAborted();
 		return inspected;
 	} catch (error) {

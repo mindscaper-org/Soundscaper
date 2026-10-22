@@ -111,12 +111,6 @@ const FOUNDATION_TIME_CONVERSION_EDITOR_SITES: readonly FoundationTimeConversion
 		],
 	},
 	{
-		id: 'desktop-original-source-bitrate',
-		file: 'src/common/editor/desktop-original-export-settings.ts',
-		behavior: 'Remembered compressed export settings derive source duration exactly from decoded sample frames and their own sample rate before estimating the original bitrate.',
-		conversions: [{ helper: 'sampleFrameToSeconds', policies: ['exact'] }],
-	},
-	{
 		id: 'clip-warp-rate-stretch-anchor',
 		file: 'src/common/editor/audio-warp-rate-stretch.ts',
 		behavior: 'Changing a warped clip playback rate preserves source samples and exactly recovers the musical origin when grouped stretching moves its timeline anchor.',

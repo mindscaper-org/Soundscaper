@@ -19,6 +19,7 @@ export interface StoredProjectOpenRuntime<Project extends StoredProject> {
 	readonly state: Readonly<{
 		readonly recentProjectIds: readonly string[];
 		readonly projects: readonly Readonly<{ readonly id: string }>[];
+		readonly projectQueue?: Promise<void>;
 	}>;
 	readonly store: Readonly<{ loadProject(projectId: string): Promise<Project | null> }>;
 	sessionTab(projectId: string): StoredProjectTab<Project> | null;
@@ -37,12 +38,13 @@ export function createStoredProjectOpenActions<Project extends StoredProject>(
 		options: StoredProjectOpenOptions = {},
 	): Promise<unknown> {
 		const generation = ++requestGeneration;
+		const activationQueue = runtime.state.projectQueue;
 		const openTab = runtime.sessionTab(projectId);
 		if (openTab) return options.adoptSessionRevision === true
 			? runtime.switchProject(openTab.history.present, { adoptSessionRevision: true })
 			: runtime.switchProject(openTab.history.present);
 		const saved = await runtime.store.loadProject(projectId);
-		if (generation !== requestGeneration) return null;
+		if (generation !== requestGeneration || activationQueue !== runtime.state.projectQueue) return null;
 		if (!saved) throw createLocalizedError(Error, runtime.copy, 'projectNotFound');
 		return runtime.openProject(saved);
 	}

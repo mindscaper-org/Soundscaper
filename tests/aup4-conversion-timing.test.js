@@ -231,7 +231,7 @@ test('AUP4 export preserves imported group numbers and deterministically avoids 
 	assert.equal(new Set(Object.values(expected)).size, groupIds.length);
 });
 
-test('AUP4 conversion preserves source offsets and stretched timing with Audacity 4 linear envelopes', async () => {
+test('AUP4 conversion preserves source offsets and stretched timing with Audacity exponential envelopes', async () => {
 	const source = createAudioSource({
 		id: 'source-rate', storageKey: 'source-rate', name: 'Rate source', frameCount: 1_000,
 		channelCount: 1, sampleRate: 24_000, originalSampleRate: 24_000,
@@ -264,11 +264,10 @@ test('AUP4 conversion preserves source offsets and stretched timing with Audacit
 	assert.equal(audacityXmlAttribute(waveClip, 'rawAudioTempo'), 120);
 	assert.equal(audacityXmlAttribute(waveClip, 'trimLeft'), 0.005);
 	assert.equal(audacityXmlAttribute(waveClip, 'offset'), 0.095);
-	assert.deepEqual(
-		audacityXmlChildren(audacityXmlChildren(waveClip, 'envelope')[0], 'controlpoint')
-			.map((point) => audacityXmlAttribute(point, 't')),
-		[0.005, 0.015],
-	);
+	const nativeEnvelopeTimes = audacityXmlChildren(audacityXmlChildren(waveClip, 'envelope')[0], 'controlpoint')
+		.map((point) => audacityXmlAttribute(point, 't'));
+	assert.equal(nativeEnvelopeTimes[0], 0.005);
+	assert.equal(nativeEnvelopeTimes.at(-1), 0.015);
 
 	let id = 0;
 	const decoded = await decodeAup4ProjectTree(tree, async () => sampleBlock, {
@@ -278,27 +277,27 @@ test('AUP4 conversion preserves source offsets and stretched timing with Audacit
 	assert.equal(decoded.project.clips[0].sourceDurationFrames, 400);
 	assert.equal(decoded.project.clips[0].timelineStartFrame, 4_800);
 	assert.equal(decoded.project.clips[0].durationFrames, 960);
-	assert.deepEqual(decoded.project.clips[0].envelope, [
-		{ frame: 0, value: 1 },
-		{ frame: 480, value: 0.5 },
-	]);
+	const decodedEnvelope = decoded.project.clips[0].envelope;
+	assert.equal(decodedEnvelope[0].value, 1);
+	assert.equal(decodedEnvelope.at(-1).value, 0.5);
+	for (const point of decodedEnvelope) assert.ok(Math.abs(point.value - (1 - Math.min(480, point.frame) / 960)) < 1e-4);
 	assert.equal(decoded.project.sources[0].channelCount, 1);
 	assert.equal(decoded.project.sources[0].sampleRate, 24_000);
 	assert.equal(Object.hasOwn(decoded.project.tracks[0], 'sampleRate'), false);
 
 	const linearTree = structuredClone(tree);
 	const linearClip = audacityXmlChildren(audacityXmlChildren(linearTree, 'wavetrack')[0], 'waveclip')[0];
-	const linearPoints = audacityXmlChildren(audacityXmlChildren(linearClip, 'envelope')[0], 'controlpoint');
-	audacityXmlAttributes(linearPoints[0], 't')[0].value = 0;
-	audacityXmlAttributes(linearPoints[0], 'val')[0].value = 0;
-	audacityXmlAttributes(linearPoints[1], 't')[0].value = 0.01;
-	audacityXmlAttributes(linearPoints[1], 'val')[0].value = 1;
+	const editedEnvelope = audacityXmlChildren(linearClip, 'envelope')[0];
+	editedEnvelope.content = [0, 1].map((index) => ({ kind: 'node', node: createAudacityXmlNode('controlpoint', [
+		{ kind: 'attribute', name: 't', type: 'double', value: index * 0.01 },
+		{ kind: 'attribute', name: 'val', type: 'double', value: index ? 1 : 0.25 },
+	]) }));
 	id = 0;
 	const linear = await decodeAup4ProjectTree(linearTree, async () => sampleBlock, {
 		idFactory: (prefix) => `${prefix}-${++id}`,
 	});
 	assert.equal(linear.project.clips[0].envelope[0].frame, 0);
-	assert.equal(linear.project.clips[0].envelope[0].value, 0.5);
+	assert.ok(Math.abs(linear.project.clips[0].envelope[0].value - 0.5) < 1e-10);
 });
 
 test('AUP4 conversion applies inherited project tempo before trims and envelopes', async () => {
@@ -350,9 +349,9 @@ test('AUP4 conversion applies inherited project tempo before trims and envelopes
 	assert.equal(clip.sourceDurationFrames, 32_000);
 	assert.equal(clip.timelineStartFrame, 9_600);
 	assert.equal(clip.durationFrames, 48_000);
-	assert.equal(clip.envelope.length, 2);
-	assert.ok(Math.abs(clip.envelope[0].value - 0.6909090909090909) < 1e-12);
-	assert.deepEqual(clip.envelope[1], { frame: 43_200, value: 0.2 });
+	assert.ok(clip.envelope.length > 2);
+	assert.ok(Math.abs(clip.envelope[0].value - 0.8 * 0.25 ** (0.2 / 1.1)) < 1e-12);
+	assert.deepEqual(clip.envelope.at(-1), { frame: 43_200, value: 0.2 });
 
 	const exported = createAup4ProjectTree(decoded.project, new Map([[
 		`${clip.sourceId}:0`,

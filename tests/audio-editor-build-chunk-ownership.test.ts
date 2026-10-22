@@ -537,13 +537,11 @@ test('an extracted live-capability helper is owned with the contracts that use i
 	);
 });
 
-test('Reverb parameters and tail estimates share the eager effect contract owner', () => {
-	assert.equal(
-		chunkGroupForModulePath('src/common/editor/audacity-effects/reverb-parameters.ts'),
-		'editor-effect-contracts',
-	);
-	assert.equal(
-		chunkGroupForModulePath('src/common/editor/audacity-effects/reverb-live-processor.ts'),
-		'editor-optional-execution',
-	);
+test('Reverb and Noise Reduction geometry share the eager effect contract owner', () => {
+	for (const name of ['reverb-parameters', 'noise-reduction-clock']) {
+		assert.equal(chunkGroupForModulePath(`src/common/editor/audacity-effects/${name}.ts`), 'editor-effect-contracts', name);
+	}
+	for (const name of ['reverb-live-processor', 'rate-converted-noise-reduction']) {
+		assert.equal(chunkGroupForModulePath(`src/common/editor/audacity-effects/${name}.ts`), 'editor-optional-execution', name);
+	}
 });

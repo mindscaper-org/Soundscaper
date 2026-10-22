@@ -57,6 +57,7 @@ export function createMixRenderSnapshotV21(
 	const renderTrackIds = new Set([...targetIds, ...unselectedControlTrackIds]);
 	narrowMedia(snapshot, targetIds, renderTrackIds, renderEffects);
 	if (!includeDownstream) {
+		snapshot.metadata = { ...dataRecord(snapshot.metadata, 'individual mix metadata'), adm: null };
 		isolateIndividualGraph(snapshot, graph, targetTracks, autoDuck, renderEffects);
 		return reconcileMixRenderRequirementsV21(snapshot);
 	}

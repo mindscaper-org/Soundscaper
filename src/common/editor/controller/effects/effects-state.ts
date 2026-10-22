@@ -64,6 +64,7 @@ export function createControllerEffectsState<EffectPresets>({
 		audacityPreviewSource: null,
 		audacityPreviewAuditionBandId: null,
 		audacityPreviewGeneration: 0,
+		audacityPreviewCancel: null,
 		lastAudacityEffect: null,
 		audacityEffectWorker: null,
 		nyquistAbort: null,
@@ -84,6 +85,7 @@ export function createControllerEffectsStatePorts<EffectPresets>(
 			beginSwitch: () => {
 				state.rackEffectGestures.clear();
 				state.parametricEqGestures.clear();
+				if (state.nyquistAbort) state.audacityEffectProcessing = false;
 				state.nyquistAbort = null;
 			},
 			resetScope: () => {
@@ -92,6 +94,14 @@ export function createControllerEffectsStatePorts<EffectPresets>(
 			},
 		}),
 		bootstrap: Object.freeze({
+			resetLibraries: (effectPresets: EffectPresets) => {
+				state.effectPresets = effectPresets;
+				state.effectPresetsReadOnly = false;
+				state.effectMacros = createInitialEffectMacroLibrary();
+				state.effectMacrosReadOnly = false;
+				state.macroScripts = createInitialMacroScriptLibrary();
+				state.macroScriptsReadOnly = false;
+			},
 			setEffectPresets: (value: EffectPresets, readOnly = false) => {
 				state.effectPresets = value;
 				state.effectPresetsReadOnly = readOnly;

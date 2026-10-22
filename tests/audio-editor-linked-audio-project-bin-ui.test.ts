@@ -38,19 +38,23 @@ test('the Project Bin resolves placement at click time without subscribing the p
 
 test('a project change retires a destructive Project Bin confirmation', async () => {
 	const source = await readFile(PANEL_URL, 'utf8');
-	const projectEffect = /useEffect\(\(\) => \{([\s\S]*?)\n\t\}, \[fileService, projectId, projectRevision, run\]\);/u.exec(source);
+	const projectEffect = /useEffect\(\(\) => \{([\s\S]*?)\n\t\}, \[fileService, projectId, projectRevision, projectSession, run\]\);/u.exec(source);
 	assert.ok(projectEffect, 'the project-identity effect is present');
 	assert.match(projectEffect[1]!, /setRemoveConfirmation\(null\)/u);
 });
 
 test('the linked-WAV Project Bin action forwards only the chosen File and opaque locator snapshot', async () => {
-	const source = await readFile(PANEL_URL, 'utf8');
-	const importAction = source.slice(source.indexOf('const chooseLinkedAudio'), source.indexOf('const relinkLinkedAudio'));
-
-	assert.match(source, /const chooseLinkedAudio = \(\) => run\(async \(\) => \{\s*if \(mutationBlocked\) return;\s*const choice = await fileService\.chooseLinkedAudioOriginal\(\)/u);
-	assert.match(source, /if \(!choice\) return;[\s\S]*controller\.actions\.project\.importFiles\(\[choice\.file\], \{[\s\S]*destination: 'project-bin',[\s\S]*linkedAudioLocatorId: choice\.locatorId,[\s\S]*linkedAudioLocatorRevision: choice\.locatorRevision,[\s\S]*\}\)/u);
-	assert.doesNotMatch(importAction, /releaseLinkedAudioOriginal/u);
-	assert.doesNotMatch(source, /choice\.(?:name|path|mimeType|size)/u);
+	const [source, handoff] = await Promise.all([
+		readFile(PANEL_URL, 'utf8'),
+		readFile(new URL('../src/common/editor/ui/workspace/linked-project-bin-import.ts', import.meta.url), 'utf8'),
+	]);
+	assert.match(source, /const chooseLinkedMedia = \(kind\) => run\(async \(\) => \{\s*if \(mutationBlocked\) return;/u);
+	assert.match(source, /const chooseLinkedAudio = \(\) => chooseLinkedMedia\('audio'\)/u);
+	assert.match(source, /importLinkedProjectBinChoice\(\{[\s\S]*chooseLinkedAudioOriginal\(\)[\s\S]*importFiles\(\[file\], options\)/u);
+	assert.match(handoff, /destination: 'project-bin'/u);
+	assert.match(handoff, /'linkedAudioLocatorId'[\s\S]*reference.locatorId/u);
+	assert.match(handoff, /'linkedAudioLocatorRevision'[\s\S]*reference.locatorRevision/u);
+	assert.doesNotMatch(handoff, /choice\.(?:name|path|mimeType|size)/u);
 });
 
 test('a binding-backed Project Bin audio member exposes exact-content relink without trusting missing-source state', async () => {
@@ -62,7 +66,7 @@ test('a binding-backed Project Bin audio member exposes exact-content relink wit
 	assert.match(source, /const audioClip = item\.clips\.find\(\(clip\) => clip\.kind === 'audio' \|\| clip\.kind == null\) \|\| null;/u);
 	assert.match(source, /controller\.actions\.projectBin\.canRelinkLinkedAudio\(audioClip\.id\)/u);
 	assert.match(source, /const closeItemMenu = \(\) => \{\s*linkedAudioRelinkRequestRef\.current \+= 1;\s*setItemMenu\(null\);/u);
-	assert.match(source, /useEffect\(\(\) => \{\s*linkedAudioRelinkRequestRef\.current \+= 1;\s*setItemMenu\(null\);[\s\S]*\}, \[fileService, projectId, projectRevision, run\]\);/u);
+	assert.match(source, /useEffect\(\(\) => \{\s*linkedAudioRelinkRequestRef\.current \+= 1;\s*setItemMenu\(null\);[\s\S]*\}, \[fileService, projectId, projectRevision, projectSession, run\]\);/u);
 	assert.match(source, /linkedAudioRelinkProjectRef\.current === relinkScope/u);
 	assert.match(source, /requestId !== linkedAudioRelinkRequestRef\.current/u);
 	assert.match(source, /current\.itemId === item\.id[\s\S]*current\.projectId === requestedProjectId[\s\S]*current\.projectRevision === requestedProjectRevision/u);

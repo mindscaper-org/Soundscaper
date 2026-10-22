@@ -107,7 +107,7 @@ export default function ParameterNumber({
 				.replace('{minimum}', String(range?.[0] ?? '−∞'))
 				.replace('{maximum}', String(range?.[1] ?? '∞')));
 		}
-		onCommit(next);
+		return onCommit(next);
 	};
 	const changeSlider = (next) => {
 		const snapped = next !== defaultValue && knobStep > 0

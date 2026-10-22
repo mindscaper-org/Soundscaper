@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { cloneProject } from '../../project.js';
+import { exportSequenceProject } from '../../export-sequence-project.ts';
+import type { ProjectFeatureAudioRenderedFallbackMetadata } from '../../project-feature-audio-rendered-fallback.ts';
+import type { ProjectFeatureVideoRenderedFallbackMetadata } from '../../project-feature-video-rendered-fallback.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
 	projectTrackFolderMediaStateV12,
@@ -23,10 +26,23 @@ import {
  * copy of a projection of it, so it is cloned structurally and its projection
  * trust is carried across rather than re-derived.
  */
-export function createExportRenderProject<Project extends object>(project: Project): Project {
+export function createExportRenderProject<Project extends object>(project: Project, replacementTrackIds: readonly string[] = []): Project {
 	const mediaProject = projectTrackFolderMediaStateV12(project);
 	return inheritTrackFolderMediaStateProjectionV12(
 		mediaProject,
-		cloneProject(mediaProject as Parameters<typeof cloneProject>[0]) as Project,
+		exportSequenceProject(cloneProject(mediaProject as Parameters<typeof cloneProject>[0]) as Project, undefined, replacementTrackIds),
 	);
+}
+
+/** Validated delivery projections may replace native tracks with these private render owners. */
+export function exportReplacementTrackIds(delivery: Readonly<{
+	readonly audioRenderedFallback?: ProjectFeatureAudioRenderedFallbackMetadata | null;
+	readonly videoRenderedFallback?: ProjectFeatureVideoRenderedFallbackMetadata | null;
+}>): readonly string[] {
+	const audio = delivery.audioRenderedFallback;
+	const video = delivery.videoRenderedFallback;
+	return Object.freeze([
+		...(audio?.role === 'project-audio-mix-v1' ? [audio.trackId] : []),
+		...(video?.role === 'project-video-render-v1' ? [video.trackId] : []),
+	]);
 }

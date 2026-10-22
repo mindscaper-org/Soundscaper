@@ -9,17 +9,15 @@ import {
 	projectHasAuthoredAudioWarp,
 } from './audio-warp-fallback.ts';
 import {
-	assertPlayAtSpeedStaffPadMemorySafe,
-	audioBufferChannels,
 	clamp,
 	clampFrame,
 	DEFAULT_SAMPLE_RATE,
 	normalizeLoop,
 	normalizePlayAtSpeedRate,
 	normalizePlayRange,
-	normalizePreparedSpeedPlayback,
 	positiveInteger,
 } from './buffer-math.ts';
+import { assertPreparedSpeedMemorySafe, prepareSpeedRender } from './prepared-speed-render.ts';
 import {
 	scheduleProjectClips,
 } from './clip-scheduler.ts';
@@ -102,9 +100,9 @@ async play() {
 			if (isPlaybackLoopEnabled(this) && (this.positionFrame < this.loop.startFrame || this.positionFrame >= this.loop.endFrame)) this.positionFrame = this.loop.startFrame;
 			if (projectHasAuthoredAudioWarp(this.project)
 				&& this.getAudioWarpRenderStatus().path === 'exact-offline') {
-				// Bounded exact windows exist over authored content only, never over
-				// the silent extended editor timeline.
-				if (this.positionFrame >= this.durationFrames) this.positionFrame = 0;
+				// A normal exact run ends at authored content; an explicit loop may
+				// also include selected silence from the extended editor timeline.
+				if (this.positionFrame >= this.durationFrames && !isPlaybackLoopEnabled(this)) this.positionFrame = 0;
 				await prepareExactAudioWarpPlayback(
 					this,
 					this.positionFrame,
@@ -163,11 +161,7 @@ async playAtSpeed(rate, {
 			if (isPlaybackLoopEnabled(this) && (this.positionFrame < this.loop.startFrame || this.positionFrame >= this.loop.endFrame)) {
 				this.positionFrame = this.loop.startFrame;
 			}
-			if (preservePitch) assertPlayAtSpeedStaffPadMemorySafe(
-				this.durationFrames,
-				this.sampleRate,
-				normalizedRate,
-			);
+			if (preservePitch) assertPreparedSpeedMemorySafe(this, normalizedRate);
 			this.playbackRate = normalizedRate;
 			if (!preservePitch) {
 				this.playbackMode = 'naive';
@@ -186,29 +180,8 @@ async playAtSpeed(rate, {
 			if (typeof pitchPreserver !== 'function') {
 				throw new TypeError('Pitch-preserving playback requires a StaffPad renderer.');
 			}
-			if (this.preparedSpeedPlayback?.playbackRate !== normalizedRate) {
-				const renderedProject = this.project;
-				const rendered = await this.renderMix({
-					startFrame: 0,
-					endFrame: this.durationFrames,
-					includeTail: false,
-					signal,
-					onProgress,
-				});
-				throwIfAborted(signal);
-				assertPlaybackRequestCurrent(this, generation);
-				const channels = audioBufferChannels(rendered);
-				const processed = await pitchPreserver(channels, this.sampleRate, normalizedRate, { signal, onProgress });
-				throwIfAborted(signal);
-				assertPlaybackRequestCurrent(this, generation);
-				if (this.project !== renderedProject) throw createAbortError();
-				this.preparedSpeedPlayback = normalizePreparedSpeedPlayback(
-					processed,
-					this.sampleRate,
-					this.durationFrames,
-					normalizedRate,
-				);
-			}
+			await prepareSpeedRender(this, normalizedRate, pitchPreserver, signal, onProgress,
+				() => assertPlaybackRequestCurrent(this, generation));
 			this.playbackMode = 'staffpad';
 			const context = await this.getAudioContext();
 			throwIfAborted(signal);
@@ -237,11 +210,11 @@ async playAt(this: EngineRuntimeHost, contextTime, fromFrame = this.positionFram
 		assertPlaybackRequestCurrent(this, generation);
 		if (projectHasAuthoredAudioWarp(this.project)
 			&& this.getAudioWarpRenderStatus().path === 'exact-offline') {
-			let scheduledFrame = clampFrame(fromFrame, 0, this.durationFrames);
+			let scheduledFrame = clampFrame(fromFrame, 0, isPlaybackLoopEnabled(this) ? this.playbackDurationFrames : this.durationFrames);
 			if (isPlaybackLoopEnabled(this) && (scheduledFrame < this.loop.startFrame || scheduledFrame >= this.loop.endFrame)) {
 				scheduledFrame = this.loop.startFrame;
 			}
-			if (scheduledFrame >= this.durationFrames) {
+			if (scheduledFrame >= this.durationFrames && !isPlaybackLoopEnabled(this)) {
 				return Math.max(context.currentTime, Number(contextTime) || context.currentTime);
 			}
 			await prepareExactAudioWarpPlayback(
@@ -437,7 +410,7 @@ setLoop(loopOrEnabled, startFrame, endFrame) {
 		const value = typeof loopOrEnabled === 'object'
 			? loopOrEnabled
 			: { enabled: loopOrEnabled, startFrame, endFrame };
-		this.loop = normalizeLoop(value, this.durationFrames);
+		this.loop = normalizeLoop(value, this.playbackDurationFrames, this.durationFrames);
 		if (this.state === 'playing') {
 			const position = this.getPositionFrames();
 			if (isPlaybackLoopEnabled(this) && (position < this.loop.startFrame || position >= this.loop.endFrame)) {
@@ -480,12 +453,13 @@ getPositionFrames() {
 		return clampFrame(this.playbackStartFrame + elapsedFrames, 0, this.playEndFrame);
 	},
 getState() {
+		const cutPreview = isCutPreviewActive(this) || isCutPreviewPaused(this);
 		return {
 			state: this.state,
-			cutPreview: isCutPreviewActive(this) || isCutPreviewPaused(this),
+			cutPreview,
 			positionFrame: this.getPositionFrames(),
 			durationFrames: this.durationFrames,
-			loop: { ...this.loop, enabled: isPlaybackLoopEnabled(this) },
+			loop: { ...this.loop, enabled: isPlaybackLoopEnabled(this) && !cutPreview },
 			playbackRate: this.playbackRate,
 			playbackMode: this.playbackMode,
 		};

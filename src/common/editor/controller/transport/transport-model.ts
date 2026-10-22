@@ -100,8 +100,13 @@ export function calculateAudioEditorMetronomeSchedule({
 	const detailedSchedule = tempoMap != null || signatureMap != null || timeSignature != null;
 	const normalizedTempoMap = holdTempoMap(tempoMap, bpm);
 	const signatureGrid = normalizedSignatureGrid(signatureMap, timeSignature);
-	const positionBeat = sampleFrameToBeat(normalizedPosition, normalizedTempoMap, normalizedSampleRate);
-	const pulse = pulseAtOrAfter(positionBeat, signatureGrid);
+	// A pulse rounded upward to this sample is still due now. Inverting this
+	// frame directly can place it just after its exact rational beat and skip it.
+	const positionBeat = sampleFrameToBeat(Math.max(0, normalizedPosition - 1), normalizedTempoMap, normalizedSampleRate);
+	let pulse = pulseAtOrAfter(positionBeat, signatureGrid);
+	if (beatToSampleFrame(pulse.beat, normalizedTempoMap, normalizedSampleRate, 'point') < normalizedPosition) {
+		pulse = pulseAtOrAfter(addRationals(pulse.beat, pulse.pulseLength), signatureGrid);
+	}
 	const nextPulseBeat = addRationals(pulse.beat, pulse.pulseLength);
 	const nextBeatFrame = beatToSampleFrame(pulse.beat, normalizedTempoMap, normalizedSampleRate, 'point');
 	const followingBeatFrame = beatToSampleFrame(nextPulseBeat, normalizedTempoMap, normalizedSampleRate, 'point');

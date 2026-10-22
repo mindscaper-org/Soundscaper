@@ -26,6 +26,7 @@ type Sequences = Record<string, (...args: never[]) => unknown>;
 
 /** The controller factory demands the WeakSet-registered environment, so one real store is shared. */
 let opened: Promise<Readonly<FramescaperEditorProjectEnvironment>> | null = null;
+const controllers: Data[] = [];
 
 function environment(): Promise<Readonly<FramescaperEditorProjectEnvironment>> {
 	const value = opened ?? createFramescaperEditorProjectEnvironment({
@@ -44,14 +45,17 @@ function environment(): Promise<Readonly<FramescaperEditorProjectEnvironment>> {
 }
 
 after(async () => {
+	for (const controller of controllers) await (controller.dispose as () => Promise<void>)();
 	if (opened) await (await opened).close();
 });
 
 async function controllerWith(presentation?: unknown): Promise<Data> {
 	const value = await environment();
-	return (presentation === undefined
+	const controller = (presentation === undefined
 		? createFramescaperAudioEditorController(value)
 		: createFramescaperAudioEditorController(value, presentation)) as unknown as Data;
+	controllers.push(controller);
+	return controller;
 }
 
 function sequences(controller: Data): Sequences {
@@ -214,6 +218,8 @@ test('an incomplete desktop bridge is treated as absent rather than half-trusted
 
 test('the video-still surface refuses when no file picker is reachable', async () => {
 	const controller = await controllerWith();
+	await controller.ready;
+	assert.ok(controller.project);
 
 	const authoring = framescaperCandidateAuthoringActionRuntimeFor(controller);
 
@@ -234,6 +240,8 @@ test('a presentation file service drives the desktop video-still picker with the
 			withReadDescriptors: async () => [],
 		},
 	});
+	await controller.ready;
+	assert.ok(controller.project);
 
 	await framescaperCandidateAuthoringActionRuntimeFor(controller)!.run('video-still');
 
@@ -242,6 +250,8 @@ test('a presentation file service drives the desktop video-still picker with the
 
 test('a desktop file service without bounded read capabilities is refused', async () => {
 	const controller = await controllerWith({ fileService: { isDesktop: true } });
+	await controller.ready;
+	assert.ok(controller.project);
 
 	await assert.rejects(
 		() => framescaperCandidateAuthoringActionRuntimeFor(controller)!.run('video-still'),

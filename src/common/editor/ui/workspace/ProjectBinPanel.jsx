@@ -24,6 +24,8 @@ import { useProjectBinItems, useProjectBinSources } from './useProjectBinPresent
 import { queueFreesoundClipUploadCommand } from './freesound-clip-upload-command.ts';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { useProjectBinSourceProperties } from './use-project-bin-source-properties.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import { importLinkedProjectBinChoice } from './linked-project-bin-import.ts';
 import { openDesktopWorkspaceFiles } from './desktop-workspace-file-choice.ts';
 
 const AUDIO_EDITOR_AUDIO_FILE_ACCEPT = 'audio/*,video/mp4,video/webm,application/ogg,application/x-ogg,.aac,.aif,.aifc,.aiff,.bw64,.bwf,.flac,.m4a,.m4v,.mka,.mp2,.mp3,.mp4,.oga,.ogg,.opus,.rf64,.wav,.wave,.wavpack,.webm,.wma,.wv';
@@ -34,7 +36,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 	const linkedAudioRelinkRequestRef = useRef(0);
 	const linkedAudioRelinkProjectRef = useRef(null);
 	const relinkChangedChoiceRef = useRef(null);
-	const proxyProjectIdRef = useRef(null);
+	const proxyProjectSessionRef = useRef(null);
 	const [itemMenu, setItemMenu] = useState(null);
 	const [replacementClipId, setReplacementClipId] = useState(null);
 	const [replacementChoice, setReplacementChoice] = useState(null);
@@ -43,6 +45,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 	const [proxyClipId, setProxyClipId] = useState(null);
 	const project = snapshot.project;
 	const projectId = project?.id;
+	const projectSession = editorProjectEditSessionKey(controller, projectId);
 	const projectRevision = project?.revision;
 	function storeRelinkChangedChoice(choice) {
 		relinkChangedChoiceRef.current = choice;
@@ -63,6 +66,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 		linkedAudioRelinkRequestRef.current += 1;
 		setItemMenu(null);
 		setRemoveConfirmation(null);
+		setReplacementClipId(null);
 		const relinkScope = Object.freeze({ projectId, projectRevision });
 		linkedAudioRelinkProjectRef.current = relinkScope;
 		return () => {
@@ -79,7 +83,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 				linkedAudioRelinkProjectRef.current = null;
 			}
 		};
-	}, [fileService, projectId, projectRevision, run]);
+	}, [fileService, projectId, projectRevision, projectSession, run]);
 	const clips = project?.projectBin?.clips;
 	const items = useProjectBinItems(clips);
 	const { sourceById, itemSources } = useProjectBinSources(items, project?.sources);
@@ -115,12 +119,12 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 		project,
 		copy,
 		open: () => {
-			proxyProjectIdRef.current = projectId;
+			proxyProjectSessionRef.current = projectSession;
 			setProxyClipId(menuVideoClip.id);
 		},
 	})[0] || null : null;
-	const proxyDialogOpen = proxyClipId !== null && proxyProjectIdRef.current === projectId;
-	const closeProxyDialog = () => { proxyProjectIdRef.current = null; setProxyClipId(null); };
+	const proxyDialogOpen = proxyClipId !== null && proxyProjectSessionRef.current === projectSession;
+	const closeProxyDialog = () => { proxyProjectSessionRef.current = null; setProxyClipId(null); };
 
 	const importFiles = (files) => withWebFileLoadLimitContext(async () => {
 		if (mutationBlocked || !files.length) return undefined;
@@ -138,30 +142,23 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 		}
 		await openDesktopWorkspaceFiles({
 			getProjectId: () => controller.getSnapshot().project?.id ?? null,
+		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
 			fileService,
 			importFiles,
 		}, 'media', true);
 	});
-	const chooseLinkedAudio = () => run(async () => {
+	const chooseLinkedMedia = (kind) => run(async () => {
 		if (mutationBlocked) return;
-		const choice = await fileService.chooseLinkedAudioOriginal();
-		if (!choice) return;
-		await withWebFileLoadLimitContext(() => controller.actions.project.importFiles([choice.file], {
-			destination: 'project-bin',
-			linkedAudioLocatorId: choice.locatorId,
-			linkedAudioLocatorRevision: choice.locatorRevision,
-		}));
+		const audio = kind === 'audio';
+		return importLinkedProjectBinChoice({
+			getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
+			choose: () => audio ? fileService.chooseLinkedAudioOriginal() : fileService.chooseLinkedVideoOriginal(),
+			release: (reference) => audio ? fileService.releaseLinkedAudioOriginal(reference) : fileService.releaseLinkedVideoOriginal(reference),
+			importFile: (file, options) => controller.actions.project.importFiles([file], options),
+		}, kind);
 	});
-	const chooseLinkedVideo = () => run(async () => {
-		if (mutationBlocked) return;
-		const choice = await fileService.chooseLinkedVideoOriginal();
-		if (!choice) return;
-		await withWebFileLoadLimitContext(() => controller.actions.project.importFiles([choice.file], {
-			destination: 'project-bin',
-			linkedVideoLocatorId: choice.locatorId,
-			linkedVideoLocatorRevision: choice.locatorRevision,
-		}));
-	});
+	const chooseLinkedAudio = () => chooseLinkedMedia('audio');
+	const chooseLinkedVideo = () => chooseLinkedMedia('video');
 	const relinkLinkedAudio = (clipId) => run(async () => {
 		if (mutationBlocked) return;
 		const relinkScope = linkedAudioRelinkProjectRef.current;
@@ -363,7 +360,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 				<ul className="kw-audio-editor__project-bin-list" data-project-bin-list>
 					{items.map((item) => (
 						<ProjectBinCard
-							key={item.id}
+							key={`${projectSession}:${item.id}`}
 							clip={item.primaryClip}
 							itemClips={item.clips}
 							source={sourceById.get(item.primaryClip.sourceId) || null}

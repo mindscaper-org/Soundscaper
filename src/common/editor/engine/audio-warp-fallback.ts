@@ -150,8 +150,8 @@ export function prepareExactAudioWarpPlayback(
 	assertExactAudioWarpWindowGraph(project);
 	const graphLatencyFrames = exactGraphLatencyFrames(engine, null, true);
 	const range = planExactAudioWarpWindow({
-		startFrame: clampFrame(startFrame, 0, engine.durationFrames),
-		endFrame: clampFrame(endFrame, 0, engine.durationFrames),
+		startFrame: clampFrame(startFrame, 0, engine.playbackDurationFrames),
+		endFrame: clampFrame(endFrame, 0, engine.playbackDurationFrames),
 		sampleRate: engine.sampleRate,
 		channelCount: clamp(Number(project.masterChannels) || 2, 1, 32),
 		graphLatencyFrames,
@@ -301,7 +301,10 @@ async function renderExactPlaybackWindow(
 	signal: AbortSignal | null,
 ): Promise<Readonly<PreparedAudioWarpPlayback>> {
 	throwIfAborted(signal);
-	const rendered = await engine.renderMix({
+	const rendered = range.startFrame >= engine.durationFrames ? {
+		channels: Array.from({ length: Number(project.masterChannels) || 2 }, () => new Float32Array(range.frameCount)),
+		sampleRate: engine.sampleRate,
+	} : await engine.renderMix({
 		startFrame: range.startFrame,
 		endFrame: range.endFrame,
 		includeTail: false,
@@ -310,7 +313,13 @@ async function renderExactPlaybackWindow(
 	});
 	throwIfAborted(signal);
 	assertProjectAuthority(engine, project, authorityFingerprint);
-	const channels = audioBufferChannels(rendered);
+	let channels = audioBufferChannels(rendered);
+	// Software renderers may return only the occupied intersection. The rest of
+	// this bounded playback window is deliberately selected timeline silence.
+	const occupiedFrames = Math.max(0, Math.min(range.endFrame, engine.durationFrames) - range.startFrame);
+	if (range.endFrame > engine.durationFrames && channels.every(channel => channel.length === occupiedFrames)) {
+		channels = channels.map(channel => { const padded = new Float32Array(range.frameCount); padded.set(channel); return padded; });
+	}
 	const channelCount = clamp(Number(project.masterChannels) || 2, 1, 32);
 	assertPlanarGeometry(channels, channelCount, range.frameCount);
 	const prepared = {
@@ -321,7 +330,7 @@ async function renderExactPlaybackWindow(
 		channels: Object.freeze(channels.slice()),
 		frameCount: range.frameCount,
 		sampleRate: engine.sampleRate,
-		audioBuffer: isAudioBuffer(rendered) ? rendered : null,
+		audioBuffer: isAudioBuffer(rendered) && rendered.length === range.frameCount ? rendered : null,
 	} satisfies PreparedAudioWarpPlayback;
 	engine.preparedAudioWarpPlayback = prepared;
 	return prepared;

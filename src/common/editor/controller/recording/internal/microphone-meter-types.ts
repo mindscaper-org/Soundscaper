@@ -24,6 +24,8 @@ export interface MicrophoneMeterState {
 	microphoneMetering: boolean;
 	readonly recorder: Readonly<{ setInputGain?(value: number): void }> | null;
 	readonly recordingStarting: boolean;
+	/** Active routed capture owns input telemetry over the retained idle graph. */
+	readonly recordingEntries?: readonly unknown[] | null;
 	readonly timedRecordingPreparing: boolean;
 	readonly timedRecording: unknown;
 	readonly preferences: Readonly<{ recording: Readonly<{ retainInputs: boolean }> }>;

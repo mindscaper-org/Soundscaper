@@ -207,7 +207,7 @@ test('serialization is deterministic and the export refuses a guessed rate', () 
 
 test('simultaneous tracks go to connected lanes, not on top of each other in the spine', () => {
 	// A spine is a single sequential lane. Two clips sharing offset="0s" in it
-	// is not a second track, it is a malformed first one — so the first video
+	// is not a second track, it is a malformed first one — so the lowest video
 	// track is the spine and everything simultaneous with it is connected:
 	// further video above at 1, 2, ..., audio below at -1, -2, ...
 	const result = createFcpxmlExport({
@@ -238,8 +238,8 @@ test('simultaneous tracks go to connected lanes, not on top of each other in the
 		.map((match) => ({ name: match[1], lane: match[2] ?? '0' }));
 	assert.deepEqual(
 		clips,
-		[{ name: 'A', lane: '0' }, { name: 'B', lane: '1' }, { name: 'C', lane: '-1' }],
-		'the primary video track is the spine; video stacks above and audio below',
+		[{ name: 'B', lane: '0' }, { name: 'A', lane: '1' }, { name: 'C', lane: '-1' }],
+		'the lowest picture track is the spine; the foreground stacks above and audio below',
 	);
 });
 

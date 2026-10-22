@@ -105,6 +105,8 @@ test('engine uses the sample-accurate delay worklet for playback and offline ren
 		assert.equal(realtime.audioWorkletModules.filter((url) => url.endsWith('/delay-worklet.js')).length, 1);
 		assert.deepEqual(realtime.workletNodes.map((node) => node.name), ['kw-audio-delay']);
 		assert.deepEqual(realtime.workletNodes[0].options.outputChannelCount, [2]);
+		assert.equal(realtime.workletNodes[0].options.channelCount, 2);
+		assert.equal(realtime.workletNodes[0].options.channelCountMode, 'explicit');
 		assert.deepEqual(realtime.workletNodes[0].options.processorOptions.params, {
 			time: 0.01,
 			feedback: 0.5,

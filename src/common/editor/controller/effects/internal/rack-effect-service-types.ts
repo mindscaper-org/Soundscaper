@@ -143,4 +143,5 @@ export interface AddRackEffectRequest {
 export interface MaterializeRackEffectOptions {
 	readonly forceEnabled?: boolean;
 	readonly requireNoiseProfile?: boolean;
+	readonly requireProjectNoiseProfile?: boolean;
 }

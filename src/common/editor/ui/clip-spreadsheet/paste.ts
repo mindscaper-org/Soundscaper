@@ -88,7 +88,11 @@ export function matchClipSpreadsheetSourceFiles<SourceFile extends ClipSpreadshe
 	const windowsBasenames = new Map<string, Set<SourceFile>>();
 	const selected = new Set(files);
 	for (const file of selected) {
-		for (const value of new Set([file.name, file.webkitRelativePath, file.relativePath, file.path].filter((value): value is string => Boolean(value)))) {
+		const name = sourceReference(file.name, true);
+		addMatch(exact, name.path, file);
+		addMatch(basenames, name.basename, file);
+		addMatch(windowsBasenames, name.basename.toLowerCase(), file);
+		for (const value of new Set([file.webkitRelativePath, file.relativePath, file.path].filter((value): value is string => Boolean(value)))) {
 			const reference = sourceReference(value);
 			addMatch(exact, reference.path, file);
 			addMatch(basenames, reference.basename, file);
@@ -98,7 +102,7 @@ export function matchClipSpreadsheetSourceFiles<SourceFile extends ClipSpreadshe
 	const matched = new Map<string, SourceFile>();
 	const referencesByFile = new Map<SourceFile, string>();
 	for (const value of references) {
-		const reference = sourceReference(value);
+		const reference = sourceReference(value, exact.has(value));
 		const candidates = exact.get(reference.path)
 			?? (reference.windows ? windowsBasenames.get(reference.basename.toLowerCase()) : basenames.get(reference.basename));
 		if (!candidates?.size) throw new RangeError(`Selected source file is missing: ${value}`);
@@ -121,11 +125,12 @@ function addMatch<SourceFile>(index: Map<string, Set<SourceFile>>, key: string, 
 	index.set(key, matches);
 }
 
-function sourceReference(value: string): SourceReference {
+function sourceReference(value: string, literal = false): SourceReference {
 	if (typeof value !== 'string' || !value.trim() || value.length > 4_096 || value.includes('\0')) {
 		throw new RangeError('Invalid spreadsheet source reference.');
 	}
-	let path = value.trim();
+	if (literal) return { path: value, basename: value, windows: false };
+	let path = value;
 	let windows = /^[a-z]:[\\/]/iu.test(path) || path.startsWith('\\\\');
 	if (/^file:/iu.test(path)) {
 		try {

@@ -21,7 +21,6 @@ import {
 	captionLoss,
 	freezeCaptionLosses,
 	interchangeError,
-	timeUnitsToFrame,
 	type VideoCaptionImportOptionsV1,
 	type VideoCaptionImportResultV1,
 	type VideoCaptionInterchangeLimitsV1,
@@ -29,6 +28,7 @@ import {
 	type VideoCaptionTrackNormalizerV1,
 	type VideoCaptionExportResultV1,
 } from './video-caption-interchange-contract-v27.ts';
+import { parseImscTime } from './video-caption-imsc-time.ts';
 
 const TT = 'http://www.w3.org/ns/ttml';
 const TTP = 'http://www.w3.org/ns/ttml#parameter';
@@ -90,6 +90,7 @@ interface ParseState {
 	readonly stack: XmlFrame[];
 	readonly singletonElements: Set<FrameKind>;
 	readonly xmlIds: Set<string>;
+	readonly cueBeginTimes: Map<string, string>;
 	elements: number;
 	tickRate: number;
 	trackId: string;
@@ -117,6 +118,7 @@ export function importImscCaptionTrackV1(
 		stack: [],
 		singletonElements: new Set(),
 		xmlIds: new Set(),
+		cueBeginTimes: new Map(),
 		elements: 0,
 		tickRate: 0,
 		trackId: options.trackId,
@@ -228,11 +230,12 @@ function openImscElement(tag: SaxesTagNS, state: ParseState): void {
 	else if (kind === 'p') {
 		if (state.cues.length >= state.limits.maximumCues) throw interchangeError('IMSC exceeds its cue-count limit.', 'CUE_LIMIT', { maximum: state.limits.maximumCues, observed: state.cues.length + 1 });
 		frame.cue = readCue(tag, state);
+		state.cueBeginTimes.set(frame.cue.id, requiredAttribute(tag, '', 'begin', 'caption cue begin'));
 	} else if (kind === 'span') {
 		const cue = state.stack.at(-1)?.cue;
 		if (!cue) throw interchangeError('IMSC word spans must be direct cue children.', 'INVALID_XML');
 		frame.wordTiming = readTiming(
-			tag, state, 'caption word', cue.startFrame, `${cue.id}.words.${cue.words.length}`,
+			tag, state, 'caption word', state.cueBeginTimes.get(cue.id), `${cue.id}.words.${cue.words.length}`,
 		);
 	}
 	state.stack.push(frame);
@@ -368,35 +371,21 @@ function readTiming(
 	tag: SaxesTagNS,
 	state: ParseState,
 	name: string,
-	baseFrame = 0,
+	baseValue?: string,
 	ownerId?: string,
 ): Readonly<{ startFrame: number; endFrame: number }> {
 	const startValue = requiredAttribute(tag, '', 'begin', `${name} begin`);
 	const endValue = requiredAttribute(tag, '', 'end', `${name} end`);
-	const start = parseImscTime(startValue, state.tickRate, state.options.sampleRate);
-	const end = parseImscTime(endValue, state.tickRate, state.options.sampleRate);
-	const startFrame = baseFrame + start.frame;
-	const endFrame = baseFrame + end.frame;
+	const start = parseImscTime(startValue, state.tickRate, state.options.sampleRate, baseValue);
+	const end = parseImscTime(endValue, state.tickRate, state.options.sampleRate, baseValue);
+	const startFrame = start.frame;
+	const endFrame = end.frame;
 	if (!Number.isSafeInteger(startFrame) || !Number.isSafeInteger(endFrame)) throw interchangeError(`${name} exceeds the safe sample-frame range.`, 'INVALID_TIMING');
 	const id = ownerId ?? attribute(tag, XML, 'id') ?? `${state.cues.length}`;
 	if (!start.exact) state.losses.push(imscTimingLoss(id, 'startFrame', startValue, startFrame));
 	if (!end.exact) state.losses.push(imscTimingLoss(id, 'endFrame', endValue, endFrame));
 	if (endFrame <= startFrame) throw interchangeError(`${name} must end after it starts.`, 'INVALID_TIMING');
 	return Object.freeze({ startFrame, endFrame });
-}
-
-function parseImscTime(value: string, tickRate: number, sampleRate: number): { readonly frame: number; readonly exact: boolean } {
-	const ticks = value.match(/^(\d+)t$/u);
-	if (ticks) {
-		if (tickRate === 0) throw interchangeError('IMSC tick timing requires ttp:tickRate.', 'UNSUPPORTED_PROFILE');
-		return timeUnitsToFrame(BigInt(ticks[1] ?? 0), BigInt(tickRate), sampleRate);
-	}
-	const clock = value.match(/^(\d+):([0-5]\d):([0-5]\d)(?:\.(\d{1,9}))?$/u);
-	if (!clock) throw interchangeError(`Unsupported IMSC time expression: ${value}.`, 'INVALID_TIMING');
-	const fraction = clock[4] ?? '';
-	const denominator = 10n ** BigInt(fraction.length);
-	const seconds = (BigInt(clock[1] ?? 0) * 60n + BigInt(clock[2] ?? 0)) * 60n + BigInt(clock[3] ?? 0);
-	return timeUnitsToFrame(seconds * denominator + BigInt(fraction || 0), denominator, sampleRate);
 }
 
 function exportStyle(style: VideoCaptionStyleV1, identities: ImscXmlIdentitiesV1): string {
@@ -545,7 +534,7 @@ function positiveInteger(value: string | null, name: string, maximum: number): n
 }
 
 function assertNoActiveXml(value: string): void {
-	const withoutDeclaration = value.replace(/^<\?xml\s+version=(?:"1\.0"|'1\.0')(?:\s+encoding=(?:"UTF-8"|'UTF-8'))?\s*\?>/iu, '');
+	const withoutDeclaration = value.replace(/<!--[\s\S]*?-->/gu, '').replace(/^<\?xml[ \t\r\n]+[^?]*\?>/u, '');
 	if (/<!\s*(?:DOCTYPE|ENTITY)\b|<\?|<!\[CDATA\[/iu.test(withoutDeclaration)) {
 		throw activeContent('DTD, entity declarations, processing instructions, and CDATA are not allowed in IMSC.');
 	}

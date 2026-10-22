@@ -5,6 +5,8 @@ import {
 	estimateAudacityEffectPeakBytes,
 } from '../audacity-effects/contracts.js';
 import { EDITOR_TIMELINE_MINIMUM_SECONDS } from '../project.js';
+import { runtimeTimelineAnnotationExtent } from '../runtime-timeline-annotation-projection.ts';
+import { STAFFPAD_MINIMUM_RATIO, STAFFPAD_MAXIMUM_RATIO } from '../staffpad/parameters.js';
 import type { EngineClip, EngineProject } from './types.ts';
 
 export const DEFAULT_SAMPLE_RATE = 48_000;
@@ -67,7 +69,7 @@ export function getProjectDurationFrames(project: EngineProject | null | undefin
 export function getProjectTimelineDurationFrames(project: EngineProject | null | undefined): number {
 	const sampleRate = positiveInteger(project?.sampleRate, DEFAULT_SAMPLE_RATE);
 	return Math.max(
-		getProjectDurationFrames(project) * 2,
+		Math.max(getProjectDurationFrames(project), runtimeTimelineAnnotationExtent(project)) * 2,
 		Math.round(sampleRate * EDITOR_TIMELINE_MINIMUM_SECONDS),
 	);
 }
@@ -114,21 +116,27 @@ export function playRangeStopFrame(
 	return Math.min(range.endFrame, durationFrames);
 }
 
-export function normalizeLoop(value: unknown, durationFrames: number): NormalizedLoop {
+export function normalizeLoop(value: unknown, durationFrames: number, defaultEndFrame = durationFrames): NormalizedLoop {
 	const candidate = value && typeof value === 'object'
 		? value as { enabled?: unknown; startFrame?: unknown; endFrame?: unknown }
 		: {};
 	const startFrame = clampFrame(candidate.startFrame, 0, durationFrames);
-	const endFrame = clampFrame(candidate.endFrame ?? durationFrames, startFrame, durationFrames);
+	const endFrame = clampFrame(candidate.endFrame ?? defaultEndFrame, startFrame, durationFrames);
 	return { enabled: Boolean(candidate.enabled) && endFrame > startFrame, startFrame, endFrame };
 }
 
-export function normalizePlayAtSpeedRate(value: unknown): number {
+export function playAtSpeedRateBounds(preservePitch = false): Readonly<{ minimum: number; maximum: number }> {
+	return preservePitch ? { minimum: STAFFPAD_MINIMUM_RATIO, maximum: STAFFPAD_MAXIMUM_RATIO }
+		: { minimum: PLAY_AT_SPEED_MINIMUM_RATE, maximum: PLAY_AT_SPEED_MAXIMUM_RATE };
+}
+
+export function normalizePlayAtSpeedRate(value: unknown, preservePitch = false): number {
 	const rate = Number(value);
 	if (!Number.isFinite(rate) || rate < PLAY_AT_SPEED_MINIMUM_RATE || rate > PLAY_AT_SPEED_MAXIMUM_RATE) {
 		throw new RangeError(`Playback speed must be between ${PLAY_AT_SPEED_MINIMUM_RATE} and ${PLAY_AT_SPEED_MAXIMUM_RATE}.`);
 	}
-	return rate;
+	const { minimum, maximum } = playAtSpeedRateBounds(preservePitch);
+	return clamp(rate, minimum, maximum);
 }
 
 export function estimatePlayAtSpeedStaffPadPeakBytes(

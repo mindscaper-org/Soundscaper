@@ -10,7 +10,10 @@ test('keyboard removal of macro steps preserves continued step authoring', async
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();
 	for (const effect of ['Invert', 'Fade In']) {
 		await manager.getByRole('button', { name: 'Add effect', exact: true }).click();
-		await page.getByRole('menu', { name: 'Choose an effect', exact: true }).getByRole('menuitem', { name: effect, exact: true }).click();
+		const picker = page.getByRole('menu', { name: 'Choose an effect', exact: true });
+		await picker.getByRole('menuitem', { name: effect, exact: true }).click();
+		await expect(picker).toHaveCount(0);
+		await expect(manager.getByRole('button', { name: 'Add effect', exact: true })).toBeFocused();
 	}
 	const slots = manager.locator('.effect-slot');
 	await expect(slots).toHaveCount(2);

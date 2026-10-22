@@ -19,6 +19,7 @@
  */
 
 import { resolveVideoBurnInFontChoice } from './video-burn-in-font-subsets.ts';
+import { fitBurnInTexts } from './video-caption-line-wrap.ts';
 
 /**
  * The bottom band captions stay out of, as a fraction of canvas height.
@@ -154,21 +155,22 @@ export function resolveVideoBurnInStage(
 	const widthFontSize = Math.floor(
 		safeWidth / (VIDEO_BURN_IN_REFERENCE_LINE_CHARACTERS * VIDEO_BURN_IN_CHARACTER_ADVANCE_RATIO),
 	);
-	const fontSizePx = Math.max(
+	const preferredFontSize = Math.max(
 		VIDEO_BURN_IN_MINIMUM_FONT_SIZE,
 		Math.min(Math.round(height * VIDEO_BURN_IN_FONT_HEIGHT_FRACTION), widthFontSize),
 	);
-	const charactersPerLine = Math.max(
-		1,
-		Math.floor(safeWidth / (fontSizePx * VIDEO_BURN_IN_CHARACTER_ADVANCE_RATIO)),
-	);
+
+	const bottomMarginPx = Math.round(height * VIDEO_BURN_IN_TITLE_SAFE_FRACTION);
+	const layout = fitBurnInTexts(drawn.map(cue => burnInText(cue.title)), safeWidth,
+		height - 2 * bottomMarginPx, VIDEO_BURN_IN_MINIMUM_FONT_SIZE, preferredFontSize);
+	const { fontSizePx, lineSpacingPx } = layout;
 	return Object.freeze({
 		fontSizePx,
-		bottomMarginPx: Math.round(height * VIDEO_BURN_IN_TITLE_SAFE_FRACTION),
+		bottomMarginPx,
 		boxBorderPx: Math.max(2, Math.round(fontSizePx * 0.25)),
-		lineSpacingPx: Math.round(fontSizePx * 0.25),
+		lineSpacingPx,
 		cues: Object.freeze(drawn.map((cue, index) => {
-			const text = wrapBurnInText(burnInText(cue.title), charactersPerLine);
+			const text = layout.texts[index]!;
 			const font = resolveVideoBurnInFontChoice(text);
 			return Object.freeze({
 				index,
@@ -180,43 +182,6 @@ export function resolveVideoBurnInStage(
 			});
 		})),
 	});
-}
-
-/**
- * Break a caption into lines the frame can hold.
- *
- * `drawtext` draws exactly what it is given on one line unless the text itself
- * carries newlines, so the wrapping happens here or not at all. Words are kept
- * whole where they fit and split where a single word is wider than the frame,
- * because a word that cannot be broken would otherwise run off the edge that
- * this bound exists to keep it inside.
- */
-function wrapBurnInText(text: string, charactersPerLine: number): string {
-	return text.split('\n').map((paragraph) => wrapParagraph(paragraph, charactersPerLine)).join('\n');
-}
-
-function wrapParagraph(paragraph: string, charactersPerLine: number): string {
-	const lines: string[] = [];
-	let line = '';
-	for (const word of paragraph.split(/\s+/u).filter((value) => value.length > 0)) {
-		let remaining = word;
-		while (remaining.length > charactersPerLine) {
-			if (line.length > 0) {
-				lines.push(line);
-				line = '';
-			}
-			lines.push(remaining.slice(0, charactersPerLine));
-			remaining = remaining.slice(charactersPerLine);
-		}
-		if (line.length === 0) line = remaining;
-		else if (line.length + 1 + remaining.length <= charactersPerLine) line = `${line} ${remaining}`;
-		else {
-			lines.push(line);
-			line = remaining;
-		}
-	}
-	if (line.length > 0) lines.push(line);
-	return lines.length > 0 ? lines.join('\n') : paragraph.trim();
 }
 
 /** Whether any two burned cues are on screen at once, which the report says out loud. */

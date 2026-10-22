@@ -21,7 +21,7 @@ test('regular selection preview keeps snapped guides and the vertical track span
 		lane: lanes[0]!, startFrame: 50, startSnapGuideFrame: 50,
 	};
 	const result = previewTimelineSelectionDrag({
-		session, project, rawEndFrame: 448, clientY: 150, scrollRoot,
+		session, project: { ...project, sampleRate: 1_000, snap: { enabled: true, unit: 'seconds' } }, rawEndFrame: 448, clientY: 150, scrollRoot,
 		pixelsPerSecond: 1_000, sampleRate: 1_000,
 	});
 	assert.deepEqual(result.selection, { startFrame: 50, endFrame: 450, trackIds: ['track-a', 'track-b'] });
@@ -42,4 +42,14 @@ test('regular Escape unsnapping retains raw reversed endpoints and removes all s
 	assert.deepEqual(result.selection, { startFrame: 52, endFrame: 301, trackIds: ['track-a'] });
 	assert.deepEqual(result.guideFrames, []);
 	assert.equal(session.boundarySnapped, false);
+});
+
+test('enabled time-grid preview uses the exact bounds the ordinary selection command will commit', () => {
+	const session = { lane: lanes[0]!, startFrame: 201, startSnapGuideFrame: null };
+	const result = previewTimelineSelectionDrag({ session,
+		project: { ...project, sampleRate: 1_000, snap: { enabled: true, unit: 'seconds', mode: 'nearest' } },
+		rawEndFrame: 651, clientY: 50, scrollRoot, pixelsPerSecond: 1_000, sampleRate: 1_000,
+	});
+	assert.deepEqual(result.selection, { startFrame: 0, endFrame: 1_000, trackIds: ['track-a'] });
+	assert.deepEqual(result.guideFrames, []);
 });

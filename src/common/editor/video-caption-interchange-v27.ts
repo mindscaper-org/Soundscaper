@@ -175,7 +175,15 @@ function parseWebVtt(text: string, limits: Readonly<VideoCaptionInterchangeLimit
 	if (!/^WEBVTT(?:[ \t][^\n]*)?$/u.test(lines[0] ?? '') || lines[0]?.includes('-->')) {
 		throw interchangeError('WebVTT input must begin with a WEBVTT header.', 'INVALID_HEADER');
 	}
-	const blocks = subtitleBlocks(lines.slice(1).join('\n')).filter((block) => !/^NOTE(?:[ \t]|\n|$)/u.test(block));
+	let bodyStart = 1;
+	while (bodyStart < lines.length && lines[bodyStart]?.trim() && !VTT_TIMING.test(lines[bodyStart] ?? '')) {
+		if (/^(?:REGION|STYLE)(?:\s|$)/u.test(lines[bodyStart] ?? '')) {
+			throw interchangeError('The maintained WebVTT subset does not accept global scriptable or styling blocks.', 'ACTIVE_CONTENT');
+		}
+		if (VTT_TIMING.test(lines[bodyStart + 1] ?? '')) break;
+		bodyStart += 1;
+	}
+	const blocks = subtitleBlocks(lines.slice(bodyStart).join('\n')).filter((block) => !/^NOTE(?:[ \t]|\n|$)/u.test(block));
 	assertCueCount(blocks.length, limits);
 	return blocks.map((block, index) => {
 		const cueLines = block.split('\n');

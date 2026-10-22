@@ -4,6 +4,7 @@ import type { SourcePcmChunk } from '../common/editor/storage/source-read-reposi
 import type { ProjectDocument } from '../common/editor/storage/project-repository.ts';
 import type { ProjectRecoveryCandidate, ProjectRecoverySummary } from '../common/editor/storage/project-recovery-repository.ts';
 import type { LinkedOriginalStoreService } from '../common/editor/storage/linked-original-store-service.ts';
+import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
 
 export interface SoundscaperProjectRecoveryChange { readonly path: string; readonly reason: string }
@@ -25,11 +26,12 @@ export interface SoundscaperProjectRecoveryResult {
 	readonly sourceRevision: number | null;
 	readonly changes: readonly SoundscaperProjectRecoveryChange[];
 }
-export interface SoundscaperProjectRecoveryStore {
+export interface SoundscaperProjectRecoveryStore extends SoundscaperRecoveryVideoStore {
 	readProjectRecoveryCandidates(projectId: string): PromiseLike<readonly ProjectRecoveryCandidate[]>;
 	listProjectRecoverySummaries(): PromiseLike<readonly ProjectRecoverySummary[]>;
 	readSourceChunks(sourceId: string): AsyncIterable<SourcePcmChunk>;
 	createProjectIfAbsent(project: ProjectDocument): PromiseLike<ProjectDocument | null>;
+	createScapeProjectIfAbsent?(project: ProjectDocument): PromiseLike<ProjectDocument | null>;
 	readonly linkedOriginalStoreService: Pick<LinkedOriginalStoreService, 'duplicateProject'>;
 }
 export interface SoundscaperProjectRecoveryActions {

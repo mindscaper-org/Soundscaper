@@ -176,10 +176,10 @@ function token(line: string, directive: string): string {
 }
 
 function finite(value: unknown, name: string): number {
-	if (typeof value !== 'number' || !Number.isFinite(value) || Object.is(value, -0)) {
-		throw new RangeError(`${name} must be a finite number other than negative zero.`);
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		throw new RangeError(`${name} must be a finite number.`);
 	}
-	return value;
+	return value === 0 ? 0 : value;
 }
 
 function boundedInteger(value: unknown, minimum: number, maximum: number, name: string): number {

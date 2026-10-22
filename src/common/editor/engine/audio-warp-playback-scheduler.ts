@@ -15,6 +15,7 @@ import { playbackOutputDestination } from './playback-output.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import type { ProjectGraph } from './project-graph.ts';
 import { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
+import { createStripMeterAnalyserBankV21 } from './strip-meter-analyser-bank-v21.ts';
 import {
 	ENGINE_EMIT_POSITION,
 	ENGINE_ENSURE_MASTER_LOUDNESS_METER,
@@ -64,7 +65,10 @@ export async function scheduleExactWarpPlayback(
 		masterAnalyser = createAnalyser(context, nodes);
 		connect(masterAnalyser, meterDestination);
 	}
-	const graph = exactGraph(nodes, masterAnalyser);
+	const masterBank = masterAnalyser
+		? createStripMeterAnalyserBankV21(context, nodes, masterAnalyser, { kind: 'master' }, activeWindow.channels.length) : null;
+	const graph: ProjectGraph = { ...exactGraph(nodes, masterAnalyser),
+		productionStripAnalysersV21: masterBank ? new Map([['master', masterBank]]) : undefined };
 	engine.graph = graph;
 	engine.playEndFrame = isPlaybackLoopEnabled(engine)
 		? engine.loop.endFrame
@@ -98,7 +102,7 @@ async function exactWindowAt(
 ): Promise<PreparedAudioWarpPlayback | null> {
 	if (fromFrame >= prepared.startFrame && fromFrame < prepared.endFrame) return prepared;
 	const boundary = isPlaybackLoopEnabled(engine) ? engine.loop.endFrame : engine.durationFrames;
-	const requestedFrame = clampFrame(fromFrame, 0, engine.durationFrames);
+	const requestedFrame = clampFrame(fromFrame, 0, isPlaybackLoopEnabled(engine) ? engine.playbackDurationFrames : engine.durationFrames);
 	if (requestedFrame >= boundary) {
 		engine[ENGINE_HALT_GRAPH]();
 		engine[ENGINE_SET_STATE]('stopped');

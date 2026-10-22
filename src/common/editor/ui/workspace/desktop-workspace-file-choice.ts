@@ -2,6 +2,7 @@
 
 interface WorkspaceFileChoiceRuntime {
 	getProjectId(): string | null;
+	getProjectSessionKey?(): string;
 	readonly fileService: Readonly<{
 		chooseFiles(request: Readonly<{ purpose: string; multiple: boolean }>): PromiseLike<readonly unknown[]>;
 		withReadDescriptors(
@@ -21,7 +22,8 @@ export async function openDesktopWorkspaceFiles(
 	multiple = false,
 	importOptions: Readonly<Record<string, unknown>> = {},
 ): Promise<number> {
-	const projectId = runtime.getProjectId();
+	const projectSessionKey = () => runtime.getProjectSessionKey?.() ?? runtime.getProjectId();
+	const sessionKey = projectSessionKey();
 	const descriptors = await runtime.fileService.chooseFiles({ purpose, multiple });
 	if (purpose === 'project') {
 		const openProject = runtime.openProjectDescriptor;
@@ -32,7 +34,7 @@ export async function openDesktopWorkspaceFiles(
 	return runtime.fileService.withReadDescriptors(descriptors, {}, async files => {
 		// Enter the read owner even after a project switch so it retires the
 		// selected capabilities; only their publication loses admission.
-		if (runtime.getProjectId() !== projectId) return 0;
+		if (projectSessionKey() !== sessionKey) return 0;
 		if (files.length) await runtime.importFiles(files, importOptions);
 		return files.length;
 	});

@@ -142,8 +142,8 @@ function readFiles(files: XmlElement | null): ReadonlyMap<string, SesxAudioRefer
 	for (const file of files ? childElements(files, 'file') : []) {
 		const id = requiredTextAttribute(file, 'id');
 		if (refs.has(id)) throw new SyntaxError(`Duplicate SESX file ID: ${id}.`);
-		const relativePath = attribute(file, 'relativePath')?.trim() || null;
-		const absolutePath = attribute(file, 'absolutePath')?.trim() || null;
+		const relativePath = attribute(file, 'relativePath') || null;
+		const absolutePath = attribute(file, 'absolutePath') || null;
 		const path = relativePath || absolutePath || '';
 		refs.set(id, Object.freeze({
 			id, relativePath, absolutePath,

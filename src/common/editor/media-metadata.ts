@@ -14,12 +14,13 @@ export function normalizeMediaMetadata(value: unknown = {}): Readonly<Record<str
 	for (const [rawKey, rawValue] of entries) {
 		const key = String(rawKey).trim();
 		if (!/^[A-Za-z0-9_.-]{1,64}$/.test(key)) throw new RangeError(`Invalid metadata field name: ${rawKey}.`);
+		const standardKey = key.toLowerCase().replace(/[^a-z0-9]/gu, '');
 		const text = String(rawValue);
 		// eslint-disable-next-line no-control-regex
 		if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) throw new RangeError(`Metadata field ${key} contains control characters.`);
-		if (key === 'id3Artwork') parseId3Artwork(text);
-		const maximumLength = key === 'id3Artwork' ? 12 * 1024 * 1024
-			: key === 'lyrics' || key === 'synchronizedLyrics' || key === 'termsOfUse' ? 65_536 : MAX_METADATA_VALUE_LENGTH;
+		if (standardKey === 'id3artwork') parseId3Artwork(text);
+		const maximumLength = standardKey === 'id3artwork' ? 12 * 1024 * 1024
+			: standardKey === 'lyrics' || standardKey === 'synchronizedlyrics' || standardKey === 'termsofuse' ? 65_536 : MAX_METADATA_VALUE_LENGTH;
 		if (text.length > maximumLength) throw new RangeError(`Metadata field ${key} is too long.`);
 		Object.defineProperty(result, key, {
 			value: text, enumerable: true, writable: true, configurable: true,

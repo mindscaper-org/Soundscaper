@@ -18,6 +18,7 @@ import {
 import { createInterchangeVisibility } from './interchange-track-visibility.ts';
 import { portableFileStem } from './portable-file-stem.ts';
 import { interchangeTrackClips } from './interchange-track-clips.ts';
+import { interchangePainterOrder } from './interchange-painter-order.ts';
 
 /**
  * OpenTimelineIO export.
@@ -118,7 +119,7 @@ export function createOtioExport(request: OtioExportRequest): OtioExportResult {
 	const sourceById = new Map(
 		asRecords(project.sources).map((source) => [String(source.id), source]),
 	);
-	const tracks = asRecords(project.tracks);
+	const tracks = interchangePainterOrder(asRecords(project.tracks));
 
 	const visibility = createInterchangeVisibility(tracks as never, project);
 	reportInterchangeAnnotationOmission(draft, project, 'otio');
@@ -246,7 +247,11 @@ function buildTracks(walk: TrackWalk, context: {
 			});
 			continue;
 		}
-		let lane = laneEnds.findIndex((position) => position <= start);
+		// A later picture is above every still-active outgoing picture. Reusing
+		// a retired lower lane would invert that order on the next overlap.
+		const minimumLane = walk.kind === 'Video'
+			? laneEnds.reduce((minimum, position, index) => position > start ? index + 1 : minimum, 0) : 0;
+		let lane = laneEnds.findIndex((position, index) => index >= minimumLane && position <= start);
 		if (lane < 0) {
 			lane = lanes.length;
 			lanes.push([]);

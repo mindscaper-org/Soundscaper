@@ -4,6 +4,7 @@ import type { FileSizeWarningConfirmation } from '../../../shared/file-size-warn
 import type { FramescaperCaptureAdminInterlockLease, FramescaperCaptureAdminOperationRequest } from '../../../capture/framescaper-capture-admin-interlock.ts';
 import type { ProjectLinkedOriginalSourceReference } from '../../../../storage/project-publication-options.ts';
 import type { ProjectFlushOptions } from '../../project-save-service.ts';
+import type { EditorProjectToken } from '../../../shared/lifecycle.ts';
 
 type Awaitable<Value> = Value | PromiseLike<Value>;
 
@@ -41,6 +42,7 @@ interface SourceCache {
 
 interface AdminState<Project extends AdminProject, History extends AdminHistory<Project>> {
 	disposed: boolean;
+	projectAdministrationPending?: boolean;
 	readOnly: boolean;
 	readonly takeCycleRecovery?: unknown;
 	readonly takeCycleRecoveryInspecting?: boolean;
@@ -100,12 +102,17 @@ export interface ProjectAdminServiceRuntime<
 		recordPersistedSnapshot?(project: Project): void;
 		forgetPersistedSnapshot?(projectId: string): void;
 	}>;
-	readonly projectGeneration: Readonly<{ activate(projectId: string): unknown; invalidate(): void }>;
+	readonly projectGeneration: Readonly<{
+		activate(projectId: string): unknown; invalidate(): void;
+		capture?(projectId: string): EditorProjectToken;
+		assertCurrent?(token: EditorProjectToken): void;
+	}>;
 	readonly projectMaintenanceRuntime?: Readonly<{
 		reconcileAndCollectStorageRoots(request: Readonly<{
 			currentProject: unknown; pendingSaveSnapshots: unknown;
 		}>): PromiseLike<Readonly<{ storageRoots: readonly string[] }>>;
 	}>;
+	clearStorage?(): Awaitable<unknown>;
 	readonly projectSessionService: Readonly<{ clearRecentProjects(): Awaitable<unknown> }>;
 	publishDocumentSnapshot(): void;
 	recordingRoutingSettingKey(projectId: string): string;

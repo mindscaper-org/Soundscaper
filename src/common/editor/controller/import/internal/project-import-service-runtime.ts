@@ -2,7 +2,9 @@
 
 import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { inspectWavContainerSignature, inspectWavForImport } from './wav-import-routing.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import { publishImportCompletionStatus, type LocalizedImportNotice } from './import-status-localization.ts';
 import { loadImportAdmissionExecution } from './import-admission-loader.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts'; import { createDesktopOriginalImportRecorder } from '../../../desktop-overwrite-original.ts';
+import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
+import { importFilePlacement } from './import-file-placement.ts';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
 import {
 	createImportedAdmPassthroughMetadata,
@@ -114,7 +116,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const progressTask = taskProgress?.begin?.('import', copy.importing, undefined, { key: 'importing' }) || null;
 		progressTask?.setCancellation?.(cancellation.abort);
 		activeImportProgress = progressTask;
-		state.importing = true;
+		const importing = claimImportBusyState(state);
 		publishDocumentSnapshot();
 		setLocalizedStatus(setStatus, copy, "importing");
 		let failures = 0; let successes = 0;
@@ -147,8 +149,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			}
 			activeImportProgress?.update?.(1);
 			completedBytes += Math.max(1, Number(legacyProject.size) || 0);
-			// `.au` files selected with a legacy project are its immutable block
-			// store, not independent media imports.
+			// Legacy block files belong to the project rather than independent media.
 			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file) && !isLegacyBlockFile(file));
 		}
 		let audioFileIndex = 0;
@@ -156,9 +157,10 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			if (cancellation.signal.aborted) break;
 			setImportFileProgress(file, completedBytes, totalBytes);
 			try {
-				const result = await importFile(file, importFilePlacement(importOptions, audioFileIndex), assertRequestedProjectCurrent);
+				const result = await importFile(file, importFilePlacement(requireProject(), importOptions, audioFileIndex), assertRequestedProjectCurrent);
 				if (result?.notice) notices.push({ text: result.notice, localization: result.noticeLocalization });
 				successes += 1;
+				audioFileIndex += 1;
 			} catch (error) {
 				if (cancellation.signal.aborted && !(error instanceof AggregateError)) break;
 				failures += 1;
@@ -166,15 +168,14 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			}
 			activeImportProgress?.update?.(1);
 			completedBytes += Math.max(1, Number(file?.size) || 0);
-			audioFileIndex += 1;
 		}
 		try {
+			if (!importing.isCurrent()) return;
 			if (cancellation.signal.aborted && !failures) setStatus('');
 			else if (!failures) publishImportCompletionStatus(setStatus, copy, notices);
 			else setLocalizedStatus(setStatus, copy, "importSummary", { successes: String(successes), failures: String(failures) }, 'error');
 		} finally {
-			state.importing = false;
-			publishDocumentSnapshot();
+			if (importing.finish()) publishDocumentSnapshot();
 			progressTask?.finish?.();
 			if (activeImportProgress === progressTask) activeImportProgress = null;
 		}
@@ -247,17 +248,6 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		return normalizeProjectImportTimelineStartFrame(value, copy.timelineFramesFinite);
 	}
 
-	function importFilePlacement(importOptions: RuntimeValue, fileIndex: RuntimeValue) {
-		if (importOptions.destination !== 'timeline' || !importOptions.trackId) return importOptions;
-		if (fileIndex === 0) return importOptions;
-		const targetTrackIndex = requireProject().tracks.findIndex((track: RuntimeValue) => track.id === importOptions.trackId);
-		return freezeImportOptions({
-			...importOptions,
-			trackId: null,
-			trackIndex: targetTrackIndex < 0 ? undefined : targetTrackIndex + fileIndex,
-		}, Boolean(importOptions.timelineStartExplicit));
-	}
-
 	function prepareImportedMediaCommand(
 		source: RuntimeValue,
 		clip: RuntimeValue,
@@ -321,6 +311,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					name: trackName,
 				}),
 				...(Number.isSafeInteger(importOptions.trackIndex) ? { index: importOptions.trackIndex } : {}),
+				...(importOptions.trackPlacement ?? {}),
 			});
 		}
 		commands.push(createAddClipCommand(trackId, {

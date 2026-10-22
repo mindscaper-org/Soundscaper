@@ -197,6 +197,7 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 	const trackFolder = createTrackFolderService({
 		lifetime,
 		getProject: document.get,
+		getProjectSessionKey: () => { try { return document.captureCurrent().generation; } catch { return null; } },
 		editingBlocked: dependencies.editingBlocked,
 		createId: createStableId,
 		commit: (command) => requireMutation().commit(command),

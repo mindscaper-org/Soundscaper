@@ -194,13 +194,18 @@ test('every projection or runtime-wrapper importer is an owned boundary or one e
 
 test('registered projection boundaries terminate at the owned clip and project resolvers', async () => {
 	const roots = FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES.filter(({ root }) => root);
-	assert.deepEqual(roots.map(({ boundary }) => boundary), ['resolveRuntimeClipProjection', 'resolveRuntimeProjectProjection']);
+	assert.deepEqual(roots.map(({ boundary }) => boundary), ['resolveRuntimeClipProjection', 'resolveRuntimeTrackProjection', 'resolveRuntimeProjectProjection']);
 	for (const boundary of FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES) {
 		const source = await parsedSource(boundary.file);
 		const implementation = findFunction(source, boundary.boundary);
 		if (boundary.root && boundary.boundary === 'resolveRuntimeClipProjection') {
 			assert.equal(findCalls(implementation, 'resolveVideoCoordinates').length, 1);
 			assert.equal(findCalls(implementation, 'resolveAudioOrLegacyCoordinates').length, 1);
+			continue;
+		}
+		if (boundary.root && boundary.boundary === 'resolveRuntimeTrackProjection') {
+			assert.equal(findCalls(implementation, 'resolveBeatFrame').length, 2);
+			assert.ok(implementation.parameters.some(parameter => parameter.initializer?.getText(source) === 'beatToSampleFrame'));
 			continue;
 		}
 		if (boundary.root) {

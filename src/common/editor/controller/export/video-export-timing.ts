@@ -36,6 +36,7 @@ interface VideoExportTimingOptions {
 	readonly assertCurrent: () => void;
 	readonly requiredSourceIds?: readonly string[];
 	readonly allowInactiveRequiredSources?: boolean;
+	readonly contributingClipIds?: ReadonlySet<string>;
 }
 
 export interface VideoExportTimingIndexLease extends VideoTimingIndexLease {
@@ -53,7 +54,7 @@ export async function acquireVideoExportTimingIndexes(
 	const requiredSourceIds = normalizeRequiredSourceIds(options.requiredSourceIds);
 	const sources = selectVisibleVideoSources(
 		projectValue, dependencies, requiredSourceIds,
-		options.allowInactiveRequiredSources === true,
+		options.allowInactiveRequiredSources === true, options.contributingClipIds,
 	);
 	const indexes: Array<Readonly<{
 		source: DataRecord;
@@ -140,6 +141,7 @@ function selectVisibleVideoSources(
 	dependencies: VideoExportTimingDependencies,
 	requiredSourceIds: readonly string[] | null,
 	allowInactiveRequiredSources: boolean,
+	contributingClipIds?: ReadonlySet<string>,
 ): readonly DataRecord[] {
 	if (requiredSourceIds !== null && allowInactiveRequiredSources) {
 		return Object.freeze(requiredSourceIds.map((sourceId) => {
@@ -163,7 +165,7 @@ function selectVisibleVideoSources(
 		const track = record(trackValue, 'video export track');
 		if (!visibleVideoTrack(track) || !Array.isArray(track.clipIds)) continue;
 		for (const clipId of track.clipIds) {
-			if (typeof clipId !== 'string' || !clipId) continue;
+			if (typeof clipId !== 'string' || !clipId || (contributingClipIds && !contributingClipIds.has(clipId))) continue;
 			const clipValue = dependencies.findClip(project, clipId);
 			if (!clipValue || typeof clipValue !== 'object') continue;
 			const clip = record(clipValue, 'video export clip');

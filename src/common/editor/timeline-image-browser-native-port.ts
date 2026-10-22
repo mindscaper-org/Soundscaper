@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { encodedImageIsAnimated } from './image-animation-topology.ts';
+import { encodedImageIsAnimated, encodedImageAnimationInfo } from './image-animation-topology.ts';
 import type {
 	FramescaperBrowserNativeImageDecodeSessionV1,
 	OpenFramescaperBrowserNativeImageV1,
@@ -51,7 +51,8 @@ export const openFramescaperBrowserNativeImageV1: OpenFramescaperBrowserNativeIm
 	cancelled(request.signal);
 	const Decoder = imageDecoderConstructor();
 	if (Decoder && await supported(Decoder, request.mimeType)) {
-		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.signal);
+		return openImageDecoder(Decoder, request.bytes, request.mimeType, request.signal,
+			encodedImageAnimationInfo(request.bytes, request.format));
 	}
 	if (encodedImageIsAnimated(request.bytes, request.format)) {
 		throw new Error('This animated image requires an available browser animation decoder.');
@@ -64,6 +65,7 @@ async function openImageDecoder(
 	bytes: Uint8Array,
 	mimeType: string,
 	signal: AbortSignal | undefined,
+	animation: ReturnType<typeof encodedImageAnimationInfo>,
 ): Promise<FramescaperBrowserNativeImageDecodeSessionV1> {
 	const decoder = new Decoder({
 		data: bytes.slice(), type: mimeType, preferAnimation: true, colorSpaceConversion: 'default',
@@ -72,7 +74,9 @@ async function openImageDecoder(
 		await decoder.tracks.ready;
 		cancelled(signal);
 		const track = decoder.tracks.selectedTrack;
-		const frameCount = positiveInteger(track?.frameCount, 'ImageDecoder frame count');
+		const reportedFrameCount = positiveInteger(track?.frameCount, 'ImageDecoder frame count');
+		// Some decoders count a separate PNG poster as another animation frame.
+		const frameCount = animation?.frameCount ?? reportedFrameCount;
 		const probe = await decoder.decode({ frameIndex: 0, completeFramesOnly: true });
 		let width: number;
 		let height: number;
@@ -106,7 +110,7 @@ async function openImageDecoder(
 					assertFrameDimensions(image, width, height);
 					return Object.freeze({
 						rgba: drawRgba(image as unknown as CanvasImageSource, width, height),
-						durationMicroseconds: normalizedDuration(image.duration),
+						durationMicroseconds: normalizedDuration(image.duration) ?? (frameCount === 1 ? animation?.firstFrameDurationMicroseconds ?? null : null),
 					});
 				} finally { image.close(); }
 			},

@@ -8,6 +8,7 @@ import {
 	compareRuntimeTimelineAnnotations,
 	resolveRuntimeTimelineAnnotationProjection,
 	resolveRuntimeTimelineAnnotationsProjection,
+	runtimeTimelineAnnotationExtent,
 	type RuntimeTimelineAnnotationProject,
 } from '../src/common/editor/runtime-timeline-annotation-projection.ts';
 import type { TimelineAnnotationV11 } from '../src/common/editor/timeline-annotation.ts';
@@ -61,6 +62,20 @@ test('annotation projection resolves timing, freezes transients, sorts exactly, 
 
 	const single = resolveRuntimeTimelineAnnotationProjection(project, annotations[0]);
 	assert.deepEqual(single, projected.find(({ id }) => id === 'z-region'));
+});
+
+test('editor annotation extent follows active musical region ends and excludes other sequences', () => {
+	const project = { ...annotationProject([
+		sampleMarker('point', 'sequence-a', 100),
+		musicalRegion('active-region', 'sequence-a', { num: 1, den: 1 }, { num: 10, den: 1 }),
+		sampleMarker('other-programme', 'sequence-b', 1_000_000),
+	], { mode: 'musical', events: [
+		{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } },
+		{ beat: { num: 4, den: 1 }, bpm: { num: 60, den: 1 } },
+	] }, ['sequence-a', 'sequence-b']), primarySequenceId: 'sequence-a' };
+	assert.equal(runtimeTimelineAnnotationExtent(project), 384_000);
+	assert.equal(runtimeTimelineAnnotationExtent({}), 0);
+	assert.equal(runtimeTimelineAnnotationExtent({ timelineAnnotations: [] }), 0);
 });
 
 test('the public comparator is a total order with locale-independent binary identity ties', () => {

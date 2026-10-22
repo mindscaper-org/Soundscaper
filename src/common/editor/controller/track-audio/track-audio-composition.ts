@@ -279,6 +279,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		previewCommand: mixPreview.previewCommand,
 	});
 	const selectionView = createSelectionViewService({
+		captureProject, assertProject,
 		DEFAULT_PIXELS_PER_SECOND: dependencies.defaultPixelsPerSecond,
 		MAX_PIXELS_PER_SECOND: dependencies.maximumPixelsPerSecond,
 		activeSelection: dependencies.activeSelection,

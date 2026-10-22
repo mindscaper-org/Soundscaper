@@ -146,12 +146,12 @@ export function createMicrophoneMeterService(
 				channelCount: requestedChannels,
 				sampleRate: dependencies.projectSampleRate(),
 			});
-			if (operationIsStale(operationGeneration)) {
+			if (operationIsStale(operationGeneration, force)) {
 				releaseIfUnused(deviceId);
 				return false;
 			}
 			const context = await dependencies.getAudioContext();
-			if (operationIsStale(operationGeneration)) {
+			if (operationIsStale(operationGeneration, force)) {
 				releaseIfUnused(deviceId);
 				return false;
 			}
@@ -213,7 +213,7 @@ export function createMicrophoneMeterService(
 				loudnessMeter = null;
 				merger = null;
 			}
-			if (operationIsStale(operationGeneration)) {
+			if (operationIsStale(operationGeneration, force)) {
 				discardPendingGraph();
 				return false;
 			}
@@ -241,7 +241,7 @@ export function createMicrophoneMeterService(
 			}
 			session = nextSession;
 			const update = (): void => {
-				if (session !== nextSession
+				if (session !== nextSession || routedCaptureOwnsMeter()
 					|| (!state.microphoneMetering && !state.recorder && !state.recordingStarting)
 					|| state.disposed) return;
 				let peak = 0;
@@ -426,8 +426,12 @@ export function createMicrophoneMeterService(
 		return analyser;
 	}
 
+	function routedCaptureOwnsMeter(): boolean {
+		return Boolean(state.recorder && state.recordingEntries?.length);
+	}
+
 	function publishLoudnessReading(reading: unknown): void {
-		if (!session?.loudnessMeter) return;
+		if (!session?.loudnessMeter || routedCaptureOwnsMeter()) return;
 		state.inputMeter = reading && typeof reading === 'object' && inputChannels.length
 			? { ...reading, channels: inputChannels }
 			: reading;
@@ -438,8 +442,9 @@ export function createMicrophoneMeterService(
 		dependencies.publishTelemetrySnapshot();
 	}
 
-	function operationIsStale(operationGeneration: number): boolean {
-		return generation !== operationGeneration || !state.microphoneMetering || state.disposed;
+	function operationIsStale(operationGeneration: number, force: boolean): boolean {
+		const recordingOwnsMeter = force && (state.recordingStarting || state.recorder !== null);
+		return generation !== operationGeneration || (!state.microphoneMetering && !recordingOwnsMeter) || state.disposed;
 	}
 
 	function releaseIfUnused(deviceId: string): void {

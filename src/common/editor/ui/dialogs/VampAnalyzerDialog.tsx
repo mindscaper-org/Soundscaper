@@ -28,6 +28,7 @@ export interface VampAnalyzerDialogCopy {
 	readonly master: string;
 	readonly program: string;
 	readonly defaultProgram: string;
+	readonly programValue: string;
 	readonly parameters: string;
 	readonly analyze: string;
 	readonly cancel: string;
@@ -50,6 +51,7 @@ export const VAMP_ANALYZER_DIALOG_COPY: Readonly<VampAnalyzerDialogCopy> = Objec
 	master: 'Master',
 	program: 'Program',
 	defaultProgram: 'Default program',
+	programValue: 'Program value',
 	parameters: 'Parameters',
 	analyze: 'Analyze',
 	cancel: 'Cancel',
@@ -182,10 +184,11 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 				binarySha256: selectedAnalyzer.binarySha256,
 				outputId: selectedOutput.id,
 				program,
-				parameters: selectedAnalyzer.parameters.map(({ id }) => ({
-					id,
-					value: Number(parameters[id]),
-				})),
+				parameters: selectedAnalyzer.parameters.filter(({ id }) => program === null || Object.hasOwn(parameters, id)).map(({ id, name }) => {
+					const value = parameters[id];
+					if (typeof value !== 'string' || !value.trim()) throw new TypeError(`Enter a value for ${name}.`);
+					return { id, value: Number(value) };
+				}),
 				scope: selectedScope,
 				startFrame: props.startFrame,
 				endFrame: props.endFrame,
@@ -287,7 +290,12 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 			</label>
 			{Boolean(selectedAnalyzer?.programs.length) && <label>{labels.program}
 				<select value={program ?? ''} disabled={pending || publishing}
-					onChange={(event) => { setProgram(event.currentTarget.value || null); setResult(null); }}>
+					onChange={(event) => {
+						const next = event.currentTarget.value || null;
+						setProgram(next);
+						setParameters(next === null ? defaults(selectedAnalyzer) : {});
+						setResult(null);
+					}}>
 					<option value="">{labels.defaultProgram}</option>
 					{selectedAnalyzer?.programs.map((name) => <option key={name} value={name}>{name}</option>)}
 				</select>
@@ -296,10 +304,17 @@ export default function VampAnalyzerDialog(props: Readonly<VampAnalyzerDialogPro
 				<legend>{labels.parameters}</legend>
 				{selectedAnalyzer?.parameters.map((parameter) => <label key={parameter.id}>{parameter.name}
 					<input type="number" value={parameters[parameter.id] ?? ''}
+						placeholder={program === null ? undefined : labels.programValue}
+						required={program === null}
 						min={parameter.minValue} max={parameter.maxValue}
 						step={parameter.quantizeStep ?? 'any'}
 						onChange={(event) => {
-							setParameters((current) => ({ ...current, [parameter.id]: event.currentTarget.value }));
+							const value = event.currentTarget.value;
+							setParameters((current) => {
+								const next = { ...current, [parameter.id]: value };
+								if (program !== null && value === '') delete next[parameter.id];
+								return next;
+							});
 							setResult(null);
 						}} />
 					{parameter.unit && <span> {parameter.unit}</span>}

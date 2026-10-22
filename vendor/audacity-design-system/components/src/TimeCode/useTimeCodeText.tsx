@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { TimeCodeProps } from './TimeCode';
-import { parseTimeText } from './time-code-text';
+import { formatTimeText, parseTimeText } from './time-code-text';
 
-interface TextEntryProps extends Pick<TimeCodeProps, 'value' | 'format' | 'sampleRate' | 'disabled' | 'ariaLabel' | 'onChange' | 'onCommit'> {
+interface TextEntryProps extends Pick<TimeCodeProps, 'value' | 'format' | 'sampleRate' | 'frameRate' | 'disabled' | 'ariaLabel' | 'onChange' | 'onCommit'> {
 	containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 /** Double click or the format menu opts into one selected, free text field. */
-export function useTimeCodeText({ value, format = 'hh:mm:ss', sampleRate = 44100, disabled, ariaLabel, onChange, onCommit, containerRef }: TextEntryProps) {
+export function useTimeCodeText({ value, format = 'hh:mm:ss', sampleRate = 44100, frameRate = 24, disabled, ariaLabel, onChange, onCommit, containerRef }: TextEntryProps) {
 	const [draft, setDraft] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const editing = draft !== null;
@@ -20,8 +20,8 @@ export function useTimeCodeText({ value, format = 'hh:mm:ss', sampleRate = 44100
 	}, [editing, onCommit]);
 	const begin = useCallback(() => {
 		if (disabled || !onChange) return;
-		setDraft(String(format === 'samples' ? value * sampleRate : value));
-	}, [disabled, onChange, format, value, sampleRate]);
+		setDraft(formatTimeText(value, format, sampleRate, frameRate));
+	}, [disabled, onChange, format, value, sampleRate, frameRate]);
 	useEffect(() => {
 		const host = containerRef.current;
 		host?.addEventListener('timecode-enter-value', begin);
@@ -34,7 +34,7 @@ export function useTimeCodeText({ value, format = 'hh:mm:ss', sampleRate = 44100
 			ref={inputRef}
 			className="timecode__free-text"
 			aria-label={ariaLabel}
-			aria-invalid={parseTimeText(draft, format, sampleRate) === null}
+			aria-invalid={parseTimeText(draft, format, sampleRate, frameRate) === null}
 			value={draft}
 			onChange={event => setDraft(event.currentTarget.value)}
 			onBlur={() => setDraft(null)}
@@ -45,7 +45,7 @@ export function useTimeCodeText({ value, format = 'hh:mm:ss', sampleRate = 44100
 				if (event.key === 'Escape') { event.preventDefault(); cancel(); }
 				if (event.key !== 'Enter') return;
 				event.preventDefault();
-				const parsed = parseTimeText(draft, format, sampleRate);
+				const parsed = parseTimeText(draft, format, sampleRate, frameRate);
 				if (parsed === null) return;
 				onChange?.(parsed);
 				commitPending.current = true;

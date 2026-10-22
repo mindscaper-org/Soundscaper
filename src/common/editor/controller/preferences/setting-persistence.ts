@@ -22,21 +22,42 @@ export function createSettingPersistence({
 	readonly write: (key: string, value: unknown) => Promise<unknown>;
 	readonly isInactive?: () => boolean;
 	readonly onWarning?: (error: unknown, key: string) => void;
-}): Readonly<SettingPersistencePort> {
+}): Readonly<SettingPersistencePort & {
+	clearStorage(clear: () => Promise<unknown>, reset: () => void, prepare: () => Promise<unknown>): Promise<void>;
+}> {
 	if (typeof write !== 'function') throw new TypeError('A settings write port is required.');
+	const pending = new Set<Promise<unknown>>();
+	let clearing = false;
 	return Object.freeze({
 		async persist<Value>(
 			key: string,
 			value: Value,
 			{ policy = 'best-effort' }: SettingPersistenceOptions = {},
 		): Promise<Value | null> {
+			if (clearing) throw new DOMException('Local editor settings are being cleared.', 'InvalidStateError');
+			let operation: Promise<unknown> | null = null;
 			try {
-				await write(key, value);
+				operation = write(key, value);
+				pending.add(operation);
+				await operation;
 				return value;
 			} catch (error) {
 				if (!isInactive()) onWarning(error, key);
 				if (policy === 'required') throw error;
 				return null;
+			} finally {
+				if (operation) pending.delete(operation);
+			}
+		},
+		async clearStorage(clear: () => Promise<unknown>, reset: () => void, prepare: () => Promise<unknown>) {
+			await prepare();
+			clearing = true;
+			try {
+				while (pending.size) await Promise.allSettled([...pending]);
+				await clear();
+				reset();
+			} finally {
+				clearing = false;
 			}
 		},
 	});

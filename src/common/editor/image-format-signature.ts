@@ -115,8 +115,10 @@ function excludedSignature(bytes: Uint8Array): ExcludedImageFormat | null {
 }
 
 function validJpeg(bytes: Uint8Array): boolean {
-	return bytes.byteLength >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
-		&& bytes[3] !== 0x00 && bytes[3] !== 0xff;
+	if (bytes.byteLength < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return false;
+	let marker = 3;
+	while (bytes[marker] === 0xff) marker += 1;
+	return marker < bytes.byteLength && bytes[marker] !== 0x00;
 }
 
 function validWebp(bytes: Uint8Array): boolean {
@@ -139,7 +141,7 @@ function validDib(bytes: Uint8Array, offset: number): boolean {
 	if (bytes.byteLength - offset < 12) return false;
 	const view = new DataView(bytes.buffer, bytes.byteOffset + offset, bytes.byteLength - offset);
 	const headerBytes = view.getUint32(0, true);
-	if (![12, 40, 52, 56, 64, 108, 124].includes(headerBytes)
+	if (![12, 16, 40, 52, 56, 64, 108, 124].includes(headerBytes)
 		|| headerBytes > bytes.byteLength - offset) return false;
 	if (headerBytes === 12) {
 		return view.getUint16(4, true) > 0 && view.getUint16(6, true) > 0
@@ -147,7 +149,7 @@ function validDib(bytes: Uint8Array, offset: number): boolean {
 	}
 	const width = view.getInt32(4, true);
 	const height = view.getInt32(8, true);
-	const compression = view.getUint32(16, true);
+	const compression = headerBytes === 16 ? 0 : view.getUint32(16, true);
 	return width > 0 && height !== 0 && view.getUint16(12, true) === 1
 		&& validBitmapDepth(view.getUint16(14, true)) && compression <= 13;
 }

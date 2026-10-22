@@ -3,6 +3,7 @@ import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 import { EnvelopeCurve } from '@soundscaper/design-system/EnvelopeCurve';
 import { EnvelopeInteractionLayer } from '@soundscaper/design-system/EnvelopeInteractionLayer';
 import { TrackControlPanel } from '@soundscaper/design-system/TrackControlPanel';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { OutputTrackNameEditor } from './OutputTrackNameEditor.tsx';
 
 export { OutputTrackNameEditor };
@@ -58,6 +59,7 @@ export function OutputTrackDock({
 	onOpenEffects,
 }) {
 	const dockRef = useRef(null);
+	const projectSession = editorProjectEditSessionKey(controller, controller.project?.id ?? controller.getSnapshot?.().project?.id);
 	const outputRows = useCallback(() => [
 		...(dockRef.current?.querySelectorAll(':scope > [data-output-track-row]') || []),
 	], []);
@@ -91,7 +93,7 @@ export function OutputTrackDock({
 			}}
 		>
 			{rows.map(({ key, scope, bus }, rowIndex) => <OutputTrackRow
-				key={key}
+				key={`${projectSession}:${key}`}
 				controller={controller}
 				rowKey={key}
 				scope={scope}

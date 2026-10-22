@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { materializeSnapshotValue } from './internal/snapshots/published-snapshot-value.ts';
+import { normalizePlayAtSpeedRate } from '../../engine/buffer-math.ts';
 import { projectFeatureAffectedObjects } from '../../project-feature-affected-objects.ts';
 import type { ProjectFeatureRequirementsReport } from '../../project-feature-requirements.ts';
 import type { MacroScriptRecord } from '../../macro-script-library.ts';
@@ -114,6 +115,7 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly readOnly: boolean;
 	readonly projectLock: Readonly<{ readOnly?: boolean }> | null;
 	readonly projectActivationPending: boolean;
+	readonly projectAdministrationPending?: boolean;
 	readonly importing: boolean;
 	readonly recordingStarting: boolean;
 	readonly timedRecordingPreparing: boolean;
@@ -235,6 +237,8 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		? publishedProject.selection
 		: null;
 	const projects = publishStableValue(state.projects, PUBLISHED_PROJECT_LISTS);
+	const projectTabs = runtime.getProjectTabs();
+	const tabTitles = new Map(projectTabs.map((tab) => [tab.projectId, tab.title]));
 	const history = state.history;
 	return Object.freeze({
 		product: runtime.product,
@@ -251,9 +255,13 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		webVcr: runtime.getFramescaperWebVcrSnapshot?.() ?? null,
 		projects,
 		recentProjects: Object.freeze(state.recentProjectIds
-			.map((projectId) => projects.find((candidate) => candidate.id === projectId))
+			.map((projectId) => {
+				const summary = projects.find((candidate) => candidate.id === projectId);
+				const title = tabTitles.get(projectId);
+				return summary && title !== undefined && title !== summary.title ? Object.freeze({ ...summary, title }) : summary;
+			})
 			.filter((candidate): candidate is SnapshotProjectSummary => Boolean(candidate))),
-		projectTabs: Object.freeze(runtime.getProjectTabs().map((tab) => Object.freeze({
+		projectTabs: Object.freeze(projectTabs.map((tab) => Object.freeze({
 			id: tab.projectId,
 			title: tab.title,
 			dirty: tab.dirty,
@@ -274,13 +282,14 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 			? Object.freeze({ ...state.projectBinPreview })
 			: null,
 		playbackOptions: Object.freeze({
-			rate: state.playAtSpeedRate,
+			rate: normalizePlayAtSpeedRate(state.playAtSpeedRate, state.preferences.playback?.playAtSpeedMode === 'staffpad'),
 			mode: state.preferences.playback?.playAtSpeedMode || 'naive',
 			preparing: Boolean(state.playAtSpeedAbort),
 		}),
 		readOnly: state.readOnly,
 		lockReadOnly: Boolean(state.projectLock?.readOnly),
 		projectActivationPending: state.projectActivationPending,
+		projectAdministrationPending: Boolean(state.projectAdministrationPending),
 		importing: state.importing,
 		recordingStarting: state.recordingStarting,
 		recordingScheduling: state.timedRecordingPreparing || state.timedRecordingCancelling,

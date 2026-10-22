@@ -319,6 +319,21 @@ function formatHz(seconds: number): TimeCodeSegment[] {
   ];
 }
 
+/** A sample display owns the complete editable precision; coarser displays retain hidden time. */
+export function editedTimeCodeSeconds(
+  value: number,
+  previous: TimeCodeSegment[],
+  next: TimeCodeSegment[],
+  format: TimeCodeFormat,
+  sampleRate: number,
+  frameRate: number,
+  musicalMap?: TimeCodeMusicalMap
+): number {
+  const seconds = segmentsToSeconds(next, format, sampleRate, frameRate, musicalMap);
+  return format === 'samples' || format === 'hh:mm:ss+samples' ? seconds
+    : value + seconds - segmentsToSeconds(previous, format, sampleRate, frameRate, musicalMap);
+}
+
 // Helper function to convert segments back to seconds
 export function segmentsToSeconds(
   segments: TimeCodeSegment[],

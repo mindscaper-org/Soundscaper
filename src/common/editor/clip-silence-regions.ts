@@ -90,8 +90,10 @@ export function findClipSilenceRegions(
 	const clipEndFrame = clip.timelineStartFrame + clip.durationFrames;
 	return Object.freeze(regions
 		.map(([start, end]) => Object.freeze([
-			clip.timelineStartFrame + Math.round(start * timelineFramesPerSourceFrame),
-			clip.timelineStartFrame + Math.round(end * timelineFramesPerSourceFrame),
+			Math.max(bounds?.startFrame ?? clip.timelineStartFrame,
+				clip.timelineStartFrame + Math.round(start * timelineFramesPerSourceFrame)),
+			Math.min(bounds?.endFrame ?? clipEndFrame,
+				clip.timelineStartFrame + Math.round(end * timelineFramesPerSourceFrame)),
 		]) as ClipSilenceRegion)
 		.filter(([start, end]) => start > clip.timelineStartFrame && end < clipEndFrame && end > start)
 		.slice(0, MAXIMUM_REGIONS));

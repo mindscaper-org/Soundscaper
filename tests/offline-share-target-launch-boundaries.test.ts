@@ -144,9 +144,11 @@ test('an invalid streamed chunk cancels the claimed body before collection fails
 	assert.match(String((failureReports[0] as Error).message), /invalid body chunk/u);
 });
 
-test('a failed body cancels every later response acquired before the claim', async () => {
+test('a fatal byte-budget failure cancels every later response acquired before the claim', async () => {
 	const token = '5'.repeat(32);
-	const failure = new Error('first body failed');
+	class ExcessiveChunk extends Uint8Array {
+		override get byteLength(): number { return 512 * 1024 * 1024 + 1; }
+	}
 	let laterCancelled = false;
 	const cache = {
 		match: async (url: string): Promise<Response | undefined> => {
@@ -158,7 +160,7 @@ test('a failed body cancels every later response acquired before the claim', asy
 				],
 			}));
 			if (url === sharedFilesBodyUrl(token, 0)) return new Response(new ReadableStream({
-				pull() { throw failure; },
+				pull(controller) { controller.enqueue(new ExcessiveChunk([1])); },
 			}));
 			return new Response(new ReadableStream({
 				cancel() { laterCancelled = true; },
@@ -176,7 +178,8 @@ test('a failed body cancels every later response acquired before the claim', asy
 	});
 
 	assert.equal(result.status, 'unreadable');
-	assert.deepEqual(errors, [failure]);
+	assert.equal(errors.length, 1);
+	assert.match(String((errors[0] as Error).message), /actual byte limit/u);
 	assert.equal(laterCancelled, true);
 });
 

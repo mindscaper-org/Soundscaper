@@ -172,8 +172,8 @@ test.describe('macro programs', () => {
 					requestAnimationFrame(() => requestAnimationFrame(resolve));
 				});
 			}, response.url());
-			await expect(log).toHaveAttribute('data-outcome', 'cancelled', { timeout: 15_000 });
-			await expect(log).not.toContainText('stale macro ran');
+			await expect(log).toHaveAttribute('data-outcome', 'idle', { timeout: 15_000 });
+			await expect(log).toBeEmpty();
 			const staleSuccesses = await page.evaluate(() => {
 				const monitor = globalThis.__macroLoadMonitor;
 				monitor.observer.disconnect();

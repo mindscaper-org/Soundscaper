@@ -8,9 +8,11 @@ import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCom
 export function CommitField({ label, name, value, type = 'text', disabled, readOnly, multiline, hookName = 'clip-field', visuallyHiddenLabel = false, onCommit }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
+	const editRevision = useRef(0);
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	const draftOwner = useRef({ name, focused: false, dirty: false });
 	useEffect(() => {
+		editRevision.current++;
 		const owner = draftOwner.current;
 		if (owner.name === name && owner.focused && owner.dirty) return;
 		owner.name = name;
@@ -22,10 +24,17 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 		draftOwner.current.focused = false;
 		draftOwner.current.dirty = false;
 		if (disabled || readOnly || !draftBlurShouldCommit(blurCommitGuard)) return;
+		const revision = editRevision.current;
+		const resolve = (accepted) => {
+			if (editRevision.current === revision) setError(accepted === false);
+		};
 		try {
-			setError(onCommit(name, draft) === false);
+			const outcome = onCommit(name, draft);
+			if (outcome && typeof outcome.then === 'function') {
+				void Promise.resolve(outcome).then(resolve, () => resolve(false));
+			} else resolve(outcome);
 		} catch {
-			setError(true);
+			resolve(false);
 		}
 	};
 	const hook = { [`data-${hookName}`]: name };
@@ -40,6 +49,7 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 				cancelDraftEditOnEscape(blurCommitGuard, { currentTarget: event.target,
 					preventDefault: () => event.preventDefault(), stopPropagation: () => event.stopPropagation() }, () => {
 					draftOwner.current.dirty = false;
+					editRevision.current++;
 					setDraft(String(value ?? ''));
 					setError(false);
 				});
@@ -54,8 +64,10 @@ export function CommitField({ label, name, value, type = 'text', disabled, readO
 				error={error}
 				onFocus={() => { draftOwner.current.focused = true; }}
 				onChange={(next) => {
+					editRevision.current++;
 					draftOwner.current.dirty = next !== String(value ?? '');
 					setDraft(next);
+					setError(false);
 				}}
 				onBlur={commit}
 				width="100%"

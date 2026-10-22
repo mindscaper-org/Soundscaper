@@ -321,7 +321,7 @@ test('a burned line is sized and wrapped to fit the canvas it is drawn on', () =
 	// 32, an advance of about half the font size per character. The type used to
 	// be sized from height alone, so a 1080x1920 delivery drew at 86 px and any
 	// caption past 28 characters ran off both edges of the frame.
-	const line = 'Here is a caption line that a narrator might actually say out loud.';
+	const line = 'Here is a caption line that a narrator might actually say out loud. '.repeat(2).trim();
 	const cue = { startFrame: 0, endFrame: 500, title: line };
 	const drawnWidth = (text: string, fontSizePx: number) => Math.max(
 		...text.split('\n').map((value) => value.length * fontSizePx * 0.5),

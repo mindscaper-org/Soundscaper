@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ko",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:98d1aaa08887d793a40f58496fb388d5072f00bb1e2ee104b7a6a5002f438c37","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:8b3e471d078ea6aa0dc68d42ae747bc7e373f274cf2d876d26b00fa1a01adb00","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -2920,6 +2920,7 @@
 		"takeCompEnd": ["machine","End sample","끝 샘플"],
 		"takeCompExtent": ["machine","Samples {start}–{end}","샘플 {start}–{end}"],
 		"takeCompFlatten": ["machine","Flatten comp","컴프 평탄화"],
+		"takeCompFlattenBeforeChannelRewrite": ["machine","Flatten the track’s take comp before splitting or merging its channels.","채널을 분리하거나 병합하기 전에 트랙의 테이크 컴프를 평탄화하세요."],
 		"takeCompFlattenComplete": ["machine","Take comp flattened.","테이크 컴프 평탄화 완료."],
 		"takeCompGroup": ["machine","Take group","테이크 그룹"],
 		"takeCompLane": ["machine","Lane {number}","레인 {number}"],

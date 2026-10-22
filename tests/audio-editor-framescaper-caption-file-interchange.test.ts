@@ -57,7 +57,7 @@ test('caption export uses the common save convention with exact format names and
 	});
 	assert.deepEqual(result, { method: 'download' });
 	assert.deepEqual(requests, [{
-		purpose: 'interchange', suggestedName: 'English-Main.ttml',
+		purpose: 'labels', suggestedName: 'English-Main.ttml',
 		mimeType: 'application/ttml+xml;charset=utf-8', text: '<tt/>',
 	}]);
 });

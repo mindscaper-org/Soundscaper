@@ -27,8 +27,8 @@ for (const format of ['FCPXML', 'edit list (EDL)', 'OpenTimelineIO', 'DAWproject
 		const text = new TextDecoder().decode(bytes);
 		if (format === 'FCPXML') {
 			const sourceStart = /<asset-clip[^>]*\bstart="([^"]+)"/u.exec(text)?.[1];
-			// FCPXML preserves the captured WebM's native source clock:
-			// ordinal six is exactly 456/1000s, reduced to 57/125s.
+			// FCPXML retains the captured WebM's sixth source ordinal at PTS
+			// 456/1000s on the native media clock, reduced to its exact rational.
 			expect(sourceStart).toBe('57/125s');
 		} else if (format === 'edit list (EDL)') {
 			const event = text.split('\n').find((line) => /^001\s/u.test(line));

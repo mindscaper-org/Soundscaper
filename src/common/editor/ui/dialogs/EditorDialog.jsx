@@ -6,6 +6,7 @@ import { TextInput } from '@soundscaper/design-system/TextInput';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import TimedRecordingDialogFields from './TimedRecordingDialogFields.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useOwnedDialogOperation } from '../useOwnedDialogOperation.ts';
 import { formatDate } from '../workspace-runtime.js';
 import {
@@ -36,11 +37,17 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 	const editBlockedRef = useRef(editBlocked);
 	editBlockedRef.current = editBlocked;
 	const cancelTimedRecordingOnClose = useRef(false);
+	const projectSession = editorProjectEditSessionKey(controller, snapshot.project?.id);
 	const projectIdAtOpen = useRef(snapshot.project?.id ?? null);
+	const editingTargetAtOpen = useRef({ type, projectSession, trackId: snapshot.selectedTrackId ?? null });
+	if (editingTargetAtOpen.current.type !== type) {
+		editingTargetAtOpen.current = { type, projectSession, trackId: snapshot.selectedTrackId ?? null };
+		projectIdAtOpen.current = snapshot.project?.id ?? null;
+	}
 	// These actions intentionally replace the project before their promise settles.
 	const replacesProject = ['projects', 'delete', 'clear'].includes(type);
 	const operationState = useOwnedDialogOperation({
-		owner: JSON.stringify([type, replacesProject ? null : snapshot.project?.id ?? null]), blocked: editBlocked, run,
+		owner: JSON.stringify([type, replacesProject ? null : projectSession]), blocked: editBlocked, run,
 	});
 	cancelTimedRecordingOnClose.current = type === 'timed-recording' && snapshot.recordingScheduling;
 	const closeDialog = () => {
@@ -50,6 +57,11 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 	};
 	const runThenClose = (operation, shouldClose = () => true) => {
 		if (editBlockedRef.current) return;
+		if (['rename', 'track-rename', 'resample', 'track-rate', 'timed-recording'].includes(type)
+			&& projectSession !== editingTargetAtOpen.current.projectSession) {
+			onClose();
+			return;
+		}
 		operationState.perform(type, operation, {
 			onSuccess: (result) => { if (shouldClose(result)) onClose(); },
 		});
@@ -75,8 +87,9 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 		runThenClose(() => controller.actions.project.rename(value));
 	};
 	const submitTrackRename = () => {
-		if (!value.trim() || !snapshot.selectedTrackId) return;
-		runThenClose(() => controller.actions.track.update(snapshot.selectedTrackId, { name: value.trim() }));
+		const selectedTrackId = editingTargetAtOpen.current.trackId;
+		if (!value.trim() || !selectedTrackId) return;
+		runThenClose(() => controller.actions.track.update(selectedTrackId, { name: value.trim() }));
 	};
 	// Re-read the clock on every call rather than once per render: a start time
 	// that was still in the future when the dialog painted may have passed by
@@ -90,7 +103,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 		const trackId = showArmControls
 			? undefined
 			: (() => {
-				const selectedTrack = snapshot.project?.tracks.find((track) => track.id === snapshot.selectedTrackId);
+				const selectedTrack = snapshot.project?.tracks.find((track) => track.id === editingTargetAtOpen.current.trackId);
 				if (selectedTrack?.type === 'audio') return selectedTrack.id;
 				if (selectedTrack?.type === 'video' && selectedTrack.laneGroupId) {
 					const pairedTrack = snapshot.project?.tracks.find((track) => (
@@ -112,7 +125,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 	// default and resample to, so an entry it cannot parse refuses here instead.
 	const trackSampleRate = parseTrackSampleRate(value);
 	const submitResample = () => {
-		const selectedTrackId = snapshot.selectedTrackId;
+		const selectedTrackId = editingTargetAtOpen.current.trackId;
 		if (!selectedTrackId || trackSampleRate === null) return;
 		runThenClose(() => controller.actions.track.resample(selectedTrackId, trackSampleRate));
 	};
@@ -124,7 +137,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 		(result) => result !== TRACK_RATE_DIALOG_MISSING_TRACK && result !== TRACK_RATE_DIALOG_INVALID_RATE,
 	);
 	const confirmDeletion = () => {
-		if (type === 'delete' && snapshot.project?.id !== projectIdAtOpen.current) {
+		if (type === 'delete' && projectSession !== editingTargetAtOpen.current.projectSession) {
 			onClose();
 			return;
 		}

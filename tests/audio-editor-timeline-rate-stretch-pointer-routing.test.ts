@@ -40,6 +40,31 @@ test('pointer sessions that carry no original are declined instead of throwing',
 	}
 });
 
+test('a linked camera audio handle sends its captured video pair through canonical preview and release', () => {
+	const base = pointerSession('stretch-right', 'audio');
+	const original = { ...base.original, id: 'linked-audio', avLinkId: 'camera' };
+	const session = { ...base, clipId: original.id, original,
+		clipIds: [original.id, 'video'], originals: {
+			[original.id]: original, video: { ...pointerSession('stretch-right', 'video').original, avLinkId: 'camera' },
+		} };
+	const requests: FrameCanonicalRateStretchRequest[] = [];
+	const preview = resolveTimelineRateStretchPointerPreview({ session, canonicalVideoTrim: true,
+		requestedBoundarySample: 37_777, previewRateStretch: request => { requests.push(request); return transformPlan(); },
+		previewOrdinary: () => assert.fail('Camera audio entered the independent audio stretch path.'),
+	});
+	assert.ok(preview);
+	commitTimelineRateStretchPointer({ session, canonicalVideoTrim: true, requestedBoundarySample: 39_000,
+		commitRateStretch: request => { requests.push(request); },
+		commitOrdinary: () => assert.fail('Camera audio entered the independent audio stretch path.'),
+	});
+	assert.deepEqual(requests, [
+		{ activeClipId: original.id, edge: 'right', requestedBoundarySample: 37_777 },
+		{ activeClipId: original.id, edge: 'right', requestedBoundarySample: 39_000 },
+	]);
+	assert.equal(usesFrameCanonicalTimelineRateStretch({ session: { ...session,
+		original: { ...original, avLinkId: 'different-camera' } }, canonicalVideoTrim: true }), false);
+});
+
 test('preview sends one absolute request, projects every participant, and tags audio waveforms', () => {
 	const session = pointerSession('stretch-right', 'video');
 	const plan = transformPlan();

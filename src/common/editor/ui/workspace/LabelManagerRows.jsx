@@ -13,6 +13,7 @@ import {
 export function LabelManagerRow({ label, sampleRate, controller, copy, disabled, run,
 	onRemoving = /** @type {null | ((control: HTMLElement) => void)} */ (null) }) {
 	const [title, setTitle] = useState(label.title || '');
+	const TitleField = label.title?.includes('\n') ? 'textarea' : 'input';
 	const blurCommitGuard = useRef(createDraftBlurCommitGuard()).current;
 	useEffect(() => {
 		setTitle(label.title || '');
@@ -30,15 +31,16 @@ export function LabelManagerRow({ label, sampleRate, controller, copy, disabled,
 	return (
 		<li data-label-id={label.id} data-track-id={label.trackId}>
 			<div className="kw-audio-editor__label-manager-heading">
-				<input
+				<TitleField
 					aria-label={`${copy.labelTitle || copy.trackName}: ${label.trackName}`}
+					rows={TitleField === 'textarea' ? Math.min(4, label.title.split('\n').length) : undefined}
 					value={title}
 					disabled={disabled}
 					onChange={(event) => setTitle(event.currentTarget.value)}
 					onBlur={commitTitle}
 					onKeyDown={(event) => {
 						if (event.nativeEvent?.isComposing) return;
-						if (event.key === 'Enter') {
+						if (event.key === 'Enter' && (TitleField === 'input' || !event.shiftKey)) {
 							event.preventDefault();
 							event.stopPropagation();
 							event.currentTarget.blur();

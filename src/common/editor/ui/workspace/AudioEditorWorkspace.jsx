@@ -14,6 +14,7 @@ import AudioEditorWorkspaceView from './AudioEditorWorkspaceView.jsx';
 import { resolveWorkspaceRuntimeProjection } from './workspace-runtime-projection.ts';
 import { workspaceStatusPresentation } from './workspace-status-presentation.ts';
 import { withDesktopProjectReadDescriptor } from './desktop-project-file-routing.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { openDesktopWorkspaceFiles } from './desktop-workspace-file-choice.ts';
 import { workspacePreferencesPage } from './workspace-preferences-routing.ts';
 import { focusOpenedWorkspacePanel } from './workspace-panel-opening-focus.ts';
@@ -236,6 +237,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	});
 	const openDesktopFiles = useCallback((purpose, multiple = false, importOptions = {}) => openDesktopWorkspaceFiles({
 		getProjectId: () => controller.getSnapshot().project?.id ?? null,
+		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
 		fileService, importFiles: importRoutedFiles, openProjectDescriptor: openDesktopProjectDescriptor,
 	}, purpose, multiple, importOptions), [controller, fileService, importRoutedFiles, openDesktopProjectDescriptor]);
 	const { clipPropertiesFocusRequest, openClipPropertiesSurface } = useWorkspaceClipPropertiesPanel({

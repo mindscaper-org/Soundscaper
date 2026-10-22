@@ -2,6 +2,7 @@
 
 import { normalizeCartMetadata, type CartMetadata, type CartMetadataInput } from './cart-metadata.ts';
 import { scaleCartPostTimers } from './cart-sample-clock.ts';
+import { cartForOutputPrecision } from './cart-level-reference.ts';
 
 interface CartDeliveryRange {
 	readonly startFrame: number;
@@ -14,6 +15,7 @@ export function cartForDeliveryRange(
 	range: CartDeliveryRange,
 	inputSampleRate: number,
 	outputSampleRate: number,
+	outputBitDepth?: number,
 ): CartMetadata | null {
 	if (input == null) return null;
 	if (!Number.isSafeInteger(range.startFrame) || range.startFrame < 0
@@ -25,5 +27,5 @@ export function cartForDeliveryRange(
 		// End-of-data cues can legitimately name the boundary at the file's end.
 		.filter(timer => timer.value >= range.startFrame && timer.value <= range.endFrame)
 		.map(timer => ({ usage: timer.usage, value: timer.value - range.startFrame }));
-	return scaleCartPostTimers({ ...metadata, postTimers }, inputSampleRate, outputSampleRate);
+	return cartForOutputPrecision(scaleCartPostTimers({ ...metadata, postTimers }, inputSampleRate, outputSampleRate), outputBitDepth);
 }

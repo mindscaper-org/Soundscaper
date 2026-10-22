@@ -339,7 +339,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 		addDeliveryReportItem(draft, {
 			code: 'dawproject.crossfade-converted', disposition: 'converted', severity: 'info',
 			scope: { kind: 'clip', id: clipId }, data: {},
-			message: 'A negative fade-in marks a crossfade with the previous clip; it is imported as a fade-in of the same length.',
+			message: 'A negative fade-in marks an earlier crossfade head; its available source audio and fade timing are retained.',
 		});
 	}
 	return {

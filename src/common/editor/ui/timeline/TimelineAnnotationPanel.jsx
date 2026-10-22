@@ -6,8 +6,13 @@ import { AUDIO_EDITOR_TIMELINE_ANNOTATION_COLORS } from '../../timeline-annotati
 import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { useTimelineAnnotationInteractions } from './useTimelineAnnotationInteractions.js';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
-export function TimelineAnnotationPanel({
+export function TimelineAnnotationPanel(props) {
+	return <TimelineAnnotationPanelSession key={editorProjectEditSessionKey(props.controller, props.project?.id)} {...props} />;
+}
+
+function TimelineAnnotationPanelSession({
 	controller,
 	project,
 	annotations,

@@ -327,7 +327,9 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 		restorePending: (items: readonly FreesoundPendingUpload[]) => {
 			for (const pending of items) {
 				if (records.some(({ item }) => item.uploadFilename === pending.uploadFilename)) continue;
-				assertQueueCapacity(records.length, 1);
+				// Remote history may exceed the local queue. Publish the admitted
+				// rows instead of leaving them hidden after a capacity exception.
+				if (records.length >= MAXIMUM_QUEUE_ITEMS) break;
 				const awaitingDescription = pending.status === 'pending_description';
 				const defaults = createFreesoundUploadMetadataDefaults({ fileName: pending.uploadFilename });
 				records.push({ licenseAnalysis: defaults, item: Object.freeze({

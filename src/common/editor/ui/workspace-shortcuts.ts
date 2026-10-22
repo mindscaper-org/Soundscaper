@@ -175,6 +175,8 @@ export function handleProjectZoomShortcut(
 ): boolean {
 	const zoomActionId = projectZoomShortcut(event);
 	if (!zoomActionId) return false;
+	const configuredAction = matchAudioEditorShortcut(event, snapshot.preferences?.shortcuts || {});
+	if (configuredAction && resolveAudacityActionId(configuredAction) !== resolveAudacityActionId(zoomActionId)) return false;
 	const bindings = snapshot.preferences?.shortcuts?.[zoomActionId] || [];
 	const normalizedEvent = normalizedProjectZoomEvent(event, zoomActionId);
 	if (!bindings.some((binding) => matchesAudioEditorShortcutBinding(normalizedEvent, binding))) return false;
@@ -206,6 +208,15 @@ export function matchAudioEditorShortcut(
 	event: Pick<KeyboardEventLike, 'altKey' | 'code' | 'ctrlKey' | 'key' | 'metaKey' | 'shiftKey'>,
 	shortcuts: Record<string, readonly string[]>,
 ): string | null {
+	// Printed punctuation can have its own saved binding as well as the
+	// established shortcut for the unshifted physical key. Give that explicit
+	// character ownership before trying the compatibility key aliases.
+	if (event.shiftKey && event.key.length === 1 && keyboardShortcutEventKey(event) !== event.key) {
+		for (const [actionId, bindings] of Object.entries(shortcuts)) {
+			if (bindings.some(candidate => audioEditorShortcutParts(candidate).key === event.key
+				&& matchesAudioEditorShortcutBinding(event, candidate))) return actionId;
+		}
+	}
 	for (const [actionId, bindings] of Object.entries(shortcuts)) {
 		if (bindings.some((candidate) => matchesAudioEditorShortcutBinding(event, candidate))) return actionId;
 	}

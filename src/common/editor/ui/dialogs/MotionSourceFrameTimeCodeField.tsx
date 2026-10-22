@@ -13,6 +13,7 @@ interface MotionSourceFrameTimeCodeFieldProps {
 	readonly value: number;
 	readonly minimum: number;
 	readonly maximum: number;
+	readonly sampleRate: number;
 	readonly disabled: boolean;
 	readonly onChange: (value: number) => void;
 }
@@ -23,7 +24,7 @@ export default function MotionSourceFrameTimeCodeField(props: MotionSourceFrameT
 	const [format, setFormat] = useState<TimeCodeFormat>('hh:mm:ss+frames');
 	const ordinalClock = format === 'film-frames' || format === 'hh:mm:ss+frames';
 	return <AudioEditorTimeCodeInput label={props.label} format={format}
-		unit={ordinalClock ? 'frames' : 'seconds'} rate={clock.rate} frameRate={clock.rate}
+		unit={ordinalClock ? 'frames' : 'seconds'} rate={clock.rate} frameRate={clock.rate} sampleRate={props.sampleRate}
 		value={ordinalClock ? props.value : clock.secondsAt(props.value)}
 		minimum={ordinalClock ? props.minimum : clock.secondsAt(props.minimum)}
 		maximum={ordinalClock ? props.maximum : clock.secondsAt(props.maximum)}

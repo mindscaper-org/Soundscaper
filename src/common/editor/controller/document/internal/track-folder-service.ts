@@ -13,6 +13,7 @@ import type { EditorControllerLifetime } from '../../shared/lifecycle.ts';
 type RuntimeValue = string | number | boolean | null | undefined;
 
 interface FolderedProjectShape {
+	readonly id?: unknown;
 	readonly tracks?: readonly Readonly<{ readonly id?: unknown; readonly laneGroupId?: unknown }>[];
 	readonly trackFolders?: readonly Readonly<{ readonly id: string; readonly name: string }>[];
 	readonly primarySequenceId?: string;
@@ -35,6 +36,7 @@ export interface TrackFolderPlacement {
 export interface TrackFolderServiceDependencies {
 	readonly lifetime: Pick<EditorControllerLifetime, 'assertActive'>;
 	readonly getProject: () => unknown;
+	readonly getProjectSessionKey?: () => unknown;
 	readonly editingBlocked: () => boolean;
 	readonly createId: (prefix: string) => string;
 	readonly commit: (command: AudioEditorCommand) => unknown;
@@ -62,8 +64,17 @@ export function createTrackFolderService(
 	dependencies: TrackFolderServiceDependencies,
 ): Readonly<TrackFolderService> {
 	let selectedFolderId: string | null = null;
+	let selectedProjectSession: unknown;
 
-	const project = (): FolderedProjectShape => dependencies.getProject() as FolderedProjectShape;
+	const project = (): FolderedProjectShape => {
+		const value = dependencies.getProject();
+		const current = value && typeof value === 'object' ? value as FolderedProjectShape : {};
+		const session = dependencies.getProjectSessionKey ? dependencies.getProjectSessionKey() : current.id;
+		if (session !== selectedProjectSession || (selectedFolderId !== null
+			&& !current.trackFolders?.some(({ id }) => id === selectedFolderId))) selectedFolderId = null;
+		selectedProjectSession = session;
+		return current;
+	};
 	const guard = (): void => {
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) throw new RangeError('Editing is blocked.');
@@ -141,9 +152,9 @@ export function createTrackFolderService(
 						parentFolderId: location.parentFolderId,
 						index: location.childIndex,
 					}),
-					...trackIds.map((trackId, index) => createMoveTrackNodeCommand(
+					...wrappedTrackBlocks(current, trackIds, location.sequenceId).map(({ nodeId, index }) => createMoveTrackNodeCommand(
 						location.sequenceId,
-						String(trackId),
+						nodeId,
 						folderId,
 						index,
 					)),
@@ -155,9 +166,11 @@ export function createTrackFolderService(
 		},
 		selectFolder(folderId: string | null): void {
 			dependencies.lifetime.assertActive();
+			project();
 			selectedFolderId = folderId;
 		},
 		selectedFolderId(): string | null {
+			project();
 			return selectedFolderId;
 		},
 	});
@@ -193,4 +206,25 @@ function locateSelectedSequenceId(project: FolderedProjectShape, folderId: strin
 		if (sequence.trackNodes.some((node) => node.id === folderId)) return sequence.id;
 	}
 	return null;
+}
+
+
+/** A linked block moves together and occupies every one of its direct children. */
+function wrappedTrackBlocks(project: FolderedProjectShape, trackIds: readonly string[], sequenceId: string) {
+	const nodes = project.sequences?.find(sequence => sequence.id === sequenceId)?.trackNodes;
+	if (!nodes) throw new ReferenceError(`Unknown sequence: ${sequenceId}.`);
+	const groups = trackNodeLaneGroupsV12(project.tracks ?? []);
+	const consumed = new Set<string>();
+	const blocks: Readonly<{ nodeId: string; index: number }>[] = [];
+	let index = 0;
+	for (const trackId of trackIds) {
+		if (consumed.has(trackId)) continue;
+		const span = resolveTrackNodeSpanV12(nodes, trackId, groups);
+		const members = nodes.slice(span.start, span.end);
+		const head = members[0]!;
+		for (const member of members) consumed.add(member.id);
+		blocks.push({ nodeId: head.id, index });
+		index += members.filter(member => member.parentFolderId === head.parentFolderId).length;
+	}
+	return blocks;
 }

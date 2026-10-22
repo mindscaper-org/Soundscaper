@@ -20,7 +20,7 @@ const SOUND = {
 	waveform: { available: true, url: '/api/freesound/sounds/42/waveform?asset=789' },
 };
 
-for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${String(initialGain)} and follows live and paused output changes`, async () => {
+for (const [initialGain, loadingGain] of [[0, 0], [1, 1], [1, .25], [1, 0]] as const) test(`Freesound listening gain starts at ${String(initialGain)}, loads at ${String(loadingGain)} and follows live and paused output changes`, async () => {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
@@ -46,6 +46,7 @@ for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${Str
 		assert.ok(button);
 		await act(async () => reactProps(button).onClick());
 	};
+	let unmounted = false;
 	try {
 		await render(initialGain);
 		await act(async () => reactProps(dom.one('input')).onChange({ currentTarget: { value: 'rain' } }));
@@ -55,8 +56,16 @@ for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${Str
 		const audio = audios[0]!;
 		assert.equal(audio.volume, initialGain, 'the actual new preview inherits the current listening output');
 		assert.equal(audio.playCount, 1);
-		await render(0.25);
-		assert.equal(audio.volume, 0.25);
+		await render(loadingGain);
+		audio.volume = loadingGain === 0 ? 1 : 0;
+		audio.dispatchEvent(new Event('loadedmetadata'));
+		assert.equal(audio.volume, loadingGain, 'native initialization retains the latest requested gain, including mute');
+		audio.volume = .4;
+		audio.dispatchEvent(new Event('loadedmetadata'));
+		assert.equal(audio.volume, .4, 'later native volume edits retain ownership');
+		const liveGain = loadingGain === .25 ? .5 : .25;
+		await render(liveGain);
+		assert.equal(audio.volume, liveGain);
 		assert.equal(audio.playCount, 1, 'changing listening gain retains the current preview transport');
 		await clickPreview('Pause preview');
 		await render(0);
@@ -65,19 +74,25 @@ for (const initialGain of [0, 1]) test(`Freesound listening gain starts at ${Str
 		assert.equal(audios.length, 1);
 		assert.equal(audio.playCount, 2);
 		assert.equal(audio.volume, 0, 'resume retains the listening gain applied while paused');
+		await act(async () => reactProps(dom.one('form')).onSubmit({ preventDefault() {} }));
+		await clickPreview('Play preview');
+		const retiring = audios.at(-1)!;
+		await act(async () => root.unmount()); unmounted = true;
+		retiring.volume = .6;
+		retiring.dispatchEvent(new Event('loadedmetadata'));
+		assert.equal(retiring.volume, .6, 'retired media cannot apply a late readiness update');
 	} finally {
-		await act(async () => root.unmount());
+		if (!unmounted) await act(async () => root.unmount());
 		globalThis.Audio = priorAudio; globalThis.fetch = priorFetch;
 		globals.IS_REACT_ACT_ENVIRONMENT = priorAct; dom.restore();
 	}
 });
 
-class PreviewAudio {
+class PreviewAudio extends EventTarget {
 	volume = 1;
 	preload = '';
 	playCount = 0;
-	constructor(public src: string) {}
-	addEventListener(): void {}
+	constructor(public src: string) { super(); }
 	play(): Promise<void> { this.playCount += 1; return Promise.resolve(); }
 	pause(): void {}
 	load(): void {}

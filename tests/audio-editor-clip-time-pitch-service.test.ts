@@ -33,6 +33,16 @@ test('committed cache preparation retains the semantic clip inventory and materi
 	]), [['pitched', 'source']]);
 });
 
+test('source audition scopes cache preparation without evicting other project clip caches', async () => {
+	const project = projectFixture();
+	const harness = createHarness(project);
+	assert.deepEqual(await harness.service.prepareCommittedTimePitchCaches(project, null, { clipIds: ['plain'] }), []);
+	assert.deepEqual(harness.cache.retained, ['pitched', 'plain', 'video']);
+	assert.deepEqual(harness.cache.prepared, []);
+	await harness.service.prepareCommittedTimePitchCaches(project, null, { clipIds: ['pitched'] });
+	assert.deepEqual(harness.cache.prepared, ['pitched']);
+});
+
 test('canonical clips need no transient coordinates when deciding whether caches are needed', async () => {
 	const harness = createHarness(projectFixture());
 	const canonical = {

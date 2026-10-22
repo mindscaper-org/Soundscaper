@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { riff64MetadataReadView } from './riff64-metadata-read-view.ts';
+
 /** WavPack has an APEv2 trailer; the other import formats use Mediabunny. */
 export async function readImportedMetadataTags(file: Blob, signal?: AbortSignal): Promise<unknown> {
 	signal?.throwIfAborted();
-	if (new TextDecoder().decode(new Uint8Array(await file.slice(0, 4).arrayBuffer())) === 'wvpk') {
+	const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+	if (new TextDecoder().decode(header.subarray(0, 4)) === 'wvpk') {
 		return (await import('./ape-metadata-reader.ts')).readApeMetadataTags(file, signal);
 	}
+	file = await riff64MetadataReadView(file, header, signal) ?? file;
 	const { ALL_FORMATS, BlobSource, Input } = await import('mediabunny');
 	signal?.throwIfAborted();
 	const input = new Input({

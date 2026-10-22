@@ -38,12 +38,14 @@ const CHUNK_KEYS = new Set(['frameStart', 'frames', 'channels']);
 export function filterSoundActivatedRecordingChunk(
 	gate: SoundActivatedRecordingGate,
 	value: SoundActivationRecorderChunk,
+	detectorChannelIndices?: readonly number[],
 ): FilteredSoundActivationChunk {
 	if (!gate || typeof gate !== 'object' || typeof gate.process !== 'function') {
 		throw new TypeError('A sound activation gate is required.');
 	}
 	const chunk = validateSoundActivationRecorderChunk(value);
-	const decision = gate.process(chunk.channels);
+	const decision = gate.process(detectorChannelIndices
+		? detectorChannelIndices.map(index => chunk.channels[index]!) : chunk.channels);
 	const segments = decision.ranges.map(({ startFrame, endFrame }) => Object.freeze({
 		frameStart: chunk.frameStart + startFrame,
 		frames: endFrame - startFrame,

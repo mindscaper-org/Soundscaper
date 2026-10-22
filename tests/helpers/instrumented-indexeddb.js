@@ -298,6 +298,10 @@ class FakeObjectStore {
 		if (this.data.name === 'sourceChunks') this.transaction.database.stats.sourceChunkGetAllCalls += 1;
 		return fakeGetAllRequest(this.transaction, this.data, null, query, count, valuesForStore(this.data, query));
 	}
+	getAllKeys(query, count) {
+		return fakeRequest(this.transaction, () => entriesForStore(this.data, query)
+			.slice(0, count ?? Infinity).map(([key]) => cloneKey(key)));
+	}
 	count(query) {
 		return fakeRequest(this.transaction, () => {
 			this.transaction.database.stats.countRequests.push({ store: this.data.name, index: null, query });

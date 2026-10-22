@@ -119,6 +119,9 @@ test.describe('realistic mixed-state session persistence', () => {
 			await expect(editor.getByRole('spinbutton', { name: 'Project tempo (BPM)', exact: true }))
 				.toHaveValue(String(session.tempo));
 			clip = clipByName(editor, longTone.name).first();
+			// Verify the restored selection above before picking one clip for its individual fields.
+			await selectClipHeader(clip);
+			await expect(editor.locator('.clip-display[data-selected="true"]')).toHaveCount(1);
 			expect(await clipDurationFrames(page, editor, clip)).toBe(editedDuration);
 
 			row = editor.locator(`[data-track-row][data-track-id="${sourceTrackId}"]`);

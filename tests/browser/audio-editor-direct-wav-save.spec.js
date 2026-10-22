@@ -101,6 +101,7 @@ test.describe('direct native PCM File System Access publication', () => {
 		expect(saved.pickerOptions.types[0].accept['audio/wav']).toEqual(['.wav']);
 		expect(saved.objectUrls).toEqual([]);
 		expect(downloads).toBe(0);
+		const previousOutput = await inspectExportOutput(exportDialog);
 
 		await exportDialog.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect.poll(() => page.evaluate(() => globalThis.__directPcmSave.sessions[1]?.totalBytes || 0), {
@@ -127,8 +128,7 @@ test.describe('direct native PCM File System Access publication', () => {
 		const cancelledStatus = await inspectEditorStatus(editor);
 		const cancelledOutput = await inspectExportOutput(exportDialog);
 		expect(cancelledStatus.state).not.toBe('success');
-		expect(cancelledOutput).toMatchObject({ download: '', href: '#' });
-		expect(cancelledOutput.text).not.toBe('direct-browser-mix.wav');
+		expect(cancelledOutput).toEqual(previousOutput);
 		const beforeRelease = await inspectDirectWavTarget(page, 2);
 		expect(beforeRelease).toMatchObject({ aborts: 0, closes: 0, commitStarted: 1, commits: 0, publications: 0 });
 		await page.evaluate(() => {

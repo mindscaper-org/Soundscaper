@@ -16,8 +16,11 @@ import { trackReplacementPlacement } from './track-replacement-placement.ts';
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
 import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-admission.ts';
+import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
+import { sequenceTrackMembers } from '../../../sequence-track-members.ts';
+import { assertTakeCompChannelRewriteAllowed } from './take-comp-channel-rewrite-admission.ts';
 import { isStandaloneMonoAudioTrack } from '../../../mono-track-pair-admission.ts';
 import { copyDerivedTrackStripAutomation } from '../../../derived-track-strip-automation.ts';
 import { copyDerivedTrackEffectAutomation } from '../../../derived-track-effect-automation.ts';
@@ -230,6 +233,7 @@ export function createTrackTransformService(
 		if (dependencies.editingBlocked()) return null;
 		const project = dependencies.getProject();
 		const track = requireStereoTrack(project, trackId);
+		assertTakeCompChannelRewriteAllowed(project, [track.id], dependencies.copy);
 		assertStereoSplitRoutingRepresentable(project, track.id, dependencies.copy);
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const clips = trackClips(project, track);
@@ -328,12 +332,14 @@ export function createTrackTransformService(
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const partner = findMonoPartner(project, track, trackIndex, partnerTrackId);
 		if (!partner) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.compatibleMonoTrackRequired ? 'compatibleMonoTrackRequired' : dependencies.copy.monoTrackRequired ? 'monoTrackRequired' : 'audioTrackRequired');
+		assertTakeCompChannelRewriteAllowed(project, [track.id, partner.id], dependencies.copy);
 		const partnerIndex = project.tracks.findIndex((candidate) => candidate.id === partner.id);
 		const clips = [...(track.clipIds ?? []), ...(partner.clipIds ?? [])]
 			.map((clipId) => findControllerClip(project, clipId))
 			.filter((clip): clip is ControllerClip => Boolean(clip));
 		const { startFrame, endFrame } = stereoTrackRenderRange([track, partner], clips, dependencies.projectSampleRate(),
 			Array.isArray(project.automationLanes) ? project.automationLanes : []);
+		if (!monoMergeRoutingCompatible(project, track.id, partner.id, endFrame > startFrame)) throw createLocalizedError(Error, dependencies.copy, 'compatibleMonoTrackRequired');
 		if (endFrame <= startFrame) return dependencies.commit({ type: 'batch', commands: [
 			{ type: 'track/update', trackId: track.id, changes: { pan: 0 } },
 			{ type: 'track/remove', trackId: partner.id },
@@ -370,8 +376,8 @@ export function createTrackTransformService(
 					clipIds: [],
 					gain: 1,
 					pan: 0,
-					mute: false,
-					solo: false,
+					mute: Boolean(track.mute),
+					solo: Boolean(track.solo),
 					effectsActive: true,
 					effects: [],
 				};
@@ -514,12 +520,13 @@ export function createTrackTransformService(
 		trackIndex: number,
 		partnerTrackId: string | null,
 	): ControllerTrack | null {
+		const members = sequenceTrackMembers(project, track.id);
 		const requested = findControllerTrack(project, partnerTrackId);
-		if (partnerTrackId !== null) return compatibleMonoPartner(project, track, requested)
+		if (partnerTrackId !== null) return (!members || members.has(partnerTrackId)) && compatibleMonoPartner(project, track, requested)
 			? requested : null;
-		return project.tracks.find((candidate, index) => compatibleMonoPartner(project, track, candidate)
+		return project.tracks.find((candidate, index) => (!members || members.has(candidate.id)) && compatibleMonoPartner(project, track, candidate)
 			&& index > trackIndex)
-			|| project.tracks.find((candidate) => compatibleMonoPartner(project, track, candidate))
+			|| project.tracks.find((candidate) => (!members || members.has(candidate.id)) && compatibleMonoPartner(project, track, candidate))
 			|| null;
 	}
 
@@ -530,6 +537,7 @@ export function createTrackTransformService(
 	): candidate is ControllerTrack {
 		return candidate !== null
 			&& candidate.id !== track.id
+			&& Boolean(candidate.mute) === Boolean(track.mute) && Boolean(candidate.solo) === Boolean(track.solo)
 			&& isStandaloneMonoAudioTrack(candidate, dependencies.audioTrackChannelCount(project, candidate));
 	}
 }

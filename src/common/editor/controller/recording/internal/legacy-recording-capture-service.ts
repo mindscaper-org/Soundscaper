@@ -119,7 +119,8 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				},
 				ownsStart,
 				runtime.handleError,
-				{ sourceOffsetFrames },
+				{ sourceOffsetFrames, timestampAtFrame: frame => runtime.currentTimeMs()
+					+ (frame / captureSampleRate - context.currentTime) * 1_000 },
 			);
 			const persistedSourceOffsetProjectFrames = soundActivation.enabled
 				? 0

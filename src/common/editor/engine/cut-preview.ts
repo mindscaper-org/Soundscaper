@@ -5,6 +5,7 @@ import { createAnalyser } from './effect-rack.ts';
 import { playbackOutputDestination } from './playback-output.ts';
 import { resetPlaybackSession } from './playback-session.ts';
 import { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
+import { createStripMeterAnalyserBankV21 } from './strip-meter-analyser-bank-v21.ts';
 import { soundscaperNativeAudioDestination } from '../soundscaper-native-audio-renderer.ts';
 import {
 	ENGINE_ASSERT_ACTIVE, ENGINE_CANCEL_SCRUB, ENGINE_EMIT_POSITION,
@@ -105,12 +106,15 @@ function startJoinedPreview(engine: EngineRuntimeHost, context: EngineAudioConte
 	const masterAnalyser = engine.meterListeners.size ? createAnalyser(context, nodes) : null;
 	if (masterAnalyser) { source.connect(masterAnalyser); masterAnalyser.connect(destination); }
 	else source.connect(destination);
+	const masterBank = masterAnalyser
+		? createStripMeterAnalyserBankV21(context, nodes, masterAnalyser, { kind: 'master' }, data.buffer.numberOfChannels) : null;
 	const graph: ProjectGraph = {
 		nodes, sources: new Set([source]), abortController: new AbortController(),
 		trackInputs: new Map(), trackGainParams: new Map(),
 		projectGainParams: { tracks: new Map(), groups: new Map(), sends: new Map(), master: null },
 		parameterRegistry: new ScheduledParameterRegistry(), trackAnalysers: new Map(),
 		groupAnalysers: new Map(), sendAnalysers: new Map(), masterAnalyser,
+		productionStripAnalysersV21: masterBank ? new Map([['master', masterBank]]) : undefined,
 		effectNodes: new Map(), effectAnalysers: new Map(), effectMessageSequences: new Map(), latencyFrames: 0,
 	};
 	engine.graph = graph;

@@ -16,6 +16,7 @@ import type { AudioEditorCommand, CommandObject } from '../../../commands/protoc
 import type { EditorControllerLifetime } from '../../shared/lifecycle.ts';
 import { spectrogramSettingsForNewTrack } from '../../../spectrogram-track-defaults.ts';
 import { resolveSelectionRange } from '../../../selection-range.ts';
+import { sequenceTrackMembers } from '../../../sequence-track-members.ts';
 import {
 	createTrackStructuralOperationService,
 	type TrackStructuralOperationService,
@@ -288,23 +289,23 @@ export function createEditorTrackService(
 		const project = dependencies.getProject();
 		const index = project.tracks.findIndex((track) => track.id === trackId);
 		if (index < 0) throw createLocalizedError(Error, dependencies.copy, 'trackNotFound');
+		const members = sequenceTrackMembers(project, trackId);
+		const tracks = members ? project.tracks.filter(track => members.has(track.id)) : project.tracks;
+		if (!tracks.some((track) => track.id === trackId)) return trackId;
 		const blocks: ControllerTrack[][] = [];
 		const consumedLaneGroups = new Set<string>();
-		for (const track of project.tracks) {
+		for (const track of tracks) {
 			if (!track.laneGroupId) blocks.push([track]);
 			else if (!consumedLaneGroups.has(track.laneGroupId)) {
 				consumedLaneGroups.add(track.laneGroupId);
-				blocks.push(project.tracks.filter((candidate) => candidate.laneGroupId === track.laneGroupId));
+				blocks.push(tracks.filter((candidate) => candidate.laneGroupId === track.laneGroupId));
 			}
 		}
 		const blockIndex = blocks.findIndex((block) => block.some((track) => track.id === trackId));
 		const adjacent = direction === 'up' ? blocks[blockIndex - 1]
 			: direction === 'down' ? blocks[blockIndex + 1] : null;
-		const destination = direction === 'top' ? 0
-			: direction === 'bottom' ? project.tracks.length - 1
-				: direction === 'up' || direction === 'down'
-					? project.tracks.findIndex((track) => track.id === adjacent?.[0]?.id)
-					: index;
+		const target = direction === 'top' ? tracks[0] : direction === 'bottom' ? tracks.at(-1) : adjacent?.[0];
+		const destination = target ? project.tracks.findIndex((track) => track.id === target.id) : -1;
 		return destination < 0 ? trackId : reorderTrack(trackId, destination);
 	}
 
@@ -333,15 +334,13 @@ export function createEditorTrackService(
 	function addLabel(trackId: string | null = null, options: LabelCreateOptions = {}): string | null {
 		dependencies.lifetime.assertActive();
 		if (dependencies.labelEditingBlocked?.() ?? dependencies.editingBlocked()) return null;
-		let project = dependencies.getProject();
+		const project = dependencies.getProject();
 		const focused = findControllerTrack(project, trackId || dependencies.getSelectedTrackId());
-		let target = focused?.type === 'label' ? focused : labelTrackFrom(project, focused);
-		if (!target) {
-			const createdTrackId = addLabelTrack();
-			project = dependencies.getProject();
-			target = findControllerTrack(project, createdTrackId);
-		}
-		if (!target || target.type !== 'label') throw createLocalizedError(Error, dependencies.copy, 'trackNotFound');
+		const target = focused?.type === 'label' ? focused : labelTrackFrom(project, focused);
+		const targetId = target?.id ?? dependencies.createId('label-track');
+		const addTrack = target ? null : createAddLabelTrackCommand({
+			id: targetId, name: publishedCopyFor(dependencies.copy).labels, height: 300,
+		});
 		// A running transport labels what is being heard or recorded. A stopped
 		// transport labels the selected region, or the cursor when it has no span.
 		const live = ['playing', 'recording'].includes(dependencies.getTransportState?.() || 'stopped');
@@ -353,13 +352,14 @@ export function createEditorTrackService(
 			options.endFrame ?? (options.startFrame === undefined ? region?.endFrame : undefined) ?? startFrame,
 		);
 		const labelId = options.id || dependencies.createId('label');
-		const command = createAddLabelCommand(target.id, {
+		const command = createAddLabelCommand(targetId, {
 			...options,
 			id: labelId,
 			startFrame: Math.min(startFrame, endFrame),
 			endFrame: Math.max(startFrame, endFrame),
 		} as CommandObject);
-		dependencies.commit(command, { selectTrackId: target.id });
+		dependencies.commit(addTrack ? { type: 'batch', commands: [addTrack, command] } : command,
+			{ selectTrackId: targetId });
 		return labelId;
 	}
 }

@@ -68,6 +68,7 @@ export interface FramescaperTimelineImageImportResultTimelineImage {
 }
 
 interface PreparedImage {
+	readonly index: number;
 	readonly file: FramescaperImageImportFileTimelineImage;
 	readonly fileName: string;
 	readonly mimeTypeHint: string | null;
@@ -83,30 +84,35 @@ export async function importFramescaperTimelineImagesTimelineImage(
 ): Promise<FramescaperTimelineImageImportResultTimelineImage> {
 	assertFramescaperProjectIdentity(request?.project);
 	if (!Array.isArray(request.files)) throw new TypeError('Timeline image import files must be an array.');
+	if (request.files.length < 1 || request.files.length > IMAGE_IMPORT_LIMITS.maximumFilesPerGesture) {
+		throw new RangeError('An image import gesture requires 1 through 64 files.');
+	}
 	if (typeof request.createId !== 'function' || typeof request.publisher?.publish !== 'function') {
 		throw new TypeError('Timeline image import requires ID and publication ports.');
 	}
 	const lengths = request.files.map((file) => fileSize(file));
 	if (request.signal?.aborted) {
-		const files: FramescaperTimelineImageImportFileResultTimelineImage[] = [];
+		const files = new Map<number, FramescaperTimelineImageImportFileResultTimelineImage>();
 		appendCancelled(request.files, files);
-		return Object.freeze({ project: request.project, files: Object.freeze(files) });
+		return Object.freeze({ project: request.project, files: orderedResults(files) });
 	}
-	const admitted = await confirmImageImportGesture({ fileByteLengths: lengths }, {
-		...request, fileNames: request.files.map((file) => safeFileName(file.name)),
-	});
+	const nonempty = request.files.filter((file) => file.size > 0);
+	const admitted = nonempty.length ? await confirmImageImportGesture({ fileByteLengths: lengths.filter((size) => size > 0) }, {
+		...request, fileNames: nonempty.map((file) => safeFileName(file.name)),
+	}) : { maximumFileInputBytes: IMAGE_IMPORT_LIMITS.maximumFileInputBytes };
 	const decode = request.decode ?? defaultDecode;
-	const results: FramescaperTimelineImageImportFileResultTimelineImage[] = [];
+	const results = new Map<number, FramescaperTimelineImageImportFileResultTimelineImage>();
 	const prepared: PreparedImage[] = [];
 	const rate = primaryRate(request.project);
 	for (let index = 0; index < request.files.length; index += 1) {
 		const file = request.files[index]!;
 		const fileName = safeFileName(file.name);
 		if (request.signal?.aborted) {
-			appendCancelled(request.files.slice(index), results);
+			appendCancelled(request.files.slice(index), results, index);
 			break;
 		}
 		try {
+			if (file.size === 0) throw new RangeError('The selected image is empty.');
 			const buffer = await file.arrayBuffer();
 			const bytes = new Uint8Array(buffer);
 			if (bytes.byteLength !== file.size) throw new Error('The selected image changed while it was read.');
@@ -117,6 +123,7 @@ export async function importFramescaperTimelineImagesTimelineImage(
 				confirmFileSizeWarning: request.confirmFileSizeWarning, assertCurrent: request.assertCurrent,
 			});
 			prepared.push(Object.freeze({
+				index,
 				file,
 				fileName,
 				mimeTypeHint: mimeHint(file.type),
@@ -127,21 +134,21 @@ export async function importFramescaperTimelineImagesTimelineImage(
 			}));
 		} catch (error) {
 			if (request.signal?.aborted || isAbort(error)) {
-				appendCancelled(request.files.slice(index), results);
+				appendCancelled(request.files.slice(index), results, index);
 				break;
 			}
-			results.push(fileResult(fileName, 'failed', null, null, [], message(error)));
+			results.set(index, fileResult(fileName, 'failed', null, null, [], message(error)));
 		}
 	}
 	if (prepared.length === 0 || request.signal?.aborted) {
 		if (request.signal?.aborted) {
 			for (const item of prepared) {
-				results.push(fileResult(
+				results.set(item.index, fileResult(
 					item.fileName, 'cancelled', null, null, [], 'Import cancelled.',
 				));
 			}
 		}
-		return Object.freeze({ project: request.project, files: orderedResults(request.files, results) });
+		return Object.freeze({ project: request.project, files: orderedResults(results) });
 	}
 	const placement = createFramescaperImageBatchPlacementTimelineImage(request.project, {
 		sequenceStartFrame: request.sequenceStartFrame,
@@ -155,7 +162,7 @@ export async function importFramescaperTimelineImagesTimelineImage(
 		const item = prepared[index]!;
 		if (request.signal?.aborted) {
 			for (const remaining of prepared.slice(index)) {
-				results.push(fileResult(remaining.fileName, 'cancelled', null, null, [], 'Import cancelled.'));
+				results.set(remaining.index, fileResult(remaining.fileName, 'cancelled', null, null, [], 'Import cancelled.'));
 			}
 			break;
 		}
@@ -173,21 +180,21 @@ export async function importFramescaperTimelineImagesTimelineImage(
 			});
 			trackReady = true;
 			cursor = safeAdd(cursor, item.sequenceFrameCount, 'image import cursor');
-			results.push(fileResult(
+			results.set(item.index, fileResult(
 				item.fileName, 'imported', source.id, clip.id, item.decoded.notices, null,
 			));
 		} catch (error) {
 			if (request.signal?.aborted || isAbort(error)) {
-				results.push(fileResult(item.fileName, 'cancelled', null, null, [], 'Import cancelled.'));
+				results.set(item.index, fileResult(item.fileName, 'cancelled', null, null, [], 'Import cancelled.'));
 				for (const remaining of prepared.slice(index + 1)) {
-					results.push(fileResult(remaining.fileName, 'cancelled', null, null, [], 'Import cancelled.'));
+					results.set(remaining.index, fileResult(remaining.fileName, 'cancelled', null, null, [], 'Import cancelled.'));
 				}
 				break;
 			}
-			results.push(fileResult(item.fileName, 'failed', null, null, [], message(error)));
+			results.set(item.index, fileResult(item.fileName, 'failed', null, null, [], message(error)));
 		}
 	}
-	return Object.freeze({ project, files: orderedResults(request.files, results) });
+	return Object.freeze({ project, files: orderedResults(results) });
 }
 
 async function defaultDecode(request: Parameters<DecodeFramescaperTimelineImageTimelineImage>[0]) {
@@ -275,22 +282,17 @@ function durationFrames(ticksValue: string, rate: Readonly<{ num: number; den: n
 }
 
 function orderedResults(
-	files: readonly FramescaperImageImportFileTimelineImage[],
-	results: readonly FramescaperTimelineImageImportFileResultTimelineImage[],
+	results: ReadonlyMap<number, FramescaperTimelineImageImportFileResultTimelineImage>,
 ): readonly FramescaperTimelineImageImportFileResultTimelineImage[] {
-	const queues = new Map<string, FramescaperTimelineImageImportFileResultTimelineImage[]>();
-	for (const result of results) {
-		const queue = queues.get(result.fileName) ?? [];
-		queue.push(result); queues.set(result.fileName, queue);
-	}
-	return Object.freeze(files.flatMap((file) => queues.get(safeFileName(file.name))?.shift() ?? []));
+	return Object.freeze([...results].sort(([left], [right]) => left - right).map(([, result]) => result));
 }
 
 function appendCancelled(
 	files: readonly FramescaperImageImportFileTimelineImage[],
-	results: FramescaperTimelineImageImportFileResultTimelineImage[],
+	results: Map<number, FramescaperTimelineImageImportFileResultTimelineImage>,
+	startIndex = 0,
 ): void {
-	for (const file of files) results.push(fileResult(
+	for (const [index, file] of files.entries()) results.set(startIndex + index, fileResult(
 		safeFileName(file.name), 'cancelled', null, null, [], 'Import cancelled.',
 	));
 }
@@ -308,7 +310,7 @@ function fileResult(
 
 function fileSize(file: FramescaperImageImportFileTimelineImage): number {
 	if (!file || typeof file !== 'object' || typeof file.arrayBuffer !== 'function'
-		|| !Number.isSafeInteger(file.size) || file.size < 1) throw new TypeError('An image file is invalid.');
+		|| !Number.isSafeInteger(file.size) || file.size < 0) throw new TypeError('An image file is invalid.');
 	return file.size;
 }
 

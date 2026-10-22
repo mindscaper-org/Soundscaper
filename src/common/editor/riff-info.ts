@@ -38,7 +38,8 @@ export function parseRiffInfo(payloads: readonly Uint8Array[] = [], codePage = 0
 }
 
 /** Original INFO identifiers accompany their correctly decoded text in attribution. */
-export function parseRiffInfoFields(payloads: readonly Uint8Array[], codePage = 0, littleEndian = true): Readonly<Record<string, string>> {
+export function parseRiffInfoFields(payloads: readonly Uint8Array[], codePage = 0, littleEndian = true,
+	onInvalidText?: (id: string, error: unknown) => void): Readonly<Record<string, string>> {
 	const result: Record<string, string> = {};
 	for (const payload of payloads) {
 		let offset = 0;
@@ -49,9 +50,16 @@ export function parseRiffInfoFields(payloads: readonly Uint8Array[], codePage = 
 			const start = offset + 8;
 			const end = start + size;
 			if (end > payload.byteLength) throw new Error('The WAV INFO subchunk is truncated.');
-			if (result[id] == null) Object.defineProperty(result, id, {
-				value: decodeRiffMetadataText(payload.subarray(start, end), codePage), enumerable: true,
-			});
+			if (result[id] == null) {
+				try {
+					Object.defineProperty(result, id, {
+						value: decodeRiffMetadataText(payload.subarray(start, end), codePage), enumerable: true,
+					});
+				} catch (error) {
+					if (!onInvalidText) throw error;
+					onInvalidText(id, error);
+				}
+			}
 			offset = end + (size & 1);
 		}
 	}

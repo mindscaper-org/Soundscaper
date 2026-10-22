@@ -2,6 +2,7 @@
 
 import type { VideoCaptionInterchangeFormatV1 } from '../video-caption-interchange-contract-v27.ts';
 import { decodeLabelInputText } from '../label-input-text.ts';
+import { decodeCaptionXmlFile } from './caption-xml-file-text.ts';
 import { withFramescaperSidecarFile, type FramescaperSidecarFileReader } from './framescaper-sidecar-file.ts';
 
 export interface FramescaperCaptionFileService extends FramescaperSidecarFileReader {
@@ -9,7 +10,7 @@ export interface FramescaperCaptionFileService extends FramescaperSidecarFileRea
 	chooseFiles?(request: Readonly<{ readonly purpose: 'labels' | 'lut'; readonly multiple: false }> ):
 		PromiseLike<readonly unknown[]> | readonly unknown[];
 	saveFile?(request: Readonly<{
-		readonly purpose: 'interchange';
+		readonly purpose: 'labels';
 		readonly suggestedName: string;
 		readonly mimeType: string;
 		readonly text: string;
@@ -71,7 +72,8 @@ export async function openFramescaperCaptionSidecarFile(input: Readonly<{
 	const format = captionSidecarFormatForFileName(fileName);
 	let text: string;
 	try {
-		text = decodeLabelInputText(await body.arrayBuffer(), format === 'srt');
+		const bytes = await body.arrayBuffer();
+		text = format === 'imsc1.1' ? decodeCaptionXmlFile(bytes) : decodeLabelInputText(bytes, format === 'srt');
 	} catch (error) {
 		throwIfAborted(input.signal);
 		throw new TypeError('The caption sidecar must be strict UTF-8.', { cause: error });
@@ -95,7 +97,7 @@ export async function saveFramescaperCaptionSidecarFile(input: Readonly<{
 	if (!profile) throw new RangeError('The caption sidecar format is unsupported.');
 	const base = safeFileStem(input.trackId);
 	const request = {
-		purpose: 'interchange' as const,
+		purpose: 'labels' as const,
 		suggestedName: `${base}.${profile.extension}`,
 		mimeType: profile.mimeType,
 		text: input.text,

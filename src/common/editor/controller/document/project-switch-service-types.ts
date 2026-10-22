@@ -51,6 +51,7 @@ export interface ProjectSwitchState<
 > {
 	projectQueue: Promise<void>;
 	projectActivationPending: boolean;
+	projectAdministrationPending?: boolean;
 	projectLock: ProjectLifecycleLock | null;
 	readOnly: boolean;
 	history: History | null;

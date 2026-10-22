@@ -2,6 +2,7 @@
 
 import { parseRiffInfoFields } from './riff-info.ts';
 import { riffMetadataCodePage } from './riff-metadata-text.ts';
+import { readImportedMetadataTags } from './imported-metadata-reader.ts';
 import { ascii, dataView, readBlobBytes } from './wav-import-io.ts';
 import { consumeDs64TableSize, readDs64Directory } from './wav-ds64.js';
 
@@ -15,21 +16,28 @@ const INFO_TAG_FIELDS: Readonly<Record<string, string>> = Object.freeze({
 type MetadataRecord = Readonly<Record<string, unknown>>;
 
 /** Correct only RIFF text admitted by the original reader; retain independent ID3 tags. */
-export async function correctImportedRiffMetadata(file: Blob, tags: unknown, signal?: AbortSignal): Promise<unknown> {
+export async function correctImportedRiffMetadata(file: Blob, tags: unknown, signal?: AbortSignal,
+	onWarning?: (warning: string) => void): Promise<unknown> {
 	if (!record(tags)) return tags;
-	const fields = await readRiffInfoFields(file, signal);
-	if (fields === null || Object.keys(fields).length === 0) return tags;
-	const raw = record(tags.raw) ? tags.raw : {};
-	const corrected: Record<string, unknown> = { ...tags, raw: { ...raw, ...fields } };
+	const inspected = await readRiffInfoFields(file, signal, onWarning);
+	if (inspected === null) return tags;
+	const { fields } = inspected;
+	// Re-read independent tags without the rejected INFO bytes. Keeping the
+	// original demuxer projection would retain its incorrectly decoded text.
+	const admittedTags = inspected.withoutInfo ? await readImportedMetadataTags(inspected.withoutInfo, signal) : tags;
+	if (!record(admittedTags)) return admittedTags;
+	const raw = record(admittedTags.raw) ? admittedTags.raw : {};
+	const corrected: Record<string, unknown> = { ...admittedTags, raw: { ...raw, ...fields } };
 	for (const [id, text] of Object.entries(fields)) {
 		const field = INFO_TAG_FIELDS[id];
-		if (field && (tags[field] == null || tags[field] === raw[id])) corrected[field] = text;
+		if (field && (admittedTags[field] == null || admittedTags[field] === raw[id])) corrected[field] = text;
 	}
 	return corrected;
 }
 
 /** Scan bounded metadata slices and skip the encoded audio rather than materializing it. */
-async function readRiffInfoFields(file: Blob, signal?: AbortSignal): Promise<Readonly<Record<string, string>> | null> {
+async function readRiffInfoFields(file: Blob, signal?: AbortSignal,
+	onWarning?: (warning: string) => void): Promise<{ fields: Readonly<Record<string, string>>; withoutInfo: Blob | null } | null> {
 	signal?.throwIfAborted();
 	if (file.size < 12) return null;
 	const header = await readBlobBytes(file, 0, 12, signal);
@@ -48,6 +56,7 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal): Promise<Rea
 	let chunkCount = 0;
 	let dataSeen = false;
 	const payloads: Uint8Array[] = [];
+	const infoHeaders: number[] = [];
 	while (offset < end) {
 		if (++chunkCount > MAXIMUM_CHUNKS) throw new RangeError('The RIFF metadata chunk count is too large.');
 		if (offset + 8 > end) throw new RangeError('The RIFF metadata chunk header is incomplete.');
@@ -65,6 +74,7 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal): Promise<Rea
 		} else if (id === 'LIST' && size >= 4) {
 			const type = ascii(await readBlobBytes(file, start, start + 4, signal), 0, 4);
 			if (type === 'INFO' || type === 'INF0') {
+				infoHeaders.push(offset);
 				infoBytes += size;
 				if (infoBytes > MAXIMUM_INFO_BYTES) throw new RangeError('The RIFF INFO metadata exceeds its inspection limit.');
 				payloads.push(await readBlobBytes(file, start + 4, start + size, signal));
@@ -72,7 +82,22 @@ async function readRiffInfoFields(file: Blob, signal?: AbortSignal): Promise<Rea
 		}
 		offset = next;
 	}
-	return parseRiffInfoFields(payloads, codePage ?? 0, littleEndian);
+	let invalid = false;
+	const fields = parseRiffInfoFields(payloads, codePage ?? 0, littleEndian, (id, error) => {
+		if (!onWarning) throw error;
+		invalid = true;
+		onWarning(`RIFF INFO ${id} text was omitted: ${error instanceof Error ? error.message : String(error)}`);
+	});
+	const parts: BlobPart[] = [];
+	let start = 0;
+	if (invalid) {
+		for (const offset of infoHeaders) {
+			parts.push(file.slice(start, offset), 'JUNK');
+			start = offset + 4;
+		}
+		parts.push(file.slice(start));
+	}
+	return { fields, withoutInfo: invalid ? new Blob(parts, { type: file.type }) : null };
 }
 
 function record(value: unknown): value is MetadataRecord {

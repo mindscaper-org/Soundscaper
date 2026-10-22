@@ -93,6 +93,7 @@ export function createProjectSwitchService<
 		nextProject: Project | Input,
 		options: ProjectSwitchOptions<History> = {},
 	): Promise<void> {
+		if (runtime.state.projectAdministrationPending && !options.skipFlush) return Promise.reject(new DOMException('Local data reset is pending.', 'AbortError'));
 		const token = runtime.lifetime.capture();
 		if (options.adoptSessionRevision !== true
 			&& activationEditFence.pending === 0 && isActiveProjectSwitchInput(nextProject, readyProjectId, runtime.getProject()?.id)) {

@@ -53,6 +53,7 @@ function createMacroActions(options: Readonly<{
 		macroScripts: createMacroScriptLibrary(),
 	};
 	return createEffectMacroActions({
+		state: { projectAdministrationPending: false },
 		effectLibraryState: state,
 		createStableId: (prefix: string) => `${prefix}-${++minted}`,
 		persistSetting: async () => {},

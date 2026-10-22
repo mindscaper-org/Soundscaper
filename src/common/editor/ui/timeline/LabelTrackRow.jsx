@@ -4,7 +4,7 @@ import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 import { GhostButton } from '@soundscaper/design-system/GhostButton';
 import { Icon } from '@soundscaper/design-system/Icon';
 import { TimelineLabelChrome } from './TimelineLabelChrome.jsx';
-import { getLabelMetrics, layoutTimelineLabels, moveLabelRange, snapLabelFrame, stretchLabelRange, TIMELINE_LABEL_CONTENT_TOP } from './label-design-geometry.ts';
+import { getLabelMetrics, layoutTimelineLabels, moveLabelRange, stretchLabelRange, TIMELINE_LABEL_CONTENT_TOP } from './label-design-geometry.ts';
 
 import { framesToSeconds } from '../../design-system-adapters.js';
 import { TimeSelectionOverlay } from './TimelineOverlayComponents.jsx';
@@ -16,8 +16,13 @@ import { selectAudioEditorLabelEditBlock } from '../../label-edit-blocking.ts';
 import { useLabelMarkerDragCancellation } from './useLabelMarkerDragCancellation.ts';
 import { prepareTimelineLabelRemovalFocus } from './label-removal-focus.ts';
 import { isContextMenuKey } from './context-menu-keyboard.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
-export function LabelTrackRow({
+export function LabelTrackRow(props) {
+	return <LabelTrackRowSession key={editorProjectEditSessionKey(props.controller, props.controller.getSnapshot().project?.id)} {...props} />;
+}
+
+function LabelTrackRowSession({
 	controller,
 	track,
 	visualHeight,
@@ -224,7 +229,9 @@ export function AudacityLabelMarker({
 	const [contextMenu, setContextMenu] = useState(null);
 	const clearPreview = useCallback(() => { gestureRef.current = null; setPreview(null); onNeighborPreview?.(null); }, [onNeighborPreview]);
 	const dragCancellation = useLabelMarkerDragCancellation(markerRef, pendingRef, clearPreview, label);
+	const cancelPointerDrag = dragCancellation.cancelDrag;
 	const displayed = preview || externalPreview || label;
+	const TitleField = label.title?.includes('\n') ? 'textarea' : 'input';
 	const point = displayed.startFrame === displayed.endFrame;
 	const displayedLeft = left + (displayed.startFrame - label.startFrame) / sampleRate * pixelsPerSecond;
 	const displayedWidth = point ? layout?.width || metrics.minPointWidth
@@ -238,8 +245,10 @@ export function AudacityLabelMarker({
 
 	const finishDrag = useCallback((event) => {
 		if (event.button !== 0) return;
+		if (gestureRef.current?.pointerId != null && event.pointerId !== gestureRef.current.pointerId) return;
 		const pending = pendingRef.current;
 		gestureRef.current = null;
+		dragCancellation.activeRef.current = false;
 		if (!pending) return;
 		pendingRef.current = null;
 		clearPreview();
@@ -247,7 +256,7 @@ export function AudacityLabelMarker({
 		run(() => pending.neighbor
 			? controller.actions.labels.updateMany(trackId, [{ labelId: label.id, changes: pending.changes }, pending.neighbor])
 			: controller.actions.labels.update(trackId, label.id, pending.changes));
-	}, [blocked, clearPreview, controller, label.id, run, trackId]);
+	}, [blocked, clearPreview, controller, dragCancellation.activeRef, label.id, run, trackId]);
 
 	useEffect(() => {
 		document.addEventListener('mouseup', finishDrag);
@@ -259,15 +268,19 @@ export function AudacityLabelMarker({
 	}, [finishDrag]);
 
 	const beginGesture = (event, mode) => {
-		if (event.button !== 0 || blocked || labelTrackEditBlocked(controller, trackId)) return;
+		if (event.button !== 0 || event.isPrimary === false || gestureRef.current || blocked || labelTrackEditBlocked(controller, trackId)) return;
 		event.preventDefault();
 		event.stopPropagation();
-		gestureRef.current = { mode, clientX: event.clientX, baseline: label, targets: getSnapTargets?.() || snapTargets };
+		const pointerId = typeof event.pointerId === 'number' ? event.pointerId : null;
+		gestureRef.current = { mode, clientX: event.clientX, pointerId, baseline: label, targets: getSnapTargets?.() || snapTargets };
+		if (pointerId !== null) markerRef.current?.setPointerCapture?.(pointerId);
 	};
+	const beginPointerGesture = (event, mode) => { if (event.pointerType !== 'mouse') beginGesture(event, mode); };
 	useEffect(() => {
 		const move = (event) => {
 			const gesture = gestureRef.current;
 			if (!gesture || blocked || dragCancellation.cancelledRef.current || labelTrackEditBlocked(controller, trackId)) return;
+			if (gesture.pointerId !== (typeof event.pointerId === 'number' ? event.pointerId : null)) return;
 			const { mode, baseline, clientX, targets } = gesture;
 			const delta = event.clientX - clientX;
 			if (mode === 'move' && Math.abs(delta) <= 3) return;
@@ -285,10 +298,7 @@ export function AudacityLabelMarker({
 					: { startFrame: boundary, endFrame: adjacent.endFrame };
 				neighbor = { labelId: adjacent.id, changes: neighborChanges };
 				onNeighborPreview?.({ ...adjacent, ...neighborChanges });
-			} else if (mode === 'move-point') {
-				const snapped = snapLabelFrame(frame, targets, pixelsPerSecond, sampleRate);
-				changes = { startFrame: snapped, endFrame: snapped };
-			} else if (mode === 'move') {
+			} else if (mode === 'move' || mode === 'move-point') {
 				changes = moveLabelRange(baseline, Math.round(delta / pixelsPerSecond * sampleRate), targets, pixelsPerSecond, sampleRate);
 			} else {
 				changes = stretchLabelRange(frame, mode === 'left' ? baseline.endFrame : baseline.startFrame,
@@ -297,9 +307,20 @@ export function AudacityLabelMarker({
 			pendingRef.current = { changes, neighbor };
 			setPreview({ ...label, ...changes });
 		};
+		const cancel = (event) => {
+			if (gestureRef.current?.pointerId === event.pointerId) cancelPointerDrag();
+		};
 		document.addEventListener('mousemove', move);
-		return () => document.removeEventListener('mousemove', move);
-	}, [blocked, controller, dragCancellation.cancelledRef, label, laneRef, layout, onNeighborPreview,
+		document.addEventListener('pointermove', move);
+		document.addEventListener('pointercancel', cancel);
+		document.addEventListener('lostpointercapture', cancel);
+		return () => {
+			document.removeEventListener('mousemove', move);
+			document.removeEventListener('pointermove', move);
+			document.removeEventListener('pointercancel', cancel);
+			document.removeEventListener('lostpointercapture', cancel);
+		};
+	}, [blocked, cancelPointerDrag, controller, dragCancellation.cancelledRef, label, laneRef, layout, onNeighborPreview,
 		pixelsPerSecond, renderOriginX, sampleRate, snapTargets, trackId]);
 	const select = (event = /** @type {Pick<MouseEvent, 'shiftKey'> | null} */ (null)) => {
 		onSelect();
@@ -317,6 +338,7 @@ export function AudacityLabelMarker({
 			data-selected-label={selected ? 'true' : 'false'}
 			data-point-label={point ? 'true' : 'false'}
 			onMouseDownCapture={dragCancellation.onMouseDownCapture}
+			onPointerDownCapture={dragCancellation.onPointerDownCapture}
 			onMouseUp={finishDrag}
 			onPointerUp={finishDrag}
 			style={{ left: timelineContentLeft(displayedLeft), width: point ? 1 : displayedWidth,
@@ -362,10 +384,11 @@ export function AudacityLabelMarker({
 				stalkHeight={Math.max(metrics.bannerHeight, trackHeight - TIMELINE_LABEL_CONTENT_TOP - (layout?.row || 0) * metrics.rowHeight)}
 				metrics={metrics} trackColor={trackColor} selected={selected} editing={editing}
 				leftNeighbor={layout?.leftNeighbor} rightNeighbor={layout?.rightNeighbor} leftNeighborSelected={leftNeighborSelected}
-				onSelect={select} onGesture={beginGesture} onEdit={() => { if (!blocked) { onSelect(); onEdit(); } }}>
-			{editing && <input
+				onSelect={select} onGesture={beginGesture} onPointerGesture={beginPointerGesture} onEdit={() => { if (!blocked) { onSelect(); onEdit(); } }}>
+			{editing && <TitleField
 				ref={inputRef}
 				className="audio-editor-label-title-input"
+				rows={TitleField === 'textarea' ? Math.min(4, label.title.split('\n').length) : undefined}
 				defaultValue={label.title}
 				disabled={blocked}
 				aria-label={`${copy.editLabels}: ${label.title || copy.newLabel}`}
@@ -380,7 +403,8 @@ export function AudacityLabelMarker({
 				onKeyDown={(event) => {
 					if (event.nativeEvent?.isComposing) return;
 					event.stopPropagation();
-					if (event.key === 'Enter') {
+					if (event.key === 'Enter' && (TitleField === 'input' || !event.shiftKey)) {
+						if (TitleField === 'textarea') event.preventDefault();
 						event.currentTarget.blur();
 						markerRef.current?.focus();
 					} else if (event.key === 'Escape') {

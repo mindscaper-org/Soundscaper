@@ -66,7 +66,9 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 		);
 		const previewFrameCount = previewEndFrame - previewStartFrame;
 		let params = normalizeAudioSelectionEffectParams(type, currentAudacityEffectParams());
-		const processCompleteSelection = type === 'audacity-normalize' || type === 'audacity-loudness-normalization'
+		// Whole-range transforms must run before trimming the six-second audition.
+		const processCompleteSelection = ['audacity-normalize', 'audacity-loudness-normalization',
+			'audacity-fade-in', 'audacity-fade-out', 'audacity-reverse', 'audacity-legacy-compressor', 'audacity-auto-duck', 'audacity-truncate-silence'].includes(type)
 			|| (type === 'audacity-sliding-stretch' && (params.startTempoPercent !== params.endTempoPercent
 				|| params.startPitchSemitones !== params.endPitchSemitones));
 		const fullPreviewTargets: FullPreviewTarget[] = fullTargets.map((full: RuntimeValue, fullIndex: number) => ({
@@ -82,7 +84,8 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 				? speedDelayPreviewInputFrames(params, sampleRate, auditionFrames)
 				: type === 'audacity-paulstretch' ? paulstretchPreviewInputFrames(params, sampleRate,
 					Math.min(maximumFrames - (startFrame - previewStartFrame),
-						Math.ceil(full.durationFrames * Number(params.stretchFactor)))) : auditionFrames;
+						Math.ceil(full.durationFrames * Number(params.stretchFactor))))
+					: rateChangePreviewInputFrames(type, params, auditionFrames);
 			const endFrame = Math.min(startFrame + inputFrames, full.endFrame);
 			if (endFrame <= startFrame) return null;
 			return {
@@ -123,6 +126,13 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			)
 		), 0);
 		if (estimatedPeakBytes > AUDACITY_EFFECT_PEAK_MEMORY_LIMIT_BYTES) throw audacityEffectMemoryError(copy);
+		const cancelPreparing = () => {
+			if (state.audacityPreviewCancel !== cancelPreparing) return;
+			state.audacityPreviewCancel = null;
+			state.audacityEffectProcessing = false;
+			runtime.cancelSelectionWorkers?.();
+		};
+		state.audacityPreviewCancel = cancelPreparing;
 		state.audacityEffectProcessing = true;
 		setLocalizedStatus(setStatus, copy, (copy.audacityPreviewProcessing ? "audacityPreviewProcessing" : "audacityProcessing"));
 		publishDocumentSnapshot();
@@ -151,7 +161,7 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 				(fullChannelSets ?? previewChannelSets).flat(),
 			);
 			if (type === 'eq') {
-				return previewEqualizer(
+				return await previewEqualizer(
 					mixNyquistPreviewChannels(targets.map(({ offsetFrames }, index) => (
 						alignPreviewChannels(previewChannelSets[index], offsetFrames, previewFrameCount)
 					)), previewFrameCount),
@@ -238,10 +248,22 @@ export function createSelectionEffectPreviewService(runtime: SelectionEffectPrev
 			if ((error as Readonly<{ name?: string }>)?.name === 'AbortError') return false;
 			throw error;
 		} finally {
-			state.audacityEffectProcessing = false;
-			publishDocumentSnapshot();
+			if (state.audacityPreviewCancel === cancelPreparing) {
+				state.audacityPreviewCancel = null;
+				state.audacityEffectProcessing = false;
+				publishDocumentSnapshot();
+			}
 		}
 	};
+}
+
+/** Fast constant transforms need more source audio to fill the output audition. */
+function rateChangePreviewInputFrames(type: string, params: Readonly<Record<string, unknown>>, auditionFrames: number): number {
+	const percent = type === 'audacity-change-tempo' ? params.tempoPercent
+		: type === 'audacity-change-speed-pitch' ? params.speedPercent
+			: type === 'audacity-sliding-stretch' ? params.startTempoPercent : 0;
+	const rate = 1 + (Number(percent) || 0) / 100;
+	return Math.ceil(auditionFrames * Math.max(1, rate));
 }
 
 function alignPreviewChannels(

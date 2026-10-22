@@ -3,21 +3,32 @@
 import { evaluateClipTransitionGainAt } from './audio-clip-transition-gain.ts';
 import type { DawprojectAudioEvent } from './dawproject-import-timeline.ts';
 
+export interface DawprojectFadeLayer {
+	readonly startFrame: number;
+	readonly endFrame: number | null;
+	readonly fadeInFrames: number;
+	readonly fadeOutFrames: number;
+}
+
 /** Preserve the authored fade positions when import crops an audio clip. */
 export function dawprojectImportedClipFades(event: DawprojectAudioEvent, startFrame: number, durationFrames: number) {
-	const originalDuration = event.endFrame - event.startFrame;
-	const offset = startFrame - event.startFrame;
-	const fadeInFrames = Math.min(originalDuration, Math.max(0, event.fadeInFrames));
-	const fadeOutFrames = Math.min(originalDuration, Math.max(0, event.fadeOutFrames));
-	if ((!fadeInFrames && !fadeOutFrames) || (offset === 0 && durationFrames === originalDuration)) {
-		return { fadeInFrames, fadeOutFrames };
+	const layers = (event.fadeLayers ?? [event]).map((layer) => ({
+		...layer, endFrame: layer.endFrame ?? event.endFrame,
+		fadeInFrames: Math.min((layer.endFrame ?? event.endFrame) - layer.startFrame, Math.max(0, layer.fadeInFrames)),
+		fadeOutFrames: Math.min((layer.endFrame ?? event.endFrame) - layer.startFrame, Math.max(0, layer.fadeOutFrames)),
+	})).filter((layer) => layer.fadeInFrames || layer.fadeOutFrames);
+	if (!layers.length) return { fadeInFrames: 0, fadeOutFrames: 0 };
+	const first = layers[0]!;
+	if (layers.length === 1 && startFrame === first.startFrame && durationFrames === first.endFrame - first.startFrame) {
+		return { fadeInFrames: first.fadeInFrames, fadeOutFrames: first.fadeOutFrames };
 	}
-	const valueAt = (frame: number): number => evaluateClipTransitionGainAt(offset + frame, originalDuration, {
-		fadeInFrames, fadeOutFrames, crossfadeInRanges: [], crossfadeOutRanges: [],
-	});
+	const valueAt = (frame: number): number => layers.reduce((gain, layer) => gain * evaluateClipTransitionGainAt(
+		startFrame + frame - layer.startFrame, layer.endFrame - layer.startFrame, {
+			fadeInFrames: layer.fadeInFrames, fadeOutFrames: layer.fadeOutFrames, crossfadeInRanges: [], crossfadeOutRanges: [],
+		}), 1);
 	const frames = new Set([0, durationFrames]);
-	for (const boundary of [fadeInFrames, originalDuration - fadeOutFrames]) {
-		const frame = boundary - offset;
+	for (const boundary of layers.flatMap((layer) => [layer.startFrame + layer.fadeInFrames, layer.endFrame - layer.fadeOutFrames])) {
+		const frame = boundary - startFrame;
 		if (frame > 0 && frame < durationFrames) frames.add(frame);
 	}
 	const boundaries = [...frames].sort((left, right) => left - right);

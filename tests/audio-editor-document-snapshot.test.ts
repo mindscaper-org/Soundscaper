@@ -129,7 +129,7 @@ test('document snapshots expose durability, scheduling, history, and compatibili
 	assert.strictEqual(snapshot.selection, snapshot.project?.selection);
 	assert.equal(snapshot.selectedAnnotationId, 'annotation');
 	assert.equal(snapshot.projectActivationPending, true);
-	assert.deepEqual(snapshot.recentProjects, [{ id: 'project' }]);
+	assert.deepEqual(snapshot.recentProjects, [{ id: 'project', title: 'Project' }]);
 	assert.deepEqual(snapshot.projectTabs, [{
 		id: 'project', title: 'Project', dirty: true, readOnly: false,
 	}]);

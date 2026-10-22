@@ -5,7 +5,9 @@ import { createVisibleVideoTrackPredicate } from '../../../../video-timeline.js'
 import { prepareBrowserExportBlobWithWarning as prepareBrowserExportBlob } from '../../../../browser-export-output.ts';
 import { getVideoExportFormat } from '../../../../video-export.js';
 import { projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
-import { createExportRenderProject } from '../../export-render-project.ts';
+import { createExportRenderProject, exportReplacementTrackIds } from '../../export-render-project.ts';
+import { videoExportSourceInventory } from '../../video-export-source-inventory.ts';
+import { retirePreviousExportOutput } from '../retire-export-output.ts';
 import { audioRenderedFallbackRenderSources } from '../audio/audio-rendered-fallback-export.ts';
 import {
 	admitVideoRenderedFallbackExport,
@@ -103,7 +105,7 @@ export function createEditorVideoExportAction(
 		}) ?? null;
 		const exportProject = productExportProject
 			? productExportProject
-			: createExportRenderProject(deliveredProject);
+			: createExportRenderProject(deliveredProject, exportReplacementTrackIds(delivery));
 		const visibleVideoTrack = createVisibleVideoTrackPredicate(exportProject.tracks);
 		const hasTimelinePicture = exportProject.tracks.some((track: RuntimeValue) => (
 			visibleVideoTrack(track)
@@ -114,7 +116,8 @@ export function createEditorVideoExportAction(
 			...delivery.requiredAudioSourceIds,
 			...delivery.requiredVideoSourceIds,
 		]);
-		if (hasMissingTimelineSources(exportProject, { excludedSourceIds: fallbackSourceIds })) {
+		const sourceInventory = videoExportSourceInventory(exportProject, requestedSettings.range || 'project', requestedSettings.includeAudio !== false);
+		if (hasMissingTimelineSources(sourceInventory.project, { excludedSourceIds: fallbackSourceIds })) {
 			throw createLocalizedError(Error, copy, 'localSourcesMissing');
 		}
 		const exportOperation = beginExportTask({
@@ -133,7 +136,8 @@ export function createEditorVideoExportAction(
 			}, { signal: abort.signal, assertCurrent: assertVideoExportCurrent });
 			const descriptor = getVideoExportFormat(formatValue) as Readonly<{ id: 'mp4' | 'webm' }>;
 			const format = descriptor.id;
-			const includeAudio = exportProject.clips.some((clip: RuntimeValue) => clip.kind === 'audio');
+			const includeAudio = requestedSettings.includeAudio !== false
+				&& exportProject.clips.some((clip: RuntimeValue) => clip.kind === 'audio');
 			const requestedRange = requestedSettings.range || 'project';
 			assertVideoExportCurrent();
 			const productPlan = productStrategy?.createPlan({
@@ -171,7 +175,7 @@ export function createEditorVideoExportAction(
 					exportProject,
 					store,
 					{ findClip, findSource },
-					{ signal: abort.signal, assertCurrent: assertVideoExportCurrent },
+					{ signal: abort.signal, assertCurrent: assertVideoExportCurrent, contributingClipIds: sourceInventory.pictureClipIds },
 				);
 				try {
 					assertVideoExportCurrent();
@@ -378,12 +382,6 @@ export function createEditorVideoExportAction(
 					plan,
 					fileName,
 				);
-				if (state.outputUrl) globalThis.URL?.revokeObjectURL?.(state.outputUrl);
-				await state.outputCleanup?.();
-				assertVideoExportCurrent();
-				state.outputUrl = null;
-				state.outputCleanup = null;
-				state.exportOutput = null;
 				const published = await commitDirectVideoDestination(
 					pendingDirectDestination,
 					plan,
@@ -400,22 +398,21 @@ export function createEditorVideoExportAction(
 					method: published.method,
 				});
 				try { assertVideoExportCurrent(); } catch { return result; }
-				await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), fileName, fileService);
+				let sidecarFailure = await retirePreviousExportOutput(state);
+				try { assertVideoExportCurrent(); } catch { return result; }
+				try { await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService); }
+				catch (error) { sidecarFailure = { error: sidecarFailure ? new AggregateError([sidecarFailure.error, error], 'Video companion output and previous output cleanup failed.') : error }; }
 				try { assertVideoExportCurrent(); } catch { return result; }
 				state.exportOutput = result;
-				setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
+				if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError,
+					destination: null, cleanup: null, cleanupFailureMessage: 'Caption sidecar saving failed.' });
+				else setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 				publishDocumentSnapshot();
 				return result;
 			}
 			const blob = await prepareBrowserExportBlob(
 				encoded, 'Video export', browserMaximumOutputBytes, { signal: abort.signal, assertCurrent: assertVideoExportCurrent, confirmFileSizeWarning: runtime.options?.confirmFileSizeWarning },
 			);
-			if (state.outputUrl) globalThis.URL?.revokeObjectURL?.(state.outputUrl);
-			await state.outputCleanup?.();
-			assertVideoExportCurrent();
-			state.outputUrl = null;
-			state.outputCleanup = null;
-			state.exportOutput = null;
 			const published = await publishBufferedExport(fileService, {
 				target: requestedSettings.saveTarget,
 				purpose: 'video',
@@ -429,7 +426,10 @@ export function createEditorVideoExportAction(
 			const publishedCleanup = published.cleanup || null;
 			const publishedUrl = published.url || null;
 			pendingCleanup = publishedCleanup;
-			await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), fileName, fileService);
+			let sidecarFailure = await retirePreviousExportOutput(state);
+			assertVideoExportCurrent();
+			try { await deliverCaptionSidecar(plan, exportProject, projectSampleRate(), String(published.fileName || fileName), fileService); }
+			catch (error) { sidecarFailure = { error: sidecarFailure ? new AggregateError([sidecarFailure.error, error], 'Video companion output and previous output cleanup failed.') : error }; }
 			assertVideoExportCurrent();
 			state.outputCleanup = publishedCleanup;
 			state.outputUrl = publishedUrl;
@@ -441,7 +441,9 @@ export function createEditorVideoExportAction(
 				method: published.method,
 			});
 			pendingCleanup = null;
-			setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
+			if (sidecarFailure) await handleExportFailure({ error: sidecarFailure.error, handleError,
+				destination: null, cleanup: null, cleanupFailureMessage: 'Caption sidecar saving failed.' });
+			else setLocalizedStatus(setStatus, copy, "done", undefined, 'success');
 			publishDocumentSnapshot();
 			return state.exportOutput;
 		} catch (error) {

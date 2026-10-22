@@ -55,7 +55,15 @@ export function usesFrameCanonicalTimelineRateStretch(
 	// and only stretch sessions carry `original`.
 	return input.canonicalVideoTrim === true
 		&& stretchEdge(input.session) !== null
-		&& (input.session.original.kind === 'video' || input.session.original.kind === 'generator');
+		&& (input.session.original.kind === 'video' || input.session.original.kind === 'generator'
+			|| linkedCameraAudio(input.session));
+}
+
+function linkedCameraAudio(session: TimelineRateStretchPointerSession): boolean {
+	const link = session.original.avLinkId;
+	return session.original.kind === 'audio' && typeof link === 'string' && link.length > 0
+		&& session.clipIds.some(id => session.originals?.[id]?.kind === 'video'
+			&& session.originals[id]?.avLinkId === link);
 }
 
 /** Plan from one absolute edge point and adapt every relation participant. */

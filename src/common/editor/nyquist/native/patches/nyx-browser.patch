@@ -8,6 +8,30 @@ diff --git a/nyx.c b/nyx.c
  
  /* xlisp includes */
  #include "switches.h"
+@@ -828,6 +829,7 @@
+ nyx_rval nyx_eval_expression(const char *expr_string)
+ {
+    LVAL expr = NULL;
++   volatile int succeeded = FALSE;
+ 
+ #if defined(NYX_MEMORY_STATS) && NYX_MEMORY_STATS
+    printf("\nnyx_eval_expression before\n");
+@@ -900,10 +902,15 @@
+    //
+    // Also note that execution will jump back up to the statement following the
+    // _setjmp() above.
++   succeeded = TRUE;
+    xljump(&nyx_cntxt, CF_TOPLEVEL, NIL);
+    // Never reached
+ 
+  finish:
++
++   if (!succeeded) {
++      nyx_result = NULL;
++   }
+ 
+    xlend(&nyx_cntxt);
+ 
 @@ -1302,17 +1303,14 @@ long osrand(long n)
  /* cd ..
  open - open an ascii file */

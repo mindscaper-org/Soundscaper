@@ -4,6 +4,7 @@ import { createLocalizedError } from '../../../../../i18n/presentation-message.t
 
 import { createAddSourceCommand } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand, CommandObject } from '../../../../commands/protocol.ts';
+import type { ImportBusyClaim } from '../../../shared/import-busy-state.ts';
 import {
 	isCurrentAssertion,
 	type EditorControllerLifetime,
@@ -70,6 +71,7 @@ export interface ProjectBinReplacementDependencies {
 	captureActiveDocument(): ProjectBinDocumentSnapshot;
 	restoreActiveDocument(snapshot: ProjectBinDocumentSnapshot): void;
 	setImporting(importing: boolean): void;
+	claimImporting?(): ImportBusyClaim;
 	importProjectBinFile(
 		file: unknown,
 		options: Readonly<{ signal: AbortSignal }>,
@@ -119,7 +121,8 @@ export function createProjectBinReplacementService(
 		let restored = false;
 		let protectedSources: readonly ProjectBinSource[] = [];
 		let protectionTransferred = false;
-		dependencies.setImporting(true);
+		const importing = dependencies.claimImporting?.();
+		if (!importing) dependencies.setImporting(true);
 		dependencies.publish();
 		try {
 			const result = await dependencies.importProjectBinFile(file, { signal: task.signal });
@@ -197,17 +200,21 @@ export function createProjectBinReplacementService(
 				}
 				if (projectIsCurrent) restoreBaseDocument(baseDocument);
 				// A switched project must not be replaced by this task's saved document.
-				else dependencies.setImporting(false);
+				else finishImporting();
 			}
 			task.finish();
 		}
 
 		function restoreBaseDocument(snapshot: ProjectBinDocumentSnapshot): void {
 			dependencies.restoreActiveDocument(snapshot);
-			dependencies.setImporting(false);
+			finishImporting();
 			dependencies.projectChanged();
 			dependencies.publish();
 			restored = true;
+		}
+		function finishImporting(): void {
+			if (importing) importing.finish();
+			else dependencies.setImporting(false);
 		}
 	}
 

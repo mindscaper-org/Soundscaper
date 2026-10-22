@@ -39,6 +39,7 @@ import {
 	validateAudacityAudioInput as validateAudio,
 } from './basic-channel-math.js';
 import { integratedLoudnessPower, normalizeRms } from './basic-loudness.js';
+import { ebuChannelWeights } from '../ebu-r128.js';
 
 const TRUNCATE_BLEND_FRAMES = 100;
 
@@ -251,12 +252,14 @@ export function applyAudacityLoudnessNormalization(
 		return multiplyChannels(channels, gain);
 	}
 
-	const originalIsMono = channels.length === 1;
-	return channels.map((channel) => {
+	const weights = ebuChannelWeights(channels.length);
+	const programmeWeight = channels.length === 1 && settings.dualMono ? 2
+		: weights.reduce((sum, weight) => sum + weight, 0);
+	return channels.map((channel, index) => {
+		if (weights[index] === 0) return new Float32Array(channel);
 		const extent = integratedLoudnessPower([channel], sampleRate);
 		if (extent === 0) return new Float32Array(channel);
-		let channelTargetPower = targetPower;
-		if (settings.dualMono || !originalIsMono) channelTargetPower /= 2;
+		const channelTargetPower = targetPower / programmeWeight;
 		return multiplyChannel(channel, Math.sqrt(channelTargetPower / extent));
 	});
 }

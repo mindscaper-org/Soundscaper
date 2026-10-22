@@ -426,7 +426,7 @@ test('direct WAV publication requires plan, encoder, destination, and committed 
 	}
 });
 
-test('cancellation during prior output cleanup prevents a stale direct commit', async () => {
+test('cancellation during prior output retirement returns the completed file without stale success publication', async () => {
 	const cleanupStarted = deferred();
 	const releaseCleanup = deferred();
 	const destination = createPreparedStream();
@@ -444,10 +444,11 @@ test('cancellation during prior output cleanup prevents a stale direct commit', 
 	await service.handleExportAction('cancel');
 	const snapshotsAfterCancellation = fixture.snapshots();
 	releaseCleanup.resolve();
-	assert.equal(await saving, undefined);
+	const result: unknown = await saving;
+	assert.ok(result && typeof result === 'object' && 'fileName' in result && result.fileName === 'direct.wav');
 
-	assert.equal(destination.commitCalls(), 0);
-	assert.equal(destination.abortCalls(), 1);
+	assert.equal(destination.commitCalls(), 1, 'the replacement publishes before retiring the prior download');
+	assert.equal(destination.abortCalls(), 0);
 	assert.equal(fixture.state.exportOutput, null);
 	assert.equal(fixture.statuses.includes('Done'), false);
 	assert.equal(fixture.snapshots(), snapshotsAfterCancellation);
@@ -486,23 +487,24 @@ test('cancellation during direct commit returns the saved file without stale suc
 	});
 	assert.equal(destination.commitCalls(), 1);
 	assert.equal(destination.abortCalls(), 0);
-	assert.equal(fixture.state.exportOutput, null);
-	assert.equal(fixture.state.outputUrl, null);
+	assert.strictEqual(fixture.state.exportOutput, previousOutput);
+	assert.equal(fixture.state.outputUrl, 'blob:previous');
 	assert.equal(fixture.statuses.includes('Done'), false);
 	assert.equal(fixture.snapshots(), snapshotsAfterCancellation);
 });
 
-test('prior output cleanup failure aborts direct staging before commit', async () => {
+test('prior output cleanup failure retains the completed direct replacement and reports the failure', async () => {
 	const destination = createPreparedStream();
 	const fixture = createFixture();
 	fixture.state.exportOutput = Object.freeze({ fileName: 'previous.wav' });
 	fixture.state.outputCleanup = async () => { throw new Error('prior output cleanup failed'); };
 	fixture.setPrepared(destination.prepared);
 
-	assert.equal(await createEditorExportService(fixture.runtime).handleExportAction('export'), undefined);
-	assert.equal(destination.commitCalls(), 0);
-	assert.equal(destination.abortCalls(), 1);
+	const result: unknown = await createEditorExportService(fixture.runtime).handleExportAction('export');
+	assert.ok(result && typeof result === 'object' && 'fileName' in result && result.fileName === 'direct.wav');
+	assert.equal(destination.commitCalls(), 1);
+	assert.equal(destination.abortCalls(), 0);
 	assert.match((fixture.errors[0] as Error).message, /prior output cleanup failed/iu);
-	assert.deepEqual(fixture.state.exportOutput, { fileName: 'previous.wav' });
+	assert.strictEqual(fixture.state.exportOutput, result);
 	assert.equal(fixture.statuses.includes('Done'), false);
 });

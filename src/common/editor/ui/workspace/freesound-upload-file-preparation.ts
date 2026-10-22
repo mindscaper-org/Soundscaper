@@ -36,12 +36,13 @@ export async function prepareFreesoundUploadFile(
 	const sampleRate = inspectDecodedAudioSampleRate(inputBytes);
 	const options: AudioContextOptions = { latencyHint: 'playback', ...(sampleRate ? { sampleRate } : {}) };
 	const context = runtime.createDecodeContext?.(options) ?? createBrowserDecodeContext(options);
-	let decoded: DecodedAudio;
+	let decoded: DecodedAudio | null = null;
 	try { decoded = await context.decodeAudioData(inputBytes); }
+	catch { signal?.throwIfAborted(); }
 	finally { await context.close(); }
 	signal?.throwIfAborted();
-	if (decoded.length === 0) {
-		decoded = await recoverPcmWav(file, signal, maximumBytes);
+	if (!decoded?.length) {
+		decoded = await recoverUploadAudio(file, signal, maximumBytes);
 	}
 	signal?.throwIfAborted();
 	assertConvertedExtent(decoded.length, decoded.numberOfChannels, maximumBytes);
@@ -65,21 +66,38 @@ export async function prepareFreesoundUploadFile(
 	});
 }
 
-async function recoverPcmWav(file: File, signal: AbortSignal | undefined, maximumBytes: number): Promise<DecodedAudio> {
-	// Some native decoders resolve an empty buffer for valid PCM WAV. Reuse the
-	// application's validated source decoder instead of publishing an empty RIFF.
-	const { inspectWavBlobPcm, streamWavBlobPcm } = await import('../../wav-import.js');
-	const descriptor = await inspectWavBlobPcm(file, { signal }).catch((cause: unknown) => {
-		signal?.throwIfAborted();
-		throw new Error('This audio file could not be decoded into PCM frames.', { cause });
-	});
+async function recoverUploadAudio(file: File, signal: AbortSignal | undefined, maximumBytes: number): Promise<DecodedAudio> {
+	const signature = new TextDecoder().decode(await file.slice(0, 4).arrayBuffer());
+	signal?.throwIfAborted();
+	if (signature === 'FORM') {
+		const { inspectAiffBlobPcm, streamAiffBlobPcm } = await import('../../aiff-pcm-chunk-reader.ts');
+		const descriptor = await inspectAiffBlobPcm(file, { signal });
+		return collectUploadPcm(descriptor, maximumBytes, onChunk => streamAiffBlobPcm(file, { descriptor, signal, onChunk }));
+	}
+	if (['RIFF', 'RF64', 'BW64'].includes(signature)) {
+		const { inspectWavBlobPcm, streamWavBlobPcm } = await import('../../wav-import.js');
+		const descriptor = await inspectWavBlobPcm(file, { signal });
+		return collectUploadPcm(descriptor, maximumBytes, onChunk => streamWavBlobPcm(file, { descriptor, signal, onChunk }));
+	}
+	const { prepareStreamedAudioImport } = await import('../../browser-streamed-audio-import.ts');
+	const prepared = await prepareStreamedAudioImport(file, { signal });
+	try {
+		return await collectUploadPcm(prepared.descriptor, maximumBytes,
+			onChunk => prepared.stream({ chunkFrames: 65_536, signal, onChunk }));
+	} finally { prepared.dispose(); }
+}
+
+async function collectUploadPcm(
+	descriptor: Readonly<{ frameCount: number; channelCount: number; sampleRate: number }>,
+	maximumBytes: number,
+	stream: (onChunk: (packet: readonly Float32Array[]) => void) => Promise<unknown>,
+): Promise<DecodedAudio> {
 	assertConvertedExtent(descriptor.frameCount, descriptor.channelCount, maximumBytes);
 	const channels = Array.from({ length: descriptor.channelCount }, () => new Float32Array(descriptor.frameCount));
-	await streamWavBlobPcm(file, {
-		descriptor, signal,
-		onChunk: (packet: readonly Float32Array[], info: { frameOffset: number }) => {
-			packet.forEach((channel, index) => channels[index].set(channel, info.frameOffset));
-		},
+	let offset = 0;
+	await stream(packet => {
+		packet.forEach((channel, index) => channels[index].set(channel, offset));
+		offset += packet[0]?.length ?? 0;
 	});
 	return {
 		length: descriptor.frameCount, sampleRate: descriptor.sampleRate, numberOfChannels: descriptor.channelCount,

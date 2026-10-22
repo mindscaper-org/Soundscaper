@@ -62,6 +62,7 @@ export async function mountedMacroManagerFixture(initialDraft: MacroEntry = {
 		getComputedStyle: () => ({ display: '', visibility: '' }),
 	});
 	let currentProject: MacroProject | null = null;
+	let activationGeneration = 0;
 	const runs: Array<Readonly<{
 		readonly projectId: string | null;
 		readonly macro: Readonly<{ readonly effects: readonly unknown[] }>;
@@ -134,6 +135,7 @@ export async function mountedMacroManagerFixture(initialDraft: MacroEntry = {
 	const profileResponses: Promise<unknown>[] = [];
 	const profileParams: unknown[] = [];
 	const controller = {
+		captureProjectGeneration: () => ({ projectId: currentProject?.id ?? '', generation: activationGeneration }),
 		get project() { return currentProject; },
 		actions: {
 			macros: {
@@ -286,7 +288,8 @@ export async function mountedMacroManagerFixture(initialDraft: MacroEntry = {
 			assert.ok(input, 'Missing program name input.');
 			return input;
 		},
-		render: async (snapshot: ReturnType<typeof macroSnapshot>) => {
+		render: async (snapshot: ReturnType<typeof macroSnapshot>, reactivate = false) => {
+			if (currentProject?.id !== snapshot.project?.id || reactivate) activationGeneration++;
 			currentProject = snapshot.project;
 			await act(async () => root.render(<Host snapshot={snapshot} />));
 		},

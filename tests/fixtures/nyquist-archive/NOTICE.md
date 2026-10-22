@@ -13,3 +13,46 @@ the exact 138,341-byte archive manifest whose SHA-256 is
 `9b646177cfe178c2d0a03cdda53ae0bbdb7b82f91a1c7594fb7d779e8c45e655`.
 
 These files are used only by the browser test and are not shipped with the app.
+
+`HQ-Tone.ny.gz` expands to the exact 4,908-byte HQ-Tone plug-in by Steve Daulton
+from the same archive. Its SHA-256 is
+`3ac8c19ff1b27b47346697a4f4347584e185e779291e34eb023a64f815b176b2`.
+Its embedded notices state GPL-2.0-or-later; the complete source and notices are
+preserved in the compressed fixture, with the GPL texts above. It is also used
+by the archive installation regression test.
+
+`Chimesdelay3.ny.gz` preserves Steve Daulton's complete 2,371-byte Chimes Delay
+source from the same snapshot, SHA-256
+`ecb7e97d021a6f61b4979e8883ef2aadeccb01fff1a19dfcec0b74fd2741e750`.
+Its embedded notice grants GPL-2.0-or-later. The archive installation and real
+interpreter regression exercises its string note-list control.
+
+`TrimSilence.ny.gz` preserves Steve Daulton's complete 9,577-byte Trim Silence
+source, SHA-256
+`55910e6008dc8ce20c281073b677f2da7613e9d80533b73f4d754fa7f82e1697`,
+with its embedded GPL-2.0 notice. The public controller regression processes
+selected PCM through this exact authenticated plug-in.
+
+`ACX-Check.ny.gz` preserves Steve Daulton's complete 4,496-byte ACX Check source,
+SHA-256 `baf6580949962a18ed41d1fbed9ed22268c94189db235ca0961655c74d18c52f`,
+with its embedded GPL-2.0 notice. The public controller regression runs its
+whole-track duration inspection in the real interpreter.
+
+`Pluck-hz.ny.gz` preserves David R. Sky's complete 1,331-byte Pluck (Hz) source,
+modified by Steve Daulton, SHA-256
+`786dce65f990f1748d351cfe5053a60d889a07782aef58560d6630e6b317ad6b`.
+Its GPL-2.0 notice is preserved. The public generator regression checks that
+Apply retains the requested duration beyond the plug-in's preview limit.
+
+`surf-oxy.ny.gz` preserves David R. Sky's complete 8,995-byte Surf [Oxygene]
+source, SHA-256
+`072c3db0b2297b24b404492fbd9ce85d12019a3cae2e2bb4fe381a4f7c3b7b5c`.
+The embedded notice grants the GNU Public License without specifying a version;
+both GPL texts remain alongside it. The generator regression verifies that
+real-number controls retain their floating point Lisp types.
+
+`vocalrediso.ny.gz` preserves Robert Haenggi's complete 13,206-byte Vocal
+Reduction and Isolation source from the same authenticated snapshot, SHA-256
+`d660eecc5681deeff495803861196433d71a12209249bb8479157a1251da0979`.
+Its GPL-2.0 notice remains intact. The controller and browser regressions apply
+its default mono result to a stereo selection using Audacity's channel contract.

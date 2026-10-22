@@ -3,6 +3,7 @@
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import ClipPropertiesBody from './ClipPropertiesBody.jsx';
 
 export { clipRenameTitle } from './ClipPropertiesBody.jsx';
@@ -21,7 +22,7 @@ export function ClipPropertiesDialog({ isOpen, controller, snapshot, copy, onClo
 			dataAttributes={{ 'data-clip-properties-dialog': '' }}
 			footer={<DialogFooter className="audio-editor-dialog-footer" rightContent={<Button variant="primary" onClick={onClose}>{copy.done}</Button>} />}
 		>
-			<ClipPropertiesBody key={JSON.stringify([snapshot.project?.id ?? null, snapshot.selectedClipId ?? null])} controller={controller} snapshot={snapshot} copy={copy} focusField={focusField} />
+			<ClipPropertiesBody key={JSON.stringify([editorProjectEditSessionKey(controller, snapshot.project?.id), snapshot.selectedClipId ?? null])} controller={controller} snapshot={snapshot} copy={copy} focusField={focusField} />
 		</AudioEditorDialogShell>
 	);
 }

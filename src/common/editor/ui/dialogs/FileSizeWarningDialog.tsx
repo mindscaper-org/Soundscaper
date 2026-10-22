@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import { formatLocalizedTemplate } from '../localization-template.ts';
 import type { FileSizeWarningConfirmation } from '../../controller/shared/file-size-warning-confirmation.ts';
 
 export default function FileSizeWarningDialog({ confirmation, copy }: Readonly<{
@@ -22,8 +23,9 @@ export default function FileSizeWarningDialog({ confirmation, copy }: Readonly<{
 			<Button variant="primary" onClick={() => { confirmation.settle(prompt, true); }}>{copy.fileSizeWarningContinue ?? 'Continue'}</Button>
 		</>} />}
 	>
-		<p>{(copy.fileSizeWarningSize ?? '{label} is {size}, above the recommended {threshold}.')
-			.replace('{label}', prompt.label).replace('{size}', formatSize(prompt.byteLength)).replace('{threshold}', formatSize(prompt.thresholdBytes))}</p>
+		<p>{formatLocalizedTemplate(copy.fileSizeWarningSize ?? '{label} is {size}, above the recommended {threshold}.', {
+			label: prompt.label, size: formatSize(prompt.byteLength), threshold: formatSize(prompt.thresholdBytes),
+		})}</p>
 		<p>{copy.fileSizeWarningDescription ?? 'Continuing may use substantial memory or storage and could fail if capacity is insufficient.'}</p>
 	</AudioEditorDialogShell>;
 }

@@ -84,7 +84,8 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 	});
 	let tail = Promise.resolve();
 	const run = (): Promise<void> => {
-		const operation = tail.then(importSelected, importSelected);
+		const projectId = exactProject(controller.project).id;
+		const operation = tail.then(() => importSelected(projectId), () => importSelected(projectId));
 		tail = operation.then(() => undefined, () => undefined);
 		return operation;
 	};
@@ -99,7 +100,8 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 	bindFramescaperCandidateAuthoringActionRuntime(controller as object,
 		createFramescaperCandidateAuthoringActionSubsetRuntime(surfaces, actions));
 
-	async function importSelected(): Promise<void> {
+	async function importSelected(projectId: string): Promise<void> {
+		assertProjectCurrent(projectId);
 		const fileService = options.fileService;
 		if (!options.selectFiles && fileService?.isDesktop) {
 			if (typeof fileService.chooseFiles !== 'function'
@@ -108,14 +110,16 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 			}
 			const descriptors = await fileService.chooseFiles({ purpose: 'image', multiple: true });
 			if (descriptors.length === 0) return;
-			await fileService.withReadDescriptors(descriptors, {}, (files) => importFiles(snapshotFiles(files)));
+			assertProjectCurrent(projectId);
+			await fileService.withReadDescriptors(descriptors, {}, (files) => importFiles(snapshotFiles(files), projectId));
 			return;
 		}
-		await importFiles(await selectFiles());
+		await importFiles(await selectFiles(), projectId);
 	}
 
-	async function importFiles(files: readonly FramescaperImageImportFileTimelineImage[]): Promise<void> {
+	async function importFiles(files: readonly FramescaperImageImportFileTimelineImage[], projectId: string): Promise<void> {
 		if (files.length === 0) return;
+		assertProjectCurrent(projectId);
 		const project = exactProject(controller.project);
 		const playhead = playheadSample(controller.getTelemetrySnapshot().positionFrame);
 		const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
@@ -129,13 +133,16 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 			createId: options.createId ?? createStableId,
 			publisher,
 			confirmFileSizeWarning: options.confirmFileSizeWarning,
-			assertCurrent: () => {
-				if (controller.project?.id !== project.id) throw new Error('The project changed during image import.');
-			},
+			assertCurrent: () => assertProjectCurrent(projectId),
 		});
 		RESULTS.set(controller as object, result);
 		const failures = result.files.filter(({ status }) => status === 'failed');
 		if (failures.length > 0) throw new Error(importFailureMessage(result));
+	}
+	function assertProjectCurrent(projectId: string): void {
+		if (controller.project?.id !== projectId) {
+			throw Object.assign(new Error('The project changed during image import.'), { name: 'AbortError' });
+		}
 	}
 }
 

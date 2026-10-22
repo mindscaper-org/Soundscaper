@@ -3,7 +3,8 @@
 import { addDeliveryReportItem, type createDeliveryReport } from './delivery-report.ts';
 import { clamp, parameterToLinearGain, parameterToPan } from './dawproject-format.ts';
 import type { DawprojectChannel, DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
-import type { DawprojectAudioEvent, DawprojectAutomationEvent } from './dawproject-import-timeline.ts';
+import type { DawprojectAudioEvent, DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
+import { dawprojectImportedVolumeCurve } from './dawproject-import-volume-curve.ts';
 
 /**
  * The structural half of the DAWproject importer: tracks, folders, buses,
@@ -95,7 +96,7 @@ export interface Build {
 	devices: number;
 }
 
-const MAXIMUM_ENVELOPE_VALUE = 16;
+const MAXIMUM_ENVELOPE_VALUE = 4;
 
 export function walkTrack(track: DawprojectTrack, parentFolderId: string | null, build: Build, document: DawprojectDocument): void {
 	const channel = track.channel;
@@ -316,16 +317,15 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 			});
 			continue;
 		}
-		const envelope: EnvelopePoint[] = [];
+		const visible = visibleAutomationPoints(event.points);
+		const envelope = dawprojectImportedVolumeCurve(visible, event.unit ?? target.unit, MAXIMUM_ENVELOPE_VALUE);
 		let held = 0;
-		for (const point of event.points) {
+		let clamped = 0;
+		for (const point of visible) {
 			const value = parameterToLinearGain(point.value, event.unit ?? target.unit);
 			if (value === null) continue;
-			const frame = Math.max(0, point.frame);
+			if (value > MAXIMUM_ENVELOPE_VALUE) clamped += 1;
 			if (point.interpolation === 'hold') held += 1;
-			const last = envelope.at(-1);
-			if (last && last.frame >= frame) last.value = clamp(value, 0, MAXIMUM_ENVELOPE_VALUE);
-			else envelope.push({ frame, value: clamp(value, 0, MAXIMUM_ENVELOPE_VALUE) });
 		}
 		if (envelope.length === 0) continue;
 		const owner = target.kind === 'master'
@@ -338,6 +338,12 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 		// multiplies its static fader. Retire that multiplier before promotion.
 		owner.gain = 1;
 		owner.envelope = envelope;
+		if (clamped > 0) addDeliveryReportItem(build.draft, {
+			code: 'dawproject.automation-gain-clamped', disposition: 'converted', severity: 'warning',
+			scope: { kind: target.kind, id: target.id ?? 'master' },
+			data: { points: clamped, maximum: MAXIMUM_ENVELOPE_VALUE },
+			message: 'Volume automation exceeds the supported strip gain range; those values are limited to its maximum.',
+		});
 		if (held > 0) {
 			addDeliveryReportItem(build.draft, {
 				code: 'dawproject.automation-hold-converted', disposition: 'converted', severity: 'info',
@@ -351,6 +357,17 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 			message: 'Volume automation becomes the strip\'s envelope.',
 		});
 	}
+}
+
+function visibleAutomationPoints(points: readonly DawprojectAutomationPoint[]): readonly DawprojectAutomationPoint[] {
+	const visible = points.filter((point) => point.frame >= 0);
+	const previous = points.filter((point) => point.frame < 0).at(-1);
+	if (!previous || visible[0]?.frame === 0) return visible;
+	const next = visible[0];
+	const value = previous.interpolation === 'linear' && next
+		? previous.value + (next.value - previous.value) * -previous.frame / (next.frame - previous.frame)
+		: previous.value;
+	return [{ frame: 0, value, interpolation: previous.interpolation }, ...visible];
 }
 
 export function stripRecord(value: StripBuild): DataRecord {

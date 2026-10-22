@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { runtimeTimelineAnnotationExtent } from '../../../runtime-timeline-annotation-projection.ts';
+import { AUDIO_EDITOR_MIN_PIXELS_PER_SECOND } from '../../../timeline-zoom-limits.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { ControllerTransportMeters, ControllerTransportState } from '../transport-state.ts';
 
 export interface ViewStateTrack {
@@ -83,6 +85,8 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 
 	function updateTransportState(value: unknown) {
 		const nextTransportState = typeof value === 'string' && value ? value : 'stopped';
+		// The finite backing timeline can finish while microphone capture continues.
+		if (state.recorder && !['recording', 'paused-recording'].includes(nextTransportState)) return;
 		const previousTransportState = state.transportState;
 		state.transportState = nextTransportState;
 		handleMicrophoneMeterTransportState(previousTransportState, nextTransportState);
@@ -105,14 +109,17 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 		const project = getProject();
 		state.allowBelowProjectFitZoom = false;
 		if (action === 'fit') {
-			const viewport = Math.max(320, Number(requestedViewportWidth) || state.timelineViewportWidth || 960);
+			const viewport = Math.max(1, Number(requestedViewportWidth) || state.timelineViewportWidth || 960);
 			const sampleRate = projectSampleRate();
 			const editorDurationSeconds = editorTimelineDurationFrames(project, sampleRate) / sampleRate;
-			const contentDurationFrames = projectDurationFrames(project);
+			const annotationEndFrame = runtimeTimelineAnnotationExtent(project);
+			const contentDurationFrames = Math.max(projectDurationFrames(project), annotationEndFrame);
 			const fitDurationSeconds = contentDurationFrames > 0
 				? contentDurationFrames / sampleRate
 				: editorDurationSeconds;
-			state.pixelsPerSecond = Math.max(1, Math.min(MAX_PIXELS_PER_SECOND, viewport / fitDurationSeconds));
+			// Leave room for the ruler inset and marker glyph at the fitted endpoint.
+			const fitViewport = annotationEndFrame > 0 ? Math.max(1, viewport - 24) : viewport;
+			state.pixelsPerSecond = Math.max(AUDIO_EDITOR_MIN_PIXELS_PER_SECOND, Math.min(MAX_PIXELS_PER_SECOND, fitViewport / fitDurationSeconds));
 		} else {
 			const durationSeconds = editorTimelineDurationFrames(project, projectSampleRate()) / projectSampleRate();
 			const minimum = state.timelineViewportWidth > 0 ? state.timelineViewportWidth / durationSeconds : 1;

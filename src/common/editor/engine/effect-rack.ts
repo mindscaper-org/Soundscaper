@@ -59,6 +59,7 @@ import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.
 import type { EngineEffect, UnknownRecord } from './types.ts';
 import { effectSupportsExplicitSidechain } from '../effect-explicit-sidechain-capability.ts';
 import { secondsToSampleFrame } from '../timeline-time.ts';
+import { noiseReductionClockGeometry, noiseReductionProfileRate } from '../audacity-effects/noise-reduction-clock.ts';
 import {
 	createNativePluginEffectNode,
 	isNativePluginEffect,
@@ -119,6 +120,10 @@ export function effectLatencyFrames(effect: EngineEffect, sampleRate: number): n
 	if (effect.type === 'multi-tap-delay') return standardDelayLatencyFrames(effect.params || {}, sampleRate);
 	if (!isAudacityLiveEffect(effect.type)) return 0;
 	const capability = audacityLiveEffectCapability(effect.type);
+	if (effect.type === 'audacity-noise-reduction') {
+		const profileRate = noiseReductionProfileRate(effect.context?.noiseProfile, sampleRate);
+		return noiseReductionClockGeometry(sampleRate, profileRate, capability.latencyFrames(profileRate, effect.params || {})).latencyFrames;
+	}
 	const latency = typeof capability?.latencyFrames === 'function'
 		? capability.latencyFrames(sampleRate, effect.params || {})
 		: capability?.latencyFrames;
@@ -193,10 +198,12 @@ export function applyEffect(
 		if (sidechain && (!controlInput || (!explicitSidechainInput && !controlTrackId))) {
 			throw new Error('Auto Duck requires a valid control track.');
 		}
+		const width = clamp(positiveInteger(options.effectChannelCount, 2), 1, 32);
 		const processor = addNode(nodes, new WorkletNode(context, 'kw-audacity-live-effect', {
 			numberOfInputs: sidechain ? 2 : 1,
 			numberOfOutputs: 1,
-			outputChannelCount: [clamp(positiveInteger(options.effectChannelCount, 2), 1, 32)],
+			channelCount: width, channelCountMode: 'explicit', channelInterpretation: 'discrete',
+			outputChannelCount: [width],
 			processorOptions: {
 				effectType: type,
 				params,

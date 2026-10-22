@@ -11,9 +11,10 @@ import { parseAudacityEffectMacro, serializeAudacityEffectMacro } from '../../ef
 import {
 	effectMacroMissingEmbeddedNoiseProfile,
 } from '../../effect-macro-templates.ts';
-import { MACRO_SCRIPT_FILE_EXTENSION } from '../../macro-script-envelope.ts';
+import { MACRO_SCRIPT_FILE_EXTENSION, MACRO_SCRIPT_FILE_MAXIMUM_BYTES } from '../../macro-script-envelope.ts';
 import { AUDIO_EDITOR_SAMPLE_RATE } from '../../project.js';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
 import { takeSelectedFile } from '../file-input-selection.ts';
 import EffectParameterEditor from './EffectParameterEditor.jsx';
@@ -45,7 +46,7 @@ export function AudioEditorMacroManagerDialog({
 	onClose,
 }) {
 	const project = snapshot.project;
-	const projectIdentity = project?.id ?? null;
+	const projectIdentity = editorProjectEditSessionKey(controller, project?.id);
 	const library = controller.actions.macros.library;
 	const macros = snapshot.macros?.library || EMPTY_MACROS;
 	const effects = draft?.effects || EMPTY_EFFECTS;
@@ -75,26 +76,32 @@ export function AudioEditorMacroManagerDialog({
 	};
 	const writeScript = (next) => {
 		if (!String(next.name || '').trim()) return;
-		scriptLibrary.save(next);
+		try { scriptLibrary.save(next); }
+		catch (cause) { showMessage(feedbackFailure(cause), 'error'); }
 	};
 	// Importing a program stores text and marks it unreviewed; it never runs
 	// anything and never grants anything, so the message says what is owed next.
 	const importScript = async (file) => {
 		if (!file) return;
+		const operation = startOperation(activeImportRef);
 		try {
-			if (file.size > MAX_MACRO_IMPORT_BYTES) {
-				throw new RangeError('File exceeds the 1 MiB macro import limit.');
+			if (file.size > MACRO_SCRIPT_FILE_MAXIMUM_BYTES) {
+				throw new RangeError('File exceeds the 2 MiB macro program import limit.');
 			}
-			const created = scriptLibrary.import(await file.text(), file.name);
+			const text = await file.text();
+			if (!ownsOperation(activeImportRef, operation)) return;
+			const created = scriptLibrary.import(text, file.name);
 			setSelectedScriptId(created.id);
 			openMacro(null);
 			showMessage({ key: 'ui.macroManager.programImported', fallback: managerCopy.programImported }, 'warning');
 		} catch (cause) {
+			if (!ownsOperation(activeImportRef, operation)) return;
 			showMessage({ key: 'ui.macroManager.programImportFailed', fallback: managerCopy.programImportFailed, parameters: { message: feedbackErrorParameter(cause) } }, 'error');
 		}
 	};
 	const exportScript = async () => {
 		if (!selectedScript) return;
+		const operation = startOperation(activeExportRef);
 		try {
 			const saved = await downloadTextFile(
 				scriptLibrary.export(selectedScript.id),
@@ -102,9 +109,10 @@ export function AudioEditorMacroManagerDialog({
 				fileService,
 				'macro',
 			);
-			if (saved?.cancelled) return;
+			if (!ownsOperation(activeExportRef, operation) || saved?.cancelled) return;
 			showMessage({ key: 'macroExported' }, 'success');
 		} catch (cause) {
+			if (!ownsOperation(activeExportRef, operation)) return;
 			showMessage({ key: 'macroExportFailed', parameters: { message: feedbackErrorParameter(cause) } }, 'error');
 		}
 	};
@@ -208,7 +216,7 @@ export function AudioEditorMacroManagerDialog({
 		&& activeRef.current === operation
 		&& operationSessionRef.current === operation.session
 		&& operation.session?.isOpen === true
-		&& (controller.project?.id ?? null) === operation.session.projectIdentity;
+		&& editorProjectEditSessionKey(controller, controller.project?.id) === operation.session.projectIdentity;
 	/** Publishes an edit to the open macro and stores it under the same name. */
 	const writeDraft = (updater) => {
 		const base = draftRef.current;
@@ -433,7 +441,7 @@ export function AudioEditorMacroManagerDialog({
 					<section className="audio-editor-macros-palette__detail">
 						{selectedScript ? (
 							<MacroScriptPanel
-								key={selectedScript.id}
+								key={`${projectIdentity || "none"}:${selectedScript.id}`}
 								controller={controller}
 								copy={{ ...managerCopy }}
 								script={selectedScript}

@@ -2,6 +2,7 @@
 
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { FramescaperCaptureAdminInterlockLease } from '../capture/framescaper-capture-admin-interlock.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import type { AdminProject, AdminHistory, AdminSessionTab, AdminCloseOptions, ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
+import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
 export type { ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 
 export interface ProjectHandoffExpectation {
@@ -29,10 +30,15 @@ export function createProjectAdminService<
 	);
 	let clearLocalDataOperation: Promise<void> | null = null;
 	let sourceGarbageCollectionGeneration = 0;
+	let projectListRequest = 0;
 
 	async function listProjects() {
+		const request = ++projectListRequest;
+		const projectAtStart = getProject();
 		await saveNow();
-		state.projects = Object.freeze(await store.listProjects());
+		const projects = await store.listProjects();
+		if (request !== projectListRequest || getProject() !== projectAtStart) return state.projects;
+		state.projects = Object.freeze(projects);
 		publishDocumentSnapshot();
 		return state.projects;
 	}
@@ -185,11 +191,17 @@ export function createProjectAdminService<
 
 	async function duplicateProject(requestedTitle: unknown) {
 		if (recoveryBlocked()) return null;
-		const project = getProject();
-		if (!project) return;
+		const initiatingProject = getProject();
+		if (!initiatingProject) return;
+		const generation = projectGeneration.capture?.(initiatingProject.id);
 		const recordingRouting = structuredClone(getRecordingRouting());
 		await saveNow();
-		if (getProject() !== project) return null;
+		const project = getProject();
+		if (!project || project.id !== initiatingProject.id) return null;
+		if (generation) projectGeneration.assertCurrent?.(generation);
+		if (project !== initiatingProject && !sameProjectSnapshot(
+			projectSaveService.getPersistedSnapshot?.(project.id), project,
+		)) return null;
 		const title = String(requestedTitle || `${project.title} ${publishedCopyFor(copy).projectCopySuffix}`).trim();
 		const duplicated = await store.duplicateProject(project.id, { title, confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 			assertCurrent: () => { if (getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError'); } });
@@ -372,11 +384,14 @@ export function createProjectAdminService<
 		const originHistory = state.history;
 		let replacementEstablished = false;
 		let originRestorable = true;
+		let storageClearStarted = false;
+		state.projectAdministrationPending = true;
 		projectSaveService.suspend();
 		projectGeneration.invalidate();
 		state.history = null;
 		setProject(null);
 		try {
+			publishDocumentSnapshot();
 			await stopRecording();
 			interlock?.assertCurrent();
 			await projectSaveService.drain();
@@ -394,7 +409,8 @@ export function createProjectAdminService<
 			clearWaveformPcmWindows();
 			await revokeVideoVisuals();
 			interlock?.assertCurrent();
-			await store.clear();
+			storageClearStarted = true;
+			await (runtime.clearStorage ? runtime.clearStorage() : store.clear());
 			sessionController.clearClipboard();
 			for (const tab of [...sessionController.getSnapshot().tabs]) {
 				sessionController.closeProject(tab.projectId, { force: true });
@@ -405,6 +421,14 @@ export function createProjectAdminService<
 			replacementEstablished = true;
 			state.projects = Object.freeze(store.preservesProjectsOnClear?.() ? await store.listProjects() : []);
 			publishDocumentSnapshot();
+		} catch (error) {
+			if (!storageClearStarted && !originRestorable && originProject && !getProject()) {
+				const failures = [error];
+				try { await switchProject(originProject, { skipFlush: true }); }
+				catch (recoveryError) { failures.push(recoveryError); }
+				if (failures.length > 1) throw new AggregateError(failures, 'Local reset and project recovery both failed.', { cause: error });
+			}
+			throw error;
 		} finally {
 			if (!replacementEstablished && originRestorable && originProject && originHistory) {
 				state.history = originHistory;
@@ -413,6 +437,8 @@ export function createProjectAdminService<
 				replacementEstablished = true;
 			}
 			projectSaveService.resume();
+			state.projectAdministrationPending = false;
+			if (!state.disposed) publishDocumentSnapshot();
 		}
 	}
 

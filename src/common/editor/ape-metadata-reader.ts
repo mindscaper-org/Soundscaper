@@ -27,7 +27,7 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const tagEnd = await apeTagEnd(file, signal);
 	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
 	const info = apeFooter(footer);
-	if (!info) return {};
+	if (!info) return tagEnd < file.size ? readLegacyId3Tags(await metadataBlobBytes(file, tagEnd, file.size, signal)) : {};
 	await wavPackAudioBlob(file, signal);
 	const bytes = await metadataBlobBytes(file, tagEnd - info.size, tagEnd - 32, signal);
 	const view = new DataView(bytes.buffer);
@@ -66,8 +66,11 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const names: Readonly<Record<string, string>> = { TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', ALBUMARTIST: 'albumArtist', GENRE: 'genre',
 		TRACK: 'trackNumber', DISC: 'discNumber', YEAR: 'date', TOTALTRACKS: 'tracksTotal', TOTALDISCS: 'discsTotal',
 		COMMENT: 'comment', DATE: 'date', LYRICS: 'lyrics', TRACKNUMBER: 'trackNumber', TRACKTOTAL: 'tracksTotal', DISCNUMBER: 'discNumber', DISCTOTAL: 'discsTotal' };
+	const explicitDate = entries.some(([key, value]) => key.toUpperCase().replace(/[ _-]/gu, '') === 'DATE' && typeof value === 'string' && value !== '');
 	for (const [key, value] of entries) {
-		const name = names[key.toUpperCase().replace(/[ _-]/gu, '')];
+		const normalizedKey = key.toUpperCase().replace(/[ _-]/gu, '');
+		if (normalizedKey === 'YEAR' && explicitDate) continue;
+		const name = names[normalizedKey];
 		if (!name || typeof value !== 'string') continue;
 		if (['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name)) {
 			const pair = /^(\d+)\/(\d+)$/u.exec(value);
@@ -95,7 +98,66 @@ function apeFooter(bytes: Uint8Array): Readonly<{ size: number; header: boolean 
 async function apeTagEnd(file: Blob, signal?: AbortSignal): Promise<number> {
 	if (file.size >= 160) {
 		const marker = await metadataBlobBytes(file, file.size - 128, file.size - 125, signal);
-		if (new TextDecoder().decode(marker) === 'TAG') return file.size - 128;
+		if (new TextDecoder().decode(marker) === 'TAG' && await isExternalWavPackTrailer(file, file.size - 128, signal)) return file.size - 128;
 	}
 	return file.size;
 }
+
+/** Wrapper bytes inside a WavPack block may contain any tag-looking prefix. */
+async function isExternalWavPackTrailer(file: Blob, position: number, signal?: AbortSignal): Promise<boolean> {
+	let offset = 0;
+	while (offset < position) {
+		const header = await metadataBlobBytes(file, offset, offset + 32, signal);
+		if (new TextDecoder().decode(header.subarray(0, 4)) !== 'wvpk') return true;
+		const size = new DataView(header.buffer).getUint32(4, true) + 8;
+		if (size < 32 || size > file.size - offset) return true;
+		offset += size;
+		if (offset > position) return false;
+	}
+	return true;
+}
+
+/** ID3v1 is an admitted WavPack trailer even when no APEv2 tag accompanies it. */
+function readLegacyId3Tags(bytes: Uint8Array): Readonly<Record<string, unknown>> {
+	const tags: Record<string, unknown> = { raw: { TAG: bytes.slice(3) } };
+	const decoder = new TextDecoder('windows-1252');
+	const text = (start: number, length: number): string => {
+		const value = bytes.subarray(start, start + length);
+		const end = value.indexOf(0);
+		return decoder.decode(end < 0 ? value : value.subarray(0, end)).trimEnd();
+	};
+	const track = bytes[125] === 0 && bytes[126] !== 0 ? bytes[126] : undefined;
+	for (const [key, start, length] of [['title', 3, 30], ['artist', 33, 30], ['album', 63, 30],
+		['date', 93, 4], ['comment', 97, track === undefined ? 30 : 28]] as const) {
+		const value = text(start, length);
+		if (value) tags[key] = value;
+	}
+	if (track !== undefined) tags.trackNumber = track;
+	const genre = ID3V1_GENRES[bytes[127]!];
+	if (genre !== undefined) tags.genre = genre;
+	return tags;
+}
+
+// The fixed ID3v1 genre index and its conventional Winamp extensions.
+const ID3V1_GENRES = [
+	'Blues', 'Classic Rock', 'Country', 'Dance', 'Disco', 'Funk', 'Grunge', 'Hip-Hop', 'Jazz', 'Metal',
+	'New Age', 'Oldies', 'Other', 'Pop', 'R&B', 'Rap', 'Reggae', 'Rock', 'Techno', 'Industrial',
+	'Alternative', 'Ska', 'Death Metal', 'Pranks', 'Soundtrack', 'Euro-Techno', 'Ambient', 'Trip-Hop', 'Vocal', 'Jazz+Funk',
+	'Fusion', 'Trance', 'Classical', 'Instrumental', 'Acid', 'House', 'Game', 'Sound Clip', 'Gospel', 'Noise',
+	'AlternRock', 'Bass', 'Soul', 'Punk', 'Space', 'Meditative', 'Instrumental Pop', 'Instrumental Rock', 'Ethnic', 'Gothic',
+	'Darkwave', 'Techno-Industrial', 'Electronic', 'Pop-Folk', 'Eurodance', 'Dream', 'Southern Rock', 'Comedy', 'Cult', 'Gangsta',
+	'Top 40', 'Christian Rap', 'Pop/Funk', 'Jungle', 'Native American', 'Cabaret', 'New Wave', 'Psychedelic', 'Rave', 'Showtunes',
+	'Trailer', 'Lo-Fi', 'Tribal', 'Acid Punk', 'Acid Jazz', 'Polka', 'Retro', 'Musical', "Rock 'n' Roll", 'Hard Rock',
+	'Folk', 'Folk-Rock', 'National Folk', 'Swing', 'Fast Fusion', 'Bebop', 'Latin', 'Revival', 'Celtic', 'Bluegrass',
+	'Avantgarde', 'Gothic Rock', 'Progressive Rock', 'Psychedelic Rock', 'Symphonic Rock', 'Slow Rock', 'Big Band', 'Chorus', 'Easy Listening', 'Acoustic',
+	'Humour', 'Speech', 'Chanson', 'Opera', 'Chamber Music', 'Sonata', 'Symphony', 'Booty Bass', 'Primus', 'Porn Groove',
+	'Satire', 'Slow Jam', 'Club', 'Tango', 'Samba', 'Folklore', 'Ballad', 'Power Ballad', 'Rhythmic Soul', 'Freestyle',
+	'Duet', 'Punk Rock', 'Drum Solo', 'A Cappella', 'Euro-House', 'Dance Hall', 'Goa', 'Drum & Bass', 'Club-House', 'Hardcore',
+	'Terror', 'Indie', 'Britpop', 'Negerpunk', 'Polsk Punk', 'Beat', 'Christian Gangsta Rap', 'Heavy Metal', 'Black Metal', 'Crossover',
+	'Contemporary Christian', 'Christian Rock', 'Merengue', 'Salsa', 'Thrash Metal', 'Anime', 'JPop', 'Synthpop', 'Christmas', 'Art Rock',
+	'Baroque', 'Bhangra', 'Big Beat', 'Breakbeat', 'Chillout', 'Downtempo', 'Dub', 'EBM', 'Eclectic', 'Electro',
+	'Electroclash', 'Emo', 'Experimental', 'Garage', 'Global', 'IDM', 'Illbient', 'Industro-Goth', 'Jam Band', 'Krautrock',
+	'Leftfield', 'Lounge', 'Math Rock', 'New Romantic', 'Nu-Breakz', 'Post-Punk', 'Post-Rock', 'Psytrance', 'Shoegaze', 'Space Rock',
+	'Trop Rock', 'World Music', 'Neoclassical', 'Audiobook', 'Audio Theatre', 'Neue Deutsche Welle', 'Podcast', 'Indie Rock', 'G-Funk', 'Dubstep',
+	'Garage Rock', 'Psybient',
+] as const;

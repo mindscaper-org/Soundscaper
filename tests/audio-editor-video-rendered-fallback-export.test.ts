@@ -240,7 +240,7 @@ function createFixture(options: ExportFixtureOptions = {}) {
 			async createDownload(request: unknown) {
 				events.push('download');
 				downloads.push(request);
-				return Object.freeze({ cancelled: false, url: 'blob:export', method: 'memory' });
+				return Object.freeze({ cancelled: false, url: 'blob:export', method: 'memory', cleanup: async () => { events.push('download-cleanup'); } });
 			},
 		},
 		findClip: (project: ExportProject, clipId: string) => project.clips.find((clip) => clip.id === clipId),
@@ -330,7 +330,7 @@ function createFixture(options: ExportFixtureOptions = {}) {
 		events,
 		loadedStorageKeys,
 		plannedProjects,
-		runtime,
+		runtime, state,
 		verifiedFallbackBlob,
 	});
 }
@@ -401,7 +401,7 @@ test('video fallback verification cancellation cannot start late delivery work',
 	assert.deepEqual(fixture.downloads, []);
 });
 
-test('video fallback cancellation during prior-output cleanup cannot begin download publication', async () => {
+test('video fallback cancellation during prior-output retirement releases the prepared replacement', async () => {
 	let cleanupStarted: (() => void) | null = null;
 	let releaseCleanup!: () => void;
 	const started = new Promise<void>((resolve) => { cleanupStarted = resolve; });
@@ -420,7 +420,10 @@ test('video fallback cancellation during prior-output cleanup cannot begin downl
 	assert.equal(await pending, null);
 
 	assert.deepEqual(fixture.errors, []);
-	assert.deepEqual(fixture.downloads, []);
+	assert.equal(fixture.downloads.length, 1);
+	assert.equal(fixture.state.outputUrl, null);
+	assert.equal(fixture.state.exportOutput, null);
+	assert.equal(fixture.events.filter(event => event === 'download-cleanup').length, 1);
 });
 
 test('video fallback download publication receives the owned export signal', async () => {

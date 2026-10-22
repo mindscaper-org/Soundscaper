@@ -9,7 +9,7 @@ import { ProjectDuplicationIndeterminateError } from '../common/editor/storage/p
 import { SoundscaperDesktopProjectLibraryCommittedError, SoundscaperDesktopProjectLibraryIndeterminateError } from './desktop-project-library-renderer-catalog.ts';
 import { cloneSoundscaperProject, validateSoundscaperProject } from './editor-project.ts';
 import { repairSoundscaperProject, type SoundscaperProjectRepair } from './editor-project-recovery-repair.ts';
-import { readSoundscaperRecoveryAvailableAudioSources } from './editor-project-recovery-media.ts';
+import { readSoundscaperRecoveryAvailableMediaSources } from './editor-project-recovery-media.ts';
 import { isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 import type {
 	SoundscaperProjectRecoveryActions, SoundscaperProjectRecoveryInspection,
@@ -76,7 +76,6 @@ export async function createSoundscaperProjectRecoveryCopy(
 	const repaired = await prepare(store, current);
 	const timestamp = new Date().toISOString();
 	const source = cloneSoundscaperProject(repaired.project) as unknown as Record<string, unknown>;
-	source.revision = 0;
 	const copyProjectId = createProjectStoreId('project');
 	const title = `${inspection.title} (recovered)`;
 	// The existing duplication lifecycle owns exact linked-original aliases and their rollback.
@@ -87,7 +86,13 @@ export async function createSoundscaperProjectRecoveryCopy(
 			return [{ id: inspection.projectId }, ...summaries.filter(({ id }) => id !== inspection.projectId).map(({ id }) => ({ id }))];
 		},
 		createProjectIfAbsent: async (copy) => {
-			try { return await store.createProjectIfAbsent(copy); }
+			try {
+				// A stale imported ADM fence may require nonzero independent history.
+				// Desktop's ordinary fresh-project entry point accepts revision zero;
+				// its exact archive publication already supports this saved revision.
+				return await (copy.revision !== 0 && store.createScapeProjectIfAbsent
+					? store.createScapeProjectIfAbsent(copy) : store.createProjectIfAbsent(copy));
+			}
 			catch (error) {
 				if (error instanceof ProjectCommittedMaintenanceError && error.committedProject.id === copy.id) {
 					validateSoundscaperProject(error.committedProject);
@@ -131,7 +136,7 @@ export function createSoundscaperProjectRecoveryActions(store: SoundscaperProjec
 }
 
 async function prepare(store: SoundscaperProjectRecoveryStore, row: ProjectRecoveryCandidate, availability = new Map<string, boolean>()): Promise<SoundscaperProjectRepair> {
-	const available = await readSoundscaperRecoveryAvailableAudioSources(store, row.project, availability);
+	const available = await readSoundscaperRecoveryAvailableMediaSources(store, row.project, availability);
 	return repairSoundscaperProject(row.project, available);
 }
 function record(value: unknown): Record<string, unknown> | null {

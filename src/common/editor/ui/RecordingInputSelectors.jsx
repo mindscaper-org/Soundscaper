@@ -82,7 +82,8 @@ export default function RecordingInputSelectors({
 			trackId: track.id,
 			route,
 		});
-		const nextChannelStart = nextOptions.find((option) => !option.disabled)?.channelStart ?? 0;
+		const current = nextOptions.find((option) => !option.disabled && option.channelStart === route.channelStart);
+		const nextChannelStart = current?.channelStart ?? nextOptions.find((option) => !option.disabled)?.channelStart ?? 0;
 		setRoute({ ...route, channelStart: nextChannelStart, channelCount: nextChannelCount });
 	};
 	const stopTrackSelection = (event) => event.stopPropagation();

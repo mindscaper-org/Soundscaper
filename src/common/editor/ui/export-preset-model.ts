@@ -17,6 +17,8 @@ import { DEFAULT_VIDEO_DELIVERY_QUALITY } from '../video-delivery-quality.ts';
 import { DEFAULT_VIDEO_DELIVERY_AUDIO_LAYOUT } from '../video-delivery-audio-layout.ts';
 import { captureImageExportTextV1 } from '../image-export-text-v1.ts';
 import { readClosedDomainField as field, readClosedDomainRecord as record } from '../closed-domain-value.ts';
+import { getMediaExportFormat } from '../media-export.js';
+import { exportDialogDefaultSampleFormat } from './export-dialog-audio-codec-options.ts';
 import {
 	findPlatformDeliveryPreset,
 	resolvePlatformDeliveryAvailability,
@@ -67,14 +69,21 @@ const NUMERIC_KEYS: readonly string[] = Object.freeze([
 const CANVAS_FIT_DEFAULT = 'contain';
 const VIDEO_QUALITY_DEFAULT = DEFAULT_VIDEO_DELIVERY_QUALITY;
 const AUDIO_LAYOUT_DEFAULT = DEFAULT_VIDEO_DELIVERY_AUDIO_LAYOUT;
+const VIDEO_CANVAS_LIMIT_KEYS: Readonly<Record<string, string>> = Object.freeze({
+	maximumWidth: 'canvasMaximumWidth', maximumHeight: 'canvasMaximumHeight', maximumFrameRate: 'canvasMaximumFrameRate',
+});
 
 const AUDIO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	loudnessNormalization: '', bitRatePreset: '2', vbrQuality: '2', averageBitRate: '192',
 	vbrMode: 'on', chapterSource: 'labels', embedLabelChapters: false,
+	mode: 'mix', channelMapping: 'preserve', channelMatrix: '', dither: 'triangular',
+	includeTail: true, bitRate: '192', quality: '5', compressionLevel: '5',
 });
 const VIDEO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	canvasWidth: '', canvasHeight: '', canvasFit: CANVAS_FIT_DEFAULT, canvasFrameRate: '',
+	canvasFrameRateExact: null,
 	canvasBackgroundColor: '', videoQuality: VIDEO_QUALITY_DEFAULT, videoAudioLayout: AUDIO_LAYOUT_DEFAULT,
+	canvasMaximumWidth: null, canvasMaximumHeight: null, canvasMaximumFrameRate: null, includeAudio: true,
 	deliveryTarget: '',
 	textWatermark: undefined,
 });
@@ -108,6 +117,7 @@ export function presetSettingsFromDialog(
 		if (audioLayout) result.audioLayout = audioLayout;
 		const text = statedVideoTextWatermark(settings);
 		if (text) result.textWatermark = text;
+		if (settings.includeAudio === false) result.includeAudio = false;
 	}
 	return Object.freeze(result);
 }
@@ -133,6 +143,16 @@ export function previewPresetSettingsFromDialog(
 	kind: DeliveryPresetKind,
 ): Readonly<Record<string, unknown>> | null {
 	try { return presetSettingsFromDialog(settings, kind); }
+	catch { return null; }
+}
+
+/** Compare the delivery a preset means, including its omitted defaults. */
+export function previewPresetSettingsFromPreset(
+	preset: DeliveryPreset | undefined,
+	context: Readonly<{ projectSampleRate?: unknown; desktop?: boolean }> = {},
+): Readonly<Record<string, unknown>> | null {
+	if (!preset) return null;
+	try { return presetSettingsFromDialog(dialogSettingsFromPreset(preset, context), preset.kind); }
 	catch { return null; }
 }
 
@@ -303,11 +323,18 @@ export function statedVideoCanvas(
 	// A target can begin at cover; choosing contain must then state the change.
 	if (typeof fit === 'string' && fit && (fit !== CANVAS_FIT_DEFAULT
 		|| (targetCanvas?.fit && targetCanvas.fit !== fit))) stated.fit = fit;
-	// A rate the product offers by name is delivered as the rational that name
-	// means; `29.97` is 30000/1001, not 2997/100.
-	const statedRate = resolveVideoDeliveryFrameRate(settings?.canvasFrameRate);
+	// Typed names resolve to their broadcast rates; an imported preset retains
+	// its exact value until the operator edits this field.
+	const importedRate = settings?.canvasFrameRateExact;
+	const statedRate = importedRate != null
+		&& settings?.canvasFrameRate === videoDeliveryFrameRateLabel(importedRate)
+		? importedRate : resolveVideoDeliveryFrameRate(settings?.canvasFrameRate);
 	if (statedRate !== null) stated.frameRate = statedRate;
 	if (typeof backgroundColor === 'string' && backgroundColor) stated.backgroundColor = backgroundColor;
+	for (const [key, dialogKey] of Object.entries(VIDEO_CANVAS_LIMIT_KEYS)) {
+		const value = settings?.[dialogKey];
+		if (value != null && value !== '') stated[key] = value;
+	}
 	return Object.freeze(stated);
 }
 
@@ -374,17 +401,31 @@ function impliedBitRateMode(settings: Readonly<Record<string, unknown>> | undefi
 /** The dialog patch a preset implies. Numbers become strings again for the inputs. */
 export function dialogSettingsFromPreset(
 	preset: DeliveryPreset,
+	context: Readonly<{ projectSampleRate?: unknown; desktop?: boolean }> = {},
 ): Readonly<Record<string, unknown>> {
 	const patch: Record<string, unknown> = {
 		format: dialogFormatFromPreset(preset),
 		...(preset.kind === 'video' ? VIDEO_PRESET_DIALOG_DEFAULTS : AUDIO_PRESET_DIALOG_DEFAULTS),
 		...(preset.kind === 'video' ? {} : { bitRateMode: impliedBitRateMode(preset.settings) }),
 	};
+	if (preset.kind === 'audio') {
+		const descriptor = getMediaExportFormat(preset.format) as Readonly<{ defaults?: Readonly<Record<string, unknown>> }>;
+		for (const [key, value] of Object.entries(descriptor.defaults ?? {})) {
+			patch[key] = NUMERIC_KEYS.includes(key) ? String(value) : value;
+		}
+		patch.sampleRate = String(context.projectSampleRate ?? 48_000);
+		patch.sampleFormat = exportDialogDefaultSampleFormat(preset.format, context.desktop === true, 'int24');
+		patch.bitRateMode = impliedBitRateMode(preset.settings);
+	}
 	for (const [key, value] of Object.entries(preset.settings ?? {})) {
 		if (key === 'textWatermark') {
 			const text = captureImageExportTextV1(value);
 			patch.textWatermark = Object.freeze({ enabled: true, text: text.text, color: text.color, anchor: text.anchor,
 				width: String(text.widthFraction * 100), margin: String(text.marginFraction * 100), opacity: String(text.opacity * 100) });
+			continue;
+		}
+		if (Object.hasOwn(VIDEO_CANVAS_LIMIT_KEYS, key)) {
+			patch[VIDEO_CANVAS_LIMIT_KEYS[key]!] = value;
 			continue;
 		}
 		if (key === 'channelMapping' && value && typeof value === 'object') {
@@ -407,6 +448,7 @@ export function dialogSettingsFromPreset(
 			// that names it, so 30000/1001 comes back as `29.97` and states the
 			// same rational again when the delivery is built.
 			patch.canvasFrameRate = videoDeliveryFrameRateLabel(value);
+			patch.canvasFrameRateExact = value;
 			continue;
 		}
 		if (key === 'backgroundColor') {

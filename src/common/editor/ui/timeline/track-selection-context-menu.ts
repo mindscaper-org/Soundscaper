@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { trackSourceChannelCount } from '../application-menu-model.js';
+import { sequenceTrackMembers } from '../../sequence-track-members.ts';
 import { isStandaloneMonoAudioTrack } from '../../mono-track-pair-admission.ts';
 
 export interface TrackSelectionContextTrack {
@@ -57,7 +58,8 @@ export function createTrackSelectionContextMenuItems(input: Readonly<{
 	const sourceBlocked = blocked || audioTrack?.locked === true;
 	const structureBlocked = blocked || trackStructureMutationBlocked(project, audioTrack);
 	const primaryIndex = project?.tracks.findIndex(candidate => candidate.id === audioTrack?.id) ?? -1;
-	const partners = project?.tracks.filter(candidate => candidate.id !== audioTrack?.id
+	const members = sequenceTrackMembers(project, audioTrack?.id);
+	const partners = project?.tracks.filter(candidate => candidate.id !== audioTrack?.id && (!members || members.has(candidate.id))
 		&& isStandaloneMonoAudioTrack(candidate, trackSourceChannelCount(project, candidate) as number)) ?? [];
 	const partner = partners.find(candidate => (project?.tracks.indexOf(candidate) ?? -1) > primaryIndex) ?? partners[0];
 	const compatibleMonoTrack = isStandaloneMonoAudioTrack(audioTrack, channelCount) && partner && !partner.locked;

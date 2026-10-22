@@ -19,6 +19,7 @@ import {
 	createAudioMixerBus,
 } from '../project-audio-factory.js';
 import { createLabel } from '../project-media-factory.ts';
+import { normalizeCommandLabel } from './label-command-normalization.ts';
 import {
 	allEffects,
 } from './effects-video-runtime.js';
@@ -159,7 +160,7 @@ function updateTrack(project, trackId, changes = {}) {
 	if (track.type === 'label') {
 		const allowed = TRACK_UPDATE_FIELDS.label;
 		for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new RangeError(`Label track field cannot be updated: ${key}.`);
-		Object.assign(track, normalizeTrackForProject(project, { ...track, ...changes, labels: track.labels }));
+		Object.assign(track, normalizeTrackForProject(project, { ...track, ...changes, labels: track.labels }), { labels: track.labels });
 		return;
 	}
 	if (track.type === 'video') {
@@ -247,7 +248,7 @@ function updateLabel(project, trackId, labelId, changes = {}) {
 	if (index < 0) throw new ReferenceError(`Unknown label: ${labelId}.`);
 	const allowed = new Set(['title', 'startFrame', 'endFrame', 'color', 'opaqueExtensions']);
 	for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new RangeError(`Label field cannot be updated: ${key}.`);
-	track.labels[index] = createLabel({ ...track.labels[index], ...changes, id: labelId });
+	track.labels[index] = normalizeCommandLabel({ ...track.labels[index], ...changes, id: labelId });
 	track.labels.sort((left, right) => left.startFrame - right.startFrame
 		|| left.endFrame - right.endFrame || compareCodeUnits(left.id, right.id));
 }

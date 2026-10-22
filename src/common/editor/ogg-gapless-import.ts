@@ -9,15 +9,10 @@ const MAXIMUM_PAGE_BYTES = 65_307;
 
 /** The final Ogg granule, rather than the full last codec packet, ends the source. */
 export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vorbis'): Promise<OggGaplessGeometry | null> {
-	const header = new Uint8Array(await file.slice(0, 27).arrayBuffer());
-	if (header.length !== 27 || ascii(header, 0, 4) !== 'OggS' || header[4] || (header[5]! & 3) !== 2) return null;
-	const first = new Uint8Array(await file.slice(0, MAXIMUM_PAGE_BYTES).arrayBuffer());
-	const bodyOffset = 27 + header[26]!;
-	if (bodyOffset > first.length) return null;
-	const firstSize = pageSize(first, 0);
-	if (!firstSize) return null;
-	verifyPageChecksum(first.subarray(0, firstSize));
-	const body = first.subarray(bodyOffset, firstSize);
+	const first = await findAudioIdentificationPage(file, codec);
+	if (!first) return null;
+	verifyPageChecksum(first);
+	const body = first.subarray(27 + first[26]!);
 	let preSkip = 0;
 	let sampleRate = 48_000;
 	if (codec === 'opus') {
@@ -43,6 +38,23 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		return Object.freeze({ sampleRate, sourceFrames });
 	}
 	throw new Error('The Ogg audio source has no final granule for its primary stream.');
+}
+
+async function findAudioIdentificationPage(file: Blob, codec: 'opus' | 'vorbis'): Promise<Uint8Array<ArrayBuffer> | null> {
+	// All logical-stream BOS pages precede data pages. Skeleton and other auxiliary
+	// streams may precede the primary audio; their serial and granules do not own it.
+	for (let offset = 0; offset < Math.min(file.size, 1024 * 1024);) {
+		const page = new Uint8Array(await file.slice(offset, offset + MAXIMUM_PAGE_BYTES).arrayBuffer());
+		if (page.length < 27 || ascii(page, 0, 4) !== 'OggS' || page[4] || (page[5]! & 3) !== 2) return null;
+		const size = pageSize(page, 0);
+		if (!size) return null;
+		const body = page.subarray(27 + page[26]!, size);
+		if (codec === 'opus' ? ascii(body, 0, 8) === 'OpusHead' : body[0] === 1 && ascii(body, 1, 6) === 'vorbis') {
+			return page.slice(0, size);
+		}
+		offset += size;
+	}
+	return null;
 }
 
 function pageSize(bytes: Uint8Array, offset: number): number {

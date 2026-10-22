@@ -87,7 +87,7 @@ function DraftField({
 			) : (
 				<input
 					name={name}
-					type={type}
+					type={type === 'date' && presentedValue.startsWith('0000-') ? 'text' : type}
 					inputMode={inputMode}
 					maxLength={maxLength}
 					pattern={pattern}

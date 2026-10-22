@@ -247,10 +247,11 @@ test('a seconds arrangement keeps sample positions and converts fader units', ()
 	assert.equal(plan.title, 'Cubase session', 'the file name stands in when metadata.xml has no title');
 	const clips = plan.project.clips as Record<string, number | string>[];
 	const riff = clips.find((clip) => clip.title === 'Riff');
-	assert.equal(riff?.timelineStartFrame, 66_150);
-	assert.equal(riff?.durationFrames, 132_300);
-	assert.equal(riff?.sourceStartFrame, 11_025);
-	assert.equal(riff?.sourceDurationFrames, 132_300);
+	// DAWproject's negative fade-in extends the clip before its nominal time.
+	assert.equal(riff?.timelineStartFrame, 61_740);
+	assert.equal(riff?.durationFrames, 136_710);
+	assert.equal(riff?.sourceStartFrame, 6_615);
+	assert.equal(riff?.sourceDurationFrames, 136_710);
 	assert.equal(riff?.speedRatio, 1);
 	assert.equal(riff?.fadeInFrames, 4_410, 'a negative fade-in is a crossfade of that length');
 	assert.equal(riff?.fadeOutFrames, 22_050);

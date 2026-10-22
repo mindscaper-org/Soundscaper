@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import RoutingInspectorForm from './RoutingInspectorForm.tsx';
-import RoutingEdgeLevelInput, { routingLevelDraftValue } from './RoutingEdgeLevelInput.tsx';
+import RoutingEdgeLevelInput, { routingLevelDraftValue, routingLevelDisplayDb as linearToDb } from './RoutingEdgeLevelInput.tsx';
 
 import type { MixerEdgeV21, MixerGraphV21 } from '../../mixer-graph-v21.ts';
 import type { SoundscaperRoutingGraphCopy } from './soundscaper-routing-graph-copy.ts';
@@ -288,7 +288,7 @@ function EdgeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 			phase, address: edgeLevelAddress(edgeId), value,
 		}, onError);
 		state.active = false;
-		if (phase === 'cancel') state.captured = false;
+		if (phase === 'cancel') { state.captured = false; state.dirty = false; }
 	};
 	if (!edge) return <p>{copy.selectedConnectionMissing}</p>;
 	const sourceLabel = sources.find(({ value }) => value === routingEndpointValue(edge.source))?.label ?? edge.id;
@@ -302,7 +302,7 @@ function EdgeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 			if (controlDisabled || levelGesture.current.pending) return;
 			try {
 				const data = new FormData(event.currentTarget);
-				const level = routingLevelDraftValue(String(data.get('levelDb') ?? ''));
+				const level = routingLevelDraftValue(String(data.get('levelDb') ?? ''), levelGesture.current.dirty ? undefined : edge.level);
 				if (level === null) return;
 				const source = optionEndpoint(sources, String(data.get('source')));
 				const destination = optionEndpoint(destinations, String(data.get('destination')));
@@ -344,7 +344,7 @@ function EdgeInspector(props: SoundscaperRoutingGraphInspectorProps & Readonly<{
 			<label>{copy.position} <select name="position" defaultValue={edge.position} disabled={controlDisabled}>
 				<option value="pre-fader">{copy.preFader}</option><option value="post-fader">{copy.postFader}</option>
 			</select></label>
-			<RoutingEdgeLevelInput label={copy.levelDb} savedDb={linearToDb(edge.level)} disabled={controlDisabled}
+			<RoutingEdgeLevelInput label={copy.levelDb} savedLevel={edge.level} disabled={controlDisabled}
 				onBegin={beginLevelGesture} onPreview={previewLevelGesture}
 				onRelease={value => finishLevelGesture('release', value)}
 				onCancel={() => finishLevelGesture('cancel', levelGesture.current.value)}
@@ -444,10 +444,6 @@ function collectionName(copy: SoundscaperRoutingGraphCopy, collection: 'groups' 
 function roleLabel(copy: SoundscaperRoutingGraphCopy, role: string): string {
 	return role === 'control-room' ? `${copy.controlRoom} ${copy.output}`
 		: `${role === 'main' ? copy.main : role === 'cue' ? copy.cue : copy.auxiliary} ${copy.output}`;
-}
-
-function linearToDb(value: number): number {
-	return value > 0 ? Math.max(-60, Math.min(12.04, Number((20 * Math.log10(value)).toFixed(2)))) : -60;
 }
 
 function dbLabel(value: number): string {

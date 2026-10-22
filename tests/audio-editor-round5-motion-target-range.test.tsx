@@ -21,7 +21,7 @@ test('a tracking target appearing in the mounted finishing dialog initializes it
 	const target = { stackId: 'tracking', sourceId: source.id, sourceName: 'camera.webm', startFrame: 0,
 		endFrame: 32, analysisId: 'analysis', freshness: 'missing' as const };
 	let targets: readonly typeof target[] = [];
-	let project = { schemaFamily: 'framescaper', schemaVersion: 1, sources: [source],
+	let project = { schemaFamily: 'framescaper', schemaVersion: 1, sampleRate: 48_000, sources: [source],
 		videoProcessorStacks: [], videoMotionAnalyses: [] };
 	const controller = { actions: { edit: { commit() {} } } };
 	bindFramescaperMotionAnalysisActionsFinishing(controller, { targets: () => targets,

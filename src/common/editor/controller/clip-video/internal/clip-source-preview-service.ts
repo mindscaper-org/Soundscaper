@@ -36,7 +36,7 @@ export interface ClipSourcePreviewResources {
 	readonly sourceChunkProviders: EngineChunkSourceInput;
 	readonly sourceResolver?: EngineSourceResolver;
 	createEngine(options: Readonly<{ onState(state: string): void }>): ClipSourcePreviewEngine;
-	prepare(project: unknown, signal: AbortSignal): Promise<unknown>;
+	prepare(project: unknown, signal: AbortSignal, options?: Readonly<{ clipIds: readonly string[] }>): Promise<unknown>;
 	retirePlayback(): unknown;
 	subscribeTimelineState(listener: (state: string) => void): () => unknown;
 }
@@ -136,7 +136,7 @@ export function createClipSourcePreviewService(dependencies: ClipSourcePreviewDe
 		update({ state: 'loading', durationFrames: sourcePreviewTarget(project, clipId).range.totalFrames });
 		try {
 			resources.retirePlayback();
-			await resources.prepare(project, abort.signal);
+			await resources.prepare(project, abort.signal, { clipIds: [clipId] });
 			if (!isCurrent()) return;
 			dependencies.assertProject(token);
 			if (!engine) {

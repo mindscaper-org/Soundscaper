@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AudioEditorCommand, CommandObject } from '../../../commands/protocol.ts';
+import { duplicateTrackAdmCommands } from '../../../derived-track-adm.ts';
 import { preserveProductionTrackRouting } from '../../../derived-track-routing.ts';
 import { trackHierarchyPlacement } from '../../../track-hierarchy-placement.ts';
+import { duplicateTrackTakeGroupCommands } from './track-duplicate-take-groups.ts';
 import type {
 	ControllerTrackDuplicateCarrier,
 	ControllerTrackDuplicateRequest,
@@ -125,6 +127,10 @@ export function createTrackDuplicationService(dependencies: TrackDuplicationServ
 				} : {}),
 			}));
 		}
+		commands.push(...duplicateTrackTakeGroupCommands(project, track.id, trackId, dependencies.createId));
+		commands.push(...duplicateTrackAdmCommands(project, [
+			{ sourceTrackId: track.id, targetTrackId: trackId },
+		], dependencies.createId));
 		const routed = preserveProductionTrackRouting(project, { type: 'batch', commands }, [
 			{ sourceTrackId: track.id, targetTrackId: trackId },
 		], dependencies.previewCommand, dependencies.createId);

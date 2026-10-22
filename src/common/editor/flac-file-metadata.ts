@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { audioMetadataComments, flacPictureBytes, metadataBlobBytes, vorbisCommentBytes } from './audio-metadata-values.ts';
-import { parseId3Artwork } from './id3-artwork.ts';
+import { audioMetadataArtwork, audioMetadataComments, flacPictureBytes, metadataBlobBytes, vorbisCommentBytes } from './audio-metadata-values.ts';
 
 export async function writeFlacFileMetadata(blob: Blob, metadata: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<Blob> {
 	const marker = await metadataBlobBytes(blob, 0, 4, signal);
@@ -23,7 +22,7 @@ export async function writeFlacFileMetadata(blob: Blob, metadata: Readonly<Recor
 	}
 	if (offset >= blob.size) throw new RangeError('The FLAC file has no audio frames.');
 	blocks.push({ type: 4, body: vorbisCommentBytes(audioMetadataComments(metadata)) });
-	for (const picture of parseId3Artwork(metadata.id3Artwork)) blocks.push({ type: 6, body: flacPictureBytes(picture) });
+	for (const picture of audioMetadataArtwork(metadata)) blocks.push({ type: 6, body: flacPictureBytes(picture) });
 	const parts: BlobPart[] = [marker];
 	for (const [index, block] of blocks.entries()) {
 		const length = block.body instanceof Blob ? block.body.size : block.body.length;

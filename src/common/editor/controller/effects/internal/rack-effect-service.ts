@@ -384,7 +384,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 		if (editingBlocked()) return null;
 		if (state.effectClipboard === null) throw createLocalizedError(Error, copy, copy.pasteEffects ? 'pasteEffects' : 'paste');
 		const current = effectStack(scope, trackId);
-		const effects = state.effectClipboard.map((effect) => materializeRackEffect(effect, scope, trackId));
+		const effects = state.effectClipboard.map((effect) => materializeRackEffect(effect, scope, trackId, { requireProjectNoiseProfile: true }));
 		const commands: AudioEditorCommand[] = [
 			...current.map((effect) => rackCommand('effect/remove', rackScope(scope), trackId, {
 				effectId: effect.id,
@@ -439,11 +439,12 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 			effectOptions.context = { ...effectOptions.context, controlTrackId };
 		}
 		if (effect.type === 'audacity-noise-reduction') {
-			const noiseProfile = effectOptions.context?.noiseProfile
-				|| serializeAudacityNoiseProfile(state.audacityNoiseProfile);
+			const noiseProfile = options.requireProjectNoiseProfile
+				? reusableNoiseProfile(effectOptions.context?.noiseProfile) || reusableNoiseProfile(state.audacityNoiseProfile)
+				: effectOptions.context?.noiseProfile || serializeAudacityNoiseProfile(state.audacityNoiseProfile);
 			if (!noiseProfile && options.requireNoiseProfile) throw createLocalizedError(Error, copy, 'noiseProfileMissing');
-			if (noiseProfile) effectOptions.context = { ...effectOptions.context, noiseProfile };
-			else effectOptions.enabled = false;
+			effectOptions.context = { ...effectOptions.context, noiseProfile };
+			if (!noiseProfile) effectOptions.enabled = false;
 		}
 		const materialized = createEffect(effect.type, effectOptions) as ControllerRackEffect;
 		assertStandardRackEffectConfiguration(requireProject(), rackScope(scope), trackId, materialized, engine.sampleRate);

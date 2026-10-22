@@ -273,11 +273,20 @@ function metadataTags(provenance: SourceProvenanceV1): string[] {
 			collectTags(metadata, '', tags);
 		}
 	}
-	return [...new Map(tags.map((tag) => [tag.toLocaleLowerCase('en-US'), tag])).values()].slice(0, 30);
+	const unique = new Map(tags.map((tag) => [tag.toLocaleLowerCase('en-US'), tag]));
+	const result: string[] = [];
+	let length = 0;
+	for (const tag of unique.values()) {
+		const added = tag.length + (result.length ? 1 : 0);
+		if (length + added > 512) continue;
+		result.push(tag);
+		length += added;
+		if (result.length === 30) break;
+	}
+	return result;
 }
 
 function collectTags(value: SourceMetadataValue, key: string, tags: string[]): void {
-	if (tags.length >= 30) return;
 	if (key.toLocaleLowerCase('en-US') === 'tags' && Array.isArray(value)) {
 		for (const tag of value) {
 			if (typeof tag !== 'string') continue;
@@ -362,7 +371,12 @@ export function normalizeFreesoundUploadTag(value: string): string {
 	const replaced = value.normalize('NFKC').trim()
 		.replace(/[^\p{L}\p{N}_-]+/gu, '-')
 		.replace(/^[-_]+|[-_]+$/gu, '');
-	const bounded = Array.from(replaced).slice(0, 64).join('').replace(/[-_]+$/gu, '');
+	let prefix = '';
+	for (const character of replaced) {
+		if (prefix.length + character.length > 64) break;
+		prefix += character;
+	}
+	const bounded = prefix.replace(/[-_]+$/gu, '');
 	return /^[\p{L}\p{N}][\p{L}\p{N}_-]*$/u.test(bounded) ? bounded : '';
 }
 

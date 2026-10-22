@@ -95,6 +95,7 @@ export function createEditorControllerState<Preferences, RecordingRouting, Effec
 		outputCleanup: null,
 		projectQueue: Promise.resolve(),
 		projectActivationPending: false,
+		projectAdministrationPending: false,
 		missingSourceIds: new Set<string>(),
 		deliveryPresets: createDeliveryPresetState(),
 		deliveryPresetsReadOnly: false,

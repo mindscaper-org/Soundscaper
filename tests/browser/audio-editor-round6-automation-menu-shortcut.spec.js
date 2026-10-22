@@ -21,7 +21,7 @@ test('the automation curve menu releases configured modified navigation commands
 	const curve = row.locator('[data-automation-insert-point]').first();
 	await curve.press('i');
 	await curve.press('Shift+F10');
-	const menu = row.getByRole('menu', { name: 'Automation curve', exact: true });
+	const menu = editor.getByRole('menu', { name: 'Automation curve', exact: true });
 	const first = menu.getByRole('menuitemradio').first();
 	await expect(first).toBeFocused();
 	await first.press('End');

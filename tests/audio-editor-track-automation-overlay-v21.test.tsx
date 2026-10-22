@@ -36,12 +36,11 @@ test('inline automation exposes keyboard insertion, explicit deletion, and one-c
 
 		commands.length = 0;
 		await act(async () => reactProps(dom.one('[data-automation-insert-point]')).onContextMenu?.({
-			clientX: 50, clientY: 45, preventDefault() {}, stopPropagation() {},
+			clientX: 50, clientY: 45, currentTarget: dom.one('[data-automation-insert-point]'), preventDefault() {}, stopPropagation() {},
 		}));
-		const deleteButton = dom.one('button').parentNode?.childNodes
-			.find((node) => node.textContent === 'Delete automation lane');
+		const deleteButton = dom.container.ownerDocument.body.querySelector('.audio-editor-track-automation-menu__delete');
 		assert.ok(deleteButton);
-		await act(async () => reactProps(deleteButton as never).onClick?.({}));
+		await act(async () => reactProps(deleteButton).onClick?.({}));
 		assert.equal(commands.length, 1);
 		assert.equal(command(commands[0]).lane, null);
 

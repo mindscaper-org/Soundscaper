@@ -1,3 +1,5 @@
+import { convertAudacityEnvelopeInterpolation } from './aup4-envelope-interpolation.ts';
+
 import { createCurrentAudioEditorProject } from './project-current.ts';
 import {
 	createAudioClip,
@@ -22,16 +24,19 @@ export function convertLegacyAupToProject(structure, options = {}) {
 	const sourceAudio = [];
 	const clips = [];
 	const tracks = [];
+	const selectedTrackIds = [];
 	const annotationTracks = [];
 	const warnings = [...(structure.warnings || [])];
 	for (const [trackIndex, inputTrack] of structure.tracks.entries()) {
 		if (inputTrack.type === 'label') {
 			annotationTracks.push({
+				selected: inputTrack.selected,
 				name: String(inputTrack.name || `Labels ${trackIndex + 1}`),
 				labels: (inputTrack.labels || []).map((label) => ({
+					selected: label.selected,
 					title: String(label.title || ''),
-					startSeconds: nonNegative(label.startSeconds),
-					endSeconds: nonNegative(Math.max(label.startSeconds, label.endSeconds)),
+					startSeconds: label.startSeconds,
+					endSeconds: label.endSeconds,
 					opaqueExtensions: label.opaqueExtensions || {},
 				})),
 				opaqueExtensions: inputTrack.opaqueExtensions || {},
@@ -39,6 +44,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 			continue;
 		}
 		const trackId = idFactory('track');
+		if (inputTrack.selected) selectedTrackIds.push(trackId);
 		const trackRate = positiveRate(inputTrack.rate || sampleRate);
 		const clipIds = [];
 		for (const [clipIndex, inputClip] of (inputTrack.clips || []).entries()) {
@@ -80,7 +86,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 				durationFrames,
 				trimStartFrames: sourceStartFrame,
 				trimEndFrames: frameCount - sourceEndFrame,
-				envelope: convertEnvelope(inputClip.envelope, trackRate, sampleRate, speedRatio, durationFrames),
+				envelope: convertEnvelope(inputClip.envelope, trackRate, sampleRate, speedRatio, durationFrames, sourceStartFrame),
 				groupId: inputClip.groupId || null,
 				color: String(inputClip.color || 'auto'),
 				pitchCents: Math.max(-1_200, Math.min(1_200, Number(inputClip.pitchCents) || 0)),
@@ -107,9 +113,10 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		}, sampleRate));
 	}
 	const laneTracks = spreadLegacyOverlaps(tracks, clips, warnings);
+	const projectTitle = String(options.title || structure.metadata?.title || '').replace(/\.aup$/i, '');
 	const metadata = {
-		title: String(options.title || structure.metadata?.title || '').replace(/\.aup$/i, ''),
-		artist: '', album: '', trackNumber: '', year: '', comments: '', tags: {},
+		title: '', artist: '', album: '', trackNumber: '', year: '', comments: '', tags: {},
+		...structure.metadata,
 	};
 	const importedTempoBpm = finiteInRange(structure.tempo?.bpm, 1, 1_000, 120);
 	const musicalRoot = canonicalAudacityMusicalRoot(importedTempoBpm, structure.tempo?.timeSignature);
@@ -121,11 +128,12 @@ export function convertLegacyAupToProject(structure, options = {}) {
 	});
 	const project = createCurrentAudioEditorProject({
 		id: options.projectId || idFactory('project'),
-		title: metadata.title || 'Audacity project',
+		title: projectTitle || 'Audacity project',
 		now: options.now,
 		sampleRate,
 		...musicalRoot,
 		selection: {
+			trackIds: selectedTrackIds,
 			startFrame: secondsToSampleFrame(nonNegative(structure.selection?.startSeconds), sampleRate),
 			endFrame: secondsToSampleFrame(nonNegative(Math.max(structure.selection?.startSeconds || 0, structure.selection?.endSeconds || 0)), sampleRate),
 			annotationIds: annotationImport.selectedAnnotationIds,
@@ -169,18 +177,19 @@ function spreadLegacyOverlaps(tracks, clips, warnings) {
 	return output;
 }
 
-function convertEnvelope(points = [], inputRate, projectRate, speedRatio, maximumFrame) {
-	return points.map((point) => ({
-		frame: Math.max(0, Math.min(maximumFrame, secondsToSampleFrame(
+function convertEnvelope(points = [], inputRate, projectRate, speedRatio, maximumFrame, sourceStartFrame) {
+	const converted = points.map((point) => ({
+		frame: secondsToSampleFrame(
 			divideRationals(
-				divideRationals(nonNegative(point.frame), normalizeRational(inputRate)),
+				divideRationals(nonNegative(point.frame) - sourceStartFrame, normalizeRational(inputRate)),
 				normalizeRational(speedRatio),
 			),
 			projectRate,
-		))),
+		),
 		value: Math.max(0, Math.min(16, Number(point.value) || 0)),
 	})).sort((left, right) => left.frame - right.frame)
 		.filter((point, index, values) => !index || point.frame > values[index - 1].frame);
+	return convertAudacityEnvelopeInterpolation(converted, 0, maximumFrame, 'from-native');
 }
 
 function normalizeSourceChannels(channels) {

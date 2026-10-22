@@ -26,6 +26,7 @@ import { commitTimelineTrimPointer } from './trim-pointer-routing.ts';
 import { timelineSelectionDragTrackIds } from './track-selection-scope.ts';
 import { previewTimelineSelectionBoundaryEdit } from './selection-pointer-edit.ts';
 import { setTimelineSelectionPointerCursor } from './selection-pointer-target.ts';
+import { timelineSelectionDragRange } from './selection-drag-preview.ts';
 
 export function useTimelinePointerFinish({
 	controller,
@@ -54,6 +55,7 @@ export function useTimelinePointerFinish({
 		project,
 		projectIndex,
 		pixelsPerSecond,
+		durationFrames,
 		sampleRate,
 		transportState,
 	} = model;
@@ -429,8 +431,7 @@ export function useTimelinePointerFinish({
 					session.startSnapGuideFrame = null;
 					const endFrame = session.lastRawEndFrame ?? session.startFrame;
 					setSelectionPreview({
-						startFrame: Math.min(session.startFrame, endFrame),
-						endFrame: Math.max(session.startFrame, endFrame),
+						...timelineSelectionDragRange(project, session.startFrame, endFrame, false, durationFrames),
 						...(session.lastTrackIds ? { trackIds: session.lastTrackIds } : {}),
 					});
 				} else if (session.unsnappedPreview) {
@@ -443,7 +444,7 @@ export function useTimelinePointerFinish({
 		};
 		globalThis.addEventListener('keydown', cancelWithEscape, true);
 		return () => globalThis.removeEventListener('keydown', cancelWithEscape, true);
-	}, [cancelPointerSession, pointerSession, setBoundarySnapGuideFrames, setClipDragPreview, setSelectionPreview]);
+	}, [cancelPointerSession, durationFrames, pointerSession, project, setBoundarySnapGuideFrames, setClipDragPreview, setSelectionPreview]);
 
 	useEffect(() => {
 		const session = pointerSession.current;
