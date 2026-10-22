@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useLayoutEffect, useRef } from 'react';
+import { Fragment, useLayoutEffect, useRef } from 'react';
 
 import '../audio-editor-design-system/18-musical-timeline.css';
 
@@ -9,6 +9,7 @@ import { approximatePositiveRational } from '../../rational-approximation.ts';
 import { addRationals } from '../../timeline-time.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
 import { AudacityToolbarFlyoutButton } from './AudioEditorMeterControls.jsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 export function MusicalTimelineControls({ project, snapshot, controller, copy, run }) {
 	const tempoMap = project?.tempoMap;
@@ -18,7 +19,7 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
 	const rootTempo = tempoEvents[0]?.bpm;
 	const rootSignature = signatureEvents[0];
 	const disabled = snapshot.readOnly || snapshot.recording;
-	return <>
+	return <Fragment key={editorProjectEditSessionKey(controller, project?.id)}>
 		<label className="kw-audio-editor__tempo-control" data-action-id="playback-bpm">
 			<span>{copy.projectTempo}</span>
 			<AuthoritativeNumberField
@@ -132,7 +133,7 @@ export function MusicalTimelineControls({ project, snapshot, controller, copy, r
 				</section>
 			</div>
 		</AudacityToolbarFlyoutButton>
-	</>;
+	</Fragment>;
 }
 
 /**
