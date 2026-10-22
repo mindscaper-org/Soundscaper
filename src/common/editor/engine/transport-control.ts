@@ -477,12 +477,13 @@ getPositionFrames() {
 		return clampFrame(this.playbackStartFrame + elapsedFrames, 0, this.playEndFrame);
 	},
 getState() {
+		const cutPreview = isCutPreviewActive(this) || isCutPreviewPaused(this);
 		return {
 			state: this.state,
-			cutPreview: isCutPreviewActive(this) || isCutPreviewPaused(this),
+			cutPreview,
 			positionFrame: this.getPositionFrames(),
 			durationFrames: this.durationFrames,
-			loop: { ...this.loop, enabled: isPlaybackLoopEnabled(this) },
+			loop: { ...this.loop, enabled: isPlaybackLoopEnabled(this) && !cutPreview },
 			playbackRate: this.playbackRate,
 			playbackMode: this.playbackMode,
 		};
