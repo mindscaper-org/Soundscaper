@@ -9,7 +9,8 @@ import {
 	type SoundscaperProjectOptions,
 } from './editor-project.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
-import { normalizeAutomationLaneV21, type AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
+import { AUTOMATION_LANE_MAXIMUM_POINTS_V21, normalizeAutomationLaneV21, type AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
+import { thinAutomationLaneCaptureV21 } from '../common/editor/automation-lane-thinning-v21.ts';
 import type { StripRef } from '../common/editor/parameter-address.ts';
 import { importSoundscaperAudacityMixer } from './editor-audacity-import-mixer.ts';
 import type { DawprojectImportRoutingContext } from '../common/editor/dawproject-import-structure.ts';
@@ -52,9 +53,14 @@ function importedStripGainLanes(project: AudioEditorProjectV17): readonly Automa
 		}));
 		// A legacy envelope ramps from unity when its first point is after zero.
 		if (points[0]!.position > 0) points.unshift({ id: `${id}:start`, position: 0, value: owner.gain });
-		lanes.push(normalizeAutomationLaneV21({
+		const lane = {
 			id, address: { kind: 'strip', strip, parameterId: 'gain' }, timebase: 'absolute-samples', points,
 			segments: points.slice(1).map(() => ({ kind: 'linear' })),
-		}));
+		};
+		// External envelopes may sample a simple ramp thousands of times. Keep
+		// endpoints and reject curves that cannot satisfy this strict gain error.
+		lanes.push(points.length > AUTOMATION_LANE_MAXIMUM_POINTS_V21
+			? thinAutomationLaneCaptureV21(lane, { automationTolerance: 1e-9 })
+			: normalizeAutomationLaneV21(lane));
 	}
 }
