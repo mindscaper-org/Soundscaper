@@ -143,8 +143,27 @@ outside a nonmodal dialog before its initial animation frame; its regression
 also fails before the correction and all 33 focused checks pass afterward.
 Scoped strict types, changed-file lint and size checks pass. `316c8af24` adds the
 existing public import-ready precondition to the Dialogue overwrite test.
-Browser verification remains pending; these focused results do not accept the
-saved browser failures or extend the earlier complete Node pass to this source.
+On `b9199d352`, both desktop-recording cases and the nonmodal dialog case pass
+in WebKit; the Dialogue overwrite case passes in Chromium. All four retain
+their original assertions and case timeouts, with zero retries, skips or
+failures. Source/site checks pass and all 84 recorded command process births
+are absent. This is focused verification, not complete browser acceptance.
+
+`db893d23b` also preserves an application-menu item selected before its initial
+keyboard-focus frame. Two regressions fail before the one-line correction;
+all 46 focused menu checks pass afterward. A broad test TypeScript check hit
+Node's default heap limit before producing diagnostics and remains failed.
+Smaller strict checks for the changed menu test and diagnostic helper pass
+without a heap override. Changed-file lint and size checks pass.
+
+The recovery, recording and menu diagnostics (`0b79183c2`, `834af7ade`,
+`e65e33636`) preserve original actions, assertions and timers. Nine controlled
+blank-document checks pass for menu-event passivity, attribution, bounds,
+disposal and failure attachment. The first Node-based diagnostic runner remains
+failed: its serialized callback contained undefined compiler name helpers.
+The successor uses the unchanged helper through Playwright's normal transform;
+this establishes diagnostic plumbing, not an application failure cause.
+The other four saved browser cases and the final complete gates remain pending.
 
 Separate linked, dual-origin and handbook suites also remain pending. The latest
 historical failed browser
