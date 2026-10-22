@@ -231,11 +231,24 @@ async function writeManaged(
 	sha256: string,
 	signal: AbortSignal | undefined,
 ): Promise<void> {
-	const writer = await request.store.beginMediaAssetWrite(storageKey, { mimeType: '' }, {
-		expectedBytes: bytes.byteLength,
-		expectedSha256: sha256,
-		...(signal ? { signal } : {}),
-	});
+	let writer: MediaAssetWriterLike;
+	try {
+		writer = await request.store.beginMediaAssetWrite(storageKey, { mimeType: '' }, {
+			expectedBytes: bytes.byteLength,
+			expectedSha256: sha256,
+			...(signal ? { signal } : {}),
+		});
+	} catch (error) {
+		// Undo retains immutable media. An identical repeated cut may reuse that
+		// body, including a concurrent identical publication, but never overwrite it.
+		const existing = await request.store.loadMediaAsset(storageKey, signal ? { signal } : undefined);
+		if (existing?.size === bytes.byteLength
+			&& await digestHex(new Uint8Array(await existing.arrayBuffer())) === sha256) {
+			if (signal?.aborted) throw signal.reason ?? new DOMException('Media trimming was cancelled.', 'AbortError');
+			return;
+		}
+		throw error;
+	}
 	try {
 		for (let offset = 0; offset < bytes.byteLength; offset += writer.maximumChunkBytes) {
 			await writer.write(
