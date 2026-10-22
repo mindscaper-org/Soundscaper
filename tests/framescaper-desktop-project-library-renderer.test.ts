@@ -193,15 +193,13 @@ test('reading a project honours an abort signal before and after the bridge read
 	assert.deepEqual(library.calls, ['readProjectBundle'], 'the aborted read never reached the bridge');
 });
 
-test('Scape creation refuses a non-zero revision and yields null once the project exists', async (context) => {
+test('Scape creation preserves a saved revision and yields null once the project exists', async (context) => {
 	const library = createLibrary();
 	const renderer = await connect(context, library);
 	const project = createFramescaperProject(PROFILE, {
 		id: 'scape-project', title: 'Imported Scape', now: '2026-09-01T10:00:00.000Z',
+		revision: 1,
 	});
-
-	assert.throws(() => renderer.createScapeProjectIfAbsent(advance(project, 1, 'Advanced')),
-		/Scape creation requires revision zero/u);
 	assert.deepEqual(await renderer.createScapeProjectIfAbsent(project), project);
 	assert.equal(await renderer.createScapeProjectIfAbsent(project), null);
 	assert.deepEqual(committed(library, 'scape-project'), project);

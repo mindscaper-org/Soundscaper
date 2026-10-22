@@ -2,6 +2,7 @@
 
 import { admitProjectPublication, projectPublicationWarningOptions } from '../common/editor/storage/project-publication-options.ts';
 import type { ProjectDocument } from '../common/editor/storage/project-repository.ts';
+import { createProjectStoreId } from '../common/editor/storage/project-store-defaults.ts';
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts';
 import {
 	assertFramescaperDesktopProjectLibraryRendererComposition,
@@ -147,17 +148,18 @@ function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(
 		},
 		duplicateProject: async (sourceProjectId: string, optionsValue: unknown = {}) => {
 			const options = allowedRecord(optionsValue, ['id', 'title', 'confirmFileSizeWarning', 'signal', 'assertCurrent'] as const, `${LABEL} duplicate options`);
-			if (typeof options.id !== 'string' || !options.id
+			const copyProjectId = options.id ?? createProjectStoreId('project');
+			if (typeof copyProjectId !== 'string' || !copyProjectId
 				|| typeof options.title !== 'string' || !options.title) {
 				throw new TypeError(`${LABEL} duplication requires exact destination identity and title.`);
 			}
 			const source = await renderer.readProject(sourceProjectId);
 			if (!source) throw new Error('The source project is unavailable.');
-			await admitProjectPublication(localStore, { ...source, id: options.id, title: options.title, revision: 0 }, {
+			await admitProjectPublication(localStore, { ...source, id: copyProjectId, title: options.title, revision: 0 }, {
 				confirmFileSizeWarning: options.confirmFileSizeWarning, signal: options.signal, assertCurrent: options.assertCurrent,
 			});
 			return renderer.duplicateProject(sourceProjectId, {
-				id: options.id,
+				id: copyProjectId,
 				title: options.title,
 				timestamp: new Date().toISOString(),
 			});

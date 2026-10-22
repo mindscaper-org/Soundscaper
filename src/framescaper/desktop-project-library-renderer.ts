@@ -221,9 +221,6 @@ class Renderer implements FramescaperDesktopProjectLibraryRenderer {
 
 	createScapeProjectIfAbsent(projectValue: unknown, options: FileSizeWarningOptions = {}): Promise<FramescaperProject | null> {
 		const project = cloneFramescaperProject(this.#profile, projectValue);
-		if (project.revision !== 0) {
-			throw new Error('Framescaper desktop Scape creation requires revision zero.');
-		}
 		return this.#publishProject({ ...options, project }, undefined, true);
 	}
 
