@@ -4,7 +4,7 @@ import { soundscaperNativeAudioDestination } from '../soundscaper-native-audio-r
 import { addNode, connect, getTransientNodes, releaseTransientNodes } from './audio-node-utils.ts';
 import { scheduleExactWarpPlayback } from './audio-warp-playback-scheduler.ts';
 import { confirmClockedPlaybackStart, type ClockedPlaybackStartHook } from './clocked-playback-start.ts';
-import { clampFrame, playRangeStopFrame } from './buffer-math.ts';
+import { clamp, clampFrame, playRangeStopFrame } from './buffer-math.ts';
 import { createAnalyser } from './effect-rack.ts';
 import { playbackOutputDestination } from './playback-output.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
@@ -67,8 +67,9 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 	} else connect(source, meterDestination);
 	const masterBank = masterAnalyser
 		? createStripMeterAnalyserBankV21(context, nodes, masterAnalyser, { kind: 'master' }, prepared.channels.length) : null;
+	// Native loop endpoints support fractional samples; rounding can erase a one-frame selection.
 	const outputFrameAt = (timelineFrame: number) => prepared.durationFrames > 0
-		? clampFrame(Math.round(timelineFrame / prepared.durationFrames * prepared.frameCount), 0, prepared.frameCount)
+		? clamp(timelineFrame / prepared.durationFrames * prepared.frameCount, 0, prepared.frameCount)
 		: 0;
 	if (smallLoop) {
 		source.loop = true; source.loopStart = 0;
@@ -119,7 +120,7 @@ export async function schedulePreparedSpeedPlayback(engine: EngineRuntimeHost, f
 			engine.loopScheduleTime = scheduledTime + (engine.loop.endFrame - frame) / (engine.sampleRate * engine.playbackRate);
 		}
 		source.start(scheduledTime, smallLoop ? (frame - engine.loop.startFrame) / (engine.sampleRate * engine.playbackRate)
-			: outputFrameAt(frame) / prepared.sampleRate);
+			: (source.loop ? outputFrameAt(frame) : Math.round(outputFrameAt(frame))) / prepared.sampleRate);
 		sources.add(source);
 	} catch (error) {
 		if (engine.graph === graph) engine[ENGINE_HALT_GRAPH]();
