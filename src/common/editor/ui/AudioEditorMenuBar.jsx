@@ -216,6 +216,7 @@ export default function AudioEditorMenuBar({
 			// finish pending initial focus, but cannot move an existing selection.
 			if (!openMenu.autoFocus || focusedMenuRequestRef.current === openMenu.focusRequest) return;
 			focusedMenuRequestRef.current = openMenu.focusRequest;
+			if (root?.contains(root.ownerDocument.activeElement)) return;
 			const firstEnabled = root?.querySelector(DIRECT_ENABLED_MENU_ITEM_SELECTOR);
 			(firstEnabled || root?.querySelector(DIRECT_MENU_ITEM_SELECTOR))?.focus?.({ preventScroll: true });
 		});
