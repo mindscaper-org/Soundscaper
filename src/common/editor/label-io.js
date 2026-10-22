@@ -211,7 +211,7 @@ function parseTimedEntries(text, context, format) {
 		while (index < lines.length && !lines[index].trim()) index += 1;
 		if (index >= lines.length) break;
 		const cueStartLine = index + 1;
-		if (format === 'vtt' && /^(NOTE|STYLE|REGION)(?:[ \t]|$)/.test(lines[index])) {
+		if (format === 'vtt' && /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/.test(lines[index])) {
 			while (index < lines.length && lines[index].trim()) index += 1;
 			continue;
 		}
