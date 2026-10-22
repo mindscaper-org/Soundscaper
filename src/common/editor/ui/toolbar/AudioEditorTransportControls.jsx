@@ -11,6 +11,7 @@ import { TransportButton } from '@soundscaper/design-system/TransportButton';
 
 import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { framesToSeconds, secondsToFrames } from '../../design-system-adapters.js';
+import { editorTimelineDurationFrames } from '../../project.js';
 import AudioEditorSplitButton from '../AudioEditorSplitButton.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { formatOptionsLabel } from '../localization-template.ts';
@@ -370,7 +371,7 @@ export function AccessibleSelectionToolbar({
 		if (!canEdit) return;
 		const endFrame = secondsToFrames(seconds, {
 			minimumFrame: selection.startFrame,
-			maximumFrame: Math.max(selection.startFrame, durationFrames),
+			maximumFrame: Math.max(selection.startFrame, durationFrames, editorTimelineDurationFrames(snapshot.project, sampleRate)),
 			sampleRate,
 		});
 		run(() => controller.actions.timeline.setSelection(selection.startFrame, endFrame));
