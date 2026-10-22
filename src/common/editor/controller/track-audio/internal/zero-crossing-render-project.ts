@@ -9,12 +9,12 @@ import type { SelectionViewProject } from './selection-view-service-types.d.ts';
 export function zeroCrossingRenderProject<Project extends SelectionViewProject>(project: Project, trackId: string) {
 	const masterChannels = typeof project.masterChannels === 'number' ? project.masterChannels : 2;
 	const width = resolveTerminalChannelWidths(project as unknown as TerminalWidthProject, masterChannels).tracks.get(trackId) ?? masterChannels;
-	if (width <= masterChannels) return { project, trackId };
-	const wide = { ...project, masterChannels: width };
+	const outputChannels = Math.max(width, masterChannels);
+	const wide = width > masterChannels ? { ...project, masterChannels: outputChannels } : project;
 	if (!hasProductionMixerProjectAuthority(wide)) return { project: wide, trackId };
 	const native = wide as unknown as IsolatedTrackRenderProjectV21;
 	const capture = createIsolatedTrackRenderProjectV21({ ...native, mixer: { ...native.mixer,
-		outputs: native.mixer.outputs.map(output => output.role === 'main' ? { ...output, channelCount: width } : output),
+		outputs: native.mixer.outputs.map(output => output.role === 'main' ? { ...output, channelCount: outputChannels } : output),
 	} }, { trackId, effects: [], preserveTrackProcessing: true });
 	return { project: capture as unknown as Project,
 		// A retained detector closure must reach the selected rack, without contributing output audio.
