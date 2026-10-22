@@ -28,9 +28,9 @@ test('File Open retains healthy audio and reports volume automation beyond the s
 	assert.ok(validateSoundscaperProject(opened.project));
 	assert.equal(opened.project.clips.length, 1, 'out-of-range controls must not discard otherwise playable media');
 	assert.deepEqual(opened.project.automationLanes[0]?.points.map(point => point.value), [1, 4]);
-	const state: { deliveryReport?: unknown } = fixture.state;
-	assert.ok(state.deliveryReport && typeof state.deliveryReport === 'object');
-	assert.ok('items' in state.deliveryReport && Array.isArray(state.deliveryReport.items));
-	assert.ok(state.deliveryReport.items.some((item: unknown) => item && typeof item === 'object'
+	const report = fixture.runtime.state.deliveryReport;
+	assert.ok(report && typeof report === 'object');
+	assert.ok('items' in report && Array.isArray(report.items));
+	assert.ok(report.items.some((item: unknown) => item && typeof item === 'object'
 		&& 'code' in item && item.code === 'dawproject.automation-gain-clamped'));
 });
