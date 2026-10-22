@@ -7,6 +7,7 @@ import {
 import type { AutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { clipboardContainsVideo, pasteSpanForTrack } from '../common/editor/commands/clipboard-time-runtime.js';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
+import { mergeEditingRanges } from '../common/editor/commands/editing-selection-authority.ts';
 import {
 	resolveRangeSequenceGeometry,
 	type RangeSampleSpan,
@@ -171,7 +172,9 @@ function removedClipPlan(
 		edits.push({ startFrame, endFrame: safeAdd(startFrame, durationFrames), insertedDurationFrames: 0 });
 		byTrackId.set(trackId, edits);
 	}
-	for (const edits of byTrackId.values()) edits.sort((left, right) => right.startFrame - left.startFrame);
+	for (const [trackId, edits] of byTrackId) byTrackId.set(trackId, mergeEditingRanges(edits).reverse().map(range => ({
+		startFrame: range.startFrame, endFrame: range.endFrame, insertedDurationFrames: 0,
+	})));
 	return { byTrackId, global: [] };
 }
 
