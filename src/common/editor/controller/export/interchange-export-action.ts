@@ -21,7 +21,7 @@ import {
 	admitInterchangeVisualProject,
 	reportInterchangeVisualOmissions,
 	type InterchangeVisualOmission,
-} from './internal/interchange-visual-admission.ts';
+} from '../../interchange-visual-admission.ts';
 
 /**
  * Export the current project through an interchange profile.

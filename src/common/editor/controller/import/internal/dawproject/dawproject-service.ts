@@ -15,6 +15,7 @@ import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from '../../../../pcm-chunks.js';
 import { admitAudioImportChannelCount } from '../audio-import-channel-admission.ts';
 import { projectForRuntimeConsumers } from '../../../../project-current-runtime.ts';
 import { projectInterchangeMulticamera, reportInterchangeMulticameraConversion } from '../../../../interchange-multicamera-delivery.ts';
+import { admitInterchangeVisualProject, reportInterchangeVisualOmissions } from '../../../../interchange-visual-admission.ts';
 import { DAWPROJECT_BLOB_EXPORT_BYTE_LIMIT, dawprojectWavByteLength, dawprojectWavStream } from './dawproject-export-audio.ts';
 import { assertDawprojectCompressedWorkingBudget, stageDawprojectCompressedSource } from './dawproject-import-compressed.ts';
 import { inspectWavBlobPcm } from '../../../../wav-import.js';
@@ -230,7 +231,9 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'dawprojectSaving', undefined, undefined, { fallback: 'Exporting DAWproject' });
 			// Project exchange carries editable folder and leaf gates separately;
 			// render-profile folder flattening would duplicate those gates.
-			const selected = projectInterchangeMulticamera(snapshot, runtime.projectForRuntimeConsumers);
+			const active = projectInterchangeMulticamera(snapshot, runtime.projectForRuntimeConsumers);
+			const admission = admitInterchangeVisualProject(active, snapshot);
+			const selected = admission.project;
 			const delivered = projectForRuntimeConsumers(selected as never);
 			const embeddableVideoSourceIds = typeof runtime.store.loadMediaAsset === 'function'
 				? snapshot.sources.filter((source) => source.kind === 'video').map((source) => source.id)
@@ -244,7 +247,9 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				},
 				embeddableVideoSourceIds,
 			});
-			const exported = { ...generated, report: reportInterchangeMulticameraConversion(generated.report, snapshot, delivered) };
+			const exported = { ...generated, report: reportInterchangeMulticameraConversion(
+				reportInterchangeVisualOmissions(generated.report, admission.omissions), snapshot, delivered,
+			) };
 			// Publish before the save dialog: a cancelled save keeps the report.
 			runtime.state.deliveryReport = exported.report;
 			runtime.publishDocumentSnapshot();
