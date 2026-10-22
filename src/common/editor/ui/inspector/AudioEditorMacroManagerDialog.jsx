@@ -250,8 +250,10 @@ export function AudioEditorMacroManagerDialog({
 			const saved = library.save(macro);
 			setSelectedScriptId(null);
 			openMacro(saved);
+			return true;
 		} catch (cause) {
 			showMessage(feedbackFailure(cause), 'error');
+			return false;
 		}
 	};
 	const deleteMacro = () => {
@@ -330,10 +332,10 @@ export function AudioEditorMacroManagerDialog({
 			}
 			const parsed = parseAudacityEffectMacro(await file.text());
 			if (!ownsOperation(activeImportRef, operation)) return;
-			createMacro({
+			if (!createMacro({
 				name: file.name.replace(/\.txt$/i, '') || publishedCopyFor(copy).untitledMacro,
 				effects: [...parsed.effects],
-			});
+			})) return;
 			const warning = parsed.ignoredCommands.length
 				? [' ', { key: 'macroUnsupportedCommands', parameters: { commands: parsed.ignoredCommands.join(', ') } }]
 				: [];
