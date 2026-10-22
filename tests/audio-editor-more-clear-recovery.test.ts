@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { selectAudioEditorBusyBlock } from '../src/common/editor/edit-blocking.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
@@ -27,6 +28,7 @@ test('MP44: failed Clear Data teardown before storage mutation recovers the acti
 	await assert.rejects(controller.actions.project.clear(), error => error === failure);
 	assert.equal(clears, 0, 'destructive storage clearing did not start');
 	assert.equal(controller.project?.id, 'original');
+	assert.equal(selectAudioEditorBusyBlock(controller.getSnapshot()).blocked, false, 'failure releases reset admission');
 	await controller.actions.project.rename('Recovered recording');
 	assert.equal(controller.project?.title, 'Recovered recording');
 	await controller.actions.project.save();

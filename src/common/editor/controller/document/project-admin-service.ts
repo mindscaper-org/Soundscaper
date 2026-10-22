@@ -378,11 +378,13 @@ export function createProjectAdminService<
 		let replacementEstablished = false;
 		let originRestorable = true;
 		let storageClearStarted = false;
+		state.projectAdministrationPending = true;
 		projectSaveService.suspend();
 		projectGeneration.invalidate();
 		state.history = null;
 		setProject(null);
 		try {
+			publishDocumentSnapshot();
 			await stopRecording();
 			interlock?.assertCurrent();
 			await projectSaveService.drain();
@@ -428,6 +430,8 @@ export function createProjectAdminService<
 				replacementEstablished = true;
 			}
 			projectSaveService.resume();
+			state.projectAdministrationPending = false;
+			if (!state.disposed) publishDocumentSnapshot();
 		}
 	}
 

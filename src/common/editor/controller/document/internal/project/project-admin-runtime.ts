@@ -41,6 +41,7 @@ interface SourceCache {
 
 interface AdminState<Project extends AdminProject, History extends AdminHistory<Project>> {
 	disposed: boolean;
+	projectAdministrationPending?: boolean;
 	readOnly: boolean;
 	readonly takeCycleRecovery?: unknown;
 	readonly takeCycleRecoveryInspecting?: boolean;

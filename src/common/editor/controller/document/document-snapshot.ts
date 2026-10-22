@@ -114,6 +114,7 @@ export interface EditorDocumentSnapshotState extends Readonly<SelectedLabelState
 	readonly readOnly: boolean;
 	readonly projectLock: Readonly<{ readOnly?: boolean }> | null;
 	readonly projectActivationPending: boolean;
+	readonly projectAdministrationPending?: boolean;
 	readonly importing: boolean;
 	readonly recordingStarting: boolean;
 	readonly timedRecordingPreparing: boolean;
@@ -287,6 +288,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		readOnly: state.readOnly,
 		lockReadOnly: Boolean(state.projectLock?.readOnly),
 		projectActivationPending: state.projectActivationPending,
+		projectAdministrationPending: Boolean(state.projectAdministrationPending),
 		importing: state.importing,
 		recordingStarting: state.recordingStarting,
 		recordingScheduling: state.timedRecordingPreparing || state.timedRecordingCancelling,
