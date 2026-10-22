@@ -95,7 +95,7 @@ export interface Build {
 	devices: number;
 }
 
-const MAXIMUM_ENVELOPE_VALUE = 16;
+const MAXIMUM_ENVELOPE_VALUE = 4;
 
 export function walkTrack(track: DawprojectTrack, parentFolderId: string | null, build: Build, document: DawprojectDocument): void {
 	const channel = track.channel;
@@ -318,10 +318,12 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 		}
 		const envelope: EnvelopePoint[] = [];
 		let held = 0;
+		let clamped = 0;
 		for (const point of visibleAutomationPoints(event.points)) {
 			const value = parameterToLinearGain(point.value, event.unit ?? target.unit);
 			if (value === null) continue;
 			const frame = Math.max(0, point.frame);
+			if (value > MAXIMUM_ENVELOPE_VALUE) clamped += 1;
 			if (point.interpolation === 'hold') held += 1;
 			const last = envelope.at(-1);
 			if (last && last.frame >= frame) last.value = clamp(value, 0, MAXIMUM_ENVELOPE_VALUE);
@@ -338,6 +340,12 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 		// multiplies its static fader. Retire that multiplier before promotion.
 		owner.gain = 1;
 		owner.envelope = envelope;
+		if (clamped > 0) addDeliveryReportItem(build.draft, {
+			code: 'dawproject.automation-gain-clamped', disposition: 'converted', severity: 'warning',
+			scope: { kind: target.kind, id: target.id ?? 'master' },
+			data: { points: clamped, maximum: MAXIMUM_ENVELOPE_VALUE },
+			message: 'Volume automation exceeds the supported strip gain range; those values are limited to its maximum.',
+		});
 		if (held > 0) {
 			addDeliveryReportItem(build.draft, {
 				code: 'dawproject.automation-hold-converted', disposition: 'converted', severity: 'info',
