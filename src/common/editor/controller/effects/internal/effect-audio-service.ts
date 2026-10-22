@@ -170,7 +170,9 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 		let channels: Float32Array[];
 		try {
 			engine.loadProject(snapshot, runtime.sourceBuffers);
-			const rendered = scope === 'track'
+			const detectorContext = scope === 'track' && hasProductionMixerProjectAuthority(snapshot)
+				&& (snapshot.mixer as unknown as MixerGraphV21).edges.some(edge => edge.kind === 'sidechain');
+			const rendered = scope === 'track' && !detectorContext
 				? await engine.renderTrack(requireTrackId(trackId), { startFrame, endFrame, includeTrackPan: false })
 				: await engine.renderMix({ startFrame, endFrame, includeMaster: true, respectMuteSolo: true });
 			runtime.assertProject(token);
