@@ -84,6 +84,7 @@ export function createControllerEffectsStatePorts<EffectPresets>(
 			beginSwitch: () => {
 				state.rackEffectGestures.clear();
 				state.parametricEqGestures.clear();
+				if (state.nyquistAbort) state.audacityEffectProcessing = false;
 				state.nyquistAbort = null;
 			},
 			resetScope: () => {

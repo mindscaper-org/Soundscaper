@@ -430,15 +430,19 @@ export function createSelectionEffectExecutionService(runtime: SelectionEffectEx
 				failure = rollbackError;
 			}
 			if ((failure as Readonly<{ name?: string }>)?.name === 'AbortError') {
-				setLocalizedStatus(setStatus, copy, (copy.audacityPreviewCancelled ? "audacityPreviewCancelled" : "ready"));
+				if (state.nyquistAbort === abort && (!projectToken || isCurrentAssertion(() => runtime.assertProject(projectToken)))) {
+					setLocalizedStatus(setStatus, copy, (copy.audacityPreviewCancelled ? "audacityPreviewCancelled" : "ready"));
+				}
 				return null;
 			}
 			throw failure;
 		} finally {
 			abort.finish();
-			if (state.nyquistAbort === abort) state.nyquistAbort = null;
-			state.audacityEffectProcessing = false;
-			publishDocumentSnapshot();
+			if (state.nyquistAbort === abort) {
+				state.nyquistAbort = null;
+				state.audacityEffectProcessing = false;
+				publishDocumentSnapshot();
+			}
 		}
 	}
 	function publishNyquistStatus(evaluations: RuntimeValue[]): void {
