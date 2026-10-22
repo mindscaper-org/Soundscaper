@@ -98,7 +98,8 @@ export default function SoundscaperMasteringSequenceEditor({
 	const [nameDraft, setNameDraft] = useState(sequence?.name ?? '');
 	useEffect(() => { setNameDraft(sequence?.name ?? ''); }, [sequence?.id, sequence?.name]);
 	const entryKeys = useMasteringEntryKeys(sequence?.id ?? '', sequence?.entries);
-	const addableRegion = regions.find(({ id }) => id === regionId) ?? regions[0] ?? null;
+	const availableRegions = regions.filter(region => region.sequenceId === sequence?.sequenceId);
+	const addableRegion = availableRegions.find(({ id }) => id === regionId) ?? availableRegions[0] ?? null;
 
 	return <fieldset disabled={disabled} data-soundscaper-mastering-sequence-editor="sequences">
 		<legend>{copy.masteringSequenceEditor}</legend>
@@ -168,12 +169,12 @@ export default function SoundscaperMasteringSequenceEditor({
 				/>)}
 			</section>
 
-			{regions.length === 0 && <p>{copy.noMasteringRegions}</p>}
+			{availableRegions.length === 0 && <p>{copy.noMasteringRegions}</p>}
 			{addableRegion && <div className="kw-audio-editor-dialog__actions">
 				<label className="kw-audio-editor-dialog__field">
 					<span>{copy.masteringAddEntry}</span>
 					<select value={addableRegion.id} onChange={(event) => setRegionId(event.currentTarget.value)}>
-						{regions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
+						{availableRegions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
 					</select>
 				</label>
 				<button type="button" data-mastering-action="add-entry" onClick={() => onOperation({

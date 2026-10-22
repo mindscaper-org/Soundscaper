@@ -57,6 +57,7 @@ export interface DocumentMasteringSequenceSnapshot {
 
 export interface DocumentMasteringSequenceRegionSnapshot {
 	readonly id: string;
+	readonly sequenceId: string;
 	readonly name: string;
 	readonly startFrame: number;
 	readonly endFrame: number;
@@ -93,10 +94,9 @@ export function createDocumentMasteringSequenceSnapshot(
 	return Object.freeze({
 		sequences: Object.freeze(sequences),
 		primarySequenceId: String(document.primarySequenceId ?? ''),
-		regions: Object.freeze(regions
-			.filter((region) => region.sequenceId === document.primarySequenceId)
-			.map((region) => Object.freeze({
+		regions: Object.freeze(regions.map((region) => Object.freeze({
 				id: region.id,
+				sequenceId: region.sequenceId,
 				name: region.name,
 				startFrame: region.startFrame,
 				endFrame: region.endFrame,
