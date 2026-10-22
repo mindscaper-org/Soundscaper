@@ -49,6 +49,7 @@ export interface TakeCompPreviewService {
 	auditionTake(groupId: string, takeId: string): Promise<Readonly<TakeCompPreviewState>>;
 	auditionLane(groupId: string, laneId: string): Promise<Readonly<TakeCompPreviewState>>;
 	stop(): Promise<boolean>;
+	stopGroup(groupId: string): void;
 	dispose(): Promise<void>;
 }
 
@@ -68,9 +69,10 @@ export function createTakeCompPreviewService(
 	let active: Readonly<TakeCompPreviewState> | null = null;
 	let previewGeneration = 0;
 	let activeTask: EditorTaskScope | null = null;
+	let activeGroupId: string | null = null;
 	let releaseTask: (() => void) | null = null;
 
-	return Object.freeze({ auditionTake, auditionLane, stop, dispose });
+	return Object.freeze({ auditionTake, auditionLane, stop, stopGroup, dispose });
 
 	async function auditionTake(groupId: string, takeId: string): Promise<Readonly<TakeCompPreviewState>> {
 		const plan = dependencies.service.auditionTake(groupId, takeId);
@@ -103,6 +105,7 @@ export function createTakeCompPreviewService(
 		const selectedTakes = takeIds.map((takeId) => requireTake(group, takeId));
 		const task = dependencies.lifetime.startTask(TAKE_COMP_PREVIEW_TASK, { scope: EDITOR_PROJECT_TASK_SCOPE });
 		activeTask = task;
+		activeGroupId = groupId;
 		const retire = (): void => {
 			if (activeTask !== task) return;
 			previewGeneration += 1;
@@ -114,7 +117,7 @@ export function createTakeCompPreviewService(
 		releaseTask = () => {
 			task.signal.removeEventListener('abort', retire);
 			task.finish();
-			if (activeTask === task) { activeTask = null; releaseTask = null; }
+			if (activeTask === task) { activeTask = null; activeGroupId = null; releaseTask = null; }
 		};
 		let retained = false;
 		try {
@@ -176,6 +179,14 @@ export function createTakeCompPreviewService(
 	}
 
 	async function stop(): Promise<boolean> {
+		return stopOwnedPreview();
+	}
+
+	function stopGroup(groupId: string): void {
+		if (activeGroupId === groupId) stopOwnedPreview();
+	}
+
+	function stopOwnedPreview(): boolean {
 		previewGeneration += 1;
 		releaseTask?.();
 		dependencies.lifetime.cancelTask(TAKE_COMP_PREVIEW_TASK);
