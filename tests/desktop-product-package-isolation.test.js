@@ -385,6 +385,23 @@ test('Soundscaper staged entry transforms accept Windows CRLF checkouts', async 
 	}
 });
 
+test('Soundscaper omits the Framescaper keyed-video preload and encoder service from its application roots', async () => {
+	const preload = await readFile('desktop/preload.mjs', 'utf8');
+	const registration = await readFile('desktop/assistance-registration.mjs', 'utf8');
+	assert.ok(preload.includes('createAssistanceKeyedVideoPreloadBridge'));
+	assert.ok(registration.includes('createAssistanceKeyedVideoService'));
+	const stagedPreload = soundscaperPreloadSource(preload);
+	const stagedRegistration = soundscaperAssistanceRegistrationSource(registration);
+	assert.equal(stagedPreload.includes('assistance-keyed-video-preload.js'), false);
+	assert.equal(stagedPreload.includes('createAssistanceKeyedVideoPreloadBridge'), false);
+	assert.equal(stagedPreload.includes('videoKeying:'), false);
+	assert.equal(stagedRegistration.includes('assistance-keyed-video-service.js'), false);
+	assert.equal(stagedRegistration.includes('createAssistanceKeyedVideoService'), false);
+	assert.equal(stagedRegistration.includes('createKeyedVideo:'), false);
+	assert.ok(stagedPreload.includes('localAssistance: Object.freeze({ models:'));
+	assert.ok(stagedRegistration.includes('registerAssistanceOperationIpc'));
+});
+
 test('Soundscaper package audit rejects callable bridge and native-service markers', () => {
 	for (const marker of [
 		"contextBridge.exposeInMainWorld('framescaperDesktop', bridge)",
