@@ -26,10 +26,11 @@ export function createMasterNoiseProfileRenderProject(project: EffectAudioProjec
 		channelMap: Array.from({ length: project.masterChannels }, (_, channel) => channel) };
 	const retainedIds = new Set(edges.map(edge => edge.id));
 	const lanes: readonly unknown[] = Array.isArray(project.automationLanes) ? project.automationLanes : [];
-	return { ...project, mixer: { ...mixer, edges: [...edges, capture],
+	const renderMixer: MixerGraphV21 = { ...mixer, edges: [...edges, capture],
 		outputs: mixer.outputs.map(output => output.id === main.id ? { ...output, channelCount: project.masterChannels } : output),
 		vcas: mixer.vcas.map(vca => ({ ...vca, members: vca.members.filter(member => member.kind !== 'master') })),
-	}, automationLanes: lanes.map(lane => normalizeAutomationLaneV21(lane)).filter(({ address }) =>
+	};
+	return { ...project, mixer: renderMixer, automationLanes: lanes.map(lane => normalizeAutomationLaneV21(lane)).filter(({ address }) =>
 		address.kind === 'edge' ? retainedIds.has(address.edgeId) && !suppressedIds.has(address.edgeId)
 			: address.strip.kind !== 'master' || address.kind === 'effect' && prefixIds.has(address.effectId)) };
 }
