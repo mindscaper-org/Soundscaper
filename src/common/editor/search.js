@@ -355,6 +355,7 @@ function sourceSearchNames(source) {
 		source.fileName,
 		source.filename,
 		source.originalName,
+		source.original?.fileName,
 	]);
 }
 

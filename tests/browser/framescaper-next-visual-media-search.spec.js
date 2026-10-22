@@ -11,6 +11,7 @@ test('image search finds an imported image by its media type and reveals its tim
 	await (await choosing).setFiles({ name: 'poster.png', mimeType: 'image/png', buffer: createPngFixture(16) });
 	const clip = editor.getByRole('group', { name: 'Image clip: poster', exact: true });
 	await expect(clip).toBeVisible();
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	await clip.press('Enter');
 	await expect(clip.getByRole('button', { name: 'Trim left edge', exact: true })).toBeEnabled();
 	const search = editor.locator('[data-editor-search-input]');
