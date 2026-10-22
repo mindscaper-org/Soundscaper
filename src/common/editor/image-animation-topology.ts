@@ -10,12 +10,39 @@ export function encodedImageIsAnimated(bytes: Uint8Array, format: ReviewedImageF
 	return false;
 }
 
+/** The PNG animation count excludes a separate default poster image. */
+export function encodedImageAnimationInfo(bytes: Uint8Array, format: ReviewedImageFormat): Readonly<{
+	frameCount: number; firstFrameDurationMicroseconds: number | null;
+}> | null {
+	if (format !== 'png') return null;
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	let frameCount: number | null = null;
+	for (let offset = 8; offset + 12 <= bytes.byteLength;) {
+		const length = view.getUint32(offset);
+		if (offset + 12 + length > bytes.byteLength) return null;
+		if (ascii(bytes, offset + 4, 'acTL') && length === 8) {
+			frameCount = view.getUint32(offset + 8);
+			if (frameCount === 0) return null;
+		}
+		if (frameCount !== null && ascii(bytes, offset + 4, 'fcTL') && length === 26) {
+			const numerator = view.getUint16(offset + 28);
+			const denominator = view.getUint16(offset + 30) || 100;
+			return { frameCount, firstFrameDurationMicroseconds: numerator > 0
+				? Math.round(numerator * 1_000_000 / denominator) : null };
+		}
+		offset += 12 + length;
+	}
+	return null;
+}
+
 function animatedPng(bytes: Uint8Array): boolean {
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	for (let offset = 8; offset + 12 <= bytes.byteLength;) {
 		const length = view.getUint32(offset);
 		if (offset + 12 + length > bytes.byteLength) return false;
-		if (ascii(bytes, offset + 4, 'acTL') && length >= 8) return view.getUint32(offset + 8) > 1;
+		// Even one animation frame can differ from the default PNG poster and
+		// carries its own timing, which a static bitmap cannot preserve.
+		if (ascii(bytes, offset + 4, 'acTL') && length >= 8) return view.getUint32(offset + 8) > 0;
 		offset += 12 + length;
 	}
 	return false;
