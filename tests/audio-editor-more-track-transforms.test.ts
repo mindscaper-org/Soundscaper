@@ -65,3 +65,17 @@ test('MP30: Make Stereo refuses unequal channel routing before discarding the ri
 	await controller.actions.track.makeStereo('left', 'right');
 	assert.equal(controller.project?.tracks.length, 1, 'matching route automation can be shared by the stereo pair');
 });
+
+test('MP30 ancillary: Make Stereo admits matching automatic folder feed maps', async context => {
+	const controller = await openedMonoPair(context, 'more-stereo-folder-routing');
+	const folder = controller.actions.trackFolders.wrapSelection(['left', 'right'], 'Stereo folder');
+	assert.ok(folder);
+	const feeds = normalizeMixerGraphV21(controller.project?.mixer).edges.filter(edge =>
+		edge.source.kind === 'track' && ['left', 'right'].includes(edge.source.id));
+	assert.deepEqual(feeds.map(edge => edge.channelMap), [[], []], 'folder feeds use the supported automatic map');
+	await controller.actions.track.makeStereo('left', 'right');
+	const project = controller.project; assert.ok(project);
+	assert.equal(project.tracks.length, 1);
+	assert.equal(project.sequences.find(({ id }) => id === project.primarySequenceId)?.trackNodes
+		.find(({ id }) => id === 'left')?.parentFolderId, folder);
+});

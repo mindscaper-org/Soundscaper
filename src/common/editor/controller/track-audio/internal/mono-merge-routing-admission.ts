@@ -23,7 +23,7 @@ export function monoMergeRoutingCompatible(
 		values.push(signature); lanes.set(lane.address.edgeId, values);
 	}
 	const route = (edge: MixerEdgeV21): string | null => {
-		const normal = defaultMixerChannelMapV21(1, edge.channelMap.length);
+		const normal = edge.channelMap.length ? defaultMixerChannelMapV21(1, edge.channelMap.length) : [];
 		if (!edge.channelMap.every((channel, index) => channel === normal[index])
 			&& !edge.channelMap.every(channel => channel === -1)) return null;
 		return JSON.stringify({ kind: edge.kind, destination: edge.destination, position: edge.position,
