@@ -12,6 +12,7 @@ import AudioEditorTimeCodeInput, {
 	audioEditorProjectSampleRate,
 } from '../AudioEditorTimeCodeInput.tsx';
 import { createAudioWarpDialogModel } from '../audio-warp-dialog-model.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useOwnedDialogOperation } from '../useOwnedDialogOperation.ts';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
 import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx';
@@ -63,6 +64,7 @@ export default function AudioWarpDialog({
 		subscribe: () => () => undefined,
 	}), [snapshot]);
 	const projectId = typeof projectIdValue === 'string' ? projectIdValue : null;
+	const projectSession = editorProjectEditSessionKey(controller, projectId);
 	const [status, setStatus] = usePresentationFeedback(copy);
 	const [error, setError] = usePresentationFeedback(copy);
 	const [transientCount, setTransientCount] = useState<number | null>(null);
@@ -76,9 +78,9 @@ export default function AudioWarpDialog({
 	const [grooveStrengthPercent, setGrooveStrengthPercent] = useState(50);
 	const markerEditorRef = useRef<HTMLFieldSetElement | null>(null);
 	const operationOwner = useMemo(() => Object.freeze({
-		projectId,
+		projectId, projectSession,
 		clipId: model.clipId,
-	}), [model.clipId, projectId]);
+	}), [model.clipId, projectId, projectSession]);
 	const operationState = useOwnedDialogOperation({
 		owner: operationOwner,
 		blocked: model.operationsBlocked,
@@ -160,7 +162,7 @@ export default function AudioWarpDialog({
 				{transientCount !== null && <p>{copy.audioWarpTransientsFound.replace('{count}', String(transientCount))}</p>}
 			</section>}
 
-			<WarpMapEditor
+			<WarpMapEditor key={JSON.stringify([projectSession, model.clipId])}
 				markerEditorRef={markerEditorRef}
 				model={model}
 				copy={copy}
