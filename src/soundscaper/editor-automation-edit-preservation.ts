@@ -13,6 +13,7 @@ import {
 	type RangeSampleSpan,
 } from '../common/editor/commands/range-sequence-geometry.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
+import { resolveRuntimeProjectProjection } from '../common/editor/runtime-clip-projection.ts';
 
 interface PlannedAutomationEditsV21 {
 	readonly byTrackId: ReadonlyMap<string, readonly AutomationLaneTimelineReplacementV21[]>;
@@ -57,7 +58,7 @@ function planAutomationEdits(
 		}, true);
 	}
 	if (command.type === 'range/replace') {
-		const replacement = recordArray(commanded.clips, 'commanded.clips')
+		const replacement = resolvedClipRecords(commanded)
 			.find((clip) => clip.id === command.clipId);
 		if (!replacement) throw new RangeError('A range replacement did not publish its replacement clip.');
 		return trackPlan(command.trackId, {
@@ -161,7 +162,7 @@ function removedClipPlan(
 		for (const clipId of track.clipIds) trackByClipId.set(String(clipId), String(track.id));
 	}
 	const byTrackId = new Map<string, AutomationLaneTimelineReplacementV21[]>();
-	for (const clip of recordArray(previous.clips, 'previous.clips')) {
+	for (const clip of resolvedClipRecords(previous)) {
 		const id = String(clip.id);
 		if (surviving.has(id)) continue;
 		const trackId = trackByClipId.get(id);
@@ -183,8 +184,8 @@ function renderedClipReplacementPlan(
 	commanded: Readonly<Record<string, unknown>>,
 	command: Extract<AudioEditorCommand, { readonly type: 'clip/render-replace-many' }>,
 ): PlannedAutomationEditsV21 {
-	const previousClips = recordArray(previous.clips, 'previous.clips');
-	const nextById = new Map(recordArray(commanded.clips, 'commanded.clips')
+	const previousClips = resolvedClipRecords(previous);
+	const nextById = new Map(resolvedClipRecords(commanded)
 		.map((clip) => [String(clip.id), clip]));
 	const trackByClipId = trackOwnership(previous);
 	const pending = new Set(command.entries.map(({ clipId }) => clipId));
@@ -295,6 +296,11 @@ function sampleSpan(value: AutomationLaneTimelineReplacementV21): RangeSampleSpa
 
 function clipStart(clip: DataRecord): number {
 	return nonNegativeSafeInteger(clip.timelineStartFrame, `clip ${String(clip.id)}.timelineStartFrame`);
+}
+
+/** Persisted musical clips carry beats; interval planning always reads resolved samples. */
+function resolvedClipRecords(project: Readonly<Record<string, unknown>>): DataRecord[] {
+	return recordArray(resolveRuntimeProjectProjection(project).clips, 'resolved project.clips');
 }
 
 function clipEnd(clip: DataRecord): number {
