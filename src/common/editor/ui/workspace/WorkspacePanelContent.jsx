@@ -16,6 +16,7 @@ import { consumeEffectsFocusSuppression, hasEffectsFocusSuppression } from './wo
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import { readProjectRecordingNotes } from '../../recording-notes.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import { resolveRuntimeProjectProjection } from '../../runtime-clip-projection.ts';
 
 const RealtimeAnalysisPanel = lazyEditorModule(() => import('../inspector/RealtimeAnalysisPanel.jsx'));
 const AudioSourceMonitorPanel = lazyEditorModule(() => import('../inspector/ClipSourceMonitorPanel.tsx'));
@@ -80,7 +81,7 @@ export default function WorkspacePanelContent({
 	controller,
 	clipPropertiesFocusRequest = /** @type {import('../../controller/composition/clip-properties-panel-opening.ts').ClipPropertiesFocusRequest | null} */ (null),
 	snapshot,
-	runtimeProject = null,
+	runtimeProject = /** @type {import('../../runtime-clip-projection.ts').RuntimeClipProject | null} */ (null),
 	productId = snapshot.productId,
 	capabilities = snapshot.capabilities,
 	copy,
@@ -220,7 +221,9 @@ export default function WorkspacePanelContent({
 	}
 	if (panelId === 'labels') {
 		if (!project) return null;
-		const labelTracks = (project?.tracks || []).filter((track) => track.type === 'label');
+		const labelProject = runtimeProject || resolveRuntimeProjectProjection({ sampleRate: project.sampleRate,
+			tempoMap: project.tempoMap, tracks: project.tracks || [], clips: [] });
+		const labelTracks = (labelProject.tracks || []).filter((track) => track.type === 'label');
 		const labels = labelTracks.flatMap((track) => (track.labels || []).map((label) => ({
 			...label,
 			trackId: track.id,
