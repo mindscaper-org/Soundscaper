@@ -19,7 +19,7 @@ const coverageOptions: Parameters<typeof test.use>[0] & Readonly<{ browserCovera
 test.use(coverageOptions);
 
 test('WebKit real menu import, Develop Save and reload retain exact native IndexedDB fallback bytes, metadata and painted pixels', async ({ page, browserName }) => {
-	test.skip(browserName !== 'webkit', 'This case positively qualifies the installed WebKit IndexedDB Blob fallback.');
+	test.skip(browserName !== 'webkit', 'This case positively qualifies the installed WebKit IndexedDB byte-chunk fallback.');
 	test.setTimeout(45_000);
 	const copy = bundledLightscaperEditorCopyForLocale('en'), words = photoDevelopCopy('en'), errors: string[] = [];
 	page.on('pageerror', error => { errors.push(error.message); });
@@ -44,7 +44,7 @@ test('WebKit real menu import, Develop Save and reload retain exact native Index
 	await expect(library.locator('[data-photo-import-status="imported"]')).toHaveCount(1);
 	const photoId = await card.getAttribute('data-photo-id'); if (!photoId) throw new Error('Actual imported Photo ID is missing.');
 	const initial = await observe(photoId);
-	expect(initial.storage).toBe('indexeddb-blob'); expect(initial.bodySha256).toBe(SHA); expect(initial.bodyByteLength).toBe(PNG.byteLength);
+	expect(initial.storage).toBe('indexeddb-media-chunks-v1'); expect(initial.bodySha256).toBe(SHA); expect(initial.bodyByteLength).toBe(PNG.byteLength);
 	expect(initial.photo.metadata.fileName).toBe(NAME); expect(initial.photo.original).toMatchObject({ name: NAME, mimeType: 'image/png', width: 2, height: 2, retention: 'managed' });
 	await key(card); await openDevelop();
 	const dialog = page.getByRole('dialog', { name: `${words.title}: ${NAME}`, exact: true }), preview = dialog.locator('[data-photo-develop-preview]');
