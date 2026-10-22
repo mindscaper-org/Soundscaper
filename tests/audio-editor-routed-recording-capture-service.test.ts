@@ -239,7 +239,8 @@ test('routed display capture supports ranges, channel fallback, meters, and time
 		frames: 2,
 		channels: [Float32Array.from([0.4, -0.2])],
 	});
-	assert.deepEqual(fixture.state.inputMeter, { dbfs: -12 });
+	const channelMeter = { peak: Math.fround(.4), rms: Math.sqrt((Math.fround(.4) ** 2 + Math.fround(.2) ** 2) / 2) };
+	assert.deepEqual(fixture.state.inputMeter, { dbfs: -12, channels: [channelMeter, channelMeter] });
 	assert.equal(fixture.state.inputMeters['track-1']! > -9, true);
 	recorderOptions.onState('recording');
 	assert.equal(fixture.finalizeCalls(), 0);

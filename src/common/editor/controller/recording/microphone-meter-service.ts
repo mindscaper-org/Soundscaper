@@ -241,7 +241,7 @@ export function createMicrophoneMeterService(
 			}
 			session = nextSession;
 			const update = (): void => {
-				if (session !== nextSession
+				if (session !== nextSession || routedCaptureOwnsMeter()
 					|| (!state.microphoneMetering && !state.recorder && !state.recordingStarting)
 					|| state.disposed) return;
 				let peak = 0;
@@ -426,8 +426,12 @@ export function createMicrophoneMeterService(
 		return analyser;
 	}
 
+	function routedCaptureOwnsMeter(): boolean {
+		return Boolean(state.recorder && state.recordingEntries?.length);
+	}
+
 	function publishLoudnessReading(reading: unknown): void {
-		if (!session?.loudnessMeter) return;
+		if (!session?.loudnessMeter || routedCaptureOwnsMeter()) return;
 		state.inputMeter = reading && typeof reading === 'object' && inputChannels.length
 			? { ...reading, channels: inputChannels }
 			: reading;

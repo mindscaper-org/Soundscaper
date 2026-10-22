@@ -3,7 +3,7 @@
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import { publishLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import type { RecordingCaptureControllerLike } from './recording-session-service.ts';
 import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import {
-	recordingCapturePeak,
+	recordingCapturePeak, recordingCaptureChannelMeters,
 	recordingCapturePeakDb,
 	routedRecordingDetectorChannels,
 	selectRoutedRecordingChannels,
@@ -359,7 +359,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 								if (entry === selectedMeterEntry && routedChannels[0]?.length) {
 									meter?.push(routedChannels, (reading) => {
 										if (!isCurrent()) return;
-										state.inputMeter = reading;
+										state.inputMeter = { ...reading, channels: recordingCaptureChannelMeters(routedChannels) };
 										const dbfs = Number(reading.dbfs);
 										state.inputMeterDb = Number.isFinite(dbfs) ? Math.max(-60, dbfs) : -60;
 									});
