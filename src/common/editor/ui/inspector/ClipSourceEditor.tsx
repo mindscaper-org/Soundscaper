@@ -194,7 +194,9 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		if (current.kind === 'selection') {
 			run(() => { applySelection(frame === current.startFrame ? null : { startFrame: Math.min(current.startFrame, frame), endFrame: Math.max(current.startFrame, frame) }); preview.seek(frame); });
 		} else if (current.kind === 'start' || current.kind === 'end') {
-			run(() => preview.trim(clipId, clipSourceTrim(clip, source, project.sampleRate, current.kind as 'start' | 'end', clip.reversed ? clip.sourceStartFrame + (frame - range.startFrame) / clip.durationFrames * clip.sourceDurationFrames : sourceAt(frame), project)));
+			const sourceFrame = clip.reversed && frame >= range.startFrame && frame <= range.endFrame
+				? clip.sourceStartFrame + (frame - range.startFrame) / clip.durationFrames * clip.sourceDurationFrames : sourceAt(frame);
+			run(() => preview.trim(clipId, clipSourceTrim(clip, source, project.sampleRate, current.kind as 'start' | 'end', sourceFrame, project)));
 		} else if (current.kind === 'marker') {
 			moveMarker(current.pointIndex!, frame);
 		} else if (current.kind.startsWith('shape-') ? event.clientY !== current.startY : event.clientX !== current.startX) {
