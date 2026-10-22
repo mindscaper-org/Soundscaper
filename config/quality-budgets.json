@@ -865,12 +865,12 @@
 					"measuredTrials": 5,
 					"workers": 1,
 					"retries": 0,
-					"caseDeadlineMs": 90000,
+					"caseDeadlineMs": 180000,
 					"p95Method": "nearest-rank-per-locale-then-worst"
 				},
 				"timingInstrumentation": "none"
 			},
-			"limitation": "A fixed ICC-absent lossless PNG with sRGB intent 0 tests actual 4096x3072 import and 2048x1536 fit-screen Develop with ordered Dehaze 37.125 then DetailSharpen. Independent replicated-border integer goldens authenticate every RGBA channel, histogram and clipping count. Native saved recipe/history and retained original custody are qualified. Timing is uninstrumented trusted input to current-ready plus one requestAnimationFrame, with five measured serial edits and five pending-work bursts per locale after one warmup. EN and DE p95 are computed separately and the worse locale is retained; hosted collection uses Chromium and Firefox qualifies separately. The finite 2500ms ceilings are observational environment diagnostics, not a hardware promise. This does not qualify all Develop operations, raw/ICC corpora, full-resolution export or total memory."
+			"limitation": "A fixed ICC-absent lossless PNG with sRGB intent 0 tests actual 4096x3072 import and 2048x1536 fit-screen Develop with ordered Dehaze 37.125 then DetailSharpen. Independent replicated-border integer goldens authenticate every RGBA channel, histogram and clipping count. Native saved recipe/history and retained original custody are qualified. Timing is uninstrumented trusted input to current-ready plus one requestAnimationFrame, with five measured serial edits and five pending-work bursts per locale after one warmup. EN and DE p95 are computed separately and the worse locale is retained; hosted collection uses Chromium and Firefox qualifies separately. The finite 2500ms ceilings are observational environment diagnostics, not a hardware promise. The 180000ms whole-case deadline includes all 21 complete RGBA audits plus save, reopen, reload and custody verification; it does not change the measured input-to-presentation interval. Covered Chromium has a separate 300000ms correctness-diagnostic cohort and cannot qualify this uninstrumented timing profile. Historical 90000ms ordinary and 180000ms covered records retain their original protocol identities. This does not qualify all Develop operations, raw/ICC corpora, full-resolution export or total memory."
 		}
 	],
 	"measurements": [

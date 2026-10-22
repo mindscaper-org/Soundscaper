@@ -8,8 +8,8 @@ const WORKLOAD = 'l4-photo-develop-proxy-spatial', PROFILE = 'deterministic-phot
 const FIXTURE = 'lightscaper-develop-proxy-spatial-4096x3072-v1';
 const AMOUNTS = [25, 50, 75, 100, 125] as const, SERIAL = [75, 25, 100, 75, 125, 50] as const;
 const PROTOCOL = Object.freeze({ start: 'trusted-finite-input', end: 'current-ready-plus-one-raf', warmupTrials: 1, measuredTrials: 5,
-	workers: 1, retries: 0, caseDeadlineMs: 90_000, p95Method: 'nearest-rank-per-locale-then-worst' } as const);
-const V8_PROTOCOL = Object.freeze({ ...PROTOCOL, caseDeadlineMs: 180_000 } as const);
+	workers: 1, retries: 0, caseDeadlineMs: 180_000, p95Method: 'nearest-rank-per-locale-then-worst' } as const);
+const V8_PROTOCOL = Object.freeze({ ...PROTOCOL, caseDeadlineMs: 300_000 } as const);
 type Protocol = typeof PROTOCOL | typeof V8_PROTOCOL;
 const DIMENSIONS = Object.freeze({ width: 4096, height: 3072, proxyWidth: 2048, proxyHeight: 1536,
 	sourceRgbaByteLength: 50_331_648, proxyRgbaByteLength: 12_582_912, pngSrgbIntent: 0 } as const);

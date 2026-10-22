@@ -13,12 +13,12 @@ import { expect, test, installNativeImageHandoffRuntime, observeNativePhotoDevel
 const SERIAL = [75, 25, 100, 75, 125, 50], BURST = [25, 100, 50], AMOUNTS = [25, 50, 75, 100, 125];
 const BEFORE = '[data-photo-develop-before]', AFTER = '[data-photo-develop-after]';
 const PROTOCOL = Object.freeze({ start: 'trusted-finite-input', end: 'current-ready-plus-one-raf', warmupTrials: 1,
-	measuredTrials: 5, workers: 1, retries: 0, caseDeadlineMs: 90_000, p95Method: 'nearest-rank-per-locale-then-worst' });
+	measuredTrials: 5, workers: 1, retries: 0, caseDeadlineMs: 180_000, p95Method: 'nearest-rank-per-locale-then-worst' });
 
 for (const locale of ['en', 'de']) test(`${locale}: real Develop proxy inputs preserve current ordered spatial pixels and emit an unthresholded latency baseline`, async ({ page, browser, browserName }) => {
 	test.skip(browserName === 'webkit', 'The roadmap defers the full native WebKit storage workflow.');
 	const instrumentation = collectsBrowserCoverage(browserName) ? 'v8-browser' : 'none';
-	const protocol = Object.freeze({ ...PROTOCOL, caseDeadlineMs: instrumentation === 'v8-browser' ? 180_000 : PROTOCOL.caseDeadlineMs });
+	const protocol = Object.freeze({ ...PROTOCOL, caseDeadlineMs: instrumentation === 'v8-browser' ? 300_000 : PROTOCOL.caseDeadlineMs });
 	test.setTimeout(protocol.caseDeadlineMs);
 	expect(test.info().config.workers).toBe(1); expect(test.info().retry).toBe(0);
 	const fixture = await createDevelopProxyPngV1(), copy = bundledLightscaperEditorCopyForLocale(locale), words = photoDevelopCopy(locale);
@@ -198,7 +198,9 @@ async function installInputTiming(page, dialog, words, witnesses) {
 			if (region.getAttribute('data-state') === 'pending' || mutations.some(mutation => mutation.attributeName === 'data-state' && mutation.oldValue === 'pending')) record.pendingObserved = true;
 			if (!record.pendingObserved || record.readyAtMs !== null || !matches(record)) return;
 			record.readyAtMs = performance.now(); requestAnimationFrame(() => {
-				if (state.active !== record || !matches(record)) return; record.presentedAtMs = performance.now();
+				if (state.active !== record) return;
+				if (!matches(record)) { record.readyAtMs = null; return; }
+				record.presentedAtMs = performance.now();
 			});
 		}).observe(region, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-state', 'width', 'height'] });
 		globalThis.__developProxyTiming = state;

@@ -27,7 +27,7 @@ function diagnostic(locale = 'en') {
 		runtime: { platform: 'Linux', userAgent: 'bounded browser user agent', hardwareConcurrency: 4, deviceMemoryGiB: null as number | null,
 			viewportWidth: 1280, viewportHeight: 720, deviceScaleFactor: 1, decodePath: 'unknown' },
 		protocol: { start: 'trusted-finite-input', end: 'current-ready-plus-one-raf', warmupTrials: 1, measuredTrials: 5,
-			workers: 1, retries: 0, caseDeadlineMs: 90_000, p95Method: 'nearest-rank-per-locale-then-worst' },
+			workers: 1, retries: 0, caseDeadlineMs: 180_000, p95Method: 'nearest-rank-per-locale-then-worst' },
 		fixture: { width: 4096, height: 3072, proxyWidth: 2048, proxyHeight: 1536, sourceRgbaByteLength: 50_331_648,
 			proxyRgbaByteLength: 12_582_912, pngSrgbIntent: 0, encodedByteLength: 1000, encodedSha256: sha(1),
 			sourceRgbaSha256: sha(2), proxyRgbaSha256: sha(3), dehazeRgbaSha256: sha(4),
@@ -98,7 +98,7 @@ test('shared fixture, browser, runtime, protocol, environment and instrumentatio
 		value => { value.browser.version = '141'; }, value => { value.browser.name = 'firefox'; },
 		value => { value.runtime.hardwareConcurrency = 8; }, value => { value.runtime.deviceScaleFactor = 2; },
 		value => { value.instrumentation = 'v8-browser'; }, value => { value.environmentId = 'github-ubuntu-playwright-1.62.1'; },
-		value => { value.protocol.caseDeadlineMs = 90_001; },
+		value => { value.protocol.caseDeadlineMs = 180_001; },
 	];
 	for (const mutate of mutations) { const values = pair(); mutate(values[1]!); assert.throws(() => summarize(values)); }
 	const firefox = pair(); for (const value of firefox) value.browser.name = 'firefox';
@@ -142,27 +142,35 @@ test('actual wrong pixels, digests, latest amount, close publication and saved r
 });
 
 test('instrumented epochs retain honest correctness diagnostics but cannot qualify the registered uninstrumented timing profile', () => {
+	const ordinary = summarize(pair()); assert.equal(ordinary.instrumentation, 'none');
+	assert.equal(ordinary.protocol.caseDeadlineMs, 180_000);
+	for (const deadline of [0, 90_000, 179_999, 180_001, 300_000, Number.NaN, Number.POSITIVE_INFINITY]) {
+		const invalid = pair(); for (const value of invalid) value.protocol.caseDeadlineMs = deadline;
+		assert.throws(() => summarize(invalid));
+	}
 	const values = pair(); for (const value of values) {
-		value.instrumentation = 'v8-browser'; value.protocol.caseDeadlineMs = 180_000;
+		value.instrumentation = 'v8-browser'; value.protocol.caseDeadlineMs = 300_000;
 	}
 	const summary = summarize(values); assert.equal(summary.instrumentation, 'v8-browser');
-	assert.equal(summary.protocol.caseDeadlineMs, 180_000);
+	assert.equal(summary.protocol.caseDeadlineMs, 300_000);
 	assert.equal(summary.metrics['photoDevelop.proxyPixelMismatchCount'], 0);
-	const uninstrumented = pair(); for (const value of uninstrumented) value.protocol.caseDeadlineMs = 180_000;
+	const uninstrumented = pair(); for (const value of uninstrumented) value.protocol.caseDeadlineMs = 300_000;
 	assert.throws(() => summarize(uninstrumented));
-	for (const deadline of [0, 90_000, 90_001, 179_999, 180_001, Number.NaN, Number.POSITIVE_INFINITY]) {
+	for (const deadline of [0, 90_000, 180_000, 180_001, 299_999, 300_001, Number.NaN, Number.POSITIVE_INFINITY]) {
 		const invalid = pair(); for (const value of invalid) {
 			value.instrumentation = 'v8-browser'; value.protocol.caseDeadlineMs = deadline;
 		}
 		assert.throws(() => summarize(invalid));
 	}
-	const mixed = pair(); mixed[1]!.instrumentation = 'v8-browser'; mixed[1]!.protocol.caseDeadlineMs = 180_000;
+	const mixed = pair(); mixed[1]!.instrumentation = 'v8-browser'; mixed[1]!.protocol.caseDeadlineMs = 300_000;
 	assert.throws(() => summarize(mixed));
 	assert.throws(() => createPendingLightscaperDevelopProxyResult(values, config()), /instrumentation/iu);
 	assert.equal(createPendingLightscaperDevelopProxyResult(pair(), config()).metricGatePassed, true);
 });
 
 test('registered evaluation binds actual fixture and protocol and refuses missing or substituted measurements', () => {
+	const historical = config(); historical.fixtures[0]!.specification.protocol.caseDeadlineMs = 90_000;
+	assert.throws(() => createPendingLightscaperDevelopProxyResult(pair(), historical), /caseDeadlineMs/iu);
 	const value = config(); value.fixtures[0]!.specification.fixture.encodedSha256 = sha(99);
 	assert.throws(() => createPendingLightscaperDevelopProxyResult(pair(), value), /fixture/iu);
 	const missing = config(); missing.workloads[0]!.id = 'unregistered';
