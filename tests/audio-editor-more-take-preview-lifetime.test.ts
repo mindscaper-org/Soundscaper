@@ -6,6 +6,7 @@ import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/edi
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import type { EngineProject } from '../src/common/editor/engine/types.ts';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
@@ -13,13 +14,19 @@ for (const paused of [false, true]) test(`MP63: opening an OS-delivered native p
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `take-preview-lifetime-${String(paused)}` });
-	const previews: ReturnType<typeof createMemoryEngine>[] = [];
+	const previews: { state: string; readonly loadedProjects: EngineProject[] }[] = [];
+	const createPreviewEngine = () => {
+		const loadedProjects: EngineProject[] = [];
+		const engine = { ...createMemoryEngine(), loadedProjects,
+			loadProject(value: EngineProject) { loadedProjects.push(structuredClone(value)); }, setPlaybackGain() {} };
+		previews.push(engine); return engine;
+	};
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), store,
 		scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
 		engine: { ...createMemoryEngine(), getPlaybackGain: () => 1 } as unknown as Options['engine'],
 		ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
-		engineFactory: () => { const engine = { ...createMemoryEngine(), setPlaybackGain() {} }; previews.push(engine); return engine; },
+		engineFactory: createPreviewEngine as unknown as Options['engineFactory'],
 	});
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready;
@@ -39,7 +46,7 @@ for (const paused of [false, true]) test(`MP63: opening an OS-delivered native p
 	const incoming = createSoundscaperProject({ ...project, id: 'incoming-project', sources: [{ ...source, name: 'Incoming Take' }] });
 	const archive = await exportScapeProject(incoming, store);
 	assert.ok(archive.blob instanceof Blob);
-	await controller.actions.project.openScapeFile(new File([archive.blob], 'Incoming.sscape'));
+	await controller.actions.project.openScapeFile(new File([archive.blob], 'Incoming.sscape'), () => 'copy');
 	assert.notEqual(controller.project?.id, project.id);
 	assert.equal(previews[0]?.state, 'stopped', 'outgoing take audio must not continue underneath the new document');
 	await controller.actions.takeComp.auditionTake('group', 'take');

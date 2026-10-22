@@ -25,7 +25,8 @@ test('MP62: opening another native project retires a focused musical tempo draft
 	await controller.actions.project.open(createSoundscaperProject({ id: 'tempo-replace-owner' }));
 	const saved = controller.project; assert.ok(saved);
 	const incoming = createSoundscaperProject({ id: 'incoming-tempo-project', title: 'Incoming programme' });
-	const archive = await exportScapeProject(incoming, store); assert.ok(archive.blob instanceof Blob);
+	const archive = await exportScapeProject(incoming, store); const archiveBlob = archive.blob; assert.ok(archiveBlob instanceof Blob);
+	const incomingFile = new File([archiveBlob], 'Incoming.sscape');
 	const dom = installReactTestDom(); const root = createRoot(dom.container as unknown as Element);
 	const priorReact = Object.getOwnPropertyDescriptor(globalThis, 'React'); Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -37,7 +38,7 @@ test('MP62: opening another native project retires a focused musical tempo draft
 		const field = dom.one('[data-action-id="playback-bpm"]').querySelector('input'); assert.ok(field);
 		field.focus(); field.value = '200';
 		await act(async () => {
-		 await controller.actions.project.openScapeFile(new File([archive.blob], 'Incoming.sscape')); render();
+			await controller.actions.project.openScapeFile(incomingFile, () => 'copy'); render();
 		});
 		assert.equal(controller.project?.id, incoming.id);
 		const current = dom.one('[data-action-id="playback-bpm"]').querySelector('input'); assert.ok(current);
