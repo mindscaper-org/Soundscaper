@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioSource, createAudioTrack, createAudioClip } from '../../src/common/editor/project-media-factory.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
@@ -23,6 +23,7 @@ test('Copy and Paste at a sequence boundary keep both copied tracks in one seque
 	await expect(editor).toHaveAttribute('data-project-id', 'paste-sequences');
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	await expect(editor.locator('[data-clip-id]')).toHaveCount(3);
+	await waitForProjectActivation(editor);
 	await clipByName(editor, 'A').locator('.clip-header').click();
 	await expect(clipByName(editor, 'A').locator('.clip-display')).toHaveAttribute('data-selected', 'true');
 	await clipByName(editor, 'B').locator('.clip-header').click({ modifiers: ['Shift'] });
