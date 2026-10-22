@@ -48,7 +48,40 @@ for (const cut of CUTS) test(`native photo preview ${cut} preserves its paired p
 	}
 });
 
-async function qualify(page, cut) {
+// IndexedDB has native paired publication/rollback boundaries, but no OPFS
+// writer-close or external-file cleanup acknowledgement to impersonate.
+for (const cut of ['payload-put', 'inventory-put', 'completed-ack']) test(`native IndexedDB photo preview ${cut} preserves its paired publication and durable regeneration`, async ({ page }) => {
+	const result = await qualify(page, cut, 'indexeddb'), committed = cut === 'completed-ack';
+	expect(result.kind).toBe(cut); expect(result.backend).toBe('indexeddb-blob'); expect(result.asyncNativeOpfs).toBe(false);
+	expect(result.directSharedLifecycle).toBe(true); expect(result.workerQualified).toBe(false); expect(result.cut.fired).toBe(true);
+	expect(result.lifecycleReleased).toBe(true); expect(result.cleanupErrorCount).toBe(0);
+	expect(result.width).toBe(24); expect(result.height).toBe(32); expect(result.maximumPixelDifference).toBeLessThanOrEqual(2);
+	expect(result.originalStorage).toBe('indexeddb-media-chunks-v1'); expect(result.originalSha256).toMatch(/^[a-f0-9]{64}$/u);
+	for (const field of ['originalMetadataExact', 'originalPathExact', 'originalBytesExact', 'originalShaExact', 'photoStateExact',
+		'deletionRefused', 'reopenedPixelsExact', 'regeneratedPixelsExact']) expect(result[field]).toBe(true);
+	expect(result.permanentPhotos).toEqual(['photo-1']); expect(result.stagedPhotos).toEqual(['photo-1']); expect(result.assets).toBe(1);
+	expect(result.regeneratedBlobSha256).toBe(result.previewSha256); expect(result.finalBlobSha256).toBe(result.previewSha256);
+	expect(result.regeneratedCache).toBe('stored'); expect(result.trimmed).toEqual({ removedEntries: 1, removedBytes: 24 * 32 * 4, more: false });
+	expect(result.afterTrim).toEqual({ payload: 0, inventory: 0, pair: null, blobSha256: null });
+	if (committed) {
+		expect(result.receipt).toBe('stored'); expect(result.refusal).toBeNull(); expect(result.cut.aborted).toBe(true);
+		expect(result.cut.completed).toBe(1); expect(result.cut.transactionAborts).toBe(0);
+		expect(result.cut.putSuccesses).toEqual(['videoDerivatives', 'videoDerivativeCacheEntries']);
+		expect(result.afterCut).toMatchObject({ payload: 1, inventory: 1, blobSha256: result.previewSha256,
+			pair: { storage: 'indexeddb-blob', path: null, outputSha256: result.previewSha256, size: 24 * 32 * 4 } });
+		expect(result.reopenedPair).toEqual(result.afterCut); expect(result.reopenedCache).toBe('hit');
+		expect(result.readsAfterReopen).toBe(1); expect(result.originalReads).toBe(2);
+	} else {
+		expect(result.receipt).toBeNull(); expect(result.refusal).toBeTruthy(); expect(result.cut.aborted).toBe(false);
+		expect(result.afterCut).toEqual({ payload: 0, inventory: 0, pair: null, blobSha256: null });
+		expect(result.reopenedPair).toEqual(result.afterCut); expect(result.reopenedCache).toBe('stored');
+		expect(result.readsAfterReopen).toBe(2); expect(result.originalReads).toBe(3);
+		expect(result.cut.completed).toBe(0); expect(result.cut.transactionAborts).toBe(1);
+		expect(result.cut.putSuccesses).toContain(cut === 'payload-put' ? 'videoDerivatives' : 'videoDerivativeCacheEntries');
+	}
+});
+
+async function qualify(page, cut, backend = 'opfs') {
 	const entry = new URL('../helpers/lightscaper-preview-persistence-native-v1.ts', import.meta.url);
 	const bundle = await build({ entryPoints: [fileURLToPath(entry)], bundle: true, write: false, format: 'esm', platform: 'browser', external: ['module'] });
 	const headers = authoredWildcardResponseHeaders();
@@ -60,5 +93,12 @@ async function qualify(page, cut) {
 	const origin = process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS
 		? JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper : browserProductSiteForBuild('lightscaper').origin;
 	await page.goto(`${origin}${ROOT}/index.html`);
-	return page.evaluate(async ({ root, cut }) => (await import(`${root}/entry.js`)).qualifyPhotoPreviewPersistenceNativeV1(cut), { root: ROOT, cut });
+	if (backend === 'opfs') {
+		const available = await page.evaluate(() => typeof navigator.storage?.getDirectory === 'function');
+		test.skip(!available, 'Native OPFS is unavailable: these six filesystem-only cuts cannot run; the separate native IndexedDB publication cases remain required.');
+	}
+	return page.evaluate(async ({ root, cut, backend }) => {
+		const fixture = await import(`${root}/entry.js`);
+		return backend === 'indexeddb' ? fixture.qualifyPhotoPreviewPersistenceIndexedDbV1(cut) : fixture.qualifyPhotoPreviewPersistenceNativeV1(cut);
+	}, { root: ROOT, cut, backend });
 }

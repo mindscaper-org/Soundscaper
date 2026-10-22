@@ -36,6 +36,7 @@ for (const locale of ['en', 'de']) test(`Menu-only library debug soak imports ti
 	for (const output of report.outputs) { expect(output.width).toBeGreaterThan(0); expect(output.height).toBeGreaterThan(0); expect(output.sha256).toMatch(/^[a-f0-9]{64}$/u); expect(output.pixelsSha256).toMatch(/^[a-f0-9]{64}$/u); }
 	expect(report.owners.activeSessions).toBe(0); expect(report.owners.activeExports).toBe(0); expect(report.owners.joined).toBe(true);
 	expect(['browser-js-heap', 'unavailable']).toContain(report.memory.kind);
+	expect(await remainingPrivateOutputs(page)).toBe(0);
 	await dialog.getByRole('button', { name: locale === 'de' ? 'Schließen' : 'Close', exact: true }).last().click(); await expect(dialog).toHaveCount(0);
 	await showLibrary(); await expect(page.locator('[data-photo-id]')).toHaveCount(6);
 	await page.reload(); await showLibrary(); await expect(page.locator('[data-photo-id]')).toHaveCount(6); expect(errors).toEqual([]);
@@ -45,6 +46,26 @@ for (const locale of ['en', 'de']) test(`Menu-only library debug soak imports ti
 	}
 
 });
+
+async function remainingPrivateOutputs(page: import('@playwright/test').Page): Promise<number> {
+	return page.evaluate(async () => {
+		if (typeof navigator.storage?.getDirectory === 'function' && typeof globalThis.FileSystemFileHandle?.prototype.createWritable === 'function') {
+			const root = await navigator.storage.getDirectory(), parent = await root.getDirectoryHandle('lightscaper-library-debug-soak-v1');
+			let count = 0; for await (const _entry of parent.values()) count++; return count;
+		}
+		return new Promise<number>((resolve, reject) => {
+			const opening = indexedDB.open('lightscaper-library-debug-outputs-v1', 1);
+			opening.onupgradeneeded = () => { opening.transaction?.abort(); };
+			opening.onerror = () => { reject(opening.error); };
+			opening.onblocked = () => { reject(new Error('Diagnostic output readback was blocked.')); };
+			opening.onsuccess = () => {
+				const database = opening.result, transaction = database.transaction('outputs', 'readonly'), count = transaction.objectStore('outputs').count();
+				transaction.oncomplete = () => { database.close(); resolve(count.result); };
+				transaction.onabort = () => { database.close(); reject(transaction.error); };
+			};
+		});
+	});
+}
 
 function tinyPng(): Uint8Array<ArrayBuffer> {
 	const header = Buffer.alloc(13); header.writeUInt32BE(2, 0); header.writeUInt32BE(2, 4); header.set([8, 6], 8);

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { PhotoLibrarySessionPortCurrentV1 as Session } from '../../common/editor/photo-library-session-port-current-v1.ts';
 import type { PhotoLibraryDevelopSnapshotCurrentV1 as Snapshot } from '../../common/editor/photo-library-develop-port-current-v1.ts';
-import type { DesktopPhotoOriginalStorageCurrentV1 as Storage, DesktopPhotoOriginalDirectoryCurrentV1 as Directory } from '../desktop-photo-original-contract-current-v1.ts';
+import type { DesktopPhotoOriginalStorageCurrentV1 as Storage } from '../desktop-photo-original-contract-current-v1.ts';
 import { createBrowserFileSaveService } from '../../common/editor/browser-file-save-service.ts';
 import { PhotoRasterExportCurrentV1 } from '../controller/photo-raster-export-current-v1.ts';
 import { createPhotoDevelopRenderRuntimeCurrentV1 } from '../photo-develop-render-runtime-current-v1.ts';
@@ -10,27 +10,24 @@ import { debugCheckCurrentV1 as check, debugCleanupFailureCurrentV1 as cleanupFa
 	type DebugOutputCurrentV1, type DebugOwnersCurrentV1 } from './photo-library-debug-soak-contract-current-v1.ts';
 import { debugHashCurrentV1 as hash } from './photo-library-debug-bytes-current-v1.ts';
 import { readDebugPngCurrentV1 } from './photo-library-debug-png-current-v1.ts';
+import { createDebugOutputCurrentV1, type DebugOutputStageCurrentV1 } from './photo-library-debug-output-current-v1.ts';
 const READ = Blob.prototype.arrayBuffer, SIZE = Object.getOwnPropertyDescriptor(Blob.prototype, 'size')!.get!;
-/** Actual export owner, actual private OPFS writer/commit and independent File
+/** Actual export owner, actual private persistent writer/commit and independent Blob
  * readback. A failed close keeps its real Session/stage strongly quarantined. */
 export async function exportDebugPhotoCurrentV1(session: Session, snapshot: Snapshot, iteration: number, signal: AbortSignal,
-	storage: Storage, owners: DebugOwnersCurrentV1): Promise<Readonly<DebugOutputCurrentV1>> {
-	check(signal); const token = crypto.randomUUID(), root = await storage.getDirectory(); check(signal);
-	const parent = await root.getDirectoryHandle('lightscaper-library-debug-soak-v1', { create: true }); check(signal);
-	let stage: Directory | undefined, failed = false, primary: unknown, output: Readonly<DebugOutputCurrentV1> | undefined;
+	storage: Storage | undefined, owners: DebugOwnersCurrentV1): Promise<Readonly<DebugOutputCurrentV1>> {
+	check(signal);
+	let stage: DebugOutputStageCurrentV1 | undefined, failed = false, primary: unknown, output: Readonly<DebugOutputCurrentV1> | undefined;
 	const exporter = new PhotoRasterExportCurrentV1('png'), writers = new Set<object>(); owners.activeExports++;
 	try {
-		try { await parent.getDirectoryHandle(token, { create: false }); throw new Error('Diagnostic output namespace already exists.'); }
-		catch (error) { if (!(error instanceof DOMException) || error.name !== 'NotFoundError') throw error; }
-		stage = await parent.getDirectoryHandle(token, { create: true }); check(signal);
-		const file = await stage.getFileHandle('diagnostic.png', { create: true }); check(signal);
+		stage = await createDebugOutputCurrentV1(storage, signal); check(signal);
 		const source = session.develop.original; if (!source) throw new Error('Complete Current Session Original decoder is unavailable.');
 		const withFrame = bind(source.withFrame, source), withDerived = source.withDerivedFrame ? bind(source.withDerivedFrame, source) : undefined, develop = session.develop;
 		const renderer = createPhotoDevelopRenderRuntimeCurrentV1({ source: session.cubeLuts.source, ...(session.maskRasterSource ? { maskSource: session.maskRasterSource } : {}) });
 		const save = createBrowserFileSaveService(), prepare = bind(save.prepareSave, save), saveFile = bind(save.saveFile, save);
-		const createWritable = bind(file.createWritable, file), getFile = bind(file.getFile, file);
+		const createWritable = bind(stage.createWritable, stage), getFile = bind(stage.read, stage);
 		const target = { name: 'diagnostic.png', async createWritable() {
-			const writer = await createWritable({ keepExistingData: false });
+			const writer = await createWritable();
 			writers.add(writer); const write = bind(writer.write, writer), close = bind(writer.close, writer), abort = bind(writer.abort, writer);
 			return { async write(value: Blob | Uint8Array | Readonly<{ type: 'write'; position: number; data: Uint8Array }>) {
 				if (!(value instanceof Uint8Array) || !(value.buffer instanceof ArrayBuffer)) throw new TypeError('Diagnostic PNG writes require owned byte chunks.');
@@ -64,8 +61,8 @@ export async function exportDebugPhotoCurrentV1(session: Session, snapshot: Snap
 	} catch (error) { failed = true; primary = error; }
 	const errors: unknown[] = [];
 	try { await exporter.cancelAndJoin(); } catch (error) { errors.push(error); }
-	if (writers.size) errors.push(new Error('Actual diagnostic OPFS writer has no successful close/abort receipt.'));
-	if (!errors.length && stage) { try { await parent.removeEntry(token, { recursive: true }); } catch (error) { errors.push(error); } }
-	if (errors.length) throw cleanupFailure(failed ? [primary] : [], new AggregateError(errors, 'Diagnostic PNG stage did not retire.'), { session, exporter, parent, stage, writers });
+	if (writers.size) errors.push(new Error('Actual diagnostic writer has no successful close/abort receipt.'));
+	if (!errors.length && stage) { try { await stage.remove(); } catch (error) { errors.push(error); } }
+	if (errors.length) throw cleanupFailure(failed ? [primary] : [], new AggregateError(errors, 'Diagnostic PNG stage did not retire.'), { session, exporter, stage, writers });
 	owners.activeExports--; if (failed) throw primary; if (!output) throw new Error('Diagnostic export has no readback.'); return output;
 }

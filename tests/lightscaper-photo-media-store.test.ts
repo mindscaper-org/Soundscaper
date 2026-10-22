@@ -10,6 +10,40 @@ import type { OpfsSyncStoragePort } from '../src/common/editor/storage/opfs-sync
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { photoArchiveFixture } from './helpers/lightscaper-photo-fixture.ts';
 import { installDirectoryModel } from './helpers/lightscaper-opfs-original-staging-fixture.ts';
+import { deferred } from './helpers/async-test-control.ts';
+import { writeMediaAssetBlobChunks } from '../src/common/editor/storage/media-asset-blob-stream.ts';
+
+test('Original byte streaming joins a failed abort and preserves both opaque failures', { timeout: 5_000 }, async context => {
+	const primary = new Proxy({}, { get() { throw new Error('Primary failure must remain opaque.'); } });
+	const cleanup = new Proxy({}, { get() { throw new Error('Cleanup failure must remain opaque.'); } });
+	const started = deferred<void>(), released = deferred<void>();
+	context.after(() => { released.resolve(); });
+	const unexpected = async () => { assert.fail('A failed source read must not write or publish.'); };
+	const owner = { begin: async () => ({ maximumChunkBytes: 4 * 1024 * 1024, bytesWritten: 0,
+		write: unexpected, commit: unexpected, commitOwned: unexpected, commitVideoProxyClaim: unexpected,
+		abort: async () => { started.resolve(); await released.promise; throw cleanup; },
+	}) };
+	const blob = new Blob([Uint8Array.of(1)]);
+	blob.slice = () => {
+		const part = new Blob();
+		part.arrayBuffer = async () => { throw primary; };
+		return part;
+	};
+	let settled = false;
+	const result = writeMediaAssetBlobChunks(owner, 'opaque-original', blob, {}, {
+		expectedBytes: 1, expectedSha256: 'a'.repeat(64),
+	}).then(() => { settled = true; return null; }, error => { settled = true; return error as unknown; });
+	try {
+		await started.promise;
+		assert.equal(settled, false);
+		released.resolve();
+		const failure = await result;
+		assert.ok(failure instanceof AggregateError);
+		assert.strictEqual(failure.cause, primary);
+		assert.strictEqual(failure.errors[0], primary);
+		assert.strictEqual(failure.errors[1], cleanup);
+	} finally { released.resolve(); await result; }
+});
 
 function fixture({ holdSuccess = false } = {}) {
 	const backing = createInstrumentedIndexedDB();
@@ -86,6 +120,72 @@ test('durable originals, scalar journal and protective roots survive a Photo med
 		assert.ok(original);
 		assert.deepEqual(new Uint8Array(await original.arrayBuffer()), new Uint8Array([1, 2, 3]));
 	} finally { await reopened.close(); }
+});
+
+test('Photo originals use durable byte chunks when OPFS is unavailable', async () => {
+	const setup = fixture();
+	const store = setup.create();
+	const bytes = Uint8Array.from({ length: 2700 }, (_, index) => index % 251);
+	try {
+		await store.mediaRepository.writeAsset('byte-backed-original', new Blob([bytes]), { name: 'Original.dng' });
+		const asset = setup.backing.records(setup.databaseName, 'mediaAssets')[0];
+		assert.equal(asset.storage, 'indexeddb-media-chunks-v1');
+		assert.equal(Object.hasOwn(asset, 'blob'), false);
+		const chunks = setup.backing.records(setup.databaseName, 'mediaAssetChunks');
+		assert.equal(chunks.length, 1);
+		assert.equal(chunks[0].payloadEncoding, 'array-buffer-v1');
+		assert.equal(Object.hasOwn(chunks[0], 'payload'), false);
+		assert.deepEqual(new Uint8Array(chunks[0].payloadBytes as ArrayBuffer), bytes);
+	} finally { await store.close(); }
+	const reopened = setup.create();
+	try {
+		const original = await reopened.mediaRepository.loadAsset('byte-backed-original');
+		assert.ok(original);
+		assert.deepEqual(new Uint8Array(await original.arrayBuffer()), bytes);
+	} finally { await reopened.close(); }
+});
+
+test('a failed original slice read joins durable staging retirement without publishing an asset', { timeout: 5_000 }, async context => {
+	const setup = fixture(), store = setup.create(), primary = Object.freeze({ read: 'refused' });
+	const nativeRead = Blob.prototype.arrayBuffer;
+	let reads = 0;
+	context.mock.method(Blob.prototype, 'arrayBuffer', function (this: Blob) {
+		if (++reads === 2) return Promise.reject(primary);
+		return Reflect.apply(nativeRead, this, []) as Promise<ArrayBuffer>;
+	});
+	try {
+		await assert.rejects(store.mediaRepository.writeAsset('failed-byte-original', new Blob(['Original'])), error => error === primary);
+		assert.equal(reads, 2);
+		for (const name of ['mediaAssets', 'mediaAssetChunks', 'mediaAssetStaging']) {
+			assert.equal(setup.backing.records(setup.databaseName, name).filter(row => row.sourceId === 'failed-byte-original').length, 0);
+		}
+	} finally { await store.close(); }
+});
+
+test('Close joins a pending original byte read and its physical buffer retirement', { timeout: 5_000 }, async context => {
+	const setup = fixture(), store = setup.create(), entered = deferred<void>(), release = deferred<void>();
+	const nativeRead = Blob.prototype.arrayBuffer;
+	let reads = 0, owned: ArrayBuffer | undefined;
+	context.mock.method(Blob.prototype, 'arrayBuffer', async function (this: Blob) {
+		const bytes = await Reflect.apply(nativeRead, this, []) as ArrayBuffer;
+		if (++reads === 2) { owned = bytes; entered.resolve(); await release.promise; }
+		return bytes;
+	});
+	const writing = store.mediaRepository.writeAsset('cancelled-byte-original', new Blob(['Original']));
+	const rejected = assert.rejects(writing, { name: 'AbortError' });
+	context.after(async () => { release.resolve(); await writing.catch(() => undefined); await store.close(); });
+	let closing: Promise<void> | undefined, closed = false;
+	try {
+		await entered.promise;
+		closing = store.close(); void closing.then(() => { closed = true; }, () => undefined);
+		await new Promise<void>(resolve => setImmediate(resolve));
+		assert.equal(closed, false);
+		release.resolve(); await rejected; await closing;
+		assert.ok(owned); assert.deepEqual(new Uint8Array(owned), new Uint8Array('Original'.length));
+		for (const name of ['mediaAssets', 'mediaAssetChunks', 'mediaAssetStaging']) {
+			assert.equal(setup.backing.records(setup.databaseName, name).filter(row => row.sourceId === 'cancelled-byte-original').length, 0);
+		}
+	} finally { release.resolve(); await rejected; await (closing ?? store.close()); }
 });
 
 test('original verification reads trusted immutable metadata and refuses mismatches or legacy digest claims', async (context) => {

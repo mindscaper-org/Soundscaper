@@ -31,7 +31,7 @@ export async function runPhotoLibraryDebugSoakCurrentV1(value: DebugSoakOptionsC
 	const create = bind(createValue as DebugSoakOptionsCurrentV1['createSession'], value);
 	const observer: unknown = Object.hasOwn(input, 'onPhase') ? field(input, 'onPhase', 'Diagnostic observation') : undefined;
 	if (observer !== undefined && typeof observer !== 'function') throw new TypeError('Diagnostic observer must be callable.');
-	const storage = (Object.hasOwn(input, 'storage') ? field(input, 'storage', 'Private output storage') : navigator.storage) as NonNullable<DebugSoakOptionsCurrentV1['storage']>;
+	const storage = (Object.hasOwn(input, 'storage') ? field(input, 'storage', 'Private output storage') : globalThis.navigator?.storage) as DebugSoakOptionsCurrentV1['storage'];
 	const owners: DebugOwnersCurrentV1 = { sessionsOpened: 0, sessionsClosed: 0, maximumLiveSessions: 0, activeSessions: 0, activeExports: 0, joined: false };
 	const phases: Readonly<DebugPhaseReceiptCurrentV1>[] = [], originals: { photoId: string; sha256: string; byteLength: number }[] = [], outputs: Readonly<DebugOutputCurrentV1>[] = [];
 	const sourceHashes: Awaited<ReturnType<typeof hashBody>>[] = []; for (const file of files) sourceHashes.push(await hashBody(file, signal));

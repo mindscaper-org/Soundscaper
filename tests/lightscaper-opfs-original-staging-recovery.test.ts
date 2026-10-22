@@ -107,7 +107,7 @@ test('a controlled native DataCloneError falls back to an immutable body before 
 	try {
 		await media.ready(); model.refuseNextClone();
 		const record = await media.mediaRepository.writeAsset('original-clone-refused', new Blob([BYTES]));
-		assert.equal(record.storage, 'indexeddb-blob'); assert.equal(record.sha256, digest(BYTES));
+		assert.equal(record.storage, 'indexeddb-media-chunks-v1'); assert.equal(record.sha256, digest(BYTES));
 		assert.equal(fixture.files.size, 0); assert.equal(fixture.events.some(event => event.startsWith('file:')), false);
 		assert.deepEqual(pathLeases(native), []);
 		assert.equal((native.raw(MEDIA.databaseName).records(MEDIA.databaseName, 'settings') as Record<string, unknown>[]).some(row => String(row.key).startsWith('audio-editor-opfs-directory-binding-v1:')), false);

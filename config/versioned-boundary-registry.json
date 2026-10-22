@@ -3092,6 +3092,10 @@
 		,
 		{ "path": "src/lightscaper/quality/photo-library-debug-export-current-v1.ts", "kind": "helper-contract", "justification": "photo-library-debug-export-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
+		{ "path": "src/lightscaper/quality/photo-library-debug-indexeddb-output-current-v1.ts", "kind": "helper-contract", "justification": "photo-library-debug-indexeddb-output-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "src/lightscaper/quality/photo-library-debug-output-current-v1.ts", "kind": "helper-contract", "justification": "photo-library-debug-output-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
 		{ "path": "src/lightscaper/quality/photo-library-debug-png-current-v1.ts", "kind": "helper-contract", "justification": "photo-library-debug-png-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
 		{ "path": "src/lightscaper/quality/photo-library-debug-soak-contract-current-v1.ts", "kind": "helper-contract", "justification": "photo-library-debug-soak-contract-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }

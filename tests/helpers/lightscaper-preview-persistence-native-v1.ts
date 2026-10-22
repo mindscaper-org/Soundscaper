@@ -191,6 +191,138 @@ export async function qualifyPhotoPreviewPersistenceNativeV1(kind: PhotoPreviewP
 	}
 }
 
+/** The same production cache with native IndexedDB Blob publication, never a memory-only substitute. */
+export async function qualifyPhotoPreviewPersistenceIndexedDbV1(kind: 'payload-put' | 'inventory-put' | 'completed-ack') {
+	const nonce = crypto.randomUUID(), names = { media: `lightscaper-preview-idb-cuts-media-${nonce}`, catalog: `lightscaper-preview-idb-cuts-catalog-${nonce}` };
+	const cut: NativeCut = { kind, stop: new AbortController(), reason: new Error(`Native IndexedDB preview cut: ${kind}`),
+		cleanupFailure: new Error('No external file cleanup exists on the IndexedDB route.'), armed: false, fired: false,
+		path: null, oldPath: null, writeBytes: 0, closedSha256: null, putSuccesses: [], completed: 0, aborted: 0, deletedPath: null };
+	const seed = (await encodePhotoOrientationGridJpegFixtureV1()).jpeg, bytes = jpegWithExifOrientationV1(seed, 6), originalSha256 = await digest(bytes);
+	const photo = photoDocument(bytes.length, originalSha256), binding = { catalogId: photo.catalogId, photoId: photo.id,
+		originalId: photo.original.id, storageKey: photo.original.storageKey, contentSha256: originalSha256,
+		byteLength: bytes.length, width: photo.original.width, height: photo.original.height };
+	let owners = openOwners(), database: IDBDatabase | null = null, scheduler: PhotoPreviewSchedulerV1 | null = null;
+	let binary: OpfsRepository | null = null, originalReads = 0, primaryFailed = false, primaryFailure: unknown;
+	try {
+		const writer = await owners.media.mediaRepository.beginAssetWrite(photo.original.storageKey, { mimeType: 'image/jpeg' },
+			{ expectedBytes: bytes.length, expectedSha256: originalSha256 });
+		try { await writer.write(bytes.slice()); await writer.commit(); } catch (error) { await writer.abort(); throw error; }
+		const references = [{ photoId: photo.id, assetId: photo.original.storageKey, sourceId: photo.original.id, sha256: originalSha256, size: bytes.length }];
+		await owners.media.mediaRepository.catalogOriginals.retain(photo.catalogId, references);
+		await owners.media.mediaRepository.catalogOriginals.stage(photo.catalogId, 'preserved-import', references);
+		await owners.catalog.createCatalog({ schemaFamily: 'lightscaper', schemaVersion: 1, kind: 'photo-catalog', id: photo.catalogId,
+			name: 'Native IndexedDB preview interruption qualification', revision: 0, photoCount: 0, folders: [], keywords: [], collections: [] });
+		await owners.catalog.publishPhotos(photo.catalogId, 0, [photo]);
+		const originalBefore = await owners.media.mediaRepository.getAssetMetadata(photo.original.storageKey);
+		if (originalBefore?.storage !== 'indexeddb-media-chunks-v1') throw new Error('Native IndexedDB original did not commit actual persistent chunks.');
+		const baseline = await withPhotoOriginalFrameV1({ binding: { ...binding, photoId: 'baseline', originalId: 'baseline', storageKey: 'baseline',
+			contentSha256: await digest(seed), byteLength: seed.length, width: 32, height: 24 }, body: new Blob([seed.slice()], { type: 'image/jpeg' }) },
+			async frame => new Uint8Array(frame.pixels));
+		const oracle = permuteExifRgbaV1(baseline, 32, 24, 6);
+		const original = await owners.media.mediaRepository.loadAsset(photo.original.storageKey); originalReads++;
+		const prepared = await withPhotoOriginalFrameV1({ binding, body: original }, frame => {
+			const plan = planPhotoPreviewV1({ binding, source: frame.descriptor, tier: 'thumbnail' });
+			return preparePhotoPreviewV1({ plan, binding, frame });
+		});
+		const pixels = new Uint8Array(await prepared.body.arrayBuffer());
+		database = await openDatabase(indexedDB, names.media); binary = openBinary();
+		const lifecycle = new MediaAssetLifecycleCoordinator(), cache = createCache(observeDatabase(database, cut), binary, lifecycle);
+		cut.armed = true;
+		let receipt: Awaited<ReturnType<PhotoPreviewCacheV1['store']>> | null = null, refusal: unknown;
+		try { receipt = await cache.store(prepared, cut.stop.signal); } catch (error) { refusal = error; }
+		cut.armed = false;
+		if (!cut.fired) throw new Error('The requested native IndexedDB publication boundary was not reached.');
+		if (kind === 'completed-ack' ? receipt?.outcome !== 'stored' : refusal === undefined) throw new Error('Native IndexedDB cut disagrees with its publication contract.');
+		const afterCut = await snapshotIndexedDbPair(database, prepared.key), lifecycleReleased = lifecycle.activePaths().size === 0;
+		await closeConnections(); owners = openOwners(); database = await openDatabase(indexedDB, names.media); binary = openBinary();
+		const reopenedPair = await snapshotIndexedDbPair(database, prepared.key);
+		scheduler = createScheduler(createCache(database, binary, new MediaAssetLifecycleCoordinator()));
+		const reopened = await ready(scheduler), readsAfterReopen = originalReads;
+		const regeneratedPair = await snapshotIndexedDbPair(database, prepared.key);
+		await scheduler.close(); scheduler = null;
+		const trimmed = await new BinaryDerivativeCacheRepositoryV1({ memory: getMemoryDatabase(names.media), database: async () => database },
+			binary, new MediaAssetLifecycleCoordinator(), { ...PROFILE, maximumEntries: 0 }).trim();
+		const afterTrim = await snapshotIndexedDbPair(database, prepared.key);
+		await closeConnections(); owners = openOwners(); database = await openDatabase(indexedDB, names.media); binary = openBinary();
+		scheduler = createScheduler(createCache(database, binary, new MediaAssetLifecycleCoordinator()));
+		const regenerated = await ready(scheduler), finalPair = await snapshotIndexedDbPair(database, prepared.key);
+		const originalAfter = await owners.media.mediaRepository.getAssetMetadata(photo.original.storageKey);
+		const retained = await owners.media.mediaRepository.loadAsset(photo.original.storageKey);
+		const permanent = await owners.media.mediaRepository.catalogOriginals.readPage({ catalogId: photo.catalogId });
+		const staged = await owners.media.mediaRepository.catalogOriginals.readPage({ catalogId: photo.catalogId, importId: 'preserved-import' });
+		let deletionRefused = false;
+		try { await owners.media.mediaRepository.deleteAsset(photo.original.storageKey); } catch (error) { deletionRefused = /catalog original/u.test(String(error)); }
+		return { kind, backend: 'indexeddb-blob', directSharedLifecycle: true, asyncNativeOpfs: false, workerQualified: false,
+			cut: { fired: cut.fired, aborted: cut.stop.signal.aborted, putSuccesses: cut.putSuccesses, completed: cut.completed, transactionAborts: cut.aborted },
+			receipt: receipt?.outcome ?? null, refusal: refusal === undefined ? null : String(refusal), cleanupErrorCount: receipt?.cleanupErrors?.length ?? 0,
+			lifecycleReleased, afterCut, reopenedPair, reopenedCache: reopened.cache, readsAfterReopen, originalReads, regeneratedCache: regenerated.cache,
+			reopenedPixelsExact: equal(pixels, new Uint8Array(await reopened.preview.body.arrayBuffer())),
+			regeneratedPixelsExact: equal(pixels, new Uint8Array(await regenerated.preview.body.arrayBuffer())),
+			width: prepared.descriptor.width, height: prepared.descriptor.height, ...compareOrientationPixelsV1(pixels, oracle.rgba), previewSha256: prepared.outputSha256,
+			regeneratedBlobSha256: regeneratedPair.blobSha256, finalBlobSha256: finalPair.blobSha256, trimmed, afterTrim, originalSha256,
+			originalStorage: originalAfter?.storage, originalMetadataExact: JSON.stringify(originalBefore) === JSON.stringify(originalAfter),
+			originalPathExact: originalAfter?.path === originalBefore.path,
+			originalBytesExact: retained instanceof Blob && equal(bytes, new Uint8Array(await retained.arrayBuffer())),
+			originalShaExact: retained instanceof Blob && await digest(new Uint8Array(await retained.arrayBuffer())) === originalSha256,
+			photoStateExact: JSON.stringify(await owners.catalog.loadPhoto(photo.catalogId, photo.id)) === JSON.stringify(photo),
+			permanentPhotos: permanent.roots.map(item => item.photoId), stagedPhotos: staged.roots.map(item => item.photoId), deletionRefused,
+			assets: await transact(database, 'mediaAssets', 'readonly', stores => request(requiredStore(stores, 'mediaAssets').count())) };
+	} catch (error) { primaryFailed = true; primaryFailure = error; throw error; }
+	finally {
+		cut.armed = false;
+		await retireOwners();
+	}
+	async function retireOwners(): Promise<void> {
+		const failures: unknown[] = [];
+		try { await closeConnections(); } catch (error) { failures.push(error); }
+		for (const result of await Promise.allSettled([removeDatabase(names.media), removeDatabase(names.catalog)])) if (result.status === 'rejected') failures.push(result.reason);
+		if (failures.length) throw new AggregateError([...(primaryFailed ? [primaryFailure] : []), ...failures], 'Native IndexedDB preview fixture cleanup failed.', primaryFailed ? { cause: primaryFailure } : undefined);
+	}
+	function openOwners() {
+		const media = new PhotoMediaStoreV1({ indexedDB, locks: navigator.locks, databaseName: names.media, preferOpfs: false, syncWorkerClient: null });
+		return { media, catalog: new PhotoCatalogRepositoryV1({ indexedDB, databaseName: names.catalog, verifyOriginal: media.verifyOriginal }) };
+	}
+	function openBinary() { return new OpfsRepository({ preferOpfs: false, syncWorkerClient: null }); }
+	function createCache(connection: IDBDatabase, port: OpfsRepository, lifecycle: MediaAssetLifecycleCoordinator) {
+		const core = new BinaryDerivativeCacheRepositoryV1({ memory: getMemoryDatabase(names.media), database: async () => connection }, port, lifecycle, PROFILE);
+		const cache = new PhotoPreviewCacheV1(Object.freeze({ load: core.load.bind(core), store: core.store.bind(core), trim: core.trim.bind(core) }));
+		return Object.freeze({ load: cache.load.bind(cache), store: cache.store.bind(cache), trim: cache.trim.bind(cache) });
+	}
+	function createScheduler(cache: PhotoPreviewCachePortV1) {
+		return new PhotoPreviewSchedulerV1({ catalogId: photo.catalogId, loadPhoto: photoId => owners.catalog.loadPhoto(photo.catalogId, photoId),
+			loadOriginal: async (key, signal) => { originalReads++; return owners.media.mediaRepository.loadAsset(key, { signal }); }, cache });
+	}
+	async function ready(active: PhotoPreviewSchedulerV1) {
+		const result = await active.request({ photoId: photo.id, tier: 'thumbnail' });
+		if (result.outcome !== 'ready') throw new Error('Native IndexedDB original scheduler did not deliver the current preview.');
+		return result;
+	}
+	async function closeConnections() {
+		const failures: unknown[] = [];
+		try { await scheduler?.close(); } catch (error) { failures.push(error); } finally { scheduler = null; }
+		try { binary?.close(); } catch (error) { failures.push(error); } finally { binary = null; }
+		try { database?.close(); } catch (error) { failures.push(error); } finally { database = null; }
+		for (const result of await Promise.allSettled([owners.catalog.close(), owners.media.close()])) if (result.status === 'rejected') failures.push(result.reason);
+		if (failures.length) throw new AggregateError(failures, 'Native IndexedDB preview owners did not close cleanly.');
+	}
+}
+
+async function snapshotIndexedDbPair(database: IDBDatabase, key: string) {
+	const snapshot = await transact(database, [PAYLOAD, INVENTORY], 'readonly', async stores => ({
+		payload: await request(requiredStore(stores, PAYLOAD).count()), inventory: await request(requiredStore(stores, INVENTORY).count()),
+		body: await request<unknown>(requiredStore(stores, PAYLOAD).get(key)), scalar: await request<unknown>(requiredStore(stores, INVENTORY).get(key)) }));
+	if (snapshot.body === undefined && snapshot.scalar === undefined) return { payload: snapshot.payload, inventory: snapshot.inventory, pair: null, blobSha256: null };
+	const first = readBinaryDerivativeCacheRecordV1(snapshot.body, key, PROFILE, true), second = readBinaryDerivativeCacheRecordV1(snapshot.scalar, key, PROFILE);
+	if (first.storage !== 'indexeddb-blob' || second.storage !== 'indexeddb-blob' || first.path !== null || JSON.stringify(first) !== JSON.stringify(second)) {
+		throw new Error('Native IndexedDB pair was missing, mismatched or stored outside IndexedDB.');
+	}
+	const blob = (snapshot.body as { blob?: unknown }).blob;
+	if (!(blob instanceof Blob) || blob.size !== first.size) throw new Error('Native IndexedDB payload did not contain its actual stored Blob.');
+	return { payload: snapshot.payload, inventory: snapshot.inventory,
+		pair: { storage: first.storage, path: first.path, cacheToken: first.cacheToken, outputSha256: first.outputSha256, size: first.size },
+		blobSha256: await digest(new Uint8Array(await blob.arrayBuffer())) };
+}
+
 function observeBinary(binary: OpfsRepository, directory: FileSystemDirectoryHandle, cut: NativeCut): Pick<OpfsRepository, 'planBinaryWriter' | 'loadBinaryRecord' | 'deletePath'> {
 	return {
 		async planBinaryWriter(...args) {

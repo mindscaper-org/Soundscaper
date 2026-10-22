@@ -21,6 +21,7 @@ import { reconcileMediaAssetOpfsStartup } from './media-asset-opfs-startup-recon
 import type { MediaAssetNonBinaryDatabaseProfile } from './media-asset-opfs-startup-namespace.ts';
 import { MediaPublicationReconciliationError, sameMediaPayload } from './media-asset-owned-publication.ts';
 import { canonicalMediaContentBlob, digestMediaContent } from './media-content-digest.ts';
+import { writeMediaAssetBlobChunks } from './media-asset-blob-stream.ts';
 import { freshVerifiedMediaContentDigest } from './media-content-provenance.ts';
 import { BrowserFileStorageError } from '../web-file-limit-failure.ts';
 import {
@@ -34,7 +35,7 @@ import {
 	type BlobLike,
 	type StorageRecord,
 } from './media-records.ts';
-import type { OpfsRepository } from './opfs-repository.ts';
+import { OpfsRepository } from './opfs-repository.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import type { RetentionSessionGuard } from './retention-session-guard.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';
@@ -63,6 +64,7 @@ interface MediaWriteOptions {
 }
 
 interface MediaRepositoryOptions {
+	readonly indexedDbAssetStorage?: 'blob' | 'chunks';
 	readonly confirmFileSizeWarning?: FileSizeWarningConfirmation;
 	readonly cacheLimits?: Readonly<Pick<
 		DerivativeCacheLimits,
@@ -79,7 +81,9 @@ export class MediaRepository {
 	readonly #sessionGuard: RetentionSessionGuard | null;
 	readonly #assetLifecycle = new MediaAssetLifecycleCoordinator();
 	readonly #assetWrites: MediaAssetWriteRepository;
+	readonly #chunkAssetWrites: MediaAssetWriteRepository;
 	readonly #assetLoads: MediaAssetLoadRepository;
+	readonly #indexedDbAssetStorage: 'blob' | 'chunks';
 	readonly #originalRepairs: MediaCatalogOriginalRepairRepositoryV1;
 	readonly #originalInspections: MediaCatalogOriginalInspectionRepositoryV1;
 	readonly #derivatives: VideoDerivativeRepository;
@@ -89,7 +93,9 @@ export class MediaRepository {
 		this.#port = port;
 		this.#opfs = opfs;
 		this.#sessionGuard = options.sessionGuard ?? null;
+		this.#indexedDbAssetStorage = options.indexedDbAssetStorage ?? 'blob';
 		this.#assetWrites = new MediaAssetWriteRepository(port, opfs, this.#assetLifecycle, options.confirmFileSizeWarning);
+		this.#chunkAssetWrites = new MediaAssetWriteRepository(port, new OpfsRepository({ preferOpfs: false }), this.#assetLifecycle, options.confirmFileSizeWarning);
 		this.#assetLoads = new MediaAssetLoadRepository(port, this.#assetWrites, this.#assetLifecycle);
 		this.#originalRepairs = new MediaCatalogOriginalRepairRepositoryV1(port, opfs, this.#assetLifecycle);
 		this.#originalInspections = new MediaCatalogOriginalInspectionRepositoryV1(port, opfs, this.#assetLifecycle);
@@ -164,6 +170,15 @@ export class MediaRepository {
 				}
 			}
 			admission.throwIfCancelled();
+			if (!storedFile && this.#indexedDbAssetStorage === 'chunks') {
+				const result = await writeMediaAssetBlobChunks(this.#chunkAssetWrites, id, blob, {
+					...metadata, mimeType: String(metadata.mimeType || blob.type || ''),
+					name: String(metadata.name || fileField(input, 'name') || ''),
+					lastModified: nonNegativeInteger(metadata.lastModified ?? fileField(input, 'lastModified'), 0),
+				}, { expectedBytes: blob.size, expectedSha256: sha256, signal: admission.signal });
+				admission.complete();
+				return result;
+			}
 			const record: StorageRecord = {
 				...binaryMetadata(metadata),
 				sourceId: id,

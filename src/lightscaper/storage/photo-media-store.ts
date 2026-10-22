@@ -109,7 +109,7 @@ export class PhotoMediaStoreV1 {
 		});
 		const guarded = this.#guard.port();
 		this.#guardedPort = guarded;
-		const media = new MediaRepository(guarded, this.#opfs, { sessionGuard: this.#guard });
+		const media = new MediaRepository(guarded, this.#opfs, { sessionGuard: this.#guard, indexedDbAssetStorage: 'chunks' });
 		this.#media = media;
 		this.mediaRepository = Object.freeze({
 			catalogOriginals: media.catalogOriginals,
