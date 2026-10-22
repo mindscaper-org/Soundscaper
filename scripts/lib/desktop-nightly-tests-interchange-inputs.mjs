@@ -5,6 +5,7 @@ import { assertRegularFile, readRequiredJson } from './desktop-nightly-tests-sta
 
 export const NIGHTLY_INTERCHANGE_INPUTS = Object.freeze([
 	{ source: 'tests/helpers/interchange-reference.ts', destination: 'tests/helpers/interchange-reference.ts', kind: 'file', label: 'external interchange reader browser support helper' },
+	{ source: 'tests/helpers/interchange-top-clip.ts', destination: 'tests/helpers/interchange-top-clip.ts', kind: 'file', label: 'independent OTIO visible-clip reference helper' },
 	{ source: 'scripts/lib/interchange-python.mjs', destination: 'scripts/lib/interchange-python.mjs', kind: 'file', label: 'relocatable interchange reference interpreter resolver' },
 	{ source: 'vendor/interchange-conformance', destination: 'vendor/interchange-conformance', kind: 'directory', label: 'independent interchange readers, Python, and notices', allowContainedSymlinks: true },
 ]);
