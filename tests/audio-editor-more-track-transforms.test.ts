@@ -94,6 +94,7 @@ for (const outside of [false, true]) test(`MP30 ancillary: Make Stereo ${outside
 	if (outside) { await assert.rejects(controller.actions.track.makeStereo('left', 'right'), /mono tracks/iu); return; }
 	await controller.actions.track.makeStereo('left', 'right');
 	assert.equal(controller.project?.tracks.length, 1);
-	assert.equal(controller.project?.tracks[0]?.effects.length, 0, 'the selected Gate is already printed into the merged source');
+	const effects = controller.project?.tracks[0]?.effects; assert.ok(effects);
+	assert.equal(effects.length, 0, 'the selected Gate is already printed into the merged source');
 	assert.equal(normalizeMixerGraphV21(controller.project?.mixer).edges.some(edge => edge.id === 'detector'), false);
 });
