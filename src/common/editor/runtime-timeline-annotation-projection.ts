@@ -29,6 +29,17 @@ export type RuntimeTimelineAnnotationProjection = TimelineAnnotationV11 & Readon
 
 type BeatFrameResolver = (beat: RationalInput) => number;
 
+/** Editing bounds include annotations in the active programme without extending rendered media. */
+export function runtimeTimelineAnnotationExtent(project: object | null | undefined): number {
+	if (!project || !('timelineAnnotations' in project) || project.timelineAnnotations === undefined) return 0;
+	if (!Array.isArray(project.timelineAnnotations)) throw new TypeError('project.timelineAnnotations must be an array.');
+	if (project.timelineAnnotations.length === 0) return 0;
+	const owner = 'primarySequenceId' in project ? project.primarySequenceId : undefined;
+	return resolveRuntimeTimelineAnnotationsProjection(project as RuntimeTimelineAnnotationProject)
+		.reduce((end, annotation) => typeof owner === 'string' && annotation.sequenceId !== owner
+			? end : Math.max(end, annotation.timelineEndFrame), 0);
+}
+
 /** Resolve one annotation without introducing a second runtime timing authority. */
 export function resolveRuntimeTimelineAnnotationProjection(
 	project: RuntimeTimelineAnnotationProject,
