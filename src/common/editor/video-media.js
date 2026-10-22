@@ -62,7 +62,10 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			timeoutMs: options.timeoutMs ?? DEFAULT_METADATA_TIMEOUT_MS,
 			errorMessage: 'The browser could not read this video.',
 		});
-		durationSeconds = nonNegativeFinite(video.duration, 'Video duration');
+		// MediaRecorder WebM can omit Duration even though its packet clock is complete.
+		durationSeconds = video.duration === Infinity
+			? await (await import('./video-timing-demux.ts')).demuxVideoDuration(file, { signal: options.signal })
+			: nonNegativeFinite(video.duration, 'Video duration');
 		width = positiveInteger(video.videoWidth, 'Video width');
 		height = positiveInteger(video.videoHeight, 'Video height');
 	} catch (error) {
