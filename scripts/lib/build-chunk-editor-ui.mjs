@@ -8,7 +8,7 @@ import { fileSavingChunkGroups } from './build-chunk-file-saving.mjs';
 // closure one owner keeps optional photo dialogs out of the timeline shell,
 // whose theme provider may otherwise acquire a privacy-route initialization
 // back-edge through the reachability-placed musical time-code context.
-export const EDITOR_DIALOG_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]ui[\\/](?:AudioEditorDialogShell\.tsx|AudioEditorResizableSurface\.jsx|dialog-(?:escape-ownership|focus-ownership|drag-bounds|move-lifecycle)\.ts|file-input-selection\.ts|modal-native-range-keys\.ts|focus-restoration\.ts|resizable-surface-mouse-lifecycle\.ts)$|(?:^|[\\/])vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/]DialogHeader[\\/])/;
+export const EDITOR_DIALOG_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]ui[\\/](?:AudioEditorDialogShell\.tsx|AudioEditorResizableSurface\.jsx|dialog-(?:escape-ownership|focus-ownership|drag-bounds|move-lifecycle)\.ts|file-input-selection\.ts|modal-native-range-keys\.ts|focus-restoration\.ts|resizable-surface-mouse-lifecycle\.ts|dialogs[\\/]timed-recording-dialog-model\.ts)$|(?:^|[\\/])vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/]DialogHeader[\\/])/;
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const editorUiChunkGroups = [

@@ -3,10 +3,10 @@
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const fileSavingChunkGroups = [
 	{
-		// Picker preparation, staged native writes and delayed download delivery
-		// are shared file operations independent of read, codec and editor services.
+		// Portable names, picker preparation, staged native writes and delayed
+		// downloads are independent of read, codec and editor services.
 		name: 'editor-file-saving',
-		test: /src[\\/]common[\\/]editor[\\/](?:browser-file-save-service|file-save-stream|object-url-revoke)\.ts$/,
+		test: /src[\\/]common[\\/]editor[\\/](?:browser-file-save-service|export-name-byte-budget|file-save-stream|object-url-revoke|portable-save-file-name)\.ts$/,
 		priority: 99, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
 	},
 	{
