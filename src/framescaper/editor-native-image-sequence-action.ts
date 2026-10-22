@@ -14,7 +14,8 @@ import {
 	createFramescaperImageSequenceProductionPortsProfessionalMedia,
 	type FramescaperImageSequenceProductionPortsProfessionalMedia,
 } from './editor-native-image-sequence-import-production-ports.ts';
-import { composeFramescaperImageSequenceImport } from './editor-native-image-sequence-import.ts';
+import { sameProjectSnapshot } from '../common/editor/storage/project-snapshot-equality.ts';
+import { composeFramescaperImageSequenceImport, FramescaperImageSequencePublishedError } from './editor-native-image-sequence-import.ts';
 import { selectFramescaperDesktopImageSequenceProfessionalMedia } from './editor-native-image-sequence-selection.ts';
 import {
 	snapshotFramescaperNativeImageSequenceImportRequestNativeMedia,
@@ -39,6 +40,7 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
 interface ImageSequenceControllerNativeMedia {
 	readonly project: unknown;
+	readonly captureProjectGeneration?: () => Readonly<{ generation: number; projectId: string }>;
 	readonly actions: Readonly<{
 		readonly edit: Readonly<{
 			commit(command: unknown): unknown;
@@ -110,6 +112,7 @@ async function importCurrentSequence(
 	request: FramescaperNativeImageSequenceImportRequestNativeMedia,
 ): Promise<void> {
 	const project = cloneFramescaperProjectNativeMedia(options.profile, options.owner.project);
+	const activation = options.owner.captureProjectGeneration?.();
 	const bridge = exactBridge(options.bridge);
 	const ports = createFramescaperImageSequenceProductionPortsProfessionalMedia({
 		bridge,
@@ -127,7 +130,7 @@ async function importCurrentSequence(
 		}),
 		ports,
 		commit: (source, projectBinClip) => commitImportedSequence(
-			options, project, ports, source, projectBinClip,
+			options, project, ports, source, projectBinClip, activation,
 		),
 	});
 }
@@ -138,8 +141,9 @@ async function commitImportedSequence(
 	ports: FramescaperImageSequenceProductionPortsProfessionalMedia,
 	sourceValue: Readonly<Record<string, unknown>>,
 	projectBinClip: Readonly<Record<string, unknown>>,
+	activation?: Readonly<{ generation: number; projectId: string }>,
 ): Promise<void> {
-	assertCurrentProject(options, project);
+	assertCurrentProject(options, project, activation);
 	const source = createFramescaperImageSequenceSourceAdmissionCommandProfessionalMedia(sourceValue);
 	if (own(projectBinClip, 'sourceId') !== source.source.id) {
 		throw new Error('The nativeMedia image-sequence Project Bin clip changed source identity.');
@@ -147,6 +151,7 @@ async function commitImportedSequence(
 	const sequence = record(source.source.imageSequence, 'nativeMedia image-sequence descriptor');
 	const publications: OwnedMediaAssetPublication[] = [];
 	let committed = false;
+	let published: unknown;
 	try {
 		for (const asset of ['inventory', 'pack'] as const) {
 			const reference = record(
@@ -156,19 +161,28 @@ async function commitImportedSequence(
 			const publication = await mirrorBody(options.store, ports, asset, reference);
 			if (publication) publications.push(publication);
 		}
-		assertCurrentProject(options, project);
-		await options.owner.actions.edit.commit({
+		assertCurrentProject(options, project, activation);
+		const committedResult = options.owner.actions.edit.commit({
 			type: 'batch', commands: [
 				source, { type: 'project-bin/add', clip: projectBinClip },
 			],
 		});
+		published = options.owner.project;
+		await committedResult;
 		committed = true;
 		await options.owner.actions.project.save();
 	} catch (error) {
 		const failures: unknown[] = [error];
 		if (committed) {
-			try { await options.owner.actions.edit.undo(); }
-			catch (undoError) { failures.push(undoError); }
+			// A later edit or activation owns the current Undo entry. Even after a
+			// successful rollback, Redo still owns the imported immutable bodies.
+			try {
+				if (sameActivation(options, activation) && sameProjectSnapshot(options.owner.project, published)) {
+					await options.owner.actions.edit.undo();
+				}
+			} catch (undoError) { failures.push(undoError); }
+			throw new FramescaperImageSequencePublishedError(failures.length === 1 ? error
+				: new AggregateError(failures, 'nativeMedia image-sequence commit rollback failed.', { cause: error }));
 		}
 		for (const publication of publications.reverse()) {
 			try { await publication.discardIfCurrent(); }
@@ -295,11 +309,19 @@ function exactBridge(value: unknown): FramescaperNativeImageSequenceActionBridge
 function assertCurrentProject(
 	options: BindFramescaperNativeImageSequenceActionNativeMediaOptions,
 	expected: FramescaperProjectNativeMedia,
+	activation?: Readonly<{ generation: number; projectId: string }>,
 ): void {
 	const current = cloneFramescaperProjectNativeMedia(options.profile, options.owner.project);
-	if (current.id !== expected.id || current.revision !== expected.revision) {
+	if (!sameActivation(options, activation) || current.id !== expected.id || current.revision !== expected.revision) {
 		throw new Error('The selected nativeMedia project changed during image-sequence admission.');
 	}
+}
+
+function sameActivation(options: BindFramescaperNativeImageSequenceActionNativeMediaOptions,
+	expected: Readonly<{ generation: number; projectId: string }> | undefined): boolean {
+	if (!expected) return true;
+	const current = options.owner.captureProjectGeneration?.();
+	return current?.generation === expected.generation && current.projectId === expected.projectId;
 }
 
 function assertOptions(options: BindFramescaperNativeImageSequenceActionNativeMediaOptions): void {

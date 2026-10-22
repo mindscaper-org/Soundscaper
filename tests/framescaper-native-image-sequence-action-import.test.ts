@@ -377,13 +377,14 @@ test('a refused edit commit discards the mirrored bodies and never undoes an unc
 	assert.equal(fixture.discards.length, 2);
 });
 
-test('a failed project save undoes the committed edit and discards the mirrored bodies', async () => {
+test('a failed project save undoes the exact committed edit and retains bodies for Redo', async () => {
 	const fixture = harness();
 	fixture.state.save = async () => { throw new Error('save failed'); };
 
 	await assert.rejects(() => fixture.run(fixture.runtime()), /save failed/u);
 	assert.equal(fixture.state.undos, 1);
-	assert.equal(fixture.discards.length, 2);
+	assert.equal(fixture.discards.length, 0, 'Redo still owns the mirrored bodies');
+	assert.equal(fixture.operations().includes('discard'), false);
 });
 
 test('a failed save whose undo also fails reports the rollback failure with both causes', async () => {
@@ -392,13 +393,16 @@ test('a failed save whose undo also fails reports the rollback failure with both
 	fixture.state.undo = async () => { throw new Error('undo failed'); };
 
 	await assert.rejects(() => fixture.run(fixture.runtime()), (error: unknown) => {
+		assert.ok(error instanceof Error);
+		assert.ok(error.cause instanceof AggregateError);
+		error = error.cause;
 		assert.ok(error instanceof AggregateError);
 		assert.match(error.message, /commit rollback failed/u);
 		assert.equal(error.errors.length, 2);
 		assert.match(String((error.errors[1] as Error).message), /undo failed/u);
 		return true;
 	});
-	assert.equal(fixture.discards.length, 2, 'the bodies are still unwound after a failed undo');
+	assert.equal(fixture.discards.length, 0, 'a failed Undo leaves the imported document owning its bodies');
 });
 
 test('a cancelled picker imports nothing and never opens a transaction', async () => {
