@@ -17,6 +17,7 @@ import ClipPropertiesBody from './ClipPropertiesBody.jsx';
 import ImageClipPropertiesBody from './ImageClipPropertiesBody.tsx';
 import GeneratorClipPropertiesBody from './GeneratorClipPropertiesBody.tsx';
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { upstreamClipPropertiesLabels } from './upstream-clip-properties-copy.ts';
 import ClipPropertiesColorPicker from './ClipPropertiesColorPicker.tsx';
 import ClipAudioSettingsMenu from './ClipAudioSettingsMenu.tsx';
@@ -63,7 +64,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 	const presentation = clipPropertiesPresentation(project, selected.clips.map(clip => clip.id), copy.clip, selected.preferredClipId);
 	const blocked = selectAudioEditorEditBlock(snapshot as Parameters<typeof selectAudioEditorEditBlock>[0]).blocked || presentation.locked;
 	const audio = presentation.clips.every(clip => clip.kind === 'audio');
-	const targetKey = JSON.stringify([project?.id, selected.clips.map(clip => clip.id)]);
+	const targetKey = JSON.stringify([editorProjectEditSessionKey(controller, project?.id), selected.clips.map(clip => clip.id)]);
 	const liveTarget = useRef(targetKey);
 	liveTarget.current = targetKey;
 	const mounted = useRef(true);

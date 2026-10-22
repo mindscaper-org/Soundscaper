@@ -4,6 +4,7 @@ import { type FormEvent, useMemo, useState } from 'react'; import { usePresentat
 
 import { addRationals, multiplyRationals } from '../../timeline-time.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
 import {
 	createVideoKeyframeCurveTransfer,
@@ -43,7 +44,17 @@ interface VideoKeyframeDialogProps {
 
 type CurveKind = 'hold' | 'linear' | 'eased' | 'bezier';
 
-export default function VideoKeyframeDialog({
+export default function VideoKeyframeDialog(props: VideoKeyframeDialogProps) {
+	const model = createVideoKeyframeDialogModel({
+		productId: props.productId, capability: props.capability, project: props.snapshot.project, snapshot: props.snapshot,
+	});
+	const project = props.snapshot.project;
+	const projectId = project && typeof project === 'object' && 'id' in project ? project.id : null;
+	const session = JSON.stringify([editorProjectEditSessionKey(props.controller, projectId), model.clipId]);
+	return <VideoKeyframeDialogSession key={session} {...props} />;
+}
+
+function VideoKeyframeDialogSession({
 	productId, capability, controller, snapshot, copy, run, onClose,
 }: VideoKeyframeDialogProps) {
 	const model = useMemo(() => createVideoKeyframeDialogModel({
