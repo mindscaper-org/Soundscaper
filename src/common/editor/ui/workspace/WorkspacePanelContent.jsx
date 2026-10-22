@@ -17,6 +17,7 @@ import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import { readProjectRecordingNotes } from '../../recording-notes.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { resolveRuntimeProjectProjection } from '../../runtime-clip-projection.ts';
+import { audioEditorTrackFrameRate } from '../AudioEditorTimeCodeInput.tsx';
 
 const RealtimeAnalysisPanel = lazyEditorModule(() => import('../inspector/RealtimeAnalysisPanel.jsx'));
 const AudioSourceMonitorPanel = lazyEditorModule(() => import('../inspector/ClipSourceMonitorPanel.tsx'));
@@ -226,6 +227,7 @@ export default function WorkspacePanelContent({
 		const labelTracks = (labelProject.tracks || []).filter((track) => track.type === 'label');
 		const labels = labelTracks.flatMap((track) => (track.labels || []).map((label) => ({
 			...label,
+			frameRate: audioEditorTrackFrameRate(project, track.id),
 			trackId: track.id,
 			trackName: track.name,
 		})));

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useId, type ComponentProps } from 'react';
-import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
+import AudioEditorTimeCodeInput, { audioEditorProjectFrameRate, audioEditorProjectSampleRate } from '../AudioEditorTimeCodeInput.tsx';
 import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx';
 import {
 	normalizeTimedRecordingDialogValue,
@@ -28,6 +28,7 @@ interface ScheduledRecording {
 }
 
 interface TimedRecordingDialogFieldsProps {
+	readonly project?: unknown;
 	readonly controller?: ComponentProps<typeof EditorMusicalTimeCodeProvider>['controller'];
 	readonly originFrame?: number;
 	readonly value: unknown;
@@ -39,6 +40,7 @@ interface TimedRecordingDialogFieldsProps {
 }
 
 export default function TimedRecordingDialogFields({
+	project,
 	controller,
 	originFrame = 0,
 	value,
@@ -86,6 +88,7 @@ export default function TimedRecordingDialogFields({
 					<AudioEditorTimeCodeInput label={copy.timedRecordingDuration}
 					className="kw-audio-editor-timed-recording__control" variant="light"
 					value={model.durationSeconds} unit="seconds" minimum={1}
+					sampleRate={audioEditorProjectSampleRate(project)} frameRate={audioEditorProjectFrameRate(project)}
 					disabled={model.endMode !== 'duration'} onChange={(duration) => onValueChange(
 						updateTimedRecordingDialogDuration(model, duration),
 					)} />

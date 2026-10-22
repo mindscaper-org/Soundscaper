@@ -10,7 +10,7 @@ import {
 	draftBlurShouldCommit,
 } from '../draft-blur-commit.ts';
 
-export function LabelManagerRow({ label, sampleRate, controller, copy, disabled, run,
+export function LabelManagerRow({ label, sampleRate, frameRate = 24, controller, copy, disabled, run,
 	onRemoving = /** @type {null | ((control: HTMLElement) => void)} */ (null) }) {
 	const [title, setTitle] = useState(label.title || '');
 	const TitleField = label.title?.includes('\n') ? 'textarea' : 'input';
@@ -61,13 +61,13 @@ export function LabelManagerRow({ label, sampleRate, controller, copy, disabled,
 			<div className="kw-audio-editor__label-manager-range">
 				<label><span>{copy.selectionStart || copy.clipStart}</span><AudioEditorTimeCodeInput
 					label={copy.selectionStart || copy.clipStart} value={label.startFrame}
-					unit="samples" rate={sampleRate} format="hh:mm:ss+milliseconds"
+					unit="samples" rate={sampleRate} frameRate={frameRate} format="hh:mm:ss+milliseconds"
 					directEntryUnit="seconds" directEntryPrecision={3}
 					maximum={label.endFrame} disabled={disabled}
 					onCommit={(value) => updateRange('start', value)} /></label>
 				<label><span>{copy.selectionEnd || copy.clipDuration}</span><AudioEditorTimeCodeInput
 					label={copy.selectionEnd || copy.clipDuration} value={label.endFrame}
-					unit="samples" rate={sampleRate} format="hh:mm:ss+milliseconds"
+					unit="samples" rate={sampleRate} frameRate={frameRate} format="hh:mm:ss+milliseconds"
 					directEntryUnit="seconds" directEntryPrecision={3}
 					minimum={label.startFrame} disabled={disabled}
 					onCommit={(value) => updateRange('end', value)} /></label>
