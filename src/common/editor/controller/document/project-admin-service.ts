@@ -29,10 +29,15 @@ export function createProjectAdminService<
 	);
 	let clearLocalDataOperation: Promise<void> | null = null;
 	let sourceGarbageCollectionGeneration = 0;
+	let projectListRequest = 0;
 
 	async function listProjects() {
+		const request = ++projectListRequest;
+		const projectAtStart = getProject();
 		await saveNow();
-		state.projects = Object.freeze(await store.listProjects());
+		const projects = await store.listProjects();
+		if (request !== projectListRequest || getProject() !== projectAtStart) return state.projects;
+		state.projects = Object.freeze(projects);
 		publishDocumentSnapshot();
 		return state.projects;
 	}
