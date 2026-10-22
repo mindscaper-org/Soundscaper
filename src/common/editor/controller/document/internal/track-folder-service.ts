@@ -152,9 +152,9 @@ export function createTrackFolderService(
 						parentFolderId: location.parentFolderId,
 						index: location.childIndex,
 					}),
-					...trackIds.map((trackId, index) => createMoveTrackNodeCommand(
+					...wrappedTrackBlocks(current, trackIds, location.sequenceId).map(({ nodeId, index }) => createMoveTrackNodeCommand(
 						location.sequenceId,
-						String(trackId),
+						nodeId,
 						folderId,
 						index,
 					)),
@@ -206,4 +206,25 @@ function locateSelectedSequenceId(project: FolderedProjectShape, folderId: strin
 		if (sequence.trackNodes.some((node) => node.id === folderId)) return sequence.id;
 	}
 	return null;
+}
+
+
+/** A linked block moves together and occupies every one of its direct children. */
+function wrappedTrackBlocks(project: FolderedProjectShape, trackIds: readonly string[], sequenceId: string) {
+	const nodes = project.sequences?.find(sequence => sequence.id === sequenceId)?.trackNodes;
+	if (!nodes) throw new ReferenceError(`Unknown sequence: ${sequenceId}.`);
+	const groups = trackNodeLaneGroupsV12(project.tracks ?? []);
+	const consumed = new Set<string>();
+	const blocks: Readonly<{ nodeId: string; index: number }>[] = [];
+	let index = 0;
+	for (const trackId of trackIds) {
+		if (consumed.has(trackId)) continue;
+		const span = resolveTrackNodeSpanV12(nodes, trackId, groups);
+		const members = nodes.slice(span.start, span.end);
+		const head = members[0]!;
+		for (const member of members) consumed.add(member.id);
+		blocks.push({ nodeId: head.id, index });
+		index += members.filter(member => member.parentFolderId === head.parentFolderId).length;
+	}
+	return blocks;
 }
