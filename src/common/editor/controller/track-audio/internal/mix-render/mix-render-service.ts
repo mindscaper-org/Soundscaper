@@ -176,7 +176,7 @@ export function createMixRenderService(
 			dependencies.getSelectedClipId(),
 		));
 		if (!targetTracks.length) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.mixRenderRequiresAudio ? 'mixRenderRequiresAudio' : dependencies.copy.audacitySelectionHint ? 'audacitySelectionHint' : 'audioTrackRequired');
-		assertMixRenderPreflight(project, targetTracks, options);
+		assertMixRenderPreflight(project, targetTracks, options, dependencies.copy);
 		const jobs = prepareJobs(project, targetTracks, options);
 		const outputBytes = jobs.reduce((total, job) => total + job.plan.outputBytes, 0);
 		if (!Number.isSafeInteger(outputBytes) || outputBytes < 0) {
