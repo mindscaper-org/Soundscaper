@@ -19,8 +19,8 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 for (const kind of ['audio', 'generator'] as const) test(`${kind} Properties video-frame format preserves native sixty-fps geometry`, async () => {
 	const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: 144_000, channelCount: 1 });
-	const clip = createAudioClip({ id: 'clip', sourceId: source.id, timelineStartFrame: 0, sourceStartFrame: 0,
-		durationFrames: 144_000, sourceDurationFrames: 144_000 });
+	const clip = { ...createAudioClip({ id: 'clip', sourceId: source.id }), timelineStartFrame: 0,
+		sourceStartFrame: 0, durationFrames: 144_000, sourceDurationFrames: 144_000 } satisfies Parameters<typeof clipPropertiesTimeFields>[0]['clip'];
 	let audio = createSoundscaperProjectHistory(createSoundscaperProject({ id: 'audio-clock', sources: [source], clips: [clip],
 		tracks: [createAudioTrack({ id: 'audio', clipIds: [clip.id] })],
 		sequences: [{ id: 'main', rate: { num: 60, den: 1 }, trackIds: ['audio'] }], primarySequenceId: 'main' }));
