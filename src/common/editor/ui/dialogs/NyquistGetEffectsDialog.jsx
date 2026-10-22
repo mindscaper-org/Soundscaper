@@ -29,7 +29,9 @@ export default function NyquistGetEffectsDialog({ copy, onClose }) {
 		const refreshInstalled = () => setInstalled(nyquistArchiveStore.list());
 		globalThis.addEventListener('soundscaper-nyquist-archive-changed', refreshInstalled);
 		void fetchNyquistArchiveManifest({ signal: request.signal }).then((catalog) => {
-			nyquistArchiveStore.updateCatalogMetadata(catalog.artifacts);
+			try { nyquistArchiveStore.updateCatalogMetadata(catalog.artifacts); } catch {
+				// Optional display metadata must not prevent removing installed effects to free storage.
+			}
 			setInstalled(nyquistArchiveStore.list());
 			setManifest(catalog);
 		}).catch((reason) => {
