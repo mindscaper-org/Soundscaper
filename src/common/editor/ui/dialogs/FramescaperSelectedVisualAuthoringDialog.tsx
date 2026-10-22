@@ -214,6 +214,7 @@ function AdjustmentFields({ text, model, blocked, values, setters, onPerform }: 
 }
 
 function MaskFields({ text, model, blocked, values, setters, onPerform }: Parameters<typeof AuthoringFields>[0]) {
+	const editable = !values.maskId || model.maskDrafts.some(mask => mask.id === values.maskId);
 	if (!['video', 'still', 'generator'].includes(model.selectedClipKind ?? '')) {
 		return <p role="alert">{text.selectVisual}</p>;
 	}
@@ -225,16 +226,17 @@ function MaskFields({ text, model, blocked, values, setters, onPerform }: Parame
 			{model.attachedMaskIds.map((id) => <option key={id} value={id}>{id}</option>)}
 		</select></label>
 		<label><span>{text.shape}</span><select data-framescaper-authoring-mask-shape value={values.shape}
+			disabled={!editable}
 			onChange={(event) => setters.setShape(event.currentTarget.value as Values['shape'])}>
 			<option value="rectangle">{text.rectangle}</option><option value="ellipse">{text.ellipse}</option>
 		</select></label>
 		<label><span>{text.width}</span><input data-framescaper-authoring-mask-width type="number" min="0.01"
-			max="1" step="0.01" value={values.maskWidth}
+			max="1" step="0.01" value={values.maskWidth} disabled={!editable}
 			onChange={(event) => setters.setMaskWidth(event.currentTarget.value)} /></label>
 		<label><span>{text.height}</span><input data-framescaper-authoring-mask-height type="number" min="0.01"
-			max="1" step="0.01" value={values.maskHeight}
+			max="1" step="0.01" value={values.maskHeight} disabled={!editable}
 			onChange={(event) => setters.setMaskHeight(event.currentTarget.value)} /></label>
-		<div><button data-framescaper-authoring-apply type="button" onClick={() => onPerform('apply')}>
+		<div><button data-framescaper-authoring-apply type="button" disabled={!editable} onClick={() => onPerform('apply')}>
 			{values.maskId ? text.updateMask : text.createMask}</button>
 		<button data-framescaper-authoring-remove type="button" disabled={!values.maskId}
 			onClick={() => onPerform('remove')}>{text.removeAttachment}</button></div>

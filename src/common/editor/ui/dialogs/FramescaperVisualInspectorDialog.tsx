@@ -158,12 +158,14 @@ export default function FramescaperVisualInspectorDialog({
 								setDraft((current) => ({ ...current, maskId, maskWidth }));
 							}}>
 							<option value="">{label(copy, 'none', 'None')}</option>
+							{draft.maskId && !model.masks.some(mask => mask.id === draft.maskId)
+								&& <option value={draft.maskId}>{draft.maskId}</option>}
 							{model.masks.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
 						</select>
 					</label>
 					<label><span>{label(copy, 'maskWidth', FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY.maskWidth)}</span>
 						<input data-visual-inspector-mask-width type="range" min="0.01" max="1" step="0.01"
-							value={draft.maskWidth} disabled={draft.maskId === null}
+							value={draft.maskWidth} disabled={!model.masks.some(mask => mask.id === draft.maskId)}
 							onChange={(event) => {
 								const maskWidth = event.currentTarget.valueAsNumber;
 								setDraft((current) => ({ ...current, maskWidth }));

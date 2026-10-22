@@ -15,7 +15,7 @@ import { videoFrameToSampleFrame } from '../common/editor/timeline-time.ts';
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
 import { createVideoFreezeFallbackV1 } from '../common/editor/video-freeze-v24.ts';
 import { resolveFramescaperSelectedFreezePictureFinishing } from './editor-selected-finishing-freeze-ordinal.ts';
-import { normalizeVideoMaskMatteGraphV1 } from '../common/editor/video-mask-matte-v24.ts';
+import { authorSelectedMaskShape } from '../common/editor/selected-mask-shape-authoring.ts';
 import { normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
 import {
 	instantiateVideoFinishingPresetV1,
@@ -177,15 +177,8 @@ function maskCommand(project: Data, request: Data): unknown {
 	const shape = oneOf(request.shape, ['rectangle', 'ellipse', 'line'] as const, 'mask shape');
 	const width = bounded(request.width, 0.01, 1, 'mask width');
 	const height = bounded(request.height, 0.01, 1, 'mask height');
-	const nodeId = currentMask && Array.isArray(currentMask.nodes)
-		? stableId(record(currentMask.nodes[0], 'mask node').id, 'mask node ID')
-		: createStableId('mask-node');
-	const mask = normalizeVideoMaskMatteGraphV1({
-		schemaVersion: 1, id: maskId, kind: 'mask', inputs: [],
-		nodes: [{ id: nodeId, kind: 'vector-shape', shape,
-			x: (1 - width) / 2, y: (1 - height) / 2, width, height }],
-		outputNodeId: nodeId,
-	});
+	const mask = authorSelectedMaskShape({ maskId, current: currentMask,
+		nodeId: () => createStableId('mask-node'), shape, width, height });
 	const presentation = currentPresentation
 		? normalizeVideoVisualPresentationV1({ ...currentPresentation,
 			maskMatteIds: [...new Set([...currentPresentation.maskMatteIds, maskId])] })
