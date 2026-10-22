@@ -4,6 +4,7 @@ import { addDeliveryReportItem, type createDeliveryReport } from './delivery-rep
 import { clamp, parameterToLinearGain, parameterToPan } from './dawproject-format.ts';
 import type { DawprojectChannel, DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
 import type { DawprojectAudioEvent, DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
+import { dawprojectImportedVolumeCurve } from './dawproject-import-volume-curve.ts';
 
 /**
  * The structural half of the DAWproject importer: tracks, folders, buses,
@@ -316,18 +317,15 @@ export function applyAutomation(events: readonly DawprojectAutomationEvent[], bu
 			});
 			continue;
 		}
-		const envelope: EnvelopePoint[] = [];
+		const visible = visibleAutomationPoints(event.points);
+		const envelope = dawprojectImportedVolumeCurve(visible, event.unit ?? target.unit, MAXIMUM_ENVELOPE_VALUE);
 		let held = 0;
 		let clamped = 0;
-		for (const point of visibleAutomationPoints(event.points)) {
+		for (const point of visible) {
 			const value = parameterToLinearGain(point.value, event.unit ?? target.unit);
 			if (value === null) continue;
-			const frame = Math.max(0, point.frame);
 			if (value > MAXIMUM_ENVELOPE_VALUE) clamped += 1;
 			if (point.interpolation === 'hold') held += 1;
-			const last = envelope.at(-1);
-			if (last && last.frame >= frame) last.value = clamp(value, 0, MAXIMUM_ENVELOPE_VALUE);
-			else envelope.push({ frame, value: clamp(value, 0, MAXIMUM_ENVELOPE_VALUE) });
 		}
 		if (envelope.length === 0) continue;
 		const owner = target.kind === 'master'
