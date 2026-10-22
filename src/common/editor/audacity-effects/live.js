@@ -29,8 +29,8 @@ import {
 import {
 	ClickRemovalLiveProcessor,
 	EqualizerLiveProcessor,
-	NoiseReductionLiveProcessor,
 } from './live-spectral-processors.js';
+import { RateConvertedNoiseReductionProcessor } from './rate-converted-noise-reduction.ts';
 import { ReverbLiveProcessor } from './reverb-live-processor.ts';
 import {
 	LiveProcessor,
@@ -77,7 +77,7 @@ export function createAudacityLiveProcessor(type, sampleRate, params = {}, optio
 		case 'audacity-graphic-eq': return new EqualizerLiveProcessor(type, sampleRate, normalized);
 		case 'audacity-invert': return new InvertLiveProcessor(sampleRate, normalized);
 		case 'audacity-limiter': return new DynamicsLiveProcessor(type, sampleRate, normalized);
-		case 'audacity-noise-reduction': return new NoiseReductionLiveProcessor(sampleRate, normalized, options.noiseProfile);
+		case 'audacity-noise-reduction': return new RateConvertedNoiseReductionProcessor(sampleRate, normalized, options.noiseProfile);
 		case 'audacity-phaser': return new PhaserLiveProcessor(sampleRate, normalized);
 		case 'audacity-reverb': return new ReverbLiveProcessor(sampleRate, normalized);
 		case 'audacity-classic-filters': return new ClassicFilterLiveProcessor(sampleRate, normalized);

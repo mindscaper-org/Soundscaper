@@ -26,6 +26,7 @@ import { STANDARD_MODULATION_EFFECT_DEFINITIONS } from './first-party-effects/st
 import { NOISE_GATE_EFFECT_DEFINITION, normalizeNoiseGateParams } from './first-party-effects/standard/noise-gate-definition.ts';
 import { STANDARD_DELAY_EFFECT_DEFINITION } from './first-party-effects/standard/delay-definition.ts';
 import { standardEffectTailSeconds } from './first-party-effects/standard/effect-tail.ts';
+import { noiseReductionClockTailFrames, noiseReductionProfileRate } from './audacity-effects/noise-reduction-clock.ts';
 import { delaySelectionPitchMode, delaySelectionDuration } from './first-party-effects/standard/delay-selection-contract.ts';
 import {
 	BITCRUSHER_EFFECT_DEFINITION, BITCRUSHER_EFFECT_TYPE,
@@ -355,6 +356,11 @@ export function effectTailFrames(effect, sampleRate = AUDIO_EDITOR_SAMPLE_RATE, 
 	if (nativeTail !== null) return nativeTail;
 	if (normalized.type === 'eq') return parametricEqTailFrames(normalized.params, sampleRate, automationLanes, normalized.id);
 	if (isAudacityRackEffectType(normalized.type)) {
+		if (normalized.type === 'audacity-noise-reduction') {
+			const profileRate = noiseReductionProfileRate(normalized.context?.noiseProfile, sampleRate);
+			return noiseReductionClockTailFrames(sampleRate, profileRate,
+				audacityLiveEffectTailFrames(normalized.type, profileRate, normalized.params));
+		}
 		return Math.ceil(audacityLiveEffectTailFrames(normalized.type, sampleRate, normalized.params));
 	}
 	const standardTailSeconds = standardEffectTailSeconds(normalized.type, normalized.params, sampleRate);
