@@ -4,6 +4,7 @@
 
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { normalizeCorridorKeyHintSettings } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
 import { ASSISTANCE_BINARY_MAXIMUM_BYTES } from '../src/common/editor/assistance/binary-formats-v1.ts';
 import { validateAssistanceSelectionFence } from '../src/common/editor/assistance/proposal-session.ts';
 import {
@@ -54,12 +55,13 @@ export function createAssistanceOnnxCorridorKeyWorkerAdapterV1(
 	return async context => {
 		assertAssistanceOnnxVisualRuntimeJobV1(context, 'video-keying');
 		assertSettingsAndGrants(context);
+		const hint = Object.hasOwn(context.settings, 'hint') ? normalizeCorridorKeyHintSettings(context.settings.hint) : undefined;
 		const modelPaths = corridorKeyModelPathsFromGrantsV1(context.grant.models);
 		context.signal?.throwIfAborted();
 		const geometry = await inspectStream(context);
 		context.onProgress(0);
 		const runtime = assistanceOnnxRuntimeValueV1(await loadRuntime(context.job.descriptor.entrypoint));
-		const processor = await createProcessor({ runtime, modelPaths, signal: context.signal });
+		const processor = await createProcessor({ runtime, modelPaths, signal: context.signal, hint });
 		let completed = 0;
 		const outputs: AssistanceRuntimeFamilyJobResultV1['outputs'][number][] = [];
 		try {
@@ -96,7 +98,9 @@ export function createAssistanceOnnxCorridorKeyWorkerAdapterV1(
 function assertSettingsAndGrants(context: AssistanceRuntimeFamilyWorkerExecutionContext): void {
 	const { settings, grant } = context;
 	if (settings.schemaVersion !== 1 || settings.operation !== 'video-keying'
-		|| Object.keys(settings).sort().join(',') !== 'inputRoles,operation,outputRoles,schemaVersion,selectionFence'
+		|| Object.keys(settings).sort().join(',') !== (Object.hasOwn(settings, 'hint')
+			? 'hint,inputRoles,operation,outputRoles,schemaVersion,selectionFence'
+			: 'inputRoles,operation,outputRoles,schemaVersion,selectionFence')
 		|| grant.inputs.length < 1 || grant.inputs.length > MAXIMUM_PACKS
 		|| grant.outputs.length !== grant.inputs.length
 		|| grant.inputs.some(input => input.role !== 'frame-pack' || input.mediaType !== MIME

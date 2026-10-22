@@ -4,8 +4,8 @@
   "publicationReady": false,
   "gpuValidated": false,
   "modelId": "corridorkey-2.0",
-  "measuredAt": "2026-10-22T21:25:59.475Z",
-  "validationScope": "Two synthetic 256 by 256 recurrent frames on authenticated Linux x64 production ONNX 1.29 CPU; no desktop GPU or publication evidence.",
+  "measuredAt": "2026-10-22T22:21:21.073Z",
+  "validationScope": "Two synthetic 256 by 256 recurrent frames per mode, without hints and with normal Chroma Key hints, on authenticated Linux x64 production ONNX 1.29 CPU; no desktop GPU or publication evidence.",
   "environment": {
     "target": "linux-x64",
     "node": "v26.5.0",
@@ -45,8 +45,23 @@
     "processorSources": [
       {
         "path": "desktop/assistance-corridorkey-inference.ts",
-        "byteLength": 11553,
-        "sha256": "50dae15248059892212988b2ee30d47a5b8f5dc02cc5c5e881d2545b7ec499e6"
+        "byteLength": 12043,
+        "sha256": "e9bfc69c45728c9a8359e2cf2b0cde5e797b501fb635f761c063c4d2c56f86d7"
+      },
+      {
+        "path": "desktop/assistance-corridorkey-hint.ts",
+        "byteLength": 1332,
+        "sha256": "3b5a467c4369ea97944e8014c46a4de1c454f6c909750ecb50a921bc1f2d4a14"
+      },
+      {
+        "path": "src/common/editor/video-chroma-key.ts",
+        "byteLength": 4965,
+        "sha256": "266d8e82de4f6e7fb50b029ac0613cc88a2f6200c5b6035c947c22c71d475f1f"
+      },
+      {
+        "path": "src/common/editor/assistance/corridorkey-hint-settings.ts",
+        "byteLength": 2102,
+        "sha256": "9e62d88e84fecaea8228c81c3c11caf2f5fcecf84521d5c4bf504f641434a8ea"
       },
       {
         "path": "src/common/editor/assistance/corridorkey-pixels-v1.ts",
@@ -72,13 +87,13 @@
     "runnerSources": [
       {
         "path": "scripts/models/validate-corridorkey-production-cpu-candidate.ts",
-        "byteLength": 13020,
-        "sha256": "496f7422a3e8b0f52ed4fa60493103a4a9e14e7c57ac038054f989ec5c7a9191"
+        "byteLength": 14232,
+        "sha256": "f9212f40826e5ed21762efe2f6809da703df07842c9fd21fb85e079c2a1dfa55"
       },
       {
         "path": "scripts/models/corridorkey-production-cpu-reference.py",
-        "byteLength": 3400,
-        "sha256": "416179e444b4b533bab5ff792dbf4d5c855dc2dd3f40fc191f447a4e99e408bc"
+        "byteLength": 4052,
+        "sha256": "d3c3aa0ab749cf61906e06b98e6cd805d8e911ff0d10e40c261008ee82ffcf6e"
       }
     ]
   },
@@ -183,6 +198,70 @@
       "opaque": 11773
     }
   ],
+  "hintValidation": {
+    "settings": {
+      "settingsVersion": 1,
+      "hintMode": "chroma-key",
+      "keyColor": 65280,
+      "similarity": 0.1,
+      "softness": 0.1,
+      "hintQuality": 0.75
+    },
+    "sessions": [
+      {
+        "fileName": "cradio.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "moge.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "rvm.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "stage1.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "stage2.onnx",
+        "providers": [
+          "cpu"
+        ]
+      }
+    ],
+    "frames": [
+      {
+        "ordinal": 0,
+        "inputRgbaSha256": "4fc6e602002bba5fd86eef3d427b0bbf58488829cda1fe79e9e126dd81681d4c",
+        "referenceRgbaSha256": "401b05b39958ae29233ff8dec8fc3e9c6b0b97ae4fdc189d7f59df99942607b9",
+        "nativeRgbaSha256": "789bb97c9b14283d77ce435e69afce336f224b07389a51c6f96807ec83e4e19a",
+        "maximumRgbaError": 1,
+        "transparent": 51857,
+        "partial": 1867,
+        "opaque": 11812
+      },
+      {
+        "ordinal": 1,
+        "inputRgbaSha256": "4e165b91d05d837922f4409e57576627937180b626d73764fab11b395d27d430",
+        "referenceRgbaSha256": "733579c4ea1ba98a3a65e5b367c8c6d9dfcb90ac63cb77f630dcbbe118d712ca",
+        "nativeRgbaSha256": "ab3597bcc03c521514b6a2a6ecef11b893de0525f421918b0c831ebf0bf2dfbe",
+        "maximumRgbaError": 1,
+        "transparent": 51845,
+        "partial": 1898,
+        "opaque": 11793
+      }
+    ]
+  },
   "invocation": [
     "node",
     "--import",
@@ -201,5 +280,5 @@
     "--output",
     "/home/splowatt/git/Soundscaper-corridorkey-2/evidence/framescaper-corridorkey-production-cpu-candidate.json"
   ],
-  "elapsedSeconds": 32
+  "elapsedSeconds": 42.4
 }

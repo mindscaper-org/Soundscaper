@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { type CorridorKeyHintSettings } from '../../assistance/corridorkey-hint-settings.ts';
+import CorridorKeyHintControls from './CorridorKeyHintControls.tsx';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { resolveLocalAssistanceBridge } from '../../assistance/local-assistance-bridge.ts';
@@ -39,6 +41,7 @@ function CorridorKeyRunDialog({ bridgeScope, controller, copy, locale, onClose }
 	const runtime = framescaperCorridorKeyRuntimeFor(controller);
 	const [progress, setProgress] = useState<VideoKeyingProgress | null>(null);
 	const [error, setError] = useState('');
+	const [hint, setHint] = useState<CorridorKeyHintSettings>({ settingsVersion: 1, hintMode: 'none' });
 	const pending = useRef<AbortController | null>(null);
 	const text = resolveCorridorKeyCopy(locale);
 	useEffect(() => () => { pending.current?.abort(); }, []);
@@ -49,7 +52,7 @@ function CorridorKeyRunDialog({ bridgeScope, controller, copy, locale, onClose }
 		const cancellation = new AbortController(); pending.current = cancellation;
 		setError(''); setProgress({ phase: 'decoding', completed: 0, total: null });
 		try {
-			await runtime.run({ bridge, signal: cancellation.signal,
+			await runtime.run({ bridge, signal: cancellation.signal, hint,
 				onProgress: (value) => { if (!cancellation.signal.aborted) setProgress(value); },
 				preflightModel: async (signal) => {
 					await manager.load(); signal.throwIfAborted();
@@ -74,6 +77,7 @@ function CorridorKeyRunDialog({ bridgeScope, controller, copy, locale, onClose }
 			<Button variant="primary" disabled={!available || progress !== null} onClick={() => { void runKeying(); }}>{text.run}</Button>
 		</>} />}>
 		<p>{text.description}</p><p>{text.supported}</p>
+		<CorridorKeyHintControls settings={hint} onChange={setHint} disabled={progress !== null} text={text} />
 		{!available && <p role="status">{text.unavailable}</p>}
 		{progress && <div role="status"><p>{text[progress.phase]}</p>
 			<progress aria-label={text[progress.phase]} value={progress.completed ?? undefined} max={progress.total ?? undefined} /></div>}

@@ -137,6 +137,7 @@ export async function executeAssistanceOperationWithRuntimeFamily(
 				? { language: options.request.settings.language,
 					voice: options.request.settings.voice, speed: options.request.settings.speed }
 				: { selectionFence: options.request.selectionFence }),
+			...(options.request.operation === 'video-keying' && options.request.settings ? { hint: options.request.settings } : {}),
 			inputRoles: Object.freeze(options.request.inputs.map(({ role }) => role)),
 			outputRoles: Object.freeze(options.request.outputs.map(({ role }) => role)),
 		}),

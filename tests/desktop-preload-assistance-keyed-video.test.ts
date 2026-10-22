@@ -7,6 +7,8 @@ import { readFileSync } from 'node:fs';
 import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
 import type { LocalAssistanceVideoKeyingBridge } from '../src/common/editor/assistance/local-assistance-video-keying-bridge.ts';
 
+import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
+
 const jobId = 'a'.repeat(40); const sha256 = 'b'.repeat(64);
 const frameClaim = { claimVersion: 1 as const, jobId, claimId: 'c'.repeat(40), role: 'keyed-frames' as const,
 	mediaType: 'application/vnd.soundscaper.frame-pack', byteLength: 1024, sha256 };
@@ -52,11 +54,22 @@ test('the actual operation preload admits video-keying and paired keyed-frame re
 	const input = { ...frameClaim, role: 'frame-pack' };
 	const output = { claimVersion: 1, jobId, claimId: 'f'.repeat(40), role: 'keyed-frames',
 		mediaType: frameClaim.mediaType, maximumByteLength: frameClaim.byteLength };
-	await fixture.run({ contractVersion: 1, jobId, operation: 'video-keying', models: [{ modelId: 'corridorkey-2.0',
+	const operation = { contractVersion: 1, jobId, operation: 'video-keying', models: [{ modelId: 'corridorkey-2.0',
 		version: '2.0.0', artifactSha256s: [sha256] }], inputs: [input], outputs: [output],
 		selectionFence: { projectId: 'project', schemaFamily: 'framescaper', schemaVersion: 1, revision: 1,
 			sequenceId: 'sequence', occurrenceIds: ['occurrence'], sourceId: 'source', sourceSha256: sha256,
-			sourceStartFrame: 0, sourceEndFrame: 2, linkMembershipSha256: sha256, timingAuthoritySha256: sha256 } });
+			sourceStartFrame: 0, sourceEndFrame: 2, linkMembershipSha256: sha256, timingAuthoritySha256: sha256 } };
+	await fixture.run(operation);
+	assert.equal(fixture.invocations.length, 1);
+	for (const settings of [CORRIDORKEY_CHROMA_HINT_DEFAULTS, { settingsVersion: 1, hintMode: 'none' }]) {
+		const hinted = await loadPreload([{ contractVersion: 1, jobId, operation: 'video-keying', outcome: 'consent-declined' }]);
+		await hinted.run({ ...operation, settings });
+		assert.deepEqual(JSON.parse(JSON.stringify(hinted.invocations[0]![1])), { ...operation, settings });
+	}
+	for (const settings of [{ ...CORRIDORKEY_CHROMA_HINT_DEFAULTS, softness: -1 },
+		{ ...CORRIDORKEY_CHROMA_HINT_DEFAULTS, path: '/tmp/matte' }, { settingsVersion: 1, hintMode: 'external' }]) {
+		await assert.rejects(fixture.run({ ...operation, settings }));
+	}
 	assert.equal(fixture.invocations.length, 1);
 });
 

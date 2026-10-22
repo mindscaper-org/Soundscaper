@@ -34,11 +34,15 @@ print(json.dumps({"sourceRevision": evidence["register"]["source"]["revision"],
                   "trackedSourceFiles": evidence["trackedSourceFiles"],
                   "environment": {name: importlib.metadata.version(name) for name in ("torch", "numpy")}}), flush=True)
 state = None
-ordinal = 0
+sequence = 0
 for line in sys.stdin:
     request = json.loads(line)
-    if request.get("ordinal") != ordinal or ordinal > 1:
-        raise ValueError("The diagnostic requires exactly two ordered reference frames")
+    ordinal = sequence % 2
+    mode = ("none", "chroma-key")[min(sequence // 2, 1)]
+    if request.get("ordinal") != ordinal or request.get("hintMode") != mode or sequence > 3:
+        raise ValueError("The diagnostic requires two ordered frames per hint mode")
+    if ordinal == 0:
+        state = None
     rgba = np.frombuffer(base64.b64decode(request["rgba"], validate=True), dtype=np.uint8)
     if rgba.size != 256 * 256 * 4:
         raise ValueError("The diagnostic reference geometry must be 256 by 256 RGBA8")
@@ -54,11 +58,19 @@ for line in sys.stdin:
         radio = graphs["cradio"](radio_rgb).unsqueeze(1)
         moge = graphs["moge"](moge_rgb).unsqueeze(1)
         rvm, state = graphs["rvm"](rvm_rgb, state)
-        baton, _ = graphs["stage1"](rgb, torch.zeros(1, 1, 1, 256, 256), moge, radio, rvm, torch.full((1, 1), -1.))
+        hint = torch.zeros(1, 1, 1, 256, 256)
+        quality = -1.
+        if mode == "chroma-key":
+            matte = np.frombuffer(base64.b64decode(request["hint"], validate=True), dtype="<f4").copy()
+            if matte.size != 256 * 256 or not np.isfinite(matte).all() or matte.min() < 0 or matte.max() > 1:
+                raise ValueError("The diagnostic requires an exact finite normalized hint")
+            hint = torch.from_numpy(matte).reshape(1, 1, 1, 256, 256)
+            quality = 0.75
+        baton, _ = graphs["stage1"](rgb, hint, moge, radio, rvm, torch.full((1, 1), quality))
         logits = graphs["stage2"](rgb, baton).squeeze(0).squeeze(0)
         foreground = linear_to_srgb(asinh_to_linear(logits[1:])).clamp(0, 1)
         output = torch.cat((foreground, logits[0:1].clamp(0, 1))).permute(1, 2, 0).mul(255).round().to(torch.uint8).numpy()
     print(json.dumps({"ordinal": ordinal, "rgba": base64.b64encode(output.tobytes()).decode()}), flush=True)
-    ordinal += 1
-if ordinal != 2:
-    raise ValueError("The diagnostic ended before both recurrent reference frames")
+    sequence += 1
+if sequence != 4:
+    raise ValueError("The diagnostic ended before both recurrent frames in both hint modes")

@@ -10,7 +10,7 @@ export async function installCorridorKeyFixture(page) {
 		const jobId = '01'.repeat(20), mediaType = 'application/vnd.soundscaper.frame-pack';
 		const model = { modelId: 'corridorkey-2.0', version: '2.0.0', task: 'video-keying',
 			artifactSha256s: ['ab', 'bc', 'cd', 'de', 'ef'].map((value) => value.repeat(32)) };
-		const state = { events: [], fence: null, inputFrames: 0 };
+		const state = { events: [], fence: null, settings: null, inputFrames: 0 };
 		const bodies = new Map(); const inputs = [];
 		let nextClaim = 1;
 		const id = () => String(nextClaim++).padStart(40, '0');
@@ -24,7 +24,7 @@ export async function installCorridorKeyFixture(page) {
 			stageInput: async ({ bytes }) => { state.events.push('stage'); const key = id(); inputs.push(bytes); bodies.set(key, bytes); return claim(key, 'frame-pack', bytes); },
 			reserveOutput: async (request) => ({ claimVersion: 1, claimId: id(), ...request }),
 			run: async (request) => {
-				state.events.push('run'); state.fence = request.selectionFence;
+				state.events.push('run'); state.fence = request.selectionFence; state.settings = request.settings ?? null;
 				const outputs = [];
 				for (const [index, reservation] of request.outputs.entries()) {
 					const bytes = new Uint8Array(await inputs[index].arrayBuffer()); const view = new DataView(bytes.buffer);

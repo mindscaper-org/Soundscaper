@@ -7,6 +7,9 @@ const ENGLISH = Object.freeze({
 	run: 'Key selected clip', decoding: 'Decoding source frames', running: 'Keying source frames',
 	encoding: 'Encoding transparent video', publishing: 'Adding keyed video to the project',
 	selectVideo: 'Select one video clip to key.',
+	hintTitle: 'Alpha hint', hintEnabled: 'Run Chroma Key first',
+	hintDescription: 'Use the normal Chroma Key matte to guide CorridorKey. The original colors are passed to the model.',
+	hintColor: 'Key color', similarity: 'Similarity', softness: 'Softness', hintQuality: 'Hint strength',
 });
 const GERMAN: Readonly<Record<keyof typeof ENGLISH, string>> = {
 	title: 'CorridorKey 2.0',
@@ -16,5 +19,8 @@ const GERMAN: Readonly<Record<keyof typeof ENGLISH, string>> = {
 	run: 'Ausgewählten Clip freistellen', decoding: 'Quellbilder dekodieren', running: 'Quellbilder freistellen',
 	encoding: 'Transparentes Video kodieren', publishing: 'Freigestelltes Video zum Projekt hinzufügen',
 	selectVideo: 'Wähle einen Videoclip zum Freistellen aus.',
+	hintTitle: 'Alpha-Vorgabe', hintEnabled: 'Zuerst Chroma Key ausführen',
+	hintDescription: 'Verwende die normale Chroma-Key-Maske als Vorgabe für CorridorKey. Das Modell erhält die ursprünglichen Farben.',
+	hintColor: 'Schlüsselfarbe', similarity: 'Ähnlichkeit', softness: 'Weichheit', hintQuality: 'Stärke der Vorgabe',
 };
 export function resolveCorridorKeyCopy(locale: string) { return locale.toLowerCase().startsWith('de') ? GERMAN : ENGLISH; }

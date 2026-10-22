@@ -2,6 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
+import { createChromaKeyMatte } from '../src/common/editor/video-chroma-key.ts';
 
 import {
 	createCorridorKeyOnnxFrameProcessorV1,
@@ -132,6 +134,25 @@ test('five graphs receive exact frame layouts, native resampling, normalized fea
 	assert.equal(held.released.length, 0);
 	await processor.release();
 	assert.deepEqual([...held.released].sort(), [...held.created].sort());
+});
+
+test('Chroma Key hint runs first on original RGB and reflects its matte into the model hint tensor', async () => {
+	const held = fake(); const hint = { ...CORRIDORKEY_CHROMA_HINT_DEFAULTS };
+	const processor = await createCorridorKeyOnnxFrameProcessorV1({ runtime: held.runtime, modelPaths: PATHS, hint });
+	hint.keyColor = 0x0000ff;
+	const frame = raster(9, 9);
+	for (let index = 0; index < frame.rgba.length; index += 4) frame.rgba.set([0, 255, 0, 255], index);
+	for (let y = 3; y < 6; y += 1) for (let x = 3; x < 6; x += 1) frame.rgba.set([255, 0, 0, 255], (y * 9 + x) * 4);
+	const expected = createChromaKeyMatte(frame, CORRIDORKEY_CHROMA_HINT_DEFAULTS);
+	await processor.process(frame);
+	const feeds = held.runs.find(({ role }) => role === 'stage1')!.feeds;
+	assert.deepEqual([...feeds.quality!.data], [0.75]);
+	for (let y = 0; y < 9; y += 1) for (let x = 0; x < 9; x += 1) {
+		assert.equal(feeds.hint!.data[(y + 123) * 256 + x + 123], expected[y * 9 + x]);
+	}
+	assert.equal(feeds.hint!.data[123 * 256 + 122], expected[1], 'hint reflection excludes the edge pixel');
+	assert.equal(feeds.rgb!.data[127 * 256 + 127], Math.fround(Math.asinh(1 / 0.008) / Math.asinh(16 / 0.008)), 'the original red subject remains the model input');
+	await processor.release();
 });
 
 test('concurrent process calls serialize the recurrent stream and retain state without sharing output buffers', async () => {

@@ -2,6 +2,7 @@
 
 /** Strict renderer-owned projection of the pathless desktop inference bridge. */
 
+import { normalizeCorridorKeyHintSettings, type CorridorKeyHintSettings } from './corridorkey-hint-settings.ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
@@ -88,7 +89,7 @@ export interface LocalAssistanceRunRequest {
 	readonly jobId: string;
 	readonly operation: AssistanceOperation;
 	readonly selectionFence: AssistanceSelectionFence | null;
-	readonly settings?: TextToSpeechBridgeSettings;
+	readonly settings?: TextToSpeechBridgeSettings | CorridorKeyHintSettings;
 	readonly models: readonly Readonly<Pick<LocalAssistanceModel,
 		'modelId' | 'version' | 'artifactSha256s'>>[];
 	readonly inputs: readonly LocalAssistanceInputClaim[];
@@ -320,9 +321,11 @@ function normalizeRunRequest(value: unknown): LocalAssistanceRunRequest {
 		throw new TypeError('An assistance operation needs exact job-bound input and output claims.');
 	}
 	assertOperationRoles(operation, inputs, outputs);
-	const speech = operation === 'text-to-speech' ? normalizeTextToSpeechBridgeFields(record) : null; if (!speech && Object.hasOwn(record, 'settings')) throw new TypeError('This operation does not admit speech settings.');
+	const speech = operation === 'text-to-speech' ? normalizeTextToSpeechBridgeFields(record) : null;
+	const settings = speech?.settings ?? (operation === 'video-keying' && Object.hasOwn(record, 'settings') ? normalizeCorridorKeyHintSettings(record.settings) : undefined);
+	if (!settings && Object.hasOwn(record, 'settings')) throw new TypeError('This operation does not admit settings.');
 	return Object.freeze({ contractVersion: 1, jobId: expectedJobId, operation,
-		selectionFence: speech ? speech.selectionFence : validateAssistanceSelectionFence(record.selectionFence), ...(speech ? { settings: speech.settings } : {}), models,
+		selectionFence: speech ? speech.selectionFence : validateAssistanceSelectionFence(record.selectionFence), ...(settings ? { settings } : {}), models,
 		inputs: Object.freeze(inputs), outputs: Object.freeze(outputs) });
 }
 

@@ -11,6 +11,8 @@ import { createInterface } from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
+import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../../src/common/editor/assistance/corridorkey-hint-settings.ts';
+import { createChromaKeyMatte } from '../../src/common/editor/video-chroma-key.ts';
 import { createCorridorKeyOnnxFrameProcessorV1 } from '../../desktop/assistance-corridorkey-inference.ts';
 import { CORRIDORKEY_GRAPH_ARTIFACTS_V1 } from '../../desktop/assistance-corridorkey-model.ts';
 import { createAssistanceOnnxAcceleratedRuntimeV1 } from '../../desktop/assistance-onnx-acceleration.ts';
@@ -124,7 +126,7 @@ async function main(): Promise<void> {
 	} } };
 	// This explicit CPU diagnostic certifies schema/kernel compatibility, never GPU execution.
 	const runtime = createAssistanceOnnxAcceleratedRuntimeV1(observed, { executionProviders: ['cpu'] });
-	const processor = await createCorridorKeyOnnxFrameProcessorV1({ runtime, modelPaths });
+	let processor: Awaited<ReturnType<typeof createCorridorKeyOnnxFrameProcessorV1>> | undefined;
 	const child = spawn(options.get('--python')!, ['-u', '-B', join(root, referenceHelper), options.get('--source-root')!, join(root, sourceRegister)],
 		{ env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }, stdio: ['pipe', 'pipe', 'inherit'] });
 	child.stdin.on('error', () => {});
@@ -141,49 +143,59 @@ async function main(): Promise<void> {
 	};
 	const referenceDigest = createHash('sha256');
 	const frames: Record<string, number | string>[] = [];
+	const hintedFrames: Record<string, number | string>[] = [];
 	let reference: ReferenceIdentity;
 	try {
 		reference = await next<ReferenceIdentity>();
 		for (const name of ['torch', 'numpy']) if (reference.environment[name] !== conversion.environment[name]) throw new Error('Source reference environment differs from the locked conversion.');
-		for (let ordinal = 0; ordinal < 2; ordinal += 1) {
-			const rgba = createCorridorKeyCpuDiagnosticFrameV1(ordinal);
-			const result = await processor.process({ width: 256, height: 256, rgba });
-			await new Promise<void>((resolveWrite, reject) => child.stdin.write(JSON.stringify({ ordinal, rgba: Buffer.from(rgba).toString('base64') }) + '\n', error => error ? reject(error) : resolveWrite()));
-			const reply = await next<{ readonly ordinal: number; readonly rgba: string }>();
-			const expected = Buffer.from(reply.rgba, 'base64');
-			if (reply.ordinal !== ordinal || expected.length !== rgba.length) throw new Error('Source reference frame identity/geometry differs.');
-			referenceDigest.update(expected);
-			let maximumRgbaError = 0, transparent = 0, partial = 0, opaque = 0;
-			for (let index = 0; index < rgba.length; index += 1) {
-				maximumRgbaError = Math.max(maximumRgbaError, Math.abs(result.rgba[index]! - expected[index]!));
-				if (index % 4 === 3) {
-					const alpha = result.rgba[index]!;
-					if (alpha === 0) transparent += 1; else if (alpha === 255) opaque += 1; else partial += 1;
+		for (const mode of ['none', 'chroma-key'] as const) {
+			processor = await createCorridorKeyOnnxFrameProcessorV1({ runtime, modelPaths,
+				hint: mode === 'chroma-key' ? CORRIDORKEY_CHROMA_HINT_DEFAULTS : undefined });
+			for (let ordinal = 0; ordinal < 2; ordinal += 1) {
+				const rgba = createCorridorKeyCpuDiagnosticFrameV1(ordinal);
+				const matte = mode === 'chroma-key' ? createChromaKeyMatte({ width: 256, height: 256, rgba }, CORRIDORKEY_CHROMA_HINT_DEFAULTS) : undefined;
+				const result = await processor.process({ width: 256, height: 256, rgba });
+				await new Promise<void>((resolveWrite, reject) => child.stdin.write(JSON.stringify({ ordinal, hintMode: mode, rgba: Buffer.from(rgba).toString('base64'),
+					hint: matte ? Buffer.from(matte.buffer).toString('base64') : undefined }) + '\n', error => error ? reject(error) : resolveWrite()));
+				const reply = await next<{ readonly ordinal: number; readonly rgba: string }>();
+				const expected = Buffer.from(reply.rgba, 'base64');
+				if (reply.ordinal !== ordinal || expected.length !== rgba.length) throw new Error('Source reference frame identity/geometry differs.');
+				if (mode === 'none') referenceDigest.update(expected);
+				let maximumRgbaError = 0, transparent = 0, partial = 0, opaque = 0;
+				for (let index = 0; index < rgba.length; index += 1) {
+					maximumRgbaError = Math.max(maximumRgbaError, Math.abs(result.rgba[index]! - expected[index]!));
+					if (index % 4 === 3) {
+						const alpha = result.rgba[index]!;
+						if (alpha === 0) transparent += 1; else if (alpha === 255) opaque += 1; else partial += 1;
+					}
 				}
+				if (maximumRgbaError > 1) throw new Error(`Production/source RGBA parity exceeded one byte: ${maximumRgbaError}`);
+				(mode === 'none' ? frames : hintedFrames).push({ ordinal, inputRgbaSha256: sha256(rgba), referenceRgbaSha256: sha256(expected), nativeRgbaSha256: sha256(result.rgba),
+					maximumRgbaError, transparent, partial, opaque });
+				console.error(`Production CPU ${mode} frame ${ordinal} passed with maximum RGBA error ${maximumRgbaError}.`);
 			}
-			if (maximumRgbaError > 1) throw new Error(`Production/source RGBA parity exceeded one byte: ${maximumRgbaError}`);
-			frames.push({ ordinal, inputRgbaSha256: sha256(rgba), referenceRgbaSha256: sha256(expected), nativeRgbaSha256: sha256(result.rgba),
-				maximumRgbaError, transparent, partial, opaque });
-			console.error(`Production CPU frame ${ordinal} passed with maximum RGBA error ${maximumRgbaError}.`);
+			await processor.release(); processor = undefined;
 		}
 	} finally {
 		child.stdin.end();
-		await processor.release();
+		await processor?.release();
 	}
 	await exit;
-	const processorSources = ['desktop/assistance-corridorkey-inference.ts', 'src/common/editor/assistance/corridorkey-pixels-v1.ts',
+	const processorSources = ['desktop/assistance-corridorkey-inference.ts', 'desktop/assistance-corridorkey-hint.ts',
+		'src/common/editor/video-chroma-key.ts', 'src/common/editor/assistance/corridorkey-hint-settings.ts', 'src/common/editor/assistance/corridorkey-pixels-v1.ts',
 		'desktop/assistance-onnx-acceleration.ts', 'desktop/assistance-onnx-visual-tensors.ts', 'desktop/assistance-onnx-visual-worker-common.ts'];
 	const report = {
 		schemaVersion: 1, status: 'local-production-engine-cpu-parity-passed', publicationReady: false, gpuValidated: false,
 		modelId: 'corridorkey-2.0', measuredAt: new Date().toISOString(),
-		validationScope: 'Two synthetic 256 by 256 recurrent frames on authenticated Linux x64 production ONNX 1.29 CPU; no desktop GPU or publication evidence.',
+		validationScope: 'Two synthetic 256 by 256 recurrent frames per mode, without hints and with normal Chroma Key hints, on authenticated Linux x64 production ONNX 1.29 CPU; no desktop GPU or publication evidence.',
 		environment: { target: 'linux-x64', node: process.version, runtimeVersion: '1.29.0' },
 		runtime: { provider: 'cpu', snapshot: { ...await pin(snapshotPath), sourceRevision: expectedSnapshot.sourceRevision }, archive: bundle.archive, fileCount: bundle.files.length },
 		provenance: { conversionReport: await pin(conversionPath), sourceRegister: await pin(sourceRegister), toolchainLock: await pin(`${toolRoot}/uv.lock`),
 			processorSources: await Promise.all(processorSources.map(pin)), runnerSources: await Promise.all([runner, referenceHelper].map(pin)) },
 		reference: { ...reference, fixture: { name: 'moving-ellipse-green-screen-rgba8-v1', width: 256, height: 256, frameCount: 2,
 			referenceRgbaSha256: referenceDigest.digest('hex') } },
-		graphs: CORRIDORKEY_GRAPH_ARTIFACTS_V1, sessions, frames,
+		graphs: CORRIDORKEY_GRAPH_ARTIFACTS_V1, sessions: sessions.slice(0, 5), frames,
+		hintValidation: { settings: CORRIDORKEY_CHROMA_HINT_DEFAULTS, sessions: sessions.slice(5), frames: hintedFrames },
 		invocation: ['node', '--import', 'tsx', runner, ...args], elapsedSeconds: Math.round((performance.now() - started) / 100) / 10,
 	};
 	await writeFile(options.get('--output')!, JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });

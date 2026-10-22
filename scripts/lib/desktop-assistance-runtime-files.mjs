@@ -4,6 +4,7 @@
 export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'desktop/assistance-acceleration-entrypoints.js',
 	'desktop/assistance-cleanup-barrier.js',
+	'desktop/assistance-corridorkey-hint.js',
 	'desktop/assistance-corridorkey-inference.js',
 	'desktop/assistance-corridorkey-model.js',
 	'desktop/assistance-runtime-family-cancellation.js',
@@ -133,6 +134,8 @@ export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/assistance/async-search-provider.js',
 	'src/common/editor/assistance/binary-formats-v1.js',
 	'src/common/editor/assistance/ctc-forced-alignment-v1.js',
+	'src/common/editor/video-chroma-key.js',
+	'src/common/editor/assistance/corridorkey-hint-settings.js',
 	'src/common/editor/assistance/corridorkey-pixels-v1.js',
 	'src/common/editor/assistance/deepfilternet3-signal-v1.js',
 	'src/common/editor/assistance/disfluency.js',

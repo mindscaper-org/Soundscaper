@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createLocalAssistanceVideoKeyingWorkflow } from '../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-workflow.ts';
 import { createAssistanceVisualFramePackV2 } from '../src/common/editor/assistance/visual-frame-pack-v2.ts';
-import type { LocalAssistanceBridge, LocalAssistanceOutputClaim } from '../src/common/editor/assistance/local-assistance-bridge.ts';
+import type { LocalAssistanceBridge, LocalAssistanceOutputClaim, LocalAssistanceRunRequest } from '../src/common/editor/assistance/local-assistance-bridge.ts';
 import type { LocalAssistanceVideoKeyingRun } from '../src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-publication.ts';
 import { digestMediaContent } from '../src/common/editor/storage/media-content-digest.ts';
+
+import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
 
 const TYPE = 'application/vnd.soundscaper.frame-pack';
 const JOB = '01'.repeat(20);
@@ -26,6 +28,7 @@ function pack(first: number, tick = first) {
 }
 function harness(capturedRun: LocalAssistanceVideoKeyingRun = run) {
 	const events: string[] = [];
+	const requests: LocalAssistanceRunRequest[] = [];
 	let stale = false;
 	let failModel = false;
 	let wrongOutput = false;
@@ -40,7 +43,7 @@ function harness(capturedRun: LocalAssistanceVideoKeyingRun = run) {
 			byteLength: value.bytes.size, sha256: await digestMediaContent(value.bytes) }; },
 		async reserveOutput(value) { return { claimVersion: 1, claimId: String(10 + inputs.length).padStart(40, '0'),
 			jobId: JOB, role: 'keyed-frames', mediaType: TYPE, maximumByteLength: value.maximumByteLength }; },
-		async run(request) { events.push('run'); abortedRun?.();
+		async run(request) { requests.push(request); events.push('run'); abortedRun?.();
 			if (declined) return { contractVersion: 1, jobId: JOB, operation: 'video-keying', outcome: 'consent-declined' };
 			for (let index = 0; index < request.outputs.length; index += 1) {
 				const output = request.outputs[index]!; const body = wrongOutput && index === 1 ? pack(1, 2) : inputs[index]!;
@@ -60,7 +63,7 @@ function harness(capturedRun: LocalAssistanceVideoKeyingRun = run) {
 		encodeAlphaWebm: async () => { events.push('encode'); return { body: new Blob(['webm'], { type: 'video/webm' }),
 			sha256: 'ab'.repeat(32), modelId: MODEL.modelId, modelVersion: MODEL.version }; },
 	});
-	return { workflow, events, setStale() { stale = true; }, setNoModel() { failModel = true; },
+	return { workflow, events, requests, setStale() { stale = true; }, setNoModel() { failModel = true; },
 		setWrongOutput() { wrongOutput = true; }, setDeclined() { declined = true; }, onRun(callback: () => void) { abortedRun = callback; } };
 }
 
@@ -106,4 +109,17 @@ test('a selection changed while inference runs prevents output reads and publica
 	const fixture = harness(); fixture.onRun(() => fixture.setStale());
 	await assert.rejects(fixture.workflow.run(), /stale/u);
 	assert.deepEqual(fixture.events, ['stage', 'stage', 'run', 'unsubscribe', 'release']);
+});
+
+test('keying snapshots hint controls before preparing frames and preserves default no-hint requests', async () => {
+	const fixture = harness(); const hint = { ...CORRIDORKEY_CHROMA_HINT_DEFAULTS };
+	const pending = fixture.workflow.run({ hint }); hint.keyColor = 0x0000ff;
+	await pending;
+	assert.deepEqual(fixture.requests[0]!.settings, CORRIDORKEY_CHROMA_HINT_DEFAULTS);
+	const normal = harness(); await normal.workflow.run();
+	assert.equal(Object.hasOwn(normal.requests[0]!, 'settings'), false);
+	const invalid = harness();
+	await assert.rejects(invalid.workflow.run({ hint: { ...hint, softness: -1 } }), /hint|softness/iu);
+	assert.deepEqual(invalid.events, []);
+	await invalid.workflow.run();
 });

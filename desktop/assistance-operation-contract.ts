@@ -14,6 +14,8 @@ import {
 	type AssistanceOutputReservation,
 	type AssistanceStagedInputClaim,
 } from './assistance-data-claims.ts';
+import { normalizeCorridorKeyHintSettings, type CorridorKeyHintSettings } from
+	'../src/common/editor/assistance/corridorkey-hint-settings.ts';
 import { HELPER_DATA_PLANE_MAXIMUM_BYTES } from './helper-data-plane.ts';
 import { assertHelperWireEnvelope } from './helper-wire-admission.ts';
 import {
@@ -59,7 +61,8 @@ export type AssistanceOperationRequest = {
 		? { readonly settings?: AssistanceSpeechRecognitionSettingsV1 }
 		: Operation extends 'text-to-speech'
 			? { readonly settings: AssistanceTextToSpeechSettingsV1 }
-			: { readonly settings?: never })>;
+			: Operation extends 'video-keying' ? { readonly settings?: CorridorKeyHintSettings }
+				: { readonly settings?: never })>;
 }[AssistanceOperation];
 
 export interface AssistanceOperationModelBinding {
@@ -182,11 +185,12 @@ function validateOperationSettings(
 	operation: AssistanceOperation,
 	value: unknown,
 	present: boolean,
-): AssistanceSpeechRecognitionSettingsV1 | AssistanceTextToSpeechSettingsV1 | undefined {
+): AssistanceSpeechRecognitionSettingsV1 | AssistanceTextToSpeechSettingsV1 | CorridorKeyHintSettings | undefined {
 	if (!present) {
 		if (operation === 'text-to-speech') throw new TypeError('Text-to-speech settings are required.');
 		return undefined;
 	}
+	if (operation === 'video-keying') return normalizeCorridorKeyHintSettings(value);
 	if (operation === 'text-to-speech') {
 		const record = exactRecord(value, TEXT_TO_SPEECH_SETTINGS_KEYS, 'Text-to-speech settings');
 		if (record.settingsVersion !== 1) throw new TypeError('The text-to-speech settings version is unsupported.');

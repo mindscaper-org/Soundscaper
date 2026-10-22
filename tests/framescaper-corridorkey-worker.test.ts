@@ -17,6 +17,8 @@ import { createAssistanceVisualFramePackV2, reviewAssistanceVisualFramePackV2 } 
 	'../src/common/editor/assistance/visual-frame-pack-v2.ts';
 
 const MIME = 'application/vnd.soundscaper.frame-pack';
+import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
+
 const JOB_ID = '1'.repeat(40);
 const IDENTITY = { dev: '1', ino: '2' };
 const digest = (body: Uint8Array): string => createHash('sha256').update(body).digest('hex');
@@ -221,4 +223,15 @@ test('processing failures and cancellation release the continuous processor befo
 			/inference failed|aborted|geometry/iu);
 		assert.equal(releases, 1);
 	}
+});
+
+test('the worker forwards validated keyer hints and refuses malformed hints before loading its engine', async context => {
+	const held = await fixture(context); const selected = adapter();
+	const settings = { ...held.execution.settings, hint: { ...CORRIDORKEY_CHROMA_HINT_DEFAULTS } };
+	await selected.worker({ ...held.execution, settings });
+	assert.deepEqual(selected.state().options?.hint, CORRIDORKEY_CHROMA_HINT_DEFAULTS);
+	const invalid = adapter();
+	await assert.rejects(invalid.worker({ ...held.execution,
+		settings: { ...settings, hint: { ...settings.hint, hintQuality: 2 } } }), /hint/iu);
+	assert.equal(invalid.state().creates, 0);
 });

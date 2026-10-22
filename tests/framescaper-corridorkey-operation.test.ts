@@ -19,6 +19,8 @@ import { assistanceRuntimeFamilyTaskAdmitted } from '../desktop/assistance-runti
 import { AssistanceStagingRegistry } from '../desktop/assistance-staging-registry.ts';
 import { createAssistanceOperationService, type AssistanceOperationServiceOptions } from '../desktop/assistance-operation-service.ts';
 
+import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
+
 const JOB_ID = '1'.repeat(40);
 const MIME = 'application/vnd.soundscaper.frame-pack';
 
@@ -104,6 +106,7 @@ test('the operation service resolves five exact graph roles and authenticates ev
 		additionalRuntime: { run: async selected => {
 			calls += 1;
 			assert.equal(selected.task, 'video-keying');
+			assert.deepEqual(selected.settings.hint, CORRIDORKEY_CHROMA_HINT_DEFAULTS);
 			assert.deepEqual(selected.models.map(model => model.artifactRole), artifacts.map(artifact => artifact.role));
 			const outputs = await Promise.all(selected.outputs.map(async output => {
 				const body = Buffer.alloc(output.reservation.maximumByteLength, 7);
@@ -125,7 +128,7 @@ test('the operation service resolves five exact graph roles and authenticates ev
 		outputs.push(await service.reserveOutput({ jobId, role: 'keyed-frames', mediaType: MIME,
 			maximumByteLength: byteLength }));
 	}
-	const result = await service.run({ ...request(), jobId, inputs, outputs });
+	const result = await service.run({ ...request(), jobId, inputs, outputs, settings: CORRIDORKEY_CHROMA_HINT_DEFAULTS });
 	assert.equal(result.outcome, 'completed');
 	if (result.outcome !== 'completed') throw new Error('Expected authenticated keying completion');
 	assert.equal(result.result.outputs.length, 2);
@@ -134,4 +137,18 @@ test('the operation service resolves five exact graph roles and authenticates ev
 	}
 	assert.equal(calls, 1);
 	await service.release(jobId);
+});
+
+test('keying accepts only closed normal-keyer hint settings and snapshots the controls', () => {
+	const settings = { ...CORRIDORKEY_CHROMA_HINT_DEFAULTS };
+	const admitted = validateAssistanceOperationRequest({ ...request(), settings });
+	assert.equal(admitted.operation, 'video-keying');
+	assert.deepEqual(admitted.settings, settings);
+	assert.ok(Object.isFrozen(admitted.settings));
+	settings.keyColor = 0x0000ff;
+	assert.deepEqual(admitted.settings, CORRIDORKEY_CHROMA_HINT_DEFAULTS);
+	for (const settings of [{ ...CORRIDORKEY_CHROMA_HINT_DEFAULTS, path: '/tmp/matte' },
+		{ ...CORRIDORKEY_CHROMA_HINT_DEFAULTS, hintQuality: NaN }, { settingsVersion: 1, hintMode: 'external' }]) {
+		assert.throws(() => validateAssistanceOperationRequest({ ...request(), settings }), /hint|settings|finite/iu);
+	}
 });

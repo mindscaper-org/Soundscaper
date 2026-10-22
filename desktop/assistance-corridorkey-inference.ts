@@ -13,6 +13,8 @@ import type {
 	AssistanceOnnxTensorV1,
 } from './assistance-onnx-runtime-worker.ts';
 import { exactAssistanceFloatTensorV1 } from './assistance-onnx-visual-tensors.ts';
+import { normalizeCorridorKeyHintSettings, type CorridorKeyHintSettings } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
+import { createCorridorKeyHint } from './assistance-corridorkey-hint.ts';
 import {
 	assistanceOnnxRuntimeValueV1,
 	createAssistanceOnnxVisualSessionV1,
@@ -35,6 +37,7 @@ export interface CorridorKeyOnnxFrameProcessorOptionsV1 {
 	/** Paths already admitted against the caller's exact model artifact identities. */
 	readonly modelPaths: Readonly<Record<GraphRole, string>>;
 	readonly signal?: AbortSignal;
+	readonly hint?: CorridorKeyHintSettings;
 }
 
 export interface CorridorKeyOnnxFrameProcessorV1 {
@@ -46,7 +49,7 @@ export interface CorridorKeyOnnxFrameProcessorV1 {
 
 /**
  * T=1 is the upstream low-memory execution mode: RVM retains temporal state,
- * while stage one and stage two process one frame with no hint (quality -1).
+ * Stage one accepts either no hint or the normal Chroma Key matte for each frame.
  * Shared session creation supplies baseline options to the caller's GPU wrapper,
  * which alone selects authenticated accelerators and manages CPU fallback.
  */
@@ -59,6 +62,7 @@ export async function createCorridorKeyOnnxFrameProcessorV1(
 	}
 	const runtime = assistanceOnnxRuntimeValueV1(options.runtime);
 	const signal = options.signal;
+	const hintSettings = normalizeCorridorKeyHintSettings(options.hint ?? { settingsVersion: 1, hintMode: 'none' });
 	const roles = Object.keys(GRAPH_SIGNATURES) as GraphRole[];
 	const paths = {} as Record<GraphRole, string>;
 	for (const role of roles) {
@@ -164,6 +168,7 @@ export async function createCorridorKeyOnnxFrameProcessorV1(
 	async function infer(frame: CorridorKeyRasterV1): Promise<CorridorKeyRasterV1> {
 		signal?.throwIfAborted();
 		const prepared = prepareCorridorKeyPixelsV1(frame);
+		const hint = createCorridorKeyHint(frame, prepared, hintSettings);
 		const geometry = `${prepared.width}x${prepared.height}`;
 		if (nativeGeometry !== null && nativeGeometry !== geometry) {
 			throw new RangeError('CorridorKey stream native geometry cannot change between frames.');
@@ -188,11 +193,11 @@ export async function createCorridorKeyOnnxFrameProcessorV1(
 		const nextState = exactAssistanceFloatTensorV1(recurrent.state_out, stateDims, 'CorridorKey RVM state');
 		const rgb = tensor(prepared.modelRgb, [1, 1, 3, h, w]);
 		const first = await run('stage1', { rgb,
-			hint: tensor(new Float32Array(h * w), [1, 1, 1, h, w]),
+			hint: tensor(hint, [1, 1, 1, h, w]),
 			moge: tensor(mogeData, [1, 1, 768, gh, gw]),
 			cradio: tensor(cradioData, [1, 1, 1152, gh, gw]),
 			rvm: tensor(recurrentData, [1, 1, 384, gh, gw]),
-			quality: tensor(new Float32Array([-1]), [1, 1]),
+			quality: tensor(new Float32Array([hintSettings.hintMode === 'none' ? -1 : hintSettings.hintQuality]), [1, 1]),
 		});
 		const baton = exactAssistanceFloatTensorV1(first.baton, [1, 1, 512, h / 16, w / 16], 'CorridorKey baton');
 		exactAssistanceFloatTensorV1(first.aux, [1, 1, 4, h / 2, w / 2], 'CorridorKey auxiliary output');

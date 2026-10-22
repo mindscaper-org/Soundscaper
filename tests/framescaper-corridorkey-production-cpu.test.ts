@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import test from 'node:test';
 
+import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
 import { CORRIDORKEY_GRAPH_ARTIFACTS_V1 } from '../desktop/assistance-corridorkey-model.ts';
 import { validateAssistanceRuntimeDistribution } from '../desktop/assistance-runtime-distribution.ts';
 import { createCorridorKeyCpuDiagnosticFrameV1 } from '../scripts/models/validate-corridorkey-production-cpu-candidate.ts';
@@ -30,6 +31,7 @@ interface CpuReport {
 	readonly frames: readonly { readonly ordinal: number; readonly inputRgbaSha256: string; readonly referenceRgbaSha256: string;
 		readonly nativeRgbaSha256: string; readonly maximumRgbaError: number;
 		readonly transparent: number; readonly partial: number; readonly opaque: number }[];
+	readonly hintValidation: { readonly settings: typeof CORRIDORKEY_CHROMA_HINT_DEFAULTS; readonly sessions: CpuReport['sessions']; readonly frames: CpuReport['frames'] };
 	readonly invocation: readonly string[];
 }
 
@@ -104,4 +106,22 @@ test('measured source reference records two recurrent frames with soft alpha and
 	assert.equal(measured.invocation.slice(0, 4).join(' '), 'node --import tsx scripts/models/validate-corridorkey-production-cpu-candidate.ts');
 	for (const flag of ['--runtime-root', '--model-root', '--source-root', '--python', '--output']) assert.ok(measured.invocation.includes(flag));
 	assert.throws(() => createCorridorKeyCpuDiagnosticFrameV1(2), /exactly two/iu);
+});
+
+test('production CPU evidence also measures normal-keyer hint inference against the publisher reference', async () => {
+	const measured = await report();
+	assert.deepEqual(measured.hintValidation.settings, CORRIDORKEY_CHROMA_HINT_DEFAULTS);
+	assert.deepEqual(measured.hintValidation.sessions, measured.sessions);
+	assert.deepEqual(measured.hintValidation.frames.map(frame => frame.ordinal), [0, 1]);
+	for (const frame of measured.hintValidation.frames) {
+		assert.equal(frame.inputRgbaSha256, digest(createCorridorKeyCpuDiagnosticFrameV1(frame.ordinal)));
+		assert.ok(frame.maximumRgbaError >= 0 && frame.maximumRgbaError <= 1);
+		assert.ok(frame.transparent > 0 && frame.partial > 0 && frame.opaque > 0);
+		assert.equal(frame.transparent + frame.partial + frame.opaque, 256 * 256);
+		assert.notEqual(frame.nativeRgbaSha256, measured.frames[frame.ordinal]!.nativeRgbaSha256);
+	}
+	for (const path of ['desktop/assistance-corridorkey-hint.ts', 'src/common/editor/video-chroma-key.ts',
+		'src/common/editor/assistance/corridorkey-hint-settings.ts']) {
+		assert.ok(measured.provenance.processorSources.some(pin => pin.path === path));
+	}
 });

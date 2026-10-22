@@ -2,6 +2,7 @@
 
 import type { LocalAssistanceBridge, LocalAssistanceModel, LocalAssistanceOutputClaim,
 	LocalAssistanceOutputReservation } from '../../../../assistance/local-assistance-bridge.ts';
+import { normalizeCorridorKeyHintSettings, type CorridorKeyHintSettings } from '../../../../assistance/corridorkey-hint-settings.ts';
 import { reviewAssistanceVisualFramePackV2 } from '../../../../assistance/visual-frame-pack-v2.ts';
 import { canonicalMediaContentBlob, digestMediaContent } from '../../../../storage/media-content-digest.ts';
 import type { LocalAssistanceKeyedVideoResult, LocalAssistanceVideoKeyingPublication,
@@ -19,6 +20,7 @@ export interface VideoKeyingProgress {
 	readonly total: number | null;
 }
 export interface VideoKeyingWorkflowOptions {
+	readonly hint?: CorridorKeyHintSettings;
 	readonly signal?: AbortSignal;
 	readonly onProgress?: (value: VideoKeyingProgress) => void;
 }
@@ -46,6 +48,7 @@ export function createLocalAssistanceVideoKeyingWorkflow(dependencies: LocalAssi
 	let active = false;
 	return Object.freeze({ async run(options: VideoKeyingWorkflowOptions = {}): Promise<Readonly<{ sourceId: string }>> {
 		if (active) throw new Error('CorridorKey is already processing a source.');
+		const hint = options.hint === undefined ? undefined : normalizeCorridorKeyHintSettings(options.hint);
 		active = true;
 		const signal = options.signal ?? new AbortController().signal;
 		let jobId: string | null = null;
@@ -109,7 +112,7 @@ export function createLocalAssistanceVideoKeyingWorkflow(dependencies: LocalAssi
 			if (count !== captured.sourceFrameCount || packs.length === 0) throw new RangeError('CorridorKey preparation omitted source frames.');
 			assertCurrent();
 			const outcome = await dependencies.bridge.run({ contractVersion: 1, jobId, operation: 'video-keying',
-				selectionFence: captured.selectionFence, models: [{ modelId: model.modelId, version: model.version,
+				selectionFence: captured.selectionFence, ...(hint ? { settings: hint } : {}), models: [{ modelId: model.modelId, version: model.version,
 					artifactSha256s: model.artifactSha256s }], inputs, outputs });
 			assertCurrent();
 			if (outcome.outcome !== 'completed') throw new Error(outcome.outcome === 'unavailable'
