@@ -177,10 +177,7 @@ function matchesEncodedContainer(format: string, bytes: Uint8Array): boolean {
 	if (format === 'wavpack') return ascii(bytes, 0, 4) === 'wvpk';
 	if (format === 'aac-m4a') return ascii(bytes, 4, 4) === 'ftyp' && hasAacSampleEntry(bytes);
 	if (format === 'opus' || format === 'ogg-vorbis') {
-		if (ascii(bytes, 0, 4) !== 'OggS' || bytes.byteLength < 28) return false;
-		const offset = 27 + bytes[26]!;
-		return format === 'opus' ? ascii(bytes, offset, 8) === 'OpusHead'
-			: bytes[offset] === 1 && ascii(bytes, offset + 1, 6) === 'vorbis';
+		return oggAudioFormat(bytes) === format;
 	}
 	if (format === 'mp3' || format === 'mp2') {
 		const offset = id3Offset(bytes);
@@ -190,6 +187,27 @@ function matchesEncodedContainer(format: string, bytes: Uint8Array): boolean {
 		return layer === (format === 'mp3' ? 1 : 2) && inspectEncodedAudioSampleRate(bytes) !== null;
 	}
 	return false;
+}
+
+/** Auxiliary BOS streams do not identify the imported programme's codec. */
+function oggAudioFormat(bytes: Uint8Array): 'opus' | 'ogg-vorbis' | null {
+	for (let offset = 0; offset + 27 <= bytes.length;) {
+		if (ascii(bytes, offset, 4) !== 'OggS' || bytes[offset + 4] !== 0 || (bytes[offset + 5]! & 3) !== 2) return null;
+		const segments = bytes[offset + 26]!;
+		const body = offset + 27 + segments;
+		if (body > bytes.length) return null;
+		let size = 0, packet = 0, complete = false;
+		for (let index = 0; index < segments; index++) {
+			const length = bytes[offset + 27 + index]!;
+			size += length;
+			if (!complete) { packet += length; complete = length < 255; }
+		}
+		if (!complete || body + size > bytes.length) return null;
+		if (packet >= 19 && ascii(bytes, body, 8) === 'OpusHead') return 'opus';
+		if (packet >= 30 && bytes[body] === 1 && ascii(bytes, body + 1, 6) === 'vorbis') return 'ogg-vorbis';
+		offset = body + size;
+	}
+	return null;
 }
 
 function hasAacSampleEntry(bytes: Uint8Array): boolean {
