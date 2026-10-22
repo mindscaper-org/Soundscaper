@@ -69,7 +69,8 @@ for (const [extension, relocated] of [['m4a', false], ['mp4', false], ['mp4', tr
 		});
 		const fileService = { ...fixture.runtime.fileService, isDesktop: true,
 			async resolveSesxMedia(request: { sessionReadId: string; relativePath: string; mediaRootId?: string }) {
-				const result = await sessions.resolve({ ...request, owner });
+				const result: unknown = await sessions.resolve({ ...request, owner });
+				assert.ok(result && typeof result === 'object' && 'status' in result);
 				if (result.status === 'found') { const descriptor = granted.at(-1); assert.ok(descriptor); return { status: 'found' as const, descriptor }; }
 				if (result.status === 'missing' || result.status === 'ambiguous' || result.status === 'scan-limited') return { status: result.status };
 				throw new Error('Unexpected media resolver result');
