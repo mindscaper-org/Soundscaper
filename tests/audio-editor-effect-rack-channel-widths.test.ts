@@ -58,6 +58,11 @@ test('Audacity and dynamics worklets retain the requested multichannel rack widt
 
 		const renderedWorklets = worklets.slice(-2);
 		assert.ok(renderedWorklets[0].options.processorOptions?.pffftWasmModule instanceof WebAssembly.Module);
+		assert.deepEqual({ channelCount: renderedWorklets[0].options.channelCount,
+			channelCountMode: renderedWorklets[0].options.channelCountMode,
+			channelInterpretation: renderedWorklets[0].options.channelInterpretation }, {
+			channelCount: 6, channelCountMode: 'explicit', channelInterpretation: 'discrete',
+		}, 'an input bus narrowing after a wide clip ends cannot replicate mono into the retained output channels');
 		assert.deepEqual(renderedWorklets.map(({ name, options }) => ({
 			name,
 			outputChannelCount: options.outputChannelCount,

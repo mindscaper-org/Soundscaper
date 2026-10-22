@@ -193,10 +193,12 @@ export function applyEffect(
 		if (sidechain && (!controlInput || (!explicitSidechainInput && !controlTrackId))) {
 			throw new Error('Auto Duck requires a valid control track.');
 		}
+		const width = clamp(positiveInteger(options.effectChannelCount, 2), 1, 32);
 		const processor = addNode(nodes, new WorkletNode(context, 'kw-audacity-live-effect', {
 			numberOfInputs: sidechain ? 2 : 1,
 			numberOfOutputs: 1,
-			outputChannelCount: [clamp(positiveInteger(options.effectChannelCount, 2), 1, 32)],
+			channelCount: width, channelCountMode: 'explicit', channelInterpretation: 'discrete',
+			outputChannelCount: [width],
 			processorOptions: {
 				effectType: type,
 				params,
