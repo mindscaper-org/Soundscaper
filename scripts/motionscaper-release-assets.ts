@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { assertMotionscaperPackagedSmoke } from '../desktop/motionscaper-packaged-smoke.ts';
-import { parseMotionscaperNativePayload } from '../desktop/motionscaper-native-payload.ts';
+import { assertMotionscaperNativeCompileProvenance, parseMotionscaperNativePayload } from '../desktop/motionscaper-native-payload.ts';
 import { verifyMotionscaperNativeBuildResult } from './lib/motionscaper-native-build-result.ts';
 import { MOTION_NATIVE_TARGETS } from './lib/motionscaper-native-source.ts';
 import { motionReleasePackageNames, pinMotionReleaseFile, releaseRecord, validateMotionReleaseReceipt, verifyMotionReleaseReceiptFiles } from './lib/motionscaper-release-inventory.ts';
@@ -29,7 +29,9 @@ export async function assembleMotionRelease(options: { root: string; inputs: str
 		const nativeReceipt = await pinMotionReleaseFile(root, 'native-build-result.json');
 		if (nativeReceipt.sha256 !== verified.receiptSha256 || verified.receipt.sourceRevision !== revision) throw new Error('Motion release helper receipt differs from its independently verified build.');
 		const payload = parseMotionscaperNativePayload(await json(join(root, 'native-payload.json')));
-		if (!payload.helper || payload.target !== target || payload.helper.sha256 !== verified.receipt.payload.sha256 || payload.helper.receiptSha256 !== verified.receiptSha256) throw new Error('Motion release packaged helper identity changed.');
+		assertMotionscaperNativeCompileProvenance(payload, { target, byteLength: verified.receipt.payload.byteLength,
+			sha256: verified.receipt.payload.sha256, receiptSha256: verified.receiptSha256 });
+		if (!payload.helper) throw new Error('Motion release packaged helper identity changed.');
 		const stage = releaseRecord(await json(join(root, 'stage-manifest.json')));
 		const runtimeTarget = releaseRecord(stage.target);
 		const stageFiles = Array.isArray(stage.files) ? stage.files.map((file: unknown) => releaseRecord(file)) : [];

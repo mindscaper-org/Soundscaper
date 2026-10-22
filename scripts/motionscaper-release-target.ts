@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { execFileSync } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -9,6 +9,7 @@ import { parseArgs } from 'node:util';
 import { assertMotionscaperPackagedSmoke, runMotionscaperSmokeProcess } from '../desktop/motionscaper-packaged-smoke.ts';
 import { verifyMotionscaperDesktopStage, verifyMotionscaperPackagedResources } from './lib/motionscaper-desktop-package.mjs';
 import { verifyMotionscaperNativeBuildResult } from './lib/motionscaper-native-build-result.ts';
+import { verifyMotionNativeReleaseSigning } from './lib/motionscaper-mac-signing.ts';
 import { MOTION_NATIVE_TARGETS, type MotionNativeTarget } from './lib/motionscaper-native-source.ts';
 import { resolvePackagedProductExecutable } from './lib/desktop-packaged-product-executable.mjs';
 import { readProductReleaseLinesSync, resolveProductApplicationVersion } from './lib/product-release-lines.mjs';
@@ -26,6 +27,9 @@ export async function qualifyMotionReleaseTarget(options: { root: string; target
 	const executable = resolvePackagedProductExecutable({ productRoot: options.productRoot, productId: 'motionscaper', platform: nativePlatform, arch });
 	const resources = nativePlatform === 'darwin' ? resolve(dirname(executable), '../Resources') : join(dirname(executable), 'resources');
 	await verifyMotionscaperPackagedResources(resources, stage);
+	const payload: unknown = JSON.parse(await readFile(join(options.root, '.desktop-build/app/desktop/native-payload.json'), 'utf8'));
+	await verifyMotionNativeReleaseSigning({ resourcesRoot: resources, payload, originalPath: join(verified.resultRoot, verified.receipt.payload.path),
+		compile: { target: options.target, byteLength: verified.receipt.payload.byteLength, sha256: verified.receipt.payload.sha256, receiptSha256: verified.receiptSha256 } });
 	const profile = await mkdtemp(join(tmpdir(), 'motionscaper-release-smoke-'));
 	let smoke: string;
 	try {

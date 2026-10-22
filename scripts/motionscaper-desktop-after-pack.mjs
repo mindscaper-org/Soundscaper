@@ -3,19 +3,21 @@ import { join, resolve } from 'node:path';
 import { flipFuses, FuseVersion, FuseV1Options } from '@electron/fuses';
 import { nativeAddonPayloadTargetForPackagingContext } from './lib/native-addon-payload-manifest.mjs';
 import { verifyPackagedElectronAlternateFfmpeg } from './lib/electron-alternate-ffmpeg.mjs';
+import { assertMotionMacSigningAuthority } from './lib/motionscaper-mac-signing.ts';
 import { verifyMotionscaperDesktopStage, verifyMotionscaperPackagedResources } from './lib/motionscaper-desktop-package.mjs';
 
-export default async function hardenMotionscaperAfterPack(context) {
+export default async function hardenMotionscaperAfterPack(context, dependencies = {}) {
+	await assertMotionMacSigningAuthority(context, dependencies);
 	const stage = await verifyMotionscaperDesktopStage(
 		resolve(context.packager.projectDir, '.desktop-build'), nativeAddonPayloadTargetForPackagingContext(context),
 	);
 	await verifyMotionscaperPackagedResources(context.packager.getResourcesDir(context.appOutDir), stage);
-	await verifyPackagedElectronAlternateFfmpeg(context);
+	await (dependencies.verifyPackagedElectronAlternateFfmpeg ?? verifyPackagedElectronAlternateFfmpeg)(context);
 	const extensions = { darwin: '.app', win32: '.exe', linux: '' };
 	const extension = extensions[context.electronPlatformName];
 	if (extension === undefined) throw new Error('Unsupported Motionscaper package platform.');
 	const name = context.electronPlatformName === 'linux' ? context.packager.executableName : context.packager.appInfo.productFilename;
-	await flipFuses(join(context.appOutDir, `${name}${extension}`), {
+	await (dependencies.flipFuses ?? flipFuses)(join(context.appOutDir, `${name}${extension}`), {
 		version: FuseVersion.V1, strictlyRequireAllFuses: true,
 		[FuseV1Options.RunAsNode]: false, [FuseV1Options.EnableCookieEncryption]: true,
 		[FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
