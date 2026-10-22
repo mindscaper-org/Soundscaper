@@ -8,7 +8,7 @@ const MAX_SESSIONS = 4;
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const MAX_SCAN_ENTRIES = 20_000;
 const MAX_SCAN_DEPTH = 12;
-const AUDIO_EXTENSION = /\.(?:aac|aif|aifc|aiff|bw64|bwf|flac|m4a|mka|mp2|mp3|oga|ogg|opus|rf64|wav|wave|wavpack|webm|wma|wv)$/iu;
+const AUDIO_EXTENSION = /\.(?:aac|aif|aifc|aiff|bw64|bwf|flac|m4a|mka|mp2|mp3|mp4|oga|ogg|opus|rf64|wav|wave|wavpack|webm|wma|wv)$/iu;
 
 export function normalizeSesxRelativePath(value) {
 	if (typeof value !== 'string' || !value || value.length > 4096 || [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
