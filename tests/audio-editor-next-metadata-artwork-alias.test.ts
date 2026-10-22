@@ -39,7 +39,7 @@ for (const { format, settings } of formats) test(`Custom Metadata JSON artwork a
 			const images = tags.images as readonly { readonly data: Uint8Array }[] | undefined;
 			assert.equal(images?.length, 1, 'a player must see the standard picture, rather than an opaque JSON comment');
 			assert.deepEqual(Buffer.from(images![0]!.data), Buffer.from(png, 'base64'));
-			assert.equal(tags.raw?.[key.toUpperCase()], undefined);
+			assert.equal((tags.raw as Readonly<Record<string, unknown>> | undefined)?.[key.toUpperCase()], undefined);
 		} finally { input?.dispose(); }
 	}
 });

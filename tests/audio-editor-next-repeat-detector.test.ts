@@ -20,8 +20,9 @@ test('Effect > Repeat Last ignores a deleted detector belonging to an unrelated 
 		await controller.actions.effects.repeatLast();
 		const snapshot = controller.getSnapshot();
 		assert.equal(snapshot.history.undoEntries.length, before + 1);
-		const replacement = snapshot.project.clips.find((clip: { sourceId: string }) => clip.sourceId !== 'voice-source');
-		assert.ok(replacement);
+		assert.ok(snapshot.project);
+		const replacement = snapshot.project.clips.find(clip => 'sourceId' in clip && clip.sourceId !== 'voice-source');
+		assert.ok(replacement && 'sourceId' in replacement && typeof replacement.sourceId === 'string');
 		assert.equal(await storedSample(store, replacement.sourceId, 0), -0.25);
 	} finally { await controller.dispose(); }
 });
