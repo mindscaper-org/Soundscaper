@@ -66,7 +66,12 @@ for (const locale of ['en', 'de']) test(`${locale}: RAW Develop evaluates a nati
 	await menu(copy.photoFileMenu); await keyboard(named(app, 'button', copy.photoImportPhotos));
 	const importer = named(page, 'dialog', copy.photoImportPhotos);
 	await importer.getByLabel(copy.photoChooseFiles, { exact: true }).setInputFiles({ name: NAME, mimeType: 'image/png', buffer: original });
-	await keyboard(named(importer, 'button', copy.photoImportAction)); await expect(importer).toHaveCount(0);
+	const importStartedAt = performance.now();
+	await keyboard(named(importer, 'button', copy.photoImportAction)); await expect(importer).toHaveCount(0, { timeout: 60_000 });
+	await test.info().attach('raw-import-readiness', { body: JSON.stringify({ locale, browserName,
+		requestedImportToDialogClosedMilliseconds: performance.now() - importStartedAt, readinessDeadlineMilliseconds: 60_000,
+		sourceByteLength: original.length, sourceSha256: digest(original),
+		timingPolicy: 'Correctness readiness from Import action request through native preparation, storage and acknowledgement; no RAW latency qualification.' }), contentType: 'application/json' });
 	const library = app.locator('[data-photo-library]'), card = library.locator('[data-photo-id]');
 	await expect(card).toHaveCount(1); await expect(library).toHaveAttribute('aria-busy', 'false'); await keyboard(card);
 	const photoId = await card.getAttribute('data-photo-id'); expect(photoId).toBeTruthy();
