@@ -1,14 +1,22 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Sandbox-safe projection of the one fixed alpha-video encode capability. */
-import type { AssistanceOutputClaim } from './assistance-data-claims.ts';
+interface KeyedVideoPreloadClaim {
+	readonly claimVersion: 1;
+	readonly claimId: string;
+	readonly jobId: string;
+	readonly role: string;
+	readonly mediaType: string;
+	readonly byteLength: number;
+	readonly sha256: string;
+}
 
 const CHANNEL = 'soundscaper:v1:assistance:operation:encode-keyed-video';
 const CLAIM_KEYS = ['claimVersion', 'claimId', 'jobId', 'role', 'mediaType', 'byteLength', 'sha256'];
 
 export function createAssistanceKeyedVideoPreloadBridge(options: Readonly<{
 	invoke: (channel: string, value: unknown) => Promise<unknown>;
-	claim: (value: unknown) => AssistanceOutputClaim;
+	claim: (value: unknown) => KeyedVideoPreloadClaim;
 }>) {
 	return Object.freeze({ async available(): Promise<boolean> {
 		const value = await options.invoke('soundscaper:v1:assistance:operation:keyed-video-available', undefined);

@@ -2,7 +2,7 @@
 
 const externalDisplaySources = require('./desktop-nightly-tests-external-display-inputs.cjs');
 
-// The preload fixture bundles these maintained sources with its two exact
+// The preload fixture bundles these maintained sources with exact
 // project-library-runtime aliases; no generated desktop runtime is required.
 module.exports = Object.freeze([
 	...externalDisplaySources,
@@ -11,6 +11,7 @@ module.exports = Object.freeze([
 	'desktop/audiocom-links.ts',
 	'desktop/ara-preload.ts',
 	'desktop/blender-preload.ts',
+	'desktop/assistance-keyed-video-preload.ts',
 	'src/common/editor/ara-contract.ts',
 	'src/common/editor/blender-contract.ts',
 ]);
