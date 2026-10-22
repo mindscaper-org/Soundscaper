@@ -115,6 +115,10 @@ const SAVE_PURPOSES = Object.freeze({
 		defaultExtension: 'edl',
 		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'xml', 'dawproject'] }],
 	}),
+	translation: Object.freeze({
+		defaultExtension: 'json',
+		filters: [{ name: 'Community translations', extensions: ['json', 'zip'] }],
+	}),
 });
 
 const MIME_TYPES = Object.freeze({
