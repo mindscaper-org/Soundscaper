@@ -1,6 +1,10 @@
 // @ts-check
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { fileURLToPath } from 'node:url';
+
+const AUDACITY_WORKER_ENTRY = fileURLToPath(new URL('../../src/common/editor/aup4-worker.js', import.meta.url)).replaceAll('\\', '/');
+
 /** Saxes and the XML character tables it imports inside maintained workers. */
 export const WORKER_XML_VENDOR_CHUNK_TEST = /node_modules[\\/](?:saxes|xmlchars)[\\/]/;
 
@@ -9,6 +13,19 @@ export const WORKER_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/]i18n[\\/
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const workerChunkGroups = [
+	{
+		// Only this worker's already-initial libraries share an owner. Keeping the
+		// executable root separate prevents lazy recovery from importing it back.
+		name(moduleId, context) {
+			return context.getModuleInfo(AUDACITY_WORKER_ENTRY)?.isEntry && moduleId.replaceAll('\\', '/') !== AUDACITY_WORKER_ENTRY
+				? 'audacity-project-worker' : null;
+		},
+		tags: ['$initial'],
+		priority: 97,
+		minSize: 0,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
 	{
 		// Preview validation and the lazy raster loader both hash retained bytes.
 		// A shared leaf must not live in the executable worker registration entry:
