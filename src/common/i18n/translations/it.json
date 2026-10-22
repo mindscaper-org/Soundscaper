@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "it",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:d97c3ad46ca50f84c9b1d64572e6308b5ccbc65671cf50a51245fc032c723d4e","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:244befe555ef6667f275d66ebf2983c138781c6dc9b8be683eb66e559cfe2c70","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -2597,6 +2597,7 @@
 		"takeCompEnd": ["machine","End sample","Campione finale"],
 		"takeCompExtent": ["machine","Samples {start}–{end}","Campioni {start}–{end}"],
 		"takeCompFlatten": ["machine","Flatten comp","Appiattisci il comp"],
+		"takeCompFlattenBeforeChannelRewrite": ["machine","Flatten the track’s take comp before splitting or merging its channels.","Appiattisci il comp delle take della traccia prima di dividere o unire i suoi canali."],
 		"takeCompFlattenComplete": ["machine","Take comp flattened.","Comp dei take appiattito."],
 		"takeCompGroup": ["machine","Take group","Gruppo di take"],
 		"takeCompLane": ["machine","Lane {number}","Lane {number}"],
