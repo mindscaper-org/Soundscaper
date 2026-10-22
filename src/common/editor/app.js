@@ -297,7 +297,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		recordingRoutingSettingKey, releaseProjectLock: bindings.releaseProjectLock, acquireInactiveProjectLock: (id) => acquireLock(id), revokeVideoVisuals: bindings.revokeVideoVisuals, saveNow: bindings.saveNow,
 		scheduleTimer: globalThis.setTimeout.bind(globalThis), sessionController, sessionTab: bindings.sessionTab,
 		setProject: (nextProject) => { documentState.project = nextProject; },
-		disposeRenderEngines: sources.timePitchCaches.disposeRenderEngines, sourceBuffers, sourceChunkProviders, sourcePeaks, state, stopProjectBinPreview: bindings.projectBin.stopPreview, stopRecording: bindings.stopRecording, store,
+		clearStorage: () => settingPersistence.clearStorage(() => store.clear(), () => effectsStatePorts.bootstrap.resetLibraries(createAudioEditorEffectPresets()), () => Promise.all([actions.macros.library.flush(), actions.macros.scripts.flush()])), disposeRenderEngines: sources.timePitchCaches.disposeRenderEngines, sourceBuffers, sourceChunkProviders, sourcePeaks, state, stopProjectBinPreview: bindings.projectBin.stopPreview, stopRecording: bindings.stopRecording, store,
 		switchProject: bindings.switchProject, ...(framescaperCaptureAdminInterlock ? { beginCaptureInterlockedAdminOperation: framescaperCaptureAdminInterlock.beginAdminOperation } : {}),
 	});
 	const { prepareProjectHandoff, assertProjectHandoffAllowed, closeProjectTab, deleteProject, clearLocalData } =

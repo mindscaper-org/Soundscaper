@@ -403,7 +403,7 @@ export function createProjectAdminService<
 			await revokeVideoVisuals();
 			interlock?.assertCurrent();
 			storageClearStarted = true;
-			await store.clear();
+			await (runtime.clearStorage ? runtime.clearStorage() : store.clear());
 			sessionController.clearClipboard();
 			for (const tab of [...sessionController.getSnapshot().tabs]) {
 				sessionController.closeProject(tab.projectId, { force: true });

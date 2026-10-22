@@ -107,6 +107,7 @@ export interface ProjectAdminServiceRuntime<
 			currentProject: unknown; pendingSaveSnapshots: unknown;
 		}>): PromiseLike<Readonly<{ storageRoots: readonly string[] }>>;
 	}>;
+	clearStorage?(): Awaitable<unknown>;
 	readonly projectSessionService: Readonly<{ clearRecentProjects(): Awaitable<unknown> }>;
 	publishDocumentSnapshot(): void;
 	recordingRoutingSettingKey(projectId: string): string;
