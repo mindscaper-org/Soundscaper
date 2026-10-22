@@ -23,6 +23,52 @@ interface PlannedAutomationEditsV21 {
 
 type DataRecord = Record<string, unknown>;
 
+/** Multi-track processing emits one replacement per track, with one common programme edit. */
+export function preserveGlobalAutomationAfterReplacementBatch(
+	previous: SoundscaperProject,
+	commanded: SoundscaperProject,
+	command: Extract<AudioEditorCommand, { type: 'batch' }>,
+): Readonly<Record<string, unknown>> {
+	if (command.commands.some(child => child.type !== 'range/replace' && child.type !== 'range/ripple-delete' && child.type !== 'selection/set'
+			&& !(child.type === 'clipboard/paste' && child.mode === 'insert-track'))) return commanded;
+	const replacement = command.commands.find(child => child.type === 'range/replace');
+	const replacementEdit = replacement ? [...planAutomationEdits(previous, commanded, replacement).byTrackId.values()][0]?.[0] : undefined;
+	const byTrackId = new Map<string, readonly AutomationLaneTimelineReplacementV21[]>();
+	for (const child of command.commands) {
+		if (child.type === 'selection/set') continue;
+		const plan = planAutomationEdits(previous, commanded, child);
+		// A child that already edited the complete programme must not move it twice.
+		if (plan.global === null || plan.global.length) return commanded;
+		for (const [trackId, edits] of plan.byTrackId) {
+			if (byTrackId.has(trackId)) return commanded;
+			// A silent target expresses the same suffix move as an insertion or deletion
+			// at the selection end. The processed material owns the programme interval.
+			byTrackId.set(trackId, replacementEdit && child.type !== 'range/replace' && edits.length === 1
+				&& isSilentReplacementSuffix(edits[0]!, replacementEdit) ? [replacementEdit] : edits);
+		}
+	}
+	if (!coversEveryMediaTrack(previous, [...byTrackId.keys()])) return commanded;
+	const edgeTracks = new Map(previous.mixer.edges.flatMap(edge => edge.source.kind === 'track'
+		? [[edge.id, edge.source.id] as const] : []));
+	if (!commanded.automationLanes.some(lane => addressedTrackId(lane, edgeTracks) === null)) return commanded;
+	const edits = commonEditSeries(byTrackId);
+	if (edits === null) throw new RangeError('All-track automation cannot reconcile distinct sequence interval maps.');
+	const options = { sampleRate: previous.sampleRate, tempoMap: previous.tempoMap };
+	return { ...commanded, automationLanes: commanded.automationLanes.map(lane => (
+		addressedTrackId(lane, edgeTracks) !== null ? lane : edits.reduce((current, edit) => (
+			edit.endFrame - edit.startFrame === edit.insertedDurationFrames ? current
+				: replaceAutomationLaneTimelineIntervalV21(current, edit, options)
+		), lane)
+	)) };
+}
+
+function isSilentReplacementSuffix(edit: AutomationLaneTimelineReplacementV21, replacement: AutomationLaneTimelineReplacementV21): boolean {
+	const delta = replacement.insertedDurationFrames - (replacement.endFrame - replacement.startFrame);
+	return edit.endFrame === replacement.endFrame && (delta >= 0
+		? edit.startFrame === edit.endFrame && edit.insertedDurationFrames === delta
+		: edit.startFrame === replacement.endFrame + delta && edit.insertedDurationFrames === 0);
+}
+
 /** Apply only command-declared timeline geometry to surviving baseline lanes. */
 export function preserveAutomationLanesAfterInheritedCommand(
 	previous: SoundscaperProject,
