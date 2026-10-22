@@ -288,7 +288,7 @@ function imageClipContexts(project: FramescaperProjectTimelineImage): readonly O
 function planTimelineSources(
 	project: FramescaperProjectTimelineImage,
 	contexts: readonly Omit<ImageClipPreviewTimelineImage, 'loaded' | 'drawable' | 'lastFrameIndex'>[],
-	canvas: Readonly<{ width: number; height: number }>,
+	canvas: Readonly<{ width: number; height: number; fit?: VideoCanvasFit }>,
 ): ReadonlyMap<string, PlannedImageSourceTimelineImage> {
 	const output = new Map<string, PlannedImageSourceTimelineImage>();
 	for (const { clip } of contexts) {
@@ -296,7 +296,7 @@ function planTimelineSources(
 		const source = framescaperImageSourceForClipTimelineImage(project.sources, clip);
 		output.set(source.id, Object.freeze({
 			source,
-			...fitFramescaperImagePreviewSizeTimelineImage(source, canvas.width, canvas.height),
+			...fitFramescaperImagePreviewSizeTimelineImage(source, canvas.width, canvas.height, canvas.fit),
 		}));
 	}
 	return output;
