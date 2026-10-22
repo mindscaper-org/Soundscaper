@@ -3,8 +3,8 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import {
-	assertCurrentSoundscaperFreezeProject, soundscaperFreezeRenderFingerprint,
-	type SoundscaperFreezeTicket,
+	assertCurrentSoundscaperFreezeProject, captureSoundscaperFreezeProject,
+	type SoundscaperFreezeCurrencyController,
 } from './editor-audio-track-freeze-currency.ts';
 import { normalizeAutomationLaneV21 } from '../common/editor/automation-lane-v21.ts';
 import { clipNeedsTimePitchRender } from '../common/editor/clip-time-pitch-cache.js';
@@ -88,7 +88,7 @@ export function planFreezeRange(project: SoundscaperProject, trackId: string) {
 
 export async function renderFreezeBody(
 	store: FreezeStore,
-	controller: Readonly<{ readonly project: unknown }>,
+	controller: SoundscaperFreezeCurrencyController,
 	createEngine: () => SoundscaperAudioFreezeRenderEngine,
 	request: Readonly<{
 		readonly project: SoundscaperProject;
@@ -100,11 +100,7 @@ export async function renderFreezeBody(
 	}>,
 	options: FreezeTimePitchRenderOptions = {},
 ): Promise<Readonly<{ readonly body: FreezeBody; readonly frameCount: number; readonly sampleRate: number; readonly channelCount: number }>> {
-	const ticket: SoundscaperFreezeTicket = Object.freeze({
-		project: request.project,
-		trackId: request.trackId,
-		fingerprint: soundscaperFreezeRenderFingerprint(request.project, request.trackId),
-	});
+	const ticket = captureSoundscaperFreezeProject(controller, request.project, request.trackId);
 	const runtime = resolveRuntimeProjectProjection(request.project);
 	const track = exactRecordById(runtime.tracks, request.trackId, 'audio freeze render track');
 	const ownedIds = new Set(arrayValue(track.clipIds, 'audio freeze render track.clipIds').map(String));

@@ -6,7 +6,7 @@ import {
 } from '../common/editor/audio-track-freeze-coordinator-v21.ts';
 import {
 	assertCurrentSoundscaperFreezeProject,
-	soundscaperFreezeRenderFingerprint,
+	captureSoundscaperFreezeProject, type SoundscaperFreezeCurrencyController, type SoundscaperFreezeTicket,
 } from './editor-audio-track-freeze-currency.ts';
 import { createAudioEditorEngine } from '../common/editor/engine/runtime-class.ts';
 import { createAudioClip } from '../common/editor/project-media-factory.ts';
@@ -32,8 +32,7 @@ export interface SoundscaperAudioFreezeEnvironment {
 	readonly playback: SoundscaperAudioTrackFreezePlaybackService;
 }
 
-export interface SoundscaperAudioFreezeController {
-	readonly project: unknown;
+export interface SoundscaperAudioFreezeController extends SoundscaperFreezeCurrencyController {
 	readonly actions: Readonly<{
 		readonly edit: Readonly<{
 			readonly commit: (command: AudioTrackFreezeCoordinatorCommandV21) => unknown;
@@ -69,12 +68,7 @@ export interface SoundscaperAudioFreezeActionsOptions extends FreezeTimePitchRen
 	readonly prepareProject?: () => PromiseLike<void> | void;
 }
 
-interface ProjectTicket {
-	readonly project: SoundscaperProject;
-	readonly trackId: string;
-	/** What the render reads, so an unrelated edit does not discard the freeze. */
-	readonly fingerprint: string;
-}
+type ProjectTicket = SoundscaperFreezeTicket;
 
 /** Bind the generic freeze transaction to browser rendering, PCM storage, and controller CAS. */
 export function createSoundscaperAudioFreezeActions(
@@ -99,9 +93,7 @@ export function createSoundscaperAudioFreezeActions(
 				assertNoSidechainIntoRack(project, track, trackId);
 				return Object.freeze({
 					project,
-					ticket: Object.freeze({
-						project, trackId, fingerprint: soundscaperFreezeRenderFingerprint(project, trackId),
-					}),
+					ticket: captureSoundscaperFreezeProject(controller, project, trackId),
 				});
 			},
 			assertCurrent: (ticket) => assertCurrent(controller, ticket),
