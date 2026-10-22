@@ -8,8 +8,9 @@ import AnalysisDialog from '../src/common/editor/ui/dialogs/AnalysisDialog.jsx';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { createAudioEditorEngine } from '../src/common/editor/engine.js';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
-import { audioBuffer, COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -25,7 +26,13 @@ for (const { mode, lost } of cases) test(`Analyze ${mode} fences only timeline m
 	const createController = () => createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), store,
 		engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
-		renderSnapshot: async () => audioBuffer([new Float32Array(48_000).fill(.25)], 48_000) });
+		engineFactory: () => createAudioEditorEngine({ audioContextFactory: null, offlineAudioContextFactory: null,
+			softwareRenderer: ({ sources }) => {
+				assert.ok(sources instanceof Map);
+				const buffer: unknown = sources.values().next().value;
+				assert.ok(buffer && typeof buffer === 'object' && 'getChannelData' in buffer && typeof buffer.getChannelData === 'function');
+				return buffer as AudioBuffer;
+			} }) });
 	let controller = createController();
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready;
@@ -68,8 +75,12 @@ for (const { mode, lost } of cases) test(`Analyze ${mode} fences only timeline m
 			await act(async () => { reactProps(button).onClick?.(); });
 		}
 		await act(async () => { await settled; });
+		assert.equal(dom.find('[role="alert"]')?.textContent, undefined, JSON.stringify(controller.getSnapshot().status));
 		if (lost === 'Programme.wav') assert.equal(dom.find('[data-analysis-report]'), null, 'missing programme audio still blocks analysis');
-		else assert.ok(dom.find(`[data-analysis-report="${mode}"]`), 'the healthy programme must produce its measurement');
+		else {
+			assert.ok(dom.find(`[data-analysis-report="${mode}"]`), 'the healthy programme must produce its measurement');
+			if (mode === 'levels') assert.equal(dom.one('[data-analysis-value="peak"]').textContent, '-12.0 dBFS');
+		}
 		assert.equal(dom.find('[role="alert"]'), null);
 	} finally {
 		await act(async () => { root.unmount(); });
