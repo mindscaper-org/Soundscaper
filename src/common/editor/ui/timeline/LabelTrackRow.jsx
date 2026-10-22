@@ -16,8 +16,13 @@ import { selectAudioEditorLabelEditBlock } from '../../label-edit-blocking.ts';
 import { useLabelMarkerDragCancellation } from './useLabelMarkerDragCancellation.ts';
 import { prepareTimelineLabelRemovalFocus } from './label-removal-focus.ts';
 import { isContextMenuKey } from './context-menu-keyboard.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
-export function LabelTrackRow({
+export function LabelTrackRow(props) {
+	return <LabelTrackRowSession key={editorProjectEditSessionKey(props.controller, props.controller.getSnapshot().project?.id)} {...props} />;
+}
+
+function LabelTrackRowSession({
 	controller,
 	track,
 	visualHeight,
