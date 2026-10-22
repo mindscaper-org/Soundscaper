@@ -20,7 +20,7 @@ for (const type of ['levels', 'spectrum'] as const) {
 			clips: [createAudioClip({ id: 'clip', sourceId: 'source', durationFrames: 4096, sourceDurationFrames: 4096 })],
 			tracks: [createAudioTrack({ id: 'track', clipIds: ['clip'] })] });
 		let renders = 0;
-		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY,
+		const controllerOptions = { headless: true, locale: 'en', copy: COPY,
 			projectRuntime: runtime, sessionController: runtime.createSessionController(), store: store as unknown as Options['store'],
 			engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
 			renderSnapshot: async (snapshot: typeof project, range: { startFrame: number; endFrame: number }) => {
@@ -28,7 +28,10 @@ for (const type of ['levels', 'spectrum'] as const) {
 				const pcm = Float32Array.from({ length: range.endFrame - range.startFrame }, (_, frame) =>
 					0.5 * snapshot.master.gain * Math.sin(2 * Math.PI * 1000 * frame / snapshot.sampleRate));
 				return audioBuffer([pcm], snapshot.sampleRate);
-			} });
+			} };
+		// The established controller harness accepts this render seam at runtime;
+		// production ControllerOptions deliberately keeps it out of its public API.
+		const controller = createAudioEditorController(null, controllerOptions as unknown as Options);
 		context.after(async () => { await controller.dispose(); });
 		await controller.ready;
 		const analyze = async () => type === 'levels' ? controller.actions.analysis.run('master')
