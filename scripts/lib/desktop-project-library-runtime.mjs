@@ -191,7 +191,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/source-provenance-extensions.js', 'src/common/editor/source-provenance-root.js',
 	'src/common/editor/source-provenance.js', 'src/common/editor/stable-id.js', 'src/common/editor/resample.js', 'src/common/editor/windowed-sinc-kernel.js',
 	'src/common/editor/storage/project-storage-profile.js', 'src/common/editor/storage/storage-clone.js', 'src/common/editor/take-comp-document-v17.js',
-	'src/common/editor/take-comp-domain.js',
+	'src/common/editor/take-comp-content-range.js', 'src/common/editor/take-comp-domain.js',
 	'src/common/editor/terminal-channel-widths.js',
 	'src/common/editor/timeline-annotation.js',
 	'src/common/editor/timeline-coordinate-limits.js',
