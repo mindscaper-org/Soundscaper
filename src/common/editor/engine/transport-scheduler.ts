@@ -11,21 +11,14 @@ import {
 	recordWebCoreStreamPlayback,
 	recordWebCoreStreamUnderrun,
 } from '../web-core-stream-diagnostics.ts';
+import { schedulePreparedSpeedPlayback, scheduleSilentPreparedLoopAhead } from './prepared-speed-playback-scheduler.ts';
 import {
-	addNode,
-	connect,
-} from './audio-node-utils.ts';
-import { scheduleExactWarpPlayback } from './audio-warp-playback-scheduler.ts';
-import { confirmClockedPlaybackStart } from './clocked-playback-start.ts';
-import {
-	clampFrame,
 	DEFAULT_SAMPLE_RATE,
 	playRangeStopFrame,
 } from './buffer-math.ts';
 import {
 	scheduleProjectClips,
 } from './clip-scheduler.ts';
-import { createAnalyser } from './effect-rack.ts';
 import { buildPlaybackGraph } from './playback-graph.ts';
 import { disposeGraph } from './dispose-project-graph.ts';
 import { cancelParallelStackPreparation, parallelStackSourceStartTime, setParallelStackEndFrame } from './parallel-stack-playback.ts';
@@ -38,7 +31,7 @@ import { ensureLiveAnalysisTap } from './live-analysis-tap.ts';
 import { readEngineMeter, readMasterMeter } from './engine-meter-reading.ts';
 import { reconcileEngineChannelMeters } from './engine-channel-meter-aggregate.ts';
 import type { MutableEngineMeterReading } from './engine-meter-reading.ts';
-import { ScheduledParameterRegistry, roundScheduledParameterContextFrameOffset } from './scheduled-parameter-registry.ts';
+import { roundScheduledParameterContextFrameOffset } from './scheduled-parameter-registry.ts';
 import { isCutPreviewActive, releaseCutPreview } from './cut-preview.ts';
 import {
 	ENGINE_CANCEL_SCRUB,
@@ -82,105 +75,7 @@ async [ENGINE_SCHEDULE_PREPARED_SPEED_PLAYBACK](this: EngineRuntimeHost, fromFra
 		const current = () => !this.disposed && this.context === context
 			&& this.project === project && this.scrubGeneration === scrubGeneration
 			&& activePlaybackSchedules.get(this) === scheduleOwner;
-		if (this.playbackMode === 'audio-warp-exact' && this.preparedAudioWarpPlayback) {
-			return scheduleExactWarpPlayback(
-				this,
-				this.preparedAudioWarpPlayback,
-				fromFrame,
-				scheduledTime,
-				current,
-				minimumStartLeadSeconds,
-				onBeforeStart,
-			);
-		}
-		const prepared = this.preparedSpeedPlayback;
-		if (!context || !project || !prepared) return scheduledTime;
-		if (this.meterListeners.size && !this.masterLoudnessMeter && !this.masterLoudnessMeterError) {
-			await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
-		}
-		if (!current()) return scheduledTime;
-		this[ENGINE_HALT_GRAPH]();
-		const frame = clampFrame(fromFrame, 0, this.playbackDurationFrames);
-		const nodes: AudioNode[] = [];
-		const sources = new Set<AudioScheduledSourceNode>();
-		const source = addNode(nodes, context.createBufferSource());
-		if (!prepared.audioBuffer) {
-			prepared.audioBuffer = context.createBuffer(prepared.channels.length, prepared.frameCount, prepared.sampleRate);
-			for (let channel = 0; channel < prepared.channels.length; channel += 1) {
-				if (typeof prepared.audioBuffer.copyToChannel === 'function') {
-					prepared.audioBuffer.copyToChannel(
-						prepared.channels[channel] as Float32Array<ArrayBuffer>,
-						channel,
-					);
-				} else prepared.audioBuffer.getChannelData(channel).set(prepared.channels[channel]);
-			}
-		}
-		source.buffer = prepared.audioBuffer;
-		let masterAnalyser = null;
-		const playbackDestination = playbackOutputDestination(
-			this, context, soundscaperNativeAudioDestination(context, context.destination),
-		);
-		const meterDestination = this.masterLoudnessMeter?.node || playbackDestination;
-		if (this.meterListeners.size > 0) {
-			masterAnalyser = createAnalyser(context, nodes);
-			connect(source, masterAnalyser);
-			connect(masterAnalyser, meterDestination);
-		} else connect(source, meterDestination);
-		const outputFrameAt = (timelineFrame: number) => this.durationFrames > 0
-			? clampFrame(Math.round(timelineFrame / this.durationFrames * prepared.frameCount), 0, prepared.frameCount)
-			: 0;
-		if (isPlaybackLoopEnabled(this) && this.loop.endFrame > this.loop.startFrame) {
-			source.loop = true;
-			source.loopStart = outputFrameAt(this.loop.startFrame) / prepared.sampleRate;
-			source.loopEnd = outputFrameAt(this.loop.endFrame) / prepared.sampleRate;
-		}
-		this.playEndFrame = Math.max(frame, isPlaybackLoopEnabled(this)
-			? this.loop.endFrame
-			: playRangeStopFrame(this.playRange, frame, this.playbackDurationFrames));
-		this.playbackStartFrame = frame;
-		this.positionFrame = frame;
-		this.loopScheduleTime = Number.POSITIVE_INFINITY;
-		this.graph = {
-			nodes,
-			sources,
-			abortController: new AbortController(),
-			trackInputs: new Map(),
-			trackGainParams: new Map(),
-			projectGainParams: {
-				tracks: new Map(),
-				groups: new Map(),
-				sends: new Map(),
-				master: null,
-			},
-			parameterRegistry: new ScheduledParameterRegistry(),
-			trackAnalysers: new Map(),
-			groupAnalysers: new Map(),
-			sendAnalysers: new Map(),
-			masterAnalyser,
-			effectNodes: new Map(),
-			effectAnalysers: new Map(),
-			effectMessageSequences: new Map(),
-			latencyFrames: 0,
-		};
-		const graph = this.graph;
-		try {
-			scheduledTime = Math.max(scheduledTime, context.currentTime + minimumStartLeadSeconds);
-			if (onBeforeStart) scheduledTime = await confirmClockedPlaybackStart(context, scheduledTime, onBeforeStart);
-			if (this.graph !== graph || graph.abortController.signal.aborted) {
-				throw new DOMException('Playback cancelled', 'AbortError');
-			}
-			this.playbackStartTime = scheduledTime;
-			source.start(scheduledTime, outputFrameAt(frame) / prepared.sampleRate);
-			sources.add(source);
-		} catch (error) {
-			if (this.graph === graph) this[ENGINE_HALT_GRAPH]();
-			throw error;
-		}
-		this[ENGINE_SET_STATE]('playing');
-		this.masterLoudnessMeter?.setRunning(!this.loudnessMeasurementManuallyPaused);
-		this[ENGINE_START_TICKER]();
-		this[ENGINE_EMIT_POSITION]();
-		return scheduledTime;
+		return schedulePreparedSpeedPlayback(this, fromFrame, scheduledTime, current, minimumStartLeadSeconds, onBeforeStart);
 	},
 
 async [ENGINE_SCHEDULE_PLAYBACK](this: EngineRuntimeHost, fromFrame, scheduledTime = this.context?.currentTime || 0, minimumStartLeadSeconds = 0, onBeforeStart) {
@@ -407,7 +302,8 @@ async [ENGINE_ENSURE_MASTER_LOUDNESS_METER](context) {
 
 [ENGINE_SCHEDULE_LOOP_AHEAD]() {
 		if (!this.graph || !this.context || !this.project || !isPlaybackLoopEnabled(this)) return;
-		if (this.playbackMode === 'staffpad' || this.playbackMode === 'audio-warp-exact') return;
+		if (this.playbackMode === 'staffpad') return scheduleSilentPreparedLoopAhead(this);
+		if (this.playbackMode === 'audio-warp-exact') return;
 		const durationSeconds = (this.loop.endFrame - this.loop.startFrame) / (this.sampleRate * this.playbackRate);
 		if (!(durationSeconds > 0)) return;
 		const horizon = this.context.currentTime + Math.max(0.25, this.meterInterval / 1000 * 4);

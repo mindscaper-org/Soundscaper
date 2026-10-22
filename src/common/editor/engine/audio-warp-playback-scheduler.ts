@@ -98,7 +98,7 @@ async function exactWindowAt(
 ): Promise<PreparedAudioWarpPlayback | null> {
 	if (fromFrame >= prepared.startFrame && fromFrame < prepared.endFrame) return prepared;
 	const boundary = isPlaybackLoopEnabled(engine) ? engine.loop.endFrame : engine.durationFrames;
-	const requestedFrame = clampFrame(fromFrame, 0, engine.durationFrames);
+	const requestedFrame = clampFrame(fromFrame, 0, isPlaybackLoopEnabled(engine) ? engine.playbackDurationFrames : engine.durationFrames);
 	if (requestedFrame >= boundary) {
 		engine[ENGINE_HALT_GRAPH]();
 		engine[ENGINE_SET_STATE]('stopped');

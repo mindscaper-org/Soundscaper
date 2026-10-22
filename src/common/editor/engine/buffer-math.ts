@@ -114,12 +114,12 @@ export function playRangeStopFrame(
 	return Math.min(range.endFrame, durationFrames);
 }
 
-export function normalizeLoop(value: unknown, durationFrames: number): NormalizedLoop {
+export function normalizeLoop(value: unknown, durationFrames: number, defaultEndFrame = durationFrames): NormalizedLoop {
 	const candidate = value && typeof value === 'object'
 		? value as { enabled?: unknown; startFrame?: unknown; endFrame?: unknown }
 		: {};
 	const startFrame = clampFrame(candidate.startFrame, 0, durationFrames);
-	const endFrame = clampFrame(candidate.endFrame ?? durationFrames, startFrame, durationFrames);
+	const endFrame = clampFrame(candidate.endFrame ?? defaultEndFrame, startFrame, durationFrames);
 	return { enabled: Boolean(candidate.enabled) && endFrame > startFrame, startFrame, endFrame };
 }
 

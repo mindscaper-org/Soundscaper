@@ -101,9 +101,9 @@ async play() {
 			if (isPlaybackLoopEnabled(this) && (this.positionFrame < this.loop.startFrame || this.positionFrame >= this.loop.endFrame)) this.positionFrame = this.loop.startFrame;
 			if (projectHasAuthoredAudioWarp(this.project)
 				&& this.getAudioWarpRenderStatus().path === 'exact-offline') {
-				// Bounded exact windows exist over authored content only, never over
-				// the silent extended editor timeline.
-				if (this.positionFrame >= this.durationFrames) this.positionFrame = 0;
+				// A normal exact run ends at authored content; an explicit loop may
+				// also include selected silence from the extended editor timeline.
+				if (this.positionFrame >= this.durationFrames && !isPlaybackLoopEnabled(this)) this.positionFrame = 0;
 				await prepareExactAudioWarpPlayback(
 					this,
 					this.positionFrame,
@@ -236,11 +236,11 @@ async playAt(this: EngineRuntimeHost, contextTime, fromFrame = this.positionFram
 		assertPlaybackRequestCurrent(this, generation);
 		if (projectHasAuthoredAudioWarp(this.project)
 			&& this.getAudioWarpRenderStatus().path === 'exact-offline') {
-			let scheduledFrame = clampFrame(fromFrame, 0, this.durationFrames);
+			let scheduledFrame = clampFrame(fromFrame, 0, isPlaybackLoopEnabled(this) ? this.playbackDurationFrames : this.durationFrames);
 			if (isPlaybackLoopEnabled(this) && (scheduledFrame < this.loop.startFrame || scheduledFrame >= this.loop.endFrame)) {
 				scheduledFrame = this.loop.startFrame;
 			}
-			if (scheduledFrame >= this.durationFrames) {
+			if (scheduledFrame >= this.durationFrames && !isPlaybackLoopEnabled(this)) {
 				return Math.max(context.currentTime, Number(contextTime) || context.currentTime);
 			}
 			await prepareExactAudioWarpPlayback(
@@ -434,7 +434,7 @@ setLoop(loopOrEnabled, startFrame, endFrame) {
 		const value = typeof loopOrEnabled === 'object'
 			? loopOrEnabled
 			: { enabled: loopOrEnabled, startFrame, endFrame };
-		this.loop = normalizeLoop(value, this.durationFrames);
+		this.loop = normalizeLoop(value, this.playbackDurationFrames, this.durationFrames);
 		if (this.state === 'playing') {
 			const position = this.getPositionFrames();
 			if (isPlaybackLoopEnabled(this) && (position < this.loop.startFrame || position >= this.loop.endFrame)) {

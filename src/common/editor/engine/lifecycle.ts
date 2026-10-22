@@ -318,7 +318,7 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		clearPreparedAudioWarpPlayback(this);
 		this.positionFrame = Math.min(this.positionFrame, this.playbackDurationFrames);
 		this.playEndFrame = this.playbackDurationFrames;
-		this.loop = normalizeLoop(runtimeProject?.loop, this.durationFrames);
+		this.loop = normalizeLoop(runtimeProject?.loop, this.playbackDurationFrames, this.durationFrames);
 		this.playRange = null;
 		// The graph stops here, so the meter always stops with it; `play()` re-arms it
 		// with the manual pause honoured. Retiring the measurement itself belongs to a
