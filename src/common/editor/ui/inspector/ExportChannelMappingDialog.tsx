@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { Checkbox } from '@soundscaper/design-system/Checkbox';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -54,6 +54,7 @@ export default function ExportChannelMappingDialog({
 		parseExportChannelMatrix(value, inputChannelCount),
 	));
 	const [outputCountText, setOutputCountText] = useState(() => String(outputCount));
+	const editedCells = useRef(new Set<string>());
 	const text = (key: string, fallback: string) => copy[key] || fallback;
 	const numbered = (key: string, fallback: string, channel: number) => text(key, fallback)
 		.replace('{channel}', String(channel));
@@ -75,7 +76,7 @@ export default function ExportChannelMappingDialog({
 								<Button
 									variant="primary"
 									onClick={() => {
-										onCommit(serializeExportChannelMatrix(matrix, outputCount));
+										onCommit(serializeExportChannelMatrix(matrix, outputCount, value, editedCells.current));
 										onClose();
 									}}
 								>{text('channelMappingApply', 'Apply')}</Button>
@@ -131,9 +132,10 @@ export default function ExportChannelMappingDialog({
 												aria-label={text('channelMappingCell', 'Route input {input} to output {output}')
 													.replace('{input}', String(input + 1))
 													.replace('{output}', String(output + 1))}
-												onChange={(next: boolean) => setMatrix(
-													(current) => toggleExportChannelMatrix(current, input, output, next),
-												)}
+												onChange={(next: boolean) => {
+													editedCells.current.add(`${String(input)}-${String(output)}`);
+													setMatrix(current => toggleExportChannelMatrix(current, input, output, next));
+												}}
 											/>
 										</td>
 									))}
