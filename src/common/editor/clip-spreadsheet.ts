@@ -158,7 +158,8 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 		const sameNumericValue = !['name', 'track', 'source', 'reversed', 'inverted'].includes(edit.column)
 			&& edit.value.trim() !== '' && row.cells[edit.column] !== ''
 			&& Number(edit.value) === Number(row.cells[edit.column]);
-		const sameIdentifier = (edit.column === 'track' || edit.column === 'source') && edit.value.trim() === row.cells[edit.column];
+		const sameIdentifier = edit.column === 'track' && edit.value.trim() === row.cells.track
+			|| edit.column === 'source' && sourceForReference(sources, edit.value)?.id === row.cells.source;
 		if (row.cells[edit.column] === edit.value || sameNumericValue || sameIdentifier) {
 			// An explicitly pasted duration stays authoritative when speed changes too.
 			if (edit.column === 'duration' && row.editable) {

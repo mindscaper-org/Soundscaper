@@ -50,3 +50,12 @@ test('a granted literal filename is not reinterpreted as a URL scheme', () => {
 	assert.equal(matchClipSpreadsheetSourceFiles([file.name], [file]).get(file.name), file);
 	assert.throws(() => matchClipSpreadsheetSourceFiles(['https://ungranted.example/take.wav'], [file]), /local files/u);
 });
+
+test('an exact spaced filename is not skipped as a padded spelling of the current source ID', () => {
+	const original = project();
+	const initial = createCurrentAudioEditorProject({ ...original,
+		sources: original.sources.map((source, index) => index ? { ...source, name: ' source-0 ' } : source) });
+	const command = planClipSpreadsheetEdits(initial, [{ clipId: 'clip', column: 'source', value: ' source-0 ' }]);
+	assert.ok(command);
+	assert.equal(applyEditorCommand(initial, command).clips[0]?.sourceId, 'source-1');
+});
