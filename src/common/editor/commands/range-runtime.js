@@ -319,10 +319,10 @@ function collectLinkedRangeTargets(project, requestedTrackIds, options = {}) {
 	});
 	if (options.expandTracks) return collectLinkedTrackRippleTargets(project, tracks.map((track) => track.id));
 	const clipIds = collectAvLinkedClipIds(project, tracks.flatMap((track) => track.clipIds));
-	const clipIdSet = new Set(clipIds);
+	const clipIdSet = new Set(clipIds), requestedTrackIdSet = new Set(requestedTrackIds);
 	return {
 		trackIds: project.tracks
-			.filter((track) => Array.isArray(track.clipIds) && track.clipIds.some((clipId) => clipIdSet.has(clipId)))
+			.filter((track) => Array.isArray(track.clipIds) && (requestedTrackIdSet.has(track.id) || track.clipIds.some((clipId) => clipIdSet.has(clipId))))
 			.map((track) => track.id),
 		clipIds,
 	};
