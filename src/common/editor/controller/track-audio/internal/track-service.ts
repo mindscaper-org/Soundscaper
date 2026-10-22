@@ -341,6 +341,7 @@ export function createEditorTrackService(
 		const addTrack = target ? null : createAddLabelTrackCommand({
 			id: targetId, name: publishedCopyFor(dependencies.copy).labels, height: 300,
 		});
+		const trackPlacement = labelTrackSequencePlacement(project, focused);
 		// A running transport labels what is being heard or recorded. A stopped
 		// transport labels the selected region, or the cursor when it has no span.
 		const live = ['playing', 'recording'].includes(dependencies.getTransportState?.() || 'stopped');
@@ -358,7 +359,7 @@ export function createEditorTrackService(
 			startFrame: Math.min(startFrame, endFrame),
 			endFrame: Math.max(startFrame, endFrame),
 		} as CommandObject);
-		dependencies.commit(addTrack ? { type: 'batch', commands: [addTrack, command] } : command,
+		dependencies.commit(addTrack ? { type: 'batch', commands: [{ ...addTrack, ...trackPlacement }, command] } : command,
 			{ selectTrackId: targetId });
 		return labelId;
 	}
@@ -385,8 +386,22 @@ function timeSelectionRegion(
  * create a track only for a project that has none.
  */
 function labelTrackFrom(project: ControllerProject, focused: ControllerTrack | null): ControllerTrack | null {
-	const labelTracks = project.tracks.filter((track) => track.type === 'label');
+	const members = sequenceTrackMembers(project, focused?.id);
+	const labelTracks = project.tracks.filter((track) => track.type === 'label' && (!members || members.has(track.id)));
 	const start = focused ? project.tracks.indexOf(focused) : 0;
 	const below = labelTracks.find((track) => project.tracks.indexOf(track) >= start);
 	return below ?? labelTracks.at(-1) ?? null;
+}
+
+/** New implicit label tracks share the focused track's sequence; primary placement stays implicit. */
+function labelTrackSequencePlacement(project: ControllerProject, focused: ControllerTrack | null): Readonly<{ sequenceId?: string }> {
+	if (!focused || !Array.isArray(project.sequences)) return {};
+	for (const value of project.sequences as readonly unknown[]) {
+		if (!value || typeof value !== 'object') continue;
+		const sequence = value as Readonly<{ id?: unknown; trackIds?: unknown }>;
+		if (typeof sequence.id === 'string' && Array.isArray(sequence.trackIds) && sequence.trackIds.includes(focused.id)) {
+			return sequence.id === project.primarySequenceId ? {} : { sequenceId: sequence.id };
+		}
+	}
+	return {};
 }
