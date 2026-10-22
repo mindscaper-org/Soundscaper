@@ -46,9 +46,14 @@ export function admitAudioExportDelivery(
 	const delivery = projectForAudioRenderedFallbackExport(canonicalProject, playbackProjects);
 	const settings = normalizeExportSettings(requestedSettings || {});
 	const mediaProject = projectTrackFolderMediaStateV12(delivery.project);
+	const masteringOwner = settings.masteringSequenceId == null ? undefined : mediaProject.masteringSequences?.find(
+		(sequence: Readonly<{ id: string; sequenceId: string }>) => sequence.id === settings.masteringSequenceId,
+	)?.sequenceId;
+	// Subsequent render/engine projections must keep the order's owning timeline.
+	const sequenceProject = masteringOwner ? { ...mediaProject, primarySequenceId: masteringOwner } : mediaProject;
 	const deliveredProject = inheritTrackFolderMediaStateProjectionV12(mediaProject,
-		exportSequenceProject(mediaProject, undefined, exportReplacementTrackIds(delivery)));
-	assertSequenceMixerDependencies(mediaProject, new Set(deliveredProject.tracks.map((track: Readonly<{ id: string }>) => track.id)));
+		exportSequenceProject(sequenceProject, undefined, exportReplacementTrackIds(delivery)));
+	assertSequenceMixerDependencies(sequenceProject, new Set(deliveredProject.tracks.map((track: Readonly<{ id: string }>) => track.id)));
 	// A frozen lane is delivered as one rendered track. Its original overlapping
 	// clips cannot be separated again from that render.
 	if (settings.mode === 'clips' && deliveredProject.tracks.some(
