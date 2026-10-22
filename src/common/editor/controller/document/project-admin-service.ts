@@ -2,6 +2,7 @@
 
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { FramescaperCaptureAdminInterlockLease } from '../capture/framescaper-capture-admin-interlock.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import type { AdminProject, AdminHistory, AdminSessionTab, AdminCloseOptions, ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
+import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
 export type { ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 
 export interface ProjectHandoffExpectation {
@@ -190,11 +191,17 @@ export function createProjectAdminService<
 
 	async function duplicateProject(requestedTitle: unknown) {
 		if (recoveryBlocked()) return null;
-		const project = getProject();
-		if (!project) return;
+		const initiatingProject = getProject();
+		if (!initiatingProject) return;
+		const generation = projectGeneration.capture?.(initiatingProject.id);
 		const recordingRouting = structuredClone(getRecordingRouting());
 		await saveNow();
-		if (getProject() !== project) return null;
+		const project = getProject();
+		if (!project || project.id !== initiatingProject.id) return null;
+		if (generation) projectGeneration.assertCurrent?.(generation);
+		if (project !== initiatingProject && !sameProjectSnapshot(
+			projectSaveService.getPersistedSnapshot?.(project.id), project,
+		)) return null;
 		const title = String(requestedTitle || `${project.title} ${publishedCopyFor(copy).projectCopySuffix}`).trim();
 		const duplicated = await store.duplicateProject(project.id, { title, confirmFileSizeWarning: runtime.confirmFileSizeWarning,
 			assertCurrent: () => { if (getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError'); } });
