@@ -16,7 +16,7 @@ import type { AudioEditorCommand, CommandObject } from '../../../commands/protoc
 import type { EditorControllerLifetime } from '../../shared/lifecycle.ts';
 import { spectrogramSettingsForNewTrack } from '../../../spectrogram-track-defaults.ts';
 import { resolveSelectionRange } from '../../../selection-range.ts';
-import { visibleNavigationTracks } from '../../../audacity-visible-navigation-tracks.ts';
+import { sequenceTrackMembers } from '../../../sequence-track-members.ts';
 import {
 	createTrackStructuralOperationService,
 	type TrackStructuralOperationService,
@@ -289,7 +289,8 @@ export function createEditorTrackService(
 		const project = dependencies.getProject();
 		const index = project.tracks.findIndex((track) => track.id === trackId);
 		if (index < 0) throw createLocalizedError(Error, dependencies.copy, 'trackNotFound');
-		const tracks = visibleNavigationTracks(project.tracks, null, project);
+		const members = sequenceTrackMembers(project, trackId);
+		const tracks = members ? project.tracks.filter(track => members.has(track.id)) : project.tracks;
 		if (!tracks.some((track) => track.id === trackId)) return trackId;
 		const blocks: ControllerTrack[][] = [];
 		const consumedLaneGroups = new Set<string>();

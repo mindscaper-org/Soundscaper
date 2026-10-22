@@ -157,7 +157,7 @@ function moveClip(
 	deltaFrames: number,
 	trackDelta: number,
 ): unknown {
-	const tracks = visibleNavigationTracks(project.tracks, controller.getSnapshot().trackFolders, project);
+	const tracks = visibleNavigationTracks(project.tracks, controller.getSnapshot().trackFolders);
 	const currentTrackIndex = tracks.findIndex((track) => track.clipIds?.includes(clip.id));
 	const currentTrack = tracks[currentTrackIndex];
 	if (!currentTrack || currentTrack.type === 'label') return null;
@@ -278,7 +278,7 @@ function moveLabelTrack(
 	focus: FocusedLabelValue,
 	direction: number,
 ): unknown {
-	const tracks = visibleNavigationTracks(project.tracks, controller.getSnapshot().trackFolders, project);
+	const tracks = visibleNavigationTracks(project.tracks, controller.getSnapshot().trackFolders);
 	let targetIndex = tracks.findIndex((track) => track.id === focus.trackId);
 	do targetIndex += Math.sign(direction);
 	while (tracks[targetIndex] && tracks[targetIndex]?.type !== 'label');
