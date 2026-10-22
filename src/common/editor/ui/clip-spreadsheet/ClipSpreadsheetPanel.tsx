@@ -247,7 +247,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 		if (!pending || blocked) return;
 		if (!fileService?.isDesktop) { filesRef.current?.click(); return; }
 		try {
-			const descriptors = await fileService.chooseFiles({ purpose: 'audio', multiple: true });
+			const descriptors = await fileService.chooseFiles({ purpose: 'audio-video', multiple: true });
 			await fileService.withReadDescriptors(descriptors, {}, async files => {
 				if (files.length) await completePaste(pending, files);
 			});
