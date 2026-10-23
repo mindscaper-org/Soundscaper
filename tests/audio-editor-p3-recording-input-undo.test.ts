@@ -10,18 +10,19 @@ import type { RecordingControllerFactoryOptions } from '../src/common/editor/con
 import { createRecordingRouteHistory } from '../src/common/editor/controller/composition/internal/recording-route-history.ts';
 import { normalizeRecordingRouting, type RecordingRouting } from '../src/common/editor/recording-routing.js';
 import { COPY } from './helpers/audio-editor-controller-harness.js';
-import { createAudioEditorController, createProjectStore, createCapturePool, createMockStream, createMockTrack,
+import { createAudioEditorController, createProjectStore, createRecordingCapturePool, createMockStream, createMockTrack,
 	createRecordingEngine, createRecordingControllerFactory, createFfmpegStub } from './helpers/audio-editor-recording-controller-harness.js';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 async function fixture(context: TestContext) {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const runtime = createSoundscaperProjectRuntimeSelection(), created: RecordingControllerFactoryOptions[] = [];
-	const stream = createMockStream([createMockTrack('audio', { channelCount: 2 })]);
+	const capturePool = createRecordingCapturePool({ requestHardwareInput: async () =>
+		createMockStream([createMockTrack('audio', { channelCount: 2 })]) });
 	const controller = createAudioEditorController(null, { headless: true, copy: COPY, locale: 'en', store,
 		projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
 		engine: createRecordingEngine() as unknown as Options['engine'], ffmpeg: createFfmpegStub() as unknown as Options['ffmpeg'],
-		recordingCapturePool: createCapturePool({ hardware: { default: stream } }),
+		recordingCapturePool: capturePool,
 		recordingControllerFactory: createRecordingControllerFactory(created) });
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	const open = async (id: string) => {
@@ -49,7 +50,7 @@ for (const edit of ['none', 'delete-undo', 'delete-undo-redo-undo'] as const) {
 		await controller.actions.recording.start({ trackId: 'voice' });
 		const recorder = created[0]; assert.ok(recorder);
 		assert.equal(recorder.channelCount, 2, 'the physical input has two channels');
-		await recorder.onChunk({ channels: [new Float32Array(128).fill(.25), new Float32Array(128).fill(-.5)] });
+		await recorder.onChunk({ frameStart: 0, frames: 128, channels: [new Float32Array(128).fill(.25), new Float32Array(128).fill(-.5)] });
 		await controller.actions.recording.stop();
 		const source = controller.project?.sources[0]; assert.ok(source);
 		const chunk = await store.readSourceChunk(source.storageKey, 0);
