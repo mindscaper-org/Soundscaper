@@ -186,18 +186,20 @@ export async function inspectWavBlobPcm(blob, options = {}) {
 				metadataWarnings.push(...parsed.warnings);
 				if (!bext && parsed.metadata) bext = parsed.metadata;
 			}
+		} else if (['cue ', 'iXML', 'cart'].includes(chunkId) && chunkBytes > MAX_RIFF_METADATA_BYTES) {
+			metadataWarnings.push(wavMetadataWarning(
+				`${chunkId.trim().toLowerCase()}-payload-too-large`,
+				`The WAV ${chunkId.trim()} metadata exceeds the 16 MiB safety limit and was ignored.`,
+			));
 		} else if (chunkId === 'cue ' && cuePayload == null) {
-			if (chunkBytes > MAX_RIFF_METADATA_BYTES) throw new Error('The WAV cue chunk exceeds the metadata safety limit.');
 			cuePayload = await readBlobBytes(blob, payloadOffset, payloadEnd, signal);
 		} else if (chunkId === 'iXML' && ixml == null) {
-			if (chunkBytes > MAX_RIFF_METADATA_BYTES) throw new Error('The WAV iXML chunk exceeds the metadata safety limit.');
 			try {
 				ixml = parseIxmlPayload(await readBlobBytes(blob, payloadOffset, payloadEnd, signal));
 			} catch (error) {
 				metadataWarnings.push(Object.freeze({ code: 'ixml-invalid', message: error instanceof Error ? error.message : String(error) }));
 			}
 		} else if (chunkId === 'cart' && cart == null) {
-			if (chunkBytes > MAX_RIFF_METADATA_BYTES) throw new Error('The WAV CART chunk exceeds the metadata safety limit.');
 			try {
 				cart = parseCartPayload(await readBlobBytes(blob, payloadOffset, payloadEnd, signal));
 			} catch (error) {
