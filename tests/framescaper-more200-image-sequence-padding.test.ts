@@ -20,12 +20,12 @@ test('native File Import accepts the normal printf %02d decade overflow without 
 	await Promise.all(paths.map(path => writeFile(path, bytes)));
 	let minted = 0;
 	const broker = new FramescaperNativeImageSequenceSelectionBroker({
-		selectFiles: async () => paths.toReversed(), mintOpaqueId: () => `${++minted}`.padStart(40, '0'),
+		selectFiles: async () => [...paths].reverse(), mintOpaqueId: () => `${++minted}`.padStart(40, '0'),
 	});
 	context.after(() => broker.dispose());
 	const owner = {};
 	const selected = await broker.select(owner); assert.ok(selected);
-	assert.deepEqual(selected.files.map(({ name }) => name), names.toReversed());
+	assert.deepEqual(selected.files.map(({ name }) => name), [...names].reverse());
 	assert.deepEqual(await broker.read(owner, { selectionId: selected.selectionId,
 		fileId: selected.files[0]!.fileId, offset: 0, length: bytes.byteLength }), Uint8Array.from(bytes));
 	const sequence = resolveNativeMediaImageSequence({ fileNames: selected.files.map(({ name }) => name), frameRate: { num: 24, den: 1 } });
