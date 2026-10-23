@@ -1,7 +1,7 @@
 import { normalizeMediaMetadata } from './media-metadata.ts';
 import { id3CompanionMetadata, id3StructuredGroup, preferredId3StructuredEntries } from './id3-structured-metadata.ts';
 
-import { ID3_TEXT_FRAME_IDS as TEXT_FRAME_IDS, ID3_CONTROL_KEYS, id3FramePayload,
+import { ID3_TEXT_FRAME_IDS as TEXT_FRAME_IDS, ID3_CANONICAL_FRAME_KEYS, ID3_CONTROL_KEYS, id3FramePayload,
 	structuredId3Payload, id3ArtworkFrames } from './id3-frame-values.ts';
 
 const TEXT_FRAME_PRIORITIES = Object.freeze({ tracknumber: 2, date: 2 });
@@ -73,8 +73,8 @@ function selectPreferredTextFrames(entries) {
 			: undefined;
 		if (!frameId) continue;
 		const current = selected.get(frameId);
-		const priority = TEXT_FRAME_PRIORITIES[entry.normalizedKey] || 1;
-		const currentPriority = current ? TEXT_FRAME_PRIORITIES[current.normalizedKey] || 1 : 0;
+		const priority = entry.key === ID3_CANONICAL_FRAME_KEYS[frameId] ? 3 : TEXT_FRAME_PRIORITIES[entry.normalizedKey] || 1;
+		const currentPriority = current ? current.key === ID3_CANONICAL_FRAME_KEYS[frameId] ? 3 : TEXT_FRAME_PRIORITIES[current.normalizedKey] || 1 : 0;
 		if (!current || priority > currentPriority || (priority === currentPriority && entry.key < current.key)) {
 			selected.set(frameId, entry);
 		}
