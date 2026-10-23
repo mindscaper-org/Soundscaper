@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { exportSequenceProject } from '../common/editor/export-sequence-project.ts';
-
+import { derivedVideoVisualSourceName } from '../common/editor/video-visual-source-name.ts';
 import {
 	createAddTrackCommand,
 	createAddVideoEffectCommand,
@@ -266,7 +266,7 @@ function saveGeneratorPreset(project: Data, clip: Data, request: Data): unknown 
 	const donorId = createStableId('visual-preset-model');
 	const donorClipId = createStableId('visual-preset-model-clip');
 	const donor = { ...structuredClone(source), id: donorId,
-		name: `${safeName(request.name, 'visual preset name')} Model` };
+		name: derivedVideoVisualSourceName(safeName(request.name, 'visual preset name'), ' Model') };
 	const donorClip = { ...structuredClone(clip), id: donorClipId, sourceId: donorId };
 	const presetId = createStableId('visual-preset');
 	const preset = normalizeVideoVisualPresetV1({
@@ -344,12 +344,12 @@ async function prepareFreeze(
 	const duration = positiveInteger(request.durationFrames, 'freeze duration');
 	const contentSha256 = await digestMediaContent(body.blob);
 	await store.writeMediaAsset(sourceId, body.blob, {
-		name: `${safeName(source.name ?? 'Video', 'video source name')} Freeze`,
+		name: derivedVideoVisualSourceName(safeName(source.name ?? 'Video', 'video source name'), ' Freeze'),
 		mimeType: 'image/png', width, height,
 	});
 	const stillSource = {
 		schemaVersion: 1, kind: 'still', id: sourceId,
-		name: `${safeName(source.name ?? 'Video', 'video source name')} Freeze`,
+		name: derivedVideoVisualSourceName(safeName(source.name ?? 'Video', 'video source name'), ' Freeze'),
 		mimeType: 'image/png', storageKey: sourceId, contentSha256,
 		width, height, hasAlpha: true,
 	};
