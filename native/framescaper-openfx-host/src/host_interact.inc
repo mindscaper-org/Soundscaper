@@ -167,6 +167,7 @@ InteractResult HostRuntime::run_interact(
 	}
 	bool event_failed = !interact_created;
 	std::set<int> held_modifiers;
+	std::set<std::string> held_keys;
 	for (const auto& event : request.events) {
 		if (event_failed) break;
 		PropertySet args;
@@ -239,8 +240,16 @@ InteractResult HostRuntime::run_interact(
 			prop_set_int(handle(args), kOfxPropKeySym, 0, explicit_key);
 			prop_set_string(handle(args), kOfxPropKeyString, 0,
 				single_interact_utf8_code_point(event.key) ? event.key.c_str() : "");
-			action = event.phase == "down" ? kOfxInteractActionKeyDown : kOfxInteractActionKeyUp;
+			const auto& physical_key = event.code.empty() ? event.key : event.code;
+			if (event.phase == "down") {
+				action = held_keys.insert(physical_key).second
+					? kOfxInteractActionKeyDown : kOfxInteractActionKeyRepeat;
+			} else {
+				held_keys.erase(physical_key);
+				action = kOfxInteractActionKeyUp;
+			}
 		} else if (event.kind == "focus") {
+			if (!event.focused) held_keys.clear();
 			action = event.focused ? kOfxInteractActionGainFocus : kOfxInteractActionLoseFocus;
 		}
 		if (action == nullptr) { event_failed = true; break; }
