@@ -32,6 +32,7 @@ import { readClipLoop } from '../audio-clip-loop.ts';
 import { createClipEditIndex, mediaClipOwnerIndex, requireIndexedOwner } from './clip-edit-index.ts';
 import { clipLoopJoinFields } from './clip-loop-join.ts';
 import { joinClipEnvelopes } from './joined-clip-envelope.ts';
+import { clipJoinAvailabilityProject } from './clip-join-availability.ts';
 import {
 	joinVideoKeyframeCarrierSequenceFields,
 	videoKeyframeCarriersJoinable,
@@ -259,7 +260,7 @@ export function joinClips(project, clipIds) {
  */
 export function canJoinClips(project, clipIds) {
 	try {
-		createClipJoinPlan(project, clipIds);
+		createClipJoinPlan(clipJoinAvailabilityProject(project, clipIds), clipIds);
 		return true;
 	} catch {
 		return false;
@@ -333,6 +334,21 @@ function createSingleTrackJoinRun(project, clips, owners) {
 	const loopFields = clipLoopJoinFields(clips);
 	if (!loopFields && clips.some((clip) => readClipLoop(clip))) {
 		throw new RangeError('Joined loop clips must have matching source periods and phases.');
+	}
+	if (!loopFields && clips.every(clip => clip.kind === 'audio' || clip.kind === undefined)) {
+		const duration = clips.reduce((sum, clip) => sum + BigInt(clip.durationFrames), 0n);
+		const sourceFrames = clips.reduce((sum, clip) => sum + BigInt(clip.sourceDurationFrames ?? clip.durationFrames), 0n);
+		let elapsed = 0n, sourceElapsed = 0n;
+		for (const clip of clips.slice(0, -1)) {
+			elapsed += BigInt(clip.durationFrames);
+			sourceElapsed += BigInt(clip.sourceDurationFrames ?? clip.durationFrames);
+			const difference = sourceElapsed * duration - elapsed * sourceFrames;
+			// A split can round its source boundary by one sample. Larger seam
+			// shifts would replace independently timed traversals with one rate.
+			if (difference > duration || difference < -duration) {
+				throw new RangeError('Clips with different source timing must be rendered before joining.');
+			}
+		}
 	}
 	for (let index = 1; index < clips.length; index += 1) {
 		const previous = clips[index - 1];

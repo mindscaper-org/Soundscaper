@@ -4,6 +4,11 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 /** Label presentation, selected spans and track-header ranges own native timing boundaries. */
 export const FOUNDATION_SELECTION_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = [
 	{
+		id: 'native-clip-join-availability', surface: 'timeline', file: 'src/common/editor/commands/clip-join-availability.ts',
+		entryPoint: 'clipJoinAvailabilityProject', inputIdentifier: 'project', projectedIdentifier: 'clips', boundary: 'resolveRuntimeClipProjection',
+		evidence: 'Join preflight resolves selected musical audio timing before measuring adjacency; command mutation retains the authored timing authority.',
+	},
+	{
 		id: 'label-manager-presentation', surface: 'timeline', file: 'src/common/editor/ui/workspace/WorkspacePanelContent.jsx',
 		entryPoint: 'WorkspacePanelContent', inputIdentifier: 'labelInput', projectedIdentifier: 'labelProject', boundary: 'resolveRuntimeProjectProjection',
 		evidence: 'Manage labels uses the supplied runtime project or resolves a label-only authored view before passing sample positions to its timecode controls; label edits retain the persisted beat authority.',
