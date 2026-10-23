@@ -166,7 +166,9 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 			});
 		}
 		activeCuts.push({ clipId: String(clip.id), recordOut });
-		const source = sourceById.get(String(clip.sourceId));
+		const sourceId = String(clip.sourceId);
+		const source = sourceById.get(sourceId);
+		const suppliedReel = Object.hasOwn(reelNames, sourceId) ? reelNames[sourceId] : undefined;
 		const sourceIn = edlSourceInPoint(clip, source, sequence.rate, sampleRate);
 		const timeEffect = interchangeClipTimeEffect(clip);
 		// The formatter already reports legacy scalar speeds. Native curves have
@@ -180,9 +182,8 @@ export function createProjectEdlExport(request: EdlProjectExportRequest): EdlExp
 			});
 		}
 		events.push(Object.freeze({
-			reel: String(reelNames[String(clip.sourceId)] ?? source?.name ?? clip.sourceId ?? ''),
-			reelIdentity: reelNames[String(clip.sourceId)] === undefined ? String(clip.sourceId)
-				: `explicit:${reelNames[String(clip.sourceId)]}`,
+			reel: String(suppliedReel ?? source?.name ?? clip.sourceId ?? ''),
+			reelIdentity: suppliedReel === undefined ? sourceId : `explicit:${suppliedReel}`,
 			trackKind: 'V' as const,
 			sourceInFrames: sourceIn,
 			// Derived, so the cut's two sides can never disagree by a rounded frame.
