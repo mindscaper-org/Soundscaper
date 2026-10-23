@@ -48,7 +48,7 @@ export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTi
 	{
 		id: 'timeline-generator-split-boundary',
 		file: 'src/framescaper/editor-timeline-generator-split-command.ts',
-		behavior: 'The generated visual split consumer resolves the requested project sample to the nearest authored sequence boundary before partitioning its exact sequence extent and native source window; compound cuts observe earlier generated visual mutations.',
+		behavior: 'Generated and frozen visual splits resolve the requested project sample to the nearest authored sequence boundary before partitioning the sequence extent; generators also partition their source window, while frozen PNGs retain their constant source. Compound cuts observe earlier visual mutations.',
 		conversions: [{ helper: 'sampleFrameToVideoFrame', policies: ['point'] }],
 	},
 	{
