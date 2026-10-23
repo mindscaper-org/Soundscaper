@@ -170,7 +170,19 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  	}
  
  	readBytes(length: number) {
-@@ -640,13 +669,20 @@
+@@ -598,7 +627,10 @@
+ 			}
+ 
+ 			case Id3V2TextEncoding.UTF_16_WITH_BOM: {
+-				if (data[0] === 0xff && data[1] === 0xfe) {
++				if (data[0] === 0 && data[1] === 0) {
++					this.pos = startPos + 2;
++					return '';
++				} else if (data[0] === 0xff && data[1] === 0xfe) {
+ 					const decoder = new TextDecoder('utf-16le');
+ 					const endIndex = coalesceIndex(
+ 						data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
+@@ -640,13 +672,20 @@
  		}
  	}
  
@@ -368,7 +380,19 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
      }
      readBytes(length) {
          const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -566,12 +594,19 @@
+@@ -534,7 +562,10 @@
+                 return str;
+             }
+             case Id3V2TextEncoding.UTF_16_WITH_BOM: {
+-                if (data[0] === 0xff && data[1] === 0xfe) {
++                if (data[0] === 0 && data[1] === 0) {
++                    this.pos = startPos + 2;
++                    return '';
++                } else if (data[0] === 0xff && data[1] === 0xfe) {
+                     const decoder = new TextDecoder('utf-16le');
+                     const endIndex = coalesceIndex(data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0), data.length);
+                     this.pos = startPos + Math.min(endIndex + 2, data.length);
+@@ -566,12 +597,19 @@
              }
          }
      }
@@ -698,7 +722,19 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27284,12 +27311,19 @@
+@@ -27246,7 +27273,10 @@
+           return str;
+         }
+         case 1 /* UTF_16_WITH_BOM */: {
+-          if (data[0] === 255 && data[1] === 254) {
++          if (data[0] === 0 && data[1] === 0) {
++            this.pos = startPos + 2;
++            return "";
++          } else if (data[0] === 255 && data[1] === 254) {
+             const decoder = new TextDecoder("utf-16le");
+             const endIndex = coalesceIndex(
+               data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
+@@ -27284,12 +27314,19 @@
          }
        }
      }
@@ -932,7 +968,19 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27287,12 +27314,19 @@
+@@ -27249,7 +27276,10 @@
+           return str;
+         }
+         case 1 /* UTF_16_WITH_BOM */: {
+-          if (data[0] === 255 && data[1] === 254) {
++          if (data[0] === 0 && data[1] === 0) {
++            this.pos = startPos + 2;
++            return "";
++          } else if (data[0] === 255 && data[1] === 254) {
+             const decoder = new TextDecoder("utf-16le");
+             const endIndex = coalesceIndex(
+               data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
+@@ -27287,12 +27317,19 @@
          }
        }
      }
@@ -1166,7 +1214,19 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
    }
    readBytes(length) {
      const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27127,12 +27154,19 @@
+@@ -27089,7 +27116,10 @@
+         return str;
+       }
+       case 1 /* UTF_16_WITH_BOM */: {
+-        if (data[0] === 255 && data[1] === 254) {
++        if (data[0] === 0 && data[1] === 0) {
++          this.pos = startPos + 2;
++          return "";
++        } else if (data[0] === 255 && data[1] === 254) {
+           const decoder = new TextDecoder("utf-16le");
+           const endIndex = coalesceIndex(
+             data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
+@@ -27127,12 +27157,19 @@
        }
      }
    }

@@ -140,6 +140,36 @@ test('File Open retains an APIC image with a UTF-16BE description and an ASCII M
 	assert.equal(image?.sha256, imageHash);
 });
 
+for (const withBom of [false, true]) test(`File Open retains UTF-16 fields following an empty description (BOM=${withBom})`, async () => {
+	const emptyDescription = withBom ? Buffer.from([255, 254, 0, 0]) : Buffer.from([0, 0]);
+	const textFrame = (text: string): Buffer => Buffer.concat([Buffer.from([1]), Buffer.from('eng'), emptyDescription,
+		Buffer.from([255, 254]), Buffer.from(text, 'utf16le')]);
+	const picture = Buffer.concat([Buffer.from([1]), Buffer.from('image/jpeg\0'), Buffer.from([3]), emptyDescription, jpeg]);
+	const body = Buffer.concat([frame(4, 'APIC', picture), frame(4, 'COMM', textFrame('Reviewed comment')),
+		frame(4, 'USLT', textFrame('Reviewed lyrics')), frame(4, 'TIT2', Buffer.from('\0Following title'))]);
+	const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 4, 0, 0]), syncSafe(body.length), body]));
+	const contribution = await importedMetadata(metadata);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.comment, 'Reviewed comment');
+	assert.equal(contribution.metadata.normalized.lyrics, 'Reviewed lyrics');
+	assert.equal(contribution.metadata.normalized.title, 'Following title');
+	const image = contribution.attachments.find(({ path }) => path === 'images[0]');
+	assert.equal(image?.description, undefined);
+	assert.equal(image?.byteLength, jpeg.length);
+	assert.equal(image?.sha256, imageHash);
+	for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']) {
+		const bytes = Buffer.concat([metadata, await mp3()]);
+		const { stdout } = await runNode(process.execPath, ['--input-type=module', '-e', `
+			const module=await import('./node_modules/mediabunny/dist/bundles/'+process.argv[1]);
+			const {Input,BlobSource,ALL_FORMATS}=module.default??module;
+			const input=new Input({source:new BlobSource(new Blob([Buffer.from(process.argv[2],'base64')])),formats:ALL_FORMATS});
+			try{const tags=await input.getMetadataTags();console.log(JSON.stringify({comment:tags.comment,lyrics:tags.lyrics,image:Buffer.from(tags.images[0].data).toString('base64')}));}
+			finally{input.dispose();}
+		`, bundle, bytes.toString('base64')], { timeout: 10_000 });
+		assert.deepEqual(JSON.parse(stdout) as unknown, { comment: 'Reviewed comment', lyrics: 'Reviewed lyrics', image: jpeg.toString('base64') }, bundle);
+	}
+});
+
 function textList(encoding: 0 | 1 | 2 | 3, values: readonly string[]): Buffer {
 	return Buffer.concat([Buffer.from([encoding]), ...values.flatMap((value, index) => {
 		const terminator = index < values.length - 1 ? Buffer.alloc(encoding === 1 || encoding === 2 ? 2 : 1) : Buffer.alloc(0);
