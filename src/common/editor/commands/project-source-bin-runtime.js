@@ -20,6 +20,7 @@ import {
 import { scaleSampleFrame } from '../timeline-time.ts';
 import { clipLoopTransformFields } from '../audio-clip-loop.ts';
 import { projectBinReplacementWarp } from '../project-bin-replacement-warp.ts';
+import { replacedClipSourceStretchFields } from '../clip-source-stretch-memory.ts';
 import { createProjectBinContractionEvaluator } from '../project-bin-replacement-contractions.ts';
 import { isNativeProjectBinVideo, projectBinVideoReplacementRange } from '../project-bin-video-replacement.ts';
 import { resolveRuntimeClipProjection } from '../runtime-clip-projection.ts';
@@ -483,7 +484,9 @@ function remapReplacementClip(project, clip, oldSource, newSource) {
 }
 
 function normalizeReplacementClip(project, original, replacement) {
-	const clip = normalizeClipForProject(project, { ...replacement, warpMap: null });
+	const memory = replacedClipSourceStretchFields(original, requireSource(project, original.sourceId),
+		requireSource(project, replacement.sourceId), project.sampleRate);
+	const clip = normalizeClipForProject(project, { ...replacement, ...memory, warpMap: null });
 	return normalizeClipForProject(project, { ...clip, ...projectBinReplacementWarp(original, clip) });
 }
 

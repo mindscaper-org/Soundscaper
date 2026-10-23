@@ -2,7 +2,7 @@
 
 import { evaluateAudioWarpMapAtSource, normalizeAudioWarpMap, type AudioWarpMap } from './audio-warp-domain.ts';
 import { clipSourceDisplayRange, clipSourcePreviewWarpMap, type ClipSourceTimingClip, type ClipSourceTimingProject, type ClipSourceTimingSource } from './clip-source-timing.ts';
-import { addRationals, subtractRationals, multiplyDivideRationals, type Rational } from './timeline-time.ts';
+import { addRationals, compareRationals, subtractRationals, multiplyDivideRationals, type Rational } from './timeline-time.ts';
 import { remapAudioWarpSourceWindow } from './audio-warp-source-window.ts';
 
 export const CLIP_SOURCE_STRETCH_EXTENSION = 'org.soundscaper.clipSourceStretch';
@@ -51,6 +51,33 @@ export function resampledClipSourceStretchFields(
 		{ sourceStartFrame: 0, sourceDurationFrames: replacement.frameCount });
 	return { opaqueExtensions: { ...extensions, [CLIP_SOURCE_STRETCH_EXTENSION]: {
 		sourceId: replacement.id, sourceFrameCount: replacement.frameCount, map,
+	} } };
+}
+
+/** A replacement file keeps authored source-time anchors that still exist in its media. */
+export function replacedClipSourceStretchFields(
+	clip: StretchClip,
+	previous: ClipSourceTimingSource & Readonly<{ id: string }>,
+	replacement: ClipSourceTimingSource & Readonly<{ id: string }>,
+	projectSampleRate: number,
+): Readonly<{ opaqueExtensions?: Readonly<Record<string, unknown>> }> {
+	const extensions = extensionsOf(clip);
+	const memory = extensions[CLIP_SOURCE_STRETCH_EXTENSION] as ClipSourceStretchMemory | undefined;
+	if (!memory || memory.sourceId !== previous.id || memory.sourceFrameCount !== previous.frameCount) return {};
+	const original = normalizeAudioWarpMap(memory.map);
+	const map = normalizeAudioWarpMap({ ...original, points: original.points.map(point => ({ ...point,
+		source: multiplyDivideRationals(point.source, replacement.sampleRate, previous.sampleRate),
+	})) });
+	const last = map.points.at(-1)!;
+	const end = replacement.frameCount;
+	const outer = compareRationals(end, last.source) <= 0 ? evaluateAudioWarpMapAtSource(map, end)
+		: addRationals(last.outer, multiplyDivideRationals(subtractRationals(end, last.source), projectSampleRate, replacement.sampleRate));
+	const rebound = normalizeAudioWarpMap({ ...map, points: [
+		...map.points.filter(point => compareRationals(point.source, end) < 0),
+		{ source: { num: end, den: 1 }, outer, mode: 'forward' },
+	] });
+	return { opaqueExtensions: { ...extensions, [CLIP_SOURCE_STRETCH_EXTENSION]: {
+		sourceId: replacement.id, sourceFrameCount: replacement.frameCount, map: rebound,
 	} } };
 }
 
