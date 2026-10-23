@@ -42,7 +42,7 @@ export function buildStripAutomation(key: string, strip: DataRecord, context: Da
 	if (muteLane) {
 		const points = lanePoints(muteLane, context);
 		if (points) {
-			result.push(xmlElement('Points', { id: context.ids.id(`points:${key}:mute`),
+			result.push(xmlElement('Points', { id: context.ids.id('points', key, 'mute'),
 				...(points[0]?.beat === undefined ? {} : { timeUnit: 'beats' }) }, [
 				xmlElement('Target', { parameter: parameterIdFor(context, key, 'mute') }),
 				...points.map((point) => xmlElement('BoolPoint', {
@@ -114,7 +114,7 @@ function pointsElement(
 	points: readonly ResolvedPoint[],
 	convert: (value: number) => number,
 ): XmlElement {
-	return xmlElement('Points', { unit, id: context.ids.id(`points:${key}:${parameter}`),
+	return xmlElement('Points', { unit, id: context.ids.id('points', key, parameter),
 		...(points[0]?.beat === undefined ? {} : { timeUnit: 'beats' }) }, [
 		xmlElement('Target', { parameter: parameterIdFor(context, key, parameter) }),
 		...points.map((point) => xmlElement('RealPoint', {

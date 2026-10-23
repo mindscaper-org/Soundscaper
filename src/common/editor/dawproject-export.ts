@@ -212,7 +212,7 @@ function buildFolderTrack(node: DawprojectStructureNode, context: DawprojectExpo
 	return xmlElement('Track', {
 		contentType: contentTypes.join(' '),
 		loaded: true,
-		id: context.ids.id(`folder:${node.id}`),
+		id: context.ids.id('folder', node.id),
 		name: String(node.folder?.name ?? node.id),
 	}, [
 		bus ? buildChannel(context, `mixer-node:${bus.id}`, {
@@ -231,7 +231,7 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 	return xmlElement('Track', {
 		contentType: 'audio',
 		loaded: true,
-		id: context.ids.id(key),
+		id: context.ids.id('track', trackId),
 		name: String(track.name ?? trackId),
 		color: isHexColor(track.color) ? track.color : null,
 	}, [
@@ -277,7 +277,7 @@ function buildVideoTrack(track: DataRecord, context: DawprojectExportContext): X
 	return xmlElement('Track', {
 		contentType: 'video',
 		loaded: true,
-		id: context.ids.id(`track:${trackId}`),
+		id: context.ids.id('track', trackId),
 		name: String(track.name ?? trackId),
 	});
 }
@@ -292,7 +292,7 @@ function buildMixerNodeTracks(context: DawprojectExportContext): XmlElement[] {
 			result.push(xmlElement('Track', {
 				contentType: 'audio',
 				loaded: true,
-				id: context.ids.id(`strip-track:${strip.id}`),
+				id: context.ids.id('strip-track', strip.id),
 				name: strip.name,
 			}, [
 				buildChannel(context, `mixer-node:${strip.id}`, {
@@ -318,7 +318,7 @@ function buildMixerNodeTracks(context: DawprojectExportContext): XmlElement[] {
 function buildMasterTrack(context: DawprojectExportContext): XmlElement {
 	const master = record(context.project.master);
 	return xmlElement('Track', {
-		contentType: 'audio', loaded: true, id: context.ids.id('track:master'), name: 'Master',
+		contentType: 'audio', loaded: true, id: context.ids.id('master-track'), name: 'Master',
 	}, [
 		buildChannel(context, 'master', {
 			role: 'master',
@@ -349,11 +349,11 @@ function buildChannel(context: DawprojectExportContext, key: string, spec: Chann
 	const sends = spec.sends.map(({ id, level, position }) => xmlElement('Send', {
 		destination: channelIdFor(context, `mixer-node:${id}`),
 		type: position,
-		id: context.ids.id(`send:${key}:${id}`),
+		id: context.ids.id('send', key, id),
 	}, [
 		xmlElement('Volume', {
 			max: 4, min: 0, unit: 'linear', value: Math.max(0, level),
-			id: context.ids.id(`send:${key}:${id}:volume`), name: 'Send',
+			id: context.ids.id('send-volume', key, id), name: 'Send',
 		}),
 	]));
 	// Child order is the schema's sequence: Devices, Mute, Pan, Sends, Volume.

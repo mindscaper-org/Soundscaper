@@ -105,11 +105,11 @@ export function stripKey(strip: DataRecord | null | undefined): string | null {
 }
 
 export function channelIdFor(context: DawprojectExportContext, key: string): string {
-	return context.ids.id(`channel:${key}`);
+	return context.ids.id('channel', key);
 }
 
 export function parameterIdFor(context: DawprojectExportContext, key: string, parameter: 'volume' | 'pan' | 'mute'): string {
-	return context.ids.id(`${key}:${parameter}`);
+	return context.ids.id('parameter', key, parameter);
 }
 
 /**
