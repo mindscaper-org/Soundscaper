@@ -7,6 +7,7 @@ import { audioWarpOuterAtTimelineFrame, isMusicalAudioWarpClip, type AudioWarpAu
 import { CLIP_SOURCE_STRETCH_EXTENSION, type ClipSourceStretchMemory } from '../clip-source-stretch-memory.ts';
 import { addRationals, beatToSampleFrame, compareRationals, multiplyRationals, subtractRationals, type Rational } from '../timeline-time.ts';
 import { clipLoopTransformFields } from '../audio-clip-loop.ts';
+import { remapProcessedSourceEnvelope } from './source-process-envelope.ts';
 
 type RecordValue = Record<string, unknown>;
 interface Source extends RecordValue {
@@ -75,7 +76,8 @@ export function processSourceAudio(projectValue: object, command: Extract<AudioE
 				fadeInFrames: Math.min(clip.fadeInFrames ?? 0, durationFrames),
 				fadeOutFrames: Math.min(clip.fadeOutFrames ?? 0, durationFrames),
 				trimStartFrames: 0, trimEndFrames: 0,
-				...(clip.envelope ? { envelope: remapEnvelope(clip.envelope, clip.durationFrames, durationFrames) } : {}),
+				...(clip.envelope ? { envelope: remapProcessedSourceEnvelope(clip, durationFrames, sourceStartFrame,
+					sourceDurationFrames, mapFrame, startFrame, endFrame) } : {}),
 			} : {}),
 			...(warpMap ? { warpMap: { ...warpMap, points: warpMap.points.map((point) => ({
 				...point, source: mapRational(point.source),
@@ -122,13 +124,4 @@ function remapStretchMemory(clip: Clip, previous: Source, next: Source, mapFrame
 		sourceId: next.id, sourceFrameCount: next.frameCount,
 		map: { ...map, points: map.points.map((point) => ({ ...point, source: mapFrame(point.source), outer: mapOuter(point.outer) })) },
 	} } };
-}
-
-function remapEnvelope(points: NonNullable<Clip['envelope']>, previousDurationFrames: number, durationFrames: number) {
-	const retained = new Map<number, Readonly<{ frame: number; value: number }>>();
-	for (const point of points) {
-		const frame = Math.min(durationFrames, Math.round(point.frame * durationFrames / previousDurationFrames));
-		retained.set(frame, { ...point, frame });
-	}
-	return [...retained.values()];
 }

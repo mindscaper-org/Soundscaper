@@ -51,3 +51,41 @@ for (const factor of [.5, 2, 1]) for (const reversed of [false, true]) {
 		controller.actions.edit.redo(); assert.deepEqual(controller.project?.clips, after.clips);
 	});
 }
+
+for (const reversed of [false, true]) for (const trimmed of [false, true]) {
+	test(`partial source tempo retains piecewise gain timing reversed=${String(reversed)} trimmed=${String(trimmed)}`, async context => {
+		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
+		const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 100 });
+		const sourceStartFrame = trimmed ? 10 : 0, sourceDurationFrames = trimmed ? 80 : 100;
+		const durationFrames = sourceDurationFrames * 2;
+		const envelope = [{ frame: 0, value: 0 }, { frame: durationFrames, value: 1 }];
+		const clip = createAudioClip({ id: 'clip', sourceId: source.id, reversed, envelope,
+			sourceStartFrame, sourceDurationFrames, durationFrames });
+		const project = createSoundscaperProject({ id: context.name, sources: [source], clips: [clip],
+			tracks: [createAudioTrack({ id: 'voice', clipIds: [clip.id] })] });
+		const writer = await store.beginSourceWrite(source.storageKey, source);
+		await writer.write([new Float32Array(100).fill(.25)]); await writer.commit();
+		const archive = await exportScapeProject(project, store); assert.ok(archive.blob instanceof Blob);
+		const runtime = createSoundscaperProjectRuntimeSelection();
+		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
+			projectRuntime: runtime, sessionController: runtime.createSessionController(), scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
+			engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'] });
+		context.after(async () => { await controller.dispose(); }); await controller.ready;
+		await controller.actions.project.openScapeFile(new File([archive.blob], 'Voice.sscape'), () => 'copy');
+		const before: unknown = controller.project; assert.ok(validateSoundscaperProject(before));
+		const processed = createAudioSource({ ...source, id: 'processed', storageKey: 'processed', frameCount: 80 });
+		const output = await store.beginSourceWrite(processed.storageKey, processed);
+		await output.write([new Float32Array(80).fill(.25)]); await output.commit();
+		controller.actions.edit.commit({ type: 'source/process-audio', sourceId: before.clips[0]!.sourceId, source: processed,
+			startFrame: 20, endFrame: 60 });
+		const after: unknown = controller.project; assert.ok(validateSoundscaperProject(after));
+		const oldBoundaries = [20, 60].map(frame => reversed
+			? (sourceStartFrame + sourceDurationFrames - frame) * 2 : (frame - sourceStartFrame) * 2).sort((a, b) => a - b);
+		const first = oldBoundaries[0]!, second = oldBoundaries[1]!;
+		assert.deepEqual(after.clips[0]!.envelope, [
+			{ frame: 0, value: 0 }, { frame: first, value: first / durationFrames },
+			{ frame: second - 40, value: second / durationFrames }, { frame: durationFrames - 40, value: 1 },
+		]);
+		controller.actions.edit.undo(); assert.deepEqual(controller.project?.clips, before.clips);
+	});
+}

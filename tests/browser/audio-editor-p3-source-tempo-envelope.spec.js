@@ -52,3 +52,47 @@ test('Source Change tempo keeps the clip gain notch on the same part of the reco
 	await chooseCommandAction(page, editor, 'Edit', 'Redo'); const redone = await exportSamples(page, editor);
 	expect(redone.length).toBe(processed.length); expect(peak(redone, .175, .225)).toBeLessThan(.0001);
 });
+
+test('Source Change tempo over a subrange preserves the untouched earlier gain notch', async ({ page }) => {
+	test.setTimeout(90_000);
+	const frameCount = 192_000;
+	const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount });
+	const clip = createAudioClip({ id: 'clip', title: 'Partial voice recording', sourceId: source.id,
+		durationFrames: frameCount, sourceDurationFrames: frameCount,
+		envelope: [0, 14_400, 33_600, 40_800, frameCount].map((frame, index) => ({ frame, value: index === 1 || index === 2 ? 0 : 1 })) });
+	const project = createSoundscaperProject({ id: 'p3-source-partial-envelope', sources: [source], clips: [clip],
+		tracks: [createAudioTrack({ id: 'voice', name: 'Voice', clipIds: [clip.id] })] });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
+	let file;
+	try {
+		const writer = await store.beginSourceWrite(source.storageKey, source);
+		for (let start = 0; start < frameCount; start += 65_536) {
+			await writer.write([Float32Array.from({ length: Math.min(65_536, frameCount - start) }, (_, frame) => .25 * Math.sin(2 * Math.PI * 750 * (start + frame) / 48_000))]);
+		}
+		await writer.commit(); const archive = await exportScapeProject(project, store); expect(archive.blob).toBeInstanceOf(Blob);
+		file = { name: 'Voice.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.blob.arrayBuffer()) };
+	} finally { await store.close(); }
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await editor.locator('[data-aup4-input]').setInputFiles(file);
+	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
+	const before = await exportSamples(page, editor); expect(peak(before, .65, .68)).toBeLessThan(.0001);
+	const properties = await openSourceMonitor(page, editor, clipByName(editor, clip.title));
+	const waveform = properties.getByRole('region', { name: 'Source waveform', exact: true });
+	const box = await waveform.boundingBox(); expect(box).not.toBeNull();
+	await page.mouse.move(box.x + box.width / 4, box.y + box.height / 2);
+	await page.mouse.down(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 8 }); await page.mouse.up();
+	await expect(waveform.locator('.audio-editor-source-selection')).toBeVisible();
+	await chooseNestedCommandAction(page, editor, 'Effect', ['Pitch and tempo', 'Change tempo']);
+	const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
+	await commitInput(dialog.locator('[data-effect-param="effectAudacityFromBpm"] input'), '120');
+	await commitInput(dialog.locator('[data-effect-param="effectAudacityToBpm"] input'), '240');
+	await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();
+	await expect(dialog).toBeHidden({ timeout: 20_000 }); await closeClipProperties(properties);
+	const processed = await exportSamples(page, editor);
+	expect(processed.length).toBeGreaterThan(165_000); expect(processed.length).toBeLessThan(171_000);
+	expect(peak(processed, .65, .68)).toBeLessThan(.0001);
+	expect(peak(processed, 2.5, 2.6)).toBeGreaterThan(.1);
+	await chooseCommandAction(page, editor, 'Edit', 'Undo'); const undone = await exportSamples(page, editor);
+	expect(undone.length).toBe(before.length);
+	expect(undone.reduce((maximum, sample, frame) => Math.max(maximum, Math.abs(sample - before[frame])), 0)).toBeLessThan(.000001);
+});
