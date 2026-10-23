@@ -41,6 +41,7 @@ export default function AudioEditorMenuBar({
 	onSearchActivate,
 	projectTabs,
 	projectName,
+	projectSessionKey = '',
 	productId = 'soundscaper',
 	saveState,
 	saveText,
@@ -93,6 +94,7 @@ export default function AudioEditorMenuBar({
 		openMenuRef.current = null;
 		setOpenMenu(null);
 	}, []);
+	useLayoutEffect(() => { closeMenu(false); }, [closeMenu, projectSessionKey]);
 
 	const openMenuAt = useCallback((index, { keyboard = false } = {}) => {
 		const trigger = menuButtonsRef.current[index];
