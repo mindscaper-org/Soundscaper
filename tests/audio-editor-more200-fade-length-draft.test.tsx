@@ -8,7 +8,7 @@ import ClipFadesDialog from '../src/common/editor/ui/timeline/ClipFadesDialog.ts
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-for (const draft of ['0.', '0.125', '0.0005', '', '1e', '-', '.']) test(`Fades retains the typed draft ${JSON.stringify(draft)} without rounding or deleting audio`, async () => {
+for (const draft of ['0.', '0.125', '0.0005', '', '1e', '-', '.', '-1', '1.001', '1e308']) test(`Fades retains the typed draft ${JSON.stringify(draft)} without rounding or deleting audio`, async () => {
 	const dom = installReactTestDom();
 	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previous = globals.IS_REACT_ACT_ENVIRONMENT; globals.IS_REACT_ACT_ENVIRONMENT = true;
@@ -20,7 +20,7 @@ for (const draft of ['0.', '0.125', '0.0005', '', '1e', '-', '.']) test(`Fades r
 		const field = dom.one('.number-stepper__input');
 		await act(async () => reactProps(field).onChange({ target: { value: draft } }));
 		assert.equal(reactProps(field).value, draft);
-		if (!draft || !Number.isFinite(Number(draft))) {
+		if (!draft || !Number.isFinite(Number(draft)) || Number(draft) < 0 || Number(draft) > 1) {
 			assert.equal(previews.at(-1)?.fadeInFrames, undefined, 'an incomplete draft must not erase the existing fade');
 			const apply = dom.container.querySelectorAll('button').find(button => button.textContent === 'Apply');
 			assert.ok(apply); assert.equal(reactProps(apply).disabled, true);

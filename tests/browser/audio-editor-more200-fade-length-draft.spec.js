@@ -21,7 +21,11 @@ for (const length of ['0.125', '0.0005']) test(`Fades accepts ordinary sequentia
 	const field = dialog.getByRole('textbox', { name: 'Fade-in length', exact: true });
 	await field.clear();
 	await expect(dialog.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
-	await field.pressSequentially(length);
+	for (const invalid of ['-0.1', '2', '1e308']) {
+		await field.fill(invalid); await expect(dialog.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+		await expect(fade).toHaveAttribute('aria-valuenow', '0');
+	}
+	await field.clear(); await field.pressSequentially(length);
 	await expect(field).toHaveValue(length);
 	await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
 	await expect(fade).toHaveAttribute('aria-valuenow', length);

@@ -30,7 +30,7 @@ function stopPortalEvent(event: SyntheticEvent): void { event.stopPropagation();
 export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPreview, onApply, onClose, portalHost }: Props) {
 	const [changes, setChanges] = useState<ClipFadeChanges>({});
 	const [lengthDrafts, setLengthDrafts] = useState<Partial<Record<ClipFadeEdge, string>>>({});
-	const incompleteLength = Object.values(lengthDrafts).some(text => !Number.isFinite(parseLengthSeconds(text)));
+	const incompleteLength = Object.values(lengthDrafts).some(text => !Number.isFinite(parseLengthSeconds(text, clip.durationFrames / sampleRate)));
 	const value = { ...clip, ...changes };
 	const labels = clipInteractionCopy(copy);
 	const baseId = useId();
@@ -56,7 +56,7 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 						incrementLabel={labels.increaseValue} decrementLabel={labels.decreaseValue} value={lengthDrafts[edge] ?? String((value[field] ?? 0) / sampleRate)} min={0} max={clip.durationFrames / sampleRate}
 						step={0.1} disabled={blocked} onChange={text => {
 							setLengthDrafts(previous => ({ ...previous, [edge]: text }));
-							const seconds = parseLengthSeconds(text);
+							const seconds = parseLengthSeconds(text, clip.durationFrames / sampleRate);
 							if (Number.isFinite(seconds)) {
 								const length = clipFadeLengthChange(value, edge, Math.round(seconds * sampleRate));
 								setChanges(previous => ({ ...shapesForNewClipFades(clip, length), ...previous, ...length }));
@@ -83,7 +83,8 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 		onClick={stopPortalEvent} onDoubleClick={stopPortalEvent} onContextMenu={stopPortalEvent} onWheel={stopPortalEvent}>{dialog}</div>, host);
 }
 
-function parseLengthSeconds(text: string): number {
+function parseLengthSeconds(text: string, maximum: number): number {
 	const numeric = text.replace(/\s*s\s*$/iu, '').replace(',', '.').trim();
-	return numeric ? Number(numeric) : Number.NaN;
+	const value = numeric ? Number(numeric) : Number.NaN;
+	return value >= 0 && value <= maximum ? value : Number.NaN;
 }
