@@ -18,6 +18,7 @@ import { prepareTimelineLabelRemovalFocus } from './label-removal-focus.ts';
 import { isContextMenuKey } from './context-menu-keyboard.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { selectTrackFromHeader } from './track-header-selection.ts';
+import { useTimelineLabelFontRevision } from './useTimelineLabelFontRevision.ts';
 
 export function LabelTrackRow(props) {
 	return <LabelTrackRowSession key={editorProjectEditSessionKey(props.controller, props.controller.getSnapshot().project?.id)} {...props} />;
@@ -58,14 +59,17 @@ function LabelTrackRowSession({
 		: selectedLabelId ? [selectedLabelId] : []), [nativeSelectedLabels, selectedLabelId, track.id]);
 	const fontSizePt = snapshot.preferences?.appearance?.labelTextSizePt ?? 9;
 	const metrics = useMemo(() => getLabelMetrics(fontSizePt), [fontSizePt]);
+	const fontRevision = useTimelineLabelFontRevision();
 	const labelIndex = useMemo(() => track.labels.length > 128 ? createLabelViewportIndex(track.labels) : null, [track.labels]);
 	const visibleLabels = useMemo(() => labelIndex && viewportDurationFrames > 0
 		? labelIndex.query(Math.max(0, renderViewportStartFrame - viewportDurationFrames),
 			Math.min(Number.MAX_SAFE_INTEGER, renderViewportStartFrame + viewportDurationFrames * 2),
 			Math.ceil((metrics.maxPointWidth + metrics.earWidth + metrics.pointFlagGap) / pixelsPerSecond * sampleRate), [...selectedLabelIds, editingLabelId])
 		: track.labels, [editingLabelId, labelIndex, metrics, pixelsPerSecond, renderViewportStartFrame, sampleRate, selectedLabelIds, track.labels, viewportDurationFrames]);
-	const labelLayout = useMemo(() => layoutTimelineLabels(visibleLabels, pixelsPerSecond, sampleRate, metrics),
-		[visibleLabels, pixelsPerSecond, sampleRate, metrics]);
+	const labelLayout = useMemo(() => {
+		void fontRevision;
+		return layoutTimelineLabels(visibleLabels, pixelsPerSecond, sampleRate, metrics);
+	}, [visibleLabels, pixelsPerSecond, sampleRate, metrics, fontRevision]);
 	const addLabel = (event = null) => {
 		if (labelBlocked || labelTrackEditBlocked(controller, track.id)) return;
 		const pointerFrame = event?.clientX != null && laneRef.current
