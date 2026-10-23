@@ -32,8 +32,15 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 	const note = (path: string, reason: string): void => { changes.push({ path, reason }); };
 	const available = new Set<string>();
 	raw.sources = values(raw.sources).filter((source, index) => {
-		const sourceId = record(source)?.id;
-		if (typeof sourceId === 'string' && availableSourceIds.has(sourceId)) { available.add(sourceId); return true; }
+		const candidate = record(source);
+		const sourceId = candidate?.id;
+		if (typeof sourceId === 'string' && availableSourceIds.has(sourceId)) {
+			if (candidate?.kind === 'audio' && (typeof candidate.name !== 'string' || !candidate.name.trim())) {
+				candidate.name = sourceId;
+				note(`sources[${String(index)}].name`, 'Reset an invalid media name; verified audio remains available.');
+			}
+			available.add(sourceId); return true;
+		}
 		note(`sources[${String(index)}]`, 'Removed media that is missing or unreadable.');
 		return false;
 	});
