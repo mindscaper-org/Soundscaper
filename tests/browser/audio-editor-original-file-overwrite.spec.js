@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
+import { BlobSource, Input, MP4 } from 'mediabunny';
 import { setClipGain } from './audio-editor-clip-settings-test-helpers.js';
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { ordinaryTailM4aFixture } from '../helpers/ordinary-tail-m4a-fixture.ts';
+import { aacLcM4a48_000Fixture } from '../helpers/os-audio-codec-fixtures.ts';
 import { ordinaryOggOpusFixture } from '../helpers/ordinary-ogg-opus-fixture.ts';
 import { nativeOriginalImportFixture } from '../helpers/native-original-import-fixture.ts';
 import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
@@ -178,6 +180,35 @@ test('ordinary tail-metadata AAC import keeps the original overwrite menu availa
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
 	const menu = await openNestedCommandMenu(page, editor, 'File', []);
 	await expect(menu.getByRole('menuitem', { name: `Overwrite ${fixture.name}`, exact: true })).toBeEnabled();
+});
+
+test('ordinary audio-only AAC MP4 import keeps its original overwrite action', async ({ page, browserName }) => {
+	const file = new File([Uint8Array.from(aacLcM4a48_000Fixture())], 'Recording.mp4', { type: 'audio/mp4' });
+	const fixture = { name: 'Recording.mp4', mimeType: 'video/mp4', buffer: Buffer.from(await file.arrayBuffer()) };
+	const original = new Input({ source: new BlobSource(file), formats: [MP4] });
+	try {
+		expect(await original.getVideoTracks()).toHaveLength(0);
+		const audio = await original.getPrimaryAudioTrack();
+		expect(audio.codec).toBe('aac'); expect(audio.numberOfChannels).toBe(2);
+	} finally { original.dispose(); }
+	await installOriginalOverwriteBridge(page, 'soundscaper', [fixture]);
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseFileAction(page, editor, 'Import');
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });
+	const menu = await openNestedCommandMenu(page, editor, 'File', []);
+	await expect(menu.getByRole('menuitem', { name: `Overwrite ${fixture.name}`, exact: true })).toBeEnabled();
+	if (browserName === 'webkit') {
+		await menu.getByRole('menuitem', { name: `Overwrite ${fixture.name}`, exact: true }).click();
+		await expect.poll(() => page.evaluate(() => globalThis.__originalOverwriteFixture.completed.length)).toBe(1);
+		const saved = await page.evaluate(() => globalThis.__originalOverwriteFixture.completed[0]);
+		expect(saved.name).toBe('Recording.mp4');
+		const input = new Input({ source: new BlobSource(new Blob([Uint8Array.from(saved.bytes)])), formats: [MP4] });
+		try {
+			const audio = await input.getPrimaryAudioTrack();
+			expect(audio.codec).toBe('aac'); expect(audio.sampleRate).toBe(48_000); expect(audio.numberOfChannels).toBe(2);
+		} finally { input.dispose(); }
+	}
 });
 
 for (const extension of ['opus', 'ogg']) {

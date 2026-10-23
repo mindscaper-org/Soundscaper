@@ -29,7 +29,7 @@ const MAXIMUM_HEADER_BYTES = 1024 * 1024;
 const EXTENSIONS: Readonly<Record<string, string>> = Object.freeze({
 	wav: 'wav', wave: 'wav', rf64: 'wav', bwf: 'bwf', bw64: 'bw64', aif: 'aiff', aiff: 'aiff', aifc: 'aiff',
 	flac: 'flac', mp3: 'mp3', mp2: 'mp2', ogg: 'ogg-vorbis', oga: 'ogg-vorbis',
-	opus: 'opus', wv: 'wavpack', wavpack: 'wavpack', m4a: 'aac-m4a',
+	opus: 'opus', wv: 'wavpack', wavpack: 'wavpack', m4a: 'aac-m4a', mp4: 'aac-m4a',
 });
 
 /** Remember facts from the imported bytes rather than the project's decoded float cache. */
