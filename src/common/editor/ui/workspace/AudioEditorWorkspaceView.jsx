@@ -31,7 +31,6 @@ import { useSplitToolShortcut } from '../timeline/useSplitToolShortcut.ts';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import { CueImportDestinationDialog, WorkspaceImportInput } from './cue-import-workspace.tsx';
 import WebFileLimitDialog from './WebFileLimitDialog.tsx';
-import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { MeterPanelControlsProvider } from './MeterPanelControls.jsx';
 import { createWorkspacePanelDockRuntime } from './workspace-model-boundaries.ts';
 const ProjectLockToast = lazyEditorModule(() => import('../ProjectLockToast.tsx'));
@@ -78,7 +77,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 		openProjectFile,
 		openSurface,
 		parityRuntime,
-		pendingLegacyProjectRef,
+		legacyProjectSelection,
 		playbackMeterSettings,
 		project,
 		runtimeProject,
@@ -275,11 +274,9 @@ export default function AudioEditorWorkspaceView({ model }) {
 				webkitdirectory=""
 				directory=""
 				onChange={(event) => {
-					const projectFile = pendingLegacyProjectRef.current;
 					const files = [...event.currentTarget.files];
 					event.currentTarget.value = '';
-					pendingLegacyProjectRef.current = null;
-					if (projectFile && files.length) run(() => withWebFileLoadLimitContext(() => controller.actions.project.importFiles([projectFile, ...files])));
+					run(() => legacyProjectSelection.complete(files));
 				}}
 			/>
 

@@ -42,6 +42,7 @@ import { supportsDisplayAudioCapture } from '../../recording-display-input.ts';
 import { focusedRecordingTrackId, hasLockedRecordingTarget } from '../../recording-target-admission.ts';
 import { importWorkspaceRoutedFiles } from './import-workspace-routed-files.ts';
 import { openWorkspaceProjectFile } from './open-workspace-project-file.ts';
+import { createLegacyAupDirectorySelection } from './legacy-aup-directory-selection.ts';
 import { desktopExternalDestination } from '../workspace-runtime.js'; import { createTimedRecordingDialogValue } from '../dialogs/timed-recording-dialog-model.ts';
 import { useTrackHeaderDrawerFlag, useWorkspaceCompactLayout } from './useWorkspaceCompactLayout.js';
 import { useWorkspaceEffectsPanel } from './useWorkspaceEffectsPanel.js';
@@ -90,7 +91,11 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const { cueImportDialog, importInputRef, requestCueImport } = useCueImportWorkspace(controller, snapshot.project?.id);
 	const aup4InputRef = useRef(null);
 	const legacyDataInputRef = useRef(null);
-	const pendingLegacyProjectRef = useRef(null);
+	const legacyProjectSelection = useMemo(() => createLegacyAupDirectorySelection({
+		getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.getSnapshot().project?.id),
+		chooseDirectory: () => legacyDataInputRef.current?.click(),
+		importFiles: files => controller.actions.project.importFiles(files),
+	}), [controller]);
 	const editorRef = useRef(null);
 	const workspaceRef = useRef(null);
 	const {
@@ -219,10 +224,8 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		controller.actions.project.openScapeFile(file, requestScapeOpenDecision)
 	), [controller, requestScapeOpenDecision]);
 	const openProjectFile = useCallback((file, desktopSesx = false) => openWorkspaceProjectFile(
-		controller, file, openScapeProjectFile, (legacyFile) => {
-			pendingLegacyProjectRef.current = legacyFile;
-			legacyDataInputRef.current?.click();
-		}, desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, controller.getSnapshot().project?.id, prepareProject)), [controller, openScapeProjectFile, requestCueImport]);
+		controller, file, openScapeProjectFile, legacyProjectSelection.choose,
+		desktopSesx, (cueFile, prepareProject) => requestCueImport(cueFile, controller.getSnapshot().project?.id, prepareProject)), [controller, legacyProjectSelection, openScapeProjectFile, requestCueImport]);
 	const openDesktopProjectDescriptor = useCallback((descriptor) => withDesktopProjectReadDescriptor(
 		fileService,
 		descriptor,
@@ -497,7 +500,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		openProjectFile,
 		openSurface,
 		parityRuntime,
-		pendingLegacyProjectRef,
+		legacyProjectSelection,
 		playbackMeterSettings,
 		project,
 		runtimeProject,
