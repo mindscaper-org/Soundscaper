@@ -35,8 +35,8 @@ for (const trackId of ['__proto__', 'constructor', 'toString', 'voice']) {
 		const after: unknown = controller.project; assert.ok(validateSoundscaperProject(after));
 		assert.equal(after.tracks.length, 2); assert.equal(after.clips.length, 2);
 		const duplicate = after.tracks.find(track => track.id !== trackId); assert.ok(duplicate);
-		assert.ok(Array.isArray(duplicate.clipIds)); assert.equal(duplicate.clipIds.length, 1);
-		const copied = after.clips.find(clip => clip.id === duplicate.clipIds[0]); assert.ok(copied);
+		const copiedIds = duplicate.clipIds; assert.ok(Array.isArray(copiedIds)); assert.equal(copiedIds.length, 1);
+		const copied = after.clips.find(clip => clip.id === copiedIds[0]); assert.ok(copied);
 		assert.equal(copied.sourceId, before.clips[0]!.sourceId); assert.equal(copied.timelineStartFrame, 4800);
 		assert.deepEqual(after.tracks.find(track => track.id === trackId)?.clipIds, [clip.id]);
 		controller.actions.edit.undo(); assert.deepEqual(controller.project?.tracks, before.tracks); assert.deepEqual(controller.project?.clips, before.clips);

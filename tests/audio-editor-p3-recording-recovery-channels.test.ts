@@ -35,10 +35,12 @@ for (const condition of ['healthy', 'narrow-last', 'wide-last', 'narrow-first'] 
 			onCheckpoint: async segment => { journal = await repository.append(journal, 'mic', segment); } });
 		const channels = [Float32Array.of(0.125, 0.25, 0.375, 0.5), Float32Array.of(0.5, 0.375, 0.25, 0.125)];
 		await writer.write(channels); await writer.write(channels); await writer.finishRecording?.();
-		const corrupted = { ...journal, lanes: journal.lanes.map(lane => ({ ...lane, segments: lane.segments.map((segment, index) => ({ ...segment,
-			metadata: { ...segment.metadata, channelCount: condition === 'healthy' || index !== (condition === 'narrow-first' ? 0 : 1)
-				? 2 : condition === 'wide-last' ? 3 : 1 },
-		})) })) };
+		const corrupted = { ...journal, lanes: journal.lanes.map(lane => ({ ...lane, segments: lane.segments.map((segment, index) => {
+			assert.ok(record(segment.metadata));
+			return { ...segment, metadata: { ...segment.metadata,
+				channelCount: condition === 'healthy' || index !== (condition === 'narrow-first' ? 0 : 1)
+					? 2 : condition === 'wide-last' ? 3 : 1 } };
+		}) })) };
 		await store.saveAnalysis(`${RECORDING_RECOVERY_KEY_PREFIX}${encodeURIComponent(project.id)}`, corrupted);
 		const runtime = createSoundscaperProjectRuntimeSelection();
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
