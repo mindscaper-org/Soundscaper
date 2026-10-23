@@ -17,7 +17,10 @@ export function reportInterchangeAudioOmissions(report: DeliveryReport, project:
 		...records(project.clips).filter(clip => clipIds.has(String(clip.id))).map(clip => ({ kind: 'clip', owner: clip })),
 		...audioTracks.filter(track => Array.isArray(track.clipIds) && track.clipIds.length).map(track => ({ kind: 'track', owner: track })),
 	];
-	const omissions = owners.map(({ kind, owner }) => ({ kind, owner, fields: processingFields(owner, kind === 'clip') }))
+	const omissions = owners.map(({ kind, owner }) => ({ kind, owner, fields: {
+		...processingFields(owner, kind === 'clip'),
+		...(kind === 'track' ? trackAutomationFields(project, owner) : {}),
+	} }))
 		.filter(({ fields }) => Object.keys(fields).length > 0);
 	if (!omissions.length) return report;
 	const draft = createDeliveryReport(report.subject);
@@ -48,6 +51,20 @@ function processingFields(owner: DataRecord, clip: boolean): DataRecord {
 		if (effects.length) fields.effects = effects.map(effect => String(effect.type));
 	}
 	return fields;
+}
+
+function trackAutomationFields(project: DataRecord, track: DataRecord): DataRecord {
+	const lanes = records(project.automationLanes).filter(lane => {
+		if (!records(lane.points).length) return false;
+		const address = record(lane.address);
+		const strip = record(address.strip);
+		return address.kind === 'strip' && strip.kind === 'track' && strip.id === track.id;
+	});
+	return lanes.length ? { automationLanes: lanes.map(lane => String(lane.id)) } : {};
+}
+
+function record(value: unknown): DataRecord {
+	return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as DataRecord : {};
 }
 
 function records(value: unknown): readonly DataRecord[] {
