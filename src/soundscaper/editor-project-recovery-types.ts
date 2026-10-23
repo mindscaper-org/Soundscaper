@@ -30,6 +30,7 @@ export interface SoundscaperProjectRecoveryStore extends SoundscaperRecoveryVide
 	readProjectRecoveryCandidates(projectId: string): PromiseLike<readonly ProjectRecoveryCandidate[]>;
 	listProjectRecoverySummaries(): PromiseLike<readonly ProjectRecoverySummary[]>;
 	readSourceChunks(sourceId: string): AsyncIterable<SourcePcmChunk>;
+	getSourceMetadata(sourceId: string): PromiseLike<unknown>;
 	createProjectIfAbsent(project: ProjectDocument): PromiseLike<ProjectDocument | null>;
 	createScapeProjectIfAbsent?(project: ProjectDocument): PromiseLike<ProjectDocument | null>;
 	readonly linkedOriginalStoreService: Pick<LinkedOriginalStoreService, 'duplicateProject'>;

@@ -10,7 +10,7 @@ import type { SourcePcmChunk } from '../common/editor/storage/source-read-reposi
 import { soundscaperRecoveryVideoAvailable } from './editor-project-recovery-video.ts';
 import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
 
-type MediaReadStore = Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks'> & SoundscaperRecoveryVideoStore;
+type MediaReadStore = Pick<SoundscaperProjectRecoveryStore, 'readSourceChunks' | 'getSourceMetadata'> & SoundscaperRecoveryVideoStore;
 
 /** Read canonical PCM and original video. Only confirmed missing/corrupt media may be omitted. */
 export async function readSoundscaperRecoveryAvailableMediaSources(
@@ -24,7 +24,7 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 		const source = record(value);
 		if (!source || typeof source.id !== 'string' || (source.kind !== 'audio' && source.kind !== 'video')) continue;
 		const storageKey = typeof source.storageKey === 'string' && source.storageKey ? source.storageKey : source.id;
-		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount, source.contentSha256, source.timingAsset]);
+		const cacheKey = JSON.stringify([source.kind, storageKey, source.frameCount, source.channelCount, source.sampleRate, source.contentSha256, source.timingAsset]);
 		if (availability.has(cacheKey)) { if (availability.get(cacheKey)) available.add(source.id); continue; }
 		try {
 			if (source.kind === 'video') {
@@ -32,6 +32,13 @@ export async function readSoundscaperRecoveryAvailableMediaSources(
 				availability.set(cacheKey, readable);
 				if (readable) available.add(source.id);
 				continue;
+			}
+			const metadata = record(await store.getSourceMetadata(storageKey));
+			// The existing PCM reader interprets legacy metadata without a rate as 48 kHz.
+			if (!metadata || (metadata.sampleRate ?? 48_000) !== source.sampleRate
+				|| (metadata.frameCount ?? metadata.frameLength) !== source.frameCount
+				|| metadata.channelCount !== source.channelCount) {
+				throw new PcmStorageCorruptionError('Source PCM metadata differs from its saved geometry.', 'PCM_RECORD_GEOMETRY');
 			}
 			let frames = 0;
 			let nextIndex = 0;
