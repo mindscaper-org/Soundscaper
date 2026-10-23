@@ -141,6 +141,8 @@ function drawSpectrum(
 		}
 	}
 	const lastBin = powers.length - 1;
+	const tops = new Int32Array(width).fill(height);
+	const bottoms = new Int32Array(width).fill(-1);
 	let previousY = height - 1;
 	for (let x = 0; x < width; x += 1) {
 		const normalizedX = x / Math.max(1, width - 1);
@@ -158,22 +160,26 @@ function drawSpectrum(
 			(db - SPECTRUM_FLOOR_DB) / (SPECTRUM_CEILING_DB - SPECTRUM_FLOOR_DB),
 		));
 		const y = Math.round((height - 1) * (1 - intensity));
-		if (x > 0) paintLine(pixels, width, height, x - 1, previousY, x, y, foreground);
-		else paintPixel(pixels, width, x, y, foreground);
+		if (x > 0) traceLine(tops, bottoms, x - 1, previousY, x, y);
+		else { tops[x] = y; bottoms[x] = y; }
 		previousY = y;
+	}
+	for (let x = 0; x < width; x++) {
+		paintVertical(pixels, width, height, x, tops[x]!, bottoms[x]!, foreground);
 	}
 }
 
-function paintLine(
-	pixels: Uint8Array<ArrayBuffer>, width: number, height: number,
-	x0: number, y0: number, x1: number, y1: number, rgba: Rgba,
+/** Adjacent segments share pixel coverage, so blend their contiguous column union once. */
+function traceLine(
+	tops: Int32Array, bottoms: Int32Array, x0: number, y0: number, x1: number, y1: number,
 ): void {
 	const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
 	for (let step = 0; step <= steps; step += 1) {
 		const fraction = steps === 0 ? 0 : step / steps;
 		const x = Math.round(x0 + (x1 - x0) * fraction);
 		const y = Math.round(y0 + (y1 - y0) * fraction);
-		if (x >= 0 && x < width && y >= 0 && y < height) paintPixel(pixels, width, x, y, rgba);
+		tops[x] = Math.min(tops[x]!, y);
+		bottoms[x] = Math.max(bottoms[x]!, y);
 	}
 }
 
