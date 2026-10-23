@@ -219,11 +219,15 @@ test('writer failure aborts the incomplete source and never commits the editor c
 	assert.equal(sourcePeaks.size, 0);
 });
 
-test('analysis failure rolls back every persisted source and cache atomically', async () => {
-	const analysisError = new Error('analysis storage failed');
-	let saveCount = 0;
+test('waveform generation failure rolls back every persisted source and cache atomically', async () => {
+	const analysisError = new Error('waveform generation failed');
+	let analysisCount = 0;
 	const { events, service, sourceBuffers, sourcePeaks } = createHarness({
 		runtime: {
+			async generateWaveformPeaks(channels) {
+				if (++analysisCount === 2) throw analysisError;
+				return { channelCount: channels.length };
+			},
 			store: {
 				async beginSourceWrite(sourceId) {
 					events.sourcesOpened.push(sourceId);
@@ -234,8 +238,6 @@ test('analysis failure rolls back every persisted source and cache atomically', 
 					};
 				},
 				async saveAnalysis(key) {
-					saveCount += 1;
-					if (saveCount === 2) throw analysisError;
 					events.analysesSaved.push(key);
 				},
 				async deleteAnalysis(key) { events.analysesDeleted.push(key); },
