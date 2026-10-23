@@ -559,7 +559,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  			}; break;
  
  			case 'APIC':
-@@ -377,7 +441,7 @@
+@@ -377,11 +441,11 @@
  							? 'image/jpeg'
  							: 'image/*';
  				} else {
@@ -568,6 +568,11 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				}
  
  				const pictureType = reader.readU8();
+-				const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd(); // Trim ending spaces
++				const description = reader.readId3V2Text(encoding, frameEndPos);
+ 
+ 				const imageDataSize = frameEndPos - reader.pos;
+ 				if (imageDataSize >= 0) {
 @@ -408,6 +472,18 @@
  
  		reader.pos = frameEndPos;
@@ -870,7 +875,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
              case 'APIC':
              case 'PIC':
                  {
-@@ -346,7 +410,7 @@
+@@ -346,10 +410,10 @@
                                  : 'image/*';
                      }
                      else {
@@ -878,7 +883,11 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
 +                        mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
                      }
                      const pictureType = reader.readU8();
-                     const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd(); // Trim ending spaces
+-                    const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd(); // Trim ending spaces
++                    const description = reader.readId3V2Text(encoding, frameEndPos);
+                     const imageDataSize = frameEndPos - reader.pos;
+                     if (imageDataSize >= 0) {
+                         const imageData = reader.readBytes(imageDataSize);
 @@ -378,6 +442,18 @@
          }
          reader.pos = frameEndPos;
@@ -2837,7 +2846,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          case "APIC":
          case "PIC":
            {
-@@ -27074,7 +27277,7 @@
+@@ -27074,10 +27277,10 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -2845,7 +2854,11 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
 +              mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
              }
              const pictureType = reader.readU8();
-             const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
+-            const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
++            const description = reader.readId3V2Text(encoding, frameEndPos);
+             const imageDataSize = frameEndPos - reader.pos;
+             if (imageDataSize >= 0) {
+               const imageData = reader.readBytes(imageDataSize);
 @@ -27101,6 +27304,18 @@
        }
        reader.pos = frameEndPos;
@@ -3780,7 +3793,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          case "APIC":
          case "PIC":
            {
-@@ -27077,7 +27280,7 @@
+@@ -27077,10 +27280,10 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -3788,7 +3801,11 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
 +              mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
              }
              const pictureType = reader.readU8();
-             const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
+-            const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
++            const description = reader.readId3V2Text(encoding, frameEndPos);
+             const imageDataSize = frameEndPos - reader.pos;
+             if (imageDataSize >= 0) {
+               const imageData = reader.readBytes(imageDataSize);
 @@ -27104,6 +27307,18 @@
        }
        reader.pos = frameEndPos;
@@ -4713,7 +4730,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        case "APIC":
        case "PIC":
          {
-@@ -26917,7 +27120,7 @@
+@@ -26917,10 +27120,10 @@
              const imageFormat = reader.readAscii(3);
              mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
            } else {
@@ -4721,7 +4738,11 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
 +            mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
            }
            const pictureType = reader.readU8();
-           const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
+-          const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
++          const description = reader.readId3V2Text(encoding, frameEndPos);
+           const imageDataSize = frameEndPos - reader.pos;
+           if (imageDataSize >= 0) {
+             const imageData = reader.readBytes(imageDataSize);
 @@ -26944,6 +27147,18 @@
      }
      reader.pos = frameEndPos;
