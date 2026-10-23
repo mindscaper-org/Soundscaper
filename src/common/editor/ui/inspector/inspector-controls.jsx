@@ -6,7 +6,7 @@ import { BoundedTextInput } from './BoundedTextInput.tsx';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import { cancelDraftEditOnEscape, createDraftBlurCommitGuard, draftBlurShouldCommit } from '../draft-blur-commit.ts';
 
-export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit }) {
+export function CommitField({ label, name, value, type = 'text', min = undefined, max = undefined, step = undefined, disabled, readOnly, multiline, multilineCommitOnEnter = false, hookName = 'clip-field', visuallyHiddenLabel = false, preserveEditedDraft = false, onCommit }) {
 	const [draft, setDraft] = useState(String(value ?? ''));
 	const [error, setError] = useState(false);
 	const editRevision = useRef(0);
@@ -42,7 +42,7 @@ export function CommitField({ label, name, value, type = 'text', min = undefined
 	return (
 		<label className="audio-editor-field" {...hook} onKeyDown={(event) => {
 			if (disabled || readOnly || event.nativeEvent?.isComposing) return;
-			if (event.key === 'Enter' && !multiline) {
+			if (event.key === 'Enter' && (!multiline || multilineCommitOnEnter && !event.shiftKey)) {
 				event.preventDefault();
 				event.stopPropagation();
 				event.target.blur();

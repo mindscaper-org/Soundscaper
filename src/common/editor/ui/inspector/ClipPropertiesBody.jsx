@@ -172,7 +172,7 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 			{!clip && <p className="audio-editor-panel-hint" data-no-clip>{copy.noClipSelected}</p>}
 			<div className="audio-editor-clip-properties" data-clip-fields aria-disabled={disabled}>
 				<ClipPropertiesDrawer name="media" label={copy.clipMediaSettings} initiallyOpen={focusField === 'name'}>
-					<CommitField label={copy.clipName} name="name" value={displayedName} disabled={disabled} onCommit={commitField} />
+					<CommitField label={copy.clipName} name="name" value={displayedName} multiline={/[\r\n]/u.test(displayedName)} multilineCommitOnEnter disabled={disabled} onCommit={commitField} />
 					<div className="audio-editor-clip-properties__time-grid">
 						<ClipTimeCodeField name="startFrame" label={copy.clipStart} value={clip?.timelineStartFrame ?? 0}
 							sampleRate={sampleRate} frameRate={frameRate} disabled={disabled}

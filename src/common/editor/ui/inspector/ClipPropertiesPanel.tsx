@@ -80,7 +80,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 		const hasClip = selected.clips.some(clip => clip.id === focusRequest.clipId);
 		if (ownsProject && hasClip) {
 			const field = focusRequest.field === 'pitchCents' ? 'pitch' : focusRequest.field === 'speedRatio' ? 'speed' : 'name';
-			const input = root.current?.querySelector(`[data-clip-properties-field="${field}"]`)?.querySelector<HTMLInputElement>('input');
+			const input = root.current?.querySelector(`[data-clip-properties-field="${field}"]`)?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input,textarea');
 			if (input && !input.disabled) input.focus(); else root.current?.focus();
 		}
 		handledFocus.current = focusRequest; focusRequest.onHandled?.();
