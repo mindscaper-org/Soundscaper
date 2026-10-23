@@ -211,12 +211,6 @@ test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow wit
 		'focus:true', 'pointer:down', 'pointer:motion', 'pointer:up',
 		'keyboard:down', 'keyboard:up', 'focus:false',
 	]);
-	await expect.poll(() => page.evaluate(() => globalThis.__framescaperNativeCalls
-		.filter(([kind]) => kind === 'runOpenFxInteract').at(-1)?.[1]), {
-		timeout: 120_000,
-	}).toMatchObject({ events: [], effect: { parameters: replay.effect.parameters.map((parameter) => (
-		parameter.name === 'enabled' ? { ...parameter, value: false } : parameter
-	)) } });
 
 	// A continuous real pointer gesture must leave room for release and save.
 	const longGestureOffset = await page.evaluate(() => globalThis.__framescaperNativeCalls.length);
@@ -237,6 +231,10 @@ test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow wit
 	const longReplay = await page.evaluate((offset) => globalThis.__framescaperNativeCalls.slice(offset)
 		.filter(([kind, request]) => kind === 'runOpenFxInteract' && request.events.length > 0)
 		.at(-1)[1], longGestureOffset);
+	expect(longReplay.project.revision).toBeGreaterThan(replay.project.revision);
+	expect(longReplay.effect.parameters).toEqual(replay.effect.parameters.map((parameter) => (
+		parameter.name === 'enabled' ? { ...parameter, value: false } : parameter
+	)));
 	expect(longReplay.events).toHaveLength(256);
 	const dragEvents = longReplay.events.filter(({ kind }) => kind === 'pointer');
 	const pressed = dragEvents.findIndex(({ phase }) => phase === 'down');
