@@ -56,6 +56,7 @@ test.describe('Framescaper selected timeline images', () => {
 			fileName: 'poster.png',
 			width: 2,
 			height: 2,
+			outputSpace: 'rec709',
 			timelineOwned: true,
 			requiresTimelineImages: true,
 		});
@@ -133,8 +134,9 @@ test.describe('Framescaper selected timeline images', () => {
 		expect(witness.byteLength).toBeGreaterThan(32);
 		expect(witness.box).toBe('ftyp');
 		expect(witness.dimensions).toEqual([64, 64]);
-		// H.264 is lossy; each decoded channel should stay near the fixture's #ff2000.
-		for (const [channel, expected] of [255, 32, 0].entries()) {
+		// The authored Rec.709 output converts sRGB #ff2000 to [255,17,0].
+		// Keep the same per-channel H.264 error bound after that transfer conversion.
+		for (const [channel, expected] of [255, 17, 0].entries()) {
 			expect(Math.abs(witness.centerPixel[channel] - expected)).toBeLessThanOrEqual(12);
 		}
 		expect(witness.centerPixel[3]).toBe(255);
@@ -214,6 +216,7 @@ async function storedImageState(page, projectId) {
 					fileName: sources[0]?.original?.fileName ?? null,
 					width: sources[0]?.canonical?.width ?? null,
 					height: sources[0]?.canonical?.height ?? null,
+					outputSpace: project?.videoColorContexts?.find((context) => context.sequenceId === project.primarySequenceId)?.outputSpace ?? null,
 					timelineOwned: clips.length === 1 && clipIds.has(clips[0].id),
 					requiresTimelineImages: requirements.some(({ featureId }) => (
 						featureId === 'org.soundscaper.capability.timeline-images-v1'
