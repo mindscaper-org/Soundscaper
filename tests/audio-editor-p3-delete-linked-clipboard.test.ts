@@ -9,8 +9,8 @@ import { encodeWav } from '../src/common/editor/wav.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
-async function fixture(context: test.TestContext, linked: boolean) {
-	const pcm = new Float32Array(4096).fill(.25);
+async function fixture(context: test.TestContext, linked: boolean, frameCount = 4096) {
+	const pcm = Float32Array.from({ length: frameCount }, (_, frame) => (frame % 97 - 48) / 256);
 	const encoded = encodeWav([pcm], { sampleRate: 48_000, float: true, dither: 'none' });
 	assert.ok(encoded instanceof Uint8Array);
 	const original = new Blob([Uint8Array.from(encoded)], { type: 'audio/wav' });
@@ -104,4 +104,29 @@ test('deleting a project without copied media does not read its linked original'
 	store.openSourceReadSession = () => { throw new Error('Unexpected clipboard materialization'); };
 	await controller.actions.project.remove();
 	assert.notEqual(controller.project?.id, project.id);
+});
+
+test('linked clipboard preservation keeps every bounded packet and the short final packet exact', async context => {
+	const { controller, store, source, pcm } = await fixture(context, true, 140_003);
+	const begin = store.beginSourceWrite.bind(store);
+	const packetFrames: number[] = [];
+	store.beginSourceWrite = async (...args: Parameters<typeof begin>) => {
+		const writer = await begin(...args);
+		return { ...writer, async write(channels: unknown) {
+			assert.ok(Array.isArray(channels) && channels[0] instanceof Float32Array);
+			packetFrames.push(channels[0].length);
+			assert.ok(channels[0].length <= 65_536);
+			await writer.write(channels);
+		} };
+	};
+	await controller.actions.project.remove();
+	assert.equal(packetFrames.reduce((sum, frames) => sum + frames, 0), pcm.length);
+	assert.ok(packetFrames.length > 1);
+	assert.ok(packetFrames.at(-1)! < packetFrames[0]!);
+	const restored = new Float32Array(pcm.length);
+	let offset = 0;
+	for await (const chunk of store.readSourceChunks(source.storageKey)) {
+		restored.set(chunk.channels[0], offset); offset += chunk.frames;
+	}
+	assert.deepEqual(restored, pcm);
 });
