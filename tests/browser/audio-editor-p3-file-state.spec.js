@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, disableNativeSavePicker, downloadBytes, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { routeRippleProject } from '../helpers/next-route-ripple-project.ts';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
@@ -18,6 +19,40 @@ async function nativeArchive(project, source) {
 		return { name: 'Project.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) };
 	} finally { await store.close(); }
 }
+
+test('recording inputs retain a native track identity matching a prototype setter', async ({ page }) => {
+	test.setTimeout(90_000);
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator.mediaDevices, 'enumerateDevices', { configurable: true,
+			value: async () => [{ kind: 'audioinput', deviceId: 'default', groupId: 'studio', label: 'Studio interface' }] });
+		Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true,
+			value: async () => { throw new DOMException('Input permission declined.', 'NotAllowedError'); } });
+	});
+	const source = createAudioSource({ id: 'source', frameCount: 48_000, channelCount: 1, sampleRate: 48_000 });
+	const project = createSoundscaperProject({ id: 'p3-recording-route', sources: [source],
+		clips: [createAudioClip({ id: 'clip', sourceId: source.id, durationFrames: 48_000, sourceDurationFrames: 48_000 })],
+		tracks: [createAudioTrack({ id: '__proto__', name: 'Voice', clipIds: ['clip'] })] });
+	let editor = await openArchive(page, await nativeArchive(project, source), project.id);
+	await chooseCommandAction(page, editor, 'View', 'Enable multi-track recording');
+	let controls = editor.locator('[data-recording-input-track="__proto__"]');
+	await expect(controls).toHaveAttribute('data-recording-input-health', 'unassigned');
+	await controls.getByRole('combobox', { name: 'Recording source: Voice', exact: true }).selectOption('device:default');
+	await expect.poll(() => page.evaluate(async ({ databaseName, projectId }) => {
+		const database = await new Promise((resolve, reject) => {
+			const request = indexedDB.open(databaseName); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+		});
+		try { return await new Promise((resolve, reject) => {
+			const request = database.transaction('settings').objectStore('settings').get(`recording-input-routing-v1:${projectId}`);
+			request.onsuccess = () => resolve(Object.hasOwn(request.result?.value?.routes || {}, '__proto__'));
+			request.onerror = () => reject(request.error);
+		}); } finally { database.close(); }
+	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, projectId: project.id })).toBe(true);
+	await page.reload(); editor = await waitForEditor(page); await waitForProjectActivation(editor);
+	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await chooseCommandAction(page, editor, 'View', 'Enable multi-track recording');
+	controls = editor.locator('[data-recording-input-track="__proto__"]');
+	await expect(controls.getByRole('combobox', { name: 'Recording source: Voice', exact: true })).toHaveValue('device:default');
+});
 
 async function openArchive(page, file, projectId) {
 	const editor = await bootEditor(page, '/embed/en/');
