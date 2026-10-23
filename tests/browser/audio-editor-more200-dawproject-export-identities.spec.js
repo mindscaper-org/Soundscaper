@@ -37,10 +37,10 @@ for (const trackIds of [['master'], ['voice', 'voice:volume']]) test(`native tra
 		const document = parseDawprojectDocument(archive.projectXml);
 		expect(document.tracks.filter(track => track.channel?.role === 'regular').map(track => track.name))
 			.toEqual(trackIds.map((_, index) => `Voice ${index + 1}`));
-	} finally { await archive.close(); }	choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
+	} finally { await archive.close(); }
+	choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 	await (await choosing).setFiles({ name: 'Roundtrip.dawproject', mimeType: 'application/zip', buffer: Buffer.from(exported) });
 	await expect(editor.locator('[data-status]')).toContainText('DAWproject imported.', { timeout: 30_000 });
 	await waitForProjectActivation(editor);
 	await expect(editor).toHaveAttribute('data-clip-count', String(trackIds.length));
-
 });
