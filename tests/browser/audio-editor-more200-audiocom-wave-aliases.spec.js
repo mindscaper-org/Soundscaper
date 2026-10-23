@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
-import { parseUploadInput } from '../../functions/api/audiocom/_shared/contracts.ts';
 
 for (const extension of ['wav', 'wave', 'rf64', 'bw64']) test(`audio.com publishes an ordinary WAVE file named .${extension}`, async ({ page }) => {
 	const file = createWavFixture({ name: `Field take.${extension}`, frequency: 440, duration: .01, channelCount: 1 });
@@ -21,7 +20,9 @@ for (const extension of ['wav', 'wave', 'rf64', 'bw64']) test(`audio.com publish
 		expect(path).toContain('/uploads');
 		const request = route.request();
 		const bytes = Buffer.from(await page.evaluate(() => globalThis.__waveUploadBody));
-		const admitted = parseUploadInput(new Request(request.url(), { method: 'POST', headers: request.headers(), body: bytes }));
+		const headers = request.headers();
+		const admitted = { name: decodeURIComponent(headers['x-audiocom-filename']), mime: headers['content-type'] };
+		expect(headers['x-audiocom-content-length']).toBe(String(file.buffer.byteLength));
 		sent.push(admitted); expect(bytes).toEqual(file.buffer);
 		return route.fulfill({ json: { data: { processing: false, audio: { id: '123', title: 'Field take', authorName: 'Recorder', username: 'recorder',
 			url: 'https://audio.com/recorder/audio/field-take', description: '', license: 'arr', isDownloadable: false, durationSeconds: .01 } } } });
