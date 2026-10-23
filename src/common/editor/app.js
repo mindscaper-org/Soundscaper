@@ -68,7 +68,7 @@ import { resolveControllerProjectRuntime } from './controller/document/project-r
 import {
 	createPlaybackProjectService,
 } from './controller/source/playback-project-service.ts';
-import { createMicrophoneMeterService } from './controller/recording/microphone-meter-service.ts'; import { createProjectVisualService } from './controller/document/project-visual-service.ts';
+import { createMicrophoneMeterService } from './controller/recording/microphone-meter-service.ts'; import { createProjectVisualService } from './controller/document/project-visual-service.ts'; import { reloadPublishedVideoVisual } from './controller/document/reload-published-video-visual.ts';
 
 import { createNativeProjectComposition } from './controller/document/native-project-composition.ts';
 import { createDawprojectAudioPreparer } from './controller/import/dawproject-audio-decode.ts'; import { createDeferredExternalMediaAudioDecoder } from './deferred-external-media-audio-decoder.ts';
@@ -658,7 +658,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 
 	function publishDocumentSnapshot({ force = false } = {}) { documentChannel.publish({ force }); }
 	function publishTelemetrySnapshot() { telemetryChannel.publish(); }
-	async function reloadVideoSourceVisual(/** @type {string} */ sourceId) { const source = findSource(documentState.project, sourceId); if (!source || source.kind !== 'video') throw new ReferenceError(`Video source ${String(sourceId)} is missing.`); await bindings.revokeVideoVisual(source.id); return bindings.activateVideoSource(source); }
+	function reloadVideoSourceVisual(/** @type {string} */ sourceId) { return reloadPublishedVideoVisual(sourceId, { findSource: id => findSource(documentState.project, id), revoke: bindings.revokeVideoVisual, activate: bindings.activateVideoSource, publish: () => publishDocumentSnapshot({ force: true }) }); }
 
 	function pauseLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.pauseLoudnessMeasurement(kind); }
 	function continueLoudnessMeasurement(kind = 'playback') { return microphoneMeterService.continueLoudnessMeasurement(kind); }

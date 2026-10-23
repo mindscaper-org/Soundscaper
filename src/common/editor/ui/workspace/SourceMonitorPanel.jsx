@@ -24,7 +24,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 		videoRef.current?.pause?.();
 		setPlaying(false);
 	}, []);
-	useEffect(() => { stop(); }, [stop, view.sourceId, view.openRevision]);
+	useEffect(() => { stop(); }, [stop, view.sourceId, view.openRevision, mediaUrl]);
 	useEffect(() => {
 		const media = videoRef.current;
 		if (!media || playing || !Number.isFinite(view.mediaSeconds)) return;
