@@ -28,6 +28,7 @@ for (const sendId of ['__proto__', 'constructor', 'toString', 'reverb']) {
 			await writer.write([new Float32Array(512).fill(0.1), new Float32Array(512).fill(0.1)]); await writer.commit();
 			const native = createSoundscaperScapeNativeRuntime();
 			const archived = await native.exportScapeProject(project, store);
+			assert.ok(archived.blob);
 			const loaded = loadSoundscaperProject((await native.importScapeProject(archived.blob, destination)).project);
 			assert.equal(loaded.readOnly, false);
 			assert.ok(validateSoundscaperProject(loaded.project));
