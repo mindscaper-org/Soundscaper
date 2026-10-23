@@ -34,6 +34,8 @@ type InteractTarget = Readonly<{
 	target: FramescaperOpenFxInteractRequestV1['target'];
 	parameterName: string | null;
 }>;
+const CANVAS_SCROLL_KEYS = new Set([' ', 'Home', 'End', 'PageUp', 'PageDown',
+	'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 const EMPTY_MODIFIERS: readonly OfxInteractModifier[] = Object.freeze([]);
 
 export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }: Readonly<{
@@ -171,6 +173,7 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 	}, [event]);
 
 	const keyboard = (phase: 'down' | 'up', value: React.KeyboardEvent<HTMLCanvasElement>): void => {
+		if (phase === 'down' && CANVAS_SCROLL_KEYS.has(value.key)) value.preventDefault();
 		const modifiers = openFxModifiers(value);
 		if (pointerRef.current !== null) pointerRef.current = { ...pointerRef.current, modifiers };
 		event({ kind: 'keyboard', phase, key: value.key, code: value.code, modifiers });
