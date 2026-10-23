@@ -28,7 +28,9 @@ for (const encoding of ['utf-8', 'utf-16le', 'utf-16be'] as const) {
 		assert.equal(project.sources.length, 1);
 		assert.equal(project.tracks.find(track => track.type === 'audio')?.name, 'Voix 日本語 🎙');
 		assert.equal(project.timelineAnnotations[0]?.name, 'Repère 日本語 🎵');
-		assert.equal(project.timelineAnnotations[0]?.startFrame, 1200);
+		const annotation = project.timelineAnnotations[0];
+		assert.ok(annotation?.kind === 'region' && annotation.anchor === 'sample');
+		assert.equal(annotation.startFrame, 1200);
 		assert.equal(project.sources[0]?.frameCount, 4800);
 		const source = project.sources[0]; assert.ok(source);
 		const chunks = [];
