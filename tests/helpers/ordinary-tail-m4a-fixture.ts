@@ -28,3 +28,67 @@ export async function ordinaryTailM4aFixture(fastStart: false | 'in-memory' = fa
 		return new File([target.buffer], 'Programme.m4a', { type: 'audio/mp4' });
 	} finally { input.dispose(); }
 }
+
+/** A legal multi-value cover item from the same ordinary AAC packet stream. */
+export async function multiValueM4aArtworkFixture(grouped = true): Promise<Readonly<{ file: File; images: readonly Uint8Array<ArrayBuffer>[] }>> {
+	const images = [
+		Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4IScCAAKsAPs2xCzlAAAAAElFTkSuQmCC', 'base64')),
+		Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQkTsBAAFEAPtKtXAbAAAAAElFTkSuQmCC', 'base64')),
+	];
+	const input = new Input({ source: new BlobSource(new Blob([Uint8Array.from(aacLcM4a44_100Fixture())])), formats: [MP4] });
+	try {
+		const track = await input.getPrimaryAudioTrack(); assert.ok(track);
+		const decoderConfig = await track.getDecoderConfig(); assert.ok(decoderConfig);
+		const target = new BufferTarget();
+		const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target });
+		const source = new EncodedAudioPacketSource('aac'); output.addAudioTrack(source);
+		output.setMetadataTags({ title: 'Two retained covers', images: images.map(data => ({
+			data, mimeType: 'image/png', kind: 'coverFront' as const,
+		})), comment: 'After covers' });
+		await output.start();
+		let origin: number | null = null;
+		for await (const packet of new EncodedPacketSink(track).packets()) {
+			origin ??= packet.timestamp;
+			await source.add(packet.clone({ timestamp: packet.timestamp - origin }), { decoderConfig });
+		}
+		await output.finalize(); assert.ok(target.buffer);
+		const bytes = Buffer.from(target.buffer);
+		const atoms = m4aAtoms(bytes);
+		assert.ok(atoms.findIndex(atom => atom.toString('latin1', 4, 8) === 'mdat') < atoms.findIndex(atom => atom.toString('latin1', 4, 8) === 'moov'));
+		const body = grouped ? mergeM4aCoverValues(bytes) : bytes;
+		return { file: new File([Uint8Array.from(body)], 'Two covers.m4a', { type: 'audio/mp4' }), images };
+	} finally { input.dispose(); }
+}
+
+function m4aAtoms(bytes: Buffer): Buffer[] {
+	const atoms: Buffer[] = [];
+	for (let offset = 0; offset < bytes.length;) {
+		const length = bytes.readUInt32BE(offset);
+		assert.ok(length >= 8 && offset + length <= bytes.length);
+		atoms.push(bytes.subarray(offset, offset + length)); offset += length;
+	}
+	return atoms;
+}
+
+function mergeM4aCoverValues(bytes: Buffer): Buffer {
+	const atom = (type: string, body: Buffer): Buffer => {
+		const header = Buffer.alloc(8); header.writeUInt32BE(body.length + 8); header.write(type, 4, 'latin1');
+		return Buffer.concat([header, body]);
+	};
+	return Buffer.concat(m4aAtoms(bytes).map(child => {
+		const type = child.toString('latin1', 4, 8);
+		if (type === 'ilst') {
+			const items = m4aAtoms(child.subarray(8));
+			const covers = items.filter(item => item.toString('latin1', 4, 8) === 'covr');
+			assert.equal(covers.length, 2);
+			const firstCover = items.indexOf(covers[0]!);
+			return atom(type, Buffer.concat(items.flatMap((item, index) => item.toString('latin1', 4, 8) !== 'covr'
+				? [item] : index === firstCover ? [atom('covr', Buffer.concat(covers.map(cover => cover.subarray(8))))] : [])));
+		}
+		if (['moov', 'udta', 'meta'].includes(type)) {
+			const prefix = type === 'meta' ? child.subarray(8, 12) : Buffer.alloc(0);
+			return atom(type, Buffer.concat([prefix, mergeM4aCoverValues(child.subarray(8 + prefix.length))]));
+		}
+		return child;
+	}));
+}
