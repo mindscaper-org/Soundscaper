@@ -51,6 +51,8 @@ export interface ProjectSaveServiceDependencies<Project extends ProjectSaveSnaps
 	readonly getProject: () => Project | null;
 	readonly hasHistory: () => boolean;
 	readonly hasUnsavedProjectChanges?: () => boolean;
+	/** Closing the browser discards every retained tab, including read-only unsaved history. */
+	readonly hasUnsavedSessionChanges?: () => boolean;
 	readonly isReadOnly: () => boolean;
 	/** The durable token claimed for the current project lock. */
 	readonly getWriteFence?: (projectId: string) => string | null;
@@ -157,7 +159,8 @@ export function createProjectSaveService<Project extends ProjectSaveSnapshot>(
 		const currentSavePending = scheduledProjectId === project.id
 			|| queuedSaveCounts.has(project.id)
 			|| [...state.pendingSaveSnapshots].some((snapshot) => snapshot.id === project.id);
-		if (!currentSavePending && dependencies.hasUnsavedProjectChanges?.() !== true) return;
+		if (!currentSavePending && (dependencies.hasUnsavedSessionChanges?.()
+			?? dependencies.hasUnsavedProjectChanges?.()) !== true) return;
 		event.preventDefault();
 		event.returnValue = '';
 	}

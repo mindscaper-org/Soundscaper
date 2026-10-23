@@ -113,6 +113,7 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 			const project = document.get();
 			return Boolean(project && sessionTab(project.id)?.dirty);
 		},
+		hasUnsavedSessionChanges: () => session.getSnapshot().tabs.some(tab => tab.dirty),
 		isReadOnly: () => state.readOnly || Boolean(state.takeCycleRecovery || state.takeCycleRecoveryInspecting),
 		...(store.saveProjectIfCurrentWithWriteFence ? { getWriteFence: (projectId: string) =>
 			state.projectLock?.projectId === projectId && !state.projectLock.readOnly
