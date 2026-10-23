@@ -5,6 +5,7 @@ import {
 	formatSequenceTimecode,
 	isSequenceDropFrameRate,
 	sequenceTimecodeFromFrameCount,
+	sequenceTimecodeFrameRate,
 } from './sequence-timecode.ts';
 import {
 	type DeliveryReport,
@@ -93,6 +94,9 @@ export function createEdlExport(request: EdlExportRequest): EdlExportResult {
 	const rate = request?.rate;
 	if (!rate || !Number.isFinite(rate.num) || !Number.isFinite(rate.den) || rate.den <= 0) {
 		throw new TypeError('An EDL export requires an exact rational sequence rate.');
+	}
+	if (sequenceTimecodeFrameRate(rate) > 100) {
+		throw new RangeError('CMX3600 requires two-digit frame fields. Export OTIO or FCPXML for this sequence frame rate.');
 	}
 	const events = Array.isArray(request?.events) ? request.events : [];
 	if (events.length > 999) {
