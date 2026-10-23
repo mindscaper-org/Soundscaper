@@ -196,6 +196,7 @@ async function exactCandidate(root, parts) {
 
 async function uniqueBasenameCandidate(root, fileName, maxEntries) {
 	if (!AUDIO_EXTENSION.test(fileName)) return null;
+	const lookupName = fileName.normalize('NFC').toLocaleLowerCase('en');
 	const queue = [{ path: root, depth: 0 }];
 	let count = 0;
 	let match = null;
@@ -210,7 +211,7 @@ async function uniqueBasenameCandidate(root, fileName, maxEntries) {
 				if (entry.isDirectory()) {
 					if (folder.depth >= MAX_SCAN_DEPTH) return 'scan-limited';
 					queue.push({ path, depth: folder.depth + 1 });
-				} else if (entry.isFile() && entry.name.toLocaleLowerCase('en') === fileName.toLocaleLowerCase('en')) {
+				} else if (entry.isFile() && entry.name.normalize('NFC').toLocaleLowerCase('en') === lookupName) {
 					const parts = relative(root, path).split(sep);
 					const candidate = await exactCandidate(root, parts);
 					if (candidate) {
