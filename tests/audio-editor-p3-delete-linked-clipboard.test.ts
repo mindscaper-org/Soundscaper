@@ -18,9 +18,10 @@ async function fixture(context: test.TestContext, linked: boolean) {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name, linkedOriginalPort: port });
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const sessionController = runtime.createSessionController();
+	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const controller = createAudioEditorController(null, {
 		headless: true, locale: 'en', copy: COPY, store, projectRuntime: runtime,
-		sessionController, engine: createMemoryEngine(), ffmpeg: createMemoryFfmpeg(),
+		sessionController, engine: createMemoryEngine() as unknown as Options['engine'], ffmpeg: createMemoryFfmpeg() as unknown as Options['ffmpeg'],
 	});
 	context.after(async () => { await controller.dispose(); });
 	await controller.ready;
@@ -69,7 +70,7 @@ test('failed linked clipboard preservation leaves the original project and bindi
 	assert.ok(await store.loadProject(project.id));
 	assert.deepEqual(await store.getLinkedOriginalBinding(project.id, source.id), originalBinding);
 	store.beginSourceWrite = begin;
-	controller.actions.project.rename('Still editable');
+	await controller.actions.project.rename('Still editable');
 	assert.equal(controller.project?.title, 'Still editable');
 	await controller.actions.project.remove();
 	assert.notEqual(controller.project?.id, project.id);
@@ -93,7 +94,7 @@ test('a changed clipboard retires the staged copy before project deletion', asyn
 	const metadata: unknown = await store.getSourceMetadata(source.storageKey);
 	assert.ok(metadata && typeof metadata === 'object' && 'storage' in metadata);
 	assert.equal(metadata.storage, 'linked-audio-original-v1');
-	controller.actions.project.rename('Still editable after cancellation');
+	await controller.actions.project.rename('Still editable after cancellation');
 	assert.equal(controller.project?.title, 'Still editable after cancellation');
 });
 
