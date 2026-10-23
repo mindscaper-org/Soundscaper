@@ -87,7 +87,35 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				const parts = discText.split('/');
  				const discNum = Number.parseInt(parts[0]!, 10);
  				const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -328,10 +340,11 @@
+@@ -307,13 +319,20 @@
+ 			case 'TCON':
+ 			case 'TCO': {
+ 				const genreText = reader.readId3V2EncodingAndText(frameEndPos);
+-				let match = /^\((\d+)\)/.exec(genreText);
+-				if (match) {
+-					const genreNumber = Number.parseInt(match[1]!);
+-					if (ID3_V1_GENRES[genreNumber] !== undefined) {
+-						tags.genre ??= ID3_V1_GENRES[genreNumber];
+-						break;
+-					}
++				const genres: string[] = [];
++				let remainder = genreText;
++				let match = /^\((\d+)\)/.exec(remainder);
++				while (match) {
++					const genre = ID3_V1_GENRES[Number.parseInt(match[1]!, 10)];
++					if (genre === undefined) break;
++					genres.push(genre);
++					remainder = remainder.slice(match[0].length);
++					match = /^\((\d+)\)/.exec(remainder);
++				}
++				if (genres.length) {
++					if (remainder) genres.push(remainder.replace(/^\(\(/, '('));
++					tags.genre ??= genres.join('; ');
++					break;
+ 				}
+ 
+ 				match = /^\d+$/.exec(genreText);
+@@ -328,10 +347,11 @@
  				tags.genre ??= genreText;
  			}; break;
  
@@ -103,7 +131,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  
  				if (!Number.isNaN(date.getTime())) {
  					tags.date ??= date;
-@@ -340,12 +353,15 @@
+@@ -340,12 +360,15 @@
  
  			case 'TYER':
  			case 'TYE': {
@@ -125,7 +153,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  			}; break;
  
  			case 'USLT':
-@@ -377,7 +393,7 @@
+@@ -377,7 +400,7 @@
  							? 'image/jpeg'
  							: 'image/*';
  				} else {
@@ -134,7 +162,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				}
  
  				const pictureType = reader.readU8();
-@@ -408,6 +424,18 @@
+@@ -408,6 +431,18 @@
  
  		reader.pos = frameEndPos;
  	}
@@ -153,7 +181,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  };
  
  // https://id3.org/id3v2.3.0
-@@ -431,7 +459,7 @@
+@@ -431,7 +466,7 @@
  			newBytes.push(value1);
  
  			if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -162,7 +190,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				if (value2 === 0x00) {
  					i++;
  				}
-@@ -466,6 +494,7 @@
+@@ -466,6 +501,7 @@
  		this.bytes.set(after, before.length + newBytes.length);
  
  		this.view = new DataView(this.bytes.buffer);
@@ -170,7 +198,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  	}
  
  	readBytes(length: number) {
-@@ -598,7 +627,10 @@
+@@ -598,7 +634,10 @@
  			}
  
  			case Id3V2TextEncoding.UTF_16_WITH_BOM: {
@@ -182,7 +210,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  					const decoder = new TextDecoder('utf-16le');
  					const endIndex = coalesceIndex(
  						data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -640,13 +672,20 @@
+@@ -640,13 +679,20 @@
  		}
  	}
  
@@ -290,7 +318,38 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      const parts = discText.split('/');
                      const discNum = Number.parseInt(parts[0], 10);
                      const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -291,10 +303,11 @@
+@@ -270,14 +282,22 @@
+             case 'TCO':
+                 {
+                     const genreText = reader.readId3V2EncodingAndText(frameEndPos);
+-                    let match = /^\((\d+)\)/.exec(genreText);
+-                    if (match) {
+-                        const genreNumber = Number.parseInt(match[1]);
+-                        if (ID3_V1_GENRES[genreNumber] !== undefined) {
+-                            tags.genre ??= ID3_V1_GENRES[genreNumber];
+-                            break;
+-                        }
+-                    }
++                    const genres = [];
++                    let remainder = genreText;
++                    let match = /^\((\d+)\)/.exec(remainder);
++                    while (match) {
++                        const genre = ID3_V1_GENRES[Number.parseInt(match[1], 10)];
++                        if (genre === undefined) break;
++                        genres.push(genre);
++                        remainder = remainder.slice(match[0].length);
++                        match = /^\((\d+)\)/.exec(remainder);
++                    }
++                    if (genres.length) {
++                        if (remainder) genres.push(remainder.replace(/^\(\(/, '('));
++                        tags.genre ??= genres.join('; ');
++                        break;
++                    }
++
+                     match = /^\d+$/.exec(genreText);
+                     if (match) {
+                         const genreNumber = Number.parseInt(match[0]);
+@@ -291,10 +311,11 @@
                  ;
                  break;
              case 'TDRC':
@@ -306,7 +365,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      if (!Number.isNaN(date.getTime())) {
                          tags.date ??= date;
                      }
-@@ -302,16 +315,18 @@
+@@ -302,16 +323,18 @@
                  ;
                  break;
              case 'TYER':
@@ -335,7 +394,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
              case 'USLT':
              case 'ULT':
                  {
-@@ -346,7 +361,7 @@
+@@ -346,7 +369,7 @@
                                  : 'image/*';
                      }
                      else {
@@ -344,7 +403,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      }
                      const pictureType = reader.readU8();
                      const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd(); // Trim ending spaces
-@@ -378,6 +393,18 @@
+@@ -378,6 +401,18 @@
          }
          reader.pos = frameEndPos;
      }
@@ -363,7 +422,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
  };
  // https://id3.org/id3v2.3.0
  export class Id3V2Reader {
-@@ -396,7 +423,7 @@
+@@ -396,7 +431,7 @@
              const value1 = this.bytes[i];
              newBytes.push(value1);
              if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -372,7 +431,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                  if (value2 === 0x00) {
                      i++;
                  }
-@@ -424,6 +451,7 @@
+@@ -424,6 +459,7 @@
          this.bytes.set(newBytes, before.length);
          this.bytes.set(after, before.length + newBytes.length);
          this.view = new DataView(this.bytes.buffer);
@@ -380,7 +439,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
      }
      readBytes(length) {
          const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -534,7 +562,10 @@
+@@ -534,7 +570,10 @@
                  return str;
              }
              case Id3V2TextEncoding.UTF_16_WITH_BOM: {
@@ -392,7 +451,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      const decoder = new TextDecoder('utf-16le');
                      const endIndex = coalesceIndex(data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0), data.length);
                      this.pos = startPos + Math.min(endIndex + 2, data.length);
-@@ -566,12 +597,19 @@
+@@ -566,12 +605,19 @@
              }
          }
      }
@@ -632,7 +691,38 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27024,27 +27035,30 @@
+@@ -27003,14 +27014,22 @@
+         case "TCO":
+           {
+             const genreText = reader.readId3V2EncodingAndText(frameEndPos);
+-            let match = /^\((\d+)\)/.exec(genreText);
+-            if (match) {
+-              const genreNumber = Number.parseInt(match[1]);
+-              if (ID3_V1_GENRES[genreNumber] !== void 0) {
+-                tags.genre ??= ID3_V1_GENRES[genreNumber];
+-                break;
+-              }
+-            }
++            const genres = [];
++            let remainder = genreText;
++            let match = /^\((\d+)\)/.exec(remainder);
++            while (match) {
++              const genre = ID3_V1_GENRES[Number.parseInt(match[1], 10)];
++              if (genre === undefined) break;
++              genres.push(genre);
++              remainder = remainder.slice(match[0].length);
++              match = /^\((\d+)\)/.exec(remainder);
++            }
++            if (genres.length) {
++              if (remainder) genres.push(remainder.replace(/^\(\(/, "("));
++              tags.genre ??= genres.join("; ");
++              break;
++            }
++
+             match = /^\d+$/.exec(genreText);
+             if (match) {
+               const genreNumber = Number.parseInt(match[0]);
+@@ -27024,27 +27043,30 @@
            ;
            break;
          case "TDRC":
@@ -677,7 +767,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          case "USLT":
          case "ULT":
            {
-@@ -27074,7 +27088,7 @@
+@@ -27074,7 +27096,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -686,7 +776,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27101,6 +27115,18 @@
+@@ -27101,6 +27123,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -705,7 +795,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27118,7 +27144,7 @@
+@@ -27118,7 +27152,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -714,7 +804,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            if (value2 === 0) {
              i++;
            }
-@@ -27146,6 +27172,7 @@
+@@ -27146,6 +27180,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -722,7 +812,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27246,7 +27273,10 @@
+@@ -27246,7 +27281,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -734,7 +824,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27284,12 +27314,19 @@
+@@ -27284,12 +27322,19 @@
          }
        }
      }
@@ -878,7 +968,38 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27027,27 +27038,30 @@
+@@ -27006,14 +27017,22 @@
+         case "TCO":
+           {
+             const genreText = reader.readId3V2EncodingAndText(frameEndPos);
+-            let match = /^\((\d+)\)/.exec(genreText);
+-            if (match) {
+-              const genreNumber = Number.parseInt(match[1]);
+-              if (ID3_V1_GENRES[genreNumber] !== void 0) {
+-                tags.genre ??= ID3_V1_GENRES[genreNumber];
+-                break;
+-              }
+-            }
++            const genres = [];
++            let remainder = genreText;
++            let match = /^\((\d+)\)/.exec(remainder);
++            while (match) {
++              const genre = ID3_V1_GENRES[Number.parseInt(match[1], 10)];
++              if (genre === undefined) break;
++              genres.push(genre);
++              remainder = remainder.slice(match[0].length);
++              match = /^\((\d+)\)/.exec(remainder);
++            }
++            if (genres.length) {
++              if (remainder) genres.push(remainder.replace(/^\(\(/, "("));
++              tags.genre ??= genres.join("; ");
++              break;
++            }
++
+             match = /^\d+$/.exec(genreText);
+             if (match) {
+               const genreNumber = Number.parseInt(match[0]);
+@@ -27027,27 +27046,30 @@
            ;
            break;
          case "TDRC":
@@ -923,7 +1044,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          case "USLT":
          case "ULT":
            {
-@@ -27077,7 +27091,7 @@
+@@ -27077,7 +27099,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -932,7 +1053,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27104,6 +27118,18 @@
+@@ -27104,6 +27126,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -951,7 +1072,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27121,7 +27147,7 @@
+@@ -27121,7 +27155,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -960,7 +1081,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            if (value2 === 0) {
              i++;
            }
-@@ -27149,6 +27175,7 @@
+@@ -27149,6 +27183,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -968,7 +1089,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27249,7 +27276,10 @@
+@@ -27249,7 +27284,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -980,7 +1101,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27287,12 +27317,19 @@
+@@ -27287,12 +27325,19 @@
          }
        }
      }
@@ -1124,7 +1245,38 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = discText.split("/");
            const discNum = Number.parseInt(parts[0], 10);
            const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26867,27 +26878,30 @@
+@@ -26846,14 +26857,22 @@
+       case "TCO":
+         {
+           const genreText = reader.readId3V2EncodingAndText(frameEndPos);
+-          let match = /^\((\d+)\)/.exec(genreText);
+-          if (match) {
+-            const genreNumber = Number.parseInt(match[1]);
+-            if (ID3_V1_GENRES[genreNumber] !== void 0) {
+-              tags.genre ??= ID3_V1_GENRES[genreNumber];
+-              break;
+-            }
+-          }
++          const genres = [];
++          let remainder = genreText;
++          let match = /^\((\d+)\)/.exec(remainder);
++          while (match) {
++            const genre = ID3_V1_GENRES[Number.parseInt(match[1], 10)];
++            if (genre === undefined) break;
++            genres.push(genre);
++            remainder = remainder.slice(match[0].length);
++            match = /^\((\d+)\)/.exec(remainder);
++          }
++          if (genres.length) {
++            if (remainder) genres.push(remainder.replace(/^\(\(/, "("));
++            tags.genre ??= genres.join("; ");
++            break;
++          }
++
+           match = /^\d+$/.exec(genreText);
+           if (match) {
+             const genreNumber = Number.parseInt(match[0]);
+@@ -26867,27 +26886,30 @@
          ;
          break;
        case "TDRC":
@@ -1169,7 +1321,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        case "USLT":
        case "ULT":
          {
-@@ -26917,7 +26931,7 @@
+@@ -26917,7 +26939,7 @@
              const imageFormat = reader.readAscii(3);
              mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
            } else {
@@ -1178,7 +1330,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            }
            const pictureType = reader.readU8();
            const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -26944,6 +26958,18 @@
+@@ -26944,6 +26966,18 @@
      }
      reader.pos = frameEndPos;
    }
@@ -1197,7 +1349,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
  };
  var Id3V2Reader = class {
    constructor(header, bytes2) {
-@@ -26961,7 +26987,7 @@
+@@ -26961,7 +26995,7 @@
        const value1 = this.bytes[i];
        newBytes.push(value1);
        if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -1206,7 +1358,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          if (value2 === 0) {
            i++;
          }
-@@ -26989,6 +27015,7 @@
+@@ -26989,6 +27023,7 @@
      this.bytes.set(newBytes, before.length);
      this.bytes.set(after, before.length + newBytes.length);
      this.view = new DataView(this.bytes.buffer);
@@ -1214,7 +1366,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
    }
    readBytes(length) {
      const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27089,7 +27116,10 @@
+@@ -27089,7 +27124,10 @@
          return str;
        }
        case 1 /* UTF_16_WITH_BOM */: {
@@ -1226,7 +1378,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const decoder = new TextDecoder("utf-16le");
            const endIndex = coalesceIndex(
              data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27127,12 +27157,19 @@
+@@ -27127,12 +27165,19 @@
        }
      }
    }

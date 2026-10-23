@@ -331,3 +331,26 @@ for (const fields of [
 		assert.equal(stdout.trim(), '2024-07-21T16:45:00.000Z', bundle);
 	}
 });
+
+for (const [value, expected] of [
+	['(4)Eurodisco', 'Disco; Eurodisco'],
+	['(51)(39)', 'Techno-industrial; Noise'],
+	['(55)((I think...)', 'Dream; (I think...)'],
+	['(4)', 'Disco'], ['Ambient', 'Ambient'],
+] as const) test(`File Open preserves every authored legacy genre component: ${value}`, async () => {
+	const body = frame(3, 'TCON', Buffer.from(`\0${value}`));
+	const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 3, 0, 0]), syncSafe(body.length), body]));
+	const contribution = await importedMetadata(metadata);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.genre, expected);
+	assert.equal(contribution.metadata.raw.TCON, value);
+	for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']) {
+		const { stdout } = await runNode(process.execPath, ['--input-type=module', '-e', `
+			const module=await import('./node_modules/mediabunny/dist/bundles/'+process.argv[1]);
+			const {Input,BlobSource,ALL_FORMATS}=module.default??module;
+			const input=new Input({source:new BlobSource(new Blob([Buffer.from(process.argv[2],'base64')])),formats:ALL_FORMATS});
+			try{console.log((await input.getMetadataTags()).genre);}finally{input.dispose();}
+		`, bundle, Buffer.concat([metadata, await mp3()]).toString('base64')], { timeout: 10_000 });
+		assert.equal(stdout.trim(), expected, bundle);
+	}
+});
