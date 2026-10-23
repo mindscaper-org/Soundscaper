@@ -7,6 +7,7 @@ import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { createStableId } from '../../stable-id.js';
 import { createDeliveryBatch, deliveryBatchPresetSupportsMode } from '../../delivery-batch.ts';
 import { summarizeDeliveryBatchReport } from '../../delivery-batch-report.ts';
+import { resolveSelectionRange } from '../../selection-range.ts';
 import {
 	deliveryBatchTargetOptions,
 	selectableDeliveryBatchTargets,
@@ -41,7 +42,7 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 	// exists or hide one that was just saved.
 	const presets = controller.actions.export.presets.list('audio');
 	const targets = useMemo(() => deliveryBatchTargetOptions({
-		hasSelection: Boolean(snapshot.selection),
+		hasSelection: Boolean(resolveSelectionRange(snapshot.project)),
 		hasLoop: Boolean(snapshot.project?.loop?.enabled),
 		masteringSequences: snapshot.masteringSequences ?? null,
 	}, {
@@ -52,7 +53,7 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 		noLoop: copy.deliveryTargetNoLoop,
 		undeliverableSequence: copy.deliveryTargetSequenceUndeliverable,
 		stemsUnsupported: copy.deliveryTargetStemsUnsupported,
-	}), [copy, snapshot.masteringSequences, snapshot.project?.loop?.enabled, snapshot.selection]);
+	}), [copy, snapshot.masteringSequences, snapshot.project]);
 
 	const [mode, setMode] = useState('mix');
 	const [targetKeys, setTargetKeys] = useState(['project']);
