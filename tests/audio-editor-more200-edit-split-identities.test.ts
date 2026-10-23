@@ -14,7 +14,7 @@ import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.j
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 
-for (const operation of ['delete', 'overwrite', 'drag-overwrite'] as const)
+for (const operation of ['delete', 'overwrite', 'drag-overwrite', 'paste-overlap', 'paste-insert'] as const)
 	for (const clipId of ['__proto__', 'constructor', 'toString', 'ordinary']) test(`File Open preserves ${operation} split identities for ${clipId}`, async context => {
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
@@ -42,13 +42,22 @@ for (const operation of ['delete', 'overwrite', 'drag-overwrite'] as const)
 	if (operation === 'delete') {
 		controller.actions.timeline.setExactSelection(12_000, 24_000, { trackIds: ['voice'] });
 		controller.actions.edit.deleteLeaveGap();
+	} else if (operation === 'paste-overlap' || operation === 'paste-insert') {
+		controller.actions.timeline.selectClip('moving');
+		await controller.actions.edit.copy();
+		controller.actions.timeline.setExactSelection(12_000, 12_000, { trackIds: ['voice'] });
+		controller.actions.transport.seek(12_000);
+		if (operation === 'paste-overlap') await controller.actions.edit.pasteOverlap();
+		else await controller.actions.edit.pasteInsert();
 	} else if (operation === 'overwrite') controller.actions.clip.overwrite('moving', 'voice', { timelineStartFrame: 12_000 });
 	else controller.actions.clip.move('moving', 'voice', 12_000, { overwrite: true, exactFrame: true });
 	const edited: unknown = controller.project; assert.ok(validateSoundscaperProject(edited));
-	const expectedCount = operation === 'delete' ? 2 : 3;
+	const expectedCount = operation === 'delete' ? 2 : operation === 'paste-insert' ? 4 : 3;
 	assert.equal(edited.clips.length, expectedCount);
 	assert.ok(edited.clips.some(clip => clip.id === clipId));
 	assert.equal(new Set(edited.clips.map(clip => clip.id)).size, expectedCount);
+	if (operation === 'paste-insert') assert.deepEqual(edited.clips.map(clip => [clip.timelineStartFrame, clip.durationFrames])
+		.sort((left, right) => left[0]! - right[0]!), [[0, 12_000], [12_000, 12_000], [24_000, 36_000], [108_000, 12_000]]);
 	controller.actions.edit.undo(); assert.deepEqual(controller.project?.clips, before);
 	controller.actions.edit.redo(); assert.deepEqual(controller.project?.clips, edited.clips);
 });
