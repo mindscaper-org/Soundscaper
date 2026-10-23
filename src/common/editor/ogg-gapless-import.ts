@@ -109,7 +109,7 @@ async function rejectChainedAudio(file: Blob, start: number, signal?: AbortSigna
 	signal?.throwIfAborted();
 }
 
-async function findAudioIdentificationPage(file: Blob, codec: 'opus' | 'vorbis'): Promise<Uint8Array<ArrayBuffer> | null> {
+export async function findAudioIdentificationPage(file: Blob, codec: 'opus' | 'vorbis'): Promise<Uint8Array<ArrayBuffer> | null> {
 	// All logical-stream BOS pages precede data pages. Skeleton and other auxiliary
 	// streams may precede the primary audio; their serial and granules do not own it.
 	for (let offset = 0; offset < Math.min(file.size, 1024 * 1024);) {

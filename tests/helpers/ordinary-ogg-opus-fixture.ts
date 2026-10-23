@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, OGG, OggOutputFormat, Output, WEBM, WebMOutputFormat } from 'mediabunny';
+import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, OGG, OggOutputFormat, Output, WEBM, WebMOutputFormat, type EncodedPacket } from 'mediabunny';
 import { createMonoCameraFixture } from '../browser/fixtures/mono-camera-media.js';
 
 let fixtureBytes: Promise<ArrayBuffer> | undefined;
@@ -11,6 +11,25 @@ let webmBytes: Promise<ArrayBuffer> | undefined;
 export async function ordinaryOggOpusFixture(extension: 'ogg' | 'opus' = 'ogg'): Promise<File> {
 	const bytes = await (fixtureBytes ??= createOrdinaryOggOpusBytes());
 	return new File([bytes], `Programme.${extension}`, { type: 'audio/ogg; codecs=opus' });
+}
+
+/** Keep the authentic mapping-family1 packets and their six-channel order. */
+export async function surroundOggOpusFixture(repetitions = 1): Promise<File> {
+	const input = new Input({ source: new BlobSource(surroundWebmOpusFixture()), formats: [WEBM] });
+	try {
+		const track = await input.getPrimaryAudioTrack(); assert.ok(track);
+		const decoderConfig = await track.getDecoderConfig(); assert.ok(decoderConfig);
+		const packets: EncodedPacket[] = [];
+		for await (const packet of new EncodedPacketSink(track).packets()) packets.push(packet);
+		const target = new BufferTarget();
+		const output = new Output({ format: new OggOutputFormat(), target });
+		const source = new EncodedAudioPacketSource('opus'); output.addAudioTrack(source); await output.start();
+		for (let repeat = 0; repeat < repetitions; repeat++) for (const packet of packets) {
+			await source.add(packet.clone({ timestamp: packet.timestamp + repeat * .08 }), { decoderConfig });
+		}
+		await output.finalize(); assert.ok(target.buffer);
+		return new File([target.buffer], 'Surround.ogg', { type: 'audio/ogg' });
+	} finally { input.dispose(); }
 }
 
 /** Keep the ordinary capture's native Opus clock in an audio-only Matroska-family file. */

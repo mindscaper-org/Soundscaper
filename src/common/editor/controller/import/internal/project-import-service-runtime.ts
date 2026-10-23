@@ -4,6 +4,7 @@ import { publishedCopyFor } from '../../shared/presentation-localization.ts'; im
 import { loadImportAdmissionExecution } from './import-admission-loader.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts'; import { createDesktopOriginalImportRecorder } from '../../../desktop-overwrite-original.ts';
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
+import { nativeSurroundOpusAdmission, assertNativeSurroundOpusGeometry } from './native-surround-opus-admission.ts';
 import { importFilePlacement } from './import-file-placement.ts';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
 import {
@@ -403,7 +404,8 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				{ requireChunkStream }, { assertCurrent: assertImportProjectCurrent });
 		}
 		const { isStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
-		if (wavSignature === 'RIFX' || isStreamedAudioImportFile(file)) {
+		const nativeAdmission = isStreamedAudioImportFile(file) ? await nativeSurroundOpusAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg }) : null; assertImportProjectCurrent();
+		if (wavSignature === 'RIFX' || isStreamedAudioImportFile(file) && !nativeAdmission) {
 			const { importStreamedAudioFile } = await import('./streamed-audio-import-service.ts');
 			return importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
 				importIncrementalPcm, assertImportProjectCurrent);
@@ -431,7 +433,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			inspectEncodedSampleRate: inspectEncodedAudioSampleRate,
 			inspectDecodedSampleRate: inspectDecodedAudioSampleRate,
 		});
-		assertImportProjectCurrent(); admitAudioImportChannelCount(decoded.numberOfChannels);
+		assertImportProjectCurrent(); assertNativeSurroundOpusGeometry(decoded, nativeAdmission); admitAudioImportChannelCount(decoded.numberOfChannels);
 		const canonical = await canonicalizeBuffer(decoded, context, null, copy, { preserveChannels: true });
 		assertImportProjectCurrent();
 		await preflightStorage(canonical.length * canonical.numberOfChannels * Float32Array.BYTES_PER_ELEMENT, 'import');
