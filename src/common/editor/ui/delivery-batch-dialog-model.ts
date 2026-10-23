@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { DeliveryBatchTarget } from '../delivery-batch.ts';
+import { createDeliveryBatch, type DeliveryBatch, type DeliveryBatchRequest, type DeliveryBatchTarget } from '../delivery-batch.ts';
+import { resolveSelectionRange } from '../selection-range.ts';
+import type { RuntimeTimelineAnnotationProject } from '../runtime-timeline-annotation-projection.ts';
 import type {
 	DocumentMasteringSequenceDocumentSnapshot,
 } from '../controller/document/document-mastering-sequence-snapshot.ts';
@@ -43,6 +45,14 @@ export interface DeliveryBatchTargetInput {
 	readonly hasSelection: boolean;
 	readonly hasLoop: boolean;
 	readonly masteringSequences?: DocumentMasteringSequenceDocumentSnapshot | null;
+}
+
+/** Freeze the renderer's clip or time selection before handing a batch to the queue. */
+export function createDeliveryBatchForProjectSelection(
+	project: RuntimeTimelineAnnotationProject,
+	request: DeliveryBatchRequest,
+): DeliveryBatch {
+	return createDeliveryBatch({ ...project, selection: resolveSelectionRange(project) }, request);
 }
 
 /** Every target this project offers, available or not, in a stable order. */

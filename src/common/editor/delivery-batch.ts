@@ -5,7 +5,6 @@ import {
 	type DeliveryPreset,
 } from './delivery-preset.ts';
 import { masteringSequenceRegionViews } from './mastering-sequence-regions.ts';
-import { resolveSelectionRange } from './selection-range.ts';
 import type { RuntimeTimelineAnnotationProject } from './runtime-timeline-annotation-projection.ts';
 
 /**
@@ -189,7 +188,7 @@ function resolveTarget(
 			enabled?: unknown; startFrame?: unknown; endFrame?: unknown;
 		}> | undefined;
 		const range = target.kind === 'selection'
-			? resolveSelectionRange(project)
+			? project.selection as Readonly<{ startFrame?: unknown; endFrame?: unknown }> | undefined
 			: loop;
 		if (target.kind === 'loop' && loop?.enabled !== true) {
 			throw new DeliveryBatchError('The project loop is not enabled, so a batch cannot deliver it.');

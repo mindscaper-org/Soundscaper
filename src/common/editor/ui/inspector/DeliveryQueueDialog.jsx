@@ -5,10 +5,11 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { createStableId } from '../../stable-id.js';
-import { createDeliveryBatch, deliveryBatchPresetSupportsMode } from '../../delivery-batch.ts';
+import { deliveryBatchPresetSupportsMode } from '../../delivery-batch.ts';
 import { summarizeDeliveryBatchReport } from '../../delivery-batch-report.ts';
 import { resolveSelectionRange } from '../../selection-range.ts';
 import {
+	createDeliveryBatchForProjectSelection,
 	deliveryBatchTargetOptions,
 	selectableDeliveryBatchTargets,
 } from '../delivery-batch-dialog-model.ts';
@@ -87,7 +88,7 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 
 	const queueBatch = async () => {
 		try {
-			const batch = createDeliveryBatch(snapshot.project, {
+			const batch = createDeliveryBatchForProjectSelection(snapshot.project, {
 				batchId: createStableId('delivery-batch'),
 				presets: chosenPresets,
 				targets: chosenTargets.map(({ target }) => target),

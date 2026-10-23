@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
-import { createDeliveryBatch } from '../src/common/editor/delivery-batch.ts';
+import { createDeliveryBatchForProjectSelection } from '../src/common/editor/ui/delivery-batch-dialog-model.ts';
 import { validateDeliveryPreset } from '../src/common/editor/delivery-preset.ts';
 import { deliverySelectionArchive } from './helpers/more200-delivery-selection-fixture.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
@@ -25,7 +25,7 @@ for (const kind of ['clip', 'time', 'empty'] as const) test(`delivery batch reso
 	else controller.actions.timeline.setExactSelection(0, 0, { trackIds: ['voice'] });
 	const project = controller.project;
 	assert.ok(project);
-	const build = () => createDeliveryBatch(project, {
+	const build = () => createDeliveryBatchForProjectSelection(project, {
 		batchId: 'selected-take', presets: [validateDeliveryPreset({ schemaVersion: 1, id: 'wav', label: 'WAV', kind: 'audio', format: 'wav', settings: {} })],
 		targets: [{ kind: 'selection' }],
 	});
