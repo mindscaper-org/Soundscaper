@@ -71,6 +71,25 @@ test('hover motion retains zero native pressure', () => {
 		{ clientX: 64, clientY: 128, button, buttons: 0 }).button, 0);
 });
 
+test('the real native Interact refuses the old pointer-before-focus lifecycle', context => {
+	const build = buildOpenFxNativeContractFixture(context);
+	if (!build) return;
+	const grant = Buffer.from(JSON.stringify({
+		schemaVersion: 1,
+		pluginBinary: { path: build.plugin, sha256: build.sha256, pluginIndex: 0,
+			pluginId: 'org.framescaper.conformance' },
+		project: { id: 'focus-project', revision: 7 }, instanceId: 'paint-controls',
+		effectStateSha256: '44'.repeat(32), context: 'filter', target: 'overlay', parameterName: null,
+		parameters: [], events: [{ kind: 'pointer', phase: 'motion', sequence: 0,
+			x: 0.25, y: 0.5, button: 0, modifiers: [] }],
+	}));
+	const path = join(build.directory, 'pointer-before-focus.json');
+	writeFileSync(path, grant);
+	const result = runNativeExecutable(build.runtime, ['--interact-v1-grant', path, '--grant-sha256', sha256(grant)]);
+	assert.notEqual(result.status, 0);
+	assert.match(String(result.stderr), /Interact failed its DrawSuite V1 lifecycle/u);
+});
+
 function sha256(bytes: Uint8Array): string {
 	return createHash('sha256').update(bytes).digest('hex');
 }

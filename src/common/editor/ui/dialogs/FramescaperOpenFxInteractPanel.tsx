@@ -183,8 +183,11 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 				style={{ width: 256, height: 256, maxWidth: '100%', imageRendering: 'pixelated',
 					border: '2px solid CanvasText', background: 'Canvas', forcedColorAdjust: 'none',
 					touchAction: 'none', outlineOffset: 3 }}
-				onPointerMove={(value) => pointer('motion', value)}
+				onPointerMove={(value) => {
+					if (value.currentTarget.ownerDocument.activeElement === value.currentTarget) pointer('motion', value);
+				}}
 				onPointerDown={(value) => {
+					value.currentTarget.focus();
 					try { value.currentTarget.setPointerCapture(value.pointerId); } catch { /* unavailable */ }
 					pointer('down', value);
 				}}

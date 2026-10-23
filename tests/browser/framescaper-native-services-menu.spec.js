@@ -168,44 +168,7 @@ const SLOW_WORKFLOW = { timeout: 120_000 };
 test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow without a vendor window', async ({ page, browserName }) => {
 	test.setTimeout(360_000);
 	await page.emulateMedia({ forcedColors: 'active' });
-	await installNativeServicesFixture(page);
-	const editor = await bootEditor(page, '/framescaper/embed/en/');
-	await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Solid'], SLOW_WORKFLOW);
-	await expect(editor.getByRole('group', { name: 'Video clip: Solid', exact: true })).toHaveCount(1, SLOW_WORKFLOW);
-	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', SLOW_WORKFLOW);
-	await openNativePreferences(page, editor, 'Media', 'Native media and scratch');
-	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	await dialog.locator('[data-native-service-preference="native-media"]').check();
-	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
-	await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
-	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	await dialog.getByText('Scanning & Settings', { exact: true }).click();
-	await dialog.getByRole('checkbox', { name: 'Allow OpenFX plugin scanning and execution' }).check();
-	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
-	let effects = await openNestedCommandMenu(page, editor, 'Effect', ['Video effects'], SLOW_WORKFLOW);
-	const add = getMenuItem(effects, 'Add OFX');
-	await expect(add).toBeEnabled();
-	await add.click();
-	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	const form = dialog.locator('[data-framescaper-openfx-add-form="true"]');
-	await expect(form).toBeVisible();
-	await form.locator('[data-openfx-parameter-type="boolean"] input').check();
-	await form.getByLabel('customState', { exact: true }).fill('opaque-state');
-	await form.getByLabel('Custom encoding for customState', { exact: true }).fill('vendor-v1');
-	await form.getByRole('button', { name: 'Add OpenFX effect', exact: true }).click();
-	await expect(form.getByRole('status')).toContainText('OpenFX effect added.', SLOW_WORKFLOW);
-	await expect.poll(() => page.evaluate(() => globalThis.__framescaperNativeCalls)).toContainEqual([
-		'listOpenFxPlugins',
-	]);
-	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
-
-	const effectButton = editor.getByRole('menuitem', { name: 'Effect', exact: true });
-	effects = await openNestedCommandMenu(page, editor, 'Effect', ['Video effects'], SLOW_WORKFLOW);
-	const interact = getMenuItem(effects, 'Open OFX Interact');
-	await expect(interact).toBeEnabled();
-	await interact.click();
-	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
-	const canvas = dialog.locator('[data-framescaper-openfx-interact-canvas="64x64"]');
+	const { dialog, canvas, effectButton } = await openAuthoredOpenFxInteract(page);
 	await expect(canvas).toBeVisible();
 	await expect(dialog).toContainText('No vendor window opens.');
 	await expect(canvas).toHaveAttribute('role', 'application');
@@ -307,6 +270,73 @@ test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow wit
 	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
 	await expect(effectButton).toBeFocused();
 });
+
+
+test('an OpenFX canvas accepts its first real mouse gesture before keyboard focus', async ({ page }) => {
+	test.setTimeout(120_000);
+	const { dialog, canvas } = await openAuthoredOpenFxInteract(page);
+	await expect(canvas).toBeVisible();
+	await expect(canvas).not.toBeFocused();
+	const offset = await page.evaluate(() => globalThis.__framescaperNativeCalls.length);
+	await canvas.hover();
+	await page.mouse.down();
+	const bounds = await canvas.boundingBox();
+	expect(bounds).not.toBeNull();
+	await page.mouse.move(bounds.x + 80, bounds.y + 80);
+	await page.mouse.up();
+	await canvas.press('Enter');
+	await dialog.locator('[data-framescaper-openfx-interact-target="true"]').focus();
+	await expect.poll(() => page.evaluate(offset => globalThis.__framescaperNativeCalls.slice(offset)
+		.filter(([kind, request]) => kind === 'runOpenFxInteract' && request.events.length > 0)
+		.at(-1)?.[1].events.at(-1), offset)).toMatchObject({ kind: 'focus', focused: false });
+	const replay = await page.evaluate(offset => globalThis.__framescaperNativeCalls.slice(offset)
+		.filter(([kind, request]) => kind === 'runOpenFxInteract' && request.events.length > 0)
+		.at(-1)[1].events, offset);
+	expect(replay[0]).toMatchObject({ kind: 'focus', focused: true });
+	expect(replay.findIndex(event => event.kind === 'pointer' && event.phase === 'down')).toBe(1);
+});
+
+async function openAuthoredOpenFxInteract(page) {
+	await installNativeServicesFixture(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Solid'], SLOW_WORKFLOW);
+	await expect(editor.getByRole('group', { name: 'Video clip: Solid', exact: true })).toHaveCount(1, SLOW_WORKFLOW);
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', SLOW_WORKFLOW);
+	await openNativePreferences(page, editor, 'Media', 'Native media and scratch');
+	let dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+	await dialog.locator('[data-native-service-preference="native-media"]').check();
+	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
+	await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
+	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+	await dialog.getByText('Scanning & Settings', { exact: true }).click();
+	await dialog.getByRole('checkbox', { name: 'Allow OpenFX plugin scanning and execution' }).check();
+	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
+	let effects = await openNestedCommandMenu(page, editor, 'Effect', ['Video effects'], SLOW_WORKFLOW);
+	const add = getMenuItem(effects, 'Add OFX');
+	await expect(add).toBeEnabled();
+	await add.click();
+	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+	const form = dialog.locator('[data-framescaper-openfx-add-form="true"]');
+	await expect(form).toBeVisible();
+	await form.locator('[data-openfx-parameter-type="boolean"] input').check();
+	await form.getByLabel('customState', { exact: true }).fill('opaque-state');
+	await form.getByLabel('Custom encoding for customState', { exact: true }).fill('vendor-v1');
+	await form.getByRole('button', { name: 'Add OpenFX effect', exact: true }).click();
+	await expect(form.getByRole('status')).toContainText('OpenFX effect added.', SLOW_WORKFLOW);
+	await expect.poll(() => page.evaluate(() => globalThis.__framescaperNativeCalls)).toContainEqual([
+		'listOpenFxPlugins',
+	]);
+	await dialog.locator('button').filter({ hasText: /^Close$/u }).click();
+
+	const effectButton = editor.getByRole('menuitem', { name: 'Effect', exact: true });
+	effects = await openNestedCommandMenu(page, editor, 'Effect', ['Video effects'], SLOW_WORKFLOW);
+	const interact = getMenuItem(effects, 'Open OFX Interact');
+	await expect(interact).toBeEnabled();
+	await interact.click();
+	dialog = page.locator('[data-framescaper-native-services-dialog="true"]');
+	const canvas = dialog.locator('[data-framescaper-openfx-interact-canvas="64x64"]');
+	return { dialog, canvas, effectButton };
+}
 
 async function installNativeServicesFixture(page, { watchedVideo = null } = {}) {
 	await installDesktopSpeedWarmupManifest(page);
