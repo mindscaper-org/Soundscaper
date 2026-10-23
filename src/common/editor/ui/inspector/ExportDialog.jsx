@@ -153,6 +153,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setError('');
 		setPresetId('');
 		setPresetName('');
+		setMappingOpen(false);
 	}, [projectIdentity, snapshot.project, setError]);
 
 	useEffect(() => {
