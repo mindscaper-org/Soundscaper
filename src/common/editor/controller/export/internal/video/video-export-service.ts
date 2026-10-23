@@ -44,6 +44,7 @@ import {
 } from './video-export-staged-audio.ts';
 import { beginExportTask, handleExportFailure } from '../export-task-lifecycle.ts';
 import { publishBufferedExport } from '../buffered-export-publication.ts';
+import { fitExportFileName } from '../../../../export-name-byte-budget.ts';
 
 export interface VideoExportServiceRuntime {
 	readonly state: EditorExportState;
@@ -218,7 +219,7 @@ export function createEditorVideoExportAction(
 					? { degradedFrom: String(requestedSettings.degradedFrom) }
 					: {}),
 			});
-			const fileName = `${sanitizeVideoExportFileName(exportProject.title)}.${plan.extension}`;
+			const fileName = fitExportFileName(sanitizeVideoExportFileName(exportProject.title), '', `.${plan.extension}`);
 			const directPreparation = await prepareDirectVideoDestination(
 				fileService,
 				plan,

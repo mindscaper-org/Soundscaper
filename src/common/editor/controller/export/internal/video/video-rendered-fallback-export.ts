@@ -152,13 +152,14 @@ export async function admitVideoRenderedFallbackExport(
 }
 
 export function sanitizeVideoExportFileName(value: unknown): string {
-	return String(value || 'video-project')
+	const normalized = String(value || 'video-project')
 		.normalize('NFKD')
-		.replace(/[\u0300-\u036f]/gu, '')
-		.replace(/[^a-zA-Z0-9äöüÄÖÜß_-]+/gu, '-')
+		.replace(/([a-zA-Z])[\u0300-\u036f]+/gu, '$1')
+		.normalize('NFC')
+		.replace(/[^\p{L}\p{N}\p{M}_-]+/gu, '-')
 		.replace(/-{2,}/gu, '-')
-		.replace(/^[-_.]+|[-_.]+$/gu, '')
-		.slice(0, 96) || 'video-project';
+		.replace(/^[-_.]+|[-_.]+$/gu, '');
+	return Array.from(normalized).slice(0, 96).join('') || 'video-project';
 }
 
 /** Refuse a stale publication result and release any recoverable output handle. */
