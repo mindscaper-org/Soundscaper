@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 
-for (const [name, expectedName] of [['  Field take.wav', 'Field take.wav'], ['Field\ntake.wave', 'Field-take.wav']]) {
+for (const [name, expectedName] of [['  Field take.wav', 'Field take.wav'], ['Field\ntake.wave', 'Field-take.wav'], ['Field\u007ftake.wav', 'Field-take.wav']]) {
 	test(`Freesound transfers a usable filename for ${JSON.stringify(name)}`, async ({ page }) => {
 		const names = [];
 		await page.route('**/api/freesound/**', async route => {
@@ -15,7 +15,7 @@ for (const [name, expectedName] of [['  Field take.wav', 'Field take.wav'], ['Fi
 				names.push(filename);
 				// The exact authenticated endpoint is exercised by the Node regression.
 				// Keep its filename admission at this local browser transport boundary.
-				if (filename.trim() !== filename || /[\r\n\\/]/u.test(filename)) {
+				if (filename.trim() !== filename || /[\r\n\\/]/u.test(filename) || filename.includes('\u007f')) {
 					await route.fulfill({ status: 400, json: { error: { code: 'invalid_upload', message: 'The percent-encoded upload filename is invalid.' } } });
 					return;
 				}

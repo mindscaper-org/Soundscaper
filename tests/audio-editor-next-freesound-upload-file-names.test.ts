@@ -13,6 +13,7 @@ for (const [name, expectedName] of [
 	['  Field take.wav', 'Field take.wav'],
 	['Field\ntake.wav', 'Field-take.wav'],
 	['Field\\take.wav', 'Field-take.wav'],
+	['Field\u007ftake.wav', 'Field-take.wav'],
 	['Field take.wav', 'Field take.wav'],
 ] as const) test(`Freesound queue uploads admitted disk filename ${JSON.stringify(name)} through the real authenticated endpoint`, async () => {
 	const repository = new MemoryFreesoundOAuthRepository();

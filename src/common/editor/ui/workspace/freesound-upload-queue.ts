@@ -408,7 +408,7 @@ function normalizeDirectUploadFile(file: File): File {
 		extension as keyof typeof FREESOUND_DIRECT_MIME_BY_EXTENSION
 	];
 	if (!type) throw new TypeError('Prepared Freesound audio must be WAV, AIFF, FLAC, OGG, or MP3.');
-	const name = sanitizeSuggestedFileName(file.name);
+	const name = sanitizeSuggestedFileName(file.name.replaceAll('\u007f', '-'));
 	return file.name === name && file.type.toLocaleLowerCase('en-US') === type
 		? file
 		: new File([file], name, { type, lastModified: file.lastModified });
