@@ -243,8 +243,9 @@ function createPersistedSampleEditResult(
 	store, source, sourceId, metadata, editsByChunk, revision, deriveSourceProvenance,
 ) {
 	const provenance = deriveSourceProvenance([source]);
+	const { contentSha256: _contentSha256, byteLength: _byteLength, ...contentIndependent } = source;
 	const descriptor = Object.freeze({
-		...source,
+		...contentIndependent,
 		...(provenance ? { provenance } : {}),
 		id: sourceId,
 		storageKey: sourceId,
