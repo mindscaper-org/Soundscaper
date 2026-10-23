@@ -172,7 +172,8 @@ export function createDesktopVideoTimingProbeFileHarness(planValue) {
 	return Object.freeze({
 		resolveOpenPaths(choice) {
 			if (consumed) throw new Error('Desktop video timing-probe fixture selection was already consumed');
-			if (!choice || choice.purpose !== 'media' || choice.multiple !== true) {
+			// File > Import uses media; the project-bin Import uses audio-video.
+			if (!choice || !['media', 'audio-video'].includes(choice.purpose) || choice.multiple !== true) {
 				throw new TypeError('Desktop video timing-probe requires the ordinary multi-file media chooser');
 			}
 			consumed = true;
