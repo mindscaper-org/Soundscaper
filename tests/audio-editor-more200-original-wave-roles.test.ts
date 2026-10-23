@@ -23,6 +23,6 @@ for (const [channelCount, channelMask] of [[2, 3], [2, 0]] as const) {
 		const descriptor = await inspectWavBlobPcm(file);
 		const settings = await resolveDesktopOriginalExportSettings(file, [{ kind: 'audio', ...descriptor }]);
 		assert.ok(settings); assert.equal(settings.sampleFormat, 'int20');
-		assert.equal(settings.channelMapping, channelCount === 1 ? 'mono' : 'stereo');
+		assert.equal(settings.channelMapping, 'stereo');
 	});
 }
