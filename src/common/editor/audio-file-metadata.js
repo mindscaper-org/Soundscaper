@@ -1,3 +1,5 @@
+import { inspectMatroskaOpusSampleRate } from './matroska-audio-sample-rate.ts';
+
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
 const ASF_HEADER_GUID = Object.freeze([
@@ -40,6 +42,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectOggSampleRate(bytes)
 			?? inspectIsoMediaSampleRate(bytes)
 			?? inspectAsfSampleRate(bytes)
+			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
 			?? inspectMpegOrAdtsSampleRate(bytes);
 	} catch {
@@ -65,6 +68,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectAiffSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
 			?? inspectMpegOrAdtsSampleRate(bytes, false);
 	} catch {
