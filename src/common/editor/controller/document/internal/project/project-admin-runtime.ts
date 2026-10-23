@@ -5,6 +5,8 @@ import type { FramescaperCaptureAdminInterlockLease, FramescaperCaptureAdminOper
 import type { ProjectLinkedOriginalSourceReference } from '../../../../storage/project-publication-options.ts';
 import type { ProjectFlushOptions } from '../../project-save-service.ts';
 import type { EditorProjectToken } from '../../../shared/lifecycle.ts';
+import type { AudioEditorSessionClipboard } from '../../../../session-clipboard-codec.ts';
+import type { DeletedProjectClipboardStore } from './deleted-project-clipboard-media.ts';
 
 type Awaitable<Value> = Value | PromiseLike<Value>;
 
@@ -124,6 +126,7 @@ export interface ProjectAdminServiceRuntime<
 	saveNow(): Awaitable<unknown>;
 	scheduleTimer(callback: () => void, delayMs: number): number;
 	readonly sessionController: Readonly<{
+		clipboardForProject?(projectId: string): AudioEditorSessionClipboard | null;
 		getSnapshot(): Readonly<{ tabs: readonly AdminSessionTab<Project, History>[] }>;
 		getHistoryStorageKeys?(): ReadonlySet<string>;
 		captureProjectHistory(projectId: string): Readonly<{ token: unknown; history: History }>;
@@ -140,7 +143,7 @@ export interface ProjectAdminServiceRuntime<
 	readonly state: AdminState<Project, History>;
 	stopProjectBinPreview(options: Readonly<{ dispose: true }>): Awaitable<unknown>;
 	stopRecording(): Awaitable<unknown>;
-	readonly store: Readonly<{
+	readonly store: Readonly<DeletedProjectClipboardStore & {
 		listProjects(): Awaitable<readonly AdminProject[]>;
 		prepareProjectHandoff?(project: Project): Awaitable<unknown>;
 		saveProject(project: Project, options: Readonly<{

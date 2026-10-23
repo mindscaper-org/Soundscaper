@@ -3,6 +3,7 @@
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { FramescaperCaptureAdminInterlockLease } from '../capture/framescaper-capture-admin-interlock.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import type { AdminProject, AdminHistory, AdminSessionTab, AdminCloseOptions, ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
+import { preserveDeletedProjectClipboardMedia } from './internal/project/deleted-project-clipboard-media.ts';
 export type { ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 
 export interface ProjectHandoffExpectation {
@@ -257,6 +258,19 @@ export function createProjectAdminService<
 		let deleteResolved = false;
 		let saveSuspended = false;
 		try {
+			const clipboard = sessionController.clipboardForProject?.(id);
+			const clipboardKey = JSON.stringify(clipboard);
+			const generation = projectGeneration.capture?.(id);
+			const assertCurrent = () => {
+				if (state.disposed || getProject() !== project
+					|| JSON.stringify(sessionController.clipboardForProject?.(id)) !== clipboardKey) {
+					throw new DOMException('The project or clipboard changed during deletion.', 'AbortError');
+				}
+				if (generation) projectGeneration.assertCurrent?.(generation);
+				interlock?.assertCurrent();
+			};
+			await preserveDeletedProjectClipboardMedia(id, clipboard, store, assertCurrent);
+			assertCurrent();
 			// These synchronous operations close mutation, project-token, and save
 			// admission before the first drain await. The exact-history reservation
 			// prevents a competing tab activation from replacing that ownership.
