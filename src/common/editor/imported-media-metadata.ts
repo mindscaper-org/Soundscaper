@@ -379,6 +379,7 @@ async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Promise<Ai
 		if (images.length > MAXIMUM_METADATA_ARRAY_LENGTH) break;
 	}
 	const normalized = {
+		...(firstId3 ?? {}),
 		...(images.length ? { images } : {}),
 		...(title || stringValue(ownDataValue(firstId3 ?? null, 'title'))
 			? { title: title ?? stringValue(ownDataValue(firstId3 ?? null, 'title')) } : {}),
