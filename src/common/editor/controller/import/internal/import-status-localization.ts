@@ -34,7 +34,7 @@ export interface LocalizedImportFailure {
 /** Keep a bounded set of actionable file failures beside the final batch counts. */
 export function publishImportFailureStatus(
 	setStatus: (text: string, state: string, localization?: LocalizedPresentationMessage) => void,
-	copy: Readonly<{ unknownError?: string }>, successes: number, failures: number,
+	copy: Readonly<{ importSummary: string; unknownError?: string }>, successes: number, failures: number,
 	details: readonly LocalizedImportFailure[],
 ): void {
 	setLocalizedStatus(setStatus, copy, 'importSummary', { successes: String(successes), failures: String(failures) }, 'error', {
