@@ -231,6 +231,8 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		const track = await input.getPrimaryAudioTrack();
 		if (!track) throw new Error('The source has no primary audio track.');
 		await correctRifxAudioImportCodec(file, track, signal);
+		const presentationEnd = await input.getFormat() === MP4
+			? await (await import('./iso-audio-presentation-edit.ts')).readIsoAudioPresentationEnd(file, track.id, signal) : null;
 		const codec = await track.getCodec();
 		let layerII = false;
 		if (codec === 'mp3') {
@@ -301,6 +303,7 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			origin += gapless.leadingFrames / sampleRate;
 			durationSeconds = gapless.sourceFrames / sampleRate;
 		}
+		if (presentationEnd !== null) durationSeconds = Math.min(durationSeconds, presentationEnd - origin);
 		if (utilityAac && desktopAac && desktopCodec) {
 			input.dispose();
 			return desktopAac.openDesktopAacImportSession(file, { sampleRate, channelCount, timelineOrigin: origin,

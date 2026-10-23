@@ -191,3 +191,43 @@ export async function appMetadataM4aFixture(metadata: Readonly<Record<string, st
 		return new File([target.buffer], 'Custom credits.m4a', { type: 'audio/mp4' });
 	} finally { input.dispose(); }
 }
+
+/** A QuickTime presentation edit retains compressed media outside the selected programme. */
+export async function editedM4aFixture(mode: 'none' | 'trim' | 'offset' | 'empty-first' | 'multiple' | 'rate' | 'version1' = 'trim'): Promise<Readonly<{ file: File; durationSeconds: number }>> {
+	const { file } = await multiValueM4aArtworkFixture();
+	const atom = (type: string, body: Buffer): Buffer => {
+		const header = Buffer.alloc(8); header.writeUInt32BE(body.length + 8); header.write(type, 4, 'latin1');
+		return Buffer.concat([header, body]);
+	};
+	let durationSeconds = 0;
+	const rewritten = Buffer.concat(m4aAtoms(Buffer.from(await file.arrayBuffer())).map(child => {
+		if (child.toString('latin1', 4, 8) !== 'moov') return child;
+		const children = m4aAtoms(child.subarray(8));
+		const movie = children.find(box => box.toString('latin1', 4, 8) === 'mvhd'); assert.ok(movie);
+		const timescale = movie.readUInt32BE(20);
+		const duration = mode === 'none' ? movie.readUInt32BE(24) : Math.floor(movie.readUInt32BE(24) / 2);
+		durationSeconds = duration / timescale;
+		movie.writeUInt32BE(duration * (mode === 'empty-first' || mode === 'multiple' ? 2 : 1), 24);
+		return atom('moov', Buffer.concat(children.map(track => {
+			if (track.toString('latin1', 4, 8) !== 'trak') return track;
+			const fields = m4aAtoms(track.subarray(8)).filter(box => box.toString('latin1', 4, 8) !== 'edts');
+			const header = fields.find(box => box.toString('latin1', 4, 8) === 'tkhd'); assert.ok(header);
+			header.writeUInt32BE(movie.readUInt32BE(24), 28);
+			if (mode === 'none') return atom('trak', Buffer.concat(fields));
+			const media = fields.find(box => box.toString('latin1', 4, 8) === 'mdia'); assert.ok(media);
+			const mediaHeader = m4aAtoms(media.subarray(8)).find(box => box.toString('latin1', 4, 8) === 'mdhd'); assert.ok(mediaHeader);
+			const offset = mode === 'offset' ? Math.round(durationSeconds * mediaHeader.readUInt32BE(20)) : 0;
+			const entries = mode === 'empty-first' ? [-1, 0] : mode === 'multiple' ? [0, 0] : [offset];
+			const version1 = mode === 'version1'; const width = version1 ? 20 : 12;
+			const list = Buffer.alloc(8 + entries.length * width); list[0] = version1 ? 1 : 0; list.writeUInt32BE(entries.length, 4);
+			for (const [index, start] of entries.entries()) {
+				const position = 8 + index * width;
+				if (version1) { list.writeBigUInt64BE(BigInt(duration), position); list.writeBigInt64BE(BigInt(start), position + 8); }
+				else { list.writeUInt32BE(duration, position); list.writeInt32BE(start, position + 4); }
+				list.writeUInt32BE(mode === 'rate' ? 131072 : 65536, position + width - 4);
+			}
+			return atom('trak', Buffer.concat([atom('edts', atom('elst', list)), ...fields]));
+		})));
+	}));
+	return { file: new File([Uint8Array.from(rewritten)], `Presentation-${mode}.m4a`, { type: 'audio/mp4' }), durationSeconds };
+}
