@@ -54,6 +54,7 @@ export const DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/unified-exact-render-plan-primitives.js',
 	'src/common/editor/unified-exact-render-plan-v13.js',
 	'src/common/editor/video-caption-imsc-identities-v27.js',
+	'src/common/editor/video-caption-imsc-percentage.js',
 	'src/common/editor/video-caption-imsc-v27.js',
 	'src/common/editor/video-caption-interchange-contract-v27.js',
 	'src/common/editor/video-caption-interchange-v27.js',

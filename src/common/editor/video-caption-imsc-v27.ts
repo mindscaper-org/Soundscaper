@@ -29,7 +29,7 @@ import {
 	type VideoCaptionExportResultV1,
 } from './video-caption-interchange-contract-v27.ts';
 import { parseImscTime } from './video-caption-imsc-time.ts';
-
+import { imscPercentage } from './video-caption-imsc-percentage.ts';
 const TT = 'http://www.w3.org/ns/ttml';
 const TTP = 'http://www.w3.org/ns/ttml#parameter';
 const TTS = 'http://www.w3.org/ns/ttml#styling';
@@ -390,15 +390,15 @@ function readTiming(
 
 function exportStyle(style: VideoCaptionStyleV1, identities: ImscXmlIdentitiesV1): string {
 	return `<style xml:id="${xml(mapped(identities.styles, style.id))}" tts:fontFamily="${FONT_TO_TTML[style.fontFamily]}"`
-		+ ` tts:fontSize="${style.fontSizePercent * 15}%" tts:color="${style.foregroundColor}"`
+		+ ` tts:fontSize="${imscPercentage(style.fontSizePercent * 15)}" tts:color="${style.foregroundColor}"`
 		+ ` tts:backgroundColor="${style.backgroundColor}" tts:fontWeight="${style.fontWeight}"`
 		+ ` tts:fontStyle="${style.fontStyle}" tts:textDecoration="${style.textDecoration}"`
 		+ ` tts:textAlign="${style.textAlign}"/>`;
 }
 
 function exportRegion(region: VideoCaptionRegionV1, identities: ImscXmlIdentitiesV1): string {
-	return `<region xml:id="${xml(mapped(identities.regions, region.id))}" tts:origin="${region.xPercent}% ${region.yPercent}%"`
-		+ ` tts:extent="${region.widthPercent}% ${region.heightPercent}%" tts:displayAlign="${region.displayAlign}"/>`;
+	return `<region xml:id="${xml(mapped(identities.regions, region.id))}" tts:origin="${imscPercentage(region.xPercent)} ${imscPercentage(region.yPercent)}"`
+		+ ` tts:extent="${imscPercentage(region.widthPercent)} ${imscPercentage(region.heightPercent)}" tts:displayAlign="${region.displayAlign}"/>`;
 }
 
 function exportCue(
