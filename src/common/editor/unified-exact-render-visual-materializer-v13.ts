@@ -136,11 +136,12 @@ function drawShape(
 			boundary = inside && (x < left + strokeWidth || x >= right - strokeWidth
 				|| y < top + strokeWidth || y >= bottom - strokeWidth);
 		} else if (document.shape === 'ellipse') {
-			const dx = (x + 0.5 - (left + right) / 2) / ((right - left) / 2);
-			const dy = (y + 0.5 - (top + bottom) / 2) / ((bottom - top) / 2);
-			const distance = dx * dx + dy * dy;
-			inside = distance <= 1;
-			boundary = inside && distance >= Math.max(0, 1 - strokeWidth * 4 / Math.min(width, height));
+			const radiusX = (right - left) / 2, radiusY = (bottom - top) / 2;
+			const dx = Math.abs(x + 0.5 - (left + right) / 2);
+			const dy = Math.abs(y + 0.5 - (top + bottom) / 2);
+			const squaredRadius = (dx / radiusX) ** 2 + (dy / radiusY) ** 2;
+			inside = squaredRadius <= 1;
+			boundary = inside && stroke !== null && ellipseOutlineContains(dx, dy, radiusX, radiusY, Math.sqrt(squaredRadius), strokeWidth);
 		} else {
 			const expected = top + (x - left) * (bottom - top) / Math.max(1, right - left);
 			boundary = x >= left && x < right && Math.abs(y - expected) <= strokeWidth;
@@ -148,6 +149,34 @@ function drawShape(
 		if (boundary && stroke) writePixel(pixels, width, x, y, inside ? filledStroke! : stroke);
 		else if (inside && fill) writePixel(pixels, width, x, y, fill);
 	}
+}
+
+/** An inward outline has a constant Euclidean width, including on an eccentric ellipse. */
+function ellipseOutlineContains(x: number, y: number, a: number, b: number, radius: number, width: number): boolean {
+	if (a < b) return ellipseOutlineContains(y, x, b, a, radius, width);
+	// The radial gap bounds the shortest distance. Only the ambiguous band
+	// needs the bounded closest-point solve; ordinary fill pixels stay cheap.
+	const gap = 1 - radius;
+	if (width >= b || gap * a <= width) return true;
+	if (gap * b > width) return false;
+	if (a === b) return a - Math.hypot(x, y) <= width;
+	if (y === 0) {
+		const ratio = a * x / (a * a - b * b);
+		return ratio < 1
+			? Math.hypot(a * ratio - x, b * Math.sqrt(1 - ratio * ratio)) <= width
+			: a - x <= width;
+	}
+	// Lagrange multiplier root, scaled by b²: its strictly decreasing
+	// function has one root between y/b - 1 and zero for an interior point.
+	const r = (a / b) ** 2, z = y / b, n = r * x / a;
+	let lower = z - 1, upper = 0;
+	for (let iteration = 0; iteration < 40; iteration += 1) {
+		const middle = (lower + upper) / 2;
+		if ((n / (middle + r)) ** 2 + (z / (middle + 1)) ** 2 > 1) lower = middle;
+		else upper = middle;
+	}
+	const root = (lower + upper) / 2;
+	return Math.hypot(r * x / (root + r) - x, y / (root + 1) - y) <= width;
 }
 
 /** Paint the stroke over its fill in the same linear working space as the programme. */
