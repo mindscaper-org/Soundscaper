@@ -240,6 +240,9 @@ export function applyAudacityLoudnessNormalization(
 	if (settings.mode === 'rms') {
 		return normalizeRms(channels, settings.targetRmsDb, settings.stereoIndependent);
 	}
+	if (sampleRate < 8_000) {
+		throw new RangeError('Perceived loudness normalization requires at least 8000 Hz; resample the recording or choose RMS normalization.');
+	}
 
 	const targetPower = 10 ** (settings.targetLufs / 10);
 	if (!settings.stereoIndependent) {
