@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, clipByName, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
+import { bootEditor, chooseCommandAction, clipByName, fileDataTransfer, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createFramescaperProject } from '../../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../../src/framescaper/editor-project-runtime-profile.ts';
 import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/editor-scape-native.ts';
@@ -40,4 +40,26 @@ test('Edit Duplicate keeps a secondary recording and its new lane in that sequen
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	await expect(rows.nth(2).locator('.clip-display')).toHaveCount(1);
+});
+
+test('dropping two recordings onto a secondary lane imports both into that sequence', async ({ page }) => {
+	const project = createFramescaperProject(PROFILE, { id: 'p3-two-imports',
+		tracks: ['main', 'cut'].map(id => createAudioTrack({ id: `${id}-audio`, name: id })),
+		sequences: ['main', 'cut'].map(id => ({ id, trackIds: [`${id}-audio`] })), primarySequenceId: 'main' });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
+	let blob;
+	try { blob = (await createFramescaperScapeNativeRuntime(PROFILE).exportScapeProject(project, store)).blob; }
+	finally { await store.close(); }
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Import.fscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
+	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
+	const lane = editor.locator('[data-track-row][data-track-id="cut-audio"] [data-track-lane]');
+	const bounds = await lane.boundingBox(); expect(bounds).not.toBeNull();
+	const transfer = await fileDataTransfer(page, ['First.wav', 'Second.wav'].map(name => createWavFixture({ name, duration: .1, sampleRate: 48_000 })));
+	const event = { dataTransfer: transfer, clientX: bounds.x + 100, clientY: bounds.y + bounds.height / 2 };
+	await lane.dispatchEvent('dragover', event); await lane.dispatchEvent('drop', event); await transfer.dispose();
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(editor.locator('[data-track-row][data-track-id="main-audio"] .clip-display')).toHaveCount(0);
+	await expect(clipByName(editor, 'First.wav')).toBeVisible(); await expect(clipByName(editor, 'Second.wav')).toBeVisible();
 });
