@@ -75,8 +75,8 @@ export function createAssistanceKeyedVideoService(options: Readonly<{
 			}
 			const rawProbe = await captureKeyedVideoProcess({ executablePath: pair.ffprobePath, directory, signal,
 				maximumBytes: 32 * 1024 ** 2, arguments: ['-v', 'error', '-protocol_whitelist', 'file',
-					'-show_streams', '-show_packets', '-show_entries',
-					'stream=codec_type,codec_name,width,height,time_base,r_frame_rate,color_primaries,color_transfer,color_space,color_range:stream_tags=alpha_mode:packet=pts,duration',
+					'-show_streams', '-show_packets', '-show_format', '-show_entries',
+					'format=duration:stream=codec_type,codec_name,width,height,time_base,r_frame_rate,color_primaries,color_transfer,color_space,color_range:stream_tags=alpha_mode:packet=pts,duration',
 					'-of', 'json', path] });
 			const inspection = inspectKeyedVideoProbe(JSON.parse(rawProbe), frames);
 			const alpha = await captureKeyedVideoProcess({ executablePath: pair.executablePath, directory, signal,

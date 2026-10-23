@@ -73,7 +73,10 @@ export function inspectKeyedVideoProbe(value: unknown, plan: AssistanceKeyedVide
 	}
 	const [timeNum, timescale] = rational(stream.time_base);
 	const [rateNum, rateDen] = rational(stream.r_frame_rate);
-	if (BigInt(rateNum) * BigInt(plan.frameRate.den) !== BigInt(rateDen) * BigInt(plan.frameRate.num)) {
+	// WebM DefaultDuration is integral nanoseconds, so a probed rational can
+	// differ slightly from the canonical source rate (notably 60000/1001).
+	const rateDifference = BigInt(rateNum) * BigInt(plan.frameRate.den) - BigInt(rateDen) * BigInt(plan.frameRate.num);
+	if ((rateDifference < 0n ? -rateDifference : rateDifference) * 1_000_000_000n > BigInt(rateNum) * BigInt(plan.frameRate.num)) {
 		throw new Error('Encoded keyed-video nominal rational rate changed.');
 	}
 	const ticks = probe.packets.map((packet: unknown, ordinal: number) => {
@@ -89,8 +92,14 @@ export function inspectKeyedVideoProbe(value: unknown, plan: AssistanceKeyedVide
 		throw new Error('Encoded keyed-video presentation ordinals changed.');
 	}
 	const last = record(probe.packets.at(-1));
-	const duration = BigInt(unsignedInteger(last.duration)) * BigInt(timeNum);
-	if (duration < 1n || !withinMillisecond(duration, timescale, BigInt(plan.frameRate.den), plan.frameRate.num)) {
+	const packetDuration = BigInt(unsignedInteger(last.duration)) * BigInt(timeNum);
+	// Packet duration is truncated to the stream timebase. WebM's measured
+	// container duration retains the rounded end timestamp, including that tail.
+	const endTick = containerDurationTick(record(probe.format).duration, timescale);
+	const duration = endTick - BigInt(ticks.at(-1)!);
+	if (packetDuration < 1n || !withinMillisecond(packetDuration, timescale, BigInt(plan.frameRate.den), plan.frameRate.num)
+		|| duration < 1n || !withinMillisecond(duration, timescale, BigInt(plan.frameRate.den), plan.frameRate.num)
+		|| !withinMillisecond(endTick, timescale, BigInt(plan.frameCount) * BigInt(plan.frameRate.den), plan.frameRate.num)) {
 		throw new Error('Encoded keyed-video final frame duration changed.');
 	}
 	return Object.freeze({ width: plan.width, height: plan.height, frameCount: plan.frameCount,
@@ -115,6 +124,18 @@ function unsignedInteger(value: unknown): string {
 	if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return String(value);
 	if (typeof value === 'string' && /^(?:0|[1-9]\d*)$/u.test(value) && BigInt(value) <= 0x7fff_ffff_ffff_ffffn) return value;
 	throw new TypeError('Invalid keyed-video packet timestamp.');
+}
+function containerDurationTick(value: unknown, timescale: number): bigint {
+	if (typeof value !== 'string' || value.length > 32 || !/^(?:0|[1-9]\d*)\.\d{1,9}$/u.test(value)) {
+		throw new TypeError('Invalid keyed-video container duration.');
+	}
+	const [seconds, fraction] = value.split('.') as [string, string];
+	const denominator = 10n ** BigInt(fraction.length);
+	const numerator = BigInt(seconds + fraction) * BigInt(timescale);
+	if (numerator % denominator !== 0n || numerator / denominator > 0x7fff_ffff_ffff_ffffn) {
+		throw new RangeError('The keyed-video container duration exceeds its exact timebase.');
+	}
+	return numerator / denominator;
 }
 function optionalText(value: unknown): string | null { return typeof value === 'string' && value !== 'unknown' ? value : null; }
 function record(value: unknown): Readonly<Record<string, unknown>> {

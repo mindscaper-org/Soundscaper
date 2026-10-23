@@ -63,6 +63,7 @@ test('probe inspection rejects dropped frames, audio and alpha loss while retain
 		presentationTicks: ['0', '1001', '2002'] };
 	const probe = { streams: [{ codec_type: 'video', codec_name: 'vp9', width: 2, height: 2,
 		time_base: '1/1000', r_frame_rate: '30000/1001', tags: { alpha_mode: '1' } }],
+		format: { duration: '0.100000' },
 		packets: [0, 33, 67].map((pts) => ({ pts, duration: 33 })) };
 	assert.deepEqual(inspectKeyedVideoProbe(probe, plan).timing.presentationTicks, ['0', '33', '67']);
 	for (const bad of [{ ...probe, packets: probe.packets.slice(1) },
@@ -70,5 +71,27 @@ test('probe inspection rejects dropped frames, audio and alpha loss while retain
 		{ ...probe, streams: [{ ...probe.streams[0], tags: {} }] },
 		{ ...probe, packets: [{ pts: 0, duration: 33 }, { pts: 35, duration: 33 }, { pts: 67, duration: 33 }] }]) {
 		assert.throws(() => inspectKeyedVideoProbe(bad, plan));
+	}
+});
+
+test('rational-rate timing retains the measured WebM endpoint instead of truncated packet duration', () => {
+	for (const frameRate of [{ num: 24000, den: 1001 }, { num: 30000, den: 1001 }, { num: 60000, den: 1001 }]) {
+		const frameCount = 27;
+		const end = Math.round(frameCount * frameRate.den * 1000 / frameRate.num);
+		const plan = { width: 2, height: 2, frameCount, frameRate, timescale: frameRate.num,
+			presentationTicks: Array.from({ length: frameCount }, (_, index) => String(index * frameRate.den)) };
+		const probe = { streams: [{ codec_type: 'video', codec_name: 'vp9', width: 2, height: 2,
+			time_base: '1/1000', r_frame_rate: frameRate.num === 60000 ? '19001/317' : `${String(frameRate.num)}/${String(frameRate.den)}`, tags: { alpha_mode: '1' } }],
+			format: { duration: (end / 1000).toFixed(6) },
+			packets: Array.from({ length: frameCount }, (_, index) => ({
+				pts: Math.round(index * frameRate.den * 1000 / frameRate.num),
+				duration: Math.floor(frameRate.den * 1000 / frameRate.num),
+			})) };
+		const inspected = inspectKeyedVideoProbe(probe, plan);
+		assert.equal(BigInt(inspected.timing.presentationTicks.at(-1)!) + BigInt(inspected.timing.finalFrameDurationTicks), BigInt(end));
+		for (const duration of [undefined, 'NaN', '1e3', '0.000000', ((end + 2) / 1000).toFixed(6), ((end - 2) / 1000).toFixed(6)]) {
+			assert.throws(() => inspectKeyedVideoProbe({ ...probe, format: { duration } }, plan));
+		}
+		assert.throws(() => inspectKeyedVideoProbe({ ...probe, streams: [{ ...probe.streams[0], r_frame_rate: '60/1' }] }, plan));
 	}
 });
