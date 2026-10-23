@@ -67,9 +67,10 @@ export default function ClipSourceMonitorPanel({ controller, snapshot, copy, foc
 	const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
 		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 		let nextIndex: number;
-		if (event.key === 'ArrowRight') nextIndex = (index + 1) % selection.clips.length;
-		else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + selection.clips.length) % selection.clips.length;
-		else if (event.key === 'Home') nextIndex = 0;
+		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+			const forward = window.getComputedStyle(event.currentTarget).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+			nextIndex = (index + (event.key === forward ? 1 : -1) + selection.clips.length) % selection.clips.length;
+		} else if (event.key === 'Home') nextIndex = 0;
 		else if (event.key === 'End') nextIndex = selection.clips.length - 1;
 		else return;
 		event.preventDefault();
