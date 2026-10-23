@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor } from './audio-editor-test-helpers.js';
+import { bootEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectStore } from '../../src/soundscaper/editor-project-store.ts';
@@ -23,6 +23,7 @@ test('a musical clip track-header double click selects its complete authored ran
 		globalThis.__nextMusicTrackLaunch({ files: [{ kind: 'file', getFile: () => Promise.resolve(new File([binary], 'Music.sscape', { type: mimeType })) }] });
 	}, { bytes: Buffer.from(await archive.blob.arrayBuffer()).toString('base64'), mimeType: SCAPE_MIME_TYPE });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
+	await waitForProjectActivation(editor);
 	await editor.locator('[data-track-row][data-track-id="voice"] .track-control-panel').dblclick({ position: { x: 6, y: 100 } });
 	await expect(editor.getByRole('group', { name: 'Selection duration', exact: true }).locator('.timecode__display')).toHaveText('00h00m01.000s');
 	await expect(editor.getByRole('group', { name: 'Selection start', exact: true }).locator('.timecode__display')).toHaveText('00h00m02.000s');
