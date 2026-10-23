@@ -289,7 +289,7 @@ async function linkedOriginalLocatorId(page, projectId, kind) {
 }
 
 async function clearSourceProvenance(page, projectId) {
-	// Current imports carry attribution; this fixture models an older unattributed project.
+	// Model older unattributed sources; video also predates immutable content digests.
 	await page.evaluate(async ({ databaseName, id }) => {
 		const open = indexedDB.open(databaseName);
 		const database = await new Promise((resolve, reject) => {
@@ -309,10 +309,11 @@ async function clearSourceProvenance(page, projectId) {
 			}
 			const sources = project.sources.map((source) => {
 				const copy = { ...source };
-				delete copy.provenance;
+				delete copy.provenance; if (copy.kind === 'video') { delete copy.contentSha256; copy.timingAsset = null; copy.timingDecision = { mode: 'conform-cfr-at-ingest', rate: copy.frameRate }; }
 				return copy;
 			});
-			store.put({ ...project, sources });
+			const featureRequirements = { ...project.featureRequirements, requirements: project.featureRequirements.requirements.filter((requirement) => requirement.id !== 'framescaper.video-timing-assets') };
+			store.put({ ...project, sources, featureRequirements });
 			await new Promise((resolve, reject) => {
 				transaction.oncomplete = resolve;
 				transaction.onabort = () => reject(transaction.error);

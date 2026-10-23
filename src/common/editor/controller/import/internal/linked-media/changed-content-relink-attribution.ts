@@ -7,9 +7,10 @@ export function changedContentRelinkClassification(source: object): 'changed-con
 			+ 'changed-content relink is unavailable for an attributed source.',
 		);
 	}
-	if (Object.getOwnPropertyDescriptor(source, 'kind')?.value === 'audio' && Object.hasOwn(source, 'contentSha256')) {
+	const kind: unknown = Object.getOwnPropertyDescriptor(source, 'kind')?.value;
+	if ((kind === 'audio' || kind === 'video') && Object.hasOwn(source, 'contentSha256')) {
 		throw new Error(
-			'Import the selected file as new media to preserve its authenticated audio content; '
+			`Import the selected file as new media to preserve its authenticated ${kind} content; `
 			+ 'changed-content relink cannot rewrite the project content identity.',
 		);
 	}
