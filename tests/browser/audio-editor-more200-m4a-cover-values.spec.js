@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
-import { iTunesGenreM4aFixture, multiValueM4aArtworkFixture } from '../helpers/ordinary-tail-m4a-fixture.ts';
+import { freeformM4aMetadataFixture, iTunesGenreM4aFixture, multiValueM4aArtworkFixture } from '../helpers/ordinary-tail-m4a-fixture.ts';
 
 for (const grouped of [false, true]) test(`File Import preserves every M4A cover attachment; grouped=${grouped}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
@@ -54,3 +54,21 @@ for (const [genre, expected] of [[18, 'Rock'], ['Ambient', 'Ambient']]) {
 		expect(document.sources[0].frameCount).toBeGreaterThan(2_000);
 	});
 }
+
+test('File Import retains the namespaced custom credits in an ordinary M4A', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const file = await freeformM4aMetadataFixture();
+	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type,
+		buffer: Buffer.from(await file.arrayBuffer()) });
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const document = JSON.parse(strFromU8(unzipSync(await downloadBytes(await downloading))['project.json']));
+	const contribution = document.sources[0].provenance.contributions[0];
+	expect(contribution.warnings).toEqual([]);
+	expect(contribution.metadata.raw['----:com.apple.iTunes:ENGINEER']).toBe('Hélène — reviewed credit');
+	expect(contribution.metadata.raw['----:org.example.archive:ENGINEER']).toBe('Second namespace credit');
+	expect(document.sources[0].sampleRate).toBe(44_100);
+	expect(document.sources[0].frameCount).toBeGreaterThan(2_000);
+});

@@ -108,3 +108,26 @@ export async function iTunesGenreM4aFixture(genre: number | string, textGenre?: 
 	bytes.writeUInt32BE(18, position + 12);
 	return new File([Uint8Array.from(bytes)], 'iTunes genre.m4a', { type: file.type });
 }
+
+/** MP4v2 reverse-DNS custom fields keep their meaning, name and UTF-8 value. */
+export async function freeformM4aMetadataFixture(): Promise<File> {
+	const fields: Readonly<Record<string, readonly [string, string, string]>> = {
+		Xfr1: ['com.apple.iTunes', 'ENGINEER', 'Hélène — reviewed credit'],
+		Xfr2: ['org.example.archive', 'ENGINEER', 'Second namespace credit'],
+	};
+	const { file } = await multiValueM4aArtworkFixture(false, { raw: Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, field[2]])) });
+	const atom = (type: string, body: Buffer): Buffer => {
+		const header = Buffer.alloc(8); header.writeUInt32BE(body.length + 8); header.write(type, 4, 'latin1');
+		return Buffer.concat([header, body]);
+	};
+	const rewrite = (bytes: Buffer): Buffer => Buffer.concat(m4aAtoms(bytes).map(child => {
+		const type = child.toString('latin1', 4, 8);
+		const field = fields[type];
+		if (field) return atom('----', Buffer.concat([atom('mean', Buffer.concat([Buffer.alloc(4), Buffer.from(field[0])])),
+			atom('name', Buffer.concat([Buffer.alloc(4), Buffer.from(field[1])])), child.subarray(8)]));
+		if (!['moov', 'udta', 'meta', 'ilst'].includes(type)) return child;
+		const prefix = type === 'meta' ? child.subarray(8, 12) : Buffer.alloc(0);
+		return atom(type, Buffer.concat([prefix, rewrite(child.subarray(8 + prefix.length))]));
+	}));
+	return new File([Uint8Array.from(rewrite(Buffer.from(await file.arrayBuffer())))], 'Credited programme.m4a', { type: file.type });
+}
