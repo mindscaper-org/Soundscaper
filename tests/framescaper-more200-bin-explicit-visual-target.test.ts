@@ -31,7 +31,7 @@ for (const rate of [25, 30]) for (const occupied of [false, true]) test(`a Bin v
 	const placed = controller.project?.clips.find(clip => clip.id === id); assert.ok(placed);
 	assert.equal(placed.sequenceId, 'cut');
 	assert.equal(placed.sequenceStartFrame, rate); assert.equal(placed.sequenceFrameCount, rate * 5);
-	const targetTrack = controller.project?.tracks.find(track => track.clipIds.includes(String(id))); assert.ok(targetTrack);
+	const targetTrack = controller.project?.tracks.find(track => Array.isArray(track.clipIds) && track.clipIds.includes(String(id))); assert.ok(targetTrack);
 	assert.ok(controller.project?.sequences.find(sequence => sequence.id === 'cut')?.trackIds.includes(targetTrack.id));
 	assert.deepEqual(controller.project?.tracks.find(track => track.id === 'cut-pictures')?.clipIds, occupied ? ['existing'] : [id]);
 	assert.deepEqual(controller.project?.tracks.find(track => track.id === 'main-pictures')?.clipIds, []);

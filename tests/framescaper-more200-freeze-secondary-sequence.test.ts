@@ -6,6 +6,7 @@ import { createFramescaperFixtureController } from './helpers/framescaper-contro
 import { framescaperBaselineOptions } from './helpers/framescaper-baseline-model-fixture.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { createFramescaperEditorProjectEnvironment } from '../src/framescaper/editor-project-environment.ts';
+import { normalizeVideoStillClipV1 } from '../src/common/editor/video-visual-model-v24.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { framescaperSelectedVisualAuthoringRuntimeFor } from '../src/framescaper/editor-selected-finishing-authoring-controller.ts';
@@ -41,9 +42,11 @@ for (const sequenceId of ['main-sequence', 'cut']) test(`Freeze keeps the select
 	await runtime.run('video-freeze', { fence: model.fence, clipId: 'video-clip', operation: 'create',
 		playheadSample: 7_200, durationFrames: 5 });
 	const after = controller.project; assert.ok(after);
-	const still = after.clips.find(clip => clip.kind === 'still'); assert.ok(still);
+	const publishedClips: readonly unknown[] = after.clips;
+	const still = normalizeVideoStillClipV1(publishedClips.find(clip => clip !== null && typeof clip === 'object'
+		&& 'kind' in clip && clip.kind === 'still'));
 	assert.equal(still.sequenceId, sequenceId);
-	const track = after.tracks.find(track => track.clipIds.includes(still.id)); assert.ok(track);
+	const track = after.tracks.find(track => Array.isArray(track.clipIds) && track.clipIds.includes(still.id)); assert.ok(track);
 	assert.ok(after.sequences.find(sequence => sequence.id === sequenceId)?.trackIds.includes(track.id));
 	controller.actions.edit.undo(); assert.deepEqual(controller.project?.clips, before.clips);
 	controller.actions.edit.redo(); assert.deepEqual(controller.project?.clips, after.clips);
