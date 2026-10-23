@@ -28,7 +28,7 @@ test('label formats are stable and detection honors explicit values, extensions,
 	assert.throws(() => detectAudioEditorLabelFormat({ format: 'csv' }), /Unsupported label format/);
 });
 
-test('Podcast 2.0 chapter JSON serialization emits ordered, escaped millisecond chapter starts', () => {
+test('Podcast 2.0 chapter JSON serialization emits ordered, escaped fractional chapter starts', () => {
 	const text = serializePodcastChaptersJson([
 		{ id: 'later', title: 'Quote " and newline\n世界', startFrame: 1_500, endFrame: 2_000 },
 		{ id: 'intro', title: 'Intro', startFrame: 0, endFrame: 1_000 },
@@ -49,7 +49,7 @@ test('Podcast 2.0 chapter JSON serialization emits ordered, escaped millisecond 
 		serializeAudioEditorLabels([{ title: 'Rounded', startFrame: 1, endFrame: 1 }], {
 			format: '.JSON', sampleRate: 3, lineEnding: '\r\n', includeBom: true,
 		}),
-		'\uFEFF{\r\n  "version": "1.2.0",\r\n  "chapters": [\r\n    {\r\n      "startTime": 0.333,\r\n      "title": "Rounded"\r\n    }\r\n  ]\r\n}\r\n',
+		'\uFEFF{\r\n  "version": "1.2.0",\r\n  "chapters": [\r\n    {\r\n      "startTime": 0.3333333333333333,\r\n      "title": "Rounded"\r\n    }\r\n  ]\r\n}\r\n',
 	);
 });
 

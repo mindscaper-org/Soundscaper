@@ -375,7 +375,7 @@ function serializeTimed(labels, context, format) {
 
 function serializePodcastJson(labels, context) {
 	const chapters = labels.map((label) => ({
-		startTime: Math.round(label.startFrame / context.sampleRate * 1000) / 1000,
+		startTime: label.startFrame / context.sampleRate,
 		title: label.title,
 	}));
 	const text = `${JSON.stringify({ version: '1.2.0', chapters }, null, 2)}\n`
