@@ -7,13 +7,13 @@ export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promis
 	if (file.size < 32) return file;
 	const tagEnd = await apeTagEnd(file, signal);
 	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
-	const info = apeFooter(footer);
+	const info = apeFooter(footer, false);
 	if (!info) return tagEnd === file.size ? file : file.slice(0, tagEnd, file.type);
 	const start = tagEnd - info.size - (info.header ? 32 : 0);
 	if (start < 32) throw new RangeError('The APEv2 trailer exceeds its WavPack file.');
 	if (info.header) {
 		const header = await metadataBlobBytes(file, start, start + 32, signal);
-		const declared = apeFooter(header);
+		const declared = apeFooter(header, false);
 		const view = new DataView(header.buffer);
 		if (!declared || declared.size !== info.size || view.getUint32(16, true) !== new DataView(footer.buffer).getUint32(16, true)
 			|| !(view.getUint32(20, true) & 0x2000_0000)) throw new RangeError('The APEv2 header is missing or inconsistent.');
@@ -94,11 +94,12 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	return tags;
 }
 
-function apeFooter(bytes: Uint8Array): Readonly<{ size: number; header: boolean }> | null {
+function apeFooter(bytes: Uint8Array, inspectItems = true): Readonly<{ size: number; header: boolean }> | null {
 	if (new TextDecoder().decode(bytes.subarray(0, 8)) !== 'APETAGEX') return null;
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	const size = view.getUint32(12, true);
-	if (bytes.length !== 32 || view.getUint32(8, true) !== 2000 || size < 32 || size > 16 * 1024 ** 2 || view.getUint32(16, true) > 256) throw new RangeError('Invalid APEv2 trailer.');
+	if (bytes.length !== 32 || view.getUint32(8, true) !== 2000 || size < 32) throw new RangeError('Invalid APEv2 trailer.');
+	if (inspectItems && (size > 16 * 1024 ** 2 || view.getUint32(16, true) > 256)) throw new RangeError('APEv2 metadata exceeds its bounded inspection limit.');
 	return { size, header: Boolean(view.getUint32(20, true) & 0x8000_0000) };
 }
 

@@ -69,3 +69,11 @@ export async function createReferenceWavPackFixture(type: 0 | 1 | 2, key = 'Rela
 	new DataView(tag.buffer).setUint32(position - 4, type << 1, true);
 	return new File([await createAudacityWavPackFixture(4800), tag], 'Referenced performance.wv', { type: 'audio/wavpack' });
 }
+
+/** Legal APEv2 records can exceed the editor's optional metadata inspection budget. */
+export async function createMetadataBudgetWavPackFixture(mode: 'control' | 'fields' | 'bytes'): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	const entries = mode === 'bytes' ? { Archive: 'x'.repeat(17 * 1024 ** 2) }
+		: Object.fromEntries(Array.from({ length: mode === 'fields' ? 257 : 256 }, (_, index) => [`Field${String(index)}`, `Credit ${String(index)}`]));
+	return new File([await createAudacityWavPackFixture(4800), createApeFileMetadata(entries)], `Metadata ${mode}.wv`, { type: 'audio/wavpack' });
+}
