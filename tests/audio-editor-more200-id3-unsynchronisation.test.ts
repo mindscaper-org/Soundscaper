@@ -64,6 +64,35 @@ test('File Open retains an APIC image with a UTF-16BE description and an ASCII M
 	assert.equal(image?.sha256, imageHash);
 });
 
+function textList(encoding: 0 | 1 | 2 | 3, values: readonly string[]): Buffer {
+	return Buffer.concat([Buffer.from([encoding]), ...values.flatMap((value, index) => {
+		const terminator = index < values.length - 1 ? Buffer.alloc(encoding === 1 || encoding === 2 ? 2 : 1) : Buffer.alloc(0);
+		const text = encoding === 1 ? Buffer.concat([Buffer.from([255, 254]), Buffer.from(value, 'utf16le')])
+			: encoding === 2 ? Buffer.from(value, 'utf16le').swap16() : Buffer.from(value, encoding === 0 ? 'latin1' : 'utf8');
+		return [text, terminator];
+	})]);
+}
+
+for (const encoding of [0, 1, 2, 3] as const) test(`File Open retains every value in ID3v2.4 text lists (encoding${encoding})`, async () => {
+	const body = Buffer.concat([frame(4, 'TPE1', textList(encoding, ['Lead performer', 'Guest performer'])),
+		frame(4, 'TIT2', textList(encoding, ['First title', 'Second title'])),
+		frame(4, 'TXXX', textList(encoding, ['Credits', 'First credit', 'Second credit'])),
+		frame(4, 'TRCK', textList(encoding, ['2/9', '3/9'])),
+		frame(4, 'TDRC', textList(encoding, ['2024-07-21', '2025-07-21']))]);
+	const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 4, 0, 0]), syncSafe(body.length), body]));
+	const contribution = await importedMetadata(metadata);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.artist, 'Lead performer; Guest performer');
+	assert.equal(contribution.metadata.normalized.title, 'First title; Second title');
+	assert.equal(contribution.metadata.raw.TPE1, 'Lead performer\0Guest performer');
+	assert.deepEqual(contribution.metadata.raw.TXXX, { Credits: 'First credit; Second credit' });
+	assert.equal(contribution.metadata.normalized.trackNumber, 2);
+	assert.equal(contribution.metadata.normalized.tracksTotal, 9);
+	assert.equal(contribution.metadata.normalized.date, '2024-07-21T00:00:00.000Z');
+	assert.equal(contribution.metadata.raw.TRCK, '2/9\u00003/9');
+	assert.equal(contribution.metadata.raw.TDRC, '2024-07-21\u00002025-07-21');
+});
+
 async function mp3(): Promise<Uint8Array<ArrayBuffer>> {
 	const pcm = Float32Array.from({ length: 4800 }, (_, frame) => .2 * Math.sin(frame * .05));
 	return encodeDedicatedAudioPcm({ format: 'mp3', input: new Uint8Array(pcm.buffer), frameCount: pcm.length,
@@ -125,13 +154,14 @@ for (const version of [3, 4] as const) test(`ID3v2.${version} parser retains exa
 for (const [version, grouping, length] of [[3, true, false], [4, true, false], [4, false, true], [4, true, true]] as const) {
 	test(`File Open reads ID3v2.${version} frame prefixes (group=${grouping}, length=${length})`, async () => {
 		const title = Buffer.from('\0Grouped title');
-		const prefix = Buffer.concat([grouping ? Buffer.from([17]) : Buffer.alloc(0), length ? syncSafe(title.length) : Buffer.alloc(0)]);
+		const prefix = Buffer.concat([grouping ? Buffer.from([129]) : Buffer.alloc(0), length ? syncSafe(title.length) : Buffer.alloc(0)]);
 		const header = Buffer.alloc(10);
 		header.write('TIT2');
 		if (version === 3) header.writeUInt32BE(prefix.length + title.length, 4);
 		else header.set(syncSafe(prefix.length + title.length), 4);
 		header[9] = (grouping ? version === 3 ? 32 : 64 : 0) | (length ? 1 : 0);
-		const body = Buffer.concat([header, prefix, title, frame(version, 'TPE1', Buffer.from('\0Independent artist'))]);
+		const registration = grouping ? frame(version, 'GRID', Buffer.concat([Buffer.from('https://example.org/group\0'), Buffer.from([129])])) : Buffer.alloc(0);
+		const body = Buffer.concat([registration, header, prefix, title, frame(version, 'TPE1', Buffer.from('\0Independent artist'))]);
 		const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, version, 0, 0]), syncSafe(body.length), body]));
 		const contribution = await importedMetadata(metadata);
 		assert.deepEqual(contribution.warnings, []);
