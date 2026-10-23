@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createLocalizedError } from '../../../../../i18n/presentation-message.ts'; import type { EditorControllerLifetime, EditorProjectToken } from '../../../shared/lifecycle.ts';
+import { isUnsupportedNativeAudioBuffer } from '../../../../source-pcm-contract.ts';
 import { loadSourceProvenanceDerivation } from '../../../../source-provenance-derivation-loader.ts';
 import type { SourceProvenanceV1 } from '../../../../source-provenance.ts';
 import {
@@ -116,7 +117,9 @@ export function createDerivedSourceService(
 		const sampleRate = template.sampleRate || dependencies.projectSampleRate();
 		const context = await dependencies.getAudioContext();
 		assertOwned(token);
-		const buffer = await dependencies.createBufferFromChannels(channels, sampleRate, context);
+		let buffer: AudioBufferLike | null = null;
+		try { buffer = await dependencies.createBufferFromChannels(channels, sampleRate, context); }
+		catch (error) { if (!isUnsupportedNativeAudioBuffer(error)) throw error; }
 		assertOwned(token);
 		const sourceId = dependencies.createId(idPrefix);
 		const { deriveSourceProvenance } = await loadSourceProvenanceDerivation();
@@ -171,7 +174,7 @@ export function createDerivedSourceService(
 
 	async function persistBuffer(
 		source: ControllerSource,
-		buffer: AudioBufferLike,
+		buffer: AudioBufferLike | null,
 		channels: Float32Array[],
 		token: EditorProjectToken,
 	): Promise<ImportedAudioContentIdentity> {
@@ -186,13 +189,16 @@ export function createDerivedSourceService(
 				chunkFrames: source.chunkFrames,
 			}), dependencies.sourceChunkFrames);
 			assertOwned(token);
-			await dependencies.writeBuffer(writer, buffer);
+			await dependencies.writeBuffer(writer, buffer ?? {
+				length: source.frameCount, numberOfChannels: channels.length, sampleRate: source.sampleRate,
+				getChannelData: channel => channels[channel]!,
+			});
 			assertOwned(token);
 			await writer.commit({ sampleRate: source.sampleRate, channelCount: source.channelCount });
 			committed = true;
 			const identity = writer.contentIdentity(source.frameCount);
 			assertOwned(token);
-			dependencies.cacheSourceBuffer(source.id, buffer);
+			if (buffer) dependencies.cacheSourceBuffer(source.id, buffer);
 			const peaks = await dependencies.generateWaveformPeaks(channels);
 			assertOwned(token);
 			dependencies.sourcePeaks.set(source.id, peaks);
