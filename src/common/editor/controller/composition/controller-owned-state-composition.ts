@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { normalizeRecordingRouting } from '../../recording-routing.js';
+import { normalizeRecordingRouting, recordingTrackRoute } from '../../recording-routing.js';
 import type { ControllerRuntimeHistory, ControllerRuntimeProject } from '../document/project-runtime.ts';
 import {
 	createControllerRecordingState,
@@ -92,7 +92,7 @@ export function reconcileControllerRecordingRouting(
 	if (JSON.stringify(normalized) === JSON.stringify(state.recordingRouting)) return false;
 	state.recordingRouting = normalized;
 	for (const trackId of Object.keys(state.recordingRouteHealth)) {
-		if (!normalized.routes[trackId]) delete state.recordingRouteHealth[trackId];
+		if (!recordingTrackRoute(normalized.routes, trackId)) delete state.recordingRouteHealth[trackId];
 	}
 	return true;
 }

@@ -6,7 +6,10 @@ import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/edi
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
-import { normalizeRecordingRouting, recordingChannelOptions, recordingRoutingSettingKey, setRecordingTrackRoute } from '../src/common/editor/recording-routing.js';
+import { createTimedRecordingInputService, type TimedRecordingInputServiceRuntime } from '../src/common/editor/controller/recording/internal/timed-recording-input-service.ts';
+import { planRoutedRecordingSources } from '../src/common/editor/controller/recording/internal/routed-recording-source-plan.ts';
+import { snapshotTakeCycleRoutedRoutes } from '../src/common/editor/controller/recording/internal/take-cycle/take-cycle-routed-capture-validation.ts';
+import { normalizeRecordingRouting, recordingRouteSourceKey, recordingChannelOptions, recordingRoutingSettingKey, setRecordingTrackRoute } from '../src/common/editor/recording-routing.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
@@ -59,3 +62,36 @@ test('P3-009: inherited dictionary names are not implicit recording assignments'
 function record(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
+
+test('P3-009: ordinary and cycle recording planners retain own routes and skip inherited names', () => {
+	for (const id of ['__proto__', 'constructor', 'toString', 'voice']) {
+		const tracks = [{ id, type: 'audio', armed: true }];
+		const route = { kind: 'device', deviceId: 'default', channelStart: 0, channelCount: 1 } as const;
+		const unassigned = planRoutedRecordingSources(tracks, {}, recordingRouteSourceKey);
+		assert.deepEqual(unassigned.assigned, []); assert.deepEqual(unassigned.skippedTrackIds, [id]);
+		const own = Object.fromEntries([[id, route]]);
+		assert.equal(planRoutedRecordingSources(tracks, own, recordingRouteSourceKey).assigned[0]?.route, route);
+		const snapshot = snapshotTakeCycleRoutedRoutes(own, tracks);
+		assert.deepEqual(Object.keys(snapshot), [id]); assert.deepEqual(snapshot[id], { ...route, deviceLabel: '' });
+	}
+});
+
+test('P3-009: timer acquisition never treats an inherited route name as a configured input', async () => {
+	for (const id of ['__proto__', 'constructor', 'toString', 'voice']) {
+		const project = { tracks: [{ id, type: 'audio', armed: true }] };
+		const acquired: Readonly<{ deviceId: string; channelCount: number }>[] = [];
+		const runtime: TimedRecordingInputServiceRuntime<object> = {
+			getProject: () => project, findTrack: (target, trackId) => target.tracks.find(track => track.id === trackId) ?? null,
+			projectSampleRate: () => 48_000, getPreferredInputChannelCount: () => 1, getRecordingRoutes: () => ({}),
+			setRecordingRouteHealth() {}, defaultDeviceId: 'default', recordingRouteSourceKey,
+			streamAudioChannelCount: () => 1, recordingStreamIsLive: () => true,
+			capturePool: { acquireDisplay: () => ({}), acquireHardware: (deviceId, request) => { acquired.push({ deviceId, channelCount: request.channelCount }); return {}; } },
+			messages: { armTrack: 'Arm a track.', assignInput: 'Assign an input.', preparedInputClosed: 'Input closed.', assignedInputsUnavailable: 'Input unavailable.' },
+		};
+		const service = createTimedRecordingInputService(runtime); const scope = { assertCurrent() {} };
+		await service.prepareTimedRecordingInputs({ trackId: id }, scope);
+		assert.deepEqual(acquired, [{ deviceId: 'default', channelCount: 1 }]); acquired.length = 0;
+		await assert.rejects(service.prepareTimedRecordingInputs({}, scope), /Assign an input/u);
+		assert.deepEqual(acquired, []);
+	}
+});

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { recordingTrackRoute } from '../../../recording-routing.js';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { RecordingRoute, RecordingRouting } from '../../../recording-routing.js'; import { publishedCopyFor } from '../../shared/presentation-localization.ts';
 import { hasCoreEditingProjectAuthority } from '../../../project-schema-version.ts';
 import {
@@ -220,7 +221,7 @@ export function createEditorTrackService(
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
 		const routing = dependencies.recording.getRouting();
-		if (routing.routes[trackId]) return false;
+		if (recordingTrackRoute(routing.routes, trackId)) return false;
 		const track = findControllerTrack(project, trackId);
 		if (!track || track.type !== 'audio') return false;
 		const deviceId = dependencies.recording.getPreferredDeviceId()

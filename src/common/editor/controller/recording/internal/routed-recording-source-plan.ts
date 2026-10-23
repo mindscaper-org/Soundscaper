@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { recordingTrackRoute } from '../../../recording-routing.js';
 import type { RecordingRoute, RecordingTrack, RoutedTrackRoute } from '../recording-transaction-types.ts';
 
 export interface RoutedRecordingSourcePlan {
@@ -21,7 +22,7 @@ export function planRoutedRecordingSources(
 	const skippedTrackIds: string[] = [];
 	const groups = new Map<string, RoutedTrackRoute[]>();
 	for (const track of tracks) {
-		const route = routes[track.id];
+		const route = recordingTrackRoute(routes, track.id);
 		if (!route) {
 			skippedTrackIds.push(track.id);
 			continue;
