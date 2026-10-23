@@ -25,10 +25,11 @@ for (const id of ['iXML', 'cue ', 'cart']) test(`oversized optional WAV ${id} ca
 		assert.ok(end - start < 1024 ** 2, 'ignored metadata must never be materialized'); return file.slice(start, end);
 	} };
 	const descriptor = await inspectWavBlobPcm(boundedFile);
-	assert.equal(descriptor.frameCount, samples.length); assert.equal(descriptor.bext.description, 'Independent recorder metadata');
-	assert.equal(descriptor.info.title, 'Retained take');
-	assert.equal(descriptor.markers[0]?.label, id === 'cue ' ? undefined : 'Retained cue');
-	assert.ok(descriptor.metadataWarnings.some((warning: Readonly<{ message: string }>) => /omitted|ignored/iu.test(warning.message)));
+	assert.equal(descriptor.frameCount, samples.length); assert.ok(descriptor.bext); assert.equal(descriptor.bext.description, 'Independent recorder metadata');
+	const info = descriptor.info; assert.ok(info && typeof info === 'object' && 'title' in info); assert.equal(info.title, 'Retained take');
+	const markers = descriptor.markers; assert.ok(Array.isArray(markers)); const marker: unknown = markers[0];
+	assert.equal(marker && typeof marker === 'object' && 'label' in marker ? marker.label : undefined, id === 'cue ' ? undefined : 'Retained cue');
+	assert.ok(descriptor.metadataWarnings.some(warning => /omitted|ignored/iu.test(warning.message)));
 	const actual: number[] = [];
 	await streamWavBlobPcm(file, { descriptor, onChunk(channels: Float32Array[]) { actual.push(...channels[0]!); } });
 	assert.deepEqual(actual, [...samples]);
@@ -37,5 +38,5 @@ for (const id of ['iXML', 'cue ', 'cart']) test(`oversized optional WAV ${id} ca
 test('the smaller iXML parser budget already omits oversized metadata while importing PCM', async () => {
 	const descriptor = await inspectWavBlobPcm(recording('iXML', 4 * 1024 ** 2 + 1));
 	assert.equal(descriptor.frameCount, samples.length); assert.equal(descriptor.ixml, null);
-	assert.ok(descriptor.metadataWarnings.some((warning: Readonly<{ code: string }>) => warning.code === 'ixml-invalid'));
+	assert.ok(descriptor.metadataWarnings.some(warning => warning.code === 'ixml-invalid'));
 });
