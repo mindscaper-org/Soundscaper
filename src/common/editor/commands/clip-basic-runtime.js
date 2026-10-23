@@ -8,6 +8,7 @@ import {
 } from '../project.js';
 import { shapesForNewClipFades } from '../audio-clip-transition-gain.ts';
 import { clipLoopUpdateFields } from '../audio-clip-loop.ts';
+import { resampledClipSourceStretchFields } from '../clip-source-stretch-memory.ts';
 import { collectRelatedClipIds, mergeEditingRanges } from './editing-selection-authority.ts';
 import { hasCoreEditingProjectAuthority, hasProjectBinMediaAuthority } from '../project-schema-version.ts';
 import {
@@ -143,8 +144,11 @@ export function replaceClipSource(project, clipId, sourceId) {
 	if (hasProjectBinMediaAuthority(project) && source.kind !== clip.kind) {
 		throw new RangeError(`A ${clip.kind} clip cannot reference a ${source.kind} source.`);
 	}
+	const previous = project.sources.find((candidate) => candidate.id === clip.sourceId);
 	const updated = normalizeClipForProject(project, {
 		...clip,
+		...(previous?.frameCount === source.frameCount && previous.sampleRate === source.sampleRate
+			? resampledClipSourceStretchFields(clip, previous, source) : {}),
 		sourceId: source.id,
 		renderCacheRevision: (clip.renderCacheRevision ?? 0) + 1,
 		id: clip.id,
