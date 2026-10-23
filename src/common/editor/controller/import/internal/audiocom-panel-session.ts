@@ -166,7 +166,10 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 				await audio.play();
 				if (previewAudio !== audio) { audio.pause(); audio.src = ''; audio.load(); }
 			} catch (error) {
-				if (previewAbort === abort && !abort.signal.aborted) { stopPreview(); emit({ previewError: message(error) }); }
+				if (previewAbort === abort && !abort.signal.aborted) {
+					stopPreview(); expire(error);
+					if (connected()) emit({ previewError: message(error) });
+				}
 			}
 		},
 		stopPreview,
