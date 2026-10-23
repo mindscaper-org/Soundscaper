@@ -315,6 +315,7 @@ export function createFreesoundPanelSession(
 			const generation = ++accountGeneration;
 			connectAbort?.abort();
 			connectAbort = null; connecting = null;
+			setAuth({ status: 'loading' });
 			queue.clear();
 			try {
 				await client.disconnect();
