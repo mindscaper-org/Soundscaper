@@ -7,6 +7,8 @@ export const NIGHTLY_BROWSER_MEDIA_INPUTS = Object.freeze([
 	'bwfmetaedit-ixml-clock.wav.base64',
 	'chromium-audio-only.webm.base64',
 	'ffmpeg-libmp3lame-one-second.mp3.base64',
+	'ffmpeg-long-info.wav.gz.base64',
+	'ffmpeg-short-info.wav.gz.base64',
 	'libsndfile-float32.aifc.base64',
 	'libsndfile-utf8-text.aiff.base64',
 	'libsndfile-zero-based-cues.wav.base64',

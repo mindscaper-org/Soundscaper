@@ -66,6 +66,11 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		await readFile(new URL('./helpers/scape-archive-rewrite.js', import.meta.url)),
 		'the nightly label clipboard test must receive the original archive rewrite helper bytes',
 	);
+	assert.deepEqual(
+		await readFile(join(fixture.outputRoot, 'tests/helpers/riff-info-length-fixtures.ts')),
+		await readFile(new URL('./helpers/riff-info-length-fixtures.ts', import.meta.url)),
+		'the RIFF text-boundary browser test must receive its original fixture loader',
+	);
 	const releaseReader = await import(pathToFileURL(join(fixture.outputRoot, 'scripts/lib/product-release-lines.mjs')).href);
 	const recorderUrl = new URL('../fixtures/bwfmetaedit-ixml-clock.wav.base64',
 		pathToFileURL(join(fixture.outputRoot, 'tests/browser/example.spec.js')));
@@ -75,6 +80,7 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	assert.equal(recorder.readUInt32LE(recorder.indexOf('fmt ') + 12), 48_000);
 	assert.ok(recorder.toString('utf8').includes('<SYNC_POINT_LOW>24000</SYNC_POINT_LOW>'));
 	for (const file of [
+		'ffmpeg-long-info.wav.gz.base64', 'ffmpeg-short-info.wav.gz.base64',
 		'chromium-audio-only.webm.base64', 'libsndfile-float32.aifc.base64',
 		'libsndfile-utf8-text.aiff.base64', 'libsndfile-zero-based-cues.wav.base64', 'python-uncompressed.aif.base64',
 	]) {
