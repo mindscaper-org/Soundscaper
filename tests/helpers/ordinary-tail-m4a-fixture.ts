@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, MP4, Mp4OutputFormat, Output } from 'mediabunny';
+import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, MP4, Mp4OutputFormat, Output, type MetadataTags } from 'mediabunny';
 import { aacLcM4a44_100Fixture } from './os-audio-codec-fixtures.ts';
 
 /** Author a normal longer AAC programme, retaining its encoder's ordinary packets. */
@@ -30,7 +30,7 @@ export async function ordinaryTailM4aFixture(fastStart: false | 'in-memory' = fa
 }
 
 /** A legal multi-value cover item from the same ordinary AAC packet stream. */
-export async function multiValueM4aArtworkFixture(grouped = true): Promise<Readonly<{ file: File; images: readonly Uint8Array<ArrayBuffer>[] }>> {
+export async function multiValueM4aArtworkFixture(grouped = true, extraMetadata: MetadataTags = {}): Promise<Readonly<{ file: File; images: readonly Uint8Array<ArrayBuffer>[] }>> {
 	const images = [
 		Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4IScCAAKsAPs2xCzlAAAAAElFTkSuQmCC', 'base64')),
 		Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQkTsBAAFEAPtKtXAbAAAAAElFTkSuQmCC', 'base64')),
@@ -42,7 +42,7 @@ export async function multiValueM4aArtworkFixture(grouped = true): Promise<Reado
 		const target = new BufferTarget();
 		const output = new Output({ format: new Mp4OutputFormat({ fastStart: false }), target });
 		const source = new EncodedAudioPacketSource('aac'); output.addAudioTrack(source);
-		output.setMetadataTags({ title: 'Two retained covers', images: images.map(data => ({
+		output.setMetadataTags({ ...extraMetadata, title: 'Two retained covers', images: images.map(data => ({
 			data, mimeType: 'image/png', kind: 'coverFront' as const,
 		})), comment: 'After covers' });
 		await output.start();
@@ -91,4 +91,20 @@ function mergeM4aCoverValues(bytes: Buffer): Buffer {
 		}
 		return child;
 	}));
+}
+
+/** iTunes/MP4v2 genre values use a two-byte index and the genres data class18. */
+export async function iTunesGenreM4aFixture(genre: number | string, textGenre?: string): Promise<File> {
+	const raw = typeof genre === 'number' ? { gnre: Uint8Array.of(genre >>> 8, genre & 255) } : undefined;
+	const { file } = await multiValueM4aArtworkFixture(false, { ...(raw ? { raw } : { genre: String(genre) }),
+		...(textGenre === undefined ? {} : { genre: textGenre }) });
+	if (typeof genre !== 'number') return file;
+	const bytes = Buffer.from(await file.arrayBuffer());
+	const position = bytes.indexOf(Buffer.from('gnre'));
+	assert.ok(position >= 4);
+	assert.equal(bytes.indexOf(Buffer.from('gnre'), position + 1), -1);
+	assert.equal(bytes.readUInt32BE(position - 4), 26);
+	assert.equal(bytes.toString('latin1', position + 8, position + 12), 'data');
+	bytes.writeUInt32BE(18, position + 12);
+	return new File([Uint8Array.from(bytes)], 'iTunes genre.m4a', { type: file.type });
 }
