@@ -27,8 +27,8 @@ export function createTimelineLabelTrackHeightReader() {
 			if (track.type !== 'label' || !track.labels) continue;
 			const previous = retained.get(track.id);
 			const reusable = previous && sameImmutableTimelineLabels(previous.labels, track.labels);
-			const labels = reusable ? previous.labels : track.labels;
-			const entry = reusable && previous.key === key ? previous
+			const labels = track.labels;
+			const entry = reusable && previous.key === key ? { ...previous, labels }
 				: { labels, key, height: timelineLabelTrackContentHeight(labels, pixelsPerSecond, sampleRate, sizePt) };
 			next.set(track.id, entry); nextHeights.set(track.id, entry.height);
 		}

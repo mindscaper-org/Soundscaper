@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import {
 	getLabelMetrics, layoutTimelineLabels, timelineLabelTrackContentHeight,
@@ -118,6 +119,39 @@ void test('prepared label-array retention evicts old containers', () => {
 		timelineLabelTrackContentHeight(first, 100, 100);
 		assert.ok(reads > 0, 'an old container is admitted again after the bounded cache evicts it');
 	} finally { document.restore(); }
+});
+
+void test('closed and replaced label owners release their source records and opaque metadata', () => {
+	const geometry = new URL('../src/common/editor/ui/timeline/label-design-geometry.ts', import.meta.url).href;
+	const reader = new URL('../src/common/editor/ui/timeline/label-track-height-reader.ts', import.meta.url).href;
+	const child = spawnSync(process.execPath, ['--expose-gc', '--import', 'tsx', '--input-type=module', '--eval', `
+		import assert from 'node:assert/strict';
+		import { setImmediate } from 'node:timers/promises';
+		import { timelineLabelTrackContentHeight } from ${JSON.stringify(geometry)};
+		import { createTimelineLabelTrackHeightReader } from ${JSON.stringify(reader)};
+		const read = createTimelineLabelTrackHeightReader();
+		function owner(id) {
+			const opaque = { payload: new Uint8Array(1024 * 1024) };
+			const label = Object.freeze({ id, title: id, startFrame: 0, endFrame: 0, opaqueExtensions: opaque });
+			const labels = Object.freeze([label]);
+			return { labels, references: [new WeakRef(labels), new WeakRef(label), new WeakRef(opaque)] };
+		}
+		function prepare() {
+			const closed = owner('closed');
+			timelineLabelTrackContentHeight(closed.labels, 100, 100);
+			const previous = owner('current');
+			read([{ id: 'track', type: 'label', labels: previous.labels }], 100, 100, 9);
+			const current = owner('current');
+			read([{ id: 'track', type: 'label', labels: current.labels }], 100, 100, 9);
+			return { current, references: [...closed.references, ...previous.references] };
+		}
+		const fixture = prepare();
+		for (let round = 0; round < 4; round++) { await setImmediate(); globalThis.gc(); }
+		assert.ok(fixture.references.every(reference => reference.deref() === undefined),
+			'prepared geometry and height reuse must not keep retired project records alive');
+		assert.equal(read([{ id: 'track', type: 'label', labels: fixture.current.labels }], 100, 100, 9).get('track'), 42);
+	`], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 10_000 });
+	assert.equal(child.status, 0, child.stderr || child.stdout || child.error?.message || 'GC regression process failed');
 });
 
 void test('track height reuse never trusts mutable containers or changed label data', () => {
