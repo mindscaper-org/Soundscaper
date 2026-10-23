@@ -119,7 +119,7 @@ async function mp3(): Promise<Uint8Array<ArrayBuffer>> {
 	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
 }
 
-async function importedMetadata(metadata: Uint8Array<ArrayBuffer>) {
+async function importedMetadata(metadata: Uint8Array<ArrayBuffer>, trailer = new Uint8Array()) {
 	const audio = await mp3();
 	const originalFetch = globalThis.fetch;
 	globalThis.fetch = async (input, init) => input instanceof URL && input.protocol === 'file:'
@@ -129,7 +129,7 @@ async function importedMetadata(metadata: Uint8Array<ArrayBuffer>) {
 	try {
 		await controller.ready;
 		await controller.actions.project.importFiles([new File([audio], 'Plain.mp3', { type: 'audio/mpeg' }),
-			new File([metadata, audio], 'Tagged.mp3', { type: 'audio/mpeg' })], { destination: 'timeline' });
+			new File([metadata, audio, trailer], 'Tagged.mp3', { type: 'audio/mpeg' })], { destination: 'timeline' });
 		const project = controller.getSnapshot().project;
 		assert.ok(validateAudioEditorProjectV17(project));
 		assert.equal(project.sources.length, 2);
@@ -137,6 +137,25 @@ async function importedMetadata(metadata: Uint8Array<ArrayBuffer>) {
 		assert.deepEqual(await storedChannel(store, tagged!.id, 0), await storedChannel(store, plain!.id, 0));
 		return normalizeSourceProvenance(tagged!.provenance).contributions[0]!;
 	} finally { await controller.dispose(); globalThis.fetch = originalFetch; }
+}
+
+for (const padding of [0, 32]) for (const modernTitle of ['', 'Modern title']) {
+	test(`File Open fills missing ID3v2 fields from a valid ID3v1 trailer (pad${padding}, modern=${Boolean(modernTitle)})`, async () => {
+		const trailer = new Uint8Array(128).fill(padding);
+		for (const [offset, value] of [[0, 'TAG'], [3, 'Legacy title'], [33, 'Legacy performer'], [63, 'Legacy album'], [93, '2021'], [97, 'Legacy comment']] as const) {
+			trailer.set(Buffer.from(value, 'latin1'), offset);
+		}
+		trailer[125] = 0; trailer[126] = 7; trailer[127] = 17;
+		const metadata = Uint8Array.from(createAudioMetadataId3Tag({ credit: 'Modern credit', ...(modernTitle ? { title: modernTitle } : {}) }));
+		const contribution = await importedMetadata(metadata, trailer);
+		assert.deepEqual(contribution.warnings, []);
+		assert.equal(contribution.metadata.normalized.title, modernTitle || 'Legacy title');
+		assert.equal(contribution.metadata.normalized.artist, 'Legacy performer');
+		assert.equal(contribution.metadata.normalized.album, 'Legacy album');
+		assert.equal(contribution.metadata.normalized.comment, 'Legacy comment');
+		assert.equal(contribution.metadata.normalized.trackNumber, 7);
+		assert.deepEqual(contribution.metadata.raw.TXXX, { credit: 'Modern credit' });
+	});
 }
 
 for (const version of [3, 4] as const) test(`File Open retains unsynchronised ID3v2.${version} artwork and following fields`, async () => {
