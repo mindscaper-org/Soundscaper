@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
@@ -40,14 +41,15 @@ for (const credit of ['Third credit', { credit: 'Nested credit' }] as const) {
 		assert.equal(controller.getSnapshot().readOnly, false);
 		await controller.actions.project.save();
 		const snapshot = controller.getSnapshot(); assert.ok(snapshot.project);
-		const stored = await store.loadProject(snapshot.project.id); assert.ok(stored);
+		const stored: unknown = await store.loadProject(snapshot.project.id); assert.ok(validateSoundscaperProject(stored));
 		assert.deepEqual(normalizeSourceProvenance(stored.sources[0]?.provenance).contributions[0]?.metadata.raw.TXXX, tags,
 			'the admitted native archive and canonical saved metadata retain the exact legal tag');
-		const publishedTags = normalizeSourceProvenance(snapshot.project.sources[0]?.provenance).contributions[0]?.metadata.raw.TXXX;
+		const published: unknown = snapshot.project; assert.ok(validateSoundscaperProject(published));
+		const publishedTags = normalizeSourceProvenance(published.sources[0]?.provenance).contributions[0]?.metadata.raw.TXXX;
 		assert.deepEqual(publishedTags, tags, 'the UI publication retains every own data key');
 		assert.equal(Object.getPrototypeOf(publishedTags), Object.prototype);
 		assert.ok(Object.isFrozen(publishedTags));
-		const report = createProjectAttributionReport(snapshot.project);
+		const report = createProjectAttributionReport(published);
 		const presented = presentProjectAttributionReport(report);
 		const field = presented.occurrences.flatMap(occurrence => occurrence.sources.flatMap(source => source.metadata))
 			.find(field => field.key.startsWith('raw.TXXX.__proto__'));
