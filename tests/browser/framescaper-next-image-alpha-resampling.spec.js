@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, openExportDialog,
+import { bootEditor, collectClientErrors, chooseNestedCommandAction, disableNativeSavePicker, openExportDialog,
 	chooseDropdown, readDownloadBytes, chooseFileAction, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
@@ -62,7 +63,9 @@ test('an imported frozen PNG retains its transparent edge in exact programme pre
 			return result;
 		};
 	});
+	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const exactPreviewAvailable = await page.evaluate(hasWebGl2Capability);
 	const png = Buffer.from(await whiteEdgePng(page), 'base64');
 	const project = createFramescaperProject(PROFILE, { id: 'frozen-alpha-edge', primarySequenceId: 'main',
 		visualModel: { stillSources: [{ schemaVersion: 1, kind: 'still', id: 'png', name: 'Frozen PNG', mimeType: 'image/png',
@@ -82,10 +85,20 @@ test('an imported frozen PNG retains its transparent edge in exact programme pre
 	await dialog.getByRole('spinbutton', { name: 'Width', exact: true }).fill('4');
 	await dialog.getByRole('spinbutton', { name: 'Height', exact: true }).fill('2');
 	await chooseDropdown(page, dialog.getByRole('group', { name: 'Fit', exact: true }), 'Stretch to fill');
+	const preview = editor.locator('[data-video-preview]');
+	if (!exactPreviewAvailable) {
+		await expect(preview).toHaveAttribute('data-video-preview-renderer', 'fallback');
+		await expect(preview).toHaveAttribute('data-video-preview-visual-pending', 'false');
+		await expect(preview).toHaveAttribute('data-video-preview-visual-error', '');
+		expect(errors).toEqual([]);
+		return;
+	}
+	await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
 	// Letterbox paints a black first column; wait for the new stretched frame rather than its old paint.
 	await expect.poll(() => page.evaluate(() => globalThis.__edgeRows.at(-1)?.[0] ?? 0)).toBe(255);
 	const row = await page.evaluate(() => globalThis.__edgeRows.at(-1));
 	expect(row[0]).toBe(255); expect(row[12]).toBe(0); expect(row[4]).toBeGreaterThanOrEqual(218); expect(row[4]).toBeLessThanOrEqual(226);
+	expect(errors).toEqual([]);
 });
 
 async function whiteEdgePng(page) {

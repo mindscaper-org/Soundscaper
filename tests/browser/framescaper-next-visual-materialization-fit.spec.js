@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseDropdown, chooseFileAction, openExportDialog, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, collectClientErrors, chooseDropdown, chooseFileAction, openExportDialog, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { createFramescaperProject } from '../../src/framescaper/editor-project.ts';
@@ -23,7 +24,9 @@ for (const [fit, label] of [['cover', 'Fill and crop'], ['stretch', 'Stretch to 
 				return result;
 			};
 		});
+		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		const exactPreviewAvailable = await page.evaluate(hasWebGl2Capability);
 		const png = Buffer.from(await page.evaluate(() => {
 			const canvas = document.createElement('canvas'); canvas.width = 4; canvas.height = 12;
 			const c = canvas.getContext('2d'); c.fillStyle = 'black'; c.fillRect(0, 0, 4, 12);
@@ -48,6 +51,16 @@ for (const [fit, label] of [['cover', 'Fill and crop'], ['stretch', 'Stretch to 
 		await dialog.getByRole('spinbutton', { name: 'Width', exact: true }).fill('12');
 		await dialog.getByRole('spinbutton', { name: 'Height', exact: true }).fill('4');
 		await chooseDropdown(page, dialog.getByRole('group', { name: 'Fit', exact: true }), label);
+		const preview = editor.locator('[data-video-preview]');
+		if (!exactPreviewAvailable) {
+			await expect(preview).toHaveAttribute('data-video-preview-renderer', 'fallback');
+			await expect(preview).toHaveAttribute('data-video-preview-visual-pending', 'false');
+			await expect(preview).toHaveAttribute('data-video-preview-visual-error', '');
+			expect(errors).toEqual([]);
+			return;
+		}
+		await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
 		await expect.poll(() => page.evaluate(() => globalThis.__detailPeaks.at(-1) ?? 0)).toBeGreaterThan(240);
+		expect(errors).toEqual([]);
 	});
 }
