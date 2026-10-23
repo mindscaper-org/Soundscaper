@@ -326,7 +326,9 @@ function buildClip(clip: Readonly<Record<string, unknown>>, context: {
 			severity: 'warning',
 			scope: { kind: 'clip', id: String(clip.id) },
 			data: { kind: timeEffect.kind, ...timeEffect.data },
-			message: 'The profile emits no timeMap; the clip carries its rendered duration.',
+			message: timeEffect.kind === 'reverse'
+				? 'The profile emits no timeMap; reversed playback becomes forward at the rendered duration.'
+				: 'The profile emits no timeMap; the clip carries its rendered duration.',
 		});
 	}
 	const sourceStart = interchangeSourceInTime(

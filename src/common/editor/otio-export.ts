@@ -346,7 +346,9 @@ function buildClip(
 			severity: 'warning',
 			scope: { kind: 'clip', id: String(clip.id) },
 			data: { kind: timeEffect.kind, ...timeEffect.data },
-			message: 'The profile emits no time-effect vocabulary; the clip carries its rendered duration.',
+			message: timeEffect.kind === 'reverse'
+				? 'The profile emits no time-effect vocabulary; reversed playback becomes forward at the rendered duration.'
+				: 'The profile emits no time-effect vocabulary; the clip carries its rendered duration.',
 		});
 	}
 
