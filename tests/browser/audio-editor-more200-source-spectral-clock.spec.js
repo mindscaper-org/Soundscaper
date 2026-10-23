@@ -25,7 +25,7 @@ for (const variant of [{ rate: 24_000 }, { rate: 48_000 }, { rate: 96_000 }, { r
 	await expect(canvas).toHaveAttribute('data-spectrogram-renderer', 'pffft-wasm');
 	const maximumText = await ruler.locator('.vertical-ruler__tick--first .vertical-ruler__label').first().textContent();
 	const maximum = maximumText.endsWith('k') ? Number(maximumText.slice(0, -1)) * 1000 : Number(maximumText);
-	expect(maximum).toBe(Math.min(48_000, variant.rate) / 2);
+	expect(maximum).toBe((variant.pitch ? 48_000 : Math.min(48_000, variant.rate)) / 2);
 	const paintedFrequency = await canvas.evaluate((element, max) => {
 		const { data } = element.getContext('2d').getImageData(0, 0, element.width, element.height);
 		const energy = Array(element.height).fill(0);
