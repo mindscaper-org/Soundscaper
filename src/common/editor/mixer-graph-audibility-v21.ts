@@ -34,7 +34,9 @@ export interface MixerGraphAudibilityV21 {
 	readonly reason: (trackId: string) => 'muted' | 'not-soloed' | 'routed-to-silence';
 }
 
-export function createMixerGraphAudibilityV21(project: unknown): MixerGraphAudibilityV21 | null {
+export function createMixerGraphAudibilityV21(project: unknown, options: Readonly<{
+	muteMayOpen?: (kind: 'track' | 'mixer-node', id: string) => boolean;
+}> = {}): MixerGraphAudibilityV21 | null {
 	const document = (project && typeof project === 'object' ? project : {}) as DataRecord;
 	const mixer = document.mixer;
 	if (!isMixerGraphV21Surface(mixer)) return null;
@@ -43,13 +45,13 @@ export function createMixerGraphAudibilityV21(project: unknown): MixerGraphAudib
 	const strips = new Map<string, StripState>();
 	for (const track of tracks) {
 		strips.set(`track:${String(track.id)}`, {
-			muted: track.mute === true,
+			muted: track.mute === true && !options.muteMayOpen?.('track', String(track.id)),
 			soloed: track.solo === true,
 		});
 	}
 	for (const strip of [...records(graph.groups), ...records(graph.sends), ...records(graph.cues)]) {
 		strips.set(`mixer-node:${String(strip.id)}`, {
-			muted: strip.mute === true,
+			muted: strip.mute === true && !options.muteMayOpen?.('mixer-node', String(strip.id)),
 			soloed: strip.solo === true,
 		});
 	}

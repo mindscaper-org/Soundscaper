@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createMixerGraphAudibilityV21 } from './mixer-graph-audibility-v21.ts';
+import { interchangeMuteAutomationMayOpen } from './interchange-mute-automation.ts';
 import { createVisibleVideoTrackPredicate } from './video-track-visibility.js';
 
 /**
@@ -52,13 +53,14 @@ export function createInterchangeVisibility(
 	// solo is resolved over the routing, a group or send carries its own mute, and
 	// a muted VCA zeroes every strip in it. The render honours all of that, so a
 	// file that describes the render has to as well.
-	const graph = project === undefined ? null : createMixerGraphAudibilityV21(project);
+	const muteMayOpen = interchangeMuteAutomationMayOpen(project);
+	const graph = project === undefined ? null : createMixerGraphAudibilityV21(project, { muteMayOpen });
 
 	const contributes = (track: TrackLike): boolean => {
 		if (track?.type === 'video') return videoComposes(track);
 		if (track?.type !== 'audio') return false;
 		if (graph) return graph.audibleTrack(String(track.id));
-		if (track.mute === true) return false;
+		if (track.mute === true && !muteMayOpen('track', String(track.id))) return false;
 		return audioSoloed ? track.solo === true : true;
 	};
 
@@ -76,7 +78,7 @@ export function createInterchangeVisibility(
 					? 'not soloed while another strip is'
 					: 'routed only through strips that silence it';
 			}
-			if (track?.mute === true) return 'muted';
+			if (track?.mute === true && !muteMayOpen('track', String(track.id))) return 'muted';
 			return 'not soloed while another audio track is';
 		},
 	});
