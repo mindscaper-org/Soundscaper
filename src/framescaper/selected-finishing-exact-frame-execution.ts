@@ -74,6 +74,7 @@ import {
 } from './selected-finishing-supplemental-picture-authority.ts';
 import { resolveFramescaperVisualPlacementFinishing } from './visual-placement-finishing.ts';
 import { createFramescaperSoundVisualizerWindowReader } from './sound-visualizer-window.ts';
+import { captureSelectedFinishingVideoMaskInputs, resolveSelectedFinishingMediaEntry } from './selected-finishing-video-mask-inputs.ts';
 type Data = Readonly<Record<string, unknown>>;
 export interface FramescaperSelectedExactFrameExecutionFinishing {
 	render(request: Readonly<{
@@ -234,6 +235,9 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 					if ('source' in entry.authoredState) rawVisuals.set(entry.authoredState.source.id, transparent);
 				}
 			}
+			const maskCaptures = await captureSelectedFinishingVideoMaskInputs({ clips, sourceIdByNodeId,
+				layers: request.layers, visualMasks: [...visualEntries.flatMap(entry => entry.masks),
+					...visual.activeAdjustmentLayers.flatMap(layer => layer.masks)], masks, finishing, inputs: rawVisuals, capture: captureFrame, signal });
 			const trackFrames = new Map<string, TrackOrderBucketFinishing[]>();
 			const clipCompositingOrders = new Map<string, number>();
 			const openFx = openFxPlanes === null ? null : createFramescaperSelectedOpenFxCompositionNativeMedia({
@@ -249,7 +253,7 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 			for (const layerValue of request.layers) await renderMediaLayer(
 				record(layerValue, 'Selected finishing media layer'), trackFrames,
 				clipCompositingOrders, rawVisuals, consumed, adjustmentEffects,
-				openFx, width, height, signal,
+				openFx, width, height, signal, maskCaptures,
 			);
 			if (openFx) {
 				const transitionFrames = new Map<string, UnifiedExactLinearCompositionEntryV13[]>();
@@ -361,6 +365,7 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 		width: number,
 		height: number,
 		signal: AbortSignal,
+		maskCaptures: ReadonlyMap<Data, UnifiedExactRenderRgbaFrameV13>,
 	): Promise<void> {
 		const trackId = stableId(layer.trackId, 'Selected finishing media track ID');
 		const entries = records(layer.entries, 'Selected finishing media entries');
@@ -368,19 +373,8 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 			const effects = records(entry.effects ?? [], 'Selected finishing media effects').filter((effect) => (
 				!adjustmentEffects.has(stableId(effect.id, 'Selected finishing media effect ID'))
 			));
-			const clipId = stableId(entry.clipId, 'Selected finishing media clip ID');
-			const clip = clips.get(clipId);
-			if (!clip) throw new ReferenceError(`Selected finishing clip ${clipId} is absent from its V13 plan.`);
-			const sourceId = sourceIdByNodeId.get(clip.sourceNodeId);
-			if (!sourceId || entry.sourceId !== sourceId) {
-				throw new Error(`Selected finishing clip ${clipId} changed source authority.`);
-			}
-			const descriptor = record(entry.presentationDescriptor, 'Selected finishing media presentation');
-			const sourceFrame = nonNegativeInteger(
-				descriptor.drawableSourceFrame, 'Selected finishing drawable source frame',
-			);
-			const outerCell = nonNegativeInteger(descriptor.outerCell, 'Selected finishing outer cell');
-			const raw = await captureFrame(entry, signal);
+			const { clipId, clip, sourceId, sourceFrame, outerCell } = resolveSelectedFinishingMediaEntry({ clips, sourceIdByNodeId }, entry);
+			const raw = maskCaptures.get(entry) ?? await captureFrame(entry, signal);
 			let frame = checkedFrame(raw, 'Selected finishing captured media frame');
 			if (effects.length > 0) frame = checkedFrame(
 				await applyEffects(frame, effects, signal), 'Selected finishing effected media frame',
@@ -547,11 +541,6 @@ function dimension(value: unknown, name: string): number {
 	if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > 65_536) {
 		throw new RangeError(`${name} must be a positive bounded integer.`);
 	}
-	return Number(value);
-}
-
-function nonNegativeInteger(value: unknown, name: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) < 0) throw new RangeError(`${name} must be non-negative.`);
 	return Number(value);
 }
 
