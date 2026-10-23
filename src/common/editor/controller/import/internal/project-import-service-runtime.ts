@@ -180,6 +180,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			if (activeImportProgress === progressTask) activeImportProgress = null;
 		}
 		webFileLimitFailures.throwIfAny();
+		if (cancellation.signal.aborted) return Object.freeze({ cancelled: true as const });
 	}
 
 	function setImportFileProgress(file: RuntimeValue, completedBytes: number, totalBytes: number) {
