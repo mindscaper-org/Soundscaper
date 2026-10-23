@@ -34,7 +34,7 @@ for (const unavailable of ['a', 'b', 'both', 'neither'] as const) {
 			|| (unavailable !== 'both' && !source.id.endsWith(`-${unavailable}`)));
 		for (const { source, channels } of healthy) {
 			await store.writeAudioBuffer(source.id, { sampleRate: source.sampleRate, numberOfChannels: channels.length,
-				length: source.frameCount, getChannelData: channel => Float32Array.from(channels[channel]!),
+				length: source.frameCount, getChannelData: (channel: number) => Float32Array.from(channels[channel]!),
 			}, source);
 		}
 		await store.saveProject(original);
