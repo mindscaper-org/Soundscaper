@@ -42,7 +42,7 @@ export function parseAudacityShortcutImport(
 ): AudacityShortcutImportPlan {
 	const root = parseXmlDocument(xml, {
 		maximumBytes: AUDACITY_SHORTCUT_IMPORT_MAX_BYTES, maximumDepth: 8,
-		maximumElements: 50_000, maximumTextBytes: 4096,
+		maximumElements: 50_000, maximumTextBytes: AUDACITY_SHORTCUT_IMPORT_MAX_BYTES,
 	}, { allowedSimpleDoctype: '' });
 	const legacy = root.name === 'audacitykeyboard';
 	if (!legacy && root.name !== 'Shortcuts') throw new SyntaxError('This XML is not an Audacity shortcut document.');
@@ -121,7 +121,7 @@ function readRecords(root: XmlElement, legacy: boolean): ImportRecord[] {
 			if (!command?.trim() || binding === undefined || element.children.length) {
 				throw new SyntaxError('An Audacity shortcut command requires name and key attributes.');
 			}
-			records.push({ command, bindings: [binding] });
+			records.push({ command: boundedShortcutText(command), bindings: [boundedShortcutText(binding)] });
 		} else {
 			const keys = element.children.filter((child) => child.name === 'key');
 			const sequences = element.children.filter((child) => child.name === 'seq');
@@ -130,13 +130,20 @@ function readRecords(root: XmlElement, legacy: boolean): ImportRecord[] {
 				throw new SyntaxError('An Audacity shortcut command requires one key element and plain sequences.');
 			}
 			records.push({
-				command: keys[0].text, bindings: sequences.map((sequence) => sequence.text),
+				command: boundedShortcutText(keys[0].text), bindings: sequences.map((sequence) => boundedShortcutText(sequence.text)),
 				platformDefault: !sequences.some((sequence) => sequence.text.trim())
 					&& element.children.some((child) => child.name === 'std' && child.text !== '0'),
 			});
 		}
 	}
 	return records;
+}
+
+function boundedShortcutText(value: string): string {
+	if (new TextEncoder().encode(value).byteLength > 4096) {
+		throw new RangeError('An Audacity shortcut field exceeds 4096 bytes.');
+	}
+	return value;
 }
 
 function normalizeImportBinding(raw: string, legacy: boolean): string | null {
