@@ -11,18 +11,24 @@ import {
 	type ScapeProjectJsonStructureLimits,
 } from './scape-project-json-preflight.ts';
 
+import {
+	BASE64_ALPHABET,
+	BINARY_DESCRIPTOR_SCHEMA_VERSION,
+	BINARY_TAG,
+	OMIT,
+	admitBinary,
+	admitTraversal,
+	assertChildrenFitTraversal,
+	encodeScapeProjectDocumentValue,
+	materializeScapeProjectJsonTokens,
+	serializeScapeProjectJsonTokens,
+	type ScapeProjectJsonToken,
+	type BinaryDescriptor,
+} from './scape-project-document-encode.ts';
+
 const MIB = 1024 * 1024;
-const BINARY_TAG = '$soundscaperOpaqueBinary';
-const BINARY_DESCRIPTOR_SCHEMA_VERSION = 1;
-const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const BINARY_TAG_JSON_NODE_OVERHEAD = 6;
 const BINARY_TAG_JSON_DEPTH_OVERHEAD = 2;
-const OMIT = Symbol('omit');
-const ARRAY_BUFFER_BYTE_LENGTH_GETTER = requiredGetter(ArrayBuffer.prototype, 'byteLength');
-const TYPED_ARRAY_BYTE_LENGTH_GETTER = requiredGetter(
-	Object.getPrototypeOf(Uint8Array.prototype) as object,
-	'byteLength',
-);
 
 export interface ScapeProjectBinaryLimits {
 	readonly maximumPayloadCount: number;
@@ -49,22 +55,6 @@ export const SCAPE_PROJECT_BINARY_HARD_LIMITS: Readonly<ScapeProjectBinaryLimits
 export const SCAPE_PROJECT_JSON_STRUCTURE_HARD_LIMITS: Readonly<
 	ScapeProjectJsonStructureLimits
 > = Object.freeze(jsonStructureLimits(SCAPE_PROJECT_BINARY_HARD_LIMITS));
-
-interface BinaryDescriptor {
-	readonly schemaVersion: 1;
-	readonly id: number;
-	readonly type: 'Uint8Array' | 'ArrayBuffer';
-	readonly byteLength: number;
-	readonly base64: string;
-}
-
-interface EncodeBudget {
-	readonly limits: Readonly<ScapeProjectBinaryLimits>;
-	readonly active: Set<object>;
-	nodes: number;
-	payloadCount: number;
-	totalPayloadBytes: number;
-}
 
 interface DecodeBudget {
 	readonly limits: Readonly<ScapeProjectBinaryLimits>;
@@ -121,16 +111,54 @@ export function serializeScapeProjectDocument(
 ): string {
 	const limits = resolveOptions(options);
 	if (!hasBaselineProjectIdentity(value, options.currentProjectSchemaFamily)) return ordinaryJson(value);
-	const budget: EncodeBudget = {
-		limits,
-		active: new Set(),
-		nodes: 0,
-		payloadCount: 0,
-		totalPayloadBytes: 0,
-	};
-	const encoded = encodeValue(value, 0, budget);
+	const encoded = encodeScapeProjectDocumentValue(value, limits);
 	if (encoded === OMIT) throw new TypeError('The Scape project cannot be serialized.');
 	return ordinaryJson(encoded);
+}
+
+/** Compare the exact serializer output without reconstructing two encoded trees. */
+export function sameSerializedScapeProjectDocument(
+	left: unknown,
+	right: unknown,
+	options: ScapeProjectDocumentOptions = {},
+): boolean {
+	const first = captureScapeProjectJson(left, options);
+	const second = captureScapeProjectJson(right, options);
+	if (first.serialized || second.serialized) {
+		return serializeScapeProjectJsonTokens(first.tokens) === serializeScapeProjectJsonTokens(second.tokens);
+	}
+	return first.tokens.length === second.tokens.length
+		&& first.tokens.every((token, index) => token === second.tokens[index]);
+}
+
+function captureScapeProjectJson(value: unknown, options: ScapeProjectDocumentOptions) {
+	const limits = resolveOptions(options);
+	const tokens: ScapeProjectJsonToken[] = [];
+	let serialized = false;
+	if (!hasBaselineProjectIdentity(value, options.currentProjectSchemaFamily)) {
+		tokens.push({ serialized: ordinaryJson(value) });
+		return { tokens, serialized: true };
+	}
+	const encoded = encodeScapeProjectDocumentValue(value, limits, (token) => {
+		tokens.push(token);
+		if (token && typeof token === 'object') serialized = true;
+	});
+	if (encoded === OMIT) throw new TypeError('The Scape project cannot be serialized.');
+	// Hooks may be installed by ordinary left inputs or during baseline Proxy
+	// traversal. Reconstruct the detached tree without revisiting either source.
+	if (Object.getOwnPropertyDescriptor(Array.prototype, 'toJSON')
+		|| Object.getOwnPropertyDescriptor(Object.prototype, 'toJSON')) {
+		return { tokens: [{ serialized: ordinaryJson(materializeScapeProjectJsonTokens(tokens)) }], serialized: true };
+	}
+	// Binary descriptors and reordered Proxy subtrees must be serialized after
+	// traversal, matching the ordinary serializer's hook timing and ownership.
+	for (let index = 0; index < tokens.length; index += 1) {
+		const token = tokens[index];
+		if (token && typeof token === 'object' && 'encoded' in token) {
+			tokens[index] = { serialized: ordinaryJson(token.encoded) };
+		}
+	}
+	return { tokens, serialized };
 }
 
 export function parseScapeProjectDocument(
@@ -206,142 +234,8 @@ function hasBaselineProjectIdentity(
 	return true;
 }
 
-function encodeValue(value: unknown, depth: number, budget: EncodeBudget): unknown | typeof OMIT {
-	admitTraversal(depth, budget);
-	if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
-	if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-	if (value === undefined || typeof value === 'function' || typeof value === 'symbol') return OMIT;
-	if (typeof value === 'bigint') throw new TypeError('Scape project BigInt values are not JSON-compatible.');
-	if (value instanceof Uint8Array) {
-		return encodeUint8Array(value, 'Uint8Array', budget);
-	}
-	if (value instanceof ArrayBuffer) {
-		return encodeArrayBuffer(value, budget);
-	}
-	if (ArrayBuffer.isView(value)) {
-		throw new TypeError('Only Uint8Array and ArrayBuffer opaque binary values are supported.');
-	}
-	if (Array.isArray(value)) return encodeArray(value, depth, budget);
-	if (!isPlainObject(value)) {
-		throw new TypeError('Scape projects must contain only JSON-compatible objects and supported binary values.');
-	}
-	return encodeObject(value, depth, budget);
-}
-
-function encodeArray(value: unknown[], depth: number, budget: EncodeBudget): unknown[] {
-	if (Object.getPrototypeOf(value) !== Array.prototype) {
-		throw new TypeError('Scape project arrays must use the ordinary Array prototype.');
-	}
-	assertNoToJSONHook(value as unknown as Record<string, unknown>);
-	enterContainer(value, budget);
-	try {
-		assertChildrenFitTraversal(value.length, budget);
-		const encoded: unknown[] = [];
-		for (let index = 0; index < value.length; index += 1) {
-			const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-			if (!descriptor) {
-				admitTraversal(depth + 1, budget);
-				encoded.push(null);
-				continue;
-			}
-			const child = dataPropertyValue(descriptor, `array index ${String(index)}`);
-			const result = encodeValue(child, depth + 1, budget);
-			encoded.push(result === OMIT ? null : result);
-		}
-		return encoded;
-	} finally {
-		budget.active.delete(value);
-	}
-}
-
-function encodeObject(
-	value: Record<string, unknown>,
-	depth: number,
-	budget: EncodeBudget,
-): Record<string, unknown> {
-	if (Object.hasOwn(value, BINARY_TAG)) {
-		throw new TypeError(`The reserved ${BINARY_TAG} tag collides with ordinary project data.`);
-	}
-	assertNoToJSONHook(value);
-	enterContainer(value, budget);
-	try {
-		const encoded = Object.create(null) as Record<string, unknown>;
-		const keys = Object.keys(value);
-		assertChildrenFitTraversal(keys.length, budget);
-		for (const key of keys) {
-			const descriptor = Object.getOwnPropertyDescriptor(value, key);
-			if (!descriptor) throw new TypeError(`Scape project property ${key} is unavailable.`);
-			const child = dataPropertyValue(descriptor, `property ${key}`);
-			const result = encodeValue(child, depth + 1, budget);
-			if (result !== OMIT) Object.defineProperty(encoded, key, enumerableData(result));
-		}
-		return encoded;
-	} finally {
-		budget.active.delete(value);
-	}
-}
-
-function enterContainer(value: object, budget: EncodeBudget): void {
-	if (budget.active.has(value)) throw new TypeError('Cyclic Scape project values are not supported.');
-	budget.active.add(value);
-}
-
-function dataPropertyValue(descriptor: PropertyDescriptor, name: string): unknown {
-	if (!Object.hasOwn(descriptor, 'value')) {
-		throw new TypeError(`Scape project ${name} accessors are not supported.`);
-	}
-	return descriptor.value;
-}
-
-function assertNoToJSONHook(value: Record<string, unknown>): void {
-	const descriptor = Object.getOwnPropertyDescriptor(value, 'toJSON');
-	if (!descriptor) return;
-	const candidate = dataPropertyValue(descriptor, 'toJSON');
-	if (typeof candidate === 'function') {
-		throw new TypeError('Scape project toJSON hooks are not supported.');
-	}
-}
-
 function enumerableData(value: unknown): PropertyDescriptor {
 	return { value, enumerable: true, configurable: true, writable: true };
-}
-
-function encodeUint8Array(
-	value: Uint8Array,
-	type: BinaryDescriptor['type'],
-	budget: EncodeBudget,
-): Record<string, BinaryDescriptor> {
-	const byteLength = intrinsicByteLength(TYPED_ARRAY_BYTE_LENGTH_GETTER, value);
-	admitBinary(byteLength, budget);
-	const bytes = new Uint8Array(byteLength);
-	Uint8Array.prototype.set.call(bytes, value);
-	return encodedBinaryTag(bytes, type, budget.payloadCount);
-}
-
-function encodeArrayBuffer(
-	value: ArrayBuffer,
-	budget: EncodeBudget,
-): Record<string, BinaryDescriptor> {
-	const byteLength = intrinsicByteLength(ARRAY_BUFFER_BYTE_LENGTH_GETTER, value);
-	admitBinary(byteLength, budget);
-	const bytes = new Uint8Array(byteLength);
-	Uint8Array.prototype.set.call(bytes, new Uint8Array(value));
-	return encodedBinaryTag(bytes, 'ArrayBuffer', budget.payloadCount);
-}
-
-function encodedBinaryTag(
-	bytes: Uint8Array,
-	type: BinaryDescriptor['type'],
-	id: number,
-): Record<string, BinaryDescriptor> {
-	const descriptor: BinaryDescriptor = {
-		schemaVersion: BINARY_DESCRIPTOR_SCHEMA_VERSION,
-		id,
-		type,
-		byteLength: bytes.byteLength,
-		base64: encodeBase64(bytes),
-	};
-	return { [BINARY_TAG]: descriptor };
 }
 
 function decodeCurrentProject(
@@ -412,15 +306,6 @@ function scheduleDecode(
 	stack.push(item);
 }
 
-function assertChildrenFitTraversal(
-	childCount: number,
-	budget: Pick<EncodeBudget, 'limits' | 'nodes'> | Pick<DecodeBudget, 'limits' | 'nodes'>,
-): void {
-	if (childCount > budget.limits.maximumTraversalNodes - budget.nodes) {
-		throw new RangeError('The Scape project exceeds the binary traversal node limit.');
-	}
-}
-
 function validateBinaryTag(
 	outer: Record<string, unknown>,
 	budget: DecodeBudget,
@@ -465,39 +350,6 @@ function validateBinaryTag(
 	};
 }
 
-function admitTraversal(
-	depth: number,
-	budget: Pick<EncodeBudget, 'limits' | 'nodes'> | Pick<DecodeBudget, 'limits' | 'nodes'>,
-): void {
-	if (depth > budget.limits.maximumTraversalDepth) {
-		throw new RangeError('The Scape project exceeds the binary traversal depth limit.');
-	}
-	budget.nodes += 1;
-	if (budget.nodes > budget.limits.maximumTraversalNodes) {
-		throw new RangeError('The Scape project exceeds the binary traversal node limit.');
-	}
-}
-
-function admitBinary(
-	byteLength: number,
-	budget: Pick<EncodeBudget, 'limits' | 'payloadCount' | 'totalPayloadBytes'>
-		| Pick<DecodeBudget, 'limits' | 'payloadCount' | 'totalPayloadBytes'>,
-): void {
-	if (byteLength > budget.limits.maximumPayloadBytes) {
-		throw new RangeError('A Scape opaque binary payload exceeds its byte limit.');
-	}
-	const payloadCount = budget.payloadCount + 1;
-	if (payloadCount > budget.limits.maximumPayloadCount) {
-		throw new RangeError('The Scape project has too many opaque binary payloads.');
-	}
-	const totalPayloadBytes = budget.totalPayloadBytes + byteLength;
-	if (totalPayloadBytes > budget.limits.maximumTotalPayloadBytes) {
-		throw new RangeError('The Scape project exceeds its aggregate opaque binary byte limit.');
-	}
-	budget.payloadCount = payloadCount;
-	budget.totalPayloadBytes = totalPayloadBytes;
-}
-
 function validateCanonicalBase64(value: string, expectedBytes: number): void {
 	if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/u.test(value)) {
 		throw new TypeError('Scape opaque binary base64 is malformed.');
@@ -515,21 +367,6 @@ function validateCanonicalBase64(value: string, expectedBytes: number): void {
 		const index = BASE64_ALPHABET.indexOf(value[value.length - 2] ?? '');
 		if (index < 0 || (index & 0x03) !== 0) throw new TypeError('Scape opaque binary base64 is noncanonical.');
 	}
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-	let output = '';
-	for (let index = 0; index < bytes.length; index += 3) {
-		const first = bytes[index] ?? 0;
-		const second = bytes[index + 1];
-		const third = bytes[index + 2];
-		const combined = (first << 16) | ((second ?? 0) << 8) | (third ?? 0);
-		output += BASE64_ALPHABET[(combined >>> 18) & 63];
-		output += BASE64_ALPHABET[(combined >>> 12) & 63];
-		output += second === undefined ? '=' : BASE64_ALPHABET[(combined >>> 6) & 63];
-		output += third === undefined ? '=' : BASE64_ALPHABET[combined & 63];
-	}
-	return output;
 }
 
 function decodeBase64(value: string, byteLength: number): Uint8Array {
@@ -552,18 +389,4 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
 	const prototype = Object.getPrototypeOf(value);
 	return prototype === Object.prototype || prototype === null;
-}
-
-function requiredGetter(prototype: object, name: string): (this: object) => unknown {
-	const getter = Object.getOwnPropertyDescriptor(prototype, name)?.get;
-	if (!getter) throw new Error(`Missing intrinsic ${name} getter.`);
-	return getter;
-}
-
-function intrinsicByteLength(getter: (this: object) => unknown, value: object): number {
-	const byteLength = Reflect.apply(getter, value, []) as unknown;
-	if (!Number.isSafeInteger(byteLength) || Number(byteLength) < 0) {
-		throw new RangeError('An opaque binary value has an invalid byte length.');
-	}
-	return Number(byteLength);
 }

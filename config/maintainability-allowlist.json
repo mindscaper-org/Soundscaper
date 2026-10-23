@@ -77,7 +77,6 @@
 		"src/common/editor/project-fallback-integrity-audio.ts": 551,
 		"src/common/editor/project-feature-requirements.ts": 576,
 		"src/common/editor/project-media-factory.ts": 585,
-		"src/common/editor/scape-project-document.ts": 569,
 		"src/common/editor/staffpad/native/StaffPad/TimeAndPitch.cpp": 559,
 		"src/common/editor/storage.js": 570,
 		"src/common/editor/storage/encoded-capture-spool-repository.ts": 579,
