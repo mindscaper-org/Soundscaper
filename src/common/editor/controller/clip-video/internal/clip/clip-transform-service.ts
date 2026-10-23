@@ -304,7 +304,7 @@ export function createClipTransformService(
 		const clip = findClip(project, clipId);
 		const track = clip ? findClipTrack(project, clip.id) : null;
 		if (!clip || !track) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
-		if (clip.kind === 'image' || clip.kind === 'generator') {
+		if (clip.kind === 'image' || clip.kind === 'generator' || clip.kind === 'still') {
 			if (options.overwrite) throw new RangeError('Still image edge trims cannot overwrite other media.');
 			return dependencies.commit(trimCommand(clip.id, changes), { selectClipId: clip.id });
 		}

@@ -33,7 +33,7 @@ export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTi
 	{
 		id: 'timeline-generator-trim-sequence-boundaries',
 		file: 'src/common/editor/timeline-generator-trim.ts',
-		behavior: 'Generated visual trims resolve requested sample positions to nearest sequence boundaries, carry the native source window with the authored sequence change, and resolve the requested right edge from the clamped absolute start sample point.',
+		behavior: 'Generated and frozen visual trims resolve requested sample positions to nearest sequence boundaries and resolve the requested right edge from the clamped absolute start sample point; generated clips additionally carry their bounded native source window.',
 		conversions: [
 			{ helper: 'sampleFrameToVideoFrame', policies: ['point'] },
 			{ helper: 'videoFrameToSampleFrame', policies: ['point'] },
@@ -42,7 +42,7 @@ export const FOUNDATION_TIME_CONVERSION_VISUAL_EDIT_SITES: readonly FoundationTi
 	{
 		id: 'timeline-generator-trim-pointer-preview',
 		file: 'src/common/editor/ui/timeline/generator-trim-pointer-preview.ts',
-		behavior: 'Generator trim previews use the owning sequence/source trim planner and convert the resulting absolute sequence start and end once to nearest project samples, preserving exact source phase and keeping the preview out of history.',
+		behavior: 'Generated and frozen picture trim previews use the owning sequence trim planner and convert the resulting absolute sequence edges once to nearest project samples; generated clips retain their exact source phase and previews stay out of history.',
 		conversions: [{ helper: 'videoFrameToSampleFrame', policies: ['point'] }],
 	},
 	{
