@@ -205,6 +205,9 @@ export function createProjectAdminService<
 		const project = getProject();
 		if (!project || project.id !== initiatingProject.id) return null;
 		if (generation) projectGeneration.assertCurrent?.(generation);
+		if (state.readOnly && !sameProjectSnapshot(projectSaveService.getPersistedSnapshot?.(project.id), project)) {
+			throw createLocalizedError(Error, copy, 'projectReadOnly');
+		}
 		if (project !== initiatingProject && !sameProjectSnapshot(
 			projectSaveService.getPersistedSnapshot?.(project.id), project,
 		)) return null;
