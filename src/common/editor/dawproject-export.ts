@@ -388,7 +388,7 @@ function buildMetadata(project: DataRecord, title: string): XmlElement {
 	];
 	return xmlElement('MetaData', {}, entries
 		.filter(([, value]) => typeof value === 'string' && value.trim() !== '')
-		.map(([name, value]) => xmlElement(name, {}, [], String(value).trim())));
+		.map(([name, value]) => xmlElement(name, {}, [], String(value))));
 }
 
 function reportProjectOmissions(context: DawprojectExportContext, sequenceId?: string): void {

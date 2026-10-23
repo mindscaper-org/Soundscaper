@@ -23,7 +23,7 @@ export interface XmlElement {
 	readonly name: string;
 	readonly attributes: Readonly<Record<string, string>>;
 	readonly children: readonly XmlElement[];
-	/** Concatenated character data, trimmed; element content only. */
+	/** Concatenated character data; trimmed unless parsing opts into exact text. */
 	readonly text: string;
 }
 
@@ -132,7 +132,8 @@ interface OpenElement {
 	text: string[];
 }
 
-export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJECT_XML_LIMITS): XmlElement {
+export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJECT_XML_LIMITS,
+	options: Readonly<{ preserveTextWhitespace?: boolean }> = {}): XmlElement {
 	if (typeof text !== 'string') throw new TypeError('An XML document must be a string.');
 	if (utf8ByteLength(text) > limits.maximumBytes) {
 		throw new RangeError(`The XML document exceeds the ${String(limits.maximumBytes)}-byte limit.`);
@@ -186,7 +187,7 @@ export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJE
 			name: open.name,
 			attributes: Object.freeze(open.attributes),
 			children: Object.freeze(open.children),
-			text: open.text.join('').trim(),
+			text: options.preserveTextWhitespace ? open.text.join('') : open.text.join('').trim(),
 		});
 		const parent = stack.at(-1);
 		if (parent) parent.children.push(element);

@@ -107,7 +107,8 @@ export function parseDawprojectDocument(projectXml: string, metadataXml?: string
 	options: Readonly<{ maximumBytes?: number }> = {}): DawprojectDocument {
 	const limits = { ...DAWPROJECT_XML_LIMITS, maximumBytes: options.maximumBytes ?? DAWPROJECT_XML_LIMITS.maximumBytes };
 	const root = parseXmlDocument(projectXml, limits);
-	const metadataRoot = typeof metadataXml === 'string' && metadataXml.trim() ? parseXmlDocument(metadataXml, limits) : null;
+	const metadataRoot = typeof metadataXml === 'string' && metadataXml.trim()
+		? parseXmlDocument(metadataXml, limits, { preserveTextWhitespace: true }) : null;
 	return parseDawprojectProjectElement(root, metadataRoot);
 }
 
@@ -245,8 +246,8 @@ function parseRealParameter(element: XmlElement): DawprojectParameter {
 function parseMetadata(root: XmlElement | null): DawprojectMetadata {
 	const text = (elementName: string): string | null => {
 		if (!root || root.name !== 'MetaData') return null;
-		const value = childElement(root, elementName)?.text.trim() ?? '';
-		return value || null;
+		const value = childElement(root, elementName)?.text ?? '';
+		return value.trim() ? value : null;
 	};
 	return Object.freeze({
 		title: text('Title'), artist: text('Artist'), album: text('Album'), year: text('Year'), comment: text('Comment'),
