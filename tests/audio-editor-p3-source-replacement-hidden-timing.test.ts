@@ -13,7 +13,7 @@ import { COPY, createAudioEditorController, createMemoryEngine, createProjectSto
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
-for (const scope of ['swap', 'pencil'] as const) test(`P3-005: ${scope} source replacement preserves hidden stretch markers`, async context => {
+for (const scope of ['swap', 'pencil', 'stereo split'] as const) test(`P3-005: ${scope} source replacement preserves hidden stretch markers`, async context => {
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const archiveStore = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `${context.name}:archive` });
@@ -40,6 +40,7 @@ for (const scope of ['swap', 'pencil'] as const) test(`P3-005: ${scope} source r
 	assert.equal(controller.getSnapshot().readOnly, false);
 	const before = controller.project;
 	if (scope === 'swap') await controller.actions.track.swapChannels('voice');
+	else if (scope === 'stereo split') await controller.actions.track.splitStereoLR('voice');
 	else {
 		controller.actions.timeline.selectClip('clip');
 		controller.actions.timeline.setZoom(288_000);
@@ -55,16 +56,25 @@ for (const scope of ['swap', 'pencil'] as const) test(`P3-005: ${scope} source r
 	const editedSource = replaced.sources.find(source => source.id === editedClip.sourceId); assert.ok(editedSource);
 	const channels: number[][] = [[], []];
 	for await (const chunk of store.readSourceChunks(String(editedSource.storageKey))) {
-		for (let channel = 0; channel < 2; channel += 1) channels[channel]!.push(...chunk.channels[channel]!);
+		for (let channel = 0; channel < editedSource.channelCount; channel += 1) channels[channel]!.push(...chunk.channels[channel]!);
 	}
 	if (scope === 'swap') { assert.equal(channels[0]?.[24_000], -.5); assert.equal(channels[1]?.[24_000], .25); }
+	else if (scope === 'stereo split') { assert.equal(editedSource.channelCount, 1); assert.equal(channels[0]?.[24_000], .25); }
 	else { assert.equal(channels[0]?.[24_001], .75); assert.equal(channels[1]?.[24_001], -.5); }
-	controller.actions.clipSourcePreview.trim('clip', { sourceStartFrame: 0, sourceDurationFrames: 48_000, durationFrames: 48_000 });
+	const extendedIds = scope === 'stereo split' ? replaced.clips.map(clip => clip.id) : ['clip'];
+	for (const clipId of extendedIds) {
+		controller.actions.clipSourcePreview.trim(clipId, { sourceStartFrame: 0, sourceDurationFrames: 48_000, durationFrames: 48_000 });
+	}
 	const restored: unknown = controller.project; assert.ok(validateSoundscaperProject(restored));
-	const points = normalizeAudioWarpMap(restored.clips[0]?.warpMap).points;
-	assert.ok(points.some(point => point.source.num / point.source.den === 12_000
-		&& point.outer.num / point.outer.den === 24_000), 'the hidden nonlinear anchor returns after extending the edited source');
-	controller.actions.edit.undo(); assert.deepEqual(controller.project?.clips, replaced.clips);
+	for (const clipId of extendedIds) {
+		const points = normalizeAudioWarpMap(restored.clips.find(clip => clip.id === clipId)?.warpMap).points;
+		assert.ok(points.some(point => point.source.num / point.source.den === 12_000
+			&& point.outer.num / point.outer.den === 24_000), 'the hidden nonlinear anchor returns after extending the edited source');
+	}
+	for (let index = 0; index < extendedIds.length; index++) controller.actions.edit.undo();
+	assert.deepEqual(controller.project?.clips, replaced.clips);
 	controller.actions.edit.undo(); assert.deepEqual(controller.project?.clips, before?.clips);
-	controller.actions.edit.redo(); controller.actions.edit.redo(); assert.deepEqual(controller.project?.clips, restored.clips);
+	controller.actions.edit.redo();
+	for (let index = 0; index < extendedIds.length; index++) controller.actions.edit.redo();
+	assert.deepEqual(controller.project?.clips, restored.clips);
 });
