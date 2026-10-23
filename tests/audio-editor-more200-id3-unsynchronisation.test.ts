@@ -11,6 +11,7 @@ import { encodeDedicatedAudioPcm } from '../src/common/editor/browser-dedicated-
 import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
 import { normalizeSourceProvenance } from '../src/common/editor/source-provenance.ts';
 import { createAudioMetadataId3Tag } from '../src/common/editor/id3-metadata.js';
+import { normalizeMediaMetadata } from '../src/common/editor/media-metadata.ts';
 import { createExportDialogInitialSettings } from '../src/common/editor/ui/export-dialog-initial-settings.ts';
 import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
 import { exportDialogMetadata } from '../src/common/editor/ui/export-dialog-audio-codec-options.ts';
@@ -82,7 +83,7 @@ test('MP3 export and File Open retain custom text names that match Object proper
 	const custom = Object.fromEntries([['constructor', 'First credit'], ['toString', 'Second credit']]);
 	const settings = { ...createExportDialogInitialSettings({ sampleRate: 48_000 }), format: 'mp3', metadataCustom: JSON.stringify(custom) };
 	const request = createExportDialogRequest(settings, { metadata: exportDialogMetadata('mp3', false, exportDialogMetadataFields(settings, custom)) });
-	const contribution = await importedMetadata(Uint8Array.from(createAudioMetadataId3Tag(request.metadata)));
+	const contribution = await importedMetadata(Uint8Array.from(createAudioMetadataId3Tag(normalizeMediaMetadata(request.metadata))));
 	assert.deepEqual(contribution.warnings, []);
 	assert.deepEqual(contribution.metadata.raw.TXXX, custom);
 	const external = { ...custom, ...Object.fromEntries([['__proto__', 'Third credit']]) };

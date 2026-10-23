@@ -11,6 +11,7 @@ import { createExportDialogInitialSettings } from '../src/common/editor/ui/expor
 import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
 import { exportDialogMetadata } from '../src/common/editor/ui/export-dialog-audio-codec-options.ts';
 import { exportDialogMetadataFields } from '../src/common/editor/ui/export-dialog-metadata-fields.ts';
+import { normalizeMediaMetadata } from '../src/common/editor/media-metadata.ts';
 
 for (const format of ['wav', 'mp3'] as const) {
 	test(`the ${format} export keeps the visible artist authoritative over a custom uppercase alias`, async () => {
@@ -18,15 +19,16 @@ for (const format of ['wav', 'mp3'] as const) {
 			metadataArtist: 'Reviewed performer', metadataCustom: JSON.stringify({ ARTIST: 'Secondary custom value' }) };
 		const metadata = exportDialogMetadataFields(settings, JSON.parse(settings.metadataCustom) as Readonly<Record<string, unknown>>);
 		const request = createExportDialogRequest(settings, { metadata: exportDialogMetadata(format, false, metadata) });
+		const requestMetadata = normalizeMediaMetadata(request.metadata);
 		// The actual dialog merge retains both entries; the file writer selects the standard frame.
-		assert.equal(request.metadata.artist, 'Reviewed performer');
-		assert.equal(request.metadata.ARTIST, 'Secondary custom value');
+		assert.equal(requestMetadata.artist, 'Reviewed performer');
+		assert.equal(requestMetadata.ARTIST, 'Secondary custom value');
 		const samples = new Float32Array(48_000);
 		const body = format === 'wav'
-			? new Blob([Uint8Array.from(encodeWav([samples], { sampleRate: 48_000, metadata: request.metadata }))])
+			? new Blob([Uint8Array.from(encodeWav([samples], { sampleRate: 48_000, metadata: requestMetadata }))])
 			: await embedAudioFileMetadata(new Blob([await encodeDedicatedAudioPcm({ format: 'mp3',
 				input: new Uint8Array(samples.buffer), frameCount: samples.length, sampleRate: 48_000, channelCount: 1,
-				settings: { bitrateKbps: 192 }, maximumOutputBytes: 1024 ** 2 }, { loadPayload: async (_format: BrowserDedicatedAudioFormat, url: URL) => new Uint8Array(await readFile(url)) })]), format, request.metadata);
+				settings: { bitrateKbps: 192 }, maximumOutputBytes: 1024 ** 2 }, { loadPayload: async (_format: BrowserDedicatedAudioFormat, url: URL) => new Uint8Array(await readFile(url)) })]), format, requestMetadata);
 		const input = new Input({ source: new BlobSource(body), formats: ALL_FORMATS });
 		try {
 			const tags = await input.getMetadataTags();
