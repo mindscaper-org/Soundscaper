@@ -31,7 +31,7 @@ for (const [format, action] of [['otio', exportProjectOtio], ['fcpxml', exportPr
 				const warning = warnings.find(item => item.scope.kind === 'clip'); assert.ok(warning, 'the delivered file must disclose discarded playback direction');
 				assert.equal(warning.severity, 'warning'); assert.equal(warning.disposition, 'omitted');
 				assert.equal(warning.data.kind, reversed ? 'reverse' : 'speed');
-				if (reversed) { assert.equal(warning.data.reversed, true); assert.match(warning.message, /reversed playback/u); }
+				if (reversed) { assert.equal(warning.data.reversed, true); assert.ok(typeof warning.message === 'string'); assert.match(warning.message, /reversed playback/u); }
 				if (speedRatio !== 1) assert.equal(warning.data.speedRatio, speedRatio);
 			}
 			assert.deepEqual(opened.project, original);
