@@ -26,3 +26,10 @@ export function linearVideoKeyframeBezierControls(start: InterpolationAnchor, en
 			control2: { position: { ...end.position }, value: end.value } };
 	}
 }
+
+/** Preserve the creation form's flat endpoint handles on the same admitted clock. */
+export function easedVideoKeyframeBezierControls(start: InterpolationAnchor, end: InterpolationAnchor) {
+	const controls = linearVideoKeyframeBezierControls(start, end);
+	return { control1: { ...controls.control1, value: start.value },
+		control2: { ...controls.control2, value: end.value } };
+}

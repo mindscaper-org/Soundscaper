@@ -4,9 +4,11 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
-test('a supported fractional keyframe anchor can switch to Bezier without losing its exact clock', async ({ page }) => {
+for (const initial of [false, true]) test(`a supported fractional keyframe anchor can ${initial ? 'start as' : 'switch to'} Bezier without losing its exact clock`, async ({ page }) => {
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await importFiles(editor, [createDeterministicAvFixture('Fractional curve.webm')]);
+	await chooseNestedCommandAction(page, editor, 'Window', ['Video preview']);
+	await expect(editor.getByRole('heading', { name: 'Video preview', exact: true })).toHaveCount(0);
 	const clip = editor.getByRole('group', { name: /^Video clip:/u }); await clip.press('Enter');
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Video keyframes']);
 	const dialog = page.getByRole('dialog', { name: 'Video keyframes', exact: true });
@@ -15,9 +17,10 @@ test('a supported fractional keyframe anchor can switch to Bezier without losing
 	await dialog.getByRole('textbox', { name: 'End (frames or num/den)', exact: true }).fill('1');
 	await dialog.getByRole('spinbutton', { name: 'Start value', exact: true }).fill('0.2');
 	await dialog.getByRole('spinbutton', { name: 'End value', exact: true }).fill('0.8');
+	if (initial) await dialog.locator('[data-video-keyframe-field="interpolation"]').selectOption('bezier');
 	await dialog.getByRole('button', { name: 'Add curve', exact: true }).click();
 	await expect(dialog.getByRole('status')).toHaveText('Video keyframes applied.');
-	await dialog.locator('[data-video-keyframe-field="segment-kind"]').selectOption('bezier');
+	if (!initial) await dialog.locator('[data-video-keyframe-field="segment-kind"]').selectOption('bezier');
 	await expect(dialog.getByRole('textbox', { name: 'Control 1 position', exact: true })).toHaveValue(/\d/u);
 	await dialog.getByRole('button', { name: 'Update segment', exact: true }).click();
 	await expect(dialog.getByRole('status')).toHaveText('Video keyframes applied.');
