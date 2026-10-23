@@ -45,7 +45,7 @@ for (const key of [' ', 'Home', 'End', 'PageUp', 'PageDown', 'ArrowLeft', 'Arrow
 		const canvas = dom.one('[data-framescaper-openfx-interact-canvas="64x64"]');
 		const props = reactProps(canvas);
 		let prevented = 0;
-		const keyboard = { currentTarget: canvas, key, code: key === ' ' ? 'Space' : key,
+		const keyboard = { currentTarget: Object.assign(canvas, { blur() {} }), nativeEvent: { isComposing: false }, key, code: key === ' ' ? 'Space' : key,
 			altKey: false, ctrlKey: false, metaKey: false, shiftKey: false,
 			preventDefault: () => { prevented += 1; } };
 		await act(async () => {
