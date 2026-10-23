@@ -127,3 +127,12 @@ test('a clip can consume the raw video mask supplied by a later layer occurrence
 	assert.equal(captures.get(later), inputs.get('matte-camera'));
 	assert.deepEqual(inputs.get('matte-camera')?.pixels, Uint8Array.of(11, 22, 33, 255));
 });
+
+test('dormant raster nodes retained beside a vector output add no video source reads', async () => {
+	const { options, count } = maskOptions();
+	const graph = options.masks.get('plate-mask'); assert.ok(graph);
+	const vector = { id: 'shape', kind: 'vector-shape' as const, shape: 'rectangle' as const, x: 0, y: 0, width: 1, height: 1 };
+	const captures = await captureSelectedFinishingVideoMaskInputs({ ...options,
+		masks: new Map([[graph.id, { ...graph, nodes: [...graph.nodes, vector], outputNodeId: vector.id }]]) });
+	assert.equal(captures.size, 0); assert.equal(count(), 0);
+});

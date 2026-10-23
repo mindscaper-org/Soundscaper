@@ -37,7 +37,7 @@ export async function captureSelectedFinishingVideoMaskInputs(options: MediaInde
 	readonly capture: (entry: Data, signal: AbortSignal) => UnifiedExactRenderRgbaFrameV13 | PromiseLike<UnifiedExactRenderRgbaFrameV13>;
 	readonly signal: AbortSignal;
 }>): Promise<ReadonlyMap<Data, UnifiedExactRenderRgbaFrameV13>> {
-	const required = new Set(options.visualMasks.flatMap(graph => graph.inputs.map(input => input.sourceRef)));
+	const required = new Set(options.visualMasks.flatMap(requiredMaskSources));
 	const entries = options.layers.flatMap(value => {
 		const layer = record(value, 'Selected finishing media layer');
 		if (!Array.isArray(layer.entries)) throw new TypeError('Selected finishing media entries must be an array.');
@@ -47,7 +47,7 @@ export async function captureSelectedFinishingVideoMaskInputs(options: MediaInde
 			for (const id of mediaPresentation(options.finishing, resolved.clipId, resolved.sourceId).maskIds) {
 				const graph = options.masks.get(id);
 				if (!graph) throw new ReferenceError(`Selected finishing mask ${id} is unavailable.`);
-				for (const input of graph.inputs) required.add(input.sourceRef);
+				for (const sourceRef of requiredMaskSources(graph)) required.add(sourceRef);
 			}
 			return { entry, ...resolved };
 		});
@@ -71,6 +71,21 @@ export async function captureSelectedFinishingVideoMaskInputs(options: MediaInde
 		captures.set(value.entry, binding.pixels);
 	}
 	return captures;
+}
+
+function requiredMaskSources(graph: VideoMaskMatteGraphV1): string[] {
+	const nodes = new Map(graph.nodes.map(node => [node.id, node]));
+	const remaining = [graph.outputNodeId], visited = new Set<string>(), names = new Set<string>();
+	for (let id = remaining.pop(); id !== undefined; id = remaining.pop()) {
+		if (visited.has(id)) continue;
+		visited.add(id);
+		const node = nodes.get(id);
+		if (!node) throw new ReferenceError(`Mask/matte node ${id} is unavailable.`);
+		if (node.kind === 'raster' || node.kind === 'alpha') names.add(node.inputName);
+		else if (node.kind === 'feather' || node.kind === 'invert') remaining.push(node.inputNodeId);
+		else if (node.kind === 'boolean') remaining.push(...node.inputNodeIds);
+	}
+	return graph.inputs.filter(input => names.has(input.name)).map(input => input.sourceRef);
 }
 
 function record(value: unknown, name: string): Data {
