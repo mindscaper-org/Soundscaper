@@ -129,7 +129,10 @@ export function createFramescaperProjectBinVisualActions(
 		const clip = records(data(project.projectBin).clips).find(clip => clip.id === clipId);
 		if (!clip || !owned(clip)) return undefined;
 		if (blocked()) return null;
-		const sequence = resolveSequenceTimingView(project);
+		const targetSequence = placement.trackId ? records(project.sequences).find(sequence => (
+			Array.isArray(sequence.trackIds) && sequence.trackIds.includes(placement.trackId)
+		)) : undefined;
+		const sequence = resolveSequenceTimingView(project, targetSequence ? String(targetSequence.id) : undefined);
 		const sample = Number(placement.timelineStartFrame ?? owner.getTelemetrySnapshot().positionFrame);
 		if (!Number.isSafeInteger(sample) || sample < 0) throw new RangeError('Bin placement needs a non-negative exact playhead sample.');
 		const start = sampleFrameToVideoFrame(sample, sequence.rate, Number(project.sampleRate), 'point');
@@ -138,7 +141,7 @@ export function createFramescaperProjectBinVisualActions(
 		const targetProject = placement.trackId ? { ...project,
 			selection: { ...data(project.selection), trackIds: [placement.trackId] } } : project;
 		const target = createFramescaperImageBatchPlacementTimelineImage(targetProject, {
-			sequenceStartFrame: start, sequenceFrameCounts: [duration], createId,
+			sequenceId: sequence.id, sequenceStartFrame: start, sequenceFrameCounts: [duration], createId,
 		});
 		const id = createId('clip');
 		const candidate = { ...clip, id, sequenceId: target.sequenceId, sequenceStartFrame: start, sequenceFrameCount: duration };

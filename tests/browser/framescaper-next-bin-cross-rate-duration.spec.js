@@ -15,8 +15,9 @@ test('Bin insertion keeps a five-second visual when its destination has a differ
 		frameRate: { num: 60, den: 1 }, frameCount: 300, generator: { kind: 'solid', color: '#ffffffff' },
 	}] }, clips: [{ schemaVersion: 1, kind: 'generator', id: 'title', sourceId: 'title-source', sequenceId: 'cut',
 		sequenceStartFrame: 0, sequenceFrameCount: 300, sourceInFrame: 0, sourceFrameCount: 300 }],
-	tracks: [{ id: 'pictures', type: 'video', clipIds: ['title'] }],
-	sequences: [{ id: 'main', rate: { num: 25, den: 1 }, trackIds: [] },
+	tracks: [{ id: 'primary-pictures', name: 'Primary pictures', type: 'video', clipIds: [] },
+		{ id: 'pictures', type: 'video', clipIds: ['title'] }],
+	sequences: [{ id: 'main', rate: { num: 25, den: 1 }, trackIds: ['primary-pictures'] },
 		{ id: 'cut', rate: { num: 60, den: 1 }, trackIds: ['pictures'] }], primarySequenceId: 'main' });
 	const store = createFramescaperProjectStore(PROFILE, { indexedDB: null, preferOpfs: false });
 	let archive;
@@ -34,6 +35,7 @@ test('Bin insertion keeps a five-second visual when its destination has a differ
 	await page.getByRole('menuitem', { name: 'Move to Project bin', exact: true }).click();
 	const card = editor.locator('[data-project-bin-item]').first();
 	await expect(card.locator('.kw-audio-editor__project-bin-meta')).toContainText('0:05.0');
+	await editor.locator('[data-track-row][data-track-id="primary-pictures"] [data-track-name]').click();
 	await card.getByRole('button', { name: 'Add to timeline: Title', exact: true }).click();
 	await expect(clip).toBeVisible();
 	const expected = [{ sequenceId: 'main', duration: 125, sourceStart: 0, sourceDuration: 300 }];
