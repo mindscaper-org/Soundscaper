@@ -79,7 +79,7 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		sampleRate: integer(raw.sampleRate, 1, 768_000, 48_000),
 		masterChannels: integer(raw.masterChannels, 1, 64, 2),
 	});
-	const attempt = (path: string, update: (draft: RecordValue) => void, relationships = false): boolean => {
+	const attempt = (path: string, update: (draft: RecordValue) => void, relationships = false, reportFailure = true): boolean => {
 		const draft = structuredClone(project) as unknown as RecordValue;
 		try {
 			update(draft);
@@ -89,7 +89,7 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 			project = draft as unknown as SoundscaperProject;
 			return true;
 		} catch (error) {
-			note(path, `Removed or reset invalid data: ${error instanceof Error ? error.message : String(error)}`);
+			if (reportFailure) note(path, `Removed or reset invalid data: ${error instanceof Error ? error.message : String(error)}`);
 			return false;
 		}
 	};
@@ -132,6 +132,23 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		if (!addTrack(defaultTrack)) continue;
 		for (const field of Object.keys(candidate)) {
 			if (['id', 'type', 'clipIds', 'laneGroupId', 'audioFreeze'].includes(field)) continue;
+			if (field === 'labels' && Array.isArray(candidate.labels)) {
+				const restoreLabels = (labels: readonly unknown[], start: number): void => {
+					const path = `tracks[${String(index)}].labels[${String(start)}]`;
+					const admitted = attempt(path, draft => {
+						draft.tracks = values(draft.tracks).map(value => {
+							const current = record(value)!;
+							return current.id === track.id ? { ...current, labels: [...values(current.labels), ...labels] } : current;
+						});
+					}, false, labels.length === 1);
+					if (admitted || labels.length <= 1) return;
+					const middle = Math.floor(labels.length / 2);
+					restoreLabels(labels.slice(0, middle), start);
+					restoreLabels(labels.slice(middle), start + middle);
+				};
+				restoreLabels(values(candidate.labels), 0);
+				continue;
+			}
 			attempt(`tracks[${String(index)}].${field}`, (draft) => {
 				draft.tracks = values(draft.tracks).map((value) => {
 					const current = record(value)!;
