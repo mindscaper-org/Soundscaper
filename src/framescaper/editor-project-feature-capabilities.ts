@@ -38,6 +38,7 @@ export const FRAMESCAPER_PROJECT_FEATURE_CAPABILITY_PROFILE =
 			capability('sourceCharacteristics', 'source-characteristics', true),
 			capability('takeComp', 'take-comp', false),
 			capability('timelineAnnotations', 'timeline-annotations', true),
+			capability('timelineImageHoldPhase', 'timeline-image-hold-phase-v1', true),
 			capability('timelineImagePhase', 'timeline-image-phase-v1', true),
 			capability('timelineImages', 'timeline-images-v1', true),
 			capability('trackFolders', 'track-folders', false),

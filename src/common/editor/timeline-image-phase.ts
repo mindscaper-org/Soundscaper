@@ -26,14 +26,11 @@ export function normalizeTimelineImageSourceFraction(value: unknown): TimelineIm
 	return Object.freeze({ num: String(num), den: String(den) });
 }
 
-/** Keep the fractional tick until the final frame address is resolved. */
+/** Keep elapsed phase, including a held tail, until the final frame address is resolved. */
 export function advanceTimelineImageSourcePhase(phase: TimelineImageSourcePhase, frames: number,
-	rate: Rational, finalTick?: bigint): TimelineImageSourcePhase {
+	rate: Rational): TimelineImageSourcePhase {
 	const { num: numerator, den: denominator } = advanced(phase, frames, rate);
 	if (numerator < 0n) throw new RangeError('An image source phase cannot precede its source.');
-	if (finalTick !== undefined && numerator > finalTick * denominator) {
-		return Object.freeze({ sourceStartTicks: String(finalTick) });
-	}
 	const ticks = numerator / denominator;
 	const remainder = numerator % denominator;
 	if (remainder === 0n) return Object.freeze({ sourceStartTicks: String(ticks) });

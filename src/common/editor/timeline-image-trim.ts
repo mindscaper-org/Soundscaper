@@ -15,7 +15,7 @@ export interface TimelineImageTrimSource {
 
 /** Images hold their final frame, so trimming uses sequence boundaries rather than audio EOF. */
 export function prepareTimelineImageTrim(clock: TimelineImageTrimClock, original: FramescaperImageClipV1,
-	source: TimelineImageTrimSource, changes: Readonly<{ timelineStartFrame?: number; durationFrames?: number }>): FramescaperImageClipV1 {
+	_source: TimelineImageTrimSource, changes: Readonly<{ timelineStartFrame?: number; durationFrames?: number }>): FramescaperImageClipV1 {
 	const sequence = clock.sequences.find(item => item.id === original.sequenceId);
 	if (!sequence) throw new ReferenceError('An image trim requires its sequence clock.');
 	const end = original.sequenceStartFrame + original.sequenceFrameCount;
@@ -27,9 +27,8 @@ export function prepareTimelineImageTrim(clock: TimelineImageTrimClock, original
 	const requestedEnd = changes.durationFrames === undefined ? end
 		: sampleFrameToVideoFrame(startSample + Math.max(1, changes.durationFrames), sequence.rate, clock.sampleRate);
 	const count = Math.max(1, requestedEnd - start);
-	const finalTick = BigInt(source.canonical.durationTicks) - 1n;
 	return normalizeFramescaperImageClipV1({ schemaVersion: original.schemaVersion, kind: 'image', id: original.id,
 		sourceId: original.sourceId, sequenceId: original.sequenceId, sequenceStartFrame: start,
 		sequenceFrameCount: count,
-		...advanceTimelineImageSourcePhase(original, start - original.sequenceStartFrame, sequence.rate, finalTick) });
+		...advanceTimelineImageSourcePhase(original, start - original.sequenceStartFrame, sequence.rate) });
 }

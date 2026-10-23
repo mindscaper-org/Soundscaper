@@ -42,9 +42,8 @@ export function prepareTimelineImageSplitCommand(project: FramescaperProjectTime
 		if (leftCount <= 0 || leftCount >= expectedClip.sequenceFrameCount) {
 			throw new RangeError('An image split must resolve inside its sequence extent.');
 		}
-		const finalTick = BigInt(source.canonical.durationTicks) - 1n;
 		const left = { ...expectedClip, sequenceFrameCount: leftCount };
-		const phase = advanceTimelineImageSourcePhase(expectedClip, leftCount, sequence.rate, finalTick);
+		const phase = advanceTimelineImageSourcePhase(expectedClip, leftCount, sequence.rate);
 		const right = { ...expectedClip, id: split.rightClipId, sequenceStartFrame: boundary,
 			sequenceFrameCount: expectedClip.sequenceFrameCount - leftCount,
 			sourceStartTicks: phase.sourceStartTicks };

@@ -356,7 +356,8 @@ function digest(value: unknown, name: string): string {
 function decimalTicks(value: unknown, name: string, positive = false): string {
 	if (typeof value !== 'string' || !DECIMAL_TICKS.test(value)) throw new TypeError(`${name} ticks must be a canonical decimal string.`);
 	const ticks = BigInt(value);
-	if ((positive && ticks === 0n) || ticks > BigInt(FRAMESCAPER_IMAGE_MODEL_LIMITS_V1.maximumDurationTicks)) {
+	// Asset duration remains bounded; elapsed hold phase carries no additional pixels.
+	if (positive && (ticks === 0n || ticks > BigInt(FRAMESCAPER_IMAGE_MODEL_LIMITS_V1.maximumDurationTicks))) {
 		throw new RangeError(`${name} ticks are outside the 24-hour domain.`);
 	}
 	return value;

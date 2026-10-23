@@ -39,7 +39,9 @@ export function framescaperProjectNativeMediaFoundationShapeTimelineImage(projec
 		.filter((row) => row.id !== PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImages
 			&& row.featureId !== PROJECT_FEATURE_CAPABILITY_IDS.timelineImages
 			&& row.id !== PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImagePhase
-			&& row.featureId !== PROJECT_FEATURE_CAPABILITY_IDS.timelineImagePhase);
+			&& row.featureId !== PROJECT_FEATURE_CAPABILITY_IDS.timelineImagePhase
+			&& row.id !== PROJECT_OWNED_FEATURE_REQUIREMENT_IDS.timelineImageHoldPhase
+			&& row.featureId !== PROJECT_FEATURE_CAPABILITY_IDS.timelineImageHoldPhase);
 	foundation.featureRequirements = reconcileFramescaperProjectFeatureRequirementsNativeMedia(
 		FRAMESCAPER_NATIVE_MEDIA_PROJECT_RUNTIME_PROFILE,
 		foundation,

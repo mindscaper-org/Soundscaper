@@ -47,6 +47,7 @@ Families describe product entry points, not every file extension a decoder might
 | OpenFX effects | Not enabled | Enabled |
 | Project bin | Enabled | Enabled |
 | Projects | Enabled | Enabled |
+| Restorable held-image phase | Not enabled | Enabled |
 | Sample-level audio editing | Enabled | Not enabled |
 | Sequence timing | Enabled | Enabled |
 | Source characteristics | Enabled | Enabled |

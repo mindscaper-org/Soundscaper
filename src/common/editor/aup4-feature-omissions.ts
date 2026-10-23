@@ -89,6 +89,7 @@ export const AUP4_OWNED_FEATURE_CARRIAGE: Readonly<Record<OwnedFeatureKey, Aup4F
 	}),
 	timelineImages: Object.freeze({ carriage: 'reported', code: 'VIDEO_OMITTED' }),
 	timelineImagePhase: Object.freeze({ carriage: 'reported', code: 'VIDEO_OMITTED' }),
+	timelineImageHoldPhase: Object.freeze({ carriage: 'reported', code: 'VIDEO_OMITTED' }),
 	videoRetime: Object.freeze({ carriage: 'reported', code: 'VIDEO_OMITTED' }),
 	videoTimingAssets: Object.freeze({ carriage: 'reported', code: 'VIDEO_OMITTED' }),
 	sourceCharacteristics: Object.freeze({

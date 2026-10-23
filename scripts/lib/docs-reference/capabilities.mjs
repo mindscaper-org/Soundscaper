@@ -43,6 +43,7 @@ const CAPABILITY_LABELS = Object.freeze({
 	sequenceTiming: 'Sequence timing',
 	timelineImages: 'Timeline images',
 	timelineImagePhase: 'Exact animated-image phase',
+	timelineImageHoldPhase: 'Restorable held-image phase',
 	videoRetime: 'Video retiming',
 	videoCaptions: 'Video captions',
 	videoColorManagement: 'Video color management',
