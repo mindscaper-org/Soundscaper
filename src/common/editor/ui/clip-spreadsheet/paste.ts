@@ -86,25 +86,30 @@ export function matchClipSpreadsheetSourceFiles<SourceFile extends ClipSpreadshe
 	const exact = new Map<string, Set<SourceFile>>();
 	const basenames = new Map<string, Set<SourceFile>>();
 	const windowsBasenames = new Map<string, Set<SourceFile>>();
+	const canonicalExact = new Map<string, Set<SourceFile>>();
+	const canonicalBasenames = new Map<string, Set<SourceFile>>();
+	const canonicalWindowsBasenames = new Map<string, Set<SourceFile>>();
 	const selected = new Set(files);
 	for (const file of selected) {
-		const name = sourceReference(file.name, true);
-		addMatch(exact, name.path, file);
-		addMatch(basenames, name.basename, file);
-		addMatch(windowsBasenames, name.basename.toLowerCase(), file);
-		for (const value of new Set([file.webkitRelativePath, file.relativePath, file.path].filter((value): value is string => Boolean(value)))) {
-			const reference = sourceReference(value);
+		const paths = new Set([file.webkitRelativePath, file.relativePath, file.path].filter((value): value is string => Boolean(value)));
+		for (const reference of [sourceReference(file.name, true), ...[...paths].map(value => sourceReference(value))]) {
 			addMatch(exact, reference.path, file);
 			addMatch(basenames, reference.basename, file);
 			addMatch(windowsBasenames, reference.basename.toLowerCase(), file);
+			addMatch(canonicalExact, reference.path.normalize('NFC'), file);
+			addMatch(canonicalBasenames, reference.basename.normalize('NFC'), file);
+			addMatch(canonicalWindowsBasenames, reference.basename.toLowerCase().normalize('NFC'), file);
 		}
 	}
 	const matched = new Map<string, SourceFile>();
 	const referencesByFile = new Map<SourceFile, string>();
 	for (const value of references) {
-		const reference = sourceReference(value, exact.has(value));
+		const reference = sourceReference(value, exact.has(value) || canonicalExact.has(value.normalize('NFC')));
 		const candidates = exact.get(reference.path)
-			?? (reference.windows ? windowsBasenames.get(reference.basename.toLowerCase()) : basenames.get(reference.basename));
+			?? canonicalExact.get(reference.path.normalize('NFC'))
+			?? (reference.windows ? windowsBasenames.get(reference.basename.toLowerCase()) : basenames.get(reference.basename))
+			?? (reference.windows ? canonicalWindowsBasenames.get(reference.basename.toLowerCase().normalize('NFC'))
+				: canonicalBasenames.get(reference.basename.normalize('NFC')));
 		if (!candidates?.size) throw new RangeError(`Selected source file is missing: ${value}`);
 		if (candidates.size !== 1) throw new RangeError(`Selected source file is ambiguous: ${value}`);
 		const file = candidates.values().next().value!;
