@@ -133,7 +133,7 @@ interface OpenElement {
 }
 
 export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJECT_XML_LIMITS,
-	options: Readonly<{ preserveTextWhitespace?: boolean }> = {}): XmlElement {
+	options: Readonly<{ preserveTextWhitespace?: boolean; allowedSimpleDoctype?: string }> = {}): XmlElement {
 	if (typeof text !== 'string') throw new TypeError('An XML document must be a string.');
 	if (utf8ByteLength(text) > limits.maximumBytes) {
 		throw new RangeError(`The XML document exceeds the ${String(limits.maximumBytes)}-byte limit.`);
@@ -147,6 +147,11 @@ export function parseXmlDocument(text: string, limits: XmlParseLimits = DAWPROJE
 		failure ??= error;
 	};
 	parser.on('error', (error) => { fail(error instanceof Error ? error : new Error(String(error))); });
+	parser.on('doctype', (value) => {
+		if (options.allowedSimpleDoctype !== undefined && value.trim() !== options.allowedSimpleDoctype) {
+			fail(new SyntaxError('The XML document contains an unsupported doctype or entity declaration.'));
+		}
+	});
 	parser.on('opentag', (tag) => {
 		if (failure) return;
 		elements += 1;

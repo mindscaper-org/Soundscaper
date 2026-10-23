@@ -80,18 +80,13 @@ const SESX_XML_LIMITS = Object.freeze({
 	maximumElements: 500_000,
 	maximumTextBytes: 2 * 1024 * 1024,
 });
-const SIMPLE_DOCTYPE = /<!DOCTYPE\s+sesx\s*>/iu;
-const DECLARATION = /<!\s*(?:DOCTYPE|ENTITY|ELEMENT|ATTLIST|NOTATION)\b/iu;
-
 export function parseSesxDocument(xml: string, options: Readonly<{ maximumBytes?: number }> = {}): SesxDocument {
 	if (typeof xml !== 'string') throw new TypeError('An SESX session must be XML text.');
 	// Audition writes <!DOCTYPE sesx> without an external or internal subset.
-	// Removing only that spelling lets the bounded shared SAX reader parse the
-	// document while refusing DTD entities and external declarations.
-	const withoutDoctype = xml.replace(SIMPLE_DOCTYPE, '');
-	if (DECLARATION.test(withoutDoctype)) throw new SyntaxError('SESX contains an unsupported doctype or entity declaration.');
-	const root = parseXmlDocument(withoutDoctype, { ...SESX_XML_LIMITS,
-		maximumBytes: options.maximumBytes ?? SESX_XML_LIMITS.maximumBytes });
+	// Check actual declarations at the SAX boundary; comments and CDATA retain
+	// declaration-shaped character data without being rewritten or activated.
+	const root = parseXmlDocument(xml, { ...SESX_XML_LIMITS,
+		maximumBytes: options.maximumBytes ?? SESX_XML_LIMITS.maximumBytes }, { allowedSimpleDoctype: 'sesx' });
 	if (root.name !== 'sesx') throw new SyntaxError(`An SESX document starts with <sesx>, not <${root.name}>.`);
 	const session = childElement(root, 'session');
 	if (!session) throw new SyntaxError('SESX has no <session> element.');
