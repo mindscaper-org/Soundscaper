@@ -4,7 +4,7 @@ import { loadImportAdmissionExecution } from './import-admission-loader.ts'; imp
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
 import { nativeSurroundOpusAdmission, assertNativeSurroundOpusGeometry } from './native-surround-opus-admission.ts';
-import { nativeOggFlacAdmission, assertNativeOggFlacGeometry } from './native-ogg-flac-admission.ts';
+import { nativeContainerAudioAdmission, assertNativeContainerAudioGeometry } from './native-container-audio-admission.ts';
 import { importFilePlacement } from './import-file-placement.ts';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
 import {
@@ -410,8 +410,8 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		}
 		const { isStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
 		const nativeAdmission = isStreamedAudioImportFile(file) ? await nativeSurroundOpusAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg }) : null; assertImportProjectCurrent();
-		const nativeFlac = isStreamedAudioImportFile(file) ? await nativeOggFlacAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg }) : null; assertImportProjectCurrent();
-		if (wavSignature === 'RIFX' || isStreamedAudioImportFile(file) && !nativeAdmission && !nativeFlac) {
+		const nativeContainer = isStreamedAudioImportFile(file) ? await nativeContainerAudioAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg, nativeSampleRate: async () => Number((await engine.getAudioContext({ resume: false })).sampleRate) }) : null; assertImportProjectCurrent();
+		if (wavSignature === 'RIFX' || isStreamedAudioImportFile(file) && !nativeAdmission && !nativeContainer) {
 			const { importStreamedAudioFile } = await import('./streamed-audio-import-service.ts');
 			return importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
 				importIncrementalPcm, assertImportProjectCurrent);
@@ -439,7 +439,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			inspectEncodedSampleRate: inspectEncodedAudioSampleRate,
 			inspectDecodedSampleRate: inspectDecodedAudioSampleRate,
 		});
-		assertImportProjectCurrent(); assertNativeSurroundOpusGeometry(decoded, nativeAdmission); assertNativeOggFlacGeometry(decoded, nativeFlac); admitAudioImportChannelCount(decoded.numberOfChannels);
+		assertImportProjectCurrent(); assertNativeSurroundOpusGeometry(decoded, nativeAdmission); assertNativeContainerAudioGeometry(decoded, nativeContainer); admitAudioImportChannelCount(decoded.numberOfChannels);
 		const canonical = await canonicalizeBuffer(decoded, context, null, copy, { preserveChannels: true });
 		assertImportProjectCurrent();
 		await preflightStorage(canonical.length * canonical.numberOfChannels * Float32Array.BYTES_PER_ELEMENT, 'import');
