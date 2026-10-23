@@ -23,7 +23,7 @@ export function prepareClipPointerDuplicateCommand(runtime: ClipPointerDuplicate
 	for (const transform of transforms) {
 		const owner = project.tracks.find(track => track.clipIds?.includes(transform.clipId));
 		if (!owner || !transform.trackId) throw new RangeError('Duplicated clips require a destination track.');
-		trackMap[owner.id] = transform.trackId;
+		Object.defineProperty(trackMap, owner.id, { value: transform.trackId, enumerable: true, configurable: true });
 	}
 	const activeTransform = transforms.find(transform => transform.clipId === activeClip.id);
 	if (!activeTransform) throw new RangeError('The active duplicate requires a destination.');

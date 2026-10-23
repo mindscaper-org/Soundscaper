@@ -11,8 +11,8 @@ import { COPY, createAudioEditorController, createMemoryEngine, createProjectSto
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
-for (const trackId of ['__proto__', 'constructor', 'toString', 'voice']) {
-	test(`P3-011: Edit Duplicate retains recording placement for native track ${trackId}`, async context => {
+for (const trackId of ['__proto__', 'constructor', 'toString', 'voice']) for (const operation of ['edit', 'drag'] as const) {
+	test(`P3-011: ${operation} duplicate retains recording placement for native track ${trackId}`, async context => {
 		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 		const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 4800 });
 		const writer = await store.beginSourceWrite(source.storageKey, source);
@@ -31,7 +31,8 @@ for (const trackId of ['__proto__', 'constructor', 'toString', 'voice']) {
 		assert.equal(controller.getSnapshot().readOnly, false);
 		controller.actions.timeline.selectClip(clip.id);
 		const before: unknown = controller.project; assert.ok(validateSoundscaperProject(before));
-		controller.actions.edit.duplicate();
+		if (operation === 'edit') controller.actions.edit.duplicate();
+		else controller.actions.clip.moveToNewTrack(clip.id, 4800, { exactFrame: true, duplicate: true });
 		const after: unknown = controller.project; assert.ok(validateSoundscaperProject(after));
 		assert.equal(after.tracks.length, 2); assert.equal(after.clips.length, 2);
 		const duplicate = after.tracks.find(track => track.id !== trackId); assert.ok(duplicate);
