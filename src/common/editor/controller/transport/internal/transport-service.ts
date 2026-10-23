@@ -44,6 +44,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		setExactSelection, setStatus, startRecording, state,
 		stopProjectBinPreview, stopRecording, throwIfAborted,
 	} = runtime;
+	const playbackSelection = () => resolveSelectionRange(getProject(), { selectedClipId: state.selectedClipId }) ?? activeSelection();
 	let metronomeSchedulerGeneration = 0;
 	let foregroundPlayPreparation: symbol | null = null;
 	let transportRequestGeneration = 0;
@@ -163,7 +164,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		}
 		if (action === 'cut-preview') {
 			foregroundPlayPreparation = null;
-			const selection = activeSelection();
+			const selection = playbackSelection();
 			if (!selection || selection.endFrame <= selection.startFrame) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
 			cancelPlayAtSpeedPreparation();
 			cancelPlaybackCachePreparation();
@@ -189,7 +190,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 				return;
 			}
 			const snapshot = requireProject();
-			if (action === 'play-selection' && !activeSelection()) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
+			if (action === 'play-selection' && !playbackSelection()) throw createLocalizedError(Error, copy, 'timeSelectionRequired');
 			const spectral = action === 'play-spectral-selection' ? requireSpectralPlaybackSelection(snapshot.selection, copy) : null;
 			const preparation = Symbol('foreground-play-preparation');
 			foregroundPlayPreparation = preparation;
@@ -198,7 +199,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 				if (generation !== transportRequestGeneration || foregroundPlayPreparation !== preparation || snapshot !== getProject()) return;
 				if (spectral) return await playSpectralSelection(engine, spectral, () => generation === transportRequestGeneration && foregroundPlayPreparation === preparation);
 				engine.setPlaybackFrequencyRange?.(null);
-				bindPlaybackToTimeSelection(engine, action === 'play-selection' && !snapshot.loop?.enabled ? activeSelection() : null);
+				bindPlaybackToTimeSelection(engine, action === 'play-selection' && !snapshot.loop?.enabled ? playbackSelection() : null);
 				return await engine.play();
 			} finally {
 				if (foregroundPlayPreparation === preparation) foregroundPlayPreparation = null;

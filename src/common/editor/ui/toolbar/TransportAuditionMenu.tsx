@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { ContextMenuItem } from '@soundscaper/design-system/ContextMenuItem';
+import { resolveSelectionRange } from '../../selection-range.ts';
 import { transportShortcutDisplayActionId } from '../../transport-shortcut-display.ts';
 import { createSpectralPlaybackMenuItem, type SpectralPlaybackMenuSnapshot } from '../spectral-playback-menu.ts';
 
@@ -33,7 +34,7 @@ export default function TransportAuditionMenu({
 	const paused = recording ? snapshot.recordingOptions?.paused === true : transportState === 'paused';
 	const shortcuts = snapshot.preferences?.shortcuts;
 	const shortcut = (actionId: string) => shortcuts?.[transportShortcutDisplayActionId(actionId)]?.join(', ');
-	const selection = snapshot.selection;
+	const selection = resolveSelectionRange(snapshot.project) ?? snapshot.selection;
 	const spectralPlayback = createSpectralPlaybackMenuItem(copy, snapshot, blocked,
 		() => controller.actions.transport.playSpectralSelection());
 	const items = [

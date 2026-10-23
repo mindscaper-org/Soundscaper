@@ -12,6 +12,7 @@ import { TransportButton } from '@soundscaper/design-system/TransportButton';
 import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { framesToSeconds, secondsToFrames } from '../../design-system-adapters.js';
 import { editorTimelineDurationFrames } from '../../project.js';
+import { resolveSelectionRange } from '../../selection-range.ts';
 import { playAtSpeedRateBounds } from '../../engine/buffer-math.ts';
 import { audioEditorProjectFrameRate } from '../AudioEditorTimeCodeInput.tsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
@@ -82,7 +83,7 @@ export function PlaySpeedFlyout({ copy, snapshot, blocked, controller, run, clos
 			<ContextMenuItem
 				label={copy.playSelection}
 				shortcut={snapshot.preferences?.shortcuts?.['action://playback/play-selection']?.join(', ')}
-				disabled={blocked || transportState === 'playing' || !snapshot.selection}
+				disabled={blocked || transportState === 'playing' || !(resolveSelectionRange(snapshot.project) ?? snapshot.selection)}
 				onClick={() => {
 					close();
 					run(() => controller.actions.transport.playSelection());
