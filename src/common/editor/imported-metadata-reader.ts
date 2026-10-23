@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { riff64MetadataReadView } from './riff64-metadata-read-view.ts';
+import { riffMetadataReadView } from './riff-metadata-read-view.ts';
 
 /** WavPack has an APEv2 trailer; the other import formats use Mediabunny. */
 export async function readImportedMetadataTags(file: Blob, signal?: AbortSignal): Promise<unknown> {
@@ -9,7 +9,7 @@ export async function readImportedMetadataTags(file: Blob, signal?: AbortSignal)
 	if (new TextDecoder().decode(header.subarray(0, 4)) === 'wvpk') {
 		return (await import('./ape-metadata-reader.ts')).readApeMetadataTags(file, signal);
 	}
-	file = await riff64MetadataReadView(file, header, signal) ?? file;
+	file = await riffMetadataReadView(file, header, signal) ?? file;
 	if (new TextDecoder().decode(header.subarray(0, 4)) === 'OggS') file = await (await import('./ogg-flac-metadata-read-view.ts')).oggFlacMetadataReadView(file, header, signal) ?? file;
 	const { ALL_FORMATS, BlobSource, Input } = await import('mediabunny');
 	signal?.throwIfAborted();

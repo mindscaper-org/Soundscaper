@@ -14,19 +14,19 @@ interface Directory {
 	readonly table: Map<string, { readonly values: number[]; index: number }>;
 }
 
-/** The tag demuxer does not recognize BW64 or advance past unknown data sizes.
+/** The tag demuxer rejects some natively decoded WAVE codecs and BW64.
  * Present its bounded INFO/ID3 chunks in a small RIFF view without reading PCM.
  * The original container remains the authority for CSET and audio validation.
  */
-export async function riff64MetadataReadView(file: Blob, header: Uint8Array, signal?: AbortSignal): Promise<Blob | null> {
+export async function riffMetadataReadView(file: Blob, header: Uint8Array, signal?: AbortSignal): Promise<Blob | null> {
 	const kind = ascii(header, 0, 4);
-	if (header.length < 12 || ascii(header, 8, 4) !== 'WAVE') return null;
+	if (header.length < 12 || !['RIFF', 'RF64', 'BW64'].includes(kind) || ascii(header, 8, 4) !== 'WAVE') return null;
 	const declaredSize = dataView(header).getUint32(4, true);
 	const streamingSize = kind === 'RIFF' ? createRiffStreamingSizeResolver(declaredSize, file.size) : null;
-	if (!streamingSize && !['RF64', 'BW64'].includes(kind)) return null;
-	const directory = streamingSize ? null : await readDs64Directory(file, signal, MAXIMUM_CHUNKS,
-		declaredSize, kind.toLowerCase(), readBlobBytes) as Directory;
-	const riffEnd = directory?.riffEnd ?? file.size;
+	const directory = kind === 'RF64' || kind === 'BW64' ? await readDs64Directory(file, signal, MAXIMUM_CHUNKS,
+		declaredSize, kind.toLowerCase(), readBlobBytes) as Directory : null;
+	const riffEnd = directory?.riffEnd ?? streamingSize?.riffEnd ?? declaredSize + 8;
+	if (!Number.isSafeInteger(riffEnd) || riffEnd < 12 || riffEnd > file.size) throw new RangeError('The RIFF metadata container size is invalid.');
 	let offset = directory?.nextOffset ?? 12;
 	let count = 0;
 	let dataSeen = false;
@@ -50,7 +50,9 @@ export async function riff64MetadataReadView(file: Blob, header: Uint8Array, sig
 			metadataBytes += 8 + size + size % 2;
 			if (metadataBytes > MAXIMUM_METADATA_BYTES) throw new RangeError('The RIFF64 metadata exceeds its inspection limit.');
 			dataView(chunk).setUint32(4, size, true);
-			parts.push(Uint8Array.from(chunk), file.slice(start, next));
+			// Selected desktop ranges are virtual Blobs. Own only the bounded
+			// metadata bytes before native Blob composition; never materialize audio.
+			parts.push(Uint8Array.from(chunk), Uint8Array.from(await readBlobBytes(file, start, next, signal)));
 		}
 		offset = next;
 	}

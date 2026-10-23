@@ -14,7 +14,7 @@ function latch(): { ready: Promise<void>; release: () => void } {
 }
 
 for (const phase of ['header', 'metadata'] as const) test(`Cancel retires the foreground import while its native ${phase} read remains pending`, async () => {
-	const file = new File([Uint8Array.from(encodeWav([new Float32Array(4800).fill(.2)], { sampleRate: 48_000 }))], 'Metadata.wav');
+	const file = new File([Uint8Array.from(encodeWav([new Float32Array(4800).fill(.2)], { sampleRate: 48_000, metadata: { title: 'Native metadata' } }))], 'Metadata.wav');
 	const native = await nativeOriginalImportFixture(file);
 	const fixture = await createTwoTrackFixture(`metadata-cancel-${phase}`, new Map<string, Float32Array>(), 48_000);
 	const choices = await native.bridge.chooseFiles({ purpose: 'audio', multiple: false }); assert.ok(Array.isArray(choices));
