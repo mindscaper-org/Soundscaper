@@ -182,13 +182,13 @@ test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow wit
 
 	await canvas.focus();
 	await canvas.dispatchEvent('pointerdown', {
-		pointerId: 7, clientX: 80, clientY: 96, button: 1, buttons: 4, shiftKey: true,
+		pointerId: 7, isPrimary: true, clientX: 80, clientY: 96, button: 1, buttons: 4, shiftKey: true,
 	});
 	await canvas.dispatchEvent('pointermove', {
-		pointerId: 7, clientX: 144, clientY: 160, button: -1, buttons: 4, shiftKey: true,
+		pointerId: 7, isPrimary: true, clientX: 144, clientY: 160, button: -1, buttons: 4, shiftKey: true,
 	});
 	await canvas.dispatchEvent('pointerup', {
-		pointerId: 7, clientX: 144, clientY: 160, button: 1, buttons: 0,
+		pointerId: 7, isPrimary: true, clientX: 144, clientY: 160, button: 1, buttons: 0,
 	});
 	await canvas.press('Enter');
 	await dialog.locator('[data-framescaper-openfx-interact-target="true"]').focus();

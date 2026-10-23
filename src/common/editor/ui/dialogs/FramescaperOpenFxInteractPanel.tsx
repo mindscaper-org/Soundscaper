@@ -27,6 +27,9 @@ type UnsequencedOfxInteractEvent =
 	| Omit<Extract<OfxInteractEventV1, { readonly kind: 'pointer' }>, 'sequence'>
 	| Omit<Extract<OfxInteractEventV1, { readonly kind: 'keyboard' }>, 'sequence'>
 	| Omit<Extract<OfxInteractEventV1, { readonly kind: 'focus' }>, 'sequence'>;
+type OwnedPointer = Readonly<{
+	pointerId: number; x: number; y: number; button: number; modifiers: readonly OfxInteractModifier[];
+}>;
 type InteractTarget = Readonly<{
 	target: FramescaperOpenFxInteractRequestV1['target'];
 	parameterName: string | null;
@@ -44,6 +47,8 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 	const [status, setStatus] = usePresentationFeedback(copy, undefined, undefined, { key: 'ofxInteractLoading' });
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
 	const sequenceRef = useRef(0);
+	// The native Interact pen stream has no pointer IDs: one browser gesture owns it.
+	const pointerRef = useRef<OwnedPointer | null>(null);
 	const historyRef = useRef<readonly OfxInteractEventV1[]>(Object.freeze([]));
 	const replayFullRef = useRef(false);
 	const generationRef = useRef(0);
@@ -123,6 +128,7 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 		if (instance === null) return;
 		generationRef.current += 1;
 		sequenceRef.current = 0;
+		pointerRef.current = null;
 		historyRef.current = Object.freeze([]);
 		replayFullRef.current = false;
 		submit(Object.freeze([]));
@@ -147,8 +153,28 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 		phase: 'motion' | 'down' | 'up', value: React.PointerEvent<HTMLCanvasElement>,
 	): void => {
 		const normalized = normalizeOpenFxPointer(value.currentTarget.getBoundingClientRect(), value, phase);
-		event({ kind: 'pointer', phase, ...normalized, modifiers: openFxModifiers(value) });
+		const modifiers = openFxModifiers(value);
+		const button = phase === 'up' ? pointerRef.current?.button ?? normalized.button : normalized.button;
+		if (phase === 'down') pointerRef.current = { ...normalized, modifiers, pointerId: value.pointerId };
+		else if (phase === 'motion' && pointerRef.current !== null) pointerRef.current = {
+			...pointerRef.current, x: normalized.x, y: normalized.y, modifiers,
+		};
+		if (phase === 'up') pointerRef.current = null;
+		event({ kind: 'pointer', phase, ...normalized, button, modifiers });
 	}, [event]);
+	const releasePointer = useCallback((modifiers?: readonly OfxInteractModifier[]): void => {
+		const owner = pointerRef.current;
+		if (owner === null) return;
+		pointerRef.current = null;
+		event({ kind: 'pointer', phase: 'up', x: owner.x, y: owner.y,
+			button: owner.button, modifiers: modifiers ?? owner.modifiers });
+	}, [event]);
+
+	const keyboard = (phase: 'down' | 'up', value: React.KeyboardEvent<HTMLCanvasElement>): void => {
+		const modifiers = openFxModifiers(value);
+		if (pointerRef.current !== null) pointerRef.current = { ...pointerRef.current, modifiers };
+		event({ kind: 'keyboard', phase, key: value.key, code: value.code, modifiers });
+	};
 
 	const chooseInstance = (value: string): void => {
 		generationRef.current += 1;
@@ -184,23 +210,27 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 					border: '2px solid CanvasText', background: 'Canvas', forcedColorAdjust: 'none',
 					touchAction: 'none', outlineOffset: 3 }}
 				onPointerMove={(value) => {
+					const owner = pointerRef.current;
+					if (value.isPrimary === false || (owner !== null ? owner.pointerId !== value.pointerId : value.buttons !== 0)) return;
 					if (value.currentTarget.ownerDocument.activeElement === value.currentTarget) pointer('motion', value);
 				}}
 				onPointerDown={(value) => {
+					if (value.isPrimary === false || pointerRef.current !== null) return;
 					value.currentTarget.focus();
 					try { value.currentTarget.setPointerCapture(value.pointerId); } catch { /* unavailable */ }
 					pointer('down', value);
 				}}
 				onPointerUp={(value) => {
+					if (pointerRef.current?.pointerId !== value.pointerId) return;
 					pointer('up', value);
 					try { value.currentTarget.releasePointerCapture(value.pointerId); } catch { /* unavailable */ }
 				}}
-				onKeyDown={(value) => event({ kind: 'keyboard', phase: 'down',
-					key: value.key, code: value.code, modifiers: openFxModifiers(value) })}
-				onKeyUp={(value) => event({ kind: 'keyboard', phase: 'up',
-					key: value.key, code: value.code, modifiers: openFxModifiers(value) })}
+				onPointerCancel={(value) => { if (pointerRef.current?.pointerId === value.pointerId) releasePointer(openFxModifiers(value)); }}
+				onLostPointerCapture={(value) => { if (pointerRef.current?.pointerId === value.pointerId) releasePointer(openFxModifiers(value)); }}
+				onKeyDown={(value) => keyboard('down', value)}
+				onKeyUp={(value) => keyboard('up', value)}
 				onFocus={() => event({ kind: 'focus', focused: true })}
-				onBlur={() => event({ kind: 'focus', focused: false })}
+				onBlur={() => { releasePointer(); event({ kind: 'focus', focused: false }); }}
 			/>
 		</>}
 	</section>;
