@@ -5,6 +5,7 @@ import { ProgressBar } from '@soundscaper/design-system/ProgressBar';
 import { Separator } from '@soundscaper/design-system/Separator';
 import { TextInput } from '@soundscaper/design-system/TextInput';
 import { MEDIA_EXPORT_FORMATS } from '../../media-export.js';
+import { resolveSelectionRange } from '../../selection-range.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import VideoDeliveryFields from '../VideoDeliveryFields.jsx';
@@ -107,7 +108,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setSettings, setPresetId, setPresetName,
 		isCurrent: () => currentOperationOwner.current === operationOwner,
 	});
-	const hasSelection = Boolean(snapshot.selection);
+	const hasSelection = Boolean(resolveSelectionRange(snapshot.project));
 	const hasLoop = Boolean(snapshot.project?.loop?.enabled);
 	const exporting = Boolean(snapshot.exporting);
 	const progress = Math.round(Math.max(0, Math.min(1, exportProgress ?? snapshot.export?.progress ?? 0)) * 100);
