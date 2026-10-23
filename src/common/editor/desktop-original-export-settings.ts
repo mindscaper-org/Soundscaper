@@ -134,6 +134,8 @@ async function pcmSettings(format: string, file: NamedByteSource, header: Uint8A
 		if (!['RIFF', 'RIFX', 'RF64', 'BW64'].includes(ascii(header, 0, 4)) || ascii(header, 8, 4) !== 'WAVE') return null;
 		const descriptor = await inspectWavBlobPcm(file);
 		if (!descriptor) return null;
+		// Stereo Original carries only the channel count, not custom speaker roles.
+		if (descriptor.channelCount === 2 && descriptor.channelMask !== 0 && descriptor.channelMask !== 3) return null;
 		const bitDepth = descriptor.validBitsPerSample ?? descriptor.bitDepth;
 		const sampleFormat = descriptor.sampleFormat === 'float32' ? 'float32' : `int${String(bitDepth)}`;
 		if (!['int16', 'int20', 'int24', 'float32'].includes(sampleFormat)) return null;
