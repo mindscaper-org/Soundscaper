@@ -43,13 +43,16 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 +		reader.pos = frameStartPos;
  		tags.raw ??= {};
  		if (frame.id === 'TXXX') {
- 			const txxx = tags.raw['TXXX'] ??= {};
+-			const txxx = tags.raw['TXXX'] ??= {};
++			const txxx = (tags.raw['TXXX'] ??= {}) as Record<string, string>;
  			const encoding = reader.readId3V2TextEncoding();
  			const description = reader.readId3V2Text(encoding, frameEndPos);
 -			const value = reader.readId3V2Text(encoding, frameEndPos);
+-
+-			(txxx as Record<string, string>)[description] ??= value;
 +			const value = reader.readId3V2TextValues(encoding, frameEndPos);
- 
- 			(txxx as Record<string, string>)[description] ??= value;
++
++			if (!Object.hasOwn(txxx, description)) Object.defineProperty(txxx, description, { value, enumerable: true, writable: true, configurable: true });
  		} else if (frame.id[0] === 'T') {
  			// It's a text frame, let's decode as text
 -			tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
@@ -228,8 +231,9 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
              const encoding = reader.readId3V2TextEncoding();
              const description = reader.readId3V2Text(encoding, frameEndPos);
 -            const value = reader.readId3V2Text(encoding, frameEndPos);
+-            txxx[description] ??= value;
 +            const value = reader.readId3V2TextValues(encoding, frameEndPos);
-             txxx[description] ??= value;
++            if (!Object.hasOwn(txxx, description)) Object.defineProperty(txxx, description, { value, enumerable: true, writable: true, configurable: true });
          }
          else if (frame.id[0] === 'T') {
              // It's a text frame, let's decode as text
@@ -473,8 +477,9 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          const encoding = reader.readId3V2TextEncoding();
          const description = reader.readId3V2Text(encoding, frameEndPos);
 -        const value = reader.readId3V2Text(encoding, frameEndPos);
+-        txxx[description] ??= value;
 +        const value = reader.readId3V2TextValues(encoding, frameEndPos);
-         txxx[description] ??= value;
++        if (!Object.hasOwn(txxx, description)) Object.defineProperty(txxx, description, { value, enumerable: true, writable: true, configurable: true });
        } else if (frame.id[0] === "T") {
 -        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
 +        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos, '\0');
@@ -675,8 +680,9 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          const encoding = reader.readId3V2TextEncoding();
          const description = reader.readId3V2Text(encoding, frameEndPos);
 -        const value = reader.readId3V2Text(encoding, frameEndPos);
+-        txxx[description] ??= value;
 +        const value = reader.readId3V2TextValues(encoding, frameEndPos);
-         txxx[description] ??= value;
++        if (!Object.hasOwn(txxx, description)) Object.defineProperty(txxx, description, { value, enumerable: true, writable: true, configurable: true });
        } else if (frame.id[0] === "T") {
 -        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
 +        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos, '\0');
@@ -877,8 +883,9 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        const encoding = reader.readId3V2TextEncoding();
        const description = reader.readId3V2Text(encoding, frameEndPos);
 -      const value = reader.readId3V2Text(encoding, frameEndPos);
+-      txxx[description] ??= value;
 +      const value = reader.readId3V2TextValues(encoding, frameEndPos);
-       txxx[description] ??= value;
++      if (!Object.hasOwn(txxx, description)) Object.defineProperty(txxx, description, { value, enumerable: true, writable: true, configurable: true });
      } else if (frame.id[0] === "T") {
 -      tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
 +      tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos, '\0');

@@ -10,6 +10,11 @@ import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
 import { encodeDedicatedAudioPcm } from '../src/common/editor/browser-dedicated-audio-codec.ts';
 import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
 import { normalizeSourceProvenance } from '../src/common/editor/source-provenance.ts';
+import { createAudioMetadataId3Tag } from '../src/common/editor/id3-metadata.js';
+import { createExportDialogInitialSettings } from '../src/common/editor/ui/export-dialog-initial-settings.ts';
+import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
+import { exportDialogMetadata } from '../src/common/editor/ui/export-dialog-audio-codec-options.ts';
+import { exportDialogMetadataFields } from '../src/common/editor/ui/export-dialog-metadata-fields.ts';
 import { createController, createTwoTrackFixture, storedChannel } from './helpers/audio-editor-multitrack-selection-harness.js';
 
 const runNode = promisify(execFile);
@@ -72,6 +77,19 @@ function textList(encoding: 0 | 1 | 2 | 3, values: readonly string[]): Buffer {
 		return [text, terminator];
 	})]);
 }
+
+test('MP3 export and File Open retain custom text names that match Object properties', async () => {
+	const custom = Object.fromEntries([['constructor', 'First credit'], ['toString', 'Second credit']]);
+	const settings = { ...createExportDialogInitialSettings({ sampleRate: 48_000 }), format: 'mp3', metadataCustom: JSON.stringify(custom) };
+	const request = createExportDialogRequest(settings, { metadata: exportDialogMetadata('mp3', false, exportDialogMetadataFields(settings, custom)) });
+	const contribution = await importedMetadata(Uint8Array.from(createAudioMetadataId3Tag(request.metadata)));
+	assert.deepEqual(contribution.warnings, []);
+	assert.deepEqual(contribution.metadata.raw.TXXX, custom);
+	const external = { ...custom, ...Object.fromEntries([['__proto__', 'Third credit']]) };
+	const input = new Input({ source: new BlobSource(new Blob([Uint8Array.from(createAudioMetadataId3Tag(external)), await mp3()])), formats: ALL_FORMATS });
+	try { assert.deepEqual((await input.getMetadataTags()).raw?.TXXX, external); }
+	finally { input.dispose(); }
+});
 
 for (const encoding of [0, 1, 2, 3] as const) test(`File Open retains every value in ID3v2.4 text lists (encoding${encoding})`, async () => {
 	const body = Buffer.concat([frame(4, 'TPE1', textList(encoding, ['Lead performer', 'Guest performer'])),
