@@ -68,7 +68,7 @@ function overlappingFronts(entries: readonly SesxOverlapEntry[]) {
 				active.delete(previous);
 				continue;
 			}
-			if (entry.authored.linkedCrossfade || previous.authored.linkedCrossfade) continue;
+			if (crossfadePartners(entry.authored, previous.authored)) continue;
 			const entryIsFront = entry.authored.zOrder > previous.authored.zOrder
 				|| (entry.authored.zOrder === previous.authored.zOrder && entry.position > previous.position);
 			const behind = entryIsFront ? previous : entry;
@@ -79,6 +79,11 @@ function overlappingFronts(entries: readonly SesxOverlapEntry[]) {
 		active.add(entry);
 	}
 	return fronts;
+}
+
+function crossfadePartners(left: SesxClip, right: SesxClip): boolean {
+	return (right.id !== null && left.crossfadePartnerIds.includes(right.id))
+		|| (left.id !== null && right.crossfadePartnerIds.includes(left.id));
 }
 
 function fragmentEnvelope(clip: SesxImportedClip, offset: number, duration: number) {

@@ -38,6 +38,7 @@ export interface SesxClip {
 	readonly offline: boolean;
 	readonly looped: boolean;
 	readonly linkedCrossfade: boolean;
+	readonly crossfadePartnerIds: readonly string[];
 	readonly unsupportedPan: boolean;
 	readonly remappedChannels: boolean;
 	readonly stretch: boolean;
@@ -175,6 +176,8 @@ function readClip(element: XmlElement): SesxClip {
 	const fadeOutFrames = fadeLength(fadeOut);
 	const clipPan = childElements(element, 'component').find((component) => attribute(component, 'id') === 'clipPan');
 	const channelMap = childElement(element, 'channelMap');
+	const crossfadePartnerIds = ['crossFadeHeadClipID', 'crossFadeTailClipID']
+		.map(name => attribute(element, name)?.trim()).filter((id): id is string => Boolean(id && id !== '-1'));
 	return Object.freeze({
 		zOrder: integerAttribute(element, 'zOrder') ?? 0,
 		id: attribute(element, 'id'),
@@ -187,10 +190,8 @@ function readClip(element: XmlElement): SesxClip {
 		muted: controls.mute,
 		offline: booleanAttribute(element, 'offline') ?? false,
 		looped: booleanAttribute(element, 'looped') ?? false,
-		linkedCrossfade: ['crossFadeHeadClipID', 'crossFadeTailClipID'].some((name) => {
-			const id = attribute(element, name)?.trim();
-			return Boolean(id && id !== '-1');
-		}),
+		linkedCrossfade: crossfadePartnerIds.length > 0,
+		crossfadePartnerIds: Object.freeze(crossfadePartnerIds),
 		unsupportedPan: Boolean(clipPan?.children.length),
 		remappedChannels: Boolean(channelMap && childElements(channelMap, 'channel').some((channel) =>
 			attribute(channel, 'index') !== attribute(channel, 'sourceIndex'))),
