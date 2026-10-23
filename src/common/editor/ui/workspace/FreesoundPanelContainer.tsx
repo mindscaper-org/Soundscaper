@@ -5,6 +5,7 @@ import { isCurrentAssertion, type EditorProjectToken } from '../../controller/sh
 
 import { freesoundAttributionCopy } from '../../../i18n/freesound-attribution-copy.js';
 import { restoreMediaListeningGainOnMetadata } from '../media-listening-gain-readiness.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import FreesoundPanel, {
 	type FreesoundPanelState,
 	type FreesoundResultPresentation,
@@ -123,6 +124,12 @@ export function FreesoundPanelContainer({
 	}), [copy, snapshot.locale]);
 	const [state, setState] = useState<FreesoundPanelState>(INITIAL_STATE);
 	const [pendingSoundId, setPendingSoundId] = useState<number | null>(null);
+	const pendingImport = useRef<AbortController | null>(null);
+	const projectIdentity = editorProjectEditSessionKey(controller, dataRecord(snapshot.project)?.id);
+	useEffect(() => {
+		setPendingSoundId(null);
+		return () => { pendingImport.current?.abort(); pendingImport.current = null; };
+	}, [controller, projectIdentity]);
 	const [fallbackImport, setFallbackImport] = useState<Readonly<{ request: FreesoundImportRequest; projectToken: EditorProjectToken }> | null>(null);
 	const projectIsCurrent = useCallback((token: EditorProjectToken) => controller.getSnapshot().project?.id === token.projectId
 		&& isCurrentAssertion(() => controller.assertProjectGeneration(token)), [controller]);
@@ -291,9 +298,13 @@ export function FreesoundPanelContainer({
 
 	const executeImport = useCallback((request: FreesoundImportRequest) => {
 		const projectToken = controller.captureProjectGeneration();
+		pendingImport.current?.abort();
+		const abort = new AbortController();
+		pendingImport.current = abort;
+		const signal = request.signal ? AbortSignal.any([request.signal, abort.signal]) : abort.signal;
 		setPendingSoundId(request.soundId);
-		void actions.importSound(request).catch((error: unknown) => {
-			if (!projectIsCurrent(projectToken)) return;
+		void actions.importSound({ ...request, signal }).catch((error: unknown) => {
+			if (signal.aborted || !projectIsCurrent(projectToken)) return;
 			if (error instanceof FreesoundOriginalTooLargeError && request.variant === 'original') {
 				setFallbackImport({ request, projectToken });
 				return;
@@ -301,7 +312,11 @@ export function FreesoundPanelContainer({
 			setState((current) => ({
 				...current, status: 'error', errorMessage: errorMessage(error, localizedCopy.importError),
 			}));
-		}).finally(() => setPendingSoundId(null));
+		}).finally(() => {
+			if (pendingImport.current !== abort) return;
+			pendingImport.current = null;
+			setPendingSoundId(null);
+		});
 	}, [actions, controller, localizedCopy.importError, projectIsCurrent]);
 
 	const importSound = useCallback((soundId: number, destination: 'timeline' | 'project-bin') => {
