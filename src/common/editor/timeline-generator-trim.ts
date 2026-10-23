@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { normalizeVideoGeneratorClipV1, normalizeVideoStillClipV1, type VideoGeneratorClipV1, type VideoStillClipV1 } from './video-visual-model-v24.ts';
+import { generatorSourceWindowSequenceFrames } from './timeline-generator-source-window.ts';
 import { sampleFrameToVideoFrame, videoFrameToSampleFrame, type RationalRate } from './timeline-time.ts';
 
 export interface TimelineGeneratorTrimClock {
@@ -33,14 +34,14 @@ export function prepareTimelineGeneratorTrim(clock: TimelineGeneratorTrimClock, 
 	const end = original.sequenceStartFrame + original.sequenceFrameCount;
 	const requestedStart = changes.timelineStartFrame === undefined ? original.sequenceStartFrame
 		: sampleFrameToVideoFrame(changes.timelineStartFrame, sequence.rate, clock.sampleRate, 'point');
-	const availableLeft = Math.floor(original.sourceInFrame / ratio);
+	const availableLeft = generatorSourceWindowSequenceFrames(original.sourceInFrame, original);
 	const start = Math.max(0, original.sequenceStartFrame - availableLeft, Math.min(end - 1, requestedStart));
 	const startSample = videoFrameToSampleFrame(start, sequence.rate, clock.sampleRate, 'point');
 	const requestedEnd = changes.durationFrames === undefined ? end
 		: sampleFrameToVideoFrame(startSample + Math.max(1, changes.durationFrames), sequence.rate, clock.sampleRate, 'point');
 	const sourceInFrame = Math.min(original.sourceInFrame + original.sourceFrameCount - 1,
 		Math.max(0, original.sourceInFrame + Math.round((start - original.sequenceStartFrame) * ratio)));
-	const maximumCount = Math.max(1, Math.floor((source.frameCount - sourceInFrame) / ratio));
+	const maximumCount = Math.max(1, generatorSourceWindowSequenceFrames(source.frameCount - sourceInFrame, original));
 	const sequenceFrameCount = Math.max(1, Math.min(maximumCount, requestedEnd - start));
 	const sourceFrameCount = Math.max(1, Math.min(source.frameCount - sourceInFrame, Math.round(sequenceFrameCount * ratio)));
 	return normalizeVideoGeneratorClipV1({ ...original, sequenceStartFrame: start,

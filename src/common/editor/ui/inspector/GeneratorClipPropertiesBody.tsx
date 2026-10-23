@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { generatorSourceWindowSequenceFrames } from '../../timeline-generator-source-window.ts';
 import { videoFrameToSampleFrame } from '../../timeline-time.ts';
 import AudioEditorTimeCodeInput, { audioEditorProjectSampleRate } from '../AudioEditorTimeCodeInput.tsx';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
@@ -24,8 +25,8 @@ export default function GeneratorClipPropertiesBody({ controller, project, clipI
 	const sequence = records(owner.sequences).find(item => item.id === clip.sequenceId);
 	const clock = record(sequence?.rate);
 	const rate = { num: Number(clock.num), den: Number(clock.den) };
-	const sourceRatio = Number(clip.sourceFrameCount) / Number(clip.sequenceFrameCount);
-	const maximumCount = Math.max(1, Math.floor((Number(source.frameCount) - Number(clip.sourceInFrame)) / sourceRatio));
+	const maximumCount = Math.max(1, generatorSourceWindowSequenceFrames(Number(source.frameCount) - Number(clip.sourceInFrame),
+		{ sourceFrameCount: Number(clip.sourceFrameCount), sequenceFrameCount: Number(clip.sequenceFrameCount) }));
 	const maximumDuration = videoFrameToSampleFrame(Number(clip.sequenceStartFrame) + maximumCount, rate, sampleRate, 'point')
 		- videoFrameToSampleFrame(Number(clip.sequenceStartFrame), rate, sampleRate, 'point');
 	const [error, setError] = usePresentationFeedback(copy);
