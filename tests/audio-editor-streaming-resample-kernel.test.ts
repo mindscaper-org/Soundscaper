@@ -85,3 +85,24 @@ test('shared convolution retains the established windowed-sinc PCM at edges and 
 		}
 	}
 });
+
+test('integer-phase downsampling reuses a complete sinc window after boundary or fractional reads', (context) => {
+	let evaluations = 0;
+	const cosine = Math.cos;
+	context.mock.method(Math, 'cos', (value: number) => { evaluations++; return cosine(value); });
+	const sample = createWindowedSincChannelSampler(24, 0.94 / 3);
+	const channels = [Float32Array.from({ length: 256 }, (_, frame) => frame % 17 / 17)];
+	const output = [new Float32Array(1)];
+	sample(channels, 0, 256, 30, output, 0);
+	const first = output[0]![0];
+	assert.ok(evaluations > 0);
+	evaluations = 0;
+	for (const position of [33, 36, 39]) sample(channels, 0, 256, position, output, 0);
+	assert.equal(evaluations, 0, 'steady integer phases must not evaluate the window again');
+	for (const position of [0, 255, 30.5]) sample(channels, 0, 256, position, output, 0);
+	assert.ok(evaluations > 0, 'partial windows and fractional phases retain their exact calculation');
+	evaluations = 0;
+	sample(channels, 0, 256, 30, output, 0);
+	assert.equal(output[0]![0], first, 'boundary reads must not overwrite the cached complete window');
+	assert.equal(evaluations, 0);
+});
