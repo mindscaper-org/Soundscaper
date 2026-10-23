@@ -115,6 +115,7 @@ export function createProjectAdminService<
 	) {
 		const active = project?.id === projectId;
 		const discard = closeOptions.discard === true;
+		if (tab.dirty && tab.readOnly && !discard) throw createLocalizedError(Error, copy, 'projectReadOnly');
 		let projectSaveSuspended = false;
 		let inactiveCloseReservation: Readonly<{ release(): boolean }> | null = null;
 		if (discard) {

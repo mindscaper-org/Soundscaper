@@ -7,7 +7,7 @@ import { installReactTestDom } from './helpers/react-test-dom.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 type Tab = Readonly<{ projectId: string; dirty: boolean }>;
-for (const changed of [false, true]) test(`File New preserves unload protection for a retained ${changed ? 'dirty' : 'saved'} read-only project`, async context => {
+for (const operation of ['new', 'close-active', 'close-inactive'] as const) for (const changed of [false, true]) test(`${operation} protects a retained ${changed ? 'dirty' : 'saved'} read-only project`, async context => {
 	const dom = installReactTestDom(); context.after(() => dom.restore());
 	const listeners: Array<(event: BeforeUnloadEvent) => void> = [];
 	Object.assign(window, { addEventListener(type: string, listener: (event: BeforeUnloadEvent) => void) {
@@ -44,13 +44,20 @@ for (const changed of [false, true]) test(`File New preserves unload protection 
 	assert.equal(controller.getSnapshot().readOnly, true);
 	assert.equal(session.getSnapshot().tabs.find((tab: Tab) => tab.projectId === firstId)?.dirty, changed);
 	rejectProjectSave = false;
+	if (operation === 'close-active') { await closeRetainedProject(); return; }
 	await controller.actions.project.create({ title: 'Clean incoming project' });
 	assert.notEqual(controller.project?.id, firstId);
 	assert.equal(controller.getSnapshot().readOnly, false);
 	assert.equal(session.getSnapshot().tabs.find((tab: Tab) => tab.projectId === firstId)?.dirty, changed);
 	assert.equal(session.getSnapshot().tabs.find((tab: Tab) => tab.projectId === controller.project?.id)?.dirty, false);
+	if (operation === 'close-inactive') { await closeRetainedProject(); return; }
 	let prevented = false;
 	const event = { returnValue: undefined, preventDefault() { prevented = true; } } as unknown as BeforeUnloadEvent;
 	for (const listener of listeners) listener(event);
 	assert.equal(prevented, changed, 'retained unsaved history must remain protected when a different clean project is active');
+	async function closeRetainedProject(): Promise<void> {
+		if (changed) await assert.rejects(controller.actions.project.close(firstId), /read.only/iu);
+		else await controller.actions.project.close(firstId);
+		assert.equal(session.getSnapshot().tabs.some((tab: Tab) => tab.projectId === firstId), changed);
+	}
 });
