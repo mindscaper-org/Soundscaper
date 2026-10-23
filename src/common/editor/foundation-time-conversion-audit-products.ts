@@ -127,4 +127,10 @@ export const FOUNDATION_TIME_CONVERSION_PRODUCT_SITES: readonly FoundationTimeCo
 			{ helper: 'videoFrameToSampleFrame', policies: ['point'] },
 		],
 	},
+	{
+		id: 'legacy-aup-companion-drop-placement',
+		file: 'src/common/editor/controller/import/internal/legacy-aup-import-placement.ts',
+		behavior: 'Companion recordings dropped with a legacy project keep the elapsed drop position as the nearest incoming-project sample after the legacy import switches sample clocks.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
 ]);

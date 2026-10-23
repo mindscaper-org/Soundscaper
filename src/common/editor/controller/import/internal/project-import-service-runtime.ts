@@ -34,6 +34,7 @@ import { createLinkedAudioImportAdmission } from './linked-media/linked-audio-im
 import { createLinkedPcmImporter } from './linked-media/linked-wav-import-service.ts';
 import { persistDecodedLegacyAupProject } from './legacy-aup-project-persistence.ts';
 import { assertSingleLegacyAupProject } from './legacy-aup-batch-admission.ts';
+import { legacyAupImportPlacement } from './legacy-aup-import-placement.ts';
 import { createAddTimelineAnnotationCommand } from '../../../commands/factories.ts';
 import {
 	createOmittedRiffAnnotationImportReport,
@@ -102,7 +103,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		}
 		const { createImportTaskCancellation } = await loadImportAdmissionExecution();
 		const cancellation = createImportTaskCancellation(await normalizedImportOptionsForUse(requestedOptions)); assertRequestedProjectCurrent?.();
-		const importOptions = cancellation.options;
+		let importOptions = cancellation.options; const importSampleRate = projectSampleRate();
 		const linkedOriginalLocator = linkedOriginalLocatorReferenceFromImportOptions(importOptions);
 		if (!files.length || editingBlocked()) {
 			if (linkedOriginalLocator) await releaseLinkedOriginalLocator(linkedOriginalLocator);
@@ -139,6 +140,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)), { signal: cancellation.signal, assertCurrent: assertRequestedProjectCurrent },
 				);
 				if (getProject()?.id !== result.project?.id) throw new Error('The project changed during audio import.');
+				importOptions = legacyAupImportPlacement(importOptions, importSampleRate, projectSampleRate());
 				const importedProjectToken = captureProject();
 				assertRequestedProjectCurrent = () => {
 					assertProject(importedProjectToken);
