@@ -131,7 +131,7 @@ export async function publishGeneratedAudioSource<Context, Prepared, Result>(
 		const peaks = request.stream ? await request.stream.finish() : await dependencies.generatePeaks(request.channels!);
 		request.ownership.assertCurrent();
 		dependencies.sourcePeaks.set(sourceId, peaks);
-		await dependencies.store.saveAnalysis(dependencies.peakCacheKey(sourceId), peaks);
+		await dependencies.store.saveAnalysis(dependencies.peakCacheKey(sourceId), peaks).catch(() => undefined);
 		request.ownership.assertCurrent();
 		return await request.accept(source, prepared);
 	} catch (error) {

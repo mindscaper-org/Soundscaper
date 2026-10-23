@@ -386,7 +386,7 @@ export function createSelectionEffectResultService<Buffer extends AudioBufferLik
 				const peaks = await generateWaveformPeaks(entry.channels, copy);
 				assertOperationCurrent();
 				sourcePeaks.set(entry.sourceId, peaks);
-				await store.saveAnalysis(peakCacheKey(entry.sourceId), peaks);
+				await store.saveAnalysis(peakCacheKey(entry.sourceId), peaks).catch(() => undefined);
 				assertOperationCurrent();
 			}
 			assertOperationCurrent();

@@ -310,7 +310,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				cacheSourceBuffer(audioSourceId, canonicalAudio);
 				const peaks = await generateWaveformPeaks(audioBufferChannels(canonicalAudio), copy);
 				sourcePeaks.set(audioSourceId, peaks);
-				await store.saveAnalysis(peakCacheKey(audioSourceId), peaks);
+				await Promise.resolve(store.saveAnalysis(peakCacheKey(audioSourceId), peaks)).catch(() => undefined);
 			}
 
 			const sourceRate = timingProbe.decision === 'timing-asset' ? timingProbe.nominalRate : timingProbe.rate;

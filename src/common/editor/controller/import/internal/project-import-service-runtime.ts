@@ -501,7 +501,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			const peaks = await generateWaveformPeaks(audioBufferChannels(canonical), copy);
 			assertImportProjectCurrent();
 			sourcePeaks.set(sourceId, peaks);
-			await store.saveAnalysis(peakCacheKey(sourceId), peaks);
+			await store.saveAnalysis(peakCacheKey(sourceId), peaks).catch(() => undefined);
 			assertImportProjectCurrent();
 			commit(prepared.command, prepared.selection);
 			importedResult = prepared.result;
