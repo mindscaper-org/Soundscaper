@@ -25,8 +25,8 @@ import { createProjectBinContractionEvaluator } from '../project-bin-replacement
 import { isNativeProjectBinVideo, projectBinVideoReplacementRange } from '../project-bin-video-replacement.ts';
 import { resolveRuntimeClipProjection } from '../runtime-clip-projection.ts';
 import { collectTakeGroupSourceIds } from '../take-group-source-references.ts';
+import { binSourceTimelineRemovalIds } from './bin-source-timeline-removal.ts';
 import {
-	collectRelatedClipIds,
 	removeClips,
 } from './clip-basic-runtime.js';
 import {
@@ -294,10 +294,9 @@ function removeProjectBinSourceFromProject(project, clipId) {
 		? projectBin.clips.filter((candidate) => candidate.binItemId === clip.binItemId)
 		: [clip];
 	const sourceIds = new Set(itemClips.map((candidate) => candidate.sourceId));
-	const timelineIds = collectRelatedClipIds(
-		project,
-		project.clips.filter((candidate) => sourceIds.has(candidate.sourceId)).map((candidate) => candidate.id),
-	);
+	const timelineIds = binSourceTimelineRemovalIds(project.clips, sourceIds);
+	const removedIds = new Set(timelineIds);
+	for (const candidate of project.clips) if (removedIds.has(candidate.id)) candidate.groupId = null;
 	if (timelineIds.length) removeClips(project, timelineIds);
 	projectBin.clips = projectBin.clips.filter((candidate) => !sourceIds.has(candidate.sourceId));
 	const takeSourceIds = collectTakeGroupSourceIds(project);
