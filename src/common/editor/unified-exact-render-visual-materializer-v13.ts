@@ -267,9 +267,10 @@ function scaleFrame(
 	const pixels = new Uint8Array(width * height * 4);
 	for (let y = 0; y < height; y += 1) {
 		throwIfAborted(signal);
-		const sourceY = Math.min(sourceHeight - 1, Math.floor(y * sourceHeight / height));
+		// Map destination pixel centres into the source's nearest-pixel cells.
+		const sourceY = Math.min(sourceHeight - 1, Math.floor((y + 0.5) * sourceHeight / height));
 		for (let x = 0; x < width; x += 1) {
-			const sourceX = Math.min(sourceWidth - 1, Math.floor(x * sourceWidth / width));
+			const sourceX = Math.min(sourceWidth - 1, Math.floor((x + 0.5) * sourceWidth / width));
 			const sourceOffset = (sourceY * sourceWidth + sourceX) * 4;
 			pixels.set(frame.pixels.subarray(sourceOffset, sourceOffset + 4), (y * width + x) * 4);
 		}

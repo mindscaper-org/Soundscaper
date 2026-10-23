@@ -119,8 +119,8 @@ function rasterInput(
 	}
 	const output = new Uint8Array(width * height);
 	for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
-		const sourceX = Math.min(sourceWidth - 1, Math.floor(x * sourceWidth / width));
-		const sourceY = Math.min(sourceHeight - 1, Math.floor(y * sourceHeight / height));
+		const sourceX = Math.min(sourceWidth - 1, Math.floor((x + 0.5) * sourceWidth / width));
+		const sourceY = Math.min(sourceHeight - 1, Math.floor((y + 0.5) * sourceHeight / height));
 		const offset = (sourceY * sourceWidth + sourceX) * 4;
 		output[y * width + x] = node.kind === 'alpha' || node.channel === 'alpha'
 			? frame.pixels[offset + 3]!
