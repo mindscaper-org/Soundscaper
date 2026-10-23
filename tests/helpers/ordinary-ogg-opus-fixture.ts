@@ -56,6 +56,26 @@ export async function repeatedTaggedWebmOpusFixture(repeated = true): Promise<Fi
 	return new File([bytes], 'Performers.webm', { type: 'audio/webm' });
 }
 
+/** EBML does not impose a name/value or target/value child order. */
+export async function reorderedTaggedWebmOpusFixture(mode: 'name-first' | 'value-first' | 'targets-last'): Promise<File> {
+	const original = mode === 'targets-last' ? await taggedWebmOpusFixture('track') : await customTaggedWebmOpusFixture({ ARTIST: 'Ada' });
+	const bytes = Buffer.from(await original.arrayBuffer());
+	if (mode === 'value-first') {
+		const name = Buffer.from([0x45, 0xa3, 0x86, ...new TextEncoder().encode('ARTIST')]);
+		const offset = bytes.indexOf(name); assert.ok(offset > 0);
+		const value = bytes.subarray(offset + name.length, offset + name.length + 6); assert.equal(value.toString('hex'), '448783416461');
+		bytes.set(Buffer.concat([value, name]), offset);
+	} else if (mode === 'targets-last') {
+		const tag = bytes.indexOf(Buffer.from([0x73, 0x73])); const targets = bytes.indexOf(Buffer.from([0x63, 0xc0]));
+		assert.ok(tag > 0 && targets === tag + 6); assert.equal(bytes[tag + 2], 0x10); assert.equal(bytes[targets + 2], 0x10);
+		const end = tag + 6 + (bytes.readUInt32BE(tag + 2) & 0x0fff_ffff);
+		const targetEnd = targets + 6 + (bytes.readUInt32BE(targets + 2) & 0x0fff_ffff);
+		const targetBytes = Buffer.from(bytes.subarray(targets, targetEnd));
+		bytes.copyWithin(targets, targetEnd, end); bytes.set(targetBytes, end - targetBytes.length);
+	}
+	return new File([bytes], `Tag-order-${mode}.webm`, { type: 'audio/webm' });
+}
+
 /** RFC9559's zero track target is the explicit all-tracks form of a global tag. */
 export async function taggedWebmOpusFixture(target: 'global' | 'all-tracks' | 'track'): Promise<File> {
 	const bytes = new Uint8Array(await createOrdinaryOggOpusBytes(true, true));
