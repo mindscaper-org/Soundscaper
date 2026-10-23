@@ -71,6 +71,7 @@ export function shareTargetFunctionSources() {
 		sharedFilesStashRecord,
 		deleteSharedFileStash,
 		pruneSharedFileStashes,
+		writeSharedFileStash,
 		stashSharedFiles,
 		sharedFilesRedirect,
 		handleShareTargetSubmission,
@@ -278,7 +279,7 @@ async function pruneSharedFileStashes(cache, now) {
  * finds a manifest finds every file it names. A failure part way through takes
  * the partial stash with it rather than leaving bytes nothing will ever read.
  */
-async function stashSharedFiles({ cacheStorage, files, cryptoImpl, now }) {
+async function writeSharedFileStash({ cacheStorage, files, cryptoImpl, now }) {
 	const limits = sharedFilesLimits();
 	const cache = await cacheStorage.open(sharedFilesCacheName())
 		.catch((error) => { throw sharedFileStorageFailure(error); });
@@ -323,6 +324,18 @@ async function stashSharedFiles({ cacheStorage, files, cryptoImpl, now }) {
 		throw error;
 	}
 	return token;
+}
+
+/**
+ * Keep pruning and publication together: another POST must not mistake an
+ * unfinished body's missing manifest for debris from a failed earlier share.
+ * Function-owned state also survives this runtime's source serialization.
+ */
+function stashSharedFiles(options) {
+	const preceding = stashSharedFiles.pending ?? Promise.resolve();
+	const operation = preceding.then(() => writeSharedFileStash(options));
+	stashSharedFiles.pending = operation.then(() => undefined, () => undefined);
+	return operation;
 }
 
 /**
