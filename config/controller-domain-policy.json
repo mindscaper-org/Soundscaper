@@ -182,6 +182,7 @@
 		"preferences/preference-action-group.ts",
 		"preferences/preferences-composition.ts",
 		"preferences/setting-persistence.ts",
+		"preferences/shortcut-import-session.ts",
 		"preferences/skin-preview.ts",
 		"preferences/translation-drafts.ts",
 		"recording/microphone-meter-service.ts",

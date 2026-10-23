@@ -64,6 +64,15 @@ test('the shortcuts page explains how to assign extra mouse buttons', () => {
 	assert.match(markup, /Mouse4 or Ctrl\+Mouse5/u);
 });
 
+test('the shortcuts page offers Audacity imports after opening preferences', () => {
+	const markup = renderShortcutsPage();
+
+	assert.match(markup, /Import Audacity shortcuts/u);
+	assert.match(markup, /type="file"[^>]*accept="\.xml,application\/xml,text\/xml"/u);
+	assert.match(markup, /aria-label="Audacity shortcut file"/u);
+	assert.match(markup, /Export your shortcuts from Audacity 3 or 4/u);
+});
+
 test('a command with two bindings gets a field and a remove control for each', () => {
 	const row = shortcutRow(renderShortcutsPage(), 'delete-all-tracks-ripple');
 
