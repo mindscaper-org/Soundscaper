@@ -11,6 +11,7 @@ export interface NativeContainerAudioAdmission {
 	readonly frameCount: number;
 	/** ADTS PCE delegates layout to the native decoder, within the admitted worst-case bound. */
 	readonly channelCount: number | null;
+	readonly decodeSampleRate?: number;
 }
 interface Options {
 	readonly signal?: AbortSignal;
@@ -26,6 +27,7 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 	if (isDesktopMainAudioCodecRuntime(options.codecRuntime) || file.size < 9 || file.size > MAXIMUM_ENCODED_BYTES) return null;
 	let offset = 0;
 	let first = await headerAt(file, offset, options.signal);
+	if (ascii(first, 4, 4) === 'ftyp') return (await import('./native-alac-import-admission.ts')).nativeAlacImportAdmission(file, options.signal);
 	// Keep ordinary leading ID3 tags outside the AAC packet inventory.
 	for (let tags = 0; ascii(first, 0, 3) === 'ID3'; tags++) {
 		if (tags >= 16) return null;

@@ -437,7 +437,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				bufferFromChannels(channels, sampleRate, audioContext, copy)
 			),
 			inspectEncodedSampleRate: inspectEncodedAudioSampleRate,
-			inspectDecodedSampleRate: inspectDecodedAudioSampleRate,
+			inspectDecodedSampleRate: encoded => nativeContainer?.decodeSampleRate ?? inspectDecodedAudioSampleRate(encoded),
 		});
 		assertImportProjectCurrent(); assertNativeSurroundOpusGeometry(decoded, nativeAdmission); assertNativeContainerAudioGeometry(decoded, nativeContainer); admitAudioImportChannelCount(decoded.numberOfChannels);
 		const canonical = await canonicalizeBuffer(decoded, context, null, copy, { preserveChannels: true });
