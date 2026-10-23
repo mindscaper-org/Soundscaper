@@ -52,7 +52,7 @@ export function mixerTrackSurfaceRouteV21(
 		}
 		if (matching.length !== 1
 			|| !isMixerTrackSurfaceSendV21(graph, matching[0]!, trackId, send.id, widths)) continue;
-		sends[send.id] = matching[0]!.level;
+		Object.defineProperty(sends, send.id, { value: matching[0]!.level, enumerable: true, configurable: true, writable: true });
 		editableSendIds.push(send.id);
 	}
 	return Object.freeze({
