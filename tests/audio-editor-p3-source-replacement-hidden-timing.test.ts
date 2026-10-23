@@ -7,7 +7,7 @@ import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/edi
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { clipSourceTrimFields } from '../src/common/editor/clip-source-trim.ts';
-import { normalizeAudioWarpMap } from '../src/common/editor/audio-warp-domain.ts';
+import { normalizeAudioWarpMap, type AudioWarpPoint } from '../src/common/editor/audio-warp-domain.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
@@ -54,9 +54,11 @@ for (const scope of ['swap', 'pencil', 'stereo split'] as const) test(`P3-005: $
 	const replaced: unknown = controller.project; assert.ok(validateSoundscaperProject(replaced));
 	const editedClip = replaced.clips[0]; assert.ok(editedClip);
 	const editedSource = replaced.sources.find(source => source.id === editedClip.sourceId); assert.ok(editedSource);
+	assert.equal(typeof editedSource.channelCount, 'number');
+	const channelCount = editedSource.channelCount; assert.ok(typeof channelCount === 'number');
 	const channels: number[][] = [[], []];
 	for await (const chunk of store.readSourceChunks(String(editedSource.storageKey))) {
-		for (let channel = 0; channel < editedSource.channelCount; channel += 1) channels[channel]!.push(...chunk.channels[channel]!);
+		for (let channel = 0; channel < channelCount; channel += 1) channels[channel]!.push(...chunk.channels[channel]!);
 	}
 	if (scope === 'swap') { assert.equal(channels[0]?.[24_000], -.5); assert.equal(channels[1]?.[24_000], .25); }
 	else if (scope === 'stereo split') { assert.equal(editedSource.channelCount, 1); assert.equal(channels[0]?.[24_000], .25); }
@@ -67,7 +69,7 @@ for (const scope of ['swap', 'pencil', 'stereo split'] as const) test(`P3-005: $
 	}
 	const restored: unknown = controller.project; assert.ok(validateSoundscaperProject(restored));
 	for (const clipId of extendedIds) {
-		const points = normalizeAudioWarpMap(restored.clips.find(clip => clip.id === clipId)?.warpMap).points;
+		const points: readonly AudioWarpPoint[] = normalizeAudioWarpMap(restored.clips.find(clip => clip.id === clipId)?.warpMap).points;
 		assert.ok(points.some(point => point.source.num / point.source.den === 12_000
 			&& point.outer.num / point.outer.den === 24_000), 'the hidden nonlinear anchor returns after extending the edited source');
 	}
