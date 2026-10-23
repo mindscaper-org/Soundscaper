@@ -4,7 +4,7 @@
 
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import type {
 	FramescaperNativeOpenFxAuthoringRuntimeNativeMedia,
@@ -126,15 +126,19 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 		});
 	}, [bridge, instance, runtime, target, setStatus]);
 
-	useEffect(() => {
-		if (instance === null) return;
+	const resetSurface = useEffectEvent(() => {
 		generationRef.current += 1;
 		sequenceRef.current = 0;
 		pointerRef.current = null;
 		historyRef.current = Object.freeze([]);
 		replayFullRef.current = false;
 		submit(Object.freeze([]));
-	}, [instance, submit, targetValue]);
+	});
+	const surfaceInstanceId = instance?.effect.instanceId ?? null;
+	useEffect(() => {
+		// A completed edit refreshes this instance's authority, not the next pen/key stream.
+		if (surfaceInstanceId !== null) resetSurface();
+	}, [surfaceInstanceId, targetValue]);
 
 	const event = useCallback((value: UnsequencedOfxInteractEvent): void => {
 		if (!Number.isSafeInteger(sequenceRef.current) || sequenceRef.current < 0) {
