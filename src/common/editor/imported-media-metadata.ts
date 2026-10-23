@@ -372,7 +372,14 @@ async function inspectAiffMetadata(file: Blob, signal?: AbortSignal): Promise<Ai
 		chunkCount += 1;
 	}
 	const firstId3 = embeddedId3[0];
+	const images: unknown[] = [];
+	for (const tags of embeddedId3) {
+		const pictures = ownDataValue(tags, 'images');
+		if (Array.isArray(pictures)) images.push(...pictures.slice(0, MAXIMUM_METADATA_ARRAY_LENGTH + 1 - images.length));
+		if (images.length > MAXIMUM_METADATA_ARRAY_LENGTH) break;
+	}
 	const normalized = {
+		...(images.length ? { images } : {}),
 		...(title || stringValue(ownDataValue(firstId3 ?? null, 'title'))
 			? { title: title ?? stringValue(ownDataValue(firstId3 ?? null, 'title')) } : {}),
 		...(artist || stringValue(ownDataValue(firstId3 ?? null, 'artist'))
