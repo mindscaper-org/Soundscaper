@@ -18,7 +18,7 @@ const KEY_ALIASES: ReadonlyMap<string, string> = new Map([
 	['control', 'Ctrl'], ['ctrl', 'Ctrl'], ['cmd', 'Meta'], ['command', 'Meta'], ['meta', 'Meta'],
 	['option', 'Alt'], ['alt', 'Alt'], ['shift', 'Shift'], ['spacebar', 'Space'], [' ', 'Space'],
 	['arrowdown', 'Down'], ['arrowup', 'Up'], ['arrowleft', 'Left'], ['arrowright', 'Right'],
-	['del', 'Delete'], ['esc', 'Escape'], ['return', 'Enter'],
+	['del', 'Delete'], ['ins', 'Insert'], ['esc', 'Escape'], ['return', 'Enter'],
 	['pgup', 'PageUp'], ['pgdown', 'PageDown'], ['numpad_enter', 'NumpadEnter'],
 	['numpad-enter', 'NumpadEnter'],
 ]);
