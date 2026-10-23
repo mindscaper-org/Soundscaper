@@ -105,8 +105,8 @@
 		},
 		{
 			"path": "fixtures/conformance_interact.inc",
-			"byteLength": 7621,
-			"sha256": "a42485cbddcbabc11d8b89c81707c7584befd383c0346a62f2c8facb26f706f9"
+			"byteLength": 7872,
+			"sha256": "5be4b89939585443d345ecec24556e9797e390f32fcc32f6467d147f90d910ac"
 		},
 		{
 			"path": "fixtures/conformance_plugin.cpp",
@@ -135,8 +135,8 @@
 		},
 		{
 			"path": "src/host_interact.inc",
-			"byteLength": 11198,
-			"sha256": "31f500e2909ac01dcd823f01333d3640442f35daa0f544c7cd23d0eb80813a02"
+			"byteLength": 15187,
+			"sha256": "aa5bf5da3d90047219ff1136de1039fdb49cd100a966dadc8a54f6e71525b010"
 		},
 		{
 			"path": "src/host_parameter_hydration.hpp",
@@ -210,8 +210,8 @@
 		},
 		{
 			"path": "src/openfx_abi.hpp",
-			"byteLength": 18142,
-			"sha256": "b88d690591d015d0e4083375e8aaadcfde501ebc2ee543c0f721052cc21fdff2"
+			"byteLength": 18396,
+			"sha256": "105bfb5a310f8c4a996c5d0c61837dac46a95ec5b2bd6e22e4f0d22c91754309"
 		},
 		{
 			"path": "src/parameter_values.cpp",

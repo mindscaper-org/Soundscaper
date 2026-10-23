@@ -3,6 +3,18 @@
 namespace {
 int official_interact_key_sym(const InteractEvent& event) {
 	if (event.code == "NumpadEnter") return kOfxKey_KP_Enter;
+	if (event.code == "ShiftLeft") return kOfxKey_Shift_L;
+	if (event.code == "ShiftRight") return kOfxKey_Shift_R;
+	if (event.code == "ControlLeft") return kOfxKey_Control_L;
+	if (event.code == "ControlRight") return kOfxKey_Control_R;
+	if (event.code == "AltLeft") return kOfxKey_Alt_L;
+	if (event.code == "AltRight") return kOfxKey_Alt_R;
+	if (event.code == "MetaLeft") return kOfxKey_Meta_L;
+	if (event.code == "MetaRight") return kOfxKey_Meta_R;
+	if (event.key == "Shift") return kOfxKey_Shift_L;
+	if (event.key == "Control") return kOfxKey_Control_L;
+	if (event.key == "Alt") return kOfxKey_Alt_L;
+	if (event.key == "Meta") return kOfxKey_Meta_L;
 	if (event.key == "Backspace") return kOfxKey_BackSpace;
 	if (event.key == "Tab") return kOfxKey_Tab;
 	if (event.key == "Enter") return kOfxKey_Return;
@@ -20,6 +32,14 @@ int official_interact_key_sym(const InteractEvent& event) {
 	return event.key.size() == 1 && static_cast<unsigned char>(event.key.front()) >= 0x20
 		&& static_cast<unsigned char>(event.key.front()) <= 0x7e
 		? static_cast<unsigned char>(event.key.front()) : kOfxKey_Unknown;
+}
+
+const char* interact_modifier_name(const int key) {
+	if (key == kOfxKey_Alt_L || key == kOfxKey_Alt_R) return "alt";
+	if (key == kOfxKey_Control_L || key == kOfxKey_Control_R) return "control";
+	if (key == kOfxKey_Meta_L || key == kOfxKey_Meta_R) return "meta";
+	if (key == kOfxKey_Shift_L || key == kOfxKey_Shift_R) return "shift";
+	return "";
 }
 
 bool single_interact_utf8_code_point(const std::string& value) {
@@ -146,6 +166,7 @@ InteractResult HostRuntime::run_interact(
 		baselines.push_back(std::move(baseline));
 	}
 	bool event_failed = !interact_created;
+	std::set<int> held_modifiers;
 	for (const auto& event : request.events) {
 		if (event_failed) break;
 		PropertySet args;
@@ -156,6 +177,51 @@ InteractResult HostRuntime::run_interact(
 		prop_set_double_n(handle(args), kOfxInteractPropBackgroundColour, 3, background);
 		const double render_scale[]{1.0, 1.0};
 		prop_set_double_n(handle(args), kOfxImageEffectPropRenderScale, 2, render_scale);
+		const auto modifier_action = [&](const int key, const bool down) {
+			prop_set_int(handle(args), kOfxPropKeySym, 0, key);
+			prop_set_string(handle(args), kOfxPropKeyString, 0, "");
+			const auto status = invoke(down ? kOfxInteractActionKeyDown : kOfxInteractActionKeyUp, &args);
+			if (!accepted_status(status)) event_failed = true;
+			if (down) held_modifiers.insert(key);
+			else held_modifiers.erase(key);
+		};
+		int explicit_key = event.kind == "keyboard" ? official_interact_key_sym(event) : kOfxKey_Unknown;
+		const std::string explicit_modifier = interact_modifier_name(explicit_key);
+		if (!explicit_modifier.empty() && event.phase == "up" && !held_modifiers.contains(explicit_key)
+			&& std::find(event.modifiers.begin(), event.modifiers.end(), explicit_modifier) == event.modifiers.end()) {
+			// A pre-focus snapshot has no left/right identity. Pair its release
+			// with the fallback key actually delivered to the plug-in.
+			for (const int key : held_modifiers) {
+				if (explicit_modifier == interact_modifier_name(key)) { explicit_key = key; break; }
+			}
+		}
+		// A canvas can gain focus while modifiers are already held. OFX has no
+		// pointer-modifier property: synchronize their official key actions before
+		// the pointer, and retire them before LoseFocus. Synthetic actions do not
+		// acquire user event sequence numbers or count as accepted input events.
+		if (event.kind != "focus" || !event.focused) {
+			const std::array<std::pair<const char*, int>, 4> modifiers{{
+				{"alt", kOfxKey_Alt_L}, {"control", kOfxKey_Control_L},
+				{"meta", kOfxKey_Meta_L}, {"shift", kOfxKey_Shift_L},
+			}};
+			for (const auto& [name, fallback] : modifiers) {
+				const bool desired = event.kind != "focus"
+					&& std::find(event.modifiers.begin(), event.modifiers.end(), name) != event.modifiers.end();
+				std::vector<int> current;
+				for (const int key : held_modifiers) {
+					if (std::strcmp(interact_modifier_name(key), name) == 0) current.push_back(key);
+				}
+				if (explicit_modifier == name) {
+					if (event.phase == "up" && !desired) {
+						for (const int key : current) if (key != explicit_key) modifier_action(key, false);
+					}
+					continue;
+				}
+				if (desired && current.empty()) modifier_action(fallback, true);
+				if (!desired) for (const int key : current) modifier_action(key, false);
+			}
+		}
+		if (event_failed) break;
 		const char* action = nullptr;
 		if (event.kind == "pointer") {
 			const double position[]{event.x * 63.0, (1.0 - event.y) * 63.0};
@@ -170,7 +236,7 @@ InteractResult HostRuntime::run_interact(
 			action = event.phase == "motion" ? kOfxInteractActionPenMotion
 				: event.phase == "down" ? kOfxInteractActionPenDown : kOfxInteractActionPenUp;
 		} else if (event.kind == "keyboard") {
-			prop_set_int(handle(args), kOfxPropKeySym, 0, official_interact_key_sym(event));
+			prop_set_int(handle(args), kOfxPropKeySym, 0, explicit_key);
 			prop_set_string(handle(args), kOfxPropKeyString, 0,
 				single_interact_utf8_code_point(event.key) ? event.key.c_str() : "");
 			action = event.phase == "down" ? kOfxInteractActionKeyDown : kOfxInteractActionKeyUp;
@@ -179,6 +245,18 @@ InteractResult HostRuntime::run_interact(
 		}
 		if (action == nullptr) { event_failed = true; break; }
 		const auto status = invoke(action, &args);
+		if (!explicit_modifier.empty() && accepted_status(status)) {
+			if (event.phase == "down") held_modifiers.insert(explicit_key);
+			else {
+				held_modifiers.erase(explicit_key);
+				const bool desired = std::find(event.modifiers.begin(), event.modifiers.end(), explicit_modifier)
+					!= event.modifiers.end();
+				const bool still_held = std::any_of(held_modifiers.begin(), held_modifiers.end(), [&](const int key) {
+					return explicit_modifier == interact_modifier_name(key);
+				});
+				if (desired && !still_held) modifier_action(explicit_key % 2 == 1 ? explicit_key + 1 : explicit_key - 1, true);
+			}
+		}
 		if (status == kOfxStatOK) result.accepted_sequences.push_back(event.sequence);
 		else if (status != kOfxStatReplyDefault) event_failed = true;
 	}
