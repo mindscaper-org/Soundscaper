@@ -53,7 +53,7 @@ test('ALAC preflight rejects oversized native frames and presentation edits befo
 			bytes.writeUInt32BE(48_000 * 1000 - 4096, bytes.indexOf('stts') + 24);
 			bytes.writeUInt32BE(1_000_000, bytes.indexOf('elst') + 12);
 		}
-		assert.equal(await nativeContainerAudioAdmission(new Blob([bytes]), options), null, kind);
+		assert.equal(await nativeContainerAudioAdmission(new Blob([new Uint8Array(bytes)]), options), null, kind);
 	}
 });
 
@@ -71,7 +71,7 @@ test('a later abort during the ALAC sample-description walk is observed before I
 
 test('ordinary AAC, desktop codecs and oversized encoded ALAC keep their existing routes', async () => {
 	const options = { nativeSampleRate: () => assert.fail('unqualified profiles must not allocate a native context') };
-	assert.equal(await nativeContainerAudioAdmission(new Blob([aacLcM4a48_000Fixture()]), options), null);
+	assert.equal(await nativeContainerAudioAdmission(new Blob([new Uint8Array(aacLcM4a48_000Fixture())]), options), null);
 	assert.equal(await nativeContainerAudioAdmission(new Blob([alacM4a48_000Fixture()]), { ...options, codecRuntime: { [DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER]: true } }), null);
 	assert.equal(await nativeContainerAudioAdmission(new Blob([alacM4a48_000Fixture(), new ArrayBuffer(32 * 1024 ** 2)]), options), null);
 });
