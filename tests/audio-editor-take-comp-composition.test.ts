@@ -38,7 +38,7 @@ test('take and lane audition use an isolated exact-source preview and toggle wit
 	const fixture = compositionFixture();
 	const take = await fixture.composition.auditionTake('group-a', 'take-b');
 	assert.deepEqual(take, {
-		key: 'take:group-a:take-b', groupId: 'group-a', laneId: 'lane-b',
+		key: JSON.stringify(['take', 'group-a', 'take-b']), groupId: 'group-a', laneId: 'lane-b',
 		takeIds: ['take-b'], state: 'playing',
 	});
 	assert.equal(fixture.playbackStops, 1);
