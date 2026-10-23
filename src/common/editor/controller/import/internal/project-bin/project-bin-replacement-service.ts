@@ -93,6 +93,7 @@ export function createProjectBinReplacementService(
 	dependencies: ProjectBinReplacementDependencies,
 ): Readonly<ProjectBinReplacementService> {
 	const stages = new Map<string, ReplacementStage>();
+	const retiringStages = new Set<Promise<void>>();
 	const assertCurrent = (task: EditorTaskScope, projectToken: EditorProjectToken): void => {
 		task.assertCurrent();
 		dependencies.assertProject(projectToken);
@@ -223,7 +224,10 @@ export function createProjectBinReplacementService(
 		shortfallMode: ProjectBinReplacementShortfallMode = 'keep-spacing',
 	): string | null {
 		dependencies.lifetime.assertActive();
-		if (dependencies.editingBlocked()) return null;
+		if (dependencies.editingBlocked()) {
+			void cancelProjectBinReplacement(token).catch(() => undefined);
+			return null;
+		}
 		const stage = stages.get(token);
 		if (!stage) throw new Error('The staged Project Bin replacement is no longer available.');
 		const project = dependencies.getProject();
@@ -241,7 +245,11 @@ export function createProjectBinReplacementService(
 				shortfallMode,
 			},
 		];
-		dependencies.commit({ type: 'batch', commands });
+		try { dependencies.commit({ type: 'batch', commands }); }
+		catch (error) {
+			void cancelProjectBinReplacement(token).catch(() => undefined);
+			throw error;
+		}
 		stages.delete(token);
 		for (const source of stage.sources) dependencies.protectedSourceIds.delete(source.id);
 		return stage.clipId;
@@ -251,13 +259,17 @@ export function createProjectBinReplacementService(
 		const stage = stages.get(token);
 		if (!stage) return false;
 		stages.delete(token);
-		await discardImportedReplacement(stage.sources, true);
+		const retirement = discardImportedReplacement(stage.sources, true);
+		retiringStages.add(retirement);
+		try { await retirement; }
+		finally { retiringStages.delete(retirement); }
 		return true;
 	}
 
 	async function cancelAllProjectBinReplacements(): Promise<void> {
 		dependencies.lifetime.cancelTask(PROJECT_BIN_REPLACEMENT_TASK);
 		for (const token of [...stages.keys()]) await cancelProjectBinReplacement(token);
+		await Promise.all(retiringStages);
 	}
 
 	async function discardImportedReplacement(
