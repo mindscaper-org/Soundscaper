@@ -123,3 +123,34 @@ async function ordinaryMp3Pcm(): Promise<Uint8Array<ArrayBuffer>> {
 		frameCount: pcm.length, sampleRate: 48_000, channelCount: 1, settings: { bitrateKbps: 192 }, maximumOutputBytes: 1024 ** 2 },
 	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
 }
+
+/** Preserve every encoded audio packet while exercising the two admitted CRC/Xing layouts. */
+export async function crcOffsetMp3Fixture(layout: 'unprotected' | 'lame-crc' | 'crc-offset'): Promise<File> {
+	const original = await ordinaryMp3Pcm(); const bytes = Uint8Array.from(original);
+	const frameBytes = 576; const xing = 21;
+	assert.equal(String.fromCharCode(...bytes.subarray(xing, xing + 4)), 'Info');
+	assert.equal(bytes[0], 255); assert.equal(bytes[1], 251); // MPEG1 mono192kbps48k.
+	const tag = Buffer.from(bytes).indexOf('LAME'); assert.equal(tag, 141);
+	assert.equal(new DataView(bytes.buffer).getUint16(tag + 34), reflectedCrc(bytes.subarray(0, tag + 34)));
+	if (layout !== 'unprotected') {
+		bytes[1] = bytes[1]! & ~1;
+		if (layout === 'crc-offset') { bytes.copyWithin(xing + 2, xing, frameBytes - 2); bytes.fill(0, xing, xing + 2); }
+		// LAME bitstream.c CRC_writeheader: protected header bits and17-byte side information.
+		let crc = 0xffff;
+		for (const byte of [...bytes.subarray(2, 4), ...bytes.subarray(6, 23)]) {
+			for (let bit = 7; bit >= 0; bit--) { const high = crc >>> 15; crc = crc << 1 & 0xffff; if (high ^ (byte >>> bit & 1)) crc ^= 0x8005; }
+		}
+		new DataView(bytes.buffer).setUint16(4, crc);
+		// LAME VbrTag.c: reflected CRC16 covers the complete tag before its final two bytes.
+		const end = tag + (layout === 'crc-offset' ? 2 : 0) + 34;
+		new DataView(bytes.buffer).setUint16(end, reflectedCrc(bytes.subarray(0, end)));
+	}
+	assert.deepEqual(bytes.subarray(frameBytes), original.subarray(frameBytes));
+	return new File([bytes], `CRC-${layout}.mp3`, { type: 'audio/mpeg' });
+}
+
+function reflectedCrc(bytes: Uint8Array): number {
+	let crc = 0;
+	for (const byte of bytes) { crc ^= byte; for (let bit = 0; bit < 8; bit++) crc = crc >>> 1 ^ (crc & 1 ? 0xa001 : 0); }
+	return crc;
+}
