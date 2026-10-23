@@ -72,7 +72,12 @@ test('Freesound keeps a native decoder that already returned the correct edited 
 	const frames = Math.round(durationSeconds * 48_000);
 	await prepareFreesoundUploadFile(file, undefined, {
 		createDecodeContext: () => ({ decodeAudioData: async () => decoded(frames, 48_000), close: async () => { closed = true; } }),
-		encode: channels => { encodes++; assert.equal(channels[0]!.length, frames); return Uint8Array.of(1); },
+		encode: channels => {
+			encodes++;
+			const first = 'getChannelData' in channels ? channels.getChannelData(0) : channels[0];
+			assert.equal(first?.length, frames);
+			return Uint8Array.of(1);
+		},
 	});
 	assert.equal(closed, true); assert.equal(encodes, 1);
 });

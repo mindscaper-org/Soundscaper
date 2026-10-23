@@ -91,7 +91,7 @@ test('cancel invalidates a pending read and allows another import', async () => 
 	await pending;
 	assert.deepEqual(state.errors, [null, null]);
 	assert.deepEqual(state.busy, [true, false]);
-	assert.deepEqual(state.sources, [null, null]);
+	assert.deepEqual([...state.sources], [null, null]);
 	await state.session.read({ size: 1, text: () => Promise.resolve('next') });
 	assert.equal(state.sources.at(-1)?.xml, 'next');
 });
