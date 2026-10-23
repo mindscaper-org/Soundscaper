@@ -178,6 +178,7 @@ export interface ProjectVisualServiceDependencies {
 }
 
 export interface ProjectVisualService {
+	synchronizeVideoSources(): Promise<boolean>;
 	getClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
 	getProjectBinClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
 	getVideoSourceVisualData(sourceId: string): Readonly<VideoSourceVisualData> | null;

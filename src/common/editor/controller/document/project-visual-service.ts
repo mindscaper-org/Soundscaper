@@ -2,7 +2,7 @@
 
 import { isAudioMediaKind } from '../../audio-media-kind.ts';
 import { hasProjectBinMediaAuthority } from '../../project-schema-version.ts';
-
+import { createVideoVisualMediaSynchronizer, videoVisualMediaIdentity } from './internal/video-visual-media-sync.ts';
 import {
 	resolveRuntimeProjectProjection,
 	type RuntimeClipProject,
@@ -32,10 +32,14 @@ export function createProjectVisualService(
 ): Readonly<ProjectVisualService> {
 	const videoVisuals = new Map<string, Readonly<VideoVisualRecord>>();
 	const generations = new Map<string, number>();
+	const mediaIdentities = new Map<string, string>();
 	let disposed = false;
 	let disposePromise: Promise<void> | null = null;
-
+	const synchronizeVideoSources = createVideoVisualMediaSynchronizer(
+		() => dependencies.getProject()?.sources ?? [], videoVisuals, mediaIdentities, revokeVideoVisual, activateVideoSource,
+	);
 	return Object.freeze({
+		synchronizeVideoSources,
 		getClipVisualData,
 		getProjectBinClipVisualData,
 		getVideoSourceVisualData,
@@ -177,6 +181,7 @@ export function createProjectVisualService(
 		options: Readonly<{ signal?: AbortSignal }> = {},
 	): Promise<Readonly<VideoVisual> | null> {
 		if (disposed) return null;
+		mediaIdentities.set(source.id, videoVisualMediaIdentity(source));
 		const operation = nextGeneration(source.id);
 		const project = dependencies.getProject();
 		const projectId = project?.id ?? null;
@@ -348,6 +353,7 @@ export function createProjectVisualService(
 	}
 
 	async function revokeVideoVisuals(): Promise<void> {
+		mediaIdentities.clear();
 		const sourceIds = new Set([...generations.keys(), ...videoVisuals.keys()]);
 		for (const sourceId of sourceIds) nextGeneration(sourceId);
 		const records = [...videoVisuals.values()];
@@ -355,7 +361,6 @@ export function createProjectVisualService(
 		videoVisuals.clear();
 		await cleanupRecords(records);
 	}
-
 	function projectBinClips(
 		project: ProjectVisualProject | null = dependencies.getProject(),
 	): readonly ProjectVisualClip[] {
