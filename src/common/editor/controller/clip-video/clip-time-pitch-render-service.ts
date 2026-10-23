@@ -278,8 +278,9 @@ function renderedSource(
 	deriveSourceProvenance: DeriveSourceProvenance,
 ): RenderSource {
 	const provenance = deriveSourceProvenance([source]);
+	const { contentSha256: _contentSha256, byteLength: _byteLength, ...contentIndependent } = source;
 	return {
-		...source,
+		...contentIndependent,
 		...(provenance ? { provenance } : {}),
 		id,
 		storageKey: id,
