@@ -2,7 +2,7 @@
 import { useMemo, useRef } from 'react';
 import { AudacityWaveformCanvases } from '../timeline/TimelineCanvasRenderer.jsx';
 import type { TimelineClipVisualData } from '../timeline/waveform-view-model.ts';
-import { createSpectrogramCanvasOptions } from '../timeline/spectrogram-canvas-options.ts';
+import { clipSourceSpectrogramOptions } from './clip-source-spectrogram-options.ts';
 import { useClipSourceAudioWindows } from './useClipSourceAudioWindows.ts';
 import { useClipSourceSpectrogramTiles } from './useClipSourceSpectrogramTiles.ts';
 import type { ClipSourceController } from './clip-source-editor-types.ts';
@@ -54,6 +54,6 @@ export default function ClipSourceWaveforms({ project, clip, source, visual, wid
 		<AudacityWaveformCanvases rootRef={rootRef} clips={models} displayMode={displayMode} pixelsPerSecond={pixelsPerSecond}
 			timeSelection={selection ? { startTime: (selection.startFrame - startFrame) / project.sampleRate, endTime: (selection.endFrame - startFrame) / project.sampleRate } : null}
 			showRms halfWave={displayMode === 'half-wave'} verticalZoom={verticalZoom} channelHeightRatio={0.5}
-			spectrogramOptions={createSpectrogramCanvasOptions({ scale: 'linear', maximumFrequency: source.sampleRate / 2 }, source.sampleRate)} />
+			spectrogramOptions={clipSourceSpectrogramOptions(project.sampleRate, source.sampleRate)} />
 	</div>;
 }
