@@ -3,6 +3,7 @@
 import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
 import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
 import { desktopReadCapabilityIdFor } from '../../../../desktop-read-capability-registry.ts';
+import { decodeBomMarkedUtf16 } from '../../../../bom-marked-text.ts';
 import { SESX_XML_MAXIMUM_BYTES } from '../../../../sesx-format.ts';
 import { sesxAudioReferences, parseSesxDocument, type SesxAudioReference } from '../../../../sesx-import.ts';
 import { buildSesxProject, type SesxDecodedMediaInfo } from '../../../../sesx-import-project.ts';
@@ -59,7 +60,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 			try {
 				const maximumBytes = await confirmFileSizeWarning(file.size, SESX_XML_MAXIMUM_BYTES, file.name, {
 					confirmFileSizeWarning: runtime.confirmFileSizeWarning, signal, assertCurrent: assertReady });
-				const document = parseSesxDocument(await file.text(), { maximumBytes });
+				const document = parseSesxDocument(await readSesxText(file), { maximumBytes });
 				assertReady();
 				const references = sesxAudioReferences(document);
 				const media = new Map<string, SesxDecodedMediaInfo | null>();
@@ -155,6 +156,15 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 			await files.releaseSesxSession?.(sessionReadId);
 		}
 	}
+}
+
+async function readSesxText(file: NativeProjectFile): Promise<string> {
+	const prefix = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+	if ((prefix[0] === 0xff && prefix[1] === 0xfe) || (prefix[0] === 0xfe && prefix[1] === 0xff)) {
+		const decoded = decodeBomMarkedUtf16(await file.arrayBuffer());
+		if (decoded !== null) return decoded;
+	}
+	return file.text();
 }
 
 async function resolveReferences(
