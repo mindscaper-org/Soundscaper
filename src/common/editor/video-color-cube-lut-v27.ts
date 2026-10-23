@@ -177,7 +177,7 @@ function numericLine(line: string, directive: string | null, name: string): RgbT
 	const payload = directive === null ? line : line.slice(directive.length).trim();
 	const parts = payload.split(/\s+/u);
 	if (parts.length !== 3) throw new TypeError(`${name} requires exactly three scalars.`);
-	return Object.freeze(parts.map((part, index) => finite(Number(part), `${name}[${String(index)}]`)) as [number, number, number]);
+	return Object.freeze(parts.map((part, index) => cubeNumber(part, `${name}[${String(index)}]`)) as [number, number, number]);
 }
 
 function token(line: string, directive: string): string {
@@ -186,9 +186,14 @@ function token(line: string, directive: string): string {
 	return parts[0]!;
 }
 
-function finite(value: unknown, name: string): number {
-	if (typeof value !== 'number' || !Number.isFinite(value)) {
-		throw new RangeError(`${name} must be a finite number.`);
+/** Adobe Cube 1.0 §5.4 states decimal numbers within the ±1e37 range. */
+function cubeNumber(token: string, name: string): number {
+	if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u.test(token)) {
+		throw new TypeError(`${name} must use decimal CUBE number syntax.`);
+	}
+	const value = Number(token);
+	if (!Number.isFinite(value) || Math.abs(value) > 1e37) {
+		throw new RangeError(`${name} must be within the CUBE number range ±1e37.`);
 	}
 	return value === 0 ? 0 : value;
 }
