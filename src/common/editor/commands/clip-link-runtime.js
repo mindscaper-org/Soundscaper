@@ -358,13 +358,19 @@ function applyClipJoinRun(project, { clips, track, loopFields }) {
 	// A reversed run reads its source backwards, so source starts fall as the
 	// timeline advances and the joined window begins at the last clip's anchor.
 	const joinedSourceStartFrame = first.reversed ? last.sourceStartFrame : first.sourceStartFrame;
+	const sourceFrames = project.sources.find(source => source.id === first.sourceId)?.frameCount;
+	const retainedSourceStart = loopFields?.sourceStartFrame ?? joinedSourceStartFrame;
+	const retainedSourceEnd = retainedSourceStart + (loopFields?.sourceDurationFrames ?? joinedSourceDurationFrames);
 	let joined = normalizeClipForProject(project, {
 		...first,
 		sourceStartFrame: joinedSourceStartFrame,
 		durationFrames: joinedDurationFrames,
 		sourceDurationFrames: joinedSourceDurationFrames,
 		...loopFields,
-		trimEndFrames: last.trimEndFrames,
+		...(first.kind === 'audio' ? {
+			trimStartFrames: Math.min(first.trimStartFrames, retainedSourceStart),
+			trimEndFrames: Math.min(last.trimEndFrames, sourceFrames - retainedSourceEnd),
+		} : { trimEndFrames: last.trimEndFrames }),
 		...(Number.isSafeInteger(last.fadeOutFrames) ? { fadeOutFrames: last.fadeOutFrames } : {}),
 		...(first.kind === 'audio' ? { fadeOutShape: last.fadeOutShape } : {}),
 		envelope: joinClipEnvelopes(clips),
