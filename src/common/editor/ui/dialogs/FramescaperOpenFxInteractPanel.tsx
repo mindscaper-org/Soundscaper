@@ -177,6 +177,8 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 		const modifiers = openFxModifiers(value);
 		if (pointerRef.current !== null) pointerRef.current = { ...pointerRef.current, modifiers };
 		event({ kind: 'keyboard', phase, key: value.key, code: value.code, modifiers });
+		// Complete the same leave-surface transaction before the dialog dismisses.
+		if (phase === 'down' && value.key === 'Escape' && !value.defaultPrevented && !value.nativeEvent.isComposing) value.currentTarget.blur();
 	};
 
 	const chooseInstance = (value: string): void => {
