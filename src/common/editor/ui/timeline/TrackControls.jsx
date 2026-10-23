@@ -18,6 +18,7 @@ import {
 	linearToDb,
 } from './geometry.ts';
 import { TrackTelemetryMeters } from './TrackTelemetryMeters.tsx';
+import { usePlaybackMeterVisibility } from '../usePlaybackMeterVisibility.ts';
 import { focusCandidate, focusFirst, focusPanelControl } from './timeline-navigation.js';
 import { finishInlineTrackRename } from './track-name-keyboard-focus.ts';
 import { useMixerParameterGestures } from '../useMixerParameterGestures.ts';
@@ -58,6 +59,7 @@ export function TrackControls({
 	onNavigateVertical,
 }) {
 	const controlsRef = useRef(null);
+	usePlaybackMeterVisibility(controller.engine, 'track', track.id, controlsRef);
 	const automationGestureRef = useRef(null);
 	const [editingName, setEditingName] = useState(false);
 	const staticGestures = useMixerParameterGestures(controller.actions.mixer,

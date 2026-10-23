@@ -71,6 +71,7 @@ export function sampleProductionMeterSessionV21(
 	project: unknown,
 	banks: ReadonlyMap<string, StripMeterAnalyserBankV21> | null | undefined,
 	masterLoudness: unknown,
+	demand: ReadonlySet<string> | null = null,
 ): ProductionMeterRuntimeSnapshotV21 {
 	const session = sessionFor(owner, project);
 	const parallel = parallelSessions.get(owner);
@@ -81,7 +82,7 @@ export function sampleProductionMeterSessionV21(
 			parallel.banks = banks;
 		}
 		if (!parallel.client.busy()) {
-			const scheduled = scheduledBanks(session, banks);
+			const scheduled = scheduledBanks(session, banks, demand);
 			if (scheduled.length) parallel.client.submit(scheduled.map((bank) => ({
 				strip: bank.strip,
 				channelLabels: bank.channelLabels,
@@ -89,14 +90,14 @@ export function sampleProductionMeterSessionV21(
 			})));
 		}
 		const loudness = session.loudnessHistory.push(masterLoudness);
-		return Object.freeze({ productionMeters: parallel.client.snapshot(),
+		return Object.freeze({ productionMeters: demandedSnapshots(parallel.client.snapshot(), demand, banks),
 			...(loudness ? { productionLoudnessHistory: loudness } : {}) });
 	}
 	if (parallel) {
 		parallel.client.dispose();
 		parallelSessions.delete(owner);
 	}
-	const scheduled = scheduledBanks(session, banks);
+	const scheduled = scheduledBanks(session, banks, demand);
 	for (const bank of scheduled) {
 		session.meterStore.update(bank.strip, {
 			channels: bank.analysers.map(readAnalyserFrames),
@@ -105,7 +106,7 @@ export function sampleProductionMeterSessionV21(
 	}
 	const loudness = session.loudnessHistory.push(masterLoudness);
 	return Object.freeze({
-		productionMeters: session.meterStore.snapshot(),
+		productionMeters: demandedSnapshots(session.meterStore.snapshot(), demand, banks),
 		...(loudness ? { productionLoudnessHistory: loudness } : {}),
 	});
 }
@@ -113,12 +114,13 @@ export function sampleProductionMeterSessionV21(
 function scheduledBanks(
 	session: ProductionMeterRuntimeSessionV21,
 	banks: ReadonlyMap<string, StripMeterAnalyserBankV21> | null | undefined,
+	demand: ReadonlySet<string> | null,
 ): readonly StripMeterAnalyserBankV21[] {
 	const bankValues = [...(banks?.values() ?? [])];
 	const byStrip = new Map(bankValues.map((bank) => [canonicalStripRefKey(bank.strip), bank]));
 	const plan = session.scheduler.plan(bankValues.map((bank) => ({
 		strip: bank.strip,
-		visible: true,
+		visible: demand === null || demand.has(canonicalStripRefKey(bank.strip)),
 		armed: false,
 		costFrames: bank.analysers.reduce((total, analyser) => total + analyserFrameCount(analyser), 0),
 	})));
@@ -126,6 +128,18 @@ function scheduledBanks(
 		const bank = byStrip.get(canonicalStripRefKey(candidate.strip));
 		return bank ? [bank] : [];
 	});
+}
+
+function demandedSnapshots(
+	snapshots: readonly StripMeterSnapshot[], demand: ReadonlySet<string> | null,
+	banks: ReadonlyMap<string, StripMeterAnalyserBankV21> | null | undefined,
+): readonly StripMeterSnapshot[] {
+	const available = new Set([...(banks?.values() ?? [])].map(({ strip }) => canonicalStripRefKey(strip)));
+	const retained = snapshots.filter(({ strip }) => {
+		const key = canonicalStripRefKey(strip);
+		return available.has(key) && (demand === null || demand.has(key));
+	});
+	return retained.length === snapshots.length ? snapshots : Object.freeze(retained);
 }
 
 /** Reset is session-only; it never mutates the project, history, or export state. */

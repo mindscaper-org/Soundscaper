@@ -6,7 +6,6 @@ import {
 import { resolveAdmEbuChannelWeights } from '../loudness-channel-layout.ts';
 import { configureMasterLoudnessMeterChannelCount } from '../surround-monitoring.ts';
 import { soundscaperNativeAudioDestination } from '../soundscaper-native-audio-renderer.ts';
-import { hasProductionMixerProjectAuthority } from '../project-schema-version.ts';
 import {
 	recordWebCoreStreamPlayback,
 	recordWebCoreStreamUnderrun,
@@ -26,11 +25,8 @@ export { disposeGraph } from './dispose-project-graph.ts';
 import { playbackOutputDestination } from './playback-output.ts';
 import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import { observeActiveStreamCompletion, unexpectedActiveStreamAbort } from './playback-stream-failure.ts';
-import { sampleProductionMeterSessionV21, suspendParallelProductionMeterSessionV21 } from './production-meter-runtime-session-v21.ts';
-import { ensureLiveAnalysisTap } from './live-analysis-tap.ts';
-import { readEngineMeter, readMasterMeter } from './engine-meter-reading.ts';
-import { reconcileEngineChannelMeters } from './engine-channel-meter-aggregate.ts';
-import type { MutableEngineMeterReading } from './engine-meter-reading.ts';
+import { suspendParallelProductionMeterSessionV21 } from './production-meter-runtime-session-v21.ts';
+import { samplePlaybackMeters } from './playback-meter-sampling.ts';
 import { roundScheduledParameterContextFrameOffset } from './scheduled-parameter-registry.ts';
 import { isCutPreviewActive, releaseCutPreview } from './cut-preview.ts';
 import {
@@ -388,28 +384,8 @@ async [ENGINE_ENSURE_MASTER_LOUDNESS_METER](context) {
 
 [ENGINE_EMIT_METERS]() {
 		if (!this.graph || !this.meterListeners.size) return;
-		const tracks: Record<string, MutableEngineMeterReading> = {};
-		for (const [trackId, analyser] of this.graph.trackAnalysers) tracks[trackId] = readEngineMeter(analyser);
-		const groups: Record<string, MutableEngineMeterReading> = {};
-		const sends: Record<string, MutableEngineMeterReading> = {};
-		for (const [busId, analyser] of this.graph.groupAnalysers || []) groups[busId] = readEngineMeter(analyser);
-		for (const [busId, analyser] of this.graph.sendAnalysers || []) sends[busId] = readEngineMeter(analyser);
-		const liveTap = this.liveAnalysisLeaseCount > 0
-			? ensureLiveAnalysisTap(this.context, this.graph)
-			: null;
-		const master = readMasterMeter(this.graph.masterAnalyser, liveTap);
-		if (this.latestMasterLoudnessMeter?.loudness) {
-			master.loudness = this.latestMasterLoudnessMeter.loudness;
-		}
-		const production = hasProductionMixerProjectAuthority(this.project)
-			? sampleProductionMeterSessionV21(
-				this,
-				this.project,
-				this.graph.productionStripAnalysersV21,
-				this.latestMasterLoudnessMeter,
-			)
-			: null;
-		const meter = reconcileEngineChannelMeters({ master, tracks, groups, sends, ...(production ?? {}) });
+		const meter = samplePlaybackMeters(this);
+		if (!meter) return;
 		for (const listener of this.meterListeners) listener(meter);
 	},
 

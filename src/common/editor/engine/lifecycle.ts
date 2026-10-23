@@ -6,9 +6,8 @@ import { ChunkStreamClient } from '../chunk-stream-client.js';
 import { createChunkStreamAudioNode } from '../chunk-stream-worklet-node.js';
 import { createAudioWarpRenderPathStatus } from '../audio-warp-runtime.ts';
 import { resolveAdmEbuChannelWeights } from '../loudness-channel-layout.ts';
-import {
-	clearPreparedAudioWarpPlayback,
-} from './audio-warp-fallback.ts';
+import { clearPreparedAudioWarpPlayback } from './audio-warp-fallback.ts';
+import { clearPlaybackMeterDemand } from './playback-meter-demand.ts';
 import {
 	getProjectDurationFrames,
 	getProjectTimelineDurationFrames,
@@ -467,6 +466,7 @@ dispose() {
 	},
 
 async [ENGINE_DISPOSE_RESOURCES]() {
+		clearPlaybackMeterDemand(this);
 		this[ENGINE_CANCEL_SCRUB]();
 		this[ENGINE_HALT_GRAPH]();
 		this.project = null;
