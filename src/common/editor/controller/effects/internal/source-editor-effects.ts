@@ -63,8 +63,10 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 				selection.endFrame + source.frameCount - selection.sourceFrameCount));
 			selection = { ...selection, sourceId: source.id, sourceFrameCount: source.frameCount, startFrame, endFrame };
 		}
+		let privateTrackId = `${SOURCE_TRACK_PREFIX}${source.id}`;
+		while (project.tracks.some(item => item.id === privateTrackId)) privateTrackId = `${SOURCE_TRACK_PREFIX}${privateTrackId}`;
 		return {
-			track: { ...track, id: `${SOURCE_TRACK_PREFIX}${source.id}` },
+			track: { ...track, id: privateTrackId },
 			sourceId: source.id, sourceTrackId: track.id, sourceClipId: clip.id, sourceFrameCount: source.frameCount,
 			sourceSampleRate: source.sampleRate,
 			startFrame: selection.startFrame, endFrame: selection.endFrame,
@@ -96,8 +98,9 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 		return !request.signal?.aborted && current.id === project.id && current.clips.some(item => item.id === clipId && item.sourceId === source.id) ? result : null;
 	}
 	async function renderRange(trackId: string, startFrame: number, endFrame: number): Promise<Float32Array[] | null> {
-		if (!trackId.startsWith(SOURCE_TRACK_PREFIX)) return null;
-		const sourceId = trackId.slice(SOURCE_TRACK_PREFIX.length);
+		const selected = target();
+		if (!selected?.sourceId || selected.track.id !== trackId) return null;
+		const sourceId = selected.sourceId;
 		const source = findSource(dependencies.getProject(), sourceId);
 		if (!source) throw new RangeError('The selected source is no longer available.');
 		if (dependencies.loadSourceWindow) {
