@@ -409,6 +409,8 @@
 		,
 		{ "path": "src/common/editor/unified-exact-render-delivery-v15.ts", "kind": "persisted-contract", "justification": "unified-exact-render-delivery-v15.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
+		{ "path": "src/common/editor/unified-exact-render-finishing-color-v13.ts", "kind": "persisted-contract", "justification": "Managed color execution for the V13 exact finishing contract retains its independent render-contract revision." }
+		,
 		{ "path": "src/common/editor/unified-exact-render-finishing-consumers-v13.ts", "kind": "persisted-contract", "justification": "unified-exact-render-finishing-consumers-v13.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/unified-exact-render-finishing-consumers-v14.ts", "kind": "persisted-contract", "justification": "unified-exact-render-finishing-consumers-v14.ts is a persisted domain-component or render-contract revision independent of product schema." }
