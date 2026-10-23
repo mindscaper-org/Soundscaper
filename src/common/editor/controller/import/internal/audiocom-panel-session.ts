@@ -128,6 +128,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			try {
 				const result = await client.search({ query: normalized, page }, abort.signal);
 				if (disposed || abort.signal.aborted || generation !== accountGeneration || searchAbort !== abort) return;
+				stopPreview();
 				emit({ search: { ...result, query: normalized, status: 'ready' } });
 			} catch (error) {
 				if (disposed || abort.signal.aborted || generation !== accountGeneration || searchAbort !== abort) return;

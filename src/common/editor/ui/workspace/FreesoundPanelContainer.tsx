@@ -201,6 +201,7 @@ export function FreesoundPanelContainer({
 		}));
 		void actions.search({ ...request, signal: abort.signal }).then((page) => {
 			if (searchSequence.current !== sequence || abort.signal.aborted) return;
+			stopPreview();
 			setState({
 				query: page.query,
 				license: request.license,
