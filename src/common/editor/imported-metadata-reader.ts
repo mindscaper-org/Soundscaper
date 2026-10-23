@@ -17,9 +17,14 @@ export async function readImportedMetadataTags(file: Blob, signal?: AbortSignal)
 		source: new BlobSource(file, { maxCacheSize: 4 * 1024 * 1024, useStreamReader: false }),
 		formats: ALL_FORMATS,
 	});
+	const retire = (): void => input.dispose();
+	signal?.addEventListener('abort', retire, { once: true });
 	try {
-		return await input.getMetadataTags();
+		const tags = await input.getMetadataTags(); signal?.throwIfAborted(); return tags;
+	} catch (error) {
+		signal?.throwIfAborted(); throw error;
 	} finally {
+		signal?.removeEventListener('abort', retire);
 		input.dispose();
 	}
 }
