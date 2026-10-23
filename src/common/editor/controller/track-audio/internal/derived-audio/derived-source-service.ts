@@ -202,7 +202,7 @@ export function createDerivedSourceService(
 			const peaks = await dependencies.generateWaveformPeaks(channels);
 			assertOwned(token);
 			dependencies.sourcePeaks.set(source.id, peaks);
-			await dependencies.store.saveAnalysis(dependencies.peakCacheKey(source.id), peaks);
+			await dependencies.store.saveAnalysis(dependencies.peakCacheKey(source.id), peaks).catch(() => undefined);
 			assertOwned(token);
 			return identity;
 		} catch (error) {

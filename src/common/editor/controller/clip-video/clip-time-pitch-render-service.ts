@@ -224,7 +224,7 @@ export function createClipTimePitchRenderService(
 			const peaks = await dependencies.generateWaveformPeaks(channels, task.signal);
 			assertOwned(task, projectToken, fingerprint);
 			dependencies.sourcePeaks.set(renderedSourceId, peaks);
-			await dependencies.store.saveAnalysis(dependencies.peakCacheKey(renderedSourceId), peaks);
+			await dependencies.store.saveAnalysis(dependencies.peakCacheKey(renderedSourceId), peaks).catch(() => undefined);
 			assertOwned(task, projectToken, fingerprint);
 			dependencies.commit({
 				type: 'batch',
