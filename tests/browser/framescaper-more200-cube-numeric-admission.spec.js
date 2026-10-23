@@ -4,7 +4,11 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { hasDurableMediaStorageCapability } from './helpers/durable-media-storage-capability.js';
 
-test('the grading chooser refuses hexadecimal CUBE color before changing the programme and accepts a decimal retry', async ({ page }) => {
+for (const [name, invalid, errorWord] of [
+	['hexadecimal color', ['LUT_3D_SIZE 2', ...Array.from({ length: 8 }, () => '0x1 0 0')], 'decimal'],
+	['a late domain keyword', ['LUT_3D_SIZE 2', '0 0 0', '1 0 0', '0 1 0', '1 1 0',
+		'0 0 1', '1 0 1', '0 1 1', '1 1 1', 'DOMAIN_MIN -1 -1 -1'], 'keyword'],
+]) test(`the grading chooser refuses ${name} before changing the programme and accepts a decimal retry`, async ({ page }) => {
 	await page.addInitScript(() => {
 		globalThis.__cubeProgrammePixel = null;
 		const put = CanvasRenderingContext2D.prototype.putImageData;
@@ -30,18 +34,19 @@ test('the grading chooser refuses hexadecimal CUBE color before changing the pro
 	await inspector.getByRole('button', { name: 'Close', exact: true }).click(); await expect(inspector).toBeHidden();
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Video Finishing', 'Grading & Finishing Presets']);
 	const dialog = page.getByRole('dialog', { name: 'Grading & Finishing Presets', exact: true });
-	const choose = async (token) => {
+	const choose = async (lines) => {
 		const choosing = page.waitForEvent('filechooser'); await dialog.getByRole('button', { name: 'Choose .cube LUT', exact: true }).click();
-		const text = ['LUT_3D_SIZE 2', ...Array.from({ length: 8 }, () => `${token} 0 0`), ''].join('\n');
+		const text = [...lines, ''].join('\n');
 		await (await choosing).setFiles({ name: 'Color.cube', mimeType: 'text/plain', buffer: Buffer.from(text) });
 	};
-	await choose('0x1');
-	await expect.poll(async () => await dialog.getByRole('status').textContent()).toMatch(/Presentation|decimal/u);
+	await choose(invalid);
+	await expect.poll(async () => await dialog.getByRole('status').textContent()).toMatch(new RegExp(`Presentation|${errorWord}`, 'u'));
 	const observed = { document: JSON.parse(await dialog.getByRole('textbox', { name: 'Canonical finishing document', exact: true }).inputValue()),
 		pixel: await page.evaluate(() => globalThis.__cubeProgrammePixel) };
 	expect(observed.document.videoVisualPresentations[0].grade?.lut ?? null, JSON.stringify(observed)).toBeNull();
-	await expect(dialog.getByRole('status')).toContainText('decimal');
-	await choose('1.0'); await expect(dialog.getByRole('status')).toHaveText(/^Presentation .+: [0-9a-f]{12}$/u);
+	await expect(dialog.getByRole('status')).toContainText(errorWord);
+	await choose(['LUT_3D_SIZE 2', ...Array.from({ length: 8 }, () => '1.0 0 0')]);
+	await expect(dialog.getByRole('status')).toHaveText(/^Presentation .+: [0-9a-f]{12}$/u);
 	await dialog.getByRole('button', { name: 'Close', exact: true }).click(); await expect(dialog).toBeHidden();
 	await expect.poll(() => page.evaluate(() => globalThis.__cubeProgrammePixel?.[0] ?? 0)).toBeGreaterThan(200);
 });

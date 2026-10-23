@@ -50,25 +50,34 @@ export function parseCubeLutV1(value: string): ParsedCubeLutV1 {
 	let domainMin: RgbTripletV1 = Object.freeze([0, 0, 0]);
 	let domainMax: RgbTripletV1 = Object.freeze([1, 1, 1]);
 	const values: number[] = [];
+	const keywords = new Set<string>();
+	const declare = (keyword: string): void => {
+		if (values.length > 0) throw new TypeError('A cube LUT keyword must appear before table data.');
+		if (keywords.has(keyword)) throw new TypeError(`The cube LUT keyword ${keyword} appears more than once.`);
+		keywords.add(keyword);
+	};
 	for (const rawLine of value.split(/\r?\n/u)) {
 		const line = cubeLutLine(rawLine);
 		if (!line) continue;
 		if (/^TITLE\s/u.test(line)) {
+			declare('TITLE');
 			const match = /^TITLE\s+"([^"\r\n]{0,512})"$/u.exec(line);
 			if (!match) throw new TypeError('The cube LUT title is invalid.');
 			title = match[1]!;
 			continue;
 		}
 		if (/^LUT_3D_SIZE\s/u.test(line)) {
-			if (size !== null) throw new TypeError('The cube LUT declares its size more than once.');
+			declare('LUT_3D_SIZE');
 			size = boundedInteger(token(line, 'LUT_3D_SIZE'), 2, VIDEO_COLOR_LIMITS_V1.maximumCubeLutSize, 'cube LUT size');
 			continue;
 		}
 		if (/^DOMAIN_MIN\s/u.test(line)) {
+			declare('DOMAIN_MIN');
 			domainMin = numericLine(line, 'DOMAIN_MIN', 'cube LUT domain minimum');
 			continue;
 		}
 		if (/^DOMAIN_MAX\s/u.test(line)) {
+			declare('DOMAIN_MAX');
 			domainMax = numericLine(line, 'DOMAIN_MAX', 'cube LUT domain maximum');
 			continue;
 		}
