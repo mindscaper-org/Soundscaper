@@ -33,6 +33,8 @@ import {
 } from '../../consolidate-operation.ts';
 import { consolidateLinkedAudioCache, type ConsolidateAudioCacheStore } from './internal/native-project/consolidate-linked-audio-cache.ts';
 import type { ConsolidateManagedAudioStore } from './internal/native-project/consolidate-managed-audio.ts';
+import { createScapeDigest, scapeHex } from '../../scape-archive-media.ts';
+import { reuseConsolidatedAudioCache } from './internal/native-project/consolidate-existing-audio-cache.ts';
 
 /** The narrow slice of the project store this needs, named rather than assumed. */
 export interface ConsolidateMediaStore extends ConsolidateAudioCacheStore, ConsolidateManagedAudioStore {
@@ -153,11 +155,19 @@ export function createConsolidateMediaPorts(request: ConsolidateProjectRequest):
 			if (!source.sha256) throw new Error(`Consolidating ${source.sourceId} requires its recorded digest.`);
 			// The storage layer is told what it is receiving, so a body that is not
 			// the recorded one is refused there as well as reported here.
-			const writer = await store.beginMediaAssetWrite(source.sourceId, {
-				mimeType: '',
-			}, {
-				expectedBytes: source.byteLength,
-				expectedSha256: source.sha256,
+			if (await store.getMediaAssetMetadata?.(source.sourceId)) {
+				throwIfAborted(options.signal);
+				// Another project may already have consolidated this shared identity.
+				// Reuse only authenticated stored bytes; the run still witnesses the
+				// current original and independently verifies the body before unlinking.
+				if (!await matchesManagedCopy(store, source, options.signal)) {
+					throw new Error('Existing managed media differs from its linked original.');
+				}
+				for await (const _chunk of chunks) throwIfAborted(options.signal);
+				return Object.freeze({ storageKey: source.sourceId, byteLength: source.byteLength });
+			}
+			const writer = await store.beginMediaAssetWrite(source.sourceId, { mimeType: '' }, {
+				expectedBytes: source.byteLength, expectedSha256: source.sha256,
 				...(options.signal ? { signal: options.signal } : {}),
 			});
 			let byteLength = 0;
@@ -191,7 +201,9 @@ export function createConsolidateMediaPorts(request: ConsolidateProjectRequest):
 			if (kind === 'audio' && source && store.beginSourceWrite) {
 				const original = await store.loadMediaAsset(rebindRequest.storageKey, { signal: request.signal });
 				if (!original) throw new Error('The consolidated audio original is unavailable.');
-				await consolidateLinkedAudioCache(store, source, original as Blob, request.signal, request.assertCurrent);
+				if (!await reuseConsolidatedAudioCache(store, source, original as Blob, request.signal, request.assertCurrent)) {
+					await consolidateLinkedAudioCache(store, source, original as Blob, request.signal, request.assertCurrent);
+				}
 			}
 			return kind === 'video'
 				? store.unlinkLinkedVideoOriginal(
@@ -209,6 +221,22 @@ export function createConsolidateMediaPorts(request: ConsolidateProjectRequest):
 		},
 	};
 	return Object.freeze(ports);
+}
+
+async function matchesManagedCopy(
+	store: ConsolidateMediaStore, source: ConsolidateSourcePlan, signal?: AbortSignal,
+): Promise<boolean> {
+	const existing = await store.loadMediaAsset(source.sourceId, signal ? { signal } : undefined);
+	throwIfAborted(signal);
+	if (!existing || existing.size !== source.byteLength) return false;
+	const digest = createScapeDigest();
+	let size = 0;
+	for await (const chunk of blobChunks(existing, DEFAULT_CHUNK_BYTES, signal)) {
+		digest.update(chunk);
+		size += chunk.byteLength;
+	}
+	throwIfAborted(signal);
+	return size === source.byteLength && scapeHex(digest.digest()) === source.sha256;
 }
 
 async function isOriginalReachable(
