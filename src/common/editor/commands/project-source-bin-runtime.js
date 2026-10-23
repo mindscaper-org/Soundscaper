@@ -162,7 +162,7 @@ function moveTimelineClipsToProjectBin(project, clipIds) {
 		}
 	}
 	const material = project.clips.filter((clip) => movedIds.has(clip.id));
-	const binItemByClipId = movedBinItemIds(material);
+	const binItemByClipId = movedBinItemIds(material, projectBin.clips.map(clip => clip.binItemId || clip.id));
 	const movedClips = material
 		.map((clip) => normalizeClipForProject(project, {
 			...clip,
