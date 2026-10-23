@@ -3,7 +3,8 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { openInstalledGain } from './helpers/native-plugin-parameter-host.js';
 
-test('installed plug-in parameter readouts describe positions without inventing decibels', async ({ page }) => {
+test('installed plug-in parameter readouts describe positions without inventing decibels', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'The native plug-in desktop host runs in Electron Chromium.');
 	const dialog = await openInstalledGain(page, { parameterLabel: 'dB' });
 	const range = dialog.locator('[data-native-plugin-parameter="gain"]');
 	await expect(range).toHaveValue('0.25');
