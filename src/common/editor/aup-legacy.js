@@ -9,6 +9,7 @@ import {
 	LegacyAupBlockBudget,
 	resolveLegacyAupBlockLimits,
 } from './aup-legacy-block-budget.ts';
+import { legacyAupDataFileCustody } from './aup-legacy-file-custody.ts';
 
 export {
 	decodeAuBlockFile,
@@ -134,6 +135,7 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	});
 	options.onProgress?.({ progress: 1, phase: 'complete' });
 	return {
+		consumedDataFiles: legacyAupDataFileCustody(dataFiles || [], [...referencedFiles.keys()]),
 		sampleRate: projectRate,
 		tempo: { bpm: positive(attribute(project, 'time_signature_tempo', 120), 120), timeSignature: { numerator: 4, denominator: 4 } },
 		selection: { startSeconds: nonNegative(attribute(project, 'sel0', 0)), endSeconds: nonNegative(attribute(project, 'sel1', 0)) },

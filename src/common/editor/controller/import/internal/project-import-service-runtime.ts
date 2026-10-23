@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
 import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { inspectWavContainerSignature, inspectWavForImport } from './wav-import-routing.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import { publishImportCompletionStatus, publishImportFailureStatus, type LocalizedImportFailure, type LocalizedImportNotice } from './import-status-localization.ts';
 import { loadImportAdmissionExecution } from './import-admission-loader.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts'; import { createDesktopOriginalImportRecorder } from '../../../desktop-overwrite-original.ts';
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
@@ -127,7 +126,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const totalBytes = Math.max(1, progressFiles.reduce((sum: number, file: RuntimeValue) => (
 			sum + Math.max(1, Number(file?.size) || 0)
 		), 0));
-		let completedBytes = 0; const legacyProject = files.find(isLegacyAupFile);
+		let completedBytes = 0; const legacyProject = files.find(isLegacyAupFile); let consumedLegacyFiles: Set<unknown> | null = null;
 		if (legacyProject) {
 			setImportFileProgress(legacyProject, completedBytes, totalBytes);
 			try {
@@ -143,6 +142,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					if (getProject()?.id !== result.project.id) throw new Error('The project changed during audio import.');
 				};
 				if (result?.notice) notices.push({ text: result.notice, localization: result.noticeLocalization });
+				if (result.consumedDataFiles) consumedLegacyFiles = new Set(result.consumedDataFiles);
 				successes += 1;
 			} catch (error) {
 				failures += 1; if (failureDetails.length < 3) failureDetails.push({ fileName: String(legacyProject.name), error });
@@ -150,8 +150,8 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			}
 			activeImportProgress?.update?.(1);
 			completedBytes += Math.max(1, Number(legacyProject.size) || 0);
-			// Legacy block files belong to the project rather than independent media.
-			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file) && !isLegacyBlockFile(file));
+			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)
+				&& !(consumedLegacyFiles ? consumedLegacyFiles.has(file) : isLegacyBlockFile(file)));
 		}
 		let audioFileIndex = 0;
 		for (const file of importQueue) {
