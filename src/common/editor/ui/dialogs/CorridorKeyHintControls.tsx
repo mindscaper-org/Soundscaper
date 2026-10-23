@@ -2,6 +2,7 @@
 import { Checkbox } from '@soundscaper/design-system/Checkbox';
 import { CORRIDORKEY_CHROMA_HINT_DEFAULTS, type CorridorKeyHintSettings } from '../../assistance/corridorkey-hint-settings.ts';
 import type { resolveCorridorKeyCopy } from '../../../i18n/editor-corridorkey-copy.ts';
+import PreferenceNumberInput from './PreferenceNumberInput.tsx';
 
 interface Props {
 	readonly settings: CorridorKeyHintSettings;
@@ -23,12 +24,9 @@ export default function CorridorKeyHintControls({ settings, onChange, disabled, 
 			<label>{text.hintColor} <input type="color" value={`#${settings.keyColor.toString(16).padStart(6, '0')}`}
 				onChange={(event) => onChange({ ...settings, keyColor: Number.parseInt(event.currentTarget.value.slice(1), 16) })} /></label>
 			{(['similarity', 'softness', 'hintQuality'] as const).map((field) => <label key={field}>
-				{text[field]} <input type="number" min={field === 'similarity' ? 0.01 : 0} max={1} step={0.01}
-					value={settings[field]} onChange={(event) => {
-						const value = event.currentTarget.valueAsNumber;
-						if (Number.isFinite(value) && value >= (field === 'similarity' ? 0.01 : 0) && value <= 1)
-							onChange({ ...settings, [field]: value });
-					}} />
+				{text[field]} <PreferenceNumberInput label={text[field]} minimum={field === 'similarity' ? 0.01 : 0}
+					maximum={1} step={0.01} value={settings[field]} disabled={disabled}
+					onCommit={(value) => onChange({ ...settings, [field]: value })} />
 			</label>)}
 		</>}
 	</fieldset>;

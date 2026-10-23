@@ -114,9 +114,29 @@ for (const hint of [false, true]) test(`the installed desktop tool keys the full
 	if (hint) {
 		await checkbox.check();
 		await dialog.getByLabel('Key color', { exact: true }).fill('#0000ff');
-		await dialog.getByRole('spinbutton', { name: 'Similarity', exact: true }).fill('0.2');
-		await dialog.getByRole('spinbutton', { name: 'Softness', exact: true }).fill('0.3');
-		await dialog.getByRole('spinbutton', { name: 'Hint strength', exact: true }).fill('0.6');
+		const similarity = dialog.getByRole('spinbutton', { name: 'Similarity', exact: true });
+		await similarity.press('ControlOrMeta+A');
+		await similarity.pressSequentially('0.25');
+		await expect(similarity).toHaveValue('0.25');
+		await similarity.press('Enter');
+		await expect(dialog).toBeVisible();
+		await similarity.press('ControlOrMeta+A');
+		await similarity.press('Backspace');
+		await expect(similarity).toHaveValue('');
+		await similarity.press('Tab');
+		await expect(similarity).toHaveValue('0.25');
+		await similarity.press('ControlOrMeta+A');
+		await similarity.pressSequentially('0.4');
+		await similarity.press('Escape');
+		await expect(similarity).toHaveValue('0.25');
+		await expect(dialog).toBeVisible();
+		const softness = dialog.getByRole('spinbutton', { name: 'Softness', exact: true });
+		await softness.press('ControlOrMeta+A');
+		await softness.pressSequentially('0.3');
+		await softness.press('Enter');
+		const strength = dialog.getByRole('spinbutton', { name: 'Hint strength', exact: true });
+		await strength.press('ControlOrMeta+A');
+		await strength.pressSequentially('0.6');
 	}
 	await dialog.getByRole('button', { name: 'Key selected clip', exact: true }).click();
 	await expect(dialog).toBeHidden({ timeout: 30_000 });
@@ -137,7 +157,7 @@ for (const hint of [false, true]) test(`the installed desktop tool keys the full
 	await expect.poll(() => storedKeyingProject(page)).toMatchObject({ chosen: { sourceId: accepted.keyed.id } });
 	const fixture = await page.evaluate(() => globalThis.__corridorKeyFixture);
 	expect(fixture.settings).toEqual(hint ? { settingsVersion: 1, hintMode: 'chroma-key', keyColor: 255,
-		similarity: 0.2, softness: 0.3, hintQuality: 0.6 } : { settingsVersion: 1, hintMode: 'none' });
+		similarity: 0.25, softness: 0.3, hintQuality: 0.6 } : { settingsVersion: 1, hintMode: 'none' });
 	expect(fixture.inputFrames).toBe(4); expect(fixture.fence).toMatchObject({ sourceStartFrame: 0, sourceEndFrame: 4 });
 	expect(fixture.events[0]).toBe('encoder-preflight'); expect(fixture.events.at(-1)).toBe('release');
 	expect(errors).toEqual([]);
