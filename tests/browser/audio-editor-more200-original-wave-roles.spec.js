@@ -40,8 +40,8 @@ async function installNativeOriginalBridge(page, native) {
 	})();` });
 }
 
-for (const channelMask of [5, 9, 3]) test(`Original WAV retains declared channel roles ${channelMask}`, async ({ page }) => {
-	const samples = [Float32Array.from({ length: 2400 }, () => .125), Float32Array.from({ length: 2400 }, () => -.0625)];
+for (const [channelCount, channelMask] of [[2, 5], [2, 9], [2, 3], [1, 1], [1, 4]]) test(`Original WAV retains ${channelCount}-channel roles ${channelMask}`, async ({ page }) => {
+	const samples = Array.from({ length: channelCount }, (_, channel) => Float32Array.from({ length: 2400 }, () => channel ? -.0625 : .125));
 	const bytes = encodeWav(samples, { sampleRate: 48000, bitDepth: 20, channelMask, dither: false });
 	const file = new File([new Uint8Array(bytes).buffer], 'Channel roles.wav', { type: 'audio/wav' });
 	const before = await inspectWavBlobPcm(file); expect(before.channelMask).toBe(channelMask);
@@ -52,7 +52,8 @@ for (const channelMask of [5, 9, 3]) test(`Original WAV retains declared channel
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 		const menu = await openNestedCommandMenu(page, editor, 'File', []);
 		const overwrite = menu.getByRole('menuitem', { name: 'Overwrite Channel roles.wav', exact: true });
-		if (channelMask !== 3) {
+		const refused = channelMask !== (channelCount === 1 ? 4 : 3);
+		if (refused) {
 			await expect(menu.getByRole('menuitem', { name: 'Overwrite original file', exact: true })).toBeDisabled();
 			expect(native.prepared).toHaveLength(0); expect(native.completed).toHaveLength(0);
 			expect(new Uint8Array(await native.savedBytes())).toEqual(new Uint8Array(await file.arrayBuffer()));
@@ -63,8 +64,8 @@ for (const channelMask of [5, 9, 3]) test(`Original WAV retains declared channel
 		const output = new Blob([new Uint8Array(await native.savedBytes()).buffer]);
 		const descriptor = await inspectWavBlobPcm(output);
 		const decoded = await createWavBlobPcmChunkReader(output, { descriptor }).readChunk(0);
-		expect(Math.abs(decoded.channels[0][1200] - .125)).toBeLessThan(.00001);
-		expect(Math.abs(decoded.channels[1][1200] + .0625)).toBeLessThan(.00001);
+		expect(Math.abs(decoded.channels[0][1200] - .125 * (channelCount === 1 && !refused ? Math.SQRT1_2 : 1))).toBeLessThan(.00001);
+		if (channelCount === 2) expect(Math.abs(decoded.channels[1][1200] + .0625)).toBeLessThan(.00001);
 		expect(descriptor.channelMask).toBe(channelMask);
 		expect(descriptor.frameCount).toBe(2400);
 	} finally { await native.close(); }
