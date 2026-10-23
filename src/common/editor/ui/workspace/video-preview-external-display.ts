@@ -127,7 +127,7 @@ function projectIdentity(value: unknown): ExternalDisplayProjectIdentity {
 		throw new TypeError('External display publication requires an active project.');
 	}
 	const project = value as Partial<ExternalDisplayProjectIdentity>;
-	if (typeof project.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(project.id)
+	if (typeof project.id !== 'string' || !project.id.trim()
 		|| !Number.isSafeInteger(project.revision) || Number(project.revision) < 0) {
 		throw new TypeError('External display publication requires an exact project identity.');
 	}
