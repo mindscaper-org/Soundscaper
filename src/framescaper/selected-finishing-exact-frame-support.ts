@@ -4,11 +4,9 @@
 
 import {
 	applyManagedSdrGradeStackLinearPixelV1,
-	applyPreparedManagedSdrGradeStackLinearChannelsV1,
 	defaultVideoSourceColorInterpretationV1,
 	prepareManagedSdrGradeStackV1,
 	type ParsedCubeLutV1,
-	type PreparedManagedSdrGradeStackV1,
 	type VideoColorGradeV1,
 	type VideoSourceColorInterpretationV1,
 } from '../common/editor/video-color-management-v27.ts';
@@ -23,6 +21,7 @@ import type {
 	UnifiedExactRenderFinishingNode,
 	UnifiedExactRenderPlanV13,
 } from '../common/editor/unified-exact-render-plan.ts';
+import { gradeUnifiedExactLinearSourceFrame, quantizeUnifiedExactLinearSourceFrame, type UnifiedExactLinearSourceFrame } from '../common/editor/unified-exact-linear-source-frame.ts';
 import { evaluateVideoMaskMatteRgbaV13 } from '../common/editor/video-mask-matte-rgba-v13.ts';
 import { videoDeliveryColorChannels } from '../common/editor/video-delivery-color.ts';
 import { identityVisualPlacement, multiplyVisualMaskPlanes } from './visual-finishing-kernel.ts';
@@ -51,19 +50,37 @@ export function checkedFrame(value: unknown, name: string): UnifiedExactRenderRg
 	return Object.freeze({ width, height, pixels: frame.pixels.slice() });
 }
 
+/** Accept the newer normalized linear carrier while retaining the legacy byte adapter. */
+export function checkedLinearFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame {
+	if (!value || typeof value !== 'object') throw new TypeError(`${name} must be an RGBA frame.`);
+	const frame = value as Partial<UnifiedExactLinearSourceFrame>;
+	if (!(frame.pixels instanceof Float32Array)) return checkedFrame(value, name);
+	const width = dimension(frame.width, `${name} width`), height = dimension(frame.height, `${name} height`);
+	if (frame.pixels.length !== width * height * 4 || frame.pixels.some(channel => !Number.isFinite(channel) || channel < 0 || channel > 1)) {
+		throw new RangeError(`${name} has invalid normalized linear pixels.`);
+	}
+	return Object.freeze({ width, height, pixels: frame.pixels.slice() });
+}
+
+/** A byte processor's normalized output resumes floating-point composition immediately. */
+export function byteWorkingFrame(value: unknown, name: string): UnifiedExactLinearSourceFrame {
+	const frame = checkedFrame(value, name);
+	return Object.freeze({ width: frame.width, height: frame.height, pixels: Float32Array.from(frame.pixels, value => value / 255) });
+}
+
 export function requiredFinishing(plan: UnifiedExactRenderPlanV13): UnifiedExactRenderFinishingNode {
 	const values = plan.nodes.filter((node): node is UnifiedExactRenderFinishingNode => node.kind === 'finishing');
 	if (values.length !== 1) throw new ReferenceError('Selected finishing exact execution requires one finishing node.');
 	return values[0]!;
 }
 
-export function gradeVisual(
+export function gradeVisualLinear(
 	finishing: UnifiedExactRenderFinishingNode,
 	entry: UnifiedExactRenderVisualFrameEntryV13,
 	frame: UnifiedExactRenderVisualRgbaV13,
 	luts: ReadonlyMap<string, ParsedCubeLutV1>,
 	signal: AbortSignal,
-): UnifiedExactRenderRgbaFrameV13 {
+): UnifiedExactLinearSourceFrame {
 	if (!('source' in entry.authoredState)) throw new TypeError('Selected finishing visual source is unavailable.');
 	const source = entry.authoredState.source;
 	const presentations = finishing.visualPresentations.filter(({ enabled, owner }) => enabled && (
@@ -73,43 +90,44 @@ export function gradeVisual(
 	const interpretation = source.kind === 'still'
 		? requiredInterpretation(finishing, source.id)
 		: defaultVideoSourceColorInterpretationV1('still', source.id);
-	return gradeEncodedFrame(frame, interpretation,
+	return gradeEncodedLinearFrame(frame, interpretation,
 		presentations.flatMap(({ grade }) => grade ? [grade] : []), luts, signal);
 }
 
-export function gradeEncodedFrame(
+export function gradeEncodedLinearFrame(
 	frame: UnifiedExactRenderVisualRgbaV13,
 	interpretation: VideoSourceColorInterpretationV1,
 	grades: readonly VideoColorGradeV1[],
 	luts: ReadonlyMap<string, ParsedCubeLutV1>,
 	signal: AbortSignal,
-): UnifiedExactRenderRgbaFrameV13 {
-	const pixels = new Uint8Array(frame.pixels.length);
+): UnifiedExactLinearSourceFrame {
 	const bodies = grades.map(({ lut }) => lut ? luts.get(lut.sha256) : undefined);
 	// One admission and normalization for the frame; the stack is the same for
 	// every pixel in it, and repeating that work per pixel costs seconds.
 	const prepared = prepareManagedSdrGradeStackV1({ interpretation, grades, luts: bodies });
-	for (let offset = 0; offset < pixels.length; offset += 4) {
-		if (offset % (frame.width * 4) === 0) throwIfAborted(signal);
-		writeChannels(pixels, offset, gradeChannels(prepared, frame.pixels, offset));
-	}
-	return Object.freeze({ width: frame.width, height: frame.height, pixels });
+	return gradeUnifiedExactLinearSourceFrame(prepared, frame, signal);
 }
 
-export function gradeLinearFrame(
-	frame: UnifiedExactRenderRgbaFrameV13,
+export function gradeLinearFloatFrame(
+	frame: UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame,
 	grades: readonly VideoColorGradeV1[],
 	luts: ReadonlyMap<string, ParsedCubeLutV1>,
 	signal: AbortSignal,
-): UnifiedExactRenderRgbaFrameV13 {
-	const pixels = new Uint8Array(frame.pixels.length);
+): UnifiedExactLinearSourceFrame {
 	const bodies = grades.map(({ lut }) => lut ? luts.get(lut.sha256) : undefined);
 	const prepared = prepareManagedSdrGradeStackV1({ decoding: 'linear', grades, luts: bodies });
-	for (let offset = 0; offset < pixels.length; offset += 4) {
-		if (offset % (frame.width * 4) === 0) throwIfAborted(signal);
-		writeChannels(pixels, offset, gradeChannels(prepared, frame.pixels, offset));
-	}
-	return Object.freeze({ width: frame.width, height: frame.height, pixels });
+	return gradeUnifiedExactLinearSourceFrame(prepared, frame, signal);
+}
+
+/** Byte compatibility belongs at explicit byte consumers, not the exact compositor. */
+export function gradeVisual(...args: Parameters<typeof gradeVisualLinear>) {
+	return quantizeUnifiedExactLinearSourceFrame(gradeVisualLinear(...args));
+}
+export function gradeEncodedFrame(...args: Parameters<typeof gradeEncodedLinearFrame>) {
+	return quantizeUnifiedExactLinearSourceFrame(gradeEncodedLinearFrame(...args));
+}
+export function gradeLinearFrame(...args: Parameters<typeof gradeLinearFloatFrame>) {
+	return quantizeUnifiedExactLinearSourceFrame(gradeLinearFloatFrame(...args));
 }
 
 export async function captureBrowserFrame(entry: Data, signal: AbortSignal): Promise<UnifiedExactRenderRgbaFrameV13> {
@@ -234,20 +252,6 @@ export function requiredInterpretation(
 	const result = finishing.sourceInterpretations.find((value) => value.sourceId === sourceId);
 	if (!result) throw new ReferenceError(`Selected finishing source interpretation ${sourceId} is unavailable.`);
 	return result;
-}
-
-function gradeChannels(
-	prepared: PreparedManagedSdrGradeStackV1,
-	pixels: Uint8Array,
-	offset: number,
-): readonly number[] {
-	return applyPreparedManagedSdrGradeStackLinearChannelsV1(prepared,
-		pixels[offset]! / 255, pixels[offset + 1]! / 255,
-		pixels[offset + 2]! / 255, pixels[offset + 3]! / 255);
-}
-
-function writeChannels(target: Uint8Array, offset: number, value: readonly number[]): void {
-	for (let channel = 0; channel < 4; channel += 1) target[offset + channel] = Math.round(value[channel]! * 255);
 }
 
 function record(value: unknown, name: string): Data {
