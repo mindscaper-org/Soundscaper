@@ -268,7 +268,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 						context,
 						copy,
 					);
-					const resampled = await canonicalizeBuffer(decodedBuffer, context, sampleRate, copy);
+					const resampled = await canonicalizeBuffer(decodedBuffer, context, sampleRate, copy, { preserveChannels: true });
 					canonicalAudio = fitAudioBufferToFrames(resampled, timelineDurationFrames, context);
 				}
 			} catch {

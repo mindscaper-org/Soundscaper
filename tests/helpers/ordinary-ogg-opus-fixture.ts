@@ -1,11 +1,35 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { AttachedFile, BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, OGG, OggOutputFormat, Output, WEBM, WebMOutputFormat, type EncodedPacket, type MetadataTags } from 'mediabunny';
+import { AttachedFile, BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedVideoPacketSource, EncodedPacketSink, Input, OGG, OggOutputFormat, Output, WEBM, WebMOutputFormat, type EncodedPacket, type MetadataTags } from 'mediabunny';
 import { createMonoCameraFixture } from '../browser/fixtures/mono-camera-media.js';
 
 let fixtureBytes: Promise<ArrayBuffer> | undefined;
 let webmBytes: Promise<ArrayBuffer> | undefined;
+
+/** Three authenticated25fps VP8 pictures plus the existing80ms six-channel Opus programme. */
+export async function surroundAvWebmFixture(): Promise<File> {
+	const camera = createMonoCameraFixture('Camera.webm');
+	const audio = new Input({ source: new BlobSource(surroundWebmOpusFixture()), formats: [WEBM] });
+	const video = new Input({ source: new BlobSource(new Blob([Uint8Array.from(camera.buffer)])), formats: [WEBM] });
+	try {
+		const audioTrack = await audio.getPrimaryAudioTrack(), videoTrack = await video.getPrimaryVideoTrack();
+		assert.ok(audioTrack && videoTrack); assert.equal(videoTrack.codec, 'vp8');
+		const audioConfig = await audioTrack.getDecoderConfig(), videoConfig = await videoTrack.getDecoderConfig();
+		assert.ok(audioConfig && videoConfig);
+		const target = new BufferTarget(), output = new Output({ format: new WebMOutputFormat(), target });
+		const audioSource = new EncodedAudioPacketSource('opus'), videoSource = new EncodedVideoPacketSource('vp8');
+		output.addVideoTrack(videoSource, { frameRate: 25 }); output.addAudioTrack(audioSource); await output.start();
+		let ordinal = 0;
+		for await (const packet of new EncodedPacketSink(videoTrack).packets()) {
+			await videoSource.add(packet.clone({ timestamp: ordinal / 25, duration: 1 / 25 }), { decoderConfig: videoConfig });
+			if (++ordinal === 3) break;
+		}
+		for await (const packet of new EncodedPacketSink(audioTrack).packets()) await audioSource.add(packet, { decoderConfig: audioConfig });
+		await output.finalize(); assert.ok(target.buffer);
+		return new File([target.buffer], 'Surround camera.webm', { type: 'video/webm' });
+	} finally { audio.dispose(); video.dispose(); }
+}
 
 /** Mux the committed ordinary microphone-tone capture's Opus packets into their normal Ogg container. */
 export async function ordinaryOggOpusFixture(extension: 'ogg' | 'opus' = 'ogg'): Promise<File> {

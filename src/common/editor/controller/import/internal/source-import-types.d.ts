@@ -215,6 +215,7 @@ export interface ImportVideoRuntime {
 		context: ImportVideoAudioContext,
 		targetSampleRate: number,
 		copy: ImportVideoCopy,
+		options?: Readonly<{ preserveChannels?: boolean }>,
 	): PromiseLike<AudioBufferLike>;
 	commit(
 		command: AudioEditorCommand,
