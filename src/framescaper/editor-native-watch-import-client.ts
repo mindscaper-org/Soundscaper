@@ -41,7 +41,7 @@ interface WatchImportProject extends Readonly<Record<string, unknown>> {
 export interface FramescaperNativeWatchImportController {
 	readonly project: unknown;
 	readonly actions: Readonly<{ readonly project: Readonly<{
-		importFiles(files: readonly Blob[], options: Readonly<Record<string, unknown>>): Promise<void>;
+		importFiles(files: readonly Blob[], options: Readonly<Record<string, unknown>>): Promise<unknown>;
 		flush(options?: Readonly<Record<string, unknown>>): Promise<unknown> | unknown;
 	}> }>;
 }
