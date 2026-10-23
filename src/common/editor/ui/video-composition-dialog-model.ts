@@ -148,29 +148,38 @@ export function createVideoCompositionDraft(value: unknown): Readonly<VideoCompo
 }
 
 /** Parse all dialog fields together so invalid intermediate edits never reach history. */
-export function parseVideoCompositionDraft(draft: VideoCompositionDraft): VideoClipComposition {
+export function parseVideoCompositionDraft(
+	draft: VideoCompositionDraft,
+	unchangedComposition?: VideoClipComposition,
+): VideoClipComposition {
+	const initialDraft = unchangedComposition && createVideoCompositionDraft(unchangedComposition);
+	const read = (
+		key: Exclude<keyof VideoCompositionDraft, 'flipHorizontal' | 'flipVertical' | 'blendMode'>,
+		name: string, initial: number | undefined, scale = 1, offset = 0,
+	): number => initial !== undefined && draft[key] === initialDraft?.[key]
+		? initial : numberText(draft[key], name) / scale + offset;
 	return normalizeVideoClipComposition({
 		schemaVersion: 1,
 		crop: {
-			left: numberText(draft.cropLeftPercent, 'crop left') / 100,
-			top: numberText(draft.cropTopPercent, 'crop top') / 100,
-			right: numberText(draft.cropRightPercent, 'crop right') / 100,
-			bottom: numberText(draft.cropBottomPercent, 'crop bottom') / 100,
+			left: read('cropLeftPercent', 'crop left', unchangedComposition?.crop.left, 100),
+			top: read('cropTopPercent', 'crop top', unchangedComposition?.crop.top, 100),
+			right: read('cropRightPercent', 'crop right', unchangedComposition?.crop.right, 100),
+			bottom: read('cropBottomPercent', 'crop bottom', unchangedComposition?.crop.bottom, 100),
 		},
 		transform: {
-			anchorX: numberText(draft.anchorXPercent, 'anchor X') / 100,
-			anchorY: numberText(draft.anchorYPercent, 'anchor Y') / 100,
-			positionX: numberText(draft.positionXPercent, 'position X') / 100 + 0.5,
-			positionY: numberText(draft.positionYPercent, 'position Y') / 100 + 0.5,
-			scaleX: numberText(draft.scaleXPercent, 'scale X') / 100,
-			scaleY: numberText(draft.scaleYPercent, 'scale Y') / 100,
-			rotationDegrees: numberText(draft.rotationDegrees, 'rotation'),
+			anchorX: read('anchorXPercent', 'anchor X', unchangedComposition?.transform.anchorX, 100),
+			anchorY: read('anchorYPercent', 'anchor Y', unchangedComposition?.transform.anchorY, 100),
+			positionX: read('positionXPercent', 'position X', unchangedComposition?.transform.positionX, 100, 0.5),
+			positionY: read('positionYPercent', 'position Y', unchangedComposition?.transform.positionY, 100, 0.5),
+			scaleX: read('scaleXPercent', 'scale X', unchangedComposition?.transform.scaleX, 100),
+			scaleY: read('scaleYPercent', 'scale Y', unchangedComposition?.transform.scaleY, 100),
+			rotationDegrees: read('rotationDegrees', 'rotation', unchangedComposition?.transform.rotationDegrees),
 			flipHorizontal: draft.flipHorizontal,
 			flipVertical: draft.flipVertical,
 		},
-		opacity: numberText(draft.opacityPercent, 'opacity') / 100,
+		opacity: read('opacityPercent', 'opacity', unchangedComposition?.opacity, 100),
 		blendMode: draft.blendMode,
-		compositingOrder: numberText(draft.compositingOrder, 'compositing order'),
+		compositingOrder: read('compositingOrder', 'compositing order', unchangedComposition?.compositingOrder),
 	});
 }
 
