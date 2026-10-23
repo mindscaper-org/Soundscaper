@@ -9,6 +9,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createImportedSourceProvenance } from '../../src/common/editor/source-provenance.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
+import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 async function nativeArchive(project, source) {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `p3-file-${crypto.randomUUID()}` });
@@ -62,6 +63,45 @@ async function openArchive(page, file, projectId) {
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	return editor;
 }
+
+test('Delete track and Undo restore its explicitly assigned Right microphone input', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
+			enumerateDevices: async () => [{ kind: 'audioinput', deviceId: 'default', groupId: 'studio', label: 'Stereo interface' }],
+			getUserMedia: async () => {
+				const context = new AudioContext();
+				const destination = context.createMediaStreamDestination();
+				const [track] = destination.stream.getAudioTracks(), settings = track.getSettings.bind(track);
+				Object.defineProperty(track, 'getSettings', { configurable: true, value: () => ({ ...settings(), channelCount: 2 }) });
+				return destination.stream;
+			},
+		} });
+	});
+	const source = createAudioSource({ id: 'source', frameCount: 48_000, channelCount: 1, sampleRate: 48_000 });
+	const clip = createAudioClip({ id: 'clip', title: 'Voice recording', sourceId: source.id, durationFrames: 48_000, sourceDurationFrames: 48_000 });
+	const project = createSoundscaperProject({ id: 'p3-input-undo', sources: [source], clips: [clip], tracks: [
+		createAudioTrack({ id: 'voice', name: 'Voice', armed: true, clipIds: [clip.id] }),
+		createAudioTrack({ id: 'other', name: 'Other input', armed: false }),
+	] });
+	const editor = await openArchive(page, await nativeArchive(project, source), project.id);
+	await chooseCommandAction(page, editor, 'View', 'Enable multi-track recording');
+	const row = editor.locator('[data-track-row][data-track-id="voice"]');
+	const inputs = row.locator('[data-recording-input-track="voice"]');
+	const sourceChoice = inputs.getByRole('combobox', { name: 'Recording source: Voice', exact: true });
+	const channelChoice = inputs.getByRole('combobox', { name: 'Channel: Voice', exact: true });
+	await sourceChoice.selectOption('device:default');
+	await expect(channelChoice.locator('option[value="1"]')).toHaveCount(1);
+	await channelChoice.selectOption('1');
+	await expect(channelChoice).toHaveValue('1');
+	await chooseTrackMenuAction(page, editor, row, 'Delete track');
+	await expect(row).toHaveCount(0);
+	await chooseCommandAction(page, editor, 'Edit', 'Undo');
+	await expect(row).toBeVisible();
+	await expect(sourceChoice).toHaveValue('device:default'); await expect(channelChoice).toHaveValue('1');
+	await chooseCommandAction(page, editor, 'Edit', 'Redo'); await expect(row).toHaveCount(0);
+	await chooseCommandAction(page, editor, 'Edit', 'Undo');
+	await expect(sourceChoice).toHaveValue('device:default'); await expect(channelChoice).toHaveValue('1');
+});
 
 test('Edit Duplicate preserves a native track identity matching a prototype setter', async ({ page }) => {
 	const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 48_000 });

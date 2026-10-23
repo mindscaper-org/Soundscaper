@@ -227,7 +227,7 @@ export function createDocumentComposition(dependencies: DocumentCompositionDepen
 		stopProjectBinPreview: dependencies.stopProjectBinPreview,
 		clearWaveformPcmWindows: () => sources.sourceLifecycle.clearWaveformPcmWindows(),
 		synchronizeVideoSources: async () => { if (await sources.projectVisual.synchronizeVideoSources()) view.publishProjectState(); },
-		reconcileRecordingRouting: dependencies.reconcileRecordingRouting,
+		reconcileRecordingRouting: tracks => dependencies.reconcileRecordingRouting(tracks, document.captureCurrent().generation),
 		persistRecordingRouting: dependencies.persistRecordingRouting,
 		findClip,
 		findTrack,

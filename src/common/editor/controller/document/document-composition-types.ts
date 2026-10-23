@@ -173,7 +173,7 @@ export interface DocumentCompositionDependencies {
 	readonly synchronizeAutomaticSampleEditMode: () => void;
 	readonly synchronizeMicrophoneMeterTarget: () => void;
 	readonly stopProjectBinPreview: () => unknown;
-	readonly reconcileRecordingRouting: (tracks: readonly MutationTrack[]) => boolean;
+	readonly reconcileRecordingRouting: (tracks: readonly MutationTrack[], activationGeneration?: number) => boolean;
 	readonly persistRecordingRouting: () => Promise<unknown>;
 	readonly publishDocumentSnapshot: () => void;
 	readonly handleError: (error: unknown) => void;

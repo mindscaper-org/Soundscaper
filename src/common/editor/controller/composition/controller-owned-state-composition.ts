@@ -19,13 +19,14 @@ import {
 	type EditorControllerStateOptions,
 } from './internal/state.ts';
 import type { TrackAudioRecordingStatePort } from '../track-audio/track-audio-composition-types.ts';
+import { createRecordingRouteHistory } from './internal/recording-route-history.ts';
 
 export type ControllerOwnedStateCompositionOptions<Preferences, EffectPresets,
 	Project = ControllerRuntimeProject,
 	History extends { readonly present: Project } = ControllerRuntimeHistory & { readonly present: Project },
 > = Omit<EditorControllerStateOptions<Preferences, ControllerRecordingRouting, EffectPresets, Project, History>,
 	'recording' | 'recordingRouting' | 'transport'
->;
+> & { readonly signal?: AbortSignal };
 
 type RecordingRoutingOwner = Pick<ControllerRecordingState<ControllerRecordingRouting>,
 	| 'preferredInputChannelCount' | 'preferredInputDeviceId' | 'recordingDevices'
@@ -55,6 +56,12 @@ export function createControllerOwnedStateComposition<Preferences, EffectPresets
 		transport: transportState,
 		effects: effectsState,
 	});
+	const reconcileRecordingRouting = createRecordingRouteHistory({
+		getRouting: () => recordingState.recordingRouting,
+		setRouting: routing => { recordingState.recordingRouting = routing; },
+		reconcile: tracks => reconcileControllerRecordingRouting(recordingState, tracks),
+		signal: options.signal,
+	});
 	return Object.freeze({
 		state,
 		effectsAccess: createOwnedStateAccess(state, effectsState),
@@ -62,9 +69,7 @@ export function createControllerOwnedStateComposition<Preferences, EffectPresets
 		recordingAccess: createOwnedStateAccess(state, recordingState),
 		transportAccess: createOwnedStateAccess(state, transportState),
 		recordingPort: createTrackAudioRecordingStatePort(recordingState),
-		reconcileRecordingRouting: (tracks: NonNullable<Parameters<typeof normalizeRecordingRouting>[1]>) => (
-			reconcileControllerRecordingRouting(recordingState, tracks)
-		),
+		reconcileRecordingRouting,
 	});
 }
 

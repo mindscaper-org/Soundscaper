@@ -168,7 +168,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		preferences: createAudioEditorPreferencesV1({ workspace: { activeId: product.defaultWorkspace }, performance: { optimizeFor: defaultOptimizationMode } }),
 		effectPresets: createAudioEditorEffectPresets(),
 		initialEffectType: audioSelectionEffectTypes()[0],
-		phase: lifetime.phase,
+		phase: lifetime.phase, signal: lifetime.signal,
 		readyMessage: copy.ready,
 		mobile: classifyMobile(),
 		defaultPixelsPerSecond: AUDIO_EDITOR_DEFAULT_PIXELS_PER_SECOND,
