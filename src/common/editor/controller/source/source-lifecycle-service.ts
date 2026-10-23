@@ -224,14 +224,16 @@ export function createSourceLifecycleService<
 					sourceBuffers.delete(source.id);
 					if (!waveformPeaksHaveRms(peaks, source)) {
 						peaks = await generateStoredWaveformPeaks(store, source, copy);
-						await saveOptionalWaveformPeaks(() => store.saveAnalysis(peakCacheKey(source.id), peaks));
+						const generatedPeaks = peaks;
+						await saveOptionalWaveformPeaks(() => store.saveAnalysis(peakCacheKey(source.id), generatedPeaks));
 					}
 				} else {
 					if (!buffer) continue;
 					cacheSourceBuffer(source.id, buffer);
 					if (!waveformPeaksHaveRms(peaks, source)) {
 						peaks = await generateWaveformPeaks(audioBufferChannels(buffer), copy);
-						await saveOptionalWaveformPeaks(() => store.saveAnalysis(peakCacheKey(source.id), peaks));
+						const generatedPeaks = peaks;
+						await saveOptionalWaveformPeaks(() => store.saveAnalysis(peakCacheKey(source.id), generatedPeaks));
 					}
 				}
 				await Promise.resolve(store.deleteAnalysis?.(legacyPeakCacheKey(source.id))).catch(() => undefined);
