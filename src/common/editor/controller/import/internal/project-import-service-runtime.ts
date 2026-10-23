@@ -33,6 +33,7 @@ import { createLegacyAudacityProjectImport } from './legacy-audacity-project-imp
 import { createLinkedAudioImportAdmission } from './linked-media/linked-audio-import-admission.ts';
 import { createLinkedPcmImporter } from './linked-media/linked-wav-import-service.ts';
 import { persistDecodedLegacyAupProject } from './legacy-aup-project-persistence.ts';
+import { assertSingleLegacyAupProject } from './legacy-aup-batch-admission.ts';
 import { createAddTimelineAnnotationCommand } from '../../../commands/factories.ts';
 import {
 	createOmittedRiffAnnotationImportReport,
@@ -114,6 +115,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			catch (error) { handleError(error); }
 			return;
 		}
+		assertSingleLegacyAupProject(files, isLegacyAupFile, copy);
 		const progressTask = taskProgress?.begin?.('import', copy.importing, undefined, { key: 'importing' }) || null;
 		progressTask?.setCancellation?.(cancellation.abort);
 		activeImportProgress = progressTask;
