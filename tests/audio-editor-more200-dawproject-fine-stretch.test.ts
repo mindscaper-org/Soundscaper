@@ -5,6 +5,8 @@ import test from 'node:test';
 import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
 
 const RATE = 48_000;
@@ -13,12 +15,13 @@ const SOURCE_FRAMES = RATE * 60;
 for (const difference of [-144, 144, 0]) {
 	test(`File Open preserves a DAWproject fine stretch of ${difference} samples per minute`, async () => {
 		const durationFrames = SOURCE_FRAMES + difference;
-		const fixture = createFixture();
+		const fixture = createFixture({ adaptAudacityProject: importSoundscaperAudacityProject });
 		const opened = await createNativeProjectService(fixture.runtime).openDawproject(await recording(durationFrames));
 		assert.ok(opened);
+		assert.ok(validateSoundscaperProject(opened.project));
 		assert.equal(opened.project.clips.length, 1);
 		const clip = opened.project.clips[0];
-		assert.ok(clip);
+		assert.ok(clip && clip.kind === 'audio');
 		assert.equal(clip.durationFrames, durationFrames, 'the authored synchronization boundary must survive import');
 		assert.equal(clip.sourceDurationFrames, SOURCE_FRAMES, 'the entire unchanged recording remains available');
 		assert.equal(clip.speedRatio, SOURCE_FRAMES / durationFrames);
