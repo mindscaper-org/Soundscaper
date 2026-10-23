@@ -19,7 +19,7 @@ export async function openInstalledGain(page, options = {}) {
 /** Desktop host fixture over the production preload relay and plug-in RPC port. */
 export async function installNativePluginParameterHost(page, options = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ parameterCount, holdParameterReads }) => {
+	await page.addInitScript(({ parameterCount, holdParameterReads, parameterLabel }) => {
 		const values = Array.from({ length: parameterCount }, () => .25);
 		const heldParameterReplies = [];
 		let readsHeld = holdParameterReads;
@@ -91,7 +91,7 @@ export async function installNativePluginParameterHost(page, options = {}) {
 						reply({ kind: 'state-loaded' });
 					} else if (request.kind === 'capabilities') reply({ kind: 'capabilities', parameterCount, hasVendorUi: false });
 					else if (request.kind === 'parameters') reply({ kind: 'parameters', parameters: Array.from({ length: parameterCount }, (_, index) => ({
-						index, id: index === 0 ? 'gain' : `parameter-${index}`, name: index === 0 ? 'Gain' : `Parameter ${index}`, label: '', minimumValue: 0, maximumValue: 1,
+						index, id: index === 0 ? 'gain' : `parameter-${index}`, name: index === 0 ? 'Gain' : `Parameter ${index}`, label: parameterLabel, minimumValue: 0, maximumValue: 1,
 						defaultValue: .25, flags: 8,
 					})) });
 					else if (request.kind === 'parameter-get') {
@@ -141,5 +141,6 @@ export async function installNativePluginParameterHost(page, options = {}) {
 			closeNativePluginVendorUi: refused, closeNativePluginInstance: async () => true,
 		};
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: Object.freeze({ v1: bridge }) });
-	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true });
+	}, { parameterCount: options.parameterCount ?? 1, holdParameterReads: options.holdParameterReads === true,
+		parameterLabel: options.parameterLabel ?? '' });
 }

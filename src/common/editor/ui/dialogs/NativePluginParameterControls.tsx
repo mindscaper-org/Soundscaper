@@ -164,6 +164,7 @@ export default function NativePluginParameterControls({
 					max={parameter.maximumValue}
 					step="any"
 					value={value}
+					aria-valuetext={formatValue(value)}
 					disabled={controlDisabled}
 					onChange={(event) => { void update(parameter, Number(event.currentTarget.value)); }}
 					onDoubleClick={(event) => {
@@ -172,7 +173,7 @@ export default function NativePluginParameterControls({
 						void update(parameter, parameter.defaultValue);
 					}}
 				/>}
-				{!isBoolean && <output>{formatValue(value, parameter.label)}</output>}
+				{!isBoolean && <output>{formatValue(value)}</output>}
 			</label>;
 		})}
 	</fieldset>;
@@ -222,6 +223,6 @@ function normalizedValue(value: number): boolean {
 	return Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
-function formatValue(value: number, label: string): string {
-	return `${value.toFixed(3).replace(/0+$/u, '').replace(/\.$/u, '')}${label ? ` ${label}` : ''}`;
+function formatValue(value: number): string {
+	return `${(value * 100).toFixed(1).replace(/\.0$/u, '')}%`;
 }
