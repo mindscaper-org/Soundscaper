@@ -131,3 +131,43 @@ export async function freeformM4aMetadataFixture(): Promise<File> {
 	}));
 	return new File([Uint8Array.from(rewrite(Buffer.from(await file.arrayBuffer())))], 'Credited programme.m4a', { type: file.type });
 }
+
+/** Apple's small international-text atoms, plus FFmpeg's payload-length variant. */
+export async function quickTimeTextM4aFixture(encoding: 'macintosh' | 'utf16' | 'utf8' | 'ffmpeg' | 'ffmpeg-unlabelled', multiple = true): Promise<File> {
+	const atom = (type: string, body: Buffer): Buffer => {
+		const header = Buffer.alloc(8); header.writeUInt32BE(body.length + 8); header.write(type, 4, 'latin1');
+		return Buffer.concat([header, body]);
+	};
+	const text = encoding === 'macintosh' ? Buffer.from([67, 97, 102, 0x8e])
+		: encoding === 'utf16' ? Buffer.from([0xfe, 0xff, 0, 67, 0, 97, 0, 102, 0, 0xe9]) : Buffer.from('Café');
+	const record = (bytes: Buffer, language: number): Buffer => {
+		const header = Buffer.alloc(4); header.writeUInt16BE(bytes.length + (encoding.startsWith('ffmpeg') ? 0 : 4)); header.writeUInt16BE(language, 2);
+		return Buffer.concat([header, bytes]);
+	};
+	const language = encoding === 'macintosh' ? 1 : encoding === 'ffmpeg-unlabelled' ? 0 : (5 << 10) | (14 << 5) | 7; // French Macintosh or ISO eng.
+	const title = atom('©nam', Buffer.concat([record(text, language), ...(multiple ? [record(Buffer.from('Second title'), 0x15c7)] : [])]));
+	const comment = atom('©cmt', record(Buffer.from('After title'), 0x15c7));
+	const input = Buffer.from(await (await multiValueM4aArtworkFixture()).file.arrayBuffer());
+	return new File([Uint8Array.from(Buffer.concat(m4aAtoms(input).map(child => child.toString('latin1', 4, 8) === 'moov'
+		? atom('moov', Buffer.concat([...m4aAtoms(child.subarray(8)).filter(box => box.toString('latin1', 4, 8) !== 'udta'), atom('udta', Buffer.concat([title, comment]))])) : child)))],
+	`QuickTime-${encoding}.m4a`, { type: 'audio/mp4' });
+}
+
+/** Modern QuickTime metadata overrides matching legacy user data in either physical order. */
+export async function quickTimeMetadataPrecedenceFixture(legacyFirst: boolean): Promise<File> {
+	const { file } = await multiValueM4aArtworkFixture();
+	const atom = (type: string, body: Buffer): Buffer => {
+		const header = Buffer.alloc(8); header.writeUInt32BE(body.length + 8); header.write(type, 4, 'latin1');
+		return Buffer.concat([header, body]);
+	};
+	const text = (type: string, value: string): Buffer => {
+		const bytes = Buffer.from(value); const header = Buffer.alloc(4);
+		header.writeUInt16BE(bytes.length); header.writeUInt16BE(0x15c7, 2);
+		return atom(type, Buffer.concat([header, bytes]));
+	};
+	const legacy = atom('udta', Buffer.concat([text('©nam', 'Old compatibility title'), text('©alb', 'Legacy album fallback')]));
+	const bytes = Buffer.from(await file.arrayBuffer());
+	return new File([Uint8Array.from(Buffer.concat(m4aAtoms(bytes).map(child => child.toString('latin1', 4, 8) === 'moov'
+		? atom('moov', Buffer.concat(legacyFirst ? [legacy, child.subarray(8)] : [child.subarray(8), legacy])) : child)))],
+	'Updated metadata.m4a', { type: 'audio/mp4' });
+}
