@@ -40,7 +40,9 @@ for (const reversed of [true, false]) test(`Join preserves valid hidden source c
 	assert.equal(joined.trimStartFrames, 40_000); assert.equal(joined.trimEndFrames, 40_000);
 	controller.actions.edit.undo(); assert.deepEqual(controller.project?.clips, before.clips);
 	controller.actions.edit.redo(); assert.equal(controller.project?.clips.length, 1);
-	const persisted = await controller.actions.project.flush(); assert.notEqual(persisted, null);
+	const current = controller.project; assert.ok(current); await controller.actions.project.flush();
+	const persisted = await store.loadProject(current.id); assert.ok(persisted);
+	assert.deepEqual(persisted.clips, current.clips);
 });
 
 for (const reversed of [true, false]) for (const loop of [true, false]) test(`split and Join retain an existing nonzero hidden window; reversed=${String(reversed)}, loop=${String(loop)}`, () => {
