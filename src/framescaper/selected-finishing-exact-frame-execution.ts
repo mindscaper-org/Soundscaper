@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts'; import {
-	addUnifiedExactLinearCompositionEntryV13,
+	addUnifiedExactLinearCompositionEntryV13, applyUnifiedExactLinearAdjustmentV13,
 	addUnifiedExactLinearDissolveEntryV13,
 	compositeUnifiedExactLinearFrameV13,
 	createUnifiedExactLinearPremultipliedFrameV13,
@@ -494,10 +494,9 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 					frame: graded, displayWidth: width, displayHeight: height,
 					outputWidth: width, outputHeight: height,
 					renderDescription: identityDescription(width, height, adjustment.blendMode),
-					opacity: adjustment.opacity, ...(mask ? { mask } : {}),
 				});
 				if (openFx) overlay = await openFx.adjustment(overlay, adjustment.modelId);
-				compositeUnifiedExactLinearFrameV13(target, overlay, adjustment.blendMode);
+				applyUnifiedExactLinearAdjustmentV13(target, overlay, adjustment.blendMode, adjustment.opacity, mask);
 				bucket.entries = [Object.freeze({ frame: target, blendMode: preservedBlendMode })];
 			}
 		}

@@ -152,6 +152,37 @@ export function compositeUnifiedExactLinearFrameV13(
 	}
 }
 
+/** An adjustment replaces a weighted part of its target; it is not another picture layer. */
+export function applyUnifiedExactLinearAdjustmentV13(
+	targetValue: UnifiedExactLinearPremultipliedFrameV13,
+	adjustedValue: UnifiedExactLinearPremultipliedFrameV13,
+	blendMode: UnifiedExactLinearBlendModeV13,
+	opacityValue: number,
+	mask?: Uint8Array<ArrayBuffer>,
+): void {
+	const target = premultipliedFrame(targetValue, 'linear adjustment target');
+	const adjusted = premultipliedFrame(adjustedValue, 'linear adjustment result');
+	assertSameGeometry(target, adjusted, 'linear adjustment');
+	const opacity = unit(opacityValue, 'linear adjustment opacity');
+	if (mask !== undefined && (!(mask instanceof Uint8Array) || mask.length !== target.width * target.height)) {
+		throw new RangeError('A linear adjustment mask must match the target geometry.');
+	}
+	for (let offset = 0; offset < target.pixels.length; offset += 4) {
+		const weight = opacity * (mask === undefined ? 1 : mask[offset / 4]! / 255);
+		const beforeAlpha = clamp(target.pixels[offset + 3]!);
+		const afterAlpha = clamp(adjusted.pixels[offset + 3]!);
+		for (let channel = 0; channel < 3; channel++) {
+			const before = beforeAlpha > 1e-12 ? target.pixels[offset + channel]! / beforeAlpha : 0;
+			const after = afterAlpha > 1e-12 ? adjusted.pixels[offset + channel]! / afterAlpha : 0;
+			// The adjusted and original pixels describe the same coverage. Blend only their colour.
+			const colour = blend(before, after, blendMode);
+			target.pixels[offset + channel] = clamp(target.pixels[offset + channel]! * (1 - weight)
+				+ colour * afterAlpha * weight);
+		}
+		target.pixels[offset + 3] = beforeAlpha * (1 - weight) + afterAlpha * weight;
+	}
+}
+
 /** Return straight linear eight-bit pixels for another exact finishing stage. */
 export function straightUnifiedExactLinearFrameV13(
 	value: UnifiedExactLinearPremultipliedFrameV13,
