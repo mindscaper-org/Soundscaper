@@ -43,6 +43,24 @@ export async function customTaggedWebmOpusFixture(metadata: Readonly<Record<stri
 	return new File([await createOrdinaryOggOpusBytes(true, false, { raw: metadata })], 'Private-credits.webm', { type: 'audio/webm' });
 }
 
+/** The standard ORIGINAL nesting tag describes the source work, not this programme. */
+export async function originalWorkTaggedWebmOpusFixture(originalFirst = false): Promise<File> {
+	const original = new TextEncoder().encode('Original performer');
+	const name = Uint8Array.of(0x45, 0xa3, 0x86, ...new TextEncoder().encode('ARTIST'));
+	const value = Uint8Array.of(0x44, 0x87, 0x80 | original.length, ...original);
+	const child = Uint8Array.of(0x67, 0xc8, 0x10, 0, 0, name.length + value.length, ...name, ...value);
+	const container = 'x'.repeat(child.length - 3);
+	const raw = originalFirst ? { ORIGINAL: container, ARTIST: 'Current performer', TITLE: 'Current title' }
+		: { ARTIST: 'Current performer', ORIGINAL: container, TITLE: 'Current title' };
+	const file = await customTaggedWebmOpusFixture(raw);
+	const bytes = Buffer.from(await file.arrayBuffer());
+	const offset = bytes.indexOf(Buffer.from('ORIGINAL')) + 8; assert.ok(offset > 8);
+	assert.equal(bytes.subarray(offset, offset + 3).toString('hex'), `4487${(0x80 | container.length).toString(16)}`);
+	// Equal-size replacement preserves the parent/segment sizes and every seek offset.
+	bytes.set(child, offset);
+	return new File([bytes], 'Original-work-credits.webm', { type: 'audio/webm' });
+}
+
 /** Separate SimpleTag records, as required for multiple Matroska performer values. */
 export async function repeatedTaggedWebmOpusFixture(repeated = true): Promise<File> {
 	const bytes = new Uint8Array(await createOrdinaryOggOpusBytes(true, false, { raw: repeated
