@@ -5,6 +5,7 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { evaluateAudacityActionEnablement } from '../src/common/editor/audacity-action-parity.js';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
@@ -42,3 +43,15 @@ for (const action of ['selection', 'cut'] as const) for (const anchor of ['sampl
 		assert.deepEqual(controller.project, before, 'audition leaves selection, loop and history document unchanged');
 	});
 }
+
+
+for (const action of ['action://playback/play-selection', 'play-cut-preview']) test(`selected clip admission reaches the ${action} shortcut`, () => {
+	const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: 48_000, channelCount: 1 });
+	const clip = createAudioClip({ id: 'clip', sourceId: source.id, timelineStartFrame: 24_000, durationFrames: 48_000, sourceDurationFrames: 48_000 });
+	const project = createSoundscaperProject({ sources: [source], clips: [clip], tracks: [createAudioTrack({ id: 'voice', clipIds: [clip.id] })],
+		selection: { startFrame: 0, endFrame: 0, trackIds: ['voice'], clipIds: [clip.id] } });
+	assert.equal(evaluateAudacityActionEnablement(action, { snapshot: { project } }), true);
+	const empty = createSoundscaperProject({ ...project, selection: { startFrame: 0, endFrame: 0, trackIds: [], clipIds: [] } });
+	assert.equal(evaluateAudacityActionEnablement(action, { snapshot: { project: empty } }), false);
+	if (action === 'play-cut-preview') assert.equal(evaluateAudacityActionEnablement(action, { snapshot: { project, recording: true } }), false);
+});
