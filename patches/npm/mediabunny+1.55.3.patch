@@ -1,7 +1,17 @@
 diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id3.ts
 --- a/node_modules/mediabunny/src/id3.ts
 +++ b/node_modules/mediabunny/src/id3.ts
-@@ -197,8 +197,8 @@
+@@ -176,6 +176,9 @@
+ 
+ 	const bytes = readBytes(slice, dataSize);
+ 	const reader = new Id3V2Reader(header, bytes);
++	let legacyYear: string | undefined;
++	let legacyDayMonth: string | undefined;
++	let legacyTime: string | undefined;
+ 
+ 	if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion === 3) {
+ 		reader.ununsynchronizeAll();
+@@ -197,8 +200,8 @@
  			break;
  		}
  
@@ -12,7 +22,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  
  		let	frameEncrypted = false;
  		let frameCompressed = false;
-@@ -227,9 +227,18 @@
+@@ -227,9 +230,18 @@
  		}
  
  		if (frameUnsynchronized) {
@@ -34,7 +44,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  		tags.raw ??= {};
  		if (frame.id === 'TXXX') {
  			const txxx = tags.raw['TXXX'] ??= {};
-@@ -243,7 +252,7 @@
+@@ -243,7 +255,7 @@
  			tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
  		} else {
  			// For the others, let's just get the bytes
@@ -43,7 +53,58 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  		}
  
  		reader.pos = frameStartPos;
-@@ -431,7 +440,7 @@
+@@ -328,8 +340,7 @@
+ 				tags.genre ??= genreText;
+ 			}; break;
+ 
+-			case 'TDRC':
+-			case 'TDAT': {
++			case 'TDRC': {
+ 				const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+ 				const date = new Date(dateText);
+ 
+@@ -340,12 +351,15 @@
+ 
+ 			case 'TYER':
+ 			case 'TYE': {
+-				const yearText = reader.readId3V2EncodingAndText(frameEndPos);
+-				const year = Number.parseInt(yearText, 10);
+-
+-				if (Number.isInteger(year)) {
+-					tags.date ??= new Date(String(year)); // String so that it parses as UTC
+-				}
++				legacyYear = reader.readId3V2EncodingAndText(frameEndPos);
++			}; break;
++			case 'TDAT':
++			case 'TDA': {
++				legacyDayMonth = reader.readId3V2EncodingAndText(frameEndPos);
++			}; break;
++			case 'TIME':
++			case 'TIM': {
++				legacyTime = reader.readId3V2EncodingAndText(frameEndPos);
+ 			}; break;
+ 
+ 			case 'USLT':
+@@ -408,6 +422,18 @@
+ 
+ 		reader.pos = frameEndPos;
+ 	}
++
++	if (!tags.date && legacyYear && /^\d{4}$/.test(legacyYear)) {
++		let date = new Date(legacyYear);
++		if (legacyDayMonth && /^\d{4}$/.test(legacyDayMonth)) {
++			const day = legacyDayMonth.slice(0, 2);
++			const month = legacyDayMonth.slice(2);
++			const time = legacyTime && /^(?:[01]\d|2[0-3])[0-5]\d$/.test(legacyTime) ? legacyTime : '0000';
++			const fullDate = new Date(`${legacyYear}-${month}-${day}T${time.slice(0, 2)}:${time.slice(2)}:00Z`);
++			if (fullDate.getUTCMonth() + 1 === Number(month) && fullDate.getUTCDate() === Number(day)) date = fullDate;
++		}
++		if (!Number.isNaN(date.getTime())) tags.date = date;
++	}
+ };
+ 
+ // https://id3.org/id3v2.3.0
+@@ -431,7 +457,7 @@
  			newBytes.push(value1);
  
  			if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -52,7 +113,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				if (value2 === 0x00) {
  					i++;
  				}
-@@ -466,6 +475,7 @@
+@@ -466,6 +492,7 @@
  		this.bytes.set(after, before.length + newBytes.length);
  
  		this.view = new DataView(this.bytes.buffer);
@@ -63,7 +124,17 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/mediabunny/dist/modules/src/id3.js
 --- a/node_modules/mediabunny/dist/modules/src/id3.js
 +++ b/node_modules/mediabunny/dist/modules/src/id3.js
-@@ -153,8 +153,8 @@
+@@ -136,6 +136,9 @@
+         : header.size;
+     const bytes = readBytes(slice, dataSize);
+     const reader = new Id3V2Reader(header, bytes);
++    let legacyYear;
++    let legacyDayMonth;
++    let legacyTime;
+     if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion === 3) {
+         reader.ununsynchronizeAll();
+     }
+@@ -153,8 +156,8 @@
          if (!frame) {
              break;
          }
@@ -74,7 +145,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
          let frameEncrypted = false;
          let frameCompressed = false;
          let frameUnsynchronized = false;
-@@ -179,8 +179,17 @@
+@@ -179,8 +182,17 @@
              continue;
          }
          if (frameUnsynchronized) {
@@ -94,7 +165,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
          tags.raw ??= {};
          if (frame.id === 'TXXX') {
              const txxx = tags.raw['TXXX'] ??= {};
-@@ -195,7 +204,7 @@
+@@ -195,7 +207,7 @@
          }
          else {
              // For the others, let's just get the bytes
@@ -103,7 +174,63 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
          }
          reader.pos = frameStartPos;
          switch (frame.id) {
-@@ -396,7 +405,7 @@
+@@ -291,7 +303,6 @@
+                 ;
+                 break;
+             case 'TDRC':
+-            case 'TDAT':
+                 {
+                     const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+                     const date = new Date(dateText);
+@@ -302,16 +313,18 @@
+                 ;
+                 break;
+             case 'TYER':
+-            case 'TYE':
+-                {
+-                    const yearText = reader.readId3V2EncodingAndText(frameEndPos);
+-                    const year = Number.parseInt(yearText, 10);
+-                    if (Number.isInteger(year)) {
+-                        tags.date ??= new Date(String(year)); // String so that it parses as UTC
+-                    }
+-                }
+-                ;
+-                break;
++            case 'TYE': {
++                legacyYear = reader.readId3V2EncodingAndText(frameEndPos);
++            }; break;
++            case 'TDAT':
++            case 'TDA': {
++                legacyDayMonth = reader.readId3V2EncodingAndText(frameEndPos);
++            }; break;
++            case 'TIME':
++            case 'TIM': {
++                legacyTime = reader.readId3V2EncodingAndText(frameEndPos);
++            }; break;
++
+             case 'USLT':
+             case 'ULT':
+                 {
+@@ -378,6 +391,18 @@
+         }
+         reader.pos = frameEndPos;
+     }
++
++    if (!tags.date && legacyYear && /^\d{4}$/.test(legacyYear)) {
++        let date = new Date(legacyYear);
++        if (legacyDayMonth && /^\d{4}$/.test(legacyDayMonth)) {
++            const day = legacyDayMonth.slice(0, 2);
++            const month = legacyDayMonth.slice(2);
++            const time = legacyTime && /^(?:[01]\d|2[0-3])[0-5]\d$/.test(legacyTime) ? legacyTime : '0000';
++            const fullDate = new Date(`${legacyYear}-${month}-${day}T${time.slice(0, 2)}:${time.slice(2)}:00Z`);
++            if (fullDate.getUTCMonth() + 1 === Number(month) && fullDate.getUTCDate() === Number(day)) date = fullDate;
++        }
++        if (!Number.isNaN(date.getTime())) tags.date = date;
++    }
+ };
+ // https://id3.org/id3v2.3.0
+ export class Id3V2Reader {
+@@ -396,7 +421,7 @@
              const value1 = this.bytes[i];
              newBytes.push(value1);
              if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -112,7 +239,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                  if (value2 === 0x00) {
                      i++;
                  }
-@@ -424,6 +433,7 @@
+@@ -424,6 +449,7 @@
          this.bytes.set(newBytes, before.length);
          this.bytes.set(after, before.length + newBytes.length);
          this.view = new DataView(this.bytes.buffer);
@@ -180,7 +307,17 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26892,8 +26893,8 @@
+@@ -26876,6 +26877,9 @@
+     const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
+     const bytes2 = readBytes(slice, dataSize);
+     const reader = new Id3V2Reader(header, bytes2);
++    let legacyYear;
++    let legacyDayMonth;
++    let legacyTime;
+     if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
+       reader.ununsynchronizeAll();
+     }
+@@ -26892,8 +26896,8 @@
        if (!frame) {
          break;
        }
@@ -191,7 +328,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26916,8 +26917,17 @@
+@@ -26916,8 +26920,17 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -211,7 +348,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        tags.raw ??= {};
        if (frame.id === "TXXX") {
          const txxx = tags.raw["TXXX"] ??= {};
-@@ -26928,7 +26938,7 @@
+@@ -26928,7 +26941,7 @@
        } else if (frame.id[0] === "T") {
          tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
        } else {
@@ -220,7 +357,65 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -27118,7 +27128,7 @@
+@@ -27024,7 +27037,6 @@
+           ;
+           break;
+         case "TDRC":
+-        case "TDAT":
+           {
+             const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+             const date = new Date(dateText);
+@@ -27034,17 +27046,19 @@
+           }
+           ;
+           break;
+-        case "TYER":
+-        case "TYE":
+-          {
+-            const yearText = reader.readId3V2EncodingAndText(frameEndPos);
+-            const year = Number.parseInt(yearText, 10);
+-            if (Number.isInteger(year)) {
+-              tags.date ??= new Date(String(year));
+-            }
+-          }
+-          ;
+-          break;
++        case 'TYER':
++        case 'TYE': {
++          legacyYear = reader.readId3V2EncodingAndText(frameEndPos);
++        }; break;
++        case 'TDAT':
++        case 'TDA': {
++          legacyDayMonth = reader.readId3V2EncodingAndText(frameEndPos);
++        }; break;
++        case 'TIME':
++        case 'TIM': {
++          legacyTime = reader.readId3V2EncodingAndText(frameEndPos);
++        }; break;
++
+         case "USLT":
+         case "ULT":
+           {
+@@ -27101,6 +27115,18 @@
+       }
+       reader.pos = frameEndPos;
+     }
++
++    if (!tags.date && legacyYear && /^\d{4}$/.test(legacyYear)) {
++      let date = new Date(legacyYear);
++      if (legacyDayMonth && /^\d{4}$/.test(legacyDayMonth)) {
++        const day = legacyDayMonth.slice(0, 2);
++        const month = legacyDayMonth.slice(2);
++        const time = legacyTime && /^(?:[01]\d|2[0-3])[0-5]\d$/.test(legacyTime) ? legacyTime : '0000';
++        const fullDate = new Date(`${legacyYear}-${month}-${day}T${time.slice(0, 2)}:${time.slice(2)}:00Z`);
++        if (fullDate.getUTCMonth() + 1 === Number(month) && fullDate.getUTCDate() === Number(day)) date = fullDate;
++      }
++      if (!Number.isNaN(date.getTime())) tags.date = date;
++    }
+   };
+   var Id3V2Reader = class {
+     constructor(header, bytes2) {
+@@ -27118,7 +27144,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -229,7 +424,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            if (value2 === 0) {
              i++;
            }
-@@ -27146,6 +27156,7 @@
+@@ -27146,6 +27172,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -257,7 +452,17 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26895,8 +26896,8 @@
+@@ -26879,6 +26880,9 @@
+     const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
+     const bytes2 = readBytes(slice, dataSize);
+     const reader = new Id3V2Reader(header, bytes2);
++    let legacyYear;
++    let legacyDayMonth;
++    let legacyTime;
+     if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
+       reader.ununsynchronizeAll();
+     }
+@@ -26895,8 +26899,8 @@
        if (!frame) {
          break;
        }
@@ -268,7 +473,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26919,8 +26920,17 @@
+@@ -26919,8 +26923,17 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -288,7 +493,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        tags.raw ??= {};
        if (frame.id === "TXXX") {
          const txxx = tags.raw["TXXX"] ??= {};
-@@ -26931,7 +26941,7 @@
+@@ -26931,7 +26944,7 @@
        } else if (frame.id[0] === "T") {
          tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
        } else {
@@ -297,7 +502,65 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -27121,7 +27131,7 @@
+@@ -27027,7 +27040,6 @@
+           ;
+           break;
+         case "TDRC":
+-        case "TDAT":
+           {
+             const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+             const date = new Date(dateText);
+@@ -27037,17 +27049,19 @@
+           }
+           ;
+           break;
+-        case "TYER":
+-        case "TYE":
+-          {
+-            const yearText = reader.readId3V2EncodingAndText(frameEndPos);
+-            const year = Number.parseInt(yearText, 10);
+-            if (Number.isInteger(year)) {
+-              tags.date ??= new Date(String(year));
+-            }
+-          }
+-          ;
+-          break;
++        case 'TYER':
++        case 'TYE': {
++          legacyYear = reader.readId3V2EncodingAndText(frameEndPos);
++        }; break;
++        case 'TDAT':
++        case 'TDA': {
++          legacyDayMonth = reader.readId3V2EncodingAndText(frameEndPos);
++        }; break;
++        case 'TIME':
++        case 'TIM': {
++          legacyTime = reader.readId3V2EncodingAndText(frameEndPos);
++        }; break;
++
+         case "USLT":
+         case "ULT":
+           {
+@@ -27104,6 +27118,18 @@
+       }
+       reader.pos = frameEndPos;
+     }
++
++    if (!tags.date && legacyYear && /^\d{4}$/.test(legacyYear)) {
++      let date = new Date(legacyYear);
++      if (legacyDayMonth && /^\d{4}$/.test(legacyDayMonth)) {
++        const day = legacyDayMonth.slice(0, 2);
++        const month = legacyDayMonth.slice(2);
++        const time = legacyTime && /^(?:[01]\d|2[0-3])[0-5]\d$/.test(legacyTime) ? legacyTime : '0000';
++        const fullDate = new Date(`${legacyYear}-${month}-${day}T${time.slice(0, 2)}:${time.slice(2)}:00Z`);
++        if (fullDate.getUTCMonth() + 1 === Number(month) && fullDate.getUTCDate() === Number(day)) date = fullDate;
++      }
++      if (!Number.isNaN(date.getTime())) tags.date = date;
++    }
+   };
+   var Id3V2Reader = class {
+     constructor(header, bytes2) {
+@@ -27121,7 +27147,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -306,7 +569,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            if (value2 === 0) {
              i++;
            }
-@@ -27149,6 +27159,7 @@
+@@ -27149,6 +27175,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -334,7 +597,17 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            await this.demuxer.advanceReader();
            continue;
          }
-@@ -26735,8 +26736,8 @@
+@@ -26719,6 +26720,9 @@
+   const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
+   const bytes2 = readBytes(slice, dataSize);
+   const reader = new Id3V2Reader(header, bytes2);
++  let legacyYear;
++  let legacyDayMonth;
++  let legacyTime;
+   if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
+     reader.ununsynchronizeAll();
+   }
+@@ -26735,8 +26739,8 @@
      if (!frame) {
        break;
      }
@@ -345,7 +618,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      let frameEncrypted = false;
      let frameCompressed = false;
      let frameUnsynchronized = false;
-@@ -26759,8 +26760,17 @@
+@@ -26759,8 +26763,17 @@
        continue;
      }
      if (frameUnsynchronized) {
@@ -365,7 +638,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      tags.raw ??= {};
      if (frame.id === "TXXX") {
        const txxx = tags.raw["TXXX"] ??= {};
-@@ -26771,7 +26781,7 @@
+@@ -26771,7 +26784,7 @@
      } else if (frame.id[0] === "T") {
        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
      } else {
@@ -374,7 +647,65 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      }
      reader.pos = frameStartPos;
      switch (frame.id) {
-@@ -26961,7 +26971,7 @@
+@@ -26867,7 +26880,6 @@
+         ;
+         break;
+       case "TDRC":
+-      case "TDAT":
+         {
+           const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+           const date = new Date(dateText);
+@@ -26877,17 +26889,19 @@
+         }
+         ;
+         break;
+-      case "TYER":
+-      case "TYE":
+-        {
+-          const yearText = reader.readId3V2EncodingAndText(frameEndPos);
+-          const year = Number.parseInt(yearText, 10);
+-          if (Number.isInteger(year)) {
+-            tags.date ??= new Date(String(year));
+-          }
+-        }
+-        ;
+-        break;
++      case 'TYER':
++      case 'TYE': {
++        legacyYear = reader.readId3V2EncodingAndText(frameEndPos);
++      }; break;
++      case 'TDAT':
++      case 'TDA': {
++        legacyDayMonth = reader.readId3V2EncodingAndText(frameEndPos);
++      }; break;
++      case 'TIME':
++      case 'TIM': {
++        legacyTime = reader.readId3V2EncodingAndText(frameEndPos);
++      }; break;
++
+       case "USLT":
+       case "ULT":
+         {
+@@ -26944,6 +26958,18 @@
+     }
+     reader.pos = frameEndPos;
+   }
++
++  if (!tags.date && legacyYear && /^\d{4}$/.test(legacyYear)) {
++    let date = new Date(legacyYear);
++    if (legacyDayMonth && /^\d{4}$/.test(legacyDayMonth)) {
++      const day = legacyDayMonth.slice(0, 2);
++      const month = legacyDayMonth.slice(2);
++      const time = legacyTime && /^(?:[01]\d|2[0-3])[0-5]\d$/.test(legacyTime) ? legacyTime : '0000';
++      const fullDate = new Date(`${legacyYear}-${month}-${day}T${time.slice(0, 2)}:${time.slice(2)}:00Z`);
++      if (fullDate.getUTCMonth() + 1 === Number(month) && fullDate.getUTCDate() === Number(day)) date = fullDate;
++    }
++    if (!Number.isNaN(date.getTime())) tags.date = date;
++  }
+ };
+ var Id3V2Reader = class {
+   constructor(header, bytes2) {
+@@ -26961,7 +26987,7 @@
        const value1 = this.bytes[i];
        newBytes.push(value1);
        if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -383,7 +714,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          if (value2 === 0) {
            i++;
          }
-@@ -26989,6 +26999,7 @@
+@@ -26989,6 +27015,7 @@
      this.bytes.set(newBytes, before.length);
      this.bytes.set(after, before.length + newBytes.length);
      this.view = new DataView(this.bytes.buffer);

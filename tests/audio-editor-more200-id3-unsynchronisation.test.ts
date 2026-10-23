@@ -124,3 +124,27 @@ for (const [version, grouping, length] of [[3, true, false], [4, true, false], [
 		assert.equal(contribution.metadata.normalized.artist, 'Independent artist');
 	});
 }
+
+for (const fields of [
+	[['TYER', '2024'], ['TDAT', '2107'], ['TIME', '1645']],
+	[['TDAT', '2107'], ['TIME', '1645'], ['TYER', '2024']],
+] as const) test(`File Open combines legacy ID3 recording date fields starting with ${fields[0][0]}`, async () => {
+	const body = Buffer.concat(fields.map(([id, value]) => frame(3, id, Buffer.from(`\0${value}`))));
+	const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 3, 0, 0]), syncSafe(body.length), body]));
+	const contribution = await importedMetadata(metadata);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.date, '2024-07-21T16:45:00.000Z');
+	assert.equal(contribution.metadata.raw.TYER, '2024');
+	assert.equal(contribution.metadata.raw.TDAT, '2107');
+	assert.equal(contribution.metadata.raw.TIME, '1645');
+	for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']) {
+		const bytes = Buffer.concat([metadata, await mp3()]);
+		const { stdout } = await runNode(process.execPath, ['--input-type=module', '-e', `
+			const module=await import('./node_modules/mediabunny/dist/bundles/'+process.argv[1]);
+			const {Input,BlobSource,ALL_FORMATS}=module.default??module;
+			const input=new Input({source:new BlobSource(new Blob([Buffer.from(process.argv[2],'base64')])),formats:ALL_FORMATS});
+			try{console.log((await input.getMetadataTags()).date.toISOString());}finally{input.dispose();}
+		`, bundle, bytes.toString('base64')], { timeout: 10_000 });
+		assert.equal(stdout.trim(), '2024-07-21T16:45:00.000Z', bundle);
+	}
+});
