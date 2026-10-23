@@ -1191,7 +1191,7 @@ diff --git a/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts b/node_modul
  				const iterator = this.iterateContiguousBoxes(slice.slice(contentStartPos, boxInfo.contentSize));
  
  				for (const { boxInfo, slice } of iterator) {
-@@ -2660,7 +2669,24 @@
+@@ -2660,10 +2669,29 @@
  						metadataKey = this.currentMetadataKeys.get(nameAsNumber)!;
  					}
  
@@ -1216,8 +1216,14 @@ diff --git a/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts b/node_modul
 +					let data = readDataBox(dataSlice);
  
  					this.metadataTags.raw ??= {};
- 					this.metadataTags.raw[metadataKey] ??= data;
-@@ -2721,7 +2747,9 @@
+-					this.metadataTags.raw[metadataKey] ??= data;
++					const currentRaw = Object.getOwnPropertyDescriptor(this.metadataTags.raw, metadataKey);
++					if (currentRaw?.value === undefined || currentRaw.value === null) Object.defineProperty(this.metadataTags.raw, metadataKey,
++						{ value: data, enumerable: true, configurable: true, writable: true });
+ 
+ 					switch (metadataKey) {
+ 						case '©nam':
+@@ -2721,7 +2749,9 @@
  						case 'gnre':
  						case 'com.apple.quicktime.genre':
  						case 'genre': {
@@ -1228,7 +1234,7 @@ diff --git a/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts b/node_modul
  								this.metadataTags.genre ??= data;
  							}
  						}; break;
-@@ -2747,21 +2775,24 @@
+@@ -2747,21 +2777,24 @@
  
  						case 'covr':
  						case 'com.apple.quicktime.artwork': {
@@ -1268,7 +1274,7 @@ diff --git a/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts b/node_modul
  						}; break;
  
  						case 'track': {
-@@ -2813,6 +2844,7 @@
+@@ -2813,6 +2846,7 @@
  						}; break;
  					}
  				}
@@ -1414,7 +1420,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
                      const iterator = this.iterateContiguousBoxes(slice.slice(contentStartPos, boxInfo.contentSize));
                      for (const { boxInfo, slice } of iterator) {
                          let metadataKey = boxInfo.name;
-@@ -2201,7 +2210,24 @@
+@@ -2201,9 +2210,28 @@
                              // An entry exists for this number
                              metadataKey = this.currentMetadataKeys.get(nameAsNumber);
                          }
@@ -1438,9 +1444,14 @@ diff --git a/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
 +                        }
 +                        let data = readDataBox(dataSlice);
                          this.metadataTags.raw ??= {};
-                         this.metadataTags.raw[metadataKey] ??= data;
+-                        this.metadataTags.raw[metadataKey] ??= data;
++                        const currentRaw = Object.getOwnPropertyDescriptor(this.metadataTags.raw, metadataKey);
++                        if (currentRaw?.value === undefined || currentRaw.value === null) Object.defineProperty(this.metadataTags.raw, metadataKey,
++                        	{ value: data, enumerable: true, configurable: true, writable: true });
                          switch (metadataKey) {
-@@ -2273,7 +2299,9 @@
+                             case '©nam':
+                             case 'titl':
+@@ -2273,7 +2301,9 @@
                              case 'com.apple.quicktime.genre':
                              case 'genre':
                                  {
@@ -1451,7 +1462,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
                                          this.metadataTags.genre ??= data;
                                      }
                                  }
-@@ -2305,22 +2333,25 @@
+@@ -2305,22 +2335,25 @@
                              case 'covr':
                              case 'com.apple.quicktime.artwork':
                                  {
@@ -1493,7 +1504,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
                                  }
                                  ;
                                  break;
-@@ -2375,6 +2406,7 @@
+@@ -2375,6 +2408,7 @@
                                  break;
                          }
                      }
@@ -2055,7 +2066,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const iterator = this.iterateContiguousBoxes(slice.slice(contentStartPos, boxInfo.contentSize));
              for (const { boxInfo: boxInfo2, slice: slice2 } of iterator) {
                let metadataKey = boxInfo2.name;
-@@ -8013,7 +8056,24 @@
+@@ -8013,9 +8056,28 @@
                if (this.currentMetadataKeys.has(nameAsNumber)) {
                  metadataKey = this.currentMetadataKeys.get(nameAsNumber);
                }
@@ -2079,9 +2090,14 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
 +              }
 +              let data = readDataBox(dataSlice);
                this.metadataTags.raw ??= {};
-               this.metadataTags.raw[metadataKey] ??= data;
+-              this.metadataTags.raw[metadataKey] ??= data;
++              const currentRaw = Object.getOwnPropertyDescriptor(this.metadataTags.raw, metadataKey);
++              if (currentRaw?.value === undefined || currentRaw.value === null) Object.defineProperty(this.metadataTags.raw, metadataKey,
++              	{ value: data, enumerable: true, configurable: true, writable: true });
                switch (metadataKey) {
-@@ -8085,7 +8145,9 @@
+                 case "\xA9nam":
+                 case "titl":
+@@ -8085,7 +8147,9 @@
                  case "com.apple.quicktime.genre":
                  case "genre":
                    {
@@ -2092,7 +2108,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
                        this.metadataTags.genre ??= data;
                      }
                    }
-@@ -8117,21 +8179,24 @@
+@@ -8117,21 +8181,24 @@
                  case "covr":
                  case "com.apple.quicktime.artwork":
                    {
@@ -2132,7 +2148,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
                    }
                    ;
                    break;
-@@ -8186,6 +8251,7 @@
+@@ -8186,6 +8253,7 @@
                    break;
                }
              }
@@ -2140,7 +2156,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            }
            ;
            break;
-@@ -10799,7 +10865,7 @@
+@@ -10799,7 +10867,7 @@
          case 25540 /* TagChapterUID */:
          case 25542 /* TagAttachmentUID */:
            {
@@ -2149,7 +2165,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            }
            ;
            break;
-@@ -11764,6 +11830,40 @@
+@@ -11764,6 +11832,40 @@
        await this.readMetadata();
        return this.trackBackings;
      }
@@ -2190,7 +2206,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
      async getMetadataTags() {
        const release = await this.readingMutex.acquire();
        try {
-@@ -11771,10 +11871,12 @@
+@@ -11771,10 +11873,12 @@
          if (this.metadataTags) {
            return this.metadataTags;
          }
@@ -2206,7 +2222,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
            if (isThenable(headerSlice)) headerSlice = await headerSlice;
            if (!headerSlice) break;
-@@ -11782,14 +11884,16 @@
+@@ -11782,14 +11886,16 @@
            if (!id3V2Header) {
              break;
            }
@@ -2225,7 +2241,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
            if (isThenable(slice)) slice = await slice;
            assert(slice);
-@@ -13929,7 +14033,7 @@
+@@ -13929,7 +14035,7 @@
        const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
        const slice = await this.reader.requestSliceRange(
          startPos,
@@ -2234,7 +2250,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          maximumSliceLength
        );
        if (!slice) {
-@@ -14179,6 +14283,7 @@
+@@ -14179,6 +14285,7 @@
              (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
            );
            if (packetIndex === -1) {
@@ -2242,7 +2258,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26876,7 +26981,11 @@
+@@ -26876,7 +26983,11 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
@@ -2255,7 +2271,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        reader.ununsynchronizeAll();
      }
      if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26892,8 +27001,8 @@
+@@ -26892,8 +27003,8 @@
        if (!frame) {
          break;
        }
@@ -2266,7 +2282,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26916,19 +27025,44 @@
+@@ -26916,19 +27027,44 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -2319,7 +2335,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -26970,7 +27104,7 @@
+@@ -26970,7 +27106,7 @@
          case "TRCK":
          case "TRK":
            {
@@ -2328,7 +2344,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = trackText.split("/");
              const trackNum = Number.parseInt(parts[0], 10);
              const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26986,7 +27120,7 @@
+@@ -26986,7 +27122,7 @@
          case "TPOS":
          case "TPA":
            {
@@ -2337,7 +2353,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27003,14 +27137,22 @@
+@@ -27003,14 +27139,22 @@
          case "TCO":
            {
              const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -2368,7 +2384,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              match = /^\d+$/.exec(genreText);
              if (match) {
                const genreNumber = Number.parseInt(match[0]);
-@@ -27024,34 +27166,42 @@
+@@ -27024,34 +27168,42 @@
            ;
            break;
          case "TDRC":
@@ -2428,7 +2444,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            }
            ;
            break;
-@@ -27059,12 +27209,31 @@
+@@ -27059,12 +27211,31 @@
          case "COM":
            {
              const encoding = reader.readU8();
@@ -2463,7 +2479,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          case "APIC":
          case "PIC":
            {
-@@ -27074,7 +27243,7 @@
+@@ -27074,7 +27245,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -2472,7 +2488,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27101,6 +27270,18 @@
+@@ -27101,6 +27272,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -2491,7 +2507,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27118,7 +27299,7 @@
+@@ -27118,7 +27301,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -2500,7 +2516,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            if (value2 === 0) {
              i++;
            }
-@@ -27146,6 +27327,7 @@
+@@ -27146,6 +27329,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -2508,7 +2524,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27246,7 +27428,10 @@
+@@ -27246,7 +27430,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -2520,7 +2536,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27284,12 +27469,19 @@
+@@ -27284,12 +27471,19 @@
          }
        }
      }
@@ -2874,7 +2890,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const iterator = this.iterateContiguousBoxes(slice.slice(contentStartPos, boxInfo.contentSize));
              for (const { boxInfo: boxInfo2, slice: slice2 } of iterator) {
                let metadataKey = boxInfo2.name;
-@@ -8010,7 +8053,24 @@
+@@ -8010,9 +8053,28 @@
                if (this.currentMetadataKeys.has(nameAsNumber)) {
                  metadataKey = this.currentMetadataKeys.get(nameAsNumber);
                }
@@ -2898,9 +2914,14 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
 +              }
 +              let data = readDataBox(dataSlice);
                this.metadataTags.raw ??= {};
-               this.metadataTags.raw[metadataKey] ??= data;
+-              this.metadataTags.raw[metadataKey] ??= data;
++              const currentRaw = Object.getOwnPropertyDescriptor(this.metadataTags.raw, metadataKey);
++              if (currentRaw?.value === undefined || currentRaw.value === null) Object.defineProperty(this.metadataTags.raw, metadataKey,
++              	{ value: data, enumerable: true, configurable: true, writable: true });
                switch (metadataKey) {
-@@ -8082,7 +8142,9 @@
+                 case "\xA9nam":
+                 case "titl":
+@@ -8082,7 +8144,9 @@
                  case "com.apple.quicktime.genre":
                  case "genre":
                    {
@@ -2911,7 +2932,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
                        this.metadataTags.genre ??= data;
                      }
                    }
-@@ -8114,21 +8176,24 @@
+@@ -8114,21 +8178,24 @@
                  case "covr":
                  case "com.apple.quicktime.artwork":
                    {
@@ -2951,7 +2972,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
                    }
                    ;
                    break;
-@@ -8183,6 +8248,7 @@
+@@ -8183,6 +8250,7 @@
                    break;
                }
              }
@@ -2959,7 +2980,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            }
            ;
            break;
-@@ -10796,7 +10862,7 @@
+@@ -10796,7 +10864,7 @@
          case 25540 /* TagChapterUID */:
          case 25542 /* TagAttachmentUID */:
            {
@@ -2968,7 +2989,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            }
            ;
            break;
-@@ -11761,6 +11827,40 @@
+@@ -11761,6 +11829,40 @@
        await this.readMetadata();
        return this.trackBackings;
      }
@@ -3009,7 +3030,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
      async getMetadataTags() {
        const release = await this.readingMutex.acquire();
        try {
-@@ -11768,10 +11868,12 @@
+@@ -11768,10 +11870,12 @@
          if (this.metadataTags) {
            return this.metadataTags;
          }
@@ -3025,7 +3046,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
            if (isThenable(headerSlice)) headerSlice = await headerSlice;
            if (!headerSlice) break;
-@@ -11779,14 +11881,16 @@
+@@ -11779,14 +11883,16 @@
            if (!id3V2Header) {
              break;
            }
@@ -3044,7 +3065,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
            if (isThenable(slice)) slice = await slice;
            assert(slice);
-@@ -13926,7 +14030,7 @@
+@@ -13926,7 +14032,7 @@
        const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
        const slice = await this.reader.requestSliceRange(
          startPos,
@@ -3053,7 +3074,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          maximumSliceLength
        );
        if (!slice) {
-@@ -14176,6 +14280,7 @@
+@@ -14176,6 +14282,7 @@
              (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
            );
            if (packetIndex === -1) {
@@ -3061,7 +3082,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26879,7 +26984,11 @@
+@@ -26879,7 +26986,11 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
@@ -3074,7 +3095,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        reader.ununsynchronizeAll();
      }
      if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26895,8 +27004,8 @@
+@@ -26895,8 +27006,8 @@
        if (!frame) {
          break;
        }
@@ -3085,7 +3106,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26919,19 +27028,44 @@
+@@ -26919,19 +27030,44 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -3138,7 +3159,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -26973,7 +27107,7 @@
+@@ -26973,7 +27109,7 @@
          case "TRCK":
          case "TRK":
            {
@@ -3147,7 +3168,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = trackText.split("/");
              const trackNum = Number.parseInt(parts[0], 10);
              const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26989,7 +27123,7 @@
+@@ -26989,7 +27125,7 @@
          case "TPOS":
          case "TPA":
            {
@@ -3156,7 +3177,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27006,14 +27140,22 @@
+@@ -27006,14 +27142,22 @@
          case "TCO":
            {
              const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -3187,7 +3208,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              match = /^\d+$/.exec(genreText);
              if (match) {
                const genreNumber = Number.parseInt(match[0]);
-@@ -27027,34 +27169,42 @@
+@@ -27027,34 +27171,42 @@
            ;
            break;
          case "TDRC":
@@ -3247,7 +3268,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            }
            ;
            break;
-@@ -27062,12 +27212,31 @@
+@@ -27062,12 +27214,31 @@
          case "COM":
            {
              const encoding = reader.readU8();
@@ -3282,7 +3303,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          case "APIC":
          case "PIC":
            {
-@@ -27077,7 +27246,7 @@
+@@ -27077,7 +27248,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -3291,7 +3312,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27104,6 +27273,18 @@
+@@ -27104,6 +27275,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -3310,7 +3331,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27121,7 +27302,7 @@
+@@ -27121,7 +27304,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -3319,7 +3340,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            if (value2 === 0) {
              i++;
            }
-@@ -27149,6 +27330,7 @@
+@@ -27149,6 +27332,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -3327,7 +3348,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27249,7 +27431,10 @@
+@@ -27249,7 +27433,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -3339,7 +3360,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27287,12 +27472,19 @@
+@@ -27287,12 +27474,19 @@
          }
        }
      }
@@ -3683,7 +3704,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const iterator = this.iterateContiguousBoxes(slice.slice(contentStartPos, boxInfo.contentSize));
            for (const { boxInfo: boxInfo2, slice: slice2 } of iterator) {
              let metadataKey = boxInfo2.name;
-@@ -7856,7 +7899,24 @@
+@@ -7856,9 +7899,28 @@
              if (this.currentMetadataKeys.has(nameAsNumber)) {
                metadataKey = this.currentMetadataKeys.get(nameAsNumber);
              }
@@ -3707,9 +3728,14 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
 +            }
 +            let data = readDataBox(dataSlice);
              this.metadataTags.raw ??= {};
-             this.metadataTags.raw[metadataKey] ??= data;
+-            this.metadataTags.raw[metadataKey] ??= data;
++            const currentRaw = Object.getOwnPropertyDescriptor(this.metadataTags.raw, metadataKey);
++            if (currentRaw?.value === undefined || currentRaw.value === null) Object.defineProperty(this.metadataTags.raw, metadataKey,
++            	{ value: data, enumerable: true, configurable: true, writable: true });
              switch (metadataKey) {
-@@ -7928,7 +7988,9 @@
+               case "\xA9nam":
+               case "titl":
+@@ -7928,7 +7990,9 @@
                case "com.apple.quicktime.genre":
                case "genre":
                  {
@@ -3720,7 +3746,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
                      this.metadataTags.genre ??= data;
                    }
                  }
-@@ -7960,21 +8022,24 @@
+@@ -7960,21 +8024,24 @@
                case "covr":
                case "com.apple.quicktime.artwork":
                  {
@@ -3760,7 +3786,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
                  }
                  ;
                  break;
-@@ -8029,6 +8094,7 @@
+@@ -8029,6 +8096,7 @@
                  break;
              }
            }
@@ -3768,7 +3794,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          }
          ;
          break;
-@@ -10642,7 +10708,7 @@
+@@ -10642,7 +10710,7 @@
        case 25540 /* TagChapterUID */:
        case 25542 /* TagAttachmentUID */:
          {
@@ -3777,7 +3803,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          }
          ;
          break;
-@@ -11607,6 +11673,40 @@
+@@ -11607,6 +11675,40 @@
      await this.readMetadata();
      return this.trackBackings;
    }
@@ -3818,7 +3844,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
    async getMetadataTags() {
      const release = await this.readingMutex.acquire();
      try {
-@@ -11614,10 +11714,12 @@
+@@ -11614,10 +11716,12 @@
        if (this.metadataTags) {
          return this.metadataTags;
        }
@@ -3834,7 +3860,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
          if (isThenable(headerSlice)) headerSlice = await headerSlice;
          if (!headerSlice) break;
-@@ -11625,14 +11727,16 @@
+@@ -11625,14 +11729,16 @@
          if (!id3V2Header) {
            break;
          }
@@ -3853,7 +3879,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
          if (isThenable(slice)) slice = await slice;
          assert(slice);
-@@ -13772,7 +13876,7 @@
+@@ -13772,7 +13878,7 @@
      const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
      const slice = await this.reader.requestSliceRange(
        startPos,
@@ -3862,7 +3888,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        maximumSliceLength
      );
      if (!slice) {
-@@ -14022,6 +14126,7 @@
+@@ -14022,6 +14128,7 @@
            (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
          );
          if (packetIndex === -1) {
@@ -3870,7 +3896,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            await this.demuxer.advanceReader();
            continue;
          }
-@@ -26719,7 +26824,11 @@
+@@ -26719,7 +26826,11 @@
    const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
    const bytes2 = readBytes(slice, dataSize);
    const reader = new Id3V2Reader(header, bytes2);
@@ -3883,7 +3909,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      reader.ununsynchronizeAll();
    }
    if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26735,8 +26844,8 @@
+@@ -26735,8 +26846,8 @@
      if (!frame) {
        break;
      }
@@ -3894,7 +3920,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      let frameEncrypted = false;
      let frameCompressed = false;
      let frameUnsynchronized = false;
-@@ -26759,19 +26868,44 @@
+@@ -26759,19 +26870,44 @@
        continue;
      }
      if (frameUnsynchronized) {
@@ -3947,7 +3973,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      }
      reader.pos = frameStartPos;
      switch (frame.id) {
-@@ -26813,7 +26947,7 @@
+@@ -26813,7 +26949,7 @@
        case "TRCK":
        case "TRK":
          {
@@ -3956,7 +3982,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = trackText.split("/");
            const trackNum = Number.parseInt(parts[0], 10);
            const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26829,7 +26963,7 @@
+@@ -26829,7 +26965,7 @@
        case "TPOS":
        case "TPA":
          {
@@ -3965,7 +3991,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = discText.split("/");
            const discNum = Number.parseInt(parts[0], 10);
            const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26846,14 +26980,22 @@
+@@ -26846,14 +26982,22 @@
        case "TCO":
          {
            const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -3996,7 +4022,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            match = /^\d+$/.exec(genreText);
            if (match) {
              const genreNumber = Number.parseInt(match[0]);
-@@ -26867,34 +27009,42 @@
+@@ -26867,34 +27011,42 @@
          ;
          break;
        case "TDRC":
@@ -4056,7 +4082,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          }
          ;
          break;
-@@ -26902,12 +27052,31 @@
+@@ -26902,12 +27054,31 @@
        case "COM":
          {
            const encoding = reader.readU8();
@@ -4091,7 +4117,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        case "APIC":
        case "PIC":
          {
-@@ -26917,7 +27086,7 @@
+@@ -26917,7 +27088,7 @@
              const imageFormat = reader.readAscii(3);
              mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
            } else {
@@ -4100,7 +4126,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            }
            const pictureType = reader.readU8();
            const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -26944,6 +27113,18 @@
+@@ -26944,6 +27115,18 @@
      }
      reader.pos = frameEndPos;
    }
@@ -4119,7 +4145,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
  };
  var Id3V2Reader = class {
    constructor(header, bytes2) {
-@@ -26961,7 +27142,7 @@
+@@ -26961,7 +27144,7 @@
        const value1 = this.bytes[i];
        newBytes.push(value1);
        if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -4128,7 +4154,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          if (value2 === 0) {
            i++;
          }
-@@ -26989,6 +27170,7 @@
+@@ -26989,6 +27172,7 @@
      this.bytes.set(newBytes, before.length);
      this.bytes.set(after, before.length + newBytes.length);
      this.view = new DataView(this.bytes.buffer);
@@ -4136,7 +4162,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
    }
    readBytes(length) {
      const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27089,7 +27271,10 @@
+@@ -27089,7 +27273,10 @@
          return str;
        }
        case 1 /* UTF_16_WITH_BOM */: {
@@ -4148,7 +4174,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const decoder = new TextDecoder("utf-16le");
            const endIndex = coalesceIndex(
              data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27127,12 +27312,19 @@
+@@ -27127,12 +27314,19 @@
        }
      }
    }

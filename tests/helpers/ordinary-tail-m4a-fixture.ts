@@ -171,3 +171,23 @@ export async function quickTimeMetadataPrecedenceFixture(legacyFirst: boolean): 
 		? atom('moov', Buffer.concat(legacyFirst ? [legacy, child.subarray(8)] : [child.subarray(8), legacy])) : child)))],
 	'Updated metadata.m4a', { type: 'audio/mp4' });
 }
+
+/** Exercise the application's exact AAC metadata adapter with ordinary encoded audio packets. */
+export async function appMetadataM4aFixture(metadata: Readonly<Record<string, string>>): Promise<File> {
+	const { browserAacMetadataFormat, browserAacMetadataTags } = await import('../../src/common/editor/browser-aac-metadata.ts');
+	const input = new Input({ source: new BlobSource(new Blob([Uint8Array.from(aacLcM4a44_100Fixture())])), formats: [MP4] });
+	try {
+		const track = await input.getPrimaryAudioTrack(); assert.ok(track);
+		const decoderConfig = await track.getDecoderConfig(); assert.ok(decoderConfig);
+		const target = new BufferTarget();
+		const output = new Output({ format: new Mp4OutputFormat({ fastStart: false, metadataFormat: browserAacMetadataFormat(metadata) }), target });
+		const source = new EncodedAudioPacketSource('aac'); output.addAudioTrack(source);
+		output.setMetadataTags(browserAacMetadataTags(metadata)); await output.start();
+		let origin: number | null = null;
+		for await (const packet of new EncodedPacketSink(track).packets()) {
+			origin ??= packet.timestamp; await source.add(packet.clone({ timestamp: packet.timestamp - origin }), { decoderConfig });
+		}
+		await output.finalize(); assert.ok(target.buffer);
+		return new File([target.buffer], 'Custom credits.m4a', { type: 'audio/mp4' });
+	} finally { input.dispose(); }
+}
