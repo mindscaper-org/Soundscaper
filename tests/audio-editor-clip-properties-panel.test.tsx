@@ -265,7 +265,7 @@ test('Escape discards a rename before synchronous blur and Enter commits only on
 		assert.deepEqual(f.updates, []);
 		assert.equal(name.value, 'First clip');
 		await f.type('name', 'New name');
-		await act(async () => reactProps(f.dom.one('[data-clip-properties-field="name"]')).onKeyDown({ key: 'Enter', target: name }));
+		await act(async () => reactProps(f.dom.one('[data-clip-properties-field="name"]')).onKeyDown({ key: 'Enter', target: name, preventDefault() {} }));
 		assert.deepEqual(f.updates, [{ id: 'one', changes: { title: 'New name' } }]);
 	} finally { await f.cleanup(); }
 });
