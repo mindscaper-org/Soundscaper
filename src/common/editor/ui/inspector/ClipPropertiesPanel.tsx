@@ -170,7 +170,7 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 				nativeTimeFields={nativeTimeFields} onNativeTimeFields={() => setNativeTimeFields(value => !value)}
 				pitchUnit={pitchUnit} onPitchUnit={setPitchUnit} />}
 		</> : clip?.kind === 'image' ? <ImageClipPropertiesBody controller={controller} project={snapshot.project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
-			: clip?.kind === 'generator' ? <GeneratorClipPropertiesBody controller={controller} project={project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
+			: (clip?.kind === 'generator' || clip?.kind === 'still') ? <GeneratorClipPropertiesBody controller={controller} project={project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />
 				: <ClipPropertiesBody key={targetKey} controller={controller} snapshot={{ ...snapshot, project }} copy={copy} clipId={clip?.id} onError={reportFailure} />}
 	</div>;
 }
