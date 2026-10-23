@@ -80,6 +80,7 @@ export interface FreesoundUploadQueueSnapshot {
 }
 
 export interface FreesoundUploadQueueRuntime {
+	readonly canUpload?: () => boolean;
 	readonly upload: (file: File, signal?: AbortSignal) => Promise<Readonly<{ uploadFilename: string }>>;
 	readonly describe: (
 		request: FreesoundDescribeUploadRequest,
@@ -93,6 +94,7 @@ export interface FreesoundUploadQueueRuntime {
 }
 
 export interface FreesoundUploadQueue {
+	readonly resume: () => void;
 	readonly getSnapshot: () => FreesoundUploadQueueSnapshot;
 	readonly subscribe: (listener: () => void) => () => void;
 	readonly enqueueFiles: (files: readonly File[]) => readonly string[];
@@ -167,6 +169,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 		publishSnapshot();
 		try {
 			for (;;) {
+				if (runtime.canUpload?.() === false) break;
 				const record = records.find(({ item }) => item.status === 'queued');
 				if (!record) break;
 				const abort = new AbortController();
@@ -245,6 +248,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 	}
 
 	return Object.freeze({
+		resume: () => { void pump(); },
 		getSnapshot: () => snapshot,
 		subscribe: (listener: () => void) => {
 			listeners.add(listener);

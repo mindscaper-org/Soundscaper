@@ -187,6 +187,7 @@ export function createFreesoundPanelSession(
 	let auth: FreesoundPanelAuthState = Object.freeze({ status: 'loading' });
 	let uploadRevealRevision = 0;
 	const queue = createFreesoundUploadQueue({
+		canUpload: () => auth.status === 'connected',
 		upload: async (file, signal) => await authenticatedOperation(
 			() => client.upload(file, signal),
 		),
@@ -276,6 +277,7 @@ export function createFreesoundPanelSession(
 	function setAuth(value: FreesoundPanelAuthState): void {
 		auth = Object.freeze(value);
 		publishSnapshot();
+		if (auth.status === 'connected') queue.resume();
 	}
 
 	async function authenticatedOperation<Value>(operation: () => Promise<Value>): Promise<Value> {
