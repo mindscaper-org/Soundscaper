@@ -185,6 +185,7 @@ export function createFreesoundPanelSession(
 ): FreesoundPanelSession {
 	const listeners = new Set<() => void>();
 	let auth: FreesoundPanelAuthState = Object.freeze({ status: 'loading' });
+	let queueOwner: FreesoundPanelAuthState['user'];
 	let uploadRevealRevision = 0;
 	const queue = createFreesoundUploadQueue({
 		canUpload: () => auth.status === 'connected',
@@ -275,6 +276,12 @@ export function createFreesoundPanelSession(
 	};
 
 	function setAuth(value: FreesoundPanelAuthState): void {
+		if (value.status === 'connected' && value.user) {
+			const next = value.user;
+			if (queueOwner && (queueOwner.id !== undefined && next.id !== undefined
+				? queueOwner.id !== next.id : queueOwner.username !== next.username)) queue.clear();
+			queueOwner = next;
+		}
 		auth = Object.freeze(value);
 		publishSnapshot();
 		if (auth.status === 'connected') queue.resume();
