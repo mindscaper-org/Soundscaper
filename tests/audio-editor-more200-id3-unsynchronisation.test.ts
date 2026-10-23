@@ -49,6 +49,21 @@ function tag(version: 3 | 4): Uint8Array<ArrayBuffer> {
 	return Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, version, 0, version === 3 ? 128 : 0]), syncSafe(payload.length), payload]));
 }
 
+test('File Open retains an APIC image with a UTF-16BE description and an ASCII MIME field', async () => {
+	const description = Buffer.from('作品', 'utf16le').swap16();
+	const picture = Buffer.concat([Buffer.from([2]), Buffer.from('image/jpeg\0'), Buffer.from([3]), description, Buffer.from([0, 0]), jpeg]);
+	const body = Buffer.concat([frame(4, 'APIC', picture), frame(4, 'TIT2', Buffer.from('\0Following title'))]);
+	const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 4, 0, 0]), syncSafe(body.length), body]));
+	const contribution = await importedMetadata(metadata);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.title, 'Following title');
+	const image = contribution.attachments.find(({ path }) => path === 'images[0]');
+	assert.equal(image?.description, '作品');
+	assert.equal(image?.mimeType, 'image/jpeg');
+	assert.equal(image?.byteLength, jpeg.length);
+	assert.equal(image?.sha256, imageHash);
+});
+
 async function mp3(): Promise<Uint8Array<ArrayBuffer>> {
 	const pcm = Float32Array.from({ length: 4800 }, (_, frame) => .2 * Math.sin(frame * .05));
 	return encodeDedicatedAudioPcm({ format: 'mp3', input: new Uint8Array(pcm.buffer), frameCount: pcm.length,

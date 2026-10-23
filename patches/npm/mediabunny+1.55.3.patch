@@ -85,6 +85,15 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  			}; break;
  
  			case 'USLT':
+@@ -377,7 +391,7 @@
+ 							? 'image/jpeg'
+ 							: 'image/*';
+ 				} else {
+-					mimeType = reader.readId3V2Text(encoding, frameEndPos);
++					mimeType = reader.readId3V2Text(Id3V2TextEncoding.ISO_8859_1, frameEndPos);
+ 				}
+ 
+ 				const pictureType = reader.readU8();
 @@ -408,6 +422,18 @@
  
  		reader.pos = frameEndPos;
@@ -211,6 +220,15 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
              case 'USLT':
              case 'ULT':
                  {
+@@ -346,7 +359,7 @@
+                                 : 'image/*';
+                     }
+                     else {
+-                        mimeType = reader.readId3V2Text(encoding, frameEndPos);
++                        mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
+                     }
+                     const pictureType = reader.readU8();
+                     const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd(); // Trim ending spaces
 @@ -378,6 +391,18 @@
          }
          reader.pos = frameEndPos;
@@ -396,6 +414,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          case "USLT":
          case "ULT":
            {
+@@ -27074,7 +27088,7 @@
+               const imageFormat = reader.readAscii(3);
+               mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
+             } else {
+-              mimeType = reader.readId3V2Text(encoding, frameEndPos);
++              mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
+             }
+             const pictureType = reader.readU8();
+             const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
 @@ -27101,6 +27115,18 @@
        }
        reader.pos = frameEndPos;
@@ -541,6 +568,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          case "USLT":
          case "ULT":
            {
+@@ -27077,7 +27091,7 @@
+               const imageFormat = reader.readAscii(3);
+               mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
+             } else {
+-              mimeType = reader.readId3V2Text(encoding, frameEndPos);
++              mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
+             }
+             const pictureType = reader.readU8();
+             const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
 @@ -27104,6 +27118,18 @@
        }
        reader.pos = frameEndPos;
@@ -686,6 +722,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        case "USLT":
        case "ULT":
          {
+@@ -26917,7 +26931,7 @@
+             const imageFormat = reader.readAscii(3);
+             mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
+           } else {
+-            mimeType = reader.readId3V2Text(encoding, frameEndPos);
++            mimeType = reader.readId3V2Text(0 /* ISO_8859_1 */, frameEndPos);
+           }
+           const pictureType = reader.readU8();
+           const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
 @@ -26944,6 +26958,18 @@
      }
      reader.pos = frameEndPos;
