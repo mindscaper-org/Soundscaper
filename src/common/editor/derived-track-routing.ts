@@ -131,8 +131,11 @@ function restateRoutes(
 	for (const trackId of directTrackIds) {
 		const sourceWidth = widths.tracks.get(trackId) ?? Number(project.masterChannels);
 		const destinationWidth = Number(project.masterChannels);
+		let id = `assignment:track:${trackId}:master`;
+		while (occupiedIds.has(id)) id = createId('mix-route');
+		occupiedIds.add(id);
 		edges.push({
-			id: `assignment:track:${trackId}:master`,
+			id,
 			kind: 'assignment',
 			source: { kind: 'track', id: trackId },
 			destination: { kind: 'master' },
