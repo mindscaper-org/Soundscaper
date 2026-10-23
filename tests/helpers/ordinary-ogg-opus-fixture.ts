@@ -74,6 +74,22 @@ export async function repeatedTaggedWebmOpusFixture(repeated = true): Promise<Fi
 	return new File([bytes], 'Performers.webm', { type: 'audio/webm' });
 }
 
+/** Explicitly nondefault translations are not additional default performer credits. */
+export async function translatedTaggedWebmOpusFixture(nonDefault = true, flagLast = false): Promise<File> {
+	const translation = new TextEncoder().encode('Translated performer');
+	const file = await customTaggedWebmOpusFixture({ ARTIST: 'x'.repeat(translation.length + 4), _GUEST: 'Default performer', COMMENT: 'After credits' });
+	const bytes = Buffer.from(await file.arrayBuffer());
+	const name = Buffer.from([0x45, 0xa3, 0x86, ...Buffer.from('ARTIST')]);
+	const start = bytes.indexOf(name) + name.length; assert.ok(start >= name.length);
+	const value = Buffer.from([0x44, 0x87, 0x80 | translation.length, ...translation]);
+	const flag = Buffer.from([0x44, 0x84, 0x81, nonDefault ? 0 : 1]);
+	// Equal-size element substitution retains all Segment/SeekHead/packet offsets.
+	bytes.set(Buffer.concat(flagLast ? [value, flag] : [flag, value]), start);
+	const secondName = bytes.indexOf(Buffer.from('_GUEST')); assert.ok(secondName > start);
+	bytes.set(Buffer.from('ARTIST'), secondName);
+	return new File([Uint8Array.from(bytes).buffer], 'Translated-credits.webm', { type: 'audio/webm' });
+}
+
 /** EBML does not impose a name/value or target/value child order. */
 export async function reorderedTaggedWebmOpusFixture(mode: 'name-first' | 'value-first' | 'targets-last'): Promise<File> {
 	const original = mode === 'targets-last' ? await taggedWebmOpusFixture('track') : await customTaggedWebmOpusFixture({ ARTIST: 'Ada' });
