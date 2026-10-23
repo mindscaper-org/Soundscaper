@@ -136,7 +136,39 @@ function planAutomationEdits(
 		if (command.rippleMode !== 'track') return emptyPlan();
 		return renderedClipReplacementPlan(previous, commanded, command);
 	}
+	if (command.type === 'project-bin/replace-media' && command.shortfallMode === 'contract-gaps') {
+		return binReplacementPlan(previous, commanded, command);
+	}
 	return emptyPlan();
+}
+
+/** Replacement closes only the removed source tails, independently on each track. */
+function binReplacementPlan(
+	previous: SoundscaperProject,
+	commanded: Readonly<Record<string, unknown>>,
+	command: Extract<AudioEditorCommand, { type: 'project-bin/replace-media' }>,
+): PlannedAutomationEditsV21 {
+	const affectedSources = new Set(command.replacements.map(({ oldSourceId }) => oldSourceId));
+	const nextById = new Map(resolvedClipRecords(commanded).map(clip => [String(clip.id), clip]));
+	const owners = trackOwnership(previous);
+	const byTrackId = new Map<string, AutomationLaneTimelineReplacementV21[]>();
+	for (const clip of resolvedClipRecords(previous)) {
+		if (!affectedSources.has(String(clip.sourceId))) continue;
+		const trackId = owners.get(String(clip.id));
+		if (!trackId) continue;
+		const next = nextById.get(String(clip.id));
+		const endFrame = clipEnd(clip);
+		const retained = next ? positiveSafeInteger(next.durationFrames, 'replacement clip.durationFrames') : 0;
+		const startFrame = safeAdd(clipStart(clip), retained);
+		if (startFrame >= endFrame) continue;
+		const edits = byTrackId.get(trackId) ?? [];
+		edits.push({ startFrame, endFrame, insertedDurationFrames: 0 });
+		byTrackId.set(trackId, edits);
+	}
+	for (const [trackId, edits] of byTrackId) byTrackId.set(trackId, mergeEditingRanges(edits).reverse().map(range => ({
+		startFrame: range.startFrame, endFrame: range.endFrame, insertedDurationFrames: 0,
+	})));
+	return { byTrackId, global: [] };
 }
 
 function rangePlan(
