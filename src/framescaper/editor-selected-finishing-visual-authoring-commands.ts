@@ -102,7 +102,7 @@ export async function prepareFramescaperSelectedVisualAuthoringFinishing(input: 
 
 function dissolveCommand(project: Data, request: Data): unknown {
 	const operation = oneOf(request.operation, ['apply', 'remove'] as const, 'dissolve operation');
-	const pairId = stableId(request.pairId, 'dissolve pair ID');
+	const pairId = request.pairId; // Opaque tuple token; only an exact model match grants a target.
 	const playhead = fencePlayhead(request);
 	const model = createFramescaperSelectedVisualAuthoringModelFinishing({
 		surface: 'video-transition-dissolve', project,
