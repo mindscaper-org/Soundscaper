@@ -50,3 +50,12 @@ export function withWavPackTotalFrames(group: Uint8Array, totalFrames: number): 
 	}
 	return output;
 }
+
+/** APEv2 text items carry several values inside one NUL-separated item. */
+export async function createMultiValueWavPackFixture(): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	return new File([await createAudacityWavPackFixture(4800), createApeFileMetadata({
+		title: 'Two credited performers', artist: 'Ada\0Béla', comment: 'First note\0Second note',
+		track: '3\0Alternate track', date: '2026-10-23\u00002025', Custom: 'One\0Two',
+	})], 'Multiple performers.wv', { type: 'audio/wavpack' });
+}

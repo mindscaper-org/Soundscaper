@@ -67,11 +67,14 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 		TRACK: 'trackNumber', DISC: 'discNumber', YEAR: 'date', TOTALTRACKS: 'tracksTotal', TOTALDISCS: 'discsTotal',
 		COMMENT: 'comment', DATE: 'date', LYRICS: 'lyrics', TRACKNUMBER: 'trackNumber', TRACKTOTAL: 'tracksTotal', DISCNUMBER: 'discNumber', DISCTOTAL: 'discsTotal' };
 	const explicitDate = entries.some(([key, value]) => key.toUpperCase().replace(/[ _-]/gu, '') === 'DATE' && typeof value === 'string' && value !== '');
-	for (const [key, value] of entries) {
+	for (const [key, encoded] of entries) {
 		const normalizedKey = key.toUpperCase().replace(/[ _-]/gu, '');
 		if (normalizedKey === 'YEAR' && explicitDate) continue;
 		const name = names[normalizedKey];
-		if (!name || typeof value !== 'string') continue;
+		if (!name || typeof encoded !== 'string') continue;
+		const values = encoded.split('\0');
+		const value = name === 'date' || ['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name)
+			? values[0]! : values.join('; ');
 		if (['trackNumber', 'tracksTotal', 'discNumber', 'discsTotal'].includes(name)) {
 			const pair = /^(\d+)\/(\d+)$/u.exec(value);
 			const number = Number(pair ? pair[1] : value);
