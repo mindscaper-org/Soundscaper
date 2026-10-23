@@ -75,7 +75,7 @@ export function processSourceAudio(projectValue: object, command: Extract<AudioE
 				fadeInFrames: Math.min(clip.fadeInFrames ?? 0, durationFrames),
 				fadeOutFrames: Math.min(clip.fadeOutFrames ?? 0, durationFrames),
 				trimStartFrames: 0, trimEndFrames: 0,
-				...(clip.envelope ? { envelope: remapEnvelope(clip.envelope, durationFrames) } : {}),
+				...(clip.envelope ? { envelope: remapEnvelope(clip.envelope, clip.durationFrames, durationFrames) } : {}),
 			} : {}),
 			...(warpMap ? { warpMap: { ...warpMap, points: warpMap.points.map((point) => ({
 				...point, source: mapRational(point.source),
@@ -124,10 +124,10 @@ function remapStretchMemory(clip: Clip, previous: Source, next: Source, mapFrame
 	} } };
 }
 
-function remapEnvelope(points: NonNullable<Clip['envelope']>, durationFrames: number) {
+function remapEnvelope(points: NonNullable<Clip['envelope']>, previousDurationFrames: number, durationFrames: number) {
 	const retained = new Map<number, Readonly<{ frame: number; value: number }>>();
 	for (const point of points) {
-		const frame = Math.min(durationFrames, point.frame);
+		const frame = Math.min(durationFrames, Math.round(point.frame * durationFrames / previousDurationFrames));
 		retained.set(frame, { ...point, frame });
 	}
 	return [...retained.values()];
