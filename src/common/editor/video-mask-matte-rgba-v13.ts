@@ -6,6 +6,7 @@ import {
 	type VideoMaskMatteGraphV1,
 	type VideoMaskMatteNodeV1,
 } from './video-mask-matte-v24.ts';
+import { rasterizeVideoMaskPaths } from './video-mask-path-raster.ts';
 
 export interface VideoMaskMatteRgbaInputV13 {
 	readonly width: number;
@@ -102,33 +103,7 @@ function vectorPath(
 	width: number,
 	height: number,
 ): Uint8Array<ArrayBuffer> {
-	const output = new Uint8Array(width * height);
-	for (let y = 0; y < height; y += 1) {
-		const py = (y + 0.5) / height;
-		for (let x = 0; x < width; x += 1) {
-			const px = (x + 0.5) / width;
-			let winding = 0;
-			for (const path of node.paths) winding += pathWinding(path.points, px, py);
-			const inside = node.fillRule === 'even-odd' ? Math.abs(winding) % 2 === 1 : winding !== 0;
-			output[y * width + x] = inside ? 255 : 0;
-		}
-	}
-	return output;
-}
-
-function pathWinding(
-	points: readonly Readonly<{ readonly position: Readonly<{ x: number; y: number }> }>[],
-	x: number,
-	y: number,
-): number {
-	let winding = 0;
-	for (let index = 0; index < points.length; index += 1) {
-		const a = points[index]!.position;
-		const b = points[(index + 1) % points.length]!.position;
-		if (a.y <= y && b.y > y && cross(a, b, x, y) > 0) winding += 1;
-		else if (a.y > y && b.y <= y && cross(a, b, x, y) < 0) winding -= 1;
-	}
-	return winding;
+	return rasterizeVideoMaskPaths(node.paths, node.fillRule, width, height);
 }
 
 function rasterInput(
@@ -199,12 +174,6 @@ function ellipseContains(
 	const dx = (x - (left + width / 2)) / (width / 2);
 	const dy = (y - (top + height / 2)) / (height / 2);
 	return dx * dx + dy * dy <= 1;
-}
-
-function cross(
-	a: Readonly<{ x: number; y: number }>, b: Readonly<{ x: number; y: number }>, x: number, y: number,
-): number {
-	return (b.x - a.x) * (y - a.y) - (x - a.x) * (b.y - a.y);
 }
 
 function clamp(value: number, length: number): number {
