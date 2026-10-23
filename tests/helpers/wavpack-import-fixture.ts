@@ -77,3 +77,10 @@ export async function createMetadataBudgetWavPackFixture(mode: 'control' | 'fiel
 		: Object.fromEntries(Array.from({ length: mode === 'fields' ? 257 : 256 }, (_, index) => [`Field${String(index)}`, `Credit ${String(index)}`]));
 	return new File([await createAudacityWavPackFixture(4800), createApeFileMetadata(entries)], `Metadata ${mode}.wv`, { type: 'audio/wavpack' });
 }
+
+/** The native library pads a shortened tag when an older writer cannot truncate. */
+export async function createPaddedMetadataWavPackFixture(padding: number, retainTag = true): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	return new File([await createAudacityWavPackFixture(4800), new Uint8Array(padding),
+		...(retainTag ? [createApeFileMetadata({ title: 'Shorter edited metadata' })] : [])], `Padded${String(padding)}.wv`, { type: 'audio/wavpack' });
+}

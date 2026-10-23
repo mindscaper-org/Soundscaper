@@ -8,7 +8,7 @@ export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promis
 	const tagEnd = await apeTagEnd(file, signal);
 	const footer = await metadataBlobBytes(file, tagEnd - 32, tagEnd, signal);
 	const info = apeFooter(footer, false);
-	if (!info) return tagEnd === file.size ? file : file.slice(0, tagEnd, file.type);
+	if (!info) return file.slice(0, await wavPackZeroPaddingStart(file, tagEnd, signal), file.type);
 	const start = tagEnd - info.size - (info.header ? 32 : 0);
 	if (start < 32) throw new RangeError('The APEv2 trailer exceeds its WavPack file.');
 	if (info.header) {
@@ -18,7 +18,7 @@ export async function wavPackAudioBlob(file: Blob, signal?: AbortSignal): Promis
 		if (!declared || declared.size !== info.size || view.getUint32(16, true) !== new DataView(footer.buffer).getUint32(16, true)
 			|| !(view.getUint32(20, true) & 0x2000_0000)) throw new RangeError('The APEv2 header is missing or inconsistent.');
 	}
-	return file.slice(0, start, file.type);
+	return file.slice(0, await wavPackZeroPaddingStart(file, start, signal), file.type);
 }
 
 /** Inspect APE text and cover art without asking a codec to decode the trailer. */
@@ -92,6 +92,27 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 		} else tags[name] = value;
 	}
 	return tags;
+}
+
+/** Older native tag writers zero the released tag extent instead of truncating it. */
+async function wavPackZeroPaddingStart(file: Blob, end: number, signal?: AbortSignal): Promise<number> {
+	let offset = 0; let complete = false;
+	for (let blocks = 0; offset < end && blocks < 1_000_000; blocks++) {
+		const header = await metadataBlobBytes(file, offset, Math.min(offset + 32, end), signal);
+		if (header.length === 32 && new TextDecoder().decode(header.subarray(0, 4)) === 'wvpk') {
+			const view = new DataView(header.buffer); const size = view.getUint32(4, true) + 8;
+			if (size < 32 || size > end - offset) return end;
+			if (view.getUint32(20, true) > 0) complete = Boolean(view.getUint32(24, true) & 0x1000);
+			offset += size; continue;
+		}
+		if (!complete || end - offset > 16 * 1024 ** 2 || header.some(byte => byte !== 0)) return end;
+		for (let position = offset + header.length; position < end; position += 65_536) {
+			const bytes = await metadataBlobBytes(file, position, Math.min(position + 65_536, end), signal);
+			if (bytes.some(byte => byte !== 0)) return end;
+		}
+		return offset;
+	}
+	return end;
 }
 
 function apeFooter(bytes: Uint8Array, inspectItems = true): Readonly<{ size: number; header: boolean }> | null {
