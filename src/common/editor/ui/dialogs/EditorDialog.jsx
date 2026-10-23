@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 import { NumberStepper } from '@soundscaper/design-system/NumberStepper';
-import { TextInput } from '@soundscaper/design-system/TextInput';
+import EditorDialogNameField from './EditorDialogNameField.tsx';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 import TimedRecordingDialogFields from './TimedRecordingDialogFields.tsx';
@@ -198,7 +198,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 			title={title}
 			onClose={closeDialog}
 			width={540}
-			initialFocus={['rename', 'track-rename'].includes(type) ? 'input' : 'first'}
+			initialFocus={['rename', 'track-rename'].includes(type) ? 'input, textarea' : 'first'}
 			bodyClassName="kw-audio-editor-dialog__body"
 			footer={footer && <DialogFooter className="audio-editor-dialog-footer" rightContent={footer} />}
 		>
@@ -223,7 +223,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 							<label className="kw-audio-editor-dialog__field">
 								<span>{copy.projectName}</span>
 								<span data-project-name-input>
-									<TextInput value={value} onChange={onValueChange} width="100%" />
+									<EditorDialogNameField value={value} onChange={onValueChange} onSubmit={submitRename} />
 								</span>
 							</label>
 						</form>
@@ -232,7 +232,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 						<form onSubmit={(event) => { event.preventDefault(); submitTrackRename(); }}>
 							<label className="kw-audio-editor-dialog__field">
 								<span>{copy.trackName}</span>
-								<TextInput value={value} onChange={onValueChange} width="100%" />
+								<EditorDialogNameField value={value} onChange={onValueChange} onSubmit={submitTrackRename} />
 							</label>
 						</form>
 					)}
