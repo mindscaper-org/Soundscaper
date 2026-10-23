@@ -97,6 +97,34 @@ for (const unsynchronised of [false, true]) test(`File Open retains legacy ID3v2
 	assert.equal(image?.byteLength, jpeg.length);
 });
 
+for (const [timestamp, expected] of [
+	['2024', '2024-01-01T00:00:00.000Z'], ['2024-07', '2024-07-01T00:00:00.000Z'],
+	['2024-07-21', '2024-07-21T00:00:00.000Z'], ['2024-07-21T16', '2024-07-21T16:00:00.000Z'],
+	['2024-07-21T16:45', '2024-07-21T16:45:00.000Z'], ['2024-07-21T16:45:30', '2024-07-21T16:45:30.000Z'],
+] as const) test(`File Open interprets the supported ID3 UTC timestamp precision ${timestamp}`, async () => {
+	const previous = process.env.TZ;
+	process.env.TZ = 'Pacific/Honolulu';
+	try {
+		const body = frame(4, 'TDRC', Buffer.from(`\0${timestamp}`));
+		const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 4, 0, 0]), syncSafe(body.length), body]));
+		const contribution = await importedMetadata(metadata);
+		assert.deepEqual(contribution.warnings, []);
+		assert.equal(contribution.metadata.normalized.date, expected);
+		assert.equal(contribution.metadata.raw.TDRC, timestamp);
+		if (timestamp.includes('T')) for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']) {
+			const { stdout } = await runNode(process.execPath, ['--input-type=module', '-e', `
+				const module=await import('./node_modules/mediabunny/dist/bundles/'+process.argv[1]);
+				const {Input,BlobSource,ALL_FORMATS}=module.default??module;
+				const input=new Input({source:new BlobSource(new Blob([Buffer.from(process.argv[2],'base64')])),formats:ALL_FORMATS});
+				try{console.log(JSON.stringify((await input.getMetadataTags()).date?.toISOString()));}finally{input.dispose();}
+			`, bundle, Buffer.concat([metadata, await mp3()]).toString('base64')], { timeout: 10_000 });
+			assert.equal(JSON.parse(stdout) as unknown, expected, bundle);
+		}
+	} finally {
+		if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous;
+	}
+});
+
 test('File Open retains an APIC image with a UTF-16BE description and an ASCII MIME field', async () => {
 	const description = Buffer.from('作品', 'utf16le').swap16();
 	const picture = Buffer.concat([Buffer.from([2]), Buffer.from('image/jpeg\0'), Buffer.from([3]), description, Buffer.from([0, 0]), jpeg]);

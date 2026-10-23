@@ -87,19 +87,23 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				const parts = discText.split('/');
  				const discNum = Number.parseInt(parts[0]!, 10);
  				const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -328,9 +340,8 @@
+@@ -328,10 +340,11 @@
  				tags.genre ??= genreText;
  			}; break;
  
 -			case 'TDRC':
 -			case 'TDAT': {
 -				const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+-				const date = new Date(dateText);
 +			case 'TDRC': {
 +				const dateText = reader.readId3V2EncodingAndText(frameEndPos, null);
- 				const date = new Date(dateText);
++				const utcText = /^\d{4}-\d{2}-\d{2}T\d{2}(?::\d{2}){0,2}$/.test(dateText)
++					? `${dateText}${dateText.length === 13 ? ':00' : ''}Z` : dateText;
++				const date = new Date(utcText);
  
  				if (!Number.isNaN(date.getTime())) {
-@@ -340,12 +351,15 @@
+ 					tags.date ??= date;
+@@ -340,12 +353,15 @@
  
  			case 'TYER':
  			case 'TYE': {
@@ -121,7 +125,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  			}; break;
  
  			case 'USLT':
-@@ -377,7 +391,7 @@
+@@ -377,7 +393,7 @@
  							? 'image/jpeg'
  							: 'image/*';
  				} else {
@@ -130,7 +134,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				}
  
  				const pictureType = reader.readU8();
-@@ -408,6 +422,18 @@
+@@ -408,6 +424,18 @@
  
  		reader.pos = frameEndPos;
  	}
@@ -149,7 +153,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  };
  
  // https://id3.org/id3v2.3.0
-@@ -431,7 +457,7 @@
+@@ -431,7 +459,7 @@
  			newBytes.push(value1);
  
  			if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -158,7 +162,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				if (value2 === 0x00) {
  					i++;
  				}
-@@ -466,6 +492,7 @@
+@@ -466,6 +494,7 @@
  		this.bytes.set(after, before.length + newBytes.length);
  
  		this.view = new DataView(this.bytes.buffer);
@@ -166,7 +170,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  	}
  
  	readBytes(length: number) {
-@@ -640,13 +667,20 @@
+@@ -640,13 +669,20 @@
  		}
  	}
  
@@ -274,19 +278,23 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      const parts = discText.split('/');
                      const discNum = Number.parseInt(parts[0], 10);
                      const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -291,9 +303,8 @@
+@@ -291,10 +303,11 @@
                  ;
                  break;
              case 'TDRC':
 -            case 'TDAT':
 -                {
 -                    const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+-                    const date = new Date(dateText);
 +                {
 +                    const dateText = reader.readId3V2EncodingAndText(frameEndPos, null);
-                     const date = new Date(dateText);
++                    const utcText = /^\d{4}-\d{2}-\d{2}T\d{2}(?::\d{2}){0,2}$/.test(dateText)
++                    ? `${dateText}${dateText.length === 13 ? ':00' : ''}Z` : dateText;
++                const date = new Date(utcText);
                      if (!Number.isNaN(date.getTime())) {
                          tags.date ??= date;
-@@ -302,16 +313,18 @@
+                     }
+@@ -302,16 +315,18 @@
                  ;
                  break;
              case 'TYER':
@@ -315,7 +323,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
              case 'USLT':
              case 'ULT':
                  {
-@@ -346,7 +359,7 @@
+@@ -346,7 +361,7 @@
                                  : 'image/*';
                      }
                      else {
@@ -324,7 +332,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      }
                      const pictureType = reader.readU8();
                      const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd(); // Trim ending spaces
-@@ -378,6 +391,18 @@
+@@ -378,6 +393,18 @@
          }
          reader.pos = frameEndPos;
      }
@@ -343,7 +351,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
  };
  // https://id3.org/id3v2.3.0
  export class Id3V2Reader {
-@@ -396,7 +421,7 @@
+@@ -396,7 +423,7 @@
              const value1 = this.bytes[i];
              newBytes.push(value1);
              if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -352,7 +360,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                  if (value2 === 0x00) {
                      i++;
                  }
-@@ -424,6 +449,7 @@
+@@ -424,6 +451,7 @@
          this.bytes.set(newBytes, before.length);
          this.bytes.set(after, before.length + newBytes.length);
          this.view = new DataView(this.bytes.buffer);
@@ -360,7 +368,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
      }
      readBytes(length) {
          const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -566,12 +592,19 @@
+@@ -566,12 +594,19 @@
              }
          }
      }
@@ -600,18 +608,21 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27024,9 +27035,8 @@
+@@ -27024,27 +27035,30 @@
            ;
            break;
          case "TDRC":
 -        case "TDAT":
            {
 -            const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+-            const date = new Date(dateText);
 +            const dateText = reader.readId3V2EncodingAndText(frameEndPos, null);
-             const date = new Date(dateText);
++            const utcText = /^\d{4}-\d{2}-\d{2}T\d{2}(?::\d{2}){0,2}$/.test(dateText)
++              ? `${dateText}${dateText.length === 13 ? ':00' : ''}Z` : dateText;
++          const date = new Date(utcText);
              if (!Number.isNaN(date.getTime())) {
                tags.date ??= date;
-@@ -27034,17 +27044,19 @@
+             }
            }
            ;
            break;
@@ -642,7 +653,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          case "USLT":
          case "ULT":
            {
-@@ -27074,7 +27086,7 @@
+@@ -27074,7 +27088,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -651,7 +662,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27101,6 +27113,18 @@
+@@ -27101,6 +27115,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -670,7 +681,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27118,7 +27142,7 @@
+@@ -27118,7 +27144,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -679,7 +690,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            if (value2 === 0) {
              i++;
            }
-@@ -27146,6 +27170,7 @@
+@@ -27146,6 +27172,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -687,7 +698,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27284,12 +27309,19 @@
+@@ -27284,12 +27311,19 @@
          }
        }
      }
@@ -831,18 +842,21 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27027,9 +27038,8 @@
+@@ -27027,27 +27038,30 @@
            ;
            break;
          case "TDRC":
 -        case "TDAT":
            {
 -            const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+-            const date = new Date(dateText);
 +            const dateText = reader.readId3V2EncodingAndText(frameEndPos, null);
-             const date = new Date(dateText);
++            const utcText = /^\d{4}-\d{2}-\d{2}T\d{2}(?::\d{2}){0,2}$/.test(dateText)
++              ? `${dateText}${dateText.length === 13 ? ':00' : ''}Z` : dateText;
++          const date = new Date(utcText);
              if (!Number.isNaN(date.getTime())) {
                tags.date ??= date;
-@@ -27037,17 +27047,19 @@
+             }
            }
            ;
            break;
@@ -873,7 +887,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          case "USLT":
          case "ULT":
            {
-@@ -27077,7 +27089,7 @@
+@@ -27077,7 +27091,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -882,7 +896,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27104,6 +27116,18 @@
+@@ -27104,6 +27118,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -901,7 +915,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27121,7 +27145,7 @@
+@@ -27121,7 +27147,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -910,7 +924,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            if (value2 === 0) {
              i++;
            }
-@@ -27149,6 +27173,7 @@
+@@ -27149,6 +27175,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -918,7 +932,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27287,12 +27312,19 @@
+@@ -27287,12 +27314,19 @@
          }
        }
      }
@@ -1062,18 +1076,21 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = discText.split("/");
            const discNum = Number.parseInt(parts[0], 10);
            const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26867,9 +26878,8 @@
+@@ -26867,27 +26878,30 @@
          ;
          break;
        case "TDRC":
 -      case "TDAT":
          {
 -          const dateText = reader.readId3V2EncodingAndText(frameEndPos);
+-          const date = new Date(dateText);
 +          const dateText = reader.readId3V2EncodingAndText(frameEndPos, null);
-           const date = new Date(dateText);
++          const utcText = /^\d{4}-\d{2}-\d{2}T\d{2}(?::\d{2}){0,2}$/.test(dateText)
++            ? `${dateText}${dateText.length === 13 ? ':00' : ''}Z` : dateText;
++        const date = new Date(utcText);
            if (!Number.isNaN(date.getTime())) {
              tags.date ??= date;
-@@ -26877,17 +26887,19 @@
+           }
          }
          ;
          break;
@@ -1104,7 +1121,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        case "USLT":
        case "ULT":
          {
-@@ -26917,7 +26929,7 @@
+@@ -26917,7 +26931,7 @@
              const imageFormat = reader.readAscii(3);
              mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
            } else {
@@ -1113,7 +1130,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            }
            const pictureType = reader.readU8();
            const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -26944,6 +26956,18 @@
+@@ -26944,6 +26958,18 @@
      }
      reader.pos = frameEndPos;
    }
@@ -1132,7 +1149,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
  };
  var Id3V2Reader = class {
    constructor(header, bytes2) {
-@@ -26961,7 +26985,7 @@
+@@ -26961,7 +26987,7 @@
        const value1 = this.bytes[i];
        newBytes.push(value1);
        if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -1141,7 +1158,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          if (value2 === 0) {
            i++;
          }
-@@ -26989,6 +27013,7 @@
+@@ -26989,6 +27015,7 @@
      this.bytes.set(newBytes, before.length);
      this.bytes.set(after, before.length + newBytes.length);
      this.view = new DataView(this.bytes.buffer);
@@ -1149,7 +1166,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
    }
    readBytes(length) {
      const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27127,12 +27152,19 @@
+@@ -27127,12 +27154,19 @@
        }
      }
    }
