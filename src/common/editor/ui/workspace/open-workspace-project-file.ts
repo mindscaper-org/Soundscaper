@@ -47,6 +47,7 @@ async function routeWorkspaceProjectFile(
 	if (routed.media.length && !controller.actions.project.importFiles) throw new TypeError('Media import is unavailable.');
 	if (routed.labels.length && !controller.actions.labels?.importFile) throw new TypeError('Label import is unavailable.');
 	if (routed.cues.length && !openCueFile) throw new TypeError('CUE import is unavailable.');
+	if (routed.media.length && file.size === 0) throw new RangeError('The selected media file is empty.');
 	const title = file.name.replace(/\.[^.]+$/u, '') || file.name;
 	if (routed.cues.length) return openCueFile?.(file, () => controller.actions.project.create?.({ title }));
 	await controller.actions.project.create({ title });
