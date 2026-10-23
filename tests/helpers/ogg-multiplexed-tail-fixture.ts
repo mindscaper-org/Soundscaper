@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { encodeDedicatedAudioPcm } from '../../src/common/editor/browser-dedicated-audio-codec.ts';
 import { oggPageCrc } from '../../src/common/editor/ogg-page-crc.ts';
+import { writeFlacFileMetadata } from '../../src/common/editor/flac-file-metadata.ts';
 
 /** Both BOS pages precede data; the second genuine audio stream ends later. */
 export async function multiplexedOpusFixture(): Promise<Readonly<{
@@ -82,12 +83,13 @@ function pages(bytes: Uint8Array): Uint8Array<ArrayBuffer>[] {
 }
 
 /** RFC9639 section10: map the maintained FLAC encoder's single real frame to Ogg. */
-export async function ordinaryOggFlacFixture(): Promise<File> {
+export async function ordinaryOggFlacFixture(tags: Readonly<Record<string, string>> = {}): Promise<File> {
 	const frames = 1024;
 	const pcm = Float32Array.from({ length: frames }, (_, frame) => .3 * Math.sin(2 * Math.PI * 440 * frame / 48_000));
-	const encoded = await encodeDedicatedAudioPcm({ format: 'flac', input: new Uint8Array(pcm.buffer), frameCount: frames,
+	let encoded = await encodeDedicatedAudioPcm({ format: 'flac', input: new Uint8Array(pcm.buffer), frameCount: frames,
 		sampleRate: 48_000, channelCount: 1, settings: { compressionLevel: 5 }, maximumOutputBytes: 1024 ** 2 },
 	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
+	if (Object.keys(tags).length) encoded = new Uint8Array(await (await writeFlacFileMetadata(new Blob([encoded]), tags)).arrayBuffer());
 	assert.equal(new TextDecoder().decode(encoded.subarray(0, 4)), 'fLaC');
 	const metadata: Uint8Array<ArrayBuffer>[] = []; let offset = 4, last = false;
 	while (!last) {
@@ -99,14 +101,20 @@ export async function ordinaryOggFlacFixture(): Promise<File> {
 	const identification = Uint8Array.of(127, 70, 76, 65, 67, 1, 0, 0, metadata.length - 1, 102, 76, 97, 67, ...metadata[0]!);
 	const packets = [identification, ...metadata.slice(1), encoded.subarray(offset)];
 	const output: Uint8Array<ArrayBuffer>[] = [];
+	let sequence = 0;
 	for (const [index, packet] of packets.entries()) {
 		const laces = [...new Array<number>(Math.floor(packet.length / 255)).fill(255), packet.length % 255];
-		assert.ok(laces.length <= 255);
-		const page = new Uint8Array(27 + laces.length + packet.length); page.set(new TextEncoder().encode('OggS'));
-		page[5] = index === 0 ? 2 : index === packets.length - 1 ? 4 : 0; page[26] = laces.length;
-		const view = new DataView(page.buffer); view.setBigUint64(6, index === packets.length - 1 ? BigInt(frames) : 0n, true);
-		view.setUint32(14, 0x1234abcd, true); view.setUint32(18, index, true); page.set(laces, 27); page.set(packet, 27 + laces.length);
-		view.setUint32(22, oggPageCrc(page), true); output.push(page);
+		let packetOffset = 0;
+		for (let laceOffset = 0; laceOffset < laces.length; laceOffset += 255) {
+			const pageLaces = laces.slice(laceOffset, laceOffset + 255), completed = laceOffset + pageLaces.length === laces.length;
+			const length = pageLaces.reduce((sum, value) => sum + value, 0);
+			const page = new Uint8Array(27 + pageLaces.length + length); page.set(new TextEncoder().encode('OggS'));
+			page[5] = (index === 0 ? 2 : 0) | (laceOffset ? 1 : 0) | (index === packets.length - 1 && completed ? 4 : 0); page[26] = pageLaces.length;
+			const view = new DataView(page.buffer); view.setBigUint64(6, !completed ? 0xffff_ffff_ffff_ffffn : index === packets.length - 1 ? BigInt(frames) : 0n, true);
+			view.setUint32(14, 0x1234abcd, true); view.setUint32(18, sequence++, true); page.set(pageLaces, 27);
+			page.set(packet.subarray(packetOffset, packetOffset + length), 27 + pageLaces.length); packetOffset += length;
+			view.setUint32(22, oggPageCrc(page), true); output.push(page);
+		}
 	}
 	return new File(output, 'Recorder.oga', { type: 'audio/ogg' });
 }

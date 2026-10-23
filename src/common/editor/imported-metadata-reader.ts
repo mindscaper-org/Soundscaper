@@ -10,6 +10,7 @@ export async function readImportedMetadataTags(file: Blob, signal?: AbortSignal)
 		return (await import('./ape-metadata-reader.ts')).readApeMetadataTags(file, signal);
 	}
 	file = await riff64MetadataReadView(file, header, signal) ?? file;
+	if (new TextDecoder().decode(header.subarray(0, 4)) === 'OggS') file = await (await import('./ogg-flac-metadata-read-view.ts')).oggFlacMetadataReadView(file, header, signal) ?? file;
 	const { ALL_FORMATS, BlobSource, Input } = await import('mediabunny');
 	signal?.throwIfAborted();
 	const input = new Input({
