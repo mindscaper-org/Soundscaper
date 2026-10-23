@@ -55,6 +55,28 @@ function tag(version: 3 | 4): Uint8Array<ArrayBuffer> {
 	return Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, version, 0, version === 3 ? 128 : 0]), syncSafe(payload.length), payload]));
 }
 
+for (const encoding of [0, 1] as const) test(`File Open preserves legacy ID3v2.2 user-defined text values (encoding=${encoding})`, async () => {
+	const userText = textList(encoding, ['Composer credit', encoding === 0 ? 'Björk' : '作品']);
+	const header = Buffer.alloc(6); header.write('TXX'); header.writeUIntBE(userText.length, 3, 3);
+	const title = Buffer.from('\0Legacy title'), titleHeader = Buffer.alloc(6);
+	titleHeader.write('TT2'); titleHeader.writeUIntBE(title.length, 3, 3);
+	const body = Buffer.concat([header, userText, titleHeader, title]);
+	const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 2, 0, 0]), syncSafe(body.length), body]));
+	const contribution = await importedMetadata(metadata);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.title, 'Legacy title');
+	assert.deepEqual(contribution.metadata.raw.TXX, { 'Composer credit': encoding === 0 ? 'Björk' : '作品' });
+	for (const bundle of ['mediabunny.cjs', 'mediabunny.node.cjs', 'mediabunny.mjs']) {
+		const { stdout } = await runNode(process.execPath, ['--input-type=module', '-e', `
+			const module=await import('./node_modules/mediabunny/dist/bundles/'+process.argv[1]);
+			const {Input,BlobSource,ALL_FORMATS}=module.default??module;
+			const input=new Input({source:new BlobSource(new Blob([Buffer.from(process.argv[2],'base64')])),formats:ALL_FORMATS});
+			try{console.log(JSON.stringify((await input.getMetadataTags()).raw.TXX));}finally{input.dispose();}
+		`, bundle, Buffer.concat([metadata, await mp3()]).toString('base64')], { timeout: 10_000 });
+		assert.deepEqual(JSON.parse(stdout) as unknown, { 'Composer credit': encoding === 0 ? 'Björk' : '作品' }, bundle);
+	}
+});
+
 for (const unsynchronised of [false, true]) test(`File Open retains legacy ID3v2.2 text and PIC artwork (unsync=${unsynchronised})`, async () => {
 	const legacyFrame = (id: string, payload: Uint8Array): Buffer => {
 		const header = Buffer.alloc(6); header.write(id); header.writeUIntBE(payload.length, 3, 3);

@@ -46,9 +46,10 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 +		frameStartPos += prefixBytes;
 +		reader.pos = frameStartPos;
  		tags.raw ??= {};
- 		if (frame.id === 'TXXX') {
+-		if (frame.id === 'TXXX') {
 -			const txxx = tags.raw['TXXX'] ??= {};
-+			const txxx = (tags.raw['TXXX'] ??= {}) as Record<string, string>;
++		if (frame.id === 'TXXX' || frame.id === 'TXX') {
++			const txxx = (tags.raw[frame.id] ??= {}) as Record<string, string>;
  			const encoding = reader.readId3V2TextEncoding();
  			const description = reader.readId3V2Text(encoding, frameEndPos);
 -			const value = reader.readId3V2Text(encoding, frameEndPos);
@@ -232,8 +233,10 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
 +        frameStartPos += prefixBytes;
 +        reader.pos = frameStartPos;
          tags.raw ??= {};
-         if (frame.id === 'TXXX') {
-             const txxx = tags.raw['TXXX'] ??= {};
+-        if (frame.id === 'TXXX') {
+-            const txxx = tags.raw['TXXX'] ??= {};
++        if (frame.id === 'TXXX' || frame.id === 'TXX') {
++            const txxx = tags.raw[frame.id] ??= {};
              const encoding = reader.readId3V2TextEncoding();
              const description = reader.readId3V2Text(encoding, frameEndPos);
 -            const value = reader.readId3V2Text(encoding, frameEndPos);
@@ -560,8 +563,10 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
 +      frameStartPos += prefixBytes;
 +      reader.pos = frameStartPos;
        tags.raw ??= {};
-       if (frame.id === "TXXX") {
-         const txxx = tags.raw["TXXX"] ??= {};
+-      if (frame.id === "TXXX") {
+-        const txxx = tags.raw["TXXX"] ??= {};
++      if (frame.id === "TXXX" || frame.id === "TXX") {
++        const txxx = tags.raw[frame.id] ??= {};
          const encoding = reader.readId3V2TextEncoding();
          const description = reader.readId3V2Text(encoding, frameEndPos);
 -        const value = reader.readId3V2Text(encoding, frameEndPos);
@@ -789,8 +794,10 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
 +      frameStartPos += prefixBytes;
 +      reader.pos = frameStartPos;
        tags.raw ??= {};
-       if (frame.id === "TXXX") {
-         const txxx = tags.raw["TXXX"] ??= {};
+-      if (frame.id === "TXXX") {
+-        const txxx = tags.raw["TXXX"] ??= {};
++      if (frame.id === "TXXX" || frame.id === "TXX") {
++        const txxx = tags.raw[frame.id] ??= {};
          const encoding = reader.readId3V2TextEncoding();
          const description = reader.readId3V2Text(encoding, frameEndPos);
 -        const value = reader.readId3V2Text(encoding, frameEndPos);
@@ -1018,8 +1025,10 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
 +    frameStartPos += prefixBytes;
 +    reader.pos = frameStartPos;
      tags.raw ??= {};
-     if (frame.id === "TXXX") {
-       const txxx = tags.raw["TXXX"] ??= {};
+-    if (frame.id === "TXXX") {
+-      const txxx = tags.raw["TXXX"] ??= {};
++    if (frame.id === "TXXX" || frame.id === "TXX") {
++      const txxx = tags.raw[frame.id] ??= {};
        const encoding = reader.readId3V2TextEncoding();
        const description = reader.readId3V2Text(encoding, frameEndPos);
 -      const value = reader.readId3V2Text(encoding, frameEndPos);
