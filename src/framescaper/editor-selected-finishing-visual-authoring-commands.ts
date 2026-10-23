@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { exportSequenceProject } from '../common/editor/export-sequence-project.ts';
+
 import {
 	createAddTrackCommand,
 	createAddVideoEffectCommand,
@@ -319,7 +321,8 @@ async function prepareFreeze(
 	const end = start + positiveInteger(clip.sequenceFrameCount, 'selected video duration');
 	if (sequenceFrame < start || sequenceFrame >= end) throw new RangeError('The playhead is outside the selected video.');
 	if (!capture) throw new Error('Exact freeze capture is unavailable for the selected preview.');
-	const picture = resolveFramescaperSelectedFreezePictureFinishing(runtimeProject,
+	const freezeProject = exportSequenceProject({ ...record(runtimeProject, 'freeze runtime project'), primarySequenceId: sequence.id });
+	const picture = resolveFramescaperSelectedFreezePictureFinishing(freezeProject,
 		stableId(clip.id, 'selected video clip ID'), playhead);
 	const source = requireById(records(project.sources, 'project sources'), picture.sourceId, 'selected freeze source');
 	const body = await capture.capture({
@@ -367,7 +370,7 @@ async function prepareFreeze(
 	});
 	return prepared(batch([
 		{ ...createAddTrackCommand({ type: 'video', id: trackId,
-			name: 'Freeze', laneGroupId: null }), index: 0 },
+			name: 'Freeze', laneGroupId: null }), index: 0, sequenceId: clip.sequenceId },
 		{ type: 'video-visual-source/set', sourceId, expectedSource: null, source: stillSource },
 		{ type: 'video-visual-clip/set', clipId, expectedClip: null, expectedPlacement: null,
 			clip: stillClip, placement: { scope: 'timeline', trackId } },
