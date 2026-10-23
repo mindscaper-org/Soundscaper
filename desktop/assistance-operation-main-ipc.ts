@@ -22,6 +22,8 @@ export const ASSISTANCE_OPERATION_IPC_CHANNELS = Object.freeze({
 	run: 'soundscaper:v1:assistance:operation:run',
 	encodeKeyedVideo: 'soundscaper:v1:assistance:operation:encode-keyed-video',
 	keyedVideoAvailable: 'soundscaper:v1:assistance:operation:keyed-video-available',
+	decodeKeyingSource: 'soundscaper:v1:assistance:operation:decode-keying-source',
+	readKeyingSource: 'soundscaper:v1:assistance:operation:read-keying-source',
 	cancel: 'soundscaper:v1:assistance:operation:cancel',
 	readOutput: 'soundscaper:v1:assistance:operation:read-output',
 	outputPort: 'soundscaper:v1:assistance:operation:output-port',
@@ -98,6 +100,13 @@ export function registerAssistanceOperationIpc(options: AssistanceOperationIpcOp
 		if (!keyedVideo) throw new Error('The keyed-video encoder is unavailable.');
 		return keyedVideo.encode(value);
 	}, 'The keyed alpha-video could not be encoded.', options.onError));
+	for (const [channel, method] of [[options.channels.decodeKeyingSource, 'decodeSource'], [options.channels.readKeyingSource, 'readDecodedSource']] as const) {
+		options.handle(channel, (_event, value) => pathless<unknown>(() => {
+			keyedVideo ??= options.createKeyedVideo?.(resolve().operations) ?? null;
+			if (!keyedVideo) throw new Error('The native keying source decoder is unavailable.');
+			return keyedVideo[method](value);
+		}, 'The original video could not be decoded for keying.', options.onError));
+	}
 	options.handle(options.channels.keyedVideoAvailable, () => pathless(() => {
 		keyedVideo ??= options.createKeyedVideo?.(resolve().operations) ?? null;
 		return keyedVideo?.available() ?? false;

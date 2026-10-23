@@ -7,3 +7,4 @@ export { createLocalAssistanceVideoKeyingPublication,
 export { createLocalAssistanceVideoKeyingWorkflow, CORRIDORKEY_MODEL_ID, CORRIDORKEY_MODEL_VERSION,
 	type VideoKeyingProgress, type VideoKeyingWorkflowOptions } from './internal/video/local-assistance-video-keying-workflow.ts';
 export { createLocalAssistanceVideoKeyingFramePreparation } from './internal/video/local-assistance-video-keying-frames.ts';
+export { createKeyingVideoDecoderWithNativeFallback } from './internal/video/local-assistance-video-keying-native-decoder.ts';

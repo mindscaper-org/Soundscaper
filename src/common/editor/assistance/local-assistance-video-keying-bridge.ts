@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { lazyKeyingSourceDecodeBridge, type KeyingSourceDecodeBridge } from './local-assistance-video-keying-decode-bridge.ts';
 import type { LocalAssistanceOutputClaim } from './local-assistance-bridge.ts';
 import type { LocalAssistanceKeyedVideoInspection } from '../controller/assistance/local-assistance-video-keying.ts';
 import { createUnreportedVideoSourceCharacteristicsV25, normalizeVideoSourceCharacteristicsV25 } from '../video-source-professional-characteristics-v25.ts';
@@ -19,7 +20,7 @@ export interface LocalAssistanceVideoKeyingEncodeResult {
 	readonly claim: LocalAssistanceOutputClaim;
 	readonly inspection: LocalAssistanceKeyedVideoInspection & Readonly<{ sha256: string }>;
 }
-export interface LocalAssistanceVideoKeyingBridge {
+export interface LocalAssistanceVideoKeyingBridge extends Partial<KeyingSourceDecodeBridge> {
 	available(): Promise<boolean>;
 	encode(request: LocalAssistanceVideoKeyingEncodeRequest): Promise<LocalAssistanceVideoKeyingEncodeResult>;
 }
@@ -30,7 +31,7 @@ export function lazyLocalAssistanceVideoKeyingBridge(value: unknown): LocalAssis
 		|| !('available' in value) || typeof value.available !== 'function') return null;
 	const encode = value.encode as (request: LocalAssistanceVideoKeyingEncodeRequest) => Promise<unknown>;
 	const available = value.available as () => Promise<unknown>;
-	return Object.freeze({ async available() {
+	return Object.freeze({ ...lazyKeyingSourceDecodeBridge(value), async available() {
 		const result = await available.call(value);
 		if (typeof result !== 'boolean') throw new TypeError('The keyed-video encoder availability response is invalid.');
 		return result;

@@ -3,6 +3,10 @@
 import type { LocalAssistanceVideoKeyingRun } from './local-assistance-video-keying-publication.ts';
 import type { FullRasterKeyingVideoDecoder } from './local-assistance-video-keying-frames.ts';
 
+export class KeyingBrowserVideoDecodeError extends Error {
+	constructor() { super('The browser could not decode this source video.'); this.name = 'KeyingBrowserVideoDecodeError'; }
+}
+
 /** A single source-sized canvas and paused decoder, bounded by the frame-pack geometry gate. */
 export async function createFullRasterKeyingVideoDecoder(body: Blob, run: LocalAssistanceVideoKeyingRun,
 	signal: AbortSignal): Promise<FullRasterKeyingVideoDecoder> {
@@ -54,7 +58,7 @@ function event(video: HTMLVideoElement, name: 'loadeddata' | 'seeked', signal: A
 			if (error !== undefined) reject(error); else resolve();
 		};
 		const ready = (): void => complete();
-		const failed = (): void => complete(new Error('The browser could not decode this source video.'));
+		const failed = (): void => complete(new KeyingBrowserVideoDecodeError());
 		const aborted = (): void => complete(signal.reason);
 		const timer = setTimeout(() => complete(new Error('Full-resolution keying video decode timed out.')), 30_000);
 		video.addEventListener(name, ready, { once: true }); video.addEventListener('error', failed, { once: true });

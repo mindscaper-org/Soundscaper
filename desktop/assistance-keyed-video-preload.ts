@@ -22,6 +22,29 @@ export function createAssistanceKeyedVideoPreloadBridge(options: Readonly<{
 		const value = await options.invoke('soundscaper:v1:assistance:operation:keyed-video-available', undefined);
 		if (typeof value !== 'boolean') throw new TypeError('Invalid keyed-video availability.');
 		return value;
+
+	}, async decodeSource(value: unknown) {
+		const raw = exact(value, ['contractVersion', 'jobId', 'source', 'width', 'height', 'frameCount', 'frameRate']);
+		const jobId = id(raw.jobId); const source = exact(raw.source, CLAIM_KEYS);
+		if (raw.contractVersion !== 1 || source.claimVersion !== 1 || source.jobId !== jobId || source.role !== 'video'
+			|| !['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska', 'application/mxf'].includes(String(source.mediaType))) throw new TypeError('Invalid native keying source custody.');
+		id(source.claimId); if (typeof source.sha256 !== 'string' || !/^[a-f\d]{64}$/u.test(source.sha256)) throw new TypeError('Invalid native keying source digest.');
+		integer(source.byteLength, 1, 8 * 1024 ** 3);
+		const rate = exact(raw.frameRate, ['num', 'den']);
+		const request = { contractVersion: 1, jobId, source: { ...source }, width: integer(raw.width, 1, 4096), height: integer(raw.height, 1, 4096),
+			frameCount: integer(raw.frameCount, 1, 100_000), frameRate: { num: integer(rate.num, 1, 0x7fff_ffff), den: integer(rate.den, 1, 0x7fff_ffff) } };
+		const result = exact(await options.invoke('soundscaper:v1:assistance:operation:decode-keying-source', request),
+			['contractVersion', 'jobId', 'sourceSha256', 'width', 'height', 'frameCount', 'byteLength']);
+		if (result.contractVersion !== 1 || result.jobId !== jobId || result.sourceSha256 !== source.sha256
+			|| result.width !== request.width || result.height !== request.height || result.frameCount !== request.frameCount
+			|| result.byteLength !== request.width * request.height * request.frameCount * 4) throw new TypeError('Invalid native keying source decode binding.');
+		return Object.freeze({ ...result });
+	}, async readDecodedSource(value: unknown): Promise<Uint8Array> {
+		const raw = exact(value, ['jobId', 'offset', 'maximumBytes']);
+		const request = { jobId: id(raw.jobId), offset: integer(raw.offset, 0, 8 * 1024 ** 3), maximumBytes: integer(raw.maximumBytes, 1, 4 * 1024 ** 2) };
+		const bytes = await options.invoke('soundscaper:v1:assistance:operation:read-keying-source', request);
+		if (!(bytes instanceof Uint8Array) || bytes.length < 1 || bytes.length > request.maximumBytes) throw new TypeError('Invalid native source decode range.');
+		return Uint8Array.from(bytes);
 	}, async encode(value: unknown) {
 		const raw = exact(value, ['contractVersion', 'jobId', 'sourceId', 'frameRate', 'outputs']);
 		const jobId = id(raw.jobId); const sourceId = text(raw.sourceId, 256);

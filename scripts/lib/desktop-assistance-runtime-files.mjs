@@ -54,6 +54,8 @@ export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'desktop/assistance-onnx-worker-common.js',
 	'desktop/assistance-owned-frame-pack-materialization.js',
 	'desktop/assistance-keyed-video-contract.js',
+	'desktop/assistance-keyed-video-decode.js',
+	'desktop/assistance-keyed-video-decode-contract.js',
 	'desktop/assistance-keyed-video-frames.js',
 	'desktop/assistance-keyed-video-preload.js',
 	'desktop/assistance-keyed-video-process.js',

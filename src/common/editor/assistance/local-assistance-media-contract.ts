@@ -89,7 +89,7 @@ export function resolveLocalAssistanceOperationMediaContract(
 export const LOCAL_ASSISTANCE_INPUT_MEDIA_TYPES = Object.freeze({
 	audio: Object.freeze(['audio/wav', 'audio/x-wav', 'audio/flac']),
 	'voice-activity': localAssistanceJsonMediaTypes('voice-activity'),
-	video: Object.freeze(['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska']),
+	video: Object.freeze(['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska', 'application/mxf']),
 	'frame-pack': Object.freeze(['application/vnd.soundscaper.frame-pack']),
 	transcript: Object.freeze(['application/json', 'application/vnd.soundscaper.transcript+json']),
 	text: Object.freeze(['text/plain']),

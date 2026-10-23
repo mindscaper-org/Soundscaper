@@ -8,7 +8,7 @@ import { createFullRasterKeyingVideoDecoder } from './local-assistance-video-key
 import { KEYING_PACK_HEADER_BYTES as HEADER_BYTES, assertKeyingStagedBudget, keyingEncodedReservationBytes } from './local-assistance-video-keying-budget.ts';
 
 export interface FullRasterKeyingVideoDecoder {
-	capture(timestampSeconds: number, signal: AbortSignal): Promise<Uint8Array>;
+	capture(timestampSeconds: number, signal: AbortSignal, sourceFrame?: number): Promise<Uint8Array>;
 	dispose(): void | Promise<void>;
 }
 export interface VideoKeyingFramePreparationDependencies {
@@ -52,7 +52,7 @@ export function createLocalAssistanceVideoKeyingFramePreparation(dependencies: V
 				const start = run.presentationTick(ordinal);
 				const end = ordinal + 1 === run.sourceFrameCount ? run.sourceEndTick : run.presentationTick(ordinal + 1);
 				const timestamp = Number(start + end) / (2 * run.timescale);
-				const rgba = await decoder.capture(timestamp, options.signal);
+				const rgba = await decoder.capture(timestamp, options.signal, ordinal);
 				current();
 				if (!(rgba instanceof Uint8Array) || rgba.byteLength !== frameBytes) throw new Error('The keying decoder changed the full source raster.');
 				for (let offset = 3; offset < rgba.byteLength; offset += 4) {

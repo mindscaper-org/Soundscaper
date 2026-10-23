@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /** Encode completed, authenticated RGBA output claims into a separately owned WebM claim. */
+import { createAssistanceKeyingSourceDecodeService } from './assistance-keyed-video-decode.ts';
 import { dirname } from 'node:path';
 import { curatedExternalFfmpegEnvironment } from './external-ffmpeg-environment.ts';
 import type { AssistanceStagingRegistry } from './assistance-staging-registry.ts';
@@ -14,13 +15,14 @@ import { openAssistanceKeyedVideoFrames } from './assistance-keyed-video-frames.
 import { assertKeyedVideoAlphaHashes, captureKeyedVideoProcess } from './assistance-keyed-video-process.ts';
 
 type Operations = Pick<ReturnType<typeof createAssistanceOperationService>, 'assertJob' | 'openOutput'>;
-type Registry = Pick<AssistanceStagingRegistry, 'reserveOutput' | 'resolveOutputReservationPathForMain' | 'authenticateOutput'>;
+type Registry = Pick<AssistanceStagingRegistry, 'reserveOutput' | 'resolveOutputReservationPathForMain' | 'authenticateOutput' | 'resolveInputPathForMain'>;
 
 export function createAssistanceKeyedVideoService(options: Readonly<{
 	operations: Operations;
 	registry: Registry;
 	preferences: Pick<ExternalFfmpegPreferenceService, 'admission' | 'invalidateAdmission'>;
 }>) {
+	const sourceDecoder = createAssistanceKeyingSourceDecodeService(options);
 	const active = new Map<string, Readonly<{ controller: AbortController; completion: Promise<unknown> }>>();
 	let disposed = false;
 	const perform = async (value: unknown, signal: AbortSignal) => {
@@ -91,11 +93,13 @@ export function createAssistanceKeyedVideoService(options: Readonly<{
 		} finally { await frames.close(); }
 	};
 	const cancel = async (jobId: string): Promise<void> => {
+		await sourceDecoder.cancel(jobId);
 		const run = active.get(jobId); if (!run) return;
 		run.controller.abort(new DOMException('Alpha-video encoding was cancelled.', 'AbortError'));
 		await run.completion.catch(() => undefined);
 	};
 	return Object.freeze({
+		decodeSource: sourceDecoder.decode, readDecodedSource: sourceDecoder.read,
 		async available(): Promise<boolean> {
 			if (disposed) return false;
 			const admission = options.preferences.admission();
@@ -117,7 +121,7 @@ export function createAssistanceKeyedVideoService(options: Readonly<{
 			active.set(request.jobId, { controller, completion });
 			return completion;
 		}, cancel,
-		async dispose(): Promise<void> { disposed = true; await Promise.all([...active.keys()].map(cancel)); },
+		async dispose(): Promise<void> { disposed = true; await Promise.all([...active.keys()].map(cancel)); await sourceDecoder.dispose(); },
 	});
 }
 

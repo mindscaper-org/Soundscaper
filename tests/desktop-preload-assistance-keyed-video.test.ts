@@ -87,3 +87,18 @@ async function loadPreload(responses: unknown[]) {
 	assert.ok(bridge);
 	return { ...bridge.localAssistance, invocations };
 }
+
+test('the packaged sandbox exposes native decode ranges without leaking source paths', async () => {
+	const source = { ...frameClaim, role: 'video' as const, mediaType: 'application/mxf' };
+	const request = { contractVersion: 1 as const, jobId, source, width: 2, height: 2, frameCount: 2, frameRate: { num: 25, den: 1 } };
+	const result = { contractVersion: 1, jobId, sourceSha256: sha256, width: 2, height: 2, frameCount: 2, byteLength: 32 };
+	const fixture = await loadPreload([result, new Uint8Array(16).fill(255)]);
+	assert.deepEqual(JSON.parse(JSON.stringify(await fixture.videoKeying.decodeSource!(request))), result);
+	const pixels = await fixture.videoKeying.readDecodedSource!({ jobId, offset: 16, maximumBytes: 16 });
+	assert.deepEqual(pixels, new Uint8Array(16).fill(255));
+	for (const value of [{ ...request, path: '/private/source' }, { ...request, source: { ...source, path: '/private/source' } }]) {
+		await assert.rejects(fixture.videoKeying.decodeSource!(value));
+	}
+	await assert.rejects(fixture.videoKeying.readDecodedSource!({ jobId, offset: 0, maximumBytes: 4 * 1024 ** 2 + 1 }));
+	assert.equal(fixture.invocations.length, 2);
+});

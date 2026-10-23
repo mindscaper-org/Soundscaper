@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createLocalAssistanceVideoKeyingPublication, createLocalAssistanceVideoKeyingWorkflow,
-	createLocalAssistanceVideoKeyingFramePreparation, CORRIDORKEY_MODEL_ID, CORRIDORKEY_MODEL_VERSION,
+	createLocalAssistanceVideoKeyingFramePreparation, createKeyingVideoDecoderWithNativeFallback, CORRIDORKEY_MODEL_ID, CORRIDORKEY_MODEL_VERSION,
 	type LocalAssistanceKeyedVideoInspection } from '../common/editor/controller/assistance/local-assistance-video-keying.ts';
 import { publishImportedVideo } from '../common/editor/controller/import/import-video-publication.ts';
 import { loadVideoExportOriginal } from '../common/editor/controller/export/video-export-original-loader.ts';
@@ -59,6 +59,7 @@ export async function runFramescaperCorridorKey(controller: CorridorKeyControlle
 		reloadSourceVisual: async (id) => { await controller.actions.video.reloadSourceVisual(id); await controller.actions.project.save(); },
 	});
 	const prepareFrames = createLocalAssistanceVideoKeyingFramePreparation({
+		createDecoder: createKeyingVideoDecoderWithNativeFallback(request.bridge),
 		loadOriginal: async (run, signal) => loadVideoExportOriginal({
 			store: { loadMediaAsset: async (key, options) => {
 				const loaded = await store.loadMediaAsset(key, options);

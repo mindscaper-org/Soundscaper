@@ -23,3 +23,10 @@ received through the renderer bridge. A separate native-resolution test compares
 the CPU pre-pass matte with the normal WebGL Chroma Key shader, including custom
 colors, softness, hard edges, and raster boundaries. Model parity for both modes
 is retained separately in `evidence/framescaper-corridorkey-production-cpu-candidate.json`.
+
+`prores-green.mov` is a repository-owned opaque green ProRes Standard fixture:
+three 64 × 64 frames at 25 fps, in display-referred BT.709 SDR with no audio.
+It was generated with FFmpeg 7.0.2 (`color=green:size=64x64:rate=25`,
+`-frames:v 3 -c:v prores_ks -profile:v 2 -pix_fmt yuv422p10le`, BT.709 color tags).
+The browser cannot decode this original; the native extraction regression verifies
+all frames through the authenticated external FFmpeg fallback and bounded RGBA reads.
