@@ -7,6 +7,10 @@ import { createSoundscaperProject } from '../../src/soundscaper/editor-project.t
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
 
 for (const failure of ['read', 'write', 'none']) test(`stored audio remains available with optional waveform cache ${failure} failure`, async ({ page }) => {
 	const source = createAudioSource({ id: 'source', name: 'Healthy recording', sampleRate: 48_000, frameCount: 24_000, channelCount: 1 });
@@ -93,4 +97,37 @@ for (const operation of ['resample', 'render']) test(`${operation} keeps healthy
 	expect(await page.evaluate(() => globalThis.__waveformCacheFault.count)).toBeGreaterThan(0);
 	const samples = await exportSamples(page, editor); expect(samples.length).toBeGreaterThan(10_000);
 	expect(Math.max(...samples.map(Math.abs))).toBeGreaterThan(.1);
+});
+
+test('legacy AUP import retains its decoded audio when the waveform cache is full', async ({ page }) => {
+	await page.addInitScript(() => {
+		globalThis.__waveformCacheFault = { enabled: false, count: 0 };
+		const original = IDBObjectStore.prototype.put;
+		IDBObjectStore.prototype.put = function (...args) {
+			if (globalThis.__waveformCacheFault.enabled && this.name === 'analysis'
+				&& String(args[0]?.key).startsWith('audio-editor-peaks-v2:')) {
+				globalThis.__waveformCacheFault.count++; throw new DOMException('Waveform cache full', 'QuotaExceededError');
+			}
+			return Reflect.apply(original, this, args);
+		};
+	});
+	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-legacy-cache-'));
+	const dataDirectory = join(directory, 'Été 演奏 🎙_data');
+	const { projectFile, dataFile } = legacyAupFiles('utf-8');
+	await mkdir(dataDirectory); await writeFile(join(dataDirectory, dataFile.name), new Uint8Array(await dataFile.arrayBuffer()));
+	try {
+		await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+		await page.evaluate(() => { globalThis.__waveformCacheFault.enabled = true; });
+		const choosing = page.waitForEvent('filechooser');
+		await editor.locator('[data-aup4-input]').setInputFiles({ name: projectFile.name, mimeType: projectFile.type,
+			buffer: Buffer.from(await projectFile.arrayBuffer()) });
+		await (await choosing).setFiles(dataDirectory);
+		await expect(editor.locator('.audio-editor-track-row').filter({ hasText: 'Voix 日本語 🎙' })).toBeVisible();
+		await waitForProjectActivation(editor);
+		expect(await page.evaluate(() => globalThis.__waveformCacheFault.count)).toBeGreaterThan(0);
+		const samples = await exportSamples(page, editor);
+		expect(samples).toHaveLength(4800);
+		expect(samples[0]).toBeCloseTo(.25 * Math.SQRT1_2, 5);
+		expect(samples[1]).toBeCloseTo(-.25 * Math.SQRT1_2, 5);
+	} finally { await rm(directory, { recursive: true, force: true }); }
 });
