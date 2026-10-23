@@ -80,3 +80,33 @@ function pages(bytes: Uint8Array): Uint8Array<ArrayBuffer>[] {
 	}
 	return result;
 }
+
+/** RFC9639 section10: map the maintained FLAC encoder's single real frame to Ogg. */
+export async function ordinaryOggFlacFixture(): Promise<File> {
+	const frames = 1024;
+	const pcm = Float32Array.from({ length: frames }, (_, frame) => .3 * Math.sin(2 * Math.PI * 440 * frame / 48_000));
+	const encoded = await encodeDedicatedAudioPcm({ format: 'flac', input: new Uint8Array(pcm.buffer), frameCount: frames,
+		sampleRate: 48_000, channelCount: 1, settings: { compressionLevel: 5 }, maximumOutputBytes: 1024 ** 2 },
+	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
+	assert.equal(new TextDecoder().decode(encoded.subarray(0, 4)), 'fLaC');
+	const metadata: Uint8Array<ArrayBuffer>[] = []; let offset = 4, last = false;
+	while (!last) {
+		last = Boolean(encoded[offset]! & 128);
+		const length = encoded[offset + 1]! * 65536 + encoded[offset + 2]! * 256 + encoded[offset + 3]!;
+		metadata.push(encoded.slice(offset, offset + 4 + length)); offset += 4 + length;
+	}
+	assert.equal(metadata[0]!.length, 38); assert.ok(offset < encoded.length);
+	const identification = Uint8Array.of(127, 70, 76, 65, 67, 1, 0, 0, metadata.length - 1, 102, 76, 97, 67, ...metadata[0]!);
+	const packets = [identification, ...metadata.slice(1), encoded.subarray(offset)];
+	const output: Uint8Array<ArrayBuffer>[] = [];
+	for (const [index, packet] of packets.entries()) {
+		const laces = [...new Array<number>(Math.floor(packet.length / 255)).fill(255), packet.length % 255];
+		assert.ok(laces.length <= 255);
+		const page = new Uint8Array(27 + laces.length + packet.length); page.set(new TextEncoder().encode('OggS'));
+		page[5] = index === 0 ? 2 : index === packets.length - 1 ? 4 : 0; page[26] = laces.length;
+		const view = new DataView(page.buffer); view.setBigUint64(6, index === packets.length - 1 ? BigInt(frames) : 0n, true);
+		view.setUint32(14, 0x1234abcd, true); view.setUint32(18, index, true); page.set(laces, 27); page.set(packet, 27 + laces.length);
+		view.setUint32(22, oggPageCrc(page), true); output.push(page);
+	}
+	return new File(output, 'Recorder.oga', { type: 'audio/ogg' });
+}
