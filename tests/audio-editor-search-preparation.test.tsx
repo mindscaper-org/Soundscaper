@@ -68,6 +68,25 @@ test('mutable text objects retain uncached search behavior', () => {
 	assert.equal(searchAudioEditorEntries(entries, 'first').length, 0);
 });
 
+test('prepared search text has bounded entry and character retention', context => {
+	const normalize = String.prototype.normalize;
+	let calls = 0;
+	String.prototype.normalize = function (form?: string) { calls += 1; return normalize.call(this, form); };
+	context.after(() => { String.prototype.normalize = normalize; });
+	const entries = prepareAudioEditorSearchEntries(Array.from({ length: 16_385 }, (_, index) => ({
+		key: String(index), label: `Entry ${String(index)}`, sourceOrder: index,
+	})));
+	searchAudioEditorEntries(entries, 'entry');
+	calls = 0;
+	assert.equal(searchAudioEditorEntries(entries, 'entry').length, 50);
+	assert.equal(calls, 4, 'the query and the one uncached entry are normalized; retained entries do not churn');
+	const oversized = prepareAudioEditorSearchEntries([{ key: 'large', label: 'a'.repeat(4 * 1_024 * 1_024 + 1) }]);
+	assert.equal(searchAudioEditorEntries(oversized, 'a')[0]?.key, 'large');
+	calls = 0;
+	assert.equal(searchAudioEditorEntries(oversized, 'a')[0]?.key, 'large');
+	assert.ok(calls > 1, 'a single oversized value is searched without retaining its normalized copy');
+});
+
 test('menu refreshes reuse media indexing while updating command availability and source order', async context => {
 	const dom = installReactTestDom(), root = createRoot(dom.container as unknown as Element);
 	const globals = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -75,9 +94,10 @@ test('menu refreshes reuse media indexing while updating command availability an
 	globals.React = React; globals.IS_REACT_ACT_ENVIRONMENT = true;
 	context.after(async () => { await act(async () => root.unmount()); dom.restore(); globals.React = beforeReact; globals.IS_REACT_ACT_ENVIRONMENT = beforeAct; });
 	let reads = 0;
-	const project = { id: 'project', sources: [{ id: 'source', get name() { reads += 1; return 'Take.wav'; } }],
+	const binClips: Array<{ id: string; sourceId: string; title: string }> = [];
+	let project = { id: 'project', sources: [{ id: 'source', get name() { reads += 1; return 'Take.wav'; } }],
 		tracks: [{ id: 'track', name: 'Track', clipIds: ['clip'] }],
-		clips: [{ id: 'clip', sourceId: 'source', title: 'Take' }], projectBin: { clips: [] } };
+		clips: [{ id: 'clip', sourceId: 'source', title: 'Take' }], projectBin: { clips: binClips } };
 	let latest: ReturnType<typeof useWorkspaceSearchRuntime>['searchEntries'] = [];
 	function View({ disabled, extra = false }: { disabled: boolean; extra?: boolean }) {
 		const runtime = useWorkspaceSearchRuntime({
@@ -100,4 +120,16 @@ test('menu refreshes reuse media indexing while updating command availability an
 	assert.equal(latest.find(entry => entry.commandId === 'open')?.disabled, true);
 	await act(async () => root.render(<View disabled={false} extra={true} />));
 	assert.deepEqual(latest.map(entry => entry.sourceOrder), [0, 1, 2]);
+	project = { ...project, sources: [{ id: 'source', name: 'RenamedSource' }] };
+	await act(async () => root.render(<View disabled={false} extra={true} />));
+	assert.equal(searchAudioEditorEntries(latest, 'RenamedSource')[0]?.key, 'timeline:clip');
+	project = { ...project, tracks: [{ ...project.tracks[0]!, name: 'RenamedTrack' }] };
+	await act(async () => root.render(<View disabled={false} extra={true} />));
+	assert.equal(searchAudioEditorEntries(latest, 'RenamedTrack')[0]?.key, 'timeline:clip');
+	project = { ...project, clips: [{ ...project.clips[0]!, title: 'RenamedClip' }] };
+	await act(async () => root.render(<View disabled={false} extra={true} />));
+	assert.equal(searchAudioEditorEntries(latest, 'RenamedClip')[0]?.key, 'timeline:clip');
+	project = { ...project, projectBin: { clips: [{ id: 'bin', sourceId: 'source', title: 'NewBinItem' }] } };
+	await act(async () => root.render(<View disabled={false} extra={true} />));
+	assert.equal(searchAudioEditorEntries(latest, 'NewBinItem')[0]?.key, 'project-bin:bin');
 });

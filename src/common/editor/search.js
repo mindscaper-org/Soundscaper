@@ -1,6 +1,8 @@
 export const AUDIO_EDITOR_SEARCH_RESULT_LIMIT = 50;
 const preparedEntryText = new WeakMap();
-const ownedSearchEntries = new WeakSet();
+const ownedSearchEntries = new WeakMap();
+const MAXIMUM_PREPARED_SEARCH_ENTRIES = 16_384;
+const MAXIMUM_PREPARED_SEARCH_CHARACTERS = 4 * 1_024 * 1_024;
 
 const CHANGE_PITCH_ALIASES = [
 	'change pitch', 'higher pitch', 'lower pitch',
@@ -248,6 +250,7 @@ export function createAudioEditorSearchEntries({ menus = [], project = null } = 
 
 /** Own search text before caching it; arbitrary mutable entries remain uncached. */
 export function prepareAudioEditorSearchEntries(entries) {
+	const budget = { entries: MAXIMUM_PREPARED_SEARCH_ENTRIES, characters: MAXIMUM_PREPARED_SEARCH_CHARACTERS };
 	return Object.freeze(arrayOrEmpty(entries).map((entry) => {
 		if (!entry || typeof entry !== 'object') return entry;
 		const snapshot = { ...entry };
@@ -257,7 +260,7 @@ export function prepareAudioEditorSearchEntries(entries) {
 		Object.freeze(snapshot);
 		const values = [snapshot.label, snapshot.commandId, snapshot.detail, ...arrayOrEmpty(snapshot.aliases)];
 		if (values.every(value => value === null || (typeof value !== 'object' && typeof value !== 'function'))) {
-			ownedSearchEntries.add(snapshot);
+			ownedSearchEntries.set(snapshot, budget);
 		}
 		return snapshot;
 	}));
@@ -384,12 +387,20 @@ function sourceSearchNames(source) {
 function scoreEntry(entry, query, queryTokens) {
 	let best = Number.POSITIVE_INFINITY;
 	let prepared = preparedEntryText.get(entry);
-	if (!prepared && ownedSearchEntries.has(entry)) {
+	const budget = ownedSearchEntries.get(entry);
+	if (!prepared && budget?.entries > 0 && budget.characters > 0) {
 		prepared = {
 			aliases: normalizedUnique(entry.aliases),
 			fields: searchFields(entry).map(([value, weight]) => [normalizeAudioEditorSearchText(value), weight]),
 		};
-		preparedEntryText.set(entry, prepared);
+		const characters = prepared.aliases.reduce((total, alias) => total + alias.length, 0)
+			+ prepared.fields.reduce((total, [value]) => total + value.length, 0);
+		// Large inventories retain a bounded prefix; the rest keeps live scoring
+		// instead of churning a cache on every sequential search pass.
+		if (characters <= budget.characters) {
+			preparedEntryText.set(entry, prepared);
+			budget.entries--; budget.characters -= characters;
+		} else ownedSearchEntries.delete(entry);
 	}
 	const aliases = prepared?.aliases ?? normalizedUnique(entry.aliases);
 	for (const alias of aliases) {
