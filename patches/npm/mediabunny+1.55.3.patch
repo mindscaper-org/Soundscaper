@@ -1,25 +1,40 @@
 diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id3.ts
 --- a/node_modules/mediabunny/src/id3.ts
 +++ b/node_modules/mediabunny/src/id3.ts
-@@ -198,7 +198,7 @@
+@@ -197,8 +197,8 @@
+ 			break;
  		}
  
- 		const frameStartPos = reader.pos;
+-		const frameStartPos = reader.pos;
 -		const frameEndPos = reader.pos + frame.size;
++		let frameStartPos = reader.pos;
 +		let frameEndPos = reader.pos + frame.size;
  
  		let	frameEncrypted = false;
  		let frameCompressed = false;
-@@ -227,7 +227,7 @@
+@@ -227,9 +227,18 @@
  		}
  
  		if (frameUnsynchronized) {
 -			reader.ununsynchronizeRegion(reader.pos, frameEndPos);
+-		}
+-
 +			frameEndPos = reader.pos + reader.ununsynchronizeRegion(reader.pos, frameEndPos);
- 		}
- 
++		}
++
++		// Optional frame headers precede the text encoding or binary payload.
++		const grouped = header.majorVersion === 3 ? !!(frame.flags & 32) : !!(frame.flags & 64);
++		const prefixBytes = (grouped ? 1 : 0) + (header.majorVersion === 4 && (frame.flags & 1) ? 4 : 0);
++		if (frameStartPos + prefixBytes > frameEndPos) {
++			reader.pos = frameEndPos;
++			continue;
++		}
++		frameStartPos += prefixBytes;
++		reader.pos = frameStartPos;
  		tags.raw ??= {};
-@@ -243,7 +243,7 @@
+ 		if (frame.id === 'TXXX') {
+ 			const txxx = tags.raw['TXXX'] ??= {};
+@@ -243,7 +252,7 @@
  			tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
  		} else {
  			// For the others, let's just get the bytes
@@ -28,7 +43,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  		}
  
  		reader.pos = frameStartPos;
-@@ -431,7 +431,7 @@
+@@ -431,7 +440,7 @@
  			newBytes.push(value1);
  
  			if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -37,7 +52,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				if (value2 === 0x00) {
  					i++;
  				}
-@@ -466,6 +466,7 @@
+@@ -466,6 +475,7 @@
  		this.bytes.set(after, before.length + newBytes.length);
  
  		this.view = new DataView(this.bytes.buffer);
@@ -48,25 +63,38 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/mediabunny/dist/modules/src/id3.js
 --- a/node_modules/mediabunny/dist/modules/src/id3.js
 +++ b/node_modules/mediabunny/dist/modules/src/id3.js
-@@ -154,7 +154,7 @@
+@@ -153,8 +153,8 @@
+         if (!frame) {
              break;
          }
-         const frameStartPos = reader.pos;
+-        const frameStartPos = reader.pos;
 -        const frameEndPos = reader.pos + frame.size;
++        let frameStartPos = reader.pos;
 +        let frameEndPos = reader.pos + frame.size;
          let frameEncrypted = false;
          let frameCompressed = false;
          let frameUnsynchronized = false;
-@@ -179,7 +179,7 @@
+@@ -179,8 +179,17 @@
              continue;
          }
          if (frameUnsynchronized) {
 -            reader.ununsynchronizeRegion(reader.pos, frameEndPos);
+-        }
 +            frameEndPos = reader.pos + reader.ununsynchronizeRegion(reader.pos, frameEndPos);
-         }
++        }
++        // Optional frame headers precede the text encoding or binary payload.
++        const grouped = header.majorVersion === 3 ? !!(frame.flags & 32) : !!(frame.flags & 64);
++        const prefixBytes = (grouped ? 1 : 0) + (header.majorVersion === 4 && (frame.flags & 1) ? 4 : 0);
++        if (frameStartPos + prefixBytes > frameEndPos) {
++            reader.pos = frameEndPos;
++            continue;
++        }
++        frameStartPos += prefixBytes;
++        reader.pos = frameStartPos;
          tags.raw ??= {};
          if (frame.id === 'TXXX') {
-@@ -195,7 +195,7 @@
+             const txxx = tags.raw['TXXX'] ??= {};
+@@ -195,7 +204,7 @@
          }
          else {
              // For the others, let's just get the bytes
@@ -75,7 +103,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
          }
          reader.pos = frameStartPos;
          switch (frame.id) {
-@@ -396,7 +396,7 @@
+@@ -396,7 +405,7 @@
              const value1 = this.bytes[i];
              newBytes.push(value1);
              if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -84,7 +112,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                  if (value2 === 0x00) {
                      i++;
                  }
-@@ -424,6 +424,7 @@
+@@ -424,6 +433,7 @@
          this.bytes.set(newBytes, before.length);
          this.bytes.set(after, before.length + newBytes.length);
          this.view = new DataView(this.bytes.buffer);
@@ -152,25 +180,38 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26893,7 +26894,7 @@
+@@ -26892,8 +26893,8 @@
+       if (!frame) {
          break;
        }
-       const frameStartPos = reader.pos;
+-      const frameStartPos = reader.pos;
 -      const frameEndPos = reader.pos + frame.size;
++      let frameStartPos = reader.pos;
 +      let frameEndPos = reader.pos + frame.size;
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26916,7 +26917,7 @@
+@@ -26916,8 +26917,17 @@
          continue;
        }
        if (frameUnsynchronized) {
 -        reader.ununsynchronizeRegion(reader.pos, frameEndPos);
+-      }
 +        frameEndPos = reader.pos + reader.ununsynchronizeRegion(reader.pos, frameEndPos);
-       }
++      }
++      // Optional frame headers precede the text encoding or binary payload.
++      const grouped = header.majorVersion === 3 ? !!(frame.flags & 32) : !!(frame.flags & 64);
++      const prefixBytes = (grouped ? 1 : 0) + (header.majorVersion === 4 && (frame.flags & 1) ? 4 : 0);
++      if (frameStartPos + prefixBytes > frameEndPos) {
++        reader.pos = frameEndPos;
++        continue;
++      }
++      frameStartPos += prefixBytes;
++      reader.pos = frameStartPos;
        tags.raw ??= {};
        if (frame.id === "TXXX") {
-@@ -26928,7 +26929,7 @@
+         const txxx = tags.raw["TXXX"] ??= {};
+@@ -26928,7 +26938,7 @@
        } else if (frame.id[0] === "T") {
          tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
        } else {
@@ -179,7 +220,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -27118,7 +27119,7 @@
+@@ -27118,7 +27128,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -188,7 +229,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            if (value2 === 0) {
              i++;
            }
-@@ -27146,6 +27147,7 @@
+@@ -27146,6 +27156,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -216,25 +257,38 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26896,7 +26897,7 @@
+@@ -26895,8 +26896,8 @@
+       if (!frame) {
          break;
        }
-       const frameStartPos = reader.pos;
+-      const frameStartPos = reader.pos;
 -      const frameEndPos = reader.pos + frame.size;
++      let frameStartPos = reader.pos;
 +      let frameEndPos = reader.pos + frame.size;
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26919,7 +26920,7 @@
+@@ -26919,8 +26920,17 @@
          continue;
        }
        if (frameUnsynchronized) {
 -        reader.ununsynchronizeRegion(reader.pos, frameEndPos);
+-      }
 +        frameEndPos = reader.pos + reader.ununsynchronizeRegion(reader.pos, frameEndPos);
-       }
++      }
++      // Optional frame headers precede the text encoding or binary payload.
++      const grouped = header.majorVersion === 3 ? !!(frame.flags & 32) : !!(frame.flags & 64);
++      const prefixBytes = (grouped ? 1 : 0) + (header.majorVersion === 4 && (frame.flags & 1) ? 4 : 0);
++      if (frameStartPos + prefixBytes > frameEndPos) {
++        reader.pos = frameEndPos;
++        continue;
++      }
++      frameStartPos += prefixBytes;
++      reader.pos = frameStartPos;
        tags.raw ??= {};
        if (frame.id === "TXXX") {
-@@ -26931,7 +26932,7 @@
+         const txxx = tags.raw["TXXX"] ??= {};
+@@ -26931,7 +26941,7 @@
        } else if (frame.id[0] === "T") {
          tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
        } else {
@@ -243,7 +297,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -27121,7 +27122,7 @@
+@@ -27121,7 +27131,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -252,7 +306,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            if (value2 === 0) {
              i++;
            }
-@@ -27149,6 +27150,7 @@
+@@ -27149,6 +27159,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -280,25 +334,38 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            await this.demuxer.advanceReader();
            continue;
          }
-@@ -26736,7 +26737,7 @@
+@@ -26735,8 +26736,8 @@
+     if (!frame) {
        break;
      }
-     const frameStartPos = reader.pos;
+-    const frameStartPos = reader.pos;
 -    const frameEndPos = reader.pos + frame.size;
++    let frameStartPos = reader.pos;
 +    let frameEndPos = reader.pos + frame.size;
      let frameEncrypted = false;
      let frameCompressed = false;
      let frameUnsynchronized = false;
-@@ -26759,7 +26760,7 @@
+@@ -26759,8 +26760,17 @@
        continue;
      }
      if (frameUnsynchronized) {
 -      reader.ununsynchronizeRegion(reader.pos, frameEndPos);
+-    }
 +      frameEndPos = reader.pos + reader.ununsynchronizeRegion(reader.pos, frameEndPos);
-     }
++    }
++    // Optional frame headers precede the text encoding or binary payload.
++    const grouped = header.majorVersion === 3 ? !!(frame.flags & 32) : !!(frame.flags & 64);
++    const prefixBytes = (grouped ? 1 : 0) + (header.majorVersion === 4 && (frame.flags & 1) ? 4 : 0);
++    if (frameStartPos + prefixBytes > frameEndPos) {
++      reader.pos = frameEndPos;
++      continue;
++    }
++    frameStartPos += prefixBytes;
++    reader.pos = frameStartPos;
      tags.raw ??= {};
      if (frame.id === "TXXX") {
-@@ -26771,7 +26772,7 @@
+       const txxx = tags.raw["TXXX"] ??= {};
+@@ -26771,7 +26781,7 @@
      } else if (frame.id[0] === "T") {
        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos);
      } else {
@@ -307,7 +374,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      }
      reader.pos = frameStartPos;
      switch (frame.id) {
-@@ -26961,7 +26962,7 @@
+@@ -26961,7 +26971,7 @@
        const value1 = this.bytes[i];
        newBytes.push(value1);
        if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -316,7 +383,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          if (value2 === 0) {
            i++;
          }
-@@ -26989,6 +26990,7 @@
+@@ -26989,6 +26999,7 @@
      this.bytes.set(newBytes, before.length);
      this.bytes.set(after, before.length + newBytes.length);
      this.view = new DataView(this.bytes.buffer);
