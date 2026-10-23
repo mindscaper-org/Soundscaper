@@ -5,7 +5,7 @@ import { publishedCopyFor } from '../../../shared/presentation-localization.ts';
 import { hasProjectBinMediaAuthority } from '../../../../project-schema-version.ts';
 import { prepareClipPointerDuplicateCommand, type ClipPointerDuplicateRuntime } from './clip-pointer-duplicate-command.ts';
 import { clipMoveSelection, type ClipMoveOptions } from './clip-move-options.ts';
-import { prepareMediaNewTrackPlan } from './media-new-track-plan.ts';
+import { clipNewTrackSequencePlacement, prepareMediaNewTrackPlan } from './media-new-track-plan.ts';
 import { prepareGroupedLoopTrimCommand } from './grouped-loop-trim-command.ts';
 
 import {
@@ -204,14 +204,15 @@ export function createClipTransformService(
 				selection, movesClipSelection, deltaFrames,
 			);
 		}
-		const trackDelta = audioTracks.length - Math.min(...sourceTrackIndices);
+		const firstSourceTrackIndex = Math.min(...sourceTrackIndices);
+		const trackDelta = audioTracks.length - firstSourceTrackIndex;
 		const newTrackCount = Math.max(...sourceTrackIndices) + trackDelta - audioTracks.length + 1;
-		const newTrackCommands = Array.from({ length: newTrackCount }, (_, index) => createAddTrackCommand({
+		const newTrackCommands = Array.from({ length: newTrackCount }, (_, index) => ({ ...createAddTrackCommand({
 			type: 'audio',
 			id: dependencies.createId('track'),
 			name: `${publishedCopyFor(dependencies.copy).track} ${project.tracks.length + index + 1}`,
 			armed: false,
-		}, project.sampleRate));
+		}, project.sampleRate), ...clipNewTrackSequencePlacement(project, audioTracks[firstSourceTrackIndex + index]!.id) }));
 		const virtualTracks: ClipTransformTrack[] = [
 			...audioTracks,
 			...newTrackCommands.map((command) => command.track as unknown as ClipTransformTrack),
