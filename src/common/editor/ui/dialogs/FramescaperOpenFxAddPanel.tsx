@@ -300,7 +300,7 @@ function parseValue(parameter: OfxParameterDescriptorV1, value: string | boolean
 		return requiredText(value, `${parameter.name} value`);
 	}
 	if (parameter.type === 'integer' || parameter.type === 'choice') {
-		const parsed = Number(value);
+		const parsed = typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
 		if (!Number.isSafeInteger(parsed)) throw new TypeError(`${parameter.name} must be an integer.`);
 		return parsed;
 	}
