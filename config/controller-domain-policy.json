@@ -114,6 +114,7 @@
 		"document/project-visual-types.ts",
 		"document/recording-notes-action-facade.ts",
 		"document/regular-interval-annotation-service.ts",
+		"document/reload-published-video-visual.ts",
 		"document/scape-open-request-service.ts",
 		"document/scape-project-file-service.ts",
 		"document/session-history-admission.ts",
