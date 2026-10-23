@@ -310,10 +310,9 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 		});
 	}
 	const speed = (sourceDurationFrames * sampleRate / sourceRate) / durationFrames;
+	const naturalDurationFrames = Math.max(1, Math.round(sourceDurationFrames * sampleRate / sourceRate));
 	let speedRatio = 1;
-	if (Math.abs(speed - 1) < 1e-4) {
-		durationFrames = Math.max(1, Math.round(sourceDurationFrames * sampleRate / sourceRate));
-	} else {
+	if (durationFrames !== naturalDurationFrames) {
 		speedRatio = clamp(speed, 0.001, 1000);
 		addDeliveryReportItem(draft, {
 			code: 'dawproject.speed-change-converted', disposition: 'converted', severity: 'info',
