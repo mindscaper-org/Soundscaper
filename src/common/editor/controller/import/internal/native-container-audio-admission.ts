@@ -46,6 +46,9 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 		if (offset > file.size - 9) return null;
 		first = await headerAt(file, offset, options.signal);
 	}
+	if (first[0] === 255 && first[1] === 251 && first[2]! >> 4 === 0) {
+		return (await import('./native-free-format-mp3-admission.ts')).nativeFreeFormatMp3Admission(file, offset, options.signal);
+	}
 	const profile = adtsHeader(first);
 	if (!profile || profile.configuration !== 0) return null;
 	// ADTS may carry implicit SBR. Preserve the existing unpinned native decode;
