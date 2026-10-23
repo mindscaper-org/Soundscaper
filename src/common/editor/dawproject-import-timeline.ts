@@ -146,7 +146,7 @@ interface WalkState {
 	unsupportedContent: number;
 }
 
-const MAXIMUM_DEPTH = 48;
+export const DAWPROJECT_MAXIMUM_TIMELINE_DEPTH = 48;
 
 export function createDawprojectTimeResolver(tempoMap: HoldTempoMap, sampleRate: number): DawprojectTimeResolver {
 	const first = tempoMap.events[0];
@@ -209,7 +209,7 @@ function visitTimeline(
 ): void {
 	const trackId = attribute(element, 'track');
 	if (trackId !== null) scope = { ...scope, trackId };
-	if (scope.depth > MAXIMUM_DEPTH) {
+	if (scope.depth > DAWPROJECT_MAXIMUM_TIMELINE_DEPTH) {
 		state.unsupportedContent += 1;
 		return;
 	}

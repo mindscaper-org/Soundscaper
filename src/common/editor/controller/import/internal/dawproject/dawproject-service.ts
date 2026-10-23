@@ -8,7 +8,8 @@ import {
 	entryBaseName,
 	isDawprojectFileName,
 } from '../../../../dawproject-format.ts';
-import { dawprojectMediaReferences, parseDawprojectDocument } from '../../../../dawproject-import.ts';
+import { parseDawprojectDocument } from '../../../../dawproject-import.ts';
+import { dawprojectArrangementAudioReferences } from '../../../../dawproject-arrangement-media.ts';
 import { buildDawprojectProject, dawprojectImportedAudioMimeType, type DawprojectDecodedMediaInfo } from '../../../../dawproject-import-project.ts';
 import { createCurrentAudioEditorProject } from '../../../../project-current.ts';
 import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from '../../../../pcm-chunks.js';
@@ -114,8 +115,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				...(temporaryDirectory ? { temporaryDirectory, maximumEntryBytes: Number.MAX_SAFE_INTEGER } : {}) });
 			assertReady();
 			const document = parseDawprojectDocument(archive.projectXml, archive.metadataXml, { maximumBytes: archive.xmlMaximumBytes });
-			const references = dawprojectMediaReferences(document)
-				.filter((reference) => reference.kind === 'audio' && !reference.external);
+			const references = dawprojectArrangementAudioReferences(document);
 			const media = new Map<string, DawprojectDecodedMediaInfo | null>();
 			const stagedSourceIds = new Map<string, string>();
 			for (const [index, reference] of references.entries()) {
