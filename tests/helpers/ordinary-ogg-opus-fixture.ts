@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, OGG, OggOutputFormat, Output, WEBM, WebMOutputFormat, type EncodedPacket } from 'mediabunny';
+import { BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, Input, OGG, OggOutputFormat, Output, WEBM, WebMOutputFormat, type EncodedPacket, type MetadataTags } from 'mediabunny';
 import { createMonoCameraFixture } from '../browser/fixtures/mono-camera-media.js';
 
 let fixtureBytes: Promise<ArrayBuffer> | undefined;
@@ -38,6 +38,11 @@ export async function ordinaryWebmOpusFixture(extension: 'webm' | 'mka' = 'webm'
 	return new File([bytes], `Programme.${extension}`, { type: extension === 'mka' ? 'audio/x-matroska' : 'audio/webm' });
 }
 
+/** Authenticated Opus packets with ordinary Matroska private/custom tag names. */
+export async function customTaggedWebmOpusFixture(metadata: Readonly<Record<string, string>>): Promise<File> {
+	return new File([await createOrdinaryOggOpusBytes(true, false, { raw: metadata })], 'Private-credits.webm', { type: 'audio/webm' });
+}
+
 /** RFC9559's zero track target is the explicit all-tracks form of a global tag. */
 export async function taggedWebmOpusFixture(target: 'global' | 'all-tracks' | 'track'): Promise<File> {
 	const bytes = new Uint8Array(await createOrdinaryOggOpusBytes(true, true));
@@ -51,7 +56,7 @@ export async function taggedWebmOpusFixture(target: 'global' | 'all-tracks' | 't
 	return new File([bytes], 'Tagged.webm', { type: 'audio/webm' });
 }
 
-async function createOrdinaryOggOpusBytes(webm = false, tagged = false): Promise<ArrayBuffer> {
+async function createOrdinaryOggOpusBytes(webm = false, tagged = false, metadata?: MetadataTags): Promise<ArrayBuffer> {
 	const camera = createMonoCameraFixture('Microphone.webm');
 	const input = new Input({ source: new BlobSource(new Blob([Uint8Array.from(camera.buffer)])), formats: [WEBM] });
 	try {
@@ -62,7 +67,8 @@ async function createOrdinaryOggOpusBytes(webm = false, tagged = false): Promise
 		assert.ok(decoderConfig);
 		const target = new BufferTarget();
 		const output = new Output({ format: webm ? new WebMOutputFormat() : new OggOutputFormat(), target });
-		if (tagged) output.setMetadataTags({ title: 'Authored global title', artist: 'Ada — reviewed credit' });
+		if (metadata) output.setMetadataTags(metadata);
+		else if (tagged) output.setMetadataTags({ title: 'Authored global title', artist: 'Ada — reviewed credit' });
 		const source = new EncodedAudioPacketSource('opus');
 		output.addAudioTrack(source);
 		await output.start();
