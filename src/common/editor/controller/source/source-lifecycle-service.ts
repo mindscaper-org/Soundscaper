@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { raceAbortableRead } from '../../abort-race.ts';
+import { isUnsupportedNativeAudioBuffer } from '../../source-pcm-contract.ts';
 import { localizedErrorMessage, publishLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import {
 	createPreparedProjectSources,
@@ -198,12 +199,26 @@ export function createSourceLifecycleService<
 					continue;
 				}
 				const chunkProvider = registerStoredChunkProvider(source, metadata);
-				const useChunkStream = Boolean(chunkProvider) && requiresChunkStream;
+				let useChunkStream = Boolean(chunkProvider) && requiresChunkStream;
 				let peaks = await raceAbortableRead(
 					() => store.loadAnalysis(peakCacheKey(source.id)),
 					options.signal,
 				);
 				throwIfSourceLoadAborted(options.signal);
+				let buffer: Buffer | null | undefined = null;
+				if (!useChunkStream) {
+					context ??= await raceAbortableRead(() => engine.getAudioContext?.({ resume: false }), options.signal);
+					throwIfSourceLoadAborted(options.signal);
+					try {
+						buffer = sourceBuffers.get(source.id) || await raceAbortableRead(
+							() => readStoredAudioBuffer(store, source, context), options.signal,
+						);
+					} catch (error) {
+						if (!chunkProvider || !isUnsupportedNativeAudioBuffer(error)) throw error;
+						useChunkStream = true;
+					}
+					throwIfSourceLoadAborted(options.signal);
+				}
 				if (useChunkStream) {
 					sourceBuffers.delete(source.id);
 					if (!waveformPeaksHaveRms(peaks, source)) {
@@ -211,16 +226,6 @@ export function createSourceLifecycleService<
 						await store.saveAnalysis(peakCacheKey(source.id), peaks);
 					}
 				} else {
-					context ??= await raceAbortableRead(
-						() => engine.getAudioContext?.({ resume: false }),
-						options.signal,
-					);
-					throwIfSourceLoadAborted(options.signal);
-					const buffer = sourceBuffers.get(source.id) || await raceAbortableRead(
-						() => readStoredAudioBuffer(store, source, context),
-						options.signal,
-					);
-					throwIfSourceLoadAborted(options.signal);
 					if (!buffer) continue;
 					cacheSourceBuffer(source.id, buffer);
 					if (!waveformPeaksHaveRms(peaks, source)) {

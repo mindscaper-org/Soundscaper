@@ -4,7 +4,7 @@ import type { AudioBufferLike } from '../../source/source-audio.ts';
 import { createNonImportedSourceProvenance } from '../../../source-provenance-root.ts';
 import type { AudioGeneratorStore, AudioGeneratorWriter } from '../generator-service.ts';
 import type { GeneratedSignalStream } from '../../../signal-generator-stream-client.ts';
-import { SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES } from '../../../source-pcm-contract.ts';
+import { isUnsupportedNativeAudioBuffer, SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES } from '../../../source-pcm-contract.ts';
 
 export type GeneratedAudioSource = Readonly<Record<string, unknown>> & Readonly<{
 	readonly sampleRate: number;
@@ -72,14 +72,16 @@ export async function publishGeneratedAudioSource<Context, Prepared, Result>(
 			const bytes = request.frameCount * request.channelCount * Float32Array.BYTES_PER_ELEMENT;
 			if (bytes <= SHORT_SOURCE_AUDIO_BUFFER_MAX_BYTES && dependencies.createEmptyBuffer) {
 				const context = await dependencies.getAudioContext(); request.ownership.assertCurrent();
-				buffer = await dependencies.createEmptyBuffer(request.channelCount, request.frameCount, request.sampleRate, context);
+				try { buffer = await dependencies.createEmptyBuffer(request.channelCount, request.frameCount, request.sampleRate, context); }
+				catch (error) { if (!isUnsupportedNativeAudioBuffer(error)) throw error; }
 				request.ownership.assertCurrent();
 			}
 		} else {
 			if (!request.channels) throw new TypeError('Generated PCM or a stream is required.');
 			const context = await dependencies.getAudioContext();
 			request.ownership.assertCurrent();
-			buffer = await dependencies.createBuffer(request.channels, request.sampleRate, context);
+			try { buffer = await dependencies.createBuffer(request.channels, request.sampleRate, context); }
+			catch (error) { if (!isUnsupportedNativeAudioBuffer(error)) throw error; }
 			request.ownership.assertCurrent();
 		}
 		sourceId = dependencies.createId('generator');
@@ -103,8 +105,10 @@ export async function publishGeneratedAudioSource<Context, Prepared, Result>(
 				frames += channels[0]!.length;
 			}
 			if (frames !== request.frameCount) throw new RangeError('Generated PCM is incomplete.');
+		} else if (buffer) {
+			await dependencies.writeBuffer(writer, buffer, request.ownership.signal);
 		} else {
-			await dependencies.writeBuffer(writer, buffer!, request.ownership.signal);
+			await writer.write([...request.channels!]);
 		}
 		request.ownership.assertCurrent();
 		await writer.commit({ sampleRate: request.sampleRate, channelCount: request.channelCount });
