@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { createAudioEditorSearchEntries } from '../../search.js';
+import {
+	createAudioEditorMediaSearchEntries, flattenAudioEditorSearchMenus, prepareAudioEditorSearchEntries,
+} from '../../search.js';
 import {
 	handleProjectZoomShortcut,
 	isWorkspaceModalShortcutTarget,
@@ -34,10 +36,17 @@ export function useWorkspaceSearchRuntime({
 		document.addEventListener('keydown', handleBrowserZoomShortcut, true);
 		return () => document.removeEventListener('keydown', handleBrowserZoomShortcut, true);
 	}, [applicationMenus, editorRef, parityRuntime.actions, run, snapshot]);
-	const searchEntries = useMemo(() => createAudioEditorSearchEntries({
-		menus: applicationMenus,
-		project,
-	}), [applicationMenus, project]);
+	const commands = useMemo(() => prepareAudioEditorSearchEntries(
+		flattenAudioEditorSearchMenus(applicationMenus),
+	), [applicationMenus]);
+	const mediaStartOrder = commands.reduce((maximum, entry) => Math.max(maximum, entry.sourceOrder + 1), 0);
+	// Workspace snapshots own immutable collections; menu availability changes
+	// must not rebuild the unchanged media inventory, including while Search is closed.
+	const { sources, tracks, clips, projectBin } = project ?? {};
+	const media = useMemo(() => prepareAudioEditorSearchEntries(createAudioEditorMediaSearchEntries(
+		{ sources, tracks, clips, projectBin }, { startOrder: mediaStartOrder },
+	)), [sources, tracks, clips, projectBin, mediaStartOrder]);
+	const searchEntries = useMemo(() => [...commands, ...media], [commands, media]);
 	const activateSearchEntry = useCallback((entry) => {
 		if (!entry || entry.disabled) return;
 		if (entry.kind === 'command') {
