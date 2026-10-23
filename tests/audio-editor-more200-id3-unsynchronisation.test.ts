@@ -55,6 +55,26 @@ function tag(version: 3 | 4): Uint8Array<ArrayBuffer> {
 	return Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, version, 0, version === 3 ? 128 : 0]), syncSafe(payload.length), payload]));
 }
 
+for (const unsynchronised of [false, true]) test(`File Open retains legacy ID3v2.2 text and PIC artwork (unsync=${unsynchronised})`, async () => {
+	const legacyFrame = (id: string, payload: Uint8Array): Buffer => {
+		const header = Buffer.alloc(6); header.write(id); header.writeUIntBE(payload.length, 3, 3);
+		return Buffer.concat([header, payload]);
+	};
+	const picture = Buffer.concat([Buffer.from([0]), Buffer.from('JPG'), Buffer.from([3, 0]), jpeg]);
+	const frames = Buffer.concat([legacyFrame('PIC', picture), legacyFrame('TT2', Buffer.from('\0Legacy title')),
+		legacyFrame('TP1', Buffer.from('\0Legacy performer')), legacyFrame('TAL', Buffer.from('\0Legacy album'))]);
+	const body = unsynchronised ? unsynchronise(frames) : frames;
+	const metadata = Uint8Array.from(Buffer.concat([Buffer.from([73, 68, 51, 2, 0, unsynchronised ? 128 : 0]), syncSafe(body.length), body]));
+	const contribution = await importedMetadata(metadata);
+	assert.deepEqual(contribution.warnings, []);
+	assert.equal(contribution.metadata.normalized.title, 'Legacy title');
+	assert.equal(contribution.metadata.normalized.artist, 'Legacy performer');
+	assert.equal(contribution.metadata.normalized.album, 'Legacy album');
+	const image = contribution.attachments.find(({ path }) => path === 'images[0]');
+	assert.equal(image?.sha256, imageHash);
+	assert.equal(image?.byteLength, jpeg.length);
+});
+
 test('File Open retains an APIC image with a UTF-16BE description and an ASCII MIME field', async () => {
 	const description = Buffer.from('作品', 'utf16le').swap16();
 	const picture = Buffer.concat([Buffer.from([2]), Buffer.from('image/jpeg\0'), Buffer.from([3]), description, Buffer.from([0, 0]), jpeg]);

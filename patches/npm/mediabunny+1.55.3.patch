@@ -1,16 +1,20 @@
 diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id3.ts
 --- a/node_modules/mediabunny/src/id3.ts
 +++ b/node_modules/mediabunny/src/id3.ts
-@@ -176,6 +176,9 @@
+@@ -176,8 +176,11 @@
  
  	const bytes = readBytes(slice, dataSize);
  	const reader = new Id3V2Reader(header, bytes);
+-
+-	if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion === 3) {
 +	let legacyYear: string | undefined;
 +	let legacyDayMonth: string | undefined;
 +	let legacyTime: string | undefined;
- 
- 	if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion === 3) {
++
++	if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion <= 3) {
  		reader.ununsynchronizeAll();
+ 	}
+ 
 @@ -197,8 +200,8 @@
  			break;
  		}
@@ -187,16 +191,18 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/mediabunny/dist/modules/src/id3.js
 --- a/node_modules/mediabunny/dist/modules/src/id3.js
 +++ b/node_modules/mediabunny/dist/modules/src/id3.js
-@@ -136,6 +136,9 @@
+@@ -136,7 +136,10 @@
          : header.size;
      const bytes = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes);
+-    if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion === 3) {
 +    let legacyYear;
 +    let legacyDayMonth;
 +    let legacyTime;
-     if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion === 3) {
++    if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion <= 3) {
          reader.ununsynchronizeAll();
      }
+     if (header.flags & Id3V2HeaderFlags.ExtendedHeader) {
 @@ -153,8 +156,8 @@
          if (!frame) {
              break;
@@ -513,16 +519,18 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26876,6 +26875,9 @@
+@@ -26876,7 +26875,10 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
+-    if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
 +    let legacyYear;
 +    let legacyDayMonth;
 +    let legacyTime;
-     if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
++    if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion <= 3) {
        reader.ununsynchronizeAll();
      }
+     if (header.flags & 64 /* ExtendedHeader */) {
 @@ -26892,8 +26894,8 @@
        if (!frame) {
          break;
@@ -740,16 +748,18 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26879,6 +26878,9 @@
+@@ -26879,7 +26878,10 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
+-    if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
 +    let legacyYear;
 +    let legacyDayMonth;
 +    let legacyTime;
-     if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
++    if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion <= 3) {
        reader.ununsynchronizeAll();
      }
+     if (header.flags & 64 /* ExtendedHeader */) {
 @@ -26895,8 +26897,8 @@
        if (!frame) {
          break;
@@ -967,16 +977,18 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            await this.demuxer.advanceReader();
            continue;
          }
-@@ -26719,6 +26718,9 @@
+@@ -26719,7 +26718,10 @@
    const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
    const bytes2 = readBytes(slice, dataSize);
    const reader = new Id3V2Reader(header, bytes2);
+-  if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
 +  let legacyYear;
 +  let legacyDayMonth;
 +  let legacyTime;
-   if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion === 3) {
++  if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion <= 3) {
      reader.ununsynchronizeAll();
    }
+   if (header.flags & 64 /* ExtendedHeader */) {
 @@ -26735,8 +26737,8 @@
      if (!frame) {
        break;
