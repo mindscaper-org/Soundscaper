@@ -11,8 +11,8 @@ import { createFramescaperScapeNativeRuntime } from '../src/framescaper/editor-s
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
-for (const owner of ['main', 'cut'] as const) for (const duplicate of [false, true]) {
-	test(`P3-003: a new-track clip move retains its ${owner} sequence; duplicate=${duplicate}`, async context => {
+for (const owner of ['main', 'cut'] as const) for (const operation of ['move', 'drag-copy', 'edit-duplicate'] as const) {
+	test(`P3-003: ${operation} retains its ${owner} sequence in a new lane`, async context => {
 		const prior = globalThis.AudioContext;
 		globalThis.AudioContext = MockAudioContext as unknown as typeof AudioContext;
 		context.after(() => { globalThis.AudioContext = prior; });
@@ -39,15 +39,20 @@ for (const owner of ['main', 'cut'] as const) for (const duplicate of [false, tr
 		assert.equal(controller.getSnapshot().readOnly, false);
 		controller.actions.timeline.selectClip('clip');
 		const before = controller.project;
-		const trackId = controller.actions.clip.moveToNewTrack('clip', 0, { exactFrame: true, duplicate });
+		let trackId: string | null;
+		if (operation === 'edit-duplicate') {
+			controller.actions.edit.duplicate();
+			trackId = controller.getSnapshot().selectedTrackId;
+		} else trackId = controller.actions.clip.moveToNewTrack('clip', 0, { exactFrame: true, duplicate: operation === 'drag-copy' });
 		assert.ok(trackId);
+		assert.notEqual(trackId, `${owner}-audio`);
 		const after: unknown = controller.project; assert.ok(validateFramescaperProject(PROFILE, after));
 		const sequence = records(after.sequences).find(sequence => sequence.id === owner);
 		assert.ok(sequence && Array.isArray(sequence.trackIds));
 		assert.ok(sequence.trackIds.includes(trackId), 'the new lane belongs to the original programme');
 		const other = owner === 'main' ? 'cut' : 'main';
 		assert.deepEqual(records(after.sequences).find(sequence => sequence.id === other)?.trackIds, [`${other}-audio`]);
-		assert.equal(records(after.clips).length, duplicate ? 2 : 1);
+		assert.equal(records(after.clips).length, operation === 'move' ? 1 : 2);
 		controller.actions.edit.undo();
 		assert.deepEqual(controller.project?.tracks, before?.tracks);
 		assert.deepEqual(controller.project?.clips, before?.clips);

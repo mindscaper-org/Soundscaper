@@ -7,6 +7,7 @@ import type { AudioEditorClipboard, AudioEditorCommand } from '../../../commands
 import type { ControllerTrackDuplicateCarrier, ControllerTrackDuplicateRequest } from '../../document/project-runtime.ts';
 import { sampleFrameToBeat } from '../../../timeline-tempo-inverse.ts';
 import type { HoldTempoMap } from '../../../timeline-time.ts';
+import { isSelectedFramescaperProjectSchema } from '../../../project-schema-version.ts';
 
 interface DuplicateEffect extends Readonly<Record<string, unknown>> {
 	readonly id: string;
@@ -163,10 +164,11 @@ function duplicateLabels(runtime: DuplicateSelectionRuntime, project: DuplicateP
 }
 
 function duplicatePlacement(project: DuplicateProject, sourceTrackId: string) {
-	if (!project.trackFolders?.length) return {};
+	if (!project.trackFolders?.length && !isSelectedFramescaperProjectSchema(project)) return {};
 	for (const sequence of project.sequences ?? []) {
 		const node = sequence.trackNodes?.find((candidate) => candidate.id === sourceTrackId);
-		if (node || sequence.trackIds?.includes(sourceTrackId)) return { sequenceId: sequence.id, parentFolderId: node?.parentFolderId ?? null };
+		if (node || sequence.trackIds?.includes(sourceTrackId)) return { sequenceId: sequence.id,
+			...(project.trackFolders?.length ? { parentFolderId: node?.parentFolderId ?? null } : {}) };
 	}
 	return {};
 }
