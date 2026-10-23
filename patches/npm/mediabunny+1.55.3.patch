@@ -981,15 +981,69 @@ diff --git a/node_modules/mediabunny/dist/modules/src/isobmff/isobmff-demuxer.js
 diff --git a/node_modules/mediabunny/src/mp3/mp3-demuxer.ts b/node_modules/mediabunny/src/mp3/mp3-demuxer.ts
 --- a/node_modules/mediabunny/src/mp3/mp3-demuxer.ts
 +++ b/node_modules/mediabunny/src/mp3/mp3-demuxer.ts
-@@ -213,7 +213,6 @@
+@@ -201,6 +201,43 @@
+ 		return this.trackBackings;
+ 	}
  
- 			this.metadataTags = {};
++	async readAppendedMetadata() {
++		let end = this.reader.fileSize;
++		if (end === null || end < 2 * ID3_V2_HEADER_SIZE) return null;
++		if (end >= ID3_V1_TAG_SIZE) {
++			let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++			if (isThenable(legacy)) legacy = await legacy;
++			if (legacy && readAscii(legacy, 3) === 'TAG') end -= ID3_V1_TAG_SIZE;
++		}
++		let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++		if (isThenable(footerSlice)) footerSlice = await footerSlice;
++		if (!footerSlice) return null;
++		const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++		if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4
++			|| !(footer[5]! & 16) || footer.slice(6).some(byte => byte & 128)) return null;
++		const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++		const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++		if (start < (this.firstFrameHeaderPos ?? 0)) return null;
++		let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++		if (isThenable(headerSlice)) headerSlice = await headerSlice;
++		if (!headerSlice) return null;
++		const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++		if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51
++			|| !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3])) return null;
++		headerSlice.filePos = start;
++		const header = readId3V2Header(headerSlice);
++		if (!header) return null;
++		let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++		if (isThenable(body)) body = await body;
++		if (!body) return null;
++		const prefix = readBytes(body, Math.min(dataSize, 7));
++		const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5]! & 64);
++		body.filePos = start + ID3_V2_HEADER_SIZE;
++		const tags: MetadataTags = {};
++		parseId3V2Tag(body, header, tags);
++		return { tags, update };
++	}
++
+ 	async getMetadataTags() {
+ 		const release = await this.readingMutex.acquire();
+ 
+@@ -211,11 +248,13 @@
+ 				return this.metadataTags;
+ 			}
+ 
+-			this.metadataTags = {};
++			const appended = await this.readAppendedMetadata();
++			const appendedImageCount = appended?.tags.images?.length ?? 0;
++			const appendedDescriptions = new Set(appended?.tags.images?.map(image => image.description ?? ''));
++			this.metadataTags = appended?.tags ?? {};
  			let currentPos = 0;
 -			let id3V2HeaderFound = false;
- 
- 			while (true) {
+-
+-			while (true) {
++
++			while (!appended || appended.update) {
  				let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
-@@ -225,7 +224,6 @@
+ 				if (isThenable(headerSlice)) headerSlice = await headerSlice;
+ 				if (!headerSlice) break;
+@@ -225,7 +264,6 @@
  					break;
  				}
  
@@ -997,11 +1051,16 @@ diff --git a/node_modules/mediabunny/src/mp3/mp3-demuxer.ts b/node_modules/media
  
  				let contentSlice = this.reader.requestSlice(headerSlice.filePos, id3V2Header.size);
  				if (isThenable(contentSlice)) contentSlice = await contentSlice;
-@@ -236,7 +234,7 @@
+@@ -236,7 +274,12 @@
  				currentPos = headerSlice.filePos + id3V2Header.size;
  			}
  
 -			if (!id3V2HeaderFound && this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
++			if (appendedImageCount && this.metadataTags.images) {
++				this.metadataTags.images = this.metadataTags.images.filter((image, index) =>
++					index < appendedImageCount || !appendedDescriptions.has(image.description ?? ''));
++			}
++
 +			if (this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
  				// Try reading an ID3v1 tag at the end of the file
  				let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
@@ -1009,15 +1068,128 @@ diff --git a/node_modules/mediabunny/src/mp3/mp3-demuxer.ts b/node_modules/media
 diff --git a/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js b/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
 --- a/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
 +++ b/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js
-@@ -139,7 +139,6 @@
+@@ -130,6 +130,104 @@
+         await this.readMetadata();
+         return this.trackBackings;
+     }
++    async readAppendedMetadata() {
++        let end = this.reader.fileSize;
++        if (end === null || end < 2 * ID3_V2_HEADER_SIZE)
++            return null;
++        if (end >= ID3_V1_TAG_SIZE) {
++            let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++            if (isThenable(legacy))
++                legacy = await legacy;
++            if (legacy && readAscii(legacy, 3) === 'TAG')
++                end -= ID3_V1_TAG_SIZE;
++        }
++        let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++        if (isThenable(footerSlice))
++            footerSlice = await footerSlice;
++        if (!footerSlice)
++            return null;
++        const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++        if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4
++            || !(footer[5] & 16) || footer.slice(6).some(byte => byte & 128))
++            return null;
++        const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++        const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++        if (start < (this.firstFrameHeaderPos ?? 0))
++            return null;
++        let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++        if (isThenable(headerSlice))
++            headerSlice = await headerSlice;
++        if (!headerSlice)
++            return null;
++        const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++        if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51
++            || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3]))
++            return null;
++        headerSlice.filePos = start;
++        const header = readId3V2Header(headerSlice);
++        if (!header)
++            return null;
++        let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++        if (isThenable(body))
++            body = await body;
++        if (!body)
++            return null;
++        const prefix = readBytes(body, Math.min(dataSize, 7));
++        const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++        body.filePos = start + ID3_V2_HEADER_SIZE;
++        const tags = {};
++        parseId3V2Tag(body, header, tags);
++        return { tags, update };
++    }
++    async readAppendedMetadata() {
++        let end = this.reader.fileSize;
++        if (end === null || end < 2 * ID3_V2_HEADER_SIZE)
++            return null;
++        if (end >= ID3_V1_TAG_SIZE) {
++            let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++            if (isThenable(legacy))
++                legacy = await legacy;
++            if (legacy && readAscii(legacy, 3) === 'TAG')
++                end -= ID3_V1_TAG_SIZE;
++        }
++        let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++        if (isThenable(footerSlice))
++            footerSlice = await footerSlice;
++        if (!footerSlice)
++            return null;
++        const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++        if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4
++            || !(footer[5] & 16) || footer.slice(6).some(byte => byte & 128))
++            return null;
++        const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++        const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++        if (start < (this.firstFrameHeaderPos ?? 0))
++            return null;
++        let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++        if (isThenable(headerSlice))
++            headerSlice = await headerSlice;
++        if (!headerSlice)
++            return null;
++        const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++        if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51
++            || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3]))
++            return null;
++        headerSlice.filePos = start;
++        const header = readId3V2Header(headerSlice);
++        if (!header)
++            return null;
++        let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++        if (isThenable(body))
++            body = await body;
++        if (!body)
++            return null;
++        const prefix = readBytes(body, Math.min(dataSize, 7));
++        const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++        body.filePos = start + ID3_V2_HEADER_SIZE;
++        const tags = {};
++        parseId3V2Tag(body, header, tags);
++        return { tags, update };
++    }
+     async getMetadataTags() {
+         const release = await this.readingMutex.acquire();
+         try {
+@@ -137,10 +235,12 @@
+             if (this.metadataTags) {
+                 return this.metadataTags;
              }
-             this.metadataTags = {};
+-            this.metadataTags = {};
++            const appended = await this.readAppendedMetadata();
++            const appendedImageCount = appended?.tags.images?.length ?? 0;
++            const appendedDescriptions = new Set(appended?.tags.images?.map(image => image.description ?? ''));
++            this.metadataTags = appended?.tags ?? {};
              let currentPos = 0;
 -            let id3V2HeaderFound = false;
-             while (true) {
+-            while (true) {
++            while (!appended || appended.update) {
                  let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
                  if (isThenable(headerSlice))
-@@ -150,7 +149,6 @@
+                     headerSlice = await headerSlice;
+@@ -150,7 +250,6 @@
                  if (!id3V2Header) {
                      break;
                  }
@@ -1025,11 +1197,14 @@ diff --git a/node_modules/mediabunny/dist/modules/src/mp3/mp3-demuxer.js b/node_
                  let contentSlice = this.reader.requestSlice(headerSlice.filePos, id3V2Header.size);
                  if (isThenable(contentSlice))
                      contentSlice = await contentSlice;
-@@ -159,7 +157,7 @@
+@@ -159,7 +258,10 @@
                  parseId3V2Tag(contentSlice, id3V2Header, this.metadataTags);
                  currentPos = headerSlice.filePos + id3V2Header.size;
              }
 -            if (!id3V2HeaderFound && this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
++            if (appendedImageCount && this.metadataTags.images) {
++                this.metadataTags.images = this.metadataTags.images.filter((image, index) => index < appendedImageCount || !appendedDescriptions.has(image.description ?? ''));
++            }
 +            if (this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
                  // Try reading an ID3v1 tag at the end of the file
                  let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
@@ -1343,15 +1518,98 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            }
            ;
            break;
-@@ -11773,7 +11806,6 @@
+@@ -11764,6 +11797,74 @@
+       await this.readMetadata();
+       return this.trackBackings;
+     }
++    async readAppendedMetadata() {
++      let end = this.reader.fileSize;
++      if (end === null || end < 2 * ID3_V2_HEADER_SIZE) return null;
++      if (end >= ID3_V1_TAG_SIZE) {
++        let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++        if (isThenable(legacy)) legacy = await legacy;
++        if (legacy && readAscii(legacy, 3) === "TAG") end -= ID3_V1_TAG_SIZE;
++      }
++      let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++      if (isThenable(footerSlice)) footerSlice = await footerSlice;
++      if (!footerSlice) return null;
++      const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++      if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4 || !(footer[5] & 16) || footer.slice(6).some((byte) => byte & 128)) return null;
++      const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++      const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++      if (start < (this.firstFrameHeaderPos ?? 0)) return null;
++      let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++      if (isThenable(headerSlice)) headerSlice = await headerSlice;
++      if (!headerSlice) return null;
++      const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++      if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51 || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3])) return null;
++      headerSlice.filePos = start;
++      const header = readId3V2Header(headerSlice);
++      if (!header) return null;
++      let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++      if (isThenable(body)) body = await body;
++      if (!body) return null;
++      const prefix = readBytes(body, Math.min(dataSize, 7));
++      const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++      body.filePos = start + ID3_V2_HEADER_SIZE;
++      const tags = {};
++      parseId3V2Tag(body, header, tags);
++      return { tags, update };
++    }
++    async readAppendedMetadata() {
++      let end = this.reader.fileSize;
++      if (end === null || end < 2 * ID3_V2_HEADER_SIZE) return null;
++      if (end >= ID3_V1_TAG_SIZE) {
++        let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++        if (isThenable(legacy)) legacy = await legacy;
++        if (legacy && readAscii(legacy, 3) === "TAG") end -= ID3_V1_TAG_SIZE;
++      }
++      let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++      if (isThenable(footerSlice)) footerSlice = await footerSlice;
++      if (!footerSlice) return null;
++      const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++      if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4 || !(footer[5] & 16) || footer.slice(6).some((byte) => byte & 128)) return null;
++      const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++      const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++      if (start < (this.firstFrameHeaderPos ?? 0)) return null;
++      let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++      if (isThenable(headerSlice)) headerSlice = await headerSlice;
++      if (!headerSlice) return null;
++      const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++      if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51 || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3])) return null;
++      headerSlice.filePos = start;
++      const header = readId3V2Header(headerSlice);
++      if (!header) return null;
++      let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++      if (isThenable(body)) body = await body;
++      if (!body) return null;
++      const prefix = readBytes(body, Math.min(dataSize, 7));
++      const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++      body.filePos = start + ID3_V2_HEADER_SIZE;
++      const tags = {};
++      parseId3V2Tag(body, header, tags);
++      return { tags, update };
++    }
+     async getMetadataTags() {
+       const release = await this.readingMutex.acquire();
+       try {
+@@ -11771,10 +11872,12 @@
+         if (this.metadataTags) {
+           return this.metadataTags;
          }
-         this.metadataTags = {};
+-        this.metadataTags = {};
++        const appended = await this.readAppendedMetadata();
++        const appendedImageCount = appended?.tags.images?.length ?? 0;
++        const appendedDescriptions = new Set(appended?.tags.images?.map((image) => image.description ?? ""));
++        this.metadataTags = appended?.tags ?? {};
          let currentPos = 0;
 -        let id3V2HeaderFound = false;
-         while (true) {
+-        while (true) {
++        while (!appended || appended.update) {
            let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
            if (isThenable(headerSlice)) headerSlice = await headerSlice;
-@@ -11782,14 +11814,13 @@
+           if (!headerSlice) break;
+@@ -11782,14 +11885,16 @@
            if (!id3V2Header) {
              break;
            }
@@ -1363,11 +1621,14 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            currentPos = headerSlice.filePos + id3V2Header.size;
          }
 -        if (!id3V2HeaderFound && this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
++        if (appendedImageCount && this.metadataTags.images) {
++          this.metadataTags.images = this.metadataTags.images.filter((image, index) => index < appendedImageCount || !appendedDescriptions.has(image.description ?? ""));
++        }
 +        if (this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
            let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
            if (isThenable(slice)) slice = await slice;
            assert(slice);
-@@ -13929,7 +13960,7 @@
+@@ -13929,7 +14034,7 @@
        const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
        const slice = await this.reader.requestSliceRange(
          startPos,
@@ -1376,7 +1637,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          maximumSliceLength
        );
        if (!slice) {
-@@ -14179,6 +14210,7 @@
+@@ -14179,6 +14284,7 @@
              (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
            );
            if (packetIndex === -1) {
@@ -1384,7 +1645,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26876,7 +26908,10 @@
+@@ -26876,7 +26982,10 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
@@ -1396,7 +1657,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        reader.ununsynchronizeAll();
      }
      if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26892,8 +26927,8 @@
+@@ -26892,8 +27001,8 @@
        if (!frame) {
          break;
        }
@@ -1407,7 +1668,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26916,19 +26951,28 @@
+@@ -26916,19 +27025,28 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -1444,7 +1705,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -26970,7 +27014,7 @@
+@@ -26970,7 +27088,7 @@
          case "TRCK":
          case "TRK":
            {
@@ -1453,7 +1714,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = trackText.split("/");
              const trackNum = Number.parseInt(parts[0], 10);
              const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26986,7 +27030,7 @@
+@@ -26986,7 +27104,7 @@
          case "TPOS":
          case "TPA":
            {
@@ -1462,7 +1723,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27003,14 +27047,22 @@
+@@ -27003,14 +27121,22 @@
          case "TCO":
            {
              const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -1493,7 +1754,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              match = /^\d+$/.exec(genreText);
              if (match) {
                const genreNumber = Number.parseInt(match[0]);
-@@ -27024,27 +27076,30 @@
+@@ -27024,27 +27150,30 @@
            ;
            break;
          case "TDRC":
@@ -1538,7 +1799,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          case "USLT":
          case "ULT":
            {
-@@ -27074,7 +27129,7 @@
+@@ -27074,7 +27203,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -1547,7 +1808,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27101,6 +27156,18 @@
+@@ -27101,6 +27230,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -1566,7 +1827,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27118,7 +27185,7 @@
+@@ -27118,7 +27259,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -1575,7 +1836,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            if (value2 === 0) {
              i++;
            }
-@@ -27146,6 +27213,7 @@
+@@ -27146,6 +27287,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -1583,7 +1844,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27246,7 +27314,10 @@
+@@ -27246,7 +27388,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -1595,7 +1856,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27284,12 +27355,19 @@
+@@ -27284,12 +27429,19 @@
          }
        }
      }
@@ -1886,15 +2147,98 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            }
            ;
            break;
-@@ -11770,7 +11803,6 @@
+@@ -11761,6 +11794,74 @@
+       await this.readMetadata();
+       return this.trackBackings;
+     }
++    async readAppendedMetadata() {
++      let end = this.reader.fileSize;
++      if (end === null || end < 2 * ID3_V2_HEADER_SIZE) return null;
++      if (end >= ID3_V1_TAG_SIZE) {
++        let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++        if (isThenable(legacy)) legacy = await legacy;
++        if (legacy && readAscii(legacy, 3) === "TAG") end -= ID3_V1_TAG_SIZE;
++      }
++      let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++      if (isThenable(footerSlice)) footerSlice = await footerSlice;
++      if (!footerSlice) return null;
++      const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++      if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4 || !(footer[5] & 16) || footer.slice(6).some((byte) => byte & 128)) return null;
++      const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++      const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++      if (start < (this.firstFrameHeaderPos ?? 0)) return null;
++      let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++      if (isThenable(headerSlice)) headerSlice = await headerSlice;
++      if (!headerSlice) return null;
++      const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++      if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51 || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3])) return null;
++      headerSlice.filePos = start;
++      const header = readId3V2Header(headerSlice);
++      if (!header) return null;
++      let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++      if (isThenable(body)) body = await body;
++      if (!body) return null;
++      const prefix = readBytes(body, Math.min(dataSize, 7));
++      const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++      body.filePos = start + ID3_V2_HEADER_SIZE;
++      const tags = {};
++      parseId3V2Tag(body, header, tags);
++      return { tags, update };
++    }
++    async readAppendedMetadata() {
++      let end = this.reader.fileSize;
++      if (end === null || end < 2 * ID3_V2_HEADER_SIZE) return null;
++      if (end >= ID3_V1_TAG_SIZE) {
++        let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++        if (isThenable(legacy)) legacy = await legacy;
++        if (legacy && readAscii(legacy, 3) === "TAG") end -= ID3_V1_TAG_SIZE;
++      }
++      let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++      if (isThenable(footerSlice)) footerSlice = await footerSlice;
++      if (!footerSlice) return null;
++      const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++      if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4 || !(footer[5] & 16) || footer.slice(6).some((byte) => byte & 128)) return null;
++      const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++      const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++      if (start < (this.firstFrameHeaderPos ?? 0)) return null;
++      let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++      if (isThenable(headerSlice)) headerSlice = await headerSlice;
++      if (!headerSlice) return null;
++      const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++      if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51 || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3])) return null;
++      headerSlice.filePos = start;
++      const header = readId3V2Header(headerSlice);
++      if (!header) return null;
++      let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++      if (isThenable(body)) body = await body;
++      if (!body) return null;
++      const prefix = readBytes(body, Math.min(dataSize, 7));
++      const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++      body.filePos = start + ID3_V2_HEADER_SIZE;
++      const tags = {};
++      parseId3V2Tag(body, header, tags);
++      return { tags, update };
++    }
+     async getMetadataTags() {
+       const release = await this.readingMutex.acquire();
+       try {
+@@ -11768,10 +11869,12 @@
+         if (this.metadataTags) {
+           return this.metadataTags;
          }
-         this.metadataTags = {};
+-        this.metadataTags = {};
++        const appended = await this.readAppendedMetadata();
++        const appendedImageCount = appended?.tags.images?.length ?? 0;
++        const appendedDescriptions = new Set(appended?.tags.images?.map((image) => image.description ?? ""));
++        this.metadataTags = appended?.tags ?? {};
          let currentPos = 0;
 -        let id3V2HeaderFound = false;
-         while (true) {
+-        while (true) {
++        while (!appended || appended.update) {
            let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
            if (isThenable(headerSlice)) headerSlice = await headerSlice;
-@@ -11779,14 +11811,13 @@
+           if (!headerSlice) break;
+@@ -11779,14 +11882,16 @@
            if (!id3V2Header) {
              break;
            }
@@ -1906,11 +2250,14 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            currentPos = headerSlice.filePos + id3V2Header.size;
          }
 -        if (!id3V2HeaderFound && this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
++        if (appendedImageCount && this.metadataTags.images) {
++          this.metadataTags.images = this.metadataTags.images.filter((image, index) => index < appendedImageCount || !appendedDescriptions.has(image.description ?? ""));
++        }
 +        if (this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
            let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
            if (isThenable(slice)) slice = await slice;
            assert(slice);
-@@ -13926,7 +13957,7 @@
+@@ -13926,7 +14031,7 @@
        const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
        const slice = await this.reader.requestSliceRange(
          startPos,
@@ -1919,7 +2266,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          maximumSliceLength
        );
        if (!slice) {
-@@ -14176,6 +14207,7 @@
+@@ -14176,6 +14281,7 @@
              (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
            );
            if (packetIndex === -1) {
@@ -1927,7 +2274,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26879,7 +26911,10 @@
+@@ -26879,7 +26985,10 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
@@ -1939,7 +2286,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        reader.ununsynchronizeAll();
      }
      if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26895,8 +26930,8 @@
+@@ -26895,8 +27004,8 @@
        if (!frame) {
          break;
        }
@@ -1950,7 +2297,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26919,19 +26954,28 @@
+@@ -26919,19 +27028,28 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -1987,7 +2334,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -26973,7 +27017,7 @@
+@@ -26973,7 +27091,7 @@
          case "TRCK":
          case "TRK":
            {
@@ -1996,7 +2343,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = trackText.split("/");
              const trackNum = Number.parseInt(parts[0], 10);
              const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26989,7 +27033,7 @@
+@@ -26989,7 +27107,7 @@
          case "TPOS":
          case "TPA":
            {
@@ -2005,7 +2352,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27006,14 +27050,22 @@
+@@ -27006,14 +27124,22 @@
          case "TCO":
            {
              const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -2036,7 +2383,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              match = /^\d+$/.exec(genreText);
              if (match) {
                const genreNumber = Number.parseInt(match[0]);
-@@ -27027,27 +27079,30 @@
+@@ -27027,27 +27153,30 @@
            ;
            break;
          case "TDRC":
@@ -2081,7 +2428,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          case "USLT":
          case "ULT":
            {
-@@ -27077,7 +27132,7 @@
+@@ -27077,7 +27206,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -2090,7 +2437,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27104,6 +27159,18 @@
+@@ -27104,6 +27233,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -2109,7 +2456,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27121,7 +27188,7 @@
+@@ -27121,7 +27262,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -2118,7 +2465,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            if (value2 === 0) {
              i++;
            }
-@@ -27149,6 +27216,7 @@
+@@ -27149,6 +27290,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -2126,7 +2473,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27249,7 +27317,10 @@
+@@ -27249,7 +27391,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -2138,7 +2485,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27287,12 +27358,19 @@
+@@ -27287,12 +27432,19 @@
          }
        }
      }
@@ -2421,15 +2768,98 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          }
          ;
          break;
-@@ -11616,7 +11649,6 @@
+@@ -11607,6 +11640,74 @@
+     await this.readMetadata();
+     return this.trackBackings;
+   }
++  async readAppendedMetadata() {
++    let end = this.reader.fileSize;
++    if (end === null || end < 2 * ID3_V2_HEADER_SIZE) return null;
++    if (end >= ID3_V1_TAG_SIZE) {
++      let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++      if (isThenable(legacy)) legacy = await legacy;
++      if (legacy && readAscii(legacy, 3) === "TAG") end -= ID3_V1_TAG_SIZE;
++    }
++    let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++    if (isThenable(footerSlice)) footerSlice = await footerSlice;
++    if (!footerSlice) return null;
++    const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++    if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4 || !(footer[5] & 16) || footer.slice(6).some((byte) => byte & 128)) return null;
++    const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++    const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++    if (start < (this.firstFrameHeaderPos ?? 0)) return null;
++    let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++    if (isThenable(headerSlice)) headerSlice = await headerSlice;
++    if (!headerSlice) return null;
++    const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++    if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51 || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3])) return null;
++    headerSlice.filePos = start;
++    const header = readId3V2Header(headerSlice);
++    if (!header) return null;
++    let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++    if (isThenable(body)) body = await body;
++    if (!body) return null;
++    const prefix = readBytes(body, Math.min(dataSize, 7));
++    const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++    body.filePos = start + ID3_V2_HEADER_SIZE;
++    const tags = {};
++    parseId3V2Tag(body, header, tags);
++    return { tags, update };
++  }
++  async readAppendedMetadata() {
++    let end = this.reader.fileSize;
++    if (end === null || end < 2 * ID3_V2_HEADER_SIZE) return null;
++    if (end >= ID3_V1_TAG_SIZE) {
++      let legacy = this.reader.requestSlice(end - ID3_V1_TAG_SIZE, 3);
++      if (isThenable(legacy)) legacy = await legacy;
++      if (legacy && readAscii(legacy, 3) === "TAG") end -= ID3_V1_TAG_SIZE;
++    }
++    let footerSlice = this.reader.requestSlice(end - ID3_V2_HEADER_SIZE, ID3_V2_HEADER_SIZE);
++    if (isThenable(footerSlice)) footerSlice = await footerSlice;
++    if (!footerSlice) return null;
++    const footer = readBytes(footerSlice, ID3_V2_HEADER_SIZE);
++    if (footer[0] !== 51 || footer[1] !== 68 || footer[2] !== 73 || footer[3] !== 4 || !(footer[5] & 16) || footer.slice(6).some((byte) => byte & 128)) return null;
++    const dataSize = footer.slice(6).reduce((size, byte) => size * 128 + byte, 0);
++    const start = end - dataSize - 2 * ID3_V2_HEADER_SIZE;
++    if (start < (this.firstFrameHeaderPos ?? 0)) return null;
++    let headerSlice = this.reader.requestSlice(start, ID3_V2_HEADER_SIZE);
++    if (isThenable(headerSlice)) headerSlice = await headerSlice;
++    if (!headerSlice) return null;
++    const headerBytes = readBytes(headerSlice, ID3_V2_HEADER_SIZE);
++    if (headerBytes[0] !== 73 || headerBytes[1] !== 68 || headerBytes[2] !== 51 || !headerBytes.subarray(3).every((byte, index) => byte === footer[index + 3])) return null;
++    headerSlice.filePos = start;
++    const header = readId3V2Header(headerSlice);
++    if (!header) return null;
++    let body = this.reader.requestSlice(start + ID3_V2_HEADER_SIZE, dataSize);
++    if (isThenable(body)) body = await body;
++    if (!body) return null;
++    const prefix = readBytes(body, Math.min(dataSize, 7));
++    const update = Boolean(header.flags & 64) && prefix.length === 7 && prefix[4] === 1 && Boolean(prefix[5] & 64);
++    body.filePos = start + ID3_V2_HEADER_SIZE;
++    const tags = {};
++    parseId3V2Tag(body, header, tags);
++    return { tags, update };
++  }
+   async getMetadataTags() {
+     const release = await this.readingMutex.acquire();
+     try {
+@@ -11614,10 +11715,12 @@
+       if (this.metadataTags) {
+         return this.metadataTags;
        }
-       this.metadataTags = {};
+-      this.metadataTags = {};
++      const appended = await this.readAppendedMetadata();
++      const appendedImageCount = appended?.tags.images?.length ?? 0;
++      const appendedDescriptions = new Set(appended?.tags.images?.map((image) => image.description ?? ""));
++      this.metadataTags = appended?.tags ?? {};
        let currentPos = 0;
 -      let id3V2HeaderFound = false;
-       while (true) {
+-      while (true) {
++      while (!appended || appended.update) {
          let headerSlice = this.reader.requestSlice(currentPos, ID3_V2_HEADER_SIZE);
          if (isThenable(headerSlice)) headerSlice = await headerSlice;
-@@ -11625,14 +11657,13 @@
+         if (!headerSlice) break;
+@@ -11625,14 +11728,16 @@
          if (!id3V2Header) {
            break;
          }
@@ -2441,11 +2871,14 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          currentPos = headerSlice.filePos + id3V2Header.size;
        }
 -      if (!id3V2HeaderFound && this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
++      if (appendedImageCount && this.metadataTags.images) {
++        this.metadataTags.images = this.metadataTags.images.filter((image, index) => index < appendedImageCount || !appendedDescriptions.has(image.description ?? ""));
++      }
 +      if (this.reader.fileSize !== null && this.reader.fileSize >= ID3_V1_TAG_SIZE) {
          let slice = this.reader.requestSlice(this.reader.fileSize - ID3_V1_TAG_SIZE, ID3_V1_TAG_SIZE);
          if (isThenable(slice)) slice = await slice;
          assert(slice);
-@@ -13772,7 +13803,7 @@
+@@ -13772,7 +13877,7 @@
      const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
      const slice = await this.reader.requestSliceRange(
        startPos,
@@ -2454,7 +2887,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        maximumSliceLength
      );
      if (!slice) {
-@@ -14022,6 +14053,7 @@
+@@ -14022,6 +14127,7 @@
            (x) => x.blockOffset / this.demuxer.audioInfo.sampleRate
          );
          if (packetIndex === -1) {
@@ -2462,7 +2895,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            await this.demuxer.advanceReader();
            continue;
          }
-@@ -26719,7 +26751,10 @@
+@@ -26719,7 +26825,10 @@
    const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
    const bytes2 = readBytes(slice, dataSize);
    const reader = new Id3V2Reader(header, bytes2);
@@ -2474,7 +2907,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      reader.ununsynchronizeAll();
    }
    if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26735,8 +26770,8 @@
+@@ -26735,8 +26844,8 @@
      if (!frame) {
        break;
      }
@@ -2485,7 +2918,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      let frameEncrypted = false;
      let frameCompressed = false;
      let frameUnsynchronized = false;
-@@ -26759,19 +26794,28 @@
+@@ -26759,19 +26868,28 @@
        continue;
      }
      if (frameUnsynchronized) {
@@ -2522,7 +2955,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      }
      reader.pos = frameStartPos;
      switch (frame.id) {
-@@ -26813,7 +26857,7 @@
+@@ -26813,7 +26931,7 @@
        case "TRCK":
        case "TRK":
          {
@@ -2531,7 +2964,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = trackText.split("/");
            const trackNum = Number.parseInt(parts[0], 10);
            const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26829,7 +26873,7 @@
+@@ -26829,7 +26947,7 @@
        case "TPOS":
        case "TPA":
          {
@@ -2540,7 +2973,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = discText.split("/");
            const discNum = Number.parseInt(parts[0], 10);
            const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26846,14 +26890,22 @@
+@@ -26846,14 +26964,22 @@
        case "TCO":
          {
            const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -2571,7 +3004,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            match = /^\d+$/.exec(genreText);
            if (match) {
              const genreNumber = Number.parseInt(match[0]);
-@@ -26867,27 +26919,30 @@
+@@ -26867,27 +26993,30 @@
          ;
          break;
        case "TDRC":
@@ -2616,7 +3049,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        case "USLT":
        case "ULT":
          {
-@@ -26917,7 +26972,7 @@
+@@ -26917,7 +27046,7 @@
              const imageFormat = reader.readAscii(3);
              mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
            } else {
@@ -2625,7 +3058,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            }
            const pictureType = reader.readU8();
            const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -26944,6 +26999,18 @@
+@@ -26944,6 +27073,18 @@
      }
      reader.pos = frameEndPos;
    }
@@ -2644,7 +3077,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
  };
  var Id3V2Reader = class {
    constructor(header, bytes2) {
-@@ -26961,7 +27028,7 @@
+@@ -26961,7 +27102,7 @@
        const value1 = this.bytes[i];
        newBytes.push(value1);
        if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -2653,7 +3086,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          if (value2 === 0) {
            i++;
          }
-@@ -26989,6 +27056,7 @@
+@@ -26989,6 +27130,7 @@
      this.bytes.set(newBytes, before.length);
      this.bytes.set(after, before.length + newBytes.length);
      this.view = new DataView(this.bytes.buffer);
@@ -2661,7 +3094,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
    }
    readBytes(length) {
      const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27089,7 +27157,10 @@
+@@ -27089,7 +27231,10 @@
          return str;
        }
        case 1 /* UTF_16_WITH_BOM */: {
@@ -2673,7 +3106,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const decoder = new TextDecoder("utf-16le");
            const endIndex = coalesceIndex(
              data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27127,12 +27198,19 @@
+@@ -27127,12 +27272,19 @@
        }
      }
    }

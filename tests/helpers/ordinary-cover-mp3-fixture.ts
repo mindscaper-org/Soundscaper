@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { BlobSource, Input, MP3 } from 'mediabunny';
+import { encodeDedicatedAudioPcm } from '../../src/common/editor/browser-dedicated-audio-codec.ts';
+import { createAudioMetadataId3Tag } from '../../src/common/editor/id3-metadata.js';
 
 interface PinnedCore {
 	exec(...arguments_: string[]): number;
@@ -64,4 +66,31 @@ async function loadCore(): Promise<PinnedCore> {
 		readFile(CORE_WASM),
 	]);
 	return await createCore({ wasmBinary });
+}
+
+/** ID3v2.4 section5 permits a footer-bearing end tag, before compatibility tags. */
+export async function footerTaggedMp3Fixture(legacyTrailer = false, leading = false, update = false, artwork = false): Promise<File> {
+	const pcm = Float32Array.from({ length: 4800 }, (_, frame) => Math.sin(frame * .03) * .2);
+	const audio = await encodeDedicatedAudioPcm({ format: 'mp3', input: new Uint8Array(pcm.buffer),
+		frameCount: pcm.length, sampleRate: 48_000, channelCount: 1, settings: { bitrateKbps: 192 }, maximumOutputBytes: 1024 ** 2 },
+	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
+	const cover = (description: string, blue: boolean): string => JSON.stringify([{ mimeType: 'image/png', description, pictureType: 3,
+		data: blue ? 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQkTsBAAFEAPtKtXAbAAAAAElFTkSuQmCC'
+			: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4IScCAAKsAPs2xCzlAAAAAElFTkSuQmCC' }]);
+	const text = Uint8Array.from(createAudioMetadataId3Tag({ title: 'Footer title', artist: 'Footer performer', ...(artwork ? { id3Artwork: cover('Reviewed cover', true) } : {}) }));
+	const extended = update ? Uint8Array.of(0, 0, 0, 7, 1, 64, 0) : new Uint8Array();
+	const frames = Buffer.concat([extended, text.subarray(10)]);
+	const header = Uint8Array.of(73, 68, 51, 4, 0, update ? 80 : 16,
+		frames.length >>> 21 & 127, frames.length >>> 14 & 127, frames.length >>> 7 & 127, frames.length & 127);
+	const footer = Uint8Array.from(header); footer.set([51, 68, 73]);
+	const legacy = new Uint8Array(legacyTrailer ? 128 : 0);
+	if (legacyTrailer) { legacy.set([84, 65, 71]); legacy.set(new TextEncoder().encode('Legacy title'), 3); }
+	const earlier = Uint8Array.from(createAudioMetadataId3Tag({ title: 'Earlier title', album: 'Earlier album',
+		...(artwork ? { id3Artwork: JSON.stringify([...JSON.parse(cover('Reviewed cover', false)) as unknown[], ...JSON.parse(cover('Back retained', false)) as unknown[]]) } : {}) }));
+	const seek = new Uint8Array(14); seek.set(new TextEncoder().encode('SEEK')); seek[7] = 4;
+	new DataView(seek.buffer).setUint32(10, audio.length);
+	const earlierSize = earlier.length - 10 + seek.length;
+	earlier.set([earlierSize >>> 21 & 127, earlierSize >>> 14 & 127, earlierSize >>> 7 & 127, earlierSize & 127], 6);
+	return new File([...(leading ? [earlier, seek] : []),
+		audio, header, frames, footer, legacy], 'Footer-tagged.mp3', { type: 'audio/mpeg' });
 }
