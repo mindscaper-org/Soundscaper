@@ -75,6 +75,7 @@ export interface ProjectBinServiceDependencies extends ProjectBinReplacementDepe
 	readonly missingSourceIds: Set<string>;
 	readonly sourceResolver?: EngineSourceResolver | null;
 	readonly prepareTimePitchCaches?: ProjectBinPreviewDependencies['prepareTimePitchCaches'];
+	readonly previewBlocked?: ProjectBinPreviewDependencies['previewBlocked'];
 	createPreviewEngine(options: Readonly<{ onState(state: string): void }>): ProjectBinPreviewEngine;
 	getSelectedClipId(): string | null;
 	getSelectedTrackId(): string | null;
@@ -459,6 +460,7 @@ function previewDependencies(
 		sourceChunkProviders: dependencies.sourceChunkProviders as EngineChunkSourceInput,
 		sourceResolver: dependencies.sourceResolver,
 		prepareTimePitchCaches: dependencies.prepareTimePitchCaches,
+		previewBlocked: dependencies.previewBlocked,
 		createPreviewEngine: dependencies.createPreviewEngine,
 		createId: dependencies.createId,
 		captureProject: dependencies.captureProject,

@@ -22,6 +22,7 @@ export default function ProjectBinCard({
 	copy,
 	locale,
 	mutationBlocked,
+	previewBlocked = false,
 	missing,
 	selectedMediaTrack,
 	preview,
@@ -298,7 +299,7 @@ export default function ProjectBinCard({
 					{!visualClip && <button
 						type="button"
 						className="kw-audio-editor__project-bin-icon-button"
-						disabled={unavailable || retimeUnavailable}
+							disabled={unavailable || retimeUnavailable || (previewBlocked && !previewPlaying)}
 						aria-label={`${previewPlaying ? copy.pause : copy.play}: ${name}`}
 						aria-pressed={previewPlaying}
 						onClick={() => run(() => controller.actions.projectBin.playPause(clip.id))}

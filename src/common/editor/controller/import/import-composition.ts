@@ -201,6 +201,7 @@ export function createImportComposition(dependencies: ImportCompositionDependenc
 		getPreview: () => state.projectBinPreview,
 		setPreview: (preview) => { state.projectBinPreview = preview; },
 		editingBlocked: dependencies.editingBlocked,
+		previewBlocked: () => dependencies.editingBlocked(true),
 		commit: (command, selection) => dependencies.commit(prepareFrozenTrackEditCommand(dependencies.getProject(), command), selection),
 		updateSelection: dependencies.updateSelection,
 		getPositionFrames: () => engine.getPositionFrames(),

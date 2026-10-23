@@ -54,6 +54,7 @@ export interface ProjectBinPreviewDependencies {
 	readonly sourceChunkProviders: EngineChunkSourceInput;
 	readonly sourceResolver?: EngineSourceResolver | null;
 	readonly prepareTimePitchCaches?: (project: unknown, signal: AbortSignal, options: Readonly<{ clipIds: readonly string[] }>) => Promise<unknown>;
+	readonly previewBlocked?: () => boolean;
 	createPreviewEngine(options: Readonly<{ onState(state: string): void }>): ProjectBinPreviewEngine;
 	createId(prefix: string): string;
 	captureProject(): EditorProjectToken;
@@ -93,6 +94,9 @@ export function createProjectBinPreviewService(
 		const videoClip = itemClips.find((candidate) => candidate.kind === 'video') ?? null;
 		const audioClip = itemClips.find((candidate) => candidate.kind !== 'video') ?? (videoClip ? null : clip);
 		const active = dependencies.getPreview();
+		if (dependencies.previewBlocked?.() && !(active?.clipId === clipId && active.state === 'playing')) {
+			throw new DOMException('Project Bin playback is blocked while the editor is busy.', 'AbortError');
+		}
 		if (active?.clipId === clipId) return toggleActivePreview(active, Boolean(videoClip) && !active.audioSourceId, project, audioClip?.id ?? clipId);
 
 		await stopProjectBinPreview();

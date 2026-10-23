@@ -370,6 +370,7 @@ export default function ProjectBinPanel({ controller, snapshot, copy: providedCo
 							copy={copy}
 							locale={locale}
 							mutationBlocked={mutationBlocked}
+							previewBlocked={blocked}
 							missing={item.clips.some((clip) => missingSourceIds.has(clip.sourceId))}
 							selectedMediaTrack={selectedMediaTrack}
 							preview={snapshot.projectBinPreview}
