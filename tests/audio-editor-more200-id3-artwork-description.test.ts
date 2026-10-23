@@ -17,7 +17,7 @@ function artworkFile(): File {
 	})));
 	assert.deepEqual(parseId3Artwork(id3Artwork).map(image => image.description), descriptions);
 	const bytes = Uint8Array.from(encodeWav([new Float32Array(4800).fill(.25)], {
-		sampleRate: 48_000, sampleFormat: 'float32', metadata: { id3Artwork },
+		sampleRate: 48_000, bitDepth: 32, float: true, metadata: { id3Artwork },
 	}));
 	return new File([bytes], 'Reviewed art.wav', { type: 'audio/wav' });
 }
