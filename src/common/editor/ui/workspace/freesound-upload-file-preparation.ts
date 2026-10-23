@@ -33,6 +33,8 @@ export async function prepareFreesoundUploadFile(
 	}
 	const inputBytes = await file.arrayBuffer();
 	signal?.throwIfAborted();
+	const presentationDuration = await uploadPresentationDuration(file, inputBytes, signal);
+	signal?.throwIfAborted();
 	const sampleRate = inspectDecodedAudioSampleRate(inputBytes);
 	const options: AudioContextOptions = { latencyHint: 'playback', ...(sampleRate ? { sampleRate } : {}) };
 	let context: DecodeContext | null = null;
@@ -44,7 +46,7 @@ export async function prepareFreesoundUploadFile(
 	catch { signal?.throwIfAborted(); }
 	finally { await context?.close(); }
 	signal?.throwIfAborted();
-	if (!decoded?.length) {
+	if (!decoded?.length || presentationDuration !== null && decoded.length !== Math.round(presentationDuration * decoded.sampleRate)) {
 		decoded = await recoverUploadAudio(file, signal, maximumBytes);
 	}
 	signal?.throwIfAborted();
@@ -67,6 +69,29 @@ export async function prepareFreesoundUploadFile(
 		type: 'audio/wav',
 		lastModified: file.lastModified,
 	});
+}
+
+/** Native decoders may retain samples outside an MP4's authored presentation. */
+async function uploadPresentationDuration(file: File, bytes: ArrayBuffer, signal?: AbortSignal): Promise<number | null> {
+	if (bytes.byteLength < 8) return null;
+	const type = new TextDecoder().decode(new Uint8Array(bytes, 4, 4));
+	if (!['ftyp', 'moov', 'mdat', 'wide', 'free', 'skip'].includes(type)) return null;
+	const { Input, BlobSource, MP4 } = await import('mediabunny');
+	const { readIsoAudioPresentationEnd } = await import('../../iso-audio-presentation-edit.ts');
+	const input = new Input({ source: new BlobSource(file, { maxCacheSize: 4 * 1024 ** 2, useStreamReader: false }), formats: [MP4] });
+	const retire = (): void => { input.dispose(); };
+	signal?.addEventListener('abort', retire, { once: true });
+	try {
+		signal?.throwIfAborted();
+		const track = await input.getPrimaryAudioTrack();
+		signal?.throwIfAborted();
+		if (!track) return null;
+		const end = await readIsoAudioPresentationEnd(file, track.id, signal);
+		if (end === null) return null;
+		const [first, last] = await Promise.all([track.getFirstTimestamp(), track.computeDuration()]);
+		signal?.throwIfAborted();
+		return Math.min(end, last) - Math.max(0, first);
+	} finally { signal?.removeEventListener('abort', retire); input.dispose(); }
 }
 
 async function recoverUploadAudio(file: File, signal: AbortSignal | undefined, maximumBytes: number): Promise<DecodedAudio> {

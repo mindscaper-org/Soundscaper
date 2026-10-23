@@ -44,7 +44,7 @@ test('a container rate that may describe an AAC core never pins the reconstructe
 	const output = await prepareFreesoundUploadFile(new File([bytes.buffer], 'recording.m4a', { type: 'audio/mp4' }), undefined, {
 		createDecodeContext: (options?: AudioContextOptions) => {
 			requested = options;
-			return { decodeAudioData: async () => decodedBuffer(1_024, 48_000), close: async () => undefined };
+			return { decodeAudioData: async () => decodedBuffer(2_400, 48_000), close: async () => undefined };
 		},
 	});
 	assert.equal(requested?.sampleRate, undefined);

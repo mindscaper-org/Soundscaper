@@ -45,3 +45,38 @@ test('presentation inspection reads bounded headers and ignores another track id
 	const abort = new AbortController(); abort.abort(new DOMException('Retired file import', 'AbortError'));
 	await assert.rejects(readIsoAudioPresentationEnd(bounded, 1, abort.signal), { name: 'AbortError' });
 });
+
+for (const mode of ['multiple', 'rate', 'all-empty'] as const) test(`Freesound refuses ${mode} edits even when the native decoder would succeed`, async () => {
+	const { prepareFreesoundUploadFile } = await import('../src/common/editor/ui/workspace/freesound-upload-file-preparation.ts');
+	const { file } = await editedM4aFixture(mode); let contexts = 0; let encodes = 0;
+	await assert.rejects(prepareFreesoundUploadFile(file, undefined, {
+		createDecodeContext: () => { contexts++; return { decodeAudioData: async () => decoded(3229, 44_100), close: async () => undefined }; },
+		encode: () => { encodes++; return Uint8Array.of(1); },
+	}), /edit.*(?:flatten|render)/iu);
+	assert.equal(contexts, 0); assert.equal(encodes, 0);
+});
+
+test('Freesound never encodes extra native frames when its edited programme needs a decoder unavailable on this host', async () => {
+	const { prepareFreesoundUploadFile } = await import('../src/common/editor/ui/workspace/freesound-upload-file-preparation.ts');
+	const { file } = await editedM4aFixture('empty-first'); let encodes = 0;
+	await assert.rejects(prepareFreesoundUploadFile(file, undefined, {
+		createDecodeContext: () => ({ decodeAudioData: async () => decoded(2048, 44_100), close: async () => undefined }),
+		encode: () => { encodes++; return Uint8Array.of(1); },
+	}), /cannot incrementally decode/u);
+	assert.equal(encodes, 0);
+});
+
+test('Freesound keeps a native decoder that already returned the correct edited programme at its reconstructed clock', async () => {
+	const { prepareFreesoundUploadFile } = await import('../src/common/editor/ui/workspace/freesound-upload-file-preparation.ts');
+	const { file, durationSeconds } = await editedM4aFixture('trim'); let closed = false; let encodes = 0;
+	const frames = Math.round(durationSeconds * 48_000);
+	await prepareFreesoundUploadFile(file, undefined, {
+		createDecodeContext: () => ({ decodeAudioData: async () => decoded(frames, 48_000), close: async () => { closed = true; } }),
+		encode: channels => { encodes++; assert.equal(channels[0]!.length, frames); return Uint8Array.of(1); },
+	});
+	assert.equal(closed, true); assert.equal(encodes, 1);
+});
+
+function decoded(length: number, sampleRate: number): AudioBuffer {
+	return { length, sampleRate, numberOfChannels: 1, getChannelData: () => new Float32Array(length) } as unknown as AudioBuffer;
+}
