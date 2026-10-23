@@ -50,10 +50,10 @@ export default function AudiocomUploadArea({
 		catch (reason) { setError(reason instanceof Error ? reason.message : copy.uploadError); }
 	};
 	const dragOver = (event: DragEvent<HTMLElement>) => {
-		if (disabled || !event.dataTransfer.types.includes('Files')) return;
+		if (!event.dataTransfer.types.includes('Files')) return;
 		event.preventDefault();
-		event.dataTransfer.dropEffect = 'copy';
-		setDragging(true);
+		event.dataTransfer.dropEffect = disabled ? 'none' : 'copy';
+		setDragging(!disabled);
 	};
 	const closeDialog = () => {
 		const itemId = publishItem?.id;
