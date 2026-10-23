@@ -354,10 +354,11 @@ export async function canonicalizeBuffer(
 	context: AudioBufferContext | null | undefined,
 	targetSampleRate: number | null = AUDIO_EDITOR_SAMPLE_RATE,
 	copy: AudioCopy,
+	options: Readonly<{ preserveChannels?: boolean }> = {},
 ): Promise<AudioBufferLike> {
 	if (!input?.numberOfChannels || !input?.length) throw createLocalizedError(Error, copy, 'decodedAudioEmpty');
 	let channels: Float32Array[];
-	if (input.numberOfChannels <= 2) {
+	if (options.preserveChannels || input.numberOfChannels <= 2) {
 		channels = Array.from({ length: input.numberOfChannels }, (_, channel) => input.getChannelData(channel));
 	} else if (input.numberOfChannels === 6) {
 		channels = [...downmixSurroundToStereo(
@@ -379,7 +380,7 @@ export async function canonicalizeBuffer(
 		}
 		channels = [left, right];
 	}
-	if ((targetSampleRate == null || input.sampleRate === targetSampleRate) && input.numberOfChannels <= 2) return input;
+	if ((targetSampleRate == null || input.sampleRate === targetSampleRate) && (options.preserveChannels || input.numberOfChannels <= 2)) return input;
 	const downmixed = await bufferFromChannels(channels, input.sampleRate, context, copy);
 	return targetSampleRate == null || input.sampleRate === targetSampleRate
 		? downmixed

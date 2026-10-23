@@ -431,8 +431,8 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			inspectEncodedSampleRate: inspectEncodedAudioSampleRate,
 			inspectDecodedSampleRate: inspectDecodedAudioSampleRate,
 		});
-		assertImportProjectCurrent();
-		const canonical = await canonicalizeBuffer(decoded, context, null, copy);
+		assertImportProjectCurrent(); admitAudioImportChannelCount(decoded.numberOfChannels);
+		const canonical = await canonicalizeBuffer(decoded, context, null, copy, { preserveChannels: true });
 		assertImportProjectCurrent();
 		await preflightStorage(canonical.length * canonical.numberOfChannels * Float32Array.BYTES_PER_ELEMENT, 'import');
 		assertImportProjectCurrent();
