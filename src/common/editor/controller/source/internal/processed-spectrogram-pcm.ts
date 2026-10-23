@@ -28,7 +28,7 @@ export function processedSpectrogramPreparation(
 			if (dependencies.getProject() !== project) throw new DOMException('The spectral recording changed.', 'AbortError');
 		};
 		assertCurrent();
-		const entry = await dependencies.cache.prepareCommittedOutput(clip, source, { signal });
+		const entry = await dependencies.cache.prepareCommittedOutput(clip, source, { signal, projectSampleRate: typeof project.sampleRate === 'number' ? project.sampleRate : undefined });
 		assertCurrent();
 		const pcm = dependencies.open(entry);
 		return Object.freeze({

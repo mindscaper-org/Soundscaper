@@ -29,12 +29,12 @@ export interface ClipTimePitchCachePort {
 	prepareCommittedOutput(
 		clip: ProjectVisualClip,
 		source: ProjectVisualSource,
-		options?: Readonly<{ signal?: AbortSignal | null }>,
+		options?: Readonly<{ signal?: AbortSignal | null; projectSampleRate?: number }>,
 	): Promise<ClipTimePitchCacheEntry>;
 	resolveForPlayback(
 		clip: ProjectVisualClip,
 		source: ProjectVisualSource,
-		options?: Readonly<{ signal?: AbortSignal | null }>,
+		options?: Readonly<{ signal?: AbortSignal | null; projectSampleRate?: number }>,
 	): Promise<ClipTimePitchCacheEntry>;
 	getCommitted?(cacheKey: string): ClipTimePitchCacheEntry | undefined;
 	loadCommittedChannels(
@@ -244,7 +244,7 @@ export function createClipTimePitchCacheService<
 		for (const { clip, source } of projectTimePitchPairs(snapshot)) {
 			if (requestedIds && !requestedIds.has(clip.id)) continue;
 			assertOwned(projectToken, signal);
-			const entry = await dependencies.cache.prepareCommittedOutput(clip, source, { signal });
+			const entry = await dependencies.cache.prepareCommittedOutput(clip, source, { signal, projectSampleRate: typeof snapshot.sampleRate === 'number' ? snapshot.sampleRate : undefined });
 			assertOwned(projectToken, signal);
 			entries.push(await materializeOwned(entry, signal, projectToken));
 		}
@@ -269,7 +269,7 @@ export function createClipTimePitchCacheService<
 		const refreshes: Promise<ClipTimePitchCacheEntry>[] = [];
 		for (const { clip, source } of projectTimePitchPairs(snapshot)) {
 			assertOwned(projectToken, signal);
-			const resolved = await dependencies.cache.resolveForPlayback(clip, source, { signal });
+			const resolved = await dependencies.cache.resolveForPlayback(clip, source, { signal, projectSampleRate: typeof snapshot.sampleRate === 'number' ? snapshot.sampleRate : undefined });
 			assertOwned(projectToken, signal);
 			await materializeOwned(resolved, signal, projectToken);
 			if (resolved.stale && resolved.pending) {

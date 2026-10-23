@@ -2,6 +2,6 @@
 import { createSpectrogramCanvasOptions } from '../timeline/spectrogram-canvas-options.ts';
 
 /** Projected FFT samples use the timeline clock, including unprocessed source segments. */
-export function clipSourceSpectrogramOptions(projectSampleRate: number, sourceSampleRate: number) {
-	return createSpectrogramCanvasOptions({ scale: 'linear', maximumFrequency: sourceSampleRate / 2 }, projectSampleRate);
+export function clipSourceSpectrogramOptions(projectSampleRate: number, sourceSampleRate: number, pitchedProgramme = false) {
+	return createSpectrogramCanvasOptions({ scale: 'linear', maximumFrequency: (pitchedProgramme ? projectSampleRate : sourceSampleRate) / 2 }, projectSampleRate);
 }

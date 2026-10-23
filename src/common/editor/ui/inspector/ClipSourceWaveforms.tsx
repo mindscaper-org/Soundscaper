@@ -54,6 +54,6 @@ export default function ClipSourceWaveforms({ project, clip, source, visual, wid
 		<AudacityWaveformCanvases rootRef={rootRef} clips={models} displayMode={displayMode} pixelsPerSecond={pixelsPerSecond}
 			timeSelection={selection ? { startTime: (selection.startFrame - startFrame) / project.sampleRate, endTime: (selection.endFrame - startFrame) / project.sampleRate } : null}
 			showRms halfWave={displayMode === 'half-wave'} verticalZoom={verticalZoom} channelHeightRatio={0.5}
-			spectrogramOptions={clipSourceSpectrogramOptions(project.sampleRate, source.sampleRate)} />
+			spectrogramOptions={clipSourceSpectrogramOptions(project.sampleRate, source.sampleRate, Boolean(visual.prepareSpectrogramPcm) && Number(clip.pitchCents) > 0)} />
 	</div>;
 }

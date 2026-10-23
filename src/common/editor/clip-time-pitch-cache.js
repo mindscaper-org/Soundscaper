@@ -28,7 +28,8 @@ import {
 } from './clip-time-pitch-cache-plan.js';
 import { linkedSourceContentDigest } from './linked-source-cache-content.ts';
 import { ClipTimePitchCacheSessionFence } from './clip-time-pitch-cache-session.ts';
-import { cloneJson, reverseFloat32 } from './clip-time-pitch-cache-values.ts';
+import { prepareClipTimePitchWorkingInput } from './clip-time-pitch-working-clock.ts';
+import { cloneJson } from './clip-time-pitch-cache-values.ts';
 import {
 	integerRange,
 	nonNegativeInteger,
@@ -449,22 +450,10 @@ export class ClipTimePitchRenderCacheCoordinator {
 			{ limitBytes: this.maximumRenderWorkingBytes, peakWorkingBytes, scope },
 		);
 		await assertQuota(this.store, plan, this.chunkFrames, this.requiredQuotaHeadroomBytes);
-		let channels = normalizeLoadedChannels(
-			await this.loadSourceChannels(source, { signal: options.signal, clip, plan }),
-			plan,
-		);
-		let ownsChannels = this.transferLoadedSourceChannels;
-		throwIfAborted(options.signal);
-		let selection = plan.direction === 'reverse'
-			? {
-				startFrame: plan.sourceFrameCount - plan.sourceRange.startFrame - plan.sourceRange.frameCount,
-				frameCount: plan.sourceRange.frameCount,
-			}
-			: { ...plan.sourceRange };
-		if (plan.direction === 'reverse') {
-			channels = channels.map(reverseFloat32);
-			ownsChannels = true;
-		}
+		const prepared = await prepareClipTimePitchWorkingInput(normalizeLoadedChannels(
+			await this.loadSourceChannels(source, { signal: options.signal, clip, plan }), plan,
+		), plan, { signal: options.signal, ownsChannels: this.transferLoadedSourceChannels });
+		let { channels, selection, ownsChannels } = prepared;
 		for (const stage of plan.stages) {
 			throwIfAborted(options.signal);
 			const result = await this.client.render({
