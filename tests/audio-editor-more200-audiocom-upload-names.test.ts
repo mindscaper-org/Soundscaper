@@ -37,7 +37,7 @@ for (const [original, transferred] of [['Voice\ntake.wav', 'Voice-take.wav'], ['
 			await session.publish(id, { title: 'Voice', description: '', category: 'recording', license: 'arr', visibility: 'unlisted', downloadable: false, rightsConfirmed: true });
 			for (let attempts = 0; session.getSnapshot().uploadQueue.active; attempts++) { assert.ok(attempts < 100); await setImmediate(); }
 			const item = session.getSnapshot().uploadQueue.items[0]; assert.ok(item);
-			assert.equal(item.status, 'complete', item.errorMessage); assert.equal(item.fileName, original);
+			assert.equal(item.status, 'complete', item.errorMessage ?? 'The selected file should publish.'); assert.equal(item.fileName, original);
 			assert.deepEqual(uploads, [transferred]);
 		} finally { session.dispose(); }
 	});
