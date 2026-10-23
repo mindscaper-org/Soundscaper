@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "hy",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:eae2f59e1d745f29d09568fec97c233e7797e3c899d719b5537ed2d91e7fc033","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"codex","modelDigest":"sha256:37cee4d49f73ab474a68a2f3c20459d5614de457e15cec02fd55eb3c07090d90","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -1828,6 +1828,7 @@
 		"mp3VariableBest": ["machine","220-260 kbps (Best Quality)","220-260 kbps (Լավագույն որակ)"],
 		"mp3VariableSmallest": ["machine","45-85 kbps (Smaller files)","45-85 kbps (Ավելի փոքր ֆայլեր)"],
 		"multicamera": ["machine","Multicamera","Բազմախցիկ"],
+		"multipleLegacyAupProjects": ["machine","Choose one legacy Audacity project (.aup) and its data files per import.","Յուրաքանչյուր ներմուծման համար ընտրեք մեկ հին Audacity նախագիծ (.aup) և դրա տվյալների ֆայլերը։"],
 		"multiview": ["machine","Multi-view","Բազմադիտում"],
 		"musicalAnchor": ["machine","Musically anchored","Երաժշտականորեն ամրագրված"],
 		"musicalTimeline": ["machine","Musical timeline","Երաժշտական ժամանակագիծ"],
