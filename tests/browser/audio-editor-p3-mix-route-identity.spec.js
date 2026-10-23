@@ -37,6 +37,7 @@ for (const collision of [false, true]) test(`Mix & Render preserves an unrelated
 	await expect(dialog).toBeHidden(); await expect(editor.locator('[data-clip-id="clip"]')).toHaveCount(0);
 	const after = await exportSamples(page, editor); expect(after).toHaveLength(before.length);
 	expect(after.every(Number.isFinite)).toBe(true); expect(Math.max(...after)).toBeGreaterThan(.1);
+	expect(Math.max(...after.slice(256, -256).map((sample, index) => Math.abs(sample - before[index + 256])))).toBeLessThan(.00001);
 	await expect.poll(async () => (await persistedProject(page, project.id))?.mixer.edges.find(edge => edge.id === peerRoute.id)).toEqual(peerRoute);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await expect(editor.locator('[data-clip-id="clip"]')).toHaveCount(1);
