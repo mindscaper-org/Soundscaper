@@ -82,6 +82,17 @@ test('Edit Duplicate preserves a native track identity matching a prototype sett
 	await expect(rows.nth(1).locator('.clip-display')).toHaveCount(1);
 });
 
+for (const clipId of ['clip"quoted', 'clip\\tail', 'ordinary-clip']) test(`native clip properties accept identity ${clipId}`, async ({ page }) => {
+	const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 48_000 });
+	const clip = createAudioClip({ id: clipId, title: 'Quoted recording', sourceId: source.id, durationFrames: 48_000, sourceDurationFrames: 48_000 });
+	const project = createSoundscaperProject({ id: `p3-quoted-${clipId}`, sources: [source], clips: [clip],
+		tracks: [createAudioTrack({ id: 'voice', name: 'Voice', clipIds: [clip.id] })] });
+	const editor = await openArchive(page, await nativeArchive(project, source), project.id);
+	await clipByName(editor, 'Quoted recording').locator('.clip-header').click({ button: 'right' });
+	await page.getByRole('menuitem', { name: 'Clip properties', exact: true }).click();
+	await expect(editor.locator('[data-workspace-panel="clip-properties"]')).toBeVisible();
+});
+
 test('shorter Bin replacement keeps authored output automation aligned after Contract gaps', async ({ page }) => {
 	const { project: base, source } = routeRippleProject();
 	const first = base.clips.find(clip => clip.id === 'first');
