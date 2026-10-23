@@ -206,6 +206,6 @@ async function parseResponseData(response: Response): Promise<unknown> {
 	return body.data;
 }
 function uploadMime(file: File): string {
-	const types: Record<string, string> = { wav: 'audio/wav', mp3: 'audio/mpeg', flac: 'audio/flac', wv: 'audio/x-wavpack', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg', oga: 'audio/ogg', m4a: 'audio/mp4' };
+	const types: Record<string, string> = { wav: 'audio/wav', wave: 'audio/wav', rf64: 'audio/wav', bw64: 'audio/wav', mp3: 'audio/mpeg', flac: 'audio/flac', wv: 'audio/x-wavpack', aif: 'audio/aiff', aiff: 'audio/aiff', ogg: 'audio/ogg', oga: 'audio/ogg', m4a: 'audio/mp4' };
 	return types[file.name.toLowerCase().split('.').at(-1) ?? ''] ?? file.type;
 }
