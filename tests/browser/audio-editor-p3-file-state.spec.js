@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, disableNativeSavePicker, downloadBytes, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, clipByName, disableNativeSavePicker, downloadBytes, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { routeRippleProject } from '../helpers/next-route-ripple-project.ts';
@@ -62,6 +62,25 @@ async function openArchive(page, file, projectId) {
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	return editor;
 }
+
+test('Edit Duplicate preserves a native track identity matching a prototype setter', async ({ page }) => {
+	const source = createAudioSource({ id: 'source', sampleRate: 48_000, channelCount: 1, frameCount: 48_000 });
+	const clip = createAudioClip({ id: 'clip', title: 'Voice recording', sourceId: source.id, durationFrames: 48_000, sourceDurationFrames: 48_000 });
+	const project = createSoundscaperProject({ id: 'p3-duplicate-proto', sources: [source], clips: [clip],
+		tracks: [createAudioTrack({ id: '__proto__', name: 'Voice', clipIds: ['clip'] })] });
+	const editor = await openArchive(page, await nativeArchive(project, source), project.id);
+	await clipByName(editor, 'Voice recording').locator('.clip-header').click();
+	await chooseCommandAction(page, editor, 'Edit', 'Duplicate');
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	const rows = editor.locator('[data-track-row]'); await expect(rows).toHaveCount(2);
+	await expect(rows.nth(0)).toHaveAttribute('data-track-id', '__proto__');
+	await expect(rows.nth(0).locator('.clip-display')).toHaveCount(1);
+	await expect(rows.nth(1).locator('.clip-display')).toHaveCount(1);
+	await chooseCommandAction(page, editor, 'Edit', 'Undo'); await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(rows).toHaveCount(1);
+	await chooseCommandAction(page, editor, 'Edit', 'Redo'); await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(rows.nth(1).locator('.clip-display')).toHaveCount(1);
+});
 
 test('shorter Bin replacement keeps authored output automation aligned after Contract gaps', async ({ page }) => {
 	const { project: base, source } = routeRippleProject();

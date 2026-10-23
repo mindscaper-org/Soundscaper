@@ -93,7 +93,7 @@ export function prepareDuplicateSelectionCommand(
 	const laneGroups = new Map<string, string>();
 	for (const track of sourceTracks) {
 		const trackId = runtime.createStableId('track');
-		trackMap[track.id] = trackId;
+		Object.defineProperty(trackMap, track.id, { value: trackId, enumerable: true });
 		const effects = (track.effects ?? []).map((effect) => ({ ...structuredClone(effect), id: runtime.createStableId('effect') }));
 		const request = {
 			sourceTrackId: track.id,
