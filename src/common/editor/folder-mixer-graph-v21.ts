@@ -77,18 +77,18 @@ export function reconcileFolderMixerGraphV21(
 		&& (!isCanonicalFolderAssignment(edge, authority) || desiredAssignmentIds.has(edge.id))
 	))
 	const retainedEdgeIds = new Set(edges.map(({ id }) => id))
-	const groupedTrackIds = new Set(edges.flatMap((edge) => (
-		edge.kind === 'assignment' && edge.enabled
-			&& edge.source.kind === 'track' && edge.destination.kind === 'mixer-node'
+	const assignedTrackIds = new Set(edges.flatMap((edge) => (
+		edge.kind !== 'sidechain' && edge.enabled
+			&& edge.source.kind === 'track' && edge.destination.kind !== 'effect-sidechain'
 			? [edge.source.id]
 			: []
 	)))
 	for (const assignment of desiredAssignments) {
 		if (retainedEdgeIds.has(assignment.id)) continue
-		// A track the user routed into a group already reaches the mix through it, so the
-		// folder fallback to master would double its signal rather than restore it.
+		// Retain the user's programme assignment, including custom direct-to-master IDs.
+		// Adding a folder fallback would duplicate or bypass that assignment's level.
 		if (assignment.source.kind === 'track' && assignment.destination.kind === 'master'
-			&& groupedTrackIds.has(assignment.source.id)) continue
+			&& assignedTrackIds.has(assignment.source.id)) continue
 		edges.push(assignment)
 	}
 	const vcas = graph.vcas.map((vca) => Object.freeze({
