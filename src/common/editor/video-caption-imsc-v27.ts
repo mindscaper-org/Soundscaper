@@ -313,7 +313,7 @@ function readStyle(tag: SaxesTagNS, state: ParseState): VideoCaptionStyleV1 {
 		attribute(tag, TTS, 'fontWeight'), attribute(tag, TTS, 'fontStyle'),
 		attribute(tag, TTS, 'textDecoration'), attribute(tag, TTS, 'textAlign'),
 	];
-	if (values.some((value) => value === null)) state.losses.push(captionLoss('style-properties-defaulted', `styles.${id}`, 'Missing IMSC style properties use bounded caption defaults.'));
+	if (values.some((value) => value === null)) state.losses.push(captionLoss('style-properties-defaulted', `styles.${id}`, 'Missing IMSC style properties use their initial TTML values.'));
 	const familyToken = values[0] ?? 'sansSerif';
 	if (!Object.hasOwn(TTML_TO_FONT, familyToken)) {
 		throw interchangeError(`Unsupported IMSC font family: ${familyToken}.`, 'UNSUPPORTED_STYLE');
@@ -325,11 +325,11 @@ function readStyle(tag: SaxesTagNS, state: ParseState): VideoCaptionStyleV1 {
 		fontFamily: family,
 		fontSizePercent: percent(values[1] ?? '100%', 'IMSC font size') / 15, // The inherited 1c font is 1/15 of root height.
 		foregroundColor: color(values[2] ?? '#ffffffff', 'IMSC foreground color'),
-		backgroundColor: color(values[3] ?? '#000000cc', 'IMSC background color'),
+		backgroundColor: color(values[3] ?? '#00000000', 'IMSC background color'),
 		fontWeight: choice(values[4] ?? 'normal', ['normal', 'bold'] as const, 'IMSC font weight'),
 		fontStyle: choice(values[5] ?? 'normal', ['normal', 'italic'] as const, 'IMSC font style'),
 		textDecoration: choice(values[6] ?? 'none', ['none', 'underline'] as const, 'IMSC text decoration'),
-		textAlign: choice(values[7] ?? 'center', ['start', 'center', 'end'] as const, 'IMSC text alignment'),
+		textAlign: choice(values[7] ?? 'start', ['start', 'center', 'end'] as const, 'IMSC text alignment'),
 	});
 }
 
