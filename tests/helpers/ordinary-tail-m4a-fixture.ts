@@ -231,3 +231,24 @@ export async function editedM4aFixture(mode: 'none' | 'trim' | 'offset' | 'empty
 	}));
 	return { file: new File([Uint8Array.from(rewritten)], `Presentation-${mode}.m4a`, { type: 'audio/mp4' }), durationSeconds };
 }
+
+/** QuickTime container children are unordered apart from the handler precedence. */
+export async function metadataKeyOrderM4aFixture(keysFirst = false): Promise<File> {
+	const file = await appMetadataM4aFixture({ title: 'Keyed programme title', artist: 'Keyed performer', engineer: 'Retained engineering credit' });
+	const atom = (type: string, body: Buffer): Buffer => {
+		const header = Buffer.alloc(8); header.writeUInt32BE(body.length + 8); header.write(type, 4, 'latin1');
+		return Buffer.concat([header, body]);
+	};
+	const rewrite = (bytes: Buffer): Buffer => Buffer.concat(m4aAtoms(bytes).map(child => {
+		const type = child.toString('latin1', 4, 8);
+		if (type === 'meta') {
+			const prefix = child.subarray(8, child.readUInt32BE(8) === 0 ? 12 : 8); const fields = m4aAtoms(child.subarray(8 + prefix.length));
+			const keys = fields.find(field => field.toString('latin1', 4, 8) === 'keys'); assert.ok(keys);
+			const list = fields.find(field => field.toString('latin1', 4, 8) === 'ilst'); assert.ok(list);
+			const rest = fields.filter(field => !['keys', 'ilst'].includes(field.toString('latin1', 4, 8)));
+			return atom(type, Buffer.concat([prefix, ...rest, ...(keysFirst ? [keys, list] : [list, keys])]));
+		}
+		return ['moov', 'udta'].includes(type) ? atom(type, rewrite(child.subarray(8))) : child;
+	}));
+	return new File([Uint8Array.from(rewrite(Buffer.from(await file.arrayBuffer())))], 'Keyed programme.m4a', { type: file.type });
+}
