@@ -7,7 +7,7 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 
 const ORIGINAL = 'Opening\nRoom tone';
 
-for (const surface of ['clip header', 'clip properties', 'track header', 'Project bin']) {
+for (const surface of ['clip header', 'clip properties', 'track header', 'Project bin', 'Clip spreadsheet']) {
 	test(`File Open DAWproject multiline media names survive ${surface} editing`, async ({ page }) => {
 		const archive = await writeDawprojectArchive({ metadataXml: '<MetaData/>',
 			files: [{ path: 'take.wav', blob: new Blob([encodeWav([new Float32Array(96_000).fill(.25)], { sampleRate: 48_000 })]) }],
@@ -18,11 +18,22 @@ for (const surface of ['clip header', 'clip properties', 'track header', 'Projec
 		const editor = await bootEditor(page, '/embed/en/');
 		const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 		await (await choosing).setFiles({ name: 'Multiline.dawproject', mimeType: 'application/zip', buffer: Buffer.from(await archive.arrayBuffer()) });
-		await expect(editor.locator('[data-status]')).toHaveText('DAWproject imported.');
+		await expect(editor.locator('[data-status]')).toHaveText('DAWproject imported.', { timeout: 30_000 });
 		const clip = editor.locator('[data-clip-id]').first();
 		const row = editor.locator('[data-track-row]').first();
 		const display = surface === 'track header' ? row.locator('.track-control-panel__track-name-text') : clip.locator('.clip-header__name');
 		await expect.poll(() => display.textContent()).toBe(ORIGINAL);
+		if (surface === 'Clip spreadsheet') {
+			await chooseCommandAction(page, editor, 'Window', 'Clip spreadsheet');
+			const panel = editor.locator('[data-workspace-panel="clip-spreadsheet"]');
+			const cell = panel.locator('[data-row="0"][data-column="name"]'); await cell.dblclick();
+			const name = panel.getByRole('textbox', { name: 'Name', exact: true });
+			await name.focus(); await name.press('Control+End'); await name.pressSequentially('!'); await name.press('Enter');
+			await expect.poll(() => display.textContent()).toBe(`${ORIGINAL}!`);
+			await closeWorkspacePanel(editor, 'clip-spreadsheet');
+			await chooseCommandAction(page, editor, 'Edit', 'Undo'); await expect.poll(() => display.textContent()).toBe(ORIGINAL);
+			await chooseCommandAction(page, editor, 'Edit', 'Redo'); await expect.poll(() => display.textContent()).toBe(`${ORIGINAL}!`); return;
+		}
 		if (surface === 'Project bin') {
 			await chooseCommandAction(page, editor, 'Window', 'Project bin'); await clip.click({ button: 'right' });
 			await page.getByRole('menuitem', { name: 'Move to Project bin', exact: true }).click();

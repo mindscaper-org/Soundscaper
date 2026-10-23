@@ -80,7 +80,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 	const [pasting, setPasting] = useState(false);
 	const tableRef = useRef<HTMLTableElement>(null);
 	const restoreGridFocus = useRef<SpreadsheetCell | 'grid' | null>(null);
-	const inputRef = useRef<HTMLInputElement>(null);
+	const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 	const filesRef = useRef<HTMLInputElement>(null);
 	const alive = useRef(true);
 	const liveProject = useRef(snapshot.project);
