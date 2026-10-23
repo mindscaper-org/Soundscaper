@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { SaxesParser } from 'saxes';
+import { decodeBomMarkedUtf16 } from './bom-marked-text.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 
 export interface LegacyAupXmlLimits {
@@ -86,7 +87,7 @@ export async function readLegacyAupXml(
 			input.size,
 		);
 	}
-	const xml = await input.text();
+	const xml = await readLegacyAupText(input);
 	if (typeof xml !== 'string') throw new TypeError('A legacy Audacity project must return XML text.');
 	if (warningOptions.confirmFileSizeWarning) {
 		const actualBytes = utf8ByteLength(xml);
@@ -95,6 +96,18 @@ export async function readLegacyAupXml(
 	}
 	assertUtf8ByteLimit(xml, limits.maximumBytes);
 	return parseLegacyAupXml(xml, limits);
+}
+
+/** Blob.text() is UTF-8 in Firefox; preserve XML's explicitly marked UTF-16. */
+async function readLegacyAupText(input: LegacyAupXmlFile): Promise<string> {
+	if (input instanceof Blob) {
+		const prefix = new Uint8Array(await input.slice(0, 2).arrayBuffer());
+		if ((prefix[0] === 0xff && prefix[1] === 0xfe) || (prefix[0] === 0xfe && prefix[1] === 0xff)) {
+			const decoded = decodeBomMarkedUtf16(await input.arrayBuffer());
+			if (decoded !== null) return decoded;
+		}
+	}
+	return input.text();
 }
 
 function utf8ByteLength(xml: string): number {
