@@ -95,7 +95,13 @@ export function createFramescaperProjectBinVisualActions(
 		const source = records(project.sources).find(item => item.id === clip.sourceId);
 		if (!source) throw new ReferenceError('The visual source is missing.');
 		const retainedModel = collectVisualPresetGeneratorSourceIds(project).has(String(source.id));
-		if (!retainedModel) commands.push(sourceCommand(source, null));
+		if (!retainedModel) {
+			for (const fallback of records(project.videoFreezeFallbacks).filter(item => item.renderedSourceId === source.id)) {
+				commands.push({ type: 'video-freeze-fallback/set', renderedSourceId: source.id,
+					expectedFreezeFallback: fallback, freezeFallback: null });
+			}
+			commands.push(sourceCommand(source, null));
+		}
 		owner.actions.edit.commit({ type: 'batch', commands });
 		return Object.freeze([...ids]);
 	}
