@@ -33,6 +33,7 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const view = new DataView(bytes.buffer);
 	const count = new DataView(footer.buffer).getUint32(16, true);
 	const entries: [string, string | Uint8Array][] = [];
+	const externalKeys = new Set<string>();
 	const images: Record<string, unknown>[] = [];
 	let offset = 0;
 	for (let index = 0; index < count; index++) {
@@ -48,7 +49,10 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 		const value = bytes.subarray(offset, offset + length);
 		offset += length;
 		if ((flags & 6) === 0) entries.push([key, new TextDecoder('utf-8', { fatal: true }).decode(value)]);
-		else {
+		else if ((flags & 6) === 4) {
+			entries.push([key, new TextDecoder('utf-8', { fatal: true }).decode(value)]);
+			externalKeys.add(key);
+		} else {
 			entries.push([key, value]);
 			if (key.toLowerCase().startsWith('cover art (')) {
 				const end = value.indexOf(0);
@@ -66,8 +70,9 @@ export async function readApeMetadataTags(file: Blob, signal?: AbortSignal): Pro
 	const names: Readonly<Record<string, string>> = { TITLE: 'title', ARTIST: 'artist', ALBUM: 'album', ALBUMARTIST: 'albumArtist', GENRE: 'genre',
 		TRACK: 'trackNumber', DISC: 'discNumber', YEAR: 'date', TOTALTRACKS: 'tracksTotal', TOTALDISCS: 'discsTotal',
 		COMMENT: 'comment', DATE: 'date', LYRICS: 'lyrics', TRACKNUMBER: 'trackNumber', TRACKTOTAL: 'tracksTotal', DISCNUMBER: 'discNumber', DISCTOTAL: 'discsTotal' };
-	const explicitDate = entries.some(([key, value]) => key.toUpperCase().replace(/[ _-]/gu, '') === 'DATE' && typeof value === 'string' && value !== '');
+	const explicitDate = entries.some(([key, value]) => !externalKeys.has(key) && key.toUpperCase().replace(/[ _-]/gu, '') === 'DATE' && typeof value === 'string' && value !== '');
 	for (const [key, encoded] of entries) {
+		if (externalKeys.has(key)) continue;
 		const normalizedKey = key.toUpperCase().replace(/[ _-]/gu, '');
 		if (normalizedKey === 'YEAR' && explicitDate) continue;
 		const name = names[normalizedKey];

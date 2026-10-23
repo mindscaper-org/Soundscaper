@@ -59,3 +59,13 @@ export async function createMultiValueWavPackFixture(): Promise<File> {
 		track: '3\0Alternate track', date: '2026-10-23\u00002025', Custom: 'One\0Two',
 	})], 'Multiple performers.wv', { type: 'audio/wavpack' });
 }
+
+/** APEv2 external-reference items contain UTF-8 locators, rather than binary attachments. */
+export async function createReferenceWavPackFixture(type: 0 | 1 | 2, key = 'Related'): Promise<File> {
+	const { createApeFileMetadata } = await import('../../src/common/editor/ape-file-metadata.ts');
+	const tag = createApeFileMetadata({ [key]: 'https://example.org/credits/Éva', title: 'Referenced performance', year: '2026' });
+	const keyBytes = new TextEncoder().encode(`${key.toUpperCase()}\0`);
+	const position = Buffer.from(tag).indexOf(keyBytes); if (position < 8) throw new Error('The APE fixture key was not encoded.');
+	new DataView(tag.buffer).setUint32(position - 4, type << 1, true);
+	return new File([await createAudacityWavPackFixture(4800), tag], 'Referenced performance.wv', { type: 'audio/wavpack' });
+}
