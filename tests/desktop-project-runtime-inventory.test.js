@@ -20,6 +20,13 @@ test('the native label clipboard descriptor is admitted to the desktop project r
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes('src/common/editor/commands/label-clipboard-codec.js'));
 });
 
+test('desktop project serialization stages its encoder outside the assistance runtime', () => {
+	const encoder = 'src/common/editor/scape-project-document-encode.js';
+	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes(encoder));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(encoder));
+	assert.equal(DESKTOP_ASSISTANCE_RUNTIME_FILES.includes(encoder), false);
+});
+
 test('desktop project recovery declares its application closure independently of assistance runtime assets', () => {
 	const shared = 'src/common/editor/storage/project-recovery-repository.js';
 	const soundscaper = [
