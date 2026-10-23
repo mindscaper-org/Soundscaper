@@ -6,6 +6,7 @@ import {
 	type ClosedDomainRecord,
 } from './closed-domain-value.ts';
 import { fingerprintNativeMediaPlan } from './native-media-plan-canonical-form.ts';
+import { projectString } from './project-validation-primitives.ts';
 import {
 	computeVideoFreezeFreshnessV1,
 	classifyVideoFreezeFallbackV1,
@@ -177,7 +178,7 @@ function normalizePlacement(
 	if (!required) throw new RangeError('A non-placement visual model must not claim track placement.');
 	const name = 'unified visual placement';
 	const placement = readClosedDomainRecord(value, name, PLACEMENT_FIELDS);
-	const trackId = stableId(field(placement, 'trackId', name), `${name}.trackId`);
+	const trackId = projectString(field(placement, 'trackId', name), `${name}.trackId`);
 	if (!tracks.byId.has(trackId)) throw new ReferenceError('Unified visual references an unknown video track.');
 	return Object.freeze({ trackId });
 }

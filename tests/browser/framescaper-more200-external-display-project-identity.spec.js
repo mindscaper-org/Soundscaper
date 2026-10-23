@@ -12,7 +12,8 @@ import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../../src/frames
 import { createFramescaperProjectStore } from '../../src/framescaper/editor-project-store.ts';
 import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/editor-scape-native.ts';
 
-for (const id of ['Programme:one', 'Programme 映像']) test(`File Open preserves ${id} in preview and clean-display publication`, async ({ page }) => {
+for (const { id, trackId } of [{ id: 'Programme:one', trackId: 'pictures' },
+	{ id: 'Programme 映像', trackId: 'pictures' }, { id: 'track-identity', trackId: 'Pictures 映像' }]) test(`File Open preserves ${id}/${trackId} in preview and clean-display publication`, async ({ page }) => {
 	test.setTimeout(60_000);
 	const native = createRound7ExternalDisplayNativeFixture();
 	try {
@@ -41,8 +42,8 @@ for (const id of ['Programme:one', 'Programme 映像']) test(`File Open preserve
 				generator: { kind: 'solid', color: '#ff0000ff' } }] },
 			clips: [{ schemaVersion: 1, kind: 'generator', id: 'solid', sourceId: 'solid-source', sequenceId: 'main',
 				sequenceStartFrame: 0, sequenceFrameCount: 150, sourceInFrame: 0, sourceFrameCount: 150 }],
-			tracks: [{ id: 'pictures', type: 'video', clipIds: ['solid'] }],
-			sequences: [{ id: 'main', rate: { num: 30, den: 1 }, trackIds: ['pictures'] }], primarySequenceId: 'main' });
+			tracks: [{ id: trackId, type: 'video', clipIds: ['solid'] }],
+			sequences: [{ id: 'main', rate: { num: 30, den: 1 }, trackIds: [trackId] }], primarySequenceId: 'main' });
 		const store = createFramescaperProjectStore(PROFILE, { indexedDB: null, preferOpfs: false });
 		let archive;
 		try { archive = await createFramescaperScapeNativeRuntime(PROFILE).exportScapeProject(project, store); }
