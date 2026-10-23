@@ -1,3 +1,63 @@
+diff --git a/node_modules/mediabunny/src/metadata.ts b/node_modules/mediabunny/src/metadata.ts
+--- a/node_modules/mediabunny/src/metadata.ts
++++ b/node_modules/mediabunny/src/metadata.ts
+@@ -73,13 +73,13 @@
+ 	 * values. Additionally, all attached files (such as font files) are included here, where the key corresponds to
+ 	 * the FileUID and the value is an {@link AttachedFile}.
+ 	 * - MP3: The ID3v2 tags, or a single `'TAG'` key with the contents of the ID3v1 tag. The ID3v2 `'TXXX'`
+-	 * user-defined text frames are exposed as a `Record<string, string>`.
++	 * user-defined text frames are exposed as a `Record<string, string>`. Additional same-ID binary frames use indexed keys such as `USLT[1]`.
+ 	 * - ADTS: The ID3v2 tags, just like in MP3.
+ 	 * - Ogg: The key-value string pairs from the Vorbis-style comment header (see RFC 7845, Section 5.2).
+-	 * Additionally, the `'vendor'` key refers to the vendor string within this header.
++	 * Repeated fields use ordered numeric-key records. The `'vendor'` key refers to the vendor string within this header.
+ 	 * - WAVE: The individual metadata chunks within the RIFF INFO chunk. Values are always ISO 8859-1 strings.
+ 	 * - FLAC: The key-value string pairs from the vorbis metadata block (see RFC 9639, Section D.2.3).
+-	 * Additionally, the `'vendor'` key refers to the vendor string within this header. If ID3v2 tags appear at the
++	 * Repeated fields use ordered numeric-key records. The `'vendor'` key refers to the vendor string within this header. If ID3v2 tags appear at the
+ 	 * start of the file, their content is stored just like for MP3.
+ 	 * - MPEG-TS: Not supported.
+ 	*/
+diff --git a/node_modules/mediabunny/dist/modules/src/metadata.d.ts b/node_modules/mediabunny/dist/modules/src/metadata.d.ts
+--- a/node_modules/mediabunny/dist/modules/src/metadata.d.ts
++++ b/node_modules/mediabunny/dist/modules/src/metadata.d.ts
+@@ -70,13 +70,13 @@
+      * values. Additionally, all attached files (such as font files) are included here, where the key corresponds to
+      * the FileUID and the value is an {@link AttachedFile}.
+      * - MP3: The ID3v2 tags, or a single `'TAG'` key with the contents of the ID3v1 tag. The ID3v2 `'TXXX'`
+-     * user-defined text frames are exposed as a `Record<string, string>`.
++     * user-defined text frames are exposed as a `Record<string, string>`. Additional same-ID binary frames use indexed keys such as `USLT[1]`.
+      * - ADTS: The ID3v2 tags, just like in MP3.
+      * - Ogg: The key-value string pairs from the Vorbis-style comment header (see RFC 7845, Section 5.2).
+-     * Additionally, the `'vendor'` key refers to the vendor string within this header.
++     * Repeated fields use ordered numeric-key records. The `'vendor'` key refers to the vendor string within this header.
+      * - WAVE: The individual metadata chunks within the RIFF INFO chunk. Values are always ISO 8859-1 strings.
+      * - FLAC: The key-value string pairs from the vorbis metadata block (see RFC 9639, Section D.2.3).
+-     * Additionally, the `'vendor'` key refers to the vendor string within this header. If ID3v2 tags appear at the
++     * Repeated fields use ordered numeric-key records. The `'vendor'` key refers to the vendor string within this header. If ID3v2 tags appear at the
+      * start of the file, their content is stored just like for MP3.
+      * - MPEG-TS: Not supported.
+     */
+diff --git a/node_modules/mediabunny/dist/mediabunny.d.ts b/node_modules/mediabunny/dist/mediabunny.d.ts
+--- a/node_modules/mediabunny/dist/mediabunny.d.ts
++++ b/node_modules/mediabunny/dist/mediabunny.d.ts
+@@ -3207,13 +3207,13 @@
+      * values. Additionally, all attached files (such as font files) are included here, where the key corresponds to
+      * the FileUID and the value is an {@link AttachedFile}.
+      * - MP3: The ID3v2 tags, or a single `'TAG'` key with the contents of the ID3v1 tag. The ID3v2 `'TXXX'`
+-     * user-defined text frames are exposed as a `Record<string, string>`.
++     * user-defined text frames are exposed as a `Record<string, string>`. Additional same-ID binary frames use indexed keys such as `USLT[1]`.
+      * - ADTS: The ID3v2 tags, just like in MP3.
+      * - Ogg: The key-value string pairs from the Vorbis-style comment header (see RFC 7845, Section 5.2).
+-     * Additionally, the `'vendor'` key refers to the vendor string within this header.
++     * Repeated fields use ordered numeric-key records. The `'vendor'` key refers to the vendor string within this header.
+      * - WAVE: The individual metadata chunks within the RIFF INFO chunk. Values are always ISO 8859-1 strings.
+      * - FLAC: The key-value string pairs from the vorbis metadata block (see RFC 9639, Section D.2.3).
+-     * Additionally, the `'vendor'` key refers to the vendor string within this header. If ID3v2 tags appear at the
++     * Repeated fields use ordered numeric-key records. The `'vendor'` key refers to the vendor string within this header. If ID3v2 tags appear at the
+      * start of the file, their content is stored just like for MP3.
+      * - MPEG-TS: Not supported.
+      */
 diff --git a/node_modules/mediabunny/src/codec-data.ts b/node_modules/mediabunny/src/codec-data.ts
 --- a/node_modules/mediabunny/src/codec-data.ts
 +++ b/node_modules/mediabunny/src/codec-data.ts
@@ -272,7 +332,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/codec-data.js b/node_modul
 diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id3.ts
 --- a/node_modules/mediabunny/src/id3.ts
 +++ b/node_modules/mediabunny/src/id3.ts
-@@ -176,8 +176,11 @@
+@@ -176,8 +176,12 @@
  
  	const bytes = readBytes(slice, dataSize);
  	const reader = new Id3V2Reader(header, bytes);
@@ -281,12 +341,13 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 +	let legacyYear: string | undefined;
 +	let legacyDayMonth: string | undefined;
 +	let legacyTime: string | undefined;
++	const rawFrameCounts = new Map<string, number>();
 +
 +	if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion <= 3) {
  		reader.ununsynchronizeAll();
  	}
  
-@@ -197,8 +200,8 @@
+@@ -197,8 +201,8 @@
  			break;
  		}
  
@@ -297,7 +358,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  
  		let	frameEncrypted = false;
  		let frameCompressed = false;
-@@ -227,23 +230,32 @@
+@@ -227,23 +231,48 @@
  		}
  
  		if (frameUnsynchronized) {
@@ -316,6 +377,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 +		}
 +		frameStartPos += prefixBytes;
 +		reader.pos = frameStartPos;
++		let rawFrameKey: string | null = null;
  		tags.raw ??= {};
 -		if (frame.id === 'TXXX') {
 -			const txxx = tags.raw['TXXX'] ??= {};
@@ -336,11 +398,26 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  		} else {
  			// For the others, let's just get the bytes
 -			tags.raw[frame.id] ??= reader.readBytes(frame.size);
-+			tags.raw[frame.id] ??= reader.readBytes(frameEndPos - reader.pos);
++			const payload = reader.readBytes(frameEndPos - reader.pos);
++			if (frame.id === 'APIC' || frame.id === 'PIC') {
++				// Pictures already retain every payload in tags.images; keep their raw budget unchanged.
++				tags.raw[frame.id] ??= payload;
++			} else {
++				let count = rawFrameCounts.get(frame.id) ?? 0;
++				if (count === 0) {
++					tags.raw[frame.id] ??= payload;
++				} else {
++					let key = `${frame.id}[${count}]`;
++					while (Object.hasOwn(tags.raw, key)) key = `${frame.id}[${++count}]`;
++					tags.raw[key] = payload;
++					rawFrameKey = key;
++				}
++				rawFrameCounts.set(frame.id, count + 1);
++			}
  		}
  
  		reader.pos = frameStartPos;
-@@ -276,7 +288,7 @@
+@@ -276,7 +305,7 @@
  
  			case 'TRCK':
  			case 'TRK': {
@@ -349,7 +426,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				const parts = trackText.split('/');
  				const trackNum = Number.parseInt(parts[0]!, 10);
  				const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -291,7 +303,7 @@
+@@ -291,7 +320,7 @@
  
  			case 'TPOS':
  			case 'TPA': {
@@ -358,7 +435,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				const parts = discText.split('/');
  				const discNum = Number.parseInt(parts[0]!, 10);
  				const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -307,13 +319,20 @@
+@@ -307,13 +336,20 @@
  			case 'TCON':
  			case 'TCO': {
  				const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -386,7 +463,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				}
  
  				match = /^\d+$/.exec(genreText);
-@@ -328,10 +347,11 @@
+@@ -328,10 +364,11 @@
  				tags.genre ??= genreText;
  			}; break;
  
@@ -402,7 +479,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  
  				if (!Number.isNaN(date.getTime())) {
  					tags.date ??= date;
-@@ -340,12 +360,15 @@
+@@ -340,28 +377,55 @@
  
  			case 'TYER':
  			case 'TYE': {
@@ -424,7 +501,53 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  			}; break;
  
  			case 'USLT':
-@@ -377,7 +400,7 @@
+ 			case 'ULT': {
+ 				const encoding = reader.readU8();
+-				reader.pos += 3; // Skip language
+-				reader.readId3V2Text(encoding, frameEndPos); // Short content description
+-				tags.lyrics ??= reader.readId3V2Text(encoding, frameEndPos);
++				const language = reader.readAscii(3);
++				const description = reader.readId3V2Text(encoding, frameEndPos);
++				const text = reader.readId3V2Text(encoding, frameEndPos);
++				tags.lyrics ??= text;
++				if (rawFrameKey) {
++					tags.raw[rawFrameKey + '.bytes'] = tags.raw[rawFrameKey]!;
++					tags.raw[rawFrameKey] = { language, description, text };
++				}
+ 			}; break;
+ 
+ 			case 'COMM':
+ 			case 'COM': {
+ 				const encoding = reader.readU8();
+-				reader.pos += 3; // Skip language
+-				reader.readId3V2Text(encoding, frameEndPos); // Short content description
+-				tags.comment ??= reader.readId3V2Text(encoding, frameEndPos);
++				const language = reader.readAscii(3);
++				const description = reader.readId3V2Text(encoding, frameEndPos);
++				const text = reader.readId3V2Text(encoding, frameEndPos);
++				tags.comment ??= text;
++				if (rawFrameKey) {
++					tags.raw[rawFrameKey + '.bytes'] = tags.raw[rawFrameKey]!;
++					tags.raw[rawFrameKey] = { language, description, text };
++				}
++			}; break;
++
++			case 'UFID':
++			case 'UFI': {
++				if (rawFrameKey) {
++					const ownerEnd = reader.bytes.indexOf(0, reader.pos);
++					if (ownerEnd >= reader.pos && ownerEnd < frameEndPos) {
++						const owner = reader.readAscii(ownerEnd - reader.pos);
++						reader.pos++;
++						const identifierHex = Array.from(reader.readBytes(frameEndPos - reader.pos), byte => byte.toString(16).padStart(2, '0')).join('');
++						tags.raw[rawFrameKey + '.bytes'] = tags.raw[rawFrameKey]!;
++						tags.raw[rawFrameKey] = { owner, identifierHex };
++					}
++				}
+ 			}; break;
+ 
+ 			case 'APIC':
+@@ -377,7 +441,7 @@
  							? 'image/jpeg'
  							: 'image/*';
  				} else {
@@ -433,7 +556,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				}
  
  				const pictureType = reader.readU8();
-@@ -408,6 +431,18 @@
+@@ -408,6 +472,18 @@
  
  		reader.pos = frameEndPos;
  	}
@@ -452,7 +575,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  };
  
  // https://id3.org/id3v2.3.0
-@@ -431,7 +466,7 @@
+@@ -431,7 +507,7 @@
  			newBytes.push(value1);
  
  			if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -461,7 +584,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  				if (value2 === 0x00) {
  					i++;
  				}
-@@ -466,6 +501,7 @@
+@@ -466,6 +542,7 @@
  		this.bytes.set(after, before.length + newBytes.length);
  
  		this.view = new DataView(this.bytes.buffer);
@@ -469,7 +592,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  	}
  
  	readBytes(length: number) {
-@@ -598,7 +634,10 @@
+@@ -598,7 +675,10 @@
  			}
  
  			case Id3V2TextEncoding.UTF_16_WITH_BOM: {
@@ -481,7 +604,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
  					const decoder = new TextDecoder('utf-16le');
  					const endIndex = coalesceIndex(
  						data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -640,13 +679,20 @@
+@@ -640,13 +720,20 @@
  		}
  	}
  
@@ -507,7 +630,7 @@ diff --git a/node_modules/mediabunny/src/id3.ts b/node_modules/mediabunny/src/id
 diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/mediabunny/dist/modules/src/id3.js
 --- a/node_modules/mediabunny/dist/modules/src/id3.js
 +++ b/node_modules/mediabunny/dist/modules/src/id3.js
-@@ -136,7 +136,10 @@
+@@ -136,7 +136,11 @@
          : header.size;
      const bytes = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes);
@@ -515,11 +638,12 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
 +    let legacyYear;
 +    let legacyDayMonth;
 +    let legacyTime;
++    const rawFrameCounts = new Map();
 +    if ((header.flags & Id3V2HeaderFlags.Unsynchronisation) && header.majorVersion <= 3) {
          reader.ununsynchronizeAll();
      }
      if (header.flags & Id3V2HeaderFlags.ExtendedHeader) {
-@@ -153,8 +156,8 @@
+@@ -153,8 +157,8 @@
          if (!frame) {
              break;
          }
@@ -530,7 +654,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
          let frameEncrypted = false;
          let frameCompressed = false;
          let frameUnsynchronized = false;
-@@ -179,23 +182,32 @@
+@@ -179,23 +183,48 @@
              continue;
          }
          if (frameUnsynchronized) {
@@ -547,6 +671,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
 +        }
 +        frameStartPos += prefixBytes;
 +        reader.pos = frameStartPos;
++        let rawFrameKey = null;
          tags.raw ??= {};
 -        if (frame.id === 'TXXX') {
 -            const txxx = tags.raw['TXXX'] ??= {};
@@ -567,11 +692,26 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
          else {
              // For the others, let's just get the bytes
 -            tags.raw[frame.id] ??= reader.readBytes(frame.size);
-+            tags.raw[frame.id] ??= reader.readBytes(frameEndPos - reader.pos);
++            const payload = reader.readBytes(frameEndPos - reader.pos);
++            if (frame.id === 'APIC' || frame.id === 'PIC') {
++                // Pictures already retain every payload in tags.images; keep their raw budget unchanged.
++                tags.raw[frame.id] ??= payload;
++            } else {
++                let count = rawFrameCounts.get(frame.id) ?? 0;
++                if (count === 0) {
++                    tags.raw[frame.id] ??= payload;
++                } else {
++                    let key = `${frame.id}[${count}]`;
++                    while (Object.hasOwn(tags.raw, key)) key = `${frame.id}[${++count}]`;
++                    tags.raw[key] = payload;
++                    rawFrameKey = key;
++                }
++                rawFrameCounts.set(frame.id, count + 1);
++            }
          }
          reader.pos = frameStartPos;
          switch (frame.id) {
-@@ -237,7 +249,7 @@
+@@ -237,7 +266,7 @@
              case 'TRCK':
              case 'TRK':
                  {
@@ -580,7 +720,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      const parts = trackText.split('/');
                      const trackNum = Number.parseInt(parts[0], 10);
                      const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -253,7 +265,7 @@
+@@ -253,7 +282,7 @@
              case 'TPOS':
              case 'TPA':
                  {
@@ -589,7 +729,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      const parts = discText.split('/');
                      const discNum = Number.parseInt(parts[0], 10);
                      const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -270,14 +282,22 @@
+@@ -270,14 +299,22 @@
              case 'TCO':
                  {
                      const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -620,7 +760,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      match = /^\d+$/.exec(genreText);
                      if (match) {
                          const genreNumber = Number.parseInt(match[0]);
-@@ -291,10 +311,11 @@
+@@ -291,10 +328,11 @@
                  ;
                  break;
              case 'TDRC':
@@ -636,7 +776,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      if (!Number.isNaN(date.getTime())) {
                          tags.date ??= date;
                      }
-@@ -302,16 +323,18 @@
+@@ -302,23 +340,30 @@
                  ;
                  break;
              case 'TYER':
@@ -665,7 +805,60 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
              case 'USLT':
              case 'ULT':
                  {
-@@ -346,7 +369,7 @@
+                     const encoding = reader.readU8();
+-                    reader.pos += 3; // Skip language
+-                    reader.readId3V2Text(encoding, frameEndPos); // Short content description
+-                    tags.lyrics ??= reader.readId3V2Text(encoding, frameEndPos);
++                    const language = reader.readAscii(3);
++                    const description = reader.readId3V2Text(encoding, frameEndPos);
++                    const text = reader.readId3V2Text(encoding, frameEndPos);
++                    tags.lyrics ??= text;
++                    if (rawFrameKey) {
++                        tags.raw[rawFrameKey + '.bytes'] = tags.raw[rawFrameKey];
++                        tags.raw[rawFrameKey] = { language, description, text };
++                    }
+                 }
+                 ;
+                 break;
+@@ -326,12 +371,31 @@
+             case 'COM':
+                 {
+                     const encoding = reader.readU8();
+-                    reader.pos += 3; // Skip language
+-                    reader.readId3V2Text(encoding, frameEndPos); // Short content description
+-                    tags.comment ??= reader.readId3V2Text(encoding, frameEndPos);
+-                }
+-                ;
+-                break;
++                    const language = reader.readAscii(3);
++                    const description = reader.readId3V2Text(encoding, frameEndPos);
++                    const text = reader.readId3V2Text(encoding, frameEndPos);
++                    tags.comment ??= text;
++                    if (rawFrameKey) {
++                        tags.raw[rawFrameKey + '.bytes'] = tags.raw[rawFrameKey];
++                        tags.raw[rawFrameKey] = { language, description, text };
++                    }
++                }
++                ;
++                break;
++            case 'UFID':
++            case 'UFI': {
++                if (rawFrameKey) {
++                    const ownerEnd = reader.bytes.indexOf(0, reader.pos);
++                    if (ownerEnd >= reader.pos && ownerEnd < frameEndPos) {
++                        const owner = reader.readAscii(ownerEnd - reader.pos);
++                        reader.pos++;
++                        const identifierHex = Array.from(reader.readBytes(frameEndPos - reader.pos), byte => byte.toString(16).padStart(2, '0')).join('');
++                        tags.raw[rawFrameKey + '.bytes'] = tags.raw[rawFrameKey];
++                        tags.raw[rawFrameKey] = { owner, identifierHex };
++                    }
++                }
++            }; break;
++
+             case 'APIC':
+             case 'PIC':
+                 {
+@@ -346,7 +410,7 @@
                                  : 'image/*';
                      }
                      else {
@@ -674,7 +867,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      }
                      const pictureType = reader.readU8();
                      const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd(); // Trim ending spaces
-@@ -378,6 +401,18 @@
+@@ -378,6 +442,18 @@
          }
          reader.pos = frameEndPos;
      }
@@ -693,7 +886,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
  };
  // https://id3.org/id3v2.3.0
  export class Id3V2Reader {
-@@ -396,7 +431,7 @@
+@@ -396,7 +472,7 @@
              const value1 = this.bytes[i];
              newBytes.push(value1);
              if (value1 === 0xff && i !== this.bytes.length - 1) {
@@ -702,7 +895,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                  if (value2 === 0x00) {
                      i++;
                  }
-@@ -424,6 +459,7 @@
+@@ -424,6 +500,7 @@
          this.bytes.set(newBytes, before.length);
          this.bytes.set(after, before.length + newBytes.length);
          this.view = new DataView(this.bytes.buffer);
@@ -710,7 +903,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
      }
      readBytes(length) {
          const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -534,7 +570,10 @@
+@@ -534,7 +611,10 @@
                  return str;
              }
              case Id3V2TextEncoding.UTF_16_WITH_BOM: {
@@ -722,7 +915,7 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
                      const decoder = new TextDecoder('utf-16le');
                      const endIndex = coalesceIndex(data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0), data.length);
                      this.pos = startPos + Math.min(endIndex + 2, data.length);
-@@ -566,12 +605,19 @@
+@@ -566,12 +646,19 @@
              }
          }
      }
@@ -1645,7 +1838,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26876,7 +26982,10 @@
+@@ -26876,7 +26982,11 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
@@ -1653,11 +1846,12 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
 +    let legacyYear;
 +    let legacyDayMonth;
 +    let legacyTime;
++    const rawFrameCounts = new Map();
 +    if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion <= 3) {
        reader.ununsynchronizeAll();
      }
      if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26892,8 +27001,8 @@
+@@ -26892,8 +27002,8 @@
        if (!frame) {
          break;
        }
@@ -1668,7 +1862,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26916,19 +27025,28 @@
+@@ -26916,19 +27026,44 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -1685,6 +1879,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
 +      }
 +      frameStartPos += prefixBytes;
 +      reader.pos = frameStartPos;
++      let rawFrameKey = null;
        tags.raw ??= {};
 -      if (frame.id === "TXXX") {
 -        const txxx = tags.raw["TXXX"] ??= {};
@@ -1701,11 +1896,26 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
 +        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos, '\0');
        } else {
 -        tags.raw[frame.id] ??= reader.readBytes(frame.size);
-+        tags.raw[frame.id] ??= reader.readBytes(frameEndPos - reader.pos);
++        const payload = reader.readBytes(frameEndPos - reader.pos);
++        if (frame.id === "APIC" || frame.id === "PIC") {
++          // Pictures already retain every payload in tags.images; keep their raw budget unchanged.
++          tags.raw[frame.id] ??= payload;
++        } else {
++          let count = rawFrameCounts.get(frame.id) ?? 0;
++          if (count === 0) {
++            tags.raw[frame.id] ??= payload;
++          } else {
++            let key = `${frame.id}[${count}]`;
++            while (Object.hasOwn(tags.raw, key)) key = `${frame.id}[${++count}]`;
++            tags.raw[key] = payload;
++            rawFrameKey = key;
++          }
++          rawFrameCounts.set(frame.id, count + 1);
++        }
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -26970,7 +27088,7 @@
+@@ -26970,7 +27105,7 @@
          case "TRCK":
          case "TRK":
            {
@@ -1714,7 +1924,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = trackText.split("/");
              const trackNum = Number.parseInt(parts[0], 10);
              const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26986,7 +27104,7 @@
+@@ -26986,7 +27121,7 @@
          case "TPOS":
          case "TPA":
            {
@@ -1723,7 +1933,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27003,14 +27121,22 @@
+@@ -27003,14 +27138,22 @@
          case "TCO":
            {
              const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -1754,7 +1964,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              match = /^\d+$/.exec(genreText);
              if (match) {
                const genreNumber = Number.parseInt(match[0]);
-@@ -27024,27 +27150,30 @@
+@@ -27024,34 +27167,42 @@
            ;
            break;
          case "TDRC":
@@ -1799,7 +2009,57 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          case "USLT":
          case "ULT":
            {
-@@ -27074,7 +27203,7 @@
+             const encoding = reader.readU8();
+-            reader.pos += 3;
+-            reader.readId3V2Text(encoding, frameEndPos);
+-            tags.lyrics ??= reader.readId3V2Text(encoding, frameEndPos);
++            const language = reader.readAscii(3);
++            const description = reader.readId3V2Text(encoding, frameEndPos);
++            const text = reader.readId3V2Text(encoding, frameEndPos);
++            tags.lyrics ??= text;
++            if (rawFrameKey) {
++              tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++              tags.raw[rawFrameKey] = { language, description, text };
++            }
+           }
+           ;
+           break;
+@@ -27059,12 +27210,31 @@
+         case "COM":
+           {
+             const encoding = reader.readU8();
+-            reader.pos += 3;
+-            reader.readId3V2Text(encoding, frameEndPos);
+-            tags.comment ??= reader.readId3V2Text(encoding, frameEndPos);
++            const language = reader.readAscii(3);
++            const description = reader.readId3V2Text(encoding, frameEndPos);
++            const text = reader.readId3V2Text(encoding, frameEndPos);
++            tags.comment ??= text;
++            if (rawFrameKey) {
++              tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++              tags.raw[rawFrameKey] = { language, description, text };
++            }
+           }
+           ;
+           break;
++        case "UFID":
++        case "UFI": {
++          if (rawFrameKey) {
++            const ownerEnd = reader.bytes.indexOf(0, reader.pos);
++            if (ownerEnd >= reader.pos && ownerEnd < frameEndPos) {
++              const owner = reader.readAscii(ownerEnd - reader.pos);
++              reader.pos++;
++              const identifierHex = Array.from(reader.readBytes(frameEndPos - reader.pos), byte => byte.toString(16).padStart(2, "0")).join("");
++              tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++              tags.raw[rawFrameKey] = { owner, identifierHex };
++            }
++          }
++        }; break;
++
+         case "APIC":
+         case "PIC":
+           {
+@@ -27074,7 +27244,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -1808,7 +2068,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27101,6 +27230,18 @@
+@@ -27101,6 +27271,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -1827,7 +2087,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27118,7 +27259,7 @@
+@@ -27118,7 +27300,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -1836,7 +2096,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            if (value2 === 0) {
              i++;
            }
-@@ -27146,6 +27287,7 @@
+@@ -27146,6 +27328,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -1844,7 +2104,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27246,7 +27388,10 @@
+@@ -27246,7 +27429,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -1856,7 +2116,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27284,12 +27429,19 @@
+@@ -27284,12 +27470,19 @@
          }
        }
      }
@@ -2274,7 +2534,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              await this.demuxer.advanceReader();
              continue;
            }
-@@ -26879,7 +26985,10 @@
+@@ -26879,7 +26985,11 @@
      const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
      const bytes2 = readBytes(slice, dataSize);
      const reader = new Id3V2Reader(header, bytes2);
@@ -2282,11 +2542,12 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
 +    let legacyYear;
 +    let legacyDayMonth;
 +    let legacyTime;
++    const rawFrameCounts = new Map();
 +    if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion <= 3) {
        reader.ununsynchronizeAll();
      }
      if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26895,8 +27004,8 @@
+@@ -26895,8 +27005,8 @@
        if (!frame) {
          break;
        }
@@ -2297,7 +2558,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
        let frameEncrypted = false;
        let frameCompressed = false;
        let frameUnsynchronized = false;
-@@ -26919,19 +27028,28 @@
+@@ -26919,19 +27029,44 @@
          continue;
        }
        if (frameUnsynchronized) {
@@ -2314,6 +2575,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
 +      }
 +      frameStartPos += prefixBytes;
 +      reader.pos = frameStartPos;
++      let rawFrameKey = null;
        tags.raw ??= {};
 -      if (frame.id === "TXXX") {
 -        const txxx = tags.raw["TXXX"] ??= {};
@@ -2330,11 +2592,26 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
 +        tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos, '\0');
        } else {
 -        tags.raw[frame.id] ??= reader.readBytes(frame.size);
-+        tags.raw[frame.id] ??= reader.readBytes(frameEndPos - reader.pos);
++        const payload = reader.readBytes(frameEndPos - reader.pos);
++        if (frame.id === "APIC" || frame.id === "PIC") {
++          // Pictures already retain every payload in tags.images; keep their raw budget unchanged.
++          tags.raw[frame.id] ??= payload;
++        } else {
++          let count = rawFrameCounts.get(frame.id) ?? 0;
++          if (count === 0) {
++            tags.raw[frame.id] ??= payload;
++          } else {
++            let key = `${frame.id}[${count}]`;
++            while (Object.hasOwn(tags.raw, key)) key = `${frame.id}[${++count}]`;
++            tags.raw[key] = payload;
++            rawFrameKey = key;
++          }
++          rawFrameCounts.set(frame.id, count + 1);
++        }
        }
        reader.pos = frameStartPos;
        switch (frame.id) {
-@@ -26973,7 +27091,7 @@
+@@ -26973,7 +27108,7 @@
          case "TRCK":
          case "TRK":
            {
@@ -2343,7 +2620,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = trackText.split("/");
              const trackNum = Number.parseInt(parts[0], 10);
              const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26989,7 +27107,7 @@
+@@ -26989,7 +27124,7 @@
          case "TPOS":
          case "TPA":
            {
@@ -2352,7 +2629,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const parts = discText.split("/");
              const discNum = Number.parseInt(parts[0], 10);
              const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -27006,14 +27124,22 @@
+@@ -27006,14 +27141,22 @@
          case "TCO":
            {
              const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -2383,7 +2660,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              match = /^\d+$/.exec(genreText);
              if (match) {
                const genreNumber = Number.parseInt(match[0]);
-@@ -27027,27 +27153,30 @@
+@@ -27027,34 +27170,42 @@
            ;
            break;
          case "TDRC":
@@ -2428,7 +2705,57 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          case "USLT":
          case "ULT":
            {
-@@ -27077,7 +27206,7 @@
+             const encoding = reader.readU8();
+-            reader.pos += 3;
+-            reader.readId3V2Text(encoding, frameEndPos);
+-            tags.lyrics ??= reader.readId3V2Text(encoding, frameEndPos);
++            const language = reader.readAscii(3);
++            const description = reader.readId3V2Text(encoding, frameEndPos);
++            const text = reader.readId3V2Text(encoding, frameEndPos);
++            tags.lyrics ??= text;
++            if (rawFrameKey) {
++              tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++              tags.raw[rawFrameKey] = { language, description, text };
++            }
+           }
+           ;
+           break;
+@@ -27062,12 +27213,31 @@
+         case "COM":
+           {
+             const encoding = reader.readU8();
+-            reader.pos += 3;
+-            reader.readId3V2Text(encoding, frameEndPos);
+-            tags.comment ??= reader.readId3V2Text(encoding, frameEndPos);
++            const language = reader.readAscii(3);
++            const description = reader.readId3V2Text(encoding, frameEndPos);
++            const text = reader.readId3V2Text(encoding, frameEndPos);
++            tags.comment ??= text;
++            if (rawFrameKey) {
++              tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++              tags.raw[rawFrameKey] = { language, description, text };
++            }
+           }
+           ;
+           break;
++        case "UFID":
++        case "UFI": {
++          if (rawFrameKey) {
++            const ownerEnd = reader.bytes.indexOf(0, reader.pos);
++            if (ownerEnd >= reader.pos && ownerEnd < frameEndPos) {
++              const owner = reader.readAscii(ownerEnd - reader.pos);
++              reader.pos++;
++              const identifierHex = Array.from(reader.readBytes(frameEndPos - reader.pos), byte => byte.toString(16).padStart(2, "0")).join("");
++              tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++              tags.raw[rawFrameKey] = { owner, identifierHex };
++            }
++          }
++        }; break;
++
+         case "APIC":
+         case "PIC":
+           {
+@@ -27077,7 +27247,7 @@
                const imageFormat = reader.readAscii(3);
                mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
              } else {
@@ -2437,7 +2764,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              }
              const pictureType = reader.readU8();
              const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -27104,6 +27233,18 @@
+@@ -27104,6 +27274,18 @@
        }
        reader.pos = frameEndPos;
      }
@@ -2456,7 +2783,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
    };
    var Id3V2Reader = class {
      constructor(header, bytes2) {
-@@ -27121,7 +27262,7 @@
+@@ -27121,7 +27303,7 @@
          const value1 = this.bytes[i];
          newBytes.push(value1);
          if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -2465,7 +2792,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            if (value2 === 0) {
              i++;
            }
-@@ -27149,6 +27290,7 @@
+@@ -27149,6 +27331,7 @@
        this.bytes.set(newBytes, before.length);
        this.bytes.set(after, before.length + newBytes.length);
        this.view = new DataView(this.bytes.buffer);
@@ -2473,7 +2800,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
      }
      readBytes(length) {
        const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27249,7 +27391,10 @@
+@@ -27249,7 +27432,10 @@
            return str;
          }
          case 1 /* UTF_16_WITH_BOM */: {
@@ -2485,7 +2812,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
              const decoder = new TextDecoder("utf-16le");
              const endIndex = coalesceIndex(
                data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27287,12 +27432,19 @@
+@@ -27287,12 +27473,19 @@
          }
        }
      }
@@ -2895,7 +3222,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            await this.demuxer.advanceReader();
            continue;
          }
-@@ -26719,7 +26825,10 @@
+@@ -26719,7 +26825,11 @@
    const dataSize = header.flags & 16 /* Footer */ ? header.size - ID3_V2_HEADER_SIZE : header.size;
    const bytes2 = readBytes(slice, dataSize);
    const reader = new Id3V2Reader(header, bytes2);
@@ -2903,11 +3230,12 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
 +  let legacyYear;
 +  let legacyDayMonth;
 +  let legacyTime;
++  const rawFrameCounts = new Map();
 +  if (header.flags & 128 /* Unsynchronisation */ && header.majorVersion <= 3) {
      reader.ununsynchronizeAll();
    }
    if (header.flags & 64 /* ExtendedHeader */) {
-@@ -26735,8 +26844,8 @@
+@@ -26735,8 +26845,8 @@
      if (!frame) {
        break;
      }
@@ -2918,7 +3246,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
      let frameEncrypted = false;
      let frameCompressed = false;
      let frameUnsynchronized = false;
-@@ -26759,19 +26868,28 @@
+@@ -26759,19 +26869,44 @@
        continue;
      }
      if (frameUnsynchronized) {
@@ -2935,6 +3263,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
 +    }
 +    frameStartPos += prefixBytes;
 +    reader.pos = frameStartPos;
++    let rawFrameKey = null;
      tags.raw ??= {};
 -    if (frame.id === "TXXX") {
 -      const txxx = tags.raw["TXXX"] ??= {};
@@ -2951,11 +3280,26 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
 +      tags.raw[frame.id] ??= reader.readId3V2EncodingAndText(frameEndPos, '\0');
      } else {
 -      tags.raw[frame.id] ??= reader.readBytes(frame.size);
-+      tags.raw[frame.id] ??= reader.readBytes(frameEndPos - reader.pos);
++      const payload = reader.readBytes(frameEndPos - reader.pos);
++      if (frame.id === "APIC" || frame.id === "PIC") {
++        // Pictures already retain every payload in tags.images; keep their raw budget unchanged.
++        tags.raw[frame.id] ??= payload;
++      } else {
++        let count = rawFrameCounts.get(frame.id) ?? 0;
++        if (count === 0) {
++          tags.raw[frame.id] ??= payload;
++        } else {
++          let key = `${frame.id}[${count}]`;
++          while (Object.hasOwn(tags.raw, key)) key = `${frame.id}[${++count}]`;
++          tags.raw[key] = payload;
++          rawFrameKey = key;
++        }
++        rawFrameCounts.set(frame.id, count + 1);
++      }
      }
      reader.pos = frameStartPos;
      switch (frame.id) {
-@@ -26813,7 +26931,7 @@
+@@ -26813,7 +26948,7 @@
        case "TRCK":
        case "TRK":
          {
@@ -2964,7 +3308,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = trackText.split("/");
            const trackNum = Number.parseInt(parts[0], 10);
            const tracksTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26829,7 +26947,7 @@
+@@ -26829,7 +26964,7 @@
        case "TPOS":
        case "TPA":
          {
@@ -2973,7 +3317,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const parts = discText.split("/");
            const discNum = Number.parseInt(parts[0], 10);
            const discsTotal = parts[1] && Number.parseInt(parts[1], 10);
-@@ -26846,14 +26964,22 @@
+@@ -26846,14 +26981,22 @@
        case "TCO":
          {
            const genreText = reader.readId3V2EncodingAndText(frameEndPos);
@@ -3004,7 +3348,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            match = /^\d+$/.exec(genreText);
            if (match) {
              const genreNumber = Number.parseInt(match[0]);
-@@ -26867,27 +26993,30 @@
+@@ -26867,34 +27010,42 @@
          ;
          break;
        case "TDRC":
@@ -3049,7 +3393,57 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        case "USLT":
        case "ULT":
          {
-@@ -26917,7 +27046,7 @@
+           const encoding = reader.readU8();
+-          reader.pos += 3;
+-          reader.readId3V2Text(encoding, frameEndPos);
+-          tags.lyrics ??= reader.readId3V2Text(encoding, frameEndPos);
++          const language = reader.readAscii(3);
++          const description = reader.readId3V2Text(encoding, frameEndPos);
++          const text = reader.readId3V2Text(encoding, frameEndPos);
++          tags.lyrics ??= text;
++          if (rawFrameKey) {
++            tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++            tags.raw[rawFrameKey] = { language, description, text };
++          }
+         }
+         ;
+         break;
+@@ -26902,12 +27053,31 @@
+       case "COM":
+         {
+           const encoding = reader.readU8();
+-          reader.pos += 3;
+-          reader.readId3V2Text(encoding, frameEndPos);
+-          tags.comment ??= reader.readId3V2Text(encoding, frameEndPos);
++          const language = reader.readAscii(3);
++          const description = reader.readId3V2Text(encoding, frameEndPos);
++          const text = reader.readId3V2Text(encoding, frameEndPos);
++          tags.comment ??= text;
++          if (rawFrameKey) {
++            tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++            tags.raw[rawFrameKey] = { language, description, text };
++          }
+         }
+         ;
+         break;
++      case "UFID":
++      case "UFI": {
++        if (rawFrameKey) {
++          const ownerEnd = reader.bytes.indexOf(0, reader.pos);
++          if (ownerEnd >= reader.pos && ownerEnd < frameEndPos) {
++            const owner = reader.readAscii(ownerEnd - reader.pos);
++            reader.pos++;
++            const identifierHex = Array.from(reader.readBytes(frameEndPos - reader.pos), byte => byte.toString(16).padStart(2, "0")).join("");
++            tags.raw[rawFrameKey + ".bytes"] = tags.raw[rawFrameKey];
++            tags.raw[rawFrameKey] = { owner, identifierHex };
++          }
++        }
++      }; break;
++
+       case "APIC":
+       case "PIC":
+         {
+@@ -26917,7 +27087,7 @@
              const imageFormat = reader.readAscii(3);
              mimeType = imageFormat === "PNG" ? "image/png" : imageFormat === "JPG" ? "image/jpeg" : "image/*";
            } else {
@@ -3058,7 +3452,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            }
            const pictureType = reader.readU8();
            const description = reader.readId3V2Text(encoding, frameEndPos).trimEnd();
-@@ -26944,6 +27073,18 @@
+@@ -26944,6 +27114,18 @@
      }
      reader.pos = frameEndPos;
    }
@@ -3077,7 +3471,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
  };
  var Id3V2Reader = class {
    constructor(header, bytes2) {
-@@ -26961,7 +27102,7 @@
+@@ -26961,7 +27143,7 @@
        const value1 = this.bytes[i];
        newBytes.push(value1);
        if (value1 === 255 && i !== this.bytes.length - 1) {
@@ -3086,7 +3480,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
          if (value2 === 0) {
            i++;
          }
-@@ -26989,6 +27130,7 @@
+@@ -26989,6 +27171,7 @@
      this.bytes.set(newBytes, before.length);
      this.bytes.set(after, before.length + newBytes.length);
      this.view = new DataView(this.bytes.buffer);
@@ -3094,7 +3488,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
    }
    readBytes(length) {
      const slice = this.bytes.subarray(this.pos, this.pos + length);
-@@ -27089,7 +27231,10 @@
+@@ -27089,7 +27272,10 @@
          return str;
        }
        case 1 /* UTF_16_WITH_BOM */: {
@@ -3106,7 +3500,7 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
            const decoder = new TextDecoder("utf-16le");
            const endIndex = coalesceIndex(
              data.findIndex((x, i) => x === 0 && data[i + 1] === 0 && i % 2 === 0),
-@@ -27127,12 +27272,19 @@
+@@ -27127,12 +27313,19 @@
        }
      }
    }

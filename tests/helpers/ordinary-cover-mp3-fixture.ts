@@ -70,10 +70,7 @@ async function loadCore(): Promise<PinnedCore> {
 
 /** ID3v2.4 section5 permits a footer-bearing end tag, before compatibility tags. */
 export async function footerTaggedMp3Fixture(legacyTrailer = false, leading = false, update = false, artwork = false): Promise<File> {
-	const pcm = Float32Array.from({ length: 4800 }, (_, frame) => Math.sin(frame * .03) * .2);
-	const audio = await encodeDedicatedAudioPcm({ format: 'mp3', input: new Uint8Array(pcm.buffer),
-		frameCount: pcm.length, sampleRate: 48_000, channelCount: 1, settings: { bitrateKbps: 192 }, maximumOutputBytes: 1024 ** 2 },
-	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
+	const audio = await ordinaryMp3Pcm();
 	const cover = (description: string, blue: boolean): string => JSON.stringify([{ mimeType: 'image/png', description, pictureType: 3,
 		data: blue ? 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQkTsBAAFEAPtKtXAbAAAAAElFTkSuQmCC'
 			: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4IScCAAKsAPs2xCzlAAAAAElFTkSuQmCC' }]);
@@ -93,4 +90,36 @@ export async function footerTaggedMp3Fixture(legacyTrailer = false, leading = fa
 	earlier.set([earlierSize >>> 21 & 127, earlierSize >>> 14 & 127, earlierSize >>> 7 & 127, earlierSize & 127], 6);
 	return new File([...(leading ? [earlier, seek] : []),
 		audio, header, frames, footer, legacy], 'Footer-tagged.mp3', { type: 'audio/mpeg' });
+}
+
+/** Each language/description and each identifier owner uniquely names a legal structured frame. */
+export async function multilingualMp3Fixture(): Promise<Readonly<{ file: File; payloads: Readonly<Record<string, Uint8Array<ArrayBuffer>>>;
+	records: Readonly<Record<string, Readonly<Record<string, string>>>> }>> {
+	const tags = ['eng', 'deu'].map((language, index) => Uint8Array.from(createAudioMetadataId3Tag({
+		lyrics: index ? 'Zweite Strophe' : 'First verse', lyricsLanguage: language, lyricsDescription: 'Reviewed translation',
+		comment: index ? 'Zweiter Kommentar' : 'First comment', commentLanguage: language, commentDescription: 'Reviewed note',
+		uniqueIdentifier: `edition-${index}`, identifierOwner: `https://edition-${index}.example/`,
+	})));
+	const frames = Buffer.concat(tags.map(tag => tag.subarray(10)));
+	const header = Uint8Array.of(73, 68, 51, 4, 0, 0,
+		frames.length >>> 21 & 127, frames.length >>> 14 & 127, frames.length >>> 7 & 127, frames.length & 127);
+	const payloads: Record<string, Uint8Array<ArrayBuffer>> = {};
+	for (const [index, tag] of tags.entries()) for (let offset = 10; offset < tag.length;) {
+		const id = new TextDecoder().decode(tag.subarray(offset, offset + 4));
+		const length = tag.subarray(offset + 4, offset + 8).reduce((size, byte) => size * 128 + byte, 0);
+		payloads[`${id}${index ? '[1]' : ''}`] = Uint8Array.from(tag.subarray(offset + 10, offset + 10 + length));
+		offset += 10 + length;
+	}
+	return { file: new File([header, frames, await ordinaryMp3Pcm()], 'Multilingual.mp3', { type: 'audio/mpeg' }), payloads, records: {
+		'USLT[1]': { language: 'deu', description: 'Reviewed translation', text: 'Zweite Strophe' },
+		'COMM[1]': { language: 'deu', description: 'Reviewed note', text: 'Zweiter Kommentar' },
+		'UFID[1]': { owner: 'https://edition-1.example/', identifierHex: Buffer.from('edition-1').toString('hex') },
+	} };
+}
+
+async function ordinaryMp3Pcm(): Promise<Uint8Array<ArrayBuffer>> {
+	const pcm = Float32Array.from({ length: 4800 }, (_, frame) => Math.sin(frame * .03) * .2);
+	return encodeDedicatedAudioPcm({ format: 'mp3', input: new Uint8Array(pcm.buffer),
+		frameCount: pcm.length, sampleRate: 48_000, channelCount: 1, settings: { bitrateKbps: 192 }, maximumOutputBytes: 1024 ** 2 },
+	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
 }
