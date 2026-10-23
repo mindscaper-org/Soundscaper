@@ -193,7 +193,7 @@ export async function appMetadataM4aFixture(metadata: Readonly<Record<string, st
 }
 
 /** A QuickTime presentation edit retains compressed media outside the selected programme. */
-export async function editedM4aFixture(mode: 'none' | 'trim' | 'offset' | 'empty-first' | 'multiple' | 'rate' | 'version1' = 'trim'): Promise<Readonly<{ file: File; durationSeconds: number }>> {
+export async function editedM4aFixture(mode: 'none' | 'trim' | 'offset' | 'empty-first' | 'all-empty' | 'multiple' | 'rate' | 'version1' = 'trim'): Promise<Readonly<{ file: File; durationSeconds: number }>> {
 	const { file } = await multiValueM4aArtworkFixture();
 	const atom = (type: string, body: Buffer): Buffer => {
 		const header = Buffer.alloc(8); header.writeUInt32BE(body.length + 8); header.write(type, 4, 'latin1');
@@ -217,7 +217,7 @@ export async function editedM4aFixture(mode: 'none' | 'trim' | 'offset' | 'empty
 			const media = fields.find(box => box.toString('latin1', 4, 8) === 'mdia'); assert.ok(media);
 			const mediaHeader = m4aAtoms(media.subarray(8)).find(box => box.toString('latin1', 4, 8) === 'mdhd'); assert.ok(mediaHeader);
 			const offset = mode === 'offset' ? Math.round(durationSeconds * mediaHeader.readUInt32BE(20)) : 0;
-			const entries = mode === 'empty-first' ? [-1, 0] : mode === 'multiple' ? [0, 0] : [offset];
+			const entries = mode === 'empty-first' ? [-1, 0] : mode === 'all-empty' ? [-1] : mode === 'multiple' ? [0, 0] : [offset];
 			const version1 = mode === 'version1'; const width = version1 ? 20 : 12;
 			const list = Buffer.alloc(8 + entries.length * width); list[0] = version1 ? 1 : 0; list.writeUInt32BE(entries.length, 4);
 			for (const [index, start] of entries.entries()) {

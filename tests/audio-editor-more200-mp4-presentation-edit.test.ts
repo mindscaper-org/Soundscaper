@@ -24,7 +24,7 @@ for (const mode of ['none', 'trim', 'offset', 'empty-first', 'version1'] as cons
 	} finally { prepared.dispose(); }
 }));
 
-for (const mode of ['multiple', 'rate'] as const) test(`AAC ${mode} edits are refused before PCM rather than importing a different programme`, async () => withNativeCapability(async () => {
+for (const mode of ['multiple', 'rate', 'all-empty'] as const) test(`AAC ${mode} edits are refused before PCM rather than importing a different programme`, async () => withNativeCapability(async () => {
 	const { file } = await editedM4aFixture(mode);
 	await assert.rejects(prepareStreamedAudioImport(file), /edit.*(?:flatten|render)/iu);
 }));

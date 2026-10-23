@@ -68,6 +68,7 @@ export async function readIsoAudioPresentationEnd(file: Blob, trackId: number, s
 		if (!Number.isSafeInteger(duration)) invalid();
 		if (mediaTime !== -1) body = true;
 	}
+	if (!body && duration > 0) throw new RangeError('This MP4 audio edit list contains no presented audio. Flatten or render its programme before importing.');
 	if (!body) return null;
 	return duration / timescale;
 }

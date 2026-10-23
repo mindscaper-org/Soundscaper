@@ -19,9 +19,9 @@ for (const mode of ['none', 'trim', 'offset', 'empty-first', 'version1']) test(`
 	const peak = await sourcePeakChannels(page, file.name); expect(peak.channels[0].maximum).toBeGreaterThan(.005);
 });
 
-test('File Import refuses nonlinear MP4 edits and remains ready to import a flattened recording', async ({ page }) => {
+for (const mode of ['multiple', 'all-empty']) test(`File Import refuses ${mode} MP4 edits and remains ready to import a flattened recording`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
-	const unsupported = await editedM4aFixture('multiple');
+	const unsupported = await editedM4aFixture(mode);
 	await editor.locator('[data-import-input]').setInputFiles({ name: unsupported.file.name, mimeType: unsupported.file.type,
 		buffer: Buffer.from(await unsupported.file.arrayBuffer()) });
 	await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toContainText(/edit list.*Flatten or render/iu, { timeout: 30_000 });
