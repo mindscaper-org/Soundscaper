@@ -38,6 +38,7 @@ import {
 } from './linked-original-schema.ts';
 import { request, transact } from './indexeddb-backend.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
+import { linkedOriginalRelinkAliases } from './linked-original-relink-aliases.ts';
 
 export type { LinkedOriginalLocatorReference } from './linked-original-repository-inventory.ts';
 
@@ -294,17 +295,18 @@ export class LinkedOriginalRepository {
 			);
 			if (!matchesExpectedBinding(current, expected)) return null;
 			const binding = this.#nextBinding(input, current);
+			const aliases = current ? memoryLinkedOriginalBindingsByStorageKey(records, binding.storageKey, this.#maximumInventoryRecords) : [];
+			const replacements = this.#relinkReplacements(input, current, binding, aliases);
 			assertLinkedOriginalProvisionalRootCapacity(
 				rootInventory,
-				[key],
+				replacements.map(value => linkedOriginalBindingKey(value.projectId, value.sourceId)),
 				this.#maximumInventoryRecords,
 			);
-			const publication = linkedOriginalProvisionalRootPairPublication(
-				binding,
-				persistedBinding(binding, persistLegacyVideo),
-			);
+			const publications = replacements.map(value => linkedOriginalProvisionalRootPairPublication(
+				value, persistedBinding(value, value === binding && persistLegacyVideo),
+			));
 			assertCanPublish?.();
-			publishMemoryLinkedOriginalPairs(records, roots, [publication]);
+			publishMemoryLinkedOriginalPairs(records, roots, publications);
 			return binding;
 		}
 		return transact(database, [
@@ -326,22 +328,31 @@ export class LinkedOriginalRepository {
 			);
 			if (!matchesExpectedBinding(current, expected)) return null;
 			const binding = this.#nextBinding(input, current);
+			const aliases = current ? await storedLinkedOriginalBindingsByStorageKey(bindings, binding.storageKey, this.#maximumInventoryRecords) : [];
+			const replacements = this.#relinkReplacements(input, current, binding, aliases);
 			assertLinkedOriginalProvisionalRootCapacity(
 				rootInventory,
-				[key],
+				replacements.map(value => linkedOriginalBindingKey(value.projectId, value.sourceId)),
 				this.#maximumInventoryRecords,
 			);
-			const publication = linkedOriginalProvisionalRootPairPublication(
-				binding,
-				persistedBinding(binding, persistLegacyVideo),
-			);
+			const publications = replacements.map(value => linkedOriginalProvisionalRootPairPublication(
+				value, persistedBinding(value, value === binding && persistLegacyVideo),
+			));
 			assertCanPublish?.();
-			await Promise.all([
-				request(bindings.put(publication.record)),
-				request(roots.put(publication.root)),
-			]);
+			await Promise.all(publications.flatMap(publication => [
+				request(bindings.put(publication.record)), request(roots.put(publication.root)),
+			]));
 			return binding;
 		});
+	}
+
+	#relinkReplacements(
+		input: LinkedOriginalBindingInput, previous: LinkedOriginalBinding | null,
+		binding: LinkedOriginalBinding, aliases: readonly LinkedOriginalBinding[],
+	): readonly LinkedOriginalBinding[] {
+		return [binding, ...linkedOriginalRelinkAliases(previous, binding, aliases).map(alias => this.#nextBinding(
+			{ ...input, projectId: alias.projectId, sourceId: alias.sourceId }, alias,
+		))];
 	}
 
 	#nextBinding(
