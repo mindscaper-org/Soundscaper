@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
+
 import {
 	clipEndFrame,
 	createStableId,
@@ -83,11 +85,11 @@ export function prepareThreePointEditCommand(project, options = {}, idFactory = 
 		for (const clipId of requireTrack(project, trackId).clipIds) {
 			const clip = requireClip(project, clipId);
 			if (!splitsAt(clip, operationRange, mode)) continue;
-			splitClipIds[clip.id] = idFactory('clip');
+			setCommandIdentity(splitClipIds, clip.id, idFactory('clip'));
 			const effectIds = prepareVideoEffectIds(clip, idFactory);
-			if (effectIds) videoEffectIds[splitClipIds[clip.id]] = effectIds;
-			if (clip.avLinkId && !splitAvLinkIds[clip.avLinkId]) {
-				splitAvLinkIds[clip.avLinkId] = idFactory('av-link');
+			if (effectIds) setCommandIdentity(videoEffectIds, commandIdentity(splitClipIds, clip.id), effectIds);
+			if (clip.avLinkId && !commandIdentity(splitAvLinkIds, clip.avLinkId)) {
+				setCommandIdentity(splitAvLinkIds, clip.avLinkId, idFactory('av-link'));
 			}
 		}
 	}
@@ -228,7 +230,7 @@ function openTrackRange(project, track, range, splitClipIds, splitAvLinkIds, vid
 			replacements.push({ ...clip, timelineStartFrame: start + range.durationFrames });
 			continue;
 		}
-		const rightId = splitClipIds[clip.id];
+		const rightId = commandIdentity(splitClipIds, clip.id);
 		if (!rightId) throw new TypeError(`A stable split clip ID is required for ${clip.id}.`);
 		assertUnusedClipId(project, rightId);
 		replacements.push(segmentOfClip(project, clip, start, range.startFrame, start, clip.id));
@@ -239,10 +241,10 @@ function openTrackRange(project, track, range, splitClipIds, splitAvLinkIds, vid
 			end,
 			range.endFrame,
 			rightId,
-			videoEffectIds[rightId],
+			commandIdentity(videoEffectIds, rightId),
 		);
 		if (clip.avLinkId) {
-			const rightAvLinkId = splitAvLinkIds[clip.avLinkId];
+			const rightAvLinkId = commandIdentity(splitAvLinkIds, clip.avLinkId);
 			if (!rightAvLinkId) throw new TypeError(`A stable split A/V link ID is required for ${clip.avLinkId}.`);
 			right = normalizeClipForProject(project, { ...right, avLinkId: rightAvLinkId, id: right.id });
 		}

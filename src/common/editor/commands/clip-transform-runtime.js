@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
+
 import { clipSourceTrimFields } from '../clip-source-trim.ts';
 import { clipHasLoopRepeats, clipLoopTransformFields, clipLoopUpdateFields, normalizeInactiveClipLoop, readClipLoop } from '../audio-clip-loop.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
@@ -73,10 +75,10 @@ export function prepareTransformClipsCommand(project, transforms, options = {}, 
 			const ranges = rangesByClipId.get(clip.id);
 			const splitCount = Math.max(0, (ranges?.length || 0) - 1);
 			if (!splitCount) continue;
-			splitClipIds[clip.id] = Array.from({ length: splitCount }, () => idFactory('clip'));
-			for (const splitId of splitClipIds[clip.id]) {
+			setCommandIdentity(splitClipIds, clip.id, Array.from({ length: splitCount }, () => idFactory('clip')));
+			for (const splitId of commandIdentity(splitClipIds, clip.id)) {
 				const effectIds = prepareVideoEffectIds(clip, idFactory);
-				if (effectIds) videoEffectIds[splitId] = effectIds;
+				if (effectIds) setCommandIdentity(videoEffectIds, splitId, effectIds);
 			}
 			if (clip.avLinkId) {
 				const previousCount = splitCountsByAvLinkId.get(clip.avLinkId);
@@ -87,7 +89,7 @@ export function prepareTransformClipsCommand(project, transforms, options = {}, 
 			}
 		}
 		for (const [avLinkId, splitCount] of splitCountsByAvLinkId) {
-			splitAvLinkIds[avLinkId] = Array.from({ length: splitCount }, () => idFactory('av-link'));
+			setCommandIdentity(splitAvLinkIds, avLinkId, Array.from({ length: splitCount }, () => idFactory('av-link')));
 		}
 	}
 	return {
@@ -122,7 +124,7 @@ export function transformClips(project, command) {
 		for (const clip of project.clips) {
 			const ranges = rangesByClipId.get(clip.id);
 			if (!ranges) continue;
-			const splitIds = command.splitClipIds?.[clip.id] || [];
+			const splitIds = commandIdentity(command.splitClipIds, clip.id) || [];
 			const splitCount = Math.max(0, ranges.length - 1);
 			if (!Array.isArray(splitIds) || splitIds.length !== splitCount) {
 				throw new TypeError(`Stable split clip IDs are required for ${clip.id}.`);
@@ -142,7 +144,7 @@ export function transformClips(project, command) {
 		const existingAvLinkIds = new Set(project.clips.map((clip) => clip.avLinkId).filter(Boolean));
 		const reservedAvLinkIds = new Set();
 		for (const [avLinkId, splitCount] of splitCountsByAvLinkId) {
-			const splitIds = command.splitAvLinkIds?.[avLinkId] || [];
+			const splitIds = commandIdentity(command.splitAvLinkIds, avLinkId) || [];
 			if (!Array.isArray(splitIds) || splitIds.length !== splitCount) {
 				throw new TypeError(`Stable split A/V link IDs are required for ${avLinkId}.`);
 			}
@@ -157,7 +159,7 @@ export function transformClips(project, command) {
 		for (const clip of project.clips) {
 			const ranges = rangesByClipId.get(clip.id);
 			if (!ranges) continue;
-			const ids = [clip.id, ...(command.splitClipIds?.[clip.id] || [])];
+			const ids = [clip.id, ...(commandIdentity(command.splitClipIds, clip.id) || [])];
 			replacementsById.set(clip.id, ranges.map(([startFrame, endFrame], index) => {
 				let segment = segmentOfClip(
 					project,
@@ -166,12 +168,12 @@ export function transformClips(project, command) {
 					endFrame,
 					startFrame,
 					ids[index],
-					command.videoEffectIds?.[ids[index]],
+					commandIdentity(command.videoEffectIds, ids[index]),
 				);
 				if (clip.avLinkId && index > 0) {
 					segment = normalizeClipForProject(project, {
 						...segment,
-						avLinkId: command.splitAvLinkIds[clip.avLinkId][index - 1],
+						avLinkId: commandIdentity(command.splitAvLinkIds, clip.avLinkId)[index - 1],
 						id: segment.id,
 					});
 				}
@@ -345,7 +347,7 @@ export function overwriteClip(project, command) {
 			replacements.push(segmentOfClip(project, inactiveClip, inactiveStart, activeStart, inactiveStart, inactiveClip.id));
 		}
 		if (hasTrailingSegment) {
-			const id = hasLeadingSegment ? command.splitClipIds?.[inactiveClip.id] : inactiveClip.id;
+			const id = hasLeadingSegment ? commandIdentity(command.splitClipIds, inactiveClip.id) : inactiveClip.id;
 			if (!id) throw new TypeError(`A stable split clip ID is required for ${inactiveClip.id}.`);
 			if (hasLeadingSegment) assertUnusedClipId(project, id);
 			replacements.push(segmentOfClip(
@@ -355,7 +357,7 @@ export function overwriteClip(project, command) {
 				inactiveEnd,
 				activeEnd,
 				id,
-				command.videoEffectIds?.[id],
+				commandIdentity(command.videoEffectIds, id),
 			));
 		}
 	}
@@ -391,9 +393,9 @@ export function prepareOverwriteClipCommand(project, clipId, options = {}, idFac
 			&& inactiveClip.timelineStartFrame < overwriteCut.timelineStartFrame
 			&& clipEndFrame(inactiveClip) > clipEndFrame(overwriteCut)
 		) {
-			splitClipIds[inactiveClip.id] = idFactory('clip');
+			setCommandIdentity(splitClipIds, inactiveClip.id, idFactory('clip'));
 			const effectIds = prepareVideoEffectIds(inactiveClip, idFactory);
-			if (effectIds) videoEffectIds[splitClipIds[inactiveClip.id]] = effectIds;
+			if (effectIds) setCommandIdentity(videoEffectIds, commandIdentity(splitClipIds, inactiveClip.id), effectIds);
 		}
 	}
 	return {
