@@ -58,7 +58,7 @@ export async function preserveDeletedProjectClipboardMedia(
 				assertCurrent();
 			} catch (error) {
 				try { await writer.abort(); }
-				catch (cleanup) { throw new AggregateError([error, cleanup], 'Clipboard audio preservation and cleanup failed.', { cause: error }); }
+					catch (cleanup) { throw new AggregateError([error, cleanup], 'Clipboard audio preservation and cleanup failed.', { cause: cleanup }); }
 				throw error;
 			}
 		} finally { await input.release(); }

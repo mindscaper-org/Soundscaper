@@ -98,6 +98,25 @@ test('a changed clipboard retires the staged copy before project deletion', asyn
 	assert.equal(controller.project?.title, 'Still editable after cancellation');
 });
 
+test('failed preservation and writer cleanup retain both causes without deleting the project', async context => {
+	const { controller, store, project, source } = await fixture(context, true);
+	const begin = store.beginSourceWrite.bind(store);
+	const failure = new Error('Clipboard write failed'), cleanup = new Error('Clipboard abort failed');
+	store.beginSourceWrite = async (...args: Parameters<typeof begin>) => {
+		const writer = await begin(...args);
+		return { ...writer, async write() { throw failure; }, async abort() { await writer.abort(); throw cleanup; } };
+	};
+	await assert.rejects(controller.actions.project.remove(), error => {
+		assert.ok(error instanceof AggregateError);
+		assert.deepEqual(error.errors, [failure, cleanup]);
+		assert.equal(error.cause, cleanup);
+		return true;
+	});
+	assert.equal(controller.project?.id, project.id);
+	assert.ok(await store.loadProject(project.id));
+	assert.ok(await store.getLinkedOriginalBinding(project.id, source.id));
+});
+
 test('deleting a project without copied media does not read its linked original', async (context) => {
 	const { controller, store, project, sessionController } = await fixture(context, true);
 	sessionController.clearClipboard();
