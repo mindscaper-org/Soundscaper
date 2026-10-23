@@ -146,7 +146,7 @@ export default function FramescaperOpenFxInteractPanel({ bridge, runtime, copy }
 	const pointer = useCallback((
 		phase: 'motion' | 'down' | 'up', value: React.PointerEvent<HTMLCanvasElement>,
 	): void => {
-		const normalized = normalizeOpenFxPointer(value.currentTarget.getBoundingClientRect(), value);
+		const normalized = normalizeOpenFxPointer(value.currentTarget.getBoundingClientRect(), value, phase);
 		event({ kind: 'pointer', phase, ...normalized, modifiers: openFxModifiers(value) });
 	}, [event]);
 
@@ -219,12 +219,19 @@ export function createFramescaperOpenFxInteractRequestV1(
 
 export function normalizeOpenFxPointer(
 	rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>,
-	value: Pick<React.PointerEvent<HTMLCanvasElement>, 'clientX' | 'clientY' | 'button'>,
+	value: Pick<React.PointerEvent<HTMLCanvasElement>, 'clientX' | 'clientY' | 'button' | 'buttons'>,
+	phase: 'motion' | 'down' | 'up' = 'motion',
 ): Readonly<{ x: number; y: number; button: number }> {
 	const x = rect.width > 0 ? clamp((value.clientX - rect.left) / rect.width) : 0;
 	const y = rect.height > 0 ? clamp((value.clientY - rect.top) / rect.height) : 0;
-	const button = Number.isSafeInteger(value.button) && value.button >= 0 && value.button <= 7
-		? value.button : 0;
+	// The native host maps a nonzero button to pressure except on release.
+	// Keep matching press/release identities for replay admission; DOM left is
+	// zero, while motion's button is -1 and buttons retains the held state.
+	const changedButton = Number.isSafeInteger(value.button) && value.button >= 0 && value.button < 7
+		? value.button + 1 : 0;
+	const button = phase === 'motion'
+		? Number.isSafeInteger(value.buttons) && value.buttons > 0 ? 1 : 0
+		: changedButton;
 	return Object.freeze({ x, y, button });
 }
 

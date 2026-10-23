@@ -219,13 +219,13 @@ test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow wit
 
 	await canvas.focus();
 	await canvas.dispatchEvent('pointerdown', {
-		pointerId: 7, clientX: 80, clientY: 96, button: 1, shiftKey: true,
+		pointerId: 7, clientX: 80, clientY: 96, button: 1, buttons: 4, shiftKey: true,
 	});
 	await canvas.dispatchEvent('pointermove', {
-		pointerId: 7, clientX: 144, clientY: 160, button: 1, shiftKey: true,
+		pointerId: 7, clientX: 144, clientY: 160, button: -1, buttons: 4, shiftKey: true,
 	});
 	await canvas.dispatchEvent('pointerup', {
-		pointerId: 7, clientX: 144, clientY: 160, button: 1,
+		pointerId: 7, clientX: 144, clientY: 160, button: 1, buttons: 0,
 	});
 	await canvas.press('Enter');
 	await dialog.locator('[data-framescaper-openfx-interact-target="true"]').focus();
@@ -275,6 +275,12 @@ test('Framescaper v1 runs one cumulative accessible OpenFX Interact workflow wit
 		.filter(([kind, request]) => kind === 'runOpenFxInteract' && request.events.length > 0)
 		.at(-1)[1], longGestureOffset);
 	expect(longReplay.events).toHaveLength(256);
+	const dragEvents = longReplay.events.filter(({ kind }) => kind === 'pointer');
+	const pressed = dragEvents.findIndex(({ phase }) => phase === 'down');
+	// The native host maps button zero to no pressure. A normal left mouse
+	// drag must keep pressure through its motion packets, then release it.
+	expect(dragEvents.slice(pressed, -1).map(({ button }) => button)).not.toContain(0);
+	expect(dragEvents.at(-1)).toMatchObject({ phase: 'up', button: 1 });
 
 	const retainedPixel = await canvas.evaluate((element) => Array.from(
 		element.getContext('2d').getImageData(0, 0, 1, 1).data,
