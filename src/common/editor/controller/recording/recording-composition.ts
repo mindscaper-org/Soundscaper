@@ -8,7 +8,7 @@ import {
 	RECORDING_DEFAULT_DEVICE_ID,
 	RECORDING_DISPLAY_SOURCE_KEY,
 	normalizeRecordingRouting,
-	recordingRouteSourceKey,
+	recordingRouteSourceKey, recordingTrackRoute,
 	recordingRoutingSettingKey,
 	setRecordingSourceOffset,
 	setRecordingTrackRoute,
@@ -326,7 +326,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 			}
 			await ordinaryRecovery.begin();
 			scope.assertCurrent();
-			const route = options.trackId ? state.recordingRouting.routes[options.trackId] : null;
+			const route = recordingTrackRoute(state.recordingRouting.routes, options.trackId);
 			const routed = route && (
 				route.kind === 'display'
 				|| route.deviceId !== RECORDING_DEFAULT_DEVICE_ID

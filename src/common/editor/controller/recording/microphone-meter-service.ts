@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { recordingTrackRoute } from '../../recording-routing.js';
 
 import { soundscaperNativeAudioCaptureSource } from '../../soundscaper-native-audio-capture.ts';
 import type { RoutedInputLoudnessMeter } from './recording-transaction-types.ts';
@@ -55,9 +56,7 @@ export function createMicrophoneMeterService(
 	}
 
 	function getRoute(): RecordingDeviceRoute {
-		const selectedRoute = state.selectedTrackId
-			? state.recordingRouting.routes[state.selectedTrackId]
-			: null;
+		const selectedRoute = recordingTrackRoute(state.recordingRouting.routes, state.selectedTrackId);
 		const route = selectedRoute?.kind === 'device'
 			? selectedRoute
 			: Object.values(state.recordingRouting.routes)

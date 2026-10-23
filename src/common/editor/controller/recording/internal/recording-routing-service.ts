@@ -9,6 +9,7 @@ import type {
 } from './recording-routing-service-types.d.ts';
 import { adaptNativeAudioInventory, type NativeAudioInventoryReport } from '../native-audio-inventory.ts';
 import { normalizeRecordingSampleRate } from '../recording-model.ts';
+import { recordingTrackRoute } from '../../../recording-routing.js';
 import { preferredRecordingRoutes } from './preferred-recording-routes.ts';
 import { supportsDisplayAudioCapture } from '../../../recording-display-input.ts';
 import { raceAbortableRead } from '../../../abort-race.ts';
@@ -245,7 +246,7 @@ export function createRecordingRoutingService<
 		const previous = state.recordingRouting;
 		const armed = getProject()?.tracks.filter(track => track.armed) ?? [];
 		const trackId = state.selectedTrackId ?? (armed.length === 1 ? armed[0].id : undefined);
-		const route = trackId ? previous.routes[trackId] : null;
+		const route = recordingTrackRoute(previous.routes, trackId);
 		const followsPrevious = route?.kind === 'display' ? previousDeviceId === RECORDING_DISPLAY_SOURCE_KEY
 			: route?.deviceId === previousDeviceId;
 		const followTrackId = !state.recorder && armed.length <= 1 && route?.channelStart === 0 && followsPrevious ? trackId : undefined;

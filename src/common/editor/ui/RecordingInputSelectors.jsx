@@ -1,4 +1,5 @@
 import React from 'react';
+import { recordingTrackRoute } from '../recording-routing.js';
 import { displayAudioCaptureUnsupportedReason, supportsDisplayAudioCapture } from '../recording-display-input.ts';
 
 const DISPLAY_SOURCE_KEY = 'display';
@@ -18,7 +19,7 @@ export default function RecordingInputSelectors({
 	const inputs = recordingInputs || {};
 	const devices = Array.isArray(inputs.devices) ? inputs.devices : [];
 	const routes = inputs.routes || {};
-	const route = routes[track.id] || null;
+	const route = recordingTrackRoute(routes, track.id);
 	const sourceKey = routeSourceKey(route);
 	const channelCount = route?.channelCount === 2 ? 2 : 1;
 	const sourceOptions = buildSourceOptions({ devices, route, routes, track, channelCount, copy, displayAudioSupported });
@@ -27,7 +28,7 @@ export default function RecordingInputSelectors({
 	const channelOptions = sourceKey
 		? buildChannelOptions({ sourceKey, availableChannels, channelCount, routes, trackId: track.id, route })
 		: [];
-	const health = inputs.health?.[track.id] || routeHealth(route, devices, inputs.sources);
+	const health = (Object.hasOwn(inputs.health || {}, track.id) ? inputs.health[track.id] : null) || routeHealth(route, devices, inputs.sources);
 	const healthLabel = recordingInputHealthLabel(copy, health);
 	const controlsDisabled = disabled || typeof controller.actions.recording.setTrackInput !== 'function';
 	const setRoute = (nextRoute) => run(() => controller.actions.recording.setTrackInput(track.id, nextRoute));
