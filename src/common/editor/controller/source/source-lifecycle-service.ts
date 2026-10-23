@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { raceAbortableRead } from '../../abort-race.ts';
+import { loadOptionalWaveformPeaks, saveOptionalWaveformPeaks } from './internal/optional-waveform-cache.ts';
 import { isUnsupportedNativeAudioBuffer } from '../../source-pcm-contract.ts';
 import { localizedErrorMessage, publishLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import {
@@ -201,7 +202,7 @@ export function createSourceLifecycleService<
 				const chunkProvider = registerStoredChunkProvider(source, metadata);
 				let useChunkStream = Boolean(chunkProvider) && requiresChunkStream;
 				let peaks = await raceAbortableRead(
-					() => store.loadAnalysis(peakCacheKey(source.id)),
+					() => loadOptionalWaveformPeaks(() => store.loadAnalysis(peakCacheKey(source.id))),
 					options.signal,
 				);
 				throwIfSourceLoadAborted(options.signal);
@@ -223,14 +224,14 @@ export function createSourceLifecycleService<
 					sourceBuffers.delete(source.id);
 					if (!waveformPeaksHaveRms(peaks, source)) {
 						peaks = await generateStoredWaveformPeaks(store, source, copy);
-						await store.saveAnalysis(peakCacheKey(source.id), peaks);
+						await saveOptionalWaveformPeaks(() => store.saveAnalysis(peakCacheKey(source.id), peaks));
 					}
 				} else {
 					if (!buffer) continue;
 					cacheSourceBuffer(source.id, buffer);
 					if (!waveformPeaksHaveRms(peaks, source)) {
 						peaks = await generateWaveformPeaks(audioBufferChannels(buffer), copy);
-						await store.saveAnalysis(peakCacheKey(source.id), peaks);
+						await saveOptionalWaveformPeaks(() => store.saveAnalysis(peakCacheKey(source.id), peaks));
 					}
 				}
 				await Promise.resolve(store.deleteAnalysis?.(legacyPeakCacheKey(source.id))).catch(() => undefined);

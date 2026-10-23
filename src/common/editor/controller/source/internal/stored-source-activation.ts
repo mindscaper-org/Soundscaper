@@ -2,6 +2,7 @@
 
 import type { ActivateStoredSourceOptions, SourceLifecycleServiceRuntime, SourceLifecycleSource } from './source-lifecycle-types.d.ts';
 import { isUnsupportedNativeAudioBuffer } from '../../../source-pcm-contract.ts';
+import { saveOptionalWaveformPeaks } from './optional-waveform-cache.ts';
 
 type ActivationRuntime<Buffer, Provider, Peaks, Metadata> = Pick<
 	SourceLifecycleServiceRuntime<Buffer, never, Provider, Peaks, Metadata>,
@@ -47,7 +48,7 @@ export async function activateStoredSourceWithProgress<Buffer, Provider, Peaks, 
 	signal?.throwIfAborted();
 	const peakKey = runtime.peakCacheKey(source.id);
 	try {
-		await runtime.store.saveAnalysis(peakKey, peaks);
+		await saveOptionalWaveformPeaks(() => runtime.store.saveAnalysis(peakKey, peaks));
 		signal?.throwIfAborted();
 		runtime.sourcePeaks.set(source.id, peaks);
 		onProgress?.(1);
