@@ -96,6 +96,8 @@ test('an initial save failure does not fence an already activated project read-o
 	assert.strictEqual(fixture.getLoadedEngineProject(), next);
 	assert.equal(fixture.state.readOnly, false);
 	assert.equal(fixture.getTab(next.id)?.readOnly, false);
+	assert.equal(fixture.getTab(next.id)?.dirty, true);
+	assert.equal(fixture.state.saveState, 'dirty');
 	assert.equal(
 		fixture.readOnlyUpdates.some(({ reason }) => reason === 'project-activation-failed'),
 		false,

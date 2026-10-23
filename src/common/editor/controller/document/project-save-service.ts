@@ -68,6 +68,9 @@ export interface ProjectSaveServiceDependencies<Project extends ProjectSaveSnaps
 		readonly admitProjectPublication: (bytes: number) => Promise<unknown>;
 		readonly protectedLinkedOriginalSourceReferences?: readonly ProjectLinkedOriginalSourceReference[];
 	}) => Promise<unknown>;
+	readonly createProjectIfAbsent?: (
+		snapshot: Project, options: Parameters<ProjectSaveServiceDependencies<Project>['saveProject']>[1],
+	) => Promise<Project | null>;
 	readonly saveProjectIfCurrentWithWriteFence?: (
 		expected: Project,
 		snapshot: Project,
@@ -421,9 +424,12 @@ export function createProjectSaveService<Project extends ProjectSaveSnapshot>(
 			};
 			if (dependencies.saveProjectIfCurrentWithWriteFence) {
 				const expected = persistedSnapshots.get(snapshot.id);
-				if (!expected || !writeFence) throw new Error('Project save requires a persisted snapshot and write fence.');
+				const create = dependencies.createProjectIfAbsent;
+				if (!writeFence || (!expected && !create)) throw new Error('Project save requires a persisted snapshot and write fence.');
 				let maintenanceFailure: ProjectCommittedMaintenanceError | null = null;
-				const saved = await dependencies.saveProjectIfCurrentWithWriteFence(expected, snapshot, writeFence, saveOptions)
+				const saved = await (expected
+					? dependencies.saveProjectIfCurrentWithWriteFence(expected, snapshot, writeFence, saveOptions)
+					: create!(snapshot, saveOptions))
 					.catch((error: unknown): Project | null => {
 						if (!(error instanceof ProjectCommittedMaintenanceError)
 							|| error.committedProject.id !== snapshot.id) throw error;

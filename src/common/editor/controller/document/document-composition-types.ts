@@ -113,6 +113,7 @@ export type DocumentCompositionCopy = Readonly<{
 export type DocumentCompositionStore = Readonly<{
 	loadSetting(key: string, fallback: unknown): Promise<unknown>;
 	saveProject: ProjectSaveServiceDependencies<DocumentProject>['saveProject'];
+	createProjectIfAbsent?: (project: DocumentProject, options: Parameters<ProjectSaveServiceDependencies<DocumentProject>['saveProject']>[1]) => Promise<unknown>;
 	saveProjectIfCurrentWithWriteFence?: (
 		expected: DocumentProject, project: DocumentProject, writeFence: string,
 		options: Parameters<NonNullable<ProjectSaveServiceDependencies<DocumentProject>['saveProjectIfCurrentWithWriteFence']>>[3],

@@ -272,7 +272,7 @@ export function createProjectSwitchService<
 				}
 			} else runtime.session.openProject(activationProject, {
 				activationToken: activation.token,
-				history: activationHistory,
+				history: activationHistory, dirty: Boolean(options.save && !runtime.state.readOnly),
 				readOnly: runtime.state.readOnly,
 				readOnlyReason: lockReadOnly ? 'project-lock' : intrinsicReadOnlyReason,
 				lockMethod: activationLock.method,
@@ -286,6 +286,7 @@ export function createProjectSwitchService<
 				lockMethod: activationLock.method,
 			});
 			runtime.state.history = runtime.session.getProjectHistory(projectId);
+			runtime.state.saveState = runtime.sessionTab(projectId)?.dirty ? 'dirty' : 'saved';
 			const activeProject = runtime.state.history.present;
 			fallbackAdmission.assertCurrent(activeProject);
 			resetProjectScopedState();
@@ -352,7 +353,6 @@ export function createProjectSwitchService<
 			runtime.synchronizeMicrophoneMeterTarget();
 			runtime.publishProjectState();
 			readyProjectId = activeProject.id;
-			// Foreign/future custody is opaque; maintenance must not traverse or mutate it.
 			if (!runtime.state.readOnly) {
 				await guard(openRecovery.deferGarbageCollection(() => runtime.garbageCollectSources()));
 			}
