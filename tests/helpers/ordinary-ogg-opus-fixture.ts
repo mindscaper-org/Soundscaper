@@ -39,8 +39,21 @@ export async function ordinaryWebmOpusFixture(extension: 'webm' | 'mka' = 'webm'
 }
 
 /** Authenticated Opus packets with ordinary Matroska private/custom tag names. */
-export async function customTaggedWebmOpusFixture(metadata: Readonly<Record<string, string>>): Promise<File> {
+export async function customTaggedWebmOpusFixture(metadata: Readonly<Record<string, string | Uint8Array>>): Promise<File> {
 	return new File([await createOrdinaryOggOpusBytes(true, false, { raw: metadata })], 'Private-credits.webm', { type: 'audio/webm' });
+}
+
+/** Separate SimpleTag records, as required for multiple Matroska performer values. */
+export async function repeatedTaggedWebmOpusFixture(repeated = true): Promise<File> {
+	const bytes = new Uint8Array(await createOrdinaryOggOpusBytes(true, false, { raw: repeated
+		? { ARTIST: 'Ada', _GUEST: 'Grace', _THIRD: 'Ada', PART_NUMBER: '2/12', COMMENT: 'After credits' }
+		: { ARTIST: 'Ada', PART_NUMBER: '2/12', COMMENT: 'After credits' } }));
+	for (const placeholder of repeated ? ['_GUEST', '_THIRD'] : []) {
+		const offset = Buffer.from(bytes).indexOf(new TextEncoder().encode(placeholder)); assert.ok(offset >= 0);
+		// Equal-size TagName substitution leaves all EBML sizes and seek offsets valid.
+		bytes.set(new TextEncoder().encode('ARTIST'), offset);
+	}
+	return new File([bytes], 'Performers.webm', { type: 'audio/webm' });
 }
 
 /** RFC9559's zero track target is the explicit all-tracks form of a global tag. */
