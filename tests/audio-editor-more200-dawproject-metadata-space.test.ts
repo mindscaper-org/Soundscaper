@@ -39,6 +39,7 @@ test('native DAWproject delivery preserves authored comment indentation and fina
 	const blob = delivered[0]; assert.ok(blob);
 	const archive = await readDawprojectArchive(blob);
 	try {
+		assert.ok(archive.metadataXml !== null);
 		assert.equal(archive.metadataXml.match(/<Comment>([\s\S]*?)<\/Comment>/u)?.[1], COMMENT,
 			'the delivered XML must preserve xs:string character data, before reopening');
 		assert.equal(parseDawprojectDocument(archive.projectXml, archive.metadataXml).metadata.comment, COMMENT);
