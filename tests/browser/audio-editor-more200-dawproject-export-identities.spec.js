@@ -9,7 +9,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 import { readDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
 import { parseDawprojectDocument } from '../../src/common/editor/dawproject-import.ts';
 
-for (const trackIds of [['master'], ['voice', 'voice:volume']]) test(`native track identities ${trackIds.join(',')} survive DAWproject delivery and reopening`, async ({ page }) => {
+for (const trackIds of [['master'], ['voice', 'voice:volume']]) test(`native track identities ${trackIds.join(',')} survive DAWproject delivery and reopening`, async ({ page }, testInfo) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
 	const source = createAudioSource({ id: 'recording', name: 'Recording.wav', sampleRate: 48_000, frameCount: 4_800, channelCount: 1 });
@@ -17,7 +17,7 @@ for (const trackIds of [['master'], ['voice', 'voice:volume']]) test(`native tra
 		tracks: trackIds.map((id, index) => createAudioTrack({ id, name: `Voice ${index + 1}`, clipIds: [`clip-${index}`] })),
 		clips: trackIds.map((_, index) => createAudioClip({ id: `clip-${index}`, sourceId: source.id, durationFrames: 4_800, sourceDurationFrames: 4_800 })),
 	});
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: 'native-daw-identities' });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `native-daw-identities-${testInfo.testId}-${testInfo.repeatEachIndex}-${testInfo.retry}` });
 	let native;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
