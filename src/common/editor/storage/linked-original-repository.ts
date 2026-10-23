@@ -296,7 +296,8 @@ export class LinkedOriginalRepository {
 			if (!matchesExpectedBinding(current, expected)) return null;
 			const binding = this.#nextBinding(input, current);
 			const aliases = current ? memoryLinkedOriginalBindingsByStorageKey(records, binding.storageKey, this.#maximumInventoryRecords) : [];
-			const replacements = this.#relinkReplacements(input, current, binding, aliases);
+			const replacements = this.#relinkReplacements(input, current, binding, aliases,
+				Boolean(current && binding.kind === 'audio' && this.#port.memory.sources.has(binding.storageKey)));
 			assertLinkedOriginalProvisionalRootCapacity(
 				rootInventory,
 				replacements.map(value => linkedOriginalBindingKey(value.projectId, value.sourceId)),
@@ -311,7 +312,7 @@ export class LinkedOriginalRepository {
 		}
 		return transact(database, [
 			LINKED_ORIGINAL_STORE_NAME,
-			LINKED_ORIGINAL_PROVISIONAL_ROOT_STORE_NAME,
+			LINKED_ORIGINAL_PROVISIONAL_ROOT_STORE_NAME, 'sources',
 		], 'readwrite', async (stores) => {
 			const bindings = stores[LINKED_ORIGINAL_STORE_NAME];
 			const roots = stores[LINKED_ORIGINAL_PROVISIONAL_ROOT_STORE_NAME];
@@ -329,7 +330,8 @@ export class LinkedOriginalRepository {
 			if (!matchesExpectedBinding(current, expected)) return null;
 			const binding = this.#nextBinding(input, current);
 			const aliases = current ? await storedLinkedOriginalBindingsByStorageKey(bindings, binding.storageKey, this.#maximumInventoryRecords) : [];
-			const replacements = this.#relinkReplacements(input, current, binding, aliases);
+			const ownedPcm = current && binding.kind === 'audio' ? await request(stores.sources.get(binding.storageKey)) : undefined;
+			const replacements = this.#relinkReplacements(input, current, binding, aliases, ownedPcm !== undefined);
 			assertLinkedOriginalProvisionalRootCapacity(
 				rootInventory,
 				replacements.map(value => linkedOriginalBindingKey(value.projectId, value.sourceId)),
@@ -348,9 +350,9 @@ export class LinkedOriginalRepository {
 
 	#relinkReplacements(
 		input: LinkedOriginalBindingInput, previous: LinkedOriginalBinding | null,
-		binding: LinkedOriginalBinding, aliases: readonly LinkedOriginalBinding[],
+		binding: LinkedOriginalBinding, aliases: readonly LinkedOriginalBinding[], ownedPcm: boolean,
 	): readonly LinkedOriginalBinding[] {
-		return [binding, ...linkedOriginalRelinkAliases(previous, binding, aliases).map(alias => this.#nextBinding(
+		return [binding, ...linkedOriginalRelinkAliases(previous, binding, aliases, ownedPcm).map(alias => this.#nextBinding(
 			{ ...input, projectId: alias.projectId, sourceId: alias.sourceId }, alias,
 		))];
 	}
