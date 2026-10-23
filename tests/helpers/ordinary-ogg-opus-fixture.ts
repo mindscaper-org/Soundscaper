@@ -19,7 +19,20 @@ export async function ordinaryWebmOpusFixture(extension: 'webm' | 'mka' = 'webm'
 	return new File([bytes], `Programme.${extension}`, { type: extension === 'mka' ? 'audio/x-matroska' : 'audio/webm' });
 }
 
-async function createOrdinaryOggOpusBytes(webm = false): Promise<ArrayBuffer> {
+/** RFC9559's zero track target is the explicit all-tracks form of a global tag. */
+export async function taggedWebmOpusFixture(target: 'global' | 'all-tracks' | 'track'): Promise<File> {
+	const bytes = new Uint8Array(await createOrdinaryOggOpusBytes(true, true));
+	if (target !== 'global') {
+		const marker = Uint8Array.of(0x63, 0xca, 0x85, ...new TextEncoder().encode('MOVIE'));
+		const offset = Buffer.from(bytes).indexOf(marker);
+		assert.ok(offset >= 0);
+		// Replace the optional TargetType with an equal-size target and Void, preserving every seek offset.
+		bytes.set(Uint8Array.of(0x63, 0xc5, 0x81, target === 'all-tracks' ? 0 : 1, 0xec, 0x82, 0, 0), offset);
+	}
+	return new File([bytes], 'Tagged.webm', { type: 'audio/webm' });
+}
+
+async function createOrdinaryOggOpusBytes(webm = false, tagged = false): Promise<ArrayBuffer> {
 	const camera = createMonoCameraFixture('Microphone.webm');
 	const input = new Input({ source: new BlobSource(new Blob([Uint8Array.from(camera.buffer)])), formats: [WEBM] });
 	try {
@@ -30,6 +43,7 @@ async function createOrdinaryOggOpusBytes(webm = false): Promise<ArrayBuffer> {
 		assert.ok(decoderConfig);
 		const target = new BufferTarget();
 		const output = new Output({ format: webm ? new WebMOutputFormat() : new OggOutputFormat(), target });
+		if (tagged) output.setMetadataTags({ title: 'Authored global title', artist: 'Ada — reviewed credit' });
 		const source = new EncodedAudioPacketSource('opus');
 		output.addAudioTrack(source);
 		await output.start();

@@ -473,6 +473,30 @@ diff --git a/node_modules/mediabunny/dist/modules/src/id3.js b/node_modules/medi
      }
  }
  export class Id3V2Writer {
+diff --git a/node_modules/mediabunny/src/matroska/matroska-demuxer.ts b/node_modules/mediabunny/src/matroska/matroska-demuxer.ts
+--- a/node_modules/mediabunny/src/matroska/matroska-demuxer.ts
++++ b/node_modules/mediabunny/src/matroska/matroska-demuxer.ts
+@@ -1627,7 +1627,7 @@
+ 			case EBMLId.TagEditionUID:
+ 			case EBMLId.TagChapterUID:
+ 			case EBMLId.TagAttachmentUID: {
+-				this.currentTagTargetIsMovie = false;
++				if (readUnsignedInt(slice, size) !== 0) this.currentTagTargetIsMovie = false;
+ 			}; break;
+ 
+ 			case EBMLId.SimpleTag: {
+diff --git a/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js b/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
+--- a/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
++++ b/node_modules/mediabunny/dist/modules/src/matroska/matroska-demuxer.js
+@@ -1392,7 +1392,7 @@
+             case EBMLId.TagChapterUID:
+             case EBMLId.TagAttachmentUID:
+                 {
+-                    this.currentTagTargetIsMovie = false;
++                    if (readUnsignedInt(slice, size) !== 0) this.currentTagTargetIsMovie = false;
+                 }
+                 ;
+                 break;
 diff --git a/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts b/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts
 --- a/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts
 +++ b/node_modules/mediabunny/src/isobmff/isobmff-demuxer.ts
@@ -875,6 +899,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
            }
            ;
            break;
+@@ -10799,7 +10823,7 @@
+         case 25540 /* TagChapterUID */:
+         case 25542 /* TagAttachmentUID */:
+           {
+-            this.currentTagTargetIsMovie = false;
++            if (readUnsignedInt(slice, size) !== 0) this.currentTagTargetIsMovie = false;
+           }
+           ;
+           break;
 @@ -11773,7 +11797,6 @@
          }
          this.metadataTags = {};
@@ -1245,6 +1278,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
            }
            ;
            break;
+@@ -10796,7 +10820,7 @@
+         case 25540 /* TagChapterUID */:
+         case 25542 /* TagAttachmentUID */:
+           {
+-            this.currentTagTargetIsMovie = false;
++            if (readUnsignedInt(slice, size) !== 0) this.currentTagTargetIsMovie = false;
+           }
+           ;
+           break;
 @@ -11770,7 +11794,6 @@
          }
          this.metadataTags = {};
@@ -1612,6 +1654,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
              }
            }
 +          if (numericGenre !== undefined) this.metadataTags.genre ??= numericGenre;
+         }
+         ;
+         break;
+@@ -10642,7 +10666,7 @@
+       case 25540 /* TagChapterUID */:
+       case 25542 /* TagAttachmentUID */:
+         {
+-          this.currentTagTargetIsMovie = false;
++          if (readUnsignedInt(slice, size) !== 0) this.currentTagTargetIsMovie = false;
          }
          ;
          break;
