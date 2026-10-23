@@ -188,9 +188,12 @@ function auditClosedAdapters(hostRoot) {
 			'--maximum-output-bytes',
 		]],
 		['src/ffmpeg_media_engine.cpp', [
-			'sws_scale', 'avformat_alloc_output_context2', 'avcodec_send_frame',
+			'decoded_frame_scaler', 'scaler.scale', 'avformat_alloc_output_context2', 'avcodec_send_frame',
 			'drain_encoded_packets', 'framescaper-rgba-frame-pack-v1', 'prores_ks',
 			'execute_image_sequence_decode',
+		]],
+		['src/ffmpeg_decoded_frame_scaler.hpp', [
+			'sws_getContext', 'sws_scale', 'frame.format', 'input_format_', 'decode-format-change',
 		]],
 		['src/ffmpeg_encoded_packet_drain.hpp', [
 			'avcodec_receive_packet', 'av_packet_rescale_ts', 'av_interleaved_write_frame',

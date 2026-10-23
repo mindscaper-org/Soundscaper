@@ -3,6 +3,7 @@
 #include "ffmpeg_media_engine.hpp"
 #include "exact_retime_ordinal.hpp"
 #include "ffmpeg_decode_session.hpp"
+#include "ffmpeg_decoded_frame_scaler.hpp"
 #include "ffmpeg_hardware_encode.hpp"
 #include "ffmpeg_image_sequence_decode.hpp"
 #include "ffmpeg_professional_sequence_encode.hpp"
@@ -221,41 +222,30 @@ private:
 	const auto time_base = session.format->streams[session.stream_index]->time_base;
 	output.write_u32(static_cast<std::uint32_t>(time_base.num));
 	output.write_u32(static_cast<std::uint32_t>(time_base.den));
-	SwsContext* scaler = sws_getContext(
-		session.codec->width, session.codec->height, session.codec->pix_fmt,
-		session.codec->width, session.codec->height, AV_PIX_FMT_RGBA,
-		SWS_BICUBIC, nullptr, nullptr, nullptr
-	);
-	if (scaler == nullptr) throw media_failure("decode-scale", "The closed RGBA conversion cannot be created.");
+	decoded_frame_scaler scaler{session.codec->width, session.codec->height,
+		session.codec->width, session.codec->height, AV_PIX_FMT_RGBA};
 	std::uint64_t frame_count = 0;
-	try {
-		const auto frame_bytes = av_image_get_buffer_size(
-			AV_PIX_FMT_RGBA, session.codec->width, session.codec->height, 1
-		);
-		if (frame_bytes <= 0) throw media_failure("decode-geometry", "The RGBA frame size is invalid.");
-		std::vector<std::uint8_t> rgba(static_cast<std::size_t>(frame_bytes));
-		std::array<std::uint8_t*, 4> planes{};
-		std::array<int, 4> strides{};
-		require_ffmpeg(av_image_fill_arrays(
-			planes.data(), strides.data(), rgba.data(), AV_PIX_FMT_RGBA,
-			session.codec->width, session.codec->height, 1
-		), "Lay out one RGBA frame");
-		session.decode_all([&](AVFrame* frame) {
-			check_cancellation();
-			if (frame->width != session.codec->width || frame->height != session.codec->height
-				|| frame->format != session.codec->pix_fmt) {
-				throw media_failure("decode-format-change", "Mid-stream video format changes are not in this decode subset.", 78);
-			}
-			sws_scale(scaler, frame->data, frame->linesize, 0, frame->height, planes.data(), strides.data());
-			output.write_u64(frame_count);
-			output.write_i64(frame->best_effort_timestamp);
-			output.write_i64(frame->duration);
-			output.write_u64(static_cast<std::uint64_t>(rgba.size()));
-			output.write(rgba.data(), rgba.size());
-			++frame_count;
-		});
-	} catch (...) { sws_freeContext(scaler); throw; }
-	sws_freeContext(scaler);
+	const auto frame_bytes = av_image_get_buffer_size(
+		AV_PIX_FMT_RGBA, session.codec->width, session.codec->height, 1
+	);
+	if (frame_bytes <= 0) throw media_failure("decode-geometry", "The RGBA frame size is invalid.");
+	std::vector<std::uint8_t> rgba(static_cast<std::size_t>(frame_bytes));
+	std::array<std::uint8_t*, 4> planes{};
+	std::array<int, 4> strides{};
+	require_ffmpeg(av_image_fill_arrays(
+		planes.data(), strides.data(), rgba.data(), AV_PIX_FMT_RGBA,
+		session.codec->width, session.codec->height, 1
+	), "Lay out one RGBA frame");
+	session.decode_all([&](AVFrame* frame) {
+		check_cancellation();
+		scaler.scale(*frame, planes.data(), strides.data());
+		output.write_u64(frame_count);
+		output.write_i64(frame->best_effort_timestamp);
+		output.write_i64(frame->duration);
+		output.write_u64(static_cast<std::uint64_t>(rgba.size()));
+		output.write(rgba.data(), rgba.size());
+		++frame_count;
+	});
 	output.patch_u64(count_offset, frame_count);
 	if (sha256_file(job.sources.front()) != job.source_sha256.front()) {
 		throw media_failure("source-changed", "The source digest changed during decode.", 65);
@@ -331,7 +321,6 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 	if (output == nullptr) throw media_failure("proxy-muxer", "The MOV muxer is unavailable.", 78);
 	AVCodecContext* encoder = nullptr;
 	AVFrame* scaled = nullptr;
-	SwsContext* scaler = nullptr;
 	AVIOContext* io = nullptr;
 	try {
 		const AVCodec* codec = avcodec_find_encoder_by_name("prores_ks");
@@ -373,19 +362,15 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 		scaled->width = encoder->width;
 		scaled->height = encoder->height;
 		require_ffmpeg(av_frame_get_buffer(scaled, 32), "Allocate a ProRes frame");
-		scaler = sws_getContext(
-			source.codec->width, source.codec->height, source.codec->pix_fmt,
-			encoder->width, encoder->height, encoder->pix_fmt,
-			SWS_BICUBIC, nullptr, nullptr, nullptr
-		);
-		if (scaler == nullptr) throw media_failure("proxy-scale", "The closed proxy scaler cannot be created.");
+		decoded_frame_scaler scaler{source.codec->width, source.codec->height,
+			encoder->width, encoder->height, encoder->pix_fmt};
 		source.decode_all([&](AVFrame* frame) {
 			check_cancellation();
 			if (frame->best_effort_timestamp == AV_NOPTS_VALUE) {
 				throw media_failure("proxy-timing", "A source frame lacks an exact presentation timestamp.", 78);
 			}
 			require_ffmpeg(av_frame_make_writable(scaled), "Make a ProRes frame writable");
-			sws_scale(scaler, frame->data, frame->linesize, 0, frame->height, scaled->data, scaled->linesize);
+			scaler.scale(*frame, scaled->data, scaled->linesize);
 			scaled->pts = frame->best_effort_timestamp;
 			scaled->duration = frame->duration;
 			scaled->color_primaries = frame->color_primaries;
@@ -409,14 +394,12 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 			<< "\"codec\":\"prores_ks\",\"profile\":\"proxy\",\"width\":" << job.proxy_width << ','
 			<< "\"height\":" << job.proxy_height << ",\"exportAuthority\":\"original\","
 			<< "\"byteLength\":" << destination.byte_length() << ",\"sha256\":\"" << output_digest << "\"}";
-		if (scaler != nullptr) sws_freeContext(scaler);
 		av_frame_free(&scaled);
 		avcodec_free_context(&encoder);
 		if (io != nullptr) { av_freep(&io->buffer); avio_context_free(&io); }
 		avformat_free_context(output);
 		return {0, result.str()};
 	} catch (...) {
-		if (scaler != nullptr) sws_freeContext(scaler);
 		av_frame_free(&scaled);
 		avcodec_free_context(&encoder);
 		if (io != nullptr) { av_freep(&io->buffer); avio_context_free(&io); }

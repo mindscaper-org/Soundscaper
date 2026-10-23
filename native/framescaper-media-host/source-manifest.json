@@ -57,8 +57,8 @@
 	"sourceFiles": [
 		{
 			"path": "CMakeLists.txt",
-			"byteLength": 6687,
-			"sha256": "7e2ce6028824373164524bd4804b70578d4d9cbbe61e1a04caac58e76d2e9502"
+			"byteLength": 7442,
+			"sha256": "34545b37817d61f9d527c637266b7f2a98aa035e293a605224edad72a974e303"
 		},
 		{
 			"path": "CMakePresets.json",
@@ -156,6 +156,11 @@
 			"sha256": "b886f6438cbabea29787e384d0c63a821b229b6c5575008b84a74ccdfeff9e6e"
 		},
 		{
+			"path": "src/ffmpeg_decoded_frame_scaler.hpp",
+			"byteLength": 2164,
+			"sha256": "7d3b4e17329244b49e638bb0a8f9aa3804567069c7347a832bc030c8962ad62c"
+		},
+		{
 			"path": "src/ffmpeg_encoded_packet_drain.hpp",
 			"byteLength": 1310,
 			"sha256": "531a62e6f047724579ca044f3d066d556b7e2800ab53cf5b028b6c4e23727ba6"
@@ -182,8 +187,8 @@
 		},
 		{
 			"path": "src/ffmpeg_media_engine.cpp",
-			"byteLength": 25243,
-			"sha256": "432b855356751f8503f141ca2794db3163169227f2850a77ed67702936b575dc"
+			"byteLength": 24335,
+			"sha256": "fbb2a70541922f4c5d3bf6592442f295640bfec5e13b4f62ab0a495f393a95a6"
 		},
 		{
 			"path": "src/ffmpeg_media_engine.hpp",
@@ -431,6 +436,11 @@
 			"sha256": "2fd84ae5d6bbfdf47d8b5e65f367e9983d1ce72b423cfea69096d3a386510611"
 		},
 		{
+			"path": "tests/decoded_frame_alpha_fixture.cpp",
+			"byteLength": 1893,
+			"sha256": "78398f78671c00a8ef635d43c85bf1763eb2c0cfe17587ac92ea2247577380c6"
+		},
+		{
 			"path": "tests/exact_retime_ordinal_fixture.cpp",
 			"byteLength": 1080,
 			"sha256": "3be7958db0c5e059aa697d54a4678476c317e497f0ed2de5b90225780d7e6be3"
@@ -439,6 +449,16 @@
 			"path": "tests/ffmpeg_packet_drain_fixture.cpp",
 			"byteLength": 3469,
 			"sha256": "f6056a9281d0b3d607d0bc31a96d69901af304ab5d0e56b2c129a40e22ea05da"
+		},
+		{
+			"path": "tests/fixtures/README.md",
+			"byteLength": 948,
+			"sha256": "f092022b57391eefb59aeabb77039b1d0736e4389991caf582e4d27f00962d85"
+		},
+		{
+			"path": "tests/fixtures/keyed-alpha-1280x720-4fps-4frames.webm",
+			"byteLength": 1212,
+			"sha256": "d223912adfa2e84b3f3743e445442b20b831fbd76ef93f5aa7ff1c8724f6cdac"
 		},
 		{
 			"path": "tests/fixtures/prores-proxy-64x36-24fps-4frames.mov.b64",
