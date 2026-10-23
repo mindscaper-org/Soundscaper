@@ -154,3 +154,20 @@ function reflectedCrc(bytes: Uint8Array): number {
 	for (const byte of bytes) { crc ^= byte; for (let bit = 0; bit < 8; bit++) crc = crc >>> 1 ^ (crc & 1 ? 0xa001 : 0); }
 	return crc;
 }
+
+/** APEv2 binary items may hold an encoded preview, outside the MPEG programme. */
+export async function apePreviewMp3Fixture(header = true, legacy = false, binary = true): Promise<File> {
+	const audio = await ordinaryMp3Pcm();
+	const value = binary ? audio : new TextEncoder().encode('Reviewed programme');
+	const item = Buffer.concat([Buffer.alloc(8), Buffer.from('Embedded Preview\0'), value]);
+	item.writeUInt32LE(value.length, 0); item.writeUInt32LE(binary ? 2 : 0, 4);
+	const record = (isHeader: boolean): Uint8Array<ArrayBuffer> => {
+		const bytes = new Uint8Array(32); bytes.set(new TextEncoder().encode('APETAGEX'));
+		const view = new DataView(bytes.buffer); view.setUint32(8, 2000, true);
+		view.setUint32(12, item.length + 32, true); view.setUint32(16, 1, true);
+		view.setUint32(20, (header ? 0x80000000 : 0) + (isHeader ? 0x20000000 : 0), true);
+		return bytes;
+	};
+	const id3 = new Uint8Array(legacy ? 128 : 0); if (legacy) id3.set([84, 65, 71]);
+	return new File([audio, ...(header ? [record(true)] : []), item, record(false), id3], 'APE preview.mp3', { type: 'audio/mpeg' });
+}
