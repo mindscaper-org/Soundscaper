@@ -48,6 +48,7 @@ export function repairSoundscaperProject(value: unknown, availableSourceIds: Rea
 		note(`projectBin.clips[${String(index)}]`, 'Removed a bin clip whose media is unavailable.');
 		return false;
 	}) };
+	raw.takeGroups = repairTakeMedia(raw.takeGroups, available, note);
 	const clipIds = ids(raw.clips);
 	const trackIds = ids(raw.tracks);
 	raw.tracks = values(raw.tracks).map((value, index) => {
@@ -224,6 +225,31 @@ function repairEffects(value: unknown, path: string, note: (path: string, reason
 		catch (error) { note(`${path}[${String(index)}]`, `Removed an invalid effect: ${error instanceof Error ? error.message : String(error)}`); }
 	}
 	return result;
+}
+function repairTakeMedia(value: unknown, available: ReadonlySet<string>, note: (path: string, reason: string) => void): unknown[] {
+	return values(value).flatMap((value, groupIndex) => {
+		const group = record(value);
+		if (!group || !Array.isArray(group.takes)) return [value];
+		const originalTakes = values(group.takes);
+		const removedIds = new Set<string>();
+		const removedLanes = new Set<string>();
+		const takes = originalTakes.filter((value, index) => {
+			const take = record(value);
+			if (typeof take?.sourceId !== 'string' || available.has(take.sourceId)) return true;
+			if (typeof take.id === 'string') removedIds.add(take.id);
+			if (typeof take.laneId === 'string') removedLanes.add(take.laneId);
+			note(`takeGroups[${String(groupIndex)}].takes[${String(index)}]`, 'Removed a take whose media is unavailable.');
+			return false;
+		});
+		if (takes.length === originalTakes.length) return [value];
+		if (takes.length === 0) return [];
+		for (const take of takes) removedLanes.delete(String(record(take)?.laneId));
+		return [{ ...group, takes,
+			lanes: values(group.lanes).filter(lane => !removedLanes.has(String(record(lane)?.id))),
+			laneOrder: values(group.laneOrder).filter(laneId => !removedLanes.has(String(laneId))),
+			compRegions: values(group.compRegions).filter(region => !removedIds.has(String(record(region)?.takeId))),
+		}];
+	});
 }
 function report(original: RecordValue, project: SoundscaperProject, changes: SoundscaperProjectRecoveryChange[]): SoundscaperProjectRepair {
 	for (const key of Object.keys(original)) {
