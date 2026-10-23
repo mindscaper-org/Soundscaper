@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { publishLocalizedStatus, setLocalizedStatus, type LocalizedPresentationMessage } from '../../../../i18n/presentation-message.ts';
+import { localizedErrorMessage, publishLocalizedStatus, setLocalizedStatus, type LocalizedPresentationMessage } from '../../../../i18n/presentation-message.ts';
+
+import { errorDiagnosticMessage } from '../../../error-diagnostic-message.ts';
 
 export interface LocalizedImportNotice {
 	readonly text: string;
@@ -22,4 +24,22 @@ export function importNoticeLocalization(notices: readonly LocalizedImportNotice
 		key: 'ui.importStatus.notice', fallback: '{notice}', parameters: { notice: first.localization ?? first.text },
 		append: notices.slice(1).flatMap((notice) => [' ', notice.localization ?? notice.text]),
 	};
+}
+
+export interface LocalizedImportFailure {
+	readonly fileName: string;
+	readonly error: unknown;
+}
+
+/** Keep a bounded set of actionable file failures beside the final batch counts. */
+export function publishImportFailureStatus(
+	setStatus: (text: string, state: string, localization?: LocalizedPresentationMessage) => void,
+	copy: Readonly<{ unknownError?: string }>, successes: number, failures: number,
+	details: readonly LocalizedImportFailure[],
+): void {
+	setLocalizedStatus(setStatus, copy, 'importSummary', { successes: String(successes), failures: String(failures) }, 'error', {
+		append: details.slice(0, 3).flatMap(({ fileName, error }) => [
+			'\n', fileName, ': ', localizedErrorMessage(error) ?? errorDiagnosticMessage(error, copy.unknownError ?? ''),
+		]),
+	});
 }

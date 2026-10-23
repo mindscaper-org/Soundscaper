@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { inspectWavContainerSignature, inspectWavForImport } from './wav-import-routing.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import { publishImportCompletionStatus, type LocalizedImportNotice } from './import-status-localization.ts';
+import { publishedCopyFor } from '../../shared/presentation-localization.ts'; import { inspectWavContainerSignature, inspectWavForImport } from './wav-import-routing.ts'; import { createLocalizedError, setLocalizedStatus } from '../../../../i18n/presentation-message.ts'; import { publishImportCompletionStatus, publishImportFailureStatus, type LocalizedImportFailure, type LocalizedImportNotice } from './import-status-localization.ts';
 import { loadImportAdmissionExecution } from './import-admission-loader.ts'; import { attachExternalMedia } from '../../../desktop-external-media.ts'; import { createDesktopOriginalImportRecorder } from '../../../desktop-overwrite-original.ts';
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
@@ -120,7 +120,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const importing = claimImportBusyState(state);
 		publishDocumentSnapshot();
 		setLocalizedStatus(setStatus, copy, "importing");
-		let failures = 0; let successes = 0;
+		let failures = 0; let successes = 0; const failureDetails: LocalizedImportFailure[] = [];
 		const webFileLimitFailures = createImportFileLimitFailures(cancellation.signal);
 		const notices: LocalizedImportNotice[] = []; let importQueue = files;
 		const progressFiles = files.filter((file: RuntimeValue) => !isLegacyBlockFile(file));
@@ -145,7 +145,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				if (result?.notice) notices.push({ text: result.notice, localization: result.noticeLocalization });
 				successes += 1;
 			} catch (error) {
-				failures += 1;
+				failures += 1; if (failureDetails.length < 3) failureDetails.push({ fileName: String(legacyProject.name), error });
 				handleError(error); webFileLimitFailures.collect(error);
 			}
 			activeImportProgress?.update?.(1);
@@ -164,7 +164,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 				audioFileIndex += 1;
 			} catch (error) {
 				if (cancellation.signal.aborted && !(error instanceof AggregateError)) break;
-				failures += 1;
+				failures += 1; if (failureDetails.length < 3) failureDetails.push({ fileName: String(file.name), error });
 				handleError(error); webFileLimitFailures.collect(error);
 			}
 			activeImportProgress?.update?.(1);
@@ -174,7 +174,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			if (!importing.isCurrent()) return;
 			if (cancellation.signal.aborted && !failures) setStatus('');
 			else if (!failures) publishImportCompletionStatus(setStatus, copy, notices);
-			else setLocalizedStatus(setStatus, copy, "importSummary", { successes: String(successes), failures: String(failures) }, 'error');
+			else publishImportFailureStatus(setStatus, copy, successes, failures, failureDetails);
 		} finally {
 			if (importing.finish()) publishDocumentSnapshot();
 			progressTask?.finish?.();
