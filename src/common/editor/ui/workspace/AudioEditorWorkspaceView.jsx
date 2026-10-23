@@ -280,7 +280,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 				}}
 			/>
 
-			<WorkspaceImportInput accept={WORKSPACE_IMPORT_FILE_ACCEPT} copy={copy} importInputRef={importInputRef} importRoutedFiles={importRoutedFiles} run={run} />
+			<WorkspaceImportInput key={editorProjectEditSessionKey(controller, project?.id)} accept={WORKSPACE_IMPORT_FILE_ACCEPT} copy={copy} importInputRef={importInputRef} importRoutedFiles={importRoutedFiles} run={run} />
 			<CueImportDestinationDialog copy={copy} runtime={cueImportDialog} />
 
 			{!compactLayout && actionBar}
