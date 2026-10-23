@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
+import { createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { canonicalStripRefKey, type StripRef } from '../src/common/editor/parameter-address.ts';
 import { enableParallelProductionMeterSessionV21, sampleProductionMeterSessionV21, suspendParallelProductionMeterSessionV21 } from '../src/common/editor/engine/production-meter-runtime-session-v21.ts';
 import { acquirePlaybackMeterDemand, clearPlaybackMeterDemand, enablePlaybackMeterDemand, readPlaybackMeterDemand } from '../src/common/editor/engine/playback-meter-demand.ts';
@@ -55,7 +56,7 @@ test('hidden legacy strips also skip reads, while armed tracks and master contin
 	const legacyHidden = countedAnalyser(0.25);
 	const { host, readings } = samplingHost(new Map([['master', master.value], ['hidden', hidden.value], ['armed', armed.value]]),
 		new Map([['hidden', legacyHidden.value], ['armed', countedAnalyser(0.25).value]]));
-	host.project = { ...host.project, tracks: [{ id: 'armed', armed: true }] } as typeof host.project;
+	host.project = createSoundscaperProject({ id: 'meter-demand', tracks: [createAudioTrack({ id: 'armed', armed: true })] });
 	enablePlaybackMeterDemand(host);
 	const release = acquirePlaybackMeterDemand(host, { kind: 'master' });
 	engineTransportSchedulerMethods[ENGINE_EMIT_METERS].call(host);
