@@ -25,7 +25,10 @@ export function reconcileEngineChannelMeters<Frame extends ChannelMeterFrame>(fr
 			squares += channel.rms ** 2;
 		}
 		const rms = Math.sqrt(squares / channels.length);
-		Object.assign(target, { peak, rms, dbfs: peak > 0 ? 20 * Math.log10(peak) : -Infinity });
+		const mutable = target as { peak: number; rms: number; dbfs: number };
+		mutable.peak = peak;
+		mutable.rms = rms;
+		mutable.dbfs = peak > 0 ? 20 * Math.log10(peak) : -Infinity;
 	}
 	return frame;
 }

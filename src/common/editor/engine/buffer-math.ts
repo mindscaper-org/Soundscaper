@@ -60,8 +60,12 @@ export function getProjectClips(project: EngineProject | null | undefined): Engi
 
 export function getProjectDurationFrames(project: EngineProject | null | undefined): number {
 	let duration = 0;
-	for (const clip of getProjectClips(project)) {
-		duration = Math.max(duration, clipStart(clip) + clipDuration(clip));
+	if (Array.isArray(project?.clips)) {
+		for (const clip of project.clips) duration = Math.max(duration, clipStart(clip) + clipDuration(clip));
+	} else for (const track of project?.tracks || []) {
+		for (const clip of track.clips || []) if (clip && typeof clip === 'object') {
+			duration = Math.max(duration, clipStart(clip as EngineClip) + clipDuration(clip as EngineClip));
+		}
 	}
 	return duration;
 }

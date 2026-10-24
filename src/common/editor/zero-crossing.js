@@ -17,19 +17,27 @@ export function findNearestAudioZeroCrossing(channels, targetFrame, options = {}
 			: channels[0].length - 1,
 	));
 	let quietestFrame = target;
-	let quietestScore = linkedAmplitude(channels, target);
+	let quietestScore = Infinity;
 	for (let distance = 0; distance <= maximumDistance; distance += 1) {
-		const candidates = distance === 0 ? [target] : [target - distance, target + distance];
 		let crossing = null;
 		let crossingScore = Infinity;
-		for (const frame of candidates) {
+		for (let side = 0; side < (distance === 0 ? 1 : 2); side += 1) {
+			const frame = side === 0 ? target - distance : target + distance;
 			if (frame < 0 || frame >= channels[0].length) continue;
-			const score = linkedAmplitude(channels, frame);
+			let score = 0;
+			let linkedCrossing = true;
+			for (const channel of channels) {
+				const current = Number(channel[frame]) || 0;
+				score += Math.abs(current);
+				if (!linkedCrossing || current === 0) continue;
+				const previous = frame > 0 ? Number(channel[frame - 1]) || 0 : current;
+				if (previous !== 0 && !((previous < 0 && current > 0) || (previous > 0 && current < 0))) linkedCrossing = false;
+			}
 			if (score < quietestScore) {
 				quietestFrame = frame;
 				quietestScore = score;
 			}
-			if (isLinkedZeroCrossing(channels, frame) && score < crossingScore) {
+			if (linkedCrossing && score < crossingScore) {
 				crossing = frame;
 				crossingScore = score;
 			}
@@ -47,23 +55,4 @@ function validateChannels(channels) {
 	if (channels.some((channel) => channel.length !== channels[0].length)) {
 		throw new RangeError('Audio channels must have equal lengths.');
 	}
-}
-
-function isLinkedZeroCrossing(channels, frame) {
-	for (const channel of channels) {
-		const current = Number(channel[frame]) || 0;
-		if (current === 0) continue;
-		if (frame > 0) {
-			const previous = Number(channel[frame - 1]) || 0;
-			if (previous === 0 || (previous < 0 && current > 0) || (previous > 0 && current < 0)) continue;
-		}
-		return false;
-	}
-	return true;
-}
-
-function linkedAmplitude(channels, frame) {
-	let amplitude = 0;
-	for (const channel of channels) amplitude += Math.abs(Number(channel[frame]) || 0);
-	return amplitude;
 }

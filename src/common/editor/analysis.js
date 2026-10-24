@@ -83,9 +83,13 @@ export function createStreamingAudioAnalyzer(options = {}) {
 
 		for (let frame = 0; frame < frames; frame += 1) {
 			let frameClipped = false;
+			let left = 0;
+			let right = 0;
 			for (let channel = 0; channel < channelCount; channel += 1) {
 				const sample = Number(channels[channel][frame]);
 				if (!Number.isFinite(sample)) throw new RangeError('PCM samples must be finite.');
+				if (channel === 0) left = sample;
+				else if (channel === 1) right = sample;
 				const absolute = Math.abs(sample);
 				samplePeaks[channel] = Math.max(samplePeaks[channel], absolute);
 				sampleSquareSum += sample * sample;
@@ -96,8 +100,6 @@ export function createStreamingAudioAnalyzer(options = {}) {
 			}
 			if (frameClipped) clippedFrames += 1;
 			if (channelCount >= 2) {
-				const left = Number(channels[0][frame]);
-				const right = Number(channels[1][frame]);
 				const count = frameCount + 1;
 				const leftDelta = left - leftMean;
 				const rightDelta = right - rightMean;
