@@ -114,6 +114,16 @@ export function resampleChannels(channels, inputRate, outputRate, outputFrames =
 	const resampler = createStreamingWindowedSincResampler(inputRate, outputRate, channels.length);
 	const head = resampler.push(channels); const tail = resampler.finish(outputFrames);
 	return head.map((values, channel) => {
+		if (Number.isSafeInteger(outputFrames) && outputFrames >= 0) {
+			const output = new Float32Array(Math.min(values.length + tail[channel].length, outputFrames));
+			const headFrames = Math.min(values.length, output.length);
+			output.set(headFrames === values.length ? values : values.subarray(0, headFrames));
+			if (headFrames < output.length) {
+				const remainder = tail[channel];
+				output.set(output.length - headFrames === remainder.length ? remainder : remainder.subarray(0, output.length - headFrames), headFrames);
+			}
+			return output;
+		}
 		const output = new Float32Array(values.length + tail[channel].length);
 		output.set(values);
 		output.set(tail[channel], values.length);
