@@ -40,7 +40,7 @@ test('adding a track retires a stale cut audition without replaying its gap', as
 	const before = await page.evaluate(() => globalThis.__selectionRefreshStarts.length);
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'Audio track']);
 	await expect(editor.locator('[data-track-row]')).toHaveCount(2);
-	await expect(editor.locator('[data-transport=\"play\"]').getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+	await expect(editor.locator('[data-transport="play"]').getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 	expect(await page.evaluate(() => globalThis.__selectionRefreshStarts.length)).toBe(before);
 	await editor.getByRole('button', { name: 'Play', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => globalThis.__selectionRefreshStarts.at(-1).frames)).toBe(480_000);
