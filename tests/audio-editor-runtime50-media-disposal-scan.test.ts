@@ -13,7 +13,7 @@ test('media disposal stops at a protecting path without materializing unrelated 
 	for (let index = 1; index < 10_000; index++) map.set(String(index), { path: `other-${index}` });
 	let visits = 0;
 	const original = map.values.bind(map);
-	map.values = function* () { for (const entry of original()) { visits++; yield entry; } };
+	map.values = function* (): Generator<unknown, undefined, unknown> { for (const entry of original()) { visits++; yield entry; } return undefined; };
 	try {
 		const port = { memory, async database() { return null; } };
 		const repository = new MediaAssetDisposalRepository(port, new MediaAssetChunkRecords(port), () => new Set(), async () => false);

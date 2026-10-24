@@ -26,7 +26,8 @@ test('direct crop preserves joined output bytes across rates, padding and legacy
 	const input = Float32Array.from({ length: 257 }, (_, index) => index === 0 ? -0 : Math.sin(index / 7));
 	for (const rate of [44_100, 48_000, 96_000]) for (const frames of [0, 1, 100, 513, -1, 100.75]) {
 		const reference = createStreamingWindowedSincResampler(48_000, rate, 2);
-		const head = reference.push([input, input]); const tail = reference.finish(frames);
+		const head = reference.push([input, input]);
+		const tail = (reference.finish as (frames?: number | null) => Float32Array[])(frames);
 		const expected = head.map((values: Float32Array, channel: number) => {
 			const joined = new Float32Array(values.length + tail[channel].length);
 			joined.set(values); joined.set(tail[channel], values.length);
