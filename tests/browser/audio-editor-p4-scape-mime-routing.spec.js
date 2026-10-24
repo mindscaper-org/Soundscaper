@@ -7,7 +7,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const name of ['Session', 'Session.sscape']) test(`File Open imports a native project named ${name}`, async ({ page }) => {
+for (const name of ['Session', 'Session.sscape', 'Session.backup']) test(`File Open imports a native project named ${name}`, async ({ page }) => {
 	const errors = collectClientErrors(page);
 	const source = createAudioSource({ id: 'voice', name: 'Voice.wav', sampleRate: 48_000, channelCount: 1, frameCount: 4800 });
 	const project = createSoundscaperProject({ id: `mime-project-${name}`, title: 'MIME project', sources: [source],
