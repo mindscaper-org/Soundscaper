@@ -8,6 +8,7 @@ import { inspectWave64PcmSourceGeometry } from './wave64-pcm-source-geometry.ts'
 import { inspectNistPcmSourceGeometry } from './nist-pcm-source-geometry.ts';
 import { inspectIrcamPcmSourceGeometry } from './ircam-pcm-source-geometry.ts';
 import { inspectPafPcmSourceGeometry } from './paf-pcm-source-geometry.ts';
+import { inspectIff16svPcmSourceGeometry } from './iff16sv-pcm-source-geometry.ts';
 
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
@@ -50,6 +51,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectNistPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
@@ -85,6 +87,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectNistPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
