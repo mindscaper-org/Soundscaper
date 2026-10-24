@@ -9,25 +9,43 @@ const CATALOG_INDEX_SUFFIX = '/src/common/i18n/translations/index.js';
 const CATALOG_FIELDS = ['schemaVersion', 'locale', 'provenance', 'entries', 'community'];
 
 /**
- * Keep the committed JSON and its runtime shape intact, but emit each origin
- * tag once instead of repeating "machine" thousands of times in a JS chunk.
- * Only tuple prefixes are substituted; quoted text stays JSON-escaped.
+ * Keep the committed JSON and its runtime shape intact while sharing repeated
+ * string values in the emitted module. Keys remain literal and text stays
+ * JSON-escaped; no catalog entry or provenance is removed.
  *
  * @param {Record<string, unknown>} catalog
  */
 export function renderTranslationCatalogModule(catalog) {
-	const source = JSON.stringify(catalog)
-		.replace(/\["(machine|audacity|human)",/gu, '[__catalogOrigin_$1,')
-		.replaceAll('"__proto__":', '["__proto__"]:');
+	const normalized = JSON.parse(JSON.stringify(catalog));
+	const counts = new Map();
+	countStrings(normalized, counts);
+	const strings = new Map([...counts].filter(([value, count]) => count > 1
+		&& (['machine', 'audacity', 'human'].includes(value) || new TextEncoder().encode(JSON.stringify(value)).byteLength >= 16))
+		.map(([value], index) => [value, `__catalogText_${index}`]));
 	return [
-		'const __catalogOrigin_machine = "machine";',
-		'const __catalogOrigin_audacity = "audacity";',
-		'const __catalogOrigin_human = "human";',
-		`const catalog = ${source};`,
+		...[...strings].map(([value, name]) => `const ${name} = ${JSON.stringify(value)};`),
+		`const catalog = ${catalogValue(normalized, strings)};`,
 		...CATALOG_FIELDS.filter((key) => Object.hasOwn(catalog, key))
 			.map((key) => `export const ${key} = catalog.${key};`),
 		'export default catalog;',
 	].join('\n');
+}
+
+/** @param {unknown} value @param {Map<string, number>} counts */
+function countStrings(value, counts) {
+	if (typeof value === 'string') counts.set(value, (counts.get(value) ?? 0) + 1);
+	else if (Array.isArray(value)) for (const item of value) countStrings(item, counts);
+	else if (value && typeof value === 'object') for (const item of Object.values(value)) countStrings(item, counts);
+}
+
+/** @param {unknown} value @param {ReadonlyMap<string, string>} strings @returns {string} */
+function catalogValue(value, strings) {
+	if (typeof value === 'string') return strings.get(value) ?? JSON.stringify(value);
+	if (Array.isArray(value)) return `[${value.map(item => catalogValue(item, strings)).join(',')}]`;
+	if (value && typeof value === 'object') return `{${Object.entries(value).map(([key, item]) => (
+		`${key === '__proto__' ? '["__proto__"]' : JSON.stringify(key)}:${catalogValue(item, strings)}`
+	)).join(',')}}`;
+	return JSON.stringify(value) ?? 'null';
 }
 
 /** Substitute only the generated index's lazy catalog imports during builds. */

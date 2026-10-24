@@ -33,6 +33,20 @@ test('compact catalogs retain translation tuples, provenance and community attri
 	for (const [key, value] of Object.entries(catalog)) assert.deepEqual(module[key], value);
 });
 
+test('repeated catalog text compacts without changing literal keys or escaped values', async () => {
+	const english = 'Repeated English with "quotes", \\paths,\nnewlines and a literal __catalogText_0';
+	const translated = 'बार-बार दोहराया गया पाठ — 日本語 😀 __proto__';
+	const catalog = { schemaVersion: 2, locale: 'hi', entries: Object.fromEntries([
+		...Array.from({ length: 40 }, (_, index) => [String(index), ['machine', english, translated]]),
+		['__proto__', ['human', english, translated]],
+		[english, ['audacity', translated, english]],
+	]), community: { previousEntry: ['machine', english, translated] } };
+	const { code } = await transform(renderTranslationCatalogModule(catalog), { minify: true, charset: 'utf8' });
+	assert.ok(Buffer.byteLength(code) < Buffer.byteLength(JSON.stringify(catalog)) / 2,
+		'repeated source and translated text should leave room without deleting catalog content');
+	assert.deepEqual((await loadModule(code)).default, catalog);
+});
+
 test('the bundle plugin only substitutes lazy imports from the generated catalog index', async () => {
 	const plugin = createTranslationCatalogBundlePlugin();
 	const importer = fileURLToPath(new URL('../src/common/i18n/translations/index.js', import.meta.url));
