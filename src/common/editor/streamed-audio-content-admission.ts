@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { raceAbortableRead } from './abort-race.ts';
 import { isStreamedAudioImportFile } from './streamed-audio-import-file.ts';
+import { hasNativeOggSpeexIdentity } from './ogg-speex-source-identity.ts';
 
 const OTHER_MEDIA_SUFFIX = /\.(?:wav|wave|rf64|bw64|bwf|aif|aiff|aifc|au|snd|caf|mka|webm|mov|m4v|wma)$/iu;
 const MPEG1_BITRATES = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
@@ -10,7 +11,11 @@ interface Frame { readonly byteLength: number; readonly sampleRate: number; read
 /** Generic downloads must use the same gapless MPEG route as named recordings. */
 export async function inspectStreamedAudioImportFile(value: unknown, signal?: AbortSignal): Promise<boolean> {
 	signal?.throwIfAborted();
-	if (isStreamedAudioImportFile(value)) return true;
+	if (isStreamedAudioImportFile(value)) {
+		const name = 'name' in value ? String(value.name) : '', type = value.type.split(';', 1)[0]!.trim();
+		const ogg = /\.(?:ogg|oga|opus|spx)$/iu.test(name) || /^(?:audio\/(?:ogg|opus)|application\/(?:x-)?ogg)$/iu.test(type);
+		return !ogg || !(await hasNativeOggSpeexIdentity(value, signal));
+	}
 	if (!(value instanceof Blob)) return false;
 	const file = value;
 	const name = 'name' in file ? String(file.name) : '', type = file.type.split(';', 1)[0]!.trim().toLowerCase();

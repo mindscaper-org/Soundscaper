@@ -11,6 +11,7 @@ import { inspectPafPcmSourceGeometry } from './paf-pcm-source-geometry.ts';
 import { inspectIff16svPcmSourceGeometry } from './iff16sv-pcm-source-geometry.ts';
 import { inspectVocPcmSampleRate } from './voc-pcm-sample-rate.ts';
 import { inspectAmrWbAudioSampleRate } from './amr-wb-audio-sample-rate.ts';
+import { inspectOggSpeexSampleRate } from './ogg-speex-source-identity.ts';
 
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
@@ -62,6 +63,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectOggSpeexSampleRate(bytes)
 			?? inspectIsoMediaSampleRate(bytes)
 			?? inspectAsfSampleRate(bytes)
 			?? inspectMatroskaOpusSampleRate(bytes)
@@ -100,6 +102,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectOggSpeexSampleRate(bytes)
 			?? inspectIsoMediaSampleRate(bytes, true)
 			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
