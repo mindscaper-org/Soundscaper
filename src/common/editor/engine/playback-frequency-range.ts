@@ -143,8 +143,11 @@ export const enginePlaybackFrequencyMethods = {
 		this[ENGINE_ASSERT_ACTIVE]();
 		const normalized = normalizeRange(range, this.sampleRate);
 		const state = audition(this);
+		const unchanged = normalized === state.range || Boolean(normalized && state.range
+			&& normalized.minimumFrequency === state.range.minimumFrequency
+			&& normalized.maximumFrequency === state.range.maximumFrequency);
 		state.range = normalized;
-		if (state.output) connectOutput(state.output, normalized);
+		if (state.output && !unchanged) connectOutput(state.output, normalized);
 		return normalized;
 	},
 } satisfies EngineRuntimeMethodMap<'setPlaybackFrequencyRange'>;

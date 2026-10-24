@@ -22,7 +22,7 @@ const EMPTY_VALUES: readonly number[] = Object.freeze([]);
 const EMPTY_SCOPE: readonly StereoScopePoint[] = Object.freeze([]);
 const timeReadBuffers = new WeakMap<AnalyserNode, Float32Array>();
 const frequencyReadBuffers = new WeakMap<AnalyserNode, Float32Array>();
-const spectrumWindows = new WeakMap<AnalyserNode, { count: number; bounds: readonly [number, number][] }>();
+const spectrumWindows = new WeakMap<AnalyserNode, { count: number; bounds: readonly [number, number][]; merged?: Float64Array }>();
 
 /** Existing scalar meter path; it never reads the live-analysis side taps. */
 export function readEngineMeter(analyser: AnalyserNode | null | undefined): MutableEngineMeterReading {
@@ -110,16 +110,20 @@ function readSpectrum(analyser: AnalyserNode, channelAnalysers?: readonly Analys
 		windows = { count, bounds };
 		spectrumWindows.set(analyser, windows);
 	}
+	let merged: Float64Array | undefined;
+	if (channels.length > 1) {
+		merged = windows.merged ??= new Float64Array(count);
+		for (let index = 1; index < count; index++) {
+			let power = 0;
+			for (const channel of channels) power += 10 ** (channel[index]! / 10);
+			merged[index] = 10 * Math.log10(power / channels.length);
+		}
+	}
 	const bins: number[] = [];
 	for (const [start, end] of windows.bounds) {
 		let loudest = -120;
 		for (let index = start; index < end; index += 1) {
-			let value = channels[0]![index]!;
-			if (channels.length > 1) {
-				let power = 0;
-				for (const channel of channels) power += 10 ** (channel[index]! / 10);
-				value = 10 * Math.log10(power / channels.length);
-			}
+			const value = merged ? merged[index]! : channels[0]![index]!;
 			if (Number.isFinite(value)) loudest = Math.max(loudest, Math.min(0, value));
 		}
 		bins.push(loudest);
