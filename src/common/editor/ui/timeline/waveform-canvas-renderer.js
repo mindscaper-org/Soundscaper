@@ -71,14 +71,15 @@ export function drawAudacityClipCanvas(canvas, clip, options) {
 
 	let frequencyPainted = false;
 	const cachedSelection = options.cacheSelectionLayers !== false && options.displayMode === 'waveform'
-		&& rendering.mode === 'summary' && pixelRatioX === 1 && paintWaveformSelectionLayers(context, {
+		&& rendering.mode === 'summary' && paintWaveformSelectionLayers(context, {
 			key: [rendering, width, height, options.showRms, options.halfWave, options.waveformRulerFormat,
 				options.verticalZoom, options.channelHeightRatio, baseWaveform, selectedWaveform, baseRms, selectedRms, divider,
 				cssColor(style, `--clip-${color}-time-selection-body`, 'rgba(255, 255, 255, 0.15)')],
 			width, start: selection.start, end: selection.end,
-			draw: (surface, selected) => drawAudacityClipCanvas(surface, clip, { ...options, color, cacheSelectionLayers: false,
+			draw: (surface, selected) => drawAudacityClipCanvas(surface, clip, { ...options, color, style, cacheSelectionLayers: false,
 				selectionPixels: selected ? { start: 0, end: width } : { start: -1, end: -1 }, bounds: { width, height } }),
-			drawEdges: (columnRanges) => drawAudacityClipCanvas(canvas, clip, { ...options, cacheSelectionLayers: false, columnRanges }),
+			drawEdges: (surface, columnRanges) => drawAudacityClipCanvas(surface, clip, { ...options, color, style,
+				cacheSelectionLayers: false, columnRanges, bounds: { width, height } }),
 		});
 	if (cachedSelection) { releaseSpectrogramCanvas(canvas); delete canvas.dataset.spectrogramRenderer; }
 	if (!cachedSelection) {

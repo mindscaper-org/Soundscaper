@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { expect, test } from './audio-editor-test-fixtures.js';
 
-test('retained summary selection layers preserve pixels and read only fractional edge columns', async ({ page }) => {
+test('retained summary selection layers preserve pixels and read only fractional edge columns', async ({ page }, testInfo) => {
 	const bundled = await build({
 		entryPoints: [fileURLToPath(new URL('./helpers/waveform-selection-harness.js', import.meta.url))],
 		bundle: true, write: false, format: 'iife', globalName: 'waveformCanvas', target: 'es2022', external: ['./pffft.js'],
@@ -18,7 +18,7 @@ test('retained summary selection layers preserve pixels and read only fractional
 			'--clip-blue-divider': 'rgba(10,20,30,0.35)', '--clip-blue-time-selection-body': 'rgba(220,230,240,0.15)' };
 		const style = { colorScheme: 'light', getPropertyValue: property => palette[property] || '' };
 		let comparisons = 0;
-		for (const density of [1, 1.25, 1.5, 2]) for (const width of [120, 120.25]) {
+		for (const density of [0.25, 0.5, 1, 1.25, 1.5, 2]) for (const width of [120, 120.25]) {
 			Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: density });
 			for (const halfWave of [false, true]) for (const showRms of [false, true]) for (const waveformRulerFormat of ['linear-db', 'logarithmic-db']) {
 				const channels = Array.from({ length: 2 }, (_, channel) => ({
@@ -34,7 +34,7 @@ test('retained summary selection layers preserve pixels and read only fractional
 				for (const canvas of canvases) canvas.getContext('2d', { willReadFrequently: false });
 				const options = { displayMode: 'waveform', pixelsPerSecond: 1, style, bounds: { width, height: 80 },
 					showRms, halfWave, waveformRulerFormat, verticalZoom: 0, channelHeightRatio: 0.7 };
-				for (const [startTime, endTime] of [[0, width], [0, 0], [1.3, 87.4], [3, 19], [0.25, 0.5], [0, width], [119.25, width], [75, 75]]) {
+				for (const [startTime, endTime] of [[0, width], [0, 0], [1.3, 87.4], [3, 19], [0.25, 0.5], [0, width], [119.25, width], [75, 75], [2.01, 119.99], [0.01, 0.02]]) {
 					for (let index = 0; index < canvases.length; index++) globalThis.waveformCanvas.drawAudacityClipCanvas(canvases[index], clip,
 						{ ...options, timeSelection: { startTime, endTime }, cacheSelectionLayers: index === 1 });
 					const pixels = canvases.map(canvas => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data);
@@ -64,8 +64,21 @@ test('retained summary selection layers preserve pixels and read only fractional
 		globalThis.waveformCanvas.drawAudacityClipCanvas(canvas, clip, { ...options, timeSelection: { startTime: 1, endTime: 900 } });
 		reads = 0;
 		globalThis.waveformCanvas.drawAudacityClipCanvas(canvas, clip, { ...options, timeSelection: { startTime: 2.25, endTime: 899.75 } });
-		return { failures, comparisons, hotReads: reads, coldFullSelectionReads, hotFullSelectionReads };
+		const hotReads = reads;
+		const denseReads = [];
+		for (const density of [1, 1.25, 1.5, 2]) for (const width of [1_000, 1_000.25]) {
+			Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: density });
+			const target = document.createElement('canvas');
+			const denseOptions = { ...options, bounds: { width, height: 80 } };
+			globalThis.waveformCanvas.drawAudacityClipCanvas(target, clip, { ...denseOptions, timeSelection: { startTime: 1, endTime: 900 } });
+			reads = 0;
+			globalThis.waveformCanvas.drawAudacityClipCanvas(target, clip, { ...denseOptions, timeSelection: { startTime: 2.25, endTime: 899.75 } });
+			denseReads.push({ density, width, reads });
+		}
+		return { failures, comparisons, hotReads, coldFullSelectionReads, hotFullSelectionReads, denseReads };
 	});
-	expect(result.failures).toEqual([]); expect(result.comparisons).toBe(512); expect(result.hotReads).toBe(4);
+	await testInfo.attach('waveform-selection-work.json', { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
+	expect(result.failures).toEqual([]); expect(result.comparisons).toBe(960); expect(result.hotReads).toBe(4);
 	expect(result.coldFullSelectionReads).toBe(2_000); expect(result.hotFullSelectionReads).toBe(0);
+	for (const sample of result.denseReads) expect(sample.reads, JSON.stringify(sample)).toBeLessThanOrEqual(24);
 });
