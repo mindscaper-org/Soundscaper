@@ -2,7 +2,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseFileAction, chooseCommandAction, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseFileAction, chooseCommandAction, chooseNestedCommandAction, closeWorkspacePanel } from './audio-editor-test-helpers.js';
 import { videoPreviewBenchmarkMedia } from './fixtures/video-preview-benchmark-media.js';
 import { createVideoSource } from '../../src/common/editor/project-media-factory.ts';
 import { createFramescaperProject } from '../../src/framescaper/editor-project.ts';
@@ -13,6 +13,7 @@ import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/edito
 test('a native dissolve changes the chosen colon-containing pair and preserves the other track', async ({ page }) => {
 	const archive = await pairProjectFile();
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await closeWorkspacePanel(editor, 'video-preview');
 	const chooser = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 	await (await chooser).setFiles({ name: 'Two pairs.scape', mimeType: 'application/zip', buffer: archive });
 	await expect(editor).toHaveAttribute('data-clip-count', '4');
