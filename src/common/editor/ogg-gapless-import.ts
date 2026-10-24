@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { inspectOpusInitialGranule } from './opus-initial-granule.ts';
+import { inspectVorbisAbsoluteOrigin, type VorbisPacketGeometry } from './vorbis-initial-granule.ts';
 
 export interface OggGaplessGeometry {
 	readonly sampleRate: number;
@@ -11,7 +12,8 @@ const MAXIMUM_PAGE_BYTES = 65_307;
 const MAXIMUM_SCAN_PAGES = 1_000_000;
 
 /** The final Ogg granule, rather than the full last codec packet, ends the source. */
-export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vorbis', signal?: AbortSignal): Promise<OggGaplessGeometry | null> {
+export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vorbis', signal?: AbortSignal,
+	vorbisPackets?: AsyncIterable<VorbisPacketGeometry>): Promise<OggGaplessGeometry | null> {
 	signal?.throwIfAborted();
 	const first = await findAudioIdentificationPage(file, codec);
 	signal?.throwIfAborted();
@@ -28,7 +30,8 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		sampleRate = new DataView(body.buffer, body.byteOffset, body.byteLength).getUint32(12, true);
 	}
 	const serial = new DataView(first.buffer).getUint32(14, true);
-	const origin = codec === 'opus' ? await inspectOpusInitialGranule(file, serial, signal) : 0;
+	const origin = codec === 'opus' ? await inspectOpusInitialGranule(file, serial, signal)
+		: vorbisPackets ? await inspectVorbisAbsoluteOrigin(file, serial, sampleRate, vorbisPackets, signal) : 0;
 	const tail = new Uint8Array(await file.slice(Math.max(0, file.size - MAXIMUM_PAGE_BYTES * 2)).arrayBuffer());
 	signal?.throwIfAborted();
 	for (let offset = tail.length - 27; offset >= 0; offset -= 1) {
