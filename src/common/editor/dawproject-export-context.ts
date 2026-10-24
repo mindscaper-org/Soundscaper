@@ -168,6 +168,31 @@ export function dawprojectStructureTracks(nodes: readonly DawprojectStructureNod
 	return nodes.flatMap((node) => node.kind === 'track' && node.track ? [node.track] : dawprojectStructureTracks(node.children));
 }
 
+/** Referenced buses outside the delivered hierarchy remain channels, without their foreign audio tracks. */
+export function dawprojectAdditionalFolderBusIds(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): ReadonlySet<string> {
+	const folderIds = new Set(records(context.project.trackFolders).map(folder => String(folder.id)));
+	const nodes = [...structure];
+	const deliveredFolders = new Set<string>();
+	const trackIds: string[] = [];
+	for (let index = 0; index < nodes.length; index++) {
+		const node = nodes[index]!;
+		if (node.kind === 'folder') deliveredFolders.add(node.id);
+		else trackIds.push(node.id);
+		for (const child of node.children) nodes.push(child);
+	}
+	const retained = new Set([...deliveredFolders, ...context.routing.sends.map(strip => strip.id),
+		...context.routing.groups.filter(strip => !folderIds.has(strip.id)).map(strip => strip.id)]);
+	const pending = [...retained];
+	const follow = (route: DawprojectTrackRoute | undefined): void => {
+		for (const id of [route?.groupId, ...(route?.sends.map(send => send.id) ?? [])]) {
+			if (id && !retained.has(id)) { retained.add(id); pending.push(id); }
+		}
+	};
+	for (const id of trackIds) follow(context.routing.routes.get(id));
+	for (let index = 0; index < pending.length; index++) follow(context.routing.nodeRoutes.get(pending[index]!));
+	return new Set([...retained].filter(id => folderIds.has(id) && !deliveredFolders.has(id)));
+}
+
 function freezeTree(nodes: DawprojectStructureNode[]): readonly DawprojectStructureNode[] {
 	return Object.freeze(nodes.map((node) => Object.freeze({
 		...node,

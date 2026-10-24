@@ -14,6 +14,7 @@ import {
 	type DataRecord,
 	type DawprojectExportContext,
 	type DawprojectStructureNode,
+	dawprojectAdditionalFolderBusIds,
 	dawprojectExportSequence,
 	dawprojectStructureTracks,
 	finite,
@@ -48,7 +49,7 @@ export function buildArrangement(
 ): XmlElement {
 	const lanes = xmlElement('Lanes', { timeUnit: 'seconds', id: context.ids.id('arrangement-lanes') }, [
 		...structure.map((node) => buildNodeLanes(node, context)),
-		...buildMixerNodeLanes(context),
+		...buildMixerNodeLanes(context, structure),
 		wrapLanes(context, ['master-track'], buildStripAutomation('master', record(context.project.master), context)),
 	]);
 	const arrangement = xmlElement('Arrangement', { id: context.ids.id('arrangement') }, [
@@ -84,11 +85,12 @@ function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExport
 	]);
 }
 
-function buildMixerNodeLanes(context: DawprojectExportContext): XmlElement[] {
+function buildMixerNodeLanes(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): XmlElement[] {
 	const folderIds = new Set(records(context.project.trackFolders).map((folder) => String(folder.id)));
+	const additionalFolderBusIds = dawprojectAdditionalFolderBusIds(context, structure);
 	const result: XmlElement[] = [];
 	for (const strip of [...context.routing.groups, ...context.routing.sends]) {
-		if (folderIds.has(strip.id)) continue;
+		if (folderIds.has(strip.id) && !additionalFolderBusIds.has(strip.id)) continue;
 		const wrapped = wrapLanes(
 			context,
 			['strip-track', strip.id],

@@ -28,6 +28,7 @@ import {
 	type DawprojectTrackRoute,
 	DawprojectMediaRegistry,
 	channelIdFor,
+	dawprojectAdditionalFolderBusIds,
 	dawprojectStructureTree,
 	finite,
 	parameterIdFor,
@@ -129,7 +130,7 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 	const transport = buildTransport(context);
 	const structureElement = xmlElement('Structure', {}, [
 		...structure.map((node) => buildStructureNode(node, context)),
-		...buildMixerNodeTracks(context),
+		...buildMixerNodeTracks(context, structure),
 		buildMasterTrack(context),
 	]);
 	const arrangement = buildArrangement(context, structure, request.sequenceId);
@@ -287,12 +288,18 @@ function buildVideoTrack(track: DataRecord, context: DawprojectExportContext): X
 }
 
 /** Group and send buses that no folder owns stand as their own tracks. */
-function buildMixerNodeTracks(context: DawprojectExportContext): XmlElement[] {
+function buildMixerNodeTracks(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): XmlElement[] {
 	const folderIds = new Set(records(context.project.trackFolders).map((folder) => String(folder.id)));
+	const additionalFolderBusIds = dawprojectAdditionalFolderBusIds(context, structure);
 	const result: XmlElement[] = [];
 	for (const [role, strips] of [['submix', context.routing.groups], ['effect', context.routing.sends]] as const) {
 		for (const strip of strips) {
-			if (role === 'submix' && folderIds.has(strip.id)) continue;
+			if (role === 'submix' && folderIds.has(strip.id) && !additionalFolderBusIds.has(strip.id)) continue;
+			if (additionalFolderBusIds.has(strip.id)) addDeliveryReportItem(context.draft, {
+				code: 'dawproject.additional-folder-bus-converted', disposition: 'converted', severity: 'info',
+				scope: { kind: 'mixer-node', id: strip.id },
+				message: 'A referenced bus outside the delivered arrangement is retained as a standalone submix; its other arrangement tracks remain omitted.',
+			});
 			result.push(xmlElement('Track', {
 				contentType: 'audio',
 				loaded: true,
