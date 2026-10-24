@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { isImportFileName } from '../../../import-file-extensions.ts';
+import { isProjectFileName } from '../../../../project-file-extensions.ts';
 
 const CANONICAL_AIFF_MIME_TYPE = 'audio/aiff';
 
@@ -11,7 +13,7 @@ const CANONICAL_AIFF_MIME_TYPE = 'audio/aiff';
 const PLATFORM_AIFF_MIME_TYPES: ReadonlySet<string> = new Set([
 	'', 'application/octet-stream', 'audio/aiff', 'audio/x-aiff', 'audio/aif', 'audio/x-aif', 'audio/aifc', 'audio/x-aifc',
 ]);
-const OTHER_FORMAT_SUFFIX = /\.(?:aac|au|bw64|bwf|flac|m4a|m4v|mka|mp2|mp3|mp4|oga|ogg|opus|rf64|snd|wav|wave|wavpack|webm|wma|wv|cue|txt|srt|vtt|aup|aup3|aup4|scape|sscape|fscape|liscape|dawproject|sesx)$/iu;
+const LEGACY_PROJECT_SUFFIX = /\.(?:aup|aup3|aup4|dawproject|sesx)$/iu;
 
 interface NamedAudioFile {
 	readonly name?: unknown;
@@ -29,5 +31,6 @@ export function maintainedAiffMimeType(value: unknown): 'audio/aiff' | null {
 	const type = file.type.split(';', 1)[0]?.trim().toLowerCase() ?? '';
 	if (!PLATFORM_AIFF_MIME_TYPES.has(type)) return null;
 	// A declared AIFF MIME is sufficient when the name does not specify another format.
-	return namedAiff || type.startsWith('audio/') && !OTHER_FORMAT_SUFFIX.test(file.name) ? CANONICAL_AIFF_MIME_TYPE : null;
+	return namedAiff || type.startsWith('audio/') && !isImportFileName(file.name)
+		&& !isProjectFileName(file.name) && !LEGACY_PROJECT_SUFFIX.test(file.name) ? CANONICAL_AIFF_MIME_TYPE : null;
 }
