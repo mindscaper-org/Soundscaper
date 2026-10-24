@@ -7,6 +7,7 @@ import {
 	sealDeliveryReport,
 } from './delivery-report.ts';
 import { DAWPROJECT_DELIVERY_FORMAT, clamp, entryBaseName } from './dawproject-format.ts';
+import { isAudioEditorProjectSampleRate, normalizeProjectSampleRate } from './project-sample-rate.ts';
 import type { DawprojectDocument } from './dawproject-import.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
@@ -212,14 +213,11 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 
 function chooseSampleRate(options: DawprojectImportOptions): number {
 	if (options.sampleRate !== undefined) {
-		if (!Number.isSafeInteger(options.sampleRate) || options.sampleRate <= 0) {
-			throw new RangeError('The import sample rate must be a positive integer.');
-		}
-		return options.sampleRate;
+		return normalizeProjectSampleRate(options.sampleRate);
 	}
 	const counts = new Map<number, number>();
 	for (const info of options.media.values()) {
-		if (info && Number.isSafeInteger(info.sampleRate) && info.sampleRate > 0) {
+		if (info && isAudioEditorProjectSampleRate(info.sampleRate)) {
 			counts.set(info.sampleRate, (counts.get(info.sampleRate) ?? 0) + 1);
 		}
 	}
