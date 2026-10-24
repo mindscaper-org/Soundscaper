@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { decodeBomMarkedUtf16 } from './bom-marked-text.ts';
+import { AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS } from './label-input-limits.ts';
 
 const CD_FRAMES_PER_SECOND = 75;
-const DEFAULT_MAX_INPUT_CHARS = 16 * 1024 * 1024;
 const DEFAULT_MAX_CUES = 4_096;
 
 export type CueImportDestination = 'markers' | 'labels';
@@ -57,7 +57,7 @@ export function parseAudioEditorCueSheet(
 	options: AudioEditorCueParseOptions,
 ): AudioEditorCueSheet {
 	const sampleRate = positiveSafeInteger(options?.sampleRate, 'sampleRate');
-	const maxInputChars = positiveSafeInteger(options?.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS, 'maxInputChars');
+	const maxInputChars = positiveSafeInteger(options?.maxInputChars ?? AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS, 'maxInputChars');
 	const maxCues = positiveSafeInteger(options?.maxCues ?? DEFAULT_MAX_CUES, 'maxCues');
 	const text = normalizeInput(input, maxInputChars, options.legacyTextEncoding);
 	let albumTitle = '';

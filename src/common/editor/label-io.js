@@ -1,6 +1,7 @@
 import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
 import { labelTimeFrame } from './label-time-frame.ts';
+import { AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS } from './label-input-limits.ts';
 
 export const AUDIO_EDITOR_LABEL_FORMATS = Object.freeze(['txt', 'srt', 'vtt']);
 export const AUDIO_EDITOR_LABEL_EXPORT_FORMATS = Object.freeze([...AUDIO_EDITOR_LABEL_FORMATS, 'json']);
@@ -8,7 +9,6 @@ export const AUDIO_EDITOR_LABEL_EXPORT_FORMATS = Object.freeze([...AUDIO_EDITOR_
 const FORMAT_SET = new Set(AUDIO_EDITOR_LABEL_FORMATS);
 const EXPORT_FORMAT_SET = new Set(AUDIO_EDITOR_LABEL_EXPORT_FORMATS);
 const DEFAULT_SAMPLE_RATE = 48_000;
-const DEFAULT_MAX_INPUT_CHARS = 16 * 1024 * 1024;
 const DEFAULT_MAX_LABELS = 100_000;
 const DEFAULT_MAX_TITLE_CHARS = 1_000_000;
 const DEFAULT_MAX_TOTAL_TITLE_CHARS = 8 * 1024 * 1024;
@@ -118,7 +118,7 @@ function normalizeInput(input, options) {
 	} else {
 		throw new TypeError('Label data must be a string, Uint8Array, or ArrayBuffer.');
 	}
-	const maxInputChars = positiveSafeInteger(options.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS, 'maxInputChars');
+	const maxInputChars = positiveSafeInteger(options.maxInputChars ?? AUDIO_EDITOR_LABEL_MAX_INPUT_CHARS, 'maxInputChars');
 	if (text.length > maxInputChars) {
 		throw labelError('Label data exceeds the configured input limit.', 'INPUT_LIMIT', {
 			limit: maxInputChars,

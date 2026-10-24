@@ -13,6 +13,7 @@ import {
 	type CueImportDestination,
 } from '../../../cue-import.ts';
 import { parseAudioEditorLabels, serializeAudioEditorLabels } from '../../../label-io.js';
+import { AUDIO_EDITOR_LABEL_MAX_INPUT_BYTES } from '../../../label-input-limits.ts';
 import { AUDIO_EDITOR_TIMELINE_ANNOTATION_LIMITS } from '../../../timeline-annotation.ts';
 import {
 	labelExportFileName,
@@ -70,6 +71,7 @@ export interface LabelServiceCopy {
 export interface LabelInputFile {
 	readonly name: string;
 	readonly type?: string;
+	readonly size?: number;
 	arrayBuffer?(): Promise<ArrayBuffer>;
 	text?(): Promise<string>;
 }
@@ -325,6 +327,9 @@ function isLabelTrack(track: Readonly<Record<string, unknown>>): track is LabelT
 }
 
 async function readLabelFile(file: LabelInputFile): Promise<ArrayBuffer | string> {
+	if (typeof file.size === 'number' && file.size > AUDIO_EDITOR_LABEL_MAX_INPUT_BYTES) {
+		throw new RangeError('Label data exceeds the configured input limit.');
+	}
 	if (typeof file.arrayBuffer === 'function') return file.arrayBuffer();
 	if (typeof file.text === 'function') return file.text();
 	throw new TypeError('A readable label file is required.');
