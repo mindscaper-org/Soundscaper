@@ -37,6 +37,18 @@ test('pending zoom rejects changed source, edits, and nonoverlapping windows', (
 	assert.equal(reprojectPendingWaveform(plan, { ...clip, waveformStartFrame: 200, waveformEndFrame: 300 }, 100, 4), null);
 });
 
+test('a retained window follows zoom even when its source frame range stays unchanged', () => {
+	const sameRange = { ...clip, waveformStartFrame: 0, waveformEndFrame: 100 };
+	const result = reprojectPendingWaveform(plan, sameRange, 100, 8);
+	assert.ok(result);
+	assert.equal(result.pixelWidth, 8);
+	assert.equal(result.pixelsPerSample, 0.08);
+	const channel = result.channels[0];
+	assert.ok(channel && 'maximum' in channel);
+	assert.deepEqual(Array.from(channel.maximum), Array.from(new Float32Array([0.1, 0.1, 0.2, 0.2, 0.3, 0.3, 0.4, 0.4])));
+	assert.strictEqual(reprojectPendingWaveform(result, sameRange, 100, 8), result);
+});
+
 test('retained PCM samples keep their exact positions after the viewport moves', () => {
 	const pcm = {
 		...plan, mode: 'connecting-dots', pixelWidth: 100, pixelsPerSample: 1,
@@ -48,6 +60,23 @@ test('retained PCM samples keep their exact positions after the viewport moves',
 	const channel = result.channels[0];
 	assert.ok(channel && 'firstSampleX' in channel);
 	assert.equal(channel.firstSampleX, -200);
+	assert.strictEqual(channel.samples, pcm.channels[0]?.samples);
+});
+
+test('fractional PCM origins remain anchored through a left trim and another zoom', () => {
+	const pcm = {
+		...plan, mode: 'connecting-dots', pixelWidth: 100, pixelsPerSample: 1,
+		channels: [{ firstSample: 0, firstSampleX: -0.375, samples: new Float32Array([0.1, 0.5, -0.5]) }],
+	};
+	const trimmedClip = { ...clip, waveformStartFrame: 25, waveformEndFrame: 100 };
+	const trimmed = reprojectPendingWaveform(pcm, trimmedClip, 100, 150);
+	assert.ok(trimmed);
+	const zoomed = reprojectPendingWaveform(trimmed, trimmedClip, 100, 300);
+	assert.ok(zoomed);
+	const channel = zoomed.channels[0];
+	assert.ok(channel && 'firstSampleX' in channel);
+	assert.equal(channel.firstSampleX, -101.5);
+	assert.equal(zoomed.pixelsPerSample, 4);
 	assert.strictEqual(channel.samples, pcm.channels[0]?.samples);
 });
 
