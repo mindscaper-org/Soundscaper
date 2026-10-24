@@ -4,7 +4,7 @@ import { addRackEffect, bootEditor, clipByName, closeDialog, collectClientErrors
 
 test.use({ browserCoverage: false });
 
-for (const topology of ['mixed-stereo', 'mono', 'stereo', 'surround', 'mixed-surround']) test(`a neutral Tremolo preserves ${topology} recording channels and listening gain`, async ({ page }) => {
+for (const effectName of ['Tremolo', 'Invert']) for (const topology of ['mixed-stereo', 'mono', 'stereo', 'surround', 'mixed-surround']) test(`${effectName} preserves ${topology} recording channels and listening magnitude`, async ({ page }) => {
 	const errors = collectClientErrors(page);
 	await page.addInitScript(() => {
 		globalThis.__rackChannelOutput = [];
@@ -54,10 +54,12 @@ for (const topology of ['mixed-stereo', 'mono', 'stereo', 'surround', 'mixed-sur
 	const before = await measure();
 	expect(before[0]).toBeGreaterThan(.12);
 	if (topology === 'mono' || topology === 'mixed-stereo') expect(before[1] / before[0]).toBeGreaterThan(.99);
-	const panel = await openEffectsForTrack(editor, 1); await addRackEffect(page, panel, 'track', 'Tremolo');
-	const dialog = page.getByRole('dialog', { name: 'Tremolo', exact: true });
-	await commitInput(dialog.locator('[data-effect-param="depth"] input[type="number"]'), '0'); await closeDialog(dialog);
-	const after = await measure(); console.log('mixed-width neutral rack output', { topology, before, after });
+	const panel = await openEffectsForTrack(editor, 1); await addRackEffect(page, panel, 'track', effectName);
+	if (effectName === 'Tremolo') {
+		const dialog = page.getByRole('dialog', { name: 'Tremolo', exact: true });
+		await commitInput(dialog.locator('[data-effect-param="depth"] input[type="number"]'), '0'); await closeDialog(dialog);
+	}
+	const after = await measure(); console.log('mixed-width neutral rack output', { effectName, topology, before, after });
 	expect(Math.abs(after[0] - before[0])).toBeLessThan(.005);
 	expect(Math.abs(after[1] - before[1])).toBeLessThan(.005);
 	expect(errors).toEqual([]);

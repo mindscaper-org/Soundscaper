@@ -202,8 +202,8 @@ export function applyEffect(
 		const processor = addNode(nodes, new WorkletNode(context, 'kw-audacity-live-effect', {
 			numberOfInputs: sidechain ? 2 : 1,
 			numberOfOutputs: 1,
-			channelCount: width, channelCountMode: 'explicit', channelInterpretation: 'discrete',
-			outputChannelCount: [width],
+			channelCount: width, channelCountMode: type === 'audacity-invert' ? 'max' : 'explicit', channelInterpretation: 'discrete',
+			...(type === 'audacity-invert' ? {} : { outputChannelCount: [width] }),
 			processorOptions: {
 				effectType: type,
 				params,

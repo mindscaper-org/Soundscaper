@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createAudacityLiveProcessor } from '../src/common/editor/audacity-effects/live.js';
 import { applyEffect } from '../src/common/editor/engine/effect-rack.ts';
 import { ensureProjectWorklets } from '../src/common/editor/engine/effect-worklets.ts';
 
@@ -11,7 +12,7 @@ interface CapturedWorklet {
 	readonly options: AudioWorkletNodeOptions;
 }
 
-test('Audacity and dynamics worklets retain the requested multichannel rack width', async () => {
+test('Invert follows native input width while stateful racks retain their requested channel histories', async () => {
 	const previousAudioWorkletNode = globalThis.AudioWorkletNode;
 	const worklets: CapturedWorklet[] = [];
 	class MockAudioWorkletNode {
@@ -45,13 +46,20 @@ test('Audacity and dynamics worklets retain the requested multichannel rack widt
 				id: 'track',
 				effects: [
 					{ id: 'invert', type: 'audacity-invert' },
+					{ id: 'compressor', type: 'audacity-compressor' },
 					{ id: 'limiter', type: 'limiter' },
 				],
 			}],
 		});
-		applyEffect(context, input, { id: 'invert', type: 'audacity-invert' }, [], {
-			effectChannelCount: 6,
-		});
+		for (const width of [1, 2, 6, 32]) {
+			applyEffect(context, input, { id: 'invert', type: 'audacity-invert' }, [], { effectChannelCount: width });
+			const options = worklets.at(-1)!.options;
+			assert.equal(options.channelCountMode, 'max', 'Invert must retain the native width before the strip panner');
+			assert.equal(options.outputChannelCount, undefined);
+			assert.equal(options.channelCount, width);
+			assert.equal(options.channelInterpretation, 'discrete');
+		}
+		applyEffect(context, input, { id: 'compressor', type: 'audacity-compressor' }, [], { effectChannelCount: 6 });
 		applyEffect(context, input, { id: 'limiter', type: 'limiter' }, [], {
 			effectChannelCount: 48,
 		});
@@ -125,5 +133,15 @@ test('project worklet preparation waits for the Audacity processor readiness sig
 			writable: true,
 			value: previousAudioWorkletNode,
 		});
+	}
+});
+
+test('stateless Invert keeps exact polarity and channel identity across native width changes', () => {
+	const processor = createAudacityLiveProcessor('audacity-invert', 48_000);
+	for (const width of [6, 1, 2, 1, 6, 32]) {
+		const input = Array.from({ length: width }, (_, channel) => Float32Array.of((channel + 1) / 64, -(channel + 1) / 32));
+		const output = input.map(() => new Float32Array(2));
+		assert.equal(processor.process(input, output), true);
+		assert.deepEqual(output, input.map(pcm => pcm.map(sample => -sample)));
 	}
 });
