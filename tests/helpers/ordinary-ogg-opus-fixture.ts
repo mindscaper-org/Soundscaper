@@ -215,3 +215,48 @@ export async function attachmentCollisionWebmOpusFixture(collision = true, tagsF
 	}
 	return new File([Uint8Array.from(bytes)], `Attachment-${collision ? 'collision' : 'control'}.webm`, { type: 'audio/webm' });
 }
+
+/** FFmpeg5.1.4: VP8 picture0.3s, mono48k Opus tone0.1s, final648-frame DiscardPadding. */
+const PADDED_AUDIO_AV_BASE64 =
+	'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'
+	+ 'kLOBB7eL94EB8YICafCCASU=';
+
+/** A legal trailing Void selects the same bounded decoder as an ordinary large video. */
+export function opusPaddingAvFixture(paddingBytes = 0): File {
+	const bytes = Uint8Array.from(Buffer.from(PADDED_AUDIO_AV_BASE64, 'base64'));
+	if (paddingBytes === 0) return new File([bytes], 'Short audio.webm', { type: 'video/webm' });
+	if (!Number.isSafeInteger(paddingBytes) || paddingBytes < 0 || paddingBytes > 64 * 1024 ** 2) throw new RangeError('Fixture padding is outside its bound.');
+	const segment = Buffer.from(bytes).indexOf(Buffer.from([0x18, 0x53, 0x80, 0x67]));
+	if (segment < 0 || bytes[segment + 4] !== 1) throw new Error('The fixture must retain its finite eight-byte Segment size.');
+	const view = new DataView(bytes.buffer), segmentSize = view.getBigUint64(segment + 4) & 0x00ff_ffff_ffff_ffffn;
+	view.setBigUint64(segment + 4, 0x0100_0000_0000_0000n | segmentSize + BigInt(paddingBytes + 5));
+	const padding = new Uint8Array(paddingBytes + 5); padding[0] = 0xec;
+	new DataView(padding.buffer).setUint32(1, 0x1000_0000 + paddingBytes);
+	return new File([bytes, padding], 'Short audio padded.webm', { type: 'video/webm' });
+}
