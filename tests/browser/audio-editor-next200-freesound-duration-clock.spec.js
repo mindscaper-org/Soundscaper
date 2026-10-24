@@ -26,7 +26,8 @@ for (const sourceRate of [44_100, 48_000]) test(`Freesound describes a clip rend
 		await route.fulfill({ json: { data } });
 	});
 	const source = createAudioSource({ id: 'source', name: 'Recording.wav', sampleRate: sourceRate, frameCount: sourceRate / 10, channelCount: 1 });
-	const clip = createAudioClip({ id: 'clip', sourceId: source.id, title: 'Short take', sourceStartFrame: 0,
+	const title = sourceRate === 48_000 ? `${'A'.repeat(511)}🎙` : 'Short take';
+	const clip = createAudioClip({ id: 'clip', sourceId: source.id, title, sourceStartFrame: 0,
 		sourceDurationFrames: sourceRate / 10, timelineStartFrame: 0, durationFrames: 4800, binItemId: 'clip' }, { projectSampleRate: 48_000 });
 	const project = createSoundscaperProject({ id: `upload-clock-${sourceRate}`, sampleRate: 48_000, sources: [source], clips: [],
 		projectBin: { clips: [clip] }, tracks: [createAudioTrack({ id: 'voice' })] });
@@ -51,6 +52,7 @@ for (const sourceRate of [44_100, 48_000]) test(`Freesound describes a clip rend
 	expect(wav).toMatchObject({ frameCount: 4800, sampleRate: 48_000 });
 	await panel.getByRole('button', { name: /^Ready to publish/u }).click();
 	const dialog = page.getByRole('dialog', { name: 'Publish to Freesound', exact: true });
+	await expect(dialog.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue(sourceRate === 48_000 ? 'A'.repeat(511) : title);
 	await expect(dialog.getByRole('textbox', { name: 'Description', exact: true }))
 		.toHaveValue(new RegExp(`${(wav.frameCount / wav.sampleRate).toFixed(3).replace('.', '\\.')} seconds`, 'u'));
 });

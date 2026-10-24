@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import { createFreesoundUploadMetadataDefaults } from '../src/common/editor/freesound-upload-metadata.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createFreesoundClipUploadMaterializer } from '../src/common/editor/controller/track-audio/internal/freesound-clip-upload-materializer.ts';
 
@@ -19,4 +20,6 @@ for (const length of [219, 511]) test(`clip upload keeps Unicode intact at the $
 	const result = await materializer.materialize({ projectId: project.id, clipId: clip.id });
 	assert.equal(result.file.name, length === 219 ? `${title}.wav` : `${'A'.repeat(251)}.wav`);
 	assert.equal(result.clipTitle, length === 219 ? title : 'A'.repeat(511));
+	const defaults = createFreesoundUploadMetadataDefaults({ fileName: result.file.name, clip: result.clip, source: result.source });
+	assert.equal(defaults.title, result.clipTitle);
 });

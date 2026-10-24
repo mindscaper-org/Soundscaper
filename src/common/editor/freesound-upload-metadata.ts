@@ -414,7 +414,13 @@ function requiredString(value: unknown, name: string, maximum: number): string {
 }
 
 function boundedTitle(value: unknown): string {
-	return typeof value === 'string' ? singleLine(value).slice(0, 512) : '';
+	if (typeof value !== 'string') return '';
+	let title = '';
+	for (const character of singleLine(value)) {
+		if (title.length + character.length > 512) break;
+		title += character;
+	}
+	return title;
 }
 
 function fileStem(value: string): string {
