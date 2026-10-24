@@ -58,7 +58,7 @@ test('Freesound clip projection replaces production routing and automation with 
 	let rendered = false;
 	const materializer = createFreesoundClipUploadMaterializer({
 		getProject: () => project,
-		maximumBytes: 4_120,
+		maximumBytes: 100,
 		renderClip: async () => {
 			rendered = true;
 			throw new Error('must not render');

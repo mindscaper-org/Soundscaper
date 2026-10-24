@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { encodeWav as encodeProjectWav } from '../../../wav.js';
+import { encodeWav as encodeProjectWav, inspectWavLayout } from '../../../wav.js';
 import { createDefaultMixerGraphV21 } from '../../../mixer-graph-v21.ts';
 import { createAudioTrack } from '../../../project-media-factory.ts';
 import { resolveRuntimeClipProjection } from '../../../runtime-clip-projection.ts';
@@ -19,7 +19,6 @@ import type {
 } from '../../../freesound-upload-metadata.ts';
 
 const MAXIMUM_UPLOAD_BYTES = 100_000_000;
-const WAV_HEADER_ALLOWANCE_BYTES = 4_096;
 
 interface MaterializerClip extends FreesoundUploadClipMetadata, Readonly<Record<string, unknown>> {
 	readonly id: string;
@@ -335,8 +334,8 @@ function renderedChannels(rendered: FreesoundRenderedClipAudio, expectedFrames: 
 }
 
 function assertWavSize(frameCount: number, channelCount: number, maximumBytes: number): void {
-	const sampleBytes = frameCount * channelCount * 3;
-	if (!Number.isSafeInteger(sampleBytes) || sampleBytes + WAV_HEADER_ALLOWANCE_BYTES > maximumBytes) {
+	const layout = inspectWavLayout({ totalFrames: frameCount, channelCount, bitDepth: 24, float: false });
+	if (layout.byteLength > maximumBytes) {
 		throw new RangeError('The rendered clip exceeds the 100 MB Freesound upload limit.');
 	}
 }
