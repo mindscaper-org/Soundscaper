@@ -86,3 +86,24 @@ test('an edit at an already reached audition end cannot restart the remaining pr
 		assert.equal(engine.getPositionFrames(), 24_000);
 	} finally { await engine.dispose(); }
 });
+
+test('an edit retires a cached cut audition without starting the excluded programme', async () => {
+	const { engine, project, sources, context } = fixture();
+	engine.renderMix = async (options = {}) => new MockAudioBuffer(1,
+		Number(options.endFrame) - Number(options.startFrame), 48_000) as unknown as AudioBuffer;
+	try {
+		engine.loadProject(project, sources);
+		await engine.playCutPreview({ startFrame: 12_000, endFrame: 24_000 });
+		assert.equal(engine.getState().cutPreview, true);
+		context.currentTime = .1;
+		const cursor = engine.getPositionFrames();
+		const count = context.bufferSources.length;
+		await engine.applyProject({ ...project, title: 'Edited during cut audition' }, sources);
+		assert.equal(engine.getState().state, 'stopped');
+		assert.equal(engine.getState().cutPreview, false);
+		assert.equal(engine.getPositionFrames(), cursor);
+		assert.equal(context.bufferSources.length, count, 'the excluded gap cannot become ordinary playback');
+		await engine.play();
+		assert.equal(context.bufferSources.at(-1)!.buffer?.length, 48_000, 'an explicit Play can start the current programme');
+	} finally { await engine.dispose(); }
+});
