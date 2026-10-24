@@ -38,7 +38,6 @@ export type {
 	SoundscaperAutomationSession,
 	SoundscaperAutomationTarget,
 } from './editor-automation-session-types.ts';
-
 interface CaptureSession {
 	readonly laneId: string;
 	readonly mode: AutomationWriteModeV21;
@@ -48,6 +47,7 @@ interface CaptureSession {
 	readonly projectRevision: number;
 	readonly generation: number;
 	readonly samples: AutomationWriteCaptureSampleV21[];
+	readonly frameOptions: Pick<SoundscaperAutomationAuthority, 'sampleRate' | 'tempoMap'>;
 	trimAnchor: number;
 	lastControlValue: number;
 	phase: AutomationWritePhaseV21;
@@ -254,6 +254,7 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 			projectRevision: current.projectRevision,
 			generation,
 			samples: [],
+			frameOptions: { sampleRate: current.sampleRate, tempoMap: current.tempoMap },
 			trimAnchor: controlValue,
 			lastControlValue: controlValue,
 			phase,
@@ -306,7 +307,6 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 		ports.preview?.(preview);
 		return preview;
 	}
-
 	function finishSession(accept: boolean): Result | null {
 		const completed = session;
 		if (!completed) return null;
@@ -324,7 +324,7 @@ export function createSoundscaperAutomationSession<Result = unknown>(
 				completed.lane,
 				completed.mode,
 				completed.samples,
-				{ descriptor: completed.descriptor },
+				{ descriptor: completed.descriptor, frameOptions: completed.frameOptions },
 			);
 			if (!capture.changed || !capture.capture) {
 				result = null;
