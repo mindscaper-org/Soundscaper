@@ -59,6 +59,8 @@ export interface DawprojectAudioEvent {
 	readonly fileSampleRate: number | null;
 	readonly sourceOffsetSeconds: number;
 	readonly contentSpanSeconds: number;
+	/** Absolute programme frame where this content becomes silent, if earlier than its container. */
+	readonly contentStopFrame?: number | null;
 	readonly fadeInFrames: number;
 	readonly fadeOutFrames: number;
 	readonly fadeLayers?: readonly DawprojectFadeLayer[];
@@ -126,6 +128,7 @@ interface Scope {
 }
 
 interface ClipInfo {
+	readonly contentStopFrame: number | null;
 	readonly name: string | null;
 	readonly color: string | null;
 	readonly enabled: boolean;
@@ -299,6 +302,8 @@ function visitClip(
 		? Math.max(0, endFrame - resolver.frameAtBeat(resolver.beatAtFrame(endFrame) - Math.abs(fadeOut)))
 		: fadeFrames(fadeOut)) : (inherited?.fadeOutFrames ?? 0);
 	const info: ClipInfo = {
+		contentStopFrame: playStop === null ? inherited?.contentStopFrame ?? null
+			: Math.min(frameOf(inner, playStop, resolver), inherited?.contentStopFrame ?? Infinity),
 		name: attribute(clip, 'name') ?? inherited?.name ?? null,
 		color: attribute(clip, 'color') ?? inherited?.color ?? null,
 		enabled,
@@ -431,6 +436,7 @@ function visitAudio(
 		fileSampleRate: integerAttribute(element, 'sampleRate'),
 		sourceOffsetSeconds,
 		contentSpanSeconds,
+		contentStopFrame: clip.contentStopFrame,
 		fadeInFrames: clip.fadeInFrames,
 		fadeOutFrames: clip.fadeOutFrames,
 		fadeLayers: clip.fadeLayers,
