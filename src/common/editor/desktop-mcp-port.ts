@@ -162,7 +162,7 @@ function sanitizeProjectDocument(value: unknown): unknown {
 			if (!descriptor || !Object.hasOwn(descriptor, 'value')) continue;
 			const next = visit(descriptor.value, depth + 1);
 			if (Array.isArray(result)) result.push(next ?? null);
-			else if (next !== undefined) result[key] = next;
+			else if (next !== undefined) Object.defineProperty(result, key, { value: next, enumerable: true, configurable: true, writable: true });
 		}
 		active.delete(current);
 		return result;
