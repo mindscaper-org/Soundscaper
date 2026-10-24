@@ -241,9 +241,10 @@ function chooseSampleRate(options: DawprojectImportOptions): number {
 
 function createSource(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInfo, build: Build, stagedId?: string): DataRecord {
 	const id = stagedId ?? build.createStableId('source');
-	const name = entryBaseName(event.path) || id;
+	const originalName = entryBaseName(event.path) || id;
+	const name = event.mediaName?.trim() ? event.mediaName : originalName;
 	return {
-		id, name, mimeType: dawprojectImportedAudioMimeType(name), storageKey: id,
+		id, name, mimeType: dawprojectImportedAudioMimeType(originalName), storageKey: id,
 		frameCount: info.frameCount, channelCount: info.channelCount,
 		sampleRate: info.sampleRate, originalSampleRate: info.sampleRate,
 		sampleFormat: 'float32',
@@ -349,7 +350,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 	return {
 		id: clipId,
 		sourceId: String(source.id),
-		title: event.name?.trim() ? event.name : String(source.name),
+		title: event.name?.trim() ? event.name : event.mediaName?.trim() ? event.mediaName : String(source.name),
 		timelineStartFrame: startFrame,
 		sourceStartFrame,
 		sourceDurationFrames,

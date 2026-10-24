@@ -159,6 +159,7 @@ function buildAudioClip(clip: DataRecord, context: DawprojectExportContext): Xml
 
 	const entry = context.media.register(source, 'audio');
 	const audio = xmlElement('Audio', {
+		name: String(source.name ?? entry.sourceId),
 		channels: Math.max(1, finite(source.channelCount, 1)),
 		duration: finite(source.frameCount, sourceDurationFrames) / sourceRate,
 		sampleRate: sourceRate,

@@ -57,6 +57,7 @@ export interface DawprojectAudioEvent {
 	readonly fileDurationSeconds: number | null;
 	readonly fileChannels: number | null;
 	readonly fileSampleRate: number | null;
+	readonly mediaName?: string | null;
 	readonly sourceOffsetSeconds: number;
 	readonly contentSpanSeconds: number;
 	/** Absolute programme frame where this content becomes silent, if earlier than its container. */
@@ -434,6 +435,7 @@ function visitAudio(
 		fileDurationSeconds: fileDuration,
 		fileChannels: integerAttribute(element, 'channels'),
 		fileSampleRate: integerAttribute(element, 'sampleRate'),
+		mediaName: attribute(element, 'name'),
 		sourceOffsetSeconds,
 		contentSpanSeconds,
 		contentStopFrame: clip.contentStopFrame,
