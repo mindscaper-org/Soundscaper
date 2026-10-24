@@ -99,6 +99,14 @@ export function handleWorkspaceKeyboard(
 		return;
 	}
 	const shortcutAction = matchAudioEditorShortcut(event, snapshot.preferences?.shortcuts || {});
+	if (shortcutAction && typeof Element !== 'undefined' && event.target instanceof Element
+		&& event.target.closest('[data-clip-source-editor]')) {
+		const command = audacityActionDefinition(resolveAudacityActionId(shortcutAction))?.handler;
+		if (command?.startsWith('edit.') && command !== 'edit.undo' && command !== 'edit.redo') {
+			event.preventDefault();
+			return;
+		}
+	}
 	if (targetDisposition === 'modified-control' && resolveAudacityActionId(shortcutAction) === 'split-tool') return;
 	const handler = shortcutAction ? resolveAudioEditorShortcutHandler(shortcutAction, registry) : null;
 	if (handler) {
