@@ -106,7 +106,6 @@ export function importImscCaptionTrackV1(
 	limits: Readonly<VideoCaptionInterchangeLimitsV1>,
 	normalize: VideoCaptionTrackNormalizerV1,
 ): VideoCaptionImportResultV1 {
-	assertNoActiveXml(xml);
 	const state: ParseState = {
 		options,
 		limits,
@@ -531,13 +530,6 @@ function positiveInteger(value: string | null, name: string, maximum: number): n
 	const number = Number(value);
 	if (!Number.isSafeInteger(number) || number < 1 || number > maximum) throw interchangeError(`${name} is outside its bound.`, 'UNSUPPORTED_PROFILE');
 	return number;
-}
-
-function assertNoActiveXml(value: string): void {
-	const withoutDeclaration = value.replace(/<!--[\s\S]*?-->/gu, '').replace(/^<\?xml[ \t\r\n]+[^?]*\?>/u, '');
-	if (/<!\s*(?:DOCTYPE|ENTITY)\b|<\?|<!\[CDATA\[/iu.test(withoutDeclaration)) {
-		throw activeContent('DTD, entity declarations, processing instructions, and CDATA are not allowed in IMSC.');
-	}
 }
 
 function imscTimingLoss(id: string, field: 'startFrame' | 'endFrame', source: string, frame: number): VideoCaptionInterchangeLossV1 {

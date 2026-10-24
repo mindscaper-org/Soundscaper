@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocol": "soundscaper-model-conversion-v1",
   "candidateId": "dereverb-room",
-  "planSha256": "3ab872799ac57a672ed8224d0e634627d47a05cfa7334dd1e52f09ff2027a041",
+  "planSha256": "07d9b75598cbefbd247228922fbea25031a883f278c8c6e3236bbcb8f7c07bf6",
   "sourceCodeArchive": {
     "path": "mss-onnx-tensorrt-43d939e7671d8ff6cf1922f98c2f2e4b56908e47.tar.gz",
     "revision": "43d939e7671d8ff6cf1922f98c2f2e4b56908e47",

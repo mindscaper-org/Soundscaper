@@ -18,13 +18,13 @@ export function parseTimeText(text: string, format: TimeCodeFormat, sampleRate =
 		}
 	}
 	let seconds: number;
-	if (/^[+]?(\d+\.?\d*|\.\d+)$/u.test(input)) {
+	if (/^[+]?(\d+(?:\.\d*)?|\.\d+)$/u.test(input)) {
 		seconds = Number(input) / (format === 'samples' ? sampleRate : frames?.total ? frames.rate : 1);
 	} else {
-		const units = /^(?:(\d+\.?\d*)d)?(?:(\d+\.?\d*)h)?(?:(\d+\.?\d*)m)?(?:(\d+\.?\d*)s)?$/u.exec(input);
+		const units = /^(?:(\d+(?:\.\d*)?)d)?(?:(\d+(?:\.\d*)?)h)?(?:(\d+(?:\.\d*)?)m)?(?:(\d+(?:\.\d*)?)s)?$/u.exec(input);
 		if (units && units.slice(1).some(value => value !== undefined)) {
 			seconds = Number(units[1] ?? 0) * 86400 + Number(units[2] ?? 0) * 3600 + Number(units[3] ?? 0) * 60 + Number(units[4] ?? 0);
-		} else if (/^(\d+:)*(\d+\.?\d*|\.\d+)$/u.test(input)) {
+		} else if (/^(\d+:)*(\d+(?:\.\d*)?|\.\d+)$/u.test(input)) {
 			const parts = input.split(':').map(Number);
 			if (parts.length > 4) return null;
 			const weights = [1, 60, 3600, 86400];

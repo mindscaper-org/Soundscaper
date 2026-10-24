@@ -132,12 +132,12 @@
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/core",
 			"name": "@modelcontextprotocol/core",
-			"version": "2.0.0",
-			"license": "MIT",
+			"version": "2.3.0",
+			"license": "Apache-2.0",
 			"direct": false,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/core` 2.0.0",
+			"noticeMarker": "`@modelcontextprotocol/core` 2.3.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
@@ -154,12 +154,12 @@
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/server",
 			"name": "@modelcontextprotocol/server",
-			"version": "2.0.0",
-			"license": "MIT",
+			"version": "2.3.0",
+			"license": "Apache-2.0",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/server` 2.0.0",
+			"noticeMarker": "`@modelcontextprotocol/server` 2.3.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
@@ -231,12 +231,12 @@
 		{
 			"lockPath": "node_modules/hono",
 			"name": "hono",
-			"version": "4.13.8",
+			"version": "4.13.13",
 			"license": "MIT",
 			"direct": false,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`hono` 4.13.8",
+			"noticeMarker": "`hono` 4.13.13",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
@@ -363,12 +363,12 @@
 		{
 			"lockPath": "node_modules/zod",
 			"name": "zod",
-			"version": "4.6.5",
+			"version": "4.6.6",
 			"license": "MIT",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`zod` 4.6.5",
+			"noticeMarker": "`zod` 4.6.6",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		}
 	],
@@ -376,12 +376,12 @@
 		{
 			"name": "electron",
 			"lockPath": "node_modules/electron",
-			"version": "43.7.7",
+			"version": "43.8.3",
 			"license": "MIT",
-			"declaredVersion": "43.7.7",
+			"declaredVersion": "43.8.3",
 			"role": "packaged-desktop-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "Electron 43.7.7",
+			"noticeMarker": "Electron 43.8.3",
 			"evidence": ["package-lock.json", "electron-builder.config.cjs", "THIRD_PARTY_LICENSES.md"]
 		}
 	],
@@ -613,7 +613,7 @@
 		"bundledFfmpegWasm": false,
 		"electronFrameworkFfmpeg": {
 			"status": "distributed-verified-framework-exception",
-			"electronVersion": "43.7.7",
+			"electronVersion": "43.8.3",
 			"profile": "electron-alternate-without-proprietary-codecs",
 			"upstreamIntent": "omit-proprietary-codec-support",
 			"providerTier": false,
@@ -747,7 +747,7 @@
 			"payloadManifest": "runtime/native/soundscaper-os-audio-codec/<target>/os-audio-codec-native-payload-manifest.json",
 			"payloadStatus": "target-native-ci-build-required-mac-arm64-win-x64-win-arm64",
 			"buildTargets": ["mac-arm64", "win-x64", "win-arm64"],
-			"buildChecks": ["pinned-electron-43.7.7-headers", "repository-source-closure", "build-plan", "target-toolchain", "native-ctest-canaries", "payload-byte-length-and-sha256"],
+			"buildChecks": ["pinned-electron-43.8.3-headers", "repository-source-closure", "build-plan", "target-toolchain", "native-ctest-canaries", "payload-byte-length-and-sha256"],
 			"packageChecks": ["canonical-build-result", "exact-two-file-target-subtree", "manifest-payload-summary-equality", "before-pack-verification", "after-pack-verification", "content-manifest-closure", "startup-reauthentication"],
 			"codeSeal": { "mac-arm64": "ad-hoc-execution-check-before-hash", "win-x64": "not-applicable", "win-arm64": "not-applicable" },
 			"windows": {

@@ -12,7 +12,7 @@ import { freezeProjectImportOptions, normalizeProjectImportOptions } from '../sr
 test('a CART script containing ASCII tabs retains its continuity metadata on WAV import and delivery', async () => {
 	const script = 'HOST\tRead the station identification.\r\n';
 	const bytes = encodeWav([new Float32Array(48)], { sampleRate: 48_000,
-		cart: { title: 'Station identification', cutId: 'ID-001', tagText: script.replace('\t', ' '),
+		cart: { title: 'Station identification', cutId: 'ID-001', tagText: script.replaceAll('\t', ' '),
 			postTimers: [{ usage: 'EOD ', value: 48 }] } });
 	const textOffset = Buffer.from(bytes).indexOf('HOST Read the station identification.');
 	assert.ok(textOffset > 0);
