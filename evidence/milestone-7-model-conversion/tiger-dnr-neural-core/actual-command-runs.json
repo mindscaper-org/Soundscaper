@@ -12,13 +12,13 @@
       "--candidate",
       "tiger-dnr-neural-core",
       "--plan-sha256",
-      "3b15b46bbbbd6e5e8ac3166116fc56cefe5ec0085d68cca1da8e3d151a813dbf",
+      "6924b498cb47d97b6b4a5725011790a49fb80676e26d9449f7d5643198416b20",
       "--source-manifest",
       "source-input-manifest.json",
       "--output-manifest",
       "converted-artifacts.json"
     ],
-    "program": "/home/splowatt/git/Soundscaper/.native-build/model-conversion/.venv/bin/python",
+    "program": "/home/splowatt/git/Soundscaper-security-alerts/scripts/models/milestone-7-conversion-tool/.venv/bin/python",
     "environment": [
       {
         "name": "CUBLAS_WORKSPACE_CONFIG",
@@ -49,8 +49,8 @@
         "value": "1"
       }
     ],
-    "started": "2026-09-30T19:20:22.435Z",
-    "ended": "2026-09-30T19:33:07.852Z",
+    "started": "2026-10-24T12:21:21.488806+00:00",
+    "ended": "2026-10-24T12:26:08.692290+00:00",
     "exitCode": 0
   },
   {
@@ -66,7 +66,7 @@
       "--candidate",
       "tiger-dnr-neural-core",
       "--plan-sha256",
-      "3b15b46bbbbd6e5e8ac3166116fc56cefe5ec0085d68cca1da8e3d151a813dbf",
+      "6924b498cb47d97b6b4a5725011790a49fb80676e26d9449f7d5643198416b20",
       "--fixture",
       "parity-fixture.bin",
       "--source-runs",
@@ -80,9 +80,9 @@
       "--toolchain-lock",
       "uv.lock",
       "--toolchain-sha256",
-      "9d96681f5ad90a9b97f146fda4bc77bcc56a21bb0058705ab4e07c3c48dc9726"
+      "e0b28f4a23aa18c04e965cc943c0c66bfe31fccb6ea388ffceb80d988f39a49b"
     ],
-    "program": "/home/splowatt/git/Soundscaper/.native-build/model-conversion/.venv/bin/python",
+    "program": "/home/splowatt/git/Soundscaper-security-alerts/scripts/models/milestone-7-conversion-tool/.venv/bin/python",
     "environment": [
       {
         "name": "CUBLAS_WORKSPACE_CONFIG",
@@ -113,8 +113,8 @@
         "value": "1"
       }
     ],
-    "started": "2026-09-30T19:33:07.853Z",
-    "ended": "2026-09-30T19:40:48.830Z",
+    "started": "2026-10-24T12:26:08.692601+00:00",
+    "ended": "2026-10-24T12:32:37.911412+00:00",
     "exitCode": 0
   }
 ]

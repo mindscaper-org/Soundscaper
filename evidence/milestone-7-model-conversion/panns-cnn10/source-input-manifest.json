@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocol": "soundscaper-model-conversion-v1",
   "candidateId": "panns-cnn10",
-  "planSha256": "0cb8e8b8fa206dfb966947e6bdec40f65a229cdaf49e32cba01367b2d8d9fbf1",
+  "planSha256": "d687d15153cac170cfa7219c2ea5f36676397e755147f1a17904d42a7aa82ca0",
   "sourceCodeArchive": {
     "path": "inputs/audioset-tagging-cnn-d2f4b8c18eab44737fcc0de1248ae21eb43f6aa4.tar.gz",
     "revision": "d2f4b8c18eab44737fcc0de1248ae21eb43f6aa4",
