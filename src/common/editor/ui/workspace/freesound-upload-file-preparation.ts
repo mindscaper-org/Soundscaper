@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { encodeWav } from '../../wav.js';
+import { encodeWav, inspectWavLayout } from '../../wav.js';
 import { inspectDecodedAudioSampleRate } from '../../audio-file-metadata.js';
 
 const MAXIMUM_UPLOAD_BYTES = 100_000_000;
@@ -134,8 +134,8 @@ async function collectUploadPcm(
 }
 
 function assertConvertedExtent(frames: number, channelCount: number, maximumBytes: number): void {
-	const expectedBytes = frames * channelCount * 3 + 4_096;
-	if (!Number.isSafeInteger(expectedBytes) || expectedBytes > maximumBytes) {
+	const { byteLength } = inspectWavLayout({ totalFrames: frames, channelCount, bitDepth: 24 });
+	if (byteLength > maximumBytes) {
 		throw new RangeError('The converted audio exceeds the 100 MB Freesound upload limit.');
 	}
 }
