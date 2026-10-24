@@ -11,7 +11,8 @@ export function selectedLabelsForProject(project: unknown, state: Readonly<Selec
 	if (!state.selectedLabels?.length) return [];
 	if (!isRecord(project) || project.id !== state.selectedLabelsProjectId || !Array.isArray(project.tracks)) return [];
 	const ids = new Map<string, Set<string>>();
-	for (const track of project.tracks as unknown[]) if (isRecord(track) && track.type === 'label' && typeof track.id === 'string' && Array.isArray(track.labels)) {
+	const requested = new Set(state.selectedLabels.map(ref => ref.trackId));
+	for (const track of project.tracks as unknown[]) if (isRecord(track) && track.type === 'label' && typeof track.id === 'string' && requested.has(track.id) && Array.isArray(track.labels)) {
 		ids.set(track.id, new Set((track.labels as unknown[]).flatMap(label => isRecord(label) && typeof label.id === 'string' ? [label.id] : [])));
 	}
 	return (state.selectedLabels ?? []).filter(ref => ids.get(ref.trackId)?.has(ref.labelId));
