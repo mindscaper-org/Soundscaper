@@ -1,3 +1,4 @@
+import { inspectSbcAudioSampleRate } from './sbc-audio-sample-rate.ts';
 import { inspectTtaAudioSampleRate } from './tta-audio-sample-rate.ts';
 import { inspectMatroskaOpusSampleRate } from './matroska-audio-sample-rate.ts';
 import { readAlacSampleDescription } from './alac-sample-description.ts';
@@ -60,6 +61,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
 			?? inspectTtaAudioSampleRate(bytes)
+			?? inspectSbcAudioSampleRate(bytes)
 			?? inspectAmrWbAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
 			?? inspectDtsAudioSampleRate(bytes)
@@ -100,6 +102,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
 			?? inspectTtaAudioSampleRate(bytes)
+			?? inspectSbcAudioSampleRate(bytes)
 			?? inspectAmrWbAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
 			?? inspectDtsAudioSampleRate(bytes)
