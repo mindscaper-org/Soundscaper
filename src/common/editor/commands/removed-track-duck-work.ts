@@ -31,6 +31,7 @@ export function prepareRemovedTrackDuckWork(
 	project: unknown,
 	removed: ReadonlySet<string>,
 ): ReadonlyMap<string, readonly RemovedTrackDuckSlot[]> | null {
+	if (removed.size < 2) return null;
 	if (!dataRecord(project) || !dataRecord(project.master) || !dataArray(project.master.effects)
 		|| !dataArray(project.tracks)) return null;
 	const tracks: Data[] = [];
