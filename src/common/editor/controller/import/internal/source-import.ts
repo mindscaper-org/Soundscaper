@@ -200,7 +200,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				timingAsset = published.reference;
 				timingAssetPublication = published.publication;
 			}
-			const thumbnailTimes = audioEditorVideoThumbnailTimes(extractor.metadata.durationSeconds);
+			const thumbnailTimes = audioEditorVideoThumbnailTimes(durationFrames / sampleRate);
 			let sourcePreviewUnavailable = false;
 			const reportsAlpha = timingProbe.characteristics.hasAlpha === true;
 			try {
