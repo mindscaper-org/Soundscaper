@@ -30,10 +30,10 @@ for (const variant of ['neighboring bin', 'skipped high-frequency bin', 'quieter
 			};
 		});
 		const editor = await bootEditor(page, '/embed/en/');
-		const outputRate = await page.evaluate(async () => {
-			const context = new AudioContext(); const rate = context.sampleRate; await context.close(); return rate;
-		});
-		await importFiles(editor, [createWavFixture({ name: 'EQ geometry control.wav', duration: 8, frequency: 440 })]);
+		// The imported fixture and automatic programme context both own 48 kHz;
+		// an unconfigured native AudioContext can instead default to 44.1 kHz.
+		const programmeRate = 48_000;
+		await importFiles(editor, [createWavFixture({ name: 'EQ geometry control.wav', duration: 8, sampleRate: programmeRate, frequency: 440 })]);
 		const initialPanel = await openEffectsForTrack(editor, 1);
 		await addRackEffect(page, initialPanel, 'track', 'Parametric EQ');
 		const inputCanvas = page.locator('.audio-editor-parametric-eq__spectrum--input');
@@ -49,11 +49,11 @@ for (const variant of ['neighboring bin', 'skipped high-frequency bin', 'quieter
 			.filter(({ start, end }) => start > 1200 && end < 1700).sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
 		expect(gap.end - gap.start).toBeGreaterThan(8);
 		const fftBin = variant === 'skipped high-frequency bin' ? Math.floor((gap.start + gap.end) / 2) : gap.start;
-		const frequency = fftBin * outputRate / 4096;
+		const frequency = fftBin * programmeRate / 4096;
 		await page.getByRole('dialog', { name: 'Parametric EQ', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
 		await closeWorkspacePanel(editor, 'effects');
 		await importFiles(editor, [createWavFixture({ name: 'EQ high tone.wav', duration: 12, frequency,
-			channelCount: 1, channelAmplitudes: [variant === 'quieter neighboring bin' ? .2 : .5] })]);
+			sampleRate: programmeRate, channelCount: 1, channelAmplitudes: [variant === 'quieter neighboring bin' ? .2 : .5] })]);
 		const panel = await openEffectsForTrack(editor, 2);
 		await addRackEffect(page, panel, 'track', 'Parametric EQ');
 		if (variant === 'quieter neighboring bin') {
@@ -84,7 +84,7 @@ for (const variant of ['neighboring bin', 'skipped high-frequency bin', 'quieter
 		const { plot, observed } = spectrum;
 		console.log('ordinary EQ input spectrum high tone', { frequency, fftBin, width, plot, observed });
 		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
-		expect(observed.rate).toBe(outputRate); expect(observed.size).toBe(4096);
+		expect(observed.rate).toBe(programmeRate); expect(observed.size).toBe(4096);
 		expect(observed.readCount, 'the mono fixture must read one input and one output analyser per paint').toBe(2);
 		expect(Math.abs(observed.index - fftBin)).toBeLessThanOrEqual(1);
 		expect(observed.level).toBeGreaterThan(-35);
