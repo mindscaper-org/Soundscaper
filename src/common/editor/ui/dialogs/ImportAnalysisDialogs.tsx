@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
 
-import { prepareRawPcmWaveFile, type RawPcmByteOrder, type RawPcmSampleFormat } from '../../controller/import/raw-pcm-import.ts';
+import { createRawPcmSourceProvenance, prepareRawPcmWaveFile, type RawPcmByteOrder, type RawPcmSampleFormat } from '../../controller/import/raw-pcm-import.ts';
+import type { SourceProvenanceV1 } from '../../source-provenance.ts';
 import type { FileSizeWarningConfirmation } from '../../controller/shared/file-size-warning.ts';
 import type { RegularIntervalAnnotationOptions } from '../../controller/document/regular-interval-annotation-service.ts';
 import { selectAudioEditorEditBlock, type AudioEditorEditBlockingSnapshot } from '../../edit-blocking.ts';
@@ -19,7 +20,7 @@ import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 interface DialogController {
 	readonly project: RegularIntervalDialogProject | null;
 	readonly actions: Readonly<{
-		readonly project: Readonly<{ importFiles(files: readonly File[], options?: Readonly<{ signal: AbortSignal }>): unknown }>;
+		readonly project: Readonly<{ importFiles(files: readonly File[], options?: Readonly<{ signal: AbortSignal; sourceProvenance?: SourceProvenanceV1 }>): unknown }>;
 		readonly timelineAnnotations: Readonly<{ regularInterval(options: RegularIntervalAnnotationOptions): unknown }>;
 	}>;
 }
@@ -78,7 +79,9 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 				const wav = await withWebFileLoadLimitContext(() => prepareRawPcmWaveFile(file, { sampleFormat, byteOrder, sampleRate: Number(sampleRate), channelCount: Number(channelCount), offsetBytes: Number(offsetBytes) },
 					{ desktop: fileService?.isDesktop === true, confirmFileSizeWarning, signal: cancellation.signal, assertCurrent: () => { if (!projectIsCurrent()) throw new DOMException('The project changed.', 'AbortError'); } }));
 				if (!projectIsCurrent()) return;
-				await controller.actions.project.importFiles([wav], { signal: cancellation.signal });
+				await controller.actions.project.importFiles([wav], {
+					signal: cancellation.signal, sourceProvenance: createRawPcmSourceProvenance(file),
+				});
 				if (!projectIsCurrent()) return;
 			} catch (error) {
 				if (!cancellation.signal.aborted) throw error;
