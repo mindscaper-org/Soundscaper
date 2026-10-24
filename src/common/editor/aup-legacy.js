@@ -92,7 +92,8 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	}
 	admitLinkedTrackPadding(physicalPlans, budget);
 	const physicalTracks = physicalPlans.map(materializePhysicalTrack);
-	const tracks = linkLegacyAupTracks(physicalTracks);
+	const warnings = [];
+	const tracks = linkLegacyAupTracks(physicalTracks, warnings);
 	const totalBlocks = [...referencedFiles.values()].reduce((sum, entry) => sum + entry.placements.length, 0);
 	const corrupt = [];
 	let completed = 0;
@@ -142,7 +143,7 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 		view: { zoom: positive(attribute(project, 'zoom', 100), 100), horizontalPosition: nonNegative(attribute(project, 'h', 0)), verticalPosition: Math.round(nonNegative(attribute(project, 'vpos', 0))) },
 		tracks,
 		metadata: readLegacyMetadata(project, projectFile.name),
-		warnings: [],
+		warnings,
 		opaqueExtensions: { legacyAupProject: cloneNode(project) },
 	};
 }
@@ -307,12 +308,29 @@ function legacyClipPlanStart(plan) {
 		+ nonNegative(attribute(plan.clipNode, 'trimleft', 0));
 }
 
-function linkLegacyAupTracks(physical) {
+function linkLegacyAupTracks(physical, warnings) {
 	const output = [];
 	for (let index = 0; index < physical.length; index += 1) {
 		const left = physical[index];
 		const right = physical[index + 1];
 		if (left.linked && right) {
+			if (left.clips.some((clip, clipIndex) => right.clips[clipIndex]
+				&& JSON.stringify(clip.envelope) !== JSON.stringify(right.clips[clipIndex].envelope))) {
+				// Audacity 2.x keeps the two WaveClip envelopes when joining tracks.
+				// Native clips have one envelope, so retain independent mono channels.
+				for (const [channelIndex, track] of [left, right].entries()) output.push({
+					...track, linked: false, channelCount: 1, channelLayout: 'mono',
+					gain: left.gain, mute: left.mute, solo: left.solo,
+					pan: channelIndex === 0 ? (left.pan > 0 ? 2 * left.pan - 1 : -1)
+						: (left.pan < 0 ? 2 * left.pan + 1 : 1),
+					clips: track.clips.map((clip, clipIndex) => ({ ...clip,
+						groupId: `legacy-linked-${index}-clip-${clipIndex}`,
+					})),
+				});
+				warnings.push(`Independent channel envelopes on ${left.name} were preserved on linked mono tracks.`);
+				index += 1;
+				continue;
+			}
 			const clips = [];
 			for (let clipIndex = 0; clipIndex < Math.max(left.clips.length, right.clips.length); clipIndex += 1) {
 				const first = left.clips[clipIndex] || right.clips[clipIndex];
