@@ -25,8 +25,10 @@ export function trackHierarchyPlacement(project: object, trackId: string, offset
 		const index = sequence.trackNodes.findIndex(node => node.kind === 'track' && node.id === trackId);
 		if (index < 0) continue;
 		const parentFolderId = sequence.trackNodes[index]!.parentFolderId;
-		const parentIndex = sequence.trackNodes.slice(0, index)
-			.filter(node => node.parentFolderId === parentFolderId).length;
+		let parentIndex = 0;
+		for (let cursor = 0; cursor < index; cursor += 1) {
+			if (sequence.trackNodes[cursor]!.parentFolderId === parentFolderId) parentIndex += 1;
+		}
 		const flatIndex = hierarchy.tracks?.findIndex(track => track.id === trackId) ?? -1;
 		return { ...(sequence.id !== hierarchy.primarySequenceId ? { sequenceId: sequence.id } : {}),
 			...(supportsTrackFolders && hierarchy.trackFolders?.length === 0 && flatIndex >= 0
