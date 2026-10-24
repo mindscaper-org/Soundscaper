@@ -4,6 +4,8 @@ export type SettingPersistencePolicy = 'required' | 'best-effort';
 
 export interface SettingPersistenceOptions {
 	readonly policy?: SettingPersistencePolicy;
+	/** An owning collection may supply an atomic write while retaining warning/drain semantics. */
+	readonly write?: () => Promise<unknown>;
 }
 
 export interface SettingPersistencePort {
@@ -32,12 +34,12 @@ export function createSettingPersistence({
 		async persist<Value>(
 			key: string,
 			value: Value,
-			{ policy = 'best-effort' }: SettingPersistenceOptions = {},
+			{ policy = 'best-effort', write: writeOperation }: SettingPersistenceOptions = {},
 		): Promise<Value | null> {
 			if (clearing) throw new DOMException('Local editor settings are being cleared.', 'InvalidStateError');
 			let operation: Promise<unknown> | null = null;
 			try {
-				operation = write(key, value);
+				operation = writeOperation ? writeOperation() : write(key, value);
 				pending.add(operation);
 				await operation;
 				return value;

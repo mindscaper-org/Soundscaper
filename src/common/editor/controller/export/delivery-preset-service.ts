@@ -4,6 +4,7 @@ import {
 	type DeliveryPreset,
 	type DeliveryPresetKind,
 } from '../../delivery-preset.ts';
+import { mutateDeliveryPresetCollection, type DeliveryPresetMutation, type DeliveryPresetMutationRepository } from './internal/delivery-preset-mutation.ts';
 import { sanitizeSuggestedFileName } from '../../portable-save-file-name.ts';
 import {
 	type DeliveryPresetState,
@@ -28,6 +29,7 @@ import {
 export const DELIVERY_PRESETS_SETTING_KEY = 'audio-editor-delivery-presets-v1';
 
 export interface DeliveryPresetServiceRuntime {
+	readonly presetRepository?: DeliveryPresetMutationRepository;
 	readonly state: { deliveryPresets?: unknown; deliveryPresetsReadOnly?: boolean; projectAdministrationPending?: boolean };
 	readonly persistSetting: (
 		key: string,
@@ -61,13 +63,24 @@ export function createDeliveryPresetService(runtime: DeliveryPresetServiceRuntim
 		}
 	}
 
-	async function commit(next: DeliveryPresetState): Promise<DeliveryPresetState> {
+	async function commit<Result>(mutate: (current: DeliveryPresetState) => DeliveryPresetMutation<Result>): Promise<Result> {
 		assertWritable();
-		const normalized = createDeliveryPresetState(next);
-		await runtime.persistSetting(DELIVERY_PRESETS_SETTING_KEY, normalized, { policy: 'required' });
-		runtime.state.deliveryPresets = normalized;
+		let committed: DeliveryPresetMutation<Result> | undefined;
+		if (runtime.presetRepository) {
+			const repository = runtime.presetRepository;
+			await runtime.persistSetting(DELIVERY_PRESETS_SETTING_KEY, null, { policy: 'required', write: async () => {
+				committed = await mutateDeliveryPresetCollection(repository, DELIVERY_PRESETS_SETTING_KEY, mutate);
+			} });
+		} else {
+			const next = mutate(createDeliveryPresetState(runtime.state.deliveryPresets));
+			const state = createDeliveryPresetState(next.state);
+			await runtime.persistSetting(DELIVERY_PRESETS_SETTING_KEY, state, { policy: 'required' });
+			committed = { state, result: next.result };
+		}
+		if (!committed) throw new Error('Delivery preset persistence did not perform its write.');
+		runtime.state.deliveryPresets = committed.state;
 		runtime.publishDocumentSnapshot?.();
-		return normalized;
+		return committed.result;
 	}
 
 	return Object.freeze({
@@ -101,28 +114,27 @@ export function createDeliveryPresetService(runtime: DeliveryPresetServiceRuntim
 				now: options.now,
 			});
 			return await enqueueMutation(async () => {
-				const result = saveDeliveryPresetToState(runtime.state.deliveryPresets, {
-					...snapshot,
-					idFactory,
+				return await commit(current => {
+					const next = saveDeliveryPresetToState(current, { ...snapshot, idFactory });
+					return { state: next.state, result: next.preset };
 				});
-				await commit(result.state);
-				return result.preset;
 			});
 		},
 		async delete(presetId: string): Promise<true> {
 			const id = presetId;
 			return await enqueueMutation(async () => {
 				assertWritable();
-				await commit(deleteDeliveryPreset(runtime.state.deliveryPresets, id));
-				return true as const;
+				return await commit(current => ({ state: deleteDeliveryPreset(current, id), result: true as const }));
 			});
 		},
 		async import(input: unknown): Promise<readonly DeliveryPreset[]> {
 			const capturedInput = typeof input === 'string' ? input : structuredClone(input);
 			const snapshot = importDeliveryPresets(createDeliveryPresetState(), capturedInput);
 			return await enqueueMutation(async () => {
-				await commit(importDeliveryPresets(runtime.state.deliveryPresets, snapshot, { idFactory }));
-				return listDeliveryPresets(runtime.state.deliveryPresets);
+				return await commit(current => {
+					const state = importDeliveryPresets(current, snapshot, { idFactory });
+					return { state, result: listDeliveryPresets(state) };
+				});
 			});
 		},
 		export: (presetId: string): string =>

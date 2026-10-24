@@ -36,3 +36,30 @@ test('late setting failures after disposal do not publish warnings', async () =>
 	assert.equal(await persistence.persist('meter', 1), null);
 	assert.deepEqual(warnings, []);
 });
+
+
+test('atomic collection writes retain required failure reporting', async () => {
+	const failure = new Error('Collection write unavailable');
+	const warnings: unknown[] = [];
+	const persistence = createSettingPersistence({ write: async () => { throw new Error('Plain write must not run'); },
+		onWarning: (error, key) => warnings.push({ error, key }) });
+	await assert.rejects(persistence.persist('delivery-presets', null, { policy: 'required', write: async () => { throw failure; } }),
+		error => error === failure);
+	assert.deepEqual(warnings, [{ error: failure, key: 'delivery-presets' }]);
+});
+
+test('Clear Data drains atomic collection writes before clearing and resetting', async () => {
+	let release = () => {};
+	const gate = new Promise<void>(resolve => { release = resolve; });
+	const events: string[] = [];
+	const persistence = createSettingPersistence({ write: async () => { throw new Error('Plain write must not run'); } });
+	const writing = persistence.persist('delivery-presets', null, { policy: 'required', write: async () => {
+		await gate; events.push('written');
+	} });
+	const clearing = persistence.clearStorage(async () => { events.push('cleared'); }, () => { events.push('reset'); }, async () => undefined);
+	await new Promise<void>(resolve => setImmediate(resolve));
+	assert.deepEqual(events, []);
+	await assert.rejects(persistence.persist('new-setting', 1), { name: 'InvalidStateError' });
+	release(); await writing; await clearing;
+	assert.deepEqual(events, ['written', 'cleared', 'reset']);
+});
