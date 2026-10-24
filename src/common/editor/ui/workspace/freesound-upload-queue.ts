@@ -14,6 +14,7 @@ import {
 	type FreesoundUploadSourceMetadata,
 } from '../../freesound-upload-metadata.ts';
 import { sanitizeSuggestedFileName } from '../../portable-save-file-name.ts';
+import { raceAbortablePromise } from '../../abort-race.ts';
 
 export type { FreesoundDescribeUploadRequest } from './freesound-auth-upload-client.ts';
 
@@ -146,7 +147,8 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 		record.abort = abort;
 		update(record, { ...draft, tags: Object.freeze([...request.tags]), status: 'publishing', errorMessage: undefined });
 		try {
-			const submitted = await runtime.describe(request, abort.signal);
+			const submitted = await raceAbortablePromise(runtime.describe(request, abort.signal), abort.signal);
+			abort.signal.throwIfAborted();
 			update(record, {
 				status: 'submitted',
 				remoteStatus: submitted.status,
@@ -181,7 +183,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 					if (!file && record.clip) {
 						if (!runtime.materializeClip) throw new Error('Clip uploads are unavailable in this build.');
 						update(record, { status: 'preparing', errorMessage: undefined });
-						const materialized = await runtime.materializeClip({ ...record.clip, signal: abort.signal });
+						const materialized = await raceAbortablePromise(runtime.materializeClip({ ...record.clip, signal: abort.signal }), abort.signal);
 						abort.signal.throwIfAborted();
 						validateInputFile(materialized.file);
 						file = materialized.file;
@@ -209,7 +211,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 					if (!FREESOUND_DIRECT_EXTENSION.test(file.name)) {
 						if (!runtime.prepareFile) throw new Error(`${file.name} must be converted to WAV before upload.`);
 						update(record, { status: 'preparing', errorMessage: undefined });
-						file = await runtime.prepareFile(file, abort.signal);
+						file = await raceAbortablePromise(runtime.prepareFile(file, abort.signal), abort.signal);
 						abort.signal.throwIfAborted();
 						validatePreparedFile(file);
 						record.file = file;
@@ -221,7 +223,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 					record.file = file;
 					abort.signal.throwIfAborted();
 					update(record, { status: 'uploading', errorMessage: undefined });
-					const result = await runtime.upload(file, abort.signal);
+					const result = await raceAbortablePromise(runtime.upload(file, abort.signal), abort.signal);
 					abort.signal.throwIfAborted();
 					update(record, { status: 'ready-to-publish', uploadFilename: result.uploadFilename });
 				} catch (error) {
