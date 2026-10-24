@@ -4,15 +4,18 @@
  * Tracks do not own a channel layout in the editor model, so a range spanning
  * clips retains the widest overlapping source, preserving its native channels
  * while narrower clips and gaps can be represented without downmixing.
+ * @param {readonly string[] | null} [requestedClipIds]
  */
-export function audacitySelectionChannelCount(project, trackId, startFrame, endFrame) {
+export function audacitySelectionChannelCount(project, trackId, startFrame, endFrame, requestedClipIds = null) {
 	if (!project || !Number.isSafeInteger(startFrame) || !Number.isSafeInteger(endFrame) || endFrame <= startFrame) return 0;
 	const track = project.tracks?.find((candidate) => candidate.id === trackId);
 	if (!track) return 0;
 	const clips = new Map((project.clips || []).map((clip) => [clip.id, clip]));
 	const sources = new Map((project.sources || []).map((source) => [source.id, source]));
+	const selected = requestedClipIds?.length ? new Set(requestedClipIds) : null;
 	let channelCount = 0;
 	for (const clipId of track.clipIds || []) {
+		if (selected && !selected.has(clipId)) continue;
 		const clip = clips.get(clipId);
 		if (!clip || clip.timelineStartFrame >= endFrame || clip.timelineStartFrame + clip.durationFrames <= startFrame) continue;
 		const sourceChannelCount = sources.get(clip.sourceId)?.channelCount;

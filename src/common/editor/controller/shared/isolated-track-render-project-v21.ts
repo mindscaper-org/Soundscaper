@@ -82,6 +82,7 @@ export function createIsolatedTrackRenderProjectV21(
 		effects: request.effects.map((effect) => ({ ...effect })),
 	};
 	if (!request.preserveTrackProcessing) delete track.envelope;
+	const isolatedWidths = resolveTerminalChannelWidths({ ...project, tracks: [track as IsolatedTrackRenderTrackV21] }, project.masterChannels).tracks;
 	const isolated = {
 		...project,
 		metadata: preMasterMetadata(project),
@@ -93,7 +94,7 @@ export function createIsolatedTrackRenderProjectV21(
 			: [],
 		mixer: createDefaultMixerGraphV21([{
 			id: request.trackId,
-			channelCount: widths.get(request.trackId) ?? project.masterChannels,
+			channelCount: isolatedWidths.get(request.trackId) ?? project.masterChannels,
 		}], project.masterChannels),
 	};
 	projectTransientRenderFeatures(isolated);
