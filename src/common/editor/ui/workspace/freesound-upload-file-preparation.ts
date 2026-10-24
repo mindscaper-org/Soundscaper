@@ -7,9 +7,12 @@ const MAXIMUM_UPLOAD_BYTES = 100_000_000;
 type DecodedAudio = Pick<AudioBuffer, 'length' | 'sampleRate' | 'numberOfChannels' | 'getChannelData'>;
 
 interface DecodeContext {
+	readonly sampleRate?: number;
 	decodeAudioData(value: ArrayBuffer): Promise<AudioBuffer>;
 	close(): Promise<void>;
 }
+
+interface UploadPresentation { readonly duration: number; readonly channelCount: number }
 
 export interface FreesoundUploadFilePreparationRuntime {
 	readonly createDecodeContext?: (options: AudioContextOptions) => DecodeContext;
@@ -33,7 +36,8 @@ export async function prepareFreesoundUploadFile(
 	}
 	const inputBytes = await file.arrayBuffer();
 	signal?.throwIfAborted();
-	const presentationDuration = await uploadPresentationDuration(file, inputBytes, signal);
+	const presentation = await uploadPresentation(file, inputBytes, signal);
+	const presentationDuration = presentation?.duration ?? null;
 	signal?.throwIfAborted();
 	const sampleRate = inspectDecodedAudioSampleRate(inputBytes);
 	const options: AudioContextOptions = { latencyHint: 'playback', ...(sampleRate ? { sampleRate } : {}) };
@@ -41,10 +45,18 @@ export async function prepareFreesoundUploadFile(
 	let decoded: DecodedAudio | null = null;
 	try {
 		context = runtime.createDecodeContext?.(options) ?? createBrowserDecodeContext(options);
-		decoded = await context.decodeAudioData(inputBytes);
 	}
 	catch { signal?.throwIfAborted(); }
-	finally { await context?.close(); }
+	if (context) {
+		try {
+			const nativeRate = context.sampleRate ?? sampleRate;
+			if (presentation && nativeRate && Number.isFinite(nativeRate)) {
+				assertConvertedExtent(Math.round(presentation.duration * nativeRate), presentation.channelCount, maximumBytes);
+			}
+			try { decoded = await context.decodeAudioData(inputBytes); }
+			catch { signal?.throwIfAborted(); }
+		} finally { await context.close(); }
+	}
 	signal?.throwIfAborted();
 	if (!decoded?.length || presentationDuration !== null && decoded.length !== Math.round(presentationDuration * decoded.sampleRate)) {
 		decoded = await recoverUploadAudio(file, signal, maximumBytes);
@@ -72,7 +84,7 @@ export async function prepareFreesoundUploadFile(
 }
 
 /** Native decoders may retain samples outside an MP4's authored presentation. */
-async function uploadPresentationDuration(file: File, bytes: ArrayBuffer, signal?: AbortSignal): Promise<number | null> {
+async function uploadPresentation(file: File, bytes: ArrayBuffer, signal?: AbortSignal): Promise<UploadPresentation | null> {
 	if (bytes.byteLength < 8) return null;
 	const type = new TextDecoder().decode(new Uint8Array(bytes, 4, 4));
 	if (!['ftyp', 'moov', 'mdat', 'wide', 'free', 'skip'].includes(type)) return null;
@@ -88,9 +100,9 @@ async function uploadPresentationDuration(file: File, bytes: ArrayBuffer, signal
 		if (!track) return null;
 		const end = await readIsoAudioPresentationEnd(file, track.id, signal);
 		if (end === null) return null;
-		const [first, last] = await Promise.all([track.getFirstTimestamp(), track.computeDuration()]);
+		const [first, last, channelCount] = await Promise.all([track.getFirstTimestamp(), track.computeDuration(), track.getNumberOfChannels()]);
 		signal?.throwIfAborted();
-		return Math.min(end, last) - Math.max(0, first);
+		return { duration: Math.min(end, last) - Math.max(0, first), channelCount };
 	} finally { signal?.removeEventListener('abort', retire); input.dispose(); }
 }
 
