@@ -31,9 +31,16 @@ export function importSoundscaperAudacityMixer(decoded: AudioEditorProjectV17, p
 			}
 		}
 	}
+	const folderIds = new Set(project.trackFolders.map(folder => folder.id));
+	const parentByTrack = new Map(project.sequences.flatMap(sequence => sequence.trackNodes
+		.filter(node => node.kind === 'track').map(node => [node.id, node.parentFolderId] as const)));
 	for (const [trackId, route] of Object.entries(decoded.mixer.routes)) {
+		// The legacy graph collapses folder buses to the top level. The native
+		// graph already owns the complete immediate-parent assignment chain.
+		const groupId = route.groupId !== null && folderIds.has(route.groupId)
+			? parentByTrack.get(trackId) ?? route.groupId : route.groupId;
 		mixer = applySoundscaperMixerSurfaceCommand({ ...project, mixer }, {
-			type: 'mixer/route-update', trackId, changes: { groupId: route.groupId, sends: route.sends },
+			type: 'mixer/route-update', trackId, changes: { groupId, sends: route.sends },
 		});
 	}
 	for (const route of context?.nodeRoutes ?? []) {
