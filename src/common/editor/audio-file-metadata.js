@@ -10,6 +10,7 @@ import { inspectIrcamPcmSourceGeometry } from './ircam-pcm-source-geometry.ts';
 import { inspectPafPcmSourceGeometry } from './paf-pcm-source-geometry.ts';
 import { inspectIff16svPcmSourceGeometry } from './iff16sv-pcm-source-geometry.ts';
 import { inspectVocPcmSampleRate } from './voc-pcm-sample-rate.ts';
+import { inspectAmrWbAudioSampleRate } from './amr-wb-audio-sample-rate.ts';
 
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
@@ -56,6 +57,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
+			?? inspectAmrWbAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
 			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
@@ -93,6 +95,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
+			?? inspectAmrWbAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
 			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
