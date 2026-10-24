@@ -10,10 +10,10 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
 
-for (const native of [false, true]) for (const cancel of [false, true]) {
-	test(`cancelled Touch retains the future gain step, native=${native}, cancel=${cancel}`, async ({ page, browserName }) => {
+for (const mode of ['read', 'touch']) for (const native of [false, true]) for (const cancel of [false, true]) {
+	test(`cancelled ${mode} retains the future gain step, native=${native}, cancel=${cancel}`, async ({ page, browserName }) => {
 		test.skip(native && browserName !== 'chromium', 'Native audio hosts run in the maintained Electron renderer (Chromium).');
-		const { project, blob } = await archive(`${native}-${cancel}`), errors = collectClientErrors(page);
+		const { project, blob } = await archive(`${mode}-${native}-${cancel}`), errors = collectClientErrors(page);
 		if (native) await installNativeOutputPeer(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Cancel.sscape', mimeType: 'application/zip',
@@ -24,7 +24,7 @@ for (const native of [false, true]) for (const cancel of [false, true]) {
 		else await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
 		const row = editor.locator('[data-track-row][data-track-id="voice"]');
 		await chooseTrackMenuAction(page, editor, row, 'Add automation');
-		await row.getByRole('combobox', { name: 'Automation mode' }).selectOption('touch');
+		await row.getByRole('combobox', { name: 'Automation mode' }).selectOption(mode);
 		const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
 		const reading = async () => native ? page.evaluate(() => window.__nativeOutput.mean)
 			: Number.parseFloat(await editor.locator('[data-live-analysis-value="peak"]').textContent());
@@ -59,12 +59,27 @@ async function chooseNativeOutput(page, editor) {
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 }
 
-async function archive(cancel){
- const source=createAudioSource({id:'source',sampleRate:48000,frameCount:576000,channelCount:1});
- const project=createSoundscaperProject({id:`cancel-readback-${cancel}`,sources:[source],
- clips:[createAudioClip({id:'clip',sourceId:source.id,sourceDurationFrames:source.frameCount,durationFrames:source.frameCount})],
- tracks:[createAudioTrack({id:'voice',clipIds:['clip']})],automationLanes:[{id:'gain',address:{kind:'strip',strip:{kind:'track',id:'voice'},parameterId:'gain'},timebase:'absolute-samples',
- points:[{id:'a',position:0,value:.2},{id:'b',position:192000,value:.8},{id:'c',position:576000,value:.8}],segments:[{kind:'hold'},{kind:'hold'}]}]});
- const store=createProjectStore({indexedDB:null,preferOpfs:false,databaseName:crypto.randomUUID()});
- try{const writer=await store.beginSourceWrite(source.storageKey,source);for(let frame=0;frame<source.frameCount;frame+=source.chunkFrames)await writer.write([new Float32Array(Math.min(source.chunkFrames,source.frameCount-frame)).fill(.25)]);await writer.commit();const{blob}=await exportScapeProject(project,store);return{project,blob};}finally{await store.close();}
+async function archive(cancel) {
+	const source = createAudioSource({ id: 'source', sampleRate: 48000, frameCount: 576000, channelCount: 1 });
+	const project = createSoundscaperProject({
+		id: `cancel-readback-${cancel}`, sources: [source],
+		clips: [createAudioClip({ id: 'clip', sourceId: source.id, sourceDurationFrames: source.frameCount,
+			durationFrames: source.frameCount })],
+		tracks: [createAudioTrack({ id: 'voice', clipIds: ['clip'] })],
+		automationLanes: [{ id: 'gain', address: { kind: 'strip', strip: { kind: 'track', id: 'voice' }, parameterId: 'gain' },
+			timebase: 'absolute-samples', points: [{ id: 'a', position: 0, value: .2 },
+				{ id: 'b', position: 192000, value: .8 }, { id: 'c', position: 576000, value: .8 }],
+			segments: [{ kind: 'hold' }, { kind: 'hold' }] }]
+	});
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
+	try {
+		const writer = await store.beginSourceWrite(source.storageKey, source);
+		for (let frame = 0; frame < source.frameCount; frame += source.chunkFrames)
+			await writer.write([new Float32Array(Math.min(source.chunkFrames, source.frameCount - frame)).fill(.25)]);
+		await writer.commit();
+		const { blob } = await exportScapeProject(project, store);
+		return { project, blob };
+	} finally {
+		await store.close();
+	}
 }

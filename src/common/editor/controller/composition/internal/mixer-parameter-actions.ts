@@ -8,11 +8,13 @@ import { createParameterGestureAdapter, type ParameterGestureSession } from '../
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
 import type { EditorProjectToken } from '../../shared/lifecycle.ts';
 import { projectStripPanAvailable } from '../../../terminal-channel-widths.ts';
+import type { AutomationLaneV21 } from '../../../automation-lane-v21.ts';
 
 type StripAddress = Extract<ParameterAddress, { readonly kind: 'strip' }>;
 type Runtime = Pick<EditorActionRuntime, 'getProject' | 'copy'> & Readonly<{
 	commit: (command: AudioEditorCommand) => unknown;
-	engine: Pick<EditorActionRuntime['engine'], 'previewScheduledParameter'>;
+	engine: Pick<EditorActionRuntime['engine'], 'previewScheduledParameter'>
+		& Partial<Pick<EditorActionRuntime['engine'], 'restoreScheduledAutomationLane'>>;
 	state: Pick<EditorActionRuntime['state'], 'readOnly'>;
 }>;
 interface StripChannel extends Readonly<Record<string, unknown>> { readonly id?: string; readonly type?: string }
@@ -20,6 +22,7 @@ interface StripProject {
 	readonly master: StripChannel;
 	readonly tracks: readonly StripChannel[];
 	readonly mixer?: Readonly<{ groups: readonly StripChannel[]; sends: readonly StripChannel[] }>;
+	readonly automationLanes?: readonly AutomationLaneV21[];
 }
 
 /** Preview static mixer parameters during a gesture and commit one undoable edit. */
@@ -81,6 +84,15 @@ export function createMixerParameterActions(runtime: Runtime) {
 		valuesEqual: (left: number, right: number) => left === right,
 		applyPreview: (target, value: number) => runtime.engine.previewScheduledParameter(addresses.get(target.identity), value)
 			? ++previewRevision : false,
+		restorePreview: (target, value: number) => {
+			const persisted = runtime.getProject();
+			const project = persisted ? projectForRuntimeConsumers(persisted) as unknown as StripProject : null;
+			const lane = project?.automationLanes?.find(({ address }) => canonicalParameterAddressKey(address) === target.identity);
+			if (lane && runtime.engine.restoreScheduledAutomationLane) {
+				return runtime.engine.restoreScheduledAutomationLane(lane) ? ++previewRevision : false;
+			}
+			return runtime.engine.previewScheduledParameter(addresses.get(target.identity), value) ? ++previewRevision : false;
+		},
 		commitValue: (target, value: number) => {
 			const location = locate(target.identity);
 			if (!location) throw new Error('Mixer strip not found.');
