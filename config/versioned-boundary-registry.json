@@ -292,6 +292,8 @@
 		,
 		{ "path": "src/common/editor/engine/automation-lane-scheduler-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-scheduler-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
+		{ "path": "src/common/editor/engine/automation-readback-v21.ts", "kind": "persisted-contract", "justification": "Restores the existing V21 automation lane scheduling contract on an active graph; no new product schema or lane vocabulary." }
+		,
 		{ "path": "src/common/editor/engine/native-effect-latency-v21.ts", "kind": "persisted-contract", "justification": "native-effect-latency-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/engine/production-meter-runtime-session-v21.ts", "kind": "persisted-contract", "justification": "production-meter-runtime-session-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
