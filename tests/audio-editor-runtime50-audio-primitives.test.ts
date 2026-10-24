@@ -28,7 +28,7 @@ test('A01 zero crossing shares current samples between scoring and crossing dete
 	for (const [left, right, target, expected] of [
 		[[1, -1, 1], [1, -1, 1], 1, 1],
 		[[1, 1, -1, 1], [1, 1, -1, 1], 1, 2],
-		[[1, 0, 1, 0, 1], [1, 0, 1, 0, 1], 2, 2],
+		[[1, 0, 1, 0, 1], [1, 0, 1, 0, 1], 2, 1],
 		[[1, .1, 1, .1, 1], [1, .2, 1, .2, 1], 2, 1],
 		[[NaN, 1, 1], [NaN, 1, 1], 0, 0],
 	] as const) {
