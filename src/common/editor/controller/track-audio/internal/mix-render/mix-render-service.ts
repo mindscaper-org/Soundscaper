@@ -112,7 +112,7 @@ export interface MixRenderServiceDependencies {
 	captureProject(): EditorProjectToken;
 	assertProject(token: EditorProjectToken): void;
 	createId(prefix: string): string;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips: boolean }>): unknown;
 	preflightStorage(bytes: number, category: 'effect'): Promise<unknown>;
 	setProcessing(processing: boolean): void;
 	setStatus(message: string, state?: string, localization?: import('../../../../../i18n/presentation-message.ts').LocalizedPresentationMessage): void;
@@ -248,7 +248,7 @@ export function createMixRenderService(
 			dependencies.commit(prepared.command, {
 				selectTrackId: primary.trackId,
 				selectClipId: primary.clipId,
-			});
+			}, { microfadeNewClips: false });
 			published = true;
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 			return primary;
