@@ -9,7 +9,7 @@ import { ensureStandardEffectWorklet, isStandardEffectWorkletLoaded, ensureStand
 import { loadParametricEqWasmModule } from '../parametric-eq/wasm-loader.js';
 import { loadPffftWasmModule } from '../pffft-wasm-loader.js';
 import { isParametricEqType, projectEffectRacks } from './project-effects.ts';
-import type { EngineProject } from './types.ts';
+import type { EngineEffect, EngineProject } from './types.ts';
 import { ensureNativePluginRealtimeWorklet } from '../native-plugin-realtime-node.js';
 import { createAudioWorkletLoadOnce, type AudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
 
@@ -62,7 +62,8 @@ export async function ensureProjectWorklets(
 	const needsBitcrusher = projectUsesBitcrusherWorklet(project) && !bitcrusherWorklet.isLoaded(context);
 	const needsBandDynamics = projectUsesEffect(project, isBandDynamicsEffect) && !isBandDynamicsWorkletLoaded(context);
 	const needsStandard = projectUsesEffect(project, isStandardEffect) && !isStandardEffectWorkletLoaded(context);
-	const usesStandardDelay = projectUsesEffect(project, type => type === 'multi-tap-delay');
+	const usesStandardDelay = projectUsesEffect(project, (type, effect) => type === 'multi-tap-delay'
+		&& Number(effect.params?.pitchShift ?? 0) !== 0 && Number(effect.params?.mix ?? 1) !== 0);
 	const usesAudacity = projectUsesAudacityWorklet(project);
 	const needsAudacity = usesAudacity && !audacityReadyContexts.has(context);
 	const usesParametricEq = projectUsesParametricEqWorklet(project);
@@ -267,12 +268,12 @@ function projectUsesNativePluginWorklet(project: EngineProject): boolean {
 	return projectUsesEffect(project, (type) => type === 'native-plugin');
 }
 
-function projectUsesEffect(project: EngineProject, predicate: (type: string) => boolean): boolean {
+function projectUsesEffect(project: EngineProject, predicate: (type: string, effect: EngineEffect) => boolean): boolean {
 	for (const rack of projectEffectRacks(project)) {
 		if (rack.effects.some((effect) => (
 			effect?.enabled !== false
 			&& effect?.bypassed !== true
-			&& predicate(String(effect?.type || '').toLowerCase())
+			&& predicate(String(effect?.type || '').toLowerCase(), effect)
 		))) return true;
 	}
 	return false;
