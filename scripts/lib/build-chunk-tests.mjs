@@ -123,7 +123,7 @@ const deferredImportHelpers = String.raw`controller[\\/]import[\\/](?:raw-pcm-im
 
 /** Import admission runs after an import starts, apart from codec execution. */
 export const EDITOR_IMPORT_ADMISSION_CHUNK_TEST = new RegExp(
-	String.raw`${editorPath}(?:${deferredImportHelpers}|controller[\\/]import[\\/](?:freesound-import-service|internal[\\/](?:freesound-import-service|import-task-cancellation|imported-source-provenance|project-import-admission|project-import-options-for-use|project-import-service-runtime|standalone-audio-import-decoder))|encoded-audio-marker-scan|imported-media-metadata|source-provenance(?:-derivation)?|streamed-audio-import-file|ui[\\/]workspace[\\/]freesound-workspace-service)\.ts$`,
+	String.raw`${editorPath}(?:${deferredImportHelpers}|controller[\\/]import[\\/](?:freesound-import-service|internal[\\/](?:freesound-import-service|import-task-cancellation|imported-source-provenance|project-import-admission|project-import-options-for-use|project-import-service-runtime|standalone-audio-import-decoder))|encoded-audio-marker-scan|imported-media-metadata|source-provenance(?:-derivation)?|streamed-audio-(?:import-file|content-admission)|ui[\\/]workspace[\\/]freesound-workspace-service)\.ts$`,
 );
 
 /** Stored PCM and waveform activation reached after a source is opened. */

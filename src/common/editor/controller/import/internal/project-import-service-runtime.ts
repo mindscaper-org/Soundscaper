@@ -408,10 +408,11 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			return importIncrementalPcm(file, wavDescriptor, wavMetadata.importOptions, wavMetadata,
 				{ requireChunkStream }, { assertCurrent: assertImportProjectCurrent });
 		}
-		const { isStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
-		const nativeAdmission = isStreamedAudioImportFile(file) ? await nativeSurroundOpusAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg }) : null; assertImportProjectCurrent();
-		const nativeContainer = isStreamedAudioImportFile(file) ? await nativeContainerAudioAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg, nativeSampleRate: async () => Number((await engine.getAudioContext({ resume: false })).sampleRate) }) : null; assertImportProjectCurrent();
-		if (wavSignature === 'RIFX' || isStreamedAudioImportFile(file) && !nativeAdmission && !nativeContainer) {
+		const { inspectStreamedAudioImportFile, scanEncodedAudioMarkers, decodeStandaloneAudioForImport } = await loadImportAdmissionExecution();
+		const streamedAudio = await inspectStreamedAudioImportFile(file, attributedImportOptions.signal); assertImportProjectCurrent();
+		const nativeAdmission = streamedAudio ? await nativeSurroundOpusAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg }) : null; assertImportProjectCurrent();
+		const nativeContainer = streamedAudio ? await nativeContainerAudioAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg, nativeSampleRate: async () => Number((await engine.getAudioContext({ resume: false })).sampleRate) }) : null; assertImportProjectCurrent();
+		if (wavSignature === 'RIFX' || streamedAudio && !nativeAdmission && !nativeContainer) {
 			const { importStreamedAudioFile } = await import('./streamed-audio-import-service.ts');
 			return importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
 				importIncrementalPcm, assertImportProjectCurrent);
@@ -426,9 +427,8 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const { context, decoded, originalSampleRate } = await decodeStandaloneAudioForImport({
 			file, codecRuntime: ffmpeg, sampleRate: projectSampleRate(),
 			getAudioContext: () => engine.getAudioContext({ resume: false }),
-			// Pinning the native decode to the file's own rate keeps a compressed
-			// import from inheriting the output device's rate, the way the PCM
-			// streaming path above keeps a WAV's.
+			// Pinning native decoding keeps the file's own rate, like PCM streaming,
+			// instead of inheriting the output device's rate.
 			decodeWithWebAudio: (encoded: ArrayBuffer, decodedSampleRate: number | null) => (
 				engine.decodeAudioData(encoded, { sampleRate: decodedSampleRate })
 			),
