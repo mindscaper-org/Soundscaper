@@ -27,6 +27,35 @@ Further optimizations must preserve the [editing performance boundaries](editing
 [Smaller candidates](performance-candidates.md) need current profiles before
 implementation.
 
+## Runtime work regressions
+
+These probes exercise the named production paths with representative fixtures.
+Counts measure the work in each fixture; wall-clock gains depend on the project
+and host. The paired tests preserve audio, ordering, ownership, and publication
+behavior alongside the reduced work.
+
+| Area | Fixture and observed work | Regression |
+| --- | --- | --- |
+| Clipboard paste destinations | 600 tracks: 541,500 to 1,800 destination type reads. | [Paste indexes](../../tests/audio-editor-runtime-paste-target-index.test.ts) |
+| Spreadsheet source references | 120 name edits across 400 sources: 96,000 to 400 name reads. | [Source names](../../tests/audio-editor-runtime-spreadsheet-source-index.test.ts) |
+| Action availability | 400 selected tracks: 161,201 to 800 ID reads. Small selections retain short-circuit scans. | [Selection facts](../../tests/audio-editor-runtime-action-selection-index.test.ts) |
+| History admission | 200 snapshots with 1,100 clips each: 440,000 to 220,000 clip reads, with no duplicate retained root Sets. | [Paired roots](../../tests/audio-editor-runtime10-retention-admission.test.ts) |
+| Recording previews | 32 late visible rows among 512 recording tracks: 15,888 to 512 preview ID reads. | [Recording rows](../../tests/audio-editor-runtime-recording-preview-index.test.tsx) |
+| Row viewport queries | 100 unchanged publications over 10,000 clips: 100 to zero repeated result sorts; visual state is still freshly polled. | [Viewport reuse](../../tests/audio-editor-runtime-row-viewport-reuse.test.ts) |
+| Envelope presentation | 101 selection refreshes over 2,048 points: 206,848 to 2,048 dB conversions. Mutable inputs retain fresh projection. | [Envelope projection](../../tests/audio-editor-runtime-envelope-projection.test.ts) |
+| Repair interpolation | Production-sized damaged span: 592 to 3 scratch allocations; 590 to 178 contributing equation rows. | [Repair scratch](../../tests/audio-editor-runtime10-repair-scratch.test.ts) |
+| Automation scheduling | An admitted absolute curve: 294 to 147 curve probes by reusing preflight events. Mutable scheduling inputs retain fresh admission. | [Automation preflight](../../tests/audio-editor-runtime10-automation-preflight.test.ts) |
+| Live loudness history | At 6,000 entries: eliminate 5,999 shifted references per new reading while retaining one contiguous snapshot copy. | [Production history](../../tests/audio-editor-runtime10-live-loudness-history.test.ts) |
+
+Editing indexes live only for their invocation. Row queries retain one current
+visible result, recording views retain one current preview index, and history
+projections share private Sets under weak document ownership. Automation reuse
+retains at most 16,384 preflight events per scheduling invocation. Envelope reuse is
+bounded per waveform-cache owner to 256 entries and 65,536 combined input/output
+points, with weak input ownership. The mirrored loudness ring adds at most
+48 KiB of references at its production capacity. Explicit-GC regressions check
+that retired project and envelope metadata is collectible.
+
 ## Measurement and reproduction
 
 Use Node.js 26.5.0 and npm 12.0.1. Begin with a failing behavior or operation-count

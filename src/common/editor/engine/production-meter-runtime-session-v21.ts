@@ -197,13 +197,16 @@ function analyserFrameCount(analyser: AnalyserNode): number {
 
 function createLoudnessSnapshotHistory(capacity: number): LoudnessSnapshotHistory {
 	const history: LoudnessHistoryEntry[] = [];
+	let writeIndex = 0;
+	let size = 0;
 	let current: EbuMeterSnapshot | null = null;
 	let previousValue: unknown;
 	let sequence = 0;
 	let published: SessionLoudnessHistorySnapshot | null = null;
 	const snapshot = (): SessionLoudnessHistorySnapshot | null => {
 		if (!published && current) published = Object.freeze({
-			policy: METER_SESSION_POLICY, current, history: Object.freeze([...history]),
+			policy: METER_SESSION_POLICY, current,
+			history: Object.freeze(history.slice(size === capacity ? writeIndex : 0, (size === capacity ? writeIndex : 0) + size)),
 		});
 		return published;
 	};
@@ -216,7 +219,7 @@ function createLoudnessSnapshotHistory(capacity: number): LoudnessSnapshotHistor
 			current = reading;
 			published = null;
 			const loudness = reading.loudness;
-			history.push(Object.freeze({
+			const entry = Object.freeze({
 				sequence: sequence += 1,
 				measuredSeconds: loudness.measuredSeconds,
 				momentaryLufs: loudness.momentaryLufs,
@@ -224,13 +227,19 @@ function createLoudnessSnapshotHistory(capacity: number): LoudnessSnapshotHistor
 				integratedLufs: loudness.integratedLufs,
 				loudnessRangeLu: loudness.loudnessRangeLu,
 				truePeakDbtp: loudness.truePeakDbtp,
-			}));
-			if (history.length > capacity) history.splice(0, history.length - capacity);
+			});
+			// Mirror each bounded ring slot so publication remains one contiguous
+			// native slice, without shifting all retained entries on retirement.
+			history[writeIndex] = history[writeIndex + capacity] = entry;
+			writeIndex = (writeIndex + 1) % capacity;
+			size = Math.min(capacity, size + 1);
 			return snapshot();
 		},
 		snapshot,
 		reset(): void {
 			history.length = 0;
+			writeIndex = 0;
+			size = 0;
 			current = null;
 			previousValue = undefined;
 			sequence = 0;

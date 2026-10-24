@@ -149,6 +149,7 @@ export function findMissingClipSpreadsheetEditSources(projectValue: unknown, edi
 function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[], options: ClipSpreadsheetEditOptions, missing?: Set<string>): AudioEditorCommand | null {
 	const project = runtimeProject(projectValue);
 	const sources = new Map([...project.sources, ...options.additionalSources ?? []].map(source => [source.id, source]));
+	const sourceForReference = createSourceReferenceReader(sources);
 	const rows = new Map(rowsForProject(project, sources).map(row => [row.id, row]));
 	const values = new Map<string, Map<ClipSpreadsheetColumnId, string>>();
 	for (const edit of edits) {
@@ -159,7 +160,7 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 			&& edit.value.trim() !== '' && row.cells[edit.column] !== ''
 			&& Number(edit.value) === Number(row.cells[edit.column]);
 		const sameIdentifier = edit.column === 'track' && edit.value.trim() === row.cells.track
-			|| edit.column === 'source' && sourceForReference(sources, edit.value)?.id === row.cells.source;
+			|| edit.column === 'source' && sourceForReference(edit.value)?.id === row.cells.source;
 		if (row.cells[edit.column] === edit.value || sameNumericValue || sameIdentifier) {
 			// An explicitly pasted duration stays authoritative when speed changes too.
 			if (edit.column === 'duration' && row.editable) {
@@ -187,7 +188,7 @@ function planEdits(projectValue: unknown, edits: readonly ClipSpreadsheetEdit[],
 			if (!reference.trim()) throw new RangeError('A source file is required.');
 			const resolvedReference = options.resolvedSourceIds && Object.hasOwn(options.resolvedSourceIds, reference)
 				? options.resolvedSourceIds[reference]! : reference;
-			const target = sourceForReference(sources, resolvedReference);
+			const target = sourceForReference(resolvedReference);
 			if (!target) {
 				if (!missing) throw new RangeError(`The source file is missing: ${reference}.`);
 				missing.add(reference);
@@ -287,15 +288,26 @@ function planClip(project: SpreadsheetProject, clip: SpreadsheetClip, source: Sp
 	return { transform, update };
 }
 
-function sourceForReference(sources: ReadonlyMap<string, SpreadsheetSource>, reference: string): SpreadsheetSource | undefined {
-	for (const spelling of new Set([reference, reference.trim()])) {
-		const byId = sources.get(spelling);
-		if (byId) return byId;
-		const byName = [...sources.values()].filter(source => source.name === spelling);
-		if (byName.length > 1) throw new RangeError(`The source name is ambiguous; use its ID: ${reference}.`);
-		if (byName[0]) return byName[0];
-	}
-	return undefined;
+/** Build names lazily so ID-only edits never inspect unrelated source names. */
+function createSourceReferenceReader(sources: ReadonlyMap<string, SpreadsheetSource>): (reference: string) => SpreadsheetSource | undefined {
+	let names: Map<string, SpreadsheetSource | null> | undefined;
+	return reference => {
+		for (const spelling of new Set([reference, reference.trim()])) {
+			const byId = sources.get(spelling);
+			if (byId) return byId;
+			if (!names) {
+				names = new Map();
+				for (const source of sources.values()) {
+					const name = source.name;
+					names.set(name, names.has(name) ? null : source);
+				}
+			}
+			const byName = names.get(spelling);
+			if (byName === null) throw new RangeError(`The source name is ambiguous; use its ID: ${reference}.`);
+			if (byName) return byName;
+		}
+		return undefined;
+	};
 }
 
 function validateSource(source: SpreadsheetSource): void {
