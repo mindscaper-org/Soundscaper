@@ -31,7 +31,7 @@ export function findNearestAudioZeroCrossing(channels, targetFrame, options = {}
 				score += Math.abs(current);
 				if (!linkedCrossing || current === 0) continue;
 				const previous = frame > 0 ? Number(channel[frame - 1]) || 0 : current;
-				if (previous !== 0 && !((previous < 0 && current > 0) || (previous > 0 && current < 0))) linkedCrossing = false;
+				if (!((previous < 0 && current > 0) || (previous > 0 && current < 0))) linkedCrossing = false;
 			}
 			if (score < quietestScore) {
 				quietestFrame = frame;
