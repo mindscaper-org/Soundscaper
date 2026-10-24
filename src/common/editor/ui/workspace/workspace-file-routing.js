@@ -23,7 +23,7 @@ export function isWorkspaceImportFile(file) {
 	return IMPORT_FILE_EXTENSIONS.has(extension) || type.startsWith('audio/')
 		|| type === 'application/ogg' || type === 'application/x-ogg'
 		|| type === 'video/mp4' || type === 'video/webm'
-		|| (!name.includes('.') && (LABEL_MIME_TYPES.has(type) || type === 'application/x-cue'));
+		|| LABEL_MIME_TYPES.has(type) || type === 'application/x-cue';
 }
 
 export function partitionWorkspaceFiles(files) {
@@ -36,11 +36,11 @@ export function partitionWorkspaceFiles(files) {
 	for (const file of selectedFiles) {
 		const name = file?.name || '';
 		const type = String(file?.type || '').split(';', 1)[0].trim().toLowerCase();
-		const extensionless = !name.includes('.');
+		const mimeFallback = !IMPORT_FILE_EXTENSIONS.has(String(name).toLowerCase().slice(name.lastIndexOf('.')));
 		if (hasLegacyBlocks && /\.aup$/iu.test(name)) media.push(file);
 		else if (isProjectFileName(name) || LEGACY_AUDACITY_PROJECT_PATTERN.test(name)) projects.push(file);
-		else if (LABEL_PATTERN.test(name) || (extensionless && LABEL_MIME_TYPES.has(type))) labels.push(file);
-		else if (CUE_PATTERN.test(name) || (extensionless && type === 'application/x-cue')) cues.push(file);
+		else if (LABEL_PATTERN.test(name) || (mimeFallback && LABEL_MIME_TYPES.has(type))) labels.push(file);
+		else if (CUE_PATTERN.test(name) || (mimeFallback && type === 'application/x-cue')) cues.push(file);
 		else media.push(file);
 	}
 	return { projects, media, labels, cues };
