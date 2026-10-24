@@ -34,6 +34,9 @@ export function createAudioTrackRowPropReader() {
 	let clips: readonly CanonicalRowClip[] | null = null;
 	let clipIds: ReadonlySet<string> = EMPTY_IDS;
 	let viewportIndex: TimelineViewportClipIndex<CanonicalRowClip> | null = null;
+	// One result belongs to the current immutable track snapshot and frame range.
+	let visibleClips: readonly CanonicalRowClip[] | null = null;
+	let visibleStart = NaN, visibleEnd = NaN;
 	let selectedIds: ReadonlySet<string> = EMPTY_IDS;
 	let draggedIds: ReadonlySet<string> = EMPTY_IDS;
 	let visualRevision: readonly unknown[] | null = null;
@@ -48,6 +51,7 @@ export function createAudioTrackRowPropReader() {
 				clips = props.trackClips;
 				clipIds = new Set(clips.map(clip => clip.id));
 				viewportIndex = clips.length > 128 ? createTimelineViewportClipIndex(clips) : null;
+				visibleClips = null;
 			}
 			const previewEntries = entries(props.clipDragPreview);
 			const clipDragPreview = previewEntries.some(preview => preview.trackId === props.track.id || (preview.clipId && clipIds.has(preview.clipId)))
@@ -61,8 +65,13 @@ export function createAudioTrackRowPropReader() {
 			const nextDragged = new Set([...(props.draggingClipIds ?? EMPTY_IDS)].filter(belongs));
 			if (!sameIds(selectedIds, nextSelected)) selectedIds = nextSelected;
 			if (!sameIds(draggedIds, nextDragged)) draggedIds = nextDragged;
-			const visible = viewportIndex?.query(Math.max(0, props.renderViewportStartFrame - props.viewportDurationFrames),
-				Math.min(Number.MAX_SAFE_INTEGER, props.renderViewportStartFrame + props.viewportDurationFrames * 2)) ?? props.trackClips;
+			const start = Math.max(0, props.renderViewportStartFrame - props.viewportDurationFrames);
+			const end = Math.min(Number.MAX_SAFE_INTEGER, props.renderViewportStartFrame + props.viewportDurationFrames * 2);
+			if (!visibleClips || visibleStart !== start || visibleEnd !== end) {
+				visibleClips = viewportIndex?.query(start, end) ?? props.trackClips;
+				visibleStart = start; visibleEnd = end;
+			}
+			const visible = visibleClips;
 			const visualClips = incoming.size || binVisualClips.length
 				? [...visible, ...[...incoming].flatMap(id => props.clipLookup.get(id) ?? []), ...binVisualClips] : visible;
 			const nextVisualRevision = readVisual(props.controller, visualClips);
