@@ -19,11 +19,11 @@ export function duplicateTrackAdmCommands(
 	if (value?.mode !== 'authored') return [];
 	const adm = normalizeAdmProjectMetadata({ ...value, mode: 'authored' });
 	if (adm.mode !== 'authored') return [];
-	const assignments = copies.flatMap(({ sourceTrackId, targetTrackId }) => adm.bed.assignments
-		.filter(({ stripKind, stripId }) => stripKind === 'track' && stripId === sourceTrackId)
+	const bedByTrack = trackEntries(adm.bed.assignments);
+	const objectsByTrack = trackEntries(adm.objects ?? []);
+	const assignments = copies.flatMap(({ sourceTrackId, targetTrackId }) => (bedByTrack.get(sourceTrackId) ?? [])
 		.map((assignment) => ({ ...assignment, stripId: targetTrackId })));
-	const objects = copies.flatMap(({ sourceTrackId, targetTrackId }) => (adm.objects ?? [])
-		.filter(({ stripKind, stripId }) => stripKind === 'track' && stripId === sourceTrackId)
+	const objects = copies.flatMap(({ sourceTrackId, targetTrackId }) => (objectsByTrack.get(sourceTrackId) ?? [])
 		.map((object) => ({ ...object, id: createId('adm-object'), stripId: targetTrackId })));
 	if (!assignments.length && !objects.length) return [];
 	return [{ type: 'metadata/update', changes: { adm: normalizeAdmProjectMetadata({
@@ -31,4 +31,15 @@ export function duplicateTrackAdmCommands(
 		bed: { ...adm.bed, assignments: [...adm.bed.assignments, ...assignments] },
 		...(objects.length ? { objects: [...(adm.objects ?? []), ...objects] } : {}),
 	}) } }];
+}
+
+function trackEntries<Entry extends { readonly stripKind: string; readonly stripId: string }>(entries: readonly Entry[]): ReadonlyMap<string, readonly Entry[]> {
+	const tracks = new Map<string, Entry[]>();
+	for (const entry of entries) {
+		if (entry.stripKind !== 'track') continue;
+		const members = tracks.get(entry.stripId);
+		if (members) members.push(entry);
+		else tracks.set(entry.stripId, [entry]);
+	}
+	return tracks;
 }
