@@ -205,7 +205,7 @@ function cueFileName(value: string, line: number): string {
 
 function cueText(value: string, line: number, directive: string): string {
 	const trimmed = value.trim();
-	const quote = trimmed.startsWith("'") ? "'" : '"';
+	const quote = trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'") ? "'" : '"';
 	const quoted = trimmed.startsWith(quote) && trimmed.endsWith(quote) && trimmed.length >= 2;
 	const text = quoted
 		? trimmed.slice(1, -1)
