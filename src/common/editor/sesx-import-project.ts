@@ -224,7 +224,9 @@ function buildClip(
 		'Audition linked crossfades are not imported; clip fades remain independent.');
 	if (clip.stretch) reportClipOmission(draft, 'sesx.stretch-omitted', id, 'Audition clip stretching is not imported.');
 	if (clip.unsupportedPan) reportClipOmission(draft, 'sesx.clip-pan-omitted', id, 'Audition clip pan is not imported.');
-	if (clip.remappedChannels) reportClipOmission(draft, 'sesx.channel-map-omitted', id, 'Audition clip channel remapping is not imported.');
+	if (clip.remappedChannels || (clip.mappedChannelCount !== null && clip.mappedChannelCount !== info.channelCount)) {
+		reportClipOmission(draft, 'sesx.channel-map-omitted', id, 'Audition clip channel remapping is not imported.');
+	}
 	if (clip.fadeCurvesChanged) {
 		addDeliveryReportItem(draft, {
 			code: 'sesx.fade-curve-converted', disposition: 'converted', severity: 'warning', scope: { kind: 'clip', id },

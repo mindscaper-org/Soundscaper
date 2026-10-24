@@ -41,6 +41,7 @@ export interface SesxClip {
 	readonly crossfadePartnerIds: readonly string[];
 	readonly unsupportedPan: boolean;
 	readonly remappedChannels: boolean;
+	readonly mappedChannelCount: number | null;
 	readonly stretch: boolean;
 }
 
@@ -195,6 +196,7 @@ function readClip(element: XmlElement): SesxClip {
 		unsupportedPan: Boolean(clipPan?.children.length),
 		remappedChannels: Boolean(channelMap && childElements(channelMap, 'channel').some((channel) =>
 			attribute(channel, 'index') !== attribute(channel, 'sourceIndex'))),
+		mappedChannelCount: channelMap ? childElements(channelMap, 'channel').length : null,
 		stretch: Boolean(attribute(element, 'stretchMode') || attribute(element, 'stretchRatio')
 			|| element.children.some((child) => /stretch|warp/iu.test(child.name))),
 	});
