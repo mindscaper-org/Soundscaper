@@ -60,7 +60,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				.filter((track) => track.type === 'video').length;
 			await preflightStorage(Math.max(file.size * 2, 16 * 1024 * 1024), 'import');
 			let canonicalVideoFile: Blob = file;
-			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile);
+			extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 			const sampleRate = projectSampleRate();
 			const ffmpegTimingProbe = createFfmpegVideoTimingProbe(ffmpeg);
 			// The native helper probes by opaque capability id and its failure
@@ -95,7 +95,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					signal: importOptions.signal,
 				});
 				extractor.dispose();
-				extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile);
+				extractor = await createAudioEditorVideoFrameExtractor(canonicalVideoFile, { signal: importOptions.signal });
 				const conformedProbe = createFfmpegVideoTimingProbe(ffmpeg);
 				timingProbe = await probeVideoTiming(canonicalVideoFile, {
 					probes: [conformedProbe, createContainerVideoTimingProbe()]
@@ -207,7 +207,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				const poster = await extractor.capture(0, {
 					maximumWidth: 640,
 					maximumHeight: 360,
-					alpha: reportsAlpha,
+					alpha: reportsAlpha, signal: importOptions.signal,
 				});
 				await savePreviewDerivative({
 					timestamp: 0,
@@ -220,12 +220,13 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 					},
 				});
 			} catch (error) {
+				importOptions.signal?.throwIfAborted();
 				// A preview derivative is disposable; the original media remains importable.
 				sourcePreviewUnavailable = error instanceof VideoPreviewSourceGeometryTooLargeError;
 			}
 			for (const timestamp of sourcePreviewUnavailable ? [] : thumbnailTimes) {
 				try {
-					const thumbnail = await extractor.capture(timestamp, { alpha: reportsAlpha });
+					const thumbnail = await extractor.capture(timestamp, { alpha: reportsAlpha, signal: importOptions.signal });
 					await savePreviewDerivative({
 						timestamp: thumbnail.timestampSeconds,
 						type: 'thumbnail',
@@ -237,6 +238,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 						},
 					});
 				} catch (error) {
+					importOptions.signal?.throwIfAborted();
 					// Keep the rest of the filmstrip when one seek/capture fails.
 					if (error instanceof VideoPreviewEncodedPayloadTooLargeError) break;
 				}

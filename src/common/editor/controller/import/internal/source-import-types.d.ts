@@ -91,6 +91,7 @@ export interface ImportVideoFrameExtractor {
 		readonly height: number;
 	}>;
 	capture(timestampSeconds: number, options?: Readonly<{
+		readonly signal?: AbortSignal;
 		readonly maximumWidth?: number;
 		readonly maximumHeight?: number;
 		readonly alpha?: boolean;
@@ -224,7 +225,7 @@ export interface ImportVideoRuntime {
 	createAddClipCommand(trackId: string, clip: CommandFactoryValue): AddClipCommand;
 	createAddSourceCommand(source: CommandFactoryValue): AddSourceCommand;
 	createAddTrackCommand(track: CommandFactoryValue, projectSampleRate?: number): AddTrackCommand;
-	createAudioEditorVideoFrameExtractor(file: ImportVideoMedia): Awaitable<ImportVideoFrameExtractor>;
+	createAudioEditorVideoFrameExtractor(file: ImportVideoMedia, options?: Readonly<{ signal?: AbortSignal }>): Awaitable<ImportVideoFrameExtractor>;
 	createStableId(prefix: string): string;
 	captureProject(): EditorProjectToken;
 	findTrack(project: ImportVideoProject, trackId: string): ImportVideoTrack | null;
