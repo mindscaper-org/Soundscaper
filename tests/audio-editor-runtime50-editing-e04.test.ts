@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { assertTakeCompClipboardTrackOwnership } from '../src/common/editor/commands/take-comp-clipboard.ts';
-import { visits, takeGroup } from './helpers/runtime50-editing-metrics.ts';
+import { takeGroup } from './helpers/runtime50-editing-metrics.ts';
 
 test('E04 take clipboard ownership visits each source track once across many take groups', context => {
 	let reads = 0;
