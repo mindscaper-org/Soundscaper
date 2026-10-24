@@ -217,12 +217,12 @@ function mediaLookupPath(reference: SesxAudioReference): string | null {
 		.filter((part) => part !== '.').join('/');
 	const parts = relative?.split('/') ?? [];
 	if (relative && relative.length <= 4096 && parts.length <= 32 && !relative.startsWith('/')
-		&& !/^[a-z][a-z\d+.-]*:/iu.test(relative)
+		&& !/^[a-z]:/iu.test(relative) && !relative.includes('://')
 		&& parts.every((part) => part && part.length <= 255 && part !== '.' && part !== '..'
 			&& !hasControlCharacter(part))) return relative;
 	const name = reference.name;
 	return name && name.length <= 255 && name !== '.' && name !== '..'
-		&& !/[\\/:]/u.test(name) && !hasControlCharacter(name) ? name : null;
+		&& !/[\\/]/u.test(name) && !/^[a-z]:/iu.test(name) && !hasControlCharacter(name) ? name : null;
 }
 
 function hasControlCharacter(value: string): boolean {
