@@ -111,6 +111,28 @@ test('a later project owns automatic context creation while an earlier context f
 	assert.equal(f.contexts.length, 2);
 });
 
+test('a pending output-device setup returns the incoming context after automatic project replacement', async context => {
+	let finish!: () => void;
+	const pending = new Promise<void>(resolve => { finish = resolve; });
+	const contexts: DeviceContext[] = [];
+	const engine = createAudioEditorEngine({ audioContextFactory: options => {
+		const current = new DeviceContext(options), first = contexts.length === 0;
+		Object.assign(current, { setSinkId: () => first ? pending : Promise.resolve() });
+		contexts.push(current);
+		return current as unknown as EngineAudioContext;
+	} });
+	context.after(() => engine.dispose());
+	await engine.setOutputDevice('speaker-a');
+	engine.loadProject(project(48_000));
+	const outgoing = engine.getAudioContext({ resume: false });
+	engine.loadProject(project(96_000));
+	const incoming = await engine.getAudioContext({ resume: false });
+	finish();
+	assert.equal(await outgoing, incoming, 'an input or processor caller must not adopt the closed outgoing context');
+	assert.equal(contexts[0]!.state, 'closed');
+	assert.equal(incoming.sampleRate, 96_000);
+});
+
 test('disposal during automatic context retirement cannot construct a replacement', async () => {
 	const f = fixture(); await f.engine.getAudioContext({ resume: false });
 	let finish!: () => void;

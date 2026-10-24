@@ -526,7 +526,7 @@ async [ENGINE_GET_CONTEXT]() {
 			}
 		}
 		this[ENGINE_ASSERT_ACTIVE]();
-		return context;
+		return context === this.context ? context : this[ENGINE_GET_CONTEXT]();
 	},
 
 [ENGINE_ASSERT_ACTIVE]() {
