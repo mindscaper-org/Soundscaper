@@ -89,7 +89,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 	});
 	const build: Build = {
 		draft, sampleRate, createStableId: options.createStableId,
-		tracks: [], trackByDawId: new Map(), trackNodes: [], folders: [], groups: [], sends: [],
+		tracks: [], trackByDawId: new Map(), folderByDawId: new Map(), trackNodes: [], folders: [], groups: [], sends: [],
 		stripByChannelId: new Map(), busByChannelId: new Map(), nodeRoutes: [], parameters: new Map(), routes: new Map(), sendTaps: [], parentFolderIds: new Map(),
 		masterChannels: 2,
 		master: { id: 'master', name: 'Master', gain: 1, pan: 0, mute: false, solo: false, envelope: [] },

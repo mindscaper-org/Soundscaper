@@ -77,6 +77,7 @@ export interface Build {
 	readonly createStableId: (prefix: string) => string;
 	readonly tracks: TrackBuild[];
 	readonly trackByDawId: Map<string, TrackBuild>;
+	readonly folderByDawId: Map<string, string>;
 	readonly trackNodes: DataRecord[];
 	readonly folders: DataRecord[];
 	readonly groups: StripBuild[];
@@ -104,6 +105,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 	build.devices += channel?.devices ?? 0;
 	if (track.contentTypes.includes('tracks') || track.children.length > 0) {
 		const id = build.createStableId('folder');
+		if (track.id) build.folderByDawId.set(track.id, id);
 		build.folders.push({ id, name: track.name || 'Folder', mute: channel?.mute?.value === true, solo: channel?.solo === true });
 		build.trackNodes.push({ kind: 'folder', id, parentFolderId });
 		build.parentFolderIds.set(id, parentFolderId);
@@ -276,9 +278,13 @@ export function trackForEvent(event: DawprojectAudioEvent, build: Build, documen
 		const existing = build.trackByDawId.get(event.trackId);
 		if (existing) return existing;
 		const declared = findTrack(document.tracks, event.trackId);
-		const built = createAudioTrack(declared?.name ?? event.trackId, declared?.channel ?? null, build);
+		const folderId = build.folderByDawId.get(event.trackId) ?? null;
+		// A folder's own audio enters its existing channel alongside child tracks.
+		// Its channel state belongs to that bus, never to this synthetic leaf too.
+		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build);
 		build.trackByDawId.set(event.trackId, built);
-		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: null });
+		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: folderId });
+		build.parentFolderIds.set(built.id, folderId);
 		return built;
 	}
 	const fallback = build.trackByDawId.get('');
