@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { spectrumReport, clippingReport, normalizeSpectrumSize } from '../../specialized-audio-analysis.ts';
+import { AUDIO_CLIPPING_FULL_SCALE_THRESHOLD } from '../../audio-clipping-regions.ts';
 import { createLocalizedError, setLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import { measureBextLoudness } from '../../broadcast-loudness.ts';
 import { EBU_R128_MAXIMUM_CHANNELS } from '../../ebu-r128.js';
@@ -220,7 +221,7 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 			assertAnalysisChannelAdmission(project);
 			const reportOptions = type === 'spectrum'
 				? { size: normalizeSpectrumSize(options.size ?? dependencies.getSpectrumWindowSize()) }
-				: { threshold: Number(options.threshold ?? 1), minimumConsecutiveSamples: Number(options.minimumConsecutiveSamples ?? 3) };
+				: { threshold: Number(options.threshold ?? AUDIO_CLIPPING_FULL_SCALE_THRESHOLD), minimumConsecutiveSamples: Number(options.minimumConsecutiveSamples ?? 3) };
 			const key = JSON.stringify([analysisDocumentFingerprint(project), request, type, reportOptions]);
 			if (specializedCache?.key === key) {
 				const cached = specializedCache;

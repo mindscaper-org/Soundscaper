@@ -2,6 +2,9 @@
 
 import { validateAnalysisChannels } from './audio-spectrum.ts';
 
+// Include the positive signed PCM16 endpoint, matching Audacity's MAX_AUDIO.
+export const AUDIO_CLIPPING_FULL_SCALE_THRESHOLD = 1 - 1 / 32_768;
+
 interface ClippingOptions {
 	readonly threshold?: number;
 	readonly minimumConsecutiveSamples?: number;
@@ -18,7 +21,7 @@ export interface AudioClippingRegion {
 /** Admit consecutive runs per channel, then report their linked time ranges. */
 export function findAudioClippingRegions(channels: readonly Float32Array[], options: ClippingOptions = {}): readonly AudioClippingRegion[] {
 	validateAnalysisChannels(channels);
-	const threshold = Number(options.threshold ?? 1);
+	const threshold = Number(options.threshold ?? AUDIO_CLIPPING_FULL_SCALE_THRESHOLD);
 	const minimumConsecutiveSamples = Number(options.minimumConsecutiveSamples ?? 3);
 	if (!Number.isFinite(threshold) || threshold <= 0) throw new RangeError('Clipping threshold must be positive.');
 	if (!Number.isSafeInteger(minimumConsecutiveSamples) || minimumConsecutiveSamples <= 0) {
