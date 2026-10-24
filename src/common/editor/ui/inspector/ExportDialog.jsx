@@ -336,7 +336,14 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 			setMetadataOpen(false);
 			return;
 		}
-		if (!exporting) onClose?.();
+		if (!exporting) {
+			if (activeExportSubmission.current?.owner === operationOwner) {
+				activeExportSubmission.current = null;
+				try { void Promise.resolve(controller.actions.export.cancel()).catch(() => undefined); }
+				catch { /* Closing still dismisses a canceled submission if cancellation fails. */ }
+			}
+			onClose?.();
+		}
 	};
 	if (metadataOpen) {
 		return (

@@ -51,6 +51,7 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 	const exportSnapshotRenderer = createExportSnapshotRenderer(runtime);
 	let servicePromise: Promise<EditorExportService> | null = null;
 	let loadedService: EditorExportService | null = null;
+	let cancellationGeneration = 0;
 	const loadService = (): Promise<EditorExportService> => {
 		servicePromise ??= Promise.resolve()
 			.then(loadModule)
@@ -65,12 +66,17 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 			});
 		return servicePromise;
 	};
-	return createDeferredModuleFacade(loadService, DEFERRED_EXPORT_METHOD_NAMES, {
+	const facade = createDeferredModuleFacade(loadService, DEFERRED_EXPORT_METHOD_NAMES, {
 		prepareInvocation: (name, args) => {
-			if (name !== 'exportVideo' && (name !== 'handleExportAction' || args[0] === 'cancel')) return undefined;
+			if (name !== 'exportVideo' && (name !== 'handleExportAction'
+				|| args[0] === 'cancel' || args[3] === 'persistent')) return undefined;
 			runtime.lifetime.assertActive();
 			const token = runtime.projectGeneration.capture(runtime.getProject()?.id ?? null);
-			return () => { runtime.lifetime.assertActive(); runtime.projectGeneration.assertCurrent(token); };
+			const generation = cancellationGeneration;
+			return () => {
+				runtime.lifetime.assertActive(); runtime.projectGeneration.assertCurrent(token);
+				if (generation !== cancellationGeneration) throw new DOMException('Export canceled.', 'AbortError');
+			};
 		},
 		eager: {
 			publishBlenderTracks: async (request: BlenderPublishRequest) => {
@@ -88,6 +94,15 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 			}) satisfies EditorExportService['whenPersistentAudioDeliveryAvailable'],
 			renderSnapshot: exportSnapshotRenderer.renderSnapshot satisfies
 				EditorExportService['renderSnapshot'],
+		},
+	});
+	return Object.freeze({ ...facade,
+		handleExportAction: async (...args: Parameters<EditorExportService['handleExportAction']>) => {
+			if (args[0] === 'cancel' && args[3] !== 'persistent') {
+				cancellationGeneration += 1;
+				if (!loadedService) return;
+			}
+			return await facade.handleExportAction(...args);
 		},
 	});
 }
