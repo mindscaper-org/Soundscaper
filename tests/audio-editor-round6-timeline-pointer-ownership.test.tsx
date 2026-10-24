@@ -6,7 +6,21 @@ import React, { act } from 'react';
 import { useTimelinePointerStart } from '../src/common/editor/ui/timeline/useTimelinePointerStart.js';
 import { useTimelinePointerMove } from '../src/common/editor/ui/timeline/useTimelinePointerMove.js';
 import { useTimelinePointerFinish } from '../src/common/editor/ui/timeline/useTimelinePointerFinish.js';
+import { clipStretchPointerPreview } from '../src/common/editor/ui/timeline/clip-loop-pointer.ts';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
+
+void test('repeated sub-sample stretches keep integer edges at sample-level zoom', () => {
+	const original = { id: 'clip', kind: 'audio' as const, sourceId: 'source', timelineStartFrame: 48_000,
+		durationFrames: 48_000, sourceStartFrame: 0, sourceDurationFrames: 48_000 };
+	for (const kind of ['stretch-left', 'stretch-right']) {
+		const session = { kind, clipId: 'clip', trackId: 'track', startX: 100, original };
+		for (let repeat = 0; repeat < 3; repeat++) for (const offset of [-4, 4]) {
+			const preview = clipStretchPointerPreview(session, 100 + offset, 480_000, 48_000);
+			assert.equal(preview.timelineStartFrame, 48_000);
+			assert.equal(preview.durationFrames, 48_000);
+		}
+	}
+});
 
 void test('a clip press records its pointer identity and refuses a foreign press', async () => {
 	const fixture = await mountTimeline();
@@ -81,6 +95,44 @@ void test('an unowned secondary touch cannot begin a timeline edit during a sepa
 	} finally { await fixture.cleanup(); }
 });
 
+for (const kind of ['trim-left', 'trim-right', 'stretch-left', 'stretch-right']) {
+	void test(`${kind} commits its queued preview once when released without a final movement`, async () => {
+		const fixture = await mountTimeline();
+		try {
+			fixture.start(fixture.event(7, 'pen', 100));
+			assert.ok(fixture.session.current);
+			fixture.session.current.kind = kind;
+			const x = kind.endsWith('left') ? 136 : 64;
+			fixture.move(fixture.event(7, 'pen', x));
+			fixture.flush.current?.();
+			assert.equal(fixture.preview()?.durationFrames, 47_964);
+			fixture.move(fixture.event(7, 'pen', x));
+			fixture.finish(fixture.event(7, 'pen', x));
+			assert.deepEqual(fixture.boundaryCommits, [{ kind: kind.split('-')[0], durationFrames: 47_964 }]);
+			fixture.finish(fixture.event(7, 'pen', x));
+			assert.equal(fixture.boundaryCommits.length, 1);
+		} finally { await fixture.cleanup(); }
+	});
+	void test(`${kind} ignores repeated sub-sample drags and cancellation`, async () => {
+		const fixture = await mountTimeline();
+		try {
+			for (let repeat = 0; repeat < 3; repeat++) {
+				fixture.start(fixture.event(7, 'pen', 100));
+				assert.ok(fixture.session.current);
+				fixture.session.current.kind = kind;
+				fixture.move(fixture.event(7, 'pen', 100.4));
+				fixture.finish(fixture.event(7, 'pen', 100.4));
+			}
+			fixture.start(fixture.event(7, 'pen', 100));
+			assert.ok(fixture.session.current);
+			fixture.session.current.kind = kind;
+			fixture.move(fixture.event(7, 'pen', kind.endsWith('left') ? 136 : 64));
+			fixture.finish(fixture.event(7, 'pen', 136), true);
+			assert.deepEqual(fixture.boundaryCommits, []);
+		} finally { await fixture.cleanup(); }
+	});
+}
+
 async function mountTimeline() {
 	const dom = installReactTestDom();
 	const globals = new Map<string, PropertyDescriptor | undefined>();
@@ -103,16 +155,17 @@ async function mountTimeline() {
 	const noOp = () => undefined;
 	const captures: number[] = [];
 	const commits: Array<[string, string, number]> = [];
+	const boundaryCommits: Array<{ kind: string; durationFrames: number }> = [];
 	const session: { current: Record<string, unknown> | null } = { current: null };
 	const flush: { current: ((cancel?: boolean) => void) | null } = { current: null };
 	const touches = { current: new Map<number, { x: number; y: number }>() };
 	const pinch: { current: object | null } = { current: null };
-	let preview: { timelineStartFrame?: number } | null = null;
+	let preview: { timelineStartFrame?: number; durationFrames?: number } | null = null;
 	let start: ((event: ReturnType<typeof pointerEvent>) => void) | null = null;
 	let move: ((event: ReturnType<typeof pointerEvent>) => void) | null = null;
 	let finish: ((event: ReturnType<typeof pointerEvent>, cancelled?: boolean) => void) | null = null;
 	const clip = { id: 'clip', kind: 'audio', sourceId: 'source', timelineStartFrame: 0,
-		durationFrames: 48_000, sourceDurationFrames: 48_000 };
+		durationFrames: 48_000, sourceStartFrame: 0, sourceDurationFrames: 48_000 };
 	const track = { id: 'track', type: 'audio', clipIds: ['clip'] };
 	const source = { id: 'source', channelCount: 1, frameCount: 48_000 };
 	const project = { clips: [clip], tracks: [track], sources: [source], timelineAnnotations: [],
@@ -132,6 +185,8 @@ async function mountTimeline() {
 		visualTrackHeight: () => 100, transportState: 'stopped' };
 	const controller = { actions: { timeline: { selectClip: noOp, selectTrack: noOp }, clip: {
 		move: (clipId: string, trackId: string, frame: number) => { commits.push([clipId, trackId, frame]); },
+		trim: (_clipId: string, changes: { durationFrames: number }) => { boundaryCommits.push({ kind: 'trim', durationFrames: changes.durationFrames }); },
+		stretch: (_clipId: string, changes: { durationFrames: number }) => { boundaryCommits.push({ kind: 'stretch', durationFrames: changes.durationFrames }); },
 	} } };
 	const hitTesting = { frameAtClientX: (x: number) => x, trackAtClientY: () => 'track',
 		isOverOutputDock: () => false, isOverProjectBin: () => false, setProjectBinDropActive: noOp };
@@ -147,7 +202,7 @@ async function mountTimeline() {
 	}
 	await act(async () => root.render(<Harness />));
 	return {
-		session, flush, touches, pinch, captures, commits, preview: () => preview,
+		session, flush, touches, pinch, captures, commits, boundaryCommits, preview: () => preview,
 		event: (id: number, type: string, x: number) => pointerEvent(id, type, x, captures),
 		start: (event: ReturnType<typeof pointerEvent>) => { assert.ok(start); start(event); },
 		move: (event: ReturnType<typeof pointerEvent>) => { assert.ok(move); move(event); },
