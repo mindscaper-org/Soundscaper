@@ -8,6 +8,7 @@ import { inspectNistPcmSourceGeometry } from '../../../nist-pcm-source-geometry.
 import { inspectIrcamPcmSourceGeometry } from '../../../ircam-pcm-source-geometry.ts';
 import { inspectPafPcmSourceGeometry } from '../../../paf-pcm-source-geometry.ts';
 import { inspectIff16svPcmSourceGeometry } from '../../../iff16sv-pcm-source-geometry.ts';
+import { inspectWavAdpcmSourceGeometry } from '../../../wav-adpcm-source-geometry.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
@@ -95,6 +96,12 @@ export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: N
 				}
 				decoded = nativePcmExtentView(decoded, pcm.frameCount);
 			}
+		}
+		const adpcm = inspectWavAdpcmSourceGeometry(bytes);
+		if (adpcm) {
+			if (decoded.sampleRate !== adpcm.sampleRate || decoded.numberOfChannels !== adpcm.channelCount
+				|| decoded.length !== adpcm.frameCount && decoded.length !== adpcm.decodedFrameCount) throw new RangeError('The native ADPCM decoder returned different source geometry.');
+			if (decoded.length > adpcm.frameCount) decoded = nativePcmExtentView(decoded, adpcm.frameCount);
 		}
 		const normalized = canonicalNativeVorbisBuffer(decoded, encoded);
 		if (normalized !== decoded) NATIVE_CONTAINER_AUDIO_VIEWS.add(normalized);
