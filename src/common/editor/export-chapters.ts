@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { projectDurationFrames } from './project.js';
+import { resolveRuntimeTrackProjection, type RuntimeClipProject } from './runtime-clip-projection.ts';
 import { isTimelineAnnotationProjectSchema } from './project-schema-version.ts';
 import {
 	resolveRuntimeTimelineAnnotationsProjection,
@@ -194,7 +195,11 @@ function labelTrackBoundaries(project: DataRecord): readonly ChapterBoundary[] {
 		.map((value) => dataRecord(value))
 		.find((candidate) => candidate.type === 'label' && Array.isArray(candidate.labels) && candidate.labels.length > 0);
 	if (!track) return [];
-	return (track.labels as readonly unknown[]).map((value) => {
+	const labels = track.labels as readonly unknown[];
+	const resolved = labels.some(value => dataRecord(value).anchor === 'musical')
+		? resolveRuntimeTrackProjection(project as RuntimeClipProject, track).labels as readonly unknown[]
+		: labels;
+	return resolved.map((value) => {
 		const label = dataRecord(value);
 		const startFrame = nonNegativeFrame(label.startFrame, 'label.startFrame');
 		const endFrame = nonNegativeFrame(label.endFrame ?? startFrame, 'label.endFrame');
