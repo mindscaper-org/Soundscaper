@@ -13,7 +13,7 @@ import type { EngineProject } from './types.ts';
 import { ensureNativePluginRealtimeWorklet } from '../native-plugin-realtime-node.js';
 import { createAudioWorkletLoadOnce, type AudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
 
-const dynamicsWorklet = workletModuleLoadOnce(() => new URL('../dynamics-worklet.js', import.meta.url));
+const dynamicsWorklet = workletModuleLoadOnce(dynamicsWorkletModuleUrl);
 const delayWorklet = workletModuleLoadOnce(() => new URL('../delay-worklet.js', import.meta.url));
 const bitcrusherWorklet = workletModuleLoadOnce(bitcrusherWorkletModuleUrl);
 const audacityWorklet = workletModuleLoadOnce(audacityWorkletModuleUrl);
@@ -215,6 +215,14 @@ async function audacityWorkletModuleUrl(): Promise<URL | string> {
 		return module.default;
 	}
 	return new URL('../audacity-effects/live-worklet.js', import.meta.url);
+}
+
+async function dynamicsWorkletModuleUrl(): Promise<URL | string> {
+	if (import.meta.env?.DEV || import.meta.env?.PROD) {
+		const module = await import('../dynamics-worklet.js?worker&url');
+		return module.default;
+	}
+	return new URL('../dynamics-worklet.js', import.meta.url);
 }
 
 async function bitcrusherWorkletModuleUrl(): Promise<URL | string> {

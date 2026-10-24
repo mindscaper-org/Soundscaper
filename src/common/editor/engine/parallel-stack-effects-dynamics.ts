@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { LimiterLookaheadPeakWindow } from '../limiter-lookahead-peak-window.ts';
 import type { ParallelStackEffectProcessor } from './parallel-stack-effects.ts';
 
 /** Exact dynamics-worklet.js recurrence, with rings reserved before processing. */
@@ -15,6 +16,7 @@ export function createParallelDynamics(type: string, params: Readonly<Record<str
 	const release = coefficient(params.release, .1);
 	const hold = Math.max(0, Math.round(Number(params.hold ?? 0) * sampleRate));
 	const length = Math.max(1, Math.ceil(Number(params.lookahead ?? 0) * sampleRate) + 1);
+	const peakWindow = limiter ? new LimiterLookaheadPeakWindow(length - 1) : null;
 	const rings = Array.from({ length: channels }, () => new Float32Array(limiter ? length : 0));
 	let envelope = limiter ? 1 : closed;
 	let held = 0;
@@ -22,6 +24,7 @@ export function createParallelDynamics(type: string, params: Readonly<Record<str
 	return { reset() {
 		envelope = limiter ? 1 : closed; held = 0; cursor = 0;
 		for (const ring of rings) ring.fill(0);
+		peakWindow?.reset();
 	}, processBlock(input, output, frames, sidechain) {
 		const detector = sidechain ?? input;
 		for (let frame = 0; frame < frames; frame++) {
@@ -29,8 +32,9 @@ export function createParallelDynamics(type: string, params: Readonly<Record<str
 			for (const channel of detector) peak = Math.max(peak, Math.abs(channel[frame] || 0));
 			if (limiter) {
 				for (let c = 0; c < channels; c++) rings[c]![cursor] = input[c]?.[frame] || 0;
-				const target = peak > ceiling && peak > 0 ? ceiling / peak : 1;
-				envelope = target < envelope ? target : 1 + release * (envelope - 1);
+				const heldPeak = peakWindow!.push(peak);
+				const target = heldPeak > ceiling && heldPeak > 0 ? ceiling / heldPeak : 1;
+				envelope = Math.min(target, 1 + release * (envelope - 1));
 				const read = (cursor + 1) % length;
 				for (let c = 0; c < channels; c++) output[c]![frame] = Math.max(-ceiling, Math.min(ceiling, rings[c]![read]! * envelope));
 				cursor = read;
