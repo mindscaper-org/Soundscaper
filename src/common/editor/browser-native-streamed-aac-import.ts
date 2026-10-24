@@ -29,6 +29,8 @@ export function createNativeStreamedAacImport(options: Readonly<{
 	config: AudioDecoderConfig;
 	packets: () => AsyncIterable<AacPacket>;
 	wrapSample: (data: AudioData) => BrowserContainerAudioSample;
+	/** ADTS carries the AAC core clock; its first decoded frame may reconstruct SBR/PS. */
+	allowImplicitSbr?: boolean;
 	signal?: AbortSignal;
 	createDecoder?: (init: AudioDecoderInit) => NativeAacDecoder;
 	createChunk?: (init: EncodedAudioChunkInit) => EncodedAudioChunk;
@@ -43,6 +45,11 @@ export function createNativeStreamedAacImport(options: Readonly<{
 	let queuedFrames = 0;
 	let pendingFrames = 0;
 	let timestampOffset = 0;
+	const implicitSbr = options.allowImplicitSbr === true && options.config.codec === 'mp4a.40.2'
+		&& !options.config.description && [1, 2].includes(options.config.numberOfChannels)
+		&& Number.isSafeInteger(options.config.sampleRate) && options.config.sampleRate >= 8_000 && options.config.sampleRate <= 48_000;
+	let outputRate: number | null = null;
+	let outputChannels: number | null = null;
 	let activeSample: BrowserContainerAudioSample | null = null;
 	let wake: () => void = () => undefined;
 	const returnPackets = (): void => {
@@ -79,9 +86,13 @@ export function createNativeStreamedAacImport(options: Readonly<{
 						try {
 							sample = options.wrapSample(data);
 							const frames = sample.numberOfFrames;
+							const declared = sample.sampleRate === options.config.sampleRate && sample.numberOfChannels === options.config.numberOfChannels;
+							const reconstructed = implicitSbr && sample.sampleRate === options.config.sampleRate * 2
+								&& (sample.numberOfChannels === options.config.numberOfChannels || options.config.numberOfChannels === 1 && sample.numberOfChannels === 2);
 							if (!Number.isSafeInteger(frames) || frames < 1 || frames > MAXIMUM_PENDING_FRAMES
-								|| sample.sampleRate !== options.config.sampleRate || sample.numberOfChannels !== options.config.numberOfChannels
+								|| (outputRate === null ? !declared && !reconstructed : sample.sampleRate !== outputRate || sample.numberOfChannels !== outputChannels)
 								|| queuedFrames + frames > MAXIMUM_PENDING_FRAMES) throw new RangeError('The decoded compressed audio sample geometry changed or is unsupported.');
+							outputRate = sample.sampleRate; outputChannels = sample.numberOfChannels;
 							const original = sample;
 							let closed = false;
 							queue.push(Object.freeze({ timestamp: original.timestamp - timestampOffset,
@@ -89,7 +100,7 @@ export function createNativeStreamedAacImport(options: Readonly<{
 								copyTo: (destination: Float32Array, copy: Parameters<BrowserContainerAudioSample['copyTo']>[1]) => original.copyTo(destination, copy),
 								close() { if (!closed) { closed = true; original.close(); } },
 							}));
-							queuedFrames += frames; pendingFrames = Math.max(0, pendingFrames - frames); wake();
+							queuedFrames += frames; pendingFrames = Math.max(0, pendingFrames - frames * options.config.sampleRate / sample.sampleRate); wake();
 						} catch (error) { if (sample) sample.close(); else data.close(); fail(error); }
 					}, error(error) { fail(error); },
 				});
@@ -123,9 +134,10 @@ export function createNativeStreamedAacImport(options: Readonly<{
 					if (next.done) { ended = true; continue; }
 					const packet = next.value;
 					const frames = Math.round(packet.duration * options.config.sampleRate);
+					const expansion = outputRate === null ? implicitSbr ? 2 : 1 : outputRate / options.config.sampleRate;
 					if (!Number.isSafeInteger(packet.byteLength) || packet.byteLength < 1 || packet.byteLength > MAXIMUM_PACKET_BYTES
 						|| packet.byteLength !== packet.data.byteLength || !Number.isFinite(packet.timestamp)
-						|| !Number.isSafeInteger(frames) || frames < 1 || pendingFrames + frames > MAXIMUM_PENDING_FRAMES) {
+						|| !Number.isSafeInteger(frames) || frames < 1 || (pendingFrames + frames) * expansion > MAXIMUM_PENDING_FRAMES) {
 						throw new RangeError('The decoded compressed audio sample geometry changed or is unsupported.');
 					}
 					if (firstPacket) { timestampOffset = Math.max(0, -packet.timestamp); firstPacket = false; }
@@ -142,6 +154,29 @@ export function createNativeStreamedAacImport(options: Readonly<{
 			}
 		},
 	});
+}
+
+/** Retain exactly one bounded decoded frame before publishing reconstructed source geometry. */
+export async function primeNativeStreamedAacImport(session: ReturnType<typeof createNativeStreamedAacImport>, signal?: AbortSignal) {
+	const iterator = session.samples();
+	let disposed = false;
+	const dispose = (): void => { if (!disposed) { disposed = true; session.dispose(); void iterator.return(undefined).catch(() => undefined); } };
+	try {
+		signal?.throwIfAborted();
+		const first = await iterator.next();
+		signal?.throwIfAborted();
+		if (first.done) throw new Error('The source has no decodable compressed audio samples.');
+		let started = false;
+		return Object.freeze({ sampleRate: first.value.sampleRate, channelCount: first.value.numberOfChannels,
+			failureSignal: session.failureSignal, dispose,
+			async *samples(): AsyncGenerator<BrowserContainerAudioSample> {
+				signal?.throwIfAborted();
+				if (started || disposed) throw new Error('The compressed audio import decoder is closed.');
+				started = true;
+				try { yield first.value; yield* iterator; } finally { dispose(); }
+			},
+		});
+	} catch (error) { dispose(); throw error; }
 }
 
 function abortable<Value>(operation: Promise<Value>, signal: AbortSignal): Promise<Value> {

@@ -215,7 +215,7 @@ function validateSample(sample: BrowserContainerAudioSample, descriptor: Streame
 async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, reviewedFallback = true,
 	desktopCodec?: WavPackImportGroupDecoder): Promise<StreamedAudioImportSession> {
 	signal?.throwIfAborted();
-	const { ALL_FORMATS, AudioSample, AudioSampleSink, BlobSource, EncodedPacketSink, Input, MP4 } = await import('mediabunny');
+	const { ADTS, ALL_FORMATS, AudioSample, AudioSampleSink, BlobSource, EncodedPacketSink, Input, MP4 } = await import('mediabunny');
 	const { readAacSourceMetadata, validateAacSourceGeometry } = await import('./aac-source-geometry.ts');
 	const aacMetadata = await readAacSourceMetadata(file, signal);
 	signal?.throwIfAborted();
@@ -345,12 +345,16 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		if (codec === 'aac') {
 			const config = await track.getDecoderConfig();
 			if (!config) throw new Error('This browser cannot incrementally decode the compressed audio track.');
-			const { createNativeStreamedAacImport } = await import('./browser-native-streamed-aac-import.ts');
+			const { createNativeStreamedAacImport, primeNativeStreamedAacImport } = await import('./browser-native-streamed-aac-import.ts');
+			const implicitSbr = await input.getFormat() === ADTS;
 			const native = createNativeStreamedAacImport({ config, packets: () => new EncodedPacketSink(track).packets(),
-				wrapSample: data => new AudioSample(data), ...(signal ? { signal } : {}),
+				wrapSample: data => new AudioSample(data), allowImplicitSbr: implicitSbr, ...(signal ? { signal } : {}),
 			});
-			return Object.freeze({ sampleRate, channelCount, timelineOrigin: origin, durationSeconds, continuousTimeline,
-				samples: native.samples, failureSignal: native.failureSignal, dispose() { native.dispose(); input.dispose(); },
+			const primed = implicitSbr ? await primeNativeStreamedAacImport(native, signal) : null;
+			signal?.throwIfAborted();
+			return Object.freeze({ sampleRate: primed?.sampleRate ?? sampleRate, channelCount: primed?.channelCount ?? channelCount,
+				timelineOrigin: origin, durationSeconds, continuousTimeline,
+				samples: (primed ?? native).samples, failureSignal: native.failureSignal, dispose() { (primed ?? native).dispose(); input.dispose(); },
 			});
 		}
 		const sink = new AudioSampleSink(track);
