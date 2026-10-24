@@ -11,6 +11,7 @@ const CANONICAL_AIFF_MIME_TYPE = 'audio/aiff';
 const PLATFORM_AIFF_MIME_TYPES: ReadonlySet<string> = new Set([
 	'', 'application/octet-stream', 'audio/aiff', 'audio/x-aiff', 'audio/aif', 'audio/x-aif', 'audio/aifc', 'audio/x-aifc',
 ]);
+const OTHER_FORMAT_SUFFIX = /\.(?:aac|au|bw64|bwf|flac|m4a|m4v|mka|mp2|mp3|mp4|oga|ogg|opus|rf64|snd|wav|wave|wavpack|webm|wma|wv|cue|txt|srt|vtt|aup|aup3|aup4|scape|sscape|fscape|liscape|dawproject|sesx)$/iu;
 
 interface NamedAudioFile {
 	readonly name?: unknown;
@@ -21,9 +22,12 @@ interface NamedAudioFile {
 export function maintainedAiffMimeType(value: unknown): 'audio/aiff' | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
 	const file = value as NamedAudioFile;
-	if (typeof file.name !== 'string' || !/\.(?:aif|aiff|aifc)$/iu.test(file.name)) return null;
-	if (file.type === undefined) return CANONICAL_AIFF_MIME_TYPE;
+	if (typeof file.name !== 'string') return null;
+	const namedAiff = /\.(?:aif|aiff|aifc)$/iu.test(file.name);
+	if (file.type === undefined) return namedAiff ? CANONICAL_AIFF_MIME_TYPE : null;
 	if (typeof file.type !== 'string') return null;
 	const type = file.type.split(';', 1)[0]?.trim().toLowerCase() ?? '';
-	return PLATFORM_AIFF_MIME_TYPES.has(type) ? CANONICAL_AIFF_MIME_TYPE : null;
+	if (!PLATFORM_AIFF_MIME_TYPES.has(type)) return null;
+	// A declared AIFF MIME is sufficient when the name does not specify another format.
+	return namedAiff || type.startsWith('audio/') && !OTHER_FORMAT_SUFFIX.test(file.name) ? CANONICAL_AIFF_MIME_TYPE : null;
 }
