@@ -219,7 +219,7 @@ export function createClipTimePitchRenderService(
 			writerCommitted = true;
 			assertOwned(task, projectToken, fingerprint);
 			const nextSource = renderedSource(
-				source, renderedSourceId, name, buffer, deriveSourceProvenance,
+				source, renderedSourceId, name, buffer, dependencies.sourceChunkFrames, deriveSourceProvenance,
 			);
 			const nextClip = renderedClip(clip, renderedSourceId, buffer, project.sampleRate);
 			dependencies.cacheSourceBuffer(renderedSourceId, buffer);
@@ -277,6 +277,7 @@ function renderedSource(
 	id: string,
 	name: string,
 	buffer: AudioBufferLike,
+	chunkFrames: number,
 	deriveSourceProvenance: DeriveSourceProvenance,
 ): RenderSource {
 	const provenance = deriveSourceProvenance([source]);
@@ -289,6 +290,7 @@ function renderedSource(
 		name,
 		frameCount: buffer.length,
 		channelCount: buffer.numberOfChannels,
+		chunkFrames,
 		sampleRate: buffer.sampleRate,
 		originalSampleRate: source.originalSampleRate || source.sampleRate,
 	};

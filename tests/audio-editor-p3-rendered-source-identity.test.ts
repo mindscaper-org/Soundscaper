@@ -14,11 +14,12 @@ import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.j
 import { COPY, createAudioEditorController, createMemoryEngine, createMemoryRenderEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
-for (const authenticated of [false, true]) test(`rendered time/pitch source remains freezable with authenticated input=${String(authenticated)}`, async context => {
+for (const chunkFrames of [1024, 65536]) for (const authenticated of [false, true]) test(`rendered time/pitch source remains freezable with authenticated input=${String(authenticated)} and input packet=${chunkFrames}`, async context => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
-	const source = createAudioSource({ id: 'original', name: 'Original.wav', frameCount: 4800, sampleRate: 48_000, channelCount: 1 });
+	const source = createAudioSource({ id: 'original', name: 'Original.wav', frameCount: 4800, sampleRate: 48_000, channelCount: 1, chunkFrames });
 	const writer = await store.beginSourceWrite(source.storageKey, source);
-	await writer.write([new Float32Array(4800).fill(.25)]); await writer.commit();
+	for (let frame = 0; frame < 4800; frame += chunkFrames) await writer.write([new Float32Array(Math.min(chunkFrames, 4800 - frame)).fill(.25)]);
+	await writer.commit();
 	const playback = createSoundscaperAudioTrackFreezePlaybackService(createSoundscaperPlaybackProjectService(), store);
 	const digest = await playback.hashSourceContent('project', source);
 	const input = authenticated ? { ...source, contentSha256: digest } : source;
