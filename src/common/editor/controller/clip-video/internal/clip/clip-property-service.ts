@@ -176,7 +176,10 @@ export function createClipPropertyService(
 			if (action === 'normalize-peak' && result.peakAmplitude > 0) {
 				gain = 10 ** (-1 / 20) / result.peakAmplitude;
 			}
-			if (action === 'normalize-lufs' && typeof result.integratedLufs === 'number' && Number.isFinite(result.integratedLufs)) {
+			if (action === 'normalize-lufs') {
+				if (typeof result.integratedLufs !== 'number' || !Number.isFinite(result.integratedLufs)) {
+					throw createLocalizedError(RangeError, dependencies.copy, 'clipNormalizationUnmeasurable');
+				}
 				gain = 10 ** ((-14 - result.integratedLufs) / 20);
 			}
 			if (gain > 16) throw createLocalizedError(RangeError, dependencies.copy, 'clipNormalizationGainLimit');
