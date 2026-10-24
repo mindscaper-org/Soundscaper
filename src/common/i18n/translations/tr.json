@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "tr",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:5a261b90942c6771708bbdef40c93bf16358814fb99754fd578c40c6c1d9199b","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:1463f39ed9d66126ce255cfac521ac61be30bea4b5f0e4e569884ec67c5b10ff","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -1781,7 +1781,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","Eksik: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","Bu etki yüklü değil. Yerel oynatma bu etkiyi atlar; ancak diğer uyumlu programlar için adını, sırasını ve etkinleştirme durumunu korur."],
 		"missingEffectUnknown": ["machine","Unknown effect","Bilinmeyen etki"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","Bazı yerel ses kaynakları eksik. Etkilenen klipler kaldırılana kadar oynatma, çözümleme ve dışa aktarma engellenir."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","Bazı yerel ses kaynakları eksik. Bu kaynakları gerektiren işlemler, ilgili klipler yeniden bağlanana veya kaldırılana kadar engellenir."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","Eksik ses kaynakları kaydetmeyi engelliyor."],
 		"mix": ["machine","Stereo mix","Stereo miks"],
 		"mixDown": ["machine","Mix down","Tek ize karıştır"],

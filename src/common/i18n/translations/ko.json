@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "ko",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:df2f3805f293eb92b33fdb75d8087318f32806e8a5b3826f232575ac7f54ac69","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:7200962c88dd7eaba93b5967dddfeb89ccd19763687437bcfd150546ba1c97a9","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -1781,7 +1781,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","누락됨: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","이 효과는 설치되지 않았습니다. 지역 재생 시 우회되며, 이름, 순서 및 활성화 상태는 다른 호환 가능한 프로그램에 유지됩니다."],
 		"missingEffectUnknown": ["machine","Unknown effect","알 수 없는 효과"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","일부 지역 오디오 소스가 누락되었습니다. 재생, 분석 및 내보내기가 영향을 받는 클립이 제거될 때까지 차단됩니다."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","일부 로컬 오디오 소스를 찾을 수 없습니다. 해당 클립을 다시 연결하거나 제거할 때까지 이 소스가 필요한 작업이 차단됩니다."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","누락된 오디오 소스로 인해 저장이 방지됩니다."],
 		"mix": ["machine","Stereo mix","스테레오 믹스"],
 		"mixDown": ["machine","Mix down","믹스 다운"],

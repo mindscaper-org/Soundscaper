@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "pt-PT",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:74fd0987f0c1458abaa844c529944c8d475754b6f7c0f36366c4e0e500d62c73","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:614ae374ddb253f9e09ffbe0668cedea891e5879accb281ccdb9473d3773e33d","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -1781,7 +1781,7 @@
 		"missingEffectLabel": ["machine","Missing: {name}","Em falta: {name}"],
 		"missingEffectReadOnly": ["machine","This effect is not installed. Local playback bypasses it while preserving its name, order, and activation state for other compatible programs.","Este efeito não está instalado. A reprodução local ignora-o, mas preserva o seu nome, ordem e estado de ativação para outros programas compatíveis."],
 		"missingEffectUnknown": ["machine","Unknown effect","Efeito desconhecido"],
-		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Playback, analysis, and export are blocked until affected clips are removed.","Faltam algumas fontes áudio locais. A reprodução, análise e exportação estão bloqueadas até que os clipes afetados sejam removidos."],
+		"missingSourcesBlocked": ["machine","Some local audio sources are missing. Operations that require them are blocked until affected clips are relinked or removed.","Algumas fontes de áudio locais estão em falta. As operações que precisam delas ficam bloqueadas até que os clipes afetados sejam novamente associados ou removidos."],
 		"missingSourcesPreventSave": ["machine","Missing audio sources prevent saving.","As fontes áudio em falta impedem que o projeto seja guardado."],
 		"mix": ["machine","Stereo mix","Mistura estéreo"],
 		"mixDown": ["machine","Mix down","Mixdown"],
