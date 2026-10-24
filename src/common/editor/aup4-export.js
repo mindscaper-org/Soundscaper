@@ -33,7 +33,7 @@ import {
 	reportAup4EffectCompatibility,
 } from './aup4-export-compatibility.js';
 import {
-	normalizeAup4ExportSource,
+	createAup4ExportSourceNormalizer,
 	uniqueVariantId,
 } from './aup4-export-variants.js';
 
@@ -49,10 +49,11 @@ export function normalizeAup4ExportSnapshot(project, sourceAudio = []) {
 	const plan = createAup4ExportPlan(project);
 	const audioById = new Map(sourceAudio.map((source) => [source.sourceId, source]));
 	const normalizedSources = [];
+	const normalizeSource = createAup4ExportSourceNormalizer(plan);
 	for (const sourceId of requiredAup4SourceIds(plan)) {
 		const audio = audioById.get(sourceId);
 		if (!audio) throw exportError(`PCM for project source ${sourceId} is missing.`, 'MISSING_SOURCE');
-		normalizedSources.push(...normalizeAup4ExportSource(plan, audio));
+		normalizedSources.push(...normalizeSource(audio));
 	}
 	const normalizedById = new Map(normalizedSources.map((source) => [source.sourceId, source]));
 	return {

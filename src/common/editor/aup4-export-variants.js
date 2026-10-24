@@ -25,6 +25,23 @@ export function normalizeAup4ExportSource(plan, sourceAudio) {
 	assertExportPlan(plan);
 	const sourceId = String(sourceAudio?.sourceId || '');
 	const variants = plan.sources.filter((variant) => variant.inputSourceId === sourceId);
+	return normalizeVariants(variants, sourceAudio);
+}
+
+/** One private snapshot/session owns the partition; no PCM is retained here. */
+export function createAup4ExportSourceNormalizer(plan) {
+	assertExportPlan(plan);
+	const byInput = new Map();
+	for (const variant of plan.sources) {
+		const group = byInput.get(variant.inputSourceId);
+		if (group) group.push(variant);
+		else byInput.set(variant.inputSourceId, [variant]);
+	}
+	return (sourceAudio) => normalizeVariants(byInput.get(String(sourceAudio?.sourceId || '')) ?? [], sourceAudio);
+}
+
+function normalizeVariants(variants, sourceAudio) {
+	const sourceId = String(sourceAudio?.sourceId || '');
 	if (!variants.length) return [];
 	const inputSource = variants[0].inputSource;
 	const inputChannels = normalizeInputChannels(sourceAudio.channels, inputSource);
