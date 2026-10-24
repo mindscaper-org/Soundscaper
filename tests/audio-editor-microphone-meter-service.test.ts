@@ -5,10 +5,64 @@ import {
 	createMicrophoneMeterService,
 	type MeterMediaStream,
 	type MicrophoneMeterState,
+	type MicrophoneMeterDependencies,
 } from '../src/common/editor/controller/recording/microphone-meter-service.ts';
 import { createOwnedStateAccess } from '../src/common/editor/controller/shared/owned-state.ts';
+import { createAudioEditorEngine } from '../src/common/editor/engine.js';
+import type { EngineAudioContext } from '../src/common/editor/engine/public-api.ts';
+import { MockAudioContext } from './helpers/mock-audio-context.js';
+import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 
 type Mutable<Value> = { -readonly [Key in keyof Value]: Value[Key] };
+
+class InputContext extends MockAudioContext {
+	constructor(options?: AudioContextOptions) { super({ sampleRate: options?.sampleRate ?? 44_100 }); }
+	createMediaStreamSource() { return this.createGain(); }
+	override createAnalyser() { return Object.assign(super.createAnalyser(), { fftSize: 256, smoothingTimeConstant: 0,
+		getFloatTimeDomainData: (values: Float32Array) => { values.fill(.25); } }); }
+}
+
+for (const cleanupThrows of [false, true]) test(`an active input meter retains its context until cleanup, throwing cleanup=${cleanupThrows}`, async context => {
+	const engine = createAudioEditorEngine({ audioContextFactory: options => new InputContext(options) as unknown as EngineAudioContext });
+	context.after(() => engine.dispose());
+	engine.loadProject(createSoundscaperProject({ sampleRate: 48_000 }));
+	const getContext = async () => await engine.getAudioContext({ resume: false }) as unknown as InputContext;
+	const original = await getContext();
+	const meter = createHarness({ getAudioContext: getContext, failClearInterval: cleanupThrows });
+	assert.equal(await meter.service.setMicrophoneMetering(true), true);
+	engine.loadProject(createSoundscaperProject({ sampleRate: 96_000 }));
+	assert.equal(meter.service.synchronizeTarget(), false, 'the same hardware route retains its live input nodes');
+	assert.equal(await getContext(), original);
+	assert.notEqual(original.state, 'closed');
+	if (cleanupThrows) assert.throws(() => meter.service.dispose(), /clear interval failure/u);
+	else meter.service.dispose();
+	assert.equal((await getContext()).sampleRate, 96_000, 'released input ownership cannot pin a future project clock');
+	assert.equal(original.state, 'closed');
+});
+
+for (const retirement of ['disable', 'dispose', 'reject'] as const) test(`input context ownership covers pending resume and releases on ${retirement}`, async context => {
+	const engine = createAudioEditorEngine({ audioContextFactory: options => new InputContext(options) as unknown as EngineAudioContext });
+	context.after(() => engine.dispose());
+	engine.loadProject(createSoundscaperProject({ sampleRate: 48_000 }));
+	const getContext = async () => await engine.getAudioContext({ resume: false }) as unknown as InputContext;
+	const original = await getContext();
+	let finish!: () => void, fail!: (error: Error) => void, resumeCalls = 0;
+	const pending = new Promise<void>((resolve, reject) => { finish = resolve; fail = reject; });
+	original.resume = async () => { resumeCalls++; await pending; };
+	const meter = createHarness({ getAudioContext: getContext });
+	const starting = meter.service.setMicrophoneMetering(true);
+	await meter.flush();
+	assert.equal(resumeCalls, 1);
+	engine.loadProject(createSoundscaperProject({ sampleRate: 96_000 }));
+	assert.equal(await getContext(), original, 'input startup owns the context across an asynchronous native resume');
+	if (retirement === 'disable') await meter.service.setMicrophoneMetering(false);
+	else if (retirement === 'dispose') meter.service.dispose();
+	else { const rejected = assert.rejects(starting, /native resume failed/u); fail(new Error('native resume failed')); await rejected; }
+	assert.equal((await getContext()).sampleRate, 96_000, 'retirement releases even a still-pending resume');
+	if (retirement !== 'reject') { finish(); assert.equal(await starting, false); }
+	assert.equal(meter.service.getSession(), null);
+	assert.equal(meter.intervalCount, 0);
+});
 
 test('microphone meter chooses the selected hardware route and exposes a stable key', () => {
 	const harness = createHarness();
@@ -189,6 +243,8 @@ function createHarness(overrides: Readonly<{
 	acquireHardware?: (deviceId: string) => Promise<FakeStream>;
 	failLoudnessConnection?: boolean;
 	loudnessGate?: Promise<void>;
+	getAudioContext?: MicrophoneMeterDependencies['getAudioContext'];
+	failClearInterval?: boolean;
 }> = {}) {
 	const state: Mutable<MicrophoneMeterState> = {
 		disposed: false,
@@ -256,7 +312,7 @@ function createHarness(overrides: Readonly<{
 		},
 		getAudioContext: async () => {
 			contextRequests += 1;
-			return context;
+			return overrides.getAudioContext ? await overrides.getAudioContext() : context;
 		},
 		createLoudnessMeterNode: async () => {
 			await overrides.loudnessGate;
@@ -281,7 +337,10 @@ function createHarness(overrides: Readonly<{
 			scheduled.set(nextInterval, callback);
 			return nextInterval;
 		},
-		clearInterval: (identifier) => { scheduled.delete(Number(identifier)); },
+		clearInterval: (identifier) => {
+			if (overrides.failClearInterval) throw new Error('clear interval failure');
+			scheduled.delete(Number(identifier));
+		},
 	});
 	return {
 		service,

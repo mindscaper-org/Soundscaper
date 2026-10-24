@@ -242,7 +242,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		state: recordingAccess,
 		defaultDeviceId: RECORDING_DEFAULT_DEVICE_ID,
 		recordingCapturePool,
-		getAudioContext: () => engine.getAudioContext({ resume: true }),
+		getAudioContext: () => engine.getAudioContext({ resume: false }),
 		createLoudnessMeterNode: createEbuR128MeterNode,
 		streamAudioChannelCount,
 		projectSampleRate: () => state.audioHost === 'browser' || state.audioHost === 'electron' ? projectSampleRate() : state.preferredRecordingSampleRate,

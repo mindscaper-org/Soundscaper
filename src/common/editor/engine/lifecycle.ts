@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createRealtimeContext, prepareRealtimeSampleRate, realtimeSampleRate } from './realtime-sample-rate.ts';
+import { createEngineRealtimeContext, prepareAutomaticRealtimeSampleRate, prepareRealtimeSampleRate } from './realtime-sample-rate.ts';
 export { createRealtimeContext } from './realtime-sample-rate.ts';
 import { ChunkStreamClient } from '../chunk-stream-client.js';
 import { createChunkStreamAudioNode } from '../chunk-stream-worklet-node.js';
@@ -485,10 +485,12 @@ async [ENGINE_DISPOSE_RESOURCES]() {
 	},
 async [ENGINE_GET_CONTEXT]() {
 		this[ENGINE_ASSERT_ACTIVE]();
+		if (this.context) await prepareAutomaticRealtimeSampleRate(this);
+		this[ENGINE_ASSERT_ACTIVE]();
 		if (this.context) return this.context;
 		if (!this.audioContextFactory) throw new Error('Web Audio is not supported in this browser.');
 		const generation = this.lifecycleGeneration;
-		const context = createRealtimeContext(this.audioContextFactory, realtimeSampleRate(this));
+		const context = createEngineRealtimeContext(this, this.audioContextFactory);
 		if (this.disposed || generation !== this.lifecycleGeneration) {
 			if (context?.state !== 'closed') await context?.close?.();
 			throw new AudioEditorEngineDisposedError();
