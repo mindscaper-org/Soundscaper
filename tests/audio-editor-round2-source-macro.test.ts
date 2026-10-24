@@ -7,7 +7,7 @@ import { createHarness } from './helpers/effect-macro-service-fixture.ts';
 test('a leading realtime source-editor macro stages its source PCM on the native clock', async () => {
 	const fixture = createHarness({ sourceSampleRate: 44_100, memoryLimitBytes: 64 * 1024 ** 2 });
 	assert.equal(await fixture.service.runEffectMacro({ effects: [{ id: 'invert', type: 'audacity-invert', params: {} }] }), true);
-	assert.deepEqual(fixture.dryRanges, [['source-editor:source-a', 100, 300]]);
+	assert.deepEqual(fixture.dryRanges, [['source-editor:source-a', 100, 300], ['source-editor:source-a', 0, 100]]);
 	assert.equal(fixture.snapshots.length, 0);
 	assert.equal(fixture.stagedProjects.length, 1);
 	assert.equal(fixture.stagedProjects[0]!.sampleRate, 44_100);
