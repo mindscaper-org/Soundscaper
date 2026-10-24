@@ -13,7 +13,7 @@ export function legacyAupDataFileCustody<File extends LegacySelectedFile>(
 	const directories = new Set<string>();
 	for (const file of referenced) for (const path of paths(file)) {
 		for (const prefix of directoryPrefixes(path)) {
-			if (prefix.slice(0, -1).split('/').at(-1)?.endsWith('_data')) directories.add(prefix);
+			if (/_data$/iu.test(prefix.slice(0, -1).split('/').at(-1) ?? '')) directories.add(prefix);
 		}
 	}
 	for (const file of selected) {
@@ -25,7 +25,7 @@ export function legacyAupDataFileCustody<File extends LegacySelectedFile>(
 
 function paths(file: LegacySelectedFile): readonly string[] {
 	return [file.name, file.webkitRelativePath].filter((value): value is string => typeof value === 'string' && value.length > 0)
-		.map(value => value.replaceAll('\\', '/').toLowerCase());
+		.map(value => value.replaceAll('\\', '/'));
 }
 
 function directoryPrefixes(path: string): readonly string[] {

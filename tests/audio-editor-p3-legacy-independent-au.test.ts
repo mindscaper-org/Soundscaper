@@ -10,7 +10,7 @@ import { COPY, createAudioEditorController, createMemoryEngine, createProjectSto
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
-for (const folder of [false, true]) for (const standaloneFirst of [false, true]) test(`P3-022: mixed legacy AUP retains independent AU; first=${String(standaloneFirst)}, folder=${String(folder)}`, async context => {
+for (const folder of [false, true, 'case-sibling', 'uppercase-marker']) for (const standaloneFirst of [false, true]) test(`P3-022: mixed legacy AUP retains independent AU; first=${String(standaloneFirst)}, folder=${String(folder)}`, async context => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const codec = { ...createMemoryFfmpeg(), decode: async (file: File) => ({
@@ -26,9 +26,10 @@ for (const folder of [false, true]) for (const standaloneFirst of [false, true])
 	const independent = new File([bytes], 'Independent.au', { type: 'audio/basic' });
 	const orphan = new File([bytes], 'e0001.au');
 	if (folder) {
-		Object.defineProperty(dataFile, 'webkitRelativePath', { value: 'Selected/Été_data/e00/d00/e0000.au' });
-		Object.defineProperty(orphan, 'webkitRelativePath', { value: 'Selected/Été_data/e00/d00/e0001.au' });
-		Object.defineProperty(independent, 'webkitRelativePath', { value: 'Selected/Independent.au' });
+		const directory = folder === 'uppercase-marker' ? 'Selected/Été_DATA' : 'Selected/Été_data';
+		Object.defineProperty(dataFile, 'webkitRelativePath', { value: `${directory}/e00/d00/e0000.au` });
+		Object.defineProperty(orphan, 'webkitRelativePath', { value: `${directory}/e00/d00/e0001.au` });
+		Object.defineProperty(independent, 'webkitRelativePath', { value: folder === 'case-sibling' ? 'Selected/ÉTÉ_DATA/Independent.au' : 'Selected/Independent.au' });
 	}
 	const batch = standaloneFirst ? [independent, projectFile, dataFile] : [projectFile, dataFile, independent];
 	await controller.actions.project.importFiles(folder ? [...batch, orphan] : batch);
