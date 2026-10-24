@@ -8,6 +8,7 @@ import {
 } from './delivery-report.ts';
 import { dawprojectImportedAudioMimeType } from './dawproject-import-project.ts';
 import type { SesxClip, SesxDocument, SesxTrack } from './sesx-import.ts';
+import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { convertSesxOverlapOrder, type SesxImportedClip, type SesxOverlapEntry } from './sesx-overlap-conversion.ts';
 
 export type SesxImportReport = Omit<DeliveryReport, 'direction'> & Readonly<{ direction: 'import' }>;
@@ -24,6 +25,7 @@ export interface SesxImportOptions {
 	readonly media: ReadonlyMap<string, SesxDecodedMediaInfo | null>;
 	readonly resolutionIssues?: ReadonlyMap<string, 'ambiguous' | 'scan-limited'>;
 	readonly stagedSourceIds?: ReadonlyMap<string, string>;
+	readonly sourceProvenance?: ReadonlyMap<string, SourceProvenanceV1>;
 	readonly createStableId: (prefix: string) => string;
 }
 
@@ -89,6 +91,7 @@ export function buildSesxProject(document: SesxDocument, options: SesxImportOpti
 				const name = document.files.get(clip.fileId)?.name || clip.name || id;
 				source = {
 					id, name, mimeType: dawprojectImportedAudioMimeType(name), storageKey: id,
+					...(options.sourceProvenance?.has(clip.fileId) ? { provenance: options.sourceProvenance.get(clip.fileId) } : {}),
 					frameCount: info.frameCount, channelCount: info.channelCount,
 					sampleRate: info.sampleRate, originalSampleRate: info.sampleRate,
 					sampleFormat: 'float32',

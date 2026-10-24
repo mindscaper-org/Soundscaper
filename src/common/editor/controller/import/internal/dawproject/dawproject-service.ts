@@ -24,6 +24,7 @@ import { createWavBlobPcmChunkReader, type WavBlobPcmChunkReader, type WavPcmDes
 import type { BlobLike } from '../../../../storage/media-records.ts';
 import type { PreparedStreamedAudioImport } from '../../../../browser-streamed-audio-import.ts';
 import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
+import type { SourceProvenanceV1 } from '../../../../source-provenance.ts';
 
 import type { EditorProjectToken, EditorTaskScope } from '../../../shared/lifecycle.ts';
 import type {
@@ -118,6 +119,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 			const references = dawprojectArrangementAudioReferences(document);
 			const media = new Map<string, DawprojectDecodedMediaInfo | null>();
 			const stagedSourceIds = new Map<string, string>();
+			const sourceProvenance = new Map<string, SourceProvenanceV1>();
 			for (const [index, reference] of references.entries()) {
 				const entrySize = archive.entrySize(reference.path);
 				let admittedWorkingBytes = DAWPROJECT_IMPORT_WORKING_BYTE_LIMIT;
@@ -173,6 +175,12 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 						continue;
 					}
 					assertReady();
+					const { prepareSessionMediaProvenance } = await import('../imported-source-provenance.ts');
+					sourceProvenance.set(reference.path, await prepareSessionMediaProvenance(blob, {
+						originalFileName: entryBaseName(reference.path), mimeType: dawprojectImportedAudioMimeType(reference.path),
+						createContributionId: () => runtime.createStableId('contribution'), signal,
+					}));
+					assertReady();
 					stagedSourceIds.set(reference.path, sourceId);
 					media.set(reference.path, info);
 					helpers.updateNativeProjectProgress(
@@ -181,7 +189,7 @@ export function createDawprojectService(runtime: NativeProjectServiceRuntime, he
 				} finally { try { prepared?.dispose(); } finally { await archive.releaseEntry(reference.path); } }
 			}
 			const plan = buildDawprojectProject(document, {
-				fileName: String(file.name), media, stagedSourceIds, createStableId: runtime.createStableId,
+				fileName: String(file.name), media, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
 			});
 			const created = createCurrentAudioEditorProject(plan.project as never);
 			// Both interchange readers produce the shared audio document. Apply the

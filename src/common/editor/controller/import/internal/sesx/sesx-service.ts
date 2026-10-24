@@ -13,6 +13,7 @@ import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from '../../../../pcm-chunks.js';
 import { inspectWavBlobPcm } from '../../../../wav-import.js';
 import { createWavBlobPcmChunkReader, type WavBlobPcmChunkReader, type WavPcmDescriptor } from '../../../../wav-pcm-chunk-reader.ts';
 import { stageDawprojectCompressedSource } from '../dawproject/dawproject-import-compressed.ts';
+import type { SourceProvenanceV1 } from '../../../../source-provenance.ts';
 import type { PreparedStreamedAudioImport } from '../../../../browser-streamed-audio-import.ts';
 import type { DawprojectServiceHelpers } from '../dawproject/dawproject-service.ts';
 import type {
@@ -66,6 +67,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 				const media = new Map<string, SesxDecodedMediaInfo | null>();
 				const resolutionIssues = new Map<string, 'ambiguous' | 'scan-limited'>();
 				const stagedSourceIds = new Map<string, string>();
+				const sourceProvenance = new Map<string, SourceProvenanceV1>();
 				await resolveReferences(sessionReadId, references, resolveMedia, chooseFolder, assertReady,
 					async (reference, descriptor, index) => {
 					await withRead([descriptor], { signal }, async (blobs) => {
@@ -108,6 +110,12 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 								return;
 							}
 							assertReady();
+							const { prepareSessionMediaProvenance } = await import('../imported-source-provenance.ts');
+							sourceProvenance.set(reference.id, await prepareSessionMediaProvenance(blob, {
+								originalFileName: reference.name, mimeType: dawprojectImportedAudioMimeType(reference.name),
+								createContributionId: () => runtime.createStableId('contribution'), signal,
+							}));
+							assertReady();
 							media.set(reference.id, info);
 							stagedSourceIds.set(reference.id, sourceId);
 						} finally { prepared?.dispose(); }
@@ -121,7 +129,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 					if (status === 'ambiguous' || status === 'scan-limited') resolutionIssues.set(reference.id, status);
 				});
 				const plan = buildSesxProject(document, {
-					fileName: String(file.name), media, resolutionIssues, stagedSourceIds, createStableId: runtime.createStableId,
+					fileName: String(file.name), media, resolutionIssues, stagedSourceIds, sourceProvenance, createStableId: runtime.createStableId,
 				});
 				const created = createCurrentAudioEditorProject(plan.project as never);
 				importedProject = runtime.adaptAudacityProject

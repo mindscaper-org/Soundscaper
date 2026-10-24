@@ -60,6 +60,25 @@ export async function prepareImportedSourceProvenance(
 	});
 }
 
+/** Session readers retain the original bounded media view, whose modification time is unknown. */
+export async function prepareSessionMediaProvenance(
+	file: Blob,
+	options: Pick<PrepareImportedSourceProvenanceOptions, 'createContributionId' | 'signal' | 'inspectMetadata'>
+	& Readonly<{ originalFileName: string; mimeType: string }>,
+): Promise<SourceProvenanceV1> {
+	options.signal?.throwIfAborted();
+	const inspected = await raceAbortableRead(() => (options.inspectMetadata ?? inspectImportedMediaMetadata)(file, {
+		...(options.signal ? { signal: options.signal } : {}),
+	}), options.signal);
+	options.signal?.throwIfAborted();
+	return createImportedSourceProvenance({
+		id: options.createContributionId(),
+		origin: { kind: 'local-file', originalFileName: options.originalFileName,
+			mimeType: options.mimeType, byteLength: file.size, lastModified: null },
+		metadata: inspected.metadata, attachments: inspected.attachments, warnings: inspected.warnings,
+	});
+}
+
 export async function prepareAttributedImportOptions(
 	file: File,
 	options: Readonly<NormalizedProjectImportOptions>,

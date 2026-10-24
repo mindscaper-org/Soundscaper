@@ -9,6 +9,7 @@ import {
 import { DAWPROJECT_DELIVERY_FORMAT, clamp, entryBaseName } from './dawproject-format.ts';
 import { isAudioEditorProjectSampleRate, normalizeProjectSampleRate } from './project-sample-rate.ts';
 import type { DawprojectDocument } from './dawproject-import.ts';
+import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
 import {
@@ -58,6 +59,7 @@ export interface DawprojectImportOptions {
 	readonly createStableId: (prefix: string) => string;
 	/** IDs already committed while each archive entry was decoded. */
 	readonly stagedSourceIds?: ReadonlyMap<string, string>;
+	readonly sourceProvenance?: ReadonlyMap<string, SourceProvenanceV1>;
 	readonly sampleRate?: number;
 }
 
@@ -134,6 +136,8 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		const newSource = !source;
 		if (!source) {
 			source = createSource(event, info, build, options.stagedSourceIds?.get(event.path));
+			const provenance = options.sourceProvenance?.get(event.path);
+			if (provenance) source.provenance = provenance;
 		}
 		const clip = createClip(event, info, source, build);
 		if (!clip) continue;

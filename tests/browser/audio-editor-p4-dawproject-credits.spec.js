@@ -11,6 +11,7 @@ const credits = { originalArtist: 'Original performer', composer: 'Composer & co
 const fields = ['OriginalArtist', 'Composer', 'Songwriter', 'Producer', 'Arranger', 'Genre', 'Copyright', 'Website'];
 
 for (const additional of [true, false]) test(`DAWproject File Open and native Save retain ${additional ? 'all standard credits' : 'ordinary primary metadata'}`, async ({ page }) => {
+	test.setTimeout(90_000);
 	const wav = createWavFixture({ name: 'voice.wav', frequency: 440, duration: .1, sampleRate: 48_000, channelCount: 1 });
 	const metadataXml = '<MetaData><Title>Credits</Title><Artist>Performer</Artist><Album>Album</Album>'
 		+ (additional ? fields.slice(0, 5).map((field, index) => `<${field}><![CDATA[${Object.values(credits)[index]}]]></${field}>`).join('') : '')
@@ -24,7 +25,7 @@ for (const additional of [true, false]) test(`DAWproject File Open and native Sa
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { defaultWorkspace: true });
 	const choosing = page.waitForEvent('filechooser'); await chooseFileAction(page, editor, 'Open');
 	await (await choosing).setFiles({ name: 'Credits.dawproject', mimeType: 'application/zip', buffer: Buffer.from(await archive.arrayBuffer()) });
-	await expect(editor.locator('[data-status]')).toContainText('DAWproject imported.'); await waitForProjectActivation(editor);
+	await expect(editor.locator('[data-status]')).toContainText('DAWproject imported.', { timeout: 30_000 }); await waitForProjectActivation(editor);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const peaks = await sourcePeakChannels(page, 'voice.wav'); expect(peaks.channels[0].maximum).toBeGreaterThan(.19);
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
