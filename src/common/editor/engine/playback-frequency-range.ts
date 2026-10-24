@@ -124,6 +124,11 @@ export function isPlaybackLoopEnabled(engine: EngineRuntimeHost): boolean {
 	return engine.loop.enabled && !auditions.get(engine)?.range;
 }
 
+/** Snapshot only transient listening intent for an automatic same-project refresh. */
+export function playbackFrequencyRange(engine: EngineRuntimeHost): EnginePlaybackFrequencyRange | null {
+	return auditions.get(engine)?.range ?? null;
+}
+
 /** Retire pending or active audition; subsequent normal playback hears the full mix. */
 export function resetPlaybackFrequencyRange(engine: EngineRuntimeHost): void {
 	const state = auditions.get(engine);

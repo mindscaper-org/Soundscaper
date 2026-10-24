@@ -30,7 +30,7 @@ import {
 	projectTrackFolderMediaStateV12,
 } from '../track-folder-media-runtime.ts';
 import { resolveProjectGraphSelection } from './project-graph-selection.ts';
-import { playbackSessionStart, restorePlaybackSessionStart } from './playback-session.ts';
+import { engineProjectRefreshMethods } from './project-refresh-playback.ts';
 import { disposePlaybackFrequencyOutput } from './playback-frequency-range.ts';
 import { resolveTimePitchPlaybackProject } from '../clip-time-pitch-playback-projection.ts';
 import {
@@ -333,24 +333,7 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		return this;
 	},
 
-applyProject(this: EngineRuntimeHost, project, sourceBuffers = this.sources, options = {}) {
-		const wasPlaying = this.state === 'playing';
-		// Reissue a pending Play over the refreshed sources after loadProject cancels its generation.
-		const playRequested = this.pendingPlayRequest !== 0;
-		const position = this.getPositionFrames();
-		const sessionStart = playbackSessionStart(this);
-		const playbackRate = this.playbackRate;
-		const playbackMode = this.playbackMode;
-		this.loadProject(project, sourceBuffers, { ...options, preserveLoudnessMeasurement: true });
-		this.positionFrame = Math.min(position, this.playbackDurationFrames);
-		restorePlaybackSessionStart(this, sessionStart);
-		if (wasPlaying && playbackMode === 'naive') return this.playAtSpeed(playbackRate);
-		// Stop a stale StaffPad mix instead of resuming it or falling back to 1x.
-		if (wasPlaying && playbackMode !== 'staffpad') return this.play();
-		if (!wasPlaying && playRequested) return this.play();
-		this[ENGINE_EMIT_POSITION]();
-		return Promise.resolve();
-	},
+...engineProjectRefreshMethods,
 
 setSourceResolver(sourceResolver = null) {
 		this[ENGINE_ASSERT_ACTIVE]();
