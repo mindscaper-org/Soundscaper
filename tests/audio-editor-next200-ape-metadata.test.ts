@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readImportedMetadataTags } from '../src/common/editor/imported-metadata-reader.ts';
 import { readApeMetadataTags } from '../src/common/editor/ape-metadata-reader.ts';
-import { nativeApeMetadataFixture, APE_METADATA_CREDITS } from './helpers/native-ape-metadata-fixture.ts';
+import { nativeApeMetadataFixture, nativeTtaMetadataFixture, APE_METADATA_CREDITS } from './helpers/native-ape-metadata-fixture.ts';
 
-test('native Monkey audio import retains SDK-authored APEv2 credits', async () => {
-	const file = nativeApeMetadataFixture();
+for (const format of ['ape', 'tta'] as const) test(`native ${format} import retains SDK-authored APEv2 credits`, async () => {
+	const file = format === 'ape' ? nativeApeMetadataFixture() : nativeTtaMetadataFixture();
 	const reference = await readApeMetadataTags(file);
 	for (const [key, value] of Object.entries(APE_METADATA_CREDITS)) assert.equal(reference[key], value);
 	assert.deepEqual(await readImportedMetadataTags(file), reference);
