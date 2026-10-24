@@ -349,7 +349,7 @@ function createClip(event: DawprojectAudioEvent, info: DawprojectDecodedMediaInf
 	return {
 		id: clipId,
 		sourceId: String(source.id),
-		title: event.name || String(source.name),
+		title: event.name?.trim() ? event.name : String(source.name),
 		timelineStartFrame: startFrame,
 		sourceStartFrame,
 		sourceDurationFrames,

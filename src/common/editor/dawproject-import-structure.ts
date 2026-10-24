@@ -105,8 +105,9 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 	build.devices += channel?.devices ?? 0;
 	if (track.contentTypes.includes('tracks') || track.children.length > 0) {
 		const id = build.createStableId('folder');
+		const name = track.name.trim() ? track.name : 'Folder';
 		if (track.id) build.folderByDawId.set(track.id, id);
-		build.folders.push({ id, name: track.name || 'Folder', mute: channel?.mute?.value === true, solo: channel?.solo === true });
+		build.folders.push({ id, name, mute: channel?.mute?.value === true, solo: channel?.solo === true });
 		build.trackNodes.push({ kind: 'folder', id, parentFolderId });
 		build.parentFolderIds.set(id, parentFolderId);
 		if (channel) {
@@ -115,7 +116,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 			if (parentFolderId === null) {
 				// Structural gates belong to the folder; its owned bus cannot
 				// duplicate them as independent mixer mute or solo state.
-				build.groups.push({ ...strip(id, track.name || 'Folder', channel), mute: false, solo: false });
+				build.groups.push({ ...strip(id, name, channel), mute: false, solo: false });
 				if (channel.id) build.busByChannelId.set(channel.id, id);
 				registerParameters(channel, { kind: 'group', id }, build);
 			} else {
@@ -188,7 +189,7 @@ function isInsideFolder(trackId: string, folderId: string, build: Build): boolea
 function createAudioTrack(name: string, channel: DawprojectChannel | null, build: Build): TrackBuild {
 	const built: TrackBuild = {
 		id: build.createStableId('track'),
-		name: name || `Track ${String(build.tracks.length + 1)}`,
+		name: name.trim() ? name : `Track ${String(build.tracks.length + 1)}`,
 		gain: clamp(gainOf(channel?.volume), 0, 4),
 		pan: panOf(channel?.pan),
 		mute: channel?.mute?.value === true,
