@@ -169,3 +169,19 @@ test('a project at an NTSC-style tempo and awkward sample counts validates with 
 	validate('Project', result.projectXml);
 	assert.doesNotMatch(result.projectXml, /="-?[\d.]+[eE][+-]?\d+"/u, 'no exponent notation reaches the file');
 });
+
+test('a send-only output uses ordinary schema-qualified muted submix vocabulary', () => {
+	const project = { ...fullProject(), mixer: { schemaVersion: 1, groups: [],
+		sends: [{ id: 'fx1', name: 'Wet', gain: 1, pan: 0, channelCount: 2 }],
+		edges: [
+			{ id: 'wet-only', kind: 'send', source: { kind: 'track', id: 't1' }, destination: { kind: 'mixer-node', id: 'fx1' },
+				level: .25, enabled: true, position: 'post-fader', channelMap: [0, 1] },
+			{ id: 'dry', kind: 'assignment', source: { kind: 'track', id: 't2' }, destination: { kind: 'master' },
+				level: 1, enabled: true, position: 'post-fader', channelMap: [0, 0] },
+			{ id: 'return', kind: 'assignment', source: { kind: 'mixer-node', id: 'fx1' }, destination: { kind: 'master' },
+				level: 1, enabled: true, position: 'post-fader', channelMap: [0, 1] },
+		] } };
+	const result = createDawprojectExport({ project });
+	assert.ok(result.projectXml.includes('name="Unassigned outputs"'));
+	validate('Project', result.projectXml);
+});

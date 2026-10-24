@@ -95,6 +95,7 @@ interface ChannelSpec {
 }
 
 const DEFAULT_APPLICATION = Object.freeze({ name: 'Soundscaper', version: 'unknown' });
+const DISCONNECTED_OUTPUT_KEY = 'disconnected-output';
 
 export function createDawprojectExport(request: DawprojectExportRequest): DawprojectExportResult {
 	const project = request?.project;
@@ -256,7 +257,7 @@ function channelRouting(context: DawprojectExportContext, route: DawprojectTrack
 		? [...context.routing.groups, ...context.routing.sends].find(candidate => candidate.id === route.groupId)
 		: null;
 	return {
-		destination: channelIdFor(context, destination ? `mixer-node:${destination.id}` : 'master'),
+		destination: channelIdFor(context, route?.disconnected ? DISCONNECTED_OUTPUT_KEY : destination ? `mixer-node:${destination.id}` : 'master'),
 		sends: [...(route?.sends ?? [])]
 			.filter(([sendId]) => context.routing.sends.some(send => send.id === sendId))
 			.map(([id, send]) => ({ id, ...send })),
@@ -303,6 +304,18 @@ function buildMixerNodeTracks(context: DawprojectExportContext): XmlElement[] {
 				}),
 			]));
 		}
+	}
+	if ([...context.routing.routes.values(), ...context.routing.nodeRoutes.values()].some(route => route.disconnected)) {
+		result.push(xmlElement('Track', { contentType: 'audio', loaded: true,
+			id: context.ids.id(DISCONNECTED_OUTPUT_KEY), name: 'Unassigned outputs',
+		}, [buildChannel(context, DISCONNECTED_OUTPUT_KEY, {
+			role: 'submix', gain: 1, pan: 0, mute: true, solo: false, audioChannels: masterChannels(context),
+			destination: channelIdFor(context, 'master'), sends: [], effects: [], scope: { kind: 'project' },
+		})]));
+		addDeliveryReportItem(context.draft, {
+			code: 'dawproject.unassigned-output-converted', disposition: 'converted', severity: 'info',
+			message: 'Send-only channels route their unassigned main outputs to a muted submix; their sends remain unchanged.',
+		});
 	}
 	if (context.routing.omittedNodes > 0) {
 		addDeliveryReportItem(context.draft, {

@@ -45,6 +45,7 @@ export interface DawprojectMixerStrip {
 export interface DawprojectTrackRoute {
 	readonly groupId: string | null;
 	readonly sends: ReadonlyMap<string, Readonly<{ level: number; position: 'pre' | 'post' }>>;
+	readonly disconnected?: boolean;
 }
 
 export interface DawprojectMixerRouting {
@@ -203,6 +204,7 @@ export function readDawprojectMixerRouting(project: DataRecord): DawprojectMixer
 function readGraphRouting(graph: DataRecord): DawprojectMixerRouting {
 	const routes = new Map<string, { groupId: string | null; sends: Map<string, Readonly<{ level: number; position: 'pre' | 'post' }>> }>();
 	const nodeRoutes: typeof routes = new Map();
+	const assignments = new Set<string>();
 	const route = (entries: typeof routes, sourceId: string) => {
 		let entry = entries.get(sourceId);
 		if (!entry) {
@@ -215,6 +217,9 @@ function readGraphRouting(graph: DataRecord): DawprojectMixerRouting {
 		if (edge.enabled === false) continue;
 		const source = record(edge.source);
 		const destination = record(edge.destination);
+		if (edge.kind === 'assignment' && (source.kind === 'track' || source.kind === 'mixer-node')) {
+			assignments.add(JSON.stringify([source.kind, source.id]));
+		}
 		if ((source.kind !== 'track' && source.kind !== 'mixer-node') || destination.kind !== 'mixer-node') continue;
 		const entries = source.kind === 'track' ? routes : nodeRoutes;
 		if (edge.kind === 'assignment') route(entries, String(source.id)).groupId = String(destination.id);
@@ -225,10 +230,16 @@ function readGraphRouting(graph: DataRecord): DawprojectMixerRouting {
 	return Object.freeze({
 		groups: records(graph.groups).map(strip),
 		sends: records(graph.sends).map(strip),
-		routes: new Map([...routes].map(([id, entry]) => [id, Object.freeze({ groupId: entry.groupId, sends: entry.sends })])),
-		nodeRoutes: new Map([...nodeRoutes].map(([id, entry]) => [id, Object.freeze({ groupId: entry.groupId, sends: entry.sends })])),
+		routes: exportRoutes(routes, 'track'),
+		nodeRoutes: exportRoutes(nodeRoutes, 'mixer-node'),
 		omittedNodes: records(graph.cues).length + records(graph.vcas).length,
 	});
+
+	function exportRoutes(entries: typeof routes, kind: string): ReadonlyMap<string, DawprojectTrackRoute> {
+		return new Map([...entries].map(([id, entry]) => [id, Object.freeze({ ...entry,
+			disconnected: entry.sends.size > 0 && !assignments.has(JSON.stringify([kind, id])),
+		})]));
+	}
 }
 
 function strip(value: DataRecord): DawprojectMixerStrip {
