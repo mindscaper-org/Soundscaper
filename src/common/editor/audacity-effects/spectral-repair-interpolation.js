@@ -51,9 +51,14 @@ export function interpolateAudioLsar(buffer, firstBad, badCount, random) {
 
 	const normal = new Float64Array(badCount * badCount);
 	const rightHandSide = new Float64Array(badCount);
-	for (let row = 0; row < length - order; row += 1) {
+	const unknownCoefficients = new Float64Array(badCount);
+	// Constraints wholly outside the damaged span contain no unknowns and never
+	// contribute to either normal equation. Keep the contributing row order.
+	const firstRow = Math.max(0, Math.ceil(firstBad) - order);
+	const endRow = Math.min(length - order, Math.ceil(firstBad + badCount));
+	for (let row = firstRow; row < endRow; row += 1) {
 		let knownContribution = 0;
-		const unknownCoefficients = new Float64Array(badCount);
+		unknownCoefficients.fill(0);
 		for (let columnOffset = 0; columnOffset <= order; columnOffset += 1) {
 			const column = row + columnOffset;
 			const value = columnOffset === order ? 1 : -coefficients[columnOffset];
