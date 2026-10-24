@@ -136,12 +136,16 @@ export function createSourceEditorEffects<Buffer extends AudioBufferLike>(depend
 			return merged;
 		});
 	}
+	function readSourceSelection(): SourceEditorSelection | null {
+		const current = target();
+		return current?.sourceClipId ? { clipId: current.sourceClipId, startFrame: current.startFrame, endFrame: current.endFrame } : null;
+	}
 	function readSourceSelectionDuration(): number | null {
 		const current = target();
 		return current?.sourceSampleRate ? current.durationFrames / current.sourceSampleRate : null;
 	}
 	function readSourceSelectionSampleRate(): number | null { return target()?.sourceSampleRate ?? null; }
-	return Object.freeze({ setSourceSelection, target, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, renderRange, expandResult });
+	return Object.freeze({ setSourceSelection, readSourceSelection, target, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, renderRange, expandResult });
 }
 
 function findSource(project: EffectSelectionProject, sourceId: string): SourceEditorAudioSource | null {

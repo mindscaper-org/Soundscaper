@@ -80,3 +80,19 @@ test('source effect targeting uses the native media sample rate and follows shar
 	assert.equal(service.target()!.endFrame, 4);
 	assert.equal(service.readSourceSelectionDuration(), 3 / 44_100);
 });
+
+
+test('source selection snapshots follow replacement and Undo without exposing mutable owner state', () => {
+	const { service, replaceSource, undo, setProjectId } = fixture();
+	assert.equal(service.readSourceSelection(), null);
+	service.setSourceSelection({ clipId: 'clip', startFrame: 1, endFrame: 4 });
+	const before = service.readSourceSelection();
+	assert.deepEqual(before, { clipId: 'clip', startFrame: 1, endFrame: 4 });
+	replaceSource();
+	assert.deepEqual(service.readSourceSelection(), { clipId: 'clip', startFrame: 1, endFrame: 5 });
+	assert.deepEqual(before, { clipId: 'clip', startFrame: 1, endFrame: 4 });
+	undo();
+	assert.deepEqual(service.readSourceSelection(), before);
+	setProjectId('different-project');
+	assert.equal(service.readSourceSelection(), null);
+});

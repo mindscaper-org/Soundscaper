@@ -30,6 +30,7 @@ import type { createSettingPersistence } from '../preferences/setting-persistenc
 /** Action assembly preserves the contracts declared by the owning services. */
 export interface EditorActionFunctions {
 	readonly setSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['setSourceSelection'];
+	readonly readSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelection'];
 	readonly readSourceSelectionDuration: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelectionDuration'];
 	readonly readSourceSelectionSampleRate: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelectionSampleRate'];
 	readonly loadSourceAudio: ReturnType<typeof createEffectsComposition>['sourceEditor']['loadSourceAudio'];

@@ -15,7 +15,7 @@ import type { ClipFadeChanges } from '../timeline/ClipFadeOverlays.tsx';
 import { fadeDurationAtPointer, fadeShapeAtPointer, fadeField, fadeShapeField } from '../timeline/clip-fade-geometry.ts';
 import { clipSourceStretchFeedback, formatSourceStretchSpeed } from './clip-source-stretch-feedback.ts';
 import ClipSourceRuler, { INITIAL_SOURCE_RULER_OPTIONS } from './ClipSourceRuler.tsx';
-import { clipSourceSelection } from './clip-source-selection.ts';
+import { clipSourceSelection, clipSourceSelectionDisplay } from './clip-source-selection.ts';
 import { clipSourceTrim } from './clip-source-view.ts';
 import { useClipSourceMarkerDeletion } from './useClipSourceMarkerDeletion.ts';
 import type { TimelineAudioBuffer } from '../timeline/waveform-view-model.ts';
@@ -89,15 +89,20 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		else controller.actions.effects.setSourceSelection(null);
 	}, [transport.focused, transport.clipId, clipId, controller]);
 	const contentKey = useMemo(() => JSON.stringify([clip, source.id, source.frameCount]), [clip, source.id, source.frameCount]);
-	const previousContent = useRef(contentKey);
+	const previousContent = useRef({ key: contentKey, sourceId: source.id });
 	useEffect(() => {
-		if (previousContent.current === contentKey) return;
-		previousContent.current = contentKey;
+		if (previousContent.current.key === contentKey) return;
+		const replacedSource = previousContent.current.sourceId !== source.id;
+		previousContent.current = { key: contentKey, sourceId: source.id };
 		preview.stop();
 		const current = preview.snapshot();
-		if (current.focused && current.clipId === clipId) restoreSourceFocus.current();
+		if (current.focused && current.clipId === clipId) {
+			const selected = replacedSource && selectedRef.current ? controller.actions.effects.readSourceSelection?.() : null;
+			if (selected?.clipId === clipId) selectedRef.current = clipSourceSelectionDisplay(project, clip, source, selected);
+			restoreSourceFocus.current();
+		}
 		else setSelection(value => clipSourceSelection(project, clip, source, value).display);
-	}, [contentKey, preview, project, clip, source, clipId]);
+	}, [contentKey, preview, project, clip, source, clipId, controller]);
 	useEffect(() => preview.subscribe(() => setTransport(preview.snapshot())), [preview]);
 	useEffect(() => {
 		const element = rootRef.current;
