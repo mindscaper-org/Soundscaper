@@ -47,8 +47,11 @@ export function createStandardEffectNode(context: BaseAudioContext, WorkletNode:
 	if (!standardEffectWorklet.isLoaded(context) || !WorkletNode) throw new Error('The standard effect processor was not loaded.');
 	standardEffectStateBytes(type, params, context.sampleRate, channelCount);
 	const node = new WorkletNode(context, 'kw-standard-effect', {
-		numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [channelCount],
-		channelCount, channelCountMode: 'explicit', channelInterpretation: 'discrete',
+		numberOfInputs: 1, numberOfOutputs: 1,
+		// Tremolo has only oscillator state: retain native mono/stereo pan geometry
+		// instead of widening a mono passage to the strip's largest source layout.
+		...(type === 'tremolo' ? {} : { outputChannelCount: [channelCount] }),
+		channelCount, channelCountMode: type === 'tremolo' ? 'max' : 'explicit', channelInterpretation: 'discrete',
 		processorOptions: { type, params, channelCount,
 			...(type === 'multi-tap-delay' && staffPadModules.has(context) ? { staffPadWasmModule: staffPadModules.get(context) } : {}) },
 	});

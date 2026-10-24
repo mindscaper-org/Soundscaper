@@ -333,7 +333,7 @@ test('worklet preparation and direct insertion fail closed when support or modul
 	} finally { restoreNode(); }
 });
 
-test('prepared effects install the correct connected node with explicit channel geometry and scoped registration', async () => {
+test('prepared effects install their owned native channel geometry and scoped registration', async () => {
 	const restoreNode = installGlobal('AudioWorkletNode', MockAudioWorkletNode);
 	try {
 		const context = new MockAudioContext();
@@ -350,8 +350,8 @@ test('prepared effects install the correct connected node with explicit channel 
 			assert.ok(node);
 			assert.equal(output, node);
 			assert.equal(node.name, 'kw-standard-effect');
-			assert.deepEqual(node.options.outputChannelCount, [2]);
-			assert.equal(node.options.channelCountMode, 'explicit');
+			assert.deepEqual(node.options.outputChannelCount, type === 'tremolo' ? undefined : [2]);
+			assert.equal(node.options.channelCountMode, type === 'tremolo' ? 'max' : 'explicit');
 			assert.equal(node.options.channelInterpretation, 'discrete');
 			assert.deepEqual(node.options.processorOptions, { type, params, channelCount: 2 });
 			assert.equal(input.connections[0], node);
