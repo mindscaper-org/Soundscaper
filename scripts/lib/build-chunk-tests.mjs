@@ -119,7 +119,7 @@ export const EDITOR_PRODUCTION_METER_CHUNK_TEST = new RegExp(
 );
 
 /** Only the lazy import service and import dialogs read these preparation modules. */
-const deferredImportHelpers = String.raw`controller[\\/]import[\\/](?:raw-pcm-import|internal[\\/](?:clip-spreadsheet-paste-service|prepare-clip-spreadsheet-source|import-result-warnings|incremental-wav-import-service|native-container-audio-admission|native-alac-import-admission|native-free-format-mp3-admission|native-ogg-flac-admission|native-surround-opus-admission|wav-import-metadata|wav-import-routing|legacy-audacity-project-import|legacy-aup-project-persistence|freesound-import-download|linked-media[\\/](?:linked-wav-import-service|linked-audio-import-admission)|dawproject[\\/](?:dawproject-import-compressed|dawproject-export-audio)))`;
+const deferredImportHelpers = String.raw`controller[\\/]import[\\/](?:raw-pcm-import|internal[\\/](?:clip-spreadsheet-paste-service|prepare-clip-spreadsheet-source|import-result-warnings|incremental-wav-import-service|native-container-audio-admission|native-alac-import-admission|native-free-format-mp3-admission|native-ogg-flac-admission|native-surround-opus-admission|native-surround-vorbis-admission|wav-import-metadata|wav-import-routing|legacy-audacity-project-import|legacy-aup-project-persistence|freesound-import-download|linked-media[\\/](?:linked-wav-import-service|linked-audio-import-admission)|dawproject[\\/](?:dawproject-import-compressed|dawproject-export-audio)))`;
 
 /** Import admission runs after an import starts, apart from codec execution. */
 export const EDITOR_IMPORT_ADMISSION_CHUNK_TEST = new RegExp(

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { nativeOggFlacAdmission } from './native-ogg-flac-admission.ts';
 import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-codec-runtime-marker.ts';
+import { raceAbortableRead } from '../../../abort-race.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
@@ -12,6 +13,7 @@ export interface NativeContainerAudioAdmission {
 	/** ADTS PCE delegates layout to the native decoder, within the admitted worst-case bound. */
 	readonly channelCount: number | null;
 	readonly decodeSampleRate?: number;
+	readonly trimNativeVorbisFinalFrame?: true;
 }
 interface Options {
 	readonly signal?: AbortSignal;
@@ -25,6 +27,7 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 	if (flac) return flac;
 	options.signal?.throwIfAborted();
 	if (isDesktopMainAudioCodecRuntime(options.codecRuntime) || file.size < 9 || file.size > MAXIMUM_ENCODED_BYTES) return null;
+	if (new TextDecoder().decode(await raceAbortableRead(() => file.slice(0, 4).arrayBuffer(), options.signal)) === 'OggS') return (await import('./native-surround-vorbis-admission.ts')).nativeSurroundVorbisAdmission(file, options.signal);
 	let offset = 0;
 	let first = await headerAt(file, offset, options.signal);
 	if (ascii(first, 4, 4) === 'ftyp') return (await import('./native-alac-import-admission.ts')).nativeAlacImportAdmission(file, options.signal);
@@ -68,6 +71,23 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 	}
 	options.signal?.throwIfAborted();
 	return Object.freeze({ sampleRate, frameCount: Math.round(packets * 1024 * sampleRate / profile.rate), channelCount: null });
+}
+
+/** Preserve the exact authored granule when the qualified native decoder rounds up one frame. */
+export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: NativeContainerAudioAdmission | null): AudioBuffer {
+	if (!admission?.trimNativeVorbisFinalFrame || decoded.length !== admission.frameCount + 1
+		|| decoded.sampleRate !== admission.sampleRate || decoded.numberOfChannels !== admission.channelCount) return decoded;
+	const length = admission.frameCount;
+	// A zero-copy view is consumed immediately by the existing canonical PCM copier.
+	return Object.freeze({ length, sampleRate: decoded.sampleRate, duration: length / decoded.sampleRate, numberOfChannels: decoded.numberOfChannels,
+		getChannelData: (channel: number) => decoded.getChannelData(channel).subarray(0, length),
+		copyFromChannel(destination: Float32Array<ArrayBuffer>, channel: number, start = 0) {
+			decoded.copyFromChannel(destination.subarray(0, Math.max(0, length - start)), channel, start);
+		},
+		copyToChannel(source: Float32Array<ArrayBuffer>, channel: number, start = 0) {
+			decoded.copyToChannel(source.subarray(0, Math.max(0, length - start)), channel, start);
+		},
+	});
 }
 
 /** Verify the native result before canonicalization, PCM writes or command publication. */

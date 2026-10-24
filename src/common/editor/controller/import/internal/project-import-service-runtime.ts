@@ -4,7 +4,7 @@ import { loadImportAdmissionExecution } from './import-admission-loader.ts'; imp
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
 import { nativeSurroundOpusAdmission, assertNativeSurroundOpusGeometry } from './native-surround-opus-admission.ts';
-import { nativeContainerAudioAdmission, assertNativeContainerAudioGeometry } from './native-container-audio-admission.ts';
+import { nativeContainerAudioAdmission, assertNativeContainerAudioGeometry, normalizeNativeContainerAudio } from './native-container-audio-admission.ts';
 import { importFilePlacement } from './import-file-placement.ts';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
 import {
@@ -429,8 +429,8 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			getAudioContext: () => engine.getAudioContext({ resume: false }),
 			// Pinning native decoding keeps the file's own rate, like PCM streaming,
 			// instead of inheriting the output device's rate.
-			decodeWithWebAudio: (encoded: ArrayBuffer, decodedSampleRate: number | null) => (
-				engine.decodeAudioData(encoded, { sampleRate: decodedSampleRate })
+			decodeWithWebAudio: async (encoded: ArrayBuffer, decodedSampleRate: number | null) => (
+				normalizeNativeContainerAudio(await engine.decodeAudioData(encoded, { sampleRate: decodedSampleRate }), nativeContainer)
 			),
 			decodeWithCodec: async (input, settings) => ffmpeg.decode(input, settings),
 			bufferFromChannels: (channels, sampleRate, audioContext) => (
