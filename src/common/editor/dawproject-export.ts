@@ -262,8 +262,7 @@ function channelRouting(context: DawprojectExportContext, route: DawprojectTrack
 	return {
 		destination: channelIdFor(context, route?.disconnected ? DISCONNECTED_OUTPUT_KEY : destination ? `mixer-node:${destination.id}` : 'master'),
 		sends: [...(route?.sends ?? [])]
-			.filter(([sendId]) => context.routing.sends.some(send => send.id === sendId))
-			.map(([id, send]) => ({ id, ...send })),
+			.filter(({ id }) => context.routing.sends.some(send => send.id === id)),
 	};
 }
 
@@ -363,14 +362,14 @@ function buildChannel(context: DawprojectExportContext, key: string, spec: Chann
 			message: 'DAWproject carries plug-in state by vendor identifier; the editor\'s effect stack has none, so the channel is written dry.',
 		});
 	}
-	const sends = spec.sends.map(({ id, level, position }) => xmlElement('Send', {
+	const sends = spec.sends.map(({ id, level, position }, index) => xmlElement('Send', {
 		destination: channelIdFor(context, `mixer-node:${id}`),
 		type: position,
-		id: context.ids.id('send', key, id),
+		id: context.ids.id('send', key, id, String(index)),
 	}, [
 		xmlElement('Volume', {
 			max: 4, min: 0, unit: 'linear', value: Math.max(0, level),
-			id: context.ids.id('send-volume', key, id), name: 'Send',
+			id: context.ids.id('send-volume', key, id, String(index)), name: 'Send',
 		}),
 	]));
 	// Child order is the schema's sequence: Devices, Mute, Pan, Sends, Volume.

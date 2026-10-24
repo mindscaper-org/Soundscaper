@@ -185,3 +185,20 @@ test('a send-only output uses ordinary schema-qualified muted submix vocabulary'
 	assert.ok(result.projectXml.includes('name="Unassigned outputs"'));
 	validate('Project', result.projectXml);
 });
+
+
+test('parallel sends to one return retain distinct schema-qualified identities', () => {
+	const project = { ...fullProject(), mixer: { schemaVersion: 1, groups: [],
+		sends: [{ id: 'fx1', name: 'Wet', gain: 1, pan: 0, channelCount: 2 }],
+		edges: [
+			...[['pre-fader', .2], ['post-fader', .3]].map(([position, level], index) => ({
+				id: `parallel-${index}`, kind: 'send', source: { kind: 'track', id: 't1' },
+				destination: { kind: 'mixer-node', id: 'fx1' }, level, enabled: true, position, channelMap: [0, 1],
+			})),
+			{ id: 'return', kind: 'assignment', source: { kind: 'mixer-node', id: 'fx1' }, destination: { kind: 'master' },
+				level: 1, enabled: true, position: 'post-fader', channelMap: [0, 1] },
+		] } };
+	const result = createDawprojectExport({ project });
+	assert.equal((result.projectXml.match(/<Send /gu) ?? []).length, 2);
+	validate('Project', result.projectXml);
+});

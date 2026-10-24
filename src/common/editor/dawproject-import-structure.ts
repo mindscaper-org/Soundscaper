@@ -66,7 +66,7 @@ export interface DawprojectImportNodeRoute {
 
 /** Per-import graph semantics that the shared numeric-send document cannot carry. */
 export interface DawprojectImportRoutingContext {
-	readonly sendTaps: readonly Readonly<{ trackId: string; sendId: string; position: 'pre-fader' | 'post-fader' }>[];
+	readonly sendTaps: readonly Readonly<{ trackId: string; sendId: string; level?: number; position: 'pre-fader' | 'post-fader' }>[];
 	readonly nodeRoutes?: readonly DawprojectImportNodeRoute[];
 	readonly stripChannelCounts?: readonly Readonly<{ id: string; channelCount: number }>[];
 }
@@ -86,7 +86,7 @@ export interface Build {
 	readonly stripByChannelId: Map<string, Readonly<{ kind: 'group' | 'send' | 'folder'; id: string }>>;
 	readonly parameters: Map<string, ParameterTarget>;
 	readonly routes: Map<string, { groupId: string | null; sends: Record<string, number> }>;
-	readonly sendTaps: { trackId: string; sendId: string; position: 'pre-fader' | 'post-fader' }[];
+	readonly sendTaps: { trackId: string; sendId: string; level?: number; position: 'pre-fader' | 'post-fader' }[];
 	/** Parent folder per built track and per folder, for bus membership. */
 	readonly parentFolderIds: Map<string, string | null>;
 	master: StripBuild;
@@ -239,7 +239,7 @@ export function resolveRouting(document: DawprojectDocument, build: Build): void
 			const target = build.stripByChannelId.get(send.destination);
 			if (target?.kind !== 'send') continue;
 			route.sends[target.id] = clamp(gainOf(send.volume), 0, 4);
-			build.sendTaps.push({ trackId: built.id, sendId: target.id,
+			build.sendTaps.push({ trackId: built.id, sendId: target.id, level: route.sends[target.id],
 				position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 		}
 		if (route.groupId !== null || Object.keys(route.sends).length > 0) build.routes.set(built.id, route);
@@ -259,16 +259,16 @@ function resolveBusRouting(channel: DawprojectChannel, build: Build): void {
 			message: 'The bus feeds a folder; folder buses here take only their own tracks, so the bus routes to the master.',
 		});
 	}
-	const sends = new Map<string, DawprojectImportNodeRoute['sends'][number]>();
+	const sends: DawprojectImportNodeRoute['sends'][number][] = [];
 	for (const send of channel.sends) {
 		if (!send.enabled || !send.destination) continue;
 		const target = build.stripByChannelId.get(send.destination);
 		if (target?.kind !== 'send') continue;
-		sends.set(target.id, { sendId: target.id, level: clamp(gainOf(send.volume), 0, 4),
+		sends.push({ sendId: target.id, level: clamp(gainOf(send.volume), 0, 4),
 			position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 	}
 	build.nodeRoutes.push({ busId, groupId: destination?.kind === 'group' ? destination.id : null,
-		sends: [...sends.values()] });
+		sends });
 }
 
 export function trackForEvent(event: DawprojectAudioEvent, build: Build, document: DawprojectDocument): TrackBuild {

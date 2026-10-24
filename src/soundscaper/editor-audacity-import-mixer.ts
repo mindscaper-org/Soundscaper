@@ -57,6 +57,21 @@ export function importSoundscaperAudacityMixer(decoded: AudioEditorProjectV17, p
 			})),
 		] });
 	}
+	// The legacy staging route is destination-indexed. The import context owns
+	// every individual send, including parallel connections with different taps.
+	const authoredSends = context?.sendTaps.filter(tap => tap.level !== undefined) ?? [];
+	if (authoredSends.length) {
+		const owners = new Set(authoredSends.map(tap => tap.trackId));
+		const sends = authoredSends.flatMap((tap, index) => {
+			const edge = mixer.edges.find(edge => edge.kind === 'send' && edge.source.kind === 'track'
+				&& edge.source.id === tap.trackId && edge.destination.kind === 'mixer-node' && edge.destination.id === tap.sendId);
+			return edge ? [{ ...edge, id: `imported-track-send:${String(index)}`, level: tap.level!, position: tap.position }] : [];
+		});
+		return normalizeMixerGraphV21({ ...mixer, edges: [
+			...mixer.edges.filter(edge => edge.kind !== 'send' || edge.source.kind !== 'track' || !owners.has(edge.source.id)),
+			...sends,
+		] });
+	}
 	if (!context?.sendTaps.length) return mixer;
 	return normalizeMixerGraphV21({ ...mixer, edges: mixer.edges.map(edge => {
 		if (edge.kind !== 'send' || edge.source.kind !== 'track' || edge.destination.kind !== 'mixer-node') return edge;
