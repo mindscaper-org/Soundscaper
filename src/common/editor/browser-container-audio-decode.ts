@@ -187,6 +187,8 @@ async function openMediabunnySession(
 			input.getPrimaryVideoTrack(),
 		]);
 		throwIfAborted(signal);
+		const codec = await track?.getCodec();
+		if (track && codec === 'opus') await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal);
 		if (!track || !await track.canDecode()) {
 			throw new Error('The video container has no browser-decodable primary audio track.');
 		}
@@ -196,7 +198,7 @@ async function openMediabunnySession(
 			track.getNumberOfChannels(),
 		]);
 		throwIfAborted(signal);
-		const endPaddingFrames = sampleRate === 48_000 && await track.getCodec() === 'opus'
+		const endPaddingFrames = sampleRate === 48_000 && codec === 'opus'
 			? await (await import('./matroska-opus-end-padding.ts')).readMatroskaOpusEndPadding(blob, track.id, signal) : 0;
 		throwIfAborted(signal);
 		const sink = new AudioSampleSink(track);

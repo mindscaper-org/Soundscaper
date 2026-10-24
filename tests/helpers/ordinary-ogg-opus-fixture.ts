@@ -258,5 +258,13 @@ export function opusPaddingAvFixture(paddingBytes = 0): File {
 	view.setBigUint64(segment + 4, 0x0100_0000_0000_0000n | segmentSize + BigInt(paddingBytes + 5));
 	const padding = new Uint8Array(paddingBytes + 5); padding[0] = 0xec;
 	new DataView(padding.buffer).setUint32(1, 0x1000_0000 + paddingBytes);
-	return new File([bytes, padding], 'Short audio padded.webm', { type: 'video/webm' });
+	// Keep Cues at EOF for native seek implementations; discard only the optional
+	// SeekHead whose Cues address would move. Cluster/packet and Cue positions stay exact.
+	const seek = Buffer.from(bytes).indexOf(Buffer.from([0x11, 0x4d, 0x9b, 0x74]));
+	const cues = Buffer.from(bytes).lastIndexOf(Buffer.from([0x1c, 0x53, 0xbb, 0x6b]));
+	if (seek < 0 || cues < 0 || bytes[seek + 4]! >= 0xc0 || bytes[seek + 4]! < 0x80) throw new Error('The fixture SeekHead must retain its one-byte size.');
+	const seekBytes = 5 + (bytes[seek + 4]! & 127);
+	bytes[seek] = 0xec; view.setBigUint64(seek + 1, 0x0100_0000_0000_0000n | BigInt(seekBytes - 9));
+	bytes.fill(0, seek + 9, seek + seekBytes);
+	return new File([bytes.slice(0, cues), padding, bytes.slice(cues)], 'Short audio padded.webm', { type: 'video/webm' });
 }
