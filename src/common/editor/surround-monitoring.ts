@@ -64,25 +64,13 @@ export function connectSurroundMonitoring(
 	destination: AudioNode,
 	channelCount: number,
 	nodes: AudioNode[],
-): 'native' | 'stereo-fallback' | 'mono-fallback' | 'direct' {
-	const nativeOutputChannels = soundscaperNativeAudioOutputChannelCount(context);
-	let monitoringDestination = destination;
-	if (nativeOutputChannels === 1 && Number.isInteger(channelCount) && channelCount >= 2 && channelCount <= 32) {
-		// The native port copies discrete planes. Fold speakers before that boundary
-		// so a mono endpoint receives both sides of the monitored stereo programme.
-		const mono = context.createGain();
-		mono.channelCount = 1;
-		mono.channelCountMode = 'explicit';
-		mono.channelInterpretation = 'speakers';
-		nodes.push(mono);
-		mono.connect(destination);
-		monitoringDestination = mono;
-	}
+): 'native' | 'stereo-fallback' | 'direct' {
 	if (!Number.isInteger(channelCount) || channelCount <= 2 || channelCount > 32) {
-		source.connect(monitoringDestination);
-		return monitoringDestination === destination ? 'direct' : 'mono-fallback';
+		source.connect(destination);
+		return 'direct';
 	}
 	const deviceDestination = (context as BaseAudioContext & { destination?: AudioDestinationNode }).destination;
+	const nativeOutputChannels = soundscaperNativeAudioOutputChannelCount(context);
 	if (nativeOutputChannels === null ? configureNativeSurroundDestination(deviceDestination, channelCount)
 		: nativeOutputChannels >= channelCount) {
 		source.connect(destination);
@@ -105,8 +93,8 @@ export function connectSurroundMonitoring(
 		connectRoute(0, 0, 1);
 		connectRoute(1, 1, 1);
 	}
-	merger.connect(monitoringDestination);
-	return monitoringDestination === destination ? 'stereo-fallback' : 'mono-fallback';
+	merger.connect(destination);
+	return 'stereo-fallback';
 
 	function connectRoute(inputChannel: number, outputChannel: number, gainValue: number): void {
 		const gain = context.createGain();

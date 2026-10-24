@@ -24,6 +24,11 @@ export async function createNativeDeviceIoWorkletNode(context, options) {
 		numberOfInputs: direction === 'input' ? 0 : 1,
 		numberOfOutputs: 1,
 		outputChannelCount: [channelCount],
+		// Only the programme input folds speakers. Native capture comes from
+		// the port at the separate output and keeps its physical plane count.
+		...(direction !== 'input' && channelCount === 1 ? {
+			channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers',
+		} : {}),
 		processorOptions: {
 			direction, channelCount, periodFrames: options.periodFrames, queueCapacity: options.queueCapacity,
 		},

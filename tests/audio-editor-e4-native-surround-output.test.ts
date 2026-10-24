@@ -42,16 +42,10 @@ for (const [defaultWidth, nativeWidth, programmeWidth] of [[6, 2, 6], [2, 6, 6],
 			assert.equal(soundscaperNativeAudioOutputChannelCount(context as unknown as BaseAudioContext), nativeWidth);
 			const nodes: AudioNode[] = [];
 			assert.equal(connectSurroundMonitoring(context as unknown as BaseAudioContext, source as unknown as AudioNode,
-				listening as unknown as AudioNode, programmeWidth, nodes), nativeWidth === 1 ? 'mono-fallback' : nativeWidth >= programmeWidth ? 'native' : 'stereo-fallback');
+				listening as unknown as AudioNode, programmeWidth, nodes), programmeWidth <= 2 ? 'direct' : nativeWidth >= programmeWidth ? 'native' : 'stereo-fallback');
 			assert.equal((context.destination as unknown as { channelCount: number }).channelCount, 2,
 				'the unselected default device must not be reconfigured');
-			assert.equal(nodes.length, (programmeWidth <= 2 || nativeWidth >= programmeWidth ? 0 : 8) + (nativeWidth === 1 ? 1 : 0));
-			if (nativeWidth === 1) {
-				const mono = nodes.find(node => node.channelCount === 1);
-				assert.ok(mono);
-				assert.equal(mono.channelCountMode, 'explicit');
-				assert.equal(mono.channelInterpretation, 'speakers');
-			}
+			assert.equal(nodes.length, programmeWidth <= 2 || nativeWidth >= programmeWidth ? 0 : 8);
 			await renderer.release('selected-output');
 			assert.equal(soundscaperNativeAudioOutputChannelCount(context as unknown as BaseAudioContext), null);
 			const freshSource = context.createGain();

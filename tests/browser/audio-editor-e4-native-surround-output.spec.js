@@ -34,11 +34,12 @@ for (const defaultWidth of [2, 6]) for (const signalChannel of [0, 2]) {
 	});
 }
 
-for (const nativeWidth of [1, 2]) for (const programmeWidth of [2, 6]) {
-	test(`native width ${nativeWidth} retains programme ${programmeWidth} off-left audio`, async ({ page, browserName }) => {
+for (const nativeWidth of [1, 2]) for (const programmeWidth of [2, 6]) for (const preservePitch of programmeWidth === 2 ? [false, true] : [false]) {
+	test(`native width ${nativeWidth} retains programme ${programmeWidth} off-left audio, preserve pitch ${preservePitch}`, async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'Native audio hosts run in the maintained Electron renderer (Chromium).');
 		await installNativeOutputPeer(page, { outputChannelCount: nativeWidth });
-		const { project, blob } = await archive(2, programmeWidth === 2 ? 1 : 2, programmeWidth);
+		if (preservePitch) await observePreparedReference(page);
+		const { project, blob } = await archive(2, programmeWidth === 2 ? 1 : 2, programmeWidth, preservePitch);
 		const editor = await bootEditor(page, '/embed/en/');
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Right.sscape', mimeType: 'application/zip',
 			buffer: Buffer.from(await blob.arrayBuffer()) });
@@ -50,13 +51,27 @@ for (const nativeWidth of [1, 2]) for (const programmeWidth of [2, 6]) {
 		await expect(preferences.getByRole('combobox', { name: 'Speakers', exact: true })).toContainText('Chosen native speakers');
 		await expect(preferences.getByRole('alert')).toHaveCount(0);
 		await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-		await editor.getByRole('button', { name: 'Play', exact: true }).click();
-		const expected = programmeWidth === 2 ? (nativeWidth === 1 ? [.125] : [0, .25])
-			: Array(nativeWidth).fill(.25 * Math.SQRT1_2 * .5);
-		await expect.poll(() => page.evaluate(expected => {
-			const actual = window.__nativeOutput.channelMeans;
-			return actual.length === expected.length ? Math.max(...actual.map((sample, index) => Math.abs(sample - expected[index]))) : Infinity;
-		}, expected)).toBeLessThan(1e-7);
+		if (preservePitch) {
+			await editor.getByRole('button', { name: 'Play options', exact: true }).click();
+			const preserve = editor.getByRole('menuitem', { name: 'Preserve pitch', exact: true });
+			if (await preserve.getAttribute('aria-checked') !== 'true') await preserve.click();
+			await editor.getByRole('slider', { name: 'Playback speed', exact: true }).fill('2');
+			await page.keyboard.press('Escape');
+			await editor.getByRole('button', { name: 'Play at speed', exact: true }).click();
+			await expect.poll(() => page.evaluate(() => window.__preparedNativeReference?.stereoRms ?? 0)).toBeGreaterThan(.1);
+			await expect.poll(() => page.evaluate(width => {
+				const expected = window.__preparedNativeReference, actual = window.__nativeOutput.channelRms;
+				return actual.length === width ? Math.abs(actual[width - 1] - (width === 1 ? expected.monoRms : expected.stereoRms)) : Infinity;
+			}, nativeWidth)).toBeLessThan(.001);
+		} else {
+			await editor.getByRole('button', { name: 'Play', exact: true }).click();
+			const expected = programmeWidth === 2 ? (nativeWidth === 1 ? [.125] : [0, .25])
+				: Array(nativeWidth).fill(.25 * Math.SQRT1_2 * .5);
+			await expect.poll(() => page.evaluate(expected => {
+				const actual = window.__nativeOutput.channelMeans;
+				return actual.length === expected.length ? Math.max(...actual.map((sample, index) => Math.abs(sample - expected[index]))) : Infinity;
+			}, expected)).toBeLessThan(1e-7);
+		}
 		const sequence = await page.evaluate(() => window.__nativeOutput.packets);
 		await expect.poll(() => page.evaluate(() => window.__nativeOutput.packets)).toBeGreaterThan(sequence + 32);
 		expect(await page.evaluate(() => window.__nativeOutput.loss)).toEqual([]);
@@ -83,7 +98,7 @@ async function installSurroundDefaultHardware(page) {
 	});
 }
 
-async function archive(defaultWidth, signalChannel, programmeWidth = 6) {
+async function archive(defaultWidth, signalChannel, programmeWidth = 6, tone = false) {
 	const source = createAudioSource({ id: 'surround', sampleRate: 48_000, frameCount: 48_000 * 8, channelCount: programmeWidth });
 	const clip = createAudioClip({ id: 'surround-clip', sourceId: source.id, durationFrames: source.frameCount,
 		sourceDurationFrames: source.frameCount, fadeInFrames: 0, fadeOutFrames: 0 });
@@ -93,10 +108,28 @@ async function archive(defaultWidth, signalChannel, programmeWidth = 6) {
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		for (let offset = 0; offset < source.frameCount; offset += source.chunkFrames) {
-			await writer.write(Array.from({ length: programmeWidth }, (_, channel) => new Float32Array(Math.min(source.chunkFrames, source.frameCount - offset))
-				.fill(channel === signalChannel ? .25 : 0)));
+			await writer.write(Array.from({ length: programmeWidth }, (_, channel) => Float32Array.from({ length: Math.min(source.chunkFrames, source.frameCount - offset) }, (_, frame) =>
+				channel === signalChannel ? .25 * (tone ? Math.sin(2 * Math.PI * 500 * (offset + frame) / source.sampleRate) : 1) : 0)));
 		}
 		await writer.commit();
 		const { blob } = await exportScapeProject(project, store); expect(blob).toBeTruthy(); return { project, blob };
 	} finally { await store.close(); }
+}
+
+async function observePreparedReference(page) {
+	await page.addInitScript(() => {
+		const start = AudioBufferSourceNode.prototype.start;
+		AudioBufferSourceNode.prototype.start = function (...args) {
+			if (this.context instanceof AudioContext && this.buffer?.numberOfChannels === 2) {
+				const left = this.buffer.getChannelData(0), right = this.buffer.getChannelData(1);
+				const from = Math.floor(this.buffer.length / 4), to = Math.floor(this.buffer.length * 3 / 4);
+				let stereo = 0, mono = 0;
+				for (let index = from; index < to; index++) {
+					stereo += right[index] ** 2; mono += ((left[index] + right[index]) / 2) ** 2;
+				}
+				window.__preparedNativeReference = { stereoRms: Math.sqrt(stereo / (to - from)), monoRms: Math.sqrt(mono / (to - from)) };
+			}
+			return Reflect.apply(start, this, args);
+		};
+	});
 }
