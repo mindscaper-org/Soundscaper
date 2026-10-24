@@ -4,6 +4,7 @@ import type {
 	DocumentTrackFolderSnapshot,
 } from '../../controller/document/document-track-folder-snapshot.ts';
 import type { TrackFolderStateNodeV12 } from '../../track-folder-state-projection.ts';
+import { trackFolderNavigationIndex } from './track-folder-navigation-index.ts';
 
 /**
  * Pure planning for the timeline's folder tree. Ordering comes only from the
@@ -131,8 +132,9 @@ export function resolveTrackFolderTreeKey(
 	folderId: string,
 	plan: TrackListRowPlan,
 ): TrackFolderTreeIntent {
-	const visible = plan.folderRows.filter((row) => !row.rowHidden);
-	const index = visible.findIndex((row) => row.id === folderId);
+	const navigation = trackFolderNavigationIndex(plan);
+	const { visible } = navigation;
+	const index = navigation.position.get(folderId) ?? -1;
 	if (index < 0) return null;
 	const current = visible[index];
 	switch (key) {
@@ -142,7 +144,7 @@ export function resolveTrackFolderTreeKey(
 			return visible[index - 1] ? { kind: 'focus', folderId: visible[index - 1].id } : null;
 		case 'ArrowRight': {
 			if (current.collapsed) return { kind: 'expand', folderId: current.id };
-			const child = visible.find((row) => row.parentFolderId === current.id);
+			const child = navigation.firstChild.get(current.id);
 			return child ? { kind: 'focus', folderId: child.id } : null;
 		}
 		case 'ArrowLeft': {
@@ -171,13 +173,14 @@ export function trackFolderRowTabIndex(
 	activeFolderId: string | null,
 	plan: TrackListRowPlan,
 ): 0 | -1 {
-	let active = plan.folderRows.find((candidate) => candidate.id === activeFolderId);
+	const navigation = trackFolderNavigationIndex(plan);
+	let active = activeFolderId === null ? undefined : navigation.byId.get(activeFolderId);
 	while (active?.rowHidden && active.parentFolderId !== null) {
 		const parentId = active.parentFolderId;
-		active = plan.folderRows.find((candidate) => candidate.id === parentId);
+		active = navigation.byId.get(parentId);
 	}
 	if (active && !active.rowHidden) return row.id === active.id ? 0 : -1;
-	const first = plan.folderRows.find((candidate) => !candidate.rowHidden);
+	const first = navigation.visible[0];
 	return first?.id === row.id ? 0 : -1;
 }
 
