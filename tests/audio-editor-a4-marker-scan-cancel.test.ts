@@ -6,7 +6,7 @@ import { scanEncodedAudioMarkers } from '../src/common/editor/encoded-audio-mark
 import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { createAudioEditorController, createMemoryEngine, createTwoTrackFixture, ENGLISH_COPY, MockAudioBuffer } from './helpers/audio-editor-multitrack-selection-harness.js';
-import { aacLcM4a48_000Fixture } from './helpers/os-audio-codec-fixtures.ts';
+import { aacLcAdtsPceFixture } from './helpers/os-audio-codec-fixtures.ts';
 
 function latch(): { ready: Promise<void>; release: () => void } {
 	let release = (): void => {}; const ready = new Promise<void>(resolve => { release = resolve; }); return { ready, release };
@@ -40,8 +40,8 @@ for (const rejectLate of [false, true]) test(`File Import Cancel retires the opt
 	let pending: Promise<unknown> | undefined;
 	try {
 		await controller.ready;
-		pending = controller.actions.project.importFiles([new PendingFile([Uint8Array.from(aacLcM4a48_000Fixture())], 'Pending.bin', { type: 'application/octet-stream' })]);
-		await entered.ready; assert.equal(signatureReads, 4); assert.equal(decodes, 0);
+		pending = controller.actions.project.importFiles([new PendingFile([Uint8Array.from(aacLcAdtsPceFixture(false))], 'Pending.bin', { type: 'application/octet-stream' })]);
+		await Promise.race([entered.ready, pending.then(() => { throw new Error('Import completed before reaching its held optional marker read.'); })]); assert.equal(signatureReads, 4); assert.equal(decodes, 0);
 		let settled = false; void pending.then(() => { settled = true; });
 		assert.equal(controller.actions.project.cancelTask(), true);
 		for (let turn = 0; turn < 30; turn++) await nextTurn();

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate as nextTurn } from 'node:timers/promises';
 import { createAudioEditorController, createMemoryEngine, createTwoTrackFixture, ENGLISH_COPY, MockAudioBuffer } from './helpers/audio-editor-multitrack-selection-harness.js';
-import { aacLcM4a48_000Fixture } from './helpers/os-audio-codec-fixtures.ts';
+import { aacLcAdtsPceFixture } from './helpers/os-audio-codec-fixtures.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
 import { decodeStandaloneAudioForImport } from '../src/common/editor/controller/import/internal/standalone-audio-import-decoder.ts';
@@ -28,8 +28,8 @@ for (const rejectLate of [false, true]) test(`File Import Cancel retires a pendi
 		engine: engine as unknown as Options['engine'], ffmpeg: codec as Options['ffmpeg'] });
 	let pending: Promise<unknown> | undefined;
 	try {
-		await controller.ready; pending = controller.actions.project.importFiles([new File([Uint8Array.from(aacLcM4a48_000Fixture())], 'Pending.bin', { type: 'application/octet-stream' })]);
-		await entered.ready; assert.equal(controller.getSnapshot().importing, true);
+		await controller.ready; pending = controller.actions.project.importFiles([new File([Uint8Array.from(aacLcAdtsPceFixture(false))], 'Pending.bin', { type: 'application/octet-stream' })]);
+		await Promise.race([entered.ready, pending.then(() => { throw new Error('Import completed before reaching its held native decoder.'); })]); assert.equal(controller.getSnapshot().importing, true);
 		let settled = false; void pending.then(() => { settled = true; });
 		assert.equal(controller.actions.project.cancelTask(), true);
 		for (let turn = 0; turn < 30; turn++) await nextTurn();
