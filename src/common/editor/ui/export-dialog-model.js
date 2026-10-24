@@ -1,6 +1,7 @@
 import { resolveSelectionRange } from '../selection-range.ts';
 import { videoExportRequestFormat } from '../video-export-request-format.ts';
 import { exportDialogHasDeliveredChapterLabels, exportDialogSupportsEmbeddedChapters } from './export-dialog-embedded-chapters.ts';
+import { exportDialogSupportsLoudnessNormalization } from './export-dialog-loudness.ts';
 import {
 	assertVideoDialogCanvasSize,
 	statedVideoAudioLayout,
@@ -119,7 +120,7 @@ export function createExportDialogRequest(settings, options = {}) {
 			? { embedLabelChapters: true } : {}),
 		// Stated only when a target was chosen: there is no default target, and an
 		// untouched dialog must keep producing the request it always produced.
-		...(settings.mode === 'mix' && settings.loudnessNormalization ? { loudnessNormalization: settings.loudnessNormalization } : {}),
+		...(exportDialogSupportsLoudnessNormalization(settings) && settings.loudnessNormalization ? { loudnessNormalization: settings.loudnessNormalization } : {}),
 		...(settings.mode === 'mix' && settings.binaural ? { binaural: true } : {}),
 		...(settings.masteringSequenceId ? { masteringSequenceId: settings.masteringSequenceId } : {}),
 	};
