@@ -384,8 +384,8 @@ function metadataLabel(value: string): string {
 	const labels: Readonly<Record<string, string>> = Object.freeze({ artist: 'Artist', title: 'Title', album: 'Album', comment: 'Comment',
 		description: 'Description', genre: 'Genre', date: 'Date', copyright: 'Copyright',
 		IART: 'Artist', INAM: 'Title', ICMT: 'Comment', IGNR: 'Genre', ICRD: 'Date' });
-	return labels[value]
-		?? value.replace(/[_-]+/gu, ' ').replace(/^./u, (letter) => letter.toLocaleUpperCase('en-US'));
+	return Object.hasOwn(labels, value) ? labels[value]!
+		: value.replace(/[_-]+/gu, ' ').replace(/^./u, (letter) => letter.toLocaleUpperCase('en-US'));
 }
 
 function taxonomy(
