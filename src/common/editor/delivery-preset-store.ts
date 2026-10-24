@@ -72,8 +72,8 @@ export function saveDeliveryPresetToState(state: unknown, options: {
 		kind: options.kind,
 		format: options.format,
 		settings: options.settings ?? {},
-		licensingRowId: options.licensingRowId ?? null,
-		fallbackPresetId: options.fallbackPresetId ?? null,
+		licensingRowId: options.licensingRowId === undefined && existing?.format === options.format ? existing.licensingRowId : options.licensingRowId ?? null,
+		fallbackPresetId: options.fallbackPresetId === undefined && existing?.format === options.format ? existing.fallbackPresetId : options.fallbackPresetId ?? null,
 		createdAt: existing?.createdAt || now,
 		updatedAt: now,
 	});
