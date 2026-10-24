@@ -30,6 +30,12 @@ test('MIME parameters retain WAV, compressed audio, caption and CUE routes', () 
 	assert.deepEqual(partitionWorkspaceFiles([cue]).cues, [cue]);
 });
 
+test('audio-only M4V aliases retain streamed source clocks without a MIME association', () => {
+	for (const name of ['recording.mp4', 'recording.m4v', 'recording.M4V']) {
+		assert.equal(isStreamedAudioImportFile(new File([], name)), true, name);
+	}
+});
+
 test('generic MIME types do not bypass the maintained AIFF PCM reader', () => {
 	assert.equal(maintainedAiffMimeType(new File([], 'surround.aiff', { type: 'application/octet-stream' })), 'audio/aiff');
 });
