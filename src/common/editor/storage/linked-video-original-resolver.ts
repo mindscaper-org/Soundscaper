@@ -3,6 +3,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { createAbortGuard } from '../abort-error.ts';
+import { LinkedOriginalContentUnavailableError } from './linked-original-content-unavailable-error.ts';
 import { normalizeLinkedOriginalLocatorRevision } from './linked-original-binding.ts';
 import {
 	oneShotLinkedOriginalRelease,
@@ -192,18 +193,25 @@ export class LinkedVideoOriginalResolver {
 			signal: options.signal,
 		});
 		throwIfAborted(options.signal);
-		if (snapshot === null) throw new Error('The linked video original is unavailable or changed.');
+		if (snapshot === null) {
+			await this.assertBindingCurrent(projectId, source, binding, options);
+			throw new LinkedOriginalContentUnavailableError('The linked video original is unavailable or changed.');
+		}
 		const loaded = snapshotValue(snapshot);
 		if (loaded.locatorRevision !== binding.locatorRevision) {
 			throw new Error('The linked video original locator changed during resolution.');
 		}
 		const blob = canonicalMediaContentBlob(loaded.blob);
 		if (blob.size !== binding.byteLength) {
-			throw new Error('The linked video original changed byte length.');
+			await this.assertBindingCurrent(projectId, source, binding, options);
+			throw new LinkedOriginalContentUnavailableError('The linked video original changed byte length.');
 		}
 		const sha256 = await digestMediaContent(blob, { signal: options.signal });
 		throwIfAborted(options.signal);
-		if (sha256 !== binding.sha256) throw new Error('The linked video original failed SHA-256 verification.');
+		if (sha256 !== binding.sha256) {
+			await this.assertBindingCurrent(projectId, source, binding, options);
+			throw new LinkedOriginalContentUnavailableError('The linked video original failed SHA-256 verification.');
+		}
 		await this.assertBindingCurrent(projectId, source, binding, options);
 		return Object.freeze({
 			binding,

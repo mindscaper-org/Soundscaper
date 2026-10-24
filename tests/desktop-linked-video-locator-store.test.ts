@@ -75,14 +75,14 @@ test('linked-video locators fail closed before read admission for a revoked owne
 	});
 
 	store.revokeOwner(owner);
-	assert.equal(await store.load(locator.locatorId, {
+	await assert.rejects(store.load(locator.locatorId, {
 		owner,
 		expectedRevision: locator.locatorRevision,
-	}), null);
-	assert.equal(await store.load(locator.locatorId, {
+	}), { name: 'InvalidStateError' });
+	await assert.rejects(store.load(locator.locatorId, {
 		owner: {},
 		expectedRevision: 'f'.repeat(64),
-	}), null);
+	}), { name: 'InvalidStateError' });
 	assert.deepEqual(reads.registrations, []);
 });
 
@@ -117,10 +117,10 @@ test('linked-video locators reject changed files and retire raced read capabilit
 	reads.afterRegister = async () => { await store.release(second.locatorId, {
 		owner, expectedRevision: second.locatorRevision,
 	}); };
-	assert.equal(await store.load(second.locatorId, {
+	await assert.rejects(store.load(second.locatorId, {
 		owner,
 		expectedRevision: second.locatorRevision,
-	}), null);
+	}), { name: 'InvalidStateError' });
 	assert.deepEqual(reads.releases, [{ id: 'a'.repeat(64), owner }]);
 });
 
@@ -153,10 +153,10 @@ test('linked-video locator admission is bounded and owner revocation fences only
 		/admission|limit/iu,
 	);
 	store.revokeOwner(owner);
-	assert.equal(await store.load(locator.locatorId, {
+	await assert.rejects(store.load(locator.locatorId, {
 		owner,
 		expectedRevision: locator.locatorRevision,
-	}), null);
+	}), { name: 'InvalidStateError' });
 	const nextOwner = {};
 	assert.ok(await store.load(locator.locatorId, {
 		owner: nextOwner,
@@ -324,9 +324,9 @@ test('startup reconciliation prunes only exact unreferenced startup locators', a
 		retained.locatorId,
 		runtimeLocator.locatorId,
 	].sort());
-	assert.equal(await store.load(orphan.locatorId, {
+	await assert.rejects(store.load(orphan.locatorId, {
 		owner, expectedRevision: orphan.locatorRevision,
-	}), null);
+	}), { name: 'InvalidStateError' });
 	assert.ok(await store.load(retained.locatorId, {
 		owner, expectedRevision: retained.locatorRevision,
 	}));
@@ -418,9 +418,9 @@ test('failed startup reconciliation restores the complete locator inventory for 
 	}));
 	rejectWrite = false;
 	assert.equal(await store.reconcileStartup(references, { owner }), 1);
-	assert.equal(await store.load(orphan.locatorId, {
+	await assert.rejects(store.load(orphan.locatorId, {
 		owner, expectedRevision: orphan.locatorRevision,
-	}), null);
+	}), { name: 'InvalidStateError' });
 });
 
 test('owner revocation during startup reconciliation restores startup metadata', async (context) => {

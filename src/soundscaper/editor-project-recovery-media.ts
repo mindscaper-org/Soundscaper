@@ -6,6 +6,7 @@ import { isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-e
 import type { SoundscaperProjectRecoveryStore } from './editor-project-recovery-types.ts';
 import { createScapeDigest, scapeHex } from '../common/editor/scape-archive-media.ts';
 import type { SourcePcmChunk } from '../common/editor/storage/source-read-repository.ts';
+import { LinkedOriginalContentUnavailableError } from '../common/editor/storage/linked-original-content-unavailable-error.ts';
 
 import { soundscaperRecoveryVideoAvailable } from './editor-project-recovery-video.ts';
 import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
@@ -87,6 +88,7 @@ function updateRecoveryPcmDigest(digest: ReturnType<typeof createScapeDigest>, c
 function isConfirmedMediaDamage(error: unknown): boolean {
 	if (isSoundscaperRecoveryBlockedFailure(error)) return false;
 	if (error instanceof PcmStorageCorruptionError) return true;
+	if (error instanceof LinkedOriginalContentUnavailableError) return true;
 	if (!(error instanceof Error)) return false;
 	return error.name === 'NotFoundError' || ('code' in error && error.code === 'ENOENT')
 		|| /^(?:The requested (?:local )?audio source (?:could not be found|is missing)\.|Source storage chunk \d+ (?:is missing|does not exist)\.|The local audio source (?:is truncated|contains an invalid chunk)\.|The immutable source dependency graph contains a cycle\.|A derived source replacement points beyond its base source\.|The OPFS PCM packet is truncated\.)$/u.test(error.message);

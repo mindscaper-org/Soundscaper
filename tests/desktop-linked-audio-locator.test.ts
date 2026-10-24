@@ -117,9 +117,9 @@ test('a successful exact linked-WAV release forgets only registry metadata and n
 	assert.equal(await store.release(locator.locatorId, {
 		owner, expectedRevision: locator.locatorRevision, expectedKind: 'audio',
 	}), true);
-	assert.equal(await store.load(locator.locatorId, {
+	await assert.rejects(store.load(locator.locatorId, {
 		owner, expectedRevision: locator.locatorRevision, expectedKind: 'audio',
-	}), null);
+	}), { name: 'InvalidStateError' });
 	const persisted = JSON.parse(await readFile(registryPath, 'utf8')) as { entries: unknown[] };
 	assert.deepEqual(persisted.entries, []);
 	assert.equal(

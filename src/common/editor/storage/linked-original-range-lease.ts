@@ -3,6 +3,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { createAbortGuard } from '../abort-error.ts';
+import { LinkedOriginalContentUnavailableError } from './linked-original-content-unavailable-error.ts';
 import {
 	oneShotLinkedOriginalRelease,
 	possibleLinkedOriginalRelease,
@@ -50,7 +51,7 @@ export async function verifyLinkedOriginalRangeLease(
 	try {
 		throwIfAborted(signal);
 		if (rawLease === null) {
-			throw new Error('The linked original range is unavailable or changed.');
+			throw new LinkedOriginalContentUnavailableError('The linked original range is unavailable or changed.');
 		}
 		const lease = rangeLeaseValue(rawLease);
 		release ??= oneShotLinkedOriginalRelease(() => lease.release());
@@ -58,7 +59,7 @@ export async function verifyLinkedOriginalRangeLease(
 			throw new Error('The linked original locator changed during range admission.');
 		}
 		if (lease.byteLength !== expected.byteLength) {
-			throw new Error('The linked original changed byte length before range access.');
+			throw new LinkedOriginalContentUnavailableError('The linked original changed byte length before range access.');
 		}
 		if (lease.mimeType !== expected.mimeType) {
 			throw new Error('The linked original changed MIME type before range access.');
@@ -156,6 +157,6 @@ async function verifyRangeDigest(
 	}
 	throwIfAborted(signal);
 	if (bytesToHex(digest.digest()) !== expectedSha256) {
-		throw new Error('The linked original range failed SHA-256 verification.');
+		throw new LinkedOriginalContentUnavailableError('The linked original range failed SHA-256 verification.');
 	}
 }
