@@ -353,8 +353,10 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			});
 		}
 		const sink = new AudioSampleSink(track);
+		const vorbis = codec === 'vorbis' ? await import('./browser-vorbis-decoder.ts') : null;
+		signal?.throwIfAborted();
 		return Object.freeze({ sampleRate, channelCount, timelineOrigin: origin, durationSeconds, continuousTimeline,
-			samples: () => sink.samples(), dispose: () => input.dispose(),
+			samples: () => vorbis ? vorbis.canonicalVorbisSamples(sink.samples(), channelCount) : sink.samples(), dispose: () => input.dispose(),
 		});
 	} catch (error) {
 		input.dispose();

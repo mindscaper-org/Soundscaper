@@ -4,7 +4,7 @@ import { loadImportAdmissionExecution } from './import-admission-loader.ts'; imp
 import { claimImportBusyState } from '../../shared/import-busy-state.ts';
 import { admitAudioImportChannelCount } from './audio-import-channel-admission.ts';
 import { nativeSurroundOpusAdmission, assertNativeSurroundOpusGeometry } from './native-surround-opus-admission.ts';
-import { nativeContainerAudioAdmission, assertNativeContainerAudioGeometry, normalizeNativeContainerAudio } from './native-container-audio-admission.ts';
+import { nativeContainerAudioAdmission, assertNativeContainerAudioGeometry, normalizeNativeContainerAudio, isNativeContainerAudioView } from './native-container-audio-admission.ts';
 import { importFilePlacement } from './import-file-placement.ts';
 import { resolveMediaImportVideoRoute } from './media-import-video-route.ts';
 import {
@@ -430,7 +430,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			// Pinning native decoding keeps the file's own rate, like PCM streaming,
 			// instead of inheriting the output device's rate.
 			decodeWithWebAudio: async (encoded: ArrayBuffer, decodedSampleRate: number | null) => (
-				normalizeNativeContainerAudio(await engine.decodeAudioData(encoded, { sampleRate: decodedSampleRate }), nativeContainer)
+				normalizeNativeContainerAudio(await engine.decodeAudioData(encoded, { sampleRate: decodedSampleRate }), nativeContainer, encoded)
 			),
 			decodeWithCodec: async (input, settings) => ffmpeg.decode(input, settings),
 			bufferFromChannels: (channels, sampleRate, audioContext) => (
@@ -501,7 +501,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 					canonical.length, canonical.sampleRate, projectSampleRate(), 'point',
 				)),
 			}, trackName, wavMetadata.importOptions, wavMetadata.projectBext, wavDescriptor?.markers || rescuedMarkerScan?.markers || [], wavDescriptor?.sampleRate || rescuedMarkerScan?.sampleRate || canonical.sampleRate, wavMetadata.projectIxml, wavMetadata.projectCart, wavMetadata.projectAdmCandidate, wavDescriptor);
-			cacheSourceBuffer(sourceId, canonical);
+			if (!isNativeContainerAudioView(canonical)) cacheSourceBuffer(sourceId, canonical);
 			const peaks = await generateWaveformPeaks(audioBufferChannels(canonical), copy);
 			assertImportProjectCurrent();
 			sourcePeaks.set(sourceId, peaks);

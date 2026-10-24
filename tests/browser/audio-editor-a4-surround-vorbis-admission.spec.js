@@ -13,13 +13,12 @@ for (const channelCount of [2, 6]) test(`File Import preserves ${channelCount} c
 	}, [...bytes]);
 	expect(native.channels).toHaveLength(channelCount);
 	expect([4800, 4801]).toContain(native.frames);
-	// Firefox's existing native APIs retain Vorbis encoded channel order. Keep
-	// that independent baseline unchanged here; this fixes WebKit admission only.
-	const expected = channelCount === 6 && browserName !== 'firefox' ? surroundVorbisReference()
-		: native.channels.map(channel => channel.slice(0, 4800));
+	// A010 also normalizes Firefox's encoded Vorbis planes to canonical speaker order.
+	const expected = channelCount === 6 ? surroundVorbisReference() : native.channels.map(channel => channel.slice(0, 4800));
+	const nativePlanes = channelCount === 6 && browserName === 'firefox' ? [0, 2, 1, 5, 3, 4] : Array.from({ length: channelCount }, (_, index) => index);
 	let nativeError = 0;
 	for (let channel = 0; channel < channelCount; channel++) for (let frame = 0; frame < 4800; frame++) {
-		nativeError = Math.max(nativeError, Math.abs(native.channels[channel][frame] - expected[channel][frame]));
+		nativeError = Math.max(nativeError, Math.abs(native.channels[nativePlanes[channel]][frame] - expected[channel][frame]));
 	}
 	expect(nativeError).toBeLessThan(1e-6);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(bytes) });

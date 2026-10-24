@@ -2,10 +2,12 @@
 import { nativeOggFlacAdmission } from './native-ogg-flac-admission.ts';
 import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-codec-runtime-marker.ts';
 import { raceAbortableRead } from '../../../abort-race.ts';
+import { canonicalNativeVorbisBuffer } from '../../../browser-vorbis-decoder.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
 const MAXIMUM_CHANNELS = 32;
+const NATIVE_CONTAINER_AUDIO_VIEWS = new WeakSet<object>();
 const AAC_SAMPLE_RATES = [96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025, 8_000, 7_350];
 export interface NativeContainerAudioAdmission {
 	readonly sampleRate: number;
@@ -73,13 +75,18 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 	return Object.freeze({ sampleRate, frameCount: Math.round(packets * 1024 * sampleRate / profile.rate), channelCount: null });
 }
 
-/** Preserve the exact authored granule when the qualified native decoder rounds up one frame. */
-export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: NativeContainerAudioAdmission | null): AudioBuffer {
+/** Normalize native speaker roles and authored extent before canonical PCM storage. */
+export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: NativeContainerAudioAdmission | null, encoded?: ArrayBuffer): AudioBuffer {
+	if (encoded) {
+		const normalized = canonicalNativeVorbisBuffer(decoded, encoded);
+		if (normalized !== decoded) NATIVE_CONTAINER_AUDIO_VIEWS.add(normalized);
+		decoded = normalized;
+	}
 	if (!admission?.trimNativeVorbisFinalFrame || decoded.length !== admission.frameCount + 1
 		|| decoded.sampleRate !== admission.sampleRate || decoded.numberOfChannels !== admission.channelCount) return decoded;
 	const length = admission.frameCount;
-	// A zero-copy view is consumed immediately by the existing canonical PCM copier.
-	return Object.freeze({ length, sampleRate: decoded.sampleRate, duration: length / decoded.sampleRate, numberOfChannels: decoded.numberOfChannels,
+	// Storage consumes this zero-copy PCM view; it must never enter the native resident cache.
+	const view = Object.freeze({ length, sampleRate: decoded.sampleRate, duration: length / decoded.sampleRate, numberOfChannels: decoded.numberOfChannels,
 		getChannelData: (channel: number) => decoded.getChannelData(channel).subarray(0, length),
 		copyFromChannel(destination: Float32Array<ArrayBuffer>, channel: number, start = 0) {
 			decoded.copyFromChannel(destination.subarray(0, Math.max(0, length - start)), channel, start);
@@ -88,7 +95,12 @@ export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: N
 			decoded.copyToChannel(source.subarray(0, Math.max(0, length - start)), channel, start);
 		},
 	});
+	NATIVE_CONTAINER_AUDIO_VIEWS.add(view);
+	return view;
 }
+
+/** Structural PCM views are valid for storage, but cannot back a native BufferSource. */
+export function isNativeContainerAudioView(buffer: object): boolean { return NATIVE_CONTAINER_AUDIO_VIEWS.has(buffer); }
 
 /** Verify the native result before canonicalization, PCM writes or command publication. */
 export function assertNativeContainerAudioGeometry(decoded: Readonly<{ sampleRate: number; numberOfChannels: number; length: number }>,

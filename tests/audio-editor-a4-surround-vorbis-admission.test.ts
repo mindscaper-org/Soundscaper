@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { nativeContainerAudioAdmission, normalizeNativeContainerAudio, assertNativeContainerAudioGeometry } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
+import { nativeContainerAudioAdmission, normalizeNativeContainerAudio, assertNativeContainerAudioGeometry, isNativeContainerAudioView } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { admitsNativeSurroundVorbisBackend, nativeSurroundVorbisAdmission } from '../src/common/editor/controller/import/internal/native-surround-vorbis-admission.ts';
 import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from '../src/common/editor/desktop-main-audio-codec-runtime-marker.ts';
 import { oggPageCrc } from '../src/common/editor/ogg-page-crc.ts';
@@ -50,6 +50,7 @@ test('the native final-frame view copies only granule-authoritative samples with
 		copyToChannel(source, channel, start = 0) { channels[channel]!.set(source, start); },
 	};
 	const view = normalizeNativeContainerAudio(native, admission);
+	assert.equal(isNativeContainerAudioView(view), true); assert.equal(isNativeContainerAudioView(native), false);
 	assert.equal(view.length, 4800); assert.equal(view.duration, .1); assert.equal(view.getChannelData(5).buffer, channels[5]!.buffer);
 	assert.deepEqual(view.getChannelData(5), channels[5]!.subarray(0, 4800));
 	assert.doesNotThrow(() => assertNativeContainerAudioGeometry(view, admission));
