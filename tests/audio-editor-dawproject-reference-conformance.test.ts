@@ -97,7 +97,9 @@ function fullProject() {
 			{ id: 'sig-1', bar: 0, numerator: 4, denominator: 4 },
 			{ id: 'sig-2', bar: 4, numerator: 7, denominator: 8 },
 		] },
-		metadata: { title: 'Conformance', artist: 'Someone & Someone', album: 'Album', year: '2026', comments: 'a <b> "c"' },
+		metadata: { title: 'Conformance', artist: 'Someone & Someone', album: 'Album', year: '2026', comments: 'a <b> "c"',
+			tags: { originalArtist: 'Original performer', composer: 'Composer', songwriter: 'Writer', producer: 'Producer',
+				arranger: 'Arranger', genre: 'Genre', copyright: '© Owner', website: 'https://example.test/credits' } },
 		sources: [
 			{ kind: 'audio', id: 'src-a', name: 'Take 1.wav', frameCount: 96_000, channelCount: 2, sampleRate: SAMPLE_RATE },
 			{ kind: 'audio', id: 'src-b', name: 'Loop.wav', frameCount: 44_100, channelCount: 1, sampleRate: 44_100 },

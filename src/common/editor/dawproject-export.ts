@@ -38,6 +38,7 @@ import {
 import { buildArrangement } from './dawproject-export-lanes.ts';
 import { portableFileStem } from './portable-file-stem.ts';
 import type { HoldTempoMap } from './timeline-time.ts';
+import { projectAudioMetadata } from './id3-descriptive-fields.ts';
 
 /**
  * DAWproject export.
@@ -379,11 +380,17 @@ function buildChannel(context: DawprojectExportContext, key: string, spec: Chann
 
 function buildMetadata(project: DataRecord, title: string): XmlElement {
 	const metadata = record(project.metadata);
+	const tags = projectAudioMetadata(metadata);
+	const tag = (key: string): string | undefined => tags[key]
+		?? Object.entries(tags).find(([name]) => name.toLowerCase() === key.toLowerCase())?.[1];
 	const entries: [string, unknown][] = [
 		['Title', metadata.title || title],
 		['Artist', metadata.artist],
 		['Album', metadata.album],
+		['OriginalArtist', tag('originalArtist')], ['Composer', tag('composer')],
+		['Songwriter', tag('songwriter')], ['Producer', tag('producer')], ['Arranger', tag('arranger')],
 		['Year', metadata.year],
+		['Genre', tag('genre')], ['Copyright', tag('copyright')], ['Website', tag('website')],
 		['Comment', metadata.comments],
 	];
 	return xmlElement('MetaData', {}, entries

@@ -173,6 +173,8 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 			album: document.metadata.album ?? '',
 			year: document.metadata.year ?? '',
 			comments: document.metadata.comment ?? '',
+			tags: Object.fromEntries((['originalArtist', 'composer', 'songwriter', 'producer', 'arranger', 'genre', 'copyright', 'website'] as const)
+				.flatMap(key => document.metadata[key] === undefined ? [] : [[key, document.metadata[key]]])),
 		},
 		sources,
 		clips,
