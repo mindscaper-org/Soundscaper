@@ -46,7 +46,7 @@ for (const format of ['wav', 'aiff'] as const) test(`Cancel releases a ${format}
 		for (let turn = 0; turn < 30; turn++) await nextTurn();
 		assert.equal(settled, true, 'Cancel must release ownership before the PCM read settles');
 		assert.equal(controller.getSnapshot().importing, false);
-		await controller.actions.project.importFiles([new File([encodeWav([new Float32Array(2400).fill(.125)], { sampleRate: 48_000 })], 'Fresh.wav')]);
+		await controller.actions.project.importFiles([new File([Uint8Array.from(encodeWav([new Float32Array(2400).fill(.125)], { sampleRate: 48_000 })).buffer], 'Fresh.wav')]);
 		const project = controller.getSnapshot().project; assert.ok(validateAudioEditorProjectV17(project));
 		assert.deepEqual(project.sources.map(source => source.name), ['Fresh.wav']);
 		const readCount = reads; resume.release(); for (let turn = 0; turn < 30; turn++) await nextTurn();
