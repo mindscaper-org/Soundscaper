@@ -1,3 +1,4 @@
+import { inspectApeAudioSampleRate } from './ape-audio-sample-rate.ts';
 import { inspectSbcAudioSampleRate } from './sbc-audio-sample-rate.ts';
 import { inspectSdsPcmSourceGeometry } from './sds-pcm-source-geometry.ts';
 import { inspectTtaAudioSampleRate } from './tta-audio-sample-rate.ts';
@@ -62,6 +63,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
+			?? inspectApeAudioSampleRate(bytes)
 			?? inspectTtaAudioSampleRate(bytes)
 			?? inspectSbcAudioSampleRate(bytes)
 			?? inspectAmrWbAudioSampleRate(bytes)
@@ -104,6 +106,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
+			?? inspectApeAudioSampleRate(bytes)
 			?? inspectTtaAudioSampleRate(bytes)
 			?? inspectSbcAudioSampleRate(bytes)
 			?? inspectAmrWbAudioSampleRate(bytes)
