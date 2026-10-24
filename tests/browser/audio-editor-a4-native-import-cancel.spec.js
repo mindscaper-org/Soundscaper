@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor } from './audio-editor-test-helpers.js';
-import { aacLcM4a48_000Fixture } from '../helpers/os-audio-codec-fixtures.ts';
+import { aacLcAdtsPceFixture } from '../helpers/os-audio-codec-fixtures.ts';
+// Opaque raw ADTS stays on the native route; opaque ISO AAC now streams (A4-024).
 
 for (const rejectLate of [false, true]) test(`Cancel retires a real native audio decode before fresh File Import (late failure=${rejectLate})`, async ({ page }) => {
 	await page.addInitScript(rejectLate => {
@@ -21,7 +22,7 @@ for (const rejectLate of [false, true]) test(`Cancel retires a real native audio
 	}, rejectLate);
 	const editor = await bootEditor(page, '/embed/en/');
 	await page.evaluate(() => { globalThis.__holdNextImportDecode = true; });
-	await editor.locator('[data-import-input]').setInputFiles({ name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(aacLcM4a48_000Fixture()) });
+	await editor.locator('[data-import-input]').setInputFiles({ name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(aacLcAdtsPceFixture(false)) });
 	try {
 		await expect.poll(() => page.evaluate(() => globalThis.__heldImportDecode?.channels ?? 0)).toBe(2);
 		const progress = editor.locator('[data-editor-task-progress="import"]');
@@ -61,7 +62,7 @@ for (const rejectLate of [false, true]) test(`Cancel retires a real optional mar
 		};
 	}, rejectLate);
 	const editor = await bootEditor(page, '/embed/en/');
-	await editor.locator('[data-import-input]').setInputFiles({ name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(aacLcM4a48_000Fixture()) });
+	await editor.locator('[data-import-input]').setInputFiles({ name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(aacLcAdtsPceFixture(false)) });
 	try {
 		await expect.poll(() => page.evaluate(() => globalThis.__markerReadHeld)).toBe(true);
 		const progress = editor.locator('[data-editor-task-progress="import"]');
@@ -77,4 +78,23 @@ for (const rejectLate of [false, true]) test(`Cancel retires a real optional mar
 		await expect(editor.getByRole('group', { name: /^Pending\.bin clip,/u })).toHaveCount(0);
 		await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toHaveCount(0);
 	} finally { await page.evaluate(() => globalThis.__releaseMarkerRead?.()); }
+});
+
+test('the cancellation fixture reaches the healthy native decoder and imports without a hold', async ({ page, browserName }) => {
+	await page.addInitScript(() => {
+		const nativeDecode = BaseAudioContext.prototype.decodeAudioData;
+		BaseAudioContext.prototype.decodeAudioData = function (...args) {
+			return Reflect.apply(nativeDecode, this, args).then(decoded => {
+				globalThis.__nativeControlGeometry = { rate: decoded.sampleRate, channels: decoded.numberOfChannels, frames: decoded.length };
+				return decoded;
+			});
+		};
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.locator('[data-import-input]').setInputFiles({ name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(aacLcAdtsPceFixture(false)) });
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	// Independent whole-file probes pin each engine's existing ADTS priming convention.
+	expect(await page.evaluate(() => globalThis.__nativeControlGeometry)).toEqual({ rate: 48_000, channels: 2, frames: browserName === 'firefox' ? 5_120 : 6_144 });
+	await expect(editor.getByRole('group', { name: /^Pending\.bin clip,/u })).toHaveCount(1);
+	await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toHaveCount(0);
 });
