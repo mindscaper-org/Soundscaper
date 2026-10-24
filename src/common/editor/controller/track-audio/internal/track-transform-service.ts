@@ -79,7 +79,7 @@ export interface TrackTransformServiceDependencies {
 	captureProject(): EditorProjectToken;
 	assertProject(token: EditorProjectToken): void;
 	createId(prefix: string): string;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips: boolean }>): unknown;
 	projectSampleRate(): number;
 	normalizeProjectSampleRate(value: unknown): number;
 	audioTrackChannelCount(project: ControllerProject, track: ControllerTrack): number;
@@ -168,7 +168,7 @@ export function createTrackTransformService(
 				for (const clip of clips) addResampledClipCommands(commands, track, clip, replacements, sampleRate);
 				assertOwned(ownership);
 				commands.push(...resampledClipSelectionCommands(dependencies.getProject().selection, clips.map(clip => clip.id)));
-				dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id });
+				dependencies.commit({ type: 'batch', commands }, { selectTrackId: track.id }, { microfadeNewClips: false });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return track.id;
 			} catch (error) {
@@ -315,7 +315,7 @@ export function createTrackTransformService(
 					{ sourceTrackId: track.id, targetTrackId: track.id },
 					{ sourceTrackId: track.id, targetTrackId: rightTrackId },
 				], dependencies.previewCommand, dependencies.createId);
-				dependencies.commit(command, { selectTrackId: track.id });
+				dependencies.commit(command, { selectTrackId: track.id }, { microfadeNewClips: false });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return Object.freeze({ leftTrackId: track.id, rightTrackId });
 			} catch (error) {
@@ -412,7 +412,7 @@ export function createTrackTransformService(
 				const command = preserveProductionTrackRouting(project, { type: 'batch', commands }, [
 					{ sourceTrackId: track.id, targetTrackId: track.id },
 				], dependencies.previewCommand, dependencies.createId);
-				dependencies.commit(command, { selectTrackId: track.id, selectClipId: clipId });
+				dependencies.commit(command, { selectTrackId: track.id, selectClipId: clipId }, { microfadeNewClips: false });
 				setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 				return track.id;
 			} catch (error) {

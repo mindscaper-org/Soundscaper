@@ -53,7 +53,7 @@ export interface ClipResampleServiceDependencies {
 	editingBlocked(): boolean;
 	captureProject(): EditorProjectToken;
 	assertProject(token: EditorProjectToken): void;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips: boolean }>): unknown;
 	normalizeProjectSampleRate(value: unknown): number;
 	preflightStorage(bytes: number, category: 'effect'): Promise<unknown>;
 	setProcessing(processing: boolean): void;
@@ -203,7 +203,7 @@ export function createClipResampleService(
 					...resampledClipCommands(track.id, clip, source, record.source, sampleRate, linkedVideo),
 					...resampledClipSelectionCommands(dependencies.getProject().selection, [clip.id]),
 				],
-			}, { selectTrackId: track.id, selectClipId: clip.id });
+			}, { selectTrackId: track.id, selectClipId: clip.id }, { microfadeNewClips: false });
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 			return clip.id;
 		} catch (error) {
