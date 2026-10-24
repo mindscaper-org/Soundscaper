@@ -5,7 +5,7 @@ import { createSoundscaperNativeAudioRenderer, soundscaperNativeAudioOutputChann
 import { connectSurroundMonitoring } from '../src/common/editor/surround-monitoring.ts';
 import { MockAudioContext, MockNode } from './helpers/mock-audio-context.js';
 
-for (const [defaultWidth, nativeWidth, programmeWidth] of [[6, 2, 6], [2, 6, 6], [2, 8, 8], [2, 2, 6]] as const) {
+for (const [defaultWidth, nativeWidth, programmeWidth] of [[6, 2, 6], [2, 6, 6], [2, 8, 8], [2, 2, 6], [2, 1, 2], [2, 1, 6]] as const) {
 	test(`monitoring uses native width ${nativeWidth} for programme ${programmeWidth}, default hardware ${defaultWidth}`, async () => {
 		const context = Object.assign(new MockAudioContext(), {
 			createChannelSplitter: () => new MockNode('splitter'), createChannelMerger: () => new MockNode('merger'),
@@ -42,15 +42,21 @@ for (const [defaultWidth, nativeWidth, programmeWidth] of [[6, 2, 6], [2, 6, 6],
 			assert.equal(soundscaperNativeAudioOutputChannelCount(context as unknown as BaseAudioContext), nativeWidth);
 			const nodes: AudioNode[] = [];
 			assert.equal(connectSurroundMonitoring(context as unknown as BaseAudioContext, source as unknown as AudioNode,
-				listening as unknown as AudioNode, programmeWidth, nodes), nativeWidth >= programmeWidth ? 'native' : 'stereo-fallback');
+				listening as unknown as AudioNode, programmeWidth, nodes), nativeWidth === 1 ? 'mono-fallback' : nativeWidth >= programmeWidth ? 'native' : 'stereo-fallback');
 			assert.equal((context.destination as unknown as { channelCount: number }).channelCount, 2,
 				'the unselected default device must not be reconfigured');
-			assert.equal(nodes.length, nativeWidth >= programmeWidth ? 0 : 8);
+			assert.equal(nodes.length, (programmeWidth <= 2 || nativeWidth >= programmeWidth ? 0 : 8) + (nativeWidth === 1 ? 1 : 0));
+			if (nativeWidth === 1) {
+				const mono = nodes.find(node => node.channelCount === 1);
+				assert.ok(mono);
+				assert.equal(mono.channelCountMode, 'explicit');
+				assert.equal(mono.channelInterpretation, 'speakers');
+			}
 			await renderer.release('selected-output');
 			assert.equal(soundscaperNativeAudioOutputChannelCount(context as unknown as BaseAudioContext), null);
 			const freshSource = context.createGain();
 			assert.equal(connectSurroundMonitoring(context as unknown as BaseAudioContext, freshSource as unknown as AudioNode,
-				context.destination as unknown as AudioNode, programmeWidth, []), defaultWidth >= programmeWidth ? 'native' : 'stereo-fallback');
+				context.destination as unknown as AudioNode, programmeWidth, []), programmeWidth <= 2 ? 'direct' : defaultWidth >= programmeWidth ? 'native' : 'stereo-fallback');
 		} finally { await renderer.dispose(); }
 	});
 }

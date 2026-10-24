@@ -2,9 +2,9 @@
 import { installDesktopSpeedWarmupManifest } from './desktop-speed-warmup-fixture.js';
 
 /** The production native worklet exchanges owned PCM packets with an independent helper thread. */
-export async function installNativeOutputPeer(page) {
+export async function installNativeOutputPeer(page, { outputChannelCount = 2 } = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(() => {
+	await page.addInitScript(({ outputChannelCount }) => {
 		const sessions = new Map(), peers = new Map();
 		let next = 0;
 		const unavailable = { status: 'unavailable', reason: 'not-built', detail: '' };
@@ -31,7 +31,7 @@ export async function installNativeOutputPeer(page) {
 			nativePluginScanProgress: async () => ({ enabled: false, scanProgress: null }),
 			describeNativeAudioBackend: async ({ backend }) => ({ status: 'described', inventory: {
 				backend, status: 'ready', detail: '', devices: [{ handle: 'speakers', label: 'Chosen native speakers',
-					direction: 'output', channelCount: 2, isDefault: true }],
+					direction: 'output', channelCount: outputChannelCount, isDefault: true }],
 			} }),
 			openNativeAudioSession: async request => {
 				const sessionId = `route-${++next}`;
@@ -87,5 +87,5 @@ export async function installNativeOutputPeer(page) {
 			bridge[name] = async () => { throw new Error(`Unexpected native fixture method ${name}`); };
 		}
 		Object.defineProperty(window, 'soundscaperDesktop', { configurable: true, value: { v1: bridge } });
-	});
+	}, { outputChannelCount });
 }
