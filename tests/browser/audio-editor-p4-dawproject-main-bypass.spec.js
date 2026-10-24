@@ -8,10 +8,11 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const route of ['direct output bypass', 'ordinary Master processing', 'bus bypass', 'coexisting paths', 'automated coexisting paths', 'secondary output', 'Master secondary output']) test(`DAWproject roundtrip retains ${route}`, async ({ page }) => {
+for (const route of ['direct output bypass', 'ordinary Master processing', 'bus bypass', 'coexisting paths', 'automated coexisting paths', 'secondary output', 'Master secondary output', 'absent Master output', 'disabled Master output']) test(`DAWproject roundtrip retains ${route}`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const mixed = route.includes('coexisting'), automated = route.startsWith('automated');
-	const bypass = route !== 'ordinary Master processing';
+	const masterDetached = route === 'absent Master output' || route === 'disabled Master output';
+	const bypass = route !== 'ordinary Master processing' && !masterDetached;
 	const source = createAudioSource({ id: 'source', name: 'Voice.wav', sampleRate: 48_000, frameCount: 4800, channelCount: 2 });
 	const base = createSoundscaperProject({ id: `daw-main-${route}`, title: 'Master bypass', sources: [source],
 		clips: [createAudioClip({ id: 'clip', sourceId: source.id, title: 'Voice', durationFrames: 4800, sourceDurationFrames: 4800 }),
@@ -25,16 +26,19 @@ for (const route of ['direct output bypass', 'ordinary Master processing', 'bus 
 	const project = createSoundscaperProject({ ...base, master: { ...base.master, gain: .2 },
 		...(automated ? { automationLanes: [{ id: 'master-gain', address: { kind: 'strip', strip: { kind: 'master' }, parameterId: 'gain' },
 			timebase: 'absolute-samples', points: [{ id: 'point', position: 0, value: .4 }], segments: [] }] } : {}),
-		mixer: { ...base.mixer, groups: route === 'bus bypass' ? [bus] : [],
+		mixer: { ...base.mixer, groups: route === 'bus bypass' ? [bus] : [], sends: masterDetached ? [bus] : [],
 			outputs: [...base.mixer.outputs, ...(route.includes('secondary output') ? [{ id: 'cue-output', name: 'Cue output', role: 'cue', channelCount: 2 }] : [])], edges: [
-				...base.mixer.edges.map(edge => route === 'Master secondary output' && edge.source.kind === 'master'
+				...base.mixer.edges.flatMap(edge => edge.source.kind === 'master' && masterDetached
+					? route === 'disabled Master output' ? [{ ...edge, enabled: false }] : [] : [edge]).map(edge => route === 'Master secondary output' && edge.source.kind === 'master'
 					? { ...edge, destination: { kind: 'output', id: 'cue-output' } }
 					: edge.source.kind === 'track' && edge.source.id === 'bypass'
 						? { ...edge, destination: { kind: 'output', id: output.id } }
 						: bypass && route !== 'Master secondary output' && edge.source.kind === 'track' && edge.source.id === 'voice'
 					? { ...edge, destination: route === 'bus bypass' ? { kind: 'mixer-node', id: bus.id } : terminal } : edge),
-				...(route === 'bus bypass' ? [{ id: 'bus-output', kind: 'assignment', source: { kind: 'mixer-node', id: bus.id },
+				...(route === 'bus bypass' || masterDetached ? [{ id: 'bus-output', kind: 'assignment', source: { kind: 'mixer-node', id: bus.id },
 					destination: terminal, position: 'post-fader', level: 1, enabled: true, channelMap: [0, 1] }] : []),
+				...(masterDetached ? [{ id: 'voice-send', kind: 'send', source: { kind: 'track', id: 'voice' },
+					destination: { kind: 'mixer-node', id: bus.id }, position: 'post-fader', level: .4, enabled: true, channelMap: [0, 1] }] : []),
 			],
 		},
 	});
@@ -49,7 +53,7 @@ for (const route of ['direct output bypass', 'ordinary Master processing', 'bus 
 	await (await choosing).setFiles({ name: 'Master bypass.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 	const before = await exportSamples(page, editor); expect(before).toHaveLength(4800);
-	expect(before[2000]).toBeCloseTo(route.includes('secondary output') ? 0 : mixed ? automated ? .29 : .27 : bypass ? .25 : .05, 5);
+	expect(before[2000]).toBeCloseTo(route.includes('secondary output') ? 0 : masterDetached ? .1 : mixed ? automated ? .29 : .27 : bypass ? .25 : .05, 5);
 	const downloading = page.waitForEvent('download');
 	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export DAWproject']);
 	const download = await downloading; let bytes;

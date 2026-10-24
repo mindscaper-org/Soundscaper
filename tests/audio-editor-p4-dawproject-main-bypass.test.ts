@@ -113,3 +113,22 @@ test('DAWproject never redirects an explicit nonprogramme Master output into the
 	assert.equal(sink.mute?.value, true, 'Master audio assigned only to cue must remain outside the programme');
 	assert.ok(exported.report.items.some(item => item.code === 'dawproject.routing-features-omitted'));
 });
+
+for (const disabled of [false, true]) test(`DAWproject preserves a ${disabled ? 'disabled' : 'missing'} Master output alongside an audible send`, () => {
+	const base = createSoundscaperProject({ id: 'master-detached', title: 'Detached Master', tracks: [createAudioTrack({ id: 'voice', name: 'Voice' })] });
+	const wet = { id: 'wet', name: 'Wet', color: '#456789', gain: 1, pan: 0, mute: false, solo: false,
+		collapsed: false, effectsActive: true, effects: [], channelCount: 2 };
+	const project = createSoundscaperProject({ ...base, mixer: { ...base.mixer, sends: [wet], edges: [
+		...base.mixer.edges.flatMap(edge => edge.source.kind !== 'master' ? [edge] : disabled ? [{ ...edge, enabled: false }] : []),
+		{ id: 'voice-wet', kind: 'send', source: { kind: 'track', id: 'voice' }, destination: { kind: 'mixer-node', id: wet.id },
+			position: 'post-fader', level: .4, enabled: true, channelMap: [0, 1] },
+		{ id: 'wet-main', kind: 'assignment', source: { kind: 'mixer-node', id: wet.id }, destination: { kind: 'output', id: 'main' },
+			position: 'post-fader', level: 1, enabled: true, channelMap: [0, 1] },
+	] } });
+	const exported = createDawprojectExport({ project });
+	const document = parseDawprojectDocument(exported.projectXml, exported.metadataXml);
+	const master = document.tracks.find(track => track.name === 'Master')?.channel; assert.ok(master);
+	const sink = document.tracks.find(track => track.channel?.id === master.destination)?.channel; assert.ok(sink);
+	assert.equal(sink.mute?.value, true, 'an absent Master connection cannot gain a dry programme path');
+	assert.equal(document.tracks.find(track => track.name === 'Voice')?.channel?.sends[0]?.volume?.value, .4);
+});

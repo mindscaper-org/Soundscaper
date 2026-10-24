@@ -250,9 +250,10 @@ function readGraphRouting(graph: DataRecord): DawprojectMixerRouting {
 	const nodeRoutes: typeof routes = new Map();
 	const assignments = new Set<string>();
 	const mainOutput = records(graph.outputs).find(output => output.role === 'main')?.id;
-	const masterOutputs = records(graph.edges).filter(edge => edge.enabled !== false && edge.kind === 'assignment'
-		&& record(edge.source).kind === 'master' && record(edge.destination).kind === 'output');
-	const masterDisconnected = masterOutputs.length > 0 && !masterOutputs.some(edge => record(edge.destination).id === mainOutput);
+	const masterRoutes = records(graph.edges).filter(edge => edge.enabled !== false && edge.kind !== 'sidechain'
+		&& record(edge.source).kind === 'master');
+	const masterDisconnected = mainOutput !== undefined && masterRoutes.every(edge =>
+		record(edge.destination).kind === 'output' && record(edge.destination).id !== mainOutput);
 	const route = (entries: typeof routes, sourceId: string) => {
 		let entry = entries.get(sourceId);
 		if (!entry) {
