@@ -287,7 +287,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 		},
 		enqueueClip: (reference: FreesoundClipUploadReference) => {
 			if (!reference.projectId || !reference.clipId) throw new TypeError('A valid project clip is required.');
-			const duplicate = records.find(({ clip }) => clip?.projectId === reference.projectId
+			const duplicate = records.find(({ clip, item }) => item.status !== 'submitted' && clip?.projectId === reference.projectId
 				&& clip.clipId === reference.clipId);
 			if (duplicate) return duplicate.item.id;
 			assertQueueCapacity(records.length, 1);
