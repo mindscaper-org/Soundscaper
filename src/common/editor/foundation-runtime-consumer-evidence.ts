@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { FOUNDATION_SELECTION_RUNTIME_CONSUMERS } from './foundation-selection-consumer-evidence.ts';
-
+import { FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS } from './foundation-time-pitch-consumer-evidence.ts';
 export type FoundationRuntimeConsumerSurface =
 	| 'playback'
 	| 'preview'
@@ -30,7 +30,7 @@ export interface FoundationRuntimeConsumerEvidence {
  * boundary before reading any persisted/resolved clip timing field.
  */
 const entries: FoundationRuntimeConsumerEvidence[] = [
-	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS,
+	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS, ...FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS,
 	{ id: 'bin-audio-duration-presentation', surface: 'preview', file: 'src/common/editor/ui/workspace/useProjectBinPresentation.ts', entryPoint: 'useProjectBinAudioDuration', inputIdentifier: 'project', projectedIdentifier: null, boundary: 'resolveRuntimeClipProjection', evidence: 'Audio Bin cards resolve authored beat extents at the current tempo before displaying duration; sample clips and visual media retain their existing timing paths.' },
 	{
 		id: 'label-file-export', surface: 'interchange', file: 'src/common/editor/controller/edit/internal/label-service.ts',
@@ -247,8 +247,8 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 		entryPoint: 'loadProject',
 		inputIdentifier: 'mediaProject',
 		projectedIdentifier: 'resolvedProject',
-		boundary: 'resolveRuntimeProjectProjection',
-		evidence: 'The engine stores, sizes, seeks, and schedules only the transient resolved project derived from the folder media projection at loadProject entry.',
+		boundary: 'resolveTimePitchPlaybackProject',
+		evidence: 'The engine stores, sizes, seeks, and schedules the resolved folder media projection with the same beat-derived scalar used by independent time/pitch cache admission.',
 	},
 	{
 		id: 'engine-project-apply',

@@ -6,6 +6,7 @@ import {
 	clipNeedsTimePitchRender as legacyClipNeedsTimePitchRender,
 } from '../../clip-time-pitch-cache.js';
 import { estimatePcmRenderPublication } from '../../publication-byte-estimates.ts';
+import { clipTimePitchPlaybackProjection } from '../../clip-time-pitch-playback-projection.ts';
 import { scaleSampleFrame } from '../../timeline-time.ts';
 import { readClipLoop, withoutClipLoop } from '../../audio-clip-loop.ts';
 import { loadSourceProvenanceDerivation } from '../../source-provenance-derivation-loader.ts';
@@ -161,7 +162,8 @@ export function createClipTimePitchRenderService(
 		const track = clip ? findClipTrack(project, clip.id) : null;
 		const source = clip ? findRenderSource(project, clip.sourceId) : null;
 		if (!clip || !track || !source) throw createLocalizedError(Error, dependencies.copy, 'audioClipNotFound');
-		if (!clipNeedsTimePitchRender(clip) && !(clip.linkPitchAndTempo && clip.speedRatio !== 1)) return clip.id;
+		const playbackClip = clipTimePitchPlaybackProjection(project, clip, source);
+		if (!clipNeedsTimePitchRender(playbackClip) && !(clip.linkPitchAndTempo && clip.speedRatio !== 1)) return clip.id;
 		const task = dependencies.lifetime.startTask('clip-time-pitch-render');
 		const operation = ++renderGeneration;
 		const projectToken = dependencies.captureProject();
@@ -178,7 +180,7 @@ export function createClipTimePitchRenderService(
 				if (!dependencies.renderLinkedOutput) throw new Error('Linked clip rendering is unavailable.');
 				buffer = await dependencies.renderLinkedOutput(project, clip, source, task.signal);
 			} else {
-				const entry = await dependencies.prepareCommittedOutput(clip, source, { signal: task.signal });
+				const entry = await dependencies.prepareCommittedOutput(playbackClip, source, { signal: task.signal });
 				assertOwned(task, projectToken, fingerprint);
 				buffer = (await dependencies.materializeEntry(entry, task.signal)).audioBuffer;
 			}

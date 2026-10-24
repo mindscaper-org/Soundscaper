@@ -54,7 +54,7 @@ const TIMING_FIELDS = new Set([
 ]);
 const REPOSITORY_ROOT = new URL('../', import.meta.url);
 const EDITOR_ROOT = new URL('../src/common/editor/', import.meta.url);
-const PROJECTION_IMPORT = /(?:runtime-clip-projection|project-current-runtime|generator-project-view|project-bin-runtime)\.ts$/u;
+const PROJECTION_IMPORT = /(?:runtime-clip-projection|clip-time-pitch-playback-projection|project-current-runtime|generator-project-view|project-bin-runtime)\.ts$/u;
 const parsedSources = new Map<string, Promise<SourceFile>>();
 
 test('every shielded consumer surface crosses a registered runtime projection boundary before timing reads', async () => {

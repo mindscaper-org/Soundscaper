@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { clipNeedsTimePitchRender } from '../../../clip-time-pitch-cache.js';
+import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
 import type { PrepareSpectrogramProcessedPcm, SpectrogramProcessedPcm } from '../../../spectrogram-processed-pcm-contract.ts';
 import type { ProjectVisualClip, ProjectVisualProject, ProjectVisualSource } from '../../document/project-visual-types.ts';
 import type { ClipTimePitchCacheEntry, ClipTimePitchCachePort } from '../clip-time-pitch-service.ts';
@@ -19,7 +20,8 @@ export function processedSpectrogramPreparation(
 	clip: ProjectVisualClip,
 	source: ProjectVisualSource,
 ): PrepareSpectrogramProcessedPcm | undefined {
-	if (clip.warpMap != null || !clipNeedsTimePitchRender(clip)) return undefined;
+	const playbackClip = clipTimePitchPlaybackProjection(project, clip, source);
+	if (clip.warpMap != null || !clipNeedsTimePitchRender(playbackClip)) return undefined;
 	return async signal => {
 		const assertAuthority = dependencies.captureAuthority(project.id);
 		const assertCurrent = (): void => {
@@ -28,7 +30,7 @@ export function processedSpectrogramPreparation(
 			if (dependencies.getProject() !== project) throw new DOMException('The spectral recording changed.', 'AbortError');
 		};
 		assertCurrent();
-		const entry = await dependencies.cache.prepareCommittedOutput(clip, source, { signal, projectSampleRate: typeof project.sampleRate === 'number' ? project.sampleRate : undefined });
+		const entry = await dependencies.cache.prepareCommittedOutput(playbackClip, source, { signal, projectSampleRate: typeof project.sampleRate === 'number' ? project.sampleRate : undefined });
 		assertCurrent();
 		const pcm = dependencies.open(entry);
 		return Object.freeze({

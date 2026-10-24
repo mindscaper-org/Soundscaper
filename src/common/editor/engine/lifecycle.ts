@@ -32,7 +32,7 @@ import {
 import { resolveProjectGraphSelection } from './project-graph-selection.ts';
 import { playbackSessionStart, restorePlaybackSessionStart } from './playback-session.ts';
 import { disposePlaybackFrequencyOutput } from './playback-frequency-range.ts';
-import { resolveRuntimeProjectProjection } from '../runtime-clip-projection.ts';
+import { resolveTimePitchPlaybackProject } from '../clip-time-pitch-playback-projection.ts';
 import {
 	ENGINE_ASSERT_ACTIVE,
 	ENGINE_CANCEL_SCRUB,
@@ -274,7 +274,7 @@ loadProject(project, sourceBuffers = new Map(), options = {}) {
 		this[ENGINE_HALT_GRAPH]();
 		const mediaProject = project ? projectTrackFolderMediaStateV12(project) : project;
 		const resolvedProject = mediaProject?.schemaVersion
-			? resolveRuntimeProjectProjection(mediaProject)
+			? resolveTimePitchPlaybackProject(mediaProject)
 			: mediaProject;
 		const runtimeProject = mediaProject && resolvedProject
 			? inheritTrackFolderMediaStateProjectionV12(mediaProject, resolvedProject)

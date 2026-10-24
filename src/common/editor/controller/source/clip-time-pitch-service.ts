@@ -4,6 +4,7 @@ import {
 	clipNeedsTimePitchRender as legacyClipNeedsTimePitchRender,
 } from '../../clip-time-pitch-cache.js';
 import { hasCoreEditingProjectAuthority } from '../../project-schema-version.ts';
+import { clipTimePitchPlaybackProjection } from '../../clip-time-pitch-playback-projection.ts';
 import { throwIfAborted } from '../shared/app-helpers.ts';
 import { admitTimePitchCacheProject } from './internal/time-pitch-cache-project-admission.ts';
 import type { OwnedStateWriteScope } from '../shared/owned-state.ts';
@@ -143,9 +144,11 @@ export function createClipTimePitchCacheService<
 		if (!snapshot || !hasCoreEditingProjectAuthority(snapshot)) return Object.freeze([]);
 		const pairs: ClipTimePitchPair[] = [];
 		for (const clip of snapshot.clips) {
-			if (clip.kind === 'video' || !clipNeedsTimePitchRender(clip)) continue;
+			if (clip.kind === 'video') continue;
 			const source = findSource(snapshot, clip.sourceId);
-			if (source) pairs.push(Object.freeze({ clip, source }));
+			if (!source) continue;
+			const playbackClip = clipTimePitchPlaybackProjection(snapshot, clip, source);
+			if (clipNeedsTimePitchRender(playbackClip)) pairs.push(Object.freeze({ clip: playbackClip, source }));
 		}
 		return Object.freeze(pairs);
 	}

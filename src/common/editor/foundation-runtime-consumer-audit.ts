@@ -35,6 +35,8 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 	{ boundary: 'clipContentRange', file: 'src/common/editor/clip-content-range.ts', root: false, delegate: 'projectedClipContentRange', guardsBrand: false },
 	{ boundary: 'projectedClipContentRange', file: 'src/common/editor/clip-content-range.ts', root: false, delegate: 'resolveRuntimeClipProjection', guardsBrand: false },
 	{ boundary: 'resolveRuntimeClipProjection', file: 'src/common/editor/runtime-clip-projection.ts', root: true, delegate: null, guardsBrand: false },
+	{ boundary: 'clipTimePitchPlaybackProjection', file: 'src/common/editor/clip-time-pitch-playback-projection.ts', root: false, delegate: 'resolveRuntimeClipProjection', guardsBrand: false },
+	{ boundary: 'resolveTimePitchPlaybackProject', file: 'src/common/editor/clip-time-pitch-playback-projection.ts', root: false, delegate: 'resolveRuntimeProjectProjection', guardsBrand: false },
 	{ boundary: 'resolveRuntimeTrackProjection', file: 'src/common/editor/runtime-clip-projection.ts', root: true, delegate: null, guardsBrand: false },
 	{ boundary: 'resolveProjectBinAudioPreviewClip', file: 'src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts', root: false, delegate: 'resolveRuntimeClipProjection', guardsBrand: false },
 	{ boundary: 'projectBinReplacementShortensClip', file: 'src/common/editor/controller/import/internal/project-bin/project-bin-runtime.ts', root: false, delegate: 'resolveRuntimeClipProjection', guardsBrand: false },
@@ -103,7 +105,7 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 		boundary: 'loadProject',
 		file: 'src/common/editor/engine/lifecycle.ts',
 		root: false,
-		delegate: 'resolveRuntimeProjectProjection',
+		delegate: 'resolveTimePitchPlaybackProject',
 		guardsBrand: false,
 	},
 	{
@@ -117,6 +119,9 @@ export const FOUNDATION_RUNTIME_PROJECTION_BOUNDARIES: readonly FoundationRuntim
 
 /** Files that own the raw-project boundary for every WP-0.2 consumer surface. */
 export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShieldedOwner[] = deepFreeze([
+	{ file: 'src/common/editor/controller/source/clip-time-pitch-service.ts', surfaces: ['playback'] },
+	{ file: 'src/common/editor/controller/source/internal/processed-spectrogram-pcm.ts', surfaces: ['waveform'] },
+	{ file: 'src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/commands/clip-join-availability.ts', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/ui/workspace/WorkspacePanelContent.jsx', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/controller/track-audio/internal/selected-track-content-range.ts', surfaces: ['navigation'] },
@@ -171,6 +176,10 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 
 /** Exact non-consumer readers co-located with a shield owner. No wildcard exclusions are admitted. */
 export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRuntimeTimingReaderExclusion[] = deepFreeze([
+	{
+		file: 'src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts', entryPoint: 'fingerprintClip',
+		reason: 'The private async ownership fingerprint retains the command projection and original clip coordinates so a tempo or source-window edit retires a pending render; it intentionally does not replace canonical edit settings with the playback-only scalar.',
+	},
 	{
 		file: 'src/common/editor/audacity-shortcut-actions/item-navigation-geometry.ts', entryPoint: 'itemNavigationMoveFrame',
 		reason: 'Native item movement applies one signed whole-sequence-frame step to persisted sequence placement, while ordinary and musical sample placements come from the helper-owned clip projection; this prevents nearest-frame destination rounding from making opposite keys drift.',
