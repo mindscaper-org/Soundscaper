@@ -5,6 +5,8 @@ import test from 'node:test';
 import { decodeBrowserContainerAudio } from '../src/common/editor/browser-container-audio-decode.ts';
 import { opusPaddingAvFixture, surroundAvWebmFixture } from './helpers/ordinary-ogg-opus-fixture.ts';
 import { hasReviewedContainerOpusPreSkip, preferContainerOpusPreSkipDecoder } from '../src/common/editor/browser-container-opus-decoder.ts';
+import { encodeDedicatedAudioPcm } from '../src/common/editor/browser-dedicated-audio-codec.ts';
+import { prepareStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
 
 test('bounded video audio uses proven Opus pre-skip rather than a native support advertisement', async () => {
 	const originalDecoder = globalThis.AudioDecoder, originalFetch = globalThis.fetch;
@@ -39,6 +41,32 @@ test('native surround Opus keeps its existing decoder rather than entering the s
 	try {
 		await assert.rejects(decodeBrowserContainerAudio(await surroundAvWebmFixture(), { durationSeconds: .12 }), /Native surround control/u);
 		assert.equal(nativeOpened, 1);
+	} finally { globalThis.AudioDecoder = originalDecoder; globalThis.fetch = originalFetch; }
+});
+
+test('ordinary Opus File Import also consumes nonzero codec pre-skip before storing PCM', async () => {
+	const originalDecoder = globalThis.AudioDecoder, originalFetch = globalThis.fetch;
+	let nativeOpened = 0;
+	class AdvertisedDecoder {
+		static isConfigSupported(config: AudioDecoderConfig) { return Promise.resolve({ supported: true, config }); }
+		constructor() { nativeOpened++; throw new Error('Native Opus pre-skip advertisement is insufficient.'); }
+	}
+	const pcm = Float32Array.from({ length: 4800 }, (_, frame) => Math.sin(2 * Math.PI * 997 * frame / 48_000) * .2);
+	const encoded = await encodeDedicatedAudioPcm({ format: 'opus', input: new Uint8Array(pcm.buffer), frameCount: pcm.length,
+		channelCount: 1, sampleRate: 48_000, settings: { bitrateKbps: 96, vbrMode: 1 }, maximumOutputBytes: 1024 ** 2 },
+	{ loadPayload: async (_format, url) => Uint8Array.from(await readFile(url)) });
+	globalThis.AudioDecoder = AdvertisedDecoder as unknown as typeof AudioDecoder;
+	globalThis.fetch = async (url) => { assert.ok(url instanceof URL); return new Response(Uint8Array.from(await readFile(url))); };
+	try {
+		const prepared = await prepareStreamedAudioImport(new File([Uint8Array.from(encoded)], 'Programme.opus', { type: 'audio/ogg' }));
+		try {
+			const output: number[] = [];
+			await prepared.stream({ chunkFrames: 1024, onChunk(channels) { output.push(...channels[0]!); } });
+			assert.equal(output.length, pcm.length);
+			let error = 0;
+			for (let frame = 1000; frame < 4200; frame++) error += (output[frame]! - pcm[frame]!) ** 2;
+			assert.ok(error / 3200 < .0005); assert.equal(nativeOpened, 0);
+		} finally { prepared.dispose(); }
 	} finally { globalThis.AudioDecoder = originalDecoder; globalThis.fetch = originalFetch; }
 });
 

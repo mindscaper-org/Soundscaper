@@ -264,6 +264,9 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			if (config && preferReviewedAudioImportDecoder(codec, config)) track.getDecoderConfig = () => Promise.resolve(config);
 			else if (layerII) throw new Error('The reviewed MPEG LayerII decoder does not support this source configuration.');
 		}
+		if (reviewedFallback && codec === 'opus') {
+			await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal);
+		}
 		const nativeCanDecode = !(layerII && !reviewedFallback && !streamedLayerII) && await track.canDecode();
 		const utilityAac = !nativeCanDecode && desktopAac?.canUseDesktopAacImport(file, { sampleRate, channelCount,
 			durationSeconds: endTimestamp - Math.max(0, timelineOrigin) }) === true
