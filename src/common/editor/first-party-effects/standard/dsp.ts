@@ -50,6 +50,7 @@ export function applyStandardEffect(type: StandardEffectType, channels: readonly
 	const latency = processor.latencyFrames ?? 0;
 	const blockSize = 1024;
 	let zeros: Float32Array[] | undefined;
+	let silenceReady = false;
 	const scratch = channels.map(() => new Float32Array(blockSize));
 	const input: Float32Array[] = [];
 	try {
@@ -60,11 +61,12 @@ export function applyStandardEffect(type: StandardEffectType, channels: readonly
 				else {
 					zeros ??= channels.map(() => new Float32Array(blockSize));
 					const zero = zeros[channel];
-					zero.fill(0);
-					zero.set(channels[channel].subarray(offset, Math.min(frames, offset + count)));
+					if (!silenceReady) zero.fill(0);
+					if (offset < frames) zero.set(channels[channel].subarray(offset, Math.min(frames, offset + count)));
 					input[channel] = zero;
 				}
 			}
+			if (offset >= frames) silenceReady = true;
 			processor.processBlock(input, scratch, count);
 			const start = Math.max(0, latency - offset);
 			const end = Math.min(count, frames + latency - offset);

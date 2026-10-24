@@ -154,9 +154,12 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 		}
 		let inputPeak = 0;
 		let outputPeak = 0;
+		let reductionDb = 0;
 		for (let frame = 0; frame < frames; frame += 1) {
+			const reduction = transformed[frame];
+			if (reduction < reductionDb) reductionDb = reduction;
 			const initialSilence = this.framesSeen + frame < this.lookaheadFrames;
-			const gain = initialSilence ? 0 : dbToLinear(transformed[frame] + this.makeupGainDb);
+			const gain = initialSilence ? 0 : dbToLinear(reduction + this.makeupGainDb);
 			for (let channel = 0; channel < output.length; channel += 1) {
 				const source = combinedAudio[channel][frame];
 				const value = initialSilence ? 0 : source * gain;
@@ -178,10 +181,6 @@ export class DynamicsLiveProcessor extends LiveProcessor {
 			this.envelopeHistory.set(combinedEnvelope.subarray(
 				frames, frames + this.lookaheadFrames,
 			));
-		}
-		let reductionDb = 0;
-		for (let frame = 0; frame < frames; frame += 1) {
-			if (transformed[frame] < reductionDb) reductionDb = transformed[frame];
 		}
 		this.analysisFrames += frames;
 		if (inputPeak > this.analysisInputPeak) this.analysisInputPeak = inputPeak;

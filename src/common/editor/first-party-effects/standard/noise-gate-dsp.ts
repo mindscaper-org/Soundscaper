@@ -70,6 +70,10 @@ function createNoiseGateState({ sampleRate, channelCount, params = {} }: Options
 		release = Math.exp(-1 / (Number(next.release) * sampleRate));
 		hold = Math.round(Number(next.hold) * sampleRate);
 		if (!linked && next.stereoLink === 'linked') joinEnvelopes();
+		else if (linked && next.stereoLink === 'independent') {
+			gains.fill(gains[0]); held.fill(held[0]);
+			opening.fill(opening[0]); openingGain.fill(openingGain[0]);
+		}
 		linked = next.stereoLink === 'linked';
 		if (nextFrequency > 0) for (const crossover of crossovers) crossover.configure(nextFrequency);
 		frequency = nextFrequency;
@@ -107,7 +111,7 @@ function createNoiseGateState({ sampleRate, channelCount, params = {} }: Options
 					const dry = latencyFrames > 0 ? history[channel][cursor] : sanitized;
 					if (latencyFrames > 0) history[channel][cursor] = sanitized;
 					const detector = linked ? peak : Math.abs(sanitized);
-					if (!fixed || !linked || channel === 0) {
+					if (!linked || channel === 0) {
 						// Keep hold relative to delayed audio, rather than ending it early by the preview window.
 						if (detector >= threshold) held[channel] = hold + latencyFrames;
 						const target = detector >= threshold || held[channel] > 0 ? 1 : floor;
@@ -124,7 +128,7 @@ function createNoiseGateState({ sampleRate, channelCount, params = {} }: Options
 							gains[channel] = target + release * (gains[channel] - target);
 						}
 					}
-					const gain = fixed && linked ? gains[0] : gains[channel];
+					const gain = linked ? gains[0] : gains[channel];
 					let low = dry;
 					if (!fixed || frequency > 0) for (const crossover of crossovers) low = crossover.low(low, channel);
 					if (output[channel]) output[channel][frame] = floor === 1 || gain === 1 ? dry

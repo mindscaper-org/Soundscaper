@@ -56,10 +56,10 @@ export function createVocoderProcessor({ sampleRate, channelCount, params = {} }
 	const carrier = Array.from({ length: capacity }, () => new Biquad());
 	const synthesis = Array.from({ length: capacity }, () => new Biquad());
 	const envelope = Array.from({ length: capacity }, () => Array.from({ length: 4 }, () => new Biquad()));
-	const oscillatorReal = new Float64Array(capacity);
-	const oscillatorImaginary = new Float64Array(capacity);
-	const rotationReal = new Float64Array(capacity);
-	const rotationImaginary = new Float64Array(capacity);
+	const oscillatorReal = new Float64Array(channelCount === 1 ? capacity : 0);
+	const oscillatorImaginary = new Float64Array(channelCount === 1 ? capacity : 0);
+	const rotationReal = new Float64Array(channelCount === 1 ? capacity : 0);
+	const rotationImaginary = new Float64Array(channelCount === 1 ? capacity : 0);
 	let noiseState = 0x6d2b79f5;
 	let radarPhase = 1;
 	let trackGain = 0;
@@ -80,7 +80,7 @@ export function createVocoderProcessor({ sampleRate, channelCount, params = {} }
 			for (let section = 0; section < 4; section += 1) {
 				envelope[band][section].configure(sampleRate, frequency / settings.distance, ENVELOPE_Q[section], true);
 			}
-			if (!envelopesOnly) {
+			if (!envelopesOnly && channelCount === 1) {
 				const angle = 2 * Math.PI * frequency / sampleRate;
 				rotationReal[band] = Math.cos(angle);
 				rotationImaginary[band] = Math.sin(angle);
@@ -132,12 +132,12 @@ export function createVocoderProcessor({ sampleRate, channelCount, params = {} }
 				const additionalCarrier = noise * noiseGain + pulse * radarGain;
 				let mixedCarrier = externalCarrier * trackGain + additionalCarrier;
 				// Every synthesis band must receive the same complete mono carrier.
-				for (let band = 0; band < settings.bands; band += 1) {
+				if (channelCount === 1) for (let band = 0; band < settings.bands; band += 1) {
 					const real = oscillatorReal[band];
 					const imaginary = oscillatorImaginary[band];
 					oscillatorReal[band] = real * rotationReal[band] - imaginary * rotationImaginary[band];
 					oscillatorImaginary[band] = imaginary * rotationReal[band] + real * rotationImaginary[band];
-					if (channelCount === 1) mixedCarrier += imaginary * .5 * trackGain / settings.bands;
+					mixedCarrier += imaginary * .5 * trackGain / settings.bands;
 				}
 				let vocoded = 0;
 				for (let band = 0; band < settings.bands; band += 1) {
