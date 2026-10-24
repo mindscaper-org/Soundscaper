@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createSplitToolIndexBudget } from './split-tool-cache-budget.ts';
+import { createSplitToolIndexBudget, SPLIT_TOOL_INDEX_ENTRY_LIMIT } from './split-tool-cache-budget.ts';
 
 interface Clip { readonly id: unknown; readonly timelineStartFrame: number; readonly durationFrames: number; }
 interface Label { readonly startFrame: number; readonly endFrame: number; }
@@ -10,9 +10,11 @@ const EMPTY_ANNOTATIONS: readonly Annotation[] = Object.freeze([]);
 const budget = createSplitToolIndexBudget();
 const clipIndexes = budget.cache<readonly Clip[], ReadonlyMap<unknown, Clip>>();
 const edgeIndexes = budget.cache<readonly Clip[], Readonly<{ tracks: WeakRef<readonly Track[]>; annotations: WeakRef<readonly Annotation[]>; boundaries: readonly number[] }>>();
+const sortedBoundaries = new WeakSet<readonly number[]>();
 
 /** A snapshot list owns its identity index; mutable arrays are never retained. */
-export function splitToolClipIndex(clips: readonly Clip[]): ReadonlyMap<unknown, Clip> {
+export function splitToolClipIndex(clips: readonly Clip[]): ReadonlyMap<unknown, Clip> | undefined {
+	if (clips.length > SPLIT_TOOL_INDEX_ENTRY_LIMIT) return undefined;
 	const previous = clipIndexes.get(clips);
 	if (previous) return previous;
 	const index = new Map<unknown, Clip>();
@@ -34,17 +36,19 @@ export function splitToolItemBoundaries(clips: readonly Clip[], tracks: readonly
 	}
 	for (const clip of clips) if (ids.has(clip.id)) { const start = clip.timelineStartFrame; add(start, start + clip.durationFrames); }
 	for (const annotation of annotations) add(annotation.timelineStartFrame, annotation.timelineEndFrame);
-	boundaries.sort((left, right) => left - right);
-	if (Object.isFrozen(clips) && Object.isFrozen(tracks) && Object.isFrozen(annotations)
+	if (boundaries.length <= SPLIT_TOOL_INDEX_ENTRY_LIMIT && Object.isFrozen(clips) && Object.isFrozen(tracks) && Object.isFrozen(annotations)
 		&& clips.every(Object.isFrozen) && annotations.every(Object.isFrozen)
 		&& tracks.every(track => Object.isFrozen(track) && (!track.clipIds || Object.isFrozen(track.clipIds))
 			&& (!track.labels || (Object.isFrozen(track.labels) && track.labels.every(Object.isFrozen))))) {
+		boundaries.sort((left, right) => left - right);
+		sortedBoundaries.add(boundaries);
 		edgeIndexes.set(clips, { tracks: new WeakRef(tracks), annotations: new WeakRef(annotations), boundaries }, boundaries.length);
 	}
 	return boundaries;
 }
 
 export function adjacentSplitToolBoundaries(boundaries: readonly number[], frame: number): readonly number[] {
+	if (!sortedBoundaries.has(boundaries)) return boundaries;
 	let low = 0, high = boundaries.length;
 	while (low < high) { const middle = (low + high) >>> 1; if (boundaries[middle]! < frame) low = middle + 1; else high = middle; }
 	return boundaries.slice(Math.max(0, low - 1), low + 1);

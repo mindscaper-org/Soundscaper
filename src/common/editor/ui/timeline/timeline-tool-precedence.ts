@@ -2,6 +2,7 @@
 
 import { snapAudioEditorFrameWithProject } from '../../snap-grid.js';
 import { adjacentSplitToolBoundaries, splitToolClipIndex, splitToolItemBoundaries } from './split-tool-item-index.ts';
+import { SPLIT_TOOL_INDEX_ENTRY_LIMIT } from './split-tool-cache-budget.ts';
 
 interface TimelineToolPrecedenceInput {
 	readonly automationToolEnabled: boolean;
@@ -118,7 +119,7 @@ export function splitToolTrackHasClipAt(
 ): boolean {
 	const track = tracks.find((candidate) => candidate.id === trackId);
 	if (!splitToolTrackSplittable(track)) return false;
-	const byId = clips.length > 128 && Object.isFrozen(clips) ? splitToolClipIndex(clips) : null;
+	const byId = clips.length > 128 && clips.length <= SPLIT_TOOL_INDEX_ENTRY_LIMIT && Object.isFrozen(clips) ? splitToolClipIndex(clips) : null;
 	return track.clipIds.some((clipId) => {
 		if (typeof clipId === 'number' && Number.isNaN(clipId)) return false;
 		const clip = byId ? byId.get(clipId) : clips.find(candidate => candidate.id === clipId);

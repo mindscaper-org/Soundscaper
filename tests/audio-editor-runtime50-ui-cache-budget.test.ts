@@ -31,7 +31,7 @@ void test('split clip maps and boundary points share an aggregate entry budget',
 
 void test('oversize split indexes stay invocation-local and boundary tuples replace rather than accumulate', () => {
 	const oversized = frozenClips(SPLIT_TOOL_INDEX_ENTRY_LIMIT + 1);
-	assert.notEqual(splitToolClipIndex(oversized), splitToolClipIndex(oversized));
+	assert.equal(splitToolClipIndex(oversized), undefined);
 	const clips = frozenClips(129); const first = frozenTracks(clips); const second = frozenTracks(clips);
 	const original = splitToolItemBoundaries(clips, first);
 	splitToolItemBoundaries(clips, second);
@@ -70,13 +70,14 @@ void test('weak split indexes release retired clips, opaque metadata, tuple owne
 		}
 		const references = retiredClip();
 		const clips = Object.freeze([Object.freeze({ id: 'kept', timelineStartFrame: 0, durationFrames: 10 })]);
+		const tupleClips = Object.freeze([Object.freeze({ id: 'kept', timelineStartFrame: 0, durationFrames: 10 })]);
 		function retiredTuple() {
 			const opaque = new Uint8Array(1000000);
 			const track = Object.freeze({ id: 'track', opaque, clipIds: Object.freeze(['kept']) });
 			const tracks = Object.freeze([track]);
 			const annotation = Object.freeze({ timelineStartFrame: 3, timelineEndFrame: 4, opaque });
 			const annotations = Object.freeze([annotation]);
-			splitToolItemBoundaries(clips, tracks, annotations);
+			splitToolItemBoundaries(tupleClips, tracks, annotations);
 			return [new WeakRef(tracks), new WeakRef(track), new WeakRef(annotations), new WeakRef(annotation), new WeakRef(opaque)];
 		}
 		references.push(...retiredTuple());
@@ -87,7 +88,28 @@ void test('weak split indexes release retired clips, opaque metadata, tuple owne
 		for (let round = 0; round < 8; round++) { await setImmediate(); globalThis.gc(); }
 		assert.ok(references.every(reference => reference.deref() === undefined));
 		assert.equal(pointReference.deref(), undefined);
-		assert.equal(clips.length, 1); assert.equal(firstTracks.length + secondTracks.length, 2);
+		assert.equal(clips.length + tupleClips.length, 2); assert.equal(firstTracks.length + secondTracks.length, 2);
 	`], { encoding: 'utf8', maxBuffer: 1024 * 1024, env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=1536' } });
 	assert.equal(child.status, 0, child.stderr || child.stdout);
+});
+
+void test('oversize public split hit testing preserves the original immediate-hit scan', () => {
+	let reads = 0, descriptors = 0;
+	const clips = new Proxy(frozenClips(SPLIT_TOOL_INDEX_ENTRY_LIMIT + 1), {
+		get(target, key, receiver) { if (typeof key === 'string' && /^\d+$/u.test(key)) reads++; return Reflect.get(target, key, receiver) as unknown; },
+		getOwnPropertyDescriptor(target, key) { descriptors++; return Reflect.getOwnPropertyDescriptor(target, key); },
+	});
+	assert.equal(splitToolTrackHasClipAt([{ id: 'track', clipIds: ['0'] }], clips, 'track', 1), true);
+	assert.equal(reads, 1, 'an uncached oversize project must not build a map before its first clip match');
+	assert.equal(descriptors, 0, 'the size gate must also precede the full-array freeze check');
+});
+
+void test('oversize public split snapping scans boundaries without sorting every hover', () => {
+	const clips = frozenClips(SPLIT_TOOL_INDEX_ENTRY_LIMIT / 2 + 1); const tracks = frozenTracks(clips);
+	const original = Array.prototype.sort; let sorts = 0;
+	Array.prototype.sort = function (this: unknown[], ...args: Parameters<typeof original>): unknown[] { if (this.length > SPLIT_TOOL_INDEX_ENTRY_LIMIT) sorts++; return Reflect.apply(original, this, args) as unknown[]; };
+	try {
+		for (let index = 0; index < 3; index++) assert.equal(resolveSplitToolGuidelineFrame({ project: { clips, tracks }, frame: 149, pixelsPerSecond: 1, sampleRate: 1 }), 150);
+		assert.equal(sorts, 0, 'uncached boundary lists retain the original linear nearest-edge algorithm');
+	} finally { Array.prototype.sort = original; }
 });
