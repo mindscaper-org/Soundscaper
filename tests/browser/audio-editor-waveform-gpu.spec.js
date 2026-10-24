@@ -213,7 +213,8 @@ test('direct GPU displays keep both channels visible without copying into the 2D
 	if (!result.unavailable) expect(result).toEqual({ copies: 0, alphas: [255, 255], mode: 'webgl2', removed: true });
 });
 
-test('Waveform preferences enable GPU rendering and persist the menu choice', async ({ page }) => {
+test('Advanced preferences enable GPU rendering and persist the menu choice', async ({ page }) => {
+	test.setTimeout(60_000);
 	const available = await page.evaluate(() => {
 		const gl = document.createElement('canvas').getContext('webgl2');
 		gl?.getExtension('WEBGL_lose_context')?.loseContext();
@@ -227,6 +228,8 @@ test('Waveform preferences enable GPU rendering and persist the menu choice', as
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const dialog = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await dialog.getByRole('tab', { name: /Track display$/u }).click();
+	await expect(dialog.getByRole('button', { name: /Waveform renderer/u })).toHaveCount(0);
+	await dialog.getByRole('tab', { name: /Advanced$/u }).click();
 	await dialog.getByRole('button', { name: /Waveform renderer/u }).click();
 	await page.getByRole('option', { name: 'GPU (Canvas fallback)', exact: true }).click();
 	await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
@@ -236,11 +239,14 @@ test('Waveform preferences enable GPU rendering and persist the menu choice', as
 	const reloaded = await bootEditor(page, '/embed/en/');
 	await expect(clipByName(reloaded, toneA.name).locator('canvas.clip-body__waveform')).toHaveAttribute('data-waveform-acceleration', acceleration);
 	await chooseCommandAction(page, reloaded, 'Edit', 'Preferences');
-	await dialog.getByRole('tab', { name: /Track display$/u }).click();
+	await dialog.getByRole('tab', { name: /Advanced$/u }).click();
 	await expect(dialog.getByRole('button', { name: /Waveform renderer/u })).toContainText('GPU (Canvas fallback)');
 	await dialog.getByRole('button', { name: /Waveform renderer/u }).click();
 	await page.getByRole('option', { name: 'Canvas', exact: true }).click();
 	await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
 	await expect(clipByName(reloaded, toneA.name).locator('canvas.clip-body__waveform')).toHaveAttribute('data-waveform-acceleration', 'canvas');
 	await expect(clipByName(reloaded, toneA.name).locator('.clip-body__waveform-gpu')).toHaveCount(0);
+	await page.reload();
+	const canvasEditor = await bootEditor(page, '/embed/en/');
+	await expect(clipByName(canvasEditor, toneA.name).locator('canvas.clip-body__waveform')).toHaveAttribute('data-waveform-acceleration', 'canvas');
 });

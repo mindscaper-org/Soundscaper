@@ -155,7 +155,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		copy, onPosition: updatePlayhead, onMeter: bindings.updateMeters, onState: bindings.updateTransportState,
 		setStatus: bindings.setStatus, updateExportProgress: bindings.updateExportProgress,
 	});
-	const defaultOptimizationMode = fileService.isDesktop ? 'speed' : 'memory', sessionController = bindSessionHistoryAdmission(rawSessionController, (value) => projectRuntime.createHistory(value).present);
+	const defaultOptimizationMode = fileService.isDesktop ? 'speed' : 'memory', defaultWaveformRenderer = fileService.isDesktop ? 'gpu' : undefined, sessionController = bindSessionHistoryAdmission(rawSessionController, (value) => projectRuntime.createHistory(value).present);
 	const currentTimeMs = typeof options.now === 'function' ? options.now : () => Date.now();
 	const { scheduleTimer, clearScheduledTimer, scheduleInterval, clearScheduledInterval } = createControllerTimers(options);
 	/** @type {import('./controller/document/document-state.ts').ControllerDocumentState<import('./controller/document/document-composition-types.ts').DocumentProject, import('./controller/document/document-composition-types.ts').DocumentHistory>} */
@@ -165,7 +165,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	const { state, effectsAccess, effectsStatePorts, recordingAccess, transportAccess,
 		recordingPort, reconcileRecordingRouting,
 	} = createControllerOwnedStateComposition({ document: documentState,
-		preferences: createAudioEditorPreferencesV1({ workspace: { activeId: product.defaultWorkspace }, performance: { optimizeFor: defaultOptimizationMode } }),
+		preferences: createAudioEditorPreferencesV1({ workspace: { activeId: product.defaultWorkspace }, performance: { optimizeFor: defaultOptimizationMode }, waveformDisplay: { renderer: defaultWaveformRenderer } }),
 		effectPresets: createAudioEditorEffectPresets(),
 		initialEffectType: audioSelectionEffectTypes()[0],
 		phase: lifetime.phase, signal: lifetime.signal,
@@ -269,7 +269,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		getProject: () => documentState.project, publishDocumentSnapshot, setStatus: bindings.setStatus, handleError: bindings.handleError,
 	});
 	const preferences = createPreferencesComposition({
-		productId, defaultWorkspace: product.defaultWorkspace, defaultOptimizationMode, state, lifetime, copy,
+		productId, defaultWorkspace: product.defaultWorkspace, defaultOptimizationMode, defaultWaveformRenderer, state, lifetime, copy,
 		loadSetting: (key, fallback) => store.loadSetting(key, fallback), persistSetting, publish: publishDocumentSnapshot, setPcmOptimizationMode: (mode) => store.setPcmOptimizationMode?.(mode),
 	});
 	const preferencesService = preferences.service;

@@ -62,13 +62,13 @@ test('waveform display preferences reject invalid stored values', () => {
 	}), RangeError);
 });
 
-test('GPU waveform rendering is opt-in and survives independent preference edits', () => {
+test('browser GPU waveform rendering is opt-in and preserves explicit renderer choices', () => {
 	assert.equal(createAudioEditorPreferencesV1().waveformDisplay.renderer, undefined);
 	const preferences = updateAudioEditorPreferencesV1(createAudioEditorPreferencesV1(), {
 		waveformDisplay: { renderer: 'gpu' },
 	});
 	const updated = updateAudioEditorPreferencesV1(preferences, { waveformDisplay: { halfWave: true } });
 	assert.equal(loadAudioEditorPreferencesV1(JSON.parse(JSON.stringify(updated))).preferences.waveformDisplay.renderer, 'gpu');
-	assert.equal(updateAudioEditorPreferencesV1(updated, { waveformDisplay: { renderer: 'canvas' } }).waveformDisplay.renderer, undefined);
+	assert.equal(updateAudioEditorPreferencesV1(updated, { waveformDisplay: { renderer: 'canvas' } }).waveformDisplay.renderer, 'canvas');
 	for (const renderer of ['automatic', null, true, 1]) assert.throws(() => normalizeWaveformDisplayPreferences({ renderer }), RangeError);
 });

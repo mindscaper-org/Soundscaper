@@ -7,7 +7,7 @@ export type WaveformRulerFormat = 'linear-db' | 'linear-amp' | 'logarithmic-db';
 export interface WaveformDisplayPreferences {
 	readonly rulerFormat: WaveformRulerFormat;
 	readonly halfWave: boolean;
-	readonly renderer?: 'gpu';
+	readonly renderer?: 'canvas' | 'gpu';
 }
 
 export const DEFAULT_WAVEFORM_DISPLAY_PREFERENCES: Readonly<WaveformDisplayPreferences> = Object.freeze({
@@ -50,7 +50,7 @@ export function normalizeWaveformDisplayPreferences(
 	if (renderer !== undefined && renderer !== 'canvas' && renderer !== 'gpu') {
 		throw new RangeError('waveformDisplay.renderer must be canvas or gpu.');
 	}
-	return Object.freeze({ rulerFormat, halfWave, ...(renderer === 'gpu' ? { renderer: 'gpu' as const } : {}) });
+	return Object.freeze({ rulerFormat, halfWave, ...(renderer === undefined ? {} : { renderer }) });
 }
 
 function preferenceDataValue(
