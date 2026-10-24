@@ -23,6 +23,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 	const sources = [];
 	const sourceAudio = [];
 	const clips = [];
+	const binClips = [];
 	const tracks = [];
 	const selectedTrackIds = [];
 	const annotationTracks = [];
@@ -50,12 +51,22 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		for (const [clipIndex, inputClip] of (inputTrack.clips || []).entries()) {
 			const channels = normalizeSourceChannels(inputClip.channels);
 			const frameCount = channels[0].length;
-			const sourceStartFrame = boundedInteger(inputClip.sourceStart, 0, frameCount - 1, 0);
+			let sourceStartFrame = boundedInteger(inputClip.sourceStart, 0, frameCount - 1, 0);
 			const sourceEndFrame = boundedInteger(inputClip.sourceEnd, sourceStartFrame + 1, frameCount, frameCount);
-			const sourceDurationFrames = sourceEndFrame - sourceStartFrame;
 			const stretch = positive(inputClip.stretch, 1);
 			const legacySpeed = positive(inputClip.speedRatio, 1);
 			const speedRatio = legacySpeed / stretch;
+			const name = String(inputClip.name || `${inputTrack.name || 'Audio'} ${clipIndex + 1}`);
+			const inputStart = Number(inputClip.startSeconds);
+			const startSeconds = Number.isFinite(inputStart) ? inputStart : 0;
+			const hiddenFrames = startSeconds < 0
+				? Math.min(sourceEndFrame - sourceStartFrame, Math.round(-startSeconds * trackRate * speedRatio)) : 0;
+			const whollyHidden = hiddenFrames === sourceEndFrame - sourceStartFrame;
+			if (startSeconds < 0) warnings.push(whollyHidden
+				? `Audio ${name} lies before time zero and is retained in Project Bin instead of the timeline.`
+				: `Audio ${name} begins before time zero; its hidden prefix is retained in the source and excluded from the timeline.`);
+			if (!whollyHidden) sourceStartFrame += hiddenFrames;
+			const sourceDurationFrames = sourceEndFrame - sourceStartFrame;
 			const sourceSeconds = divideRationals(
 				divideRationals(sourceDurationFrames, normalizeRational(trackRate)),
 				normalizeRational(speedRatio),
@@ -63,7 +74,6 @@ export function convertLegacyAupToProject(structure, options = {}) {
 			const durationFrames = Math.max(1, secondsToSampleFrame(sourceSeconds, sampleRate));
 			const sourceId = idFactory('source');
 			const clipId = idFactory('clip');
-			const name = String(inputClip.name || `${inputTrack.name || 'Audio'} ${clipIndex + 1}`);
 		const source = createAudioSource({
 				id: sourceId,
 				storageKey: sourceId,
@@ -80,7 +90,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 				id: clipId,
 				sourceId,
 				title: name,
-				timelineStartFrame: secondsToSampleFrame(nonNegative(inputClip.startSeconds), sampleRate),
+				timelineStartFrame: secondsToSampleFrame(Math.max(0, startSeconds), sampleRate),
 				sourceStartFrame,
 				sourceDurationFrames,
 				durationFrames,
@@ -96,8 +106,8 @@ export function convertLegacyAupToProject(structure, options = {}) {
 			});
 			sources.push(source);
 			sourceAudio.push({ sourceId, sampleRate: trackRate, channels });
-			clips.push(clip);
-			clipIds.push(clip.id);
+			if (whollyHidden) binClips.push(clip);
+			else { clips.push(clip); clipIds.push(clip.id); }
 		}
 		tracks.push(createAudioTrack({
 			id: trackId,
@@ -142,6 +152,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		metadata,
 		sources,
 		clips,
+		projectBin: { clips: binClips },
 		tracks: laneTracks,
 		timelineAnnotations: annotationImport.annotations,
 		opaqueExtensions: {
