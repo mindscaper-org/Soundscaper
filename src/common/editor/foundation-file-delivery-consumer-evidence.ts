@@ -4,6 +4,11 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 
 export const FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = Object.freeze([
 	{
+		id: 'audio-source-readiness', surface: 'audio-export', file: 'src/common/editor/controller/export/audio-export-source-inventory.ts',
+		entryPoint: 'audioExportSourceInventory', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'projectForRuntimeConsumers',
+		evidence: 'Audio source readiness resolves authored clip timing before excluding strictly future inputs from a selected output span; earlier inputs and full-project scalar cache dependencies remain available without changing the delivered render project.',
+	},
+	{
 		id: 'label-file-export', surface: 'interchange', file: 'src/common/editor/controller/edit/internal/label-service.ts',
 		entryPoint: 'exportLabels', inputIdentifier: 'labelProject', projectedIdentifier: 'tracks', boundary: 'resolveRuntimeProjectProjection',
 		evidence: 'Label file export resolves the label-only authored project through its tempo map before selecting tracks and serializing subtitle or chapter sample times.',
