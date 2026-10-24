@@ -2,6 +2,7 @@ import { inspectMatroskaOpusSampleRate } from './matroska-audio-sample-rate.ts';
 import { readAlacSampleDescription } from './alac-sample-description.ts';
 import { inspectAuAudioSampleRate } from './au-audio-sample-rate.ts';
 import { inspectDolbyAudioSampleRate } from './dolby-audio-sample-rate.ts';
+import { inspectDtsAudioSampleRate } from './dts-audio-sample-rate.ts';
 
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
@@ -43,6 +44,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
+			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
 			?? inspectIsoMediaSampleRate(bytes)
@@ -73,6 +75,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
 			?? inspectDolbyAudioSampleRate(bytes)
+			?? inspectDtsAudioSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
 			?? inspectIsoMediaSampleRate(bytes, true)
