@@ -2,18 +2,13 @@
 import { raceAbortableRead } from '../../../abort-race.ts';
 import { inspectOggGaplessGeometry } from '../../../ogg-gapless-import.ts';
 import type { NativeContainerAudioAdmission } from './native-container-audio-admission.ts';
+import { admitsNativeSurroundVorbisBackend } from '../../../browser-vorbis-decoder.ts';
+export { admitsNativeSurroundVorbisBackend } from '../../../browser-vorbis-decoder.ts';
 
 interface Page { readonly packets: number; readonly granule: number; readonly eos: boolean }
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
 const MAXIMUM_HEADER_BYTES = 2 * 1024 ** 2;
-
-/** Qualify the maintained native backend; other browsers retain packet decoding. */
-export function admitsNativeSurroundVorbisBackend(userAgent: unknown = globalThis.navigator?.userAgent): boolean {
-	return typeof userAgent === 'string' && /^Mozilla\/5\.0\s/u.test(userAgent)
-		&& /\bAppleWebKit\/\d+(?:\.\d+)*\b/u.test(userAgent) && /\bSafari\/\d+/u.test(userAgent)
-		&& !/\b(?:Chrome|HeadlessChrome|Chromium|Edg|OPR|Firefox|CriOS|FxiOS|iPhone|iPad|iPod)\b/iu.test(userAgent);
-}
 
 /** WebKit advertises surround Vorbis packets but never returns samples or flush completion. */
 export async function nativeSurroundVorbisAdmission(file: Blob, signal?: AbortSignal): Promise<NativeContainerAudioAdmission | null> {

@@ -267,6 +267,9 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		if (reviewedFallback && codec === 'opus') {
 			await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal);
 		}
+		if (reviewedFallback && codec === 'vorbis') {
+			(await import('./browser-vorbis-decoder.ts')).assertVorbisPacketDecoder(channelCount);
+		}
 		const nativeCanDecode = !(layerII && !reviewedFallback && !streamedLayerII) && await track.canDecode();
 		const utilityAac = !nativeCanDecode && desktopAac?.canUseDesktopAacImport(file, { sampleRate, channelCount,
 			durationSeconds: endTimestamp - Math.max(0, timelineOrigin) }) === true

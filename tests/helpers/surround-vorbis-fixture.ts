@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { inflateSync } from 'node:zlib';
+import { oggPageCrc } from '../../src/common/editor/ogg-page-crc.ts';
 
 // Untouched FFmpeg5.1.4 (@ffmpeg/core0.12.10) libvorbis quality6, 48kHz,
 // 4800frames, stereo or5.1; Ogg page_duration20000us. Each channel carries
@@ -458,4 +459,26 @@ export function surroundVorbisFixture(channelCount: 2 | 6): File {
 export function surroundVorbisReference(): readonly Float32Array[] {
 	const bytes = inflateSync(Buffer.from(REFERENCE, 'base64'));
 	return Array.from({ length: 6 }, (_, channel) => Float32Array.from({ length: 4800 }, (_, frame) => bytes.readFloatLE((frame * 6 + channel) * 4)));
+}
+
+
+/** Preserve the original packets while placing the short recording on one legal EOS page. */
+export async function singlePageSurroundVorbisFixture(): Promise<File> {
+	const bytes = new Uint8Array(await surroundVorbisFixture(6).arrayBuffer());
+	const pages: Uint8Array<ArrayBuffer>[] = [];
+	for (let offset = 0; offset < bytes.length;) {
+		const laces = bytes.subarray(offset + 27, offset + 27 + bytes[offset + 26]!);
+		const size = 27 + laces.length + laces.reduce((sum, byte) => sum + byte, 0);
+		pages.push(bytes.subarray(offset, offset + size)); offset += size;
+	}
+	const audio = pages.slice(2), laces = Uint8Array.from(audio.flatMap(page => [...page.subarray(27, 27 + page[26]!)]));
+	if (laces.length > 255) throw new RangeError('Fixture audio must fit one Ogg page.');
+	const payloads = audio.map(page => page.subarray(27 + page[26]!));
+	const page = new Uint8Array(27 + laces.length + payloads.reduce((sum, payload) => sum + payload.length, 0));
+	page.set(audio[0]!.subarray(0, 27)); page[5] = 4; page[26] = laces.length;
+	page.set(audio.at(-1)!.subarray(6, 14), 6); page.set(laces, 27);
+	let offset = 27 + laces.length;
+	for (const payload of payloads) { page.set(payload, offset); offset += payload.length; }
+	new DataView(page.buffer).setUint32(22, oggPageCrc(page), true);
+	return new File([pages[0]!, pages[1]!, page], 'Single-page-surround.ogg', { type: 'audio/ogg' });
 }

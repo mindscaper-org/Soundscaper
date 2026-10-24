@@ -6,6 +6,7 @@ import { admitsNativeSurroundVorbisBackend, nativeSurroundVorbisAdmission } from
 import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from '../src/common/editor/desktop-main-audio-codec-runtime-marker.ts';
 import { oggPageCrc } from '../src/common/editor/ogg-page-crc.ts';
 import { surroundVorbisFixture, surroundVorbisReference } from './helpers/surround-vorbis-fixture.ts';
+import { prepareStreamedAudioImport, type PreparedStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
 import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
 
 const WEBKIT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15';
@@ -107,4 +108,20 @@ test('cancellation retires held physical or demux reads and a fresh source can r
 		release?.(await file.arrayBuffer());
 		assert.ok(await nativeSurroundVorbisAdmission(file));
 	}
+}));
+
+
+test('a native WebKit surround packet source outside whole-file admission refuses before opening its stalled decoder', async () => withBackend(WEBKIT, async () => {
+	const previous = globalThis.AudioDecoder;
+	let opened = 0, prepared: PreparedStreamedAudioImport | undefined;
+	class AdvertisedDecoder {
+		static isConfigSupported(config: AudioDecoderConfig) { return Promise.resolve({ supported: true, config }); }
+		constructor() { opened++; throw new Error('The native surround decoder must not be opened.'); }
+	}
+	globalThis.AudioDecoder = AdvertisedDecoder as unknown as typeof AudioDecoder;
+	try {
+		await assert.rejects(async () => { prepared = await prepareStreamedAudioImport(surroundVorbisFixture(6)); },
+			/cannot import this surround Vorbis source/u);
+		assert.equal(opened, 0);
+	} finally { prepared?.dispose(); globalThis.AudioDecoder = previous; }
 }));

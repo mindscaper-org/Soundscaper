@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
-import { surroundVorbisFixture, surroundVorbisReference } from '../helpers/surround-vorbis-fixture.ts';
+import { surroundVorbisFixture, surroundVorbisReference, singlePageSurroundVorbisFixture } from '../helpers/surround-vorbis-fixture.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 
@@ -34,4 +34,18 @@ for (const channelCount of [2, 6]) test(`File Import preserves ${channelCount} c
 		maximumError = Math.max(maximumError, Math.abs(pcm.readFloatLE(4 + (channel * 4800 + frame) * 4) - expected[channel][frame]));
 	}
 	expect(maximumError).toBeLessThan(1e-6);
+});
+
+
+test('WebKit refuses an ambiguous single-page surround source instead of leaving Import busy', async ({ page, browserName }) => {
+	test.skip(browserName !== 'webkit', 'The unchanged packet backends remain supported.');
+	const editor = await bootEditor(page, '/embed/en/'); const file = await singlePageSurroundVorbisFixture();
+	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
+	await expect(editor.getByRole('alert')).toContainText('cannot import this surround Vorbis source');
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
+	await expect(editor).toHaveAttribute('data-clip-count', '0');
+	const retry = surroundVorbisFixture(6);
+	await editor.locator('[data-import-input]').setInputFiles({ name: retry.name, mimeType: retry.type, buffer: Buffer.from(await retry.arrayBuffer()) });
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 10_000 });
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 });
