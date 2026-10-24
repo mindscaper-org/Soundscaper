@@ -15,10 +15,12 @@ test('E11 selected-label copy resolves a batch without rescanning labels per sel
 	context.diagnostic(`E11 label identity reads: ${reads}`);
 	assert.equal(state.clipboard?.schemaVersion, 7);
 	if (state.clipboard?.schemaVersion !== 7) throw new Error('Expected label clipboard');
+	assert.ok(state.clipboard.labels);
 	assert.equal(state.clipboard.labels.length, 100);
 	assert.equal(state.clipboard.labels[99]!.title, 'Label 99');
 	labels[99]!.title = 'Edited';
 	assert.equal(service.handle('copy'), true);
+	assert.ok(state.clipboard.labels);
 	assert.equal(state.clipboard.labels[99]!.title, 'Edited');
 	assert.equal(service.handle('unhandled'), false);
 });

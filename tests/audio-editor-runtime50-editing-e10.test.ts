@@ -14,10 +14,13 @@ test('E10 multi-track removal visits surviving auto-duck racks and detector rout
 	assert.ok(count <= 200, `removal filter visits ${count}`);
 	context.diagnostic(`E10 removal filter visits: ${count}`);
 	assert.deepEqual(project.tracks, [kept]);
-	assert.ok(kept.effects.every(effect => effect.enabled === false && effect.context.controlTrackId === null));
+	assert.ok(kept.effects.every(effect => effect.enabled === false && effect.context
+		&& 'controlTrackId' in effect.context && effect.context.controlTrackId === null));
 	const survivor = normalizeEffect({ id: 'survivor', type: 'audacity-auto-duck', context: { controlTrackId: 'old' } });
 	const other = { tracks: [{ id: 'old', clipIds: [], effects: [] }, { id: 'actual', clipIds: [], effects: [survivor] }], clips: [], master: { effects: [] }, mixer: { routes: {}, groups: [], sends: [], edges: [edge('rerouted', 'actual', { kind: 'effect-sidechain', strip: { kind: 'track', id: 'actual' }, effectId: 'survivor' })] } };
 	removeTracksAndDependents(other, ['old']);
 	assert.equal(other.tracks[0]!.effects[0]!.enabled, true);
-	assert.equal(other.tracks[0]!.effects[0]!.context.controlTrackId, 'actual');
+	const survivorContext = other.tracks[0]!.effects[0]!.context;
+	assert.ok(survivorContext && 'controlTrackId' in survivorContext);
+	assert.equal(survivorContext.controlTrackId, 'actual');
 });

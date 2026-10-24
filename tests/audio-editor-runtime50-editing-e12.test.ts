@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { duplicateTrackAdmCommands } from '../src/common/editor/derived-track-adm.ts';
-import { normalizeAdmProjectMetadata } from '../src/common/editor/adm-project-metadata.ts';
+import { normalizeAdmProjectMetadata, type AdmProjectMetadataInput } from '../src/common/editor/adm-project-metadata.ts';
 import { visits } from './helpers/runtime50-editing-metrics.ts';
 
 test('E12 ADM duplication indexes authored assignments by source strip', context => {
@@ -17,7 +17,7 @@ test('E12 ADM duplication indexes authored assignments by source strip', context
 	const command = commands[0]!;
 	assert.equal(command.type, 'metadata/update');
 	if (command.type !== 'metadata/update') throw new Error('Expected metadata update');
-	const result = normalizeAdmProjectMetadata(command.changes.adm);
+	const result = normalizeAdmProjectMetadata(command.changes.adm as AdmProjectMetadataInput);
 	assert.equal(result?.mode, 'authored');
 	if (result?.mode !== 'authored') throw new Error('Expected authored ADM');
 	assert.equal(result.bed.assignments.length, 200);
