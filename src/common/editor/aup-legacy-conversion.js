@@ -47,6 +47,12 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		const trackId = idFactory('track');
 		if (inputTrack.selected) selectedTrackIds.push(trackId);
 		const trackRate = positiveRate(inputTrack.rate || sampleRate);
+		const requestedGain = Number(inputTrack.gain);
+		const importedGain = Number.isFinite(requestedGain) && requestedGain >= 0 ? requestedGain : 1;
+		if (importedGain > 64) throw new RangeError('Legacy AUP track gain exceeds the supported combined track and clip gain range.');
+		const trackGain = Math.min(4, importedGain);
+		const clipGain = importedGain > 4 ? importedGain / 4 : 1;
+		if (clipGain !== 1) warnings.push(`Track ${inputTrack.name || trackIndex + 1} gain above the fader range is retained in clip gain.`);
 		const clipIds = [];
 		for (const [clipIndex, inputClip] of (inputTrack.clips || []).entries()) {
 			const channels = normalizeSourceChannels(inputClip.channels);
@@ -90,6 +96,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 				id: clipId,
 				sourceId,
 				title: name,
+				gain: clipGain,
 				timelineStartFrame: secondsToSampleFrame(Math.max(0, startSeconds), sampleRate),
 				sourceStartFrame,
 				sourceDurationFrames,
@@ -112,7 +119,7 @@ export function convertLegacyAupToProject(structure, options = {}) {
 		tracks.push(createAudioTrack({
 			id: trackId,
 			name: String(inputTrack.name || `Track ${trackIndex + 1}`),
-			gain: finiteInRange(inputTrack.gain, 0, 4, 1),
+			gain: trackGain,
 			pan: finiteInRange(inputTrack.pan, -1, 1, 0),
 			mute: Boolean(inputTrack.mute),
 			solo: Boolean(inputTrack.solo),
