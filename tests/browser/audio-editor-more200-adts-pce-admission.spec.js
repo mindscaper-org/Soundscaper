@@ -8,7 +8,8 @@ for (const pce of [false, true]) for (const generic of [false, true]) test(`AAC 
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const file = aacLcAdtsPceFixture(pce);
 	const expected = await page.evaluate(async bytes => {
-		const context = new AudioContext();
+		// Native import uses the programme clock after realtime context reconciliation.
+		const context = new AudioContext({ sampleRate: 48_000 });
 		try {
 			const decoded = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
 			return { supported: true, sampleRate: decoded.sampleRate, frames: decoded.length,
