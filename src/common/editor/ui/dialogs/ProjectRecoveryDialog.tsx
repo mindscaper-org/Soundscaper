@@ -27,6 +27,11 @@ export default function ProjectRecoveryDialog({ actions, initialProjectId = '', 
 	const [recovering, setRecovering] = useState(false);
 	const [error, setError] = usePresentationFeedback(copy);
 	const admission = useRef(false);
+	const current = useRef(false);
+	useEffect(() => {
+		current.current = true;
+		return () => { current.current = false; };
+	}, []);
 	useEffect(() => {
 		let current = true;
 		void actions.list().then((rows) => {
@@ -58,9 +63,9 @@ export default function ProjectRecoveryDialog({ actions, initialProjectId = '', 
 		setRecovering(true);
 		setError('');
 		void runAwaitedAudioEditorOperation(run, () => actions.recover(inspection, candidateIndex))
-			.then(onClose)
-			.catch((failure: unknown) => { setError(feedbackFailure(failure)); })
-			.finally(() => { admission.current = false; setRecovering(false); });
+			.then(() => { if (current.current) onClose(); })
+			.catch((failure: unknown) => { if (current.current) setError(feedbackFailure(failure)); })
+			.finally(() => { admission.current = false; if (current.current) setRecovering(false); });
 	};
 	const candidateLabel = (value: NonNullable<typeof candidate>): string => [
 		value.kind === 'current' ? copy.projectRecoveryCurrent : copy.projectRecoveryRevision.replace('{revision}', String(value.revision ?? '?')),
