@@ -270,6 +270,7 @@ export function createClipPropertyService(
 		if (!Number.isSafeInteger(timelineStartFrame) || !Number.isSafeInteger(durationFrames)) {
 			throw createLocalizedError(TypeError, dependencies.copy, 'timelineFramesFinite');
 		}
+		if (timelineStartFrame === clip.timelineStartFrame && durationFrames === clip.durationFrames) return project;
 		assertCameraAudioDurationChange(project, clip, durationFrames, dependencies.copy);
 		const clipIds = collectClipTransformIds(project, clip.id);
 		if (clipIds.length > 1) {
@@ -283,6 +284,7 @@ export function createClipPropertyService(
 				)));
 				stretchFactor = Math.min(stretchFactor, maximumFactor);
 			}
+			if (stretchFactor === 1) return project;
 			const transforms = clips.map((item): PreparedTransform => {
 				const nextDurationFrames = Math.max(1, Math.round(item.durationFrames * stretchFactor));
 				assertScalarTimePitchChange(project, item, Boolean(item.linkPitchAndTempo), item.pitchCents,
