@@ -33,11 +33,17 @@ export function preserveDerivedFolderMixer(
 	for (const edge of originalGraph.edges) {
 		if (touchesFolder(edge, retained) && sourceExists(edge) && destinationExists(edge)) edges.push(edge);
 	}
+	const originalVcas = new Map<string, MixerGraphV21['vcas'][number]>();
+	for (const vca of originalGraph.vcas) if (!originalVcas.has(vca.id)) originalVcas.set(vca.id, vca);
 	const vcas = stagedGraph.vcas.map(vca => {
 		const members = [...vca.members];
-		for (const member of originalGraph.vcas.find(original => original.id === vca.id)?.members ?? []) {
+		const owned = new Set(members.flatMap(member => member.kind === 'mixer-node' ? [member.id] : []));
+		for (const member of originalVcas.get(vca.id)?.members ?? []) {
 			if (member.kind === 'mixer-node' && retained.has(member.id)
-				&& !members.some(current => current.kind === 'mixer-node' && current.id === member.id)) members.push(member);
+				&& !owned.has(member.id)) {
+				members.push(member);
+				owned.add(member.id);
+			}
 		}
 		return { ...vca, members };
 	});
