@@ -2,11 +2,12 @@
 
 import { riffMetadataReadView } from './riff-metadata-read-view.ts';
 
-/** WavPack has an APEv2 trailer; the other import formats use Mediabunny. */
+/** WavPack and native Monkey audio use APEv2 trailers outside Mediabunny's formats. */
 export async function readImportedMetadataTags(file: Blob, signal?: AbortSignal): Promise<unknown> {
 	signal?.throwIfAborted();
 	const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-	if (new TextDecoder().decode(header.subarray(0, 4)) === 'wvpk') {
+	const signature = new TextDecoder().decode(header.subarray(0, 4));
+	if (signature === 'wvpk' || signature === 'MAC ') {
 		return (await import('./ape-metadata-reader.ts')).readApeMetadataTags(file, signal);
 	}
 	file = await riffMetadataReadView(file, header, signal) ?? file;
