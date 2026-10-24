@@ -8,7 +8,7 @@ export async function installNativeOutputPeer(page) {
 		const sessions = new Map(), peers = new Map();
 		let next = 0;
 		const unavailable = { status: 'unavailable', reason: 'not-built', detail: '' };
-		window.__nativeOutput = { packets: 0, mean: 0, loss: [] };
+		window.__nativeOutput = { packets: 0, mean: 0, channelMeans: [], loss: [] };
 		// This output-only fixture never grants an unrelated browser microphone.
 		Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
 			configurable: true, value: async () => new MediaStream(),
@@ -45,8 +45,8 @@ export async function installNativeOutputPeer(page) {
 						let packets = 0;
 						port.onmessage = ({ data }) => {
 							if (data.kind !== 'audio') return;
-							const channel = data.channels[0];
-							postMessage({ packets: ++packets, mean: channel.reduce((sum, value) => sum + value, 0) / channel.length });
+							const means = data.channels.map(channel => channel.reduce((sum, value) => sum + value, 0) / channel.length);
+							postMessage({ packets: ++packets, mean: means[0], channelMeans: means });
 							port.postMessage({ ...data, kind: 'return', status: 'ok', framesTransferred: data.frameCount },
 								data.channels.map(channel => channel.buffer));
 						};
