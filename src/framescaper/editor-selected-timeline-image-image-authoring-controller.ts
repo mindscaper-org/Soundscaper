@@ -39,7 +39,7 @@ export interface FramescaperSelectedImageFileServiceTimelineImage {
 	chooseFiles?(request: Readonly<{ readonly purpose: 'image'; readonly multiple: true }>): Promise<readonly unknown[]>;
 	withReadDescriptors?<Result>(
 		descriptors: readonly unknown[],
-		request: Readonly<Record<string, never>>,
+		request: Readonly<{ readonly signal?: AbortSignal }>,
 		consume: (files: readonly FramescaperImageImportFileTimelineImage[]) => PromiseLike<Result> | Result,
 	): Promise<Result>;
 }
@@ -123,8 +123,7 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 			}
 			const descriptors = await fileService.chooseFiles({ purpose: 'image', multiple: true });
 			if (descriptors.length === 0) return;
-			assertProjectCurrent(projectId, signal);
-			await fileService.withReadDescriptors(descriptors, {}, (files) => importFiles(snapshotFiles(files), projectId, signal));
+			await fileService.withReadDescriptors(descriptors, { signal }, (files) => importFiles(snapshotFiles(files), projectId, signal));
 			return;
 		}
 		await importFiles(await selectFiles(), projectId, signal);

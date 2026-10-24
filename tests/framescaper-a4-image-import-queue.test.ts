@@ -2,12 +2,13 @@
 import assert from 'node:assert/strict';
 import { getEventListeners } from 'node:events';
 import test from 'node:test';
-import { bindFramescaperSelectedImageAuthoringControllerTimelineImage as bind, framescaperSelectedImageImportResultTimelineImageFor as resultFor } from '../src/framescaper/editor-selected-timeline-image-image-authoring-controller.ts';
+import { bindFramescaperSelectedImageAuthoringControllerTimelineImage as bind, framescaperSelectedImageImportResultTimelineImageFor as resultFor, type FramescaperSelectedImageFileServiceTimelineImage } from '../src/framescaper/editor-selected-timeline-image-image-authoring-controller.ts';
 import { framescaperCandidateAuthoringActionRuntimeFor } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
+import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 
-function fixture() {
+function fixture(fileService?: FramescaperSelectedImageFileServiceTimelineImage) {
 	const initial = createFramescaperProject(PROFILE, { id: 'outgoing' }); let project = initial, selected = 0, generation = 0;
 	let finish = (): void => {}, reject = (_reason: Error): void => {}, entered = (): void => {};
 	const held = new Promise<void>((resolve, fail) => { finish = resolve; reject = fail; });
@@ -16,7 +17,7 @@ function fixture() {
 	const controller = { get project() { return project; }, captureProjectGeneration: () => ({ generation, projectId: project.id }),
 		subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }, getTelemetrySnapshot: () => ({ positionFrame: 0 }),
 		actions: { project: { flush: () => undefined, openById: () => undefined } } };
-	bind({ controller, selectFiles: async () => [new File([Uint8Array.of(++selected)], `image-${selected}.png`, { type: 'image/png' })],
+	bind({ controller, ...(fileService ? { fileService } : { selectFiles: async () => [new File([Uint8Array.of(++selected)], `image-${selected}.png`, { type: 'image/png' })] }),
 		session: { captureProjectHistory: () => { throw new Error('No publication expected.'); }, assertProjectHistoryToken: () => undefined,
 			updateProjectHistory: () => undefined, markProjectSaved: () => undefined, getProjectHistory: () => { throw new Error('No publication expected.'); } },
 		executeCommand: history => history, publishIfCurrent: async () => null,
@@ -84,4 +85,59 @@ test('ordinary document edits do not reset the same activation FIFO', async () =
 	current.setProject(createFramescaperProject(PROFILE, { id: 'outgoing' }), false);
 	const fresh = current.runtime.run('video-still'); await turn(); assert.equal(current.selected, 1);
 	current.finish(); await Promise.all([old, fresh]); assert.deepEqual(current.imported, ['outgoing', 'outgoing']);
+});
+
+const desktopDescriptor = { id: 'image-read', readProfile: 'materialized-v1', url: 'soundscaper-app://read/image-read',
+	name: 'image.png', mimeType: 'image/png', size: 1, originalFile: { id: 'a'.repeat(48), name: 'image.png' } };
+
+test('a retired desktop image chooser releases late read and original grants without fetching', async () => {
+	let grant = (_value: typeof desktopDescriptor[]): void => {}, chosen = (): void => {}, fetches = 0;
+	const choices = new Promise<typeof desktopDescriptor[]>(resolve => { grant = resolve; });
+	const opened = new Promise<void>(resolve => { chosen = resolve; });
+	const released: string[] = [], originals: string[] = [];
+	const service = createAudioEditorFileService({ bridge: { chooseFiles: () => { chosen(); return choices; },
+		releaseRead: async (id: string) => { released.push(id); }, releaseOriginalFile: async (id: string) => { originals.push(id); } },
+		fetch: async () => { fetches++; throw new Error('The retired chooser must not read its granted file.'); } });
+	const current = fixture(service), old = current.runtime.run('video-still').then(() => null, (error: unknown) => error);
+	await opened; current.setProject(createFramescaperProject(PROFILE, { id: 'incoming' }));
+	const reason: unknown = await old; assert.ok(reason instanceof Error && reason.name === 'AbortError');
+	grant([desktopDescriptor]); await turn();
+	assert.deepEqual(released, ['image-read']); assert.deepEqual(originals, [desktopDescriptor.originalFile.id]);
+	assert.equal(fetches, 0); assert.deepEqual(current.imported, []); assert.equal(current.subscriptions, 0);
+});
+
+test('project departure cancels a materialized desktop image body and releases its grants', async () => {
+	let entered = (): void => {}, close = (): void => {};
+	const reading = new Promise<void>(resolve => { entered = resolve; });
+	const cancelled: unknown[] = [], released: string[] = [], originals: string[] = [];
+	const nativeSignals: AbortSignal[] = [];
+	const body = new ReadableStream<Uint8Array>({ start(controller) { close = () => { try { controller.close(); } catch { /* Already canceled. */ } }; },
+		pull() { entered(); return new Promise<void>(() => undefined); }, cancel(reason: unknown) { cancelled.push(reason); } }, { highWaterMark: 0 });
+	const service = createAudioEditorFileService({ bridge: { chooseFiles: async () => [desktopDescriptor],
+		releaseRead: async (id: string) => { released.push(id); }, releaseOriginalFile: async (id: string) => { originals.push(id); } },
+		fetch: async (_url: unknown, init: RequestInit) => { nativeSignals.push(init.signal as AbortSignal); return new Response(body, { headers: { 'Content-Length': '1' } }); } });
+	const current = fixture(service), old = current.runtime.run('video-still').then(() => null, (error: unknown) => error);
+	try {
+		await reading; current.setProject(createFramescaperProject(PROFILE, { id: 'incoming' }));
+		const reason: unknown = await old; await turn();
+		assert.deepEqual(cancelled, [reason]); assert.deepEqual(released, ['image-read']);
+		assert.deepEqual(originals, [desktopDescriptor.originalFile.id]);
+		const nativeSignal = nativeSignals[0]; assert.ok(nativeSignal); assert.equal(nativeSignal.reason, reason); assert.equal(getEventListeners(nativeSignal, 'abort').length, 0);
+		assert.deepEqual(current.imported, []); assert.equal(current.subscriptions, 0);
+	} finally { close(); await turn(); }
+});
+
+test('an active desktop image owner materializes and imports its original bytes once', async () => {
+	const released: string[] = [], originals: string[] = [];
+	let importedBytes: number[] = [];
+	const service = createAudioEditorFileService({ bridge: { chooseFiles: async () => [desktopDescriptor],
+		releaseRead: async (id: string) => { released.push(id); }, releaseOriginalFile: async (id: string) => { originals.push(id); } },
+		fetch: async () => new Response(Uint8Array.of(29), { headers: { 'Content-Length': '1' } }) });
+	const files = service.withReadDescriptors;
+	const current = fixture({ ...service, withReadDescriptors: async (descriptors, request, consume) => files(descriptors, request, async (selected: readonly File[]) => {
+		importedBytes = [...new Uint8Array(await selected[0]!.arrayBuffer())]; return consume(selected);
+	}) });
+	await current.runtime.run('video-still');
+	assert.deepEqual(importedBytes, [29]); assert.deepEqual(current.imported, ['outgoing']);
+	assert.deepEqual(released, ['image-read']); assert.deepEqual(originals, [desktopDescriptor.originalFile.id]);
 });
