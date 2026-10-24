@@ -40,7 +40,7 @@ export async function clearSourceProvenance(page, projectId) {
 	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, id: projectId });
 }
 
-export async function installLinkedAudioBridge(page, media = { original: toneA, changed: toneB }) {
+export async function installLinkedAudioBridge(page, media = { original: toneA, changed: toneB }, { unavailable = false } = {}) {
 	await page.route(/\/__e2e-project-bin-linked\/(original|changed)\.wav$/u, (route) => {
 		const kind = /\/(original|changed)\.wav$/u.exec(route.request().url())?.[1];
 		return route.fulfill({
@@ -50,7 +50,7 @@ export async function installLinkedAudioBridge(page, media = { original: toneA, 
 		});
 	});
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ fixtures, ids }) => {
+	await page.addInitScript(({ fixtures, ids, unavailable }) => {
 		const state = { next: 'initial', choices: [], released: [], rangeRequests: [], exports: [] };
 		const writes = new Map();
 		let nextWriteId = 0;
@@ -101,6 +101,7 @@ export async function installLinkedAudioBridge(page, media = { original: toneA, 
 				};
 			},
 			loadLinkedAudioOriginal: async ({ locatorId, range }) => {
+				if (unavailable) return null;
 				const detail = byId[locatorId];
 				if (!detail) return null;
 				const fixture = fixtures[detail.kind];
@@ -163,5 +164,6 @@ export async function installLinkedAudioBridge(page, media = { original: toneA, 
 			name: fixture.name, mimeType: fixture.mimeType, base64: fixture.buffer.toString('base64'),
 		}])),
 		ids: locatorIds,
+		unavailable,
 	});
 }

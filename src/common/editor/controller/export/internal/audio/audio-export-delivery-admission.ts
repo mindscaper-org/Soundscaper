@@ -4,6 +4,7 @@ import { inheritTrackFolderMediaStateProjectionV12, projectTrackFolderMediaState
 import { exportSequenceProject } from '../../../../export-sequence-project.ts';
 import { assertSequenceMixerDependencies } from '../../../../export-sequence-mixer.ts';
 import { exportReplacementTrackIds } from '../../export-render-project.ts';
+import { audioExportSourceInventory } from '../../audio-export-source-inventory.ts';
 import {
 	assertAudioRenderedFallbackExportSettings,
 	projectForAudioRenderedFallbackExport,
@@ -71,6 +72,6 @@ export function admitAudioExportDelivery(
 		// The whole-mix role renders from its verified provider alone; the track role still
 		// mixes native lanes, so their sources must be present.
 		localSourcesMissing: delivery.audioRenderedFallback?.role !== 'project-audio-mix-v1'
-			&& Boolean(hasMissingTimelineSources(deliveredProject)),
+			&& Boolean(hasMissingTimelineSources(audioExportSourceInventory(deliveredProject, settings))),
 	});
 }
