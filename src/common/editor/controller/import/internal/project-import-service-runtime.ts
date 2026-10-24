@@ -430,7 +430,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			// Pinning native decoding keeps the file's own rate, like PCM streaming,
 			// instead of inheriting the output device's rate.
 			decodeWithWebAudio: async (encoded: ArrayBuffer, decodedSampleRate: number | null) => (
-				normalizeNativeContainerAudio(await engine.decodeAudioData(encoded, { sampleRate: decodedSampleRate }), nativeContainer, encoded)
+				normalizeNativeContainerAudio(await engine.decodeAudioData(encoded.slice(0), { sampleRate: decodedSampleRate }), nativeContainer, encoded)
 			),
 			decodeWithCodec: async (input, settings) => ffmpeg.decode(input, settings),
 			bufferFromChannels: (channels, sampleRate, audioContext) => (
