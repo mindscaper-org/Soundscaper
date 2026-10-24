@@ -3162,6 +3162,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.cjs b/node_modules/
          this.metadataTags.raw ??= {};
          this.metadataTags.raw[chunkName] = value;
          switch (chunkName) {
+@@ -13731,7 +13963,7 @@
+       return readU16Be(slice) * 10;
+     }
+     if (sampleRateOrUncommon === "uncommon-u8") {
+-      return readU8(slice);
++      return readU8(slice) * 1000;
+     }
+     if (typeof sampleRateOrUncommon === "number") {
+       return sampleRateOrUncommon;
 @@ -13929,7 +14161,7 @@
        const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
        const slice = await this.reader.requestSliceRange(
@@ -4310,6 +4319,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.node.cjs b/node_mod
          this.metadataTags.raw ??= {};
          this.metadataTags.raw[chunkName] = value;
          switch (chunkName) {
+@@ -13728,7 +13960,7 @@
+       return readU16Be(slice) * 10;
+     }
+     if (sampleRateOrUncommon === "uncommon-u8") {
+-      return readU8(slice);
++      return readU8(slice) * 1000;
+     }
+     if (typeof sampleRateOrUncommon === "number") {
+       return sampleRateOrUncommon;
 @@ -13926,7 +14158,7 @@
        const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
        const slice = await this.reader.requestSliceRange(
@@ -5443,6 +5461,15 @@ diff --git a/node_modules/mediabunny/dist/bundles/mediabunny.mjs b/node_modules/
        this.metadataTags.raw ??= {};
        this.metadataTags.raw[chunkName] = value;
        switch (chunkName) {
+@@ -13574,7 +13806,7 @@
+     return readU16Be(slice) * 10;
+   }
+   if (sampleRateOrUncommon === "uncommon-u8") {
+-    return readU8(slice);
++    return readU8(slice) * 1000;
+   }
+   if (typeof sampleRateOrUncommon === "number") {
+     return sampleRateOrUncommon;
 @@ -13772,7 +14004,7 @@
      const maximumSliceLength = effectiveMaxFrameSize + maximumHeaderLength;
      const slice = await this.reader.requestSliceRange(
@@ -5923,3 +5950,21 @@ diff --git a/node_modules/mediabunny/dist/modules/src/wave/wave-demuxer.js b/nod
              this.metadataTags.raw ??= {};
              this.metadataTags.raw[chunkName] = value;
              switch (chunkName) {
+diff --git a/node_modules/mediabunny/src/flac/flac-misc.ts b/node_modules/mediabunny/src/flac/flac-misc.ts
+--- a/node_modules/mediabunny/src/flac/flac-misc.ts
++++ b/node_modules/mediabunny/src/flac/flac-misc.ts
+@@ -133 +133 @@
+-		return readU8(slice);
++		return readU8(slice) * 1000;
+diff --git a/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js b/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
+--- a/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
++++ b/node_modules/mediabunny/dist/modules/src/flac/flac-misc.js
+@@ -107,7 +107,7 @@
+         return readU16Be(slice) * 10;
+     }
+     if (sampleRateOrUncommon === 'uncommon-u8') {
+-        return readU8(slice);
++        return readU8(slice) * 1000;
+     }
+     if (typeof sampleRateOrUncommon === 'number') {
+         return sampleRateOrUncommon;
