@@ -94,6 +94,7 @@ export interface DawprojectAutomationEvent {
 }
 
 export interface DawprojectFlattenedOmissions {
+	readonly loopedClips: number;
 	readonly notes: number;
 	readonly video: number;
 	readonly clipAutomation: number;
@@ -144,6 +145,7 @@ interface WalkState {
 	clipAutomation: number;
 	unresolvedReferences: number;
 	unsupportedContent: number;
+	loopedClips: number;
 }
 
 export const DAWPROJECT_MAXIMUM_TIMELINE_DEPTH = 48;
@@ -174,7 +176,7 @@ export function flattenDawprojectArrangement(
 ): DawprojectFlattenedArrangement {
 	const state: WalkState = {
 		audio: [], markers: [], automation: [],
-		notes: 0, video: 0, clipAutomation: 0, unresolvedReferences: 0, unsupportedContent: 0,
+		notes: 0, video: 0, clipAutomation: 0, unresolvedReferences: 0, unsupportedContent: 0, loopedClips: 0,
 	};
 	const arrangement = document.arrangement;
 	if (arrangement?.lanes) visitTimeline(arrangement.lanes, rootScope('beats'), null, state, document, resolver);
@@ -186,6 +188,7 @@ export function flattenDawprojectArrangement(
 		markers: Object.freeze(state.markers),
 		automation: Object.freeze(state.automation),
 		omitted: Object.freeze({
+			loopedClips: state.loopedClips,
 			notes: state.notes,
 			video: state.video,
 			clipAutomation: state.clipAutomation,
@@ -282,12 +285,15 @@ function visitClip(
 	const crossfadeHead = fadeIn < 0 ? (fadeUnit === 'beats'
 		? Math.max(0, startFrame - resolver.frameAtBeat(clipStartBeat - Math.abs(fadeIn))) : fadeFrames(fadeIn)) : 0;
 	const fadeStartFrame = startFrame - crossfadeHead;
-	const window = intersect(scope.window, { start: fadeStartFrame, end: endFrame });
-	if (!window) return;
 	const loopStart = numberAttribute(clip, 'loopStart');
 	const loopEnd = numberAttribute(clip, 'loopEnd');
-	const looped = loopStart !== null && loopEnd !== null && loopEnd > loopStart && endFrame !== null
-		&& endFrame - startFrame > frameOf(inner, loopEnd, resolver) - frameOf(inner, loopStart, resolver) + 1;
+	const loopEndFrame = loopStart !== null && loopEnd !== null && loopEnd > loopStart
+		? frameOf(inner, loopEnd, resolver) : null;
+	const looped = loopEndFrame !== null && (endFrame === null || endFrame > loopEndFrame);
+	const enabled = booleanAttribute(clip, 'enable') !== false && (inherited?.enabled ?? true);
+	if (looped && enabled) state.loopedClips += 1;
+	const window = intersect(scope.window, { start: fadeStartFrame, end: looped ? loopEndFrame : endFrame });
+	if (!window) return;
 	const fadeInFrames = fadeIn !== 0 ? (fadeIn < 0 ? crossfadeHead : fadeFrames(fadeIn)) : (inherited?.fadeInFrames ?? 0);
 	const fadeOutFrames = fadeOut !== 0 ? (fadeUnit === 'beats' && endFrame !== null
 		? Math.max(0, endFrame - resolver.frameAtBeat(resolver.beatAtFrame(endFrame) - Math.abs(fadeOut)))
@@ -295,7 +301,7 @@ function visitClip(
 	const info: ClipInfo = {
 		name: attribute(clip, 'name') ?? inherited?.name ?? null,
 		color: attribute(clip, 'color') ?? inherited?.color ?? null,
-		enabled: booleanAttribute(clip, 'enable') !== false && (inherited?.enabled ?? true),
+		enabled,
 		fadeInFrames, fadeOutFrames,
 		crossfade: fadeIn < 0 || inherited?.crossfade === true,
 		looped: looped || inherited?.looped === true,

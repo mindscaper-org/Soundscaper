@@ -26,6 +26,7 @@ import {
 	createDawprojectTimeResolver,
 	flattenDawprojectArrangement,
 	type DawprojectAudioEvent,
+	type DawprojectFlattenedOmissions,
 } from './dawproject-import-timeline.ts';
 
 /**
@@ -399,11 +400,16 @@ function createMarkers(markers: readonly Readonly<{ frame: number; name: string;
 
 function reportOmissions(
 	document: DawprojectDocument,
-	omitted: Readonly<{ notes: number; video: number; clipAutomation: number; unresolvedReferences: number; unsupportedContent: number }>,
+	omitted: DawprojectFlattenedOmissions,
 	disabledClips: number,
 	build: Build,
 ): void {
 	const { draft } = build;
+	if (omitted.loopedClips > 0) addDeliveryReportItem(draft, {
+		code: 'dawproject.clip-loops-converted', disposition: 'converted', severity: 'warning',
+		data: { clips: omitted.loopedClips },
+		message: 'Clip looping is not imported; only the first pass up to the authored loop end is retained.',
+	});
 	const items: [string, number, string][] = [
 		['dawproject.notes-omitted', omitted.notes, 'Note events have no instrument to play here and are not imported.'],
 		['dawproject.video-omitted', omitted.video, 'Video clips are not imported by the audio project importer.'],
