@@ -282,6 +282,7 @@ export function replaceRenderedClips(project, command) {
 					sourceStartFrame: 0,
 					sourceDurationFrames: durationFrames,
 					durationFrames,
+					warpMap: null,
 					gain: 1,
 					fadeInFrames: 0,
 					fadeOutFrames: 0,
