@@ -16,7 +16,7 @@ const PROJECT_EXTENSIONS = Object.freeze(
 );
 const NATIVE_PROJECT_EXTENSION = PROJECT_FILE_EXTENSION.slice(1);
 const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
-	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'm4a', 'm4v', 'mka', 'mp2', 'mp3', 'mp4',
+	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'm4a', 'm4v', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
 	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
 ]);
 const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
@@ -40,8 +40,8 @@ const FILE_PURPOSES = Object.freeze({
 		filters: Object.freeze([{ name: 'Audio', extensions: ['aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv'] }]),
 	}),
 	video: Object.freeze({
-		extensions: Object.freeze(['m4v', 'mp4', 'webm']),
-		filters: Object.freeze([{ name: 'Video', extensions: ['m4v', 'mp4', 'webm'] }]),
+		extensions: Object.freeze(['m4v', 'mov', 'mp4', 'webm']),
+		filters: Object.freeze([{ name: 'Video', extensions: ['m4v', 'mov', 'mp4', 'webm'] }]),
 	}),
 	media: Object.freeze({
 		extensions: MEDIA_IMPORT_EXTENSIONS,
@@ -157,6 +157,7 @@ const MIME_TYPES = Object.freeze({
 	'.m4a': 'audio/mp4',
 	'.m4v': 'video/mp4',
 	'.mka': 'audio/x-matroska',
+	'.mov': 'video/quicktime',
 	'.mp2': 'audio/mpeg',
 	'.mp3': 'audio/mpeg',
 	'.mp4': 'video/mp4',

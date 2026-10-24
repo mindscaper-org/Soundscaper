@@ -462,6 +462,7 @@ export function dawprojectImportedAudioMimeType(name: string): string {
 		case 'ogg': case 'oga': return 'audio/ogg';
 		case 'opus': return 'audio/opus';
 		case 'm4a': case 'mp4': return 'audio/mp4';
+		case 'mov': return 'video/quicktime';
 		default: return 'audio/wav';
 	}
 }
