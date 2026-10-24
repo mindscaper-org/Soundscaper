@@ -476,10 +476,13 @@ export { audioBufferChannels, type RenderedAudio } from '../../rendered-audio-ch
 
 export function scaleClipEnvelope(clip: ClipEnvelope, durationFrames: number): ClipEnvelopePoint[] {
 	const ratio = durationFrames / Math.max(1, clip.durationFrames);
-	return (clip.envelope || []).map((point) => ({
-		...point,
-		frame: Math.max(0, Math.min(durationFrames, Math.round(point.frame * ratio))),
-	})).filter((point, index, points) => index === 0 || point.frame > points[index - 1]!.frame);
+	const scaled = new Map<number, ClipEnvelopePoint>();
+	for (const point of clip.envelope || []) {
+		const frame = Math.max(0, Math.min(durationFrames, Math.round(point.frame * ratio)));
+		// A collapsed span carries its final authored gain into the next span.
+		scaled.set(frame, { ...point, frame });
+	}
+	return [...scaled.values()];
 }
 
 /** A profile arrives as an opaque worker result; anything that is not an object serialises to null. */
