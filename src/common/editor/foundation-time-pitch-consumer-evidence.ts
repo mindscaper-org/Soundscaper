@@ -4,6 +4,12 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 /** Scalar cache consumers use the same resolved beat clock as engine playback. */
 export const FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = [
 	{
+		id: 'time-pitch-source-audition-musical-clock', surface: 'preview',
+		file: 'src/common/editor/controller/clip-video/internal/clip-source-preview-project.ts', entryPoint: 'createClipSourcePreviewProject',
+		inputIdentifier: 'playbackProject', projectedIdentifier: 'playbackClip', boundary: 'clipTimePitchPlaybackProjection',
+		evidence: 'Source audition preserves the beat-derived scalar before detaching musical anchors, so its sample-anchored transient clip still selects the same committed cache as programme playback.',
+	},
+	{
 		id: 'time-pitch-cache-musical-clock', surface: 'playback',
 		file: 'src/common/editor/controller/source/clip-time-pitch-service.ts', entryPoint: 'projectTimePitchPairs',
 		inputIdentifier: 'snapshot', projectedIdentifier: 'playbackClip', boundary: 'clipTimePitchPlaybackProjection',

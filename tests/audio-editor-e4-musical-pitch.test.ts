@@ -12,6 +12,7 @@ import { processedSpectrogramPreparation } from '../src/common/editor/controller
 import { clipTimePitchPlaybackProjection } from '../src/common/editor/clip-time-pitch-playback-projection.ts';
 import { resolveRuntimeClipProjection } from '../src/common/editor/runtime-clip-projection.ts';
 import { deriveClipTimePitchCachePlan } from '../src/common/editor/clip-time-pitch-cache-plan.js';
+import { createClipSourcePreviewProject } from '../src/common/editor/controller/clip-video/internal/clip-source-preview-project.ts';
 
 function document(bpm: number, pitchCents = 1200) {
 	const tempoMap = { mode: 'musical' as const, events: [{ id: 'tempo', beat: { num: 0, den: 1 }, bpm: { num: bpm, den: 1 } }] };
@@ -109,4 +110,14 @@ test('tempo-derived rate changes cache identity and output length without changi
 	assert.equal(first.outputFrames, 48_000); assert.equal(second.outputFrames, 24_000);
 	assert.deepEqual(first.sourceIdentity, second.sourceIdentity);
 	assert.deepEqual(first.sourceRange, second.sourceRange);
+});
+
+test('source audition retains the effective scalar when detaching a beat clip from its original anchor', () => {
+	const canonical = document(240, 0), original = canonical.clips[0]!;
+	const resolved = resolveRuntimeClipProjection(canonical, original);
+	const preview = createClipSourcePreviewProject({ id: canonical.id, sampleRate: 48_000,
+		tempoMap: canonical.tempoMap, sources: [{ id: 'source', sampleRate: 48_000, frameCount: 48_000, channelCount: 1 }],
+		clips: [{ ...resolved, id: 'clip', sourceId: 'source' }] }, 'clip');
+	assert.equal(preview.clips?.find(clip => clip.id === 'clip')?.speedRatio, 2);
+	assert.equal(original.speedRatio, 1);
 });
