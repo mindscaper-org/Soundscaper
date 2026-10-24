@@ -4,6 +4,7 @@ import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-code
 import { raceAbortableRead } from '../../../abort-race.ts';
 import { canonicalNativeVorbisBuffer } from '../../../browser-vorbis-decoder.ts';
 import { inspectWave64PcmSourceGeometry } from '../../../wave64-pcm-source-geometry.ts';
+import { inspectNistPcmSourceGeometry } from '../../../nist-pcm-source-geometry.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
@@ -79,17 +80,17 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 /** Normalize native speaker roles and authored extent before canonical PCM storage. */
 export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: NativeContainerAudioAdmission | null, encoded?: ArrayBuffer): AudioBuffer {
 	if (encoded) {
-		const wave64 = inspectWave64PcmSourceGeometry(new Uint8Array(encoded));
-		if (wave64) {
-			const excess = decoded.length - wave64.frameCount;
-			// The qualified native Wave64 reader pads its final1024-frame output block.
-			if (decoded.sampleRate !== wave64.sampleRate || decoded.numberOfChannels !== wave64.channelCount
-				|| !Number.isSafeInteger(excess) || excess < 0 || excess >= 1024) throw new RangeError('The native Wave64 decoder returned different PCM geometry.');
+		const bytes = new Uint8Array(encoded), pcm = inspectWave64PcmSourceGeometry(bytes) ?? inspectNistPcmSourceGeometry(bytes);
+		if (pcm) {
+			const excess = decoded.length - pcm.frameCount;
+			// Qualified native PCM container readers pad their final1024-frame output block.
+			if (decoded.sampleRate !== pcm.sampleRate || decoded.numberOfChannels !== pcm.channelCount
+				|| !Number.isSafeInteger(excess) || excess < 0 || excess >= 1024) throw new RangeError('The native PCM decoder returned different source geometry.');
 			if (excess > 0) {
-				for (let channel = 0; channel < wave64.channelCount; channel++) {
-					if (decoded.getChannelData(channel).subarray(wave64.frameCount).some(value => value !== 0)) throw new RangeError('The native Wave64 endpoint is not zero padding.');
+				for (let channel = 0; channel < pcm.channelCount; channel++) {
+					if (decoded.getChannelData(channel).subarray(pcm.frameCount).some(value => value !== 0)) throw new RangeError('The native PCM endpoint is not zero padding.');
 				}
-				decoded = nativePcmExtentView(decoded, wave64.frameCount);
+				decoded = nativePcmExtentView(decoded, pcm.frameCount);
 			}
 		}
 		const normalized = canonicalNativeVorbisBuffer(decoded, encoded);
