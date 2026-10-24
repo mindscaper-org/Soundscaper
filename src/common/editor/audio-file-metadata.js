@@ -3,6 +3,7 @@ import { readAlacSampleDescription } from './alac-sample-description.ts';
 import { inspectAuAudioSampleRate } from './au-audio-sample-rate.ts';
 import { inspectDolbyAudioSampleRate } from './dolby-audio-sample-rate.ts';
 import { inspectDtsAudioSampleRate } from './dts-audio-sample-rate.ts';
+import { readQuickTimePcmSampleDescription } from './quicktime-pcm-sample-description.ts';
 
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
@@ -204,7 +205,8 @@ function inspectIsoMediaSampleRate(bytes, decodedOnly = false) {
 		const stsd = isoBoxes(bytes, stbl.payload, stbl.end).find((box) => box.type === 'stsd');
 		if (!stsd || stsd.payload + 8 > stsd.end || bytes[stsd.payload] !== 0) continue;
 		if (decodedOnly) {
-			decodedRate = readAlacSampleDescription(bytes.subarray(stsd.payload - 8, stsd.end))?.sampleRate ?? null;
+			const description = bytes.subarray(stsd.payload - 8, stsd.end);
+			decodedRate = (readAlacSampleDescription(description) ?? readQuickTimePcmSampleDescription(description))?.sampleRate ?? null;
 			continue;
 		}
 		const entryCount = view.getUint32(stsd.payload + 4, false);
