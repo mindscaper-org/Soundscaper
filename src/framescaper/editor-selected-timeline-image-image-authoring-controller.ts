@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortableRead } from '../common/editor/abort-race.ts';
 import { createStableId } from '../common/editor/stable-id.js';
 import { sampleFrameToVideoFrame } from '../common/editor/timeline-time.ts';
 import {
@@ -47,6 +48,7 @@ export interface FramescaperSelectedImageAuthoringControllerTimelineImage
 	extends FramescaperTimelineImagePublicationControllerTimelineImage {
 	readonly project: FramescaperProjectTimelineImage | null;
 	getTelemetrySnapshot(): Readonly<{ readonly positionFrame?: unknown }>;
+	subscribe?(listener: () => void): () => void;
 }
 
 export interface BindFramescaperSelectedImageAuthoringControllerTimelineImageOptions
@@ -82,11 +84,22 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 		publishIfCurrent: options.publishIfCurrent,
 		...(options.now ? { now: options.now } : {}),
 	});
-	let tail = Promise.resolve();
+	let queue: { projectId: string; abort: AbortController; tail: Promise<void>; pending: number; stop: (() => void) | null } | null = null;
 	const run = (): Promise<void> => {
 		const projectId = exactProject(controller.project).id;
-		const operation = tail.then(() => importSelected(projectId), () => importSelected(projectId));
-		tail = operation.then(() => undefined, () => undefined);
+		if (queue?.projectId !== projectId || queue.abort.signal.aborted) {
+			queue?.abort.abort(projectChanged());
+			queue = { projectId, abort: new AbortController(), tail: Promise.resolve(), pending: 0, stop: null };
+		}
+		const owner = queue;
+		if (owner.pending++ === 0) owner.stop = controller.subscribe?.(() => {
+			if (controller.project?.id !== projectId) owner.abort.abort(projectChanged());
+		}) ?? null;
+		const start = (): Promise<void> => raceAbortableRead(() => importSelected(projectId, owner.abort.signal), owner.abort.signal);
+		const operation = owner.tail.then(start, start).finally(() => {
+			if (--owner.pending === 0) { const stop = owner.stop; owner.stop = null; stop?.(); }
+		});
+		owner.tail = operation.then(() => undefined, () => undefined);
 		return operation;
 	};
 	const inherited = framescaperCandidateAuthoringActionRuntimeFor(controller as object);
@@ -100,8 +113,8 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 	bindFramescaperCandidateAuthoringActionRuntime(controller as object,
 		createFramescaperCandidateAuthoringActionSubsetRuntime(surfaces, actions));
 
-	async function importSelected(projectId: string): Promise<void> {
-		assertProjectCurrent(projectId);
+	async function importSelected(projectId: string, signal: AbortSignal): Promise<void> {
+		assertProjectCurrent(projectId, signal);
 		const fileService = options.fileService;
 		if (!options.selectFiles && fileService?.isDesktop) {
 			if (typeof fileService.chooseFiles !== 'function'
@@ -110,40 +123,44 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 			}
 			const descriptors = await fileService.chooseFiles({ purpose: 'image', multiple: true });
 			if (descriptors.length === 0) return;
-			assertProjectCurrent(projectId);
-			await fileService.withReadDescriptors(descriptors, {}, (files) => importFiles(snapshotFiles(files), projectId));
+			assertProjectCurrent(projectId, signal);
+			await fileService.withReadDescriptors(descriptors, {}, (files) => importFiles(snapshotFiles(files), projectId, signal));
 			return;
 		}
-		await importFiles(await selectFiles(), projectId);
+		await importFiles(await selectFiles(), projectId, signal);
 	}
 
-	async function importFiles(files: readonly FramescaperImageImportFileTimelineImage[], projectId: string): Promise<void> {
+	async function importFiles(files: readonly FramescaperImageImportFileTimelineImage[], projectId: string, signal: AbortSignal): Promise<void> {
 		if (files.length === 0) return;
-		assertProjectCurrent(projectId);
+		assertProjectCurrent(projectId, signal);
 		const project = exactProject(controller.project);
 		const playhead = playheadSample(controller.getTelemetrySnapshot().positionFrame);
 		const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
 		if (!sequence) throw new ReferenceError('Add Images requires the primary Framescaper sequence.');
 		const result = await importImages({
 			project,
-			files,
+			files, signal,
 			sequenceStartFrame: sampleFrameToVideoFrame(
 				playhead, sequence.rate, Number(project.sampleRate), 'enclosingStart',
 			),
 			createId: options.createId ?? createStableId,
 			publisher,
 			confirmFileSizeWarning: options.confirmFileSizeWarning,
-			assertCurrent: () => assertProjectCurrent(projectId),
+			assertCurrent: () => assertProjectCurrent(projectId, signal),
 		});
+		assertProjectCurrent(projectId, signal);
 		RESULTS.set(controller as object, result);
 		const failures = result.files.filter(({ status }) => status === 'failed');
 		if (failures.length > 0) throw new Error(importFailureMessage(result));
 	}
-	function assertProjectCurrent(projectId: string): void {
-		if (controller.project?.id !== projectId) {
-			throw Object.assign(new Error('The project changed during image import.'), { name: 'AbortError' });
-		}
+	function assertProjectCurrent(projectId: string, signal: AbortSignal): void {
+		signal.throwIfAborted();
+		if (controller.project?.id !== projectId) throw projectChanged();
 	}
+}
+
+function projectChanged(): Error {
+	return Object.assign(new Error('The project changed during image import.'), { name: 'AbortError' });
 }
 
 async function selectImageFiles(): Promise<readonly FramescaperImageImportFileTimelineImage[]> {
