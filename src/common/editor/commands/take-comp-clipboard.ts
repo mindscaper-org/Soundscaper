@@ -325,12 +325,13 @@ function normalizeGroup(
 			{ id, takeId, startSample, endSample }
 		)),
 	});
+	const regionsByKey = new Map(regions.map(region => [region.key, region]));
 	return Object.freeze({
 		key, sourceSequenceId, sourceTrackId, startOffsetFrame, endOffsetFrame,
 		laneOrder: core.laneOrder,
 		lanes: Object.freeze(core.lanes.map(({ id }) => Object.freeze({ key: id }))),
 		takes: Object.freeze(core.takes.map(({ id }) => Object.freeze(takesByKey.get(id)!))),
-		compRegions: Object.freeze(core.compRegions.map(({ id }) => Object.freeze(regions.find(({ key: regionKey }) => regionKey === id)!))),
+		compRegions: Object.freeze(core.compRegions.map(({ id }) => Object.freeze(regionsByKey.get(id)!))),
 	});
 }
 
