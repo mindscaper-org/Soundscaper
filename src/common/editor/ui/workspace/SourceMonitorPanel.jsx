@@ -12,6 +12,7 @@ import '../audio-editor-design-system/23-source-monitor.css';
  */
 export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked }) {
 	const videoRef = useRef(null);
+	const playingRef = useRef(false);
 	const [playing, setPlaying] = useState(false);
 	const view = controller.actions.video.sourceMonitor.view();
 	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId) : null;
@@ -21,6 +22,8 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	// Playing a source is a viewing action; stopping it is what makes the
 	// controller's frame authoritative again.
 	const stop = useCallback(() => {
+		// pause() can dispatch a final timeupdate before React commits the state.
+		playingRef.current = false;
 		videoRef.current?.pause?.();
 		setPlaying(false);
 	}, []);
@@ -45,7 +48,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 
 	const publish = (frame) => run(() => controller.actions.video.sourceMonitor.seek(frame));
 	const capturePlayback = () => {
-		if (playing && videoRef.current) {
+		if (playingRef.current && videoRef.current) {
 			controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		}
 	};
@@ -68,6 +71,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			run(() => controller.actions.video.sourceMonitor.seekMediaTime(Number(media.currentTime) || 0));
 			return;
 		}
+		playingRef.current = true;
 		setPlaying(true);
 		void media.play?.().catch(() => stop());
 	};
