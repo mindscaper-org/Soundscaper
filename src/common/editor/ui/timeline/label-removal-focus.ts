@@ -15,8 +15,11 @@ export function prepareTimelineLabelRemovalFocus(lane: HTMLElement | null, label
 			const active = document.activeElement;
 			if (active !== focused && active !== document.body) return;
 			const survivors = [...lane.querySelectorAll<HTMLElement>('[data-label-id]')];
-			const target = neighbours.map(id => survivors.find(label => label.dataset.labelId === id)).find(Boolean)
-				?? survivors[0] ?? lane.closest<HTMLElement>('[data-label-track]')
+			const byId = new Map<string | undefined, HTMLElement>();
+			for (const survivor of survivors) { const id = survivor.dataset.labelId; if (!byId.has(id)) byId.set(id, survivor); }
+			let neighbour: HTMLElement | undefined;
+			for (const id of neighbours) { neighbour = byId.get(id); if (neighbour) break; }
+			const target = neighbour ?? survivors[0] ?? lane.closest<HTMLElement>('[data-label-track]')
 					?.querySelector<HTMLElement>('.audio-editor-label-track-actions')?.querySelector<HTMLElement>('button');
 			if (target?.isConnected) target.focus({ preventScroll: true });
 		});
