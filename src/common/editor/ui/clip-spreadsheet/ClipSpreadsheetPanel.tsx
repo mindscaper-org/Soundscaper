@@ -272,6 +272,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 		if (event.target instanceof HTMLButtonElement) return;
 		if (draft) {
 			if (event.nativeEvent?.isComposing) return;
+			if (event.key === 'Enter' && event.shiftKey && inputRef.current?.tagName === 'TEXTAREA') return;
 			if (event.key === 'Escape') {
 				event.preventDefault(); updateDraft(null); setError(''); focusCell(active);
 			} else if (event.key === 'Enter' || event.key === 'Tab') {
@@ -351,7 +352,7 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 						catch (cause) { setError(feedbackFailure(cause)); }
 					}}
 					onPaste={event => {
-						if (draft && !/[\t\r\n]/u.test(event.clipboardData.getData('text/plain'))) return;
+						if (draft && (inputRef.current?.tagName === 'TEXTAREA' || !/[\t\r\n]/u.test(event.clipboardData.getData('text/plain')))) return;
 						event.preventDefault(); event.stopPropagation(); updateDraft(null); void pasteText(event.clipboardData.getData('text/plain'));
 					}}>
 					<thead><tr>
