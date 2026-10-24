@@ -26,7 +26,16 @@ export interface AudioTrackRowMemoProps extends Readonly<Record<string, unknown>
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const EMPTY_TARGETS: readonly unknown[] = Object.freeze([]);
 const entries = (preview: DragPreview | null | undefined) => preview?.previews ?? (preview ? [preview] : []);
-const sameIds = (left: ReadonlySet<string>, right: ReadonlySet<string>) => left.size === right.size && [...left].every(id => right.has(id));
+
+function retainIntersection(previous: ReadonlySet<string>, source: ReadonlySet<string>, belongs: (id: string) => boolean): ReadonlySet<string> {
+	let count = 0, changed = false;
+	for (const id of source) if (belongs(id)) { count++; if (!previous.has(id)) changed = true; }
+	if (!changed && previous.size === count) return previous;
+	if (!count) return EMPTY_IDS;
+	const next = new Set<string>();
+	for (const id of source) if (belongs(id)) next.add(id);
+	return next;
+}
 
 /** Narrow global selection/media notifications before the expensive row reconciles. */
 export function createAudioTrackRowPropReader() {
@@ -58,13 +67,11 @@ export function createAudioTrackRowPropReader() {
 				? props.clipDragPreview : null;
 			const projectBinDragPreview = entries(props.projectBinDragPreview).some(preview => preview.trackId === props.track.id && preview.clip?.kind === props.track.type)
 				? props.projectBinDragPreview : null;
-			const incoming = new Set(clipDragPreview ? previewEntries.filter(preview => preview.trackId === props.track.id).flatMap(preview => preview.clipId ? [preview.clipId] : []) : []);
+			const incoming = clipDragPreview ? new Set(previewEntries.filter(preview => preview.trackId === props.track.id).flatMap(preview => preview.clipId ? [preview.clipId] : [])) : EMPTY_IDS;
 			const binVisualClips = entries(projectBinDragPreview).flatMap(preview => preview.clip?.id ? [{ id: preview.clip.id, projectBinClipId: preview.clip.projectBinClipId }] : []);
 			const belongs = (id: string) => clipIds.has(id) || incoming.has(id);
-			const nextSelected = new Set([...props.selectedClipIdSet].filter(belongs));
-			const nextDragged = new Set([...(props.draggingClipIds ?? EMPTY_IDS)].filter(belongs));
-			if (!sameIds(selectedIds, nextSelected)) selectedIds = nextSelected;
-			if (!sameIds(draggedIds, nextDragged)) draggedIds = nextDragged;
+			selectedIds = retainIntersection(selectedIds, props.selectedClipIdSet, belongs);
+			draggedIds = retainIntersection(draggedIds, props.draggingClipIds ?? EMPTY_IDS, belongs);
 			const start = Math.max(0, props.renderViewportStartFrame - props.viewportDurationFrames);
 			const end = Math.min(Number.MAX_SAFE_INTEGER, props.renderViewportStartFrame + props.viewportDurationFrames * 2);
 			if (!visibleClips || visibleStart !== start || visibleEnd !== end) {
