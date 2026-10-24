@@ -246,7 +246,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 
 			const context = await engine.getAudioContext({ resume: false });
 			try {
-				const { decodedAudio, declaredAudioSampleRate } = await decodeImportedVideoAudio({
+				const { decodedAudio, declaredAudioSampleRate, programmeFrameCount } = await decodeImportedVideoAudio({
 					file: canonicalVideoFile,
 					projectSampleRate: sampleRate,
 					durationSeconds: timelineDurationFrames / sampleRate,
@@ -271,7 +271,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 						copy,
 					);
 					const resampled = await canonicalizeBuffer(decodedBuffer, context, sampleRate, copy, { preserveChannels: true });
-					canonicalAudio = fitAudioBufferToFrames(resampled, timelineDurationFrames, context);
+					canonicalAudio = fitAudioBufferToFrames(resampled, programmeFrameCount ?? timelineDurationFrames, context);
 				}
 			} catch {
 				throwIfImportAborted(importOptions.signal);

@@ -5,8 +5,24 @@ import type { ImportedVideoDecodedAudio } from './video-import-audio-decode.ts';
 
 const MAXIMUM_OUTPUT_BYTES = 128 * 1024 * 1024;
 
-/** Whole-file decoders return PCM at zero; retain its primary track's picture-relative start. */
+interface VideoContainerAudioTiming {
+	readonly offsetSeconds: number;
+	/** Authenticated ISO AAC-LC presentation end, relative to picture zero. */
+	readonly programmeEndSeconds: number | null;
+}
+
+/** Whole-file decoders return PCM at zero; retain the primary picture-relative start. */
 export async function readVideoContainerAudioOffset(blob: Blob, signal?: AbortSignal): Promise<number> {
+	return (await inspectVideoContainerAudioTiming(blob, signal, false)).offsetSeconds;
+}
+
+/** Inspect programme end only where the container declares the decoded AAC extent. */
+export async function readVideoContainerAudioTiming(blob: Blob, signal?: AbortSignal): Promise<VideoContainerAudioTiming> {
+	return inspectVideoContainerAudioTiming(blob, signal, true);
+}
+
+async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal | undefined,
+	includeProgrammeEnd: boolean): Promise<VideoContainerAudioTiming> {
 	throwIfAborted(signal);
 	const { BlobSource, Input, MATROSKA, MP4, QTFF, WEBM } = await import('mediabunny');
 	throwIfAborted(signal);
@@ -15,13 +31,28 @@ export async function readVideoContainerAudioOffset(blob: Blob, signal?: AbortSi
 	signal?.addEventListener('abort', onAbort, { once: true });
 	try {
 		const [audio, video] = await Promise.all([input.getPrimaryAudioTrack(), input.getPrimaryVideoTrack()]);
-		if (!audio || !video) return 0;
+		if (!audio || !video) return { offsetSeconds: 0, programmeEndSeconds: null };
 		const [audioStart, videoStart] = await Promise.all([audio.getFirstTimestamp(), video.getFirstTimestamp()]);
 		throwIfAborted(signal);
 		if (!Number.isFinite(audioStart) || !Number.isFinite(videoStart)) throw new RangeError('Invalid container audio timing.');
 		// Native whole-file decoders already remove samples before composition zero
 		// (for example negative AAC priming); those must not be removed twice.
-		return Math.max(0, audioStart) - Math.max(0, videoStart);
+		const offsetSeconds = Math.max(0, audioStart) - Math.max(0, videoStart);
+		let programmeEndSeconds: number | null = null;
+		if (includeProgrammeEnd) {
+			try {
+				const format = await input.getFormat();
+				// Matroska's last-packet timestamp can exclude packet duration or
+				// include codec padding, so it cannot establish this source extent.
+				if ((format === MP4 || format === QTFF) && await audio.getCodec() === 'aac'
+					&& await audio.getCodecParameterString() === 'mp4a.40.2') {
+					const end = await audio.computeDuration();
+					if (Number.isFinite(end) && end >= audioStart) programmeEndSeconds = Math.max(0, end - Math.max(0, videoStart));
+				}
+			} catch { throwIfAborted(signal); }
+		}
+		throwIfAborted(signal);
+		return { offsetSeconds, programmeEndSeconds };
 	} finally {
 		signal?.removeEventListener('abort', onAbort);
 		input.dispose();
