@@ -425,7 +425,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const rescuedMarkerScan = wavDescriptor ? null : await scanEncodedAudioMarkers(file);
 		assertImportProjectCurrent();
 		const { context, decoded, originalSampleRate } = await decodeStandaloneAudioForImport({
-			file, codecRuntime: ffmpeg, sampleRate: projectSampleRate(),
+			file, codecRuntime: ffmpeg, sampleRate: projectSampleRate(), signal: attributedImportOptions.signal,
 			getAudioContext: () => engine.getAudioContext({ resume: false }),
 			// Pinning native decoding keeps the file's own rate, like PCM streaming,
 			// instead of inheriting the output device's rate.
