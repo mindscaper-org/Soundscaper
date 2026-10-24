@@ -344,7 +344,6 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		if (!track || track.type !== 'audio') throw createLocalizedError(Error, copy, 'audioTrackNotFound');
 		return track;
 	}
-
 	async function importMediaFile(file: RuntimeValue, importOptions: RuntimeValue = normalizeImportOptions(), assertRequestedProjectCurrent?: () => void) {
 		assertRequestedProjectCurrent?.(); const normalizedImportOptions = await normalizedImportOptionsForUse(importOptions); assertRequestedProjectCurrent?.();
 		const linkedOriginalLocator = linkedOriginalLocatorReferenceFromImportOptions(normalizedImportOptions);
@@ -413,9 +412,10 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		const nativeAdmission = streamedAudio ? await nativeSurroundOpusAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg }) : null; assertImportProjectCurrent();
 		const nativeContainer = streamedAudio ? await nativeContainerAudioAdmission(file, { signal: attributedImportOptions.signal, codecRuntime: ffmpeg, nativeSampleRate: async () => Number((await engine.getAudioContext({ resume: false })).sampleRate) }) : null; assertImportProjectCurrent();
 		if (wavSignature === 'RIFX' || streamedAudio && !nativeAdmission && !nativeContainer) {
-			const { importStreamedAudioFile } = await import('./streamed-audio-import-service.ts');
-			return importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
+			const { importStreamedAudioFile, NATIVE_AAC_IMPORT_FALLBACK } = await import('./streamed-audio-import-service.ts');
+			const imported = await importStreamedAudioFile(file, { ...attributedImportOptions, confirmFileSizeWarning: runtime.confirmFileSizeWarning, rescueMarkers: wavSignature === 'RIFX' }, ffmpeg, wavMetadata,
 				importIncrementalPcm, assertImportProjectCurrent);
+			if (imported !== NATIVE_AAC_IMPORT_FALLBACK) return imported;
 		}
 		await preflightStorage(Math.max(file.size * 8, 8 * 1024 * 1024), 'import');
 		assertImportProjectCurrent();

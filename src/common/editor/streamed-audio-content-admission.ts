@@ -8,7 +8,7 @@ const MPEG1_BITRATES = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 
 const MPEG2_BITRATES = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
 interface Frame { readonly byteLength: number; readonly sampleRate: number; readonly version: number; readonly channels: number }
 
-/** Generic downloads must use the same gapless MPEG route as named recordings. */
+/** Generic downloads retain the same qualified decoder ownership as named recordings. */
 export async function inspectStreamedAudioImportFile(value: unknown, signal?: AbortSignal): Promise<boolean> {
 	signal?.throwIfAborted();
 	if (isStreamedAudioImportFile(value)) {
@@ -20,6 +20,11 @@ export async function inspectStreamedAudioImportFile(value: unknown, signal?: Ab
 	const file = value;
 	const name = 'name' in file ? String(file.name) : '', type = file.type.split(';', 1)[0]!.trim().toLowerCase();
 	if (OTHER_MEDIA_SUFFIX.test(name) || type !== '' && type !== 'application/octet-stream') return false;
+	const signature = await read(file, 0, 8, signal);
+	if (signature.length === 8 && String.fromCharCode(...signature.subarray(4)) === 'ftyp') {
+		const { hasOpaqueIsoAacIdentity } = await raceAbortableRead(() => import('./opaque-iso-audio-import-identity.ts'), signal);
+		signal?.throwIfAborted(); return hasOpaqueIsoAacIdentity(file, signal);
+	}
 	let offset = 0;
 	for (let tags = 0; tags < 4096; tags++) {
 		const header = await read(file, offset, 10, signal);

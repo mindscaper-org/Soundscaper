@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { initialAacSbrError } from './aac-initial-profile-error.ts';
 import type { BrowserContainerAudioSample } from './browser-container-audio-decode.ts';
 
 const MAXIMUM_PACKET_BYTES = 1024 * 1024;
@@ -89,6 +90,9 @@ export function createNativeStreamedAacImport(options: Readonly<{
 							const declared = sample.sampleRate === options.config.sampleRate && sample.numberOfChannels === options.config.numberOfChannels;
 							const reconstructed = implicitSbr && sample.sampleRate === options.config.sampleRate * 2
 								&& (sample.numberOfChannels === options.config.numberOfChannels || options.config.numberOfChannels === 1 && sample.numberOfChannels === 2);
+							if (outputRate === null && !declared && !reconstructed && Number.isSafeInteger(frames) && frames > 0 && frames <= MAXIMUM_PENDING_FRAMES) {
+								const profileError = initialAacSbrError(options.config, sample); if (profileError) throw profileError;
+							}
 							if (!Number.isSafeInteger(frames) || frames < 1 || frames > MAXIMUM_PENDING_FRAMES
 								|| (outputRate === null ? !declared && !reconstructed : sample.sampleRate !== outputRate || sample.numberOfChannels !== outputChannels)
 								|| queuedFrames + frames > MAXIMUM_PENDING_FRAMES) throw new RangeError('The decoded compressed audio sample geometry changed or is unsupported.');
