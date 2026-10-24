@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'; import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'; import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts';
 import { Button } from '@soundscaper/design-system/Button';
 import { Knob } from '@soundscaper/design-system/Knob';
 import { MixerPanel } from '@soundscaper/design-system/MixerPanel';
@@ -8,9 +8,8 @@ import RecordingInputSelectors from '../RecordingInputSelectors.jsx';
 import { rackEffectLabel } from '../dialogs/editor-dialog-model.js';
 import {
 	isMixerGraphV21Surface,
-	mixerTrackSurfaceRouteV21,
 } from '../../mixer-graph-surface-v21.ts';
-import { projectStripPanAvailable, resolveTerminalChannelWidths } from '../../terminal-channel-widths.ts';
+import { prepareMixerPanelRouting } from './mixer-panel-routing.ts';
 import {
 	folderOwnedMixerBusIds,
 	mixerAudibilityAuthority,
@@ -58,22 +57,11 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 	const [requestedRoutingSelection, setRequestedRoutingSelection] = useState(null);
 	const consumeRequestedRoutingSelection = useCallback(() => setRequestedRoutingSelection(null), []);
 	const routingCopy = resolveSoundscaperRoutingGraphCopy(copy);
-	const tracks = (project?.tracks || []).filter((track) => track.type === 'audio');
+	const tracks = useMemo(() => (project?.tracks || []).filter((track) => track.type === 'audio'), [project?.tracks]);
 	const groups = project?.mixer?.groups || [];
 	const sends = project?.mixer?.sends || [];
-	const terminalWidths = isMixerGraphV21Surface(project?.mixer)
-		? resolveTerminalChannelWidths(project, project.masterChannels)
-		: null;
-	const routes = isMixerGraphV21Surface(project?.mixer)
-		? Object.fromEntries(tracks.map((track) => [track.id, mixerTrackSurfaceRouteV21(
-			project.mixer,
-			track.id,
-			{
-				sourceChannels: terminalWidths?.tracks.get(track.id) || project.masterChannels,
-				masterChannels: project.masterChannels,
-			},
-		)]))
-		: project?.mixer?.routes || {};
+	const routing = useMemo(() => prepareMixerPanelRouting(project, tracks), [project, tracks]);
+	const { routes } = routing;
 	// A folder that contains audio owns its group: the folder holds that bus's
 	// name, mute, solo, and existence, and the graph refuses to edit them on the
 	// bus itself. The strip is still shown — it is where the folder's audio is
@@ -143,7 +131,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 			variant: 'stereo',
 			volume: linearMixerGainToDb(staticGestures.value(stripAddress('gain'), channel.gain ?? 1)),
 			pan: Math.round(staticGestures.value(stripAddress('pan'), channel.pan || 0) * 100),
-			panDisabled: !projectStripPanAvailable(project, stripAddress('pan').strip),
+			panDisabled: !routing.panAvailable(stripAddress('pan').strip),
 			muted: Boolean(channel.mute),
 			soloed: Boolean(channel.solo),
 			meterContent: <MixerTelemetryMeters controller={controller} scope={type} targetId={targetId} />,
@@ -153,7 +141,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 				updateContinuous(stripAddress('gain'), gain, { gain });
 			},
 			onPanChange: (value) => {
-				if (!projectStripPanAvailable(project, stripAddress('pan').strip)) return;
+				if (!routing.panAvailable(stripAddress('pan').strip)) return;
 				const pan = Math.max(-1, Math.min(1, Number(value) / 100));
 				updateContinuous(stripAddress('pan'), pan, { pan });
 			},
@@ -185,7 +173,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 							copy={copy}
 							disabled={snapshot.readOnly}
 							automationRouter={automationRouter}
-							project={project}
+							routing={routing}
 							onChange={(sendId, gain) => run(() => controller.actions.mixer.setSend(targetId, sendId, gain))}
 					/>,
 				} : {}),
@@ -300,7 +288,7 @@ export default function AudioEditorMixerPanel({ controller, snapshot, copy, run,
 	);
 }
 
-function MixerSendControls({ track, route, sends, copy, disabled, automationRouter, project, onChange }) {
+function MixerSendControls({ track, route, sends, copy, disabled, automationRouter, routing, onChange }) {
 	const [sendId, setSendId] = useState(() => sends[0]?.id || '');
 	const selectedSend = sends.find((bus) => bus.id === sendId) || sends[0] || null;
 	useEffect(() => {
@@ -311,7 +299,7 @@ function MixerSendControls({ track, route, sends, copy, disabled, automationRout
 	const gain = linearMixerGainToDb(route.sends?.[selectedSend.id] || 0);
 	const sendDisabled = disabled || (Array.isArray(route.editableSendIds)
 		&& !route.editableSendIds.includes(selectedSend.id));
-	const address = sendLevelAddress(project, track.id, selectedSend.id);
+	const address = routing.sendAddress(track.id, selectedSend.id);
 	const change = (value) => {
 		const next = mixerDbToLinearGain(value);
 		if (address && (automationRouter.preview(address, next)
@@ -363,15 +351,6 @@ function MixerSendKnob({ label, value, disabled, onChange, onGestureStart, onGes
 		return () => knob.removeEventListener('keydown', handleKeyDown);
 	}, [disabled, label, onChange, onGestureEnd, onGestureStart, value]);
 	return <div ref={wrapperRef} className="kw-audio-editor__mixer-send-knob"><Knob value={value} defaultValue={-60} min={-60} max={12} step={1} label={label} mode="unipolar" disabled={disabled} onChange={onChange} onGestureStart={onGestureStart} onGestureEnd={onGestureEnd} onGestureCancel={onGestureCancel} /></div>;
-}
-
-function sendLevelAddress(project, trackId, sendId) {
-	const edge = project?.mixer?.edges?.find((candidate) => (
-		candidate.kind === 'send'
-		&& candidate.source?.kind === 'track' && candidate.source.id === trackId
-		&& candidate.destination?.kind === 'mixer-node' && candidate.destination.id === sendId
-	));
-	return edge ? { kind: 'edge', edgeId: edge.id, parameterId: 'level' } : null;
 }
 
 export function linearMixerGainToDb(gain, floor = -60) {
