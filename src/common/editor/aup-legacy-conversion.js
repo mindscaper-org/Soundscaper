@@ -188,7 +188,7 @@ function convertEnvelope(points = [], inputRate, projectRate, speedRatio, maximu
 		),
 		value: Math.max(0, Math.min(16, Number(point.value) || 0)),
 	})).sort((left, right) => left.frame - right.frame)
-		.filter((point, index, values) => !index || point.frame > values[index - 1].frame);
+		.filter((point, index, values) => values[index + 1]?.frame !== point.frame);
 	return convertAudacityEnvelopeInterpolation(converted, 0, maximumFrame, 'from-native');
 }
 
