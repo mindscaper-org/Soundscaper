@@ -7,7 +7,7 @@ import {
 	findClipTrack,
 } from '../project.js';
 import { shapesForNewClipFades } from '../audio-clip-transition-gain.ts';
-import { clipLoopUpdateFields } from '../audio-clip-loop.ts';
+import { clipLoopUpdateFields, withoutClipLoop } from '../audio-clip-loop.ts';
 import { resampledClipSourceStretchFields } from '../clip-source-stretch-memory.ts';
 import { collectRelatedClipIds, mergeEditingRanges } from './editing-selection-authority.ts';
 import { hasCoreEditingProjectAuthority, hasProjectBinMediaAuthority } from '../project-schema-version.ts';
@@ -277,6 +277,7 @@ export function replaceRenderedClips(project, command) {
 				? normalizeClipForProject(project, {
 					...current,
 					sourceId: target.source.id,
+					opaqueExtensions: withoutClipLoop(current.opaqueExtensions),
 					timelineStartFrame,
 					sourceStartFrame: 0,
 					sourceDurationFrames: durationFrames,
