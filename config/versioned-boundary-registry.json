@@ -262,6 +262,8 @@
 		,
 		{ "path": "src/common/editor/audio-track-freeze-v21.ts", "kind": "persisted-contract", "justification": "audio-track-freeze-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
+		{ "path": "src/common/editor/automation-capture-boundaries-v21.ts", "kind": "persisted-contract", "justification": "automation-capture-boundaries-v21.ts preserves boundary point identities and segment shapes in the persisted V21 automation-lane contract." }
+		,
 		{ "path": "src/common/editor/automation-lane-inline-edit-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-inline-edit-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/automation-lane-interval-boundary-id-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-interval-boundary-id-v21.ts derives stable point identities for persisted automation interval edits." }
