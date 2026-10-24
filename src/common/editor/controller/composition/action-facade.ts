@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { EngineParametricEqPreview } from '../../engine/public-api.ts';
+import type { EngineParametricEqPreview } from '../../engine/public-api.ts';
 import type { EditorActionRuntime } from './action-facade-runtime.ts';
 import { prepareFrozenTrackEditCommand } from '../shared/frozen-track-edit-command.ts';
 import { snapshotInertEditorCommand } from '../../commands/editor-command-snapshot.ts';
@@ -37,7 +37,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	addEffect, addLabelTrack, addTrack, addVideoTrackPair, adjustAllTrackHeights, adjustTrackHeight,
 	analysisService, applyAudacityEffectFromController, applySamplePencil,
 	applySpectralSelection, beginParametricEqGesture, beginRackEffectGesture, cancelAudacityEffectPreview, cancelSelectedAudacityEffect,
-	cancelNyquistEvaluation, cancelParametricEqGesture, cancelPlaybackCachePreparation,
+	cancelNyquistEvaluation, cancelParametricEqGesture,
 	cancelRackEffectGesture, cancelSampleEdit, capabilities,
 	captureRackNoiseProfileFromController, captureSelectedNoiseProfile, claimProjectLock, clearLocalData,
 	clearLoopRegion, clearRecentProjects, closeProjectTab, commit, commitParametricEqGesture,
@@ -46,8 +46,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	duplicateTrack, engine, framescaperCaptureActions, framescaperWebVcrActions, ffmpeg,
 	fileService, findTrack, persistSetting, publishDocumentSnapshot, flushProject, generateSelectionSilence,
 	generateSignal, repeatLastGenerator, getClipVisualData, getVisibleClips,
-	handleClipAction, handleEdit, handleExportAction, handlePlayAtSpeed, handleTransport,
-	hasMissingTimelineSources, importFiles, pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
+	handleClipAction, handleEdit, handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
+	importFiles, pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
 	materializeFreesoundUploadClip, publishBlenderTracks, mixAndRenderTracks, moveClips, moveClipsToNewTrack, moveTrack, newProject,
 	normalizePlaybackFrame, openAudacityProject, openAup4, openProject, openScape, openScapeFile, overwriteClips,
 	openDawproject, openSesx, saveDawproject, pasteEffectStack, pauseLoudnessMeasurement,
@@ -205,18 +205,11 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 				if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) {
 					return engine.getPositionFrames();
 				}
+				endScrub();
 				return engine.seek(normalizePlaybackFrame(frame));
 			}),
-			scrub: yieldProgramPlayhead((frame: number) => {
-				if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) {
-					return engine.getPositionFrames();
-				}
-				if (hasMissingTimelineSources()) throw createLocalizedError(Error, copy, 'localSourcesMissing');
-				cancelPlaybackCachePreparation();
-				const nextFrame = normalizePlaybackFrame(frame);
-				return typeof engine.scrub === 'function' ? engine.scrub(nextFrame) : engine.seek(nextFrame);
-			}),
-			endScrub: yieldProgramPlayhead(() => engine.endScrub?.()),
+			scrub: yieldProgramPlayhead(handleScrub),
+			endScrub: yieldProgramPlayhead(endScrub),
 			jumpStart: yieldProgramPlayhead(() => handleTransport('jump-start')),
 			jumpEnd: yieldProgramPlayhead(() => handleTransport('jump-end')),
 			rewind: yieldProgramPlayhead(() => handleTransport('rewind')),

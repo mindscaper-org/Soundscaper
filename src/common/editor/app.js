@@ -471,7 +471,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 	const viewStateService = transportComposition.view;
 	const {
 		setPlayAtSpeedRate,
-		cancelPlayAtSpeedPreparation, retireTimelinePlayback,
+		cancelPlayAtSpeedPreparation, retireTimelinePlayback, handleScrub, endScrub,
 		handlePlayAtSpeed,
 		handleTransport,
 		clearLoopRegion,
@@ -570,7 +570,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		engine, playbackPreviews,
 		exportVideo, ffmpeg, fileService, findClip, findTrack,
 		getVideoSourceVisualData: sources.projectVisual.getVideoSourceVisualData, handleEdit: edits.handleEdit,
-		handleExportAction, handlePlayAtSpeed, handleTransport,
+		handleExportAction, handlePlayAtSpeed, handleTransport, handleScrub, endScrub,
 		importFiles: imports.importFiles, pasteClipSpreadsheet: imports.pasteSpreadsheet, inspectScape,
 		listAudioEditorEffectPresets,
 		moveTrack, normalizePlaybackFrame,

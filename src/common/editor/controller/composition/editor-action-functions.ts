@@ -104,6 +104,8 @@ export interface EditorActionFunctions {
 	readonly handleExportAction: ReturnType<typeof createTrackAudioComposition>['export']['handleExportAction'];
 	readonly handlePlayAtSpeed: ReturnType<typeof createTransportComposition>['transport']['handlePlayAtSpeed'];
 	readonly handleTransport: ReturnType<typeof createTransportComposition>['transport']['handleTransport'];
+	readonly handleScrub: ReturnType<typeof createTransportComposition>['transport']['handleScrub'];
+	readonly endScrub: ReturnType<typeof createTransportComposition>['transport']['endScrub'];
 	readonly hasMissingTimelineSources: ReturnType<typeof createSourceRuntimeComposition>['projectVisual']['hasMissingTimelineSources'];
 	readonly importEffectPresets: ReturnType<typeof createEffectsComposition>['controls']['importEffectPresets'];
 	readonly importFiles: ReturnType<typeof createImportComposition>['importFiles'];

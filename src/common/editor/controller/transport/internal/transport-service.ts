@@ -5,6 +5,7 @@ import type { EngineAudioContext } from '../../../engine/public-api.ts'; import 
 import { hasCoreEditingProjectAuthority } from '../../../project-schema-version.ts';
 import { resolveSelectionRange } from '../../../selection-range.ts';
 import { bindPlaybackToTimeSelection, playSpectralSelection, requireSpectralPlaybackSelection } from './selection-playback.ts';
+import { createTimePitchScrub } from './time-pitch-scrub.ts';
 import type {
 	TransportLoopCommand,
 	TransportProject,
@@ -48,6 +49,11 @@ export function createEditorTransportService<Project extends TransportProject = 
 	let metronomeSchedulerGeneration = 0;
 	let foregroundPlayPreparation: symbol | null = null;
 	let transportRequestGeneration = 0;
+	const scrubbing = createTimePitchScrub({ engine, getProject, normalizeFrame: normalizePlaybackFrame,
+		blocked: () => state.disposed || Boolean(state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder),
+		assertSources: () => { if (hasMissingTimelineSources()) throw createLocalizedError(Error, copy, 'localSourcesMissing'); },
+		prepare: (project, abortController) => beginPlaybackCachePreparation(project, { abortController }),
+	});
 
 	function requireProject(): Project {
 		const project = getProject();
@@ -75,6 +81,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	function retireTimelinePlayback() {
+		scrubbing.cancel();
 		transportRequestGeneration += 1;
 		foregroundPlayPreparation = null;
 		cancelPlaybackCachePreparation();
@@ -83,6 +90,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 	}
 
 	async function handlePlayAtSpeed(requestedRate: unknown = state.playAtSpeedRate) {
+		scrubbing.cancel();
 		const requestGeneration = ++transportRequestGeneration;
 		foregroundPlayPreparation = null;
 		if (state.recordingStarting || state.timedRecordingPreparing || state.timedRecording || state.recorder) return false;
@@ -142,6 +150,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 		}
 	}
 	async function handleTransport(action: string) {
+		scrubbing.cancel();
 		const playbackStart = ['play', 'play-selection', 'play-spectral-selection', 'cut-preview'].includes(action);
 		const generation = playbackStart || ['stop', 'record', 'play-stop-select'].includes(action)
 			? ++transportRequestGeneration : transportRequestGeneration;
@@ -515,6 +524,7 @@ export function createEditorTransportService<Project extends TransportProject = 
 			: AUDIO_EDITOR_SAMPLE_RATE;
 	}
 	return Object.freeze({
+		handleScrub: scrubbing.request, endScrub: scrubbing.end,
 		setPlayAtSpeedRate,
 		cancelPlayAtSpeedPreparation,
 		retireTimelinePlayback,

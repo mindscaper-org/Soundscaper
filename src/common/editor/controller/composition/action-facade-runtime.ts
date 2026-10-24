@@ -99,6 +99,7 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'handleExportAction',
 	'handlePlayAtSpeed',
 	'handleTransport',
+	'handleScrub', 'endScrub',
 	'hasMissingTimelineSources',
 	'importEffectPresets',
 	'importFiles',
