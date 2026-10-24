@@ -2,6 +2,7 @@
 
 import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-codec-runtime-marker.ts';
 import { raceAbortableRead } from '../../../abort-race.ts';
+import { prepareNativeRiffAudioDecode } from '../../../native-riff-audio-padding.ts';
 
 interface StandaloneAudioFile {
 	arrayBuffer(): Promise<ArrayBuffer>;
@@ -81,7 +82,7 @@ export async function decodeStandaloneAudioForImport<
 	try {
 		const encoded = await raceAbortableRead(() => options.file.arrayBuffer(), options.signal);
 		originalSampleRate = options.inspectEncodedSampleRate(encoded);
-		const decoded = await raceAbortableRead(() => options.decodeWithWebAudio(encoded, options.inspectDecodedSampleRate(encoded)), options.signal);
+		const decoded = await raceAbortableRead(() => options.decodeWithWebAudio(prepareNativeRiffAudioDecode(encoded), options.inspectDecodedSampleRate(encoded)), options.signal);
 		return Object.freeze({ context, decoded, originalSampleRate });
 	} catch {
 		options.signal?.throwIfAborted();
