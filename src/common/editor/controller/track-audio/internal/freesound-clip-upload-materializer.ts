@@ -5,6 +5,7 @@ import { createDefaultMixerGraphV21 } from '../../../mixer-graph-v21.ts';
 import { createAudioTrack } from '../../../project-media-factory.ts';
 import { resolveRuntimeClipProjection } from '../../../runtime-clip-projection.ts';
 import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
+import { fitExportFileName } from '../../../export-name-byte-budget.ts';
 import {
 	inheritTrackFolderMediaStateProjectionV12,
 	projectTrackFolderMediaStateV12,
@@ -352,15 +353,20 @@ function positiveInteger(value: unknown, name: string): number {
 }
 
 function cleanTitle(value: unknown): string {
-	return typeof value === 'string'
-		? replaceControlCharacters(value, ' ').replace(/\s+/gu, ' ').trim().slice(0, 512)
-		: '';
+	if (typeof value !== 'string') return '';
+	const text = replaceControlCharacters(value, ' ').replace(/\s+/gu, ' ').trim();
+	let title = '';
+	for (const character of text) {
+		if (title.length + character.length > 512) break;
+		title += character;
+	}
+	return title;
 }
 
 function fileStem(value: string): string {
 	const safe = replaceControlCharacters(value, '-').replace(/[\\/:*?"<>|]+/gu, '-')
-		.replace(/^\.+/u, '').trim().slice(0, 220);
-	return safe || 'soundscaper-clip';
+		.replace(/^\.+/u, '').trim();
+	return fitExportFileName(safe || 'soundscaper-clip', '', '.wav').slice(0, -4);
 }
 
 function replaceControlCharacters(value: string, replacement: string): string {

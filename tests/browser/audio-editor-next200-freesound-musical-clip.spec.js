@@ -14,6 +14,7 @@ for (const [musical, bin, linked] of [[true, false, false], [true, true, false],
 			const fetch = globalThis.fetch; globalThis.__musicalUploadBytes = [];
 			globalThis.fetch = async (input, init) => {
 				if (new URL(String(input), location.href).pathname === '/api/freesound/uploads' && init?.body instanceof Blob) {
+					globalThis.__musicalUploadName = init.body.name;
 					globalThis.__musicalUploadBytes = Array.from(new Uint8Array(await init.body.arrayBuffer()));
 				}
 				return Reflect.apply(fetch, globalThis, [input, init]);
@@ -28,7 +29,8 @@ for (const [musical, bin, linked] of [[true, false, false], [true, true, false],
 		});
 		const tempoMap = { mode: 'musical', events: [{ id: 'tempo', beat: { num: 0, den: 1 }, bpm: { num: 240, den: 1 } }] };
 		const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: 48_000, channelCount: 1 });
-		const clip = createAudioClip({ id: 'clip', sourceId: source.id, title: 'Beat take', sourceStartFrame: 0,
+		const title = !musical && !bin && !linked ? `${'A'.repeat(219)}🎙` : 'Beat take';
+		const clip = createAudioClip({ id: 'clip', sourceId: source.id, title, sourceStartFrame: 0,
 			sourceDurationFrames: 48_000, linkPitchAndTempo: linked,
 			...(musical ? { anchor: 'musical', musicalStartBeat: bin ? 2 : 0, musicalExtent: 'beat', musicalDurationBeats: 2 }
 				: { timelineStartFrame: bin ? 24_000 : 0, durationFrames: 24_000, speedRatio: 2 }),
@@ -59,6 +61,7 @@ for (const [musical, bin, linked] of [[true, false, false], [true, true, false],
 			await page.locator('.audio-editor-clip-context-menu').getByRole('menuitem', { name: 'Upload clip to Freesound', exact: true }).press('Enter');
 		}
 		await expect(panel.locator('[data-upload-status="ready-to-publish"]')).toHaveCount(1);
+		expect(await page.evaluate(() => globalThis.__musicalUploadName)).toBe(`${title}.wav`);
 		const wav = new Blob([Uint8Array.from(await page.evaluate(() => globalThis.__musicalUploadBytes))]);
 		const descriptor = await inspectWavBlobPcm(wav); expect(descriptor.frameCount).toBe(24_000); expect(descriptor.sampleRate).toBe(48_000); expect(descriptor.channelCount).toBe(2);
 		const samples = []; await streamWavBlobPcm(wav, { onChunk: channels => { samples.push(...channels[0]); } });
