@@ -223,6 +223,12 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 		conversions: [{ helper: 'secondsToSampleFrame', policies: ['enclosingEnd', 'point'] }],
 	},
 	{
+		id: 'video-import-audio-programme-duration',
+		file: 'src/common/editor/controller/import/internal/video-import-audio-decode.ts',
+		behavior: 'Authored container audio extending beyond the picture window resolves its retained programme duration to the nearest project sample at the project rate.',
+		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'video-import-exact-timing-authority',
 		file: 'src/common/editor/controller/import/internal/video-import-timing.ts',
 		behavior: 'Exact timing-sidecar duration is point-rounded once into sample authority before both placement endpoints are point-conformed through the destination sequence grid.',
