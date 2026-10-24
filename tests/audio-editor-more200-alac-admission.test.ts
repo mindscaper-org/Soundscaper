@@ -16,7 +16,7 @@ for (const generic of [false, true]) test(`File Import preserves native ALAC wit
 	const engine = Object.assign(createMemoryEngine(), { async getAudioContext() { return { sampleRate: 44_100,
 		createBuffer: (channels: number, frames: number, rate: number) => new MockAudioBuffer(channels, frames, rate) }; },
 	async decodeAudioData(bytes: ArrayBuffer, options: Readonly<{ sampleRate: number | null }>) {
-		assert.equal(options.sampleRate, generic ? null : 48_000); assert.deepEqual(Buffer.from(bytes), Buffer.from(original)); decodes++; return input;
+		assert.equal(options.sampleRate, 48_000); assert.deepEqual(Buffer.from(bytes), Buffer.from(original)); decodes++; return input;
 	} });
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const controller = createAudioEditorController(null, { headless: true, copy: ENGLISH_COPY, locale: 'en', store,

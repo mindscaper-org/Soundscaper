@@ -1,4 +1,5 @@
 import { inspectMatroskaOpusSampleRate } from './matroska-audio-sample-rate.ts';
+import { readAlacSampleDescription } from './alac-sample-description.ts';
 
 const MAX_SIGNATURE_SCAN_BYTES = 1024 * 1024;
 const MAX_CONTAINER_BOXES = 16_384;
@@ -68,6 +69,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectAiffSampleRate(bytes)
 			?? inspectFlacSampleRate(bytes)
 			?? inspectOggSampleRate(bytes)
+			?? inspectIsoMediaSampleRate(bytes, true)
 			?? inspectMatroskaOpusSampleRate(bytes)
 			?? inspectWavPackSampleRate(bytes)
 			?? inspectMpegOrAdtsSampleRate(bytes, false);
@@ -173,23 +175,29 @@ function inspectOggSampleRate(bytes) {
 	return null;
 }
 
-function inspectIsoMediaSampleRate(bytes) {
+function inspectIsoMediaSampleRate(bytes, decodedOnly = false) {
 	const topLevel = isoBoxes(bytes, 0, bytes.byteLength);
 	const moov = topLevel.find((box) => box.type === 'moov');
 	if (!moov) return null;
 	const view = dataView(bytes);
+	let audioTracks = 0, decodedRate = null;
 	for (const track of isoBoxes(bytes, moov.payload, moov.end).filter((box) => box.type === 'trak')) {
 		const mdia = isoBoxes(bytes, track.payload, track.end).find((box) => box.type === 'mdia');
 		if (!mdia) continue;
 		const mediaBoxes = isoBoxes(bytes, mdia.payload, mdia.end);
 		const handler = mediaBoxes.find((box) => box.type === 'hdlr');
 		if (!handler || handler.payload + 12 > handler.end || ascii(bytes, handler.payload + 8, 4) !== 'soun') continue;
+		audioTracks += 1;
 		const minf = mediaBoxes.find((box) => box.type === 'minf');
 		if (!minf) continue;
 		const stbl = isoBoxes(bytes, minf.payload, minf.end).find((box) => box.type === 'stbl');
 		if (!stbl) continue;
 		const stsd = isoBoxes(bytes, stbl.payload, stbl.end).find((box) => box.type === 'stsd');
 		if (!stsd || stsd.payload + 8 > stsd.end || bytes[stsd.payload] !== 0) continue;
+		if (decodedOnly) {
+			decodedRate = readAlacSampleDescription(bytes.subarray(stsd.payload - 8, stsd.end))?.sampleRate ?? null;
+			continue;
+		}
 		const entryCount = view.getUint32(stsd.payload + 4, false);
 		if (entryCount < 1 || entryCount > MAX_CONTAINER_BOXES) continue;
 		const entries = isoBoxes(bytes, stsd.payload + 8, stsd.end);
@@ -199,7 +207,7 @@ function inspectIsoMediaSampleRate(bytes) {
 			if (rate) return rate;
 		}
 	}
-	return null;
+	return decodedOnly && audioTracks === 1 ? decodedRate : null;
 }
 
 function inspectIsoAudioSampleEntryRate(entry, view) {

@@ -6,15 +6,15 @@ import { alacM4a48_000Fixture, aacLcM4a48_000Fixture } from '../helpers/os-audio
 
 for (const generic of [false, true]) test(`native ALAC preserves decoded PCM through File Import and Save (generic=${generic})`, async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/'); const bytes = alacM4a48_000Fixture();
-	const expected = await page.evaluate(async ({ data, generic }) => {
-		const context = generic ? new AudioContext() : new OfflineAudioContext(2, 1, 48_000);
+	const expected = await page.evaluate(async data => {
+		const context = new OfflineAudioContext(2, 1, 48_000);
 		try {
 			const decoded = await context.decodeAudioData(Uint8Array.from(data).buffer);
 			return { supported: true, sampleRate: decoded.sampleRate, frames: decoded.length,
 				channels: Array.from({ length: decoded.numberOfChannels }, (_, channel) => [...decoded.getChannelData(channel)]) };
 		} catch (error) { return { supported: false, error: `${error.name}: ${error.message}` };
-		} finally { if (context instanceof AudioContext) await context.close(); }
-	}, { data: [...bytes], generic });
+		}
+	}, [...bytes]);
 	await editor.locator('[data-import-input]').setInputFiles({ name: generic ? 'Lossless.bin' : 'Lossless.m4a',
 		mimeType: generic ? 'application/octet-stream' : 'audio/mp4', buffer: Buffer.from(bytes) });
 	if (!expected.supported) {
@@ -24,7 +24,7 @@ for (const generic of [false, true]) test(`native ALAC preserves decoded PCM thr
 		await editor.locator('[data-import-input]').setInputFiles({ name: 'Supported.m4a', mimeType: 'audio/mp4', buffer: Buffer.from(aacLcM4a48_000Fixture()) });
 		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 }); return;
 	}
-	if (!generic) expect(expected).toMatchObject({ sampleRate: 48_000, frames: 4800 });
+	expect(expected).toMatchObject({ sampleRate: 48_000, frames: 4800 });
 	expect(expected.frames / expected.sampleRate).toBeCloseTo(.1, 8); expect(expected.channels).toHaveLength(2);
 	expect(Math.max(...expected.channels[0])).toBeGreaterThan(.19); expect(Math.max(...expected.channels[1])).toBeGreaterThan(.09);
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });

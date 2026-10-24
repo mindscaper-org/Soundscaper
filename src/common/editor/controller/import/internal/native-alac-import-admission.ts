@@ -2,6 +2,7 @@
 import { Input, BlobSource, MP4 } from 'mediabunny';
 import { readDesktopOriginalM4aMovie } from '../../../desktop-original-m4a-movie.ts';
 import { readIsoAudioPresentationEnd } from '../../../iso-audio-presentation-edit.ts';
+import { readAlacSampleDescription } from '../../../alac-sample-description.ts';
 
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
 interface Geometry { readonly sampleRate: number; readonly channelCount: number; readonly frameCount: number; readonly decodeSampleRate: number }
@@ -14,7 +15,7 @@ export async function nativeAlacImportAdmission(file: Blob, signal?: AbortSignal
 		signal?.throwIfAborted(); const bytes = await file.slice(start, end).arrayBuffer(); signal?.throwIfAborted(); return bytes;
 	} }) }, 1024 ** 2);
 	signal?.throwIfAborted();
-	const geometry = description ? alacDescription(description) : null;
+	const geometry = description ? readAlacSampleDescription(description) : null;
 	if (!geometry) return null;
 	const input = new Input({ source: new BlobSource(file), formats: [MP4] });
 	const retire = (): void => input.dispose();
@@ -39,20 +40,3 @@ export async function nativeAlacImportAdmission(file: Blob, signal?: AbortSignal
 	} catch (error) { signal?.throwIfAborted(); throw error;
 	} finally { signal?.removeEventListener('abort', retire); input.dispose(); }
 }
-
-function alacDescription(bytes: Uint8Array): Readonly<{ sampleRate: number; channelCount: number }> | null {
-	if (bytes.length !== 88) return null;
-	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	// One ordinary version-zero ALAC sample entry with its complete 24-byte cookie.
-	if (view.getUint32(0) !== bytes.length || ascii(bytes, 4) !== 'stsd' || view.getUint32(8) !== 0
-		|| view.getUint32(12) !== 1 || view.getUint32(16) !== 72 || ascii(bytes, 20) !== 'alac'
-		|| view.getUint16(32) !== 0 || view.getUint32(52) !== 36 || ascii(bytes, 56) !== 'alac'
-		|| view.getUint32(60) !== 0) return null;
-	const sampleRate = view.getUint32(48) / 65536, channelCount = view.getUint16(40);
-	if (!Number.isInteger(sampleRate) || sampleRate < 8000 || sampleRate > 192_000 || channelCount < 1 || channelCount > 32
-		|| view.getUint32(84) !== sampleRate || bytes[73] !== channelCount || bytes[68] !== 0
-		|| ![16, 20, 24, 32].includes(bytes[69]!) || view.getUint32(64) < 1
-		|| view.getUint32(64) * channelCount * 4 > MAXIMUM_PCM_BYTES) return null;
-	return { sampleRate, channelCount };
-}
-function ascii(bytes: Uint8Array, offset: number): string { return String.fromCharCode(...bytes.subarray(offset, offset + 4)); }
