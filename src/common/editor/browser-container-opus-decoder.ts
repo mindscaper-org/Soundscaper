@@ -5,13 +5,14 @@ interface ConfigurableAudioTrack {
 }
 
 /** Some native Opus decoders advertise support but retain the header's lookahead. */
-export async function preferContainerOpusPreSkipDecoder(track: ConfigurableAudioTrack, signal?: AbortSignal): Promise<void> {
+export async function preferContainerOpusPreSkipDecoder(track: ConfigurableAudioTrack, signal?: AbortSignal,
+	options: Readonly<{ opusTimestampsIncludePreSkip?: boolean }> = {}): Promise<void> {
 	const config = await track.getDecoderConfig();
 	signal?.throwIfAborted();
 	if (!config || !hasReviewedContainerOpusPreSkip(config)) return;
 	const { preferReviewedAudioImportDecoder } = await import('./browser-reviewed-streamed-audio-decoders.ts');
 	signal?.throwIfAborted();
-	if (preferReviewedAudioImportDecoder('opus', config)) track.getDecoderConfig = () => Promise.resolve(config);
+	if (preferReviewedAudioImportDecoder('opus', config, options)) track.getDecoderConfig = () => Promise.resolve(config);
 }
 
 /** The existing reviewed ABI owns mapping-family0 mono/stereo only; retain other native profiles. */

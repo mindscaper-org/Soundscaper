@@ -215,7 +215,7 @@ function validateSample(sample: BrowserContainerAudioSample, descriptor: Streame
 async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, reviewedFallback = true,
 	desktopCodec?: WavPackImportGroupDecoder): Promise<StreamedAudioImportSession> {
 	signal?.throwIfAborted();
-	const { ADTS, ALL_FORMATS, AudioSample, AudioSampleSink, BlobSource, EncodedPacketSink, Input, MP4 } = await import('mediabunny');
+	const { ADTS, ALL_FORMATS, AudioSample, AudioSampleSink, BlobSource, EncodedPacketSink, Input, MP4, QTFF } = await import('mediabunny');
 	const { readAacSourceMetadata, validateAacSourceGeometry } = await import('./aac-source-geometry.ts');
 	const aacMetadata = await readAacSourceMetadata(file, signal);
 	signal?.throwIfAborted();
@@ -265,7 +265,9 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			else if (layerII) throw new Error('The reviewed MPEG LayerII decoder does not support this source configuration.');
 		}
 		if (reviewedFallback && codec === 'opus') {
-			await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal);
+			await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
+				opusTimestampsIncludePreSkip: [MP4, QTFF].includes(await input.getFormat()),
+			});
 		}
 		if (reviewedFallback && codec === 'vorbis') {
 			(await import('./browser-vorbis-decoder.ts')).assertVorbisPacketDecoder(channelCount);
