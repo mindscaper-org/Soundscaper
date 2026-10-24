@@ -5,8 +5,13 @@ export function visits(method: 'find' | 'filter' | 'includes' | 'slice', run: ()
 	let count = 0;
 	Object.defineProperty(Array.prototype, method, { configurable: true, writable: true,
 		value(this: unknown[], ...args: unknown[]) {
-			if (method === 'includes' || method === 'slice') count += this.length;
-			else {
+			if (method === 'includes' || method === 'slice') {
+				const indexed = new Proxy(this, { get(target, key, receiver) {
+					if (typeof key === 'string' && /^(?:0|[1-9][0-9]*)$/u.test(key)) count += 1;
+					return Reflect.get(target, key, receiver) as unknown;
+				} });
+				return Reflect.apply(original, indexed, args) as unknown;
+			} else {
 				const predicate = args[0] as (value: unknown, index: number, array: unknown[]) => unknown;
 				args[0] = (value: unknown, index: number, array: unknown[]) => {
 					count += 1;

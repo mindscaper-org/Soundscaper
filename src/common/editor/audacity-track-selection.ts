@@ -54,9 +54,8 @@ export function audacityToggledTrackSelection(
 	input: AudacityTrackSelectionInput,
 	mode: 'replace' | 'toggle',
 ): readonly string[] {
-	const trackIds = uniqueTrackIds(input.trackIds);
 	const focusedTrackId = input.focusedTrackId;
-	const available = new Set(trackIds);
+	const available = validTrackIds(input.trackIds);
 	if (!focusedTrackId || !available.has(focusedTrackId)) return Object.freeze([]);
 	if (mode === 'replace') return Object.freeze([focusedTrackId]);
 	const selected = [...new Set(input.selectedTrackIds.filter((trackId) => available.has(trackId)))];
@@ -67,5 +66,9 @@ export function audacityToggledTrackSelection(
 }
 
 function uniqueTrackIds(trackIds: readonly string[]): string[] {
-	return [...new Set(trackIds.filter((trackId) => typeof trackId === 'string' && trackId.length > 0))];
+	return [...validTrackIds(trackIds)];
+}
+
+function validTrackIds(trackIds: readonly string[]): Set<string> {
+	return new Set(trackIds.filter((trackId) => typeof trackId === 'string' && trackId.length > 0));
 }
