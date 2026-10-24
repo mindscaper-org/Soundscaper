@@ -13,7 +13,7 @@ test('uploading an edited clip after submission renders a fresh artifact instead
 		createId: (() => { let id = 0; return () => `clip-upload-${++id}`; })(),
 		materializeClip: async () => ({
 			clipTitle: 'Field recording',
-			file: new File([encodeWav([Float32Array.of(sample)], { sampleRate: 48_000, bitDepth: 16 })], 'field.wav'),
+			file: new File([Uint8Array.from(encodeWav([Float32Array.of(sample)], { sampleRate: 48_000, bitDepth: 16 })).buffer], 'field.wav'),
 		}),
 		upload: async file => { uploaded.push(file); return { uploadFilename: `remote-${uploaded.length}.wav` }; },
 		describe: async () => ({ status: 'pending_moderation' }),

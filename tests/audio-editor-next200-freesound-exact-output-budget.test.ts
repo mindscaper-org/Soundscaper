@@ -11,7 +11,7 @@ for (const [channelCount, frameCount] of [[1, 12], [2, 7], [3, 6]]) {
 		// Scale the same production 100 MB boundary down to keep the regression small.
 		const maximumBytes = 128;
 		const channels = Array.from({ length: channelCount }, () => new Float32Array(frameCount).fill(0.25));
-		const file = new File([encodeWav(channels, { sampleRate: 48_000, bitDepth: 16 })], 'field.wave');
+		const file = new File([Uint8Array.from(encodeWav(channels, { sampleRate: 48_000, bitDepth: 16 })).buffer], 'field.wave');
 		const decoded = { length: frameCount, numberOfChannels: channelCount, sampleRate: 48_000,
 			getChannelData: (index: number) => channels[index] } as unknown as AudioBuffer;
 		const expected = inspectWavLayout({ totalFrames: frameCount, channelCount, sampleRate: 48_000, bitDepth: 24 }).byteLength;

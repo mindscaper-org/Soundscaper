@@ -2,12 +2,13 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deferred } from './helpers/async-test-control.ts';
 
 import { createFreesoundUploadQueue } from '../src/common/editor/ui/workspace/freesound-upload-queue.ts';
 
 test('a signed-out account cannot hold the replacement account upload queue while decoding finishes', async () => {
-	const oldPreparation = Promise.withResolvers<File>();
-	const freshUpload = Promise.withResolvers<Readonly<{ uploadFilename: string }>>();
+	const oldPreparation = deferred<File>();
+	const freshUpload = deferred<Readonly<{ uploadFilename: string }>>();
 	const started: string[] = [];
 	let oldSignal: AbortSignal | undefined;
 	const queue = createFreesoundUploadQueue({

@@ -2,11 +2,12 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deferred } from './helpers/async-test-control.ts';
 
 import { createFreesoundUploadQueue } from '../src/common/editor/ui/workspace/freesound-upload-queue.ts';
 
 test('Cancel releases an encoded upload before its uncancellable native decoder finishes', async () => {
-	const decoding = Promise.withResolvers<File>();
+	const decoding = deferred<File>();
 	const uploaded: string[] = [];
 	const queue = createFreesoundUploadQueue({
 		createId: (() => { let id = 0; return () => `cancel-upload-${++id}`; })(),
@@ -27,7 +28,7 @@ test('Cancel releases an encoded upload before its uncancellable native decoder 
 });
 
 test('a late publish reply cannot turn a cancelled upload into a submitted upload', async () => {
-	const reply = Promise.withResolvers<Readonly<{ status: string; soundId: number }>>();
+	const reply = deferred<Readonly<{ status: string; soundId: number }>>();
 	const queue = createFreesoundUploadQueue({
 		createId: () => 'cancel-publication',
 		upload: async () => ({ uploadFilename: 'field.wav' }),

@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deferred } from './helpers/async-test-control.ts';
 import React, { act } from 'react';
 
 import { RawPcmImportDialog } from '../src/common/editor/ui/dialogs/ImportAnalysisDialogs.tsx';
@@ -18,8 +19,8 @@ test('returning to the same saved project retires raw PCM preparation from the o
 	await controller.ready;
 	await controller.actions.project.openById(fixture.project.id);
 	const initial = controller.project;
-	const gate = Promise.withResolvers<ArrayBuffer>();
-	const started = Promise.withResolvers<void>();
+	const gate = deferred<ArrayBuffer>();
+	const started = deferred<void>();
 	class HeldRawFile extends File {
 		override slice(start?: number, end?: number, type?: string): Blob {
 			const blob = super.slice(start, end, type);
