@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { ScapeProjectBinaryLimits } from './scape-project-document.ts';
+import { SCAPE_BINARY_TAG, encodeScapeLiteralKey } from './scape-literal-json-keys.ts';
 
-export const BINARY_TAG = '$soundscaperOpaqueBinary';
+export const BINARY_TAG = SCAPE_BINARY_TAG;
 export const BINARY_DESCRIPTOR_SCHEMA_VERSION = 1;
 export const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 export const OMIT = Symbol('omit');
@@ -79,6 +80,7 @@ interface BinaryBudget {
 
 interface EncodeBudget extends BinaryBudget {
 	readonly active: Set<object>;
+	readonly literalKeys: boolean;
 }
 
 /** The same admission and traversal serve detached values and canonical JSON tokens. */
@@ -86,8 +88,9 @@ export function encodeScapeProjectDocumentValue(
 	value: unknown,
 	limits: Readonly<ScapeProjectBinaryLimits>,
 	emit?: EmitJsonToken,
+	literalKeys = false,
 ): unknown | typeof OMIT {
-	return encodeValue(value, 0, { limits, active: new Set(), nodes: 0, payloadCount: 0, totalPayloadBytes: 0 }, emit);
+	return encodeValue(value, 0, { limits, literalKeys, active: new Set(), nodes: 0, payloadCount: 0, totalPayloadBytes: 0 }, emit);
 }
 
 function encodeValue(value: unknown, depth: number, budget: EncodeBudget, emit?: EmitJsonToken): unknown | typeof OMIT {
@@ -160,7 +163,7 @@ function encodeObject(
 	budget: EncodeBudget,
 	emit?: EmitJsonToken,
 ): Record<string, unknown> | null {
-	if (Object.hasOwn(value, BINARY_TAG)) {
+	if (!budget.literalKeys && Object.hasOwn(value, BINARY_TAG)) {
 		throw new TypeError(`The reserved ${BINARY_TAG} tag collides with ordinary project data.`);
 	}
 	assertNoToJSONHook(value);
@@ -175,17 +178,18 @@ function encodeObject(
 		stream?.(OPEN_OBJECT);
 		let separated = false;
 		for (const key of keys) {
+			const encodedKey = budget.literalKeys ? encodeScapeLiteralKey(key) : key;
 			const descriptor = Object.getOwnPropertyDescriptor(value, key);
 			if (!descriptor) throw new TypeError(`Scape project property ${key} is unavailable.`);
 			const child = dataPropertyValue(descriptor, `property ${key}`);
 			if (stream && child !== undefined && typeof child !== 'function' && typeof child !== 'symbol') {
 				if (separated) stream(COMMA);
-				stream(key);
+				stream(encodedKey);
 				stream(COLON);
 				separated = true;
 			}
 			const result = encodeValue(child, depth + 1, budget, stream);
-			if (encoded && result !== OMIT) Object.defineProperty(encoded, key, enumerableData(result));
+			if (encoded && result !== OMIT) Object.defineProperty(encoded, encodedKey, enumerableData(result));
 		}
 		stream?.(CLOSE_OBJECT);
 		if (emit && encoded) emit({ encoded });

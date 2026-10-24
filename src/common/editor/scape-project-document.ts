@@ -10,6 +10,7 @@ import {
 	preflightScapeProjectJsonStructure,
 	type ScapeProjectJsonStructureLimits,
 } from './scape-project-json-preflight.ts';
+import { projectDeclaresScapeLiteralKeys, validateScapeLiteralKeys, restoreScapeLiteralKeys } from './scape-literal-json-keys.ts';
 
 import {
 	BASE64_ALPHABET,
@@ -111,7 +112,7 @@ export function serializeScapeProjectDocument(
 ): string {
 	const limits = resolveOptions(options);
 	if (!hasBaselineProjectIdentity(value, options.currentProjectSchemaFamily)) return ordinaryJson(value);
-	const encoded = encodeScapeProjectDocumentValue(value, limits);
+	const encoded = encodeScapeProjectDocumentValue(value, limits, undefined, projectDeclaresScapeLiteralKeys(value));
 	if (encoded === OMIT) throw new TypeError('The Scape project cannot be serialized.');
 	return ordinaryJson(encoded);
 }
@@ -142,7 +143,7 @@ function captureScapeProjectJson(value: unknown, options: ScapeProjectDocumentOp
 	const encoded = encodeScapeProjectDocumentValue(value, limits, (token) => {
 		tokens.push(token);
 		if (token && typeof token === 'object') serialized = true;
-	});
+	}, projectDeclaresScapeLiteralKeys(value));
 	if (encoded === OMIT) throw new TypeError('The Scape project cannot be serialized.');
 	// Hooks may be installed by ordinary left inputs or during baseline Proxy
 	// traversal. Reconstruct the detached tree without revisiting either source.
@@ -250,6 +251,8 @@ function decodeCurrentProject(
 		totalPayloadBytes: 0,
 	};
 	const located: LocatedBinaryDescriptor[] = [];
+	const literalObjects: Record<string, unknown>[] = [];
+	const literalKeys = projectDeclaresScapeLiteralKeys(project);
 	const stack: DecodeTraversal[] = [];
 	scheduleDecode(stack, { value: project, parent: null, key: null, depth: 0 }, budget);
 	while (stack.length) {
@@ -278,6 +281,7 @@ function decodeCurrentProject(
 			continue;
 		}
 		const keys = Object.keys(object);
+		if (literalKeys && validateScapeLiteralKeys(object)) literalObjects.push(object);
 		assertChildrenFitTraversal(keys.length, budget);
 		for (let index = keys.length - 1; index >= 0; index -= 1) {
 			const key = keys[index];
@@ -295,6 +299,7 @@ function decodeCurrentProject(
 		const value = item.descriptor.type === 'ArrayBuffer' ? bytes.buffer : bytes;
 		Object.defineProperty(item.parent, item.key, enumerableData(value));
 	}
+	for (const object of literalObjects) restoreScapeLiteralKeys(object);
 }
 
 function scheduleDecode(

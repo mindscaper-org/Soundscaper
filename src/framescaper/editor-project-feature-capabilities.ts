@@ -27,6 +27,7 @@ export const FRAMESCAPER_PROJECT_FEATURE_CAPABILITY_PROFILE =
 			capability('audioTrackFreeze', 'audio-track-freeze', false),
 			capability('audioWarp', 'audio-warp', false),
 			capability('immersiveAdm', 'immersive-adm', false),
+			capability('literalJsonKeys', 'literal-json-keys', true),
 			capability('masteringSequences', 'mastering-sequences', false),
 			capability('multicamera', 'multicamera', true),
 			capability('musicalTimeline', 'musical-timeline', false),

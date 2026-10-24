@@ -3,6 +3,7 @@
 export const PROJECT_FEATURE_CAPABILITY_IDS = Object.freeze({
 	assistanceAssets: 'org.soundscaper.capability.assistance-assets',
 	project: 'org.soundscaper.capability.project',
+	literalJsonKeys: 'org.soundscaper.capability.literal-json-keys',
 	projectBin: 'org.soundscaper.capability.project-bin',
 	audioImport: 'org.soundscaper.capability.audio-import',
 	audioPlayback: 'org.soundscaper.capability.audio-playback',

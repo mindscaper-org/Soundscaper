@@ -270,6 +270,7 @@
 			],
 			"projectFeatures": {
 				"assistanceAssets": true,
+				"literalJsonKeys": true,
 				"project": true,
 				"projectBin": true,
 				"audioImport": true,
@@ -670,6 +671,7 @@
 			],
 			"projectFeatures": {
 				"assistanceAssets": true,
+				"literalJsonKeys": true,
 				"project": true,
 				"projectBin": true,
 				"audioImport": true,

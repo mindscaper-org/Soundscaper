@@ -30,6 +30,7 @@ export const DESKTOP_PROJECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/project-v17-validation.js',
 	'src/common/editor/project-validation-budget.js',
 	'src/common/editor/project-validation-primitives.js',
+	'src/common/editor/scape-literal-json-keys.js',
 	'src/common/editor/scape-project-document-encode.js',
 	'src/common/editor/storage/project-recovery-repository.js',
 	'src/common/editor/track-display-mode.js',

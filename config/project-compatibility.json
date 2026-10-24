@@ -1744,7 +1744,7 @@
 			"id": "binary-opaque-native-state",
 			"status": "implemented",
 			"requiredOutcome": "Supported Uint8Array and ArrayBuffer opaque state in exact owning-family v1, current-format .scape projects uses a tagged, bounded JSON encoding and round-trips byte-exactly without activation.",
-			"currentBehavior": "Before JSON.parse, every schema receives an iterative raw-JSON structural preflight bounded to 101,536 values and depth 130 in production; the descriptor allowance preserves round-trip closure for the bounded tagged representation. exact owning-family v1 export encodes Uint8Array values, offset-view bytes, and ArrayBuffer values with a reserved tagged descriptor; export and post-parse decode independently enforce the lower-only logical limits of 100,000 traversal nodes and depth 128, while other ArrayBuffer views reject. The binary budget also admits at most 256 payloads, 4 MiB per payload, and 8 MiB aggregate bytes. Import and inspection validate the closed descriptor schema, unique positive IDs, canonical base64, exact byte lengths, and all limits before allocating decoded payloads, then restore the declared binary type without interpreting its bytes. Reserved-tag collisions, project-container accessors, and callable container toJSON hooks reject without invocation. Future-schema tag-shaped data is structurally counted by the raw preflight but is neither decoded nor interpreted as a binary descriptor.",
+			"currentBehavior": "Before JSON.parse, every schema receives an iterative raw-JSON structural preflight bounded to 101,536 values and depth 130 in production; the descriptor allowance preserves round-trip closure for the bounded tagged representation. exact owning-family v1 export encodes Uint8Array values, offset-view bytes, and ArrayBuffer values with a reserved tagged descriptor; export and post-parse decode independently enforce the lower-only logical limits of 100,000 traversal nodes and depth 128, while other ArrayBuffer views reject. The binary budget also admits at most 256 payloads, 4 MiB per payload, and 8 MiB aggregate bytes. Import and inspection validate the closed descriptor schema, unique positive IDs, canonical base64, exact byte lengths, and all limits before allocating decoded payloads, then restore the declared binary type without interpreting its bytes. Without a literal-key capability declaration, reserved-tag collisions reject as before. Opted-in current-family documents reversibly escape binary-marker and escape-prefix key spellings without changing node/depth geometry; only after validating binary descriptors does decode restore those own data keys in their original order. Older product profiles report the unavailable capability and admit only read-only custody. Project-container accessors and callable container toJSON hooks reject without invocation. Future-schema tag-shaped data is structurally counted by the raw preflight but is neither decoded nor interpreted as a binary descriptor.",
 			"evidence": [
 				"src/common/editor/aup4-effects.js",
 				"src/common/editor/scape-project-document.ts",
@@ -1753,7 +1753,10 @@
 				"src/common/editor/scape-project.js",
 				"tests/aup4-effects.test.js",
 				"tests/audio-editor-scape-project-document.test.ts",
-				"tests/audio-editor-scape-project.test.js"
+				"tests/audio-editor-scape-project.test.js",
+				"src/common/editor/scape-literal-json-keys.ts",
+				"tests/audio-editor-p4-literal-json-keys.test.ts",
+				"tests/browser/audio-editor-p4-literal-metadata-import.spec.js"
 			],
 			"policyAuthority": "family-v1-active",
 			"historicalPreFreezeNarrative": {
