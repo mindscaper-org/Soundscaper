@@ -87,7 +87,7 @@ export function parseSesxDocument(xml: string, options: Readonly<{ maximumBytes?
 	// Check actual declarations at the SAX boundary; comments and CDATA retain
 	// declaration-shaped character data without being rewritten or activated.
 	const root = parseXmlDocument(xml, { ...SESX_XML_LIMITS,
-		maximumBytes: options.maximumBytes ?? SESX_XML_LIMITS.maximumBytes }, { allowedSimpleDoctype: 'sesx' });
+		maximumBytes: options.maximumBytes ?? SESX_XML_LIMITS.maximumBytes }, { allowedSimpleDoctype: 'sesx', preserveTextWhitespace: true });
 	if (root.name !== 'sesx') throw new SyntaxError(`An SESX document starts with <sesx>, not <${root.name}>.`);
 	const session = childElement(root, 'session');
 	if (!session) throw new SyntaxError('SESX has no <session> element.');
@@ -154,7 +154,7 @@ function readTrack(element: XmlElement, index: number, sessionChannels: 1 | 2): 
 	const controls = staticControls(parameters, 'track');
 	return Object.freeze({
 		id: attribute(element, 'id'),
-		name: childElement(childElement(element, 'trackParameters') ?? element, 'name')?.text.trim() || `Track ${String(index + 1)}`,
+		name: authoredName(childElement(childElement(element, 'trackParameters') ?? element, 'name')?.text) || `Track ${String(index + 1)}`,
 		channelCount: channelType(parameters, sessionChannels),
 		gain: controls.gain,
 		pan: controls.pan,
@@ -182,7 +182,7 @@ function readClip(element: XmlElement): SesxClip {
 		zOrder: integerAttribute(element, 'zOrder') ?? 0,
 		id: attribute(element, 'id'),
 		fileId: requiredTextAttribute(element, 'fileID'),
-		name: attribute(element, 'name')?.trim() ?? '',
+		name: authoredName(attribute(element, 'name')),
 		startFrame, endFrame, sourceInFrame, sourceOutFrame,
 		fadeInFrames, fadeOutFrames,
 		fadeCurvesChanged: (fadeInFrames > 0 && fadeTypeChanged(fadeIn)) || (fadeOutFrames > 0 && fadeTypeChanged(fadeOut)),
@@ -198,6 +198,10 @@ function readClip(element: XmlElement): SesxClip {
 		stretch: Boolean(attribute(element, 'stretchMode') || attribute(element, 'stretchRatio')
 			|| element.children.some((child) => /stretch|warp/iu.test(child.name))),
 	});
+}
+
+function authoredName(value: string | null | undefined): string {
+	return value?.trim() ? value : '';
 }
 
 function staticControls(element: XmlElement | null, scope: 'track' | 'clip'): Readonly<{ gain: number; pan: number; mute: boolean }> {
