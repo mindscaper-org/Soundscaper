@@ -8,7 +8,7 @@ import {
 } from './delivery-report.ts';
 import { DAWPROJECT_DELIVERY_FORMAT, clamp, entryBaseName } from './dawproject-format.ts';
 import { isAudioEditorProjectSampleRate, normalizeProjectSampleRate } from './project-sample-rate.ts';
-import type { DawprojectDocument } from './dawproject-import.ts';
+import type { DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
 import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
@@ -107,6 +107,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 	const media: DawprojectImportMediaBinding[] = [];
 	const sourceByPath = new Map<string, DataRecord>();
 	const missingPaths = new Set<string>();
+	const trackWidths = new Map<string, number>();
 	let disabledClips = 0;
 	for (const event of flattened.audio) {
 		if (!event.enabled) {
@@ -151,7 +152,10 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		const track = trackForEvent(event, build, document);
 		track.clipIds.push(String(clip.id));
 		clips.push(clip);
+		// The regular native width is the maximum physical source width, as in audioTrackChannelCount.
+		trackWidths.set(track.id, Math.max(trackWidths.get(track.id) ?? 0, info.channelCount));
 	}
+	reportTrackChannelWidths(document.tracks, build, trackWidths);
 	applyAutomation(flattened.automation, build);
 	const annotations = createMarkers(flattened.markers, build);
 	reportOmissions(document, flattened.omitted, disabledClips, build);
@@ -397,6 +401,27 @@ function createMarkers(markers: readonly Readonly<{ frame: number; name: string;
 		});
 	}
 	return annotations;
+}
+
+/** Regular native strip widths come from their sources, not a separately authored mixer width. */
+function reportTrackChannelWidths(
+	tracks: readonly DawprojectTrack[], build: Build, trackWidths: ReadonlyMap<string, number>,
+): void {
+	for (const declared of tracks) {
+		reportTrackChannelWidths(declared.children, build, trackWidths);
+		// Folder and bus widths retain their existing routing conversion policy.
+		if (declared.id === null || build.folderByDawId.has(declared.id)) continue;
+		const imported = build.trackByDawId.get(declared.id);
+		const declaredChannels = declared.channel?.audioChannels;
+		if (!imported?.clipIds.length || declaredChannels == null || declaredChannels < 1) continue;
+		const importedChannels = trackWidths.get(imported.id);
+		if (importedChannels === undefined || declaredChannels === importedChannels) continue;
+		addDeliveryReportItem(build.draft, {
+			code: 'dawproject.track-channel-width-converted', disposition: 'converted', severity: 'warning',
+			scope: { kind: 'track', id: imported.id }, data: { declaredChannels, importedChannels },
+			message: `Track "${imported.name}" declares a channel count of ${String(declaredChannels)}, but the imported count is ${String(importedChannels)}, derived from its retained audio sources. The authored mixer-channel width is not preserved.`,
+		});
+	}
 }
 
 function reportOmissions(
