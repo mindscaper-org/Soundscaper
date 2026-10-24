@@ -29,6 +29,7 @@ import {
 	DawprojectMediaRegistry,
 	channelIdFor,
 	dawprojectAdditionalFolderBusIds,
+	dawprojectHasMainOutputBypass,
 	dawprojectStructureTree,
 	finite,
 	parameterIdFor,
@@ -97,6 +98,7 @@ interface ChannelSpec {
 
 const DEFAULT_APPLICATION = Object.freeze({ name: 'Soundscaper', version: 'unknown' });
 const DISCONNECTED_OUTPUT_KEY = 'disconnected-output';
+const MAIN_OUTPUT_KEY = 'main-output';
 
 export function createDawprojectExport(request: DawprojectExportRequest): DawprojectExportResult {
 	const project = request?.project;
@@ -112,6 +114,8 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 	});
 	const sourceById = new Map(records(project.sources).map(source => [String(source.id), source]));
 	const clipById = new Map(records(project.clips).map(clip => [String(clip.id), clip]));
+	const structure = dawprojectStructureTree(project, request.sequenceId);
+	const routing = readDawprojectMixerRouting(project);
 	const context: DawprojectExportContext = {
 		project,
 		sampleRate,
@@ -121,17 +125,17 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 		clipById,
 		readAudioTrackChannels: createDawprojectAudioWidthReader(project, clipById, sourceById),
 		media: new DawprojectMediaRegistry(),
-		routing: readDawprojectMixerRouting(project),
+		routing,
+		separateOutputMaster: routing.masterDisconnected === true || dawprojectHasMainOutputBypass({ project, routing }, structure),
 		embeddableVideoSourceIds: new Set(request.embeddableVideoSourceIds ?? []),
 		tempoMap: tempoMapOf(project),
 		consumedLaneIds: new Set(),
 	};
-	const structure = dawprojectStructureTree(project, request.sequenceId);
 	const transport = buildTransport(context);
 	const structureElement = xmlElement('Structure', {}, [
 		...structure.map((node) => buildStructureNode(node, context)),
 		...buildMixerNodeTracks(context, structure),
-		buildMasterTrack(context),
+		...buildMasterTracks(context),
 	]);
 	const arrangement = buildArrangement(context, structure, request.sequenceId);
 	const application = request.application ?? DEFAULT_APPLICATION;
@@ -261,7 +265,7 @@ function channelRouting(context: DawprojectExportContext, route: DawprojectTrack
 		? [...context.routing.groups, ...context.routing.sends].find(candidate => candidate.id === route.groupId)
 		: null;
 	return {
-		destination: channelIdFor(context, route?.disconnected ? DISCONNECTED_OUTPUT_KEY : destination ? `mixer-node:${destination.id}` : 'master'),
+		destination: channelIdFor(context, route?.disconnected ? DISCONNECTED_OUTPUT_KEY : route?.mainOutput ? MAIN_OUTPUT_KEY : destination ? `mixer-node:${destination.id}` : 'master'),
 		sends: [...(route?.sends ?? [])]
 			.filter(({ id }) => context.routing.sends.some(send => send.id === id)),
 	};
@@ -314,16 +318,16 @@ function buildMixerNodeTracks(context: DawprojectExportContext, structure: reado
 			]));
 		}
 	}
-	if ([...context.routing.routes.values(), ...context.routing.nodeRoutes.values()].some(route => route.disconnected)) {
+	if (context.routing.masterDisconnected || [...context.routing.routes.values(), ...context.routing.nodeRoutes.values()].some(route => route.disconnected)) {
 		result.push(xmlElement('Track', { contentType: 'audio', loaded: true,
 			id: context.ids.id(DISCONNECTED_OUTPUT_KEY), name: 'Unassigned outputs',
 		}, [buildChannel(context, DISCONNECTED_OUTPUT_KEY, {
 			role: 'submix', gain: 1, pan: 0, mute: true, solo: false, audioChannels: masterChannels(context),
-			destination: channelIdFor(context, 'master'), sends: [], effects: [], scope: { kind: 'project' },
+			destination: channelIdFor(context, context.separateOutputMaster ? MAIN_OUTPUT_KEY : 'master'), sends: [], effects: [], scope: { kind: 'project' },
 		})]));
 		addDeliveryReportItem(context.draft, {
 			code: 'dawproject.unassigned-output-converted', disposition: 'converted', severity: 'info',
-			message: 'Send-only channels route their unassigned main outputs to a muted submix; their sends remain unchanged.',
+			message: 'Channels without an assigned programme output route to a muted submix; their sends remain unchanged.',
 		});
 	}
 	if (context.routing.omittedNodes > 0) {
@@ -338,24 +342,36 @@ function buildMixerNodeTracks(context: DawprojectExportContext, structure: reado
 	return result;
 }
 
-function buildMasterTrack(context: DawprojectExportContext): XmlElement {
+function buildMasterTracks(context: DawprojectExportContext): XmlElement[] {
 	const master = record(context.project.master);
-	return xmlElement('Track', {
+	const original = xmlElement('Track', {
 		contentType: 'audio', loaded: true, id: context.ids.id('master-track'), name: 'Master',
 	}, [
 		buildChannel(context, 'master', {
-			role: 'master',
+			role: context.separateOutputMaster ? 'submix' : 'master',
 			gain: finite(master.gain, 1),
 			pan: finite(master.pan, 0),
 			mute: master.mute === true,
 			solo: master.solo === true,
 			audioChannels: masterChannels(context),
-			destination: null,
+			destination: context.routing.masterDisconnected ? channelIdFor(context, DISCONNECTED_OUTPUT_KEY)
+				: context.separateOutputMaster ? channelIdFor(context, MAIN_OUTPUT_KEY) : null,
 			sends: [],
 			effects: Array.isArray(master.effects) ? master.effects : [],
 			scope: { kind: 'master' },
 		}),
 	]);
+	if (!context.separateOutputMaster) return [original];
+	addDeliveryReportItem(context.draft, {
+		code: 'dawproject.master-output-converted', disposition: 'converted', severity: 'info',
+		message: 'The original Master is retained as a submix before a neutral output Master, so direct programme-output assignments keep bypassing its processing.',
+	});
+	return [original, xmlElement('Track', { contentType: 'audio', loaded: true,
+		id: context.ids.id('main-output-track'), name: 'Main output',
+	}, [buildChannel(context, MAIN_OUTPUT_KEY, {
+		role: 'master', gain: 1, pan: 0, mute: false, solo: false, audioChannels: masterChannels(context),
+		destination: null, sends: [], effects: [], scope: { kind: 'project' },
+	})])];
 }
 
 function buildChannel(context: DawprojectExportContext, key: string, spec: ChannelSpec): XmlElement {

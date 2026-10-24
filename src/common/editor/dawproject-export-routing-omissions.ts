@@ -36,7 +36,7 @@ export function reportOmittedDawprojectRouting(context: DawprojectExportContext)
 		const supportedSend = edge.kind === 'send' && destination.kind === 'mixer-node'
 			&& sends.some(send => send.id === destination.id);
 		const supportedAssignment = edge.kind === 'assignment'
-			&& (destination.kind === 'master' || destination.kind === 'output'
+			&& (destination.kind === 'master' || destination.kind === 'output' && records(graph.outputs).some(output => output.id === destination.id && output.role === 'main')
 				|| groups.some(group => group.id === destination.id));
 		const features: string[] = [];
 		if (!supportedSend && !supportedAssignment) features.push('connection');

@@ -46,6 +46,7 @@ export interface DawprojectTrackRoute {
 	readonly groupId: string | null;
 	readonly sends: readonly Readonly<{ id: string; level: number; position: 'pre' | 'post' }>[];
 	readonly disconnected?: boolean;
+	readonly mainOutput?: boolean;
 }
 
 export interface DawprojectMixerRouting {
@@ -55,6 +56,7 @@ export interface DawprojectMixerRouting {
 	readonly nodeRoutes: ReadonlyMap<string, DawprojectTrackRoute>;
 	/** Node kinds the profile has no channel role for, for the report. */
 	readonly omittedNodes: number;
+	readonly masterDisconnected?: boolean;
 }
 
 export interface DawprojectExportContext {
@@ -66,6 +68,7 @@ export interface DawprojectExportContext {
 	readonly clipById: ReadonlyMap<string, DataRecord>;
 	readonly media: DawprojectMediaRegistry;
 	readonly routing: DawprojectMixerRouting;
+	readonly separateOutputMaster: boolean;
 	readonly readAudioTrackChannels?: (track: DataRecord, fallback: number) => number;
 	readonly embeddableVideoSourceIds: ReadonlySet<string>;
 	readonly tempoMap: HoldTempoMap | null;
@@ -169,7 +172,7 @@ export function dawprojectStructureTracks(nodes: readonly DawprojectStructureNod
 }
 
 /** Referenced buses outside the delivered hierarchy remain channels, without their foreign audio tracks. */
-export function dawprojectAdditionalFolderBusIds(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): ReadonlySet<string> {
+export function dawprojectAdditionalFolderBusIds(context: Pick<DawprojectExportContext, 'project' | 'routing'>, structure: readonly DawprojectStructureNode[]): ReadonlySet<string> {
 	const folderIds = new Set(records(context.project.trackFolders).map(folder => String(folder.id)));
 	const nodes = [...structure];
 	const deliveredFolders = new Set<string>();
@@ -191,6 +194,21 @@ export function dawprojectAdditionalFolderBusIds(context: DawprojectExportContex
 	for (const id of trackIds) follow(context.routing.routes.get(id));
 	for (let index = 0; index < pending.length; index++) follow(context.routing.nodeRoutes.get(pending[index]!));
 	return new Set([...retained].filter(id => folderIds.has(id) && !deliveredFolders.has(id)));
+}
+
+/** Split the Master only for a main-output route whose owner is actually delivered. */
+export function dawprojectHasMainOutputBypass(context: Pick<DawprojectExportContext, 'project' | 'routing'>, structure: readonly DawprojectStructureNode[]): boolean {
+	if (dawprojectStructureTracks(structure).some(track => context.routing.routes.get(String(track.id))?.mainOutput)) return true;
+	const folderIds = new Set(records(context.project.trackFolders).map(folder => String(folder.id)));
+	const delivered = new Set(dawprojectAdditionalFolderBusIds(context, structure));
+	const pending = [...structure];
+	for (let index = 0; index < pending.length; index++) {
+		const node = pending[index]!;
+		if (node.kind === 'folder') delivered.add(node.id);
+		for (const child of node.children) pending.push(child);
+	}
+	return [...context.routing.groups, ...context.routing.sends].some(strip => (!folderIds.has(strip.id) || delivered.has(strip.id))
+		&& context.routing.nodeRoutes.get(strip.id)?.mainOutput === true);
 }
 
 function freezeTree(nodes: DawprojectStructureNode[]): readonly DawprojectStructureNode[] {
@@ -228,9 +246,13 @@ export function readDawprojectMixerRouting(project: DataRecord): DawprojectMixer
 }
 
 function readGraphRouting(graph: DataRecord): DawprojectMixerRouting {
-	const routes = new Map<string, { groupId: string | null; sends: DawprojectTrackRoute['sends'][number][] }>();
+	const routes = new Map<string, { groupId: string | null; sends: DawprojectTrackRoute['sends'][number][]; mainOutput?: boolean; disconnected?: boolean }>();
 	const nodeRoutes: typeof routes = new Map();
 	const assignments = new Set<string>();
+	const mainOutput = records(graph.outputs).find(output => output.role === 'main')?.id;
+	const masterOutputs = records(graph.edges).filter(edge => edge.enabled !== false && edge.kind === 'assignment'
+		&& record(edge.source).kind === 'master' && record(edge.destination).kind === 'output');
+	const masterDisconnected = masterOutputs.length > 0 && !masterOutputs.some(edge => record(edge.destination).id === mainOutput);
 	const route = (entries: typeof routes, sourceId: string) => {
 		let entry = entries.get(sourceId);
 		if (!entry) {
@@ -246,8 +268,15 @@ function readGraphRouting(graph: DataRecord): DawprojectMixerRouting {
 		if (edge.kind === 'assignment' && (source.kind === 'track' || source.kind === 'mixer-node')) {
 			assignments.add(JSON.stringify([source.kind, source.id]));
 		}
-		if ((source.kind !== 'track' && source.kind !== 'mixer-node') || destination.kind !== 'mixer-node') continue;
+		if (source.kind !== 'track' && source.kind !== 'mixer-node') continue;
 		const entries = source.kind === 'track' ? routes : nodeRoutes;
+		if (edge.kind === 'assignment' && destination.kind === 'output') {
+			const entry = route(entries, String(source.id));
+			entry.mainOutput = destination.id === mainOutput;
+			entry.disconnected = !entry.mainOutput;
+			continue;
+		}
+		if (destination.kind !== 'mixer-node') continue;
 		if (edge.kind === 'assignment') route(entries, String(source.id)).groupId = String(destination.id);
 		else if (edge.kind === 'send') route(entries, String(source.id)).sends.push({ id: String(destination.id),
 			level: Number(edge.level ?? 1), position: edge.position === 'pre-fader' ? 'pre' : 'post',
@@ -259,11 +288,12 @@ function readGraphRouting(graph: DataRecord): DawprojectMixerRouting {
 		routes: exportRoutes(routes, 'track'),
 		nodeRoutes: exportRoutes(nodeRoutes, 'mixer-node'),
 		omittedNodes: records(graph.cues).length + records(graph.vcas).length,
+		...(masterDisconnected ? { masterDisconnected: true } : {}),
 	});
 
 	function exportRoutes(entries: typeof routes, kind: string): ReadonlyMap<string, DawprojectTrackRoute> {
 		return new Map([...entries].map(([id, entry]) => [id, Object.freeze({ ...entry,
-			disconnected: entry.sends.length > 0 && !assignments.has(JSON.stringify([kind, id])),
+			disconnected: entry.disconnected === true || entry.sends.length > 0 && !assignments.has(JSON.stringify([kind, id])),
 		})]));
 	}
 }
