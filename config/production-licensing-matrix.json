@@ -132,12 +132,12 @@
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/core",
 			"name": "@modelcontextprotocol/core",
-			"version": "2.0.0",
-			"license": "MIT",
+			"version": "2.3.0",
+			"license": "Apache-2.0",
 			"direct": false,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/core` 2.0.0",
+			"noticeMarker": "`@modelcontextprotocol/core` 2.3.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
@@ -154,12 +154,12 @@
 		{
 			"lockPath": "node_modules/@modelcontextprotocol/server",
 			"name": "@modelcontextprotocol/server",
-			"version": "2.0.0",
-			"license": "MIT",
+			"version": "2.3.0",
+			"license": "Apache-2.0",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`@modelcontextprotocol/server` 2.0.0",
+			"noticeMarker": "`@modelcontextprotocol/server` 2.3.0",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
@@ -231,12 +231,12 @@
 		{
 			"lockPath": "node_modules/hono",
 			"name": "hono",
-			"version": "4.13.8",
+			"version": "4.13.13",
 			"license": "MIT",
 			"direct": false,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`hono` 4.13.8",
+			"noticeMarker": "`hono` 4.13.13",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		},
 		{
@@ -363,12 +363,12 @@
 		{
 			"lockPath": "node_modules/zod",
 			"name": "zod",
-			"version": "4.6.5",
+			"version": "4.6.6",
 			"license": "MIT",
 			"direct": true,
 			"role": "desktop-mcp-server-runtime",
 			"artifactSurfaces": ["electron-shell"],
-			"noticeMarker": "`zod` 4.6.5",
+			"noticeMarker": "`zod` 4.6.6",
 			"evidence": ["package-lock.json", "THIRD_PARTY_LICENSES.md", "desktop/mcp-service.ts"]
 		}
 	],
