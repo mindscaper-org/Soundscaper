@@ -48,14 +48,23 @@ export async function prepareFreesoundUploadFile(
 	}
 	catch { signal?.throwIfAborted(); }
 	if (context) {
+		const ownedContext = context;
+		let closing: Promise<void> | null = null;
+		const close = (): Promise<void> => closing ??= Promise.resolve().then(() => ownedContext.close());
+		const abort = (): void => { void close().catch(() => undefined); };
+		signal?.addEventListener('abort', abort, { once: true });
 		try {
+			signal?.throwIfAborted();
 			const nativeRate = context.sampleRate ?? sampleRate;
 			if (presentation && nativeRate && Number.isFinite(nativeRate)) {
 				assertConvertedExtent(Math.round(presentation.duration * nativeRate), presentation.channelCount, maximumBytes);
 			}
 			try { decoded = await context.decodeAudioData(inputBytes); }
 			catch { signal?.throwIfAborted(); }
-		} finally { await context.close(); }
+		} finally {
+			signal?.removeEventListener('abort', abort);
+			await close();
+		}
 	}
 	signal?.throwIfAborted();
 	if (!decoded?.length || presentationDuration !== null && decoded.length !== Math.round(presentationDuration * decoded.sampleRate)) {

@@ -5,6 +5,30 @@ import test from 'node:test';
 import { deferred } from './helpers/async-test-control.ts';
 
 import { createFreesoundUploadQueue } from '../src/common/editor/ui/workspace/freesound-upload-queue.ts';
+import { prepareFreesoundUploadFile } from '../src/common/editor/ui/workspace/freesound-upload-file-preparation.ts';
+import { encodeWav } from '../src/common/editor/wav.js';
+
+test('Cancel closes the native context while its uncancellable decode result is still pending', async () => {
+	const signal = new AbortController(), pending = deferred<AudioBuffer>(), started = deferred<void>();
+	let closes = 0;
+	const file = new File([Uint8Array.from(encodeWav([Float32Array.of(.25, -.25)], { sampleRate: 48_000 })).buffer], 'recording.wave');
+	const operation = prepareFreesoundUploadFile(file, signal.signal, { createDecodeContext: () => ({
+		decodeAudioData: () => { started.resolve(); return pending.promise; },
+		close: async () => { closes++; },
+	}) });
+	const cancelled = assert.rejects(operation, { name: 'AbortError' });
+	try {
+		await started.promise;
+		signal.abort();
+		await tick();
+		assert.equal(closes, 1, 'the retired native context must not keep device resources until decoding finishes');
+	} finally {
+		pending.resolve({ length: 2, sampleRate: 48_000, numberOfChannels: 1,
+			getChannelData: () => Float32Array.of(.25, -.25) } as unknown as AudioBuffer);
+		await cancelled;
+	}
+	assert.equal(closes, 1, 'late decoder completion must not close the context twice');
+});
 
 test('Cancel releases an encoded upload before its uncancellable native decoder finishes', async () => {
 	const decoding = deferred<File>();

@@ -37,6 +37,7 @@ async function holdNativeDecode(page) {
 			const pending = Reflect.apply(decode, this, args);
 			if (!globalThis.__next200HoldDecode) return pending;
 			globalThis.__next200HoldDecode = false;
+			globalThis.__next200HeldDecodeContext = this;
 			return pending.then(audio => new Promise(resolve => {
 				globalThis.__next200ReleaseDecode = () => { globalThis.__next200ReleaseDecode = null; resolve(audio); };
 			}));
@@ -75,6 +76,7 @@ for (const retire of ['Cancel', 'Disconnect']) test(`Freesound ${retire} release
 		await queue.locator('input[type="file"]').setInputFiles(createWavFixture({ name: 'Fresh recording.wav', duration: .05 }));
 	}
 	await expect(queue.locator('[data-upload-status="ready-to-publish"]')).toContainText('Fresh recording.wav');
+	await expect.poll(() => page.evaluate(() => globalThis.__next200HeldDecodeContext.state)).toBe('closed');
 	expect(uploads.map(upload => upload.name)).toEqual(['Fresh recording.wav']);
 	await page.evaluate(() => globalThis.__next200ReleaseDecode());
 	await expect(queue.locator('li')).toHaveCount(retire === 'Cancel' ? 2 : 1);
