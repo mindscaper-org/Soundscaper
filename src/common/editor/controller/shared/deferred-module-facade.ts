@@ -50,6 +50,8 @@ export interface DeferredModuleFacadeOptions<
 	readonly eager?: Eager;
 	/** Methods a sibling facade over the same service covers, for the completeness check. */
 	readonly covered?: Covered;
+	/** Capture invocation ownership before loading; assert it before delegation or load failure. */
+	readonly prepareInvocation?: (name: PropertyKey) => (() => void) | undefined;
 }
 
 /**
@@ -85,7 +87,11 @@ export function createDeferredModuleFacade<
 	const facade: Record<PropertyKey, unknown> = {};
 	for (const name of methodNames as Names) {
 		facade[name] = async (...args: readonly unknown[]): Promise<unknown> => {
-			const service = await loadService();
+			const assertInvocation = options.prepareInvocation?.(name);
+			let service: Service;
+			try { service = await loadService(); }
+			catch (error) { assertInvocation?.(); throw error; }
+			assertInvocation?.();
 			const method = service[name];
 			if (typeof method !== 'function') {
 				throw new TypeError(`The deferred module does not implement ${String(name)}.`);

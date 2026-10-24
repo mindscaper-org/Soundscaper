@@ -40,5 +40,11 @@ export function createDeferredDawprojectService(
 			(await load()).createDawprojectService(runtime, helpers)
 		),
 		DEFERRED_DAWPROJECT_METHOD_NAMES,
+		{ prepareInvocation: (name) => {
+			if (name !== 'saveDawproject') return undefined;
+			runtime.lifetime.assertActive();
+			const token = runtime.projectGeneration.capture(helpers.requireProject().id);
+			return () => { runtime.lifetime.assertActive(); runtime.projectGeneration.assertCurrent(token); };
+		} },
 	);
 }
