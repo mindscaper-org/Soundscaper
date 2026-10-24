@@ -75,7 +75,7 @@ test('A09 project duration traverses authoritative clip storage without flatteni
 		traversals++;
 		return original.call(this) as ArrayIterator<T>;
 	};
-	let duration = 0;
+	let duration: number;
 	try { duration = getProjectDurationFrames({ clips }); } finally { Array.prototype[Symbol.iterator] = original; }
 	assert.equal(duration, 9993);
 	assert.equal(traversals, 1);
