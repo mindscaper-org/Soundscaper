@@ -145,7 +145,7 @@ export function createFreesoundClipUploadMaterializer<Project extends object>(
 		return Object.freeze({
 			file: new File([owned.buffer], `${fileStem(clipTitle)}.wav`, { type: 'audio/wav', lastModified: 0 }),
 			source,
-			clip,
+			clip: Object.freeze({ ...clip, durationSeconds: rendered.length / rendered.sampleRate }),
 			clipTitle,
 		});
 	}

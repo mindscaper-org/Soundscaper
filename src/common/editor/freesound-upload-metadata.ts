@@ -55,6 +55,8 @@ export interface FreesoundUploadSourceMetadata {
 export interface FreesoundUploadClipMetadata {
 	readonly title?: string;
 	readonly durationFrames?: number;
+	/** Materialized audio duration; clip frames may use a different clock from its source. */
+	readonly durationSeconds?: number;
 	readonly gain?: number;
 	readonly fadeInFrames?: number;
 	readonly fadeOutFrames?: number;
@@ -308,10 +310,11 @@ function technicalLines(
 	const sampleRate = positiveFinite(source.sampleRate);
 	const channels = positiveInteger(source.channelCount);
 	const frames = positiveInteger(clip?.durationFrames) ?? positiveInteger(source.frameCount);
+	const duration = positiveFinite(clip?.durationSeconds) ?? (frames && sampleRate ? frames / sampleRate : null);
 	const details = [
 		...(sampleRate ? [`${sampleRate.toLocaleString('en-US')} Hz`] : []),
 		...(channels ? [`${String(channels)} ${channels === 1 ? 'channel' : 'channels'}`] : []),
-		...(frames && sampleRate ? [`${(frames / sampleRate).toFixed(3)} seconds`] : []),
+		...(duration ? [`${duration.toFixed(3)} seconds`] : []),
 	];
 	return [
 		...(source.mimeType ? [`Format: ${singleLine(source.mimeType)}`] : []),
