@@ -3,6 +3,7 @@ import { nativeOggFlacAdmission } from './native-ogg-flac-admission.ts';
 import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-codec-runtime-marker.ts';
 import { raceAbortableRead } from '../../../abort-race.ts';
 import { canonicalNativeVorbisBuffer } from '../../../browser-vorbis-decoder.ts';
+import { inspectWave64PcmSourceGeometry } from '../../../wave64-pcm-source-geometry.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
@@ -78,13 +79,29 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 /** Normalize native speaker roles and authored extent before canonical PCM storage. */
 export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: NativeContainerAudioAdmission | null, encoded?: ArrayBuffer): AudioBuffer {
 	if (encoded) {
+		const wave64 = inspectWave64PcmSourceGeometry(new Uint8Array(encoded));
+		if (wave64) {
+			const excess = decoded.length - wave64.frameCount;
+			// The qualified native Wave64 reader pads its final1024-frame output block.
+			if (decoded.sampleRate !== wave64.sampleRate || decoded.numberOfChannels !== wave64.channelCount
+				|| !Number.isSafeInteger(excess) || excess < 0 || excess >= 1024) throw new RangeError('The native Wave64 decoder returned different PCM geometry.');
+			if (excess > 0) {
+				for (let channel = 0; channel < wave64.channelCount; channel++) {
+					if (decoded.getChannelData(channel).subarray(wave64.frameCount).some(value => value !== 0)) throw new RangeError('The native Wave64 endpoint is not zero padding.');
+				}
+				decoded = nativePcmExtentView(decoded, wave64.frameCount);
+			}
+		}
 		const normalized = canonicalNativeVorbisBuffer(decoded, encoded);
 		if (normalized !== decoded) NATIVE_CONTAINER_AUDIO_VIEWS.add(normalized);
 		decoded = normalized;
 	}
 	if (!admission?.trimNativeVorbisFinalFrame || decoded.length !== admission.frameCount + 1
 		|| decoded.sampleRate !== admission.sampleRate || decoded.numberOfChannels !== admission.channelCount) return decoded;
-	const length = admission.frameCount;
+	return nativePcmExtentView(decoded, admission.frameCount);
+}
+
+function nativePcmExtentView(decoded: AudioBuffer, length: number): AudioBuffer {
 	// Storage consumes this zero-copy PCM view; it must never enter the native resident cache.
 	const view = Object.freeze({ length, sampleRate: decoded.sampleRate, duration: length / decoded.sampleRate, numberOfChannels: decoded.numberOfChannels,
 		getChannelData: (channel: number) => decoded.getChannelData(channel).subarray(0, length),
