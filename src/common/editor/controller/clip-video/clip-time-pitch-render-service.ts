@@ -136,7 +136,7 @@ export interface ClipTimePitchRenderServiceDependencies {
 	): Promise<unknown>;
 	peakCacheKey(sourceId: string): string;
 	cacheSourceBuffer(sourceId: string, buffer: AudioBufferLike): void;
-	commit(command: AudioEditorCommand, selection?: CommitSelection): unknown;
+	commit(command: AudioEditorCommand, selection?: CommitSelection, behavior?: Readonly<{ microfadeNewClips?: boolean }>): unknown;
 	setProcessing(processing: boolean): void;
 	setStatus(message: string, kind?: string, localization?: import('../../../i18n/presentation-message.ts').LocalizedPresentationMessage): void;
 	publish(): void;
@@ -234,7 +234,7 @@ export function createClipTimePitchRenderService(
 					createAddSourceCommand(nextSource),
 					...timePitchClipReplacementCommands(dependencies.getProject(), track.id, clip, nextClip),
 				],
-			}, { selectTrackId: track.id, selectClipId: clip.id });
+			}, { selectTrackId: track.id, selectClipId: clip.id }, { microfadeNewClips: false });
 			setLocalizedStatus(dependencies.setStatus, dependencies.copy, "done", undefined, 'success');
 			return clip.id;
 		} catch (error) {

@@ -10,7 +10,7 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
-for (const operation of ['merge', 'split', 'track-resample', 'clip-resample']) for (const microfades of [false, true]) {
+for (const operation of ['merge', 'split', 'track-resample', 'clip-resample', 'render']) for (const microfades of [false, true]) {
 	test(`${operation} preserves authored endpoints with new-clip fades ${microfades}`, async ({ page }) => {
 		const { project, blob } = await projectArchive(operation, microfades);
 		await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
@@ -34,6 +34,10 @@ for (const operation of ['merge', 'split', 'track-resample', 'clip-resample']) f
 			const dialog = page.getByRole('dialog', { name: 'Resample', exact: true });
 			await dialog.getByRole('textbox').fill('24000');
 			await dialog.getByRole('button', { name: 'Resample', exact: true }).click(); await expect(dialog).toBeHidden();
+		} else if (operation === 'render') {
+			await editor.locator('[data-clip-id="left-clip"]').first().getByRole('button', { name: 'Clip menu', exact: true }).click();
+			await page.locator('.audio-editor-clip-context-menu').getByRole('menuitem', { name: 'Render pitch and speed', exact: true }).click();
+			await expect.poll(async () => (await persistedProject(page, project.id)).clips[0].speedRatio).toBe(1);
 		} else {
 			const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id="left-clip"]').first());
 			await properties.getByRole('button', { name: 'Media settings', exact: true }).click();
@@ -78,16 +82,17 @@ async function samples(page, editor) {
 }
 
 async function projectArchive(operation, microfades) {
-	const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: 4800, channelCount: operation === 'split' ? 2 : 1 });
+	const source = createAudioSource({ id: 'source', sampleRate: 48_000, frameCount: operation === 'render' ? 9600 : 4800, channelCount: operation === 'split' ? 2 : 1 });
 	const clips = (operation === 'merge' ? ['left', 'right'] : ['left']).map(id => createAudioClip({ id: `${id}-clip`,
-		sourceId: source.id, durationFrames: 4800, sourceDurationFrames: 4800, fadeInFrames: 0, fadeOutFrames: 0 }));
+		sourceId: source.id, durationFrames: 4800, sourceDurationFrames: 4800,
+		...(operation === 'render' ? { sourceStartFrame: 2400, durationFrames: 2400, speedRatio: 2, linkPitchAndTempo: true } : {}), fadeInFrames: 0, fadeOutFrames: 0 }));
 	const project = createSoundscaperProject({ id: `channel-fades-${operation}-${microfades}`, sources: [source], clips,
 		tracks: clips.map((clip, index) => createAudioTrack({ id: index ? 'right' : 'left', name: index ? 'Right' : 'Left',
 			pan: operation === 'merge' ? (index ? 1 : -1) : 0, clipIds: [clip.id] })) });
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
-		await writer.write(Array.from({ length: source.channelCount }, () => new Float32Array(4800).fill(.25)));
+		await writer.write(Array.from({ length: source.channelCount }, () => new Float32Array(source.frameCount).fill(.25)));
 		await writer.commit(); const { blob } = await exportScapeProject(project, store); expect(blob).toBeTruthy(); return { project, blob };
 	} finally { await store.close(); }
 }
