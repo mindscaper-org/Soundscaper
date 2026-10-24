@@ -21,9 +21,14 @@ export function selectedLabelsForProject(project: unknown, state: Readonly<Selec
 /** Upstream pastes onto the focused label track, otherwise the first label track. */
 export function labelClipboardTarget(project: unknown, focusedTrackId: string | null) {
 	if (!isRecord(project) || !Array.isArray(project.tracks)) return null;
-	const tracks = (project.tracks as unknown[]).filter((track): track is Record<string, unknown> & { id: string } =>
-		isRecord(track) && track.type === 'label' && typeof track.id === 'string');
-	return tracks.find(track => track.id === focusedTrackId) ?? tracks[0] ?? null;
+	let first: (Record<string, unknown> & { id: string }) | null = null;
+	for (const track of project.tracks as unknown[]) {
+		if (!isRecord(track) || track.type !== 'label' || typeof track.id !== 'string') continue;
+		const candidate = track as Record<string, unknown> & { id: string };
+		first ??= candidate;
+		if (track.id === focusedTrackId) return candidate;
+	}
+	return first;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
