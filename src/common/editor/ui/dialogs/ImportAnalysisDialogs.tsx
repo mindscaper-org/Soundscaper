@@ -14,6 +14,7 @@ import EditorMusicalTimeCodeProvider from '../EditorMusicalTimeCodeProvider.tsx'
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { regularIntervalDialogDefaults, type RegularIntervalDialogProject } from '../regular-interval-dialog-defaults.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 interface DialogController {
 	readonly project: RegularIntervalDialogProject | null;
@@ -47,6 +48,7 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 	const importingRef = useRef(false);
 	const pendingImport = useRef<AbortController | null>(null);
 	const projectIdentity = controller.project?.id ?? null;
+	const projectSession = editorProjectEditSessionKey(controller, projectIdentity);
 	const formId = 'audio-editor-raw-pcm-import-form';
 	useEffect(() => {
 		setImporting(false);
@@ -55,7 +57,7 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 			pendingImport.current = null;
 			importingRef.current = false;
 		};
-	}, [projectIdentity]);
+	}, [projectSession]);
 	const close = (): void => {
 		pendingImport.current?.abort();
 		onClose();
@@ -67,8 +69,8 @@ export function RawPcmImportDialog({ controller, snapshot, copy, run, onClose, f
 		if (!file || importingRef.current || blockedRef.current) return;
 		const cancellation = new AbortController();
 		pendingImport.current = cancellation;
-		const projectId = controller.project?.id ?? null;
-		const projectIsCurrent = (): boolean => !cancellation.signal.aborted && (controller.project?.id ?? null) === projectId;
+		const projectIsCurrent = (): boolean => !cancellation.signal.aborted
+			&& editorProjectEditSessionKey(controller, controller.project?.id) === projectSession;
 		importingRef.current = true;
 		setImporting(true);
 		run(async () => {
