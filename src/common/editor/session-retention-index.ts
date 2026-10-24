@@ -23,6 +23,14 @@ export function createIncrementalHistoryRoots<Project extends object, Root>(
 	history: History<Project>,
 	collectProject: (project: Project) => Iterable<Root>,
 ) {
+	return createOwnedHistoryRoots(history, project => new Set(collectProject(project)));
+}
+
+/** Only module-owned projections can share Sets; arbitrary collectors stay detached. */
+function createOwnedHistoryRoots<Project extends object, Root>(
+	history: History<Project>,
+	collectProject: (project: Project) => ReadonlySet<Root>,
+) {
 	const projections = new WeakMap<Project, ReadonlySet<Root>>();
 	const counts = new Map<Root, number>();
 	let projects = new Set<Project>();
@@ -33,7 +41,7 @@ export function createIncrementalHistoryRoots<Project extends object, Root>(
 	function projectRoots(project: Project): ReadonlySet<Root> {
 		let roots = projections.get(project);
 		if (!roots) {
-			roots = new Set(collectProject(project));
+			roots = collectProject(project);
 			projections.set(project, roots);
 		}
 		return roots;
@@ -66,15 +74,23 @@ export function createIncrementalHistoryRoots<Project extends object, Root>(
 /** Keep optional projections lazy so invalid storage identities fail at the same query boundary. */
 export function createSessionRetentionIndex(initial: History<object>) {
 	let history = initial;
+	// Both views share the same traversal; weak keys follow owned history lifetime.
+	const pairedRoots = new WeakMap<object, ReturnType<typeof collectHistoryRetentionRoots>>();
+	const projectRetentionRoots = (project: object) => {
+		let roots = pairedRoots.get(project);
+		if (!roots) {
+			roots = collectHistoryRetentionRoots([{ present: project }]);
+			pairedRoots.set(project, roots);
+		}
+		return roots;
+	};
 	const collectors = {
 		sourceIds: (project: object): Iterable<string> => collectProjectSourceIds(project) as Set<string>,
-		clipIds: (project: object): Iterable<string> => collectHistoryRetentionRoots([{ present: project }]).clipIds as Set<string>,
-		assistanceSourceIds: (project: object): Iterable<string> => collectHistoryRetentionRoots([{ present: project }]).assistanceSourceIds as Set<string>,
 		storageKeys: (project: object): Iterable<string> => collectHistoryStorageKeys([{ present: project }]),
 		linkedOriginalKeys: (project: object): Iterable<string> => collectHistoryLinkedOriginalSourceReferences([{ present: project }])
 			.map(({ kind, sourceId }) => `${kind}:${sourceId}`),
 	};
-	type Field = keyof typeof collectors;
+	type Field = keyof typeof collectors | 'clipIds' | 'assistanceSourceIds';
 	const indices = new Map<Field, ReturnType<typeof createIncrementalHistoryRoots<object, string>>>();
 	return Object.freeze({
 		update(next: History<object>) { history = next; },
@@ -87,7 +103,9 @@ export function createSessionRetentionIndex(initial: History<object>) {
 	function read(field: Field): Set<string> {
 		let index = indices.get(field);
 		if (!index) {
-			index = createIncrementalHistoryRoots(history, collectors[field]);
+			index = field === 'clipIds' || field === 'assistanceSourceIds'
+				? createOwnedHistoryRoots(history, project => projectRetentionRoots(project)[field] as ReadonlySet<string>)
+				: createIncrementalHistoryRoots(history, collectors[field]);
 			indices.set(field, index);
 		} else index.update(history);
 		return index.getRoots();
