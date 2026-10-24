@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { FOUNDATION_SELECTION_RUNTIME_CONSUMERS } from './foundation-selection-consumer-evidence.ts';
 import { FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS } from './foundation-time-pitch-consumer-evidence.ts';
+import { FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS } from './foundation-file-delivery-consumer-evidence.ts';
 export type FoundationRuntimeConsumerSurface =
 	| 'playback'
 	| 'preview'
@@ -30,13 +31,8 @@ export interface FoundationRuntimeConsumerEvidence {
  * boundary before reading any persisted/resolved clip timing field.
  */
 const entries: FoundationRuntimeConsumerEvidence[] = [
-	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS, ...FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS,
+	...FOUNDATION_SELECTION_RUNTIME_CONSUMERS, ...FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS, ...FOUNDATION_FILE_DELIVERY_RUNTIME_CONSUMERS,
 	{ id: 'bin-audio-duration-presentation', surface: 'preview', file: 'src/common/editor/ui/workspace/useProjectBinPresentation.ts', entryPoint: 'useProjectBinAudioDuration', inputIdentifier: 'project', projectedIdentifier: null, boundary: 'resolveRuntimeClipProjection', evidence: 'Audio Bin cards resolve authored beat extents at the current tempo before displaying duration; sample clips and visual media retain their existing timing paths.' },
-	{
-		id: 'label-file-export', surface: 'interchange', file: 'src/common/editor/controller/edit/internal/label-service.ts',
-		entryPoint: 'exportLabels', inputIdentifier: 'labelProject', projectedIdentifier: 'tracks', boundary: 'resolveRuntimeProjectProjection',
-		evidence: 'Label file export resolves the label-only authored project through its tempo map before selecting tracks and serializing subtitle or chapter sample times.',
-	},
 	{
 		id: 'video-source-readiness', surface: 'video-export', file: 'src/common/editor/controller/export/video-export-source-inventory.ts',
 		entryPoint: 'videoExportSourceInventory', inputIdentifier: 'project', projectedIdentifier: 'resolved', boundary: 'resolveRuntimeClipProjection',

@@ -144,6 +144,8 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/controller/export/video-export-source-inventory.ts', surfaces: ['video-export'] },
 	{ file: 'src/common/editor/export-clip-boundaries.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/export-clips.ts', surfaces: ['audio-export'] },
+	{ file: 'src/common/editor/export-chapters.ts', surfaces: ['audio-export'] },
+	{ file: 'src/common/editor/controller/track-audio/internal/freesound-clip-upload-materializer.ts', surfaces: ['audio-export'] },
 	{ file: 'src/common/editor/aup4-export.js', surfaces: ['interchange'] },
 	{ file: 'src/common/editor/aup4-annotation-interchange.ts', surfaces: ['interchange'] },
 	{ file: 'src/common/editor/timeline-annotation-riff-interchange.ts', surfaces: ['interchange'] },
@@ -178,6 +180,10 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 
 /** Exact non-consumer readers co-located with a shield owner. No wildcard exclusions are admitted. */
 export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRuntimeTimingReaderExclusion[] = deepFreeze([
+	{
+		file: 'src/common/editor/export-chapters.ts', entryPoint: 'annotationBoundaries',
+		reason: 'Marker chapter boundaries read sample fields only after the separate maintained timeline annotation projection; they consume projected annotations rather than persisted clip timing.',
+	},
 	{
 		file: 'src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts', entryPoint: 'fingerprintClip',
 		reason: 'The private async ownership fingerprint retains the command projection and original clip coordinates so a tempo or source-window edit retires a pending render; it intentionally does not replace canonical edit settings with the playback-only scalar.',
