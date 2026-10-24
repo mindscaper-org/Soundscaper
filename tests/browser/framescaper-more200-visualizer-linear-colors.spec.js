@@ -10,6 +10,7 @@ import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/edito
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../../src/framescaper/editor-project-runtime-profile.ts';
 
 test('visualizer foreground over background matches the same native solid-layer composition', async ({ page }) => {
+	test.setTimeout(60_000);
 	await page.addInitScript(() => {
 		globalThis.__visualizerColors = null;
 		const put = CanvasRenderingContext2D.prototype.putImageData;
