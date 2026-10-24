@@ -4,6 +4,7 @@ import { assertProducts, compareText, page, reviewedLabel, table } from './markd
 
 const CAPABILITY_LABELS = Object.freeze({
 	project: 'Projects',
+	literalJsonKeys: 'Literal JSON metadata keys',
 	projectBin: 'Project bin',
 	audioImport: 'Audio import',
 	audioPlayback: 'Audio playback',

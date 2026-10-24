@@ -7,6 +7,9 @@ import { evaluateProjectFeatureRequirements } from '../src/common/editor/project
 import { projectHasScapeLiteralKeys } from '../src/common/editor/scape-literal-json-keys.ts';
 import { createFramescaperProject, validateFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { createAup4ExportPlan } from '../src/common/editor/aup4-export.js';
+import { createAup4ProjectTree } from '../src/common/editor/aup4-profile.js';
+import { decodeAup4ProjectTree } from '../src/common/editor/aup4-conversion.js';
 
 const BINARY = '$soundscaperOpaqueBinary';
 const ESCAPE = '$soundscaperLiteralKey:';
@@ -71,4 +74,15 @@ test('Framescaper derives the same codec declaration and retains its own native 
 	const reopened = parseScapeProjectDocument(serializeScapeProjectDocument(project), { currentProjectSchemaFamily: 'framescaper' });
 	assert.ok(validateFramescaperProject(FRAMESCAPER_PROJECT_RUNTIME_PROFILE, reopened));
 	assert.equal(reopened.metadata.tags[BINARY], 'Credit');
+});
+
+
+test('Audacity metadata uses its own binary XML and needs no native JSON key escape', async () => {
+	const project = createSoundscaperProject({ id: 'literal-aup4', metadata: { tags: { [BINARY]: 'Reviewed credit' } } });
+	const before = structuredClone(project);
+	const plan = createAup4ExportPlan(project);
+	const tree = createAup4ProjectTree(plan.project);
+	const reopened = await decodeAup4ProjectTree(tree, () => { throw new Error('No audio blocks are required.'); });
+	assert.equal(reopened.project.metadata.tags[BINARY.toUpperCase()], 'Reviewed credit');
+	assert.deepEqual(project, before);
 });

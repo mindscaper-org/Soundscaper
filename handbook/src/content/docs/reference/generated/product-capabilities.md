@@ -39,6 +39,7 @@ Families describe product entry points, not every file extension a decoder might
 | Dissolve video transitions | Not enabled | Enabled |
 | Exact animated-image phase | Not enabled | Enabled |
 | Immersive ADM audio | Enabled | Not enabled |
+| Literal JSON metadata keys | Enabled | Enabled |
 | Local assistance assets | Enabled | Enabled |
 | Mastering sequences | Enabled | Not enabled |
 | Multicamera editing | Not enabled | Enabled |
