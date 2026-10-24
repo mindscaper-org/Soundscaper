@@ -422,7 +422,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 		// A container the maintained PCM reader refused (a non-PCM WAV, say) still
 		// carries its cue chunk; scan it out before the codec decode discards
 		// everything but samples.
-		const rescuedMarkerScan = wavDescriptor ? null : await scanEncodedAudioMarkers(file);
+		const rescuedMarkerScan = wavDescriptor ? null : await scanEncodedAudioMarkers(file, attributedImportOptions.signal);
 		assertImportProjectCurrent();
 		const { context, decoded, originalSampleRate } = await decodeStandaloneAudioForImport({
 			file, codecRuntime: ffmpeg, sampleRate: projectSampleRate(), signal: attributedImportOptions.signal,

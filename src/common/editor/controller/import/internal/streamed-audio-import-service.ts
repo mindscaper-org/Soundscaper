@@ -15,7 +15,7 @@ export async function importStreamedAudioFile(
 	assertCurrent: () => void,
 ): Promise<unknown> {
 	const { prepareStreamedAudioImport } = await import('../../../browser-streamed-audio-import.ts');
-	const markerScan = options.rescueMarkers ? await scanEncodedAudioMarkers(file) : null;
+	const markerScan = options.rescueMarkers ? await scanEncodedAudioMarkers(file, options.signal) : null;
 	assertCurrent();
 	const desktop = isDesktopMainAudioCodecRuntime(codec);
 	const prepared = await prepareStreamedAudioImport(file, {
