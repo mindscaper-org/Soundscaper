@@ -9,6 +9,7 @@ import { inspectIrcamPcmSourceGeometry } from '../../../ircam-pcm-source-geometr
 import { inspectPafPcmSourceGeometry } from '../../../paf-pcm-source-geometry.ts';
 import { inspectIff16svPcmSourceGeometry } from '../../../iff16sv-pcm-source-geometry.ts';
 import { inspectWavAdpcmSourceGeometry } from '../../../wav-adpcm-source-geometry.ts';
+import { inspectSdsPcmSourceGeometry } from '../../../sds-pcm-source-geometry.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
@@ -89,7 +90,7 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 /** Normalize native speaker roles and authored extent before canonical PCM storage. */
 export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: NativeContainerAudioAdmission | null, encoded?: ArrayBuffer): AudioBuffer {
 	if (encoded) {
-		const bytes = new Uint8Array(encoded), pcm = inspectWave64PcmSourceGeometry(bytes) ?? inspectNistPcmSourceGeometry(bytes) ?? inspectIrcamPcmSourceGeometry(bytes) ?? inspectPafPcmSourceGeometry(bytes) ?? inspectIff16svPcmSourceGeometry(bytes);
+		const bytes = new Uint8Array(encoded), pcm = inspectWave64PcmSourceGeometry(bytes) ?? inspectNistPcmSourceGeometry(bytes) ?? inspectIrcamPcmSourceGeometry(bytes) ?? inspectPafPcmSourceGeometry(bytes) ?? inspectIff16svPcmSourceGeometry(bytes) ?? inspectSdsPcmSourceGeometry(bytes);
 		if (pcm) {
 			const excess = decoded.length - pcm.frameCount;
 			// Qualified native PCM container readers pad their final1024-frame output block.

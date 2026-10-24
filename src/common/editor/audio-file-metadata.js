@@ -1,4 +1,5 @@
 import { inspectSbcAudioSampleRate } from './sbc-audio-sample-rate.ts';
+import { inspectSdsPcmSourceGeometry } from './sds-pcm-source-geometry.ts';
 import { inspectTtaAudioSampleRate } from './tta-audio-sample-rate.ts';
 import { inspectMatroskaOpusSampleRate } from './matroska-audio-sample-rate.ts';
 import { readAlacSampleDescription } from './alac-sample-description.ts';
@@ -57,6 +58,7 @@ export function inspectEncodedAudioSampleRate(input) {
 			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectSdsPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)
@@ -98,6 +100,7 @@ export function inspectDecodedAudioSampleRate(input) {
 			?? inspectIrcamPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectPafPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectIff16svPcmSourceGeometry(bytes)?.sampleRate
+			?? inspectSdsPcmSourceGeometry(bytes)?.sampleRate
 			?? inspectVocPcmSampleRate(bytes)
 			?? inspectAiffSampleRate(bytes)
 			?? inspectAuAudioSampleRate(bytes)

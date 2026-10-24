@@ -4,7 +4,7 @@ import test from 'node:test';
 import { isWorkspaceImportFile, partitionWorkspaceFiles, WORKSPACE_IMPORT_FILE_ACCEPT, WORKSPACE_OPEN_FILE_ACCEPT } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
 
 // These formats already have actual native File Import and saved-PCM controls.
-const QUALIFIED_EXTENSIONS = ['ac3', 'amr', 'dts', 'eac3', 'iff', 'mov', 'mp1', 'paf', 'sbc', 'sf', 'sph', 'spx', 'tta', 'voc', 'w64'];
+const QUALIFIED_EXTENSIONS = ['ac3', 'amr', 'dts', 'eac3', 'iff', 'mov', 'mp1', 'paf', 'sbc', 'sds', 'sf', 'sph', 'spx', 'tta', 'voc', 'w64'];
 for (const extension of QUALIFIED_EXTENSIONS) test(`File Open retains existing ${extension} media ownership without a platform MIME`, () => {
 	for (const type of ['', 'application/octet-stream', 'text/plain']) {
 		const file = { name: `Recording.${extension.toUpperCase()}`, type };
