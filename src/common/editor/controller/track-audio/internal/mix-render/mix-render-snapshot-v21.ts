@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { authoredMixRenderAdm } from './mix-render-adm.ts';
+import { individualPreFaderPrintWidth, prepareIndividualPreFaderSnapshot } from './individual-pre-fader-print.ts';
 import { mixRenderDetectorClosure, type MixRenderDetectorClosure } from './mix-render-detector-closure.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import {
@@ -59,6 +61,9 @@ export function createMixRenderSnapshotV21(
 	if (!includeDownstream) {
 		snapshot.metadata = { ...dataRecord(snapshot.metadata, 'individual mix metadata'), adm: null };
 		isolateIndividualGraph(snapshot, graph, targetTracks, detectors, renderEffects);
+		const target = targetTracks[0];
+		const preWidth = target && individualPreFaderPrintWidth(authored, target, renderEffects);
+		if (target && preWidth != null) prepareIndividualPreFaderSnapshot(snapshot, target.id, preWidth, authoredMixRenderAdm(authored) === null);
 		return reconcileMixRenderRequirementsV21(snapshot);
 	}
 	const edges = graph.edges.filter((edge) => edgeSurvivesCombined(
