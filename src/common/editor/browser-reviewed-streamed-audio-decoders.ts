@@ -132,7 +132,17 @@ class ReviewedAudioImportDecoder extends CustomAudioDecoder {
 			const pcm = new Float32Array(this.#memory(), this.#output, frames * this.config.numberOfChannels).slice();
 			if (this.#outputGain !== 1) for (let index = 0; index < pcm.length; index += 1) pcm[index]! *= this.#outputGain;
 			if (pcm.some((sample) => !Number.isFinite(sample))) throw new Error('The reviewed packet decoder returned non-finite PCM.');
-			this.#timestamp ??= packet.timestamp - this.#timestampOffset;
+			if (this.codec === 'opus' && opusPresentationTimelines.has(this.config)) {
+				const clock = reviewedOpusPresentationTimestamp(packet.timestamp, this.#timestamp, this.config.sampleRate);
+				if (clock.synchronize) {
+					// The sink consumes and closes empty samples to synchronize its clock.
+					// No gap-sized PCM allocation or queued silence is necessary.
+					const synchronization = new AudioSample({ data: new Float32Array(0), format: 'f32',
+						sampleRate: this.config.sampleRate, numberOfChannels: this.config.numberOfChannels, timestamp: clock.timestamp });
+					try { this.onSample(synchronization); } finally { synchronization.close(); }
+				}
+				this.#timestamp = clock.timestamp;
+			} else this.#timestamp ??= packet.timestamp - this.#timestampOffset;
 			const sample = new AudioSample({ data: pcm, format: 'f32', sampleRate: this.config.sampleRate,
 				numberOfChannels: this.config.numberOfChannels, timestamp: this.#timestamp });
 			this.#timestamp += frames / this.config.sampleRate;
@@ -250,4 +260,14 @@ function importsFor(module: WebAssembly.Module, payload: Payload): WebAssembly.I
 			: () => 8;
 	}
 	return imports;
+}
+
+/** ISO packet clocks retain real gaps; one frame of timestamp quantization is harmless. */
+export function reviewedOpusPresentationTimestamp(timestamp: number, expected: number | null, sampleRate: number): Readonly<{ timestamp: number; synchronize: boolean }> {
+	const frame = Math.round(timestamp * sampleRate), previous = expected === null ? frame : Math.round(expected * sampleRate);
+	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1 || !Number.isSafeInteger(frame) || !Number.isSafeInteger(previous)) {
+		throw new RangeError('The Opus packet timestamp exceeds its safe source clock.');
+	}
+	if (frame < previous - 1) throw new RangeError('The Opus presentation packets overlap.');
+	return { timestamp: frame / sampleRate, synchronize: frame > previous + 1 };
 }
