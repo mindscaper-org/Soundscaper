@@ -1,47 +1,47 @@
 {
 	"schemaVersion": 1,
-	"electronVersion": "43.7.7",
+	"electronVersion": "43.8.3",
 	"profile": "electron-alternate-without-proprietary-codecs",
 	"targets": [
 		{
 			"target": "linux-x64",
-			"artifact": "ffmpeg-v43.7.7-linux-x64.zip",
-			"archiveSha256": "6638429b92e6d213b78114923585526aff88dbe25f91ace7f2bd5228fac08de5",
+			"artifact": "ffmpeg-v43.8.3-linux-x64.zip",
+			"archiveSha256": "53e7f7ef20ab264ceec4280c865ca25bf33379433bc4413fd84282f46a2e1928",
 			"libraryName": "libffmpeg.so",
-			"byteLength": 4460184,
-			"sha256": "8b528bdde62a7322f46610ea6399adc3301136624bc8d6331c34137920f26ce1"
+			"byteLength": 4460224,
+			"sha256": "403ce4b97083bdb954cb799e3cf90dc28afa3bbbf2b8af3bcf941def0958bea2"
 		},
 		{
 			"target": "linux-arm64",
-			"artifact": "ffmpeg-v43.7.7-linux-arm64.zip",
-			"archiveSha256": "ed1d9f6af263524c00ff955f50bf289e19c881625384ff421c773ef2aeb8a82d",
+			"artifact": "ffmpeg-v43.8.3-linux-arm64.zip",
+			"archiveSha256": "b409154ef3cbbc0bdabec071bc8d8edecb07daf4a020e59e421a9fa35c741666",
 			"libraryName": "libffmpeg.so",
-			"byteLength": 4523608,
-			"sha256": "78ffed6cad15e74bc44ecb2b57d53c7138d134a1e4898fd633878b0629d06e7f"
+			"byteLength": 4523976,
+			"sha256": "a4d6b57d26d364936b73a0794e9dbd74fc6d88ca10c6c02352d9e70e5aec5454"
 		},
 		{
 			"target": "mac-arm64",
-			"artifact": "ffmpeg-v43.7.7-darwin-arm64.zip",
-			"archiveSha256": "9cd0907e7c7c652cc6f519c8e7d75cee26bed06394bb1d51fabdb9d3ada33c67",
+			"artifact": "ffmpeg-v43.8.3-darwin-arm64.zip",
+			"archiveSha256": "64a19753539d044d60828de029eedf152d58bdd5ab3aafe39592b5355e765a3e",
 			"libraryName": "libffmpeg.dylib",
 			"byteLength": 1224240,
-			"sha256": "738378a2531d0c0ec036a1841ee634bf68004b6befd6e318947becff33e5306b"
+			"sha256": "2ea70382a997f5601c163817630d43d94b6d45b24e198ce2f2795c105b5243c7"
 		},
 		{
 			"target": "win-x64",
-			"artifact": "ffmpeg-v43.7.7-win32-x64.zip",
-			"archiveSha256": "df14da964d36f36c50030004bb5e93a3b5fac9e4ddd6dd4f0e4ecdd49456ee4f",
+			"artifact": "ffmpeg-v43.8.3-win32-x64.zip",
+			"archiveSha256": "5879bbe130206e855a7e6c53c4180116d32acb2c0c358b3503957df9c92bb28f",
 			"libraryName": "ffmpeg.dll",
 			"byteLength": 1657344,
-			"sha256": "b4884e1c70a640890b66f2df296c934a175667f59c9ff4d28c433cbc85a05dc8"
+			"sha256": "c0d0d1b2fbf85aec35564b0ab618a1fc1e0eabd203beab690240ff8087265862"
 		},
 		{
 			"target": "win-arm64",
-			"artifact": "ffmpeg-v43.7.7-win32-arm64.zip",
-			"archiveSha256": "c8ec52d6bbda2789c678211a76ffc6eaf1dc5faebe1269fc4d6aafa7fbc5510f",
+			"artifact": "ffmpeg-v43.8.3-win32-arm64.zip",
+			"archiveSha256": "49d81f808b94554949688a31db15f5e7f020bdd250b5d1279824d26303559ae2",
 			"libraryName": "ffmpeg.dll",
 			"byteLength": 1468928,
-			"sha256": "4ab70677dca46910e1775a238e4acc7de97d5ad2ef47d8521a40916ca65bae9e"
+			"sha256": "feb491c76636ff44b087ab4c2c86e1a6e8730914f8beb4e07674fa7da8a9990c"
 		}
 	]
 }
