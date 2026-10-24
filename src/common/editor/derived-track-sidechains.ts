@@ -17,18 +17,27 @@ export function derivedTrackSidechainRoutes(
 	edges: readonly MixerEdgeV21[],
 	copies: readonly TrackCopy[],
 ): readonly DerivedSidechainRoute[] {
+	if (!copies.length) return [];
+	const copiesBySource = new Map<string, TrackCopy[]>();
+	for (const copy of copies) {
+		const id = copy.sourceTrackId;
+		const members = copiesBySource.get(id);
+		if (members) members.push(copy);
+		else copiesBySource.set(id, [copy]);
+	}
+	const originalRacks = trackRackReader(originalProject, true);
+	const copiedRacks = trackRackReader(project);
 	const results: DerivedSidechainRoute[] = [];
 	for (const edge of edges) {
 		if (edge.destination.kind !== 'effect-sidechain') continue;
 		const originalDestination = edge.destination;
 		const sourceCopies = edge.source.kind === 'track'
-			? copies.filter(copy => edge.source.kind === 'track' && copy.sourceTrackId === edge.source.id) : [];
+			? copiesBySource.get(edge.source.id) ?? [] : [];
 		const destinationCopies = originalDestination.strip.kind === 'track'
-			? copies.filter(copy => originalDestination.strip.kind === 'track'
-				&& copy.sourceTrackId === originalDestination.strip.id) : [];
+			? copiesBySource.get(originalDestination.strip.id) ?? [] : [];
 		if (destinationCopies.length) {
 			for (const [index, copy] of destinationCopies.entries()) {
-				const effectId = copiedEffectId(originalProject, project, copy, originalDestination.effectId);
+				const effectId = copiedEffectId(originalRacks, copiedRacks, copy, originalDestination.effectId);
 				if (!effectId) continue;
 				const sourceCopy = sourceCopies[index] ?? sourceCopies[0];
 				// Combining a detector and its programme removes their separate signal
@@ -49,23 +58,39 @@ export function derivedTrackSidechainRoutes(
 }
 
 function copiedEffectId(
-	originalProject: RoutingProject,
-	project: RoutingProject,
+	originalRacks: ReturnType<typeof trackRackReader>,
+	copiedRacks: ReturnType<typeof trackRackReader>,
 	copy: TrackCopy,
 	effectId: string,
 ): string | null {
-	const originalEffects = trackEffects(originalProject, copy.sourceTrackId);
-	const index = originalEffects.findIndex(effect => effect.id === effectId);
-	const copied = trackEffects(project, copy.targetTrackId)[index];
-	return index >= 0 && typeof copied?.id === 'string'
-		&& copied.type === originalEffects[index]?.type ? copied.id : null;
+	const original = originalRacks(copy.sourceTrackId);
+	const index = original.indices.get(effectId);
+	if (index === undefined) return null;
+	const copied = copiedRacks(copy.targetTrackId).effects[index];
+	return typeof copied?.id === 'string'
+		&& copied.type === original.effects[index]?.type ? copied.id : null;
 }
 
-function trackEffects(project: RoutingProject, trackId: string): readonly RoutingProject[] {
+function trackRackReader(project: RoutingProject, indexEffects = false) {
 	const tracks: readonly unknown[] = Array.isArray(project.tracks) ? project.tracks : [];
-	const track = tracks.find((candidate): candidate is RoutingProject => isRecord(candidate) && candidate.id === trackId);
-	const effects: readonly unknown[] = Array.isArray(track?.effects) ? track.effects : [];
-	return effects.filter(isRecord);
+	const first = new Map<unknown, RoutingProject>();
+	for (const track of tracks) if (isRecord(track)) {
+		const id = track.id;
+		if (!first.has(id)) first.set(id, track);
+	}
+	const racks = new Map<string, { effects: readonly RoutingProject[]; indices: ReadonlyMap<unknown, number> }>();
+	return (trackId: string) => {
+		const known = racks.get(trackId);
+		if (known) return known;
+		const track = first.get(trackId);
+		const values: readonly unknown[] = Array.isArray(track?.effects) ? track.effects : [];
+		const effects = values.filter(isRecord);
+		const indices = new Map<unknown, number>();
+		if (indexEffects) for (const [index, effect] of effects.entries()) if (!indices.has(effect.id)) indices.set(effect.id, index);
+		const rack = { effects, indices };
+		racks.set(trackId, rack);
+		return rack;
+	};
 }
 
 function isRecord(value: unknown): value is RoutingProject {
