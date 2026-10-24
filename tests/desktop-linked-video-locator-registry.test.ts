@@ -110,14 +110,18 @@ test('linked-video locator grants survive store restart and release only registr
 	assert.equal((await stat(targetPath)).isFile(), true);
 	await second.dispose();
 
+	const thirdReads = readCapabilities();
 	const third = new DesktopLinkedVideoLocatorStore({
-		readCapabilities: readCapabilities(),
+		readCapabilities: thirdReads,
 		registry: registry(),
 	});
-	assert.equal(await third.load(locator.locatorId, {
+	await assert.rejects(third.load(locator.locatorId, {
 		owner: {},
 		expectedRevision: locator.locatorRevision,
-	}), null);
+	}), { name: 'InvalidStateError' });
+	assert.equal(thirdReads.registrations, 0, 'a released grant cannot publish a read capability');
+	assert.deepEqual(await registry().read(), []);
+	assert.equal(await readFile(targetPath, 'utf8'), 'restart video');
 	await third.dispose();
 });
 
