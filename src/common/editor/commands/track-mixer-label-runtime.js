@@ -116,8 +116,8 @@ export function removeTracksAndDependents(project, trackIds) {
 	}
 	for (const removedTrackId of removedTrackIds) {
 		if (project.mixer?.routes) delete project.mixer.routes[removedTrackId];
-		disableAutoDuckForRemovedControlTrack(project, removedTrackId);
 	}
+	if (removedTrackIds.size) disableAutoDuckForRemovedControlTracks(project, removedTrackIds);
 }
 
 /** Group buses owned by timeline folders; every set is empty on folder-free documents. */
@@ -129,27 +129,35 @@ function folderBusGuards(project) {
 	};
 }
 
-function disableAutoDuckForRemovedControlTrack(project, controlTrackId) {
+function disableAutoDuckForRemovedControlTracks(project, removedTrackIds) {
 	const racks = [
 		project.master.effects,
 		...project.tracks.filter((track) => Array.isArray(track.effects)).map((track) => track.effects),
 		...(project.mixer?.groups || []).map((bus) => bus.effects),
 		...(project.mixer?.sends || []).map((bus) => bus.effects),
 	];
+	const survivingTrackIds = new Set(project.tracks.map(track => track.id));
+	const detectorRoutes = new Map();
+	for (const edge of project.mixer?.edges || []) {
+		if (edge.destination.kind !== 'effect-sidechain') continue;
+		const effectId = edge.destination.effectId;
+		const routes = detectorRoutes.get(effectId);
+		if (routes) routes.push(edge);
+		else detectorRoutes.set(effectId, [edge]);
+	}
 	for (const rack of racks) {
 		for (let index = 0; index < rack.length; index += 1) {
 			const effect = rack[index];
 			if (effect.type !== 'audacity-auto-duck') continue;
 			// Native routing can rebind the detector without rewriting the legacy
 			// selector. Its explicit routes own the processor's actual input.
-			const explicit = (project.mixer?.edges || []).filter((edge) => edge.destination.kind === 'effect-sidechain'
-				&& edge.destination.effectId === effect.id);
+			const explicit = detectorRoutes.get(effect.id) || [];
 			const surviving = explicit.some((edge) => edge.enabled !== false && (edge.source.kind !== 'track'
-				|| project.tracks.some((track) => track.id === edge.source.id)));
-			const lostControl = explicit.length ? !surviving : effect.context?.controlTrackId === controlTrackId;
+				|| survivingTrackIds.has(edge.source.id)));
+			const lostControl = explicit.length ? !surviving : removedTrackIds.has(effect.context?.controlTrackId);
 			if (lostControl) {
 				rack[index] = updateEffect(effect, { enabled: false, context: { controlTrackId: null } });
-			} else if (effect.context?.controlTrackId === controlTrackId) {
+			} else if (removedTrackIds.has(effect.context?.controlTrackId)) {
 				const source = explicit.length === 1 ? explicit[0].source : null;
 				rack[index] = updateEffect(effect, { context: { controlTrackId: source?.kind === 'track' ? source.id : null } });
 			}
