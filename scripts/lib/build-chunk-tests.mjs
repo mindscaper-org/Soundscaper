@@ -238,6 +238,8 @@ const framescaperProjectFoundationModules = Object.freeze([
 	'editor-audio-finishing-finishing',
 	'editor-captured-video-proxy-preservation',
 	'editor-domain-runtime-profile',
+	// Eager controller bindings and deferred native actions share these pure guards.
+	'editor-native-action-bridge-availability',
 	'editor-native-project-action-requests',
 	'editor-project-assistance-foundation',
 	'editor-project-assistance-validation',

@@ -114,6 +114,7 @@ test('small product-ready foundations have non-recursive semantic owners', () =>
 		['src/soundscaper/editor-scape-assets.ts', 'soundscaper-project-foundations'],
 		['src/soundscaper/editor-scape-native.ts', 'soundscaper-project-foundations'],
 		['src/framescaper/editor-captured-video-proxy-preservation.ts', 'framescaper-project-foundations'],
+		['src/framescaper/editor-native-action-bridge-availability.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-assistance.ts', 'framescaper-project-foundations'],
 		['src/framescaper/editor-project-feature-capabilities.ts', 'framescaper-project-foundations'],
@@ -159,6 +160,17 @@ test('small product-ready foundations have non-recursive semantic owners', () =>
 		const group = chunkGroups.find((candidate) => candidate.name === name);
 		assert.ok(group);
 		assert.equal(group.includeDependenciesRecursively, false);
+	}
+});
+
+test('the timed recording model shares the workspace owner while its dialog stays deferred', () => {
+	const path = 'src/common/editor/ui/dialogs/timed-recording-dialog-model.ts';
+	for (const variant of [path, path.replaceAll('/', '\\')]) {
+		assert.equal(chunkGroupForModulePath(variant), 'editor-shell', variant);
+	}
+	for (const name of ['EditorDialog.jsx', 'TimedRecordingDialogFields.tsx']) {
+		assert.equal(chunkGroupForModulePath(`src/common/editor/ui/dialogs/${name}`), null,
+			`${name} must stay with the deferred dialog entry`);
 	}
 });
 
