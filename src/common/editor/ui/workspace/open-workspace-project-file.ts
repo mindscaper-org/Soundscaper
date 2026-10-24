@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { isProjectFileName } from '../../../project-file-extensions.ts';
+import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { isWorkspaceImportFile, partitionWorkspaceFiles } from './workspace-file-routing.js';
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 
@@ -33,7 +33,7 @@ async function routeWorkspaceProjectFile(
 	// The file picker and drop target mount before the initial project exists.
 	await controller.ready;
 	if (/\.aup$/iu.test(file.name) && openLegacyAup) return openLegacyAup(file);
-	if (isProjectFileName(file.name)) return openScape(file);
+	if (isScapeProjectFile(file)) return openScape(file);
 	if (/\.dawproject$/iu.test(file.name)) return controller.actions.project.openDawproject(file);
 	if (/\.sesx$/iu.test(file.name)) {
 		if (!desktopSesx) throw new Error('Adobe Audition SESX import requires the desktop app.');

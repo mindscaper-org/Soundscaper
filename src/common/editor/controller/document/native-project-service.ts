@@ -3,7 +3,7 @@
 import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import { isAudioMediaKind } from '../../audio-media-kind.ts'; import { createLocalizedError, publishLocalizedStatus, setLocalizedStatus, type LocalizedPresentationMessage } from '../../../i18n/presentation-message.ts';
 
-import { isProjectFileName } from '../../../project-file-extensions.ts';
+import { isScapeProjectFile } from '../../scape-project-format.ts';
 import { createDeferredDawprojectService } from '../import/deferred-dawproject-service.ts';
 import { createDeferredSesxService } from '../import/deferred-sesx-service.ts';
 import {
@@ -142,7 +142,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		file: NativeScapeProjectFile,
 		options: OpenScapeOptions = {},
 	): Promise<ScapeImportResult | null> {
-		if (!file || (file instanceof Blob && 'name' in file && !isProjectFileName(String(file.name || '')))) {
+		if (!file || (file instanceof Blob && 'name' in file && !isScapeProjectFile(file))) {
 			throw new TypeError('Choose a Scape project file.');
 		}
 		if (runtime.editingBlocked()) return null;

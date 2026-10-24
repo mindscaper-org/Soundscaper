@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { ACCEPTED_PROJECT_FILE_EXTENSION_LIST, isProjectFileName } from '../../../project-file-extensions.ts';
+import { isScapeProjectFile } from '../../scape-project-format.ts';
 
 // The workspace routes single files and dropped batches through the same
 // classifier, so both reach it from this one module.
@@ -38,7 +39,7 @@ export function partitionWorkspaceFiles(files) {
 		const type = String(file?.type || '').split(';', 1)[0].trim().toLowerCase();
 		const mimeFallback = !IMPORT_FILE_EXTENSIONS.has(String(name).toLowerCase().slice(name.lastIndexOf('.')));
 		if (hasLegacyBlocks && /\.aup$/iu.test(name)) media.push(file);
-		else if (isProjectFileName(name) || LEGACY_AUDACITY_PROJECT_PATTERN.test(name)) projects.push(file);
+		else if (isScapeProjectFile(file) || LEGACY_AUDACITY_PROJECT_PATTERN.test(name)) projects.push(file);
 		else if (LABEL_PATTERN.test(name) || (mimeFallback && LABEL_MIME_TYPES.has(type))) labels.push(file);
 		else if (CUE_PATTERN.test(name) || (mimeFallback && type === 'application/x-cue')) cues.push(file);
 		else media.push(file);
