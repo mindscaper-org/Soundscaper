@@ -249,7 +249,7 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 	{
 		id: 'engine-project-apply',
 		surface: 'playback',
-		file: 'src/common/editor/engine/lifecycle.ts',
+		file: 'src/common/editor/engine/project-refresh-playback.ts',
 		entryPoint: 'applyProject',
 		inputIdentifier: 'project',
 		projectedIdentifier: null,
