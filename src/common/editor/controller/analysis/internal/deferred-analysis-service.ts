@@ -29,6 +29,11 @@ export function createDeferredAudioAnalysisService(dependencies: AnalysisDepende
 		),
 		DEFERRED_ANALYSIS_METHOD_NAMES,
 		{
+			prepareInvocation: () => {
+				dependencies.lifetime.assertActive();
+				const token = dependencies.captureProject();
+				return () => { dependencies.lifetime.assertActive(); dependencies.assertProject(token); };
+			},
 			eager: {
 				cancel: (
 					() => dependencies.lifetime.cancelTask('analysis')

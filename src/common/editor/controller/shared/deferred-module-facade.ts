@@ -51,7 +51,7 @@ export interface DeferredModuleFacadeOptions<
 	/** Methods a sibling facade over the same service covers, for the completeness check. */
 	readonly covered?: Covered;
 	/** Capture invocation ownership before loading; assert it before delegation or load failure. */
-	readonly prepareInvocation?: (name: PropertyKey) => (() => void) | undefined;
+	readonly prepareInvocation?: (name: PropertyKey, args: readonly unknown[]) => (() => void) | undefined;
 }
 
 /**
@@ -87,7 +87,7 @@ export function createDeferredModuleFacade<
 	const facade: Record<PropertyKey, unknown> = {};
 	for (const name of methodNames as Names) {
 		facade[name] = async (...args: readonly unknown[]): Promise<unknown> => {
-			const assertInvocation = options.prepareInvocation?.(name);
+			const assertInvocation = options.prepareInvocation?.(name, args);
 			let service: Service;
 			try { service = await loadService(); }
 			catch (error) { assertInvocation?.(); throw error; }

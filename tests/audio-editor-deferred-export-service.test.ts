@@ -8,12 +8,16 @@ import {
 	type DeferredEditorExportModule,
 } from '../src/common/editor/controller/export/deferred-export-service.ts';
 
+import { EditorControllerLifetime, EditorProjectGeneration } from '../src/common/editor/controller/shared/lifecycle.ts';
+
 type ExportFacade = ReturnType<typeof createDeferredEditorExportService>;
 
 function deferredExportService(available = true) {
 	let loads = 0;
 	const calls: unknown[][] = [];
-	const runtime = {
+	const lifetime = new EditorControllerLifetime(); lifetime.markReady();
+	const projectGeneration = new EditorProjectGeneration(); projectGeneration.activate('export');
+	const runtime = { lifetime, projectGeneration, getProject: () => ({ id: 'export' }),
 		options: {}, sourceBuffers: new Map(), taskProgress: null,
 		createCacheAwareRenderEngine: () => ({}), prepareCommittedTimePitchCaches: () => undefined,
 		throwIfAborted: () => undefined, updateExportProgress: () => undefined,
