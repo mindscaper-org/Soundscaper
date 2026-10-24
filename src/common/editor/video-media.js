@@ -4,10 +4,10 @@ import {
 } from './video-preview-capture-admission.ts';
 import { mountVideoFrameCaptureElement, releaseVideoFrameCaptureElement } from './video-frame-capture-element.ts';
 
-export const AUDIO_EDITOR_VIDEO_FILE_ACCEPT = 'video/mp4,video/webm,.mp4,.m4v,.webm';
+export const AUDIO_EDITOR_VIDEO_FILE_ACCEPT = 'video/mp4,video/webm,.mp4,.m4v,.mov,.webm';
 export const AUDIO_EDITOR_VIDEO_THUMBNAIL_INTERVAL_SECONDS = 5;
 
-const VIDEO_FILE_EXTENSION = /\.(?:m4v|mp4|webm)$/i;
+const VIDEO_FILE_EXTENSION = /\.(?:m4v|mov|mp4|webm)$/i;
 const DEFAULT_METADATA_TIMEOUT_MS = 15_000;
 
 export function isAudioEditorVideoFile(value) {
