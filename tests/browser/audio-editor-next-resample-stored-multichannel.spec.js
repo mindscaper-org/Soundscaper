@@ -33,13 +33,15 @@ test('Clip Resample reads a long stored surround recording without dropping chan
 	await dialog.locator('[data-clip-resample-field="sampleRate"] input').fill('24000');
 	await dialog.getByRole('button', { name: 'Resample', exact: true }).click();
 	await expect(dialog).toHaveCount(0, { timeout: 60_000 });
-	await expectClipSampleRate(properties, 24_000);
+	// Applying closes the dialog before the stored six-channel resample finishes.
+	// Wait for its publication before opening a menu that processing can dismiss.
 	await expect.poll(async () => {
 		const current = await persistedProject(page, project.id);
 		const sourceId = current?.clips[0]?.sourceId;
 		const output = current?.sources.find(value => value.id === sourceId);
 		return [output?.sampleRate, output?.frameCount, output?.channelCount];
-	}).toEqual([24_000, 720_000, 6]);
+	}, { timeout: 60_000 }).toEqual([24_000, 720_000, 6]);
+	await expectClipSampleRate(properties, 24_000);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await expectClipSampleRate(properties, 48_000);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
