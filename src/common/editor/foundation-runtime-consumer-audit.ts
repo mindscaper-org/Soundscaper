@@ -123,6 +123,7 @@ export const FOUNDATION_RUNTIME_SHIELDED_OWNERS: readonly FoundationRuntimeShiel
 	{ file: 'src/common/editor/controller/source/internal/processed-spectrogram-pcm.ts', surfaces: ['waveform'] },
 	{ file: 'src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/controller/clip-video/internal/clip-source-preview-project.ts', surfaces: ['preview'] },
+	{ file: 'src/common/editor/controller/clip-video/internal/clip-normalization-render.ts', surfaces: ['composition'] },
 	{ file: 'src/common/editor/commands/clip-join-availability.ts', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/ui/workspace/WorkspacePanelContent.jsx', surfaces: ['timeline'] },
 	{ file: 'src/common/editor/controller/track-audio/internal/selected-track-content-range.ts', surfaces: ['navigation'] },

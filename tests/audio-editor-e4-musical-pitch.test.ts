@@ -12,6 +12,8 @@ import { processedSpectrogramPreparation } from '../src/common/editor/controller
 import { clipTimePitchPlaybackProjection } from '../src/common/editor/clip-time-pitch-playback-projection.ts';
 import { resolveRuntimeClipProjection } from '../src/common/editor/runtime-clip-projection.ts';
 import { deriveClipTimePitchCachePlan } from '../src/common/editor/clip-time-pitch-cache-plan.js';
+import type { EngineProject } from '../src/common/editor/engine/types.ts';
+import { renderClipNormalizationAudio } from '../src/common/editor/controller/clip-video/internal/clip-normalization-render.ts';
 import { createClipSourcePreviewProject } from '../src/common/editor/controller/clip-video/internal/clip-source-preview-project.ts';
 
 function document(bpm: number, pitchCents = 1200) {
@@ -120,4 +122,23 @@ test('source audition retains the effective scalar when detaching a beat clip fr
 		clips: [{ ...resolved, id: 'clip', sourceId: 'source' }] }, 'clip');
 	assert.equal(preview.clips?.find(clip => clip.id === 'clip')?.speedRatio, 2);
 	assert.equal(original.speedRatio, 1);
+});
+
+for (const bpm of [60, 120, 240]) test(`normalization retains the prepared ${bpm}bpm musical rate after anchor detachment`, async () => {
+	const project = document(bpm, 0);
+	const original = project.clips[0]!;
+	const clip = { ...resolveRuntimeClipProjection(project, original), id: 'clip', sourceId: 'source' };
+	let loaded: EngineProject | null = null;
+	let disposed = false;
+	await renderClipNormalizationAudio({ sourceChunkProviders: new Map(), async prepare(actual) { assert.ok(actual && typeof actual === 'object' && 'id' in actual); assert.equal(actual.id, project.id); },
+		createEngine() { return { loadProject(actual) { loaded = actual; }, async renderMix() {
+			assert.ok(loaded);
+			assert.equal(loaded.clips?.[0]?.speedRatio, bpm / 120, 'cache admission and detached render must share a clock');
+			return { channels: [new Float32Array(clip.durationFrames)] };
+		}, async play() {}, pause() {}, stop() {}, seek: frame => frame, setLoop() {}, setPlayRange() {},
+			subscribePosition: () => () => {}, dispose() { disposed = true; } }; } },
+		{ ...project, clips: [clip], tracks: [{ id: 'voice', type: 'audio', name: 'Voice', clipIds: ['clip'] }] },
+		clip, null, new AbortController().signal);
+	assert.equal(disposed, true);
+	assert.equal(original.speedRatio, 1, 'measurement cannot rewrite the canonical edit setting');
 });

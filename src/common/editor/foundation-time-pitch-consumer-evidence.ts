@@ -4,6 +4,12 @@ import type { FoundationRuntimeConsumerEvidence } from './foundation-runtime-con
 /** Scalar cache consumers use the same resolved beat clock as engine playback. */
 export const FOUNDATION_TIME_PITCH_RUNTIME_CONSUMERS: readonly FoundationRuntimeConsumerEvidence[] = [
 	{
+		id: 'time-pitch-normalization-musical-clock', surface: 'composition',
+		file: 'src/common/editor/controller/clip-video/internal/clip-normalization-render.ts', entryPoint: 'renderClipNormalizationAudio',
+		inputIdentifier: 'project', projectedIdentifier: 'playbackClip', boundary: 'clipTimePitchPlaybackProjection',
+		evidence: 'Normalization retains the tempo-derived scalar before detaching musical authority, measuring the same committed independent stretch PCM that programme playback uses.',
+	},
+	{
 		id: 'time-pitch-source-audition-musical-clock', surface: 'preview',
 		file: 'src/common/editor/controller/clip-video/internal/clip-source-preview-project.ts', entryPoint: 'createClipSourcePreviewProject',
 		inputIdentifier: 'playbackProject', projectedIdentifier: 'playbackClip', boundary: 'clipTimePitchPlaybackProjection',
