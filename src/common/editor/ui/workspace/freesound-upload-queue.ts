@@ -133,6 +133,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 	const listeners = new Set<() => void>();
 	const createId = runtime.createId ?? defaultUploadId;
 	let active = false;
+	let generation = 0;
 	let snapshot = freezeSnapshot(active, records);
 
 	const publish = async (id: string, draft: FreesoundPublishDraft): Promise<void> => {
@@ -165,10 +166,11 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 
 	const pump = async (): Promise<void> => {
 		if (active) return;
+		const owner = generation;
 		active = true;
 		publishSnapshot();
 		try {
-			for (;;) {
+			while (owner === generation) {
 				if (runtime.canUpload?.() === false) break;
 				const record = records.find(({ item }) => item.status === 'queued');
 				if (!record) break;
@@ -180,6 +182,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 						if (!runtime.materializeClip) throw new Error('Clip uploads are unavailable in this build.');
 						update(record, { status: 'preparing', errorMessage: undefined });
 						const materialized = await runtime.materializeClip({ ...record.clip, signal: abort.signal });
+						abort.signal.throwIfAborted();
 						validateInputFile(materialized.file);
 						file = materialized.file;
 						record.file = file;
@@ -207,6 +210,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 						if (!runtime.prepareFile) throw new Error(`${file.name} must be converted to WAV before upload.`);
 						update(record, { status: 'preparing', errorMessage: undefined });
 						file = await runtime.prepareFile(file, abort.signal);
+						abort.signal.throwIfAborted();
 						validatePreparedFile(file);
 						record.file = file;
 						update(record, { fileName: file.name, byteLength: file.size });
@@ -221,7 +225,7 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 					abort.signal.throwIfAborted();
 					update(record, { status: 'ready-to-publish', uploadFilename: result.uploadFilename });
 				} catch (error) {
-					update(record, {
+					if (owner === generation) update(record, {
 						status: abort.signal.aborted ? 'cancelled' : 'failed',
 						errorMessage: errorMessage(error, 'Freesound could not upload this audio.'),
 					});
@@ -230,8 +234,10 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 				}
 			}
 		} finally {
-			active = false;
-			publishSnapshot();
+			if (owner === generation) {
+				active = false;
+				publishSnapshot();
+			}
 		}
 	};
 
@@ -360,6 +366,8 @@ export function createFreesoundUploadQueue(runtime: FreesoundUploadQueueRuntime)
 			publishSnapshot();
 		},
 		clear: () => {
+			generation += 1;
+			active = false;
 			for (const record of records) record.abort?.abort();
 			records.splice(0);
 			publishSnapshot();
