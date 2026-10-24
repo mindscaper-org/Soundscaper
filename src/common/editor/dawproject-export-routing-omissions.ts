@@ -23,7 +23,7 @@ export function reportOmittedDawprojectRouting(context: DawprojectExportContext)
 		const item = value.kind === 'track' ? tracks.get(String(value.id)) : nodes.get(String(value.id));
 		if (!item) return null;
 		return { name: String(item.name ?? item.id), width: value.kind === 'track'
-			? audioTrackChannelCount(context.project, item, masterChannels)
+			? (context.readAudioTrackChannels?.(item, masterChannels) ?? audioTrackChannelCount(context.project, item, masterChannels))
 			: positiveWidth(item.channelCount, masterChannels) };
 	};
 	for (const edge of records(graph.edges)) {

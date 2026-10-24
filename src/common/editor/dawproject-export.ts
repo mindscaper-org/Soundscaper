@@ -8,7 +8,7 @@ import {
 } from './delivery-report.ts';
 import { reportInterchangeCaptionTrackOmission } from './interchange-omission-inventory.ts';
 import { reportOmittedDawprojectRouting } from './dawproject-export-routing-omissions.ts';
-import { audioTrackChannelCount } from './project-audio-factory.js';
+import { createDawprojectAudioWidthReader } from './dawproject-export-channel-width.ts';
 import { serializeXmlDocument, xmlElement, type XmlElement } from './dawproject-xml.ts';
 import {
 	DAWPROJECT_DELIVERY_FORMAT,
@@ -109,13 +109,16 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 		format: DAWPROJECT_DELIVERY_FORMAT, container: 'DAWproject', codec: 'pcm_f32le',
 		sampleRate, channelCount: null, lossless: true,
 	});
+	const sourceById = new Map(records(project.sources).map(source => [String(source.id), source]));
+	const clipById = new Map(records(project.clips).map(clip => [String(clip.id), clip]));
 	const context: DawprojectExportContext = {
 		project,
 		sampleRate,
 		ids: new DawprojectIdAllocator(),
 		draft,
-		sourceById: new Map(records(project.sources).map((source) => [String(source.id), source])),
-		clipById: new Map(records(project.clips).map((clip) => [String(clip.id), clip])),
+		sourceById,
+		clipById,
+		readAudioTrackChannels: createDawprojectAudioWidthReader(project, clipById, sourceById),
 		media: new DawprojectMediaRegistry(),
 		routing: readDawprojectMixerRouting(project),
 		embeddableVideoSourceIds: new Set(request.embeddableVideoSourceIds ?? []),
@@ -243,7 +246,7 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 			pan: finite(track.pan, 0),
 			mute: track.mute === true,
 			solo: track.solo === true,
-			audioChannels: audioTrackChannelCount(context.project, track, masterChannels(context)),
+			audioChannels: context.readAudioTrackChannels!(track, masterChannels(context)),
 			...channelRouting(context, route),
 			effects: Array.isArray(track.effects) ? track.effects : [],
 			scope: { kind: 'track', id: trackId },

@@ -66,6 +66,7 @@ export interface DawprojectExportContext {
 	readonly clipById: ReadonlyMap<string, DataRecord>;
 	readonly media: DawprojectMediaRegistry;
 	readonly routing: DawprojectMixerRouting;
+	readonly readAudioTrackChannels?: (track: DataRecord, fallback: number) => number;
 	readonly embeddableVideoSourceIds: ReadonlySet<string>;
 	readonly tempoMap: HoldTempoMap | null;
 	/** V21 lane ids the arrangement wrote, so the rest can be reported as omitted. */
