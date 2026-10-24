@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { encodeProjectIdKey, projectString } from '../project-validation-primitives.ts';
 import {
 	captureSpoolStableId as stableId,
 	captureSpoolStableText as stableText,
@@ -81,7 +81,7 @@ function spoolLockName(identity: CaptureSpoolLockIdentity): string {
 	return [
 		'soundscaper:framescaper-capture-spool-v1',
 		identity.storageKind,
-		encodeURIComponent(stableId(identity.projectId, 'capture spool lock projectId')),
+		encodeProjectIdKey(projectString(identity.projectId, 'capture spool lock projectId')),
 		encodeURIComponent(stableId(identity.spoolId, 'capture spool lock spoolId')),
 		encodeURIComponent(stableText(identity.spoolToken, 'capture spool lock token', 512)),
 	].join(':');
@@ -90,7 +90,7 @@ function spoolLockName(identity: CaptureSpoolLockIdentity): string {
 function sessionLockName(identity: CaptureSessionLockIdentity): string {
 	return [
 		'soundscaper:framescaper-capture-session-v1',
-		encodeURIComponent(stableId(identity.projectId, 'capture session lock projectId')),
+		encodeProjectIdKey(projectString(identity.projectId, 'capture session lock projectId')),
 		encodeURIComponent(stableId(identity.sessionId, 'capture session lock sessionId')),
 	].join(':');
 }

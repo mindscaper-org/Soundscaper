@@ -21,6 +21,23 @@ export function projectString(value: unknown, name: string, allowEmpty = false):
 	return value;
 }
 
+/** Preserve existing URI key bytes; lone UTF-16 units use an otherwise impossible URI escape. */
+export function encodeProjectIdKey(value: string): string {
+	try { return encodeURIComponent(value); }
+	catch (error) { if (!(error instanceof URIError)) throw error; }
+	return [...value].map(character => {
+		const code = character.charCodeAt(0);
+		return character.length === 1 && code >= 0xd800 && code <= 0xdfff
+			? `%u${code.toString(16).padStart(4, '0')}` : encodeURIComponent(character);
+	}).join('');
+}
+
+/** Read raw UTF-16 escapes before URI decoding so a literal percent cannot become an escape. */
+export function decodeProjectIdKey(value: string): string {
+	return value.split(/(%ud[89a-f][0-9a-f]{2})/u).map((part, index) => index % 2
+		? String.fromCharCode(Number.parseInt(part.slice(2), 16)) : decodeURIComponent(part)).join('');
+}
+
 export function projectOptionalId(value: unknown, name: string): string | null {
 	if (value === null) return null;
 	return projectString(value, name);

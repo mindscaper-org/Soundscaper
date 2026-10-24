@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { encodeProjectIdKey, projectString } from '../project-validation-primitives.ts';
 import {
 	normalizeTakeCycleRecoveryEnvelope,
 	type TakeCycleRecoveryEnvelope,
@@ -107,9 +107,5 @@ function assertForwardTransition(
 }
 
 function envelopeKey(projectId: string): string {
-	if (typeof projectId !== 'string' || !projectId.length || projectId !== projectId.trim()
-		|| projectId !== projectId.normalize('NFC') || /[\u0000-\u001f\u007f]/u.test(projectId)) {
-		throw new TypeError('Take cycle recovery projectId must be canonical text.');
-	}
-	return `${KEY_PREFIX}${encodeURIComponent(projectId)}`;
+	return `${KEY_PREFIX}${encodeProjectIdKey(projectString(projectId, 'take cycle recovery projectId'))}`;
 }

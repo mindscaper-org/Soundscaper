@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../../../../project-validation-primitives.ts';
 import { compareCodeUnits } from '../../../../code-unit-order.ts';
 import {
 	TAKE_CYCLE_CAPTURE_MAXIMUM_SPANS,
@@ -232,7 +232,7 @@ export function createTakeCycleCaptureSourceSpool(
 		readonly capturing: readonly TakeCycleCapturingSpoolEvidence[];
 		readonly capturingCount: number;
 	}>> {
-		const projectId = stableId(projectIdValue, 'take cycle capture projectId');
+		const projectId = projectString(projectIdValue, 'take cycle capture projectId');
 		const inventory = await live.inspect(projectId);
 		const drafts: TakeCycleCaptureDraft[] = [...inventory.drafts];
 		for (const draft of inventory.drafts) origins.set(draft.draftId, 'live');
@@ -378,7 +378,7 @@ function normalizeSeed(value: TakeCycleCaptureDraftSeed): NormalizedSeed {
 	return Object.freeze({
 		...value,
 		draftId: stableId(value.draftId, 'take cycle draftId'),
-		projectId: stableId(value.projectId, 'take cycle projectId'),
+		projectId: projectString(value.projectId, 'take cycle projectId'),
 		publicationGeneration: positiveInteger(value.publicationGeneration, 'take cycle publicationGeneration'),
 		envelopeId: stableId(value.envelopeId, 'take cycle envelopeId'),
 		groupId: stableId(value.groupId, 'take cycle groupId'),

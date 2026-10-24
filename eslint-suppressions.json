@@ -672,11 +672,6 @@
       "count": 1
     }
   },
-  "src/common/editor/storage/take-cycle-recovery-envelope-repository.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "src/common/editor/storage/video-derivative-repository.ts": {
     "no-useless-assignment": {
       "count": 2

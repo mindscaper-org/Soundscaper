@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
+import { projectString } from '../../../../project-validation-primitives.ts';
 import {
 	takeCycleStableId as stableId,
 	takeCycleStableName as stableName,
@@ -29,7 +29,7 @@ export function normalizeTakeCycleLiveLaneRequest(
 	if (loopEndSample <= loopStartSample) throw new RangeError('Take cycle loop extent must be positive.');
 	const lane = value.lane;
 	return Object.freeze({
-		projectId: stableId(value.projectId, 'take cycle projectId'),
+		projectId: projectString(value.projectId, 'take cycle projectId'),
 		publicationGeneration: positiveInteger(value.publicationGeneration, 'take cycle publicationGeneration'),
 		loopStartSample,
 		loopEndSample,
