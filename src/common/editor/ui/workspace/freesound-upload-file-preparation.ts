@@ -2,6 +2,7 @@
 
 import { encodeWav, inspectWavLayout } from '../../wav.js';
 import { inspectDecodedAudioSampleRate } from '../../audio-file-metadata.js';
+import { fitExportFileName } from '../../export-name-byte-budget.ts';
 
 const MAXIMUM_UPLOAD_BYTES = 100_000_000;
 type DecodedAudio = Pick<AudioBuffer, 'length' | 'sampleRate' | 'numberOfChannels' | 'getChannelData'>;
@@ -176,6 +177,5 @@ function fileStem(value: string): string {
 		const codePoint = character.codePointAt(0) ?? 0;
 		return codePoint < 32 || codePoint === 127 || '/:*?"<>|'.includes(character) ? '-' : character;
 	}).join('');
-	return safeStem.replace(/^\.+/u, '').trim().slice(0, 220)
-		|| 'soundscaper-audio';
+	return fitExportFileName(safeStem.replace(/^\.+/u, '').trim() || 'soundscaper-audio', '', '.wav').slice(0, -4);
 }
