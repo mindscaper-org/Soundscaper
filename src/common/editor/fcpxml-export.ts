@@ -238,6 +238,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 		});
 	}
 
+	const audioAttributes = sequenceAudioAttributes(project, sampleRate, draft);
 	const lines = [
 		'<?xml version="1.0" encoding="UTF-8"?>',
 		'<!DOCTYPE fcpxml>',
@@ -249,7 +250,7 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 		`\t\t<event name="${escapeXml(title)}">`,
 		`\t\t\t<project name="${escapeXml(title)}">`,
 		`\t\t\t\t<sequence format="r1" duration="${frameTime(sequenceEndFrames, rate)}"`
-			+ ` tcStart="${frameTime(startFrames, rate)}" tcFormat="${dropFrame ? 'DF' : 'NDF'}">`,
+			+ ` tcStart="${frameTime(startFrames, rate)}" tcFormat="${dropFrame ? 'DF' : 'NDF'}"${audioAttributes}>`,
 		'\t\t\t\t\t<spine>',
 		...spine,
 		'\t\t\t\t\t</spine>',
@@ -266,6 +267,23 @@ export function createFcpxmlExport(request: FcpxmlExportRequest): FcpxmlExportRe
 		mimeType: 'application/xml' as const,
 		report: sealDeliveryReport(draft),
 	});
+}
+
+/** FCPXML defaults an omitted timeline audio description to stereo at 48 kHz. */
+function sequenceAudioAttributes(project: Readonly<Record<string, unknown>>, sampleRate: number, draft: Draft): string {
+	const sourceChannelCount = positiveInteger(project.masterChannels ?? 2, 'project.masterChannels');
+	const rate = new Map([[32_000, '32k'], [44_100, '44.1k'], [48_000, '48k'], [88_200, '88.2k'],
+		[96_000, '96k'], [176_400, '176.4k'], [192_000, '192k']]).get(sampleRate);
+	const layout = sourceChannelCount === 1 ? 'mono' : sourceChannelCount === 2 ? 'stereo'
+		: sourceChannelCount === 6 ? 'surround' : null;
+	if (!rate || !layout) addDeliveryReportItem(draft, {
+		code: 'fcpxml.sequence-audio-converted', disposition: 'converted', severity: 'warning',
+		scope: { kind: 'sequence' },
+		data: { sourceSampleRate: sampleRate, sourceChannelCount,
+			sampleRate: rate ? sampleRate : 48_000, channelCount: layout ? sourceChannelCount : 2 },
+		message: 'The FCPXML timeline cannot represent these audio characteristics; unsupported values use its 48 kHz or stereo default. Original media and cut timing are unchanged.',
+	});
+	return ` audioLayout="${layout ?? 'stereo'}" audioRate="${rate ?? '48k'}"`;
 }
 
 function buildClip(clip: Readonly<Record<string, unknown>>, context: {
