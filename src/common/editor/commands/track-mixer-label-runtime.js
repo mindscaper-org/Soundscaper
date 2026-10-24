@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { indexedLaneBlocks, removedClipIds } from './track-mixer-work.ts';
+import { prepareRemovedTrackDuckWork } from './removed-track-duck-work.ts';
 import { compareCodeUnits } from '../code-unit-order.ts';
 import { deriveFolderBusOwnershipV13 } from '../folder-bus-v13.ts';
 import { insertTrackNodeV12 } from '../track-hierarchy-mutation-v12.ts';
@@ -114,10 +115,19 @@ export function removeTracksAndDependents(project, trackIds) {
 		project.takeGroups = project.takeGroups
 			.filter((group) => !removedTrackIds.has(String(group?.trackId)));
 	}
+	let duckWork;
 	for (const removedTrackId of removedTrackIds) {
 		if (project.mixer?.routes) delete project.mixer.routes[removedTrackId];
+		if (duckWork === undefined) duckWork = prepareRemovedTrackDuckWork(project, removedTrackIds);
+		if (duckWork === null) disableAutoDuckForRemovedControlTrack(project, removedTrackId);
+		else for (const slot of duckWork.get(removedTrackId) || []) {
+			const effect = slot.rack[slot.index];
+			if (effect !== slot.effect && !slot.lostControl) continue;
+			slot.rack[slot.index] = updateEffect(effect, slot.lostControl
+				? { enabled: false, context: { controlTrackId: null } }
+				: { context: { controlTrackId: slot.controlTrackId } });
+		}
 	}
-	if (removedTrackIds.size) disableAutoDuckForRemovedControlTracks(project, removedTrackIds);
 }
 
 /** Group buses owned by timeline folders; every set is empty on folder-free documents. */
@@ -129,35 +139,27 @@ function folderBusGuards(project) {
 	};
 }
 
-function disableAutoDuckForRemovedControlTracks(project, removedTrackIds) {
+function disableAutoDuckForRemovedControlTrack(project, controlTrackId) {
 	const racks = [
 		project.master.effects,
 		...project.tracks.filter((track) => Array.isArray(track.effects)).map((track) => track.effects),
 		...(project.mixer?.groups || []).map((bus) => bus.effects),
 		...(project.mixer?.sends || []).map((bus) => bus.effects),
 	];
-	const survivingTrackIds = new Set(project.tracks.map(track => track.id));
-	const detectorRoutes = new Map();
-	for (const edge of project.mixer?.edges || []) {
-		if (edge.destination.kind !== 'effect-sidechain') continue;
-		const effectId = edge.destination.effectId;
-		const routes = detectorRoutes.get(effectId);
-		if (routes) routes.push(edge);
-		else detectorRoutes.set(effectId, [edge]);
-	}
 	for (const rack of racks) {
 		for (let index = 0; index < rack.length; index += 1) {
 			const effect = rack[index];
 			if (effect.type !== 'audacity-auto-duck') continue;
 			// Native routing can rebind the detector without rewriting the legacy
 			// selector. Its explicit routes own the processor's actual input.
-			const explicit = detectorRoutes.get(effect.id) || [];
+			const explicit = (project.mixer?.edges || []).filter((edge) => edge.destination.kind === 'effect-sidechain'
+				&& edge.destination.effectId === effect.id);
 			const surviving = explicit.some((edge) => edge.enabled !== false && (edge.source.kind !== 'track'
-				|| survivingTrackIds.has(edge.source.id)));
-			const lostControl = explicit.length ? !surviving : removedTrackIds.has(effect.context?.controlTrackId);
+				|| project.tracks.some((track) => track.id === edge.source.id)));
+			const lostControl = explicit.length ? !surviving : effect.context?.controlTrackId === controlTrackId;
 			if (lostControl) {
 				rack[index] = updateEffect(effect, { enabled: false, context: { controlTrackId: null } });
-			} else if (removedTrackIds.has(effect.context?.controlTrackId)) {
+			} else if (effect.context?.controlTrackId === controlTrackId) {
 				const source = explicit.length === 1 ? explicit[0].source : null;
 				rack[index] = updateEffect(effect, { context: { controlTrackId: source?.kind === 'track' ? source.id : null } });
 			}

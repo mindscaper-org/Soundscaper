@@ -24,3 +24,25 @@ test('E10 multi-track removal visits surviving auto-duck racks and detector rout
 	assert.ok(survivorContext && 'controlTrackId' in survivorContext);
 	assert.equal(survivorContext.controlTrackId, 'actual');
 });
+
+function orderedRemovalProject() {
+	const effects = ['first', 'second', 'later', 'last'].map((id, index) => normalizeEffect({ id, type: 'audacity-auto-duck', context: { controlTrackId: index % 2 ? 'control-b' : 'control-a' } }));
+	const routes = { 'control-a': {}, 'control-b': {} };
+	return { effects, routes, project: { tracks: [{ id: 'control-a', clipIds: [], effects: [] }, { id: 'control-b', clipIds: [], effects: [] }, ...effects.map((effect, index) => ({ id: `kept-${index}`, clipIds: [], effects: [effect] }))], clips: [], master: { effects: [] }, mixer: { routes, groups: [] as { id: string; effects?: unknown[] }[], sends: [], edges: [] } } };
+}
+
+test('E10 invalid later-control effect preserves earlier-control mutations before throwing', () => {
+	const { project, routes, effects } = orderedRemovalProject();
+	Object.defineProperty(effects[1]!, 'params', { value: { duckAmountDb: Infinity } });
+	assert.throws(() => removeTracksAndDependents(project, ['control-a', 'control-b']), /duckAmountDb/);
+	assert.deepEqual(project.tracks.map(track => track.effects[0]!.enabled), [false, true, false, true]);
+	assert.deepEqual(Object.keys(routes), []);
+});
+
+test('E10 malformed later rack preserves the later control route and untouched effects', () => {
+	const { project, routes } = orderedRemovalProject();
+	project.mixer.groups.push({ id: 'missing-effects' });
+	assert.throws(() => removeTracksAndDependents(project, ['control-a', 'control-b']), /length/);
+	assert.deepEqual(project.tracks.map(track => track.effects[0]!.enabled), [false, true, false, true]);
+	assert.deepEqual(Object.keys(routes), ['control-b']);
+});
