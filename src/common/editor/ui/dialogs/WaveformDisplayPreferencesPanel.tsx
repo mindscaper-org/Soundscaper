@@ -65,6 +65,16 @@ export default function WaveformDisplayPreferencesPanel({
 					run(() => controller.actions.preferences.update({ waveformDisplay: { halfWave } }));
 				}}
 			/>
+			<PreferenceDropdownField
+				label={copy.waveformRenderer}
+				value={waveform.renderer ?? 'canvas'}
+				disabled={disabled}
+				onChange={(renderer: string) => run(() => controller.actions.preferences.update({ waveformDisplay: { renderer } }))}
+				options={[
+					{ value: 'canvas', label: copy.waveformRendererCanvas },
+					{ value: 'gpu', label: copy.waveformRendererGpu },
+				]}
+			/>
 		</div>
 	</PreferencePanel>;
 }

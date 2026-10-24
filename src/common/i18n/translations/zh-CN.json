@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "zh-CN",
 	"provenance": {
-		"machine": {"model":"gpt-6","modelDigest":"sha256:c6c4b91dd0fdce96c1dfb17f7cd2054f49455fc8df0bebe0d72ecce3bd13a7c4","promptVersion":"i18n-machine-v1"},
+		"machine": {"model":"gpt-6","modelDigest":"sha256:6d1df6b250fb852002ade6c40c7b611ca78a11d524b9fedf761eda5d8ccf70fb","promptVersion":"i18n-machine-v1"},
 		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
 	},
 	"entries": {
@@ -3982,6 +3982,9 @@
 		"waveformLogarithmicDb": ["machine","Logarithmic dB","对数 dB"],
 		"waveformLowMidCrossover": ["machine","Low/mid crossover (Hz)","低频/中频分界（Hz）"],
 		"waveformMidHighCrossover": ["machine","Mid/high crossover (Hz)","中频/高频分界（Hz）"],
+		"waveformRenderer": ["machine","Waveform renderer","波形渲染器"],
+		"waveformRendererCanvas": ["machine","Canvas","Canvas"],
+		"waveformRendererGpu": ["machine","GPU (Canvas fallback)","GPU（Canvas 后备）"],
 		"waveformRulerFormat": ["machine","Ruler format","标尺格式"],
 		"waveformSettings": ["machine","Waveform settings","波形设置"],
 		"waveformShowRms": ["machine","Show RMS","显示 RMS"],

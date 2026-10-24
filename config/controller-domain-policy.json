@@ -229,6 +229,7 @@
 		"source/source-runtime-composition.ts",
 		"source/timeline-spectrogram-cache.ts",
 		"source/waveform-analysis.ts",
+		"source/waveform-gpu-renderer.ts",
 		"track-audio/audio-warp-action-facade.ts",
 		"track-audio/derived-audio-composition.ts",
 		"track-audio/mix-render-model.ts",

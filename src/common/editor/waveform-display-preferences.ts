@@ -7,6 +7,7 @@ export type WaveformRulerFormat = 'linear-db' | 'linear-amp' | 'logarithmic-db';
 export interface WaveformDisplayPreferences {
 	readonly rulerFormat: WaveformRulerFormat;
 	readonly halfWave: boolean;
+	readonly renderer?: 'gpu';
 }
 
 export const DEFAULT_WAVEFORM_DISPLAY_PREFERENCES: Readonly<WaveformDisplayPreferences> = Object.freeze({
@@ -14,7 +15,7 @@ export const DEFAULT_WAVEFORM_DISPLAY_PREFERENCES: Readonly<WaveformDisplayPrefe
 	halfWave: false,
 });
 
-const PREFERENCE_FIELDS = Object.freeze(['rulerFormat', 'halfWave'] as const);
+const PREFERENCE_FIELDS = Object.freeze(['rulerFormat', 'halfWave', 'renderer'] as const);
 type PreferenceField = (typeof PREFERENCE_FIELDS)[number];
 
 /** Global waveform defaults remain beneath each track's explicit display choices. */
@@ -45,7 +46,11 @@ export function normalizeWaveformDisplayPreferences(
 	if (typeof halfWave !== 'boolean') {
 		throw new TypeError('waveformDisplay.halfWave must be boolean.');
 	}
-	return Object.freeze({ rulerFormat, halfWave });
+	const renderer = preferenceDataValue(input, 'renderer');
+	if (renderer !== undefined && renderer !== 'canvas' && renderer !== 'gpu') {
+		throw new RangeError('waveformDisplay.renderer must be canvas or gpu.');
+	}
+	return Object.freeze({ rulerFormat, halfWave, ...(renderer === 'gpu' ? { renderer: 'gpu' as const } : {}) });
 }
 
 function preferenceDataValue(

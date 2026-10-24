@@ -77,7 +77,7 @@ The effect registry covers Audacity's menu-visible native processors and browser
 
 ## Audacity-derived waveform rendering
 
-Parts of `src/common/editor/audacity-waveform-renderer.js`, the waveform-window adapters under `src/common/editor/design-system-adapters/`, and the canvas/recording-preview integration under `src/common/editor/ui/timeline/` are JavaScript and TypeScript translations and browser adaptations of Audacity waveform rendering at exact commit `4c177d436e48c1d20f231eada44035593cb26292`:
+Parts of `src/common/editor/audacity-waveform-renderer.js`, the waveform-window adapters under `src/common/editor/design-system-adapters/`, `src/common/editor/controller/source/internal/waveform-gpu-geometry.ts`, and the canvas/recording-preview integration under `src/common/editor/ui/timeline/` are JavaScript and TypeScript translations and browser adaptations of Audacity waveform rendering at exact commit `4c177d436e48c1d20f231eada44035593cb26292`:
 
 - source: <https://github.com/audacity/audacity/tree/4c177d436e48c1d20f231eada44035593cb26292>
 - rendering-mode and sample-painter sources: `src/projectscene/view/tracksitemsview/au3/wavepainterutils.cpp`, `src/projectscene/view/tracksitemsview/au3/connectingdotspainter.cpp`, `src/projectscene/view/tracksitemsview/au3/samplespainterutils.cpp`, and `src/projectscene/view/tracksitemsview/au3/samplespainter.cpp`
