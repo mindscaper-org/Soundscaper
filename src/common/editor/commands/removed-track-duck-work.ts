@@ -55,6 +55,7 @@ export function prepareRemovedTrackDuckWork(
 	for (const rack of racks) for (const effect of rack) {
 		if (!dataRecord(effect)) return null;
 		if (effect.type !== 'audacity-auto-duck') continue;
+		if (typeof effect.id !== 'string') return null;
 		if (effect.context != null && !dataRecord(effect.context)) return null;
 		if (effect.params != null && (!dataRecord(effect.params)
 			|| Object.values(effect.params).some(value => value !== null && (typeof value === 'object' || typeof value === 'function')))) return null;
@@ -64,6 +65,7 @@ export function prepareRemovedTrackDuckWork(
 	for (const edge of edges) {
 		if (!dataRecord(edge) || !dataRecord(edge.destination) || !dataRecord(edge.source)) return null;
 		if (edge.destination.kind !== 'effect-sidechain') continue;
+		if (typeof edge.destination.effectId !== 'string') return null;
 		if (edge.source.kind === 'track' && typeof edge.source.id !== 'string') return null;
 		const id = edge.destination.effectId;
 		const values = detectors.get(id);

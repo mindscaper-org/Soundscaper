@@ -46,3 +46,15 @@ test('E10 malformed later rack preserves the later control route and untouched e
 	assert.deepEqual(project.tracks.map(track => track.effects[0]!.enabled), [false, true, false, true]);
 	assert.deepEqual(Object.keys(routes), ['control-b']);
 });
+
+test('E10 malformed NaN effect identities retain strict detector matching', () => {
+	const effect = normalizeEffect({ id: 'duck', type: 'audacity-auto-duck', context: { controlTrackId: 'kept' } });
+	Object.defineProperty(effect, 'id', { value: NaN });
+	const detector = edge('detector', 'a', { kind: 'effect-sidechain', strip: { kind: 'track', id: 'kept' }, effectId: 'duck' });
+	Object.defineProperty(detector.destination, 'effectId', { value: NaN });
+	const kept = { id: 'kept', clipIds: [], effects: [effect] };
+	const project = { tracks: [{ id: 'a', clipIds: [], effects: [] }, { id: 'b', clipIds: [], effects: [] }, kept], clips: [], master: { effects: [] }, mixer: { routes: {}, groups: [], sends: [], edges: [detector] } };
+	removeTracksAndDependents(project, ['a', 'b']);
+	assert.strictEqual(kept.effects[0], effect);
+	assert.equal(effect.enabled, true);
+});
