@@ -31,6 +31,9 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	useEffect(() => {
 		const media = videoRef.current;
 		if (!media || playing || !Number.isFinite(view.mediaSeconds)) return;
+		// Seeking the last frame's midpoint would turn natural end into a paused
+		// final-frame seek, so native Play could no longer restart the source.
+		if (media.ended && view.positionFrame === view.sourceFrameCount - 1) return;
 		if (Math.abs((Number(media.currentTime) || 0) - view.mediaSeconds) > 1e-3) {
 			try {
 				media.currentTime = view.mediaSeconds;
@@ -38,7 +41,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 				// Metadata can still be loading; the readiness callback retries.
 			}
 		}
-	}, [playing, view.mediaSeconds, view.sourceId]);
+	}, [playing, view.mediaSeconds, view.positionFrame, view.sourceFrameCount, view.sourceId]);
 
 	if (!view.sourceId) {
 		return <div className="kw-audio-editor__source-monitor" data-source-monitor="empty">
