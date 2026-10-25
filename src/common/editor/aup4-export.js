@@ -1,5 +1,4 @@
 import { assignAup4OverlapLanes } from './aup4-export-overlap-lanes.ts';
-import { compareCodeUnits } from './code-unit-order.ts';
 import { addAup4CompatibilityItem, createAup4CompatibilityReport } from './aup4-profile.js';
 import { reportAup4OwnedFeatureOmissions } from './aup4-feature-omissions.ts';
 import {
