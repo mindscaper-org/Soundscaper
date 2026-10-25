@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { programmeReachableStrips, soloRelatedStrips } from './mixer-programme-reachability.ts';
 import { isMixerGraphV21Surface } from './mixer-graph-surface-v21.ts';
 import {
 	createMixerSignalTopologyV21,
@@ -81,41 +82,22 @@ export function createMixerGraphAudibilityV21(project: unknown, options: Readonl
 		.filter((output) => output.role === 'main')
 		.map((output) => `output:${String(output.id)}`));
 	const soloed = [...strips].filter(([, state]) => state.soloed).map(([key]) => key);
+	const soloRelated = soloed.length ? soloRelatedStrips(soloTopology, strips.keys(), soloed) : null;
 	const open = (key: string): boolean => {
 		const state = strips.get(key);
 		if (state === undefined) return true;
 		if (state.muted || mutedByVca.has(key)) return false;
 		if (soloed.length === 0) return true;
-		return soloed.some((solo) => (
-			soloTopology.reaches(key, solo) || soloTopology.reaches(solo, key)
-		));
+		return soloRelated!.has(key);
 	};
-	const reachesProgramme = (key: string): boolean => {
-		const pending = [key];
-		const seen = new Set<string>();
-		while (pending.length) {
-			const current = pending.pop()!;
-			if (seen.has(current)) continue;
-			seen.add(current);
-			// Only a main-role output reaches the rendered programme. Master is a
-			// strip on the way there, and its own output edge may be disabled or
-			// explicitly map every destination channel to silence.
-			if (programmeOutputs.has(current)) return true;
-			for (const next of programmeTopology.successors(current)) {
-				// Native pre-fader taps precede the source strip's mute, solo and
-				// VCA gate. A destination's gate applies when its own tap leaves it.
-				if (!open(current) && !preFaderSuccessors.get(current)?.has(next)) continue;
-				pending.push(next);
-			}
-		}
-		return false;
-	};
+	const programmeReachable = programmeReachableStrips(programmeTopology, strips.keys(), programmeOutputs,
+		(from, to) => open(from) || preFaderSuccessors.get(from)?.has(to) === true);
 
 	return Object.freeze({
 		audibleTrack: (trackId: string): boolean => {
 			const key = `track:${trackId}`;
 			if (!strips.has(key)) return true;
-			return reachesProgramme(key);
+			return programmeReachable.has(key);
 		},
 		reason: (trackId: string): 'muted' | 'not-soloed' | 'routed-to-silence' => {
 			const key = `track:${trackId}`;

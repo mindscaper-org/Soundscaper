@@ -188,7 +188,8 @@ export function normalizeTakeCompGroup(value: unknown): TakeCompGroup {
 		throw new RangeError('Take comp group laneOrder must contain every take lane exactly once.');
 	}
 	const laneIndex = new Map(laneOrder.map((laneId, index) => [laneId, index]));
-	const orderedLanes = laneOrder.map((laneId) => lanes.find((lane) => lane.id === laneId)!);
+	const laneById = new Map(lanes.map(lane => [lane.id, lane]));
+	const orderedLanes = laneOrder.map(laneId => laneById.get(laneId)!);
 
 	const takeValues = denseArray(input.takes, 'take comp group takes');
 	if (takeValues.length === 0) throw new RangeError('A take comp group requires at least one take.');
