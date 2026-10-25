@@ -24,7 +24,7 @@ export default function MotionLanguageDialog({ locale, copy, onApply, onClose }:
 		<p>{copy.motionscaperLanguageHint}</p>
 		<form id={id} onSubmit={event => { void submit(event); }}><label htmlFor={`${id}-locale`}>{copy.motionscaperLanguage}</label>
 			<select id={`${id}-locale`} value={selected} disabled={pending} onChange={event => setSelected(event.currentTarget.value)}>
-				{ROUTE_LOCALES.map(option => <option key={option.locale} value={option.locale}>{option.nativeName}</option>)}
+				{ROUTE_LOCALES.map((option: Readonly<{ locale: string; nativeName: string }>) => <option key={option.locale} value={option.locale}>{option.nativeName}</option>)}
 			</select></form>
 		{failed && <p role="alert">{copy.motionscaperLanguageFailed}</p>}
 	</AudioEditorDialogShell>;
