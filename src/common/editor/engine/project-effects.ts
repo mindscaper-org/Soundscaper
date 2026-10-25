@@ -25,15 +25,16 @@ export function activeRackEffects(owner: Readonly<{
 export function* projectEffectRacks(
 	project: EngineProject | null | undefined,
 ): Generator<EngineEffectRackLocation> {
-	const audioTracks = (project?.tracks || [])
-		.filter((track) => track?.type !== 'label' && track?.type !== 'video');
-	for (const [index, track] of audioTracks.entries()) {
+	let index = 0;
+	for (const track of project?.tracks || []) {
+		if (track?.type === 'label' || track?.type === 'video') continue;
 		yield {
 			scope: 'track',
 			targetId: String(track?.id ?? index),
 			effectsActive: track?.effectsActive !== false,
 			effects: activeRackEffects(track),
 		};
+		index++;
 	}
 	for (const [scope, buses] of [
 		['group', project?.mixer?.groups],
@@ -129,7 +130,8 @@ export function projectRackEffect(
 	effectId: unknown,
 ): EngineEffect | null {
 	const normalizedScope = String(scope || '');
-	const normalizedTargetId = normalizedScope === 'master' ? null : String(targetId);
+	if (normalizedScope === 'master') return activeRackEffects(project?.master).find(effect => effect?.id === effectId) || null;
+	const normalizedTargetId = String(targetId);
 	for (const rack of projectEffectRacks(project)) {
 		if (rack.scope !== normalizedScope) continue;
 		if (rack.scope !== 'master' && rack.targetId !== normalizedTargetId) continue;
