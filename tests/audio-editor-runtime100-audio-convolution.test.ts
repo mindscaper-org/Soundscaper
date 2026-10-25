@@ -11,7 +11,7 @@ test('A19 spectral convolution clears only the unfilled FFT suffix', () => {
 	const input = Float32Array.from({ length: 1000 }, (_, index) => Math.sin(index * .13));
 	const original = Float64Array.prototype.fill;
 	let cleared = 0;
-	Float64Array.prototype.fill = function (value, start = 0, end = this.length) { cleared += end - start; return original.call(this, value, start, end); };
+	Float64Array.prototype.fill = function (this: Float64Array, value, start = 0, end = this.length) { cleared += end - start; return original.call(this, value, start, end); };
 	try {
 		const output = convolve(input);
 		assert.equal(createHash('sha256').update(new Uint8Array(output.buffer)).digest('hex'), 'aa7c18b234939d1383b1e5c6f4d4d963d927d8d3dbd5f8c2232138eb35d8e72d');
