@@ -1,3 +1,4 @@
+import { assignAup4OverlapLanes } from './aup4-export-overlap-lanes.ts';
 import { compareCodeUnits } from './code-unit-order.ts';
 import { addAup4CompatibilityItem, createAup4CompatibilityReport } from './aup4-profile.js';
 import { reportAup4OwnedFeatureOmissions } from './aup4-feature-omissions.ts';
@@ -400,27 +401,6 @@ export function createAup4ExportPlan(project) {
 export function requiredAup4SourceIds(plan) {
 	assertExportPlan(plan);
 	return [...new Set(plan.sources.map((variant) => variant.inputSourceId))];
-}
-
-function assignAup4OverlapLanes(clips) {
-	const lanes = [];
-	const laneEnds = [];
-	for (const clip of clips.slice().sort((left, right) => (
-		Number(left.timelineStartFrame) - Number(right.timelineStartFrame)
-		|| compareCodeUnits(String(left.id), String(right.id))
-	))) {
-		const start = nonNegativeFrame(clip.timelineStartFrame, `clip ${clip.id} timelineStartFrame`);
-		const end = start + positiveFrame(clip.durationFrames, `clip ${clip.id} durationFrames`);
-		let laneIndex = laneEnds.findIndex((laneEnd) => laneEnd <= start);
-		if (laneIndex < 0) {
-			laneIndex = lanes.length;
-			lanes.push([]);
-			laneEnds.push(0);
-		}
-		lanes[laneIndex].push(clip.id);
-		laneEnds[laneIndex] = end;
-	}
-	return lanes.length ? lanes : [[]];
 }
 
 function uniqueLaneTrackId(trackId, laneNumber, usedIds) {
