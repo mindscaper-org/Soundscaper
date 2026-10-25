@@ -48,7 +48,10 @@ test('File Open neutral adjustment retains the coverage of a translucent PNG', a
 			archive = await createFramescaperScapeNativeRuntime(PROFILE).exportScapeProject(project, store);
 		} finally { await store.close(); }
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Frozen.fscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.blob.arrayBuffer()) });
-		await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
+		// Replacing the first project can still be retiring its preview caches;
+		// use the same activation budget as waitForProjectActivation below.
+		await expect(editor).toHaveAttribute('data-project-id', project.id, { timeout: 30_000 });
+		await waitForProjectActivation(editor);
 		await expect(editor.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-renderer', 'ready', { timeout: 30_000 });
 		await expect.poll(() => page.evaluate(id => globalThis.__adjustmentFrames.filter(frame => frame.projectId === id).length, project.id)).toBeGreaterThan(0);
 		pixels.push(await page.evaluate(id => globalThis.__adjustmentFrames.filter(frame => frame.projectId === id).at(-1).pixels.slice(0, 4), project.id));
