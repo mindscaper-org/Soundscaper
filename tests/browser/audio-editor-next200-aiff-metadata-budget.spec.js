@@ -15,7 +15,7 @@ let directory;
 test.beforeAll(async () => {
 	directory = await mkdtemp(join(tmpdir(), 'soundscaper-aiff-annotations-'));
 	for (const count of [513, 2]) {
-		const file = aiffWithRepeatedAnnotations(count);
+		const file = aiffWithRepeatedAnnotations(count, count === 513 ? 36 * 1024 : 1024 * 1024);
 		await pipeline(Readable.fromWeb(file.stream()), createWriteStream(join(directory, `${count}.aiff`)));
 	}
 });
@@ -35,7 +35,7 @@ for (const count of [513, 2]) test(`File Import keeps safe tags and PCM with ${c
 			return range;
 		};
 		Blob.prototype.arrayBuffer = function () {
-			if (isInput(this) && this.size >= 1024 * 1024) window.aiffMetadataPayloadBytes += this.size;
+			if (isInput(this) && this.size >= 32 * 1024) window.aiffMetadataPayloadBytes += this.size;
 			return arrayBuffer.call(this);
 		};
 	});

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { MockAudioBuffer } from './helpers/mock-audio-context.js';
@@ -26,5 +27,5 @@ test('native import retains source-header authority when the browser transfers i
 	const source = controller.project?.sources[0]; assert.ok(source?.kind === 'audio');
 	assert.equal(source.sampleRate, 48_000); assert.equal(source.frameCount, 4800);
 	const chunk = await store.readSourceChunk(source.storageKey, 0); assert.ok(chunk);
-	assert.deepEqual(chunk.channels, channels.map(channel => channel.subarray(0, 4800)));
+	assertPcmChannelsEqual(chunk.channels, channels.map(channel => channel.subarray(0, 4800)));
 });

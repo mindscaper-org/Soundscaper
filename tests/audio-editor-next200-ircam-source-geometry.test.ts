@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { inspectDecodedAudioSampleRate, inspectEncodedAudioSampleRate } from '../src/common/editor/audio-file-metadata.js';
 import { isNativeContainerAudioView, normalizeNativeContainerAudio } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { inspectIrcamPcmSourceGeometry } from '../src/common/editor/ircam-pcm-source-geometry.ts';
@@ -26,11 +27,11 @@ test('IRCAM canonical storage consumes only authored PCM, keeping a padded nativ
 	const view = normalizeNativeContainerAudio(original, null, await file.arrayBuffer());
 	assert.equal(view.length, 4800); assert.equal(view.duration, .1);
 	assert.equal(isNativeContainerAudioView(view), true); assert.equal(isNativeContainerAudioView(original), false);
-	for (let channel = 0; channel < 2; channel++) assert.deepEqual(view.getChannelData(channel), channels[channel]);
+	for (let channel = 0; channel < 2; channel++) assertPcmSamplesEqual(view.getChannelData(channel), channels[channel]!);
 	const copied = new Float32Array(3).fill(-99); view.copyFromChannel(copied, 1, 4799);
 	assert.equal(copied[0], channels[1]![4799]); assert.deepEqual([...copied.subarray(1)], [-99, -99]);
 	const exact = nativeBuffer(channels, 4800);
-	assert.equal(normalizeNativeContainerAudio(exact, null, await file.arrayBuffer()), exact);
+	assert.ok(normalizeNativeContainerAudio(exact, null, await file.arrayBuffer()) === exact);
 });
 
 test('nonzero, short, excessive or foreign native IRCAM geometry cannot be silently trimmed', async () => {

@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { inspectImportedMediaMetadata } from '../src/common/editor/imported-media-metadata.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
@@ -13,13 +14,14 @@ class TrackedAiff extends File {
 	metadataPayloadBytes = 0;
 	override slice(start?: number, end?: number, type?: string): Blob {
 		const blob = super.slice(start, end, type);
-		if (blob.size >= 1024 * 1024) this.metadataPayloadBytes += blob.size;
+		if (blob.size >= 32 * 1024) this.metadataPayloadBytes += blob.size;
 		return blob;
 	}
 }
 
-for (const count of [513, 64, 2]) test(`File Import retains PCM while bounding ${count} individually admitted AIFF annotations`, async context => {
-	const original = aiffWithRepeatedAnnotations(count);
+// Keep both the 512-entry and 17 MiB aggregate boundaries with at most 19 MiB input.
+for (const count of [513, 18, 16, 2]) test(`File Import retains PCM while bounding ${count} individually admitted AIFF annotations`, async context => {
+	const original = aiffWithRepeatedAnnotations(count, count === 513 ? 36 * 1024 : 1024 * 1024);
 	const file = new TrackedAiff([original], original.name, { type: original.type });
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: context.name });
 	const runtime = createSoundscaperProjectRuntimeSelection();
@@ -34,7 +36,7 @@ for (const count of [513, 64, 2]) test(`File Import retains PCM while bounding $
 	const source = project.sources[0]; assert.ok(source?.kind === 'audio');
 	assert.deepEqual([source.sampleRate, source.frameCount, source.channelCount], [48_000, 4800, 1]);
 	const chunk = await store.readSourceChunk(source.storageKey, 0); assert.ok(chunk);
-	assert.deepEqual(chunk.channels[0], new Float32Array(4800).fill(.25));
+	assertPcmSamplesEqual(chunk.channels[0], new Float32Array(4800).fill(.25));
 	const contribution = source.provenance?.contributions[0]; assert.ok(contribution);
 	assert.equal(contribution.metadata.normalized?.title, 'Retained title');
 	assert.ok(file.metadataPayloadBytes <= 17 * 1024 * 1024,

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { lowClockPcmFixture } from './helpers/low-clock-pcm-fixture.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
@@ -30,7 +31,7 @@ for (const rate of [1000, 48000] as const) for (const partial of [false, true]) 
 	assert.ok(result?.kind === 'audio'); assert.notEqual(result.id, original.id);
 	assert.equal(result.sampleRate, rate); assert.equal(result.frameCount, rate);
 	const chunk = await store.readSourceChunk(result.storageKey, 0); assert.ok(chunk);
-	assert.deepEqual(chunk.channels[0], Float32Array.from(channel, (sample, frame) => frame >= startFrame && frame < endFrame ? -sample : sample));
+	assertPcmSamplesEqual(chunk.channels[0], Float32Array.from(channel, (sample, frame) => frame >= startFrame && frame < endFrame ? -sample : sample));
 	controller.actions.edit.undo(); assert.equal(controller.project?.clips[0]?.sourceId, original.id);
 	controller.actions.edit.redo(); assert.equal(controller.project?.clips[0]?.sourceId, result.id);
 });
@@ -73,7 +74,7 @@ for (const failure of ['none', 'write', 'peaks', 'other-native'] as const) test(
 	} });
 	const pending = harness.service.persistAudacityEffectResults([{ target: { ...target('track'), sourceSampleRate: 1000 }, channels }], 'audacity-invert');
 	if (failure === 'none') {
-		await pending; assert.deepEqual(persisted, channels[0]); assert.equal(harness.events.commits.length, 1);
+		await pending; assertPcmSamplesEqual(persisted, channels[0]!); assert.equal(harness.events.commits.length, 1);
 	} else {
 		await assert.rejects(pending, error); assert.equal(harness.events.commits.length, 0);
 		assert.deepEqual(harness.events.sourcesAborted, failure === 'write' ? ['audacity-effect-1'] : []);

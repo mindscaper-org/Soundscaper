@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { normalizeNativeContainerAudio, isNativeContainerAudioView } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { nativeMsAdpcmFixture } from './helpers/native-ms-adpcm-fixture.ts';
 
@@ -19,7 +20,7 @@ test('ordinary MS ADPCM retains its authored fact extent instead of the padded f
 	const original = nativeBuffer(channels), normalized = normalizeNativeContainerAudio(original, null, await file.arrayBuffer());
 	assert.equal(normalized.length, 4800); assert.equal(normalized.duration, .1);
 	assert.equal(isNativeContainerAudioView(normalized), true);
-	for (let channel = 0; channel < 2; channel++) assert.deepEqual(normalized.getChannelData(channel), channels[channel]!.subarray(0, 4800));
+	for (let channel = 0; channel < 2; channel++) assertPcmSamplesEqual(normalized.getChannelData(channel), channels[channel]!.subarray(0, 4800));
 });
 
 test('standard MS ADPCM fact authority authenticates complete bytes, block capacity and profile', async () => {
@@ -59,12 +60,12 @@ test('standard MS ADPCM fact authority authenticates complete bytes, block capac
 test('ADPCM normalization preserves exact native buffers and refuses incompatible decoded geometry', async () => {
 	const { file, channels } = nativeMsAdpcmFixture(), bytes = await file.arrayBuffer();
 	const exact = nativeBuffer(channels.map(channel => channel.subarray(0, 4800)));
-	assert.equal(normalizeNativeContainerAudio(exact, null, bytes), exact);
+	assert.ok(normalizeNativeContainerAudio(exact, null, bytes) === exact);
 	assert.equal(isNativeContainerAudioView(exact), false);
 	for (const buffer of [nativeBuffer(channels, 44_100), nativeBuffer(channels.slice(0, 1)),
 		nativeBuffer(channels.map(channel => channel.subarray(0, 4799))), nativeBuffer(channels.map(channel => channel.subarray(0, 5000)))]) {
 		assert.throws(() => normalizeNativeContainerAudio(buffer, null, bytes), /geometry/u);
 	}
 	const unsupported = bytes.slice(0); new DataView(unsupported).setUint16(20, 17, true);
-	const original = nativeBuffer(channels); assert.equal(normalizeNativeContainerAudio(original, null, unsupported), original);
+	const original = nativeBuffer(channels); assert.ok(normalizeNativeContainerAudio(original, null, unsupported) === original);
 });

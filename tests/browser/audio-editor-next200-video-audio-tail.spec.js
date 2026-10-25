@@ -19,7 +19,8 @@ for (const picture of [1, 2]) test(`video import retains its longer audio progra
 	const audio = audios[0], video = videos[0];
 	await testInfo.attach('imported-extents.json', { body: JSON.stringify({ picture, video, audio, clips: project.clips }), contentType: 'application/json' });
 	expect(video).toMatchObject({ sourceFrameCount: 25 * picture, width: 64, height: 32 });
-	expect(Buffer.from(entries[`media/${video.id}/original`])).toEqual(original);
+	const savedOriginal = Buffer.from(entries[`media/${video.id}/original`]);
+	expect(savedOriginal.byteLength).toBe(original.byteLength); expect(savedOriginal.equals(original)).toBe(true);
 	expect(audio.frameCount).toBe(96_000);
 	const pcm = Buffer.from(entries[`audio/${audio.id}.f32c`]); let energy = 0;
 	for (let frame = 72_000; frame < 84_000; frame++) energy += pcm.readFloatLE(4 + frame * 4) ** 2;
