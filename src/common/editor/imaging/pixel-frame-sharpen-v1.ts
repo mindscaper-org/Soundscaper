@@ -29,21 +29,37 @@ export async function withDetailSharpenPixelFrameV1<Result>(value: unknown,
 		if (effect.enabled && !effect.neutral) {
 			const { width, height } = plan.descriptor;
 			let processed = 0;
-			for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-				check(); const offset = 4 * (y * width + x);
-				if (original[offset + 3] !== 0) {
-					let weight = 0, red = 0, green = 0, blue = 0;
-					for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-						const n = 4 * (Math.max(0, Math.min(height - 1, y + dy)) * width + Math.max(0, Math.min(width - 1, x + dx)));
-						const alphaWeight = original[n + 3]! * (dx === 0 ? 2 : 1) * (dy === 0 ? 2 : 1);
-						weight += alphaWeight; red += alphaWeight * original[n]!; green += alphaWeight * original[n + 1]!; blue += alphaWeight * original[n + 2]!;
+			for (let y = 0; y < height; y++) {
+				check();
+				const top = 4 * Math.max(0, y - 1) * width, middle = 4 * y * width, bottom = 4 * Math.min(height - 1, y + 1) * width;
+				let rightWeight = 0, rightRed = 0, rightGreen = 0, rightBlue = 0;
+				const column = (x: number) => {
+					const offset = 4 * x, a = top + offset, b = middle + offset, c = bottom + offset;
+					const alphaA = original[a + 3]!, alphaB = 2 * original[b + 3]!, alphaC = original[c + 3]!;
+					rightWeight = alphaA + alphaB + alphaC;
+					rightRed = alphaA * original[a]! + alphaB * original[b]! + alphaC * original[c]!;
+					rightGreen = alphaA * original[a + 1]! + alphaB * original[b + 1]! + alphaC * original[c + 1]!;
+					rightBlue = alphaA * original[a + 2]! + alphaB * original[b + 2]! + alphaC * original[c + 2]!;
+				};
+				// Integer separability preserves the original 3×3 sums exactly;
+				// rounding still occurs only in detailSharpenByteV1.
+				column(0);
+				let centerWeight = rightWeight, centerRed = rightRed, centerGreen = rightGreen, centerBlue = rightBlue;
+				let leftWeight = centerWeight, leftRed = centerRed, leftGreen = centerGreen, leftBlue = centerBlue;
+				for (let x = 0; x < width; x++) {
+					check(); const offset = middle + 4 * x;
+					column(Math.min(width - 1, x + 1));
+					if (original[offset + 3] !== 0) {
+						const weight = leftWeight + 2 * centerWeight + rightWeight;
+						pixels[offset] = detailSharpenByteV1(effect, original[offset]!, leftRed + 2 * centerRed + rightRed, weight);
+						pixels[offset + 1] = detailSharpenByteV1(effect, original[offset + 1]!, leftGreen + 2 * centerGreen + rightGreen, weight);
+						pixels[offset + 2] = detailSharpenByteV1(effect, original[offset + 2]!, leftBlue + 2 * centerBlue + rightBlue, weight);
 					}
-					pixels[offset] = detailSharpenByteV1(effect, original[offset]!, red, weight);
-					pixels[offset + 1] = detailSharpenByteV1(effect, original[offset + 1]!, green, weight);
-					pixels[offset + 2] = detailSharpenByteV1(effect, original[offset + 2]!, blue, weight);
+					leftWeight = centerWeight; leftRed = centerRed; leftGreen = centerGreen; leftBlue = centerBlue;
+					centerWeight = rightWeight; centerRed = rightRed; centerGreen = rightGreen; centerBlue = rightBlue;
+					processed += 4;
+					if (processed >= 256 * 1024) { await new Promise<void>(resolve => { setTimeout(resolve, 0); }); processed = 0; check(); }
 				}
-				processed += 4;
-				if (processed >= 256 * 1024) { await new Promise<void>(resolve => { setTimeout(resolve, 0); }); processed = 0; check(); }
 			}
 		}
 		check(); const result = await consume(Object.freeze({ descriptor: plan.descriptor, pixels })); check(); return result;

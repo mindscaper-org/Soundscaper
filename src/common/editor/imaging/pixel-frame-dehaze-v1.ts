@@ -30,19 +30,27 @@ export async function withDehazePixelFrameV1<Result>(value: unknown,
 		const pixels = new Uint8Array(original); outputBuffer = pixels.buffer;
 		if (effect.enabled && !effect.neutral) {
 			const { width,height } = plan.descriptor; let processed = 0;
-			for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-				check(); const offset = 4 * (y * width + x);
-				if (original[offset + 3] !== 0) {
-					let dark = 255;
-					if (effect.gainQ8 > 0) for (let row = -1; row <= 1; row++) for (let column = -1; column <= 1; column++) {
-						const n = 4 * (Math.max(0,Math.min(height - 1,y + row)) * width + Math.max(0,Math.min(width - 1,x + column)));
-						dark = Math.min(dark,dehazeEffectiveDarkByteV1(original[n]!,original[n + 1]!,original[n + 2]!,original[n + 3]!));
+			for (let y = 0; y < height; y++) {
+				check();
+				const top = 4 * Math.max(0,y - 1) * width, middle = 4 * y * width, bottom = 4 * Math.min(height - 1,y + 1) * width;
+				const column = (x: number) => {
+					const offset = 4 * x, a = top + offset, b = middle + offset, c = bottom + offset;
+					return Math.min(dehazeEffectiveDarkByteV1(original[a]!,original[a + 1]!,original[a + 2]!,original[a + 3]!),
+						dehazeEffectiveDarkByteV1(original[b]!,original[b + 1]!,original[b + 2]!,original[b + 3]!),
+						dehazeEffectiveDarkByteV1(original[c]!,original[c + 1]!,original[c + 2]!,original[c + 3]!));
+				};
+				// Reuse two original columns; no intermediate plane or rounding.
+				let center = effect.gainQ8 > 0 ? column(0) : 255, left = center;
+				for (let x = 0; x < width; x++) {
+					check(); const offset = middle + 4 * x;
+					const right = effect.gainQ8 > 0 ? column(Math.min(width - 1,x + 1)) : 255;
+					if (original[offset + 3] !== 0) {
+						const transmission = dehazeTransmissionQ8V1(effect,Math.min(left,center,right));
+						for (let channel = 0; channel < 3; channel++) pixels[offset + channel] = dehazeOutputByteV1(effect,original[offset + channel]!,transmission);
 					}
-					const transmission = dehazeTransmissionQ8V1(effect,dark);
-					for (let channel = 0; channel < 3; channel++) pixels[offset + channel] = dehazeOutputByteV1(effect,original[offset + channel]!,transmission);
+					left = center; center = right; processed += 4;
+					if (processed >= 256 * 1024) { await new Promise<void>(resolve => { setTimeout(resolve,0); }); processed = 0; check(); }
 				}
-				processed += 4;
-				if (processed >= 256 * 1024) { await new Promise<void>(resolve => { setTimeout(resolve,0); }); processed = 0; check(); }
 			}
 		}
 		check(); const result = await consume(Object.freeze({ descriptor: plan.descriptor,pixels })); check(); return result;
