@@ -21,6 +21,6 @@ test('A13-A15 Beat This shares FFT trigonometry, magnitude scale and sparse mel 
 		assert.equal(hash, 'c88724906ed64bd485c76fe5c701f24579257b44c76705112f40d1379a8b24ee');
 		assert.ok(cosines <= 4092, `FFT cosines: ${cosines}`);
 		assert.ok(roots <= 1, `magnitude square roots: ${roots}`);
-		assert.ok(rounds < 160000, `Float32 arithmetic: ${rounds}`);
+		assert.equal(rounds, 137572);
 	} finally { Math.cos = cosine; Math.sqrt = sqrt; Math.fround = round; }
 });
