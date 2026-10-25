@@ -241,7 +241,8 @@ export function createClipTimePitchCacheService<
 		dependencies.lifetime.assertActive();
 		const snapshot = admitTimePitchCacheProject(input);
 		const projectToken = dependencies.captureProject(snapshot.id);
-		dependencies.cache.retainClipIds?.(snapshot.clips.map((clip) => clip.id));
+		// A render draft may omit other live clips. Document/session retention,
+		// rather than its temporary inventory, owns retirement of their caches.
 		const entries: ClipTimePitchCacheEntry[] = [];
 		const requestedIds = options ? new Set(options.clipIds) : null;
 		for (const { clip, source } of projectTimePitchPairs(snapshot)) {
