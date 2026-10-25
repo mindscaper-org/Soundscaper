@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { useAudioEditorTelemetrySelector } from '../DesignSystemRuntime.jsx';
 import { usePlaybackMeterVisibility } from '../usePlaybackMeterVisibility.ts';
-import { meterChannelReadings, productionStripMeter, type ScalarMeterSnapshot } from '../meter-channel-readings.ts';
+import { meterChannelReadings, productionStripMeter, sameMeterChannelDisplay, type ScalarMeterSnapshot } from '../meter-channel-readings.ts';
 import type { StripMeterSnapshot } from '../../production-audio/strip-meter-session.ts';
 
 interface MixerMeterTelemetrySnapshot {
@@ -44,6 +44,7 @@ export function MixerTelemetryMeters({
 			if (scope === 'master') return telemetry.meters?.master;
 			return telemetry.meters?.[`${scope}s`]?.[targetId];
 		},
+		sameMeterChannelDisplay,
 	);
 
 	return <>{meterChannelReadings(meter).map((reading, index) => <MixerMeterBar key={index} {...reading} meterRef={index === 0 ? meterRef : undefined} />)}</>;
