@@ -31,7 +31,7 @@ test('generic native Vorbis import changes encoded six-channel planes to canonic
 	assert.equal(isNativeContainerAudioView(view), true); assert.equal(isNativeContainerAudioView(native), false);
 	assert.deepEqual(CANONICAL.map((_, channel) => view.getChannelData(channel)[0]), CANONICAL.map(channel => channel + .125));
 	assert.equal(view.length, native.length); assert.equal(view.duration, native.duration); assert.equal(view.sampleRate, native.sampleRate);
-	for (const [channel, source] of CANONICAL.entries()) assert.equal(view.getChannelData(channel), native.getChannelData(source));
+	for (const [channel, source] of CANONICAL.entries()) assert.ok(view.getChannelData(channel) === native.getChannelData(source));
 	const destination = new Float32Array(1); view.copyFromChannel(destination, 3, 1); assert.equal(destination[0], 5.5);
 	view.copyToChannel(Float32Array.of(.75), 4, 1); assert.equal(native.getChannelData(3)[1], .75);
 	assert.throws(() => view.getChannelData(6));
@@ -44,15 +44,15 @@ test('other native backends, widths and codec headers keep their original channe
 		'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36',
 		'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.4 Safari/605.1.15',
 		FIREFOX.replace('X11; Linux x86_64', 'Android; Mobile'), '',
-	]) await backend(userAgent, async () => { assert.equal(normalizeNativeContainerAudio(native, null, encoded), native); });
+	]) await backend(userAgent, async () => { assert.ok(normalizeNativeContainerAudio(native, null, encoded) === native); });
 	await backend(FIREFOX, async () => {
 		assert.equal(normalizeNativeContainerAudio(nativeBuffer(2), null, encoded).numberOfChannels, 2);
 		for (const offset of [0, 4, 5, 26, 27, 28, 29, 35, 39, 40]) {
 			const changed = encoded.slice(0); new Uint8Array(changed)[offset]! ^= 1;
-			assert.equal(normalizeNativeContainerAudio(native, null, changed), native);
+			assert.ok(normalizeNativeContainerAudio(native, null, changed) === native);
 		}
-		assert.equal(normalizeNativeContainerAudio(native, null, encoded.slice(0, 57)), native);
-		assert.equal(normalizeNativeContainerAudio(native, null), native);
+		assert.ok(normalizeNativeContainerAudio(native, null, encoded.slice(0, 57)) === native);
+		assert.ok(normalizeNativeContainerAudio(native, null) === native);
 	});
 });
 
@@ -77,7 +77,7 @@ test('packet normalization preserves window geometry and original sample/iterato
 		assert.deepEqual([...destination], [plane + .25, plane + .5]);
 	}
 	view.close(); await iterator.return?.(); assert.equal(closed, 1); assert.equal(retired, true);
-	assert.equal(canonicalVorbisSamples(source, 2), source);
+	assert.ok(canonicalVorbisSamples(source, 2) === source);
 }));
 
 test('packet normalization retains unsupported width validation and upstream failures', async () => backend(FIREFOX, async () => {

@@ -36,6 +36,6 @@ for (const audioSeconds of [2, 10]) test(`video File Import previews only its 2s
 	const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));
 	const video = project.sources.find(source => source.kind === 'video');
 	expect(video).toMatchObject({ sourceFrameCount: 60, sampleFrameCount: 96000, sampleRate: 48000, frameRate: { num: 30, den: 1 } });
-	expect(Buffer.from(entries[`media/${video.id}/original`])).toEqual(original);
+	expect(Buffer.from(entries[`media/${video.id}/original`]).equals(original)).toBe(true);
 	await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toHaveCount(0);
 });

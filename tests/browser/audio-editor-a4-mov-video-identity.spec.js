@@ -31,7 +31,7 @@ for (const variant of ['generic', 'proper', 'audio']) test(`ordinary ${variant} 
 	if (variant !== 'audio') {
 		const video = videos[0];
 		expect(video).toMatchObject({ width: 64, height: 32, sourceFrameCount: 9, frameRate: { num: 30, den: 1 }, videoCodec: 'h264', hasAudio: true });
-		expect(Buffer.from(entries[`media/${video.id}/original`])).toEqual(original);
+		expect(Buffer.from(entries[`media/${video.id}/original`]).equals(original)).toBe(true);
 	}
 	const audios = project.sources.filter(source => source.kind === 'audio'); expect(audios).toHaveLength(1);
 	const audio = audios[0]; expect(audio.channelCount).toBe(2); expect(audio.frameCount).toBeGreaterThan(0);

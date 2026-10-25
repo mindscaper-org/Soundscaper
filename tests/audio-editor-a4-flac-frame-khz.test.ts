@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { BlobSource, Input, FLAC } from 'mediabunny';
 import { encodeDedicatedAudioPcm } from '../src/common/editor/browser-dedicated-audio-codec.ts';
 import { prepareStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
@@ -24,7 +25,7 @@ for (const sampleRate of [64_000, 48_000, 44_101, 38_410]) test(`FLAC exported a
 			assert.equal(prepared.descriptor.frameCount, channels.length);
 			const actual: number[] = [];
 			await prepared.stream({ chunkFrames: 1024, onChunk(chunk) { actual.push(...chunk[0]!); } });
-			assert.deepEqual(actual, [...channels]);
+			assertPcmSamplesEqual(actual, [...channels]);
 		} finally { prepared.dispose(); }
 	} finally { globalThis.fetch = originalFetch; }
 });

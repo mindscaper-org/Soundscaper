@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { inspectDecodedAudioSampleRate, inspectEncodedAudioSampleRate } from '../src/common/editor/audio-file-metadata.js';
 import { isNativeContainerAudioView, normalizeNativeContainerAudio } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { nativeIff16svFixture } from './helpers/native-iff16sv-fixture.ts';
@@ -25,8 +26,8 @@ test('IFF16SV canonical storage excludes only bounded native zero padding and re
 	const view = normalizeNativeContainerAudio(native, null, encoded);
 	assert.equal(view.length, 4800); assert.equal(view.duration, .1);
 	assert.equal(isNativeContainerAudioView(view), true); assert.equal(isNativeContainerAudioView(native), false);
-	for (let channel = 0; channel < 1; channel++) assert.deepEqual(view.getChannelData(channel), channels[channel]);
-	const exact = nativeBuffer(channels, 4800); assert.equal(normalizeNativeContainerAudio(exact, null, encoded), exact);
+	for (let channel = 0; channel < 1; channel++) assertPcmSamplesEqual(view.getChannelData(channel), channels[channel]!);
+	const exact = nativeBuffer(channels, 4800); assert.ok(normalizeNativeContainerAudio(exact, null, encoded) === exact);
 });
 
 test('native IFF16SV nonzero or unexplained endpoint and foreign geometry are refused', async () => {

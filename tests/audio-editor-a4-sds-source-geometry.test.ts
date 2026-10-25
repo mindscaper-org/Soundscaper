@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { inspectEncodedAudioSampleRate, inspectDecodedAudioSampleRate } from '../src/common/editor/audio-file-metadata.js';
 import { normalizeNativeContainerAudio, isNativeContainerAudioView } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { decodeStandaloneAudioForImport } from '../src/common/editor/controller/import/internal/standalone-audio-import-decoder.ts';
@@ -32,7 +33,7 @@ test('authenticated SDS extent removes only native zero padding and stays out of
 	const buffer = new MockAudioBuffer(1, 5120, 32_000); buffer.getChannelData(0).set(channels[0]!);
 	const view = normalizeNativeContainerAudio(buffer as unknown as AudioBuffer, null, encoded);
 	assert.equal(view.length, 4800); assert.equal(view.duration, .15); assert.equal(view.sampleRate, 32_000);
-	assert.deepEqual(view.getChannelData(0), channels[0]); assert.equal(isNativeContainerAudioView(view), true);
+	assertPcmSamplesEqual(view.getChannelData(0), channels[0]!); assert.equal(isNativeContainerAudioView(view), true);
 	assert.equal(isNativeContainerAudioView(buffer), false);
 });
 
@@ -57,7 +58,7 @@ for (const field of ['magic', 'command', 'bitwidth', 'period', 'count', 'loop', 
 		assert.equal(inspectSdsPcmSourceGeometry(file), null);
 		assert.equal(inspectEncodedAudioSampleRate(file), null); assert.equal(inspectDecodedAudioSampleRate(file), null);
 		const decoded = new MockAudioBuffer(1, 5120, 32_000);
-		assert.equal(normalizeNativeContainerAudio(decoded as unknown as AudioBuffer, null, Uint8Array.from(file).buffer), decoded);
+		assert.ok(normalizeNativeContainerAudio(decoded as unknown as AudioBuffer, null, Uint8Array.from(file).buffer) === decoded);
 	});
 }
 
@@ -70,7 +71,7 @@ test('SDS endpoint normalization refuses missing, nonzero, excessive or differen
 		assert.throws(() => normalizeNativeContainerAudio(decoded as unknown as AudioBuffer, null, encoded), /native PCM/u);
 	}
 	const exact = new MockAudioBuffer(1, 4800, 32_000);
-	assert.equal(normalizeNativeContainerAudio(exact as unknown as AudioBuffer, null, encoded), exact);
+	assert.ok(normalizeNativeContainerAudio(exact as unknown as AudioBuffer, null, encoded) === exact);
 });
 
 test('SDS packet numbers wrap in seven bits while every packet keeps its checksum', async () => {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { nativeContainerAudioAdmission, assertNativeContainerAudioGeometry } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { nativeMpegLayerOneFixture } from './helpers/native-mpeg-layer-one-fixture.ts';
 import { createAudioEditorController, createMemoryEngine, createTwoTrackFixture, ENGLISH_COPY, MockAudioBuffer } from './helpers/audio-editor-multitrack-selection-harness.js';
@@ -18,7 +19,7 @@ for (const generic of [false, true]) test(`File Import retains native LayerI PCM
 	const engine = Object.assign(createMemoryEngine(), { async getAudioContext() { return { sampleRate: 44_100,
 		createBuffer: (count: number, frames: number, rate: number) => new MockAudioBuffer(count, frames, rate) }; },
 	async decodeAudioData(bytes: ArrayBuffer, options: Readonly<{ sampleRate: number | null }>) {
-		assert.equal(options.sampleRate, 32_000); assert.deepEqual(Buffer.from(bytes), Buffer.from(await original.arrayBuffer())); decodes++; return input;
+		assert.equal(options.sampleRate, 32_000); assert.ok(Buffer.from(bytes).equals(Buffer.from(await original.arrayBuffer()))); decodes++; return input;
 	} });
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const controller = createAudioEditorController(null, { headless: true, copy: ENGLISH_COPY, locale: 'en', store,
@@ -29,7 +30,7 @@ for (const generic of [false, true]) test(`File Import retains native LayerI PCM
 		const source = project.sources[0]!; assert.equal(source.sampleRate, 32_000); assert.equal(source.frameCount, 18_816); assert.equal(source.channelCount, 2);
 		const actual: number[][] = [[], []];
 		for await (const chunk of store.readSourceChunks(source.storageKey)) for (let channel = 0; channel < 2; channel++) actual[channel]!.push(...chunk.channels[channel]!);
-		assert.deepEqual(actual, channels.map(channel => [...channel]));
+		assertPcmChannelsEqual(actual, channels.map(channel => [...channel]));
 	} finally { await controller.dispose(); }
 });
 

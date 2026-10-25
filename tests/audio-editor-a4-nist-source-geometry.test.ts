@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { inspectDecodedAudioSampleRate, inspectEncodedAudioSampleRate } from '../src/common/editor/audio-file-metadata.js';
 import { isNativeContainerAudioView, normalizeNativeContainerAudio } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { nativeNistFixture } from './helpers/native-nist-fixture.ts';
@@ -34,8 +35,8 @@ test('NIST canonical PCM stops at its declared sample count and cannot enter the
 	const view = normalizeNativeContainerAudio(native, null, await file.arrayBuffer());
 	assert.equal(view.length, 4800); assert.equal(view.duration, .1);
 	assert.equal(isNativeContainerAudioView(view), true); assert.equal(isNativeContainerAudioView(native), false);
-	for (let channel = 0; channel < 2; channel++) assert.deepEqual(view.getChannelData(channel), channels[channel]);
-	const exact = nativeBuffer(channels, 4800); assert.equal(normalizeNativeContainerAudio(exact, null, await file.arrayBuffer()), exact);
+	for (let channel = 0; channel < 2; channel++) assertPcmSamplesEqual(view.getChannelData(channel), channels[channel]!);
+	const exact = nativeBuffer(channels, 4800); assert.ok(normalizeNativeContainerAudio(exact, null, await file.arrayBuffer()) === exact);
 });
 
 test('nonzero or unexplained native NIST endpoint and foreign geometry are refused', async () => {

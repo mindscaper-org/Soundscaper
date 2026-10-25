@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { nativeContainerAudioAdmission, normalizeNativeContainerAudio, assertNativeContainerAudioGeometry, isNativeContainerAudioView } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { admitsNativeSurroundVorbisBackend, nativeSurroundVorbisAdmission } from '../src/common/editor/controller/import/internal/native-surround-vorbis-admission.ts';
 import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from '../src/common/editor/desktop-main-audio-codec-runtime-marker.ts';
@@ -51,13 +52,13 @@ test('the native final-frame view copies only granule-authoritative samples with
 	};
 	const view = normalizeNativeContainerAudio(native, admission);
 	assert.equal(isNativeContainerAudioView(view), true); assert.equal(isNativeContainerAudioView(native), false);
-	assert.equal(view.length, 4800); assert.equal(view.duration, .1); assert.equal(view.getChannelData(5).buffer, channels[5]!.buffer);
-	assert.deepEqual(view.getChannelData(5), channels[5]!.subarray(0, 4800));
+	assert.equal(view.length, 4800); assert.equal(view.duration, .1); assert.ok(view.getChannelData(5).buffer === channels[5]!.buffer);
+	assertPcmSamplesEqual(view.getChannelData(5), channels[5]!.subarray(0, 4800));
 	assert.doesNotThrow(() => assertNativeContainerAudioGeometry(view, admission));
 	const target = new Float32Array(3).fill(-99); view.copyFromChannel(target, 5, 4799);
 	assert.equal(target[0], channels[5]![4799]); assert.deepEqual([...target.subarray(1)], [-99, -99]);
 	view.copyToChannel(Float32Array.of(.1, .2), 5, 4799); assert.equal(channels[5]![4800], Math.fround(.7));
-	assert.equal(normalizeNativeContainerAudio(native, null), native);
+	assert.ok(normalizeNativeContainerAudio(native, null) === native);
 	for (const changed of [{ ...native, length: 4802 }, { ...native, length: 4799 }, { ...native, sampleRate: 44_100 }, { ...native, numberOfChannels: 2 }]) {
 		assert.throws(() => assertNativeContainerAudioGeometry(normalizeNativeContainerAudio(changed, admission), admission), /geometry/u);
 	}
