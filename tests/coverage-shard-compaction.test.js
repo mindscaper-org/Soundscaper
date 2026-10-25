@@ -33,8 +33,8 @@ test('compaction sums the ranges every process recorded for the same script', ()
 	const root = makeWorkspace();
 	const temporaryDirectory = join(root, 'v8');
 	mkdirSync(temporaryDirectory);
-	const scriptUrl = `${pathToFileURL(root).href}/src/shared.ts`;
-	const sourceMap = { lineLengths: [10], data: { version: 3 }, url: scriptUrl };
+	const scriptUrl = `${pathToFileURL(root).href}/src/shared.mjs`;
+	const sourceMap = { lineLengths: [100], data: { version: 3 }, url: scriptUrl };
 
 	writeProfile(temporaryDirectory, 'first.json', {
 		result: [
