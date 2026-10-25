@@ -12,11 +12,9 @@ export async function exportSamples(page, editor) {
 	await expect.poll(() => link.getAttribute('href')).not.toBe(previousDownload);
 	const bytes = await readDownloadBytes(page, link);
 	const samples = await page.evaluate(async data => {
-		const context = new AudioContext({ sampleRate: 48_000 });
-		try {
-			const audio = await context.decodeAudioData(new Uint8Array(data).buffer);
-			return Array.from(audio.getChannelData(0));
-		} finally { await context.close(); }
+		const context = new OfflineAudioContext(1, 1, 48_000);
+		const audio = await context.decodeAudioData(new Uint8Array(data).buffer);
+		return Array.from(audio.getChannelData(0));
 	}, Array.from(bytes));
 	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 	return samples;

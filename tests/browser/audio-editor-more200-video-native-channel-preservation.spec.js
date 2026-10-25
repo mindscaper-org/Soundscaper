@@ -9,10 +9,15 @@ test('File Import and native Save retain all six channels extracted from an ordi
 	const file = await surroundAvWebmFixture(); const bytes = new Uint8Array(await file.arrayBuffer());
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const expected = await page.evaluate(async data => {
+		// Match the importer's native decoder with a live audio backend. WebKit
+		// can leave an unsupported WebM decode pending on an inactive context.
+		const context = new AudioContext({ sampleRate: 48_000 });
 		try {
-			const context = new OfflineAudioContext(6, 1, 48_000); const audio = await context.decodeAudioData(Uint8Array.from(data).buffer);
+			await context.resume();
+			const audio = await context.decodeAudioData(Uint8Array.from(data).buffer);
 			return { supported: true, sampleRate: audio.sampleRate, frames: audio.length, channels: Array.from({ length: audio.numberOfChannels }, (_, channel) => [...audio.getChannelData(channel)]) };
 		} catch (error) { return { supported: false, error: `${error.name}: ${error.message}` }; }
+		finally { await context.close(); }
 	}, [...bytes]);
 	if (expected.supported) { expect(expected).toMatchObject({ sampleRate: 48_000, frames: 3840 }); expect(expected.channels).toHaveLength(6); }
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(bytes) });

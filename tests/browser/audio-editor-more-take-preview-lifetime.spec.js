@@ -8,7 +8,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject, SCAPE_MIME_TYPE } from '../../src/common/editor/scape-project.js';
 
 async function archives() {
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
 	try {
 		const source = createAudioSource({ id: 'take-source', storageKey: 'take-source', name: 'Take', frameCount: 480_000, channelCount: 1, sampleRate: 48_000 });
 		const writer = await store.beginSourceWrite(source.id, source);

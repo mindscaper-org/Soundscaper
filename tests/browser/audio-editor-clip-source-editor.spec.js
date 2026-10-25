@@ -206,6 +206,13 @@ test.describe('clip source editor', () => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [longTone]);
+		// Keep the timeline running while coverage checkpoints retire the source
+		// worklet; the transport assertions should not race the recording's end.
+		await chooseCommandAction(page, editor, 'Select', 'Select all');
+		await chooseNestedCommandAction(page, editor, 'Select', ['Loop region', 'Set loop to selection']);
+		const mainTransport = editor.locator('.kw-audio-editor__transport');
+		const timelineLoop = mainTransport.getByRole('button', { name: 'Loop selection', exact: true });
+		if (await timelineLoop.getAttribute('aria-pressed') !== 'true') await timelineLoop.click();
 		const panel = await openSourceMonitor(page, editor, clipByName(editor, longTone.name));
 		const vertical = panel.getByRole('region', { name: 'Source vertical ruler', exact: true });
 		await vertical.click({ button: 'right' });
@@ -225,7 +232,6 @@ test.describe('clip source editor', () => {
 		await propertiesBody.press('Space');
 		await expect(panel.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 		await expect.poll(() => ruler.getAttribute('aria-valuenow')).not.toBe('0');
-		const mainTransport = editor.locator('.kw-audio-editor__transport');
 		await expect(mainTransport.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 		await propertiesBody.press('Space');
 		await expect(panel.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
