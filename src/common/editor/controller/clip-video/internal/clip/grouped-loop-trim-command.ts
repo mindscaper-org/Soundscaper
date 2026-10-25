@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { frozenRecordIdIndex, hasOwnDataValue } from '../../../../frozen-record-id-index.ts';
 import { clipHasLoopRepeats, readClipLoop, trimClipLoopPeriod } from '../../../../audio-clip-loop.ts';
 import { resolveAudioWarpGroupTrimDelta } from '../../../../audio-warp-clip-edit.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
@@ -16,8 +17,13 @@ export function prepareGroupedLoopTrimCommand(
 	minimumDurationFrames = 1,
 ): AudioEditorCommand | null {
 	let lowerBound = -Infinity, upperBound = Infinity;
+	const descriptor = Object.getOwnPropertyDescriptor(project, 'sources');
+	const sources = descriptor && Object.hasOwn(descriptor, 'value') && Array.isArray(descriptor.value)
+		? descriptor.value as ClipTransformProject['sources'] : null;
+	const indexed = sources ? frozenRecordIdIndex(sources) : null;
 	const sourceCount = (clip: ClipTransformClip) => {
-		const source = project.sources.find(value => value.id === clip.sourceId);
+		const source = indexed && hasOwnDataValue(project, 'sources', sources) ? indexed.get(clip.sourceId)
+			: project.sources.find(value => value.id === clip.sourceId);
 		if (!source) throw new Error('Clip source not found.');
 		return clipTrimSourceFrameCount(source);
 	};

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { clipSelectionMembership } from './clip-selection-membership.ts';
 import type { ClipTransformProject, ClipTransformSelection } from './clip-domain-types.ts';
 
 export interface ClipMoveOptions {
@@ -23,8 +24,12 @@ export function clipMoveSelection(
 	return {
 		...project.selection,
 		clipIds: [...clipIds],
-		trackIds: project.tracks.filter((track) => (
-			track.clipIds?.some((clipId) => clipIds.includes(clipId))
-		)).map((track) => track.id),
+		trackIds: selectedTrackIds(project, clipIds),
 	};
+}
+
+function selectedTrackIds(project: ClipTransformProject, clipIds: readonly string[]): string[] {
+	const selected = clipSelectionMembership(project.tracks, clipIds);
+	return project.tracks.filter(track => track.clipIds?.some(id => selected ? selected.has(id) : clipIds.includes(id)))
+		.map(track => track.id);
 }
