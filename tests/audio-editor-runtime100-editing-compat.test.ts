@@ -5,6 +5,7 @@ import test from 'node:test';
 import { preparePunchCommand } from '../src/common/editor/commands/range-runtime.js';
 import { assertPasteSequenceMaps, preparePasteAnnotationMaps } from '../src/common/editor/commands/clipboard-annotation-command.ts';
 import { clipMoveSelection } from '../src/common/editor/controller/clip-video/internal/clip/clip-move-options.ts';
+import { prepareMediaNewTrackPlan } from '../src/common/editor/controller/clip-video/internal/clip/media-new-track-plan.ts';
 import type { AudioEditorClipboard } from '../src/common/editor/commands/protocol.ts';
 import type { ClipTransformProject } from '../src/common/editor/controller/clip-video/internal/clip/clip-domain-types.ts';
 import { mixerAssignmentIndex } from '../src/common/editor/mixer-assignment-index.ts';
@@ -65,6 +66,25 @@ test('selection membership keeps live getter order and custom includes authority
 	const custom = ['absent'];
 	Object.defineProperty(custom, 'includes', { value: () => true });
 	assert.deepEqual(clipMoveSelection(commandFixture(2, 2) as unknown as ClipTransformProject, custom, { allOnTrack: true })?.trackIds, ['track-0', 'track-1']);
+});
+
+test('E12 move-selection reads the track inventory accessor once', () => {
+	const project = commandFixture(2, 2) as unknown as ClipTransformProject;
+	const tracks = project.tracks;
+	let reads = 0;
+	Object.defineProperty(project, 'tracks', { get() { reads++; return reads === 1 ? tracks : []; } });
+	assert.deepEqual(clipMoveSelection(project, ['clip-0'], { allOnTrack: true })?.trackIds, ['track-0']);
+	assert.equal(reads, 1);
+});
+
+test('E13 media new-track planning preserves authored track inventory accessor reads', () => {
+	const project = commandFixture(2, 2) as unknown as ClipTransformProject;
+	const tracks = project.tracks;
+	let reads = 0;
+	Object.defineProperty(project, 'tracks', { get() { reads++; return tracks; } });
+	assert.equal(prepareMediaNewTrackPlan(project, [project.clips[0]!], () => 'new-track', 'Audio').commands.length, 1);
+	// The audio name also reads project.tracks.length inside its authored creation branch.
+	assert.equal(reads, 3);
 });
 
 test('annotation destination maps preserve first sequence authority and missing new-track diagnostics', () => {

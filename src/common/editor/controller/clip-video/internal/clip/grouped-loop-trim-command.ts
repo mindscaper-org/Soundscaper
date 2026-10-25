@@ -22,7 +22,8 @@ export function prepareGroupedLoopTrimCommand(
 		? descriptor.value as ClipTransformProject['sources'] : null;
 	const indexed = sources ? frozenRecordIdIndex(sources) : null;
 	const sourceCount = (clip: ClipTransformClip) => {
-		const source = indexed && hasOwnDataValue(project, 'sources', sources) ? indexed.get(clip.sourceId)
+		const identity = indexed && hasOwnDataValue(project, 'sources', sources) ? Object.getOwnPropertyDescriptor(clip, 'sourceId') : undefined;
+		const source = identity && Object.hasOwn(identity, 'value') && typeof identity.value === 'string' ? indexed!.get(identity.value)
 			: project.sources.find(value => value.id === clip.sourceId);
 		if (!source) throw new Error('Clip source not found.');
 		return clipTrimSourceFrameCount(source);

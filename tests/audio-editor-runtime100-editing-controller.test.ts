@@ -51,6 +51,26 @@ test('E14 grouped loop trim prepares source bounds from one immutable source ind
 	assert.ok(count < 1000);
 });
 
+test('E14 grouped trim preserves per-candidate source identity getter reads', () => {
+	for (const dynamic of [false, true]) {
+		const run = (frozen: boolean) => {
+			const original = fixture(1);
+			const sources = ['first', 'second'].map(id => Object.freeze({ id, frameCount: 100000, sampleRate: 48000 }));
+			if (frozen) Object.freeze(sources);
+			let sourceReads = 0;
+			const clip = { ...original.clips[0]!, get sourceId() { sourceReads++; return dynamic && sourceReads === 1 ? 'missing' : 'second'; } };
+			let command: unknown, error: unknown;
+			try { command = prepareGroupedLoopTrimCommand({ ...original, sources }, [clip], 'right', 1); }
+			catch (failure) { assert.ok(failure instanceof Error); error = { name: failure.name, message: failure.message }; }
+			return { command, error, sourceReads };
+		};
+		const legacy = run(false);
+		assert.equal(legacy.error, undefined);
+		assert.ok(legacy.command);
+		assert.deepEqual(run(true), legacy);
+	}
+});
+
 test('E15 track duplication prepares lane-group completeness once', context => {
 	const original = commandFixture(200, 200);
 	for (let index = 0; index < original.tracks.length; index++) { const track = original.tracks[index]!; track.laneGroupId = `lanes-${Math.floor(index / 2)}`; Object.freeze(track); }

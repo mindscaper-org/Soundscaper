@@ -29,7 +29,8 @@ export function clipMoveSelection(
 }
 
 function selectedTrackIds(project: ClipTransformProject, clipIds: readonly string[]): string[] {
-	const selected = clipSelectionMembership(project.tracks, clipIds);
-	return project.tracks.filter(track => track.clipIds?.some(id => selected ? selected.has(id) : clipIds.includes(id)))
+	const tracks = project.tracks;
+	const selected = clipSelectionMembership(tracks, clipIds);
+	return tracks.filter(track => track.clipIds?.some(id => selected ? selected.has(id) : clipIds.includes(id)))
 		.map(track => track.id);
 }

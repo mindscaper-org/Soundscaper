@@ -19,8 +19,9 @@ export function clipNewTrackSequencePlacement(project: ClipTransformProject, sou
 /** Derive destinations for picture-bearing clip moves, including image-only rows. */
 export function prepareMediaNewTrackPlan(project: ClipTransformProject, clips: readonly ClipTransformClip[],
 	createId: (prefix: string) => string, trackName: string) {
-	const selected = clipSelectionMembership(project.tracks, clips);
-	const movingTrackIds = new Set(project.tracks.filter(track => (
+	const tracks = project.tracks;
+	const selected = clipSelectionMembership(tracks, clips);
+	const movingTrackIds = new Set(tracks.filter(track => (
 		track.clipIds?.some(id => selected ? selected.has(id) : clips.some(clip => clip.id === id))
 	)).map(track => track.id));
 	const destinationTrackIds = new Map<string, string>();
