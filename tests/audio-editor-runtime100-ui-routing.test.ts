@@ -3,15 +3,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateSoundscaperRoutingFolderAuthority } from '../src/common/editor/ui/workspace/soundscaper-routing-folder-authority.ts';
 import { layoutSoundscaperRoutingGraph } from '../src/common/editor/ui/workspace/soundscaper-routing-graph-layout.ts';
-import { createDefaultMixerGraphV21, type MixerGraphV21, type MixerEdgeV21 } from '../src/common/editor/mixer-graph-v21.ts';
+import { createDefaultMixerGraphV21, type MixerGraphV21, type MixerEdgeV21, type MixerStripV21 } from '../src/common/editor/mixer-graph-v21.ts';
+
+function strip(id: string, name: string): MixerStripV21 {
+	return { id, name, channelCount: 2, color: '#000000', gain: 1, pan: 0, mute: false, solo: false, collapsed: false, effectsActive: true, effects: [] };
+}
 
 function folderFixture(count: number, shared = false) {
 	const tracks = Array.from({ length: count }, (_, i) => ({ id: `t${i}`, type: 'audio', clipIds: [] }));
 	const trackFolders = tracks.map((_, i) => ({ id: `f${i}` }));
-	const groups = trackFolders.map(({ id }) => ({ id, name: id, channelCount: 2 }));
+	const groups = trackFolders.map(({ id }) => strip(id, id));
 	const trackNodes = [...trackFolders.map(({ id }, i) => ({ kind: 'folder', id, parentFolderId: shared && i ? `f${i - 1}` : null })), ...tracks.map(({ id }, i) => ({ kind: 'track', id, parentFolderId: shared ? `f${count - 1}` : `f${i}` }))];
 	const edges: MixerEdgeV21[] = [...tracks.map(({ id }, i) => edge(`assignment:track:${id}:mixer-node:f${shared ? count - 1 : i}`, { kind: 'track', id }, { kind: 'mixer-node', id: `f${shared ? count - 1 : i}` })), ...trackFolders.map(({ id }, i) => edge(`assignment:mixer-node:${id}:${shared && i ? `mixer-node:f${i - 1}` : 'master'}`, { kind: 'mixer-node', id }, shared && i ? { kind: 'mixer-node', id: `f${i - 1}` } : { kind: 'master' }))];
-	const graph = { ...createDefaultMixerGraphV21([]), groups, edges } as unknown as MixerGraphV21;
+	const graph: MixerGraphV21 = { ...createDefaultMixerGraphV21([]), groups, edges };
 	return { project: { tracks, trackFolders, sequences: [{ trackNodes }], mixer: graph }, graph };
 }
 function edge(id: string, source: MixerEdgeV21['source'], destination: MixerEdgeV21['destination']): MixerEdgeV21 {
@@ -38,11 +42,11 @@ void test('U06 routing folder discovery stops at already traversed shared ancest
 
 function graphFixture() {
 	const tracks = Array.from({ length: 60 }, (_, i) => ({ id: `t${i}`, type: 'audio', clipIds: [] }));
-	const groups = tracks.map((_, i) => ({ id: `g${i}`, name: `G${i}`, channelCount: 2 }));
+	const groups = tracks.map((_, i) => strip(`g${i}`, `G${i}`));
 	const base = createDefaultMixerGraphV21(tracks);
 	const edges = [...base.edges.filter(({ source }) => source.kind === 'master'), ...groups.flatMap(({ id }, i) => [edge(`e${i}`, { kind: 'track', id: `t${59 - i}` }, { kind: 'mixer-node', id }), edge(`m${i}`, { kind: 'mixer-node', id }, { kind: 'master' })])];
-	const vcas = tracks.map(({ id }, i) => ({ id: `v${i}`, name: id, gain: 1, mute: false, members: [{ kind: 'track', id }] }));
-	const graph = { ...base, groups, edges, vcas } as MixerGraphV21;
+	const vcas = tracks.map(({ id }, i) => ({ id: `v${i}`, name: id, gain: 1, mute: false, members: [{ kind: 'track' as const, id }] }));
+	const graph: MixerGraphV21 = { ...base, groups, edges, vcas };
 	return { graph, project: { tracks, clips: [], sources: [], mixer: graph } };
 }
 void test('U07 routing graph sorts predecessor medians once per node instead of comparator call', t => {

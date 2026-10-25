@@ -18,7 +18,7 @@ void test('R11 memory pruning partitions source chunk keys once for all deleted 
 	}
 	memory.sources.set('keep', { id: 'keep', sourceToken: 'keep-token', committedAt: '2020-01-01T00:00:00.000Z' }); memory.sourceChunks.set('keep:0', { sourceToken: 'keep-token', channels: [Float32Array.of(0.5)] });
 	let visits = 0; const original = memory.sourceChunks[Symbol.iterator].bind(memory.sourceChunks);
-	memory.sourceChunks[Symbol.iterator] = function* () { for (const entry of original()) { visits++; yield entry; } };
+	memory.sourceChunks[Symbol.iterator] = function* (): Generator<[string, unknown], undefined, unknown> { for (const entry of original()) { visits++; yield entry; } return undefined; };
 	try { const result = await store.pruneUnreferencedSources({ protectedSourceIds: ['keep'], minimumAgeMs: 0 }); assert.equal(result.deletedSourceIds.length, 40); assert.deepEqual([...memory.sourceChunks.keys()], ['keep:0']); t.diagnostic(`chunk iterator visits ${visits}`); assert.ok(visits <= 801); }
 	finally { delete (memory.sourceChunks as Partial<Map<string, unknown>>)[Symbol.iterator]; await store.close(); }
 });

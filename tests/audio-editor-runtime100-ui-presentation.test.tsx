@@ -35,7 +35,7 @@ void test('U19 keyboard-map modifier changes reuse the owned extra-key rows', as
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }; const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	const { createRoot } = await import('react-dom/client'); const root = createRoot(dom.container as unknown as Element);
 	let flats = 0; const original = Array.prototype.flat;
-	Array.prototype.flat = function(this: unknown[], depth?: number): unknown[] { if (this === KEYBOARD_MAP_ROWS) flats++; return original.call(this, depth) as unknown[]; };
+	Array.prototype.flat = function<A, D extends number = 1>(this: A, depth?: D): FlatArray<A, D>[] { if (Object.is(this, KEYBOARD_MAP_ROWS)) flats++; return Reflect.apply(original, this, [depth]) as FlatArray<A, D>[]; };
 	try {
 		await act(async () => root.render(<KeyboardMapDialog commands={[{ id: 'cut', label: 'Cut', categoryId: 'edit', categoryLabel: 'Edit' }]} shortcuts={{ cut: ['Ctrl+X'] }} copy={{}} onClose={() => {}} />));
 		const initial = flats; const modifier = dom.one('[data-state="Ctrl"]');
@@ -51,12 +51,12 @@ void test('U20 custom action search reuses bounded frozen action text over repea
 });
 void test('U21 symbol searches reuse bounded normalized glyph names', t => {
 	let replacements = 0; const original = String.prototype.replaceAll;
-	String.prototype.replaceAll = function(this: string, ...args: Parameters<typeof original>): string { if (String(this).startsWith('SYMBOL_')) replacements++; return original.apply(this, args); };
+	String.prototype.replaceAll = function(this: string, search: string | RegExp, replacement: string | ((substring: string, ...args: unknown[]) => string)): string { if (String(this).startsWith('SYMBOL_')) replacements++; return Reflect.apply(original, this, [search, replacement]) as string; };
 	try { const find = prepareCustomToolbarSymbolSearch(Object.freeze(Array.from({ length: 200 }, (_, i) => `SYMBOL_${i}`))); for (let i = 0; i < 30; i++) assert.deepEqual(find(' symbol_199 '), ['SYMBOL_199']); } finally { String.prototype.replaceAll = original; }
 	t.diagnostic(`symbol normalization calls ${replacements}`); assert.equal(replacements, 200);
 });
 void test('U22 translation option-source presentation shares the current draft reader', t => {
-	let reads = 0; const draft = { ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: Object.freeze(Array.from({ length: 200 }, (_, i) => new Proxy(Object.freeze({ key: `k${i}`, source: `Source ${i}`, translation: 'Text' }), { get(target, key, receiver) { if (key === 'key') reads++; return Reflect.get(target, key, receiver) as unknown; } }))) };
+	let reads = 0; const draft = { ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: Object.freeze(Array.from({ length: 200 }, (_, i) => new Proxy(Object.freeze({ key: `k${i}`, source: `Source ${i}`, baselineText: '', baselineEntry: null, translation: 'Text' }), { get(target, key, receiver) { if (key === 'key') reads++; return Reflect.get(target, key, receiver) as unknown; } }))) };
 	const read = createCommunityTranslationDraftReader(draft); for (let i = 0; i < 200; i++) assert.equal(read(`k${i}`)?.source, `Source ${i}`);
 	t.diagnostic(`draft option key reads ${reads}`); assert.ok(reads <= 400);
 });
@@ -84,8 +84,8 @@ void test('prepared dialog search respects mutable, accessor and entry/character
 	assert.equal(oversized('xxx').length, 1);
 	const symbols = Object.freeze(Array.from({ length: 16_385 }, (_, i) => `SYMBOL_${i}`));
 	assert.deepEqual(prepareCustomToolbarSymbolSearch(symbols)('symbol_16384'), ['SYMBOL_16384']);
-	const draft = { ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: [{ key: 'before', source: 'A', translation: 'B' }] };
-	const read = createCommunityTranslationDraftReader(draft); draft.entries = [{ key: 'after', source: 'C', translation: 'D' }];
+	const draft = { ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: [{ key: 'before', source: 'A', baselineText: '', baselineEntry: null, translation: 'B' }] };
+	const read = createCommunityTranslationDraftReader(draft); draft.entries = [{ key: 'after', source: 'C', baselineText: '', baselineEntry: null, translation: 'D' }];
 	assert.equal(read('before'), undefined); assert.equal(read('after')?.source, 'C');
 });
 void test('retired dialog search and binding projections do not keep source inventories alive', async () => {
@@ -93,7 +93,7 @@ void test('retired dialog search and binding projections do not keep source inve
 	function retired() {
 		const action = Object.freeze({ actionId: 'a', path: Object.freeze(['Edit']), label: 'A', disabled: false });
 		const actions = Object.freeze([action]); prepareCustomToolbarActionSearch(actions)('edit');
-		const entry = Object.freeze({ key: 'k', source: 'S', translation: 'T' });
+		const entry = Object.freeze({ key: 'k', source: 'S', baselineText: '', baselineEntry: null, translation: 'T' });
 		const draft = Object.freeze({ ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: Object.freeze([entry]) });
 		createCommunityTranslationDraftReader(draft)('k');
 		const binding = { id: 'b', key: 'K', state: 'plain', context: 'edit', contextLabel: 'Edit', action: 'A', text: 'K' };
@@ -105,8 +105,8 @@ void test('retired dialog search and binding projections do not keep source inve
 	for (const reference of references) assert.equal(reference.deref(), undefined);
 });
 void test('noncanonical frozen dialog inventories retain native lookup and fresh string coercion', () => {
-	const entry = Object.freeze({ key: 'first', source: 'S', translation: 'T' });
-	const other = Object.freeze({ key: 'iterator-only', source: 'X', translation: 'Y' });
+	const entry = Object.freeze({ key: 'first', source: 'S', baselineText: '', baselineEntry: null, translation: 'T' });
+	const other = Object.freeze({ key: 'iterator-only', source: 'X', baselineText: '', baselineEntry: null, translation: 'Y' });
 	const entries = [entry]; Object.defineProperty(entries, Symbol.iterator, { value: function* () { yield other; } }); Object.freeze(entries);
 	const draft = Object.freeze({ ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries });
 	assert.equal(createCommunityTranslationDraftReader(draft)('first'), entry);

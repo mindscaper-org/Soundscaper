@@ -27,10 +27,10 @@ void test('U03 cycle menu counts sequence membership once per publication, inclu
 void test('U04 translation message filtering indexes draft entries once with first duplicate authority', t => {
 	const snapshot = createContributionSnapshot('fr', Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`k${i}`, `Source ${i}`])), {});
 	let reads = 0;
-	const draft = { ...createTranslationDraft(snapshot), entries: Array.from({ length: 200 }, (_, i) => ({ get key() { reads++; return `k${i}`; }, source: `Source ${i}`, translation: `Translation ${i}` })) };
+	const draft = { ...createTranslationDraft(snapshot), entries: Array.from({ length: 200 }, (_, i) => ({ get key() { reads++; return `k${i}`; }, source: `Source ${i}`, baselineText: '', baselineEntry: null, translation: `Translation ${i}` })) };
 	const result = communityTranslationMessageKeys(snapshot, draft, { query: 'Translation', filter: 'all', reviewKeys: new Set(), locale: 'fr' }, {});
 	assert.equal(result.length, 200); t.diagnostic(`draft key reads ${reads}`); assert.ok(reads <= 400);
-	const duplicate = { ...draft, entries: [{ key: 'k1', source: 'Source 1', translation: 'first' }, { key: 'k1', source: 'Source 1', translation: 'second' }] };
+	const duplicate = { ...draft, entries: [{ key: 'k1', source: 'Source 1', baselineText: '', baselineEntry: null, translation: 'first' }, { key: 'k1', source: 'Source 1', baselineText: '', baselineEntry: null, translation: 'second' }] };
 	assert.deepEqual(communityTranslationMessageKeys(snapshot, duplicate, { query: 'second', filter: 'all', reviewKeys: new Set(), locale: 'fr' }, {}), []);
 });
 
@@ -86,7 +86,7 @@ function countLocaleCalls(run: () => unknown): number {
 	return calls;
 }
 void test('U15 alphabetical Effect menu shares one locale comparator', () => {
-	const effectLabels = new Map((EFFECT_MENU_GROUPS as readonly (readonly [string, readonly string[]])[]).flatMap(([, ids]) => ids).map(id => [id, id]));
+	const effectLabels = new Map(EFFECT_MENU_GROUPS.flatMap(([, ids]) => Array.isArray(ids) ? ids : []).map(id => [id, id] as const));
 	assert.equal(countLocaleCalls(() => { const result = createEffectMenuEntries({ organization: 'sortby:name', copy: {}, effectLabels, productId: 'soundscaper', disabled: false }, () => {}); assert.ok(result.length > 2); }), 0);
 });
 void test('U16 assistance alphabetical effect block shares a locale comparator and retains management positions', () => {
@@ -109,6 +109,6 @@ void test('U24 stereo meter presentation never slices its channel snapshot', () 
 void test('U30 source-editor segment projection avoids spreading discarded flank segments', t => {
 	let reads = 0;
 	const clip = { id: 'c', sourceId: 's', timelineStartFrame: 0, durationFrames: 100, sourceStartFrame: 0, sourceDurationFrames: 100, get arbitraryMetadata() { reads++; return 'large'; } };
-	const result = clipSourceSegments(clip as never, { frameCount: 100, sampleRate: 48_000 }, 48_000);
+	const result = clipSourceSegments(clip, { frameCount: 100, sampleRate: 48_000 }, 48_000);
 	assert.equal(result.length, 1); assert.equal(result[0]?.id, 'c:source'); t.diagnostic(`metadata spreads ${reads}`); assert.equal(reads, 1);
 });
