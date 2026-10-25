@@ -7,6 +7,9 @@ const MAXIMUM_OUTPUT_BYTES = 128 * 1024 * 1024;
 
 interface VideoContainerAudioTiming {
 	readonly offsetSeconds: number;
+	readonly audioTrackCount: number;
+	/** A native decoder may choose any programme only when all have these timings. */
+	readonly nativeTimingShared: boolean;
 	/** Authenticated ISO AAC-LC presentation end, relative to picture zero. */
 	readonly programmeEndSeconds: number | null;
 }
@@ -17,12 +20,13 @@ export async function readVideoContainerAudioOffset(blob: Blob, signal?: AbortSi
 }
 
 /** Inspect programme end only where the container declares the decoded AAC extent. */
-export async function readVideoContainerAudioTiming(blob: Blob, signal?: AbortSignal): Promise<VideoContainerAudioTiming> {
-	return inspectVideoContainerAudioTiming(blob, signal, true);
+export async function readVideoContainerAudioTiming(blob: Blob, signal?: AbortSignal,
+	selection: 'primary' | 'first' = 'primary'): Promise<VideoContainerAudioTiming> {
+	return inspectVideoContainerAudioTiming(blob, signal, true, selection);
 }
 
 async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal | undefined,
-	includeProgrammeEnd: boolean): Promise<VideoContainerAudioTiming> {
+	includeProgrammeEnd: boolean, selection: 'primary' | 'first' = 'primary'): Promise<VideoContainerAudioTiming> {
 	throwIfAborted(signal);
 	const { BlobSource, Input, MATROSKA, MP4, QTFF, WEBM } = await import('mediabunny');
 	throwIfAborted(signal);
@@ -30,8 +34,11 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 	const onAbort = (): void => input.dispose();
 	signal?.addEventListener('abort', onAbort, { once: true });
 	try {
-		const [audio, video] = await Promise.all([input.getPrimaryAudioTrack(), input.getPrimaryVideoTrack()]);
-		if (!audio || !video) return { offsetSeconds: 0, programmeEndSeconds: null };
+		// getAudioTracks preserves file order, matching FFmpeg's explicit 0:a:0.
+		const [tracks, video] = await Promise.all([input.getAudioTracks(), input.getPrimaryVideoTrack()]);
+		const audio = selection === 'first' ? tracks[0] : await input.getPrimaryAudioTrack();
+		const audioTrackCount = tracks.length;
+		if (!audio || !video) return { offsetSeconds: 0, programmeEndSeconds: null, audioTrackCount, nativeTimingShared: audioTrackCount <= 1 };
 		const [audioStart, videoStart] = await Promise.all([audio.getFirstTimestamp(), video.getFirstTimestamp()]);
 		throwIfAborted(signal);
 		if (!Number.isFinite(audioStart) || !Number.isFinite(videoStart)) throw new RangeError('Invalid container audio timing.');
@@ -51,8 +58,24 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 				}
 			} catch { throwIfAborted(signal); }
 		}
+		let nativeTimingShared = audioTrackCount <= 1;
+		if (!nativeTimingShared && programmeEndSeconds !== null) {
+			try {
+				nativeTimingShared = true;
+				for (const other of tracks) {
+					if (other.id === audio.id) continue;
+					const start = await other.getFirstTimestamp();
+					const shared = Number.isFinite(start)
+						&& Math.max(0, start) - Math.max(0, videoStart) === offsetSeconds
+						&& await other.getCodec() === 'aac' && await other.getCodecParameterString() === 'mp4a.40.2'
+						&& Math.max(0, await other.computeDuration() - Math.max(0, videoStart)) === programmeEndSeconds;
+					throwIfAborted(signal);
+					if (!shared) { nativeTimingShared = false; break; }
+				}
+			} catch { throwIfAborted(signal); nativeTimingShared = false; }
+		}
 		throwIfAborted(signal);
-		return { offsetSeconds, programmeEndSeconds };
+		return { offsetSeconds, programmeEndSeconds, audioTrackCount, nativeTimingShared };
 	} finally {
 		signal?.removeEventListener('abort', onAbort);
 		input.dispose();

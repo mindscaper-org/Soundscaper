@@ -66,24 +66,32 @@ export async function decodeImportedVideoAudio(
 		decodedAudio: { channels: [], sampleRate: options.projectSampleRate },
 		declaredAudioSampleRate: null,
 	});
-	let audioOffsetSeconds = 0, durationSeconds = options.durationSeconds;
+	let audioOffsetSeconds = 0, durationSeconds = options.durationSeconds, audioTrackCount = 0;
+	let nativeTimingShared = true;
 	try {
 		const timing = await readVideoContainerAudioTiming(options.file, options.signal);
 		audioOffsetSeconds = timing.offsetSeconds;
+		audioTrackCount = timing.audioTrackCount;
+		nativeTimingShared = timing.nativeTimingShared;
 		if (timing.programmeEndSeconds !== null) durationSeconds = Math.max(durationSeconds, timing.programmeEndSeconds);
 	} catch { throwIfAborted(options.signal); }
-	const programme = durationSeconds > options.durationSeconds
-		? { programmeFrameCount: secondsToSampleFrame(durationSeconds, options.projectSampleRate, 'point') } : {};
+	const programmeFor = (duration: number) => duration > options.durationSeconds
+		? { programmeFrameCount: secondsToSampleFrame(duration, options.projectSampleRate, 'point') } : {};
+	let programme = programmeFor(durationSeconds);
 	let declaredAudioSampleRate: number | null = null;
 	try {
+		// Native decoders select different tracks across engines. Keep their path
+		// only for shared timing; the container sink explicitly selects primary.
+		if (!nativeTimingShared) throw new RangeError('Use timestamp-aware decoding for differing audio programme timing.');
 		if (options.file.size > 32 * 1024 * 1024) throw new RangeError('Use bounded container audio decoding.');
 		const encoded = await options.file.arrayBuffer();
-		declaredAudioSampleRate = options.inspectEncodedSampleRate(encoded);
+		declaredAudioSampleRate = audioTrackCount > 1 ? null : options.inspectEncodedSampleRate(encoded);
 		return Object.freeze({
 			decodedAudio: placeImportedVideoAudio(await options.decodeNative(encoded), audioOffsetSeconds, durationSeconds),
 			declaredAudioSampleRate, ...programme,
 		});
 	} catch {
+		throwIfAborted(options.signal);
 		try {
 			return Object.freeze({
 				decodedAudio: await (options.decodeContainerAudio ?? decodeBrowserContainerAudio)(options.file, {
@@ -94,6 +102,14 @@ export async function decodeImportedVideoAudio(
 			});
 		} catch {
 			throwIfAborted(options.signal);
+			if (audioTrackCount > 1) {
+				// Both maintained FFmpeg routes explicitly map 0:a:0, independent of
+				// container defaults. Its offset and source extent belong to that track.
+				const first = await readVideoContainerAudioTiming(options.file, options.signal, 'first');
+				audioOffsetSeconds = first.offsetSeconds;
+				durationSeconds = Math.max(options.durationSeconds, first.programmeEndSeconds ?? 0);
+				programme = programmeFor(durationSeconds);
+			}
 			return Object.freeze({
 				decodedAudio: placeImportedVideoAudio(await options.decodeFfmpeg(options.file, {
 					sampleRate: options.projectSampleRate,
