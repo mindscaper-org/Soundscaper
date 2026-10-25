@@ -23,6 +23,8 @@ import { formatOptionsLabel } from '../../src/common/editor/ui/localization-temp
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
 
+const syntheticRouteTest = test.extend({ browserCoverage: false });
+
 const cssColor = (hex) => `rgb(${[1, 3, 5].map((offset) =>
 	Number.parseInt(hex.slice(offset, offset + 2), 16)).join(', ')})`;
 
@@ -287,7 +289,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(editor.getByRole('button', { name: GERMAN_COPY.fullscreen, exact: true })).toBeVisible();
 	});
 
-	test('German uses JSON translations and falls back to English when an entry is stale or missing', async ({ page }) => {
+	syntheticRouteTest('German uses JSON translations and falls back to English when an entry is stale or missing', async ({ page }) => {
 		await page.route(/\/assets\/de\.json-[^/]+\.js$/u, route => route.fulfill({
 			contentType: 'text/javascript',
 			body: `export default ${JSON.stringify({ schemaVersion: 2, locale: 'de', entries: {

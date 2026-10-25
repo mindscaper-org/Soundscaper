@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 
 import {
 	audioEffectLabel, audioEffectTypes, audioSelectionEffectLabel,
@@ -24,8 +25,8 @@ test('effect and macro pickers offer only the Audacity Compressor and Limiter', 
 	]) {
 		assert.equal(audioEffectLabel(type), label);
 		assert.equal(audioSelectionEffectLabel(type), label);
-		assert.equal(audioEffectLabel(type, 'de'), german);
-		assert.equal(audioSelectionEffectLabel(type, 'de'), german);
+		assert.equal(audioEffectLabel(type, GERMAN_COPY), german);
+		assert.equal(audioSelectionEffectLabel(type, GERMAN_COPY), german);
 		assert.equal(audioEffectTypes().filter(candidate => audioEffectLabel(candidate) === label).length, 1);
 	}
 });
