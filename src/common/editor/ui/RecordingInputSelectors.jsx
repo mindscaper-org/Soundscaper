@@ -215,7 +215,8 @@ function buildChannelOptions({ sourceKey, availableChannels, channelCount, route
 	const options = [];
 	for (let channelStart = 0; channelStart + channelCount <= maximum; channelStart += channelCount) {
 		if (channelCount === 2 && channelStart % 2 !== 0) continue;
-		const conflicting = Array.from({ length: channelCount }, (_, index) => occupied.has(channelStart + index)).some(Boolean);
+		// Every caller normalizes channelCount to a mono or stereo bank.
+		const conflicting = occupied.has(channelStart) || (channelCount === 2 && occupied.has(channelStart + 1));
 		options.push({ channelStart, disabled: conflicting });
 	}
 	return options;
