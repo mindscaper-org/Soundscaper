@@ -6,7 +6,7 @@ import test from 'node:test';
 
 const ROOT = new URL('../', import.meta.url);
 const WORKFLOW_ROOT = new URL('.github/workflows/', ROOT);
-const SCRIPT_INVOCATION = /(?:^|\s)(scripts\/[\w./-]+\.mjs)\b/gmu;
+const SCRIPT_INVOCATION = /(?:^|\s)(scripts\/[\w./-]+\.(?:mjs|ts))\b/gmu;
 const INLINE_IMPORT = /from '(\.{1,2}\/[\w./-]+\.js)'/gu;
 
 const workflowNames = (await readdir(WORKFLOW_ROOT)).filter((name) => name.endsWith('.yml')).sort();

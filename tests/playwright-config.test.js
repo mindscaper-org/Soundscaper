@@ -222,7 +222,7 @@ test('desktop verification gates Electron packaging on static checks and Node te
 	for (const jobName of ['package', 'soundscaper-project-library-lease-matrix']) {
 		const needs = jobName === 'package'
 			? /needs: \[quality, tests, publish-assistance-runtime-handoff, professional-native-build, milestone-5-native-audit-source\]/u
-			: /needs: \[quality, tests\]/u;
+			: /needs: \[quality, tests, prepare-assistance-runtime-handoff\]/u;
 		assert.match(extractJob(workflow, jobName), needs);
 	}
 	assert.doesNotMatch(workflow, /^ {2}project-library-handoff:/mu);
