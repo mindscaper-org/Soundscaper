@@ -13,6 +13,12 @@
 	<main>
 		<p class="eyebrow">Soundscaper Nightly Tests</p>
 		<h1>Nightly test progress</h1>
+		<details class="controls">
+			<summary>Test suite</summary>
+			<div role="menu" aria-label="Test suite">
+				<button id="pause-resume" type="button" role="menuitem" disabled>Pause</button>
+			</div>
+		</details>
 		<p id="status" class="status" role="status" aria-live="polite">Application launched</p>
 		<progress id="progress" value="0" max="6" aria-label="Nightly test progress"></progress>
 		<p id="count" class="count">0 of 6 phases complete</p>
@@ -49,7 +55,7 @@
 				<span id="phase-count-5" class="phase-count">Waiting</span>
 			</div>
 		</section>
-		<p class="hint">This can take a while, especially while local models download and run. The result folder will be written beside this application.</p>
+		<p class="hint">This can take a while, especially while local models download and run. Pause from the Test suite menu to cancel active tests; Resume reruns them and continues. The result folder will be written beside this application.</p>
 	</main>
 </body>
 </html>

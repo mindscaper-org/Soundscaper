@@ -47,6 +47,7 @@ async function startNightlyTests() {
 	};
 	let progress = null;
 	let progressWindow = null;
+	let control = null;
 	let latestProgress = { completed: 0, total: 6, label: 'Application launched' };
 	let reportingFailure = false;
 	const updateWindow = (operation) => {
@@ -56,9 +57,11 @@ async function startNightlyTests() {
 	const reportProgress = (value) => {
 		if (reportingFailure) return;
 		latestProgress = value;
-		log(value.label);
-		progress?.update(value);
-		updateWindow((window) => window?.update(value));
+		const displayed = control?.state === 'pausing' ? { ...value, label: 'Pausing tests…' }
+			: control?.state === 'paused' ? { ...value, label: 'Tests paused' } : value;
+		log(displayed.label);
+		progress?.update(displayed);
+		updateWindow((window) => window?.update(displayed));
 	};
 	const showMessage = (options) => progressWindow && !progressWindow.window.isDestroyed()
 		? dialog.showMessageBox(progressWindow.window, options) : dialog.showMessageBox(options);
@@ -113,6 +116,8 @@ async function startNightlyTests() {
 		await app.whenReady();
 		if (reportingFailure) return;
 		if (!unattended) {
+			const { createNightlyTestsControl } = await import('./nightly-tests-control.ts');
+			control = createNightlyTestsControl({ onState: () => { reportProgress(latestProgress); } });
 			const { createDesktopNightlyTestsProgressWindow } = await import('./nightly-tests-progress-window.mjs');
 			progressWindow = await createDesktopNightlyTestsProgressWindow({
 				BrowserWindow: electron.BrowserWindow,
@@ -120,6 +125,7 @@ async function startNightlyTests() {
 				initialProgress: latestProgress,
 				icon: resolve(process.resourcesPath, 'nightly-tests/sites/soundscaper/offline-icons/soundscaper-512.png'),
 				onError: (error) => { log(`Progress renderer failed: ${errorDetails(error)}`); },
+				onControl: (action) => { control?.[action](); },
 			});
 		}
 		if (reportingFailure) return;
@@ -139,7 +145,7 @@ async function startNightlyTests() {
 			product: { id: 'soundscaper-nightly-tests', name: 'Soundscaper Nightly Tests', version: applicationVersion },
 			environment: process.env, platform: process.platform, arch: process.arch,
 			sourceRevision, onProgress: reportProgress,
-		});
+		}, control ? { runPlaywright: control.runPlaywright } : {});
 		if (reportingFailure) return;
 		const status = run.result?.status ?? (run.exitCode === 0 ? 'passed' : 'failed');
 		const terminalProgress = {

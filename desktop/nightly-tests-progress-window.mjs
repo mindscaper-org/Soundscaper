@@ -24,7 +24,7 @@ const PROGRESS_UPDATE_RECIPE = Object.freeze({
 });
 
 /** Open the attended runner surface before any test processes are launched. */
-export async function createDesktopNightlyTestsProgressWindow({ BrowserWindow, protocol, icon, initialProgress, onError = () => undefined }) {
+export async function createDesktopNightlyTestsProgressWindow({ BrowserWindow, protocol, icon, initialProgress, onError = () => undefined, onControl = () => undefined }) {
 	if (typeof BrowserWindow !== 'function') {
 		throw new TypeError('The nightly tests progress window requires Electron BrowserWindow.');
 	}
@@ -40,7 +40,7 @@ export async function createDesktopNightlyTestsProgressWindow({ BrowserWindow, p
 	])));
 	const window = new BrowserWindow({
 		width: 600,
-		height: 540,
+		height: 600,
 		show: false,
 		closable: false,
 		maximizable: false,
@@ -61,8 +61,15 @@ export async function createDesktopNightlyTestsProgressWindow({ BrowserWindow, p
 		},
 	});
 	window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+	let finished = false;
 	window.webContents.on('will-navigate', (event, candidate) => {
 		if (candidate !== NIGHTLY_TESTS_PROGRESS_DOCUMENT_URL) event.preventDefault();
+		if (finished) return;
+		for (const action of ['pause', 'resume']) {
+			if (candidate === `${NIGHTLY_TESTS_PROGRESS_DOCUMENT_URL}__control__/${action}`) {
+				try { onControl(action); } catch (error) { onError(error); }
+			}
+		}
 	});
 	let registered = false;
 	const dispose = () => {
@@ -112,8 +119,8 @@ export async function createDesktopNightlyTestsProgressWindow({ BrowserWindow, p
 
 	return Object.freeze({
 		window,
-		update: (value) => { render(value, null); },
-		finish: (value, status) => { render(value, progressMode(status)); },
+		update: (value) => { render(value, ['Tests paused', 'Pausing tests…'].includes(value.label) ? 'paused' : null); },
+		finish: (value, status) => { finished = true; render(value, progressMode(status)); },
 	});
 }
 

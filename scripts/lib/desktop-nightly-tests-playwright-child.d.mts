@@ -6,4 +6,5 @@ import type {
 export function runDesktopNightlyTestsPlaywrightChild(
 	plan: DesktopNightlyTestsPlaywrightPlan,
 	onItems?: (progress: DesktopNightlyTestsItemProgress) => void,
+	options?: { readonly signal?: AbortSignal },
 ): Promise<{ readonly code: number | null; readonly signal: string | null }>;

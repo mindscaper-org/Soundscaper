@@ -102,6 +102,41 @@ test('nightly progress updates are a closed data-only named recipe', () => {
 	}), /progress/u);
 });
 
+test('only the two exact control navigations invoke runner actions, and terminal windows ignore them', async () => {
+	let navigate = (_event: { preventDefault(): void }, _url: string) => undefined;
+	const actions: string[] = [];
+	class Window {
+		webContents = {
+			executeJavaScript: async () => undefined,
+			setWindowOpenHandler: () => undefined,
+			on: (_event: string, listener: typeof navigate) => { navigate = listener; },
+		};
+		async loadURL() {}
+		once() {}
+		show() {}
+		setTitle() {}
+		setProgressBar() {}
+		isDestroyed() { return false; }
+		destroy() {}
+	}
+	const window = await createDesktopNightlyTestsProgressWindow({
+		BrowserWindow: Window, protocol: protocolFixture(),
+		initialProgress: { completed: 0, total: 6, label: 'Browser tests' },
+		onControl: (action) => { actions.push(action); },
+	});
+	let prevented = 0;
+	const event = { preventDefault: () => { prevented += 1; } };
+	for (const path of ['__control__/pause', '__control__/resume', '__control__/pause?extra=1', '__control__/stop']) {
+		navigate(event, `${NIGHTLY_TESTS_PROGRESS_DOCUMENT_URL}${path}`);
+	}
+	navigate(event, 'https://example.org/__control__/pause');
+	assert.deepEqual(actions, ['pause', 'resume']);
+	assert.equal(prevented, 5);
+	window.finish({ completed: 6, total: 6, label: 'Tests passed' }, 'passed');
+	navigate(event, `${NIGHTLY_TESTS_PROGRESS_DOCUMENT_URL}__control__/pause`);
+	assert.deepEqual(actions, ['pause', 'resume']);
+});
+
 test('the progress document is self-contained, script-restricted, and visibly explains the run', async () => {
 	const root = new URL('../desktop/', import.meta.url);
 	const [html, renderer, stylesheet] = await Promise.all([
