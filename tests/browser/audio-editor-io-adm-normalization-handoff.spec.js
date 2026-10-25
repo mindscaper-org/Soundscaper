@@ -50,8 +50,10 @@ for (const priorTarget of [false, true]) test(`BW64 passthrough retires an incom
 	expect(descriptor.frameCount).toBe(4800);
 	expect(descriptor.channelCount).toBe(2);
 	expect(descriptor.sampleRate).toBe(48_000);
-	expect(delivered.subarray(descriptor.dataOffset, descriptor.dataOffset + descriptor.dataByteLength))
-		.toEqual(Buffer.from(bytes).subarray(original.dataOffset, original.dataOffset + original.dataByteLength));
+	const deliveredPcm = delivered.subarray(descriptor.dataOffset, descriptor.dataOffset + descriptor.dataByteLength);
+	const originalPcm = Buffer.from(bytes).subarray(original.dataOffset, original.dataOffset + original.dataByteLength);
+	expect(deliveredPcm.byteLength).toBe(originalPcm.byteLength);
+	expect(deliveredPcm.equals(originalPcm)).toBe(true);
 	expect(errors).toEqual([]);
 });
 

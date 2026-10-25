@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { applyAudacityEffect } from '../src/common/editor/audacity-effects/index.js';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../src/common/editor/wav-import.js';
@@ -12,7 +13,7 @@ for (const frequency of [1000, 8000]) test(`LUFS normalizes finite hot float WAV
 	const file = new File([new Uint8Array(encodeWav([samples], { sampleRate: 48_000, float: true }))], 'Hot.wav');
 	const descriptor = await inspectWavBlobPcm(file);
 	const { channels } = await createWavBlobPcmChunkReader(file, { descriptor }).readChunk(0);
-	assert.deepEqual(channels, [samples], 'the maintained float WAV path preserves finite over-range samples');
+	assertPcmChannelsEqual(channels, [samples], 'the maintained float WAV path preserves finite over-range samples');
 	const before = samples.slice();
 	const reference = applyAudacityEffect('audacity-loudness-normalization', [Float32Array.from(samples, sample => sample / 3e38)],
 		48_000, { targetLufs: -23, dualMono: false }) as Float32Array[];
@@ -23,7 +24,7 @@ for (const frequency of [1000, 8000]) test(`LUFS normalizes finite hot float WAV
 	assert.ok(peak > .04 && peak < .11, `normalization should produce ordinary audible PCM, got ${String(peak)}`);
 	const error = Math.max(...output[0]!.map((sample, frame) => Math.abs(sample - reference[0]![frame]!)));
 	assert.ok(error < .0001, `uniform amplitude must not change the normalized waveform: ${String(error)}`);
-	assert.deepEqual(channels, [before], 'the original immutable source is not changed');
+	assertPcmChannelsEqual(channels, [before], 'the original immutable source is not changed');
 });
 
 test('ordinary weighting retains its single-precision boundary and filter history', () => {

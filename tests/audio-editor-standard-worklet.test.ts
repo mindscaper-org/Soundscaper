@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 
 import { createAudioEditorEngine } from '../src/common/editor/engine.js';
 import { applyEffect, effectGraphKey } from '../src/common/editor/engine/effect-rack.ts';
@@ -116,11 +117,11 @@ test('all eight actual worklet processors match shared DSP and asynchronous sele
 				const normalized = normalizeAudioSelectionEffectParams(type, params) as Record<string, unknown>;
 				if (Object.keys(params).length === 0) assert.deepEqual(normalized, audioSelectionEffectDefaults(type));
 				const expected = applyStandardEffect(type, input, SAMPLE_RATE, normalized);
-				assert.deepEqual(hostedRender(type, input, normalized), rawRender(type, input, normalized), `${type}: worklet`);
-				assert.deepEqual(await applyAudioSelectionEffectAsync(type, input, SAMPLE_RATE, params), expected, `${type}: selection`);
+				assertPcmChannelsEqual(hostedRender(type, input, normalized), rawRender(type, input, normalized), `${type}: worklet`);
+				assertPcmChannelsEqual(await applyAudioSelectionEffectAsync(type, input, SAMPLE_RATE, params), expected, `${type}: selection`);
 			}
 		}
-		assert.deepEqual(input, untouched, 'selection processing never mutates the source PCM');
+		assertPcmChannelsEqual(input, untouched, 'selection processing never mutates the source PCM');
 	} finally { restoreSampleRate(); }
 });
 
@@ -142,7 +143,7 @@ test('actual pitched delay worklet receives cloned StaffPad WASM and matches sel
 			const raw = hostedRender('multi-tap-delay', padded, params, structuredClone(module));
 			const compensated = raw.map(channel => channel.slice(latency, latency + input[0].length));
 			assert.ok(compensated[0].some(sample => Math.abs(sample) > .01));
-			assert.deepEqual(await applyAudioSelectionEffectAsync('multi-tap-delay', input, SAMPLE_RATE, params), compensated);
+			assertPcmChannelsEqual(await applyAudioSelectionEffectAsync('multi-tap-delay', input, SAMPLE_RATE, params), compensated);
 		}
 	} finally { restoreFetch(); restoreSampleRate(); }
 });
@@ -222,7 +223,7 @@ test('worklets continue every effect from an empty input bus using the same stat
 			const expected = tail.map(() => new Float32Array(256));
 			assert.equal(worklet.process([], [tail]), true);
 			reference.processBlock(tail.map(() => new Float32Array(256)), expected, 256);
-			assert.deepEqual(tail, expected, type);
+			assertPcmChannelsEqual(tail, expected, type);
 			assert.ok(tail.every((channel) => channel.every(Number.isFinite)), type);
 			if (type === 'multi-tap-delay') assert.ok(tail[0].some((value) => value !== 0), 'delayed taps survive source disconnection');
 			assert.equal(worklet.process([], []), true);
@@ -243,7 +244,7 @@ test('actual worklet configure and reset messages update processing and reject i
 			worklet.port.onmessage({ data: { type: 'configure', params } });
 			worklet.port.onmessage({ data: { type: 'reset' } });
 			worklet.process([input], [output]);
-			assert.deepEqual(output, rawRender(type, input, params), type);
+			assertPcmChannelsEqual(output, rawRender(type, input, params), type);
 			const invalid = type === 'multi-tap-delay' ? { echoes: 0 } : type === 'noise-gate' ? { threshold: 1 }
 				: type === 'vocoder' ? { bands: 1 } : { frequency: -1 };
 			worklet.port.onmessage({ data: { type: 'configure', params: invalid } });
@@ -252,7 +253,7 @@ test('actual worklet configure and reset messages update processing and reject i
 			assert.equal(typeof worklet.messages[0].message, 'string');
 			worklet.port.onmessage({ data: { type: 'reset' } });
 			worklet.process([input], [output]);
-			assert.deepEqual(output, rawRender(type, input, params), type);
+			assertPcmChannelsEqual(output, rawRender(type, input, params), type);
 		}
 	} finally { restoreSampleRate(); }
 });

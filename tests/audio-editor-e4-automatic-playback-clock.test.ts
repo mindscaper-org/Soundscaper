@@ -55,7 +55,7 @@ test('an admitted project clock below a device minimum falls back without churn'
 	const original = await f.engine.getAudioContext({ resume: false });
 	assert.equal(original.sampleRate, 44_100);
 	assert.deepEqual(f.requested, [8000, undefined]);
-	assert.equal(await f.engine.getAudioContext({ resume: false }), original);
+	assert.equal((await f.engine.getAudioContext({ resume: false })) === original, true);
 	await f.engine.play();
 	assert.equal(f.engine.getState().state, 'playing');
 	assert.deepEqual(f.requested, [8000, undefined]);
@@ -73,14 +73,14 @@ test('an idle automatic context follows replacement projects without becoming an
 	const ordinary = await f.engine.getAudioContext({ resume: false });
 	assert.equal(ordinary.sampleRate, 48_000); assert.equal(f.contexts[1]!.closeCalls, 1);
 	f.engine.loadProject(project(48_000));
-	assert.equal(await f.engine.getAudioContext({ resume: false }), ordinary);
+	assert.equal((await f.engine.getAudioContext({ resume: false })) === ordinary, true);
 });
 
 test('explicit native or recording clock remains authoritative across project replacement', async context => {
 	const f = fixture(); context.after(() => f.engine.dispose());
 	const selected = await f.engine.getAudioContext({ resume: false, sampleRate: 44_100 });
 	f.engine.loadProject(project(96_000));
-	assert.equal(await f.engine.getAudioContext({ resume: false }), selected);
+	assert.equal((await f.engine.getAudioContext({ resume: false })) === selected, true);
 	assert.equal(f.contexts[0]!.closeCalls, 0);
 	assert.equal((await f.engine.getAudioContext({ resume: false, sampleRate: 48_000 })).sampleRate, 48_000);
 	assert.equal((await f.engine.getAudioContext({ resume: false })).sampleRate, 48_000);
@@ -91,7 +91,7 @@ for (const mode of ['ignore', 'unsupported'] as const) test(`automatic ${mode} r
 	f.engine.loadProject(project(96_000));
 	const current = await f.engine.getAudioContext({ resume: false });
 	assert.equal(current.sampleRate, 44_100);
-	for (let count = 0; count < 3; count++) assert.equal(await f.engine.getAudioContext({ resume: false }), current);
+	for (let count = 0; count < 3; count++) assert.equal((await f.engine.getAudioContext({ resume: false })) === current, true);
 	assert.ok(f.requested.includes(96_000), 'the supported project clock is attempted before device fallback');
 	assert.equal(f.contexts.length, 1); assert.equal(f.contexts[0]!.closeCalls, 0);
 });
@@ -107,7 +107,7 @@ test('a later project owns automatic context creation while an earlier context f
 	const incoming = await f.engine.getAudioContext({ resume: false });
 	finish();
 	assert.equal(incoming.sampleRate, 48_000);
-	assert.equal(await outgoing, incoming, 'a retired project cannot recreate its old clock after await');
+	assert.equal((await outgoing) === incoming, true, 'a retired project cannot recreate its old clock after await');
 	assert.equal(f.contexts.length, 2);
 });
 
@@ -128,7 +128,7 @@ test('a pending output-device setup returns the incoming context after automatic
 	engine.loadProject(project(96_000));
 	const incoming = await engine.getAudioContext({ resume: false });
 	finish();
-	assert.equal(await outgoing, incoming, 'an input or processor caller must not adopt the closed outgoing context');
+	assert.equal((await outgoing) === incoming, true, 'an input or processor caller must not adopt the closed outgoing context');
 	assert.equal(contexts[0]!.state, 'closed');
 	assert.equal(incoming.sampleRate, 96_000);
 });
@@ -156,7 +156,7 @@ test('automatic context reconciliation never orphans an attached native plug-in'
 	const original = await f.engine.getAudioContext({ resume: false });
 	createNativePluginEffectNode(original, { params: { instanceId: 'automatic-rate-native' } });
 	f.engine.loadProject(project(96_000));
-	assert.equal(await f.engine.getAudioContext({ resume: false }), original);
+	assert.equal((await f.engine.getAudioContext({ resume: false })) === original, true);
 	assert.equal(f.contexts[0]!.closeCalls, 0);
 	await assert.rejects(f.engine.getAudioContext({ resume: false, sampleRate: 96_000 }), /Remove native plug-in effects/u);
 });

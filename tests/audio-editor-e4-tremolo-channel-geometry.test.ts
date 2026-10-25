@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createStandardEffectNode, ensureStandardEffectWorklet } from '../src/common/editor/engine/standard-effect-node.ts';
 import { createTremoloProcessor } from '../src/common/editor/first-party-effects/standard/tremolo-dsp.ts';
 import { MockAudioContext } from './helpers/mock-audio-context.js';
@@ -40,7 +41,7 @@ test('one Tremolo oscillator keeps its exact phase while native output narrows a
 		const reference = [new Float32Array(frames)];
 		adaptive.processBlock(input, output, frames);
 		mono.processBlock([input[0]!], reference, frames);
-		assert.deepEqual(output[0], reference[0]);
+		assertPcmSamplesEqual(output[0], reference[0]!);
 		for (let channel = 1; channel < width; channel++) {
 			assert.ok(output[channel]!.every((sample, frame) => Math.abs(sample - reference[0]![frame]! * (channel + 1)) < 1e-7));
 		}

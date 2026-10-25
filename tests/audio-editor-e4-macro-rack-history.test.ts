@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { macroRackHistoryFrames, macroRackHistoryScratchBytes, prependMacroRackHistory } from '../src/common/editor/controller/effects/internal/macro/macro-rack-history.ts';
 import { DelayProcessor } from '../src/common/editor/delay-worklet.js';
 import { applyAudioSelectionEffectAsync } from '../src/common/editor/selection-effects-runtime.js';
@@ -67,7 +68,7 @@ test('a prefix read cannot publish a staged capture after its operation retires'
 test('a rack at source origin retains the existing no-history path', async () => {
 	const value = fixture(0);
 	const output = await value.runner.runSegments(planEffectMacroChain([delay]), [value.source], value.target);
-	assert.deepEqual(output, delayed([value.source])); assert.deepEqual(value.reads, []);
+	assertPcmChannelsEqual(output, delayed([value.source])); assert.deepEqual(value.reads, []);
 });
 
 test('finite echo history longer than ten seconds remains bounded by the original prefix', () => {

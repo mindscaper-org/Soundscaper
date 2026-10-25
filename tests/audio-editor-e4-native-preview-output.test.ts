@@ -50,7 +50,7 @@ for (const native of [false, true]) for (const audition of [false, true]) {
 			}
 			const expected = native ? device : context.destination;
 			assert.equal(soundscaperNativeAudioDestination(context as unknown as EngineAudioContext,
-				context.destination as unknown as AudioNode), expected);
+				context.destination as unknown as AudioNode) === expected, true);
 			const meter = new MockNode('meter');
 			host.masterLoudnessMeter = {
 				node: meter as unknown as AudioNode,
@@ -60,14 +60,14 @@ for (const native of [false, true]) for (const audition of [false, true]) {
 			engine.setPlaybackGain(.25);
 			const output = engine.getPlaybackDestination();
 			assert.equal((output as unknown as ListeningNode).gain?.value, .25);
-			assert.equal(listeningDestination(output, device, context.destination), expected);
-			assert.equal(meter.connections[0], output, 'LUFS metering remains before listening gain/filter');
-			assert.equal(engine.getPlaybackDestination(), output, 'a preview must retain the programme listening node');
+			assert.equal(listeningDestination(output, device, context.destination) === expected, true);
+			assert.equal(meter.connections[0] === output, true, 'LUFS metering remains before listening gain/filter');
+			assert.equal(engine.getPlaybackDestination() === output, true, 'a preview must retain the programme listening node');
 			engine.setPlaybackGain(.5);
 			assert.equal((output as unknown as ListeningNode).gain?.value, .5);
 			await renderer.release('output');
-			assert.equal(listeningDestination(engine.getPlaybackDestination(), device, context.destination), context.destination);
-			assert.equal(meter.connections[0], engine.getPlaybackDestination());
+			assert.equal(listeningDestination(engine.getPlaybackDestination(), device, context.destination) === context.destination, true);
+			assert.equal(meter.connections[0] === engine.getPlaybackDestination(), true);
 		} finally {
 			await renderer.dispose();
 			await engine.dispose();
