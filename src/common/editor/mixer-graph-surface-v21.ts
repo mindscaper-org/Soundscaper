@@ -50,14 +50,16 @@ export function mixerTrackSurfaceRouteV21(
 	}
 	const sends: Record<string, number> = {};
 	const editableSendIds: string[] = [];
+	const firstSendWidths = new Map<string, number>();
 	for (const send of graph.sends) {
+		if (!firstSendWidths.has(send.id)) firstSendWidths.set(send.id, send.channelCount);
 		const matching = sendsByDestination.get(send.id) ?? [];
 		if (matching.length === 0) {
 			editableSendIds.push(send.id);
 			continue;
 		}
 		if (matching.length !== 1
-			|| !isMixerTrackSurfaceSendV21(graph, matching[0]!, trackId, send.id, widths, send.channelCount)) continue;
+			|| !isMixerTrackSurfaceSendV21(graph, matching[0]!, trackId, send.id, widths, firstSendWidths.get(send.id))) continue;
 		Object.defineProperty(sends, send.id, { value: matching[0]!.level, enumerable: true, configurable: true, writable: true });
 		editableSendIds.push(send.id);
 	}

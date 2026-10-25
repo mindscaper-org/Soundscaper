@@ -7,12 +7,13 @@ import type { AdmTerminalStripKind, RoutingProject } from './adm-project-metadat
 export function createAdmStripExistenceReader(project: RoutingProject): (kind: AdmTerminalStripKind, id: string) => boolean {
 	const prepared = new Map<AdmTerminalStripKind, { array: readonly unknown[]; ids: ReadonlySet<string> }>();
 	return (kind, id) => {
+		const bucket = kind === 'track' ? 'track' : kind === 'group' ? 'group' : 'send';
 		const collection = collectionData(project, kind);
 		if (Array.isArray(collection)) {
-			let entry = prepared.get(kind);
+			let entry = prepared.get(bucket);
 			if (entry?.array !== collection) {
 				const ids = stripIds(collection as Readonly<{ readonly id: string }>[], kind === 'track');
-				if (ids) { entry = { array: collection, ids }; prepared.set(kind, entry); }
+				if (ids) { entry = { array: collection, ids }; prepared.set(bucket, entry); }
 				else entry = undefined;
 			}
 			if (entry) return entry.ids.has(id);

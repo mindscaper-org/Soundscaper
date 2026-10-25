@@ -34,3 +34,17 @@ for (const [id, name, invoke] of operations) test(`${id} ${name} indexes immutab
 	const mutable = commandFixture(200);
 	assert.deepEqual(command, invoke(mutable));
 });
+
+test('small immutable punch targets keep short-circuit reads of the project catalog', () => {
+	const project = fixture();
+	project.tracks[0]!.clipIds = ['clip-0'];
+	let descriptorReads = 0;
+	const original = Object.getOwnPropertyDescriptor;
+	Object.getOwnPropertyDescriptor = function (value, key) {
+		if (value === project.clips && key !== 'length') descriptorReads++;
+		return original(value, key);
+	};
+	try { preparePunchCommand(project, { ...range, sourceId: 'source' }, ids()); }
+	finally { Object.getOwnPropertyDescriptor = original; }
+	assert.equal(descriptorReads, 0);
+});

@@ -91,3 +91,9 @@ test('E06 graph audibility builds programme and solo reachability once per reade
 	context.diagnostic(`E06 Set allocations: ${allocations}`);
 	assert.ok(allocations < 1000);
 });
+
+test('compact route send widths keep the first duplicate send identity authoritative', () => {
+	const base = createDefaultMixerGraphV21([{ id: 'track', channelCount: 2 }]);
+	const graph = normalizeMixerGraphV21({ ...base, sends: [strip('send'), { ...strip('send'), channelCount: 3 }], edges: [...base.edges, edge('send:track:track:mixer-node:send', { kind: 'track', id: 'track' }, { kind: 'mixer-node', id: 'send' }, 'send')] });
+	assert.deepEqual(mixerTrackSurfaceRouteV21(graph, 'track', { sourceChannels: 2, masterChannels: 2 }), { groupId: null, sends: { send: 1 }, groupEditable: true, editableSendIds: ['send', 'send'] });
+});

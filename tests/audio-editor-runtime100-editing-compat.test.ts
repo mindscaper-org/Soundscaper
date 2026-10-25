@@ -14,7 +14,7 @@ import { commandFixture } from './helpers/round3-command-fixtures.ts';
 test('immutable punch reads preserve duplicate IDs, sparse errors, getters and custom finds', () => {
 	for (const variant of ['ordinary', 'duplicate', 'sparse', 'get-id', 'get-array', 'custom-find', 'factory-replacement', 'factory-getter'] as const) {
 		function run(frozen: boolean) {
-			const project = commandFixture(4);
+			const project = commandFixture(16);
 			let idReads = 0, arrayReads = 0, next = 0;
 			for (const clip of project.clips) { clip.timelineStartFrame = 0; clip.durationFrames = 20; }
 			if (variant === 'duplicate') project.clips[1]!.id = project.clips[0]!.id;
