@@ -24,7 +24,8 @@ test('Firefox shards reuse verified engine bytes while preserving host dependenc
 		assert.match(job, /uses: \.\/\.github\/actions\/verified-firefox/u);
 		assert.match(job, /ci-firefox-pulseaudio\.sh/u);
 		assert.match(job, /ci-firefox-audio-clock\.mjs/u);
-		assert.match(job, /shard: \[1, 2, 3, 4, 5, 6, 7, 8\]/u);
+		// The complete partition is enforced by playwright-config.test.js.
+		assert.match(job, /--project=firefox --shard=\$\{\{ matrix\.shard \}\}\/\d+ --workers=1/u);
 	}
 	const action = await readFile(new URL('../.github/actions/verified-firefox/action.yml', import.meta.url), 'utf8');
 	assert.match(action, /run: npx playwright install-deps firefox/u);
