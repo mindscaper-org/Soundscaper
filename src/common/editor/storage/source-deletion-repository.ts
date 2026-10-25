@@ -9,6 +9,7 @@ import { deleteByIndex, request, transact } from './indexeddb-backend.ts';
 import { sameStoredSourceIdentity, type StorageRecord } from './media-records.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import type { RetentionSessionGuard } from './retention-session-guard.ts';
+import { selectStorageRecords } from './storage-record-projection.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';
 import {
 	findMemoryDependentSourceId,
@@ -151,11 +152,7 @@ export class SourceDeletionRepository {
 			}
 		}
 		const mediaAsset = asStorageRecord(memory.mediaAssets.get(sourceId));
-		const derivatives: StorageRecord[] = [];
-		for (const value of memory.videoDerivatives.values()) {
-			const candidate = asStorageRecord(value);
-			if (candidate?.sourceId === sourceId) derivatives.push(candidate);
-		}
+		const derivatives = selectStorageRecords(memory.videoDerivatives.values(), candidate => candidate.sourceId === sourceId);
 		if (source) {
 			memory.sources.delete(sourceId);
 			for (const [key, value] of memory.sourceChunks) {

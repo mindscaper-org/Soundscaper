@@ -20,6 +20,7 @@ import {
 } from './media-asset-staging-repository.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import type { RetentionSessionGuard } from './retention-session-guard.ts';
+import { selectStorageRecords } from './storage-record-projection.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';
 import {
 	findMemoryDependentSourceId,
@@ -292,11 +293,7 @@ export class SourceRecordRepository {
 	async *chunks(token: string): AsyncGenerator<SourceChunkRecord> {
 		const database = await this.#port.database();
 		if (!database) {
-			const records: SourceChunkRecord[] = [];
-			for (const value of this.#port.memory.sourceChunks.values()) {
-				const record = asChunk(value);
-				if (record?.sourceToken === token) records.push(record);
-			}
+			const records = selectStorageRecords<SourceChunkRecord>(this.#port.memory.sourceChunks.values(), record => record.sourceToken === token);
 			records.sort((left, right) => left.index - right.index);
 			for (const record of records) yield cloneChunk(record) as SourceChunkRecord;
 			return;
