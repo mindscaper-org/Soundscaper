@@ -30,6 +30,7 @@ import {
 } from './media-records.ts';
 import type { OpfsRepository } from './opfs-repository.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
+import { cloneSelectedStorageRecords } from './storage-record-projection.ts';
 import { cloneStorageValue as clone } from './storage-clone.ts';
 import {
 	assertVideoDerivativeOriginalUnchanged,
@@ -340,11 +341,7 @@ export class VideoDerivativeRepository {
 		const database = await this.#port.database();
 		let records: StorageRecord[];
 		if (!database) {
-			records = [...this.#port.memory.videoDerivatives.values()]
-				.map(asStorageRecord)
-				.filter(isStorageRecord)
-				.filter(matches)
-				.map(clone);
+			records = cloneSelectedStorageRecords(this.#port.memory.videoDerivatives.values(), matches);
 			for (const record of records) {
 				if (typeof record.key === 'string') this.#port.memory.videoDerivatives.delete(record.key);
 			}
@@ -385,10 +382,8 @@ export class VideoDerivativeRepository {
 		const database = await this.#port.database();
 		let records: unknown[];
 		if (!database) {
-			records = [...this.#port.memory.videoDerivatives.values()]
-				.map(asStorageRecord)
-				.filter((record) => record?.sourceId === sourceId
-					&& (requestedType === null || record.type === requestedType));
+			return cloneSelectedStorageRecords(this.#port.memory.videoDerivatives.values(), record => record.sourceId === sourceId
+				&& (requestedType === null || record.type === requestedType));
 		} else {
 			records = await transact(
 				database,

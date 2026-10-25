@@ -75,7 +75,8 @@ export class SourceRecordRepository {
 		const values = !database
 			? [...this.#port.memory.sources.values()]
 			: await transact(database, 'sources', 'readonly', ({ sources }) => request(sources.getAll()));
-		return values.map((value) => clone(value as StorageRecord));
+		for (let index = 0; index < values.length; index++) values[index] = clone(values[index] as StorageRecord);
+		return values as StorageRecord[];
 	}
 
 	async putMetadata(record: StorageRecord): Promise<void> {
@@ -291,10 +292,12 @@ export class SourceRecordRepository {
 	async *chunks(token: string): AsyncGenerator<SourceChunkRecord> {
 		const database = await this.#port.database();
 		if (!database) {
-			const records = [...this.#port.memory.sourceChunks.values()]
-				.map(asChunk)
-				.filter((record): record is SourceChunkRecord => record?.sourceToken === token)
-				.sort((left, right) => left.index - right.index);
+			const records: SourceChunkRecord[] = [];
+			for (const value of this.#port.memory.sourceChunks.values()) {
+				const record = asChunk(value);
+				if (record?.sourceToken === token) records.push(record);
+			}
+			records.sort((left, right) => left.index - right.index);
 			for (const record of records) yield cloneChunk(record) as SourceChunkRecord;
 			return;
 		}

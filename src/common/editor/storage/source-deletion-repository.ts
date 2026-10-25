@@ -151,9 +151,11 @@ export class SourceDeletionRepository {
 			}
 		}
 		const mediaAsset = asStorageRecord(memory.mediaAssets.get(sourceId));
-		const derivatives = [...memory.videoDerivatives.values()]
-			.map(asStorageRecord)
-			.filter((candidate): candidate is StorageRecord => candidate?.sourceId === sourceId);
+		const derivatives: StorageRecord[] = [];
+		for (const value of memory.videoDerivatives.values()) {
+			const candidate = asStorageRecord(value);
+			if (candidate?.sourceId === sourceId) derivatives.push(candidate);
+		}
 		if (source) {
 			memory.sources.delete(sourceId);
 			for (const [key, value] of memory.sourceChunks) {
