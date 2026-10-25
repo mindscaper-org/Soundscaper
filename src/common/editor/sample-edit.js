@@ -1,3 +1,4 @@
+import { withoutExternalMedia } from './desktop-external-media.ts';
 import { AUDACITY_WAVEFORM_STEM_PIXELS_PER_SAMPLE } from './audacity-waveform-renderer.js';
 import { createStableId } from './project.js';
 import { AUDIO_EDITOR_SOURCE_CHUNK_FRAMES } from './project-audio-factory.js';
@@ -243,7 +244,7 @@ function createPersistedSampleEditResult(
 	store, source, sourceId, metadata, editsByChunk, revision, deriveSourceProvenance,
 ) {
 	const provenance = deriveSourceProvenance([source]);
-	const { contentSha256: _contentSha256, byteLength: _byteLength, ...contentIndependent } = source;
+	const { contentSha256: _contentSha256, byteLength: _byteLength, ...contentIndependent } = withoutExternalMedia(source);
 	const descriptor = Object.freeze({
 		...contentIndependent,
 		...(provenance ? { provenance } : {}),
@@ -251,7 +252,7 @@ function createPersistedSampleEditResult(
 		storageKey: sourceId,
 		sampleFormat: 'float32',
 		opaqueExtensions: {
-			...(source.opaqueExtensions || {}),
+			...(contentIndependent.opaqueExtensions || {}),
 			sampleEditRevision: revision,
 		},
 	});

@@ -5,6 +5,7 @@ import { publishedCopyFor } from '../shared/presentation-localization.ts'; impor
 import {
 	clipNeedsTimePitchRender as legacyClipNeedsTimePitchRender,
 } from '../../clip-time-pitch-cache.js';
+import { withoutExternalMedia } from '../../desktop-external-media.ts';
 import { estimatePcmRenderPublication } from '../../publication-byte-estimates.ts';
 import { clipTimePitchPlaybackProjection } from '../../clip-time-pitch-playback-projection.ts';
 import { scaleSampleFrame } from '../../timeline-time.ts';
@@ -281,7 +282,7 @@ function renderedSource(
 	deriveSourceProvenance: DeriveSourceProvenance,
 ): RenderSource {
 	const provenance = deriveSourceProvenance([source]);
-	const { contentSha256: _contentSha256, byteLength: _byteLength, ...contentIndependent } = source;
+	const { contentSha256: _contentSha256, byteLength: _byteLength, ...contentIndependent } = withoutExternalMedia(source);
 	return {
 		...contentIndependent,
 		...(provenance ? { provenance } : {}),
