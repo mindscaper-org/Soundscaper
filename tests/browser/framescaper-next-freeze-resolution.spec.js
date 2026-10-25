@@ -8,17 +8,25 @@ import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
 import { hasDurableMediaStorageCapability } from './helpers/durable-media-storage-capability.js';
 
-test('permanent programme freeze dimensions do not depend on preview quality', async ({ page }) => {
-	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/framescaper/embed/en/');
-	const exactPreviewAvailable = await page.evaluate(hasWebGl2Capability);
-	test.skip(!await page.evaluate(hasDurableMediaStorageCapability, 'indexeddb-only'), 'PNG freeze storage requires durable IndexedDB Blob support.');
-	await editor.locator('[data-project-bin-input]').setInputFiles(videoPreviewBenchmarkMedia.file);
-	const card = editor.locator('[data-project-bin-item]').first(); await expect(card).toBeVisible();
-	await card.getByRole('button', { name: /Add to timeline/u }).click();
-	const projectId = await editor.getAttribute('data-project-id');
+test.describe.serial('permanent programme freeze resolution', () => {
 	const outputs = [];
-	for (const quality of ['Full resolution', 'Quarter resolution']) {
+	test.afterAll(() => {
+		if (outputs.length === 0) return;
+		expect(outputs).toHaveLength(2);
+		expect(outputs[1]).toEqual(outputs[0]);
+	});
+
+	// Fresh projects keep the programme identical without making this pixel
+	// comparison wait for Undo to retire the first freeze's decoder and cache.
+	for (const quality of ['Full resolution', 'Quarter resolution']) test(`keeps native dimensions at ${quality}`, async ({ page }) => {
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		const exactPreviewAvailable = await page.evaluate(hasWebGl2Capability);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability, 'indexeddb-only'), 'PNG freeze storage requires durable IndexedDB Blob support.');
+		await editor.locator('[data-project-bin-input]').setInputFiles(videoPreviewBenchmarkMedia.file);
+		const card = editor.locator('[data-project-bin-item]').first(); await expect(card).toBeVisible();
+		await card.getByRole('button', { name: /Add to timeline/u }).click();
+		const projectId = await editor.getAttribute('data-project-id');
 		await chooseNestedCommandAction(page, editor, 'View', ['Video preview resolution', quality]);
 		const clip = editor.getByRole('group', { name: /^Video clip:/u }).first(); await clip.press('Enter');
 		await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
@@ -37,19 +45,17 @@ test('permanent programme freeze dimensions do not depend on preview quality', a
 		await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 		await chooseCommandAction(page, editor, 'File', 'Save project');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-		outputs.push(await page.evaluate(async ({ name, id }) => {
+		const output = await page.evaluate(async ({ name, id }) => {
 			const request = input => new Promise((resolve, reject) => { input.onsuccess = () => resolve(input.result); input.onerror = () => reject(input.error); });
 			const db = await request(indexedDB.open(name));
 			try { const project = await request(db.transaction('projects').objectStore('projects').get(id));
 				return project.sources.filter(source => source.kind === 'still').map(({ width, height, contentSha256 }) => ({ width, height, contentSha256 })); }
 			finally { db.close(); }
-		}, { name: FRAMESCAPER_DATABASE_NAME, id: projectId }));
-		if (exactPreviewAvailable) await chooseNestedCommandAction(page, editor, 'Edit', ['Undo']);
-		await expect(editor).toHaveAttribute('data-clip-count', '1');
-	}
-	await test.info().attach('freeze-output-dimensions', { body: JSON.stringify(outputs), contentType: 'application/json' });
-	expect(outputs[1]).toEqual(outputs[0]);
-	if (exactPreviewAvailable) expect(outputs[0][0]).toMatchObject({ width: 1280, height: 720 });
-	else expect(outputs).toEqual([[], []]);
-	expect(errors).toEqual([]);
+		}, { name: FRAMESCAPER_DATABASE_NAME, id: projectId });
+		outputs.push(output);
+		await test.info().attach('freeze-output-dimensions', { body: JSON.stringify(output), contentType: 'application/json' });
+		if (exactPreviewAvailable) expect(output[0]).toMatchObject({ width: 1280, height: 720 });
+		else expect(output).toEqual([]);
+		expect(errors).toEqual([]);
+	});
 });
