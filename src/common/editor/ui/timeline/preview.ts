@@ -128,7 +128,7 @@ export function recordingPreviewWaveformWindow(
 	);
 	// Native recording snapshots need only the detached boxed output. The view
 	// dies with this call; custom slicing/species retain their original behavior.
-	const window = channel instanceof Float32Array && Object.getPrototypeOf(channel) === Float32Array.prototype
+	const window = ArrayBuffer.isView(channel) && channel instanceof Float32Array && Object.getPrototypeOf(channel) === Float32Array.prototype
 		&& !Object.hasOwn(channel, 'slice') && !Object.hasOwn(channel, 'constructor')
 		&& Object.getOwnPropertyDescriptor(Float32Array.prototype, 'constructor')?.value === Float32Array
 		&& !Object.hasOwn(channel, Symbol.iterator) && !Object.hasOwn(Float32Array, Symbol.species)

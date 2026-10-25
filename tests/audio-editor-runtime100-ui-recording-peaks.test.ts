@@ -152,3 +152,18 @@ test('U39 recording peak window paired timing sanity', context => {
 		context.diagnostic(`U39 ${length} peaks: baseline ${median(baseline)}ms, current ${median(current)}ms; raw ${JSON.stringify({ baseline, current })}`);
 	}
 });
+
+
+test('U39 proxies with bound native slicing retain their working fallback', () => {
+	const source = Float32Array.of(-0, .25, Number.NaN, 1);
+	const channel = new Proxy(source, { get(target, key) {
+		const value: unknown = Reflect.get(target, key, target);
+		return typeof value === 'function' ? value.bind(target) as unknown : value;
+	} });
+	const clip = { durationFrames: 100, waveformStartFrame: 0, waveformEndFrame: 100 };
+	const expected = legacyWindow(channel, clip);
+	const actual = recordingPreviewWaveformWindow(channel, clip);
+	assert.deepEqual(actual, expected);
+	actual[0] = .75;
+	assert.ok(Object.is(source[0], -0));
+});
