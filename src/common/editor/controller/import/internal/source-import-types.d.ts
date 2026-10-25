@@ -100,6 +100,7 @@ export interface ImportVideoFrameExtractor {
 }
 
 export interface ImportVideoAudioContext {
+	readonly sampleRate?: number;
 	createBuffer(channelCount: number, length: number, sampleRate: number): AudioBufferLike;
 }
 

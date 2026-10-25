@@ -229,6 +229,12 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
 	},
 	{
+		id: 'video-import-audio-workload-output',
+		file: 'src/common/editor/controller/import/internal/video-import-audio-workload.ts',
+		behavior: 'Video audio workload admission resolves the authored output duration to the nearest project sample so its channel and byte bounds match the canonical imported programme extent.',
+		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'video-import-exact-timing-authority',
 		file: 'src/common/editor/controller/import/internal/video-import-timing.ts',
 		behavior: 'Exact timing-sidecar duration is point-rounded once into sample authority before both placement endpoints are point-conformed through the destination sequence grid.',

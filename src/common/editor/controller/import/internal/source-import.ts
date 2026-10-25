@@ -248,7 +248,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 			try {
 				const { decodedAudio, declaredAudioSampleRate, programmeFrameCount } = await decodeImportedVideoAudio({
 					file: canonicalVideoFile,
-					projectSampleRate: sampleRate,
+					projectSampleRate: sampleRate, nativeContextSampleRate: context.sampleRate ?? sampleRate,
 					durationSeconds: timelineDurationFrames / sampleRate,
 					hasAudio: timingProbe.characteristics.audioStreams?.some(() => true),
 					signal: importOptions.signal,
