@@ -80,19 +80,24 @@ export function createScapeArchiveLayoutWitness(
 }
 
 function clusterWitnessRanges(input: WitnessRange[]): readonly WitnessCluster[] {
-	const sorted = [...input].sort((left, right) => left.offset - right.offset || left.end - right.end);
+	// Recording owns this array; bind clears it after the cluster snapshots are built.
+	const sorted = input.sort((left, right) => left.offset - right.offset || left.end - right.end);
 	const clusters: WitnessCluster[] = [];
 	let current: WitnessRange[] = [];
-	let active: WitnessRange[] = [];
+	const active: WitnessRange[] = [];
 	let end = -1;
 	for (const range of sorted) {
 		if (current.length && range.offset > end) {
 			clusters.push(witnessCluster(current, end));
 			current = [];
-			active = [];
+			active.length = 0;
 			end = -1;
 		}
-		active = active.filter((prior) => prior.end > range.offset);
+		let retained = 0;
+		for (const prior of active) {
+			if (prior.end > range.offset) active[retained++] = prior;
+		}
+		active.length = retained;
 		assertWitnessOverlap(active, range);
 		current.push(range);
 		active.push(range);
