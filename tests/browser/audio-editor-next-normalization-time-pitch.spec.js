@@ -4,6 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { readClipGain, setClipGain } from './audio-editor-clip-settings-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 for (const warmed of [false, true]) test(`Clip peak normalization measures committed independent pitch (cache warmed ${String(warmed)})`, async ({ page }) => {
 	await disableNativeSavePicker(page);
@@ -21,10 +22,13 @@ for (const warmed of [false, true]) test(`Clip peak normalization measures commi
 	await pitch.fill('12'); await pitch.press('Enter'); await expect(pitch).toHaveValue('12');
 	await closeClipProperties(properties);
 	if (warmed) await exportSamples(page, editor);
+	const projectId = await editor.getAttribute('data-project-id'), clipId = await clip.getAttribute('data-clip-id');
 	await clip.click({ button: 'right' });
 	await page.getByRole('menuitem', { name: 'Normalize to −1 dBFS', exact: true }).click();
+	// Opening a gain dialog during measurement can replace the active operation.
+	await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(item => item.id === clipId)?.gain).toBeGreaterThan(1);
 	properties = await openClipProperties(page, editor, clip, { additional: false });
-	await expect.poll(() => readClipGain(properties)).toBeGreaterThan(0);
+	expect(await readClipGain(properties)).toBeGreaterThan(0);
 	await closeClipProperties(properties);
 	const samples = await exportSamples(page, editor);
 	const peak = samples.reduce((value, sample) => Math.max(value, Math.abs(sample)), 0);

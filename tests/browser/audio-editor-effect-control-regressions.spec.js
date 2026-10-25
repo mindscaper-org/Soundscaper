@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, commitInput, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 
 registerAudioEditorHooks();
 
@@ -25,19 +25,16 @@ test('clearing an effect number refuses the empty value instead of changing it t
 	const dialog = await openAmplify(page);
 	const field = dialog.locator('[data-effect-param="gainDb"]');
 	const number = field.getByRole('spinbutton');
-	await number.fill('-6');
-	await number.press('Tab');
+	await commitInput(number, '-6');
 	await expect(field.getByRole('slider').first()).toHaveValue('-6');
-	await number.fill('');
-	await number.press('Tab');
+	await commitInput(number, '');
 	await expect(field.getByRole('slider').first()).toHaveValue('-6');
 });
 
 test('rejected effect numbers expose their error to assistive technology', async ({ page }) => {
 	const dialog = await openAmplify(page);
 	const number = dialog.locator('[data-effect-param="gainDb"]').getByRole('spinbutton');
-	await number.fill('1000');
-	await number.press('Tab');
+	await commitInput(number, '1000');
 	await expect(number).toHaveAttribute('aria-invalid', 'true');
 });
 

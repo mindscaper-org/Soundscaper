@@ -14,6 +14,7 @@ import { showClipTimingFields,
 	registerAudioEditorHooks,
 	stubStorageEstimate,
 	waitForEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
@@ -62,8 +63,11 @@ test.describe('Project Bin replacement and linked original relink', () => {
 		await expectClipFrames(page, editor, firstId, { start: 0, duration: shorterFrameCount });
 		await expectClipFrames(page, editor, laterId, { start: laterStartFrame, duration: shorterFrameCount });
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const projectId = await editor.getAttribute('data-project-id');
 		await page.reload();
 		await waitForEditor(page);
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
 		await expectClipFrames(page, editor, firstId, { start: 0, duration: shorterFrameCount });
 		await expectClipFrames(page, editor, laterId, { start: laterStartFrame, duration: shorterFrameCount });
 		expect(errors).toEqual([]);
@@ -90,8 +94,11 @@ test.describe('Project Bin replacement and linked original relink', () => {
 			duration: shorterFrameCount,
 		});
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const projectId = await editor.getAttribute('data-project-id');
 		await page.reload();
 		await waitForEditor(page);
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
 		await expectClipFrames(page, editor, laterId, {
 			start: laterStartFrame - (originalFrameCount - shorterFrameCount),
 			duration: shorterFrameCount,

@@ -4,9 +4,10 @@ import { openFramescaperImageFramePackV1 } from '../../src/common/editor/timelin
 import { createPngFixture } from '../helpers/png-fixture.mjs';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, chooseExportProjectFileAction, collectClientErrors,
-	disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
+	disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 async function savedImage(page, editor, original, projectId) {
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const download = await saving; expect(download.suggestedFilename()).toMatch(/\.fscape$/u);
 	const entries = unzipSync(await downloadBytes(download)), project = JSON.parse(strFromU8(entries['project.json']));
@@ -56,9 +57,11 @@ for (const variant of [{ late: 'success', returning: false }, { late: 'failure',
 		else await expect(editor.getByRole('group', { name: 'Image clip: outgoing', exact: true })).toBeVisible();
 		await editor.getByRole('button', { name: 'New project', exact: true }).click();
 		await expect(editor).not.toHaveAttribute('data-project-id', outgoingId);
+		await waitForProjectActivation(editor);
 		if (variant.returning) {
 			const tabs = editor.getByRole('navigation', { name: 'Project tabs' }).getByRole('tab');
 			await expect(tabs).toHaveCount(2); await tabs.first().click(); await expect(editor).toHaveAttribute('data-project-id', outgoingId);
+			await waitForProjectActivation(editor);
 		}
 		const projectId = await editor.getAttribute('data-project-id');
 		try {

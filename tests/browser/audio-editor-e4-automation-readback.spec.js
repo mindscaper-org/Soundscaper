@@ -12,13 +12,14 @@ import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
 for (const mode of ['read', 'touch']) for (const native of [false, true]) for (const cancel of [false, true]) {
 	test(`cancelled ${mode} retains the future gain step, native=${native}, cancel=${cancel}`, async ({ page, browserName }) => {
+		test.setTimeout(60_000);
 		test.skip(native && browserName !== 'chromium', 'Native audio hosts run in the maintained Electron renderer (Chromium).');
 		const { project, blob } = await archive(`${mode}-${native}-${cancel}`), errors = collectClientErrors(page);
 		if (native) await installNativeOutputPeer(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Cancel.sscape', mimeType: 'application/zip',
 			buffer: Buffer.from(await blob.arrayBuffer()) });
-		await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
+		await expect(editor).toHaveAttribute('data-project-id', project.id, { timeout: 30_000 }); await waitForProjectActivation(editor);
 		const opened = await persistedProject(page, project.id);
 		if (native) await chooseNativeOutput(page, editor);
 		else await chooseCommandAction(page, editor, 'Analyze', 'Analysis');
@@ -39,7 +40,9 @@ for (const mode of ['read', 'touch']) for (const native of [false, true]) for (c
 			await row.getByRole('slider', { name: 'Volume', exact: true }).focus();
 			await page.keyboard.down('ArrowLeft'); await page.keyboard.press('Escape'); await page.keyboard.up('ArrowLeft');
 		}
-		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(240_000);
+		// This point is five seconds into real playback; the default five-second
+		// assertion window also has to accommodate audio startup and clock updates.
+		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow')), { timeout: 10_000 }).toBeGreaterThan(240_000);
 		const stored = await persistedProject(page, project.id);
 		expect(stored.automationLanes).toEqual(opened.automationLanes);
 		expect(stored.revision).toBe(opened.revision);

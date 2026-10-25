@@ -35,10 +35,12 @@ test('a PNG transparent edge survives resized WebM delivery without a dark fring
 		const video = document.createElement('video');
 		Object.assign(video, { muted: true, playsInline: true, preload: 'auto' }); document.body.append(video);
 		try {
+			const presented = new Promise(resolve => video.requestVideoFrameCallback(resolve));
 			await new Promise((resolve, reject) => {
 				video.onloadeddata = resolve; video.onerror = () => reject(video.error);
 				video.src = url; video.load();
 			});
+			await presented;
 			const canvas = document.createElement('canvas'); canvas.width = 4; canvas.height = 2;
 			const context = canvas.getContext('2d'); context.drawImage(video, 0, 0);
 			return [...context.getImageData(0, 0, 4, 1).data];

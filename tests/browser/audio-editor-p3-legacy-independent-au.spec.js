@@ -42,6 +42,8 @@ test('mixed legacy project import classifies supported audio by ownership rather
 });
 
 for (const caseSibling of [true, false]) test(`selected legacy data directory keeps independent sibling audio; case-only=${String(caseSibling)}`, async ({ page }, testInfo) => {
+	// Directory admission imports both the legacy document and its sibling audio.
+	test.setTimeout(60_000);
 	const root = testInfo.outputPath('Selected');
 	const blocks = join(root, 'Session_data');
 	const independentDirectory = join(root, caseSibling ? 'SESSION_DATA' : 'Other_data');

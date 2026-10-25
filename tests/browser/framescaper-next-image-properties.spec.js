@@ -12,6 +12,9 @@ for (const kind of ['image', 'generator']) for (const entry of ['Window', 'clip 
 		await (await choosing).setFiles({ name: 'poster.png', mimeType: 'image/png', buffer: createPngFixture(16) });
 	} else await chooseNestedCommandAction(page, editor, 'Generate', ['Video Generators', 'Add Title/Text']);
 	const clip = editor.getByRole('group', { name: kind === 'image' ? 'Image clip: poster' : 'Video clip: Title', exact: true });
+	await expect(clip).toBeVisible();
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+	await clip.focus(); await expect(clip).toBeFocused();
 	await clip.press('Enter'); await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
 	if (entry === 'Window') await chooseNestedCommandAction(page, editor, 'Window', ['Clip properties']);
 	else {

@@ -163,15 +163,15 @@ export async function commitInput(input, value) {
 	// dispatching `input`. A re-render landing between those two steps writes the
 	// component's unchanged state back to the node and refreshes React's value
 	// tracker, so the event that follows reads as a no-op and the typed value is
-	// silently dropped — the input keeps exactly what it held before. A real
-	// keystroke cannot interleave that way, but a busy machine makes that window
-	// wide enough to hit, which is what made the caption round-trip flaky on
-	// WebKit. Retry only that signature, so an input that legitimately reformats
-	// what it was given is left alone.
+	// silently dropped or partially appended to the previous draft. Settle focus
+	// before filling, then retry an interrupted fill. Equivalent numeric formatting
+	// (for example 1.0 becoming 1) is already a successful edit.
+	await input.focus();
+	await expect(input).toBeFocused();
 	for (let attempt = 0; attempt < 3; attempt += 1) {
-		const before = await input.inputValue();
 		await input.fill(value);
-		if (before === value || await input.inputValue() !== before) break;
+		const actual = await input.inputValue();
+		if (actual === value || (actual.trim() && value.trim() && Number(actual) === Number(value))) break;
 	}
 	await input.blur();
 }
@@ -359,6 +359,9 @@ export async function chooseCommandAction(page, editor, menu, action, options = 
 	const { openWithKeyboard = true, ...interactionOptions } = options;
 	const commandMenu = await openCommandMenu(page, editor, menu, interactionOptions, { openWithKeyboard });
 	const item = getMenuItem(commandMenu, action);
+	await expect(item).toBeEnabled(interactionOptions);
+	await item.focus();
+	await expect(item).toBeFocused(interactionOptions);
 	await item.press('Enter', interactionOptions);
 	await expect(commandMenu).toBeHidden(interactionOptions);
 }
@@ -377,6 +380,8 @@ export async function chooseNestedCommandAction(page, editor, menu, actions, opt
 				target = getMenuItem(terminalMenu, action);
 			}
 			await expect(target).toBeEnabled(interactionOptions);
+			await target.focus();
+			await expect(target).toBeFocused(interactionOptions);
 			await target.press('Enter', interactionOptions);
 			await expect(commandMenu).toBeHidden(interactionOptions);
 		}
@@ -399,6 +404,8 @@ async function openCommandMenu(page, editor, menu, options, { openWithKeyboard =
 	if (openWithKeyboard) {
 		await expect(menuItem).toBeVisible(options);
 		await expect(menuItem).toBeEnabled(options);
+		await menuItem.focus();
+		await expect(menuItem).toBeFocused(options);
 		await menuItem.press('Enter', options);
 	} else await menuItem.click(options);
 	const commandMenu = page.getByRole('menu', { name: menu, exact: true });
@@ -411,6 +418,8 @@ async function openCommandMenu(page, editor, menu, options, { openWithKeyboard =
 }
 async function openMenuItemSubmenu(page, item, options) {
 	await expect(item).toBeEnabled(options);
+	await item.focus();
+	await expect(item).toBeFocused(options);
 	await item.press('ArrowRight', options);
 	const submenu = item.getByRole('menu');
 	await expect(submenu).toBeVisible(options);

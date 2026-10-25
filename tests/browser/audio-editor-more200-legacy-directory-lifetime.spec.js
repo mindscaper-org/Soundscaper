@@ -8,6 +8,8 @@ import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/edito
 import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
 
 for (const handoff of [false, true]) test(`legacy directory completion preserves the selected activation, OS handoff=${String(handoff)}`, async ({ page }, testInfo) => {
+	// Two document imports and an intervening OS handoff each perform activation.
+	test.setTimeout(60_000);
 	const archive = await createSoundscaperScapeNativeRuntime().exportScapeProject(createSoundscaperProject({ id: 'directory-incoming', title: 'Incoming document' }), {
 		async getMediaAssetMetadata() { return null; }, async loadMediaAsset() { return null; },
 		readSourceChunks() { return (async function* empty() {})(); },

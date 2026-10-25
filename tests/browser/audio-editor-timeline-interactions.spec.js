@@ -265,6 +265,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect.poll(() => waveform.evaluate((canvas) => Boolean(canvas.__kwWaveformPlan))).toBe(true);
 		await waveform.evaluate((canvas) => { globalThis.__movePreviewWaveformPlan = canvas.__kwWaveformPlan; });
 		await page.mouse.move(clipBox.x + 148, clipBox.y + 12, { steps: 8 });
+		await expect.poll(async () => (await clip.boundingBox())?.x).toBeCloseTo(clipBox.x + 120, 0);
 		await expect.poll(() => waveform.evaluate((canvas) => {
 			const original = globalThis.__movePreviewWaveformPlan;
 			const preview = canvas.__kwWaveformPlan;
@@ -276,8 +277,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		await page.mouse.up();
 		await expect(clip).toHaveCSS('opacity', '1');
 		await expect.poll(async () => (await clip.boundingBox())?.x || 0).toBeGreaterThan(clipBox.x + 100);
-		await expect.poll(() => waveform.evaluate((canvas) => canvas.__kwWaveformPlan?.endFrame))
-			.toBe(previewEndFrame);
+		await expect.poll(() => waveform.evaluate((canvas) => canvas.__kwWaveformPlan?.endFrame)).toBe(previewEndFrame);
 		expect(errors).toEqual([]);
 	});
 

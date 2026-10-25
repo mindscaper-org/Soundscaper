@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseDropdown, clipByName, clipField, closeClipProperties, closeDialog, openClipProperties, openExportDialog, showClipTimingFields } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseDropdown, clipByName, clipField, closeClipProperties, closeDialog, commitInput, openClipProperties, openExportDialog, showClipTimingFields, waitForEditor } from './audio-editor-test-helpers.js';
 import { installLinkedAudioBridge } from './helpers/linked-audio-relink-fixture.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 
@@ -16,7 +16,7 @@ for (const unavailable of [false, true]) test(`selection before a ${unavailable 
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 	const timing = await openClipProperties(page, editor, clipByName(editor, toneA.name));
 	await showClipTimingFields(timing);
-	await clipField(timing, 'startFrame').fill('48000'); await clipField(timing, 'startFrame').press('Tab');
+	await commitInput(clipField(timing, 'startFrame'), '48000');
 	await closeClipProperties(timing);
 	const healthy = clipByName(editor, toneB.name); await healthy.focus(); await healthy.press('Enter');
 	const originalDialog = await startSelectionExport(page, editor);
@@ -29,8 +29,7 @@ for (const unavailable of [false, true]) test(`selection before a ${unavailable 
 	const reopened = await context.newPage();
 	await installLinkedAudioBridge(reopened, { original: toneA, changed: toneB }, { unavailable });
 	await reopened.goto(url);
-	const active = reopened.locator('[data-audio-editor]');
-	await expect(active).toHaveAttribute('data-editor-ready', 'true', { timeout: 20_000 });
+	const active = await waitForEditor(reopened);
 	await expect(active).toHaveAttribute('data-project-id', id);
 	await expect(active).not.toHaveAttribute('data-project-activation-pending', 'true');
 	const selected = clipByName(active, toneB.name); await selected.focus(); await selected.press('Enter');

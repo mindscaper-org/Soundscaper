@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, chooseDropdown, closeDialog, openExportDialog, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, chooseDropdown, closeDialog, openExportDialog, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { installLinkedAudioBridge } from './helpers/linked-audio-relink-fixture.js';
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
@@ -24,8 +24,7 @@ for (const unavailable of [false, true]) test(`Recover preserves healthy media b
 	const reopened = await context.newPage();
 	await installLinkedAudioBridge(reopened, { original: toneA, changed: toneB }, { unavailable });
 	await reopened.goto(url);
-	const active = reopened.locator('[data-audio-editor]');
-	await expect(active).toHaveAttribute('data-editor-ready', 'true', { timeout: 30_000 });
+	const active = await waitForEditor(reopened);
 	await expect(active).toHaveAttribute('data-project-id', originalId); await waitForProjectActivation(active);
 	await chooseCommandAction(reopened, active, 'File', 'New'); await expect(active).not.toHaveAttribute('data-project-id', originalId);
 	await waitForProjectActivation(active);

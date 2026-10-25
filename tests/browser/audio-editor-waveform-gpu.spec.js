@@ -2,7 +2,7 @@
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, clipByName, importFiles, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 async function installGpuHarness(page) {
 	const rendererModule = './src/common/editor/ui/timeline/waveform-canvas-renderer.js';
@@ -236,7 +236,7 @@ test('Advanced preferences enable GPU rendering and persist the menu choice', as
 	await expect(waveform).toHaveAttribute('data-waveform-acceleration', acceleration);
 	if (available) await expect(clipByName(editor, toneA.name).locator('.clip-body__waveform-gpu')).toBeVisible();
 	await page.reload();
-	const reloaded = await bootEditor(page, '/embed/en/');
+	const reloaded = await waitForEditor(page); await waitForProjectActivation(reloaded);
 	await expect(clipByName(reloaded, toneA.name).locator('canvas.clip-body__waveform')).toHaveAttribute('data-waveform-acceleration', acceleration);
 	await chooseCommandAction(page, reloaded, 'Edit', 'Preferences');
 	await dialog.getByRole('tab', { name: /Advanced$/u }).click();
@@ -247,6 +247,6 @@ test('Advanced preferences enable GPU rendering and persist the menu choice', as
 	await expect(clipByName(reloaded, toneA.name).locator('canvas.clip-body__waveform')).toHaveAttribute('data-waveform-acceleration', 'canvas');
 	await expect(clipByName(reloaded, toneA.name).locator('.clip-body__waveform-gpu')).toHaveCount(0);
 	await page.reload();
-	const canvasEditor = await bootEditor(page, '/embed/en/');
+	const canvasEditor = await waitForEditor(page); await waitForProjectActivation(canvasEditor);
 	await expect(clipByName(canvasEditor, toneA.name).locator('canvas.clip-body__waveform')).toHaveAttribute('data-waveform-acceleration', 'canvas');
 });

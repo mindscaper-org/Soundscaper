@@ -16,9 +16,18 @@ test('drawing an inverted clip places the audible sample at the visible pencil h
 		await clip.locator('.clip-header').click();
 		await chooseNestedCommandAction(page, editor, 'View', ['Zoom', 'Zoom to selection']);
 		await expect(editor.getByRole('toolbar', { name: 'Sample tools', exact: true })).toBeVisible();
-		const box = await clip.locator('.clip-display').boundingBox();
-		const canvas = await clip.locator('canvas.clip-body__waveform').boundingBox();
-		await page.mouse.click(box.x + 32.1 / 96 * box.width, canvas.y + canvas.height * 0.25);
+		await clip.locator('.clip-display').hover();
+		const point = await clip.evaluate(element => {
+			const display = element.querySelector('.clip-display').getBoundingClientRect();
+			const lane = element.closest('[data-track-lane]');
+			const bounds = lane.getBoundingClientRect();
+			const bodyTop = Number(lane.dataset.channelBodyTop);
+			// The pointer edits the track's audio body; the canvas can still be
+			// resizing after an inspector closes and is not its coordinate system.
+			return { x: display.x + 32.1 / 96 * display.width,
+				y: bounds.y + bodyTop + (bounds.height - bodyTop) * .25 };
+		});
+		await page.mouse.click(point.x, point.y);
 		await expect(editor.locator('[data-status]')).toHaveText('Edited samples.', { timeout: 20_000 });
 		return exportSamples(page, editor);
 	};

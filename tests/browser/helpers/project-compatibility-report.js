@@ -3,6 +3,7 @@ import {
 	assertAccessibleBasics,
 	assertNoSeriousAxeViolations,
 	openNestedCommandMenu,
+	waitForProjectActivation,
 } from '../audio-editor-test-helpers.js';
 
 /** Verify the opt-in report while keeping the editor workspace geometry stable. */
@@ -71,11 +72,13 @@ export async function inspectProjectCompatibilityReport(page, editor) {
 
 
 export async function openProjectCompatibilityReport(page, editor) {
+	await waitForProjectActivation(editor);
 	const viewReport = editor.locator('[data-project-feature-compatibility-summary]')
 		.getByRole('button', { name: 'View report', exact: true });
 	// Opening a project can still change the toast stack's geometry. Keyboard
 	// activation keeps this setup action attached to the focused button.
 	await viewReport.focus();
+	await expect(viewReport).toBeFocused();
 	await viewReport.press('Enter');
 	await expect(page.getByRole('dialog', { name: 'Project compatibility report', exact: true })).toBeVisible();
 }

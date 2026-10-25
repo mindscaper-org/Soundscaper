@@ -26,6 +26,7 @@ test('pending Audacity file recovery keeps its progress dialog until the import 
 	const dialog = page.getByRole('dialog', { name: 'Recover Audacity project', exact: true });
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
+	await expect(editor.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true })).toBeFocused();
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Recover Audacity project']);
 	const bytes = await createAup3Fixture();
 	await dialog.locator('input[type="file"]').setInputFiles({ name: 'Recover me.aup3', mimeType: 'application/x-audacity-project', buffer: Buffer.from(bytes) });

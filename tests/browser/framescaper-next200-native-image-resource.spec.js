@@ -37,6 +37,7 @@ for (const format of ['png', 'jpeg', 'gif', 'webp', 'bmp']) for (const size of [
 		expect(await page.evaluate(() => globalThis.__nativeRasterOpens)).toEqual([]);
 	} else {
 		await expect(editor.getByRole('group', { name: 'Image clip: ordinary', exact: true })).toBeVisible();
+		await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 		expect(await page.evaluate(() => globalThis.__nativeRasterOpens)).toEqual([{ width: 16, height: 16 }]);
 		const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 		const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));

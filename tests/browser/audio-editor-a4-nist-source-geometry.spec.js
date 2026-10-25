@@ -5,7 +5,7 @@ import { encodeWav } from '../../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
-	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
+	importFiles, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
 for (const format of ['sph', 'wav']) test(`native ${format} retains authored48k PCM and extent through File Import, Save and WAV export`, async ({ page }) => {
 	test.setTimeout(60_000);
@@ -35,8 +35,8 @@ for (const format of ['sph', 'wav']) test(`native ${format} retains authored48k 
 		expect(native[channel].slice(4800).every(value => value === 0)).toBe(true);
 	}
 	expect(error).toBeLessThan(1e-7);
-	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
-	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 10_000 });
+	await importFiles(editor, [{ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) }]);
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));
 	expect(project.sources[0]).toMatchObject({ sampleRate: 48_000, frameCount: 4800, channelCount: 2 });

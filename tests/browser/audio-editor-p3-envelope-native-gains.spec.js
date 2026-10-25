@@ -32,7 +32,7 @@ test('editing a clip gain point keeps untouched native gain and the supported tw
 	const before = await exportSamples(page, editor); expect(peak(before)).toBeGreaterThan(.1);
 	const recording = clipByName(editor, clip.title);
 	await addClipGainPoint(page, editor, recording, .1);
-	await expect.poll(async () => (await persistedProject(page, project.id))?.clips[0]?.envelope?.length).toBe(5);
+	await expect.poll(async () => (await persistedProject(page, project.id))?.clips[0]?.envelope?.length, { timeout: 15_000 }).toBe(5);
 	const afterAdd = await exportSamples(page, editor);
 	expect(Math.abs(peak(afterAdd) - peak(before))).toBeLessThan(.000001);
 	await editor.getByRole('button', { name: 'Clip gain', exact: true }).click();

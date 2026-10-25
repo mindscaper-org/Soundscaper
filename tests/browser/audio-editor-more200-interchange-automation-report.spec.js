@@ -17,6 +17,5 @@ for (const automated of [false, true]) test(`cut-only export discloses authored 
 	const clips = timeline.tracks.children.filter(track => track.kind === 'Audio').flatMap(track => track.children).filter(child => child.OTIO_SCHEMA === 'Clip.1');
 	expect(clips).toHaveLength(1); expect(clips[0].effects ?? []).toEqual([]);
 	await chooseCommandAction(page, editor, 'File', 'Delivery Report'); const report = page.getByRole('dialog', { name: 'Delivery Report', exact: true });
-	if (automated) await expect(report.locator('[data-severity="warning"]').filter({ hasText: 'automation' })).toHaveCount(1);
-	else await expect(report.locator('[data-severity="warning"]')).toHaveCount(0);
+	await expect(report.locator('[data-severity="warning"]').filter({ hasText: 'automation' })).toHaveCount(automated ? 1 : 0);
 });

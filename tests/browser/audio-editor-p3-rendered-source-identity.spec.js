@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation, openClipProperties, closeClipProperties, clipField, getMenuItem } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseExportProjectFileAction, chooseNestedCommandAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation, openClipProperties, closeClipProperties, clipField, getMenuItem, openNestedCommandMenu } from './audio-editor-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperAudioTrackFreezePlaybackService } from '../../src/soundscaper/editor-audio-track-freeze-playback.ts';
 import { createSoundscaperPlaybackProjectService } from '../../src/soundscaper/editor-project-playback.ts';
@@ -47,9 +48,8 @@ for (const chunkFrames of [1024, 65536]) for (const authenticated of [false, tru
 	const pcm = entries[`audio/${rendered.id}.f32c`];
 	expect(new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength).getUint32(0, true)).toBe(12000);
 	await editor.locator('[data-track-id="voice"] [data-track-header]').click();
-	const tracks = await openTracks(page, editor), freeze = getMenuItem(tracks, 'Freeze');
-	await freeze.focus(); await page.keyboard.press('ArrowRight');
-	await getMenuItem(freeze.getByRole('menu'), 'Freeze track').click();
+	await chooseNestedCommandAction(page, editor, 'Tracks', ['Freeze', 'Freeze track']);
+	await expect.poll(async () => (await persistedProject(page, projectId))?.tracks.find(track => track.id === 'voice')?.audioFreeze?.derivedSourceId).toBeTruthy();
 	await expect.poll(async () => {
 		const status = await openTracks(page, editor);
 		const fresh = await getMenuItem(status, 'Freeze (fresh)').count();
@@ -59,6 +59,5 @@ for (const chunkFrames of [1024, 65536]) for (const authenticated of [false, tru
 });
 
 async function openTracks(page, editor) {
-	await editor.getByRole('menubar', { name: 'Application menu', exact: true }).getByRole('menuitem', { name: 'Tracks', exact: true }).click();
-	const menu = page.getByRole('menu', { name: 'Tracks', exact: true }); await expect(menu).toBeVisible(); return menu;
+	return openNestedCommandMenu(page, editor, 'Tracks', []);
 }
