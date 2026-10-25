@@ -8,8 +8,7 @@ import { serializeExportChannelMatrix, toggleExportChannelMatrix } from '../src/
 import { projectHasTimelineAudio } from '../src/common/editor/ui/timeline-media-presence.ts';
 import { createClipSelectionNavigationMenuModel } from '../src/common/editor/ui/clip-selection-navigation-menu-model.ts';
 import { resolveEffectMenuTargeting, createEffectMenuEntries } from '../src/common/editor/ui/effect-menu-organization.js';
-import { EFFECT_MENU_GROUPS } from '../src/common/editor/ui/application-menu-model.js';
-import { mergeAssistanceTaskMenus } from '../src/common/editor/ui/assistance-task-catalog.ts';
+import { ASSISTANCE_TASKS, mergeAssistanceTaskMenus } from '../src/common/editor/ui/assistance-task-catalog.ts';
 import { sourceRulerTicks, clipSourceSegments } from '../src/common/editor/ui/inspector/clip-source-view.ts';
 import { meterChannelReadings } from '../src/common/editor/ui/meter-channel-readings.ts';
 
@@ -79,18 +78,46 @@ void test('U14 Effect target membership scales linearly with selected tracks', t
 	assert.equal(result.effectAudioTrack?.id, 't299'); t.diagnostic(`selected membership reads ${reads}`); assert.ok(reads <= 300);
 });
 
-function countLocaleCalls(run: () => unknown): number {
-	let calls = 0; const original = String.prototype.localeCompare;
-	String.prototype.localeCompare = function(this: string, ...args: Parameters<typeof original>) { calls++; return original.apply(this, args); };
-	try { run(); } finally { String.prototype.localeCompare = original; }
-	return calls;
-}
-void test('U15 alphabetical Effect menu shares one locale comparator', () => {
-	const effectLabels = new Map(EFFECT_MENU_GROUPS.flatMap(([, ids]) => Array.isArray(ids) ? ids : []).map(id => [id, id] as const));
-	assert.equal(countLocaleCalls(() => { const result = createEffectMenuEntries({ organization: 'sortby:name', copy: {}, effectLabels, productId: 'soundscaper', disabled: false }, () => {}); assert.ok(result.length > 2); }), 0);
+void test('alphabetical Effect entries preserve locale collation and stable equal-label order', () => {
+	const context = { organization: 'sortby:name', copy: {}, effectLabels: new Map([
+		['audacity-amplify', 'Ähre'], ['audacity-auto-duck', 'Zebra'],
+		['audacity-compressor', 'Alpha'], ['audacity-limiter', 'Alpha'],
+	]), productId: 'soundscaper', disabled: false, selectionActive: true, locale: 'sv' };
+	const ids = (locale: string) => createEffectMenuEntries({ ...context, locale }, () => {}).map(entry => 'id' in entry ? entry.id : undefined);
+	assert.deepEqual(ids('sv'), ['audacity-compressor', 'audacity-limiter', 'audacity-auto-duck', 'audacity-amplify']);
+	assert.deepEqual(ids('en'), ['audacity-amplify', 'audacity-compressor', 'audacity-limiter', 'audacity-auto-duck']);
+	assert.doesNotThrow(() => createEffectMenuEntries({ ...context, effectLabels: new Map(), locale: 'invalid_locale' }, () => {}));
+	assert.doesNotThrow(() => createEffectMenuEntries({ ...context, effectLabels: new Map([['audacity-amplify', 'Only']]), locale: 'invalid_locale' }, () => {}));
+	assert.throws(() => ids('invalid_locale'), RangeError);
 });
-void test('U16 assistance alphabetical effect block shares a locale comparator and retains management positions', () => {
-	assert.equal(countLocaleCalls(() => { const result = mergeAssistanceTaskMenus([{ id: 'effect', items: [{ id: 'repeat-effect', label: 'Repeat', onClick() {} }, { id: 'z', label: 'Zulu', onClick() {} }] }], { available: true, productId: 'soundscaper', copy: {}, organization: 'sortby:name', open() {} }); assert.equal(result[0]?.items?.[0]?.id, 'repeat-effect'); }), 0);
+void test('assistance alphabetical sorting reads a dynamic locale after comparison labels and retains management positions', () => {
+	const reads: string[] = []; let localeReads = 0;
+	const result = mergeAssistanceTaskMenus([{ id: 'effect', items: [
+		{ id: 'repeat-effect', label: 'Repeat', onClick() {} },
+		{ id: 'z', get label() { reads.push('Zulu'); return 'Zulu'; }, onClick() {} },
+		{ id: 'a', get label() { reads.push('Alpha'); return 'Alpha'; }, onClick() {} },
+	] }], { available: true, productId: 'soundscaper', copy: {}, organization: 'sortby:name',
+		get locale() { reads.push('locale'); return ++localeReads % 2 ? 'en' : 'de'; }, open() {},
+	});
+	assert.equal(result[0]?.items?.[0]?.id, 'repeat-effect');
+	assert.deepEqual(reads.slice(0, 3), ['Alpha', 'Zulu', 'locale']);
+	assert.ok(localeReads > 1);
+	assert.deepEqual(result[0]?.items?.slice(1).map(item => item.label), [
+		'Alpha', 'Clean Filler & Silence', 'Enhance Dialogue', 'Reduce Reverb', 'Separate Dialogue / Music / Effects', 'Zulu',
+	]);
+});
+void test('assistance sorts with empty or singleton effect blocks do not read or validate locale', () => {
+	const groupedTaskCount = ASSISTANCE_TASKS.filter(task => task.menu === 'effect' && !task.video && task.group).length;
+	for (const singleton of [false, true]) {
+		let organizationReads = 0; let localeReads = 0;
+		const result = mergeAssistanceTaskMenus([{ id: 'effect', items: singleton ? [{ id: 'only', label: 'Only', onClick() {} }] : [] }], {
+			available: true, productId: 'soundscaper', copy: {},
+			get organization() { return ++organizationReads <= groupedTaskCount ? 'sortby:category' : 'sortby:name'; },
+			get locale(): string { localeReads++; throw new Error('A locale must not be read without a comparison.'); }, open() {},
+		});
+		assert.equal(localeReads, 0); assert.equal(organizationReads, groupedTaskCount + 1);
+		assert.equal(result[0]?.items?.filter(item => item.onClick && !item.items).length, singleton ? 1 : 0);
+	}
 });
 
 void test('U23 source-ruler ticks compute display precision once per painted ruler', t => {

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { menuLabelComparator } from './menu-label-comparator.ts';
 import { EFFECT_MENU_GROUPS } from './application-menu-model.js';
 import { audioSelectionEffectAppliesToAllAudio } from '../effects.js';
 
@@ -64,7 +63,7 @@ export function createEffectMenuEntries(context, openSelectionEffect) {
 			.flatMap(([, types]) => types)
 			.filter(admitted)
 			.map(entry)
-			.sort(menuLabelComparator(locale));
+			.sort((left, right) => left.label.localeCompare(right.label, locale || 'en'));
 	}
 	return EFFECT_MENU_GROUPS.map(([labelKey, types]) => ({
 		id: labelKey,
