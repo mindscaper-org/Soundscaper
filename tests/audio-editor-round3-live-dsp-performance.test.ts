@@ -111,8 +111,8 @@ test('fixed full-band Noise Gate does not construct unusable crossover history',
 test('Vocoder retains carrier/filter rotations on envelope-distance updates and prepares pole Q once', (context) => {
 	const cosine = context.mock.method(Math, 'cos');
 	const processor = createVocoderProcessor({ sampleRate: 8000, channelCount: 1, params: { bands: 12 } });
-	assert.equal(cosine.mock.callCount(), 12 * 8);
+	assert.equal(cosine.mock.callCount(), 12 * 3);
 	cosine.mock.resetCalls();
 	processor.updateParams({ distance: 32 });
-	assert.equal(cosine.mock.callCount(), 12 * 4);
+	assert.equal(cosine.mock.callCount(), 12);
 });
