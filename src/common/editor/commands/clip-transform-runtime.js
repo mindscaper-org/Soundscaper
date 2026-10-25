@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createFrozenClipReader } from './frozen-clip-reader.ts';
 import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
 
 import { clipSourceTrimFields } from '../clip-source-trim.ts';
@@ -373,6 +374,7 @@ export function overwriteClip(project, command) {
 }
 
 export function prepareOverwriteClipCommand(project, clipId, options = {}, idFactory = createStableId) {
+	const readClip = createFrozenClipReader(project);
 	const clip = findClip(project, clipId);
 	if (!clip) throw new ReferenceError(`Unknown clip ${clipId}.`);
 	const targetTrack = findTrack(project, options.trackId) || findClipTrack(project, clipId);
@@ -387,7 +389,7 @@ export function prepareOverwriteClipCommand(project, clipId, options = {}, idFac
 	const videoEffectIds = {};
 	for (const targetClipId of targetTrack.clipIds) {
 		if (targetClipId === clip.id) continue;
-		const inactiveClip = requireClip(project, targetClipId);
+		const inactiveClip = readClip(targetClipId);
 		if (
 			clipsOverlap(inactiveClip, overwriteCut)
 			&& inactiveClip.timelineStartFrame < overwriteCut.timelineStartFrame

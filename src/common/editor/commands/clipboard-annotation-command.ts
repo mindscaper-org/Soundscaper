@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { immutablePasteSequences } from './immutable-paste-sequences.ts';
+
 import {
 	pasteSpanForSequence,
 	sequenceForTrack,
@@ -48,11 +50,14 @@ export function preparePasteAnnotationMaps(
 			: null;
 	}
 	if (options.project) {
+		const lookup = immutablePasteSequences(options.project);
 		for (const track of clipboard.tracks) {
 			const sourceSequenceId = requiredId(track.sourceSequenceId, 'clipboard track sourceSequenceId');
 			const targetTrackId = options.trackMap?.[track.sourceTrackId] || track.sourceTrackId;
 			const mapped = sequenceMap[sourceSequenceId];
-			const targetSequenceId = sequenceIdForTrack(options.project, targetTrackId, mapped);
+			const targetSequenceId = lookup?.matches()
+				? requiredId(lookup.sequenceId(targetTrackId, mapped), `target sequence for ${lookup.hasTrack(targetTrackId) ? 'track' : 'new track'} ${targetTrackId}`)
+				: sequenceIdForTrack(options.project, targetTrackId, mapped);
 			if (mapped && mapped !== targetSequenceId) {
 				throw new RangeError(`Clipboard sequence ${sourceSequenceId} cannot map to multiple target sequences.`);
 			}
@@ -61,7 +66,7 @@ export function preparePasteAnnotationMaps(
 		const sequences = recordArray(options.project.sequences, 'project.sequences');
 		for (const sourceSequenceId of sourceSequenceIds) {
 			if (sequenceMap[sourceSequenceId]) continue;
-			if (sequences.some((sequence) => sequence.id === sourceSequenceId)) sequenceMap[sourceSequenceId] = sourceSequenceId;
+			if (lookup?.matches() ? lookup.hasSequence(sourceSequenceId) : sequences.some((sequence) => sequence.id === sourceSequenceId)) sequenceMap[sourceSequenceId] = sourceSequenceId;
 		}
 	} else {
 		for (const sourceSequenceId of sourceSequenceIds) sequenceMap[sourceSequenceId] ||= sourceSequenceId;
@@ -98,11 +103,14 @@ export function assertPasteSequenceMaps(
 		throw new TypeError('paste.sequenceMap must be an own enumerable data property.');
 	}
 	const sequenceMap = snapshotDataRecord(sequenceMapDescriptor.value, 'paste.sequenceMap');
+	const lookup = immutablePasteSequences(project);
 	for (const track of clipboard.tracks) {
 		const sourceSequenceId = requiredId(track.sourceSequenceId, 'clipboard track sourceSequenceId');
 		if (!Object.hasOwn(sequenceMap, sourceSequenceId)) continue;
 		const targetTrackId = command.trackMap?.[track.sourceTrackId] || track.sourceTrackId;
-		const targetSequenceId = sequenceIdForTrack(project, targetTrackId);
+		const targetSequenceId = lookup?.matches()
+			? requiredId(lookup.sequenceId(targetTrackId), `target sequence for ${lookup.hasTrack(targetTrackId) ? 'track' : 'new track'} ${targetTrackId}`)
+			: sequenceIdForTrack(project, targetTrackId);
 		if (sequenceMap[sourceSequenceId] !== targetSequenceId) {
 			throw new RangeError(`Clipboard sequence ${sourceSequenceId} does not map to its target track sequence.`);
 		}

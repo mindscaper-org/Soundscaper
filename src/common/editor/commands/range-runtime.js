@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createFrozenClipReader } from './frozen-clip-reader.ts';
 import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
 
 import { compareCodeUnits } from '../code-unit-order.ts';
@@ -227,6 +228,7 @@ export function keepRange(project, command) {
 
 /** @returns {import('./protocol.ts').AudioEditorCommand} */
 export function prepareRangeDeleteCommand(project, options = {}, idFactory = createStableId) {
+	const readClip = createFrozenClipReader(project);
 	const rippleMode = options.rippleMode || (options.ripple ? 'track' : 'none');
 	if (!['none', 'clip', 'track'].includes(rippleMode)) throw new RangeError(`Unsupported ripple mode: ${rippleMode}.`);
 	const type = rippleMode === 'clip'
@@ -249,7 +251,7 @@ export function prepareRangeDeleteCommand(project, options = {}, idFactory = cre
 		if (!operationRange) continue;
 		for (const clipId of requireTrack(project, trackId).clipIds) {
 			if (!clipIdSet.has(clipId)) continue;
-			const clip = requireClip(project, clipId);
+			const clip = readClip(clipId);
 			if (clip.timelineStartFrame < operationRange.startFrame && clipEndFrame(clip) > operationRange.endFrame) {
 				setCommandIdentity(splitClipIds, clip.id, idFactory('clip'));
 				const effectIds = prepareVideoEffectIds(clip, idFactory);
@@ -371,14 +373,15 @@ function detachAvLinksAcrossTrackRange(project, track, range, timelineDelta) {
 }
 
 export function preparePunchCommand(project, options = {}, idFactory = createStableId) {
+	const readClip = createFrozenClipReader(project);
 	const range = normalizeFrameRange(options.startFrame, options.endFrame, 'punch range');
 	const track = requireTrack(project, options.trackId);
-	const cutRange = punchTransitionCutRange(range, track.clipIds.map((id) => requireClip(project, id)), options);
+	const cutRange = punchTransitionCutRange(range, track.clipIds.map((id) => readClip(id)), options);
 	// Split identities follow this track's retained cut range, never a video-conformed lane-group span.
 	const splitClipIds = {};
 	const videoEffectIds = {};
 	for (const clipId of track.clipIds) {
-		const clip = requireClip(project, clipId);
+		const clip = readClip(clipId);
 		if (clip.timelineStartFrame >= cutRange.startFrame || clipEndFrame(clip) <= cutRange.endFrame) continue;
 		const rightId = idFactory('clip');
 		setCommandIdentity(splitClipIds, clip.id, rightId);
@@ -409,6 +412,7 @@ export function preparePunchCommand(project, options = {}, idFactory = createSta
 
 /** @returns {Extract<import('./protocol.ts').AudioEditorCommand, { readonly type: 'range/replace' }>} */
 export function prepareRangeReplacementCommand(project, options = {}, idFactory = createStableId) {
+	const readClip = createFrozenClipReader(project);
 	const range = normalizeFrameRange(options.startFrame, options.endFrame, 'replacement range');
 	const track = requireTrack(project, options.trackId);
 	const sourceId = options.source?.id || idFactory('source');
@@ -420,7 +424,7 @@ export function prepareRangeReplacementCommand(project, options = {}, idFactory 
 	const splitClipIds = {};
 	const videoEffectIds = {};
 	for (const existingClipId of track.clipIds) {
-		const clip = requireClip(project, existingClipId);
+		const clip = readClip(existingClipId);
 		if (clip.timelineStartFrame < range.startFrame && clipEndFrame(clip) > range.endFrame) {
 			const rightId = requireStableCommandId(idFactory('clip'), `right segment for ${clip.id}`);
 			reserveReplacementClipId(project, rightId, generatedClipIds);
