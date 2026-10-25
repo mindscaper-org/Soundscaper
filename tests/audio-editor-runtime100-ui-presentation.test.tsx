@@ -4,6 +4,7 @@ import test from 'node:test';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import type { CustomToolbarButtonAction } from '../src/common/editor/ui/toolbar/custom-toolbar-button-actions.ts';
 import { CustomToolbarButtonGroup } from '../src/common/editor/ui/toolbar/CustomToolbarButtons.tsx';
 import { createKeyboardMapBindingView } from '../src/common/editor/ui/dialogs/keyboard-map-view.ts';
 import { KEYBOARD_MAP_ROWS, type KeyboardMapBinding } from '../src/common/editor/ui/dialogs/keyboard-map-model.ts';
@@ -115,4 +116,57 @@ void test('frozen dialog action IDs with mutable string coercion retain fresh se
 	const actionId = { toString() { return actionName; } };
 	const find = prepareCustomToolbarActionSearch(Object.freeze([Object.freeze({ actionId, path: Object.freeze(['Edit']), label: 'A', disabled: false })]) as never);
 	actionName = 'after'; assert.equal(find('after').length, 1);
+});
+
+void test('search preparation leaves sparse frozen arrays and invalid rows to their native query behavior', () => {
+	const action = Object.freeze({ actionId: 'a', path: Object.freeze(['Edit']), label: 'A', disabled: false });
+	const actions = new Array<CustomToolbarButtonAction>(2); actions[1] = action; Object.freeze(actions);
+	const symbols = new Array<string>(2); symbols[1] = 'SYMBOL_A'; Object.freeze(symbols);
+	assert.deepEqual(prepareCustomToolbarActionSearch(actions)('edit'), [action]);
+	assert.deepEqual(prepareCustomToolbarSymbolSearch(symbols)('symbol a'), ['SYMBOL_A']);
+	const invalidActions = Object.freeze([undefined, null]) as unknown as readonly CustomToolbarButtonAction[];
+	const invalidSymbols = Object.freeze([undefined, 2]) as unknown as readonly string[];
+	const readActions = prepareCustomToolbarActionSearch(invalidActions), readSymbols = prepareCustomToolbarSymbolSearch(invalidSymbols);
+	assert.throws(() => readActions(''), TypeError); assert.throws(() => readSymbols(''), TypeError);
+});
+void test('search preparation reads no frozen accessor slots and queries their current values', () => {
+	let actionReads = 0, symbolReads = 0;
+	let action = Object.freeze({ actionId: 'a', path: Object.freeze(['Before']), label: 'A', disabled: false });
+	let symbol = 'BEFORE';
+	const actions: CustomToolbarButtonAction[] = []; Object.defineProperty(actions, 0, { enumerable: true, get() { actionReads++; return action; } }); Object.freeze(actions);
+	const symbols: string[] = []; Object.defineProperty(symbols, 0, { enumerable: true, get() { symbolReads++; return symbol; } }); Object.freeze(symbols);
+	const readActions = prepareCustomToolbarActionSearch(actions), readSymbols = prepareCustomToolbarSymbolSearch(symbols);
+	assert.equal(actionReads, 0); assert.equal(symbolReads, 0);
+	action = Object.freeze({ actionId: 'a', path: Object.freeze(['After']), label: 'A', disabled: false }); symbol = 'AFTER';
+	assert.deepEqual(readActions('after'), [action]); assert.deepEqual(readSymbols('after'), ['AFTER']);
+	assert.equal(actionReads, 1); assert.equal(symbolReads, 1);
+});
+void test('search preparation ignores custom iterators and preserves own filter callbacks at query time', () => {
+	const action = Object.freeze({ actionId: 'a', path: Object.freeze(['Edit']), label: 'A', disabled: false });
+	const actions = [action], symbols = ['SYMBOL_A'];
+	const iterator = () => { throw new Error('The native filter never consumes this iterator.'); };
+	Object.defineProperty(actions, Symbol.iterator, { value: iterator }); Object.freeze(actions);
+	Object.defineProperty(symbols, Symbol.iterator, { value: iterator }); Object.freeze(symbols);
+	assert.deepEqual(prepareCustomToolbarActionSearch(actions)('edit'), [action]);
+	assert.deepEqual(prepareCustomToolbarSymbolSearch(symbols)('symbol a'), ['SYMBOL_A']);
+	let actionFilters = 0, symbolFilters = 0;
+	const filteredActions = [action], filteredSymbols = ['SYMBOL_A'];
+	Object.defineProperty(filteredActions, 'filter', { value: () => { actionFilters++; return []; } }); Object.freeze(filteredActions);
+	Object.defineProperty(filteredSymbols, 'filter', { value: () => { symbolFilters++; return []; } }); Object.freeze(filteredSymbols);
+	const readActions = prepareCustomToolbarActionSearch(filteredActions), readSymbols = prepareCustomToolbarSymbolSearch(filteredSymbols);
+	assert.equal(actionFilters, 0); assert.equal(symbolFilters, 0);
+	assert.deepEqual(readActions('edit'), []); assert.deepEqual(readSymbols('symbol a'), []);
+	assert.equal(actionFilters, 1); assert.equal(symbolFilters, 1);
+});
+void test('search preparation skips oversized raw strings before normalization and keeps fresh query scoring', () => {
+	const large = 'A'.repeat(4_194_305); let largeNormalizations = 0;
+	const original = String.prototype.toLowerCase;
+	String.prototype.toLowerCase = function(this: string) { if (this.length > 4_194_304) largeNormalizations++; return original.call(this); };
+	try {
+		const readActions = prepareCustomToolbarActionSearch(Object.freeze([Object.freeze({ actionId: 'a', path: Object.freeze([large]), label: 'A', disabled: false })]));
+		const readSymbols = prepareCustomToolbarSymbolSearch(Object.freeze([large]));
+		assert.equal(largeNormalizations, 0);
+		assert.equal(readActions('aaa').length, 1); assert.equal(readSymbols('aaa').length, 1);
+		assert.equal(largeNormalizations, 2);
+	} finally { String.prototype.toLowerCase = original; }
 });
