@@ -9,8 +9,13 @@ type PresentationDocument = Pick<Document, 'visibilityState' | 'addEventListener
 /** Capture one browser presentation boundary around explicit Photo sidecars.
  * WebKit's asynchronous download navigation policy can discard an earlier
  * anchor request when the next request arrives before that policy is handled.
- * A frame opportunity separates requests; the original save result continues
- * to describe the requested download, without asserting physical acceptance.
+ * Two consecutive native frame callbacks span a rendering opportunity: the
+ * first callback runs before rendering, so only its nested next-frame callback
+ * can release delivery. The save result describes the requested download,
+ * without asserting physical acceptance.
+ * RAF precedes rendering; its callback snapshot defers a nested RAF to a later cycle:
+ * https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering
+ * https://html.spec.whatwg.org/multipage/imagebitmap-and-animations.html#run-the-animation-frame-callbacks
  * Hidden documents and unavailable scheduling settle with false immediately.
  * Callers refuse JSON before delivery or preserve a known irreversible result
  * after delivery. Retirement cancels the actual frame and removes listeners.
@@ -31,7 +36,7 @@ export function capturePhotoBrowserDownloadOpportunityCurrentV1(scope: PhotoBrow
 	return signal => {
 		if (signal?.aborted) return Promise.resolve(false);
 		return new Promise<boolean>(resolve => {
-			let finished = false, frame: number | null = null;
+			let finished = false, frame: number | null = null, callbacks = 0;
 			const cancel = () => { if (frame !== null) { const handle = frame; frame = null; try { cancelFrame(handle); } catch { /* Optional presentation became unavailable. */ } } };
 			const finish = (available: boolean) => {
 				if (finished) return; finished = true; cancel();
@@ -46,7 +51,11 @@ export function capturePhotoBrowserDownloadOpportunityCurrentV1(scope: PhotoBrow
 					if (document.visibilityState !== 'visible') { finish(false); return; }
 					frame ??= requestFrame(() => {
 						frame = null;
-						try { finish(document.visibilityState === 'visible' && !signal?.aborted); } catch { finish(false); }
+						try {
+							if (document.visibilityState !== 'visible' || signal?.aborted) finish(false);
+							else if (++callbacks === 2) finish(true);
+							else schedule();
+						} catch { finish(false); }
 					});
 				} catch { finish(false); }
 			};

@@ -59,16 +59,20 @@ function fixture({ hidden = false, desktop = false, presentation = true, onClick
 const request = (name: string, signal?: AbortSignal) => ({ purpose: 'media', suggestedName: name,
 	target: { browserDownload: true, name }, mimeType: name.endsWith('.json') ? 'application/json' : 'image/png', blob: new Blob(['PNG']), signal });
 
-test('Light browser paired JSON brackets its actual request with presentation opportunities', async () => {
-	const f = fixture(), stop = new AbortController();
+test('Light browser paired JSON requires two consecutive frame callbacks before delivery and before its receipt settles', async () => {
+	const f = fixture(), stop = new AbortController(); let finished = false;
 	const work = (async () => {
 		const image = await f.service.saveFile(request('Photo.png', stop.signal));
 		const json = await f.service.saveFile(request('Photo.png.lightscaper.json', stop.signal)); return { image, json };
 	})();
-	const joined = work.then(() => undefined, () => undefined);
+	const joined = work.then(() => { finished = true; }, () => { finished = true; });
 	try {
 		await nextTask(); assert.deepEqual(f.document.clicked, ['Photo.png']); assert.equal(f.frames.size, 1);
-		f.frame(); await nextTask(); assert.deepEqual(f.document.clicked, ['Photo.png', 'Photo.png.lightscaper.json']); assert.equal(f.frames.size, 1);
+		f.frame(); await nextTask(); assert.deepEqual(f.document.clicked, ['Photo.png'], 'The first callback precedes rendering and cannot start JSON.');
+		assert.equal(f.frames.size, 1); f.frame(); await nextTask();
+		assert.deepEqual(f.document.clicked, ['Photo.png', 'Photo.png.lightscaper.json']); assert.equal(f.frames.size, 1);
+		f.frame(); await nextTask(); assert.equal(finished, false, 'The first post-JSON callback cannot release the next delivery.');
+		assert.equal(f.frames.size, 1);
 		f.frame(); assert.deepEqual(await work, {
 			image: { method: 'download', fileName: 'Photo.png', size: 3 },
 			json: { method: 'download', fileName: 'Photo.png.lightscaper.json', size: 3 },
@@ -81,10 +85,11 @@ test('Light browser retirement after its JSON click releases the held frame and 
 	const f = fixture(), stop = new AbortController(), reason = Object.freeze({ retired: 'after native anchor click' });
 	const name = 'Photo.png.lightscaper.json', work = f.service.saveFile(request(name, stop.signal)), joined = work.then(() => undefined, () => undefined);
 	try {
-		await nextTask(); assert.equal(f.frames.size, 1); assert.deepEqual(f.document.clicked, []); f.frame();
+		await nextTask(); assert.equal(f.frames.size, 1); assert.deepEqual(f.document.clicked, []); f.frame(); f.frame();
 		await nextTask(); assert.equal(f.frames.size, 1); assert.equal(getEventListeners(stop.signal, 'abort').length, 1);
+		f.frame(); assert.equal(f.frames.size, 1);
 		stop.abort(reason); assert.deepEqual(await work, { method: 'download', fileName: name, size: 3 });
-		assert.deepEqual(f.document.clicked, [name]); assert.deepEqual(f.cancelled, [2]); f.clean(stop.signal);
+		assert.deepEqual(f.document.clicked, [name]); assert.deepEqual(f.cancelled, [4]); f.clean(stop.signal);
 	} finally { stop.abort(); await joined; }
 });
 
@@ -99,8 +104,8 @@ test('Light browser hide cancels the pre-JSON opportunity and later visibility c
 	const name = 'Photo.png.lightscaper.json', work = f.service.saveFile(request(name, stop.signal));
 	const joined = work.then(() => undefined, () => undefined);
 	try {
-		await nextTask(); assert.equal(f.frames.size, 1); f.document.visibility(true);
-		await assert.rejects(work, /visible presentation opportunity/u); assert.deepEqual(f.cancelled, [1]);
+		await nextTask(); assert.equal(f.frames.size, 1); f.frame(); f.document.visibility(true);
+		await assert.rejects(work, /visible presentation opportunity/u); assert.deepEqual(f.cancelled, [2]);
 		f.document.visibility(false); assert.deepEqual(f.document.clicked, []); f.clean(stop.signal);
 	} finally { stop.abort(); await joined; }
 });
@@ -108,7 +113,7 @@ test('Light browser hide cancels the pre-JSON opportunity and later visibility c
 test('Light browser cancellation inside the real JSON anchor preserves its receipt without scheduling a later frame', async () => {
 	const stop = new AbortController(), f = fixture({ onClick: () => { stop.abort(Object.freeze({ nativeClick: 'already entered' })); } });
 	const name = 'Photo.png.lightscaper.json', work = f.service.saveFile(request(name, stop.signal));
-	await nextTask(); f.frame(); assert.deepEqual(await work, { method: 'download', fileName: name, size: 3 });
+	await nextTask(); f.frame(); f.frame(); assert.deepEqual(await work, { method: 'download', fileName: name, size: 3 });
 	assert.deepEqual(f.document.clicked, [name]); assert.deepEqual(f.cancelled, []); f.clean(stop.signal);
 });
 
@@ -120,9 +125,9 @@ test('Light browser scheduling refusal before JSON releases all listeners and ne
 });
 
 test('Light browser scheduling refusal after JSON preserves its original irreversible receipt and releases listeners', async () => {
-	const f = fixture({ frameFailure: new Error('The native presentation scheduler is unavailable.'), frameFailureAt: 2 }), stop = new AbortController();
+	const f = fixture({ frameFailure: new Error('The native presentation scheduler is unavailable.'), frameFailureAt: 3 }), stop = new AbortController();
 	const name = 'Photo.png.lightscaper.json', work = f.service.saveFile(request(name, stop.signal));
-	await nextTask(); f.frame(); assert.deepEqual(await work, { method: 'download', fileName: name, size: 3 });
+	await nextTask(); f.frame(); f.frame(); assert.deepEqual(await work, { method: 'download', fileName: name, size: 3 });
 	assert.deepEqual(f.document.clicked, [name]); assert.deepEqual(f.cancelled, []); f.clean(stop.signal);
 });
 
@@ -200,8 +205,8 @@ test('actual Current JSON-only retry follows hidden refusal without another imag
 	try {
 		const first = await raster.start(actualRequest(native, f)); assert.ok(first.status !== 'cancelled'); assert.equal(first.sidecar?.status, 'failed');
 		f.clean(); assert.deepEqual(f.document.clicked, ['Photo-1.png']); f.document.visibility(false);
-		const retry = raster.retrySidecar(); await waitFor(() => f.frames.size === 1, 'the explicit JSON retry opportunity'); f.frame();
-		await waitFor(() => f.document.clicked.length === 2 && f.frames.size === 1, 'the actual JSON retry anchor'); f.frame();
+		const retry = raster.retrySidecar(); await waitFor(() => f.frames.size === 1, 'the explicit JSON retry opportunity'); f.frame(); f.frame();
+		await waitFor(() => f.document.clicked.length === 2 && f.frames.size === 1, 'the actual JSON retry anchor'); f.frame(); f.frame();
 		const result = await retry; assert.ok(result.status !== 'cancelled'); assert.equal(result.sidecar?.status, 'download-started');
 		assert.deepEqual(f.document.clicked, ['Photo-1.png', 'Photo-1.png.lightscaper.json']);
 		assert.equal(native.events.filter(event => event === 'encode').length, 1); f.clean();
@@ -212,7 +217,7 @@ for (const retirement of ['abort', 'hide'] as const) test(`actual Current ${reti
 	const native = await repairRasterFixture(), f = fixture(), raster = new PhotoRasterExportCurrentV1('png');
 	const before = await native.inspect(), work = raster.start(actualRequest(native, f)), joined = work.then(() => undefined, () => undefined);
 	try {
-		await waitFor(() => f.frames.size === 1, 'the actual Current pre-JSON opportunity'); f.frame();
+		await waitFor(() => f.frames.size === 1, 'the actual Current pre-JSON opportunity'); f.frame(); f.frame();
 		await waitFor(() => f.document.clicked.length === 2 && f.frames.size === 1, 'the actual Current post-JSON opportunity');
 		if (retirement === 'hide') f.document.visibility(true); else await raster.cancelAndJoin(Object.freeze({ close: 'after JSON click' }));
 		const result = await work; assert.ok(result.status !== 'cancelled'); assert.equal(result.status, 'download-started');
