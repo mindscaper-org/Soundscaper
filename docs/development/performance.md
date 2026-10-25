@@ -133,6 +133,173 @@ retain one current visual result and still poll mutable visual providers. DSP
 regressions compare baseline Float32 output digests, block partitions, resets,
 link changes, aliases and signed-zero behavior.
 
+## Another 100 runtime work reductions
+
+This batch contains 100 independently probed operations in active audio,
+editing, presentation, storage and export paths. The fixtures below include
+preparation work where applicable. Counts describe the named operations;
+they do not establish an end-to-end speedup. Loading work is excluded. The
+attempted FFT loop interchange was reverted after timing regressions and is
+excluded from this inventory, so the audio IDs deliberately skip A11.
+
+| ID | Operation | Observed work and fixture | Regression |
+| --- | --- | --- | --- |
+| A01 | Standard filter block buffer resolution | 259 to 3 input channel-buffer reads; 257-frame mono filter block. | [Test](../../tests/audio-editor-runtime100-audio-kernels.test.ts) |
+| A02 | Stereo impulse decay envelope | 226 to 113 decay exponentiations; 113-frame stereo impulse. | [Test](../../tests/audio-editor-runtime100-audio-kernels.test.ts) |
+| A03 | Effect rack entry-pair avoidance | 400 to 0 native Array.entries pair allocations; complete 400-track rack enumeration. | [Test](../../tests/audio-editor-runtime100-audio-racks.test.ts) |
+| A04 | Direct master effect lookup | 800 to 0 unrelated track effect getter reads; 400 tracks, master effect lookup. | [Test](../../tests/audio-editor-runtime100-audio-racks.test.ts) |
+| A05 | Nearest beat binary search | 1,000,000 to 2,000 absolute distance calculations upper bound; 1000 beats and 1000 downbeats. | [Test](../../tests/audio-editor-runtime100-audio-assistance.test.ts) |
+| A06 | Scene median scratch ownership | 201 to 101 array iterator constructions; 100 score neighborhoods. | [Test](../../tests/audio-editor-runtime100-audio-assistance.test.ts) |
+| A07 | Beat pooling short circuit | 127,976 to 16,000 maximum calculations; 8000 positive sawtooth logits in two planes. | [Test](../../tests/audio-editor-runtime100-audio-assistance.test.ts) |
+| A08 | Streaming TIGER private bank lookup flattening | 195 to 57 private bank header reads including emitted-header preparation; three stems, one channel, 16 emitted frames after one public streaming chunk. | [Test](../../tests/audio-editor-runtime100-audio-streaming-overlap.test.ts) |
+| A09 | STFT scratch reuse | 19 to 3 Float64 scratch allocations; 4096-frame source, nine time frames. | [Test](../../tests/audio-editor-runtime100-audio-fourier.test.ts) |
+| A10 | Inverse STFT scratch reuse | 21 to 5 Float64 scratch allocations; 4096-frame source, nine time frames. | [Test](../../tests/audio-editor-runtime100-audio-fourier.test.ts) |
+| A12 | Vocoder coefficient geometry sharing | 140 to 40 sine coefficient designs; stereo processor update from 40 to 20 bands. | [Test](../../tests/audio-editor-runtime100-audio-kernels.test.ts) |
+| A13 | Beat FFT shared butterfly trigonometry | 20,480 to 4,092 cosine calls; 1500 source samples, four FFT frames. | [Test](../../tests/audio-editor-runtime100-audio-mel.test.ts) |
+| A14 | Beat magnitude shared normalization | 2,052 to 1 square roots; 1500 source samples, four FFT frames. | [Test](../../tests/audio-editor-runtime100-audio-mel.test.ts) |
+| A15 | Sparse Slaney mel projection | 654,852 to 137,572 Float32 round operations; 1500 source samples, four FFT frames. | [Test](../../tests/audio-editor-runtime100-audio-mel.test.ts) |
+| A16 | Exact required WavPack sample-word verification | 4,096 to 1,024 exact word/byte comparator callback visits; 1024 Float32 words including signed zero and multiple NaN payloads. | [Test](../../tests/audio-editor-runtime100-audio-pcm.test.ts) |
+| A17 | Adaptive AUP4 scalar probes | 120 to 8 Array.filter result allocations; 4096-frame clip with a 2,000-frame sine fade. | [Test](../../tests/audio-editor-runtime100-audio-envelopes.test.ts) |
+| A18 | AUP4 envelope maximum scan | 1,001 to 2 largest Math.max argument list; 1000 authored envelope points. | [Test](../../tests/audio-editor-runtime100-audio-envelopes.test.ts) |
+| A19 | Convolution unfilled suffix clear | 2,752 to 1,752 cleared Float64 scratch samples; 17-tap kernel over1000 PCM frames. | [Test](../../tests/audio-editor-runtime100-audio-convolution.test.ts) |
+| A20 | Immutable track envelope preparation | 50 to 1 track envelope point sorts; 50 clips sharing 40 frozen numeric track envelope points. | [Test](../../tests/audio-editor-runtime100-audio-envelopes.test.ts) |
+| E01 | Normalize take lane ordering | 80,200 to 0 Array.find predicate visits; 400 take lanes in reversed authored order. | [Test](../../tests/audio-editor-runtime100-editing-graph.test.ts) |
+| E02 | Validate legacy folder bus ownership | 20,100 to 0 native includes indexed element reads; 200 independently bus-owning folders. | [Test](../../tests/audio-editor-runtime100-editing-graph.test.ts) |
+| E03 | Reconcile V21 folder assignment endpoints | 20,100 to 0 native includes indexed element reads; 200 folders and 400 graph assignment edges. | [Test](../../tests/audio-editor-runtime100-editing-graph.test.ts) |
+| E04 | Validate V21 folder assignment tuples | 20,300 to 0 Array.some predicate visits; 200 folder-owned audio tracks. | [Test](../../tests/audio-editor-runtime100-editing-graph.test.ts) |
+| E05 | Project compact mixer send routes | 40,803 to 203 Array.filter predicate visits; 200 sends and 203 graph edges. | [Test](../../tests/audio-editor-runtime100-editing-graph.test.ts) |
+| E06 | Resolve programme graph audibility | 43,803 to 249 Set allocations including reader preparation; 120 solo tracks; all queried 3 times. | [Test](../../tests/audio-editor-runtime100-editing-graph.test.ts) |
+| E07 | Prepare range deletion | 20,102 to 38 Array.find predicate visits; 200 immutable clips on one track. | [Test](../../tests/audio-editor-runtime100-editing-preparation.test.ts) |
+| E08 | Prepare punch replacement | 40,201 to 37 Array.find predicate visits; 200 immutable clips on one track. | [Test](../../tests/audio-editor-runtime100-editing-preparation.test.ts) |
+| E09 | Prepare processed range replacement | 20,101 to 37 Array.find predicate visits; 200 immutable clips on one track. | [Test](../../tests/audio-editor-runtime100-editing-preparation.test.ts) |
+| E10 | Prepare single-clip overwrite | 20,102 to 238 Array.find predicate visits; overwrite last of 200 immutable clips onto first clip. | [Test](../../tests/audio-editor-runtime100-editing-preparation.test.ts) |
+| E11 | Prepare three-point overwrite | 20,104 to 40 Array.find predicate visits; 200 immutable clips on target lane. | [Test](../../tests/audio-editor-runtime100-editing-preparation.test.ts) |
+| E12 | Project whole-track gesture selection | 20,100 to 0 native includes indexed element reads; 200 selected clips on 200 tracks. | [Test](../../tests/audio-editor-runtime100-editing-controller.test.ts) |
+| E13 | Prepare media destination lanes | 20,300 to 1,612 Array.some predicate visits including canonical admission; 200 selected clips on 200 tracks. | [Test](../../tests/audio-editor-runtime100-editing-controller.test.ts) |
+| E14 | Prepare grouped loop source bounds | 20,100 to 0 Array.find predicate visits; 200 clips backed by200 immutable sources. | [Test](../../tests/audio-editor-runtime100-editing-controller.test.ts) |
+| E15 | Prepare duplicate lane completeness | 40,800 to 800 Array.filter predicate visits; 200 selected tracks in 100 lane groups. | [Test](../../tests/audio-editor-runtime100-editing-controller.test.ts) |
+| E16 | Prepare annotation destination ownership | 40,200 to 0 Array.find predicate visits; 200 copied tracks in200 immutable destination sequences. | [Test](../../tests/audio-editor-runtime100-editing-annotations.test.ts) |
+| E17 | Admit annotation sequence maps | 40,200 to 0 Array.find predicate visits; 200 copied tracks in200 immutable destination sequences. | [Test](../../tests/audio-editor-runtime100-editing-annotations.test.ts) |
+| E18 | Resolve move gesture participants and owners | 21,784 to 7,264 Array.find predicate visits across public service (unmodified seed expansion remains); 120 selected clips on 120 tracks. | [Test](../../tests/audio-editor-runtime100-editing-move.test.ts) |
+| E19 | Resolve fresh-track move source span | 14,523 to 7,263 Array.find predicate visits across public service (unmodified seed expansion remains); 120 selected clips on 120 tracks. | [Test](../../tests/audio-editor-runtime100-editing-move.test.ts) |
+| E20 | Prepare pointer duplicate owner mapping | 7,261 to 1 Array.find predicate visits; 120 transformed clips on120 original tracks. | [Test](../../tests/audio-editor-runtime100-editing-move.test.ts) |
+| E21 | Admit unique AXML references per XML owner | 79,800 to 0 Array.some predicate visits; 400 content references in one programme; raw XML/order preserved. | [Test](../../tests/audio-editor-runtime100-editing-adm.test.ts) |
+| E22 | Resolve ADM nonterminal-strip diagnostics | 20,100 to 5 Array.some predicate visits including canonical admission; 200 authored assignments to nonterminal immutable tracks. | [Test](../../tests/audio-editor-runtime100-editing-adm.test.ts) |
+| E23 | Admit combined ADM Mix and Render downstream ownership | 60,300 to 201 Set.has probes for node IDs; 200 groups in a reverse-authored programme chain. | [Test](../../tests/audio-editor-runtime100-editing-adm.test.ts) |
+| E24 | Build combined Mix and Render programme snapshot closure | 102,697 to 1,799 Set.has probes for node IDs including snapshot preparation; 200 groups in a reverse-authored programme chain. | [Test](../../tests/audio-editor-runtime100-editing-adm.test.ts) |
+| E25 | Prepare locked-track relationship snapshots | 100,100 to 20,100 Array.filter predicate visits across snapshot preparation (hierarchy filters remain); 100 locked tracks and 100 clips paired by group and A/V link. | [Test](../../tests/audio-editor-runtime100-editing-lock.test.ts) |
+| E26 | Resolve grouped trim edge participants | 40,201 to 3 Array.find predicate visits across public grouped trim participant preparation; 200 grouped immutable clips on 200 tracks; current active track retains its independent neighboring edges. | [Test](../../tests/audio-editor-runtime100-editing-trim.test.ts) |
+| U01 | Take dialog group track resolution | 820 to 0 Array.find predicate visits; 40 groups on 40 tracks. | [Test](../../tests/audio-editor-runtime100-ui-projection.test.ts) |
+| U02 | Take dialog lane grouping | 16,000 to 0 Array.filter predicate visits; 40 groups with 20 lanes and 20 takes. | [Test](../../tests/audio-editor-runtime100-ui-projection.test.ts) |
+| U03 | Cycle recording sequence membership | 6,400 to 80 sequence.trackIds reads; 80 armed tracks and 80 sequences with duplicate track references. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U04 | Translation filter draft lookup | 20,300 to 200 draft entry key reads; 200 messages and 200 draft entries. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U05 | Routing folder candidate reconciliation | 32,240 to 0 identity Array.find predicate visits; 80 folder-owned groups and 160 assignments. | [Test](../../tests/audio-editor-runtime100-ui-routing.test.ts) |
+| U06 | Routing shared ancestor discovery | 10,100 to 400 folder Map.get calls; 100 tracks sharing a 100-folder chain. | [Test](../../tests/audio-editor-runtime100-ui-routing.test.ts) |
+| U07 | Routing predecessor median sorting | 118 to 62 numeric predecessor sorts; 60 tracks, 60 groups, master and output. | [Test](../../tests/audio-editor-runtime100-ui-routing.test.ts) |
+| U08 | Routing VCA placement lookup | 9,150 to 0 pending-node Array.find visits; 60 VCAs among 182 nodes. | [Test](../../tests/audio-editor-runtime100-ui-routing.test.ts) |
+| U09 | Routing ordered rank column reuse | 2 to 1 rank-column sorts; 60 tracks, 60 groups, 60 VCAs. | [Test](../../tests/audio-editor-runtime100-ui-routing.test.ts) |
+| U10 | Export matrix retained gain partition | 2,048 to 0 retained contribution Array.filter visits; 32 inputs, 64 retained contributions, 1 output. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U11 | Export matrix single-cell path copy | 31 to 0 unmodified frozen rows copied; 32 by 32 frozen matrix. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U12 | Timeline media membership admission | 500 to 1 clip identity reads; 500 audio clips; first is referenced by one audio track. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U13 | Disabled clip-navigation admission | 1 to 0 unnecessary clip kind reads; blocked menu with selected track and audio clip. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U14 | Effect target selection membership | 90,300 to 300 selected track ID element reads; 300 selected IDs, 301 candidate tracks. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U15 | Effect alphabetical list collation | 150 to 0 localeCompare calls requiring repeated locale setup; all registered Effect menu entries. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U16 | Assistance Effect block collation | 7 to 0 localeCompare calls requiring repeated locale setup; Soundscaper assistance effect block plus management entry. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U17 | Custom toolbar action resolution | 20,000 to 200 action identity reads; 100 custom buttons and 200 current actions. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U18 | Keyboard map binding presentation | 45,050 to 200 binding key reads; 100 key/state/context queries on 200 bindings. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U19 | Keyboard map modifier row reuse | 1 to 0 keyboard layout flatten passes per modifier change; mounted keyboard dialog Ctrl modifier click. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U20 | Custom action search text preparation | 6,000 to 200 action path reads; 30 search edits over 200 frozen actions. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U21 | Custom symbol search normalization | 6,000 to 200 symbol replaceAll normalization calls; 30 queries over 200 frozen symbol names. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U22 | Translation option source lookup | 20,100 to 200 draft entry key reads; 200 option source lookups. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U23 | Source ruler precision preparation | 101 to 2 Math.log10 calls; 100 visible source-ruler ticks. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U24 | Stereo meter presentation scratch | 1 to 0 channel snapshot slice allocations; one stereo channel presentation. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U25 | Dynamics parameter membership | 45,369 to 0 linear parameter membership work; 13 assigned and 200 extension parameters. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U26 | ADM bed assignment projection | 20,100 to 200 assignment strip identity reads; 200 bed rows and 200 assignments. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
+| U27 | Label viewport preparation fusion | 1,500 to 500 label identity reads during preparation; 500 label intervals. | [Test](../../tests/audio-editor-runtime100-ui-projection.test.ts) |
+| U28 | Annotation viewport visibility publication | 500 to 0 intermediate visibility Array.filter visits; 500 visible annotations. | [Test](../../tests/audio-editor-runtime100-ui-projection.test.ts) |
+| U29 | Automation adaptive probe allocation | 311 to 0 mapped probe array allocations; 4096-frame sine curve; baseline frame SHA-256 f953160e3d98bf51b657dcfe1fb4d183006e04a7899d2826a903792e33bec56c. | [Test](../../tests/audio-editor-runtime100-ui-projection.test.ts) |
+| U30 | Source-editor discarded flank spreads | 2 to 1 arbitrary clip metadata spread reads; fully selected 100-frame source with no unused flanks. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
+| U31 | Unchanged strip-meter display equality | 400 to 0 Math.log10 calls; 100 equal stereo publications. | [Test](../../tests/audio-editor-runtime100-ui-meter.test.tsx) |
+| U32 | Unchanged mixer bar publication | 40 to 0 unchanged bar render logarithms; 20 newly allocated but visually equal stereo meter snapshots. | [Test](../../tests/audio-editor-runtime100-ui-meter.test.tsx) |
+| U33 | Production strip publication lookup | 5,050 to 0 native numeric inventory reads; 200 descriptor admissions separately; 100 selectors on one frozen 100-strip publication. | [Test](../../tests/audio-editor-runtime100-ui-meter.test.tsx) |
+| U34 | Routing topological rank propagation | 79,600 to 1,195 rank Map.get calls; 200-node reverse-authored DAG; historical cyclic fallback compared. | [Test](../../tests/audio-editor-runtime100-ui-paint.test.ts) |
+| U35 | Waveform canvas subtree lookup | 200 to 100 canvas subtree queries; 100 canvases normalized before 100 geometry reads. | [Test](../../tests/audio-editor-runtime100-ui-paint.test.ts) |
+| U36 | Spectrogram tile source geometry preparation | 257 to 2 source origin field reads; 256-column unwarped tile; reset geometry for each sequential tile planning batch. | [Test](../../tests/audio-editor-runtime100-ui-spectrogram.test.ts) |
+| U37 | Spectrogram integer stride iteration | 256 to 0 boxed pixel-position pushes; 256 columns; existing fractional-width/stride/warp/loop/cancellation compatibility. | [Test](../../tests/audio-editor-runtime100-ui-spectrogram.test.ts) |
+| R01 | DAWproject channel and folder routing identities | 25,600 to 0 Array.find predicate visits; 160 audio tracks, 160 groups and 160 sends. | [Test](../../tests/audio-editor-runtime100-export-routing.test.ts) |
+| R02 | DAWproject automation strip partition | 83,031 to 2,631 Array.filter predicate visits; 200 tracks and 200 immutable automation lane addresses. | [Test](../../tests/audio-editor-runtime100-export-automation.test.ts) |
+| R03 | DAWproject routing-report endpoint lookup | 40,200 to 200 Array.find predicate visits; 200 graph edges and 200 immutable output identities. | [Test](../../tests/audio-editor-runtime100-export-routing-report.test.ts) |
+| R04 | Fitting derivative-cache admission | 1 to 0 full-inventory eviction sorts; 1,200 fitting, unexpired cache entries. | [Test](../../tests/audio-editor-runtime100-cache-planning.test.ts) |
+| R05 | Scape structural witness clustering without per-probe active arrays | 1,000 to 0 Array.filter calls and replacement active-array allocations during one bind; 1,000 adjacent 4-byte recorded header windows, producing one 4,000-byte retained cluster; preparation is included in the public record/bind path. | [Test](../../tests/audio-editor-runtime100-scape-witness.test.ts) |
+| R06 | AUP4 overlap lane partition | 12,720 to 2,016 native numeric Array.findIndex predicate probes in public createAup4ExportPlan; 160 same-start clips in reverse-authored identity order on one audio track. | [Test](../../tests/audio-editor-runtime100-aup4-overlap-lanes.test.ts) |
+| R07 | DAWproject requested metadata tag lookup | 7,019 to 0 Array.find tag predicate visits; 1,000 custom tags and mixed-case author credits. | [Test](../../tests/audio-editor-runtime100-export-metadata.test.ts) |
+| R08 | DAWproject foreign folder bus reachability | 2,420 to 1,618 Array.filter predicate visits; 200 immutable foreign folders and 20 delivered audio tracks. | [Test](../../tests/audio-editor-runtime100-export-folder-projection.test.ts) |
+| R11 | Memory prune chunk key partition | 16,440 to 801 source chunk iterator visits; 40 deleted generations with 20 chunks each plus 1 protected chunk. | [Test](../../tests/audio-editor-runtime100-retention-memory.test.ts) |
+| R12 | Temporary cleanup scalar media roots | 655,360 to 0 encoded payload bytes passed to structuredClone; 10 memory assets with 64 KiB encoded payloads. | [Test](../../tests/audio-editor-runtime100-retention-memory.test.ts) |
+| R13 | Memory derivative query selected clones | 500 to 0 full inventory Array.map predicate visits; 500 derivatives, 1 matching source/type. | [Test](../../tests/audio-editor-runtime100-retention-memory.test.ts) |
+| R14 | Memory derivative deletion selected disposal records | 500 to 0 full inventory Array.map predicate visits; 500 derivatives, 1 matching deletion. | [Test](../../tests/audio-editor-runtime100-retention-memory.test.ts) |
+| R15 | Source metadata inventory single output array | 500 to 0 native full inventory Array.map clone visits; 500 references of intermediate output avoided; 500 source records; full clones and inventory membership under cloning getters. | [Test](../../tests/audio-editor-runtime100-retention-memory.test.ts) |
+| R16 | Single-pass XML escaping | 6 to 1 full-string escape scans; 500-character attribute text with entities, Unicode and controls. | [Test](../../tests/audio-editor-runtime100-export-xml.test.ts) |
+| R17 | Bounded per-document indentation reuse | 1,001 to 1 String.repeat calls; 1,000-child XML document with shallow repeated depth. | [Test](../../tests/audio-editor-runtime100-export-xml.test.ts) |
+| R18 | Memory original media deletion selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with only related records selected; clone, mutation and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
+| R19 | Memory source generation detachment selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with only related records selected; clone, mutation and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
+| R20 | Memory source chunk stream selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with only related records selected; clone, mutation and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
+
+Indexes for editing, export and memory pruning belong to one invocation, view,
+or immutable owner. Identity admission preserves first or last duplicate
+authority as the original operation requires. Mutable records, accessors,
+sparse arrays and custom traversal retain the original live-read paths.
+Small command selections retain short-circuit traversal before index admission.
+Export maps retain identities and lane references, never copied PCM. The
+metadata lookup retains at most eight requested keys. XML indentation reuse
+retains at most 65 strings and 4,160 characters for one serialization; deeper
+nesting uses the original calculation.
+
+Custom action and symbol search retain at most 16,384 entries and 4,194,304
+derived characters for the current view. Keyboard presentation is bounded to
+16,384 bindings. Strip publication lookup admits at most 128 strips and keeps
+one weak owner. Explicit-GC regressions check that retired UI inventories and
+meter publications remain collectible. Matrix edits share only frozen rows;
+mutable matrices still produce independent copies. Meter equality preserves
+fresh publications and scalar polling while avoiding unchanged display work.
+
+STFT and inverse STFT reuse two 2,048-element Float64 scratch planes (32 KiB)
+per invocation/channel instead of allocating them for every frame. Their
+existing 16 KiB window is unchanged. The impulse generator keeps per-channel
+seeds and references, with no impulse-sized envelope buffer. Streaming TIGER overlap keeps the same ring buffers and processing order,
+removes nested private ring headers, and uses at most 192 temporary output
+references during emission. It adds no PCM storage. Convolution reuses its existing storage and clears only the
+unfilled suffix. No additional persistent audio cache is introduced.
+
+The AUP4 overlap index activates only for sustained wide overlap. Its active
+and free numeric heap entries together are bounded by the allocated lane
+count minus the first eight linearly queried lanes. Sparse and short dense
+preludes use the previous kernel; invalid or custom inputs preserve historical
+traversal. Independent randomized fixtures and an exact public export-plan
+digest check lane assignment. Timing the complete admitted lane kernel also
+checks sparse and mixed projects; public plan probe counts alone do not
+predict complete export latency.
+
+Memory repositories preserve inventory membership snapshots, clone ownership,
+mutation/error order and asynchronous chunk-yield behavior. Temporary cleanup
+reads scalar protection roots without cloning encoded assets. Pruning builds
+only a temporary token-to-string-key partition. Scape witness clustering
+compacts private arrays in place and keeps the existing structural witness
+byte ceiling. The fitting-cache shortcut runs after complete account validation
+and safe byte summation; expiry and pressure still use the original ordering.
+
+For memory-constrained validation, run one job at a time. The combined new
+regression suite uses one Node test worker and a 1 GiB heap cap; compiler and
+lint jobs need separate, larger caps. Stream and compact complete V8 profiles
+when collecting full-suite coverage rather than retaining all raw profiles.
+Keep the same test selection, source-map precedence, merged ranges and final
+coverage report. Browser interaction checks use one Chromium worker; CPU
+affinity must still expose enough cores for application worker-policy tests.
+
+These changes do not alter generated assistance runtime sources, dependencies,
+recipes, archives or target inventories. No manual **Update AI assets** run is
+required.
+
 ## Measurement and reproduction
 
 Use Node.js 26.5.0 and npm 12.0.1. Begin with a failing behavior or operation-count
