@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -43,8 +45,8 @@ test('rate-stretch menu and feedback copy is localized in both sequence catalogs
 		'rateStretchLeftEdgeApplied', 'rateStretchRightEdgeApplied',
 		'rateStretchBoundaryClamped', 'noRateStretchAvailable',
 	] as const) {
-		assert.equal(typeof SEQUENCE_TIMING_COPY_BY_LOCALE.de[key], 'string');
-		assert.notEqual(SEQUENCE_TIMING_COPY_BY_LOCALE.de[key].length, 0);
+		assert.equal(typeof GERMAN_COPY[key], 'string');
+		assert.notEqual(GERMAN_COPY[key].length, 0);
 	}
 });
 

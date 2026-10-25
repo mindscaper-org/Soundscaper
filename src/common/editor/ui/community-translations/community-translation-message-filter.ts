@@ -12,8 +12,7 @@ interface CommunityTranslationMessageOptions {
 export function communityTranslationMessageKeys(
 	snapshot: ContributionSnapshot,
 	draft: TranslationContribution,
-	{ query, filter, reviewKeys, locale }: CommunityTranslationMessageOptions,
-	metadata: Readonly<Record<string, Readonly<{ bundledGerman?: string }>>>,
+	{ query, filter, reviewKeys }: CommunityTranslationMessageOptions,
 ): readonly string[] {
 	const needle = query.toLocaleLowerCase();
 	const changes = new Map<string, TranslationContribution['entries'][number]>();
@@ -27,8 +26,7 @@ export function communityTranslationMessageKeys(
 		const change = changes.get(key);
 		if (filter === 'changed' && !changes.has(key)) return false;
 		if (filter === 'review' && !reviewKeys.has(key)) return false;
-		if (filter === 'missing' && publishedTranslationOrigin(entry, locale === 'de'
-			? metadata[key]?.bundledGerman : undefined) !== 'missing') return false;
+		if (filter === 'missing' && publishedTranslationOrigin(entry) !== 'missing') return false;
 		return [key, entry?.source, entry?.baselineText, change?.translation]
 			.some((value) => value?.toLocaleLowerCase().includes(needle));
 	});

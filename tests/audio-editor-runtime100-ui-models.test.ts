@@ -27,10 +27,10 @@ void test('U04 translation message filtering indexes draft entries once with fir
 	const snapshot = createContributionSnapshot('fr', Object.fromEntries(Array.from({ length: 200 }, (_, i) => [`k${i}`, `Source ${i}`])), {});
 	let reads = 0;
 	const draft = { ...createTranslationDraft(snapshot), entries: Array.from({ length: 200 }, (_, i) => ({ get key() { reads++; return `k${i}`; }, source: `Source ${i}`, baselineText: '', baselineEntry: null, translation: `Translation ${i}` })) };
-	const result = communityTranslationMessageKeys(snapshot, draft, { query: 'Translation', filter: 'all', reviewKeys: new Set(), locale: 'fr' }, {});
+	const result = communityTranslationMessageKeys(snapshot, draft, { query: 'Translation', filter: 'all', reviewKeys: new Set(), locale: 'fr' });
 	assert.equal(result.length, 200); t.diagnostic(`draft key reads ${reads}`); assert.ok(reads <= 400);
 	const duplicate = { ...draft, entries: [{ key: 'k1', source: 'Source 1', baselineText: '', baselineEntry: null, translation: 'first' }, { key: 'k1', source: 'Source 1', baselineText: '', baselineEntry: null, translation: 'second' }] };
-	assert.deepEqual(communityTranslationMessageKeys(snapshot, duplicate, { query: 'second', filter: 'all', reviewKeys: new Set(), locale: 'fr' }, {}), []);
+	assert.deepEqual(communityTranslationMessageKeys(snapshot, duplicate, { query: 'second', filter: 'all', reviewKeys: new Set(), locale: 'fr' }), []);
 });
 
 void test('U10 export matrix serialization partitions retained gains once per output', t => {

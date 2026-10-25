@@ -27,7 +27,7 @@ const AUDACITY = {
 	modificationNotice: 'converted', mappingVersion: 2, mappingSha256: 'c'.repeat(64),
 };
 
-test('a catalog serves any known canonical locale; the machine translator only those without a bundled human catalog', () => {
+test('a catalog serves any known canonical locale; the machine translator covers non-English locales', () => {
 	assert.equal(assertTranslationCatalogLocale('fr'), 'fr');
 	assert.equal(assertTranslationCatalogLocale('en-GB'), 'en-GB');
 	assert.equal(assertTranslationCatalogLocale('de'), 'de');
@@ -39,7 +39,7 @@ test('a catalog serves any known canonical locale; the machine translator only t
 	assert.equal(assertMachineTranslatableLocale('sr-Latn-BA'), 'sr-Latn-BA');
 	assert.throws(() => assertMachineTranslatableLocale('en'), /bundled human catalog/u);
 	assert.throws(() => assertMachineTranslatableLocale('en-GB'), /bundled human catalog/u);
-	assert.throws(() => assertMachineTranslatableLocale('de'), /bundled human catalog/u);
+	assert.equal(assertMachineTranslatableLocale('de'), 'de');
 	assert.throws(() => assertMachineTranslatableLocale('fr_FR'), /Unknown or non-canonical/u);
 });
 

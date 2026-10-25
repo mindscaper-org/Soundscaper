@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
@@ -170,11 +172,11 @@ test('take comp copy is complete and localized in English and German', () => {
 	];
 	for (const key of required) {
 		assert.equal(typeof CANONICAL_EXTRA_COPY_BY_LOCALE.en[key], 'string', `English ${key}`);
-		assert.equal(typeof CANONICAL_EXTRA_COPY_BY_LOCALE.de[key], 'string', `German ${key}`);
+		assert.equal(typeof GERMAN_COPY[key], 'string', `German ${key}`);
 		assert.notEqual(CANONICAL_EXTRA_COPY_BY_LOCALE.en[key], key);
-		assert.notEqual(CANONICAL_EXTRA_COPY_BY_LOCALE.de[key], key);
+		assert.notEqual(GERMAN_COPY[key], key);
 	}
-	assert.equal(CANONICAL_EXTRA_COPY_BY_LOCALE.de.takeCompMenu, 'Take-Lanes und Comps');
+	assert.equal(GERMAN_COPY.takeCompMenu, 'Take-Lanes und Comps');
 });
 
 function actionPorts() {

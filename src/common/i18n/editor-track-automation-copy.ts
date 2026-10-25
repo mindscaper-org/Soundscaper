@@ -21,26 +21,4 @@ const ENGLISH = Object.freeze({
 	automationSecondBezierControl: 'second Bézier control',
 });
 
-const GERMAN = Object.freeze({
-	automation: 'Automation',
-	addAutomation: 'Automation hinzufügen',
-	automationParameter: 'Automationsparameter',
-	automationMode: 'Automationsmodus',
-	automationRead: 'Lesen',
-	automationTrim: 'Trimmen',
-	automationTouch: 'Berühren',
-	automationLatch: 'Einrasten',
-	automationWrite: 'Schreiben',
-	automationInsertPoint: 'Automationspunkt einfügen',
-	automationCurveMenu: 'Automationskurve',
-	automationDeleteLane: 'Automationsspur löschen',
-	automationSegmentHold: 'Halten',
-	automationSegmentLinear: 'Linear',
-	automationSegmentEased: 'Geglättet',
-	automationSegmentBezier: 'Bézier',
-	automationFirstBezierControl: 'erster Bézier-Anfasser',
-	automationSecondBezierControl: 'zweiter Bézier-Anfasser',
-});
-
-
-export const TRACK_AUTOMATION_COPY_BY_LOCALE = Object.freeze({ en: ENGLISH, de: GERMAN });
+export const TRACK_AUTOMATION_COPY_BY_LOCALE = Object.freeze({ en: ENGLISH });

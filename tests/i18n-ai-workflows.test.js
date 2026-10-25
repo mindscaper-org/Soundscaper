@@ -342,7 +342,7 @@ test('the command line parses both commands and refuses contradictory options', 
 	assert.throws(() => parseCliArguments(['translate', '--all', '--locale', 'fr']), /cannot be combined/u);
 	assert.throws(() => parseCliArguments(['translate', '--locale']), /Missing value/u);
 	assert.throws(() => parseCliArguments(['bogus']), /Usage/u);
-	assert.deepEqual(machineTranslatableLocales(['en', 'de', 'en-GB', 'fr', 'zh-CN']), ['fr', 'zh-CN']);
+	assert.deepEqual(machineTranslatableLocales(['en', 'de', 'en-GB', 'fr', 'zh-CN']), ['de', 'fr', 'zh-CN']);
 });
 
 test('the command line translates with an injected client and reports per locale', async () => {

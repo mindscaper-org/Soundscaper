@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import ProjectBinPanel from '../src/common/editor/ui/workspace/ProjectBinPanel.jsx';
 
 const PANEL_URL = new URL('../src/common/editor/ui/workspace/ProjectBinPanel.jsx', import.meta.url);

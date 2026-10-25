@@ -30,36 +30,4 @@ const ENGLISH = Object.freeze({
 	programs: 'Programs',
 });
 
-const GERMAN = Object.freeze({
-	cancelRun: 'Ausführung abbrechen',
-	runCancelled: 'Makro abgebrochen.',
-	newProgram: 'Neues Programm',
-	program: 'Programm',
-	programName: 'Programmname',
-	runProgram: 'Programm ausführen',
-	programApplied: 'Programm angewendet.',
-	sandboxNotice: 'Ein Programm läuft in einer Sandbox ohne Netzwerk, ohne Dateien und ohne Zugriff auf Ihre anderen Projekte. '
-		+ 'Innerhalb dieses Projekts kann es alles tun, was Sie tun können, auch Audio löschen; ein Rückgängig macht den gesamten Lauf rückgängig.',
-	tabHint: 'Tab fügt zwei Leerzeichen ein. Drücken Sie Escape und dann Tab, um das Programm zu verlassen.',
-	failure: 'Das Programm ist fehlgeschlagen:',
-	failureAtLine: 'Das Programm ist in Zeile {line} fehlgeschlagen:',
-	importProgram: 'Programm importieren',
-	exportProgram: 'Programm exportieren',
-	deleteProgram: 'Programm löschen',
-	programImported: 'Importiert. Dieses Makro ist ein Programm – prüfen Sie es, bevor Sie es ausführen.',
-	programImportFailed: 'Das Programm konnte nicht importiert werden: {message}',
-	reviewHeading: 'Prüfen Sie dieses Programm, bevor Sie es ausführen',
-	reviewOrigin: 'Dieses Programm stammt aus {origin} und wurde noch nicht ausgeführt.',
-	reviewUnknownOrigin: 'Dieses Programm stammt aus einer Datei und wurde noch nicht ausgeführt.',
-	reviewRisk: 'Es wurde von der Person geschrieben, die es Ihnen geschickt hat. Es läuft in einer Sandbox '
-		+ 'ohne Netzwerk, ohne Dateien und ohne Zugriff auf Ihre anderen Projekte, aber innerhalb dieses '
-		+ 'Projekts kann es alles tun, was Sie tun können, auch Audio löschen. Aktivieren Sie nur Programme '
-		+ 'von Personen, denen Sie vertrauen.',
-	reviewAcknowledge: 'Ich habe dieses Programm gelesen und möchte es ausführen.',
-	enableProgram: 'Dieses Programm aktivieren',
-	notTrusted: 'Dieses Programm wurde noch nicht geprüft.',
-	programs: 'Programme',
-});
-
-
-export const MACRO_MANAGER_COPY_BY_LOCALE = Object.freeze({ en: ENGLISH, de: GERMAN });
+export const MACRO_MANAGER_COPY_BY_LOCALE = Object.freeze({ en: ENGLISH });

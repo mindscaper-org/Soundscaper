@@ -14,17 +14,4 @@ export const STORAGE_CAPACITY_COPY_BY_LOCALE = Object.freeze({
 		requestPersistence: 'Request persistent storage', cleanup: 'Clean orphaned temporary files', cleanupRunning: 'Cleaning temporary files',
 		derivativeCleanup: 'Clear reproducible preview cache', derivativeCleanupRunning: 'Clearing preview cache',
 	}),
-	de: Object.freeze({
-		storage: 'Speicher', free: 'frei', usedOf: 'belegt von', estimateUnavailable: 'Speicherbelegung nicht verfügbar',
-		indexedDb: 'IndexedDB', memoryFallback: 'Flüchtiger Arbeitsspeicher-Fallback', protected: 'Vor Verdrängung durch den Browser geschützt',
-		bestEffort: 'Best-Effort; der Browser kann lokale Daten verdrängen', protectionUnavailable: 'Schutz vor Verdrängung nicht verfügbar',
-		protectionUnknown: 'Schutz vor Verdrängung nicht geprüft', noPreflight: 'Noch keine Speicherprüfung', requested: 'angefordert', requiredFree: 'frei benötigt',
-		pressure: { normal: 'Normaler Speicherdruck', warning: 'Erhöhter Speicherdruck', critical: 'Kritischer Speicherdruck', unknown: 'Speicherdruck unbekannt' },
-		preflightStatus: { checking: 'Wird geprüft', ready: 'Bereit', insufficient: 'Nicht genügend Speicher', unknown: 'Kontingent nicht verfügbar' },
-		operation: { recording: 'Aufnahme', export: 'Export', effect: 'Effektverarbeitung', project: 'Projekt speichern', import: 'Import' },
-		capacityLabel: 'Kapazität', backendLabel: 'Speicher-Backend', evictionLabel: 'Verdrängungsschutz',
-		preflightLabel: 'Letzte Prüfung des Speicherbedarfs', refresh: 'Schätzung aktualisieren',
-		requestPersistence: 'Dauerhaften Speicher anfordern', cleanup: 'Verwaiste temporäre Dateien bereinigen', cleanupRunning: 'Temporäre Dateien werden bereinigt',
-		derivativeCleanup: 'Reproduzierbaren Vorschau-Cache leeren', derivativeCleanupRunning: 'Vorschau-Cache wird geleert',
-	}),
 });

@@ -2,25 +2,6 @@
 
 /** Copy for the appearance preferences: skins, light and dark themes, and clip styling. */
 export const APPEARANCE_COPY_BY_LOCALE = Object.freeze({
-	de: Object.freeze({
-			appearance: 'Erscheinungsbild',
-			skin: 'Skin',
-			skinDefault: 'Standard',
-			skinCarousel: 'Karussell',
-			skinPrevious: 'Vorherige Skins',
-			skinNext: 'Weitere Skins',
-			skinPreview: 'Vorschau: {skin}. Dein gespeicherter Skin bleibt erhalten.',
-			skinKeep: 'Diesen Skin behalten',
-			skinEndPreview: 'Vorschau beenden',
-			skinSaveError: 'Der Skin konnte nicht gespeichert werden. Bitte versuche es erneut.',
-			theme: 'Design',
-			themeSystem: 'Systemeinstellung',
-			themeLight: 'Hell',
-			themeDark: 'Dunkel',
-			clipStyle: 'Clip-Stil',
-			clipStyleColorful: 'Farbenfroh',
-			clipStyleClassic: 'Klassisch',
-	}),
 	en: Object.freeze({
 			appearance: 'Appearance',
 			skin: 'Skin',

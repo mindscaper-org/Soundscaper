@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -67,8 +69,8 @@ test('shared track-lock copy is localized for both shipped locales', () => {
 		unlockTrack: SEQUENCE_TIMING_COPY_BY_LOCALE.en.unlockTrack,
 	}, { lockTrack: 'Lock track', unlockTrack: 'Unlock track' });
 	assert.deepEqual({
-		lockTrack: SEQUENCE_TIMING_COPY_BY_LOCALE.de.lockTrack,
-		unlockTrack: SEQUENCE_TIMING_COPY_BY_LOCALE.de.unlockTrack,
+		lockTrack: GERMAN_COPY.lockTrack,
+		unlockTrack: GERMAN_COPY.unlockTrack,
 	}, { lockTrack: 'Spur sperren', unlockTrack: 'Spur entsperren' });
 });
 

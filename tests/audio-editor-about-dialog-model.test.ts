@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { productProfile } from '../src/common/products.js';
-import { mergeCatalog } from '../src/common/i18n/runtime.js';
+import { resolveCatalog } from '../src/common/i18n/runtime.js';
 import { aboutDialogInformation } from '../src/common/editor/ui/dialogs/about-dialog-model.ts';
 import { resolveAboutDialogCopy } from '../src/common/editor/ui/about-dialog-copy.ts';
 
@@ -21,8 +21,8 @@ test('About identifies each product and only lists its enabled command modules',
 	assert.ok(!aboutDialogInformation('framescaper').modules.some(({ id }) => id === 'audio-record'));
 });
 
-test('About copy belongs to the translation inventory and resolves bundled German and scoped overrides', () => {
-	const german = resolveAboutDialogCopy(mergeCatalog('de'));
+test('About copy belongs to the translation inventory and resolves JSON German and scoped overrides', async () => {
+	const german = resolveAboutDialogCopy(await resolveCatalog('de'));
 	assert.equal(german.contributors, 'Mitwirkende');
 	assert.equal(german.enabledModules, 'Aktivierte Module');
 	assert.equal(german.license, 'Lizenz');

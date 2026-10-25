@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
-import { audiocomCopy } from '../../../i18n/audiocom-copy.ts';
+import { AUDIOCOM_COPY_BY_LOCALE } from '../../../i18n/audiocom-copy.ts';
+import { useTranslationScope } from '../use-translation-scope.ts';
 import { AUDIO_COM_DEFAULT_SERVER_URL } from '../../advanced-preferences.ts';
 import {
 	createAudiocomPanelSession,
@@ -38,11 +39,11 @@ export default function AudiocomPanelContainer({
 		return controller ? audiocomProjectArchives(controller, options) : createAudiocomProjectArchives(options);
 	}, [apiOrigin, controller, session]);
 	const archiveState = useSyncExternalStore(archives.subscribe, archives.getSnapshot, archives.getSnapshot);
+	const resolved = useTranslationScope('audiocom', AUDIOCOM_COPY_BY_LOCALE.en, locale ?? snapshot.locale, copy);
 	const localizedCopy = useMemo(() => {
-		const resolved = audiocomCopy(locale ?? snapshot.locale, copy);
 		return archiveState.provider?.kind === 'audiocity'
 			? Object.fromEntries(Object.entries(resolved).map(([key, value]) => [key, value.replaceAll('audio.com', 'Audiocity')])) : resolved;
-	}, [copy, locale, snapshot.locale, archiveState.provider]);
+	}, [resolved, archiveState.provider]);
 	const [linkError, setLinkError] = useState('');
 	const [projectActionError, setProjectActionError] = useState('');
 	const [projectActionPending, setProjectActionPending] = useState(false);

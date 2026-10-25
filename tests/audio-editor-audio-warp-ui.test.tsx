@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -109,11 +111,11 @@ test('audio warp copy is complete and localized in English and German', () => {
 	];
 	for (const key of required) {
 		assert.equal(typeof CANONICAL_EXTRA_COPY_BY_LOCALE.en[key], 'string', `English ${key}`);
-		assert.equal(typeof CANONICAL_EXTRA_COPY_BY_LOCALE.de[key], 'string', `German ${key}`);
+		assert.equal(typeof GERMAN_COPY[key], 'string', `German ${key}`);
 		assert.notEqual(CANONICAL_EXTRA_COPY_BY_LOCALE.en[key], key);
-		assert.notEqual(CANONICAL_EXTRA_COPY_BY_LOCALE.de[key], key);
+		assert.notEqual(GERMAN_COPY[key], key);
 	}
-	assert.equal(CANONICAL_EXTRA_COPY_BY_LOCALE.de.audioWarpMenu, 'Audio-Warp und Transienten');
+	assert.equal(GERMAN_COPY.audioWarpMenu, 'Audio-Warp und Transienten');
 });
 
 function actionPorts() {

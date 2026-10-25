@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { isCurrentAssertion, type EditorProjectToken } from '../../controller/shared/lifecycle.ts';
 
-import { freesoundAttributionCopy } from '../../../i18n/freesound-attribution-copy.js';
+import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
+import { useTranslationScope } from '../use-translation-scope.ts';
 import { restoreMediaListeningGainOnMetadata } from '../media-listening-gain-readiness.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import FreesoundPanel, {
@@ -118,10 +119,11 @@ export function FreesoundPanelContainer({
 			return response;
 		},
 	});
+	const attributionCopy = useTranslationScope('freesoundAttribution', FREESOUND_ATTRIBUTION_ENGLISH_COPY, snapshot.locale, copy);
 	const localizedCopy = useMemo(() => Object.freeze({
 		...copy,
-		...freesoundAttributionCopy(snapshot.locale, copy),
-	}), [copy, snapshot.locale]);
+		...attributionCopy,
+	}), [copy, attributionCopy]);
 	const [state, setState] = useState<FreesoundPanelState>(INITIAL_STATE);
 	const [pendingSoundId, setPendingSoundId] = useState<number | null>(null);
 	const pendingImport = useRef<AbortController | null>(null);

@@ -411,13 +411,13 @@ test('language reference says where each translation comes from', () => {
 			{ locale: 'en-GB', nativeName: 'English (UK)', direction: 'ltr' },
 			{ locale: 'tlh', nativeName: 'Klingon', direction: 'ltr' },
 		],
-		bundledLocaleTags: ['en', 'de'],
-		machineLocaleTags: ['ar'],
-		audacityLocaleTags: ['ar', 'en-GB'],
+		bundledLocaleTags: ['en'],
+		machineLocaleTags: ['ar', 'de'],
+		audacityLocaleTags: ['ar', 'de', 'en-GB'],
 		localePath: (locale, options) => (options?.embedded ? `/embed/${locale}/` : `/${locale}/`),
 	});
 
-	assert.match(rendered, /\| Deutsch \| `de` \| `\/de\/` \| Left to right \| Written for this editor \|/u);
+	assert.match(rendered, /\| Deutsch \| `de` \| `\/de\/` \| Left to right \| Machine translated, with Audacity's reviewed strings \|/u);
 	assert.match(rendered, /\| `ar` \| `\/ar\/` \| Right to left \| Machine translated, with Audacity's reviewed strings \|/u);
 	assert.match(rendered, /\| `en-GB` \| `\/en-GB\/` \| Left to right \| Audacity's reviewed strings over English \|/u);
 	assert.match(rendered, /\| `tlh` \| `\/tlh\/` \| Left to right \| English \|/u);

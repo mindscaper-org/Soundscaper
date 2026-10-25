@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
@@ -10,7 +12,7 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 import type { ProjectFeatureRequirementsReport } from '../src/common/editor/project-feature-requirements.ts';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import createApplicationMenus from '../src/common/editor/ui/application-menus.js';
 import ProjectFeatureCompatibilityNotice from '../src/common/editor/ui/workspace/ProjectFeatureCompatibilityNotice.tsx';
 import { hasProjectFeatureCompatibilityReport } from '../src/common/editor/ui/workspace/project-feature-compatibility-notice.ts';

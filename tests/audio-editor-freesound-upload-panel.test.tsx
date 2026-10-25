@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { FREESOUND_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
@@ -313,7 +315,7 @@ function PublishFailureFocusHarness() {
 
 test('publish taxonomy options use the selected locale', () => {
 	const markup = renderToStaticMarkup(<FreesoundPublishDialog
-		copy={{ ...FREESOUND_ATTRIBUTION_COPY_BY_LOCALE.de, cancel: 'Abbrechen' }}
+		copy={{ ...FREESOUND_GERMAN_COPY, cancel: 'Abbrechen' }}
 		item={{
 			id: 'upload-a', sourceKind: 'file', fileName: 'wald.wav', byteLength: 4,
 			status: 'ready-to-publish', title: 'Wald', description: 'Waldaufnahme', tags: [],

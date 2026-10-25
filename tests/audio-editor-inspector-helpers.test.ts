@@ -13,6 +13,7 @@ import {
 } from '../src/common/editor/effect-presets.js';
 import * as inspectorHelpers from '../src/common/editor/ui/inspector/inspector-helpers.ts';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 
 const {
 	clipPitchUnitToCents,
@@ -92,7 +93,7 @@ test('preset choices name the presets Audacity ships from the catalog', () => {
 	) => ReadonlyArray<Readonly<{ id: string; name: string; labelKey?: string; custom?: boolean }>>;
 	const presets = listPresets(createAudioEditorEffectPresets(), 'audacity-reverb');
 	const english = effectPresetChoices(presets, 'No preset', 'en');
-	const german = effectPresetChoices(presets, 'Kein Preset', 'de');
+	const german = effectPresetChoices(presets, 'Kein Preset', GERMAN_COPY);
 	assert.equal(english.length, 18);
 	// Factory presets are not the project's own, so the bar must not offer to
 	// overwrite or delete one, and their names come from the copy catalog.

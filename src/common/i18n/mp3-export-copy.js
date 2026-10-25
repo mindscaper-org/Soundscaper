@@ -10,20 +10,19 @@
  * seam like the export menu's does.
  */
 const MP3_EXPORT_COPY_ENTRIES = Object.freeze([
-	['bitRateMode', 'Bit Rate Mode', 'Bitratenmodus'],
-	['bitRateModePreset', 'Preset', 'Voreinstellung'],
-	['bitRateModeVariable', 'Variable', 'Variabel'],
-	['bitRateModeAverage', 'Average', 'Durchschnitt'],
-	['bitRateModeConstant', 'Constant', 'Konstant'],
-	['mp3PresetExcessive', 'Excessive, 320 kbps', 'Überragend, 320 kbps'],
-	['mp3PresetExtreme', 'Extreme, 220-260 kbps', 'Extrem, 220-260 kbps'],
-	['mp3PresetStandard', 'Standard, 170-210 kbps', 'Standard, 170-210 kbps'],
-	['mp3PresetMedium', 'Medium, 145-185 kbps', 'Mittel, 145-185 kbps'],
-	['mp3VariableBest', '220-260 kbps (Best Quality)', '220-260 kbps (Beste Qualität)'],
-	['mp3VariableSmallest', '45-85 kbps (Smaller files)', '45-85 kbps (Kleinere Dateien)'],
+	['bitRateMode', 'Bit Rate Mode'],
+	['bitRateModePreset', 'Preset'],
+	['bitRateModeVariable', 'Variable'],
+	['bitRateModeAverage', 'Average'],
+	['bitRateModeConstant', 'Constant'],
+	['mp3PresetExcessive', 'Excessive, 320 kbps'],
+	['mp3PresetExtreme', 'Extreme, 220-260 kbps'],
+	['mp3PresetStandard', 'Standard, 170-210 kbps'],
+	['mp3PresetMedium', 'Medium, 145-185 kbps'],
+	['mp3VariableBest', '220-260 kbps (Best Quality)'],
+	['mp3VariableSmallest', '45-85 kbps (Smaller files)'],
 ]);
 
 export const MP3_EXPORT_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze(Object.fromEntries(MP3_EXPORT_COPY_ENTRIES.map(([key, en]) => [key, en]))),
-	de: Object.freeze(Object.fromEntries(MP3_EXPORT_COPY_ENTRIES.map(([key, , de]) => [key, de]))),
 });

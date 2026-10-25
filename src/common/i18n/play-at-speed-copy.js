@@ -9,20 +9,19 @@
  * maintainability ceiling that such a string should not push up.
  */
 const PLAY_AT_SPEED_COPY_ENTRIES = Object.freeze([
-	['playAtSpeed', 'Play at speed', 'Mit Geschwindigkeit abspielen'],
-	['playSelection', 'Play selection', 'Auswahl abspielen'],
-	['cancelPlayAtSpeed', 'Cancel play at speed', 'Wiedergabe mit Geschwindigkeit abbrechen'],
-	['pausePlayAtSpeed', 'Pause play at speed', 'Wiedergabe mit Geschwindigkeit pausieren'],
-	['playbackSpeed', 'Playback speed', 'Wiedergabegeschwindigkeit'],
-	['playAtSpeedPreservePitch', 'Preserve pitch', 'Tonhöhe beibehalten'],
-	['playAtSpeedMode', 'Play-at-speed pitch behavior', 'Tonhöhe bei „Mit Geschwindigkeit abspielen“'],
-	['playAtSpeedNaive', 'Change speed and pitch', 'Geschwindigkeit und Tonhöhe ändern'],
-	['playAtSpeedStaffPad', 'Preserve pitch with StaffPad', 'Tonhöhe mit StaffPad beibehalten'],
-	['playAtSpeedPreparing', 'Preparing StaffPad playback.', 'Wiedergabe mit StaffPad wird vorbereitet.'],
-	['playAtSpeedPlaying', 'Playing at {rate}×.', 'Wiedergabe mit {rate}×.'],
+	['playAtSpeed', 'Play at speed'],
+	['playSelection', 'Play selection'],
+	['cancelPlayAtSpeed', 'Cancel play at speed'],
+	['pausePlayAtSpeed', 'Pause play at speed'],
+	['playbackSpeed', 'Playback speed'],
+	['playAtSpeedPreservePitch', 'Preserve pitch'],
+	['playAtSpeedMode', 'Play-at-speed pitch behavior'],
+	['playAtSpeedNaive', 'Change speed and pitch'],
+	['playAtSpeedStaffPad', 'Preserve pitch with StaffPad'],
+	['playAtSpeedPreparing', 'Preparing StaffPad playback.'],
+	['playAtSpeedPlaying', 'Playing at {rate}×.'],
 ]);
 
 export const PLAY_AT_SPEED_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze(Object.fromEntries(PLAY_AT_SPEED_COPY_ENTRIES.map(([key, en]) => [key, en]))),
-	de: Object.freeze(Object.fromEntries(PLAY_AT_SPEED_COPY_ENTRIES.map(([key, , de]) => [key, de]))),
 });

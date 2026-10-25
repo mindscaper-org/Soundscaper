@@ -1,3 +1,4 @@
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -90,8 +91,8 @@ test('browser Reverb avoids SoX while StaffPad replaces SoundTouch and SBSMS eff
 test('Audacity labels suffix only collisions and provide German names', () => {
 	assert.equal(audacityEffectLabel('audacity-compressor'), 'Compressor');
 	assert.equal(audacityEffectLabel('audacity-limiter'), 'Limiter');
-	assert.equal(audacityEffectLabel('audacity-compressor', 'de'), 'Kompressor');
-	assert.equal(audacityEffectLabel('audacity-bass-treble', 'de'), 'Bass und Höhen');
+	assert.equal(audacityEffectLabel('audacity-compressor', GERMAN_COPY), 'Kompressor');
+	assert.equal(audacityEffectLabel('audacity-bass-treble', GERMAN_COPY), 'Bass und Höhen');
 	// The Macro Manager lists the rack and the offline effects together, so
 	// Audacity's Reverb sits beside Soundscaper's own and needs the suffix too.
 	assert.equal(audacityEffectLabel('audacity-reverb'), 'Reverb (Audacity)');

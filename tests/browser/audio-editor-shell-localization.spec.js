@@ -18,7 +18,7 @@ import {
 } from './audio-editor-test-helpers.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { localeCopy } from './helpers/locale-copy.js';
-import { GERMAN_COPY } from '../../src/common/i18n/catalogs.js';
+const GERMAN_COPY = localeCopy('de');
 import { formatOptionsLabel } from '../../src/common/editor/ui/localization-template.ts';
 import { darkTheme } from '../../vendor/audacity-design-system/tokens/src/themes/dark.v2.ts';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
@@ -276,15 +276,29 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(playhead).toHaveAttribute('aria-valuenow', '1');
 	});
 
-	test('overlays verified Audacity German copy on the complete bundled fallback', async ({ page }) => {
+	test('loads machine and Audacity German copy from its JSON catalog', async ({ page }) => {
 		const copy = localeCopy('de');
 		const editor = await bootEditor(page, '/embed/de/');
 		// Audacity's reviewed German pack overrides `play`; keys it leaves
-		// untouched keep showing the complete bundled German fallback.
+		// untouched keep showing the German JSON catalog translations.
 		await expect(editor.getByRole('button', { name: copy.play, exact: true })).toBeVisible();
 		await expect(editor.getByRole('button', { name: formatOptionsLabel(GERMAN_COPY, copy.play), exact: true })).toBeVisible();
 		await expect(editor.getByRole('button', { name: formatOptionsLabel(GERMAN_COPY, GERMAN_COPY.spectrogramView), exact: true })).toBeVisible();
 		await expect(editor.getByRole('button', { name: GERMAN_COPY.fullscreen, exact: true })).toBeVisible();
+	});
+
+	test('German uses JSON translations and falls back to English when an entry is stale or missing', async ({ page }) => {
+		await page.route(/\/assets\/de\.json-[^/]+\.js$/u, route => route.fulfill({
+			contentType: 'text/javascript',
+			body: `export default ${JSON.stringify({ schemaVersion: 2, locale: 'de', entries: {
+				play: ['machine', 'Play', 'Katalog-Wiedergabe'],
+				fileMenu: ['machine', 'Former File', 'Veraltetes Dateimenü'],
+			} })};`,
+		}));
+		const editor = await bootEditor(page, '/embed/de/');
+		await expect(editor.getByRole('button', { name: 'Katalog-Wiedergabe', exact: true })).toBeVisible();
+		await expect(editor.getByRole('menuitem', { name: 'File', exact: true })).toBeVisible();
+		await expect(editor.getByRole('menuitem', { name: 'Edit', exact: true })).toBeVisible();
 	});
 
 	test('shows localized Flyout tooltips only while an editor button is hovered', async ({ page }) => {

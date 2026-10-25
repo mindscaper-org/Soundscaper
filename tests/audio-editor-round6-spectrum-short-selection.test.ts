@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioAnalysisService, type AnalysisDependencies, type AnalysisState } from '../src/common/editor/controller/analysis/analysis-service.ts';
@@ -8,7 +10,7 @@ import { calculateAudioAnalysisReport } from '../src/common/editor/audio-analysi
 import { analyzeAudioChannels } from '../src/common/editor/analysis.js';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { COPY_BY_LOCALE, ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { localizedErrorMessage } from '../src/common/i18n/presentation-message.ts';
 
 function fixture(frames: number, copy = ENGLISH_COPY) {
@@ -91,7 +93,7 @@ test('short levels and clipping reports retain their ordinary valid analysis pat
 });
 
 test('short Plot Spectrum publishes the same sample requirement in German', async () => {
-	const f = fixture(480, COPY_BY_LOCALE.de);
+	const f = fixture(480, GERMAN_COPY);
 	assert.equal(await f.service.plotSpectrum(), null);
 	assert.ok(f.errors[0] instanceof RangeError);
 	assert.match(f.errors[0].message, /mindestens 2048 Samples/u);

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createMenuActionFixture } from './helpers/application-menu-fixture.ts';
@@ -8,7 +10,7 @@ import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences
 import { createAudioEditorSearchEntries } from '../src/common/editor/search.js';
 import createApplicationMenus from '../src/common/editor/ui/application-menus.js';
 import { WORKSPACE_PROJECT_FILE_ACCEPT } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 interface MenuItem {
 	readonly id?: string;

@@ -61,7 +61,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	const selectedDraft = readDraft(selectedKey);
 	const source = baseline?.source ?? selectedDraft?.source ?? '';
 	const metadata = EDITOR_COPY_METADATA[selectedKey];
-	const origin = publishedTranslationOrigin(baseline, locale === 'de' ? metadata?.bundledGerman : undefined);
+	const origin = publishedTranslationOrigin(baseline);
 	const originText = { human: copy.originHuman, machine: copy.originMachine, audacity: copy.originAudacity,
 		bundled: copy.originBundled, missing: copy.originMissing }[origin];
 	const reviewKeys = useMemo(() => new Set([
@@ -70,7 +70,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	const keys = useMemo(() => {
 		if (!loaded) return [];
 		return communityTranslationMessageKeys(loaded.snapshot, loaded.draft,
-			{ query, filter, reviewKeys, locale }, EDITOR_COPY_METADATA);
+			{ query, filter, reviewKeys, locale });
 	}, [loaded, query, filter, reviewKeys, locale]);
 	const displayedKeys = keys.slice(0, 200);
 	useEffect(() => {

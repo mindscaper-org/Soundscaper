@@ -4,7 +4,8 @@ import { bootEditor, waitForProjectActivation } from './audio-editor-test-helper
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
-import { GERMAN_COPY } from '../../src/common/i18n/catalogs.js';
+import { localeCopy } from './helpers/locale-copy.js';
+const GERMAN_COPY = localeCopy('de');
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('German native collision Copy gives the saved copy a German generated title', async ({ page }) => {

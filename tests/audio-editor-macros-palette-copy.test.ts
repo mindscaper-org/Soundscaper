@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { AUDACITY_ACTION_MANIFEST, resolveAudacityActionId } from '../src/common/editor/audacity-action-parity.js';
 
 test('the macro editing surface is named Macros palette in both maintained locales', () => {

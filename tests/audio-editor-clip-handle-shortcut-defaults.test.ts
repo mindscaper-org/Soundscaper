@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createAudioEditorPreferencesV1, normalizeAudioEditorShortcut } from '../src/common/editor/preferences.js';
 import { migrateAudioEditorShortcutDefaults } from '../src/common/editor/shortcut-default-migration.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 const defaults = createAudioEditorPreferencesV1().shortcuts;
 const migrate = (shortcuts: Record<string, string[]>) => migrateAudioEditorShortcutDefaults({ shortcuts,

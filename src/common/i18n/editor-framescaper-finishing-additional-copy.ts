@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-export const FRAMESCAPER_FINISHING_ADDITIONAL_GERMAN_COPY = Object.freeze({
-	captionNoLosses: 'Keine Austauschverluste.',
-	captionOneLoss: '1 Austauschverlust aufgezeichnet.',
-	captionManyLosses: '{count} Austauschverluste aufgezeichnet.',
-	captionFileSaveCancelled: 'Untertitelexport abgebrochen.',
-});
-
 export const FRAMESCAPER_FINISHING_ADDITIONAL_COPY = Object.freeze({
 	captionNoLosses: 'No interchange losses.',
 	captionOneLoss: '1 interchange loss recorded.',

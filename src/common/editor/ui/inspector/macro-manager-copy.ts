@@ -38,7 +38,7 @@ export interface MacroManagerCopy {
  * module is where new manager strings belong — the same arrangement the built-in
  * template copy already uses.
  */
-export function resolveMacroManagerCopy(locale?: string, copy: Readonly<Record<string, string | undefined>> = {}): MacroManagerCopy {
-	const base = locale?.toLowerCase().startsWith('de') ? MACRO_MANAGER_COPY_BY_LOCALE.de : MACRO_MANAGER_COPY_BY_LOCALE.en;
+export function resolveMacroManagerCopy(_locale?: string, copy: Readonly<Record<string, string | undefined>> = {}): MacroManagerCopy {
+	const base = MACRO_MANAGER_COPY_BY_LOCALE.en;
 	return resolveEditorCopyScope('macroManager', base, copy);
 }

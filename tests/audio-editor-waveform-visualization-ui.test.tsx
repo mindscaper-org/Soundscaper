@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -11,7 +13,7 @@ import { iconNameToChar } from '../src/common/editor/audacity-iconcodes.js';
 import WaveformPreferencesPage from '../src/common/editor/ui/dialogs/WaveformPreferencesPage.tsx';
 import WorkspacePreferencesDialog from '../src/common/editor/ui/dialogs/WorkspacePreferencesDialog.jsx';
 import { workspacePreferencesPage } from '../src/common/editor/ui/workspace/workspace-preferences-routing.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import {
 	installReactTestDom,
 	reactProps,

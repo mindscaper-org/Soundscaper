@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act, type ComponentProps } from 'react';
 import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 test('the upstream properties surface follows selection and keeps the source viewer separate', async () => {

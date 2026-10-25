@@ -6,8 +6,8 @@ import { publishedTranslationOrigin } from '../src/common/i18n/community-transla
 
 test('origin describes the displayed translation and does not credit retired catalog entries', () => {
 	const baseline = { key: 'ready', source: 'Ready', baselineText: 'Bereit', baselineEntry: null };
-	assert.equal(publishedTranslationOrigin(baseline, 'Bereit'), 'bundled');
-	assert.equal(publishedTranslationOrigin({ ...baseline, baselineText: 'Ready' }, 'Bereit'), 'missing');
+	assert.equal(publishedTranslationOrigin(baseline), 'missing');
+	assert.equal(publishedTranslationOrigin({ ...baseline, baselineText: 'Ready' }), 'missing');
 	assert.equal(publishedTranslationOrigin({ ...baseline, baselineEntry: ['human', 'Old source', 'Bereit'] }), 'missing');
 	assert.equal(publishedTranslationOrigin({ ...baseline, baselineEntry: ['machine', 'Ready', 'Bereit'] }), 'machine');
 	assert.equal(publishedTranslationOrigin({ ...baseline, baselineEntry: ['audacity', 'Ready', 'Bereit'] }), 'audacity');

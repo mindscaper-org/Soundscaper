@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperScapeNativeRuntime } from '../src/soundscaper/editor-scape-native.ts';
 import { exportScapeProject } from '../src/common/editor/scape-project.js';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 

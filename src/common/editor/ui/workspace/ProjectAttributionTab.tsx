@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import AttributionTab from '../AttributionTab.tsx';
-import { freesoundAttributionCopy } from '../../../i18n/freesound-attribution-copy.js';
+import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
+import { useTranslationScope } from '../use-translation-scope.ts';
 import type {
 	AttributionCsvFileService,
 	AttributionReportPresentation,
@@ -28,7 +29,7 @@ export function ProjectAttributionTab({
 	fileService,
 	run,
 }: ProjectAttributionTabProps) {
-	const localizedCopy = { ...copy, ...freesoundAttributionCopy(locale, copy) };
+	const localizedCopy = { ...copy, ...useTranslationScope('freesoundAttribution', FREESOUND_ATTRIBUTION_ENGLISH_COPY, locale, copy) };
 	let domainReport: ReturnType<typeof createProjectAttributionReport> | null = null;
 	let report: AttributionReportPresentation | null = null;
 	let reportFailed = false;

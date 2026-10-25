@@ -3,27 +3,25 @@
 /**
  * Copy owned by the shared product sidebar.
  *
- * Keep the English and German values beside each other so new navigation
- * entries cannot be added to only one bundled locale.
+ * English navigation copy; translations live in the per-locale JSON catalogs.
  */
 const SITE_SIDEBAR_COPY_ENTRIES = Object.freeze([
-	['sidebarNavigation', 'Soundscaper navigation', 'Soundscaper-Navigation'],
-	['sidebarSettings', 'Settings', 'Einstellungen'],
-	['audioEditorLink', 'Audio editor', 'Audio-Editor'],
-	['joinUsLink', 'Join us', 'Mach mit'],
-	['downloadLink', 'Download', 'Herunterladen'],
-	['legalLink', 'Privacy policy', 'Datenschutzerklärung'],
-	['reportIssueLink', 'Report an issue', 'Ein Problem melden'],
-	['githubProjectLink', 'GitHub project', 'GitHub-Projekt'],
-	['themeToggle', 'Switch color theme', 'Farbschema wechseln'],
-	['lightTheme', 'Light', 'Hell'],
-	['darkTheme', 'Dark', 'Dunkel'],
-	['collapseNavigation', 'Collapse navigation', 'Navigation einklappen'],
-	['expandNavigation', 'Expand navigation', 'Navigation ausklappen'],
-	['languageLabel', 'Language', 'Sprache'],
+	['sidebarNavigation', 'Soundscaper navigation'],
+	['sidebarSettings', 'Settings'],
+	['audioEditorLink', 'Audio editor'],
+	['joinUsLink', 'Join us'],
+	['downloadLink', 'Download'],
+	['legalLink', 'Privacy policy'],
+	['reportIssueLink', 'Report an issue'],
+	['githubProjectLink', 'GitHub project'],
+	['themeToggle', 'Switch color theme'],
+	['lightTheme', 'Light'],
+	['darkTheme', 'Dark'],
+	['collapseNavigation', 'Collapse navigation'],
+	['expandNavigation', 'Expand navigation'],
+	['languageLabel', 'Language'],
 ]);
 
 export const SITE_SIDEBAR_COPY_BY_LOCALE = Object.freeze({
 	en: Object.freeze(Object.fromEntries(SITE_SIDEBAR_COPY_ENTRIES.map(([key, en]) => [key, en]))),
-	de: Object.freeze(Object.fromEntries(SITE_SIDEBAR_COPY_ENTRIES.map(([key, , de]) => [key, de]))),
 });

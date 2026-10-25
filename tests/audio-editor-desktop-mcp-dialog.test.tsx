@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { EDITOR_GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act } from 'react';
 
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_ENGLISH_COPY } from '../src/common/i18n/editor-copy-inventory.ts';
 import { resolveDesktopMcpCopy } from '../src/common/editor/ui/desktop-mcp-copy.ts';
 import DesktopMcpDialog from '../src/common/editor/ui/dialogs/DesktopMcpDialog.tsx';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';

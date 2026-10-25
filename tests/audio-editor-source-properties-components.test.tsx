@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
@@ -7,7 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { SourcePropertiesPanel } from '../src/common/editor/ui/toolbar/SourcePropertiesPanel.jsx';
 import VideoSourcePropertiesSection from '../src/common/editor/ui/inspector/VideoSourcePropertiesSection.jsx';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 const PAL = { num: 25, den: 1 };
 

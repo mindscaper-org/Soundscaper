@@ -12,16 +12,3 @@ export const RECORDING_RECOVERY_COPY = Object.freeze({
 	ordinaryRecoveryLossHint: 'The last unfinished checkpoint may be missing (about 10 seconds, plus audio waiting to be saved).',
 	ordinaryRecoveryRecoveredWithLoss: '{count} unavailable final recording checkpoints were omitted; all earlier checkpoints were recovered.',
 });
-export const RECORDING_RECOVERY_GERMAN_COPY = Object.freeze({
-	ordinaryRecoveryTitle: 'Unterbrochene Aufnahme',
-	ordinaryRecoveryTrack: 'Wiederhergestellte Aufnahme',
-	ordinaryRecoveryMenu: 'Unterbrochene Aufnahme wiederherstellen',
-	ordinaryRecoveryDescription: 'Diese Aufnahme wurde vor dem vollständigen Speichern unterbrochen. Stelle die gespeicherten Audioabschnitte auf ihren ursprünglichen Spuren wieder her oder verwirf die unterbrochene Aufnahme.',
-	ordinaryRecoverySummary: '{count} Aufnahmespuren enthalten {checkpoints} gespeicherte Audioabschnitte.',
-	ordinaryRecoveryRecover: 'Aufnahme wiederherstellen',
-	ordinaryRecoveryDiscard: 'Aufnahme verwerfen',
-	ordinaryRecoveryWorking: 'Unterbrochene Aufnahme wird bearbeitet',
-	ordinaryRecoveryCloseHint: 'Beim Schließen dieses Dialogs bleibt das gespeicherte Audio erhalten. Die Bearbeitung bleibt gesperrt, bis du die Aufnahme wiederherstellst oder verwirfst.',
-	ordinaryRecoveryLossHint: 'Der letzte unvollständige Abschnitt kann fehlen (etwa 10 Sekunden sowie Audio, das noch auf das Speichern wartet).',
-	ordinaryRecoveryRecoveredWithLoss: '{count} nicht verfügbare letzte Aufnahmeabschnitte wurden ausgelassen; alle früheren Abschnitte wurden wiederhergestellt.',
-});

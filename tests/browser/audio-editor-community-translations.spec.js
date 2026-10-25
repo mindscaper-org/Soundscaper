@@ -5,11 +5,15 @@ import { unzipSync, strFromU8 } from 'fflate';
 
 import { captionLabels, expect, longTone, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
+import { resolveEditorCopyScope } from '../../src/common/i18n/editor-copy-scope.ts';
+import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { currentTranslations } from '../../src/common/i18n/translation-catalog.js';
+import germanCatalog from '../../src/common/i18n/translations/de.json' with { type: 'json' };
 import { COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE } from '../../src/common/i18n/community-translations-copy.ts';
 import { resolveCatalog } from '../../src/common/i18n/runtime.js';
 
 const en = COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE.en;
-const de = COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE.de;
+const de = resolveEditorCopyScope('communityTranslations', COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE.en, currentTranslations(germanCatalog, EDITOR_ENGLISH_COPY));
 
 test.beforeEach(async ({ page }) => {
 	await page.addInitScript(() => Object.defineProperty(globalThis, 'showSaveFilePicker', {

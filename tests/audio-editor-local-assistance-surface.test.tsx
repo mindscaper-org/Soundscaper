@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { GERMAN_COPY } from './helpers/translation-catalogs.ts';
+
 /** Local assistance preparation refusal and exposed UI surface. */
 
 import assert from 'node:assert/strict';
@@ -8,7 +10,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { ASSISTANCE_OPERATIONS } from '../src/common/editor/assistance/operation.ts';
-import { ENGLISH_COPY, GERMAN_COPY } from '../src/common/i18n/catalogs.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { createLocalAssistanceMenuItems } from '../src/common/editor/ui/local-assistance-menu.ts';
 import AudioEditorSearch from '../src/common/editor/ui/AudioEditorSearch.jsx';
 import { createLocalAssistanceAdvancedWorkflowSessionStore } from
