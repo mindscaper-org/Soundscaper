@@ -10,6 +10,7 @@ import { reportInterchangeCaptionTrackOmission } from './interchange-omission-in
 import { reportOmittedDawprojectRouting } from './dawproject-export-routing-omissions.ts';
 import { createDawprojectAudioWidthReader } from './dawproject-export-channel-width.ts';
 import { indexDawprojectRouting } from './dawproject-export-routing-index.ts';
+import { createDawprojectStripLaneReader } from './dawproject-export-automation.ts';
 import { serializeXmlDocument, xmlElement, type XmlElement } from './dawproject-xml.ts';
 import {
 	DAWPROJECT_DELIVERY_FORMAT,
@@ -29,6 +30,7 @@ import {
 	type DawprojectTrackRoute,
 	DawprojectMediaRegistry,
 	channelIdFor,
+	createDawprojectFolderBusReader,
 	dawprojectAdditionalFolderBusIds,
 	dawprojectHasMainOutputBypass,
 	dawprojectStructureTree,
@@ -100,6 +102,8 @@ interface ChannelSpec {
 const DEFAULT_APPLICATION = Object.freeze({ name: 'Soundscaper', version: 'unknown' });
 const DISCONNECTED_OUTPUT_KEY = 'disconnected-output';
 const MAIN_OUTPUT_KEY = 'main-output';
+const METADATA_TAG_KEYS = ['originalArtist', 'composer', 'songwriter', 'producer', 'arranger', 'genre', 'copyright', 'website'] as const;
+const FOLDED_METADATA_TAG_KEYS = new Set(METADATA_TAG_KEYS.map(key => key.toLowerCase()));
 
 export function createDawprojectExport(request: DawprojectExportRequest): DawprojectExportResult {
 	const project = request?.project;
@@ -117,6 +121,7 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 	const clipById = new Map(records(project.clips).map(clip => [String(clip.id), clip]));
 	const structure = dawprojectStructureTree(project, request.sequenceId);
 	const routing = readDawprojectMixerRouting(project);
+	const readAdditionalFolderBusIds = createDawprojectFolderBusReader({ project, routing }, structure);
 	const context: DawprojectExportContext = {
 		project,
 		sampleRate,
@@ -125,10 +130,12 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 		sourceById,
 		clipById,
 		readAudioTrackChannels: createDawprojectAudioWidthReader(project, clipById, sourceById),
+		readStripAutomationLanes: createDawprojectStripLaneReader(project),
+		readAdditionalFolderBusIds,
 		media: new DawprojectMediaRegistry(),
 		routing,
 		routingLookup: indexDawprojectRouting(routing),
-		separateOutputMaster: routing.masterDisconnected === true || dawprojectHasMainOutputBypass({ project, routing }, structure),
+		separateOutputMaster: routing.masterDisconnected === true || dawprojectHasMainOutputBypass({ project, routing, readAdditionalFolderBusIds }, structure),
 		embeddableVideoSourceIds: new Set(request.embeddableVideoSourceIds ?? []),
 		tempoMap: tempoMapOf(project),
 		consumedLaneIds: new Set(),
@@ -299,7 +306,7 @@ function buildVideoTrack(track: DataRecord, context: DawprojectExportContext): X
 /** Group and send buses that no folder owns stand as their own tracks. */
 function buildMixerNodeTracks(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): XmlElement[] {
 	const folderIds = new Set(records(context.project.trackFolders).map((folder) => String(folder.id)));
-	const additionalFolderBusIds = dawprojectAdditionalFolderBusIds(context, structure);
+	const additionalFolderBusIds = context.readAdditionalFolderBusIds?.() ?? dawprojectAdditionalFolderBusIds(context, structure);
 	const result: XmlElement[] = [];
 	for (const [role, strips] of [['submix', context.routing.groups], ['effect', context.routing.sends]] as const) {
 		for (const strip of strips) {
@@ -424,8 +431,19 @@ function buildChannel(context: DawprojectExportContext, key: string, spec: Chann
 function buildMetadata(project: DataRecord, title: string): XmlElement {
 	const metadata = record(project.metadata);
 	const tags = projectAudioMetadata(metadata);
-	const tag = (key: string): string | undefined => tags[key]
-		?? Object.entries(tags).find(([name]) => name.toLowerCase() === key.toLowerCase())?.[1];
+	let foldedTags: ReadonlyMap<string, string> | undefined;
+	const tag = (key: typeof METADATA_TAG_KEYS[number]): string | undefined => {
+		if (tags[key] !== undefined) return tags[key];
+		if (!foldedTags) {
+			const prepared = new Map<string, string>();
+			for (const [name, value] of Object.entries(tags)) {
+				const folded = name.toLowerCase();
+				if (FOLDED_METADATA_TAG_KEYS.has(folded) && !prepared.has(folded)) prepared.set(folded, value);
+			}
+			foldedTags = prepared;
+		}
+		return foldedTags.get(key.toLowerCase());
+	};
 	const entries: [string, unknown][] = [
 		['Title', metadata.title || title],
 		['Artist', metadata.artist],

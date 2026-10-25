@@ -88,7 +88,7 @@ function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExport
 
 function buildMixerNodeLanes(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): XmlElement[] {
 	const folderIds = new Set(records(context.project.trackFolders).map((folder) => String(folder.id)));
-	const additionalFolderBusIds = dawprojectAdditionalFolderBusIds(context, structure);
+	const additionalFolderBusIds = context.readAdditionalFolderBusIds?.() ?? dawprojectAdditionalFolderBusIds(context, structure);
 	const result: XmlElement[] = [];
 	for (const strip of [...context.routing.groups, ...context.routing.sends]) {
 		if (folderIds.has(strip.id) && !additionalFolderBusIds.has(strip.id)) continue;

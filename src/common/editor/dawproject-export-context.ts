@@ -4,6 +4,7 @@ import type { createDeliveryReport } from './delivery-report.ts';
 import { DawprojectIdAllocator, mediaEntryName } from './dawproject-format.ts';
 import type { HoldTempoMap } from './timeline-time.ts';
 import type { DawprojectRoutingIndex } from './dawproject-export-routing-index.ts';
+import { frozenRecordIdIndex, hasOwnDataValue } from './frozen-record-id-index.ts';
 
 /**
  * State the two halves of the DAWproject writer share.
@@ -72,6 +73,8 @@ export interface DawprojectExportContext {
 	readonly routingLookup?: DawprojectRoutingIndex<DawprojectMixerStrip>;
 	readonly separateOutputMaster: boolean;
 	readonly readAudioTrackChannels?: (track: DataRecord, fallback: number) => number;
+	readonly readStripAutomationLanes?: (key: string) => ReadonlyMap<string, DataRecord>;
+	readonly readAdditionalFolderBusIds?: () => ReadonlySet<string>;
 	readonly embeddableVideoSourceIds: ReadonlySet<string>;
 	readonly tempoMap: HoldTempoMap | null;
 	/** V21 lane ids the arrangement wrote, so the rest can be reported as omitted. */
@@ -198,11 +201,26 @@ export function dawprojectAdditionalFolderBusIds(context: Pick<DawprojectExportC
 	return new Set([...retained].filter(id => folderIds.has(id) && !deliveredFolders.has(id)));
 }
 
+/** Reuse graph reachability only while the private export's immutable folder owner remains current. */
+export function createDawprojectFolderBusReader(
+	context: Pick<DawprojectExportContext, 'project' | 'routing'>,
+	structure: readonly DawprojectStructureNode[],
+): () => ReadonlySet<string> {
+	const owner: unknown = Object.getOwnPropertyDescriptor(context.project, 'trackFolders')?.value;
+	const stable = Array.isArray(owner) && Object.isFrozen(owner) && Object.keys(owner).length === owner.length
+		&& frozenRecordIdIndex(owner as readonly (DataRecord & { readonly id: string })[]) !== null;
+	let cached: ReadonlySet<string> | undefined;
+	return () => {
+		if (!stable || !hasOwnDataValue(context.project, 'trackFolders', owner)) return dawprojectAdditionalFolderBusIds(context, structure);
+		return cached ??= dawprojectAdditionalFolderBusIds(context, structure);
+	};
+}
+
 /** Split the Master only for a main-output route whose owner is actually delivered. */
-export function dawprojectHasMainOutputBypass(context: Pick<DawprojectExportContext, 'project' | 'routing'>, structure: readonly DawprojectStructureNode[]): boolean {
+export function dawprojectHasMainOutputBypass(context: Pick<DawprojectExportContext, 'project' | 'routing' | 'readAdditionalFolderBusIds'>, structure: readonly DawprojectStructureNode[]): boolean {
 	if (dawprojectStructureTracks(structure).some(track => context.routing.routes.get(String(track.id))?.mainOutput)) return true;
 	const folderIds = new Set(records(context.project.trackFolders).map(folder => String(folder.id)));
-	const delivered = new Set(dawprojectAdditionalFolderBusIds(context, structure));
+	const delivered = new Set(context.readAdditionalFolderBusIds?.() ?? dawprojectAdditionalFolderBusIds(context, structure));
 	const pending = [...structure];
 	for (let index = 0; index < pending.length; index++) {
 		const node = pending[index]!;
