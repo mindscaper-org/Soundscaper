@@ -6,6 +6,7 @@ import {
 	type MixerGraphV21,
 	type MixerNodeKindV21,
 } from '../../mixer-graph-v21.ts';
+import { routingLayoutRanks } from './routing-layout-ranks.ts';
 import { resolveTerminalChannelWidths } from '../../terminal-channel-widths.ts';
 import { SOUNDSCAPER_ROUTING_GRAPH_COPY } from '../../../i18n/editor-soundscaper-routing-graph-copy.ts';
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
@@ -113,7 +114,7 @@ export function layoutSoundscaperRoutingGraph(
 	}
 
 	const audioKeys = new Set(pending.filter(({ rail }) => rail === 'audio').map(({ key }) => key));
-	const rank = new Map(pending.map((node) => [node.key, node.initialRank]));
+	const initialRank = new Map(pending.map((node) => [node.key, node.initialRank]));
 	const predecessors = new Map<string, string[]>();
 	for (const edge of graph.edges) {
 		if (!edge.enabled || edge.kind === 'sidechain') continue;
@@ -125,19 +126,7 @@ export function layoutSoundscaperRoutingGraph(
 		entries.push(source);
 		predecessors.set(destination, entries);
 	}
-	// Validation guarantees the enabled routing graph is acyclic. Bounded relaxation
-	// therefore produces stable left-to-right ranks without persisting presentation state.
-	for (let pass = 0; pass < pending.length; pass += 1) {
-		let changed = false;
-		for (const [destination, sources] of predecessors) for (const source of sources) {
-			const candidate = (rank.get(source) ?? 0) + 1;
-			if (candidate > (rank.get(destination) ?? 0)) {
-				rank.set(destination, candidate);
-				changed = true;
-			}
-		}
-		if (!changed) break;
-	}
+	const rank = routingLayoutRanks(initialRank, predecessors, pending.length);
 
 	const byRank = new Map<number, PendingNode[]>();
 	for (const node of pending.filter(({ rail }) => rail === 'audio')) {
