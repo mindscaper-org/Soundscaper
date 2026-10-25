@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { sha256 } from '@noble/hashes/sha2.js';
+import { encodeProjectIdKey } from './project-validation-primitives.ts';
 
 import type { ScapeArchiveEntry, ScapeDescriptor } from './scape-archive-envelope.ts';
 import { aggregateScapeErrors, awaitScapeOperation, throwIfScapeAborted } from './scape-abort.ts';
@@ -74,7 +75,7 @@ export interface ScapeExtractedAsset {
 }
 
 export function safeScapeEntryId(value: unknown): string {
-	const encoded = encodeURIComponent(String(value || '')).replaceAll('_', '_5F').replaceAll('%', '_');
+	const encoded = encodeProjectIdKey(String(value || '')).replaceAll('_', '_5F').replaceAll('%', '_');
 	if (encoded === '.') return '_2E';
 	if (encoded === '..') return '_2E_2E';
 	return encoded;
