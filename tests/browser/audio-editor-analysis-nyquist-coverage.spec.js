@@ -112,7 +112,7 @@ test.describe('analysis and Nyquist dialog coverage', () => {
 		expect(clippingDownload.report).toMatchObject({
 			startFrame: 0,
 			endFrame: ANALYSIS_FIXTURE_FRAMES,
-			threshold: 1,
+			threshold: 1 - 1 / 32_768,
 			minimumConsecutiveSamples: 3,
 			regionCount: 1,
 			clippedSamples: 16,
