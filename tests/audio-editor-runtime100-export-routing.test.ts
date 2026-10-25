@@ -29,7 +29,7 @@ test('R01 DAWproject exports share normalized bus and send identities across cha
 test('R01 each export reflects replacement routing and string-key collisions safely', () => {
 	const project = routingProject(2);
 	project.mixer.groups[1]!.id = '__proto__';
-	project.mixer.routes['track-0']!.groupId = '__proto__';
+	assert.equal(Reflect.set(project.mixer.routes['track-0']!, 'groupId', '__proto__'), true);
 	const first = createDawprojectExport({ project });
 	project.mixer.groups[1]!.name = 'Replacement bus';
 	const second = createDawprojectExport({ project });
