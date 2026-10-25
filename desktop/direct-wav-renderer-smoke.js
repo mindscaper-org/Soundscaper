@@ -241,8 +241,8 @@ export async function runDirectWavRendererSmoke(scope, plan) {
 		closeProjectBin.click();
 		await waitFor(() => !document.querySelector('[data-workspace-panel="project-bin"]'), 'project bin close');
 	}
-	const input = await waitFor(() => document.querySelector('[data-import-input]'), 'import input');
 	const importFixture = async (file, label, timeout = stageWindows.fixtureImport) => {
+		const input = await waitFor(() => document.querySelector('[data-import-input]'), 'import input');
 		const initialClips = Number(editor.getAttribute('data-clip-count') || 0);
 		const transfer = new scope.DataTransfer();
 		transfer.items.add(file);
