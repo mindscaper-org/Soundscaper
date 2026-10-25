@@ -36,11 +36,17 @@ export function communityTranslationMessageKeys(
 
 /** Current draft reader shared by selected-message and option-source presentation. */
 export function createCommunityTranslationDraftReader(draft: TranslationContribution | undefined) {
+	const direct = (key: string) => draft?.entries.find(entry => entry.key === key);
 	const entries = draft?.entries;
 	if (!entries || !Object.isFrozen(entries) || entries.length > 16_384
-		|| !entries.every(entry => Object.isFrozen(entry) && typeof Object.getOwnPropertyDescriptor(entry, 'key')?.value === 'string')) return (key: string) => draft?.entries.find(entry => entry.key === key);
+		|| Object.getPrototypeOf(entries) !== Array.prototype || Object.hasOwn(entries, Symbol.iterator)) return direct;
 	const byKey = new Map<string, TranslationContribution['entries'][number]>();
-	for (const entry of entries) {
+	for (let index = 0; index < entries.length; index++) {
+		const slot = Object.getOwnPropertyDescriptor(entries, index);
+		if (!slot || !('value' in slot)) return direct;
+		const entry = slot.value as TranslationContribution['entries'][number] | null;
+		if (!entry || !Object.isFrozen(entry)
+			|| typeof Object.getOwnPropertyDescriptor(entry, 'key')?.value !== 'string') return direct;
 		const key = entry.key;
 		if (!byKey.has(key)) byKey.set(key, entry);
 	}

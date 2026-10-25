@@ -103,3 +103,16 @@ void test('retired dialog search and binding projections do not keep source inve
 	for (let i = 0; i < 8; i++) { await new Promise<void>(resolve => setImmediate(resolve)); globalThis.gc(); }
 	for (const reference of references) assert.equal(reference.deref(), undefined);
 });
+void test('noncanonical frozen dialog inventories retain native lookup and fresh string coercion', () => {
+	const entry = Object.freeze({ key: 'first', source: 'S', translation: 'T' });
+	const other = Object.freeze({ key: 'iterator-only', source: 'X', translation: 'Y' });
+	const entries = [entry]; Object.defineProperty(entries, Symbol.iterator, { value: function* () { yield other; } }); Object.freeze(entries);
+	const draft = Object.freeze({ ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries });
+	assert.equal(createCommunityTranslationDraftReader(draft)('first'), entry);
+});
+void test('frozen dialog action IDs with mutable string coercion retain fresh search text', () => {
+	let actionName = 'before';
+	const actionId = { toString() { return actionName; } };
+	const find = prepareCustomToolbarActionSearch(Object.freeze([Object.freeze({ actionId, path: Object.freeze(['Edit']), label: 'A', disabled: false })]) as never);
+	actionName = 'after'; assert.equal(find('after').length, 1);
+});

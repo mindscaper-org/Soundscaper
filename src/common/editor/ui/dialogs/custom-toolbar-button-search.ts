@@ -39,7 +39,7 @@ export function prepareCustomToolbarSymbolSearch(symbols: readonly string[]) {
 
 function dataField(owner: object, field: string): boolean {
 	const descriptor = Object.getOwnPropertyDescriptor(owner, field);
-	return Boolean(descriptor && 'value' in descriptor);
+	return Boolean(descriptor && 'value' in descriptor && (field !== 'actionId' || typeof descriptor.value === 'string'));
 }
 function canonicalPath(path: readonly string[]): boolean {
 	if (!Object.isFrozen(path) || Object.getPrototypeOf(path) !== Array.prototype
