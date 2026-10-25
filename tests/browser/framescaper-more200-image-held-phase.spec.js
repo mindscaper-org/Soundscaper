@@ -14,7 +14,12 @@ test('an ordinary image can restore its original head after trimming into the he
 	await chooseNestedCommandAction(page, editor, 'Generate', [EDITOR_ENGLISH_COPY['ui.framescaperMenus.addVideoStill']]);
 	await (await chooser).setFiles({ name: 'poster.png', mimeType: 'image/png', buffer: createPngFixture(16) });
 	const clip = editor.getByRole('group', { name: 'Image clip: poster', exact: true });
-	await expect(clip).toBeVisible(); await clip.press('Enter');
+	await expect(clip).toBeVisible();
+	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
+	await clip.focus();
+	await expect(clip).toBeFocused();
+	await clip.press('Enter');
+	await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
 	const initial = await clip.boundingBox(); expect(initial).not.toBeNull();
 	const drag = async (edge, toX) => {
 		const handle = clip.getByRole('button', { name: `Trim ${edge} edge`, exact: true });
