@@ -220,13 +220,25 @@ test('quality verification keeps Chromium and WebKit in the pinned container and
 	);
 	assert.ok(browserRunStep, 'weights must belong to the existing shared browser step');
 	const weightedShards = browserRunStep.groups.step.match(
-		/^\s+PWTEST_SHARD_WEIGHTS: \$\{\{ matrix\.project == 'chromium' && '(?<weights>[^']+)' \|\| '' \}\}$/mu,
+		/^\s+PWTEST_SHARD_WEIGHTS: \$\{\{ matrix\.project == 'chromium' && '(?<chromium>[^']+)' \|\| '(?<webkit>[^']+)' \}\}$/mu,
 	);
-	assert.ok(weightedShards, 'only Chromium should use the measured four-way shard weights');
-	const weights = weightedShards.groups.weights.split(':');
-	assert.equal(weights.length, 4);
-	assert.ok(weights.every(weight => /^[1-9]\d*$/u.test(weight) && Number.isSafeInteger(Number(weight))),
-		'Playwright parses weights as integers, so decimals and zero-weight shards must be rejected');
+	assert.ok(weightedShards, 'Chromium and WebKit must select their complete weighted partitions');
+	for (const [engine, expected] of [
+		['chromium', [24, 28, 28, 20]],
+		['webkit', [12, 13, 12, 8, 10, 12, 20, 13]],
+	]) {
+		const weights = weightedShards.groups[engine].split(':');
+		assert.ok(weights.every(weight => /^[1-9]\d*$/u.test(weight) && Number.isSafeInteger(Number(weight))),
+			'Playwright parses weights as integers, so decimals and zero-weight shards must be rejected');
+		assert.deepEqual(weights.map(Number), expected, `${engine} must retain its configured partition`);
+		assert.equal(expected.reduce((sum, weight) => sum + weight, 0), 100);
+	}
+	const collectionStep = browserJob.match(
+		/ {6}- name: Collect browser shard run shape\n(?<step>[\s\S]*?)(?=\n {6}- name:)/u,
+	);
+	assert.ok(collectionStep, 'the execution policy must use the actual collected weighted shard');
+	assert.ok(collectionStep.groups.step.includes(weightedShards[0].trim()),
+		'collection and execution must use identical engine weights');
 	assert.doesNotMatch(extractJob(workflow, 'firefox'), /PWTEST_SHARD_WEIGHTS/u);
 });
 
@@ -284,7 +296,7 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.match(firefoxJob, /runs-on: ubuntu-24\.04/u);
 	assert.doesNotMatch(firefoxJob, /^\s+container:/mu);
 	assert.match(firefoxJob, /uses: \.\/\.github\/actions\/verified-firefox/u);
-	assert.match(firefoxJob, /ci-apt-install\.sh pulseaudio pulseaudio-utils/u);
+	assert.match(firefoxJob, /name: Restore or install verified Playwright Firefox\n\s+timeout-minutes: 15\n\s+uses: \.\/\.github\/actions\/verified-firefox/u);
 	assert.match(firefoxJob, /scripts\/ci-firefox-pulseaudio\.sh/u);
 	assert.match(firefoxJob, /node scripts\/ci-firefox-audio-clock\.mjs/u);
 	assert.match(firefoxJob, /name: verified-site-build/u);

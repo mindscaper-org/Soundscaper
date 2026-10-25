@@ -707,7 +707,7 @@ jobs:
           node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" "${{ matrix.project }}" "${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }}" "${{ matrix.project == 'webkit' && 1 || 2 }}" >> "$GITHUB_OUTPUT"
         env:
           SCAPE_BROWSER_COVERAGE: ${{ matrix.project == 'chromium' && '1' || '' }}
-          PWTEST_SHARD_WEIGHTS: ${{ matrix.project == 'chromium' && '24:28:28:20' || '' }}
+          PWTEST_SHARD_WEIGHTS: ${{ matrix.project == 'chromium' && '24:28:28:20' || '12:13:12:8:10:12:20:13' }}
 
       - name: Run browser workflows against the existing build
         run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }} --workers=${{ steps.browser-run-shape.outputs.workers }} --retries=${{ steps.browser-run-shape.outputs.retries }}
@@ -721,7 +721,10 @@ jobs:
           # shard 1 room for reciprocal-origin and handbook workflows.
           # This internal option is verified for pinned Playwright 1.62.1;
           # recheck --list coverage and serial groups when upgrading it.
-          PWTEST_SHARD_WEIGHTS: ${{ matrix.project == 'chromium' && '24:28:28:20' || '' }}
+          # WebKit's fourth partition hit its hour boundary while its seventh
+          # finished in six minutes. Shift the middle work toward that leg
+          # without changing the complete eight-way test set or worker policy.
+          PWTEST_SHARD_WEIGHTS: ${{ matrix.project == 'chromium' && '24:28:28:20' || '12:13:12:8:10:12:20:13' }}
 
       - name: Run the reciprocal-origin editable-copy workflow
         if: matrix.project == 'chromium' && matrix.shard == 1
@@ -915,13 +918,10 @@ jobs:
         run: npm ci
 
       - name: Restore or install verified Playwright Firefox
+        timeout-minutes: 15
         uses: ./.github/actions/verified-firefox
         with:
           scope: ubuntu-24.04
-
-      - name: Install PulseAudio
-        timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh pulseaudio pulseaudio-utils
 
       - name: Configure the Firefox PulseAudio null sink and source
         run: bash scripts/ci-firefox-pulseaudio.sh

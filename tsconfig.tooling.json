@@ -6,6 +6,6 @@
 		"tsBuildInfoFile": "./node_modules/.cache/typescript/tooling.tsbuildinfo",
 		"types": ["node"]
 	},
-	"include": ["vite.config.mjs", "playwright.config.mjs", "electron-builder.config.cjs", "scripts/performance/*.ts", "scripts/lightscaper-desktop-native-qualification-current-v1.ts", "scripts/ci-browser-shard-policy.ts"],
+	"include": ["vite.config.mjs", "playwright.config.mjs", "electron-builder.config.cjs", "scripts/performance/*.ts", "scripts/lightscaper-desktop-native-qualification-current-v1.ts", "scripts/ci-browser-shard-policy.ts", "scripts/ci-firefox-host-dependencies.ts"],
 	"exclude": ["dist", "node_modules"]
 }
