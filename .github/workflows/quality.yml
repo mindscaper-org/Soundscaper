@@ -549,16 +549,16 @@ jobs:
         run: npm run coverage:check
 
   browser:
-    name: Browser / ${{ matrix.project }} ${{ matrix.shard }}/8
+    name: Browser / ${{ matrix.project }} ${{ matrix.shard }}/12
     needs: build
     strategy:
       fail-fast: false
-      # Run 40068179475 exhausted Chromium shard 4's hour with coverage enabled.
-      # Eight shards keep its instrumented suite and WebKit's single-worker
-      # media workflows inside the existing hour budget.
+      # Run 40155855679 exhausted WebKit shard 8's hour before completion.
+      # Twelve shards retain single-worker WebKit and instrumented Chromium
+      # workflows within the existing hour budget.
       matrix:
         project: [chromium, webkit]
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
@@ -647,7 +647,7 @@ jobs:
           path: .wrangler/browser-products/framescaper-source-maps
 
       - name: Run browser workflows against the existing build
-        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/8 --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
+        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/12 --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
         env:
           # Chromium is the only engine whose V8 coverage Playwright can read, so
           # it is the only one that records. Every other project runs exactly as

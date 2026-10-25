@@ -19,7 +19,7 @@ const SITE_WORKFLOWS = new Map([
 		staticJobs: ['build', 'lint', 'typecheck', 'audits'],
 		buildJob: 'build',
 		gate: 'needs: build',
-		browserShardCount: 8,
+		browserShardCount: 12,
 		firefoxShardCount: 8,
 	}],
 ]);
@@ -232,8 +232,8 @@ test('quality verification keeps Chromium and WebKit in the pinned container and
 	const workflow = await readFile(new URL('../.github/workflows/quality.yml', import.meta.url), 'utf8');
 	assertBrowserCoverage(workflow, 'quality', SITE_WORKFLOWS.get('quality.yml'));
 	const browserJob = extractJob(workflow, 'browser');
-	assert.doesNotMatch(browserJob, /^\s+exclude:/mu, 'both engines must run all eight shards');
-	assert.doesNotMatch(browserJob, /PWTEST_SHARD_WEIGHTS/u, 'retired four-shard weights cannot govern eight shards');
+	assert.doesNotMatch(browserJob, /^\s+exclude:/mu, 'both engines must run every container shard');
+	assert.doesNotMatch(browserJob, /PWTEST_SHARD_WEIGHTS/u, 'retired four-shard weights cannot govern the container shards');
 	assert.doesNotMatch(extractJob(workflow, 'firefox'), /PWTEST_SHARD_WEIGHTS/u);
 });
 
