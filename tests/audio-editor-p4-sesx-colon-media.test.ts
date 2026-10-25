@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -72,7 +73,7 @@ for (const [reference, location] of [
 	assert.equal(project.clips.length, 1, 'the adjacent authorized recording must remain playable');
 	const source = project.sources[0]; assert.ok(source?.kind === 'audio');
 	const stored = await store.readSourceChunk(source.storageKey, 0); assert.ok(stored);
-	assert.deepEqual(stored.channels[0], samples, 'the session must use its referenced recording rather than a basename decoy');
+	assertPcmSamplesEqual(stored.channels[0], samples, 'the session must use its referenced recording rather than a basename decoy');
 	assert.deepEqual(paths, [actual], 'lookup must preserve the exact local filename and directory');
 	assert.equal(folderPrompts, 0);
 	await controller.actions.project.flush();

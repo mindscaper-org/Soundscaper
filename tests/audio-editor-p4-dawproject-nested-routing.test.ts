@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
@@ -54,5 +55,5 @@ for (const nested of [true, false]) for (const send of [false, true]) test(`File
 	await controller.actions.project.flush(); const saved: unknown = await store.loadProject(project.id); assert.ok(validateSoundscaperProject(saved));
 	assert.deepEqual(saved.mixer, project.mixer); assert.deepEqual(saved.automationLanes, project.automationLanes);
 	const source = project.sources[0]; assert.ok(source?.kind === 'audio');
-	const chunk = await store.readSourceChunk(source.storageKey, 0); assert.ok(chunk); assert.deepEqual(chunk.channels, pcm);
+	const chunk = await store.readSourceChunk(source.storageKey, 0); assert.ok(chunk); assertPcmChannelsEqual(chunk.channels, pcm);
 });

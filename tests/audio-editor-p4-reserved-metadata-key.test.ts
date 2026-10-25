@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
@@ -61,7 +62,7 @@ for (const tag of ['$soundscaperOpaqueBinary', 'OrdinaryCredit']) {
 		for await (const chunk of store.readSourceChunks(String(source.storageKey))) {
 			const channel: unknown = chunk.channels[0]; assert.ok(channel instanceof Float32Array); stored.push(...channel);
 		}
-		assert.deepEqual(stored, [...pcm]);
+		assertPcmSamplesEqual(stored, [...pcm]);
 		controller.actions.edit.undo(); assert.equal(controller.project?.clips.length, 0);
 		controller.actions.edit.redo(); assert.equal(controller.project?.clips.length, 1);
 		const clip = controller.project?.clips[0]; assert.ok(clip);

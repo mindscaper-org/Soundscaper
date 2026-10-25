@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
 import { readDawprojectArchive, writeDawprojectArchive } from '../src/common/editor/dawproject-archive.ts';
 import { parseDawprojectDocument } from '../src/common/editor/dawproject-import.ts';
@@ -74,7 +75,7 @@ for (const sender of ['track', 'bus'] as const) for (const parallel of [true, fa
 			&& edge.source.kind !== 'master' && edge.source.id === senderId);
 		assert.deepEqual(sends.map(send => [send.level, send.position]), parallel ? [[.2, 'pre-fader'], [.3, 'post-fader']] : [[.3, 'post-fader']]);
 		const importedSource = opened.project.sources[0]; assert.ok(importedSource?.kind === 'audio');
-		const chunk = await destination.readSourceChunk(importedSource.storageKey, 0); assert.ok(chunk); assert.deepEqual(chunk.channels, pcm);
+		const chunk = await destination.readSourceChunk(importedSource.storageKey, 0); assert.ok(chunk); assertPcmChannelsEqual(chunk.channels, pcm);
 });
 }
 

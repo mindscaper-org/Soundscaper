@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
 import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
@@ -31,7 +32,7 @@ for (const sourceRate of [3_000, 44_100, 48_000]) {
 		assert.ok(validateSoundscaperProject(opened.project));
 		const programmeRate = sourceRate < 8_000 ? 48_000 : sourceRate;
 		assert.equal(opened.project.sampleRate, programmeRate);
-		assert.deepEqual(written, [...channel]);
+		assertPcmSamplesEqual(written, [...channel]);
 		const source = opened.project.sources[0]; assert.ok(source);
 		assert.equal(source.kind, 'audio');
 		assert.ok(source.kind === 'audio');

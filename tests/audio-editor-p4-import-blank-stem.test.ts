@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { normalizeSourceProvenance } from '../src/common/editor/source-provenance.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
@@ -28,6 +29,6 @@ for (const name of ['   .wav', '　.wav', '.wav', ' Voice .wav']) test(`File Imp
 	assert.equal(project.tracks.find(track => track.type === 'audio' && track.clipIds.includes(clip.id))?.name, expected);
 	assert.equal(clip.title, expected); assert.equal(source.name, name);
 	const origin = normalizeSourceProvenance(source.provenance).contributions[0]?.origin; assert.ok(origin?.kind === 'local-file'); assert.equal(origin.originalFileName, name);
-	const chunk = await store.readSourceChunk(source.storageKey, 0); assert.ok(chunk); assert.deepEqual(chunk.channels, pcm);
+	const chunk = await store.readSourceChunk(source.storageKey, 0); assert.ok(chunk); assertPcmChannelsEqual(chunk.channels, pcm);
 	await controller.actions.project.flush(); const saved: unknown = await store.loadProject(project.id); assert.ok(validateSoundscaperProject(saved)); assert.deepEqual(saved.tracks, project.tracks);
 });

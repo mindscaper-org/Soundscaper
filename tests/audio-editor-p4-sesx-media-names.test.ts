@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
 import type { NativeProjectFileService } from '../src/common/editor/controller/document/native-project-types.ts';
 import { registerDesktopReadCapability } from '../src/common/editor/desktop-read-capability-registry.ts';
@@ -42,7 +43,7 @@ for (const name of ['  Dialogue take  ', '\n\tDialogue\n', 'Ordinary name', '   
 		const track = opened.project.tracks[0]; assert.ok(track);
 		const clip = opened.project.clips[0]; assert.ok(clip);
 		assert.deepEqual([track.name, clip.title], [name.trim() ? name : 'Track 1', name.trim() ? name : 'Track 1']);
-		assert.deepEqual(written, samples);
+		assertPcmSamplesEqual(written, samples);
 		assert.equal(released, 1); assert.deepEqual(fixture.switched, [opened.project.id]);
 		const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
 		try {

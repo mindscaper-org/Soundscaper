@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { RecordingRecoveryJournalRepository } from '../src/common/editor/storage/recording-recovery-journal-repository.ts';
@@ -70,7 +71,7 @@ for (const id of ['padded', ' padded ', 'e\u0301', '\ud800']) {
 		await controller.actions.recording.stop();
 		const source = controller.project?.sources[0]; assert.ok(source);
 		const stored = await store.readSourceChunk(source.storageKey, 0);
-		assert.deepEqual([...stored.channels[0]!], Array<number>(128).fill(.25));
+		assertPcmSamplesEqual([...stored.channels[0]!], Array<number>(128).fill(.25));
 		assert.equal((await store.loadProject(id))?.id, id);
 		assert.equal(await new RecordingRecoveryJournalRepository(store.analysisRepository).load(id), null);
 	});
@@ -95,7 +96,7 @@ for (const backend of ['memory', 'indexeddb'] as const) test(`${backend} raw cap
 		const next = await spools.append(before, [Float32Array.of(.125, -.25)], {});
 		await assert.rejects(spools.append(before, [Float32Array.of(.5)], {}), /changed/u);
 		assert.deepEqual((await spools.list(id)).map(record => record.projectId), [id]);
-		assert.deepEqual([...(await spools.chunk(next, 0)).channels[0]!], [.125, -.25]);
+		assertPcmSamplesEqual([...(await spools.chunk(next, 0)).channels[0]!], [.125, -.25]);
 	}
 	assert.deepEqual((await spools.listAll()).map(record => record.projectId).sort(), ['padded', ' padded ', 'e\u0301', 'é', '\ud800', '%ud800'].sort());
 	const inventory = await store.analysisRepository.listByPrefix('raw-pcm-spool-registry-v1:');

@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
@@ -40,7 +41,7 @@ for (const [name, type, throughWorkspace] of [
 	assert.equal(opened.title, project.title); assert.equal(opened.clips.length, 1);
 	const imported = opened.sources[0]; assert.ok(imported); assert.equal(imported.kind, 'audio');
 	const chunk = await store.readSourceChunk(imported.storageKey, 0); assert.ok(chunk);
-	assert.deepEqual(chunk.channels[0], pcm); await controller.actions.project.flush();
+	assertPcmSamplesEqual(chunk.channels[0], pcm); await controller.actions.project.flush();
 	const saved: unknown = await store.loadProject(opened.id); assert.ok(validateSoundscaperProject(saved));
 	assert.deepEqual(saved.clips, opened.clips); assert.deepEqual(saved.sources, opened.sources);
 });

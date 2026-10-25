@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { audacityXmlChildren, decodeAudacityBinaryXml } from '../src/common/editor/audacity-binary-xml.js';
 import { decodeAudacityProjectTree } from '../src/common/editor/aup4-conversion.js';
 import { createAup4EffectsNode } from '../src/common/editor/aup4-effects.js';
@@ -24,7 +25,7 @@ for (const sourceGeneration of ['aup3', 'aup4'] as const) for (const gain of [8,
 		assert.equal(track.gain * clip.gain, gain);
 		assert.equal(clip.envelope[0]?.value, .5);
 		const source = decoded.sources[0]; assert.ok(source?.channels);
-		assert.deepEqual(source.channels[0], Float32Array.of(.002, -.002, .001));
+		assertPcmSamplesEqual(source.channels[0], Float32Array.of(.002, -.002, .001));
 		if (gain > 4) {
 			assert.match(decoded.warnings.join('\n'), /fader.*clip gain/u);
 			assert.ok(decoded.compatibilityReport.items.some((item: { code: string }) => item.code === 'TRACK_FADER_GAIN_CONVERTED'));

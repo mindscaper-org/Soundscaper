@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
 import { writeDawprojectArchive } from '../src/common/editor/dawproject-archive.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
@@ -35,7 +36,7 @@ for (const [name, attributes, expectedStart, expectedDuration, converted, conten
 	const clip = opened.project.clips[0]; assert.ok(clip?.kind === 'audio');
 	assert.equal(clip.sourceStartFrame, expectedStart); assert.equal(clip.sourceDurationFrames, expectedDuration);
 	assert.equal(clip.durationFrames, expectedDuration); assert.equal(clip.speedRatio, 1);
-	assert.deepEqual(written, [...samples], 'the complete immutable media remains available for later edits');
+	assertPcmSamplesEqual(written, [...samples], 'the complete immutable media remains available for later edits');
 	const report = opened.report;
 	assert.ok(report && typeof report === 'object' && 'items' in report && Array.isArray(report.items));
 	assert.equal(report.items.some((item: unknown) => item !== null && typeof item === 'object'

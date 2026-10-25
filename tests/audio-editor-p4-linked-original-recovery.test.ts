@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { readFile } from 'node:fs/promises';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRecoveryActions } from '../src/soundscaper/editor-project-recovery-service.ts';
@@ -24,7 +25,7 @@ for (const ranged of [false, true]) for (const failure of ['healthy', 'missing',
 		assert.equal(restored.project.clips.length, failure === 'healthy' ? 2 : 1);
 		const chunks = [];
 		for await (const chunk of fixture.store.readSourceChunks('peer')) chunks.push(...chunk.channels[0]!);
-		assert.deepEqual(chunks, [...PCM], 'the recovered peer retains every original sample');
+		assertPcmSamplesEqual(chunks, [...PCM], 'the recovered peer retains every original sample');
 		assert.deepEqual(await fixture.store.loadProject(fixture.project.id), fixture.project);
 		assert.deepEqual(await fixture.store.getLinkedOriginalBinding(fixture.project.id, 'linked'), fixture.binding,
 			'the absent or changed external original remains bound to its untouched original project');

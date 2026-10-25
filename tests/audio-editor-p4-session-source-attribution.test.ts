@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
 import type { NativeProjectFileService } from '../src/common/editor/controller/document/native-project-types.ts';
 import { registerDesktopReadCapability } from '../src/common/editor/desktop-read-capability-registry.ts';
@@ -48,7 +49,7 @@ for (const format of ['DAWproject', 'SESX', 'SESX virtual media'] as const) test
 			+ '<files><file id="0" relativePath="voice.wav"/></files></sesx>'], 'Session.sesx');
 	if (format !== 'DAWproject') registerDesktopReadCapability(file, 'a'.repeat(64));
 	const opened = await (format !== 'DAWproject' ? service.openSesx(file) : service.openDawproject(file));
-	assert.ok(opened); assert.ok(validateSoundscaperProject(opened.project)); assert.deepEqual(pcm, samples);
+	assert.ok(opened); assert.ok(validateSoundscaperProject(opened.project)); assertPcmSamplesEqual(pcm, samples);
 	assert.equal(released, format !== 'DAWproject' ? 1 : 0);
 	const provenance = normalizeSourceProvenance(opened.project.sources[0]?.provenance);
 	assert.equal(provenance.classification, 'imported'); const contribution = provenance.contributions[0]; assert.ok(contribution);

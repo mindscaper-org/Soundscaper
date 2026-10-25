@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { assertPcmSamplesEqual } from '../helpers/assert-pcm-samples.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { readFile } from 'node:fs/promises';
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js/index-native.js';
@@ -40,7 +41,7 @@ for (const retainedTake of [true, false]) test(`Freeze Commit ${retainedTake ? '
 		if (retainedTake) {
 			expect(entry).toBeTruthy(); const body = await (await entry.getData(new BlobWriter())).arrayBuffer();
 			expect(new DataView(body).getUint32(0, true)).toBe(4800);
-			expect(new Float32Array(body.slice(4))).toEqual(originalPcm());
+			assertPcmSamplesEqual(new Float32Array(body.slice(4)), originalPcm());
 		} else expect(entry).toBeUndefined();
 	} finally { await reader.close(); }
 	expect(errors).toEqual([]);

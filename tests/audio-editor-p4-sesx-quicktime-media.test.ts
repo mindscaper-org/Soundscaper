@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -78,7 +79,7 @@ for (const format of ['sowt', 'twos', 'wav'] as const) test(`desktop SESX File O
 	assert.equal(source.frameCount, 4800); assert.equal(source.sampleRate, 48_000); assert.equal(prompts, 0);
 	assert.equal(source.mimeType, format === 'wav' ? 'audio/wav' : 'video/quicktime');
 	const stored = await store.readSourceChunk(source.storageKey, 0); assert.ok(stored);
-	assert.deepEqual(stored.channels, expected[0]);
+	assertPcmChannelsEqual(stored.channels, expected[0]!);
 	await controller.actions.project.flush();
 	const saved: unknown = await store.loadProject(project.id); assert.ok(validateSoundscaperProject(saved));
 	assert.deepEqual(saved.sources, project.sources); assert.deepEqual(saved.clips, project.clips);
