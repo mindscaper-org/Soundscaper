@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { runGcRegressionInChild } from './helpers/exposed-gc-regression.ts';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
@@ -88,7 +89,8 @@ void test('prepared dialog search respects mutable, accessor and entry/character
 	const read = createCommunityTranslationDraftReader(draft); draft.entries = [{ key: 'after', source: 'C', baselineText: '', baselineEntry: null, translation: 'D' }];
 	assert.equal(read('before'), undefined); assert.equal(read('after')?.source, 'C');
 });
-void test('retired dialog search and binding projections do not keep source inventories alive', async () => {
+void test('retired dialog search and binding projections do not keep source inventories alive', async t => {
+	if (runGcRegressionInChild(t, import.meta.url)) return;
 	assert.ok(globalThis.gc);
 	function retired() {
 		const action = Object.freeze({ actionId: 'a', path: Object.freeze(['Edit']), label: 'A', disabled: false });

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { runGcRegressionInChild } from './helpers/exposed-gc-regression.ts';
 import React, { act } from 'react';
 import { installReactTestDom } from './helpers/react-test-dom.ts';
 import { sameTrackMeterDisplay } from '../src/common/editor/ui/timeline/TrackTelemetryMeters.tsx';
@@ -42,7 +43,8 @@ void test('U33 production strip selectors index one bounded frozen meter publica
 	const mutable = [meter('before')]; assert.ok(productionStripMeter(mutable, 'track', 'before')); mutable[0] = meter('after'); assert.equal(productionStripMeter(mutable, 'track', 'before'), undefined); assert.ok(productionStripMeter(mutable, 'track', 'after'));
 	assert.equal(productionStripMeter(Object.freeze([meter('same', 0.2), meter('same', 0.8)]), 'track', 'same')?.channels[0]?.peak, 0.2);
 });
-void test('production meter lookup releases replaced and weakly owned publication records', async () => {
+void test('production meter lookup releases replaced and weakly owned publication records', async t => {
+	if (runGcRegressionInChild(t, import.meta.url)) return;
 	assert.ok(globalThis.gc);
 	function old() { const record = meter('retired'); const owner = Object.freeze([record]); productionStripMeter(owner, 'track', 'retired'); return { owner: new WeakRef(owner), record: new WeakRef(record) }; }
 	const retired = old(); productionStripMeter(Object.freeze([meter('current')]), 'track', 'current');
