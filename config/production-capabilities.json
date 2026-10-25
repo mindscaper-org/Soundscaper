@@ -769,32 +769,50 @@
 						"tests/lightscaper-current-app.test.tsx",
 						"tests/lightscaper-product-registration.test.ts",
 						"tests/browser/lightscaper-current-library-loop.spec.js",
-						"tests/browser/lightscaper-current-cube-lut.spec.js"
+						"tests/browser/lightscaper-current-cube-lut.spec.js",
+						"src/lightscaper/photo-library-session-runtime-current-v1.ts",
+						"tests/browser/lightscaper-photo-raster-export-matrix-current.spec.ts",
+						"tests/browser/lightscaper-raw-import-current.spec.js"
 					]
 				},
 				"web-enhanced": {
-					"status": "planned",
+					"status": "partial",
 					"evidence": [
-						"roadmap-lightscaper.md"
+						"src/lightscaper/storage/photo-media-store.ts",
+						"src/lightscaper/photo-develop-gpu-preview-current-v1.ts",
+						"tests/lightscaper-photo-media-store.test.ts",
+						"tests/browser/lightscaper-managed-fallback-ui-current.spec.ts",
+						"tests/browser/lightscaper-develop-gpu-preview-current.spec.js"
 					]
 				},
 				"electron-enhanced": {
-					"status": "planned",
+					"status": "partial",
 					"evidence": [
-						"roadmap-lightscaper.md"
+						"desktop/lightscaper-native-photo-session-service-current-v1.ts",
+						"src/lightscaper/desktop-photo-library-session-runtime-current-v1.ts",
+						"desktop/lightscaper-native-photo-raw-current-v1.ts",
+						"tests/lightscaper-desktop-native-session-runtime-current.test.ts",
+						"scripts/lightscaper-desktop-native-qualification-current-v1.ts"
 					]
 				},
 				"electron-only": {
-					"status": "planned",
+					"status": "partial",
 					"evidence": [
-						"roadmap-lightscaper.md"
+						"desktop/lightscaper-native-photo-granted-filesystem-current-v1.ts",
+						"src/lightscaper/desktop-photo-linked-library-current-v1.ts",
+						"tests/lightscaper-native-granted-filesystem-current.test.ts",
+						"tests/lightscaper-native-linked-workflow-commands-current.test.tsx",
+						"scripts/lightscaper-desktop-native-qualification-current-v1.ts"
 					]
 				}
 			},
 			"importFamilies": [
 				"photos"
 			],
-			"exportFamilies": [],
+			"exportFamilies": [
+				"photos",
+				"scape"
+			],
 			"projectFeatures": {
 				"project": false,
 				"projectBin": false,
@@ -809,8 +827,8 @@
 				"photoLibrarySurface": true,
 				"photoCatalog": true,
 				"photoDevelop": true,
-				"photoExport": false,
-				"photoRaw": false,
+				"photoExport": true,
+				"photoRaw": true,
 				"assistanceAssets": false,
 				"audioRecording": false,
 				"audioGenerators": false,

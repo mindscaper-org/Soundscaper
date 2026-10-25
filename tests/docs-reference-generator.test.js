@@ -270,6 +270,42 @@ for (const photoDevelop of [false, true]) test(`photo catalog capability prose f
 	}
 });
 
+for (const [photoExport, photoRaw] of [[true, false], [false, true], [true, true]]) {
+	test(`photo export and RAW prose follow their independent runtime flags export=${String(photoExport)} raw=${String(photoRaw)}`, () => {
+		const lightscaper = {
+			id: 'lightscaper', name: 'Lightscaper', projectFileExtension: '.liscape',
+			importChoices: ['photos'], exportChoices: photoExport ? ['photos', 'scape'] : [],
+			capabilities: { photoLibrarySurface: true, photoCatalog: true, photoDevelop: true, photoExport, photoRaw },
+		};
+		const draft = {
+			id: 'photo-draft', name: 'Photo draft', projectFileExtension: '.draft',
+			importChoices: ['photos'], exportChoices: [],
+			capabilities: { photoLibrarySurface: true, photoCatalog: true, photoDevelop: false, photoExport: false, photoRaw: false },
+		};
+		const rendered = renderCapabilityReference({ products: [...products, lightscaper, draft] });
+		assert.match(rendered, photoExport ? /\| Lightscaper \| Photos \| Photos, \.liscape \|/u : /\| Lightscaper \| Photos \| None \|/u);
+		assert.match(rendered, /Raster import admits static 8-bit sRGB photos and preserves original bytes/u);
+		if (photoExport) {
+			assert.match(rendered, /\| Photo export \| Not enabled \| Not enabled \| Enabled \| Not enabled \|/u);
+			assert.match(rendered, /Photo export is enabled for Lightscaper: PNG and JPEG output support sizing, metadata, sidecars and batch workflows\./u);
+			assert.doesNotMatch(rendered, /Photo export[^.]*remain(?:s)? planned/u);
+		} else {
+			assert.match(rendered, /Photo export remains planned\./u);
+			assert.doesNotMatch(rendered, /Photo export is enabled/u);
+		}
+		if (photoRaw) {
+			assert.match(rendered, /\| Raw photo decoding \| Not enabled \| Not enabled \| Enabled \| Not enabled \|/u);
+			assert.match(rendered, /RAW photo decoding is enabled for Lightscaper when a verified browser or native LibRaw decoder runtime is available\./u);
+			assert.match(rendered, /Enabling the profile does not publish runtime assets\./u);
+			assert.doesNotMatch(rendered, /Raw decoding[^.]*remain(?:s)? planned/u);
+		} else {
+			assert.match(rendered, /Raw decoding remains planned\./u);
+			assert.doesNotMatch(rendered, /RAW photo decoding is enabled/u);
+		}
+		assert.doesNotMatch(rendered, /(?:Photo export|RAW photo decoding) is enabled for (?:Lightscaper and )?Photo draft/u);
+	});
+}
+
 test('owning curve reference explains structured coordinate bounds beside unchanged numeric defaults', () => {
 	const rendered = renderVideoEffectReference({ products, definitions: VIDEO_EFFECT_DEFINITIONS });
 	assert.match(rendered, /Point curves.*`point-curves-v1`.*4/u);

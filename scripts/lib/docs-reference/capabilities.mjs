@@ -140,9 +140,17 @@ export function renderCapabilityReference({ products }) {
 	}
 	const photoCatalogs = products.filter((product) => product.capabilities?.photoCatalog === true);
 	if (photoCatalogs.length > 0) {
-		let narrative = 'Photo catalogs support managed import, bounded browsing, and persistent ratings, flags, color labels, and descriptive metadata edits through the File and View menus and the Photo submenu. The current import admits static 8-bit sRGB photos and preserves original bytes.';
+		let narrative = 'Photo catalogs support managed import, bounded browsing, and persistent ratings, flags, color labels, and descriptive metadata edits through the File and View menus and the Photo submenu. Raster import admits static 8-bit sRGB photos and preserves original bytes.';
 		if (photoCatalogs.some((product) => product.capabilities?.photoDevelop === true)) {
 			narrative += ' Develop is available through File > Photo > Develop for the selected photo. Its non-destructive adjustments preserve original bytes.';
+		}
+		const exportCatalogs = photoCatalogs.filter((product) => product.capabilities?.photoExport === true);
+		if (exportCatalogs.length > 0) {
+			narrative += ` Photo export is enabled for ${productSentence(exportCatalogs)}: PNG and JPEG output support sizing, metadata, sidecars and batch workflows.`;
+		}
+		const rawCatalogs = photoCatalogs.filter((product) => product.capabilities?.photoRaw === true);
+		if (rawCatalogs.length > 0) {
+			narrative += ` RAW photo decoding is enabled for ${productSentence(rawCatalogs)} when a verified browser or native LibRaw decoder runtime is available. Enabling the profile does not publish runtime assets.`;
 		}
 		const planned = [['photoDevelop', 'develop'], ['photoExport', 'photo export'], ['photoRaw', 'raw decoding']]
 			.filter(([key]) => photoCatalogs.every((product) => product.capabilities?.[key] !== true))

@@ -16,7 +16,7 @@ This page reflects the current product profiles. “Enabled” means that the pr
 | --- | --- | --- |
 | Soundscaper | .sscape, Audacity projects, Audio, Video, Labels | .sscape, AUP3 (audio-only), AUP4 (audio-only), Audio, Video, Labels, Audio stems |
 | Framescaper | .fscape, Audacity projects, Audio, Video, Labels | .fscape, Audio, Video, Labels |
-| Lightscaper | Photos | None |
+| Lightscaper | Photos | Photos, .liscape |
 
 Families describe product entry points, not every file extension a decoder might accept. See [Export formats](/reference/generated/formats/) for concrete output formats and runtime conditions.
 
@@ -48,11 +48,11 @@ Families describe product entry points, not every file extension a decoder might
 | OpenFX effects | Not enabled | Enabled | Not enabled |
 | Photo catalog | Not enabled | Not enabled | Enabled |
 | Photo develop | Not enabled | Not enabled | Enabled |
-| Photo export | Not enabled | Not enabled | Not enabled |
+| Photo export | Not enabled | Not enabled | Enabled |
 | Photo library shell | Not enabled | Not enabled | Enabled |
 | Project bin | Enabled | Enabled | Not enabled |
 | Projects | Enabled | Enabled | Not enabled |
-| Raw photo decoding | Not enabled | Not enabled | Not enabled |
+| Raw photo decoding | Not enabled | Not enabled | Enabled |
 | Sample-level audio editing | Enabled | Not enabled | Not enabled |
 | Sequence timing | Enabled | Enabled | Not enabled |
 | Source characteristics | Enabled | Enabled | Not enabled |
@@ -84,7 +84,7 @@ Families describe product entry points, not every file extension a decoder might
 | Video timing assets | Enabled | Enabled | Not enabled |
 | Video transitions | Not enabled | Enabled | Not enabled |
 
-Photo catalogs support managed import, bounded browsing, and persistent ratings, flags, color labels, and descriptive metadata edits through the File and View menus and the Photo submenu. The current import admits static 8-bit sRGB photos and preserves original bytes. Develop is available through File > Photo > Develop for the selected photo. Its non-destructive adjustments preserve original bytes. Photo export and raw decoding remain planned.
+Photo catalogs support managed import, bounded browsing, and persistent ratings, flags, color labels, and descriptive metadata edits through the File and View menus and the Photo submenu. Raster import admits static 8-bit sRGB photos and preserves original bytes. Develop is available through File > Photo > Develop for the selected photo. Its non-destructive adjustments preserve original bytes. Photo export is enabled for Lightscaper: PNG and JPEG output support sizing, metadata, sidecars and batch workflows. RAW photo decoding is enabled for Lightscaper when a verified browser or native LibRaw decoder runtime is available. Enabling the profile does not publish runtime assets.
 
 ## Product-specific application features
 

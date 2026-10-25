@@ -145,7 +145,7 @@ export const LIGHTSCAPER_PROFILE = {
 	enabledCommands: [],
 	panels: [],
 	importChoices: ['photos'],
-	exportChoices: [],
+	exportChoices: ['photos', 'scape'],
 	shortcuts: { disabledCommandIds: [] },
 	applicationFeatures: {},
 	capabilities: {
@@ -154,6 +154,8 @@ export const LIGHTSCAPER_PROFILE = {
 		photoLibrarySurface: true,
 		photoCatalog: true,
 		photoDevelop: true,
+		photoExport: true,
+		photoRaw: true,
 	},
 	desktop: {
 		appId: 'org.lightscaper.desktop',

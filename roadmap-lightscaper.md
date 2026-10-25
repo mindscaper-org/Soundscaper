@@ -926,8 +926,9 @@ there.
   native-worker cases across those browsers. Its selected Lightscaper Node
   regression passed 2,845 cases in 319 files, including pinned Canon CRW import
   through the actual native worker. The browser decoder
-  fetch uses the exact pinned artifact; external asset publication is still
-  pending. Current [RAW culling](docs/architecture/lightscaper-culling.md#current-raw-preview-source)
+  fetch uses the exact pinned artifact; external asset publication is prepared
+  and held at the user's request. Decoder implementation and verification do not
+  publish those assets. Current [RAW culling](docs/architecture/lightscaper-culling.md#current-raw-preview-source)
   now offers View → RAW preview source, with neutral Original as default and
   camera embedded JPEG by explicit choice. Camera dimensions and crop remain
   independent of the Original; missing or explicitly unsupported previews fall
@@ -1381,9 +1382,10 @@ saves native RAW Develop, warms the durable fit preview, and authenticates PNG
 pixels and backup bytes. After the physical RAW is renamed, cached-preview
 Develop remains available and full Original output refuses; explicit exact-byte
 relink then restores Original Develop and fresh-process export. Actual native
-plane wiping, child/stdio retirement and profile removal are verified. The other
-four desktop targets and the final full-suite gates remain pending; this Linux
-result does not close L8 or establish the complete target matrix.
+plane wiping, child/stdio retirement and profile removal are verified. Fresh
+final-revision qualification on all five desktop targets and the final full-suite
+gates remain open; this preceding Linux result does not qualify the changed
+revision or close L8.
 
 The internal Photo desktop workflow now defines all five native hosts, consumes
 the exact same-revision target result through public `desktop:dir`, and separately

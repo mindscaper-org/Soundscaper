@@ -8,7 +8,7 @@ import { PRODUCT_IDS, otherProductId, otherProductIds, productIdentity } from '.
 import { productProfile } from '../src/common/products.js';
 import { productHref, productWebOrigin } from '../src/common/product-web-links.js';
 
-test('Lightscaper enables its menu-backed photo catalog and Develop workflows', () => {
+test('Lightscaper enables its menu-backed photo catalog, Develop, export and conditional RAW workflows', () => {
 	assert.deepEqual(PRODUCT_IDS, ['soundscaper', 'framescaper', 'lightscaper']);
 	const identity = productIdentity('lightscaper');
 	assert.equal(identity.name, 'Lightscaper');
@@ -18,15 +18,18 @@ test('Lightscaper enables its menu-backed photo catalog and Develop workflows', 
 	assert.equal(Object.isFrozen(profile), true);
 	assert.equal(Object.isFrozen(profile.capabilities), true);
 	assert.deepEqual(profile.importChoices, ['photos']);
-	assert.deepEqual(profile.exportChoices, []);
+	assert.deepEqual(profile.exportChoices, ['photos', 'scape']);
 	assert.deepEqual(snapshotProjectFeatureCapabilities(profile.capabilities).availableFeatureIds, [
 		PROJECT_FEATURE_CAPABILITY_IDS.photoLibrarySurface, PROJECT_FEATURE_CAPABILITY_IDS.photoCatalog,
 		PROJECT_FEATURE_CAPABILITY_IDS.photoDevelop,
+		PROJECT_FEATURE_CAPABILITY_IDS.photoExport, PROJECT_FEATURE_CAPABILITY_IDS.photoRaw,
 	]);
 	assert.deepEqual(Object.entries(profile.capabilities).filter(([, enabled]) => enabled), [
 		['photoLibrarySurface', true],
 		['photoCatalog', true],
 		['photoDevelop', true],
+		['photoExport', true],
+		['photoRaw', true],
 	]);
 	for (const productId of PRODUCT_IDS) {
 		const product = productProfile(productId);

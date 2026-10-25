@@ -56,8 +56,16 @@ test('both web products pin worker and IndexedDB fallback evidence', async () =>
 });
 
 
-test('the registered photo shell does not inherit milestone-2 storage claims', async () => {
+test('Lightscaper records its own optional storage and fallback evidence', async () => {
 	const capabilities = JSON.parse(await readFile(capabilitiesUrl, 'utf8'));
-	assert.equal(capabilities.products.lightscaper.platforms['web-enhanced'].status, 'planned');
-	assert.deepEqual(capabilities.products.lightscaper.platforms['web-enhanced'].evidence, ['roadmap-lightscaper.md']);
+	const tier = capabilities.products.lightscaper.platforms['web-enhanced'];
+	assert.equal(tier.status, 'partial');
+	for (const path of [
+		'src/lightscaper/storage/photo-media-store.ts',
+		'tests/lightscaper-photo-media-store.test.ts',
+		'tests/browser/lightscaper-managed-fallback-ui-current.spec.ts',
+	]) {
+		assert.ok(tier.evidence.includes(path), `Lightscaper is missing ${path}`);
+		await assert.doesNotReject(access(new URL(`../${path}`, import.meta.url)), path);
+	}
 });
