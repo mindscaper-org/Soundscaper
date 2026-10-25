@@ -58,7 +58,7 @@ for (const field of ['magic', 'command', 'bitwidth', 'period', 'count', 'loop', 
 		assert.equal(inspectSdsPcmSourceGeometry(file), null);
 		assert.equal(inspectEncodedAudioSampleRate(file), null); assert.equal(inspectDecodedAudioSampleRate(file), null);
 		const decoded = new MockAudioBuffer(1, 5120, 32_000);
-		assert.ok(normalizeNativeContainerAudio(decoded as unknown as AudioBuffer, null, Uint8Array.from(file).buffer) === decoded);
+		assert.ok(Object.is(normalizeNativeContainerAudio(decoded as unknown as AudioBuffer, null, Uint8Array.from(file).buffer), decoded));
 	});
 }
 
@@ -71,7 +71,7 @@ test('SDS endpoint normalization refuses missing, nonzero, excessive or differen
 		assert.throws(() => normalizeNativeContainerAudio(decoded as unknown as AudioBuffer, null, encoded), /native PCM/u);
 	}
 	const exact = new MockAudioBuffer(1, 4800, 32_000);
-	assert.ok(normalizeNativeContainerAudio(exact as unknown as AudioBuffer, null, encoded) === exact);
+	assert.ok(Object.is(normalizeNativeContainerAudio(exact as unknown as AudioBuffer, null, encoded), exact));
 });
 
 test('SDS packet numbers wrap in seven bits while every packet keeps its checksum', async () => {

@@ -49,8 +49,8 @@ for (const native of [false, true]) for (const audition of [false, true]) {
 				await renderer.waitForPort('output');
 			}
 			const expected = native ? device : context.destination;
-			assert.equal(soundscaperNativeAudioDestination(context as unknown as EngineAudioContext,
-				context.destination as unknown as AudioNode) === expected, true);
+			assert.equal(Object.is(soundscaperNativeAudioDestination(context as unknown as EngineAudioContext,
+				context.destination as unknown as AudioNode), expected), true);
 			const meter = new MockNode('meter');
 			host.masterLoudnessMeter = {
 				node: meter as unknown as AudioNode,
