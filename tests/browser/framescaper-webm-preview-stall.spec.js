@@ -90,7 +90,7 @@ for (const kind of ['recorded WebM', 'finite WebM', 'ordinal MP4']) {
 		await page.goto(`${ROOT}/index.html`);
 		// Keep the MP4 control inside its green interval, away from the .085s
 		// equidistant seek where native decoders choose different adjacent frames.
-		const targets = kind === 'ordinal MP4' ? [0, .06, .235, .02] : [0, .4, .7, 0];
+		const targets = kind === 'ordinal MP4' ? [0, .06, .235, .02] : [0, .4, .4, .7, 0];
 		const result = await page.evaluate(async ({ root, bytes, mimeType, targets }) => {
 			const { createAudioEditorVideoFrameExtractor } = await import(`${root}/extractor.js`);
 			let nativeVideo;

@@ -3,6 +3,7 @@ import {
 	planVideoPreviewCapture,
 } from './video-preview-capture-admission.ts';
 import { mountVideoFrameCaptureElement, releaseVideoFrameCaptureElement } from './video-frame-capture-element.ts';
+import { seekVideoFrameForCapture } from './video-frame-capture-seek.ts';
 
 export const AUDIO_EDITOR_VIDEO_FILE_ACCEPT = 'video/mp4,video/webm,.mp4,.m4v,.mov,.webm';
 export const AUDIO_EDITOR_VIDEO_THUMBNAIL_INTERVAL_SECONDS = 5;
@@ -147,11 +148,9 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
 			: timestamp;
 		if (Math.abs(Number(video.currentTime) - seekTimestamp) > (hasPresentedFrame ? 0.001 : 0)) {
-			await waitForMediaEvent(video, 'seeked', {
+			await seekVideoFrameForCapture(video, seekTimestamp, {
 				signal,
 				timeoutMs,
-				errorMessage: 'The browser could not seek this video.',
-				start: () => { video.currentTime = seekTimestamp; },
 			});
 		}
 		throwIfCaptureAborted(signal);
