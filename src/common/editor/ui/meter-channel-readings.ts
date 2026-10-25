@@ -22,8 +22,10 @@ export function productionStripMeter(
 
 export function meterChannelReadings(meter: ChannelMeterSource): readonly Readonly<{ level: number; clipped: boolean }>[] {
 	if (meter && 'channels' in meter && meter.channels.length > 0) {
-		const channels = meter.channels.slice(0, 2).map(({ peak }) => channelReading(20 * Math.log10(peak), peak));
-		return channels.length === 1 ? [channels[0]!, channels[0]!] : channels;
+		const firstPeak = meter.channels[0]!.peak;
+		const first = channelReading(20 * Math.log10(firstPeak), firstPeak);
+		const secondPeak = meter.channels[1]?.peak;
+		return [first, meter.channels.length === 1 ? first : channelReading(20 * Math.log10(secondPeak!), secondPeak)];
 	}
 	const scalar = meter && !('channels' in meter) ? meter : undefined;
 	const reading = channelReading(Number(scalar?.dbfs), scalar?.peak);

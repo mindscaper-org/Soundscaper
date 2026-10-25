@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { menuLabelComparator } from './menu-label-comparator.ts';
 import { EFFECT_MENU_GROUPS } from './application-menu-model.js';
 import { audioSelectionEffectAppliesToAllAudio } from '../effects.js';
 
@@ -11,9 +12,10 @@ export function resolveEffectMenuTargeting({
 		track.type === 'audio' && track.clipIds?.length
 	)) || null;
 	const selectionNamesTracks = Boolean(project?.selection?.trackIds?.length);
+	const selectedTrackIds = selectionNamesTracks ? new Set(project.selection.trackIds) : null;
 	const selectionAudioTrack = selectionNamesTracks
 		? project.tracks.find((track) => (
-			track.type === 'audio' && project.selection.trackIds.includes(track.id)
+			track.type === 'audio' && selectedTrackIds.has(track.id)
 		)) || null
 		: selectedAudioTrack;
 	const nonAudioEffectFocus = selectionNamesTracks
@@ -62,7 +64,7 @@ export function createEffectMenuEntries(context, openSelectionEffect) {
 			.flatMap(([, types]) => types)
 			.filter(admitted)
 			.map(entry)
-			.sort((left, right) => left.label.localeCompare(right.label, locale || 'en'));
+			.sort(menuLabelComparator(locale));
 	}
 	return EFFECT_MENU_GROUPS.map(([labelKey, types]) => ({
 		id: labelKey,

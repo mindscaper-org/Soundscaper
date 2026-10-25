@@ -16,11 +16,16 @@ export function communityTranslationMessageKeys(
 	metadata: Readonly<Record<string, Readonly<{ bundledGerman?: string }>>>,
 ): readonly string[] {
 	const needle = query.toLocaleLowerCase();
-	const changedKeys = new Set(draft.entries.map(({ key }) => key));
+	const changes = new Map<string, TranslationContribution['entries'][number]>();
+	for (const change of draft.entries) {
+		const key = change.key;
+		if (!changes.has(key)) changes.set(key, change);
+	}
+	const changedKeys = changes.keys();
 	return [...new Set([...Object.keys(snapshot.entries), ...changedKeys])].sort().filter((key) => {
 		const entry = snapshot.entries[key];
-		const change = draft.entries.find((item) => item.key === key);
-		if (filter === 'changed' && !changedKeys.has(key)) return false;
+		const change = changes.get(key);
+		if (filter === 'changed' && !changes.has(key)) return false;
 		if (filter === 'review' && !reviewKeys.has(key)) return false;
 		if (filter === 'missing' && publishedTranslationOrigin(entry, locale === 'de'
 			? metadata[key]?.bundledGerman : undefined) !== 'missing') return false;

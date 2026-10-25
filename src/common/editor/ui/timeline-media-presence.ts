@@ -54,9 +54,10 @@ function holdsClipKind(
 	trackType: string,
 ): boolean {
 	if (!project?.tracks?.length || !project?.clips?.length) return false;
-	const clipIds = new Set(project.clips.filter((clip) => matches(clip?.kind)).map((clip) => clip?.id));
-	return project.tracks.some((track) => (
-		track?.type === trackType
-		&& track.clipIds?.some((clipId) => clipIds.has(clipId))
-	));
+	const referenced = new Set<unknown>();
+	for (const track of project.tracks) {
+		if (track?.type === trackType) track.clipIds?.forEach(id => referenced.add(id));
+	}
+	if (referenced.size === 0) return false;
+	return project.clips.some(clip => matches(clip?.kind) && referenced.has(clip?.id));
 }

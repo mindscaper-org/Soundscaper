@@ -86,9 +86,9 @@ export function toggleExportChannelMatrix(
 	output: number,
 	checked: boolean,
 ): ExportChannelMatrix {
-	return freezeMatrix(matrix.map((row, rowIndex) => row.map((cell, cellIndex) => (
-		rowIndex === input && cellIndex === output ? checked : cell
-	))));
+	return Object.freeze(matrix.map((row, rowIndex) => rowIndex === input
+		? Object.freeze(row.map((cell, cellIndex) => cellIndex === output ? checked : cell))
+		: Object.isFrozen(row) ? row : Object.freeze([...row])));
 }
 
 /** The mapping the grid means, in the shape the export request already parses. */
@@ -102,11 +102,16 @@ export function serializeExportChannelMatrix(
 	const original = readOutputChannels(baseline);
 	return `${JSON.stringify({
 		channels: Array.from({ length: outputs }, (_, output) => {
-			const originalInputs = readInputs(original?.[output]);
+			const originalInputs = new Map<number, Readonly<{ channel: number; gain: number }>[]>();
+			for (const contribution of readInputs(original?.[output])) {
+				const retained = originalInputs.get(contribution.channel);
+				if (retained) retained.push(contribution);
+				else originalInputs.set(contribution.channel, [contribution]);
+			}
 			return { inputs: matrix.flatMap((row, input) => {
 				if (!row[output]) return [];
 				const retained = editedCells.has(`${String(input)}-${String(output)}`) ? []
-					: originalInputs.filter(contribution => contribution.channel === input);
+					: originalInputs.get(input) ?? [];
 				return retained.length ? retained : [{ channel: input, gain: 1 }];
 			}) };
 		}),
