@@ -20,7 +20,7 @@ const SITE_WORKFLOWS = new Map([
 		buildJob: 'build',
 		gate: 'needs: build',
 		browserShardCount: 12,
-		firefoxShardCount: 8,
+		firefoxShardCount: 12,
 	}],
 ]);
 
