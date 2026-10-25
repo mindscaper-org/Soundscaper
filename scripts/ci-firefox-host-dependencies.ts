@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 const pinnedPlaywrightVersion = '1.62.1';
@@ -93,13 +94,21 @@ function execute(command: DependencyCommand): DependencyResult {
 }
 
 export function installFirefoxHostDependencies({
-	root, run = execute, env = process.env,
-}: { root: string; run?: CommandRunner; env?: NodeJS.ProcessEnv }): { requestedPackages: string[] } {
+	root, run = execute, env = process.env, now = () => performance.now(),
+}: { root: string; run?: CommandRunner; env?: NodeJS.ProcessEnv; now?: () => number }): { requestedPackages: string[] } {
+	const started = now();
+	if (!Number.isFinite(started) || started < 0) throw new Error('Firefox dependency budget requires a finite monotonic clock');
+	let lastTime = started;
 	const cli = resolvePinnedFirefoxCli(root);
 	const commandEnv = { ...env, LC_ALL: 'C' };
-	const invoke = (executable: string, args: string[], timeoutMs = 90_000, overrides: NodeJS.ProcessEnv = {}) => run({
-		executable, args, cwd: root, env: { ...commandEnv, ...overrides }, timeoutMs,
-	});
+	const invoke = (executable: string, args: string[], timeoutMs = 90_000, overrides: NodeJS.ProcessEnv = {}) => {
+		const time = now();
+		if (!Number.isFinite(time) || time < lastTime) throw new Error('Firefox dependency budget requires a finite monotonic clock');
+		lastTime = time;
+		const remainingMs = Math.floor(660_000 - (time - started));
+		if (remainingMs <= 0) throw new Error('Firefox dependency budget exhausted');
+		return run({ executable, args, cwd: root, env: { ...commandEnv, ...overrides }, timeoutMs: Math.min(timeoutMs, remainingMs) });
+	};
 	const inventory = () => parseFirefoxDependencyInventory(invoke(process.execPath, [cli, 'install-deps', '--dry-run', 'firefox']));
 	const configured = (name: string): boolean => {
 		const result = invoke('dpkg-query', ['--show', '--showformat=${db:Status-Status}', name], 15_000);
@@ -111,18 +120,24 @@ export function installFirefoxHostDependencies({
 		].includes(result.stdout)) throw new Error(`Unexpected package status for ${name}`);
 		return result.stdout === 'installed';
 	};
-	const requestedPackages = [...new Set([...inventory(), ...pulsePackages.filter(name => !configured(name))])].sort();
-	if (requestedPackages.length > 0) {
-		const result = invoke('bash', [join(root, 'scripts/ci-apt-install.sh'), ...requestedPackages], 660_000, {
+	let missing = [...new Set([...inventory(), ...pulsePackages.filter(name => !configured(name))])].sort();
+	const requestedPackages = new Set<string>();
+	// The first bounded apt update can expose newer candidates absent from its
+	// initial simulation. Reconcile that complete inventory once, then fail closed.
+	for (let pass = 0; missing.length > 0 && pass < 2; pass++) {
+		const packages = pass === 0 ? missing : [...new Set([...missing, ...pulsePackages])].sort();
+		for (const name of packages) requestedPackages.add(name);
+		const result = invoke('bash', [join(root, 'scripts/ci-apt-install.sh'), ...packages], 660_000, {
 			CI_APT_REQUIRE_ALL: '1', CI_APT_TIMEOUT_SECONDS: '120', CI_APT_ATTEMPTS: '2', CI_APT_RETRY_DELAY_SECONDS: '5',
 		});
 		requireCompleted(result, 'Firefox dependency installation');
 		if (result.status !== 0) throw new Error(`Firefox dependency installation failed (${result.status})`);
+		missing = inventory();
 	}
-	const remaining = inventory();
-	if (remaining.length > 0) throw new Error(`Firefox still requires system dependencies: ${remaining.join(', ')}`);
+	if (requestedPackages.size === 0) missing = inventory();
+	if (missing.length > 0) throw new Error(`Firefox still requires system dependencies: ${missing.join(', ')}`);
 	for (const name of pulsePackages) if (!configured(name)) throw new Error(`Firefox audio package is not configured: ${name}`);
-	return { requestedPackages };
+	return { requestedPackages: [...requestedPackages].sort() };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
