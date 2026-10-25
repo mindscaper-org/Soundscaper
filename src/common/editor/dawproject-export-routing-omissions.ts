@@ -20,14 +20,17 @@ export function reportOmittedDawprojectRouting(context: DawprojectExportContext)
 	const outputIndex = immutableIds(outputOwner);
 	const mainOutputs = outputIndex ? immutableMainOutputs(outputOwner as readonly DataRecord[]) : null;
 	const sameOutputs = (): boolean => Boolean(outputIndex && hasOwnDataValue(graph, 'outputs', outputOwner));
-	const mainOutput = (id: unknown): boolean => sameOutputs() && mainOutputs
-		? typeof id === 'string' && mainOutputs.has(id)
-		: records(graph.outputs).some(output => output.id === id && output.role === 'main');
+	const mainOutput = (destination: DataRecord): boolean => {
+		const id = ownEndpointId(destination);
+		return id !== undefined && sameOutputs() && mainOutputs ? mainOutputs.has(id)
+			: records(graph.outputs).some(output => output.id === destination.id && output.role === 'main');
+	};
 	const masterChannels = positiveWidth(context.project.masterChannels, 2);
 	const endpoint = (value: DataRecord): { name: string; width: number } | null => {
 		if (value.kind === 'master') return { name: 'Master', width: masterChannels };
 		if (value.kind === 'output') {
-			const output = sameOutputs() ? typeof value.id === 'string' ? outputIndex!.get(value.id) : undefined
+			const id = ownEndpointId(value);
+			const output = id !== undefined && sameOutputs() ? outputIndex!.get(id)
 				: records(graph.outputs).find(candidate => candidate.id === value.id);
 			return output ? { name: String(output.name), width: positiveWidth(output.channelCount, masterChannels) } : null;
 		}
@@ -45,10 +48,10 @@ export function reportOmittedDawprojectRouting(context: DawprojectExportContext)
 		// Omitted processors/nodes already have their own scoped warnings.
 		if (!from || !to) continue;
 		const supportedSend = edge.kind === 'send' && destination.kind === 'mixer-node'
-			&& (sendIndex ? typeof destination.id === 'string' && sendIndex.has(destination.id) : sends.some(send => send.id === destination.id));
+			&& hasEndpointId(sends, sendIndex, destination);
 		const supportedAssignment = edge.kind === 'assignment'
-			&& (destination.kind === 'master' || destination.kind === 'output' && mainOutput(destination.id)
-				|| (groupIndex ? typeof destination.id === 'string' && groupIndex.has(destination.id) : groups.some(group => group.id === destination.id)));
+			&& (destination.kind === 'master' || destination.kind === 'output' && mainOutput(destination)
+				|| hasEndpointId(groups, groupIndex, destination));
 		const features: string[] = [];
 		if (!supportedSend && !supportedAssignment) features.push('connection');
 		if (edge.enabled === false) features.push('enabled');
@@ -70,6 +73,16 @@ export function reportOmittedDawprojectRouting(context: DawprojectExportContext)
 			message: `${from.name} → ${to.name}: DAWproject cannot retain this connection's ${features.join(', ')}.${levelDescription}`,
 		});
 	}
+}
+
+function ownEndpointId(value: DataRecord): string | undefined {
+	const descriptor = Object.getOwnPropertyDescriptor(value, 'id');
+	return descriptor && Object.hasOwn(descriptor, 'value') && typeof descriptor.value === 'string' ? descriptor.value : undefined;
+}
+
+function hasEndpointId(items: readonly DataRecord[], index: ReadonlyMap<string, DataRecord> | null, endpoint: DataRecord): boolean {
+	const id = ownEndpointId(endpoint);
+	return id !== undefined && index ? index.has(id) : items.some(item => item.id === endpoint.id);
 }
 
 function immutableIds(value: unknown): ReadonlyMap<string, DataRecord> | null {

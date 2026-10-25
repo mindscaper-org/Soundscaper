@@ -27,7 +27,7 @@ test('immutable punch reads preserve duplicate IDs, sparse errors, getters and c
 			const original = project.clips;
 			if (frozen) { for (const clip of original) if (clip) Object.freeze(clip); Object.freeze(original); }
 			if (variant === 'get-array') Object.defineProperty(project, 'clips', { get() { arrayReads++; return original; }, configurable: true });
-			const makeId = (prefix: string) => {
+			const makeId = (prefix = 'clip') => {
 				if (next === 0 && (variant === 'factory-replacement' || variant === 'factory-getter')) {
 					const replacement = original.map(clip => ({ ...clip, timelineStartFrame: 100 }));
 					if (variant === 'factory-getter') Object.defineProperty(project, 'clips', { get() { arrayReads++; return replacement; }, configurable: true });

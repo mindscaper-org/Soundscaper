@@ -44,3 +44,28 @@ test('R03 frozen output-role accessors keep the same live lookup behavior as mut
 	};
 	assert.deepEqual(run(true), run(false));
 });
+
+for (const kind of ['output', 'group', 'send'] as const) test(`R03 ${kind} destination getters retain legacy per-candidate evaluation`, () => {
+	function run(immutable: boolean, dynamic: boolean) {
+		const base = routingProject(3);
+		let reads = 0;
+		const values = Array.from({ length: 3 }, (_, index) => Object.freeze({ id: `shared-${index}`, name: `Endpoint ${index}`, channelCount: 2, role: 'aux' }));
+		const inventory = immutable ? Object.freeze(values) : values;
+		const destination = { kind: kind === 'output' ? 'output' : 'mixer-node', get id() { reads++; return `shared-${dynamic ? reads % 3 : 2}`; } };
+		const project = { ...base, mixer: { ...base.mixer,
+			groups: kind === 'group' ? inventory : [], sends: kind === 'send' ? inventory : [],
+			outputs: kind === 'output' ? inventory : base.mixer.outputs,
+			edges: [{ ...base.mixer.edges[0], kind: kind === 'send' ? 'send' : 'assignment', destination }],
+		} };
+		return { result: createDawprojectExport({ project }), reads };
+	}
+	for (const dynamic of [false, true]) assert.deepEqual(run(true, dynamic), run(false, dynamic), `dynamic=${String(dynamic)}`);
+});
+
+test('R03 numeric and missing destination IDs preserve frozen/mutable fallback results', () => {
+	for (const destination of [{ kind: 'output', id: 2 }, { kind: 'output' }]) {
+		const base = routingProject(3);
+		const project = { ...base, mixer: { ...base.mixer, edges: [{ ...base.mixer.edges[0], destination }] } };
+		assert.deepEqual(createDawprojectExport({ project }), createDawprojectExport({ project: { ...project, mixer: { ...project.mixer, outputs: [...base.mixer.outputs] } } }));
+	}
+});

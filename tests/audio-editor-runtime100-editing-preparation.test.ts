@@ -14,7 +14,7 @@ function fixture() {
 	Object.freeze(project.clips);
 	return project;
 }
-function ids() { let next = 0; return (prefix: string) => `${prefix}-generated-${next++}`; }
+function ids() { let next = 0; return (prefix = 'clip') => `${prefix}-generated-${next++}`; }
 const range = { trackId: 'track-0', startFrame: 5, endFrame: 10 };
 const operations = [
 	['E07', 'range deletion preparation', (project: ReturnType<typeof fixture>) => prepareRangeDeleteCommand(project, { ...range, trackIds: ['track-0'] }, ids())],

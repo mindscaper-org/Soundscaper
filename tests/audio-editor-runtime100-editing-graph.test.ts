@@ -82,7 +82,7 @@ test('E06 graph audibility builds programme and solo reachability once per reade
 	const graph = createDefaultMixerGraphV21(tracks);
 	const NativeSet = globalThis.Set;
 	let allocations = 0;
-	globalThis.Set = class extends NativeSet { constructor(values?: Iterable<unknown> | null) { super(values); allocations++; } } as SetConstructor;
+	globalThis.Set = class extends (NativeSet as new (values?: Iterable<unknown> | null) => Set<unknown>) { constructor(values?: Iterable<unknown> | null) { super(values); allocations++; } } as SetConstructor;
 	try {
 		const reader = createMixerGraphAudibilityV21({ tracks, mixer: graph });
 		assert.ok(reader);
