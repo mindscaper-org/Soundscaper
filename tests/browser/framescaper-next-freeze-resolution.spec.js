@@ -4,7 +4,7 @@ import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, collectClientErrors, chooseNestedCommandAction, chooseCommandAction } from './audio-editor-test-helpers.js';
 import { videoPreviewBenchmarkMedia } from './fixtures/video-preview-benchmark-media.js';
-import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
+import { FRAMESCAPER_DATABASE_NAME, FRAMESCAPER_OPFS_DIRECTORY_NAME } from './helpers/editor-databases.js';
 import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
 import { hasDurableMediaStorageCapability } from './helpers/durable-media-storage-capability.js';
 
@@ -45,13 +45,7 @@ test.describe.serial('permanent programme freeze resolution', () => {
 		await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 		await chooseCommandAction(page, editor, 'File', 'Save project');
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-		const output = await page.evaluate(async ({ name, id }) => {
-			const request = input => new Promise((resolve, reject) => { input.onsuccess = () => resolve(input.result); input.onerror = () => reject(input.error); });
-			const db = await request(indexedDB.open(name));
-			try { const project = await request(db.transaction('projects').objectStore('projects').get(id));
-				return project.sources.filter(source => source.kind === 'still').map(({ width, height, contentSha256 }) => ({ width, height, contentSha256 })); }
-			finally { db.close(); }
-		}, { name: FRAMESCAPER_DATABASE_NAME, id: projectId });
+		const output = await persistedFreezePixels(page, projectId);
 		outputs.push(output);
 		await test.info().attach('freeze-output-dimensions', { body: JSON.stringify(output), contentType: 'application/json' });
 		if (exactPreviewAvailable) expect(output[0]).toMatchObject({ width: 1280, height: 720 });
@@ -59,3 +53,46 @@ test.describe.serial('permanent programme freeze resolution', () => {
 		expect(errors).toEqual([]);
 	});
 });
+
+async function persistedFreezePixels(page, projectId) {
+	return page.evaluate(async ({ name, id, directoryName }) => {
+		const request = input => new Promise((resolve, reject) => { input.onsuccess = () => resolve(input.result); input.onerror = () => reject(input.error); });
+		const digest = async bytes => [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(value => value.toString(16).padStart(2, '0')).join('');
+		const db = await request(indexedDB.open(name));
+		try {
+			const transaction = db.transaction(['projects', 'mediaAssets', 'mediaAssetChunks'], 'readonly');
+			const [project, assets, chunks] = await Promise.all([
+				request(transaction.objectStore('projects').get(id)),
+				request(transaction.objectStore('mediaAssets').getAll()),
+				request(transaction.objectStore('mediaAssetChunks').getAll()),
+			]);
+			const pictures = [];
+			for (const source of project.sources.filter(source => source.kind === 'still')) {
+				const record = assets.find(asset => asset.sourceId === source.storageKey);
+				let blob;
+				if (record.storage === 'opfs') {
+					const root = await navigator.storage.getDirectory();
+					const directory = await root.getDirectoryHandle(directoryName);
+					blob = await (await directory.getFileHandle(record.path)).getFile();
+				} else {
+					blob = record.blob ?? new Blob(chunks
+						.filter(chunk => chunk.mediaChunkToken === record.mediaChunkToken)
+						.sort((left, right) => left.index - right.index).map(chunk => chunk.payload));
+				}
+				if (await digest(await blob.arrayBuffer()) !== source.contentSha256) throw new Error('Persisted freeze content digest does not match its source.');
+				const image = await createImageBitmap(blob);
+				try {
+					if (image.width !== source.width || image.height !== source.height) throw new Error('Persisted freeze dimensions do not match its source.');
+					const canvas = document.createElement('canvas');
+					canvas.width = image.width; canvas.height = image.height;
+					const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+					// Firefox's PNG deBG chunk varies across contexts. Compare every
+					// decoded pixel while authenticating each persisted body above.
+					const pixels = context.getImageData(0, 0, image.width, image.height).data;
+					pictures.push({ width: image.width, height: image.height, pixelSha256: await digest(pixels) });
+				} finally { image.close(); }
+			}
+			return pictures;
+		} finally { db.close(); }
+	}, { name: FRAMESCAPER_DATABASE_NAME, id: projectId, directoryName: FRAMESCAPER_OPFS_DIRECTORY_NAME });
+}
