@@ -74,3 +74,28 @@ void test('source metadata list snapshots inventory membership before invoking c
 	assert.deepEqual((await sources.list()).map(record => record.id), ['first', 'second']);
 	assert.equal(memory.sources.has('late'), true);
 });
+
+void test('temporary cleanup roots snapshot memory membership before path/token getters mutate its Map', async () => {
+	const { memory, media } = repositories(); const reads: string[] = [];
+	memory.mediaAssets.set('first', {
+		get path() {
+			reads.push('first.path');
+			memory.mediaAssets.set('second', { path: 'replacement.bin', mediaChunkToken: 'replacement-token' });
+			memory.mediaAssets.set('late', { path: 'late.bin', mediaChunkToken: 'late-token' });
+			return 'first.bin';
+		},
+		get mediaChunkToken() { reads.push('first.token'); return 'first-token'; },
+		get encodedBytes() { throw new Error('Retention roots must not read encoded payloads.'); },
+	});
+	memory.mediaAssets.set('invalid', null);
+	memory.mediaAssets.set('second', {
+		get path() { reads.push('second.path'); return 'second.bin'; },
+		get mediaChunkToken() { reads.push('second.token'); return 'second-token'; },
+	});
+	assert.deepEqual(await media.assetRetentionRecords(), [
+		{ path: 'first.bin', mediaChunkToken: 'first-token' },
+		{ path: 'second.bin', mediaChunkToken: 'second-token' },
+	]);
+	assert.deepEqual(reads, ['first.path', 'first.token', 'second.path', 'second.token']);
+	assert.equal(memory.mediaAssets.has('late'), true);
+});

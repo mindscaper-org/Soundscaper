@@ -289,7 +289,7 @@ export class MediaRepository {
 
 	async assetRetentionRecords(): Promise<StorageRecord[]> {
 		const database = await this.#port.database();
-		const records = !database ? this.#port.memory.mediaAssets.values()
+		const records = !database ? [...this.#port.memory.mediaAssets.values()]
 			: await transact(database, 'mediaAssets', 'readonly', ({ mediaAssets }) => request(mediaAssets.getAll()));
 		return mediaAssetRetentionRecords(records);
 	}
