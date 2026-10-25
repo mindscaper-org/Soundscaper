@@ -20,6 +20,11 @@ const runFile = promisify(execFile);
 const configure = (args: string[]) => runDesktopAssistanceBuildCommand('cmake', args, {
 	label: 'ONNX/Kokoro fixture configure', timeout: process.platform === 'win32' ? 120_000 : 30_000, maxBuffer: 1024 * 1024,
 });
+// Cold hosted linking exceeded 30s after successful compilation. Keep a finite
+// fixture allowance and join the entire compiler tree before removing its cwd.
+const buildFixture = (args: string[]) => runDesktopAssistanceBuildCommand('cmake', args, {
+	label: 'ONNX/Kokoro fixture build', timeout: 120_000, maxBuffer: 1024 * 1024,
+});
 
 async function write(path: string, text: string): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
@@ -56,7 +61,7 @@ add_library(ort_fixture STATIC fixture.cc)
 `);
 	await write(join(librarySource, 'fixture.cc'), 'int scape_fixture() { return 0; }\n');
 	await configure(['-S', librarySource, '-B', libraryBuild, ...plan.generatorArgs, '-DCMAKE_BUILD_TYPE=Release']);
-	await runFile('cmake', ['--build', libraryBuild, '--config', 'Release'], { timeout: 30_000 });
+	await buildFixture(['--build', libraryBuild, '--config', 'Release']);
 	const library = await find(libraryBuild, process.platform === 'win32' ? 'ort_fixture.lib' : 'libort_fixture.a');
 	assert.ok(library);
 	const directory = engine === 'onnx' ? 'assistance-onnx-webgpu-node-api' : 'assistance-kokoro-g2p-gpu';
@@ -84,7 +89,7 @@ add_library(ort_fixture STATIC fixture.cc)
 			`-DNODE_ADDON_API=${root}`, `-DNODE_LIBRARY=${library}`, `-DNODE_DELAY_HOOK=${hook}`]
 			: [`-DPROBE_SOURCE=${probe}`]),
 	]);
-	const built = await runFile('cmake', ['--build', build, ...plan.buildArgs], { timeout: 30_000 });
+	const built = await buildFixture(['--build', build, ...plan.buildArgs]);
 	assert.doesNotMatch(`${built.stdout}\n${built.stderr}`, /D900[27]/u, 'MSVC must honor every reproducibility flag');
 	await assert.rejects(access(join(build, 'CMakeFiles/VerifyGlobs.cmake')), { code: 'ENOENT' });
 	const extension = process.platform === 'win32' ? '.exe' : '';
