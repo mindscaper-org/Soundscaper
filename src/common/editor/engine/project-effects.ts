@@ -4,6 +4,7 @@ import type {
 	EngineEffect,
 	EngineEffectRackLocation,
 	EngineProject,
+	EngineTrack,
 	UnknownRecord,
 } from './types.ts';
 
@@ -25,16 +26,12 @@ export function activeRackEffects(owner: Readonly<{
 export function* projectEffectRacks(
 	project: EngineProject | null | undefined,
 ): Generator<EngineEffectRackLocation> {
-	let index = 0;
-	for (const track of project?.tracks || []) {
-		if (track?.type === 'label' || track?.type === 'video') continue;
-		yield {
-			scope: 'track',
-			targetId: String(track?.id ?? index),
-			effectsActive: track?.effectsActive !== false,
-			effects: activeRackEffects(track),
-		};
-		index++;
+	const audioTracks = (project?.tracks || [])
+		.filter(track => track?.type !== 'label' && track?.type !== 'video');
+	if (Object.getPrototypeOf(audioTracks) === Array.prototype && !Object.hasOwn(audioTracks, 'entries')) {
+		for (let index = 0; index < audioTracks.length; index++) yield trackEffectRack(audioTracks[index]!, index);
+	} else {
+		for (const [index, track] of audioTracks.entries()) yield trackEffectRack(track, index);
 	}
 	for (const [scope, buses] of [
 		['group', project?.mixer?.groups],
@@ -144,4 +141,13 @@ export function cloneMessageValue<Value>(value: Value): Value {
 	return typeof globalThis.structuredClone === 'function'
 		? globalThis.structuredClone(value)
 		: JSON.parse(JSON.stringify(value)) as Value;
+}
+
+function trackEffectRack(track: EngineTrack, index: number): EngineEffectRackLocation {
+	return {
+		scope: 'track',
+		targetId: String(track?.id ?? index),
+		effectsActive: track?.effectsActive !== false,
+		effects: activeRackEffects(track),
+	};
 }
