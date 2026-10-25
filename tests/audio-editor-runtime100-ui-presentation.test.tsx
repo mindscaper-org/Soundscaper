@@ -43,7 +43,7 @@ void test('U19 keyboard-map modifier changes reuse the owned extra-key rows', as
 	} finally { Array.prototype.flat = original; await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct; if (priorReact) Object.defineProperty(globalThis, 'React', priorReact); else Reflect.deleteProperty(globalThis, 'React'); dom.restore(); }
 });
 void test('U20 custom action search reuses bounded frozen action text over repeated search edits', t => {
-	let reads = 0; const actions = Object.freeze(Array.from({ length: 200 }, (_, i) => { const path = Object.freeze(['Edit', `Action ${i}`]); return Object.freeze({ actionId: `a${i}`, get path() { reads++; return path; }, label: `Action ${i}`, disabled: false }); }));
+	let reads = 0; const actions = Object.freeze(Array.from({ length: 200 }, (_, i) => { const path = Object.freeze(['Edit', `Action ${i}`]); return new Proxy(Object.freeze({ actionId: `a${i}`, path, label: `Action ${i}`, disabled: false }), { get(target, key, receiver) { if (key === 'path') reads++; return Reflect.get(target, key, receiver) as unknown; } }); }));
 	const find = prepareCustomToolbarActionSearch(actions); for (let i = 0; i < 30; i++) assert.equal(find('  Action 199  ')[0]?.actionId, 'a199');
 	t.diagnostic(`action path reads ${reads}`); assert.ok(reads <= 400);
 	const mutable = [{ actionId: 'x', path: ['Before'], label: 'Before', disabled: false }]; const fresh = prepareCustomToolbarActionSearch(mutable); mutable[0]!.path[0] = 'After'; assert.equal(fresh('After').length, 1);
@@ -55,7 +55,7 @@ void test('U21 symbol searches reuse bounded normalized glyph names', t => {
 	t.diagnostic(`symbol normalization calls ${replacements}`); assert.equal(replacements, 200);
 });
 void test('U22 translation option-source presentation shares the current draft reader', t => {
-	let reads = 0; const draft = { ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: Object.freeze(Array.from({ length: 200 }, (_, i) => Object.freeze({ get key() { reads++; return `k${i}`; }, source: `Source ${i}`, translation: 'Text' }))) };
+	let reads = 0; const draft = { ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: Object.freeze(Array.from({ length: 200 }, (_, i) => new Proxy(Object.freeze({ key: `k${i}`, source: `Source ${i}`, translation: 'Text' }), { get(target, key, receiver) { if (key === 'key') reads++; return Reflect.get(target, key, receiver) as unknown; } }))) };
 	const read = createCommunityTranslationDraftReader(draft); for (let i = 0; i < 200; i++) assert.equal(read(`k${i}`)?.source, `Source ${i}`);
 	t.diagnostic(`draft option key reads ${reads}`); assert.ok(reads <= 400);
 });
@@ -71,4 +71,35 @@ void test('U26 ADM bed rows share assignment lookup and preserve first duplicate
 	const read = createAdmBedAssignmentReader(assignments); for (let i = 0; i < 200; i++) assert.equal(read({ stripKind: 'track', stripId: `t${i}`, sourceChannel: 0 })?.gain, 0.5);
 	t.diagnostic(`assignment strip ID reads ${reads}`); assert.ok(reads <= 400);
 	assert.equal(createAdmBedAssignmentReader([{ ...assignments[0]!, gain: 0.2 }, { ...assignments[0]!, gain: 0.8 }])({ stripKind: 'track', stripId: 't0', sourceChannel: 0 })?.gain, 0.2);
+});
+
+void test('prepared dialog search respects mutable, accessor and entry/character capacity fallbacks', () => {
+	let path = Object.freeze(['Before']);
+	const accessor = Object.freeze({ actionId: 'a', get path() { return path; }, label: 'A', disabled: false });
+	const actionReader = prepareCustomToolbarActionSearch(Object.freeze([accessor]));
+	path = Object.freeze(['After']); assert.equal(actionReader('After').length, 1);
+	const long = 'x'.repeat(4_194_305);
+	const oversized = prepareCustomToolbarActionSearch(Object.freeze([Object.freeze({ actionId: 'a', path: Object.freeze([long]), label: 'A', disabled: false })]));
+	assert.equal(oversized('xxx').length, 1);
+	const symbols = Object.freeze(Array.from({ length: 16_385 }, (_, i) => `SYMBOL_${i}`));
+	assert.deepEqual(prepareCustomToolbarSymbolSearch(symbols)('symbol_16384'), ['SYMBOL_16384']);
+	const draft = { ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: [{ key: 'before', source: 'A', translation: 'B' }] };
+	const read = createCommunityTranslationDraftReader(draft); draft.entries = [{ key: 'after', source: 'C', translation: 'D' }];
+	assert.equal(read('before'), undefined); assert.equal(read('after')?.source, 'C');
+});
+void test('retired dialog search and binding projections do not keep source inventories alive', async () => {
+	assert.ok(globalThis.gc);
+	function retired() {
+		const action = Object.freeze({ actionId: 'a', path: Object.freeze(['Edit']), label: 'A', disabled: false });
+		const actions = Object.freeze([action]); prepareCustomToolbarActionSearch(actions)('edit');
+		const entry = Object.freeze({ key: 'k', source: 'S', translation: 'T' });
+		const draft = Object.freeze({ ...createTranslationDraft(createContributionSnapshot('fr', {}, {})), entries: Object.freeze([entry]) });
+		createCommunityTranslationDraftReader(draft)('k');
+		const binding = { id: 'b', key: 'K', state: 'plain', context: 'edit', contextLabel: 'Edit', action: 'A', text: 'K' };
+		createKeyboardMapBindingView([binding]).at('K', 'plain');
+		return [new WeakRef(actions), new WeakRef(action), new WeakRef(draft), new WeakRef(entry), new WeakRef(binding)];
+	}
+	const references = retired();
+	for (let i = 0; i < 8; i++) { await new Promise<void>(resolve => setImmediate(resolve)); globalThis.gc(); }
+	for (const reference of references) assert.equal(reference.deref(), undefined);
 });

@@ -38,7 +38,7 @@ export function communityTranslationMessageKeys(
 export function createCommunityTranslationDraftReader(draft: TranslationContribution | undefined) {
 	const entries = draft?.entries;
 	if (!entries || !Object.isFrozen(entries) || entries.length > 16_384
-		|| !entries.every(Object.isFrozen)) return (key: string) => entries?.find(entry => entry.key === key);
+		|| !entries.every(entry => Object.isFrozen(entry) && typeof Object.getOwnPropertyDescriptor(entry, 'key')?.value === 'string')) return (key: string) => draft?.entries.find(entry => entry.key === key);
 	const byKey = new Map<string, TranslationContribution['entries'][number]>();
 	for (const entry of entries) {
 		const key = entry.key;

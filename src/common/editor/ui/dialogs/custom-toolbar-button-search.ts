@@ -10,9 +10,9 @@ export function prepareCustomToolbarActionSearch(actions: readonly CustomToolbar
 	let characters = 0;
 	if (Object.isFrozen(actions)) for (const action of actions) {
 		if (text.size >= MAXIMUM_PREPARED_ENTRIES || characters >= MAXIMUM_PREPARED_CHARACTERS) break;
-		if (!Object.isFrozen(action)) continue;
+		if (!Object.isFrozen(action) || !dataField(action, 'actionId') || !dataField(action, 'path')) continue;
 		const path = action.path;
-		if (!Object.isFrozen(path)) continue;
+		if (!canonicalPath(path)) continue;
 		const normalized = `${path.join(' ')} ${action.actionId}`.toLowerCase();
 		if (characters + normalized.length > MAXIMUM_PREPARED_CHARACTERS) continue;
 		text.set(action, normalized); characters += normalized.length;
@@ -35,4 +35,18 @@ export function prepareCustomToolbarSymbolSearch(symbols: readonly string[]) {
 		const needle = query.trim().replaceAll('_', ' ').toLowerCase();
 		return symbols.filter(symbol => (text.get(symbol) ?? symbol.replaceAll('_', ' ').toLowerCase()).includes(needle));
 	};
+}
+
+function dataField(owner: object, field: string): boolean {
+	const descriptor = Object.getOwnPropertyDescriptor(owner, field);
+	return Boolean(descriptor && 'value' in descriptor);
+}
+function canonicalPath(path: readonly string[]): boolean {
+	if (!Object.isFrozen(path) || Object.getPrototypeOf(path) !== Array.prototype
+		|| Object.hasOwn(path, Symbol.iterator) || Object.hasOwn(path, 'join')) return false;
+	for (let index = 0; index < path.length; index++) {
+		const descriptor = Object.getOwnPropertyDescriptor(path, index);
+		if (!descriptor || !('value' in descriptor) || typeof descriptor.value !== 'string') return false;
+	}
+	return true;
 }
