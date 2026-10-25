@@ -3,6 +3,7 @@
 import type { createDeliveryReport } from './delivery-report.ts';
 import { DawprojectIdAllocator, mediaEntryName } from './dawproject-format.ts';
 import type { HoldTempoMap } from './timeline-time.ts';
+import type { DawprojectRoutingIndex } from './dawproject-export-routing-index.ts';
 
 /**
  * State the two halves of the DAWproject writer share.
@@ -68,6 +69,7 @@ export interface DawprojectExportContext {
 	readonly clipById: ReadonlyMap<string, DataRecord>;
 	readonly media: DawprojectMediaRegistry;
 	readonly routing: DawprojectMixerRouting;
+	readonly routingLookup?: DawprojectRoutingIndex<DawprojectMixerStrip>;
 	readonly separateOutputMaster: boolean;
 	readonly readAudioTrackChannels?: (track: DataRecord, fallback: number) => number;
 	readonly embeddableVideoSourceIds: ReadonlySet<string>;

@@ -9,6 +9,7 @@ import {
 import { reportInterchangeCaptionTrackOmission } from './interchange-omission-inventory.ts';
 import { reportOmittedDawprojectRouting } from './dawproject-export-routing-omissions.ts';
 import { createDawprojectAudioWidthReader } from './dawproject-export-channel-width.ts';
+import { indexDawprojectRouting } from './dawproject-export-routing-index.ts';
 import { serializeXmlDocument, xmlElement, type XmlElement } from './dawproject-xml.ts';
 import {
 	DAWPROJECT_DELIVERY_FORMAT,
@@ -126,6 +127,7 @@ export function createDawprojectExport(request: DawprojectExportRequest): Dawpro
 		readAudioTrackChannels: createDawprojectAudioWidthReader(project, clipById, sourceById),
 		media: new DawprojectMediaRegistry(),
 		routing,
+		routingLookup: indexDawprojectRouting(routing),
 		separateOutputMaster: routing.masterDisconnected === true || dawprojectHasMainOutputBypass({ project, routing }, structure),
 		embeddableVideoSourceIds: new Set(request.embeddableVideoSourceIds ?? []),
 		tempoMap: tempoMapOf(project),
@@ -205,7 +207,8 @@ function buildStructureNode(node: DawprojectStructureNode, context: DawprojectEx
 function buildFolderTrack(node: DawprojectStructureNode, context: DawprojectExportContext): XmlElement {
 	// A folder-owned group bus is a submix channel with the folder's gates.
 	// Audio-free folders can remain structure only. The bus shares its id.
-	const bus = context.routing.groups.find((group) => group.id === node.id) ?? null;
+	const bus = (context.routingLookup ? context.routingLookup.groups.get(node.id)
+		: context.routing.groups.find((group) => group.id === node.id)) ?? null;
 	const mute = node.folder?.mute === true;
 	const solo = node.folder?.solo === true;
 	if (!bus && (mute || solo)) {
@@ -262,12 +265,14 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 /** Bus and track edges share the same exported channel identities. */
 function channelRouting(context: DawprojectExportContext, route: DawprojectTrackRoute | undefined): Pick<ChannelSpec, 'destination' | 'sends'> {
 	const destination = route?.groupId
-		? [...context.routing.groups, ...context.routing.sends].find(candidate => candidate.id === route.groupId)
+		? context.routingLookup ? context.routingLookup.nodes.get(route.groupId)
+			: [...context.routing.groups, ...context.routing.sends].find(candidate => candidate.id === route.groupId)
 		: null;
 	return {
 		destination: channelIdFor(context, route?.disconnected ? DISCONNECTED_OUTPUT_KEY : route?.mainOutput ? MAIN_OUTPUT_KEY : destination ? `mixer-node:${destination.id}` : 'master'),
 		sends: [...(route?.sends ?? [])]
-			.filter(({ id }) => context.routing.sends.some(send => send.id === id)),
+			.filter(({ id }) => context.routingLookup ? context.routingLookup.sends.has(id)
+				: context.routing.sends.some(send => send.id === id)),
 	};
 }
 

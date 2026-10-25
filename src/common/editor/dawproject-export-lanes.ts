@@ -64,7 +64,8 @@ export function buildArrangement(
 
 function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExportContext): XmlElement | null {
 	if (node.kind === 'folder') {
-		const bus = context.routing.groups.find((group) => group.id === node.id);
+		const bus = context.routingLookup ? context.routingLookup.groups.get(node.id)
+			: context.routing.groups.find((group) => group.id === node.id);
 		return xmlElement('Lanes', {
 			track: context.ids.id('folder', node.id), id: context.ids.id('folder-lanes', node.id),
 		}, [
