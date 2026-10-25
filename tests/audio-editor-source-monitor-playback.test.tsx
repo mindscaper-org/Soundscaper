@@ -126,3 +126,44 @@ test('Match frame reopening the current source cancels playback but ordinary mar
 		actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
 	}
 });
+
+test('a queued playback clock cannot overwrite a same-source Match frame session before React commits', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	let openRevision = 1, mediaSeconds = 0;
+	const published: number[] = [];
+	const sourceMonitor = {
+		view: () => ({ sourceId: 'source', openRevision, positionFrame: Math.floor(mediaSeconds * 25), mediaSeconds, sourceFrameCount: 25 }),
+		seekMediaTime: (seconds: number) => { published.push(seconds); mediaSeconds = seconds; },
+	};
+	const render = () => root.render(<SourceMonitorPanel
+		controller={{ actions: { video: { sourceMonitor, getSourceVisualData: () => ({ mediaUrl: 'source.mp4' }) } } }}
+		snapshot={{ readOnly: false }} copy={{}} run={(operation: () => unknown) => operation()} blocked={false} />);
+	try {
+		await act(async () => { render(); });
+		const video = dom.one('video');
+		Reflect.set(video, 'play', () => Promise.resolve());
+		Reflect.set(video, 'pause', () => undefined);
+		await act(async () => { reactProps(dom.one('[data-source-monitor-action="play"]')).onClick(); });
+		const queuedTimeUpdate = reactProps(video).onTimeUpdate;
+		Reflect.set(video, 'currentTime', 0.1);
+		// Match frame updates its controller synchronously, before React's stop effect.
+		openRevision += 1; mediaSeconds = 0.22;
+		await act(async () => { queuedTimeUpdate(); render(); });
+		assert.deepEqual(published, [], 'The previous playback session has lost clock publication authority.');
+		assert.equal(mediaSeconds, 0.22);
+		assert.equal(Reflect.get(video, 'currentTime'), 0.22);
+		assert.equal(reactProps(dom.one('[data-source-monitor-action="play"]'))['aria-pressed'], false);
+		await act(async () => { reactProps(dom.one('[data-source-monitor-action="play"]')).onClick(); });
+		Reflect.set(video, 'currentTime', 0.48);
+		await act(async () => { reactProps(video).onTimeUpdate(); });
+		assert.deepEqual(published, [0.48], 'A fresh playback session retains normal clock publication.');
+	} finally {
+		await act(async () => { root.unmount(); });
+		dom.restore(); actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+	}
+});

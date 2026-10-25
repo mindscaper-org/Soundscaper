@@ -46,6 +46,8 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	const publish = (frame) => run(() => controller.actions.video.sourceMonitor.seek(frame));
 	const capturePlayback = () => {
 		if (playing && videoRef.current) {
+			const current = controller.actions.video.sourceMonitor.view();
+			if (current.sourceId !== view.sourceId || current.openRevision !== view.openRevision) return;
 			controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		}
 	};
