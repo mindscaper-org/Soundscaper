@@ -7,20 +7,24 @@ import { surroundAvWebmFixture } from '../helpers/ordinary-ogg-opus-fixture.ts';
 
 test('File Import and native Save retain all six channels extracted from an ordinary video', async ({ page }) => {
 	const file = await surroundAvWebmFixture(); const bytes = new Uint8Array(await file.arrayBuffer());
+	await page.addInitScript(() => {
+		// Observe the import's own native decode. A second context can have a
+		// different WebKit decoder lifetime and changes the backend being tested.
+		const decode = BaseAudioContext.prototype.decodeAudioData;
+		BaseAudioContext.prototype.decodeAudioData = function (...args) {
+			const result = decode.apply(this, args);
+			void result.then(audio => {
+				globalThis.__surroundNativeDecode = { supported: true, sampleRate: audio.sampleRate, frames: audio.length,
+					channels: Array.from({ length: audio.numberOfChannels }, (_, channel) => [...audio.getChannelData(channel)]) };
+			}, error => { globalThis.__surroundNativeDecode = { supported: false, error: `${error.name}: ${error.message}` }; });
+			return result;
+		};
+	});
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
-	const expected = await page.evaluate(async data => {
-		// Match the importer's native decoder with a live audio backend. WebKit
-		// can leave an unsupported WebM decode pending on an inactive context.
-		const context = new AudioContext({ sampleRate: 48_000 });
-		try {
-			await context.resume();
-			const audio = await context.decodeAudioData(Uint8Array.from(data).buffer);
-			return { supported: true, sampleRate: audio.sampleRate, frames: audio.length, channels: Array.from({ length: audio.numberOfChannels }, (_, channel) => [...audio.getChannelData(channel)]) };
-		} catch (error) { return { supported: false, error: `${error.name}: ${error.message}` }; }
-		finally { await context.close(); }
-	}, [...bytes]);
-	if (expected.supported) { expect(expected).toMatchObject({ sampleRate: 48_000, frames: 3840 }); expect(expected.channels).toHaveLength(6); }
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(bytes) });
+	await expect.poll(() => page.evaluate(() => Boolean(globalThis.__surroundNativeDecode)), { timeout: 30_000 }).toBe(true);
+	const expected = await page.evaluate(() => globalThis.__surroundNativeDecode);
+	if (expected.supported) { expect(expected).toMatchObject({ sampleRate: 48_000, frames: 3840 }); expect(expected.channels).toHaveLength(6); }
 	await expect(editor).toHaveAttribute('data-clip-count', expected.supported ? '2' : '1', { timeout: 30_000 });
 	const downloading = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await downloading)); const project = JSON.parse(strFromU8(entries['project.json']));
