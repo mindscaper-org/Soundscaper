@@ -26,7 +26,7 @@ import {
 } from './aup4-export-values.js';
 import {
 	automaticAup4CrossfadeRanges,
-	createNativeClipEnvelope,
+	createNativeTrackEnvelopeConverter,
 } from './aup4-export-envelopes.js';
 import {
 	omitVideoContent,
@@ -131,6 +131,7 @@ export function createAup4ExportPlan(project) {
 		}
 		if (aup4WaveformDisplayConversionCode(track.displayMode)) normalizedTrack.displayMode = 'waveform';
 
+		const convertClipEnvelope = createNativeTrackEnvelopeConverter(track);
 		for (const clip of clips) {
 			const source = sourceById.get(clip.sourceId);
 			const sourceRate = positiveRate(source.sampleRate, `source ${source.id} sampleRate`);
@@ -156,11 +157,7 @@ export function createAup4ExportPlan(project) {
 				throw exportError(`Audacity-project clip ${clip.id} exceeds source ${source.id}.`, 'INVALID_SNAPSHOT');
 			}
 			const normalizedClip = normalizedClipById.get(clip.id);
-			const envelopeConversion = createNativeClipEnvelope(
-				clip,
-				track,
-				automaticCrossfades.get(String(clip.id)),
-			);
+			const envelopeConversion = convertClipEnvelope(clip, automaticCrossfades.get(String(clip.id)));
 			const sliceStartFrame = loop ? sourceStartFrame : sourceStartFrame - trimStartFrames;
 			const sliceEndFrame = loop ? sourceEndFrame : sourceEndFrame + trimEndFrames;
 			const transform = {
