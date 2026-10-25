@@ -16,7 +16,10 @@ test('Amplify keeps an edited gain draft while the current audio default is stil
 		const pitch = properties.getByRole('textbox', { name: 'Pitch', exact: true });
 		await pitch.fill('12'); await pitch.press('Enter');
 		await closeClipProperties(properties);
-		await clip.locator('.clip-header').click();
+		await clip.focus();
+		await expect(clip).toBeFocused();
+		await clip.press('Enter');
+		await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Amplify']);
 		const dialog = page.locator('[data-selection-effects-dialog]');
 		const gain = dialog.locator('[data-effect-param="gainDb"]');
