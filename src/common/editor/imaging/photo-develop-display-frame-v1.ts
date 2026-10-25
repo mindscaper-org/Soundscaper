@@ -6,7 +6,8 @@ import { preparePhotoDevelopMaskDisplayModeV1 } from '../photo-develop-mask-disp
 import { admitPixelFrameV1 } from './pixel-frame-admission-v1.ts';
 import { readPixelFrameV1, type PixelFrameV1 } from './pixel-frame-contract-v1.ts';
 import { fitPixelSizeV1 } from './pixel-frame-resize-v1.ts';
-import { captureRepairSignalV1, checkRepairSignalV1, RepairTaskBudgetV1, withRepairPixelFrameLifetimeV1 } from './pixel-frame-repair-lifetime-v1.ts';
+import { PhotoDevelopDisplayTaskBudgetV1 } from './photo-develop-display-task-budget-v1.ts';
+import { captureRepairSignalV1, checkRepairSignalV1, withRepairPixelFrameLifetimeV1 } from './pixel-frame-repair-lifetime-v1.ts';
 
 export interface PhotoDevelopDisplayFrameV1 { readonly frame: Readonly<PixelFrameV1>; readonly overlay?: Readonly<PixelFrameV1>; }
 const DISPLAY = Object.freeze({ maximumSidePixels: 2048, maximumPixels: 4_194_304, maximumBytes: 16_777_216 });
@@ -43,7 +44,7 @@ export async function withPhotoDevelopDisplayFrameV1<Result>(value: unknown,
 	check();
 	return withRepairPixelFrameLifetimeV1(async owner => {
 		const pixels = resolution === 'proxy' ? owner.bytes(displayPlan.byteLength) : sourcePixels;
-		const overlay = observed ? owner.bytes(displayPlan.byteLength) : undefined, budget = new RepairTaskBudgetV1(check);
+		const overlay = observed ? owner.bytes(displayPlan.byteLength) : undefined, budget = new PhotoDevelopDisplayTaskBudgetV1(check);
 		if (resolution === 'proxy' || overlay) for (let y = 0; y < size.height; y++) for (let x = 0; x < size.width; x++) {
 			const sample = Math.floor(y * height / size.height) * width + Math.floor(x * width / size.width), offset = (y * size.width + x) * 4;
 			if (resolution === 'proxy') for (let channel = 0; channel < 4; channel++) pixels[offset + channel] = sourcePixels[sample * 4 + channel]!;

@@ -8,7 +8,8 @@ import { readPixelFrameV1 } from './pixel-frame-contract-v1.ts';
 import type { PhotoDevelopDisplayFrameV1 } from './photo-develop-display-frame-v1.ts';
 import { prepareImageOutputColorProfileV1, writeImageOutputColorPixelV1 } from './image-output-color-profile-v1.ts';
 import { fitPixelSizeV1 } from './pixel-frame-resize-v1.ts';
-import { captureRepairSignalV1, checkRepairSignalV1, RepairTaskBudgetV1, withRepairPixelFrameLifetimeV1 } from './pixel-frame-repair-lifetime-v1.ts';
+import { PhotoDevelopDisplayTaskBudgetV1 } from './photo-develop-display-task-budget-v1.ts';
+import { captureRepairSignalV1, checkRepairSignalV1, withRepairPixelFrameLifetimeV1 } from './pixel-frame-repair-lifetime-v1.ts';
 
 const PROFILES = Object.freeze(['srgb', 'display-p3'].map(primaries => ({ sampleFormat: 'unorm8', primaries, transfer: 'srgb' })));
 const DISPLAY = Object.freeze({ maximumSidePixels: 2048, maximumPixels: 4_194_304, maximumBytes: 16_777_216 });
@@ -57,7 +58,7 @@ export async function withPhotoDevelopDisplayFrameCurrentV1<Result>(value: unkno
 		const pixels = resolution === 'proxy' ? owner.bytes(displayPlan.byteLength) : source;
 		const overlay = observed ? owner.bytes(displayPlan.byteLength) : undefined, codes = observed ? new Float64Array(owner.bytes(32).buffer) : undefined;
 		const color = observed ? prepareImageOutputColorProfileV1({ profile: primaries, bitDepth: 8, source: 'encoded-srgb8' }) : undefined;
-		const budget = new RepairTaskBudgetV1(current);
+		const budget = new PhotoDevelopDisplayTaskBudgetV1(current);
 		if (resolution === 'proxy' || overlay) for (let y = 0; y < size.height; y++) for (let x = 0; x < size.width; x++) {
 			const sample = Math.floor(y * height / size.height) * width + Math.floor(x * width / size.width), at = (y * size.width + x) * 4;
 			if (resolution === 'proxy') for (let channel = 0; channel < 4; channel++) pixels[at + channel] = source[sample * 4 + channel]!;
