@@ -6,7 +6,7 @@ executed parser qualification or installed-After-Effects result. Direct
 `.aep`/`.aepx` parsing remains separate feasibility work outside the first
 release's implemented M11 bridge. No installed AE environment is available.
 
-## What Storytold actually provides
+## 2026-10-11: Storytold review
 
 [EffectCraft's main README](https://github.com/storytold/effectcraft/blob/9a7d3e76991d5372448033b473dc12c2480a6a04/README.md)
 explicitly excludes opening AEP/AEPX. Its
@@ -119,15 +119,45 @@ establish AE reference fidelity, and the private source projects are not
 distributed as a public reproducible benchmark. The stated Wasm check establishes compilation, not a
 browser UI. No such tests were run during this research.
 
+## 2026-10-25: newer Storytold reader/writer proposal
+
+[EffectCraft PR 1869](https://github.com/storytold/effectcraft/pull/1869) was open
+and unmerged when reviewed. Its inspected head is
+`9c5db1bfe0cca7313c758b885e6ab329c6a0660f`. Current upstream main was
+`a0ea5f5ab12d44ed16dd6b53318fc9e2c21d95bc`; the proposal was five commits ahead
+and 318 behind it, and main contained no AEP crates. These observations do not
+replace the pinned October 11 review above. [PR 251](https://github.com/storytold/effectcraft/pull/251)
+and the external py-aep converter [PR 860](https://github.com/storytold/effectcraft/pull/860)
+also remained open.
+
+The proposed standalone [`effectcraft-aep` manifest](https://github.com/vangel76/effectcraft/blob/9c5db1bfe0cca7313c758b885e6ab329c6a0660f/crates/aep/Cargo.toml)
+has no dependencies and inherits [MIT OR Apache-2.0](https://github.com/vangel76/effectcraft/blob/9c5db1bfe0cca7313c758b885e6ab329c6a0660f/Cargo.toml).
+Its [byte API](https://github.com/vangel76/effectcraft/blob/9c5db1bfe0cca7313c758b885e6ab329c6a0660f/crates/aep/src/lib.rs)
+reads binary AEP and XML AEPX into a chunk tree and writes binary AEP; no AEPX
+writer was found. A typed view exposes decoded project fields. The
+[parser limits](https://github.com/vangel76/effectcraft/blob/9c5db1bfe0cca7313c758b885e6ab329c6a0660f/crates/aep/src/read.rs)
+bound nesting and chunk count, retaining over-depth content as opaque bytes.
+Those limits alone do not qualify Motionscaper admission. The separate
+[project exporter](https://github.com/vangel76/effectcraft/blob/9c5db1bfe0cca7313c758b885e6ab329c6a0660f/docs/aep-export.md)
+edits embedded AE-generated templates, including undecoded chunks; its importer
+and exporter target EffectCraft's project model.
+
+The contributor reports 513 passing tests and two ignored corpus tests on Linux
+on October 24, plus manual AE 2026 round trips on Windows. Those are upstream
+author reports: no crate, converter, browser integration or installed-AE
+qualification was executed here. The proposal is another native-format
+candidate, not an adopted dependency or evidence of Motionscaper compatibility.
+The M11 bridge boundary and its installed-host completion gate remain unchanged.
+
 ## Recommended follow-on
 
 Keep the existing script/exchange/rendered-transfer workflow and its explicit
 installed-host qualification gate. Do not add these dependencies to the release
 branch on the basis of repository claims.
 
-A separate feasibility spike should compare the pinned standalone Rust reader
-and py-aep on our own versioned fixtures, retaining their source and provenance
-records. Start with read-only extraction into
+A separate feasibility spike should compare the pinned standalone Rust reader,
+PR 1869's container crate and py-aep on our own versioned fixtures, retaining
+their source and provenance records. Start with read-only extraction into
 Motionscaper's inert exchange/report model. Require hard limits, cancellation,
 exact original-AEP custody, explicit unsupported entries, and user-selected
 media access; never execute expressions/plugins or follow arbitrary source paths.
@@ -135,8 +165,9 @@ Test duplicate names, parent/precomp references, fractional timing, malformed
 inputs, unknown chunks and save/reopen custody. Use upstream agreement only as a
 diagnostic, not the correctness oracle.
 
-Treat direct binary writing as a separate py-aep-backed desktop experiment, with
-new destinations and pinned target versions. Its acceptance still requires
-real installed-AE reopen/render evidence, unavailable here. Neither candidate
-eliminates that gate or provides native AE plug-in compatibility. This review
-adds no implementation, vendored source, runtime asset or dependency change.
+Treat direct binary writing as a separate experiment comparing py-aep and
+PR 1869's template-based writer, with new destinations and pinned target versions.
+Its acceptance still requires real installed-AE reopen/render evidence,
+unavailable here. None of these candidates eliminates that gate or provides
+native AE plug-in compatibility. This review adds no implementation, vendored
+source, runtime asset or dependency change.

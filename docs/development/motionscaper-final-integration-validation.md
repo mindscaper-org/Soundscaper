@@ -1,8 +1,32 @@
 # Motionscaper final integration status
 
-Status: **M01–M12 In progress**, updated 2026-10-22. **No milestone is accepted**.
+Status: **M01–M12 In progress**, updated 2026-10-25. **No milestone is accepted**.
 Engineering completion is estimated at **about 90%**; release acceptance remains
 open.
+
+The fresh `238c0d7ea` three-product build and all four focused Chromium Adobe
+workflows pass, with hidden source maps verified and zero browser retries or
+skips. All 23 observed build-process births and 21 browser-process births are
+absent. These results retain their actual source revision.
+
+The first `238c0d7ea` static run stopped at the system-memory floor; all 45
+recorded births are absent. Its 2026-10-25 successor passes all 52 lint shards,
+then fails the root application type check on an implicit locale-option type.
+All 68 recorded births are absent, with unchanged source and verified preserved
+outputs and browser sites. Neither attempt completes the static gate.
+
+`ece0dd8bf` adds the language dialog's explicit readonly locale-option shape.
+All 24 focused locale/build-ownership checks, the complete source/product/test
+type-check chain, changed-file lint, size and whitespace checks pass; all 42
+observed births are absent. The first focused invocation omitted the repository's
+CSS loader and remains a separate harness failure; the corrected invocation uses
+the maintained loader. Module-level TSX emission is identical. Fresh complete
+static, package, Node, browser and coverage-union acceptance remain pending.
+
+The [dated 2026-10-25 AEP research update](motionscaper-aep-native-format-research.md)
+records Storytold's newer, unmerged standalone reader/writer proposal. Its
+reported tests and AE round trips are upstream author claims. No dependency was
+adopted, and the implemented M11 bridge boundary remains unchanged.
 
 The latest completed full Node checkpoint remains `bc586f975`, a two-file,
 six-line fixture correction after application checkpoint `0282106d9`.
@@ -190,8 +214,9 @@ and retryable release/acknowledgement ownership. An explicit bridge fence defers
 queued native opens through lazy loading and dialog closure. All 31 focused
 checks pass with zero skips; both routing and mounted-runtime regressions first
 fail on the old implementation. Two earlier runtime-harness failures remain
-retained separately. The added browser cases and the same-dialog Adobe-to-JSON
-transition assertion still require a fresh build and actual browser execution.
+retained separately. The four focused Chromium cases, including native selection/retry and the
+same-dialog Adobe-to-JSON transition, subsequently pass against the fresh
+`238c0d7ea` build with zero retries or skips.
 
 `92d79e5ca` signs a temporary copy of only the admitted Mac helper, verifies
 Developer ID and the configured team, and checks signature-stripped executable
