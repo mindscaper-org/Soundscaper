@@ -91,12 +91,14 @@ export function formatXmlNumber(value: number): string {
 
 export function serializeXmlDocument(root: XmlElement): string {
 	const lines: string[] = [XML_DECLARATION];
-	serializeInto(root, 0, lines);
+	serializeInto(root, 0, lines, ['']);
 	return `${lines.join('\n')}\n`;
 }
 
-function serializeInto(element: XmlElement, depth: number, lines: string[]): void {
-	const indent = '  '.repeat(depth);
+function serializeInto(element: XmlElement, depth: number, lines: string[], indents: string[]): void {
+	// One serialization owns at most 65 strings (4,160 combined characters).
+	const indent = depth <= DAWPROJECT_XML_LIMITS.maximumDepth
+		? indents[depth] ?? (indents[depth] = '  '.repeat(depth)) : '  '.repeat(depth);
 	const attributes = Object.entries(element.attributes)
 		.map(([key, value]) => ` ${key}="${escapeXml(value).replaceAll('\t', '&#9;').replaceAll('\n', '&#10;')}"`)
 		.join('');
@@ -107,21 +109,24 @@ function serializeInto(element: XmlElement, depth: number, lines: string[]): voi
 		return;
 	}
 	lines.push(`${indent}<${element.name}${attributes}>`);
-	for (const child of element.children) serializeInto(child, depth + 1, lines);
+	for (const child of element.children) serializeInto(child, depth + 1, lines, indents);
 	lines.push(`${indent}</${element.name}>`);
 }
 
 /** Escape for both attribute and element content; strip characters XML 1.0 cannot carry. */
 export function escapeXml(value: string): string {
-	return value
-		// XML 1.0 cannot carry these code points at all; the rule guards against typos, this is the point.
-		// eslint-disable-next-line no-control-regex
-		.replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, '')
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll('\r', '&#13;');
+	// Under /u, valid surrogate pairs remain whole; lone surrogates are removed.
+	// eslint-disable-next-line no-control-regex
+	return value.replace(/[&<>"\r\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, (character) => {
+		switch (character) {
+			case '&': return '&amp;';
+			case '<': return '&lt;';
+			case '>': return '&gt;';
+			case '"': return '&quot;';
+			case '\r': return '&#13;';
+			default: return '';
+		}
+	});
 }
 
 interface OpenElement {
