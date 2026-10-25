@@ -64,7 +64,8 @@ export function buildArrangement(
 
 function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExportContext): XmlElement | null {
 	if (node.kind === 'folder') {
-		const bus = context.routing.groups.find((group) => group.id === node.id);
+		const bus = context.routingLookup ? context.routingLookup.groups.get(node.id)
+			: context.routing.groups.find((group) => group.id === node.id);
 		return xmlElement('Lanes', {
 			track: context.ids.id('folder', node.id), id: context.ids.id('folder-lanes', node.id),
 		}, [
@@ -87,7 +88,7 @@ function buildNodeLanes(node: DawprojectStructureNode, context: DawprojectExport
 
 function buildMixerNodeLanes(context: DawprojectExportContext, structure: readonly DawprojectStructureNode[]): XmlElement[] {
 	const folderIds = new Set(records(context.project.trackFolders).map((folder) => String(folder.id)));
-	const additionalFolderBusIds = dawprojectAdditionalFolderBusIds(context, structure);
+	const additionalFolderBusIds = context.readAdditionalFolderBusIds?.() ?? dawprojectAdditionalFolderBusIds(context, structure);
 	const result: XmlElement[] = [];
 	for (const strip of [...context.routing.groups, ...context.routing.sends]) {
 		if (folderIds.has(strip.id) && !additionalFolderBusIds.has(strip.id)) continue;

@@ -130,8 +130,9 @@ export class PcmRepository {
 						encoding, frames, channelCount, sampleRate, pcmCrc32, priority, signal, transferInput: true,
 					});
 					const verified = exactBuffer(decoded?.payload);
-					const expectedBits = new Uint8Array(rawPayload), actualBits = new Uint8Array(verified);
-					if (verified.byteLength !== rawBytes || expectedBits.some((byte, index) => byte !== actualBits[index])) {
+					const expectedBits = new Uint32Array(rawPayload);
+					const actualBits = verified.byteLength === rawBytes ? new Uint32Array(verified) : null;
+					if (!actualBits || expectedBits.some((word, index) => word !== actualBits[index])) {
 						throw new Error('Required WavPack PCM did not preserve its exact source sample bits.');
 					}
 					throwIfAborted(signal);

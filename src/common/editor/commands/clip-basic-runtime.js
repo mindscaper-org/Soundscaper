@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { frozenTrimParticipants } from './frozen-trim-participants.ts';
+
 import {
 	assertFrame,
 	clipEndFrame,
@@ -370,10 +372,12 @@ export function collectClipTrimIds(project, activeClipId, edge) {
 	const activeClip = findClip(project, activeClipId);
 	const activeTrack = activeClip ? findClipTrack(project, activeClip.id) : null;
 	if (!activeClip || !activeTrack) return [];
-	return collectClipTransformIds(project, activeClip.id).filter((clipId) => {
+	const ids = collectClipTransformIds(project, activeClip.id);
+	const participants = frozenTrimParticipants(project, ids.length);
+	return ids.filter((clipId) => {
 		if (clipId === activeClip.id) return true;
-		const clip = findClip(project, clipId);
-		const track = clip ? findClipTrack(project, clip.id) : null;
+		const clip = participants.clip(clipId);
+		const track = clip ? participants.owner(clip.id) : null;
 		return Boolean(clip && track && track.id !== activeTrack.id);
 	});
 }

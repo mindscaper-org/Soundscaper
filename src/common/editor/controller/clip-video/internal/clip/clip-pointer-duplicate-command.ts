@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createClipTransformReaders } from './clip-transform-readers.ts';
 import { createClipboardDescriptor, preparePasteCommand } from '../../../../commands/clipboard-runtime.js';
 import type { AudioEditorClipboard, AudioEditorCommand } from '../../../../commands/protocol.ts';
 import type { ClipTransformClip, ClipTransformProject } from './clip-domain-types.ts';
@@ -19,9 +20,10 @@ export function prepareClipPointerDuplicateCommand(runtime: ClipPointerDuplicate
 	const trackIds = project.tracks.filter(track => track.clipIds?.some(id => selected.has(id))).map(track => track.id);
 	const options = { startFrame, endFrame, trackIds, clipIds: [...selected] };
 	const descriptor = runtime.createDuplicateClipboard?.(project, options) ?? createClipboardDescriptor(project, options) as AudioEditorClipboard;
+	const readers = createClipTransformReaders(project);
 	const trackMap: Record<string, string> = {};
 	for (const transform of transforms) {
-		const owner = project.tracks.find(track => track.clipIds?.includes(transform.clipId));
+		const owner = readers.anyOwner(transform.clipId);
 		if (!owner || !transform.trackId) throw new RangeError('Duplicated clips require a destination track.');
 		Object.defineProperty(trackMap, owner.id, { value: transform.trackId, enumerable: true, configurable: true });
 	}

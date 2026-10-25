@@ -6,7 +6,7 @@ import {
 	preparePffftSpectrogram,
 } from '../../pffft-spectrogram.js';
 import { useRetainedCanvasFrame } from './useRetainedCanvasFrame.ts';
-import { snapshotWaveformCanvasStyle } from './canvas-paint-measurements.ts';
+import { readWaveformCanvasMeasurements } from './waveform-canvas-measurements.ts';
 import { createWaveformGpuDisplay } from '../../design-system-adapters/waveform-gpu-display.ts';
 import { releaseWaveformSelectionLayers } from './waveform-selection-layers.ts';
 import { reprojectPendingWaveform } from './waveform-plan-continuity.ts';
@@ -114,25 +114,10 @@ export function AudacityWaveformCanvases({
 				editorRoot?.dataset.editorTheme || '',
 			].join('|');
 			const liveCanvases = new Set();
-			const measurements = [];
-			// Normalize every canvas before reading any geometry, then measure the
-			// whole row before resizing backing stores or painting its canvases.
-			const clipElements = root.querySelectorAll('[data-clip-id]');
-			for (const element of clipElements) {
-				const canvas = element.querySelector('canvas.clip-body__waveform');
-				if (canvas) normalizeAudacityCanvasStyle(canvas);
-			}
-			for (const clipElement of clipElements) {
-				const clip = clipById.get(String(clipElement.dataset.clipId));
-				const canvas = clipElement.querySelector('canvas.clip-body__waveform');
-				if (!canvas) continue;
+			const measurements = readWaveformCanvasMeasurements(root, normalizeAudacityCanvasStyle);
+			for (const { canvas, clipId, bounds, style } of measurements) {
+				const clip = clipById.get(clipId);
 				liveCanvases.add(canvas);
-				const bounds = canvas.getBoundingClientRect();
-				const color = canvas.closest('.clip-body')?.dataset.color || 'blue';
-				const style = snapshotWaveformCanvasStyle(getComputedStyle(canvas), color);
-				measurements.push({ canvas, clip, bounds, style });
-			}
-			for (const { canvas, clip, bounds, style } of measurements) {
 				if (waveformRenderer !== 'gpu') gpuRenderer?.releaseOwner(canvas);
 				if (!clip) { gpuRenderer?.releaseOwner(canvas); resetAudacityClipCanvas(canvas); continue; }
 				const selection = clipSelectionPixels(clip, timeSelection, pixelsPerSecond, bounds.width);

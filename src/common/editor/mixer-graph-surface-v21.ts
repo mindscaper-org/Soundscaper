@@ -40,20 +40,26 @@ export function mixerTrackSurfaceRouteV21(
 		? assignments[0]! : null;
 	const groupId = assignment?.destination.kind === 'mixer-node'
 		? assignment.destination.id : null;
+	const sendsByDestination = new Map<string, MixerEdgeV21[]>();
+	for (const edge of graph.edges) {
+		if (edge.kind !== 'send' || edge.source.kind !== 'track' || edge.source.id !== trackId
+			|| edge.destination.kind !== 'mixer-node') continue;
+		const matching = sendsByDestination.get(edge.destination.id);
+		if (matching) matching.push(edge);
+		else sendsByDestination.set(edge.destination.id, [edge]);
+	}
 	const sends: Record<string, number> = {};
 	const editableSendIds: string[] = [];
+	const firstSendWidths = new Map<string, number>();
 	for (const send of graph.sends) {
-		const matching = graph.edges.filter((edge) => (
-			edge.kind === 'send'
-			&& edge.source.kind === 'track' && edge.source.id === trackId
-			&& edge.destination.kind === 'mixer-node' && edge.destination.id === send.id
-		));
+		if (!firstSendWidths.has(send.id)) firstSendWidths.set(send.id, send.channelCount);
+		const matching = sendsByDestination.get(send.id) ?? [];
 		if (matching.length === 0) {
 			editableSendIds.push(send.id);
 			continue;
 		}
 		if (matching.length !== 1
-			|| !isMixerTrackSurfaceSendV21(graph, matching[0]!, trackId, send.id, widths)) continue;
+			|| !isMixerTrackSurfaceSendV21(graph, matching[0]!, trackId, send.id, widths, firstSendWidths.get(send.id))) continue;
 		Object.defineProperty(sends, send.id, { value: matching[0]!.level, enumerable: true, configurable: true, writable: true });
 		editableSendIds.push(send.id);
 	}
@@ -98,8 +104,9 @@ export function isMixerTrackSurfaceSendV21(
 	trackId: string,
 	sendId: string,
 	widths?: MixerTrackSurfaceWidthsV21,
+	knownDestinationChannels?: number,
 ): boolean {
-	const destinationChannels = graph.sends.find(({ id }) => id === sendId)?.channelCount;
+	const destinationChannels = knownDestinationChannels ?? graph.sends.find(({ id }) => id === sendId)?.channelCount;
 	return destinationChannels !== undefined
 		&& edge.kind === 'send'
 		&& edge.source.kind === 'track' && edge.source.id === trackId

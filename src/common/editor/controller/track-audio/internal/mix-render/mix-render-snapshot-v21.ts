@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { downstreamMixerNodes, mixerNodesReachingMain } from '../../../../mixer-node-closure.ts';
 import { authoredMixRenderAdm } from './mix-render-adm.ts';
 import { individualPreFaderPrintWidth, prepareIndividualPreFaderSnapshot } from './individual-pre-fader-print.ts';
 import { mixRenderDetectorClosure, type MixRenderDetectorClosure } from './mix-render-detector-closure.ts';
@@ -221,39 +222,8 @@ function reachableMixerNodeIds(
 	targetTrackIds: ReadonlySet<string>,
 ): Set<string> {
 	const busIds = new Set([...graph.groups, ...graph.sends].map(({ id }) => id));
-	const forward = new Set<string>();
-	let changed = true;
-	while (changed) {
-		changed = false;
-		for (const edge of graph.edges) {
-			if (!edge.enabled || edge.kind === 'sidechain' || edge.destination.kind !== 'mixer-node'
-				|| !busIds.has(edge.destination.id)) continue;
-			const sourceIsReachable = edge.source.kind === 'track'
-				? targetTrackIds.has(edge.source.id)
-				: edge.source.kind === 'mixer-node' && forward.has(edge.source.id);
-			if (sourceIsReachable && !forward.has(edge.destination.id)) {
-				forward.add(edge.destination.id);
-				changed = true;
-			}
-		}
-	}
-	const mainOutputIds = new Set(graph.outputs.filter(({ role }) => role === 'main').map(({ id }) => id));
-	const reachesMain = new Set<string>();
-	changed = true;
-	while (changed) {
-		changed = false;
-		for (const edge of graph.edges) {
-			if (!edge.enabled || edge.kind === 'sidechain' || edge.source.kind !== 'mixer-node'
-				|| !busIds.has(edge.source.id)) continue;
-			const destinationReachesMain = edge.destination.kind === 'master'
-				|| (edge.destination.kind === 'output' && mainOutputIds.has(edge.destination.id))
-				|| (edge.destination.kind === 'mixer-node' && reachesMain.has(edge.destination.id));
-			if (destinationReachesMain && !reachesMain.has(edge.source.id)) {
-				reachesMain.add(edge.source.id);
-				changed = true;
-			}
-		}
-	}
+	const forward = downstreamMixerNodes(graph, targetTrackIds, busIds);
+	const reachesMain = mixerNodesReachingMain(graph, busIds);
 	return new Set([...forward].filter((id) => reachesMain.has(id)));
 }
 

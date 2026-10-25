@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createAdmStripExistenceReader } from './adm-strip-existence.ts';
+
 import {
 	normalizeWavAdmRiffChunkSequence,
 	normalizeWavOpaqueRiffChunks,
@@ -267,12 +269,13 @@ export function validateAdmAuthoredRouting(
 	project: RoutingProject,
 ): readonly AdmRoutingIssue[] {
 	if (metadata?.mode !== 'authored') return Object.freeze([]);
+	const stripExists = createAdmStripExistenceReader(project);
 	const terminals = collectTerminalStrips(project);
 	const issues: AdmRoutingIssue[] = [];
 	const assignedStrips = new Set<string>();
 	const assignedBedChannels = new Set<AdmBedChannel>();
 	for (const assignment of metadata.bed.assignments) {
-		const key = resolveStripReference(project, terminals, issues, assignment, 'assignment');
+		const key = resolveStripReference(stripExists, terminals, issues, assignment, 'assignment');
 		if (key === null) continue;
 		assignedStrips.add(key);
 		assignedBedChannels.add(assignment.bedChannel);
@@ -281,7 +284,7 @@ export function validateAdmAuthoredRouting(
 	// strip that only feeds objects is routed rather than unassigned. Reporting it
 	// as missing would ask the operator to route it twice.
 	for (const object of metadata.objects ?? []) {
-		const key = resolveStripReference(project, terminals, issues, object, `object ${object.id}`);
+		const key = resolveStripReference(stripExists, terminals, issues, object, `object ${object.id}`);
 		if (key !== null) assignedStrips.add(key);
 	}
 	for (const [key, terminal] of terminals) if (!assignedStrips.has(key)) issues.push(Object.freeze({
@@ -304,7 +307,7 @@ export function listAdmTerminalStrips(project: RoutingProject): readonly AdmTerm
 
 /** Check one strip reference, reporting what is wrong and returning its key when it is not. */
 function resolveStripReference(
-	project: RoutingProject,
+	stripExists: (kind: AdmTerminalStripKind, id: string) => boolean,
 	terminals: ReadonlyMap<string, { kind: AdmTerminalStripKind; id: string; channelCount: number }>,
 	issues: AdmRoutingIssue[],
 	reference: Readonly<{ stripKind: AdmTerminalStripKind; stripId: string; sourceChannel: number }>,
@@ -314,7 +317,7 @@ function resolveStripReference(
 	const key = stripKey(stripKind, stripId);
 	const terminal = terminals.get(key);
 	if (!terminal) {
-		const known = stripExists(project, stripKind, stripId);
+		const known = stripExists(stripKind, stripId);
 		issues.push(Object.freeze({
 			code: known ? 'non-terminal-strip' : 'unknown-strip',
 			stripKind,
@@ -530,11 +533,6 @@ function masterFedStrips(project: RoutingProject): ReadonlySet<string> | null {
 		fed.add(source.id);
 	}
 	return fed;
-}
-
-function stripExists(project: RoutingProject, kind: AdmTerminalStripKind, id: string): boolean {
-	if (kind === 'track') return Boolean(project.tracks?.some((track) => track.type === 'audio' && track.id === id));
-	return Boolean(project.mixer?.[kind === 'group' ? 'groups' : 'sends']?.some((bus) => bus.id === id));
 }
 
 function canonicalEqual(left: unknown, right: unknown): boolean {

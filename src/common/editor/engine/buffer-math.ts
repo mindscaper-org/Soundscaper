@@ -243,13 +243,14 @@ export function sliceAudioBuffer(
 export function createImpulseResponse(context: BaseAudioContext, duration: number, decay: number): AudioBuffer {
 	const length = Math.max(1, Math.round(duration * context.sampleRate));
 	const impulse = context.createBuffer(2, length, context.sampleRate);
-	for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
-		const data = impulse.getChannelData(channel);
-		let seed = 0x1234567 + channel * 997;
-		for (let index = 0; index < length; index += 1) {
-			seed = (seed * 16807) % 2147483647;
+	const channels = Array.from({ length: impulse.numberOfChannels }, (_, channel) => impulse.getChannelData(channel));
+	const seeds = channels.map((_, channel) => 0x1234567 + channel * 997);
+	for (let index = 0; index < length; index += 1) {
+		const envelope = (1 - index / length) ** decay;
+		for (let channel = 0; channel < channels.length; channel += 1) {
+			const seed = seeds[channel] = (seeds[channel]! * 16807) % 2147483647;
 			const noise = seed / 1073741823.5 - 1;
-			data[index] = noise * ((1 - index / length) ** decay);
+			channels[channel]![index] = noise * envelope;
 		}
 	}
 	return impulse;

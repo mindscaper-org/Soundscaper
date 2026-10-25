@@ -19,9 +19,15 @@ class Biquad {
 	private z2 = 0;
 	configure(rate: number, frequency: number, q: number, lowpass = false): void {
 		const angle = 2 * Math.PI * frequency / rate;
-		const alpha = Math.sin(angle) / (2 * q);
+		this.configureAngles(Math.sin(angle), Math.cos(angle), q, lowpass);
+	}
+	copyCoefficients(source: Biquad): void {
+		this.b0 = source.b0; this.b1 = source.b1; this.b2 = source.b2;
+		this.a1 = source.a1; this.a2 = source.a2;
+	}
+	configureAngles(sine: number, cosine: number, q: number, lowpass: boolean): void {
+		const alpha = sine / (2 * q);
 		const inverse = 1 / (1 + alpha);
-		const cosine = Math.cos(angle);
 		this.b0 = lowpass ? (1 - cosine) * .5 * inverse : alpha * inverse;
 		this.b1 = lowpass ? 2 * this.b0 : 0;
 		this.b2 = lowpass ? this.b0 : -this.b0;
@@ -74,11 +80,14 @@ export function createVocoderProcessor({ sampleRate, channelCount, params = {} }
 			const frequency = firstFrequency * ratio ** band;
 			if (!envelopesOnly) {
 				analysis[band].configure(sampleRate, frequency, q);
-				carrier[band].configure(sampleRate, frequency, q);
-				synthesis[band].configure(sampleRate, frequency, q);
+				carrier[band].copyCoefficients(analysis[band]);
+				synthesis[band].copyCoefficients(analysis[band]);
 			}
+			const envelopeAngle = 2 * Math.PI * (frequency / settings.distance) / sampleRate;
+			const envelopeSine = Math.sin(envelopeAngle);
+			const envelopeCosine = Math.cos(envelopeAngle);
 			for (let section = 0; section < 4; section += 1) {
-				envelope[band][section].configure(sampleRate, frequency / settings.distance, ENVELOPE_Q[section], true);
+				envelope[band][section].configureAngles(envelopeSine, envelopeCosine, ENVELOPE_Q[section], true);
 			}
 			if (!envelopesOnly && channelCount === 1) {
 				const angle = 2 * Math.PI * frequency / sampleRate;

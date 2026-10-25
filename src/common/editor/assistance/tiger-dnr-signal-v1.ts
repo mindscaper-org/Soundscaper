@@ -145,7 +145,7 @@ export function mergeTigerDnrStemV1(value: unknown): readonly Float32Array[] {
 	const chunks = boundedArray(row.chunks, plan.chunks.length, plan.chunks.length,
 		'TIGER-DnR output chunk inventory');
 	const accumulator = Array.from({ length: channelCount },
-		() => new Float32Array(plan.paddedFrameCount));
+		() => new Float32Array(plan.sourceFrameCount));
 	for (let index = 0; index < chunks.length; index += 1) {
 		const record = exactRecord(chunks[index], MERGE_CHUNK_FIELDS,
 			`TIGER-DnR output chunk ${String(index)}`);
@@ -158,22 +158,20 @@ export function mergeTigerDnrStemV1(value: unknown): readonly Float32Array[] {
 			throw new RangeError('A TIGER-DnR output chunk changed channel geometry.');
 		}
 		const chunk = plan.chunks[index]!;
+		const start = Math.max(0, plan.cropStartFrame - chunk.paddedStartFrame);
+		const end = Math.min(chunk.availableFrameCount, plan.cropStartFrame + plan.sourceFrameCount - chunk.paddedStartFrame);
+		const offset = chunk.paddedStartFrame - plan.cropStartFrame;
 		for (let channel = 0; channel < channelCount; channel += 1) {
 			const destination = accumulator[channel]!;
 			const source = planes[channel]!;
-			for (let frame = 0; frame < chunk.availableFrameCount; frame += 1) {
-				destination[chunk.paddedStartFrame + frame] = Math.fround(
-					destination[chunk.paddedStartFrame + frame]! + source[frame]!,
-				);
+			for (let frame = start; frame < end; frame += 1) {
+				destination[offset + frame] = Math.fround(destination[offset + frame]! + source[frame]!);
 			}
 		}
 	}
 	return Object.freeze(accumulator.map((channel) => {
-		const output = new Float32Array(plan.sourceFrameCount);
-		for (let frame = 0; frame < output.length; frame += 1) {
-			output[frame] = channel[plan.cropStartFrame + frame]! / plan.overlapDivisor;
-		}
-		return output;
+		for (let frame = 0; frame < channel.length; frame += 1) channel[frame] = channel[frame]! / plan.overlapDivisor;
+		return channel;
 	}));
 }
 

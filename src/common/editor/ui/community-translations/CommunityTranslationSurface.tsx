@@ -21,7 +21,7 @@ import {
 import type { CommunityTranslationPresentationPort } from './community-translation-presentation.ts';
 import { useCommunityTranslationDraft } from './useCommunityTranslationDraft.ts';
 import { useTranslationRemovalFocus } from './useTranslationRemovalFocus.ts';
-import { communityTranslationMessageKeys } from './community-translation-message-filter.ts';
+import { communityTranslationMessageKeys, createCommunityTranslationDraftReader } from './community-translation-message-filter.ts';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import { useAudioEditorThemeVariables } from '../DesignSystemRuntime.jsx';
 import './community-translations.css';
@@ -57,7 +57,8 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	const rememberRemovalFocus = useTranslationRemovalFocus(locale, searchRef);
 	const importRef = useRef<HTMLInputElement>(null);
 	const baseline = loaded?.snapshot.entries[selectedKey];
-	const selectedDraft = loaded?.draft.entries.find(({ key }) => key === selectedKey);
+	const readDraft = useMemo(() => createCommunityTranslationDraftReader(loaded?.draft), [loaded?.draft]);
+	const selectedDraft = readDraft(selectedKey);
 	const source = baseline?.source ?? selectedDraft?.source ?? '';
 	const metadata = EDITOR_COPY_METADATA[selectedKey];
 	const origin = publishedTranslationOrigin(baseline, locale === 'de' ? metadata?.bundledGerman : undefined);
@@ -183,7 +184,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 		{!loaded && !error && <p role="status">{copy.loading}</p>}
 		{loaded && <><label>{copy.messages} ({keys.length})<select size={6} value={selectedKey}
 			onChange={(event) => setSelectedKey(event.target.value)}>{displayedKeys.map((key) =>
-				<option key={key} value={key}>{key} — {(loaded.snapshot.entries[key]?.source ?? loaded.draft.entries.find((entry) => entry.key === key)?.source ?? '').slice(0, 100)}</option>)}</select></label>
+				<option key={key} value={key}>{key} — {(loaded.snapshot.entries[key]?.source ?? readDraft(key)?.source ?? '').slice(0, 100)}</option>)}</select></label>
 			{!keys.length && <p>{copy.empty}</p>}
 			{selectedKey && <form onSubmit={(event) => { event.preventDefault(); saveChange(); }}>
 				<label>{copy.key}<input readOnly value={selectedKey} dir="ltr" /></label>

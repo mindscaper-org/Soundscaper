@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { downstreamMixerNodes } from '../../../../mixer-node-closure.ts';
 import { admBedChannelOrder, authoredAdmChannelCount, normalizeAdmProjectMetadata, type AdmAuthoredMetadata } from '../../../../adm-project-metadata.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import { normalizeMixerGraphV21 } from '../../../../mixer-graph-v21.ts';
@@ -63,18 +64,5 @@ export function combinedAdmMixCommands(
 }
 
 function contributingMixerNodes(project: ControllerProject, trackIds: ReadonlySet<string>): ReadonlySet<string> {
-	const nodes = new Set<string>();
-	const graph = normalizeMixerGraphV21(project.mixer);
-	let changed = true;
-	while (changed) {
-		changed = false;
-		for (const edge of graph.edges) {
-			if (!edge.enabled || edge.kind === 'sidechain' || edge.destination.kind !== 'mixer-node') continue;
-			const source = edge.source;
-			if ((source.kind === 'track' && trackIds.has(source.id)) || (source.kind === 'mixer-node' && nodes.has(source.id))) {
-				if (!nodes.has(edge.destination.id)) { nodes.add(edge.destination.id); changed = true; }
-			}
-		}
-	}
-	return nodes;
+	return downstreamMixerNodes(normalizeMixerGraphV21(project.mixer), trackIds);
 }

@@ -75,6 +75,12 @@ export function planDerivativeCacheEviction(
 	let remainingBytes = accounted.reduce((total, record) => safeAdd(total, record.size), 0);
 	let remainingEntries = accounted.length;
 	const before = totals(remainingBytes, remainingEntries);
+	const expiryCutoff = maximumAgeMs === undefined || now === undefined ? undefined : now - maximumAgeMs;
+	if (remainingBytes <= maximumBytes && remainingEntries <= maximumEntries
+		&& (expiryCutoff === undefined || accounted.every(candidate => Number.isFinite(candidate.committedAt) && candidate.committedAt > expiryCutoff))) {
+		return Object.freeze({ limits: Object.freeze({ maximumBytes, maximumEntries, maximumAgeMs, now }), before,
+			after: totals(remainingBytes, remainingEntries), removedBytes: 0, removals: Object.freeze([]) });
+	}
 	const ordered = [...accounted].sort(compareOldestFirst);
 	const removalKeys = new Set<string>();
 	const removals: Readonly<DerivativeCacheRecord>[] = [];

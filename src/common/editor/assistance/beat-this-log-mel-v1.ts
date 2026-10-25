@@ -22,6 +22,13 @@ const MAXIMUM_RANGE_FRAMES = 1_500;
 const CANCELLATION_FRAME_INTERVAL = 16;
 const HANN_WINDOW = periodicHann();
 const MEL_FILTER_BANK = slaneyMelFilterBank();
+const MEL_SUPPORT = Array.from({ length: ASSISTANCE_BEAT_THIS_MEL_BINS }, (_, mel) => {
+	let start = 0;
+	let end = HALF_FFT + 1;
+	while (start < end && MEL_FILTER_BANK[start * ASSISTANCE_BEAT_THIS_MEL_BINS + mel] === 0) start++;
+	while (end > start && MEL_FILTER_BANK[(end - 1) * ASSISTANCE_BEAT_THIS_MEL_BINS + mel] === 0) end--;
+	return { start, end };
+});
 
 export interface AssistanceBeatThisLogMelV1 {
 	readonly frameCount: number;
@@ -99,22 +106,23 @@ export async function createAssistanceBeatThisLogMelRangeV1(
 	const real = new Float32Array(ASSISTANCE_BEAT_THIS_FFT_SIZE);
 	const imaginary = new Float32Array(ASSISTANCE_BEAT_THIS_FFT_SIZE);
 	const magnitude = new Float32Array(HALF_FFT + 1);
+	const magnitudeScale = Math.sqrt(ASSISTANCE_BEAT_THIS_FFT_SIZE);
 	for (let frame = 0; frame < frameCount; frame += 1) {
 		signal?.throwIfAborted();
 		fillWindowedFrame(real, imaginary, samples, readStart,
 			frameStart + frame, source.sampleCount);
 		fftInPlace(real, imaginary);
+		let finiteMagnitude = true;
 		for (let frequency = 0; frequency <= HALF_FFT; frequency += 1) {
-			magnitude[frequency] = Math.fround(
-				Math.hypot(real[frequency]!, imaginary[frequency]!) / Math.sqrt(
-					ASSISTANCE_BEAT_THIS_FFT_SIZE,
-				),
-			);
+			magnitude[frequency] = Math.fround(Math.hypot(real[frequency]!, imaginary[frequency]!) / magnitudeScale);
+			if (!Number.isFinite(magnitude[frequency])) finiteMagnitude = false;
 		}
 		const outputOffset = frame * ASSISTANCE_BEAT_THIS_MEL_BINS;
 		for (let mel = 0; mel < ASSISTANCE_BEAT_THIS_MEL_BINS; mel += 1) {
 			let energy = 0;
-			for (let frequency = 0; frequency <= HALF_FFT; frequency += 1) {
+			const start = finiteMagnitude ? MEL_SUPPORT[mel]!.start : 0;
+			const end = finiteMagnitude ? MEL_SUPPORT[mel]!.end : HALF_FFT + 1;
+			for (let frequency = start; frequency < end; frequency += 1) {
 				energy = Math.fround(energy + Math.fround(
 					magnitude[frequency]! * MEL_FILTER_BANK[
 						frequency * ASSISTANCE_BEAT_THIS_MEL_BINS + mel
@@ -193,10 +201,10 @@ function fftInPlace(real: Float32Array, imaginary: Float32Array): void {
 	for (let length = 2; length <= size; length <<= 1) {
 		const half = length >> 1;
 		const angle = -2 * Math.PI / length;
-		for (let start = 0; start < size; start += length) {
-			for (let offset = 0; offset < half; offset += 1) {
-				const cosine = Math.cos(angle * offset);
-				const sine = Math.sin(angle * offset);
+		for (let offset = 0; offset < half; offset += 1) {
+			const cosine = Math.cos(angle * offset);
+			const sine = Math.sin(angle * offset);
+			for (let start = 0; start < size; start += length) {
 				const right = start + offset + half;
 				const left = start + offset;
 				const rotatedReal = Math.fround(real[right]! * cosine - imaginary[right]! * sine);

@@ -7,7 +7,8 @@ import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { KEYBOARD_MAP_COPY_BY_LOCALE } from '../../../i18n/editor-keyboard-map-copy.ts';
 import { AUDIO_EDITOR_RESERVED_SHORTCUTS, AUDIO_EDITOR_SEARCH_ACTION_ID } from '../../preferences.js';
 import { keyboardMapContextBindings } from './keyboard-map-contexts.ts';
-import { KEYBOARD_MAP_ROWS, keyboardMapBindings, keyboardMapState, keyboardMapStateLabel, type KeyboardMapCommand } from './keyboard-map-model.ts';
+import { keyboardMapBindings, keyboardMapState, keyboardMapStateLabel, type KeyboardMapCommand } from './keyboard-map-model.ts';
+import { createKeyboardMapBindingView, keyboardMapViewRows } from './keyboard-map-view.ts';
 import './KeyboardMapDialog.css';
 
 interface Props {
@@ -34,6 +35,7 @@ export default function KeyboardMapDialog({ commands, shortcuts, copy: editorCop
 	const contexts = useMemo(() => [...new Map(bindings.map(binding => [binding.context, binding.contextLabel])).entries()], [bindings]);
 	const states = useMemo(() => ['plain', ...new Set(bindings.map(binding => binding.state).filter(state => state !== 'plain'))], [bindings]);
 	const state = held ?? picked;
+	const bindingView = useMemo(() => createKeyboardMapBindingView(visible), [visible]);
 	useEffect(() => {
 		const read = (event: KeyboardEvent) => {
 			const mods = [event.ctrlKey ? 'Ctrl' : '', event.metaKey ? 'Meta' : '', event.altKey ? 'Alt' : '', event.shiftKey ? 'Shift' : ''].filter(Boolean);
@@ -49,9 +51,7 @@ export default function KeyboardMapDialog({ commands, shortcuts, copy: editorCop
 			window.removeEventListener('blur', blur);
 		};
 	}, []);
-	const layoutKeys = new Set(KEYBOARD_MAP_ROWS.flat());
-	const extra = [...new Set(bindings.map(binding => binding.key))].filter(key => !layoutKeys.has(key));
-	const rows = extra.length ? [...KEYBOARD_MAP_ROWS, extra] : KEYBOARD_MAP_ROWS;
+	const rows = useMemo(() => keyboardMapViewRows(bindings), [bindings]);
 	const style = {
 		'--km-bg': theme.background.menu.background, '--km-cap': theme.background.control.input.idle,
 		'--km-cap-edge': theme.border.input.idle, '--km-line': theme.border.default,
@@ -75,8 +75,8 @@ export default function KeyboardMapDialog({ commands, shortcuts, copy: editorCop
 			</div>
 			<div className="keyboard-map__board-wrap"><div className="keyboard-map__board" aria-label={copy.keyboard}>
 				{rows.map((row, index) => <div key={index} className="keyboard-map__row">{row.map((key, keyIndex) => {
-					const here = visible.filter(binding => binding.key === key && binding.state === state);
-					const anywhere = visible.some(binding => binding.key === key);
+					const here = bindingView.at(key, state);
+					const anywhere = bindingView.has(key);
 					const modifier = ['Ctrl', 'Meta', 'Alt', 'Shift', 'CapsLock'].includes(key);
 					const unit = key === 'Space' ? 5.6 : ['Tab', 'Enter', 'Backspace', 'Shift', 'CapsLock'].includes(key) ? 1.6 : 1;
 					return <button key={`${key}:${keyIndex}`} type="button" data-key={key} className={[
@@ -94,7 +94,7 @@ export default function KeyboardMapDialog({ commands, shortcuts, copy: editorCop
 			<div className="keyboard-map__detail" aria-live="polite" data-keyboard-map-detail>
 				{selected ? <><h3 className="keyboard-map__detail-title">{keyCap(selected)}</h3>
 					{contexts.map(([id, label]) => {
-						const entries = visible.filter(binding => binding.key === selected && binding.context === id);
+						const entries = bindingView.inContext(selected, id);
 						return entries.length > 0 && <section key={id} className="keyboard-map__ctx-group" data-detail-context={id}>
 							<h4 className="keyboard-map__ctx-title">{label}</h4>
 							{entries.map(binding => <div key={binding.id} className="keyboard-map__binding"><kbd>{binding.text}</kbd><span>{binding.action}</span></div>)}

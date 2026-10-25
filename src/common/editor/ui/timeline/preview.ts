@@ -9,6 +9,9 @@ import { framesToSeconds } from '../../design-system-adapters.js';
 
 export const MINIMUM_VISIBLE_CLIP_PIXELS = 48;
 const EMPTY_DESIGN_SYSTEM_WAVEFORM = Object.freeze([]);
+const TYPED_ARRAY_PROTOTYPE = Object.getPrototypeOf(Float32Array.prototype) as object;
+const NATIVE_PEAK_ITERATOR: unknown = Object.getOwnPropertyDescriptor(TYPED_ARRAY_PROTOTYPE, Symbol.iterator)?.value;
+const NATIVE_PEAK_BUFFER = Object.getOwnPropertyDescriptor(TYPED_ARRAY_PROTOTYPE, 'buffer')!.get as (this: Float32Array) => unknown;
 
 export type RecordingPeakChannel = readonly number[] | Float32Array;
 
@@ -123,7 +126,18 @@ export function recordingPreviewWaveformWindow(
 		startPair + 1,
 		Math.min(pairCount, Math.ceil(clip.waveformEndFrame / clip.durationFrames * pairCount)),
 	);
-	return Array.from(channel.slice(startPair * 2, endPair * 2));
+	// Native recording snapshots need only the detached boxed output. The view
+	// dies with this call; custom slicing/species retain their original behavior.
+	const window = ArrayBuffer.isView(channel) && channel instanceof Float32Array && Object.getPrototypeOf(channel) === Float32Array.prototype
+		&& !Object.hasOwn(channel, 'slice') && !Object.hasOwn(channel, 'constructor')
+		&& Object.getOwnPropertyDescriptor(Float32Array.prototype, 'constructor')?.value === Float32Array
+		&& !Object.hasOwn(channel, Symbol.iterator) && !Object.hasOwn(Float32Array, Symbol.species)
+		&& !Object.hasOwn(Float32Array.prototype, Symbol.iterator) && Object.getPrototypeOf(Float32Array.prototype) === TYPED_ARRAY_PROTOTYPE
+		&& Object.getOwnPropertyDescriptor(TYPED_ARRAY_PROTOTYPE, Symbol.iterator)?.value === NATIVE_PEAK_ITERATOR
+		&& !Object.hasOwn(channel, 'buffer') && NATIVE_PEAK_BUFFER.call(channel) instanceof ArrayBuffer
+		? Float32Array.prototype.subarray.call(channel, startPair * 2, endPair * 2)
+		: channel.slice(startPair * 2, endPair * 2);
+	return Array.from(window);
 }
 
 export function prepareRecordingPreviewWaveform(

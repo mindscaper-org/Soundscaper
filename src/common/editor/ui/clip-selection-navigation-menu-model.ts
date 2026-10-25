@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { projectHasTimelineAudio } from './timeline-media-presence.ts';
 import type { ApplicationSelectionMenuPort } from './workspace/selection-view-menu-ports.ts';
 import { AUDIO_EDITOR_APPLICATION_MENU_ACTION_IDS as ACTION_IDS } from './application-menu-registry.ts';
 
@@ -30,13 +31,7 @@ export function createClipSelectionNavigationMenuModel(
 	const selectedTrackIds = input.project?.selection?.trackIds ?? [];
 	const hasTrackSelection = selectedTrackIds.some((id) => projectTrackIds.has(id))
 		|| Boolean(input.selectedTrackId && projectTrackIds.has(input.selectedTrackId));
-	const audioClipIds = new Set(input.project?.clips
-		.filter(({ kind }) => kind === undefined || kind === 'audio')
-		.map(({ id }) => id) ?? []);
-	const hasAudioClips = Boolean(input.project?.tracks.some((track) => (
-		track.type === 'audio' && track.clipIds?.some((clipId) => audioClipIds.has(clipId))
-	)));
-	const clipNavigationBlocked = input.blocked || !hasAudioClips;
+	const clipNavigationBlocked = input.blocked || !projectHasTimelineAudio(input.project);
 
 	return Object.freeze({
 		selectNoTracks: Object.freeze({

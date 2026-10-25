@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createFrozenClipReader } from './frozen-clip-reader.ts';
 import { commandIdentity, setCommandIdentity } from './command-identity-map.ts';
 
 import {
@@ -55,6 +56,7 @@ function affectedTrackIds(project, placements, ripples) {
  * @returns {import('./protocol.ts').AudioEditorCommand}
  */
 export function prepareThreePointEditCommand(project, options = {}, idFactory = createStableId) {
+	const readClip = createFrozenClipReader(project);
 	const mode = options.mode === 'insert' ? 'insert' : 'overwrite';
 	const range = normalizeFrameRange(options.startFrame, options.endFrame, 'edit range');
 	const placements = (Array.isArray(options.placements) ? options.placements : []).map((placement) => {
@@ -83,7 +85,7 @@ export function prepareThreePointEditCommand(project, options = {}, idFactory = 
 		const operationRange = geometry.trackRanges.get(trackId) ?? range;
 		if (!operationRange) continue;
 		for (const clipId of requireTrack(project, trackId).clipIds) {
-			const clip = requireClip(project, clipId);
+			const clip = readClip(clipId);
 			if (!splitsAt(clip, operationRange, mode)) continue;
 			setCommandIdentity(splitClipIds, clip.id, idFactory('clip'));
 			const effectIds = prepareVideoEffectIds(clip, idFactory);
