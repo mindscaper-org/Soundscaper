@@ -81,7 +81,7 @@ test('a stalled capture seek times out without retaining listeners or starting c
 	const fixture = decoderFixture({ deferSeek: true });
 	const extractor = await fixture.open();
 	try {
-		await assert.rejects(extractor.capture(.5, { timeoutMs: 5 }), /browser could not seek this video/u);
+		await assert.rejects(extractor.capture(.5, { timeoutMs: 5 }), /Timed out waiting for a presented video frame/u);
 		assert.equal(fixture.video.listenerCount(), 0);
 		assert.equal(fixture.canvasCount(), 0);
 	} finally { extractor.dispose(); }
