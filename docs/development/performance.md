@@ -139,8 +139,9 @@ This batch contains 100 independently probed operations in active audio,
 editing, presentation, storage and export paths. The fixtures below include
 preparation work where applicable. Counts describe the named operations;
 they do not establish an end-to-end speedup. Loading work is excluded. The
-attempted FFT loop interchange was reverted after timing regressions and is
-excluded from this inventory, so the audio IDs deliberately skip A11.
+attempted FFT loop interchange and locale collators created for every sort
+were reverted after timing regressions and are excluded from this inventory. The
+IDs deliberately skip A11, U15 and U16; U38 and U39 are recording replacements.
 
 | ID | Operation | Observed work and fixture | Regression |
 | --- | --- | --- | --- |
@@ -203,8 +204,6 @@ excluded from this inventory, so the audio IDs deliberately skip A11.
 | U12 | Timeline media membership admission | 500 to 1 clip identity reads; 500 audio clips; first is referenced by one audio track. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
 | U13 | Disabled clip-navigation admission | 1 to 0 unnecessary clip kind reads; blocked menu with selected track and audio clip. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
 | U14 | Effect target selection membership | 90,300 to 300 selected track ID element reads; 300 selected IDs, 301 candidate tracks. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
-| U15 | Effect alphabetical list collation | 150 to 0 localeCompare calls requiring repeated locale setup; all registered Effect menu entries. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
-| U16 | Assistance Effect block collation | 7 to 0 localeCompare calls requiring repeated locale setup; Soundscaper assistance effect block plus management entry. | [Test](../../tests/audio-editor-runtime100-ui-models.test.ts) |
 | U17 | Custom toolbar action resolution | 20,000 to 200 action identity reads; 100 custom buttons and 200 current actions. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
 | U18 | Keyboard map binding presentation | 45,050 to 200 binding key reads; 100 key/state/context queries on 200 bindings. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
 | U19 | Keyboard map modifier row reuse | 1 to 0 keyboard layout flatten passes per modifier change; mounted keyboard dialog Ctrl modifier click. | [Test](../../tests/audio-editor-runtime100-ui-presentation.test.tsx) |
@@ -226,6 +225,8 @@ excluded from this inventory, so the audio IDs deliberately skip A11.
 | U35 | Waveform canvas subtree lookup | 200 to 100 canvas subtree queries; 100 canvases normalized before 100 geometry reads. | [Test](../../tests/audio-editor-runtime100-ui-paint.test.ts) |
 | U36 | Spectrogram tile source geometry preparation | 257 to 2 source origin field reads; 256-column unwarped tile; reset geometry for each sequential tile planning batch. | [Test](../../tests/audio-editor-runtime100-ui-spectrogram.test.ts) |
 | U37 | Spectrogram integer stride iteration | 256 to 0 boxed pixel-position pushes; 256 columns; existing fractional-width/stride/warp/loop/cancellation compatibility. | [Test](../../tests/audio-editor-runtime100-ui-spectrogram.test.ts) |
+| U38 | Recording input conflict checks | 2,114 to 0 temporary arrays for 32 devices with 64 channels and 64 assigned routes (mono); stereo: 1,057 to 0. | [Test](../../tests/audio-editor-runtime100-ui-recording-options.test.tsx) |
+| U39 | Recording preview peak windows | 131,072 to 0 temporary Float32 copy bytes; eight channels with 4,096 peak numbers each, over an 8,192-frame visible window. | [Test](../../tests/audio-editor-runtime100-ui-recording-peaks.test.ts) |
 | R01 | DAWproject channel and folder routing identities | 25,600 to 0 Array.find predicate visits; 160 audio tracks, 160 groups and 160 sends. | [Test](../../tests/audio-editor-runtime100-export-routing.test.ts) |
 | R02 | DAWproject automation strip partition | 83,031 to 2,631 Array.filter predicate visits; 200 tracks and 200 immutable automation lane addresses. | [Test](../../tests/audio-editor-runtime100-export-automation.test.ts) |
 | R03 | DAWproject routing-report endpoint lookup | 40,200 to 200 Array.find predicate visits; 200 graph edges and 200 immutable output identities. | [Test](../../tests/audio-editor-runtime100-export-routing-report.test.ts) |
@@ -241,9 +242,9 @@ excluded from this inventory, so the audio IDs deliberately skip A11.
 | R15 | Source metadata inventory single output array | 500 to 0 native full inventory Array.map clone visits; 500 references of intermediate output avoided; 500 source records; full clones and inventory membership under cloning getters. | [Test](../../tests/audio-editor-runtime100-retention-memory.test.ts) |
 | R16 | Single-pass XML escaping | 6 to 1 full-string escape scans; 500-character attribute text with entities, Unicode and controls. | [Test](../../tests/audio-editor-runtime100-export-xml.test.ts) |
 | R17 | Bounded per-document indentation reuse | 1,001 to 1 String.repeat calls; 1,000-child XML document with shallow repeated depth. | [Test](../../tests/audio-editor-runtime100-export-xml.test.ts) |
-| R18 | Memory original media deletion selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with only related records selected; clone, mutation and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
-| R19 | Memory source generation detachment selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with only related records selected; clone, mutation and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
-| R20 | Memory source chunk stream selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with only related records selected; clone, mutation and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
+| R18 | Memory original media deletion selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with selected outputs; snapshot membership, getter mutation, clone ownership and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
+| R19 | Memory source generation detachment selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with selected outputs; snapshot membership, getter mutation, clone ownership and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
+| R20 | Memory source chunk stream selection | 500 to 0 full inventory Array.map predicate visits; 500 inventory rows with selected outputs; snapshot membership, getter mutation, clone ownership and error order parity. | [Test](../../tests/audio-editor-runtime100-storage-selection.test.ts) |
 
 Indexes for editing, export and memory pruning belong to one invocation, view,
 or immutable owner. Identity admission preserves first or last duplicate
@@ -251,8 +252,10 @@ authority as the original operation requires. Mutable records, accessors,
 sparse arrays and custom traversal retain the original live-read paths.
 Small command selections retain short-circuit traversal before index admission.
 Export maps retain identities and lane references, never copied PCM. The
-metadata lookup retains at most eight requested keys. XML indentation reuse
-retains at most 65 strings and 4,160 characters for one serialization; deeper
+metadata lookup retains at most eight requested keys. Recording preview windows
+box native peak views directly into detached number arrays, without a temporary
+Float32 copy; custom iterators, species, accessors and shared buffers keep the
+original slicing path. XML indentation reuse retains at most 65 strings and 4,160 characters for one serialization; deeper
 nesting uses the original calculation.
 
 Custom action and symbol search retain at most 16,384 entries and 4,194,304
