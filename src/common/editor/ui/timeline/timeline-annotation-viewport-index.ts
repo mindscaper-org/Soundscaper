@@ -25,9 +25,10 @@ export function createTimelineAnnotationViewportIndex(annotations: readonly Runt
 			const roundingFrames = Math.max(1, Math.ceil(Math.max(Math.abs(firstFrame), Math.abs(lastFrame)) * Number.EPSILON * 4));
 			const from = Math.min(Number.MAX_SAFE_INTEGER - 1, Math.max(0, Math.floor(firstFrame) - roundingFrames));
 			const to = Math.min(Number.MAX_SAFE_INTEGER, Math.max(from + 1, Math.ceil(lastFrame) + roundingFrames));
-			const found = new Map(index.query(from, to).filter(({ annotation }) => timelineAnnotationIsVisible(
-				annotation, pixelsPerSecond, sampleRate, scrollX, viewportWidth,
-			)).map(wrapper => [wrapper.id, wrapper]));
+			const found = new Map<string, typeof wrappers[number]>();
+			for (const wrapper of index.query(from, to)) {
+				if (timelineAnnotationIsVisible(wrapper.annotation, pixelsPerSecond, sampleRate, scrollX, viewportWidth)) found.set(wrapper.id, wrapper);
+			}
 			for (const id of retainedIds) {
 				const wrapper = id === null ? undefined : byId.get(id);
 				if (wrapper) found.set(wrapper.id, wrapper);
