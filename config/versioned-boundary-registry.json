@@ -1250,6 +1250,8 @@
 		,
 		{ "path": "src/common/editor/imaging/photo-develop-display-frame-v1.ts", "kind": "helper-contract", "justification": "photo-develop-display-frame-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
+		{ "path": "src/common/editor/imaging/photo-develop-display-task-budget-v1.ts", "kind": "helper-contract", "justification": "Version 1 scopes the Photo display-copy scheduling contract: 65,536-pixel spans and real timer yields with cancellation checks. This internal helper does not define persisted image, RAW, or product project-schema versions." }
+		,
 		{ "path": "src/common/editor/imaging/pixel-frame-admission-v1.ts", "kind": "ipc-contract", "justification": "Version-1 pixel interchange admission binds declared sample and color profiles to explicit processor support without changing the persisted descriptor." }
 		,
 		{"path": "src/common/editor/imaging/pixel-frame-body-v1.ts", "kind": "helper-contract", "justification": "Version1 callback-scoped pixel body admission binds genuine Blob geometry, profile, length and output digest to one wiped bounded staging buffer."}
@@ -3005,6 +3007,8 @@
 		{ "path": "src/lightscaper/import/photo-source-admission-v1.ts", "kind": "helper-contract", "justification": "Container proof for the initial static 8-bit sRGB photo source admission profile." }
 		,
 		{ "path": "src/lightscaper/internal/photo-library-restore-runtime-kernel-v1.ts", "kind": "helper-contract", "justification": "photo-library-restore-runtime-kernel-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
+		,
+		{ "path": "src/lightscaper/photo-browser-download-opportunity-current-v1.ts", "kind": "helper-contract", "justification": "Current version 1 scopes the captured browser presentation and cancellation contract for paired Photo downloads. Its Promise result reports a rendering opportunity without claiming physical download acceptance or a persisted format." }
 		,
 		{ "path": "src/lightscaper/photo-develop-gpu-preview-current-v1.ts", "kind": "helper-contract", "justification": "photo-develop-gpu-preview-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
 		,
