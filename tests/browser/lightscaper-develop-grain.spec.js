@@ -181,6 +181,16 @@ syntheticRouteTest('actual native Grain31 shader matches independent all-four-co
 	expect(failed.nativeReadbacks).toBe(1);expect(failed.nativeWebgl2).toBe(true);expect(failed.source).toEqual(GRAIN_SOURCE);
 });
 
+syntheticRouteTest('actual Frame straight Grain31 keeps asymmetric top-origin seed coordinates',async({page})=>{
+	await prepareNative(page);
+	const source=[40,80,120,100,140,180,160,200,240].flatMap(value=>[value,value,value,255]);
+	const expected=[40,82,120,97,142,180,160,199,240].flatMap(value=>[value,value,value,255]);
+	const result=await qualify(page,source,3,{amount:50,size:1,roughness:50,seed:2718},'straight');
+	expect(result.pixels).toEqual(expected);expect(result.cpuPixels).toEqual(expected);
+	expect(result.source).toEqual(source);expect(result.before).toEqual(source);
+	expect(result.authoredTypes).toEqual(['grain-v1']);expect(result.nativeWebgl2).toBe(true);expect(result.nativeReadbacks).toBe(1);
+});
+
 syntheticRouteTest('native Grain retains all256alpha, unsigned seed endpoints and signed lattice rounding against independent neighborhoods',async({page})=>{
 	await prepareNative(page);const source=Array.from({length:256},(_,n)=>[n,255-n,(n*17)%256,n]).flat();
 	for(const params of [GRAIN_PARAMS,{amount:100,size:1,roughness:100,seed:65520},{amount:37.125,size:2.25,roughness:49.8,seed:7},{amount:100,size:8,roughness:0,seed:19}]){

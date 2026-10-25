@@ -6,6 +6,7 @@ import { normalizeGrainEffectV1 } from '../../../src/common/editor/video-grain-v
 import { createVideoEffect } from '../../../src/common/editor/video-effects.js';
 import { VideoPreviewCompositor } from '../../../src/common/editor/ui/video-preview-compositor.js';
 import { applyVideoPreviewEntryEffects } from '../../../src/common/editor/ui/video-preview-entry-effects.js';
+import { renderVideoPreviewStraightRgba } from '../../../src/common/editor/ui/video-preview-straight-rgba.ts';
 import { applyVideoExactBrowserEffectsFinishing } from '../../../src/framescaper/editor-video-exact-browser-effects-finishing.ts';
 import { cloneFramescaperProjectFinishing } from '../../../src/framescaper/editor-project-finishing.ts';
 import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE as PROFILE } from '../../../src/framescaper/editor-domain-runtime-profile.ts';
@@ -37,7 +38,7 @@ export async function qualifyGrainNativeV1(value:unknown){
 	if(source.length%4||source.some(n=>typeof n!=='number'||!Number.isInteger(n)||n<0||n>255))throw new TypeError('Native grain requires bounded RGBA bytes.');
 	const height=field(input,'height','native grain'),mode=field(input,'mode','native grain');
 	if(typeof height!=='number'||!Number.isSafeInteger(height)||height<1||height>256||source.length%(4*height))throw new RangeError('Native grain height refuses.');
-	if(mode!=='target'&&mode!=='frame'&&mode!=='cancel'&&mode!=='fault')throw new RangeError('Native grain mode refuses.');
+	if(mode!=='target'&&mode!=='frame'&&mode!=='straight'&&mode!=='cancel'&&mode!=='fault')throw new RangeError('Native grain mode refuses.');
 	const grain=normalizeGrainEffectV1({id:'native-grain',type:'grain-v1',enabled:true,params:field(input,'params','native grain')});
 	const nativeRead=WebGL2RenderingContext.prototype.readPixels;
 	const pixels=new Uint8Array(source as number[]),before=[...pixels],width=pixels.length/(4*height),stop=new AbortController();
@@ -45,16 +46,20 @@ export async function qualifyGrainNativeV1(value:unknown){
 	const receivers=new Set<WebGL2RenderingContext>(),reason=new Proxy({}, {get(){traps++;throw Error();},getOwnPropertyDescriptor(){traps++;throw Error();},getPrototypeOf(){traps++;throw Error();}});
 	let cpu:Awaited<ReturnType<typeof applyVideoExactBrowserEffectsFinishing>>|undefined,output:Awaited<ReturnType<typeof applyVideoExactBrowserEffectsFinishing>>|undefined;
 	try{
-		const context=createGlobalExportContextV1([grain],width,height),persisted=cloneFramescaperProjectFinishing(PROFILE,context.project)as unknown as VideoEffectProject;
-		const effects=persisted.clips.find(clip=>clip.id==='video-clip')!.videoEffects!;
+		// Direct straight-RGBA admission accepts natural odd extents; it does not create an encoder plan.
+		const effects=mode==='straight'?[grain]:(()=>{
+			const context=createGlobalExportContextV1([grain],width,height),persisted=cloneFramescaperProjectFinishing(PROFILE,context.project)as unknown as VideoEffectProject;
+			return persisted.clips.find(clip=>clip.id==='video-clip')!.videoEffects!;
+		})();
 		cpu=await applyVideoExactBrowserEffectsFinishing({width,height,pixels},effects,stop.signal);const cpuPixels=[...cpu.pixels];cpu.pixels.fill(0);cpu=undefined;
 		WebGL2RenderingContext.prototype.readPixels=function(this:WebGL2RenderingContext,...args:unknown[]){
 			reads++;receivers.add(this);Reflect.apply(nativeRead,this,args);
 			if(mode==='cancel'||mode==='fault'){abandoned=args[6]as Uint8Array;if(mode==='fault')throw reason;stop.abort(reason);}
 		};
-		if(mode==='frame'||mode==='cancel'){
-			const mixed=[...effects,createVideoEffect('color-adjust',{id:'legacy-neutral'})];
-			try{output=await applyVideoExactBrowserEffectsFinishing({width,height,pixels},mixed,stop.signal);
+		if(mode==='frame'||mode==='straight'||mode==='cancel'){
+			const mixed=mode==='straight'?effects:[...effects,createVideoEffect('color-adjust',{id:'legacy-neutral'})];
+			try{output=mode==='straight'?await renderVideoPreviewStraightRgba({width,height,pixels},mixed,stop.signal)
+				:await applyVideoExactBrowserEffectsFinishing({width,height,pixels},mixed,stop.signal);
 				return{pixels:[...output.pixels],cpuPixels,source:[...pixels],before,authoredTypes:mixed.map(effect=>effect.type),nativeReadbacks:reads,
 					nativeWebgl2:receivers.size>0&&[...receivers].every(receiver=>receiver instanceof WebGL2RenderingContext)};
 			}catch(error){if(mode!=='cancel'||error!==reason)throw error;
@@ -80,9 +85,22 @@ function target(pixels:Uint8Array<ArrayBuffer>,width:number,height:number,effect
 		for(const parameter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,parameter,gl.NEAREST);
 		for(const parameter of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,parameter,gl.CLAMP_TO_EDGE);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
-		gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+		// Match the production straight-RGBA adapter: logical top rows enter GL flipped.
+		flipRows(pixels,width,height);
+		try{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,pixels);}
+		finally{flipRows(pixels,width,height);}
 		const passes=compositor.passesForEffects(effects,{x:1,y:1}),entry=applyVideoPreviewEntryEffects(compositor,texture,passes,{x:0,y:0,width,height},undefined,'native-grain')as Target;
 		output=new Uint8Array(pixels.length);gl.bindFramebuffer(gl.FRAMEBUFFER,entry.framebuffer);gl.finish();gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,output);
+		flipRows(output,width,height);
 		return{pixels:[...output],grainProgramLinked,glError:gl.getError(),passCodes:passes.map(pass=>Object.getOwnPropertyDescriptor(pass,'code')?.value as unknown)};
 	}finally{output?.fill(0);if(texture)gl.deleteTexture(texture);compositor.dispose();canvas.remove();}
+}
+
+/** Native readback and typed uploads address GL rows; literals address logical top rows. */
+function flipRows(pixels:Uint8Array,width:number,height:number):void{
+	const rowBytes=width*4,row=new Uint8Array(rowBytes);
+	try{for(let top=0,bottom=height-1;top<bottom;top++,bottom--){
+		const first=top*rowBytes,last=bottom*rowBytes;row.set(pixels.subarray(first,first+rowBytes));
+		pixels.copyWithin(first,last,last+rowBytes);pixels.set(row,last);
+	}}finally{row.fill(0);}
 }

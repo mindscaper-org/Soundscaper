@@ -25,7 +25,10 @@ vec4 grain_render(vec2 content_uv){
 	ivec2 origin=ivec2(floor(u_source_rect.xy*vec2(textureSize(u_texture,0))+0.5));
 	ivec4 color=ivec4(floor(texelFetch(u_texture,origin+center,0)*255.0+0.5));if(color.a==0)return vec4(color)/255.0;
 	highp uint spacing=uint(u_params0.y),seed=uint(u_params0.w);int roughness=int(u_params0.z);
-	int noise=grain_floor(grain_octave(uvec2(center),spacing,seed)*(256-roughness)+grain_octave(uvec2(center),spacing/2u,seed)*roughness+128,256);
+	// Compositor textures use GL bottom rows; CPU/GEQ seed natural top rows.
+	// Keep physical texelFetch coordinates and normalize only the lattice Y.
+	highp uvec2 natural_center=uvec2(center.x,size.y-1-center.y);
+	int noise=grain_floor(grain_octave(natural_center,spacing,seed)*(256-roughness)+grain_octave(natural_center,spacing/2u,seed)*roughness+128,256);
 	int luma=(54*color.r+183*color.g+19*color.b+128)/256,response=2*min(luma,255-luma);
 	int delta=grain_floor(noise*int(u_params0.x)*response+131072,262144);
 	for(int c=0;c<3;c++)color[c]=clamp(color[c]+delta,0,255);return vec4(color)/255.0;
