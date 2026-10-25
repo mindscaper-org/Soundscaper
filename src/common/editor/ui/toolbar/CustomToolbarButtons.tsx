@@ -17,9 +17,14 @@ interface GroupProps {
 
 export function CustomToolbarButtonGroup({ buttons, actions, copy, run }: GroupProps) {
 	if (buttons.length === 0) return null;
+	const actionById = new Map<string, CustomToolbarButtonAction>();
+	for (const action of actions) {
+		const id = action.actionId;
+		if (!actionById.has(id)) actionById.set(id, action);
+	}
 	return <ToolbarButtonGroup className="kw-audio-editor__custom-toolbar-buttons" gap={2}>
 		{buttons.map((button) => {
-			const action = actions.find((candidate) => candidate.actionId === button.actionId);
+			const action = actionById.get(button.actionId);
 			const disabled = !action || action.disabled || !action.onClick;
 			return <button
 				key={button.id}

@@ -33,3 +33,16 @@ export function communityTranslationMessageKeys(
 			.some((value) => value?.toLocaleLowerCase().includes(needle));
 	});
 }
+
+/** Current draft reader shared by selected-message and option-source presentation. */
+export function createCommunityTranslationDraftReader(draft: TranslationContribution | undefined) {
+	const entries = draft?.entries;
+	if (!entries || !Object.isFrozen(entries) || entries.length > 16_384
+		|| !entries.every(Object.isFrozen)) return (key: string) => entries?.find(entry => entry.key === key);
+	const byKey = new Map<string, TranslationContribution['entries'][number]>();
+	for (const entry of entries) {
+		const key = entry.key;
+		if (!byKey.has(key)) byKey.set(key, entry);
+	}
+	return (key: string) => byKey.get(key);
+}

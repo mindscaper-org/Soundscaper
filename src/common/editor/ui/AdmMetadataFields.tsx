@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 
+import { createAdmBedAssignmentReader } from './adm-bed-assignment-reader.ts';
 import './audio-editor-design-system/15-adm.css';
 
 import {
@@ -170,6 +171,7 @@ export function AdmMetadataFields({
 	}
 
 	const authored = value;
+	const readAssignment = createAdmBedAssignmentReader(authored.bed.assignments);
 	const sourceChannels = listAdmEditorSourceChannels(project);
 	const commitNamed = (
 		section: 'programme' | 'content',
@@ -207,11 +209,7 @@ export function AdmMetadataFields({
 			<legend>{copy.admRouting}</legend>
 			{sourceChannels.length === 0 && <p className="audio-editor-panel-hint">{copy.admNoTerminalStrips}</p>}
 			{sourceChannels.map((source) => {
-				const assignment = authored.bed.assignments.find((candidate) => (
-					candidate.stripKind === source.stripKind
-					&& candidate.stripId === source.stripId
-					&& candidate.sourceChannel === source.sourceChannel
-				));
+				const assignment = readAssignment(source);
 				return (
 					<div className="audio-editor-adm-route" key={`${source.stripKind}:${source.stripId}:${source.sourceChannel}`}>
 						<span>{source.label}</span>
