@@ -11,6 +11,7 @@ export function immutablePasteSequences(project: DataRecord) {
 	const primary = Object.getOwnPropertyDescriptor(project, 'primarySequenceId');
 	const sampleRate = Object.getOwnPropertyDescriptor(project, 'sampleRate');
 	if (!Array.isArray(tracks) || !Array.isArray(sequences)
+		|| Object.hasOwn(sequences, 'map')
 		|| !primary || !Object.hasOwn(primary, 'value') || !sampleRate || !Object.hasOwn(sampleRate, 'value')) return null;
 	const trackById = frozenRecordIdIndex(tracks as { readonly id: string }[]);
 	const sequenceById = frozenRecordIdIndex(sequences as Sequence[]);
