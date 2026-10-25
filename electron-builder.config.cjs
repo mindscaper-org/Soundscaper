@@ -86,7 +86,7 @@ module.exports = {
 	],
 	win: {
 		...signing.win,
-		icon: '.desktop-build/icons/icon.png',
+		icon: '.desktop-build/icons/icon.ico',
 		target: ['nsis', 'zip'],
 	},
 	nsis: {

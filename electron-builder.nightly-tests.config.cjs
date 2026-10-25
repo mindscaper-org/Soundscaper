@@ -130,7 +130,7 @@ module.exports = {
 		{ from: 'LICENSES', to: 'licenses/LICENSES' },
 	],
 	win: {
-		icon: '.desktop-build/icons/icon.png',
+		icon: '.desktop-build/icons/icon.ico',
 		target: ['portable'],
 	},
 	portable: {
