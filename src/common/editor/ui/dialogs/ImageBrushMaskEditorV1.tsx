@@ -69,6 +69,7 @@ export default function ImageBrushMaskEditorV1<Receipt extends ImageBrushMaskRes
 	const opening = useMemo(() => ({ owner, work: Promise.resolve() }), [owner]);
 	const [state, setState] = useState(() => ({ owner, value: owner.snapshot() }));
 	const snapshot = state.owner === owner ? state.value : owner.snapshot();
+	const [paintedGrid, setPaintedGrid] = useState<Readonly<{ owner: typeof owner; history: typeof snapshot.history }> | null>(null);
 	const retirement = useMemo(() => ({ owner, begun: false }), [owner]);
 	const gridTarget = useMemo(() => ({ owner, value: null as HTMLCanvasElement | null }), [owner]);
 	const presented = () => live.current && latest.current === props && active.current === owner && rendered.current === form;
@@ -76,7 +77,6 @@ export default function ImageBrushMaskEditorV1<Receipt extends ImageBrushMaskRes
 	const current = () => presentationCurrent() && !retirement.begun && !owner.snapshot().closed && !finalizing.current;
 	const ownerCurrent = useCallback(() => live.current && activeGeneration.current === generation && active.current === owner
 		&& !retirement.begun && !owner.snapshot().closed && !latest.current.disabled && latest.current.isCurrent(), [generation, owner, retirement]);
-	const interactive = () => { if (!current()) return false; const actual = owner.snapshot(); return actual.ready && !actual.busy && !actual.closed; };
 	const identities = useMemo(() => ({ maskId: form.maskId || crypto.randomUUID(), nodeId: generation.develop.masks.find(mask => mask.id === form.maskId)?.outputNodeId ?? crypto.randomUUID() }), [generation, form.maskId]);
 	const after = useRef<HTMLCanvasElement>(null), overlay = useRef<HTMLCanvasElement>(null);
 	const selected = useRef({ form, identities }); selected.current = { form, identities };
@@ -100,6 +100,9 @@ export default function ImageBrushMaskEditorV1<Receipt extends ImageBrushMaskRes
 	}, [generation, owner, ownerCurrent, opening, gridTarget]);
 	const [previewState, setPreviewState] = useState<{ owner: ImageDevelopDraftPresentationV1 | null; value: ImageDevelopDraftPresentationSnapshotV1 }>({ owner: null, value: { status: 'idle', extent: null, error: null } });
 	const previewSnapshot = previewState.owner === preview ? previewState.value : { status: 'idle' as const, extent: null, error: null };
+	const gridPainted = paintedGrid?.owner === owner && paintedGrid.history === snapshot.history;
+	const interactive = () => { if (!current()) return false; const actual = owner.snapshot();
+		return actual.ready && !actual.busy && !actual.closed && (preview !== null || paintedGrid?.owner === owner && paintedGrid.history === actual.history); };
 	const selectedOverlay = form.showOverlay && form.bindings.includes(form.overlayEffect) ? { maskId: identities.maskId, effectId: form.overlayEffect } : null;
 	useLayoutEffect(() => {
 		if (!preview) return;
@@ -156,11 +159,14 @@ export default function ImageBrushMaskEditorV1<Receipt extends ImageBrushMaskRes
 			// Its actual outcome must join before replay acquires that slot.
 			await opened;
 			if (active.current !== owner || owner.snapshot().closed) return;
-			return owner.withDisplay((alpha, view) => {
-				if (!ownerCurrent() || owner.snapshot().history !== history || !canvas.current) return;
-				gridTarget.value = canvas.current;
-				paintGrid(canvas.current, alpha, view.width, view.height, cancellation.stop.signal, false);
+			const painted = await owner.withDisplay((alpha, view) => {
+				const target = canvas.current;
+				if (!ownerCurrent() || owner.snapshot().history !== history || !target) return;
+				gridTarget.value = target;
+				paintGrid(target, alpha, view.width, view.height, cancellation.stop.signal, false);
+				return target;
 			});
+			if (painted && !cancellation.stop.signal.aborted && ownerCurrent() && owner.snapshot().history === history && canvas.current === painted) setPaintedGrid({ owner, history });
 		}); paintWork.current = pending;
 		void pending.catch(() => { if (ownerCurrent()) setFailure(true); });
 	}, [owner, ownerCurrent, snapshot.ready, snapshot.closed, snapshot.history, opening, preview, cancellation, gridTarget]);
@@ -261,7 +267,7 @@ export default function ImageBrushMaskEditorV1<Receipt extends ImageBrushMaskRes
 		if (!current()) return; void retire().then(() => { if (presentationCurrent()) Reflect.apply(props.onClose, props, []); })
 			.catch(() => { if (presentationCurrent()) setFailure(true); });
 	};
-	const disabled = props.disabled || !snapshot.ready || snapshot.busy || snapshot.closed || finishing || Boolean(preview && !props.isCurrent());
+	const disabled = props.disabled || !snapshot.ready || snapshot.busy || snapshot.closed || finishing || (!preview && !gridPainted) || Boolean(preview && !props.isCurrent());
 	const choicesDisabled = preview ? props.disabled || !snapshot.ready || snapshot.closed || finishing || previewSnapshot.status === 'failed' || !props.isCurrent() : disabled;
 	const fields = [['radius', text.radius], ['hardness', text.hardness], ['opacity', text.opacity], ['x', text.x], ['y', text.y]] as const;
 	return <AudioEditorDialogShell title={text.title} onClose={close} className="lightscaper-dialog lightscaper-brush-mask-dialog"
@@ -274,7 +280,7 @@ export default function ImageBrushMaskEditorV1<Receipt extends ImageBrushMaskRes
 				<button type="button" disabled={disabled || form.maskId !== ''} onClick={() => attempt(() => { setRequest({ width: dimension(form.width), height: dimension(form.height), epoch: request.epoch + 1 }); })}>{text.create}</button>
 			</div>
 			<canvas ref={canvas} role="img" aria-label={text.grid} className="lightscaper-brush-mask-grid" width={request.width} height={request.height}
-				data-image-brush-mask-grid data-state={snapshot.ready && !snapshot.busy && (!preview || previewSnapshot.status === 'ready') ? 'ready' : 'pending'} onPointerDown={down} onPointerMove={move} onPointerUp={up}
+				data-image-brush-mask-grid data-state={snapshot.ready && !snapshot.busy && (preview ? previewSnapshot.status === 'ready' : gridPainted) ? 'ready' : 'pending'} onPointerDown={down} onPointerMove={move} onPointerUp={up}
 				onPointerCancel={discard} onLostPointerCapture={discard} />
 			<fieldset disabled={disabled}><legend>{text.title}</legend><div className="lightscaper-brush-mask-controls">
 				<label>{text.mode}<select aria-label={text.mode} value={form.mode} onChange={event => { const mode = event.currentTarget.value; if (mode === 'paint' || mode === 'erase') update({ ...form, mode }); }}>

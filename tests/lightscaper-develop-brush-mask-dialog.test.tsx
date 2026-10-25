@@ -274,6 +274,91 @@ test('display waits for the actual opening outcome before painting and authentic
 	if (errors.length === 1) throw errors[0]; if (errors.length) throw new AggregateError(errors, 'Opening display test failed.', { cause: errors[0] });
 });
 
+test('stored-mask re-edit stays pending and refuses pointer admission until its actual grid is painted', async () => {
+	const body = await withPreparedBrushMaskResourceV1({ width: 4, height: 4, alpha: new Uint8Array(CROSS) }, view => ({ reference: view.reference, bytes: view.bytes.slice() }));
+	const initial = normalizeImageDevelopStateV1OrV2({ ...recipe(), masks: [{ schemaVersion: 1, id: 'retained', kind: 'matte',
+		inputs: [{ name: 'stored', kind: 'alpha', sourceRef: body.reference.storageKey }], nodes: [{ id: 'output', kind: 'alpha', inputName: 'stored' }], outputNodeId: 'output' }],
+		maskBindings: [{ effectId: 'warm', maskId: 'retained' }] });
+	const prototype = PhotoLibraryBrushMaskAuthoringV1.prototype, descriptor = Object.getOwnPropertyDescriptor(prototype, 'open'); assert.ok(descriptor);
+	const open = prototype.open, entered = deferred<void>(), release = deferred<void>();
+	const state: { owner?: PhotoLibraryBrushMaskAuthoringV1; opening?: Promise<void> } = {};
+	Object.defineProperty(prototype, 'open', { ...descriptor, value: function (this: PhotoLibraryBrushMaskAuthoringV1,
+		request: Parameters<PhotoLibraryBrushMaskAuthoringV1['open']>[0]): Promise<void> {
+		const work = Reflect.apply(open, this, [request]) as Promise<void>;
+		if (!request.reference) return work;
+		state.owner = this; state.opening = work.then(async () => { entered.resolve(); await release.promise; }); return state.opening;
+	} });
+	const errors: unknown[] = []; let f: Awaited<ReturnType<typeof dialog>> | undefined;
+	try {
+		f = await dialog('de', initial); await f.ready(); await f.storage.resources.put(body.reference, body.bytes);
+		const canvas = f.dom.one('canvas'); let captures = 0, captured = false;
+		Object.defineProperties(canvas, { getBoundingClientRect: { value: () => ({ left: 0, top: 0, width: 400, height: 400 }) },
+			setPointerCapture: { value: () => { captures++; captured = true; } }, hasPointerCapture: { value: () => captured }, releasePointerCapture: { value: () => { captured = false; } } });
+		await f.change(f.text.mask, 'retained'); await entered.promise; await f.flush();
+		assert.equal(state.owner?.snapshot().ready, true, 'Authenticated alpha is loaded while its public opening outcome is held.');
+		assert.equal((canvas as unknown as HTMLCanvasElement).width, 0, 'The predecessor retired the reused canvas before the new display borrow.');
+		const event = { currentTarget: canvas, pointerId: 77, button: 0, clientX: 150, clientY: 150, preventDefault() {} };
+		await act(async () => { reactProps(canvas).onPointerDown?.(event); reactProps(canvas).onPointerCancel?.(event); });
+		assert.equal(captures, 0, 'A fresh pointer handler must not admit strokes into an unpainted grid.');
+		assert.equal(canvas.getAttribute('data-state'), 'pending'); assert.equal(f.dom.one('fieldset').hasAttribute('disabled'), true);
+		release.resolve(); await state.opening; await f.ready();
+		assert.equal((canvas as unknown as HTMLCanvasElement).width, 4);
+		await act(async () => { reactProps(canvas).onPointerDown?.(event); reactProps(canvas).onPointerCancel?.(event); });
+		assert.equal(captures, 1, 'The painted current generation admits a real pointer gesture.'); assert.equal(captured, false);
+		await f.click(f.text.apply); assert.equal(f.installations(), 1); assert.deepEqual(await f.alpha(), CROSS);
+	} catch (error) { errors.push(error); }
+	finally {
+		release.resolve(); try { await f?.dispose(); } catch (error) { errors.push(error); }
+		try { await state.opening; } catch (error) { errors.push(error); }
+		Object.defineProperty(prototype, 'open', descriptor);
+	}
+	if (errors.length === 1) throw errors[0]; if (errors.length) throw new AggregateError(errors, 'Stored mask grid publication failed.', { cause: errors[0] });
+});
+
+for (const rejects of [false, true]) test(`brush grid readiness joins ${rejects ? 'rejected' : 'fulfilled'} public display delivery after actual paint`, async () => {
+	const prototype = PhotoLibraryBrushMaskAuthoringV1.prototype, descriptor = Object.getOwnPropertyDescriptor(prototype, 'withDisplay'); assert.ok(descriptor);
+	const display = prototype.withDisplay, entered = deferred<void>(), release = deferred<void>(), failure = new Error('Display delivery failed after paint.');
+	const state: { held: boolean; owner?: PhotoLibraryBrushMaskAuthoringV1; work?: Promise<unknown> } = { held: false };
+	Object.defineProperty(prototype, 'withDisplay', { ...descriptor, value: function <Result>(this: PhotoLibraryBrushMaskAuthoringV1,
+		consume: (alpha: Uint8Array<ArrayBuffer>, view: Readonly<PhotoLibraryBrushMaskDisplayV1>) => Result | Promise<Result>): Promise<Result> {
+		const work = Reflect.apply(display, this, [consume]) as Promise<Result>;
+		if (state.held) return work; state.held = true; state.owner = this;
+		const delivered = work.then(async value => { entered.resolve(); await release.promise; if (rejects) throw failure; return value; });
+		state.work = delivered; return delivered;
+	} });
+	const errors: unknown[] = []; let f: Awaited<ReturnType<typeof dialog>> | undefined;
+	try {
+		f = await dialog(); await entered.promise; await f.flush();
+		const canvas = f.dom.one('canvas'); let captures = 0, captured = false;
+		Object.defineProperties(canvas, { getBoundingClientRect: { value: () => ({ left: 0, top: 0, width: 400, height: 400 }) },
+			setPointerCapture: { value: () => { captures++; captured = true; } }, hasPointerCapture: { value: () => captured }, releasePointerCapture: { value: () => { captured = false; } } });
+		assert.equal((canvas as unknown as HTMLCanvasElement).width, 256, 'The real borrowed consumer has painted its grid.');
+		assert.equal(state.owner?.snapshot().busy, false, 'The real alpha scope has settled before its public outcome delivery.');
+		const event = { currentTarget: canvas, pointerId: 78, button: 0, clientX: 150, clientY: 150, preventDefault() {} };
+		await act(async () => { reactProps(canvas).onPointerDown?.(event); reactProps(canvas).onPointerCancel?.(event); });
+		assert.equal(captures, 0, 'Paint alone must not admit input before public display delivery fulfills.');
+		assert.equal(canvas.getAttribute('data-state'), 'pending');
+		await act(async () => { release.resolve();
+			if (rejects) await assert.rejects(state.work!, error => Object.is(error, failure)); else await state.work;
+			await settle(); });
+		if (rejects) {
+			await f.flush();
+			assert.equal(canvas.getAttribute('data-state'), 'pending'); assert.ok(f.dom.find('[role="alert"]'));
+			await act(async () => { reactProps(canvas).onPointerDown?.(event); reactProps(canvas).onPointerCancel?.(event); }); assert.equal(captures, 0);
+		} else {
+			await f.ready();
+			await act(async () => { reactProps(canvas).onPointerDown?.(event); reactProps(canvas).onPointerCancel?.(event); }); assert.equal(captures, 1);
+		}
+		assert.equal(captured, false); assert.equal(f.installations(), 0);
+	} catch (error) { errors.push(error); }
+	finally {
+		release.resolve(); try { await state.work; } catch (error) { if (!rejects || !Object.is(error, failure)) errors.push(error); }
+		try { await f?.dispose(); } catch (error) { if (!rejects || !Object.is(error, failure)) errors.push(error); }
+		Object.defineProperty(prototype, 'withDisplay', descriptor);
+	}
+	if (errors.length === 1) throw errors[0]; if (errors.length) throw new AggregateError(errors, 'Brush public display delivery failed.', { cause: errors[0] });
+});
+
 test('actual pointer stroke uses the grid own rectangle, and cancellation discards an unfinished gesture', async () => {
 	const f = await dialog();
 	try {
