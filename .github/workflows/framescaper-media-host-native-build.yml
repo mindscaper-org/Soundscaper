@@ -114,6 +114,10 @@ jobs:
           path: |
             ${{ runner.temp }}/framescaper-media-work/media-build/ffmpeg-build/ffbuild/config.log
             ${{ runner.temp }}/framescaper-media-work/media-build/*-install/lib/pkgconfig/*.pc
+            ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/*.vcxproj
+            ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/*.mk
+            ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/Makefile
+            ${{ runner.temp }}/framescaper-media-work/media-build/libvpx-build/vpx_config.h
           if-no-files-found: warn
           retention-days: 7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
