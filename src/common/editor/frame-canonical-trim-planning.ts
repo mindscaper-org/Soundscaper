@@ -165,15 +165,22 @@ export function frameCanonicalLinkedVideoCompanions(
 			throw new RangeError(`A/V link ${avLinkId} requires exactly one audio and one video participant.`);
 		}
 	}
+	const videosByLinkId = new Map<string, { count: number; item: FrameCanonicalTrimParticipant }>();
+	for (const item of videos) {
+		const avLinkId = relationId(item.clip.avLinkId);
+		if (!avLinkId) continue;
+		const current = videosByLinkId.get(avLinkId);
+		if (current) current.count += 1; else videosByLinkId.set(avLinkId, { count: 1, item });
+	}
 	const result = new Map<string, FrameCanonicalTrimParticipant>();
 	for (const audio of participants) {
 		const avLinkId = relationId(audio.clip.avLinkId);
 		if (audio.video || !avLinkId) continue;
-		const linked = videos.filter(({ clip }) => clip.avLinkId === avLinkId);
-		if (linked.length !== 1) {
+		const linked = videosByLinkId.get(avLinkId);
+		if (linked?.count !== 1) {
 			throw new RangeError(`A/V link ${avLinkId} must have one participating video companion.`);
 		}
-		result.set(audio.clipId, linked[0]!);
+		result.set(audio.clipId, linked.item);
 	}
 	return result;
 }

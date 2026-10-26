@@ -294,13 +294,13 @@ export function createEditorTrackService(
 		const tracks = members ? project.tracks.filter(track => members.has(track.id)) : project.tracks;
 		if (!tracks.some((track) => track.id === trackId)) return trackId;
 		const blocks: ControllerTrack[][] = [];
-		const consumedLaneGroups = new Set<string>();
+		const laneGroups = new Map<string, ControllerTrack[]>();
 		for (const track of tracks) {
-			if (!track.laneGroupId) blocks.push([track]);
-			else if (!consumedLaneGroups.has(track.laneGroupId)) {
-				consumedLaneGroups.add(track.laneGroupId);
-				blocks.push(tracks.filter((candidate) => candidate.laneGroupId === track.laneGroupId));
-			}
+			const laneGroupId = track.laneGroupId;
+			if (!laneGroupId) { blocks.push([track]); continue; }
+			const group = laneGroups.get(laneGroupId);
+			if (group) group.push(track);
+			else { const members = [track]; laneGroups.set(laneGroupId, members); blocks.push(members); }
 		}
 		const blockIndex = blocks.findIndex((block) => block.some((track) => track.id === trackId));
 		const adjacent = direction === 'up' ? blocks[blockIndex - 1]
