@@ -327,7 +327,7 @@ export function useTimelinePointerStart({
 				clipId: clip.id,
 				trackId,
 				channel: point.channel,
-				points: [{ timelineFrame: point.timelineFrame, value: point.value }],
+				points: [{ timelineFrame: point.timelineFrame, value: point.value, renderedValue: point.renderedValue }],
 				lane,
 			};
 			run(() => controller.actions.timeline.selectClip(clip.id));

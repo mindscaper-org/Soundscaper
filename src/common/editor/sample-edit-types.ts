@@ -4,8 +4,9 @@ import type { AudioSourceLeaf } from './project-media-types.ts';
 import type { SourcePcmChunk, SourcePcmReadSession, SourceReadOptions } from './storage/source-read-repository.ts';
 import type { StorageRecord } from './storage/media-records.ts';
 import type { AudioWarpRuntimeClip, AudioWarpRuntimeProject } from './audio-warp-runtime.ts';
+import type { RenderedPencilClip } from './sample-pencil-amplitude.ts';
 
-export interface SampleEditClip extends AudioWarpRuntimeClip {
+export interface SampleEditClip extends AudioWarpRuntimeClip, RenderedPencilClip {
 	readonly id: string;
 	readonly sourceId: string;
 	readonly timelineStartFrame: number;
@@ -21,6 +22,7 @@ export type SampleEditSource = AudioSourceLeaf & Readonly<Record<string, unknown
 export interface SamplePencilPoint {
 	readonly timelineFrame: number;
 	readonly value: number;
+	readonly renderedValue?: number;
 }
 
 export interface SamplePencilEdit {

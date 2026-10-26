@@ -3,6 +3,7 @@
 import { createAudioWarpRuntimeEvaluator, type AudioWarpRuntimeProject } from './audio-warp-runtime.ts';
 import { addRationals, beatToSampleFrame, createBreakpointMapEvaluator } from './timeline-time.ts';
 import type { SampleEditClip, SamplePencilEdit, SamplePencilPoint } from './sample-edit-types.ts';
+import type { PencilValueInterpolator } from './sample-pencil-amplitude.ts';
 
 /** Reuse the authored map that supplies the visible waveform's sample position. */
 export function warpedSampleSourceFrame(
@@ -24,6 +25,7 @@ export function createWarpPencilSampleEdits(
 	channel: number,
 	points: readonly SamplePencilPoint[],
 	maximumFrames: number,
+	interpolate?: PencilValueInterpolator,
 ): readonly SamplePencilEdit[] | null {
 	if (clip.warpMap == null) return null;
 	if (!project) throw new TypeError('A warped sample edit requires the clip project.');
@@ -63,7 +65,8 @@ export function createWarpPencilSampleEdits(
 				: clip.timelineStartFrame + outer.num / outer.den;
 			const amount = Math.max(0, Math.min(1, (timelineFrame - previous.timelineFrame)
 				/ (current.timelineFrame - previous.timelineFrame)));
-			add(frame, previous.value + (current.value - previous.value) * amount);
+			add(frame, interpolate ? interpolate(previous, current, amount, timelineFrame)
+				: previous.value + (current.value - previous.value) * amount);
 		}
 	}
 	return Object.freeze([...edits.values()].sort((left, right) => left.frame - right.frame));

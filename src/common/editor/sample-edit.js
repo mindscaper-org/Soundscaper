@@ -5,6 +5,7 @@ import { AUDIO_EDITOR_SOURCE_CHUNK_FRAMES } from './project-audio-factory.js';
 import { createLoopPencilSampleEdits } from './sample-pencil-loop-projection.ts';
 import { loopSampleSmoothingSegments, sampleSmoothingSegments } from './sample-smoothing-loop-ranges.ts';
 import { createWarpPencilSampleEdits, warpedSampleSourceFrame } from './sample-pencil-warp-projection.ts';
+import { createPencilValueInterpolator } from './sample-pencil-amplitude.ts';
 import { loadSourceProvenanceDerivation } from './source-provenance-derivation-loader.ts';
 import { readSampleEditChunks } from './sample-edit-chunk-reader.ts';
 import {
@@ -73,11 +74,13 @@ export function createPencilSampleEdits({ clip, source, project, channel = 0, po
 	const channelIndex = boundedInteger(channel, 0, source.channelCount - 1, 'channel');
 	if (!Array.isArray(points) || points.length < 1) throw new TypeError('A pencil stroke requires at least one point.');
 	const maximum = positiveInteger(maximumFrames, 'maximumFrames');
-	const warpEdits = createWarpPencilSampleEdits(clip, project, channelIndex, points, maximum);
+	const interpolate = createPencilValueInterpolator(clip);
+	const warpEdits = createWarpPencilSampleEdits(clip, project, channelIndex, points, maximum, interpolate);
 	if (warpEdits) return warpEdits;
-	const loopEdits = createLoopPencilSampleEdits(clip, channelIndex, points, maximum);
+	const loopEdits = createLoopPencilSampleEdits(clip, channelIndex, points, maximum, interpolate);
 	if (loopEdits) return loopEdits;
 	const normalized = points.map((point, index) => ({
+		...point,
 		frame: timelineFrameToSourceFrame(clip, source, point?.timelineFrame),
 		value: sampleValue(point?.value, `points[${index}].value`),
 	}));
@@ -98,7 +101,8 @@ export function createPencilSampleEdits({ clip, source, project, channel = 0, po
 		const direction = Math.sign(current.frame - previous.frame);
 		for (let step = 1; step <= distance; step += 1) {
 			const amount = step / distance;
-			add(previous.frame + direction * step, previous.value + (current.value - previous.value) * amount);
+			add(previous.frame + direction * step, interpolate(previous, current, amount,
+				previous.timelineFrame + (current.timelineFrame - previous.timelineFrame) * amount));
 		}
 	}
 	return Object.freeze([...edits.values()].sort((left, right) => left.frame - right.frame || left.channel - right.channel));
