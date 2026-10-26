@@ -43,8 +43,9 @@ test('actual500-cut acceptance retains every command and marker while canonicali
 	if (command.type !== 'batch' || !('commands' in command)) throw new Error('missing marker batch');
 	const children = command.commands as readonly { type: string; annotation: unknown }[];
 	assert.equal(children.length, count);
-	const expected = createTimelineAnnotationsV11(children.map((child) => child.annotation), { sampleRate: project.sampleRate,
-		tempoMap: project.tempoMap, sequenceIds: project.sequences.map((sequence) => sequence.id) });
+	const expected = createTimelineAnnotationsV11(children.map((child) => child.annotation), { sampleRate: Number(project.sampleRate),
+		tempoMap: project.tempoMap as import('../src/common/editor/timeline-time.ts').HoldTempoMap,
+		sequenceIds: (project.sequences as readonly { id: string }[]).map((sequence) => sequence.id) });
 	const map = Array.prototype.map; let rows = 0;
 	Object.defineProperty(Array.prototype, 'map', { configurable: true, writable: true,
 		value: function (this: unknown[], callback: (value: unknown, index: number, values: unknown[]) => unknown, receiver?: unknown) {
@@ -55,7 +56,7 @@ test('actual500-cut acceptance retains every command and marker while canonicali
 	context.after(() => Object.defineProperty(Array.prototype, 'map', { configurable: true, writable: true, value: map }));
 	const applied = applyFramescaperProjectCommandNativeMedia(profile, project, command);
 	assert.deepEqual(applied.timelineAnnotations, expected);
-	assert.equal(applied.revision, project.revision + 1);
+	assert.equal(applied.revision, Number(project.revision) + 1);
 	assert.deepEqual(project.timelineAnnotations, []);
 	assert.ok(rows <= count * 8, `${String(rows)} normalized marker rows`);
 	const malformed = structuredClone(command) as unknown as { type: 'batch'; commands: { annotation: { id: string } }[] };
