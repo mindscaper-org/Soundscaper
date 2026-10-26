@@ -12,6 +12,7 @@ import '../audio-editor-design-system/23-source-monitor.css';
  */
 export default function SourceMonitorPanel({ controller, snapshot, copy, run, blocked }) {
 	const videoRef = useRef(null);
+	const playbackSessionRef = useRef(null);
 	const [playing, setPlaying] = useState(false);
 	const view = controller.actions.video.sourceMonitor.view();
 	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId) : null;
@@ -21,6 +22,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	// Playing a source is a viewing action; stopping it is what makes the
 	// controller's frame authoritative again.
 	const stop = useCallback(() => {
+		playbackSessionRef.current = null;
 		videoRef.current?.pause?.();
 		setPlaying(false);
 	}, []);
@@ -45,9 +47,11 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 
 	const publish = (frame) => run(() => controller.actions.video.sourceMonitor.seek(frame));
 	const capturePlayback = () => {
-		if (playing && videoRef.current) {
+		const playbackSession = playbackSessionRef.current;
+		if (playing && videoRef.current && playbackSession) {
 			const current = controller.actions.video.sourceMonitor.view();
-			if (current.sourceId !== view.sourceId || current.openRevision !== view.openRevision) return;
+			// A new render cannot lend a reopened session's identity to an old clock.
+			if (current.sourceId !== playbackSession.sourceId || current.openRevision !== playbackSession.openRevision) return;
 			controller.actions.video.sourceMonitor.seekMediaTime(Number(videoRef.current.currentTime) || 0);
 		}
 	};
@@ -70,6 +74,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 			run(() => controller.actions.video.sourceMonitor.seekMediaTime(Number(media.currentTime) || 0));
 			return;
 		}
+		playbackSessionRef.current = { sourceId: view.sourceId, openRevision: view.openRevision };
 		setPlaying(true);
 		void media.play?.().catch(() => stop());
 	};
