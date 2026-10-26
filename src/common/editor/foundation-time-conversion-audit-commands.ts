@@ -13,10 +13,22 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
  */
 export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'command-tempo-reconciliation-inverse',
+		file: 'src/common/editor/project-command-tempo-projection.ts',
+		behavior: 'Command reconciliation prepares one exact inverse of the draft tempo map while keeping persisted forward timing separate; sample positions become exact authored beats before edit reconciliation.',
+		conversions: [{ helper: 'createSampleFrameBeatProjector', policies: ['exact'] }],
+	},
+	{
+		id: 'clip-pcm-reinterpret-duration',
+		file: 'src/common/editor/controller/track-audio/internal/clip-reinterpret-commands.ts',
+		behavior: 'PCM width and rate reinterpretation retain the complete byte-window ratio and both source clocks as exact integer products, then round the authored timeline extent once to its nearest output sample.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'selected-label-clipboard-placement',
 		file: 'src/common/editor/controller/edit/internal/selected-label-clipboard.ts',
-		behavior: 'Label-only paste independently scales resolved offsets to nearest destination samples, then recovers exact destination beat coordinates for musical labels while retaining their anchor kind.',
-		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }, { helper: 'sampleFrameToBeat', policies: ['exact'] }],
+		behavior: 'Label-only paste independently scales resolved offsets to nearest destination samples, then prepares one exact beat inverse for musical labels while retaining their anchor kind.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }, { helper: 'createSampleFrameBeatProjector', policies: ['exact'] }],
 	},
 	{
 		id: 'shared-source-effect-musical-warp-duration',
