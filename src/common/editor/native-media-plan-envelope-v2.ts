@@ -74,6 +74,7 @@ export interface NativeMediaPlanEnvelopeV2 {
 	readonly plan: UnifiedExactRenderPlanV13 | UnifiedExactRenderPlanV14;
 }
 
+const OWNED_PLANS = new WeakMap<object, NativeMediaPlanEnvelopeV2>();
 const VERIFIED_TIMING = new WeakMap<object, UnifiedExactRenderTimingSidecars>();
 
 const FIELDS = Object.freeze([
@@ -101,10 +102,16 @@ export function createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(valu
 	return envelope(value, version);
 }
 
+/** Reuse only detached immutable snapshots issued by this module; external plans still admit fully. */
+export function prepareNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(value: unknown): NativeMediaPlanEnvelopeV2 {
+	return value !== null && typeof value === 'object' && OWNED_PLANS.get(value)
+		|| createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(value);
+}
+
 function envelope(value: unknown, version: NativeMediaPlanVersionV2): NativeMediaPlanEnvelopeV2 {
 	const fingerprint = fingerprintNativeMediaPlan(value);
 	const plan = deepFreeze(JSON.parse(fingerprint.canonical)) as UnifiedExactRenderPlanV13 | UnifiedExactRenderPlanV14;
-	return Object.freeze({
+	const result = Object.freeze({
 		envelopeVersion: NATIVE_MEDIA_PLAN_ENVELOPE_V2_VERSION,
 		planVersion: version,
 		strategy: NATIVE_MEDIA_PLAN_V2_STRATEGIES[version],
@@ -113,6 +120,8 @@ function envelope(value: unknown, version: NativeMediaPlanVersionV2): NativeMedi
 		summary: summarize(plan),
 		plan,
 	});
+	OWNED_PLANS.set(plan, result);
+	return result;
 }
 
 export function assertNativeMediaPlanEnvelopeV2(

@@ -2,7 +2,7 @@
 
 /** Main-private binding of baseline project source identities to managed bodies. */
 
-import { createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
+import { prepareNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import { nativeMediaPlanVideoTimingAssetInputs } from '../src/common/editor/native-media-plan-video-timing.ts';
 import type { NativeQueueInputFingerprintV1 } from '../src/common/editor/native-queue-record.ts';
 import {
@@ -43,62 +43,56 @@ export function framescaperNativeProjectPlanBodyMetadataMatches(
 	inputs: readonly NativeQueueInputFingerprintV1[],
 	bodies: readonly Readonly<FramescaperNativeProjectMediaBody>[],
 ): boolean {
-	try {
-		const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan);
-		if (envelope.plan.sources.length !== inputs.length
-			|| new Set(inputs.map(({ sourceId }) => sourceId)).size !== inputs.length) return false;
-		for (const input of inputs) framescaperNativeOriginalBodyForInput(envelope.plan, input, bodies);
-		for (const timing of nativeMediaPlanVideoTimingAssetInputs(envelope.plan)) {
-			onlyBody(bodies, (body) => body.kind === 'video-timing'
-				&& body.storageKey === timing.storageKey && body.sha256 === timing.sha256);
-		}
-		return true;
-	} catch { return false; }
+	try { return prepareFramescaperNativeProjectBodyCustody(plan, bodies).metadataMatches(inputs); }
+	catch { return false; }
 }
 
-/** Return an ordinary source body; a carrier-owned sequence authenticates both roots and returns null. */
+/** Generic callers retain fresh plan and inventory admission on every call. */
 export function framescaperNativeOriginalBodyForInput(
 	plan: unknown,
 	input: NativeQueueInputFingerprintV1,
 	bodies: readonly Readonly<FramescaperNativeProjectMediaBody>[],
 ): Readonly<FramescaperNativeProjectMediaBody> | null {
-	const canonical = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan).plan;
-	const sources = canonical.sources.filter(({ sourceId, contentSha256 }) => (
-		sourceId === input.sourceId && contentSha256 === input.sha256
-	));
-	if (sources.length !== 1) throw new Error('A native source fingerprint is outside its exact plan.');
-	const professional = canonical.nodes.filter((node) => (
-		node.kind === 'professional-media' && node.sourceNodeId === sources[0]!.nodeId
-	));
-	if (professional.length > 1) throw new Error('A native source has ambiguous professional authority.');
-	const node = professional[0];
-	if (node?.kind === 'professional-media' && node.imageSequence !== null) {
-		const { inventory, sourcePack } = node.imageSequence;
-		exactSequenceBody(bodies, inventory, 'image-sequence-inventory');
-		exactSequenceBody(bodies, sourcePack, 'image-sequence-source-pack');
-		return null;
+	return prepareFramescaperNativeProjectBodyCustody(plan, bodies).originalBodyForInput(input);
+}
+
+/** One operation owns its admitted plan, inventory snapshot and lookup tables. */
+export function prepareFramescaperNativeProjectBodyCustody(plan: unknown, bodies: readonly Readonly<FramescaperNativeProjectMediaBody>[]) {
+	const canonical = prepareNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan).plan;
+	const sources = new Map(canonical.sources.map(source => [source.sourceId, source]));
+	const professional = new Map(canonical.nodes.flatMap(node => node.kind === 'professional-media' ? [[node.sourceNodeId, node] as const] : []));
+	const inventory = new Map<string, FramescaperNativeProjectMediaBody[]>();
+	for (const body of bodies) {
+		if (!body || typeof body !== 'object' || Array.isArray(body)) throw new TypeError('A native body inventory requires inert descriptor records.');
+		const snapshot = Object.freeze({ ...body }); const key = `${body.kind}:${body.sourceId}`;
+		const entries = inventory.get(key) ?? []; entries.push(snapshot); inventory.set(key, entries);
 	}
-	return onlyBody(bodies, (body) => body.kind === 'video-original'
-		&& body.sourceId === input.sourceId && body.sha256 === input.sha256);
-}
-
-function exactSequenceBody(
-	bodies: readonly Readonly<FramescaperNativeProjectMediaBody>[],
-	reference: Readonly<{ readonly storageKey: string; readonly sha256: string; readonly byteLength: number }>,
-	kind: 'image-sequence-inventory' | 'image-sequence-source-pack',
-): void {
-	onlyBody(bodies, (body) => body.kind === kind && body.sourceId === reference.storageKey
-		&& body.storageKey === reference.storageKey && body.sha256 === reference.sha256
-		&& body.byteLength === reference.byteLength);
-}
-
-function onlyBody(
-	bodies: readonly Readonly<FramescaperNativeProjectMediaBody>[],
-	predicate: (body: Readonly<FramescaperNativeProjectMediaBody>) => boolean,
-): Readonly<FramescaperNativeProjectMediaBody> {
-	const matches = bodies.filter(predicate);
-	if (matches.length !== 1) throw new Error('A native managed source body is absent or duplicated.');
-	return matches[0]!;
+	const onlyBody = (kind: FramescaperNativeProjectMediaBody['kind'], sourceId: string, matches: (body: FramescaperNativeProjectMediaBody) => boolean) => {
+		const candidates = (inventory.get(`${kind}:${sourceId}`) ?? []).filter(matches);
+		if (candidates.length !== 1) throw new Error('A native managed source body is absent or duplicated.');
+		return candidates[0]!;
+	};
+	const originalBodyForInput = (input: NativeQueueInputFingerprintV1): Readonly<FramescaperNativeProjectMediaBody> | null => {
+		const source = sources.get(input.sourceId);
+		if (!source || source.contentSha256 !== input.sha256) throw new Error('A native source fingerprint is outside its exact plan.');
+		const node = professional.get(source.nodeId);
+		if (node && node.imageSequence !== null) {
+			for (const [kind, reference] of [['image-sequence-inventory', node.imageSequence.inventory], ['image-sequence-source-pack', node.imageSequence.sourcePack]] as const) {
+				onlyBody(kind, reference.storageKey, body => body.storageKey === reference.storageKey && body.sha256 === reference.sha256 && body.byteLength === reference.byteLength);
+			}
+			return null;
+		}
+		return onlyBody('video-original', input.sourceId, body => body.sha256 === input.sha256);
+	};
+	const timing = nativeMediaPlanVideoTimingAssetInputs(canonical);
+	return Object.freeze({ originalBodyForInput, metadataMatches(inputs: readonly NativeQueueInputFingerprintV1[]): boolean {
+		if (sources.size !== inputs.length || new Set(inputs.map(input => input.sourceId)).size !== inputs.length) return false;
+		try {
+			for (const input of inputs) originalBodyForInput(input);
+			for (const input of timing) onlyBody('video-timing', input.storageKey, body => body.storageKey === input.storageKey && body.sha256 === input.sha256);
+			return true;
+		} catch { return false; }
+	} });
 }
 
 function record(value: unknown, name: string): Readonly<Record<string, unknown>> {
