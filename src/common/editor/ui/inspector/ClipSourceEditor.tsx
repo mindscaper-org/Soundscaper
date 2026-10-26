@@ -3,8 +3,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode
 import { ClipHeader } from '@soundscaper/design-system/ClipHeader';
 import { ContextMenu } from '@soundscaper/design-system/ContextMenu';
 import { ContextMenuItem } from '@soundscaper/design-system/ContextMenuItem';
-import { normalizeAudioWarpMap } from '../../audio-warp-domain.ts';
-import { clipSourceDisplayRange, clipSourceFrameToDisplay, clipDisplayFrameToSource } from '../../clip-source-timing.ts';
+import { clipSourceDisplayRange, clipDisplayFrameToSource } from '../../clip-source-timing.ts';
 import { AUDIO_EDITOR_TRACK_DISPLAY_MODES, type TrackDisplayMode } from '../../track-display-mode.ts';
 import { renderAmplitudeRulers, renderFrequencyRulers } from '../timeline/track-row-helpers.jsx';
 import { useNonPassiveWheel } from '../useNonPassiveWheel.js';
@@ -13,7 +12,7 @@ import ClipSourceFades from './ClipSourceFades.tsx';
 import { clipSourceSpectrogramOptions } from './clip-source-spectrogram-options.ts';
 import type { ClipFadeChanges } from '../timeline/ClipFadeOverlays.tsx';
 import { fadeDurationAtPointer, fadeShapeAtPointer, fadeField, fadeShapeField } from '../timeline/clip-fade-geometry.ts';
-import { clipSourceStretchFeedback, formatSourceStretchSpeed } from './clip-source-stretch-feedback.ts';
+import { createClipSourceStretchPlan, formatSourceStretchSpeed } from './clip-source-stretch-feedback.ts';
 import ClipSourceRuler, { INITIAL_SOURCE_RULER_OPTIONS } from './ClipSourceRuler.tsx';
 import { clipSourceSelection, clipSourceSelectionDisplay } from './clip-source-selection.ts';
 import { clipSourceTrim } from './clip-source-view.ts';
@@ -189,7 +188,7 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 		if (current.kind.startsWith('fade-') || current.kind.startsWith('shape-')) setFadePreview(fadeChanges(current, event));
 	};
 	const moveMarker = (pointIndex: number, frame: number) => {
-		const feedback = clipSourceStretchFeedback(project, clip, source, pointIndex, frame);
+		const feedback = markerPlan.feedback(pointIndex, frame);
 		if (feedback?.canMove) run(() => controller.actions.audioWarp.moveSourceMarker(clipId, pointIndex, feedback.displayFrame - range.startFrame));
 	};
 	const finish = (event: PointerEvent<HTMLDivElement>) => {
@@ -222,12 +221,13 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 	const previewClip = useMemo(() => fadePreview ? { ...clip, ...fadePreview } : clip, [clip, fadePreview]);
 	const fadeClip = useMemo(() => ({ ...previewClip, timelineStartFrame: range.startFrame }), [previewClip, range.startFrame]);
 	const markerIndex = gesture.current?.kind === 'marker' ? gesture.current.pointIndex! : focusedMarker;
-	const markerFeedback = markerIndex === null ? null : clipSourceStretchFeedback(project, clip, source, markerIndex, gesture.current?.kind === 'marker' ? dragFrame ?? undefined : undefined);
+	const markerPlan = useMemo(() => createClipSourceStretchPlan(project, clip, source), [project, clip, source]);
+	const markerFeedback = markerIndex === null ? null : markerPlan.feedback(markerIndex, gesture.current?.kind === 'marker' ? dragFrame ?? undefined : undefined);
 	const markerDescription = (pointIndex: number) => {
-		const feedback = pointIndex === markerIndex ? markerFeedback : clipSourceStretchFeedback(project, clip, source, pointIndex);
+		const feedback = pointIndex === markerIndex ? markerFeedback : markerPlan.feedback(pointIndex);
 		return feedback ? `${copy.clipSourceSpeedBefore}: ${formatSourceStretchSpeed(feedback.beforeSpeed)}; ${copy.clipSourceSpeedAfter}: ${formatSourceStretchSpeed(feedback.afterSpeed)}` : '';
 	};
-	const markers = clip.warpMap ? normalizeAudioWarpMap(clip.warpMap).points.slice(1, -1) : [];
+	const markers = markerPlan.points.slice(1, -1);
 	const labels: Record<TrackDisplayMode, string> = { waveform: copy.waveformView, spectrogram: copy.spectrogramView, multiview: copy.multiview,
 		'half-wave': copy.halfWave, 'waveform-three-band': copy.threeBandWaveformView, 'waveform-rainbow': copy.rainbowWaveformView };
 	const spectral = displayMode === 'spectrogram' || displayMode === 'multiview';
@@ -278,11 +278,11 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 				{markers.map((marker, index) => <button key={`${marker.source.num}/${marker.source.den}`} type="button" className="audio-editor-source-stretch-marker"
 					aria-label={`${copy.clipSourceStretchMarker} ${index + 1}`} title={`${copy.samplePosition} ${marker.source.num / marker.source.den}; ${markerDescription(index + 1)}`} aria-description={markerDescription(index + 1)} disabled={blocked}
 					onFocus={() => setFocusedMarker(index + 1)} onBlur={() => setFocusedMarker(null)}
-					data-source-sample={marker.source.num / marker.source.den} style={{ left: pixel(index + 1 === markerIndex && markerFeedback ? markerFeedback.displayFrame : clipSourceFrameToDisplay(project, clip, source, marker.source)) }}
+					data-source-sample={marker.source.num / marker.source.den} style={{ left: pixel(index + 1 === markerIndex && markerFeedback ? markerFeedback.displayFrame : markerPlan.displayFrames[index + 1]!) }}
 					onPointerDown={event => begin(event, 'marker', index + 1)} onKeyDown={event => {
 						if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 						if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); event.stopPropagation(); deleteMarker(event.currentTarget, () => run(() => controller.actions.audioWarp.deleteSourceMarker(clipId, index + 1))); }
-						if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); moveMarker(index + 1, clipSourceFrameToDisplay(project, clip, source, marker.source) + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? Math.round(project.sampleRate / 10) : 1)); }
+						if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); moveMarker(index + 1, markerPlan.displayFrames[index + 1]! + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? Math.round(project.sampleRate / 10) : 1)); }
 					}} />)}
 				{markerFeedback && <div className="audio-editor-source-stretch-feedback" role="status" aria-live="polite"
 					style={{ left: Math.max(0, Math.min(width - 240, pixel(markerFeedback.displayFrame) - 120)) }}>
