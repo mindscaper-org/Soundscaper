@@ -75,9 +75,10 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 				.filter((entry) => entry.spans.length > 0);
 			if (plan.length === 0) return false;
 			const sampleRate = normalizeProjectSampleRate(project.sampleRate);
-			const longestRegionFrames = Math.max(...plan.flatMap((entry) => (
-				entry.spans.map((region) => region.endFrame - region.startFrame)
-			)));
+			let longestRegionFrames = 0;
+			for (const entry of plan) for (const region of entry.spans) {
+				longestRegionFrames = Math.max(longestRegionFrames, region.endFrame - region.startFrame);
+			}
 			// One frame of headroom keeps every clip inside the source bounds
 			// however the requested duration rounds.
 			const widths = [...new Set(plan.map(entry => entry.channelCount))];
