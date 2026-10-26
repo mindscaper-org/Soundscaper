@@ -151,8 +151,10 @@ export async function installMenuKeyboardDiagnostics(page: Page, scope: MenuDiag
 			try {
 				const related = event instanceof FocusEvent ? event.relatedTarget : null;
 				const target = relevant(event.target), relatedElement = relevant(related);
-				if (!target && !relatedElement) return;
-				acquire(target ?? relatedElement!);
+				const outsideMenuKey = !target && !relatedElement && event instanceof KeyboardEvent
+					&& root?.isConnected === true && ['Enter', 'ArrowRight'].includes(event.key);
+				if (!target && !relatedElement && !outsideMenuKey) return;
+				if (target || relatedElement) acquire(target ?? relatedElement!);
 				const item = target?.closest(itemSelector) ?? null;
 				const parent = item?.parentElement?.closest('.context-menu-item') ?? null;
 				const keyboard = event instanceof KeyboardEvent ? event : null;
@@ -161,7 +163,7 @@ export async function installMenuKeyboardDiagnostics(page: Page, scope: MenuDiag
 					if (keyboard?.key === 'Enter' && label(parent)?.trim() === scope.branch) leafEnters++;
 				}
 				append({ kind: 'native-event', type: event.type, stage, phase: event.eventPhase, trusted: event.isTrusted,
-					defaultPreventedAtObservation: event.defaultPrevented, target: describe(event.target),
+					defaultPreventedAtObservation: event.defaultPrevented, outsideMenuKey, target: describe(event.target),
 					item: describe(item), parentItem: describe(parent), nearestMenu: describe(target?.closest('[role="menu"]')),
 					active: describe(document.activeElement), related: describe(related), documentFocused: document.hasFocus(),
 					visibility: document.visibilityState, key: short(keyboard?.key ?? null), code: short(keyboard?.code ?? null),
@@ -175,6 +177,15 @@ export async function installMenuKeyboardDiagnostics(page: Page, scope: MenuDiag
 			window.addEventListener(type, listener, { capture, passive: true });
 			listeners.push({ type, listener, capture });
 		}
+		for (const type of ['focus', 'blur']) {
+			const listener: EventListener = event => {
+				if (event.target !== window || !root?.isConnected) return;
+				append({ kind: 'window-focus', type, active: describe(document.activeElement),
+					documentFocused: document.hasFocus(), visibility: document.visibilityState });
+			};
+			window.addEventListener(type, listener, { passive: true });
+			listeners.push({ type, listener, capture: false });
+		}
 		const read = (): string => {
 			const retained = records.map(({ event, entry }) => ({ ...entry,
 				defaultPreventedFinal: event?.defaultPrevented ?? null,
@@ -184,7 +195,8 @@ export async function installMenuKeyboardDiagnostics(page: Page, scope: MenuDiag
 					capacity: 64, nodeCapacity: 256, nodeCapacityReached: nextId === 256, byteLimit: 32_768,
 					mutationRecordsOmitted, mutationNodesOmitted, mutationCallbacks, mutationCallbackLimit: 256, mutationObservationStopped,
 					unavailableParent, lateRootAcquisitions, unattributedRootTransitions, openings, branchArrows, leafEnters,
-					final: { header: describe(header), root: describe(root), active: describe(document.activeElement) }, records: retained });
+					final: { header: describe(header), root: describe(root), active: describe(document.activeElement),
+						documentFocused: document.hasFocus(), visibility: document.visibilityState }, records: retained });
 				if (new TextEncoder().encode(body).byteLength <= 32_768) return body;
 				if (!retained.length) return JSON.stringify({ available: false, reason: 'Menu diagnostic exceeded its byte bound.' });
 				retained.shift();
