@@ -155,6 +155,7 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'requestStoragePersistence',
 	'requestWaveformPcmWindow',
 	'resampleClip',
+	'reinterpretClip',
 	'resampleTrack',
 	'resetClipPitchSpeed',
 	'resetLoudnessMeasurement',
