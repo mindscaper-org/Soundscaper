@@ -160,7 +160,7 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'resetClipPitchSpeed',
 	'resetLoudnessMeasurement',
 	'resizeTrackHeight',
-	'setTrackHeightMode',
+	'fitTrackHeights',
 	'revertFactorySettings',
 	'runEffectMacro',
 	'runNyquistEvaluation',

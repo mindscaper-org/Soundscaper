@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createTrackHeightModeService } from './track-height-mode-service.ts';
+import { createFitTrackHeights } from './fit-track-heights.ts';
 import { runtimeTimelineAnnotationExtent } from '../../../runtime-timeline-annotation-projection.ts';
 import { AUDIO_EDITOR_MIN_PIXELS_PER_SECOND } from '../../../timeline-zoom-limits.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import type { ControllerTransportMeters, ControllerTransportState } from '../transport-state.ts';
@@ -211,7 +211,7 @@ export function createViewStateService<Project extends ViewStateProject = ViewSt
 		adjustTrackHeight,
 		resizeTrackHeight,
 		setAutoFitTrackHeight,
-		setTrackHeightMode: createTrackHeightModeService(runtime),
+		fitTrackHeights: createFitTrackHeights(runtime),
 		setTimelineViewportWidth,
 		setVisibleTrackHeights,
 		updateMeters,
