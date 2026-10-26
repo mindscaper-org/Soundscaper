@@ -115,8 +115,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	const vpxConfigureEnvironment = windows ? Object.freeze(Object.fromEntries(
 		Object.entries(makeEnvironment).filter(([name]) => !['CC', 'CXX', 'AR', 'RANLIB'].includes(name)),
 	)) : makeEnvironment;
-	// Native Make resolves script shebangs through PATH. The attested Git Bash
-	// must win over Windows' unrelated WSL bash.exe for libvpx generators.
+	// Keep the attested Git Bash first for generator subprocesses. Native Make
+	// also needs its full shell path explicitly; a basename can select WSL.
 	const vpxBuildEnvironment = windows ? Object.freeze({ ...makeEnvironment,
 		PATH: `${dirname(tools.executables.shell.path)};${makeEnvironment.PATH}`,
 	}) : makeEnvironment;
@@ -197,7 +197,7 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	];
 	const vpxMake = windows
 		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`,
-			`SHELL=${shellTool(tools.executables.shell.path, true)}`] : [];
+			`SHELL=${makefilePath(tools.executables.shell.path, true)}`] : [];
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([
