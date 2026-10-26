@@ -61,6 +61,14 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 	});
 
 	assert.equal(result.outputRoot, fixture.outputRoot);
+	for (const source of [
+		'desktop/plugin-scan-results.ts', 'desktop/native-services-queue-status-projection.ts',
+		'vendor/audacity-design-system/components/src/component-copy.ts',
+	]) {
+		assert.deepEqual(await readFile(join(fixture.outputRoot, source)),
+			await readFile(new URL(`../${source}`, import.meta.url)),
+			`${source} must reach the packaged runner with its exact maintained bytes`);
+	}
 	assert.deepEqual(
 		await readFile(join(fixture.outputRoot, 'tests/helpers/scape-archive-rewrite.js')),
 		await readFile(new URL('./helpers/scape-archive-rewrite.js', import.meta.url)),
