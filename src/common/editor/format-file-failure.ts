@@ -3,7 +3,7 @@
 import { freezePresentationMessage, type LocalizedPresentationMessage } from '../i18n/presentation-message.ts';
 
 export type FormatFileFailureFamily = 'dawproject' | 'sesx' | 'audacity-database' | 'scape' | 'legacy-aup'
-	| 'cue' | 'edl' | 'labels' | 'effect-preset' | 'audacity-preset' | 'raw-pcm' | 'bext' | 'macro' | 'export-preset';
+	| 'cue' | 'edl' | 'labels' | 'effect-preset' | 'audacity-preset' | 'raw-pcm' | 'bext' | 'macro' | 'export-preset' | 'editor-input';
 export interface FormatFileFailure {
 	readonly family: FormatFileFailureFamily;
 	readonly reason: string;

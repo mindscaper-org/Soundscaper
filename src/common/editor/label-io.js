@@ -1,3 +1,4 @@
+import { annotateLabelParserFailure } from './label-and-preset-parser-failure.ts';
 import { decodeSubRipLabelText, decodeWebVttLabelText, encodeWebVttLabelText } from './label-cue-text.ts';
 import { decodeLabelInputText } from './label-input-text.ts';
 import { labelTimeFrame } from './label-time-frame.ts';
@@ -22,6 +23,7 @@ export class AudioEditorLabelIoError extends Error {
 		this.name = 'AudioEditorLabelIoError';
 		this.code = code;
 		this.details = Object.freeze({ ...details });
+		annotateLabelParserFailure(this, code, this.details);
 	}
 }
 
