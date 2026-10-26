@@ -93,6 +93,7 @@ interface SelectedPreparationPort {
 	prepareSelectedMedia(request: Readonly<{
 		sourceId: string;
 		operation: AssistanceOperation;
+		publicationTarget?: 'reframe';
 		shotDetectionMode?: 'fast' | 'accurate';
 		inputRole?: 'video' | 'frame-pack';
 		signal?: AbortSignal;
@@ -338,7 +339,7 @@ async function prepareExternalInputs(
 		? slotId as 'video' | 'frame-pack' : undefined;
 	const value = await dependencies.selected.prepareSelectedMedia({
 		sourceId: source[0]!.sourceId, operation, ...(mode ? { shotDetectionMode: mode } : {}),
-		...(inputRole ? { inputRole } : {}), signal,
+		...(inputRole ? { inputRole } : {}), ...(settings.workflowId === 'reframe' ? { publicationTarget: 'reframe' as const } : {}), signal,
 	});
 	const prepared = primitivePrepared(value, source[0]!.sourceId, operation, mode);
 	const matches = prepared.inputs.filter((candidate) => candidate.role === slotId);

@@ -103,6 +103,7 @@ export interface LocalAssistanceSelectedMediaPreparationPort {
 	prepareSelectedMedia(request: Readonly<{
 		sourceId: string;
 		operation: AssistanceOperation;
+		publicationTarget?: 'reframe';
 		shotDetectionMode?: LocalAssistanceShotDetectionMode;
 		signal?: AbortSignal;
 	}>): Promise<unknown>;
