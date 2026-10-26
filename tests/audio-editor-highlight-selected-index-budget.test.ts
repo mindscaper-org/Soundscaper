@@ -21,7 +21,7 @@ const record = { recordVersion: 1, derivativeVersion: 1, schemaFamily: 'framesca
 	payloadByteLength: bytes.byteLength, payloadSha256: bytesToHex(sha256(bytes)), bytes };
 const fence = { schemaFamily: 'framescaper' as const, schemaVersion: 1 as const, projectId: 'project', revision: 7,
 	sequenceId: 'sequence', sourceId: 'video-source', sourceSha256: '12'.repeat(32),
-	sourceStartFrame: 0, sourceEndFrame: 198_000, timingAuthoritySha256: '34'.repeat(32), occurrenceIds: ['video-clip'] };
+	sourceStartFrame: 0, sourceEndFrame: 198_000, timingAuthoritySha256: '34'.repeat(32), linkMembershipSha256: '56'.repeat(32), occurrenceIds: ['video-clip'] };
 function video(windows: LocalAssistanceGuidedHighlightVideoSignalsV1['windows']): LocalAssistanceGuidedHighlightVideoSignalsV1 {
 	return { schemaVersion: 1, kind: 'highlight-video-signals', sourceId: 'video-source', sampleRate: 48_000,
 		timescale: 3_000, sourceSize: { width: 128, height: 72 }, videoOccurrenceId: 'video-clip', audioOccurrenceId: null,

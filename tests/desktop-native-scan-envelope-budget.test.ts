@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createNativePluginScanJobRunner } from '../desktop/native-helper-scan-job.js';
-import { createNativeHelperWorker } from '../desktop/native-helper-process.js';
+import { createSingleKindHelperWorker } from '../desktop/helper-single-kind-worker.js';
 import { MAXIMUM_HELPER_WIRE_MESSAGE_BYTES, validateHelperProcessMessage } from '../desktop/helper-contract.ts';
 import { validateHelperPluginScanResult } from '../desktop/plugin-scan-results.ts';
 import { validateHelperVampAnalyzerScanResult } from '../desktop/vamp-analyzer-scan-service.ts';
@@ -30,16 +30,17 @@ for (const format of ['vst3', 'vamp'] as const) test(`${format} scanner publishe
 				name: 'Effect', vendor: 'Example', version: '1', classification: 'effect', inputChannels: 2, outputChannels: 2,
 				realtime: true, offline: true, reportedLatencyFrames: 0 }) }),
 	});
-	const terminal = Promise.withResolvers<unknown>();
-	const worker = createNativeHelperWorker({ role: 'plugin-scanner', runJob,
-		post: (message: unknown) => { if ((message as { type: string }).type === 'result') terminal.resolve(message); },
-		setIntervalImpl: () => ({ unref() {} }), clearIntervalImpl() {}, exit: (code: number) => terminal.reject(new Error(`worker exited ${String(code)}`)),
+	let resolveTerminal!: (message: unknown) => void; let rejectTerminal!: (error: Error) => void;
+	const terminal = new Promise<unknown>((resolve, reject) => { resolveTerminal = resolve; rejectTerminal = reject; });
+	const worker = createSingleKindHelperWorker({ kind: 'plugin-scan', runJob,
+		post: (message: unknown) => { if ((message as { type: string }).type === 'result') resolveTerminal(message); },
+		heartbeatIntervalMs: 1_000_000, exit: () => { rejectTerminal(new Error('worker exited before its terminal result')); },
 	});
 	try {
 		worker.handleMessage({ contractVersion: 1, type: 'job', jobId: 'a'.repeat(40), kind: 'plugin-scan', jobContractVersion: 1,
 			grant: { rootPath: '/usr/lib', format, identity: { dev: 1, ino: 2 } },
 			resourcePolicy: { maximumInputBytes: 1, maximumJobDurationMs: 300_000, maximumRssBytes: 512 * 1024 ** 2 } });
-		const message = validateHelperProcessMessage(await terminal.promise);
+		const message = validateHelperProcessMessage(await terminal);
 		assert.equal(message.type, 'result');
 		assert.ok(Buffer.byteLength(JSON.stringify(message)) <= MAXIMUM_HELPER_WIRE_MESSAGE_BYTES);
 		if (message.type !== 'result') return;

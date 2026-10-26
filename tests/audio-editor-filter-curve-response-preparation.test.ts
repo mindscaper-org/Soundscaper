@@ -10,7 +10,7 @@ test('changing an EQ curve reuses its bounded frequency basis with exact gains a
 	const frequencies = [20, 123.45, 400, 1_000, 12_345];
 	const originalSin = Math.sin;
 	let evaluations = 0;
-	context.mock.method(Math, 'sin', value => { evaluations += 1; return originalSin(value); });
+	context.mock.method(Math, 'sin', (value: number) => { evaluations += 1; return originalSin(value); });
 	const points = (gain: number) => [{ frequency: 20, gain: 0 }, { frequency: 1_000, gain }, { frequency: 20_000, gain: 0 }];
 	await filterCurveResponse(points(0), 48_000, 127, false, frequencies);
 	assert.ok(evaluations > 0);

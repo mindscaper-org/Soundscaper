@@ -35,7 +35,7 @@ test('offline plug-in probes use the opened instance input and output topology',
 		};
 		const run = createNativePluginHostJobRunner({ addonPath: '/host', addonSha256: 'ab'.repeat(32), loadAddon: async () => addon,
 			hashFile: async () => ({ byteLength: 16, sha256: 'cd'.repeat(32) }), hash: () => createHash('sha256') });
-		const result = await run({ grant: { binaryPath: '/plugin', binaryBytes: 16, binarySha256: 'cd'.repeat(32), format: 'clap', stableId: 'org.example.effect', identity: { dev: 1, ino: 2 } }, onProgress() {} }).completion;
+		const result = await run({ grant: { binaryPath: '/plugin', binaryBytes: 16, binarySha256: 'cd'.repeat(32), format: 'clap', stableId: 'org.example.effect', identity: { dev: 1, ino: 2 } }, resourcePolicy: {}, onProgress() {} }).completion;
 		assert.equal(blocks, HOST_PROBE_BLOCKS); assert.equal(result.blocksRendered, HOST_PROBE_BLOCKS); assert.equal(closed, true);
 	}
 });
