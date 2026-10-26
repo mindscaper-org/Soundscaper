@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { downstreamMixerNodes, mixerNodesReachingMain } from '../../../../mixer-node-closure.ts';
+import { createMixRenderMediaIndex } from './mix-render-media-index.ts';
 import { authoredMixRenderAdm } from './mix-render-adm.ts';
-import { individualPreFaderPrintWidth, prepareIndividualPreFaderSnapshot } from './individual-pre-fader-print.ts';
-import { mixRenderDetectorClosure, type MixRenderDetectorClosure } from './mix-render-detector-closure.ts';
+import { prepareIndividualPreFaderPrint, prepareIndividualPreFaderSnapshot } from './individual-pre-fader-print.ts';
+import { prepareMixRenderDetectorClosure, type MixRenderDetectorClosure } from './mix-render-detector-closure.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
 import {
 	createDefaultMixerGraphV21,
@@ -41,58 +42,75 @@ export function createMixRenderSnapshotV21(
 	targetTracks: readonly ControllerTrack[],
 	options: Readonly<SnapshotOptions>,
 ): MutableControllerProject {
+	return prepareMixRenderSnapshotsV21(authored).createSnapshot(targetTracks, options);
+}
+
+/** Immutable invocation projections are shared by the jobs and their fenced commit. */
+export function prepareMixRenderSnapshotsV21(authored: ControllerProject): Readonly<{
+	createSnapshot(targetTracks: readonly ControllerTrack[], options: Readonly<SnapshotOptions>): MutableControllerProject;
+	individualPreFaderWidth(track: ControllerTrack, renderEffects?: boolean): number | null;
+	individualPrintLaneCommands(sourceId: string, targetId: string, createId: (prefix: string) => string): AudioEditorCommand[];
+}> {
 	const project = projectTrackFolderMediaStateV12(authored);
-	const snapshot = inheritTrackFolderMediaStateProjectionV12(
-		project,
-		cloneProject(project),
-	) as MutableMixRenderProjectV21;
-	const targetIds = new Set(targetTracks.map(({ id }) => id));
-	const includeDownstream = options.mixDown ?? targetTracks.length > 1;
-	const renderEffects = options.renderEffects ?? true;
-	const graph = normalizeMixerGraphV21(snapshot.mixer);
-	const nodeIds = includeDownstream ? reachableMixerNodeIds(graph, targetIds) : new Set<string>();
-	const detectors = renderEffects
-		? mixRenderDetectorClosure(graph, snapshot.tracks, targetIds, nodeIds)
-		: { controlTrackIds: new Set<string>(), nodeIds: new Set<string>(), edgeIds: new Set<string>() };
-	const retainedNodeIds = new Set([...nodeIds, ...detectors.nodeIds]);
-	const unselectedControlTrackIds = new Set([...detectors.controlTrackIds]
-		.filter((trackId) => !targetIds.has(trackId)));
-	const renderTrackIds = new Set([...targetIds, ...unselectedControlTrackIds]);
-	narrowMedia(snapshot, targetIds, renderTrackIds, renderEffects);
-	if (!includeDownstream) {
-		snapshot.metadata = { ...dataRecord(snapshot.metadata, 'individual mix metadata'), adm: null };
-		isolateIndividualGraph(snapshot, graph, targetTracks, detectors, renderEffects);
-		const target = targetTracks[0];
-		const preWidth = target && individualPreFaderPrintWidth(authored, target, renderEffects);
-		if (target && preWidth != null) prepareIndividualPreFaderSnapshot(snapshot, target.id, preWidth, authoredMixRenderAdm(authored) === null);
+	const graph = normalizeMixerGraphV21(project.mixer);
+	const selectMedia = createMixRenderMediaIndex(project);
+	const detectorClosure = prepareMixRenderDetectorClosure(graph, project.tracks);
+	const print = prepareIndividualPreFaderPrint(authored, graph), individualPreFaderWidth = print.width;
+	return { createSnapshot, individualPreFaderWidth, individualPrintLaneCommands: print.laneCommands };
+
+	function createSnapshot(targetTracks: readonly ControllerTrack[], options: Readonly<SnapshotOptions>): MutableControllerProject {
+		const snapshot = inheritTrackFolderMediaStateProjectionV12(
+			project,
+			{ ...project },
+		) as MutableMixRenderProjectV21;
+		const targetIds = new Set(targetTracks.map(({ id }) => id));
+		const includeDownstream = options.mixDown ?? targetTracks.length > 1;
+		const renderEffects = options.renderEffects ?? true;
+		const nodeIds = includeDownstream ? reachableMixerNodeIds(graph, targetIds) : new Set<string>();
+		const detectors = renderEffects
+			? detectorClosure(targetIds, nodeIds)
+			: { controlTrackIds: new Set<string>(), nodeIds: new Set<string>(), edgeIds: new Set<string>() };
+		const retainedNodeIds = new Set([...nodeIds, ...detectors.nodeIds]);
+		const unselectedControlTrackIds = new Set([...detectors.controlTrackIds]
+			.filter((trackId) => !targetIds.has(trackId)));
+		const renderTrackIds = new Set([...targetIds, ...unselectedControlTrackIds]);
+		Object.assign(snapshot, selectMedia(renderTrackIds));
+		narrowMedia(snapshot, targetIds, renderTrackIds, renderEffects);
+		if (!includeDownstream) {
+			snapshot.metadata = { ...dataRecord(snapshot.metadata, 'individual mix metadata'), adm: null };
+			isolateIndividualGraph(snapshot, graph, targetTracks, detectors, renderEffects);
+			const target = targetTracks[0];
+			const preWidth = target && individualPreFaderWidth(target, renderEffects);
+			if (target && preWidth != null) prepareIndividualPreFaderSnapshot(snapshot, target.id, preWidth, authoredMixRenderAdm(authored) === null);
+			return reconcileMixRenderRequirementsV21(snapshot);
+		}
+		const edges = graph.edges.filter((edge) => edgeSurvivesCombined(
+			edge, renderTrackIds, targetIds, retainedNodeIds, nodeIds, detectors.edgeIds, renderEffects,
+		)).concat(silentControlAssignments(snapshot, unselectedControlTrackIds));
+		const edgeIds = new Set(edges.map(({ id }) => id));
+		snapshot.mixer = normalizeMixerGraphV21({
+			...graph,
+			groups: graph.groups.filter(({ id }) => retainedNodeIds.has(id))
+				.map((strip) => renderEffects ? strip : { ...strip, effects: [] }),
+			sends: graph.sends.filter(({ id }) => retainedNodeIds.has(id))
+				.map((strip) => renderEffects ? strip : { ...strip, effects: [] }),
+			cues: graph.cues.filter(({ id }) => retainedNodeIds.has(id)),
+			vcas: graph.vcas.map((vca) => ({
+				...vca,
+				members: vca.members.filter((member) => {
+					if (member.kind === 'master') return false;
+					return member.kind === 'track'
+						? renderTrackIds.has(member.id) : retainedNodeIds.has(member.id);
+				}),
+			})).filter(({ members }) => members.length),
+			edges,
+		}) as MutableMixRenderProjectV21['mixer'];
+		snapshot.automationLanes = snapshot.automationLanes.filter((lane) => (
+			laneSurvivesMixSnapshot(lane, renderTrackIds, retainedNodeIds, edgeIds)
+			&& (renderEffects || !laneTargetsEffect(lane))
+		));
 		return reconcileMixRenderRequirementsV21(snapshot);
 	}
-	const edges = graph.edges.filter((edge) => edgeSurvivesCombined(
-		edge, renderTrackIds, targetIds, retainedNodeIds, nodeIds, detectors.edgeIds, renderEffects,
-	)).concat(silentControlAssignments(snapshot, unselectedControlTrackIds));
-	const edgeIds = new Set(edges.map(({ id }) => id));
-	snapshot.mixer = normalizeMixerGraphV21({
-		...graph,
-		groups: graph.groups.filter(({ id }) => retainedNodeIds.has(id))
-			.map((strip) => renderEffects ? strip : { ...strip, effects: [] }),
-		sends: graph.sends.filter(({ id }) => retainedNodeIds.has(id))
-			.map((strip) => renderEffects ? strip : { ...strip, effects: [] }),
-		cues: graph.cues.filter(({ id }) => retainedNodeIds.has(id)),
-		vcas: graph.vcas.map((vca) => ({
-			...vca,
-			members: vca.members.filter((member) => {
-				if (member.kind === 'master') return false;
-				return member.kind === 'track'
-					? renderTrackIds.has(member.id) : retainedNodeIds.has(member.id);
-			}),
-		})).filter(({ members }) => members.length),
-		edges,
-	}) as MutableMixRenderProjectV21['mixer'];
-	snapshot.automationLanes = snapshot.automationLanes.filter((lane) => (
-		laneSurvivesMixSnapshot(lane, renderTrackIds, retainedNodeIds, edgeIds)
-		&& (renderEffects || !laneTargetsEffect(lane))
-	));
-	return reconcileMixRenderRequirementsV21(snapshot);
 }
 
 export function v21TrackAutomationRemovalCommands(
@@ -126,10 +144,6 @@ function narrowMedia(
 			delete result.envelope;
 			return result as unknown as ControllerTrack;
 		});
-	const clipIds = new Set(snapshot.tracks.flatMap((track) => (track.clipIds ?? [])));
-	snapshot.clips = snapshot.clips.filter((clip) => clipIds.has(clip.id));
-	const sourceIds = new Set(snapshot.clips.map((clip) => clip.sourceId));
-	snapshot.sources = snapshot.sources.filter((source) => sourceIds.has(source.id));
 	if (!Array.isArray(snapshot.trackFolders) || !snapshot.trackFolders.length) {
 		if (!Array.isArray(snapshot.sequences)) throw new TypeError('A V21 mix render requires sequences.');
 		snapshot.sequences = snapshot.sequences.map((value) => {
@@ -254,8 +268,10 @@ function edgeSurvivesCombined(
 function reconcileMixRenderRequirementsV21(
 	snapshot: MutableMixRenderProjectV21,
 ): MutableMixRenderProjectV21 {
-	projectTransientRenderFeatures(snapshot);
-	return snapshot;
+	const owned = inheritTrackFolderMediaStateProjectionV12(snapshot, cloneProject(snapshot)) as MutableMixRenderProjectV21;
+	owned.mixer = normalizeMixerGraphV21(owned.mixer) as MutableMixRenderProjectV21['mixer'];
+	projectTransientRenderFeatures(owned);
+	return owned;
 }
 
 function laneSurvivesMixSnapshot(

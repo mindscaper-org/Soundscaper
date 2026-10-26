@@ -32,7 +32,7 @@ function observed(graph: MixerGraphV21) {
 
 test('clip outgoing and detector incoming closures visit long reversed chains a bounded number of times', () => {
 	const project = chain(500);
-	const outgoing = observed({ ...project.mixer, edges: project.mixer.edges.toReversed() });
+	const outgoing = observed({ ...project.mixer, edges: [...project.mixer.edges].reverse() });
 	const isolated = exportClipMixer(outgoing.graph, 'audio');
 	assert.deepEqual([...isolated.retainedEdges].sort(), project.mixer.edges.filter(edge => edge.id !== 'foreign-master').map(edge => edge.id).sort());
 	assert.ok(outgoing.reads() < project.mixer.edges.length * 12, `${outgoing.reads()} outgoing endpoint reads`);
@@ -45,7 +45,7 @@ test('clip outgoing and detector incoming closures visit long reversed chains a 
 
 test('sequence routing reuses adjacency and preserves authored edge order while retiring foreign strips', () => {
 	const base = chain(500);
-	const project = { ...base, mixer: { ...base.mixer, edges: base.mixer.edges.toReversed() } };
+	const project = { ...base, mixer: { ...base.mixer, edges: [...base.mixer.edges].reverse() } };
 	let visits = 0;
 	const original = Set.prototype.has;
 	Set.prototype.has = function(this: Set<unknown>, value: unknown): boolean { visits++; return Reflect.apply(original, this, [value]) as boolean; };
