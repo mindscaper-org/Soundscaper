@@ -156,5 +156,6 @@ jobs:
         with:
           name: corridorkey-model-publication-receipt
           path: .corridorkey-receipt/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
