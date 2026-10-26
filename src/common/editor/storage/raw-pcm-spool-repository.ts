@@ -34,6 +34,7 @@ import {
 	recoverRawPcmAppendWhileLocked,
 	type RawPcmAcknowledgedPrefix,
 } from './raw-pcm-spool-append.ts';
+import { createRawPcmSpoolReadSession, readRawPcmSpoolChunk } from './raw-pcm-spool-read-session.ts';
 import { withCaptureSpoolOperationLock } from './capture-spool-operation-lock.ts';
 import {
 	assertRawPcmSpoolOwnership as assertSameOwnership,
@@ -41,7 +42,6 @@ import {
 	freezeRawPcmSpoolRegistry as freezeRegistry,
 	normalizeRawPcmSpoolRecord as normalizeRecord,
 	normalizeRawPcmSpoolRegistry as normalizeRegistry,
-	normalizeRawPcmSpoolChunkIndex,
 	sameRawPcmSpoolRecord as sameRecord,
 	snapshotRawPcmChannels as snapshotChannels,
 	snapshotRawPcmData as snapshotData,
@@ -68,7 +68,7 @@ export type { RawPcmSpoolChunkTiming } from './raw-pcm-spool-chunk-timing.ts';
 type RawPcmSpoolValues = Pick<KeyValueRepository,
 	'get' | 'putIfAbsent' | 'replaceIfCurrent' | 'deleteIfCurrent' | 'listByPrefix'
 > & Partial<Pick<KeyValueRepository,
-	'putIfAbsentWhenCurrent' | 'replaceIfCurrentWhenCurrent' | 'replaceIfCurrentAndPutIfAbsent'
+	'putIfAbsentWhenCurrent' | 'replaceIfCurrentWhenCurrent' | 'replaceIfCurrentAndPutIfAbsent' | 'captureGeneration' | 'getGeneration'
 >>;
 type RawPcmSpoolChunks = Pick<SourceRecordRepository, 'writeChunk' | 'chunk' | 'deleteChunks'>
 	& Partial<Pick<SourceRecordRepository, 'deleteChunksFrom'>>;
@@ -325,17 +325,12 @@ export class RawPcmSpoolRepository {
 	}
 
 	async chunk(recordValue: RawPcmSpoolRecord, indexValue: number): Promise<RawPcmSpoolChunk> {
-		const record = normalizeRecord(recordValue);
-		if (record.state === 'discarded' || record.state === 'deleting') {
-			throw new Error('Discarded raw PCM is not readable capture evidence.');
-		}
-		const index = normalizeRawPcmSpoolChunkIndex(indexValue);
-		if (index >= record.chunkCount) throw new RangeError(`Raw PCM spool chunk ${String(index)} is outside its prefix.`);
-		await this.#assertCurrent(record);
-		const stored = await this.#chunks.chunk(record.spoolToken, index);
-		const chunk = normalizeTimedRawPcmSpoolChunk(stored, record, index);
-		await this.#assertCurrent(record);
-		return chunk;
+		return readRawPcmSpoolChunk(recordValue, indexValue, this.#chunks, record => this.#assertCurrent(record));
+	}
+
+	async openReadSession(recordValue: RawPcmSpoolRecord) {
+		return createRawPcmSpoolReadSession(this.#values, this.#chunks, recordValue,
+			registryKey(recordValue.projectId), record => this.#assertCurrent(record));
 	}
 
 	/** Settle an exact capturing prefix as failed before reclaiming its owned PCM. */

@@ -16,6 +16,7 @@ import {
 } from './take-cycle-capture-validation.ts';
 import { normalizeDraft, sameDraft } from './take-cycle-capture-spool-manifest.ts';
 import { discardTakeCycleLiveCapture } from './take-cycle-live-capture-discard.ts';
+import { createTakeCycleLivePassReader } from './take-cycle-live-pass-reader.ts';
 import { collectTakeCycleLivePassEvidence } from './take-cycle-live-pass-evidence.ts';
 import type {
 	TakeCycleCaptureDraft,
@@ -96,8 +97,14 @@ export function createTakeCycleLiveCaptureSpool(
 	repository: Pick<RawPcmSpoolRepository,
 		'allocateGeneration' | 'create' | 'list' | 'load' | 'append' | 'seal'
 		| 'replaceData' | 'chunks' | 'chunk' | 'remove' | 'discard'
-	>,
+	> & Partial<Pick<RawPcmSpoolRepository, 'openReadSession'>>,
 ): Readonly<TakeCycleLiveCaptureSpool> {
+	const admittedDrafts = new WeakSet<TakeCycleCaptureDraft>();
+	const readPass = createTakeCycleLivePassReader(repository, async (value) => {
+		const record = await ownedRecord(value), draft = draftFromRecord(record);
+		if (!sameDraft(draft, value)) throw new Error('Live capture draft manifest changed.');
+		return { record, draft };
+	}, draft => admittedDrafts.has(draft));
 	return Object.freeze({
 		allocateGeneration: (projectId: string) => repository.allocateGeneration(projectId),
 		begin, persist, inspect, resolve, readPass, remove,
@@ -257,59 +264,6 @@ export function createTakeCycleLiveCaptureSpool(
 		return Object.freeze(drafts);
 	}
 
-	function readPass(
-		draftValue: TakeCycleCaptureDraft,
-		mediaIdValue: string,
-		{ signal }: { readonly signal?: AbortSignal } = {},
-	): AsyncIterable<readonly Float32Array[]> {
-		const mediaId = stableId(mediaIdValue, 'take cycle mediaId');
-		return readStoredPass(draftValue, mediaId, signal);
-	}
-
-	async function* readStoredPass(
-		draftValue: TakeCycleCaptureDraft,
-		mediaId: string,
-		signal?: AbortSignal,
-	): AsyncGenerator<readonly Float32Array[]> {
-		const record = await ownedRecord(draftValue);
-		const draft = draftFromRecord(record);
-		if (!sameDraft(draft, draftValue)) throw new Error('Live capture draft manifest changed.');
-		const source = draft.sources.find((candidate) => candidate.mediaId === mediaId);
-		const passIndex = draft.lane.publications.findIndex((publication) => publication.mediaId === mediaId);
-		if (!source || passIndex < 0) throw new ReferenceError(`Unknown take cycle capture media: ${mediaId}.`);
-		const plan = capturePlan(draft);
-		const pass = plan.passes[passIndex]!;
-		const buffers = Array.from({ length: source.channelCount }, () => new Float32Array(source.chunkFrames));
-		let bufferedFrames = 0;
-		let writtenFrames = 0;
-		for (let spanIndex = 0; spanIndex < draft.lane.captureSpans.length; spanIndex += 1) {
-			throwIfAborted(signal);
-			const span = draft.lane.captureSpans[spanIndex]!;
-			if (span.endSample <= pass.captureStartSample || span.startSample >= pass.captureEndSample) continue;
-			const chunk = await repository.chunk(record, spanIndex);
-			const intersectionStart = Math.max(span.startSample, pass.captureStartSample);
-			const intersectionEnd = Math.min(span.endSample, pass.captureEndSample);
-			let inputOffset = intersectionStart - span.startSample;
-			let remaining = intersectionEnd - intersectionStart;
-			while (remaining > 0) {
-				const count = Math.min(remaining, source.chunkFrames - bufferedFrames);
-				for (let channel = 0; channel < source.channelCount; channel += 1) {
-					buffers[channel]!.set(chunk.channels[channel]!.subarray(inputOffset, inputOffset + count), bufferedFrames);
-				}
-				bufferedFrames += count;
-				writtenFrames += count;
-				inputOffset += count;
-				remaining -= count;
-				if (bufferedFrames === source.chunkFrames) {
-					yield Object.freeze(buffers.map((channel) => channel.slice()));
-					bufferedFrames = 0;
-				}
-			}
-		}
-		if (bufferedFrames) yield Object.freeze(buffers.map((channel) => channel.slice(0, bufferedFrames)));
-		if (writtenFrames !== source.frameCount) throw new Error('Live capture pass is truncated.');
-	}
-
 	async function remove(draftValue: TakeCycleCaptureDraft): Promise<boolean> {
 		const record = await repository.load(draftValue.projectId, draftValue.draftId);
 		if (!record) return true;
@@ -384,7 +338,11 @@ export function createTakeCycleLiveCaptureSpool(
 			}))),
 		});
 		const next = await repository.replaceData(record, Object.freeze({ kind: DRAFT_KIND, draft: persistent }));
-		return normalizeDraft(persistent, next.spoolToken);
+		return admitDraft(persistent, next.spoolToken);
+	}
+
+	function admitDraft(value: unknown, token: string): TakeCycleCaptureDraft {
+		const draft = normalizeDraft(value, token); admittedDrafts.add(draft); return draft;
 	}
 
 	async function ownedRecord(draft: TakeCycleCaptureDraft): Promise<RawPcmSpoolRecord> {
@@ -397,7 +355,7 @@ export function createTakeCycleLiveCaptureSpool(
 		if (record.state !== 'sealed') throw new Error('Live capture draft is not sealed.');
 		const data = dataRecord(record.data, 'take cycle live capture draft data');
 		if (data.kind !== DRAFT_KIND) throw new Error('Live capture spool has no finalization draft.');
-		const draft = normalizeDraft(data.draft, record.spoolToken);
+		const draft = admitDraft(data.draft, record.spoolToken);
 		if (draft.projectId !== record.projectId || draft.draftId !== record.spoolId
 			|| draft.lane.captureSpans.length !== record.chunkCount
 			|| draft.lane.captureSpans.at(-1)!.endSample - draft.lane.loopStartSample !== record.frameCount) {
@@ -504,19 +462,6 @@ function snapshotSpan(
 	return Object.freeze({
 		startSample, endSample,
 		channels: Object.freeze(value.channels.map((channel) => channel.slice())),
-	});
-}
-
-function capturePlan(draft: TakeCycleCaptureDraft) {
-	return planExactTakeCycleCapture({
-		groupId: draft.lane.groupId,
-		laneId: draft.lane.laneId,
-		laneIds: draft.lane.publications.map(({ laneId }) => laneId),
-		loopStartSample: draft.lane.loopStartSample,
-		loopEndSample: draft.lane.loopEndSample,
-		captureSpans: draft.lane.captureSpans,
-		takeIds: draft.lane.publications.map(({ takeId }) => takeId),
-		interrupted: draft.lane.interrupted,
 	});
 }
 
