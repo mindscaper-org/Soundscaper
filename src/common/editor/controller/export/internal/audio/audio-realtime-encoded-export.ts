@@ -27,6 +27,7 @@ import type { ExportRenderSources } from './audio-export-render-orchestration.ts
 import type { AudioEncodingProgressRange } from './audio-export-progress.ts';
 import { tryRenderRealtimeDesktopPcmExport } from './realtime-desktop-pcm-export.ts';
 import { confirmFileSizeWarning } from '../../../shared/file-size-warning.ts';
+import { ownStatelessOfflineProject } from '../../../../engine/stateless-offline-stream.ts';
 
 export interface RealtimeEncodedExportRuntime {
 	// Legacy JavaScript ports are narrowed as their owning services migrate.
@@ -147,6 +148,7 @@ export function createRealtimeEncodedAudioExport(runtime: RealtimeEncodedExportR
 		else renderEngine.loadProject(snapshot, renderSources.sourceMap, {
 			chunkSources: renderSources.chunkSources,
 		});
+		ownStatelessOfflineProject(renderEngine.project);
 		await renderEngine.renderMixRealtime({
 			preferBoundedOffline: true,
 			...renderTarget,
