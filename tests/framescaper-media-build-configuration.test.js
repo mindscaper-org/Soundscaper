@@ -54,7 +54,10 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 	assert.equal(Object.hasOwn(vpx.environment, 'CXX'), false);
 	assert.equal(commands.find(({ phase }) => phase === 'x264-configure').environment.CC, 'c');
 	assert.equal(commands.find(({ phase }) => phase === 'libvpx-build').environment.PATH.split(';')[0], 'C:/Program Files/Git/bin');
-	assert.ok(commands.find(({ phase }) => phase === 'libvpx-build').args.includes('SHELL=bash.exe'));
+	for (const phase of ['libvpx-build', 'libvpx-install']) {
+		assert.ok(commands.find(command => command.phase === phase).args.includes(
+			'SHELL=C:/Program Files/Git/bin/bash.exe'), 'Windows Make must receive the full attested shell path, including spaces.');
+	}
 });
 
 test('source-tree authentication admits genuine names and rejects nonportable entries', (context) => {
