@@ -10,16 +10,16 @@ export const CORRIDORKEY_MODEL_VERSION_V1 = '2.0.0';
 
 // Measured standalone FP32 graphs in evidence/framescaper-corridorkey-conversion-candidate.json.
 export const CORRIDORKEY_GRAPH_ARTIFACTS_V1 = Object.freeze([
-	Object.freeze({ role: 'cradio' as const, fileName: 'cradio.onnx', byteLength: 1727663765,
-		sha256: 'f33324c398f74eff73a29e9c094fd24308444de731ad2edf636ffa96b9456a61' }),
-	Object.freeze({ role: 'moge' as const, fileName: 'moge.onnx', byteLength: 352255692,
-		sha256: '262a8786120b823f22228b0b8e02f31c40e9d54a1ad82f94fa68fdceadc9369c' }),
-	Object.freeze({ role: 'rvm' as const, fileName: 'rvm.onnx', byteLength: 134996829,
-		sha256: 'ddf1866d38ef9f03176e3d8c47c1ff45bd8c4d2be7a3559d88a635741659adbf' }),
-	Object.freeze({ role: 'stage1' as const, fileName: 'stage1.onnx', byteLength: 1854944460,
-		sha256: '0e511199835884c786f696c512c3182a7e8a5b441b15bc57c3d2c198d56f6ca9' }),
-	Object.freeze({ role: 'stage2' as const, fileName: 'stage2.onnx', byteLength: 810350799,
-		sha256: '83b1a62dfaff43ac298af93ea56bfbb78657f95533c786c67a179550a6ad88f0' }),
+	Object.freeze({ role: 'cradio' as const, fileName: 'cradio.onnx', byteLength: 1725128268,
+		sha256: '5e9f2068f80e63ae81efaa16c00f77c7b26a2dac42f0efd06cea1a4b7ab3345f' }),
+	Object.freeze({ role: 'moge' as const, fileName: 'moge.onnx', byteLength: 351133937,
+		sha256: '4a0fdf370a20e8138929ae1e82dc3c7267681de9e75179408bc97809163d1baa' }),
+	Object.freeze({ role: 'rvm' as const, fileName: 'rvm.onnx', byteLength: 133421377,
+		sha256: 'a74756a230e84c891d4f40c1cd26705ee99399211120fa22deaf8d1d00846230' }),
+	Object.freeze({ role: 'stage1' as const, fileName: 'stage1.onnx', byteLength: 1849637713,
+		sha256: '9f54dcf8fe0634142a45011aba2d441a55426412aa346171cd2e8c19bf7b6b07' }),
+	Object.freeze({ role: 'stage2' as const, fileName: 'stage2.onnx', byteLength: 807908972,
+		sha256: '137517e2c5f00411c9e86252c19d6ffb1e44a874ed070cf29475cc257e0b32ff' }),
 ]);
 
 export type CorridorKeyGraphRoleV1 = typeof CORRIDORKEY_GRAPH_ARTIFACTS_V1[number]['role'];
