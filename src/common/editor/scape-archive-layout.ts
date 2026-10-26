@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { withFormatFileParserFailureAsync } from './format-file-parser-failure.ts';
 import { throwIfScapeAborted } from './scape-abort.ts';
 import {
 	assertScapeArchiveByteSource,
@@ -92,7 +93,7 @@ export async function bindScapeArchiveByteSourceLayout(
 	signal?: AbortSignal,
 ): Promise<ScapeArchiveByteSource> {
 	const witness = createScapeArchiveLayoutWitness(source);
-	await validateByteSourceLayout(source, signal, witness);
+	await withFormatFileParserFailureAsync('scape', 'ARCHIVE_LAYOUT', () => validateByteSourceLayout(source, signal, witness));
 	return witness.bind();
 }
 

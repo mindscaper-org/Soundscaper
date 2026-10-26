@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { FORMAT_FILE_FAILURE_COPY } from './editor-format-file-failure-copy.ts';
 import { INDEXED_SEARCH_COPY } from './editor-indexed-search-copy.ts';
 import { ADM_COPY } from './editor-adm-copy.ts';
 import { VAMP_COPY, VAMP_COPY_ALIASES } from './editor-vamp-copy.ts';
@@ -114,6 +115,7 @@ const processingAliases = Object.freeze(Object.fromEntries(
 const { pressure: pressureEnglish, preflightStatus: preflightEnglish, operation: operationEnglish,
 	...storageEnglish } = STORAGE_CAPACITY_COPY_BY_LOCALE.en;
 const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
+	{ owner: 'formatFileFailure', en: FORMAT_FILE_FAILURE_COPY },
 	{ owner: 'ara', ...ARA_COPY_BY_LOCALE },
 	{ owner: 'originalFileOverwrite', ...ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE },
 	{ owner: 'blender', ...BLENDER_COPY_BY_LOCALE },

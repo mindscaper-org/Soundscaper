@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { localizedErrorMessage, publishLocalizedStatus, setLocalizedStatus, type LocalizedPresentationMessage } from '../../../../i18n/presentation-message.ts';
 
+import { formatFileFailureMessage } from '../../../format-file-failure.ts';
 import { errorDiagnosticMessage } from '../../../error-diagnostic-message.ts';
 
 export interface LocalizedImportNotice {
@@ -39,7 +40,7 @@ export function publishImportFailureStatus(
 ): void {
 	setLocalizedStatus(setStatus, copy, 'importSummary', { successes: String(successes), failures: String(failures) }, 'error', {
 		append: details.slice(0, 3).flatMap(({ fileName, error }) => [
-			'\n', fileName, ': ', localizedErrorMessage(error) ?? errorDiagnosticMessage(error, copy.unknownError ?? ''),
+			'\n', fileName, ': ', localizedErrorMessage(error) ?? formatFileFailureMessage(error) ?? errorDiagnosticMessage(error, copy.unknownError ?? ''),
 		]),
 	});
 }
