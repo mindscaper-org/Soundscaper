@@ -192,8 +192,9 @@ const DEREVERB_WEBGPU_CPU_NODES = Object.freeze([
 function dereverbWebGpuPolicy(
 	context: AssistanceRuntimeFamilyWorkerExecutionContext,
 ): AssistanceOnnxWebGpuPolicyV1 | undefined {
+	if (context.grant.task !== 'dereverberation') return undefined;
 	const model = context.grant.models[0];
-	if (context.grant.task !== 'dereverberation' || context.grant.models.length !== 1
+	if (context.grant.models.length !== 1
 		|| model?.modelId !== 'dereverb-room' || model.version !== '1.0.0'
 		|| model.artifactRole !== 'network') return undefined;
 	// Both pinned Split nodes expose more storage outputs than baseline WebGPU
