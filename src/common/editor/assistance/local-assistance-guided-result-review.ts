@@ -35,7 +35,8 @@ import {
 	reviewLocalAssistanceOutput,
 } from './local-assistance-result-review.ts';
 
-const MAXIMUM_JSON_BYTES = 8 * 1024 * 1024;
+import { ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES as MAXIMUM_JSON_BYTES } from './guided-terminal-output-capacity.ts';
+import { decodeAssistanceReframePathWireV1 } from './reframe-path-wire-v1.ts';
 
 type CompletedWorkflowResult = Readonly<{
 	contractVersion: 1;
@@ -190,6 +191,7 @@ async function loadOutput(
 			throw new TypeError('A Guided terminal result is not valid UTF-8 JSON.');
 		}
 	}
+	if (workflowId === 'reframe' && claim.slotId === 'reframe-path') json = decodeAssistanceReframePathWireV1(json);
 	return Object.freeze({ claim, body: bodyValue.slice(0, bodyValue.size, bodyValue.type),
 		sha256: digest, json });
 }

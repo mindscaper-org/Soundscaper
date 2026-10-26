@@ -62,7 +62,7 @@ export function reviewAssistanceOwnedVideoHighlightTransformResultV1(
 		case 'sample-shot-frames': reviewed = reviewOwnedFramePackPlanV1(outputs[expectedOutput]); break;
 		case 'publish-video-index': reviewed = reviewVideoIndex(outputs[expectedOutput]); break;
 		case 'track-subjects': reviewed = reviewOwnedTrackedSubjectsV1(outputs[expectedOutput]); break;
-		case 'plan-crops': reviewed = reviewReframePath(outputs[expectedOutput]); break;
+		case 'plan-crops': reviewed = reviewAssistanceOwnedReframePathV1(outputs[expectedOutput]); break;
 		case 'gather-signals': reviewed = reviewOwnedHighlightSignalsV1(outputs[expectedOutput]); break;
 		case 'rank-highlights': reviewed = reviewOwnedHighlightCandidatesV1(outputs[expectedOutput]); break;
 		case 'assemble-highlights': reviewed = reviewOwnedHighlightProposalsV1(outputs[expectedOutput]); break;
@@ -137,7 +137,7 @@ function assertRows(
 	})) throw new RangeError(`Owned ${label} index rows disagree with reviewed records.`);
 }
 
-function reviewReframePath(value: unknown) {
+export function reviewAssistanceOwnedReframePathV1(value: unknown) {
 	const row = ownedExactRecord(value, REFRAME_FIELDS, 'owned reframe path');
 	if (row.schemaVersion !== 1 || row.kind !== 'reframe-path') {
 		throw new TypeError('The owned reframe-path identity is unsupported.');

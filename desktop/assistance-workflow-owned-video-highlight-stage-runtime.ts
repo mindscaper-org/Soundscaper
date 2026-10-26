@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
 import { createHash } from 'node:crypto';
 import { open } from 'node:fs/promises';
 import {
@@ -109,7 +108,6 @@ export interface AssistanceWorkflowOwnedVisualTagsMaterializationV1 {
 		readonly tags: readonly AssistanceVisualSearchTagV1[];
 	}>[];
 }
-
 /** Closed main-only seam for data that cannot truthfully be represented by current slotted bodies. */
 export interface AssistanceWorkflowOwnedVideoHighlightMaterializerV1 {
 	materializeFramePack?(request: AssistanceWorkflowOwnedFramePackMaterializationRequestV1):
@@ -141,6 +139,8 @@ interface ResolvedInput {
 	readonly dispose?: () => Promise<void>;
 }
 
+import { encodeAssistanceReframePathWireV1 } from '../src/common/editor/assistance/reframe-path-wire-v1.ts';
+import { ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES } from '../src/common/editor/assistance/guided-terminal-output-capacity.ts';
 const JSON_MEDIA = 'application/json';
 const MATRIX_MEDIA = 'application/vnd.soundscaper.embedding-matrix-v1';
 const FRAME_MEDIA = 'application/vnd.soundscaper.frame-pack';
@@ -323,7 +323,7 @@ async function prepareOutput(
 		const outputs = result.outputs as Readonly<Record<string, unknown>>;
 		const value = stageId === 'assemble-highlights'
 			? fenceHighlightPublication(highlightProposals(result), request) : outputs[slotId];
-		chunks = Object.freeze([new TextEncoder().encode(JSON.stringify(value))]);
+		chunks = Object.freeze([stageId === 'plan-crops' ? encodeAssistanceReframePathWireV1(value) : new TextEncoder().encode(JSON.stringify(value))]);
 	}
 	const byteLength = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
 	if (chunks.length < 1 || chunks.some((chunk) => !(chunk instanceof Uint8Array)
@@ -581,7 +581,7 @@ function input(slotId: string, kind: InputKind, optional = false): InputSpec {
 }
 
 function outputMaximum(stageId: StageId): number {
-	return stageId === 'sample-shot-frames' ? ASSISTANCE_BINARY_MAXIMUM_BYTES : MAXIMUM_JSON_BYTES;
+	return stageId === 'sample-shot-frames' ? ASSISTANCE_BINARY_MAXIMUM_BYTES : stageId === 'plan-crops' ? ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES : MAXIMUM_JSON_BYTES;
 }
 
 function digestChunks(chunks: readonly Uint8Array[]): string {
