@@ -289,25 +289,30 @@ export function validateBreakpointMap(map: BreakpointMap): true {
 	return true;
 }
 export function evaluateBreakpointMap(map: BreakpointMap, outer: RationalInput): Rational {
+	return createBreakpointMapEvaluator(map)(outer);
+}
+export function createBreakpointMapEvaluator(map: BreakpointMap): (outer: RationalInput) => Rational {
 	validateBreakpointMap(map);
-	const target = bigFraction(outer);
 	const points = map.points.map((point, index) => normalizeBreakpoint(point, index));
-	const first = requiredArrayEntry(points, 0, 'breakpoint map');
-	if (compareFractions(target, first.outer) <= 0) return publicRational(first.source);
-	const last = requiredArrayEntry(points, points.length - 1, 'breakpoint map');
-	if (compareFractions(target, last.outer) >= 0) return publicRational(last.source);
-	for (let index = 0; index < points.length - 1; index += 1) {
-		const start = requiredArrayEntry(points, index, 'breakpoint map');
-		const end = requiredArrayEntry(points, index + 1, 'breakpoint map');
-		if (compareFractions(target, end.outer) > 0) continue;
-		if (start.mode === 'freeze') return publicRational(start.source);
-		const outerOffset = subtractFractions(target, start.outer);
-		const outerSpan = subtractFractions(end.outer, start.outer);
-		const sourceSpan = subtractFractions(end.source, start.source);
-		const interpolation = multiplyFractions(outerOffset, divideFractions(sourceSpan, outerSpan));
-		return publicRational(addFractions(start.source, interpolation));
-	}
-	throw new RangeError('The breakpoint position could not be evaluated.');
+	return (outer) => {
+		const target = bigFraction(outer);
+		const first = requiredArrayEntry(points, 0, 'breakpoint map');
+		if (compareFractions(target, first.outer) <= 0) return publicRational(first.source);
+		const last = requiredArrayEntry(points, points.length - 1, 'breakpoint map');
+		if (compareFractions(target, last.outer) >= 0) return publicRational(last.source);
+		for (let index = 0; index < points.length - 1; index += 1) {
+			const start = requiredArrayEntry(points, index, 'breakpoint map');
+			const end = requiredArrayEntry(points, index + 1, 'breakpoint map');
+			if (compareFractions(target, end.outer) > 0) continue;
+			if (start.mode === 'freeze') return publicRational(start.source);
+			const outerOffset = subtractFractions(target, start.outer);
+			const outerSpan = subtractFractions(end.outer, start.outer);
+			const sourceSpan = subtractFractions(end.source, start.source);
+			const interpolation = multiplyFractions(outerOffset, divideFractions(sourceSpan, outerSpan));
+			return publicRational(addFractions(start.source, interpolation));
+		}
+		throw new RangeError('The breakpoint position could not be evaluated.');
+	};
 }
 function normalizeTempoEvents(tempoMap: HoldTempoMap): readonly HoldTempoEvent[] {
 	if (!tempoMap || typeof tempoMap !== 'object' || !['musical', 'sampleLocked'].includes(tempoMap.mode)) {
@@ -364,11 +369,7 @@ function tempoSegmentSamples(
 	return multiplyFractions(beatSpan, divideFractions(samplesPerMinute, bpm));
 }
 
-function normalizeBreakpoint(point: Breakpoint, index: number): Readonly<{
-	outer: BigFraction;
-	source: BigFraction;
-	mode: BreakpointMode;
-}> {
+function normalizeBreakpoint(point: Breakpoint, index: number): Readonly<{ outer: BigFraction; source: BigFraction; mode: BreakpointMode }> {
 	if (!point || typeof point !== 'object' || !['forward', 'freeze', 'reverse'].includes(point.mode)) {
 		throw new TypeError(`breakpoint[${String(index)}] is invalid.`);
 	}
@@ -378,7 +379,6 @@ function normalizeBreakpoint(point: Breakpoint, index: number): Readonly<{
 		mode: point.mode,
 	});
 }
-
 function normalizeRate(rate: RationalRate): RationalRate {
 	if (!rate || typeof rate !== 'object') throw new TypeError('A rational rate is required.');
 	const normalized = normalizeRational(rate, { maximumDenominator: Number.MAX_SAFE_INTEGER });
