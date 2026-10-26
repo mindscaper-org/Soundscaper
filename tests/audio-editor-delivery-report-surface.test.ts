@@ -59,7 +59,7 @@ test('the summary and subject render the real report values', () => {
 	assert.doesNotMatch(summary, /\{[a-z]+\}/iu, 'every placeholder must be substituted');
 });
 
-test('item codes render as readable text without a per-code translation table', () => {
+test('known item codes render through their registered English copy', () => {
 	const items = deliveryReportItems(report({ format: 'mp3' }));
 	const lossy = items.find(({ code }: { code: string }) => code === 'delivery.lossy-encode');
 	assert.ok(lossy);

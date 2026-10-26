@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { ProjectRecoveryChange } from '../common/editor/project-recovery-reason.ts';
 import type { SourcePcmChunk } from '../common/editor/storage/source-read-repository.ts';
 import type { ProjectDocument } from '../common/editor/storage/project-repository.ts';
 import type { ProjectRecoveryCandidate, ProjectRecoverySummary } from '../common/editor/storage/project-recovery-repository.ts';
@@ -7,7 +8,7 @@ import type { LinkedOriginalStoreService } from '../common/editor/storage/linked
 import type { SoundscaperRecoveryVideoStore } from './editor-project-recovery-video.ts';
 import type { SoundscaperProject } from './editor-project-validation.ts';
 
-export interface SoundscaperProjectRecoveryChange { readonly path: string; readonly reason: string }
+export type SoundscaperProjectRecoveryChange = ProjectRecoveryChange;
 export interface SoundscaperProjectRecoveryCandidate {
 	readonly key: string;
 	readonly revision: number | null;

@@ -295,6 +295,7 @@ function Aup4CompatibilityReport({ report, copy }) {
 						<li key={`${item?.code || 'AUP4'}-${index}`} data-severity={item?.severity || 'info'}>
 							<strong title={aup4CompatibilityEffectPath(item) || undefined}>{formatAup4CompatibilityItem(item, copy)}</strong>
 							{item?.scope && <small>{formatAup4CompatibilityScope(item.scope)}</small>}
+							{item?.message && <details><summary>{copy.reportItemDiagnostic}</summary>{item.message}</details>}
 						</li>
 					))}
 				</ul>
@@ -325,7 +326,8 @@ function DeliveryReport({ report, copy }) {
 				<ul className="kw-audio-editor-compatibility-items">
 					{items.map((item, index) => (
 						<li key={`${item?.code || 'delivery'}-${index}`} data-severity={item?.severity || 'info'}>
-							<strong>{formatDeliveryReportItem(item)}</strong>
+							<strong>{formatDeliveryReportItem(item, copy)}</strong>
+							{item?.message && <details><summary>{copy.reportItemDiagnostic}</summary>{item.message}</details>}
 							{formatDeliveryReportItemDetail(item) && (
 								<small>{formatDeliveryReportItemDetail(item)}</small>
 							)}
