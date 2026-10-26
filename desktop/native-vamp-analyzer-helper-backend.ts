@@ -2,6 +2,8 @@
 
 /** Main-side Vamp backend over one supervised persistent analyzer helper job. */
 
+import { consumeVampAnalyzerSessionPcm, captureVampAnalyzerBackendFeatures } from './vamp-analyzer-owned-session-data.ts';
+
 import { randomBytes } from 'node:crypto';
 
 import type { HelperPluginAnalyzeJobGrant } from './helper-job-grant.ts';
@@ -9,9 +11,7 @@ import type { HelperJobRequest } from './helper-supervisor.ts';
 import type { NativeMainMessageChannel, NativeMainMessagePort } from './native-audio-helper-adapter.ts';
 import {
 	admitVampAnalyzerConfiguration,
-	admitVampAnalyzerFeatures,
 	admitVampAnalyzerOutputs,
-	admitVampAnalyzerPcmChunk,
 	type VampAnalyzerConfiguration,
 	type VampAnalyzerOutputDescriptor,
 	type VampAnalyzerPcmChunk,
@@ -141,14 +141,11 @@ class HelperVampAnalyzerInstance implements VampAnalyzerBackendInstance {
 
 	async process(chunk: Readonly<VampAnalyzerPcmChunk>) {
 		if (this.#configuration === null) throw new Error('The Vamp analyzer backend is not configured.');
-		const admitted = admitVampAnalyzerPcmChunk({
-			startFrame: chunk.startFrame, channels: chunk.channels,
-		}, this.#configuration, this.#nextFrame);
-		if (chunk.frameCount !== admitted.frameCount) throw new RangeError('The Vamp PCM frame count is inconsistent.');
+		const admitted = consumeVampAnalyzerSessionPcm(chunk, this.#configuration, this.#nextFrame);
 		const answer = await this.#request('process', { chunk: admitted },
 			admitted.channels.map(({ buffer }) => buffer as ArrayBuffer));
 		if (answer.kind !== 'features') throw new Error('The Vamp helper returned the wrong process response.');
-		const features = admitVampAnalyzerFeatures(answer.features, this.#outputs);
+		const features = captureVampAnalyzerBackendFeatures(answer.features, this.#outputs);
 		this.#nextFrame += admitted.frameCount;
 		return features;
 	}
@@ -159,7 +156,7 @@ class HelperVampAnalyzerInstance implements VampAnalyzerBackendInstance {
 		}
 		const answer = await this.#request('finish');
 		if (answer.kind !== 'finished') throw new Error('The Vamp helper returned the wrong finish response.');
-		return admitVampAnalyzerFeatures(answer.features, this.#outputs);
+		return captureVampAnalyzerBackendFeatures(answer.features, this.#outputs);
 	}
 
 	async cancel(reason: string): Promise<void> {
