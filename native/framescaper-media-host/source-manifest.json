@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 16084,
-			"sha256": "7dcea54e55b1a6a39119a4ef1be7cb9e3a213d499d7c1abe2dda47c7c1efc8e2"
+			"byteLength": 16453,
+			"sha256": "7720792f664cf36127f3098255750f39bea62e5c83adfc95236c6e1f3075ab7d"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -167,8 +167,8 @@
 		},
 		{
 			"path": "src/ffmpeg_hardware_encode.cpp",
-			"byteLength": 17492,
-			"sha256": "0fc25f500c7ed7e6b211558b9ba70840edd3fb1b0bdcdd53578d128126bf8d25"
+			"byteLength": 17506,
+			"sha256": "e41b65c33321dfb290a0f76a2ccf56ba3dbc34f987561c2ab410c08832ae74ce"
 		},
 		{
 			"path": "src/ffmpeg_hardware_encode.hpp",

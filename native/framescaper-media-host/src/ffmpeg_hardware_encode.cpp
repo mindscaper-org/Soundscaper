@@ -82,7 +82,7 @@ void require(const int status, const bool hardware, const std::string_view actio
 	return plan.video_codec == "prores" && plan.container == "mov";
 }
 
-[[nodiscard]] std::string long_gop_encoder(
+[[maybe_unused, nodiscard]] std::string long_gop_encoder(
 	const admitted_media_plan& plan,
 	const std::string_view suffix
 ) {
