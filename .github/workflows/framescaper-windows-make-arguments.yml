@@ -14,8 +14,10 @@ jobs:
         include:
           - runner: windows-2025
             arch: x64
+            node_arch: x64
           - runner: windows-11-vs2026-arm
             arch: arm64
+            node_arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     env:
@@ -31,13 +33,14 @@ jobs:
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: .nvmrc
-          architecture: ${{ matrix.arch }}
+          architecture: ${{ matrix.node_arch }}
           cache: npm
       - run: npm install --global npm@12.0.1
-      - run: npm ci
       - name: Select native Windows tooling
-        shell: bash
-        run: node scripts/setup-ci-native-tooling.mjs --windows-media-tools
+        uses: ./.github/actions/setup-native-tooling
+        with:
+          windows-media-tools: 'true'
+      - run: npm ci
       - name: Measure long argument delivery through each installed Git shell
         run: node scripts/diagnose-windows-make-arguments.ts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
