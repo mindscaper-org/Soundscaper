@@ -20,7 +20,10 @@ import {
 import {
 	runAssistanceRuntimeFamilyWorkerJobV1,
 } from '../desktop/assistance-runtime-family-worker-entry.ts';
+import { validateAssistanceRuntimeFamilyDescriptorV1 } from
+	'../desktop/assistance-runtime-family-process-protocol.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { onnxGpuDescriptorFixture } from './helpers/desktop-assistance-onnx-gpu-fixture.ts';
 
 type TensorValue = AssistanceOnnxTensorV1;
 
@@ -43,7 +46,7 @@ function audio(frameCount = 2_048, channelCount = 2): Uint8Array {
 
 async function dereverbFixture(
 	context: TestContext,
-	overrides: Readonly<{ audio?: Uint8Array; modelId?: string }> = {},
+	overrides: Readonly<{ audio?: Uint8Array; modelId?: string; gpu?: boolean }> = {},
 ) {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-dereverb-ort-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
@@ -73,7 +76,10 @@ async function dereverbFixture(
 			protocolVersion: 1 as const, jobId: JOB_ID,
 			familyId: 'onnxruntime-node' as const, task: 'dereverberation' as const,
 			maximumRssBytes: 8 * 1024 ** 3, maximumDurationMs: 60_000, grant,
-			descriptor: Object.freeze({ familyId: 'onnxruntime-node' as const,
+			descriptor: overrides.gpu
+				? validateAssistanceRuntimeFamilyDescriptorV1(onnxGpuDescriptorFixture('linux-x64'))
+				: Object.freeze({
+				familyId: 'onnxruntime-node' as const,
 				runtimeVersion: '1.29.0', target: 'linux-x64' as const,
 				executionProvider: 'cpu' as const, entrypoint: '/runtime/onnxruntime-node/index.js',
 				files: Object.freeze([{ path: '/runtime/onnxruntime-node/index.js',
@@ -100,6 +106,7 @@ function fakeRuntime(
 	outputNames: readonly string[],
 	run: (feeds: Readonly<Record<string, TensorValue>>) => Promise<Readonly<Record<string, TensorValue>>>,
 	release?: () => void,
+	onCreate?: (modelPath: string, options: Parameters<AssistanceOnnxRuntimeModuleV1['InferenceSession']['create']>[1]) => void,
 ): AssistanceOnnxRuntimeModuleV1 {
 	class Tensor implements TensorValue {
 		constructor(readonly type: 'uint8' | 'float32' | 'int64',
@@ -107,8 +114,12 @@ function fakeRuntime(
 			readonly dims: readonly number[]) {}
 	}
 	return Object.freeze({ Tensor, InferenceSession: Object.freeze({
-		create: async () => Object.freeze({ inputNames, outputNames, run,
-			...(release ? { release } : {}) }),
+		create: async (modelPath: string,
+			options: Parameters<AssistanceOnnxRuntimeModuleV1['InferenceSession']['create']>[1]) => {
+			onCreate?.(modelPath, options);
+			return Object.freeze({ inputNames, outputNames, run,
+				...(release ? { release } : {}) });
+		},
 	}) });
 }
 
@@ -164,6 +175,21 @@ test('dereverb-room preserves exact 44.1 kHz stereo geometry through an identity
 		}
 		assert.equal(result.outputs[0]!.sha256, digest(outputBytes));
 		assert.equal(result.outputs[0]!.role, 'enhanced-audio');
+	});
+
+test('dereverb-room keeps the two over-wide Split nodes on CPU inside its WebGPU session',
+	async (context) => {
+		const fixture = await dereverbFixture(context, { gpu: true });
+		let providers: unknown;
+		const runtime = fakeRuntime(['input'], ['output'], async () => identityMask(), () => {},
+			(_modelPath, options) => { providers = options.executionProviders; });
+		await runAssistanceRuntimeFamilyWorkerJobV1({
+			job: fixture.job,
+			execute: createAssistanceOnnxRuntimeWorkerAdapterV1({ loadRuntime: async () => runtime }),
+		});
+		assert.deepEqual(providers, [{ name: 'webgpu', forceCpuNodeNames: [
+			'/band_split/Split', '/mask_estimators.0/Split',
+		] }, 'cpu']);
 	});
 
 test('dereverb-room rejects substituted artifacts, foreign graphs, and non-finite masks',

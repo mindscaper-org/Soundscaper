@@ -352,9 +352,8 @@ function fakeRuntime(
 	}
 	return Object.freeze({
 		Tensor,
-		InferenceSession: Object.freeze({ create: async (_path: string, options: {
-			executionProviders: readonly string[];
-		}) => {
+		InferenceSession: Object.freeze({ create: async (_path: string,
+			options: Parameters<AssistanceOnnxRuntimeModuleV1['InferenceSession']['create']>[1]) => {
 			assert.deepEqual(options.executionProviders, ['cpu']);
 			return Object.freeze({ inputNames, outputNames, run, release });
 		} }),
