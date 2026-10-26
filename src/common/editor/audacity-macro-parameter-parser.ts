@@ -41,7 +41,7 @@ export function parseMacroParameters(source: string, lineNumber: number): Map<st
 			else throw macroSyntaxError(lineNumber, `${name} has an unsupported \\${escaped} escape`, undefined, 'ESCAPE', name);
 		}
 		if (!closed) throw macroSyntaxError(lineNumber, `${name} has an unterminated quoted value`, undefined, 'UNTERMINATED', name);
-		if (offset < source.length && !/\s/.test(source[offset])) {
+		if (offset < source.length && !/\s/.test(source.charAt(offset))) {
 			throw macroSyntaxError(lineNumber, `unexpected text after ${name}`, undefined, 'UNEXPECTED_TEXT', name);
 		}
 		// Audacity's config-backed parser uses the final occurrence.
