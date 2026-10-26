@@ -66,10 +66,11 @@ export async function qualifyPhotoPreviewSessionCloseNativeV1(cut: PhotoPreviewS
 		closeTask = settle(closePromise).then(result => { closeSettled = true; return result; }); entered.resolve();
 	}
 	function closingWitness(): Promise<Outcome<void>> { check(closeTask !== null, 'The selected Close witness is required.'); return closeTask; }
-	async function companion(): Promise<void> {
+	async function observeCompanion(): Promise<void> {
 		const callback = (globalThis as typeof globalThis & { __assertNativeOpfsWorkerExecution?: () => Promise<void> }).__assertNativeOpfsWorkerExecution;
-		check(typeof callback === 'function', 'The ordinary native worker companion is required.'); await callback(); workerProof = true;
+		check(typeof callback === 'function', 'The ordinary native worker companion is required.'); await callback();
 	}
+	async function companion(): Promise<void> { await observeCompanion(); workerProof = true; }
 	const factory = observeFactory(nativeFactory);
 	observeMethods();
 	try {
@@ -138,7 +139,7 @@ export async function qualifyPhotoPreviewSessionCloseNativeV1(cut: PhotoPreviewS
 		let literalPixelsExact: boolean;
 		try { literalPixelsExact = literalPixels(previewBytes); check(literalPixelsExact, 'Native reopened preview disagrees with literal PNG palette pixels.'); } finally { previewBytes.fill(0); }
 		check(committed ? reopenWriterOpens === 0 && originalReads === 0 : reopenWriterOpens === 1 && originalReads === 1, 'Reopen substituted a cache hit or skipped native regeneration.');
-		await companion(); phase = 'verify';
+		await observeCompanion(); phase = 'verify';
 		const finalPair = await snapshot(targetKey, null), after = await originalSnapshot(photoId);
 		check(finalPair.payload === 1 && finalPair.inventory === 1 && finalPair.pathPresent && finalPair.bodySha256 === again.preview.outputSha256, 'Reopened acknowledged native pair is incomplete.');
 		if (committed) check(JSON.stringify(finalPair) === JSON.stringify(afterCut), 'Reopen changed the acknowledged pair token or native body.');
@@ -258,7 +259,16 @@ export async function qualifyPhotoPreviewSessionCloseNativeV1(cut: PhotoPreviewS
 	async function originalSnapshot(photoId: string) {
 		const media = new PhotoMediaStoreV1({ indexedDB: nativeFactory, locks: navigator.locks });
 		const catalog = new PhotoCatalogRepositoryV2({ indexedDB: nativeFactory, verifyOriginal: media.verifyOriginal });
-		try {
+		const result = await settle(read()), failures: unknown[] = [];
+		// This read owns a separate native worker; join its observation while
+		// the media owner remains live, independently of the read outcome.
+		try { await observeCompanion(); } catch (error) { failures.push(error); }
+		try { await catalog.close(); } catch (error) { failures.push(error); }
+		try { await media.close(); } catch (error) { failures.push(error); }
+		if (failures.length) throw new AggregateError([...(!result.ok ? [result.error] : []), ...failures],
+			'Native original snapshot cleanup failed.', !result.ok ? { cause: result.error } : undefined);
+		if (!result.ok) throw result.error; return result.value;
+		async function read() {
 			const pointer = readPhotoLibraryLocationPointerV2(await media.settingsRepository.get(PHOTO_LIBRARY_CATALOG_POINTER_KEY_V1));
 			check(pointer.schemaVersion === 1, 'Actual fresh initialization must select the default anchor profile.');
 			const photo = await catalog.loadPhoto(pointer.catalogId, photoId); check(photo !== null, 'Imported full Photo is missing.');
@@ -278,7 +288,7 @@ export async function qualifyPhotoPreviewSessionCloseNativeV1(cut: PhotoPreviewS
 				return { custody: JSON.stringify(rows), record: JSON.stringify(record), mediaContentToken };
 			}));
 			return { photo, metadata, ...authority, bytesExact };
-		} finally { try { await catalog.close(); } finally { await media.close(); } }
+		}
 	}
 	async function snapshot(key: string, path: string | null): Promise<PairSnapshot> {
 		const pair = await withDatabase(database => transact(database, [PAYLOAD, INVENTORY], 'readonly', async stores => {

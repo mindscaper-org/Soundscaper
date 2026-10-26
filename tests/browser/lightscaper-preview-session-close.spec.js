@@ -2,6 +2,7 @@
 
 import { browserProductSiteForBuild } from '../../scripts/lib/browser-product-site-plan.mjs';
 import { expect, installNativeImageHandoffRuntime, qualifyNativePhotoPreviewSessionClose, test } from './helpers/lightscaper-image-handoff-native-fixture.js';
+import { observeNativeOpfsSnapshotWorkerLifetimes } from './helpers/native-opfs-worker-companion.ts';
 
 const CUTS = ['after-write', 'after-close', 'payload-put', 'inventory-put', 'completed-ack', 'cleanup-ack'];
 
@@ -33,4 +34,25 @@ for (const cut of CUTS) test(`selected preview Session.close at ${cut} joins nat
 	expect(result.finalPair.bodySha256).toBe(result.finalPair.pair.outputSha256);
 	expect(result.original).toMatchObject({ photoExact: true, metadataExact: true, custodyExact: true, bytesExact: true });
 	expect(result.original.sha256).toMatch(/^[a-f0-9]{64}$/u); expect(result.oldPathAbsent).toBe(cut === 'cleanup-ack' ? true : null);
+});
+
+test('selected preview inventory-put joins every native snapshot observation before worker termination', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', 'This native sync-worker qualification is maintained for Chromium and Firefox.');
+	await installNativeImageHandoffRuntime(page);
+	const origin = process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS ? JSON.parse(process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS).lightscaper : browserProductSiteForBuild('lightscaper').origin;
+	await page.goto(`${origin}/?lang=en`);
+	await expect(page.getByRole('region', { name: 'Lightscaper', exact: true })).toBeVisible();
+	const observation = await observeNativeOpfsSnapshotWorkerLifetimes(page);
+	try {
+		const result = await qualifyNativePhotoPreviewSessionClose(page, 'inventory-put');
+		expect(result.native).toMatchObject({ writerOpens: 1, writeBytes: 16, closeAcks: 1, workerProof: true });
+		expect(result.original).toMatchObject({ photoExact: true, metadataExact: true, custodyExact: true, bytesExact: true });
+		const workers = await observation.read();
+		expect(workers.length).toBeGreaterThanOrEqual(2);
+		for (const worker of workers) {
+			expect(worker.snapshotRequests).toBeGreaterThan(0);
+			expect(worker, `Native snapshot worker ${worker.id} must join its real companion before termination.`)
+				.toMatchObject({ terminated: true, joinedBeforeTermination: true });
+		}
+	} finally { await observation.restore(); }
 });

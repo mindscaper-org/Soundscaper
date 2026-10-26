@@ -36,6 +36,69 @@ export async function assertNativeOpfsWorkerExecution(page: Page): Promise<void>
 	}
 }
 
+interface SnapshotWorkerLifetime {
+	readonly id: number;
+	readonly snapshotRequests: number;
+	readonly terminated: boolean;
+	readonly joinedBeforeTermination: boolean;
+}
+
+/** Record real snapshot workers' observation/termination order without delaying
+ * native requests or accepting a checkpoint after its worker has already closed. */
+export async function observeNativeOpfsSnapshotWorkerLifetimes(page: Page): Promise<{
+	read(): Promise<readonly SnapshotWorkerLifetime[]>;
+	restore(): Promise<void>;
+}> {
+	const observer = await page.evaluateHandle(() => {
+		const scope = globalThis as typeof globalThis & { __assertNativeOpfsWorkerExecution?: () => Promise<void> };
+		const companion = scope.__assertNativeOpfsWorkerExecution;
+		const companionDescriptor = Object.getOwnPropertyDescriptor(scope, '__assertNativeOpfsWorkerExecution');
+		const postDescriptor = Object.getOwnPropertyDescriptor(Worker.prototype, 'postMessage');
+		const terminateDescriptor = Object.getOwnPropertyDescriptor(Worker.prototype, 'terminate');
+		if (typeof companion !== 'function' || !companionDescriptor || !postDescriptor || !terminateDescriptor) {
+			throw new Error('The actual worker and native companion must exist before lifecycle observation.');
+		}
+		const post = Worker.prototype.postMessage, terminate = Worker.prototype.terminate;
+		const workers = new Map<Worker, { id: number; snapshots: number; joined: number; terminated: boolean; joinedAtTermination: boolean }>();
+		Object.defineProperty(Worker.prototype, 'postMessage', { ...postDescriptor, value: function(this: Worker, ...args: Parameters<Worker['postMessage']>) {
+			Reflect.apply(post, this, args);
+			const message: unknown = args[0];
+			if (message === null || typeof message !== 'object') return;
+			const request = message as { type?: unknown; operationId?: unknown };
+			if (request.type !== 'snapshot' || request.operationId !== 'media-asset-chunk-read') return;
+			let worker = workers.get(this);
+			if (!worker) {
+				worker = { id: workers.size + 1, snapshots: 0, joined: 0, terminated: false, joinedAtTermination: false };
+				workers.set(this, worker);
+			}
+			worker.snapshots++;
+		} });
+		Object.defineProperty(Worker.prototype, 'terminate', { ...terminateDescriptor, value: function(this: Worker) {
+			const worker = workers.get(this), joined = worker !== undefined && worker.joined === worker.snapshots;
+			Reflect.apply(terminate, this, []);
+			if (worker) { worker.terminated = true; worker.joinedAtTermination = joined; }
+		} });
+		Object.defineProperty(scope, '__assertNativeOpfsWorkerExecution', { ...companionDescriptor, value: async () => {
+			const live = [...workers.values()].filter(worker => !worker.terminated).map(worker => ({ worker, snapshots: worker.snapshots }));
+			await Reflect.apply(companion, scope, []);
+			for (const { worker, snapshots } of live) if (!worker.terminated) worker.joined = Math.max(worker.joined, snapshots);
+		} });
+		return {
+			read: () => [...workers.values()].map(worker => ({ id: worker.id, snapshotRequests: worker.snapshots,
+				terminated: worker.terminated, joinedBeforeTermination: worker.joinedAtTermination })),
+			restore() {
+				Object.defineProperty(scope, '__assertNativeOpfsWorkerExecution', companionDescriptor);
+				Object.defineProperty(Worker.prototype, 'postMessage', postDescriptor);
+				Object.defineProperty(Worker.prototype, 'terminate', terminateDescriptor);
+			},
+		};
+	});
+	return {
+		read: () => observer.evaluate(value => value.read()),
+		async restore() { try { await observer.evaluate(value => value.restore()); } finally { await observer.dispose(); } },
+	};
+}
+
 /** Esbuild preserves the common client's worker URL; supply its actual companion
  * with the same response policy the production preview serves at that URL. */
 export function installNativeOpfsWorkerCompanion(page: Page): Promise<void> {
