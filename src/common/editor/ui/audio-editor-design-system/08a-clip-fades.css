@@ -82,12 +82,12 @@
 	outline: none;
 }
 .audio-editor-clip-fade__zone--in {
-	cursor: image-set(url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeIn.png') 1x,
-		url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeIn@2x.png') 2x) 16 16, pointer;
+	cursor: image-set(url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeIn.png?inline') 1x,
+		url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeIn@2x.png?inline') 2x) 16 16, pointer;
 }
 .audio-editor-clip-fade__zone--out {
-	cursor: image-set(url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeOut.png') 1x,
-		url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeOut@2x.png') 2x) 16 16, pointer;
+	cursor: image-set(url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeOut.png?inline') 1x,
+		url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeOut@2x.png?inline') 2x) 16 16, pointer;
 }
 .audio-editor-clip-fade__zone[data-has-fade] { cursor: ew-resize; }
 .audio-editor-clip-fade__zone[data-disabled] { pointer-events: none; }
