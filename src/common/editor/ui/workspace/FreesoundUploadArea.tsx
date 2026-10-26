@@ -228,4 +228,3 @@ function statusLabel(copy: Readonly<Record<string, string>>, item: FreesoundUplo
 		cancelled: copy.uploadCancelled,
 	}[item.status];
 }
-
