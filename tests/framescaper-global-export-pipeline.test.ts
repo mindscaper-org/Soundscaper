@@ -18,9 +18,9 @@ test('production selected finishing applies captured authored globals before str
 	const effected = [0,20,29,255,64,92,101,255,128,92,65,255,188,164,5,255];
 	const direct = await applyVideoExactBrowserEffectsFinishing({ width: 2, height: 2, pixels: source }, effects, new AbortController().signal);
 	assert.deepEqual(Array.from(direct.pixels), effected);
-	// Existing selected finishing quantizes the managed linear frame to UNORM8,
-	// then composes in premultiplied linear space and encodes straight sRGB.
-	const composed = [0,22,28,255,64,92,101,255,128,92,64,255,188,164,0,255];
+	// Composition retains Float32 linear channels until the final sRGB encode,
+	// preserving these independently established effect bytes at identity placement.
+	const composed = [0,20,29,255,64,92,101,255,128,92,65,255,188,164,5,255];
 	assert.deepEqual(effected.map((value, index) => index % 4 === 3 ? value : linearRoundtrip(value)), composed);
 	assert.deepEqual(result.pixels, composed);
 	assert.ok(result.consumedNodeIds.length > 0);
@@ -33,7 +33,7 @@ test('production picture encoder consumes selected finishing pixels and decodes 
 		createVideoEffect('tone-ladder-v1', { id: 'tone', params: { exposure: -1 } })], 2, 2);
 	const frameSource = createVideoExactPictureExportFrameSource({ sampleRate: 48000, startFrame: 0, endFrame: 4800,
 		canvas: { width: 2, height: 2, frameRate: { num: 10, den: 1 }, fit: 'contain', backgroundColor: '#000000' } });
-	const preEncode = [0,22,28,255,64,92,101,255,128,92,64,255,188,164,0,255];
+	const preEncode = [0,20,29,255,64,92,101,255,128,92,65,255,188,164,5,255];
 	const encoder = await createPinnedExportEncoderV1(); let produced = 0, disposed = 0;
 	try {
 		const result = await encodeVideoKeyframeVideo(encoder.editor, { frameSource, format: 'mp4', signal: new AbortController().signal,
@@ -63,6 +63,6 @@ test('production picture encoder consumes selected finishing pixels and decodes 
 
 function linearRoundtrip(byte: number): number {
 	const v = byte / 255, linear = v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-	const quantized = Math.round(linear * 255) / 255;
-	return Math.round((quantized <= 0.0031308 ? quantized * 12.92 : 1.055 * quantized ** (1 / 2.4) - 0.055) * 255);
+	const working = Math.fround(linear);
+	return Math.round((working <= 0.0031308 ? working * 12.92 : 1.055 * working ** (1 / 2.4) - 0.055) * 255);
 }

@@ -13,10 +13,10 @@ for (const reverse of [false, true]) test(`actual selected finishing→compositi
 	const point = createVideoEffect('point-curves-v1', { id: 'point', params: { master: [{ x: 0, y: 1 }, { x: 1, y: 0 }] } });
 	const parametric = createVideoEffect('parametric-curves-v1', { id: 'parametric', params: { masterShadows: 100 } });
 	const effects = reverse ? [parametric, point] : [point, parametric], context = createGlobalExportContextV1(effects, 2, 2);
-	// Literal effect goldens include the existing linear UNORM8 composition roundtrip:
-	// 62→61, 63→64 and 32→34 are composition-only quantization, never a curve tolerance.
-	const expected = reverse ? [255,191,175,255,175,127,64,255,127,127,127,255,0,28,223,255]
-		: [255,223,191,255,191,127,79,255,127,127,127,255,0,61,239,255];
+	// Independent ordered curve bytes survive Float32 linear composition and
+	// its single final sRGB encoding without an intermediate UNORM8 roundtrip.
+	const expected = reverse ? [255,191,175,255,175,127,63,255,127,127,127,255,0,31,223,255]
+		: [255,223,191,255,191,127,79,255,127,127,127,255,0,62,239,255];
 	const frameSource = createVideoExactPictureExportFrameSource({ sampleRate: 48000, startFrame: 0, endFrame: 4800,
 		canvas: { width: 2, height: 2, frameRate: { num: 10, den: 1 }, fit: 'contain', backgroundColor: '#000000' } });
 	const encoder = await createPinnedExportEncoderV1(); let produced = 0, disposed = 0;

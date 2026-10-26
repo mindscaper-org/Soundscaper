@@ -4,7 +4,8 @@ import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
 import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-native-gpu-capability-current.ts';
 import { build } from 'esbuild';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_GERMAN_COPY } from '../helpers/translation-catalogs.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, collectClientErrors, importFiles } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
@@ -25,29 +26,25 @@ const ROUTES = { en: { file: 'File', edit: 'Edit', copy: EDITOR_ENGLISH_COPY },
 	de: { file: 'Datei', edit: 'Bearbeiten', copy: EDITOR_GERMAN_COPY } };
 const WEBKIT_AV_IMPORT_DEFERRED = 'Playwright WebKit rejects the IndexedDB Blob write that persists an imported A/V source.';
 
-// Literal pre-encode goldens include the declared encoded-sRGB -> linear
-// UNORM8 -> encoded-sRGB composition rounding. No production transfer/kernel
-// calculates these expected bytes, and no lossy codec equality is asserted.
+// The independent pinned effect bytes survive Float32 linear composition
+// and its single final sRGB encoding. No production transfer/kernel calculates
+// these expected bytes, and no lossy codec equality is asserted.
 const CASES = [
 	{ type: 'noise-reduction-v1', label: 'videoEffectNoiseReduction', native: 'qualifyNoiseNativeV1', linked: 'noiseProgramLinked', code: 30,
 		png: NOISE_PNG_BASE64, source: NOISE_SOURCE, params: NOISE_PARAMS, pixels: NOISE_PIXELS,
 		controls: [['luminance', 'videoEffectNoiseLuminance'], ['luminanceDetail', 'videoEffectNoiseLuminanceDetail'],
 			['luminanceContrast', 'videoEffectNoiseLuminanceContrast'], ['color', 'videoEffectNoiseColor'],
-			['colorDetail', 'videoEffectNoiseColorDetail'], ['colorSmoothness', 'videoEffectNoiseColorSmoothness']],
-		preEncode: [13,46,71,255,79,129,169,255,126,131,119,255,226,207,50,255] },
+			['colorDetail', 'videoEffectNoiseColorDetail'], ['colorSmoothness', 'videoEffectNoiseColorSmoothness']] },
 	{ type: 'grain-v1', label: 'videoEffectGrain', native: 'qualifyGrainNativeV1', linked: 'grainProgramLinked', code: 31,
 		png: GRAIN_PNG_BASE64, source: GRAIN_SOURCE, params: GRAIN_PARAMS, pixels: GRAIN_PIXELS,
 		controls: [['amount', 'videoEffectGrainAmount'], ['size', 'videoEffectGrainSize'],
-			['roughness', 'videoEffectGrainRoughness'], ['seed', 'videoEffectGrainSeed']],
-		preEncode: [0,28,64,255,64,128,192,255,124,124,124,255,252,221,13,255] },
+			['roughness', 'videoEffectGrainRoughness'], ['seed', 'videoEffectGrainSeed']] },
 	{ type: 'texture-v1', label: 'videoEffectTexture', native: 'qualifyTextureNativeV1', linked: 'textureProgramLinked', code: 32,
 		png: TEXTURE_PNG_BASE64, source: TEXTURE_SOURCE, params: TEXTURE_PARAMS, pixels: TEXTURE_PIXELS,
-		controls: [['amount', 'videoEffectTextureAmount']],
-		preEncode: [0,28,64,255,64,128,192,255,129,129,129,255,255,225,13,255] },
+		controls: [['amount', 'videoEffectTextureAmount']] },
 	{ type: 'dehaze-v1', label: 'videoEffectDehaze', native: 'qualifyDehazeNativeV1', linked: 'dehazeProgramLinked', code: 33,
 		png: DEHAZE_PNG_BASE64, source: DEHAZE_SOURCE, params: DEHAZE_PARAMS, pixels: DEHAZE_PIXELS,
-		controls: [['amount', 'videoEffectDehazeAmount']],
-		preEncode: [46,81,117,255,117,151,186,255,151,151,151,255,221,186,81,255] },
+		controls: [['amount', 'videoEffectDehazeAmount']] },
 ];
 
 for (const [locale, route] of Object.entries(ROUTES)) for (const fixture of CASES) {
@@ -125,7 +122,7 @@ async function assertNativeRecipe(page, fixture, effects) {
 	expect(result.shader.nativeWebgl2).toBe(true); expect(result.shader.nativeReadbacks).toBe(1); expect(result.shader.glError).toBe(0);
 	expect(result.shader.source).toEqual(fixture.source); expect(result.shader.before).toEqual(fixture.source);
 	expect(result.selected.nativeCanvasCapture).toBe(true); expect(result.selected.captured).toEqual([fixture.source]);
-	expect(result.selected.effects).toEqual(effects); expect(result.selected.pixels).toEqual(fixture.preEncode);
+	expect(result.selected.effects).toEqual(effects); expect(result.selected.pixels).toEqual(fixture.pixels);
 	expect(result.selected.consumedNodeIds.length).toBeGreaterThan(0);
 }
 

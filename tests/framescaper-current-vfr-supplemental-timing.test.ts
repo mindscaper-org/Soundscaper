@@ -142,7 +142,8 @@ test('current V16 retains the exact branded token through a native Map snapshot 
 		const frame = createVideoExactPictureExportFrameSource({ sampleRate: 48_000, startFrame: 0, endFrame: 48_000,
 			canvas: { width: 2, height: 2, frameRate: RATE, fit: 'contain', backgroundColor: '#00000000' } }).frame(0);
 		const pictures = await execution.resolve({ frame, sequencePosition: { num: 0, den: 1 }, width: 2, height: 2, signal: input.signal });
-		assert.equal(pictures.length, 1); assert.deepEqual(pictures[0]?.frame.pixels, RED);
+		assert.equal(pictures.length, 1);
+		assert.deepEqual(pictures[0]?.frame.pixels, new Float32Array([1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1]));
 		assert.equal(sha256(value.sourceBody), value.publication.reference.sourceSha256);
 	} finally { await execution.dispose(); }
 });

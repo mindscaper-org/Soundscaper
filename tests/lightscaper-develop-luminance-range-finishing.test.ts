@@ -86,9 +86,11 @@ test('media range chooses post-finishing membership, while adjustment range choo
 			assertCurrent() {}, captureFrame: () => ({ width: 2, height: 2, pixels: source }) });
 		try {
 			await execution.render(request(target, stop.signal));
-			// Linear55 gains one stop to110; its one final sRGB encode is175.
-			assert.deepEqual([...target], [0, 0, 0, 0, 175, 175, 175, 255, 175, 175, 175, 255, 0, 0, 0, 0,
-				0, 0, 0, 0, 175, 175, 175, 255, 175, 175, 175, 255, 0, 0, 0, 0]);
+			// Exact sRGB128 decoding gains one stop before the sole byte encoding.
+			const linear = Math.fround(((128 / 255 + 0.055) / 1.055) ** 2.4 * 2);
+			assert.equal(Math.round((1.055 * linear ** (1 / 2.4) - 0.055) * 255), 176);
+			assert.deepEqual([...target], [0, 0, 0, 0, 176, 176, 176, 255, 176, 176, 176, 255, 0, 0, 0, 0,
+				0, 0, 0, 0, 176, 176, 176, 255, 176, 176, 176, 255, 0, 0, 0, 0]);
 			assert.deepEqual([...source], Array.from({ length: 4 }, () => [128, 128, 128, 255]).flat());
 		} finally { await execution.dispose(); }
 	}

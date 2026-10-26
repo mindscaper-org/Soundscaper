@@ -17,9 +17,10 @@ import { readFile } from 'node:fs/promises';
 test('selected finishing and picture export encode the persisted texture neighborhood with exact pre-encode bytes',async()=>{
 	const original=[64,64,64,255,128,128,128,255,192,192,192,255,128,128,128,255],source=new Uint8Array(original);
 	const effects=[createVideoEffect('texture-v1',{id:'texture',params:{amount:100}})],context=createGlobalExportContextV1(effects,2,2);
-	// Independent Texture bytes62/127/194/128 become linear UNORM8
-	//12/54/138/55, then encoded61/127/194/128 before the declared YUV codec.
-	const preEncode=[61,61,61,255,127,127,127,255,194,194,194,255,128,128,128,255];
+	// Independent Texture bytes62/127/194/128 survive Float32 composition
+	// and its single final sRGB encode before the declared YUV codec.
+	const preEncode=[62,62,62,255,127,127,127,255,194,194,194,255,128,128,128,255];
+	assert.deepEqual(preEncode,textureReferenceV1(original,2,100));
 	const frameSource=createVideoExactPictureExportFrameSource({sampleRate:48000,startFrame:0,endFrame:4800,
 		canvas:{width:2,height:2,frameRate:{num:10,den:1},fit:'contain',backgroundColor:'#000000'}});
 	const encoder=await createPinnedExportEncoderV1();let produced=0,disposed=0;

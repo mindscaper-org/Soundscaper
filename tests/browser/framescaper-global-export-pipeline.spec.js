@@ -17,9 +17,9 @@ test('native Canvas capture feeds authored globals into the production selected-
 	const result = await qualify(page, 'opaque');
 	expect(result.captured).toEqual([[0,32,64,255,64,128,192,255,128,128,128,255,255,224,16,255]]);
 	expect(result.effectedPixels).toEqual([0,20,29,255,64,92,101,255,128,92,65,255,188,164,5,255]);
-	// Existing selected finishing has an explicit UNORM8 linear working packet.
-	// This is the pre-encoder straight-sRGB result after that quantization.
-	expect(result.pixels).toEqual([0,22,28,255,64,92,101,255,128,92,64,255,188,164,0,255]);
+	// Float32 linear composition retains the independently established effect
+	// bytes through identity placement and the single final sRGB encoding.
+	expect(result.pixels).toEqual([0,20,29,255,64,92,101,255,128,92,65,255,188,164,5,255]);
 	expect(result.authoredTypes).toEqual(['white-balance-v1', 'tone-ladder-v1']);
 	expect(result.consumedNodeIds.length).toBeGreaterThan(0);
 	expect(result.sourceUnchanged).toEqual(result.captured[0]);
@@ -69,10 +69,8 @@ for (const reverse of [false, true]) test(`native Canvas and actual selected com
 	const source = [0,32,64,255,64,128,192,255,128,128,128,255,255,224,16,255];
 	const effected = reverse ? [255,191,175,255,175,127,63,255,127,127,127,255,0,31,223,255]
 		: [255,223,191,255,191,127,79,255,127,127,127,255,0,62,239,255];
-	const expected = reverse ? [255,191,175,255,175,127,64,255,127,127,127,255,0,28,223,255]
-		: [255,223,191,255,191,127,79,255,127,127,127,255,0,61,239,255];
 	expect(result.captured).toEqual([source]); expect(result.sourceUnchanged).toEqual(source);
-	expect(result.effectedPixels).toEqual(effected); expect(result.pixels).toEqual(expected);
+	expect(result.effectedPixels).toEqual(effected); expect(result.pixels).toEqual(effected);
 	expect(result.authoredTypes).toEqual(reverse ? ['parametric-curves-v1', 'point-curves-v1'] : ['point-curves-v1', 'parametric-curves-v1']);
 	expect(result.consumedNodeIds.length).toBeGreaterThan(0);
 });
@@ -82,8 +80,8 @@ test('native Canvas capture and actual selected composition consume the persiste
 	const source=[40,80,120,255,100,140,180,255,160,200,240,255,220,60,20,255];
 	expect(result.captured).toEqual([source]);expect(result.sourceUnchanged).toEqual(source);
 	expect(result.effectedPixels).toEqual([0,47,92,255,85,162,217,255,175,252,255,255,255,17,0,255]);
-	// Declared existing linear UNORM8 composition quantization:47→46 and17→13.
-	expect(result.pixels).toEqual([0,46,92,255,85,162,217,255,175,252,255,255,255,13,0,255]);
+	// The independent weighted-blur bytes survive full-precision composition.
+	expect(result.pixels).toEqual([0,47,92,255,85,162,217,255,175,252,255,255,255,17,0,255]);
 	expect(result.authoredTypes).toEqual(['detail-sharpen-v1']);expect(result.consumedNodeIds.length).toBeGreaterThan(0);
 });
 

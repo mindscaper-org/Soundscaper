@@ -13,8 +13,8 @@ test('actual selected finishing→composition→picture encoder consumes the per
 	const effects=[createVideoEffect('detail-sharpen-v1',{id:'detail',params:{amount:100,threshold:0}})];
 	const context=createGlobalExportContextV1(effects,2,2);
 	// The independently weighted blur gives raw RGB [0,47,92;85,162,217;175,252,255;255,17,0].
-	// The existing linear UNORM8 composition roundtrip maps47→46 and17→13.
-	const preEncode=[0,46,92,255,85,162,217,255,175,252,255,255,255,13,0,255];
+	// Float32 linear composition preserves those bytes through the final sRGB encode.
+	const preEncode=[0,47,92,255,85,162,217,255,175,252,255,255,255,17,0,255];
 	const frameSource=createVideoExactPictureExportFrameSource({sampleRate:48000,startFrame:0,endFrame:4800,
 		canvas:{width:2,height:2,frameRate:{num:10,den:1},fit:'contain',backgroundColor:'#000000'}});
 	const encoder=await createPinnedExportEncoderV1();let produced=0,disposed=0;

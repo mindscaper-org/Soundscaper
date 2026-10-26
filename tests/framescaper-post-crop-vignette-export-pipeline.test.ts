@@ -14,8 +14,9 @@ test('actual selected finishing→composition→picture encoder consumes the per
 	const context=createGlobalExportContextV1(effects,2,2);
 	// Every2x2 center has ellipse radius1/2, smooth coverage128/256.
 	// Literal half-gain bytes are20/40/60,50/70/90,80/100/120,110/30/10.
-	// Existing linear UNORM8 composition quantizes those to this declared output.
-	const preEncode=[22,38,61,255,50,71,90,255,79,99,120,255,110,28,13,255];
+	// Float32 composition preserves those bytes through the final sRGB encode.
+	const preEncode=[20,40,60,255,50,70,90,255,80,100,120,255,110,30,10,255];
+	assert.deepEqual(preEncode,[...source].map((byte,index)=>index%4===3?byte:byte/2));
 	const frameSource=createVideoExactPictureExportFrameSource({sampleRate:48000,startFrame:0,endFrame:4800,
 		canvas:{width:2,height:2,frameRate:{num:10,den:1},fit:'contain',backgroundColor:'#000000'}});
 	const encoder=await createPinnedExportEncoderV1();let produced=0,disposed=0;
