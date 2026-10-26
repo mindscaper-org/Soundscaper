@@ -274,7 +274,7 @@ function channelOptionLabel(copy, channelStart, channelCount) {
 }
 
 function deviceOptionLabel(copy, device, index) {
-	const name = device.label || copy.recordingInputUnnamedDevice.replace('{number}', String(index + 1));
+	const name = device.label || (device.deviceId === 'default' ? copy.recordingDefaultInput : copy.recordingInputUnnamedDevice.replace('{number}', String(index + 1)));
 	if (!['unavailable', 'disconnected', 'ended'].includes(device.status)) return name;
 	return `${name} (${copy.recordingInputUnavailable})`;
 }
