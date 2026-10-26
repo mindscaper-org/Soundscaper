@@ -3,7 +3,7 @@
 /** Closed target-native command plan for the media host and its static codec closure. */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { delimiter, dirname, join } from 'node:path';
+import { delimiter, dirname, join, win32 } from 'node:path';
 
 export const FRAMESCAPER_FFMPEG_CONFIGURE_FLAGS = Object.freeze([
 	'--disable-everything', '--disable-autodetect', '--disable-doc', '--disable-debug',
@@ -149,9 +149,10 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		...(windows ? ['-DSTATIC_LINK_CRT=ON'] : []),
 	];
 	const vpxArgs = [
-		// libvpx writes these paths literally into makefiles consumed by native
-		// Windows Make, which cannot resolve Git Bash's /c/ or /d/ drive aliases.
-		makefilePath(join(externalSourceRoots.libvpx, 'configure'), windows),
+		// Keep generated project prerequisites relative to the build directory
+		// rather than mixing native Windows drive prefixes into source filters.
+		windows ? win32.relative(paths.libvpxBuild, join(externalSourceRoots.libvpx, 'configure')).replaceAll('\\', '/')
+			: join(externalSourceRoots.libvpx, 'configure'),
 		`--target=${vpxTarget(target.id)}`,
 		`--prefix=${makefilePath(paths.libvpxInstall, windows)}`,
 		'--disable-examples', '--disable-tools', '--disable-docs', '--disable-unit-tests',
@@ -180,7 +181,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		`--ar=${shellTool(tools.executables.ar.path, windows)}`,
 		`--ranlib=${shellTool(tools.executables.ranlib.path, windows)}`,
 		`--pkg-config=${shellTool(tools.executables.pkgConfig.path, windows)}`,
-		...(windows ? ['--extra-cflags=-MT'] : []),
+		// Static x265 calls the registry API but omits it from Libs.private.
+		...(windows ? ['--extra-cflags=-MT', '--extra-libs=advapi32.lib'] : []),
 	];
 	const hostEnvironment = Object.freeze({
 		...nativeEnvironment, PKG_CONFIG_PATH: pkgConfigPath, PKG_CONFIG_LIBDIR: pkgConfigPath,

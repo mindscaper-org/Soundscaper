@@ -48,11 +48,14 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 		'Windows ARM64 uses the C codec implementations without an unprovided GNU assembler.');
 	assert.ok(commands.find(({ phase }) => phase === 'x265-configure')
 		.args.includes('-DSTATIC_LINK_CRT=ON'));
+	assert.ok(commands.find(({ phase }) => phase === 'ffmpeg-configure').args.includes('--extra-libs=advapi32.lib'),
+		'Static x265 needs the Windows registry library in its consuming link closure.');
 	const x265Library = commands.find(({ phase }) => phase === 'x265-normalize-library');
 	assert.ok(x265Library, 'MSVC x265 must be installed under the name requested by its pkg-config metadata.');
 	assert.deepEqual(x265Library.args.slice(-2), ['D:/work/x265-install/lib/x265-static.lib', 'D:/work/x265-install/lib/x265.lib']);
 	const vpx = commands.find(({ phase }) => phase === 'libvpx-configure');
-	assert.equal(vpx.args[0], 'D:/sources/libvpx/configure');
+	assert.equal(vpx.args[0], '../../sources/libvpx/configure',
+		'Native Windows Make must keep source prerequisites relative so every codec source reaches its project.');
 	assert.ok(vpx.args.includes('--prefix=D:/work/libvpx-install'));
 	assert.ok(vpx.args.includes('--target=arm64-win64-vs17'));
 	assert.equal(Object.hasOwn(vpx.environment, 'CC'), false);
