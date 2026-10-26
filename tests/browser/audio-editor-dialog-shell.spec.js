@@ -75,7 +75,7 @@ test.describe('shared audio editor dialog behavior', () => {
 		await expect(menu.getByRole('menuitem', { name: 'Hz', exact: true })).toHaveCount(0);
 	});
 
-	test('uses lowercase time units and selectable formats in clip and selection timecodes', async ({ page }) => {
+	test('uses numeric clip seconds and lowercase selectable selection timecodes', async ({ page }) => {
 		const editor = await bootEditor(page);
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
@@ -86,12 +86,15 @@ test.describe('shared audio editor dialog behavior', () => {
 
 		const dialog = await openClipProperties(page, editor);
 		await showClipTimingFields(dialog);
-		const duration = dialog.locator('[data-clip-field="durationFrame"]');
-		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveText('h');
-		await expect(duration.locator('.timecode-unit[data-unit="hours"]')).toHaveCSS('text-transform', 'none');
-		await duration.locator('.timecode__format-button').click();
+		await expect(dialog.getByRole('textbox', { name: 'Length', exact: true })).toHaveValue('8');
+		await closeWorkspacePanel(editor, 'clip-properties');
+		await chooseCommand(page, editor, 'Select', 'Select all');
+		const selection = editor.locator('[data-selection-toolbar] .timecode').first();
+		await expect(selection.locator('.timecode-unit[data-unit="hours"]')).toHaveText('h');
+		await expect(selection.locator('.timecode-unit[data-unit="hours"]')).toHaveCSS('text-transform', 'none');
+		await selection.locator('.timecode__format-button').click();
 		await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
-		await expect(duration.locator('.timecode-unit[data-unit="samples"]')).toBeVisible();
+		await expect(selection.locator('.timecode-unit[data-unit="samples"]')).toBeVisible();
 	});
 
 	test('switches playback, selection and duration through grouped frame formats', async ({ page }) => {

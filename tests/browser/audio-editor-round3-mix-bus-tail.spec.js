@@ -4,6 +4,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 	closeEffectsPanel, commitInput, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Mix and Render retains the complete tail through two serial group effects', async ({ page }) => {
 	await disableNativeSavePicker(page);
@@ -42,7 +43,7 @@ test('Mix and Render retains the complete tail through two serial group effects'
 	await expect(dialog).toBeHidden({ timeout: 30_000 });
 	const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id]').first());
 	await showClipTimingFields(properties);
-	await expect(properties.locator('[data-clip-field="durationFrame"] .timecode__display')).toHaveText('00h00m01.800s');
+	await expectClipTimeFrames(properties, 'durationFrame', 86_400);
 	const samples = await exportSamples(page, editor);
 	expect(samples.length).toBe(86_400);
 	const lastVoice = samples.slice(72_000, 81_600);

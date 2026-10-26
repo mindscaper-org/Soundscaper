@@ -9,8 +9,10 @@ test.describe('Frequency ruler field editing', () => {
 		await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 		await editor.locator('[data-track-ruler]').first().click({ button: 'right' });
 		const flyout = page.locator('.ruler-flyout');
+		await expect(flyout.getByRole('button', { name: 'Zoom in', exact: true })).toBeFocused();
 		const minimum = flyout.locator('input[type="text"]').first();
 		await minimum.click();
+		await expect(minimum).toBeFocused();
 		await minimum.press('ArrowUp');
 		await expect(minimum).toHaveValue('10');
 		await expect(minimum).toBeFocused();

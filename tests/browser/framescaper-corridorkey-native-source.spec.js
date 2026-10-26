@@ -35,9 +35,9 @@ test('a browser-unsupported ProRes source falls back to authenticated native RGB
 					: { contentType: 'text/javascript', body: bundle.outputFiles[0].text });
 		});
 		await page.goto('/__keying_prores__/index.html');
-		const samples = await page.evaluate(async () => {
-			const { createKeyingVideoDecoderWithNativeFallback } = await import('/__keying_prores__/entry.js');
-			const body = await fetch('/__keying_prores__/source.mov').then(response => response.blob());
+		const samples = await page.evaluate(async root => {
+			const { createKeyingVideoDecoderWithNativeFallback } = await import(`${root}/entry.js`);
+			const body = await fetch(`${root}/source.mov`).then(response => response.blob());
 			const bridge = { createJob: globalThis.nativeCreate, stageInput: async ({ jobId, bytes }) => globalThis.nativeStage({ jobId, bytes: [...new Uint8Array(await bytes.arrayBuffer())] }),
 				cancel: globalThis.nativeCancel, release: globalThis.nativeRelease,
 				videoKeying: { decodeSource: globalThis.nativeDecode, readDecodedSource: async request => Uint8Array.from(await globalThis.nativeRead(request)) } };
@@ -47,7 +47,7 @@ test('a browser-unsupported ProRes source falls back to authenticated native RGB
 			try { for (const ordinal of [0, 1, 2, 0]) { const rgba = await decoder.capture((ordinal + 0.5) / 25, signal, ordinal); values.push({ length: rgba.length, pixel: [...rgba.slice(0, 4)] }); } }
 			finally { await decoder.dispose(); }
 			return values;
-		});
+		}, '/__keying_prores__');
 		expect(samples).toHaveLength(4);
 		for (const sample of samples) {
 			expect(sample.length).toBe(64 * 64 * 4); expect(sample.pixel[3]).toBe(255);

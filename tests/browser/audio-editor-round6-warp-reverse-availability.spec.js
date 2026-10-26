@@ -3,7 +3,7 @@
 import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 	closeClipProperties, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
-import { chooseClipMediaSetting, openClipMediaSettings } from './audio-editor-clip-settings-test-helpers.js';
+import { chooseClipMediaSetting, expectClipMediaSettingChecked } from './audio-editor-clip-settings-test-helpers.js';
 
 test('Clip properties offers Reverse only when the authored clip supports it', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -28,9 +28,7 @@ test('Clip properties offers Reverse only when the authored clip supports it', a
 	await showClipTimingFields(properties);
 	await expect(properties.getByRole('switch', { name: 'Reverse', exact: true })).toBeDisabled();
 	await chooseClipMediaSetting(properties, 'Invert');
-	const settings = await openClipMediaSettings(properties);
-	await expect(settings.getByRole('menuitemcheckbox', { name: 'Invert', exact: true })).toBeChecked();
-	await settings.press('Escape');
+	await expectClipMediaSettingChecked(properties, 'Invert', true);
 	await closeClipProperties(properties);
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');

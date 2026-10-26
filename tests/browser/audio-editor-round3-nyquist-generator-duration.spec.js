@@ -2,6 +2,7 @@
 
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseNestedCommandAction, openClipProperties } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('Rhythm Track retains all sixteen bars at thirty beats per minute', async ({ page }) => {
 	test.setTimeout(90_000);
@@ -15,6 +16,5 @@ test('Rhythm Track retains all sixteen bars at thirty beats per minute', async (
 	await expect(clip).toBeVisible();
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	await expect(properties.locator('[data-clip-field="durationFrame"] .timecode__display'))
-		.toHaveText('00h02m08.000s');
+	await expectClipTimeFrames(properties, 'durationFrame', 128 * 48_000);
 });

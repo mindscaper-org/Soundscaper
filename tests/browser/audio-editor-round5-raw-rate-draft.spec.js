@@ -2,6 +2,7 @@
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, openClipProperties } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test('raw PCM sample rate preserves a complete native scientific entry', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -22,6 +23,5 @@ test('raw PCM sample rate preserves a complete native scientific entry', async (
 	const clip = editor.getByRole('group', { name: /ordinary-short-tone.wav clip/u });
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	const duration = properties.getByRole('group', { name: 'Duration', exact: true }).locator('.timecode-digit');
-	await expect.poll(async () => (await duration.allTextContents()).join('')).toBe('000000002');
+	await expectClipTimeFrames(properties, 'durationFrame', 96);
 });

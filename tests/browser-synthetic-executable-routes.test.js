@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
+import ts from 'typescript';
 
 const BROWSER_SPECS = new URL('browser/', import.meta.url);
 const COVERAGE_FIXTURE = /from\s+['"]\.\/(?:audio-editor-test-fixtures|helpers\/browser-coverage-fixture)\.js['"]/u;
@@ -11,7 +12,6 @@ const EXECUTABLE_MIME = /contentType:\s*['"](?:application|text)\/(?:ecmascript|
 const EXECUTABLE_SCRIPT_TAG = /<script\b(?![^>]*\btype\s*=\s*['"]importmap['"])[^>]*>/iu;
 const EXECUTABLE_HTML_ATTRIBUTE = /<[^>]+\s(?:on[a-z]+|srcdoc)\s*=/iu;
 const JAVASCRIPT_HTML_URL = /<[^>]+\s(?:href|src)\s*=\s*['"]javascript:/iu;
-const LOCAL_IMPORT = /(?:\bfrom\s+|^\s*import\s+)['"](\.[^'"]+)['"]/gmu;
 
 test('coverage-bearing browser specs opt out when they serve test-only executable code', async () => {
 	const names = (await readdir(BROWSER_SPECS))
@@ -75,6 +75,16 @@ test('browser helper traversal keeps independent entry closures while sharing so
 	assert.deepEqual(reads.sort(), [shared.href, cycle.href, exclusive.href].sort());
 });
 
+test('browser helper traversal ignores import declarations inside bundled source strings', async () => {
+	const helper = new URL('helpers/real.js', BROWSER_SPECS);
+	const source = 'import "./helpers/real.js";\nconst bundle = `export { Painter } from "./src/painter.js";`;';
+	const result = await sourceWithLocalBrowserHelpers(new URL('entry.spec.js', BROWSER_SPECS), source, async url => {
+		assert.equal(url.href, helper.href);
+		return '<script>synthetic()</script>';
+	});
+	assert.match(result, EXECUTABLE_SCRIPT_TAG);
+});
+
 function browserSourceReader(readSource = (url) => readFile(url, 'utf8')) {
 	// Helpers are immutable during this audit and many specs share them. Keep
 	// the read snapshot local to one audit without sharing traversal state.
@@ -94,8 +104,12 @@ async function sourceWithLocalBrowserHelpers(entryUrl, entrySource, readSource) 
 		if (visited.has(url.href)) continue;
 		visited.add(url.href);
 		sources.push(source);
-		for (const match of source.matchAll(LOCAL_IMPORT)) {
-			const dependency = new URL(match[1], url);
+		const parsed = ts.createSourceFile(url.pathname, source, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS);
+		for (const statement of parsed.statements) {
+			if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+			const specifier = statement.moduleSpecifier;
+			if (!specifier || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
+			const dependency = new URL(specifier.text, url);
 			if (!dependency.href.startsWith(BROWSER_SPECS.href)
 				|| !dependency.pathname.endsWith('.js')) continue;
 			pending.push({ source: await readSource(dependency), url: dependency });

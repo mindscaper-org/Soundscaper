@@ -24,10 +24,16 @@ export async function createFullRasterKeyingVideoDecoder(body: Blob, run: LocalA
 	const dispose = (): void => {
 		if (disposed) return; disposed = true;
 		video.pause(); video.removeAttribute('src'); video.load(); canvas.width = 0; canvas.height = 0;
+		video.remove();
 		if (!selected) URL.revokeObjectURL(url);
 	};
 	try {
 		video.preload = 'auto'; video.muted = true; video.playsInline = true;
+		// WebKit only paints decoded video into canvas while its element is mounted
+		// in the viewport. display:none and offscreen positioning still yield zeros.
+		video.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+		video.setAttribute('aria-hidden', 'true'); video.tabIndex = -1;
+		(document.body ?? document.documentElement).append(video);
 		const loaded = event(video, 'loadeddata', signal);
 		video.src = url; await loaded;
 		if (video.videoWidth !== run.width || video.videoHeight !== run.height) {

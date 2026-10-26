@@ -210,30 +210,43 @@ for (const state of ['playing', 'paused']) {
 		await page.mouse.click(xAt(0.2), wave.y);
 		await editor.getByRole('button', { name: 'Play', exact: true }).click();
 		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(24_000);
-		if (state === 'paused') await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+		if (state === 'paused') {
+			await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+			await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+		}
 		const beforeStart = Number(await playhead.getAttribute('aria-valuenow'));
 		await wave.clip.press('[');
-		const afterStart = Number(await playhead.getAttribute('aria-valuenow'));
 		await expect(editor.locator('[data-time-selection-overlay]')).toHaveCount(0);
 		if (state === 'paused') {
 			await expect(playhead).toHaveAttribute('aria-valuenow', String(beforeStart));
 			await editor.getByRole('button', { name: 'Play', exact: true }).click();
 		}
 		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeStart + 24_000);
-		if (state === 'paused') await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+		if (state === 'paused') {
+			await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+			await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+		}
 		const beforeEnd = Number(await playhead.getAttribute('aria-valuenow'));
 		await wave.clip.press(']');
 		await expect.poll(() => selectionSeconds(editor, 'start')).toBeGreaterThan(0.2);
 		const start = await selectionSeconds(editor, 'start');
 		expect(start).toBeGreaterThanOrEqual(beforeStart / 48_000 - 0.1);
-		expect(start).toBeLessThanOrEqual(afterStart / 48_000 + 0.1);
+		// The painted playhead can lag the engine clock while playing. Both
+		// selection endpoints must remain between the two observed key boundaries.
+		expect(start).toBeLessThanOrEqual(beforeEnd / 48_000 + 0.1);
 		await expect.poll(() => selectionSeconds(editor, 'end')).toBeGreaterThan(start + 0.2);
 		await expect(editor.locator('[data-time-selection-overlay]').first()).toBeVisible();
 		await expect(page.getByRole('dialog')).toHaveCount(0);
 		if (state === 'paused') {
 			await expect(playhead).toHaveAttribute('aria-valuenow', String(beforeEnd));
-			expect(start).toBeCloseTo(beforeStart / 48_000, 3);
-			expect(await selectionSeconds(editor, 'end')).toBeCloseTo(beforeEnd / 48_000, 3);
+			// Millisecond digits truncate samples. Inspect the exact sample format
+			// so the transport comparison retains its native precision.
+			await editor.getByRole('group', { name: 'Selection start', exact: true }).locator('.timecode__format-button').click();
+			await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+			for (const [edge, frames] of [['start', beforeStart], ['end', beforeEnd]]) {
+				const text = await selectionField(editor, edge).textContent();
+				expect(Number(text.replace(/[^\d]/gu, ''))).toBe(frames);
+			}
 		} else {
 			await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 			await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(beforeEnd);
