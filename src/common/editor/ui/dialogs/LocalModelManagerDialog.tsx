@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocalModelCatalog, useLocalModelActivity, useLocalModelTaskOptions, useOfflineModelChoices } from './useLocalModelPresentation.ts';
 import { Button } from '@soundscaper/design-system/Button';
 import { DialogFooter } from '@soundscaper/design-system/Footer';
@@ -81,21 +81,22 @@ export default function LocalModelManagerDialog({
 		return disconnect;
 	}, [store]);
 
+	const actions = useMemo(() => ({
+		onInstall: (modelId: string) => store?.install(modelId),
+		onInstallPreseeded: (modelId: string) => store?.installPreseeded(modelId),
+		onCancelInstall: (modelId: string) => store?.cancelInstall(modelId),
+		onRemove: (modelId: string) => store?.remove(modelId),
+		onReconcile: () => store?.reconcile(), onGarbageCollect: () => store?.garbageCollect(),
+		onShowNotices: () => store?.showNotices(), onRelocate: () => store?.relocate(), onRetry: () => store?.load(),
+	}), [store]);
+
 	return <LocalModelManagerDialogView
 		modelFilter={modelFilter}
 		copy={copy}
 		locale={locale}
 		snapshot={snapshot}
 		onClose={onClose}
-		onInstall={(modelId) => store?.install(modelId)}
-		onInstallPreseeded={(modelId) => store?.installPreseeded(modelId)}
-		onCancelInstall={(modelId) => store?.cancelInstall(modelId)}
-		onRemove={(modelId) => store?.remove(modelId)}
-		onReconcile={() => store?.reconcile()}
-		onGarbageCollect={() => store?.garbageCollect()}
-		onShowNotices={() => store?.showNotices()}
-		onRelocate={() => store?.relocate()}
-		onRetry={() => store?.load()}
+		{...actions}
 	/>;
 }
 
@@ -109,6 +110,7 @@ export function LocalModelManagerDialogView({
 	const [relatedOnly, setRelatedOnly] = useState(true);
 	const modelControls = useRef<HTMLDivElement | null>(null);
 	const captureRemovalFocus = useLocalModelRemovalFocus(modelControls, snapshot.models, snapshot.busyModelIds);
+	const removeModel = useCallback((modelId: string, control: HTMLButtonElement) => { captureRemovalFocus(modelId, control); return onRemove(modelId); }, [captureRemovalFocus, onRemove]);
 	const models = useLocalModelCatalog(snapshot.models, copy, locale, modelPurpose, query, task, status, relatedOnly, modelFilter);
 	const { progress, busy, installing, cancelling } = useLocalModelActivity(snapshot.progress, snapshot.busyModelIds, snapshot.installingModelIds, snapshot.cancellingModelIds);
 	const taskOptions = useLocalModelTaskOptions(snapshot.models, copy, modelPurpose);
@@ -191,7 +193,7 @@ export function LocalModelManagerDialogView({
 				progress={progress.get(model.modelId) ?? null}
 				onInstall={onInstall}
 				onCancelInstall={onCancelInstall}
-				onRemove={(modelId, control) => { captureRemovalFocus(modelId, control); return onRemove(modelId); }}
+				onRemove={removeModel}
 			/>)}
 			</tbody></table>
 		</Table>
@@ -214,7 +216,7 @@ export function LocalModelManagerDialogView({
 	</AudioEditorDialogShell>;
 }
 
-function ModelRow({
+const ModelRow = memo(function ModelRow({
 	model, copy, locale, busy, installing, cancelling, maintenanceBusy, progress,
 	onInstall, onCancelInstall, onRemove,
 }: Readonly<{
@@ -287,7 +289,7 @@ function ModelRow({
 		</div>}
 		</td>
 	</tr>;
-}
+});
 
 function MaintenanceControls({
 	copy, busy, operation, onReconcile, onGarbageCollect, onShowNotices, onRelocate, models, onInstallPreseeded,

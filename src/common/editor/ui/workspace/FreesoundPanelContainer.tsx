@@ -335,12 +335,10 @@ export function FreesoundPanelContainer({
 		executeImport(request);
 	}, [accountSnapshot.auth.status, controller, executeImport, pendingSoundId, snapshot]);
 
-	const presentationState = useMemo<FreesoundPanelState>(() => ({
-		...state,
-		results: state.results.map((result) => ({
-			...result, actionPending: pendingSoundId === result.soundId,
-		})),
-	}), [pendingSoundId, state]);
+	const resultPresentations = useMemo(() => state.results.map(result => ({ ...result, actionPending: pendingSoundId === result.soundId })), [pendingSoundId, state.results]);
+	const presentationState = useMemo<FreesoundPanelState>(() => ({ ...state, results: resultPresentations }), [state, resultPresentations]);
+	const insertAtPlayhead = useCallback((soundId: number) => importSound(soundId, 'timeline'), [importSound]);
+	const addToProjectBin = useCallback((soundId: number) => importSound(soundId, 'project-bin'), [importSound]);
 
 	return <><FreesoundPanel
 		copy={localizedCopy}
@@ -352,8 +350,8 @@ export function FreesoundPanelContainer({
 		onPausePreview={pausePreview}
 		onResumePreview={resumePreview}
 		onSeekPreview={seekPreview}
-		onInsertAtPlayhead={(soundId) => importSound(soundId, 'timeline')}
-		onAddToProjectBin={(soundId) => importSound(soundId, 'project-bin')}
+		onInsertAtPlayhead={insertAtPlayhead}
+		onAddToProjectBin={addToProjectBin}
 		auth={accountSnapshot.auth}
 		uploadQueue={accountSnapshot.uploadQueue}
 		uploadRevealRevision={accountSnapshot.uploadRevealRevision}
