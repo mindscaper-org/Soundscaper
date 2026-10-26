@@ -8,6 +8,7 @@ import { bootEditor, chooseNestedCommandAction, collectClientErrors, registerAud
 import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 import { installCorridorKeyFixture } from './helpers/corridorkey-fixture.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
+import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 import { createVideoSource } from '../../src/common/editor/project-media-factory.ts';
 import { createFramescaperProject } from '../../src/framescaper/editor-project.ts';
 import { createFramescaperProjectStore } from '../../src/framescaper/editor-project-store.ts';
@@ -28,6 +29,7 @@ test('normal-keyer hint mattes match the preview shader at native resolution', a
 			: { contentType: 'text/javascript', body: bundle.outputFiles[0].text });
 	});
 	await page.goto(`${ROOT}/index.html`);
+	test.skip(!await page.evaluate(hasWebGl2Capability), 'Shader parity requires WebGL2 on this browser host.');
 	const metrics = await page.evaluate(async (root) => {
 		const { VideoPreviewCompositor, createChromaKeyMatte } = await import(`${root}/entry.js`);
 		const width = 32, height = 24; const rgba = new Uint8Array(width * height * 4);
@@ -89,12 +91,18 @@ test('full-raster keying decode reads the presented source ordinal after sequent
 				values.push({ timestamp, bytes: rgba.byteLength, rgba: [...rgba.slice(0, 4)] });
 			}
 		} finally { decoder.dispose(); }
-		return values;
+		return { values, remainingDecoders: document.querySelectorAll('video').length };
 	}, ROOT);
-	expect(samples.every(({ bytes }) => bytes === 1_280 * 720 * 4)).toBe(true);
+	expect(samples.remainingDecoders).toBe(0);
+	expect(samples.values.every(({ bytes }) => bytes === 1_280 * 720 * 4)).toBe(true);
 	for (const [index, expected] of [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 255], [255, 0, 0], [0, 0, 255]].entries()) {
-		for (let channel = 0; channel < 3; channel += 1) expect(Math.abs(samples[index].rgba[channel] - expected[channel])).toBeLessThanOrEqual(4);
-		expect(samples[index].rgba[3]).toBe(255);
+		// The untagged YUV fixture has browser-dependent color conversion. Its
+		// primary colors identify the exact source ordinal without assuming a matrix.
+		for (let channel = 0; channel < 3; channel += 1) {
+			if (expected[channel]) expect(samples.values[index].rgba[channel]).toBeGreaterThanOrEqual(200);
+			else expect(samples.values[index].rgba[channel]).toBeLessThanOrEqual(40);
+		}
+		expect(samples.values[index].rgba[3]).toBe(255);
 	}
 });
 
