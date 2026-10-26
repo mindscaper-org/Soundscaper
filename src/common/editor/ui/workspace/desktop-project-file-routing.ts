@@ -2,6 +2,7 @@
 
 import type { ScapeArchiveByteSource } from '../../scape-archive-byte-source.ts';
 import { SESX_XML_MAXIMUM_BYTES } from '../../sesx-format.ts';
+import { SES_BINARY_MAXIMUM_BYTES } from '../../ses-format.ts';
 import {
 	DESKTOP_READ_PROFILE_MATERIALIZED,
 	DESKTOP_READ_PROFILE_SCAPE_RANGE,
@@ -60,13 +61,15 @@ export async function withDesktopProjectReadDescriptor<Value>(
 				throw new TypeError('A supported desktop project read profile is required.');
 			});
 		}
-		if (/\.sesx$/iu.test(String(descriptor?.name || ''))
-			&& typeof descriptor.size === 'number' && descriptor.size > SESX_XML_MAXIMUM_BYTES) {
+		const legacySes = /\.ses$/iu.test(String(descriptor?.name || ''));
+		const auditionSession = legacySes || /\.sesx$/iu.test(String(descriptor?.name || ''));
+		const maximumBytes = legacySes ? SES_BINARY_MAXIMUM_BYTES : SESX_XML_MAXIMUM_BYTES;
+		if (auditionSession && typeof descriptor.size === 'number' && descriptor.size > maximumBytes) {
 			if (typeof descriptor.id !== 'string' || typeof fileService.releaseRead !== 'function') {
-				throw new Error('Desktop SESX capability release is unavailable.');
+				throw new Error(`Desktop ${legacySes ? 'SES' : 'SESX'} capability release is unavailable.`);
 			}
 			await fileService.releaseRead(descriptor.id);
-			throw new RangeError('The SESX session exceeds the 32 MiB XML limit.');
+			throw new RangeError(`The ${legacySes ? 'SES' : 'SESX'} session exceeds the 32 MiB ${legacySes ? 'binary' : 'XML'} limit.`);
 		}
 		return await fileService.withReadDescriptors([descriptor], {}, (files) => {
 			if (files.length !== 1 || !(files[0] instanceof Blob)) {
@@ -75,7 +78,7 @@ export async function withDesktopProjectReadDescriptor<Value>(
 			return consumers.openMaterialized(files[0]);
 		});
 	} finally {
-		if (/\.sesx$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
+		if (/\.sesx?$/iu.test(String(descriptor?.name || '')) && typeof descriptor?.id === 'string') {
 			await fileService.releaseSesxSession?.(descriptor.id);
 		}
 	}

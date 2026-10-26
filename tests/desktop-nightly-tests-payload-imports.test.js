@@ -85,6 +85,15 @@ test('the nightly package carries the RIFF text-boundary helper and its encoded 
 	}
 });
 
+test('the nightly package carries the legacy SES binary session fixture', async () => {
+	const input = 'tests/helpers/ses-fixture.ts';
+	assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
+	const packaged = packagedPathOf(input);
+	const filter = await readPackagedPayloadFilter();
+	assert.ok(packaged !== null && filter.some(pattern => matchesGlob(packaged, pattern)),
+		'the nightly-tests extraResources filter must retain the legacy SES fixture');
+});
+
 test('the nightly package carries dynamically selected codec fixtures', async () => {
 	const inputs = [
 		'native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp',

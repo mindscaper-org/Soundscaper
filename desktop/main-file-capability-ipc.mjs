@@ -53,7 +53,7 @@ export function registerFileCapabilityIpc({
 				if (!acceptsFile(choice.purpose, filePath)) throw new TypeError('The selected file type is not allowed');
 				const descriptor = await registerSelectedReadCapability(readCapabilities, filePath, { owner, purpose: choice.purpose, originalFiles });
 				descriptors.push(descriptor);
-				if (choice.purpose === 'project' && /\.sesx$/iu.test(filePath)) await sesxMediaSessions?.registerSelection(descriptor.id, filePath, { owner });
+				if (choice.purpose === 'project' && /\.sesx?$/iu.test(filePath)) await sesxMediaSessions?.registerSelection(descriptor.id, filePath, { owner });
 			}
 			return descriptors;
 		} catch (error) {

@@ -77,7 +77,7 @@ test('a native MIME declaration never bypasses actual archive validation or crea
 
 test('native MIME fallback preserves every explicit workspace import suffix', () => {
 	const suffixes = [...WORKSPACE_IMPORT_FILE_ACCEPT.split(',').filter(value => value.startsWith('.')),
-		'.aup', '.aup3', '.aup4', '.dawproject', '.sesx', '.au', '.snd', '.auf', '.zip', '.sscape.zip'];
+		'.aup', '.aup3', '.aup4', '.dawproject', '.ses', '.sesx', '.au', '.snd', '.auf', '.zip', '.sscape.zip'];
 	for (const suffix of suffixes) assert.equal(isScapeProjectFile(new File(['archive'], `Session${suffix}`, { type: MIME })), false, suffix);
 	assert.equal(isScapeProjectFile(new File(['archive'], 'Session.backup', { type: 'application/zip' })), false);
 });
