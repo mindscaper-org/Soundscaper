@@ -151,8 +151,10 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 				operation.task.assertCurrent();
 				runtime.projectGeneration.capture(importedProject.id);
 				runtime.state.deliveryReport = plan.report;
-				setLocalizedStatus(runtime.setStatus, runtime.copy, legacy ? 'sesOpened' : 'sesxOpened', undefined, 'success', {
-					fallback: legacy ? 'Legacy session imported. See File > Delivery Report for unsupported settings.' : 'Adobe Audition session imported.',
+				setLocalizedStatus(runtime.setStatus, runtime.copy, 'sesxOpened', undefined, 'success', {
+					fallback: 'Adobe Audition session imported.',
+					...(legacy ? { append: [' ', { key: 'fileMenu', fallback: 'File' },
+						' > ', { key: 'deliveryReport', fallback: 'Delivery Report' }] } : {}),
 				});
 				runtime.publishDocumentSnapshot();
 				return Object.freeze({ project: importedProject, report: plan.report });

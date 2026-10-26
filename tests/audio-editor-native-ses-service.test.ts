@@ -9,6 +9,7 @@ import { registerDesktopReadCapability } from '../src/common/editor/desktop-read
 import { validateCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import type { SesxImportReport } from '../src/common/editor/sesx-import-project.ts';
+import { formatPresentationMessage, type LocalizedPresentationMessage } from '../src/common/i18n/presentation-message.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
 import { createSesFixture } from './helpers/ses-fixture.ts';
 
@@ -89,6 +90,24 @@ test('cancelled legacy media relinking reports missing sources without creating 
 	assert.equal(desktop.reads(), 0);
 	assert.ok((result.report as SesxImportReport).items.some((item) => item.code === 'ses.media-missing'));
 	assert.deepEqual(desktop.released, [SESSION_ID]);
+});
+
+test('legacy success reuses localized session and menu messages with retained translation identities', async () => {
+	const copy = { ...createFixture().runtime.copy, sesxOpened: 'Session Audition importée.',
+		fileMenu: 'Fichier', deliveryReport: 'Rapport de livraison' };
+	const statuses: Array<{ message: string; localization?: LocalizedPresentationMessage }> = [];
+	const desktop = desktopFixture({ overrides: { copy, setStatus: (message, state, localization) => {
+		if (state === 'success') statuses.push({ message, localization });
+	} } });
+	await desktop.service.openSesx(sessionFile());
+	const status = statuses.at(-1);
+	assert.ok(status);
+	assert.equal(status.message, 'Session Audition importée. Fichier > Rapport de livraison');
+	assert.ok(status.localization);
+	assert.equal(status.localization.key, 'sesxOpened');
+	assert.equal(formatPresentationMessage({ ...copy, sesxOpened: 'Audition-Sitzung importiert.',
+		fileMenu: 'Datei', deliveryReport: 'Auslieferungsbericht' }, status.localization),
+	'Audition-Sitzung importiert. Datei > Auslieferungsbericht');
 });
 
 test('unrecognized or truncated legacy sessions preserve the current project and release their session grant', async () => {

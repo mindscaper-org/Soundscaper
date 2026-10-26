@@ -111,7 +111,6 @@ export interface NativeProjectCopy {
 	readonly dawprojectSaving?: string;
 	readonly dawprojectSaved?: string;
 	readonly sesxOpened?: string;
-	readonly sesOpened?: string;
 }
 
 export type NativeProjectFile = Blob & Readonly<{ name: string }>;
