@@ -106,6 +106,16 @@ jobs:
             --external-source-root="$FRAMESCAPER_MEDIA_EXTERNAL_SOURCE_ROOT" \
             --work-root="$RUNNER_TEMP/framescaper-media-work" \
             --output="$RUNNER_TEMP/framescaper-media-build-result"
+      - name: Retain configure failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: framescaper-media-host-failure-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/framescaper-media-work/media-build/ffmpeg-build/ffbuild/config.log
+            ${{ runner.temp }}/framescaper-media-work/media-build/*-install/lib/pkgconfig/*.pc
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: framescaper-media-host-build-result-${{ matrix.target }}
