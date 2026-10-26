@@ -119,6 +119,10 @@ export function createAssistanceSemanticIndexSearchProviderV1(
 	}
 	const index = reviewIndex(options.index);
 	const now = options.now ?? Date.now;
+	const ocrRows = index.ocr.map((row) => {
+		const text = row.label.normalize('NFKC').toLowerCase();
+		return { row, text, words: new Set(text.match(WORD) ?? []) };
+	});
 	return Object.freeze({
 		async search(request: AssistanceAsyncSearchRequest): Promise<readonly AssistanceSemanticIndexResultV1[]> {
 			const session = validateAssistanceSemanticSearchSession(request?.session, now());
@@ -143,8 +147,14 @@ export function createAssistanceSemanticIndexSearchProviderV1(
 			const visual = visualQuery === null ? [] : rankEmbedded(
 				index.visual, visualQuery, request.signal,
 			);
-			const ocr = rankOcr(index.ocr, query, request.signal);
-			const fused = fuseAssistanceSearchRanksV1({ transcript, visual, ocr });
+			const ocr = rankOcr(ocrRows, query, request.signal);
+			const ranks = { transcript, visual, ocr };
+			const active = (['transcript', 'visual', 'ocr'] as const).filter((provider) => ranks[provider].length > 0);
+			if (active.length === 1) {
+				const provider = active[0]!;
+				ranks[provider] = ranks[provider].slice(0, request.maximumResults);
+			}
+			const fused = fuseAssistanceSearchRanksV1(ranks);
 			return Object.freeze(fused.slice(0, request.maximumResults).map((hit) => {
 				const primary = hit.providers[0]!;
 				const label = hit.labels[primary]!;
@@ -232,11 +242,7 @@ function rankEmbedded(
 ): readonly AssistanceProviderSearchHitV1[] {
 	const values = index.rows.map((row, indexValue) => {
 		if ((indexValue & 127) === 0) signal.throwIfAborted();
-		const vector = index.matrix.vector(indexValue);
-		let score = 0;
-		for (let column = 0; column < query.length; column += 1) {
-			score += query[column]! * vector[column]!;
-		}
+		const score = index.matrix.dotProduct(indexValue, query);
 		if (!Number.isFinite(score)) throw new RangeError('Semantic-search similarity is non-finite.');
 		return { ...row, score };
 	});
@@ -246,16 +252,14 @@ function rankEmbedded(
 }
 
 function rankOcr(
-	rows: readonly AssistanceSemanticIndexRowV1[],
+	rows: readonly Readonly<{ row: AssistanceSemanticIndexRowV1; text: string; words: ReadonlySet<string> }>[],
 	query: string,
 	signal: AbortSignal,
 ): readonly AssistanceProviderSearchHitV1[] {
 	const normalizedQuery = query.normalize('NFKC').toLowerCase();
 	const tokens = new Set(normalizedQuery.match(WORD) ?? []);
-	const values = rows.flatMap((row, index) => {
+	const values = rows.flatMap(({ row, text, words }, index) => {
 		if ((index & 127) === 0) signal.throwIfAborted();
-		const text = row.label.normalize('NFKC').toLowerCase();
-		const words = new Set(text.match(WORD) ?? []);
 		let matches = 0;
 		for (const token of tokens) if (words.has(token)) matches += 1;
 		if (matches === 0) return [];
