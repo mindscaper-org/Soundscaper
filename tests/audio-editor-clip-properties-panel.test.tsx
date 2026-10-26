@@ -51,14 +51,13 @@ test('the source visual opens Source monitor for its clip without mutating the s
 	} finally { await f.cleanup(); }
 });
 
-test('unique audio operations remain in the Media settings menu and mutation errors reach the workspace runner', async () => {
+test('remaining media options are in the menu and mutation errors reach the workspace runner', async () => {
 	const f = await fixture();
 	try {
 		await f.render(['one']);
 		const trigger = f.dom.one('[data-clip-audio-settings]');
 		await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
-		for (const name of [ENGLISH_COPY.clipLinkPitchAndTempo, ENGLISH_COPY.preserveFormants, ENGLISH_COPY.stretchToTempo,
-			ENGLISH_COPY.normalizePeak, ENGLISH_COPY.normalizeLufs, ENGLISH_COPY.invert, ENGLISH_COPY.resample]) {
+		for (const name of [ENGLISH_COPY.clipLinkPitchAndTempo, `${ENGLISH_COPY.clipGain} (dB)`]) {
 			assert.ok(f.dom.container.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"]').some(item => item.textContent.includes(name)), name);
 		}
 		f.rejectUpdates();
@@ -70,41 +69,27 @@ test('unique audio operations remain in the Media settings menu and mutation err
 	} finally { await f.cleanup(); }
 });
 
-test('Media settings preserves formants, normalization and exact custom fade coefficients', async () => {
+test('inline voice and normalization use native actions and fade shapes stay out of the panel', async () => {
 	const f = await fixture();
 	try {
 		await f.render(['one']);
-		await f.settingsItem(ENGLISH_COPY.preserveFormants);
+		const voice = f.dom.one('[data-clip-properties-field="voice"]').querySelector('input'); assert.ok(voice);
+		await act(async () => reactProps(voice).onChange({ currentTarget: { checked: true } }));
 		assert.deepEqual(f.timePitch.pop(), { ids: ['one'], changes: { preserveFormants: true } });
-		await f.settingsItem(ENGLISH_COPY.normalizePeak);
+		await act(async () => reactProps(f.dom.one('[data-clip-properties-action="normalize-peak"]')).onClick());
 		assert.deepEqual(f.operations.pop(), { action: 'normalizePeak', id: 'one' });
-		await f.settingsItem(ENGLISH_COPY.fadeOutShape);
-		await act(async () => reactProps(f.dom.one('form')).onSubmit({ preventDefault() {} }));
-		assert.deepEqual(f.updates, [], 'opening and accepting an unchanged legacy shape preserves its representation');
-		await f.settingsItem(ENGLISH_COPY.fadeInShape);
-		const field = f.dom.one('[data-clip-field="fadeInShape"]');
-		const input = field.querySelector('input');
-		assert.ok(input);
-		await act(async () => reactProps(input).onChange({ target: { value: '1.73' } }));
-		assert.deepEqual(f.updates, [], 'typing a coefficient must remain a draft');
-		await act(async () => reactProps(f.dom.one('form')).onSubmit({ preventDefault() {} }));
-		assert.deepEqual(f.updates, [{ id: 'one', changes: { fadeInShape: 1.73 } }]);
-		assert.equal(f.dom.find('[role="dialog"]'), null);
+		assert.equal(f.dom.find('[data-clip-properties-field="fade-in-shape"]'), null);
+		assert.equal(f.dom.find('[data-clip-properties-field="fade-out-shape"]'), null);
 	} finally { await f.cleanup(); }
 });
 
-test('native time display replaces the glyph fields and commits an exact project sample duration', async () => {
+test('the length field commits a sample-exact duration without a timecode option', async () => {
 	const f = await fixture();
 	try {
 		await f.render(['one']);
-		await f.settingsItem(ENGLISH_COPY.clipTimecodeFields);
 		assert.equal(f.dom.container.querySelectorAll('[data-clip-properties-field="length"]').length, 1);
-		const field = f.dom.one('[data-clip-field="durationFrame"]');
-		const input = field.querySelector('input'), wrapper = field.querySelector('[data-timecode-input]');
-		assert.ok(input && wrapper);
-		await act(async () => reactProps(input).onChange({ currentTarget: { valueAsNumber: 12_345 } }));
-		assert.equal(f.trims.length, 0);
-		await act(async () => reactProps(wrapper).onBlur({ currentTarget: wrapper, relatedTarget: null }));
+		await f.typeAndCommit('length', String(12_345 / 48_000));
+		assert.equal(f.trims.length, 1);
 		assert.equal(f.trims[0]?.id, 'one');
 		assert.equal(f.trims[0]?.changes.durationFrames, 12_345);
 		assert.equal(f.trims[0]?.changes.sourceDurationFrames, 12_345);
@@ -112,19 +97,15 @@ test('native time display replaces the glyph fields and commits an exact project
 	} finally { await f.cleanup(); }
 });
 
-test('native time fields roll back refused moves and trims while reporting each failure once', async () => {
+test('numeric time fields roll back refused moves and trims while reporting each failure once', async () => {
 	for (const mode of ['sync', 'async'] as const) {
 		const f = await fixture();
 		try {
 			await f.render(['one']);
-			await f.settingsItem(ENGLISH_COPY.clipTimecodeFields);
-			f.rejectNativeEdits(mode);
-			for (const [field, draft, original] of [['start', 12345, '0'], ['length', 12000, '24000']] as const) {
+				f.rejectNativeEdits(mode);
+			for (const [field, draft, original] of [['start', 12345 / 48000, '0'], ['length', 12000 / 48000, '0.5']] as const) {
 				const input = f.input(field);
-				await act(async () => reactProps(input).onChange({ currentTarget: { valueAsNumber: draft } }));
-				const wrapper = f.dom.one(`[data-clip-properties-field="${field}"]`).querySelector('.audio-editor-timecode-input');
-				assert.ok(wrapper);
-				await act(async () => reactProps(wrapper).onBlur({ currentTarget: wrapper, relatedTarget: null }));
+				await f.typeAndCommit(field, String(draft));
 				assert.equal(input.value, original, `${mode} ${field}: a refused draft must show the unchanged native value`);
 				assert.equal(f.failures.splice(0).length, 1, `${mode} ${field}: report one error through the workspace runner`);
 				assert.equal(f.dom.find('[role="alert"]'), null);

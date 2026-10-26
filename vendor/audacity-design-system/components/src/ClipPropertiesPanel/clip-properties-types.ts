@@ -82,6 +82,12 @@ export interface ClipPropertiesPanelProps {
   /** Host controls retain native color and exact time formats in the same fields. */
   colorControl?: ReactNode;
   pitchControl?: ReactNode;
+  pitchSpeedHeadingControl?: ReactNode;
+  pitchSpeedAction?: ReactNode;
+  pitchSpeedFooter?: ReactNode;
+  invertControl?: ReactNode;
+  mediaSections?: ReactNode;
+  showFadeShapes?: boolean;
   timingFields?: Partial<Record<'start' | 'length' | 'end' | 'trim-start' | 'trim-end' | 'fade-in' | 'fade-out', ReactNode>>;
   onOpenSource?: () => void;
   /** The clip shown, or null for the empty state */
@@ -92,6 +98,8 @@ export interface ClipPropertiesPanelProps {
   colors: ReadonlyArray<ClipPropertiesOption>;
   /** The tracks a clip can be moved to (none = no Track field) */
   tracks?: ReadonlyArray<ClipPropertiesOption>;
+  /** Upstream 2d007878: the track's sample rate after its dropdown. */
+  trackDetail?: string;
   /** Move the clip (or every selected clip) to this track, start held */
   onTrackChange?: (trackId: string) => void;
   /** The fade shape presets, with their curves */

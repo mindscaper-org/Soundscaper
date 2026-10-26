@@ -47,6 +47,7 @@ import { BLENDER_COPY_BY_LOCALE } from './editor-blender-copy.ts';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from './editor-clip-interactions-copy.ts';
 import { KEYBOARD_MAP_COPY_BY_LOCALE } from './editor-keyboard-map-copy.ts';
 import { ID3_METADATA_COPY_BY_LOCALE } from './editor-id3-metadata-copy.ts';
+import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 
 export interface EditorCopyOwner {
 	readonly owner: string;
@@ -156,6 +157,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'freesoundAttribution', ...FREESOUND_ATTRIBUTION_INVENTORY_COPY_BY_LOCALE },
 	{ owner: 'audiocom', ...AUDIOCOM_INVENTORY_COPY_BY_LOCALE },
 	{ owner: 'clipInteractions', ...CLIP_INTERACTIONS_COPY_BY_LOCALE },
+	{ owner: 'trackHeight', ...TRACK_HEIGHT_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'selectedVisualAuthoring', en: SELECTED_VISUAL_AUTHORING_COPY },
