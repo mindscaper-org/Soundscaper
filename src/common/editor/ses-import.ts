@@ -43,7 +43,7 @@ const FEATURE_CHUNKS: Readonly<Record<string, readonly [string, string]>> = Obje
  * Read count-prefixed Cool Edit session tables, never scanning arbitrary bytes
  * for record signatures. Field layouts are documented independently by
  * Audio::CoolEdit's Settings.pm and ses2als's SessionFile.cpp, with the larger
- * track stride recorded by ses2sesx.py. See docs/legacy-ses-import.md.
+ * track stride recorded by ses2sesx.py. See docs/features/legacy-ses-import.md.
  */
 export function parseSesDocument(
 	data: Uint8Array,

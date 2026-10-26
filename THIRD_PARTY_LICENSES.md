@@ -42,7 +42,7 @@ Copyright (c) 2026 outhud; MIT. The [complete license](LICENSES/ses2sesx-MIT.txt
 is retained. Soundscaper implements its own bounded TypeScript reader and
 project mapping; it does not bundle or execute the Python converter.
 Independent format evidence and validation limits are recorded in
-[the interoperability notes](docs/legacy-ses-import.md).
+[the interoperability notes](docs/features/legacy-ses-import.md).
 
 ## Audacity appearance previews
 

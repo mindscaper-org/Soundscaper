@@ -23,7 +23,7 @@ uses published field descriptions, cross-checked between independent readers:
 - [`ses2sesx.py`](https://github.com/outhud/audition-ses-to-sesx-converter/blob/main/ses2sesx.py),
   source Git blob `e99b702bec76fe52e7a7d9030016666652b7e730`, MIT,
   copyright (c) 2026 outhud. Its format notes supplied an initial reference;
-  see [the retained license](../LICENSES/ses2sesx-MIT.txt).
+  see [the retained license](../../LICENSES/ses2sesx-MIT.txt).
 
 The first two references are evidence about the file structure. Their source
 code is not copied into Soundscaper. The Python converter is not bundled or
