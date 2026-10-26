@@ -223,8 +223,8 @@ export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRun
 		reason: 'Private edit planner receives the resolved project and clip owned by planEdits after its registered runtime projection boundary; persisted musical anchors remain command-owned.',
 	},
 	{
-		file: 'src/common/editor/controller/edit/internal/labeled-audio-silence.ts', entryPoint: 'coveredSpans',
-		reason: 'Private downstream helper receives the resolved AudioGeneratorProject from generateLabeledSilence; its caller crosses projectForAudioGeneratorCommands before planning spans.',
+		file: 'src/common/editor/video-timeline.js', entryPoint: 'resolvePreparedCompositionIntervals',
+		reason: 'Private downstream interval helper receives the projected project from resolveVideoCompositionIntervals or the captured createVideoTimelineResolver boundary before comparing clip endpoints; it never accepts an unprojected public input.',
 	},
 	{
 		file: 'src/common/editor/video-export.js',
@@ -240,6 +240,10 @@ export const FOUNDATION_RUNTIME_TIMING_READER_EXCLUSIONS: readonly FoundationRun
 
 /** Non-shield importers discovered beside the owned consumer and boundary files. */
 export const FOUNDATION_RUNTIME_PROJECTION_IMPORTER_EXCLUSIONS: readonly FoundationRuntimeProjectionImporterExclusion[] = deepFreeze([
+	{
+		file: 'src/common/editor/commands/timeline-annotation-add-batch.ts',
+		reason: 'The annotation command adapter checks a branded transaction draft, restores authoritative annotations, and reconciles ordered additions through the existing command admissions; it is not a runtime playback or media consumer.',
+	},
 	{
 		file: 'src/common/editor/interchange-multicamera-delivery.ts',
 		reason: 'The shared exchange adapter imports only the owning runtime project type for its injected product projection port; it delegates the selected active-angle projection and reports group identities without reading clip timing coordinates.',
