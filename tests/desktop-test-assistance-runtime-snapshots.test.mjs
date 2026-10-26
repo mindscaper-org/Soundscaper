@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 
+import { assistanceNativeRuntimeStageSummary } from '../desktop/assistance-native-runtime-payload.mjs';
+import { desktopAssistanceNativeManifest } from '../scripts/lib/desktop-assistance-speech-runtime.mjs';
 import { resolveDesktopAssistanceHandoffRevision } from '../scripts/desktop-prepare.mjs';
 import {
 	KOKORO_G2P_MAXIMUM_PATH_SEGMENTS,
@@ -85,6 +87,7 @@ test('only diagnostic snapshot mode can use an older runtime handoff revision', 
 test('every committed desktop test target has a valid pinned runtime handoff', async () => {
 	const root = resolve(import.meta.dirname, '..');
 	const lock = JSON.parse(await readFile(join(root, 'config/desktop-test-assistance-runtime-snapshots.json'), 'utf8'));
+	const retained = JSON.parse(await readFile(join(root, 'config/assistance-sherpa-retained-builds.json'), 'utf8'));
 	const output = await mkdtemp(join(tmpdir(), 'desktop-test-pinned-runtime-'));
 	try {
 		for (const targetId of DESKTOP_TEST_RUNTIME_TARGETS) {
@@ -94,6 +97,22 @@ test('every committed desktop test target has a valid pinned runtime handoff', a
 				outputRoot: join(output, targetId),
 			});
 			assert.equal(staged.sourceRevision, lock.targets[targetId].sourceRevision);
+			const handoff = JSON.parse(await readFile(join(output, targetId, 'handoff.json'), 'utf8'));
+			const native = JSON.parse(await readFile(join(output, targetId, 'config',
+				'assistance-native-runtime-manifest.json'), 'utf8'));
+			assert.equal(retained.targets[targetId].sourceRevision, staged.sourceRevision);
+			assert.equal(retained.targets[targetId].receiptSha256, sha256(JSON.stringify(handoff.assistanceNativeBuild)));
+			assert.deepEqual(retained.targets[targetId].packageSha256, [...new Set([
+				native.targets[targetId].package, handoff.assistanceNativeBuild.manifest.targets[targetId].package,
+			].map(value => sha256(JSON.stringify(value))))]);
+			assert.deepEqual(assistanceNativeRuntimeStageSummary(native, targetId), handoff.assistanceNativeRuntime);
+			assert.doesNotThrow(() => desktopAssistanceNativeManifest(handoff, targetId));
+			const changedNative = structuredClone(native);
+			changedNative.targets[targetId].package.files['build-provenance.json'].sha256 = '0'.repeat(64);
+			assert.throws(() => assistanceNativeRuntimeStageSummary(changedNative, targetId), /descriptor/u);
+			const changedHandoff = structuredClone(handoff);
+			changedHandoff.assistanceNativeBuild.provenance.sourceDateEpoch += 1;
+			assert.throws(() => desktopAssistanceNativeManifest(changedHandoff, targetId));
 			const manifest = JSON.parse(await readFile(join(output, targetId, 'config',
 				'assistance-kokoro-g2p-runtime-manifest.json'), 'utf8'));
 			assert.doesNotThrow(() => validateDesktopKokoroG2pManifest(manifest, targetId));

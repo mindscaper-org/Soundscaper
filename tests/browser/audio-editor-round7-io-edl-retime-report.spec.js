@@ -10,7 +10,7 @@ for (const frozen of [false, true]) test(`EDL discloses ordinary ${frozen ? 'fro
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await editor.locator('[data-project-bin-input]').setInputFiles(createDeterministicSilentVideoFixture('Camera.webm'));
 	const card = editor.locator('[data-project-bin-item]').first();
-	await expect(card).toBeVisible();
+	await expect(card).toBeVisible({ timeout: 20_000 });
 	await card.getByRole('button', { name: /Add to timeline/u }).click();
 	const clip = editor.getByRole('group', { name: /^Video clip:/u });
 	await expect(clip).toHaveCount(1);

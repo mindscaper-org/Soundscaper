@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createHash } from 'node:crypto';
+
+import retainedBuilds from '../../config/assistance-sherpa-retained-builds.json' with { type: 'json' };
 import nativeManifest from '../../config/assistance-native-runtime-manifest.json' with { type: 'json' };
 import { stageAssistanceNativeRuntimePayload } from '../../desktop/assistance-native-runtime-payload.mjs';
 import {
@@ -15,7 +18,11 @@ export function desktopAssistanceNativeManifest(stage, targetId) {
 	if (stage.assistanceNativeBuild == null) return nativeManifest;
 	if (stage.assistanceNativeBuild.provenance?.recipeId === 'sherpa-onnx-node-gpu-locked-build-v1') {
 		if (stage.assistanceNativeBuild.targetId !== targetId) throw new Error('A Sherpa GPU receipt cannot authorize another target.');
-		validateDesktopAssistanceSherpaGpuBuildReceipt(stage.assistanceNativeBuild);
+		const retained = retainedBuilds.targets[targetId];
+		const receiptSha256 = createHash('sha256').update(JSON.stringify(stage.assistanceNativeBuild)).digest('hex');
+		if (retained?.receiptSha256 !== receiptSha256) {
+			validateDesktopAssistanceSherpaGpuBuildReceipt(stage.assistanceNativeBuild);
+		}
 		return stage.assistanceNativeBuild.manifest;
 	}
 	if (targetId !== 'win-arm64') throw new Error('A Sherpa ARM64 build receipt cannot authorize another target.');

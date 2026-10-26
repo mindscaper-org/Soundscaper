@@ -2,26 +2,25 @@
 
 import { expect, test } from './audio-editor-test-fixtures.js';
 
-test('the sidebar accepts an installer download while keeping the editor open', async ({ page, context }) => {
-	const installer = 'Soundscaper-1.0.0-rc.Oct.25.a-win-x64.exe';
+test('the sidebar opens desktop delivery in a separate tab', async ({ page, context }) => {
 	let requests = 0;
-	// Node route tests cover installer selection. Vite preview has no Pages
-	// Functions, so emulate the final attachment for this browser interaction.
-	await context.route('https://soundscaper.org/download/desktop/', async (route) => {
+	// Node route tests prove installer selection and release redirects. Preview
+	// has no Pages Functions, so prove the sidebar's tab behavior with a landing
+	// document. WebKit's intercepted attachments omit download filename events.
+	await context.route('https://soundscaper.org/download/desktop/', async route => {
 		requests += 1;
 		await route.fulfill({
-			status: 200,
-			contentType: 'application/octet-stream',
-			headers: { 'Content-Disposition': `attachment; filename="${installer}"` },
-			body: 'test installer',
+			contentType: 'text/html',
+			body: '<h1>Desktop installer delivery</h1>',
 		});
 	});
 	await page.goto('/en/');
-	const download = page.waitForEvent('download');
+	const opening = context.waitForEvent('page');
 	await page.getByRole('link', { name: 'Download', exact: true }).click();
-	const downloaded = await download;
-	expect(downloaded.suggestedFilename()).toBe(installer);
-	expect(await downloaded.failure()).toBeNull();
+	const delivery = await opening;
+	await expect(delivery).toHaveURL('https://soundscaper.org/download/desktop/');
+	await expect(delivery.getByRole('heading', { name: 'Desktop installer delivery' })).toBeVisible();
 	expect(requests).toBe(1);
 	await expect(page).toHaveURL(/\/en\/$/);
+	await expect(page.getByRole('link', { name: 'Download', exact: true })).toBeVisible();
 });
