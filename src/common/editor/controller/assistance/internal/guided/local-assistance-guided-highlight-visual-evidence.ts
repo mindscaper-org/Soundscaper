@@ -76,21 +76,24 @@ function deriveWindowEvidence(
 	signal: AbortSignal,
 ): LocalAssistanceGuidedHighlightVisualEvidenceV1 | null {
 	if (video.windows.length < 1) return null;
-	const work = bundle.matrix.rowCount * bundle.matrix.dimensions
-		+ video.windows.length * video.windows.length * bundle.matrix.dimensions;
-	if (!Number.isSafeInteger(work) || work > MAXIMUM_MULTIPLY_ADDS) {
-		throw new RangeError('Highlight visual evidence exceeds its deterministic work bound.');
-	}
-	const vectors = video.windows.map((window) => {
+	let work = video.windows.length * video.windows.length * bundle.matrix.dimensions;
+	if (!Number.isSafeInteger(work) || work > MAXIMUM_MULTIPLY_ADDS) return null;
+	const selected = video.windows.map((window) => {
 		const ordinals: number[] = [];
 		for (const [ordinal, row] of bundle.rows.entries()) {
 			if (row.timelineFrame >= window.startFrame && row.timelineFrame < window.endFrame) {
 				ordinals.push(ordinal);
 			}
 		}
-		if (ordinals.length === 0) return null;
-		return centroid(ordinals.map((ordinal) => bundle.matrix.vector(ordinal)));
+		work += ordinals.length * bundle.matrix.dimensions;
+		return ordinals;
 	});
+	// Only selected rows contribute to centroids. An optional whole-source index
+	// must not disable highlights when its selected evidence fits the work bound.
+	if (!Number.isSafeInteger(work) || work > MAXIMUM_MULTIPLY_ADDS) return null;
+	signal.throwIfAborted();
+	const vectors = selected.map((ordinals) => ordinals.length === 0 ? null
+		: centroid(ordinals.map((ordinal) => bundle.matrix.vector(ordinal))));
 	if (vectors.some((vector) => vector === null)) return null;
 	const admitted = vectors as readonly Float32Array[];
 	const visualInterest = admitted.map((vector, index) => {
