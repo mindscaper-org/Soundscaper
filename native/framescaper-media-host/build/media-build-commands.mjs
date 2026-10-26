@@ -197,7 +197,10 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	];
 	const vpxMake = windows
 		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`,
-			`SHELL=${makefilePath(tools.executables.shell.path, true)}`] : [];
+			`SHELL=${makefilePath(tools.executables.shell.path, true)}`,
+			// Separate flags disable Make's direct script execution optimization,
+			// which resolves /bin/bash through Windows instead of Git Bash.
+			'.SHELLFLAGS=-e -c'] : [];
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([

@@ -56,6 +56,8 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 	assert.equal(commands.find(({ phase }) => phase === 'libvpx-build').environment.PATH.split(';')[0], 'C:/Program Files/Git/bin');
 	for (const phase of ['libvpx-build', 'libvpx-install']) {
 		assert.ok(commands.find(command => command.phase === phase).args.includes(
+			'.SHELLFLAGS=-e -c'), 'Windows Make must run generators through Git Bash instead of directly resolving their shebangs.');
+		assert.ok(commands.find(command => command.phase === phase).args.includes(
 			'SHELL=C:/Program Files/Git/bin/bash.exe'), 'Windows Make must receive the full attested shell path, including spaces.');
 	}
 });
