@@ -7,7 +7,11 @@ import { bootEditor, chooseCommandAction, clipByName, closeWorkspacePanel, impor
 test('the clip resampling dialog keeps native composition as a draft until conversion is requested', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
-	const properties = await openClipProperties(page, editor, clipByName(editor, toneA.name));
+	const imported = clipByName(editor, toneA.name);
+	const clipId = await imported.getAttribute('data-clip-id');
+	expect(clipId).not.toBeNull();
+	const clip = editor.locator(`[data-clip-id="${clipId}"][role="group"]`);
+	const properties = await openClipProperties(page, editor, clip);
 	await resampleClipFormat(properties, 24_000);
 	const dialog = await openClipResampleDialog(properties);
 	const rate = dialog.getByRole('textbox');
@@ -30,6 +34,6 @@ test('the clip resampling dialog keeps native composition as a draft until conve
 	await resampleClipFormat(properties, 48_000);
 	await closeWorkspacePanel(editor, 'clip-properties');
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
-	const restored = await openClipProperties(page, editor, clipByName(editor, toneA.name));
+	const restored = await openClipProperties(page, editor, clip);
 	await expectClipSampleRate(restored, 24_000);
 });
