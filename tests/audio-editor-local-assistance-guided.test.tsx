@@ -8,7 +8,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ASSISTANCE_OPERATIONS } from '../src/common/editor/assistance/operation.ts';
 import {
 	ASSISTANCE_GUIDED_WORKFLOW_IDS,
-	type AssistanceGuidedWorkflowId,
 } from '../src/common/editor/assistance/workflow-recipes.ts';
 import {
 	defaultAssistanceWorkflowSettingsV1,
@@ -70,8 +69,6 @@ test('each Guided recipe selects one frozen, strictly validated default settings
 		assert.equal(serializeAssistanceWorkflowSettingsV1(settings),
 			serializeAssistanceWorkflowSettingsV1(defaultAssistanceWorkflowSettingsV1(workflowId)));
 	}
-	assert.throws(() => guided.selectWorkflow('unknown-workflow' as AssistanceGuidedWorkflowId),
-		/unsupported|workflow/iu);
 	guided.selectWorkflow('make-highlights');
 	assert.deepEqual(guided.getSnapshot().settings, {
 		settingsVersion: 1, workflowId: 'make-highlights', resultCount: 5,

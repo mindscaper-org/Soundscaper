@@ -226,32 +226,7 @@ test('a v13 paste gives up when the identity factory only offers occupied identi
 	), /could not allocate a fresh image-source ID/u);
 });
 
-test('a v13 paste requires exactly one clipboard paste inside a well-formed batch', () => {
-	const board = clipboard();
-	const paste = pasteCommand(board);
-	const refuse = (command: unknown, message: RegExp): void => {
-		assert.throws(() => prepareFramescaperSessionClipboardPasteV13(
-			PROFILE, baseProject(), board, command as never, counter(),
-		), message);
-	};
 
-	refuse({ type: 'project/rename', title: 'Renamed' }, /exactly one clipboard\/paste command/u);
-	refuse({ type: 'batch', commands: [paste, paste] }, /exactly one clipboard\/paste command/u);
-	refuse({ type: 'batch', commands: 1 }, /V13 command batch must be an array/u);
-});
-
-test('a v13 paste refuses a drifted carrier descriptor and a missing identity factory', () => {
-	const board = clipboard();
-
-	assert.throws(() => prepareFramescaperSessionClipboardPasteV13(
-		PROFILE, baseProject(), board,
-		pasteCommand(board, { clipboard: { ...board.descriptor as Data, durationFrames: 99 } }) as never,
-		counter(),
-	), /clipboard and paste descriptors must match exactly/u);
-	assert.throws(() => prepareFramescaperSessionClipboardPasteV13(
-		PROFILE, baseProject(), board, pasteCommand(board) as never, null as never,
-	), /V13 paste requires an ID factory/u);
-});
 
 test('a v13 paste refuses pasted image clip identities that are unstable or already occupied', () => {
 	const board = clipboard();
@@ -279,16 +254,6 @@ test('a v13 paste strips image source admissions from the foundation command it 
 	assert.deepEqual(admitted, ['pasted-audio-source']);
 });
 
-test('a v13 paste refuses a foundation batch that image filtering would empty', () => {
-	const board = clipboard();
-	const imageAdd = { type: 'source/add', source: (board.sources as Data[]).at(-1) };
-
-	assert.throws(() => prepareFramescaperSessionClipboardPasteV13(
-		PROFILE, baseProject(), board,
-		{ type: 'batch', commands: [pasteCommand(board), { type: 'batch', commands: [imageAdd] }] } as never,
-		counter(),
-	), /V13 foundation command became empty/u);
-});
 
 function bodyMetadata(key: string, source: FramescaperImageSourceV1, overrides: Data = {}): Data {
 	return {

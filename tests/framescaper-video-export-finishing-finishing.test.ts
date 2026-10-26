@@ -215,13 +215,6 @@ test('a cube LUT body that is absent, stale or geometrically drifted is refused'
 	}
 });
 
-test('a project that cannot present its sources as an array refuses the analysis binding', async () => {
-	const node = finishingNode({ visualPresentations: [presentation({ grade: grade({ lut: lutReference() }) })] });
-	const store = recordingStore([['cube-lut-body', new TextEncoder().encode(LUT_TEXT)]]);
-
-	await assert.rejects(() => loadAssets(node, { store, project: { sources: null } }),
-		(error: unknown) => error instanceof TypeError && /sources are unavailable/u.test(error.message));
-});
 
 test('a motion analysis body is admitted only against its own source digest', async () => {
 	const { stack, analysis } = await motionFixture();

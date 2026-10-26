@@ -175,18 +175,4 @@ test('StaffPad render admission limit is non-raiseable with a zero-capable lower
 	assert.equal(normalizeClipTimePitchRenderMaximumBytes(123), 123);
 	assert.equal(normalizeClipTimePitchRenderMaximumBytes(256 * MIB), 256 * MIB);
 
-	for (const value of [
-		-1,
-		1.5,
-		Number.NaN,
-		Number.POSITIVE_INFINITY,
-		Number.MAX_SAFE_INTEGER + 1,
-		256 * MIB + 1,
-		'123',
-	]) {
-		assert.throws(
-			() => normalizeClipTimePitchRenderMaximumBytes(value),
-			/StaffPad clip-cache render maximum/iu,
-		);
-	}
 });

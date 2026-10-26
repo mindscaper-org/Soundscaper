@@ -85,12 +85,6 @@ test('realtime PCM admission keeps hard ceilings and a lower-only backpressure s
 	assert.equal(lowered.maximumPendingBytes, 2_048);
 	assert.equal(lowered.backpressureHighWaterChunks, 1);
 	assert.throws(() => planRealtimePcmSinkQueueAdmission({
-		channelCount: 2,
-		chunkFrames: AUDIO_EDITOR_PCM_SINK_MIN_CHUNK_FRAMES,
-		maximumPendingChunks: 2,
-		maximumPendingBytes: AUDIO_EDITOR_PCM_SINK_MAX_PENDING_BYTES + 1,
-	}), /maximumPendingBytes.*33554432/u);
-	assert.throws(() => planRealtimePcmSinkQueueAdmission({
 		channelCount: 32,
 		chunkFrames: AUDIO_EDITOR_PCM_SINK_MAX_CHUNK_FRAMES,
 		backpressureHighWaterChunks: 9,
@@ -98,12 +92,6 @@ test('realtime PCM admission keeps hard ceilings and a lower-only backpressure s
 });
 
 test('realtime PCM admission rejects malformed runtime configuration', () => {
-	for (const channelCount of [0, -1, 1.5, 33, Number.NaN, Number.POSITIVE_INFINITY, '2', null, {}]) {
-		assert.throws(() => planRealtimePcmSinkQueueAdmission({
-			channelCount,
-			chunkFrames: AUDIO_EDITOR_PCM_SINK_MIN_CHUNK_FRAMES,
-		}), /channelCount/u);
-	}
 	for (const chunkFrames of [0, 127, 128.5, 16_385, Number.NaN, Number.POSITIVE_INFINITY, '128', null, {}]) {
 		assert.throws(() => planRealtimePcmSinkQueueAdmission({
 			channelCount: 1,

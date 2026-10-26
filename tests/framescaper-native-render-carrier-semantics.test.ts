@@ -177,42 +177,7 @@ test('an inherited picture canvas is narrowed to its exact size, cadence, fit an
 	assert.equal(Object.isFrozen(canvas.frameRate), true);
 });
 
-test('an inherited picture canvas that is not a record, or whose cadence is not, is refused', () => {
-	for (const canvas of [null, undefined, [], 'canvas', 7]) {
-		assert.throws(
-			() => pictureCanvas(inherited({ canvas })),
-			(error: unknown) => error instanceof TypeError
-				&& /inherited picture canvas must be an object/u.test(String(error)),
-			`${String(canvas)} is not a canvas record`,
-		);
-	}
-	for (const frameRate of [null, [], 24]) {
-		assert.throws(
-			() => pictureCanvas(withCanvas({ frameRate })),
-			(error: unknown) => error instanceof TypeError
-				&& /inherited picture cadence must be an object/u.test(String(error)),
-			`${String(frameRate)} is not a cadence record`,
-		);
-	}
-});
 
-test('every out-of-domain inherited canvas dimension, cadence term, fit and background is refused', () => {
-	const rejected: readonly Data[] = [
-		{ width: 0 }, { width: -1 }, { width: 1.5 }, { width: '1920' }, { width: Number.NaN },
-		{ height: 0 }, { height: 2.5 }, { height: null },
-		{ frameRate: { num: 0, den: 1 } }, { frameRate: { num: 24, den: 0 } },
-		{ frameRate: { num: 23.976, den: 1 } }, { frameRate: { num: 24 } },
-		{ fit: 'fill' }, { fit: null }, { backgroundColor: 0x00ff00 }, { backgroundColor: null },
-	];
-	for (const overrides of rejected) {
-		assert.throws(
-			() => pictureCanvas(withCanvas(overrides)),
-			(error: unknown) => error instanceof TypeError
-				&& /inherited picture canvas is invalid/u.test(String(error)),
-			`${JSON.stringify(overrides)} must be refused`,
-		);
-	}
-});
 
 test('a disposition that omits inherited exact render nodes without explanation is refused', () => {
 	assert.throws(

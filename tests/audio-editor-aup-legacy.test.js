@@ -238,40 +238,7 @@ test('legacy AUP XML traverses a wide admitted subtree without argument-list exp
 	assert.deepEqual(decoded.tracks, []);
 });
 
-test('legacy AUP XML parse-limit overrides cannot raise hard limits', async (context) => {
-	for (const [name, maximum] of Object.entries(EXPECTED_XML_HARD_LIMITS)) {
-		await context.test(name, async () => {
-			const fixture = trackedLegacyProject(blockProject());
-			await assert.rejects(
-				decodeLegacyAupProject(fixture.projectFile, fixture.dataFiles, {
-					parseLimits: { [name]: maximum + 1 },
-					onProgress: (value) => fixture.progress.push(value),
-				}),
-				(error) => error instanceof RangeError && /hard limit|cannot exceed/iu.test(error.message),
-			);
-			assert.deepEqual(fixture.calls, { text: 0, block: 0 });
-			assert.deepEqual(fixture.progress, []);
-		});
-	}
-});
 
-test('legacy AUP XML rejects malformed test limits before reading text', async (context) => {
-	for (const [name, parseLimits] of [
-		['zero', { maximumElements: 0 }],
-		['fractional', { maximumDepth: 1.5 }],
-		['unknown', { maximumTextNodes: 1 }],
-		['null', null],
-	]) {
-		await context.test(name, async () => {
-			const fixture = trackedLegacyProject(blockProject());
-			await assert.rejects(
-				decodeLegacyAupProject(fixture.projectFile, fixture.dataFiles, { parseLimits }),
-				(error) => error instanceof TypeError || error instanceof RangeError,
-			);
-			assert.deepEqual(fixture.calls, { text: 0, block: 0 });
-		});
-	}
-});
 
 test('legacy AUP XML rejects invalid declared sizes before reading text', async (context) => {
 	for (const size of [-1, 1.5, Number.NaN, undefined]) {

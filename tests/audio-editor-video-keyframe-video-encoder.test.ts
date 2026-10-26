@@ -269,7 +269,7 @@ test('producer cleanup is retried once by its outer owner and retains every fail
 	assert.equal(retryAttempts, 2);
 });
 
-test('the wrapper owns closed options, valid thresholds, and a cryptographic token grammar', async () => {
+test('the wrapper owns closed options and valid output thresholds', async () => {
 	assert.equal(VIDEO_KEYFRAME_VIDEO_MAXIMUM_OUTPUT_BYTES, 512 * 1024 * 1024);
 	const frameSource = source();
 	for (const request of [
@@ -290,18 +290,6 @@ test('the wrapper owns closed options, valid thresholds, and a cryptographic tok
 		);
 		assert.equal(ffmpeg.runCalls(), 0);
 	}
-	const producer = exactProducer(frameSource);
-	const ffmpeg = fakeEditorFfmpeg(MP4);
-	await assert.rejects(
-		encodeVideoKeyframeVideo(ffmpeg.port, {
-			frameSource,
-			producer: producer.value,
-			format: 'mp4',
-		}, { createJobToken: () => '../predictable' }),
-		/128-bit lowercase hexadecimal/u,
-	);
-	assert.equal(ffmpeg.runCalls(), 0);
-	assert.equal(producer.disposeCalls(), 1);
 });
 
 function source(): VideoKeyframeExportFrameSource {

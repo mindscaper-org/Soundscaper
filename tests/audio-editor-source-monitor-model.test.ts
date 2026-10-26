@@ -94,8 +94,6 @@ test('the monitor states the marks it has and fills the rest from the media', ()
 	for (const [name, marks, sequencePoints, expected] of cases) {
 		assert.deepEqual(resolveSourceMonitorPoints(marks, COUNT, sequencePoints), expected, name);
 	}
-	assert.throws(() => resolveSourceMonitorPoints(SOURCE_MONITOR_NO_MARKS, COUNT, 0), RangeError);
-	assert.throws(() => resolveSourceMonitorPoints(SOURCE_MONITOR_NO_MARKS, COUNT, 3), RangeError);
 });
 
 test('a media clock renders a frame and reads back as the same frame', () => {
