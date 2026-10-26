@@ -5,7 +5,7 @@ import {
 	bootEditor, clipByName, clipField, collectClientErrors, commitInput,
 	importFiles, openClipProperties, openSourceMonitor, registerAudioEditorHooks, waitForEditor,
 } from './audio-editor-test-helpers.js';
-import { chooseClipMediaSetting, chooseClipPitchUnit, expectClipMediaSettingChecked } from './audio-editor-clip-settings-test-helpers.js';
+import { chooseClipMediaSetting, chooseClipPitchUnit, expectClipMediaSettingChecked, openClipMediaSettings } from './audio-editor-clip-settings-test-helpers.js';
 
 test.describe('clip properties pitch and normalization', () => {
 	registerAudioEditorHooks();
@@ -82,7 +82,10 @@ test.describe('clip properties pitch and normalization', () => {
 		await commitInput(clipField(panel, 'pitchCents'), '3');
 		await chooseClipMediaSetting(panel, 'Link pitch and tempo');
 		await expect(clipField(panel, 'pitchCents')).toHaveValue('0');
-		await expect(panel.locator('[data-clip-properties-action="render-pitch-speed"]')).toBeDisabled();
+		const settings = await openClipMediaSettings(panel);
+		await expect(settings.getByRole('menuitem', { name: 'Render pitch and speed', exact: true })).toHaveAttribute('aria-disabled', 'true');
+		await settings.press('Escape');
+		await expect(settings).toBeHidden();
 		await clip.click({ button: 'right', position: { x: 32, y: 10 } });
 		await expect(page.locator('.audio-editor-clip-context-menu')
 			.getByRole('menuitem', { name: 'Render pitch and speed', exact: true })).toHaveAttribute('aria-disabled', 'true');
@@ -98,7 +101,7 @@ test.describe('clip properties pitch and normalization', () => {
 		await expect(clipField(restoredPanel, 'pitchCents')).toHaveValue('3');
 	});
 
-	test('Media settings keeps its gain dialog and normalization actions share a section', async ({ page }) => {
+	test('Media settings keeps its gain dialog and adjacent normalization actions', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [longTone]);
 		const panel = await openClipProperties(page, editor, clipByName(editor, longTone.name));
@@ -112,11 +115,16 @@ test.describe('clip properties pitch and normalization', () => {
 		gainDialog = page.getByRole('dialog', { name: 'Clip gain (dB)', exact: true });
 		await expect(gainDialog.getByRole('textbox', { name: 'Clip gain (dB)', exact: true })).toHaveValue('-6');
 		await gainDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-		const normalization = panel.locator('[data-group="normalize"]');
-		const peak = await normalization.getByRole('button', { name: '−1 dBFS', exact: true }).boundingBox();
-		const loudness = await normalization.getByRole('button', { name: '−14 LUFS', exact: true }).boundingBox();
-		expect(peak).not.toBeNull(); expect(loudness).not.toBeNull();
-		expect(loudness.y).toBeCloseTo(peak.y, 0);
-		expect(loudness.x).toBeGreaterThanOrEqual(peak.x + peak.width);
+		const settings = await openClipMediaSettings(panel);
+		const peak = settings.getByRole('menuitem', { name: 'Normalize to −1 dBFS', exact: true });
+		const loudness = settings.getByRole('menuitem', { name: 'Normalize to −14 LUFS', exact: true });
+		await expect(peak).toBeVisible();
+		await expect(loudness).toBeVisible();
+		await expect(peak).toHaveAttribute('aria-disabled', 'false');
+		await expect(loudness).toHaveAttribute('aria-disabled', 'false');
+		const entries = await settings.locator(':scope > [role="menuitem"], :scope > [role="separator"]').allTextContents();
+		expect(entries.indexOf('Normalize to −14 LUFS')).toBe(entries.indexOf('Normalize to −1 dBFS') + 1);
+		await settings.press('Escape');
+		await expect(settings).toBeHidden();
 	});
 });

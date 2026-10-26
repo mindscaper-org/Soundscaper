@@ -138,7 +138,7 @@ test.describe('non-destructive clip fade handles', () => {
 			await expect(shading).toHaveCSS('fill', 'rgba(0, 0, 0, 0.18)');
 			for (const [edge, fraction] of [['in', 0.125], ['out', 0.875]]) {
 				const guide = curves.locator(`[data-fade-boundary="${edge}"]`);
-				await expect(guide).toHaveAttribute('stroke-dasharray', '4 3');
+				await expect(guide).toHaveAttribute('stroke-dasharray', '4 4');
 				await expect(guide).toHaveAttribute('vector-effect', 'non-scaling-stroke');
 				const position = await guide.evaluate(line => ({
 					x1: line.x1.baseVal.value / line.ownerSVGElement.viewBox.baseVal.width,
@@ -541,10 +541,23 @@ test.describe('non-destructive clip fade handles', () => {
 		await first.click({ modifiers: ['Control'], position: { x: 40, y: 60 } });
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
-		await beginFadeDrag(page, firstFade, 30);
+		await expect(firstFade).toHaveCSS('pointer-events', 'none');
+		const corner = first.locator('[data-fade-zone="in"]');
+		await expect(corner).toBeVisible();
+		const bounds = await corner.boundingBox();
+		expect(bounds).not.toBeNull();
+		// Unselected clips expose the clipped boundary zone, not the hidden slider.
+		const x = bounds.x + 27, y = bounds.y + 16;
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		await expect(first.locator('[data-fade-length-drag]')).toHaveCount(1);
+		await page.mouse.move(x + 30, y, { steps: 5 });
 		await expect.poll(async () => Number(await firstFade.getAttribute('aria-valuenow'))).toBeGreaterThan(0.002);
+		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(secondFade).toHaveAttribute('aria-valuenow', '0.002');
 		await page.mouse.up();
+		await expect(first.locator('[data-fade-length-drag]')).toHaveCount(0);
+		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		await expect(firstFade).toHaveAttribute('aria-valuenow', '0.002');
