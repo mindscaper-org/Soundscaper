@@ -15,9 +15,11 @@ registerAudioEditorHooks();
 test('ordinary recording survives a renderer crash with its saved checkpoints and exports the recovered audio', async ({ browserName, baseURL }, testInfo) => {
 	test.skip(browserName !== 'chromium', 'The renderer crash witness uses Chromium CDP and a persistent profile.');
 	test.setTimeout(180_000);
+	const fixtureDurationSeconds = 180;
 	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-recording-recovery-'));
 	const input = join(directory, 'capture.wav');
-	await writeFile(input, createPackagedRuntimeAudioWave());
+	// Keep Chromium's file source from wrapping during this test's capture.
+	await writeFile(input, createPackagedRuntimeAudioWave({ durationSeconds: fixtureDurationSeconds }));
 	let context = await launch(directory, baseURL, input);
 	let recoveredWave = null, decodedWitness = null;
 	try {
@@ -100,7 +102,7 @@ test('ordinary recording survives a renderer crash with its saved checkpoints an
 		try {
 			if (recoveredWave) {
 				const byteLimit = 64 * 1024 * 1024;
-				const witness = { fixture: { frequency: 440, sampleRate: 48_000, channelCount: 1, durationSeconds: 1 },
+				const witness = { fixture: { frequency: 440, sampleRate: 48_000, channelCount: 1, durationSeconds: fixtureDurationSeconds },
 					estimator: 'channel0-positive-zero-crossings', decodeRequestedSampleRate: 48_000,
 					decoded: decodedWitness, waveByteLength: recoveredWave.byteLength,
 					waveAttachmentByteLimit: byteLimit, waveAttachmentEligible: recoveredWave.byteLength <= byteLimit };
