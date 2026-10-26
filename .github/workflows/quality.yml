@@ -88,6 +88,11 @@ jobs:
       - name: Build and verify the Framescaper browser site
         run: npm run build:browser:framescaper
 
+      - name: Prepare and verify the ordinary Soundscaper browser site once
+        run: npm run prepare:browser:products
+        env:
+          SCAPE_BROWSER_COVERAGE: '1'
+
       - name: Record the checked Soundscaper handbook
         run: node scripts/ci-handbook-build.mjs record
 
@@ -107,6 +112,15 @@ jobs:
         with:
           name: verified-site-build
           path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload the prepared Soundscaper browser site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-soundscaper-browser-site-build
+          path: .wrangler/browser-products/soundscaper/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
 
@@ -565,6 +579,8 @@ jobs:
       options: --user 1001
     # Run 37803116461 cancelled WebKit shard 3 at the 45-minute job deadline.
     timeout-minutes: 60
+    env:
+      SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -621,8 +637,8 @@ jobs:
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: verified-site-build
-          path: dist
+          name: verified-soundscaper-browser-site-build
+          path: .wrangler/browser-products/soundscaper
 
       - name: Download the verified Framescaper website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -631,16 +647,18 @@ jobs:
           path: .wrangler/browser-products/framescaper
 
       # Beside each site rather than inside it: the sites are digest-verified
-      # file by file, so nothing may be added within them. Every browser verifies
-      # the source-map evidence before serving the site; Chromium additionally
-      # consumes the maps for coverage.
+      # file by file, so nothing may be added within them. Every engine authenticates
+      # served bytes; Chromium additionally authenticates and consumes the
+      # sibling maps for coverage.
       - name: Download the website build's source maps
+        if: matrix.project == 'chromium'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verified-site-source-maps
           path: .wrangler/browser-products/soundscaper-source-maps
 
       - name: Download the Framescaper website build's source maps
+        if: matrix.project == 'chromium'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verified-framescaper-site-source-maps
@@ -713,6 +731,8 @@ jobs:
     # Run 37733071611 passed all 395 shard-2 tests in 44 minutes, then the
     # 45-minute job limit cancelled the job after setup overhead.
     timeout-minutes: 60
+    env:
+      SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -780,26 +800,14 @@ jobs:
       - name: Download the verified website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: verified-site-build
-          path: dist
+          name: verified-soundscaper-browser-site-build
+          path: .wrangler/browser-products/soundscaper
 
       - name: Download the verified Framescaper website build
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: verified-framescaper-site-build
           path: .wrangler/browser-products/framescaper
-
-      - name: Download the website build's source maps
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: verified-site-source-maps
-          path: .wrangler/browser-products/soundscaper-source-maps
-
-      - name: Download the Framescaper website build's source maps
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: verified-framescaper-site-source-maps
-          path: .wrangler/browser-products/framescaper-source-maps
 
       - name: Run Firefox workflows against the existing build
         # A second Firefox content process can starve the live AudioContext even

@@ -58,21 +58,26 @@ export async function buildBrowserProductSite(site) {
 	], environment, `generate the ${site.productId} offline shell`);
 	checkBuildChunks(outputDirectory);
 	await recordBrowserProductSiteEvidence(site);
-	await verifyBrowserProductSite(site);
+	await verifyBrowserProductSite(site, { sourceMaps: true });
 }
 
 /**
- * Authenticate the downloaded Framescaper artifact, then make a verified,
- * disposable Soundscaper copy without changing either production artifact.
+ * Authenticate prepared consumer artifacts, or create the Soundscaper copy once
+ * in the build producer without changing either production artifact.
  */
 export async function prepareOrdinaryBrowserProductSites(
 	plan = ordinaryBrowserProductSitePlan(),
-	{ soundscaperBuildDirectory = 'dist' } = {},
+	{ soundscaperBuildDirectory = 'dist', reusePrepared = false,
+		sourceMaps = process.env.SCAPE_BROWSER_COVERAGE === '1' } = {},
 ) {
 	assertPlan(plan);
 	const soundscaper = siteFor(plan, 'soundscaper');
 	const framescaper = siteFor(plan, 'framescaper');
-	await verifyBrowserProductSite(framescaper);
+	await verifyBrowserProductSite(framescaper, { sourceMaps });
+	if (reusePrepared) {
+		await verifyBrowserProductSite(soundscaper, { sourceMaps });
+		return;
+	}
 
 	const source = resolve(repositoryRoot, soundscaperBuildDirectory);
 	const destination = resolve(repositoryRoot, soundscaper.outputDirectory);
@@ -81,11 +86,11 @@ export async function prepareOrdinaryBrowserProductSites(
 	await cp(source, destination, { recursive: true, force: true, errorOnExist: false });
 	await copyBuildSourceMaps(source, destination);
 	await recordBrowserProductSiteEvidence(soundscaper);
-	await verifyBrowserProductSite(soundscaper);
+	await verifyBrowserProductSite(soundscaper, { sourceMaps });
 }
 
 /** Verify the product identity and every digest recorded by the build step. */
-export async function verifyBrowserProductSite(site) {
+export async function verifyBrowserProductSite(site, { sourceMaps = process.env.SCAPE_BROWSER_COVERAGE === '1' } = {}) {
 	assertSite(site);
 	const outputDirectory = resolve(repositoryRoot, site.outputDirectory);
 	const evidencePath = resolve(outputDirectory, BROWSER_PRODUCT_EVIDENCE);
@@ -117,6 +122,18 @@ export async function verifyBrowserProductSite(site) {
 			throw new Error(`The verified ${site.productId} browser file changed: ${relativePath}.`);
 		}
 	}
+	if (sourceMaps) await verifyBrowserSourceMaps(site, outputDirectory, evidence);
+	const document = await readFile(resolve(outputDirectory, 'en/index.html'), 'utf8');
+	if (!document.includes(`data-product="${site.productId}"`)) {
+		throw new Error(`The verified ${site.productId} browser site serves the wrong product document.`);
+	}
+	return evidence;
+}
+
+async function verifyBrowserSourceMaps(site, outputDirectory, evidence) {
+	if (Object.keys(evidence.sourceMaps ?? {}).length === 0) {
+		throw new Error(`The ${site.productId} browser site requires recorded source maps for coverage.`);
+	}
 	const actualMaps = await browserSourceMapFiles(outputDirectory);
 	if (JSON.stringify(Object.keys(evidence.sourceMaps ?? {}).sort()) !== JSON.stringify(actualMaps)) {
 		throw new Error(`The ${site.productId} browser-site source-map evidence has an incomplete inventory.`);
@@ -128,11 +145,6 @@ export async function verifyBrowserProductSite(site) {
 			throw new Error(`The verified ${site.productId} browser source map changed: ${relativePath}.`);
 		}
 	}
-	const document = await readFile(resolve(outputDirectory, 'en/index.html'), 'utf8');
-	if (!document.includes(`data-product="${site.productId}"`)) {
-		throw new Error(`The verified ${site.productId} browser site serves the wrong product document.`);
-	}
-	return evidence;
 }
 
 function cleanBuildEnvironment(site) {
