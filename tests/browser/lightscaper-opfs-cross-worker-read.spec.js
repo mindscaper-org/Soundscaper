@@ -65,10 +65,10 @@ test('two native workers concurrently read one immutable Lightscaper resource', 
 			finally { await response.dispose(); }
 		});
 		await page.goto(new URL('/__lightscaper_opfs_cross_worker_read.html', origin).href);
-		packet = await page.evaluate(async () => {
+		packet = await page.evaluate(async program => {
 			if (!isSecureContext || !crossOriginIsolated) throw new Error('The actual isolated loopback native environment is required.');
-			return (await import('/__lightscaper_opfs_cross_worker_read.js')).runLightscaperOpfsCrossWorkerReadNative();
-		});
+			return (await import(new URL(program, location.href).href)).runLightscaperOpfsCrossWorkerReadNative();
+		}, PROGRAM);
 		expect(nativeEnvironment).toHaveLength(2);
 	} catch (error) { primary = error; }
 	finally {
