@@ -258,11 +258,12 @@ function bindDescriptorClips(
 		const track = trackById.get(descriptorTrack.sourceTrackId);
 		if (!track) throw new ReferenceError(`V13 descriptor track ${descriptorTrack.sourceTrackId} is missing.`);
 		if (track.type === 'label') throw new ReferenceError(`V13 descriptor track ${descriptorTrack.sourceTrackId} has no media clip inventory.`);
-		const candidates = [...track.clipIds].sort((left, right) => right.length - left.length);
+		const candidates = new Set(track.clipIds);
 		for (const descriptorClip of descriptorTrack.clips) {
 			const key = String(descriptorClip.key);
-			const clipId = candidates.find((candidate) => key.startsWith(`${candidate}:`));
-			if (!clipId) throw new ReferenceError(`V13 descriptor key ${key} has no authored clip.`);
+			const geometry = /^(.*):\d+:\d+$/u.exec(key);
+			const clipId = geometry?.[1];
+			if (!clipId || !candidates.has(clipId)) throw new ReferenceError(`V13 descriptor key ${key} has no authored clip.`);
 			bindings.push(Object.freeze({ clipId, descriptorKey: key }));
 		}
 	}

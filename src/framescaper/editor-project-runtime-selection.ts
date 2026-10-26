@@ -41,7 +41,8 @@ import {
 	assertFramescaperProjectRuntimeProfile,
 } from './editor-project-runtime-profile.ts';
 import { FRAMESCAPER_PROJECT_STORAGE_PROFILE } from './editor-project-storage-profile.ts';
-import { createFramescaperProjectStore } from './editor-project-store.ts';
+import { createFramescaperProjectStore, framescaperProjectStoreAuthority } from './editor-project-store.ts';
+import { authorizeClipboardImageAttachments } from './editor-session-clipboard-image-attachments.ts';
 import {
 	cloneFramescaperProject,
 	createFramescaperProject,
@@ -115,6 +116,9 @@ export interface EditorProjectRuntimeSelection {
 		store: FramescaperImageClipboardBodyStoreV13,
 		options?: Readonly<{ signal?: AbortSignal }>,
 	) => Promise<FramescaperImageClipboardBodyStageV13>;
+	readonly stageEditClipboardPasteCommand: (
+		command: unknown, store: unknown, options?: Readonly<{ signal?: AbortSignal }>,
+	) => Promise<FramescaperImageClipboardBodyStageV13 | null>;
 	readonly prepareEditClipboardDescriptor: (
 		project: unknown,
 		descriptor: AudioEditorClipboard,
@@ -153,6 +157,7 @@ export function createEditorProjectRuntimeSelection(
 	profile: unknown,
 ): Readonly<EditorProjectRuntimeSelection> {
 	assertFramescaperProjectRuntimeProfile(profile);
+	const preparedPastes = new WeakMap<object, Readonly<{ prepared: FramescaperSessionClipboardPasteV13; projectId: string; existingImages: ReadonlySet<string> }>>();
 	const selection: EditorProjectRuntimeSelection = {
 		assistanceAssetCommands: true,
 		profile,
@@ -190,10 +195,26 @@ export function createEditorProjectRuntimeSelection(
 				command,
 				createId,
 			);
-			const availableImages = new Set(destination.sources.filter(source => source.kind === 'image').map(source => source.id));
-			// Retained image bodies need no new asset publication during an ordinary paste.
-			return ([...prepared.imageSourceIdMap.values()].every(id => availableImages.has(id))
-				? prepared.command : prepared.foundationCommand) as FramescaperProjectCommand;
+			preparedPastes.set(prepared.command, { prepared, projectId: destination.id, existingImages: new Set(destination.sources.filter(source => source.kind === 'image').map(source => source.id)) });
+			return prepared.command as FramescaperProjectCommand;
+		},
+		stageEditClipboardPasteCommand: async (command, store, options = {}) => {
+			const capture = command && typeof command === 'object' ? preparedPastes.get(command) : null;
+			if (!capture?.prepared.bodyTransfers.length) return null;
+			const bodies = await stageFramescaperSessionClipboardImageBodiesV13(capture.prepared.bodyTransfers, store as FramescaperImageClipboardBodyStoreV13, options);
+			try {
+				const fresh = capture.prepared.bodyTransfers.filter(transfer => !capture.existingImages.has(transfer.source.id)).map(transfer => transfer.source);
+				const authority = framescaperProjectStoreAuthority(profile, store);
+				const grant = authorizeClipboardImageAttachments(authority.port, capture.projectId, fresh);
+				return Object.freeze({ publicationCount: bodies.publicationCount,
+					complete() { grant.complete(); bodies.complete(); },
+					async rollback() { grant.rollback(); await bodies.rollback(); },
+				});
+			} catch (error) {
+				try { await bodies.rollback(); }
+				catch (cleanup) { throw new AggregateError([error, cleanup], 'Clipboard image authorization and rollback both failed.', { cause: cleanup }); }
+				throw error;
+			}
 		},
 		stageEditClipboardPasteBodies: (prepared, store, options = {}) => (
 			stageFramescaperSessionClipboardImageBodiesV13(prepared.bodyTransfers, store, options)

@@ -1,3 +1,4 @@
+import { commitStagedClipboardPaste } from './internal/commit-staged-clipboard-paste.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
@@ -166,26 +167,30 @@ export function createEditComposition<History extends ControllerRuntimeHistory>(
 				derivedSources: dependencies.derivedSources,
 				preflightStorage: dependencies.preflightStorage,
 				assertCurrent,
-				commit: (prepared) => {
-					const transferredMedia = discoverPasteCommandTree(prepared).sourceAdds.some(
-						({ source }) => source.kind === 'audio' || source.kind === 'video',
-					);
-					if (!transferredMedia || !originProjectId || originProjectId === project.id) {
-						assertCurrent();
-						return dependencies.commit(prepared);
-					}
-					return import('./internal/paste-linked-source-aliases.ts').then(({ commitPasteWithLinkedSourceAliases }) => (
-						commitPasteWithLinkedSourceAliases({
-							command: prepared,
-							originProjectId,
-							projectId: project.id,
-							store: dependencies.store,
-							assertCurrent,
-							getCurrentProject: dependencies.getCommandProject,
-							commit: dependencies.commit,
-						})
-					));
-				},
+				commit: (prepared) => commitStagedClipboardPaste({
+					stage: projectRuntime.stageEditClipboardPasteCommand ? () => projectRuntime.stageEditClipboardPasteCommand!(command, dependencies.store, { signal: task.signal }) : undefined,
+					assertCurrent,
+					commit: () => {
+						const transferredMedia = discoverPasteCommandTree(prepared).sourceAdds.some(
+							({ source }) => source.kind === 'audio' || source.kind === 'video',
+						);
+						if (!transferredMedia || !originProjectId || originProjectId === project.id) {
+							assertCurrent();
+							return dependencies.commit(prepared);
+						}
+						return import('./internal/paste-linked-source-aliases.ts').then(({ commitPasteWithLinkedSourceAliases }) => (
+							commitPasteWithLinkedSourceAliases({
+								command: prepared,
+								originProjectId,
+								projectId: project.id,
+								store: dependencies.store,
+								assertCurrent,
+								getCurrentProject: dependencies.getCommandProject,
+								commit: dependencies.commit,
+							})
+						));
+					},
+				}),
 			})
 		);
 		try {
