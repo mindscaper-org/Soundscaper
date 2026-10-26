@@ -29,9 +29,10 @@ import {
 	FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	PROJECT_SCHEMA_VERSION,
 } from '../common/editor/project-schema-identity.ts';
-import { createFramescaperNativeRenderPlanAuthorityNativeMedia } from './editor-native-render-plan-authority.ts';
+import { createFramescaperNativeProxySourcePlan } from './editor-native-proxy-source-plan.ts';
+import { framescaperNativePlanTimingAuthority } from './editor-native-plan-timing-authority.ts';
+import { resolveVideoSourceTimingViews } from '../common/editor/video-source-timing-views.ts';
 import { FRAMESCAPER_NATIVE_MEDIA_RENDER_QUEUE_RESERVATIONS } from './editor-native-render-queue-reservations.ts';
-import { createFramescaperProjectUnifiedExactRenderPlanNativeMedia } from './editor-project-unified-render-plan-native-media.ts';
 import { cloneFramescaperProjectNativeMedia, type FramescaperProjectNativeMedia } from './editor-project-native-media.ts';
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts';
 
@@ -229,10 +230,8 @@ function proxySnapshot(
 	if (source.contentSha256 !== identity.sha256) {
 		throw new Error('The native proxy candidate original generation changed.');
 	}
-	const plan = createFramescaperProjectUnifiedExactRenderPlanNativeMedia(
-		profile, project, createFramescaperNativeRenderPlanAuthorityNativeMedia(project),
-	);
-	const envelope = createNativeMediaPlanEnvelopeV2(plan);
+	const plan = createFramescaperNativeProxySourcePlan(project, identity.sourceId);
+	const envelope = createNativeMediaPlanEnvelopeV2(plan, framescaperNativePlanTimingAuthority(project, resolveVideoSourceTimingViews(project), [identity.sourceId]));
 	return Object.freeze({
 		projectId: identity.projectId, projectRevision: Number(project.revision),
 		planFingerprint: envelope.fingerprint, planPayload: canonicalizeNativeMediaPlan(plan),
