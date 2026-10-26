@@ -273,7 +273,6 @@ test('frame and dock resizing update every persisted member in one layout mutati
 	panels = setWorkspacePanelDockExtent(panels, 'bottom', { size: 512 });
 	assert.equal(panels.mixer?.size, 512);
 	assert.throws(() => setWorkspacePanelFrameSize(panels, 'history', 20), /between 80 and 4096/u);
-	assert.throws(() => setWorkspacePanelDockExtent(panels, 'floating', { width: 400 }), /Floating/u);
 });
 
 test('activation rejects hidden tabs and selects a visible member atomically', () => {

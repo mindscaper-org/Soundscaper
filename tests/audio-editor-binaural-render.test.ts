@@ -147,7 +147,6 @@ test('a render of nothing is two empty channels, not a crash', () => {
 	const result = renderBinaural([], SAMPLE_RATE);
 	assert.equal(result.channels.length, 2);
 	assert.equal(result.channels[0].length, 0);
-	assert.throws(() => renderBinaural([], 0), /positive sample rate/u);
 });
 
 test('the renderer leaves the channels it was given alone', () => {

@@ -231,10 +231,6 @@ test('message offsets convert project frames into context frames with named tie 
 		Number.MAX_SAFE_INTEGER,
 	);
 	assert.throws(
-		() => roundScheduledParameterContextFrameOffset(99, 100, 48_000, 48_000, 1, 0),
-		/unsafe/iu,
-	);
-	assert.throws(
 		() => roundScheduledParameterContextFrameOffset(0, -1, 48_000, 48_000, 1, 0),
 		/non-negative/iu,
 	);

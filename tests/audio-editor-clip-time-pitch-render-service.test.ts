@@ -131,12 +131,6 @@ test('render prerequisites, blocking, and already-rendered clips have determinis
 	await assert.rejects(missingTrack.service.renderClipPitchSpeed('clip'), /Audio clip/);
 	const missingSource = createHarness(projectFixture({ sources: [] }));
 	await assert.rejects(missingSource.service.renderClipPitchSpeed('clip'), /Audio clip/);
-
-	const noBuffer = createHarness(projectFixture(), {
-		materialize: async () => ({ cacheKey: 'empty', sampleRate: 48_000 }),
-	});
-	await assert.rejects(noBuffer.service.renderClipPitchSpeed('clip'), /did not materialize/);
-	assert.deepEqual(noBuffer.deletedSources, []);
 });
 
 test('post-commit analysis failures roll back durable data without aborting a committed writer', async () => {

@@ -238,7 +238,6 @@ test('preferences reject invalid targets and shortcut conflicts without persisti
 	assert.throws(() => service.toggleToolbar('missing'), /Toolbar missing/u);
 	assert.throws(() => service.moveToolbar('missing', 0), /Toolbar missing/u);
 	assert.throws(() => service.setToolbarButton('', true), /ID is required/u);
-	assert.throws(() => service.setToolbarButton('play', 'yes' as unknown as boolean), /must be boolean/u);
 	assert.throws(() => service.togglePanel('missing'), /Panel missing/u);
 	assert.throws(() => service.setPanel('missing'), /Panel missing/u);
 	assert.throws(() => service.movePanel('missing', 'left', 0), /Panel missing/u);

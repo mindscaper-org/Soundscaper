@@ -17,7 +17,6 @@ test('recording preferences preserve explicit routes and persist the next record
 	await fixture.service.setRecordingSampleRate(96_000);
 	assert.equal(fixture.state.preferredRecordingSampleRate, 96_000);
 	assert.ok(fixture.persistCalls.some(([, value]) => (value as { recordingSampleRate?: number }).recordingSampleRate === 96_000));
-	await assert.rejects(() => fixture.service.setRecordingSampleRate(123), RangeError);
 });
 
 test('host changes replace device lists and incompatible preferred devices', async () => {

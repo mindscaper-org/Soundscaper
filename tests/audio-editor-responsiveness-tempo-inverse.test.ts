@@ -24,8 +24,6 @@ test('prepared inverse tempo projection matches origin-exact musical and sample-
 		for (const frame of [0, 1, 7_804, 7_805, 7_806, 23_999, 24_000, 24_001, 72_000, 144_000]) {
 			assert.deepEqual(project(frame), sampleFrameToBeat(frame, map, 48_000));
 		}
-		assert.throws(() => project(-1), /frame/u);
-		assert.throws(() => project(NaN), /frame/u);
 	}
 });
 

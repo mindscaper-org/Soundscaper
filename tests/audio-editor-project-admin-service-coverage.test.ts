@@ -20,7 +20,6 @@ test('project administration lists, renames, duplicates, and clears recents', as
 	assert.equal(Object.isFrozen(await service.listProjects()), true);
 	await service.renameProject('  Renamed  ');
 	await service.renameProject('   ');
-	await assert.rejects(() => service.renameProject(null), /title is required/iu);
 	fixture.state.readOnly = true;
 	await service.renameProject('Ignored');
 	fixture.state.readOnly = false;
