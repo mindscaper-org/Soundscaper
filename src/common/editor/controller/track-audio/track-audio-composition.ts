@@ -5,7 +5,7 @@ import { createAiffStreamEncoder, encodeAiff } from '../../aiff.js';
 import { loadStoredSourceChannels } from '../../clip-time-pitch-cache-channels.js';
 import { collectRelatedClipIds } from '../../commands.js';
 import { isAudacityRackEffectType, rackTailFrames } from '../../effects.js';
-import { createExportPlan } from '../../export.js';
+import { createControllerExportPlan as createExportPlan } from '../export/owned-export-plan.ts';
 import { applyMediaChannelMapping } from '../../media-export.js';
 import { createStableId, findClip, findClipTrack, findSource, findTrack } from '../../project.js';
 import { audioTrackChannelCount } from '../../project-audio-factory.js';

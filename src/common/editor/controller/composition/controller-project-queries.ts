@@ -4,6 +4,7 @@ import { projectForRuntimeConsumers } from '../../project-current-runtime.ts';
 import { projectAudioMetadata } from '../../id3-descriptive-fields.ts';
 import type { RuntimeClipProject } from '../../runtime-clip-projection.ts';
 import { normalizeEditorExportSettings } from '../export/export-settings.ts';
+import { captureOwnedExportSettings } from '../../export-render-input-capture.ts';
 import type { EffectSelection } from '../effects/effect-selection-service.ts';
 
 type ProjectRecord = Readonly<Record<string, unknown>>;
@@ -11,6 +12,7 @@ type ProjectRecord = Readonly<Record<string, unknown>>;
 export interface ControllerProjectQueryDependencies {
 	readonly getProject: () => ProjectRecord | null;
 	readonly projectSampleRate: () => number;
+	readonly immutableExportInputs?: boolean;
 }
 
 /** Resolve command coordinates only after a document has been activated. */
@@ -62,10 +64,11 @@ export function createControllerProjectQueries(dependencies: ControllerProjectQu
 		},
 		normalizeExportSettings(value: unknown = {}) {
 			const metadata = dependencies.getProject()?.metadata;
-			return normalizeEditorExportSettings(
+			const settings = normalizeEditorExportSettings(
 				isRecord(value) ? value : {}, dependencies.projectSampleRate(),
 				projectAudioMetadata(metadata),
 			);
+			return dependencies.immutableExportInputs ? captureOwnedExportSettings(settings) : settings;
 		},
 	});
 }
