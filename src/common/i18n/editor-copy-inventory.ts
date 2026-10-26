@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { FILE_VALIDATION_COPY } from './editor-file-validation-copy.ts';
 import { FORMAT_FILE_FAILURE_COPY } from './editor-format-file-failure-copy.ts';
 import { INDEXED_SEARCH_COPY } from './editor-indexed-search-copy.ts';
 import { ADM_COPY } from './editor-adm-copy.ts';
@@ -29,7 +30,7 @@ import { DESKTOP_FFMPEG_COPY } from './editor-desktop-ffmpeg-copy.ts';
 import { FRAMESCAPER_FINISHING_SURFACE_COPY } from './editor-framescaper-finishing-surface-copy.ts';
 import { PROCESSING_DIALOG_COPY_BY_LOCALE } from './processing-dialog-copy.js';
 import { LOCAL_MODEL_NAMES_COPY } from './editor-local-model-names-copy.ts';
-import { PARAMETRIC_EQ_BAND_COPY } from './editor-parametric-eq-copy.ts';
+import { PARAMETRIC_EQ_BAND_COPY, PARAMETRIC_EQ_PRESENTATION_COPY } from './editor-parametric-eq-copy.ts';
 import { VIDEO_FILMSTRIP_COPY } from './editor-video-filmstrip-copy.ts';
 import { FRAMESCAPER_INPUTS_COPY } from './editor-framescaper-inputs-copy.ts';
 import { SOUNDSCAPER_WORKFLOW_COPY } from './editor-soundscaper-workflow-copy.ts';
@@ -116,6 +117,7 @@ const { pressure: pressureEnglish, preflightStatus: preflightEnglish, operation:
 	...storageEnglish } = STORAGE_CAPACITY_COPY_BY_LOCALE.en;
 const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'formatFileFailure', en: FORMAT_FILE_FAILURE_COPY },
+	{ owner: 'fileValidation', en: FILE_VALIDATION_COPY },
 	{ owner: 'ara', ...ARA_COPY_BY_LOCALE },
 	{ owner: 'originalFileOverwrite', ...ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE },
 	{ owner: 'blender', ...BLENDER_COPY_BY_LOCALE },
@@ -149,6 +151,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'desktopFfmpeg', en: DESKTOP_FFMPEG_COPY },
 	{ owner: 'localModelNames', en: LOCAL_MODEL_NAMES_COPY },
 	{ owner: 'parametricEq.band', en: PARAMETRIC_EQ_BAND_COPY },
+	{ owner: 'parametricEq', en: PARAMETRIC_EQ_PRESENTATION_COPY },
 	{ owner: 'videoFilmstrip', en: VIDEO_FILMSTRIP_COPY },
 	{ owner: 'soundscaperWorkflow', en: SOUNDSCAPER_WORKFLOW_COPY },
 	{ owner: 'takeComp', en: TAKE_COMP_COPY },
