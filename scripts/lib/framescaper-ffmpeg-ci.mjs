@@ -9,6 +9,7 @@ import {
 	lstat, mkdir, mkdtemp, open, readFile, realpath, rm, writeFile,
 } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import {
 	collectExtractedSourceTree,
@@ -79,9 +80,16 @@ export async function downloadPinnedFramescaperFfmpeg({
 }) {
 	const path = absolutePath(destination, 'FFmpeg archive');
 	if (typeof fetchImpl !== 'function') throw new TypeError('A fetch implementation is required.');
-	const response = await fetchImpl(admission.url, {
-		redirect: 'follow', signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-	});
+	const signal = AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS);
+	let response;
+	for (let attempt = 0; ; attempt += 1) {
+		try { response = await fetchImpl(admission.url, { redirect: 'follow', signal }); break; }
+		catch (error) {
+			const code = error?.cause?.code ?? error?.code;
+			if (attempt >= 3 || !['UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN'].includes(code)) throw error;
+			await delay(250 * 2 ** attempt, undefined, { signal });
+		}
+	}
 	if (!response?.ok || response.status !== 200 || response.url !== admission.url
 		|| response.body === null || response.body === undefined) {
 		throw new Error('The FFmpeg download did not match its exact URL admission.');
