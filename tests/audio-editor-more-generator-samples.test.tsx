@@ -8,6 +8,7 @@ import GeneratorDialog from '../src/common/editor/ui/dialogs/GeneratorDialog.jsx
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { generateAudioEditorSignal } from '../src/common/editor/generators.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { COMPONENT_COPY } from '../vendor/audacity-design-system/components/src/component-copy.ts';
 
 for (const entry of ['free text', 'digits', 'seconds digits']) for (const sampleRate of [44_100, 48_000, 96_000]) for (const type of ['tone', 'chirp', 'noise', 'silence']) test(`Generate ${type} at ${sampleRate} Hz retains an exact duration entered through ${entry}`, async () => {
 	const dom = installReactTestDom();
@@ -39,7 +40,7 @@ for (const entry of ['free text', 'digits', 'seconds digits']) for (const sample
 		}
 		if (entry === 'free text') {
 			await act(async () => { reactProps(format).onClick({ detail: 1 }); });
-			const enter = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'Enter value…'); assert.ok(enter);
+			const enter = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === COMPONENT_COPY.enterValue); assert.ok(enter);
 			await act(async () => { reactProps(enter).onClick({}); });
 			const input = dom.one('.timecode__free-text');
 			await act(async () => { reactProps(input).onChange({ currentTarget: { value: '1' } }); });

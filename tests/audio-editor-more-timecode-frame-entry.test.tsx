@@ -7,6 +7,7 @@ import GeneratorDialog from '../src/common/editor/ui/dialogs/GeneratorDialog.jsx
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { generateAudioEditorSignal } from '../src/common/editor/generators.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
+import { COMPONENT_COPY } from '../vendor/audacity-design-system/components/src/component-copy.ts';
 for (const [format, value, expected] of [
 	['film frames (24fps)', '24', 48_000], ['PAL frames (25 fps)', '25', 48_000],
 	['CDDA frames (75 fps)', '75', 48_000], ['NTSC frames (29.97 fps)', '30', 48_048],
@@ -35,7 +36,7 @@ for (const [format, value, expected] of [
 		const choice = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.querySelector('.context-menu-item-label')?.textContent === format); assert.ok(choice);
 		await act(async () => reactProps(choice).onClick({}));
 		await act(async () => reactProps(button).onClick({ detail: 1 }));
-		const enter = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'Enter value…'); assert.ok(enter);
+		const enter = dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === COMPONENT_COPY.enterValue); assert.ok(enter);
 		await act(async () => reactProps(enter).onClick({}));
 		const input = dom.one('.timecode__free-text');
 		await act(async () => reactProps(input).onChange({ currentTarget: { value } }));
