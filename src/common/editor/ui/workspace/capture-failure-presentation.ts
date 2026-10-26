@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { FRAMESCAPER_CAPTURE_COPY_BY_LOCALE } from '../../../i18n/framescaper-capture-copy.js';
+import { CAPTURE_FAILURE_COPY as ENGLISH } from '../../../i18n/capture-failure-copy.ts';
 import type { CaptureFailureCode, CaptureRuntimeUnavailableReason } from '../../framescaper-capture-domain.ts';
-const ENGLISH = FRAMESCAPER_CAPTURE_COPY_BY_LOCALE.en;
 const FAILURE_KEYS: Readonly<Record<CaptureFailureCode, keyof typeof ENGLISH>> = Object.freeze({
 	'permission-denied': 'captureFailurePermissionDenied', 'permission-dismissed': 'captureFailurePermissionDismissed',
 	'permission-revoked': 'captureFailurePermissionRevoked', 'device-lost': 'captureFailureDeviceLost',
