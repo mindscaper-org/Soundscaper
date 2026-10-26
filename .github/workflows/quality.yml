@@ -5,6 +5,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_translations:
+        description: Publish the exact translation-sync commit after all Quality gates
+        type: boolean
+        default: false
+      translation_sync_sha:
+        description: Exact pushed translation-sync commit to publish
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -857,7 +866,13 @@ jobs:
     # Cloudflare's own git integration builds on push with no knowledge of any
     # of this, so it must be turned off in both projects or it will race us.
     needs: [coverage, browser, firefox, native-platform-compile]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Dispatch is authenticated by repository write access; publication additionally
+    # requires explicit opt-in and the exact commit that all of these gates checked.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_translations == true &&
+      inputs.translation_sync_sha == github.sha))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     # Never cancel a deploy midway, and never run two at once: a cancelled
@@ -870,6 +885,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
