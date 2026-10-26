@@ -19,8 +19,8 @@ const SITE_WORKFLOWS = new Map([
 		staticJobs: ['build', 'lint', 'typecheck', 'audits'],
 		buildJob: 'build',
 		gate: 'needs: build',
-		browserShardCount: 12,
-		firefoxShardCount: 12,
+		browserShardCount: 4,
+		firefoxShardCount: 4,
 	}],
 ]);
 

@@ -4,13 +4,12 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { LINT_SHARD_IDS } from '../scripts/lib/lint-shards.mjs';
 import { NODE_TEST_SHARD_IDS } from '../scripts/lib/node-test-shards.mjs';
 import { expandNpmScript, extractJob, npmScriptsRunBy, readWorkflow } from './helpers/workflow-jobs.js';
 
 // Both workflows run the static gate and Node suite. Quality also scores the
 // combined Node/Chromium coverage; desktop distribution only tests Electron.
-// Quality shards the static checks, while desktop preview runs them as one job
+// Quality separates the static checks, while desktop preview runs them as one job
 // and resolves its release scope there.
 const WORKFLOWS = new Map([
 	['quality.yml', { staticJobs: ['build', 'lint', 'typecheck', 'audits'], buildJob: 'build', historyJobs: ['audits'], coverageGate: true }],
@@ -72,14 +71,14 @@ test('npm run typecheck still covers every project in the tree', async () => {
 		'splitting typecheck across jobs may not quietly drop a project from the gate');
 });
 
-test('quality shards lint across the shards the lint runner defines', async () => {
+test('quality runs every lint shard and typecheck project without per-shard runners', async () => {
 	const lint = extractJob(await readWorkflow('quality.yml'), 'lint');
+	const typecheck = extractJob(await readWorkflow('quality.yml'), 'typecheck');
 
-	assert.match(lint, /npm run lint -- --shard=\$\{\{ matrix\.shard \}\}/u,
-		'each lint job must lint only its own shard, or the split saves nothing');
-	for (const shard of LINT_SHARD_IDS) {
-		assert.ok(lint.includes(`- ${shard}\n`), `the lint matrix must name the ${shard} shard`);
-	}
+	assert.match(lint, /^\s+run: npm run lint$/mu, 'the unfiltered lint command covers every shard');
+	assert.match(typecheck, /^\s+run: npm run typecheck$/mu, 'the full typecheck command covers every project');
+	assert.doesNotMatch(lint, /^\s+matrix:/mu);
+	assert.doesNotMatch(typecheck, /^\s+matrix:/mu);
 });
 
 test('quality starts browser and Node checks after build and keeps static checks in the final gate', async () => {

@@ -17,14 +17,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # `npm run check:static` ran as one 6½-minute step, and every other job in the
-  # workflow waited behind all of it. It is six independent checks in a trench
-  # coat, so it is six jobs here, and the gate now clears in about the time its
-  # slowest single piece takes: lint was 4m17s of the 6m30s and shards eight ways
-  # along the split `scripts/lib/lint-shards.mjs` already defines, typecheck was
-  # 1m30s and splits along its tsconfig projects, and the remainder — the
-  # architecture rules, the package audits, the handbook, and the build the
-  # browser jobs consume — are short enough to sit where they land.
+  # Keep four static jobs independent, but run each check's internal shards
+  # sequentially. Together with four browser shards per engine, the dependency
+  # graph permits at most 19 concurrent jobs, leaving one of the organization's
+  # 20 runner slots for other workflows. The complete run schedules 25 jobs.
   build:
     name: Build
     runs-on: ubuntu-24.04
@@ -46,11 +42,7 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@12.0.1
 
-      # Twelve gate jobs each writing 891 packages is what the split actually
-      # costs: `npm ci` takes twelve seconds in one job and five minutes in
-      # twelve, even though setup-node's package cache hits in every one of them.
-      # Restoring the installed tree is one archive extract instead, so the gate
-      # spends its time on the checks rather than on installing.
+      # Restore the installed tree so parallel checks avoid repeated installs.
       - name: Restore or install verified dependencies
         uses: ./.github/actions/verified-node-dependencies
         with:
@@ -139,27 +131,10 @@ jobs:
         uses: ./.github/actions/prepare-desktop-runtime-test-fixture
 
   lint:
-    name: Lint / ${{ matrix.shard }}
-    strategy:
-      fail-fast: false
-      # One job per shard in `scripts/lib/lint-shards.mjs`, which `npm run lint`
-      # otherwise walks in sequence. The shards are balanced by file count rather
-      # than by cost, so they are not equal - 17 seconds for source-products
-      # against 40 for tests-2 - but no grouping of them beats the longest one,
-      # and a runner spends longer starting up than it would linting a second
-      # shard.
-      matrix:
-        shard:
-          - source-common-1
-          - source-common-2
-          - source-products
-          - tests-1
-          - tests-2
-          - tests-3
-          - desktop
-          - tooling
+    name: Lint
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Run 40399230221 spent about 23 minutes across its eight lint shards.
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -175,11 +150,7 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@12.0.1
 
-      # Twelve gate jobs each writing 891 packages is what the split actually
-      # costs: `npm ci` takes twelve seconds in one job and five minutes in
-      # twelve, even though setup-node's package cache hits in every one of them.
-      # Restoring the installed tree is one archive extract instead, so the gate
-      # spends its time on the checks rather than on installing.
+      # Reuse the installed tree while the lint runner walks every shard.
       - name: Restore the installed dependency tree
         id: dependency-tree
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -192,8 +163,8 @@ jobs:
         if: steps.dependency-tree.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Lint the ${{ matrix.shard }} shard
-        run: npm run lint -- --shard=${{ matrix.shard }}
+      - name: Lint every shard
+        run: npm run lint
         env:
           # Type-aware linting exhausts the default old-space limit and dies with
           # "Ineffective mark-compacts near heap limit" before it reports a single
@@ -201,15 +172,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
 
   typecheck:
-    name: Typecheck / ${{ matrix.project }}
-    strategy:
-      fail-fast: false
-      # `npm run typecheck` is five `tsc` invocations in a row and the two halves
-      # here are the balanced cut of them: tsconfig.tests.json alone is more than
-      # half the work, and everything that types the shipped runtimes is the
-      # other half.
-      matrix:
-        project: [sources, tests]
+    name: Typecheck
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -227,11 +190,7 @@ jobs:
       - name: Pin npm
         run: npm install --global npm@12.0.1
 
-      # Twelve gate jobs each writing 891 packages is what the split actually
-      # costs: `npm ci` takes twelve seconds in one job and five minutes in
-      # twelve, even though setup-node's package cache hits in every one of them.
-      # Restoring the installed tree is one archive extract instead, so the gate
-      # spends its time on the checks rather than on installing.
+      # Reuse the installed tree while TypeScript checks each project in turn.
       - name: Restore the installed dependency tree
         id: dependency-tree
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -244,8 +203,8 @@ jobs:
         if: steps.dependency-tree.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Type-check the ${{ matrix.project }} projects
-        run: npm run typecheck:${{ matrix.project }}
+      - name: Type-check every project
+        run: npm run typecheck
         env:
           NODE_OPTIONS: --max-old-space-size=8192
 
@@ -549,22 +508,21 @@ jobs:
         run: npm run coverage:check
 
   browser:
-    name: Browser / ${{ matrix.project }} ${{ matrix.shard }}/12
+    name: Browser / ${{ matrix.project }} ${{ matrix.shard }}/4
     needs: build
     strategy:
       fail-fast: false
-      # Run 40155855679 exhausted WebKit shard 8's hour before completion.
-      # Twelve shards retain single-worker WebKit and instrumented Chromium
-      # workflows within the existing hour budget.
+      # Fit all three engines alongside Node and native checks in 19 slots.
+      # Fewer shards keep the full suite and use longer execution budgets.
       matrix:
         project: [chromium, webkit]
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
-    # Run 37803116461 cancelled WebKit shard 3 at the 45-minute job deadline.
-    timeout-minutes: 60
+    # Four runners each take three former shards' one-hour allocation.
+    timeout-minutes: 180
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -647,7 +605,7 @@ jobs:
           path: .wrangler/browser-products/framescaper-source-maps
 
       - name: Run browser workflows against the existing build
-        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/12 --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
+        run: npm run test:browser:built -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/4 --workers=${{ matrix.project == 'webkit' && 1 || 2 }}
         env:
           # Chromium is the only engine whose V8 coverage Playwright can read, so
           # it is the only one that records. Every other project runs exactly as
@@ -701,18 +659,17 @@ jobs:
           retention-days: 7
 
   firefox:
-    name: Browser / firefox ${{ matrix.shard }}/12
+    name: Browser / firefox ${{ matrix.shard }}/4
     needs: build
     strategy:
       fail-fast: false
-      # Run 40155855679 needed 58 minutes for Firefox shard 4.
-      # Twelve retain the live audio clock with room within the existing hour.
+      # Share the same four-shard budget as Chromium and WebKit.
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
     # Run 40315820118 spent 28 minutes installing Firefox and PulseAudio.
-    # Allow that setup time while retaining a separate one-hour test deadline.
-    timeout-minutes: 90
+    # Keep setup separate from the three-hour consolidated test deadline.
+    timeout-minutes: 210
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -802,11 +759,11 @@ jobs:
           path: .wrangler/browser-products/framescaper-source-maps
 
       - name: Run Firefox workflows against the existing build
-        timeout-minutes: 60
+        timeout-minutes: 180
         # A second Firefox content process can starve the live AudioContext even
-        # after the PulseAudio clock probe passes. The twelve shard runners still
+        # after the PulseAudio clock probe passes. The four shard runners still
         # keep the suite parallel without competing for one runner's audio clock.
-        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/12 --workers=1
+        run: npm run test:browser:built -- --project=firefox --shard=${{ matrix.shard }}/4 --workers=1
 
       - name: Upload Firefox diagnostics
         if: always()
