@@ -9,15 +9,19 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 
 test('per-track gap closure keeps its output automation with the edited recording', async ({ page }) => {
 	const { project, source } = routeRippleProject();
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
-	let blob;
+	const store = createProjectStore({ databaseName: `browser-route-ripple-automation-${crypto.randomUUID()}`, indexedDB: null, preferOpfs: false });
+	let archiveBytes;
 	try {
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write([new Float32Array(source.frameCount).fill(.25)]); await writer.commit();
-		blob = (await exportScapeProject(project, store)).blob;
-	} finally { await store.close(); }
+		const archive = await exportScapeProject(project, store);
+		archiveBytes = Buffer.from(await archive.blob.arrayBuffer());
+	} finally {
+		try { await store.clear(); }
+		finally { await store.close(); }
+	}
 	const editor = await bootEditor(page, '/embed/en/');
-	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Route automation.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
+	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Route automation.sscape', mimeType: 'application/zip', buffer: archiveBytes });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'read-only');
 	const row = editor.locator('[data-track-row][data-track-id="voice"]');

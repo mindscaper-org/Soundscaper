@@ -8,7 +8,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject, SCAPE_MIME_TYPE } from '../../src/common/editor/scape-project.js';
 
 async function archives() {
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false });
+	const store = createProjectStore({ databaseName: `browser-take-preview-${crypto.randomUUID()}`, indexedDB: null, preferOpfs: false });
 	try {
 		const source = createAudioSource({ id: 'take-source', storageKey: 'take-source', name: 'Take', frameCount: 480_000, channelCount: 1, sampleRate: 48_000 });
 		const writer = await store.beginSourceWrite(source.id, source);
@@ -27,7 +27,10 @@ async function archives() {
 			result.push(Buffer.from(await archive.blob.arrayBuffer()).toString('base64'));
 		}
 		return result;
-	} finally { await store.close(); }
+	} finally {
+		try { await store.clear(); }
+		finally { await store.close(); }
+	}
 }
 
 for (const operation of ['open-project', 'remove-group']) test(`${operation} stops audio from the open Take Comp audition dialog`, async ({ page }) => {
