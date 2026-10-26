@@ -9,6 +9,9 @@ import { hasDurableMediaStorageCapability } from './helpers/durable-media-storag
 import { hasWebGl2Capability } from './helpers/webgl2-capability.js';
 
 test('permanent programme freeze dimensions do not depend on preview quality', async ({ page }) => {
+	// Two complete capture/save flows plus Undo exceeded the default 30s in CI.
+	// Keep the same-project comparison and each assertion's existing deadline.
+	test.setTimeout(60_000);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	test.skip(!await page.evaluate(hasWebGl2Capability), 'Exact composited Freeze requires WebGL2.');
 	test.skip(!await page.evaluate(hasDurableMediaStorageCapability, 'indexeddb-only'), 'PNG freeze storage requires durable IndexedDB Blob support.');
