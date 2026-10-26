@@ -262,11 +262,13 @@ export function createProjectAdminService<
 		let saveSuspended = false;
 		try {
 			const clipboard = sessionController.clipboardForProject?.(id);
-			const clipboardKey = JSON.stringify(clipboard);
+			const clipboardGeneration = sessionController.getClipboardGeneration?.();
+			const clipboardKey = clipboardGeneration ? null : JSON.stringify(clipboard);
 			const generation = projectGeneration.capture?.(id);
 			const assertCurrent = () => {
 				if (state.disposed || getProject() !== project
-					|| JSON.stringify(sessionController.clipboardForProject?.(id)) !== clipboardKey) {
+					|| (clipboardGeneration ? sessionController.getClipboardGeneration?.() !== clipboardGeneration
+						: JSON.stringify(sessionController.clipboardForProject?.(id)) !== clipboardKey)) {
 					throw new DOMException('The project or clipboard changed during deletion.', 'AbortError');
 				}
 				if (generation) projectGeneration.assertCurrent?.(generation);

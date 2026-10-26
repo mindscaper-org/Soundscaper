@@ -116,3 +116,10 @@ export function normalizeAudioEditorSessionClipboard(value: unknown): AudioEdito
 function clone<Value>(value: Value): Value {
 	return cloneSessionValue(value) as Value;
 }
+
+/** A detached clipboard view carries destination compatibility without exposing session ownership. */
+export function clipboardForSampleRate(clipboard: AudioEditorSessionClipboard | null, sampleRate: number) {
+	if (!clipboard) return null;
+	return { ...clone(clipboard), compatibleSampleRate: clipboard.descriptor.sampleRate === sampleRate,
+		requiresSampleRateConversion: clipboard.descriptor.sampleRate !== sampleRate };
+}

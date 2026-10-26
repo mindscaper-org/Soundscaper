@@ -7,6 +7,7 @@ import { createProjectActivationReservations, projectHistoryChangedError } from 
 import {
 	AUDIO_EDITOR_SESSION_CLIPBOARD_SCHEMA_VERSION,
 	collectAudioEditorClipboardSourceIds,
+	clipboardForSampleRate,
 	createAudioEditorSessionClipboard,
 	normalizeAudioEditorSessionClipboard,
 } from './session-clipboard-codec.ts';
@@ -108,6 +109,7 @@ export function createAudioEditorSessionController(options = {}) {
 	let activeProjectId = null;
 	/** @type {import('./session-clipboard-codec.ts').AudioEditorSessionClipboard | null} */
 	let clipboard = null;
+	let clipboardGeneration = Object.freeze({});
 	let disposed = false;
 	let snapshotCache = null;
 	const listeners = new Set();
@@ -375,6 +377,7 @@ export function createAudioEditorSessionController(options = {}) {
 			next = createAudioEditorSessionClipboard(tab.history.present, { descriptor: value });
 		}
 		clipboard = next;
+		clipboardGeneration = Object.freeze({});
 		return finishMutation(beforeCounts, 'clipboard-set', { clipboard: clone(clipboard) });
 	}
 
@@ -383,18 +386,13 @@ export function createAudioEditorSessionController(options = {}) {
 		if (!clipboard) return { cleared: false, releasedSourceIds: [] };
 		const beforeCounts = countsFor(tabs, clipboard);
 		clipboard = null;
+		clipboardGeneration = Object.freeze({});
 		return finishMutation(beforeCounts, 'clipboard-clear', { cleared: true });
 	}
 
 	function clipboardForProject(projectId = activeProjectId) {
 		const tab = requireTab(projectId);
-		if (!clipboard) return null;
-		const descriptor = clipboard.descriptor;
-		return {
-			...clone(clipboard),
-			compatibleSampleRate: descriptor.sampleRate === tab.history.present.sampleRate,
-			requiresSampleRateConversion: descriptor.sampleRate !== tab.history.present.sampleRate,
-		};
+		return clipboardForSampleRate(clipboard, tab.history.present.sampleRate);
 	}
 
 	function getProject(projectId = activeProjectId) {
@@ -497,6 +495,7 @@ export function createAudioEditorSessionController(options = {}) {
 		tabs = restoredTabs;
 		activeProjectId = snapshot.activeProjectId || restoredTabs[0]?.projectId || null;
 		clipboard = snapshot.clipboard ? normalizeAudioEditorSessionClipboard(snapshot.clipboard) : null;
+		clipboardGeneration = Object.freeze({});
 		disposed = Boolean(snapshot.disposed);
 		invalidate();
 	}
@@ -508,6 +507,7 @@ export function createAudioEditorSessionController(options = {}) {
 		activationReservations.clear();
 		tabs = [];
 		clipboard = null;
+		clipboardGeneration = Object.freeze({});
 		activeProjectId = null;
 		disposed = true;
 		const result = finishMutation(beforeCounts, 'session-dispose', { disposed: true });
@@ -530,6 +530,7 @@ export function createAudioEditorSessionController(options = {}) {
 		setClipboard,
 		clearClipboard,
 		clipboardForProject,
+		getClipboardGeneration: () => clipboardGeneration,
 		getProject,
 		getProjectHistory,
 		captureProjectHistory,
