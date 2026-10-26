@@ -7,6 +7,8 @@ export const ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1 = 2_048;
 export const ASSISTANCE_CENTERED_PERIODIC_HANN_HOP_FRAMES_V1 = 512;
 export const ASSISTANCE_CENTERED_PERIODIC_HANN_FREQUENCY_BIN_COUNT_V1 = 1_025;
 
+const MAXIMUM_RETAINED_NORMALIZATION_BYTES = 16 * 1024 * 1024;
+let retainedInverseGeometry: Readonly<{ timeFrameCount: number; window: Float64Array; normalization: Float64Array }> | null = null;
 const CENTER_PADDING_FRAMES = ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1 / 2;
 
 export interface AssistanceCenteredPeriodicHannSpectrumChannelV1 {
@@ -84,14 +86,7 @@ export function centeredPeriodicHannIstftChannelsV1(
 	const paddedFrameCount = (timeFrameCount - 1)
 		* ASSISTANCE_CENTERED_PERIODIC_HANN_HOP_FRAMES_V1
 		+ ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1;
-	const window = periodicHannWindowFloat64V1();
-	const normalization = new Float64Array(paddedFrameCount);
-	for (let time = 0; time < timeFrameCount; time += 1) {
-		const start = time * ASSISTANCE_CENTERED_PERIODIC_HANN_HOP_FRAMES_V1;
-		for (let frame = 0; frame < ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1; frame += 1) {
-			normalization[start + frame]! += window[frame]! * window[frame]!;
-		}
-	}
+	const { window, normalization } = inverseGeometry(timeFrameCount, paddedFrameCount);
 	return Object.freeze(channels.map((channel) => {
 		const accumulator = new Float64Array(paddedFrameCount);
 		const real = new Float64Array(ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1);
@@ -125,6 +120,22 @@ export function centeredPeriodicHannIstftChannelsV1(
 		}
 		return result;
 	}));
+}
+
+/** Retain one private immutable coefficient shape; larger generic inputs keep fresh bounded-by-caller geometry. */
+function inverseGeometry(timeFrameCount: number, paddedFrameCount: number) {
+	if (retainedInverseGeometry?.timeFrameCount === timeFrameCount) return retainedInverseGeometry;
+	const window = periodicHannWindowFloat64V1();
+	const normalization = new Float64Array(paddedFrameCount);
+	for (let time = 0; time < timeFrameCount; time += 1) {
+		const start = time * ASSISTANCE_CENTERED_PERIODIC_HANN_HOP_FRAMES_V1;
+		for (let frame = 0; frame < ASSISTANCE_CENTERED_PERIODIC_HANN_FFT_SIZE_V1; frame += 1) {
+			normalization[start + frame]! += window[frame]! * window[frame]!;
+		}
+	}
+	const geometry = Object.freeze({ timeFrameCount, window, normalization });
+	if (normalization.byteLength <= MAXIMUM_RETAINED_NORMALIZATION_BYTES) retainedInverseGeometry = geometry;
+	return geometry;
 }
 
 /** Create the exact periodic Hann window used by both model adapters. */
