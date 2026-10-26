@@ -31,7 +31,7 @@ test('Guided review reads only the closed terminal slot and strictly reviews cap
 	assert.equal(reviewed.outputs[0]?.slotId, 'captions');
 	assert.deepEqual(reviewed.outputs[0]?.semantic, captions);
 	assert.deepEqual(reviewed.choices, [{
-		id: 'captions', kind: 'captions', label: '1 caption cue', selected: false, enabled: true,
+		id: 'captions', kind: 'captions', label: '1 caption cue', presentation: { kind: 'captions', count: 1 }, selected: false, enabled: true,
 	}]);
 	assert.match(reviewed.outputs[0]?.sha256 ?? '', /^[a-f\d]{64}$/u);
 });
@@ -100,7 +100,7 @@ test('Guided enhancement review requires exact adapter-owned WAV geometry author
 		channelCount: 2, frameCount: 3, sampleFormat: 'float32',
 	});
 	assert.deepEqual(reviewed.choices, [{
-		id: 'enhanced-audio', kind: 'audio', label: 'Enhanced Dialogue',
+		id: 'enhanced-audio', kind: 'audio', label: 'Enhanced Dialogue', presentation: { kind: 'enhanced-audio' },
 		selected: false, enabled: true,
 	}]);
 });

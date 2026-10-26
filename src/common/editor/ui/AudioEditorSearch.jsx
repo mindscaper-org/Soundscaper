@@ -1,3 +1,5 @@
+import { INDEXED_SEARCH_COPY } from '../../i18n/editor-indexed-search-copy.ts';
+import { resolveEditorCopyScope } from '../../i18n/editor-copy-scope.ts';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { getLocaleDescriptor } from '../../i18n/locales.js';
 import { searchAudioEditorEntries } from '../search.js';
@@ -26,7 +28,7 @@ function searchEntryKey(entry, index) {
 }
 
 export default function AudioEditorSearch({
-	assistanceSearch = /** @type {null | Readonly<{status: string, revision: number, coordinator: import('../assistance/async-search-provider.ts').AssistanceAsyncSearchCoordinator | null, message: string | null}>} */ (null),
+	assistanceSearch = /** @type {null | Readonly<{status: string, revision: number, coordinator: import('../assistance/async-search-provider.ts').AssistanceAsyncSearchCoordinator | null, message: string | null, reason?: string}>} */ (null),
 	copy,
 	entries = [],
 	locale,
@@ -34,6 +36,7 @@ export default function AudioEditorSearch({
 	onOpenChange,
 	open = false,
 }) {
+	const indexedCopy = useMemo(() => resolveEditorCopyScope('indexedSearch', INDEXED_SEARCH_COPY, copy), [copy]);
 	const rootRef = useRef(null);
 	const inputRef = useRef(null);
 	const compactTriggerRef = useRef(null);
@@ -50,13 +53,13 @@ export default function AudioEditorSearch({
 	const rankedEntries = useMemo(() => {
 		const assistance = [
 			...assistanceStatusEntries(assistanceSearch), ...assistanceEntries,
-		].slice(0, SEARCH_LIMIT);
+		].slice(0, SEARCH_LIMIT).map(entry => entry.messageKey ? { ...entry, label: indexedCopy[entry.messageKey] ?? indexedCopy.unavailable } : entry);
 		const remaining = Math.max(0, SEARCH_LIMIT - assistance.length);
 		const local = hasQuery
 			? remaining === 0 ? [] : searchAudioEditorEntries(entries, query, { limit: remaining })
 			: entries;
 		return [...assistance, ...local];
-	}, [assistanceEntries, assistanceSearch, entries, hasQuery, query]);
+	}, [assistanceEntries, assistanceSearch, entries, hasQuery, indexedCopy, query]);
 
 	const { groups, orderedEntries } = useMemo(() => {
 		let resultIndex = 0;
@@ -137,7 +140,7 @@ export default function AudioEditorSearch({
 		}
 		let active = true;
 		setAssistanceEntries([assistanceStatusEntry(
-			'assistance-searching', 'Searching the authenticated local index…',
+			'assistance-searching', 'searching',
 		)]);
 		void coordinator.search(query.trim()).then((snapshot) => {
 			if (!active || snapshot.disposition !== 'accepted') return;
@@ -146,7 +149,7 @@ export default function AudioEditorSearch({
 			if (!active) return;
 			setAssistanceEntries([assistanceStatusEntry(
 				'assistance-search-error',
-				typeof error?.message === 'string' ? error.message : 'Indexed search failed.',
+				'searchFailed', error,
 			)]);
 		});
 		return () => {
@@ -370,12 +373,12 @@ export default function AudioEditorSearch({
 function assistanceStatusEntries(search) {
 	if (!search || search.status === 'idle' || search.status === 'ready') return [];
 	return [assistanceStatusEntry(`assistance-${search.status}`,
-		search.message || 'Indexed search is unavailable.')];
+		search.reason || (search.status === 'opening' ? 'opening' : 'unavailable'))];
 }
 
-function assistanceStatusEntry(key, label) {
+function assistanceStatusEntry(key, messageKey, cause = undefined) {
 	return Object.freeze({
-		kind: 'assistance', key, label: String(label).slice(0, 4096), detail: null,
+		kind: 'assistance', key, label: '', messageKey, cause, detail: null,
 		disabled: true, disabledReason: null, state: 'disabled', reason: null,
 		handler: null, sourceOrder: -1, target: null, providers: [],
 	});

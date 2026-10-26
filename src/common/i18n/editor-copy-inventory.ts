@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { INDEXED_SEARCH_COPY } from './editor-indexed-search-copy.ts';
 import { ADM_COPY } from './editor-adm-copy.ts';
 import { VAMP_COPY, VAMP_COPY_ALIASES } from './editor-vamp-copy.ts';
 
@@ -14,7 +15,7 @@ import { FRAMESCAPER_NATIVE_SERVICES_COPY } from './editor-framescaper-native-se
 import { SOUNDSCAPER_MASTERING_SEQUENCE_COPY } from './editor-soundscaper-mastering-sequence-copy.ts';
 import { SOUNDSCAPER_ROUTING_GRAPH_COPY } from './editor-soundscaper-routing-graph-copy.ts';
 import { COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE } from './community-translations-copy.ts';
-import { LOCAL_ASSISTANCE_ADDITIONAL_COPY } from './editor-local-assistance-additional-copy.ts';
+import { LOCAL_ASSISTANCE_ADDITIONAL_COPY, LOCAL_ASSISTANCE_REVIEW_COPY_ALIASES } from './editor-local-assistance-additional-copy.ts';
 import { FRAMESCAPER_FINISHING_ADDITIONAL_COPY } from './editor-framescaper-finishing-additional-copy.ts';
 import { FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY } from './editor-framescaper-visual-inspector-additional-copy.ts';
 import { VIDEO_PROXY_ADDITIONAL_COPY } from './editor-video-proxy-additional-copy.ts';
@@ -130,7 +131,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'communityTranslations', ...COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE },
 	...((typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__)
 		? [{ owner: 'desktopMcp', ...DESKTOP_MCP_COPY_BY_LOCALE! }] : []),
-	{ owner: 'localAssistance', en: LOCAL_ASSISTANCE_ADDITIONAL_COPY },
+	{ owner: 'localAssistance', en: LOCAL_ASSISTANCE_ADDITIONAL_COPY, aliases: LOCAL_ASSISTANCE_REVIEW_COPY_ALIASES },
 	{ owner: 'textToSpeech', ...TEXT_TO_SPEECH_COPY_BY_LOCALE },
 	{ owner: 'framescaperFinishing', en: FRAMESCAPER_FINISHING_ADDITIONAL_COPY },
 	{ owner: 'framescaperVisualInspector', en: FRAMESCAPER_VISUAL_INSPECTOR_ADDITIONAL_COPY },
@@ -162,6 +163,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'designSystem', ...DESIGN_SYSTEM_COPY },
+	{ owner: 'indexedSearch', en: INDEXED_SEARCH_COPY },
 	{ owner: 'adm', en: ADM_COPY },
 	{ owner: 'vamp', en: VAMP_COPY, aliases: VAMP_COPY_ALIASES },
 	{ owner: 'selectedVisualAuthoring', en: SELECTED_VISUAL_AUTHORING_COPY },
