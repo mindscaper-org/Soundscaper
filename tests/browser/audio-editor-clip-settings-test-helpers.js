@@ -18,6 +18,8 @@ export async function openClipMediaSettings(properties) {
 }
 
 export async function chooseClipMediaSetting(properties, label) {
+	const direct = inlineClipMediaSetting(properties, label);
+	if (direct && await direct.count()) { await direct.click(); return; }
 	const menu = await openClipMediaSettings(properties);
 	if (await menu.getAttribute('data-clip-properties-drawer') === 'media') {
 		await menu.getByRole('button', { name: label, exact: true }).click();
@@ -29,6 +31,12 @@ export async function chooseClipMediaSetting(properties, label) {
 }
 
 export async function chooseClipPitchUnit(properties, label) {
+	const toggle = properties.locator('[data-clip-pitch-unit]');
+	if (await toggle.count()) {
+		if (await toggle.getAttribute('aria-pressed') !== String(label === 'Percent change')) await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-pressed', String(label === 'Percent change'));
+		return;
+	}
 	const menu = await openClipMediaSettings(properties);
 	const units = menu.getByRole('menuitem', { name: /^Pitch unit(?:\s|$)/u });
 	await units.focus();
@@ -38,12 +46,24 @@ export async function chooseClipPitchUnit(properties, label) {
 }
 
 export async function expectClipMediaSettingChecked(properties, label, checked) {
+	const direct = inlineClipMediaSetting(properties, label);
+	if (direct && await direct.count()) {
+		if (await direct.getAttribute('type') === 'checkbox') {
+			if (checked) await expect(direct).toBeChecked(); else await expect(direct).not.toBeChecked();
+		} else await expect(direct).toHaveAttribute('aria-checked', String(checked));
+		return;
+	}
 	const menu = await openClipMediaSettings(properties);
 	await expect(menu.getByRole('menuitemcheckbox', { name: label, exact: true })).toHaveAttribute('aria-checked', String(checked));
 	await closeClipMediaSettings(menu);
 }
 
 export async function expectClipSampleRate(properties, rate) {
+	const input = properties.locator('[data-clip-properties-field="format-rate"] input');
+	if (await input.count()) {
+		await expect(properties.locator('[data-clip-source-sample-rate]')).toHaveAttribute('data-clip-source-sample-rate', String(rate), { timeout: 60_000 });
+		await expect(input).toHaveValue(String(rate)); return;
+	}
 	const menu = await openClipMediaSettings(properties);
 	if (await menu.getAttribute('data-clip-properties-drawer') === 'media') {
 		const fact = menu.locator('[data-clip-source-fact="sampleRate"]');
@@ -59,6 +79,8 @@ export async function expectClipSampleRate(properties, rate) {
 }
 
 export async function readClipSampleRate(properties) {
+	const input = properties.locator('[data-clip-properties-field="format-rate"] input');
+	if (await input.count()) return Number(await properties.locator('[data-clip-source-sample-rate]').getAttribute('data-clip-source-sample-rate'));
 	const menu = await openClipMediaSettings(properties);
 	if (await menu.getAttribute('data-clip-properties-drawer') === 'media') {
 		const fact = menu.locator('[data-clip-source-fact="sampleRate"] .audio-editor-field__value');
@@ -74,6 +96,27 @@ export async function readClipSampleRate(properties) {
 	const rate = Number(match[1]);
 	await closeClipMediaSettings(menu);
 	return rate;
+}
+
+/** Format edits stay drafts until the conversion is requested explicitly. */
+export async function resampleClipFormat(properties, sampleRate, sampleFormat) {
+	const input = properties.locator('[data-clip-properties-field="format-rate"] input');
+	await input.fill(String(sampleRate));
+	if (sampleFormat) await properties.locator('[data-clip-properties-field="format-depth"] select').selectOption(sampleFormat);
+	await properties.getByRole('button', { name: 'Resample', exact: true }).click();
+	await expectClipSampleRate(properties, sampleRate);
+}
+
+function inlineClipMediaSetting(properties, label) {
+	const selectors = {
+		'Invert': '[data-clip-properties-field="invert"]',
+		'Optimize for voice / preserve formants': '[data-clip-properties-field="voice"] input',
+		'Stretch with project tempo changes': '[data-clip-properties-field="stretch-tempo"]',
+		'Render pitch and speed': '[data-clip-properties-action="render-pitch-speed"]',
+		'Normalize to −1 dBFS': '[data-clip-properties-action="normalize-peak"]',
+		'Normalize to −14 LUFS': '[data-clip-properties-action="normalize-loudness"]',
+	};
+	return selectors[label] ? properties.locator(selectors[label]) : null;
 }
 
 async function closeClipMediaSettings(menu) {

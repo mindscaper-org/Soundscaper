@@ -128,9 +128,12 @@ test('Framescaper inspector menus stay above Source and release it when closed',
 	await expect(videoWorkspace).toHaveCSS('z-index', '1');
 
 	const settings = await openClipMediaSettings(panel);
-	await settings.getByRole('menuitemcheckbox', { name: 'Timecode fields', exact: true }).click();
+	await settings.getByRole('menuitem', { name: 'Clip gain (dB)', exact: true }).click();
 	await expect(settings).toBeHidden();
-	await expect(panel.locator('[data-clip-field="startFrame"]')).toBeVisible();
+	const gainDialog = page.getByRole('dialog', { name: 'Clip gain (dB)', exact: true });
+	await expect(gainDialog).toBeVisible();
+	await gainDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(panel.getByRole('textbox', { name: 'Start', exact: true })).toBeVisible();
 	await panel.getByRole('button', { name: 'Clip color', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Clip color: Red', exact: true }).click();
 	await expect(panel.getByRole('button', { name: 'Clip color', exact: true })).toContainText('Red');

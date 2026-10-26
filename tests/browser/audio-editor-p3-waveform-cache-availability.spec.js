@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, waitForProjectActivation, openClipProperties, closeClipProperties, clipField } from './audio-editor-test-helpers.js';
-import { expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
+import { expectClipSampleRate, resampleClipFormat } from './audio-editor-clip-settings-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/common/editor/project-media-factory.ts';
@@ -88,11 +88,7 @@ for (const operation of ['resample', 'render']) test(`${operation} keeps healthy
 		await expect(clipField(properties, 'speedRatio')).toHaveValue('100'); await closeClipProperties(properties);
 	} else {
 		const properties = await openClipProperties(page, editor, clip);
-		await properties.getByRole('button', { name: 'Media settings', exact: true }).click();
-		await page.getByRole('menuitem', { name: 'Resample', exact: true }).click();
-		const dialog = page.getByRole('dialog', { name: 'Resample clip', exact: true });
-		await dialog.locator('input').fill('96000'); await dialog.getByRole('button', { name: 'Resample', exact: true }).click();
-		await expect(dialog).toHaveCount(0); await expectClipSampleRate(properties, 96_000); await closeClipProperties(properties);
+		await resampleClipFormat(properties, 96_000); await expectClipSampleRate(properties, 96_000); await closeClipProperties(properties);
 	}
 	expect(await page.evaluate(() => globalThis.__waveformCacheFault.count)).toBeGreaterThan(0);
 	const samples = await exportSamples(page, editor); expect(samples.length).toBeGreaterThan(10_000);
