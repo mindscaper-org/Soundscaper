@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { AUDIOCOM_COPY_BY_LOCALE } from '../../src/common/i18n/audiocom-copy.ts';
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
@@ -49,7 +50,7 @@ test('a completed native cloud save remains visible when the following list requ
 	await panel.getByRole('button', { name: 'Save project', exact: true }).click();
 	await expect.poll(() => completed).toBe(1);
 	await expect(archives.getByRole('status').filter({ hasText: /^Stored .+\.aup3\.$/u })).toBeVisible();
-	await expect(panel.getByRole('alert')).toContainText('listing is temporarily unavailable');
+	await expect(panel.getByRole('alert')).toContainText(AUDIOCOM_COPY_BY_LOCALE.en.projectArchiveRefreshFailed);
 	failListing = false;
 	await archives.getByRole('button', { name: 'Refresh projects', exact: true }).click();
 	await expect(archives.locator('[data-audiocom-project-id]')).toHaveAttribute('data-audiocom-project-id', projectId);

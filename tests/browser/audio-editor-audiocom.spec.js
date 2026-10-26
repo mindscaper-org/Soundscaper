@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { AUDIOCOM_COPY_BY_LOCALE } from '../../src/common/i18n/audiocom-copy.ts';
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, importFiles, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
@@ -173,7 +174,7 @@ test.describe('audio.com panel', () => {
 		await panel.getByRole('searchbox').fill('rain');
 		await panel.getByRole('button', { name: 'Search', exact: true }).click();
 		await expect(panel.getByRole('button', { name: 'Connect to audio.com', exact: true })).toBeVisible();
-		await expect(panel.getByRole('alert')).toContainText('The audio.com session expired.');
+		await expect(panel.getByRole('alert')).toContainText(AUDIOCOM_COPY_BY_LOCALE.en.connectionExpired);
 		await expect(uploads).toHaveCount(0);
 	});
 });
