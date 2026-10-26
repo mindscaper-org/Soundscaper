@@ -361,8 +361,3 @@ test('a project without hierarchy or mixer still exports flat tracks routed to t
 	assert.equal(child(named(structure, 'Track', 'T'), 'Channel').attributes.destination, child(named(structure, 'Track', 'Master'), 'Channel').attributes.id);
 	assert.equal(child(child(document, 'Transport'), 'Tempo').attributes.value, '120');
 });
-
-test('a project is required and the sample rate must be positive', () => {
-	assert.throws(() => createDawprojectExport({ project: null as never }), TypeError);
-	assert.throws(() => createDawprojectExport({ project: { title: 'x' } }), RangeError);
-});

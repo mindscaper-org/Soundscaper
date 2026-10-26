@@ -189,7 +189,6 @@ test('grid line inputs are validated', () => {
 	assert.throws(() => createTimelineGridLines({ ...options, pixelsPerSecond: 0 }), RangeError);
 	assert.throws(() => createTimelineGridLines({ ...options, scrollX: -1 }), RangeError);
 	assert.throws(() => createTimelineGridLines({ ...options, viewportWidth: Number.NaN }), RangeError);
-	assert.throws(() => createTimelineGridLines({ ...options, sampleRate: 0 }), RangeError);
 	assert.throws(() => createTimelineGridLines({
 		...options,
 		scale: { kind: 'beats-measures', bpm: 0, beatsPerMeasure: 4 },

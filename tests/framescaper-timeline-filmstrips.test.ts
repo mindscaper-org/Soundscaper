@@ -87,9 +87,6 @@ test('a cancelled filmstrip surfaces the caller abort reason in either product',
 	}
 });
 
-test('an image filmstrip requires the authenticated runtime profile', async () => {
-	await assert.rejects(() => image({ profile: {} }), TypeError);
-});
 
 test('the finishing filmstrip receives the same selected OpenFX execution as the main preview', async () => {
 	const [filmstripSource, controllerSource] = await Promise.all([

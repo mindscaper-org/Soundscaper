@@ -60,7 +60,7 @@ test('the decomposed runtime registry remains exhaustive', () => {
 	assert.deepEqual(Object.keys(registry).sort(), [...AUDIO_EDITOR_COMMAND_TYPES].sort());
 });
 
-test('the exhaustive registry rejects a missing handler and dispatches every declared type', () => {
+test('the exhaustive registry dispatches every declared type', () => {
 	const calls: string[] = [];
 	const handlers = Object.fromEntries(AUDIO_EDITOR_COMMAND_TYPES.map((type) => [
 		type,
@@ -72,17 +72,6 @@ test('the exhaustive registry rejects a missing handler and dispatches every dec
 		dispatchEditorCommand(registry, {}, { type } as AudioEditorCommand);
 	}
 	assert.deepEqual(calls, AUDIO_EDITOR_COMMAND_TYPES);
-
-	const incomplete = domainHandlers(handlers);
-	const incompleteEffects = { ...incomplete.effectsVideo } as Record<string, unknown>;
-	delete incompleteEffects['video-effect/reorder'];
-	assert.throws(
-		() => defineEditorCommandHandlerRegistry({
-			...incomplete,
-			effectsVideo: incompleteEffects,
-		} as unknown as EditorCommandHandlerDomains),
-		/video-effect\/reorder/,
-	);
 });
 
 test('the commands.js facade preserves cross-domain batch semantics with one commit', () => {

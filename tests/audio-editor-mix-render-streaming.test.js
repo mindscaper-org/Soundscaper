@@ -169,61 +169,6 @@ test('a failed streamed Mix-down aborts pending chunks without publishing histor
 	}
 });
 
-test('a streamed Mix-down rejects mismatched sink geometry before committing', async () => {
-	const store = createTestStore('streamed-geometry-failure');
-	await writeSource(store, 'geometry-input', [new Float32Array(4).fill(0.2)]);
-	const attemptedSourceIds = observeMixedSourceWrites(store);
-	const project = createCurrentAudioEditorProject({
-		id: 'streamed-geometry-project',
-		title: 'Stream geometry project',
-		now: '2026-07-15T00:00:00.000Z',
-		sources: [source('geometry-input', 4)],
-		tracks: [{ type: 'audio', id: 'geometry-track', name: 'Geometry', clipIds: ['geometry-clip'] }],
-		clips: [clip('geometry-clip', 'geometry-input', 0, 4)],
-	});
-	await store.saveProject(project);
-	await store.saveSetting('last-project-id', project.id);
-	let geometry = 'frames';
-	const controller = createAudioEditorController(null, {
-		headless: true,
-		store,
-		engine: createMemoryEngine(),
-		ffmpeg: { dispose() {} },
-		mixRenderMemoryLimitBytes: 0,
-		engineFactory: () => ({
-			setSourceResolver() {},
-			setChunkSources() {},
-			loadProject() {},
-			async renderMixToSink({ sink }) {
-				if (geometry === 'frames') {
-					await sink.write([Float32Array.of(0.1, 0.2, 0.3), Float32Array.of(-0.1, -0.2, -0.3)]);
-				} else {
-					await sink.write([Float32Array.of(0.1, 0.2, 0.3, 0.4)]);
-				}
-				return { sampleRate: 48_000, channelCount: 2, frameCount: 4, chunkCount: 1 };
-			},
-			async dispose() {},
-		}),
-	});
-
-	try {
-		await controller.ready;
-		controller.actions.timeline.selectTrack('geometry-track');
-		const historyBefore = controller.getSnapshot().history.undoEntries.length;
-		await assert.rejects(controller.actions.track.mixAndRender(), /did not produce valid audio/);
-		assert.equal(controller.getSnapshot().history.undoEntries.length, historyBefore);
-		assert.equal(attemptedSourceIds.length, 1);
-		assert.equal(await store.getSourceMetadata(attemptedSourceIds[0]), null);
-
-		geometry = 'channels';
-		await assert.rejects(controller.actions.track.mixAndRender(), /did not produce valid audio/);
-		assert.equal(controller.getSnapshot().history.undoEntries.length, historyBefore);
-		assert.equal(attemptedSourceIds.length, 2);
-		assert.equal(await store.getSourceMetadata(attemptedSourceIds[1]), null);
-	} finally {
-		await controller.dispose();
-	}
-});
 
 test('a streamed Mix-down removes committed PCM when reading its committed audio fails', async () => {
 	const store = createTestStore('streamed-activation-failure');

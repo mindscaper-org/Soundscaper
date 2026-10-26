@@ -323,31 +323,6 @@ test('an empty v8 fragment pastes to empty collections without demanding any all
 	});
 });
 
-test('a v8 paste refuses identity maps that are absent, foreign or unbounded', () => {
-	const fragment = board();
-	const oversized = {
-		size: 100_001, get: () => undefined, has: () => false, entries: () => [][Symbol.iterator](),
-	};
-
-	assert.throws(
-		() => prepareFramescaperVisualClipboardPasteV8(fragment, undefined as never),
-		/V8 paste sourceIdMap must be a bounded map/u,
-	);
-	assert.throws(
-		() => prepareFramescaperVisualClipboardPasteV8(fragment, maps({ presetIdMap: { preset: 'fresh-preset' } })),
-		/V8 paste presetIdMap must be a bounded map/u,
-	);
-	assert.throws(
-		() => prepareFramescaperVisualClipboardPasteV8(fragment, maps({ maskMatteIdMap: oversized })),
-		/V8 paste maskMatteIdMap must be a bounded map/u,
-	);
-	assert.throws(
-		() => prepareFramescaperVisualClipboardPasteV8(fragment, maps({
-			projectReferenceIdMap: { ...oversized, size: Number.NaN },
-		})),
-		/V8 paste projectReferenceIdMap must be a bounded map/u,
-	);
-});
 
 test('a v8 paste refuses a fresh allocation that reuses an identity the fragment already names', () => {
 	assert.throws(

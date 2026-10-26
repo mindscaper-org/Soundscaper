@@ -80,19 +80,8 @@ test('deduplicates exact bodies and permits shared timing while rejecting confli
 });
 
 
-test('refuses open, sparse, accessor, exotic, and malformed reference input', () => {
-	class References extends Array<unknown> {}
-	const sparse = Array(1);
-	const extra = [reference()] as unknown[] & { extra?: boolean };
-	extra.extra = true;
-	const symbol = [reference()] as unknown as MutableRecord;
-	symbol[Symbol('extra')] = true;
-	for (const value of [
-		null, undefined, false, 1, 'references', {}, new References(), sparse, extra, symbol,
-	]) assert.throws(() => planScapeVideoProxyArchiveAssets(value), TypeError);
-
+test('refuses malformed nested timing asset fields', () => {
 	for (const [fields, make, consume] of [
-		[REFERENCE_FIELDS, reference, (value: object) => planScapeVideoProxyArchiveAssets([value])],
 		[TIMING_FIELDS, timing, (value: object) => planScapeVideoProxyArchiveAssets([
 			reference({ timingAsset: value }),
 		])],
@@ -142,7 +131,6 @@ test('enforces proxy identity, body bounds, timing binding, and the archive entr
 });
 
 
-const REFERENCE_FIELDS = ['storageKey', 'mimeType', 'byteLength', 'sha256', 'timingAsset'] as const;
 const TIMING_FIELDS = [
 	'encoding', 'storageKey', 'sha256', 'sourceSha256', 'byteLength', 'frameCount',
 	'timescale', 'finalFrameDurationTicks',

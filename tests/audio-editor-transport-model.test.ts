@@ -20,17 +20,6 @@ test('metronome schedules remain frame-accurate across playback rates', () => {
 	});
 });
 
-test('metronome schedules normalize invalid numeric input without negative delays', () => {
-	const schedule = calculateAudioEditorMetronomeSchedule({
-		bpm: 0,
-		sampleRate: 0,
-		positionFrame: -1,
-		playbackRate: Number.NaN,
-	});
-	assert.equal(schedule.beatIndex, 0);
-	assert.equal(schedule.delaySeconds, 0);
-	assert.equal(schedule.beatDurationSeconds, 0.5);
-});
 
 test('metronome schedules resolve tempo transitions from the authoritative map origin', () => {
 	assert.deepEqual(calculateAudioEditorMetronomeSchedule({

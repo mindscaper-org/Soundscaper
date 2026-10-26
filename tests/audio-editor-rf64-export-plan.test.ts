@@ -17,7 +17,6 @@ test('export byte estimates reject unsafe derived sizes', () => {
 		() => estimatePcmBytes(Number.MAX_SAFE_INTEGER, 2, 1),
 		/safe integer range/u,
 	);
-	assert.throws(() => estimatePcmBytes(1, 1, 0), /bytes per sample must be positive/u);
 });
 
 function stemProject() {

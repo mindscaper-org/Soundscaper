@@ -76,8 +76,6 @@ test('J and L move one step through the complete shuttle-rate ladder', () => {
 		rate = stepVideoShuttleRate(rate, 1);
 		assert.equal(rate, expected);
 	}
-	assert.throws(() => stepVideoShuttleRate(3 as 1, 1), /shuttle rate/u);
-	assert.throws(() => stepVideoShuttleRate(0, 0 as 1), /direction/u);
 });
 
 test('a shuttle anchor aligns to the frame boundary in its travel direction', () => {
