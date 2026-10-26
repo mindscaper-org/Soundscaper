@@ -17,6 +17,7 @@ export interface PresentationLocalizationPort {
 	subscribe(listener: () => void): () => void;
 	applyPreview(locale: string, translations: Readonly<Record<string, string>>): void;
 	resetPreview(): void;
+	registerPreviewInventory?(english: Readonly<Record<string, string>>): () => void;
 }
 
 // Associations contain immutable published defaults, never global locale state.
@@ -49,6 +50,7 @@ export function createPresentationLocalization<Copy extends Readonly<Record<stri
 }>) {
 	const publishedCopy = Object.freeze({ ...options.publishedCopy });
 	const listeners = new Set<() => void>();
+	const previewInventories = new Set<Readonly<Record<string, string>>>();
 	let disposed = false;
 	let snapshot: PresentationLocalizationSnapshot = Object.freeze({ locale: options.locale, copy: publishedCopy, revision: 0 });
 	const copy = newCatalogFacade();
@@ -69,7 +71,7 @@ export function createPresentationLocalization<Copy extends Readonly<Record<stri
 		for (const listener of [...listeners]) listener();
 	}
 
-	const port: PresentationLocalizationPort = Object.freeze({
+	const port = Object.freeze({
 		publishedCopy,
 		getSnapshot: () => snapshot,
 		subscribe(listener: () => void): () => void {
@@ -77,11 +79,23 @@ export function createPresentationLocalization<Copy extends Readonly<Record<stri
 			listeners.add(listener);
 			return () => { listeners.delete(listener); };
 		},
+		registerPreviewInventory(english: Readonly<Record<string, string>>): () => void {
+			if (disposed) throw new Error('Presentation localization is disposed.');
+			const detached = Object.freeze({ ...english });
+			for (const [key, source] of Object.entries(detached)) {
+				if (typeof source !== 'string') throw new TypeError('Preview inventory needs string sources.');
+				const existing = options.englishCopy[key] ?? [...previewInventories].find(inventory => Object.hasOwn(inventory, key))?.[key];
+				if (existing !== undefined && source !== existing) throw new Error(`Conflicting translation preview source: ${key}.`);
+			}
+			previewInventories.add(detached);
+			return () => { previewInventories.delete(detached); };
+		},
 		applyPreview(locale: string, translations: Readonly<Record<string, string>>): void {
 			if (!COMMITTED_LOCALE_TAGS.includes(locale) || locale === 'en') throw new Error('Preview needs an existing translation locale.');
 			for (const [key, translation] of Object.entries(translations)) {
-				if (!Object.hasOwn(options.englishCopy, key) || (isTranslatableMessageKey(key)
-					? !acceptableTranslation(options.englishCopy[key], translation) : translation !== publishedCopy[key])) {
+				const source = options.englishCopy[key] ?? [...previewInventories].find(inventory => Object.hasOwn(inventory, key))?.[key];
+				if (source === undefined || (isTranslatableMessageKey(key)
+					? !acceptableTranslation(source, translation) : translation !== publishedCopy[key])) {
 					throw new Error(`Invalid translation preview: ${key}.`);
 				}
 			}
@@ -97,6 +111,7 @@ export function createPresentationLocalization<Copy extends Readonly<Record<stri
 			if (snapshot.copy !== publishedCopy) publish(options.locale, publishedCopy);
 			disposed = true;
 			listeners.clear();
+			previewInventories.clear();
 		},
 	});
 }

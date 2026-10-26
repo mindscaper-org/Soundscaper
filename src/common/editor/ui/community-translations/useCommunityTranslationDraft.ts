@@ -9,6 +9,7 @@ import {
 } from '../../../i18n/community-translations.ts';
 import type { CommunityTranslationInventory } from './community-translation-inventory.ts';
 import { loadCommunityTranslationSnapshot } from './community-translation-files.ts';
+import { acceptableTranslation } from '../../../i18n/translation-catalog.js';
 import { isTranslatableMessageKey } from '../../../i18n/translation-scope.ts';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
 import type { CommunityTranslationPresentationPort } from './community-translation-presentation.ts';
@@ -57,9 +58,10 @@ export function useCommunityTranslationDraft(port: CommunityTranslationPresentat
 		});
 		return () => { active = false; };
 	}, [locale, store, publishLoaded]);
+	useEffect(() => loaded ? port.registerPreviewInventory?.(loaded.inventory.english) : undefined, [port, loaded?.inventory]);
 	useEffect(() => {
 		if (preview && loaded?.snapshot.locale === locale) port.applyPreview(locale, {
-			...Object.fromEntries(Object.entries(loaded.published).filter(([key]) => isTranslatableMessageKey(key))),
+			...Object.fromEntries(Object.entries(loaded.published).filter(([key, value]) => isTranslatableMessageKey(key) && acceptableTranslation(loaded.inventory.english[key], value))),
 			...previewTranslationDraft(loaded.draft, loaded.snapshot),
 		});
 		else port.resetPreview();

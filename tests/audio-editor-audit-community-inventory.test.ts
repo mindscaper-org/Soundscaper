@@ -31,3 +31,22 @@ test('the opted-in translator inventories every optional surface and retains its
 		if (catalog?.entries[key]?.[1] === baseline.source) assert.deepEqual(baseline.baselineEntry, catalog.entries[key]);
 	}
 });
+
+test('a real controller accepts lazy panel draft previews only while their source inventory is registered', async () => {
+	const { createPresentationLocalization } = await import('../src/common/editor/controller/shared/presentation-localization.ts');
+	const { EDITOR_ENGLISH_COPY } = await import('../src/common/i18n/editor-copy-inventory.ts');
+	const { audiocomCopy } = await import('../src/common/i18n/audiocom-copy.ts');
+	const inventory = await loadCommunityTranslationInventory();
+	const session = createPresentationLocalization({ locale: 'en', publishedCopy: EDITOR_ENGLISH_COPY, englishCopy: EDITOR_ENGLISH_COPY });
+	const key = 'ui.audiocom.searchLabel';
+	try {
+		assert.throws(() => session.port.applyPreview('de', { [key]: 'audio.com durchsuchen' }), /Invalid translation preview/u);
+		const release = session.port.registerPreviewInventory(inventory.english);
+		session.port.applyPreview('de', { [key]: 'audio.com durchsuchen' });
+		assert.equal(audiocomCopy('de', session.port.getSnapshot().copy).searchLabel, 'audio.com durchsuchen');
+		assert.equal(session.port.publishedCopy[key], undefined);
+		assert.throws(() => session.port.registerPreviewInventory({ play: 'A different source' }), /source/u);
+		session.port.resetPreview(); release();
+		assert.throws(() => session.port.applyPreview('de', { [key]: 'audio.com durchsuchen' }), /Invalid translation preview/u);
+	} finally { session.dispose(); }
+});

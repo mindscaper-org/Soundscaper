@@ -14,6 +14,7 @@ export interface CommunityTranslationPresentationPort {
 	subscribe(listener: () => void): () => void;
 	applyPreview(locale: string, translations: Readonly<Record<string, string>>): void;
 	resetPreview(): void;
+	registerPreviewInventory?(english: Readonly<Record<string, string>>): () => void;
 }
 
 interface TranslationPresentationController {
