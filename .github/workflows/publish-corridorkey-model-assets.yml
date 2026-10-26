@@ -2,9 +2,19 @@ name: Publish CorridorKey model assets
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: prepare
+        options: [prepare, publish]
+      export-run-id:
+        description: Validated export run to publish without rebuilding
+        type: string
+        required: false
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: publish-corridorkey-model-assets
@@ -15,7 +25,7 @@ env:
 
 jobs:
   export:
-    if: github.ref == 'refs/heads/main'
+    if: inputs.export-run-id == '' && (github.ref == 'refs/heads/main' || inputs.mode == 'prepare')
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -41,16 +51,6 @@ jobs:
         run: |
           mv .corridorkey-source /tmp/corridorkey-upstream
           node scripts/models/publish-corridorkey-model-assets.mjs --prepare-source /tmp/corridorkey-upstream
-      - name: Reproduce the retained converter source paths
-        # PyTorch records source paths in ONNX metadata. Preserve the measured
-        # conversion layout so immutable graph hashes can be reproduced.
-        shell: bash
-        run: |
-          CORRIDORKEY_REPRO_ROOT=/home/splowatt/git/Soundscaper-corridorkey-2
-          sudo install -d -o "$USER" "$CORRIDORKEY_REPRO_ROOT"
-          mkdir -p "$CORRIDORKEY_REPRO_ROOT/scripts/models" "$CORRIDORKEY_REPRO_ROOT/config"
-          cp -a scripts/models/corridorkey-conversion-tool "$CORRIDORKEY_REPRO_ROOT/scripts/models/"
-          cp config/framescaper-corridorkey-model-source-candidate.json "$CORRIDORKEY_REPRO_ROOT/config/"
       - name: Export and measure all five graphs within 12 GiB
         shell: bash
         run: |
@@ -58,10 +58,33 @@ jobs:
             --property=MemoryMax=12G --property=MemorySwapMax=0 \
             sudo -u "$USER" env PATH="$PATH" MALLOC_ARENA_MAX=2 \
             UV_PROJECT_ENVIRONMENT=/tmp/corridorkey-tool-locked-venv \
-            "$(command -v uv)" run --frozen --project /home/splowatt/git/Soundscaper-corridorkey-2/scripts/models/corridorkey-conversion-tool \
+            "$(command -v uv)" run --frozen --project scripts/models/corridorkey-conversion-tool \
             python -m framescaper_corridorkey_conversion \
             --source-root /tmp/corridorkey-upstream \
             --output /tmp/corridorkey-real-embedded-candidate --threads 4
+      - name: Canonicalize metadata and prove unchanged outputs
+        shell: bash
+        run: |
+          sudo systemd-run --scope --quiet --same-dir \
+            --property=MemoryMax=12G --property=MemorySwapMax=0 \
+            sudo -u "$USER" env PATH="$PATH" MALLOC_ARENA_MAX=2 \
+            /tmp/corridorkey-tool-locked-venv/bin/python scripts/models/canonicalize-corridorkey-assets.py \
+            --source-root /tmp/corridorkey-upstream --model-root /tmp/corridorkey-real-embedded-candidate
+      - name: Authenticate the production CPU runtime
+        run: node scripts/models/prepare-corridorkey-cpu-runtime.mjs --output /tmp/corridorkey-cpu-runtime
+      - name: Measure actual production-engine parity
+        shell: bash
+        run: |
+          cp /tmp/corridorkey-real-embedded-candidate/candidate-report.json evidence/framescaper-corridorkey-conversion-candidate.json
+          sudo systemd-run --scope --quiet --same-dir \
+            --property=MemoryMax=12G --property=MemorySwapMax=0 \
+            sudo -u "$USER" env PATH="$PATH" NODE_OPTIONS=--max-old-space-size=2048 MALLOC_ARENA_MAX=2 \
+            node --import tsx scripts/models/validate-corridorkey-production-cpu-candidate.ts \
+            --runtime-root /tmp/corridorkey-cpu-runtime/production-onnxruntime/extracted \
+            --runtime-archive /tmp/corridorkey-cpu-runtime/production-onnxruntime/onnxruntime.tar.gz \
+            --model-root /tmp/corridorkey-real-embedded-candidate --source-root /tmp/corridorkey-upstream \
+            --python /tmp/corridorkey-tool-locked-venv/bin/python \
+            --output /tmp/corridorkey-real-embedded-candidate/production-cpu-report.json
       - name: Retain upstream permission and license notices
         run: >-
           node scripts/models/publish-corridorkey-model-assets.mjs
@@ -78,9 +101,29 @@ jobs:
           compression-level: 0
           if-no-files-found: error
           retention-days: 1
+      - name: Retain measured graph and CPU identities
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: corridorkey-model-validation
+          path: |
+            /tmp/corridorkey-real-embedded-candidate/candidate-report.json
+            /tmp/corridorkey-real-embedded-candidate/production-cpu-report.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Retain export failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: corridorkey-export-failure
+          path: |
+            /tmp/corridorkey-real-embedded-candidate/conversion.log
+            /tmp/corridorkey-real-embedded-candidate/candidate-report.json
+            /tmp/corridorkey-real-embedded-candidate/production-cpu-report.json
+          if-no-files-found: warn
+          retention-days: 7
 
   publish:
-    if: github.ref == 'refs/heads/main'
+    if: always() && github.ref == 'refs/heads/main' && inputs.mode == 'publish' && (needs.export.result == 'success' || (needs.export.result == 'skipped' && inputs.export-run-id != ''))
     needs: export
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -98,6 +141,8 @@ jobs:
         with:
           name: corridorkey-model-assets
           path: .corridorkey-model-assets
+          run-id: ${{ inputs.export-run-id || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Publish immutable files and verify public readback
         run: >-
           node scripts/models/publish-corridorkey-model-assets.mjs --publish

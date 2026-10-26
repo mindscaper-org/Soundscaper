@@ -9,7 +9,7 @@ import test from 'node:test';
 import { CORRIDORKEY_CHROMA_HINT_DEFAULTS } from '../src/common/editor/assistance/corridorkey-hint-settings.ts';
 import { CORRIDORKEY_GRAPH_ARTIFACTS_V1 } from '../desktop/assistance-corridorkey-model.ts';
 import { validateAssistanceRuntimeDistribution } from '../desktop/assistance-runtime-distribution.ts';
-import { createCorridorKeyCpuDiagnosticFrameV1 } from '../scripts/models/validate-corridorkey-production-cpu-candidate.ts';
+import { createCorridorKeyCpuDiagnosticFrameV1, corridorKeyDiagnosticGraphs } from '../scripts/models/validate-corridorkey-production-cpu-candidate.ts';
 
 interface FilePin { readonly path: string; readonly byteLength: number; readonly sha256: string }
 interface CpuReport {
@@ -39,6 +39,15 @@ const root = new URL('../', import.meta.url);
 const digest = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 const readJson = async <T>(path: string): Promise<T> => JSON.parse(await readFile(new URL(path, root), 'utf8')) as T;
 const report = (): Promise<CpuReport> => readJson('evidence/framescaper-corridorkey-production-cpu-candidate.json');
+
+test('prospective CPU diagnostics require a complete measured standalone five-graph inventory', async () => {
+	const conversion = await readJson<Parameters<typeof corridorKeyDiagnosticGraphs>[0]>('evidence/framescaper-corridorkey-conversion-candidate.json');
+	assert.deepEqual(corridorKeyDiagnosticGraphs(conversion), CORRIDORKEY_GRAPH_ARTIFACTS_V1);
+	assert.throws(() => corridorKeyDiagnosticGraphs({ ...conversion, allFiveGraphsValidated: false }));
+	assert.throws(() => corridorKeyDiagnosticGraphs({ ...conversion, graphs: conversion.graphs.slice(1) }));
+	assert.throws(() => corridorKeyDiagnosticGraphs({ ...conversion, graphs: conversion.graphs.map(graph => ({ ...graph,
+		artifacts: graph.artifacts.map(artifact => ({ ...artifact, fileName: '../substitute.onnx' })) })) }));
+});
 
 async function assertFilePin(pin: FilePin): Promise<void> {
 	assert.ok(pin.path.length > 0 && !pin.path.startsWith('/') && !pin.path.split('/').includes('..'));
