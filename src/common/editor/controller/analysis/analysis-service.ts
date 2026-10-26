@@ -1,5 +1,4 @@
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
+import { createAnalysisDocumentFingerprint } from './internal/analysis-document-fingerprint.ts';
 import { spectrumReport, clippingReport, normalizeSpectrumSize } from '../../specialized-audio-analysis.ts';
 import { AUDIO_CLIPPING_FULL_SCALE_THRESHOLD } from '../../audio-clipping-regions.ts';
 import { createLocalizedError, setLocalizedStatus } from '../../../i18n/presentation-message.ts';
@@ -100,6 +99,7 @@ export interface AnalysisDependencies {
 	getActiveSelection(): AnalysisRange | null;
 	/** Opt in only when this opaque generation binds all immutable render inputs. */
 	captureLoudnessGeneration?(): Readonly<{ generation: object; sampleRate: number }> | null;
+	captureDocumentGeneration?(): object | null;
 	getSpectrumWindowSize(): number;
 	getContrastSelections(): Readonly<{ foreground: ContrastSelection | null; background: ContrastSelection | null }>;
 	setContrastSelections(value: Readonly<{ foreground: ContrastSelection | null; background: ContrastSelection | null }>): void;
@@ -131,6 +131,7 @@ interface StoredAnalysis {
 }
 
 export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
+	const analysisDocumentFingerprint = createAnalysisDocumentFingerprint(dependencies.captureDocumentGeneration);
 	let specializedCache: Readonly<{ key: string; result: unknown; visuals: unknown; report: unknown }> | null = null;
 	let loudnessCache: Readonly<{ generation: WeakRef<object>; key: string; report: DeliveryReport }> | null = null;
 	const finishedTasks = new WeakSet<EditorTaskScope>();
@@ -480,11 +481,6 @@ function captureRequest(project: AnalysisProjectIdentity, scope: string, range: 
 		selectedTrackId: scope === 'track' ? selectedTrackId : null,
 		range: Object.freeze({ startFrame: range.startFrame, endFrame: range.endFrame }),
 	});
-}
-
-/** Numeric revisions can recur when a saved document is reopened and branched. */
-function analysisDocumentFingerprint(project: AnalysisProjectIdentity): string {
-	return bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(project))));
 }
 
 function assertAnalysisChannelAdmission(project: AnalysisProjectIdentity): void {

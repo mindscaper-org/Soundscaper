@@ -43,7 +43,7 @@ const editorOptionalExportControllerModule = String.raw`(?:export[\\/](?:${contr
  * and otherwise read only by the same deferred video export service.
  */
 const editorOptionalExportFlatModule = String.raw`(?:ape-file-metadata|audio-container-metadata|audio-export-output|binaural-render|delivery-conformance|delivery-conversion-inventory|delivery-video-conversion-inventory|file-backed-audio-export|flac-file-metadata|ogg-comment-metadata|loudness-normalization-render|platform-delivery-(?:licensing|presets)|platform-video-delivery-encoder|video-burn-in-font|video-delivery-encoder-tier|video-webcodecs-capability)`;
-export const editorOptionalControllerModule = String.raw`(?:analysis[\\/](?:analysis-service|internal[\\/]vamp-analysis-action)|document[\\/]internal[\\/]cross-product-handoff-(?:action|save-target)|import[\\/]internal[\\/](?:dawproject[\\/]dawproject|sesx[\\/]sesx)-service|recording[\\/]internal[\\/]recording-checkpoint-writer|${editorOptionalExportControllerModule})`;
+export const editorOptionalControllerModule = String.raw`(?:analysis[\\/](?:analysis-service|internal[\\/](?:vamp-analysis-action|analysis-document-fingerprint))|document[\\/]internal[\\/]cross-product-handoff-(?:action|save-target)|import[\\/]internal[\\/](?:dawproject[\\/]dawproject|sesx[\\/]sesx)-service|recording[\\/]internal[\\/]recording-checkpoint-writer|${editorOptionalExportControllerModule})`;
 /**
  * The Framescaper capture and Web VCR implementation, loaded when a capture
  * gesture, a desktop bridge or durable recovery state asks for it.
@@ -142,7 +142,7 @@ export const EDITOR_MACRO_DEFAULTS_CHUNK_TEST =
 
 /** Effect and Analyze implementations reached only after their eager action facade runs. */
 export const EDITOR_OPTIONAL_EXECUTION_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)|(?:flac|mpg123|opus|vorbis)[\\\\/]source-manifest\\.json|controller[\\\\/]analysis[\\\\/](?:analysis-service|internal[\\\\/]vamp-analysis-action)\\.ts)|(?:^|[\\\\/])desktop[\\\\/](?:bundled-(?:mpeg-audio|opus|wavpack)-stream|desktop-audio-stream-contract)\\.ts)$`,
+	`(?:${editorPath}(?:${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)|(?:flac|mpg123|opus|vorbis)[\\\\/]source-manifest\\.json|controller[\\\\/]analysis[\\\\/](?:analysis-service|internal[\\\\/](?:vamp-analysis-action|analysis-document-fingerprint))\\.ts)|(?:^|[\\\\/])desktop[\\\\/](?:bundled-(?:mpeg-audio|opus|wavpack)-stream|desktop-audio-stream-contract)\\.ts)$`,
 );
 
 /** Audio/video delivery and Freesound clip materialization isolated from the eager controller graph. */
