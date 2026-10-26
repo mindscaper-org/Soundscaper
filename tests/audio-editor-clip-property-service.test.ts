@@ -112,9 +112,9 @@ test('merged property edits validate every clip before one undoable commit and p
 	assert.equal(harness.commits.length, 1);
 	assert.equal(harness.commits[0]?.selection, undefined);
 	const command = harness.commits[0]?.command;
-	assert.equal(command?.type, 'batch');
-	if (command?.type !== 'batch') assert.fail('Expected one batch.');
-	assert.equal(command.commands.length, 2);
+	assert.equal(command?.type, 'clip/transform-many');
+	if (command?.type !== 'clip/transform-many') assert.fail('Expected one bulk transform.');
+	assert.deepEqual(command.transforms.map(transform => transform.clipId), ['active', 'companion']);
 	const invalid = createHarness(projectFixture());
 	assert.throws(() => invalid.service.setClipsTimePitch(['active', 'removed'], { speedRatio: 2 }));
 	assert.equal(invalid.commits.length, 0, 'a rejected selected clip leaves every clip untouched');
