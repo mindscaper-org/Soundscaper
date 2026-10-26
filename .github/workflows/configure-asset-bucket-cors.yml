@@ -45,6 +45,8 @@ jobs:
           assert.ok(rules[0].allowed.origins.includes('https://framescaper.org'));
           JS
       - name: Inspect account and current bucket policy
+        id: inspect
+        continue-on-error: true
         run: |
           npx wrangler whoami
           npx wrangler r2 bucket cors list soundscaper-assets --jurisdiction eu
@@ -52,10 +54,30 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Apply the authenticated read-only origin policy
+        if: steps.inspect.outcome == 'success'
         run: npx wrangler r2 bucket cors set soundscaper-assets --jurisdiction eu --file r2-cors.json --force
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Apply policy using bucket administration credentials
+        if: steps.inspect.outcome == 'failure'
+        run: |
+          aws --version
+          aws s3api get-bucket-cors --bucket soundscaper-assets --region auto --endpoint-url "$R2_MODELS_ENDPOINT" > asset-bucket-cors-before.json
+          node --input-type=module - <<'JS'
+          import { readFile, writeFile } from 'node:fs/promises';
+          const { rules } = JSON.parse(await readFile('r2-cors.json', 'utf8'));
+          const CORSRules = rules.map(rule => ({ AllowedOrigins: rule.allowed.origins,
+            AllowedMethods: rule.allowed.methods, AllowedHeaders: rule.allowed.headers,
+            ExposeHeaders: rule.exposeHeaders, MaxAgeSeconds: rule.maxAgeSeconds }));
+          await writeFile('asset-bucket-cors-s3.json', JSON.stringify({ CORSRules }));
+          JS
+          aws s3api put-bucket-cors --bucket soundscaper-assets --region auto --endpoint-url "$R2_MODELS_ENDPOINT" --cors-configuration file://asset-bucket-cors-s3.json
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_MODELS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_MODELS_SECRET_ACCESS_KEY }}
+          AWS_EC2_METADATA_DISABLED: 'true'
+          R2_MODELS_ENDPOINT: ${{ vars.R2_MODELS_ENDPOINT || secrets.R2_MODELS_ENDPOINT }}
       - name: Verify both product origins against a published model
         run: |
           node --input-type=module - <<'JS'
