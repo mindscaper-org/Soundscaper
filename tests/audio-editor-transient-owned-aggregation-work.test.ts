@@ -14,7 +14,6 @@ test('transferred worker PCM aggregates overlapping source frames once with exac
 	context.after(() => Object.defineProperty(Math, 'abs', { configurable: true, writable: true, value: abs }));
 	const response = executeTransientAnalysisWorkerRequest({ type: 'transient-analysis/v1', requestId: 'owned-work', channels, options: {} });
 	assert.equal(response.type, 'result');
-	if (response.type !== 'result') throw new Error(response.error.message);
 	assert.deepEqual(response.result, expected);
 	assert.equal(reads, frames * channelCount);
 	assert.ok(planTransientAnalysisAdmission(frames, {}, { channelCount, pcmCopyCount: 2 }).auxiliaryArrayBytes >= Math.ceil(frames / 256) * 24 + 1024 * 8);
