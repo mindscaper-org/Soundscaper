@@ -8,6 +8,7 @@
  * See THIRD_PARTY_LICENSES.md for the exact source and modification notice.
  */
 
+import { FrequencyWaveformCentroidStream, type FrequencyWaveformFft } from './frequency-waveform-centroid-stream.ts';
 import { ComplementaryCrossover } from './complementary-crossover.ts';
 import { combineFrequencyWaveformBandPeaks } from './frequency-waveform-band-peaks.ts';
 import {
@@ -24,7 +25,7 @@ import {
 } from './frequency-waveform-contract.ts';
 import { fft, initializePffft } from './pffft.js';
 
-export type FrequencyWaveformFft = (real: Float32Array, imaginary: Float32Array) => void;
+export type { FrequencyWaveformFft } from './frequency-waveform-centroid-stream.ts';
 
 export interface FrequencyWaveformAnalyzerOptions {
 	readonly sampleRate: number;
@@ -152,17 +153,11 @@ export class FrequencyWaveformAnalyzer {
 	private readonly visualChannelCount: number;
 	private readonly splitter: FrequencyWaveformBandSplitter;
 	private readonly levels: MutableLevel[];
-	private readonly spectralBuffers: Float32Array[];
-	private readonly hann: Float32Array;
-	private readonly real = new Float32Array(FREQUENCY_WAVEFORM_FFT_SIZE);
-	private readonly imaginary = new Float32Array(FREQUENCY_WAVEFORM_FFT_SIZE);
-	private spectralLength = FREQUENCY_WAVEFORM_FFT_SIZE / 2;
-	private spectralStart = 0;
-	private nextCenterFrame = 0;
+	private readonly spectral: FrequencyWaveformCentroidStream;
 	private framesProcessed = 0;
 	private finished = false;
 
-	constructor(options: FrequencyWaveformAnalyzerOptions, private readonly transform: FrequencyWaveformFft) {
+	constructor(options: FrequencyWaveformAnalyzerOptions, transform: FrequencyWaveformFft) {
 		validateGeometry(options.sampleRate, options.channelCount);
 		if (!Number.isSafeInteger(options.frameCount) || options.frameCount < 0) {
 			throw new RangeError('Invalid frequency waveform frame count.');
@@ -183,13 +178,7 @@ export class FrequencyWaveformAnalyzer {
 				Math.ceil(options.frameCount / blockSize),
 				this.visualChannelCount,
 			));
-		this.spectralBuffers = Array.from(
-			{ length: this.visualChannelCount },
-			() => new Float32Array(FREQUENCY_WAVEFORM_FFT_SIZE),
-		);
-		this.hann = Float32Array.from({ length: FREQUENCY_WAVEFORM_FFT_SIZE }, (_, index) => (
-			0.5 - 0.5 * Math.cos(2 * Math.PI * index / (FREQUENCY_WAVEFORM_FFT_SIZE - 1))
-		));
+		this.spectral = new FrequencyWaveformCentroidStream(options.sampleRate, this.visualChannelCount, this.levels, transform);
 	}
 
 	push(channels: readonly Float32Array[]): void {
@@ -203,9 +192,7 @@ export class FrequencyWaveformAnalyzer {
 		}
 		const visualChannels = channels.slice(0, this.visualChannelCount);
 		this.splitter.accumulatePeaks(visualChannels, this.levels[0]!, this.framesProcessed);
-		for (let frame = 0; frame < frames; frame += 1) {
-			this.appendSpectralFrame(visualChannels, frame);
-		}
+		this.spectral.push(visualChannels);
 		this.framesProcessed += frames;
 	}
 
@@ -214,7 +201,7 @@ export class FrequencyWaveformAnalyzer {
 		if (this.framesProcessed !== this.options.frameCount) {
 			throw new RangeError('Frequency waveform chunks do not match the declared frame count.');
 		}
-		while (this.nextCenterFrame < this.options.frameCount) this.appendSpectralSilence();
+		this.spectral.finish(this.options.frameCount);
 		this.finished = true;
 		combineFrequencyWaveformBandPeaks(this.levels);
 		for (const level of this.levels) replaceEmptyExtrema(level);
@@ -231,59 +218,7 @@ export class FrequencyWaveformAnalyzer {
 		};
 	}
 
-	private appendSpectralFrame(channels: readonly Float32Array[], frame: number): void {
-		let writeIndex = this.spectralStart + this.spectralLength;
-		if (writeIndex >= FREQUENCY_WAVEFORM_FFT_SIZE) writeIndex -= FREQUENCY_WAVEFORM_FFT_SIZE;
-		for (let channel = 0; channel < this.visualChannelCount; channel += 1) {
-			this.spectralBuffers[channel]![writeIndex] = finiteSample(channels[channel]![frame]);
-		}
-		this.spectralLength += 1;
-		this.analyzeFullSpectralBuffer();
-	}
 
-	private appendSpectralSilence(): void {
-		let writeIndex = this.spectralStart + this.spectralLength;
-		if (writeIndex >= FREQUENCY_WAVEFORM_FFT_SIZE) writeIndex -= FREQUENCY_WAVEFORM_FFT_SIZE;
-		for (let channel = 0; channel < this.visualChannelCount; channel += 1) {
-			this.spectralBuffers[channel]![writeIndex] = 0;
-		}
-		this.spectralLength += 1;
-		this.analyzeFullSpectralBuffer();
-	}
-
-	private analyzeFullSpectralBuffer(): void {
-		if (this.spectralLength < FREQUENCY_WAVEFORM_FFT_SIZE) return;
-		let numerator = 0;
-		let weight = 0;
-		for (let channel = 0; channel < this.visualChannelCount; channel += 1) {
-			const buffer = this.spectralBuffers[channel]!;
-			this.imaginary.fill(0);
-			const firstSpan = FREQUENCY_WAVEFORM_FFT_SIZE - this.spectralStart;
-			for (let index = 0; index < firstSpan; index += 1) {
-				this.real[index] = buffer[this.spectralStart + index]! * this.hann[index]!;
-			}
-			for (let index = firstSpan; index < FREQUENCY_WAVEFORM_FFT_SIZE; index += 1) {
-				this.real[index] = buffer[index - firstSpan]! * this.hann[index]!;
-			}
-			this.transform(this.real, this.imaginary);
-			for (let bin = 2; bin <= FREQUENCY_WAVEFORM_FFT_SIZE / 2; bin += 1) {
-				const magnitude = Math.hypot(this.real[bin]!, this.imaginary[bin]!);
-				weight += magnitude;
-				numerator += magnitude * bin * this.options.sampleRate / FREQUENCY_WAVEFORM_FFT_SIZE;
-			}
-		}
-		for (const level of this.levels) {
-			const bucket = Math.floor(this.nextCenterFrame / level.blockSize);
-			if (bucket < level.centroid.weights.length) {
-				level.centroid.numerators[bucket] += numerator;
-				level.centroid.weights[bucket] += weight;
-			}
-		}
-		this.nextCenterFrame += FREQUENCY_WAVEFORM_HOP_SIZE;
-		this.spectralStart += FREQUENCY_WAVEFORM_HOP_SIZE;
-		if (this.spectralStart >= FREQUENCY_WAVEFORM_FFT_SIZE) this.spectralStart -= FREQUENCY_WAVEFORM_FFT_SIZE;
-		this.spectralLength -= FREQUENCY_WAVEFORM_HOP_SIZE;
-	}
 }
 
 export async function generateFrequencyWaveformAnalysis(
@@ -400,14 +335,14 @@ function analyzeWindowCentroids(
 		aligned.set(channel, alignmentOffset);
 		return aligned;
 	});
-	const analyzer = new FrequencyWaveformAnalyzer({
-		channelCount: sourceChannelCount,
-		frameCount: alignedChannels[0]?.length || 0,
-		sampleRate,
-	}, transform);
+	const frameCount = alignedChannels[0]?.length || 0;
+	const blockSize = frequencyWaveformBlockSizes(frameCount, sourceChannelCount)[0]!;
+	const level = { blockSize, centroid: { numerators: new Float32Array(Math.ceil(frameCount / blockSize)),
+		weights: new Float32Array(Math.ceil(frameCount / blockSize)) } };
+	const analyzer = new FrequencyWaveformCentroidStream(sampleRate, channels.length, [level], transform);
 	analyzer.push(alignedChannels);
-	const level = analyzer.finish().levels[0]!;
-	const centers = Math.ceil((alignedChannels[0]?.length || 0) / FREQUENCY_WAVEFORM_HOP_SIZE);
+	analyzer.finish(frameCount);
+	const centers = Math.ceil(frameCount / FREQUENCY_WAVEFORM_HOP_SIZE);
 	const numerators = new Float32Array(centers);
 	const weights = new Float32Array(centers);
 	for (let center = 0; center < centers; center += 1) {
