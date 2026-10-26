@@ -1,3 +1,4 @@
+export { effectParameterLabel, nativeEffectParameterLabel } from '../effect-parameter-labels.ts';
 import { normalizeBcp47Locale } from '../../../i18n/locale.js';
 import {
 	AUDIO_EFFECT_DEFINITIONS,
@@ -6,7 +7,7 @@ import {
 } from '../../effects.js';
 import { AUDACITY_EFFECT_DEFINITIONS } from '../../audacity-effects/manifest.js';
 import {
-	canonicalCopyValue, effectOptionCopyKey, effectParameterCopyKey,
+	canonicalCopyValue, effectOptionCopyKey,
 } from '../../../i18n/canonical-extras.js';
 import { formatLocalizedTemplate } from '../localization-template.ts';
 
@@ -218,41 +219,6 @@ export function audacityParameterPresentation(effectType: string, name: string):
 		'audacity-reverb',
 	].includes(effectType)) return 'knob';
 	return 'number';
-}
-
-export function effectParameterLabel(value: string, copy: Copy): string {
-	const labels: Readonly<Record<string, string>> = {
-		frequency: copy.effectParamFrequency,
-		threshold: copy.effectParamThreshold,
-		knee: copy.effectParamKnee,
-		ratio: copy.effectParamRatio,
-		attack: copy.effectParamAttack,
-		release: copy.effectParamRelease,
-		makeupGain: copy.effectParamMakeupGain,
-		ceiling: copy.effectParamCeiling,
-		lookahead: copy.effectParamLookahead,
-		hold: copy.effectParamHold,
-		rangeDb: copy.effectParamRange,
-		mix: copy.effectParamMix,
-		decay: copy.effectParamDecay,
-		preDelay: copy.effectParamPreDelay,
-		time: copy.effectParamTime,
-		feedback: copy.effectParamFeedback,
-	};
-	return labels[value]
-		|| value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase());
-}
-
-/**
- * Label a native effect parameter, preferring copy registered against that
- * effect type so two effects may name the same parameter differently, and
- * falling back to the vocabulary shared across the original rack effects.
- */
-export function nativeEffectParameterLabel(type: string, name: string, copy: CopyOrLocale): string {
-	const key = effectParameterCopyKey(type, name);
-	const canonical = resolveCanonicalCopy(key, copy);
-	if (canonical !== key) return canonical;
-	return effectParameterLabel(name, (copy ?? {}) as Copy);
 }
 
 /** Label one selectable value of a native effect parameter. */

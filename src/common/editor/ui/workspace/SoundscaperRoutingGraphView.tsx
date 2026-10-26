@@ -97,7 +97,7 @@ function RoutingGraphProjectSession({
 	onParameterGesture,
 }: SoundscaperRoutingGraphViewProps) {
 	const layout = useMemo(() => layoutSoundscaperRoutingGraph(project, graph, copy), [copy, graph, project]);
-	const destinations = useMemo(() => routingDestinationOptions(project, graph), [graph, project]);
+	const destinations = useMemo(() => routingDestinationOptions(project, graph, copy), [copy, graph, project]);
 	const [selectionState, setSelectionState] = useState<{ selection: RoutingSelection | null; confirmingDelete: boolean }>({ selection: null, confirmingDelete: false });
 	const { selection, confirmingDelete } = selectionState;
 	const setSelection = useCallback((next: RoutingSelection | null) => setSelectionState({ selection: next, confirmingDelete: false }), []);
@@ -211,7 +211,7 @@ function RoutingGraphProjectSession({
 	const edgeById = useMemo(() => indexRoutingEdges(graph.edges), [graph.edges]);
 	const portsByNode = useMemo(() => indexRoutingPorts(destinations), [destinations]);
 	const countsByNode = useMemo(() => indexRoutingConnections(graph), [graph]);
-	const endpointLabels = useMemo(() => ({ sources: indexRoutingEndpointLabels(routingSourceOptions(project, graph)), destinations: indexRoutingEndpointLabels(destinations) }), [destinations, graph, project]);
+	const endpointLabels = useMemo(() => ({ sources: indexRoutingEndpointLabels(routingSourceOptions(project, graph, copy)), destinations: indexRoutingEndpointLabels(destinations) }), [copy, destinations, graph, project]);
 	const connectingNode = connecting
 		? nodeByKey.get(routingLayoutNodeKeyForEndpoint(connecting)) : undefined;
 	return <section
