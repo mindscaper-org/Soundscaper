@@ -45,7 +45,7 @@ export async function renderZeroCrossingEdges<Project extends SelectionViewProje
 function dryProject(value: SelectionViewProject): boolean {
 	const project = value as unknown as EngineProject;
 	if (project.mixer?.groups?.length || project.mixer?.sends?.length || project.mixer?.cues?.length) return false;
-	if (project.tracks?.some(track => track.audioFreeze != null)) return false;
+	if (project.tracks?.some(track => 'audioFreeze' in track && track.audioFreeze != null)) return false;
 	if (project.clips?.some(clip => clip.warpMap != null || (clip.speedRatio ?? 1) !== 1 || (clip.pitchCents ?? 0) !== 0 || clip.linkPitchAndTempo || clip.stretchToTempo)) return false;
 	return [...projectEffectRacks(project)].every(rack => !rack.effectsActive || rack.effects.every(effect => effect.enabled === false || effect.bypassed === true));
 }

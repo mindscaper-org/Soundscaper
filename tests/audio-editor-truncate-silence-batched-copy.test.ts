@@ -21,7 +21,7 @@ test('disjoint silence cuts copy retained PCM once and preserve complete legacy 
 			frame % (block * 2) < block ? (channel ? -0.35 : 0.25) * (frame % 7 + 1) / 7 : (frame % 17 === 0 ? -0 : 0)));
 		copied = 0;
 		const output = applyAudacityTruncateSilence(channels, 8_000, { minimumSilence: 0.001, thresholdDb: -60, truncateTo: 0, compressPercent: 35, independent, action });
-		assert.equal(createHash('sha256').update(Buffer.concat(output.map(channel => Buffer.from(channel.buffer)))).digest('hex'), hashes[block][action]);
+		assert.equal(createHash('sha256').update(Buffer.concat(output.map((channel: Float32Array) => Buffer.from(channel.buffer)))).digest('hex'), hashes[block][action]);
 		if (block === 128) assert.ok(copied <= channels[0]!.length * 2, `retained spans should copy once, received ${copied} frames`);
 	}
 });
