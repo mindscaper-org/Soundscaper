@@ -21,6 +21,7 @@ import {
 } from './community-translation-picker.ts';
 import type { CommunityTranslationPresentationPort } from './community-translation-presentation.ts';
 import { useCommunityTranslationDraft } from './useCommunityTranslationDraft.ts';
+import { CommunityTranslationContributor, type CommunityTranslationContributorHandle } from './CommunityTranslationContributor.tsx';
 import { useTranslationRemovalFocus } from './useTranslationRemovalFocus.ts';
 import { communityTranslationMessageKeys, createCommunityTranslationDraftReader } from './community-translation-message-filter.ts';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
@@ -56,6 +57,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	const searchRef = useRef<HTMLInputElement>(null);
 	const rememberRemovalFocus = useTranslationRemovalFocus(locale, searchRef);
 	const importRef = useRef<HTMLInputElement>(null);
+	const contributorRef = useRef<CommunityTranslationContributorHandle>(null);
 	const baseline = loaded?.snapshot.entries[selectedKey];
 	const readDraft = useMemo(() => createCommunityTranslationDraftReader(loaded?.draft), [loaded?.draft]);
 	const selectedDraft = readDraft(selectedKey);
@@ -115,6 +117,10 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 		};
 		return retainCommunityTranslationPicker(document, panelRef, inspect, cancel);
 	}, [picking, port, setMessage, loaded?.inventory, loaded?.published]);
+	function currentDraft(): TranslationContribution {
+		return contributorRef.current?.getDraft() ?? loaded!.draft;
+	}
+	function close(): void { run(async () => { await contributorRef.current?.flush(); onClose(); }); }
 	function chooseCandidate(candidate: TranslationCandidate): void {
 		setFilter('all');
 		setQuery(candidate.key);
@@ -135,19 +141,19 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 	function removeChange(control: HTMLButtonElement): void {
 		if (!loaded) return;
 		rememberRemovalFocus(control);
-		const draft: TranslationContribution = { ...loaded.draft, entries: loaded.draft.entries.filter(({ key }) => key !== selectedKey) };
+		const draft: TranslationContribution = { ...currentDraft(), entries: loaded.draft.entries.filter(({ key }) => key !== selectedKey) };
 		run(() => save(draft));
 	}
 	function saveChange(): void {
 		if (!loaded || !baseline) return;
 		if (!acceptableTranslation(source, translation)) { setError({ key: 'invalid' }); return; }
-		const draft = updateTranslationDraft(loaded.draft, loaded.snapshot, selectedKey, translation, note);
+		const draft = updateTranslationDraft(currentDraft(), loaded.snapshot, selectedKey, translation, note);
 		run(async () => { await save(draft); setMessage({ key: 'saved' }); });
 	}
 	function useCurrentBaseline(): void {
 		if (!loaded || !baseline) return;
 		if (!acceptableTranslation(source, translation)) { setError({ key: 'invalid' }); return; }
-		const rebased = { ...loaded.draft, entries: loaded.draft.entries.filter(({ key }) => key !== selectedKey) };
+		const rebased = { ...currentDraft(), entries: loaded.draft.entries.filter(({ key }) => key !== selectedKey) };
 		run(() => save(updateTranslationDraft(rebased, loaded.snapshot, selectedKey, translation, note)));
 	}
 	const reviewMessage = assessment?.stale.some(({ key }) => key === selectedKey) ? copy.stale
@@ -158,12 +164,13 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 		className="community-translations" style={themeVariables as CSSProperties} onKeyDown={(event) => {
 			if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
 			if (event.key === 'Tab') event.stopPropagation();
-			if (event.key === 'Escape' && !picking) { event.preventDefault(); event.stopPropagation(); onClose(); }
+			if (event.key === 'Escape' && !picking) { event.preventDefault(); event.stopPropagation(); close(); }
 		}}>
-		<header><h2>{copy.title}</h2><button type="button" aria-label={copy.close} onClick={onClose}>×</button></header>
+		<header><h2>{copy.title}</h2><button type="button" aria-label={copy.close} onClick={close}>×</button></header>
 		<button type="button" onClick={() => setSide(side === 'right' ? 'left' : 'right')}>{side === 'right' ? copy.moveLeft : copy.moveRight}</button>
 		<label>{copy.language}<select value={locale} onChange={(event) => {
-			setLocale(event.target.value); setQuery(''); setFilter('all'); setCandidates([]); setPickedObject(null);
+			const nextLocale = event.target.value;
+			run(async () => { await contributorRef.current?.flush(); setLocale(nextLocale); setQuery(''); setFilter('all'); setCandidates([]); setPickedObject(null); });
 		}}>{translationLocales.filter(({ locale: tag }) => tag !== 'en').map(({ locale: tag, nativeName }) =>
 			<option key={tag} value={tag}>{nativeName}</option>)}</select></label>
 		<label className="community-translations__preview"><input type="checkbox" checked={preview}
@@ -199,15 +206,13 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 						<button type="button" disabled={!selectedDraft} onClick={(event) => removeChange(event.currentTarget)}>{copy.remove}</button>
 					{reviewMessage && baseline && <button type="button" onClick={useCurrentBaseline}>{copy.useCurrent}</button>}</div>
 			</form>}
-			<label>{copy.contributor}<input value={loaded.draft.contributor ?? ''} onChange={(event) => {
-				const contributor = event.target.value;
-				run(() => save({ ...loaded.draft, contributor }));
-			}} /></label>
+			<CommunityTranslationContributor key={locale} draft={loaded.draft} label={copy.contributor}
+				onSave={save} onFailure={failure => setError(feedbackFailure(failure))} handleRef={contributorRef} />
 			<p role="status">{copy.status.replace('{count}', String(loaded.draft.entries.length)).replace('{reviewCount}', String(reviewKeys.size))}</p>
 			<div className="community-translations__actions">
-				<button type="button" onClick={() => importRef.current?.click()}>{copy.import}</button>
-				<button type="button" onClick={() => run(() => exportCommunityTranslationJson(fileService, loaded.draft))}>{copy.export}</button>
-				<button type="button" onClick={() => run(() => exportCommunityTranslationPo(fileService, loaded.snapshot, copy.poInstructions, loaded.draft))}>{copy.po}</button>
+				<button type="button" onClick={() => { run(async () => { await contributorRef.current?.flush(); }); importRef.current?.click(); }}>{copy.import}</button>
+				<button type="button" onClick={() => run(async () => { await contributorRef.current?.flush(); await exportCommunityTranslationJson(fileService, currentDraft()); })}>{copy.export}</button>
+				<button type="button" onClick={() => run(async () => { await contributorRef.current?.flush(); await exportCommunityTranslationPo(fileService, loaded.snapshot, copy.poInstructions, currentDraft()); })}>{copy.po}</button>
 			</div>
 		</>}
 		<input ref={importRef} type="file" accept=".json,application/json" aria-label={copy.import} hidden onChange={(event) => {
