@@ -202,7 +202,10 @@ export function createFramescaperMediaHostBuildCommands(input) {
 			`SHELL=${makefilePath(tools.executables.shell.path, true)}`,
 			// Separate flags disable Make's direct script execution optimization,
 			// which resolves /bin/bash through Windows instead of Git Bash.
-			'.SHELLFLAGS=-e -c'] : [];
+			'.SHELLFLAGS=-e -c',
+			'GEN_VCPROJ=$(if $(VCPROJ_SRCS),$(file >$@.sources,$(VCPROJ_SRCS)))'
+			+ `${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
+			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([
@@ -300,6 +303,10 @@ function shellTool(value, windows) {
 
 function makefilePath(value, windows) {
 	return windows ? value.replaceAll('\\', '/') : value;
+}
+
+function makeShellPath(value) {
+	return `'${value.replaceAll('\\', '/').replaceAll('$', () => '$$').replaceAll("'", "'\\''")}'`;
 }
 
 function command(phase, executable, args, cwd, environment) {
