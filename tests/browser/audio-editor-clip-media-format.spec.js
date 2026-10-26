@@ -36,7 +36,8 @@ test('Format resamples at the chosen precision and reinterprets the rate with un
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
 	await page.reload();
 	editor = await waitForEditor(page);
-	panel = await openClipProperties(page, editor, clipByName(editor, recording.name), { additional: false });
+	panel = await openClipProperties(page, editor,
+		editor.getByRole('group', { name: /^format-16000\.wav.* clip(?:,|$)/u }), { additional: false });
 	await expect(rate()).toHaveValue('16000');
 	await expect(depth()).toHaveValue('int24');
 	await expect(length()).toHaveValue('2');
@@ -53,7 +54,7 @@ test('Clip properties presents the media controls beside the fields they affect'
 	await expect(pitchUnits.locator('[data-glyph="Tuning fork"]')).toBeVisible();
 	await pitchUnits.click();
 	await expect(pitchUnits).toHaveText('%');
-	await expect(panel.getByRole('textbox', { name: 'Pitch (percent)', exact: true })).toHaveValue('0');
+	await expect(panel.getByRole('textbox', { name: /^Pitch \(percent/u })).toHaveValue('0');
 	await expect(panel.getByRole('checkbox', { name: 'Optimize for voice', exact: true })).toBeVisible();
 	await panel.getByRole('checkbox', { name: 'Optimize for voice', exact: true }).check();
 	const reverse = panel.getByRole('switch', { name: 'Reverse', exact: true });
