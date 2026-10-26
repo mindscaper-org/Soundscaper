@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createContext, useContext, useLayoutEffect, useRef, useState, type AudioHTMLAttributes } from 'react';
+import { createContext, useContext, useLayoutEffect, useRef, useState, type AudioHTMLAttributes, type RefObject } from 'react';
 import { restoreMediaListeningGainOnMetadata } from './media-listening-gain-readiness.ts';
 
 /** Menu-owned auditions share the editor's listening output without changing media transport. */
@@ -9,6 +9,12 @@ export const AudioEditorListeningOutputDeviceContext = createContext('');
 
 export function AudioEditorListeningPreview(props: AudioHTMLAttributes<HTMLAudioElement>) {
 	const audio = useRef<HTMLAudioElement>(null);
+	const ready = useAudioEditorListeningMedia(audio, props.src);
+	return <audio {...props} controls={props.controls && ready} ref={audio} />;
+}
+
+/** Shared gain, metadata readiness and serialized output routing for audio and video auditions. */
+export function useAudioEditorListeningMedia(audio: RefObject<HTMLMediaElement | null>, src?: string): boolean {
 	const gain = useContext(AudioEditorListeningGainContext);
 	const preferredOutput = useContext(AudioEditorListeningOutputDeviceContext);
 	const output = preferredOutput.startsWith('native:') ? '' : preferredOutput;
@@ -21,10 +27,10 @@ export function AudioEditorListeningPreview(props: AudioHTMLAttributes<HTMLAudio
 	currentVolume.current = volume;
 	useLayoutEffect(() => {
 		if (audio.current) audio.current.volume = volume;
-	}, [volume, props.src]);
+	}, [audio, volume, src]);
 	useLayoutEffect(() => {
 		if (audio.current) return restoreMediaListeningGainOnMetadata(audio.current, () => currentVolume.current);
-	}, [props.src]);
+	}, [audio, src]);
 	useLayoutEffect(() => {
 		const player = audio.current;
 		if (!player || typeof player.setSinkId !== 'function') return;
@@ -36,6 +42,6 @@ export function AudioEditorListeningPreview(props: AudioHTMLAttributes<HTMLAudio
 			if (current) setReadyOutput(output);
 		}).catch(() => { if (current) player.pause(); });
 		return () => { current = false; };
-	}, [output]);
-	return <audio {...props} controls={props.controls && (!canRouteOutput || readyOutput === output)} ref={audio} />;
+	}, [audio, output]);
+	return !canRouteOutput || readyOutput === output;
 }

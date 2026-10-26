@@ -187,7 +187,7 @@ export default function WorkspacePanelContent({
 				controller={controller} snapshot={snapshot} runtimeProject={runtimeProject} copy={copy} panelActive={panelActive} run={run} /></React.Suspense>;
 		}
 		return (
-			<SourceMonitorPanel
+			<SourceMonitorPanel panelActive={panelActive}
 				controller={controller}
 				snapshot={snapshot}
 				copy={copy}

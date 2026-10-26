@@ -24,7 +24,7 @@ import { createLocalAssistanceGuidedHighlightPreviewPlanV1,
 import type { LocalAssistanceSelectedVideoSourceTimeDescriptorV1 } from
 	'../../controller/assistance/local-assistance-selected-video-source-time.ts';
 import AudioEditorTimeCodeInput from '../AudioEditorTimeCodeInput.tsx';
-import { AudioEditorListeningPreview } from '../audio-editor-listening-preview.tsx';
+import { AudioEditorListeningPreview, useAudioEditorListeningMedia } from '../audio-editor-listening-preview.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 type ReviewCrop = Readonly<{ left: number; top: number; right: number; bottom: number }>;
@@ -451,6 +451,7 @@ function HighlightVideoTransport({ body, label, cropLabel, plan }: Readonly<{
 }>) {
 	const [source, setSource] = useState<string>();
 	const video = useRef<HTMLVideoElement>(null);
+	const listeningReady = useAudioEditorListeningMedia(video, source);
 	useEffect(() => {
 		const url = URL.createObjectURL(body);
 		setSource(url);
@@ -474,7 +475,7 @@ function HighlightVideoTransport({ body, label, cropLabel, plan }: Readonly<{
 		data-preview-source-end-frame={plan.sourceEndFrame}>
 		<strong>{label}</strong>
 		<div className="kw-local-assistance__highlight-preview-frame">
-			<video ref={video} controls preload="metadata" src={source}
+			<video ref={video} controls={listeningReady} preload="metadata" src={source}
 				onLoadedMetadata={seek}
 				onPlay={(event) => {
 					if (event.currentTarget.currentTime < plan.startSeconds
