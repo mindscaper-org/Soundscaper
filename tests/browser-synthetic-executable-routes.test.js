@@ -3,6 +3,14 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
+import {
+	createSourceFile,
+	isExportDeclaration,
+	isImportDeclaration,
+	isStringLiteral,
+	ScriptKind,
+	ScriptTarget,
+} from 'typescript';
 import { assertBrowserCoverageObserverSpec } from '../scripts/lib/browser-coverage-observer-policy.mjs';
 
 const BROWSER_SPECS = new URL('browser/', import.meta.url);
@@ -12,7 +20,6 @@ const EXECUTABLE_MIME = /contentType:\s*['"](?:application|text)\/(?:ecmascript|
 const EXECUTABLE_SCRIPT_TAG = /<script\b(?![^>]*\btype\s*=\s*['"]importmap['"])[^>]*>/iu;
 const EXECUTABLE_HTML_ATTRIBUTE = /<[^>]+\s(?:on[a-z]+|srcdoc)\s*=/iu;
 const JAVASCRIPT_HTML_URL = /<[^>]+\s(?:href|src)\s*=\s*['"]javascript:/iu;
-const LOCAL_IMPORT = /(?:\bfrom\s+|^\s*import\s+)['"](\.[^'"]+)['"]/gmu;
 
 test('coverage-bearing browser specs opt out when they serve test-only executable code', async () => {
 	const names = (await readdir(BROWSER_SPECS))
@@ -77,6 +84,43 @@ test('browser helper traversal keeps independent entry closures while sharing so
 	assert.deepEqual(reads.sort(), [shared.href, cycle.href, exclusive.href].sort());
 });
 
+test('browser helper traversal follows static imports and exports without parsing embedded source', async () => {
+	const imported = new URL('helpers/synthetic-imported.js', BROWSER_SPECS);
+	const exported = new URL('helpers/synthetic-exported.js', BROWSER_SPECS);
+	const contents = new Map([
+		[imported.href, 'export const imported = "<script>imported()</script>";'],
+		[exported.href, 'export const exported = "<button onclick=exported()>Open</button>";'],
+	]);
+	const reads = [];
+	const source = await sourceWithLocalBrowserHelpers(
+		new URL('synthetic-static-imports.spec.js', BROWSER_SPECS),
+		[
+			'import { imported } from "./helpers/synthetic-imported.js";',
+			'export { exported } from "./helpers/synthetic-exported.js";',
+			'const bundled = `export { embedded } from "./helpers/template-only.js";`;',
+			'// import "./helpers/line-comment-only.js";',
+			'/* export { commented } from "./helpers/block-comment-only.js"; */',
+		].join('\n'),
+		browserSourceReader(async (url) => {
+			reads.push(url.href);
+			assert.ok(contents.has(url.href), `Unexpected helper ${url.href}`);
+			return contents.get(url.href);
+		}),
+	);
+	assert.match(source, EXECUTABLE_SCRIPT_TAG);
+	assert.match(source, EXECUTABLE_HTML_ATTRIBUTE);
+	assert.deepEqual(reads.sort(), [imported.href, exported.href].sort());
+});
+
+test('browser helper traversal preserves read failures for actual imports', async () => {
+	const missing = Object.assign(new Error('Missing browser helper'), { code: 'ENOENT' });
+	await assert.rejects(sourceWithLocalBrowserHelpers(
+		new URL('synthetic-missing-helper.spec.js', BROWSER_SPECS),
+		'import "./helpers/synthetic-missing.js";',
+		browserSourceReader(async () => { throw missing; }),
+	), (error) => error === missing);
+});
+
 function browserSourceReader(readSource = (url) => readFile(url, 'utf8')) {
 	// Helpers are immutable during this audit and many specs share them. Keep
 	// the read snapshot local to one audit without sharing traversal state.
@@ -96,8 +140,12 @@ async function sourceWithLocalBrowserHelpers(entryUrl, entrySource, readSource) 
 		if (visited.has(url.href)) continue;
 		visited.add(url.href);
 		sources.push(source);
-		for (const match of source.matchAll(LOCAL_IMPORT)) {
-			const dependency = new URL(match[1], url);
+		const module = createSourceFile(url.pathname, source, ScriptTarget.ES2022, true, ScriptKind.JS);
+		for (const statement of module.statements) {
+			if (!isImportDeclaration(statement) && !isExportDeclaration(statement)) continue;
+			const specifier = statement.moduleSpecifier;
+			if (!specifier || !isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
+			const dependency = new URL(specifier.text, url);
 			if (!dependency.href.startsWith(BROWSER_SPECS.href)
 				|| !dependency.pathname.endsWith('.js')) continue;
 			pending.push({ source: await readSource(dependency), url: dependency });
