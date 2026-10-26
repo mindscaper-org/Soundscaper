@@ -6,7 +6,6 @@ import test from 'node:test';
 import type { FfmpegOutputSink } from '../src/common/editor/ffmpeg-output-stream.ts';
 import { createEditorVideoExportAction } from '../src/common/editor/controller/export/internal/video/video-export-service.ts';
 import type {
-	ProductVideoExportPlan,
 	ProductVideoExportStrategy,
 	ProductVideoExportStrategyEncodeRequest,
 	ProductVideoExportStrategyPlanRequest,
@@ -18,10 +17,8 @@ import { createVideoKeyframeExportPlanV7 } from '../src/common/editor/video-keyf
 import { registeredVideoTimingIndex } from '../src/common/editor/video-source-time.ts';
 import { createVideoTimingAssetPublication } from '../src/common/editor/video-timing-asset.ts';
 import { CANONICAL_VIDEO_EXPORT_PLAN_VERSION } from '../src/common/editor/video-export-plan-version.ts';
-import {
-	createFixture as createExportServiceFixture,
-	legacyVideoFfmpegFixture,
-} from './helpers/export-service-fixture.ts';
+import { legacyVideoFfmpegFixture } from './helpers/export-service-fixture.ts';
+import { createPictureOnlyFixture } from './helpers/product-picture-export-fixture.ts';
 import { installWebCodecsSupport } from './helpers/webcodecs-test-environment.ts';
 
 const SAMPLE_RATE = 48_000;
@@ -162,17 +159,6 @@ test('product picture authority exports stills and generators without fake video
 	assert.ok(mixed.capture.audioMix instanceof Blob);
 });
 
-test('product audio authority preserves generated audio detection and the explicit audio opt-out', async () => {
-	for (const [withAudio, reportedAudio, includeAudio, expected] of [
-		[false, true, undefined, true], [true, false, undefined, false], [false, true, false, false],
-	] as const) {
-		const fixture = createPictureOnlyFixture('generator', withAudio, reportedAudio);
-		assert.ok(await fixture.exportVideo({ format: 'video-mp4', includeAudio }));
-		assert.equal(fixture.capture.includeAudio, expected);
-		assert.equal(fixture.capture.audioMix instanceof Blob, expected);
-	}
-});
-
 interface FixtureOptions {
 	readonly mode: 'blob' | 'direct';
 	readonly desktop?: boolean;
@@ -180,92 +166,6 @@ interface FixtureOptions {
 	readonly cancelPreparation?: boolean;
 	readonly staticRange?: boolean;
 	readonly linkedOriginal?: boolean;
-}
-
-function createPictureOnlyFixture(kind: 'still' | 'generator', withAudio: boolean, reportedAudio?: boolean) {
-	const fixture = createExportServiceFixture();
-	const pictureClip = Object.freeze({
-		id: `${kind}-clip`, kind, sourceId: `${kind}-source`,
-		timelineStartFrame: 0, durationFrames: SAMPLE_RATE,
-	});
-	const audioClip = Object.freeze({
-		id: 'audio-clip', kind: 'audio', sourceId: 'audio-source',
-		timelineStartFrame: 0, durationFrames: SAMPLE_RATE,
-	});
-	const project = Object.freeze({
-		id: `picture-${kind}`, title: `Picture ${kind}`,
-		sampleRate: SAMPLE_RATE, masterChannels: 2,
-		tracks: Object.freeze([
-			Object.freeze({
-				id: 'picture-track', type: 'video', hidden: false,
-				clipIds: Object.freeze([pictureClip.id]),
-			}),
-			...(withAudio ? [Object.freeze({
-				id: 'audio-track', type: 'audio', clipIds: Object.freeze([audioClip.id]),
-			})] : []),
-		]),
-		clips: Object.freeze([pictureClip, ...(withAudio ? [audioClip] : [])]),
-		sources: Object.freeze([Object.freeze({ id: `${kind}-source`, kind })]),
-	});
-	const capture: {
-		timingSourceIds?: readonly string[];
-		videoBlobIds?: readonly string[];
-		includeAudio?: boolean;
-		audioMix?: Blob | null;
-	} = {};
-	const plan: ProductVideoExportPlan = Object.freeze({
-		version: 13, format: 'mp4', extension: 'mp4', mimeType: 'video/mp4', sampleRate: SAMPLE_RATE, quality: 'balanced',
-		range: Object.freeze({ startFrame: 0, endFrame: SAMPLE_RATE, durationFrames: SAMPLE_RATE }),
-		canvas: Object.freeze({
-			width: 640, height: 360, frameRate: Object.freeze({ num: 1, den: 1 }),
-			fit: 'contain', pixelFormat: 'yuv420p', backgroundColor: '#000000',
-		}),
-		inputs: Object.freeze(withAudio ? [Object.freeze({
-			kind: 'staged-audio-mix', channelLayout: 'preserve',
-		})] : []),
-		activeSourceIds: Object.freeze([]),
-	});
-	const strategy: ProductVideoExportStrategy = Object.freeze({
-		createExportProject: () => project,
-		hasPicture: (candidate: Readonly<Record<string, unknown>>) => candidate === project,
-		...(reportedAudio === undefined ? {} : { hasAudio: () => reportedAudio }),
-		createPlan(request: ProductVideoExportStrategyPlanRequest) {
-			capture.includeAudio = request.includeAudio;
-			return plan;
-		},
-		captureTimingSourceIds(candidate: ProductVideoExportPlan) {
-			assert.strictEqual(candidate, plan);
-			capture.timingSourceIds = candidate.activeSourceIds;
-			return [];
-		},
-		async encode(request: ProductVideoExportStrategyEncodeRequest) {
-			capture.videoBlobIds = [...request.videoBlobs.keys()];
-			capture.audioMix = request.audioMix;
-			return Object.freeze({
-				bytes: Uint8Array.of(1, 2, 3, 4), byteLength: 4,
-				extension: '.mp4' as const, mimeType: 'video/mp4' as const,
-			});
-		},
-		async encodeToSink() { throw new Error('picture test does not use a sink'); },
-	});
-	const runtime = {
-		...fixture.runtime,
-		getProject: () => project,
-		findClip: (_value: unknown, id: string) => (
-			project.clips.find((clip) => clip.id === id)
-		),
-		findSource: (_value: unknown, id: string) => (
-			project.sources.find((source) => source.id === id)
-		),
-		options: { productVideoExportStrategy: strategy },
-	};
-	return {
-		capture,
-		exportVideo: createEditorVideoExportAction(runtime as never, async () => Object.freeze({
-			sampleRate: SAMPLE_RATE,
-			channels: [new Float32Array(SAMPLE_RATE), new Float32Array(SAMPLE_RATE)],
-		})),
-	};
 }
 
 function createFixture(options: FixtureOptions) {
