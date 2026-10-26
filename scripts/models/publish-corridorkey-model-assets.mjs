@@ -66,16 +66,17 @@ async function main(args) {
 	if (args.length === 2 && args[0] === '--prepare-source') {
 		const sourceRoot = resolve(args[1]);
 		const { source } = await json('config/framescaper-corridorkey-model-source-candidate.json');
-		for (const artifact of [...source.artifacts, ...source.notices, ...source.cradioCodeSnapshot.files]) {
+		const fetchArtifact = async artifact => {
 			await fetchPinnedArtifact({ artifact: { ...artifact, fileName: artifact.localPath },
 				modelId: basename(sourceRoot), stagingRoot: dirname(sourceRoot) });
 			console.log(`Authenticated ${artifact.localPath}`);
-		}
+		};
+		await Promise.all(source.artifacts.map(fetchArtifact));
+		for (const artifact of [...source.notices, ...source.cradioCodeSnapshot.files]) await fetchArtifact(artifact);
 		return;
 	}
 	if (args.length === 3 && args[0] === '--stage-notices') {
 		const directory = resolve(args[2]); await mkdir(directory, { recursive: true });
-		for (const artifact of artifacts.filter(value => value.fileName.endsWith('.onnx'))) await assertCorridorKeyAssetFile(directory, artifact);
 		for (const artifact of register.notices) {
 			await assertCorridorKeyAssetFile(resolve(args[1]), artifact);
 			await copyFile(join(resolve(args[1]), artifact.fileName), join(directory, artifact.fileName));

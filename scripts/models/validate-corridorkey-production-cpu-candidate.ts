@@ -28,6 +28,9 @@ interface Conversion {
 	readonly toolchainLockSha256: string;
 	readonly environment: Readonly<Record<string, string>>;
 	readonly conversionToolFiles: readonly { readonly fileName: string; readonly byteLength: number; readonly sha256: string }[];
+	readonly allFiveGraphsValidated: boolean;
+	readonly graphs: readonly { readonly role: string; readonly status: string; readonly storage: string;
+		readonly artifacts: readonly { readonly fileName: string; readonly byteLength: number; readonly sha256: string }[] }[];
 }
 interface ReferenceIdentity { readonly sourceRevision: string; readonly trackedSourceFiles: number;
 	readonly environment: Readonly<Record<string, string>> }
@@ -38,6 +41,19 @@ const sourceRegister = 'config/framescaper-corridorkey-model-source-candidate.js
 const toolRoot = 'scripts/models/corridorkey-conversion-tool';
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 const json = async <T>(path: string): Promise<T> => JSON.parse(await readFile(path, 'utf8')) as T;
+
+/** A diagnostic may measure a newly exported candidate before its download identity is admitted. */
+export function corridorKeyDiagnosticGraphs(conversion: Conversion) {
+	if (!conversion.allFiveGraphsValidated || conversion.graphs.length !== CORRIDORKEY_GRAPH_ARTIFACTS_V1.length) throw new Error('Incomplete candidate graph validation.');
+	return CORRIDORKEY_GRAPH_ARTIFACTS_V1.map(expected => {
+		const matches = conversion.graphs.filter(graph => graph.role === expected.role);
+		const graph = matches[0]; const artifact = graph?.artifacts[0];
+		if (matches.length !== 1 || graph?.status !== 'candidate-cpu-parity-passed' || graph.storage !== 'embedded-single-blob'
+			|| graph.artifacts.length !== 1 || artifact?.fileName !== expected.fileName || !Number.isSafeInteger(artifact.byteLength)
+			|| artifact.byteLength < 1 || artifact.byteLength >= 2 ** 31 || !/^[a-f\d]{64}$/u.test(artifact.sha256)) throw new Error('Invalid candidate graph identity.');
+		return { role: expected.role, ...artifact };
+	});
+}
 
 async function pin(path: string): Promise<Pin> {
 	const absolute = resolve(root, path);
@@ -104,14 +120,15 @@ async function main(): Promise<void> {
 	await assertPin(options.get('--runtime-archive')!, bundle.archive);
 	if (JSON.stringify(await files(runtimeRoot)) !== JSON.stringify(bundle.files.map(row => row.path))) throw new Error('Runtime file inventory differs.');
 	for (const row of bundle.files) await assertPin(join(runtimeRoot, row.path), row);
+	const conversionPath = 'evidence/framescaper-corridorkey-conversion-candidate.json';
+	const conversion = await json<Conversion>(join(root, conversionPath));
+	const candidateGraphs = corridorKeyDiagnosticGraphs(conversion);
 	const modelPaths = {} as Record<typeof CORRIDORKEY_GRAPH_ARTIFACTS_V1[number]['role'], string>;
-	for (const row of CORRIDORKEY_GRAPH_ARTIFACTS_V1) {
+	for (const row of candidateGraphs) {
 		const path = join(options.get('--model-root')!, row.fileName);
 		await assertPin(path, row);
 		modelPaths[row.role] = path;
 	}
-	const conversionPath = 'evidence/framescaper-corridorkey-conversion-candidate.json';
-	const conversion = await json<Conversion>(join(root, conversionPath));
 	if ((await pin(sourceRegister)).sha256 !== conversion.registerSha256
 		|| (await pin(`${toolRoot}/uv.lock`)).sha256 !== conversion.toolchainLockSha256) throw new Error('Conversion source register or Python lock differs.');
 	for (const row of conversion.conversionToolFiles) await assertPin(`${toolRoot}/${row.fileName}`, row);
@@ -195,7 +212,7 @@ async function main(): Promise<void> {
 			processorSources: await Promise.all(processorSources.map(pin)), runnerSources: await Promise.all([runner, referenceHelper].map(pin)) },
 		reference: { ...reference, fixture: { name: 'moving-ellipse-green-screen-rgba8-v1', width: 256, height: 256, frameCount: 2,
 			referenceRgbaSha256: referenceDigest.digest('hex') } },
-		graphs: CORRIDORKEY_GRAPH_ARTIFACTS_V1, sessions: sessions.slice(0, 5), frames,
+		graphs: candidateGraphs, sessions: sessions.slice(0, 5), frames,
 		hintValidation: { settings: CORRIDORKEY_CHROMA_HINT_DEFAULTS, sessions: sessions.slice(5), frames: hintedFrames },
 		invocation: ['node', '--import', 'tsx', runner, ...args], elapsedSeconds: Math.round((performance.now() - started) / 100) / 10,
 	};

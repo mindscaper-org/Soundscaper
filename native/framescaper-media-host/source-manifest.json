@@ -277,8 +277,8 @@
 		},
 		{
 			"path": "src/legacy_plan_values.hpp",
-			"byteLength": 9364,
-			"sha256": "358a2e9b28ded522b2a3f6ee1c076dc16286903a820edeb1372ce65ed6f7cdcd"
+			"byteLength": 9056,
+			"sha256": "feebdba1b959fb1114831a92a32ac5056d1c87ceed81c339fecb7b1f317a7c08"
 		},
 		{
 			"path": "src/media_file_grants.cpp",
@@ -319,6 +319,11 @@
 			"path": "src/media_plan.hpp",
 			"byteLength": 1734,
 			"sha256": "a5948f3a260020fe52cd3540b10e400465e97fd21997abe2d4e3b93687826cff"
+		},
+		{
+			"path": "src/portable_decimal.hpp",
+			"byteLength": 1053,
+			"sha256": "47d1f9ad8511f7022b01024a6a81b09d1150ea008c30ec9aa2620ffeefc376ff"
 		},
 		{
 			"path": "src/professional_source_probe.cpp",
@@ -382,8 +387,8 @@
 		},
 		{
 			"path": "src/unified_plan_common.hpp",
-			"byteLength": 22806,
-			"sha256": "1aba59208f42475beaf45bfaa602792d56afec02c19347d6a0db1bbe1b8fa6d0"
+			"byteLength": 22558,
+			"sha256": "c5974bfe11045ba2ffb41f7ca75657f6e0f916e5a164505d1d0230bc4fb76f70"
 		},
 		{
 			"path": "src/unified_plan_identity_authority.hpp",
