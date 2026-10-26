@@ -2,6 +2,8 @@
 
 import { applyPreparedManagedSdrGradeStackLinearChannelsV1, type PreparedManagedSdrGradeStackV1 } from './video-color-management-v27.ts';
 
+const CHECK = AbortSignal.prototype.throwIfAborted;
+
 /** Straight linear working channels stay normalized floats until final encoding. */
 export interface UnifiedExactLinearSourceFrame {
 	readonly width: number;
@@ -17,9 +19,7 @@ export function gradeUnifiedExactLinearSourceFrame(
 	const pixels = new Float32Array(frame.pixels.length);
 	const scale = frame.pixels instanceof Uint8Array ? 255 : 1;
 	for (let offset = 0; offset < pixels.length; offset += 4) {
-		if (offset % (frame.width * 4) === 0 && signal?.aborted) {
-			throw signal.reason ?? new DOMException('Exact linear grading was aborted.', 'AbortError');
-		}
+		if (offset % (frame.width * 4) === 0 && signal !== undefined) Reflect.apply(CHECK, signal, []);
 		const value = applyPreparedManagedSdrGradeStackLinearChannelsV1(prepared,
 			frame.pixels[offset]! / scale, frame.pixels[offset + 1]! / scale,
 			frame.pixels[offset + 2]! / scale, frame.pixels[offset + 3]! / scale);
