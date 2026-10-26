@@ -36,6 +36,8 @@ export const FREESOUND_ATTRIBUTION_ENGLISH_COPY = Object.freeze({
 	sortRating: 'Highest rated',
 	searching: 'Searching Freesound',
 	searchError: 'Freesound search failed.',
+	searchRequestFailed: 'Freesound search could not connect. Check your connection and try again.',
+	searchRequestHttpFailed: 'Freesound returned HTTP {status}. Try the search again later.',
 	importError: 'The Freesound sound could not be imported.',
 	unavailable: 'Freesound is unavailable right now.',
 	searchPrompt: 'Search Freesound to find audio for this project.',

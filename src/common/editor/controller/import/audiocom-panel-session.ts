@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import type { OnlineMediaFailure } from '../../online-media-failure.ts';
 import type { UploadValidationFailure } from '../../upload-validation-failure.ts';
 
 import { createPanelSession } from './internal/audiocom-panel-session.ts';
@@ -75,15 +76,18 @@ export interface AudiocomPanelSnapshot {
 		status: 'loading' | 'connecting' | 'connected' | 'disconnected';
 		user?: Readonly<{ username: string }>;
 		errorMessage?: string;
+		requestFailure?: OnlineMediaFailure;
 	}>;
 	readonly search: AudiocomSearchPage & Readonly<{
 		query: string;
 		status: 'idle' | 'loading' | 'ready' | 'error';
 		errorMessage?: string;
+		requestFailure?: OnlineMediaFailure;
 	}>;
 	readonly uploadQueue: Readonly<{ items: readonly AudiocomUploadItem[]; active: boolean }>;
 	readonly previewingId: string | null;
 	readonly previewError?: string;
+	readonly previewFailure?: OnlineMediaFailure;
 }
 
 export interface AudiocomPreviewAudio {

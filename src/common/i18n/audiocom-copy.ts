@@ -5,6 +5,16 @@ import { resolveEditorCopyScope } from './editor-copy-scope.ts';
 
 const ENGLISH = Object.freeze({
 	...UPLOAD_VALIDATION_COPY,
+	projectUploadCancelled: 'The upload was cancelled. The server may retain an unfinished project. Refresh the archive list before trying again.',
+	projectArchiveInvalid: 'The selected project archive is invalid. Choose a complete Audacity project file.',
+	projectArchiveTooLarge: 'The project archive exceeds the server size limit.',
+	projectArchiveRequestFailed: 'The cloud project request failed. Check your connection and try again.',
+	projectArchiveRefreshFailed: 'The project was stored, but the cloud list could not be refreshed. Refresh the list before saving again.',
+	connectionError: 'The audio.com connection failed. Check your connection and try reconnecting.',
+	connectionExpired: 'Your audio.com connection expired. Reconnect to continue.',
+	searchRequestFailed: 'The audio.com search could not connect. Check your connection and try again.',
+	searchRequestHttpFailed: 'audio.com returned HTTP {status}. Try the search again later.',
+	previewFailed: 'The audio.com preview could not be played. Try again or check your listening device.',
 	panel: 'audio.com', siteName: 'audio.com', searchLabel: 'Search audio.com',
 	searchPlaceholder: 'Search audio', search: 'Search', searching: 'Searching audio.com',
 	searchPrompt: 'Connect to audio.com to search and share audio.', noResults: 'No audio matches this search.',

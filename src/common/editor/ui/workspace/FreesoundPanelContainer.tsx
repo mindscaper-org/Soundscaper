@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { onlineMediaFailure } from '../../online-media-failure.ts';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { isCurrentAssertion, type EditorProjectToken } from '../../controller/shared/lifecycle.ts';
 
@@ -206,7 +207,7 @@ export function FreesoundPanelContainer({
 		const sequence = searchSequence.current + 1;
 		searchSequence.current = sequence;
 		setState((current) => ({
-			...current, ...request, status: 'loading', errorMessage: undefined,
+			...current, ...request, status: 'loading', searchFailure: undefined, errorMessage: undefined,
 		}));
 		void actions.search({ ...request, signal: abort.signal }).then((page) => {
 			if (searchSequence.current !== sequence || abort.signal.aborted) return;
@@ -227,7 +228,7 @@ export function FreesoundPanelContainer({
 		}).catch((error: unknown) => {
 			if (searchSequence.current !== sequence || abort.signal.aborted) return;
 			setState((current) => ({
-				...current, status: 'error', errorMessage: errorMessage(error, localizedCopy.searchError),
+				...current, status: 'error', searchFailure: onlineMediaFailure('search', error), errorMessage: errorMessage(error, localizedCopy.searchError),
 			}));
 		});
 	}, [actions, localizedCopy.searchError, stopPreview]);
@@ -312,7 +313,7 @@ export function FreesoundPanelContainer({
 				return;
 			}
 			setState((current) => ({
-				...current, status: 'error', errorMessage: errorMessage(error, localizedCopy.importError),
+				...current, status: 'error', searchFailure: undefined, errorMessage: errorMessage(error, localizedCopy.importError),
 			}));
 		}).finally(() => {
 			if (pendingImport.current !== abort) return;

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { onlineMediaFailure, OnlineMediaOperationError } from '../../../online-media-failure.ts';
 import type { AudiocomArchiveSnapshot, AudiocomProjectArchive, AudiocomProjectArchiveOptions, AudiocomProjectArchives } from '../audiocom-project-archives.ts';
 import { createAudiocomProjectArchiveClient } from './audiocom-project-archive-client.ts';
 import { AudiocomApiError } from './audiocom-api-client.ts';
@@ -22,12 +23,12 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 	const cancel = (): void => {
 		++generation; abort?.abort(); abort = null;
 		emit({ status: snapshot.supported ? 'ready' : 'idle', ...(snapshot.status === 'uploading'
-			? { errorMessage: 'The upload was cancelled. The server may retain an unfinished project. Refresh the archive list before trying again.' } : {}) });
+			? { requestFailure: onlineMediaFailure('archive-cancelled'), errorMessage: 'The upload was cancelled. The server may retain an unfinished project. Refresh the archive list before trying again.' } : {}) });
 	};
 	const operation = async (status: AudiocomArchiveSnapshot['status'], task: (signal: AbortSignal) => Promise<Partial<AudiocomArchiveSnapshot>>): Promise<void> => {
 		if (!connected || disposed) return;
 		cancel(); const current = generation; const selected = new AbortController(); abort = selected;
-		emit({ status, errorMessage: undefined, completedFileName: undefined });
+		emit({ status, requestFailure: undefined, errorMessage: undefined, completedFileName: undefined });
 		try {
 			const patch = await task(selected.signal);
 			if (!disposed && connected && current === generation && !selected.signal.aborted) emit({ ...patch, status: 'ready' });
@@ -36,9 +37,9 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 				if (error instanceof AudiocomApiError && error.status === 401) {
 					connected = false; ++generation;
 					savedProjects.clear();
-					emit({ ...empty(), provider: snapshot.provider, errorMessage: error.message, status: 'error' });
+					emit({ ...empty(), provider: snapshot.provider, requestFailure: onlineMediaFailure('connection-expired', error), errorMessage: error.message, status: 'error' });
 					options.onAuthenticationExpired?.();
-				} else emit({ status: 'error', errorMessage: error instanceof Error ? error.message : 'The project archive request failed.' });
+				} else emit({ status: 'error', requestFailure: onlineMediaFailure('archive-request', error), errorMessage: error instanceof Error ? error.message : 'The project archive request failed.' });
 			}
 		} finally { if (abort === selected) abort = null; }
 	};
@@ -88,8 +89,9 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 				}
 				const format = 'aup3';
 				const file = await serialize(format, signal); signal.throwIfAborted();
-				if (file.size < 16 || file.size > snapshot.maximumBytes) throw new Error('The project archive exceeds the server size limit.');
-				if (new TextDecoder().decode(await file.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new Error('The project archive is invalid.');
+				if (file.size < 16) throw new OnlineMediaOperationError('archive-invalid', 'The project archive is invalid.');
+				if (file.size > snapshot.maximumBytes) throw new OnlineMediaOperationError('archive-size', 'The project archive exceeds the server size limit.');
+				if (new TextDecoder().decode(await file.slice(0, 16).arrayBuffer()) !== 'SQLite format 3\0') throw new OnlineMediaOperationError('archive-invalid', 'The project archive is invalid.');
 				signal.throwIfAborted();
 				const name = revision?.name ?? (file.name.replace(/\.aup[34]$/iu, '').trim().slice(0, 256) || 'Project');
 				const uploaded = await client.upload(file, name, signal, revision); signal.throwIfAborted();
@@ -99,7 +101,7 @@ export function createProjectArchives(options: AudiocomProjectArchiveOptions): A
 				catch (error) {
 					signal.throwIfAborted();
 					if (error instanceof AudiocomApiError && error.status === 401) throw error;
-					return { completedFileName: file.name, errorMessage: error instanceof Error
+					return { completedFileName: file.name, requestFailure: onlineMediaFailure('archive-refresh', error), errorMessage: error instanceof Error
 						? error.message : 'The project archive request failed.' };
 				}
 			});

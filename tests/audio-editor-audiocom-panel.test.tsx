@@ -5,12 +5,14 @@ import test from 'node:test';
 import React, { act } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
+import { AUDIOCOM_COPY_BY_LOCALE } from '../src/common/i18n/audiocom-copy.ts';
 import AudiocomPanel, { type AudiocomPanelProps } from '../src/common/editor/ui/workspace/AudiocomPanel.tsx';
 import AudiocomPublishDialog from '../src/common/editor/ui/workspace/AudiocomPublishDialog.tsx';
 import AudiocomLink from '../src/common/editor/ui/workspace/AudiocomLink.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 const COPY = {
+	...AUDIOCOM_COPY_BY_LOCALE.en,
 	siteName: 'audio.com', searchLabel: 'Search audio.com', searchPlaceholder: 'Search audio.com',
 	search: 'Search', searching: 'Searching…', searchPrompt: 'Search for audio.', noResults: 'No audio found.',
 	results: 'Search results', resultsCount: '{count} results', searchError: 'Search failed',
@@ -173,7 +175,7 @@ test('the upload queue exposes cancellation, retry, and published links with fil
 	}} />);
 	assert.match(markup, /Cancel<span class="kw-audio-editor-sr-only">: rain\.wav/u);
 	assert.match(markup, /Retry<span class="kw-audio-editor-sr-only">: wind\.flac/u);
-	assert.match(markup, /role="alert">Connection lost/u);
+	assert.match(markup, /role="alert">The audio\.com upload failed\./u);
 	assert.match(markup, /href="https:\/\/audio.com\/field\/audio\/forest"/u);
 });
 

@@ -4,6 +4,7 @@ import type {
 	AudiocomAccount, AudiocomPanelSession, AudiocomPanelSessionOptions,
 	AudiocomPanelSnapshot, AudiocomPreviewAudio,
 } from '../audiocom-panel-session.ts';
+import { onlineMediaFailure } from '../../../online-media-failure.ts';
 import { AudiocomApiError, createAudiocomApiClient } from './audiocom-api-client.ts';
 import { createAudiocomUploadQueue } from './audiocom-upload-queue.ts';
 import { prepareAudiocomPreview } from './audiocom-original-preview.ts';
@@ -52,7 +53,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 		if (!(error instanceof AudiocomApiError) || error.status !== 401 || disposed) return;
 		++accountGeneration;
 		accountAbort?.abort(); searchAbort?.abort(); stopPreview(); queue.reset();
-		emit({ auth: { status: 'disconnected', errorMessage: error.message }, search: emptySearch() });
+		emit({ auth: { status: 'disconnected', requestFailure: onlineMediaFailure('connection-expired', error), errorMessage: error.message }, search: emptySearch() });
 	}
 	const applyAccount = (account: AudiocomAccount): void => {
 		emit({ auth: { status: account.connected ? 'connected' : 'disconnected', ...(account.user ? { user: account.user } : {}) } });
@@ -66,7 +67,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			if (!disposed && generation === accountGeneration) applyAccount(account);
 		}).catch((error: unknown) => {
 			if (!disposed && generation === accountGeneration && !abort.signal.aborted) {
-				emit({ auth: { status: 'disconnected', errorMessage: message(error) } });
+				emit({ auth: { status: 'disconnected', requestFailure: onlineMediaFailure('authentication', error), errorMessage: message(error) } });
 			}
 		});
 		return initialization;
@@ -79,7 +80,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			if (disposed || snapshot.auth.status === 'connecting' || connected()) return;
 			let reservation;
 			try { reservation = client.reserveAuthorization(); }
-			catch (error) { emit({ auth: { status: 'disconnected', errorMessage: message(error) } }); return; }
+			catch (error) { emit({ auth: { status: 'disconnected', requestFailure: onlineMediaFailure('authentication', error), errorMessage: message(error) } }); return; }
 			const generation = ++accountGeneration;
 			accountAbort?.abort();
 			const abort = new AbortController(); accountAbort = abort;
@@ -98,7 +99,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 				if (!abort.signal.aborted) throw new Error('The audio.com connection attempt expired.');
 			} catch (error) {
 				reservation.close();
-				if (!disposed && generation === accountGeneration && !abort.signal.aborted) emit({ auth: { status: 'disconnected', errorMessage: message(error) } });
+				if (!disposed && generation === accountGeneration && !abort.signal.aborted) emit({ auth: { status: 'disconnected', requestFailure: onlineMediaFailure('authentication', error), errorMessage: message(error) } });
 			}
 		},
 		async disconnect(): Promise<void> {
@@ -113,7 +114,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			} catch (error) {
 				if (!disposed && generation === accountGeneration) {
 					const status = error instanceof AudiocomApiError && error.status === 401 ? 'disconnected' : previousAuth.status;
-					emit({ auth: { ...previousAuth, status, errorMessage: message(error) } });
+					emit({ auth: { ...previousAuth, status, requestFailure: onlineMediaFailure('authentication', error), errorMessage: message(error) } });
 				}
 			}
 		},
@@ -124,7 +125,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			searchAbort?.abort(); stopPreview();
 			const abort = new AbortController(); searchAbort = abort;
 			const generation = accountGeneration;
-			emit({ search: { ...snapshot.search, query: normalized, page, status: 'loading', errorMessage: undefined } });
+			emit({ search: { ...snapshot.search, query: normalized, page, status: 'loading', requestFailure: undefined, errorMessage: undefined } });
 			try {
 				const result = await client.search({ query: normalized, page }, abort.signal);
 				if (disposed || abort.signal.aborted || generation !== accountGeneration || searchAbort !== abort) return;
@@ -133,7 +134,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			} catch (error) {
 				if (disposed || abort.signal.aborted || generation !== accountGeneration || searchAbort !== abort) return;
 				expire(error);
-				if (connected()) emit({ search: { ...snapshot.search, status: 'error', errorMessage: message(error) } });
+				if (connected()) emit({ search: { ...snapshot.search, status: 'error', requestFailure: onlineMediaFailure('search', error), errorMessage: message(error) } });
 			}
 		},
 		async preview(id): Promise<void> {
@@ -143,7 +144,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			const result = snapshot.search.results.find(value => value.id === id);
 			if (!result?.previewUrl) return;
 			const abort = new AbortController(); previewAbort = abort;
-			emit({ previewingId: id, previewError: undefined });
+			emit({ previewingId: id, previewFailure: undefined, previewError: undefined });
 			let audio: AudiocomPreviewAudio | null = null;
 			try {
 				const prepared = await (options.preparePreview ?? prepareAudiocomPreview)(result, abort.signal);
@@ -157,7 +158,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 				const ended = (): void => { if (previewAudio === audio) stopPreview(); };
 				const failed = (): void => {
 					if (previewAudio !== audio) return;
-					stopPreview(); emit({ previewError: 'The audio.com preview could not be played.' });
+					stopPreview(); emit({ previewFailure: onlineMediaFailure('preview'), previewError: 'The audio.com preview could not be played.' });
 				};
 				audio.addEventListener('ended', ended); audio.addEventListener('error', failed);
 				previewCleanup = () => { audio?.removeEventListener('ended', ended); audio?.removeEventListener('error', failed); };
@@ -168,7 +169,7 @@ export function createPanelSession(options: AudiocomPanelSessionOptions): Audioc
 			} catch (error) {
 				if (previewAbort === abort && !abort.signal.aborted) {
 					stopPreview(); expire(error);
-					if (connected()) emit({ previewError: message(error) });
+					if (connected()) emit({ previewFailure: onlineMediaFailure('preview', error), previewError: message(error) });
 				}
 			}
 		},

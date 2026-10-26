@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import type { OnlineMediaFailure } from '../../online-media-failure.ts';
+import { onlineMediaFailureText } from './online-media-failure-presentation.ts';
 
 import { Button } from '@soundscaper/design-system/Button';
 import { EditorErrorToast } from '../EditorToast.tsx';
@@ -51,6 +53,7 @@ export interface FreesoundPanelState {
 	readonly totalResults: number;
 	readonly status: FreesoundPanelStatus;
 	readonly errorMessage?: string;
+	readonly searchFailure?: OnlineMediaFailure;
 	readonly previewingSoundId: number | null;
 	readonly previewPaused: boolean;
 	readonly previewPositionSeconds?: number;
@@ -215,7 +218,7 @@ export function FreesoundPanel({
 			</div>
 			{state.status === 'error' && <div className="kw-audio-editor__toasts kw-audio-editor__freesound-toasts">
 				<EditorErrorToast key={state.errorMessage || copy.searchError} id="freesound-search-error"
-					title={copy.searchError} description={state.errorMessage}
+					title={copy.searchError} description={state.searchFailure ? onlineMediaFailureText(state.searchFailure, copy) : state.errorMessage}
 					dismissLabel={copy.close} />
 			</div>}
 
