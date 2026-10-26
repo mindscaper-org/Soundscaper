@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
-	detectPcmTransients,
+	detectOwnedPcmTransients,
 	type DetectPcmTransientsOptions,
 	type TransientAnalysisResult,
 } from './transient-analysis.ts';
@@ -45,7 +45,7 @@ export function executeTransientAnalysisWorkerRequest(
 		return Object.freeze({
 			type: 'result',
 			requestId,
-			result: detectPcmTransients(channels, options),
+			result: detectOwnedPcmTransients(channels, options),
 		});
 	} catch (error) {
 		return Object.freeze({
