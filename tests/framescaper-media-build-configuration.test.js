@@ -31,7 +31,7 @@ test('the generated FFmpeg configuration must contain every required component',
 });
 
 test('the Windows x265 build explicitly selects the static MSVC runtime', () => {
-	const paths = framescaperMediaHostBuildPaths('/work');
+	const paths = framescaperMediaHostBuildPaths('D:/work');
 	const executables = Object.fromEntries([
 		'ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell',
 	].map((role) => [role, { path: `/tools/${role}` }]));
@@ -39,13 +39,15 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 		target: { id: 'win-arm64', cmakePreset: 'win-arm64' }, hostRoot: '/host',
 		ffmpegSourceRoot: '/ffmpeg', boostSourceRoot: '/boost', paths,
 		externalSourceRoots: Object.fromEntries(
-			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map((id) => [id, `/sources/${id}`]),
+			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map((id) => [id, `D:/sources/${id}`]),
 		),
 		tools: { executables }, environment: { PATH: '/tools' }, configureFlags: [],
 	});
 	assert.ok(commands.find(({ phase }) => phase === 'x265-configure')
 		.args.includes('-DSTATIC_LINK_CRT=ON'));
 	const vpx = commands.find(({ phase }) => phase === 'libvpx-configure');
+	assert.equal(vpx.args[0], 'D:/sources/libvpx/configure');
+	assert.ok(vpx.args.includes('--prefix=D:/work/libvpx-install'));
 	assert.ok(vpx.args.includes('--target=arm64-win64-vs17'));
 	assert.equal(Object.hasOwn(vpx.environment, 'CC'), false);
 	assert.equal(Object.hasOwn(vpx.environment, 'CXX'), false);

@@ -144,9 +144,11 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		...(windows ? ['-DSTATIC_LINK_CRT=ON'] : []),
 	];
 	const vpxArgs = [
-		shellPath(join(externalSourceRoots.libvpx, 'configure'), windows),
+		// libvpx writes these paths literally into makefiles consumed by native
+		// Windows Make, which cannot resolve Git Bash's /c/ or /d/ drive aliases.
+		makefilePath(join(externalSourceRoots.libvpx, 'configure'), windows),
 		`--target=${vpxTarget(target.id)}`,
-		`--prefix=${shellPath(paths.libvpxInstall, windows)}`,
+		`--prefix=${makefilePath(paths.libvpxInstall, windows)}`,
 		'--disable-examples', '--disable-tools', '--disable-docs', '--disable-unit-tests',
 		'--disable-shared', '--enable-static', '--enable-pic', '--disable-vp8', '--enable-vp9',
 		'--disable-webm-io', '--disable-libyuv', '--disable-runtime-cpu-detect',
@@ -280,6 +282,10 @@ function shellPath(value, windows) {
 
 function shellTool(value, windows) {
 	return windows ? value.replaceAll('\\', '/').split('/').at(-1) : value;
+}
+
+function makefilePath(value, windows) {
+	return windows ? value.replaceAll('\\', '/') : value;
 }
 
 function command(phase, executable, args, cwd, environment) {
