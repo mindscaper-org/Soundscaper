@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { reviewCorridorKeyAssetPublication, assertCorridorKeyAssetFile } from '../scripts/models/publish-corridorkey-model-assets.mjs';
+import { reviewCorridorKeyAssetPublication, assertCorridorKeyAssetFile, retryCorridorKeyAssetOperation } from '../scripts/models/publish-corridorkey-model-assets.mjs';
 import { CORRIDORKEY_GRAPH_ARTIFACTS_V1 } from '../desktop/assistance-corridorkey-model.ts';
 
 async function fixtures() {
@@ -32,4 +32,31 @@ test('asset file authentication rejects changed bytes before publication', async
 	assert.equal(await assertCorridorKeyAssetFile(directory, artifact), join(directory, artifact.fileName));
 	await writeFile(join(directory, artifact.fileName), Buffer.alloc(bytes.length));
 	await assert.rejects(assertCorridorKeyAssetFile(directory, artifact));
+});
+
+
+test('asset transfers retry network resets and keep integrity failures and cancellation final', async () => {
+	const reset = (): TypeError => new TypeError('terminated', { cause: Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }) });
+	let attempts = 0;
+	const delays: number[] = [];
+	assert.equal(await retryCorridorKeyAssetOperation(async () => {
+		if (++attempts < 3) throw reset();
+		return 'verified';
+	}, async (milliseconds: number) => { delays.push(milliseconds); }), 'verified');
+	assert.equal(attempts, 3);
+	assert.deepEqual(delays, [250, 500]);
+	attempts = 0;
+	await assert.rejects(retryCorridorKeyAssetOperation(async () => {
+		attempts++;
+		throw reset();
+	}, async () => {}), /terminated/u);
+	assert.equal(attempts, 3);
+	for (const error of [new Error('SHA-256 mismatch'), new DOMException('cancelled', 'AbortError')]) {
+		attempts = 0;
+		await assert.rejects(retryCorridorKeyAssetOperation(async () => {
+			attempts++;
+			throw error;
+		}, async () => {}), cause => cause === error);
+		assert.equal(attempts, 1);
+	}
 });
