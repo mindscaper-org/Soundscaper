@@ -7,7 +7,11 @@ interface CaptureVideo extends EventTarget {
 	cancelVideoFrameCallback?: (id: number) => void;
 }
 
-interface CaptureSeekOptions { readonly timeoutMs: number; readonly signal?: AbortSignal; }
+interface CaptureSeekOptions {
+	readonly timeoutMs: number;
+	readonly signal?: AbortSignal;
+	readonly isRequestedFrame?: (mediaTime: number) => boolean;
+}
 
 /** A seek event may precede submission of the decoded pixels to the compositor. */
 export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number, options: CaptureSeekOptions): Promise<void> {
@@ -32,10 +36,15 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 		const onSeeked = (): void => { seeked = true; finish(); };
 		const onError = (): void => { finish(new Error('The browser could not seek this video.')); };
 		const onAbort = (): void => { finish(aborted()); };
-		const onFrame: VideoFrameRequestCallback = () => {
+		const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
 			callbackId = undefined;
-			// A previously queued frame can arrive while the requested seek is pending.
-			if (video.seeking) { callbackId = video.requestVideoFrameCallback?.(onFrame); return; }
+			// WebKit can submit the requested pixels before clearing seeking. Keep
+			// that frame's timing evidence; older queued frames still need a new callback.
+			if (video.seeking && (!Number.isFinite(metadata.mediaTime)
+				|| !(options.isRequestedFrame?.(metadata.mediaTime)
+					?? Math.abs(metadata.mediaTime - timestamp) <= 0.000001))) {
+				callbackId = video.requestVideoFrameCallback?.(onFrame); return;
+			}
 			presented = true; finish();
 		};
 		video.addEventListener('seeked', onSeeked);

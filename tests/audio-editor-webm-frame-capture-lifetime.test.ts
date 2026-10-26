@@ -23,6 +23,36 @@ test('native frame capture loads and mounts a noninteractive decoder before assi
 	assertReleased(fixture);
 });
 
+test('capture waits for current frame data before issuing the first native seek', async () => {
+	const fixture = decoderFixture();
+	Object.assign(fixture.video, { readyState: 1 });
+	const extractor = await fixture.open();
+	try {
+		const pending = extractor.capture(.5);
+		await new Promise<void>(resolve => { setImmediate(resolve); });
+		assert.equal(fixture.video.seeks.length, 0);
+		Object.assign(fixture.video, { readyState: 2 });
+		fixture.video.dispatchEvent(new Event('loadeddata'));
+		await pending;
+		assert.equal(fixture.video.seeks.length, 1);
+		assert.equal(fixture.canvasCount(), 1);
+	} finally { extractor.dispose(); }
+	assertReleased(fixture);
+});
+
+test('disposal cancels a capture waiting for its first drawable frame', async () => {
+	const fixture = decoderFixture();
+	Object.assign(fixture.video, { readyState: 1 });
+	const extractor = await fixture.open();
+	const pending = extractor.capture(.5);
+	const rejected = assert.rejects(pending, { name: 'AbortError' });
+	await new Promise<void>(resolve => { setImmediate(resolve); });
+	extractor.dispose(); await rejected;
+	assert.equal(fixture.video.seeks.length, 0);
+	assert.equal(fixture.canvasCount(), 0);
+	assertReleased(fixture);
+});
+
 test('metadata failure removes the mounted decoder and every event listener', async () => {
 	const fixture = decoderFixture({ metadata: 'error' });
 	await assert.rejects(fixture.open(), /browser could not read this video/u);
