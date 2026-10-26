@@ -1,3 +1,4 @@
+import { beginTrackNameRename } from './track-name-keyboard.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 import { EnvelopeCurve } from '@soundscaper/design-system/EnvelopeCurve';
@@ -437,6 +438,7 @@ export function OutputTrackControls({
 			data-output-track-header
 			style={{ width: trackHeaderWidth }}
 			onKeyDownCapture={(event) => {
+				if (beginTrackNameRename(event, blocked || scope === 'master', () => setEditingName(true))) return;
 				if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 				const panel = controlsRef.current?.querySelector('.track-control-panel');
 				if (event.key !== 'Tab' || event.target !== panel) return;

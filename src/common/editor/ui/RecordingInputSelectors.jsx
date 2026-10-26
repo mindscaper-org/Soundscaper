@@ -75,6 +75,7 @@ export default function RecordingInputSelectors({
 	const handleChannelCountChange = (event) => {
 		if (!route) return;
 		const nextChannelCount = Number(event.currentTarget.value) === 2 ? 2 : 1;
+		if (nextChannelCount > availableChannels) return;
 		const nextOptions = buildChannelOptions({
 			sourceKey,
 			availableChannels: sourceChannelCount(sourceKey, devices, route, nextChannelCount),
@@ -121,7 +122,7 @@ export default function RecordingInputSelectors({
 					onChange={handleChannelCountChange}
 				>
 					<option value="1">{copy.mono}</option>
-					<option value="2">{copy.stereo}</option>
+					<option value="2" disabled={availableChannels < 2}>{copy.stereo}</option>
 				</select>
 			</label>
 			<label>
@@ -173,7 +174,7 @@ function buildSourceOptions({ devices, route, routes, track, channelCount, copy,
 		const unavailable = ['unavailable', 'disconnected', 'ended'].includes(device.status);
 		const channels = buildChannelOptions({
 			sourceKey: key,
-			availableChannels: Math.max(channelCount, Number(device.channelCount) || 0),
+			availableChannels: Number(device.channelCount) || channelCount,
 			channelCount,
 			routes,
 			trackId: track.id,
@@ -182,7 +183,7 @@ function buildSourceOptions({ devices, route, routes, track, channelCount, copy,
 		options.push({
 			value: key,
 			label: deviceOptionLabel(copy, device, index),
-			disabled: (unavailable && currentSourceKey !== key) || !channels.some((option) => !option.disabled),
+			disabled: currentSourceKey !== key && (unavailable || !channels.some((option) => !option.disabled)),
 		});
 	});
 	if (route?.kind === 'device' && !devices.some((device) => device.deviceId === route.deviceId)) {
@@ -211,7 +212,7 @@ function buildChannelOptions({ sourceKey, availableChannels, channelCount, route
 		const count = candidateRoute.channelCount === 1 ? 1 : 2;
 		for (let channel = start; channel < start + count; channel += 1) occupied.add(channel);
 	}
-	const maximum = Math.max(channelCount, Number(availableChannels) || 0, (Number(route?.channelStart) || 0) + channelCount);
+	const maximum = Number(availableChannels) || channelCount;
 	const options = [];
 	for (let channelStart = 0; channelStart + channelCount <= maximum; channelStart += channelCount) {
 		if (channelCount === 2 && channelStart % 2 !== 0) continue;
@@ -219,6 +220,7 @@ function buildChannelOptions({ sourceKey, availableChannels, channelCount, route
 		const conflicting = occupied.has(channelStart) || (channelCount === 2 && occupied.has(channelStart + 1));
 		options.push({ channelStart, disabled: conflicting });
 	}
+	if (route && !options.some((option) => option.channelStart === route.channelStart)) options.push({ channelStart: route.channelStart, disabled: true });
 	return options;
 }
 
@@ -227,7 +229,7 @@ function sourceChannelCount(sourceKey, devices, route, minimum) {
 	if (!sourceKey.startsWith(DEVICE_SOURCE_PREFIX)) return minimum;
 	const deviceId = sourceKey.slice(DEVICE_SOURCE_PREFIX.length);
 	const device = devices.find((candidate) => candidate.deviceId === deviceId);
-	return Math.max(minimum, Number(device?.channelCount) || 0, (Number(route?.channelStart) || 0) + minimum);
+	return Number(device?.channelCount) || Math.max(2, minimum, (Number(route?.channelStart) || 0) + minimum);
 }
 
 function routeSourceKey(route) {

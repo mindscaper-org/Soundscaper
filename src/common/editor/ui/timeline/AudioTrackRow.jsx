@@ -321,7 +321,7 @@ export function AudioTrackRow({
 						{...clipHeaderActions({ controller, blocked: clipMutationsBlocked, run, onOpenClipProperties, copy })}
 						clips={projectedClips}
 						height={trackHeight}
-						trackIndex={trackIndex}
+						trackIndex={trackIndex} trackName={track.name}
 						isSelected={selectedTrackId === track.id}
 						isMuted={track.mute}
 						envelopeMode={automationToolEnabled && !clipMutationsBlocked}

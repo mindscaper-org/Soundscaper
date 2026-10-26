@@ -207,8 +207,8 @@ export default function WorkspacePanelContent({
 		return (
 			<>
 				<div className="kw-audio-editor__panel-actions-inline">
-					<Button variant="secondary" disabled={!snapshot.history?.canUndo} onClick={() => run(() => controller.actions.edit.undo())}>{copy.undo}</Button>
-					<Button variant="secondary" disabled={!snapshot.history?.canRedo} onClick={() => run(() => controller.actions.edit.redo())}>{copy.redo}</Button>
+					<Button variant="secondary" disabled={blocked || snapshot.readOnly || !snapshot.history?.canUndo} onClick={() => run(() => controller.actions.edit.undo())}>{copy.undo}</Button>
+					<Button variant="secondary" disabled={blocked || snapshot.readOnly || !snapshot.history?.canRedo} onClick={() => run(() => controller.actions.edit.redo())}>{copy.redo}</Button>
 				</div>
 				{!undoEntries.length && !redoEntries.length
 					? <p className="kw-audio-editor__panel-empty">{copy.historyEmpty}</p>

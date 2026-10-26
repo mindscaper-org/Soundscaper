@@ -278,11 +278,11 @@ export default function ClipSourceEditor({ controller, project, clipId, copy, bl
 				{markers.map((marker, index) => <button key={`${marker.source.num}/${marker.source.den}`} type="button" className="audio-editor-source-stretch-marker"
 					aria-label={`${copy.clipSourceStretchMarker} ${index + 1}`} title={`${copy.samplePosition} ${marker.source.num / marker.source.den}; ${markerDescription(index + 1)}`} aria-description={markerDescription(index + 1)} disabled={blocked}
 					onFocus={() => setFocusedMarker(index + 1)} onBlur={() => setFocusedMarker(null)}
-					data-source-sample={marker.source.num / marker.source.den} style={{ left: pixel(index + 1 === markerIndex && markerFeedback ? markerFeedback.displayFrame : clipSourceFrameToDisplay(project, clip, source, marker.source.num / marker.source.den)) }}
+					data-source-sample={marker.source.num / marker.source.den} style={{ left: pixel(index + 1 === markerIndex && markerFeedback ? markerFeedback.displayFrame : clipSourceFrameToDisplay(project, clip, source, marker.source)) }}
 					onPointerDown={event => begin(event, 'marker', index + 1)} onKeyDown={event => {
 						if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 						if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); event.stopPropagation(); deleteMarker(event.currentTarget, () => run(() => controller.actions.audioWarp.deleteSourceMarker(clipId, index + 1))); }
-						if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); moveMarker(index + 1, clipSourceFrameToDisplay(project, clip, source, marker.source.num / marker.source.den) + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? Math.round(project.sampleRate / 10) : 1)); }
+						if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); event.stopPropagation(); moveMarker(index + 1, clipSourceFrameToDisplay(project, clip, source, marker.source) + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? Math.round(project.sampleRate / 10) : 1)); }
 					}} />)}
 				{markerFeedback && <div className="audio-editor-source-stretch-feedback" role="status" aria-live="polite"
 					style={{ left: Math.max(0, Math.min(width - 240, pixel(markerFeedback.displayFrame) - 120)) }}>
