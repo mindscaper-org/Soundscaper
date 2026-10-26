@@ -19,29 +19,23 @@ test('clip properties report the rate of the clip that is selected', async () =>
 	const fixture = await mountedFixture();
 	try {
 		await fixture.render();
-		await fixture.openSettings();
-		assert.match(fixture.sourceRate().textContent, /96000/u);
-		// Sources are stored as float32 PCM whatever they declare, so the editor
-		// neither offers a format nor reports one it would never convert.
-		assert.equal(fixture.declaredFormatShown(), false);
-		assert.equal(Boolean(fixture.resampleDialog()), false);
+		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
+		assert.equal(reactProps(fixture.sourceFormat()).value, 'int24');
+		assert.equal(reactProps(fixture.resampleButton()).disabled, true, 'an unchanged draft cannot convert audio');
+		assert.deepEqual(fixture.resampleCalls, []);
 	} finally {
 		await fixture.cleanup();
 	}
 });
 
-test('the resample dialog opens seeded from the clip and applies to that clip alone', async () => {
+test('the format drafts apply their selected rate and depth to that clip alone', async () => {
 	const fixture = await mountedFixture();
 	try {
 		await fixture.render();
-		await fixture.openResample();
-
-		const dialog = fixture.resampleDialog();
-		assert.ok(dialog, 'the resample button opens its dialog');
+		await fixture.editFormat('48000', 'int16');
+		assert.deepEqual(fixture.resampleCalls, [], 'drafting never rewrites audio');
 		await fixture.submitResample();
-
-		assert.deepEqual(fixture.resampleCalls, [['shared-clip', { sampleRate: 96_000 }]]);
-		assert.equal(Boolean(fixture.resampleDialog()), false, 'applying closes the dialog');
+		assert.deepEqual(fixture.resampleCalls, [['shared-clip', { sampleRate: 48_000, sampleFormat: 'int16' }]]);
 	} finally {
 		await fixture.cleanup();
 	}
@@ -51,9 +45,10 @@ test('a product without audio effects reports the rate but cannot resample', asy
 	const fixture = await mountedFixture({ audioEffects: false });
 	try {
 		await fixture.render();
-		await fixture.openSettings();
-		assert.match(fixture.sourceRate().textContent, /96000/u);
-		assert.equal(fixture.resampleItem().getAttribute('aria-disabled'), 'true');
+		assert.equal(reactProps(fixture.sourceRate()).value, '96000');
+		assert.equal(reactProps(fixture.sourceRate()).disabled, true);
+		assert.equal(reactProps(fixture.sourceFormat()).disabled, true);
+		assert.equal(reactProps(fixture.resampleButton()).disabled, true);
 		assert.deepEqual(fixture.resampleCalls, []);
 	} finally {
 		await fixture.cleanup();
@@ -92,19 +87,12 @@ async function mountedFixture(capabilities: Readonly<Record<string, boolean>> = 
 	};
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	const openSettings = async () => {
-		const trigger = dom.one('[data-clip-audio-settings]');
-		await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
-	};
-	const resampleItem = () => {
-		const item = dom.container.querySelectorAll('[role="menuitem"]').find(node =>
-			node.querySelector('.context-menu-item-label')?.textContent === ENGLISH_COPY.resample);
-		assert.ok(item);
-		return item;
-	};
+	const sourceRate = () => { const input = dom.one('[data-clip-properties-field="format-rate"]').querySelector('input'); assert.ok(input); return input; };
+	const sourceFormat = () => { const select = dom.one('[data-clip-properties-field="format-depth"]').querySelector('select'); assert.ok(select); return select; };
+	const resampleButton = () => dom.one('[data-clip-properties-action="resample"]');
 	return {
 		resampleCalls,
-		openSettings, resampleItem,
+		sourceRate, sourceFormat, resampleButton,
 		render: async () => {
 			await act(async () => root.render(<ClipPropertiesPanel
 				run={operation => operation()}
@@ -113,24 +101,13 @@ async function mountedFixture(capabilities: Readonly<Record<string, boolean>> = 
 				copy={ENGLISH_COPY}
 			/>));
 		},
-		sourceRate: () => {
-			const item = dom.container.querySelectorAll('[role="menuitem"]').find(node =>
-				node.textContent.includes(`${ENGLISH_COPY.sampleRateHz}:`));
-			assert.ok(item);
-			return item;
-		},
-		declaredFormatShown: () => Boolean(dom.find('[data-clip-source-fact="sampleFormat"]'))
-			|| dom.container.textContent.includes(ENGLISH_COPY.sampleFormat),
-		resampleDialog: () => dom.find('[data-clip-resample-dialog]'),
-		openResample: async () => {
-			await openSettings();
-			await act(async () => reactProps(resampleItem()).onClick({ stopPropagation() {} }));
+		editFormat: async (rate: string, format: string) => {
+			await act(async () => reactProps(sourceRate()).onChange({ currentTarget: { value: rate } }));
+			await act(async () => reactProps(sourceFormat()).onChange({ currentTarget: { value: format } }));
 		},
 		submitResample: async () => {
-			const form = dom.one('[data-clip-resample-dialog]').querySelector('form');
-			assert.ok(form, 'the resample dialog carries a form.');
 			await act(async () => {
-				reactProps(form).onSubmit({ preventDefault: () => undefined });
+				reactProps(resampleButton()).onClick({ currentTarget: resampleButton() });
 				await Promise.resolve();
 			});
 		},
