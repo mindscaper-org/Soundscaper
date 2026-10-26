@@ -53,8 +53,7 @@ async function fixture(gain: number) {
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
 	await act(async () => root.render(<ClipAudioSettingsMenu controller={controller} clip={{ id: 'clip', gain }}
-		source={{ sampleRate: 48_000 }} copy={ENGLISH_COPY} disabled={false} effectsEnabled={true} run={operation => operation()}
-		nativeTimeFields={false} onNativeTimeFields={() => {}} pitchUnit="semitones" onPitchUnit={() => {}} />));
+		copy={ENGLISH_COPY} disabled={false} effectsEnabled={true} run={operation => operation()} />));
 	const trigger = dom.one('[data-clip-audio-settings]');
 	await act(async () => reactProps(trigger).onClick({ currentTarget: trigger }));
 	const gainItem = dom.container.querySelectorAll('[role="menuitem"]').find(node => node.textContent === 'Clip gain (dB)');

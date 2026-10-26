@@ -2,7 +2,7 @@
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
 import { showClipTimingFields, bootEditor, chooseCommandAction, chooseNestedCommandAction, clickClipInterior,
-	clipByName, closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+	clipByName, clipField, commitInput, closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Nyquist Crossfade Tracks keeps one fade direction across split clips on one track', async ({ page }) => {
@@ -21,11 +21,9 @@ test('Nyquist Crossfade Tracks keeps one fade direction across split clips on on
 	await expect(first).toHaveCount(2);
 	const properties = await openClipProperties(page, editor, clipByName(editor, recordings[1].name));
 	await showClipTimingFields(properties);
-	const start = properties.locator('[data-clip-field="startFrame"]');
-	await start.locator('.timecode-digit').first().click();
-	await page.keyboard.type('000001200');
-	await page.keyboard.press('Enter');
-	await expect(start.locator('.timecode__display')).toHaveText('00h00m01.200s');
+	const start = clipField(properties, 'startFrame');
+	await commitInput(start, '1.2');
+	await expect(start).toHaveValue('1.2');
 	await closeClipProperties(properties);
 	await first.nth(0).locator('.clip-header').click();
 	await first.nth(1).locator('.clip-header').click({ modifiers: ['Shift'] });

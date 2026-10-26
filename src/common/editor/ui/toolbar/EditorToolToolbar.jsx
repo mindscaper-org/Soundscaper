@@ -10,6 +10,7 @@ import { ToolButton } from '@soundscaper/design-system/ToolButton';
 import { iconNameToChar } from '../../audacity-iconcodes.js';
 import { productProfile } from '../../../products.js';
 import { runAwaitedAudioEditorOperation } from '../workspace/audio-editor-workspace-runner.ts';
+import { TrackHeightToolbarControls, TRACK_HEIGHT_TOOLBAR_IDS, trackHeightToolbarOptions } from './TrackHeightToolbarControls.tsx';
 import { collectCustomToolbarButtonActions } from './custom-toolbar-button-actions.ts';
 import { createCustomToolbarContextMenus, CUSTOM_TOOLBAR_AUDIO_CONTEXT_ACTION_IDS } from './custom-toolbar-context-actions.ts';
 import { CustomToolbarButtonGroup, CustomToolbarButtonSettings } from './CustomToolbarButtons.tsx';
@@ -91,7 +92,7 @@ export default function EditorToolToolbar({
 	const setToolbarSettingsTrigger = useCallback((element) => {
 		toolbarSettingsTriggerRef.current = element?.querySelector('button') || null;
 	}, []);
-	const isToolbarButtonVisible = (buttonId) => buttonId === 'varispeed' ? toolbarButtons?.varispeed === true : toolbarButtons?.[buttonId] !== false;
+	const isToolbarButtonVisible = (buttonId) => ['varispeed', ...TRACK_HEIGHT_TOOLBAR_IDS].includes(buttonId) ? toolbarButtons?.[buttonId] === true : toolbarButtons?.[buttonId] !== false;
 	const visibleEditItems = editItems.filter((item) => isToolbarButtonVisible(item.action));
 	const customButtons = snapshot.preferences?.workspace?.customButtons ?? [];
 	const visibleCustomButtons = customButtons.filter((button) => isToolbarButtonVisible(button.id));
@@ -139,6 +140,7 @@ export default function EditorToolToolbar({
 		{ id: 'zoom-in', label: copy.zoomIn, icon: 'zoom-in' },
 		{ id: 'zoom-out', label: copy.zoomOut, icon: 'zoom-out' },
 		{ id: 'zoom-fit', label: copy.zoomFit, icon: 'zoom-to-fit' },
+		...trackHeightToolbarOptions(copy),
 		...editItems.map((item) => ({ id: item.action, label: item.label, icon: item.icon })),
 		{ id: 'time-display', label: copy.timecode, icon: iconNameToChar('CLOCK') },
 		{ id: 'snap', label: copy.snap, icon: iconNameToChar('MAGNET') },
@@ -240,6 +242,8 @@ export default function EditorToolToolbar({
 					{isToolbarButtonVisible('zoom-fit') && <ToolButton icon="zoom-to-fit" ariaLabel={copy.zoomFit} onClick={() => run(() => controller.actions.timeline.zoomFit())} />}
 				</ToolbarButtonGroup>
 				}
+				<TrackHeightToolbarControls buttons={toolbarButtons ?? {}} copy={copy} controller={controller}
+					disabled={blocked || !project?.tracks.length} run={run} />
 				</WorkspaceToolbarSection>,
 
 				(visibleEditItems.length > 0 || visibleCustomButtons.length > 0) && <WorkspaceToolbarSection key="edit" {...toolbarSectionProps('edit')}>

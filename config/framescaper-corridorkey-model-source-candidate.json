@@ -1,0 +1,299 @@
+{
+	"schemaVersion": 1,
+	"modelId": "corridorkey-2.0",
+	"version": "2.0.0",
+	"productId": "framescaper",
+	"status": "source-pinned",
+	"publicationReady": false,
+	"licensing": {
+		"codeLicense": "CC-BY-NC-SA-4.0",
+		"weightsLicense": "CC-BY-NC-SA-4.0",
+		"publishedLicenseName": "Corridor Key Licence 2.0 (CC-BY-NC-SA-4.0 with additional terms)",
+		"status": "pending-grant-reference",
+		"integrationGrantReference": null,
+		"attribution": "CorridorKey 2.0 by Zachary Harris and Corridor Digital LLC",
+		"additionalTerms": "The pinned upstream LICENSE includes additional terms governing redistribution, competing products, paid inference, commercial integration, attribution, share-alike, and large organisations. The base CC identifier does not discard that notice. The separate integration and redistribution grant reference is pending.",
+		"foundationLicenses": [
+			{
+				"id": "cradio",
+				"codeLicense": "NVIDIA Open Model License",
+				"weightsLicense": "NVIDIA Open Model License"
+			},
+			{
+				"id": "moge",
+				"codeLicense": "MIT AND Apache-2.0",
+				"weightsLicense": "MIT"
+			},
+			{
+				"id": "rvm",
+				"codeLicense": "Apache-2.0",
+				"weightsLicense": "CC-BY-4.0"
+			}
+		]
+	},
+	"source": {
+		"repository": "https://github.com/nikopueringer/CorridorKey2.0",
+		"revision": "485f5e9ab759ead6138cc990776184b59d6ea971",
+		"modelRepository": "nikopueringer/CorridorKey2.0",
+		"modelRevision": "cf44a8db3f024bb49fd59daa408848ccf05f7477",
+		"mogeRevision": "ca5f0e07ff01d3e5a364c1d954ed12ee1814b368",
+		"artifacts": [
+			{
+				"component": "corridorkey",
+				"localPath": "weights/corridorkey_v2.safetensors",
+				"byteLength": 2661698720,
+				"sha256": "c43596de98cc8866d577c8a9f9ea239acdf3f7a130ff24e25db4375a50590436",
+				"url": "https://huggingface.co/nikopueringer/CorridorKey2.0/resolve/cf44a8db3f024bb49fd59daa408848ccf05f7477/corridorkey_v2.safetensors"
+			},
+			{
+				"component": "corridorkey",
+				"localPath": "weights/foundation_stats.safetensors",
+				"byteLength": 18864,
+				"sha256": "924783ceddd293fd470126332ce328166faea6c4c8d2f36402d5b95187166af3",
+				"url": "https://huggingface.co/nikopueringer/CorridorKey2.0/resolve/cf44a8db3f024bb49fd59daa408848ccf05f7477/foundation_stats.safetensors"
+			},
+			{
+				"component": "cradio",
+				"localPath": "vfms/cradio/C-RADIOv4-SO400M/model.safetensors",
+				"byteLength": 1724986512,
+				"sha256": "23e0c117de49d4ce909150fe6658d470829e6639647c7a5b035ce82e0d5b763c",
+				"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/model.safetensors"
+			},
+			{
+				"component": "moge",
+				"localPath": "vfms/moge/model.pt",
+				"byteLength": 419110160,
+				"sha256": "16b8110e86d5dc5a849db120ca96ef3a223fd30b0c9146d1d81db504073da5f6",
+				"url": "https://huggingface.co/Ruicheng/moge-2-vitb-normal/resolve/ca5f0e07ff01d3e5a364c1d954ed12ee1814b368/model.pt"
+			},
+			{
+				"component": "rvm",
+				"localPath": "vfms/rvm/pretrain_rvm_small16_256_204031069.npz",
+				"byteLength": 270086372,
+				"sha256": "8821ba9f5d983b9a3746bb5fe86b9c2ea834fe9985ab7b02438b917438bf2ede",
+				"url": "https://storage.googleapis.com/representations4d/checkpoints/pretrain_rvm_small16_256_204031069.npz"
+			}
+		],
+		"notices": [
+			{
+				"localPath": "LICENSE",
+				"byteLength": 26650,
+				"sha256": "c92ce56f64162b231c7ce08ce3ed7d8cae15f01a560ca05a8e8db67878eb0065",
+				"url": "https://raw.githubusercontent.com/nikopueringer/CorridorKey2.0/485f5e9ab759ead6138cc990776184b59d6ea971/LICENSE"
+			},
+			{
+				"localPath": "THIRD_PARTY_NOTICES.md",
+				"byteLength": 1706,
+				"sha256": "76acc5707e92ef6b274d54bb4bda99b16ebddf46d31eb5fc5803592b274a7370",
+				"url": "https://raw.githubusercontent.com/nikopueringer/CorridorKey2.0/485f5e9ab759ead6138cc990776184b59d6ea971/THIRD_PARTY_NOTICES.md"
+			}
+		],
+		"cradioCodeSnapshot": {
+			"repository": "nvidia/C-RADIOv4-SO400M",
+			"revision": "c0457f5dc26ca145f954cd4fc5bb6114e5705ad8",
+			"status": "source-pinned",
+			"files": [
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/.gitattributes",
+					"byteLength": 1519,
+					"sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/.gitattributes"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/README.md",
+					"byteLength": 14000,
+					"sha256": "af7881b8207e7060b8df5b8df4df4e87e628faffc188b494836bbec086233b33",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/README.md"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/adaptor_attn.py",
+					"byteLength": 1796,
+					"sha256": "baa112b58158d75077e9bba8baba51b2c75f6a6deed2d8046aa5e5f2d5cb669a",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/adaptor_attn.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/adaptor_base.py",
+					"byteLength": 1693,
+					"sha256": "f9d285cc76e70f977f9c78e748f610765f0bd068a13f86d804c07c765cece577",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/adaptor_base.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/adaptor_generic.py",
+					"byteLength": 3747,
+					"sha256": "3d1b5a015ff3754a9eb64cd56b4d04cae01e537a1ffa606adaf904c55fff07a1",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/adaptor_generic.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/adaptor_mlp.py",
+					"byteLength": 4025,
+					"sha256": "e75a9ed1f7f58c749dec5a510d699f36f32fdb7f3b61cd8a7e3ccd5afd2c9b77",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/adaptor_mlp.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/adaptor_module_factory.py",
+					"byteLength": 3278,
+					"sha256": "2beac17dc5824c7d9f925dc782cdd4b49bd15cf206bf1cbaa9108a8966e33316",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/adaptor_module_factory.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/adaptor_registry.py",
+					"byteLength": 1371,
+					"sha256": "16963e07de300e5f3cbd5e343aed111d04e4e55a50e07f50ccc2ab930883ea1e",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/adaptor_registry.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/cls_token.py",
+					"byteLength": 1787,
+					"sha256": "64ee35f128380c3bb9bc1a913e98ac328220be88964f2092686c637ef866fc79",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/cls_token.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/common.py",
+					"byteLength": 7160,
+					"sha256": "6cc79e1f7b61f4917602d2efc9e0a833fa74d60563f6aac74e4625de23723bab",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/common.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/config.json",
+					"byteLength": 7571,
+					"sha256": "6e49e911ff6e980125c208b10ed4b51bb4a92061862cbb8947473f1b33f88fd4",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/config.json"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/dinov2_arch.py",
+					"byteLength": 35529,
+					"sha256": "5433d08522c28f46a69e710da1a86fc1d76fc03562dbb9b2b49baf5db21195d3",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/dinov2_arch.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/dual_hybrid_vit.py",
+					"byteLength": 7179,
+					"sha256": "86853ae2ed28c902529cd9b78201350e7dba1cf54ea9e57578241ecc0d88d867",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/dual_hybrid_vit.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/enable_cpe_support.py",
+					"byteLength": 6557,
+					"sha256": "3c1e3df656960f5c83b38ba5f632fc5b335edf1d6de67731396a865aaa5ce1ed",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/enable_cpe_support.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/enable_damp.py",
+					"byteLength": 1290,
+					"sha256": "7e2a0b6f8934ac6e4a4768e5ca84cb4ff09ba3726a470f1cf046bd5169b2e334",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/enable_damp.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/enable_spectral_reparam.py",
+					"byteLength": 11004,
+					"sha256": "b8e703400604ee5f9cdfac0de9b857b7f5126aad8bba03604b04f52f7641d6cb",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/enable_spectral_reparam.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/eradio_model.py",
+					"byteLength": 58289,
+					"sha256": "bf76c60b991813eef45c76246cd7dcee3fefbf39bde3d2b6ac8576067012d05f",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/eradio_model.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/extra_models.py",
+					"byteLength": 5763,
+					"sha256": "a938b96715266d2f65325e56d0d8e42465d23e944e905d2820023472785c55a9",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/extra_models.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/extra_timm_models.py",
+					"byteLength": 9892,
+					"sha256": "d7364d5abf5b617782366948f0e593d7a2df275b076094afa1ebc5276a9f7102",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/extra_timm_models.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/feature_normalizer.py",
+					"byteLength": 4399,
+					"sha256": "a74401f5220c2e5960d39addce9ba40f481efca9ab44bb9d96535ed23e1ef62b",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/feature_normalizer.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/forward_intermediates.py",
+					"byteLength": 5604,
+					"sha256": "eb5a562d11edc655876eeb95bc1c3b4c7484b963dae41a3f76f7acd2a6906b9e",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/forward_intermediates.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/hf_model.py",
+					"byteLength": 7935,
+					"sha256": "d28c0a0238ca8854a9af5a9f003761332bfc9182601b3b7466d9242be91ee96f",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/hf_model.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/input_conditioner.py",
+					"byteLength": 1492,
+					"sha256": "72062d3b71877e1469e069cf090e5f35d6ad7abaeb451e56502f7f32dc6c1075",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/input_conditioner.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/open_clip_adaptor.py",
+					"byteLength": 1623,
+					"sha256": "c2eb9166de48f5eb5f90f8a750e8ebe67da93698e794dc0bbdab5f013bab8e66",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/open_clip_adaptor.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/preprocessor_config.json",
+					"byteLength": 331,
+					"sha256": "6ca88d165592015b02a183d26a20fc96748e837d1cb21bde5f611141aca593cf",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/preprocessor_config.json"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/radio_model.py",
+					"byteLength": 14018,
+					"sha256": "2be659f5cd5b9db9c49db70387b65253c74bc16b3eb86e976f0f693271d4b183",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/radio_model.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/siglip2_adaptor.py",
+					"byteLength": 3307,
+					"sha256": "1f40f7d77beefd69ad86aac61b12c82ed915b4012e6bea1628fc8abe80782851",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/siglip2_adaptor.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/utils.py",
+					"byteLength": 1109,
+					"sha256": "3b83163ce2650ef04973538dd79716ab015d24344ea25d52cfb0c37b093ba4ba",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/utils.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/vit_patch_generator.py",
+					"byteLength": 11475,
+					"sha256": "092e9a0b8eca4fee162484ef3ef77b399f686e5e0ffc7be85fb2d69bc2f9ebd9",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/vit_patch_generator.py"
+				},
+				{
+					"localPath": "vfms/cradio/C-RADIOv4-SO400M/vitdet.py",
+					"byteLength": 6318,
+					"sha256": "5b83b4c7b90b797d854a6da2fd4093ce9210a52533d3f7ba6bf505793b6c68c3",
+					"url": "https://huggingface.co/nvidia/C-RADIOv4-SO400M/resolve/c0457f5dc26ca145f954cd4fc5bb6114e5705ad8/vitdet.py"
+				}
+			]
+		}
+	},
+	"conversion": {
+		"status": "pending",
+		"runtimeFormat": "onnx",
+		"runtimeFamily": "onnxruntime-node",
+		"graphRoles": [
+			"cradio",
+			"moge",
+			"rvm",
+			"stage1",
+			"stage2"
+		],
+		"outputs": [],
+		"validation": "Real checkpoint parity, dynamic raster support, recurrent state continuity, bounded memory, and authenticated GPU execution with CPU fallback remain required before catalog admission."
+	},
+	"releaseBlockers": [
+		"integration-and-redistribution-grant-reference",
+		"converted-model-parity-and-gpu-validation",
+		"alpha-preserving-keying-workflow",
+		"model-publication-and-readback"
+	]
+}

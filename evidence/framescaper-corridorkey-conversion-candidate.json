@@ -1,0 +1,669 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "publicationReady": false,
+  "modelId": "corridorkey-2.0",
+  "sourceRevision": "485f5e9ab759ead6138cc990776184b59d6ea971",
+  "registerSha256": "9d51c9d0b7fd0cac777cdf9c5673f161309f58cfa1c4667446b84a05af8b1709",
+  "trackedSourceFiles": 68,
+  "toolchainLockSha256": "756023e01ad58a2b47f6a76ed865effad6e1acb642e4eb755537bc54a6410b4b",
+  "conversionToolFiles": [
+    {
+      "fileName": "pyproject.toml",
+      "byteLength": 1257,
+      "sha256": "c1cc0e312f176a891dec3c5eb4c3f2a07ba582ac6456f60e7a0f81e87a0fed48"
+    },
+    {
+      "fileName": "framescaper_corridorkey_conversion/__init__.py",
+      "byteLength": 128,
+      "sha256": "4b36fe40d9c2f11d683579d106384dca9a11f1e0f609c6e233ce0b18bf77a0b5"
+    },
+    {
+      "fileName": "framescaper_corridorkey_conversion/__main__.py",
+      "byteLength": 3604,
+      "sha256": "38208ec6171a6f26c606ef1c361fd8ee18b5287a6ba004e57428fe811e1d9209"
+    },
+    {
+      "fileName": "framescaper_corridorkey_conversion/artifacts.py",
+      "byteLength": 1583,
+      "sha256": "17138aad546ecce8bd24946b335d1bfd34ff3e2987ca7e04815fdd922596ffdf"
+    },
+    {
+      "fileName": "framescaper_corridorkey_conversion/export_patches.py",
+      "byteLength": 5876,
+      "sha256": "5fd030c9ad5a041456b0d6e09a57914f54f0a81a19fc3c9ecd2d04b82a5a9c99"
+    },
+    {
+      "fileName": "framescaper_corridorkey_conversion/inputs.py",
+      "byteLength": 4795,
+      "sha256": "8e51de2dc893f77654bfc6635894c6ba46e2cb14c00c2fad96f656015d3aa9aa"
+    },
+    {
+      "fileName": "framescaper_corridorkey_conversion/runner.py",
+      "byteLength": 5174,
+      "sha256": "d6ffa1f0b8118d928438cc1af62c4632b99f8ebb9e1d6389f7af45af6dbaf15b"
+    },
+    {
+      "fileName": "framescaper_corridorkey_conversion/wrappers.py",
+      "byteLength": 5055,
+      "sha256": "48fdec8f5d8b4c4d9627a03f1c4dcbf0a941e6032a4011610c1090e715eafc0d"
+    }
+  ],
+  "licensing": {
+    "codeLicense": "CC-BY-NC-SA-4.0",
+    "weightsLicense": "CC-BY-NC-SA-4.0",
+    "publishedLicenseName": "Corridor Key Licence 2.0 (CC-BY-NC-SA-4.0 with additional terms)",
+    "status": "pending-grant-reference",
+    "integrationGrantReference": null,
+    "attribution": "CorridorKey 2.0 by Zachary Harris and Corridor Digital LLC",
+    "additionalTerms": "The pinned upstream LICENSE includes additional terms governing redistribution, competing products, paid inference, commercial integration, attribution, share-alike, and large organisations. The base CC identifier does not discard that notice. The separate integration and redistribution grant reference is pending.",
+    "foundationLicenses": [
+      {
+        "id": "cradio",
+        "codeLicense": "NVIDIA Open Model License",
+        "weightsLicense": "NVIDIA Open Model License"
+      },
+      {
+        "id": "moge",
+        "codeLicense": "MIT AND Apache-2.0",
+        "weightsLicense": "MIT"
+      },
+      {
+        "id": "rvm",
+        "codeLicense": "Apache-2.0",
+        "weightsLicense": "CC-BY-4.0"
+      }
+    ]
+  },
+  "graphs": [
+    {
+      "role": "cradio",
+      "status": "candidate-cpu-parity-passed",
+      "storage": "embedded-single-blob",
+      "inputs": [
+        "rgb"
+      ],
+      "outputs": [
+        "features"
+      ],
+      "artifacts": [
+        {
+          "fileName": "cradio.onnx",
+          "byteLength": 1725128268,
+          "sha256": "5e9f2068f80e63ae81efaa16c00f77c7b26a2dac42f0efd06cea1a4b7ab3345f"
+        }
+      ],
+      "cpuParity": [
+        {
+          "height": 256,
+          "width": 256,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                1152,
+                4,
+                4
+              ],
+              "maximumAbsoluteError": 4.4345855712890625e-05,
+              "rootMeanSquaredError": 2.431202314756135e-06
+            }
+          }
+        },
+        {
+          "height": 256,
+          "width": 512,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                1152,
+                4,
+                8
+              ],
+              "maximumAbsoluteError": 1.0669231414794922e-05,
+              "rootMeanSquaredError": 1.5021997101100086e-06
+            }
+          }
+        },
+        {
+          "height": 512,
+          "width": 256,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                1152,
+                8,
+                4
+              ],
+              "maximumAbsoluteError": 1.239776611328125e-05,
+              "rootMeanSquaredError": 1.440916727363482e-06
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "moge",
+      "status": "candidate-cpu-parity-passed",
+      "storage": "embedded-single-blob",
+      "inputs": [
+        "rgb"
+      ],
+      "outputs": [
+        "features"
+      ],
+      "artifacts": [
+        {
+          "fileName": "moge.onnx",
+          "byteLength": 351133937,
+          "sha256": "4a0fdf370a20e8138929ae1e82dc3c7267681de9e75179408bc97809163d1baa"
+        }
+      ],
+      "cpuParity": [
+        {
+          "height": 256,
+          "width": 256,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                768,
+                4,
+                4
+              ],
+              "maximumAbsoluteError": 5.7220458984375e-05,
+              "rootMeanSquaredError": 5.257975456381095e-06
+            }
+          }
+        },
+        {
+          "height": 256,
+          "width": 512,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                768,
+                4,
+                8
+              ],
+              "maximumAbsoluteError": 6.687641143798828e-05,
+              "rootMeanSquaredError": 4.828559496397872e-06
+            }
+          }
+        },
+        {
+          "height": 512,
+          "width": 256,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                768,
+                8,
+                4
+              ],
+              "maximumAbsoluteError": 3.921985626220703e-05,
+              "rootMeanSquaredError": 3.868932702690814e-06
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "rvm",
+      "status": "candidate-cpu-parity-passed",
+      "storage": "embedded-single-blob",
+      "inputs": [
+        "rgb",
+        "state"
+      ],
+      "outputs": [
+        "features",
+        "state_out"
+      ],
+      "artifacts": [
+        {
+          "fileName": "rvm.onnx",
+          "byteLength": 133421377,
+          "sha256": "a74756a230e84c891d4f40c1cd26705ee99399211120fa22deaf8d1d00846230"
+        }
+      ],
+      "cpuParity": [
+        {
+          "height": 256,
+          "width": 256,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                1,
+                384,
+                4,
+                4
+              ],
+              "maximumAbsoluteError": 6.616115570068359e-06,
+              "rootMeanSquaredError": 1.2319450485744388e-06
+            },
+            "state_out": {
+              "shape": [
+                1,
+                17,
+                384
+              ],
+              "maximumAbsoluteError": 6.4373016357421875e-06,
+              "rootMeanSquaredError": 1.3851602730062199e-06
+            }
+          },
+          "continuingState": {
+            "features": {
+              "shape": [
+                1,
+                1,
+                384,
+                4,
+                4
+              ],
+              "maximumAbsoluteError": 9.5367431640625e-06,
+              "rootMeanSquaredError": 1.6256509152322402e-06
+            },
+            "state_out": {
+              "shape": [
+                1,
+                17,
+                384
+              ],
+              "maximumAbsoluteError": 9.655952453613281e-06,
+              "rootMeanSquaredError": 1.7811697286797298e-06
+            }
+          }
+        },
+        {
+          "height": 256,
+          "width": 512,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                1,
+                384,
+                4,
+                8
+              ],
+              "maximumAbsoluteError": 7.271766662597656e-06,
+              "rootMeanSquaredError": 1.5212590964734196e-06
+            },
+            "state_out": {
+              "shape": [
+                1,
+                33,
+                384
+              ],
+              "maximumAbsoluteError": 1.049041748046875e-05,
+              "rootMeanSquaredError": 1.7349008966672764e-06
+            }
+          },
+          "continuingState": {
+            "features": {
+              "shape": [
+                1,
+                1,
+                384,
+                4,
+                8
+              ],
+              "maximumAbsoluteError": 9.894371032714844e-06,
+              "rootMeanSquaredError": 1.822437406909969e-06
+            },
+            "state_out": {
+              "shape": [
+                1,
+                33,
+                384
+              ],
+              "maximumAbsoluteError": 1.2755393981933594e-05,
+              "rootMeanSquaredError": 2.0425469803714643e-06
+            }
+          }
+        },
+        {
+          "height": 512,
+          "width": 256,
+          "outputs": {
+            "features": {
+              "shape": [
+                1,
+                1,
+                384,
+                8,
+                4
+              ],
+              "maximumAbsoluteError": 1.0013580322265625e-05,
+              "rootMeanSquaredError": 1.5182835766471146e-06
+            },
+            "state_out": {
+              "shape": [
+                1,
+                33,
+                384
+              ],
+              "maximumAbsoluteError": 1.4424324035644531e-05,
+              "rootMeanSquaredError": 1.7341251647597283e-06
+            }
+          },
+          "continuingState": {
+            "features": {
+              "shape": [
+                1,
+                1,
+                384,
+                8,
+                4
+              ],
+              "maximumAbsoluteError": 9.179115295410156e-06,
+              "rootMeanSquaredError": 1.8064438295219259e-06
+            },
+            "state_out": {
+              "shape": [
+                1,
+                33,
+                384
+              ],
+              "maximumAbsoluteError": 1.4543533325195312e-05,
+              "rootMeanSquaredError": 2.0275654522301434e-06
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "stage1",
+      "status": "candidate-cpu-parity-passed",
+      "storage": "embedded-single-blob",
+      "inputs": [
+        "rgb",
+        "hint",
+        "moge",
+        "cradio",
+        "rvm",
+        "quality"
+      ],
+      "outputs": [
+        "baton",
+        "aux"
+      ],
+      "artifacts": [
+        {
+          "fileName": "stage1.onnx",
+          "byteLength": 1849637713,
+          "sha256": "9f54dcf8fe0634142a45011aba2d441a55426412aa346171cd2e8c19bf7b6b07"
+        }
+      ],
+      "cpuParity": [
+        {
+          "height": 256,
+          "width": 256,
+          "outputs": {
+            "baton": {
+              "shape": [
+                1,
+                1,
+                512,
+                16,
+                16
+              ],
+              "maximumAbsoluteError": 2.384185791015625e-06,
+              "rootMeanSquaredError": 4.001627274228674e-07
+            },
+            "aux": {
+              "shape": [
+                1,
+                1,
+                4,
+                128,
+                128
+              ],
+              "maximumAbsoluteError": 4.1350722312927246e-07,
+              "rootMeanSquaredError": 8.348817435417508e-08
+            }
+          }
+        },
+        {
+          "height": 256,
+          "width": 512,
+          "outputs": {
+            "baton": {
+              "shape": [
+                1,
+                1,
+                512,
+                16,
+                32
+              ],
+              "maximumAbsoluteError": 2.6226043701171875e-06,
+              "rootMeanSquaredError": 3.950555141047964e-07
+            },
+            "aux": {
+              "shape": [
+                1,
+                1,
+                4,
+                128,
+                256
+              ],
+              "maximumAbsoluteError": 4.507601261138916e-07,
+              "rootMeanSquaredError": 8.180281826481697e-08
+            }
+          }
+        },
+        {
+          "height": 512,
+          "width": 256,
+          "outputs": {
+            "baton": {
+              "shape": [
+                1,
+                1,
+                512,
+                32,
+                16
+              ],
+              "maximumAbsoluteError": 3.337860107421875e-06,
+              "rootMeanSquaredError": 4.0773849342505845e-07
+            },
+            "aux": {
+              "shape": [
+                1,
+                1,
+                4,
+                256,
+                128
+              ],
+              "maximumAbsoluteError": 4.209578037261963e-07,
+              "rootMeanSquaredError": 8.406275370274613e-08
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "stage2",
+      "status": "candidate-cpu-parity-passed",
+      "storage": "embedded-single-blob",
+      "inputs": [
+        "rgb",
+        "baton"
+      ],
+      "outputs": [
+        "logits"
+      ],
+      "artifacts": [
+        {
+          "fileName": "stage2.onnx",
+          "byteLength": 807908972,
+          "sha256": "137517e2c5f00411c9e86252c19d6ffb1e44a874ed070cf29475cc257e0b32ff"
+        }
+      ],
+      "cpuParity": [
+        {
+          "height": 256,
+          "width": 256,
+          "outputs": {
+            "logits": {
+              "shape": [
+                1,
+                1,
+                4,
+                256,
+                256
+              ],
+              "maximumAbsoluteError": 4.842877388000488e-07,
+              "rootMeanSquaredError": 8.19095777980382e-08
+            }
+          }
+        },
+        {
+          "height": 256,
+          "width": 512,
+          "outputs": {
+            "logits": {
+              "shape": [
+                1,
+                1,
+                4,
+                256,
+                512
+              ],
+              "maximumAbsoluteError": 4.76837158203125e-07,
+              "rootMeanSquaredError": 8.449948303743945e-08
+            }
+          }
+        },
+        {
+          "height": 512,
+          "width": 256,
+          "outputs": {
+            "logits": {
+              "shape": [
+                1,
+                1,
+                4,
+                512,
+                256
+              ],
+              "maximumAbsoluteError": 4.544854164123535e-07,
+              "rootMeanSquaredError": 8.139020917869712e-08
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "validationScope": "FP32 CPU graph parity only; model publication and desktop GPU validation remain pending",
+  "environment": {
+    "torch": "2.13.0+cpu",
+    "torchvision": "0.28.0+cpu",
+    "onnx": "1.22.0",
+    "onnxscript": "0.7.2",
+    "onnxruntime": "1.20.1",
+    "numpy": "1.26.4",
+    "protobuf": "5.29.6"
+  },
+  "exportRecipe": "corridorkey-v2-dense-region-mask-dynamic-cpe-and-dino-position-v1",
+  "rasterPaddingQuantum": 256,
+  "stage1Frames": 1,
+  "rvmState": "Recurrent across frames; zero initial state; preserve state_out between consecutive frames",
+  "allFiveGraphsValidated": true,
+  "canonicalization": {
+    "recipe": "remove-onnx-debug-metadata-v1",
+    "script": {
+      "fileName": "canonicalize-corridorkey-assets.py",
+      "byteLength": 4351,
+      "sha256": "ac95e34d8a72a753341c0f8b1bc856f639f984a9a29ee283bb3962517c2ecb20"
+    },
+    "graphs": [
+      {
+        "role": "cradio",
+        "original": {
+          "fileName": "cradio.onnx",
+          "byteLength": 1727660348,
+          "sha256": "afe69fd156081727587bd6fa10afb78b258b689aaf0f91ecceb0e54f50603657"
+        },
+        "canonical": {
+          "fileName": "cradio.onnx",
+          "byteLength": 1725128268,
+          "sha256": "5e9f2068f80e63ae81efaa16c00f77c7b26a2dac42f0efd06cea1a4b7ab3345f"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "moge",
+        "original": {
+          "fileName": "moge.onnx",
+          "byteLength": 352253937,
+          "sha256": "e8f9735d4cf4936c977240779dbe49d94becbf73013b3d3a9625f8caa467b7da"
+        },
+        "canonical": {
+          "fileName": "moge.onnx",
+          "byteLength": 351133937,
+          "sha256": "4a0fdf370a20e8138929ae1e82dc3c7267681de9e75179408bc97809163d1baa"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "rvm",
+        "original": {
+          "fileName": "rvm.onnx",
+          "byteLength": 134994231,
+          "sha256": "92188b4f91791e09592635d7559c16dd0bda7c7f85a7a513fb0d5c076620cde7"
+        },
+        "canonical": {
+          "fileName": "rvm.onnx",
+          "byteLength": 133421377,
+          "sha256": "a74756a230e84c891d4f40c1cd26705ee99399211120fa22deaf8d1d00846230"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "stage1",
+        "original": {
+          "fileName": "stage1.onnx",
+          "byteLength": 1854934092,
+          "sha256": "ff7cf8ebc9e1b9106cbd82b95939dfeca1ccd0aa9a778357e4ab96d051997f97"
+        },
+        "canonical": {
+          "fileName": "stage1.onnx",
+          "byteLength": 1849637713,
+          "sha256": "9f54dcf8fe0634142a45011aba2d441a55426412aa346171cd2e8c19bf7b6b07"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      },
+      {
+        "role": "stage2",
+        "original": {
+          "fileName": "stage2.onnx",
+          "byteLength": 810345570,
+          "sha256": "04c8cacbdb7240382fbb9618c2eeb366d9ef0931e560dd22016cd98bc19a1cc2"
+        },
+        "canonical": {
+          "fileName": "stage2.onnx",
+          "byteLength": 807908972,
+          "sha256": "137517e2c5f00411c9e86252c19d6ffb1e44a874ed070cf29475cc257e0b32ff"
+        },
+        "outputComparison": "byte-exact",
+        "rasterCases": 3
+      }
+    ]
+  },
+  "toolchainSnapshot": {
+    "lockPath": "evidence/corridorkey-production-cpu-sources-2026-10-22/corridorkey-conversion-uv.lock.txt",
+    "projectPath": "evidence/corridorkey-production-cpu-sources-2026-10-22/corridorkey-conversion-pyproject.toml.txt",
+    "scope": "Original measured dependencies; retained CPU parity does not certify the maintained security-updated toolchain."
+  }
+}

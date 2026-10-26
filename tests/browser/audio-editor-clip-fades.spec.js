@@ -2,17 +2,18 @@ import { capturePassingScreenshot } from './helpers/passing-screenshots.js';
 import { expect, test, toneA, toneB, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, closeClipProperties, collectClientErrors, commitInput, importFiles, openClipProperties, openSourceMonitor, registerAudioEditorHooks, setDocumentTheme, waitForEditor } from './audio-editor-test-helpers.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
-import { chooseClipMediaSetting } from './audio-editor-clip-settings-test-helpers.js';
 
 async function selectClip(clip) {
 	await clip.focus();
 	await clip.press('Enter');
 }
 
-async function beginFadeDrag(page, handle, delta) {
+async function beginFadeDrag(page, handle, delta, position = null) {
 	const bounds = await handle.boundingBox();
 	expect(bounds).not.toBeNull();
-	await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 5);
+	const x = bounds.x + (position?.x ?? bounds.width / 2);
+	const y = bounds.y + (position?.y ?? 5);
+	await page.mouse.move(x, y);
 	await handle.evaluate(element => {
 		window.addEventListener('pointerdown', event => {
 			element.setAttribute('data-test-pointer-id', String(event.pointerId));
@@ -25,7 +26,7 @@ async function beginFadeDrag(page, handle, delta) {
 		if (id === null) throw new Error('The fade handle did not receive a pointer press.');
 		return Number(id);
 	});
-	await page.mouse.move(bounds.x + bounds.width / 2 + delta, bounds.y + 5, { steps: 5 });
+	await page.mouse.move(x + delta, y, { steps: 5 });
 	// Fade previews coalesce pointer moves on the next animation frame. Read
 	// the final move after its React update, before comparing preview and commit.
 	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -98,10 +99,11 @@ test.describe('non-destructive clip fade handles', () => {
 			await expect(fadeIn).toHaveAttribute('aria-valuenow', incoming);
 			await editor.getByRole('button', { name: 'Redo', exact: true }).click();
 			await expect.poll(async () => Number(await fadeOut.getAttribute('aria-valuenow'))).toBeGreaterThan(0.002);
-			await clip.click({ position: { x: 30, y: 50 } });
-			await expect(clip.locator('[data-clip-fade-handle]')).toHaveCount(2);
-			await expect(fadeIn).toHaveCSS('opacity', '1');
+			await clip.click({ position: { x: 30, y: 70 } });
 			await expect(clip.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
+			await expect(clip.locator('button[data-clip-fade-handle]')).toHaveCount(2);
+			await expect(clip.locator('[data-fade-zone]')).toHaveCount(2);
+			await expect(fadeIn).toHaveCSS('opacity', '0');
 			await editor.getByRole('menuitem', { name: 'File', exact: true }).focus();
 			await page.mouse.move(0, 0);
 			await expect(fadeIn).toHaveCSS('opacity', '0');
@@ -138,7 +140,7 @@ test.describe('non-destructive clip fade handles', () => {
 			await expect(shading).toHaveCSS('fill', 'rgba(0, 0, 0, 0.18)');
 			for (const [edge, fraction] of [['in', 0.125], ['out', 0.875]]) {
 				const guide = curves.locator(`[data-fade-boundary="${edge}"]`);
-				await expect(guide).toHaveAttribute('stroke-dasharray', '4 3');
+				await expect(guide).toHaveAttribute('stroke-dasharray', '4 4');
 				await expect(guide).toHaveAttribute('vector-effect', 'non-scaling-stroke');
 				const position = await guide.evaluate(line => ({
 					x1: line.x1.baseVal.value / line.ownerSVGElement.viewBox.baseVal.width,
@@ -314,7 +316,7 @@ test.describe('non-destructive clip fade handles', () => {
 		await expect(shape).toHaveAttribute('aria-valuenow', '6');
 	});
 
-	test('Clip properties edits both custom fade coefficients through its settings menu', async ({ page }) => {
+	test('Clip properties edits fade lengths while timeline handles own custom fade shapes', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
@@ -324,15 +326,10 @@ test.describe('non-destructive clip fade handles', () => {
 		const dialog = await openClipProperties(page, editor, clip, { additional: false });
 		await commitInput(dialog.getByRole('textbox', { name: 'Fade in', exact: true }), '0.4');
 		await commitInput(dialog.getByRole('textbox', { name: 'Fade out', exact: true }), '0.4');
-		for (const [label, value] of [['Fade in shape', '6'], ['Fade out shape', '0.15']]) {
-			await chooseClipMediaSetting(dialog, label);
-			const shape = page.getByRole('dialog', { name: label, exact: true });
-			const input = shape.getByRole('textbox', { name: label, exact: true });
-			await expect(input).toHaveValue('2');
-			await input.fill(value);
-			await shape.getByRole('button', { name: 'Apply', exact: true }).click();
-		}
 		await closeClipProperties(dialog);
+		await clip.focus(); await clip.press('f');
+		await clip.getByRole('slider', { name: 'Fade in shape', exact: true }).press('End');
+		await clip.getByRole('slider', { name: 'Fade out shape', exact: true }).press('Home');
 		await expect(clip.getByRole('slider', { name: 'Fade in shape', exact: true })).toHaveAttribute('aria-valuenow', '6');
 		await expect(clip.getByRole('slider', { name: 'Fade out shape', exact: true })).toHaveAttribute('aria-valuenow', '0.15');
 	});
@@ -546,7 +543,7 @@ test.describe('non-destructive clip fade handles', () => {
 		await first.click({ modifiers: ['Control'], position: { x: 40, y: 60 } });
 		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'false');
 		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
-		await beginFadeDrag(page, firstFade, 30);
+		await beginFadeDrag(page, first.locator('[data-fade-zone="in"]'), 30, { x: 27, y: 16 });
 		await expect.poll(async () => Number(await firstFade.getAttribute('aria-valuenow'))).toBeGreaterThan(0.002);
 		await expect(secondFade).toHaveAttribute('aria-valuenow', '0.002');
 		await page.mouse.up();

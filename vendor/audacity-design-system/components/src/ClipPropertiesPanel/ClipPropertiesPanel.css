@@ -391,6 +391,22 @@
   flex-basis: 30px;
 }
 
+/* Read-only track sample rate, ported from upstream 2d007878. */
+.clip-properties__detail {
+  flex: none;
+  padding: 0 8px 0 4px;
+  font-size: 12px;
+  color: var(--field-text-secondary, var(--text-secondary, #6f788f));
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.clip-properties__processing-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 /* The source visual opens the monitor; its edge grips remain separate controls. */
 .clip-properties__strip-open {
   position: absolute;

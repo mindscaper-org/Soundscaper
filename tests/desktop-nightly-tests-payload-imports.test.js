@@ -26,6 +26,9 @@ import {
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const BROWSER_TESTS = join(REPOSITORY_ROOT, 'tests/browser');
 const FRAMESCAPER_LIFECYCLE_SPEC = join(BROWSER_TESTS, 'audio-editor-framescaper-product-lifecycle.spec.js');
+const KEYING_PRORES_SPEC = join(BROWSER_TESTS, 'framescaper-corridorkey-native-source.spec.js');
+const KEYING_PRORES_ENTRY = join(REPOSITORY_ROOT,
+	'src/common/editor/controller/assistance/internal/video/local-assistance-video-keying-native-decoder.ts');
 const PHOTO_DIAGNOSTIC = 'scripts/lib/lightscaper-large-library-diagnostics-v1.ts';
 // The `testMatch` of playwright.nightly-tests.config.mjs.
 const TEST_FILE = /\.(?:spec|test)\.[cm]?[jt]sx?$/u;
@@ -103,6 +106,15 @@ test('the nightly package carries the RIFF text-boundary helper and its encoded 
 	}
 });
 
+test('the nightly package carries the legacy SES binary session fixture', async () => {
+	const input = 'tests/helpers/ses-fixture.ts';
+	assert.ok(isStagedInput(input), `NIGHTLY_TEST_PAYLOAD_INPUTS is missing ${input}`);
+	const packaged = packagedPathOf(input);
+	const filter = await readPackagedPayloadFilter();
+	assert.ok(packaged !== null && filter.some(pattern => matchesGlob(packaged, pattern)),
+		'the nightly-tests extraResources filter must retain the legacy SES fixture');
+});
+
 test('the nightly package carries dynamically selected codec fixtures', async () => {
 	const inputs = [
 		'native/soundscaper-professional-host/tests/os_audio_codec_self_test.cpp',
@@ -172,6 +184,11 @@ test('the nightly test payload satisfies every import its browser specs reach', 
 			setup(api) {
 				// esbuild filters are Go regular expressions, which reject the /u flag.
 				api.onResolve({ filter: /.*/ }, ({ path, importer }) => {
+					// This one browser route serves the real decoder bundle built by
+					// its owning spec. Audit that source and every local dependency.
+					if (importer === KEYING_PRORES_SPEC && path === '/__keying_prores__/entry.js') {
+						return { path: KEYING_PRORES_ENTRY };
+					}
 					if (!importer || path.startsWith('.') || isAbsolute(path)) return null;
 					const specifiers = externals.get(path) ?? new Set();
 					specifiers.add(relative(REPOSITORY_ROOT, importer));
@@ -188,6 +205,8 @@ test('the nightly test payload satisfies every import its browser specs reach', 
 	const packagedFilter = await readPackagedPayloadFilter();
 	const reached = physicalEsbuildInputPaths(result.metafile)
 		.map((input) => relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, input)));
+	assert.ok(reached.includes(relative(REPOSITORY_ROOT, KEYING_PRORES_ENTRY)),
+		'the generated ProRes fixture route must retain its physical decoder import graph');
 	const failures = [
 		...reached
 			.filter((input) => !isStagedInput(input))

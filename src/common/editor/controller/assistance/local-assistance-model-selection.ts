@@ -35,6 +35,7 @@ const MODEL_TASK_SLOTS = Object.freeze({
 	'shot-detection': modelTaskSlots(),
 	'subject-detection': modelTaskSlots(['face-detection'], ['object-detection']),
 	'saliency-detection': modelTaskSlots(['saliency-detection']),
+	'video-keying': modelTaskSlots(['video-keying']),
 	'editorial-generation': modelTaskSlots(['editorial-generation']),
 	'text-to-speech': modelTaskSlots(['text-to-speech']),
 } satisfies Readonly<Record<AssistanceOperation, readonly LocalAssistanceModelTaskSlot[]>>);
@@ -52,6 +53,7 @@ export function localAssistanceModelCompatible(
 	const slots = operationModelTaskSlots(operation, shotDetectionMode);
 	return slots.some((slot) => slot.includes(model.task))
 		&& (operation !== 'shot-detection' || model.modelId === LOCAL_ASSISTANCE_TRANSNET_V2_MODEL_ID)
+		&& (operation !== 'video-keying' || model.modelId === 'corridorkey-2.0' && model.version === '2.0.0')
 		&& (operation !== 'subject-detection'
 			|| model.task === 'face-detection' && model.modelId === YUNET_FACE_DETECTION_MODEL_ID
 			|| model.task === 'object-detection' && model.modelId === DFINE_OBJECT_DETECTION_MODEL_ID);

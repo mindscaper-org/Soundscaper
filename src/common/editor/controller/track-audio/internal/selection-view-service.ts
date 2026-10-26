@@ -306,24 +306,25 @@ export function createSelectionViewService<
 		return project ? applySelectionRange(project, startFrame, endFrame, {}, true, false) : null;
 	}
 
-	function selectLeftOfPlaybackPosition(requestedStartFrame: unknown = null) {
-		const playbackFrame = normalizeTimelineFrame(engine.getPositionFrames());
-		let startFrame = requestedStartFrame == null
-			? (activeSelection()?.startFrame ?? 0)
-			: normalizeTimelineFrame(requestedStartFrame);
-		if (startFrame >= playbackFrame) startFrame = 0;
-		return setPlayheadAnchoredSelection(startFrame, playbackFrame)?.selection ?? null;
+	function selectLeftOfPlaybackPosition(requestedFrame: unknown = null) {
+		return setSelectionBoundaryAtPlayback(true, requestedFrame);
 	}
 
-	function selectRightOfPlaybackPosition(requestedEndFrame: unknown = null) {
+	function selectRightOfPlaybackPosition(requestedFrame: unknown = null) {
+		return setSelectionBoundaryAtPlayback(false, requestedFrame);
+	}
+
+	// Audacity 3 sets the named endpoint exactly, collapsing when it crosses the
+	// other boundary. Read point cursors too: activeSelection() only returns ranges.
+	function setSelectionBoundaryAtPlayback(left: boolean, requestedFrame: unknown) {
 		const project = getProject();
 		if (!project) return null;
-		const playbackFrame = normalizeTimelineFrame(engine.getPositionFrames());
-		let endFrame = requestedEndFrame == null
-			? (activeSelection()?.endFrame ?? projectDurationFrames(project))
-			: normalizeTimelineFrame(requestedEndFrame);
-		if (endFrame <= playbackFrame) endFrame = projectDurationFrames(project);
-		return setPlayheadAnchoredSelection(playbackFrame, endFrame, project)?.selection ?? null;
+		// applySelectionRange clamps to the full timeline, including unflattened takes.
+		const frame = Number(requestedFrame ?? engine.getPositionFrames());
+		const { startFrame = frame, endFrame = frame, trackIds = [], frequencyRange = null } = project.selection ?? {};
+		return applySelectionRange(project,
+			left ? frame : Math.min(startFrame, frame), left ? Math.max(endFrame, frame) : frame,
+			{ trackIds, frequencyRange }, false, false).selection;
 	}
 
 	function selectTrackStartToCursor() {

@@ -51,6 +51,7 @@ const PRELOAD_FIXTURE_ALIASES = Object.freeze({
 	'./project-library-runtime/desktop/audiocom-links.js': './audiocom-links.ts',
 	'./project-library-runtime/desktop/ara-preload.js': './ara-preload.ts',
 	'./project-library-runtime/desktop/blender-preload.js': './blender-preload.ts',
+	'./project-library-runtime/desktop/assistance-keyed-video-preload.js': './assistance-keyed-video-preload.ts',
 });
 // These audits change the staging inventory, while their repository sources stay
 // fixed. Reuse parsed imports and filesystem resolution, never inventory verdicts.
@@ -89,6 +90,7 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('desktop/desktop-video-h264-encoder.ts'));
 	assert.ok(result.visited.has('desktop/ara-preload.ts'));
 	assert.ok(result.visited.has('desktop/blender-preload.ts'));
+	assert.ok(result.visited.has('desktop/assistance-keyed-video-preload.ts'));
 	assert.ok(result.queryImports.some(({ specifier }) => specifier.endsWith('?worker&url')));
 });
 

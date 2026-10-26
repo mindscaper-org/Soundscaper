@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { chooseClipMediaSetting, expectClipSampleRate, readClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
+import { resampleClipFormat, expectClipSampleRate, readClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
 import { readFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 import { createWavFixture, test } from './audio-editor-test-fixtures.js';
@@ -111,15 +111,7 @@ test.describe('Soundscaper exact timing and freeze workflows', () => {
 		expect(Number.isFinite(sourceRate)).toBe(true);
 		expect(sourceRate).toBeGreaterThan(0);
 		if (sourceRate !== FREEZE_SAMPLE_RATE) {
-			await chooseClipMediaSetting(properties, 'Resample');
-			const resampleDialog = page.locator('[data-clip-resample-dialog]');
-			await expect(resampleDialog).toBeVisible();
-			await commitInput(
-				resampleDialog.locator('[data-clip-resample-field="sampleRate"] input'),
-				String(FREEZE_SAMPLE_RATE),
-			);
-			await resampleDialog.getByRole('button', { name: 'Resample', exact: true }).click();
-			await expect(resampleDialog).toBeHidden();
+			await resampleClipFormat(properties, FREEZE_SAMPLE_RATE);
 			await expectClipSampleRate(properties, FREEZE_SAMPLE_RATE);
 		}
 		await closeClipProperties(properties);

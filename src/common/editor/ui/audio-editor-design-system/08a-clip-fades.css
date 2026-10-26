@@ -16,19 +16,20 @@
 	height: 100%;
 	overflow: hidden;
 }
+[data-clip-id]:has(.clip-display):not(:has(.clip-header)) .audio-editor-clip-fade { top: 1px; }
 
-/* Upstream 20ce5547 audio controls follow hover or a held gesture.
-   Existing video, image and loop grips remain available whenever selected. */
+/* Upstream 2d007878: selected clips keep their length handles.
+   Unselected clips use boundary zones; the shape dots still follow hover. */
 [data-clip-id] .audacity-track-fade-handle:where(:not([data-video-clip-fade-handle])),
 [data-clip-id] .audacity-track-fade-shape-handle,
 [data-clip-id]:where(:not(.audio-editor-video-clip)) .clip-display__handle:where(:not(.clip-display__handle--loop-right)) {
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity 120ms ease-out;
+	transition: opacity 60ms ease-out;
 }
-[data-clip-id]:hover .audacity-track-fade-handle,
+[data-clip-id] [data-fade-selected="true"] .audacity-track-fade-handle,
 [data-clip-id]:hover .audacity-track-fade-shape-handle,
-[data-clip-id]:focus-within .audacity-track-fade-handle,
+[data-clip-id]:has([data-keyboard-handle]) .audacity-track-fade-handle,
 [data-clip-id]:focus-within .audacity-track-fade-shape-handle,
 [data-clip-id]:hover .clip-display--selected .clip-display__handle,
 [data-clip-id] .clip-display__handle:focus {
@@ -43,7 +44,7 @@
 [data-clip-id] .audio-editor-clip-fade__curve [data-fade-curve],
 [data-clip-id] .audio-editor-clip-fade__curve [data-fade-boundary] {
 	opacity: 0;
-	transition: opacity 120ms ease-out;
+	transition: opacity 60ms ease-out;
 }
 [data-clip-id]:hover .audio-editor-clip-fade__curve [data-fade-curve],
 [data-clip-id]:hover .audio-editor-clip-fade__curve [data-fade-boundary],
@@ -64,6 +65,53 @@
 }
 .audio-editor-fades-dialog__row > label:first-child { grid-column: 1 / -1; }
 
-[data-crossfade-handle] { opacity: 0; transition: opacity 120ms ease-out; }
+[data-crossfade-handle] { opacity: 0; transition: opacity 60ms ease-out; }
 .audio-editor-track-window:hover [data-crossfade-handle],
 [data-crossfade-handle]:focus { opacity: 1; }
+
+/* Both keyboard-held handles remain reachable, even on narrow clips. */
+[data-clip-id]:has([data-keyboard-handle]) .audio-editor-clip-fade__zone { pointer-events: none; }
+.audio-editor-clip-fade__zone {
+	position: absolute;
+	top: 0;
+	width: 32px;
+	height: min(32px, 100%);
+	z-index: -1;
+	pointer-events: auto;
+	touch-action: none;
+	outline: none;
+}
+.audio-editor-clip-fade__zone--in {
+	cursor: image-set(url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeIn.png?inline') 1x,
+		url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeIn@2x.png?inline') 2x) 16 16, pointer;
+}
+.audio-editor-clip-fade__zone--out {
+	cursor: image-set(url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeOut.png?inline') 1x,
+		url('../../../../../vendor/audacity-design-system/components/src/assets/cursors/FadeOut@2x.png?inline') 2x) 16 16, pointer;
+}
+.audio-editor-clip-fade__zone[data-has-fade] { cursor: ew-resize; }
+.audio-editor-clip-fade__zone[data-disabled] { pointer-events: none; }
+.audio-editor-clip-fade__peek {
+	position: absolute;
+	top: 0;
+	width: 16px;
+	height: 100%;
+	pointer-events: none;
+	transition: opacity 60ms ease-out;
+}
+.audio-editor-clip-fade__peek[data-leaving] { opacity: 0; }
+@starting-style { .audio-editor-clip-fade__peek { opacity: 0; } }
+body:has([data-fade-length-drag]), body:has([data-fade-length-drag]) * { cursor: ew-resize !important; }
+[data-fade-editing] .audio-editor-clip-fade__curve [data-fade-boundary] {
+	opacity: 1;
+	stroke: #000;
+	filter: drop-shadow(0 4px 0 #fff);
+}
+[data-fade-editing] .audio-editor-clip-fade__curve [data-fade-curve] { opacity: 1; }
+body:has([data-fade-length-drag]) .audacity-track-fade-handle:not([data-pressed='true']),
+body:has([data-fade-length-drag]) .audacity-track-fade-shape-handle { opacity: 0; pointer-events: none; }
+[data-fade-floor] :is(.audacity-track-fade-handle, .audacity-track-fade-shape-handle, .audio-editor-clip-fade__zone),
+[data-fade-pointer="false"] .audio-editor-clip-fade__zone { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+	.audio-editor-clip-fade *, .audacity-track-fade-handle__glyph { transition-duration: 0s; }
+}

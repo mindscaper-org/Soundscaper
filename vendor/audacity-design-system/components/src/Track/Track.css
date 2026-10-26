@@ -41,9 +41,9 @@
 
 .audacity-track-fade-handle {
   position: absolute;
-  top: 2px;
-  width: 16px;
-  height: 16px;
+  top: 0;
+  width: 30px;
+  height: min(32px, 100%);
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -56,6 +56,19 @@
 .audacity-track-fade-handle svg {
   display: block;
 }
+
+.audacity-track-fade-handle__glyph {
+  position: absolute;
+  top: calc(50% - 16px);
+  width: 36px;
+  height: 32px;
+  pointer-events: none;
+  transition: transform 60ms ease-out, opacity 60ms ease-out;
+}
+.audacity-track-fade-handle:hover .audacity-track-fade-handle__glyph,
+.audacity-track-fade-handle:focus-visible .audacity-track-fade-handle__glyph { transform: scale(1.18); }
+.audacity-track-fade-handle:active .audacity-track-fade-handle__glyph,
+.audacity-track-fade-handle[data-pressed='true'] .audacity-track-fade-handle__glyph { transform: scale(1.08); opacity: 0.85; }
 
 .audacity-track-fade-handle:focus-visible {
   outline: 1px solid var(--focus-color, #fff);
@@ -90,7 +103,9 @@
   border-radius: 50%;
   background: #fff;
   border: 1.5px solid rgb(0 0 0 / 60%);
+  transition: transform 60ms ease-out;
 }
+.audacity-track-fade-shape-handle:hover .audacity-track-fade-shape-handle__dot { transform: scale(1.18); }
 
 .audacity-track-fade-shape-handle:focus-visible {
   outline: 1px solid var(--focus-color, #fff);

@@ -16,6 +16,8 @@ import type {
 import type { AssistanceRuntimeFamilyTask } from './assistance-runtime-family-job-contract.ts';
 import type { AssistanceStagingRegistry } from './assistance-staging-registry.ts';
 import type { AssistanceService } from './assistance-service.ts';
+import { assertCorridorKeyModelArtifactsV1, assertCorridorKeyModelBindingV1,
+	CORRIDORKEY_MODEL_ID_V1 } from './assistance-corridorkey-model.ts';
 
 export type AssistanceRuntimeFamilyModelService = Pick<
 	AssistanceService,
@@ -52,6 +54,7 @@ const DIRECT_ADDITIONAL_OPERATIONS = new Set<AssistanceOperationRequest['operati
 	'optical-character-recognition', 'subject-detection', 'saliency-detection',
 	'editorial-generation',
 	'text-to-speech',
+	'video-keying',
 ]);
 const GIB = 1024 ** 3;
 const WAV2VEC2_BASE_960H_SHA256 =
@@ -134,6 +137,7 @@ export async function executeAssistanceOperationWithRuntimeFamily(
 				? { language: options.request.settings.language,
 					voice: options.request.settings.voice, speed: options.request.settings.speed }
 				: { selectionFence: options.request.selectionFence }),
+			...(options.request.operation === 'video-keying' && options.request.settings ? { hint: options.request.settings } : {}),
 			inputRoles: Object.freeze(options.request.inputs.map(({ role }) => role)),
 			outputRoles: Object.freeze(options.request.outputs.map(({ role }) => role)),
 		}),
@@ -164,6 +168,7 @@ async function resolveExactModel(
 	if (subjectBindings === null && request.models.length !== 1) {
 		throw new TypeError(`${request.operation} requires one exact additional-runtime model binding.`);
 	}
+	if (request.operation === 'video-keying') assertCorridorKeyModelBindingV1(request.models[0]!);
 	if (subjectBindings === null && (request.operation === 'audio-tagging'
 		|| request.operation === 'beat-tracking')) {
 		assertAssistanceOnnxAudioModelBindingV1(request.operation, request.models[0]!);
@@ -417,6 +422,7 @@ async function resolveModelCaptures(
 	}
 	const installation = installations[0];
 	if (!installation) return null;
+	if (binding.modelId === CORRIDORKEY_MODEL_ID_V1) assertCorridorKeyModelArtifactsV1(installation.artifacts);
 	const expectedDigests = installation.artifacts.map(({ sha256 }) => sha256).sort();
 	if (expectedDigests.length !== binding.artifactSha256s.length
 		|| expectedDigests.some((digest, index) => digest !== binding.artifactSha256s[index])) {

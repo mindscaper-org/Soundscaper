@@ -236,7 +236,7 @@ async function setupShortReplacement(page) {
 	]);
 	const later = await openClipProperties(page, editor, instances.nth(1));
 	await showClipTimingFields(later);
-	await clipField(later, 'startFrame').fill(String(laterStartFrame));
+	await clipField(later, 'startFrame').fill(String(laterStartFrame / 48_000));
 	await clipField(later, 'startFrame').press('Tab');
 	await closeClipProperties(later);
 	await expectClipFrames(page, editor, laterId, { start: laterStartFrame, duration: originalFrameCount });
@@ -253,8 +253,8 @@ async function stageShortReplacement(page, card) {
 async function expectClipFrames(page, editor, clipId, expected) {
 	const clip = editor.locator(`[data-clip-id="${clipId}"][role="group"]`);
 	const dialog = await openClipProperties(page, editor, clip);
-	await expect(clipField(dialog, 'startFrame')).toHaveValue(String(expected.start));
-	await expect(clipField(dialog, 'durationFrame')).toHaveValue(String(expected.duration));
+	await expect(clipField(dialog, 'startFrame')).toHaveValue(String(expected.start / 48_000));
+	await expect(clipField(dialog, 'durationFrame')).toHaveValue(String(expected.duration / 48_000));
 	await closeClipProperties(dialog);
 }
 

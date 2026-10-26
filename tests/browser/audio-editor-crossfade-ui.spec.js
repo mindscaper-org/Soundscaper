@@ -3,7 +3,7 @@ import {
 	bootEditor, clipByName, closeClipProperties, collectClientErrors, commitInput,
 	importFiles, openClipProperties, registerAudioEditorHooks, waitForEditor,
 } from './audio-editor-test-helpers.js';
-import { chooseClipMediaSetting } from './audio-editor-clip-settings-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 async function overlapStereoClips(page) {
 	const editor = await bootEditor(page, '/embed/en/');
@@ -38,14 +38,10 @@ async function curveMidpointGains(region) {
 }
 
 async function expectCrossfadeShapes(page, editor, outgoing, incoming, value) {
+	const projectId = await editor.getAttribute('data-project-id');
 	for (const [clip, field] of [[outgoing, 'fadeOutShape'], [incoming, 'fadeInShape']]) {
-		const properties = await openClipProperties(page, editor, clip);
-		const label = field === 'fadeInShape' ? 'Fade in shape' : 'Fade out shape';
-		await chooseClipMediaSetting(properties, label);
-		const shape = page.getByRole('dialog', { name: label, exact: true });
-		await expect(shape.getByRole('textbox', { name: label, exact: true })).toHaveValue(value);
-		await shape.getByRole('button', { name: 'Cancel', exact: true }).click();
-		await closeClipProperties(properties);
+		const clipId = await clip.getAttribute('data-clip-id');
+		await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(item => item.id === clipId)?.[field]).toBe(Number(value));
 	}
 }
 

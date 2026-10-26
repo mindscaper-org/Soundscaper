@@ -205,6 +205,12 @@ export const FOUNDATION_TIME_CONVERSION_COMMAND_SITES: readonly FoundationTimeCo
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 	{
+		id: 'clip-reinterpret-pcm-clock',
+		file: 'src/common/editor/controller/track-audio/internal/clip-reinterpret-commands.ts',
+		behavior: 'PCM reinterpretation preserves exact byte-aligned source boundaries and rounds the combined sample-width and sample-rate duration ratio once to the nearest project frame; fades and envelope positions follow that same resolved extent.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'clip-time-pitch-render-extent',
 		file: 'src/common/editor/controller/clip-video/clip-time-pitch-render-service.ts',
 		behavior: 'A rendered time-and-pitch clip point-rounds its output frame count out of the source rate into the project rate once, so the timeline extent it commits spans the same time the render produced.',

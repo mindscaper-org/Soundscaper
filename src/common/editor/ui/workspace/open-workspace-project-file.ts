@@ -35,9 +35,10 @@ async function routeWorkspaceProjectFile(
 	if (/\.aup$/iu.test(file.name) && openLegacyAup) return openLegacyAup(file);
 	if (isScapeProjectFile(file)) return openScape(file);
 	if (/\.dawproject$/iu.test(file.name)) return controller.actions.project.openDawproject(file);
-	if (/\.sesx$/iu.test(file.name)) {
-		if (!desktopSesx) throw new Error('Adobe Audition SESX import requires the desktop app.');
-		if (!controller.actions.project.openSesx) throw new Error('Adobe Audition SESX import is unavailable.');
+	if (/\.sesx?$/iu.test(file.name)) {
+		const format = /\.ses$/iu.test(file.name) ? 'SES' : 'SESX';
+		if (!desktopSesx) throw new Error(`Adobe Audition ${format} import requires the desktop app.`);
+		if (!controller.actions.project.openSesx) throw new Error(`Adobe Audition ${format} import is unavailable.`);
 		return controller.actions.project.openSesx(file);
 	}
 	if (/\.aup[34]$/iu.test(file.name)) return controller.actions.project.openAudacityProject(file);

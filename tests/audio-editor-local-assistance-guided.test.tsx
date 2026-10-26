@@ -53,7 +53,7 @@ test('the menu dialog opens Guided and exposes all 13 recipes before explicit Ad
 	const advanced = renderDialog(guided.getSnapshot());
 	assert.match(advanced, /role="tab" aria-selected="true"[^>]*>Advanced<\/button>/u);
 	assert.match(advanced, /role="tabpanel"[^>]*aria-label="Advanced"/u);
-	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech')) {
+	for (const operation of ASSISTANCE_OPERATIONS.filter((candidate) => candidate !== 'text-to-speech' && candidate !== 'video-keying')) {
 		assert.match(advanced, new RegExp(`value="${operation}"`, 'u'));
 	}
 	assert.doesNotMatch(advanced, /<label[^>]*>Workflow/u);

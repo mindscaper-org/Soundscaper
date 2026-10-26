@@ -118,7 +118,11 @@ async function mountedFixture(clipOverrides: Readonly<Record<string, unknown>> =
 			await act(async () => reactProps(input()).onChange({ target: { value: text } }));
 			await act(async () => reactProps(field()).onBlur({ target: input() }));
 		},
-		choosePitchUnit: async (label: string) => { await openSettings(); await choose(ENGLISH_COPY.clipPitchUnit); await choose(label); },
+		choosePitchUnit: async (label: string) => {
+			const toggle = dom.one('[data-clip-pitch-unit]');
+			if ((toggle.getAttribute('aria-pressed') === 'true') !== (label === ENGLISH_COPY.clipPitchUnitPercent))
+				await act(async () => reactProps(toggle).onClick());
+		},
 		cleanup: async () => {
 			await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
 			if (priorReact) Object.defineProperty(globalThis, 'React', priorReact); else Reflect.deleteProperty(globalThis, 'React');

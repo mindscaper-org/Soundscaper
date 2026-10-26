@@ -5,6 +5,7 @@ const PRODUCT_IDS = Object.freeze(['soundscaper', 'framescaper']);
 const COMMON_CONFIG_FILES = Object.freeze([
 	'config/assistance-native-runtime-manifest.json',
 	'config/assistance-sherpa-gpu-build.json',
+	'config/assistance-sherpa-retained-builds.json',
 	'config/assistance-runtime-family-supply-candidates.json',
 	'config/assistance-runtime-distribution.json',
 	'config/assistance-kokoro-g2p-runtime-manifest.json',
@@ -226,6 +227,12 @@ export function soundscaperMainSource(sourceValue) {
 
 export function soundscaperPreloadSource(sourceValue) {
 	let source = textSource(sourceValue, 'desktop preload');
+	source = replaceOnce(source,
+		/import \{ createAssistanceKeyedVideoPreloadBridge \} from '[^']+'; ?/u,
+		'', 'keyed-video preload import');
+	source = replaceOnce(source,
+		'videoKeying: createAssistanceKeyedVideoPreloadBridge({ invoke: (channel, value) => ipcRenderer.invoke(channel, value), claim: assistanceOutputClaim }), ',
+		'', 'keyed-video preload API');
 	source = replaceRange(source,
 		'const PRELOAD_PRODUCT_ID =',
 		'/* Keys main may hold',
@@ -416,12 +423,16 @@ export function soundscaperAssistanceRegistrationSource(sourceValue) {
 		/import \{ createExternalFfmpegAssistanceShotRuntimeAdapter \} from '[^']+';\n/u,
 		/import \{ createExternalFfmpegAssistanceVideoMaterializer \} from '[^']+';\n/u,
 		/import \{ createAssistanceWorkflowOwnedVideoHighlightStageRuntime \} from '[^']+';\n/u,
+		/import \{ createAssistanceKeyedVideoService \} from '[^']+';\n/u,
 	]) source = replaceOnce(source, pattern, '', 'deferred visual assistance import');
 	source = replaceOnce(source,
 		/\tconst shotDetectionRuntime = createExternalFfmpegAssistanceShotRuntimeAdapter\(\{\n\t\tpreferences: externalFfmpegPreferences,\n\t\}\);\n/u,
 		'', 'deferred shot-detection runtime');
 	source = replaceOnce(source, '\t\t\tshotDetectionRuntime,\n', '',
 		'deferred shot-detection operation');
+	source = replaceOnce(source,
+		/\t\tcreateKeyedVideo: [^\n]+\n/u,
+		'', 'deferred keyed-video encoder factory');
 	source = replaceRange(source,
 		'\tconst videoMaterializer =',
 		'\tconst workflowExecute =',

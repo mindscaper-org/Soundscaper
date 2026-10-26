@@ -3,7 +3,7 @@
 /** Closed target-native command plan for the media host and its static codec closure. */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join, win32 } from 'node:path';
 
 export const FRAMESCAPER_FFMPEG_CONFIGURE_FLAGS = Object.freeze([
 	'--disable-everything', '--disable-autodetect', '--disable-doc', '--disable-debug',
@@ -14,7 +14,7 @@ export const FRAMESCAPER_FFMPEG_CONFIGURE_FLAGS = Object.freeze([
 	'--enable-libx264', '--enable-libx265', '--enable-libvpx', '--enable-libopus',
 	'--enable-zlib',
 	...values('decoder', [
-		'h264', 'hevc', 'vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
+		'h264', 'hevc', 'vp9', 'libvpx_vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
 	]),
 	...values('encoder', [
 		'libx264', 'libx265', 'libvpx_vp9', 'prores_ks', 'dnxhd', 'ffv1', 'png', 'tiff',
@@ -32,7 +32,7 @@ export const FRAMESCAPER_FFMPEG_POLICY = deepFreeze({
 	network: false,
 	externalLibraries: ['x264', 'x265', 'libvpx', 'libopus', 'zlib'],
 	enabledDecoders: [
-		'h264', 'hevc', 'vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
+		'h264', 'hevc', 'vp9', 'libvpx-vp9', 'av1', 'prores', 'dnxhd', 'pcm_f32le', 'png', 'tiff', 'exr',
 	],
 	enabledEncoders: [
 		'libx264', 'libx265', 'libvpx-vp9', 'prores_ks', 'dnxhd', 'ffv1', 'png', 'tiff',
@@ -49,7 +49,7 @@ export const FRAMESCAPER_FFMPEG_POLICY = deepFreeze({
 
 export const FRAMESCAPER_FFMPEG_REQUIRED_CONFIGURATION = Object.freeze([
 	'CONFIG_LIBX264', 'CONFIG_LIBX265', 'CONFIG_LIBVPX', 'CONFIG_LIBOPUS', 'CONFIG_ZLIB',
-	...configNames('DECODER', FRAMESCAPER_FFMPEG_POLICY.enabledDecoders),
+	...configNames('DECODER', FRAMESCAPER_FFMPEG_POLICY.enabledDecoders, { 'libvpx-vp9': 'libvpx_vp9' }),
 	...configNames('ENCODER', FRAMESCAPER_FFMPEG_POLICY.enabledEncoders, { 'libvpx-vp9': 'libvpx_vp9' }),
 	...configNames('DEMUXER', FRAMESCAPER_FFMPEG_POLICY.enabledDemuxers),
 	...configNames('MUXER', FRAMESCAPER_FFMPEG_POLICY.enabledMuxers),
@@ -110,6 +110,16 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		RANLIB: shellTool(tools.executables.ranlib.path, windows),
 		...(windows ? { RC: shellTool(tools.executables.rc.path, true) } : {}),
 	});
+	// Visual Studio projects select their compiler through MSBuild. Supplying CC
+	// makes libvpx probe MSVC with its GNU-style compiler/linker commands instead.
+	const vpxConfigureEnvironment = windows ? Object.freeze(Object.fromEntries(
+		Object.entries(makeEnvironment).filter(([name]) => !['CC', 'CXX', 'AR', 'RANLIB'].includes(name)),
+	)) : makeEnvironment;
+	// Keep the attested Git Bash first for generator subprocesses. Native Make
+	// also needs its full shell path explicitly; a basename can select WSL.
+	const vpxBuildEnvironment = windows ? Object.freeze({ ...makeEnvironment,
+		PATH: `${dirname(tools.executables.shell.path)};${makeEnvironment.PATH}`,
+	}) : makeEnvironment;
 	const pkgConfigRoots = [
 		paths.ffmpegInstall, paths.x264Install, paths.x265Install,
 		paths.libvpxInstall, paths.libopusInstall, paths.zlibInstall,
@@ -139,9 +149,12 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		...(windows ? ['-DSTATIC_LINK_CRT=ON'] : []),
 	];
 	const vpxArgs = [
-		shellPath(join(externalSourceRoots.libvpx, 'configure'), windows),
+		// Keep generated project prerequisites relative to the build directory
+		// rather than mixing native Windows drive prefixes into source filters.
+		windows ? win32.relative(paths.libvpxBuild, join(externalSourceRoots.libvpx, 'configure')).replaceAll('\\', '/')
+			: join(externalSourceRoots.libvpx, 'configure'),
 		`--target=${vpxTarget(target.id)}`,
-		`--prefix=${shellPath(paths.libvpxInstall, windows)}`,
+		`--prefix=${makefilePath(paths.libvpxInstall, windows)}`,
 		'--disable-examples', '--disable-tools', '--disable-docs', '--disable-unit-tests',
 		'--disable-shared', '--enable-static', '--enable-pic', '--disable-vp8', '--enable-vp9',
 		'--disable-webm-io', '--disable-libyuv', '--disable-runtime-cpu-detect',
@@ -162,13 +175,14 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	];
 	const ffmpegArgs = [
 		shellPath(join(ffmpegSourceRoot, 'configure'), windows), ...configureFlags,
-		`--prefix=${shellPath(paths.ffmpegInstall, windows)}`, ...ffmpegTargetArguments(target),
+		`--prefix=${makefilePath(paths.ffmpegInstall, windows)}`, ...ffmpegTargetArguments(target),
 		`--cc=${shellTool(tools.executables.c.path, windows)}`,
 		`--cxx=${shellTool(tools.executables.cxx.path, windows)}`,
 		`--ar=${shellTool(tools.executables.ar.path, windows)}`,
 		`--ranlib=${shellTool(tools.executables.ranlib.path, windows)}`,
 		`--pkg-config=${shellTool(tools.executables.pkgConfig.path, windows)}`,
-		...(windows ? ['--extra-cflags=-MT'] : []),
+		// Static x265 calls the registry API but omits it from Libs.private.
+		...(windows ? ['--extra-cflags=-MT', '--extra-libs=advapi32.lib'] : []),
 	];
 	const hostEnvironment = Object.freeze({
 		...nativeEnvironment, PKG_CONFIG_PATH: pkgConfigPath, PKG_CONFIG_LIBDIR: pkgConfigPath,
@@ -184,7 +198,22 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		`-DCMAKE_PREFIX_PATH=${pkgConfigRoots.join(';')}`,
 	];
 	const vpxMake = windows
-		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`] : [];
+		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`,
+			`SHELL=${makefilePath(tools.executables.shell.path, true)}`,
+			// Separate flags disable Make's direct script execution optimization,
+			// which resolves /bin/bash through Windows instead of Git Bash.
+			'.SHELLFLAGS=-e -c',
+			'GEN_VCPROJ=$(if $(VCPROJ_SRCS),$(file >$@.sources,$(VCPROJ_SRCS)))'
+			+ `${makeShellPath(tools.executables.shell.path)} ${makeShellPath(join(hostRoot, 'build/windows-vpx-project.sh'))} `
+			+ `${makeShellPath(join(externalSourceRoots.libvpx, 'build/make/gen_msvs_vcxproj.sh'))} $@.sources`] : [];
+	// Configure records Git Bash's /c aliases, which native Make cannot open.
+	// Read the authenticated upstream Makefile directly and override both aliases.
+	const ffmpegMake = windows ? ['-f', makefilePath(join(ffmpegSourceRoot, 'Makefile'), true),
+		`SRC_PATH=${makefilePath(ffmpegSourceRoot, true)}`, `SRC_LINK=${makefilePath(ffmpegSourceRoot, true)}`,
+		`SHELL=${makefilePath(tools.executables.shell.path, true)}`, '.SHELLFLAGS=-e -c'] : [];
+	const ffmpegBuildEnvironment = windows ? Object.freeze({ ...dependencyEnvironment,
+		PATH: vpxBuildEnvironment.PATH,
+	}) : dependencyEnvironment;
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([
@@ -199,9 +228,12 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('x265-configure', tools.executables.cmake.path, x265Args, paths.x265Build, nativeEnvironment),
 		command('x265-build', tools.executables.cmake.path, ['--build', paths.x265Build, '--config', 'Release', '--target', 'x265-static', '--parallel', '1'], paths.x265Build, nativeEnvironment),
 		command('x265-install', tools.executables.cmake.path, ['--install', paths.x265Build, '--config', 'Release', '--prefix', paths.x265Install], paths.x265Build, nativeEnvironment),
-		command('libvpx-configure', tools.executables.shell.path, vpxArgs, paths.libvpxBuild, makeEnvironment),
-		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, makeEnvironment),
-		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, makeEnvironment),
+		...(windows ? [command('x265-normalize-library', tools.executables.cmake.path, ['-E', 'copy',
+			join(paths.x265Install, 'lib', 'x265-static.lib'), join(paths.x265Install, 'lib', 'x265.lib')],
+		paths.x265Build, nativeEnvironment)] : []),
+		command('libvpx-configure', tools.executables.shell.path, vpxArgs, paths.libvpxBuild, vpxConfigureEnvironment),
+		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, vpxBuildEnvironment),
+		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, vpxBuildEnvironment),
 		...(windows ? [
 			command('libvpx-normalize-library', tools.executables.cmake.path, ['-E', 'copy',
 				join(paths.libvpxInstall, 'lib', target.id === 'win-arm64' ? 'ARM64' : 'x64', 'vpxmt.lib'),
@@ -214,8 +246,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('libopus-build', tools.executables.cmake.path, ['--build', paths.libopusBuild, '--config', 'Release', '--target', 'opus', '--parallel', '1'], paths.libopusBuild, nativeEnvironment),
 		command('libopus-install', tools.executables.cmake.path, ['--install', paths.libopusBuild, '--config', 'Release', '--prefix', paths.libopusInstall], paths.libopusBuild, nativeEnvironment),
 		command('ffmpeg-configure', tools.executables.shell.path, ffmpegArgs, paths.ffmpegBuild, dependencyEnvironment),
-		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1'], paths.ffmpegBuild, dependencyEnvironment),
-		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install'], paths.ffmpegBuild, dependencyEnvironment),
+		command('ffmpeg-build', tools.executables.make.path, ['-C', paths.ffmpegBuild, '-j1', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
+		command('ffmpeg-install', tools.executables.make.path, ['-C', paths.ffmpegBuild, 'install', ...ffmpegMake], paths.ffmpegBuild, ffmpegBuildEnvironment),
 		command('host-configure', tools.executables.cmake.path, hostArgs, hostRoot, hostEnvironment),
 		command('host-build', tools.executables.cmake.path, ['--build', paths.hostBuild, '--config', 'Release', '--parallel', '1'], hostRoot, hostEnvironment),
 		command('host-install', tools.executables.cmake.path, ['--install', paths.hostBuild, '--config', 'Release', '--prefix', paths.hostInstall], hostRoot, hostEnvironment),
@@ -244,7 +276,7 @@ function ffmpegTargetArguments(target) {
 	if (target.id === 'linux-arm64') return ['--target-os=linux', '--arch=aarch64'];
 	if (target.id === 'mac-arm64') return ['--target-os=darwin', '--arch=arm64'];
 	if (target.id === 'win-x64') return ['--target-os=win64', '--arch=x86_64', '--toolchain=msvc'];
-	return ['--target-os=win64', '--arch=arm64', '--toolchain=msvc'];
+	return ['--target-os=win64', '--arch=arm64', '--toolchain=msvc', '--disable-asm'];
 }
 
 function vpxTarget(target) {
@@ -275,6 +307,14 @@ function shellPath(value, windows) {
 
 function shellTool(value, windows) {
 	return windows ? value.replaceAll('\\', '/').split('/').at(-1) : value;
+}
+
+function makefilePath(value, windows) {
+	return windows ? value.replaceAll('\\', '/') : value;
+}
+
+function makeShellPath(value) {
+	return `'${value.replaceAll('\\', '/').replaceAll('$', () => '$$').replaceAll("'", "'\\''")}'`;
 }
 
 function command(phase, executable, args, cwd, environment) {

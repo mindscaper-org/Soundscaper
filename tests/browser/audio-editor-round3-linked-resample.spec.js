@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { chooseClipMediaSetting, expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
+import { resampleClipFormat, expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, closeClipProperties, chooseCommandAction, chooseNestedCommandAction,
 	importFiles, openClipProperties } from './audio-editor-test-helpers.js';
@@ -15,11 +15,7 @@ test('resampling camera audio preserves its linked video and Undo restores the o
 	await audio.locator('.clip-header').click();
 	const properties = await openClipProperties(page, editor, audio);
 
-	await chooseClipMediaSetting(properties, 'Resample');
-	const resample = page.locator('[data-clip-resample-dialog]');
-	await resample.getByRole('textbox').fill('24000');
-	await resample.getByRole('button', { name: 'Resample', exact: true }).click();
-	await expect(resample).toBeHidden();
+	await resampleClipFormat(properties, 24_000);
 	await expectClipSampleRate(properties, 24000);
 	await closeClipProperties(properties);
 	await expect(editor).toHaveAttribute('data-clip-count', '2');

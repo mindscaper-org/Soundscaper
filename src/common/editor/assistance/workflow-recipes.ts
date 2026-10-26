@@ -31,11 +31,11 @@ export const ASSISTANCE_GUIDED_WORKFLOW_IDS = Object.freeze([
 ] as const);
 
 export type AssistanceGuidedWorkflowId = (typeof ASSISTANCE_GUIDED_WORKFLOW_IDS)[number];
-type AssistanceAdvancedOperation = Exclude<AssistanceOperation, 'text-to-speech'>;
+type AssistanceAdvancedOperation = Exclude<AssistanceOperation, 'text-to-speech' | 'video-keying'>;
 export type AssistanceAdvancedWorkflowId = `advanced:${AssistanceAdvancedOperation}`;
 
 const ADVANCED_OPERATIONS = Object.freeze(ASSISTANCE_OPERATIONS.filter(
-	(operation): operation is AssistanceAdvancedOperation => operation !== 'text-to-speech',
+	(operation): operation is AssistanceAdvancedOperation => operation !== 'text-to-speech' && operation !== 'video-keying',
 ));
 
 export const ADVANCED_ASSISTANCE_WORKFLOW_IDS = Object.freeze(

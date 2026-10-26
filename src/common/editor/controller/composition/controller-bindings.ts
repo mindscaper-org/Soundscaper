@@ -62,7 +62,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { addVideoClipEffect, updateVideoClipEffect, toggleVideoClipEffect, bypassVideoClipEffect, previewVideoEffectGesture, commitVideoEffectGesture } = deferControllerMethods(() => services.clips().videoEffect, ['addVideoClipEffect', 'updateVideoClipEffect', 'toggleVideoClipEffect', 'bypassVideoClipEffect', 'previewVideoEffectGesture', 'commitVideoEffectGesture']);
 	const { cancelTimedRecording } = deferControllerMethods(() => services.recording().timed, ['cancelTimedRecording']);
 	const { startRecording, startSoundActivatedRecording } = deferControllerMethods(() => services.recording().session, ['startRecording', 'startSoundActivatedRecording']);
-	const { setVisibleTrackHeights, resizeTrackHeight } = deferControllerMethods(() => services.viewStateService(), ['setVisibleTrackHeights', 'resizeTrackHeight']);
+	const { setVisibleTrackHeights, resizeTrackHeight, fitTrackHeights } = deferControllerMethods(() => services.viewStateService(), ['setVisibleTrackHeights', 'resizeTrackHeight', 'fitTrackHeights']);
 	const { newProject } = deferAsyncControllerMethods(() => services.projectSwitchService(), ['newProject']);
 	const { releaseProjectLock } = deferAsyncControllerMethods(() => services.projectLockService(), ['releaseProjectLock']);
 	const { requestWaveformPcmWindow, activateStoredSource } = deferAsyncControllerMethods(() => services.sources().sourceLifecycle, ['requestWaveformPcmWindow', 'activateStoredSource']);
@@ -92,7 +92,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	);
 	const { dismissAup4CompatibilitySummary } = deferControllerMethods(() => services.nativeProjectService(), ['dismissAup4CompatibilitySummary']);
 	const { cacheSourceBuffer, clearWaveformPcmWindows } = deferControllerMethods(() => services.sources().sourceLifecycle, ['cacheSourceBuffer', 'clearWaveformPcmWindows']);
-	const { mixAndRenderTracks, resampleTrack, resampleClip, swapTrackChannels, splitStereoTrack, makeStereoTrack } = deferControllerMethods(() => services.tracks(), ['mixAndRenderTracks', 'resampleTrack', 'resampleClip', 'swapTrackChannels', 'splitStereoTrack', 'makeStereoTrack']);
+	const { mixAndRenderTracks, resampleTrack, resampleClip, reinterpretClip, swapTrackChannels, splitStereoTrack, makeStereoTrack } = deferControllerMethods(() => services.tracks(), ['mixAndRenderTracks', 'resampleTrack', 'resampleClip', 'reinterpretClip', 'swapTrackChannels', 'splitStereoTrack', 'makeStereoTrack']);
 	const { splitAtFrame } = deferControllerMethods(() => services.edits().clipboard, ['splitAtFrame']);
 	const { selectedTracksTimeRange, toggleRmsWaveform, toggleVerticalRulers, toggleScrollViewToPlayhead, togglePinnedPlayhead, toggleRulerPlayback, setZoom } = deferControllerMethods(() => services.tracks().selectionView, ['selectedTracksTimeRange', 'toggleRmsWaveform', 'toggleVerticalRulers', 'toggleScrollViewToPlayhead', 'togglePinnedPlayhead', 'toggleRulerPlayback', 'setZoom']);
 	const { synchronizeAutomaticSampleEditMode, cancelSampleEdit } = deferControllerMethods(() => services.clips().sampleEdit, ['synchronizeAutomaticSampleEditMode', 'cancelSampleEdit']);
@@ -141,7 +141,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		sampleEditingAvailable, setSampleEditMode, applySamplePencil, smoothSelectedSamples,
 		updateRecordingDeviceRows, addVideoClipEffect, updateVideoClipEffect, toggleVideoClipEffect,
 		bypassVideoClipEffect, previewVideoEffectGesture, commitVideoEffectGesture, cancelTimedRecording,
-		startRecording, startSoundActivatedRecording, setVisibleTrackHeights, resizeTrackHeight, newProject,
+		startRecording, startSoundActivatedRecording, setVisibleTrackHeights, resizeTrackHeight, fitTrackHeights, newProject,
 		releaseProjectLock, requestWaveformPcmWindow, requestFrequencyWaveform, activateStoredSource, loadRecordingRouting,
 		refreshRecordingInputs, refreshAudioDevices, startRecordingOnNewTrack, scheduleTimedRecording,
 		bootstrap, openProject, claimProjectLock,
@@ -156,7 +156,7 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		revertFactorySettings, sessionTab, persistActiveSessionUiState, setTrackChannelHeightRatio,
 		dismissAup4CompatibilitySummary,
 		cacheSourceBuffer, clearWaveformPcmWindows,
-		mixAndRenderTracks, materializeFreesoundUploadClip, publishBlenderTracks, resampleTrack, resampleClip, swapTrackChannels,
+		mixAndRenderTracks, materializeFreesoundUploadClip, publishBlenderTracks, resampleTrack, resampleClip, reinterpretClip, swapTrackChannels,
 		splitStereoTrack, makeStereoTrack, splitAtFrame,
 		selectedTracksTimeRange, toggleRmsWaveform, toggleVerticalRulers, toggleScrollViewToPlayhead,
 		togglePinnedPlayhead, toggleRulerPlayback, setZoom,

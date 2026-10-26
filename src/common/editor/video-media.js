@@ -56,7 +56,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		});
 	const objectUrl = selectedRange?.url || urlApi.createObjectURL(decoderFile);
 	let disposed = false;
-	let durationSeconds, width, height;
+	let durationSeconds, width, height, matchesCaptureFrame;
 	const captureLifetime = new AbortController();
 	try {
 		throwIfCaptureAborted(options.signal);
@@ -76,6 +76,8 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			: nonNegativeFinite(video.duration, 'Video duration');
 		width = positiveInteger(video.videoWidth, 'Video width');
 		height = positiveInteger(video.videoHeight, 'Video height');
+		matchesCaptureFrame = await (await import('./video-frame-capture-timing.ts'))
+			.createVideoFrameCaptureTimingMatcher(file, options.signal ? { signal: options.signal } : {});
 	} catch (error) {
 		releaseVideoFrameCaptureElement(video, () => {
 			if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
@@ -140,6 +142,11 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		throwIfCaptureAborted(request.signal);
 		if (disposed) throw new Error('The video frame extractor is closed.');
 		const { alpha, capturePlan, mimeType, quality, signal, timeoutMs, timestamp } = request;
+		// A metadata-only decoder can strand a paused-frame callback if sought
+		// before its first drawable frame has loaded.
+		if (video.readyState < 2) await waitForMediaEvent(video, 'loadeddata', {
+			signal, timeoutMs, errorMessage: 'The browser could not decode this video frame.',
+		});
 		// `loadedmetadata` can fire before the decoder has presented the first
 		// frame. Seeking to a nearby time forces the browser to populate the
 		// video frame before canvas capture, including for the timestamp-zero
@@ -151,6 +158,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			await seekVideoFrameForCapture(video, seekTimestamp, {
 				signal,
 				timeoutMs,
+				isRequestedFrame: mediaTime => matchesCaptureFrame(seekTimestamp, mediaTime),
 			});
 		}
 		throwIfCaptureAborted(signal);

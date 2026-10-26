@@ -864,11 +864,10 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     runs-on: ubuntu-24.04
-    # Run 37733071611 passed all 395 shard-2 tests in 44 minutes, then the
-    # 45-minute job limit cancelled the job after setup overhead.
-    # One real-audio worker is intentionally retained. The full shard was
-    # still advancing without a reported failed case at the old 60-minute
-    # job boundary; individual Playwright deadlines remain unchanged.
+    # Run 40315820118 spent 28 minutes installing Firefox and PulseAudio.
+    # Allow that setup time while retaining a separate one-hour test deadline.
+    # One real-audio worker is intentionally retained; individual Playwright
+    # deadlines remain unchanged.
     timeout-minutes: 90
     steps:
       - name: Check out source
@@ -978,6 +977,7 @@ jobs:
           node scripts/ci-browser-shard-policy.ts "$RUNNER_TEMP/browser-shard-collection.json" firefox "${{ matrix.shard }}/12" 1 >> "$GITHUB_OUTPUT"
 
       - name: Run Firefox workflows against the existing build
+        timeout-minutes: 60
         # A second Firefox content process can starve the live AudioContext even
         # after the PulseAudio clock probe passes. The twelve shard runners still
         # keep the suite parallel without competing for one runner's audio clock.

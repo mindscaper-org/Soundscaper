@@ -29,6 +29,7 @@ export function soundscaperAssistanceOnnxRuntimeWorkerSource(sourceValue) {
 		'binary-formats-v1', 'transnetv2-onnx-adapter-v1',
 		'assistance-onnx-ocr-worker', 'assistance-onnx-saliency-worker',
 		'assistance-onnx-siglip2-worker', 'assistance-onnx-subject-worker',
+		'assistance-onnx-corridorkey-worker',
 	]) {
 		source = replaceOnce(source,
 			new RegExp(`^import \\{[^\\n]+\\} from ['"][^'"]*${dependency}\\.js['"];\\n`, 'mu'),
@@ -46,7 +47,7 @@ export function soundscaperAssistanceOnnxRuntimeWorkerSource(sourceValue) {
 		'export function createAssistanceOnnxRuntimeWorkerAdapterV1',
 		'export function createAssistanceOnnxRuntimeWorkerAdapterV1',
 		'visual ONNX session errors');
-	for (const adapter of ['Siglip2', 'Ocr', 'Subjects', 'Saliency']) {
+	for (const adapter of ['Siglip2', 'Ocr', 'Subjects', 'Saliency', 'Keying']) {
 		source = replaceOnce(source,
 			new RegExp(`^[\\t ]+const execute${adapter} = [^\\n]+\\n`, 'mu'),
 			'', adapter + ' ONNX adapter');
@@ -57,6 +58,7 @@ export function soundscaperAssistanceOnnxRuntimeWorkerSource(sourceValue) {
 		['optical-character-recognition', 'executeOcr'],
 		['subject-detection', 'executeSubjects'],
 		['saliency-detection', 'executeSaliency'],
+		['video-keying', 'executeKeying'],
 	]) {
 		source = replaceOnce(source,
 			new RegExp(`^        if \\(context\\.grant\\.task === '${task[0]}'\\)\\s*return ${task[1]}\\([^;]+;\\n`, 'mu'),

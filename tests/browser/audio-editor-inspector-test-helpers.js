@@ -8,8 +8,7 @@ export async function openClipProperties(page, editor, clip, { additional = true
 	const panel = editor.locator('[data-workspace-panel="clip-properties"]');
 	await expect(panel).toBeVisible();
 	await expect(panel.locator('[data-upstream-clip-properties]')).toBeVisible();
-	// Exact-clock workflows opt into TimeCode presentation on the same fields.
-	// Tests of the default upstream presentation pass additional: false.
+	// Audio timing fields use upstream seconds; native video keeps its media drawer.
 	if (additional && await panel.locator('[data-clip-audio-settings]').count()) await showClipTimingFields(panel);
 	return panel;
 }
@@ -17,10 +16,7 @@ export async function openClipProperties(page, editor, clip, { additional = true
 export async function showClipTimingFields(panel) {
 	const settings = panel.locator('[data-clip-audio-settings]');
 	if (await settings.count()) {
-		if (await panel.locator('[data-clip-field="startFrame"]').count()) return;
-		await settings.click();
-		await panel.page().getByRole('menuitemcheckbox', { name: 'Timecode fields', exact: true }).click();
-		await expect(panel.locator('[data-clip-field="startFrame"]')).toBeVisible();
+		await expect(panel.locator('[data-clip-properties-field="start"]')).toBeVisible();
 		return;
 	}
 	// Native video/image/generator inspectors retain their media drawer.

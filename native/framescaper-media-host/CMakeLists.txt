@@ -156,6 +156,24 @@ if(BUILD_TESTING)
 		NAME framescaper-professional-source-probe-test
 		COMMAND framescaper-professional-source-probe-test
 	)
+	add_executable(framescaper-decoded-frame-alpha-test
+		tests/decoded_frame_alpha_fixture.cpp
+		src/ffmpeg_decode_session.cpp
+	)
+	target_include_directories(framescaper-decoded-frame-alpha-test PRIVATE src)
+	target_link_libraries(framescaper-decoded-frame-alpha-test PRIVATE PkgConfig::FFMPEG_901)
+	if(MSVC)
+		target_compile_options(framescaper-decoded-frame-alpha-test PRIVATE /W4 /WX /permissive-)
+	else()
+		target_compile_options(framescaper-decoded-frame-alpha-test PRIVATE
+			-Wall -Wextra -Wpedantic -Werror
+		)
+	endif()
+	add_test(
+		NAME framescaper-decoded-frame-alpha-test
+		COMMAND framescaper-decoded-frame-alpha-test
+			${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/keyed-alpha-1280x720-4fps-4frames.webm
+	)
 	add_executable(framescaper-codec-closure-canary
 		tests/codec_closure_canary.cpp
 	)
@@ -177,6 +195,7 @@ if(BUILD_TESTING)
 		framescaper-selected-v20-frame-executor-test
 		framescaper-selected-v20-v8-visual-semantics-test
 		framescaper-professional-source-probe-test
+		framescaper-decoded-frame-alpha-test
 	)
 		if(MSVC)
 			target_compile_options(${FRAMESCAPER_ASSERTING_TEST} PRIVATE /UNDEBUG)

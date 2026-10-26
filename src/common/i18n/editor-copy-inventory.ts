@@ -24,6 +24,7 @@ import { DESKTOP_FFMPEG_COPY } from './editor-desktop-ffmpeg-copy.ts';
 import { FRAMESCAPER_FINISHING_SURFACE_COPY } from './editor-framescaper-finishing-surface-copy.ts';
 import { PROCESSING_DIALOG_COPY_BY_LOCALE } from './processing-dialog-copy.js';
 import { LOCAL_MODEL_NAMES_COPY } from './editor-local-model-names-copy.ts';
+import { CORRIDORKEY_COPY } from './editor-corridorkey-copy.ts';
 import { PARAMETRIC_EQ_BAND_COPY } from './editor-parametric-eq-copy.ts';
 import { VIDEO_FILMSTRIP_COPY } from './editor-video-filmstrip-copy.ts';
 import { FRAMESCAPER_INPUTS_COPY } from './editor-framescaper-inputs-copy.ts';
@@ -47,6 +48,7 @@ import { BLENDER_COPY_BY_LOCALE } from './editor-blender-copy.ts';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from './editor-clip-interactions-copy.ts';
 import { KEYBOARD_MAP_COPY_BY_LOCALE } from './editor-keyboard-map-copy.ts';
 import { ID3_METADATA_COPY_BY_LOCALE } from './editor-id3-metadata-copy.ts';
+import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 
 export interface EditorCopyOwner {
 	readonly owner: string;
@@ -142,6 +144,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'storageCapacity.operation', en: operationEnglish },
 	{ owner: 'desktopFfmpeg', en: DESKTOP_FFMPEG_COPY },
 	{ owner: 'localModelNames', en: LOCAL_MODEL_NAMES_COPY },
+	{ owner: 'corridorKey', en: CORRIDORKEY_COPY },
 	{ owner: 'parametricEq.band', en: PARAMETRIC_EQ_BAND_COPY },
 	{ owner: 'videoFilmstrip', en: VIDEO_FILMSTRIP_COPY },
 	{ owner: 'soundscaperWorkflow', en: SOUNDSCAPER_WORKFLOW_COPY },
@@ -156,6 +159,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'freesoundAttribution', ...FREESOUND_ATTRIBUTION_INVENTORY_COPY_BY_LOCALE },
 	{ owner: 'audiocom', ...AUDIOCOM_INVENTORY_COPY_BY_LOCALE },
 	{ owner: 'clipInteractions', ...CLIP_INTERACTIONS_COPY_BY_LOCALE },
+	{ owner: 'trackHeight', ...TRACK_HEIGHT_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'selectedVisualAuthoring', en: SELECTED_VISUAL_AUTHORING_COPY },

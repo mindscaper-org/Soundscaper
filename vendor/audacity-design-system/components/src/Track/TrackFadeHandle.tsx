@@ -1,4 +1,5 @@
 import React from 'react';
+import { trackFadeHandleGeometry } from './track-fade-handle-geometry';
 import './Track.css';
 
 export interface TrackFadeHandleProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'type'> {
@@ -6,74 +7,34 @@ export interface TrackFadeHandleProps extends Omit<React.ButtonHTMLAttributes<HT
   keyboardReachable?: boolean;
   /** Fade boundary in pixels from the rendered clip's left edge. */
   boundaryX: number;
-  /** Boundary of the other fade, in the same coordinate space. */
   oppositeBoundaryX: number;
   clipWidth: number;
 }
 
-function preferredLeft(edge: 'in' | 'out', inBoundaryX: number, outBoundaryX: number, clipWidth: number): number {
-  const mirrored = edge === 'out';
-  const boundaryX = edge === 'in' ? inBoundaryX : outBoundaryX;
-  const handlesRetreat = outBoundaryX - inBoundaryX < 40;
-  const inward = edge === 'in' ? !handlesRetreat : handlesRetreat;
-
-  // The glyph's visible square is asymmetric inside its 16px SVG box.
-  const squareLeft = mirrored ? 0.5 : 6.5;
-  const squareRight = mirrored ? 9.5 : 15.5;
-  const raw = inward
-    ? boundaryX + 2 - squareLeft
-    : boundaryX - 2 - squareRight;
-  return Math.max(0, Math.min(Math.floor(clipWidth - 16), Math.round(raw)));
-}
-
-function handleLeft(edge: 'in' | 'out', boundaryX: number, oppositeBoundaryX: number, clipWidth: number): number {
-  const inBoundaryX = edge === 'in' ? boundaryX : oppositeBoundaryX;
-  const outBoundaryX = edge === 'out' ? boundaryX : oppositeBoundaryX;
-  const inLeft = preferredLeft('in', inBoundaryX, outBoundaryX, clipWidth);
-  const outLeft = preferredLeft('out', inBoundaryX, outBoundaryX, clipWidth);
-  if (Math.abs(inLeft - outLeft) >= 16) return edge === 'in' ? inLeft : outLeft;
-
-  // Coincident or crossed boundaries can make the two upstream targets
-  // overlap, especially after edge clamping. Move the pair as one so
-  // each remains a full 16px target with a 2px gap inside the clip.
-  const firstLeft = Math.max(0, Math.min(
-    Math.floor(clipWidth - 34), Math.round((inLeft + outLeft) / 2 - 9),
-  ));
-  const inFirst = inLeft <= outLeft;
-  return edge === 'in'
-    ? firstLeft + (inFirst ? 0 : 18)
-    : firstLeft + (inFirst ? 18 : 0);
-}
-
-/** The design-system quick-fade grip, with its drag lifecycle owned by the editor. */
-export function TrackFadeHandle({
-  edge,
-  keyboardReachable = false,
-  boundaryX,
-  oppositeBoundaryX,
-  clipWidth,
-  className,
-  style,
-  ...buttonProps
+/** Upstream 2d007878's quick-fade handle; the host owns the frame-based gesture. */
+export function TrackFadeHandle({ edge, keyboardReachable = false, boundaryX,
+  oppositeBoundaryX, clipWidth, className, style, ...buttonProps
 }: TrackFadeHandleProps): React.ReactElement | null {
-  // The two grips need room to remain legible and independently grabbable.
-  if (clipWidth < 64 && !keyboardReachable) return null;
-
-  const left = handleLeft(edge, boundaryX, oppositeBoundaryX, clipWidth);
-
+  if (clipWidth < 66 && !keyboardReachable) return null;
+  const { left, width, glyphLeft } = trackFadeHandleGeometry(edge, boundaryX, oppositeBoundaryX, clipWidth);
   return <button {...buttonProps} type="button" role="slider" data-fade-handle={edge}
     className={className ? `audacity-track-fade-handle ${className}` : 'audacity-track-fade-handle'}
-    style={{ ...style, left }}>
-    <TrackFadeHandleGlyph edge={edge} />
+    style={{ ...style, left, width }}>
+    <span className="audacity-track-fade-handle__glyph" style={{ left: glyphLeft }}>
+      <TrackFadeHandleGlyph edge={edge} />
+    </span>
   </button>;
 }
 
-/** The same quick-fade glyph for non-interactive labels and drawer headings. */
+/** The upstream rounded black body, white halo and white curve, unchanged. */
 export function TrackFadeHandleGlyph({ edge = 'in' }: { edge?: 'in' | 'out' }): React.ReactElement {
-  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true" style={edge === 'out' ? { transform: 'scaleX(-1)' } : undefined}>
-      <path d="M15.5 6.5V15.5H6.5V6.5H15.5Z" fill="#FFFFFF" stroke="#14151A" />
-      <path d="M16 6.5C12.8421 6.5 6.5 12.8421 6.5 16V6.5H16Z"
-        fill="#9295A6" fillOpacity="0.75" stroke="#14151A" />
-    </svg>;
+  const clipId = React.useId();
+  return <svg width="36" height="32" viewBox="0 0 36 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true" style={{ display: 'block', overflow: 'visible', ...(edge === 'out' ? { transform: 'scaleX(-1)' } : {}) }}>
+    <defs><clipPath id={clipId}><rect x="13" y="11" width="10" height="10" rx="2.5" /></clipPath></defs>
+    <rect data-fade-glyph-halo x="12.5" y="10.5" width="11" height="11" rx="3" fill="none" stroke="#FFFFFF" />
+    <rect data-fade-glyph-frame x="13" y="11" width="10" height="10" rx="2.5" fill="#000000" />
+    <path data-fade-glyph-curve d="M23 11C19.666666666666668 11 13 17.666666666666668 13 21"
+      stroke="#FFFFFF" strokeWidth="1.5" clipPath={`url(#${clipId})`} />
+  </svg>;
 }

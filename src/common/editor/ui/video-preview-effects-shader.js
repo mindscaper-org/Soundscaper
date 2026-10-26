@@ -16,6 +16,8 @@ import { HSL_MIXER_GLSL_V1 } from '../video-hsl-mixer-v1.ts';
 import { BLACK_WHITE_MIX_GLSL_V1 } from '../video-black-white-mix-v1.ts';
 import { IMAGE_GEOMETRY_PREVIEW_GLSL_V1 } from './video-preview-image-geometry-v1.ts';
 
+import { VIDEO_CHROMA_KEY_SHADER_BODY } from '../video-chroma-key.ts';
+
 export const MAX_GAUSSIAN_BLUR_PAIR_COUNT = 30;
 export const VIDEO_PREVIEW_PIXELATE_GRID_SIZE = 2;
 
@@ -255,48 +257,7 @@ void main() {
 		color.r = sample_content(content_uv + red_offset).r;
 		color.b = sample_content(content_uv - red_offset).b;
 	} else if (u_effect == 9) {
-		vec3 key_rgb = packed_color(u_params0.x) * 255.0;
-		vec2 key_chroma = vec2(
-			floor((-173.0 * key_rgb.r - 339.0 * key_rgb.g + 512.0 * key_rgb.b + 511.0) / 1024.0) + 128.0,
-			floor((512.0 * key_rgb.r - 429.0 * key_rgb.g - 83.0 * key_rgb.b + 511.0) / 1024.0) + 128.0
-		) / 255.0;
-		float similarity = max(0.00001, u_params0.y);
-		float softness = u_params0.z;
-		float distance_from_key = 0.0;
-		// FFmpeg's chromakey neighborhood is expressed in export pixels. A
-		// physical preview pixel may represent more or less than one of those.
-		float sample_scale = max(u_params1.x, 0.0001);
-		vec2 texel = vec2(sample_scale) / max(u_resolution, vec2(1.0));
-		for (int sample_y = -1; sample_y <= 1; sample_y += 1) {
-			for (int sample_x = -1; sample_x <= 1; sample_x += 1) {
-				vec2 sample_uv = content_uv + vec2(float(sample_x), float(sample_y)) * texel;
-				vec2 boundary_uv = sample_uv;
-				bool missing_uses_key = sample_uv.y > 1.0;
-				if (sample_uv.y < 0.0) {
-					float stale_x = sample_x < 0
-						? 1.0 - 1.5 * texel.x
-						: 1.0 - 0.5 * texel.x;
-					boundary_uv = vec2(max(stale_x, 0.5 * texel.x), 0.5 * texel.y);
-				} else if (sample_uv.x < 0.0) {
-					missing_uses_key = content_uv.y > 1.0 - texel.y;
-					boundary_uv = vec2(
-						max(1.0 - 1.5 * texel.x, 0.5 * texel.x),
-						clamp(content_uv.y + (1.0 - float(sample_y)) * texel.y, 0.5 * texel.y, 1.0 - 0.5 * texel.y)
-					);
-				}
-				vec2 sample_chroma = missing_uses_key
-					? key_chroma
-					: floor(rgb_to_limited_yuv(sample_content(boundary_uv).rgb).yz * 255.0 + 0.5) / 255.0;
-				distance_from_key += distance(sample_chroma, key_chroma) / 1.41421356237;
-			}
-		}
-		distance_from_key /= 9.0;
-		float matte = softness <= 0.0
-			? step(similarity, distance_from_key)
-			: clamp((distance_from_key - similarity) / softness, 0.0, 1.0);
-		vec3 encoded_yuv = floor(rgb_to_limited_yuv(color.rgb) * 255.0 + 0.5) / 255.0;
-		color.rgb = limited_yuv_to_rgb(encoded_yuv);
-		color.a *= matte;
+${VIDEO_CHROMA_KEY_SHADER_BODY}
 	} else if (u_effect == 10) {
 		vec3 encoded_yuv = floor(rgb_to_limited_yuv(color.rgb) * 255.0 + 0.5) / 255.0;
 		float luma = encoded_yuv.x * 255.0;

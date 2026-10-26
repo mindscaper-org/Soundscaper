@@ -3,6 +3,7 @@
 #pragma once
 
 #include "strict_json.hpp"
+#include "portable_decimal.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -91,11 +92,7 @@ inline void exact_optional(
 		throw json::parse_error(std::string{label} + " is not a bounded canonical number.");
 	}
 	double result{};
-	const auto converted = std::from_chars(
-		value.text.data(), value.text.data() + value.text.size(), result, std::chars_format::general
-	);
-	if (converted.ec != std::errc{} || converted.ptr != value.text.data() + value.text.size()
-		|| !std::isfinite(result)) {
+	if (!try_read_finite_decimal(value.text, result)) {
 		throw json::parse_error(std::string{label} + " is not a finite number.");
 	}
 	return result;
@@ -226,9 +223,7 @@ inline void require_same(
 	const auto alpha = value.substr(at + 1);
 	if (alpha.empty() || alpha.size() > 24) return false;
 	double parsed{};
-	const auto converted = std::from_chars(alpha.data(), alpha.data() + alpha.size(), parsed);
-	return converted.ec == std::errc{} && converted.ptr == alpha.data() + alpha.size()
-		&& parsed >= 0 && parsed <= 1;
+	return try_read_finite_decimal(alpha, parsed) && parsed >= 0 && parsed <= 1;
 }
 
 inline void local_file_name(

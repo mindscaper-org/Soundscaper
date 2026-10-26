@@ -23,6 +23,7 @@
 		"desktop/blender-export-store.ts",
 		"desktop/blender-live-server.ts",
 		"desktop/blender-preload.ts",
+		"desktop/assistance-keyed-video-preload.ts",
 		"desktop/main-trusted-ipc.ts",
 		"desktop/ara-session-service.ts",
 		"desktop/ara-helper-session.ts",

@@ -6,7 +6,7 @@ import { isImportFileName } from './import-file-extensions.ts';
 export const SCAPE_MIME_TYPE = 'application/vnd.soundscaper.scape+zip';
 
 // Explicit project/media/sidecar suffixes keep their existing routing authority.
-const CONFLICTING_SUFFIX = /\.(?:aup|aup3|aup4|dawproject|sesx|auf|zip)$/iu;
+const CONFLICTING_SUFFIX = /\.(?:aup|aup3|aup4|dawproject|ses|sesx|auf|zip)$/iu;
 
 /** A MIME-only file still goes through the native manifest and digest validator. */
 export function isScapeProjectFile(file: Readonly<{ name?: unknown; type?: unknown }> | null | undefined): boolean {

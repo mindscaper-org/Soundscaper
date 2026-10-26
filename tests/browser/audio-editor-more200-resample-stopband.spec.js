@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, disableNativeSavePicker, openClipProperties, waitForProjectActivation } from './audio-editor-test-helpers.js';
-import { chooseClipMediaSetting, expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
+import { resampleClipFormat, expectClipSampleRate } from './audio-editor-clip-settings-test-helpers.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
@@ -22,11 +22,7 @@ for (const rate of [8000, 48_000]) test(`File Resample to ${rate} Hz preserves i
 		buffer: Buffer.from(encodeWav([samples], { sampleRate: 96_000, float: true })) });
 	await expect(editor.locator('[data-clip-id]')).toHaveCount(1); await waitForProjectActivation(editor);
 	const properties = await openClipProperties(page, editor, editor.locator('[data-clip-id]'));
-	await chooseClipMediaSetting(properties, 'Resample');
-	const dialog = page.getByRole('dialog', { name: 'Resample clip', exact: true });
-	await dialog.getByRole('textbox', { name: /^Sample rate \(Hz\)/u }).fill(String(rate));
-	await dialog.getByRole('button', { name: 'Resample', exact: true }).click();
-	await expect(dialog).toBeHidden({ timeout: 20_000 }); await expectClipSampleRate(properties, rate);
+	await resampleClipFormat(properties, rate); await expectClipSampleRate(properties, rate);
 	const output = await exportSamples(page, editor); expect(output).toHaveLength(24_000);
 	expect(amplitude(output, 1000)).toBeGreaterThan(.13);
 	expect(amplitude(output, 2000)).toBeLessThan(.0001);

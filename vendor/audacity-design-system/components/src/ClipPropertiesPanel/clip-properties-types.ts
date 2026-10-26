@@ -82,6 +82,12 @@ export interface ClipPropertiesPanelProps {
   /** Host controls retain native color and exact time formats in the same fields. */
   colorControl?: ReactNode;
   pitchControl?: ReactNode;
+  pitchSpeedHeadingControl?: ReactNode;
+  pitchSpeedAction?: ReactNode;
+  pitchSpeedFooter?: ReactNode;
+  invertControl?: ReactNode;
+  mediaSections?: ReactNode;
+  showFadeShapes?: boolean;
   timingFields?: Partial<Record<'start' | 'length' | 'end' | 'trim-start' | 'trim-end' | 'fade-in' | 'fade-out', ReactNode>>;
   onOpenSource?: () => void;
   /** The clip shown, or null for the empty state */
@@ -92,6 +98,8 @@ export interface ClipPropertiesPanelProps {
   colors: ReadonlyArray<ClipPropertiesOption>;
   /** The tracks a clip can be moved to (none = no Track field) */
   tracks?: ReadonlyArray<ClipPropertiesOption>;
+  /** Upstream 2d007878: the track's sample rate after its dropdown. */
+  trackDetail?: string;
   /** Move the clip (or every selected clip) to this track, start held */
   onTrackChange?: (trackId: string) => void;
   /** The fade shape presets, with their curves */
@@ -102,6 +110,8 @@ export interface ClipPropertiesPanelProps {
   onStartChange?: (seconds: number) => void;
   /** New visible length, seconds (the host clamps to the source) */
   onDurationChange?: (seconds: number) => void;
+  /** The host's minimum visible length, seconds (for example one project sample). */
+  minimumDuration?: number;
   /** Trim the LEFT edge: how much of the source to hide at the head,
    *  seconds of source; the clip's content stays where it is (user
    *  request 2026-10-06 — until then only the right edge trimmed here) */

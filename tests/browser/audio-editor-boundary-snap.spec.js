@@ -25,7 +25,7 @@ async function setupBoundaryClips(page) {
 	const anchor = clipByName(editor, toneA.name);
 	const properties = await openClipProperties(page, editor, anchor);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'startFrame').fill(String(ANCHOR_START_FRAME));
+	await clipField(properties, 'startFrame').fill(String(ANCHOR_START_FRAME / 48_000));
 	await clipField(properties, 'startFrame').press('Tab');
 	await closeClipProperties(properties);
 	await expect.poll(async () => (await anchor.boundingBox())?.x ?? 0).toBeGreaterThan(250);
@@ -34,7 +34,8 @@ async function setupBoundaryClips(page) {
 
 async function startFrame(page, editor, clip) {
 	const properties = await openClipProperties(page, editor, clip);
-	const frame = Number(await clipField(properties, 'startFrame').inputValue());
+	await clipField(properties, 'startFrame').focus();
+	const frame = Math.round(Number(await clipField(properties, 'startFrame').inputValue()) * 48_000);
 	await closeClipProperties(properties);
 	return frame;
 }

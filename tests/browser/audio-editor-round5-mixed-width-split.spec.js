@@ -20,7 +20,7 @@ test('splitting a mixed mono and stereo track preserves each recording level', a
 	const destinationId = await destination.getAttribute('data-track-id');
 	const properties = await openClipProperties(page, editor, source);
 	await showClipTimingFields(properties);
-	await commitInput(clipField(properties, 'startFrame'), '48000');
+	await commitInput(clipField(properties, 'startFrame'), '1');
 	await closeClipProperties(properties);
 	const clipBox = await source.boundingBox(), trackBox = await destination.boundingBox();
 	expect(clipBox).not.toBeNull(); expect(trackBox).not.toBeNull();

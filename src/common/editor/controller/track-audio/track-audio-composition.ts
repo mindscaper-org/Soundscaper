@@ -335,6 +335,9 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		resampleClip: (clipId: string | null = state.selectedClipId, request: Parameters<DerivedAudio['resampleClip']>[1] = {}) => (
 			taskProgress.run('transform', transform(copy.resamplingClip), () => derivedAudio.resampleClip(clipId, request), undefined, { key: copy.resamplingClip ? 'resamplingClip' : 'audacityProcessing' })
 		),
+		reinterpretClip: (clipId: string | null = state.selectedClipId, request: Parameters<DerivedAudio['reinterpretClip']>[1] = {}) => (
+			taskProgress.run('transform', copy.audacityProcessing, () => derivedAudio.reinterpretClip(clipId, request), undefined, { key: 'audacityProcessing' })
+		),
 		swapTrackChannels: (trackId: string | null = state.selectedTrackId) => (
 			taskProgress.run('transform', transform(copy.rewritingChannels), () => derivedAudio.swapTrackChannels(trackId), undefined, { key: copy.rewritingChannels ? 'rewritingChannels' : 'audacityProcessing' })
 		),

@@ -5,6 +5,7 @@
 #include "../../common/exact_time.hpp"
 #include "sha256.hpp"
 #include "strict_json.hpp"
+#include "portable_decimal.hpp"
 
 #if __has_include(<boost/multiprecision/cpp_int.hpp>)
 #include "exact_retime_ordinal.hpp"
@@ -159,12 +160,8 @@ inline void decimal_rational(
 
 inline void finite_number(const json::value& value, const std::string_view label) {
 	double parsed{};
-	const auto converted = std::from_chars(
-		value.text.data(), value.text.data() + value.text.size(), parsed, std::chars_format::general
-	);
 	if (value.kind != json::type::number || value.text.empty() || value.text.size() > 64
-		|| value.text == "-0" || converted.ec != std::errc{}
-		|| converted.ptr != value.text.data() + value.text.size() || !std::isfinite(parsed)) {
+		|| value.text == "-0" || !try_read_finite_decimal(value.text, parsed)) {
 		throw json::parse_error(std::string{label} + " is not a canonical finite number.");
 	}
 }
@@ -177,9 +174,7 @@ inline void finite_number(const json::value& value, const std::string_view label
 ) {
 	finite_number(value, label);
 	double result{};
-	static_cast<void>(std::from_chars(
-		value.text.data(), value.text.data() + value.text.size(), result, std::chars_format::general
-	));
+	static_cast<void>(try_read_finite_decimal(value.text, result));
 	if (result < minimum || result > maximum) {
 		throw json::parse_error(std::string{label} + " is outside its closed numeric domain.");
 	}

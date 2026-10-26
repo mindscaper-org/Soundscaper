@@ -1,0 +1,41 @@
+{
+	"schemaVersion": 1,
+	"description": "Exact published Sherpa GPU builds retained by the desktop test snapshots. Recipe edits authenticate new builds without revoking these immutable packages or their receipts.",
+	"targets": {
+		"linux-x64": {
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"receiptSha256": "8b39713a02d58e96c14d9f94b52c048061c01d0a6a164a7a4558f64c476b284c",
+			"packageSha256": [
+				"663d5f5a4856e0278368c64a8f029907d0f059446c7f9b0f64f1845a6a532f86"
+			]
+		},
+		"linux-arm64": {
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"receiptSha256": "5ec329738e368785805371d9762121ca874ad4a3d36eb75bcf61ec7e79e8dc7b",
+			"packageSha256": [
+				"0ba7189c276e21101974fe1ea83b8f0aff07b5f9b41e8133453961fc1e77d7b5"
+			]
+		},
+		"mac-arm64": {
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"receiptSha256": "63b3dd21fe4243fa59af8a1e43832c7c82967b41c46b077e370f15adb65ba069",
+			"packageSha256": [
+				"0c1c648a7e2ea017983ca074f1d4ef592b821df61d5c76e13a5050e1bdd6586d"
+			]
+		},
+		"win-x64": {
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"receiptSha256": "bfc51c016be70375f536f2acbde8dbacda3ad2c944dabec19e217b4e0a2beb99",
+			"packageSha256": [
+				"9e57f97fc32bbf7cdb7f6a6cc69aca99e2ad9fe55be69153bc0837043703b8b9"
+			]
+		},
+		"win-arm64": {
+			"sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b",
+			"receiptSha256": "c763db1bb299ffa2365a571ca959ea4e96b57c905522a139abcc7d4bd8d10a3f",
+			"packageSha256": [
+				"e7fd5c61b48851288fdbdd6e48180daefc6b029ec2b51ead52dd9a780a6267e0"
+			]
+		}
+	}
+}

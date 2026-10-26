@@ -190,6 +190,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Work on product features
 
+- [Legacy Cool Edit / Audition SES import](features/legacy-ses-import.md) covers
+  binary layouts, media access, and compatibility limits.
 - [Desktop Blender integration](development/desktop-blender.md) covers track-list
   export, add-on installation, and live audio updates in Blender.
 - [Framescaper capture](features/framescaper-capture.md) covers permission,
@@ -218,6 +220,8 @@ qualification plans belong in Git history, not in the maintained documentation s
 
 ## Consult durable decisions
 
+- [CorridorKey license](<decisions/CorridorKey License.md>) contains the retained
+  model license text.
 - [Family-v1 project baseline](decisions/project-family-v1.md) records the
   independent Soundscaper and Framescaper baseline freeze.
 - [Product origins and handoff](decisions/product-origins.md) records the

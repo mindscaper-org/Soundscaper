@@ -184,6 +184,7 @@ export async function createFixture(context) {
 		['tests/helpers/aup4-database-harness.js', await readFile(new URL('./aup4-database-harness.js', import.meta.url), 'utf8')],
 		['tests/helpers/png-fixture.mjs', await readFile(new URL('./png-fixture.mjs', import.meta.url), 'utf8')],
 		['tests/helpers/translation-catalogs.ts', await readFile(new URL('./translation-catalogs.ts', import.meta.url), 'utf8')],
+		['tests/helpers/ses-fixture.ts', await readFile(new URL('./ses-fixture.ts', import.meta.url), 'utf8')],
 		...await Promise.all(['video-storage-native-publication-fixture.ts', 'video-storage-opfs-model-fixture.ts'].map(async (file) => [
 			`tests/helpers/${file}`, await readFile(new URL(`./${file}`, import.meta.url), 'utf8'),
 		])),

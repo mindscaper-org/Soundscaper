@@ -2,11 +2,11 @@
 
 import { Buffer } from 'node:buffer';
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { showClipTimingFields, bootEditor, chooseCommandAction, chooseDropdown, clipByName, closeClipProperties,
+import { showClipTimingFields, bootEditor, chooseCommandAction, chooseDropdown, clipByName, clipField, commitInput, closeClipProperties,
 	collectClientErrors, disableNativeSavePicker, importFiles, openClipProperties, openExportDialog,
 	readDownloadBytes } from './audio-editor-test-helpers.js';
 
-test('Clip properties one-bar duration follows tempo at the placed recording', async ({ page }) => {
+test('Clip properties numeric duration keeps placement and audible history on a musical timeline', async ({ page }) => {
 	const errors = collectClientErrors(page);
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/en/');
@@ -27,12 +27,12 @@ test('Clip properties one-bar duration follows tempo at the placed recording', a
 	const clip = clipByName(editor, recording.name);
 	let properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	const start = properties.locator('[data-clip-field="startFrame"]');
-	await enter(start, '000004000');
-	await expect(start.locator('.timecode__display')).toHaveText('00h00m04.000s');
-	let duration = properties.locator('[data-clip-field="durationFrame"]');
-	await enter(duration, '000003000');
-	await expect(duration.locator('.timecode__display')).toHaveText('00h00m03.000s');
+	const start = clipField(properties, 'startFrame');
+	await commitInput(start, '4');
+	await expect(start).toHaveValue('4');
+	let duration = clipField(properties, 'durationFrame');
+	await commitInput(duration, '3');
+	await expect(duration).toHaveValue('3');
 	await closeClipProperties(properties);
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption({ label: 'Soundscaper' });
 	await editor.getByRole('button', { name: 'Fit project', exact: true }).click();
@@ -41,11 +41,9 @@ test('Clip properties one-bar duration follows tempo at the placed recording', a
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	duration = properties.locator('[data-clip-field="durationFrame"]');
-	await expect(duration.locator('.timecode__display')).toHaveText('00h00m05.000s');
-	await duration.getByRole('button', { name: 'Duration: format', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'beats:bars', exact: true }).click();
-	await enter(duration, '0011');
+	duration = clipField(properties, 'durationFrame');
+	await expect(duration).toHaveValue('5');
+	await commitInput(duration, '2');
 	await closeClipProperties(properties);
 	const localBar = await exportedAudio();
 	expect(localBar.peak).toBeGreaterThan(.2); expect(localBar.frames).toBe(288000);
@@ -55,10 +53,6 @@ test('Clip properties one-bar duration follows tempo at the placed recording', a
 	expect((await exportedAudio()).frames).toBe(288000);
 	await expect(editor.getByRole('alert')).toHaveCount(0); expect(errors).toEqual([]);
 
-	async function enter(field, digits) {
-		await field.locator('.timecode-digit').first().click();
-		await page.keyboard.type(digits); await page.keyboard.press('Enter');
-	}
 	async function exportedAudio() {
 		const dialog = await openExportDialog(page, editor);
 		await chooseDropdown(page, dialog.locator('[data-export-field="output"]'), 'Entire project');

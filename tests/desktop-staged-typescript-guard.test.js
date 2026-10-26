@@ -47,6 +47,10 @@ test('the staged desktop tree carries no TypeScript specifier and resolves every
 	});
 
 	const stagedFiles = await listFilesRecursively(applicationDesktopRoot);
+	assert.doesNotMatch(await readFile(join(applicationDesktopRoot, 'preload.mjs'), 'utf8'),
+		/videoKeying:|assistance:operation:encode-keyed-video/u,
+		'Soundscaper must omit the Framescaper alpha-video preload capability');
+	assert.equal(stagedRuntime.files.includes('desktop/assistance-keyed-video-service.js'), false);
 	assert.equal(await readFile(join(applicationDesktopRoot, 'blender/soundscaper_blender.py'), 'utf8'),
 		await readFile(join(ROOT, 'desktop/blender/soundscaper_blender.py'), 'utf8'),
 		'the desktop package must carry the installable Blender receiver');
@@ -102,6 +106,10 @@ test('the staged desktop tree carries no TypeScript specifier and resolves every
 		runtimeRoot,
 		productId: 'framescaper',
 	});
+	assert.match(await readFile(join(framescaperDesktopRoot, 'preload.mjs'), 'utf8'),
+		/assistance:operation:encode-keyed-video/u,
+		'Framescaper must bundle its authenticated alpha-video preload capability');
+	assert.ok(framescaperRuntime.files.includes('desktop/assistance-keyed-video-service.js'));
 	await assertRuntimeReachability({
 		productId: 'framescaper', applicationDesktopRoot: framescaperDesktopRoot,
 		runtimeRoot, stagedRuntime: framescaperRuntime,

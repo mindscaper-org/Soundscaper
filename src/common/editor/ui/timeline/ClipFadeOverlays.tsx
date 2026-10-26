@@ -11,6 +11,8 @@ import { isFadeShapeMenuKey, keyboardFadeShapeMenuPosition } from './FadeShapeMe
 import type { FadeShapeMenuCopy, FadeShapeMenuPosition } from './FadeShapeMenu.tsx';
 import { createClipFadeGeometryReader } from './clip-overlay-presentation.ts';
 import { routeClipHandleKeyboard } from './clip-handle-keyboard.ts';
+import { ClipFadeCornerZone } from './ClipFadeCornerZone.tsx';
+import { useClipFadeDragAppearance } from './useClipFadeDragAppearance.ts';
 
 export type ClipFadeChanges = Readonly<{
 	readonly fadeInFrames?: number;
@@ -49,6 +51,7 @@ interface Props {
 export function ClipFadeOverlays({ rootRef, clips, selectedIds, startFrame, endFrame, pixelsPerSecond, sampleRate, blocked, handleTabIndex = -1, showFadeShapeHandles, crossfadedFadeEdges, copy, onChange, onTabOut, onEditFades = () => undefined }: Props) {
 	const [targets, setTargets] = useState<ReadonlyMap<string, HTMLElement>>(new Map());
 	const [menu, setMenu] = useState<(FadeShapeMenuPosition & { readonly clipId: string; readonly edge: ClipFadeEdge }) | null>(null);
+	const drag = useClipFadeDragAppearance(blocked, rootRef);
 	const close = useCallback(() => setMenu(null), []);
 	const menuClip = menu && clips.find(clip => clip.id === menu.clipId);
 	const handleKeyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -87,7 +90,12 @@ export function ClipFadeOverlays({ rootRef, clips, selectedIds, startFrame, endF
 			...geometry,
 			curves,
 		}, displayWidth, clip) : [];
-		return createPortal(<div className="audio-editor-clip-fade" data-fade-pointer={displayWidth >= 64 ? "true" : "false"}>
+		const selected = selectedIds.has(clip.id);
+		const height = target.getBoundingClientRect().height;
+		return createPortal(<div className="audio-editor-clip-fade" data-fade-selected={selected ? 'true' : undefined}
+			data-fade-length-drag={drag?.clipId === clip.id && !drag.shape ? '' : undefined}
+			data-fade-floor={height > 0 && height <= 44 || undefined}
+			data-fade-editing={drag?.clipId === clip.id || undefined} data-fade-pointer={displayWidth >= 66 ? "true" : "false"}>
 			{hasFade && <svg className="audio-editor-clip-fade__curve" viewBox={`0 0 ${geometry.width} 100`}
 				preserveAspectRatio="none" aria-hidden="true">
 				<path data-fade-shading d={curves.map(curve => curve.shadePath).join(' ')}
@@ -96,7 +104,7 @@ export function ClipFadeOverlays({ rootRef, clips, selectedIds, startFrame, endF
 					const x = curve.edge === 'in' ? geometry.fadeInX : geometry.fadeOutX;
 					return x === null ? null : <line key={curve.edge} data-fade-boundary={curve.edge}
 						x1={x} x2={x} y1={0} y2={100} stroke="rgba(0, 0, 0, 0.45)"
-						strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />;
+						strokeWidth={1} strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />;
 				})}
 				{curves.map(curve => <path key={curve.edge} data-fade-curve={curve.edge}
 					d={curve.path} fill="none" stroke="rgba(0, 0, 0, 0.45)" strokeWidth={1.5}
@@ -113,6 +121,7 @@ export function ClipFadeOverlays({ rootRef, clips, selectedIds, startFrame, endF
 					oppositeBoundaryX={edge === 'in' ? outBoundaryX : inBoundaryX} clipWidth={displayWidth}
 					role="slider" tabIndex={handleTabIndex}
 					data-clip-fade-handle={edge} aria-label={label}
+					data-pressed={drag?.clipId === clip.id && drag.edge === edge && !drag.shape || undefined}
 					aria-valuemin={0} aria-valuemax={clip.durationFrames / sampleRate} aria-valuenow={value / sampleRate}
 					aria-orientation="horizontal" disabled={blocked}
 					onContextMenu={event => {
@@ -130,6 +139,15 @@ export function ClipFadeOverlays({ rootRef, clips, selectedIds, startFrame, endF
 						event.stopPropagation();
 						event.preventDefault();
 						if (next !== value) onChange(clip.id, { [field]: next });
+					}} />;
+			})}
+			{!selected && (['in', 'out'] as const).map(edge => {
+				const x = edge === 'in' ? geometry.fadeInX : geometry.fadeOutX;
+				if (x === null || crossfadedFadeEdges.has(`${clip.id}:${edge}`)) return null;
+				return <ClipFadeCornerZone key={edge} edge={edge} x={displayX(x)} clipWidth={displayWidth} hasFade={(clip[fadeField(edge)] ?? 0) > 0}
+					disabled={blocked} dragging={drag !== null} onContextMenu={event => {
+						event.preventDefault(); event.stopPropagation();
+						if (!blocked) setMenu({ target: event.currentTarget, x: event.clientX, y: event.clientY, clipId: clip.id, edge });
 					}} />;
 			})}
 			{shapePositions.map(position => {

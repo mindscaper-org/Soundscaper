@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { bindFramescaperCorridorKeyController } from './editor-corridorkey-binding.ts';
 import type { ControllerOptions } from '../common/editor/controller/composition/controller-options.ts';
 import { createAudioEditorController } from '../common/editor/app.js';
 import { createProductNativeRenderInputAuthorityBinding } from
@@ -234,6 +235,7 @@ export function createFramescaperAudioEditorController(
 		prepareCurrentProject: () => controller.actions.project.flush({ forceCurrentSnapshot: true, prepareCurrentSnapshot: true }),
 		executeCommand: (history, command, options) => environment.runtime.executeCommand(history as never, command as never, options) as never,
 		publishIfCurrent: request => environment.hdrImages.publishIfCurrent(request) });
+	bindFramescaperCorridorKeyController(controller as never, environment.controllerStore);
 	return controller;
 }
 

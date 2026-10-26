@@ -12,7 +12,7 @@ test('the duration field changes a looped clip total length without stretching i
 	await clip.getByRole('slider', { name: 'Looped clip length', exact: true }).press('ArrowRight');
 	const properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
-	await clipField(properties, 'durationFrame').fill('57600');
+	await clipField(properties, 'durationFrame').fill('1.2');
 	await clipField(properties, 'durationFrame').press('Tab');
 	await expect(clip).toHaveAccessibleName(/1\.2 seconds long$/u);
 	await expect(clip.locator('[data-loop-boundary-frame]')).toHaveAttribute('data-loop-boundary-frame', '38400');

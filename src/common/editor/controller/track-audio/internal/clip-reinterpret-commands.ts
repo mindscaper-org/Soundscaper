@@ -1,0 +1,48 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+import { readClipLoop } from '../../../audio-clip-loop.ts';
+import { CLIP_SOURCE_STRETCH_EXTENSION } from '../../../clip-source-stretch-memory.ts';
+import { createAddClipCommand } from '../../../commands/factories.ts';
+import type { AudioEditorCommand } from '../../../commands/protocol.ts';
+import { roundRational } from '../../../timeline-time.ts';
+import type { ControllerClip, ControllerSource } from '../track-domain-types.ts';
+
+/** Reinterpret changes the sound's clock; composite clocks must be rendered first. */
+export function assertClipCanReinterpret(clip: ControllerClip): void {
+	if (clip.avLinkId) throw new RangeError('Reinterpret requires unlinking the audio from its video first.');
+	if (readClipLoop(clip)) throw new RangeError('Reinterpret requires removing the clip loop first.');
+	if (clip.anchor === 'musical' || clip.stretchToTempo) throw new RangeError('Reinterpret requires a sample-anchored clip without musical tempo stretching.');
+	const extensions = clip.opaqueExtensions as Readonly<Record<string, unknown>> | undefined;
+	if (clip.warpMap || extensions?.[CLIP_SOURCE_STRETCH_EXTENSION]) throw new RangeError('Reinterpret requires rendering the clip’s source stretch or warp first.');
+}
+
+/** Preserve each byte boundary while the selected clip takes the new PCM clock. */
+export function reinterpretedClipCommands(trackId: string, clip: ControllerClip, original: ControllerSource,
+	replacement: ControllerSource): AudioEditorCommand[] {
+	assertClipCanReinterpret(clip);
+	const originalFrames = BigInt(original.frameCount), replacementFrames = BigInt(replacement.frameCount);
+	const sourceFrame = (frame: number): number => {
+		const numerator = BigInt(frame) * replacementFrames;
+		if (numerator % originalFrames) throw new RangeError('Reinterpret requires complete PCM frames at every clip trim boundary.');
+		return roundRational(numerator, originalFrames, 'point');
+	};
+	const durationFrames = Math.max(1, roundRational(BigInt(clip.durationFrames) * replacementFrames * BigInt(original.sampleRate),
+		originalFrames * BigInt(replacement.sampleRate), 'point'));
+	if (!Number.isSafeInteger(durationFrames + clip.timelineStartFrame)) throw new RangeError('Reinterpreted clip duration exceeds the safe frame range.');
+	const timelineFrame = (frame: number): number => Math.min(durationFrames, Math.max(0,
+		roundRational(BigInt(frame) * BigInt(durationFrames), BigInt(clip.durationFrames), 'point')));
+	const envelope = Array.isArray(clip.envelope) ? clip.envelope as readonly Readonly<{ frame: number; value: number }>[] : undefined;
+	const scaledEnvelope = envelope ? [...new Map(envelope.map(point => {
+		const frame = timelineFrame(point.frame); return [frame, { ...point, frame }] as const;
+	})).values()] : undefined;
+	return [
+		...(typeof clip.groupId === 'string' && clip.groupId ? [{ type: 'clip/ungroup' as const, clipIds: [clip.id] }] : []),
+		{ type: 'clip/remove', clipId: clip.id },
+		createAddClipCommand(trackId, { ...clip, sourceId: replacement.id,
+			sourceStartFrame: sourceFrame(clip.sourceStartFrame), sourceDurationFrames: sourceFrame(clip.sourceDurationFrames),
+			trimStartFrames: sourceFrame(clip.trimStartFrames ?? 0), trimEndFrames: sourceFrame(clip.trimEndFrames ?? 0), durationFrames,
+			...(typeof clip.fadeInFrames === 'number' ? { fadeInFrames: timelineFrame(clip.fadeInFrames) } : {}),
+			...(typeof clip.fadeOutFrames === 'number' ? { fadeOutFrames: timelineFrame(clip.fadeOutFrames) } : {}),
+			...(scaledEnvelope ? { envelope: scaledEnvelope } : {}),
+		}),
+	];
+}

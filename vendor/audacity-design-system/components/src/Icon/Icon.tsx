@@ -56,6 +56,9 @@ export type IconName =
   | 'zoom-toggle'
   | 'zoom-to-selection'
   | 'zoom-to-fit'
+  | 'track-decrease-height'
+  | 'track-increase-height'
+  | 'track-fit-height'
   | 'power'
   | 'save'
   | 'grid-view'
@@ -122,6 +125,9 @@ const ICON_MAP: Record<IconName, string> = {
   'zoom-toggle': '\uF437',
   'zoom-to-selection': '\uF438',
   'zoom-to-fit': '\uF439',
+  'track-decrease-height': '\uEF37',
+  'track-increase-height': '\uEF36',
+  'track-fit-height': '\uF439',
   power: '\uF38F',
   save: '\uEF29',
   'grid-view': '\uF35B',
@@ -131,6 +137,29 @@ const ICON_MAP: Record<IconName, string> = {
   refresh: '\uF358',
   check: '\uEF31',
 };
+
+/** Upstream fit-to-height bar glyph; relative steps keep the existing arrow glyphs. */
+const chevron = (y: number, dir: 'up' | 'down') =>
+  dir === 'down' ? `M5.5 ${y - 2}L8 ${y}L10.5 ${y - 2}` : `M5.5 ${y + 2}L8 ${y}L10.5 ${y + 2}`;
+const svgProps = {
+  viewBox: '0 0 16 16', width: '1em', height: '1em', fill: 'none', stroke: 'currentColor',
+  strokeWidth: 1, strokeLinecap: 'round', strokeLinejoin: 'round',
+} as const;
+const bar = <rect x="2.5" y="6.5" width="11" height="3" rx="0.5" />;
+const DRAWN_ICONS: Partial<Record<IconName, React.ReactNode>> = {
+  'track-fit-height': (
+    <svg {...svgProps}>
+      <path d="M2.5 1.5H13.5" />
+      {bar}
+      <path d={chevron(3.5, 'up')} />
+      <path d={chevron(12.5, 'down')} />
+      <path d="M2.5 14.5H13.5" />
+    </svg>
+  ),
+};
+
+/** Whether an icon is drawn (an SVG) rather than a font glyph. */
+export const isDrawnIcon = (name: IconName): boolean => name in DRAWN_ICONS;
 
 export interface IconProps {
   /**
@@ -158,6 +187,7 @@ export const Icon: React.FC<IconProps> = ({
   className = '',
 }) => {
   const iconChar = ICON_MAP[name] || '';
+  const drawn = DRAWN_ICONS[name];
 
   return (
     <span
@@ -167,8 +197,9 @@ export const Icon: React.FC<IconProps> = ({
         ...(color && { color }),
       }}
       aria-hidden="true"
+      data-drawn-icon={drawn ? name : undefined}
     >
-      {iconChar}
+      {drawn ?? iconChar}
     </span>
   );
 };

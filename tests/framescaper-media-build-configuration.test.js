@@ -31,20 +31,43 @@ test('the generated FFmpeg configuration must contain every required component',
 });
 
 test('the Windows x265 build explicitly selects the static MSVC runtime', () => {
-	const paths = framescaperMediaHostBuildPaths('/work');
+	const paths = framescaperMediaHostBuildPaths('D:/work');
 	const executables = Object.fromEntries([
 		'ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell',
 	].map((role) => [role, { path: `/tools/${role}` }]));
+	executables.shell.path = 'C:/Program Files/Git/bin/bash.exe';
 	const commands = createFramescaperMediaHostBuildCommands({
 		target: { id: 'win-arm64', cmakePreset: 'win-arm64' }, hostRoot: '/host',
 		ffmpegSourceRoot: '/ffmpeg', boostSourceRoot: '/boost', paths,
 		externalSourceRoots: Object.fromEntries(
-			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map((id) => [id, `/sources/${id}`]),
+			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map((id) => [id, `D:/sources/${id}`]),
 		),
-		tools: { executables }, environment: { PATH: '/tools' }, configureFlags: [],
+		tools: { executables }, environment: { PATH: 'C:/Windows/System32;C:/tools' }, configureFlags: [],
 	});
+	assert.ok(commands.find(({ phase }) => phase === 'ffmpeg-configure').args.includes('--disable-asm'),
+		'Windows ARM64 uses the C codec implementations without an unprovided GNU assembler.');
 	assert.ok(commands.find(({ phase }) => phase === 'x265-configure')
 		.args.includes('-DSTATIC_LINK_CRT=ON'));
+	assert.ok(commands.find(({ phase }) => phase === 'ffmpeg-configure').args.includes('--extra-libs=advapi32.lib'),
+		'Static x265 needs the Windows registry library in its consuming link closure.');
+	const x265Library = commands.find(({ phase }) => phase === 'x265-normalize-library');
+	assert.ok(x265Library, 'MSVC x265 must be installed under the name requested by its pkg-config metadata.');
+	assert.deepEqual(x265Library.args.slice(-2), ['D:/work/x265-install/lib/x265-static.lib', 'D:/work/x265-install/lib/x265.lib']);
+	const vpx = commands.find(({ phase }) => phase === 'libvpx-configure');
+	assert.equal(vpx.args[0], '../../sources/libvpx/configure',
+		'Native Windows Make must keep source prerequisites relative so every codec source reaches its project.');
+	assert.ok(vpx.args.includes('--prefix=D:/work/libvpx-install'));
+	assert.ok(vpx.args.includes('--target=arm64-win64-vs17'));
+	assert.equal(Object.hasOwn(vpx.environment, 'CC'), false);
+	assert.equal(Object.hasOwn(vpx.environment, 'CXX'), false);
+	assert.equal(commands.find(({ phase }) => phase === 'x264-configure').environment.CC, 'c');
+	assert.equal(commands.find(({ phase }) => phase === 'libvpx-build').environment.PATH.split(';')[0], 'C:/Program Files/Git/bin');
+	for (const phase of ['libvpx-build', 'libvpx-install']) {
+		assert.ok(commands.find(command => command.phase === phase).args.includes(
+			'.SHELLFLAGS=-e -c'), 'Windows Make must run generators through Git Bash instead of directly resolving their shebangs.');
+		assert.ok(commands.find(command => command.phase === phase).args.includes(
+			'SHELL=C:/Program Files/Git/bin/bash.exe'), 'Windows Make must receive the full attested shell path, including spaces.');
+	}
 });
 
 test('source-tree authentication admits genuine names and rejects nonportable entries', (context) => {

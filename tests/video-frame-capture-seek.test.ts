@@ -19,9 +19,9 @@ class NativeVideo extends EventTarget {
 	}
 	cancelVideoFrameCallback(id: number): void { this.callbacks.delete(id); }
 	completeSeek(): void { this.seeking = false; this.dispatchEvent(new Event('seeked')); }
-	presentFrame(presentationTime = this.ownerDocument?.defaultView.performance.now() ?? performance.now()): void {
+	presentFrame(presentationTime = this.ownerDocument?.defaultView.performance.now() ?? performance.now(), mediaTime = this.time): void {
 		const callbacks = [...this.callbacks.values()]; this.callbacks.clear();
-		const metadata = { expectedDisplayTime: 0, height: 16, mediaTime: this.time,
+		const metadata = { expectedDisplayTime: 0, height: 16, mediaTime,
 			presentationTime, presentedFrames: 1, width: 16 };
 		for (const callback of callbacks) callback(0, metadata);
 	}
@@ -51,6 +51,35 @@ test('a stale presentation during the seek does not release capture', async () =
 	assert.equal(ready, false); assert.equal(video.callbacks.size, 1);
 	video.presentFrame(); await pending;
 	assert.equal(ready, true);
+});
+
+test('a different media frame presented while seeking does not release capture', async () => {
+	const video = new NativeVideo(); let ready = false;
+	const pending = seekVideoFrameForCapture(video, .7, { timeoutMs: 1_000 }).then(() => { ready = true; });
+	video.presentFrame(undefined, .1); video.completeSeek(); await Promise.resolve();
+	assert.equal(ready, false); assert.equal(video.callbacks.size, 1);
+	video.presentFrame(); await pending;
+	assert.equal(ready, true); assertReleased(video);
+});
+
+test('a source frame timestamp during seeking is accepted only inside the requested frame interval', async () => {
+	const video = new NativeVideo(); let ready = false;
+	const pending = seekVideoFrameForCapture(video, .0335, { timeoutMs: 1_000,
+		isRequestedFrame: mediaTime => mediaTime >= 0 && mediaTime < .067,
+	}).then(() => { ready = true; });
+	video.presentFrame(undefined, .067); await Promise.resolve();
+	assert.equal(ready, false); assert.equal(video.callbacks.size, 1);
+	video.presentFrame(undefined, 0); video.completeSeek(); await pending;
+	assert.equal(ready, true); assertReleased(video);
+});
+
+test('a matching compositor presentation during seeking remains valid after seeked', async () => {
+	const video = new NativeVideo(); let ready = false;
+	const pending = seekVideoFrameForCapture(video, .1005, { timeoutMs: 1_000 }).then(() => { ready = true; });
+	video.presentFrame(undefined, .100499999); await Promise.resolve();
+	assert.equal(ready, false, 'capture must wait for the seek to drain');
+	video.completeSeek(); await pending;
+	assert.equal(ready, true); assertReleased(video);
 });
 
 test('a completed native presentation can precede dispatch of the seek event', async () => {
