@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import { useEffect, useMemo, useRef } from 'react';
 import RoutingInspectorForm from './RoutingInspectorForm.tsx';
 import RoutingEdgeLevelInput, { routingLevelDraftValue, routingLevelDisplayDb as linearToDb } from './RoutingEdgeLevelInput.tsx';
@@ -512,5 +514,5 @@ function records(value: unknown): DataRecord[] {
 }
 
 function fill(template: string, values: Readonly<Record<string, string>>): string {
-	return Object.entries(values).reduce((result, [key, value]) => result.replace(`{${key}}`, value), template);
+	return formatLocalizedTemplate(template, values);
 }

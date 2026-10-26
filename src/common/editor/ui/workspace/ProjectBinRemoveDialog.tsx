@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import { Button } from '@soundscaper/design-system/Button';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
 
@@ -18,8 +20,7 @@ export default function ProjectBinRemoveDialog({ name, count, copy, disabled, on
 		className="kw-audio-editor__project-bin-confirm" width={480} onClose={onCancel}
 		initialFocus=".kw-audio-editor-dialog__actions button" ariaDescribedBy="project-bin-remove-description"
 		overlayDataAttributes={{ 'data-project-bin-remove-dialog': true }}>
-		<p id="project-bin-remove-description">{copy.projectBinRemoveConfirm
-			.replace('{name}', name).replace('{count}', String(count))}</p>
+		<p id="project-bin-remove-description">{formatLocalizedTemplate(copy.projectBinRemoveConfirm, { name, count })}</p>
 		<div className="kw-audio-editor-dialog__actions">
 			<Button variant="secondary" onClick={onCancel}>{copy.cancel}</Button>
 			<Button variant="primary" disabled={disabled} onClick={onConfirm}>{copy.projectBinRemoveFromProject}</Button>

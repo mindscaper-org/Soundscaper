@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import '../audio-editor-design-system/06a-panels-mixer-routing-graph.css';
 
 import React, {
@@ -536,5 +538,5 @@ function statusKeyForCommit(kind: RoutingCommitKind): string {
 }
 
 function fill(template: string, values: Readonly<Record<string, string>>): string {
-	return Object.entries(values).reduce((result, [key, value]) => result.replace(`{${key}}`, value), template);
+	return formatLocalizedTemplate(template, values);
 }

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { formatLocalizedTemplate } from '../localization-template.ts';
+
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { ROUTE_LOCALES, getLocaleDescriptor } from '../../../i18n/locales.js';
@@ -214,7 +216,7 @@ export default function CommunityTranslationSurface({ port, initialLocale, copy:
 			const file = event.target.files?.[0]; event.target.value = ''; if (file) run(() => importFile(file));
 		}} />
 		{loaded?.persistenceError && <p role="alert">{copy.storageFailed}</p>}
-		{error && <p role="alert">{copy.error.replace('{message}', error)}</p>}
+		{error && <p role="alert">{formatLocalizedTemplate(copy.error, { message: error })}</p>}
 		{message && <p role="status">{message}</p>}
 		<footer><p>{copy.handoff}</p><a href="https://github.com/LeoWattenberg/Soundscaper/issues/new" target="_blank" rel="noreferrer">{copy.issue}</a></footer>
 	</section>;

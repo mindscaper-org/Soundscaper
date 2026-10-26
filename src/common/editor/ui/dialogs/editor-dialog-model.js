@@ -1,3 +1,4 @@
+import { formatLocalizedTemplate } from '../localization-template.ts';
 import { parseNativeEffectId } from '../../aup4-browser-effect-payload.js';
 
 export function formatAup4CompatibilitySummary(report, copy) {
@@ -86,7 +87,7 @@ export function aup4CompatibilityItems(report) {
 export function formatAup4CompatibilityItem(item, copy) {
 	const name = String(item?.data?.name || item?.name || '').trim();
 	if (item?.disposition === 'missing' && name) {
-		return copy.missingEffectLabel.replace('{name}', name);
+		return formatLocalizedTemplate(copy.missingEffectLabel, { name });
 	}
 	const message = String(item?.message || '').trim();
 	if (message) return message;
@@ -101,7 +102,7 @@ export function aup4CompatibilityEffectPath(item) {
 export function rackEffectLabel(effect, labels, copy) {
 	if (effect?.type === 'missing') {
 		const name = String(effect.missing?.name || copy.missingEffectUnknown).trim() || copy.missingEffectUnknown;
-		return copy.missingEffectLabel.replace('{name}', name);
+		return formatLocalizedTemplate(copy.missingEffectLabel, { name });
 	}
 	return labels.get(effect?.type) || String(effect?.type || '');
 }

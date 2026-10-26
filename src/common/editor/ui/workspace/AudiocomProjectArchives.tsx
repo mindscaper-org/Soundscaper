@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { formatLocalizedTemplate } from '../localization-template.ts';
 import { Button } from '@soundscaper/design-system/Button';
 import type { AudiocomArchiveSnapshot } from '../../controller/import/audiocom-project-archives.ts';
 
@@ -22,7 +24,7 @@ export default function AudiocomProjectArchives({ copy, state, disabled = false,
 			</div>
 			<div aria-live="polite">
 				{busy ? <p role="status">{state.status === 'uploading' ? copy.projectUploading : copy.projectsLoading}</p> : null}
-				{state.completedFileName ? <p role="status">{copy.projectUploaded.replaceAll('{name}', state.completedFileName)}</p> : null}
+				{state.completedFileName ? <p role="status">{formatLocalizedTemplate(copy.projectUploaded, { name: state.completedFileName })}</p> : null}
 			</div>
 			{state.status === 'ready' && !state.results.length ? <p>{copy.noProjects}</p> : null}
 			{state.results.length ? <ul className="kw-audio-editor__audiocom-upload-list" aria-label={copy.projectArchives}>
