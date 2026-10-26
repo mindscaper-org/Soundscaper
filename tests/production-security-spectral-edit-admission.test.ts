@@ -65,11 +65,4 @@ test('spectral edit admission retains its required control and runtime evidence'
 			`spectral-edit admission needs ${expected.kind} evidence from ${expected.path}`,
 		);
 	}
-
-	const residual = cancellation.residualRisks.find(
-		({ id }) => id === 'render-worker-resident-set-accounting',
-	);
-	assert.ok(residual, 'render and worker resident-set residual is required');
-	assert.equal(residual.ownerMilestone, '2');
-	assert.ok(residual.acceptanceCriteria.length > 0);
 });

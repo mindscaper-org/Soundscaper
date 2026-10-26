@@ -100,21 +100,3 @@ test('U39 a customized prototype constructor retains its original read and speci
 	finally { Object.defineProperty(Float32Array.prototype, 'constructor', original); }
 	assert.deepEqual(trace, ['constructor', 4]);
 });
-
-function median(values: number[]): number { return [...values].sort((a, b) => a - b)[values.length >>> 1]!; }
-
-test('U39 recording peak window paired timing sanity', context => {
-	const clip = { durationFrames: 8192, waveformStartFrame: 0, waveformEndFrame: 8192 };
-	for (const length of [64, 4096]) {
-		const channel = Float32Array.from({ length }, (_, index) => index / length);
-		assert.deepEqual(recordingPreviewWaveformWindow(channel, clip), legacyWindow(channel, clip));
-		for (let index = 0; index < 20; index++) { legacyWindow(channel, clip); recordingPreviewWaveformWindow(channel, clip); }
-		const baseline: number[] = [], current: number[] = [];
-		const run = (work: () => unknown, times: number[]) => { const start = performance.now(); for (let index = 0; index < 200; index++) work(); times.push((performance.now() - start) / 200); };
-		for (let trial = 0; trial < 9; trial++) {
-			if (trial % 2) { run(() => recordingPreviewWaveformWindow(channel, clip), current); run(() => legacyWindow(channel, clip), baseline); }
-			else { run(() => legacyWindow(channel, clip), baseline); run(() => recordingPreviewWaveformWindow(channel, clip), current); }
-		}
-		context.diagnostic(`U39 ${length} peaks: baseline ${median(baseline)}ms, current ${median(current)}ms; raw ${JSON.stringify({ baseline, current })}`);
-	}
-});

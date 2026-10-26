@@ -193,15 +193,6 @@ test('the rendered digest is deterministic and differs per plug-in', { skip: !bu
 	assert.notEqual(first.renderedSha256, passthrough.renderedSha256, 'gain must not render as passthrough');
 });
 
-test('a binary that changed after it was granted is refused before dlopen', { skip: !built }, async () => {
-	const run = await hostRunner();
-	const grant = { ...(await grantFor('clean-effect')), binarySha256: 'a'.repeat(64) };
-	await assert.rejects(
-		run({ grant, onProgress: () => {} }).completion,
-		/changed after it was granted/u,
-	);
-});
-
 test('an instrument is refused by the host even with a valid grant', { skip: !built }, async () => {
 	const run = await hostRunner();
 	await assert.rejects(

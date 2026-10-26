@@ -91,24 +91,13 @@ test('overlap lane choice matches an independent first-fit oracle over ties, reu
 	assert.deepEqual(assignAup4OverlapLanes([]), [[]]);
 });
 
-function median(values: readonly number[]): number { return [...values].sort((a, b) => a - b)[values.length >>> 1]!; }
-
-test('overlap lane partition benchmarks dense, sparse and dense-then-sparse preparation', context => {
-	legacyOverlapLanes(fixture().clips);
+test('large overlap inventories match the independent oracle across dense and sparse phases', () => {
 	const dense = Array.from({ length: 4000 }, (_, index) => ({ id: `c${index}`, timelineStartFrame: 0, durationFrames: 100 }));
 	const sparse = Array.from({ length: 30000 }, (_, index) => ({ id: `c${index}`, timelineStartFrame: index * 2, durationFrames: 1 }));
 	const tail = sparse.map(clip => ({ ...clip, timelineStartFrame: clip.timelineStartFrame + 1000 }));
 	const mixed = [...dense.slice(0, 256), ...tail], wideMixed = [...dense, ...tail];
 	for (const [name, clips] of [['dense', dense], ['sparse', sparse], ['dense-then-sparse', mixed], ['wide-dense-then-sparse', wideMixed]] as const) {
-		assert.deepEqual(assignAup4OverlapLanes(clips), linearOracle(clips));
-		for (let warmup = 0; warmup < 10; warmup++) { assignAup4OverlapLanes(clips); legacyOverlapLanes(clips); }
-		const baseline: number[] = [], current: number[] = [];
-		for (let trial = 0; trial < 9; trial++) {
-			const run = (work: () => unknown, values: number[]) => { const start = performance.now(); for (let repeat = 0; repeat < 5; repeat++) work(); values.push((performance.now() - start) / 5); };
-			if (trial % 2) { run(() => assignAup4OverlapLanes(clips), current); run(() => legacyOverlapLanes(clips), baseline); }
-			else { run(() => legacyOverlapLanes(clips), baseline); run(() => assignAup4OverlapLanes(clips), current); }
-		}
-		context.diagnostic(`${name}: linear ${median(baseline).toFixed(3)} ms; adaptive ${median(current).toFixed(3)} ms; raw ${JSON.stringify({ baseline, current })}`);
+		assert.deepEqual(assignAup4OverlapLanes(clips), linearOracle(clips), name);
 	}
 });
 
