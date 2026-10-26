@@ -57,6 +57,7 @@ export function integratedLoudnessPower(channels, sampleRate) {
 	for (let index = 0; index < channels[0].length; index += 1) {
 		let power = 0;
 		for (let channelIndex = 0; channelIndex < channels.length; channelIndex += 1) {
+			if (channelWeights[channelIndex] === 0) continue;
 			const [shelf, highPass] = filters[channelIndex];
 			const weighted = processBiquad(
 				processBiquad(channels[channelIndex][index], shelf),

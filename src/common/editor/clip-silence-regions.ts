@@ -68,6 +68,17 @@ export function findClipSilenceRegions(
 	const scan = scanBounds(clip, scanSourceDuration, timelineFramesPerSourceFrame, bounds);
 	if (!scan) return Object.freeze([]);
 	const regions: ClipSilenceRegion[] = [];
+	const clipEndFrame = clip.timelineStartFrame + clip.durationFrames;
+	const append = (start: number | null, end: number): void => {
+		if (start == null || end - start < minimumSilenceFrames) return;
+		const timelineStart = Math.max(bounds?.startFrame ?? clip.timelineStartFrame,
+			clip.timelineStartFrame + Math.round(start * timelineFramesPerSourceFrame));
+		const timelineEnd = Math.min(bounds?.endFrame ?? clipEndFrame,
+			clip.timelineStartFrame + Math.round(end * timelineFramesPerSourceFrame));
+		if (timelineStart > clip.timelineStartFrame && timelineEnd < clipEndFrame && timelineEnd > timelineStart) {
+			regions.push(Object.freeze([timelineStart, timelineEnd]));
+		}
+	};
 	let silenceStart: number | null = null;
 	for (let relativeSourceFrame = scan.start; relativeSourceFrame < scan.end; relativeSourceFrame += 1) {
 		const loopSourceFrame = loop
@@ -82,25 +93,13 @@ export function findClipSilenceRegions(
 		}
 		if (peak <= SILENCE_PEAK) silenceStart ??= relativeSourceFrame;
 		else if (silenceStart != null) {
-			appendSilenceRegion(regions, silenceStart, relativeSourceFrame, minimumSilenceFrames);
+			append(silenceStart, relativeSourceFrame);
+			if (regions.length === MAXIMUM_REGIONS) return Object.freeze(regions);
 			silenceStart = null;
 		}
 	}
-	appendSilenceRegion(regions, silenceStart, scan.end, minimumSilenceFrames);
-	const clipEndFrame = clip.timelineStartFrame + clip.durationFrames;
-	return Object.freeze(regions
-		.map(([start, end]) => Object.freeze([
-			Math.max(bounds?.startFrame ?? clip.timelineStartFrame,
-				clip.timelineStartFrame + Math.round(start * timelineFramesPerSourceFrame)),
-			Math.min(bounds?.endFrame ?? clipEndFrame,
-				clip.timelineStartFrame + Math.round(end * timelineFramesPerSourceFrame)),
-		]) as ClipSilenceRegion)
-		.filter(([start, end]) => start > clip.timelineStartFrame && end < clipEndFrame && end > start)
-		.slice(0, MAXIMUM_REGIONS));
-}
-
-function appendSilenceRegion(regions: ClipSilenceRegion[], start: number | null, end: number, minimumFrames: number): void {
-	if (start != null && end - start >= minimumFrames) regions.push([start, end]);
+	append(silenceStart, scan.end);
+	return Object.freeze(regions);
 }
 
 /** Translate an optional timeline window into the source-relative scan range. */

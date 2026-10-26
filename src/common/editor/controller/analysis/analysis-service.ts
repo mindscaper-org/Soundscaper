@@ -237,23 +237,11 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 				throw createLocalizedError(RangeError, copy, 'spectrumSelectionTooShort', { samples: Number(reportOptions.size) });
 			}
 			const visuals = dependencies.createVisuals(channels, sampleRate);
-			const abort = new AbortController();
-			const signal = AbortSignal.any([task.signal, abort.signal]);
-			let result: Record<string, unknown>;
-			let report: unknown;
-			try {
-				[result, report] = await Promise.all([
-					analyzeRenderedChannels(channels, sampleRate, signal),
-					(dependencies.createSpecializedReport
-						? dependencies.createSpecializedReport(type, scope, request.range, channels, sampleRate, reportOptions, signal)
-						: Promise.resolve(type === 'spectrum' ? spectrumReport(scope, request.range, channels, sampleRate, reportOptions)
-							: clippingReport(scope, request.range, channels, reportOptions))).then(partial => {
-							assertCurrent(task, projectToken, request);
-							dependencies.showAnalysis(null, visuals, partial);
-							return partial;
-						}),
-				]);
-			} catch (error) { abort.abort(error); throw error; }
+			const report = await (dependencies.createSpecializedReport
+				? dependencies.createSpecializedReport(type, scope, request.range, channels, sampleRate, reportOptions, task.signal)
+				: Promise.resolve(type === 'spectrum' ? spectrumReport(scope, request.range, channels, sampleRate, reportOptions)
+					: clippingReport(scope, request.range, channels, reportOptions)));
+			const result = null;
 			assertCurrent(task, projectToken, request);
 			complete(task, () => {
 				dependencies.showAnalysis(result, visuals, report);

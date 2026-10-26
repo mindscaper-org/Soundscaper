@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createEbuR128Meter } from './ebu-r128.js';
+import { createFixedWeightEbuR128Meter } from './ebu-r128.js';
 import { type BextMetadataInput, bextLoudnessOrNull } from './broadcast-wave.ts';
 
 export interface BextLoudnessMeasurementOptions {
@@ -12,7 +12,7 @@ export function measureBextLoudness(
 	sampleRate: number,
 	options: BextLoudnessMeasurementOptions = {},
 ): Readonly<Pick<BextMetadataInput, 'loudnessValue' | 'loudnessRange' | 'maxTruePeakLevel' | 'maxMomentaryLoudness' | 'maxShortTermLoudness'>> {
-	const meter = createEbuR128Meter({
+	const meter = createFixedWeightEbuR128Meter({
 		sampleRate,
 		channelCount: channels.length,
 		channelWeights: options.channelWeights,
