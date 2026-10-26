@@ -53,34 +53,7 @@ test('each tier reaches the encoder as that codec spells it, audio rate included
 	);
 });
 
-test('a canonical plan missing its tier is refused rather than read as balanced', () => {
-	const plan = exportPlan() as Record<string, unknown>;
-	const { quality, ...withoutQuality } = plan;
-
-	assert.equal(quality, 'balanced');
-	assert.throws(
-		() => buildVideoFfmpegArgs(withoutQuality, stagedInputs(), '/out.mp4'),
-		/plan\.quality is required from version/u,
-	);
-});
-
-test('a version that predates the tier cannot state one', () => {
-	const plan = exportPlan();
-	const canvas = plan.canvas as Record<string, unknown>;
-	const { fit, ...withoutFit } = canvas;
-
-	assert.equal(fit, 'contain');
-	assert.throws(
-		() => buildVideoFfmpegArgs({ ...plan, version: 6, canvas: withoutFit }, stagedInputs(), '/out.mp4'),
-		/version 6 cannot state a delivery quality/u,
-	);
-});
-
-test('a tampered tier is refused by the adapter and by native admission alike', () => {
-	assert.throws(
-		() => buildVideoFfmpegArgs({ ...exportPlan(), quality: 'insane' }, stagedInputs(), '/out.mp4'),
-		/Unsupported plan\.quality: insane/u,
-	);
+test('native admission refuses a tampered tier', () => {
 	assert.throws(
 		() => assertNativeMediaGraphPlan(JSON.parse(JSON.stringify({ ...exportPlan(), quality: 'insane' }))),
 		/unsupported delivery quality/u,

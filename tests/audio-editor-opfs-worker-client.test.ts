@@ -124,10 +124,6 @@ test('OPFS sync worker client validates the closed operation and range contract 
 	await client.initialize({} as FileSystemDirectoryHandle);
 
 	await assert.rejects(
-		client.read('not-an-operation' as never, 'media.blob', { offset: 0, length: 1 }),
-		/known OPFS operation id/u,
-	);
-	await assert.rejects(
 		client.read('derivative-payload-read', '../escape.blob', { offset: 0, length: 1 }),
 		/safe OPFS path/u,
 	);

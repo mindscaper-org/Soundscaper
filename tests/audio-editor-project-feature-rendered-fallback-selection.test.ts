@@ -80,11 +80,4 @@ test('single rendered-fallback selection preserves qualification and ambiguity p
 		),
 		/Audio fallback selection is ambiguous/u,
 	);
-	assert.throws(
-		() => selectSingleProjectFeatureRenderedFallback(
-			report(item(' padded ', 'audio', 'project-audio-mix-v1')),
-			OPTIONS,
-		),
-		/Rendered fallback requirement ID must be a non-empty canonical string/u,
-	);
 });

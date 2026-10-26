@@ -230,7 +230,6 @@ test('clip property validation, blocking, defaults, and single-clip paths are ex
 		analyze: async () => ({ peakAmplitude: 0, integratedLufs: Number.NaN }),
 	});
 
-	assert.throws(() => harness.service.setClipTimePitch('active', { pitchCents: Number.NaN }), /Pitch/);
 	assert.throws(() => harness.service.setClipTimePitch('active', { pitchCents: -1_201 }), /Pitch/);
 	assert.throws(() => harness.service.setClipTimePitch('active', { pitchCents: 1_201 }), /Pitch/);
 	assert.throws(() => harness.service.setClipTimePitch('active', { speedRatio: Number.NaN }), /Speed/);

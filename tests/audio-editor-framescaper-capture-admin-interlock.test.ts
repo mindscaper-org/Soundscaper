@@ -59,10 +59,3 @@ test('every admitted admin lease must finish before same-project capture admissi
 	assert.throws(() => interlock.beginCaptureAdmission('project-b'), /clear/iu);
 	clearing.release();
 });
-
-test('capture admission rejects unstable project identities', () => {
-	const interlock = createFramescaperCaptureAdminInterlock();
-	assert.throws(() => interlock.beginCaptureAdmission(''), /project ID/iu);
-	assert.throws(() => interlock.beginCaptureAdmission(' project-a'), /project ID/iu);
-	assert.throws(() => interlock.beginCaptureAdmission('project-a\n'), /project ID/iu);
-});

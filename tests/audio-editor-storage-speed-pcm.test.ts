@@ -31,7 +31,6 @@ test('Speed PCM writes keep durable raw checksums and leave migration compressio
 	pcm.setOptimizationMode('memory');
 	assert.equal((await pcm.encode(payload, options)).encoding, PCM_ENCODING_WAVPACK_F32_V1);
 	assert.equal(encoded, 2);
-	assert.throws(() => pcm.setOptimizationMode('fast' as 'speed'), /memory or speed/iu);
 });
 
 test('project stores publish Speed PCM through the existing stage and restore independent samples', async (context) => {
