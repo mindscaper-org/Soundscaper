@@ -20,7 +20,7 @@ test('mastering copies the unity interior and retains exact fade and signed-zero
 	for (const [fadeInFrames, fadeOutFrames] of [[0, 0], [1, 1], [4, 6], [50, 50]]) {
 		const plan = createMasteringSequenceDeliveryPlan(createMasteringSequenceV23({
 			id: 'album', sequenceId: 'main', name: 'Album', entries: [{ id: 'entry', annotationId: 'region', gapBeforeFrames: 3, fadeInFrames, fadeOutFrames }],
-		}), [{ id: 'region', sequenceId: 'main', startFrame: 0, endFrame: 100 }]);
+		}), [{ id: 'region', name: 'Region', sequenceId: 'main', startFrame: 0, endFrame: 100 }]);
 		const [actual] = renderMasteringSequenceDelivery({ plan, channelCount: 1, segments: [{ entryId: 'entry', channels: [source] }] });
 		const expected = new Float32Array(103);
 		for (let frame = 0; frame < 100; frame += 1) {
@@ -82,8 +82,10 @@ test('native PCM formats preserve exact quantization across streaming writes and
 	for (const [encode, create, depths] of [[encodeWav, createWavStreamEncoder, [16, 20, 24, 32]], [encodeAiff, createAiffStreamEncoder, [16, 24, 32]]] as const) {
 		for (const bitDepth of depths) for (const dither of ['none', 'triangular', 'triangular-highpass'] as const) {
 			const options = { sampleRate: 48_000, channelCount: 2, totalFrames: 10, bitDepth, dither };
-			const expected = encode(channels, { ...options, random: random() });
-			const encoder = create({ ...options, random: random(), collect: true });
+			const expected = bitDepth === 20 ? encodeWav(channels, { ...options, bitDepth, random: random() })
+				: encode(channels, { ...options, bitDepth, random: random() });
+			const encoder = bitDepth === 20 ? createWavStreamEncoder({ ...options, bitDepth, random: random(), collect: true })
+				: create({ ...options, bitDepth, random: random(), collect: true });
 			for (let index = 0; index < 10; index += 1) encoder.write(channels.map(channel => channel.subarray(index, index + 1)));
 			assert.deepEqual(encoder.finalize(), expected);
 			await encoder.settled();

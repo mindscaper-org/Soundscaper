@@ -11,7 +11,7 @@ import { scheduleClipGain } from '../src/common/editor/engine/clip-gain.ts';
 
 const project = { sampleRate: 48_000, tempoMap: { mode: 'musical' as const, events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] } };
 const clip = {
-	id: 'warped', kind: 'audio' as const, anchor: 'sample' as const, timelineStartFrame: 0, durationFrames: 128,
+	id: 'warped', sourceId: 'source', kind: 'audio' as const, anchor: 'sample' as const, timelineStartFrame: 0, durationFrames: 128,
 	sourceStartFrame: 0, sourceDurationFrames: 256,
 	warpMap: { feature: 'audio-warp' as const, points: Array.from({ length: 65 }, (_, index) => ({ outer: index * 2, source: index === 64 ? 256 : index * 4 + index % 2, mode: 'forward' as const })) },
 };

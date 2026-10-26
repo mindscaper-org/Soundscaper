@@ -14,6 +14,8 @@ test('late Pencil and Smooth read only changed chunks and their smoothing contex
 	const project = projectForRuntimeConsumers(createSoundscaperProject({ sources: [{ id: 'source', storageKey: 'source', name: 'Recording', sampleRate: 48_000, channelCount: 1, frameCount, chunkFrames: SOURCE_CHUNK_FRAMES }],
 		clips: [{ id: 'clip', sourceId: 'source', timelineStartFrame: 0, sourceStartFrame: frameCount - 32, sourceDurationFrames: 32, durationFrames: 32 }], tracks: [{ id: 'track', clipIds: ['clip'] }] }));
 	const source = project.sources[0]!;
+	assert.equal(source.kind, 'audio');
+	if (source.kind !== 'audio') throw new Error('The Pencil fixture requires audio.');
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: 'bounded-sample-edit' });
 	try {
 		const writer = await store.beginSourceWrite(source.id, source);

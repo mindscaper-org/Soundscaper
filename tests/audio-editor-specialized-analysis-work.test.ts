@@ -18,7 +18,7 @@ test('specialized modal reports publish and cache without running unused levels 
 	let levels = 0; let specialized = 0;
 	const shown: unknown[] = [];
 	const dependencies: AnalysisDependencies = {
-		lifetime, state: {}, copy: ENGLISH_COPY,
+		lifetime, state: { lastAnalysisRequest: null }, copy: ENGLISH_COPY,
 		captureProject: () => generation.capture(project.id), assertProject: token => generation.assertCurrent(token),
 		getProject: () => project, getSelectedTrackId: () => 'track', getRange: () => ({ startFrame: 0, endFrame: 2_048 }),
 		getActiveSelection: () => null, getSpectrumWindowSize: () => 2_048,
