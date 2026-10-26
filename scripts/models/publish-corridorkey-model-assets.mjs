@@ -8,6 +8,7 @@ import { createReadStream } from 'node:fs';
 import { copyFile, lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { setTimeout as pause } from 'node:timers/promises';
 import { fetchPinnedArtifact, uploadImmutableR2File, verifyMirroredArtifact } from '../lib/local-model-mirror.mjs';
 import { R2Client } from '../lib/r2-client.mjs';
 
@@ -60,6 +61,25 @@ export async function assertCorridorKeyAssetFile(directory, artifact) {
 	return path;
 }
 
+// Public verification streams whole graphs; a reset can arrive after fetch()
+// returned its headers. Retry the immutable upload and full readback together.
+/**
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @param {(milliseconds: number) => Promise<unknown>} [wait]
+ * @returns {Promise<T>}
+ */
+export async function retryCorridorKeyAssetOperation(operation, wait = pause) {
+	const transient = new Set(['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT']);
+	for (let attempt = 0; ; attempt++) {
+		try { return await operation(); } catch (error) {
+			if (attempt >= 2 || !transient.has(error?.cause?.code ?? error?.code)) throw error;
+			console.warn(`CorridorKey asset connection interrupted; retry ${String(attempt + 2)}/3.`);
+			await wait(250 * 2 ** attempt);
+		}
+	}
+}
+
 async function main(args) {
 	const register = await json(registerPath), conversion = await json(conversionPath);
 	const artifacts = reviewCorridorKeyAssetPublication(register, conversion);
@@ -95,10 +115,13 @@ async function main(args) {
 	const published = [];
 	for (const [index, artifact] of artifacts.entries()) {
 		const key = `${register.publication.prefix}/${artifact.fileName}`;
-		await uploadImmutableR2File({ client, key, file: paths[index], artifact,
-			contentType: artifact.fileName.endsWith('.onnx') ? 'application/octet-stream' : 'text/plain; charset=utf-8' });
 		const url = `${register.publication.publicBaseUrl}${artifact.fileName}`;
-		published.push({ fileName: artifact.fileName, ...await verifyMirroredArtifact({ url, artifact }) });
+		const verified = await retryCorridorKeyAssetOperation(async () => {
+			await uploadImmutableR2File({ client, key, file: paths[index], artifact,
+				contentType: artifact.fileName.endsWith('.onnx') ? 'application/octet-stream' : 'text/plain; charset=utf-8' });
+			return verifyMirroredArtifact({ url, artifact });
+		});
+		published.push({ fileName: artifact.fileName, ...verified });
 		console.log(`Published and verified ${url}`);
 	}
 	const pin = async path => { const bytes = await readFile(resolve(root, path)); return {
