@@ -208,6 +208,7 @@ test.describe('audio editor video composition workflow', () => {
 		await closeClipProperties(editor);
 		await controls.getByRole('button', { name: 'Track options', exact: true }).click();
 		const menu = page.locator('.audio-editor-track-menu');
+		await menu.getByRole('menuitem', { name: /^Track height/u }).hover();
 		await expect(menu.getByRole('menuitem', { name: 'Increase track height', exact: true })).toBeVisible();
 		await expect(menu.getByRole('menuitem', { name: 'Decrease track height', exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
