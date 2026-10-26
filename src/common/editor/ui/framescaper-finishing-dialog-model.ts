@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { fileValidationFailure as failure } from '../file-validation-failure.ts';
 import { FRAMESCAPER_FINISHING_SURFACE_COPY } from '../../i18n/editor-framescaper-finishing-surface-copy.ts';
 import { resolveEditorCopyScope } from '../../i18n/editor-copy-scope.ts';
 
@@ -115,14 +116,18 @@ export function importFramescaperCaptionSidecar(input: Readonly<{
 	readonly command: FramescaperOwnedFinishingCommand | null;
 }> {
 	const project = projectRecord(input.project);
-	const result = importVideoCaptionTrackV1(input.text, {
+	let result: VideoCaptionImportResultV1;
+	try { result = importVideoCaptionTrackV1(input.text, {
 		format: input.format,
 		sampleRate: positiveInteger(project.sampleRate, 'project sample rate'),
 		trackId: input.trackId,
 		sequenceId: input.sequenceId,
 		trackName: input.trackName,
 		language: input.language,
-	});
+	}); } catch (cause) {
+		if (!(cause instanceof Error)) throw cause;
+		throw failure(cause, 'editor-input', 'caption-sidecar', 'finishingCaption', { format: input.format === 'srt' ? 'SRT' : input.format === 'webvtt' ? 'WebVTT' : 'IMSC 1.1' });
+	}
 	const tracks = records(project.videoCaptionTracks, 'videoCaptionTracks');
 	const expected = tracks.find(({ id }) => id === result.track.id) ?? null;
 	if (equalFramescaperOwnedFinishingCollectionValues('video-caption-track/set', expected, result.track)) {
@@ -255,12 +260,12 @@ function collection(
 
 function parseDocument(value: string): unknown {
 	if (typeof value !== 'string' || value.length === 0 || value.length > MAXIMUM_DOCUMENT_CHARACTERS) {
-		throw new RangeError('The finishing document is empty or exceeds its size limit.');
+		throw failure(new RangeError('The finishing document is empty or exceeds its size limit.'), 'editor-input', 'finishing-document-size', 'finishingDocumentSize', { maximum: MAXIMUM_DOCUMENT_CHARACTERS });
 	}
 	try {
 		return JSON.parse(value) as unknown;
 	} catch (error) {
-		throw new SyntaxError('The finishing document must be valid JSON.', { cause: error });
+		throw failure(new SyntaxError('The finishing document must be valid JSON.', { cause: error }), 'editor-input', 'finishing-document-json', 'finishingDocument');
 	}
 }
 

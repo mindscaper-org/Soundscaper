@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { usePresentationFeedback, feedbackFailure } from '../presentation-feedback.ts';
+import { visualAuthoringFailure } from './dialog-input-validation.ts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -58,7 +60,7 @@ export default function FramescaperSelectedVisualAuthoringDialog(props: Props) {
 	const [freezeDuration, setFreezeDuration] = useState(24);
 	const [pending, setPending] = useState(false);
 	const [status, setStatus] = useState('');
-	const [error, setError] = useState('');
+	const [error, setError] = usePresentationFeedback(props.copy ?? {});
 	useEffect(() => {
 		setShape(savedMask?.shape ?? 'rectangle');
 		setMaskWidth(String(savedMask?.width ?? 0.75));
@@ -99,7 +101,7 @@ export default function FramescaperSelectedVisualAuthoringDialog(props: Props) {
 		void runAwaitedAudioEditorOperation(props.run, () => runtime.run(props.surface, request))
 			.then(() => { setStatus(operation); })
 			.catch((cause: unknown) => {
-				setError(cause instanceof Error ? cause.message : String(cause));
+				setError(feedbackFailure(visualAuthoringFailure(cause)));
 			})
 			.finally(() => { setPending(false); });
 	};

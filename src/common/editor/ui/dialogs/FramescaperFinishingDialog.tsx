@@ -1,3 +1,4 @@
+import { parseFinishingNoiseProfile as parseNoiseProfile, noiseProfileFailure } from './dialog-input-validation.ts';
 import { usePresentationFeedback, feedbackFailure, type PresentationFeedback } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
@@ -301,11 +302,12 @@ export default function FramescaperFinishingDialog({
 		if (!selectedTrackId || !selectedAudioTrack) return;
 		perform(() => {
 			const profile = profiledNoiseReduction ? parseNoiseProfile(noiseProfileText) : null;
-			const chain = createFramescaperDialogueChain({
+			let chain: ReturnType<typeof createFramescaperDialogueChain>;
+			try { chain = createFramescaperDialogueChain({
 				id: createStableId('dialogue'),
 				sampleRate: projectSampleRate(project),
 				...(profile === null ? {} : { noiseReduction: { profile } }),
-			});
+			}); } catch (cause) { throw noiseProfileFailure(cause); }
 			return controller.actions.edit.commit(createFramescaperDialogueChainAddCommand(
 				{ scope: 'track', trackId: selectedTrackId }, chain,
 			));
@@ -434,19 +436,6 @@ function inputFrame(value: string | number, name: string): number {
 	const frame = Number(value);
 	if (!Number.isSafeInteger(frame) || frame < 0) throw new RangeError(`${name} must be a non-negative integer.`);
 	return frame;
-}
-
-function parseNoiseProfile(value: string): Readonly<Record<string, unknown>> {
-	try {
-		const parsed = JSON.parse(value) as unknown;
-		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-			throw new TypeError('The noise profile must be a JSON object.');
-		}
-		return parsed as Readonly<Record<string, unknown>>;
-	} catch (error) {
-		if (error instanceof TypeError) throw error;
-		throw new SyntaxError('The noise profile must be valid JSON.', { cause: error });
-	}
 }
 
 function projectSampleRate(value: unknown): number {

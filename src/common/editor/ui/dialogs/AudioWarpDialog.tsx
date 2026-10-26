@@ -1,3 +1,4 @@
+import { parseAudioWarpRational as parseRationalInput, parseAudioWarpGrooveOffsets as parseGrooveOffsets } from './dialog-input-validation.ts';
 import { useCommittedCallbacks } from '../useCommittedCallbacks.ts';
 import { usePresentationFeedback, feedbackFailure, type PresentationFeedback } from '../presentation-feedback.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
@@ -406,26 +407,6 @@ function transientCountFromOutcome(value: unknown): number {
 	const outcome = dataRecord(value);
 	const analysis = dataRecord(outcome?.analysis);
 	return Array.isArray(analysis?.transients) ? analysis.transients.length : 0;
-}
-
-function parseGrooveOffsets(value: string): readonly RationalInput[] {
-	const tokens = value.split(',').map((token) => token.trim()).filter(Boolean);
-	if (tokens.length < 1 || tokens.length > 128) {
-		throw new RangeError('A groove template requires 1 to 128 offsets.');
-	}
-	return Object.freeze(tokens.map((token) => parseRationalInput(token, 'groove offset')));
-}
-
-function parseRationalInput(value: string, name: string): RationalInput {
-	const token = value.trim();
-	const match = /^(-?\d+)(?:\/(\d+))?$/u.exec(token);
-	if (!match) throw new TypeError(`Invalid ${name}: ${token}.`);
-	const num = Number(match[1]);
-	const den = Number(match[2] ?? 1);
-	if (!Number.isSafeInteger(num) || !Number.isSafeInteger(den) || den < 1) {
-		throw new RangeError(`Invalid ${name}: ${token}.`);
-	}
-	return Object.freeze({ num, den });
 }
 
 function dataRecord(value: unknown): Readonly<Record<string, unknown>> | null {

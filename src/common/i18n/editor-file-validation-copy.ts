@@ -1,5 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 export const FILE_VALIDATION_COPY = Object.freeze({
+	audioWarpFraction: '{field} must be a whole number or a fraction with a positive denominator. Invalid value: {value}.',
+	audioWarpGrooveSize: 'A groove template requires between {minimum} and {maximum} offsets.',
+	audioWarpOuter: 'Marker outer position', audioWarpSource: 'Marker source sample',
+	videoRetimeFraction: '{field} must be a safe-integer fraction with a positive denominator.',
+	noiseProfileJson: 'The noise profile must contain valid JSON.', noiseProfileInvalid: 'The noise profile must contain a supported captured noise profile.',
+	finishingDocument: 'The finishing document is invalid. Check its JSON and values.',
+	finishingDocumentSize: 'The finishing document must contain between 1 and {maximum} characters.',
+	finishingCaption: 'The {format} caption sidecar is invalid.',
+	visualBounds: '{field} must be a finite number from {minimum} to {maximum}.',
+	visualAuthoringOperation: 'The selected visual operation failed. Reopen the dialog and check its settings and selection.',
+	visualParameter: 'Visual parameter',
+
 	rawFileRequired: 'Choose a raw PCM file.', rawFileSize: 'The raw PCM file has an invalid byte length.',
 	rawSampleFormat: 'Choose a supported raw PCM sample format.', rawByteOrder: 'Choose a supported raw PCM byte order.',
 	rawIntegerBounds: '{field} must be a whole number from {minimum} to {maximum}.',
