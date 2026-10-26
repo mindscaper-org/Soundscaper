@@ -1,0 +1,115 @@
+name: Publish CorridorKey model assets
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-corridorkey-model-assets
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=2048
+
+jobs:
+  export:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: nikopueringer/CorridorKey2.0
+          ref: 485f5e9ab759ead6138cc990776184b59d6ea971
+          path: .corridorkey-source
+          persist-credentials: false
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@12.0.1
+      - run: npm ci
+      - uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+        with:
+          version: 0.12.5
+      - name: Download and authenticate pinned publisher inputs
+        run: |
+          mv .corridorkey-source /tmp/corridorkey-upstream
+          node scripts/models/publish-corridorkey-model-assets.mjs --prepare-source /tmp/corridorkey-upstream
+      - name: Reproduce the retained converter source paths
+        # PyTorch records source paths in ONNX metadata. Preserve the measured
+        # conversion layout so immutable graph hashes can be reproduced.
+        shell: bash
+        run: |
+          CORRIDORKEY_REPRO_ROOT=/home/splowatt/git/Soundscaper-corridorkey-2
+          sudo install -d -o "$USER" "$CORRIDORKEY_REPRO_ROOT"
+          mkdir -p "$CORRIDORKEY_REPRO_ROOT/scripts/models" "$CORRIDORKEY_REPRO_ROOT/config"
+          cp -a scripts/models/corridorkey-conversion-tool "$CORRIDORKEY_REPRO_ROOT/scripts/models/"
+          cp config/framescaper-corridorkey-model-source-candidate.json "$CORRIDORKEY_REPRO_ROOT/config/"
+      - name: Export and measure all five graphs within 12 GiB
+        shell: bash
+        run: |
+          sudo systemd-run --scope --quiet --same-dir \
+            --property=MemoryMax=12G --property=MemorySwapMax=0 \
+            sudo -u "$USER" env PATH="$PATH" MALLOC_ARENA_MAX=2 \
+            UV_PROJECT_ENVIRONMENT=/tmp/corridorkey-tool-locked-venv \
+            "$(command -v uv)" run --frozen --project /home/splowatt/git/Soundscaper-corridorkey-2/scripts/models/corridorkey-conversion-tool \
+            python -m framescaper_corridorkey_conversion \
+            --source-root /tmp/corridorkey-upstream \
+            --output /tmp/corridorkey-real-embedded-candidate --threads 4
+      - name: Retain upstream permission and license notices
+        run: >-
+          node scripts/models/publish-corridorkey-model-assets.mjs
+          --stage-notices /tmp/corridorkey-upstream /tmp/corridorkey-real-embedded-candidate
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: corridorkey-model-assets
+          path: |
+            /tmp/corridorkey-real-embedded-candidate/*.onnx
+            /tmp/corridorkey-real-embedded-candidate/README.md
+            /tmp/corridorkey-real-embedded-candidate/LICENSE
+            /tmp/corridorkey-real-embedded-candidate/THIRD_PARTY_NOTICES.md
+            /tmp/corridorkey-real-embedded-candidate/candidate-report.json
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: export
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install --global npm@12.0.1
+      - run: npm ci
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: corridorkey-model-assets
+          path: .corridorkey-model-assets
+      - name: Publish immutable files and verify public readback
+        run: >-
+          node scripts/models/publish-corridorkey-model-assets.mjs --publish
+          --model-root .corridorkey-model-assets
+          --receipt .corridorkey-receipt/corridorkey-2.0.json
+        env:
+          R2_MODELS_ACCESS_KEY_ID: ${{ secrets.R2_MODELS_ACCESS_KEY_ID }}
+          R2_MODELS_SECRET_ACCESS_KEY: ${{ secrets.R2_MODELS_SECRET_ACCESS_KEY }}
+          R2_MODELS_ENDPOINT: ${{ vars.R2_MODELS_ENDPOINT || secrets.R2_MODELS_ENDPOINT }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: corridorkey-model-publication-receipt
+          path: .corridorkey-receipt/
+          if-no-files-found: error
+          retention-days: 30

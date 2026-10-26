@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "modelId": "corridorkey-2.0",
+  "version": "2.0.0",
+  "publication": {
+    "bucket": "soundscaper-assets",
+    "prefix": "models/corridorkey-2.0/2.0.0",
+    "publicBaseUrl": "https://assets.soundscaper.org/models/corridorkey-2.0/2.0.0/"
+  },
+  "sourceRevision": "485f5e9ab759ead6138cc990776184b59d6ea971",
+  "licensingDecision": {
+    "status": "owner-authorized-readme-permission",
+    "recordedOn": "2026-10-26",
+    "basisUrl": "https://github.com/nikopueringer/CorridorKey2.0/blob/485f5e9ab759ead6138cc990776184b59d6ea971/README.md#licensing-and-permissions",
+    "separateIntegrationGrant": false,
+    "legalUncertaintyAccepted": true,
+    "scope": "Free public model-file distribution for the freely accessible Framescaper integration; no sale of the tool or paid inference service.",
+    "statement": "The project owner authorizes publication relying on the upstream README permission and accepts the uncertainty arising from its relationship to the full additional license terms. This records the owner decision; it does not establish that any upstream term is unenforceable."
+  },
+  "catalogActivationReady": false,
+  "gpuValidation": "pending",
+  "notices": [
+    {
+      "fileName": "README.md",
+      "byteLength": 22018,
+      "sha256": "18aad180cacab855fa40fdf18730e1d37daae8edc105d1bb5e1b75f4279a497d"
+    },
+    {
+      "fileName": "LICENSE",
+      "byteLength": 26650,
+      "sha256": "c92ce56f64162b231c7ce08ce3ed7d8cae15f01a560ca05a8e8db67878eb0065"
+    },
+    {
+      "fileName": "THIRD_PARTY_NOTICES.md",
+      "byteLength": 1706,
+      "sha256": "76acc5707e92ef6b274d54bb4bda99b16ebddf46d31eb5fc5803592b274a7370"
+    }
+  ]
+}
