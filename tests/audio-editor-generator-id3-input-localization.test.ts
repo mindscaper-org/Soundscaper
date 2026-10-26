@@ -8,6 +8,9 @@ import { createWavStreamEncoder } from '../src/common/editor/wav.js';
 import { createAiffStreamEncoder } from '../src/common/editor/aiff.js';
 import { updateId3ProjectField, projectAudioMetadata } from '../src/common/editor/id3-descriptive-fields.ts';
 import { workspaceErrorMessage } from '../src/common/editor/ui/workspace/workspace-error-presentation.ts';
+import { createControllerPresentationState } from '../src/common/editor/controller/composition/presentation-state.ts';
+import { formatPresentationMessage } from '../src/common/i18n/presentation-message.ts';
+import { parseAudioEditorLabels } from '../src/common/editor/label-io.js';
 
 void test('actual DTMF worker refusal keeps translated identity across structured clone and cleanup', async () => {
 	const worker = new GeneratorWorker(); let failure: unknown;
@@ -15,6 +18,7 @@ void test('actual DTMF worker refusal keeps translated identity across structure
 	assert.ok(failure instanceof RangeError); assert.match(failure.message, /unsupported symbol/u); assert.equal(worker.terminated, true);
 	const copy = { genericError: '{message}', unknownError: '?', 'ui.fileValidation.generatorDtmfSymbol': 'Ungültiges DTMF-Zeichen' };
 	assert.equal(workspaceErrorMessage(failure, copy), 'Ungültiges DTMF-Zeichen');
+	assertControllerStatus(failure, copy, 'Ungültiges DTMF-Zeichen');
 });
 void test('the visible 24-hour duration at48 kHz refuses oversized generator output before allocating PCM', async () => {
 	let failure: unknown;
@@ -22,12 +26,18 @@ void test('the visible 24-hour duration at48 kHz refuses oversized generator out
 	const copy = { genericError: '{message}', unknownError: '?', 'ui.fileValidation.generatorOutputTooLarge': 'Die erzeugte Audiodatei ist zu lang' };
 	assert.equal(workspaceErrorMessage(failure, copy), 'Die erzeugte Audiodatei ist zu lang');
 });
+test('a real label TXT parser refusal also retains its primary reason through handled controller status and locale refresh', () => {
+	const error = caught(() => parseAudioEditorLabels('0\tText\0', { format: 'txt', sampleRate: 48000 }));
+	assert.match(error.message, /NUL/u);
+	assertControllerStatus(error, { genericError: '{message}', unknownError: '?', 'ui.formatFileFailure.labelCharacter': 'Die Beschriftung enthält ein unzulässiges Zeichen' }, 'Die Beschriftung enthält ein unzulässiges Zeichen');
+});
 for (const [label, encoder] of [['WAV', createWavStreamEncoder], ['AIFF', createAiffStreamEncoder]] as const) test(`rating300 authored through metadata editing has localized ${label} export refusal before any bytes are written`, () => {
 	const metadata = updateId3ProjectField({}, 'rating', '300'); let writes = 0;
 	const error = caught(() => encoder({ sampleRate: 48_000, channelCount: 1, totalFrames: 1, metadata: projectAudioMetadata(metadata), collect: false, onChunk: () => { writes++; } }));
 	assert.ok(error instanceof RangeError); assert.match(error.message, /0–255/u); assert.equal(writes, 0);
 	const copy = { genericError: '{message}', unknownError: '?', 'ui.fileValidation.id3Range': '{field}: {minimum} bis {maximum}', 'ui.id3Metadata.rating': 'Bewertung' };
 	assert.equal(workspaceErrorMessage(error, copy), 'Bewertung: 0 bis 255');
+	assertControllerStatus(error, copy, 'Bewertung: 0 bis 255');
 	assert.deepEqual(metadata, { tags: { rating: '300' } }, 'the editor retains authored metadata for correction');
 });
 for (const [key, value, messageKey] of [['commercialUrl', 'javascript:alert(1)', 'id3Url'], ['involvedPeople', 'Singer', 'id3Credits'],
@@ -39,6 +49,17 @@ for (const [key, value, messageKey] of [['commercialUrl', 'javascript:alert(1)',
 	assert.equal(workspaceErrorMessage(error, copy), 'Lokalisierte Metadatenprüfung');
 });
 function caught(operation: () => unknown): Error { try { operation(); } catch (error) { assert.ok(error instanceof Error); return error; } throw new Error('Expected invalid metadata'); }
+function assertControllerStatus(error: unknown, copy: Readonly<Record<string, string>> & { genericError: string; unknownError: string }, expected: string): void {
+	const recorded: unknown[] = [];
+	const state = { status: { message: '', state: 'info' }, exportProgress: 0, analysisResult: null, analysisVisuals: null, analysisReport: null,
+		localDiagnostics: { record: (failure: unknown) => { recorded.push(failure); } } };
+	const presentation = createControllerPresentationState({ state, copy: { ...copy, ready: 'Ready' }, publishDocument: () => {}, publishTelemetry: () => {}, updateTaskProgress: () => {} });
+	presentation.handleError(error);
+	assert.equal(state.status.message, expected, 'handled controller failures keep the family instead of publishing raw diagnostics');
+	assert.deepEqual(recorded, [error], 'the original diagnostic remains available');
+	presentation.refreshLocalization(message => formatPresentationMessage({ ...copy, genericError: 'Aktualisiert: {message}' }, message));
+	assert.equal(state.status.message, `Aktualisiert: ${expected}`, 'the retained nested identity survives a copy refresh');
+}
 type Listener = Parameters<OneShotWorkerPort['addEventListener']>[1];
 class GeneratorWorker implements OneShotWorkerPort {
 	readonly listeners = new Map<string, Set<Listener>>(); readonly handle = createSignalGeneratorStreamRuntime(); terminated = false;
