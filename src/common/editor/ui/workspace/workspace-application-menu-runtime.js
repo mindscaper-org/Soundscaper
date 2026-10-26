@@ -75,7 +75,7 @@ export function createWorkspaceApplicationMenus({
 		zoomProject,
 }) {
 	const soundscaperNativeServices = resolveSoundscaperNativeServicesWorkspaceRuntime({
-		productId, copy, engine: controller?.engine, controller, durationFrames,
+		productId, copy, locale, engine: controller?.engine, controller, durationFrames,
 		selectedTrackId: snapshot.selectedTrackId ?? null,
 		selectedClipId: snapshot.selectedClipId ?? null,
 		processingBlocked: editBlocked || snapshot.readOnly === true,
@@ -83,7 +83,7 @@ export function createWorkspaceApplicationMenus({
 	const framescaperRuntime = createProductWorkspaceApplicationMenuRuntime({
 		controller,
 		productId,
-		copy,
+		copy, locale,
 		project,
 		projectCapabilities: capabilities,
 		editingBlocked: editBlocked,

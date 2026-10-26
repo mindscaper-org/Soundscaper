@@ -1,3 +1,5 @@
+import { useComponentCopy } from '@soundscaper/design-system/contexts/ComponentCopyContext';
+import { localizedOverlapDescription } from './localized-overlap-description.ts';
 import { CLIP_CONTENT_OFFSET } from '@soundscaper/design-system/constants';
 
 import { automaticClipCrossfadeRanges, findPartialClipOverlaps } from '../../audio-clip-overlap.ts';
@@ -45,6 +47,7 @@ export function createCrossfadeOverlays(clips, overscanStartFrame, pixelsPerSeco
 			left: CLIP_CONTENT_OFFSET
 				+ (startFrame - overscanStartFrame) / sampleRate * pixelsPerSecond,
 			width: Math.max(2, (endFrame - startFrame) / sampleRate * pixelsPerSecond),
+			outgoingName: String(left.name || left.id), incomingName: String(right.name || right.id),
 			label: `Automatic crossfade between ${left.name || left.id} and ${right.name || right.id}`,
 			outgoingPath: clipCrossfadeCurvePath(left, ranges.get(String(left.id)) ?? {
 				crossfadeInRanges: [], crossfadeOutRanges: [],
@@ -61,6 +64,7 @@ export function createCrossfadeOverlays(clips, overscanStartFrame, pixelsPerSeco
 }
 
 export function AutomaticCrossfadeOverlays({ overlays }) {
+	const { copy } = useComponentCopy();
 	return overlays.map((overlay) => (
 		<div
 			key={overlay.id}
@@ -69,8 +73,8 @@ export function AutomaticCrossfadeOverlays({ overlays }) {
 			data-invalid-video-overlap={overlay.valid === false ? 'true' : undefined}
 			style={{ left: overlay.left, width: overlay.width }}
 			role="img"
-			aria-label={overlay.label}
-			title={overlay.label}
+			aria-label={localizedOverlapDescription(overlay, copy)}
+			title={localizedOverlapDescription(overlay, copy)}
 		/>
 	));
 }

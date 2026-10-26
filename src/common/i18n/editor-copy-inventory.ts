@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { ADM_COPY } from './editor-adm-copy.ts';
+import { VAMP_COPY, VAMP_COPY_ALIASES } from './editor-vamp-copy.ts';
 
 import { DESIGN_SYSTEM_COPY } from './editor-design-system-copy.ts';
 import { ENGLISH_COPY } from './catalogs.js';
@@ -160,6 +162,8 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'designSystem', ...DESIGN_SYSTEM_COPY },
+	{ owner: 'adm', en: ADM_COPY },
+	{ owner: 'vamp', en: VAMP_COPY, aliases: VAMP_COPY_ALIASES },
 	{ owner: 'selectedVisualAuthoring', en: SELECTED_VISUAL_AUTHORING_COPY },
 	...Object.entries(SELECTED_VISUAL_AUTHORING_SURFACE_COPY).map(([surface, en]) => ({
 		owner: `selectedVisualAuthoring.surfaces.${surface}`, en,

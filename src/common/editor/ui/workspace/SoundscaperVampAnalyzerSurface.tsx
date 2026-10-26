@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { VAMP_COPY, VAMP_COPY_ALIASES } from '../../../i18n/editor-vamp-copy.ts';
+import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 
 /** Menu-owned asynchronous catalog shell for the lazy Vamp dialog. */
 
@@ -20,12 +22,14 @@ const VampAnalyzerDialog = React.lazy(() => import('../dialogs/VampAnalyzerDialo
 export interface SoundscaperVampAnalyzerSurfaceProps {
 	readonly input: Readonly<SoundscaperVampAnalyzerSurfaceInput>;
 	readonly onClose: () => void;
+	readonly copy?: Readonly<Record<string, string | undefined>>;
 }
 
 export default function SoundscaperVampAnalyzerSurface({
 	input,
-	onClose,
+	onClose, copy: hostCopy,
 }: Readonly<SoundscaperVampAnalyzerSurfaceProps>) {
+	const copy = useMemo(() => resolveEditorCopyScope('vamp', VAMP_COPY, Object.fromEntries(Object.keys(VAMP_COPY).map(key => [key, hostCopy?.[`ui.vamp.${key}`] ?? hostCopy?.[VAMP_COPY_ALIASES[key] ?? '']]))), [hostCopy]);
 	const port = useMemo(() => createDesktopVampAnalysisAction({
 		bridge: input.bridge,
 		engine: input.engine,
@@ -56,18 +60,18 @@ export default function SoundscaperVampAnalyzerSurface({
 		}
 	};
 	const [catalog, setCatalog] = useState<unknown>(Object.freeze([]));
-	const [catalogMessage, setCatalogMessage] = useState('Loading enabled Vamp analyzers…');
+	const [catalogMessage, setCatalogMessage] = useState<'loading' | 'empty' | 'error'>('loading');
 	useEffect(() => {
 		if (session === null) return undefined;
 		let active = true;
 		void session.loadCatalog().then((value) => {
 			if (!active) return;
 			setCatalog(value);
-			setCatalogMessage('No enabled Vamp analyzers are available.');
-		}).catch((error: unknown) => {
+			setCatalogMessage('empty');
+		}).catch(() => {
 			if (!active) return;
 			setCatalog(Object.freeze([]));
-			setCatalogMessage(error instanceof Error ? error.message : String(error));
+			setCatalogMessage('error');
 		});
 		return () => { active = false; };
 	}, [session]);
@@ -84,7 +88,7 @@ export default function SoundscaperVampAnalyzerSurface({
 			analyze={session.analyze}
 			publishLabels={publishLabels}
 			onClose={onClose}
-			copy={{ noAnalyzers: catalogMessage }}
+			copy={{ ...copy, noAnalyzers: catalogMessage === 'loading' ? copy.loadingCatalog : catalogMessage === 'error' ? copy.catalogFailed : copy.noAnalyzers }}
 		/>
 	</React.Suspense>;
 }

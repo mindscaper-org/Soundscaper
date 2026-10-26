@@ -20,6 +20,8 @@ interface VideoOverlap {
 	readonly durationFrames: number;
 	readonly valid: boolean;
 	readonly label: string;
+	readonly outgoingName: string;
+	readonly incomingName: string;
 }
 
 interface OrderedClip {
@@ -145,6 +147,8 @@ function collectOverlaps(
 				timelineStartFrame: startFrame,
 				durationFrames: endFrame - startFrame,
 				valid,
+				outgoingName: String(left.clip.title || left.clip.id),
+				incomingName: String(right.clip.title || right.clip.id),
 				label: valid
 					? `Automatic crossfade between ${left.clip.title || left.clip.id} and ${right.clip.title || right.clip.id}`
 					: `Invalid video overlap between ${left.clip.title || left.clip.id} and ${right.clip.title || right.clip.id}`,
@@ -171,7 +175,7 @@ export function projectVideoOverlapPresentation(
 			left: CLIP_CONTENT_OFFSET + (visibleStartFrame - overscanStartFrame) / sampleRate * pixelsPerSecond,
 			width: Math.max(2, (visibleEndFrame - visibleStartFrame) / sampleRate * pixelsPerSecond),
 			valid: overlap.valid,
-			label: overlap.label,
+			label: overlap.label, outgoingName: overlap.outgoingName, incomingName: overlap.incomingName,
 		}];
 	});
 	return { invalid: analysis.invalid, invalidClipIds: analysis.invalidClipIds, overlays };

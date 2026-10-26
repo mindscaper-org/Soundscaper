@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { VAMP_DIALOG_COPY } from '../../../i18n/editor-vamp-copy.ts';
 
 /** Default-exported module boundary intended for React.lazy menu wiring. */
 
@@ -42,28 +43,7 @@ export interface VampAnalyzerDialogCopy {
 	readonly tooManyLabels: string;
 }
 
-export const VAMP_ANALYZER_DIALOG_COPY: Readonly<VampAnalyzerDialogCopy> = Object.freeze({
-	title: 'Vamp Analyzer',
-	analyzer: 'Analyzer',
-	output: 'Output',
-	scope: 'Scope',
-	selectedTrack: 'Selected track',
-	master: 'Master',
-	program: 'Program',
-	defaultProgram: 'Default program',
-	programValue: 'Program value',
-	parameters: 'Parameters',
-	analyze: 'Analyze',
-	cancel: 'Cancel',
-	analyzing: 'Analyzing…',
-	noAnalyzers: 'No enabled Vamp analyzers are available.',
-	feature: 'feature',
-	features: 'features',
-	labelTrackName: 'Label track name',
-	publishLabels: 'Publish labels',
-	publishing: 'Publishing labels…',
-	tooManyLabels: 'This result exceeds the 10,000-label publication limit.',
-});
+export const VAMP_ANALYZER_DIALOG_COPY: Readonly<VampAnalyzerDialogCopy> = VAMP_DIALOG_COPY;
 
 export interface VampAnalyzerDialogProps {
 	readonly catalog: unknown;

@@ -114,6 +114,8 @@ export const COMPONENT_COPY = Object.freeze({
 	stretchRightEdge: "Stretch right edge",
 	timeCodeFormat: 'Time code format',
 	effectSettings: 'Effect settings',
+	automaticCrossfade: 'Automatic crossfade between {outgoing} and {incoming}',
+	invalidVideoOverlap: 'Invalid video overlap between {outgoing} and {incoming}',
 });
 export type ComponentCopy = Readonly<Record<keyof typeof COMPONENT_COPY, string>>;
 export function componentCopyTemplate(template: string, values: Readonly<Record<string, string | number>>): string {

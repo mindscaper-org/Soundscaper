@@ -4,6 +4,8 @@ import { PROCESSING_DIALOG_COPY_BY_LOCALE } from './processing-dialog-copy.js';
 
 export const SOUNDSCAPER_NATIVE_SERVICES_COPY = Object.freeze({
 	...PROCESSING_DIALOG_COPY_BY_LOCALE.en,
+	latencyFrames: '{count} latency frames',
+	blocksRendered: '{count} blocks rendered',
 	audioDevices: 'Audio devices',
 	audioDeviceSettings: 'Native audio device',
 	audioBackendUnavailable: 'No native audio backend is available',

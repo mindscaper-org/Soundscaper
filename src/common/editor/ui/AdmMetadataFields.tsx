@@ -1,4 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { ADM_COPY } from '../../i18n/editor-adm-copy.ts';
+import { resolveEditorCopyScope } from '../../i18n/editor-copy-scope.ts';
+import { formatLocalizedTemplate } from './localization-template.ts';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
@@ -210,11 +213,12 @@ export function AdmMetadataFields({
 			{sourceChannels.length === 0 && <p className="audio-editor-panel-hint">{copy.admNoTerminalStrips}</p>}
 			{sourceChannels.map((source) => {
 				const assignment = readAssignment(source);
+				const sourceLabel = admSourceChannelLabel(source, copy);
 				return (
 					<div className="audio-editor-adm-route" key={`${source.stripKind}:${source.stripId}:${source.sourceChannel}`}>
-						<span>{source.label}</span>
+						<span>{sourceLabel}</span>
 						<select
-							aria-label={`${source.label} ${copy.admBedChannel}`}
+							aria-label={`${sourceLabel} ${copy.admBedChannel}`}
 							value={assignment?.bedChannel || ''}
 							disabled={disabled}
 							onChange={(event) => onCommit(setAdmEditorAssignment(authored, {
@@ -230,7 +234,7 @@ export function AdmMetadataFields({
 							min={0}
 							max={4}
 							step={0.01}
-							aria-label={`${source.label} ${copy.gain}`}
+							aria-label={`${sourceLabel} ${copy.gain}`}
 							value={assignment?.gain ?? 1}
 							disabled={disabled || !assignment}
 							onCommit={(gain) => {
@@ -370,7 +374,7 @@ function AdmObjectFields({ authored, projectId, copy, disabled, sourceChannels, 
 								onChange={(event) => setPending(event.currentTarget.value)}
 							>
 								{sourceChannels.map((source) => (
-									<option key={sourceKey(source)} value={sourceKey(source)}>{source.label}</option>
+									<option key={sourceKey(source)} value={sourceKey(source)}>{admSourceChannelLabel(source, copy)}</option>
 								))}
 							</select>
 						</label>
@@ -389,4 +393,8 @@ function AdmObjectFields({ authored, projectId, copy, disabled, sourceChannels, 
 
 function sourceKey(source: AdmEditorSourceChannel): string {
 	return `${source.stripKind}:${source.stripId}:${source.sourceChannel}`;
+}
+
+function admSourceChannelLabel(source: AdmEditorSourceChannel, copy: Readonly<Record<string, string>>): string {
+	return formatLocalizedTemplate(resolveEditorCopyScope('adm', ADM_COPY, copy).sourceChannel, { name: source.stripName, channel: source.sourceChannel + 1 });
 }

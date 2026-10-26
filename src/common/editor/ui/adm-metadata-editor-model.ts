@@ -21,6 +21,7 @@ export interface AdmEditorSourceChannel {
 	readonly stripId: string;
 	readonly sourceChannel: number;
 	readonly label: string;
+	readonly stripName: string;
 }
 
 export interface AdmEditorAssignmentChange {
@@ -89,6 +90,7 @@ function appendStripChannels(
 		stripKind,
 		stripId,
 		sourceChannel,
+		stripName: name,
 		label: `${name} — channel ${sourceChannel + 1}`,
 	});
 }

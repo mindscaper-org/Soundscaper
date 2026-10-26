@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { EditorComponentCopyProvider } from '../EditorComponentCopyProvider.tsx';
 
 import NativeProcessingTheme from './NativeProcessingTheme.tsx';
 import { ProcessingButton as Button } from './ProcessingButton.tsx';
@@ -57,6 +58,7 @@ export interface FramescaperNativeServicesDialogProps {
 	readonly initialSurface: FramescaperNativeServiceSurface;
 	readonly initialSnapshot?: FramescaperNativeServicesRendererSnapshot | null;
 	readonly copy?: Readonly<Record<string, string | undefined>>;
+	readonly locale?: string;
 	readonly context?: FramescaperNativeServicesDialogContext;
 	readonly projectActions?: FramescaperNativeProjectActionRuntime | null;
 	readonly openFxAuthoring?: FramescaperNativeOpenFxAuthoringRuntimeNativeMedia | null;
@@ -70,7 +72,7 @@ export interface FramescaperNativeServicesDialogContext {
 }
 
 export default function FramescaperNativeServicesDialog(props: FramescaperNativeServicesDialogProps) {
-	return <NativeProcessingTheme><NativeServicesDialog {...props} /></NativeProcessingTheme>;
+	return <EditorComponentCopyProvider copy={props.copy ?? {}} locale={props.locale ?? 'en'}><NativeProcessingTheme><NativeServicesDialog {...props} /></NativeProcessingTheme></EditorComponentCopyProvider>;
 }
 
 function NativeServicesDialog({
