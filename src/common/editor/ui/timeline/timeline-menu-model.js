@@ -147,7 +147,7 @@ export function createTimelineMenuModel({
 				checked: showArmControls,
 				onClick: onToggleArmControls,
 			}, contextLocale, unavailableReason),
-			...(automationControls?.targetsByTrackId.has(menuTrack.id) ? [
+			...(automationControls && productId === 'soundscaper' && capabilities?.audioAutomation === true ? [
 				manifestMenuItem(AUDACITY_TRACK_CONTEXT_ACTION_IDS.addAutomation, resolveTrackAutomationCopy(contextLocale, copy).addAutomation, {
 					id: 'track-add-automation',
 					checked: automationControls.isVisible(menuTrack.id),
