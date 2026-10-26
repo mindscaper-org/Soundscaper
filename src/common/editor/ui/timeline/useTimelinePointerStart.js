@@ -1,4 +1,5 @@
 import { selectedClipFadeTargets } from './selected-clip-fades.ts';
+import { presentCapturedClipFadeGesture } from './clip-fade-gesture-presentation.ts';
 import { resetClipPointerDrag } from './clip-pointer-selection.ts';
 import { useCallback } from 'react';
 import { clipHasLoopRepeats, normalizeInactiveClipLoop } from '../../audio-clip-loop.ts';
@@ -165,6 +166,9 @@ export function useTimelinePointerStart({
 			event.preventDefault();
 			event.stopPropagation();
 			fadeShapeHandle.setPointerCapture?.(event.pointerId);
+			presentCapturedClipFadeGesture(fadeShapeHandle.closest('.audio-editor-clip-fade'), {
+				target: fadeShapeHandle, pointerId: event.pointerId, clipId, edge, shape: true,
+			});
 			return;
 		}
 		const fadeHandle = event.target.closest?.('[data-clip-fade-handle]');
@@ -186,6 +190,9 @@ export function useTimelinePointerStart({
 			event.preventDefault();
 			event.stopPropagation();
 			fadeHandle.setPointerCapture?.(event.pointerId);
+			presentCapturedClipFadeGesture(fadeHandle.closest('.audio-editor-clip-fade'), {
+				target: fadeHandle, pointerId: event.pointerId, clipId, edge, shape: false,
+			});
 			return;
 		}
 		if (event.pointerType === 'touch') {
