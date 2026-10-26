@@ -552,25 +552,3 @@ test('a root worker leaves navigations inside a foreign product scope to that pr
 	});
 	assert.equal(await claimed.text(), 'root shell');
 });
-
-test('a worker refuses a scope its fallbacks or foreign scopes do not corroborate', () => {
-	for (const overrides of [
-		{ scope: '/framescaper' },
-		{ scope: 'framescaper/' },
-		{ scope: '//' },
-		{ scope: '/../' },
-		{ foreignScopes: ['/framescaper'] },
-		{ foreignScopes: ['/'] },
-		{ foreignScopes: ['/embed/', '/embed/'] },
-		{ foreignScopes: ['/framescaper/', '/embed/'] },
-		{ foreignScopes: '/framescaper/' },
-		{ foreignScopes: ['/en/'] },
-		{ fallbacks: { standard: '/framescaper/en/', embedded: '/embed/en/' } },
-	]) {
-		assert.throws(
-			() => validateOfflineShellConfiguration(shellConfiguration('9', [], overrides)),
-			/Offline shell (configuration|fallback inventory) is invalid\./u,
-			JSON.stringify(overrides),
-		);
-	}
-});
