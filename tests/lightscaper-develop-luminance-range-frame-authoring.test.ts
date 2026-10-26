@@ -79,6 +79,9 @@ test('updating a retained multi-node matte keeps its actual output ID rather tha
 	const updated = applyFramescaperProjectCommandFinishing(PROFILE, matte, await author(matte, request(matte, { maskId: retained.id, lower: 0, upper: 1, falloff: 0 })));
 	const mask = graphs(updated)[0]!;
 	assert.equal(mask.id, retained.id); assert.equal(mask.kind, 'matte'); assert.equal(mask.outputNodeId, 'z');
-	assert.deepEqual(mask.nodes, [{ id: 'z', kind: 'luminance-range', lower: 0, upper: 1, falloff: 0 }]);
+	assert.deepEqual(mask, { ...retained, nodes: [
+		{ id: 'a', kind: 'vector-shape', shape: 'rectangle', x: 0, y: 0, width: 1, height: 1 },
+		{ id: 'z', kind: 'luminance-range', lower: 0, upper: 1, falloff: 0 },
+	] });
 	assert.equal(JSON.stringify(graphs(matte)), wire);
 });

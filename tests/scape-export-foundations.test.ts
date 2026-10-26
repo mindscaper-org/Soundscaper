@@ -19,7 +19,7 @@ import { DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES } from '../scripts/lib/d
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const EDITOR = 'src/common/editor/';
 const FOUNDATIONS = ['scape-archive-limits.ts', 'scape-byte-stream.ts', 'scape-export-estimate.ts',
-	'scape-archive-zip-profile.ts', 'scape-blob-budget.ts'];
+	'scape-archive-zip-profile.ts', 'scape-blob-budget.ts', 'project-validation-primitives.ts'];
 
 test('neutral archive limits preserve the exact frozen format-1 public contract', () => {
 	assert.equal(limits.SCAPE_FORMAT, 'scape-project');

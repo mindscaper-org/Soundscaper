@@ -2,6 +2,8 @@
 
 /** Exact native image/library support leaves; no directory-wide helper admission. */
 export const NIGHTLY_IMAGE_TEST_HELPER_INPUTS = Object.freeze([
+	{ source: 'tests/helpers/translation-catalogs.ts', destination: 'tests/helpers/translation-catalogs.ts', kind: 'file', label: 'committed German catalog browser support' },
+	{ source: 'scripts/lib/editor-copy-audit-inventory.mjs', destination: 'scripts/lib/editor-copy-audit-inventory.mjs', kind: 'file', label: 'committed translation catalog reference inventory' },
 	{ source: 'tests/helpers/image-geometry-native-fixture.ts', destination: 'tests/helpers/image-geometry-native-fixture.ts', kind: 'file', label: 'shared geometry native pixel qualification' },
 
 	{ source: 'tests/helpers/lightscaper-current-app-fixture.tsx', destination: 'tests/helpers/lightscaper-current-app-fixture.tsx', kind: 'file', label: 'current Photo2 selected-namespace UI observation' },

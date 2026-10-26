@@ -821,6 +821,7 @@
 			],
 			"projectFeatures": {
 				"project": false,
+				"literalJsonKeys": false,
 				"projectBin": false,
 				"audioImport": false,
 				"audioPlayback": false,
@@ -865,6 +866,7 @@
 				"timelineImagePhase": false,
 				"audioWarp": false,
 				"sequenceTiming": false,
+				"timelineImageHoldPhase": false,
 				"videoRetime": false,
 				"videoCaptions": false,
 				"videoColorManagement": false,

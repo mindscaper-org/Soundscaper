@@ -155,6 +155,7 @@ export async function createFixture(context) {
 		['scripts/lib/packaged-webassembly-coverage.mjs', 'export const packagedWebAssemblyCoverage = true;\n'],
 		['scripts/lib/browser-product-site-plan.mjs', 'export const sitePlan = true;\n'],
 		['scripts/lib/product-release-lines.mjs', await readFile(new URL('../../scripts/lib/product-release-lines.mjs', import.meta.url), 'utf8')],
+		['scripts/lib/editor-copy-audit-inventory.mjs', await readFile(new URL('../../scripts/lib/editor-copy-audit-inventory.mjs', import.meta.url), 'utf8')],
 		['src/common/product-identities.js', await readFile(new URL('../../src/common/product-identities.js', import.meta.url), 'utf8')],
 		['config/product-release-lines.json', await readFile(new URL('../../config/product-release-lines.json', import.meta.url), 'utf8')],
 		['scripts/lib/build-source-map-relocation.mjs', 'export const relocation = true;\n'],
@@ -182,6 +183,7 @@ export async function createFixture(context) {
 		['tests/aup3-fixture.js', 'export const fixture = true;\n'],
 		['tests/helpers/aup4-database-harness.js', await readFile(new URL('./aup4-database-harness.js', import.meta.url), 'utf8')],
 		['tests/helpers/png-fixture.mjs', await readFile(new URL('./png-fixture.mjs', import.meta.url), 'utf8')],
+		['tests/helpers/translation-catalogs.ts', await readFile(new URL('./translation-catalogs.ts', import.meta.url), 'utf8')],
 		...await Promise.all(['video-storage-native-publication-fixture.ts', 'video-storage-opfs-model-fixture.ts'].map(async (file) => [
 			`tests/helpers/${file}`, await readFile(new URL(`./${file}`, import.meta.url), 'utf8'),
 		])),

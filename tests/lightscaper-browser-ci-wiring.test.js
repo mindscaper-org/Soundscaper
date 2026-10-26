@@ -54,8 +54,8 @@ test('ordinary browser CI executes the exact collected shard with its required r
 	assert.match(extractJob(source, 'browser'), /timeout-minutes: \$\{\{ matrix\.project == 'chromium' && \(matrix\.shard == 3 && 150 \|\| 120\) \|\| 60 \}\}/u,
 		'Chromium shard 3 needs room beyond its observed 120-minute test command for qualification and compaction');
 	for (const [jobName, collectName, runName, project, shard, normalWorkers] of [
-		['browser', 'Collect browser shard run shape', 'Run browser workflows against the existing build', '${{ matrix.project }}', "${{ matrix.shard }}/${{ matrix.project == 'webkit' && 8 || 4 }}", "${{ matrix.project == 'webkit' && 1 || 2 }}"],
-		['firefox', 'Collect Firefox shard run shape', 'Run Firefox workflows against the existing build', 'firefox', '${{ matrix.shard }}/6', '1'],
+		['browser', 'Collect browser shard run shape', 'Run browser workflows against the existing build', '${{ matrix.project }}', '${{ matrix.shard }}/12', "${{ matrix.project == 'webkit' && 1 || 2 }}"],
+		['firefox', 'Collect Firefox shard run shape', 'Run Firefox workflows against the existing build', 'firefox', '${{ matrix.shard }}/12', '1'],
 	]) {
 		const job = extractJob(source, jobName), collect = step(job, collectName), run = step(job, runName);
 		assert.ok(job.indexOf(collectName) < job.indexOf(runName), `${jobName} must collect before execution`);
@@ -66,7 +66,8 @@ test('ordinary browser CI executes the exact collected shard with its required r
 		assert.ok(run.includes(`npm run test:browser:built -- --project=${project} --shard=${shard} --workers=\${{ steps.browser-run-shape.outputs.workers }} --retries=\${{ steps.browser-run-shape.outputs.retries }}`));
 		assert.doesNotMatch(collect + run, /--grep(?:[= ]|$)/u, 'policy selection must not filter the shard');
 		assert.doesNotMatch(run.split('\n').find(line => line.trimStart().startsWith('run:')) ?? '', /--list/u, 'the execution step must run the collected tests');
-		for (const name of ['SCAPE_BROWSER_COVERAGE', 'PWTEST_SHARD_WEIGHTS']) {
+		assert.doesNotMatch(collect + run, /PWTEST_SHARD_WEIGHTS/u, 'retired shard weights must not change collection or execution');
+		for (const name of ['SCAPE_BROWSER_COVERAGE']) {
 			const expression = block => block.split('\n').find(line => line.trimStart().startsWith(`${name}:`))?.trim();
 			assert.equal(expression(collect), expression(run), `${jobName} must collect with the execution ${name}`);
 			if (jobName === 'browser') assert.ok(expression(run), `${name} must remain explicit for the shared browser matrix`);

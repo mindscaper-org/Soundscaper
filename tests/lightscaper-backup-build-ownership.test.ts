@@ -17,12 +17,16 @@ test('the synchronous photo save owner has only scalar contracts in the existing
 	while (pending.length) {
 		const path = pending.pop()!; if (seen.has(path)) continue; seen.add(path);
 		assert.ok(path.startsWith(root + 'src/common/'), path);
-		if (path.startsWith(editor)) assert.ok(['editor-photo-library-scalars', 'editor-neutral-foundations']
+		if (path === editor + 'import-file-extensions.ts') {
+			assert.equal(chunkGroupForModulePath(path), 'project-interchange-foundations');
+			assert.deepEqual(runtimeDependencies(path), [], 'Import suffix admission must remain an inert leaf.');
+		} else if (path.startsWith(editor)) assert.ok(['editor-photo-library-scalars', 'editor-neutral-foundations']
 			.some(owner => owner === chunkGroupForModulePath(path)), path);
 		for (const dependency of runtimeDependencies(path)) { const target = resolveRelativeModule(path, dependency); assert.ok(target); pending.push(target); }
 	}
 	assert.ok(!seen.has(editor + 'browser-file-save-service.ts'));
 	assert.ok(!seen.has(editor + 'file-save-stream.ts'));
+	assert.ok(seen.has(editor + 'import-file-extensions.ts'));
 });
 
 test('the browser save facade owns its exact prepared-file and delayed-download closure without read services', () => {

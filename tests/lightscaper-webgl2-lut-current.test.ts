@@ -98,19 +98,42 @@ test('the Double oracle remains independent of its rounded upload bank', async (
 	});
 });
 
-test('Float32-collapsed domains and overflowing uploads retain authenticated Double sampling', async () => {
+test('Float32-collapsed domains retain authenticated Double sampling without an upload', async () => {
 	const near = 1 + 2 ** -40, constant = Array.from({ length: 8 }, () => '.1 .2 .3').join('\n');
 	const collapsed = fixture(`LUT_3D_SIZE 2\nDOMAIN_MIN 1 1 1\nDOMAIN_MAX ${near} ${near} ${near}\n${constant}`, [1, 1, 1], [near, near, near]);
-	const overflow = fixture(`LUT_3D_SIZE 2\n${Array.from({ length: 8 }, () => '1e100 .2 .3').join('\n')}`);
-	const passes = [collapsed, overflow].map((item, index) => preparePixelFrameWebGl2LutCurrentV1({ id: String(index), reference: item.reference }));
-	await withPixelFrameWebGl2LutsCurrentV1(passes, sourceFor(collapsed, overflow), resources => {
-		for (const [index, pass] of passes.entries()) {
-			assert.equal(resources.supported(pass), false);
-			const rgb = { red: 0, green: 0, blue: 0 }, upload = new Float32Array(32).fill(17);
-			resources.writeChannels(pass, 1, 1, 1, rgb); assert.equal(rgb.red, index === 0 ? .1 : 1e100);
-			assert.throws(() => resources.writeUpload(pass, upload), RangeError); assert.ok(upload.every(value => value === 17));
-		}
+	const pass = preparePixelFrameWebGl2LutCurrentV1({ id: 'collapsed', reference: collapsed.reference });
+	await withPixelFrameWebGl2LutsCurrentV1([pass], sourceFor(collapsed), resources => {
+		assert.equal(resources.supported(pass), false);
+		const rgb = { red: 0, green: 0, blue: 0 }, upload = new Float32Array(32).fill(17);
+		resources.writeChannels(pass, 1, 1, 1, rgb); assert.deepEqual(rgb, { red: .1, green: .2, blue: .3 });
+		assert.throws(() => resources.writeUpload(pass, upload), RangeError); assert.ok(upload.every(value => value === 17));
 	});
+});
+
+test('authenticated tables outside the CUBE number range refuse before resource consumption', async () => {
+	for (const endpoint of [1e100, -1e100]) {
+		const selected = fixture(`LUT_3D_SIZE 2\n${Array.from({ length: 8 }, () => `${endpoint} .2 .3`).join('\n')}`);
+		const pass = preparePixelFrameWebGl2LutCurrentV1({ id: 'out-of-range', reference: selected.reference });
+		let consumed = false;
+		await assert.rejects(withPixelFrameWebGl2LutsCurrentV1([pass], sourceFor(selected), () => { consumed = true; }),
+			{ name: 'RangeError', message: /CUBE number range ±1e37/u });
+		assert.equal(consumed, false);
+	}
+});
+
+test('admitted CUBE number endpoints retain a Double oracle and finite rounded uploads', async () => {
+	for (const endpoint of [1e37, -1e37]) {
+		const selected = fixture(`LUT_3D_SIZE 2\n${Array.from({ length: 8 }, () => `${endpoint} .2 .3`).join('\n')}`);
+		const pass = preparePixelFrameWebGl2LutCurrentV1({ id: 'endpoint', reference: selected.reference });
+		await withPixelFrameWebGl2LutsCurrentV1([pass], sourceFor(selected), resources => {
+			assert.equal(resources.supported(pass), true);
+			const rgb = { red: 0, green: 0, blue: 0 }, upload = new Float32Array(32);
+			resources.writeChannels(pass, .5, .5, .5, rgb); assert.equal(rgb.red, endpoint);
+			assert.equal(resources.writeUpload(pass, upload), 32);
+			assert.ok(Number.isFinite(upload[0])); assert.equal(upload[0], Math.fround(endpoint)); assert.notEqual(upload[0], endpoint);
+			upload.fill(73); resources.writeChannels(pass, .5, .5, .5, rgb); assert.equal(rgb.red, endpoint);
+		});
+	}
 });
 
 test('unsupported GPU metadata never bypasses later body authentication', async () => {

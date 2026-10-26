@@ -77,6 +77,8 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('src/common/editor/macro-script/dynamic-source-contract.js'));
 	assert.ok(result.visited.has('src/common/editor/native-plugin-realtime-worklet.js'));
 	assert.ok(result.visited.has('tests/helpers/aup4-database-harness.js'));
+	assert.ok(result.visited.has('tests/helpers/translation-catalogs.ts'));
+	assert.ok(result.visited.has('scripts/lib/editor-copy-audit-inventory.mjs'));
 	assert.ok(result.visited.has('vendor/audacity-design-system/components/src/utils/roseus-colormap.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-native-sidecar-fixture.ts'));
 	assert.ok(result.visited.has('tests/helpers/framescaper-ordinary-animation-fixture.ts'));
@@ -91,6 +93,8 @@ test('nightly payload production modules have a closed local-import graph', () =
 });
 
 for (const [source, pattern] of [
+	['tests/helpers/translation-catalogs.ts', /Unstaged local import .*translation-catalogs\.ts/u],
+	['scripts/lib/editor-copy-audit-inventory.mjs', /Unstaged local import .*translation-catalogs\.ts.*editor-copy-audit-inventory\.mjs/u],
 	['config/lightscaper-libraw-runtime-manifest.json', /Unstaged local import .*lightscaper-libraw-runtime-manifest\.json/u],
 	['scripts/vite-pffft-browser-shim.mjs', /Unstaged local import .*lightscaper-image-handoff-native-fixture\.js.*vite-pffft-browser-shim\.mjs/u],
 	['desktop/lightscaper-native-photo-library-scopes-current-v1.ts', /Unstaged local import .*lightscaper-native-photo-library-scopes-current-v1\.ts/u],

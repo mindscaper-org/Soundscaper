@@ -4,7 +4,8 @@ import { requireNativeGpuCapabilityCurrentV1 } from './helpers/lightscaper-nativ
 
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_GERMAN_COPY } from '../helpers/translation-catalogs.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';

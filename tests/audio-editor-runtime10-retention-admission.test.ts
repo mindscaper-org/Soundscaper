@@ -93,7 +93,7 @@ test('paired clip roots do not advance optional storage validation', () => {
 
 test('shared paired projections release retired project records while the index remains alive', () => {
 	const moduleUrl = new URL('../src/common/editor/session-retention-index.ts', import.meta.url).href;
-	const result = spawnSync(process.execPath, ['--expose-gc', '--input-type=module', '--eval', `
+	const result = spawnSync(process.execPath, ['--expose-gc', '--import', 'tsx', '--input-type=module', '--eval', `
 		import assert from 'node:assert/strict';
 		import { createSessionRetentionIndex } from ${JSON.stringify(moduleUrl)};
 		let retired = Object.freeze({ clips: Object.freeze([{ id: 'retired' }]), assistanceAssets: Object.freeze([{ sourceId: 'retired-source' }]), opaque: { payload: new Uint8Array(1024 * 1024) } });

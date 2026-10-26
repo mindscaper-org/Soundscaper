@@ -3,7 +3,8 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
-import { EDITOR_ENGLISH_COPY, EDITOR_GERMAN_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_ENGLISH_COPY } from '../../src/common/i18n/editor-copy-inventory.ts';
+import { EDITOR_GERMAN_COPY } from '../helpers/translation-catalogs.ts';
 import { bundledLightscaperEditorCopyForLocale } from '../../src/common/i18n/lightscaper-editor-copy.ts';
 import { imageHdrMergeCopy } from '../../src/common/i18n/image-hdr-merge-copy.ts';
 import { photoDevelopCopy } from '../../src/common/i18n/lightscaper-develop-copy.ts';

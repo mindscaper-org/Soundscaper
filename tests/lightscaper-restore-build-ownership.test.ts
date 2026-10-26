@@ -32,8 +32,14 @@ test('handwritten restore copy shares the existing photo copy chunk without tran
 test('the shared native migration schema stays with media custody and has no product persistence implementation', async () => {
 	const root = fileURLToPath(new URL('../src/common/editor/storage/indexeddb-schema.ts', import.meta.url));
 	const result = await build({ entryPoints: [root], bundle: true, write: false, platform: 'browser', format: 'esm', metafile: true, logLevel: 'silent' });
-	for (const path of Object.keys(result.metafile.inputs)) {
-		assert.equal(chunkGroupForModulePath(path), 'editor-media-custody-storage', path);
+	let scalarFound = false;
+	for (const [path, input] of Object.entries(result.metafile.inputs)) {
+		const normalized = path.replaceAll('\\', '/');
+		const scalar = normalized === 'src/common/editor/project-validation-primitives.ts'
+			|| normalized.endsWith('/src/common/editor/project-validation-primitives.ts');
+		assert.equal(chunkGroupForModulePath(path), scalar ? 'editor-neutral-foundations' : 'editor-media-custody-storage', path);
+		if (scalar) { scalarFound = true; assert.deepEqual(input.imports, [], 'Value validation must remain an inert leaf.'); }
 		assert.ok(!path.endsWith('/project-repository.ts') && !path.endsWith('/revision-repository.ts'), path);
 	}
+	assert.ok(scalarFound);
 });

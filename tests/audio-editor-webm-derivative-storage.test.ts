@@ -57,8 +57,9 @@ test('byte payload replacement and cache eviction retain their original transact
 	try {
 		await fixture.store.saveVideoDerivative('video', { type: 'poster', blob: poster() });
 		const [first] = fixture.rows(); assertRecord(first);
-		fixture.indexedDB.failNextPutForStore('videoDerivativeCacheEntries', new Error('Inventory write refused.'));
-		await assert.rejects(fixture.store.saveVideoDerivative('video', { type: 'poster', blob: poster(Uint8Array.of(9, 8)) }), /IndexedDB transaction failed/u);
+		const failure = new Error('Inventory write refused.');
+		fixture.indexedDB.failNextPutForStore('videoDerivativeCacheEntries', failure);
+		await assert.rejects(fixture.store.saveVideoDerivative('video', { type: 'poster', blob: poster(Uint8Array.of(9, 8)) }), (error: unknown) => Object.is(error, failure));
 		assert.deepEqual(fixture.rows(), [first]);
 		const loaded: unknown = await fixture.store.loadVideoDerivative('video', { type: 'poster' });
 		assert(loaded instanceof Blob); assert.deepEqual(new Uint8Array(await loaded.arrayBuffer()), PAYLOAD);
