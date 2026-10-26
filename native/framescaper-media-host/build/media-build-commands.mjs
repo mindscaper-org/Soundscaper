@@ -3,7 +3,7 @@
 /** Closed target-native command plan for the media host and its static codec closure. */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 
 export const FRAMESCAPER_FFMPEG_CONFIGURE_FLAGS = Object.freeze([
 	'--disable-everything', '--disable-autodetect', '--disable-doc', '--disable-debug',
@@ -115,6 +115,11 @@ export function createFramescaperMediaHostBuildCommands(input) {
 	const vpxConfigureEnvironment = windows ? Object.freeze(Object.fromEntries(
 		Object.entries(makeEnvironment).filter(([name]) => !['CC', 'CXX', 'AR', 'RANLIB'].includes(name)),
 	)) : makeEnvironment;
+	// Native Make resolves script shebangs through PATH. The attested Git Bash
+	// must win over Windows' unrelated WSL bash.exe for libvpx generators.
+	const vpxBuildEnvironment = windows ? Object.freeze({ ...makeEnvironment,
+		PATH: `${dirname(tools.executables.shell.path)};${makeEnvironment.PATH}`,
+	}) : makeEnvironment;
 	const pkgConfigRoots = [
 		paths.ffmpegInstall, paths.x264Install, paths.x265Install,
 		paths.libvpxInstall, paths.libopusInstall, paths.zlibInstall,
@@ -191,7 +196,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		`-DCMAKE_PREFIX_PATH=${pkgConfigRoots.join(';')}`,
 	];
 	const vpxMake = windows
-		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`] : [];
+		? [`MSBUILD_TOOL=${shellTool(tools.executables.msbuild.path, true)}`,
+			`SHELL=${shellTool(tools.executables.shell.path, true)}`] : [];
 	const zlibLibrary = windows ? 'zlibstatic.lib' : 'libz.a';
 	const installedZlibLibrary = windows ? 'zlib.lib' : 'libz.a';
 	return Object.freeze([
@@ -207,8 +213,8 @@ export function createFramescaperMediaHostBuildCommands(input) {
 		command('x265-build', tools.executables.cmake.path, ['--build', paths.x265Build, '--config', 'Release', '--target', 'x265-static', '--parallel', '1'], paths.x265Build, nativeEnvironment),
 		command('x265-install', tools.executables.cmake.path, ['--install', paths.x265Build, '--config', 'Release', '--prefix', paths.x265Install], paths.x265Build, nativeEnvironment),
 		command('libvpx-configure', tools.executables.shell.path, vpxArgs, paths.libvpxBuild, vpxConfigureEnvironment),
-		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, makeEnvironment),
-		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, makeEnvironment),
+		command('libvpx-build', tools.executables.make.path, ['-C', paths.libvpxBuild, '-j1', ...vpxMake], paths.libvpxBuild, vpxBuildEnvironment),
+		command('libvpx-install', tools.executables.make.path, ['-C', paths.libvpxBuild, 'install', ...vpxMake], paths.libvpxBuild, vpxBuildEnvironment),
 		...(windows ? [
 			command('libvpx-normalize-library', tools.executables.cmake.path, ['-E', 'copy',
 				join(paths.libvpxInstall, 'lib', target.id === 'win-arm64' ? 'ARM64' : 'x64', 'vpxmt.lib'),

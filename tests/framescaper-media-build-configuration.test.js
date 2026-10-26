@@ -35,13 +35,14 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 	const executables = Object.fromEntries([
 		'ar', 'c', 'cmake', 'cxx', 'make', 'msbuild', 'ninja', 'pkgConfig', 'ranlib', 'rc', 'shell',
 	].map((role) => [role, { path: `/tools/${role}` }]));
+	executables.shell.path = 'C:/Program Files/Git/bin/bash.exe';
 	const commands = createFramescaperMediaHostBuildCommands({
 		target: { id: 'win-arm64', cmakePreset: 'win-arm64' }, hostRoot: '/host',
 		ffmpegSourceRoot: '/ffmpeg', boostSourceRoot: '/boost', paths,
 		externalSourceRoots: Object.fromEntries(
 			['x264', 'x265', 'libvpx', 'libopus', 'zlib'].map((id) => [id, `D:/sources/${id}`]),
 		),
-		tools: { executables }, environment: { PATH: '/tools' }, configureFlags: [],
+		tools: { executables }, environment: { PATH: 'C:/Windows/System32;C:/tools' }, configureFlags: [],
 	});
 	assert.ok(commands.find(({ phase }) => phase === 'x265-configure')
 		.args.includes('-DSTATIC_LINK_CRT=ON'));
@@ -52,6 +53,8 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 	assert.equal(Object.hasOwn(vpx.environment, 'CC'), false);
 	assert.equal(Object.hasOwn(vpx.environment, 'CXX'), false);
 	assert.equal(commands.find(({ phase }) => phase === 'x264-configure').environment.CC, 'c');
+	assert.equal(commands.find(({ phase }) => phase === 'libvpx-build').environment.PATH.split(';')[0], 'C:/Program Files/Git/bin');
+	assert.ok(commands.find(({ phase }) => phase === 'libvpx-build').args.includes('SHELL=bash.exe'));
 });
 
 test('source-tree authentication admits genuine names and rejects nonportable entries', (context) => {
