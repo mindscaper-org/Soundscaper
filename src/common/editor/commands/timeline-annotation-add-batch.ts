@@ -36,7 +36,7 @@ export function dispatchTimelineAnnotationAppendRuns(
 export function applyPreparedTimelineAnnotationAppend(project: EditorCommandProject, command: AudioEditorCommand): boolean {
 	const run = ownedRuns.get(project), row = run?.rows.get(command);
 	if (!run || !row) return false;
-	if (project.timelineAnnotations !== run.target) throw new Error('An owned annotation append run lost its draft collection.');
+	if ((project as { timelineAnnotations?: unknown }).timelineAnnotations !== run.target) throw new Error('An owned annotation append run lost its draft collection.');
 	run.target.push(row);
 	return true;
 }
@@ -58,6 +58,6 @@ function prepareAppendRun(project: EditorCommandProject, commands: readonly AddC
 		sequenceIds: owner.sequences.map((sequence) => String(sequence.id)),
 	});
 	const projected = resolveRuntimeTimelineAnnotationsInDocumentOrder({ ...owner, timelineAnnotations: canonical });
-	return { target: project.timelineAnnotations as RuntimeTimelineAnnotationProjection[],
+	return { target: owner.timelineAnnotations as RuntimeTimelineAnnotationProjection[],
 		rows: new Map(commands.map((command, index) => [command, projected[authoritative.length + index]!])) };
 }
