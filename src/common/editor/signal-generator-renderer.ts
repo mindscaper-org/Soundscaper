@@ -27,6 +27,7 @@ const MAX_SECONDS = 24 * 60 * 60;
 // Repeated long DTMF tones must not turn a bounded job into a whole-signal cache.
 const MAX_DTMF_CACHE_FRAMES = 16_384;
 const MAX_DTMF_CACHED_TONES = 16;
+const MAX_MORSE_CACHED_TONES = 8;
 const DTMF: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
 	'1': [697, 1209], '2': [697, 1336], '3': [697, 1477], A: [697, 1633],
 	'4': [770, 1209], '5': [770, 1336], '6': [770, 1477], B: [770, 1633],
@@ -226,17 +227,36 @@ function prepareMorse(options: Options, sampleRate: number, channelCount: number
 		return { ...segment, start, end, edgeFrames: Math.min(rampFrames, Math.floor((end - start) / 2)) };
 	});
 	let segmentIndex = 0;
+	const tones = new Map<string, Float32Array>();
+	function fillTone(output: Float32Array, destination: number, localStart: number, frames: number,
+		length: number, edgeFrames: number): void {
+		for (let index = 0; index < frames; index += 1) {
+			const frame = localStart + index;
+			const ramp = edgeFrames ? Math.min(1, (frame + 1) / edgeFrames, (length - frame) / edgeFrames) : 1;
+			output[destination + index] = amplitude * (ramp === 1 ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * ramp))
+				* Math.sin(angularFrequency * frame / sampleRate);
+		}
+	}
 	return monoSignal(frameCount, channelCount, (frames, start) => {
 		const output = new Float32Array(frames);
 		const end = start + frames;
 		while (segmentIndex < schedule.length) {
 			const segment = schedule[segmentIndex]!;
 			if (segment.start >= end) break;
-			if (segment.tone) for (let frame = Math.max(start, segment.start); frame < Math.min(end, segment.end); frame += 1) {
-				const ramp = segment.edgeFrames
-					? Math.min(1, (frame - segment.start + 1) / segment.edgeFrames, (segment.end - frame) / segment.edgeFrames) : 1;
-				output[frame - start] = amplitude * (ramp === 1 ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * ramp))
-					* Math.sin(angularFrequency * (frame - segment.start) / sampleRate);
+			if (segment.tone) {
+				const length = segment.end - segment.start;
+				const key = `${length}:${segment.edgeFrames}`;
+				let cached = tones.get(key);
+				if (!cached && length <= MAX_DTMF_CACHE_FRAMES && tones.size < MAX_MORSE_CACHED_TONES) {
+					cached = new Float32Array(length);
+					fillTone(cached, 0, 0, length, length, segment.edgeFrames);
+					tones.set(key, cached);
+				}
+				const from = Math.max(start, segment.start);
+				const count = Math.min(end, segment.end) - from;
+				const localStart = from - segment.start;
+				if (cached) output.set(cached.subarray(localStart, localStart + count), from - start);
+				else fillTone(output, from - start, localStart, count, length, segment.edgeFrames);
 			}
 			if (segment.end > end) break;
 			segmentIndex += 1;

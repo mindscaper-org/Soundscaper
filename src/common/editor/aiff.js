@@ -1,3 +1,4 @@
+import { createPcmStreamSettlement } from './pcm-stream-settlement.ts';
 import { normalizePcmEncoderDither, pcmDitherNoise } from './pcm-dither.js';
 import { createAiffId3Chunk } from './id3-metadata.js';
 import { createAiffMarkChunk } from './aiff-markers.ts';
@@ -39,6 +40,7 @@ export function createAiffStreamEncoder(options = {}) {
 		bitDepth, bytesPerSample, dataPadByteLength: padBytes,
 		byteLength: totalByteLength,
 	} = layout;
+	const quantizerScale = 2 ** (bitDepth - 1);
 	const collect = options.collect ?? !options.onChunk;
 	const onChunk = typeof options.onChunk === 'function' ? options.onChunk : null;
 	const dither = floatingPoint ? 'none' : normalizePcmEncoderDither(options.dither);
@@ -46,7 +48,7 @@ export function createAiffStreamEncoder(options = {}) {
 	const random = typeof options.random === 'function' ? options.random : Math.random;
 	const header = createAiffHeaderFromLayout(layout);
 	const chunks = collect ? [header] : [];
-	const pending = [];
+	const settlement = createPcmStreamSettlement();
 	let writtenFrames = 0;
 	let finalized = false;
 
@@ -61,7 +63,7 @@ export function createAiffStreamEncoder(options = {}) {
 		get byteLength() { return header.byteLength + writtenFrames * channelCount * bytesPerSample + (finalized ? padBytes + markerChunk.byteLength + metadataChunk.byteLength : 0); },
 		write,
 		finalize,
-		async settled() { await Promise.all(pending); },
+		settled: settlement.settled,
 	};
 
 	function write(input) {
@@ -77,7 +79,7 @@ export function createAiffStreamEncoder(options = {}) {
 		let byteOffset = 0;
 		for (let frame = 0; frame < frameLength; frame += 1) {
 			for (let channel = 0; channel < channelCount; channel += 1) {
-				byteOffset = writeSample(view, byteOffset, sourceChannels[channel][frame], bitDepth, floatingPoint, dither, random, channel, ditherState);
+				byteOffset = writeSample(view, byteOffset, sourceChannels[channel][frame], bitDepth, quantizerScale, floatingPoint, dither, random, channel, ditherState);
 			}
 		}
 		const frameOffset = writtenFrames;
@@ -125,7 +127,7 @@ export function createAiffStreamEncoder(options = {}) {
 	function emit(chunk, info) {
 		if (!onChunk) return;
 		const result = onChunk(chunk, info);
-		if (result && typeof result.then === 'function') pending.push(Promise.resolve(result));
+		if (result && typeof result.then === 'function') settlement.track(result);
 	}
 }
 
@@ -246,13 +248,12 @@ export function encodeIeeeExtended80(value) {
 	return output;
 }
 
-function writeSample(view, offset, value, bitDepth, floatingPoint, dither, random, channel, ditherState) {
+function writeSample(view, offset, value, bitDepth, scale, floatingPoint, dither, random, channel, ditherState) {
 	if (floatingPoint) {
 		view.setFloat32(offset, Number.isFinite(value) ? value : 0, false);
 		return offset + 4;
 	}
 	const sample = Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
-	const scale = 2 ** (bitDepth - 1);
 	const noise = pcmDitherNoise(dither, random, channel, ditherState);
 	const quantized = Math.max(-scale, Math.min(scale - 1, Math.round(sample * scale + noise)));
 	if (bitDepth === 16) {
