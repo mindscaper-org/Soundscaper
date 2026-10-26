@@ -68,21 +68,30 @@ struct Runtime {
     plugin_path = plugin;
     env.RegisterExecutionProviderLibrary("soundscaper-g2p-webgpu", plugin.c_str());
   }
+  ~Runtime() { env.UnregisterExecutionProviderLibrary("soundscaper-g2p-webgpu"); }
 };
 
-Runtime &GpuRuntime() {
-  static Runtime runtime;
+std::shared_ptr<Runtime> GpuRuntime() {
+  static std::mutex mutex;
+  static std::weak_ptr<Runtime> cached;
+  std::lock_guard<std::mutex> lock(mutex);
+  auto runtime = cached.lock();
+  if (!runtime) {
+    runtime = std::make_shared<Runtime>();
+    cached = runtime;
+  }
   return runtime;
 }
 
 struct Context {
+  // Release the session and provider before DLL shutdown takes the loader lock.
+  std::shared_ptr<Runtime> runtime;
   std::unique_ptr<Ort::Session> session;
   bool profiling = false;
-  explicit Context(const char *profile) {
-    auto &runtime = GpuRuntime();
-    auto &env = runtime.env;
+  explicit Context(const char *profile) : runtime(GpuRuntime()) {
+    auto &env = runtime->env;
     for (const auto &device : env.GetEpDevices()) {
-      if (!ScapeIsWebGpuPluginDevice(device, runtime.plugin_path)) continue;
+      if (!ScapeIsWebGpuPluginDevice(device, runtime->plugin_path)) continue;
       Ort::SessionOptions options;
       options.AppendExecutionProvider_V2(env, {device}, std::unordered_map<std::string, std::string>{});
       options.AddConfigEntry("session.disable_cpu_ep_fallback", "1");
