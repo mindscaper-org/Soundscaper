@@ -12,6 +12,8 @@ function harness(
 	overrides: Readonly<Record<string, unknown>> = {},
 	confirmOperation: (request: unknown) => Promise<boolean> = async () => true,
 	onError?: (error: unknown) => void,
+	keyedVideo?: Readonly<{ available(): Promise<boolean>; encode(value: unknown): Promise<unknown>;
+		cancel(jobId: string): Promise<void>; dispose(): Promise<void> }>,
 ) {
 	const handlers = new Map<string, (event: unknown, value?: unknown) => unknown>();
 	const listeners = new Map<string, (event: unknown, value?: unknown) => void>();
@@ -50,6 +52,7 @@ function harness(
 			return operations as never;
 		},
 		createTransfers: () => transfers as never,
+		...(keyedVideo ? { createKeyedVideo: () => keyedVideo as never } : {}),
 		confirmOperation,
 		onError,
 	});
@@ -93,6 +96,10 @@ test('the operation service stays lazy and all pathless operations are registere
 	assert.deepEqual([...fixture.handlers.keys()].sort(), [
 		ASSISTANCE_OPERATION_IPC_CHANNELS.cancel,
 		ASSISTANCE_OPERATION_IPC_CHANNELS.create,
+		ASSISTANCE_OPERATION_IPC_CHANNELS.encodeKeyedVideo,
+		ASSISTANCE_OPERATION_IPC_CHANNELS.decodeKeyingSource,
+		ASSISTANCE_OPERATION_IPC_CHANNELS.readKeyingSource,
+		ASSISTANCE_OPERATION_IPC_CHANNELS.keyedVideoAvailable,
 		ASSISTANCE_OPERATION_IPC_CHANNELS.models,
 		ASSISTANCE_OPERATION_IPC_CHANNELS.readOutput,
 		ASSISTANCE_OPERATION_IPC_CHANNELS.release,
@@ -231,6 +238,26 @@ test('cancel and release quiesce transfers before operation staging is removed',
 	fixture.order.length = 0;
 	await fixture.handlers.get(ASSISTANCE_OPERATION_IPC_CHANNELS.release)?.(null, '1'.repeat(40));
 	assert.deepEqual(fixture.order, ['transfer-cancel', 'operation-release']);
+});
+
+test('keyed-video IPC awaits encoder quiescence before releasing or cancelling job custody', async () => {
+	let unblock!: () => void;
+	const stopped = new Promise<void>((resolve) => { unblock = resolve; });
+	const order: string[] = [];
+	const fixture = harness({ release: async () => { order.push('release-files'); return true; } },
+		async () => true, undefined, {
+			available: async () => true, encode: async (value) => value,
+			cancel: async () => { order.push('stop-encoder'); await stopped; },
+			dispose: async () => undefined,
+		});
+	assert.equal(await fixture.handlers.get(ASSISTANCE_OPERATION_IPC_CHANNELS.keyedVideoAvailable)?.(null), true);
+	const release = fixture.handlers.get(ASSISTANCE_OPERATION_IPC_CHANNELS.release)?.(null, '1'.repeat(40));
+	assert.deepEqual(order, ['stop-encoder']);
+	assert.equal(fixture.order.length, 0, 'data transfers and files remain owned until the child quiesces');
+	unblock(); await release;
+	assert.deepEqual(order, ['stop-encoder', 'release-files']);
+	assert.deepEqual(fixture.order, ['transfer-cancel']);
+	await fixture.registration.dispose();
 });
 
 test('port listeners accept exactly one structural MessagePort and close malformed offers', async () => {

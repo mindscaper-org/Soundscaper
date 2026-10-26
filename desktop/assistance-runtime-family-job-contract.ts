@@ -31,6 +31,7 @@ export const ASSISTANCE_RUNTIME_FAMILY_TASKS = Object.freeze({
 		'audio-tagging', 'beat-tracking', 'text-embedding', 'image-text-embedding',
 		'optical-character-recognition', 'shot-detection', 'subject-detection',
 		'saliency-detection',
+		'video-keying',
 		'text-to-speech',
 	] as const),
 	'whisper-cpp': Object.freeze(['speech-recognition'] as const),

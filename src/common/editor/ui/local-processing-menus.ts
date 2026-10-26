@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { mergeCorridorKeyMenu } from './corridorkey-menu.ts';
 import { LOCAL_ASSISTANCE_MENU_ICON, mergeAssistanceTaskMenus, type AssistanceDialogRequest, type AssistanceMenuEntry } from './assistance-task-catalog.ts';
 
 export interface NativePreferenceEntry extends AssistanceMenuEntry {
@@ -45,6 +46,7 @@ export function prepareLocalProcessingMenus(menus: readonly AssistanceMenuEntry[
 	readonly actions: {
 		readonly openLocalAssistance?: (request: AssistanceDialogRequest) => unknown;
 		readonly openTextToSpeech?: () => unknown;
+		readonly openCorridorKey?: () => unknown;
 	};
 }): AssistanceMenuEntry[] {
 	const available = input.capabilities.assistanceAssets === true;
@@ -64,5 +66,7 @@ export function prepareLocalProcessingMenus(menus: readonly AssistanceMenuEntry[
 			}],
 		} : menu)
 		: assistanceMenus;
-	return organizeNativePreferences(textToSpeechMenus);
+	return organizeNativePreferences(mergeCorridorKeyMenu(textToSpeechMenus, {
+		productId: input.productId, copy: input.copy, open: available ? input.actions.openCorridorKey : undefined,
+	}));
 }

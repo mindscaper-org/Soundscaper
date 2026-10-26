@@ -292,7 +292,7 @@ export function LocalAssistanceDialogView({
 				<select value={snapshot.selectedOperation ?? ''} disabled={!source || busy(snapshot)}
 					onChange={(event) => { void onSelectOperation(event.currentTarget.value as AssistanceOperation); }}>
 					<option value="" disabled>{text(copy, 'localAssistanceChoose', 'Choose')}</option>
-					{ASSISTANCE_OPERATIONS.filter((operation) => operation !== 'text-to-speech')
+					{ASSISTANCE_OPERATIONS.filter((operation) => operation !== 'text-to-speech' && operation !== 'video-keying')
 						.map((operation) => <option value={operation} key={operation}
 						disabled={!operationSet.has(operation)}>{operation}</option>)}
 				</select>

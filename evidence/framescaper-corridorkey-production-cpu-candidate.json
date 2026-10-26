@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "status": "local-production-engine-cpu-parity-passed",
+  "publicationReady": false,
+  "gpuValidated": false,
+  "modelId": "corridorkey-2.0",
+  "measuredAt": "2026-10-22T22:21:21.073Z",
+  "validationScope": "Two synthetic 256 by 256 recurrent frames per mode, without hints and with normal Chroma Key hints, on authenticated Linux x64 production ONNX 1.29 CPU; no desktop GPU or publication evidence.",
+  "environment": {
+    "target": "linux-x64",
+    "node": "v26.5.0",
+    "runtimeVersion": "1.29.0"
+  },
+  "runtime": {
+    "provider": "cpu",
+    "snapshot": {
+      "path": "config/desktop-test-assistance-runtime-snapshots/linux-x64.json.gz",
+      "byteLength": 845830,
+      "sha256": "2725a50f479d24252b6819a53f34bcf27f21856d685f7119ee7adf05f1012305",
+      "sourceRevision": "ba3c194b8ef7cce7984b02787e83fbbb50238a9b"
+    },
+    "archive": {
+      "url": "https://assets.soundscaper.org/runtime/assistance/onnxruntime-node/1.29.0/linux-x64/e384933d826aabc407088e33463fbaa1da28534939db3b1311956e73e60dd6c8.tar.gz",
+      "byteLength": 24636458,
+      "sha256": "e384933d826aabc407088e33463fbaa1da28534939db3b1311956e73e60dd6c8"
+    },
+    "fileCount": 44
+  },
+  "provenance": {
+    "conversionReport": {
+      "path": "evidence/framescaper-corridorkey-conversion-candidate.json",
+      "byteLength": 15492,
+      "sha256": "71f0e383ffec92957a81f062f73be1a6da00101e000e337564adf9e0c29f733d"
+    },
+    "sourceRegister": {
+      "path": "config/framescaper-corridorkey-model-source-candidate.json",
+      "byteLength": 14082,
+      "sha256": "9d51c9d0b7fd0cac777cdf9c5673f161309f58cfa1c4667446b84a05af8b1709"
+    },
+    "toolchainLock": {
+      "path": "scripts/models/corridorkey-conversion-tool/uv.lock",
+      "byteLength": 90762,
+      "sha256": "756023e01ad58a2b47f6a76ed865effad6e1acb642e4eb755537bc54a6410b4b"
+    },
+    "processorSources": [
+      {
+        "path": "desktop/assistance-corridorkey-inference.ts",
+        "byteLength": 12043,
+        "sha256": "e9bfc69c45728c9a8359e2cf2b0cde5e797b501fb635f761c063c4d2c56f86d7"
+      },
+      {
+        "path": "desktop/assistance-corridorkey-hint.ts",
+        "byteLength": 1332,
+        "sha256": "3b5a467c4369ea97944e8014c46a4de1c454f6c909750ecb50a921bc1f2d4a14"
+      },
+      {
+        "path": "src/common/editor/video-chroma-key.ts",
+        "byteLength": 4965,
+        "sha256": "266d8e82de4f6e7fb50b029ac0613cc88a2f6200c5b6035c947c22c71d475f1f"
+      },
+      {
+        "path": "src/common/editor/assistance/corridorkey-hint-settings.ts",
+        "byteLength": 2102,
+        "sha256": "9e62d88e84fecaea8228c81c3c11caf2f5fcecf84521d5c4bf504f641434a8ea"
+      },
+      {
+        "path": "src/common/editor/assistance/corridorkey-pixels-v1.ts",
+        "byteLength": 6823,
+        "sha256": "d675e406379a01d7fc9192f7a6c42809375cab168fb042cb35ac31e831dd9b84"
+      },
+      {
+        "path": "evidence/corridorkey-production-cpu-sources-2026-10-22/desktop-assistance-onnx-acceleration.ts.txt",
+        "byteLength": 4647,
+        "sha256": "9994ecfc004015d22dec3b5440eac9a06672f24522afd429a5104a44cfa1cf08"
+      },
+      {
+        "path": "desktop/assistance-onnx-visual-tensors.ts",
+        "byteLength": 6772,
+        "sha256": "59fc55887fa9da58044b320b4fb87eb49ceb52d4fcc2140d3bce5959ea015f0a"
+      },
+      {
+        "path": "desktop/assistance-onnx-visual-worker-common.ts",
+        "byteLength": 3831,
+        "sha256": "691265b3e967c9332377543ab73dc6c08e0ca3b8b5c208f54bf65330c15c6d10"
+      }
+    ],
+    "runnerSources": [
+      {
+        "path": "evidence/corridorkey-production-cpu-sources-2026-10-22/scripts-models-validate-corridorkey-production-cpu-candidate.ts.txt",
+        "byteLength": 14232,
+        "sha256": "f9212f40826e5ed21762efe2f6809da703df07842c9fd21fb85e079c2a1dfa55"
+      },
+      {
+        "path": "scripts/models/corridorkey-production-cpu-reference.py",
+        "byteLength": 4052,
+        "sha256": "d3c3aa0ab749cf61906e06b98e6cd805d8e911ff0d10e40c261008ee82ffcf6e"
+      }
+    ]
+  },
+  "reference": {
+    "sourceRevision": "485f5e9ab759ead6138cc990776184b59d6ea971",
+    "trackedSourceFiles": 68,
+    "environment": {
+      "torch": "2.13.0+cpu",
+      "numpy": "1.26.4"
+    },
+    "fixture": {
+      "name": "moving-ellipse-green-screen-rgba8-v1",
+      "width": 256,
+      "height": 256,
+      "frameCount": 2,
+      "referenceRgbaSha256": "047ba82aaf8cfd7ed8ef33d644fe600c3d12991a66753209e5e60189cd6afe7b"
+    }
+  },
+  "graphs": [
+    {
+      "role": "cradio",
+      "fileName": "cradio.onnx",
+      "byteLength": 1727663765,
+      "sha256": "f33324c398f74eff73a29e9c094fd24308444de731ad2edf636ffa96b9456a61"
+    },
+    {
+      "role": "moge",
+      "fileName": "moge.onnx",
+      "byteLength": 352255692,
+      "sha256": "262a8786120b823f22228b0b8e02f31c40e9d54a1ad82f94fa68fdceadc9369c"
+    },
+    {
+      "role": "rvm",
+      "fileName": "rvm.onnx",
+      "byteLength": 134996829,
+      "sha256": "ddf1866d38ef9f03176e3d8c47c1ff45bd8c4d2be7a3559d88a635741659adbf"
+    },
+    {
+      "role": "stage1",
+      "fileName": "stage1.onnx",
+      "byteLength": 1854944460,
+      "sha256": "0e511199835884c786f696c512c3182a7e8a5b441b15bc57c3d2c198d56f6ca9"
+    },
+    {
+      "role": "stage2",
+      "fileName": "stage2.onnx",
+      "byteLength": 810350799,
+      "sha256": "83b1a62dfaff43ac298af93ea56bfbb78657f95533c786c67a179550a6ad88f0"
+    }
+  ],
+  "sessions": [
+    {
+      "fileName": "cradio.onnx",
+      "providers": [
+        "cpu"
+      ]
+    },
+    {
+      "fileName": "moge.onnx",
+      "providers": [
+        "cpu"
+      ]
+    },
+    {
+      "fileName": "rvm.onnx",
+      "providers": [
+        "cpu"
+      ]
+    },
+    {
+      "fileName": "stage1.onnx",
+      "providers": [
+        "cpu"
+      ]
+    },
+    {
+      "fileName": "stage2.onnx",
+      "providers": [
+        "cpu"
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "ordinal": 0,
+      "inputRgbaSha256": "4fc6e602002bba5fd86eef3d427b0bbf58488829cda1fe79e9e126dd81681d4c",
+      "referenceRgbaSha256": "a4fbc5f7ca8fb25514556247b953c2eef51b9137b112dd410a8184487fe790a6",
+      "nativeRgbaSha256": "48a888ab50d43cf08a2ef61b009d9d7a11323c3a12dbffaeee9d80dbe8215329",
+      "maximumRgbaError": 1,
+      "transparent": 51902,
+      "partial": 1818,
+      "opaque": 11816
+    },
+    {
+      "ordinal": 1,
+      "inputRgbaSha256": "4e165b91d05d837922f4409e57576627937180b626d73764fab11b395d27d430",
+      "referenceRgbaSha256": "a7f131ac0ec80fd714956c3b0bd0095ec46c9db3dec67d300db35c9852b265ef",
+      "nativeRgbaSha256": "502d939b81386e3fb99f0e8b2ae9337a7fd0ae8e256c02921e62220b9e513822",
+      "maximumRgbaError": 1,
+      "transparent": 51919,
+      "partial": 1844,
+      "opaque": 11773
+    }
+  ],
+  "hintValidation": {
+    "settings": {
+      "settingsVersion": 1,
+      "hintMode": "chroma-key",
+      "keyColor": 65280,
+      "similarity": 0.1,
+      "softness": 0.1,
+      "hintQuality": 0.75
+    },
+    "sessions": [
+      {
+        "fileName": "cradio.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "moge.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "rvm.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "stage1.onnx",
+        "providers": [
+          "cpu"
+        ]
+      },
+      {
+        "fileName": "stage2.onnx",
+        "providers": [
+          "cpu"
+        ]
+      }
+    ],
+    "frames": [
+      {
+        "ordinal": 0,
+        "inputRgbaSha256": "4fc6e602002bba5fd86eef3d427b0bbf58488829cda1fe79e9e126dd81681d4c",
+        "referenceRgbaSha256": "401b05b39958ae29233ff8dec8fc3e9c6b0b97ae4fdc189d7f59df99942607b9",
+        "nativeRgbaSha256": "789bb97c9b14283d77ce435e69afce336f224b07389a51c6f96807ec83e4e19a",
+        "maximumRgbaError": 1,
+        "transparent": 51857,
+        "partial": 1867,
+        "opaque": 11812
+      },
+      {
+        "ordinal": 1,
+        "inputRgbaSha256": "4e165b91d05d837922f4409e57576627937180b626d73764fab11b395d27d430",
+        "referenceRgbaSha256": "733579c4ea1ba98a3a65e5b367c8c6d9dfcb90ac63cb77f630dcbbe118d712ca",
+        "nativeRgbaSha256": "ab3597bcc03c521514b6a2a6ecef11b893de0525f421918b0c831ebf0bf2dfbe",
+        "maximumRgbaError": 1,
+        "transparent": 51845,
+        "partial": 1898,
+        "opaque": 11793
+      }
+    ]
+  },
+  "invocation": [
+    "node",
+    "--import",
+    "tsx",
+    "scripts/models/validate-corridorkey-production-cpu-candidate.ts",
+    "--runtime-root",
+    "/tmp/corridorkey-production-onnxruntime-1.29.0",
+    "--runtime-archive",
+    "/tmp/corridorkey-production-onnxruntime-1.29.0.tar.gz",
+    "--model-root",
+    "/tmp/corridorkey-real-embedded-candidate",
+    "--source-root",
+    "/tmp/corridorkey-upstream",
+    "--python",
+    "/tmp/corridorkey-tool-locked-venv/bin/python",
+    "--output",
+    "/home/splowatt/git/Soundscaper-corridorkey-2/evidence/framescaper-corridorkey-production-cpu-candidate.json"
+  ],
+  "elapsedSeconds": 42.4
+}

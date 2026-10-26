@@ -57,8 +57,8 @@
 	"sourceFiles": [
 		{
 			"path": "CMakeLists.txt",
-			"byteLength": 6687,
-			"sha256": "7e2ce6028824373164524bd4804b70578d4d9cbbe61e1a04caac58e76d2e9502"
+			"byteLength": 7442,
+			"sha256": "34545b37817d61f9d527c637266b7f2a98aa035e293a605224edad72a974e303"
 		},
 		{
 			"path": "CMakePresets.json",
@@ -77,8 +77,8 @@
 		},
 		{
 			"path": "build/ffmpeg-9.0.1-configure.json",
-			"byteLength": 2745,
-			"sha256": "ba6c938c18a0f0c49acb345c64e18135ee88d56f5d4d40342c25f553cae3db06"
+			"byteLength": 2792,
+			"sha256": "11fa1ad92a91271a0587350d7a67e576d0d35e325301c30a80b1d9501f10af20"
 		},
 		{
 			"path": "build/ffmpeg-9.0.1-external-sources.json",
@@ -87,8 +87,8 @@
 		},
 		{
 			"path": "build/media-build-commands.mjs",
-			"byteLength": 16024,
-			"sha256": "78f91fe061782a83b3434c0b10d2c5a89568f86adfcccd82e8a75716298102fa"
+			"byteLength": 16084,
+			"sha256": "7dcea54e55b1a6a39119a4ef1be7cb9e3a213d499d7c1abe2dda47c7c1efc8e2"
 		},
 		{
 			"path": "build/recipe-cli.mjs",
@@ -147,13 +147,18 @@
 		},
 		{
 			"path": "src/ffmpeg_decode_session.cpp",
-			"byteLength": 8455,
-			"sha256": "d4bf8ee0a27e5717761bd87afb6e41423a332e8f5d5f1604dc5b2100c815cc7a"
+			"byteLength": 9217,
+			"sha256": "a8f73723fe3f5b02ea85a81d7cc7057a708e4a2d5b474a96a1e28b8b0db2857b"
 		},
 		{
 			"path": "src/ffmpeg_decode_session.hpp",
 			"byteLength": 2238,
 			"sha256": "b886f6438cbabea29787e384d0c63a821b229b6c5575008b84a74ccdfeff9e6e"
+		},
+		{
+			"path": "src/ffmpeg_decoded_frame_scaler.hpp",
+			"byteLength": 2164,
+			"sha256": "7d3b4e17329244b49e638bb0a8f9aa3804567069c7347a832bc030c8962ad62c"
 		},
 		{
 			"path": "src/ffmpeg_encoded_packet_drain.hpp",
@@ -182,8 +187,8 @@
 		},
 		{
 			"path": "src/ffmpeg_media_engine.cpp",
-			"byteLength": 25229,
-			"sha256": "784d74331179447553c2cf2fea6f8c9180e554a578448b5e182ff4d85c546917"
+			"byteLength": 24335,
+			"sha256": "fbb2a70541922f4c5d3bf6592442f295640bfec5e13b4f62ab0a495f393a95a6"
 		},
 		{
 			"path": "src/ffmpeg_media_engine.hpp",
@@ -427,8 +432,13 @@
 		},
 		{
 			"path": "tests/codec_closure_canary.cpp",
-			"byteLength": 4352,
-			"sha256": "686f9d08c709b38a966775a9b2e4fa68bb5a9c178698353d4cf420111b1d85b3"
+			"byteLength": 4366,
+			"sha256": "2fd84ae5d6bbfdf47d8b5e65f367e9983d1ce72b423cfea69096d3a386510611"
+		},
+		{
+			"path": "tests/decoded_frame_alpha_fixture.cpp",
+			"byteLength": 1893,
+			"sha256": "78398f78671c00a8ef635d43c85bf1763eb2c0cfe17587ac92ea2247577380c6"
 		},
 		{
 			"path": "tests/exact_retime_ordinal_fixture.cpp",
@@ -439,6 +449,16 @@
 			"path": "tests/ffmpeg_packet_drain_fixture.cpp",
 			"byteLength": 3469,
 			"sha256": "f6056a9281d0b3d607d0bc31a96d69901af304ab5d0e56b2c129a40e22ea05da"
+		},
+		{
+			"path": "tests/fixtures/README.md",
+			"byteLength": 948,
+			"sha256": "f092022b57391eefb59aeabb77039b1d0736e4389991caf582e4d27f00962d85"
+		},
+		{
+			"path": "tests/fixtures/keyed-alpha-1280x720-4fps-4frames.webm",
+			"byteLength": 1212,
+			"sha256": "d223912adfa2e84b3f3743e445442b20b831fbd76ef93f5aa7ff1c8724f6cdac"
 		},
 		{
 			"path": "tests/fixtures/prores-proxy-64x36-24fps-4frames.mov.b64",

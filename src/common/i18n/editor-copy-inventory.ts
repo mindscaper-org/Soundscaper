@@ -24,6 +24,7 @@ import { DESKTOP_FFMPEG_COPY } from './editor-desktop-ffmpeg-copy.ts';
 import { FRAMESCAPER_FINISHING_SURFACE_COPY } from './editor-framescaper-finishing-surface-copy.ts';
 import { PROCESSING_DIALOG_COPY_BY_LOCALE } from './processing-dialog-copy.js';
 import { LOCAL_MODEL_NAMES_COPY } from './editor-local-model-names-copy.ts';
+import { CORRIDORKEY_COPY } from './editor-corridorkey-copy.ts';
 import { PARAMETRIC_EQ_BAND_COPY } from './editor-parametric-eq-copy.ts';
 import { VIDEO_FILMSTRIP_COPY } from './editor-video-filmstrip-copy.ts';
 import { FRAMESCAPER_INPUTS_COPY } from './editor-framescaper-inputs-copy.ts';
@@ -143,6 +144,7 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'storageCapacity.operation', en: operationEnglish },
 	{ owner: 'desktopFfmpeg', en: DESKTOP_FFMPEG_COPY },
 	{ owner: 'localModelNames', en: LOCAL_MODEL_NAMES_COPY },
+	{ owner: 'corridorKey', en: CORRIDORKEY_COPY },
 	{ owner: 'parametricEq.band', en: PARAMETRIC_EQ_BAND_COPY },
 	{ owner: 'videoFilmstrip', en: VIDEO_FILMSTRIP_COPY },
 	{ owner: 'soundscaperWorkflow', en: SOUNDSCAPER_WORKFLOW_COPY },

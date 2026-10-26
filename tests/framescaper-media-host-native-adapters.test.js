@@ -327,6 +327,7 @@ test('only exact V7 through V12 plan authorities are recognized and graph gaps a
 test('FFmpeg adapter source uses libav APIs and contains no argv or filter-string seam', () => {
 	const decodeSession = readFileSync(join(sourceRoot, 'ffmpeg_decode_session.cpp'), 'utf8');
 	const engine = readFileSync(join(sourceRoot, 'ffmpeg_media_engine.cpp'), 'utf8');
+	const scaler = readFileSync(join(sourceRoot, 'ffmpeg_decoded_frame_scaler.hpp'), 'utf8');
 	const videoEncode = readFileSync(join(sourceRoot, 'ffmpeg_hardware_encode.cpp'), 'utf8');
 	const simple = readFileSync(join(sourceRoot, 'ffmpeg_simple_render.cpp'), 'utf8');
 	const selected = readFileSync(join(sourceRoot, 'ffmpeg_selected_v20_adapter.cpp'), 'utf8');
@@ -339,9 +340,10 @@ test('FFmpeg adapter source uses libav APIs and contains no argv or filter-strin
 		assert.match(decodeSession, new RegExp(api, 'u'));
 	}
 	for (const api of [
-		'sws_scale', 'avformat_alloc_output_context2', 'avcodec_send_frame',
+		'decoded_frame_scaler', 'scaler\\.scale', 'avformat_alloc_output_context2', 'avcodec_send_frame',
 	]) assert.match(engine, new RegExp(api, 'u'));
-	for (const source of [decodeSession, engine, videoEncode]) {
+	for (const api of ['sws_getContext', 'sws_scale', 'frame\\.format']) assert.match(scaler, new RegExp(api, 'u'));
+	for (const source of [decodeSession, engine, scaler, videoEncode, simple]) {
 		assert.doesNotMatch(source, /avfilter_graph_parse|system\s*\(|popen\s*\(|execv/iu);
 		assert.doesNotMatch(source, /-vf|-filter_complex|-codec:|-c:v/iu);
 	}
@@ -357,8 +359,6 @@ test('FFmpeg adapter source uses libav APIs and contains no argv or filter-strin
 	assert.match(engine,
 		/admitted_plan\.version\s*==\s*14[\s\S]*simple_full_frame_clip\) return execute_simple_render_job\(job\)/u);
 	assert.match(engine, /admitted_plan\.version\s*==\s*7[\s\S]*admitted_plan\.version\s*==\s*8[\s\S]*execute_selected_v20_render_job/u);
-	assert.doesNotMatch(simple, /avfilter_graph_parse|system\s*\(|popen\s*\(|execv/iu);
-	assert.doesNotMatch(simple, /-vf|-filter_complex|-codec:|-c:v/iu);
 	for (const token of [
 		'execute_selected_v20_frames', 'avcodec_get_supported_config', 'swr_convert',
 		'avcodec_send_frame', 'reauthenticate_sources',

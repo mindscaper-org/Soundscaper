@@ -12,6 +12,7 @@ const ONNX_TASKS = new Set([
 	'optical-character-recognition', 'text-embedding', 'image-text-embedding',
 	'word-alignment', 'source-separation', 'audio-tagging', 'beat-tracking',
 	'shot-detection', 'dereverberation',
+	'video-keying',
 ]);
 
 export function assistanceRuntimeFamiliesForModel(

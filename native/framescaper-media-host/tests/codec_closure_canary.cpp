@@ -18,7 +18,7 @@ namespace {
 [[nodiscard]] bool closed_component_set_is_present() {
 	bool present = true;
 	for (const auto* name : {
-		"h264", "hevc", "vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr",
+		"h264", "hevc", "vp9", "libvpx-vp9", "av1", "prores", "dnxhd", "png", "tiff", "exr",
 	}) if (avcodec_find_decoder_by_name(name) == nullptr) {
 		std::cerr << "missing decoder " << name << '\n'; present = false;
 	}

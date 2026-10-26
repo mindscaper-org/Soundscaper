@@ -38,6 +38,21 @@ test('immutable ADM lookup helpers are staged with project validation outside as
 	}
 });
 
+test('CorridorKey inference application modules enter the exact compiled runtime inventory', () => {
+	for (const member of [
+		'desktop/assistance-corridorkey-hint.js',
+		'desktop/assistance-corridorkey-model.js',
+		'desktop/assistance-corridorkey-inference.js',
+		'desktop/assistance-onnx-corridorkey-worker.js',
+		'src/common/editor/assistance/corridorkey-hint-settings.js',
+		'src/common/editor/assistance/corridorkey-pixels-v1.js',
+		'src/common/editor/video-chroma-key.js',
+	]) {
+		assert.ok(DESKTOP_ASSISTANCE_RUNTIME_FILES.includes(member), member);
+		assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(member), member);
+	}
+});
+
 test('desktop project recovery declares its application closure independently of assistance runtime assets', () => {
 	const shared = 'src/common/editor/storage/project-recovery-repository.js';
 	const soundscaper = [
