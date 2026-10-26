@@ -63,11 +63,11 @@ export function createFramescaperSessionClipboardV13(
 	validateFramescaperProjectTimelineImage(profile, projectValue);
 	const project = projectValue as FramescaperProjectTimelineImage;
 	const descriptor = normalizeAudioEditorClipboardDescriptor(descriptorValue);
+	const sourceById = new Map(project.sources.map((source) => [source.id, source]));
 	const bindings = bindDescriptorClips(project, descriptor);
-	const imageClips = imageClipsForBindings(project, bindings, descriptor);
+	const imageClips = imageClipsForBindings(project, bindings, descriptor, sourceById);
 	const imageClipIds = new Set(imageClips.map(({ id }) => id));
 	const imageSourceIds = [...new Set(imageClips.map(({ sourceId }) => sourceId))].sort(compareText);
-	const sourceById = new Map(project.sources.map((source) => [source.id, source]));
 	const imageSources = imageSourceIds.map((sourceId) => {
 		const source = sourceById.get(sourceId);
 		if (!source || source.kind !== 'image') {
@@ -219,7 +219,9 @@ function imageClipsForBindings(
 	project: FramescaperProjectTimelineImage,
 	bindings: readonly FramescaperClipboardClipBindingV11[],
 	descriptor: AudioEditorClipboard,
+	sourceById: ReadonlyMap<string, FramescaperProjectTimelineImage['sources'][number]>,
 ): readonly FramescaperImageClipV1[] {
+	const clocks = new Map(project.sequences.map(sequence => [sequence.id, { sequence, clock: { sampleRate: project.sampleRate, sequences: [sequence] } }]));
 	const selected = new Set(bindings.map(({ clipId }) => clipId));
 	const clips = project.clips.filter((clip): clip is typeof clip & FramescaperImageClipV1 => (
 		clip.kind === 'image' && selected.has(String(clip.id))
@@ -237,12 +239,11 @@ function imageClipsForBindings(
 		if (typeof fragment.sourceStartFrame !== 'number' || typeof fragment.durationFrames !== 'number') {
 			throw new TypeError('An image fragment requires its validated numeric source position and duration.');
 		}
-		const source = project.sources.find(item => item.id === clip.sourceId && item.kind === 'image');
-		const sequence = project.sequences.find(item => item.id === clip.sequenceId);
-		if (!source || source.kind !== 'image' || !sequence) throw new ReferenceError('An image fragment requires its source and sequence.');
-		return prepareTimelineImageTrim(project, clip, source, {
+		const source = sourceById.get(clip.sourceId), prepared = clocks.get(clip.sequenceId);
+		if (!source || source.kind !== 'image' || !prepared) throw new ReferenceError('An image fragment requires its source and sequence.');
+		return prepareTimelineImageTrim(prepared.clock, clip, source, {
 			// The image's video-shaped descriptor carries a sequence ordinal, not audio samples.
-			timelineStartFrame: videoFrameToSampleFrame(clip.sequenceStartFrame + fragment.sourceStartFrame, sequence.rate, project.sampleRate),
+			timelineStartFrame: videoFrameToSampleFrame(clip.sequenceStartFrame + fragment.sourceStartFrame, prepared.sequence.rate, project.sampleRate),
 			durationFrames: fragment.durationFrames,
 		});
 	}));
