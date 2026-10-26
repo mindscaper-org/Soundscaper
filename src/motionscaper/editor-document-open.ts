@@ -2,6 +2,7 @@
 import type { ScapeProjectInput } from '../common/editor/scape-project-input.ts';
 import { aggregateScapeErrors } from '../common/editor/scape-abort.ts';
 import type { MotionscaperDocumentSession } from './editor-document-session.ts';
+import type { MotionRecoveredPublication } from './desktop-file-contract.ts';
 import type { MotionArchiveOpenAction, MotionArchiveOpenReceipt, MotionArchiveReview } from './editor-document-import.ts';
 export interface MotionscaperDocumentOpen {
 	readonly review: MotionArchiveReview; readonly fileName: string;
@@ -18,9 +19,12 @@ export class MotionArchiveAdoptionError extends Error {
 }
 /** Retains the selected capability across review; successful adoption is never repeated to retry cleanup. */
 export async function prepareMotionscaperDocumentOpen(session: MotionscaperDocumentSession, input: ScapeProjectInput, fileName: string,
-	options: Readonly<{ bindOriginal?: (projectId: string) => Promise<void>; release?: () => Promise<void> }> = {}): Promise<MotionscaperDocumentOpen> {
+	options: Readonly<{ bindOriginal?: (projectId: string) => Promise<void>; release?: () => Promise<void>; recoveredPublication?: MotionRecoveredPublication; markRecoveryReconciled?: () => void }> = {}): Promise<MotionscaperDocumentOpen> {
 	let review: MotionArchiveReview;
-	try { review = await session.inspectArchive(input); }
+	try {
+		if (options.recoveredPublication) { await session.reconcileNativeSave(options.recoveredPublication); options.markRecoveryReconciled?.(); }
+		review = await session.inspectArchive(input);
+	}
 	catch (error) {
 		try { await options.release?.(); } catch (cleanup) { throw aggregateScapeErrors(error, [cleanup], 'Motion archive inspection and capability release failed.'); }
 		throw error;

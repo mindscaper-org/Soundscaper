@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/** Independent composition storage; version 2 adds storage-only project write fences. */
+/** Independent composition storage; version 3 adds storage-only native Save preparation journals. */
 export function openMotionProjectDatabase(indexedDB: IDBFactory, name: string): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
-		const opening = indexedDB.open(name, 2);
+		const opening = indexedDB.open(name, 3);
 		let settled = false;
 		opening.onupgradeneeded = (event) => {
 			const database = opening.result;
@@ -17,6 +17,7 @@ export function openMotionProjectDatabase(indexedDB: IDBFactory, name: string): 
 				database.createObjectStore('staging', { keyPath: 'key' });
 			}
 			if (event.oldVersion < 2) database.createObjectStore('writeLeases', { keyPath: 'id' });
+			if (event.oldVersion < 3) database.createObjectStore('nativeSaves', { keyPath: 'id' });
 		};
 		opening.onsuccess = () => {
 			if (settled) { opening.result.close(); return; }

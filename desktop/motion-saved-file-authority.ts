@@ -4,8 +4,9 @@ import { constants, watch, type FSWatcher, type Stats } from 'node:fs';
 import { lstat, open, type FileHandle } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute } from 'node:path';
 import { MOTION_SAVED_FILE_CHUNK_BYTES, MOTION_SAVED_FILE_MAXIMUM_BYTES, type MotionSavedFileCapabilities, type MotionSavedFileDiscovery } from '../src/common/editor/motion-saved-file-contract.ts';
+import { motionSavePublicationEligibility } from './motion-save-publication-journal.ts';
 interface Fingerprint { readonly dev: number; readonly ino: number; readonly size: number; readonly mtimeMs: number; readonly ctimeMs: number; readonly nlink: number }
-interface WatchEntry { readonly path: string; readonly name: string; readonly parent: Readonly<{ dev: number; ino: number }>; generation: number; fingerprint: Fingerprint | null | undefined; watcher: FSWatcher | null; closed: boolean; polling: Promise<MotionSavedFileDiscovery> | null }
+interface WatchEntry { readonly path: string; readonly name: string; readonly parent: Readonly<{ dev: number; ino: number }>; generation: number; fingerprint: Fingerprint | null | undefined; publication: string | undefined; watcher: FSWatcher | null; closed: boolean; polling: Promise<MotionSavedFileDiscovery> | null }
 interface Snapshot { readonly watchId: string; readonly file: FileHandle; readonly fingerprint: Fingerprint; closed: boolean; reading: Promise<Uint8Array> | null; closing: Promise<void> | null }
 export interface MotionSavedFileAuthority extends MotionSavedFileCapabilities { dispose(): Promise<void> }
 
@@ -49,9 +50,6 @@ export function createMotionSavedFileAuthority(options: Readonly<{ chooseFile: (
 			if (entry.fingerprint !== null) { entry.generation++; entry.fingerprint = null; }
 			return { state: 'unavailable', generation: entry.generation };
 		}
-		if (sameFingerprint(entry.fingerprint, fingerprint)) {
-			if (afterGeneration === entry.generation) return { state: 'unchanged', generation: entry.generation };
-		} else { entry.generation++; entry.fingerprint = fingerprint; }
 		if (snapshots.size + openingSnapshots >= 16) throw new RangeError('Release a pinned Motion file snapshot before discovering another revision.');
 		openingSnapshots++;
 		try {
@@ -59,6 +57,12 @@ export function createMotionSavedFileAuthority(options: Readonly<{ chooseFile: (
 		try {
 			if (entry.closed || closed) throw new Error('Motion saved file watch is closed.');
 			if (!sameFingerprint(fingerprint, fingerprintOf(await file.stat())) || !sameFingerprint(fingerprint, await selectedFile(entry.path, false))) throw new Error('Selected Motion file changed during snapshot discovery; retry discovery.');
+			const publication = await motionSavePublicationEligibility(entry.path, file, fingerprint);
+			if (!sameFingerprint(fingerprint, await selectedFile(entry.path, false))) throw new Error('Selected Motion file changed during publication discovery; retry.');
+			const changed = !sameFingerprint(entry.fingerprint, fingerprint) || entry.publication !== publication;
+			if (changed) { entry.generation++; entry.fingerprint = fingerprint; entry.publication = publication; }
+			if (publication.endsWith(':pending') || publication.endsWith(':rolled-back')) { await closeFile(file); return { state: 'unavailable', generation: entry.generation }; }
+			if (!changed && afterGeneration === entry.generation) { await closeFile(file); return { state: 'unchanged', generation: entry.generation }; }
 			const token = randomUUID(); snapshots.set(token, { watchId, file, fingerprint, closed: false, reading: null, closing: null });
 			return { state: 'snapshot', snapshot: { token, name: entry.name, byteLength: fingerprint.size, generation: entry.generation } };
 		} catch (error) { try { await closeFile(file); } catch (cleanup) { throw new AggregateError([error, cleanup], 'Motion snapshot discovery and file cleanup failed.', { cause: cleanup }); } throw error; }
@@ -71,7 +75,7 @@ export function createMotionSavedFileAuthority(options: Readonly<{ chooseFile: (
 				const path = await options.chooseFile(); active(); if (path === null) return null;
 				if (!isAbsolute(path) || extname(path).toLowerCase() !== '.mscape') throw new Error('Choose a saved Motionscaper .mscape file.');
 				await selectedFile(path, true); const parent = (await selectedParent(path, true))!; active(); const watchId = randomUUID();
-				const entry: WatchEntry = { path, parent, name: basename(path), generation: 0, fingerprint: undefined, watcher: null, closed: false, polling: null };
+				const entry: WatchEntry = { path, parent, name: basename(path), generation: 0, fingerprint: undefined, publication: undefined, watcher: null, closed: false, polling: null };
 				watches.set(watchId, entry); renewWatcher(entry); return { watchId, name: entry.name };
 			} finally { selecting--; }
 		},
