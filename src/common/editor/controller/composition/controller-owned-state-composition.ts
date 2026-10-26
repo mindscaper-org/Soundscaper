@@ -10,11 +10,11 @@ import {
 import { createControllerTransportState } from '../transport/transport-state.ts';
 import {
 	createControllerEffectsState,
+	createControllerEffectsStateAccess,
 	createControllerEffectsStatePorts,
 	type ControllerEffectsState,
 } from '../effects/effects-state.ts';
 import { createOwnedStateAccess } from '../shared/owned-state.ts';
-import { registerEffectsLibraryAccess } from '../effects/internal/owned-effect-library-state.ts';
 import {
 	createEditorControllerState,
 	type EditorControllerStateOptions,
@@ -65,7 +65,7 @@ export function createControllerOwnedStateComposition<Preferences, EffectPresets
 	});
 	return Object.freeze({
 		state,
-		effectsAccess: registerEffectsLibraryAccess(createOwnedStateAccess(state, effectsState), effectsState),
+		effectsAccess: createControllerEffectsStateAccess(state, effectsState),
 		effectsStatePorts: createControllerEffectsStatePorts(effectsState),
 		recordingAccess: createOwnedStateAccess(state, recordingState),
 		transportAccess: createOwnedStateAccess(state, transportState),
