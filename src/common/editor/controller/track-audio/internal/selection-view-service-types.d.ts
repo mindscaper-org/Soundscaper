@@ -124,6 +124,7 @@ export interface SelectionViewServiceRuntime<
 	) => number;
 	readonly findTrack: (project: Project, trackId: string) => SelectionViewTrack | null | undefined;
 	readonly getProject: () => Project | null;
+	readonly getClipOwners?: (project: Project) => ReadonlyMap<string, SelectionViewTrack>;
 	readonly handleError: (error: unknown) => void;
 	readonly normalizeTimelineFrame: (value: unknown) => number;
 	readonly persistSetting: (key: string, value: boolean) => PromiseLike<unknown> | unknown;

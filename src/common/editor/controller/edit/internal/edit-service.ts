@@ -15,6 +15,8 @@ import {
 	resolveAudioEditorDefaultPaste,
 } from '../../../editing-preferences.ts';
 import { mergeEditingRanges, resolveEditingActionAvailability, resolveEditingSelectionAuthority } from '../../../commands/editing-selection-authority.ts';
+import { firstById } from '../../../commands/editing-work-index.ts';
+import { mediaClipOwnerIndex } from '../../../commands/clip-edit-index.ts';
 
 export interface EditServiceRuntime {
 	readonly supportsTrackFolders?: boolean;
@@ -100,17 +102,21 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 			if (action === 'undo') return travel(undoEditorCommand);
 			if (action === 'redo') return travel(redoEditorCommand);
 			if (runtime.handleSelectedLabelClipboard?.(action)) return;
-			const audioTrackIds = getProject().tracks.filter((track: RuntimeValue) => Array.isArray(track.clipIds)).map((track: RuntimeValue) => track.id);
-			const selectedTrack = findTrack(getProject(), state.selectedTrackId);
+			const project = getProject();
+			const tracks = firstById<RuntimeValue>(project.tracks), clips = firstById<RuntimeValue>(project.clips);
+			const owners = mediaClipOwnerIndex<RuntimeValue>(project.tracks);
+			const audioTrackIds = project.tracks.filter((track: RuntimeValue) => Array.isArray(track.clipIds)).map((track: RuntimeValue) => track.id);
+			const audioTrackIdSet = new Set(audioTrackIds);
+			const selectedTrack = tracks.get(state.selectedTrackId);
 			const selectedProjectTrackIds = [...new Set(
 				(Array.isArray(getProject().selection?.trackIds) ? getProject().selection.trackIds : [])
-					.filter((trackId: RuntimeValue) => typeof trackId === 'string' && findTrack(getProject(), trackId)),
+					.filter((trackId: RuntimeValue) => typeof trackId === 'string' && tracks.has(trackId)),
 			)];
 			const baseSelection = activeSelection();
 			const editingSelection = resolveEditingSelection(getProject(), { selectedClipId: state.selectedClipId });
 			const selectedClipCandidates = editingSelection?.kind === 'clips' ? editingSelection.clipIds : [];
 			const selectedClips = selectedClipCandidates
-				.map((clipId: RuntimeValue) => findClip(getProject(), clipId))
+				.map((clipId: RuntimeValue) => clips.get(clipId))
 				.filter(Boolean);
 			const selectedClipIds = selectedClips.map((clip: RuntimeValue) => clip.id);
 			const selectedClipRange = editingSelection?.kind === 'clips'
@@ -122,9 +128,9 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 				: null;
 			const selection = baseSelection || (selectedClipRange && selectedClipRange.endFrame > selectedClipRange.startFrame ? selectedClipRange : null);
 			const selectedClipTrackIds = [...new Set(selectedClips
-				.map((clip: RuntimeValue) => findClipTrack(getProject(), clip.id)?.id)
+				.map((clip: RuntimeValue) => owners.get(clip.id)?.id)
 				.filter(Boolean))];
-			const rangeTrackIds = getProject().selection?.trackIds?.filter((trackId: RuntimeValue) => audioTrackIds.includes(trackId)) || selectedClipTrackIds;
+			const rangeTrackIds = getProject().selection?.trackIds?.filter((trackId: RuntimeValue) => audioTrackIdSet.has(trackId)) || selectedClipTrackIds;
 			const trackIds = rangeTrackIds.length
 				? rangeTrackIds
 				: selectedTrack && Array.isArray(selectedTrack.clipIds) ? [selectedTrack.id] : audioTrackIds;
@@ -140,7 +146,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 			const hasOnlyLabelRange = Boolean(baseSelection
 				&& selectedClipIds.length === 0
 				&& selectedRangeTrackIds.length > 0
-				&& selectedRangeTrackIds.every((trackId: RuntimeValue) => findTrack(getProject(), trackId)?.type === 'label'));
+				&& selectedRangeTrackIds.every((trackId: RuntimeValue) => tracks.get(trackId)?.type === 'label'));
 			if ((action === 'cut' || action === 'delete') && hasOnlyLabelRange) return;
 			// NotSet remains a visible preference state, not permission to interrupt
 			// the first edit with onboarding. Until explicitly chosen, leave a gap.

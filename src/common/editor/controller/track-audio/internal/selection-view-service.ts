@@ -105,8 +105,10 @@ export function createSelectionViewService<
 			return null;
 		}
 		if (!project) throw createLocalizedError(Error, copy, 'audioClipNotFound');
+		const owners = runtime.getClipOwners?.(project);
+		const ownerOf = owners ? (id: string) => owners.get(id) : (id: string) => findClipTrack(project, id);
 		const clip = findClip(project, clipId);
-		const track = clip ? findClipTrack(project, clip.id) : null;
+		const track = clip ? ownerOf(clip.id) : null;
 		if (!clip || !track) throw createLocalizedError(Error, copy, 'audioClipNotFound');
 		state.selectedAnnotationId = null;
 		if (!hasCoreEditingProjectAuthority(project)) {
@@ -129,11 +131,11 @@ export function createSelectionViewService<
 		} else clipIds = [clip.id];
 		const nextClipIds = expandSelectedClipIds(project, clipIds);
 		const trackIds = [...new Set(nextClipIds.flatMap((selectedId) => {
-			const selectedTrack = findClipTrack(project, selectedId);
+			const selectedTrack = ownerOf(selectedId);
 			return selectedTrack ? [selectedTrack.id] : [];
 		}))];
 		const activeClipId = nextClipIds.includes(clip.id) ? clip.id : nextClipIds.at(-1) || null;
-		const activeTrack = activeClipId ? findClipTrack(project, activeClipId) : null;
+		const activeTrack = activeClipId ? ownerOf(activeClipId) : null;
 		state.selectedTrackId = activeTrack?.id || null;
 		state.selectedClipId = activeClipId;
 		updateSelection({

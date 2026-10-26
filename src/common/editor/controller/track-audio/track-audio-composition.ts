@@ -23,6 +23,7 @@ import { createDocumentCommandPreview } from '../document/document-command-previ
 import { createDerivedAudioComposition } from './derived-audio-composition.ts';
 import { createMixRenderService } from './internal/mix-render/mix-render-service.ts';
 import { createSelectionViewService } from './internal/selection-view-service.ts';
+import { createSelectionOwnershipIndex } from './internal/selection-ownership-index.ts';
 import {
 	type AudioBufferContext,
 	audioBufferChannels,
@@ -279,7 +280,9 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		activateStoredSource: dependencies.activateStoredSource,
 		previewCommand: mixPreview.previewCommand,
 	});
+	const selectionOwners = createSelectionOwnershipIndex(dependencies.getProject, dependencies.updateSelection);
 	const selectionView = createSelectionViewService({
+		getClipOwners: selectionOwners.get,
 		captureProject, assertProject,
 		DEFAULT_PIXELS_PER_SECOND: dependencies.defaultPixelsPerSecond,
 		MAX_PIXELS_PER_SECOND: dependencies.maximumPixelsPerSecond,
@@ -312,7 +315,7 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		synchronizeAutomaticSampleEditMode: dependencies.synchronizeAutomaticSampleEditMode,
 		synchronizeMicrophoneMeterTarget: microphoneMeter.synchronizeTarget,
 		updatePlayhead: dependencies.updatePlayhead,
-		updateSelection: dependencies.updateSelection,
+		updateSelection: selectionOwners.updateSelection,
 	});
 
 	const transform = (label: string | undefined) => label || copy.audacityProcessing;
