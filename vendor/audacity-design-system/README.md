@@ -661,3 +661,11 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     upstream displayed-pitch/speed default; the action callback still controls
     mutation admission. Covered by the merged and linked reset inspector tests.
     Upstream-PR candidate.
+
+83. Shared editor controls consume an explicit `ComponentCopyProvider` supplied
+    by the application with its active locale and inventoried messages. Track,
+    clip, ruler, effects, mixer, dialog and numeric chrome retain standalone
+    English defaults and localized copy follows React portals. Format IDs and
+    authored names stay stable; spoken durations use the active locale's units.
+    Covered by the shared-surface and component-chrome localization regressions.
+    Upstream-PR candidate.

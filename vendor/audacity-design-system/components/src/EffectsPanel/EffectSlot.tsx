@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React, { useState } from 'react';
 import { Icon } from '../Icon';
 import { ToggleButton } from '../ToggleButton';
@@ -132,14 +133,14 @@ export interface EffectSlotProps {
  * Used in the effects panel stack for both track and master effects
  */
 export const EffectSlot: React.FC<EffectSlotProps> = ({
-  effectName = 'Effect name',
+  effectName: authoredEffectName,
   enabled = true,
   onToggle,
   onSelectEffect,
   onChangeEffect: _onChangeEffect,
   onShowSettings,
   onOpenEffectPicker,
-  effectActionsLabel = 'Effect settings',
+  effectActionsLabel,
   onRemoveEffect,
   onReplaceEffect,
   replaceEffectOptions,
@@ -155,7 +156,8 @@ export const EffectSlot: React.FC<EffectSlotProps> = ({
   activeColor,
   onReorder,
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
+  const effectName = authoredEffectName ?? copy.effectName;
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [isNavigatingInside, setIsNavigatingInside] = useState(false);
@@ -337,7 +339,7 @@ export const EffectSlot: React.FC<EffectSlotProps> = ({
         className={`effect-slot__drag-handle ${isMoving ? 'effect-slot__drag-handle--moving' : ''}`}
         tabIndex={-1}
         role="button"
-        aria-label={isMoving ? 'Moving effect — use Up/Down arrows, Escape to stop' : 'Press Enter to reorder effect'}
+        aria-label={isMoving ? copy.movingEffect : copy.reorderEffect}
       >
         <Icon name="gripper" size={16} />
       </div>
@@ -349,7 +351,7 @@ export const EffectSlot: React.FC<EffectSlotProps> = ({
           iconSize={14}
           active={enabled}
           onClick={() => onToggle?.(!enabled)}
-          ariaLabel={enabled ? 'Disable effect' : 'Enable effect'}
+          ariaLabel={enabled ? copy.disableEffect : copy.enableEffect}
           size={24}
           activeColor={activeColor || theme.accent.primary}
         />
@@ -358,7 +360,7 @@ export const EffectSlot: React.FC<EffectSlotProps> = ({
         <button
           className="effect-slot__name-field"
           onClick={onSelectEffect}
-          aria-label="Select effect"
+          aria-label={copy.selectEffect}
         >
           <span className="effect-slot__name-text">{effectName}</span>
         </button>
@@ -367,7 +369,7 @@ export const EffectSlot: React.FC<EffectSlotProps> = ({
         <button
           className="effect-slot__settings-button"
           onClick={handleSettingsClick}
-          aria-label={effectActionsLabel}
+          aria-label={effectActionsLabel ?? copy.effectSettings}
         >
           <Icon name="caret-down" size={16} />
         </button>
@@ -382,7 +384,7 @@ export const EffectSlot: React.FC<EffectSlotProps> = ({
         y={menuPosition.y}
       >
         <ContextMenuItem
-          label="Remove effect"
+          label={copy.removeEffect}
           onClick={() => {
             onRemoveEffect?.();
             setMenuOpen(false);

@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React from 'react';
 import { ToggleButton } from '../ToggleButton';
 import { Button } from '../Button';
@@ -61,11 +62,11 @@ export const EffectsStackHeader: React.FC<EffectsStackHeaderProps> = ({
   onToggleAll,
   onContextMenu,
   onAddEffect,
-  addButtonLabel = 'Effects',
+  addButtonLabel,
   isMaster = false,
   className = '',
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
 
   const style = {
     '--esh-bg': theme.background.surface.default,
@@ -90,7 +91,7 @@ export const EffectsStackHeader: React.FC<EffectsStackHeaderProps> = ({
           iconSize={14}
           active={allEnabled}
           onClick={() => onToggleAll?.(!allEnabled)}
-          ariaLabel={allEnabled ? `Disable all ${isMaster ? 'master' : 'track'} effects` : `Enable all ${isMaster ? 'master' : 'track'} effects`}
+          ariaLabel={allEnabled ? (isMaster ? copy.disableMasterEffects : copy.disableTrackEffects) : (isMaster ? copy.enableMasterEffects : copy.enableTrackEffects)}
           size={24}
           activeColor={theme.accent.primary}
         />
@@ -112,7 +113,7 @@ export const EffectsStackHeader: React.FC<EffectsStackHeaderProps> = ({
           icon={<Icon name="plus" size={14} />}
           className="effects-stack-header__add-button"
         >
-          {addButtonLabel}
+          {addButtonLabel ?? copy.effects}
         </Button>
       )}
       {onContextMenu && (
@@ -120,7 +121,7 @@ export const EffectsStackHeader: React.FC<EffectsStackHeaderProps> = ({
           icon="menu"
           size="small"
           onClick={onContextMenu}
-          ariaLabel="Effect stack options"
+          ariaLabel={copy.effectStackOptions}
           className="effects-stack-header__menu-button"
         />
       )}

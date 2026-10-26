@@ -1,3 +1,4 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
 import React, { useState, useRef, useEffect, useCallback, useContext } from 'react';
 import { TimeCodeDigit } from './TimeCodeDigit';
 import { TimeCodeUnit } from './TimeCodeUnit';
@@ -14,7 +15,6 @@ import { ContextMenuItem } from '../ContextMenuItem/ContextMenuItem';
 import './TimeCode.css';
 import './TimeCodeDigit.css';
 import './TimeCodeUnit.css';
-
 import { timeCodeFormatOptionsForDomain, type TimeCodeFormat, type TimeCodeFormatDomain } from './time-code-formats';
 export { timeCodeFormatOptionsForDomain, type TimeCodeFormat, type TimeCodeFormatDomain, type TimeCodeFormatOption } from './time-code-formats';
 
@@ -95,7 +95,7 @@ export interface TimeCodeProps {
  */
 export function TimeCode({
   ariaLabel = 'Time code',
-  formatAriaLabel = 'Time code format',
+  formatAriaLabel,
   ariaDescription,
   ariaDescribedBy,
   value,
@@ -111,9 +111,9 @@ export function TimeCode({
   variant = 'dark',
   className = '',
 }: TimeCodeProps) {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
   const musicalMap = useContext(TimeCodeMusicalContext);
-  const formatOptions = timeCodeFormatOptionsForDomain(formatDomain, frameRate);
+  const formatOptions = timeCodeFormatOptionsForDomain(formatDomain, frameRate, copy);
   const [isEditing, setIsEditing] = useState(false);
   const [editingDigitIndex, setEditingDigitIndex] = useState<number | null>(null);
   const [hoverDigitIndex, setHoverDigitIndex] = useState<number | null>(null);
@@ -467,7 +467,7 @@ export function TimeCode({
             onClick={handleMenuButtonClick}
             disabled={disabled}
             tabIndex={-1}
-            aria-label={formatAriaLabel}
+            aria-label={formatAriaLabel ?? copy.timeCodeFormat}
           >
             <Icon name="caret-down" size={16} color={caretColor} />
           </button>}
@@ -492,7 +492,7 @@ export function TimeCode({
             y={menuPosition.y}
             autoFocus={menuOpenedViaKeyboard}
           >
-            {onChange && <ContextMenuItem label="Enter value…" onClick={textEntry.begin} onClose={() => setShowMenu(false)} />}
+            {onChange && <ContextMenuItem label={copy.enterValue} onClick={textEntry.begin} onClose={() => setShowMenu(false)} />}
             <TimeCodeFormatMenuItems options={formatOptions} format={format} onSelect={handleFormatSelect} />
           </ContextMenu>
         </>

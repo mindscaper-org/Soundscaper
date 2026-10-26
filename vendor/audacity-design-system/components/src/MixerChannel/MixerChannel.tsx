@@ -1,3 +1,5 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
+import { componentCopyTemplate } from '../component-copy';
 import React from 'react';
 import { useTheme } from '../ThemeProvider';
 import { MixerFader } from '../MixerFader';
@@ -160,7 +162,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
   effectSlotCount = 1,
   className = '',
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy } = useComponentCopy();
 
   const resolvedTrackColor = trackColor ?? theme.audio.clip.green.header;
 
@@ -220,7 +222,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
             value={pan}
             disabled={panDisabled}
             defaultValue={0}
-            label="Pan"
+            label={copy.pan}
             onChange={onPanChange}
             onGestureStart={onPanGestureStart}
             onGestureEnd={onPanGestureEnd}
@@ -271,7 +273,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
               onGestureStart={onVolumeGestureStart}
               onGestureEnd={onVolumeGestureEnd}
               onGestureCancel={onVolumeGestureCancel}
-              ariaLabel={`${trackName} volume`}
+              ariaLabel={componentCopyTemplate(copy.channelVolume, { name: trackName })}
             />
           </div>
 
@@ -312,7 +314,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
           <button
             className={`mixer-channel__toggle-btn ${muted ? 'mixer-channel__toggle-btn--mute-active' : ''}`}
             onClick={onMuteToggle}
-            aria-label="Mute"
+            aria-label={copy.mute}
             aria-pressed={muted}
           >
             M
@@ -320,7 +322,7 @@ export const MixerChannel: React.FC<MixerChannelProps> = ({
           <button
             className={`mixer-channel__toggle-btn ${soloed ? 'mixer-channel__toggle-btn--solo-active' : ''}`}
             onClick={onSoloToggle}
-            aria-label="Solo"
+            aria-label={copy.solo}
             aria-pressed={soloed}
           >
             S

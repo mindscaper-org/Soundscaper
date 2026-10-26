@@ -1,3 +1,5 @@
+import { useComponentCopy } from '../contexts/ComponentCopyContext';
+import { componentCopyTemplate } from '../component-copy';
 import React from 'react';
 import type { MidiNote } from '@audacity-ui/core';
 import { Clip } from '../Clip/Clip';
@@ -419,7 +421,7 @@ const TrackNewComponent: React.FC<TrackProps> = ({
   draggingClipIds,
   raisedClipIds,
 }) => {
-  const { theme } = useTheme();
+  const { theme } = useTheme(); const { copy, locale } = useComponentCopy();
   const trackColor = color && clipStyle !== 'classic' ? color as typeof TRACK_COLORS[number] : getTrackColor(trackIndex, clipStyle);
   // Scope for the time-selection band. When the selection carries its
   // own tracks list (populated by the creating gesture), highlight
@@ -600,7 +602,7 @@ const TrackNewComponent: React.FC<TrackProps> = ({
           }}
           tabIndex={isFlatNavigation ? 0 : (isFirstClip && tabIndex !== undefined ? tabIndex : -1)}
           role="button"
-          aria-label={clipAccessibleName(clip)}
+          aria-label={clipAccessibleName(clip, copy, locale)}
           onMouseEnter={() => onHoverClip?.(clip.id as number)}
           onMouseLeave={() => onHoverClip?.(null)}
           onMouseDown={(e) => {
@@ -1120,7 +1122,7 @@ const TrackNewComponent: React.FC<TrackProps> = ({
         }}
         tabIndex={trackTabIndex ?? -1}
         role="group"
-        aria-label={`${trackName ?? `Track ${trackIndex + 1}`}, ${isLabelTrack ? 'label track' : isMidiTrack ? 'MIDI track' : 'audio track'}`}
+        aria-label={componentCopyTemplate(copy.trackDescription, { name: trackName ?? componentCopyTemplate(copy.trackNumber, { number: trackIndex + 1 }), kind: isLabelTrack ? copy.labelTrack : isMidiTrack ? copy.midiTrack : copy.audioTrack })}
         onMouseDown={(e) => {
           // Let the browser focus the .track div so Tab continues from here.
           // The ref tells handleTrackFocus to suppress the red container outline.

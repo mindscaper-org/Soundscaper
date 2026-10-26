@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { COMPONENT_COPY, type ComponentCopy } from '../component-copy';
 
-const ComponentCopyContext = createContext({ copy: COMPONENT_COPY as ComponentCopy, locale: 'en' });
+const ComponentCopyContext = /* @__PURE__ */ createContext({ copy: COMPONENT_COPY as ComponentCopy, locale: 'en' });
 
 /** Explicit application copy ownership also follows controls into React portals. */
 export function ComponentCopyProvider({ copy, locale = 'en', children }: {
