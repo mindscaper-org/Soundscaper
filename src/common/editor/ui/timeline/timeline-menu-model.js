@@ -1,4 +1,6 @@
 import { createElement } from 'react';
+import { LABEL_TEXT_SIZES_PT } from '../../appearance-preferences.ts';
+import { createTrackHeightMenu } from './track-height-menu.ts';
 
 import { resolveTrackWaveformOptions } from '../../track-display-mode.ts';
 import { iconNameToChar } from '../../audacity-iconcodes.js';
@@ -169,6 +171,7 @@ export function createTimelineMenuModel({
 		},
 		...trackOverflowItems.shared,
 		...trackOverflowItems.display,
+		...trackOverflowItems.audio,
 		...(menuTrack.type === 'audio' || menuTrack.type === 'label' ? [
 			{ divider: true, label: '' },
 			manifestMenuItem(AUDACITY_TRACK_CONTEXT_ACTION_IDS.changeColor, copy.trackColor, {
@@ -183,8 +186,14 @@ export function createTimelineMenuModel({
 				},
 			}, contextLocale, unavailableReason),
 		] : []),
+		...(menuTrack.type === 'label' ? [{
+			id: 'track-label-text-size', label: copy.labelTextSize,
+			items: LABEL_TEXT_SIZES_PT.map(size => ({ id: `track-label-size-${size}`, label: `${size} pt`,
+				checked: size === (snapshot.preferences?.appearance?.labelTextSizePt ?? 9),
+				onClick: () => run(() => controller.actions.preferences.update({ appearance: { labelTextSizePt: size } })),
+			})),
+		}] : []),
 		...(menuTrack.type === 'audio' ? [
-			{ divider: true, label: '' },
 			{
 				id: 'track-display', label: copy.trackDisplay,
 				items: [
@@ -206,16 +215,12 @@ export function createTimelineMenuModel({
 					manifestMenuItem(AUDACITY_TRACK_CONTEXT_ACTION_IDS.waveformSettings, copy.preferencesTrackDisplay, { onClick: () => onOpenSurface('preferences', { section: 'track-display' }) }, contextLocale, unavailableReason),
 				].filter(Boolean),
 			},
-			...trackOverflowItems.audio,
 		] : []),
-		manifestMenuItem(AUDACITY_TRACK_CONTEXT_ACTION_IDS.decreaseHeight, copy.decreaseTrackHeight, {
-			disabled: mutationsBlocked,
-			onClick: () => run(() => controller.actions.track.decreaseHeight(menuTrack.id)),
-		}, contextLocale, unavailableReason),
-		manifestMenuItem(AUDACITY_TRACK_CONTEXT_ACTION_IDS.increaseHeight, copy.increaseTrackHeight, {
-			disabled: mutationsBlocked,
-			onClick: () => run(() => controller.actions.track.increaseHeight(menuTrack.id)),
-		}, contextLocale, unavailableReason),
+		createTrackHeightMenu({ copy, disabled: mutationsBlocked,
+			onDecrease: () => run(() => controller.actions.track.decreaseHeight(menuTrack.id)),
+			onIncrease: () => run(() => controller.actions.track.increaseHeight(menuTrack.id)),
+			onFit: () => run(() => controller.actions.timeline.fitTracksToHeight([menuTrack.id], model.availableTrackHeight)),
+		}),
 		{ divider: true, label: '' },
 		manifestMenuItem(AUDACITY_TRACK_CONTEXT_ACTION_IDS.remove, copy.deleteTrack, {
 			disabled: trackStructureBlocked,

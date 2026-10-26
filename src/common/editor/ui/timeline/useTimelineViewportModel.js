@@ -236,6 +236,7 @@ export function useTimelineViewportModel({
 		showMarkers,
 		markerLaneVisible,
 		rulerRowHeight,
+		availableTrackHeight,
 		scrollViewportHeight: timelineScrollSize.height,
 	};
 }
