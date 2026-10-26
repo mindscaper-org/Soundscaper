@@ -2,7 +2,7 @@
 
 /** Main-private binding of baseline project source identities to managed bodies. */
 
-import { createNativeMediaPlanEnvelopeV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import { nativeMediaPlanVideoTimingAssetInputs } from '../src/common/editor/native-media-plan-video-timing.ts';
 import type { NativeQueueInputFingerprintV1 } from '../src/common/editor/native-queue-record.ts';
 import {
@@ -44,7 +44,7 @@ export function framescaperNativeProjectPlanBodyMetadataMatches(
 	bodies: readonly Readonly<FramescaperNativeProjectMediaBody>[],
 ): boolean {
 	try {
-		const envelope = createNativeMediaPlanEnvelopeV2(plan);
+		const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan);
 		if (envelope.plan.sources.length !== inputs.length
 			|| new Set(inputs.map(({ sourceId }) => sourceId)).size !== inputs.length) return false;
 		for (const input of inputs) framescaperNativeOriginalBodyForInput(envelope.plan, input, bodies);
@@ -62,7 +62,7 @@ export function framescaperNativeOriginalBodyForInput(
 	input: NativeQueueInputFingerprintV1,
 	bodies: readonly Readonly<FramescaperNativeProjectMediaBody>[],
 ): Readonly<FramescaperNativeProjectMediaBody> | null {
-	const canonical = createNativeMediaPlanEnvelopeV2(plan).plan;
+	const canonical = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan).plan;
 	const sources = canonical.sources.filter(({ sourceId, contentSha256 }) => (
 		sourceId === input.sourceId && contentSha256 === input.sha256
 	));

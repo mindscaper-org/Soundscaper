@@ -8,7 +8,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 
 import { assertNativeMediaRelativeDestination } from '../src/common/editor/native-media-atomic-publication.ts';
-import { createNativeMediaPlanEnvelopeV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import type { NativeQueueRecordV3 } from '../src/common/editor/native-queue-record-v3.ts';
 import { HELPER_DATA_PLANE_MAXIMUM_BYTES } from './helper-data-plane.ts';
 import { framescaperNativeMediaV14ProxyOutputCeiling } from './native-media-v14-helper-adapter.ts';
@@ -236,7 +236,7 @@ function proxyOutputCeiling(record: NativeQueueRecordV3): number {
 	let plan: unknown;
 	try { plan = JSON.parse(record.planPayload) as unknown; }
 	catch { throw new Error('A native proxy queue plan is not JSON.'); }
-	return framescaperNativeMediaV14ProxyOutputCeiling(createNativeMediaPlanEnvelopeV2(plan));
+	return framescaperNativeMediaV14ProxyOutputCeiling(createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan));
 }
 
 async function digestHandle(handle: FileHandle, byteLength: number): Promise<string> {

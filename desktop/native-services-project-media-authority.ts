@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-
 /** Main-private baseline project, source-body, backend, and publication authority. */
-
 import { createHash } from 'node:crypto';
+import { authenticateFramescaperNativeV14TimingEnvelope } from './native-services-v14-plan-timing-authority.ts';
 import { createNativeMediaPublicationPlan } from '../src/common/editor/native-media-atomic-publication.ts';
 import { NATIVE_MEDIA_CPU_BACKEND, type NativeMediaPlatform } from '../src/common/editor/native-media-backend-policy.ts';
-import { createNativeMediaPlanEnvelopeV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
+import { createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import { nativeMediaV14RequiresEvaluatedCarrier } from '../src/common/editor/native-media-v14-render-family.ts';
 import { fingerprintNativeMediaPlan } from '../src/common/editor/native-media-plan-canonical-form.ts';
 import { nativeMediaPlanVideoTimingAssetInputs } from '../src/common/editor/native-media-plan-video-timing.ts';
@@ -189,8 +188,8 @@ export class FramescaperNativeProjectMediaAuthority {
 				&& body.storageKey === input.storageKey && body.sha256 === input.sha256, 'timing').byteLength);
 		scratchBytes = safeAdd(scratchBytes, fingerprintNativeMediaPlan(plan).byteLength);
 		scratchBytes = safeAdd(scratchBytes, request.taskKind === 'proxy-generation'
-			? framescaperNativeMediaV14ProxyOutputCeiling(createNativeMediaPlanEnvelopeV2(plan))
-			: framescaperNativeMediaV14OutputCeiling(createNativeMediaPlanEnvelopeV2(plan)));
+			? framescaperNativeMediaV14ProxyOutputCeiling(createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan))
+			: framescaperNativeMediaV14OutputCeiling(createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan)));
 		safeAdd(scratchBytes, V14_QUEUE_MINIMUM_FREE_BYTES);
 		return Object.freeze({
 			cpuCores: V14_QUEUE_CPU_CORES, processTreeRssBytes: V14_QUEUE_RSS_BYTES,
@@ -241,7 +240,7 @@ export class FramescaperNativeProjectMediaAuthority {
 		root: FramescaperNativeRootGrant,
 	): Promise<PreparedNativeMediaQueueJobV3> {
 		const plan = storedV14Plan(record);
-		const envelope = createNativeMediaPlanEnvelopeV2(plan);
+		let envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan);
 		if (!await this.#rootValid(root)) throw new Error('The selected V14 destination root changed identity.');
 		const project = framescaperNativeProjectMediaRecord(this.#options.project.projectRecord(record.projectId));
 		if (project === null || project.projectRevision !== record.projectRevision) {
@@ -283,6 +282,7 @@ export class FramescaperNativeProjectMediaAuthority {
 			if (requiresCarrier) derivedInputs = await this.#options.renderInputs.inspect(record);
 			loaded = await this.#loadBodies(record, plan, bundle.bodies,
 				derivedInputs?.scratchByteLength ?? derivedInputs?.byteLength ?? 0);
+			envelope = authenticateFramescaperNativeV14TimingEnvelope(plan, loaded.timings, record.reservations.scratchBytes);
 		}
 		catch (error) {
 			if (requiresCarrier) try { await this.#options.renderInputs.settle(record, 'failed'); }
@@ -329,7 +329,7 @@ export class FramescaperNativeProjectMediaAuthority {
 	}
 
 	async #executeProxy(
-		envelope: ReturnType<typeof createNativeMediaPlanEnvelopeV2>,
+		envelope: ReturnType<typeof createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2>,
 		loaded: LoadedBodies,
 		recipe: FramescaperNativeMediaProxyV14RuntimeRequest['recipe'],
 		destination: FramescaperNativeMediaV14RuntimeRequest['destination'],
@@ -442,7 +442,7 @@ function storedV14Plan(record: NativeQueueRecordV3): UnifiedExactRenderPlanV14 {
 		|| fingerprint.sha256 !== record.planFingerprint || fingerprint.canonical !== record.planPayload) {
 		throw new Error('The selected V14 queue plan changed exact identity.');
 	}
-	const envelope = createNativeMediaPlanEnvelopeV2(value);
+	const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(value);
 	if (envelope.planVersion !== 14 || envelope.plan.version !== 14) {
 		throw new Error('The selected native queue row does not carry a V14 plan.');
 	}
@@ -454,7 +454,7 @@ function requestV14Plan(request: FramescaperNativeQueueEnqueueRequest): UnifiedE
 	try { value = JSON.parse(request.planPayload) as unknown; }
 	catch { throw new Error('The selected V14 queue reservation plan is not JSON.'); }
 	const fingerprint = fingerprintNativeMediaPlan(value);
-	const envelope = createNativeMediaPlanEnvelopeV2(value);
+	const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(value);
 	if (request.planVersion !== 14 || envelope.planVersion !== 14 || envelope.plan.version !== 14
 		|| fingerprint.sha256 !== request.planFingerprint || fingerprint.canonical !== request.planPayload) {
 		throw new Error('The selected V14 queue reservation changed exact plan identity.');
@@ -477,7 +477,7 @@ function proxyBodyMetadataMatches(
 	try {
 		if (inputs.length !== 1) return false;
 		const input = inputs[0]!;
-		const envelope = createNativeMediaPlanEnvelopeV2(plan);
+		const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(plan);
 		const planned = envelope.plan.sources.filter(({ sourceId, contentSha256 }) => (
 			sourceId === input.sourceId && contentSha256 === input.sha256
 		));
@@ -493,7 +493,7 @@ function proxyBodyMetadataMatches(
 }
 
 function proxyRecipe(
-	envelope: ReturnType<typeof createNativeMediaPlanEnvelopeV2>,
+	envelope: ReturnType<typeof createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2>,
 	inputs: NativeQueueRecordV3['inputFingerprints'],
 ): FramescaperNativeMediaProxyV14RuntimeRequest['recipe'] {
 	if (inputs.length !== 1) throw new Error('A selected V14 proxy job must bind one source fingerprint.');

@@ -3,7 +3,7 @@
 /** Main-owned pathless admission for one baseline intermediate OpenFX frame. */
 
 import {
-	createNativeMediaPlanEnvelopeV2,
+	createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2,
 } from '../src/common/editor/native-media-plan-envelope-v2.ts';
 import {
 	canonicalizeNativeMediaPlan,
@@ -19,7 +19,9 @@ import { framescaperOpenFxTransitionProgressNativeMedia } from '../src/framescap
 import type { FramescaperOpenFxFrameExecutionResultNativeMedia } from '../src/framescaper/editor-openfx-frame-graph-native-media.ts';
 import { deriveUnifiedExactOfxAbsentFreshnessV26 } from '../src/common/editor/native-ofx-freshness-authority.ts';
 import { resolveOfxEffectStateV26 } from '../src/common/editor/native-ofx-state-v26.ts';
-import type { NativePlanVideoTimingAssetBytes } from './native-services-video-timing-staging.ts';
+import { authenticateNativePlanVideoTimingAssetsV1OrV2, type NativePlanVideoTimingAssetBytes } from './native-services-video-timing-staging.ts';
+import { nativeMediaPlanVideoTimingAssetInputs } from '../src/common/editor/native-media-plan-video-timing.ts';
+import { HELPER_DATA_PLANE_MAXIMUM_BYTES } from './helper-data-plane.ts';
 import type { FramescaperOpenFxExecutionResultV1 } from './openfx-main-service.ts';
 import type { FramescaperOpenFxExecutionRequestV1 } from './openfx-main-execution-request.ts';
 import { createOpenFxMainRetimerSourceTimeV1 } from './openfx-main-retimer-source-time.ts';
@@ -100,8 +102,15 @@ export function createFramescaperOpenFxFrameExecutionService(
 			if (request.transitionProgress !== transitionProgress) {
 				throw new Error('The renderer OpenFX Transition value is stale or forged.');
 			}
-			const timingAssets = effect.state.context === 'retimer'
-				? await ports.timingAssets(request.plan) : Object.freeze([]);
+			const needsTiming = effect.state.context === 'retimer'
+				|| nativeMediaPlanVideoTimingAssetInputs(request.plan).length > 0;
+			const timingAssets = needsTiming ? await ports.timingAssets(request.plan) : Object.freeze([]);
+			request.signal?.throwIfAborted();
+			authenticateNativePlanVideoTimingAssetsV1OrV2({ plan: request.plan, assets: timingAssets,
+				maximumStagedBytes: HELPER_DATA_PLANE_MAXIMUM_BYTES });
+			if (needsTiming && !await ports.currentProject(request.plan, effect.state)) {
+				throw new Error('The OpenFX project changed during timing authentication.');
+			}
 			const retimerSourceTime = effect.state.context === 'retimer'
 				? createOpenFxMainRetimerSourceTimeV1({
 					plan: request.plan, instanceId: request.instanceId,
@@ -152,7 +161,7 @@ export function admitFramescaperOpenFxFrameControlV1(
 	let parsed: unknown;
 	try { parsed = JSON.parse(row.planPayload) as unknown; }
 	catch { throw new TypeError('The pathless OpenFX frame plan is malformed JSON.'); }
-	const envelope = createNativeMediaPlanEnvelopeV2(parsed);
+	const envelope = createNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2(parsed);
 	if (envelope.planVersion !== 14 || envelope.fingerprint !== row.planFingerprint
 		|| canonicalizeNativeMediaPlan(envelope.plan) !== row.planPayload
 		|| fingerprintNativeMediaPlan(envelope.plan).sha256 !== row.planFingerprint) {

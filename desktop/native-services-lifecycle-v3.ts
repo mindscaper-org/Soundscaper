@@ -2,7 +2,7 @@
 
 import type { NativeScratchOutcome } from '../src/common/editor/native-scratch-policy.ts';
 import {
-	createNativeQueueRecordV3,
+	createNativeQueueRecordWithDeferredTimingReferencesV3,
 	type NativeQueueRecordV3,
 } from '../src/common/editor/native-queue-record-v3.ts';
 import type { WatchRuleV1 } from '../src/common/editor/native-watch-rule.ts';
@@ -194,7 +194,7 @@ export class FramescaperNativeServicesLifecycleV3 {
 		}
 		const records = this.#queue.list();
 		const position = records.reduce((maximum, record) => Math.max(maximum, record.position), -1) + 1;
-		const record = createNativeQueueRecordV3({
+		const record = createNativeQueueRecordWithDeferredTimingReferencesV3({
 			jobId: request.derivedInputStageId ?? nativeLifecycleJobId(this.#mintJobId()),
 			schemaFamily: request.schemaFamily, schemaVersion: request.schemaVersion,
 			taskKind: request.taskKind,
