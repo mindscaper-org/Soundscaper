@@ -2,6 +2,7 @@
 
 /** Renderer-side presentation of sanitized, exact main-process codec status. */
 
+import { desktopCodecMessage, type DesktopCodecCopy } from './desktop-codec-presentation.ts';
 import {
 	DESKTOP_AUDIO_CODEC_CAPABILITY_SCHEMA_VERSION,
 	normalizeDesktopAudioCodecCapabilityQuery,
@@ -28,6 +29,7 @@ export interface DesktopAudioCodecFormatCapability {
 	readonly available: boolean;
 	readonly provider: DesktopAudioCodecCapabilityProvider | null;
 	readonly reason: string | null;
+	readonly reasonCode?: DesktopAudioCodecCapabilityReason | null;
 	readonly missingEncoders: readonly string[];
 	readonly missingMuxers: readonly string[];
 }
@@ -110,6 +112,7 @@ export function desktopAudioCodecMediaExportCapabilities(
 				available: entry?.available === true,
 				provider: entry?.available === true ? entry.provider : null,
 				reason: entry?.available === true ? null : desktopAudioCodecCapabilityReason(entry?.reason ?? null),
+				reasonCode: entry?.available === true ? null : entry?.reason ?? 'configure-external-ffmpeg',
 				missingEncoders: EMPTY,
 				missingMuxers: EMPTY,
 			});
@@ -135,8 +138,9 @@ export function desktopAudioCodecMediaExportCapabilities(
 }
 
 export function desktopAudioCodecCapabilityReason(
-	reason: DesktopAudioCodecCapabilityReason | null,
+	reason: DesktopAudioCodecCapabilityReason | null, copy?: DesktopCodecCopy,
 ): string {
+	if (copy) return desktopCodecMessage(reason === 'unsupported-settings' ? 'codecSettings' : reason === 'unsupported-by-configured-ffmpeg' ? 'codecConfiguredUnsupported' : 'codecConfigure', copy);
 	if (reason === 'unsupported-settings') {
 		return 'The selected sample rate or channel layout is unsupported. Configure FFmpeg in Edit > Preferences > General or choose other export settings.';
 	}
