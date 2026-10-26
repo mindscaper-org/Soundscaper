@@ -5,21 +5,21 @@
 			"id": "editor",
 			"label": "Editor",
 			"thresholds": {
-				"lines": 98,
+				"lines": 95,
 				"branches": 82,
 				"functions": 86
 			},
-			"reason": "Everything under src/common/editor/ that is not controller, command or engine code: models, workers, storage, effects and import/export, where an unexercised branch corrupts a user's project."
+			"reason": "Everything under src/common/editor/ that is not controller, command or engine code: models, workers, storage, effects and import/export, where an unexercised branch corrupts a user's project. The authenticated browser-source reporting correction rebases lines 98% to 95% (measured 96.743900%, 419379/433494). The complete eleven-profile Node/Chromium union from Quality run 40245790206 at 3da40585a98c was replayed without changing its recorded V8 counters or mappings. The old multi-source file-URL exclusion bypassed zero-count assignments before exporting default-covered lines, and omitted source declarations distorted function percentages. Source-path normalization now applies those counts and includes the authenticated declarations. This is a global measurement-baseline correction, retaining the established one-percentage-point ratchet headroom; it changes no shard, source scope, test, or Lightscaper threshold."
 		},
 		{
 			"id": "editor-core",
 			"label": "Editor core",
 			"thresholds": {
-				"lines": 94,
+				"lines": 92,
 				"branches": 82,
 				"functions": 95
 			},
-			"reason": "The controller, command and engine trees decide what every edit does, so they hold their own branch floor instead of averaging into the far larger editor scope. After removing unreachable test cases in the test necessity cleanup, the line floor was rebased from 96% to 94% against the complete Node and Chromium union in Quality run 39572852657 (95.37%, 150001/157280), retaining the ratchet's one-point headroom."
+			"reason": "The controller, command and engine trees decide what every edit does, so they hold their own branch floor instead of averaging into the far larger editor scope. After removing unreachable test cases in the test necessity cleanup, the line floor was rebased from 96% to 94% against the complete Node and Chromium union in Quality run 39572852657 (95.37%, 150001/157280), retaining the ratchet's one-point headroom. The authenticated browser-source reporting correction rebases lines 94% to 92% (measured 93.715834%, 155662/166100). The complete eleven-profile Node/Chromium union from Quality run 40245790206 at 3da40585a98c was replayed without changing its recorded V8 counters or mappings. The old multi-source file-URL exclusion bypassed zero-count assignments before exporting default-covered lines, and omitted source declarations distorted function percentages. Source-path normalization now applies those counts and includes the authenticated declarations. This is a global measurement-baseline correction, retaining the established one-percentage-point ratchet headroom; it changes no shard, source scope, test, or Lightscaper threshold."
 		},
 		{
 			"id": "desktop",
@@ -45,31 +45,31 @@
 			"id": "soundscaper",
 			"label": "Soundscaper",
 			"thresholds": {
-				"lines": 98,
+				"lines": 93,
 				"branches": 75,
 				"functions": 93
 			},
-			"reason": "Soundscaper's own tree: thin product wiring over the shared editor, so its floor is set by what that wiring actually exercises."
+			"reason": "Soundscaper's own tree: thin product wiring over the shared editor, so its floor is set by what that wiring actually exercises. The authenticated browser-source reporting correction rebases lines 98% to 93% (measured 94.100527%, 11963/12713). The complete eleven-profile Node/Chromium union from Quality run 40245790206 at 3da40585a98c was replayed without changing its recorded V8 counters or mappings. The old multi-source file-URL exclusion bypassed zero-count assignments before exporting default-covered lines, and omitted source declarations distorted function percentages. Source-path normalization now applies those counts and includes the authenticated declarations. This is a global measurement-baseline correction, retaining the established one-percentage-point ratchet headroom; it changes no shard, source scope, test, or Lightscaper threshold."
 		},
 		{
 			"id": "common-transfer",
 			"label": "Common transfer",
 			"thresholds": {
-				"lines": 98,
+				"lines": 95,
 				"branches": 82,
-				"functions": 96
+				"functions": 89
 			},
-			"reason": "Project archives and session transfer are the durable interchange surface; a regression here is a file a user can no longer open."
+			"reason": "Project archives and session transfer are the durable interchange surface; a regression here is a file a user can no longer open. The authenticated browser-source reporting correction rebases lines 98% to 95% (measured 96.048534%, 8945/9313); functions 96% to 89% (measured 90.948276%, 422/464). The complete eleven-profile Node/Chromium union from Quality run 40245790206 at 3da40585a98c was replayed without changing its recorded V8 counters or mappings. The old multi-source file-URL exclusion bypassed zero-count assignments before exporting default-covered lines, and omitted source declarations distorted function percentages. Source-path normalization now applies those counts and includes the authenticated declarations. This is a global measurement-baseline correction, retaining the established one-percentage-point ratchet headroom; it changes no shard, source scope, test, or Lightscaper threshold."
 		},
 		{
 			"id": "common-site",
 			"label": "Common site",
 			"thresholds": {
-				"lines": 99,
+				"lines": 97,
 				"branches": 87,
 				"functions": 94
 			},
-			"reason": "The marketing and documentation site is mostly presentational markup, so its line floor is low while its branches stay covered. After removing unreachable test cases in the test necessity cleanup, the branch floor was rebased from 89% to 87% against the complete Node and Chromium union in Quality run 39572852657 (88.48%, 215/243), retaining the ratchet's one-point headroom."
+			"reason": "The marketing and documentation site is mostly presentational markup, so its line floor is low while its branches stay covered. After removing unreachable test cases in the test necessity cleanup, the branch floor was rebased from 89% to 87% against the complete Node and Chromium union in Quality run 39572852657 (88.48%, 215/243), retaining the ratchet's one-point headroom. The authenticated browser-source reporting correction rebases lines 99% to 97% (measured 98.283650%, 1088/1107). The complete eleven-profile Node/Chromium union from Quality run 40245790206 at 3da40585a98c was replayed without changing its recorded V8 counters or mappings. The old multi-source file-URL exclusion bypassed zero-count assignments before exporting default-covered lines, and omitted source declarations distorted function percentages. Source-path normalization now applies those counts and includes the authenticated declarations. This is a global measurement-baseline correction, retaining the established one-percentage-point ratchet headroom; it changes no shard, source scope, test, or Lightscaper threshold."
 		},
 		{
 			"id": "common-i18n",
@@ -85,11 +85,11 @@
 			"id": "common-offline",
 			"label": "Common offline",
 			"thresholds": {
-				"lines": 99,
+				"lines": 94,
 				"branches": 81,
 				"functions": 95
 			},
-			"reason": "The offline shell and its caches decide whether a returning user has an application at all, and its failure paths are hard to observe in production."
+			"reason": "The offline shell and its caches decide whether a returning user has an application at all, and its failure paths are hard to observe in production. The authenticated browser-source reporting correction rebases lines 99% to 94% (measured 95.713256%, 2657/2776). The complete eleven-profile Node/Chromium union from Quality run 40245790206 at 3da40585a98c was replayed without changing its recorded V8 counters or mappings. The old multi-source file-URL exclusion bypassed zero-count assignments before exporting default-covered lines, and omitted source declarations distorted function percentages. Source-path normalization now applies those counts and includes the authenticated declarations. This is a global measurement-baseline correction, retaining the established one-percentage-point ratchet headroom; it changes no shard, source scope, test, or Lightscaper threshold."
 		},
 		{
 			"id": "shared-root",
@@ -97,9 +97,9 @@
 			"thresholds": {
 				"lines": 99,
 				"branches": 91,
-				"functions": 99
+				"functions": 95
 			},
-			"reason": "The small shared modules at the root of src/ and src/common/ are depended on by both products, so every branch of them is cheap to cover and expensive to break. After removing unreachable test cases in the test necessity cleanup, the branch floor was rebased from 93% to 91% against the complete Node and Chromium union in Quality run 39572852657 (92.74%, 217/234), retaining the ratchet's one-point headroom."
+			"reason": "The small shared modules at the root of src/ and src/common/ are depended on by both products, so every branch of them is cheap to cover and expensive to break. After removing unreachable test cases in the test necessity cleanup, the branch floor was rebased from 93% to 91% against the complete Node and Chromium union in Quality run 39572852657 (92.74%, 217/234), retaining the ratchet's one-point headroom. The authenticated browser-source reporting correction rebases functions 99% to 95% (measured 96.551724%, 56/58). The complete eleven-profile Node/Chromium union from Quality run 40245790206 at 3da40585a98c was replayed without changing its recorded V8 counters or mappings. The old multi-source file-URL exclusion bypassed zero-count assignments before exporting default-covered lines, and omitted source declarations distorted function percentages. Source-path normalization now applies those counts and includes the authenticated declarations. This is a global measurement-baseline correction, retaining the established one-percentage-point ratchet headroom; it changes no shard, source scope, test, or Lightscaper threshold."
 		},
 		{
 			"id": "lightscaper",
