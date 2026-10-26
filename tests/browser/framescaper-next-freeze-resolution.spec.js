@@ -16,9 +16,22 @@ test('permanent programme freeze dimensions do not depend on preview quality', a
 	const card = editor.locator('[data-project-bin-item]').first(); await expect(card).toBeVisible();
 	await card.getByRole('button', { name: /Add to timeline/u }).click();
 	const projectId = await editor.getAttribute('data-project-id');
+	const preview = editor.locator('[data-video-preview]'), canvas = preview.locator('[data-video-preview-canvas]');
+	await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
+	const dimensions = () => canvas.evaluate(element => ({ width: element.width, height: element.height }));
+	const full = await canvas.evaluate(element => ({
+		width: Math.round(element.getBoundingClientRect().width * devicePixelRatio),
+		height: Math.round(element.getBoundingClientRect().height * devicePixelRatio),
+	}));
+	await expect.poll(dimensions).toEqual(full);
+	const bounds = await canvas.boundingBox();
 	const outputs = [];
 	for (const quality of ['Full resolution', 'Quarter resolution']) {
-		await chooseNestedCommandAction(page, editor, 'View', ['Video preview resolution', quality]);
+		if (quality === 'Quarter resolution') {
+			await chooseNestedCommandAction(page, editor, 'View', ['Video preview resolution', quality]);
+			await expect.poll(dimensions).toEqual({ width: Math.round(full.width / 4), height: Math.round(full.height / 4) });
+			expect(await canvas.boundingBox()).toEqual(bounds);
+		}
 		const clip = editor.getByRole('group', { name: /^Video clip:/u }).first(); await clip.press('Enter');
 		await expect(clip.locator('.clip-display')).toHaveClass(/clip-display--selected/u);
 		await expect(editor.locator('[data-video-preview]')).toHaveAttribute('data-video-preview-evaluated-timeline-sample', '0');
@@ -36,8 +49,10 @@ test('permanent programme freeze dimensions do not depend on preview quality', a
 				return project.sources.filter(source => source.kind === 'still').map(({ width, height, contentSha256 }) => ({ width, height, contentSha256 })); }
 			finally { db.close(); }
 		}, { name: FRAMESCAPER_DATABASE_NAME, id: projectId }));
-		await chooseNestedCommandAction(page, editor, 'Edit', ['Undo']);
-		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		if (quality === 'Full resolution') {
+			await chooseNestedCommandAction(page, editor, 'Edit', ['Undo']);
+			await expect(editor).toHaveAttribute('data-clip-count', '1');
+		}
 	}
 	await test.info().attach('freeze-output-dimensions', { body: JSON.stringify(outputs), contentType: 'application/json' });
 	expect(outputs[1]).toEqual(outputs[0]);
