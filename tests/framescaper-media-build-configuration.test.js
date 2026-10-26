@@ -44,6 +44,8 @@ test('the Windows x265 build explicitly selects the static MSVC runtime', () => 
 		),
 		tools: { executables }, environment: { PATH: 'C:/Windows/System32;C:/tools' }, configureFlags: [],
 	});
+	assert.ok(commands.find(({ phase }) => phase === 'ffmpeg-configure').args.includes('--disable-asm'),
+		'Windows ARM64 uses the C codec implementations without an unprovided GNU assembler.');
 	assert.ok(commands.find(({ phase }) => phase === 'x265-configure')
 		.args.includes('-DSTATIC_LINK_CRT=ON'));
 	const x265Library = commands.find(({ phase }) => phase === 'x265-normalize-library');

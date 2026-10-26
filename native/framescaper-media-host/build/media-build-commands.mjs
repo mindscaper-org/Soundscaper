@@ -263,7 +263,7 @@ function ffmpegTargetArguments(target) {
 	if (target.id === 'linux-arm64') return ['--target-os=linux', '--arch=aarch64'];
 	if (target.id === 'mac-arm64') return ['--target-os=darwin', '--arch=arm64'];
 	if (target.id === 'win-x64') return ['--target-os=win64', '--arch=x86_64', '--toolchain=msvc'];
-	return ['--target-os=win64', '--arch=arm64', '--toolchain=msvc'];
+	return ['--target-os=win64', '--arch=arm64', '--toolchain=msvc', '--disable-asm'];
 }
 
 function vpxTarget(target) {
