@@ -12,6 +12,9 @@ import type { MotionscaperProjectStore } from './editor-project-store.ts';
 import { createMotionscaperRevision } from './editor-project-revision.ts';
 import type { MotionArchiveReview, MotionArchiveOpenAction, MotionArchiveOpenReceipt } from './editor-document-import.ts';
 import { MotionProjectConflictError, MotionProjectLeaseError, type MotionProjectWriteLease } from './editor-project-write-lease.ts';
+import { MotionNativeSaveSession } from './editor-native-save-session.ts';
+import { MotionNativeSaveCleanupError, type MotionNativeSaveDriver, type MotionNativeSaveRecoveryDriver } from './editor-native-save.ts';
+import type { MotionRecoveredPublication } from './desktop-file-contract.ts';
 
 export interface MotionProjectSettings {
 	readonly title: string; readonly width: number; readonly height: number;
@@ -20,6 +23,7 @@ export interface MotionProjectSettings {
 export interface MotionscaperDocumentSnapshot {
 	readonly project: MotionscaperProject | null; readonly savedDigest: string | null;
 	readonly dirty: boolean; readonly busy: boolean; readonly canUndo: boolean; readonly canRedo: boolean;
+	readonly nativeSavePending?: boolean;
 }
 export const EMPTY_MOTION_DOCUMENT: MotionscaperDocumentSnapshot = Object.freeze({
 	project: null, savedDigest: null, dirty: false, busy: false, canUndo: false, canRedo: false,
@@ -32,6 +36,7 @@ export class UnsupportedMotionArchiveError extends Error {
 export class MotionscaperDocumentSession {
 	readonly #store: MotionscaperProjectStore;
 	readonly #randomId: () => string;
+	readonly #nativeSave: MotionNativeSaveSession;
 	readonly #listeners = new Set<() => void>();
 	#history: MotionscaperHistory | null = null;
 	#snapshot = EMPTY_MOTION_DOCUMENT;
@@ -40,9 +45,10 @@ export class MotionscaperDocumentSession {
 	readonly #archiveReviews = new WeakMap<MotionArchiveReview, { input: ScapeProjectInput; project: MotionscaperProject | null; savedDigest: string | null }>();
 	readonly #acceptedReviews = new WeakMap<MotionArchiveReview, { receipt: MotionArchiveOpenReceipt; prior: MotionProjectWriteLease | null }>();
 	readonly #retiringLeases = new Set<MotionProjectWriteLease>();
+	readonly #nativeRecoveryLeases = new Map<string, MotionProjectWriteLease>();
 
 	constructor(store: MotionscaperProjectStore, randomId: () => string = () => crypto.randomUUID()) {
-		this.#store = store; this.#randomId = randomId;
+		this.#store = store; this.#randomId = randomId; this.#nativeSave = new MotionNativeSaveSession(store);
 	}
 	getSnapshot = (): MotionscaperDocumentSnapshot => this.#snapshot;
 	subscribe = (listener: () => void): (() => void) => {
@@ -53,12 +59,13 @@ export class MotionscaperDocumentSession {
 		this.#snapshot = Object.freeze({ ...this.#snapshot, ...this.#history?.snapshot(), ...values });
 		for (const listener of this.#listeners) listener();
 	}
-	async #run<T>(operation: () => Promise<T>): Promise<T> {
+	async #run<T>(operation: () => Promise<T>, resolveNative = false): Promise<T> {
 		if (this.#disposed) throw new MotionProjectLeaseError();
 		if (this.#snapshot.busy) throw new Error('Another motion document operation is still running.');
+		if (!resolveNative && (this.#nativeSave.pending || this.#snapshot.nativeSavePending || this.#nativeRecoveryLeases.size)) throw new Error('Retry Save or reopen its selected native file to resolve the interrupted Save before editing.');
 		this.#update({ busy: true });
 		try { return await operation(); }
-		finally { this.#update({ busy: false }); }
+		finally { this.#update({ busy: false, nativeSavePending: this.#nativeSave.pending || this.#snapshot.nativeSavePending === true || this.#nativeRecoveryLeases.size > 0 }); }
 	}
 	#requireProject(): MotionscaperProject {
 		const project = this.#history?.snapshot().project;
@@ -88,7 +95,16 @@ export class MotionscaperDocumentSession {
 		catch (error) { if (lease !== this.#lease) await this.#store.releaseWriteAccess(lease); throw error; }
 	}
 	async dispose(): Promise<void> {
-		if (this.#disposed) return; this.#disposed = true; this.#listeners.clear();
+		if (this.#disposed && this.#retiringLeases.size === 0) return;
+		for (const [id, recovery] of this.#nativeRecoveryLeases) {
+			if (await this.#store.loadNativeSave(id)) throw new Error('Reopen the selected native file to finish recovery before closing this session.');
+			await this.#store.releaseWriteAccess(recovery); this.#nativeRecoveryLeases.delete(id);
+		}
+		if (this.#nativeSave.pending) {
+			if (this.#snapshot.busy) throw new Error('Native Save is still settling; retry closing after its outcome is known.');
+			await this.#nativeSave.close(this.#requireLease());
+		}
+		this.#disposed = true; this.#listeners.clear();
 		const lease = this.#lease; this.#lease = null;
 		if (lease) this.#retiringLeases.add(lease);
 		for (const retiring of this.#retiringLeases) { await this.#store.releaseWriteAccess(retiring); this.#retiringLeases.delete(retiring); }
@@ -109,6 +125,7 @@ export class MotionscaperDocumentSession {
 				const project = recover ? await this.#store.loadRecovery(id) : saved?.project;
 				if (!project) throw new Error('The requested motion project is unavailable.');
 				await this.#adopt(project, saved?.digest ?? null, recover, lease);
+				this.#update({ nativeSavePending: await this.#store.loadNativeSave(id) !== null });
 			});
 		});
 	}
@@ -172,15 +189,36 @@ export class MotionscaperDocumentSession {
 			await this.#edit(commands, [imported]);
 		});
 	}
-	save(writeSnapshot?: (project: MotionscaperProject, assertCurrent: () => Promise<void>) => Promise<boolean>): Promise<void> {
+	save(writeSnapshot?: (project: MotionscaperProject, assertCurrent: () => Promise<void>) => Promise<boolean | MotionNativeSaveDriver | MotionNativeSaveRecoveryDriver>): Promise<void> {
 		return this.#run(async () => {
-			const project = this.#requireProject();
-			const lease = this.#requireLease(); await this.#store.assertWriteAccess(lease);
-			if (writeSnapshot && !await writeSnapshot(project, () => this.#store.assertWriteAccess(lease))) return;
-			const saved = await this.#store.save(project, this.#snapshot.savedDigest, lease);
-			this.#update({ savedDigest: saved.digest, dirty: false });
-		});
+			const project = this.#requireProject(), lease = this.#requireLease();
+			await this.#store.assertWriteAccess(lease);
+			if (this.#nativeSave.pending) {
+				const saved = await this.#nativeSave.retry(lease);
+				this.#update({ ...(saved ? { savedDigest: saved.digest, dirty: false } : {}), nativeSavePending: await this.#store.loadNativeSave(project.id) !== null }); return;
+			}
+			const recoveryRequired = this.#snapshot.nativeSavePending || this.#nativeRecoveryLeases.size > 0;
+			let output: boolean | MotionNativeSaveDriver | MotionNativeSaveRecoveryDriver = true;
+			try { if (writeSnapshot) output = await writeSnapshot(project, () => this.#store.assertWriteAccess(lease)); }
+			catch (error) { this.#nativeSave.rememberCleanup(error); throw error; }
+			if (output === false) return;
+			if (output !== true && output.kind === 'motion-native-save-recovery') {
+				await this.#finishNativeRecovery(output); return;
+			}
+			if (recoveryRequired) {
+				if (output !== true) {
+					const candidate = output, cleanup = async () => { await candidate.abort(); await candidate.acknowledge(); };
+					try { await cleanup(); }
+					catch (error) { const failure = new MotionNativeSaveCleanupError(error, cleanup); this.#nativeSave.rememberCleanup(failure); throw failure; }
+				}
+				throw new Error('Select the interrupted native Save destination to reconcile it before saving another file.');
+			}
+			const saved = output === true ? await this.#store.save(project, this.#snapshot.savedDigest, lease)
+				: await this.#nativeSave.start(project, this.#snapshot.savedDigest, lease, output);
+			this.#update({ savedDigest: saved.digest, dirty: false, nativeSavePending: false });
+		}, true);
 	}
+
 	#navigateHistory(direction: 'undo' | 'redo'): Promise<void> {
 		return this.#run(async () => {
 			const transition = direction === 'undo' ? this.#history?.prepareUndo() : this.#history?.prepareRedo();
@@ -192,8 +230,14 @@ export class MotionscaperDocumentSession {
 	undo(): Promise<void> { return this.#navigateHistory('undo'); }
 	redo(): Promise<void> { return this.#navigateHistory('redo'); }
 
-	exportSnapshot(writeSnapshot: (project: MotionscaperProject) => Promise<void>): Promise<void> {
-		return this.#run(() => writeSnapshot(this.#requireProject()));
+	exportSnapshot(writeSnapshot: (project: MotionscaperProject) => Promise<void | MotionNativeSaveRecoveryDriver>): Promise<void> {
+		return this.#run(async () => {
+			try {
+				const recovery = await writeSnapshot(this.#requireProject());
+				if (recovery) await this.#finishNativeRecovery(recovery);
+			}
+			catch (error) { this.#nativeSave.rememberCleanup(error); throw error; }
+		});
 	}
 	saveCopy(): Promise<Readonly<{ blob: Blob; fileName: string }>> {
 		return this.#run(async () => {
@@ -205,16 +249,40 @@ export class MotionscaperDocumentSession {
 			return Object.freeze({ blob, fileName });
 		});
 	}
-	inspectArchive(input: ScapeProjectInput): Promise<MotionArchiveReview> {
+	inspectArchive(input: ScapeProjectInput, recoveredPublication?: MotionRecoveredPublication): Promise<MotionArchiveReview> {
 		return this.#run(async () => {
+			if (recoveredPublication) await this.#reconcileNativeOpen(recoveredPublication);
 			const { inspectMotionArchive } = await import('./editor-document-import.ts');
 			const incoming = await inspectMotionArchive(input); if (!incoming) throw new UnsupportedMotionArchiveError();
 			const existing = await this.#store.inspectImport(incoming.id);
 			const review: MotionArchiveReview = Object.freeze({ incoming, incomingDigest: createMotionscaperRevision(incoming).digest,
 				existing: existing ? Object.freeze({ ...existing, active: this.#snapshot.project?.id === incoming.id }) : null });
 			this.#archiveReviews.set(review, { input, project: this.#snapshot.project, savedDigest: this.#snapshot.savedDigest }); return review;
-		});
+		}, recoveredPublication !== undefined);
 	}
+	reconcileNativeSave(receipt: MotionRecoveredPublication): Promise<void> { return this.#run(() => this.#reconcileNativeOpen(receipt), true); }
+	async #finishNativeRecovery(recovery: MotionNativeSaveRecoveryDriver): Promise<void> {
+		await this.#reconcileNativeOpen(recovery.receipt);
+		try { await recovery.acknowledge(); }
+		catch (error) { const failure = new MotionNativeSaveCleanupError(error, () => recovery.acknowledge()); this.#nativeSave.rememberCleanup(failure); throw failure; }
+	}
+	async #reconcileNativeOpen(receipt: MotionRecoveredPublication): Promise<void> {
+		const record = await this.#nativeSave.recovery(receipt);
+		let lease = record ? this.#lease?.projectId === record.projectId ? this.#lease : this.#nativeRecoveryLeases.get(record.projectId) : undefined;
+		if (record && !lease) { lease = await this.#store.acquireWriteAccess(record.projectId); this.#nativeRecoveryLeases.set(record.projectId, lease); }
+		const saved = await this.#nativeSave.reconcile(record, receipt, lease);
+		if (saved && this.#snapshot.project?.id === saved.projectId) {
+			if (createMotionscaperRevision(this.#snapshot.project).digest !== saved.digest) this.#history = createMotionscaperHistory(saved.project);
+			this.#update({ savedDigest: saved.digest, dirty: false });
+		}
+		for (const [id, recovery] of this.#nativeRecoveryLeases) {
+			if (await this.#store.loadNativeSave(id)) continue;
+			await this.#store.releaseWriteAccess(recovery); this.#nativeRecoveryLeases.delete(id);
+		}
+		const project = this.#snapshot.project;
+		this.#update({ nativeSavePending: this.#nativeSave.pending || this.#nativeRecoveryLeases.size > 0 || (project ? await this.#store.loadNativeSave(project.id) !== null : false) });
+	}
+
 	openArchive(review: MotionArchiveReview, action: MotionArchiveOpenAction): Promise<MotionArchiveOpenReceipt> {
 		return this.#run(async () => {
 			const held = this.#archiveReviews.get(review);

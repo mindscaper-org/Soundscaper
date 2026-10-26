@@ -86,7 +86,9 @@ test('M02 upgrading the original Motion database adds private fences without cha
 	await transact(original, ['projects', 'revisions'], 'readwrite', async stores => { await request(stores.projects.put(marker)); await request(stores.revisions.put(revision)); }); original.close();
 	const upgraded = await openMotionProjectDatabase(indexedDB, 'kw-media-motionscaper-editor-v1');
 	try {
-		assert.equal(upgraded.version, 2); assert.equal(upgraded.objectStoreNames.contains('writeLeases'), true);
+		assert.equal(upgraded.version, 3); assert.equal(upgraded.objectStoreNames.contains('writeLeases'), true);
+		assert.equal(upgraded.objectStoreNames.contains('nativeSaves'), true);
+		assert.equal(await transact(upgraded, ['nativeSaves'], 'readonly', stores => request(stores.nativeSaves.count())), 0);
 		assert.deepEqual(await transact(upgraded, ['projects'], 'readonly', stores => request(stores.projects.get('legacy'))), marker);
 		assert.deepEqual(await transact(upgraded, ['revisions'], 'readonly', stores => request(stores.revisions.get(revision.key))), revision);
 	} finally { upgraded.close(); }
@@ -103,6 +105,33 @@ test('M02 refused and interrupted claims leave no project or orphan writer visib
 		assert.equal(indexedDB.recordCount('kw-media-motionscaper-editor-v1', 'writeLeases'), 0);
 		assert.equal(indexedDB.recordCount('kw-media-motionscaper-editor-v1', 'projects'), 0);
 	} finally { await store.close(); }
+});
+
+test('M02 native Save journal upgrade preserves version-two saved data and write fences', async () => {
+	const indexedDB = createInstrumentedIndexedDB() as unknown as IDBFactory;
+	const original = await new Promise<IDBDatabase>((resolve, reject) => {
+		const opening = indexedDB.open('kw-media-motionscaper-editor-v1', 2);
+		opening.onupgradeneeded = () => {
+			for (const name of ['projects', 'revisions', 'assets', 'chunks', 'staging', 'writeLeases']) {
+				opening.result.createObjectStore(name, { keyPath: name === 'projects' || name === 'writeLeases' ? 'id' : 'key' });
+			}
+		}; opening.onerror = () => reject(opening.error); opening.onsuccess = () => resolve(opening.result);
+	});
+	const project = createMotionscaperProject({ ...settings, id: 'version-two', compositionId: 'main' }), snapshot = createMotionscaperRevision(project);
+	const pointer = { id: project.id, savedDigest: snapshot.digest, savedTitle: project.title, savedRevision: 0, recovery: null };
+	const revision = { key: `${project.id}:${snapshot.digest}`, projectId: project.id, snapshot };
+	const lease = { id: project.id, token: 'retained-lease', expiresAt: 123456 };
+	await transact(original, ['projects', 'revisions', 'writeLeases'], 'readwrite', async stores => {
+		await request(stores.projects.put(pointer)); await request(stores.revisions.put(revision)); await request(stores.writeLeases.put(lease));
+	}); original.close();
+	const upgraded = await openMotionProjectDatabase(indexedDB, 'kw-media-motionscaper-editor-v1');
+	try {
+		assert.equal(upgraded.version, 3);
+		assert.deepEqual(await transact(upgraded, ['projects'], 'readonly', stores => request(stores.projects.get(project.id))), pointer);
+		assert.deepEqual(await transact(upgraded, ['revisions'], 'readonly', stores => request(stores.revisions.get(revision.key))), revision);
+		assert.deepEqual(await transact(upgraded, ['writeLeases'], 'readonly', stores => request(stores.writeLeases.get(project.id))), lease);
+		assert.equal(await transact(upgraded, ['nativeSaves'], 'readonly', stores => request(stores.nativeSaves.count())), 0);
+	} finally { upgraded.close(); }
 });
 
 test('Motion failed durable lease deletion retains cleanup ownership and retries without enabling stale writes', async () => {

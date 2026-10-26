@@ -20,6 +20,7 @@ type Stores = Readonly<Record<string, IDBObjectStore>>;
 export interface MotionProjectLeaseOptions {
 	readonly database: () => Promise<IDBDatabase>; readonly physicalLocks: boolean;
 	readonly now?: () => number;
+	readonly canAcquire?: () => boolean;
 }
 
 /** Physical leases give live-tab exclusion; transactionally checked tokens fence delayed writes after loss. */
@@ -29,14 +30,16 @@ export class MotionProjectWriteLeases {
 	readonly #claims = new Set<Promise<MotionProjectWriteLease>>();
 	constructor(options: MotionProjectLeaseOptions) { this.#options = options; }
 	#now(): number { return motionInteger((this.#options.now ?? Date.now)(), 'lease clock'); }
+	#canAcquire(): boolean { return !this.#closed && this.#options.canAcquire?.() !== false; }
 	async acquire(projectId: string): Promise<MotionProjectWriteLease> {
-		motionId(projectId); if (this.#closed) throw new MotionProjectLeaseError();
+		motionId(projectId); if (!this.#canAcquire()) throw new MotionProjectLeaseError();
 		// A setup/import writer may be transferred once into an owning document session.
 		const prior = this.#defaults.get(projectId);
 		if (prior) { this.#defaults.delete(projectId); return prior; }
 		return this.#startClaim(projectId);
 	}
 	defaultLease(projectId: string): Promise<MotionProjectWriteLease> {
+		if (!this.#canAcquire()) return Promise.reject(new MotionProjectLeaseError());
 		let value = this.#defaults.get(projectId);
 		if (!value) {
 			value = this.#startClaim(projectId); this.#defaults.set(projectId, value);
@@ -49,7 +52,7 @@ export class MotionProjectWriteLeases {
 		void claim.then(() => this.#claims.delete(claim), () => this.#claims.delete(claim)); return claim;
 	}
 	async #claim(projectId: string): Promise<MotionProjectWriteLease> {
-		motionId(projectId); if (this.#closed) throw new MotionProjectLeaseError();
+		motionId(projectId); if (!this.#canAcquire()) throw new MotionProjectLeaseError();
 		const physical: PhysicalLease | null = this.#options.physicalLocks
 			? await acquireProjectLock(projectId, { projectStorageProfile: MOTIONSCAPER_PROJECT_STORAGE_PROFILE }) : null;
 		if (physical?.readOnly) { physical.release(); await physical.finished; throw new MotionProjectLeaseError(); }
@@ -61,11 +64,11 @@ export class MotionProjectWriteLeases {
 			await transact(database, [MOTION_PROJECT_LEASE_STORE], 'readwrite', async stores => {
 				const prior: unknown = await request(stores[MOTION_PROJECT_LEASE_STORE]!.get(projectId));
 				if (prior !== undefined && physical?.method !== 'navigator-locks' && read(prior, projectId).expiresAt > this.#now()) throw new MotionProjectLeaseError();
-				if (this.#closed || !held.active) throw new MotionProjectLeaseError();
+				if (!this.#canAcquire() || !held.active) throw new MotionProjectLeaseError();
 				await request(stores[MOTION_PROJECT_LEASE_STORE]!.put({ id: projectId, token: lease.token, expiresAt: this.#now() + DURATION } satisfies LeaseRecord));
 			});
 			this.#held.set(lease, held);
-			if (this.#closed || !held.active) throw new MotionProjectLeaseError();
+			if (!this.#canAcquire() || !held.active) throw new MotionProjectLeaseError();
 			held.timer = setInterval(() => { void this.#renew(held).catch(() => this.#lose(held)); }, HEARTBEAT);
 			return lease;
 		} catch (error) {

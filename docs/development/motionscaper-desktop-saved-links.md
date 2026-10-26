@@ -25,6 +25,12 @@ retains the previous inode while a new descriptor reads the saved replacement.
 Missing files, symlinks or a changed containing directory cannot silently extend
 the original selection's authority.
 
+The writer's [native Save publication protocol](motionscaper-native-save-publication.md)
+keeps its complete candidate fenced until native preparation and the local
+saved-head reservation succeed. Discovery observes publication phase as well as
+file replacement, preserving the accepted link through rejected Saves and
+retryable reconciliation.
+
 The native authority admits eight selected files, sixteen pinned descriptors,
 64 GiB per archive and 4 MiB per read. The shared archive adapter validates
 bounded ZIP structure, the project digest, the exact Motion asset descriptor
@@ -41,6 +47,12 @@ private receive, waits for its cleanup and cancels the watch. Cleanup failures
 remain visible and cancellation can be retried. A completed owner publication
 is not undone by a later cancellation; post-publication cleanup errors carry
 the accepted receipt.
+
+The first successful receive pins its project and composition identity until
+Disconnect or a new connection. Changing the Motion project's primary
+composition does not retarget an established link; compatible saved edits keep
+updating the pinned composition. A failed initial receive does not establish
+that identity.
 
 Build and qualify the isolated development application with:
 

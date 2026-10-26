@@ -11,7 +11,7 @@ export default function MotionscaperWorkspace({ copy, document }: {
 		<h2 id="motion-workspace-title">{copy.workspaceMotion}</h2>
 		{document.project && composition ? <>
 			<h3 data-motion-project-title>{document.project.title}</h3>
-			<p data-motion-save-status role="status">{document.busy ? copy.motionscaperWorking
+			<p data-motion-save-status role="status">{document.busy || document.nativeSavePending ? copy.motionscaperWorking
 				: document.dirty ? copy.motionscaperUnsaved : copy.motionscaperSaved}</p>
 			<dl>
 				<dt>{copy.motionscaperProjectDimensions}</dt><dd>{composition.width} × {composition.height}</dd>

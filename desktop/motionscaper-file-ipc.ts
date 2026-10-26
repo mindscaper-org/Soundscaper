@@ -8,8 +8,15 @@ export async function dispatchMotionscaperFileCall(files: MotionDesktopFiles, me
 		const value = record(payload, ['token', 'offset', 'length']);
 		return files.read({ token: text(value.token), offset: number(value.offset), length: number(value.length) });
 	}
-	if (method === 'release' || method === 'cancel') {
-		const value = record(payload, ['token']); return files[method]({ token: text(value.token) });
+	if (method === 'release') {
+		const value = record(payload, ['token'], ['acknowledgeRecovery']);
+		if (value.acknowledgeRecovery !== undefined && typeof value.acknowledgeRecovery !== 'boolean') throw new TypeError('Invalid Motionscaper recovery acknowledgement flag.');
+		return files.release({ token: text(value.token), ...(value.acknowledgeRecovery === undefined ? {} : { acknowledgeRecovery: value.acknowledgeRecovery }) });
+	}
+	if (method === 'cancel') {
+		const value = record(payload, ['token'], ['acknowledge']);
+		if (value.acknowledge !== undefined && typeof value.acknowledge !== 'boolean') throw new TypeError('Invalid Motionscaper acknowledgement flag.');
+		return files.cancel({ token: text(value.token), ...(value.acknowledge === undefined ? {} : { acknowledge: value.acknowledge }) });
 	}
 	if (method === 'bindOpened') {
 		const value = record(payload, ['token', 'projectId']); return files.bindOpened({ token: text(value.token), projectId: text(value.projectId) });
@@ -27,8 +34,9 @@ export async function dispatchMotionscaperFileCall(files: MotionDesktopFiles, me
 		return files.write({ token: text(value.token), offset: number(value.offset), bytes: value.bytes });
 	}
 	if (method === 'commit') {
-		const value = record(payload, ['token', 'byteLength']);
-		return files.commit({ token: text(value.token), byteLength: number(value.byteLength) });
+		const value = record(payload, ['token', 'byteLength'], ['phase']);
+		if (value.phase !== undefined && value.phase !== 'prepare' && value.phase !== 'publish' && value.phase !== 'status') throw new TypeError('Invalid Motionscaper commit phase.');
+		return files.commit({ token: text(value.token), byteLength: number(value.byteLength), ...(value.phase === undefined ? {} : { phase: value.phase }) });
 	}
 	throw new TypeError('Unknown Motionscaper file method.');
 }

@@ -1,15 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { randomUUID, createHash, type Hash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, open, rename, rm, type FileHandle } from 'node:fs/promises';
-import { basename, dirname, extname, isAbsolute, join } from 'node:path';
-import { MOTIONSCAPER_FILE_CHUNK_BYTES, type MotionDesktopFiles, type MotionOpenFileCapability } from '../src/motionscaper/desktop-file-contract.ts';
+import { lstat, open, rm, type FileHandle } from 'node:fs/promises';
+import { basename, extname, isAbsolute } from 'node:path';
+import { MOTIONSCAPER_FILE_CHUNK_BYTES, type MotionDesktopFiles, type MotionOpenFileCapability, type MotionRecoveredPublication, type MotionSaveFileReceipt } from '../src/motionscaper/desktop-file-contract.ts';
 import { withProjectFileExtension } from '../src/common/project-file-extensions.ts';
+import { acknowledgeMotionSaveRecovery, createMotionSavePublication, recoverMotionSavePublication, type MotionSavePublication, type MotionSavePublicationOptions } from './motion-save-publication.ts';
+import { assertMotionSaveDirectory, captureMotionSaveDirectory, motionSaveTemporaryPath, readMotionSaveJournal, sameMotionSaveFile, type MotionSaveDirectoryIdentity } from './motion-save-publication-journal.ts';
+import { MOTION_SAVED_FILE_MAXIMUM_BYTES } from '../src/common/editor/motion-saved-file-contract.ts';
 
 interface Fingerprint { readonly dev: number; readonly ino: number; readonly size: number; readonly mtimeMs: number; readonly ctimeMs: number }
 interface Binding { readonly path: string; readonly fingerprint: Fingerprint | null }
-interface ReadCapability extends Binding { readonly file: FileHandle; readonly fingerprint: Fingerprint; busy: boolean }
-interface WriteCapability extends Binding { readonly projectId: string; readonly saveCopy: boolean; readonly temporary: string; readonly file: FileHandle; readonly digest: Hash; bytes: number; busy: boolean; failed: boolean; closed: boolean }
+interface ReadCapability extends Binding { readonly file: FileHandle; readonly fingerprint: Fingerprint; readonly parent: MotionSaveDirectoryIdentity; readonly recoveredPublication?: MotionRecoveredPublication; busy: boolean }
+interface WriteCapability extends Binding { readonly projectId: string; readonly saveCopy: boolean; readonly transactionId: string; readonly parent: MotionSaveDirectoryIdentity; readonly temporary: string; readonly file: FileHandle; readonly digest: Hash; publication?: MotionSavePublication; flight?: Promise<void>; bytes: number; busy: boolean; failed: boolean; closed: boolean }
+interface RecoveryCapability { readonly path: string; readonly parent: MotionSaveDirectoryIdentity; readonly projectId: string; readonly recoveredPublication: MotionRecoveredPublication; busy: boolean }
 export interface MotionFileDialogs {
 	chooseOpen(): Promise<string | null>;
 	chooseSave(options: { readonly suggestedName: string; readonly defaultPath?: string }): Promise<string | null>;
@@ -22,26 +26,65 @@ export interface MotionFileAuthority extends MotionDesktopFiles {
 }
 
 /** Capabilities live only in this main-process instance; no path crosses the renderer bridge. */
-export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs): MotionFileAuthority {
+export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs, options: MotionSavePublicationOptions = {}): MotionFileAuthority {
 	const readers = new Map<string, ReadCapability>();
 	const writers = new Map<string, WriteCapability>();
+	const recoveries = new Map<string, RecoveryCapability>(), recoveryTokens = new Set<string>();
 	const bindings = new Map<string, Binding>();
 	const saving = new Set<string>();
+	const completed = new Map<string, MotionSaveFileReceipt | null>();
+	const released = new Set<string>();
 	let disposed = false; let opening = 0;
 	const active = () => { if (disposed) throw new Error('Motionscaper file authority is closed.'); };
 	function reader(token: string): ReadCapability { active(); const value = readers.get(token); if (!value) throw new Error('Unknown Motionscaper read capability.'); return value; }
 	function writer(token: string): WriteCapability { active(); const value = writers.get(token); if (!value) throw new Error('Unknown Motionscaper write capability.'); return value; }
+	function beginOperation(value: WriteCapability): () => void {
+		value.busy = true; let release!: () => void;
+		value.flight = new Promise<void>(resolve => { release = resolve; });
+		return () => { value.busy = false; delete value.flight; release(); };
+	}
+	function remember(token: string, receipt: MotionSaveFileReceipt | null): void {
+		completed.set(token, receipt);
+		while (completed.size > 256) { const retired = completed.keys().next().value!; completed.delete(retired); recoveryTokens.delete(retired); }
+	}
+	async function settleRecovered(path: string, recovered: MotionRecoveredPublication): Promise<void> {
+		for (const [token, value] of writers) if (value.path === path && value.transactionId === recovered.transactionId) {
+			if (value.busy) throw new Error('The recovered Motion Save still has an active operation.');
+			if (!value.closed) { await value.file.close(); value.closed = true; }
+			remember(token, { name: basename(path), ...recovered }); writers.delete(token); saving.delete(value.projectId);
+		}
+		for (const [token, value] of recoveries) if (value.path === path && value.recoveredPublication.transactionId === recovered.transactionId) {
+			remember(token, { name: basename(path), ...recovered }); recoveries.delete(token); saving.delete(value.projectId);
+		}
+	}
+	async function recoveryStatus(value: RecoveryCapability): Promise<MotionSaveFileReceipt> {
+		await assertMotionSaveDirectory(value.path, value.parent);
+		const current = await readMotionSaveJournal(value.path), expected = value.recoveredPublication;
+		if (current && (current.journal.projectId !== value.projectId || current.journal.transactionId !== expected.transactionId || current.journal.phase !== expected.publication ||
+			current.journal.sha256 !== expected.sha256 || current.journal.candidate.size !== expected.byteLength)) throw new Error('Motion Save recovery transaction ownership changed.');
+		return { name: basename(value.path), ...expected };
+	}
 	async function acquireRead(choosePath: () => Promise<string | null>): Promise<MotionOpenFileCapability | null> {
 		active(); if (readers.size + opening >= 16) throw new RangeError('Too many open Motionscaper file capabilities.');
 		opening += 1;
 		try {
 			const path = await choosePath(); if (path === null) return null; active();
+			if (!isAbsolute(path)) throw new TypeError('A native Motionscaper dialog must select an absolute path.');
+			const idleWriter = [...writers.values()].find(value => value.path === path);
+			if (idleWriter && (idleWriter.busy || !idleWriter.publication)) throw new Error('A Motionscaper Save is active for this selected archive.');
+			if (idleWriter && !idleWriter.closed) { await idleWriter.file.close(); idleWriter.closed = true; }
+			const parent = await captureMotionSaveDirectory(path), priorJournal = await readMotionSaveJournal(path);
+			const recoveredPublication = await recoverMotionSavePublication(path, options, parent);
+			await assertMotionSaveDirectory(path, parent);
 			const fingerprint = await requireFile(path);
+			const bound = idleWriter ? bindings.get(idleWriter.projectId) : undefined;
+			if (idleWriter && recoveredPublication?.publication === 'rolled-back' && bound?.path === path &&
+				(sameMotionSaveFile(priorJournal?.journal.backup, fingerprint) || sameMotionSaveFile(priorJournal?.journal.previous, fingerprint))) bindings.set(idleWriter.projectId, { path, fingerprint });
 			const file = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
 			try {
 				assertFingerprint(fingerprint, fingerprintOf(await file.stat())); active();
-				const token = randomUUID(); readers.set(token, { path, fingerprint, file, busy: false });
-				return { token, name: basename(path), byteLength: fingerprint.size };
+				const token = randomUUID(); readers.set(token, { path, parent, fingerprint, file, busy: false, ...(recoveredPublication ? { recoveredPublication } : {}) });
+				return { token, name: basename(path), byteLength: fingerprint.size, ...(recoveredPublication ? { recoveredPublication } : {}) };
 			} catch (error) { await file.close(); throw error; }
 		} finally { opening -= 1; }
 	}
@@ -72,50 +115,100 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs): Mot
 				assertFingerprint(value.fingerprint, fingerprintOf(await value.file.stat())); return bytes;
 			} finally { value.busy = false; }
 		},
-		async release({ token }) { const value = reader(token); await value.file.close(); readers.delete(token); },
+		async release({ token, acknowledgeRecovery = false }) {
+			active(); if (typeof acknowledgeRecovery !== 'boolean') throw new TypeError('Invalid Motion Save recovery acknowledgement flag.');
+			if (released.has(token)) return;
+			const value = reader(token);
+			if (acknowledgeRecovery) {
+				if (!value.recoveredPublication) throw new Error('This read capability has no recovered Motion Save to acknowledge.');
+				await acknowledgeMotionSaveRecovery(value.path, value.recoveredPublication.transactionId, value.parent, options);
+				await settleRecovered(value.path, value.recoveredPublication);
+			}
+			await value.file.close(); readers.delete(token); released.add(token);
+			while (released.size > 256) released.delete(released.values().next().value!);
+		},
 		async bindOpened({ token, projectId }) {
 			const value = reader(token); identity(projectId);
 			if (!bindings.has(projectId) && bindings.size >= 256) throw new RangeError('Too many Motionscaper file bindings.');
-			if (saving.has(projectId)) throw new Error('A Motionscaper save for this project is already active.');
+			const recoveryId = value.recoveredPublication?.transactionId;
+			const ownsRecovery = recoveryId && ([...writers.values()].some(writer => writer.projectId === projectId && writer.path === value.path && writer.transactionId === recoveryId)
+				|| [...recoveries.values()].some(recovery => recovery.projectId === projectId && recovery.path === value.path && recovery.recoveredPublication.transactionId === recoveryId));
+			if (saving.has(projectId) && !ownsRecovery) throw new Error('A Motionscaper save for this project is already active.');
 			assertFingerprint(value.fingerprint, await requireFile(value.path));
+			if (value.recoveredPublication) {
+				await acknowledgeMotionSaveRecovery(value.path, value.recoveredPublication.transactionId, value.parent, options);
+				await settleRecovered(value.path, value.recoveredPublication);
+			}
 			bindings.set(projectId, { path: value.path, fingerprint: value.fingerprint });
 		},
 		async beginSave({ projectId, suggestedName, saveAs, saveCopy = false }) {
 			active(); identity(projectId);
-			if (!saveCopy && !bindings.has(projectId) && bindings.size >= 256) throw new RangeError('Too many Motionscaper file bindings.');
 			if (typeof saveAs !== 'boolean' || typeof suggestedName !== 'string' || suggestedName.length > 512) throw new TypeError('Motionscaper Save requires a bounded name and saveAs boolean.');
 			if (typeof saveCopy !== 'boolean' || saveCopy && !saveAs) throw new TypeError('Motionscaper Save Copy requires saveAs and a boolean saveCopy flag.');
-			if (saving.has(projectId) || saving.size >= 4) throw new Error('A Motionscaper save is already active.');
+			const wasSaving = saving.has(projectId), ownWriter = [...writers.values()].find(value => value.projectId === projectId);
+			if (wasSaving && ![...recoveries.values()].some(value => value.projectId === projectId) && (!ownWriter?.publication || ownWriter.busy) || !wasSaving && saving.size >= 4) throw new Error('A Motionscaper save is already active.');
 			saving.add(projectId);
+			let retained = wasSaving;
 			try {
 				const bound = bindings.get(projectId);
-				let path: string; let fingerprint: Fingerprint | null;
-				if (!saveAs && bound && extname(bound.path).toLowerCase() === '.mscape') { path = bound.path; fingerprint = await optionalFile(path); assertFingerprint(bound.fingerprint, fingerprint); }
+				let path: string;
+				const useBinding = !saveAs && bound && extname(bound.path).toLowerCase() === '.mscape';
+				if (useBinding) path = bound.path;
 				else {
 					const chosen = await dialogs.chooseSave({ suggestedName: safeName(suggestedName), ...(bound && !saveCopy ? { defaultPath: withProjectFileExtension(bound.path, '.mscape') } : {}) });
-					if (chosen === null) { saving.delete(projectId); return null; }
+					if (chosen === null) { if (!wasSaving) saving.delete(projectId); return null; }
 					if (!isAbsolute(chosen) || extname(chosen).toLowerCase() !== '.mscape') throw new TypeError('Choose a Motionscaper .mscape destination.');
-					path = chosen; fingerprint = await optionalFile(path);
+					path = chosen;
 				}
+				const parent = await captureMotionSaveDirectory(path), pending = await readMotionSaveJournal(path);
+				if (pending) {
+					if (pending.journal.projectId !== projectId) throw new Error('The selected native Save recovery belongs to another project.');
+					const idle = [...writers.values()].find(value => value.path === path);
+					if (idle && (idle.busy || !idle.publication || idle.transactionId !== pending.journal.transactionId)) throw new Error('A pending Motion Save still owns this destination.');
+					if (idle && !idle.closed) { await idle.file.close(); idle.closed = true; }
+					const recoveredPublication = await recoverMotionSavePublication(path, options, parent);
+					if (!recoveredPublication) throw new Error('The selected native Save recovery disappeared.');
+					if (idle && recoveredPublication.publication === 'rolled-back' && bound?.path === path) {
+						// Refresh only our known rollback inode; current archive admission belongs to the next ordinary Save.
+						const restored = await optionalFile(path).catch(() => null);
+						if (restored && (sameMotionSaveFile(pending.journal.backup, restored) || sameMotionSaveFile(pending.journal.previous, restored))) bindings.set(projectId, { path, fingerprint: restored });
+					}
+					const existing = [...recoveries.entries()].find(([, value]) => value.path === path && value.projectId === projectId && value.recoveredPublication.transactionId === recoveredPublication.transactionId);
+					if (existing) {
+						if (JSON.stringify(existing[1].recoveredPublication) !== JSON.stringify(recoveredPublication)) throw new Error('The native Save recovery outcome changed.');
+						return { token: existing[0], recoveredPublication };
+					}
+					if (recoveries.size >= 4) throw new Error('Finish a pending native Save recovery before selecting another.');
+					const token = randomUUID(); recoveries.set(token, { path, parent, projectId, recoveredPublication, busy: false }); recoveryTokens.add(token); retained = true;
+					return { token, recoveredPublication };
+				}
+				if (wasSaving) throw new Error('Finish the active Motion Save recovery before starting another Save.');
+				if (!saveCopy && !bindings.has(projectId) && bindings.size >= 256) throw new RangeError('Too many Motionscaper file bindings.');
+				const fingerprint = await optionalFile(path); if (useBinding) assertFingerprint(bound.fingerprint, fingerprint);
 				if (saveCopy && bound && (path === bound.path || fingerprint && bound.fingerprint
 					&& fingerprint.dev === bound.fingerprint.dev && fingerprint.ino === bound.fingerprint.ino)) throw new Error('Save Copy requires an independent destination.');
 				if (saveCopy && [...readers.values()].some(value => path === value.path || fingerprint
 					&& fingerprint.dev === value.fingerprint.dev && fingerprint.ino === value.fingerprint.ino)) throw new Error('Save Copy requires an independent destination from every retained open archive.');
+				if ([...writers.values()].some(value => value.path === path) || await readMotionSaveJournal(path)) throw new Error('A pending Motionscaper Save owns this destination; finish or recover it first.');
 				active();
-				const temporary = join(dirname(path), `.${basename(path)}.motionscaper-${randomUUID()}.tmp`);
+				const transactionId = randomUUID(), temporary = motionSaveTemporaryPath(path, transactionId);
 				const file = await open(temporary, 'wx', 0o600);
+				try { await assertMotionSaveDirectory(path, parent); } catch (error) { await file.close(); throw error; }
 				if (disposed) { await file.close(); await rm(temporary, { force: true }); active(); }
-				const token = randomUUID(); writers.set(token, { path, fingerprint, projectId, saveCopy, temporary, file, digest: createHash('sha256'), bytes: 0, busy: false, failed: false, closed: false });
+				const token = randomUUID(); writers.set(token, { path, parent, fingerprint, projectId, saveCopy, transactionId, temporary, file, digest: createHash('sha256'), bytes: 0, busy: false, failed: false, closed: false });
+				retained = true;
 				return { token };
-			} catch (error) { saving.delete(projectId); throw error; }
+			} catch (error) { if (!retained) saving.delete(projectId); throw error; }
 		},
 		async write({ token, offset, bytes }) {
+			if (recoveryTokens.has(token)) throw new Error('A native Save recovery capability cannot write archive bytes.');
 			const value = writer(token); integer(offset, 'write offset');
 			if (offset !== value.bytes) throw new RangeError('Motionscaper write offset must follow the last committed chunk.');
 			if (!(bytes instanceof Uint8Array) || bytes.byteLength < 1 || bytes.byteLength > MOTIONSCAPER_FILE_CHUNK_BYTES) throw new RangeError('Motionscaper write chunk exceeds its bounded capability.');
-			if (value.busy || value.failed) throw new Error('Motionscaper write capability is busy or failed.');
+			if (offset > MOTION_SAVED_FILE_MAXIMUM_BYTES - bytes.byteLength) throw new RangeError('Motionscaper archive exceeds its 64 GiB file admission.');
+			if (value.busy || value.failed || value.closed) throw new Error('Motionscaper write capability is busy, failed or closed.');
 			const chunk = new Uint8Array(bytes);
-			value.busy = true;
+			const finish = beginOperation(value);
 			try {
 				let written = 0;
 				while (written < chunk.byteLength) {
@@ -125,39 +218,92 @@ export function createMotionscaperFileAuthority(dialogs: MotionFileDialogs): Mot
 				}
 				value.digest.update(chunk); value.bytes += chunk.byteLength;
 			} catch (error) { value.failed = true; throw error; }
-			finally { value.busy = false; }
+			finally { finish(); }
 		},
-		async commit({ token, byteLength }) {
+		async commit({ token, byteLength, phase }) {
+			active();
+			if (phase !== undefined && phase !== 'prepare' && phase !== 'publish' && phase !== 'status') throw new TypeError('Invalid Motionscaper commit phase.');
+			if (recoveryTokens.has(token)) {
+				if (phase !== 'status') throw new Error('A native Save recovery capability permits only status and acknowledgement.');
+				const recovery = recoveries.get(token), receipt = recovery ? await recoveryStatus(recovery) : completed.get(token);
+				if (!receipt || receipt.byteLength !== byteLength) throw new Error('The native Save recovery receipt does not match this request.');
+				return receipt;
+			}
+			const prior = completed.get(token);
+			if (phase && prior) {
+				if (prior.byteLength !== byteLength || phase === 'publish' && prior.publication !== 'published') throw new Error('Motion Save completed receipt does not authorize this request.');
+				return prior;
+			}
 			const value = writer(token); integer(byteLength, 'archive byte length');
 			if (byteLength < 1 || value.bytes !== byteLength || value.busy || value.failed) throw new RangeError('Motionscaper archive is incomplete or its write capability failed.');
-			value.busy = true;
+			const finish = beginOperation(value);
 			try {
-				assertFingerprint(value.fingerprint, await optionalFile(value.path));
-				await value.file.sync(); await value.file.close(); value.closed = true;
-				await rename(value.temporary, value.path);
-				await syncDirectory(dirname(value.path));
-				const fingerprint = await requireFile(value.path);
-				if (!value.saveCopy) bindings.set(value.projectId, { path: value.path, fingerprint });
-				writers.delete(token); saving.delete(value.projectId);
-				return { name: basename(value.path), byteLength, sha256: value.digest.digest('hex') };
-			} catch (error) { value.failed = true; throw error; }
-			finally { value.busy = false; }
+				value.publication ??= createMotionSavePublication({ path: value.path, parent: value.parent, temporary: value.temporary, file: value.file, expected: value.fingerprint,
+					projectId: value.projectId, transactionId: value.transactionId, byteLength, sha256: value.digest.copy().digest('hex'), ...options,
+					async close() { if (!value.closed) { await value.file.close(); value.closed = true; } },
+				});
+				if (phase === 'status') return await value.publication.status();
+				if (phase === 'prepare') return await value.publication.prepare();
+				if (phase === undefined) await value.publication.prepare();
+				const receipt = await value.publication.publish();
+				// Preparation already verified this identity; binding observation after publication cannot revoke the saved outcome.
+				if (!value.saveCopy) {
+					try {
+						const current = await readMotionSaveJournal(value.path), fingerprint = await requireFile(value.path);
+						if (current?.journal.transactionId !== value.transactionId || !sameMotionSaveFile(current.journal.candidate, fingerprint)) throw new Error('The published Motion Save destination changed before binding.');
+						bindings.set(value.projectId, { path: value.path, fingerprint });
+					}
+					catch (error) { return { ...receipt, cleanupError: error instanceof Error ? error.message : String(error) }; }
+				}
+				if (phase === undefined) {
+					await value.publication.abort(true); writers.delete(token); saving.delete(value.projectId); remember(token, receipt);
+				}
+				return receipt;
+			} finally { finish(); }
 		},
-		async cancel({ token }) {
+		async cancel({ token, acknowledge = false }) {
+			active();
+			if (typeof acknowledge !== 'boolean') throw new TypeError('Invalid Motionscaper acknowledgement flag.');
+			if (completed.has(token)) return;
+			const recovery = recoveries.get(token);
+			if (recovery) {
+				if (recovery.busy) throw new Error('Native Save recovery acknowledgement is already active.');
+				if (!acknowledge) { await recoveryStatus(recovery); return; }
+				recovery.busy = true;
+				try {
+					await recoveryStatus(recovery); await acknowledgeMotionSaveRecovery(recovery.path, recovery.recoveredPublication.transactionId, recovery.parent, options);
+					await settleRecovered(recovery.path, recovery.recoveredPublication);
+				} finally { recovery.busy = false; }
+				return;
+			}
 			const value = writer(token);
 			if (value.busy) throw new Error('Motionscaper write capability is busy.');
-			writers.delete(token); saving.delete(value.projectId);
-			if (!value.closed) await value.file.close();
-			await rm(value.temporary, { force: true });
+			const finish = beginOperation(value);
+			try {
+				if (value.publication) {
+					let finalReceipt = acknowledge ? await value.publication.status().catch(() => null) : null;
+					const restored = await value.publication.abort(acknowledge);
+					if (restored !== undefined && !value.saveCopy) bindings.set(value.projectId, { path: value.path, fingerprint: restored });
+					if (!acknowledge && await readMotionSaveJournal(value.path)) return;
+					if (acknowledge) finalReceipt = await value.publication.status().catch(() => finalReceipt);
+					remember(token, finalReceipt);
+				} else {
+					if (!value.closed) { await value.file.close(); value.closed = true; }
+					await rm(value.temporary, { force: true }); remember(token, null);
+				}
+				writers.delete(token); saving.delete(value.projectId);
+			} finally { finish(); }
 		},
 		async dispose() {
 			if (disposed) return;
 			disposed = true;
 			await Promise.allSettled([...readers.values()].map((value) => value.file.close()));
 			await Promise.allSettled([...writers.values()].map(async (value) => {
-				if (!value.closed) await value.file.close(); await rm(value.temporary, { force: true });
+				await value.flight;
+				if (value.publication) await value.publication.abort();
+				else { if (!value.closed) await value.file.close(); await rm(value.temporary, { force: true }); }
 			}));
-			readers.clear(); writers.clear(); bindings.clear(); saving.clear();
+			readers.clear(); writers.clear(); recoveries.clear(); bindings.clear(); saving.clear();
 		},
 	};
 	return Object.freeze(authority);
@@ -178,7 +324,3 @@ async function optionalFile(path: string): Promise<Fingerprint | null> {
 	return fingerprintOf(stats);
 }
 async function requireFile(path: string): Promise<Fingerprint> { const value = await optionalFile(path); if (!value) throw new Error('Motionscaper selected archive no longer exists.'); return value; }
-async function syncDirectory(path: string): Promise<void> {
-	if (process.platform === 'win32') return;
-	const directory = await open(path, 'r'); try { await directory.sync(); } finally { await directory.close(); }
-}

@@ -174,7 +174,10 @@ export default function MotionscaperDocumentRuntime({ copy, request, onChange, o
 			const files = motionscaperDesktopFiles();
 			if (files) {
 				const { writeMotionscaperDesktopProject } = await import('../../../../motionscaper/editor-document-desktop.ts');
-				await session.exportSnapshot(async (project) => { await writeMotionscaperDesktopProject(project, store, files, true); });
+				await session.exportSnapshot(async (project) => {
+					const output = await writeMotionscaperDesktopProject(project, store, files, true);
+					if (output && typeof output === 'object' && output.kind === 'motion-native-save-recovery') return output;
+				});
 				return;
 			}
 			const { blob, fileName } = await session.saveCopy();
