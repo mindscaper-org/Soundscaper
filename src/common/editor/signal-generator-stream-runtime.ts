@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { serializeGeneratorFailure } from './generator-validation-failure.ts';
 import { createAudioEditorSignalRenderer } from './generators.js';
 import { createWaveformPeakBuilder, type WaveformPeakBuilder } from './waveform-peak-builder.ts';
 
@@ -38,9 +39,7 @@ export function createSignalGeneratorStreamRuntime() {
 			throw new RangeError('Unknown generator stream operation.');
 		} catch (error) {
 			renderer = null; peaks = null;
-			return { type: 'error' as const, requestId, error: {
-				name: error instanceof Error ? error.name : 'Error', message: error instanceof Error ? error.message : String(error),
-			} };
+			return { type: 'error' as const, requestId, error: serializeGeneratorFailure(error) };
 		}
 	};
 }
