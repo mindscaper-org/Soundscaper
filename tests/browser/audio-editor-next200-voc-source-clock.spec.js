@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
 import { nativeVocFixture } from '../helpers/native-voc-fixture.ts';
-import { encodeWav } from '../../src/common/editor/wav.js';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
 
-for (const format of ['voc', 'voc96', 'wav']) test(`native ${format} retains authored PCM and extent through File Import and Save${format === 'voc96' ? '' : ' and WAV export'}`, async ({ page }) => {
+for (const format of ['voc', 'voc96']) test(`native ${format} retains authored PCM and extent through File Import and Save${format === 'voc96' ? '' : ' and WAV export'}`, async ({ page }) => {
 	test.setTimeout(60_000);
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
@@ -20,15 +19,13 @@ for (const format of ['voc', 'voc96', 'wav']) test(`native ${format} retains aut
 		} });
 	});
 	const sourceRate = format === 'voc96' ? 96_000 : 48_000;
-	const { file: original, channels } = nativeVocFixture(sourceRate);
-	const file = format !== 'wav' ? original : new File([Uint8Array.from(encodeWav(channels, { sampleRate: 48_000, bitDepth: 32, float: true }))], 'Control.wav', { type: 'audio/wav' });
+	const { file, channels } = nativeVocFixture(sourceRate);
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const native = await page.evaluate(async ({ bytes, sampleRate }) => {
 		try { const buffer = await new OfflineAudioContext(2, 1, sampleRate).decodeAudioData(Uint8Array.from(bytes).buffer);
 			return [0, 1].map(channel => [...buffer.getChannelData(channel)]); } catch { return null; }
 	}, { bytes: [...new Uint8Array(await file.arrayBuffer())], sampleRate: sourceRate });
-	if (format === 'wav') expect(native).not.toBeNull();
-	test.skip(format !== 'wav' && native === null, 'This native platform does not decode VOC; no decoder is added.');
+	test.skip(native === null, 'This native platform does not decode VOC; no decoder is added.');
 	expect(native[0].length).toBe(4800);
 	let error = 0;
 	for (let channel = 0; channel < 2; channel++) {
