@@ -59,13 +59,13 @@ test('joins a paste into the containing clip and preserves it through history', 
 	let properties = await openClipProperties(page, editor, clip);
 	await expect.poll(async () => Number(await clipField(properties, 'durationFrame').inputValue()), {
 		timeout: 15_000,
-	}).toBeGreaterThan(0.8);
+	}).toBeGreaterThan(38400);
 	const joinedDuration = await clipField(properties, 'durationFrame').inputValue();
 	await closeClipProperties(properties);
 
 	await chooseCommandAction(page, editor, 'Edit', 'Undo');
 	properties = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${clipId}"]`));
-	await expect(clipField(properties, 'durationFrame')).toHaveValue('0.8');
+	await expect(clipField(properties, 'durationFrame')).toHaveValue('38400');
 	await closeClipProperties(properties);
 	await chooseCommandAction(page, editor, 'Edit', 'Redo');
 	properties = await openClipProperties(page, editor, editor.locator(`[data-clip-id="${clipId}"]`));

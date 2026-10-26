@@ -28,11 +28,11 @@ test('Clip properties numeric duration keeps placement and audible history on a 
 	let properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
 	const start = clipField(properties, 'startFrame');
-	await commitInput(start, '4');
-	await expect(start).toHaveValue('4');
+	await commitInput(start, '192000');
+	await expect(start).toHaveValue('192000');
 	let duration = clipField(properties, 'durationFrame');
-	await commitInput(duration, '3');
-	await expect(duration).toHaveValue('3');
+	await commitInput(duration, '144000');
+	await expect(duration).toHaveValue('144000');
 	await closeClipProperties(properties);
 	await page.locator('[data-sidebar] [data-workspace-select]').selectOption({ label: 'Soundscaper' });
 	await editor.getByRole('button', { name: 'Fit project', exact: true }).click();
@@ -42,8 +42,8 @@ test('Clip properties numeric duration keeps placement and audible history on a 
 	properties = await openClipProperties(page, editor, clip);
 	await showClipTimingFields(properties);
 	duration = clipField(properties, 'durationFrame');
-	await expect(duration).toHaveValue('5');
-	await commitInput(duration, '2');
+	await expect(duration).toHaveValue('240000');
+	await commitInput(duration, '96000');
 	await closeClipProperties(properties);
 	const localBar = await exportedAudio();
 	expect(localBar.peak).toBeGreaterThan(.2); expect(localBar.frames).toBe(288000);

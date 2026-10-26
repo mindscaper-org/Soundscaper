@@ -11,8 +11,8 @@ async function selectMovedSource(page) {
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await showClipTimingFields(properties);
 	const start = clipField(properties, 'startFrame');
-	await commitInput(start, '5');
-	await expect(start).toHaveValue('5');
+	await commitInput(start, '240000');
+	await expect(start).toHaveValue('240000');
 	const sourceMonitor = await openSourceMonitor(page, editor);
 	const waveform = sourceMonitor.getByRole('region', { name: 'Source waveform', exact: true });
 	await waveform.focus();

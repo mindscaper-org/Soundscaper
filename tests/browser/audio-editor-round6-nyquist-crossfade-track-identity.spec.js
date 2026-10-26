@@ -22,8 +22,8 @@ test('Nyquist Crossfade Tracks keeps one fade direction across split clips on on
 	const properties = await openClipProperties(page, editor, clipByName(editor, recordings[1].name));
 	await showClipTimingFields(properties);
 	const start = clipField(properties, 'startFrame');
-	await commitInput(start, '1.2');
-	await expect(start).toHaveValue('1.2');
+	await commitInput(start, '57600');
+	await expect(start).toHaveValue('57600');
 	await closeClipProperties(properties);
 	await first.nth(0).locator('.clip-header').click();
 	await first.nth(1).locator('.clip-header').click({ modifiers: ['Shift'] });

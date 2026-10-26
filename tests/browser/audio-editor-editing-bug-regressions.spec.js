@@ -45,7 +45,7 @@ test.describe('ordinary editing regression workflows', () => {
 		for (const [index, frame] of [[1, '24000'], [2, '96000']]) {
 			const properties = await openClipProperties(page, editor, clipAt(index));
 			await showClipTimingFields(properties);
-			await clipField(properties, 'startFrame').fill(String(Number(frame) / 48_000));
+			await clipField(properties, 'startFrame').fill(String(Number(frame)));
 			await clipField(properties, 'startFrame').press('Tab');
 			await closeClipProperties(properties);
 		}
@@ -55,7 +55,7 @@ test.describe('ordinary editing regression workflows', () => {
 		await expect(clips).toHaveCount(1);
 		const properties = await openClipProperties(page, editor, clips);
 		await showClipTimingFields(properties);
-		await expect(clipField(properties, 'startFrame')).toHaveValue('0.7');
+		await expect(clipField(properties, 'startFrame')).toHaveValue('33600');
 	});
 
 	test('copy and paste retain loop repetitions', async ({ page }) => {
@@ -133,7 +133,7 @@ test.describe('ordinary editing regression workflows', () => {
 		for (const clip of [copies.nth(1), clipByName(editor, toneB.name)]) {
 			const properties = await openClipProperties(page, editor, clip);
 			await showClipTimingFields(properties);
-			await clipField(properties, 'startFrame').fill('2');
+			await clipField(properties, 'startFrame').fill('96000');
 			await clipField(properties, 'startFrame').press('Tab');
 			await closeClipProperties(properties);
 		}
