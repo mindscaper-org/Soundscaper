@@ -101,6 +101,29 @@ test('GPU summaries preserve waveform geometry and reuse uploads while selection
 	expect(result.released).toBe(true);
 });
 
+test('Canvas fallback does not accumulate fractional stereo divider coverage', async ({ page }) => {
+	await installGpuHarness(page);
+	const result = await page.evaluate(() => {
+		Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 1.25 });
+		const canvas = document.createElement('canvas');
+		const channel = { minimum: new Float32Array(163), maximum: new Float32Array(163), rms: null };
+		const clip = { start: 0, duration: 163.5, audacityWaveform: { mode: 'summary', pixelWidth: 163.5,
+			channels: [channel, channel] } };
+		const options = { bounds: { width: 163.5, height: 80 }, displayMode: 'waveform', pixelsPerSecond: 1,
+			cacheSelectionLayers: false, channelHeightRatio: 0.7,
+			style: { getPropertyValue: key => key.endsWith('divider') ? '#101010' : '' } };
+		const alphas = [];
+		for (let redraw = 0; redraw < 3; redraw++) {
+			globalThis.gpuWaveform.drawAudacityClipCanvas(canvas, clip, options);
+			alphas.push(canvas.getContext('2d').getImageData(2, 70, 1, 1).data[3]);
+		}
+		return { alphas, width: canvas.width, height: canvas.height };
+	});
+	expect(result).toMatchObject({ width: 205, height: 100 });
+	expect(result.alphas[0]).toBeGreaterThan(0);
+	expect(Math.max(...result.alphas) - Math.min(...result.alphas)).toBeLessThanOrEqual(1);
+});
+
 test('GPU selection backgrounds cover narrow physical spans consistently', async ({ page }) => {
 	await installGpuHarness(page);
 	const failures = await page.evaluate(() => {

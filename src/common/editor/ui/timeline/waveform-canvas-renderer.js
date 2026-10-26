@@ -209,8 +209,10 @@ export function cssColor(style, property, fallback) {
 }
 
 export function drawHorizontalCanvasLine(context, y, width) {
-	context.beginPath();
-	context.moveTo(0, y);
-	context.lineTo(width, y);
-	context.stroke();
+	// Windows Canvas2D accumulates fractional stroke coverage across repaints.
+	// An equivalent filled one-pixel span remains stable within native rounding.
+	const fillStyle = context.fillStyle;
+	context.fillStyle = context.strokeStyle;
+	context.fillRect(0, y - 0.5, width, 1);
+	context.fillStyle = fillStyle;
 }
