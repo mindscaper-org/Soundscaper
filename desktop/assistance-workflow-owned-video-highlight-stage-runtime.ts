@@ -139,7 +139,7 @@ interface ResolvedInput {
 	readonly dispose?: () => Promise<void>;
 }
 
-import { encodeAssistanceReframePathWireV1 } from '../src/common/editor/assistance/reframe-path-wire-v1.ts';
+import { encodeAssistanceReframePathWireV1 } from '../src/common/editor/assistance/reframe-path-wire.ts';
 import { ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES } from '../src/common/editor/assistance/guided-terminal-output-capacity.ts';
 const JSON_MEDIA = 'application/json';
 const MATRIX_MEDIA = 'application/vnd.soundscaper.embedding-matrix-v1';

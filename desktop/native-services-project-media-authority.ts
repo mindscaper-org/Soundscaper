@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 /** Main-private baseline project, source-body, backend, and publication authority. */
 import { createHash } from 'node:crypto';
-import { authenticateFramescaperNativeV14TimingEnvelope } from './native-services-v14-plan-timing-authority.ts';
+import { authenticateFramescaperNativeV14TimingEnvelope } from './native-services-plan-timing-authority.ts';
 import { createNativeMediaPublicationPlan } from '../src/common/editor/native-media-atomic-publication.ts';
 import { NATIVE_MEDIA_CPU_BACKEND, type NativeMediaPlatform } from '../src/common/editor/native-media-backend-policy.ts';
 import { prepareNativeMediaPlanEnvelopeWithDeferredTimingReferencesV2 } from '../src/common/editor/native-media-plan-envelope-v2.ts';

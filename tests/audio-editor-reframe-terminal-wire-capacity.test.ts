@@ -12,7 +12,7 @@ test('Reframe reserves the existing terminal review budget while intermediate JS
 	assert.equal(localAssistanceGuidedOutputMaximumByteLength('reframe', 'track-subjects', 'tracked-subjects', authority), 64 * 1024 ** 2);
 });
 
-import { packAssistanceReframePathV1, encodeAssistanceReframePathWireV1, decodeAssistanceReframePathWireV1 } from '../src/common/editor/assistance/reframe-path-wire-v1.ts';
+import { packAssistanceReframePathV1, encodeAssistanceReframePathWireV1, decodeAssistanceReframePathWireV1 } from '../src/common/editor/assistance/reframe-path-wire.ts';
 import { planOwnedCropsV1 } from '../src/common/editor/assistance/owned-video-workflow-transforms-v1.ts';
 import { defaultAssistanceWorkflowSettingsV1 } from '../src/common/editor/assistance/workflow-settings-v1.ts';
 import { createAssistanceWorkflowOwnedVideoHighlightStageRuntime } from '../desktop/assistance-workflow-owned-video-highlight-stage-runtime.ts';

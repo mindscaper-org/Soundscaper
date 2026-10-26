@@ -36,7 +36,7 @@ import {
 } from './local-assistance-result-review.ts';
 
 import { ASSISTANCE_GUIDED_TERMINAL_JSON_MAXIMUM_BYTES as MAXIMUM_JSON_BYTES } from './guided-terminal-output-capacity.ts';
-import { decodeAssistanceReframePathWireV1 } from './reframe-path-wire-v1.ts';
+import { decodeAssistanceReframePathWireV1 } from './reframe-path-wire.ts';
 
 type CompletedWorkflowResult = Readonly<{
 	contractVersion: 1;
