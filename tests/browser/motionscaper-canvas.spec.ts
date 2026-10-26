@@ -5,7 +5,13 @@ async function menu(page: Page, top: string, command: string): Promise<void> { a
 async function canvasPoint(overlay: Locator, x: number, y: number): Promise<{ x: number; y: number }> {
 	return overlay.evaluate((element: SVGSVGElement, point) => { const result = new DOMPoint(point.x, point.y).matrixTransform(element.getScreenCTM()!); return { x: result.x, y: result.y }; }, { x, y });
 }
+async function ready(page: Page): Promise<void> {
+	const dialog = page.getByRole('dialog', { name: 'Composition Canvas', exact: true });
+	await expect(dialog.getByLabel('Canvas layer', { exact: true })).toBeEnabled();
+	await expect(dialog.getByRole('status')).toHaveText('Preview ready · 0');
+}
 async function gesture(page: Page, overlay: Locator, from: readonly [number, number], to: readonly [number, number], cancel = false): Promise<void> {
+	await ready(page);
 	const a = await canvasPoint(overlay, ...from), b = await canvasPoint(overlay, ...to);
 	await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(b.x, b.y, { steps: 5 });
 	if (cancel) await page.keyboard.press('Escape'); await page.mouse.up();
@@ -42,6 +48,7 @@ test('Composition Canvas selects, moves, scales and rotates actual pixels with o
 	await gesture(page, overlay, rotatePoint, [70, 165]);
 	await expect.poll(() => canvas.evaluate((element: HTMLCanvasElement) => Array.from(element.getContext('2d')!.getImageData(20, 180, 1, 1).data))).toEqual([74, 128, 255, 255]);
 	await exactAnchor(selected, movedX, movedY);
+	await ready(page);
 	await dialog.getByRole('button', { name: 'Move selected layer', exact: true }).focus(); await page.keyboard.press('ArrowRight'); await exactAnchor(selected, movedX + 1, movedY);
 	await expect(dialog.getByRole('button', { name: 'Close', exact: true }).last()).toBeEnabled(); await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
 	await expect(page.getByRole('menuitem', { name: 'View', exact: true })).toBeFocused(); await menu(page, 'File', 'Save'); await expect(page.locator('[data-motion-save-status]')).toHaveText('Saved on this device');
