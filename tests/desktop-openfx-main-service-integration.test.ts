@@ -30,6 +30,7 @@ import type {
 	HelperOfxScanJobGrant,
 } from '../desktop/helper-contract.ts';
 import { isHelperOfxInteractJobGrantV1 } from '../desktop/helper-native-ofx-interact-grant.ts';
+import { admitHelperDataPlaneTransfers } from '../desktop/helper-data-plane-transfer.ts';
 import type { UnifiedExactRenderPlanV12 } from '../src/common/editor/unified-exact-render-plan.ts';
 import {
 	framescaperOpenFxInteractEffectStateSha256V1,
@@ -468,7 +469,7 @@ async function createFixture(context: TestContext, options: FixtureOptions = {})
 			const failure = runtimeState.failures.shift();
 			if (failure) throw failure;
 			if (isHelperOfxInteractJobGrantV1(request.grant)) {
-				assert.deepEqual(request.dataPlaneTransfers, []);
+				assert.deepEqual(admitHelperDataPlaneTransfers('ofx-host', request.grant, request.dataPlaneTransfers), []);
 				return { interact: { protocolVersion: 1,
 					project: request.grant.interact.project,
 					instanceId: request.grant.interact.effect.instanceId,

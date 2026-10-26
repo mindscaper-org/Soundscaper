@@ -89,6 +89,7 @@ function recordingAddon({ failAtBlock = null } = {}) {
 				events.push('close');
 			},
 			pluginLatencyFrames: () => 64,
+			pluginAudioTopology: () => ({ inputChannels: 2, outputChannels: 2 }),
 			processPluginBlock: () => {
 				if (failAtBlock !== null && processed >= failAtBlock) throw new Error('the plug-in aborted');
 				processed += 1;
