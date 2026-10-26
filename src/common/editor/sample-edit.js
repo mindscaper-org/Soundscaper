@@ -6,6 +6,7 @@ import { createLoopPencilSampleEdits } from './sample-pencil-loop-projection.ts'
 import { loopSampleSmoothingSegments, sampleSmoothingSegments } from './sample-smoothing-loop-ranges.ts';
 import { createWarpPencilSampleEdits, warpedSampleSourceFrame } from './sample-pencil-warp-projection.ts';
 import { loadSourceProvenanceDerivation } from './source-provenance-derivation-loader.ts';
+import { readSampleEditChunks } from './sample-edit-chunk-reader.ts';
 import {
 	createImmutablePcmChunks,
 	editImmutablePcmSamples,
@@ -163,10 +164,9 @@ export async function persistImmutableSampleEdit({
 	if (typeof store.writeDerivedSource === 'function') {
 		const replacementChunks = [];
 		const pendingChunkIndices = new Set(editsByChunk.keys());
-		let frameOffset = 0;
-		let chunkCount = 0;
-		for await (const storedChunk of store.readSourceChunks(source.id)) {
+		for await (const { index: chunkCount, chunk: storedChunk } of readSampleEditChunks(store, source, [...pendingChunkIndices], signal)) {
 			throwIfAborted(signal);
+			const frameOffset = chunkCount * source.chunkFrames;
 			const channels = validateStoredChunk(storedChunk, source, chunkCount, frameOffset);
 			const localEdits = editsByChunk.get(chunkCount);
 			if (localEdits?.length) {
@@ -176,8 +176,6 @@ export async function persistImmutableSampleEdit({
 				});
 				pendingChunkIndices.delete(chunkCount);
 			}
-			frameOffset += channels[0].length;
-			chunkCount += 1;
 			if (!pendingChunkIndices.size) break;
 		}
 		if (pendingChunkIndices.size) throw new Error('The stored source ended before an edited chunk could be read.');
@@ -309,11 +307,12 @@ async function createSmoothingSegmentEdits(store, source, options, requestedRadi
 
 async function readStoredSourceRange(store, source, startFrame, endFrame, signal) {
 	const output = Array.from({ length: source.channelCount }, () => new Float32Array(endFrame - startFrame));
-	let sourceOffset = 0;
 	let outputFrames = 0;
-	let chunkIndex = 0;
-	for await (const storedChunk of store.readSourceChunks(source.id)) {
+	const firstChunk = Math.floor(startFrame / source.chunkFrames);
+	const indices = Array.from({ length: Math.ceil(endFrame / source.chunkFrames) - firstChunk }, (_, index) => firstChunk + index);
+	for await (const { index: chunkIndex, chunk: storedChunk } of readSampleEditChunks(store, source, indices, signal)) {
 		throwIfAborted(signal);
+		const sourceOffset = chunkIndex * source.chunkFrames;
 		const channels = validateStoredChunk(storedChunk, source, chunkIndex, sourceOffset);
 		const chunkEnd = sourceOffset + channels[0].length;
 		const copyStart = Math.max(startFrame, sourceOffset);
@@ -327,9 +326,7 @@ async function readStoredSourceRange(store, source, startFrame, endFrame, signal
 			}
 			outputFrames += copyEnd - copyStart;
 		}
-		sourceOffset = chunkEnd;
-		chunkIndex += 1;
-		if (sourceOffset >= endFrame) break;
+		if (chunkEnd >= endFrame) break;
 	}
 	if (outputFrames !== endFrame - startFrame) throw new Error('The stored source does not cover the requested sample range.');
 	return output;

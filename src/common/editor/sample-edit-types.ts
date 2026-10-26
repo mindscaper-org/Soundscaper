@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AudioSourceLeaf } from './project-media-types.ts';
-import type { SourcePcmChunk } from './storage/source-read-repository.ts';
+import type { SourcePcmChunk, SourcePcmReadSession, SourceReadOptions } from './storage/source-read-repository.ts';
+import type { StorageRecord } from './storage/media-records.ts';
 import type { AudioWarpRuntimeClip, AudioWarpRuntimeProject } from './audio-warp-runtime.ts';
 
 export interface SampleEditClip extends AudioWarpRuntimeClip {
@@ -69,6 +70,8 @@ export interface SampleEditSourceWriter {
 
 export interface SampleEditStore {
 	readSourceChunks(sourceId: string): AsyncIterable<SampleEditStoredChunk>;
+	getSourceMetadata?(sourceId: string): PromiseLike<StorageRecord | null> | StorageRecord | null;
+	openSourceReadSession?(sourceId: string, options?: SourceReadOptions): PromiseLike<SourcePcmReadSession | null> | SourcePcmReadSession | null;
 	beginSourceWrite(
 		sourceId: string,
 		metadata: Readonly<Record<string, unknown>>,
